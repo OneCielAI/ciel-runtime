@@ -1,0 +1,13 @@
+Leap Indicator: 0(no warning)
+Stratum: 5 (secondary reference - syncd by (S)NTP)
+Precision: -23 (119.209ns per tick)
+Root Delay: 0.0227610s
+Root Dispersion: 4.1637875s
+ReferenceId: 0xA83DD74A (source IP:  168.61.215.74)
+Last Successful Sync Time: 10/26/2026 5:40:45 PM
+Source: time.windows.com,0x9 
+Collecting 3 samples.
+The current time is 10/26/2026 8:16:11 PM.
+20:16:11, +00.0782024s
+20:16:13, +00.0718478s
+20:16:15, +00.0754023s

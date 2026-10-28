@@ -1,0 +1,18 @@
+# 2026-10-26T20:03:07Z SendMessage and SSE EOF: disposition (read-only)
+## SendMessage
+Filtered tool sets logged by the routers (all router.log* files, count, provider: tools):
+-- 9524-bd5f642b3583
+   1520 cielairouter: EnterWorktree, ExitWorktree, PushNotification, ScheduleWakeup, SendMessage
+   1153 cielairouter: EnterWorktree, ExitWorktree, SendMessage
+-- 9505-aae7db361c7f
+    395 cielairouter: EnterWorktree, ExitWorktree, PushNotification, ScheduleWakeup, SendMessage
+     35 cielairouter: EnterWorktree, ExitWorktree, PushNotification, ScheduleWakeup, SendMessage, WaitForMcpServers
+      1 cielairouter: SendMessage
+      1 cielairouter: EnterWorktree, ExitWorktree, SendMessage
+Cause: the default list DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC (runtime_constants.py:144-148, unchanged since 7e8e64d 2026-06-25) contains SendMessage and SendMessageTool; every adapter except anthropic blocks the default list (evidence 11).
+Override that exists today: providers.<name>.blocked_tools in config.json, false (block nothing) or an explicit list (provider_tool_policy.py:31-52, docs/Tool-Guard.md). It is not reachable from the menu: no menu module references blocked_tools.
+Not determined: why SendMessage was put on the non-Anthropic list, and whether it works through a non-Anthropic provider. Not changed; the default is a product decision for the user.
+## SSE EOF
+Current 9505 router.log + router.log.1: 172 EOFError disconnects for receiver default
+Events kept arriving between disconnects (event_ack_received lines in the same two files: 11).
+Cause per evidence 10: the server at 100.64.0.9:8787 ends each stream after about 60 s; the client treats a clean end as EOFError, logs WARN and reconnects after 1 s with its cursor. No input loss tied to it. The server is not part of ciel-runtime; not changed.

@@ -1,0 +1,24 @@
+import os, json, time, re, hashlib, sys, glob
+def T(x): return time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(x))
+print("REMOTE_START", T(time.time()))
+user = r"C:\Users\aapw-a21u21"
+appdata = os.path.join(user, r"AppData\Roaming\ciel-runtime")
+hits = glob.glob(os.path.join(appdata, "work-sessions", "*", "work-plan.json*")) + glob.glob(os.path.join(appdata, "workspaces", "*", "work-sessions", "*", "work-plan.json*")) + glob.glob(os.path.join(appdata, "work-plan.json*")) + glob.glob(os.path.join(appdata, "workspaces", "*", "work-plan.json*"))
+print("WORKPLAN_FILES", len(hits))
+for h in hits[:60]: print("  ", h.replace(user, "USER"), "mtime", T(os.path.getmtime(h)), "bytes", os.path.getsize(h))
+wsroot = os.path.join(appdata, "workspaces")
+try:
+    for n in sorted(os.listdir(wsroot)):
+        p = os.path.join(wsroot, n)
+        names = sorted(os.listdir(p)) if os.path.isdir(p) else []
+        print("WS", n, "mtime", T(os.path.getmtime(p)), "n_entries", len(names), "entries", [x for x in names if not x.endswith(".tmp")][:60])
+        c = os.path.join(p, "config.json")
+        if os.path.exists(c):
+            try:
+                cfg = json.load(open(c, encoding="utf-8"))
+                print("  WS_CONFIG_WORK", {k: cfg.get(k, "ABSENT") for k in ("work_mode", "work_plan_approval_ask", "work_auto_continue")})
+            except Exception as e: print("  WS_CONFIG_ERR", type(e).__name__)
+except Exception as e: print("WSROOT_ERR", type(e).__name__, e)
+try: print("APPDATA_TOP", sorted(os.listdir(appdata))[:80])
+except Exception as e: print("APPDATA_ERR", type(e).__name__)
+print("REMOTE_END", T(time.time()))

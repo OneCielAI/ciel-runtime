@@ -1,0 +1,154 @@
+{
+  "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-work-menu-r0a2e0h0",
+  "port": 53256,
+  "workspace": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-work-menu-r0a2e0h0\\workspace",
+  "scope": "Actual production portable_prelaunch_menu (worktree source) with Win32 key input in a harness-owned console; catalogue-only owned loopback fixture on an OS-assigned free port; temporary HOME/APPDATA/config. No Claude/Codex launch, no live router contact.",
+  "cleared_environment_prefixes": [
+    "CIEL_RUNTIME_",
+    "CLAUDE",
+    "ANTHROPIC_",
+    "CODEX_",
+    "OPENAI_",
+    "OLLAMA_",
+    "GEMINI_",
+    "GOOGLE_",
+    "AZURE_",
+    "AWS_",
+    "DEEPSEEK_",
+    "MISTRAL_",
+    "NVIDIA_",
+    "ZAI_",
+    "KIMI_",
+    "GROQ_",
+    "OPENCODE_",
+    "OPENROUTER_",
+    "XAI_",
+    "GITHUB_",
+    "COPILOT_"
+  ],
+  "stripped_variable_names_count": 59,
+  "pixel_capture_attempts": [
+    {
+      "capture": "01-main",
+      "hwnd": 1518020,
+      "exit_code": 0,
+      "message": "saved C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\menu\\01-main.png printwindow=True",
+      "png_bytes": 55186
+    },
+    {
+      "capture": "02-default-work-on-approval-auto",
+      "hwnd": 1518020,
+      "exit_code": 0,
+      "message": "saved C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\menu\\02-default-work-on-approval-auto.png printwindow=True",
+      "png_bytes": 77724
+    },
+    {
+      "capture": "03-work-off",
+      "hwnd": 1518020,
+      "exit_code": 0,
+      "message": "saved C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\menu\\03-work-off.png printwindow=True",
+      "png_bytes": 78568
+    },
+    {
+      "capture": "04-work-on",
+      "hwnd": 1518020,
+      "exit_code": 0,
+      "message": "saved C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\menu\\04-work-on.png printwindow=True",
+      "png_bytes": 79034
+    },
+    {
+      "capture": "05-approval-ask",
+      "hwnd": 1518020,
+      "exit_code": 0,
+      "message": "saved C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\menu\\05-approval-ask.png printwindow=True",
+      "png_bytes": 79138
+    },
+    {
+      "capture": "06-approval-auto",
+      "hwnd": 1518020,
+      "exit_code": 0,
+      "message": "saved C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\menu\\06-approval-auto.png printwindow=True",
+      "png_bytes": 79576
+    }
+  ],
+  "steps": [
+    {
+      "step": "default-work",
+      "row": "> Work mode                [on (default)]",
+      "saved_work_mode": "<absent>",
+      "saved_work_plan_approval_ask": "<absent>"
+    },
+    {
+      "step": "default-approval",
+      "row": "Work plan approval       [auto (default)]",
+      "saved_work_mode": "<absent>",
+      "saved_work_plan_approval_ask": "<absent>"
+    },
+    {
+      "step": "enter-work-off",
+      "row": "> Work mode                [off]",
+      "saved_work_mode": false,
+      "saved_work_plan_approval_ask": false
+    },
+    {
+      "step": "enter-work-on",
+      "row": "> Work mode                [on (default)]",
+      "saved_work_mode": true,
+      "saved_work_plan_approval_ask": false
+    },
+    {
+      "step": "enter-approval-ask",
+      "row": "> Work plan approval       [ask user]",
+      "saved_work_mode": true,
+      "saved_work_plan_approval_ask": true
+    },
+    {
+      "step": "enter-approval-auto",
+      "row": "> Work plan approval       [auto (default)]",
+      "saved_work_mode": true,
+      "saved_work_plan_approval_ask": false
+    }
+  ],
+  "source_sha256": {
+    "ciel_runtime_support/provider_option_panel.py": "3677b0f369251f37e399d35811c941853cd137d25af5b4d60578381683d4582c",
+    "ciel_runtime_support/llm_option_config.py": "69dd4f6250dafd40351ff49ce1e75cf948bca2843ad00b0f77874ffa8a807de0",
+    "ciel_runtime_support/work_mode_launch.py": "fa9ed2e4d3067f036464e4ec840f5d310c630c990e19d5448c1076fda96545a1",
+    "ciel_runtime.py": "f86ee3638ee760f348510429973679b129ea48f3106cc786da090471b68cef71"
+  },
+  "console_host": "conhost.exe (classic window, owned)",
+  "owned_pids": {
+    "console_host": 67112,
+    "menu": 70272
+  },
+  "menu_exit_txt": "10",
+  "final_saved_config": {
+    "current_provider": "cielairouter",
+    "work_mode": true,
+    "work_plan_approval_ask": false
+  },
+  "status": "passed",
+  "host_force_terminated": true,
+  "owned_menu_exited": true,
+  "owned_host_exited": true,
+  "fixture_requests": [
+    "GET /health",
+    "GET /v1/models?prefix=alias&configuredOnly=true&availableOnly=true"
+  ],
+  "postrun_verification": {
+    "owned_processes": {
+      "console_host": {
+        "pid": 67112,
+        "open_error": 87,
+        "running": false
+      },
+      "menu": {
+        "pid": 70272,
+        "open_error": 87,
+        "running": false
+      }
+    },
+    "fixture_port_exclusive_rebind_succeeded": true,
+    "source_hashes_unchanged": true,
+    "temporary_home_removed": true
+  }
+}

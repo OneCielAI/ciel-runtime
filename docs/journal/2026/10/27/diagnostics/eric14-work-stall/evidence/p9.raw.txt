@@ -1,0 +1,17 @@
+home C:\Data\Source\SGSWMSCrossing\u4\home ['edward-ai', 'emily-ai', 'evidence']
+home C:\ProgramData\aap-win\sandboxes\u19\home ['artifacts', 'robert-ai']
+home C:\ProgramData\aap-win\sandboxes\u21\home ['ara-ai']
+home C:\ProgramData\aap-win\sandboxes\u22\home ['edward-ai']
+home C:\ProgramData\aap-win\sandboxes\u23\home ['eric-ai']
+home C:\ProgramData\aap-win\sandboxes\u24\home ['kobe-ai']
+aap file aap-win.db 278528 2026-10-12T10:33:53
+aap file aap-win.db-shm 32768 2026-10-16T21:28:14
+aap file aap-win.db-wal 927032 2026-10-26T19:06:12
+aap dir backup-20260929-012432
+aap file bootstrap-admin.txt 62 2026-09-27T13:59:42
+aap dir job-files
+aap dir sandboxes
+hostname DESKTOP-GBJII5F
+
+
+exit 0

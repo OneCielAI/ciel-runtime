@@ -1,0 +1,30 @@
+
+ ▐▛███▛█   Claude Code v2.1.310
+▝▜██████▀  ciel-runtime-vllm-stub-model · API Usage Billing
+ ▝▝   ▝▝   C:\Windows\Temp\ciel-owned-walkie-2cj62578\ws
+
+▎ Debug mode enabled · logging to C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\diagnostics\walkie-durable
+▎ -replied\evidence\e2e\run-installed-eec7d69-005347\native-debug.log
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing
+  approved Work. Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options →
+  Work mode
+
+❯ WALKIE-BASELINE-TURN owned baseline
+
+● STUB-REPLY-3
+
+✻ Cogitated for 1s · done 12:54 AM
+
+
+
+
+
+
+
+Work mode: no plan yet — the model plans before editing · /work-mode help                                           [-]
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)                                                         work: plan 0/0

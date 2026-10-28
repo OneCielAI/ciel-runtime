@@ -1,0 +1,8 @@
+01-normal-stop-three-levels
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-continuation\evidence\run-29886202\01-normal-stop-three-levels.png handle=111739002 printwindow=True
+02-urgent-holds
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-continuation\evidence\run-29886202\02-urgent-holds.png handle=111739002 printwindow=True
+03-done-check-and-wait
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-continuation\evidence\run-29886202\03-done-check-and-wait.png handle=111739002 printwindow=True
+04-all-done
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-continuation\evidence\run-29886202\04-all-done.png handle=111739002 printwindow=True

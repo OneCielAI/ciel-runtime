@@ -1,0 +1,30 @@
+
+ ▐▛███▛█   Claude Code v2.1.310
+▝▜██████▀  ciel-runtime-cielairouter-owned-route-alias · API Usage Billing
+ ▝▝   ▝▝   C:\Windows\Temp\ciel-owned-alias-88xguxoe\ws
+
+▎ Debug mode enabled · logging to C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\diagnostics\compact-retry\
+▎ evidence\repro\run-shared-source-232256\native-debug.log
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing
+  approved Work. Items show above the prompt Â· /work-mode help Â· turn off: ciel-runtime menu â†’ LLM options
+  â†’ Work mode
+
+❯ ALIAS-SAFEGUARD-BASELINE owned baseline turn
+
+● ALIAS-HIGH-USAGE-REPLY
+
+✻ Brewed for 0s · done 11:23 PM
+
+
+
+
+
+
+
+Work mode: no plan yet â€” the model plans before editing Â· /work-mode help                                        [-]
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)                                                         work: plan 0/0

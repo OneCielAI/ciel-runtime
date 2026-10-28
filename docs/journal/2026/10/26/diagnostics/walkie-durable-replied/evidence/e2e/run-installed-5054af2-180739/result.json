@@ -1,0 +1,468 @@
+{
+  "label": "installed-5054af2",
+  "runtime_root": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-5054af2e3f706ca9f66ce68535f3e71a8287100a",
+  "scratch": "C:\\Windows\\Temp\\ciel-owned-walkie-x934i43e",
+  "stripped_env_names": [
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+    "ANTHROPIC_MODEL",
+    "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+    "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+    "CIEL_RUNTIME_CONFIG_DIR",
+    "CIEL_RUNTIME_HOME",
+    "CIEL_RUNTIME_LAUNCH_CWD",
+    "CIEL_RUNTIME_MODEL_ALIAS",
+    "CIEL_RUNTIME_PROVIDER",
+    "CIEL_RUNTIME_REGISTERED_HOME",
+    "CIEL_RUNTIME_SCRIPT",
+    "CIEL_RUNTIME_SELECTED_HOME",
+    "CIEL_RUNTIME_STATE_DIR",
+    "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+    "CLAUDECODE",
+    "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+    "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+    "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_EXECPATH",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+    "CLAUDE_CODE_MAX_RETRIES",
+    "CLAUDE_CODE_MESSAGING_SOCKET",
+    "CLAUDE_CODE_MESSAGING_TOKEN",
+    "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+    "CLAUDE_CODE_RETRY_WATCHDOG",
+    "CLAUDE_CODE_SEND_FEEDBACK",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
+    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
+    "CLAUDE_EFFORT",
+    "CLAUDE_PID",
+    "CODEX_SPARKLE_ENABLED",
+    "OLLAMA_CONTEXT_LENGTH",
+    "OLLAMA_FLASH_ATTENTION",
+    "OLLAMA_HOST",
+    "OLLAMA_KV_CACHE_TYPE",
+    "OLLAMA_MODELS",
+    "OLLAMA_NUM_PARALLEL",
+    "OLLAMA_SCHED_SPREAD"
+  ],
+  "claude_version": "2.1.310 (Claude Code)",
+  "command": [
+    "C:\\Program Files\\Python311\\python.exe",
+    "-I",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\walkie-durable-replied\\evidence\\e2e\\launch_shim.py",
+    "--",
+    "cli",
+    "--ca-runtime",
+    "claude",
+    "--ca-no-update-check",
+    "--ca-no-self-update-check",
+    "--ca-no-web-search",
+    "--",
+    "--permission-mode",
+    "default",
+    "--tools",
+    "",
+    "--debug-file",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\walkie-durable-replied\\evidence\\e2e\\run-installed-5054af2-180739\\native-debug.log"
+  ],
+  "ports": {
+    "router": 61110,
+    "fixture": 61111
+  },
+  "seed_sha256": {
+    "runtime-inputs.jsonl": "e6f9d733f3d26cf883274cb6708599d76223aa87c6c6e330becbcaaf8e126423",
+    "runtime-input-status.jsonl": "200f54753ddacefc703779aed4ecdaa142e64c4c1454c1151bc8475dd34b0a63",
+    "channel-llm-cursor.json": "275c3ad71f932bed9c3a5d2b84b52a8b053ead039abf56da40eafbe94cfc57ef"
+  },
+  "events": [
+    {
+      "at": 1793056059.905,
+      "kind": "launched",
+      "pid": 80420,
+      "watcher": 65828
+    },
+    {
+      "at": 1793056070.046,
+      "kind": "wait_pass",
+      "label": "owned router health"
+    },
+    {
+      "at": 1793056070.461,
+      "kind": "wait_pass",
+      "label": "native launch"
+    },
+    {
+      "at": 1793056070.493,
+      "kind": "wait_pass",
+      "label": "native process present"
+    },
+    {
+      "at": 1793056082.895,
+      "kind": "wait_pass",
+      "label": "watcher typed baseline"
+    },
+    {
+      "at": 1793056083.296,
+      "kind": "wait_pass",
+      "label": "baseline reached loopback"
+    },
+    {
+      "at": 1793056083.708,
+      "kind": "wait_pass",
+      "label": "baseline rendered"
+    },
+    {
+      "at": 1793056087.313,
+      "kind": "wait_pass",
+      "label": "screenshot 01-baseline"
+    },
+    {
+      "at": 1793056087.324,
+      "kind": "notify",
+      "marker": "WALKIE-NOTE-ONE",
+      "request_id": 5,
+      "error": null
+    },
+    {
+      "at": 1793056088.15,
+      "kind": "wait_pass",
+      "label": "injector decision for 5"
+    },
+    {
+      "at": 1793056088.151,
+      "kind": "decision",
+      "marker": "WALKIE-NOTE-ONE",
+      "request_id": 5,
+      "outcome": "injected"
+    },
+    {
+      "at": 1793056088.152,
+      "kind": "wait_pass",
+      "label": "WALKIE-NOTE-ONE reached loopback"
+    },
+    {
+      "at": 1793056088.553,
+      "kind": "wait_pass",
+      "label": "5 replied"
+    },
+    {
+      "at": 1793056094.177,
+      "kind": "wait_pass",
+      "label": "screenshot 02-after-notifications"
+    }
+  ],
+  "live_before": {
+    "9505": {
+      "pid": 77432,
+      "version": "0.2.51-nightly.20261026-183726.81f6a4b",
+      "source_fingerprint": "72c6bfb456e30cd7",
+      "error": null
+    },
+    "9524": {
+      "pid": 25276,
+      "version": "0.2.51",
+      "source_fingerprint": "f86ee3638ee760f3",
+      "error": null
+    }
+  },
+  "notifications": [
+    {
+      "marker": "WALKIE-NOTE-ONE",
+      "request_id": 5,
+      "outcome": "injected",
+      "line": "2026-10-26T18:08:07 [INFO] channel_stdin_proxy_injected count=1 message_ids=5 channels=owned-e2e enter=crlf transport=session_socket commit_cursor=False display_body=False"
+    }
+  ],
+  "status_rows_by_id": {
+    "1": [
+      {
+        "status": "queued",
+        "reason": null,
+        "updated_at": "2026-10-26T14:08:39"
+      },
+      {
+        "status": "submitted",
+        "reason": null,
+        "updated_at": "2026-10-26T14:08:40"
+      },
+      {
+        "status": "replied",
+        "reason": null,
+        "updated_at": "2026-10-26T14:08:49"
+      }
+    ],
+    "2": [
+      {
+        "status": "queued",
+        "reason": null,
+        "updated_at": "2026-10-26T14:09:39"
+      },
+      {
+        "status": "submitted",
+        "reason": null,
+        "updated_at": "2026-10-26T14:09:40"
+      },
+      {
+        "status": "replied",
+        "reason": null,
+        "updated_at": "2026-10-26T14:09:49"
+      }
+    ],
+    "3": [
+      {
+        "status": "queued",
+        "reason": null,
+        "updated_at": "2026-10-26T14:10:39"
+      },
+      {
+        "status": "submitted",
+        "reason": null,
+        "updated_at": "2026-10-26T14:10:40"
+      },
+      {
+        "status": "replied",
+        "reason": null,
+        "updated_at": "2026-10-26T14:10:49"
+      }
+    ],
+    "4": [
+      {
+        "status": "queued",
+        "reason": null,
+        "updated_at": "2026-10-26T14:11:39"
+      },
+      {
+        "status": "submitted",
+        "reason": null,
+        "updated_at": "2026-10-26T14:11:40"
+      },
+      {
+        "status": "replied",
+        "reason": null,
+        "updated_at": "2026-10-26T14:11:49"
+      }
+    ],
+    "5": [
+      {
+        "status": "queued",
+        "reason": null,
+        "updated_at": "2026-10-26T18:08:07-05:00"
+      },
+      {
+        "status": "submitted",
+        "reason": null,
+        "updated_at": "2026-10-26T18:08:07-05:00"
+      },
+      {
+        "status": "replied",
+        "reason": null,
+        "updated_at": "2026-10-26T18:08:08-05:00"
+      }
+    ]
+  },
+  "markers_at_fixture": [
+    "WALKIE-BASELINE-TURN",
+    "WALKIE-NOTE-ONE"
+  ],
+  "log_lines": [
+    "2026-10-26T18:08:07 [WARN] chat_message_id_above_issued_floor queue=runtime-inputs.jsonl queue_max_id=1 issued_floor=4 next_id=5",
+    "2026-10-26T18:08:07 [INFO] channel_stdin_proxy_injected count=1 message_ids=5 channels=owned-e2e enter=crlf transport=session_socket commit_cursor=False display_body=False"
+  ],
+  "status": "injected",
+  "requests": [
+    {
+      "n": 1,
+      "at": 1793056062.143072,
+      "path": "/v1/messages",
+      "users": 0,
+      "last": [],
+      "history": [],
+      "replied_at": 1793056062.143072
+    },
+    {
+      "n": 2,
+      "at": 1793056062.1626575,
+      "path": "/v1/chat/completions",
+      "users": 0,
+      "last": [],
+      "history": [],
+      "replied_at": 1793056062.1626575
+    },
+    {
+      "n": 3,
+      "at": 1793056083.1977046,
+      "path": "/v1/messages",
+      "users": 1,
+      "last": [
+        "WALKIE-BASELINE-TURN"
+      ],
+      "history": [
+        "WALKIE-BASELINE-TURN"
+      ],
+      "replied_at": 1793056083.1977046
+    },
+    {
+      "n": 4,
+      "at": 1793056088.0559015,
+      "path": "/v1/messages",
+      "users": 2,
+      "last": [
+        "WALKIE-NOTE-ONE"
+      ],
+      "history": [
+        "WALKIE-BASELINE-TURN",
+        "WALKIE-NOTE-ONE"
+      ],
+      "replied_at": 1793056088.0564039
+    }
+  ],
+  "foreground": {
+    "samples": 677,
+    "owned_hits": 0,
+    "owned_intervals": []
+  },
+  "teardown_owned_identities": [
+    {
+      "pid": 69376,
+      "name": "python.exe",
+      "ppid": 80420,
+      "cmd": [
+        "C:\\Program Files\\Python311\\python.exe",
+        "C:\\Users\\djlov\\.local\\share\\ciel-runtime-5054af2e3f706ca9f66ce68535f3e71a8287100a\\ciel_runtime.py",
+        "serve"
+      ]
+    },
+    {
+      "pid": 71604,
+      "name": "conhost.exe",
+      "ppid": 80420,
+      "cmd": [
+        "\\\\?\\C:\\WINDOWS\\system32\\conhost.exe",
+        "--headless",
+        "--width",
+        "120",
+        "--height",
+        "30",
+        "--signal",
+        "0x3bc",
+        "--server",
+        "0x3b4"
+      ]
+    },
+    {
+      "pid": 72248,
+      "name": "claude.exe",
+      "ppid": 80420,
+      "cmd": [
+        "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe",
+        "--dangerously-skip-permissions",
+        "--disallowedTools",
+        "WebSearch,WebFetch",
+        "--model",
+        "ciel-runtime-vllm-stub-model",
+        "--mcp-config",
+        "C:\\Windows\\Temp\\ciel-owned-walkie-x934i43e\\cfg\\mcp-launches\\d2513ef97948435d9d5b59fadaca961c\\claude-mcp.json",
+        "--append-system-prompt",
+        "You are running inside Claude Code through the ciel-runtime router. Do not stop after announcing what you plan to do. When the user asks you to create, edit, or run code, immediately use the available Claude Code tools such as Write, Edit, Read, and Bash as appropriate, except while Claude Code is in Plan Mode. In Plan Mode, first explore/read as needed, write or update the plan file named by the plan_mode attachment, and only then call ExitPlanMode to leave Plan Mode; when bypass permissions is active, ciel-runtime auto-approves that plan exit, so do not ask the user separately and do not call EnterPlanMode again. then report the concrete result. If the task has several reasonable implementation parts, do all in-scope parts; do not ask the user which part to start or whether to do all unless the user explicitly requested a choice. If you decide not to use tools, provide the complete requested code or answer in the same turn. Use skills only when the user's request clearly matches that skill; never invoke keybindings-help unless the user asks about keybindings. Keep final answers concise and do not expose hidden chain-of-thought. When calling Claude Code tools, use exactly the tool schema and do not invent extra fields. Bash: command (string), description (string), timeout (integer), run_in_background (boolean). Read: file_path (string), offset (integer), limit (integer). Write: file_path (string), content (string). Edit: file_path (string), old_string (string), new_string (string), replace_all (boolean). TaskList: no input. TaskUpdate: taskId (string), optional status enum exactly one of pending, in_progress, completed, deleted. CronCreate: cron (standard 5-field local-time cron string), prompt (string), optional recurring (boolean), optional durable (boolean). CronDelete: id (string returned by CronCreate). CronList: no input. Do not call WaitForMcpServers; it is a Claude Code lifecycle tool that may exist but is often not enabled in the current routed context. If an MCP server appears disconnected, use only tools present in the current tool list, retry ordinary MCP tools when available, or report the concrete connection state. Never write pseudo tool calls, partial JSON, or markdown code fences when a real Claude Code tool call is required.",
+        "--messaging-socket-path",
+        "\\\\.\\pipe\\LOCAL\\cc-msg-b69b1ca637b7bd6bf5d39dfd4619f83e",
+        "--settings",
+        "{\"crossSessionInbound\":\"accept\"}",
+        "--permission-mode",
+        "default",
+        "--tools",
+        "",
+        "--debug-file",
+        "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\walkie-durable-replied\\evidence\\e2e\\run-installed-5054af2-180739\\native-debug.log",
+        "--plugin-dir",
+        "C:\\Users\\djlov\\.local\\share\\ciel-runtime-5054af2e3f706ca9f66ce68535f3e71a8287100a\\ciel_runtime_support\\claude_mods\\ciel-work"
+      ]
+    },
+    {
+      "pid": 76792,
+      "name": "conhost.exe",
+      "ppid": 80420,
+      "cmd": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ]
+    },
+    {
+      "pid": 80420,
+      "name": "python.exe",
+      "ppid": 66920,
+      "cmd": [
+        "C:\\Program Files\\Python311\\python.exe",
+        "-I",
+        "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\walkie-durable-replied\\evidence\\e2e\\launch_shim.py",
+        "--",
+        "cli",
+        "--ca-runtime",
+        "claude",
+        "--ca-no-update-check",
+        "--ca-no-self-update-check",
+        "--ca-no-web-search",
+        "--",
+        "--permission-mode",
+        "default",
+        "--tools",
+        "",
+        "--debug-file",
+        "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\walkie-durable-replied\\evidence\\e2e\\run-installed-5054af2-180739\\native-debug.log"
+      ]
+    },
+    {
+      "pid": 80872,
+      "name": "python.exe",
+      "ppid": 80420,
+      "cmd": [
+        "C:\\Program Files\\Python311\\python.exe",
+        "C:\\Users\\djlov\\.local\\share\\ciel-runtime-5054af2e3f706ca9f66ce68535f3e71a8287100a\\ciel_runtime_support\\windows_console_guard.py",
+        "80420",
+        "487",
+        "3"
+      ]
+    }
+  ],
+  "fixed_observer_on_run_state": "{\"reused_id_count\": 0, \"reused_id_newest\": null, \"text\": \"not_blocked; known queued 0; oldest unknown; coverage partial; history observation partial (damaged lines ignored)\"}",
+  "live_after": {
+    "9505": {
+      "pid": 77432,
+      "version": "0.2.51-nightly.20261026-183726.81f6a4b",
+      "source_fingerprint": "72c6bfb456e30cd7",
+      "error": null
+    },
+    "9524": {
+      "pid": 25276,
+      "version": "0.2.51",
+      "source_fingerprint": "f86ee3638ee760f3",
+      "error": null
+    }
+  },
+  "live_unchanged": true,
+  "source_digests": {
+    "ciel_runtime.py": "f88b4a4d1238d9c722253ef268eb6dd9a81e9be299a3c1a28ac49f9a22c6809c",
+    "ciel_runtime_support/channel_message_repository.py": "45730f6745f4549e72dd6ab55417a4f9c2d1ebb715f832d510a7618259744ddb",
+    "ciel_runtime_support/runtime_input_status.py": "033e066149c9f0e4a6cfc5498da561e34270012110781c8b0e449f998982e806",
+    "ciel_runtime_support/channel_pending_injection.py": "be8aa5d860fa952dcf911c8b2d5d2c9506b7578304e620b405a9ac079dcb661f"
+  }
+}

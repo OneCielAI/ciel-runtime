@@ -1,0 +1,417 @@
+{
+  "initial_three_specs_read": true,
+  "missing_requests": [],
+  "duplicate_receipts": {},
+  "amendment_count": 9,
+  "amendments_per_task": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+  },
+  "interval_seconds": [
+    60.008403301239014,
+    59.999348878860474,
+    60.0017294883728,
+    60.00218605995178,
+    59.999276876449585,
+    59.99915051460266,
+    60.01009559631348,
+    59.991413831710815
+  ],
+  "max_lateness_seconds": 0.014999999984866008,
+  "observed_active_count": 9,
+  "work_call_count": 53,
+  "plan_nodes": 39,
+  "plan_roots": [
+    "REQ-INITIAL: three independent stdlib Python tasks A0/B0/C0 (+ amendments until REQ-FINAL)"
+  ],
+  "plan_branches": [
+    "A: routing_graph (REQ-A0)",
+    "B: booking_calendar (REQ-B0)",
+    "C: inventory_stream (REQ-C0)",
+    "Docs & verification"
+  ],
+  "all_leaves_done_with_evidence": true,
+  "completion_missing_ids": [
+    "A0",
+    "A1",
+    "A2",
+    "A3",
+    "B0",
+    "B1",
+    "B2",
+    "B3",
+    "C0",
+    "C1",
+    "C2",
+    "C3"
+  ],
+  "run_error": null,
+  "timeout": false,
+  "live_pids_unchanged": true,
+  "artifact_sha256": {
+    "booking_calendar.py": "f84f24bb11ecb31ac2e8eed33b4b7b246c400bd94bf04591ada186e215c94881",
+    "inventory_stream.py": "bd5f59fba66740946007a043707deeb431ee0939b7d5fa84488121767dce1a1d",
+    "routing_graph.py": "3b0945c2bbe105c4a67bbe39a0dc6fd6719a2c24a1137b8120b59da031c251d8",
+    "test_booking_calendar.py": "7e93cbec1f24ee2146d14678c2e8c824728094a83487f239d4944dd0fc0d9e24",
+    "test_inventory_stream.py": "a4434f4c10d1f3f12dbd63c788621a788498e89662c14171f6dc48ce3b545984",
+    "test_routing_graph.py": "ea41644cbcee1cdd6fd34b63a8eb1d58e4b4153516b91f8ded2f900ccd654098"
+  },
+  "delivery_valid": true,
+  "cadence_valid": true,
+  "plan_nodes_detail": [
+    {
+      "id": "n1",
+      "parent_id": null,
+      "title": "REQ-INITIAL: three independent stdlib Python tasks A0/B0/C0 (+ amendments until REQ-FINAL)",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020797.6204572
+    },
+    {
+      "id": "n2",
+      "parent_id": "n1",
+      "title": "A: routing_graph (REQ-A0)",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020607.3520892
+    },
+    {
+      "id": "n3",
+      "parent_id": "n2",
+      "title": "A0 implement routing_graph.py",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020136.3515732
+    },
+    {
+      "id": "n4",
+      "parent_id": "n3",
+      "title": "Write Graph/NoPathError/ConflictError with validation, version, Dijkstra (cost,hops,path)",
+      "status": "done",
+      "note": "",
+      "evidence": "Created routing_graph.py; 4 graph tests pass.",
+      "updated_at": 1793020136.3515732
+    },
+    {
+      "id": "n5",
+      "parent_id": "n2",
+      "title": "A0 tests",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020136.4272254
+    },
+    {
+      "id": "n6",
+      "parent_id": "n5",
+      "title": "Write test_routing_graph.py and run it green",
+      "status": "done",
+      "note": "",
+      "evidence": "python -m unittest -v test_routing_graph.py: 4 tests, OK",
+      "updated_at": 1793020136.4272254
+    },
+    {
+      "id": "n7",
+      "parent_id": "n1",
+      "title": "B: booking_calendar (REQ-B0)",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020661.3275642
+    },
+    {
+      "id": "n8",
+      "parent_id": "n7",
+      "title": "B0 implement booking_calendar.py",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020292.8648355
+    },
+    {
+      "id": "n9",
+      "parent_id": "n8",
+      "title": "Write Calendar/CapacityError/ConflictError with cumulative capacity sweep, atomic failures",
+      "status": "done",
+      "note": "",
+      "evidence": "5 calendar tests pass; sweep handles half-open cumulative units",
+      "updated_at": 1793020292.8648355
+    },
+    {
+      "id": "n10",
+      "parent_id": "n7",
+      "title": "B0 tests",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020292.930544
+    },
+    {
+      "id": "n11",
+      "parent_id": "n10",
+      "title": "Write test_booking_calendar.py incl. many overlaps and run green",
+      "status": "done",
+      "note": "",
+      "evidence": "python -m unittest -v test_booking_calendar: 5 OK including 100 overlaps",
+      "updated_at": 1793020292.930544
+    },
+    {
+      "id": "n12",
+      "parent_id": "n1",
+      "title": "C: inventory_stream (REQ-C0)",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020729.2260695
+    },
+    {
+      "id": "n13",
+      "parent_id": "n12",
+      "title": "C0 implement inventory_stream.py",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020370.1076777
+    },
+    {
+      "id": "n14",
+      "parent_id": "n13",
+      "title": "Write InventoryStream with fragment buffering, CRLF, validation, idempotency, conflict",
+      "status": "done",
+      "note": "",
+      "evidence": "5 inventory tests pass incl. all fragment boundaries and recovery",
+      "updated_at": 1793020370.1076777
+    },
+    {
+      "id": "n15",
+      "parent_id": "n12",
+      "title": "C0 tests",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020370.1761546
+    },
+    {
+      "id": "n16",
+      "parent_id": "n15",
+      "title": "Write test_inventory_stream.py incl. split fragments and run green",
+      "status": "done",
+      "note": "",
+      "evidence": "python -m unittest -v test_inventory_stream: 5 OK",
+      "updated_at": 1793020370.1761546
+    },
+    {
+      "id": "n17",
+      "parent_id": "n1",
+      "title": "Docs & verification",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020797.6204572
+    },
+    {
+      "id": "n18",
+      "parent_id": "n17",
+      "title": "Create docs/ OKF hierarchy journal and record REQ-INITIAL work",
+      "status": "done",
+      "note": "",
+      "evidence": "docs/index.md + docs/journal/2026/10/2026-10-26-req-initial-to-final.md written (4-level hierarchy)",
+      "updated_at": 1793020770.1742609
+    },
+    {
+      "id": "n19",
+      "parent_id": "n17",
+      "title": "Run full test suite and capture output",
+      "status": "done",
+      "note": "",
+      "evidence": "python -m unittest discover -v: Ran 27 tests OK, exit 0; saved docs/journal/2026/10/test-output.txt; ad-hoc zero-cycle/promote/finish checks OK",
+      "updated_at": 1793020771.3088696
+    },
+    {
+      "id": "n20",
+      "parent_id": "n2",
+      "title": "REQ-A1 blocked nodes and bounded hops",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020244.1083055
+    },
+    {
+      "id": "n21",
+      "parent_id": "n20",
+      "title": "Implement constrained simple route search and test cheap over-bound vs expensive feasible",
+      "status": "done",
+      "note": "",
+      "evidence": "5 graph tests pass incl. A1 hop and blocking regressions",
+      "updated_at": 1793020244.1083055
+    },
+    {
+      "id": "n22",
+      "parent_id": "n7",
+      "title": "REQ-B1 atomic batch and replacement",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020293.005196
+    },
+    {
+      "id": "n23",
+      "parent_id": "n22",
+      "title": "Implement and test reserve_many and replace atomicity, self-exclusion",
+      "status": "done",
+      "note": "",
+      "evidence": "Batch rollback and replacement excluding old tested green",
+      "updated_at": 1793020293.005196
+    },
+    {
+      "id": "n24",
+      "parent_id": "n12",
+      "title": "REQ-C1 ordered atomic batch events",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020370.238881
+    },
+    {
+      "id": "n25",
+      "parent_id": "n24",
+      "title": "Implement and test stock/move batches with rollback, retry and idempotency",
+      "status": "done",
+      "note": "",
+      "evidence": "Batch ordered move, rollback, corrected retry, duplicate and empty tested",
+      "updated_at": 1793020370.238881
+    },
+    {
+      "id": "n26",
+      "parent_id": "n2",
+      "title": "REQ-A2 frozen snapshot and atomic apply",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020431.2735114
+    },
+    {
+      "id": "n27",
+      "parent_id": "n26",
+      "title": "Implement/test read-only snapshot, ordered apply, rollback, expected_version and single increment",
+      "status": "done",
+      "note": "",
+      "evidence": "7 graph tests OK: snapshot freezing/read-only, apply rollback, version conflict, one increment",
+      "updated_at": 1793020431.2735114
+    },
+    {
+      "id": "n28",
+      "parent_id": "n7",
+      "title": "REQ-B2 priority waiting list and promotion",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020483.118194
+    },
+    {
+      "id": "n29",
+      "parent_id": "n28",
+      "title": "Implement/test wait, waiting order, skip-continue promote, cancel waiting, id reservation",
+      "status": "done",
+      "note": "",
+      "evidence": "7 calendar tests pass incl. priority/FIFO, skip-and-continue, waiting IDs protected",
+      "updated_at": 1793020483.118194
+    },
+    {
+      "id": "n30",
+      "parent_id": "n12",
+      "title": "REQ-C2 net-delta undo with tombstones",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020550.6042247
+    },
+    {
+      "id": "n31",
+      "parent_id": "n30",
+      "title": "Implement/test undo of events and batches, negative-check failure, tombstone idempotency",
+      "status": "done",
+      "note": "",
+      "evidence": "6 inventory tests pass incl. net-delta batch undo, negative refusal then retry, tombstone dedupe/conflict",
+      "updated_at": 1793020550.6042247
+    },
+    {
+      "id": "n32",
+      "parent_id": "n2",
+      "title": "REQ-A3 supersede default tie policy, preserve explicit original",
+      "status": "done",
+      "note": "A3 overrides only A0 equal-cost ordering: lexical full path before hops; explicit fewest_hops retains A0.",
+      "evidence": "",
+      "updated_at": 1793020607.3520892
+    },
+    {
+      "id": "n33",
+      "parent_id": "n32",
+      "title": "Implement/test lexical default and fewest_hops policy, snapshot policy freeze, zero-cycle longer lexical route",
+      "status": "done",
+      "note": "",
+      "evidence": "10 graph tests OK incl. lexical default longer route, explicit fewest_hops, policy-freezing snapshots, 300 brute-force comparisons",
+      "updated_at": 1793020607.3520892
+    },
+    {
+      "id": "n34",
+      "parent_id": "n7",
+      "title": "REQ-B3 checkpoints, restore and calendar version",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020661.3275642
+    },
+    {
+      "id": "n35",
+      "parent_id": "n34",
+      "title": "Implement/test opaque same-calendar checkpoints, exact restore, foreign rejection and one-increment versioning",
+      "status": "done",
+      "note": "",
+      "evidence": "9 calendar tests OK: version once per change (promote batch counts 1), restore exact FIFO, identical no-op, foreign/invalid ValueError, immutable checkpoint",
+      "updated_at": 1793020661.3275642
+    },
+    {
+      "id": "n36",
+      "parent_id": "n12",
+      "title": "REQ-C3 stream checkpoints and line-length bound",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020729.2260695
+    },
+    {
+      "id": "n37",
+      "parent_id": "n36",
+      "title": "Implement/test checkpoint/restore of all stream state and per-feed rollback at 4096 code points",
+      "status": "done",
+      "note": "",
+      "evidence": "8 inventory tests OK: checkpoint restores buffer/accepted/tombstones/deltas, reusable, foreign InventoryError; 4096 code-point line accepted, 4097 rejects whole feed incl earlier event",
+      "updated_at": 1793020729.2260695
+    },
+    {
+      "id": "n38",
+      "parent_id": "n17",
+      "title": "REQ-FINAL completion report",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020797.6204572
+    },
+    {
+      "id": "n39",
+      "parent_id": "n38",
+      "title": "Run unittest discover and write completion.json for all twelve IDs",
+      "status": "done",
+      "note": "",
+      "evidence": "completion.json parses with 12 request IDs; unittest discover: 27 tests OK",
+      "updated_at": 1793020797.6204572
+    }
+  ],
+  "all_twelve_requirement_ids_in_plan": true,
+  "amendments_three_per_task": true
+}

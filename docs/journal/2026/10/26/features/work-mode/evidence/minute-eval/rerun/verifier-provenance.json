@@ -1,0 +1,22 @@
+{
+  "frozen_at": "2026-10-26T15:22:19.933488+00:00",
+  "verifier_path": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\minute-eval\\independent_verify.py",
+  "verifier_sha256": "8261b2ece309244f75a3bc9e63a431aeeddc32aec173d5469541bcc691fe74a0",
+  "requests_sha256": "088093d038b261c77b04663cecf65d67de7a041810b861dd625b61faa35b4ccf",
+  "corrupt_backup_sha256": "740db1ad11a1186861961106c1651d7fa11471ec3be9fadf0daf3328d9f44a7f",
+  "corrupt_backup_bytes": 23482,
+  "statement": "Independent verifier authored from the complete requests.json specification only. No generated implementation or generated tests were read before this hash freeze. Only directory/file names in the prior run were inventoried; the NUL verifier and specification/commitment/preflight metadata were read. Target modules have not yet been imported or executed.",
+  "authoring_tests": 38,
+  "scope": "A0-A3 B0-B3 C0-C3 public API black-box tests; no generated code changes",
+  "verification_status": "executed frozen verifier: 38 tests, 37 passed, 1 failed assertion; sole failure classified as verifier overconstraint/spec ambiguity, not confirmed implementation defect",
+  "target_execution_started_after_freeze": true,
+  "post_freeze_reads": [
+    "run-2e0993a3/workspace/booking_calendar.py for failure classification only"
+  ],
+  "output_files": [
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\minute-eval\\run-2e0993a3\\independent-run.txt",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\minute-eval\\run-2e0993a3\\independent-result.json",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\minute-eval\\run-2e0993a3\\independent-classification.json"
+  ],
+  "verifier_unchanged_after_freeze": true
+}

@@ -1,0 +1,50 @@
+
+  >_ OpenAI Codex (v0.164.0)
+     ~\AppData\Local\Temp\subps-ui-9205e8a8\ws
+  permissions: YOLO mode
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  PreModelRequest hooks
+  Turn hooks on or off. Your changes are saved automatically.
+  No hooks installed for this event.
+
+
+
+  esc back

@@ -1,0 +1,42 @@
+2026-10-27T16:31:39 [INFO] codex_tracked_processes_terminated reason=codex_prelaunch_processes stopped=false
+2026-10-27T16:31:45 [INFO] router_port_clear reason=pre_spawn port=60233 stopped=false
+2026-10-27T16:31:45 [INFO] router_check_state running=False spawn=True base=http://127.0.0.1:60233
+2026-10-27T16:31:45 [INFO] router_spawn_start base=http://127.0.0.1:60233 version=0.2.51 source=59743d83f45331de executable=C:\Users\djlov\AppData\Local\Python\pythoncore-3.14-64\python.exe entrypoint=C:\Users\djlov\AppData\Local\Temp\selfupd-f483303f\prefix\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py log_path=C:\Users\djlov\AppData\Local\Temp\selfupd-f483303f\cfg\router.log
+C:\Users\djlov\AppData\Local\Temp\selfupd-f483303f\prefix\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\codex_app_server_session.py:417: SyntaxWarning: 'return' in a 'finally' block
+  return _RemoteRun(1)
+ciel-runtime router starting on 127.0.0.1:60233 (client base http://127.0.0.1:60233, log level INFO, source=env)
+web: http://127.0.0.1:60233/
+web_tailscale_https_recommended: ciel-runtime --ca-web-port 60233 --ca-tailscale-https=60233
+2026-10-27T16:31:47 [INFO] access "GET /health HTTP/1.1" 200 -
+2026-10-27T16:31:47 [INFO] router_spawned running=True base=http://127.0.0.1:60233 elapsed=2.0s
+2026-10-27T16:31:47 [INFO] launch_model_cache_ready provider=cielairouter count=1
+2026-10-27T16:31:47 [INFO] launch_catalog_profile provider=cielairouter CielAiRouter catalog profile applied for owned-send: 200,000-token context, 4,096-token output limit.
+2026-10-27T16:31:47 [INFO] codex_config_effort_default_written path=C:\Users\djlov\AppData\Local\Temp\selfupd-f483303f\codex\config.toml effort=medium
+2026-10-27T16:31:47 [INFO] codex_compaction_launch_snapshot provider=cielairouter model=ciel-runtime-cielairouter-owned-send context=200000 limit=180000
+2026-10-27T16:31:47 [INFO] codex_launch_cmd argv_len=46 provider_overrides=7
+2026-10-27T16:31:47 [INFO] codex_launch_env CIEL_RUNTIME_CODEX_API_KEY=ciel...-key
+2026-10-27T16:31:47 [INFO] router_client_registered pid=50180 path=C:\Users\djlov\AppData\Local\Temp\selfupd-f483303f\cfg\router-clients\50180.json
+2026-10-27T16:31:47 [INFO] channel_llm_cursor_fast_forward_on_launch last_id=0 previous_cursor=0 recent_seconds=600
+2026-10-27T16:31:47 [INFO] codex_child_process_registered pid=68116 path=C:\Users\djlov\AppData\Local\Temp\selfupd-f483303f\cfg\codex-processes\50180-client.json
+2026-10-27T16:31:47 [INFO] startup_prompt_auto_answer_enabled
+2026-10-27T16:31:47 [INFO] channel_windows_console_proxy_started pid=68116 transport=conpty enter=cr submit_retries=4 confirm_submit=True bracketed_paste=True display_body=False
+2026-10-27T16:31:47 [INFO] runtime_compaction_scope admission=paused reason=identity_pending runtime=codex
+2026-10-27T16:31:48 [INFO] startup_prompt_seen prompt=codex_trust
+2026-10-27T16:31:48 [INFO] startup_prompt_answered prompt=codex_trust option=trustandcontinue key=1 enter=true attempt=1
+2026-10-27T16:31:49 [INFO] startup_prompt_seen prompt=codex_hooks_review
+2026-10-27T16:31:52 [INFO] access "GET /health HTTP/1.1" 200 -
+2026-10-27T16:31:54 [WARN] startup_prompt_option_not_found prompt=codex_hooks_review option=trustallandcontinue
+2026-10-27T16:31:54 [INFO] access "POST /ca/mcp HTTP/1.1" 200 -
+2026-10-27T16:31:54 [INFO] channel_mcp_http method=initialize request_id=0 protocol=legacy-streamable-http
+2026-10-27T16:31:54 [INFO] access "POST /ca/mcp HTTP/1.1" 202 -
+2026-10-27T16:31:54 [INFO] channel_mcp_http method=notifications/initialized request_id=None protocol=legacy-streamable-http
+2026-10-27T16:31:54 [INFO] access "POST /ca/mcp HTTP/1.1" 200 -
+2026-10-27T16:31:54 [INFO] channel_mcp_http method=tools/list request_id=1 protocol=legacy-streamable-http
+2026-10-27T16:31:57 [INFO] access "GET /health HTTP/1.1" 200 -
+2026-10-27T16:31:58 [INFO] access "GET /health HTTP/1.1" 200 -
+2026-10-27T16:32:01 [INFO] channel_windows_console_child_exit pid=68116 returncode=0
+2026-10-27T16:32:01 [INFO] codex_child_process_released path=C:\Users\djlov\AppData\Local\Temp\selfupd-f483303f\cfg\codex-processes\50180-client.json
+2026-10-27T16:32:01 [INFO] router_client_released path=C:\Users\djlov\AppData\Local\Temp\selfupd-f483303f\cfg\router-clients\50180.json
+2026-10-27T16:32:01 [INFO] access "GET /health HTTP/1.1" 200 -
+2026-10-27T16:32:05 [INFO] router_kill_guarantee reason=claude_exit state=killed elapsed_ms=2031
+2026-10-27T16:32:05 [INFO] router_lifetime_stopped reason=claude_exit stopped=True

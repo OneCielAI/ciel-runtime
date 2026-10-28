@@ -1,0 +1,199 @@
+{
+ "enabled": true,
+ "phase": "executing",
+ "approval": "auto",
+ "version": 6,
+ "active_root": {
+  "id": "n1",
+  "title": "1. Waiting active goal",
+  "status": "pending",
+  "ref": "",
+  "waiting_on": "",
+  "urgent": false,
+  "phase": "executing"
+ },
+ "continuation": {
+  "actionable": 0,
+  "next": null,
+  "waiting": [
+   {
+    "id": "n3",
+    "title": "Wait leaf",
+    "waiting_on": "external-proof"
+   }
+  ],
+  "blocked": 0,
+  "held": 0
+ },
+ "done": 0,
+ "total": 1,
+ "next": {
+  "id": "n3",
+  "title": "Wait leaf",
+  "status": "pending",
+  "path": [
+   "1. Waiting active goal",
+   "Wait phase",
+   "Wait leaf"
+  ]
+ },
+ "breakdown": [
+  {
+   "id": "n2",
+   "title": "Wait phase",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "done": 0,
+   "total": 1,
+   "children": [
+    {
+     "id": "n3",
+     "title": "Wait leaf",
+     "status": "pending",
+     "ref": "",
+     "waiting_on": "external-proof",
+     "urgent": false
+    }
+   ],
+   "more": 0
+  }
+ ],
+ "root_index": [
+  {
+   "id": "n1",
+   "title": "1. Waiting active goal",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "phase": "executing",
+   "held": false
+  },
+  {
+   "id": "n4",
+   "title": "2. Runnable queued goal",
+   "status": "done",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "phase": "planning",
+   "held": false
+  }
+ ],
+ "completed_active": [],
+ "ready": true,
+ "ready_reason": "ready",
+ "goals": 2,
+ "queue": [],
+ "ok": true,
+ "schema_version": 1,
+ "session_id": "claude:6d6b0c42-0c62-477d-9878-22950495f142",
+ "updated_at": 1793087369.6495762,
+ "nodes": [
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "1. Waiting active goal",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793087367.6821737,
+   "phase": "executing"
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "Wait phase",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793087367.6821737
+  },
+  {
+   "id": "n3",
+   "parent_id": "n2",
+   "title": "Wait leaf",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "external-proof",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793087367.6821737
+  },
+  {
+   "id": "n4",
+   "parent_id": null,
+   "title": "2. Runnable queued goal",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793087369.6495762,
+   "phase": "planning"
+  },
+  {
+   "id": "n5",
+   "parent_id": "n4",
+   "title": "Queued phase",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793087369.6495762
+  },
+  {
+   "id": "n6",
+   "parent_id": "n5",
+   "title": "Queued leaf",
+   "status": "done",
+   "note": "",
+   "evidence": "Owned queued Write created subject.txt; read-back by fixture driver",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793087369.6495762
+  }
+ ],
+ "active_root_id": "n1",
+ "root_ids": [
+  "n1",
+  "n4"
+ ],
+ "queue_ids": [],
+ "auto_continue": true,
+ "runtime": {
+  "ciel_runtime": {
+   "version": "0.2.51",
+   "source_fingerprint": "59743d83f45331de",
+   "instance_id": "57408-9ae8c3d368df"
+  },
+  "session_id": "claude:6d6b0c42-0c62-477d-9878-22950495f142",
+  "runtime": "claude",
+  "configured": {
+   "provider": "cielairouter",
+   "model": "fake-work",
+   "alias": "ciel-runtime-cielairouter-fake-work",
+   "source": "configuration"
+  },
+  "epoch": null,
+  "in_flight": [],
+  "last_observed": null,
+  "last_error": null,
+  "observation_status": "unavailable",
+  "errors": []
+ },
+ "events": "/ca/work/events"
+}

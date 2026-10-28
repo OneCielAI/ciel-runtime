@@ -1,0 +1,13 @@
+# 2026-10-26T16:40:06Z launch-path version checks (after switch)
+$ %USERPROFILE%\.local\bin\ciel-runtimectl.cmd version
+ciel-runtime 0.2.51-nightly.20261026-162537.2faae14
+$ %APPDATA%\npm\ciel-runtimectl.cmd version
+ciel-runtime 0.2.51-nightly.20261026-162537.2faae14
+$ ~/.local/bin/ciel-runtimectl.ps1 version
+ciel-runtime 0.2.51-nightly.20261026-162537.2faae14
+# live router health after switch
+9385 URLError
+9464 URLError
+9489 URLError
+9505 pid 43372 version 0.2.51 fingerprint f86ee3638ee760f3
+9524 pid 25276 version 0.2.51 fingerprint f86ee3638ee760f3

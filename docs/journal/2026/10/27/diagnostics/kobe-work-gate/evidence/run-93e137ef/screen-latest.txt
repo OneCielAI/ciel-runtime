@@ -1,0 +1,50 @@
+
+ ▐▛███▛█   Claude Code v2.1.311
+▝▜██████▀  fake-work · API Usage Billing
+ ▝▝   ▝▝   C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\kobe-work-gate\evidence\run-93e137ef\ws
+
+⚠ Model "fake-work" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs
+
+❯ GATE-MAIN: verify waiting-goal handoff, then parallel child edits.
+
+● Write(subject.txt)
+  ⎿  Error: Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing approved Work. Items show above the prompt ·
+  /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode
+
+  Called ciel-runtime-router 5 times
+
+● 3 background agents launched (↓ to manage)
+   ├ Verify edit alpha
+   ├ Verify edit bravo
+   └ Verify edit charlie
+
+● GATE-MAIN-DONE
+
+✻ Waiting for 3 background agents to finish
+
+● Agent "Verify edit alpha" finished · 4s
+
+● GATE-MAIN-DONE
+
+✻ Worked for 0s · done 2:20 PM
+
+● Agent "Verify edit bravo" finished · 4s
+
+● Agent "Verify edit charlie" finished · 5s
+
+● GATE-MAIN-DONE
+
+✻ Crunched for 12s · done 2:20 PM
+
+Work running 0/1 — 2. Concurrent verified edits                                                                                                                     [-]
+[Progress 2] Queue 1 Completed 0
+[ ] Verify
+  [ ] Agent gates
+1/1 w: Inspector
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · /tasks to see subagents                                                                                work: run 0/1

@@ -1,0 +1,2 @@
+01-outcome
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\subagent-powershell\evidence\scripts\ui-source-122009\01-outcome.png handle=98314346 printwindow=True

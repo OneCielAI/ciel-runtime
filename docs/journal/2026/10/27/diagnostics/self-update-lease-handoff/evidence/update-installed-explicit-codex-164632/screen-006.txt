@@ -1,0 +1,49 @@
+C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\codex_app_server_session.py:417: SyntaxWarning: 'return' in a 'finally' b
+lock
+  return _RemoteRun(1)
+Ciel Runtime update available: 0.2.51-nightly.20261027-214004.a92bcd9 -> 9.9.9; upgrading automatically.
+Updating current Ciel Runtime install prefix: C:\Users\djlov\AppData\Roaming\npm
+fake npm install: no files changed
+Ciel Runtime updated. Restarting with the new version...
+C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\codex_app_server_session.py:417: SyntaxWarning: 'return' in a 'finally' b
+lock
+  return _RemoteRun(1)
+Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

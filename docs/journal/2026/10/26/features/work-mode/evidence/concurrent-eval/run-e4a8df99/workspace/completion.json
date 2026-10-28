@@ -1,0 +1,47 @@
+{
+  "run": "run-e4a8df99",
+  "verification": {
+    "command": "python -m unittest discover -v",
+    "python": "3.11.6",
+    "result": "Ran 42 tests in 0.041s OK (19 dag_scheduler + 23 ledger)"
+  },
+  "requests": {
+    "A0": {
+      "status": "unsatisfied",
+      "implementation": null,
+      "evidence": "REQ-A0 specification text was never received: the first message in this session began mid-sentence ('ll tasks use shared word priority ... Start A now') and the workspace contained only CLAUDE.md. The module name, get/set/TTL, version/tombstone, transaction and snapshot API, and A's meaning of 'priority' are unknown, so no A code was written rather than inventing a spec."
+    },
+    "A1": {
+      "status": "unsatisfied",
+      "implementation": null,
+      "evidence": "REQ-A1 (FIFO capacity on live keys, no refresh on overwrite/get, expired entries excluded, eviction bumps version/tombstone, commit-then-evict, snapshots keep pre-eviction values) was recorded in the Work plan, but it amends A0 and requires 'Preserve all A0 requirements'; blocked on the missing A0 base spec."
+    },
+    "B0": {
+      "status": "satisfied",
+      "implementation": "dag_scheduler.py",
+      "tests": "test_dag_scheduler.py",
+      "evidence": "Scheduler/CycleError/StateError; add with existing-deps check; ready/start/finish/status; failed deps block descendants. Tests AddAndReadyTests, StateTransitionTests pass. Note: B0's lexical tie-break was superseded by B1.",
+      "design_choices": "Unknown dependency -> ValueError (aligned with B1); duplicate task_id -> ValueError; self-dependency in add -> CycleError; unknown task_id in any method -> KeyError."
+    },
+    "B1": {
+      "status": "satisfied",
+      "implementation": "dag_scheduler.py (replace_deps, retry, ready ordering)",
+      "tests": "test_dag_scheduler.py ReplaceDepsTests, RetryTests, test_higher_priority_first_then_insertion_order",
+      "evidence": "Higher priority first, equal priority by original insertion order; replace_deps atomic on ValueError/CycleError (ready, status and deps snapshot compared before/after), StateError on non-pending; retry only from failed, descendants ready only after retried task finishes successfully."
+    },
+    "C0": {
+      "status": "satisfied",
+      "implementation": "ledger.py",
+      "tests": "test_ledger.py ParsingTests, EmptyAndBlankTests, AmountTests, ValidationTests",
+      "evidence": "Fragments joined then parsed by csv.reader(strict=True); every single and pair split point of a CRLF document with quoted CRLF in account gives identical result; exact Decimal (no float), NaN/Infinity/invalid rejected, blank rows ignored, empty input {}.",
+      "design_choices": "Header must be exactly id,account,amount; rows must have exactly 3 fields; whitespace-only id/account treated as empty; amounts must match a plain decimal literal (optional sign, digits, optional fraction/exponent, no surrounding whitespace or underscores)."
+    },
+    "C1": {
+      "status": "satisfied",
+      "implementation": "ledger.py (latest[id] last-row-wins)",
+      "tests": "test_ledger.py DuplicateIdTests",
+      "evidence": "Last occurrence of each id wins globally including account changes; every row (including overridden ones) validated; accounts seen in any row kept with zero total.",
+      "interpretation": "'Retain accounts with final zero total' was read as: an account whose contributions all moved away via later duplicates is kept with Decimal 0."
+    }
+  }
+}

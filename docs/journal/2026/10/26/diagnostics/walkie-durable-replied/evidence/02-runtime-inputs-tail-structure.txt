@@ -1,0 +1,24 @@
+# runtime-inputs.jsonl physical lines 2676-end (no message bodies). columns: line byte_offset length line_end nul_bytes id time(local) channel meta.input_transport
+2676 16101784 6874 b'\r\n' 0 14872 2026-10-26T05:49:14 external:default session_socket
+2677 16108658 4464 b'\r\n' 0 14873 2026-10-26T05:53:01 external:default session_socket
+2678 16113122 4061 b'\r\n' 0 14874 2026-10-26T05:53:23 external:default session_socket
+2679 16117183 6523 b'\r\n' 0 14875 2026-10-26T05:53:23 external:default session_socket
+2680 16123706 6079 b'\r\n' 0 14876 2026-10-26T05:55:18 external:default session_socket
+2681 16129785 172096 b'\r\n' 172094 UNDECODABLE leading_nul=172094 rest=b'\r\n'
+2682 16301881 4297 b'\r\n' 0 14877 2026-10-26T09:10:04 external:default session_socket
+2683 16306178 7285 b'\r\n' 0 14878 2026-10-26T09:28:53 external:default session_socket
+2684 16313463 3484 b'\r\n' 0 14879 2026-10-26T09:34:47 external:default session_socket
+2685 16316947 5257 b'\r\n' 0 14880 2026-10-26T09:54:50 external:default session_socket
+2686 16322204 3781 b'\r\n' 0 14881 2026-10-26T10:15:41 external:default session_socket
+2687 16325985 3836 b'\r\n' 0 14882 2026-10-26T10:23:39 external:default session_socket
+2688 16329821 4185 b'\r\n' 0 14883 2026-10-26T10:26:52 external:default session_socket
+2689 16334006 620 b'\r\n' 0 14884 2026-10-26T10:27:38 restart tty
+2690 16334626 3620 b'\r\n' 0 14885 2026-10-26T10:29:16 external:default session_socket
+2691 16338246 6608 b'\r\n' 0 14886 2026-10-26T10:29:16 external:default session_socket
+2692 16344854 5728 b'\r\n' 0 14887 2026-10-26T10:37:12 external:default session_socket
+2693 16350582 4291 b'\r\n' 0 14888 2026-10-26T10:46:31 external:default session_socket
+2694 16354873 6020 b'\r\n' 0 14889 2026-10-26T11:08:23 external:default session_socket
+2695 16360893 4118 b'\r\n' 0 14890 2026-10-26T11:09:25 external:default session_socket
+2696 16365011 7115 b'\r\n' 0 14891 2026-10-26T11:09:25 external:default session_socket
+2697 16372126 4160 b'\r\n' 0 14892 2026-10-26T11:09:54 external:default session_socket
+# total size 16376286 bytes; first decodable id in file 12197

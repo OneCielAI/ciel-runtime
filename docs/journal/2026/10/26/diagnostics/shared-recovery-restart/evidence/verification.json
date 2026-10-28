@@ -1,0 +1,22 @@
+{
+  "head": "e5800f6db5805a99166823d64f1284529e3c1df8",
+  "scope": "owned files only; isolated focused unittest; no full groups, live hosts, commit, install or push",
+  "files": {
+    "ciel_runtime_support/runtime_input_delivery_health.py": "0678d78163d1f3609f2c97638a9cf702d6f556c7289cd59ff652faa28071d0bd",
+    "ciel_runtime_support/runtime_sse_recovery.py": "cc15a69a492a14ab904a28ddb9ad930902724319dc1941e748ae7e91fe97cd95",
+    "tests/test_runtime_input_delivery_health.py": "d8b129758283b8a3b2f9bfed5d2cff4fc729a382c5dac8d0c0c200fac0937dfd",
+    "tests/test_runtime_sse_recovery.py": "7990cb00a09fe826e714bf1e3a259bb909bb70cffb975adab78e1bf6230702a6",
+    "docs/journal/2026/10/26/diagnostics/shared-recovery-restart/evidence/focused-tests.txt": "c1bab309cb7d0fc22e70982093df1d21bafca7de6f5108663e5e0899d8a0cde1",
+    "docs/journal/2026/10/26/diagnostics/shared-recovery-restart/evidence/before-fix-regressions.txt": "2bba8b3ff0dfb58d56f2164a9b24d719c14efcdddd2955040e32d98d0382cdb0"
+  },
+  "focused_result": {
+    "tests": 54,
+    "seconds": 3.383,
+    "exit_code": 0
+  },
+  "before_fix": {
+    "assertion_failures": 7,
+    "exit_code": 1
+  },
+  "okf_validation": "--strict: conformant, no issues"
+}

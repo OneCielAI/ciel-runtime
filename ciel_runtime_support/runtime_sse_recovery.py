@@ -22,11 +22,6 @@ _RESET_LOCK = threading.RLock()
 DEFAULT_MIN_QUEUE_AGE_SECONDS = 120.0
 DEFAULT_COOLDOWN_SECONDS = 900.0
 
-# The private queue the delivery observer reads next to its status history.
-_QUEUE_FILE_NAME = "runtime-inputs.jsonl"
-_QUEUE_PROBE_BYTES = 2 * 1024 * 1024
-_QUEUE_PROBE_LINE_BYTES = 1024 * 1024
-
 
 def _number(value: Any) -> float | None:
     if isinstance(value, bool):
@@ -69,54 +64,6 @@ def _write_reset_record(path: Path, record: Mapping[str, Any]) -> None:
             pass
 
 
-def _paired_queue_has_input(status: Any) -> bool:
-    """Whether the private queue file really holds at least one input row.
-
-    The delivery observer counts a missing queue file as a complete empty
-    queue, so a status history alone can look like a stale real queue. A
-    restart additionally requires the paired queue to exist as a readable
-    regular file with one decodable input record. This probe is read-only:
-    it creates, truncates and repairs nothing.
-    """
-    path = getattr(status, "path", None)
-    if not path:
-        return False
-    try:
-        queue = Path(path).with_name(_QUEUE_FILE_NAME)
-        if not queue.is_file():
-            return False
-        scanned = 0
-        with queue.open("rb") as stream:
-            while scanned < _QUEUE_PROBE_BYTES:
-                raw = stream.readline(_QUEUE_PROBE_LINE_BYTES + 1)
-                if not raw:
-                    return False
-                scanned += len(raw)
-                if len(raw) > _QUEUE_PROBE_LINE_BYTES or not raw.endswith(b"\n"):
-                    # Skip the rest of an oversized or torn physical row.
-                    while raw and not raw.endswith(b"\n") and scanned < _QUEUE_PROBE_BYTES:
-                        raw = stream.readline(_QUEUE_PROBE_LINE_BYTES + 1)
-                        if not raw:
-                            return False
-                        scanned += len(raw)
-                    continue
-                try:
-                    row = json.loads(raw)
-                except (ValueError, UnicodeError, RecursionError):
-                    continue
-                if not isinstance(row, dict):
-                    continue
-                try:
-                    request_id = int(row.get("id") or 0)
-                except (TypeError, ValueError, OverflowError):
-                    continue
-                if request_id > 0:
-                    return True
-        return False
-    except (OSError, ValueError, TypeError):
-        return False
-
-
 def sse_delivery_evidence(
     *,
     delivery_health: Callable[[], Mapping[str, Any]],
@@ -141,6 +88,8 @@ def sse_delivery_evidence(
     queued = int(queued_number) if queued_number is not None and queued_number.is_integer() else 0
     oldest = _number(health.get("oldest_queued_age_seconds"))
     blocked = health.get("admission_blocked") is True
+    reused_number = _number(health.get("reused_id_count"))
+    reused = int(reused_number) if reused_number is not None and reused_number.is_integer() else 0
     min_age = _number(min_queue_age_seconds)
     stale = queued > 0 and oldest is not None and min_age is not None and oldest >= max(1.0, min_age)
     # This is observed delivery delay, not proof of a transport failure. Do
@@ -155,8 +104,13 @@ def sse_delivery_evidence(
         reasons.append("compaction_admission_paused")
     if stale:
         reasons.append("queued_input_stale")
+    if reused > 0:
+        # New inputs carrying ids whose terminal status predates them are
+        # skipped as already delivered. A restart keeps the same files, so this
+        # is reported, never restart authority.
+        reasons.append("input_id_reuse")
     return {
-        "problem": bool(blocked or stale or paused),
+        "problem": bool(blocked or stale or paused or reused > 0),
         "observable": True,
         "restart_eligible": bool(restart_signal and pause_observable and paused is False),
         "reasons": reasons,
@@ -168,6 +122,8 @@ def sse_delivery_evidence(
         "launcher_hold_observed": health.get("launcher_hold_observed") is True,
         "blocker_scope": health.get("blocker_scope"),
         "known_queued_count": queued,
+        "reused_id_count": reused,
+        "reused_id_newest": health.get("reused_id_newest"),
         "oldest_queued_age_seconds": oldest,
         "queued_coverage": health.get("queued_coverage"),
         "history_coverage": (health.get("history") or {}).get("coverage")
@@ -310,13 +266,10 @@ def router_recovery(args: Mapping[str, Any], *, status_repository: Any, compacti
         return restart(**kwargs)
 
     def delivery_health() -> dict[str, Any]:
-        health = dict(runtime_input_delivery_health(status_repository))
-        if not _paired_queue_has_input(status_repository):
-            # Historical queued status rows without a real private queue are
-            # not a delivered backlog; they must never authorize a restart.
-            health["queued_coverage"] = "unknown"
-            health["reason"] = "queueunavailable"
-        return health
+        # One fresh, consistent status/queue intersection owns both count and
+        # age. An unrelated queue row (or a two-second-old cached diagnostic)
+        # must not turn a historical queued status into restart authority.
+        return runtime_input_delivery_health(status_repository, refresh=True)
 
     result = recover_sse_delivery(
         args,

@@ -1,0 +1,17 @@
+"""Does latest_native_model_usage see Emily-shaped records? Owned temp transcript only."""
+import json, sys, tempfile, time
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+from ciel_runtime_support.native_model_usage import latest_native_model_usage
+from ciel_runtime_support.runtime_compaction_control import CompactionScope
+scope = CompactionScope("claude", "sess-1", "epoch-1")
+def record(model, tokens, ts):
+    return {"type": "assistant", "sessionId": "sess-1", "timestamp": ts, "uuid": "u-" + ts,
+            "message": {"id": "m-" + ts, "model": model, "usage": {"input_tokens": 1, "cache_read_input_tokens": tokens - 1, "cache_creation_input_tokens": 0}}}
+with tempfile.TemporaryDirectory() as d:
+    p = Path(d) / "t.jsonl"
+    for configured in ("_Walkie_Opus55-Sol61-Fast", "_walkie_opus55-sol61-fast", "ciel-runtime-cielairouter-_walkie_opus55-sol61-fast"):
+        for native in ("claude-opus-5-5", "gpt-6.1-sol", configured):
+            p.write_text(json.dumps(record(native, 800000, "2026-10-26T20:46:06.634Z")) + "\n", encoding="utf-8")
+            s = latest_native_model_usage(p, scope, 1793047000.0, configured)
+            print(f"configured={configured!r:58} native={native!r:55} sample={'tokens=%d' % s.tokens if s else None}")

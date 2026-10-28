@@ -1,0 +1,50 @@
+                                                                                                                              ╭────────────────────────────────────────╮
+ ▐▛███▛█   Claude Code v2.1.311                                                                                               │ ciel-work                              │
+▝▜██████▀  fake-work · API Usage Billing                                                                                      │ Work mode is planning: edits wait for  │
+ ▝▝   ▝▝   C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\kobe-work-gate\evidence\run-5cc0be3f\ws    │ the approved plan · /work-mode help    │
+                                                                                                                              ╰────────────────────────────────────────╯
+⚠ Model "fake-work" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs
+
+❯ GATE-MAIN: verify waiting-goal handoff, then parallel child edits.
+
+● Write(subject.txt)
+  ⎿  Error: Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing approved Work. Items show above the prompt ·
+  /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode
+
+  Called ciel-runtime-router 5 times
+
+● 3 background agents launched (↓ to manage)
+   ├ Verify edit alpha
+   ├ Verify edit bravo
+   └ Verify edit charlie
+
+● GATE-MAIN-DONE
+
+✻ Waiting for 3 background agents to finish
+
+
+
+
+
+
+
+
+
+
+Work running 0/1 — 2. Concurrent verified edits                                                                                                                     [-]
+[Progress 2] Queue 1 Completed 0
+[ ] Verify
+  [ ] Agent gates
+1/1 w: Inspector
+                                                                                                                                                      ● high · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents · ↓ to manage                                                                             work: run 0/1
+
+  ● main
+  ◯ general-purpose  Verify edit alpha                                                                                                               0s · ↓ 170 tokens
+  ◯ general-purpose  Verify edit bravo                                                                                                               0s · ↓ 198 tokens
+  ◯ general-purpose  Verify edit charlie                                                                                                             0s · ↓ 148 tokens

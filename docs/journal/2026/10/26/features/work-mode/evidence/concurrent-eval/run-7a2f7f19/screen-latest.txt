@@ -1,0 +1,29 @@
+Ciel Runtime launch blocked:
+- Launch blocked: Base URL: unreachable (TimeoutError)
+- Set a reachable Base URL before launching Claude Code.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

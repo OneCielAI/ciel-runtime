@@ -1,0 +1,37 @@
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Detected a custom API key in your environment
+
+  ANTHROPIC_API_KEY: sk-ant-...e2e-key
+
+  Do you want to use this API key?
+
+    Yes
+  ❯ No (recommended)
+
+  Enter to confirm · Esc to cancel
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

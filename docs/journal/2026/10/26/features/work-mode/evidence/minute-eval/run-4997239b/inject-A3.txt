@@ -1,0 +1,30 @@
+
+  Ran 1 shell command
+
+❯ [ciel-runtime external channel message] channel=minute-eval:C room=minute-eval:C from=minute-evaluator id=6
+  thread=minute-eval-C text="REQ-C2: Amend C only. undo(event_id) atomically reverses successful event including batch.
+  Unknown/already undone InventoryError. If net reversal makes ANY SKU negative fail with balances/status unchanged;
+  retry later allowed. Use per-event NET signed SKU delta, not reversed validation order of ops. Successful undo keeps
+  tombstone: identical feed ignored, changed same ID ConflictError, cannot resurrect. Unrelated events independently
+  undoable; no auto undo of later events. Preserve A/B."
+
+● Patching calendar with waiting list and rerunning tests
+  ⎿  $ python - <<'EOF'
+     import re
+     p = "booking_calendar.py"
+     s = open(p, encoding="utf-8").read()
+     s = s.replace(''' self._active = {} # id -> (start, end, units)
+     ''', ''' self._active = {} # id -> (start, end, units)
+     self._waiting = {} # REQ-B2: id -> (start, end, units, priority, seq)
+     self._seq = 0
+     ''')…
+
+· Architecting… (8m 2s · ↓ 49.2k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt
+            work: run 14/20 [A: routing_gr… 6/6 | B: booking_ca… 4/6 | C: inventory_… 4/6 | …] · REQ-B2: waiting list
+            (wait/waiting/promote) > Implement wait/wai…

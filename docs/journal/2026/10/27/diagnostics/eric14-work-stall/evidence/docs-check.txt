@@ -1,0 +1,5 @@
+
+> @one-ciel-ai/ciel-runtime@0.2.51 check:docs
+> python scripts/check_project_metadata.py
+
+Documentation metadata checks passed (30 Markdown files).

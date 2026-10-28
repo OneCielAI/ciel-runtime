@@ -1,0 +1,3 @@
+2026-10-27T13:32:47 [INFO] upstream_direct_request provider=cielairouter model=owned-send endpoint=http://127.0.0.1:52122/v1/messages attempt=1/1 tokens=1023 bytes=4087 timeout=300.0
+2026-10-27T13:32:47 [INFO] upstream_direct_request provider=cielairouter model=owned-send endpoint=http://127.0.0.1:52122/v1/messages attempt=1/1 tokens=20996 bytes=82828 timeout=300.0
+2026-10-27T13:33:07 [WARN] cielairouter_late_sse_retry operation_id=f0e718ef406c49c2be4ddbfe8699be55 attempt=1/3 wait=1.00s message_start=False output_exposed=False

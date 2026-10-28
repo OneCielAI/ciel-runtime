@@ -1,3 +1,4 @@
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -78,6 +79,32 @@ class RuntimeRestartServiceTests(unittest.TestCase):
             )
             self.assertEqual("1", calls[0][1]["env"]["CIEL_RUNTIME_SKIP_SELF_UPDATE"])
             self.assertEqual("1", environ["CIEL_RUNTIME_SKIP_SELF_UPDATE"])
+            # Only the restarted child receives this process's launch lease.
+            self.assertEqual(str(os.getpid()), calls[0][1]["env"]["CIEL_RUNTIME_LAUNCH_LEASE_HANDOFF"])
+            self.assertNotIn("CIEL_RUNTIME_LAUNCH_LEASE_HANDOFF", environ)
+
+    def test_other_restarts_do_not_hand_off_the_launch_lease(self):
+        calls = []
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "ciel_runtime.py").write_text("", encoding="utf-8")
+            environ = {}
+            # execv keeps the process, and its lease, unchanged.
+            RuntimeRestartService(
+                RuntimeRestartSettings(["runtime", "cli"], "python", environ, platform_name="posix"),
+                RuntimeRestartPorts(lambda: root, lambda _npm: None, lambda _name: None,
+                                    lambda *_a: None, lambda *_a, **_k: 0),
+            ).restart("npm")
+            self.assertNotIn("CIEL_RUNTIME_LAUNCH_LEASE_HANDOFF", environ)
+        # The launcher shim is not a direct child, so no handoff is offered.
+        service = RuntimeRestartService(
+            RuntimeRestartSettings(["runtime", "cli"], "python", {}, platform_name="nt"),
+            RuntimeRestartPorts(lambda: None, lambda _npm: None, lambda _name: "ciel-runtime",
+                                lambda *_a: None, lambda argv, **kwargs: calls.append(kwargs) or 0),
+        )
+        with self.assertRaises(SystemExit):
+            service.restart("npm")
+        self.assertNotIn("CIEL_RUNTIME_LAUNCH_LEASE_HANDOFF", calls[0]["env"])
 
     def test_forced_upgrade_environment_does_not_mutate_source(self):
         source = {"PATH": "bin"}

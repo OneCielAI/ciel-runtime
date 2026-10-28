@@ -1,0 +1,22 @@
+LOCAL_BEFORE 1793063234.064 LOCAL_AFTER 1793063237.243 ROUNDTRIP 3.178
+TRANSCRIPT 123195728 2026-10-26T18:07:07
+PROBE_PROCS [
+    {
+        "ProcessId":  21000,
+        "ParentProcessId":  18328,
+        "CreationDate":  "\/Date(1793063233168)\/",
+        "KernelModeTime":  0,
+        "UserModeTime":  156250
+    },
+    {
+        "ProcessId":  19560,
+        "ParentProcessId":  21000,
+        "CreationDate":  "\/Date(1793063233263)\/",
+        "KernelModeTime":  781250,
+        "UserModeTime":  312500
+    }
+] 
+SELF 19560
+
+
+exit 0

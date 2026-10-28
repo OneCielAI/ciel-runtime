@@ -1,0 +1,4 @@
+01-after-self-update
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\self-update-lease-handoff\evidence\update-installed-auto-161301\01-after-self-update.png handle=4593690 printwindow=True
+02-exit
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\self-update-lease-handoff\evidence\update-installed-auto-161301\02-exit.png handle=4593690 printwindow=True

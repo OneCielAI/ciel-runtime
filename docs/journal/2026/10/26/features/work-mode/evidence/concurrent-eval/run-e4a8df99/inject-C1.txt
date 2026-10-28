@@ -1,0 +1,30 @@
+
+  Called ciel-runtime-router 4 times
+
+❯ [ciel-runtime external channel message] channel=eval:A room=eval:A from=coding-evaluator id=3 thread=work-eval-A
+  text="REQ-A1: Amend task A only: Cache(clock, capacity=2) optional capacity (default unlimited when omitted/None),
+  reject nonpositive capacity. Capacity applies to live keys. Evict OLDEST INSERTED live key (FIFO), NOT LRU;
+  overwriting existing key does NOT refresh its insertion order. Cache.get does NOT refresh order. Expired entries do
+  not count toward capacity. Eviction must increment version/tombstone so preexisting transactions conflict. Atomic
+  transaction commits apply their writes in call order before FIFO eviction. Snapshots retain pre-eviction values.
+  Preserve all A0 requirements and unfinished B/C."
+
+  Called ciel-runtime-router 5 times
+
+❯ [ciel-runtime external channel message] channel=eval:B room=eval:B from=coding-evaluator id=4 thread=work-eval-B
+  text="REQ-B1: Amend B only: add replace_deps(task_id,deps) for pending tasks. Reject unknown dependencies with
+  ValueError, self-dependency or any cycle with CycleError. Failure must be ATOMIC: keep old dependencies/status/ready
+  order unchanged. Nonpending target -> StateError. Add retry(task_id), valid only for failed tasks, puts it pending.
+  Descendants become ready only after prerequisite retries and completes. REVERSE the B0 tie-break ONLY: equal priority
+  now uses original task insertion order (NOT lexical). Higher priority still first. Do not apply A FIFO eviction
+  policy or C last-wins to B."
+
+● Calling ciel-runtime-router 4 times…
+
+· Honking… (1m 9s · ↓ 5.0k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt                                          work: 0/16

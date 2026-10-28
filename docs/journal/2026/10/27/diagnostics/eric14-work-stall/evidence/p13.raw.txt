@@ -1,0 +1,15 @@
+kobe version ['VERSION = "0.2.51-nightly.20261026-225621.5054af2"']
+file 5ac1ee55-d0d1-4ef7-b4df-3d68e62bbd1b.jsonl 148018488
+count '90981' 379
+count '83576' 4898
+count 'select it only under the user-priority rule' 0
+count 'requires an explicit user request' 6
+count 'Ciel Work has' 24
+count 'none can run now' 0
+count 'auto continue paused' 0
+count 'work_select' 30
+count 'work_reorder' 103
+shown 0
+
+
+exit 0

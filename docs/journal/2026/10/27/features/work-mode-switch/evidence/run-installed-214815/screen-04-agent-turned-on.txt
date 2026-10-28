@@ -1,0 +1,53 @@
+
+ ▐▛███▛█   Claude Code v2.1.312
+▝▜██████▀  owned-switch · API Usage Billing
+ ▝▝   ▝▝   C:\Users\djlov\AppData\Local\Temp\work-switch-972c19a3\ws
+
+⚠ Model "owned-switch" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing approved Work. Items show above the prompt ·
+  /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode, or the agent (work_mode_set)
+
+❯ E2EWMS-OFF turn Work mode off yourself.
+
+  Called ciel-runtime-router
+
+● E2EWMS-OFF-DONE
+
+✻ Churned for 0s · done 9:48 PM
+
+❯ E2EWMS-PROBE-OFF edit subject.txt without a plan.
+
+  Read 1 file
+
+● Update(subject.txt)
+  ⎿  Added 1 line, removed 1 line
+      1 -BEFORE
+      1 +AFTER-OFF
+
+● E2EWMS-PROBE-OFF-DONE
+
+✻ Churned for 0s · done 9:48 PM
+
+❯ E2EWMS-ON turn Work mode back on yourself.
+
+  Called ciel-runtime-router
+
+● E2EWMS-ON-DONE
+
+✻ Worked for 0s · done 9:48 PM
+
+
+
+
+
+Work mode: no plan yet — /work-mode help                                                                                                                            [-]
+[Progress 0] Queue 0 Completed 0
+No unfinished rows · inspect the active goal
+1/1 w: Inspector
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                                                                        work: plan 0/0
+  ⏵⏵ bypass permissions on (shift+tab to cycle)

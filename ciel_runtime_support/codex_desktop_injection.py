@@ -30,6 +30,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 import threading
 import time
+import uuid
 from typing import Any, Callable
 
 from ciel_runtime_support.channel_message_policy import (
@@ -42,12 +43,16 @@ from ciel_runtime_support.channel_message_prompt import (
     format_web_chat_wake_batch_prompt,
     llm_message_skip_reason,
 )
-from ciel_runtime_support.codex_app_server import CodexAppServerClient, CodexAppServerError
+from ciel_runtime_support.codex_app_server import (
+    CodexAppServerClient, CodexAppServerError, CodexAppServerNotSent,
+    CodexAppServerRejected,
+)
 from ciel_runtime_support.agent_turn_events import AppServerTurnTracker, user_input_text
 from ciel_runtime_support.codex_app_server_resume import ResumeModel
 from ciel_runtime_support.runtime_compaction_control import RuntimeCompactionControl
 from ciel_runtime_support import runtime_input_retry
 from ciel_runtime_support.runtime_input_retry import RetrySettings
+from ciel_runtime_support.runtime_input_status import WakeAttemptConflict
 
 CLIENT_NAME = "ciel-runtime"
 CLIENT_TITLE = "Ciel Runtime channel"
@@ -104,6 +109,9 @@ class CodexDesktopChannelPorts:
 @dataclass(slots=True)
 class _Delivery:
     attempts: dict[int, int] = field(default_factory=dict)
+    ownership: dict[int, str] = field(default_factory=dict)
+    turn_threads: dict[str, str] = field(default_factory=dict)
+    uncertain: dict[int, str] = field(default_factory=dict)
     by_turn: dict[str, list[int]] = field(default_factory=dict)
     # The original input of each message still awaiting its turn's outcome.
     prompts: dict[int, dict[str, Any]] = field(default_factory=dict)
@@ -194,6 +202,7 @@ class CodexAppServerChannelInjector:
         runtime_label: str = "codex-app-server",
         delivery_ready: Callable[[], bool] = lambda: True,
         wall_clock: Callable[[], float] = time.time,
+        child_epoch: str | None = None,
     ) -> None:
         self._connect = connect
         self._wall_clock = wall_clock
@@ -214,12 +223,14 @@ class CodexAppServerChannelInjector:
         self._resume_model = resume_model or ResumeModel()
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
+        self._child_epoch = child_epoch or "codex-" + uuid.uuid4().hex
         self._delivery = _Delivery()
         self._threads = _Threads()
         self._deferred_command = ""
         self.client: CodexAppServerClient | None = None
         self.thread_id = ""
         self._bound_thread = ""
+        self._recovered_thread = ""
 
     def start(self, *, opened: bool = False) -> None:
         """Run the poll loop; ``opened`` when open() already connected."""
@@ -246,8 +257,46 @@ class CodexAppServerChannelInjector:
             self._resume_initial_thread(client)
         elif self._start_own_thread:
             self._start_thread(client)
+        self._adopt_attempts()
         self._adopt_retries()
         self._ports.log("INFO", f"codex_desktop_channel_ready thread={self.thread_id or '-'} cwd={self._cwd}")
+
+    def _adopt_attempts(self) -> None:
+        """Recover ownership, never the send, after a launcher/injector crash."""
+        self._recovered_thread = self.thread_id
+        list_latest = getattr(self._ports.status, "list_latest", None)
+        if not callable(list_latest):
+            return
+        after = 0
+        while True:
+            rows = list_latest(after_request_id=after, limit=500)
+            if not rows:
+                break
+            for row in rows:
+                after = max(after, int(row["request_id"]))
+                data = row.get("data") or {}
+                if not (str(data.get("child_epoch") or "").startswith("codex-")
+                        or data.get("native_runtime") == "codex"):
+                    continue
+                if row.get("status") not in {"submitted", "interrupted_uncertain"}:
+                    continue
+                message_id = int(row["request_id"])
+                if (row.get("status") == "submitted" and data.get("native_turn_id")
+                        and data.get("native_thread_id") == self.thread_id):
+                    turn_id = str(data["native_turn_id"])
+                    self._delivery.ownership[message_id] = str(data.get("attempt_id") or "")
+                    members = self._delivery.by_turn.setdefault(turn_id, [])
+                    if message_id not in members:
+                        members.append(message_id)
+                    self._delivery.turn_threads[turn_id] = self.thread_id
+                    # A restarted owner can settle an observed terminal turn,
+                    # but lacks the original in-memory prompt: never resend it.
+                elif data.get("native_thread_id") == self.thread_id:
+                    self._delivery.uncertain[message_id] = self.thread_id
+            if len(rows) < 500:
+                break
+        if self.client and self.thread_id:
+            self._reconcile_turns(self.client, self.thread_id)
 
     def _adopt_retries(self) -> None:
         """Take over resends an earlier Codex injector scheduled but never sent.
@@ -269,6 +318,9 @@ class CodexAppServerChannelInjector:
         for row in rows:
             retry = runtime_input_retry.pending_retry(row)
             if retry is None or retry.get("runtime") != "codex":
+                continue
+            target = retry.get("native_thread_id") or (row.get("data") or {}).get("native_thread_id")
+            if target and target != self.thread_id:
                 continue
             message_id = int(row["request_id"])
             if retry.get("claim"):
@@ -351,6 +403,9 @@ class CodexAppServerChannelInjector:
         self.drain_notifications()
         self._bind_target()
         self.subscribe_target()
+        if self.thread_id and self.thread_id != self._recovered_thread:
+            self._adopt_attempts()
+            self._adopt_retries()
         self.run_session_command()
         self.deliver_pending()
 
@@ -407,7 +462,8 @@ class CodexAppServerChannelInjector:
 
         turn_id = params.get("turnId") if isinstance(params.get("turnId"), str) else ""
         error = params.get("error") if isinstance(params.get("error"), dict) else {}
-        if turn_id not in self._delivery.by_turn:
+        if (turn_id not in self._delivery.by_turn
+                or self._delivery.turn_threads.get(turn_id, params.get("threadId")) != params.get("threadId")):
             return
         failure = runtime_input_retry.classify_codex_turn({"error": error})
         if params.get("willRetry") is True:
@@ -517,10 +573,12 @@ class CodexAppServerChannelInjector:
         try:
             client.compact_thread(thread_id)
         except CodexAppServerError as exc:
-            # A failed RPC can still have reached the native process. Never
-            # reopen admission or replay automatic compact based on its ack.
+            # Unknown acceptance stays blocked; only proven pre-write failure
+            # or an explicit rejection may use the shared control retry policy.
             if control:
-                control.command_failed(request, "compact_rpc_unconfirmed", uncertain=True)
+                uncertain = not isinstance(exc, (CodexAppServerNotSent, CodexAppServerRejected))
+                reason = "compact_rpc_unconfirmed" if uncertain else "compact_rpc_rejected" if isinstance(exc, CodexAppServerRejected) else "compact_rpc_not_sent"
+                control.command_failed(request, reason, uncertain=uncertain)
             commands.clear(request_id or None)
             self._ports.log(
                 "WARN",
@@ -594,6 +652,11 @@ class CodexAppServerChannelInjector:
     def _complete_turn(self, params: dict[str, Any]) -> None:
         turn = params.get("turn") if isinstance(params.get("turn"), dict) else {}
         turn_id = turn.get("id") if isinstance(turn.get("id"), str) else ""
+        if turn.get("status") not in {"completed", "failed", "interrupted"}:
+            return
+        expected_thread = self._delivery.turn_threads.get(turn_id)
+        if expected_thread and params.get("threadId") != expected_thread:
+            return
         message_ids = self._delivery.by_turn.pop(turn_id, [])
         status = str(turn.get("status") or "")
         notified = self._delivery.turn_errors.pop(turn_id, None)
@@ -602,7 +665,7 @@ class CodexAppServerChannelInjector:
         for message_id in message_ids:
             if status == "completed":
                 self._delivery.prompts.pop(message_id, None)
-                self._ports.status.transition(message_id, "replied")
+                self._transition(message_id, "replied")
             else:
                 self._turn_failed(message_id, runtime_input_retry.classify_codex_turn(turn, notified),
                                   detail=_turn_error(turn), tool_activity=tool_activity)
@@ -610,6 +673,7 @@ class CodexAppServerChannelInjector:
                 "INFO",
                 f"codex_desktop_channel_turn_completed message_id={message_id} turn={turn_id} status={status or '-'}",
             )
+        self._delivery.turn_threads.pop(turn_id, None)
 
     def _turn_failed(self, message_id: int, failure: runtime_input_retry.TurnFailure, *,
                      detail: str, tool_activity: bool) -> None:
@@ -621,11 +685,13 @@ class CodexAppServerChannelInjector:
         data = row.get("data") if isinstance(row, dict) and isinstance(row.get("data"), dict) else {}
         previous = data.get("retry") if isinstance(data.get("retry"), dict) else None
         retry = runtime_input_retry.next_retry(
-            previous, failure, settings, self._wall_clock(), runtime="codex", tool_activity=tool_activity
+            previous, failure, settings, self._wall_clock(), runtime="codex", tool_activity=tool_activity,
+            native_thread_id=str(data.get("native_thread_id") or self.thread_id),
         ) if message_id in self._delivery.prompts else None
         if retry is not None:
             schedule = getattr(self._ports.status, "schedule_retry", None)
-            record = schedule(message_id, retry, reason=f"retry_scheduled:{failure.label}") if callable(schedule) else {}
+            record = schedule(message_id, retry, reason=f"retry_scheduled:{failure.label}",
+                              expected_attempt=self._delivery.ownership.get(message_id)) if callable(schedule) else {}
             if record.get("status") == "queued":
                 self._delivery.retries[message_id] = retry
                 self._ports.log(
@@ -639,14 +705,16 @@ class CodexAppServerChannelInjector:
         reason = runtime_input_retry.terminal_reason(previous, failure, settings)
         if reason.startswith("turn_failed") and detail not in {"turn_failed", failure.label}:
             reason = f"{reason} {detail}"[:300]
-        self._ports.status.transition(message_id, "failed", reason=reason,
-                                      data={"tool_activity": tool_activity} if tool_activity else None)
+        self._transition(message_id, "failed", reason=reason,
+                         data={"tool_activity": tool_activity} if tool_activity else None)
 
     def deliver_pending(self) -> None:
         if not self._delivery_ready():
             return
         if self._ports.compaction and self._ports.compaction.external_admission_paused():
             # A paused gate defers a due resend without spending its attempt.
+            return
+        if self.thread_id in self._delivery.uncertain.values():
             return
         if self._delivery.retries and not self._deliver_retry():
             # A scheduled resend stays ahead of every later input.
@@ -661,6 +729,16 @@ class CodexAppServerChannelInjector:
                 continue
             if message_id <= cursor:
                 continue
+            row = self._ports.status.get(message_id) or {}
+            state = row.get("status")
+            if state in {"replied", "failed", "skipped"}:
+                self._ports.commit_cursor(message_id)
+                cursor = message_id
+                continue
+            if state in {"submitted", "interrupted_uncertain"} or runtime_input_retry.pending_retry(row):
+                # A crash between wire and cursor must never replay the input.
+                # Unknown delivery remains visible and retains its queue cursor.
+                return
             from .launch_data_path import model_http_bypassed
             if (not model_http_bypassed() and message_input_transport(message) == "router"
                     and (not self.thread_id or self._busy(self.thread_id))):
@@ -690,7 +768,12 @@ class CodexAppServerChannelInjector:
         into a turn someone else is running.
         """
 
-        message_id = min(self._delivery.retries)
+        eligible = [key for key, value in self._delivery.retries.items()
+                    if not value.get("native_thread_id") or value["native_thread_id"] == self.thread_id]
+        if not eligible:
+            # Keep other chats' resends queued for their exact native thread.
+            return True
+        message_id = min(eligible)
         retry = self._delivery.retries[message_id]
         if self._wall_clock() < float(retry.get("due_epoch") or 0):
             return False
@@ -709,22 +792,47 @@ class CodexAppServerChannelInjector:
             return not self._delivery.retries
         prompt = delivery_prompt(runtime_input_retry.resend_message(original, retry))
         try:
+            attempt = self._ports.status.begin_attempt([message_id], self._child_epoch)
+        except WakeAttemptConflict:
+            self._delivery.retries.pop(message_id, None)
+            return not self._delivery.retries
+        self._delivery.ownership[message_id] = attempt
+        self._transition(message_id, "submitted", data={"native_runtime": "codex",
+                         "native_thread_id": self.thread_id, "native_turn_id": ""})
+        try:
             turn_id = _turn_id(self._turn_start(client, prompt))
-        except CodexAppServerError as exc:
+            if not turn_id:
+                raise CodexAppServerError("turn/start accepted without a turn id")
+        except CodexAppServerNotSent as exc:
             failures = int(retry.get("submit_failures") or 0) + 1
             if failures >= MAX_SUBMIT_ATTEMPTS:
-                self._fail_retry(message_id, "retry_submit_failed")
+                self._transition(message_id, "failed", reason="retry_submit_not_sent")
+                self._delivery.retries.pop(message_id, None)
                 return not self._delivery.retries
             due = self._wall_clock() + float(retry.get("interval_seconds") or 0)
             retry.update(submit_failures=failures, due_epoch=due)
-            self._ports.status.release_retry_claim(message_id, claim, due)
-            self._ports.log("WARN", f"codex_desktop_channel_retry_submit_failed message_id={message_id} "
-                            f"failure={failures} error={str(exc)[:200]}")
+            if self._ports.status.defer_unsubmitted(message_id, attempt):
+                self._ports.status.release_retry_claim(message_id, claim, due)
+            self._ports.log("WARN", f"codex_desktop_channel_retry_not_sent message_id={message_id} error={exc}")
+            return False
+        except CodexAppServerRejected as exc:
+            self._transition(message_id, "failed", reason="retry_submit_rejected")
+            self._delivery.retries.pop(message_id, None)
+            self._ports.log("WARN", f"codex_desktop_channel_retry_rejected message_id={message_id} error={exc}")
+            return not self._delivery.retries
+        except (CodexAppServerError, OSError) as exc:
+            # No claim release: the write may already have started a turn.
+            self._transition(message_id, "interrupted_uncertain", reason="retry_send_uncertain")
+            self._delivery.uncertain[message_id] = self.thread_id
+            self._delivery.retries.pop(message_id, None)
+            self._ports.log("WARN", f"codex_desktop_channel_retry_uncertain message_id={message_id} error={exc}")
             return False
         del self._delivery.retries[message_id]
-        self._ports.status.transition(message_id, "submitted", data={"retry": {**retry, "claim": ""}})
+        self._transition(message_id, "submitted", data={"retry": {**retry, "claim": ""},
+                         "native_thread_id": self.thread_id, "native_turn_id": turn_id})
         if turn_id:
             self._delivery.by_turn.setdefault(turn_id, []).append(message_id)
+            self._delivery.turn_threads[turn_id] = self.thread_id
         self._ports.log(
             "WARN",
             f"codex_desktop_channel_retry_sent message_id={message_id} attempt={retry['attempt']}/{retry['limit']} "
@@ -742,6 +850,10 @@ class CodexAppServerChannelInjector:
             sandbox_policy=permissions.sandbox_policy if permissions else None,
         )
 
+    def _transition(self, message_id: int, state: str, **kwargs: Any) -> dict[str, Any]:
+        return self._ports.status.transition(
+            message_id, state, expected_attempt=self._delivery.ownership.get(message_id), **kwargs)
+
     def _submit(self, message_id: int, prompt: str, message: dict[str, Any] | None = None) -> bool:
         if not self._delivery_ready():
             return False
@@ -756,35 +868,55 @@ class CodexAppServerChannelInjector:
             # id turn/steer needs is unknown; deliver once the thread is idle.
             return False
         try:
+            attempt = self._ports.status.begin_attempt([message_id], self._child_epoch)
+        except WakeAttemptConflict:
+            return False
+        self._delivery.ownership[message_id] = attempt
+        self._transition(message_id, "submitted", data={"native_runtime": "codex",
+                         "native_thread_id": self.thread_id, "native_turn_id": ""})
+        try:
             if active_turn:
                 try:
                     client.turn_steer(self.thread_id, active_turn, prompt)
                     turn_id, method = active_turn, "turn/steer"
-                except CodexAppServerError:
-                    # The turn finished between the state read and the steer.
+                except CodexAppServerRejected as exc:
+                    if not exc.no_active_turn:
+                        raise
+                    # Only an exact native no-active-turn rejection proves the
+                    # steer did not deliver. Never infer this from IO failure.
                     result = self._turn_start(client, prompt)
                     turn_id, method = _turn_id(result), "turn/start"
             else:
                 result = self._turn_start(client, prompt)
                 turn_id, method = _turn_id(result), "turn/start"
-        except CodexAppServerError as exc:
+            if not turn_id:
+                raise CodexAppServerError("turn/start accepted without a turn id")
+        except CodexAppServerNotSent as exc:
             attempts = self._delivery.attempts.get(message_id, 0) + 1
             self._delivery.attempts[message_id] = attempts
-            self._ports.log(
-                "WARN",
-                f"codex_desktop_channel_submit_failed message_id={message_id} attempt={attempts} error={exc}",
-            )
+            self._ports.log("WARN", f"codex_desktop_channel_not_sent message_id={message_id} attempt={attempts} error={exc}")
             if attempts < MAX_SUBMIT_ATTEMPTS:
+                self._ports.status.defer_unsubmitted(message_id, attempt)
                 return False
-            self._ports.status.transition(message_id, "failed", reason="submit_failed")
+            self._transition(message_id, "failed", reason="submit_not_sent")
             return True
+        except CodexAppServerRejected as exc:
+            self._transition(message_id, "failed", reason="submit_rejected")
+            self._ports.log("WARN", f"codex_desktop_channel_rejected message_id={message_id} error={exc}")
+            return True
+        except (CodexAppServerError, OSError) as exc:
+            self._transition(message_id, "interrupted_uncertain", reason="submit_uncertain")
+            self._delivery.uncertain[message_id] = self.thread_id
+            self._ports.log("WARN", f"codex_desktop_channel_uncertain message_id={message_id} error={exc}")
+            return False
         self._delivery.attempts.pop(message_id, None)
         if self.thread_id not in self._threads.subscribed:
             # The turn just created the rollout, so subscribing can work now.
             self._threads.subscribe_attempt_at.pop(self.thread_id, None)
-        self._ports.status.transition(message_id, "submitted")
+        self._transition(message_id, "submitted", data={"native_thread_id": self.thread_id, "native_turn_id": turn_id})
         if turn_id:
             self._delivery.by_turn.setdefault(turn_id, []).append(message_id)
+            self._delivery.turn_threads[turn_id] = self.thread_id
             if message is not None:
                 self._delivery.prompts[message_id] = message
         self._ports.log(

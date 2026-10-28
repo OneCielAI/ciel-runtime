@@ -137,6 +137,57 @@ class SafeguardTests(BindingHarness):
         self.assertEqual('none', service.inject(None, runtime='claude', control=self.binding.control))
         print('measured_safeguard usage=19000 capacity=20000 threshold=90 tool_deferred=1 turn_deferred=1 compact_writes=1')
 
+    def test_alias_answered_by_other_native_model_uses_router_observed_names(self):
+        # Emily 2026-10-26: alias _walkie_opus55-sol61-fast was answered as
+        # claude-opus-5-5 / gpt-6.1-sol, so no record matched the alias.
+        self.provider = 'cielairouter'
+        self.binding.config = lambda: (self.provider, {'current_model': '_Walkie_Opus55-Sol61-Fast'})
+        self.binding.bind('claude', session_id='exact', cwd=self.root)
+        scope = self.binding.scope()
+        def usage(native, tokens):
+            self.write({'type': 'assistant', 'sessionId': 'exact', 'timestamp': stamp(time.time()),
+                'message': {'id': str(time.time_ns()), 'model': native, 'usage': {
+                    'input_tokens': tokens, 'cache_read_input_tokens': 0, 'cache_creation_input_tokens': 0}}})
+            self.binding.safeguard_checked = 0
+        usage('claude-opus-5-5', 18500)
+        self.assertFalse(self.binding.external_admission_paused())
+        self.assertIsNone(self.requests.read())
+        # Observations that do not belong to this launch's alias, session or epoch are ignored.
+        from ciel_runtime_support.runtime_compaction_control import CompactionScope
+        self.binding.observe_native_model(scope, 'ciel-runtime-cielairouter-other-alias', 'claude-opus-5-5')
+        self.binding.observe_native_model(CompactionScope('claude', 'other', scope.epoch),
+                                          'ciel-runtime-cielairouter-_walkie_opus55-sol61-fast', 'claude-opus-5-5')
+        self.binding.observe_native_model(CompactionScope('claude', 'exact', 'stale-epoch'),
+                                          'ciel-runtime-cielairouter-_walkie_opus55-sol61-fast', 'claude-opus-5-5')
+        self.binding.observe_native_model(None, 'ciel-runtime-cielairouter-_walkie_opus55-sol61-fast', 'claude-opus-5-5')
+        self.binding.safeguard_checked = 0
+        self.assertFalse(self.binding.external_admission_paused())
+        self.assertIsNone(self.requests.read())
+        self.binding.observe_native_model(scope, 'ciel-runtime-cielairouter-_walkie_opus55-sol61-fast[1m]', 'claude-opus-5-5')
+        self.binding.safeguard_checked = 0
+        self.assertFalse(self.binding.external_admission_paused())
+        request = self.requests.read()
+        self.assertIsNotNone(request)
+        self.assertEqual(18500, self.state()['baseline_tokens'])
+        # A second upstream model of the same alias is accepted as well.
+        self.binding.observe_native_model(scope, 'ciel-runtime-cielairouter-_walkie_opus55-sol61-fast', 'gpt-6.1-sol')
+        self.assertEqual({'claude-opus-5-5', 'gpt-6.1-sol'},
+                         set(self.binding.repository.load('test')['native_models']
+                             ['ciel-runtime-cielairouter-_walkie_opus55-sol61-fast']))
+
+    def test_native_model_observation_is_bounded_and_sanitized(self):
+        self.binding.bind('claude', session_id='exact', cwd=self.root)
+        scope = self.binding.scope()
+        for index in range(40):
+            self.binding.observe_native_model(scope, 'alias', f'native-{index}')
+        self.binding.observe_native_model(scope, 'alias', 'x' * 500)
+        self.binding.observe_native_model(scope, 'alias', '')
+        self.binding.observe_native_model(scope, '', 'native')
+        names = self.binding.repository.load('test')['native_models']['alias']
+        self.assertLessEqual(len(names), 16)
+        self.assertTrue(all(0 < len(name) <= 128 for name in names))
+        self.assertEqual(['alias'], list(self.binding.repository.load('test')['native_models']))
+
     def test_usage_appended_after_boundary_with_older_timestamp_is_ignored(self):
         from ciel_runtime_support.native_model_usage import latest_native_model_usage
         self.binding.bind('claude', session_id='exact', cwd=self.root)

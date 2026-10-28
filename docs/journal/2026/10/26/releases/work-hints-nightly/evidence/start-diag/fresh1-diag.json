@@ -1,0 +1,1 @@
+[{"at":0,"error":"ciel-work: $.mcp.call: no connected MCP tool \"work_status\" on a server named \"ciel-runtime-router\"","router_tools":0},{"at":301,"ok":true,"text":"{\"enabled\": true, \"phase\": \"planning\", \"approval\": \"auto\", \"version\": 0, \"active"}]

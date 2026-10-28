@@ -283,7 +283,7 @@ class ChannelPendingPollTests(unittest.TestCase):
         self.assertEqual(39, state.inflight_cursor)
         self.assertEqual([41], [row["id"] for row in send.call_args.args[1]])
         advance_channel_inflight(
-            ChannelInflightSnapshot(41, state.inflight_cursor, "completed", 1.0, 1.0, 2.0, state.last_id),
+            ChannelInflightSnapshot(41, state.inflight_cursor, "completed", 1.0, 1.0, 2.0, state.last_id, admission_paused=True),
             ChannelInflightPolicy(30, 30, lambda *args: False, False, "fixture", "stale"),
             ChannelInflightEffects(harness.delivery.commit, harness.delivery.complete, Mock(), lambda: 39, Mock()),
         )
@@ -443,6 +443,78 @@ class ChannelPendingPollTests(unittest.TestCase):
         self.assertEqual(2.1, state.inflight_started_at)
         self.assertIsNone(state.inflight_cursor)
         self.assertEqual([], state.inflight.backlog)
+
+    def test_paused_observation_settles_backlog_and_latest_without_submission(self):
+        from ciel_runtime_support.channel_pending_poll import observe_pending_channel_inflight
+        from ciel_runtime_support.channel_inflight import ChannelInflightEffects, ChannelInflightPolicy
+        for unresolved in (None, 4):
+            with self.subTest(unresolved=unresolved):
+                state = ChannelPendingPollState(last_id=3)
+                state.inflight_message_id, state.inflight_cursor = 7, 7
+                state.inflight_started_at = 1
+                state.inflight.backlog = [4, 5, 6]
+                complete, release, commit = Mock(), Mock(), Mock()
+                effects = ChannelInflightEffects(commit, complete, release, lambda: 3, Mock())
+                policy = ChannelInflightPolicy(1, 30, lambda *a: True, True, "fixture", "stale")
+                observe_pending_channel_inflight(
+                    1000000, state, policy,
+                    lambda n: "queued" if n == unresolved else "completed", effects,
+                    admission_paused=True,
+                )
+                self.assertEqual([n for n in (4, 5, 6, 7) if n != unresolved],
+                                 [c.args[0] for c in complete.call_args_list])
+                self.assertEqual([] if unresolved is None else [4], state.inflight.backlog)
+                self.assertIsNone(state.inflight_message_id)
+                expected_cursor = 7 if unresolved is None else 3
+                self.assertEqual([expected_cursor],
+                                 [c.args[0] for c in commit.call_args_list])
+                self.assertLess(expected_cursor, unresolved or 8)
+                release.assert_not_called()
+                inject = Mock()
+                services = dataclasses.replace(self.services(), inject_pending=inject,
+                    external_admission_paused=lambda: True)
+                poll_pending_channel_messages(1000001, None, b"cr", state, self.options(), self.policy(), services)
+                inject.assert_not_called()
+
+    def test_paused_backlog_failure_uses_original_attempt_clock(self):
+        from ciel_runtime_support.channel_pending_poll import observe_pending_channel_inflight
+        from ciel_runtime_support.channel_inflight import ChannelInflightEffects, ChannelInflightPolicy
+        state = ChannelPendingPollState(last_id=3)
+        state.inflight_message_id, state.inflight_cursor = 7, 7
+        state.inflight.backlog = [4, 5]
+        state.inflight.backlog_started_at = {4: 30}
+        failed = Mock(return_value="failed")
+        effects = ChannelInflightEffects(Mock(), Mock(), Mock(), lambda: 3, Mock(), failed)
+        observe_pending_channel_inflight(1000000, state,
+            ChannelInflightPolicy(1, 30, lambda *a: True, True, "fixture", "stale"),
+            lambda n: "turn_failed:0:31.000:api_error 400" if n in (4, 5) else "missing",
+            effects, admission_paused=True)
+        failed.assert_called_once_with(4, "turn_failed:0:31.000:api_error 400", 30)
+        self.assertEqual([5], state.inflight.backlog)
+        self.assertEqual({}, state.inflight.backlog_started_at)
+        self.assertEqual(7, state.inflight_message_id)
+        effects.release_wake.assert_not_called()
+        effects.commit_cursor.assert_not_called()
+
+    def test_paused_backlog_retry_remains_below_later_completion_cursor(self):
+        from ciel_runtime_support.channel_pending_poll import observe_pending_channel_inflight
+        from ciel_runtime_support.channel_inflight import ChannelInflightEffects, ChannelInflightPolicy
+        state = ChannelPendingPollState(last_id=3)
+        state.inflight_message_id, state.inflight_cursor = 7, 7
+        state.inflight.backlog = [4]
+        state.inflight.backlog_started_at = {4: 30}
+        commits, completed = [], []
+        effects = ChannelInflightEffects(commits.append, completed.append, Mock(), lambda: 3, Mock(),
+                                        Mock(return_value="retry"))
+        observe_pending_channel_inflight(1000000, state,
+            ChannelInflightPolicy(1, 30, lambda *a: True, True, "fixture", "stale"),
+            lambda n: "turn_failed:1:31.000:api_error 503" if n == 4 else "completed",
+            effects, admission_paused=True)
+        self.assertEqual([3], commits)
+        self.assertEqual([7], completed)
+        self.assertEqual([], state.inflight.backlog)
+        self.assertIsNone(state.inflight_message_id)
+        effects.release_wake.assert_not_called()
 
     def test_context_recovery_hard_gate_precedes_busy_socket_scan_and_cursor(self):
         inject, marker, cursor = Mock(), Mock(), Mock()

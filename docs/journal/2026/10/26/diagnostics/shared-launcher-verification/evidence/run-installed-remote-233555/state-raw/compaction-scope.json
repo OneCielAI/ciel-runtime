@@ -1,0 +1,17 @@
+{
+  "runtime": "codex",
+  "epoch": "00a25ff1df034b358bdea09d9ea9bc14",
+  "started_at": 1793075768.6811554,
+  "identity_since": 1793075769.6821125,
+  "session_id": "01a17ba4-ee6f-7b33-94b7-71a31f919431",
+  "cwd": "C:\\Windows\\Temp\\ciel-owned-alias-om651jdb\\ws",
+  "codex_home": "C:\\Windows\\Temp\\ciel-owned-alias-om651jdb\\home\\codex",
+  "path": "C:\\Windows\\Temp\\ciel-owned-alias-om651jdb\\home\\codex\\sessions\\2026\\10\\26\\rollout-2026-10-26T23-36-08-01a17ba4-ee6f-7b33-94b7-71a31f919431.jsonl",
+  "messaging_socket_path": "",
+  "owned_pid": 0,
+  "launcher_pid": 20532,
+  "claude_config_dir": "C:\\Windows\\Temp\\ciel-owned-alias-om651jdb\\home\\.claude",
+  "request_identity": true,
+  "seeded": false,
+  "request_observed": true
+}

@@ -1,0 +1,34 @@
+[
+  {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/call",
+    "params": {
+      "_meta": {
+        "callId": "call_1",
+        "x-codex-turn-metadata": {
+          "session_id": "01a18050-1b00-77e1-b581-5ddc2e35c911",
+          "thread_id": "01a18050-1b00-77e1-b581-5ddc2e35c911",
+          "model": "switch-probe",
+          "turn_id": "01a18050-1c0a-7303-baca-bd1fecc087bc",
+          "turn_started_at_unix_ms": 1793154096187,
+          "sandbox": "none",
+          "sandbox_mode": "read-only",
+          "auto_review_enabled": false,
+          "node_repl_auto_review_required": false,
+          "node_repl_disabled": false,
+          "codex_version": "0.158.0"
+        },
+        "threadId": "01a18050-1b00-77e1-b581-5ddc2e35c911",
+        "sessionId": "01a18050-1b00-77e1-b581-5ddc2e35c911",
+        "windowId": "01a18050-1b00-77e1-b581-5ddc2e35c911:0",
+        "itemId": "fc_1",
+        "progressToken": 1
+      },
+      "name": "work_mode_set",
+      "arguments": {
+        "enabled": true
+      }
+    }
+  }
+]

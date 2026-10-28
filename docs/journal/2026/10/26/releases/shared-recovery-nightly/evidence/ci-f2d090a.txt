@@ -1,0 +1,5 @@
+# CI rerun after f2d090a (full Linux groups; not run on live Windows account)
+{"conclusion":"success","headSha":"f2d090ae30edbfdf703fca171f2289c250382169","jobs":[{"conclusion":"success","name":"python-minimum"},{"conclusion":"success","name":"test (unit)"},{"conclusion":"success","name":"test (channel)"},{"conclusion":"success","name":"test (router)"},{"conclusion":"success","name":"test (runtime)"},{"conclusion":"success","name":"quality"}],"url":"https://github.com/OneCielAI/ciel-runtime/actions/runs/40452623683"}
+
+# Publish
+{"conclusion":"success","headSha":"f2d090ae30edbfdf703fca171f2289c250382169","url":"https://github.com/OneCielAI/ciel-runtime/actions/runs/40452623642"}

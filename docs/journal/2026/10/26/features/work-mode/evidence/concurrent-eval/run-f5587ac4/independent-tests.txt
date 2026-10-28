@@ -1,0 +1,28 @@
+test_A0_blind_write_tombstone (__main__.CacheTests.test_A0_blind_write_tombstone) ... ok
+test_A0_failed_commit_closes (__main__.CacheTests.test_A0_failed_commit_closes) ... ok
+test_A0_frozen_snapshot (__main__.CacheTests.test_A0_frozen_snapshot) ... ok
+test_A0_read_conflict_atomic (__main__.CacheTests.test_A0_read_conflict_atomic) ... ok
+test_A0_read_missing_conflicts (__main__.CacheTests.test_A0_read_missing_conflicts) ... ok
+test_A0_read_your_writes_close (__main__.CacheTests.test_A0_read_your_writes_close) ... ok
+test_A0_ttl (__main__.CacheTests.test_A0_ttl) ... ok
+test_A0_ttl_at_commit (__main__.CacheTests.test_A0_ttl_at_commit) ... ok
+test_A1_expired_capacity_eviction_conflict (__main__.CacheTests.test_A1_expired_capacity_eviction_conflict) ... ok
+test_A1_fifo_not_lru (__main__.CacheTests.test_A1_fifo_not_lru) ... ok
+test_A1_write_order_and_capacity (__main__.CacheTests.test_A1_write_order_and_capacity) ... ok
+test_C0_chunks_quotes_newline_decimal (__main__.LedgerTests.test_C0_chunks_quotes_newline_decimal) ... ok
+test_C0_empty_blank (__main__.LedgerTests.test_C0_empty_blank) ... ok
+test_C0_exact_not_float (__main__.LedgerTests.test_C0_exact_not_float) ... ok
+test_C1_invalid_overridden_row_still_rejected (__main__.LedgerTests.test_C1_invalid_overridden_row_still_rejected) ... ok
+test_C1_last_row_wins_account_change_zero (__main__.LedgerTests.test_C1_last_row_wins_account_change_zero) ... ok
+test_B0_dependencies_and_priority (__main__.SchedulerTests.test_B0_dependencies_and_priority) ... ok
+test_B0_finish_requires_running (__main__.SchedulerTests.test_B0_finish_requires_running) ... ok
+test_B0_unknown_dependency (__main__.SchedulerTests.test_B0_unknown_dependency) ... ok
+test_B1_cycle_change_atomic (__main__.SchedulerTests.test_B1_cycle_change_atomic) ... ok
+test_B1_failed_dependency_retry (__main__.SchedulerTests.test_B1_failed_dependency_retry) ... ok
+test_B1_insertion_not_lexical (__main__.SchedulerTests.test_B1_insertion_not_lexical) ... ok
+test_B1_replace_and_nonpending (__main__.SchedulerTests.test_B1_replace_and_nonpending) ... ok
+
+----------------------------------------------------------------------
+Ran 23 tests in 0.063s
+
+OK

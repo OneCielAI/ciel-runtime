@@ -1,0 +1,107 @@
+import os, json, time, ctypes, msvcrt, datetime, re
+from ctypes import wintypes
+# Read-only: Edward transcript record shapes 2026-10-26T23:30Z onward, project dir listing,
+# transcript cursor paths. Never prints message text bodies.
+k32 = ctypes.WinDLL("kernel32", use_last_error=True); adv = ctypes.WinDLL("advapi32", use_last_error=True)
+class LUID(ctypes.Structure): _fields_ = [("Low", wintypes.DWORD), ("High", wintypes.LONG)]
+class TP(ctypes.Structure): _fields_ = [("Count", wintypes.DWORD), ("Luid", LUID), ("Attr", wintypes.DWORD)]
+k32.GetCurrentProcess.restype = wintypes.HANDLE
+adv.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+adv.LookupPrivilegeValueW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.POINTER(LUID)]
+adv.AdjustTokenPrivileges.argtypes = [wintypes.HANDLE, wintypes.BOOL, ctypes.POINTER(TP), wintypes.DWORD, wintypes.LPVOID, wintypes.LPVOID]
+tok = wintypes.HANDLE(); adv.OpenProcessToken(k32.GetCurrentProcess(), 0x28, ctypes.byref(tok))
+luid = LUID(); adv.LookupPrivilegeValueW(None, "SeBackupPrivilege", ctypes.byref(luid))
+tp = TP(1, luid, 2); adv.AdjustTokenPrivileges(tok, False, ctypes.byref(tp), 0, None, None)
+k32.CreateFileW.restype = wintypes.HANDLE
+k32.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+def bopen(p):
+    h = k32.CreateFileW(p, 0x80000000, 7, None, 3, 0x02000000, None)
+    if h in (None, -1, wintypes.HANDLE(-1).value):
+        raise OSError(ctypes.get_last_error(), "open failed", p)
+    return os.fdopen(msvcrt.open_osfhandle(h, os.O_RDONLY | os.O_BINARY), "rb")
+def fmt(t): return time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(t))
+print("REMOTE_NOW %.3f" % time.time())
+proj = r"C:\Users\aapw-a22u22\.claude\projects\C--ProgramData-aap-win-sandboxes-u22-home-edward-ai"
+try:
+    rows = []
+    with os.scandir(proj) as it:
+        for e in it:
+            st = e.stat(); rows.append((st.st_mtime, e.name, st.st_size, e.is_dir()))
+    for m, n, s, d in sorted(rows)[-15:]:
+        print("PROJ", fmt(m), n, s, "dir" if d else "file")
+except Exception as e:
+    print("PROJ_ERR", type(e).__name__, e)
+cfg = r"C:\Users\aapw-a22u22\AppData\Roaming\ciel-runtime"
+ws = os.path.join(cfg, "workspaces", "4d48ef23cb8e")
+try:
+    with bopen(os.path.join(ws, "transcript-event-cursors.json")) as fh: v = json.loads(fh.read().decode("utf-8"))
+    def paths(x, p=""):
+        if isinstance(x, dict):
+            for k, y in x.items(): paths(y, p + "/" + str(k)[-80:])
+        elif isinstance(x, list):
+            print("TCURSOR", p, "list", len(x))
+        else:
+            print("TCURSOR", p, str(x)[-120:])
+    paths(v)
+except Exception as e:
+    print("TCURSOR_ERR", type(e).__name__, e)
+for cp in (os.path.join(ws, "config.json"),):
+    try:
+        with bopen(cp) as fh: c = json.loads(fh.read().decode("utf-8"))
+        print("CFG_LOG_LEVEL", c.get("log_level"), "keys_with_log", [k for k in c if "log" in k.lower()][:10])
+    except Exception as e:
+        print("CFG_ERR", type(e).__name__, e)
+pat = re.compile(rb'"timestamp":"(20\d\d-\d\d-\d\dT\d\d:\d\d:\d\d[.\d]*Z)"')
+def line_ts(line):
+    m = pat.search(line[-400:]) or pat.search(line[:600])
+    if not m and len(line) < 4_000_000: m = pat.search(line)
+    return m.group(1).decode() if m else None
+def summarize(tr, lo, max_print):
+    T0 = time.time()
+    try:
+        fh = bopen(tr)
+    except Exception as e:
+        print("TR_ERR", tr[-60:], type(e).__name__, e); return
+    with fh:
+        fh.seek(0, 2); size = fh.tell(); print("TR", tr[-50:], "size", size)
+        a, b = 0, size
+        while b - a > 1_000_000 and time.time() - T0 < 60:
+            mid = (a + b) // 2; fh.seek(mid); fh.readline(); t = None
+            for _ in range(50):
+                line = fh.readline()
+                if not line: break
+                t = line_ts(line)
+                if t: break
+            if t is None or t[:16] >= lo: b = mid
+            else: a = mid
+        fh.seek(a)
+        if a: fh.readline()
+        printed = 0; counts = {}
+        for line in fh:
+            if time.time() - T0 > 120: print("DEADLINE"); break
+            t = line_ts(line)
+            if not t or t[:16] < lo: continue
+            try: r = json.loads(line.replace(b"\x00", b""))
+            except Exception: continue
+            if not isinstance(r, dict): continue
+            typ = str(r.get("type")); m = r.get("message") if isinstance(r.get("message"), dict) else {}
+            c = m.get("content"); origin = r.get("origin") if isinstance(r.get("origin"), dict) else {}
+            txt = c if isinstance(c, str) else " ".join(str(b.get("text") or "") for b in (c or []) if isinstance(b, dict) and b.get("type") == "text") if isinstance(c, list) else ""
+            kinds = [b.get("type") for b in c if isinstance(b, dict)] if isinstance(c, list) else []
+            k = typ
+            if typ == "user": k = "user:tool_result" if "tool_result" in kinds else "user:text"
+            elif typ == "assistant": k = "assistant:" + str(m.get("stop_reason"))
+            elif typ in ("queue-operation", "system"): k = typ + ":" + str(r.get("operation") or r.get("subtype") or "")
+            counts[k] = counts.get(k, 0) + 1
+            interesting = typ == "queue-operation" or (typ == "user" and "tool_result" not in kinds) or (typ == "system" and r.get("subtype") not in ("turn_duration", "stop_hook_summary")) or r.get("isApiErrorMessage")
+            if interesting and printed < max_print:
+                printed += 1
+                print("REC", t, k, "sid", str(r.get("sessionId") or "")[:8], "origin", origin.get("kind"), "isMeta", r.get("isMeta"),
+                      "peer_marker", "Another Claude session" in txt, "ciel_marker", ("ciel" in txt.lower()), "len", len(txt),
+                      "qcontent_len", len(str(r.get("content") or "")) if typ == "queue-operation" else "", "api_err", r.get("isApiErrorMessage"))
+        print("COUNTS", tr[-45:], json.dumps(counts, sort_keys=True))
+main = os.path.join(proj, "354281f4-a695-46c2-a0db-450d681953b8.jsonl")
+summarize(main, "2026-10-26T23:30", 400)
+fork = os.path.join(proj, "b1e17ad1-6afd-4210-86e4-5e327c749e3b.jsonl")
+summarize(fork, "2026-10-26T23:30", 120)
+print("REMOTE_END %.3f" % time.time())

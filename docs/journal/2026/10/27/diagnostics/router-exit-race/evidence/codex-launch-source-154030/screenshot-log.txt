@@ -1,0 +1,8 @@
+01-first-launch
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\router-exit-race\evidence\codex-launch-source-154030\01-first-launch.png handle=2758490 printwindow=True
+02-first-exit
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\router-exit-race\evidence\codex-launch-source-154030\02-first-exit.png handle=2758490 printwindow=True
+03-relaunch
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\router-exit-race\evidence\codex-launch-source-154030\03-relaunch.png handle=2758490 printwindow=True
+04-second-exit
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\router-exit-race\evidence\codex-launch-source-154030\04-second-exit.png handle=2758490 printwindow=True

@@ -1,0 +1,36 @@
+08:05:53 Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\minute-eval\evaluate.py", line 84, in <module>
+    else:raise RuntimeError("CLI startup timeout: "+screen()[-800:])
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: CLI startup timeout: Ciel Runtime launch blocked:
+- Launch blocked: Base URL: unreachable (TimeoutError)
+- Set a reachable Base URL before launching Claude Code.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+08:05:54 finished C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\minute-eval\run-2c0e7008

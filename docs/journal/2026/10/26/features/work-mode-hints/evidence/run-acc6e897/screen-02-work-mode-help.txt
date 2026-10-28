@@ -1,0 +1,38 @@
+
+ ▐▛███▛█   Claude Code v2.1.310
+▝▜██████▀  fake-work · API Usage Billing
+ ▝▝   ▝▝   C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-acc6e897\ws
+
+⚠ Model "fake-work" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs
+
+❯ /work-mode help
+  ⎿  ciel-work: Ciel Work mode — plan first, then execute
+     • Planning: the model builds a plan with work_plan_set: goal → phases → tasks → verifiable steps. Reading is allowed; edits and
+     state-changing commands wait.
+     • New requests: an independent request becomes its own numbered item ("2. …") and waits in the queue behind the active item; a
+     change to an existing item is added under that item.
+     • Executing: after work_execute (automatic, or your approval when set to ask) the model works step by step and marks each step
+     done with evidence.
+     • Above the prompt: Ctrl+X Tab focuses the items · Tab/↑↓ select · Enter inspects · Esc returns.
+     • /work-mode view: keyboard inspector · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode help:
+     this help
+     • Settings: ciel-runtime menu → LLM options → Work mode (on/off) and Work plan approval (auto/ask).
+
+
+
+
+
+
+
+
+
+
+
+
+
+Work unavailable — /work-mode status                                                                                               [-]
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)                                                                     work: unavailable

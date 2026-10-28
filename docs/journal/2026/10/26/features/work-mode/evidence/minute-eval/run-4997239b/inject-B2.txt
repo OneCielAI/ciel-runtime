@@ -1,0 +1,30 @@
+      288 -                s.feed(text[:cut]) if cut < len(text) else None
+      287 +                cut = rng.randint(0, len(text) - 1)  # last char (LF) in 2nd piece
+      288 +                self.assertEqual(s.feed(text[:cut]), [])
+      289                  if outcome == "ok":
+      290 -                    self.assertEqual(s.feed(text[cut:]) if cut < len(text) else s.feed(text), [ev["id"
+          -]])
+      290 +                    self.assertEqual(s.feed(text[cut:]), [ev["id"]])
+      291                  elif outcome == "dup":
+      292 -                    self.assertEqual(s.feed(text[cut:]) if cut < len(text) else s.feed(text), [])
+      292 +                    self.assertEqual(s.feed(text[cut:]), [])
+      293                  else:
+      294                      exc = ConflictError if outcome == "conflict" else InventoryError
+      295                      with self.assertRaises(exc):
+      296 -                        s.feed(text[cut:]) if cut < len(text) else s.feed(text)
+      296 +                        s.feed(text[cut:])
+      297 +                    if outcome == "insufficient":
+      298 +                        self.assertNotIsInstance(cm_exc(s, text), ConflictError) if False else None
+      299              self.assertEqual(s.snapshot(), bal)
+      300
+      301
+
+· Architecting… (6m 2s · ↓ 38.0k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt
+                     work: run 8/14 [A: routing_gr… 4/4 | B: booking_ca… 4/4 | C: inventory_… 0/4 | …] · C0 implement
+                     InventoryStream/InventoryError/ConflictError > Writ…

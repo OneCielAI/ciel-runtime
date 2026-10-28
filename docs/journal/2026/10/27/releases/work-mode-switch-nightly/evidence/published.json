@@ -1,0 +1,29 @@
+{
+  "version": "0.2.51-nightly.20261028-023853.679245f",
+  "gitHead": "679245fa9feaff3d72d7c948a53b5a7a92d5a2d4",
+  "tags": {
+    "latest": "0.2.51",
+    "nightly": "0.2.51-nightly.20261028-023853.679245f"
+  },
+  "dist": {
+    "shasum": "693a1501b40c0d74d878b4a0f114cbced6f4df60",
+    "tarball": "https://registry.npmjs.org/@one-ciel-ai/ciel-runtime/-/ciel-runtime-0.2.51-nightly.20261028-023853.679245f.tgz",
+    "fileCount": 514,
+    "integrity": "sha512-zKq3KISqc6Vqxr8jKxwMeH5MPPsk3QTylDrIUdNJby4DxZJmWhEgM/wjKNdPOhTeC72VkPuhjG5LMnBCCYbT1g==",
+    "signatures": [
+      {
+        "sig": "MEQCIAnLw6vKDtRaovukd9SmXcycC7heLSUrCn6KFtDYJpaKAiB0ZUepMIiLOi+aFJA+2MiJrMyNYJxTRabbVdYWhK8SUw==",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "sig": "MEYCIQDebpEFt9z1Gwp4F/Oh9PrJtP0mKwLR05c+j+3Iv1yx+wIhAPj3N3aEC6WKv1jQKEUlv9/dOR1bnjNsJm9RJqwJhpWe",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      }
+    ],
+    "unpackedSize": 6937868
+  },
+  "tarball_sha256": "600c292f5318c622c75048f3feb27ea515e5255be0fd13602c34c54555596ac5",
+  "tarball_bytes": 1578802,
+  "files": 514,
+  "package_dir": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\27\\releases\\work-mode-switch-nightly\\evidence\\payload\\unpack\\package"
+}

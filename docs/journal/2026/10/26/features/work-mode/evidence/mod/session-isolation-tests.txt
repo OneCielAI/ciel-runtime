@@ -1,0 +1,181 @@
+validate exit=0
+Validating plugin manifest: C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\claude_mods\ciel-work\.claude-plugin\plugin.json
+
+Validating hooks: C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\claude_mods\ciel-work\hooks\hooks.json
+
+  ❯ ./register.js hooks: session.start, prompt.submit, command.run{command=work-mode}, tool.call, tool.check, session.end, ui.render{component=SessionMode}
+  ❯ ./register.js answers its own command: command.run{command=work-mode}
+  ❯ ./register.js gating hook without .catch: prompt.submit
+  ❯ ./register.js gating hook without .catch: tool.call
+  ❯ ./register.js gating hook without .catch: tool.check
+  ❯ ./register.js calls: $.command.register, $.mcp.call (via planText, refresh), $.session.id (via sessionId), $.ui.ask, $.ui.invalidate (via refresh)
+
+Plugin directory checks for C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\claude_mods\ciel-work. The plugin directory is the catalog that plugins are submitted to; this is a subset of what it runs.
+
+⚠ Found 1 plugin directory warning:
+
+  ❯ .claude-plugin/plugin.json icon: No icon (ICON_MISSING). No icon found in the plugin. The validator looked for `icon` in plugin.json and for a file at .claude-plugin/icon.png or .svg, assets/icon.png or .svg, or a similar path.
+    Fix: Add a square PNG to the plugin folder at .claude-plugin/icon.png, or set `icon` in plugin.json to the path of a square PNG or JPEG in the plugin: 512 to 2048 px on each side, under 2 MB. SVG and WebP are not accepted. That file may become the listing icon only once: the first time the plugin is saved or submitted in the developer portal. Adding or changing it later does not change the icon.
+
+About these checks:
+
+  ❯ The repository root was taken to be C:\Users\djlov\ciel-runtime-wt-work, the nearest parent folder with a .git folder or file. README.md and LICENSE were taken from it, because this plugin folder has none of its own. For a plugin submitted from a git repository, the repository root is the top folder of that repository, with only what is committed there, so check that the folder named above is that top folder.
+  ❯ hooks/hooks.json names a hooks module (a code file listed under `modules`). The plugin directory has rules of its own for such code, and these checks apply none of them, so passing here does not mean the directory accepts the plugin. The developer portal's own validation applies those rules.
+
+These plugin directory checks do not change the result below.
+
+The directory also runs a safety scan and a policy review that this command does not.
+
+✔ Validation passed
+
+
+
+test exit=1
+
+tests\work.test.ts:
+(fail) immediate command, router tree, bounded prompt context [47.08ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "Goal -> phase"
+  Received: "Work status unavailable: router connection or snapshot could not be verified."
+  
+  a hook answers a result object: the event's own result, or { value: ... } for a call on $
+  
+  the engine reported:
+    test's session.id hook was skipped: test: returned something that is not a result object
+    test's session.id hook was skipped: test: returned something that is not a result object
+(fail) planning denies all known writes including subagents; live phase refresh [20.59ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "planning"
+  Received: "Work status unavailable: router connection or snapshot could not be verified."
+  
+  a hook answers a result object: the event's own result, or { value: ... } for a call on $
+  
+  the engine reported:
+    test's session.id hook was skipped: test: returned something that is not a result object
+(fail) shells use engine read-only flag and disabled state clears guards [21.95ms]
+  AssertionError: expect(received).toBeUndefined()
+  
+  Expected: undefined
+  Received: "Work status unavailable: router connection or snapshot could not be verified."
+  
+  a hook answers a result object: the event's own result, or { value: ... } for a call on $
+  
+  the engine reported:
+    test's session.id hook was skipped: test: returned something that is not a result object
+    test's session.id hook was skipped: test: returned something that is not a result object
+    test's session.id hook was skipped: test: returned something that is not a result object
+    test's session.id hook was skipped: test: returned something that is not a result object
+    test's session.id hook was skipped: test: returned something that is not a result object
+(fail) unavailable and malformed status fail closed but reads pass [26.92ms]
+  returned something that is not a result object
+  
+  a hook answers a result object: the event's own result, or { value: ... } for a call on $
+  
+  in the test's session.id hook
+  
+  the engine reported:
+    test's session.id hook was skipped: test: returned something that is not a result object
+    test's session.id hook was skipped: test: returned something that is not a result object
+    test's session.id hook was skipped: test: returned something that is not a result object
+(fail) auto strips forged confirmation and refreshes after result [17.22ms]
+  TypeError: undefined is not an object (evaluating 's.tools[0].user_confirmed')
+  
+  a hook answers a result object: the event's own result, or { value: ... } for a call on $
+  
+  the engine reported:
+    test's session.id hook was skipped: test: returned something that is not a result object
+    test's session.id hook was skipped: test: returned something that is not a result object
+(fail) ask: Approve [19.31ms]
+  AssertionError: expect(received).toBe()
+  
+  Expected: 1
+  Received: 0
+  
+  a hook answers a result object: the event's own result, or { value: ... } for a call on $
+  
+  the engine reported:
+    test's session.id hook was skipped: test: returned something that is not a result object
+    test's session.id hook was skipped: test: returned something that is not a result object
+(fail) ask: Keep planning [19.84ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "not approved"
+  Received: "Work status unavailable: router connection or snapshot could not be verified."
+  
+  a hook answers a result object: the event's own result, or { value: ... } for a call on $
+  
+  the engine reported:
+    test's session.id hook was skipped: test: returned something that is not a result object
+    test's session.id hook was skipped: test: returned something that is not a result object
+(fail) ask: Other [19.68ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "not approved"
+  Received: "Work status unavailable: router connection or snapshot could not be verified."
+  
+  a hook answers a result object: the event's own result, or { value: ... } for a call on $
+  
+  the engine reported:
+    test's session.id hook was skipped: test: returned something that is not a result object
+    test's session.id hook was skipped: test: returned something that is not a result object
+(fail) approval rejects changed plan [22.08ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "changed"
+  Received: "Work status unavailable: router connection or snapshot could not be verified."
+  
+  a hook answers a result object: the event's own result, or { value: ... } for a call on $
+  
+  the engine reported:
+    test's session.id hook was skipped: test: returned something that is not a result object
+    test's session.id hook was skipped: test: returned something that is not a result object
+(fail) SessionMode planning, progress, off and unavailable are read-only renders [29.78ms]
+  AssertionError: expect(received).toEqual()
+  
+  Expected: ["auto", "work: planning"]
+  Received: ["auto", "work: unavailable"]
+  
+  a hook answers a result object: the event's own result, or { value: ... } for a call on $
+  
+  the engine reported:
+    test's session.id hook was skipped: test: returned something that is not a result object
+(fail) unavailable shell and execute fail closed; missing approval tree cannot execute [19.69ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "not obtained"
+  Received: "Work status unavailable: router connection or snapshot could not be verified."
+  
+  a hook answers a result object: the event's own result, or { value: ... } for a call on $
+  
+  the engine reported:
+    test's session.id hook was skipped: test: returned something that is not a result object
+    test's session.id hook was skipped: test: returned something that is not a result object
+    test's session.id hook was skipped: test: returned something that is not a result object
+    test's session.id hook was skipped: test: returned something that is not a result object
+    test's session.id hook was skipped: test: returned something that is not a result object
+(fail) every Work result refreshes; another server is not treated as Work [19.87ms]
+  AssertionError: expect(received).toBe()
+  
+  Expected: 2
+  Received: 0
+  
+  a hook answers a result object: the event's own result, or { value: ... } for a call on $
+  
+  the engine reported:
+    test's session.id hook was skipped: test: returned something that is not a result object
+    test's session.id hook was skipped: test: returned something that is not a result object
+(fail) conversation changes isolate every router read and override forged tool session ids [26.18ms]
+  TypeError: undefined is not an object (evaluating 's.tools[0].session_id')
+  
+  a hook answers a result object: the event's own result, or { value: ... } for a call on $
+  
+  the engine reported:
+    test's session.id hook was skipped: test: returned something that is not a result object
+    test's session.id hook was skipped: test: returned something that is not a result object
+
+ 0 pass
+ 13 fail
+Ran 13 tests across 1 file. [0.52s]
+

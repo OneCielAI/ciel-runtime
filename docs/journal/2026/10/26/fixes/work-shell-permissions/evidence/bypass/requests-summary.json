@@ -1,0 +1,334 @@
+[
+ {
+  "n": 1,
+  "tag": "aux",
+  "stage": 0,
+  "tool_names": [],
+  "context_number_hint": false,
+  "plan_tool_number_hint": false,
+  "notice_sent_to_model": false,
+  "prior_results": [],
+  "response": [
+   {
+    "type": "text",
+    "text": "E2EHINT-AUX-OK"
+   }
+  ]
+ },
+ {
+  "n": 2,
+  "tag": "main",
+  "stage": 0,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [],
+  "served_tool": "Bash",
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_h2",
+    "name": "Bash",
+    "input": {
+     "command": "printf WORK-BASH-OK > bash-marker.txt",
+     "description": "Write disposable Bash proof marker"
+    }
+   }
+  ]
+ },
+ {
+  "n": 3,
+  "tag": "main",
+  "stage": 1,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [
+   {
+    "tool_use_id": "toolu_h2",
+    "type": "tool_result",
+    "content": "Shell cwd was reset to C:\\Users\\djlov\\AppData\\Local\\Temp\\work-shell-proof-3a3f659e\\ws",
+    "is_error": false,
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "served_tool": "Bash",
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_h3",
+    "name": "Bash",
+    "input": {
+     "command": "powershell.exe -NoProfile -Command \"[IO.File]::WriteAllText('powershell-marker.txt','WORK-POWERSHELL-OK')\"",
+     "description": "Write disposable PowerShell proof marker"
+    }
+   }
+  ]
+ },
+ {
+  "n": 4,
+  "tag": "main",
+  "stage": 2,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [
+   {
+    "tool_use_id": "toolu_h2",
+    "type": "tool_result",
+    "content": "Shell cwd was reset to C:\\Users\\djlov\\AppData\\Local\\Temp\\work-shell-proof-3a3f659e\\ws",
+    "is_error": false
+   },
+   {
+    "tool_use_id": "toolu_h3",
+    "type": "tool_result",
+    "content": "Shell cwd was reset to C:\\Users\\djlov\\AppData\\Local\\Temp\\work-shell-proof-3a3f659e\\ws",
+    "is_error": false,
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "served_tool": "Write",
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_h4",
+    "name": "Write",
+    "input": {
+     "file_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-shell-proof-3a3f659e\\ws\\subject.txt",
+     "content": "ILLEGAL-DIRECT-WRITE"
+    }
+   }
+  ]
+ },
+ {
+  "n": 5,
+  "tag": "main",
+  "stage": 3,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [
+   {
+    "tool_use_id": "toolu_h3",
+    "type": "tool_result",
+    "content": "Shell cwd was reset to C:\\Users\\djlov\\AppData\\Local\\Temp\\work-shell-proof-3a3f659e\\ws",
+    "is_error": false
+   },
+   {
+    "type": "tool_result",
+    "content": "<tool_use_error>Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)</tool_use_error>",
+    "is_error": true,
+    "tool_use_id": "toolu_h4",
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "response": [
+   {
+    "type": "text",
+    "text": "WORK-SHELL-PROOF-END"
+   }
+  ]
+ }
+]

@@ -6,8 +6,13 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from ciel_runtime_support.channel_inflight import (
+    ChannelInflightEffects, ChannelInflightPolicy, ChannelInflightSnapshot,
+    advance_channel_inflight,
+)
 from ciel_runtime_support.channel_message_repository import ChannelFileLockBusy
 from ciel_runtime_support.runtime_input_status import WakeAttemptConflict
+from ciel_runtime_support.runtime_input_retry import is_failed_state
 
 
 @dataclass(slots=True)
@@ -21,6 +26,7 @@ class ChannelPendingInflightState:
     # in during a turn and another one right after it; tracking only the
     # newest left the earlier ones at "submitted" forever.
     backlog: list[int] = field(default_factory=list)
+    backlog_started_at: dict[int, float] = field(default_factory=dict)
     recovery_paused_at: float | None = None
     # Protection belongs to submitted attempts, not the current poll slot. Old
     # slots move into backlog when a newer socket batch is submitted.
@@ -128,6 +134,78 @@ class ChannelPendingPollServices:
     external_admission_paused: Callable[[], bool] = lambda: False
 
 
+def observe_pending_channel_inflight(
+    now: float,
+    state: ChannelPendingPollState,
+    policy: ChannelInflightPolicy,
+    wake_state: Callable[[int], str],
+    effects: ChannelInflightEffects,
+    *,
+    admission_paused: bool = False,
+) -> None:
+    """Settle exact evidence independently of admission, including older sends.
+
+    Observe backlog slots without age-based release; normal promotion still
+    starts their timeout clock. Retain attempt times for failure matching. A
+    paused admission never authorizes timeout release of the current slot.
+    """
+    paused = state.inflight.hold_for_recovery(now, admission_paused)
+    if paused:
+        state.pending_recheck = True
+    # Visit older sends even if the newest send has no evidence yet. Completing
+    # a representative settles its entire durable prompt group in the effects.
+    retry_ceiling: int | None = None
+    for message_id in list(state.inflight.backlog):
+        evidence = wake_state(message_id)
+        # Old/handoff callers may supply only ids. An error without its attempt
+        # clock cannot be attributed safely; completion proof is still usable.
+        if is_failed_state(evidence) and message_id not in state.inflight.backlog_started_at:
+            continue
+        update = advance_channel_inflight(
+            ChannelInflightSnapshot(
+                message_id, None, evidence, state.inflight.backlog_started_at.get(message_id, 0.0),
+                state.inflight_logged_at, now, state.last_id,
+                recovery_protected=message_id in state.inflight.recovery_protected,
+                admission_paused=True,
+            ), policy, effects,
+        )
+        if update.action == "retrying":
+            retry_ceiling = min(retry_ceiling, message_id - 1) if retry_ceiling is not None else message_id - 1
+        if update.message_id is None:
+            state.inflight.backlog.remove(message_id)
+            state.inflight.backlog_started_at.pop(message_id, None)
+            state.inflight.recovery_protected.discard(message_id)
+            state.pending_recheck = True
+            state.last_id = update.last_id
+    if state.inflight_message_id is None:
+        return
+    # The injector supplies a safe ceiling for deferred queue rows. Also retain
+    # the older outstanding ownership frontier if a caller provided a larger
+    # ceiling. Settling a later send must not consume an unresolved earlier one.
+    cursor = state.inflight_cursor
+    if cursor is not None and state.inflight.backlog:
+        cursor = min(cursor, min(state.inflight.backlog) - 1)
+    if cursor is not None and retry_ceiling is not None:
+        cursor = min(cursor, retry_ceiling)
+    update = advance_channel_inflight(
+        ChannelInflightSnapshot(
+            state.inflight_message_id, cursor,
+            wake_state(state.inflight_message_id), state.inflight_started_at,
+            state.inflight_logged_at, now, state.last_id,
+            recovery_protected=state.inflight_message_id in state.inflight.recovery_protected,
+            admission_paused=paused,
+        ), policy, effects,
+    )
+    state.inflight_message_id = update.message_id
+    state.inflight_cursor = update.cursor
+    state.inflight_started_at = update.started_at
+    state.inflight_logged_at = update.logged_at
+    state.pending_recheck = state.pending_recheck or update.pending_recheck
+    state.last_id = update.last_id
+    if update.action in {"completed", "failed"}:
+        state.inflight.attempts = 0
+
+
 def poll_pending_channel_messages(
     now: float,
     writer: Any,
@@ -145,6 +223,7 @@ def poll_pending_channel_messages(
         return state
     if state.inflight_message_id is None and state.inflight.backlog:
         state.inflight_message_id = state.inflight.backlog.pop(0)
+        state.inflight.backlog_started_at.pop(state.inflight_message_id, None)
         state.inflight_cursor = None
         state.inflight_started_at = now
         state.inflight_logged_at = now
@@ -242,6 +321,7 @@ def poll_pending_channel_messages(
         state.inflight.recovery_pause_owner = None
         if state.inflight_message_id is not None:
             state.inflight.backlog.append(state.inflight_message_id)
+            state.inflight.backlog_started_at[state.inflight_message_id] = state.inflight_started_at
         state.inflight_message_id = injected_ids[-1]
         state.inflight.attempts += 1
         # Router delivery may return its pre-batch cursor, while a mixed scan

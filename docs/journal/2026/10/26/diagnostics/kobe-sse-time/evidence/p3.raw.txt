@@ -1,0 +1,248 @@
+LOCAL_BEFORE 1793062522.994 LOCAL_AFTER 1793062529.593 ROUNDTRIP 6.599
+PRIV 1 1 1 last_error 0
+REMOTE_NOW 1793062526.210 2026-10-27T00:55:26.209Z
+WS_FILE .migrated-from-router-instance 19 2026-10-02T14:09:56
+WS_FILE channel-llm-clear-floor.json 49 2026-10-26T16:45:55
+WS_FILE channel-llm-cursor.json 18 2026-10-26T17:47:18
+WS_FILE channel-llm-launch-guard.json 88 2026-10-26T16:45:55
+WS_FILE channel-stdin-wake-claims.json 15 2026-10-21T18:52:45
+WS_FILE chat-messages.jsonl 13923 2026-10-19T10:27:16
+WS_FILE chat-messages.jsonl.lock 1 2026-10-18T16:02:25
+WS_FILE company-prompt-reload.json 149 2026-10-26T12:05:52
+WS_FILE config.json 55747 2026-10-24T00:15:33
+WS_FILE event-acks.jsonl 1165411 2026-10-26T16:45:50
+WS_FILE external-event-secrets.vault.json 228 2026-10-21T14:03:25
+WS_FILE external-event-secrets.vault.key 44 2026-10-02T02:42:16
+WS_FILE external-event-sse-cursors.json 140 2026-10-26T17:47:10
+WS_FILE mcp-launches 0 2026-10-26T16:45:53
+WS_FILE oauth-tokens.state.json.lock 1 2026-10-02T14:03:02
+WS_FILE remote-instructions-claude.json 577 2026-10-26T12:15:08
+WS_FILE remote-instructions-codex.json 576 2026-10-26T12:15:08
+WS_FILE remote-instructions-codex_app_server.json 576 2026-10-23T20:26:14
+WS_FILE runtime-input-status.jsonl 837669 2026-10-26T17:47:18
+WS_FILE runtime-input-status.jsonl.lock 1 2026-10-21T01:56:54
+WS_FILE runtime-inputs.jsonl 15418194 2026-10-26T17:47:10
+WS_FILE runtime-inputs.jsonl.1 20001338 2026-10-17T23:41:54
+WS_FILE runtime-inputs.jsonl.lock 1 2026-10-03T10:24:57
+WS_FILE telemetry-logs 0 2026-10-26T17:54:52
+WS_FILE transcript-event-cursors.json 8093 2026-10-26T17:55:15
+WS_FILE work-sessions 0 2026-10-26T09:48:07
+LOG_LEVEL_ERR [Errno 2] open failed: 'C:\\Users\\aapw-a24u24\\AppData\\Roaming\\ciel-runtime\\log-level'
+RECEIVER_CFG time\workspaces\651d879f6c68\config.json 651d879f6c68 default {'enabled': True, 'transport': 'sse', 'input_transport': 'auto', 'idle_timeout_seconds': None, 'event_types': ['com.ciel.walkie.support.message'], 'cursor_json_pointer': '/data/stream_id', 'cursor_query_parameter': 'after'}
+STATE external-event-sse-cursors.json {"default": "23532"}
+STATE channel-llm-cursor.json {"last_id": 7679}
+STATE channel-llm-clear-floor.json {"last_id": 7678, "updated_at": 1793058355.198688}
+STATE channel-llm-launch-guard.json {"created_at": 1793058355.205081, "expires_at": 1793058535.205081, "max_existing_id": 7678}
+QUEUE_SIZE 15418194 rows_in_tail 1162
+QROW 7635 created 2026-10-26T09:52:58.495Z time 2026-10-26T02:52:58 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:897 recv default itrans session_socket event_time 2026-10-26T09:53:00.225Z len 3065
+QROW 7636 created 2026-10-26T10:36:59.455Z time 2026-10-26T03:36:59 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:898 recv default itrans session_socket event_time 2026-10-26T10:37:00.966Z len 2919
+QROW 7637 created 2026-10-26T11:15:12.723Z time 2026-10-26T04:15:12 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid af1add9f-adce-4a19-9781-4950605b36cf recv default itrans session_socket event_time 2026-10-26T11:14:14.655Z len 3264
+QROW 7638 created 2026-10-26T11:15:30.407Z time 2026-10-26T04:15:30 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8319baa4-e5b6-4374-95b8-0e1aed0b60f9:899 recv default itrans session_socket event_time 2026-10-26T11:15:31.979Z len 2795
+QROW 7639 created 2026-10-26T11:16:59.947Z time 2026-10-26T04:16:59 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:899 recv default itrans session_socket event_time 2026-10-26T11:17:01.665Z len 2922
+QROW 7640 created 2026-10-26T11:47:00.475Z time 2026-10-26T04:47:00 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:900 recv default itrans session_socket event_time 2026-10-26T11:47:02.100Z len 3311
+QROW 7641 created 2026-10-26T12:23:00.584Z time 2026-10-26T05:23:00 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:901 recv default itrans session_socket event_time 2026-10-26T12:23:02.547Z len 3315
+QROW 7642 created 2026-10-26T13:30:01.345Z time 2026-10-26T06:30:01 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:902 recv default itrans session_socket event_time 2026-10-26T13:30:03.287Z len 3329
+QROW 7643 created 2026-10-26T14:07:01.723Z time 2026-10-26T07:07:01 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:903 recv default itrans session_socket event_time 2026-10-26T14:07:03.591Z len 3265
+QROW 7644 created 2026-10-26T16:48:04.996Z time 2026-10-26T09:48:04 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 4c846761-5ce7-4f79-b65f-db09b5605413:906 recv default itrans session_socket event_time 2026-10-26T16:48:06.606Z len 2429
+QROW 7645 created 2026-10-26T16:48:05.547Z time 2026-10-26T09:48:05 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 4c846761-5ce7-4f79-b65f-db09b5605413:906 recv default itrans session_socket event_time 2026-10-26T16:48:06.606Z len 2189
+QROW 7646 created 2026-10-26T16:48:10.916Z time 2026-10-26T09:48:10 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 4c846761-5ce7-4f79-b65f-db09b5605413:906 recv default itrans session_socket event_time 2026-10-26T16:48:12.613Z len 2087
+QROW 7647 created 2026-10-26T16:55:48.560Z time 2026-10-26T09:55:48 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:906 recv default itrans session_socket event_time 2026-10-26T16:55:50.515Z len 2422
+QROW 7648 created 2026-10-26T16:55:55.701Z time 2026-10-26T09:55:55 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid a09f07b5-97f6-42a9-bda1-6a9232882dcc recv default itrans session_socket event_time 2026-10-26T16:55:57.789Z len 2790
+QROW 7649 created 2026-10-26T19:01:44.447Z time 2026-10-26T12:01:44 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 42bed28d-587e-49b5-a2b1-264d739724b2 recv default itrans session_socket event_time 2026-10-26T19:01:46.475Z len 1526
+QROW 7650 created 2026-10-26T19:03:50.888Z time 2026-10-26T12:03:50 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 026ceb21-f6d2-444e-8fc2-d5efeb6771e3 recv default itrans session_socket event_time 2026-10-26T19:03:52.695Z len 1506
+QROW 7651 created 2026-10-26T19:05:52.339Z time 2026-10-26T12:05:52 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:909 recv default itrans session_socket event_time 2026-10-26T19:05:54.136Z len 2398
+QROW 7652 created 2026-10-26T19:11:11.637Z time 2026-10-26T12:11:11 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:909 recv default itrans session_socket event_time 2026-10-26T19:11:13.440Z len 2420
+QROW 7653 created 2026-10-26T19:14:15.464Z time 2026-10-26T12:14:15 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:909 recv default itrans session_socket event_time 2026-10-26T19:14:17.335Z len 2407
+QROW 7654 created 2026-10-26T19:15:09.158Z time 2026-10-26T12:15:09 kind restart_notice src ciel-runtime-restart etype None eid  recv None itrans tty event_time None len 9
+QROW 7655 created 2026-10-26T19:16:26.461Z time 2026-10-26T12:16:26 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:909 recv default itrans session_socket event_time 2026-10-26T19:16:28.436Z len 2464
+QROW 7656 created 2026-10-26T19:17:08.017Z time 2026-10-26T12:17:08 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid dfd204df-9014-4ae7-b8e7-ff0258a530b1 recv default itrans session_socket event_time 2026-10-26T19:17:09.707Z len 2844
+QROW 7657 created 2026-10-26T19:27:29.681Z time 2026-10-26T12:27:29 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 5498075e-0132-4639-8061-7df903040f69 recv default itrans session_socket event_time 2026-10-26T19:27:31.687Z len 2895
+QROW 7658 created 2026-10-26T19:46:05.662Z time 2026-10-26T12:46:05 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:910 recv default itrans session_socket event_time 2026-10-26T19:46:07.876Z len 2417
+QROW 7659 created 2026-10-26T19:46:28.961Z time 2026-10-26T12:46:28 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 70db7cc0-4962-4b08-93d7-def79db9d39a recv default itrans session_socket event_time 2026-10-26T19:46:30.697Z len 2797
+QROW 7660 created 2026-10-26T19:55:01.780Z time 2026-10-26T12:55:01 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:910 recv default itrans session_socket event_time 2026-10-26T19:55:03.864Z len 2412
+QROW 7661 created 2026-10-26T19:56:25.199Z time 2026-10-26T12:56:25 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:910 recv default itrans session_socket event_time 2026-10-26T19:56:26.944Z len 2420
+QROW 7662 created 2026-10-26T19:57:52.811Z time 2026-10-26T12:57:52 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:910 recv default itrans session_socket event_time 2026-10-26T19:57:54.866Z len 2437
+QROW 7663 created 2026-10-26T21:02:02.327Z time 2026-10-26T14:02:02 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:911 recv default itrans session_socket event_time 2026-10-26T21:02:04.322Z len 3153
+QROW 7664 created 2026-10-26T21:26:59.972Z time 2026-10-26T14:26:59 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:911 recv default itrans session_socket event_time 2026-10-26T21:27:02.079Z len 2445
+QROW 7665 created 2026-10-26T21:42:02.892Z time 2026-10-26T14:42:02 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:912 recv default itrans session_socket event_time 2026-10-26T21:42:04.752Z len 3174
+QROW 7666 created 2026-10-26T21:55:57.005Z time 2026-10-26T14:55:57 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8319baa4-e5b6-4374-95b8-0e1aed0b60f9:912 recv default itrans session_socket event_time 2026-10-26T21:55:37.748Z len 3063
+QROW 7667 created 2026-10-26T22:00:38.162Z time 2026-10-26T15:00:38 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8319baa4-e5b6-4374-95b8-0e1aed0b60f9:912 recv default itrans session_socket event_time 2026-10-26T22:00:25.483Z len 3531
+QROW 7668 created 2026-10-26T22:02:23.809Z time 2026-10-26T15:02:23 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8319baa4-e5b6-4374-95b8-0e1aed0b60f9:912 recv default itrans session_socket event_time 2026-10-26T22:01:05.528Z len 2592
+QROW 7669 created 2026-10-26T22:02:24.284Z time 2026-10-26T15:02:24 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8319baa4-e5b6-4374-95b8-0e1aed0b60f9:912 recv default itrans session_socket event_time 2026-10-26T22:02:01.768Z len 2609
+QROW 7670 created 2026-10-26T22:02:24.860Z time 2026-10-26T15:02:24 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:912 recv default itrans session_socket event_time 2026-10-26T22:02:05.018Z len 3122
+QROW 7671 created 2026-10-26T22:03:32.502Z time 2026-10-26T15:03:32 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8319baa4-e5b6-4374-95b8-0e1aed0b60f9:368 recv default itrans session_socket event_time 2026-10-26T22:03:34.645Z len 3858
+QROW 7672 created 2026-10-26T22:10:46.016Z time 2026-10-26T15:10:46 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 0a0c3e4e-62df-470f-9e9a-3e19e0a9b754 recv default itrans session_socket event_time 2026-10-26T22:10:47.874Z len 1526
+QROW 7673 created 2026-10-26T22:13:13.677Z time 2026-10-26T15:13:13 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 69c1e574-ab03-45cf-91e7-0184f79c96b9 recv default itrans session_socket event_time 2026-10-26T22:12:53.619Z len 1506
+QROW 7674 created 2026-10-26T22:34:59.796Z time 2026-10-26T15:34:59 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:913 recv default itrans session_socket event_time 2026-10-26T22:35:02.088Z len 3142
+QROW 7675 created 2026-10-26T22:52:58.999Z time 2026-10-26T15:52:58 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:722 recv default itrans session_socket event_time 2026-10-26T22:53:01.130Z len 3648
+QROW 7676 created 2026-10-26T22:52:59.730Z time 2026-10-26T15:52:59 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:913 recv default itrans session_socket event_time 2026-10-26T22:53:01.399Z len 2888
+QROW 7677 created 2026-10-26T23:03:15.596Z time 2026-10-26T16:03:15 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:914 recv default itrans session_socket event_time 2026-10-26T23:03:17.235Z len 2052
+QROW 7678 created 2026-10-26T23:18:16.459Z time 2026-10-26T16:18:16 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:913 recv default itrans session_socket event_time 2026-10-26T23:18:18.439Z len 2843
+QROW 7679 created 2026-10-27T00:47:10.180Z time 2026-10-26T17:47:10 kind external_event src ciel-runtime-external-event etype com.ciel.walkie.support.message eid 8157596d-c693-4bb5-a311-8b48c5e714f8:917 recv default itrans session_socket event_time 2026-10-27T00:46:08.051Z len 2442
+STATUS_SIZE 837669 rows_in_tail 3015 keys ['data', 'request_id', 'status', 'updated_at', 'updated_at_epoch']
+SROW 7577 interrupted_uncertain 2026-10-26T08:40:14-07:00 reason verified_child_exit epoch 0f08ac79d859 attempt 23bbc615 batch [7577] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'exit_verified', 'input_transport']
+SROW 7578 interrupted_uncertain 2026-10-26T08:40:14-07:00 reason verified_child_exit epoch 0f08ac79d859 attempt 4174599e batch [7578] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'exit_verified', 'input_transport']
+SROW 7579 interrupted_uncertain 2026-10-26T08:40:14-07:00 reason verified_child_exit epoch 0f08ac79d859 attempt 3fedada9 batch [7579] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'exit_verified', 'input_transport']
+SROW 7615 interrupted_uncertain 2026-10-26T08:40:14-07:00 reason verified_child_exit epoch 0f08ac79d859 attempt f544c899 batch [7615] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'exit_verified', 'input_transport']
+SROW 7637 interrupted_uncertain 2026-10-26T08:40:15-07:00 reason verified_child_exit epoch 0f08ac79d859 attempt 24269a76 batch [7637] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'exit_verified', 'input_transport']
+SROW 7644 queued 2026-10-26T09:48:05-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7645 queued 2026-10-26T09:48:05-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7644 submitted 2026-10-26T09:48:06-07:00 reason  epoch a41bb49f131c attempt a7bab576 batch [7644, 7645] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7645 submitted 2026-10-26T09:48:06-07:00 reason  epoch a41bb49f131c attempt a7bab576 batch [7644, 7645] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7646 queued 2026-10-26T09:48:11-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7646 submitted 2026-10-26T09:48:12-07:00 reason  epoch a41bb49f131c attempt 3a737b06 batch [7646] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7646 failed 2026-10-26T09:48:31-07:00 reason stale_unconfirmed epoch a41bb49f131c attempt 3a737b06 batch [7646] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7644 replied 2026-10-26T09:48:39-07:00 reason  epoch a41bb49f131c attempt a7bab576 batch [7644, 7645] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7645 replied 2026-10-26T09:48:39-07:00 reason  epoch a41bb49f131c attempt a7bab576 batch [7644, 7645] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7647 queued 2026-10-26T09:55:48-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7647 submitted 2026-10-26T09:55:50-07:00 reason  epoch a41bb49f131c attempt 1e768109 batch [7647] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7648 queued 2026-10-26T09:55:55-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7648 submitted 2026-10-26T09:55:57-07:00 reason  epoch a41bb49f131c attempt c9da3cd5 batch [7648] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7648 failed 2026-10-26T09:56:16-07:00 reason stale_unconfirmed epoch a41bb49f131c attempt c9da3cd5 batch [7648] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7647 replied 2026-10-26T09:56:20-07:00 reason  epoch a41bb49f131c attempt 1e768109 batch [7647] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7649 queued 2026-10-26T12:01:44-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7649 submitted 2026-10-26T12:01:46-07:00 reason  epoch a41bb49f131c attempt b8f28a8f batch [7649] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7650 queued 2026-10-26T12:03:51-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7650 submitted 2026-10-26T12:03:55-07:00 reason  epoch a41bb49f131c attempt 3523ed40 batch [7650] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7650 failed 2026-10-26T12:04:11-07:00 reason stale_unconfirmed epoch a41bb49f131c attempt 3523ed40 batch [7650] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7649 failed 2026-10-26T12:04:46-07:00 reason turn_failed:unknown epoch a41bb49f131c attempt b8f28a8f batch [7649] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7651 queued 2026-10-26T12:05:52-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7651 submitted 2026-10-26T12:05:53-07:00 reason  epoch a41bb49f131c attempt 0253356e batch [7651] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7651 replied 2026-10-26T12:06:27-07:00 reason  epoch a41bb49f131c attempt 0253356e batch [7651] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7652 queued 2026-10-26T12:11:11-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7652 submitted 2026-10-26T12:11:20-07:00 reason  epoch a41bb49f131c attempt 5f2965c2 batch [7652] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7652 replied 2026-10-26T12:11:36-07:00 reason  epoch a41bb49f131c attempt 5f2965c2 batch [7652] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7653 queued 2026-10-26T12:14:15-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7653 submitted 2026-10-26T12:14:16-07:00 reason  epoch a41bb49f131c attempt d1a673cd batch [7653] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7653 replied 2026-10-26T12:14:45-07:00 reason  epoch a41bb49f131c attempt d1a673cd batch [7653] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7654 queued 2026-10-26T12:15:09-07:00 reason  epoch  attempt  batch None itrans tty data_keys ['channel', 'input_transport']
+SROW 7655 queued 2026-10-26T12:16:26-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7656 queued 2026-10-26T12:17:08-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7657 queued 2026-10-26T12:27:29-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7658 queued 2026-10-26T12:46:05-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7659 queued 2026-10-26T12:46:29-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7660 queued 2026-10-26T12:55:02-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7661 queued 2026-10-26T12:56:25-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7662 queued 2026-10-26T12:57:53-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7663 queued 2026-10-26T14:02:03-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7664 queued 2026-10-26T14:27:00-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7665 queued 2026-10-26T14:42:03-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7666 queued 2026-10-26T14:55:57-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7667 queued 2026-10-26T15:00:51-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7668 queued 2026-10-26T15:02:24-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7669 queued 2026-10-26T15:02:24-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7670 queued 2026-10-26T15:02:25-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7671 queued 2026-10-26T15:03:32-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7672 queued 2026-10-26T15:10:46-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7673 queued 2026-10-26T15:13:13-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7674 queued 2026-10-26T15:35:00-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7675 queued 2026-10-26T15:52:59-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7676 queued 2026-10-26T15:52:59-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7677 queued 2026-10-26T16:03:15-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7654 skipped 2026-10-26T16:08:00-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans tty data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7655 skipped 2026-10-26T16:08:00-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7656 skipped 2026-10-26T16:08:01-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7657 skipped 2026-10-26T16:08:01-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7658 skipped 2026-10-26T16:08:01-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7659 skipped 2026-10-26T16:08:01-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7660 skipped 2026-10-26T16:08:01-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7661 skipped 2026-10-26T16:08:01-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7662 skipped 2026-10-26T16:08:01-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7663 skipped 2026-10-26T16:08:01-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7664 skipped 2026-10-26T16:08:01-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7665 skipped 2026-10-26T16:08:01-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7666 skipped 2026-10-26T16:08:01-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7667 skipped 2026-10-26T16:08:02-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7668 skipped 2026-10-26T16:08:02-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7669 skipped 2026-10-26T16:08:02-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7670 skipped 2026-10-26T16:08:02-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7671 skipped 2026-10-26T16:08:02-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7672 skipped 2026-10-26T16:08:02-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7673 skipped 2026-10-26T16:08:02-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7674 skipped 2026-10-26T16:08:02-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7675 skipped 2026-10-26T16:08:02-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7676 skipped 2026-10-26T16:08:02-07:00 reason launch_replay_window_expired epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport', 'launch_cutoff_epoch', 'launch_floor']
+SROW 7677 submitted 2026-10-26T16:08:13-07:00 reason  epoch d573d82da561 attempt c1f3223f batch [7677] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7677 failed 2026-10-26T16:08:37-07:00 reason stale_unconfirmed epoch d573d82da561 attempt c1f3223f batch [7677] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7678 queued 2026-10-26T16:18:16-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7678 submitted 2026-10-26T16:18:18-07:00 reason  epoch d573d82da561 attempt 2a305e4a batch [7678] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7678 replied 2026-10-26T16:18:43-07:00 reason  epoch d573d82da561 attempt 2a305e4a batch [7678] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7679 queued 2026-10-26T17:47:10-07:00 reason  epoch  attempt  batch None itrans session_socket data_keys ['channel', 'input_transport']
+SROW 7679 submitted 2026-10-26T17:47:11-07:00 reason  epoch bc2f24dc09cd attempt 51bab1a6 batch [7679] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+SROW 7679 replied 2026-10-26T17:47:18-07:00 reason  epoch bc2f24dc09cd attempt 51bab1a6 batch [7679] itrans session_socket data_keys ['attempt_id', 'batch_ids', 'channel', 'child_epoch', 'input_transport']
+ACKS_SIZE 1165411 rows_in_tail 1007
+AROW eid 8319baa4-e5b6-4374-95b8-0e1aed0b60f9:877 stream 22738 req 7546 outcome queued recv 2026-10-25T22:03:33.212Z queued 2026-10-25T22:03:34.253Z injected  sess  qack pending None iack None None
+AROW eid 8319baa4-e5b6-4374-95b8-0e1aed0b60f9:877 stream 22738 req 7546 outcome queued recv 2026-10-25T22:03:33.212Z queued 2026-10-25T22:03:34.253Z injected  sess queued qack pending None iack None None
+AROW eid 8319baa4-e5b6-4374-95b8-0e1aed0b60f9:877 stream 22738 req 7546 outcome queued recv 2026-10-25T22:03:33.212Z queued 2026-10-25T22:03:34.253Z injected  sess queued qack acked 2026-10-25T22:03:34.660Z iack None None
+AROW eid 8319baa4-e5b6-4374-95b8-0e1aed0b60f9:877 stream 22738 req 7546 outcome queued recv 2026-10-25T22:03:33.212Z queued 2026-10-25T22:03:34.253Z injected 2026-10-25T22:03:37.836Z sess submitted qack acked 2026-10-25T22:03:34.660Z iack pending None
+AROW eid 8319baa4-e5b6-4374-95b8-0e1aed0b60f9:877 stream 22738 req 7546 outcome queued recv 2026-10-25T22:03:33.212Z queued 2026-10-25T22:03:34.253Z injected 2026-10-25T22:03:37.836Z sess submitted qack acked 2026-10-25T22:03:34.660Z iack acked 2026-10-25T22:03:39.089Z
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:878 stream 22746 req 7553 outcome queued recv 2026-10-25T22:27:56.215Z queued 2026-10-25T22:27:56.926Z injected  sess  qack pending None iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:878 stream 22746 req 7553 outcome queued recv 2026-10-25T22:27:56.215Z queued 2026-10-25T22:27:56.926Z injected  sess queued qack pending None iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:878 stream 22746 req 7553 outcome queued recv 2026-10-25T22:27:56.215Z queued 2026-10-25T22:27:56.926Z injected  sess queued qack acked 2026-10-25T22:27:57.351Z iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:878 stream 22746 req 7553 outcome queued recv 2026-10-25T22:27:56.215Z queued 2026-10-25T22:27:56.926Z injected 2026-10-25T22:27:59.775Z sess submitted qack acked 2026-10-25T22:27:57.351Z iack pending None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:878 stream 22746 req 7553 outcome queued recv 2026-10-25T22:27:56.215Z queued 2026-10-25T22:27:56.926Z injected 2026-10-25T22:27:59.775Z sess submitted qack acked 2026-10-25T22:27:57.351Z iack acked 2026-10-25T22:28:00.851Z
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:878 stream 22761 req 7556 outcome queued recv 2026-10-25T22:49:14.518Z queued 2026-10-25T22:49:15.282Z injected  sess  qack pending None iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:878 stream 22761 req 7556 outcome queued recv 2026-10-25T22:49:14.518Z queued 2026-10-25T22:49:15.282Z injected  sess queued qack pending None iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:878 stream 22761 req 7556 outcome queued recv 2026-10-25T22:49:14.518Z queued 2026-10-25T22:49:15.282Z injected  sess queued qack acked 2026-10-25T22:49:15.683Z iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:878 stream 22761 req 7556 outcome queued recv 2026-10-25T22:49:14.518Z queued 2026-10-25T22:49:15.282Z injected 2026-10-25T22:49:17.506Z sess submitted qack acked 2026-10-25T22:49:15.683Z iack pending None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:878 stream 22761 req 7556 outcome queued recv 2026-10-25T22:49:14.518Z queued 2026-10-25T22:49:15.282Z injected 2026-10-25T22:49:17.506Z sess submitted qack acked 2026-10-25T22:49:15.683Z iack acked 2026-10-25T22:49:18.205Z
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:879 stream 22777 req 7565 outcome queued recv 2026-10-25T23:12:13.030Z queued 2026-10-25T23:12:13.681Z injected  sess  qack pending None iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:879 stream 22777 req 7565 outcome queued recv 2026-10-25T23:12:13.030Z queued 2026-10-25T23:12:13.681Z injected  sess queued qack pending None iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:879 stream 22777 req 7565 outcome queued recv 2026-10-25T23:12:13.030Z queued 2026-10-25T23:12:13.681Z injected  sess queued qack acked 2026-10-25T23:12:14.097Z iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:879 stream 22777 req 7565 outcome queued recv 2026-10-25T23:12:13.030Z queued 2026-10-25T23:12:13.681Z injected 2026-10-25T23:12:16.499Z sess submitted qack acked 2026-10-25T23:12:14.097Z iack pending None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:879 stream 22777 req 7565 outcome queued recv 2026-10-25T23:12:13.030Z queued 2026-10-25T23:12:13.681Z injected 2026-10-25T23:12:16.499Z sess submitted qack acked 2026-10-25T23:12:14.097Z iack acked 2026-10-25T23:12:17.524Z
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:881 stream 22814 req 7574 outcome queued recv 2026-10-26T00:23:15.408Z queued 2026-10-26T00:23:16.194Z injected  sess  qack pending None iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:881 stream 22814 req 7574 outcome queued recv 2026-10-26T00:23:15.408Z queued 2026-10-26T00:23:16.194Z injected  sess queued qack pending None iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:881 stream 22814 req 7574 outcome queued recv 2026-10-26T00:23:15.408Z queued 2026-10-26T00:23:16.194Z injected  sess queued qack acked 2026-10-26T00:23:16.827Z iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:881 stream 22814 req 7574 outcome queued recv 2026-10-26T00:23:15.408Z queued 2026-10-26T00:23:16.194Z injected 2026-10-26T00:23:24.512Z sess submitted qack acked 2026-10-26T00:23:16.827Z iack pending None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:881 stream 22814 req 7574 outcome queued recv 2026-10-26T00:23:15.408Z queued 2026-10-26T00:23:16.194Z injected 2026-10-26T00:23:24.512Z sess submitted qack acked 2026-10-26T00:23:16.827Z iack acked 2026-10-26T00:23:28.618Z
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:884 stream 22869 req 7605 outcome queued recv 2026-10-26T02:33:39.569Z queued 2026-10-26T02:33:40.277Z injected  sess  qack pending None iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:884 stream 22869 req 7605 outcome queued recv 2026-10-26T02:33:39.569Z queued 2026-10-26T02:33:40.277Z injected  sess queued qack pending None iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:884 stream 22869 req 7605 outcome queued recv 2026-10-26T02:33:39.569Z queued 2026-10-26T02:33:40.277Z injected  sess queued qack acked 2026-10-26T02:33:40.667Z iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:884 stream 22869 req 7605 outcome queued recv 2026-10-26T02:33:39.569Z queued 2026-10-26T02:33:40.277Z injected 2026-10-26T02:33:43.246Z sess submitted qack acked 2026-10-26T02:33:40.667Z iack pending None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:884 stream 22869 req 7605 outcome queued recv 2026-10-26T02:33:39.569Z queued 2026-10-26T02:33:40.277Z injected 2026-10-26T02:33:43.246Z sess submitted qack acked 2026-10-26T02:33:40.667Z iack acked 2026-10-26T02:33:44.058Z
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:884 stream 22873 req 7608 outcome queued recv 2026-10-26T02:39:09.698Z queued 2026-10-26T02:39:11.356Z injected  sess  qack pending None iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:884 stream 22873 req 7608 outcome queued recv 2026-10-26T02:39:09.698Z queued 2026-10-26T02:39:11.356Z injected  sess queued qack pending None iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:884 stream 22873 req 7608 outcome queued recv 2026-10-26T02:39:09.698Z queued 2026-10-26T02:39:11.356Z injected  sess queued qack acked 2026-10-26T02:39:11.721Z iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:884 stream 22873 req 7608 outcome queued recv 2026-10-26T02:39:09.698Z queued 2026-10-26T02:39:11.356Z injected 2026-10-26T02:39:16.837Z sess submitted qack acked 2026-10-26T02:39:11.721Z iack pending None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:884 stream 22873 req 7608 outcome queued recv 2026-10-26T02:39:09.698Z queued 2026-10-26T02:39:11.356Z injected 2026-10-26T02:39:16.837Z sess submitted qack acked 2026-10-26T02:39:11.721Z iack acked 2026-10-26T02:39:18.182Z
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:893 stream 23088 req 7630 outcome queued recv 2026-10-26T08:20:41.646Z queued 2026-10-26T08:20:43.303Z injected  sess  qack pending None iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:893 stream 23088 req 7630 outcome queued recv 2026-10-26T08:20:41.646Z queued 2026-10-26T08:20:43.303Z injected  sess queued qack pending None iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:893 stream 23088 req 7630 outcome queued recv 2026-10-26T08:20:41.646Z queued 2026-10-26T08:20:43.303Z injected  sess queued qack acked 2026-10-26T08:20:44.065Z iack None None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:893 stream 23088 req 7630 outcome queued recv 2026-10-26T08:20:41.646Z queued 2026-10-26T08:20:43.303Z injected 2026-10-26T08:20:43.662Z sess submitted qack acked 2026-10-26T08:20:44.065Z iack pending None
+AROW eid 8157596d-c693-4bb5-a311-8b48c5e714f8:893 stream 23088 req 7630 outcome queued recv 2026-10-26T08:20:41.646Z queued 2026-10-26T08:20:43.303Z injected 2026-10-26T08:20:43.662Z sess submitted qack acked 2026-10-26T08:20:44.065Z iack acked 2026-10-26T08:20:45.444Z
+INST_STATE compaction-admission.json {"scope": {"runtime": "claude", "session_id": "5ac1ee55-d0d1-4ef7-b4df-3d68e62bbd1b", "epoch": "9d189d454bc2402388916eb9b9efae62"}, "phase": "verified", "pressure": false, "baseline_tokens": 1061699, "context_limit": 872000, "requested_at": 1793059848.0857396, "deadline": 1793061052.477365, "baseline_checkpoint_id": "8ee0d126d75ddff7aedf258bd5851631639ba055750120c76209c6b6f8dc8afe", "checkpoint_id": "333ec940873d01bda05e07a1f01f01994283f19f77484340407b979ec2dbd702", "request_id": "053465e0429143a4bdf3db0a5fb86b45", "attempts": 1, "safeguard_model": "_walkie_sol61-opus55-fast", "safeguard_sample": "7792e1004b57de8761e78bb5125ed4784e6a2d11f3e8f06e847fe4422aaff886", "safeguard_seen": ["7792e100
+INST_STATE compaction-scope.json {"runtime": "claude", "epoch": "9d189d454bc2402388916eb9b9efae62", "started_at": 1793058353.913797, "identity_since": 1793058357.9360049, "session_id": "5ac1ee55-d0d1-4ef7-b4df-3d68e62bbd1b", "cwd": "C:\\ProgramData\\aap-win\\sandboxes\\u24\\home\\kobe-ai", "codex_home": "", "path": "C:\\Users\\aapw-a24u24\\.claude\\projects\\C--ProgramData-aap-win-sandboxes-u24-home-kobe-ai\\5ac1ee55-d0d1-4ef7-b4df-3d68e62bbd1b.jsonl", "messaging_socket_path": "\\\\.\\pipe\\LOCAL\\cc-msg-19a58fa7d6372050c5319d5c41315ab3", "owned_pid": 0, "launcher_pid": 11480, "claude_config_dir": "C:\\Users\\aapw-a24u24\\.claude", "request_identity": true, "seeded": true, "request_observed": true, "identity_ready": {"sessi
+INST_STATE router-activity.json {"updated_at": 1793062512.001435, "time": "2026-10-26T17:55:12", "event": "request", "provider": "cielairouter", "model": "_Walkie_Sol61-Opus55-Fast", "attempt": 1, "total": 1, "tokens": 505006, "bytes": 1937625, "timeout": 600.0, "stream": true, "endpoint": "http://127.0.0.1:20128/v1/messages"}
+INST_STATE context-usage.json {"updated_at": 1793062510.9361112, "time": "2026-10-26T17:55:10", "provider": "cielairouter", "model": "ciel-runtime-cielairouter-_walkie_sol61-opus55-fast", "source": "messages", "token_source": "estimated_json", "tokens": 504971, "context_limit": 872000, "percent": 57.9, "messages": 186, "tools": 67}
+ROUTER_LOG_SIZE 3145136 matching 600 last_matching_ts b'2026-10-26T03:35:32'
+ROUTER_LOG_DATED_LINES 678 first b'2026-10-13T13:40:08' last b'2026-10-26T03:35:32'
+LOGTAIL 2026-10-26T03:33:24 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:33:30 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:33:35 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:33:40 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:33:46 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:33:51 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:33:57 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:34:01 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:34:06 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:34:12 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:34:17 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:34:22 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:34:28 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:34:33 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:34:38 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:34:43 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:34:48 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:34:54 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:34:59 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:35:05 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:35:11 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:35:16 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:35:21 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:35:26 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOGTAIL 2026-10-26T03:35:32 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+REMOTE_END 1793062526.632
+
+
+exit 0

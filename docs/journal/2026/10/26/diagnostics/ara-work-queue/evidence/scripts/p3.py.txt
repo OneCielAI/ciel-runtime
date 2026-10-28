@@ -1,0 +1,18 @@
+import os, json, time, subprocess, getpass
+def T(x): return time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(x))
+print("REMOTE_START", T(time.time()), "user", getpass.getuser())
+r = subprocess.run(["whoami"], capture_output=True, text=True, errors="replace"); print("WHOAMI", r.stdout.strip())
+appdata = r"C:\Users\aapw-a21u21\AppData\Roaming\ciel-runtime"
+for n in ("016457eb7a85", "fe924fced90d"):
+    p = os.path.join(appdata, "workspaces", n)
+    try:
+        names = sorted(os.listdir(p))
+        print("WS", n, "n", len(names), [x for x in names if not x.endswith(".tmp")][:80])
+    except Exception as e: print("WS_ERR", n, type(e).__name__)
+    ws = os.path.join(p, "work-sessions")
+    try:
+        ds = os.listdir(ws); print("  WORK_SESSIONS", n, len(ds))
+    except Exception as e: print("  WORK_SESSIONS_ERR", n, type(e).__name__)
+r = subprocess.run(["icacls", os.path.join(appdata, "workspaces", "fe924fced90d")], capture_output=True, text=True, errors="replace")
+print("ICACLS", r.stdout.strip()[:800])
+print("REMOTE_END", T(time.time()))

@@ -1,0 +1,14 @@
+test_approval_gate_is_not_voided_by_a_concurrent_edit (test_work_mod_write_gate.WorkModWriteGateTests.test_approval_gate_is_not_voided_by_a_concurrent_edit) ... ok
+test_concurrent_agent_gates_each_use_their_own_verified_read (test_work_mod_write_gate.WorkModWriteGateTests.test_concurrent_agent_gates_each_use_their_own_verified_read) ... ok
+test_disabled_work_mode_does_not_gate (test_work_mod_write_gate.WorkModWriteGateTests.test_disabled_work_mode_does_not_gate) ... ok
+test_display_refresh_does_not_drop_runnable_queued_work_at_stop (test_work_mod_write_gate.WorkModWriteGateTests.test_display_refresh_does_not_drop_runnable_queued_work_at_stop) ... ok
+test_failed_reads_stay_closed_and_name_the_failed_step (test_work_mod_write_gate.WorkModWriteGateTests.test_failed_reads_stay_closed_and_name_the_failed_step) ... ok
+test_new_main_turn_does_not_void_a_subagent_gate (test_work_mod_write_gate.WorkModWriteGateTests.test_new_main_turn_does_not_void_a_subagent_gate) ... ok
+test_planning_still_denies_every_concurrent_write (test_work_mod_write_gate.WorkModWriteGateTests.test_planning_still_denies_every_concurrent_write) ... ok
+test_stop_after_session_end_does_not_continue (test_work_mod_write_gate.WorkModWriteGateTests.test_stop_after_session_end_does_not_continue) ... ok
+test_stop_continuation_still_yields_to_a_new_turn (test_work_mod_write_gate.WorkModWriteGateTests.test_stop_continuation_still_yields_to_a_new_turn) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 1.484s
+
+OK

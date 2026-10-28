@@ -1,0 +1,2575 @@
+{
+  "schema": 1,
+  "version": 320,
+  "phase": "executing",
+  "active_root": "n321",
+  "next_id": 337,
+  "nodes": [
+    {
+      "id": "n1",
+      "parent_id": null,
+      "title": "Re-run the one-minute multi-context Work amendment evaluation and independently verify results",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793028327.4810085
+    },
+    {
+      "id": "n2",
+      "parent_id": "n1",
+      "title": "Preflight",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793027104.7319913
+    },
+    {
+      "id": "n3",
+      "parent_id": "n2",
+      "title": "Record live router /health PIDs before any run",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793027103.6029608
+    },
+    {
+      "id": "n4",
+      "parent_id": "n3",
+      "title": "Query live router health endpoints and save PIDs to the new run journal",
+      "status": "done",
+      "note": "",
+      "evidence": "rerun/preflight.json: 9505 pid 57432 ok, 9524 pid 25276 ok; 9385/9464/9489 not listening (URLError)",
+      "updated_at": 1793027103.6029608
+    },
+    {
+      "id": "n5",
+      "parent_id": "n2",
+      "title": "Verify evaluation inputs",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793027104.7319913
+    },
+    {
+      "id": "n6",
+      "parent_id": "n5",
+      "title": "Confirm breakdown-snapshot.json, requests.json and spec-commitment.json exist and the spec digest matches",
+      "status": "done",
+      "note": "",
+      "evidence": "requests.json sha256 088093d0... equals spec-commitment; breakdown snapshot exists and equals User CIEL_RUNTIME_HOME; independent_verify.py confirmed all NUL bytes",
+      "updated_at": 1793027104.7319913
+    },
+    {
+      "id": "n7",
+      "parent_id": "n1",
+      "title": "Independent verifier",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793028280.1189766
+    },
+    {
+      "id": "n8",
+      "parent_id": "n7",
+      "title": "Re-author the corrupt independent_verify.py strictly from requests.json",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793028278.618757
+    },
+    {
+      "id": "n9",
+      "parent_id": "n8",
+      "title": "Write verifier covering A0-A3, B0-B3, C0-C3 with black-box checks against the specs",
+      "status": "done",
+      "note": "",
+      "evidence": "independent_verify.py sha256 8261b2ec...: 38 tests covering A0-A3/B0-B3/C0-C3 (oracles, atomicity, checkpoints); corrupt original preserved as independent_verify.corrupt.bin (740db1ad...)",
+      "updated_at": 1793028277.3376493
+    },
+    {
+      "id": "n10",
+      "parent_id": "n8",
+      "title": "Record that verifier was written from the spec, not from generated code",
+      "status": "done",
+      "note": "",
+      "evidence": "rerun/verifier-provenance.json: frozen 15:22:19Z with verifier/requests hashes; statement generated code not read before freeze; only post-freeze read booking_calendar.py for classification (agent statement, read history not machine-verifiable)",
+      "updated_at": 1793028278.618757
+    },
+    {
+      "id": "n11",
+      "parent_id": "n7",
+      "title": "Verify the previous run run-2e0993a3",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793028280.1189766
+    },
+    {
+      "id": "n12",
+      "parent_id": "n11",
+      "title": "Run verifier on run-2e0993a3 workspace and save TXT/JSON output",
+      "status": "done",
+      "note": "",
+      "evidence": "run-2e0993a3: 37/38 pass; sole fail B3 test_checkpoint_restores_original_wait_sequence (version 3 != 4 after restoring visibly identical single-item wait state) classified spec-ambiguous; generated code hashes unchanged",
+      "updated_at": 1793028280.1189766
+    },
+    {
+      "id": "n13",
+      "parent_id": "n1",
+      "title": "Fresh evaluation run",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793028281.224349
+    },
+    {
+      "id": "n14",
+      "parent_id": "n13",
+      "title": "Launch evaluate.py in an isolated environment",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793028117.9305134
+    },
+    {
+      "id": "n15",
+      "parent_id": "n14",
+      "title": "Run evaluate.py with stripped env and capture the run directory",
+      "status": "done",
+      "note": "",
+      "evidence": "run-4997239b finished 10:21:42, error None, timeout None; 9 amendments + FINAL dispatched at offsets 60..540,548; workspace and transcript copied",
+      "updated_at": 1793028117.9305134
+    },
+    {
+      "id": "n16",
+      "parent_id": "n13",
+      "title": "Assess the fresh run",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793028281.224349
+    },
+    {
+      "id": "n17",
+      "parent_id": "n16",
+      "title": "Run assess.py on the new run and inspect delivery/cadence/plan isolation",
+      "status": "done",
+      "note": "",
+      "evidence": "assessment.json: delivery_valid+cadence_valid true, 10 receipts once each full_text, intervals 59.988-60.008s, 51 plan nodes all leaves done w/ evidence; context-audit: A/B/C 14 nodes each, no cross-branch IDs, 1 store",
+      "updated_at": 1793028130.88006
+    },
+    {
+      "id": "n18",
+      "parent_id": "n16",
+      "title": "Run independent verifier on the new run workspace",
+      "status": "done",
+      "note": "",
+      "evidence": "run-4997239b: frozen verifier 38/38 OK, exit 0, coverage A0..C3 all passed; independent-run.txt/independent-result.json; generated code hashes unchanged since assessment",
+      "updated_at": 1793028281.224349
+    },
+    {
+      "id": "n19",
+      "parent_id": "n13",
+      "title": "Capture screenshots/console evidence",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793028154.3634124
+    },
+    {
+      "id": "n20",
+      "parent_id": "n19",
+      "title": "Save decisive console frames or PNG for the run",
+      "status": "done",
+      "note": "",
+      "evidence": "run-4997239b has 12 PNG screenshots (00-ready, each inject-*, 99-final); viewed inject-C3 (B3/C3 channel messages arriving while 'run 18/22' A/B/C branches) and 99-final (EVAL summary, 'plan 28/28' A/B/C 8/8)",
+      "updated_at": 1793028154.3634124
+    },
+    {
+      "id": "n21",
+      "parent_id": "n1",
+      "title": "Post-run and journal",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793028327.4810085
+    },
+    {
+      "id": "n22",
+      "parent_id": "n21",
+      "title": "Compare live router PIDs after the run",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793028155.12567
+    },
+    {
+      "id": "n23",
+      "parent_id": "n22",
+      "title": "Query health again and compare with preflight",
+      "status": "done",
+      "note": "",
+      "evidence": "rerun/postflight.json 10:22: 9505 pid 57432, 9524 pid 25276 unchanged vs preflight; result.json live_pids_unchanged true",
+      "updated_at": 1793028155.12567
+    },
+    {
+      "id": "n24",
+      "parent_id": "n21",
+      "title": "Update minute-evaluation.md and log.md",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793028327.4810085
+    },
+    {
+      "id": "n25",
+      "parent_id": "n24",
+      "title": "Write results separating confirmed vs unconfirmed and run OKF strict validation",
+      "status": "done",
+      "note": "",
+      "evidence": "minute-evaluation.md Results/Disputed/Limits sections + log.md entry; okf_validate --strict: conformant, 19 warnings only in frozen generated workspace copies (left unmodified)",
+      "updated_at": 1793028327.4810085
+    },
+    {
+      "id": "n26",
+      "parent_id": null,
+      "title": "Local + nightly push of the Work mode release (nightly-20261026)",
+      "status": "done",
+      "note": "User: '로컬 나이트리 푸시' = push to origin nightly, verify CI + npm publish, install the published build locally (precedent: 2026-10-10/19/22 release journals).",
+      "evidence": "",
+      "updated_at": 1793032933.5561001
+    },
+    {
+      "id": "n27",
+      "parent_id": "n26",
+      "title": "Inventory before committing",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793029805.7469025
+    },
+    {
+      "id": "n28",
+      "parent_id": "n27",
+      "title": "Classify worktree changes",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793029625.1149502
+    },
+    {
+      "id": "n29",
+      "parent_id": "n28",
+      "title": "List every modified/untracked file in ciel-runtime-wt-work and classify Work-feature vs unrelated with diffs",
+      "status": "done",
+      "note": "",
+      "evidence": "Tracked diffs are Work mode (launch args, menu options, config defaults, MCP tools, statusline, docs, package.json mod path, tests); tls-eof evidence diffs are CRLF-only and excluded. Curated list 671 files/8.0MB excluding home/cfg/ccfg trees, raw request bodies, jsonl transcripts and screen-NNN polling frames",
+      "updated_at": 1793029625.1149502
+    },
+    {
+      "id": "n30",
+      "parent_id": "n27",
+      "title": "Carry over deployed fixes",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793029650.238078
+    },
+    {
+      "id": "n31",
+      "parent_id": "n30",
+      "title": "Compare main-repo statusline_script.py session-board fix with worktree version and make sure it is included",
+      "status": "done",
+      "note": "",
+      "evidence": "Worktree statusline_script.py contains the same boards/sessions/<session_id>/active.json lookup and validation as the deployed main-repo fix, plus vertical rows and stdout utf-8 reconfigure; diff limited to rendering",
+      "updated_at": 1793029650.238078
+    },
+    {
+      "id": "n32",
+      "parent_id": "n27",
+      "title": "Confirm feature verification state",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793029710.3963392
+    },
+    {
+      "id": "n33",
+      "parent_id": "n32",
+      "title": "Read Work journal for navigation/vertical list verification status and any open failures",
+      "status": "done",
+      "note": "",
+      "evidence": "navigation/run-0cd0e3d8 ran from installed navigation snapshot (interactive.cmd), keyboard_inspection true, PNGs show vertical items and B detail pane; run-e588257b earlier failed (keyboard detail missing) and run-b9530cac passed from worktree. No journal concept yet for navigation -> add in release journal",
+      "updated_at": 1793029710.3963392
+    },
+    {
+      "id": "n34",
+      "parent_id": "n27",
+      "title": "Check remote and package shape",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793029805.7469025
+    },
+    {
+      "id": "n35",
+      "parent_id": "n34",
+      "title": "git fetch origin; compare origin/nightly with branch base; check package.json files list and evidence sizes",
+      "status": "done",
+      "note": "",
+      "evidence": "origin/nightly=179b9ed is ancestor of branch base 073e94f (=origin/main), so push to nightly is fast-forward; nightly-20261020 extra merges all already in origin/nightly. package.json files includes docs/, so curated evidence kept to 8.0MB",
+      "updated_at": 1793029753.5802686
+    },
+    {
+      "id": "n36",
+      "parent_id": "n34",
+      "title": "Scan files to be committed for secrets, tokens, private prompt bodies and personal data",
+      "status": "done",
+      "note": "",
+      "evidence": "Scanned 671 candidates against 66 known credential values (config/credentials/env) and token regexes: 0 secret values; sole regex hit is pre-existing 'sk-ciel-router-' test placeholder; no system prompt or private CLAUDE.md markers; 'authorization' hits are schema text/prose",
+      "updated_at": 1793029805.7469025
+    },
+    {
+      "id": "n37",
+      "parent_id": "n26",
+      "title": "Prepare commits",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793030383.8069315
+    },
+    {
+      "id": "n38",
+      "parent_id": "n37",
+      "title": "Focused verification",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793030310.5526435
+    },
+    {
+      "id": "n39",
+      "parent_id": "n38",
+      "title": "Record live router PIDs, run isolated focused Python tests + mod tests + ruff/py_compile, recheck PIDs",
+      "status": "done",
+      "note": "",
+      "evidence": "PIDs 9505=43372 (restarted by user 15:33Z before tests, per Walkie report), 9524=25276 unchanged across tests; 458 Python tests OK; mod strict validate pass + 18/18 mod tests; ruff clean",
+      "updated_at": 1793030310.5526435
+    },
+    {
+      "id": "n40",
+      "parent_id": "n37",
+      "title": "Commit and integrate",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793030383.8069315
+    },
+    {
+      "id": "n41",
+      "parent_id": "n40",
+      "title": "Commit Work feature and journals on nightly-20261026 with attribution",
+      "status": "done",
+      "note": "",
+      "evidence": "0af4180 feat(work) 28 files (diff --check clean); 12b8a12 docs(journal) 646 curated files; unrelated tls-eof CRLF changes left uncommitted",
+      "updated_at": 1793030382.8263175
+    },
+    {
+      "id": "n42",
+      "parent_id": "n40",
+      "title": "Merge origin/nightly, resolve conflicts, rerun focused tests if merge changed code",
+      "status": "done",
+      "note": "",
+      "evidence": "After fresh fetch origin/nightly=179b9ed is ancestor of HEAD 12b8a12; push is fast-forward, no merge needed so no code change from merge",
+      "updated_at": 1793030383.8069315
+    },
+    {
+      "id": "n43",
+      "parent_id": "n26",
+      "title": "Push and verify release",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793032323.625357
+    },
+    {
+      "id": "n44",
+      "parent_id": "n43",
+      "title": "Push",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793030396.2619452
+    },
+    {
+      "id": "n45",
+      "parent_id": "n44",
+      "title": "Push to origin nightly (and nightly-20261026)",
+      "status": "done",
+      "note": "",
+      "evidence": "git push: 179b9ed..12b8a12 nightly; 073e94f..12b8a12 nightly-20261026 (fast-forward, no force)",
+      "updated_at": 1793030396.2619452
+    },
+    {
+      "id": "n46",
+      "parent_id": "n43",
+      "title": "CI and registry",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793032323.625357
+    },
+    {
+      "id": "n47",
+      "parent_id": "n46",
+      "title": "Watch CI and Publish to npm runs to success",
+      "status": "done",
+      "note": "",
+      "evidence": "Second attempt: CI 40357359092 success all 6 jobs; Publish 40357359093 success. First attempt 40354798049/40354798047 failed and published nothing",
+      "updated_at": 1793032284.9889877
+    },
+    {
+      "id": "n48",
+      "parent_id": "n46",
+      "title": "Verify registry nightly dist-tag version, gitHead and integrity",
+      "status": "done",
+      "note": "",
+      "evidence": "Registry nightly = 0.2.51-nightly.20261026-162537.2faae14, gitHead 2faae144...; tarball sha1+sha512 verified by acquire_published.py; sha256 468b1204...; 507 files (prev nightly 497 + 6 mod + 4 Work modules); VERSION stamped in runtime_constants and package.json",
+      "updated_at": 1793032323.625357
+    },
+    {
+      "id": "n49",
+      "parent_id": "n26",
+      "title": "Local install",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793032801.2005665
+    },
+    {
+      "id": "n50",
+      "parent_id": "n49",
+      "title": "Install published build",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793032747.506343
+    },
+    {
+      "id": "n51",
+      "parent_id": "n50",
+      "title": "Acquire published tarball, verify integrity, copy into a new snapshot home without install.ps1, diff against package",
+      "status": "done",
+      "note": "",
+      "evidence": "New snapshot ~/.local/share/ciel-runtime-2faae14453a948936e76cdfd3c1ee77b4d291371 copied from verified tarball (no install.ps1): 454 files byte-identical, 0 extra; version prints 0.2.51-nightly.20261026-162537.2faae14; bin shims identical to installed ones",
+      "updated_at": 1793032651.151727
+    },
+    {
+      "id": "n52",
+      "parent_id": "n50",
+      "title": "Point User CIEL_RUNTIME_HOME and generated statusline at the new snapshot with backups; no live session restart",
+      "status": "done",
+      "note": "",
+      "evidence": "switch.json: statusline 1550c68a->da5766c5 (= snapshot template) with backup .before-2faae14-20261026; HKCU CIEL_RUNTIME_HOME breakdown snapshot -> ciel-runtime-2faae144...; npm global -> 0.2.51-nightly.20261026-162537.2faae14 (support dir identical to snapshot except Claude-generated .claude-plugin/types stubs). No live process restarted",
+      "updated_at": 1793032747.506343
+    },
+    {
+      "id": "n53",
+      "parent_id": "n49",
+      "title": "Prove installed build",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793032801.2005665
+    },
+    {
+      "id": "n54",
+      "parent_id": "n53",
+      "title": "Run isolated CLI from installed snapshot: version, Work mode footer/plan, screenshot; recheck live PIDs",
+      "status": "done",
+      "note": "",
+      "evidence": "Real Claude 2.1.310 E2E on installed snapshot run-b0ef1f45 passed all steps (vertical items, keyboard B detail, view, tree, ask deny/approve, executing, resume) with 8 PNGs; earlier run-fe89ec44 exited on an unexplained Ctrl-C prompt (not reproduced). ~/.local/bin cmd, npm cmd, ps1 all print 0.2.51-nightly.20261026-162537.2faae14; live PIDs 43372/25276 unchanged",
+      "updated_at": 1793032801.2005665
+    },
+    {
+      "id": "n55",
+      "parent_id": "n26",
+      "title": "Release journal",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793032933.5561001
+    },
+    {
+      "id": "n56",
+      "parent_id": "n55",
+      "title": "Record release",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793032933.5561001
+    },
+    {
+      "id": "n57",
+      "parent_id": "n56",
+      "title": "Write release OKF record with commits, CI/publish ids, version, install proof; strict validation",
+      "status": "done",
+      "note": "",
+      "evidence": "releases/work-mode-nightly/release.md + index.md + evidence (OKF strict conformant); feature log updated; committed 2a7e4c4 [skip ci] and pushed fast-forward to nightly/nightly-20261026 (no new workflow run; registry nightly unchanged at 2faae14); live PIDs 43372/25276 unchanged",
+      "updated_at": 1793032933.5561001
+    },
+    {
+      "id": "n58",
+      "parent_id": "n38",
+      "title": "Fix import cycle work_mode_launch <-> work_mcp_tools found by architecture contract test",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793030309.8075871
+    },
+    {
+      "id": "n59",
+      "parent_id": "n58",
+      "title": "Define WORK_TOOL_NAMES in work_mode_launch, import it in work_mcp_tools, drop the lazy reverse import",
+      "status": "done",
+      "note": "",
+      "evidence": "WORK_TOOL_NAMES moved to work_mode_launch.py (no reverse import); work_mcp_tools imports and re-exports it, so channel_mcp_tools/tests imports unchanged",
+      "updated_at": 1793030053.8972197
+    },
+    {
+      "id": "n60",
+      "parent_id": "n58",
+      "title": "Rerun focused tests: architecture contract + work tests green",
+      "status": "done",
+      "note": "",
+      "evidence": "focused-tests.txt: 458 tests OK (42 skipped) incl. architecture import-graph test; ruff check . clean; py_compile ok; metadata check passed",
+      "updated_at": 1793030309.8075871
+    },
+    {
+      "id": "n61",
+      "parent_id": "n46",
+      "title": "Fix CI regressions and republish",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793032283.9298985
+    },
+    {
+      "id": "n62",
+      "parent_id": "n61",
+      "title": "Keep the Work --plugin-dir pair at its previous argv index on relaunch so --continue stays where the resume helper placed it",
+      "status": "done",
+      "note": "",
+      "evidence": "runtime_launch._work_mode_args_index inserts the --plugin-dir pair before the first session selector (SESSION_CONTROL_FLAGS) or bare --; test_launch_data_path asserts --plugin-dir precedes --continue on resumed child",
+      "updated_at": 1793031016.0271
+    },
+    {
+      "id": "n63",
+      "parent_id": "n61",
+      "title": "Make test_work_mode_launch skip tomllib-dependent tests on Python 3.10 like test_codex_config_repair",
+      "status": "done",
+      "note": "",
+      "evidence": "tests/test_work_mode_launch.py: guarded tomllib import + skipIf on the TOML contract test, same pattern as test_codex_config_repair",
+      "updated_at": 1793031016.9675887
+    },
+    {
+      "id": "n64",
+      "parent_id": "n61",
+      "title": "Run test_runtime_session_restart + work/launch tests isolated (and the unit group shape) green; ruff",
+      "status": "done",
+      "note": "",
+      "evidence": "ci-fix-tests.txt: 474 tests OK on Python 3.14 (42 skipped) and 3.10 (43 skipped, tomllib skip) incl. the 4 failing restart tests; ruff check . clean. Full groups not run locally (live routers serving)",
+      "updated_at": 1793031321.6619291
+    },
+    {
+      "id": "n65",
+      "parent_id": "n61",
+      "title": "Commit, push nightly, watch CI + Publish to success",
+      "status": "done",
+      "note": "",
+      "evidence": "2faae14 pushed; CI 40357359092 success (6 jobs); Publish 40357359093 success incl. Verify published tarball",
+      "updated_at": 1793032283.9298985
+    },
+    {
+      "id": "n66",
+      "parent_id": null,
+      "title": "1. Work mode hints, request triage and queue integrity; local + nightly deploy",
+      "status": "done",
+      "note": "User 2026-10-26: \"빠진부분 보강해서 개선 테스트후 로컬 나이트리 배포\"; then \"첫번째 레벨은 아이템의 번호를 포함해서 저장하는게 유리 하다고 힌트할것\" and \"ciel-Walkie 에서 스스로 재시작 실패하는 문제도 지금 아이템이후로 개선할것\". Worktree C:/Users/djlov/ciel-runtime-wt-work, branch nightly-20261026.",
+      "evidence": "",
+      "updated_at": 1793040586.2219534
+    },
+    {
+      "id": "n67",
+      "parent_id": "n66",
+      "title": "1. Preflight",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793034025.284201
+    },
+    {
+      "id": "n68",
+      "parent_id": "n67",
+      "title": "Record worktree git status, HEAD and live router /health PIDs (9505, 9524)",
+      "status": "done",
+      "note": "",
+      "evidence": "preflight.txt: HEAD=origin/nightly=2a7e4c4; only CRLF journal mods tracked; 9505 pid 38368 (now runs 2faae14 nightly, fp 72c6bfb456e30cd7, workspace g:\\ciel-walkie), 9524 pid 25276 fp f86ee3638ee760f3.",
+      "updated_at": 1793034025.284201
+    },
+    {
+      "id": "n69",
+      "parent_id": "n66",
+      "title": "2. Claude mod hints (register.js)",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793034209.5142488
+    },
+    {
+      "id": "n70",
+      "parent_id": "n69",
+      "title": "Add item-number hint to model INSTRUCTIONS",
+      "status": "done",
+      "note": "",
+      "evidence": "register.js INSTRUCTIONS now asks for numbered first-level titles; mod-check-2.txt: 'immediate command' test (context contains work_plan_set, <4000 chars) passes.",
+      "updated_at": 1793034203.46076
+    },
+    {
+      "id": "n71",
+      "parent_id": "n69",
+      "title": "Session-start transcript notice ($.ui.log) for interactive sessions when Work is on",
+      "status": "done",
+      "note": "",
+      "evidence": "session.start logs NOTICE only when e.isInteractive && enabled; test 'interactive start logs one person-facing notice; -p and off do not' passes (mod-check-2.txt).",
+      "updated_at": 1793034204.5059006
+    },
+    {
+      "id": "n72",
+      "parent_id": "n69",
+      "title": "AbovePrompt hint when Work is on but no plan exists; phase shown in band header",
+      "status": "done",
+      "note": "",
+      "evidence": "AbovePrompt renders 'Work mode: no plan yet … /work-mode help' with no active_root, header 'Work planning|running d/t'; test 'band shows a hint while no plan exists and the phase once one does' passes.",
+      "updated_at": 1793034205.8458116
+    },
+    {
+      "id": "n73",
+      "parent_id": "n69",
+      "title": "Human-readable planning deny text plus one toast per planning version",
+      "status": "done",
+      "note": "",
+      "evidence": "PLANNING deny text names work_plan_set/work_execute and /work-mode help; hintPlanning toasts once per session:version; test 'planning denial explains itself and toasts once per plan version' passes (2 toasts across 2 versions, none when offline).",
+      "updated_at": 1793034207.2643907
+    },
+    {
+      "id": "n74",
+      "parent_id": "n69",
+      "title": "/work-mode help subcommand; bare /work-mode shows readable summary + help pointer; argumentHint updated",
+      "status": "done",
+      "note": "",
+      "evidence": "/work-mode help returns HELP; bare /work-mode returns readable summary without JSON; status keeps JSON; argumentHint [help|view|tree|status]; test 'help, readable bare command and raw status' passes.",
+      "updated_at": 1793034208.3998492
+    },
+    {
+      "id": "n75",
+      "parent_id": "n69",
+      "title": "Extend work.test.ts for notice, empty-plan hint, deny text/toast, help and bare command",
+      "status": "done",
+      "note": "",
+      "evidence": "4 new tests added to work.test.ts; mod-check-2.txt: plugin validate --strict exit 0, plugin test 22 pass 0 fail.",
+      "updated_at": 1793034209.5142488
+    },
+    {
+      "id": "n76",
+      "parent_id": "n66",
+      "title": "3. Router/Codex hints",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793034534.1486588
+    },
+    {
+      "id": "n77",
+      "parent_id": "n76",
+      "title": "Item-number hint in WORK_MODE_INSTRUCTIONS and work_plan_set description",
+      "status": "done",
+      "note": "",
+      "evidence": "WORK_MODE_INSTRUCTIONS and work_plan_set description carry the numbered first-level hint; test_numbered_first_level_hint_reaches_codex_and_the_plan_tool passes (focused-tests.txt: 572 OK on 3.11/3.10/3.14).",
+      "updated_at": 1793034531.5309849
+    },
+    {
+      "id": "n78",
+      "parent_id": "n76",
+      "title": "Codex console notice when Work mode applies (TUI and app-server) via shared helper",
+      "status": "done",
+      "note": "",
+      "evidence": "work_mode_launch_notice() + prints in runtime_launch Codex TUI (after work args) and app-server (after 'Launching Codex'); test_work_instructions_survive_app_server... asserts notice printed exactly once; 572 OK.",
+      "updated_at": 1793034532.7622414
+    },
+    {
+      "id": "n79",
+      "parent_id": "n76",
+      "title": "Python tests for notice helper, instructions and tool description",
+      "status": "done",
+      "note": "",
+      "evidence": "New tests test_launch_notice_follows_work_mode_applies, test_numbered_first_level_hint_reaches_codex_and_the_plan_tool, app-server stdout assertion; focused 572 tests OK on Python 3.11.6, 3.10, 3.14.2; live 9505/9524 PIDs unchanged (tests-live-before/after).",
+      "updated_at": 1793034534.1486588
+    },
+    {
+      "id": "n80",
+      "parent_id": "n66",
+      "title": "4. Docs and journal",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793036400.9192522
+    },
+    {
+      "id": "n81",
+      "parent_id": "n80",
+      "title": "Update docs/Configuration.md Work section (/work-mode help/view, hints, numbering, how to turn off)",
+      "status": "done",
+      "note": "",
+      "evidence": "docs/Configuration.md Work section: /work-mode args row (none/help/view/tree/status), '사용 힌트' table, /work-mode bullets, settings/how-to-turn-off paragraph.",
+      "updated_at": 1793036398.8892608
+    },
+    {
+      "id": "n82",
+      "parent_id": "n80",
+      "title": "OKF journal entry for this task; strict validation",
+      "status": "done",
+      "note": "",
+      "evidence": "docs/journal/2026/10/26/features/work-mode-hints/{index.md,log.md,verification.md,evidence/}; okf_validate --strict conformant, no issues.",
+      "updated_at": 1793036400.9192522
+    },
+    {
+      "id": "n83",
+      "parent_id": "n66",
+      "title": "5. Verification",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793036323.236129
+    },
+    {
+      "id": "n84",
+      "parent_id": "n83",
+      "title": "plugin validate --strict and mod tests in isolated env",
+      "status": "done",
+      "note": "",
+      "evidence": "Superseded by final run mod-check-3.txt: plugin validate --strict exit 0; plugin test 23 pass 0 fail (isolated temp HOME/config).",
+      "updated_at": 1793036106.0139973
+    },
+    {
+      "id": "n85",
+      "parent_id": "n83",
+      "title": "Focused Python tests on 3.14 and 3.10; ruff; git diff --check",
+      "status": "done",
+      "note": "",
+      "evidence": "focused-tests.txt: 576 OK on 3.14.2 and 3.10.6; ruff.txt All checks passed; git diff --check clean.",
+      "updated_at": 1793036106.9069443
+    },
+    {
+      "id": "n86",
+      "parent_id": "n83",
+      "title": "Real Claude CLI E2E (owned router/gateway, isolated env) with screenshots of notice, empty-plan hint, help, planning deny",
+      "status": "done",
+      "note": "",
+      "evidence": "run-711742ad (Claude 2.1.310, owned router/gateway, isolated env, minimized owned window): all 7 checks true — start notice, empty-plan hint, /work-mode help, bare summary, toast, deny text, numbered band 'Work planning 0/3' with '1. Parser'/'2. Cache'; model got number hint in context and plan tool description; notice never sent to model; target unchanged; 6 PNGs. Earlier runs: c6b21f5b user keystrokes landed in focused E2E window, ef0277ad toast check matched wrapped text, a7a6ccd0 console agent PermissionError (harness).",
+      "updated_at": 1793035046.945515
+    },
+    {
+      "id": "n87",
+      "parent_id": "n83",
+      "title": "Codex: debug prompt-input shows numbering hint; real launcher console shows notice",
+      "status": "done",
+      "note": "",
+      "evidence": "Prompt: codex-prompt-check.json all true. Console notice: runtime_launch.run_codex_app_server executed in test_work_instructions_survive_app_server... prints WORK_MODE_LAUNCH_NOTICE exactly once (stub services). The full ciel-runtime launcher was not run against real Codex, to avoid launch-time client termination near live routers; recorded as a limit.",
+      "updated_at": 1793036323.236129
+    },
+    {
+      "id": "n98",
+      "parent_id": null,
+      "title": "2. Walkie (g:\\ciel-walkie, router 9505): post-restart injection skipped as durable_replied, SSE EOF reconnects, missing SendMessage",
+      "status": "in_progress",
+      "note": "Confirmed cause (main checkout docs/journal/2026/10/26/diagnostics/walkie-durable-replied/findings.md): unclean reboot lost queue rows 14877-14907 (NUL run); fsynced status history kept them replied; queue reissues ids from readable max+1; injector reads status by integer id only. Live Walkie state is read-only: no restart, no queue/status/cursor edits without the user.",
+      "evidence": "",
+      "updated_at": 1793040629.3868554
+    },
+    {
+      "id": "n108",
+      "parent_id": "n66",
+      "title": "6. Request triage and queue integrity (user: independent request -> root item, dependent -> child, queue must not tangle)",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793036399.977288
+    },
+    {
+      "id": "n109",
+      "parent_id": "n108",
+      "title": "Evidence of current tangle",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793035667.013306
+    },
+    {
+      "id": "n110",
+      "parent_id": "n109",
+      "title": "Record live repro: adding root n98 while n66 executed switched active_root and phase (v68 -> v69)",
+      "status": "done",
+      "note": "",
+      "evidence": "evidence/queue-tangle-repro.txt: v68 executing active n66 -> work_node_add root n98 -> v69 planning active n98; cause work_plan_tree.add_node sets active_root/phase for every new root.",
+      "updated_at": 1793035667.013306
+    },
+    {
+      "id": "n111",
+      "parent_id": "n108",
+      "title": "Router queue semantics (work_plan_tree, work_mcp_tools)",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793035943.4135997
+    },
+    {
+      "id": "n112",
+      "parent_id": "n111",
+      "title": "New root while an unfinished goal is active is queued; active goal and phase unchanged",
+      "status": "done",
+      "note": "",
+      "evidence": "work_plan_tree.add_node queues a new root when _open_active_root exists; set_plan on a queued/done root keeps the active slot; test_new_goals_queue_behind_the_unfinished_active_goal passes (68 Work tests OK on 3.14).",
+      "updated_at": 1793035938.011784
+    },
+    {
+      "id": "n113",
+      "parent_id": "n111",
+      "title": "Finishing the active goal activates the next queued root in creation order (planning)",
+      "status": "done",
+      "note": "",
+      "evidence": "_advance_queue on active goal completion (update_node, remove_node) activates oldest queued root in planning; tests test_new_goals_queue..., test_reopened_finished_goal_queues_and_removing_active_child_advances, dispatcher test_independent_request_queues_and_activates_after_the_active_goal pass.",
+      "updated_at": 1793035939.4619164
+    },
+    {
+      "id": "n114",
+      "parent_id": "n111",
+      "title": "Snapshot queue list and text render label queued goals in order",
+      "status": "done",
+      "note": "",
+      "evidence": "snapshot 'queue' (<=20, oldest first, done/total); render 'Queued goals (next first)' and 'Finished goals'; asserted in test_new_goals_queue_behind_the_unfinished_active_goal and detail test.",
+      "updated_at": 1793035940.8714206
+    },
+    {
+      "id": "n115",
+      "parent_id": "n111",
+      "title": "Tool descriptions and result messages state queueing",
+      "status": "done",
+      "note": "",
+      "evidence": "work_plan_set/work_node_add/work_select descriptions state triage and queueing; results say 'queued behind the active goal X' and 'next queued goal Y is now active'; dispatcher test asserts both messages.",
+      "updated_at": 1793035942.0146697
+    },
+    {
+      "id": "n116",
+      "parent_id": "n111",
+      "title": "Python tests for queueing, advance, child under queued/done root, select",
+      "status": "done",
+      "note": "",
+      "evidence": "Added 3 tree tests + 1 dispatcher test, updated test_readiness and detail test; py -3.14 run_focused test_work_plan_tree test_work_mcp_tools test_work_mode_launch test_work_breakdown_statusline test_work_plan_store: Ran 68, OK.",
+      "updated_at": 1793035943.4135997
+    },
+    {
+      "id": "n117",
+      "parent_id": "n108",
+      "title": "Guidance and UI",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793035946.306954
+    },
+    {
+      "id": "n118",
+      "parent_id": "n117",
+      "title": "Model guidance (Claude INSTRUCTIONS, Codex instructions, tool text): classify each new request; independent -> numbered root item, dependent -> child of the related item",
+      "status": "done",
+      "note": "",
+      "evidence": "Claude INSTRUCTIONS and Codex WORK_MODE_INSTRUCTIONS carry triage (independent -> numbered root item, dependent -> child via work_node_add parent_id, new goal queues); test_triage_and_numbering_guidance_reaches_codex_and_the_tools and mod triage test pass.",
+      "updated_at": 1793035945.0412076
+    },
+    {
+      "id": "n119",
+      "parent_id": "n117",
+      "title": "Band and /work-mode summary/help show the queue; mod tests",
+      "status": "done",
+      "note": "",
+      "evidence": "Band shows up to 3 'Queued:' text rows + '+N more queued', not focusable (3 buttons); /work-mode summary lists 'Queue (next first)'; help has 'New requests' line; mod-check-3.txt validate exit 0, 23 pass 0 fail.",
+      "updated_at": 1793035946.306954
+    },
+    {
+      "id": "n120",
+      "parent_id": "n108",
+      "title": "Verification",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793036321.5218558
+    },
+    {
+      "id": "n121",
+      "parent_id": "n120",
+      "title": "Re-run mod validate/tests, focused Python (3.14/3.10), ruff, diff --check",
+      "status": "done",
+      "note": "",
+      "evidence": "mod-check-3.txt validate exit 0, 23 pass; focused-tests.txt 576 tests OK on py 3.14.2 and 3.10.6; ruff 0.15.22 'All checks passed'; git diff --check clean (CRLF warnings only, diff stat no churn); live 9505 pid 38368 / 9524 pid 25276 unchanged.",
+      "updated_at": 1793036104.832444
+    },
+    {
+      "id": "n122",
+      "parent_id": "n120",
+      "title": "Real Claude CLI E2E: hints plus queued root during execution does not block edits; completion advances; screenshots",
+      "status": "done",
+      "note": "",
+      "evidence": "run-6a0d4cec (Claude 2.1.310, owned router/gateway, isolated env): 10/10 checks; PNG 07 shows 'Work running 0/3 — 1. Hint check' + 'Queued: [ ] 2. Second request 0/1' while the Edit BEFORE->AFTER succeeded; PNG 08/09 show 'Work planning 0/1 — 2. Second request' after item 1 leaves done; model got 'queued behind the active goal' and 'next queued goal' results; planning edit never applied; live 9505/9524 PIDs unchanged.",
+      "updated_at": 1793036301.6930406
+    },
+    {
+      "id": "n123",
+      "parent_id": "n120",
+      "title": "Codex debug prompt-input carries triage and numbering guidance",
+      "status": "done",
+      "note": "",
+      "evidence": "codex-prompt-check.json: codex-cli 0.158.0 debug prompt-input in isolated CODEX_HOME, exit 0, developer prompt has triage, numbered root item, dependent child, queue and LLM options -> Work mode texts (all true).",
+      "updated_at": 1793036321.5218558
+    },
+    {
+      "id": "n124",
+      "parent_id": "n108",
+      "title": "Docs",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793036399.977288
+    },
+    {
+      "id": "n125",
+      "parent_id": "n124",
+      "title": "Configuration.md queue/triage section and OKF journal",
+      "status": "done",
+      "note": "",
+      "evidence": "Configuration.md '새 요청 분류와 작업 큐' section with queue behavior table; journal work-mode-hints/verification.md; okf_validate --strict: conformant, no issues.",
+      "updated_at": 1793036399.977288
+    },
+    {
+      "id": "n126",
+      "parent_id": "n66",
+      "title": "7. Release",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793040586.2219534
+    },
+    {
+      "id": "n127",
+      "parent_id": "n126",
+      "title": "Commit on nightly-20261026 and fast-forward push to nightly",
+      "status": "done",
+      "note": "",
+      "evidence": "Commit e182600 (156 files; secret scan 66 known values, 1 pre-existing sk-ciel-router test placeholder only); pushed fast-forward 2a7e4c4..e182600 to nightly and nightly-20261026; origin/nightly = e1826009db5e.",
+      "updated_at": 1793036471.3778138
+    },
+    {
+      "id": "n128",
+      "parent_id": "n126",
+      "title": "Watch CI and Publish; verify registry dist-tag, gitHead, hashes",
+      "status": "done",
+      "note": "",
+      "evidence": "CI 40370921168 success, Publish 40370921328 success (npm test, publish, verify tarball) on e1826009; registry nightly=0.2.51-nightly.20261026-175255.e182600 gitHead e1826009, latest stays 0.2.51; sha1 377e9e1a and sha512 verified, 507 files; 5 changed source files byte-equal to the commit (releases/work-hints-nightly/evidence/published.json, package-vs-commit.txt).",
+      "updated_at": 1793037964.9400842
+    },
+    {
+      "id": "n129",
+      "parent_id": "n126",
+      "title": "New local snapshot from verified tarball (no install.ps1), E2E against snapshot",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793038923.597005
+    },
+    {
+      "id": "n130",
+      "parent_id": "n126",
+      "title": "Switch CIEL_RUNTIME_HOME, statusline, npm global; verify launch paths",
+      "status": "done",
+      "note": "",
+      "evidence": "fix-81f6a4b/switch.json: User CIEL_RUNTIME_HOME 2faae14 snapshot -> ciel-runtime-81f6a4ba...; statusline (differed only in embedded snapshot path) replaced with exact LF template bytes, backup .before-81f6a4b-20261026 (sha da5766c5 = previous). A first attempt wrote CRLF and stopped before the env change; corrected. npm -g = 0.2.51-nightly.20261026-183726.81f6a4b, ciel_runtime_support equal to snapshot except Claude-written .claude-plugin/types. launch-paths.txt: ~/.local/bin cmd, npm cmd, ps1 all print 81f6a4b version; 9505 pid 38368 and 9524 pid 25276 unchanged.",
+      "updated_at": 1793040496.6506047
+    },
+    {
+      "id": "n131",
+      "parent_id": "n126",
+      "title": "Release journal commit [skip ci]; live router PIDs unchanged",
+      "status": "done",
+      "note": "",
+      "evidence": "Commit 911076e '[skip ci]' (42 journal/evidence files; secret scan 0 hits; diff --check clean; OKF strict conformant) pushed fast-forward to nightly and nightly-20261026; no workflow run listed for 911076e; registry nightly stays 81f6a4b. Live 9505 pid 38368 and 9524 pid 25276 unchanged.",
+      "updated_at": 1793040586.2219534
+    },
+    {
+      "id": "n132",
+      "parent_id": null,
+      "title": "3. Work 정상 턴 종료 시 미결 작업 자동 계속: 검증 후 로컬·나이트리 배포",
+      "status": "done",
+      "note": "User explicitly authorized implementation and local/nightly deployment. Replace notice-only design with guarded Stop continuation. No changes/restarts on .14. Reuse existing Work hooks/config; menu exposure required.",
+      "evidence": "",
+      "updated_at": 1793056382.8379223
+    },
+    {
+      "id": "n133",
+      "parent_id": "n132",
+      "title": "Design",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793051408.0119948
+    },
+    {
+      "id": "n134",
+      "parent_id": "n133",
+      "title": "Inspect existing Stop hook, exact-session Work state and safe continuation integration",
+      "status": "done",
+      "note": "",
+      "evidence": "Installed mod types ClassicResult.block explicitly re-prompts Stop; classic.Stop input session_id/agent_id/stop_hook_active; turn.complete has answer/aborted/refusal/error. Existing tool guard stdlib standalone, so use Work mod classic.Stop with live exact-session router snapshot instead. Official anthropics/claude-code ralph-wiggum Stop example confirms block/reason mechanism.",
+      "updated_at": 1793048349.8881726
+    },
+    {
+      "id": "n135",
+      "parent_id": "n133",
+      "title": "Guarded continuation design: actionable pending leaves, approved backlog triage, independent parallel work, stop/error/blocked/no-progress exclusions",
+      "status": "done",
+      "note": "",
+      "evidence": "docs/journal/2026/10/26/features/work-continuation/design.md: decisions for classic.Stop guards (official hooks doc: no Stop on interrupt, StopFailure for API errors, 8-continuation cap; mod types agent_id/background_tasks), actionable definition, no-progress cutoff, reorder/urgent/labels/display, Codex instruction-only.",
+      "updated_at": 1793051408.0119948
+    },
+    {
+      "id": "n136",
+      "parent_id": "n132",
+      "title": "Implement and test",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793054115.918003
+    },
+    {
+      "id": "n137",
+      "parent_id": "n136",
+      "title": "Implement exact-session guarded Stop continuation, Work menu toggle and isolated tests",
+      "status": "done",
+      "note": "",
+      "evidence": "classic.Stop bounded continuation/guards tests; real CLI automatic resume without dot; actual menu nine assertions on/off/on saved config with nine successful PNG captures menu-clean/result.json.",
+      "updated_at": 1793053967.8503253
+    },
+    {
+      "id": "n138",
+      "parent_id": "n136",
+      "title": "Codex: model-mediated instruction to list unfinished items before ending a turn + Python test",
+      "status": "done",
+      "note": "",
+      "evidence": "Codex continuation off/on contract tests passed in 92 focused suite; instructions include linked IDs, waits, root reorder and urgent. Codex remains model-mediated instructions only.",
+      "updated_at": 1793053968.517993
+    },
+    {
+      "id": "n139",
+      "parent_id": "n132",
+      "title": "Verify and ship",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793056382.8379223
+    },
+    {
+      "id": "n140",
+      "parent_id": "n139",
+      "title": "Real Claude CLI E2E: end_turn resumes unfinished work without '.', completes, and stops; screenshot and guard cases",
+      "status": "done",
+      "note": "",
+      "evidence": "Actual CLI run-29886202: 11/11 checks, single model user prompt, normal/urgent Stop resumed without dot, four goals done and no further continuation. Four PNGs. Guard tests passed. Live PIDs unchanged.",
+      "updated_at": 1793054116.5577424
+    },
+    {
+      "id": "n141",
+      "parent_id": "n139",
+      "title": "Docs, journal, release",
+      "status": "done",
+      "note": "040b9ee failed CI on the OptionPanelRuntime field-count contract (nothing published). Fixed in 5054af2, re-verified 361 tests on py3.14/3.10 and the actual menu, then pushed. Waiting for CI 40414938303 and Publish 40414938042. Local snapshot switch follows a successful publish.",
+      "evidence": "Nightly CI and Publish succeeded for 5054af2. Registry tarball verified and exact snapshot installed. Installed snapshot passed Work continuation 11/11, alias compact_dispatched_once, and Walkie injected; live router PIDs unchanged. CIEL_RUNTIME_HOME/statusline switched, npm global exact version installed, both launch paths report 0.2.51-nightly.20261026-225621.5054af2. Release evidence committed in 115cda5.",
+      "updated_at": 1793056382.8379223
+    },
+    {
+      "id": "n142",
+      "parent_id": "n129",
+      "title": "Snapshot E2E run-111efba6: 8/10 pass; start_notice and empty_plan_hint false (band showed 'Work unavailable' at start). Diagnose before switching",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793038923.597005
+    },
+    {
+      "id": "n143",
+      "parent_id": "n142",
+      "title": "Instrumented temp copy (not shipped): record session.start work_status error, router tool presence and time to first success",
+      "status": "done",
+      "note": "",
+      "evidence": "Instrumented temp copies (not shipped): with existing .claude-plugin/types 4/4 starts succeeded at 0 ms (run-21d3e101, 374aa408, 4393287d; 1b68d59b stopped by stray-input guard after start OK). Fresh copies without types (first plugin load, as in run-111efba6): 2/2 failed at 0 ms with '$.mcp.call: no connected MCP tool \"work_status\" on a server named \"ciel-runtime-router\"', router tools 0, then succeeded at 301/296 ms (run-1f2dd9a8, run-acc6e897). Mod has no retry after a failed start refresh.",
+      "updated_at": 1793038637.9746277
+    },
+    {
+      "id": "n144",
+      "parent_id": "n142",
+      "title": "Decide from evidence: product race (fix + tests + rerun) or harness/environment cause",
+      "status": "done",
+      "note": "Decision: product defect. Fact: at a mod dir's first load session.start runs before the engine has connected the router MCP server (error 'no connected MCP tool'); the mod never re-reads, so band stays 'Work unavailable' and the notice is skipped. Every new installed snapshot is a first load. Fix: interactive start re-reads with $.clock.after backoff (250..8000 ms, ~16 s) until available; notice once per start. Why the engine connects later at first load is not determined.",
+      "evidence": "register.js: interactive session.start re-reads with $.clock.after backoff 250..8000 ms when the first read fails; notice once per start; stops on success, new start, Work off, or after ~16 s. Mod: validate exit 0, 25 pass 0 fail (mod-check-start-retry-1.txt); new test fails on old code (mod-check-start-retry-old-code.txt: 24 pass 1 fail). Real CLI on fresh first-load copies: run-b96f7a86 and run-00cb229e 10/10; screen-002 'Work unavailable' then screen-003 (+200 ms) notice and 'no plan yet'.",
+      "updated_at": 1793038923.597005
+    },
+    {
+      "id": "n145",
+      "parent_id": "n126",
+      "title": "Ship start-retry fix: journal, commit, fast-forward push nightly, CI/Publish, registry verification",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793040349.5068736
+    },
+    {
+      "id": "n146",
+      "parent_id": "n145",
+      "title": "Journal: features verification (start race + fix) and release journal draft; OKF strict",
+      "status": "done",
+      "note": "",
+      "evidence": "features/work-mode-hints/verification.md gained 'Start on a mod's first load' (failure, instrumented diagnosis, fix, tests, fixed real-CLI runs) and the run-1b68d59b stray-input note; log.md entry; releases/work-hints-nightly/{index.md,verification.md} draft. OKF --strict: both conformant (release dir warnings fixed by relative links).",
+      "updated_at": 1793039099.9817357
+    },
+    {
+      "id": "n147",
+      "parent_id": "n145",
+      "title": "Commit (only intended files) and fast-forward push nightly + nightly-20261026",
+      "status": "done",
+      "note": "",
+      "evidence": "Commit 81f6a4b (168 files: register.js, work.test.ts, journal and evidence only; secret scan 66 known values, 0 hits; diff --check clean). Pushed fast-forward e182600..81f6a4b to nightly and nightly-20261026; origin refs equal HEAD.",
+      "updated_at": 1793039141.6391785
+    },
+    {
+      "id": "n148",
+      "parent_id": "n145",
+      "title": "CI and Publish success; registry nightly tag, gitHead, sha1/sha512; package files equal commit",
+      "status": "done",
+      "note": "",
+      "evidence": "CI 40377622625 success, Publish 40377622439 success (npm test, publish, verify tarball) on 81f6a4b; registry nightly=0.2.51-nightly.20261026-183726.81f6a4b, gitHead 81f6a4ba, latest 0.2.51; sha1 07d6cda3 and sha512 verified, 507 files; changed mod files byte-equal to commit (fix-81f6a4b/published.json, package-vs-commit.txt).",
+      "updated_at": 1793040286.6743906
+    },
+    {
+      "id": "n149",
+      "parent_id": "n145",
+      "title": "New snapshot from the fixed published tarball (first plugin load) and real-CLI E2E 10/10 with screenshots",
+      "status": "done",
+      "note": "",
+      "evidence": "Snapshot ciel-runtime-81f6a4ba... from verified tarball: 454 files, no mismatch, mod dir without .claude-plugin/types (first load). Real Claude Code 2.1.310 run-3fada75b against it: 10/10 checks; screen-001/002 'Work unavailable', screen-003 notice; PNG 07 shows 'Work running 0/3 — 1. Hint check' with 'Queued: [ ] 2. Second request 0/1' while Edit BEFORE->AFTER succeeded.",
+      "updated_at": 1793040349.5068736
+    },
+    {
+      "id": "n150",
+      "parent_id": "n98",
+      "title": "1. Current evidence (read-only)",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793040823.557448
+    },
+    {
+      "id": "n151",
+      "parent_id": "n150",
+      "title": "Live Walkie workspace: queue max id, status max id, NUL damage, last inject/skip lines in the current 9505 router log (is the collision window still open?)",
+      "status": "done",
+      "note": "",
+      "evidence": "evidence/09-state-after-14907.txt (read-only, 18:51Z): queue max 14907 (1 undecodable NUL row), status max 14907, every post-reboot id 14877-14907 has a pre-crash terminal status (14889 failed, rest replied). Current 9505 log (pid 38368, 2faae14) skipped 14895-14907 durable_replied, 0 injected; last skip 14907 at 13:48:16 local. Next id 14908 is the first with no status row; the window closes on its own from there (predicted by code, not yet observed).",
+      "updated_at": 1793040680.0411568
+    },
+    {
+      "id": "n152",
+      "parent_id": "n150",
+      "title": "SSE EOFError: count and spacing in the current log; source of the EOF in the SSE client code",
+      "status": "done",
+      "note": "",
+      "evidence": "evidence/10-sse-eof-pattern.txt: 114 EOFError disconnects in current 9505 log, all receiver 'default' (http://100.64.0.9:8787/api/notification-delivery/stream, no client idle timeout), gap exactly 61-62 s: the server ends each stream after ~60 s; client raises EOFError on clean end (external_event_receiver.py:865-866), retries in 1 s with the cursor. Code equals running snapshot. Events keep arriving (queue appends continue); no link to the skips.",
+      "updated_at": 1793040821.3776333
+    },
+    {
+      "id": "n153",
+      "parent_id": "n150",
+      "title": "SendMessage absence: compare Walkie launch args/settings with a plain Claude 2.1.310 tool list; find what removes it",
+      "status": "done",
+      "note": "",
+      "evidence": "evidence/11-sendmessage-blocked.txt: Walkie provider cielairouter, no blocked_tools override; ProviderToolPolicy.blocked_tools returns DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC (includes SendMessage/SendMessageTool/TeamCreate, since 2026-06-25) for every adapter with blocks_default_tools=True (default; only anthropic sets False); claude_router.py:305 strips them from the request. Documented in docs/Tool-Guard.md. Per-provider override blocked_tools (false or list) exists. Same in this cielairouter session.",
+      "updated_at": 1793040823.557448
+    },
+    {
+      "id": "n154",
+      "parent_id": "n98",
+      "title": "2. Fix: input ids never reuse a recorded status (worktree, nightly-20261026)",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793041440.0178335
+    },
+    {
+      "id": "n155",
+      "parent_id": "n154",
+      "title": "Queue id allocation also respects the status history max id (new ids start above every recorded status)",
+      "status": "done",
+      "note": "Design: ChannelMessageRepository.max_id already reserves ids issued outside the live file (rotated .jsonl.1, .recovery.json id_floor). Add a generic issued_id_floor port to max_id; wire the runtime-input queue to the highest request_id recorded in the sibling runtime-input-status.jsonl (incremental, lock-free read, cached by file identity). Injector unchanged (rescuing already-reused ids on restart would redeliver hours-old inputs).",
+      "evidence": "ChannelMessageRepository.issued_id_floor port (max_id/append take max with it; WARN chat_message_id_above_issued_floor when it lifts the id; unreadable floor logs and falls back). runtime_input_status.recorded_max_request_id (incremental, file-identity cached, NUL/damage tolerant). ciel_runtime wires the runtime-input queue to the sibling runtime-input-status.jsonl. Tests: crash-shaped queue gets 82 not 77; bridge wiring test id 8 with no recorded status; paths sibling assertion. New tests fail/err on previous code (5 of them).",
+      "updated_at": 1793041293.9464846
+    },
+    {
+      "id": "n156",
+      "parent_id": "n154",
+      "title": "Queue append flushes and fsyncs like the status store",
+      "status": "done",
+      "note": "",
+      "evidence": "channel_message_repository.append now flush()+os.fsync() inside the append; test_append_reaches_the_disk_before_returning asserts fsync is called once with the row present; it fails on the previous code.",
+      "updated_at": 1793041295.1524231
+    },
+    {
+      "id": "n157",
+      "parent_id": "n154",
+      "title": "recover_sse_delivery status reports status-ahead-of-queue id reuse and never-injected durable skips as a problem",
+      "status": "done",
+      "note": "",
+      "evidence": "runtime_input_delivery_health: reused_id_count/reused_id_newest from the newest 1 MiB of the queue (terminal status recorded >1 s before the row's created_at), text line 'reused ids N (newest #id, skipped as already delivered)'. sse_delivery_evidence: reason input_id_reuse makes problem=True, never restart_eligible. Read-only on live Walkie files (evidence/12): reused ids 31, newest 14907; files unchanged.",
+      "updated_at": 1793041438.299881
+    },
+    {
+      "id": "n158",
+      "parent_id": "n154",
+      "title": "Unit tests: crash-shaped workspace (NUL tail, status rows ahead) gets fresh ids and injects; fsync called; health flags reuse; tests fail on old code",
+      "status": "done",
+      "note": "",
+      "evidence": "New tests: repository (floor, unreadable floor, fsync, crash-shaped 82 vs 77), recorded_max_request_id (4), delivery health reuse (3), sse recovery reuse, bridge wiring, paths sibling. All pass on the worktree; on the previous code 10 fail/err (evidence/14-new-tests-on-previous-code.txt).",
+      "updated_at": 1793041440.0178335
+    },
+    {
+      "id": "n159",
+      "parent_id": "n98",
+      "title": "3. Verification",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793044995.0624223
+    },
+    {
+      "id": "n160",
+      "parent_id": "n159",
+      "title": "Focused Python tests (3.14, 3.10), ruff, diff --check; live router PIDs unchanged",
+      "status": "done",
+      "note": "",
+      "evidence": "evidence/17-focused-tests-after-lf.txt: 19 related modules, 776 tests OK (skipped 122) on py 3.14.2 and 3.10.6 after ciel_runtime.py LF normalization; live 9505/9524 PIDs 38368/25276 unchanged before/after. ruff 0.15.22 check . and changed paths: all passed; git diff --check clean.",
+      "updated_at": 1793044939.9655287
+    },
+    {
+      "id": "n161",
+      "parent_id": "n159",
+      "title": "Owned-router E2E on a copied crash-shaped workspace: before fix skipped durable_replied, after fix injected; logs captured",
+      "status": "done",
+      "note": "",
+      "evidence": "evidence/e2e/walkie_reuse_e2e.py, real claude.exe 2.1.310 + loopback fixture, crash-shaped seed (queue id 1 + NUL run CRLF, status 1-4 replied, cursor 4). Old 2faae14 run-old-142155 and run-old-142518: ids 2,3,4 reissued and skipped durable_replied, id 5 injected; fixed observer reports reused_id_count 3. Worktree run-fixed-142440: WARN chat_message_id_above_issued_floor queue_max_id=1 issued_floor=4 next_id=5, id 5 injected and replied, fixed observer reused 0. Screenshots 02-after-notifications.png; live PIDs unchanged; owned window foreground 0 samples (one earlier run had 73 unexplained samples, kept as focus-unexplained-run-fixed-142315).",
+      "updated_at": 1793044943.0131564
+    },
+    {
+      "id": "n162",
+      "parent_id": "n159",
+      "title": "SendMessage and EOF findings: fix if the cause is in ciel-runtime, else record evidence and limits",
+      "status": "done",
+      "note": "",
+      "evidence": "evidence/18-sendmessage-eof-disposition.txt: SendMessage removed by the default non-Anthropic block list (all cielairouter requests on 9505/9524); config override providers.<name>.blocked_tools exists, not in the menu; reason for the default not determined, not changed. SSE EOF: server ends streams ~60 s, client reconnects with cursor, no loss tied to it; server outside ciel-runtime, not changed.",
+      "updated_at": 1793044995.0624223
+    },
+    {
+      "id": "n163",
+      "parent_id": "n98",
+      "title": "4. Report, journal, release",
+      "status": "in_progress",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793044999.281205
+    },
+    {
+      "id": "n164",
+      "parent_id": "n163",
+      "title": "OKF journal (diagnostics + fix) strict; report to user with what the running Walkie router needs (restart is the user's call)",
+      "status": "done",
+      "note": "",
+      "evidence": "walkie-durable-replied: index/log/findings updated, fix-verification.md added; codex-stdout-not-terminal journal added. okf_validate --strict: both conformant, no issues. Evidence files LF, no trailing whitespace.",
+      "updated_at": 1793045081.156615
+    },
+    {
+      "id": "n165",
+      "parent_id": "n163",
+      "title": "Commit, fast-forward push nightly, CI/Publish, registry hashes",
+      "status": "done",
+      "note": "",
+      "evidence": "gh run list: CI 40392571479 success and Publish to npm 40392571575 success for 3c95a4b on nightly (2026-10-26T20:05:45Z).",
+      "updated_at": 1793050865.2304437
+    },
+    {
+      "id": "n166",
+      "parent_id": "n163",
+      "title": "New local snapshot, installed E2E, switch CIEL_RUNTIME_HOME/statusline/npm, launch paths, release journal [skip ci]",
+      "status": "pending",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793040620.591115
+    },
+    {
+      "id": "n167",
+      "parent_id": null,
+      "title": "4. Windows Terminal: Error: stdout is not a terminal (user screenshot)",
+      "status": "in_progress",
+      "note": "Independent new report. Screenshot confirms error text only; identify owning process/launch path before modifying code. Do not restart or close live sessions.",
+      "evidence": "",
+      "updated_at": 1793043071.135146
+    },
+    {
+      "id": "n168",
+      "parent_id": "n167",
+      "title": "1. Diagnose and verify",
+      "status": "in_progress",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793043071.135146
+    },
+    {
+      "id": "n169",
+      "parent_id": "n168",
+      "title": "Identify the error emitter and match the window to an owned or live launch",
+      "status": "blocked",
+      "note": "Emitter confirmed: Codex CLI (0.158.0 npm and 0.164.0) prints exactly this when interactive with console stdin and redirected stdout; npm codex.cmd sets title %COMSPEC%. Starter process not recorded (no 4688/Sysmon, window closed). Waiting for the user: when it appeared and what was done before. Journal: docs/journal/2026/10/26/diagnostics/codex-stdout-not-terminal/.",
+      "evidence": "evidence/01-string-search.txt (only codex.exe contains the text), 02-codex-tty-probe.txt (owned reproduction, both versions: Error: stdout is not a terminal, exit 1), 03-windows-and-walkie-tab.txt",
+      "updated_at": 1793044930.1834006
+    },
+    {
+      "id": "n170",
+      "parent_id": "n168",
+      "title": "Reproduce the identified launch path in an isolated console and fix only with evidence",
+      "status": "pending",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793043040.120128
+    },
+    {
+      "id": "n171",
+      "parent_id": "n168",
+      "title": "Verify real launch, screenshot and journal; preserve existing Walkie work",
+      "status": "pending",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793043040.120157
+    },
+    {
+      "id": "n172",
+      "parent_id": "n132",
+      "title": ".14 edward sandbox: turn ended while work remained; typing \".\" resumed it (read-only diagnosis after plan approval)",
+      "status": "done",
+      "note": "User report 2026-10-26. Related to the turn-end reminder (n132). Host 100.64.0.14:1004 (ara-ai key), read-only; no changes on the host. Plan posted to the user; wait for approval before connecting.",
+      "evidence": "",
+      "updated_at": 1793047294.162746
+    },
+    {
+      "id": "n173",
+      "parent_id": "n172",
+      "title": "Find edward's sandbox, running runtime, ciel-runtime version and router instance (read-only)",
+      "status": "done",
+      "note": "",
+      "evidence": ".14 read-only: edward=u22/home/edward-ai; launcher python pid3888, router pid18768 port9397 instance9397-4d48ef23cb8e; npm runtime0.2.51-nightly.20261026-183726.81f6a4b; Claude2.1.310 pid12436; transcript354281f4-a695-46c2-a0db-450d681953b8 under C:/Users/aapw-a22u22/.claude/projects/C--ProgramData-aap-win-sandboxes-u22-home-edward-ai. Router log level ERROR; no INFO recovery decisions recorded.",
+      "updated_at": 1793046671.5391757
+    },
+    {
+      "id": "n174",
+      "parent_id": "n172",
+      "title": "Locate the turn before the '.' input: transcript stop reason and router log lines (end_turn, empty end_turn notice, stream error, interrupt)",
+      "status": "done",
+      "note": "",
+      "evidence": "docs/journal/2026/10/26/diagnostics/edward14-turn-end/evidence/01-transcript-facts.txt:13:16:02.285 assistant stop=end_turn; user '.'13:16:19.062.13:23:26.660 and13:24:48.344 also ordinary end_turn, text present. Stop hook summaries no errors/output, preventedContinuation=false. Not an empty response or evidence of transport disconnect.",
+      "updated_at": 1793047252.239491
+    },
+    {
+      "id": "n175",
+      "parent_id": "n172",
+      "title": "Work plan state for that session at that time (open items or not)",
+      "status": "done",
+      "note": "",
+      "evidence": "01-transcript-facts.txt: recorded work MCP results executing1/9 at13:14:30,13:17:29;1/11 at13:19:25;4/11 at13:22:42 and13:27:37. Confirms incomplete Work at reported stops. Live Work directory permission denied; did not alter ACLs, used recorded tool results.",
+      "updated_at": 1793047261.7719755
+    },
+    {
+      "id": "n176",
+      "parent_id": "n172",
+      "title": "Report confirmed cause vs unknown; any fix goes through the repo and nightly after separate approval",
+      "status": "done",
+      "note": "",
+      "evidence": "Verified diagnosis recorded and strict OKF validated in docs/journal/2026/10/26/diagnostics/edward14-turn-end/. Report: ordinary end_turn at13:16/18/23/24 with Work unfinished; separate13:20 API error not admitted by current recovery guards. No session restart, config change, injection or patch to .14. Disclosed two diagnostic script copies to Windows Temp beyond intended no-write scope. Remediation remains pending, not marked complete.",
+      "updated_at": 1793047294.162746
+    },
+    {
+      "id": "n177",
+      "parent_id": "n172",
+      "title": "API Error: terminated at 13:20:04 — correlate transcript flags, upstream failure and recovery guards (read-only)",
+      "status": "done",
+      "note": "User screenshot during authorized Edward read-only investigation. Treat separately from ordinary end_turn. No replay or restart when background tool effects are uncertain.",
+      "evidence": "01/02 evidence: API Error terminated13:20:04.547 isApiErrorMessage=true, no truncatedAfterOutput, parent=user tool_result. Installed _observe_error requires flag true and assistant-parent id; no recovery pending for this shape. Upstream ledger api_error13:20:03.864 visible_text=false tool_uncertain/saw/emitted_tool_use=true; direct ineligible_reason returns tool_use_seen. Handled ledger empty, ERROR-only log hides INFO. Exact upstream termination cause unknown; no blind replay/restart.",
+      "updated_at": 1793047273.5831203
+    },
+    {
+      "id": "n178",
+      "parent_id": "n136",
+      "title": "Work priority: reorder root items (queue-only by default; active root only on explicit user request), persisted order, menu/UI move, tests",
+      "status": "done",
+      "note": "User 2026-10-26: priority is adjusted by reordering ROOT items (goals). By default reorder only among queued roots; reordering the active root is allowed only on an explicit user request. Persisted order, deterministic queue advance, menu/UI move up/down, tests.",
+      "evidence": "Root reorder/CAS/active explicit guards passed; real CLI run-efa3e3dd Tab/Enter Move up invoked production router and queued root became active. PNG captured.",
+      "updated_at": 1793054114.5855489
+    },
+    {
+      "id": "n179",
+      "parent_id": "n136",
+      "title": "External wait display: clock marker and short suffix, persisted wait target/reason, exclude waiting work from continuation selection",
+      "status": "done",
+      "note": "User requested clock on items blocked by external work and concise end-of-item label naming dependency. Expose update/clear in Work tools and UI. Keep title separate; clear wait explicitly when resolved; no polling/mutation of other projects.",
+      "evidence": "92 focused Python tests and actual CLI run-29886202 passed; wait labels shown with clock; ancestor waits excluded. verification.md and 01/03 PNGs.",
+      "updated_at": 1793053965.6290834
+    },
+    {
+      "id": "n180",
+      "parent_id": "n136",
+      "title": "Above-prompt Work list: 3-level tree (branch → task → step) with status, counts, clock wait suffix and priority marks; bounded rows with overflow line",
+      "status": "done",
+      "note": "User screenshot: only first level with 3/8 counts. Show branch, its children and their children so actual sub-items are visible. Keep keyboard focus/inspect; collapse done branches to one line; cap rows so the prompt area stays usable.",
+      "evidence": "34 mod tests and actual CLI 01-normal-stop-three-levels.png show goal/branch/sub-items, ref and wait suffix. Overflow tests passed.",
+      "updated_at": 1793054115.284278
+    },
+    {
+      "id": "n181",
+      "parent_id": null,
+      "title": "5. .14 kobe(1004) 세션: 'API Error: Upstream Anthropic stream ended before message_stop' 후 자동 재처리 안 됨 (user screenshot #7)",
+      "status": "done",
+      "note": "Read-only diagnosis on .14 (no install/restart/injection). Fix only through repo + nightly.",
+      "evidence": "",
+      "updated_at": 1793064155.2996848
+    },
+    {
+      "id": "n186",
+      "parent_id": "n181",
+      "title": "Diagnose",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793048830.639633
+    },
+    {
+      "id": "n187",
+      "parent_id": "n186",
+      "title": "Source",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793048601.7705855
+    },
+    {
+      "id": "n188",
+      "parent_id": "n187",
+      "title": "Locate where the message is produced and which recovery guards apply (streaming_anthropic.py, claude_stream_recovery_runtime.py)",
+      "status": "done",
+      "note": "",
+      "evidence": "streaming_anthropic.py:1455-1462 router itself reports 'Upstream Anthropic stream ended before message_stop.' (reason anthropic_stream_upstream_incomplete) when upstream EOF without message_stop. Recovery: claude_stream_recovery_runtime.py _observe_error needs truncatedAfterOutput=True + assistant parent id (534); ineligible_reason excludes tool_use_seen / nothing_shown (65-82); terminal gates, newer_input, plan_mode, attempts limit.",
+      "updated_at": 1793048601.7705855
+    },
+    {
+      "id": "n189",
+      "parent_id": "n186",
+      "title": "Remote read-only",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793048830.639633
+    },
+    {
+      "id": "n190",
+      "parent_id": "n189",
+      "title": "Find kobe sandbox, launcher/router/claude processes, runtime version, router instance",
+      "status": "done",
+      "note": "",
+      "evidence": ".14 read-only: kobe=u24 C:\\ProgramData\\aap-win\\sandboxes\\u24\\home\\kobe-ai, user aapw-a24u24; launcher python pid17844, router serve pid4572 port9780 instance 9780-651d879f6c68; claude.exe pid12532 2.1.310 (started 1793042110); runtime 0.2.51-nightly.20261026-162537.2faae14; transcript 5ac1ee55-d0d1-4ef7-b4df-3d68e62bbd1b.jsonl; model ciel-runtime-cielairouter-_walkie_sol61-opus55-fast; router log level ERROR.",
+      "updated_at": 1793048730.9381254
+    },
+    {
+      "id": "n191",
+      "parent_id": "n189",
+      "title": "Extract transcript records around the error: parent chain, truncatedAfterOutput, isApiErrorMessage, following records",
+      "status": "done",
+      "note": "",
+      "evidence": "evidence/p3.txt: error record c877795f 2026-10-26T20:59:15.194Z isApiErrorMessage=true text 'API Error: Upstream Anthropic stream ended before message_stop.', truncatedAfterOutput absent, parent 833a4471 = user tool_result (after work_execute tool_use 1793048336564); api-request at 20:59:02; next record user input 20:59:48 (no native retry); permission-mode bypassPermissions.",
+      "updated_at": 1793048829.5396442
+    },
+    {
+      "id": "n192",
+      "parent_id": "n189",
+      "title": "Read router stream recovery ledger failure/handled/recent entries and router log lines for that message id",
+      "status": "done",
+      "note": "",
+      "evidence": "evidence/p4.txt: claude-stream-recovery.json newest failure 2026-10-25T21:48:17Z; no failure entry for 2026-10-26T20:59Z; handled 0; chains {}. router.log level ERROR (no INFO recorder/monitor decisions), last modified 13:01:19 local, 0 hits for upstream_incomplete/claude_stream_recovery.",
+      "updated_at": 1793048830.639633
+    },
+    {
+      "id": "n193",
+      "parent_id": "n181",
+      "title": "Conclude",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793049339.2349517
+    },
+    {
+      "id": "n194",
+      "parent_id": "n193",
+      "title": "Record",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793048867.9964783
+    },
+    {
+      "id": "n195",
+      "parent_id": "n194",
+      "title": "Write OKF journal (findings, evidence, index, log) and validate --strict",
+      "status": "done",
+      "note": "",
+      "evidence": "docs/journal/2026/10/26/diagnostics/kobe14-stream-incomplete/ findings/index/log + evidence p1-p4 + scripts; okf_validate --strict: conformant, no issues.",
+      "updated_at": 1793048867.9964783
+    },
+    {
+      "id": "n196",
+      "parent_id": "n193",
+      "title": "Report",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793049339.2349517
+    },
+    {
+      "id": "n197",
+      "parent_id": "n196",
+      "title": "Report confirmed cause vs unknown to user; fix only via repo + nightly after decision",
+      "status": "done",
+      "note": "",
+      "evidence": "Reported to user in this turn (kobe: error after tool_result with nothing shown; monitor requires truncatedAfterOutput + assistant parent; nothing_shown excluded by design; no ledger entry; no native retry; reason for missing ledger entry undetermined due to ERROR log level). Journal kobe14-stream-incomplete validated.",
+      "updated_at": 1793049339.2349517
+    },
+    {
+      "id": "n198",
+      "parent_id": null,
+      "title": "6. cielairouter 프로바이더도 컨텍스트 90% 도달 시 ciel-runtime이 자동 compact 주입 (.14 emily 102.8%, compaction 반복·실패 screenshot #8)",
+      "status": "in_progress",
+      "note": "Diagnosis (journal emily14-context-overflow): safeguard exists (1c48c8e) but its sampler ignores records whose native model is the alias's upstream model (claude-opus-5-5 / gpt-6.1-sol). Fix: router records the native model names it relays for main-session requests of the configured alias (shared compaction scope, epoch-bound); sampler accepts those names. Same 90% threshold and gates.",
+      "evidence": "",
+      "updated_at": 1793049459.4293869
+    },
+    {
+      "id": "n208",
+      "parent_id": "n136",
+      "title": "Linked ID display: items with an external/linked ID render as \"[ id ] task description\" (persisted ref id field, set/update via tools, shown in band, details, status tree, statusline)",
+      "status": "done",
+      "note": "User 2026-10-26: \"항목마다 연결된 ID가 있을때는 ID값을 입력하게 [ id ] 태스크 설명 . 이런식으로 표기해서 자신이 작업하던 아이디를 찾아갈수있게\". Keep title text separate from the id; sanitize; no id → no brackets.",
+      "evidence": "ref add/update/normalize roundtrip tests and real CLI run-29886202 display [ REQ-101 ], [ BR-1 ], [ TEST-1 ]; screenshots captured.",
+      "updated_at": 1793053966.3843412
+    },
+    {
+      "id": "n209",
+      "parent_id": "n198",
+      "title": "Diagnose",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793049459.4293869
+    },
+    {
+      "id": "n210",
+      "parent_id": "n209",
+      "title": "Source + remote",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793049459.4293869
+    },
+    {
+      "id": "n211",
+      "parent_id": "n210",
+      "title": "Find existing 90% safeguard and why Emily was not sampled (journal emily14-context-overflow, sampler probe)",
+      "status": "done",
+      "note": "",
+      "evidence": "docs/journal/2026/10/26/diagnostics/emily14-context-overflow/findings.md (strict OKF OK): safeguard runtime_compaction_binding.py:524-545 exists; Emily records native claude-opus-5-5/gpt-6.1-sol; evidence/10-sampler-probe.txt returns sample=None for those names with all alias spellings.",
+      "updated_at": 1793049459.4293869
+    },
+    {
+      "id": "n212",
+      "parent_id": "n198",
+      "title": "Implement",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793049992.902641
+    },
+    {
+      "id": "n213",
+      "parent_id": "n212",
+      "title": "Sampler",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793049587.4181461
+    },
+    {
+      "id": "n214",
+      "parent_id": "n213",
+      "title": "native_model_usage: shared alias name helper + extra_names parameter",
+      "status": "done",
+      "note": "",
+      "evidence": "native_model_usage.py: model_names(), request_model_key(), latest_native_model_usage(..., extra_names). test_model_compact_safeguard 9/9 OK; prior-source run evidence/01 errors on the new tests.",
+      "updated_at": 1793049587.4181461
+    },
+    {
+      "id": "n215",
+      "parent_id": "n212",
+      "title": "Router observation",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793049722.3925862
+    },
+    {
+      "id": "n216",
+      "parent_id": "n215",
+      "title": "streaming_anthropic + response_stream_context: optional stream_model_observer called with message_start.message.model",
+      "status": "done",
+      "note": "",
+      "evidence": "streaming_anthropic.py stream_model_observer on message_start (exceptions logged, bytes unchanged); response_stream_context pass-through. test_stream_model_observer_receives_answering_model_without_changing_bytes OK; errors on prior code (evidence/02).",
+      "updated_at": 1793049720.7703893
+    },
+    {
+      "id": "n217",
+      "parent_id": "n215",
+      "title": "claude_router + router_request_assembly + ciel_runtime: observe_native_model port wired for main-session streams only",
+      "status": "done",
+      "note": "",
+      "evidence": "claude_router ClaudeRouterContextRecovery.observe_native_model; observer passed only when stream_scope is not None with raw_body model; router_request_assembly port; ciel_runtime wires _RUNTIME_COMPACTION.observe_native_model. test_claude_stream_scope_capture 3 cases OK (main scope_a+'model'+native; non-main not called).",
+      "updated_at": 1793049722.3925862
+    },
+    {
+      "id": "n218",
+      "parent_id": "n215",
+      "title": "runtime_compaction_binding: persist observed native names per epoch/session and request alias; safeguard passes them to sampler",
+      "status": "done",
+      "note": "",
+      "evidence": "runtime_compaction_binding.py observe_native_model (epoch+session bound, bounded 8 aliases x16 names x128 chars, never raises) + _observe_safeguard passes names for request keys in model_names(config model). Tests test_alias_answered_by_other_native_model_uses_router_observed_names / bounded_and_sanitized OK.",
+      "updated_at": 1793049589.15258
+    },
+    {
+      "id": "n219",
+      "parent_id": "n212",
+      "title": "Tests",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793049992.902641
+    },
+    {
+      "id": "n220",
+      "parent_id": "n219",
+      "title": "Tests: alias with different native model fails before, queues compact after; other alias/session/epoch not accepted; observer exceptions never affect relay",
+      "status": "done",
+      "note": "",
+      "evidence": "34 tests in test_claude_stream_scope_capture/test_claude_stream_failure_metadata/test_model_compact_safeguard OK; 6 new tests error on 3c95a4b source (evidence/02-all-new-tests-on-previous-code.txt).",
+      "updated_at": 1793049723.6444814
+    },
+    {
+      "id": "n221",
+      "parent_id": "n219",
+      "title": "Focused test modules on py3.14 and 3.10, ruff; live router PIDs unchanged",
+      "status": "done",
+      "note": "",
+      "evidence": "evidence/03-focused-py3.14.txt and 03-focused-py3.10.txt: 28 related modules, 395 tests OK on both; live router pids 77432/25276 unchanged before/after. evidence/04-ruff.txt: ruff 0.15.22 whole tree 'All checks passed!', git diff --check exit 0.",
+      "updated_at": 1793049992.902641
+    },
+    {
+      "id": "n222",
+      "parent_id": "n198",
+      "title": "Verify and ship",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793071797.5861065
+    },
+    {
+      "id": "n223",
+      "parent_id": "n222",
+      "title": "E2E",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793050676.7979941
+    },
+    {
+      "id": "n224",
+      "parent_id": "n223",
+      "title": "Real Claude CLI + router with loopback cielairouter fixture answering native model claude-opus-5-5 above 90%: /compact injected once; screenshot",
+      "status": "done",
+      "note": "",
+      "evidence": "fixes/cielairouter-alias-safeguard/evidence/e2e: run-worktree-alias-163358 (Claude 2.1.310, alias owned-route-alias answered as claude-opus-5-5 at 190000/200000): native_models recorded, proactive_usage_observed, /compact injected once, attempts=1 source model-compact-safeguard, compact_boundary 190002->2682, 02-after-compact.png. run-previous-3c95a4b-163558: same fixture, no admission/no compact, 02-no-compact.png. Live 9505/9524 pids unchanged; owned console 0 foreground samples in both runs.",
+      "updated_at": 1793050676.7979941
+    },
+    {
+      "id": "n225",
+      "parent_id": "n222",
+      "title": "Ship",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793071797.5861065
+    },
+    {
+      "id": "n226",
+      "parent_id": "n225",
+      "title": "Journal update, commit, nightly push, CI/Publish, local snapshot switch",
+      "status": "done",
+      "note": "",
+      "evidence": "Alias safeguard fix f9c3eea is ancestor of published/current local 0555b6c. Existing installed 5054af2 actual CLI proof compact_dispatched_once source=model-compact-safeguard, live unchanged/0 foreground hits. CI/Publish/current local shim verification in edward-ara-nightly; journal follow-up committed d951498. Screenshot #13 retry remains separate n304.",
+      "updated_at": 1793071797.5861065
+    },
+    {
+      "id": "n227",
+      "parent_id": "n136",
+      "title": "Done marker: show finished items as a green check mark instead of [x] (band, details pane, statusline fallback)",
+      "status": "done",
+      "note": "User 2026-10-26: \"종료된 아이템은 X로 표시되는데 체크마크 녹색으로 표시 변경\". Keep a plain-text fallback where color is unavailable.",
+      "evidence": "Mod asserts Text color=success for done check, statusline regressions pass, actual CLI 03-done-check-and-wait.png captured.",
+      "updated_at": 1793054115.918003
+    },
+    {
+      "id": "n228",
+      "parent_id": null,
+      "title": "7. 사용자 PC(C:\\Users\\1347817, web backend 10.0.0.238:9683): Codex TUI + app-server 실행 시 'ciel-runtime router did not start' (pasted traceback)",
+      "status": "in_progress",
+      "note": "Read the router.log named in the traceback (router-instances\\9683-a2f58d1342e0\\router.log) before any conclusion. Machine access path unknown; read-only only. Fix through repo + nightly.",
+      "evidence": "",
+      "updated_at": 1793051025.9268115
+    },
+    {
+      "id": "n229",
+      "parent_id": "n228",
+      "title": "Diagnose",
+      "status": "in_progress",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793051025.9268115
+    },
+    {
+      "id": "n230",
+      "parent_id": "n229",
+      "title": "Find how to reach the machine (ssh config / known hosts / journals) or ask user for router.log",
+      "status": "in_progress",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793051025.9268115
+    },
+    {
+      "id": "n231",
+      "parent_id": "n230",
+      "title": "Locate access path for user 1347817 / 10.0.0.238",
+      "status": "done",
+      "note": "",
+      "evidence": "evidence/01-reachability.txt: 10.0.0.238 pings; tcp 9683 closed (router not listening), 22 closed, 445/3389 open; earlier journals: admin token required, no SSH. No access path to router.log from here.",
+      "updated_at": 1793051025.9268115
+    },
+    {
+      "id": "n232",
+      "parent_id": "n230",
+      "title": "Read router.log tail and installed version (read-only)",
+      "status": "blocked",
+      "note": "⏰ waiting on: user's router.log tail + ciel-runtime version from the 1347817 machine",
+      "evidence": "",
+      "updated_at": 1793051027.9880717
+    },
+    {
+      "id": "n233",
+      "parent_id": "n229",
+      "title": "Source",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793051028.6698072
+    },
+    {
+      "id": "n234",
+      "parent_id": "n233",
+      "title": "router_process_lifecycle.start_router_if_needed failure paths and web backend bind host",
+      "status": "done",
+      "note": "",
+      "evidence": "router_process_lifecycle.py:216-253: spawns 'ciel_runtime.py serve' with stdout/stderr appended to router.log, polls router_up for 30 s, then raises. Traceback lines match 3c95a4b/f9c3eea sources (evidence/02). Journal diagnostics/router-start-1347817 strict OKF.",
+      "updated_at": 1793051028.6698072
+    },
+    {
+      "id": "n235",
+      "parent_id": "n228",
+      "title": "Conclude",
+      "status": "pending",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793051043.7795043
+    },
+    {
+      "id": "n236",
+      "parent_id": "n235",
+      "title": "Report",
+      "status": "pending",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793051043.7795043
+    },
+    {
+      "id": "n237",
+      "parent_id": "n236",
+      "title": "Report confirmed cause vs unknown; fix via repo + nightly if code defect",
+      "status": "blocked",
+      "note": "⏰ waiting on: router.log from the user (reported confirmed facts and asked for the log in this turn)",
+      "evidence": "",
+      "updated_at": 1793051043.7795043
+    },
+    {
+      "id": "n238",
+      "parent_id": "n136",
+      "title": "Urgent mode: on explicit user request hold all items, put the ad-hoc request on top as an urgent goal, break it down and execute; held goals resume in order afterwards",
+      "status": "done",
+      "note": "User 2026-10-26: \"사용자의 요청에 따라서 모든아이템을 홀드하고, 사용자의 adhoc 요청을 최상위로 urgent 모드로 올리고 사용자의 요청을 브레이크 다운해서 수행할수있어야함\". Show held/urgent marks in band and tree; continuation must not resume held goals before the urgent one is done.",
+      "evidence": "Nested urgent unit tests plus real CLI urgent end_turn automatically continued, held previous active and queue then resumed previous active; run-29886202 02-urgent-holds.png and all goals done.",
+      "updated_at": 1793053967.1232867
+    },
+    {
+      "id": "n239",
+      "parent_id": null,
+      "title": "8. 외부 Work 웹 API: 보드·제어·알림·런타임 메타데이터",
+      "status": "done",
+      "note": "인증된 외부 호출자가 현재 Work 보드를 조회하고 큐/계층 아이템을 제어하며 변경을 구독할 수 있게 한다. 응답에는 설정값과 관측값을 구분한 현재 모델, native runtime, ciel-runtime 버전을 포함한다. 구현·검증·배포는 사용자의 별도 승인 후 실행한다.",
+      "evidence": "",
+      "updated_at": 1793063762.829525
+    },
+    {
+      "id": "n251",
+      "parent_id": "n239",
+      "title": "계약·보안 경계와 메타데이터 설계",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793059392.6194627
+    },
+    {
+      "id": "n252",
+      "parent_id": "n251",
+      "title": "기존 HTTP dispatch·외부 인증·세션 identity·Work store를 읽기 전용으로 고정",
+      "status": "done",
+      "note": "RouterHttpHandler의 공통 admin 인증, loopback/external 정책, existing JSON/SSE event adapter, exact claude:<id>/codex:<id> 저장 경계를 재사용한다. CORS·인증 우회·prompt/config/token 노출은 추가하지 않는다.",
+      "evidence": "Read-only source verification: router_http.py:1254-1287 applies common external guard before endpoint callbacks; router_access.py agent evidence confirms loopback/admin token/401/403/bridge separation; work_plan_store.py:42-64 uses lock+reread+atomic replace+CAS; work_mcp_tools.py:205-216 validates exact claude/codex identity. Live health check recorded PIDs 9505=77432 and 9524=25276 unchanged. Existing unrelated modifications were only docs/journal/2026/10/17 diagnostics.",
+      "updated_at": 1793058310.4051116
+    },
+    {
+      "id": "n253",
+      "parent_id": "n251",
+      "title": "API 응답·CAS·알림·런타임 메타데이터 계약 확정",
+      "status": "done",
+      "note": "GET snapshot은 version/identity scope/nodes/queue와 configured-vs-observed metadata를 구분한다. POST mutation은 expected_version CAS와 affected ids를 요구한다. SSE는 initial/reconnect after cursor와 gap/resync를 정의하고 durable write 성공시에만 event를 발행한다.",
+      "evidence": "",
+      "updated_at": 1793059392.6194627
+    },
+    {
+      "id": "n254",
+      "parent_id": "n239",
+      "title": "Work HTTP API 구현",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793058742.6904194
+    },
+    {
+      "id": "n255",
+      "parent_id": "n254",
+      "title": "모든 레벨 계층 조작과 atomic CAS 지원",
+      "status": "done",
+      "note": "work_plan_tree의 add/update/remove를 재사용하고 child sibling reorder를 추가한다. WorkPlanStore.transaction의 lock/reread/atomic replace/expected_version을 공통 seam으로 사용한다. no-op·실패는 변경 알림을 내지 않는다.",
+      "evidence": "Implemented and tested existing storage/tree seam: work_plan_tree.py:309 reorder_node supports sibling reorder at every depth and delegates roots to reorder_root; work_plan_store.py:read_snapshot is non-mutating and transaction emits post-atomic observer only when changed. Existing focused Work HTTP test suite 5/5 passed for nested add/reorder/update/delete, CAS conflict, no-op version stability, corrupt-read immutability and session isolation.",
+      "updated_at": 1793058719.6294231
+    },
+    {
+      "id": "n256",
+      "parent_id": "n254",
+      "title": "인증된 GET/POST와 board/runtime metadata projection 연결",
+      "status": "done",
+      "note": "기존 RouterHttpServices slots/handler pattern을 따르는 Work controller를 연결한다. GET은 exact session identity로 board와 runtime metadata를 반환하고 POST는 root reorder, any-level reorder, edit, delete를 지원한다. 관리자 인증과 loopback 예외는 기존 정책 그대로다.",
+      "evidence": "ciel_runtime.py now wires WorkHttpController ahead of PlanArtifactController in the existing plan GET/POST callback, preserving RouterHttpGet/Post endpoint port shapes. GET /ca/work and /ca/work/runtime expose complete nodes, queue IDs, configured runtime/build metadata and explicit observed-unavailable nulls; POST add/update/remove/reorder applies strict identity and expected_version validation. Loopback test server suite 5/5 passed.",
+      "updated_at": 1793058735.1048176
+    },
+    {
+      "id": "n257",
+      "parent_id": "n254",
+      "title": "Work change SSE/recent notification과 UI refresh 연결",
+      "status": "done",
+      "note": "existing EventBus/EventHttpAdapter stream/recent cursor를 재사용하되 work category와 session filter를 명확히 한다. 외부 변경을 Claude mod가 bounded cancellable refresh로 반영하고 stale session/version은 거부한다.",
+      "evidence": "work_plan_store.py post-commit observer and WorkHttpController /ca/work/events use exact store path filtering, immediate snapshot, Last-Event-ID/resync event, coalesced version invalidation and bounded stream capacity. Existing loopback test proved initial work.snapshot, MCP-equivalent store commit work.changed, and stale incarnation work.resync_required. Web menu now lists Work API and Work API help routes. The Claude mod idle refresh remains a separate agent-owned implementation pending real UI evidence.",
+      "updated_at": 1793058742.6904194
+    },
+    {
+      "id": "n258",
+      "parent_id": "n239",
+      "title": "테스트·실행 증거·OKF 문서",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793059502.0080473
+    },
+    {
+      "id": "n259",
+      "parent_id": "n258",
+      "title": "focused unit/contract tests",
+      "status": "done",
+      "note": "tree/store/controller/router wiring/auth/CAS/hierarchy/no-op/error/metadata provenance/notification filtering/reconnect를 검증한다. architecture port limits와 기존 테스트를 유지한다.",
+      "evidence": "Actual isolated Python run (explicit repo/tests sys.path, inherited CIEL/Claude/provider environment stripped): 62 exact tests passed in 15.241s across test_work_plan_tree, test_work_plan_store, test_work_http_controller. Includes all-depth reorder preservation, cross-process CAS, no-op file bytes/timestamps, postcommit observer isolation, corruption-read immutability, real HTTP CRUD/conflict/session isolation/SSE reconnect. Initial runner invocation failed import setup and was corrected; no failures in the corrected run.",
+      "updated_at": 1793058818.331733
+    },
+    {
+      "id": "n260",
+      "parent_id": "n258",
+      "title": "owned loopback HTTP E2E와 실제 UI 증거",
+      "status": "done",
+      "note": "isolated HOME/config/ports와 egress sentinel로 auth success/failure, query, all-level mutation, stale CAS, SSE receive/reconnect, current metadata unknown/configured/observed states를 실행한다. 실제 Claude UI가 외부 변경 후 새 버전을 표시하는 결정적 PNG와 로그를 남긴다. live router는 건드리지 않는다.",
+      "evidence": "Owned loopback HTTP fixture executed 11 tests against production-style RouterHttpHandler/auth policy: valid admin 200, wrong/bridge token 401, disabled external access 403, rejected requests caused no mutation; CRUD/CAS/all-depth/SSE passed. Real Claude UI screenshot remains pending in n268; this leaf records only HTTP E2E evidence.",
+      "updated_at": 1793059050.5288494
+    },
+    {
+      "id": "n261",
+      "parent_id": "n258",
+      "title": "OKF strict validation과 결과 기록",
+      "status": "done",
+      "note": "docs/journal 아래 3~4계층 feature/release bundle에 contract/design/verification/log/index를 기록하고 strict checker로 검증한다. 확인된 값·미확인 값을 분리한다.",
+      "evidence": "Created docs/journal/2026/10/26/features/work-web-api/{index.md,log.md,contract.md,verification.md}; deterministic OKF v0.1 strict validator passed with 2 concepts, index and log, no issues. Windows cp1252 stdout caused an output-only validator failure first; explicit UTF-8 stdout rerun passed.",
+      "updated_at": 1793059502.0080473
+    },
+    {
+      "id": "n262",
+      "parent_id": "n239",
+      "title": "승인 후 패키지·nightly·local 설치 검증",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793063762.829525
+    },
+    {
+      "id": "n263",
+      "parent_id": "n262",
+      "title": "테스트와 증거 통과 후 commit/CI/Publish",
+      "status": "done",
+      "note": "사용자가 로컬·나이트리 배포를 명시 승인했다. 관련 변경만 커밋하고 CI/Publish 및 registry 검증 후 새 설치 snapshot을 검증한다. live session 재시작 및 managed host 변경은 제외한다.",
+      "evidence": "CI 40429074652 success; Publish 40429074624 success; npm nightly = 0.2.51-nightly.20261027-010349.e6514c8 gitHead e6514c80b2ab84e7eba8d32b65a56b093e135236; tarball sha1/sha512 verified, 511 files; 11 Work/router source files byte-identical to e6514c8 (evidence/01-published.json, 02-source-identity.txt).",
+      "updated_at": 1793063396.1231716
+    },
+    {
+      "id": "n264",
+      "parent_id": "n262",
+      "title": "설치 snapshot 및 local switch의 실제 HTTP/UI 검증",
+      "status": "done",
+      "note": "새 snapshot에서 API와 UI를 다시 실행·캡처하고 local switch를 원자적으로 수행한다. install.ps1 및 managed host/live session restart는 사용하지 않는다.",
+      "evidence": "Snapshot ~/.local/share/ciel-runtime-e6514c8…: 458 files, no mismatch (03-snapshot.json). Installed production HTTP: add/reorder/409 version_conflict/session isolation/help 200, runtime metadata reports snapshot version (05-installed-http.json). Installed real Claude Code 2.1.310 run c6473525 passed 7/7 checks with PNGs (installed-c6473525/). switch_local: HKCU CIEL_RUNTIME_HOME -> new snapshot, statusline matches template (07-switch.json). npm -g 0.2.51-nightly.20261027-010349.e6514c8; npm and .local shims report it (08, 09). Live 9505 pid77432 fp72c6bfb4 / 9524 pid25276 fpf86ee363 unchanged. OKF strict conformant. Committed 56fc215, pushed to nightly-20261026 (not to nightly, to avoid a docs-only republish moving the tag).",
+      "updated_at": 1793063762.829525
+    },
+    {
+      "id": "n265",
+      "parent_id": "n239",
+      "title": "현재 세션 계획 저장을 막는 Work planning 보호 오류 수정",
+      "status": "done",
+      "note": "관측: 허용된 Claude 계획 파일 Edit가 Work planning guard에서 차단되어 계획 작성→승인 절차가 막힘. 보호 전체 해제가 아니라 native plan lifecycle과 계획 파일 예외를 최소 범위로 통합한다.",
+      "evidence": "",
+      "updated_at": 1793060862.9735107
+    },
+    {
+      "id": "n266",
+      "parent_id": "n265",
+      "title": "계획 파일 Edit 차단 경로와 native plan lifecycle 계약을 소스·로그로 확인",
+      "status": "done",
+      "note": "",
+      "evidence": "SDK source evidence from the plugin types: .claude-plugin/types/claude-code/index.d.ts:8330 defines host-pinned native planning attachment detail.planFilePath and :8377 defines engine origin. register.js consumes only those facts.",
+      "updated_at": 1793059604.0597756
+    },
+    {
+      "id": "n267",
+      "parent_id": "n265",
+      "title": "정확한 승인 대상 계획 파일만 planning 중 작성 허용하고 일반 소스 변경은 계속 차단",
+      "status": "done",
+      "note": "",
+      "evidence": "Exact plan-path facts are host-pinned and session/agent-scoped; repository writes remain denied in the owned CLI evidence. Native positive path was not available from the bypass fixture, so no broad plans-directory exemption was added. This is the safe implementation boundary.",
+      "updated_at": 1793059984.41033
+    },
+    {
+      "id": "n268",
+      "parent_id": "n265",
+      "title": "단위 회귀 및 실제 CLI에서 계획 작성→ExitPlanMode→승인→실행 검증과 로그·스크린샷 수집",
+      "status": "done",
+      "note": "",
+      "evidence": "Final owned actual Claude Code 2.1.310 run 424a4f4d passed ALL 7 checks: native plan file written, repository write denied, ExitPlanMode approval and Work execute reached idle, HTTP mutation succeeded, idle band refreshed, build metadata returned. PNGs 1129x635 captured before/after and copied with result.json/screenshot-log to docs/journal/2026/10/26/features/work-web-api/evidence/run-424a4f4d. Live routers 9505/9524 PID+fingerprint unchanged. Prior failed runs preserved and documented, not counted as passes.",
+      "updated_at": 1793060862.9735107
+    },
+    {
+      "id": "n273",
+      "parent_id": "n239",
+      "title": "추가 API 오류 진단: 모델 타임아웃·자격증명 오류",
+      "status": "done",
+      "note": "사용자 제시 오류: claude/claude-opus-5-5 HTTP504; codex/gpt-6.1-sol-high HTTP504; deepseek/deepseek-flash-max No active credentials HTTP404. 정확한 upstream/로컬 책임은 미확인. 계정·키·외부 모델 설정을 임의 변경하지 않는다.",
+      "evidence": "",
+      "updated_at": 1793060228.9242873
+    },
+    {
+      "id": "n274",
+      "parent_id": "n273",
+      "title": "비밀값을 제외한 해당 요청 시각·ID·라우팅·상태 로그 확인",
+      "status": "done",
+      "note": "",
+      "evidence": "Read-only incident investigation completed: claude_router.py creates request_id and publishes structured upstream.error with provider/model/status; current user strings had no correlated local request ID/time. No secret or prompt was printed, and no credentials/config were changed.",
+      "updated_at": 1793060000.327192
+    },
+    {
+      "id": "n275",
+      "parent_id": "n273",
+      "title": "로컬 timeout/retry/fallback 처리와 upstream 실패를 구분하고 확인된 결함만 수정",
+      "status": "done",
+      "note": "",
+      "evidence": "Confirmed separation: gateway-returned model 504s and no-active-credentials 404 are not proof of local Ciel config defects; no key/account/fallback changes were made. Local observability gap was addressed with request-lifecycle exact scope tracker and typed metadata-only timeout/http_error classifications, while raw upstream error text is excluded.",
+      "updated_at": 1793060216.7123387
+    },
+    {
+      "id": "n276",
+      "parent_id": "n273",
+      "title": "owned fixture로 504·credential404 회귀 검증 및 실제 관측의 한계 기록",
+      "status": "done",
+      "note": "",
+      "evidence": "Owned metadata writer/tracker tests passed for HTTP504 timeout and credential-shaped HTTP404 without retaining raw message body; exact request/session/epoch correlation and inflight cleanup covered. Integrated focused suite 360 tests passed (42 skips) after fixing an initial error-SSE snapshot race; stored in focused-tests-after-sse-race.txt. Actual user's upstream incident remains uncorrelated and not claimed resolved.",
+      "updated_at": 1793060228.9242873
+    },
+    {
+      "id": "n277",
+      "parent_id": "n253",
+      "title": "현재 세션 모델 오류를 metadata와 변경 알림에 포함",
+      "status": "done",
+      "note": "현재 확인된 오류를 비밀값 없이 error records로 제공한다: claude/claude-opus-5-5 provider timeout HTTP 504, codex/gpt-6.1-sol-high provider timeout HTTP 504, deepseek/deepseek-flash-max model no active credentials HTTP 404. 각 항목에 runtime/provider/model/category/status/observed_at/request correlation이 있으면 포함하고, 원인 미확정은 unknown으로 유지한다. 보드 변경과 모델 오류를 같은 이벤트로 섞지 않으며 별도 error event/filter와 runtime 조회를 정의한다.",
+      "evidence": "",
+      "updated_at": 1793059392.6194627
+    },
+    {
+      "id": "n278",
+      "parent_id": "n277",
+      "title": "세션 오류 레코드의 허용 필드·보존·비밀값 제거 계약 확정",
+      "status": "done",
+      "note": "",
+      "evidence": "Contract decision recorded in approved plan: errors are allowlisted records only (runtime/provider/model/category/status/observed_at/correlation when available), values are redacted, retained separately from board changes, and uncorrelated user-pasted errors remain unknown rather than seeded as runtime facts.",
+      "updated_at": 1793058415.1457884
+    },
+    {
+      "id": "n279",
+      "parent_id": "n277",
+      "title": "timeout·credential 오류 관측 seam과 API/SSE error projection 연결",
+      "status": "done",
+      "note": "",
+      "evidence": "ciel_runtime.py now projects exact-session upstream.error EventBus rows into /ca/work and /ca/work/runtime errors, preserving allowlisted correlation/provider/model/status data; runtime model remains configured vs observed-unavailable. Focused production-policy fixture and session-isolation tests passed: 11 Work HTTP tests.",
+      "updated_at": 1793058958.9224424
+    },
+    {
+      "id": "n280",
+      "parent_id": "n277",
+      "title": "오류가 모델/세션을 잘못 매칭하지 않는지 회귀 검증",
+      "status": "done",
+      "note": "",
+      "evidence": "work_runtime_observer.py and test_work_runtime_observer.py enforce exact runtime/session/epoch scope and request correlation. Observer tests 4/4 passed: configured alias differs from response model, response body text is not retained, 504 maps to timeout, 404 maps to http_error without credential text, unbound/wrong scope unavailable, exceptions clear inflight.",
+      "updated_at": 1793059392.6194627
+    },
+    {
+      "id": "n281",
+      "parent_id": "n181",
+      "title": ".14 kobe 세션 SSE 미전달 원인 분석",
+      "status": "done",
+      "note": "사용자 요청: 분석만. 원격 host 상태·로그·실행 identity와 SSE 수신→queue→주입 단계를 읽기 전용 확인. 설치·재시작·queue/cursor/history 변경 금지.",
+      "evidence": "",
+      "updated_at": 1793064155.2996848
+    },
+    {
+      "id": "n282",
+      "parent_id": "n281",
+      "title": "기존 host 접속 정보와 kobe 세션 runtime/router identity 확인",
+      "status": "done",
+      "note": "",
+      "evidence": "evidence/p1.raw.txt (read-only SSH .14): kobe sandbox u24, launcher 11480 cli --continue, router 5008 instance 9780-651d879f6c68, claude 21288; runtime on disk 0.2.51-nightly.20261026-225621.5054af2; TZ Pacific Daylight (UTC-7).",
+      "updated_at": 1793064089.9349163
+    },
+    {
+      "id": "n283",
+      "parent_id": "n281",
+      "title": "SSE receiver·queue·delivery·compaction 상태를 동일 요청 ID/시각으로 대조",
+      "status": "done",
+      "note": "",
+      "evidence": "p3.raw.txt: #7653 replied 12:14 PDT; #7654 restart_notice (company-prompt v16) queued 12:15:09; #7654-#7676 never submitted, all 23 skipped launch_replay_window_expired at 16:08:00-01; #7677 submitted 16:08:13 (later failed stale_unconfirmed); #7678 replied 16:18. p4.raw.txt: 0 socket-marker injections in transcript 19:15Z-23:08Z while 28 user_text/25 turns occurred. p6.raw.txt: 12 restart notices all company-prompt; 5148/5155/5161/6044/7654 never submitted, later expired. Source (wt HEAD): runtime_launch.py:867 sets CIEL_RUNTIME_STARTUP_AUTO_ANSWER=1 on unattended restart; channel_terminal_proxy.py:624-625 input_ready false when console-input or startup_answers.input_ready() false; startup_prompt_answers.py:371-377 screen-unread/dialog-text checks precede 180s give-up; channel_pending_poll.py:151 returns without scan or log when not input_ready. Which branch fired is unobserved.",
+      "updated_at": 1793064094.0311825
+    },
+    {
+      "id": "n284",
+      "parent_id": "n281",
+      "title": "관측 원인과 미확인 사항을 분리해 OKF 증거 기록 및 보고",
+      "status": "done",
+      "note": "",
+      "evidence": "docs/journal/2026/10/26/diagnostics/kobe-sse-time/{findings.md,index.md,log.md} written; OKF strict conformant with no issues; secret pattern scan empty; committed 9b442bc and pushed to nightly-20261026. Report to user in Korean separates confirmed (clock skew seconds, no submissions 12:15-16:08, 600s window expiry, repeating company-prompt pattern) from unobserved (gate branch, relauncher, loaded code version).",
+      "updated_at": 1793064155.2996848
+    },
+    {
+      "id": "n285",
+      "parent_id": "n281",
+      "title": "시간차 여부: .14 시계 오프셋·타임존·replay 창 판정 기준을 원문 증거와 소스로 재확인",
+      "status": "done",
+      "note": "",
+      "evidence": "My recomputation from p1/p3/p7 SSH bracketed readings: .14 clock behind this PC by 0.03-2.74 s (intersection); this PC vs time.windows.com +0.07-0.08 s (local-w32tm.raw.txt); .14 w32time not started. Source: validate_cloud_event (external_event_receiver.py:205) reads only id/source/type, not time; only time-based drop is launch backlog window CHANNEL_LLM_LAUNCH_RECENT_SECONDS_DEFAULT=600 (runtime_constants.py:127) applied with router's own clock to locally written queue rows (runtime_input_status.py:271-293). Waits were up to 3h51m; seconds of skew cannot explain it.",
+      "updated_at": 1793064097.2008662
+    },
+    {
+      "id": "n286",
+      "parent_id": null,
+      "title": "9. .14 edward(1004) 세션 SSE 메시지 미주입: 원인 확인·개선·로컬/나이트리 배포",
+      "status": "done",
+      "note": "User request 2026-10-27: \".14 port 1004 edward세션에서 sse 메시지가 주입이 안되는이유 찾아서 개선 하고 로컬 나이틔리 푸시\". .14 is read-only (no install/restart/queue change). Fix only a proven cause; ship via nightly CI only.",
+      "evidence": "",
+      "updated_at": 1793071621.6935492
+    },
+    {
+      "id": "n287",
+      "parent_id": "n286",
+      "title": "진단 (.14 읽기 전용)",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793068510.1411998
+    },
+    {
+      "id": "n288",
+      "parent_id": "n287",
+      "title": "edward(u22) 프로세스·런타임 버전·라우터 인스턴스·로그 레벨·전송 방식 확인",
+      "status": "done",
+      "note": "",
+      "evidence": "p1.raw.txt: edward u22 launcher 464 (cli --continue, started 16:30 PDT), router 5704 port 9397 instance 9397-4d48ef23cb8e, interactive claude 13456, plus claude daemon 4284 -> bg pty host 3536 -> bg claude 15712 started 17:39:03 PDT with --session-id b1e17ad1 --fork-session --resume 354281f4 --reply-on-resume crossSessionInbound accept. Runtime 0.2.51-nightly.20261026-225621.5054af2, Claude Code 2.1.311 (p5 sessions). Receiver transport sse, input_transport auto -> session_socket (p2). Log level ERROR only (p5 LOGCOUNT).",
+      "updated_at": 1793065738.3305957
+    },
+    {
+      "id": "n289",
+      "parent_id": "n287",
+      "title": "SSE 수신·큐·상태·ack·transcript를 같은 요청 ID/시각으로 대조해 미주입 구간과 마지막 성공 지점 확정",
+      "status": "done",
+      "note": "",
+      "evidence": "p2: last replied before fork #16347 (17:39:10 PDT); from #16349 (17:41) to #16376 (18:43) every session_socket submission failed stale_unconfirmed ~18s later. p3/p4: main transcript 354281f4 has continued-in -> b1e17ad1 at 00:39:03.899Z (17:39:03 PDT); after it only queue-operation enqueue records (00:41:09Z..01:42:57Z, 26 enqueues, no dequeue/remove, no turns); conversation continues in b1e17ad1 (bg). p5: ~/.claude/sessions/13456.json kind interactive sessionId 354281f4 parkedJobId b1e17ad1 updatedAt 17:39:02; 15712.json kind bg sessionId b1e17ad1 jobId b1e17ad1 with messagingSocketPath. Router transcript cursors still point at 354281f4 (p3 TCURSOR). Pre-fork stale_unconfirmed rows (17:03-17:38) are a separate pattern, not analysed here.",
+      "updated_at": 1793065985.3849628
+    },
+    {
+      "id": "n290",
+      "parent_id": "n287",
+      "title": "차단 지점을 설치 코드 라인과 연결하고 확인/추정 분리 (kobe 무인 재시작 게이트와 동일 여부 포함)",
+      "status": "done",
+      "note": "",
+      "evidence": "Source confirmation: ClaudeSessionSocketClient.configure stores one _target (claude_session_socket.py:104-109); send always writes it (146-172), no parkedJobId/continued-in handling exists. RuntimeCompactionBinding._published_claude_record matches only launch's original messagingSocketPath (200-240), no handoff. ChannelTranscriptRepository._scan_latest returns bound_path forever (511-514) and session_id filter rejects bg successor (573-574). p4/p5 native proof names exactly parked successor, while main transcript queue enqueues continue but no handling after 17:39. Not kobe startup gate: socket sends succeed into parked original. Official tracker https://github.com/anthropics/claude-code/issues/87984 documents same native background handoff, corroborates registry parkedJobId/jobId + continued-in shapes.",
+      "updated_at": 1793066437.7729056
+    },
+    {
+      "id": "n291",
+      "parent_id": "n287",
+      "title": "OKF 진단 저널 기록과 strict 검증",
+      "status": "done",
+      "note": "",
+      "evidence": "docs/journal/2026/10/26/diagnostics/edward-sse-injection/{findings.md,index.md,log.md}: confirmed parked background handoff and old socket/transcript pinning vs unknown initiator/pre-fork timeouts; evidence p1-p5 retained. OKF strict conformant no issues.",
+      "updated_at": 1793068510.1411998
+    },
+    {
+      "id": "n292",
+      "parent_id": "n286",
+      "title": "개선",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793070464.605664
+    },
+    {
+      "id": "n293",
+      "parent_id": "n292",
+      "title": "확인된 원인에 대한 최소 수정과 회귀 테스트",
+      "status": "done",
+      "note": "구현 경계: launch의 exact socket으로 원래 pid record 식별 → 명시적 parkedJobId와 unique bg jobId/sessionId/cwd/pidDomain/process start 검증 → socket/transcript/compaction scope를 같은 successor로 선택. 추측한 최신 transcript 선택 금지. handoff 대상 불완전/모호하면 원래 parked 세션·TTY로 보내지 않고 보류. 기존 failed 입력 무조건 replay 금지.",
+      "evidence": "Explicit parkedJobId handoff with peer/key/process checks, no-write deferral, read-gap protection and canonical coordinate comparison. Review follow-up regressions: 355 tests OK, 42 skipped; actual full launcher SSE after native bg handoff passes (review-full-64116bea).",
+      "updated_at": 1793070389.7372305
+    },
+    {
+      "id": "n294",
+      "parent_id": "n292",
+      "title": "격리된 실제 런처/CLI E2E로 수정 전 실패·수정 후 주입 재현 (로그·스크린샷)",
+      "status": "done",
+      "note": "",
+      "evidence": "Old e6514c8 baseline fails to follow parked bg; fixed production launcher real Claude 2.1.310/SSE receiver/gateway/socket/transcript all pass. docs/.../edward-sse-injection/evidence/{baseline-7c708507,full-b7fe26b2,review-full-64116bea}/result.json + PNGs.",
+      "updated_at": 1793070390.666361
+    },
+    {
+      "id": "n295",
+      "parent_id": "n292",
+      "title": "focused 테스트·architecture 계약·ruff·OKF 검증",
+      "status": "done",
+      "note": "",
+      "evidence": "355 focused Python tests OK (42 skipped), actual CLI mod tests 48 pass, whole-repo Ruff passes, both diagnostic OKF bundles --strict conformant, diff --check passes. Evidence: review-regressions.txt, ruff.txt, mod-tests.txt.",
+      "updated_at": 1793070464.605664
+    },
+    {
+      "id": "n296",
+      "parent_id": "n286",
+      "title": "로컬·나이트리 배포",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793071621.6935492
+    },
+    {
+      "id": "n297",
+      "parent_id": "n296",
+      "title": "commit/push nightly, CI·Publish 성공과 npm nightly gitHead 확인",
+      "status": "done",
+      "note": "",
+      "evidence": "0555b6c pushed nightly/nightly-20261026. CI 40442513726 and Publish 40442513748 success. npm nightly 0.2.51-nightly.20261027-031627.0555b6c gitHead exact 0555b6c1e080d3466d44437d7eb01b7f61367615. SHA1/SHA512 tarball verified; fresh snapshot 460 files compared, no mismatch.",
+      "updated_at": 1793071359.835005
+    },
+    {
+      "id": "n298",
+      "parent_id": "n296",
+      "title": "게시 패키지 검증·새 snapshot 설치·설치본 E2E·local switch·npm -g·실행 경로 확인 (live 세션 무변경)",
+      "status": "done",
+      "note": "",
+      "evidence": "Published tarball exact digest verified; fresh snapshot 460 files no mismatch. Installed handoff E2E 13/13 and installed ARA Stop E2E 8/8 pass with screenshots/JSON. HKCU CIEL_RUNTIME_HOME switched to snapshot, exact npm nightly installed, both npm/.local shims report exact version, live routers 9505/9524 PID/fingerprint unchanged.",
+      "updated_at": 1793071585.2985024
+    },
+    {
+      "id": "n299",
+      "parent_id": "n296",
+      "title": "릴리스 저널 기록·커밋·보고",
+      "status": "done",
+      "note": "",
+      "evidence": "Release journal strict conformant, installation/CI/npm/exact gitHead/launch path/live PID proof committed a10fa92 and pushed nightly-20261026. Source release 0555b6c installed locally. Korean progress reported; compact retry remains separate ongoing task.",
+      "updated_at": 1793071621.6935492
+    },
+    {
+      "id": "n300",
+      "parent_id": "n286",
+      "title": "추가 요청: .14 ARA 미결 Work 큐의 end_turn/complete 후 계속 실행·안내",
+      "status": "done",
+      "note": "User explicitly added ARA continuation bug to this fix/release. .14 read-only; no remote restart/install.",
+      "evidence": "",
+      "updated_at": 1793071620.6349092
+    },
+    {
+      "id": "n301",
+      "parent_id": "n300",
+      "title": ".14 ARA 세션 identity·Work 큐·Stop/turn.complete 기록을 읽기 전용 대조하고 원인 확인",
+      "status": "done",
+      "note": "",
+      "evidence": "ara-work-queue/evidence p1,p4-p9 (read-only SSH): ARA u21 runtime e6514c8, Claude 2.1.311 with --plugin-dir ciel-work, Work defaults on/auto-continue on. Transcript: 5 Stop pushes worked 16:47-17:41 (actionable 4); router JSON 18:04/18:55/18:57/19:12 shows continuation actionable=0 (wait=5 cap, blocked=8) with 11-13 unfinished queued goals; every later Stop returned with no block and no person-facing notice (stop_hook_summary hasOutput False). 17:01/17:04 no-push stops had async agents in flight (by design, also silent).",
+      "updated_at": 1793068581.6396427
+    },
+    {
+      "id": "n302",
+      "parent_id": "n300",
+      "title": "실행 가능한 다음 큐 항목의 계속 실행 또는 차단·승인 안내를 수정하고 무한 반복·중복 푸시 방지 회귀 테스트",
+      "status": "done",
+      "note": "",
+      "evidence": "register.js classic.Stop: runnable push + same-version bound unchanged; when unfinished Work remains but no continue, one $.ui.log line explains (waits/blocked/held/done-but-open, approval, background tasks, no-progress pause, unreadable status); deduped until a non-meta prompt; superseded read not reported. ara-work-queue/evidence: mod-check-2 validate --strict ok, 48 pass/0 fail; old hook 44 pass/3 fail on new tests; supersede guard test fails without guard; 89 Python Work tests pass; OKF strict ok. Not committed.",
+      "updated_at": 1793069131.1997428
+    },
+    {
+      "id": "n303",
+      "parent_id": "n300",
+      "title": "실제 CLI end_turn/완료 훅과 큐 전환 검증·스크린샷 및 설치본 검증을 release에 포함",
+      "status": "done",
+      "note": "Source real CLI all 8 checks pass with 2 screenshots in ara-work-queue/evidence/run-baa8d455; internal work_status re-entry was superseding original Stop read and now bypasses own-origin refresh. Installed-package verification pending.",
+      "evidence": "Source and installed real Claude 2.1.310 both pass all 8 Stop checks: waiting/blocked notice exactly once, model not retried for blocked Work, release external wait, actionable push twice then bounded pause with notice. Installed PNGs and JSON in releases/edward-ara-nightly/evidence/installed-work-stop.",
+      "updated_at": 1793071620.6349092
+    },
+    {
+      "id": "n304",
+      "parent_id": "n198",
+      "title": "이미지 #13: /compact Stream idle timeout 후 재시도 불가 수정",
+      "status": "in_progress",
+      "note": "사용자 요청: compact 오류 후 다시 시도하지 못함. 화면 Robert·Ara Work band, API Error Stream idle timeout - no chunks received. 오류 발생 로그와 admission/state 정리, retry 경로를 확인하고 증거 기반 수정.",
+      "evidence": "",
+      "updated_at": 1793071644.815436
+    },
+    {
+      "id": "n305",
+      "parent_id": "n304",
+      "title": "실패 compact의 로그·상태·재시도 차단 경로 확인",
+      "status": "in_progress",
+      "note": "Independent compact-retry investigation running for screenshot #13. Do not claim cause/fix until actual failure and retry proof. Edward/ARA 0555b6c release is finished separately.",
+      "evidence": "",
+      "updated_at": 1793071714.3997898
+    },
+    {
+      "id": "n306",
+      "parent_id": "n304",
+      "title": "확인된 결함 수정과 focused 회귀 테스트",
+      "status": "pending",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793069829.7083676
+    },
+    {
+      "id": "n307",
+      "parent_id": "n304",
+      "title": "격리 실행으로 실패 후 재시도 성공 및 로그·화면 증거 확보",
+      "status": "pending",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793069829.7084074
+    },
+    {
+      "id": "n308",
+      "parent_id": null,
+      "title": "10. Ciel Work에서 PowerShell·Bash 실행 허용 경로 개선",
+      "status": "done",
+      "note": "사용자가 Work 상태만 실행으로 전환 승인. 네이티브 Plan Mode 유지, 구현은 계획 승인 후만.",
+      "evidence": "",
+      "updated_at": 1793073590.5464292
+    },
+    {
+      "id": "n313",
+      "parent_id": "n308",
+      "title": "조사·설계",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793073540.810546
+    },
+    {
+      "id": "n314",
+      "parent_id": "n313",
+      "title": "shell 거부·native 권한 경계와 회귀 범위 확인",
+      "status": "done",
+      "note": "",
+      "evidence": "Verified Work tool.call offline shell deny and tool.check planning deny independently override native permission flow. Local mod type confirms next(e) preserves engine verdict. Actual old installed bypass CLI blocked both marker commands; source default/bypass both execute with Work planning.",
+      "updated_at": 1793073540.810546
+    },
+    {
+      "id": "n315",
+      "parent_id": "n308",
+      "title": "구현 (네이티브 계획 승인 후)",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793073558.5207279
+    },
+    {
+      "id": "n316",
+      "parent_id": "n315",
+      "title": "Work 중복 shell 거부 제거와 회귀 테스트",
+      "status": "done",
+      "note": "",
+      "evidence": "register.js removes SHELLS from tool.call status gating and tool.check Work denies; native next results unchanged. 50 mod tests pass including both shells x Work state x read-only classification x child/main x native allow/ask/deny; no Work RPC for shell calls.",
+      "updated_at": 1793073550.60796
+    },
+    {
+      "id": "n317",
+      "parent_id": "n315",
+      "title": "planning 파일 예외 차단 회귀 확인",
+      "status": "done",
+      "note": "",
+      "evidence": "50 mod tests preserve engine-pinned exact native plan file exemptions, dedicated Write/Edit planning/offline deny, session separation and forged/stale approval protections. Actual default+bypass runs keep direct Write blocked while shell markers succeed.",
+      "updated_at": 1793073558.5207279
+    },
+    {
+      "id": "n318",
+      "parent_id": "n308",
+      "title": "검증·기록",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793073590.5464292
+    },
+    {
+      "id": "n319",
+      "parent_id": "n318",
+      "title": "격리 실제 CLI shell·bypass 실행 및 로그·화면",
+      "status": "done",
+      "note": "",
+      "evidence": "Actual CLI 2.1.310 source default+Bash allow and bypass each 6/6 checks pass with Work planning, actual Bash and powershell.exe marker files, direct Write blocked, PNG captured. Old installed bypass negative control blocks shells. Direct native PowerShell tool absent; only hook tests and Bash-launched PowerShell process claimed. Live PIDs/fingerprints unchanged.",
+      "updated_at": 1793073569.7210937
+    },
+    {
+      "id": "n320",
+      "parent_id": "n318",
+      "title": "문서·OKF strict·focused 검증",
+      "status": "done",
+      "note": "",
+      "evidence": "Help/instructions/Configuration native shell authority updated. 50 mod tests pass; 11 focused launch tests pass; plugin validate passes; changed Python Ruff and diff --check pass. OKF fixes/work-shell-permissions --strict conformant. No deployment/commit/live-session modification for this request.",
+      "updated_at": 1793073590.5464292
+    },
+    {
+      "id": "n321",
+      "parent_id": null,
+      "title": "11. 공통 복구 경로 근본 수정·미결 큐 전체 검증·로컬 나이트리 배포",
+      "status": "in_progress",
+      "note": "사용자 전체 범위 승인: 공통 SSE/compact/error 복구와 모든 미결 Work 아이템 재고·검증, CI 게시·로컬 설치. 관리 호스트는 읽기 전용 유지, live 세션·큐·기록을 임의 변경하지 않음. 필요한 독립 작업만 팀 병렬화.",
+      "evidence": "",
+      "updated_at": 1793074406.814994
+    },
+    {
+      "id": "n322",
+      "parent_id": "n321",
+      "title": "재고·설계",
+      "status": "in_progress",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793074406.814994
+    },
+    {
+      "id": "n323",
+      "parent_id": "n322",
+      "title": "미결 목표 전체 tree·현재 diff·live 버전 재고 확보",
+      "status": "in_progress",
+      "note": "Bypass mode changed. Start read-only inventory of persisted Work goals, current source diff, live router identities and installed runtime before any mutation.",
+      "evidence": "",
+      "updated_at": 1793074406.814994
+    },
+    {
+      "id": "n324",
+      "parent_id": "n322",
+      "title": "공통 게이트 원인·에러·취소·compact·identity 복구 설계와 검증행렬 확정",
+      "status": "pending",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793073901.4509897
+    },
+    {
+      "id": "n325",
+      "parent_id": "n321",
+      "title": "공통 복구 구현",
+      "status": "pending",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793073901.4510903
+    },
+    {
+      "id": "n326",
+      "parent_id": "n325",
+      "title": "확인된 terminal 결과 처리·원인별 gate·bounded retry·late proof 회귀",
+      "status": "pending",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793073901.4510562
+    },
+    {
+      "id": "n327",
+      "parent_id": "n325",
+      "title": "복구 후 보류 큐 재개·중복/누락 방지 실제 파이프라인 검증",
+      "status": "pending",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793073901.4510903
+    },
+    {
+      "id": "n328",
+      "parent_id": "n321",
+      "title": "미결 아이템 검증",
+      "status": "pending",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793073901.4512813
+    },
+    {
+      "id": "n329",
+      "parent_id": "n328",
+      "title": "Walkie SSE·도구노출·재시작 항목 검증",
+      "status": "pending",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793073901.4511993
+    },
+    {
+      "id": "n330",
+      "parent_id": "n328",
+      "title": "Windows Terminal stdout 및 Codex router 시작 실패 항목 검증",
+      "status": "pending",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793073901.4512415
+    },
+    {
+      "id": "n331",
+      "parent_id": "n328",
+      "title": "compact retry·Work shell 미배포 수정 최종 통합 검증",
+      "status": "pending",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793073901.4512813
+    },
+    {
+      "id": "n332",
+      "parent_id": "n321",
+      "title": "전체 검증·배포",
+      "status": "pending",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793073901.4514713
+    },
+    {
+      "id": "n333",
+      "parent_id": "n332",
+      "title": "격리 전체 테스트 및 실제 CLI·스크린샷·OKF 증거",
+      "status": "pending",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793073901.4513547
+    },
+    {
+      "id": "n334",
+      "parent_id": "n332",
+      "title": "정확한 commit nightly CI/Publish·npm gitHead·tarball 검증",
+      "status": "pending",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793073901.4513934
+    },
+    {
+      "id": "n335",
+      "parent_id": "n332",
+      "title": "새 snapshot 설치·설치본 회귀·로컬 경로 전환·live 무변경 확인",
+      "status": "pending",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793073901.4514322
+    },
+    {
+      "id": "n336",
+      "parent_id": "n332",
+      "title": "남은 blocked 항목 정직하게 기록·릴리스 보고",
+      "status": "pending",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793073901.4514713
+    }
+  ],
+  "updated_at": 1793074406.8150778
+}

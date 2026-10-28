@@ -1,0 +1,116 @@
+{
+ "repo": "C:\\Users\\djlov\\ciel-runtime-wt-work",
+ "stripped_env": [
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+  "ANTHROPIC_MODEL",
+  "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+  "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+  "CIEL_RUNTIME_CONFIG_DIR",
+  "CIEL_RUNTIME_HOME",
+  "CIEL_RUNTIME_LAUNCH_CWD",
+  "CIEL_RUNTIME_MODEL_ALIAS",
+  "CIEL_RUNTIME_PROVIDER",
+  "CIEL_RUNTIME_REGISTERED_HOME",
+  "CIEL_RUNTIME_SCRIPT",
+  "CIEL_RUNTIME_SELECTED_HOME",
+  "CIEL_RUNTIME_STATE_DIR",
+  "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+  "CLAUDECODE",
+  "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+  "CLAUDE_CODE_ATTRIBUTION_HEADER",
+  "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+  "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+  "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+  "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_EXECPATH",
+  "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+  "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+  "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+  "CLAUDE_CODE_MAX_RETRIES",
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "CLAUDE_CODE_MESSAGING_TOKEN",
+  "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+  "CLAUDE_CODE_RETRY_WATCHDOG",
+  "CLAUDE_CODE_SEND_FEEDBACK",
+  "CLAUDE_CODE_SESSION_ATTENDED",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_SUBAGENT_MODEL",
+  "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
+  "CLAUDE_EFFORT",
+  "CLAUDE_PID",
+  "CODEX_SPARKLE_ENABLED"
+ ],
+ "run": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-focus-ui-7ec690b4",
+ "mod": "C:\\Users\\djlov\\ciel-runtime-wt-work\\ciel_runtime_support\\claude_mods\\ciel-work",
+ "cli_version": "2.1.311 (Claude Code)",
+ "statusline_command": "'C:/Program Files/Python311/python.exe' C:/Users/djlov/AppData/Local/Temp/work-focus-ui-7ec690b4/statusline.py",
+ "checks": {
+  "inspector": true,
+  "focus_via_ui": true,
+  "clear_via_ui": true,
+  "node_data_preserved": true
+ },
+ "rows": [
+  {
+   "n": 1,
+   "tools": 0
+  },
+  {
+   "n": 2,
+   "tools": 48
+  }
+ ],
+ "egress": [
+  {
+   "method": "CONNECT",
+   "path": "downloads.claude.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "github.com:443"
+  }
+ ],
+ "live_before": {
+  "9505": {
+   "pid": 79472,
+   "version": "0.2.51-nightly.20261027-080148.ea59a61",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  },
+  "9524": {
+   "pid": 65156,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  }
+ },
+ "live_after": {
+  "9505": {
+   "pid": 79472,
+   "version": "0.2.51-nightly.20261027-080148.ea59a61",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  },
+  "9524": {
+   "pid": 65156,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  }
+ }
+}

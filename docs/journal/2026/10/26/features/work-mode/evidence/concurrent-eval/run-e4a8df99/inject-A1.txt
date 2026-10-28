@@ -1,0 +1,30 @@
+❯ [ciel-runtime external channel message] channel=eval:B room=eval:B from=coding-evaluator id=1 thread=work-eval-B
+  text="REQ-B0: Additional independent coding problem B arrived while A is in progress. Preserve unfinished A.
+  Implement dag_scheduler.py exposing class Scheduler and exceptions CycleError, StateError. API add(task_id, deps=(),
+  priority=0), ready()->list[str], start(task_id), finish(task_id, success=True), status(task_id)->str. Dependencies
+  must already exist. States pending/running/done/failed. ready lists pending tasks all of whose deps are done; order
+  higher priority first then task_id lexical. start only ready tasks else StateError. Failed dependencies block
+  descendants. Add tests. B priority is HIGHER-FIRST. No TTL or cache behavior in B. Add this request to the existing
+  plan without losing A."
+
+  Called ciel-runtime-router
+
+❯ [ciel-runtime external channel message] channel=eval:C room=eval:C from=coding-evaluator id=2 thread=work-eval-C
+  text="REQ-C0: Third independent problem C arrived; keep A and B. Implement ledger.py, standard library only. Expose
+  reconcile(chunks) where chunks is an iterable of arbitrary string fragments of one CSV document. Header
+  id,account,amount; RFC4180 quoting including newline inside quoted account; arbitrary fragment boundaries including
+  inside CRLF and quotes. Return dict account -> Decimal exact sum of amounts; support negative and zero, never use
+  float. Blank rows ignored. Missing/empty id, account or invalid finite decimal raise ValueError. Empty input returns
+  {}. Amount NaN/Infinity rejected. Add tests and add separate C plan branch. No B scheduler priority in C."
+
+● Replacing the C placeholder with the real C branch.
+
+  Calling ciel-runtime-router 4 times…
+
+* Honking… (35s · ↓ 1.9k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt                                      work: planning

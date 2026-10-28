@@ -1,0 +1,38 @@
+
+ ▐▛███▛█   Claude Code v2.1.310
+▝▜██████▀  fake-work · API Usage Billing
+ ▝▝   ▝▝   C:\Users\djlov\AppData\Local\Temp\ciel-work-api-b2e6d525\ws
+
+⚠ Model "fake-work" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing approved Work.
+  Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode
+
+❯ E2EHINT-MAIN verify the native plan file guard and Work API with the fixture actions. Enter plan mode, write only the native plan
+  file, attempt repository write to prove denial, exit plan mode and approve execution.
+
+  Called ciel-runtime-router
+
+● Entered plan mode
+  Claude is now exploring and designing an implementation approach.
+
+● Write(C:/Users/djlov/AppData/Local/Temp/ciel-work-api-b2e6d525/ccfg/plans/concurrent-herding-summit.md)
+
+
+
+
+
+
+
+
+· Inferring… (0s · ↓ 25 tokens)
+Work planning 0/1 — 1. Work API proof                                                                                              [-]
+1: [ ] API phase
+  [ ] Original pending leaf
+w: All items / refresh
+Ctrl+X Tab: focus · Tab/↑↓: select · Enter: inspect · Esc: return · /work-mode help
+                                                                                                                     ● high · /effort
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ plan mode on (shift+tab to cycle) · esc to interrupt · ← for agents                                                work: plan 0/1

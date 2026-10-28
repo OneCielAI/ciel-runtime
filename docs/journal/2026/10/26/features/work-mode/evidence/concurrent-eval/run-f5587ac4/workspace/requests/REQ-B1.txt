@@ -1,0 +1,3 @@
+source: channel=eval:B from=coding-evaluator id=4 thread=work-eval-B
+
+REQ-B1: Amend B only: add replace_deps(task_id,deps) for pending tasks. Reject unknown dependencies with ValueError, self-dependency or any cycle with CycleError. Failure must be ATOMIC: keep old dependencies/status/ready order unchanged. Nonpending target -> StateError. Add retry(task_id), valid only for failed tasks, puts it pending. Descendants become ready only after prerequisite retries and completes. REVERSE the B0 tie-break ONLY: equal priority now uses original task insertion order (NOT lexical). Higher priority still first. Do not apply A FIFO eviction policy or C last-wins to B.

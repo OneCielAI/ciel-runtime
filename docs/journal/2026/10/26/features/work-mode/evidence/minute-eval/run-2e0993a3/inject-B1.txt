@@ -1,0 +1,30 @@
+      1 """Cumulative half-open interval bookings (REQ-B0)."""
+      2
+      3
+      4 class CapacityError(Exception):
+      5     pass
+      6
+      7
+      8 class ConflictError(Exception):
+      9     pass
+     … +54 lines
+
+❯ [ciel-runtime external channel message] channel=minute-eval:A room=minute-eval:A from=minute-evaluator id=1
+  thread=minute-eval-A text="REQ-A1: Amend A only. shortest(src,dst,*,blocked=(),max_hops=None): blocked nodes excluded
+  entirely, unknown blocked name ValueError. Blocked src/dst NoPathError even src==dst. max_hops None or nonnegative
+  int excluding bool; invalid ValueError. Enforce hop bound BEFORE selecting minimum cost, not by truncating an
+  unrestricted route. A0 cost/fewest-edge/lex ties unchanged. Add case where cheap route violates bound and more costly
+  route succeeds. Preserve B/C."
+
+● Reading routing_graph.py
+  ⎿  routing_graph.py
+
+✽ Pollinating… (3m 16s · ↓ 5.9k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt
+  work: run 2/9 [A: routing_gr… 2/3 | B: booking_ca… 0/2 | C: inventory_… 0/2 | …] · REQ-A1 blocked nodes and bounded
+  hops > Implement constrained si…

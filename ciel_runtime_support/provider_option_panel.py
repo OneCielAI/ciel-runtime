@@ -4,6 +4,9 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from .architecture import ProviderOptionPresentationPolicy
+from .work_mode_launch import (WORK_AUTO_CONTINUE_KEY, WORK_MODE_KEY, WORK_PLAN_APPROVAL_ASK_KEY,
+                               work_auto_continue_enabled, work_auto_continue_menu_label, work_mode_enabled,
+                               work_mode_menu_label, work_plan_approval_ask, work_plan_approval_menu_label)
 
 
 @dataclass(frozen=True)
@@ -34,6 +37,8 @@ class OptionPanelRuntime:
     workflows_enabled: Callable[[str, dict[str, Any]], bool]
     ultracode_enabled: Callable[[str, dict[str, Any]], bool]
     claude_feedback_drafts: Callable[[], bool] = lambda: False
+    # The stored Work settings; each value is read through work_mode_launch.
+    work_settings: Callable[[], dict[str, Any]] = lambda: {}
 
 
 @dataclass(frozen=True)
@@ -88,6 +93,12 @@ def build_option_panel_rows(
     add("Event message preview", "router_debug_message_preview_chars", runtime.message_preview_chars())
     add("Claude feedback drafts", "claude_feedback_drafts",
         "on" if runtime.claude_feedback_drafts() else "off (default)")
+    from .provider_tool_policy import blocked_tools_option_value
+    add("Tool blocklist (routed)", "blocked_tools", blocked_tools_option_value(config))
+    work = runtime.work_settings()
+    add("Work mode", WORK_MODE_KEY, work_mode_menu_label(work))
+    add("Work plan approval", WORK_PLAN_APPROVAL_ASK_KEY, work_plan_approval_menu_label(work))
+    add("Work auto continue", WORK_AUTO_CONTINUE_KEY, work_auto_continue_menu_label(work))
     if not runtime.direct_native(provider, config) and policy.shows_workflows:
         model = runtime.current_model(provider, config)
         capabilities = runtime.capability_string(provider, config, model)
@@ -218,6 +229,12 @@ def current_option_bool(
         return runtime.router_debug_external()
     if key == "claude_feedback_drafts":
         return runtime.claude_feedback_drafts()
+    if key == WORK_MODE_KEY:
+        return work_mode_enabled(runtime.work_settings())
+    if key == WORK_PLAN_APPROVAL_ASK_KEY:
+        return work_plan_approval_ask(runtime.work_settings())
+    if key == WORK_AUTO_CONTINUE_KEY:
+        return work_auto_continue_enabled(runtime.work_settings())
     if key == "route_through_router":
         return projection.parse_bool(config.get("route_through_router"), default=False)
     if key == "workflows_enabled":
@@ -239,6 +256,9 @@ def option_prompt_default(
     boolean_keys = {
         "router_debug_external_access",
         "claude_feedback_drafts",
+        WORK_MODE_KEY,
+        WORK_PLAN_APPROVAL_ASK_KEY,
+        WORK_AUTO_CONTINUE_KEY,
         "route_through_router",
         "stream_enabled",
         "stream_word_chunking",
@@ -259,6 +279,9 @@ def option_prompt_default(
         return runtime.capability_string(provider, config, model)
     if key == "force_query_string":
         return str(config.get("force_query_string") or "")
+    if key == "blocked_tools":
+        from .provider_tool_policy import blocked_tools_option_value
+        return blocked_tools_option_value(config)
     if key == "supports_tool_choice":
         value = config.get("supports_tool_choice")
         return "auto" if value is None else ("true" if bool(value) else "false")

@@ -1,0 +1,10 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+concurrent child edits complete: yes
+owned stop 17484 SUCCESS: The process with PID 55476 (child process of PID 17484) has been terminated.
+SUCCESS: The process with PID 17484 (child process of PID 28560) has been terminated.
+owned stop 59168 SUCCESS: The process with PID 59168 (child process of PID 25332) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\kobe-work-gate\evidence\run-93e137ef

@@ -1,0 +1,257 @@
+{
+  "fixture": "owned python protocol child (not native Claude Code)",
+  "platform": "nt",
+  "message_id": 7,
+  "cursor": 0,
+  "socket_sends": [
+    [
+      7
+    ]
+  ],
+  "repeat_scan_injected_ids": [],
+  "settled_while_paused": [],
+  "held_admission_checks_after_settlement": 0,
+  "gate_releases": [],
+  "status_events": [
+    [
+      7,
+      "queued"
+    ],
+    [
+      7,
+      "submitted"
+    ],
+    [
+      7,
+      "replied"
+    ]
+  ],
+  "old_states_before": {
+    "1": "submitted",
+    "2": "replied",
+    "3": "interrupted_uncertain",
+    "4": "submitted",
+    "5": "replied",
+    "6": "interrupted_uncertain"
+  },
+  "old_states_after": {
+    "1": "submitted",
+    "2": "replied",
+    "3": "interrupted_uncertain",
+    "4": "submitted",
+    "5": "replied",
+    "6": "interrupted_uncertain"
+  },
+  "history_health_after": {
+    "complete": false,
+    "coverage": "partial",
+    "scanned_bytes": 2003,
+    "failure_count": 4,
+    "recovered_count": 3,
+    "diagnostics": [
+      {
+        "line_number": 1,
+        "byte_offset": 0,
+        "failure_category": "invalid_json"
+      },
+      {
+        "line_number": 5,
+        "byte_offset": 582,
+        "failure_category": "nul_byte"
+      },
+      {
+        "line_number": 9,
+        "byte_offset": 1219,
+        "failure_category": "invalid_utf8"
+      },
+      {
+        "line_number": 10,
+        "byte_offset": 1221,
+        "failure_category": "invalid_json"
+      }
+    ],
+    "diagnostics_truncated": false
+  },
+  "history_prefix_bytes": 1235,
+  "history_prefix_sha256": "c81a923b989242c9c274f466058b15fe28d62e31f420a687ce664ce3cc06649f",
+  "history_prefix_unchanged": true,
+  "appended_rows": [
+    {
+      "request_id": 7,
+      "status": "queued"
+    },
+    {
+      "request_id": 7,
+      "status": "submitted"
+    },
+    {
+      "request_id": 7,
+      "status": "replied"
+    }
+  ],
+  "transcript_record_types": [
+    "user",
+    "assistant"
+  ],
+  "transcript_wake_state": "completed",
+  "receipt_user_frames": 1,
+  "process_count": 1,
+  "logs": [
+    [
+      "INFO",
+      "claude_session_socket_configured target=\\\\.\\pipe\\LOCAL\\cc-msg-92bbee8472e0fbce57b19481a08b3e68"
+    ],
+    [
+      "WARN",
+      "runtime_input_status_history_damage_ignored lines=4 first_line=1 category=invalid_json"
+    ],
+    [
+      "WARN",
+      "external_event_sse_disconnected receiver=default error=EOFError diagnostic={\"category\": \"eof\", \"class\": \"EOFError\", \"phase\": \"read\"}"
+    ],
+    [
+      "WARN",
+      "channel_windows_console_proxy_failed stage=windows_proxy type=OSError errno=36 winerror=None frames=channel_terminal_dispatch.py:122:dispatch,channel_terminal_context.py:327:run_windows,channel_terminal_context.py:186:run_windows,test_channel_direct_socket_e2e.py:317:<lambda>,test_channel_direct_socket_e2e.py:256:fail_proxy; using direct subprocess call"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_unavailable; using direct subprocess call"
+    ],
+    [
+      "INFO",
+      "channel_direct_socket_poller_started pid=73464 terminal_available=false"
+    ],
+    [
+      "ERROR",
+      "claude_session_socket_unavailable reason=auth_key_unavailable target=\\\\.\\pipe\\LOCAL\\cc-msg-92bbee8472e0fbce57b19481a08b3e68 fallback=terminal"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_deferred message_id=1 reason=ownership_submitted action=no_replay"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_skipped_noise message_id=2 reason=durable_replied"
+    ],
+    [
+      "WARN",
+      "channel_stdin_proxy_quarantined message_id=3 reason=interrupted_uncertain action=no_replay"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_deferred message_id=4 reason=ownership_submitted action=no_replay"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_skipped_noise message_id=5 reason=durable_replied"
+    ],
+    [
+      "WARN",
+      "channel_stdin_proxy_quarantined message_id=6 reason=interrupted_uncertain action=no_replay"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_deferred cursor=6 message_id=7 channel=external:default reason=session_socket_transport_unavailable"
+    ],
+    [
+      "INFO",
+      "claude_session_socket_available target=\\\\.\\pipe\\LOCAL\\cc-msg-92bbee8472e0fbce57b19481a08b3e68 after=auth_key_unavailable"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_deferred message_id=1 reason=ownership_submitted action=no_replay"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_skipped_noise message_id=2 reason=durable_replied"
+    ],
+    [
+      "WARN",
+      "channel_stdin_proxy_quarantined message_id=3 reason=interrupted_uncertain action=no_replay"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_deferred message_id=4 reason=ownership_submitted action=no_replay"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_skipped_noise message_id=5 reason=durable_replied"
+    ],
+    [
+      "WARN",
+      "channel_stdin_proxy_quarantined message_id=6 reason=interrupted_uncertain action=no_replay"
+    ],
+    [
+      "INFO",
+      "claude_session_socket_injected bytes=349 target=\\\\.\\pipe\\LOCAL\\cc-msg-92bbee8472e0fbce57b19481a08b3e68"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_injected count=1 message_ids=7 channels=external:default enter=cr transport=session_socket commit_cursor=False display_body=False"
+    ],
+    [
+      "INFO",
+      "channel_direct_socket_confirmed message_id=7 cursor=-"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_deferred message_id=1 reason=ownership_submitted action=no_replay"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_skipped_noise message_id=2 reason=durable_replied"
+    ],
+    [
+      "WARN",
+      "channel_stdin_proxy_quarantined message_id=3 reason=interrupted_uncertain action=no_replay"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_deferred message_id=4 reason=ownership_submitted action=no_replay"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_skipped_noise message_id=5 reason=durable_replied"
+    ],
+    [
+      "WARN",
+      "channel_stdin_proxy_quarantined message_id=6 reason=interrupted_uncertain action=no_replay"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_skipped_noise message_id=7 reason=durable_replied"
+    ],
+    [
+      "INFO",
+      "channel_direct_socket_poller_stopped pid=73464"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_deferred message_id=1 reason=ownership_submitted action=no_replay"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_skipped_noise message_id=2 reason=durable_replied"
+    ],
+    [
+      "WARN",
+      "channel_stdin_proxy_quarantined message_id=3 reason=interrupted_uncertain action=no_replay"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_deferred message_id=4 reason=ownership_submitted action=no_replay"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_skipped_noise message_id=5 reason=durable_replied"
+    ],
+    [
+      "WARN",
+      "channel_stdin_proxy_quarantined message_id=6 reason=interrupted_uncertain action=no_replay"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_skipped_noise message_id=7 reason=durable_replied"
+    ]
+  ]
+}

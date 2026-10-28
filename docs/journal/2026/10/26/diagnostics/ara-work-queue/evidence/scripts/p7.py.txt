@@ -1,0 +1,48 @@
+# Read-only: background task lifecycle markers in the newest ARA Claude transcript (ids, tool names, statuses only).
+import os, json, time, re, glob, calendar
+NL = chr(10); LT = chr(60)
+def L(ts):
+    try: return time.strftime("%m-%dT%H:%M:%S", time.localtime(calendar.timegm(time.strptime(ts[:19], "%Y-%m-%dT%H:%M:%S"))))
+    except Exception: return "?"
+user = "C:/Users/aapw-a21u21"
+f = sorted(glob.glob(user + "/.claude/projects/*/*.jsonl"), key=os.path.getmtime)[-1]
+print("TRANSCRIPT", os.path.basename(f), "size", os.path.getsize(f))
+TID = re.compile(LT + "task-id>([^" + LT + "]{1,80})" + LT + "/task-id>")
+TST = re.compile(LT + "status>([^" + LT + "]{1,40})" + LT + "/status>")
+TTY = re.compile(LT + "task-type>([^" + LT + "]{1,40})" + LT + "/task-type>")
+BGID = re.compile("(?:background with ID|task_id|Task ID|shell ID|bash_id|ID)[: ]+([A-Za-z0-9_-]{4,40})")
+bg_uses = {}
+rows = []
+with open(f, "rb") as h:
+    for raw in h:
+        if b"run_in_background" not in raw and b"task-notification" not in raw and b'"Monitor"' not in raw and b"TaskStop" not in raw and b"KillShell" not in raw and b"tool_use_id" not in raw:
+            continue
+        try: o = json.loads(raw)
+        except Exception: continue
+        ts = o.get("timestamp", "")
+        if ts[:10] < "2026-10-26": continue
+        msg = o.get("message") or {}
+        c = msg.get("content")
+        if o.get("type") == "assistant" and isinstance(c, list):
+            for b in c:
+                if isinstance(b, dict) and b.get("type") == "tool_use":
+                    inp = b.get("input") or {}
+                    n = b.get("name", "")
+                    if (isinstance(inp, dict) and inp.get("run_in_background")) or n in ("Monitor", "TaskStop", "KillShell", "KillBash"):
+                        bg_uses[b.get("id")] = n
+                        rows.append("%s START_OR_CTRL tool=%s side=%s use=%s target=%s" % (L(ts), n, bool(o.get("isSidechain")), str(b.get("id"))[-8:], (inp.get("task_id") or inp.get("shell_id") or "") if isinstance(inp, dict) else ""))
+        elif o.get("type") == "user":
+            if isinstance(c, list):
+                for b in c:
+                    if isinstance(b, dict) and b.get("type") == "tool_result" and b.get("tool_use_id") in bg_uses:
+                        cc = b.get("content")
+                        txt = cc if isinstance(cc, str) else NL.join(x.get("text", "") for x in (cc or []) if isinstance(x, dict))
+                        m = BGID.search(txt)
+                        rows.append("%s RESULT tool=%s use=%s bg_id=%s err=%s" % (L(ts), bg_uses[b.get("tool_use_id")], str(b.get("tool_use_id"))[-8:], m.group(1) if m else "?", bool(b.get("is_error"))))
+                    elif isinstance(b, dict) and b.get("type") == "text" and "task-notification" in b.get("text", ""):
+                        t = b.get("text", "")
+                        rows.append("%s NOTIFY ids=%s status=%s type=%s" % (L(ts), TID.findall(t)[:5], TST.findall(t)[:5], TTY.findall(t)[:5]))
+            elif isinstance(c, str) and "task-notification" in c[:200]:
+                rows.append("%s NOTIFY ids=%s status=%s type=%s" % (L(ts), TID.findall(c)[:5], TST.findall(c)[:5], TTY.findall(c)[:5]))
+print("ROWS", len(rows))
+for r in rows: print(r)

@@ -1,0 +1,11 @@
+import os, json, time, subprocess
+# Read-only: transcript size and any of this investigation's earlier probe processes still running.
+tr = r"C:\Users\aapw-a24u24\.claude\projects\C--ProgramData-aap-win-sandboxes-u24-home-kobe-ai\5ac1ee55-d0d1-4ef7-b4df-3d68e62bbd1b.jsonl"
+try:
+    st = os.stat(tr); print("TRANSCRIPT", st.st_size, time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(st.st_mtime)))
+except Exception as e:
+    print("TRANSCRIPT_ERR", type(e).__name__, e)
+ps = r"Get-CimInstance Win32_Process | Where-Object { $_.Name -match '^py' -and $_.CommandLine -match 'b64decode' } | Select-Object ProcessId,ParentProcessId,CreationDate,KernelModeTime,UserModeTime | ConvertTo-Json -Depth 2"
+r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+print("PROBE_PROCS", r.stdout.strip()[:3000], r.stderr.strip()[:300])
+print("SELF", os.getpid())

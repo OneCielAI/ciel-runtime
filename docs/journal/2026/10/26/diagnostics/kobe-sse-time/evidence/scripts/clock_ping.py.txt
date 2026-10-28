@@ -1,0 +1,26 @@
+import subprocess, sys, time, base64, zlib, json
+# Read-only clock offset probe: the remote side only echoes its time.time() for each line it reads.
+# offset = remote - midpoint(local_send, local_recv); error bound = +/- rtt/2.
+remote = "import sys,time\nfor line in sys.stdin:\n    sys.stdout.write('%.6f\\n' % time.time()); sys.stdout.flush()\n"
+b = base64.b64encode(zlib.compress(remote.encode())).decode()
+cmd = 'py -3 -I -u -c "import base64,zlib;exec(zlib.decompress(base64.b64decode(\'' + b + '\')))"'
+p = subprocess.Popen(['ssh', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=10', '-i', 'C:/Users/djlov/.ssh/id_ed25519', '-p', '1004', 'ara-ai@100.64.0.14', cmd],
+                     stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=0)
+samples = []
+for i in range(25):
+    t0 = time.time()
+    p.stdin.write(b"x\n"); p.stdin.flush()
+    line = p.stdout.readline()
+    t1 = time.time()
+    if not line: break
+    r = float(line.decode().strip())
+    samples.append((t0, r, t1))
+    time.sleep(0.2)
+p.stdin.close(); p.wait(timeout=30)
+for t0, r, t1 in samples:
+    print("SAMPLE local_send %.6f remote %.6f local_recv %.6f rtt %.4f offset_mid %+.4f" % (t0, r, t1, t1 - t0, r - (t0 + t1) / 2))
+best = sorted(samples, key=lambda s: s[2] - s[0])[:5]
+lo = max(r - t1 for t0, r, t1 in samples); hi = min(r - t0 for t0, r, t1 in samples)
+print("BEST_RTT_SAMPLES", [round(s[2] - s[0], 4) for s in best])
+print("OFFSET_BOUNDS remote_minus_local in [%+.4f, %+.4f] s" % (lo, hi))
+print("OFFSET_MEDIAN_MID %+.4f" % sorted(r - (t0 + t1) / 2 for t0, r, t1 in samples)[len(samples) // 2])

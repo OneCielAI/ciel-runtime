@@ -1,0 +1,6 @@
+HOME C:\ProgramData\aap-win\sandboxes\u19\home\artifacts []
+HOME C:\ProgramData\aap-win\sandboxes\u19\home\robert-ai ['.aap', '.aap-provisioned', '.bashrc', '.bash_history', '.bash_logout', '.build-13009', '.cache', '.cargo', '.ciel-runtime-backup', '.claude', '.codex', '.codex-db-repair-20261001', '.config', '.gitconfig', '.gitignore', '.local', '.migration-20260930', '.namespace-qa-root.txt', '.native-build', '.native-tools', '.npm', '.npm-global', '.npmrc', '.profile', '.rustup', '.ssh', '.sudo_as_admin_successful', '.tmux.conf']
+HOME C:\ProgramData\aap-win\sandboxes\u21\home\ara-ai ['.aap', '.claude', '.gitignore', '.local', '.npm-global']
+HOME C:\ProgramData\aap-win\sandboxes\u22\home\edward-ai ['.aap', '.claude', '.gitignore', '.local', '.npm-global', '.pytest_cache']
+HOME C:\ProgramData\aap-win\sandboxes\u23\home\eric-ai ['.aap', '.npm-global']
+HOME C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai ['.aap', '.claude', '.gitignore', '.local', '.npm-global', '.pytest_cache']

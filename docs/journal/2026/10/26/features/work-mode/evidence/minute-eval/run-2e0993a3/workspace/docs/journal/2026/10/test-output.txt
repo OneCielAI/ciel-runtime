@@ -1,0 +1,32 @@
+test_b1_atomic_batch (test_booking_calendar.CalendarTests.test_b1_atomic_batch) ... ok
+test_b1_replace_excludes_old (test_booking_calendar.CalendarTests.test_b1_replace_excludes_old) ... ok
+test_b2_wait_ids_protected (test_booking_calendar.CalendarTests.test_b2_wait_ids_protected) ... ok
+test_b2_waiting_priority_fifo_and_skip (test_booking_calendar.CalendarTests.test_b2_waiting_priority_fifo_and_skip) ... ok
+test_b3_checkpoint_restore_exact_fifo_and_foreign (test_booking_calendar.CalendarTests.test_b3_checkpoint_restore_exact_fifo_and_foreign) ... ok
+test_b3_version_counts_state_changes_once (test_booking_calendar.CalendarTests.test_b3_version_counts_state_changes_once) ... ok
+test_half_open_cumulative_and_sorting (test_booking_calendar.CalendarTests.test_half_open_cumulative_and_sorting) ... ok
+test_many_overlaps (test_booking_calendar.CalendarTests.test_many_overlaps) ... ok
+test_validation_and_cancel (test_booking_calendar.CalendarTests.test_validation_and_cancel) ... ok
+test_c1_batch_order_rollback_retry_and_empty (test_inventory_stream.StreamTests.test_c1_batch_order_rollback_retry_and_empty) ... ok
+test_c2_undo_net_delta_retry_and_tombstone (test_inventory_stream.StreamTests.test_c2_undo_net_delta_retry_and_tombstone) ... ok
+test_c3_checkpoint_restores_buffer_idempotency_and_undo (test_inventory_stream.StreamTests.test_c3_checkpoint_restores_buffer_idempotency_and_undo) ... ok
+test_c3_line_bound_code_points_and_feed_rollback (test_inventory_stream.StreamTests.test_c3_line_bound_code_points_and_feed_rollback) ... ok
+test_deduplication_conflict_and_recovery (test_inventory_stream.StreamTests.test_deduplication_conflict_and_recovery) ... ok
+test_every_fragment_boundary_crlf_and_finish (test_inventory_stream.StreamTests.test_every_fragment_boundary_crlf_and_finish) ... ok
+test_invalid_is_atomic (test_inventory_stream.StreamTests.test_invalid_is_atomic) ... ok
+test_move_zero_balance_and_copy (test_inventory_stream.StreamTests.test_move_zero_balance_and_copy) ... ok
+test_a1_constraints_before_optimization (test_routing_graph.GraphTests.test_a1_constraints_before_optimization) ... ok
+test_a2_apply_atomic_versioned (test_routing_graph.GraphTests.test_a2_apply_atomic_versioned) ... ok
+test_a2_frozen_snapshot (test_routing_graph.GraphTests.test_a2_frozen_snapshot) ... ok
+test_a3_lexical_default_and_explicit_fewest_hops (test_routing_graph.GraphTests.test_a3_lexical_default_and_explicit_fewest_hops) ... ok
+test_a3_snapshot_freezes_policy (test_routing_graph.GraphTests.test_a3_snapshot_freezes_policy) ... ok
+test_mutations_and_version (test_routing_graph.GraphTests.test_mutations_and_version) ... ok
+test_randomized_against_brute_force (test_routing_graph.GraphTests.test_randomized_against_brute_force) ... ok
+test_shortest_cost_hops_and_lexical_path (test_routing_graph.GraphTests.test_shortest_cost_hops_and_lexical_path) ... ok
+test_simple_paths_with_zero_cycle (test_routing_graph.GraphTests.test_simple_paths_with_zero_cycle) ... ok
+test_validation_is_atomic (test_routing_graph.GraphTests.test_validation_is_atomic) ... ok
+
+----------------------------------------------------------------------
+Ran 27 tests in 0.008s
+
+OK

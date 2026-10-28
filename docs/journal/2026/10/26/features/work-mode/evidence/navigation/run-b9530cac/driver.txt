@@ -1,0 +1,33 @@
+owned router: yes
+interactive owned cmd: yes
+interactive ready: yes
+console command: yes
+vertical items ready: yes
+console command: yes
+console command: yes
+console command: yes
+console command: yes
+keyboard B details: yes
+console command: yes
+console command: yes
+console command: yes
+console command: yes
+console command: yes
+view command: yes
+console command: yes
+console command: yes
+console command: yes
+tree command: yes
+console command: yes
+ask deny dialog: yes
+console command: yes
+console command: yes
+deny response: yes
+console command: yes
+ask approve dialog: yes
+console command: yes
+approve response: yes
+owned stop 15000 SUCCESS: The process with PID 1192 (child process of PID 15000) has been terminated.
+SUCCESS: The process with PID 15000 (child process of PID 29128) has been terminated.
+owned stop 55176 SUCCESS: The process with PID 55176 (child process of PID 92704) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\navigation\run-b9530cac

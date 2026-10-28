@@ -1,0 +1,30 @@
+❯ [ciel-runtime external channel message] channel=eval:B room=eval:B from=coding-evaluator id=4 thread=work-eval-B
+  text="REQ-B1: Amend B only: add replace_deps(task_id,deps) for pending tasks. Reject unknown dependencies with
+  ValueError, self-dependency or any cycle with CycleError. Failure must be ATOMIC: keep old dependencies/status/ready
+  order unchanged. Nonpending target -> StateError. Add retry(task_id), valid only for failed tasks, puts it pending.
+  Descendants become ready only after prerequisite retries and completes. REVERSE the B0 tie-break ONLY: equal priority
+  now uses original task insertion order (NOT lexical). Higher priority still first. Do not apply A FIFO eviction
+  policy or C last-wins to B."
+
+● Write(requests\REQ-B1.txt)
+  ⎿  Wrote 3 lines to requests\REQ-B1.txt
+      1 source: channel=eval:B from=coding-evaluator id=4 thread=work-eval-B
+      2
+      3 REQ-B1: Amend B only: add replace_deps(task_id,deps) for pending tasks. Reject unknown dependencies with
+        ValueError, self-dependency or any cycle with CycleError. Failure must be ATOMIC: keep old dependencies/s
+        tatus/ready order unchanged. Nonpending target -> StateError. Add retry(task_id), valid only for failed t
+        asks, puts it pending. Descendants become ready only after prerequisite retries and completes. REVERSE th
+        e B0 tie-break ONLY: equal priority now uses original task insertion order (NOT lexical). Higher priority
+         still first. Do not apply A FIFO eviction policy or C last-wins to B.
+
+● Calling ciel-runtime-router 4 times, running 1 shell command…
+  ⎿  $ cd "C:/Users/djlov/AppData/Local/Temp/ciel-work-coding-eval-l3gy5y5c/workspace" && ls requests && wc -c
+     requests/*
+
+✢ Cerebrating… (1m 20s · ↓ 7.6k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt                                          work: 0/22

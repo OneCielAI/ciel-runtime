@@ -1,0 +1,195 @@
+{
+  "label": "fixed",
+  "runtime_root": "C:\\Users\\djlov\\ciel-runtime-wt-work",
+  "scratch": "C:\\Windows\\Temp\\ciel-owned-walkie-p3i8_ml3",
+  "stripped_env_names": [
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+    "ANTHROPIC_MODEL",
+    "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+    "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+    "CIEL_RUNTIME_CONFIG_DIR",
+    "CIEL_RUNTIME_HOME",
+    "CIEL_RUNTIME_LAUNCH_CWD",
+    "CIEL_RUNTIME_MODEL_ALIAS",
+    "CIEL_RUNTIME_PROVIDER",
+    "CIEL_RUNTIME_REGISTERED_HOME",
+    "CIEL_RUNTIME_SCRIPT",
+    "CIEL_RUNTIME_SELECTED_HOME",
+    "CIEL_RUNTIME_STATE_DIR",
+    "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+    "CLAUDECODE",
+    "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+    "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+    "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_EXECPATH",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+    "CLAUDE_CODE_MAX_RETRIES",
+    "CLAUDE_CODE_MESSAGING_SOCKET",
+    "CLAUDE_CODE_MESSAGING_TOKEN",
+    "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+    "CLAUDE_CODE_RETRY_WATCHDOG",
+    "CLAUDE_CODE_SEND_FEEDBACK",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
+    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
+    "CLAUDE_EFFORT",
+    "CLAUDE_PID",
+    "CODEX_SPARKLE_ENABLED",
+    "OLLAMA_CONTEXT_LENGTH",
+    "OLLAMA_FLASH_ATTENTION",
+    "OLLAMA_HOST",
+    "OLLAMA_KV_CACHE_TYPE",
+    "OLLAMA_MODELS",
+    "OLLAMA_NUM_PARALLEL",
+    "OLLAMA_SCHED_SPREAD"
+  ],
+  "claude_version": "2.1.310 (Claude Code)",
+  "command": [
+    "C:\\Program Files\\Python311\\python.exe",
+    "-I",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\walkie-durable-replied\\evidence\\e2e\\launch_shim.py",
+    "--",
+    "cli",
+    "--ca-runtime",
+    "claude",
+    "--ca-no-update-check",
+    "--ca-no-self-update-check",
+    "--ca-no-web-search",
+    "--",
+    "--permission-mode",
+    "default",
+    "--tools",
+    "",
+    "--debug-file",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\walkie-durable-replied\\evidence\\e2e\\run-fixed-142315\\native-debug.log"
+  ],
+  "ports": {
+    "router": 61580,
+    "fixture": 61581
+  },
+  "seed_sha256": {
+    "runtime-inputs.jsonl": "af120eaa909a00baf12f021ae4da8529bdde6ff6d174ccb3adde53e6cfe8910a",
+    "runtime-input-status.jsonl": "7e48265a7576ff98b059252631613623af59cc6471fb7679c3ec6a65bde8db9c",
+    "channel-llm-cursor.json": "275c3ad71f932bed9c3a5d2b84b52a8b053ead039abf56da40eafbe94cfc57ef"
+  },
+  "events": [
+    {
+      "at": 1793042595.611,
+      "kind": "launched",
+      "pid": 74532,
+      "watcher": 77180
+    },
+    {
+      "at": 1793042605.763,
+      "kind": "wait_pass",
+      "label": "owned router health"
+    },
+    {
+      "at": 1793042605.771,
+      "kind": "wait_pass",
+      "label": "native launch"
+    },
+    {
+      "at": 1793042605.797,
+      "kind": "wait_pass",
+      "label": "native process present"
+    },
+    {
+      "at": 1793042618.2,
+      "kind": "wait_pass",
+      "label": "watcher typed baseline"
+    },
+    {
+      "at": 1793042618.601,
+      "kind": "wait_pass",
+      "label": "baseline reached loopback"
+    },
+    {
+      "at": 1793042619.014,
+      "kind": "wait_pass",
+      "label": "baseline rendered"
+    },
+    {
+      "at": 1793042622.619,
+      "kind": "wait_pass",
+      "label": "screenshot 01-baseline"
+    },
+    {
+      "at": 1793042622.629,
+      "kind": "notify",
+      "marker": "WALKIE-NOTE-ONE",
+      "request_id": 5,
+      "error": null
+    },
+    {
+      "at": 1793042623.052,
+      "kind": "wait_pass",
+      "label": "injector decision for 5"
+    },
+    {
+      "at": 1793042623.053,
+      "kind": "decision",
+      "marker": "WALKIE-NOTE-ONE",
+      "request_id": 5,
+      "outcome": "injected"
+    },
+    {
+      "at": 1793042623.454,
+      "kind": "wait_pass",
+      "label": "WALKIE-NOTE-ONE reached loopback"
+    },
+    {
+      "at": 1793042624.256,
+      "kind": "wait_pass",
+      "label": "5 replied"
+    },
+    {
+      "at": 1793042629.867,
+      "kind": "wait_pass",
+      "label": "screenshot 02-after-notifications"
+    }
+  ],
+  "live_before": {
+    "9505": {
+      "pid": 38368,
+      "version": "0.2.51-nightly.20261026-162537.2faae14",
+      "source_fingerprint": "72c6bfb456e30cd7",
+      "error": null
+    },
+    "9524": {
+      "pid": 25276,
+      "version": "0.2.51",
+      "source_fingerprint": "f86ee3638ee760f3",
+      "error": null
+    }
+  },
+  "notifications": [
+    {
+      "marker": "WALKIE-NOTE-ONE",
+      "request_id": 5,
+      "outcome": "injected",
+      "line": "2026-10-26T14:23:42 [INFO] channel_stdin_proxy_injected count=1 message_ids=5 channels=owned-e2e enter=crlf transport=session_socket commit_cursor=False display_body=False"
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+[
+  {
+    "id": "n1",
+    "title": "Re-run the one-minute multi-context Work amendment evaluation and independently verify results",
+    "initial_status": "done",
+    "verification": "existing recorded evidence; regression pending"
+  },
+  {
+    "id": "n26",
+    "title": "Local + nightly push of the Work mode release (nightly-20261026)",
+    "initial_status": "done",
+    "verification": "existing recorded evidence; regression pending"
+  },
+  {
+    "id": "n66",
+    "title": "1. Work mode hints, request triage and queue integrity; local + nightly deploy",
+    "initial_status": "done",
+    "verification": "existing recorded evidence; regression pending"
+  },
+  {
+    "id": "n98",
+    "title": "2. Walkie (g:\\ciel-walkie, router 9505): post-restart injection skipped as durable_replied, SSE EOF reconnects, missing SendMessage",
+    "initial_status": "in_progress",
+    "verification": "ID reuse native installed proof retained; restart exact-ID intersection fixed; SendMessage real child ACK on two routed providers verified, default narrow unblock and menu; external EOF reconnect no loss proof",
+    "evidence": "fixes/sendmessage-policy/verification.okf + diagnostics/shared-recovery-restart/strict-shared-recovery.md"
+  },
+  {
+    "id": "n132",
+    "title": "3. Work 정상 턴 종료 시 미결 작업 자동 계속: 검증 후 로컬·나이트리 배포",
+    "initial_status": "done",
+    "verification": "existing recorded evidence; regression pending"
+  },
+  {
+    "id": "n167",
+    "title": "4. Windows Terminal: Error: stdout is not a terminal (user screenshot)",
+    "initial_status": "in_progress",
+    "verification": "blocked original owner unknown; source and installed production local launch pass; redirected native control reproduces",
+    "evidence": "diagnostics/shared-launcher-verification/verification.md"
+  },
+  {
+    "id": "n181",
+    "title": "5. .14 kobe(1004) 세션: 'API Error: Upstream Anthropic stream ended before message_stop' 후 자동 재처리 안 됨 (user screenshot #7)",
+    "initial_status": "done",
+    "verification": "existing recorded evidence; regression pending"
+  },
+  {
+    "id": "n198",
+    "title": "6. cielairouter 프로바이더도 컨텍스트 90% 도달 시 ciel-runtime이 자동 compact 주입 (.14 emily 102.8%, compaction 반복·실패 screenshot #8)",
+    "initial_status": "in_progress",
+    "verification": "source actual idle failure+bounded retry+SSE replied once pass; installed package pending",
+    "evidence": "diagnostics/compact-retry/verification.md"
+  },
+  {
+    "id": "n228",
+    "title": "7. 사용자 PC(C:\\Users\\1347817, web backend 10.0.0.238:9683): Codex TUI + app-server 실행 시 'ciel-runtime router did not start' (pasted traceback)",
+    "initial_status": "in_progress",
+    "verification": "blocked remote log/version unavailable; production local TUI+app-server pass and startup diagnostics added",
+    "evidence": "diagnostics/shared-launcher-verification/verification.md"
+  },
+  {
+    "id": "n239",
+    "title": "8. 외부 Work 웹 API: 보드·제어·알림·런타임 메타데이터",
+    "initial_status": "done",
+    "verification": "existing recorded evidence; regression pending"
+  },
+  {
+    "id": "n286",
+    "title": "9. .14 edward(1004) 세션 SSE 메시지 미주입: 원인 확인·개선·로컬/나이트리 배포",
+    "initial_status": "done",
+    "verification": "existing recorded evidence; regression pending"
+  },
+  {
+    "id": "n308",
+    "title": "10. Ciel Work에서 PowerShell·Bash 실행 허용 경로 개선",
+    "initial_status": "done",
+    "verification": "shell source default+bypass 6/6 pass; integrated hybrid changes pending",
+    "evidence": "fixes/work-shell-permissions/fix.md"
+  },
+  {
+    "id": "n321",
+    "title": "11. 공통 복구 경로 근본 수정·미결 큐 전체 검증·로컬 나이트리 배포",
+    "initial_status": "in_progress",
+    "verification": "pending integrated regression"
+  }
+]

@@ -1,0 +1,6 @@
+14:23:26 dialog bypass
+14:23:26 select('Yes, I accept'): cursor line 13 -> target line 14
+14:23:37 typed 35 chars: 'WALKIE-BASELINE-TURN owned baseline'
+14:23:42 PrintWindow screenshot 993x519 ok=1 rows=519 extrema=((0, 255), (0, 255), (0, 255))
+14:23:49 PrintWindow screenshot 993x519 ok=1 rows=519 extrema=((0, 255), (0, 255), (0, 255))
+14:23:50 stop requested

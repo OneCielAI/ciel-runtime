@@ -1,0 +1,3 @@
+{"n": 1, "at": 1793072506.7789764, "path": "/v1/messages", "model": "owned-route-alias", "stream": true, "tools": 42, "high": true, "baseline_in_last": true, "compact_like": true, "native_compact": false, "replied_at": 1793072506.7789764}
+{"n": 2, "at": 1793072509.741795, "path": "/v1/messages", "model": "owned-route-alias", "stream": true, "tools": 42, "high": false, "baseline_in_last": false, "compact_like": true, "native_compact": true, "compact_number": 1}
+{"n": 3, "at": 1793072840.729782, "path": "/v1/messages", "model": "owned-route-alias", "stream": true, "tools": 42, "high": false, "baseline_in_last": false, "compact_like": true, "native_compact": true, "compact_number": 2, "replied_at": 1793072840.7302806}

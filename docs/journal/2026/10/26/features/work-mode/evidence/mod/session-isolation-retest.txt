@@ -1,0 +1,20 @@
+
+tests\work.test.ts:
+(pass) immediate command, router tree, bounded prompt context [49.94ms]
+(pass) planning denies all known writes including subagents; live phase refresh [27.34ms]
+(pass) shells use engine read-only flag and disabled state clears guards [23.46ms]
+(pass) unavailable and malformed status fail closed but reads pass [25.51ms]
+(pass) auto strips forged confirmation and refreshes after result [23.37ms]
+(pass) ask: Approve [23.75ms]
+(pass) ask: Keep planning [20.27ms]
+(pass) ask: Other [20.36ms]
+(pass) approval rejects changed plan [21.66ms]
+(pass) SessionMode planning, progress, off and unavailable are read-only renders [40.42ms]
+(pass) unavailable shell and execute fail closed; missing approval tree cannot execute [19.75ms]
+(pass) every Work result refreshes; another server is not treated as Work [36.74ms]
+(pass) conversation changes isolate every router read and override forged tool session ids [16.63ms]
+
+ 13 pass
+ 0 fail
+Ran 13 tests across 1 file. [0.54s]
+

@@ -1,0 +1,3 @@
+REMOTE_START 2026-10-26T20:17:49 gmtoff -25200
+ROOTS ['C:\\Users\\aapw-a11u4\\.claude\\projects', 'C:\\Users\\aapw-a20u19\\.claude\\projects', 'C:\\Users\\aapw-a21u21\\.claude\\projects', 'C:\\Users\\aapw-a22u22\\.claude\\projects', 'C:\\Users\\aapw-a24u24\\.claude\\projects']
+REMOTE_END 2026-10-26T20:18:09

@@ -1,0 +1,30 @@
+
+  >_ OpenAI Codex (v0.164.0)
+     C:\Windows\Temp\ciel-owned-alias-wywjp_7z\ws
+  permissions: YOLO mode
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+› Ask Codex to do anything
+
+  stub-model (CielAiRouter) medium · C:\Windows\Temp\ciel-owned-alias-wywjp_7z\ws
+  ? for shortcuts                                                                              ⚠ 1 warning · f2 to view

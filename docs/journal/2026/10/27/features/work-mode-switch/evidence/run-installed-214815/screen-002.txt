@@ -1,0 +1,53 @@
+
+ ▐▛███▛█   Claude Code v2.1.312
+▝▜██████▀  owned-switch · API Usage Billing
+ ▝▝   ▝▝   C:\Users\djlov\AppData\Local\Temp\work-switch-972c19a3\ws
+
+⚠ Model "owned-switch" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Work unavailable — /work-mode status                                                                                                                                [-]
+[Progress 0] Queue 0 Completed 0
+No unfinished rows · inspect the active goal
+1/1 w: Inspector
+                                                                                                                                                      ● high · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+                                                                                                                                                     work: unavailable
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents

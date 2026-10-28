@@ -1,0 +1,5 @@
+observed_at_utc 2026-10-26T21:14:03Z script scripts/e7.py (read-only, via scripts/remote_read.py)
+LAST {"cwd": "C:\\Data\\Source\\SGSWMSCrossing\\u4\\home\\emily-ai", "mode": "router:cielairouter", "model": "_Walkie_Opus55-Sol61-Fast", "pid": 4356, "provider": "cielairouter", "time": 1793047085.5010774}
+
+
+exit 0

@@ -1,0 +1,8 @@
+22:42:28 dialog bypass
+22:42:28 select('Yes, I accept'): cursor line 13 -> target line 14
+22:42:40 typed 44 chars: 'ALIAS-SAFEGUARD-BASELINE owned baseline turn'
+22:42:42 PrintWindow screenshot 993x519 ok=1 rows=519 extrema=((0, 255), (0, 255), (0, 255))
+22:42:43 typed 8 chars: '/compact'
+22:47:45 PrintWindow screenshot 993x519 ok=1 rows=519 extrema=((0, 255), (0, 255), (0, 255))
+22:48:26 PrintWindow screenshot 993x519 ok=1 rows=519 extrema=((0, 255), (0, 255), (0, 255))
+22:48:27 stop requested

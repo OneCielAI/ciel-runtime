@@ -1,0 +1,18 @@
+owned router: yes
+interactive owned cmd: yes
+interactive ready: yes
+console command: yes
+tree command: yes
+console command: yes
+ask deny dialog: yes
+console command: yes
+console command: yes
+deny response: yes
+console command: yes
+ask approve dialog: yes
+console command: yes
+approve response: yes
+owned stop 26416 SUCCESS: The process with PID 72376 (child process of PID 26416) has been terminated.
+SUCCESS: The process with PID 26416 (child process of PID 29128) has been terminated.
+owned stop 93776 SUCCESS: The process with PID 93776 (child process of PID 81896) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\claude\run-5bbcdc3b

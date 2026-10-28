@@ -1,0 +1,117 @@
+import os, json, time, ctypes, msvcrt, datetime, re
+from ctypes import wintypes
+# Read-only transcript and instance-state summary for 2026-10-26 19:00Z-23:30Z. No text bodies printed.
+k32 = ctypes.WinDLL("kernel32", use_last_error=True); adv = ctypes.WinDLL("advapi32", use_last_error=True)
+class LUID(ctypes.Structure): _fields_ = [("Low", wintypes.DWORD), ("High", wintypes.LONG)]
+class TP(ctypes.Structure): _fields_ = [("Count", wintypes.DWORD), ("Luid", LUID), ("Attr", wintypes.DWORD)]
+k32.GetCurrentProcess.restype = wintypes.HANDLE
+adv.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+adv.LookupPrivilegeValueW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.POINTER(LUID)]
+adv.AdjustTokenPrivileges.argtypes = [wintypes.HANDLE, wintypes.BOOL, ctypes.POINTER(TP), wintypes.DWORD, wintypes.LPVOID, wintypes.LPVOID]
+tok = wintypes.HANDLE(); adv.OpenProcessToken(k32.GetCurrentProcess(), 0x28, ctypes.byref(tok))
+luid = LUID(); adv.LookupPrivilegeValueW(None, "SeBackupPrivilege", ctypes.byref(luid))
+tp = TP(1, luid, 2); adv.AdjustTokenPrivileges(tok, False, ctypes.byref(tp), 0, None, None)
+k32.CreateFileW.restype = wintypes.HANDLE
+k32.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+def bopen(p):
+    h = k32.CreateFileW(p, 0x80000000, 7, None, 3, 0x02000000, None)
+    if h in (None, -1, wintypes.HANDLE(-1).value):
+        raise OSError(ctypes.get_last_error(), "open failed", p)
+    return os.fdopen(msvcrt.open_osfhandle(h, os.O_RDONLY | os.O_BINARY), "rb")
+RESTART = "\uacc4\uc18d-\uc138\uc158\uc7ac\uc2dc\uc791\ub428"  # the restart notice text
+tr = r"C:\Users\aapw-a24u24\.claude\projects\C--ProgramData-aap-win-sandboxes-u24-home-kobe-ai\5ac1ee55-d0d1-4ef7-b4df-3d68e62bbd1b.jsonl"
+lo, hi = "2026-10-26T19:00", "2026-10-26T23:30"
+pat = re.compile(rb'"timestamp":"(20\d\d-\d\d-\d\dT\d\d:\d\d:\d\d[.\d]*Z)"')
+def line_ts(line):
+    m = pat.search(line[-400:]) or pat.search(line[:600])
+    if not m and len(line) < 4_000_000: m = pat.search(line)
+    return m.group(1).decode() if m else None
+def ts_at(fh, pos):
+    fh.seek(pos)
+    if pos: fh.readline()
+    for _ in range(50):
+        start = fh.tell(); line = fh.readline()
+        if not line: return None, start
+        t = line_ts(line)
+        if t: return t, start
+    return None, start
+import sys
+T0 = time.time()
+def prog(*a):
+    print("PROGRESS %.1f" % (time.time() - T0), *a); sys.stdout.flush()
+recs = []
+with bopen(tr) as fh:
+    fh.seek(0, 2); size = fh.tell()
+    print("TRANSCRIPT_SIZE", size)
+    a, b = 0, size
+    while b - a > 1_000_000:
+        mid = (a + b) // 2
+        t, _ = ts_at(fh, mid)
+        prog("bisect", a, b, mid, t)
+        if time.time() - T0 > 150: raise SystemExit("bisect too slow")
+        if t is None or t[:16] >= lo: b = mid
+        else: a = mid
+    fh.seek(a)
+    if a: fh.readline()
+    print("WINDOW_START_OFFSET", fh.tell())
+    n = 0
+    for line in fh:
+        n += 1
+        if n % 2000 == 0: prog("lines", n, fh.tell())
+        if time.time() - T0 > 200: prog("deadline", n, fh.tell()); break
+        t = line_ts(line)
+        if not t: continue
+        if t[:16] < lo: continue
+        if t[:16] > hi: break
+        try: r = json.loads(line.replace(b"\x00", b""))
+        except Exception: continue
+        if isinstance(r, dict) and isinstance(r.get("timestamp"), str): recs.append(r)
+print("RECORDS_IN_WINDOW", len(recs))
+def kind(r):
+    t = r.get("type"); m = r.get("message") if isinstance(r.get("message"), dict) else {}
+    c = m.get("content")
+    if t == "user":
+        if isinstance(c, str): return "user_text", len(c), RESTART in c, ("Another Claude session" in c)
+        if isinstance(c, list):
+            kinds = [b.get("type") for b in c if isinstance(b, dict)]
+            if "tool_result" in kinds: return "tool_result", 0, False, False
+            txt = " ".join(str(b.get("text") or "") for b in c if isinstance(b, dict) and b.get("type") == "text")
+            return "user_blocks", len(txt), RESTART in txt, ("Another Claude session" in txt)
+    if t == "assistant": return "assistant:" + str(m.get("stop_reason")), 0, False, False
+    return str(t) + ":" + str(r.get("subtype") or r.get("operation") or ""), 0, False, False
+prev = None
+for r in recs:
+    ts = r.get("timestamp"); k, n, rs, mark = kind(r)
+    t = datetime.datetime.fromisoformat(ts.replace("Z", "+00:00")).timestamp()
+    gap = (t - prev) if prev else 0.0
+    prev = t
+    att = r.get("attachment") if isinstance(r.get("attachment"), dict) else {}
+    if k.startswith(("user_text", "user_blocks", "queue-operation", "system")) or gap >= 120 or r.get("isApiErrorMessage") or att.get("type") in ("queued_command",):
+        extra = ""
+        if k.startswith("queue-operation"):
+            extra = "content_len=%d" % len(str(r.get("content") or ""))
+        if att:
+            extra = "attachment_type=%s" % att.get("type")
+        print("REC", ts, "gap_before_s=%.0f" % gap, k, "len", n, "restart_msg", rs, "socket_marker", mark, "meta", r.get("isMeta"), "api_err", r.get("isApiErrorMessage"), extra)
+buckets = {}
+for r in recs:
+    ts = r.get("timestamp"); bk = ts[:13] + (":00" if ts[14:16] < "30" else ":30")
+    k = kind(r)[0].split(":")[0]
+    buckets.setdefault(bk, {}).setdefault(k, 0); buckets[bk][k] += 1
+for bk in sorted(buckets): print("BUCKET", bk, buckets[bk])
+inst = r"C:\Users\aapw-a24u24\AppData\Roaming\ciel-runtime\router-instances\9780-651d879f6c68"
+for name in ("context-compact-progress.json", "context-compact-activity.json", "claude-stream-recovery.json"):
+    try:
+        with bopen(os.path.join(inst, name)) as fh: v = json.loads(fh.read().decode("utf-8"))
+        def walk(x, path="", depth=0):
+            if depth > 2: return
+            if isinstance(x, dict):
+                for kk, vv in list(x.items())[:40]:
+                    if isinstance(vv, (dict, list)): print("STATEKEY", name, path + "/" + kk, type(vv).__name__, len(vv)); walk(vv, path + "/" + kk, depth + 1)
+                    else: print("STATEVAL", name, path + "/" + kk, str(vv)[:90])
+            elif isinstance(x, list) and x:
+                print("STATELIST", name, path, "len", len(x), "last_keys", sorted(x[-1].keys())[:25] if isinstance(x[-1], dict) else type(x[-1]).__name__)
+        walk(v)
+    except Exception as e:
+        print("STATE_ERR", name, type(e).__name__, e)
+print("REMOTE_END %.3f" % time.time())

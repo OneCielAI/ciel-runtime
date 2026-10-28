@@ -1,0 +1,75 @@
+{
+  "status": "EVAL-COMPLETE",
+  "verification": {
+    "command": "python -m unittest discover -v",
+    "result": "Ran 27 tests, OK (exit 0)",
+    "log": "docs/journal/2026/10/test-output.txt"
+  },
+  "requests": {
+    "REQ-A0": {
+      "implementation": "routing_graph.py: Graph, NoPathError, ConflictError, add_node/set_edge/remove_edge/remove_node/shortest, version",
+      "tests": ["test_mutations_and_version", "test_validation_is_atomic", "test_shortest_cost_hops_and_lexical_path", "test_simple_paths_with_zero_cycle"],
+      "evidence": "test_routing_graph passes; A0 fewest-edges tie order now applies only with tie_policy='fewest_hops' (superseded by REQ-A3)"
+    },
+    "REQ-A1": {
+      "implementation": "Graph.shortest(..., blocked=(), max_hops=None); bound enforced inside search",
+      "tests": ["test_a1_constraints_before_optimization", "test_randomized_against_brute_force"],
+      "evidence": "cheap 3-hop route over bound yields costlier 1-hop route; blocked src/dst NoPathError; invalid max_hops/unknown blocked ValueError"
+    },
+    "REQ-A2": {
+      "implementation": "Graph.snapshot() -> read-only GraphSnapshot; Graph.apply(changes, expected_version=None)",
+      "tests": ["test_a2_frozen_snapshot", "test_a2_apply_atomic_versioned"],
+      "evidence": "snapshot unaffected by later mutation and rejects attribute writes; failed batch rolls back; version mismatch ConflictError before applying; changed batch +1, no-op batch +0"
+    },
+    "REQ-A3": {
+      "implementation": "Graph(tie_policy='lexical'|'fewest_hops'); default lexical full path then hops; snapshots carry policy",
+      "tests": ["test_a3_lexical_default_and_explicit_fewest_hops", "test_a3_snapshot_freezes_policy", "test_randomized_against_brute_force"],
+      "evidence": "longer lexically smaller equal-cost route chosen by default; fewest_hops keeps A0; 300 randomized graphs match brute force for both policies"
+    },
+    "REQ-B0": {
+      "implementation": "booking_calendar.py: Calendar, CapacityError, ConflictError, reserve/cancel/available/allocations",
+      "tests": ["test_half_open_cumulative_and_sorting", "test_validation_and_cancel", "test_many_overlaps"],
+      "evidence": "half-open cumulative capacity, (start,id) ordering, 100 overlapping reservations, atomic failures"
+    },
+    "REQ-B1": {
+      "implementation": "Calendar.reserve_many, Calendar.replace (candidate copy then commit)",
+      "tests": ["test_b1_atomic_batch", "test_b1_replace_excludes_old"],
+      "evidence": "capacity/duplicate-in-batch/invalid failures leave allocations unchanged; replace excludes own old booking"
+    },
+    "REQ-B2": {
+      "implementation": "Calendar.wait/waiting/promote; cancel handles waiting; waiting IDs reserved",
+      "tests": ["test_b2_waiting_priority_fifo_and_skip", "test_b2_wait_ids_protected"],
+      "evidence": "higher priority then FIFO (not lexical); nonfitting skipped and scan continues; reserve/replace/reserve_many reject waiting IDs"
+    },
+    "REQ-B3": {
+      "implementation": "Calendar.checkpoint/restore (opaque immutable Checkpoint, owner token), Calendar.version",
+      "tests": ["test_b3_version_counts_state_changes_once", "test_b3_checkpoint_restore_exact_fifo_and_foreign"],
+      "evidence": "promote of several counts once; restore increments current version, identical state no-op; exact FIFO restored; foreign/invalid ValueError"
+    },
+    "REQ-C0": {
+      "implementation": "inventory_stream.py: InventoryStream, InventoryError, ConflictError, feed/finish/balance/snapshot",
+      "tests": ["test_every_fragment_boundary_crlf_and_finish", "test_move_zero_balance_and_copy", "test_deduplication_conflict_and_recovery", "test_invalid_is_atomic"],
+      "evidence": "every split point incl. inside quotes and CRLF; key-order-independent idempotency; first id wins; ConflictError without mutation"
+    },
+    "REQ-C1": {
+      "implementation": "kind 'batch' with ordered ops applied to a candidate balance map",
+      "tests": ["test_c1_batch_order_rollback_retry_and_empty"],
+      "evidence": "later op consumes earlier stock; failure rolls back and does not reserve id; corrected retry with same id succeeds; empty batch recorded; nested batch rejected"
+    },
+    "REQ-C2": {
+      "implementation": "InventoryStream.undo(event_id) using stored per-event net SKU delta; tombstones kept in accepted map",
+      "tests": ["test_c2_undo_net_delta_retry_and_tombstone"],
+      "evidence": "undo refused while it would go negative (state unchanged), succeeds after unrelated undo; repeat undo/unknown InventoryError; identical refeed ignored, changed ConflictError"
+    },
+    "REQ-C3": {
+      "implementation": "InventoryStream.checkpoint/restore (buffer, balances, accepted, deltas, tombstones); MAX_LINE_LENGTH=4096 code points pre-checked per feed",
+      "tests": ["test_c3_checkpoint_restores_buffer_idempotency_and_undo", "test_c3_line_bound_code_points_and_feed_rollback"],
+      "evidence": "restore replays unfinished fragment correctly, reusable; foreign/invalid InventoryError; 4096 non-ASCII code points accepted, overlong feed rejected with earlier complete event in same call not applied"
+    }
+  },
+  "unsatisfied_or_caveats": [
+    "Route search is best-first over simple paths without dominance pruning: verified correct against brute force, but worst-case exponential on dense graphs.",
+    "REQ-C3 CR handling is my interpretation: a CR immediately before LF (or trailing in the unfinished buffer) is not counted toward the 4096 limit.",
+    "git status could not be captured: git rejects C:/ (dubious ownership); git config was not modified."
+  ]
+}

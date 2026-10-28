@@ -1,0 +1,267 @@
+{
+ "repo": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-77929651290a8a0c4647eb47fe251fb5db4d1206",
+ "stripped_env": [
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+  "ANTHROPIC_MODEL",
+  "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+  "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+  "CIEL_RUNTIME_CONFIG_DIR",
+  "CIEL_RUNTIME_HOME",
+  "CIEL_RUNTIME_LAUNCH_CWD",
+  "CIEL_RUNTIME_MODEL_ALIAS",
+  "CIEL_RUNTIME_PROVIDER",
+  "CIEL_RUNTIME_REGISTERED_HOME",
+  "CIEL_RUNTIME_SCRIPT",
+  "CIEL_RUNTIME_SELECTED_HOME",
+  "CIEL_RUNTIME_STATE_DIR",
+  "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+  "CLAUDECODE",
+  "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+  "CLAUDE_CODE_ATTRIBUTION_HEADER",
+  "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+  "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+  "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+  "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_EXECPATH",
+  "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+  "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+  "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+  "CLAUDE_CODE_MAX_RETRIES",
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "CLAUDE_CODE_MESSAGING_TOKEN",
+  "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+  "CLAUDE_CODE_RETRY_WATCHDOG",
+  "CLAUDE_CODE_SEND_FEEDBACK",
+  "CLAUDE_CODE_SESSION_ATTENDED",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_SUBAGENT_MODEL",
+  "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
+  "CLAUDE_EFFORT",
+  "CLAUDE_PID",
+  "CODEX_SPARKLE_ENABLED"
+ ],
+ "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\subps-ui-b855b320",
+ "cli": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+ "ps_env": null,
+ "cli_version": "2.1.310 (Claude Code)",
+ "observed": {
+  "turn_done": true,
+  "main_offered_powershell": true,
+  "child_requests": 2,
+  "child_offered_powershell": true,
+  "child_offered_bash": true,
+  "main_ps_result": {
+   "error": false,
+   "text": "PS-MAIN-OK-42"
+  },
+  "child_ps_result": {
+   "error": false,
+   "text": "PS-CHILD-OK-42"
+  }
+ },
+ "rows": [
+  {
+   "n": 1,
+   "role": "main",
+   "tools_count": 44,
+   "has_powershell": true,
+   "has_bash": true,
+   "agent_tool": "Agent",
+   "results": []
+  },
+  {
+   "n": 2,
+   "role": "main",
+   "tools_count": 44,
+   "has_powershell": true,
+   "has_bash": true,
+   "agent_tool": "Agent",
+   "results": [
+    {
+     "error": false,
+     "text": "PS-MAIN-OK-42"
+    }
+   ]
+  },
+  {
+   "n": 3,
+   "role": "main",
+   "tools_count": 44,
+   "has_powershell": true,
+   "has_bash": true,
+   "agent_tool": "Agent",
+   "results": [
+    {
+     "error": false,
+     "text": "PS-MAIN-OK-42"
+    },
+    {
+     "error": false,
+     "text": "[{\"type\": \"text\", \"text\": \"Async agent launched successfully. (This tool result is internal metadata \\u2014 never quote or paste any part of it, including the agentId below, into a user-facing reply.)\\nagentId: ae532b119cf4469e0 (internal ID - do not mention to user. Use SendMessage with to: 'ae532b119cf4469e0', summary: '<5-10 word recap>' to continue this agent.)\\nThe agent is working in the bac"
+    }
+   ]
+  },
+  {
+   "n": 4,
+   "role": "child",
+   "tools_count": 35,
+   "has_powershell": true,
+   "has_bash": true,
+   "agent_tool": "Agent",
+   "results": []
+  },
+  {
+   "n": 5,
+   "role": "child",
+   "tools_count": 35,
+   "has_powershell": true,
+   "has_bash": true,
+   "agent_tool": "Agent",
+   "results": [
+    {
+     "error": false,
+     "text": "PS-CHILD-OK-42"
+    }
+   ]
+  },
+  {
+   "n": 6,
+   "role": "main",
+   "tools_count": 44,
+   "has_powershell": true,
+   "has_bash": true,
+   "agent_tool": "Agent",
+   "results": [
+    {
+     "error": false,
+     "text": "PS-MAIN-OK-42"
+    },
+    {
+     "error": false,
+     "text": "[{\"type\": \"text\", \"text\": \"Async agent launched successfully. (This tool result is internal metadata \\u2014 never quote or paste any part of it, including the agentId below, into a user-facing reply.)\\nagentId: ae532b119cf4469e0 (internal ID - do not mention to user. Use SendMessage with to: 'ae532b119cf4469e0', summary: '<5-10 word recap>' to continue this agent.)\\nThe agent is working in the bac"
+    }
+   ]
+  }
+ ],
+ "egress": [
+  {
+   "method": "CONNECT",
+   "path": "downloads.claude.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "github.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  }
+ ],
+ "live_before": {
+  "9505": {
+   "pid": 79472,
+   "version": "0.2.51-nightly.20261027-080148.ea59a61",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  },
+  "9524": {
+   "pid": 65156,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  }
+ },
+ "live_after": {
+  "9505": {
+   "pid": 79472,
+   "version": "0.2.51-nightly.20261027-080148.ea59a61",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  },
+  "9524": {
+   "pid": 65156,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  }
+ }
+}

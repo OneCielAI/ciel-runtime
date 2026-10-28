@@ -377,6 +377,10 @@ LLM_OPTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "ja": "このproviderのAnthropic互換/v1/messagesに直接接続します。offだとciel-runtimeルーターを経由します。",
         "zh": "对该 provider 直接走 Anthropic 兼容 /v1/messages；关闭则经由 ciel-runtime 路由器转换。",
     },
+    "blocked_tools": {
+        "en": 'Routed requests only: default restores compatibility blocks; a JSON list replaces the entire blocklist. false or [] removes ALL blocks, including unsupported server tools. CLI permissions still apply. SendMessage is client-side and allowed by default.',
+        "ko": '라우터 요청에만 적용. default는 기본 차단, JSON 배열은 전체 차단 목록 교체. false 또는 []는 미지원 서버 도구까지 모두 노출합니다. CLI 권한은 유지됩니다. SendMessage는 클라이언트 도구로 기본 허용됩니다.',
+    },
     "supports_tool_choice": {
         "en": "Forward Claude Code tool_choice upstream. For vLLM, enable only when the server was launched with --enable-auto-tool-choice and the matching --tool-call-parser.",
         "ko": "Claude Code의 tool_choice를 upstream에 전달합니다. vLLM은 서버를 --enable-auto-tool-choice 및 모델에 맞는 --tool-call-parser로 실행한 경우에만 켜세요.",
@@ -437,6 +441,24 @@ LLM_OPTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
         "ja": "既定は off です。Ciel は Claude の起動ごとに CLAUDE_CODE_SEND_FEEDBACK=0 を設定し、Claude がフィードバック下書きを作成できないようにします。on の場合は Claude Code のアカウント/個人設定に従い、下書きは送信するまでこの PC にのみ保存されます。手動 /feedback は利用できます。次回の Claude 起動から適用されます。",
         "zh": "默认关闭。Ciel 会在每次启动 Claude 时设置 CLAUDE_CODE_SEND_FEEDBACK=0，使 Claude 无法生成反馈草稿。开启后由 Claude Code 账户和个人设置决定；草稿在发送前只保存在本机。手动 /feedback 仍可用。下次启动 Claude 时生效。",
     },
+    "work_mode": {
+        "en": "On by default: Ciel-launched Claude and Codex sessions that attach the router MCP server keep a hierarchical plan with the router work tools. Native sessions are unchanged. Codex receives planning instructions only; this version does not enforce a planning gate for Codex. Applies on the next launch.",
+        "ko": "기본값은 on입니다. 라우터 MCP를 연결한 Ciel 실행 Claude·Codex 세션은 라우터 work 도구로 계층형 계획을 유지합니다. 네이티브 세션은 바뀌지 않습니다. Codex는 계획 지침만 받으며 이 버전은 계획 게이트를 강제하지 않습니다. 다음 실행부터 적용됩니다.",
+        "ja": "既定は on です。ルーター MCP を接続した Ciel 起動の Claude・Codex はルーターの work ツールで階層型計画を保持します。ネイティブセッションは変わりません。Codex には計画用指示だけを渡し、このバージョンでは計画ゲートを強制しません。次回起動から適用されます。",
+        "zh": "默认开启。连接路由器 MCP 的 Ciel 启动 Claude 和 Codex 会话通过路由器 work 工具维护分层计划。原生会话不受影响。Codex 仅接收规划指令，此版本不强制规划关卡。下次启动时生效。",
+    },
+    "work_plan_approval_ask": {
+        "en": "Auto by default: work_execute proceeds when the plan is complete. Ask user requires confirmation before execution. Native sessions are unchanged; this version does not enforce this approval as a gate on Codex edits. Applies from the next work_execute call.",
+        "ko": "기본값은 auto입니다. 계획이 완성되면 work_execute가 진행됩니다. ask user이면 실행 전에 확인을 요구합니다. 네이티브 세션은 바뀌지 않으며 이 버전은 Codex 편집에 승인을 강제하지 않습니다. 다음 work_execute부터 적용됩니다.",
+        "ja": "既定は auto です。計画が完成すると work_execute は進みます。ask user では実行前に確認を求めます。ネイティブセッションは変わらず、このバージョンは Codex の編集に承認を強制しません。次の work_execute から適用されます。",
+        "zh": "默认 auto：计划完成后 work_execute 继续执行。ask user 会在执行前要求确认。原生会话不受影响，此版本不会对 Codex 编辑强制审批。从下一次 work_execute 起生效。",
+    },
+    "work_auto_continue": {
+        "en": "On by default while Work mode is on: when executing Work still has actionable approved items, a normal Claude turn ending continues the work through the Ciel Work mod instead of waiting for you to type. Blocked or waiting items do not trigger it. Native sessions are unchanged. Codex receives continuation instructions only; this version does not enforce automatic continuation for Codex. Applies on the next launch.",
+        "ko": "Work 모드가 켜져 있을 때 기본값은 on입니다. 실행 중인 Work에 승인된 처리 가능 항목이 남아 있으면 Claude 턴이 정상 종료될 때 Ciel Work mod가 입력을 기다리지 않고 작업을 계속합니다. 차단되었거나 대기 중인 항목으로는 계속하지 않습니다. 네이티브 세션은 바뀌지 않습니다. Codex는 계속 진행 지침만 받으며 이 버전은 Codex의 자동 계속을 강제하지 않습니다. 다음 실행부터 적용됩니다.",
+        "ja": "Work モードが on の間、既定は on です。実行中の Work に承認済みで着手可能な項目が残っていると、Claude のターンが通常終了したとき Ciel Work mod が入力を待たずに作業を続けます。ブロック中・待機中の項目では続行しません。ネイティブセッションは変わりません。Codex には続行用の指示だけを渡し、このバージョンでは Codex の自動続行を強制しません。次回起動から適用されます。",
+        "zh": "Work 模式开启时默认开启。执行中的 Work 仍有已批准且可执行的项目时，Claude 回合正常结束后由 Ciel Work mod 继续工作，而不等待你输入。被阻塞或等待中的项目不会触发继续。原生会话不受影响。Codex 仅接收继续执行的指令，此版本不会对 Codex 强制自动继续。下次启动时生效。",
+    },
     "back": {
         "en": "Return to the main menu.",
         "ko": "메인 메뉴로 돌아갑니다.",
@@ -455,6 +477,9 @@ LLM_OPTION_TOGGLE_KEYS = {
     "rate_limit_status",
     "router_debug_external_access",
     "claude_feedback_drafts",
+    "work_mode",
+    "work_plan_approval_ask",
+    "work_auto_continue",
     "route_through_router",
     "workflows_enabled",
     "ultracode_enabled",

@@ -1,0 +1,81 @@
+REMOTE_START 2026-10-26T20:20:40 gmtoff -25200
+ACTIVITY {"updated_at":1793048558.6548436,"time":"2026-10-26T14:02:38","event":"compact","provider":"cielairouter","model":"ciel-runtime-cielairouter-_walkie_opus55-sol61-fast","phase":"failed","chunks":20,"completed_chunks":8,"summary_calls":14,"reused_chunks":0,"reason":"client_cancelled","tokens":2610712,"budget":832525}
+ADMISSION {
+  "scope": {
+    "runtime": "claude",
+    "session_id": "a9a016f2-bd19-4066-8b44-6ee329194e16",
+    "epoch": "b53bc82e91244e8297110aca15151ccd"
+  },
+  "phase": "verified",
+  "pressure": false,
+  "baseline_tokens": 250764,
+  "context_limit": 847424,
+  "requested_at": 1793068605.9866765,
+  "deadline": 1793069872.663917,
+  "baseline_checkpoint_id": "f5041db7f5475139949bfed61d8a1f56bde11a10dac85d36ba8f6dd646915d7b",
+  "checkpoint_id": "a9da922e42f42072fcbf32d1d011066e6b13ed4c00e4c9b66f96ea40a1a96d14",
+  "request_id": "",
+  "attempts": 1,
+  "safeguard_seen": [
+    "ddd9ce79c313a2ad17bf3ed9010757d0864880386f1afab1e1e758b90af3cc10"
+  ],
+  "checkpoint_observed_at": 1793068752.3611567,
+  "verified_at": 1793068752.3633044,
+  "next_raw_tokens": 21096
+}
+
+SCOPE {
+  "runtime": "claude",
+  "epoch": "f409b808e55e4aaaab4e427a374b83db",
+  "started_at": 1793070288.9523485,
+  "identity_since": 1793070297.077009,
+  "session_id": "a9a016f2-bd19-4066-8b44-6ee329194e16",
+  "cwd": "C:\\Data\\Source\\SGSWMSCrossing\\u4\\home\\emily-ai",
+  "codex_home": "",
+  "path": "C:\\Users\\aapw-a11u4\\.claude\\projects\\C--Data-Source-SGSWMSCrossing-u4-home-emily-ai\\a9a016f2-bd19-4066-8b44-6ee329194e16.jsonl",
+  "messaging_socket_path": "\\\\.\\pipe\\LOCAL\\cc-msg-94fb803c5ea9627fb78483f0f98d13ed",
+  "owned_pid": 0,
+  "launcher_pid": 20512,
+  "claude_config_dir": "C:\\Users\\aapw-a11u4\\.claude",
+  "request_identity": true,
+  "seeded": true,
+  "request_observed": true,
+  "identity_ready": {
+    "session_id": "a9a016f2-bd19-4066-8b44-6ee329194e16",
+    "pid": 5704,
+    "proc_start": "134375438900664712",
+    "at": 1793070297.753
+  },
+  "native_models": {
+    "ciel-runtime-cielairouter-_walkie_opus55-sol61-fast": [
+      "claude-opus-5-5"
+    ]
+  }
+}
+
+RUN 4a8b604200d3b503 2026-10-26T14:00:38 [('split', 'ae023aa22f', 0), ('summary', 'fc13de66ba', 5573), ('summary', '10ae6496ec', 5249), ('summary', 'e06fae691c', 8669), ('summary', 'f7203654fc', 8393), ('split', '122eab60d1', 0), ('split', '2c57aceb6c', 0), ('summary', '4890e699ec', 7528), ('summary', '86a997e0b1', 5635), ('summary', '3f864a8fbb', 6795), ('summary', 'bc90b223a4', 5794), ('split', '6d5f141b19', 0)]
+RUN cded74acc0d4d44b 2026-10-26T13:29:51 [('summary', '65dd7c6b26', 8729), ('summary', '7dce3831f6', 8271), ('summary', 'a80aef802b', 8884), ('summary', 'aef075bea9', 7292), ('summary', 'ae221271a7', 5573), ('split', '585dc8fc59', 0), ('summary', 'ddf61153ec', 7408), ('summary', '1013a5b8e3', 6829), ('summary', 'b4525baab3', 7019), ('summary', '3eb99e4808', 6710), ('summary', '4b86487ba1', 6624), ('split', '3c6e0535f6', 0), ('summary', 'ce68b9d8f9', 7759), ('summary', '0edac1d1a6', 5929), ('summary', 'e652a8b7c3', 8947)]
+LOG 2026-10-26T12:02:09 [WARN] runtime_compaction_control admission=paused reason=state_unavailable error=ChannelFileLockBusy
+LOG 2026-10-26T12:05:24 [WARN] router_client_disconnected provider=cielairouter model=_Walkie_Opus55-Sol61-Fast error=ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+LOG 2026-10-26T12:07:02 [WARN] anthropic_sse_client_disconnected model=_Walkie_Opus55-Sol61-Fast text_len=0 emitted_tool_use=False suppressed_blocks=0 error=ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+LOG 2026-10-26T12:11:49 [WARN] anthropic_sse_upstream_error_event provider=cielairouter model=_Walkie_Opus55-Sol61-Fast text_len=0 emitted_tool_use=False message_start=False message_delta=False open_blocks=0
+LOG 2026-10-26T12:15:58 [WARN] anthropic_sse_client_disconnected model=_Walkie_Opus55-Sol61-Fast text_len=0 emitted_tool_use=False suppressed_blocks=0 error=ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+LOG 2026-10-26T12:36:48 [WARN] router_client_disconnected provider=cielairouter model=_Walkie_Opus55-Sol61-Fast error=ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+LOG 2026-10-26T12:36:50 [WARN] anthropic_sse_client_disconnected model=_Walkie_Opus55-Sol61-Fast text_len=0 emitted_tool_use=False suppressed_blocks=0 error=ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+LOG 2026-10-26T12:44:11 [WARN] anthropic_sse_client_disconnected model=_Walkie_Opus55-Sol61-Fast text_len=0 emitted_tool_use=False suppressed_blocks=0 error=ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+LOG 2026-10-26T12:44:15 [WARN] router_client_disconnected provider=cielairouter model=_Walkie_Opus55-Sol61-Fast error=ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+LOG 2026-10-26T13:06:16 [WARN] anthropic_sse_client_disconnected model=_Walkie_Opus55-Sol61-Fast text_len=0 emitted_tool_use=False suppressed_blocks=0 error=ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+LOG 2026-10-26T13:29:51 [WARN] context_compact_failed provider=cielairouter model=ciel-runtime-cielairouter-_walkie_opus55-sol61-fast completed_chunks=12/17 reused_chunks=0 summary_calls=15 saved_steps=15 reason=client_cancelled error=ContextCompactionFailed
+LOG 2026-10-26T13:29:51 [WARN] router_client_disconnected provider=cielairouter model=ciel-runtime-cielairouter-_walkie_opus55-sol61-fast error=ContextCompactionFailed: semantic context compaction failed: client_cancelled
+LOG 2026-10-26T14:51:50 [WARN] anthropic_sse_event_after_message_stop_ignored provider=cielairouter model=_Walkie_Opus55-Sol61-Fast event=ping
+LOG 2026-10-26T14:51:51 [WARN] anthropic_sse_event_after_message_stop_ignored provider=cielairouter model=_Walkie_Opus55-Sol61-Fast event=ping
+LOG 2026-10-26T14:56:46 [WARN] anthropic_sse_upstream_error_event provider=cielairouter model=_Walkie_Opus55-Sol61-Fast text_len=0 emitted_tool_use=False message_start=False message_delta=False open_blocks=0
+LOG 2026-10-26T14:57:51 [WARN] router_client_disconnected provider=cielairouter model=_Walkie_Opus55-Sol61-Fast error=ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+LOG 2026-10-26T14:57:56 [WARN] anthropic_sse_upstream_error_event provider=cielairouter model=_Walkie_Opus55-Sol61-Fast text_len=0 emitted_tool_use=False message_start=False message_delta=False open_blocks=0
+LOG 2026-10-26T14:57:57 [WARN] anthropic_sse_upstream_error_event provider=cielairouter model=_Walkie_Opus55-Sol61-Fast text_len=0 emitted_tool_use=False message_start=False message_delta=False open_blocks=0
+LOG 2026-10-26T14:57:57 [WARN] anthropic_sse_upstream_error_event provider=cielairouter model=_Walkie_Opus55-Sol61-Fast text_len=0 emitted_tool_use=False message_start=False message_delta=False open_blocks=0
+LOG 2026-10-26T14:57:58 [WARN] anthropic_sse_upstream_error_event provider=cielairouter model=_Walkie_Opus55-Sol61-Fast text_len=0 emitted_tool_use=False message_start=False message_delta=False open_blocks=0
+LOG 2026-10-26T14:58:00 [WARN] anthropic_sse_client_disconnected model=_Walkie_Opus55-Sol61-Fast text_len=0 emitted_tool_use=False suppressed_blocks=0 error=ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+LOG 2026-10-26T14:58:00 [WARN] anthropic_sse_client_disconnected model=_Walkie_Opus55-Sol61-Fast text_len=0 emitted_tool_use=False suppressed_blocks=0 error=ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+LOG 2026-10-26T14:58:00 [WARN] anthropic_sse_client_disconnected model=_Walkie_Opus55-Sol61-Fast text_len=0 emitted_tool_use=False suppressed_blocks=0 error=ConnectionResetError: [WinError 10054] An existing connection was forcibly closed by the remote host
+REMOTE_END 2026-10-26T20:20:40

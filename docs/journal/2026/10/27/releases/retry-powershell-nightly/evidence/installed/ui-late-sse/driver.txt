@@ -1,0 +1,10 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+turn outcome: yes
+owned stop 31572 SUCCESS: The process with PID 65164 (child process of PID 31572) has been terminated.
+SUCCESS: The process with PID 31572 (child process of PID 49736) has been terminated.
+owned stop 31100 SUCCESS: The process with PID 31100 (child process of PID 7604) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\late-sse-retry\evidence\scripts\ui-installed-133241

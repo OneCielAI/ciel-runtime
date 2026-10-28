@@ -1,0 +1,133 @@
+{
+ "9385": {
+  "error": "<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>"
+ },
+ "9464": {
+  "error": "<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>"
+ },
+ "9489": {
+  "error": "<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>"
+ },
+ "9505": {
+  "ok": true,
+  "version": "0.2.51",
+  "source_fingerprint": "f86ee3638ee760f3",
+  "pid": 43372,
+  "user": "djlov",
+  "home": "C:\\Users\\djlov",
+  "config_dir": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9505-aae7db361c7f",
+  "workspace": "g:\\ciel-walkie",
+  "router_port": 9505,
+  "instance_id": "9505-aae7db361c7f",
+  "active_client_count": 1,
+  "active_client_pids": [
+   70272
+  ],
+  "provider": "cielairouter",
+  "model": "ciel-runtime-cielairouter-_walkie_opus55-sol61-fast",
+  "web_chat": "/ca/web/chat",
+  "web_chat_api": "/ca/web/chat/api",
+  "speech": "/ca/speech/health",
+  "chat": "/ca/chat/health",
+  "plan": "/ca/plan/artifacts",
+  "events": "/ca/events",
+  "events_websocket": "/ca/events/ws",
+  "external_event_receivers": "/ca/events/receivers",
+  "otlp_logs": "/v1/logs",
+  "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+  "tui": "/ca/tui",
+  "tui_status": "/ca/tui/status",
+  "tui_stream": "/ca/tui/stream",
+  "cielairouter_gateway": {
+   "provider": "cielairouter",
+   "selector_module": "ciel_runtime_support.cielairouter_gateways",
+   "selector": "available",
+   "selector_error": "",
+   "sessions": 1,
+   "routes": [
+    {
+     "central": "ciel-router-01.ezonebot.com",
+     "state": "gateway",
+     "endpoint": "http://127.0.0.1:20128",
+     "node_id": "6016dfc3-4689-4e8b-8479-45eeb49cc48b",
+     "reason": "ranked",
+     "degraded": false,
+     "generation": 5,
+     "at": 1793032248.0707948,
+     "since": 1793029241.3030114
+    }
+   ],
+   "gateways": [
+    {
+     "origin": "ciel-router-01.ezonebot.com",
+     "endpoint": "http://127.0.0.1:20128",
+     "reason": "ranked",
+     "degraded": false,
+     "generation": 5,
+     "cooldowns": {}
+    }
+   ]
+  }
+ },
+ "9524": {
+  "ok": true,
+  "version": "0.2.51",
+  "source_fingerprint": "f86ee3638ee760f3",
+  "pid": 25276,
+  "user": "djlov",
+  "home": "C:\\Users\\djlov",
+  "config_dir": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9524-bd5f642b3583",
+  "workspace": "c:\\users\\djlov\\ciel-runtime",
+  "router_port": 9524,
+  "instance_id": "9524-bd5f642b3583",
+  "active_client_count": 1,
+  "active_client_pids": [
+   63248
+  ],
+  "provider": "cielairouter",
+  "model": "ciel-runtime-cielairouter-_walkie_opus55-sol61-fast",
+  "web_chat": "/ca/web/chat",
+  "web_chat_api": "/ca/web/chat/api",
+  "speech": "/ca/speech/health",
+  "chat": "/ca/chat/health",
+  "plan": "/ca/plan/artifacts",
+  "events": "/ca/events",
+  "events_websocket": "/ca/events/ws",
+  "external_event_receivers": "/ca/events/receivers",
+  "otlp_logs": "/v1/logs",
+  "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+  "tui": "/ca/tui",
+  "tui_status": "/ca/tui/status",
+  "tui_stream": "/ca/tui/stream",
+  "cielairouter_gateway": {
+   "provider": "cielairouter",
+   "selector_module": "ciel_runtime_support.cielairouter_gateways",
+   "selector": "available",
+   "selector_error": "",
+   "sessions": 1,
+   "routes": [
+    {
+     "central": "ciel-router-01.ezonebot.com",
+     "state": "gateway",
+     "endpoint": "http://127.0.0.1:20128",
+     "node_id": "6016dfc3-4689-4e8b-8479-45eeb49cc48b",
+     "reason": "ranked",
+     "degraded": false,
+     "generation": 9,
+     "at": 1793032439.6179671,
+     "since": 1793026641.6791267
+    }
+   ],
+   "gateways": [
+    {
+     "origin": "ciel-router-01.ezonebot.com",
+     "endpoint": "http://127.0.0.1:20128",
+     "reason": "ranked",
+     "degraded": false,
+     "generation": 9,
+     "cooldowns": {}
+    }
+   ]
+  }
+ }
+}

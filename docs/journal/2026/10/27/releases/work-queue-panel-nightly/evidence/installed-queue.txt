@@ -1,0 +1,70 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+queue continuation: yes
+queue selected: yes
+queued file write: yes
+queue finished: yes
+owned stop 82420 SUCCESS: The process with PID 33852 (child process of PID 82420) has been terminated.
+SUCCESS: The process with PID 82420 (child process of PID 49736) has been terminated.
+owned stop 18948 SUCCESS: The process with PID 18948 (child process of PID 73760) has been terminated.
+evidence C:\Users\djlov\AppData\Local\Temp\work-queue-yield-d1181efb
+{
+ "repo": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-ea59a6105838f611d1c4168ab150f01c6f4e6fd2",
+ "stripped_env": [],
+ "mod": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-ea59a6105838f611d1c4168ab150f01c6f4e6fd2\\ciel_runtime_support\\claude_mods\\ciel-work",
+ "cli_version": "2.1.311 (Claude Code)",
+ "checks": {
+  "queue_continuation_received": true,
+  "queue_selected_without_user_flag": true,
+  "queued_write": true,
+  "queued_done": true,
+  "wait_preserved": true,
+  "queue_completed": true,
+  "resumed_waiting_goal": true,
+  "queue_select_guidance": true,
+  "single_user_prompt": true,
+  "bounded_requests": true
+ },
+ "model_user_prompts_sent": 1,
+ "egress": [
+  {
+   "method": "CONNECT",
+   "path": "downloads.claude.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "github.com:443"
+  }
+ ],
+ "live_before": {
+  "9505": {
+   "pid": 33384,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  },
+  "9524": {
+   "pid": 65156,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  }
+ },
+ "live_after": {
+  "9505": {
+   "pid": 33384,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  },
+  "9524": {
+   "pid": 65156,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  }
+ }
+}

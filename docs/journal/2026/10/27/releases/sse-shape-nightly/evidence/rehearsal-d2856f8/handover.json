@@ -1,0 +1,61 @@
+{
+  "new_home": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-d2856f828a9f48cf2122c438aa2b698b4cd72150",
+  "old_home": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-77929651290a8a0c4647eb47fe251fb5db4d1206",
+  "swapped_env_keys": [
+    "CIEL_RUNTIME_HOME",
+    "CIEL_RUNTIME_SCRIPT"
+  ],
+  "env_key_count": 110,
+  "before": {
+    "target": {
+      "ok": true,
+      "pid": 68256,
+      "version": "0.2.51-nightly.20261027-182520.7792965",
+      "source_fingerprint": "11b9fec1d2441894",
+      "active_client_pids": [
+        79344
+      ],
+      "config_dir": "C:\\Users\\djlov\\AppData\\Local\\Temp\\handover-rehearsal-49760\\cfg\\router-instances\\57840-26d7f6e0b649",
+      "workspace": "c:\\users\\djlov\\appdata\\local\\temp\\handover-rehearsal-49760\\ws"
+    },
+    "other": {
+      "ok": true,
+      "pid": 62984,
+      "version": "0.2.51-nightly.20261027-194324.273856d",
+      "source_fingerprint": "11b9fec1d2441894",
+      "active_client_pids": [
+        43712
+      ],
+      "config_dir": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9505-aae7db361c7f",
+      "workspace": "g:\\ciel-walkie"
+    },
+    "owner_running": true
+  },
+  "child_pid": 78216,
+  "child_exit": null,
+  "after": {
+    "ok": true,
+    "pid": 78216,
+    "version": "0.2.51-nightly.20261028-005129.d2856f8",
+    "source_fingerprint": "11b9fec1d2441894",
+    "active_client_pids": [
+      79344
+    ],
+    "config_dir": "C:\\Users\\djlov\\AppData\\Local\\Temp\\handover-rehearsal-49760\\cfg\\router-instances\\57840-26d7f6e0b649",
+    "workspace": "c:\\users\\djlov\\appdata\\local\\temp\\handover-rehearsal-49760\\ws"
+  },
+  "after_other": {
+    "ok": true,
+    "pid": 62984,
+    "version": "0.2.51-nightly.20261027-194324.273856d",
+    "source_fingerprint": "11b9fec1d2441894",
+    "active_client_pids": [
+      43712
+    ],
+    "config_dir": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9505-aae7db361c7f",
+    "workspace": "g:\\ciel-walkie"
+  },
+  "owner_running_after": true,
+  "old_running_after": false,
+  "log": "C:\\Users\\djlov\\AppData\\Local\\Temp\\router-handover-57840-1793149447.log"
+}

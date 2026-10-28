@@ -1,0 +1,53 @@
+{
+ "enabled": true,
+ "phase": "planning",
+ "approval": "auto",
+ "version": 0,
+ "active_root": null,
+ "continuation": {
+  "actionable": 0,
+  "next": null,
+  "waiting": [],
+  "blocked": 0,
+  "held": 0
+ },
+ "done": 0,
+ "total": 0,
+ "next": null,
+ "breakdown": [],
+ "ready": false,
+ "ready_reason": "no active goal; create one with work_plan_set",
+ "goals": 0,
+ "queue": [],
+ "ok": true,
+ "schema_version": 1,
+ "session_id": "claude:5a225d97-da5e-420c-8158-58667e9838e7",
+ "updated_at": 0.0,
+ "nodes": [],
+ "active_root_id": null,
+ "root_ids": [],
+ "queue_ids": [],
+ "auto_continue": false,
+ "runtime": {
+  "ciel_runtime": {
+   "version": "0.2.51-nightly.20261027-031627.0555b6c",
+   "source_fingerprint": "11b9fec1d2441894",
+   "instance_id": "56759-07b47f4d8194"
+  },
+  "session_id": "claude:5a225d97-da5e-420c-8158-58667e9838e7",
+  "runtime": "claude",
+  "configured": {
+   "provider": "cielairouter",
+   "model": "fake-work",
+   "alias": "ciel-runtime-cielairouter-fake-work",
+   "source": "configuration"
+  },
+  "epoch": null,
+  "in_flight": [],
+  "last_observed": null,
+  "last_error": null,
+  "observation_status": "unavailable",
+  "errors": []
+ },
+ "events": "/ca/work/events"
+}

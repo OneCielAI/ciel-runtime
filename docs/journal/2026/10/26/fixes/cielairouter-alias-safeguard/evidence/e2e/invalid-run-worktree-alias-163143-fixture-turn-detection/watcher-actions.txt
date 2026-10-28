@@ -1,0 +1,4 @@
+16:31:53 dialog bypass
+16:31:53 select('Yes, I accept'): cursor line 13 -> target line 14
+16:32:05 typed 44 chars: 'ALIAS-SAFEGUARD-BASELINE owned baseline turn'
+16:33:35 stop requested

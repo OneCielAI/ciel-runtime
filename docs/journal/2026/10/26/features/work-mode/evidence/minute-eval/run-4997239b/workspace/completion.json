@@ -1,0 +1,105 @@
+{
+  "status": "EVAL-COMPLETE",
+  "verification": {
+    "command": "python -m unittest discover -v",
+    "python": "3.11.6",
+    "result": "Ran 100 tests, OK (exit 0)",
+    "log": "unittest_discover.log"
+  },
+  "requests": {
+    "REQ-A0": {
+      "implementation": "routing_graph.py: Graph.add_node/set_edge/remove_edge/remove_node/shortest, version, NoPathError, ConflictError",
+      "tests": "test_routing_graph.py: GraphBasics, TieBreaking, VersionSemantics, RandomizedAgainstBruteForce",
+      "evidence": "400 random graphs compared with brute-force simple-path enumeration; zero-cost cycle paths are simple",
+      "superseded": "A0's default equal-cost tie order (fewest edges, then lexical) is replaced by REQ-A3. It is still available as Graph(tie_policy='fewest_hops'), which is what the A0 tie tests use.",
+      "unsatisfied": []
+    },
+    "REQ-A1": {
+      "implementation": "routing_graph.py: shortest(src, dst, *, blocked=(), max_hops=None); the hop bound is applied during the search",
+      "tests": "test_routing_graph.py: BlockedAndHopBound (cheap 4-hop cost-4 route vs max_hops=1 giving cost-10 s->t), FinalTiePolicy random trials",
+      "evidence": "300 random trials (fewest_hops) plus 250 random trials for each tie policy, checked against bounded brute force",
+      "unsatisfied": []
+    },
+    "REQ-A2": {
+      "implementation": "routing_graph.py: Graph.snapshot() -> GraphSnapshot (read-only, mapping proxies, frozen version and tie_policy); Graph.apply(changes, *, expected_version=None)",
+      "tests": "test_routing_graph.py: SnapshotAndApply, FinalTiePolicy",
+      "evidence": "snapshot is unchanged after the graph changes; 9 invalid batches roll back; ConflictError is raised before an invalid batch is applied; no-change batches leave version alone",
+      "unsatisfied": []
+    },
+    "REQ-A3": {
+      "implementation": "routing_graph.py: Graph(tie_policy='lexical'|'fewest_hops'), default 'lexical'; lexical search keeps distinct simple prefixes so the visited-set and hop-bound alternatives survive",
+      "tests": "test_routing_graph.py: FinalTiePolicy",
+      "evidence": "the longer, lexically smaller zero-cost route s,a,b,t wins by default; fewest_hops gives s,t; snapshots keep their policy; a bounded case needing a hop-limited prefix is tested; random trials run for both policies",
+      "unsatisfied": []
+    },
+    "REQ-B0": {
+      "implementation": "booking_calendar.py: Calendar(capacity), reserve, cancel, available, allocations, CapacityError, ConflictError",
+      "tests": "test_booking_calendar.py: Validation, Semantics, ManyOverlapping",
+      "evidence": "100-way overlap; staircase; 60x120 random operations checked against a naive per-instant model",
+      "unsatisfied": []
+    },
+    "REQ-B1": {
+      "implementation": "booking_calendar.py: reserve_many(requests), replace(id, start, end, units=1)",
+      "tests": "test_booking_calendar.py: ReserveMany, Replace",
+      "evidence": "duplicate inside a batch, cumulative overload within a batch, and invalid shapes all leave state unchanged; replace excludes its own old booking; a failed replace keeps the original",
+      "unsatisfied": []
+    },
+    "REQ-B2": {
+      "implementation": "booking_calendar.py: wait, waiting, promote; cancel also covers waiting ids; reserve/reserve_many/replace cannot take waiting ids",
+      "tests": "test_booking_calendar.py: WaitingList",
+      "evidence": "order is higher priority first, then FIFO; promote skips and continues ([p1,p3,p4]); earlier promotions block later ones; no auto-promotion",
+      "unsatisfied": []
+    },
+    "REQ-B3": {
+      "implementation": "booking_calendar.py: checkpoint() -> CalendarCheckpoint (immutable, owner token), restore(cp), read-only version",
+      "tests": "test_booking_calendar.py: CheckpointAndVersion",
+      "evidence": "restore keeps the exact FIFO (w3,w1,w2) and new waits queue behind it; checkpoints are reusable; foreign or invalid checkpoints raise ValueError; version goes 0..11 with no-ops unchanged and forward-only restore",
+      "unsatisfied": []
+    },
+    "REQ-C0": {
+      "implementation": "inventory_stream.py: InventoryStream.feed/finish/balance/snapshot, InventoryError, ConflictError",
+      "tests": "test_inventory_stream.py: Parsing, Validation, Idempotency, FailureContinuation, RandomizedModel",
+      "evidence": "300 random fragment splits (inside quotes and between CR and LF), char-by-char feeding, 80 random streams checked against a model",
+      "unsatisfied": []
+    },
+    "REQ-C1": {
+      "implementation": "inventory_stream.py: kind 'batch' with ops applied in order on staged balances, all-or-nothing, nested batches and id-bearing ops rejected",
+      "tests": "test_inventory_stream.py: Batch",
+      "evidence": "later ops consume earlier stock; 6 invalid batches roll back without reserving the id and are then retried successfully; empty batch is recorded",
+      "unsatisfied": []
+    },
+    "REQ-C2": {
+      "implementation": "inventory_stream.py: undo(event_id) using the net signed per-SKU delta; tombstone kept",
+      "tests": "test_inventory_stream.py: Undo",
+      "evidence": "a net-delta case where replaying ops in reverse order would fail; a negative undo fails unchanged and can be retried; a repeated tombstoned line is ignored and changed content raises ConflictError",
+      "unsatisfied": []
+    },
+    "REQ-C3": {
+      "implementation": "inventory_stream.py: checkpoint() -> InventoryCheckpoint, restore(cp); MAX_LINE = 4096 code points checked before any line is applied",
+      "tests": "test_inventory_stream.py: CheckpointAndLineBound",
+      "evidence": "an unfinished fragment completes after restore; idempotency and undo state are as of the checkpoint; 4096 accepted vs 4097 rejected with multi-byte characters; an overlong feed rolls back its earlier complete events and its buffer",
+      "unsatisfied": []
+    }
+  },
+  "assumptions": {
+    "A": [
+      "add_node returns bool; set_edge returns None; remove_edge with an unknown endpoint raises ValueError",
+      "Self-loop edges are allowed but never used, since paths must be simple",
+      "apply change dicts use the 'op' key ('kind'/'type' are accepted aliases); extra keys are invalid; apply returns the new version; version advances only if the final state differs",
+      "blocked must be a non-str iterable of known node names"
+    ],
+    "B": [
+      "units above capacity give CapacityError, not ValueError",
+      "Waiting ids are not replaceable (replace on one raises ValueError)",
+      "replace with identical values is a no-op and does not bump version"
+    ],
+    "C": [
+      "ConflictError subclasses InventoryError",
+      "Unknown or extra JSON keys, duplicate keys and NaN/Infinity are invalid",
+      "On a semantic failure, feed raises at once; the failing line is consumed; earlier ids from that call are on exc.applied; later complete lines stay buffered for the next feed/finish",
+      "Line length excludes the LF/CRLF terminator; a trailing CR in an unfinished buffer is treated as a possible terminator",
+      "A non-str fragment raises TypeError"
+    ]
+  },
+  "unsatisfied": []
+}

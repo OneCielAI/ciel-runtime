@@ -328,6 +328,184 @@ ciel-runtimectl remote-provision run
 
 ---
 
+## Work 모드 (실험적)
+
+> 소스: `ciel_runtime_support/work_mode_launch.py`, `work_mcp_tools.py`, `work_plan_store.py`,
+> `claude_mods/ciel-work/` — 실험 기능이며 동작·키는 바뀔 수 있다.
+
+Work 모드는 Plan 모드처럼 먼저 계획을 세우되, 목표 → 단계 → 작업 → 검증 가능한 스텝의
+계층 트리로 계획을 유지하며 실행하게 한다. 계획은 라우터 MCP 서버(`ciel-runtime-router`)의
+`work_*` 도구(`work_status`, `work_plan_set`, `work_node_add`, `work_node_update`,
+`work_node_remove`, `work_select`, `work_execute`, `work_replan`, `work_reorder`, `work_urgent`) 뒤에 저장된다.
+
+| config.json 키 | 기본값 | 메뉴 (LLM options) | 의미 |
+|---|---|---|---|
+| `work_mode` | `true` (켜짐) | `Work mode [on (default)]` | `false`로 명시해야만 꺼진다 |
+| `work_plan_approval_ask` | `false` (자동 승인) | `Work plan approval [auto (default)]` | `true`(`ask user`)면 실행 전 사용자 승인을 요구 |
+| `work_auto_continue` | `true` (켜짐) | `Work auto continue [on (default)]` | Claude 정상 턴 종료 시 실행 가능한 미결 Work를 자동 계속. Codex는 지침만 전달 |
+
+- 메뉴 입력값: `Work mode`는 `on`/`off`, `Work plan approval`은 `ask`/`auto`.
+  `default`/`unset`을 입력하면 키를 지워 기본값으로 돌아간다.
+- 꺼져 있으면 `work_status`(`format: json`)는 `enabled: false` 스냅샷을, 그 외 `work_*` 호출은
+  `Ciel Work mode is off` 오류를 돌려준다.
+
+### 적용 범위
+
+- 적용 조건: Work 모드가 켜져 있고, **네이티브 실행이 아니며**, 해당 실행에 라우터 MCP 서버가
+  붙을 때만 적용된다 (`work_mode_applies`).
+- **네이티브 실행(Claude Native, 네이티브 Codex)은 제외**된다. 아무 인자도 주입하지 않으므로
+  설정과 무관하게 Work 모드가 적용되지 않는다.
+- Claude: 번들 모드(mod) `ciel-work`를 `--plugin-dir <패키지>/ciel_runtime_support/claude_mods/ciel-work`
+  로 붙인다. `--plugin-dir`는 반복 가능한 플래그라 사용자 플래그는 유지된다.
+  `.claude-plugin/plugin.json`이 없으면 인자를 넣지 않는다. 세션 재시작 시 현재 설정으로
+  인자를 다시 계산한다.
+- Codex (TUI·app-server): `-c developer_instructions=...`로 Work 계약 지침을 넣고, Work 도구에만
+  `mcp_servers.ciel-runtime-router.tools.<도구>.approval_mode="approve"`를 넣는다
+  (`approval_policy=never`에서 MCP 호출이 막히지 않도록). 사용자가 같은 `-c` 키를 직접 지정하면
+  사용자 값이 우선한다. 다른 라우터 도구의 승인 기본값은 바뀌지 않는다.
+
+### Claude `/work-mode` 와 기존 외부 `/work` 는 별개
+
+| | `/work-mode` (이 기능) | `/work` (기존 외부 명령) |
+|---|---|---|
+| 제공 위치 | 런타임 번들 모드 `ciel-work`가 세션 시작 시 등록 | 사용자 전역 명령 `~/.claude/commands/work.md` → ciel-code `work` CLI |
+| 인자 | 없음(요약) \| `help` \| `view` \| `tree` \| `status`(JSON) | ciel-code 작업 보드 명령 |
+| 저장소 | 라우터의 대화별 Work 계획 | ciel-code `CONFIG_DIR()/boards/sessions/<session-id>/active.json` (별도 CLI 보드) |
+
+두 명령은 데이터를 공유하지 않는다. 외부 `/work`의 세션 공유 버그는 별도 수정으로 로컬 배포했다.
+이 기능의 계획과 외부 CLI 보드는 서로 이관하거나 합치지 않는다.
+
+### 사용 힌트
+
+사용자에게 보이는 안내(모델에는 보내지 않는 것)와 모델 지침을 구분한다.
+
+| 위치 | 언제 | 내용 |
+|---|---|---|
+| 대화 기록 알림 (`$.ui.log`, 모델 미전달) | Claude 대화형 세션 시작, Work 켜짐 | 계획 먼저(`work_plan_set`) → `work_execute` 후 편집, `/work-mode help`, 끄는 위치 |
+| 프롬프트 위 줄 | 계획 없음 | `Work mode: no plan yet … /work-mode help` |
+| 프롬프트 위 목록 머리 | 계획 있음 | `Work planning` 또는 `Work running` + 진행률, Progress / Queue / Completed 탭과 Inspector |
+| 토스트 (`$.ui.toast`) | 계획 단계에서 쓰기·셸이 거부될 때 | 대화·계획 버전마다 한 번 |
+| 거부 사유 (모델과 사용자 모두 봄) | 계획 단계 쓰기·셸 거부 | `work_plan_set` 후 `work_execute`, `/work-mode help` |
+| 콘솔 한 줄 | Codex TUI·app-server 실행 전, Work 적용 시 | Work 켜짐, 끄는 위치. Codex는 모드 UI가 없어 실행 전 콘솔에만 찍는다 |
+
+`/work-mode` 명령(Claude):
+
+- 인자 없음: 단계·진행률·승인 방식, 활성 목표의 항목 목록, 다음 스텝, 큐를 읽기 쉬운 요약으로 보여 준다.
+- `help`: 계획/실행 흐름, 새 요청 처리(독립 요청은 번호 붙은 새 아이템으로 큐, 변경 요청은 해당 아이템 아래),
+  프롬프트 위 목록 키(Ctrl+X Tab 포커스, Tab/↑↓ 선택, Enter 상세, Esc 복귀), 하위 명령, 설정 위치.
+- `view`: 키보드 상세 보기 창, `tree`: 계획 트리, `status`: 원본 스냅샷(JSON).
+
+Codex 지침은 사용자가 Work 모드 사용법을 물으면 간단히 설명하고 끄는 위치를 알려 주라고 덧붙인다.
+
+### 새 요청 분류와 작업 큐
+
+모델 지침(Claude 모드 프롬프트 문맥, Codex `developer_instructions`, `work_plan_set`·`work_node_add`
+도구 설명)은 새 사용자 요청마다 먼저 분류하라고 안내한다.
+
+- **독립 요청** → 별도 목표(루트 레벨 아이템). 가능하면 제목을 아이템 번호로 시작(`"1. ..."`, `"2. ..."`).
+- **기존 아이템을 바꾸거나 늘리는 요청** → 그 아이템 아래 자식으로 추가(`work_node_add`의 `parent_id`).
+
+번호는 안내일 뿐 라우터가 붙이거나 강제하지 않는다. 큐 동작은 라우터가 보장한다
+(`work_plan_tree.py`):
+
+| 상황 | 동작 |
+|---|---|
+| 끝나지 않은 활성 목표가 있을 때 새 목표 추가 (`work_plan_set` 또는 `parent_id` 없는 `work_node_add`) | 새 목표는 큐에 들어가고, 활성 목표와 단계(`executing` 등)는 그대로 |
+| 활성 목표가 없거나 이미 끝났을 때 새 목표 추가 | 새 목표가 바로 활성, `planning` |
+| 큐에 있는 목표나 끝난 목표를 `root_id`로 다시 계획 | 활성 목표는 그대로, 그 목표는 큐에 남음 |
+| 큐에 있는 목표 아래 자식 추가 | 활성 목표·단계 변화 없음 |
+| 끝난 목표 아래 자식 추가 | 그 목표가 다시 열려 생성 순서 위치로 큐에 들어감 |
+| 활성 목표의 마지막 스텝 완료(또는 남은 스텝 제거) | 가장 오래된 큐 목표가 활성이 되고 `planning`. 실행하려면 `work_execute` |
+| `work_select` | 사용자가 고른 목표를 지금 활성으로 바꾸고 `planning` |
+
+- 스냅샷(`work_status` JSON)에 `queue`(활성 목표 다음 순서, 최대 20개, 진행률 포함)가 추가됐다.
+  텍스트 트리는 `Queued goals (next first)`와 `Finished goals` 줄로 나눠 보여 준다.
+- Claude 프롬프트 위 Work 목록은 `Progress / Queue / Completed` 탭으로 나눈다. Progress는 완료 항목을 숨기고, Queue는 대기 목표, Completed는 완료 목표·현재 목표의 완료 항목을 따로 표시한다. Tab/방향키로 탭·행을 선택하고 Enter로 열며 `n`/`p`로 페이지를 바꾼다. `w` 또는 `/work-mode view`로 전체 상세에 접근한다. Work 자체 높이는 화면·host maxRows에 맞춰 최대 10행 안에서 제한하고, 네이티브 팀/다른 모드 영역은 크기를 덮어쓰지 않은 별도 형제 트리로 보존한다. 아주 작은 화면에서는 요약과 Inspector만 표시한다. `/work-mode` 요약에는 `Queue (next first):` 목록이 붙는다.
+- 이 변경 전에는 새 목표를 추가하면 실행 중인 목표가 활성 자리를 잃고 `planning`으로 돌아가
+  Claude 편집이 막혔다(2026-10-26 실측 재현, 작업 저널 참고).
+
+끄기·승인 방식: `ciel-runtime` 메뉴 → `LLM options` → `Work mode`(on/off), `Work plan approval`(auto/ask).
+라우터는 Work 도구 호출마다 설정을 다시 읽는다(`work_mcp_tools.dispatch_work_tool`). Work 모드가 꺼진
+상태로 시작한 Claude 세션에는 모드가 붙지 않는다.
+
+### 자동 계속·우선순위·긴급 요청
+
+- Claude의 `classic.Stop` 모드 훅은 정확한 대화의 Work 스냅샷을 읽고 실행 가능한 미결 항목이
+  있으면 다음 모델 턴을 요청한다. Work/auto continue 꺼짐, 서브에이전트,
+  연결 실패, 실행 승인 대기는 제외한다. 백그라운드 작업이 있어도 독립 실행 가능한 Work는 계속한다.
+  해당 작업의 결과가 필요한 항목만 `waiting_on`으로 두며, 중복 실행·취소·완료 처리를 자동으로 하지 않는다. 사용자 중단·API 오류는 이 정상 Stop 경로에 포함하지 않는다.
+- 미결 항목이 남았지만 대기·차단·승인·백그라운드 작업 때문에 계속할 수 없으면 흐린 안내 줄로 사유를 표시한다.
+  같은 안내는 새 사용자 입력 전까지 반복하지 않으며, 차단이나 승인 조건을 자동으로 해제하지 않는다.
+- 같은 계획 버전에서는 두 번까지 계속하고 그 뒤에는 진행 없음 토스트와 함께 멈춘다.
+  계획 버전 변경 또는 새 사용자 입력으로 다시 허용한다. Claude Code 자체의 연속 훅 제한도 적용된다.
+- `waiting_on`(최대 120자)은 외부 의존 대상이며 `◷ 대상`으로 끝에 표시한다. 조상 항목의
+  대기·blocked 상태도 실행 가능 판정에서 제외한다. 활성 목표에 실행 가능한 것이 없으면 큐를 찾는다.
+- 하단 status line은 대기 항목을 `◷ 제목 · waiting: 사유`(사유 40자까지, 노란색)로,
+  blocked 항목을 빨간 배경 `[!] BLOCKED 제목 · 사유`로 표시한다. 첫 줄 끝에 활성 목표의 미완료
+  대기·blocked 개수(`◷ N waiting · [!] N BLOCKED`)를, 하위 항목 줄 끝에는 표시 깊이 아래에 숨은
+  대기·blocked 개수(`(◷1 !1)`)를 붙인다. 완료 항목에는 대기 표시를 하지 않는다.
+  `CIEL_RUNTIME_STATUSLINE_ANSI=0`이면 색 없이 같은 문구만 쓴다.
+- `ref`(최대 64자)는 연결 ID이며 `[ id ] 설명`으로 표시한다. 두 필드는 add/plan/update로
+  설정하며 update의 빈 문자열로 해제한다. 프롬프트 위에는 페이지 안에서 목표 → 가지 → 하위 항목을 표시한다. 스냅샷의 가지별 샘플보다 깊거나 큰 트리는 Inspector에서 페이지로 탐색할 수 있다. 완료 표시는 녹색 `✓`다.
+- `work_reorder(root_id, position)`은 미완료 루트 순서(1부터, 1은 활성 자리)를 바꾼다.
+  기본은 큐 내 이동만 허용하며 활성 자리가 바뀌면 명시적인 사용자 요청과 `user_requested=true`가 필요하다.
+  `/work-mode view`의 루트 상세에 있는 Move up/down 버튼도 같은 도구를 호출하며 버튼 입력은 사용자 요청이다.
+- 명시적 긴급 요청은 `work_urgent(goal, children, user_requested=true)`로 분해하여 최상위에 놓는다.
+  다른 모든 목표는 `Held`로 표시하고 자동 계속 대상에서 제외한다. 긴급 목표가 끝나면 직전 활성 목표부터 복귀한다.
+- Codex에는 같은 규칙을 지침으로 전달할 뿐 Ciel이 종료된 Codex 턴을 직접 재개하지 않는다.
+
+### 기존 항목 집중 작업 (Focus)
+
+사용자가 “AAAA 관련 항목을 우선으로 올리고 그것만 작업”이라고 요청하면 모델은 보드에서 정확한 기존 ID를 확인한 뒤
+`work_focus(node_ids=[...], user_requested=true)`를 호출한다. 새 중복 목표를 만들지 않는다.
+선택한 목표 또는 하위 트리만 지정 순서대로 자동 계속하며, 다른 항목의 상태·대기 사유·승인은 그대로 보존한다.
+대기/차단된 선택 항목은 건너뛰어 다음 선택 항목을 찾지만 관계없는 큐 항목으로 넘어가지 않는다.
+선택 항목을 전부 끝내도 focus는 남는다. “이제 다른 일도 계속해”라는 명시적 요청이 있어야 `node_ids=[]`로 해제한다.
+
+`/work-mode view` → 항목 상세 → `f: Focus only this item`, `c: Clear focus / resume all`로 같은 기능을 조작한다.
+프롬프트 위·하단 상태줄에 `FOCUS`가 표시된다. 집중은 실행 순서/계속의 제약이며 shell의 부작용을 검사하는 보안 경계는 아니다.
+
+### Work 하이브리드 실행 계약
+
+Work는 네이티브 Plan Mode가 아니라 목표별 계획·실행 보드다. 승인된 활성 목표를 실행하는 동안 독립 요청의 계획은 별도 루트에 큐잉하며 활성 목표의 실행 상태를 바꾸지 않는다. 목표별 `phase`를 보존하므로 사용자가 우선순위를 바꾸거나 긴급 목표를 끝내면 기존 승인 목표는 실행 상태로 복귀한다. 새 목표는 반드시 planning부터 시작한다.
+
+- `work_node_add(within_scope=true)`는 기존 승인 범위 안의 세분화에만 사용한다. 생략하면 해당 목표만 planning으로 돌아가 범위 재검토·승인을 기다린다. 이 플래그는 새 범위를 승인하는 권한이 아니며 의미상 범위 판단은 모델 매개다. 제목·설명(note)을 변경해도 해당 목표만 재검토한다.
+- `work_reorder`, `work_urgent` 또는 실행 가능한 활성 목표를 중단하는 `work_select`에는 사용자의 명시적 우선순위 요청과 `user_requested=true`가 필요하다. 단, 활성 목표의 모든 미완료 단계가 대기·차단 상태이면 `continuation.next.root_id`가 가리키는 첫 실행 가능 큐 목표로 `work_select`할 수 있다. 임의 큐 건너뛰기나 긴급 목표의 hold 해제는 허용하지 않는다. 목표별 승인 phase는 그대로 보존하고 새 목표는 planning에서 승인받는다. `expected_version`으로 동시 변경을 감지한다.
+- 자동 프롬프트 문맥에는 한정된 활성 목표 요약과 큐 ID 최대 5개만 넣는다. 큐의 제목·설명·하위 트리는 넣지 않는다. 필요할 때 `work_status(root_id=...)`로 정확히 한 목표의 전체 노드·설명·검증 증거를 조회하며 선택·승인 상태는 변경하지 않는다.
+- **문맥 격리 한계**: 원본 사용자 메시지와 명시적으로 호출한 도구 응답은 네이티브 대화 기록에 남는다. 큐를 저장하거나 요약을 제한해도 기존 대화에서 텍스트를 삭제·격리하지 않으며, 목표별 별도 모델 세션을 만들지 않는다. Work는 히스토리 격리 또는 모든 부작용을 차단하는 보안 경계가 아니다.
+
+### 계획 단계와 승인
+
+- **Claude**: 계획(`planning`) 단계에서는 `Edit`/`Write`/`NotebookEdit`/`apply_patch` 같은 직접 파일 편집 도구를 거부한다. Work 상태를 확인할 수 없어도 직접 편집은 거부한다.
+  `Bash`/`PowerShell`은 Work 계획 상태·상태 조회 성공 여부와 무관하게 네이티브 권한 검사에 위임한다.
+  Work가 shell 호출을 별도로 허용하거나 거부하지 않으며 native 승인·Plan Mode·sandbox·bypass 설정은 그대로 적용된다.
+  Shell은 파일 변경도 가능하므로 Work는 모든 변경을 막는 보안 경계가 아니다. 모델에는 승인된 계획·범위 안에서 작업하도록 계속 지시한다.
+  `work_execute` 호출 시 모델이 넣은 `user_confirmed`는 제거되며, `ask` 승인이면 모드가
+  `$.ui.ask` 대화상자(`Approve` / `Keep planning`)로 묻고 승인 후 대화·계획 버전이 그대로일 때만 실행한다.
+- **Codex**: **모델 매개(model-mediated)** 방식이다. 계획 단계와 승인 규칙은 지침으로만 전달되며,
+  이 버전은 Codex 편집에 대해 계획 게이트나 승인 게이트를 강제하지 않는다. `ask` 승인이면
+  라우터의 `work_execute`가 "User confirmation is required" 응답을 돌려주고, 모델이 사용자에게
+  계획을 보여 주고 동의를 받은 뒤 `user_confirmed=true`로 다시 호출해야 한다.
+
+### 세션(대화) 분리
+
+계획은 대화마다 따로 저장된다:
+`WORKSPACE_STATE_DIR/work-sessions/<sha256(런타임:대화 ID)>/work-plan.json`.
+식별자는 `claude:<id>` 또는 `codex:<id>` 형식(`[A-Za-z0-9_-]{1,200}`)이어야 하며, 없거나 형식이
+틀리면 공유 기본값으로 대체하지 않고 거부한다(fail closed).
+
+- **Claude**: 모드가 매 호출마다 엔진의 `$.session.id()`를 읽어 `claude:<id>`로 넣고, 모델이 넣은
+  `session_id`는 덮어쓴다. `/clear`·재개 후에도 다시 읽으며, `session.end`에서 표시 캐시를 비운다.
+  같은 대화의 서브에이전트는 부모 대화의 계획을 쓴다.
+- **Codex**: MCP 호출의 네이티브 메타데이터 `_meta.sessionId`를 `codex:<id>`로 사용하며 모델 인자보다
+  우선한다. `_meta.threadId`는 쓰지 않으므로 자식 스레드는 루트 대화의 계획을 공유한다.
+  네이티브 메타데이터 없이 `codex:` 접두사만 붙인 인자는 거부된다.
+- 새 대화는 별도의 빈 계획을 갖고, 같은 대화를 재개하면 계획이 유지된다.
+- 이전의 워크스페이스 공유 파일 `WORKSPACE_STATE_DIR/work-plan.json`은 읽거나 옮기거나 지우지 않는다.
+- 이것은 네임스페이스 분리이며 인증이 아니다. HTTP 호출자는 메타데이터를 위조할 수 있다.
+
+---
+
 ## 반복 폭주 가드
 
 모델이 같은 문장을 끝없이 되풀이하는 생성 루프에 빠지면 라우터가 이를 끊는다.
@@ -638,3 +816,10 @@ state-bound 일회성 URL을 사용하지만, 신뢰하는 사설 인터페이�
 The launcher declares its channel delivery (`launch_data_path.ChannelDelivery`) and the resolver checks it before any gateway selection: a launch whose channel messages reach the CLI only as typed `[ciel-wake]` markers, with no whole-message transport (Claude Code messaging socket, app-server RPC), stays on the router because the router injects those bodies into model HTTP. Plain Codex TUI (no socket; on Windows only the marker is typed) and Claude Code with `claude_code.session_socket_input: false` fall back on every platform, at launch and after a session restart, with reason `channel wakes are typed [ciel-wake] markers whose bodies only router model HTTP injects (no whole-message transport)`. Claude Code with its messaging socket and Codex app-server/remote use direct model HTTP. The direct Codex provider id is `ciel-runtime-gateway`, distinct from the local-router provider; authentication uses `CIEL_RUNTIME_GATEWAY_API_KEY`. Launch model ids are resolved with the existing `resolve_requested_model` service.
 
 In direct mode, Claude router-transport messages use a whole-message session socket (or full-body TTY when unavailable); app-server router-transport messages use RPC rather than waiting for model HTTP. Restart rebuilds Claude environment/model/capabilities and app-server provider/model/catalog snapshots. Request-level TUI response observation is unavailable in direct mode; transcript-based `agent.turn_ended` remains available. These restrictions supersede references to direct plain Codex TUI above.
+
+
+## External Work HTTP API
+
+The router exposes the authenticated Work API only when the existing router access policy permits the caller. It does not enable external access or add CORS. Use `GET /ca/work?session_id=claude:<id>` for the complete board and `GET /ca/work/runtime` for configured routing, exact-session runtime/build identity, observed model/error metadata and null for unknown observations.
+
+Mutations use `POST /ca/work/nodes/add`, `update`, `remove` and `reorder`; every request requires the board's nonnegative integer `expected_version`. A stale version returns `409`; refetch before retrying. `GET /ca/work/events` provides coalesced version invalidations and runtime-error invalidations; clients must refetch after snapshot, change, reset or reconnect. Error rows are correlated and allowlisted; prompts, request bodies, credentials and raw credential-error text are not returned.

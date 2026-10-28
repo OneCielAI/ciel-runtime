@@ -253,7 +253,8 @@ class ChannelTerminalDispatchServiceTests(unittest.TestCase):
         events = []
         inject = mock.Mock(side_effect=AssertionError("frozen socket must not inject"))
         delivery = self._delivery(inject, events=events)
-        delivery = replace(delivery, policy=replace(delivery.policy, compaction=control))
+        delivery = replace(delivery, policy=replace(delivery.policy, compaction=control),
+                           polling=replace(delivery.polling, wake_state=lambda _: "missing"))
         state = ChannelPendingPollState(last_id=10)
         state.inflight_message_id = 11
         state.inflight_cursor = 11
@@ -268,7 +269,7 @@ class ChannelTerminalDispatchServiceTests(unittest.TestCase):
         self.assertEqual(11, state.inflight_message_id)
         self.assertEqual(10, state.last_id)
         self.assertEqual(20, state.inflight_started_at)
-        self.assertEqual([], events)
+        self.assertTrue(all("waiting_for_turn_completion" in event[1] for event in events))
 
     def _recovery_batch(self, temp):
         import threading
@@ -413,6 +414,29 @@ class ChannelTerminalDispatchServiceTests(unittest.TestCase):
                 batch.release.assert_not_called()
                 batch.send.assert_called_once()
 
+    def test_exact_batch_completion_is_settled_while_recovery_admission_stays_paused(self):
+        import json
+        import tempfile
+        with tempfile.TemporaryDirectory() as temp:
+            batch = self._recovery_batch(temp)
+            batch.paused[0] = True
+            prompt = batch.harness.delivery.prompt(44)
+            batch.text[0] = chr(10).join(map(json.dumps, [
+                {"type": "user", "origin": {"kind": "peer"}, "isMeta": True,
+                 "message": {"role": "user", "content": prompt}},
+                {"type": "assistant", "message": {"role": "assistant", "content": "fixture reply"}},
+            ]))
+            batch.poller.poll(1000001.0)
+            self.assertEqual(["replied"] * 5, [batch.status.get(n)["status"] for n in range(40, 45)])
+            self.assertIsNone(batch.state.inflight_message_id)
+            self.assertEqual([44], batch.commits)
+            batch.complete.assert_called_once_with(44)
+            batch.release.assert_not_called()
+            batch.send.assert_called_once()
+            batch.poller.poll(1000002.0)
+            batch.complete.assert_called_once_with(44)
+            batch.send.assert_called_once()
+
     def test_windows_proxy_propagates_recovery_guard_to_real_batch_validator(self):
         import json
         import tempfile
@@ -439,6 +463,7 @@ class ChannelTerminalDispatchServiceTests(unittest.TestCase):
                     now[0] = 10143.0
                 elif step[0] == 3:
                     self.assertEqual(["submitted"] * 5, [batch.status.get(n)["status"] for n in range(40, 45)])
+                    batch.paused[0] = True
                     batch.text[0] = chr(10).join(map(json.dumps, [
                         {"type": "user", "message": {"role": "user", "content": prompt}},
                         {"type": "assistant", "message": {"role": "assistant", "content": "answer"}},
@@ -461,6 +486,7 @@ class ChannelTerminalDispatchServiceTests(unittest.TestCase):
                     ["fixture"], {}, services, pending_poll_state=batch.state, channel_wake_confirm_submit=True,
                 ))
             self.assertEqual(4, step[0])
+            self.assertTrue(batch.paused[0], "proxy settlement must not depend on reopening admission")
             self.assertEqual(["replied"] * 5, [batch.status.get(n)["status"] for n in range(40, 45)])
             batch.release.assert_not_called()
             batch.complete.assert_called_once_with(44)

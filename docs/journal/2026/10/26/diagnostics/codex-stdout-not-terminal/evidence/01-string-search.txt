@@ -1,0 +1,23 @@
+# 2026-10-26T20:01:06Z where the text 'stdout is not a terminal' exists (read-only byte search)
+0 .local/bin/claude.exe
+0 .local/share/claude/versions/2.1.308
+0 .local/share/claude/versions/2.1.309
+0 .local/share/claude/versions/2.1.310
+0 AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe
+3 AppData/Roaming/npm/node_modules/@openai/codex/node_modules/@openai/codex-win32-x64/vendor/x86_64-pc-windows-msvc/bin/codex.exe
+3 AppData/Local/Programs/OpenAI/Codex/bin/codex.exe
+3 AppData/Local/OpenAI/Codex/bin/9614f1d9b40d9c4f/codex.exe
+0 Program Files/GitHub CLI/gh.exe
+0 Program Files/Git/cmd/git.exe
+0 .local/bin/colab.exe
+0 .local/bin/uv.exe
+0 Windows/System32/cmd.exe
+0 (no file) .local/share/ciel-runtime-81f6a4ba5af240e6a3aa3e4437e8701a8c9bafa1/** (all files)
+0 (no file) AppData/Local/Python/pythoncore-3.14-64/** (all files)
+0 (no file) AppData/Roaming/npm/node_modules/**/*.{js,mjs,cjs,py,ps1,cmd} and AppData/Local/npm-cache/_npx/**
+0 (no file) ciel-runtime-wt-work sources and tests (*.py,*.js,*.ts,*.ps1,*.cmd,*.mjs)
+0 (no file) AppData/Roaming/ciel-runtime/**/*.log
+# columns: number of matching 'lines' (binary), path. UTF-16LE search of .local/bin/claude.exe also found nothing.
+# codex.exe context (printable characters only):
+is set to "dumb". Run in a supported terminal or unset TERM.stdin is not a terminalstdout is not a terminal--no-daemon cannot b
+olor probe completed%terminal default color probe failed: ..stdin is not a terminalstdout is not a terminaltui\src\keymap.rs...

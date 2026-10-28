@@ -1,0 +1,38 @@
+
+ ▐▟███▟█   Claude Code v2.1.311
+▝▜██████▀  fake-work · API Usage Billing
+ ▝▝   ▝▝   C:\Users\djlov\AppData\Local\Temp\work-panel-tabs-c59d28de\ws
+
+⚠ Model "fake-work" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs
+
+▎ Debug mode enabled · logging to C:\Users\djlov\AppData\Local\Temp\work-panel-tabs-c59d28de\native-debug.log
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Work unavailable — /work-mode status                                                                                               [-]
+[Progress 0] Queue 0 Completed 0
+No unfinished rows · inspect the active goal
+1/1 w: Inspector
+TEAMMATE-AREA-SENTINEL other information remains visible
+                                                                                                                     ● high · /effort
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents                                                      work: unavailable

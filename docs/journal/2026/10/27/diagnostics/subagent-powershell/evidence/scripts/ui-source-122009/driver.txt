@@ -1,0 +1,10 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+turn outcome: yes
+owned stop 36608 SUCCESS: The process with PID 87936 (child process of PID 36608) has been terminated.
+SUCCESS: The process with PID 36608 (child process of PID 49736) has been terminated.
+owned stop 84324 SUCCESS: The process with PID 84324 (child process of PID 87868) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\subagent-powershell\evidence\scripts\ui-source-122009

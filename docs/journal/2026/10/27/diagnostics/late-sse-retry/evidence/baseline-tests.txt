@@ -1,0 +1,21 @@
+.FF.
+======================================================================
+FAIL: test_delayed_error_only_retries_before_any_message_start (test_transient_retry_late_sse.LateSSETests.test_delayed_error_only_retries_before_any_message_start)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work\tests\test_transient_retry_late_sse.py", line 45, in test_delayed_error_only_retries_before_any_message_start
+    self.assertEqual(result,OUTPUT)
+AssertionError: b': alive\n\nevent: ping\ndata: {"type":"pi[112 chars]\n\n' != b'event: message_start\ndata: {"type":"mess[37 chars]\n\n'
+
+======================================================================
+FAIL: test_exhaustion_stays_bounded_and_relays_final_error (test_transient_retry_late_sse.LateSSETests.test_exhaustion_stays_bounded_and_relays_final_error)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work\tests\test_transient_retry_late_sse.py", line 62, in test_exhaustion_stays_bounded_and_relays_final_error
+    self.assertEqual(len(hits),2)
+AssertionError: 1 != 2
+
+----------------------------------------------------------------------
+Ran 4 tests in 2.051s
+
+FAILED (failures=2)

@@ -1,0 +1,278 @@
+{
+ "repo": "C:\\Users\\djlov\\ciel-runtime-wt-work",
+ "stripped_env": [
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+  "ANTHROPIC_MODEL",
+  "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+  "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+  "CIEL_RUNTIME_CONFIG_DIR",
+  "CIEL_RUNTIME_HOME",
+  "CIEL_RUNTIME_LAUNCH_CWD",
+  "CIEL_RUNTIME_MODEL_ALIAS",
+  "CIEL_RUNTIME_PROVIDER",
+  "CIEL_RUNTIME_REGISTERED_HOME",
+  "CIEL_RUNTIME_SCRIPT",
+  "CIEL_RUNTIME_SELECTED_HOME",
+  "CIEL_RUNTIME_STATE_DIR",
+  "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+  "CLAUDECODE",
+  "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+  "CLAUDE_CODE_ATTRIBUTION_HEADER",
+  "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+  "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+  "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+  "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_EXECPATH",
+  "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+  "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+  "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+  "CLAUDE_CODE_MAX_RETRIES",
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "CLAUDE_CODE_MESSAGING_TOKEN",
+  "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+  "CLAUDE_CODE_RETRY_WATCHDOG",
+  "CLAUDE_CODE_SEND_FEEDBACK",
+  "CLAUDE_CODE_SESSION_ATTENDED",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_SUBAGENT_MODEL",
+  "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
+  "CLAUDE_EFFORT",
+  "CLAUDE_PID",
+  "CODEX_SPARKLE_ENABLED"
+ ],
+ "original": {
+  "pid": 29204,
+  "sessionId": "380edfd0-0281-443d-9169-22178ef7d482",
+  "kind": "interactive",
+  "procStart": "134375425244210738",
+  "messagingSocketPath": "\\\\.\\pipe\\LOCAL\\cc-msg-025c720c842e5bbd8ca7202d5cd88ac8"
+ },
+ "bg": {
+  "pid": 33952,
+  "sessionId": "e9023a4d-6261-447d-a0e0-4a1ff7db0348",
+  "jobId": "e9023a4d",
+  "kind": "bg",
+  "procStart": "134375425387342060",
+  "messagingSocketPath": "\\\\.\\pipe\\LOCAL\\cc-msg-760aa9b7091157d0b401e997a281188a"
+ },
+ "transitions": [
+  [
+   1,
+   "queued"
+  ],
+  [
+   2,
+   "queued"
+  ]
+ ],
+ "checks": {
+  "seed_replied": true,
+  "before_socket_sent": true,
+  "before_socket_replied": true,
+  "native_parked": true,
+  "bg_record": true,
+  "binding_followed": true,
+  "socket_followed": true,
+  "after_socket_sent": true,
+  "after_reached_bg": true,
+  "after_not_original": true,
+  "production_launcher_scope_followed": true,
+  "transcript_followed": true,
+  "live_unchanged": true
+ },
+ "requests": [
+  {
+   "sid": "380edfd0-0281-443d-9169-22178ef7d482",
+   "before": false,
+   "after": false
+  },
+  {
+   "sid": "380edfd0-0281-443d-9169-22178ef7d482",
+   "before": true,
+   "after": false
+  },
+  {
+   "sid": "380edfd0-0281-443d-9169-22178ef7d482",
+   "before": true,
+   "after": false
+  },
+  {
+   "sid": "e9023a4d-6261-447d-a0e0-4a1ff7db0348",
+   "before": true,
+   "after": true
+  },
+  {
+   "sid": "e9023a4d-6261-447d-a0e0-4a1ff7db0348",
+   "before": true,
+   "after": true
+  },
+  {
+   "sid": "e9023a4d-6261-447d-a0e0-4a1ff7db0348",
+   "before": false,
+   "after": false
+  }
+ ],
+ "logs": [
+  {
+   "level": "INFO",
+   "text": "claude_session_socket_configured target=\\\\.\\pipe\\LOCAL\\cc-msg-025c720c842e5bbd8ca7202d5cd88ac8",
+   "at": 1793068913.3595803
+  },
+  {
+   "level": "INFO",
+   "text": "runtime_compaction_scope_bound runtime=claude session=e9023a4d-6261-447d-a0e0-4a1ff7db0348 via=socket",
+   "at": 1793068939.3568156
+  },
+  {
+   "level": "INFO",
+   "text": "runtime_compaction_scope identity=ready reason=published_idle runtime=claude session=e9023a4d-6261-447d-a0e0-4a1ff7db0348",
+   "at": 1793068941.9076962
+  }
+ ],
+ "egress": [
+  {
+   "method": "CONNECT",
+   "path": "downloads.claude.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "github.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  }
+ ],
+ "run": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-handoff-b7fe26b2",
+ "live_before": {
+  "9505": {
+   "pid": 77432,
+   "version": "0.2.51-nightly.20261026-183726.81f6a4b",
+   "source_fingerprint": "72c6bfb456e30cd7",
+   "error": null
+  },
+  "9524": {
+   "pid": 25276,
+   "version": "0.2.51",
+   "source_fingerprint": "f86ee3638ee760f3",
+   "error": null
+  }
+ },
+ "live_after": {
+  "9505": {
+   "pid": 77432,
+   "version": "0.2.51-nightly.20261026-183726.81f6a4b",
+   "source_fingerprint": "72c6bfb456e30cd7",
+   "error": null
+  },
+  "9524": {
+   "pid": 25276,
+   "version": "0.2.51",
+   "source_fingerprint": "f86ee3638ee760f3",
+   "error": null
+  }
+ }
+}

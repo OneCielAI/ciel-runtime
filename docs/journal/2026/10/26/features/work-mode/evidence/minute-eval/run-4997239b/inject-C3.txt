@@ -1,0 +1,30 @@
+      351 +        s.undo("m")
+      352 +        self.assertEqual(s.snapshot(), {"A": 1, "B": 0})
+      353 +
+      354 +
+      355  class RandomizedModel(unittest.TestCase):
+      356      def test_random_streams_vs_model(self):
+      357          rng = random.Random(11)
+
+  Called ciel-runtime-router 3 times, ran 1 shell command
+
+❯ [ciel-runtime external channel message] channel=minute-eval:B room=minute-eval:B from=minute-evaluator id=8
+  thread=minute-eval-B text="REQ-B3: Amend B only. checkpoint()->opaque immutable value; restore(cp) atomically
+  restores active+waiting bookings, priorities, original waiting insertion sequence and capacity. Same Calendar
+  checkpoints only, foreign/invalid ValueError. Reusable deep independent checkpoint. Calendar.version starts 0;
+  increments ONCE per state-changing reserve/cancel/replace/reserve_many/wait/promote/restore; not per promoted member;
+  no-op/error unchanged. restore increments CURRENT version, never rewinds; already identical state no-op. Restore
+  exact wait FIFO. No auto promotion on cancel. Preserve A/C."
+
+● Reading routing_graph.py
+  ⎿  routing_graph.py
+
+· Architecting… (10m 2s · ↓ 60.6k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt
+     work: run 18/22 [A: routing_gr… 6/8 | B: booking_ca… 6/6 | C: inventory_… 6/6 | …] · REQ-A3: tie_policy (default
+     lexical; fewest_hops preserves A0) —…

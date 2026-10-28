@@ -1,0 +1,57 @@
+# 2026-10-26T18:53:32Z why SendMessage is absent in the Walkie session
+Walkie workspace aae7db361c7f config: current_provider=cielairouter, providers.cielairouter.blocked_tools unset (read from config.json; secrets not read).
+
+## runtime_constants.py:144-148 (default list, unchanged since 7e8e64d 2026-06-25)
+DEFAULT_BLOCKED_TOOLS_NON_ANTHROPIC = (
+    "EnterWorktree", "ExitWorktree", "TeamCreate", "TeamDelete", "TeammateTool",
+    "SendMessage", "SendMessageTool", "ScheduleWakeup", "WaitForMcpServers",
+    "WebSearch", "web_search", "WebFetch", "web_fetch", "RemoteTrigger", "PushNotification",
+)
+
+## provider_tool_policy.py:31-52 (blocked_tools)
+    def blocked_tools(
+        self,
+        provider: str,
+        config: ProviderConfig,
+    ) -> set[str]:
+        override = config.get("blocked_tools")
+        if override is False:
+            return set()
+        if isinstance(override, list):
+            return {
+                str(name).strip()
+                for name in override
+                if str(name).strip()
+            }
+        adapter, contract = self._adapter(provider, config)
+        if adapter.capabilities(contract).blocks_default_tools:
+            blocked = set(self.default_blocked_tools)
+            if adapter.supports_server_web_tools(contract):
+                blocked.difference_update(
+                    {"WebSearch", "web_search", "WebFetch", "web_fetch"}
+                )
+            return blocked
+
+## blocks_default_tools: default True (architecture.py:122); only providers/anthropic.py:41 sets False
+ciel_runtime_support/architecture.py:122:    blocks_default_tools: bool = True
+ciel_runtime_support/providers/anthropic.py:41:            blocks_default_tools=False,
+ciel_runtime_support/provider_tool_policy.py:46:        if adapter.capabilities(contract).blocks_default_tools:
+
+## providers/cielairouter.py capabilities (no blocks_default_tools override)
+    capabilities_value: ProviderCapabilities = field(
+        default_factory=lambda: ProviderCapabilities(
+            upstream_protocol="openai_chat",
+            requires_api_key=True,
+            supports_thinking=True,
+            preserves_anthropic_thinking=True,
+        )
+    )
+
+## router applies it to the request tool list: claude_router.py:305
+        return
+    if local_request:
+        body = filter_blocked_tools(provider, pcfg, body)
+        body = normalize_tool_choice_for_provider(provider, pcfg, body)
+
+Same effect observed in this session (cielairouter provider): ListAgents is available, SendMessage is not. A plain Claude 2.1.310 request in the isolated E2E (no ciel router in the path) listed SendMessage (run-6a0d4cec requests-summary.json).
+policy and adapter equal to running snapshot

@@ -1,0 +1,30 @@
+  - Choices the requests didn't specify:
+    - Adding a task ID that already exists raises ValueError.
+    - A task depending on itself in add raises CycleError.
+    - An unknown task ID passed to any method raises KeyError.
+
+  C — ledger.py (REQ-C0 and REQ-C1): done
+  - Chunks are joined before parsing, so splits anywhere (mid-quote, mid-CRLF) are handled. A test splits the document
+    at every position and every pair of positions and gets the same result each time.
+  - Sums use exact Decimal, never float. NaN and Infinity are rejected.
+  - If an ID appears more than once, its last row wins, even when the account changes. Every row is still validated,
+    including rows a later duplicate replaces.
+  - How I read "retain accounts with final zero total": an account whose rows all moved to another account stays in the
+    result with a total of 0.
+
+  Checks
+  - python -m unittest discover -v on Python 3.11.6 ran 42 tests (19 for B, 23 for C), all passing.
+  - completion.json loads as valid JSON. It marks A0 and A1 as unsatisfied with the reason, and B0, B1, C0 and C1 as
+    satisfied, with the file and test evidence for each.
+  - The Work plan is one goal with separate A (blocked), B (done), C (done) and FINAL (done) branches.
+  - I wrote a journal entry at docs/journal/2026/10/26/concurrent-eval-run.md inside the workspace.
+
+  I couldn't reply to the evaluator because no message-sending tool is available here and REQ-FINAL forbids
+  send_message, so this report is the reply. If you send the REQ-A0 text, I'll build A with the A1 changes.
+
+✻ Worked for 3m 40s · done 7:07 AM
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)                                                            work: 11/16

@@ -1,0 +1,19 @@
+---
+type: Task Journal
+title: CSV reconciliation and exact totals
+description: Implementation and verification for C0+C1.
+tags: [evaluation, task-c]
+timestamp: 2026-10-26T00:00:00Z
+---
+
+# Requests
+
+C0+C1; verbatim requests are preserved under workspace `requests/`.
+
+# Implementation
+
+`ledger.py`. The complete string fragments are joined before csv.reader parsing with newline preservation. Quoted newline, CRLF, commas, doubled quotes, and arbitrary fragment boundaries are tested. Every row is validated; finite Decimal amounts only. Global last-id-wins rows determine totals, retaining every observed account even when its total is zero. Integer coefficient arithmetic avoids ambient Decimal context rounding. Input is buffered; constant-memory streaming was not required.
+
+# Verification
+
+`python -m unittest test_ledger -v`: 12 tests passed. Full-suite output is captured at workspace `verification/unittest_output.txt`. These are Python library tasks; command output is the runtime evidence (no UI screenshot applies).

@@ -1,0 +1,103 @@
+{
+  "runs": [
+    {
+      "run": "run-cielairouter-default-233540",
+      "provider": "cielairouter",
+      "override": false,
+      "baseline": true,
+      "exit": 0,
+      "paths": [
+        "/v1/messages"
+      ],
+      "sendmessage_advertised": false,
+      "child_received": false,
+      "child_ack": false
+    },
+    {
+      "run": "run-cielairouter-override-233555",
+      "provider": "cielairouter",
+      "override": true,
+      "baseline": false,
+      "exit": 0,
+      "paths": [
+        "/v1/messages"
+      ],
+      "sendmessage_advertised": true,
+      "child_received": false,
+      "child_ack": false
+    },
+    {
+      "run": "run-cielairouter-override-233651",
+      "provider": "cielairouter",
+      "override": true,
+      "baseline": false,
+      "exit": 0,
+      "paths": [
+        "/v1/messages"
+      ],
+      "sendmessage_advertised": true,
+      "child_received": true,
+      "child_ack": true
+    },
+    {
+      "run": "run-vllm-override-233753",
+      "provider": "vllm",
+      "override": true,
+      "baseline": false,
+      "exit": 0,
+      "paths": [
+        "/v1/chat/completions"
+      ],
+      "sendmessage_advertised": true,
+      "child_received": true,
+      "child_ack": true
+    },
+    {
+      "run": "run-cielairouter-default-234143",
+      "provider": "cielairouter",
+      "override": false,
+      "baseline": false,
+      "exit": 0,
+      "paths": [
+        "/v1/messages"
+      ],
+      "sendmessage_advertised": true,
+      "child_received": true,
+      "child_ack": true
+    },
+    {
+      "run": "run-vllm-default-234743",
+      "provider": "vllm",
+      "override": false,
+      "baseline": false,
+      "exit": 0,
+      "paths": [
+        "/v1/chat/completions"
+      ],
+      "sendmessage_advertised": true,
+      "child_received": true,
+      "child_ack": true
+    }
+  ],
+  "digests": {
+    "ciel_runtime_support/runtime_constants.py": "049f5629ab0ee853be4b890831bd18c282a032d4d9f801554318c33a9e3125fe",
+    "ciel_runtime_support/provider_tool_policy.py": "d7b55aae83efcafac63a02ff41094b4b48fa284f68243ecea02bfdb0198b888b",
+    "ciel_runtime_support/provider_option_panel.py": "0224b21675f8f07c0b90cecccbc252cdbbe95eb960467a2962940c094a95aebd",
+    "ciel_runtime_support/provider_config_mutations.py": "58d6aa2e507ab592487847d1b2ce1a54286dda3b9d65577ffd37422c1f7e0118",
+    "ciel_runtime_support/llm_option_config.py": "1a0e861d63163322cd74ec83fc4a2547d370bd6740e530077a557e6ae3d60b30",
+    "ciel_runtime_support/llm_presentation_data.py": "bd010f2db3e78d20072f49ac92eac4d31542a88fba5b453dc7cb18e312195d14",
+    "tests/test_provider_tool_policy.py": "950b9559e55f5a900f0ab1930ed60930a189772a61c095ba16c602f98b72b344",
+    "tests/test_provider_option_panel.py": "089b454707cc7c2e5b0f78789207f3522a90080af958851528a0fe6d81306de9",
+    "docs/Tool-Guard.md": "de76bfa7582f5f31929c2e1d0c13fd43b1f2a279337fd3174bdc4c8e8f83fbc3"
+  },
+  "menu_roundtrip": {
+    "saved": [
+      "SendMessage"
+    ],
+    "reset": "missing",
+    "config_dir": "C:\\Windows\\Temp\\ciel-menu-i87olwa8\\cfg",
+    "only_owned_config": true
+  },
+  "focused_tests": 25,
+  "remaining_owned_processes": []
+}

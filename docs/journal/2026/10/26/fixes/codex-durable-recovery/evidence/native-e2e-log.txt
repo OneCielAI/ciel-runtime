@@ -1,0 +1,2 @@
+WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir "C:\\Users\\djlov\\AppData\\Local\\Temp\\" (codex_home: AbsolutePathBuf("C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-resend-e2e-a_lwvuy7\\codex-home"))
+{"typed_504_retry_success": true, "native_start_ack_loss_no_replay": true, "native_start_crash_no_replay": true}

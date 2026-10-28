@@ -1,0 +1,41 @@
+---
+type: Verification Journal
+title: Work panel UI n356
+description: Display-only tabs, bounded paging and native renderer coexistence.
+timestamp: 2026-10-27
+tags: [work, ui, regression]
+---
+
+# Scope
+Approved n356 implementation only in ciel-runtime-wt-work. Existing classic.Stop,
+INSTRUCTIONS queue-selection edits, selection backend and approval logic retained.
+No commit, push, install, remote access or actual CLI E2E performed.
+
+# Implementation
+- Display-only panel atom resets with conversation identity and session end.
+- Progress excludes status=done; Queue lists roots only; Completed uses current
+  snapshot status, never done/total equality, and exposes completed active rows.
+- Whole band capped to min(10, viewport rows / 4, maxRows - 2), reserving native
+  preview rows. Tiny widths/heights use Inspect Work; below two budget rows yields
+  to native host. Native view retains downstream next(e) tree and pages its window.
+- List and inspector controls page without Work mutations. Exact selected fields
+  are fetched on demand; notes/evidence and long/wide titles remain page-accessible.
+- root_index and completed_active snapshot summaries are bounded by MAX_NODES=600.
+  root_index includes every root beyond the 20-entry queue preview, no notes,
+  evidence or queued descendants. No persistence schema changes.
+
+# Verified
+- Isolated mod runner: strict validation success, 62 pass / 0 fail.
+- Focused unittest discovery: tree, MCP tools, HTTP controller, statusline;
+  93 pass. Environment cleared with env -i, temporary HOME/profile/config paths.
+- git diff --check passed for edited code/test/type files.
+- Evidence: evidence/mod-ui-tests.txt and evidence/python-ui-tests.txt.
+
+# Limitations
+The host test harness validates trees and exercises button handlers, not terminal
+painting. Native engine refs, actual viewport clipping/focus and screenshot proof
+remain the caller-owned n357 real CLI E2E. No claim of rendered screenshot proof.
+The initial backend consumer sweep lacked HOME and failed; rerun with isolated
+home directories passed. The final evidence file contains the successful run.
+An attempted n356 done update used stale expected_version=0 and was rejected;
+no Work state was changed by this implementation session.

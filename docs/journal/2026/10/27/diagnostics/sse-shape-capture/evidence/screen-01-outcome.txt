@@ -1,0 +1,50 @@
+
+ ▐▛███▛█   Claude Code v2.1.312
+▝▜██████▀  owned-send · API Usage Billing
+ ▝▝   ▝▝   C:\Users\djlov\AppData\Local\Temp\late-sse-ui-edb60db3\ws
+
+⚠ Model "owned-send" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs
+
+▎ Debug mode enabled · logging to
+▎ C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\late-sse-retry\evidence\scripts\ui-source-193614\native-debug.log
+
+❯ LATE-SSE-MAIN answer once.
+
+● API Error: codex/gpt-6.1-sol-medium: provider — Model codex/gpt-6.1-sol-medium timed out (HTTP 504); claude/claude-opus-5-5: provider — Model
+  claude/claude-opus-5-5 timed out (HTTP 504)
+
+✻ Worked for 3s · done 7:36 PM
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                                                                      ● high · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents

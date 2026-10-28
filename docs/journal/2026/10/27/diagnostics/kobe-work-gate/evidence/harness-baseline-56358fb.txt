@@ -1,0 +1,15 @@
+{"scenario":"concurrent-check","first":"deny: Work status unavailable: router connection or snapshot could not be verified.","second":"allow"}
+{"scenario":"concurrent-call","first":"deny: Work status unavailable: router connection or snapshot could not be verified.","second":"allow"}
+{"scenario":"turn-start-during-check","first":"deny: Work status unavailable: router connection or snapshot could not be verified."}
+{"scenario":"concurrent-planning","first":"deny: Work status unavailable: router connection or snapshot could not be verified.","second":"deny: Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)"}
+{"scenario":"concurrent-mixed","first":"deny: Work status unavailable: router connection or snapshot could not be verified.","second":"allow"}
+{"scenario":"execute-during-edit","first":"deny: Work status unavailable: router connection or snapshot could not be verified.","second":"deny: Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)"}
+{"scenario":"planning","first":"deny: Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)"}
+{"scenario":"router-error","first":"deny: Work status unavailable: router connection or snapshot could not be verified."}
+{"scenario":"router-throws","first":"deny: Work status unavailable: router connection or snapshot could not be verified."}
+{"scenario":"invalid-snapshot","first":"deny: Work status unavailable: router connection or snapshot could not be verified."}
+{"scenario":"not-json","first":"deny: Work status unavailable: router connection or snapshot could not be verified."}
+{"scenario":"identity-change","first":"deny: Work status unavailable: router connection or snapshot could not be verified."}
+{"scenario":"disabled","first":"allow"}
+{"scenario":"stop-superseded","block":false}
+{"scenario":"stop-continues","block":true}

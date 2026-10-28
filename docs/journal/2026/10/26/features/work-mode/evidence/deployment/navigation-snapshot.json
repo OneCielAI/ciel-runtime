@@ -1,0 +1,12 @@
+{
+  "snapshot": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-work-navigation-20261026-083131",
+  "previous": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-work-breakdown-20261026-122744",
+  "status": "staged; installed proof pending",
+  "sha256": {
+    "ciel_runtime_support/work_mcp_tools.py": "adf3edee8371c5f2544608e0fa9adc1a34ec8073073bddf3febb175673511ef4",
+    "ciel_runtime_support/statusline_script.py": "40330d65ad37c455fad0ef546dcb5f4b334191cff5ea5f3cb60795c5a909751d",
+    "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js": "a323ebb476b629a46e4b4534fa4f4f0f841a164a4712ae989bc902d8563e622e",
+    "ciel_runtime_support/claude_mods/ciel-work/.claude-plugin/plugin.json": "2ec5775a95fc8b5a9f6f7b31d9316ef55e94dd8a1dc8e8e0f3937aef114f7e02",
+    "ciel_runtime_support/claude_mods/ciel-work/types/index.d.ts": "a2be425850f90dd5b58ceed21ddd56686e2bf298e8761c83ea654c15fc854161"
+  }
+}

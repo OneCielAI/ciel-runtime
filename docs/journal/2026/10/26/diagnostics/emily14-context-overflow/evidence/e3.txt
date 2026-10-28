@@ -1,0 +1,39 @@
+observed_at_utc 2026-10-26T21:13:54Z script scripts/e3.py (read-only, via scripts/remote_read.py)
+LOG_LEVEL_FILE WARN
+INSTANCE 8965-c27b0d656c05 mtime 2026-10-09T21:08:23
+  FILE context-compact-activity.json 304 2026-10-09T21:08:12
+  FILE context-usage.json 285 2026-10-09T21:08:09
+  FILE duckduckgo-mcp.json 181 2026-10-09T20:12:51
+  FILE rate-limit-state.json 262 2026-10-09T20:12:45
+  FILE router-activity.json 287 2026-10-09T21:08:12
+  FILE router.log 463296 2026-10-09T21:08:16
+  FILE tool-calls.jsonl 118932 2026-10-08T11:58:59
+  FILE web-tools-mcp.json 181 2026-10-09T20:12:51
+  JSON context-compact-activity.json {"updated_at": 1791605292.2718909, "time": "2026-10-09T21:08:12", "event": "compact", "provider": "cielairouter", "model": "ciel-runtime-cielairouter-cc-claude-opus-5-5-medium", "chunks": 11, "parallel_sessions": 1, "tokens": 2959525, "final_tokens": 751214, "budget": 840750, "omitted_messages": 262, "retained_messages": 138}
+  JSON context-usage.json {"updated_at": 1791605289.7341847, "time": "2026-10-09T21:08:09", "provider": "cielairouter", "model": "ciel-runtime-cielairouter-cc-claude-opus-5-5-medium", "source": "messages", "token_source": "estimated_json", "tokens": 2959423, "context_limit": 1000000, "percent": 295.9, "messages": 400, "tools": 41}
+INSTANCE 8966-c27b0d656c05 mtime 2026-10-26T14:13:54
+  FILE claude-stream-recovery.json 6833 2026-10-26T14:06:46
+  FILE compaction-admission.json 760 2026-10-26T14:07:00
+  FILE compaction-scope.json 888 2026-10-26T14:13:38
+  FILE context-compact-activity.json 316 2026-10-26T14:02:38
+  FILE context-compact-progress.json 157342 2026-10-26T14:00:38
+  FILE context-usage.json 281 2026-10-26T14:13:54
+  FILE duckduckgo-mcp.json 181 2026-10-26T13:38:05
+  FILE rate-limit-state.json 148 2026-10-26T08:25:45
+  FILE router-activity.json 272 2026-10-26T14:13:52
+  FILE router-last-sse.json 12095 2026-10-26T08:25:50
+  FILE router.log 2132143 2026-10-26T14:13:05
+  FILE router.log.1 6774189 2026-10-23T14:43:22
+  FILE router.pid 5 2026-10-26T13:38:00
+  FILE tool-calls.jsonl 423096 2026-10-26T08:25:40
+  FILE tool-calls.jsonl.1 2067362 2026-10-26T07:46:29
+  FILE web-tools-mcp.json 181 2026-10-26T13:38:04
+  PID 23436
+  JSON compaction-scope.json {"runtime": "claude", "epoch": "a38d55ae368c484aab092d22f57528ef", "started_at": 1793047085.531217, "identity_since": 1793047101.4210787, "session_id": "a9a016f2-bd19-4066-8b44-6ee329194e16", "cwd": "C:\\Data\\Source\\SGSWMSCrossing\\u4\\home\\emily-ai", "codex_home": "", "path": "C:\\Users\\aapw-a11u4\\.claude\\projects\\C--Data-Source-SGSWMSCrossing-u4-home-emily-ai\\a9a016f2-bd19-4066-8b44-6ee329194e16.jsonl", "messaging_socket_path": "\\\\.\\pipe\\LOCAL\\cc-msg-ca86be577aa79fd94948347b55d85200", "owned_pid": 0, "launcher_pid": 4356, "claude_config_dir": "C:\\Users\\aapw-a11u4\\.claude", "request_identity": true, "seeded": true, "request_observed": true, "identity_ready": {"session_id": "a9a016f2-bd19-4066-8b44-6ee329194e16", "pid": 7256, "proc_start": "134375206927747648", "at": 1793047102.565}}
+  JSON compaction-admission.json {"scope": {"runtime": "claude", "session_id": "a9a016f2-bd19-4066-8b44-6ee329194e16", "epoch": "a38d55ae368c484aab092d22f57528ef"}, "phase": "verified", "pressure": true, "baseline_tokens": 2663010, "context_limit": 847424, "requested_at": 1793047788.4753065, "deadline": 1793049784.444106, "baseline_checkpoint_id": "ac238d09f9ee1599103a2c64b33f531bf95296aac1c4bc4fc324e79c9fc00cdf", "checkpoint_id": "1a8bb242c7f295a2e5ce3c2271d71a72133b5c297b20b43b61f58ec6df8e8839", "request_id": "", "attempts": 1, "shrink_observed": {"tokens": 101548, "at": 1793048820.2281244}, "checkpoint_observed_at": 1793048820.2303185, "verified_at": 1793048820.2333765, "next_raw_tokens": 101548}
+  JSON context-compact-progress.json   JSON_ERR context-compact-progress.json UnicodeEncodeError
+  JSON context-compact-activity.json {"updated_at": 1793048558.6548436, "time": "2026-10-26T14:02:38", "event": "compact", "provider": "cielairouter", "model": "ciel-runtime-cielairouter-_walkie_opus55-sol61-fast", "phase": "failed", "chunks": 20, "completed_chunks": 8, "summary_calls": 14, "reused_chunks": 0, "reason": "client_cancelled", "tokens": 2610712, "budget": 832525}
+  JSON context-usage.json {"updated_at": 1793049234.1715255, "time": "2026-10-26T14:13:54", "provider": "cielairouter", "model": "ciel-runtime-cielairouter-_walkie_opus55-sol61-fast", "source": "messages", "token_source": "estimated_json", "tokens": 137088, "context_limit": 872000, "percent": 15.7, "messages": 52, "tools": 65}
+
+
+exit 0

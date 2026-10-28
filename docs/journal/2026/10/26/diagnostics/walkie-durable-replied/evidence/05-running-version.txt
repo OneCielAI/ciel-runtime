@@ -1,0 +1,24 @@
+# Running code identity (read-only). Collected 2026-10-26T16:12:13Z
+## GET http://127.0.0.1:9505/health (selected fields)
+{'version': '0.2.51', 'source_fingerprint': 'f86ee3638ee760f3', 'pid': 43372, 'router_port': 9505, 'instance_id': '9505-aae7db361c7f', 'active_client_pids': [70272]}
+## processes
+70272 ppid=68068 start=2026-10-26T10:33:29 cmd=C:\Users\djlov\AppData\Local\Python\pythoncore-3.14-64\python.exe "C:\Users\djlov\.local\share\ciel-runtime-work-breakdown-20261026-122744\ciel_runtime.py" cli --continue
+43372 ppid=70272 start=2026-10-26T10:35:49 cmd=C:\Users\djlov\AppData\Local\Python\pythoncore-3.14-64\python.exe C:\Users\djlov\.local\share\ciel-runtime-work-breakdown-20261026-122744\ciel_runtime.py serve
+## User CIEL_RUNTIME_HOME
+C:\Users\djlov\.local\share\ciel-runtime-work-breakdown-20261026-122744
+## source_fingerprint = sha256(ciel_runtime.py)[:16] (runtime_primitives.py:8-10)
+snapshot  f86ee3638ee760f3  C:/Users/djlov/.local/share/ciel-runtime-work-breakdown-20261026-122744/ciel_runtime.py
+src tree  7829293dd0103a91  C:/Users/djlov/ciel-runtime/ciel_runtime.py (branch nightly-20261020 HEAD d952c5a)
+snapshot package.json version: 0.2.51
+## diff --strip-trailing-cr snapshot vs source tree for the files on the skip path (line counts)
+channel_pending_injection.py 29
+channel_wake_delivery_repository.py 63
+runtime_input_status.py 79
+channel_message_repository.py 4
+runtime_input_gateway.py 0
+channel_cursor_repository.py 0
+channel_delivery_context.py 24
+runtime_input_delivery_health.py 37
+runtime_sse_recovery.py 9
+channel_llm_context.py 0
+Note: the snapshot adds runtime-input retry code; the durable_replied predicate, status get/transition/_record and queue append/max_id are textually identical in both.

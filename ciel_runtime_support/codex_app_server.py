@@ -14,7 +14,31 @@ from .windows_command_line import command_line_for_create_process
 
 
 class CodexAppServerError(RuntimeError):
-    """Raised when the Codex app-server JSON-RPC transport fails."""
+    """Unclassified failure: acceptance is unknown, so never replay a turn."""
+
+
+class CodexAppServerNotSent(CodexAppServerError):
+    """Failure proven to precede the first transport write."""
+
+
+class CodexAppServerUncertain(CodexAppServerError):
+    """A write was attempted but no valid matching response was received."""
+
+
+class CodexAppServerRejected(CodexAppServerError):
+    """An explicit matching JSON-RPC error response, not a transport failure."""
+
+    def __init__(self, method: str, error: dict[str, Any]) -> None:
+        self.method = method
+        self.error = dict(error)
+        super().__init__(f"codex app-server {method} failed: {error}")
+
+    @property
+    def no_active_turn(self) -> bool:
+        # Native codex-cli 0.158.0 observation: exact -32600 rejection.
+        # Generic errors, timeouts, and turn-id mismatches are not this proof.
+        return (self.method == "turn/steer" and self.error.get("code") == -32600
+                and self.error.get("message") == "no active turn to steer")
 
 
 @dataclass(frozen=True)
@@ -106,6 +130,7 @@ class CodexAppServerClient:
         self._now = now
         self._next_id = 1
         self._lock = threading.RLock()
+        self._write_lock = threading.Lock()
         self._condition = threading.Condition(self._lock)
         self._responses: dict[int, dict[str, Any]] = {}
         self._notifications: queue.Queue[dict[str, Any]] = queue.Queue()
@@ -327,7 +352,13 @@ class CodexAppServerClient:
         payload: dict[str, Any] = {"id": request_id, "method": method}
         if params is not None:
             payload["params"] = params
-        self._write_json(payload)
+        try:
+            self._write_json(payload)
+        except CodexAppServerError:
+            raise
+        except Exception as exc:
+            # The write path was entered; acceptance cannot be known.
+            raise CodexAppServerUncertain(f"codex app-server write failed for {method}: {exc}") from exc
         deadline = self._now() + timeout
         with self._condition:
             while True:
@@ -335,15 +366,20 @@ class CodexAppServerClient:
                     response = self._responses.pop(request_id)
                     break
                 if self._reader_error is not None:
-                    raise CodexAppServerError(f"codex app-server reader failed: {self._reader_error}") from self._reader_error
+                    raise CodexAppServerUncertain(f"codex app-server reader failed: {self._reader_error}") from self._reader_error
                 remaining = deadline - self._now()
                 if remaining <= 0:
-                    raise CodexAppServerError(f"timed out waiting for codex app-server response to {method}")
+                    raise CodexAppServerUncertain(f"timed out waiting for codex app-server response to {method}")
                 self._condition.wait(timeout=remaining)
         if "error" in response:
-            raise CodexAppServerError(f"codex app-server {method} failed: {response['error']}")
+            error = response.get("error")
+            if not isinstance(error, dict) or type(error.get("code")) is not int or not isinstance(error.get("message"), str):
+                raise CodexAppServerUncertain(f"invalid codex app-server error response to {method}")
+            raise CodexAppServerRejected(method, error)
         result = response.get("result")
-        return result if isinstance(result, dict) else {}
+        if not isinstance(result, dict):
+            raise CodexAppServerUncertain(f"invalid codex app-server result response to {method}")
+        return result
 
     def notify(self, method: str, params: dict[str, Any] | None = None) -> None:
         payload: dict[str, Any] = {"method": method}
@@ -358,12 +394,24 @@ class CodexAppServerClient:
             return None
 
     def _write_json(self, payload: dict[str, Any]) -> None:
-        data = json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n"
+        try:
+            data = json.dumps(payload, ensure_ascii=False, separators=(",", ":")) + "\n"
+        except (ValueError, TypeError) as exc:
+            raise CodexAppServerNotSent("codex app-server request serialization failed") from exc
         stdin = self.process.stdin
-        if stdin is None:
-            raise CodexAppServerError("codex app-server stdin is closed")
-        stdin.write(data)
-        stdin.flush()
+        if stdin is None or getattr(stdin, "closed", False):
+            raise CodexAppServerNotSent("codex app-server stdin is closed")
+        # Serialize complete lines. Once write() is called, callers must treat
+        # the request as sent even if flush raises or the pipe closes.
+        with self._write_lock:
+            try:
+                stdin.write(data)
+            except Exception as exc:
+                raise CodexAppServerUncertain("codex app-server write acceptance is unknown") from exc
+            try:
+                stdin.flush()
+            except Exception as exc:
+                raise CodexAppServerUncertain("codex app-server flush acceptance is unknown") from exc
 
     def _read_loop(self) -> None:
         try:
@@ -384,7 +432,7 @@ class CodexAppServerClient:
                 if not isinstance(message, dict):
                     continue
                 request_id = message.get("id")
-                if isinstance(request_id, int):
+                if type(request_id) is int:
                     with self._condition:
                         self._responses[request_id] = message
                         self._condition.notify_all()
@@ -444,6 +492,9 @@ def _thread_id_from_response(result: dict[str, Any]) -> str | None:
 __all__ = [
     "CodexAppServerClient",
     "CodexAppServerError",
+    "CodexAppServerNotSent",
+    "CodexAppServerUncertain",
+    "CodexAppServerRejected",
     "CodexAppServerState",
     "codex_app_server_has_explicit_transport",
     "codex_app_server_has_subcommand",

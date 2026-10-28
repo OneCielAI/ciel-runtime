@@ -184,6 +184,21 @@ class AnthropicStreamIntegrityTests(unittest.TestCase):
         logs = [(str(call.args[0]), str(call.args[1])) for call in router_log.call_args_list if len(call.args) > 1]
         return handler, parse_sse(raw), logs
 
+    def test_error_shape_records_guard_reason_without_private_strings(self):
+        error = {"type": "error", "PRIVATE-FIELD": "PRIVATE-VALUE",
+                 "error": {"type": "api_error", "message": "PRIVATE-MESSAGE", "code": 504}}
+        upstream = ScriptedUpstream(sse("error", error))
+        upstream.headers = {"content-type": "text/event-stream; PRIVATE-HEADER"}
+        upstream._ciel_preoutput_diagnostic = {"state": "committed", "reason": "unrecognized_frame"}
+        _handler, events, logs = self.run_stream(upstream, provider="cielairouter")
+        shape_logs = [msg for _, msg in logs if msg.startswith("anthropic_sse_error_shape ")]
+        self.assertEqual(len(shape_logs), 1)
+        shape = json.loads(shape_logs[0].split(" ", 1)[1])
+        self.assertEqual(shape["payload"]["error"]["fields"]["code"], "number")
+        self.assertEqual(shape["response"]["preoutput"]["reason"], "unrecognized_frame")
+        self.assertNotIn("PRIVATE", shape_logs[0])
+        self.assertEqual(events, [("error", error)])
+
     def assert_wire_contract(self, events):
         """At most one terminal; nothing after it; block events only for open blocks."""
 

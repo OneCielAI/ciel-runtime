@@ -1,0 +1,111 @@
+[
+  {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/call",
+    "params": {
+      "_meta": {
+        "callId": "call_1",
+        "x-codex-turn-metadata": {
+          "session_id": "01a17f27-2cbb-7971-856e-cc0b95fa4a8d",
+          "thread_id": "01a17f27-2cbb-7971-856e-cc0b95fa4a8d",
+          "model": "work-probe",
+          "turn_id": "01a17f27-2ce8-7d81-831f-ed47993d0e4b",
+          "turn_started_at_unix_ms": 1793134636274,
+          "sandbox": "none",
+          "sandbox_mode": "read-only",
+          "auto_review_enabled": false,
+          "node_repl_auto_review_required": false,
+          "node_repl_disabled": false,
+          "codex_version": "0.158.0"
+        },
+        "threadId": "01a17f27-2cbb-7971-856e-cc0b95fa4a8d",
+        "sessionId": "01a17f27-2cbb-7971-856e-cc0b95fa4a8d",
+        "windowId": "01a17f27-2cbb-7971-856e-cc0b95fa4a8d:0",
+        "itemId": "fc_1",
+        "progressToken": 1
+      },
+      "name": "work_plan_set",
+      "arguments": {
+        "goal": "Codex isolated Work proof",
+        "children": [
+          {
+            "title": "Protocol phase",
+            "children": [
+              {
+                "title": "Inspect shared state",
+                "children": [
+                  {
+                    "title": "Observe work_status output"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": 3,
+    "method": "tools/call",
+    "params": {
+      "_meta": {
+        "callId": "call_2",
+        "x-codex-turn-metadata": {
+          "session_id": "01a17f27-2cbb-7971-856e-cc0b95fa4a8d",
+          "thread_id": "01a17f27-2cbb-7971-856e-cc0b95fa4a8d",
+          "model": "work-probe",
+          "turn_id": "01a17f27-2ce8-7d81-831f-ed47993d0e4b",
+          "turn_started_at_unix_ms": 1793134636274,
+          "sandbox": "none",
+          "sandbox_mode": "read-only",
+          "auto_review_enabled": false,
+          "node_repl_auto_review_required": false,
+          "node_repl_disabled": false,
+          "codex_version": "0.158.0"
+        },
+        "threadId": "01a17f27-2cbb-7971-856e-cc0b95fa4a8d",
+        "sessionId": "01a17f27-2cbb-7971-856e-cc0b95fa4a8d",
+        "windowId": "01a17f27-2cbb-7971-856e-cc0b95fa4a8d:0",
+        "itemId": "fc_2",
+        "progressToken": 2
+      },
+      "name": "work_execute",
+      "arguments": {}
+    }
+  },
+  {
+    "jsonrpc": "2.0",
+    "id": 4,
+    "method": "tools/call",
+    "params": {
+      "_meta": {
+        "callId": "call_3",
+        "x-codex-turn-metadata": {
+          "session_id": "01a17f27-2cbb-7971-856e-cc0b95fa4a8d",
+          "thread_id": "01a17f27-2cbb-7971-856e-cc0b95fa4a8d",
+          "model": "work-probe",
+          "turn_id": "01a17f27-2ce8-7d81-831f-ed47993d0e4b",
+          "turn_started_at_unix_ms": 1793134636274,
+          "sandbox": "none",
+          "sandbox_mode": "read-only",
+          "auto_review_enabled": false,
+          "node_repl_auto_review_required": false,
+          "node_repl_disabled": false,
+          "codex_version": "0.158.0"
+        },
+        "threadId": "01a17f27-2cbb-7971-856e-cc0b95fa4a8d",
+        "sessionId": "01a17f27-2cbb-7971-856e-cc0b95fa4a8d",
+        "windowId": "01a17f27-2cbb-7971-856e-cc0b95fa4a8d:0",
+        "itemId": "fc_3",
+        "progressToken": 3
+      },
+      "name": "work_status",
+      "arguments": {
+        "format": "json"
+      }
+    }
+  }
+]

@@ -1,0 +1,19 @@
+# 2026-10-26T19:03:30Z 9505 router.log decisions for ids >= 14906 (read-only)
+6735:2026-10-26T13:47:51 [INFO] channel_stdin_proxy_skipped_noise message_id=14906 reason=durable_replied
+6785:2026-10-26T13:48:16 [INFO] channel_stdin_proxy_skipped_noise message_id=14907 reason=durable_replied
+7479:2026-10-26T13:55:45 [INFO] channel_stdin_proxy_injected count=1 message_ids=14908 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+7521:2026-10-26T13:56:04 [INFO] channel_wake_completed_evidence message_id=14908 transcript=C:\Users\djlov\.claude\projects\G--ciel-Walkie\417ef30b-1289-47a5-8921-a4d45eb93f2e.jsonl prompt_record=277 completion_record=280 record_t
+7577:2026-10-26T13:56:28 [INFO] channel_stdin_proxy_injected count=1 message_ids=14909 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+7622:2026-10-26T13:56:35 [INFO] channel_stdin_proxy_injected count=1 message_ids=14910 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+7623:2026-10-26T13:56:35 [INFO] channel_llm_inject_skipped message_id=14909 channel=external:default reason=already_in_request
+7666:2026-10-26T13:56:47 [INFO] channel_llm_inject_skipped message_id=14910 channel=external:default reason=already_in_request
+7690:2026-10-26T13:56:57 [INFO] channel_wake_completed_evidence message_id=14910 transcript=C:\Users\djlov\.claude\projects\G--ciel-Walkie\417ef30b-1289-47a5-8921-a4d45eb93f2e.jsonl prompt_record=281 completion_record=289 record_t
+7694:2026-10-26T13:56:57 [INFO] channel_wake_completed_evidence message_id=14909 transcript=C:\Users\djlov\.claude\projects\G--ciel-Walkie\417ef30b-1289-47a5-8921-a4d45eb93f2e.jsonl prompt_record=259 completion_record=268 record_t
+7935:2026-10-26T14:00:02 [INFO] channel_stdin_proxy_injected count=1 message_ids=14911 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+7950:2026-10-26T14:00:11 [INFO] channel_llm_inject_skipped message_id=14911 channel=external:default reason=already_in_request
+7976:2026-10-26T14:00:21 [INFO] channel_wake_completed_evidence message_id=14911 transcript=C:\Users\djlov\.claude\projects\G--ciel-Walkie\417ef30b-1289-47a5-8921-a4d45eb93f2e.jsonl prompt_record=230 completion_record=237 record_t
+7991:2026-10-26T14:00:24 [INFO] channel_stdin_proxy_injected count=1 message_ids=14912 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False
+8035:2026-10-26T14:00:43 [INFO] channel_llm_inject_skipped message_id=14912 channel=external:default reason=already_in_request
+8045:2026-10-26T14:00:53 [INFO] channel_windows_console_waiting_for_turn_completion message_id=14912 state=pending
+8071:2026-10-26T14:01:01 [INFO] channel_wake_completed_evidence message_id=14912 transcript=C:\Users\djlov\.claude\projects\G--ciel-Walkie\417ef30b-1289-47a5-8921-a4d45eb93f2e.jsonl prompt_record=222 completion_record=230 record_t
+8133:2026-10-26T14:01:48 [INFO] channel_stdin_proxy_injected count=1 message_ids=14913 channels=external:default enter=crlf transport=session_socket commit_cursor=False display_body=False

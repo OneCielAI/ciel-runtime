@@ -1,0 +1,323 @@
+owned cmd: yes
+owned window: yes
+ready: yes
+console command: yes
+seed reply: yes
+production SSE model request: yes
+production delivery replied: yes
+original socket reply: yes
+console command: yes
+native parked: yes
+bg record: yes
+binding successor: yes
+production SSE model request: yes
+production delivery replied: yes
+after reached background: yes
+launcher successor scope: yes
+successor transcript: yes
+owned stop 81472 SUCCESS: The process with PID 33432 (child process of PID 7688) has been terminated.
+SUCCESS: The process with PID 71452 (child process of PID 7688) has been terminated.
+SUCCESS: The process with PID 51856 (child process of PID 32504) has been terminated.
+SUCCESS: The process with PID 43712 (child process of PID 32504) has been terminated.
+SUCCESS: The process with PID 7688 (child process of PID 58668) has been terminated.
+SUCCESS: The process with PID 32504 (child process of PID 12448) has been terminated.
+SUCCESS: The process with PID 65068 (child process of PID 79604) has been terminated.
+SUCCESS: The process with PID 58668 (child process of PID 79604) has been terminated.
+SUCCESS: The process with PID 70472 (child process of PID 67432) has been terminated.
+SUCCESS: The process with PID 12448 (child process of PID 67432) has been terminated.
+SUCCESS: The process with PID 79604 (child process of PID 81472) has been terminated.
+SUCCESS: The process with PID 67432 (child process of PID 81472) has been terminated.
+SUCCESS: The process with PID 81472 (child process of PID 12344) has been terminated.
+owned stop 6984 
+owned stop 14236 SUCCESS: The process with PID 74416 (child process of PID 79136) has been terminated.
+SUCCESS: The process with PID 80904 (child process of PID 79136) has been terminated.
+SUCCESS: The process with PID 29708 (child process of PID 79136) has been terminated.
+SUCCESS: The process with PID 63812 (child process of PID 79136) has been terminated.
+SUCCESS: The process with PID 79136 (child process of PID 14236) has been terminated.
+SUCCESS: The process with PID 14236 (child process of PID 49736) has been terminated.
+{
+ "repo": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-0555b6c1e080d3466d44437d7eb01b7f61367615",
+ "stripped_env": [
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+  "ANTHROPIC_MODEL",
+  "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+  "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+  "CIEL_RUNTIME_CONFIG_DIR",
+  "CIEL_RUNTIME_HOME",
+  "CIEL_RUNTIME_LAUNCH_CWD",
+  "CIEL_RUNTIME_MODEL_ALIAS",
+  "CIEL_RUNTIME_PROVIDER",
+  "CIEL_RUNTIME_REGISTERED_HOME",
+  "CIEL_RUNTIME_SCRIPT",
+  "CIEL_RUNTIME_SELECTED_HOME",
+  "CIEL_RUNTIME_STATE_DIR",
+  "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+  "CLAUDECODE",
+  "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+  "CLAUDE_CODE_ATTRIBUTION_HEADER",
+  "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+  "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+  "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+  "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_EXECPATH",
+  "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+  "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+  "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+  "CLAUDE_CODE_MAX_RETRIES",
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "CLAUDE_CODE_MESSAGING_TOKEN",
+  "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+  "CLAUDE_CODE_RETRY_WATCHDOG",
+  "CLAUDE_CODE_SEND_FEEDBACK",
+  "CLAUDE_CODE_SESSION_ATTENDED",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_SUBAGENT_MODEL",
+  "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
+  "CLAUDE_EFFORT",
+  "CLAUDE_PID",
+  "CODEX_SPARKLE_ENABLED"
+ ],
+ "original": {
+  "pid": 29708,
+  "sessionId": "18c8da2e-d6a2-41e9-a359-9ce8be6a9e37",
+  "kind": "interactive",
+  "procStart": "134375449485745382",
+  "messagingSocketPath": "\\\\.\\pipe\\LOCAL\\cc-msg-5811546b8e0af12dadab2ee895ee119e"
+ },
+ "bg": {
+  "pid": 12448,
+  "sessionId": "1e170d34-563b-4258-ae48-939cb4b8f8eb",
+  "jobId": "1e170d34",
+  "kind": "bg",
+  "procStart": "134375449623773057",
+  "messagingSocketPath": "\\\\.\\pipe\\LOCAL\\cc-msg-9cc766536de32659069f2f708e374b1a"
+ },
+ "transitions": [
+  [
+   1,
+   "queued"
+  ],
+  [
+   2,
+   "queued"
+  ]
+ ],
+ "checks": {
+  "seed_replied": true,
+  "before_socket_sent": true,
+  "before_socket_replied": true,
+  "native_parked": true,
+  "bg_record": true,
+  "binding_followed": true,
+  "socket_followed": true,
+  "after_socket_sent": true,
+  "after_reached_bg": true,
+  "after_not_original": true,
+  "production_launcher_scope_followed": true,
+  "transcript_followed": true,
+  "live_unchanged": true
+ },
+ "requests": [
+  {
+   "sid": "18c8da2e-d6a2-41e9-a359-9ce8be6a9e37",
+   "before": false,
+   "after": false
+  },
+  {
+   "sid": "18c8da2e-d6a2-41e9-a359-9ce8be6a9e37",
+   "before": true,
+   "after": false
+  },
+  {
+   "sid": "18c8da2e-d6a2-41e9-a359-9ce8be6a9e37",
+   "before": true,
+   "after": false
+  },
+  {
+   "sid": "1e170d34-563b-4258-ae48-939cb4b8f8eb",
+   "before": true,
+   "after": true
+  },
+  {
+   "sid": "1e170d34-563b-4258-ae48-939cb4b8f8eb",
+   "before": true,
+   "after": true
+  },
+  {
+   "sid": "1e170d34-563b-4258-ae48-939cb4b8f8eb",
+   "before": false,
+   "after": false
+  }
+ ],
+ "logs": [
+  {
+   "level": "INFO",
+   "text": "claude_session_socket_configured target=\\\\.\\pipe\\LOCAL\\cc-msg-5811546b8e0af12dadab2ee895ee119e",
+   "at": 1793071336.0406551
+  },
+  {
+   "level": "INFO",
+   "text": "runtime_compaction_scope_bound runtime=claude session=1e170d34-563b-4258-ae48-939cb4b8f8eb via=socket",
+   "at": 1793071363.043276
+  },
+  {
+   "level": "INFO",
+   "text": "runtime_compaction_scope identity=ready reason=published_idle runtime=claude session=1e170d34-563b-4258-ae48-939cb4b8f8eb",
+   "at": 1793071365.3378975
+  }
+ ],
+ "egress": [
+  {
+   "method": "CONNECT",
+   "path": "downloads.claude.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "github.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "registry.npmjs.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "pypi.org:443"
+  }
+ ],
+ "run": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-handoff-b73712d6",
+ "live_before": {
+  "9505": {
+   "pid": 77432,
+   "version": "0.2.51-nightly.20261026-183726.81f6a4b",
+   "source_fingerprint": "72c6bfb456e30cd7",
+   "error": null
+  },
+  "9524": {
+   "pid": 25276,
+   "version": "0.2.51",
+   "source_fingerprint": "f86ee3638ee760f3",
+   "error": null
+  }
+ },
+ "live_after": {
+  "9505": {
+   "pid": 77432,
+   "version": "0.2.51-nightly.20261026-183726.81f6a4b",
+   "source_fingerprint": "72c6bfb456e30cd7",
+   "error": null
+  },
+  "9524": {
+   "pid": 25276,
+   "version": "0.2.51",
+   "source_fingerprint": "f86ee3638ee760f3",
+   "error": null
+  }
+ }
+}

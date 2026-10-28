@@ -1,0 +1,30 @@
+{
+  "version": "0.2.51-nightly.20261027-031627.0555b6c",
+  "gitHead": "0555b6c1e080d3466d44437d7eb01b7f61367615",
+  "tags": {
+    "latest": "0.2.51",
+    "nightly": "0.2.51-nightly.20261027-031627.0555b6c"
+  },
+  "dist": {
+    "shasum": "9e6c731301b82d5145f726806a34211a54edd4b9",
+    "tarball": "https://registry.npmjs.org/@one-ciel-ai/ciel-runtime/-/ciel-runtime-0.2.51-nightly.20261027-031627.0555b6c.tgz",
+    "fileCount": 513,
+    "integrity": "sha512-yTkffNt4alWHVJjkIV+QYYbnbZK2YLu3XspWWXrgHo8B/anobVhlSWltCOfXVlxPB7Nv4z4wpdZHrln1dNNj4g==",
+    "signatures": [
+      {
+        "sig": "MEYCIQC7UlxqmD96BQPkUPkG1QMHD/SX6dzUXTwiH7MRcsonIgIhAP7ptvWMCEXAQQG7f+Pm4cu2VkJEK32wzP5VSZwG3OoU",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+        "sig": "MEUCIGcNuLjOmcUdjiGtVqr/8WmPFER/ext8YYug1L01Iyc1AiEArnU7bQXFax9V97y1rO2mVFr4HJzYT5mRkw+D3+Bd1l8="
+      }
+    ],
+    "unpackedSize": 6830585
+  },
+  "tarball_sha256": "4589c6f3b78a645b65f70b0e09964750dfb925ba2f227772125cad5a4e381a2a",
+  "tarball_bytes": 1553007,
+  "files": 513,
+  "package_dir": "C:\\Users\\djlov\\AppData\\Local\\Temp\\edward-ara-published-0555b6c\\unpack\\package",
+  "payload_dir": "C:\\Users\\djlov\\AppData\\Local\\Temp\\edward-ara-published-0555b6c"
+}

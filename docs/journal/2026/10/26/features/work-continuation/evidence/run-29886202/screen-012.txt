@@ -1,0 +1,38 @@
+
+ ▐▛███▛█   Claude Code v2.1.310
+▝▜██████▀  fake-work · API Usage Billing
+ ▝▝   ▝▝   C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-continuation\evidence\run-29886202\ws
+
+⚠ Model "fake-work" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs
+
+● ciel-work: Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Items show above the
+  prompt · /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode
+
+❯ E2EHINT-MAIN perform the fixture Work actions. Explicit urgent request: hold all other goals and execute the ad-hoc item first.
+  Complete every approved item without another user prompt.
+
+  Called ciel-runtime-router 2 times
+
+● E2ECONT-EARLY-END-TURN
+
+
+
+
+
+
+
+
+* Contemplating… (2s · ↓ 87 tokens)
+Work running 0/3 — [ REQ-101 ] 1. Hint check                                                                                       [-]
+1: [ ] [ BR-1 ] Parser
+  [ ] [ TEST-1 ] Tokenize input
+  [ ] Verify tokens ◷ CI gate
+2: [ ] Cache
+  [ ] Verify expiry
+w: All items / refresh
+Ctrl+X Tab: focus · Tab/↑↓: select · Enter: inspect · Esc: return · /work-mode help
+                                                                                                                     ● high · /effort
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt · ← for agents                                       work: run 0/3

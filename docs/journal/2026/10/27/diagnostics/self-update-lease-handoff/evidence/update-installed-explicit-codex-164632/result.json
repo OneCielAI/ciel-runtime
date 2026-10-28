@@ -1,0 +1,327 @@
+{
+ "repo": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime",
+ "mode": "explicit",
+ "runtime": "codex",
+ "stripped_env": [
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+  "ANTHROPIC_MODEL",
+  "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+  "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+  "CIEL_RUNTIME_CONFIG_DIR",
+  "CIEL_RUNTIME_HOME",
+  "CIEL_RUNTIME_LAUNCH_CWD",
+  "CIEL_RUNTIME_MODEL_ALIAS",
+  "CIEL_RUNTIME_PROVIDER",
+  "CIEL_RUNTIME_REGISTERED_HOME",
+  "CIEL_RUNTIME_SCRIPT",
+  "CIEL_RUNTIME_SELECTED_HOME",
+  "CIEL_RUNTIME_STATE_DIR",
+  "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+  "CLAUDECODE",
+  "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+  "CLAUDE_CODE_ATTRIBUTION_HEADER",
+  "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+  "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+  "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+  "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_EXECPATH",
+  "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+  "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+  "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+  "CLAUDE_CODE_MAX_RETRIES",
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "CLAUDE_CODE_MESSAGING_TOKEN",
+  "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+  "CLAUDE_CODE_RETRY_WATCHDOG",
+  "CLAUDE_CODE_SEND_FEEDBACK",
+  "CLAUDE_CODE_SESSION_ATTENDED",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_SUBAGENT_MODEL",
+  "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
+  "CLAUDE_CODE_USE_POWERSHELL_TOOL",
+  "CLAUDE_EFFORT",
+  "CLAUDE_PID",
+  "CODEX_SPARKLE_ENABLED"
+ ],
+ "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\selfupd-d0af4f82",
+ "cli": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+ "cli_version": "2.1.310 (Claude Code)",
+ "registry_record": {
+  "launch_lease": {
+   "expires_at": 1793137626.7953868,
+   "identity": "134376111962733303",
+   "pid": 13388
+  },
+  "port": 57918,
+  "reservation": "explicit",
+  "workspace": "c:\\users\\djlov\\appdata\\local\\temp\\selfupd-d0af4f82\\ws"
+ },
+ "process_tree": [
+  {
+   "depth": 1,
+   "pid": 63640,
+   "ppid": 50792,
+   "name": "node.exe",
+   "cmd": "node  C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\npm-bin\\ciel-runtime.js --ca-runtime codex --ca-no-update-check"
+  },
+  {
+   "depth": 2,
+   "pid": 15248,
+   "ppid": 63640,
+   "name": "py.exe",
+   "cmd": "py -3 C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime.py cli --ca-runtime codex --ca-no-update-check"
+  },
+  {
+   "depth": 3,
+   "pid": 68048,
+   "ppid": 15248,
+   "name": "python.exe",
+   "cmd": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime.py cli --ca-runtime codex --ca-no-update-check"
+  },
+  {
+   "depth": 4,
+   "pid": 13388,
+   "ppid": 68048,
+   "name": "python.exe",
+   "cmd": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime.py cli --ca-runtime codex --ca-no-update-check"
+  },
+  {
+   "depth": 5,
+   "pid": 65468,
+   "ppid": 13388,
+   "name": "python.exe",
+   "cmd": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime.py serve"
+  },
+  {
+   "depth": 5,
+   "pid": 67900,
+   "ppid": 13388,
+   "name": "conhost.exe",
+   "cmd": "\\\\?\\C:\\WINDOWS\\system32\\conhost.exe --headless --width 168 --height 50 --signal 0x270 --server 0x290"
+  },
+  {
+   "depth": 5,
+   "pid": 48152,
+   "ppid": 13388,
+   "name": "codex.exe",
+   "cmd": "C:\\Users\\djlov\\AppData\\Local\\Programs\\OpenAI\\Codex\\bin\\codex.exe --yolo -c model_provider=\\\"ciel-runtime\\\" -c \"model_providers.ciel-runtime.name=\\\"Ciel Runtime\\\"\" -c model_providers.ciel-runtime.base_url=\\\"http://127.0.0.1:57918/v1\\\" -c model_providers.ciel-runtime.wire_api=\\\"responses\\\" -c model_pr"
+  },
+  {
+   "depth": 5,
+   "pid": 66488,
+   "ppid": 13388,
+   "name": "python.exe",
+   "cmd": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\windows_console_guard.py 13388 487 7"
+  },
+  {
+   "depth": 6,
+   "pid": 22524,
+   "ppid": 48152,
+   "name": "uvx.exe",
+   "cmd": "\"C:\\Program Files\\Python311\\Scripts\\uvx.exe\" mcp-server-fetch"
+  },
+  {
+   "depth": 6,
+   "pid": 1832,
+   "ppid": 48152,
+   "name": "node_repl.exe",
+   "cmd": "\"C:\\Users\\djlov\\AppData\\Local\\OpenAI\\Codex\\runtimes\\cua_node\\a9ba6825a525118c\\bin\\node_repl.exe\""
+  },
+  {
+   "depth": 6,
+   "pid": 62580,
+   "ppid": 48152,
+   "name": "cmd.exe",
+   "cmd": "cmd.exe /e:ON /v:OFF /d /c \"\"C:\\Program Files\\nodejs\\npx.cmd\" -y ddg-mcp-search\""
+  },
+  {
+   "depth": 6,
+   "pid": 55724,
+   "ppid": 48152,
+   "name": "cmd.exe",
+   "cmd": "\"C:\\WINDOWS\\system32\\cmd.exe\" /d /c npx -y rea-agents@6.5.0 mcp"
+  },
+  {
+   "depth": 7,
+   "pid": 62232,
+   "ppid": 55724,
+   "name": "conhost.exe",
+   "cmd": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"
+  },
+  {
+   "depth": 7,
+   "pid": 65084,
+   "ppid": 55724,
+   "name": "node.exe",
+   "cmd": "\"C:\\Program Files\\nodejs\\\\node.exe\"  \"C:\\Program Files\\nodejs\\\\node_modules\\npm\\bin\\npx-cli.js\" -y rea-agents@6.5.0 mcp"
+  },
+  {
+   "depth": 7,
+   "pid": 67060,
+   "ppid": 62580,
+   "name": "conhost.exe",
+   "cmd": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"
+  },
+  {
+   "depth": 7,
+   "pid": 64716,
+   "ppid": 62580,
+   "name": "node.exe",
+   "cmd": "\"C:\\Program Files\\nodejs\\\\node.exe\"  \"C:\\Program Files\\nodejs\\\\node_modules\\npm\\bin\\npx-cli.js\" -y ddg-mcp-search"
+  },
+  {
+   "depth": 7,
+   "pid": 50540,
+   "ppid": 1832,
+   "name": "conhost.exe",
+   "cmd": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"
+  },
+  {
+   "depth": 7,
+   "pid": 66100,
+   "ppid": 22524,
+   "name": "conhost.exe",
+   "cmd": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"
+  },
+  {
+   "depth": 7,
+   "pid": 64964,
+   "ppid": 22524,
+   "name": "uv.exe",
+   "cmd": "\"C:\\Program Files\\Python311\\Scripts\\uv.exe\" tool uvx mcp-server-fetch"
+  }
+ ],
+ "router_port": 57918,
+ "updater_pid": 68048,
+ "restarted_pid": 13388,
+ "logs_with_reserved_error": [],
+ "npm_calls": [
+  [
+   "view",
+   "@one-ciel-ai/ciel-runtime@nightly",
+   "version"
+  ],
+  [
+   "--version"
+  ],
+  [
+   "install",
+   "-g",
+   "--prefix",
+   "C:\\Users\\djlov\\AppData\\Roaming\\npm",
+   "@one-ciel-ai/ciel-runtime@nightly"
+  ]
+ ],
+ "checks": {
+  "restart_announced": true,
+  "cli_ready": true,
+  "router_up": true,
+  "restarted_is_child_of_updater": true,
+  "lease_moved_to_restarted_launcher": true,
+  "no_reserved_error": true,
+  "launcher_exit": true,
+  "router_down_after_exit": true,
+  "npm_view_and_install": true
+ },
+ "egress": [
+  {
+   "method": "CONNECT",
+   "path": "api.github.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "raw.githubusercontent.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "chatgpt.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "github.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "api.github.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "chatgpt.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "api.github.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "mcp.higgsfield.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "developers.openai.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "mcp.higgsfield.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "developers.openai.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "mcp.higgsfield.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "developers.openai.com:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "ab.chatgpt.com:443"
+  }
+ ],
+ "live_before": {
+  "9505": {
+   "pid": 62984,
+   "version": "0.2.51-nightly.20261027-194324.273856d",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  },
+  "9524": {
+   "pid": 8544,
+   "version": "0.2.51-nightly.20261027-182520.7792965",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  }
+ },
+ "live_after": {
+  "9505": {
+   "pid": 62984,
+   "version": "0.2.51-nightly.20261027-194324.273856d",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  },
+  "9524": {
+   "pid": 8544,
+   "version": "0.2.51-nightly.20261027-182520.7792965",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  }
+ }
+}

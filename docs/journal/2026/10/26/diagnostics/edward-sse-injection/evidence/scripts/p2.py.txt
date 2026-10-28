@@ -1,0 +1,129 @@
+import os, json, time, ctypes, msvcrt, datetime
+from ctypes import wintypes
+# Read-only: enable SeBackupPrivilege on this SYSTEM process token and open files with
+# FILE_FLAG_BACKUP_SEMANTICS, GENERIC_READ and full sharing. Nothing is written.
+k32 = ctypes.WinDLL("kernel32", use_last_error=True); adv = ctypes.WinDLL("advapi32", use_last_error=True)
+class LUID(ctypes.Structure): _fields_ = [("Low", wintypes.DWORD), ("High", wintypes.LONG)]
+class TP(ctypes.Structure): _fields_ = [("Count", wintypes.DWORD), ("Luid", LUID), ("Attr", wintypes.DWORD)]
+k32.GetCurrentProcess.restype = wintypes.HANDLE
+adv.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+adv.LookupPrivilegeValueW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.POINTER(LUID)]
+adv.AdjustTokenPrivileges.argtypes = [wintypes.HANDLE, wintypes.BOOL, ctypes.POINTER(TP), wintypes.DWORD, wintypes.LPVOID, wintypes.LPVOID]
+tok = wintypes.HANDLE()
+ok1 = adv.OpenProcessToken(k32.GetCurrentProcess(), 0x20 | 0x8, ctypes.byref(tok))
+luid = LUID(); ok2 = adv.LookupPrivilegeValueW(None, "SeBackupPrivilege", ctypes.byref(luid))
+tp = TP(1, luid, 2); ok3 = adv.AdjustTokenPrivileges(tok, False, ctypes.byref(tp), 0, None, None)
+print("PRIV", ok1, ok2, ok3, "last_error", ctypes.get_last_error())
+k32.CreateFileW.restype = wintypes.HANDLE
+k32.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+def bopen(p):
+    h = k32.CreateFileW(p, 0x80000000, 7, None, 3, 0x02000000, None)
+    if h in (None, wintypes.HANDLE(-1).value, -1):
+        raise OSError(ctypes.get_last_error(), "open failed", p)
+    return os.fdopen(msvcrt.open_osfhandle(h, os.O_RDONLY | os.O_BINARY), "rb")
+def tail(p, nbytes):
+    with bopen(p) as fh:
+        fh.seek(0, 2); size = fh.tell(); start = max(0, size - nbytes); fh.seek(start)
+        data = fh.read()
+    lines = data.split(b"\n")
+    if start: lines = lines[1:]
+    return size, lines
+def utc(e):
+    try: return datetime.datetime.fromtimestamp(float(e), datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
+    except Exception: return None
+def fmt(t): return time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(t))
+print("REMOTE_NOW %.3f %s" % (time.time(), utc(time.time())))
+cfg = r"C:\Users\aapw-a22u22\AppData\Roaming\ciel-runtime"
+ws = os.path.join(cfg, "workspaces", "4d48ef23cb8e")
+try:
+    with os.scandir(ws) as it:
+        for e in it:
+            st = e.stat(); print("WS_FILE", e.name, st.st_size, fmt(st.st_mtime))
+except Exception as e:
+    print("WS_LIST_ERR", type(e).__name__, e)
+for name in ("log-level",):
+    try:
+        with bopen(os.path.join(cfg, name)) as fh: print("LOG_LEVEL", fh.read()[:40])
+    except Exception as e: print("LOG_LEVEL_ERR", e)
+# receivers config, without url or secrets
+for cp in (os.path.join(ws, "config.json"), os.path.join(cfg, "config.json")):
+    try:
+        with bopen(cp) as fh: c = json.loads(fh.read().decode("utf-8"))
+        root = c.get("external_event_receivers") or {}
+        for wk, recs in (root.items() if isinstance(root, dict) else []):
+            for rid, r in (recs.items() if isinstance(recs, dict) else []):
+                print("RECEIVER_CFG", cp[-40:], wk, rid, {k: r.get(k) for k in ("enabled", "transport", "input_transport", "idle_timeout_seconds", "event_types", "cursor_json_pointer", "cursor_query_parameter")})
+    except Exception as e:
+        print("CFG_ERR", cp[-40:], type(e).__name__, e)
+for name in ("external-event-sse-cursors.json", "channel-llm-cursor.json", "channel-llm-clear-floor.json", "channel-llm-launch-guard.json"):
+    try:
+        with bopen(os.path.join(ws, name)) as fh: v = json.loads(fh.read().decode("utf-8"))
+        if isinstance(v, dict): v = {k: x for k, x in v.items() if k != "_receiver_scopes"}
+        print("STATE", name, json.dumps(v)[:400])
+    except Exception as e:
+        print("STATE_ERR", name, type(e).__name__, e)
+# queue rows: metadata only, never message text
+try:
+    size, lines = tail(os.path.join(ws, "runtime-inputs.jsonl"), 6 * 1024 * 1024)
+    rows = []
+    for ln in lines:
+        try: rows.append(json.loads(ln.replace(b"\x00", b"").decode("utf-8")))
+        except Exception: pass
+    print("QUEUE_SIZE", size, "rows_in_tail", len(rows))
+    for r in rows[-80:]:
+        m = r.get("meta") if isinstance(r.get("meta"), dict) else {}
+        ev_time = None
+        try:
+            ev = json.loads(r.get("message") or "")
+            if isinstance(ev, dict): ev_time = ev.get("time")
+        except Exception: pass
+        print("QROW", r.get("id"), "created", utc(r.get("created_at_epoch")), "time", r.get("time"), "kind", r.get("kind"), "src", m.get("source"),
+              "etype", m.get("event_type"), "eid", str(m.get("event_id") or "")[:40], "recv", m.get("receiver_id"), "itrans", m.get("input_transport"),
+              "event_time", ev_time, "len", len(str(r.get("message") or "")))
+except Exception as e:
+    print("QUEUE_ERR", type(e).__name__, e)
+try:
+    size, lines = tail(os.path.join(ws, "runtime-input-status.jsonl"), 6 * 1024 * 1024)
+    rows = []
+    for ln in lines:
+        try: rows.append(json.loads(ln.replace(b"\x00", b"").decode("utf-8")))
+        except Exception: pass
+    print("STATUS_SIZE", size, "rows_in_tail", len(rows), "keys", sorted(rows[-1].keys()) if rows else None)
+    for r in rows[-200:]:
+        d = r.get("data") if isinstance(r.get("data"), dict) else {}
+        print("SROW", r.get("request_id"), r.get("status"), r.get("updated_at"), "reason", str(r.get("reason") or "")[:110],
+              "epoch", str(d.get("child_epoch") or "")[:12], "attempt", str(d.get("attempt_id") or "")[:8], "batch", d.get("batch_ids"),
+              "itrans", d.get("input_transport"), "data_keys", sorted(d.keys()))
+except Exception as e:
+    print("STATUS_ERR", type(e).__name__, e)
+try:
+    size, lines = tail(os.path.join(ws, "event-acks.jsonl"), 3 * 1024 * 1024)
+    rows = []
+    for ln in lines:
+        try: rows.append(json.loads(ln.replace(b"\x00", b"").decode("utf-8")))
+        except Exception: pass
+    print("ACKS_SIZE", size, "rows_in_tail", len(rows))
+    for r in rows[-40:]:
+        qa = r.get("queued_ack") or {}; ia = r.get("injected_ack") or {}
+        print("AROW", "eid", str(r.get("event_id"))[:40], "stream", r.get("stream_id"), "req", r.get("request_id"), "outcome", r.get("outcome"), "recv", r.get("received_at"),
+              "queued", r.get("queued_at"), "injected", r.get("injected_at"), "sess", r.get("session_status"), "qack", qa.get("status"), qa.get("sent_at"), "iack", ia.get("status") if isinstance(ia, dict) else ia, (ia or {}).get("sent_at") if isinstance(ia, dict) else None)
+except Exception as e:
+    print("ACKS_ERR", type(e).__name__, e)
+inst = os.path.join(cfg, "router-instances", "9397-4d48ef23cb8e")
+for name in ("compaction-admission.json", "compaction-scope.json", "router-activity.json", "context-usage.json"):
+    try:
+        with bopen(os.path.join(inst, name)) as fh: v = json.loads(fh.read().decode("utf-8"))
+        print("INST_STATE", name, json.dumps(v)[:700])
+    except Exception as e:
+        print("INST_STATE_ERR", name, type(e).__name__, e)
+try:
+    size, lines = tail(os.path.join(inst, "router.log"), 3 * 1024 * 1024)
+    keep = [ln for ln in lines if any(k in ln for k in (b"channel_", b"event", b"receiver", b"sse", b"compaction", b"admission", b"inject"))]
+    print("ROUTER_LOG_SIZE", size, "matching", len(keep), "last_matching_ts", keep[-1][:19] if keep else None)
+    dated = [ln for ln in lines if ln[:4] == b"2026"]
+    print("ROUTER_LOG_DATED_LINES", len(dated), "first", dated[0][:19] if dated else None, "last", dated[-1][:19] if dated else None)
+    for ln in dated[-25:]:
+        print("LOGTAIL", ln.decode("utf-8", "replace").rstrip()[:200])
+except Exception as e:
+    print("LOG_ERR", type(e).__name__, e)
+print("REMOTE_END %.3f" % time.time())

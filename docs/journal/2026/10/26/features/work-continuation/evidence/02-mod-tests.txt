@@ -1,0 +1,79 @@
+claude: 2.1.310 (Claude Code)
+== plugin validate --strict
+Validating plugin manifest: C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\claude_mods\ciel-work\.claude-plugin\plugin.json
+
+  > types ./types/index.d.ts declares on $: nothing (no EngineInterface member)
+  > types ./types/index.d.ts declares state: ciel-work.detail
+
+Validating hooks: C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\claude_mods\ciel-work\hooks\hooks.json
+
+  > ./register.js hooks: session.start, classic.Stop, prompt.submit, command.run{command=work-mode}, tool.call, tool.check, session.end, ui.render{component=AbovePrompt}, ui.render{component=Pane, requestId=work-details}, ui.render{component=SessionMode}
+  > ./register.js answers its own command: command.run{command=work-mode}
+  > ./register.js gating hook without .catch: classic.Stop
+  > ./register.js gating hook without .catch: prompt.submit
+  > ./register.js gating hook without .catch: tool.call
+  > ./register.js gating hook without .catch: tool.check
+  > ./register.js calls: $.clock.after (via retryStart), $.command.register, $.mcp.call (via moveRoot, openDetails, planText, refresh), $.session.id (via sessionId), $.state.get, $.state.set, $.ui.ask, $.ui.close, $.ui.invalidate (via refresh), $.ui.log (via notice), $.ui.open (via openDetails), $.ui.resolve, $.ui.toast
+  > ./register.js state writes: ciel-work.detail
+  > ./register.js state reads: ciel-work.detail
+
+Plugin directory checks for C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\claude_mods\ciel-work. The plugin directory is the catalog that plugins are submitted to; this is a subset of what it runs.
+
+‼ Found 1 plugin directory warning:
+
+  > .claude-plugin/plugin.json icon: No icon (ICON_MISSING). No icon found in the plugin. The validator looked for `icon` in plugin.json and for a file at .claude-plugin/icon.png or .svg, assets/icon.png or .svg, or a similar path.
+    Fix: Add a square PNG to the plugin folder at .claude-plugin/icon.png, or set `icon` in plugin.json to the path of a square PNG or JPEG in the plugin: 512 to 2048 px on each side, under 2 MB. SVG and WebP are not accepted. That file may become the listing icon only once: the first time the plugin is saved or submitted in the developer portal. Adding or changing it later does not change the icon.
+
+About these checks:
+
+  > The repository root was taken to be C:\Users\djlov\ciel-runtime-wt-work, the nearest parent folder with a .git folder or file. README.md and LICENSE were taken from it, because this plugin folder has none of its own. For a plugin submitted from a git repository, the repository root is the top folder of that repository, with only what is committed there, so check that the folder named above is that top folder.
+  > hooks/hooks.json names a hooks module (a code file listed under `modules`). The plugin directory has rules of its own for such code, and these checks apply none of them, so passing here does not mean the directory accepts the plugin. The developer portal's own validation applies those rules.
+
+These plugin directory checks do not change the result below.
+
+The directory also runs a safety scan and a policy review that this command does not.
+
+√ Validation passed
+exit=0
+== plugin test
+
+tests\work.test.ts:
+(pass) immediate command, router tree, bounded prompt context [69.59ms]
+(pass) planning denies all known writes including subagents; live phase refresh [36.96ms]
+(pass) shells use engine read-only flag and disabled state clears guards [44.72ms]
+(pass) unavailable and malformed status fail closed but reads pass [32.98ms]
+(pass) auto strips forged confirmation and refreshes after result [28.77ms]
+(pass) ask: Approve [35.67ms]
+(pass) ask: Keep planning [27.89ms]
+(pass) ask: Other [29.82ms]
+(pass) approval rejects changed plan [45.09ms]
+(pass) SessionMode planning, progress, off and unavailable are read-only renders [44.36ms]
+(pass) unavailable shell and execute fail closed; missing approval tree cannot execute [22.38ms]
+(pass) every Work result refreshes; another server is not treated as Work [42.23ms]
+(pass) conversation changes isolate every router read and override forged tool session ids [28.67ms]
+(pass) approval rejects a conversation switch even when plan counters match [27.13ms]
+(pass) normal Stop continues, unchanged plan is bounded, progress and user input reset it [48.68ms]
+(pass) Stop guard {"enabled":false} [23.28ms]
+(pass) Stop guard {"auto_continue":false} [28.31ms]
+(pass) Stop guard {"continuation":{"actionable":0}} [29.91ms]
+(pass) Stop guard {"phase":"planning","approval":"ask","ready":true} [21.80ms]
+(pass) Stop excludes background tasks, child threads, other conversations and offline [21.57ms]
+(pass) auto planning continues decomposition but never crosses an approval boundary [26.03ms]
+(pass) three levels display linked ids, waits, urgent holds and green done checks [45.45ms]
+(pass) root move buttons pin version, identity and explicit user request [36.57ms]
+(pass) compact footer and vertical branch buttons [33.88ms]
+(pass) branch press opens read-only details with notes and evidence, nested node and parent [51.15ms]
+(pass) detail state is hidden after version or conversation changes and offline [46.67ms]
+(pass) interactive start logs one person-facing notice; -p and off do not [84.36ms]
+(pass) a router still connecting at start is read again; band and notice follow once it answers [105.81ms]
+(pass) start retries stop after a bounded window, on a new session start and when Work is off [33.15ms]
+(pass) planning denial explains itself and toasts once per plan version [24.89ms]
+(pass) help, readable bare command and raw status [41.35ms]
+(pass) band shows a hint while no plan exists and the phase once one does [44.64ms]
+(pass) triage guidance reaches the model; queue shows in band and summary without becoming focusable [51.89ms]
+(pass) survey yields, disabled hides, long branch list retains every item [32.94ms]
+
+ 34 pass
+ 0 fail
+Ran 34 tests across 1 file. [1.57s]
+exit=0

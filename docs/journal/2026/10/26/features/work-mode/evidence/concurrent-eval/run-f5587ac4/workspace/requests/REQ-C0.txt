@@ -1,0 +1,3 @@
+source: channel=eval:C from=coding-evaluator id=2 thread=work-eval-C
+
+REQ-C0: Third independent problem C arrived; keep A and B. Implement ledger.py, standard library only. Expose reconcile(chunks) where chunks is an iterable of arbitrary string fragments of one CSV document. Header id,account,amount; RFC4180 quoting including newline inside quoted account; arbitrary fragment boundaries including inside CRLF and quotes. Return dict account -> Decimal exact sum of amounts; support negative and zero, never use float. Blank rows ignored. Missing/empty id, account or invalid finite decimal raise ValueError. Empty input returns {}. Amount NaN/Infinity rejected. Add tests and add separate C plan branch. No B scheduler priority in C.

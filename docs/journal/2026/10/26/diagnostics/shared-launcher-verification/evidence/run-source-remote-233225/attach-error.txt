@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\diagnostics\shared-launcher-verification\evidence\console_watch.py", line 67, in <module>
+    console = Console(pid)
+              ^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\16\features\cielairouter-direct-path\evidence\e2e\console_driver.py", line 54, in __init__
+    raise OSError(f"AttachConsole({pid}) failed: {ctypes.get_last_error()}")
+OSError: AttachConsole(51844) failed: 5

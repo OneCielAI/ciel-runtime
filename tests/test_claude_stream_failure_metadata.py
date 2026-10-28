@@ -234,6 +234,35 @@ class StreamFailureMetadataTests(unittest.TestCase):
         self.assertEqual("error", names[-1], names)
         self.assertEqual(1, names.count("error"), names)
 
+    def relay_with_model_observer(self, observer):
+        handler = GuardedHandler()
+        upstream = ScriptedUpstream(message_start() + text_start() + text_delta("done") + block_stop()
+                                    + message_delta() + message_stop())
+        with mock.patch.dict(os.environ, {"CIEL_RUNTIME_ANTHROPIC_STREAM_KEEPALIVE_SECONDS": "0"}), mock.patch.object(
+            ciel_runtime, "router_log"
+        ) as router_log:
+            services = ciel_runtime._RESPONSE_STREAM_API.context().anthropic_stream_services()
+            options = {"stream_model_observer": observer} if observer is not None else {}
+            streaming_anthropic.rebatch_anthropic_sse_text(
+                handler, upstream, "claude-test", word_chunking=False, provider="cielairouter",
+                source_body={"messages": [{"role": "user", "content": "hi"}]}, services=services, **options)
+        logs = [(str(call.args[0]), str(call.args[1])) for call in router_log.call_args_list if len(call.args) > 1]
+        return handler.wfile.getvalue(), logs
+
+    def test_stream_model_observer_receives_answering_model_without_changing_bytes(self):
+        seen: list[str] = []
+        observed, _logs = self.relay_with_model_observer(seen.append)
+        self.assertEqual(["claude-test"], seen)
+        unobserved, _logs = self.relay_with_model_observer(None)
+        self.assertEqual(unobserved, observed)
+
+        def broken(_model):
+            raise RuntimeError("observer failure")
+
+        failed, logs = self.relay_with_model_observer(broken)
+        self.assertEqual(unobserved, failed)
+        self.assertIn(("WARN", "anthropic_stream_model_observer_failed error=RuntimeError"), logs)
+
     def test_text_only_eof_reports_confirmed_incomplete_without_tool_exposure(self):
         report, raw, _handler = self.single_report(
             lambda: ScriptedUpstream(message_start() + text_start() + text_delta(SECRET_TEXT))

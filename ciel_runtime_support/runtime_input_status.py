@@ -32,6 +32,45 @@ _HISTORY_COMPACT_BYTES = 4 * 1024 * 1024
 _HISTORY_COMPACT_RETRY_SECONDS = 60.0
 
 
+# Highest recorded request id per history file: (file identity, scanned bytes, id).
+_RECORDED_MAX: dict[str, tuple[tuple[int, int], int, int]] = {}
+_RECORDED_MAX_LOCK = threading.Lock()
+
+
+def recorded_max_request_id(path: Path) -> int:
+    """Highest request id the status history at ``path`` has recorded; 0 if none.
+
+    The input queue allocates above it: a queue row lost in an unclean
+    shutdown keeps its terminal status here, and an input that reused its id
+    was skipped as already replied (2026-10-26, ids 14877-14907). Read-only and
+    without the repository lock; appends are scanned incrementally and a
+    compaction, which replaces the file, starts a new scan.
+    """
+    key = str(Path(path).absolute())
+    with _RECORDED_MAX_LOCK:
+        try:
+            stat = os.stat(path)
+        except FileNotFoundError:
+            _RECORDED_MAX.pop(key, None)
+            return 0
+        identity = (stat.st_dev, stat.st_ino)
+        cached_identity, offset, highest = _RECORDED_MAX.get(key, ((0, 0), 0, 0))
+        if cached_identity != identity or stat.st_size < offset:
+            offset, highest = 0, 0
+        with open(path, "rb") as stream:
+            stream.seek(offset)
+            for raw in stream:
+                if not raw.endswith(b"\n"):
+                    break  # an unfinished append; read it again next time
+                offset += len(raw)
+                try:
+                    highest = max(highest, int(_decode_history_row(raw.lstrip(b"\x00"))["request_id"]))
+                except (ValueError, TypeError, RecursionError):
+                    continue
+        _RECORDED_MAX[key] = (identity, offset, highest)
+        return highest
+
+
 class _HistoryDecodeFailure(ValueError):
     pass
 
@@ -289,6 +328,21 @@ class RuntimeInputStatusRepository:
                 raise RuntimeError("wake ownership persistence uncertain") from exc
             raise
         return attempt_id
+
+    def defer_unsubmitted(self, request_id: int, attempt_id: str) -> bool:
+        """Release an exact attempt only when its transport proved no write."""
+        with self.lock, exclusive_file_lock(self.path):
+            row = self.get(request_id, _locked=True) or {}
+            data = dict(row.get("data") or {})
+            if row.get("status") != "submitted" or data.get("attempt_id") != attempt_id:
+                return False
+            for key in ("attempt_id", "child_epoch", "batch_ids"):
+                data.pop(key, None)
+            record = self._record(request_id, "queued", "native_handoff_pending", data)
+        self.publish_event(level="info", category="runtime_input.status",
+                           message="runtime input queued", source="runtime-input",
+                           request_id=str(request_id), data=record)
+        return True
 
     def reconcile_child_exit(self, child_epoch: str, *, verified_exit: bool) -> list[int]:
         """Quarantine only attempts owned by a child whose exit was verified.

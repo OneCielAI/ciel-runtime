@@ -1,0 +1,13 @@
+idle_retry first=retry_wait admission=paused retry=queued scope=exact checkpoint+shrink=verified
+test_automatic_failure_and_restart_spend_same_bounded_budget (test_compact_idle_retry.CompactIdleRetryTests.test_automatic_failure_and_restart_spend_same_bounded_budget) ... ok
+test_failure_before_current_dispatch_is_not_replayed (test_compact_idle_retry.CompactIdleRetryTests.test_failure_before_current_dispatch_is_not_replayed) ... ok
+test_failure_scope_and_verdict_are_strict (test_compact_idle_retry.CompactIdleRetryTests.test_failure_scope_and_verdict_are_strict) ... ok
+test_manual_timeout_retries_without_releasing_admission (test_compact_idle_retry.CompactIdleRetryTests.test_manual_timeout_retries_without_releasing_admission) ... ok
+test_newer_checkpoint_wins_over_failure (test_compact_idle_retry.CompactIdleRetryTests.test_newer_checkpoint_wins_over_failure) ... ok
+test_no_native_failure_never_retries_uncertain_timeout (test_compact_idle_retry.CompactIdleRetryTests.test_no_native_failure_never_retries_uncertain_timeout) ... ok
+test_stale_failure_cannot_cancel_manual_retry (test_compact_idle_retry.CompactIdleRetryTests.test_stale_failure_cannot_cancel_manual_retry) ... ok
+
+----------------------------------------------------------------------
+Ran 7 tests in 0.196s
+
+OK

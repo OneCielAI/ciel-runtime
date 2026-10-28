@@ -1,0 +1,283 @@
+{
+ "enabled": true,
+ "phase": "planning",
+ "approval": "auto",
+ "version": 9,
+ "active_root": {
+  "id": "n7",
+  "title": "3. AAAA second",
+  "status": "done",
+  "ref": "",
+  "waiting_on": "",
+  "urgent": false,
+  "phase": "planning"
+ },
+ "continuation": {
+  "actionable": 0,
+  "next": null,
+  "waiting": [],
+  "blocked": 0,
+  "held": 1
+ },
+ "focus": {
+  "node_ids": [
+   "n4",
+   "n7"
+  ],
+  "exhausted": true
+ },
+ "done": 1,
+ "total": 1,
+ "attention": {
+  "waiting": 0,
+  "blocked": 0
+ },
+ "next": null,
+ "breakdown": [
+  {
+   "id": "n8",
+   "title": "Phase",
+   "status": "done",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "done": 1,
+   "total": 1,
+   "children": [
+    {
+     "id": "n9",
+     "title": "AAAA second leaf",
+     "status": "done",
+     "ref": "",
+     "waiting_on": "",
+     "urgent": false,
+     "hidden": {
+      "waiting": 0,
+      "blocked": 0
+     }
+    }
+   ],
+   "more": 0,
+   "more_attention": {
+    "waiting": 0,
+    "blocked": 0
+   }
+  }
+ ],
+ "root_index": [
+  {
+   "id": "n4",
+   "title": "2. AAAA first",
+   "status": "done",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "phase": "planning",
+   "held": false
+  },
+  {
+   "id": "n7",
+   "title": "3. AAAA second",
+   "status": "done",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "phase": "planning",
+   "held": false
+  },
+  {
+   "id": "n1",
+   "title": "1. Other existing work",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "phase": "executing",
+   "held": true
+  }
+ ],
+ "completed_active": [
+  {
+   "id": "n8",
+   "title": "Phase",
+   "status": "done",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false
+  },
+  {
+   "id": "n9",
+   "title": "AAAA second leaf",
+   "status": "done",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false
+  }
+ ],
+ "ready": false,
+ "ready_reason": "every step of the active goal is already done; start a new goal or select a queued one",
+ "goals": 3,
+ "queue": [
+  {
+   "id": "n1",
+   "title": "1. Other existing work",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "phase": "executing",
+   "done": 0,
+   "total": 1,
+   "held": true
+  }
+ ],
+ "ok": true,
+ "schema_version": 1,
+ "session_id": "claude:7f63db66-fc1c-4ffa-9f26-e76c626faab1",
+ "updated_at": 1793118082.7671344,
+ "nodes": [
+  {
+   "id": "n4",
+   "parent_id": null,
+   "title": "2. AAAA first",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793118081.7115626,
+   "phase": "planning"
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "Phase",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793118080.2089443
+  },
+  {
+   "id": "n3",
+   "parent_id": "n2",
+   "title": "Other leaf",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793118080.2089443
+  },
+  {
+   "id": "n7",
+   "parent_id": null,
+   "title": "3. AAAA second",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793118082.7671344,
+   "phase": "planning"
+  },
+  {
+   "id": "n5",
+   "parent_id": "n4",
+   "title": "Phase",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793118081.7115626
+  },
+  {
+   "id": "n6",
+   "parent_id": "n5",
+   "title": "AAAA first leaf",
+   "status": "done",
+   "note": "",
+   "evidence": "Owned AAAA first file verified by driver",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793118081.7115626
+  },
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "1. Other existing work",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793118080.2089443,
+   "phase": "executing"
+  },
+  {
+   "id": "n8",
+   "parent_id": "n7",
+   "title": "Phase",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793118082.7671344
+  },
+  {
+   "id": "n9",
+   "parent_id": "n8",
+   "title": "AAAA second leaf",
+   "status": "done",
+   "note": "",
+   "evidence": "Owned AAAA second file verified by driver",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793118082.7671344
+  }
+ ],
+ "active_root_id": "n7",
+ "root_ids": [
+  "n4",
+  "n7",
+  "n1"
+ ],
+ "queue_ids": [
+  "n1"
+ ],
+ "auto_continue": true,
+ "runtime": {
+  "ciel_runtime": {
+   "version": "0.2.51",
+   "source_fingerprint": "59743d83f45331de",
+   "instance_id": "54162-ecd45b7c4405"
+  },
+  "session_id": "claude:7f63db66-fc1c-4ffa-9f26-e76c626faab1",
+  "runtime": "claude",
+  "configured": {
+   "provider": "cielairouter",
+   "model": "fake-work",
+   "alias": "ciel-runtime-cielairouter-fake-work",
+   "source": "configuration"
+  },
+  "epoch": null,
+  "in_flight": [],
+  "last_observed": null,
+  "last_error": null,
+  "observation_status": "unavailable",
+  "errors": []
+ },
+ "events": "/ca/work/events"
+}

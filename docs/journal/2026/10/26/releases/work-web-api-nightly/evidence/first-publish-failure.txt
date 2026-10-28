@@ -1,0 +1,106 @@
+publish	Run npm test	ï»¿2026-10-27T00:46:10.0751557Z ##[group]Run npm test
+publish	Run npm test	2026-10-27T00:46:10.0751844Z [36;1mnpm test[0m
+publish	Run npm test	2026-10-27T00:46:10.0814950Z shell: /usr/bin/bash -e {0}
+publish	Run npm test	2026-10-27T00:46:10.0815233Z env:
+publish	Run npm test	2026-10-27T00:46:10.0815529Z   pythonLocation: /opt/hostedtoolcache/Python/3.11.17/x64
+publish	Run npm test	2026-10-27T00:46:10.0816030Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.11.17/x64/lib/pkgconfig
+publish	Run npm test	2026-10-27T00:46:10.0816523Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.17/x64
+publish	Run npm test	2026-10-27T00:46:10.0816973Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.17/x64
+publish	Run npm test	2026-10-27T00:46:10.0817412Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.11.17/x64
+publish	Run npm test	2026-10-27T00:46:10.0817859Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.11.17/x64/lib
+publish	Run npm test	2026-10-27T00:46:10.0818289Z   NPM_CONFIG_USERCONFIG: /home/runner/work/_temp/.npmrc
+publish	Run npm test	2026-10-27T00:46:10.0818684Z   NODE_AUTH_TOKEN: XXXXX-XXXXX-XXXXX-XXXXX
+publish	Run npm test	2026-10-27T00:46:10.0818991Z ##[endgroup]
+publish	Run npm test	2026-10-27T00:46:10.1988476Z 
+publish	Run npm test	2026-10-27T00:46:10.1989146Z > @one-ciel-ai/ciel-runtime@0.2.51 test
+publish	Run npm test	2026-10-27T00:46:10.1991524Z > python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts && python scripts/run_test_group.py unit && python scripts/run_test_group.py router && python scripts/run_test_group.py channel && python scripts/run_test_group.py runtime
+publish	Run npm test	2026-10-27T00:46:10.1993337Z 
+publish	Run npm test	2026-10-27T00:46:13.7682261Z Running unit test group (238 files)
+publish	Run npm test	2026-10-27T00:47:33.1759207Z [?25h[?25hcompact_owned_transport checkpoint=1 socket_frames=2 http_requests=1 status=200 replay=0
+publish	Run npm test	2026-10-27T00:47:33.1760661Z socket_resume disconnected_calls=3 retry_calls=3 reused=3 final_upstream=1
+publish	Run npm test	2026-10-27T00:47:33.1762274Z Ciel Runtime: restarting Claude Code source=test reason=restart
+publish	Run npm test	2026-10-27T00:47:35.9806914Z ..............................F................s..sss.......s.ss......sssssssss..............ss...s....s..s.......s.............s..s..............s.ssssssssssss...........................ss..................................................................................s.ss.....................................................................................................................................................................................................................usage: ciel-runtimectl copilot-oauth [-h] [{login,status,logout}]
+publish	Run npm test	2026-10-27T00:47:35.9811569Z ciel-runtimectl copilot-oauth: error: argument action: invalid choice: 'import' (choose from 'login', 'status', 'logout')
+publish	Run npm test	2026-10-27T00:47:51.1702725Z [?25hnative Messages 400 -> 200: upstream_hits=2 max_tokens=400->300 recovery_retries=0 client_responses=1
+publish	Run npm test	2026-10-27T00:47:51.1704352Z native Messages 400 -> 503: upstream_hits=2 max_tokens=400->300 recovery_retries=0 client_responses=1
+publish	Run npm test	2026-10-27T00:47:51.1705880Z native Messages 400 -> 400: upstream_hits=2 max_tokens=400->300 recovery_retries=0 client_responses=1
+publish	Run npm test	2026-10-27T00:47:51.1707627Z Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+publish	Run npm test	2026-10-27T00:47:51.1771144Z Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+publish	Run npm test	2026-10-27T00:47:51.1837144Z ................s..........Could not inspect Codex MCP configuration; skipping native web MCP overrides
+publish	Run npm test	2026-10-27T00:47:51.1842332Z Launching Codex App Server through Ciel Runtime.
+publish	Run npm test	2026-10-27T00:47:51.1843165Z Codex App Server listen: ws://127.0.0.1:8899
+publish	Run npm test	2026-10-27T00:47:51.1844247Z Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+publish	Run npm test	2026-10-27T00:47:51.1845332Z HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+publish	Run npm test	2026-10-27T00:47:51.1846174Z HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+publish	Run npm test	2026-10-27T00:47:51.4430116Z Launching Codex App Server through Ciel Runtime.
+publish	Run npm test	2026-10-27T00:47:51.4431783Z Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+publish	Run npm test	2026-10-27T00:47:51.4433779Z Codex App Server listen: ws://127.0.0.1:8899
+publish	Run npm test	2026-10-27T00:47:51.4434835Z Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+publish	Run npm test	2026-10-27T00:47:51.4435937Z HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+publish	Run npm test	2026-10-27T00:47:51.4436834Z HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+publish	Run npm test	2026-10-27T00:48:12.7359463Z real_http_config: disabled -> reconnect_rejected409 -> enabled -> event_received; single_worker=true
+publish	Run npm test	2026-10-27T00:48:12.7361026Z real_http_control: connected -> reconnect -> cursor_resume -> gateway_queue=2; single_worker=true
+publish	Run npm test	2026-10-27T00:48:12.7362829Z real_http_policy: workspace_mismatch rejected; external_identity missing_token=403; valid_token=status_ok
+publish	Run npm test	2026-10-27T00:48:12.7364525Z Compaction recovery  [awaiting_shrink ; reason shrink_unconfirmed ; checkpoint observed 100 ; failure at 200]
+publish	Run npm test	2026-10-27T00:48:12.7366579Z spawned_compact_environment {'CLAUDE_CODE_MAX_CONTEXT_TOKENS': '872000', 'CLAUDE_CODE_AUTO_COMPACT_WINDOW': '837120', 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE': None}
+publish	Run npm test	2026-10-27T00:48:12.7368714Z measured_safeguard usage=19000 capacity=20000 threshold=90 tool_deferred=1 turn_deferred=1 compact_writes=1
+publish	Run npm test	2026-10-27T00:48:27.6836900Z [?25h[?25hcontention scan_lock_held=0 concurrent_writer=success stale_commit=rejected
+publish	Run npm test	2026-10-27T00:48:27.6837657Z state_race failures=0 leftover_tmp=0
+publish	Run npm test	2026-10-27T00:48:27.6838348Z full_binding slow_scan=unlocked seed=available scope=available admission=available
+publish	Run npm test	2026-10-27T00:48:27.6840647Z HTTP SSE captured: {"id": 1, "time": "2026-10-27T00:48:25+00:00", "ts": 1793062105.9466214, "level": "error", "source": "router-response", "category": "runtime.error", "session_id": "", "request_id": "request-test", "provider": "", "model": "", "message": "upstream unavailable", "data": {"phase": "error", "kind": "output.error"}}
+publish	Run npm test	2026-10-27T00:48:27.6844882Z Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+publish	Run npm test	2026-10-27T00:48:27.6855185Z Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=mcp
+publish	Run npm test	2026-10-27T00:48:27.6864634Z Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+publish	Run npm test	2026-10-27T00:48:27.6975688Z Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+publish	Run npm test	2026-10-27T00:48:27.7107894Z Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+publish	Run npm test	2026-10-27T00:48:27.7161222Z Ciel Runtime: restarting Codex source=cli reason=deploy
+publish	Run npm test	2026-10-27T00:48:27.7180873Z Ciel Runtime: restarting Claude Code source=mcp reason=deploy
+publish	Run npm test	2026-10-27T00:48:27.7265250Z Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+publish	Run npm test	2026-10-27T00:48:27.7281469Z Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+publish	Run npm test	2026-10-27T00:48:27.7297663Z Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+publish	Run npm test	2026-10-27T00:48:27.7327437Z Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+publish	Run npm test	2026-10-27T00:48:27.7446917Z Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+publish	Run npm test	2026-10-27T00:48:27.7485926Z Ciel Runtime: restarting Codex app-server and TUI source=ciel-runtime-router-tool reason=deploy thread=(new)
+publish	Run npm test	2026-10-27T00:48:27.7509090Z Ciel Runtime: restarting Codex app-server and TUI source=ciel-runtime-router-tool reason=deploy thread=01a0-saved
+publish	Run npm test	2026-10-27T00:48:27.7630289Z Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+publish	Run npm test	2026-10-27T00:48:27.7687233Z Ciel Runtime: restarting Codex source=ciel-runtime-router-tool reason=deploy
+publish	Run npm test	2026-10-27T00:48:30.1685851Z ciel-runtime restart-session: queued request_id=r1 client_pid=42 workspace=- resume=false
+publish	Run npm test	2026-10-27T00:48:30.1687795Z ciel-runtime restart-session: no active CLI session is running through ciel-runtime
+publish	Run npm test	2026-10-27T00:48:30.1689728Z ciel-runtime restart-session: multiple CLI sessions are active; select one:
+publish	Run npm test	2026-10-27T00:48:30.1691088Z   --pid 1  workspace=C:/work router_port=9611 started=-
+publish	Run npm test	2026-10-27T00:48:30.1692390Z   --pid 2  workspace=C:/work router_port=9611 started=-
+publish	Run npm test	2026-10-27T00:48:30.1693875Z ciel-runtime restart-session: queued request_id=r1 client_pid=50788 workspace=C:/work resume=true
+publish	Run npm test	2026-10-27T00:48:30.1695502Z ciel-runtime restart-session: client pid 99 is not an active CLI session
+publish	Run npm test	2026-10-27T00:48:30.1697089Z ciel-runtime restart-session: queued request_id=r1 client_pid=7 workspace=- resume=true
+publish	Run npm test	2026-10-27T00:48:30.1698510Z Ciel Runtime: backing up the session (pre-restart)...
+publish	Run npm test	2026-10-27T00:48:30.1699512Z Ciel Runtime: session backup x saved
+publish	Run npm test	2026-10-27T00:49:04.2354845Z ........................................................................................................................................s.........................................................................................................................................................................................................................................................................................................................................................................................................................................................sss..s................................s..........................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................F........................................................................................................................................................................................................................................................................................................................................................................................................................................................ss.s..........................................................................................................................s.....................................................................................................................................................................................................................................s.................................................s............................................sss............................................s..................................................................................................................................................................
+publish	Run npm test	2026-10-27T00:49:04.2361340Z ======================================================================
+publish	Run npm test	2026-10-27T00:49:04.2362735Z FAIL: test_no_file_exceeds_its_current_budget (test_architecture_budget.ArchitectureBudgetTests.test_no_file_exceeds_its_current_budget)
+publish	Run npm test	2026-10-27T00:49:04.2363509Z ----------------------------------------------------------------------
+publish	Run npm test	2026-10-27T00:49:04.2363920Z Traceback (most recent call last):
+publish	Run npm test	2026-10-27T00:49:04.2364654Z   File "/home/runner/work/ciel-runtime/ciel-runtime/tests/test_architecture_budget.py", line 18, in test_no_file_exceeds_its_current_budget
+publish	Run npm test	2026-10-27T00:49:04.2365428Z     self.assertEqual((), architecture_budget_violations(root))
+publish	Run npm test	2026-10-27T00:49:04.2366068Z AssertionError: Tuples differ: () != ('ciel_runtime.py has 5032 lines; ratchet budget is 4980',)
+publish	Run npm test	2026-10-27T00:49:04.2366445Z 
+publish	Run npm test	2026-10-27T00:49:04.2366631Z Second tuple contains 1 additional elements.
+publish	Run npm test	2026-10-27T00:49:04.2367161Z First extra element 0:
+publish	Run npm test	2026-10-27T00:49:04.2367518Z 'ciel_runtime.py has 5032 lines; ratchet budget is 4980'
+publish	Run npm test	2026-10-27T00:49:04.2367764Z 
+publish	Run npm test	2026-10-27T00:49:04.2367847Z - ()
+publish	Run npm test	2026-10-27T00:49:04.2368171Z + ('ciel_runtime.py has 5032 lines; ratchet budget is 4980',)
+publish	Run npm test	2026-10-27T00:49:04.2368425Z 
+publish	Run npm test	2026-10-27T00:49:04.2368618Z ======================================================================
+publish	Run npm test	2026-10-27T00:49:04.2369552Z FAIL: test_facade_ports_share_one_binding_without_live_launch (test_runtime_compaction_binding.FacadeWiringTests.test_facade_ports_share_one_binding_without_live_launch)
+publish	Run npm test	2026-10-27T00:49:04.2370393Z ----------------------------------------------------------------------
+publish	Run npm test	2026-10-27T00:49:04.2370783Z Traceback (most recent call last):
+publish	Run npm test	2026-10-27T00:49:04.2371581Z   File "/home/runner/work/ciel-runtime/ciel-runtime/tests/test_runtime_compaction_binding.py", line 342, in test_facade_ports_share_one_binding_without_live_launch
+publish	Run npm test	2026-10-27T00:49:04.2373075Z     self.assertLessEqual(len(Path(runtime.__file__).read_text(encoding="utf-8").splitlines()), 4980)
+publish	Run npm test	2026-10-27T00:49:04.2373811Z AssertionError: 5032 not less than or equal to 4980
+publish	Run npm test	2026-10-27T00:49:04.2374046Z 
+publish	Run npm test	2026-10-27T00:49:04.2374267Z ----------------------------------------------------------------------
+publish	Run npm test	2026-10-27T00:49:04.2374625Z Ran 2836 tests in 170.466s
+publish	Run npm test	2026-10-27T00:49:04.2374779Z 
+publish	Run npm test	2026-10-27T00:49:04.2374920Z FAILED (failures=2, skipped=59)
+publish	Run npm test	2026-10-27T00:49:04.2375442Z loopback_stall elapsed=0.151s socket_timeout=0.150s opens=1 retries=0 handled=True
+publish	Run npm test	2026-10-27T00:49:04.3711186Z ##[error]Process completed with exit code 1.

@@ -1,0 +1,121 @@
+{
+ "schema": 1,
+ "version": 4,
+ "phase": "executing",
+ "active_root": "n1",
+ "next_id": 10,
+ "nodes": [
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "1. Other existing work",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793117283.6475983,
+   "phase": "executing"
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "Phase",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793117283.6475983
+  },
+  {
+   "id": "n3",
+   "parent_id": "n2",
+   "title": "Other leaf",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793117283.6475983
+  },
+  {
+   "id": "n4",
+   "parent_id": null,
+   "title": "2. AAAA first",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793117284.0724258,
+   "phase": "planning"
+  },
+  {
+   "id": "n5",
+   "parent_id": "n4",
+   "title": "Phase",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793117284.0724258
+  },
+  {
+   "id": "n6",
+   "parent_id": "n5",
+   "title": "AAAA first leaf",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793117284.0724258
+  },
+  {
+   "id": "n7",
+   "parent_id": null,
+   "title": "3. AAAA second",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793117284.2677965,
+   "phase": "planning"
+  },
+  {
+   "id": "n8",
+   "parent_id": "n7",
+   "title": "Phase",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793117284.2677965
+  },
+  {
+   "id": "n9",
+   "parent_id": "n8",
+   "title": "AAAA second leaf",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793117284.2677965
+  }
+ ],
+ "updated_at": 1793117284.2677965
+}

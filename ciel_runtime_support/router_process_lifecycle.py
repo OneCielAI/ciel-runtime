@@ -234,8 +234,13 @@ def start_router_if_needed(
     environment["CIEL_RUNTIME_ROUTER_OWNER_PID"] = str(spawn.process_id())
     environment["CIEL_RUNTIME_LAUNCH_CWD"] = str(Path.cwd())
     environment["CIEL_RUNTIME_ROUTER_PORT"] = str(config.router_port)
+    provenance = (
+        f"version={identity.version} source={identity.source_fingerprint} "
+        f"executable={executable} entrypoint={entrypoint} log_path={log_path}"
+    )
+    state.log("INFO", f"router_spawn_start base={config.router_base} {provenance}")
     with log_path.open("ab", buffering=0) as log:
-        spawn.popen(
+        child = spawn.popen(
             command,
             stdin=subprocess.DEVNULL,
             stdout=log,
@@ -250,7 +255,16 @@ def start_router_if_needed(
             state.log("INFO", f"router_spawned running=True base={config.router_base} elapsed={spawn.now()-started_at:.1f}s")
             return True
         spawn.sleep(0.5)
-    raise RuntimeError(f"ciel-runtime router did not start. See {log_path}")
+    # Observe only the launch-owned handle. Do not read arbitrary router output
+    # into the error: logs may contain provider responses or credentials.
+    returncode = child.poll()
+    failure = (
+        f"pid={child.pid} exit_code={returncode} "
+        f"state={'child_exited' if returncode is not None else 'health_timeout'} "
+        f"elapsed={spawn.now()-started_at:.1f}s {provenance}"
+    )
+    state.log("ERROR", f"router_spawn_failed {failure}")
+    raise RuntimeError(f"ciel-runtime router did not start ({failure}). See {log_path}")
 
 
 def terminate_pid_file(

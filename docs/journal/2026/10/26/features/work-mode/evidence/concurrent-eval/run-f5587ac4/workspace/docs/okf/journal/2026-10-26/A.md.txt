@@ -1,0 +1,19 @@
+---
+type: Task Journal
+title: Snapshot cache and FIFO capacity
+description: Implementation and verification for A0+A1.
+tags: [evaluation, task-a]
+timestamp: 2026-10-26T00:00:00Z
+---
+
+# Requests
+
+A0+A1; verbatim requests are preserved under workspace `requests/`.
+
+# Implementation
+
+`mvcc_cache.py`. Cache uses a lock, per-key integer versions (including delete/eviction tombstones), staged atomic writes, and creation-time copied snapshot bindings. TTL is inclusive and transaction TTL starts at commit. Capacity is unlimited by default and evicts the oldest inserted live binding; overwrite/get do not refresh order. Transaction operations are applied in call order before eviction.
+
+# Verification
+
+`python -m unittest test_mvcc_cache -v`: 13 tests passed. Full-suite output is captured at workspace `verification/unittest_output.txt`. These are Python library tasks; command output is the runtime evidence (no UI screenshot applies).

@@ -1,0 +1,30 @@
+
+  >_ OpenAI Codex (v0.164.0)
+     C:\Windows\Temp\ciel-owned-alias-om651jdb\ws
+
+
+› E2E-TURN-1 reply briefly
+
+
+• STUB-REPLY-central
+
+  Worked for 1s • 11:36 PM
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+› Ask Codex to do anything
+
+  stub-model (CielAiRouter) medium · C:\Windows\Temp\ciel-owned-alias-om651jdb\ws
+  ? for shortcuts

@@ -4455,6 +4455,36 @@ class ChannelBridgeTests(unittest.TestCase):
                 any("clear_floor_queue_generation_reset" in call.args[1] for call in log.call_args_list)
             )
 
+    def test_runtime_input_after_lost_queue_rows_gets_an_id_no_status_has_recorded(self):
+        """2026-10-26 Walkie: queue rows lost in a crash kept replied statuses; reused ids were skipped."""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            runtime_inputs_path = root / "runtime-inputs.jsonl"
+            runtime_inputs_path.write_bytes(b'{"id":4,"message":"kept"}\n' + b"\x00" * 512 + b"\r\n")
+            status = ciel_runtime.RuntimeInputStatusRepository(
+                root / "runtime-input-status.jsonl", lambda **_event: None, lambda *_args: None,
+                threading.RLock())
+            for request_id in (5, 6, 7):
+                for state in ("queued", "submitted", "replied"):
+                    status.transition(request_id, state)
+            original_next = ciel_runtime._RUNTIME_INPUT_NEXT_ID
+            try:
+                ciel_runtime._RUNTIME_INPUT_NEXT_ID = None
+                with (
+                    mock.patch.object(ciel_runtime, "RUNTIME_INPUTS_PATH", runtime_inputs_path),
+                    mock.patch.object(ciel_runtime._RUNTIME_INPUT_STATUS_REPOSITORY, "path", status.path),
+                    mock.patch.object(ciel_runtime, "router_log") as log,
+                ):
+                    saved = ciel_runtime.append_runtime_input({"channel": "external:default", "message": "new"})
+                    durable = ciel_runtime._CHANNEL_WAKE_DELIVERY_REPOSITORY.admission_status(saved["id"])
+            finally:
+                ciel_runtime._RUNTIME_INPUT_NEXT_ID = original_next
+
+        self.assertEqual(8, saved["id"])
+        self.assertIn(durable, (None, "", "queued"))
+        self.assertTrue(any("chat_message_id_above_issued_floor" in call.args[1] and "next_id=8" in call.args[1]
+                            for call in log.call_args_list))
+
     def test_channel_backlog_count_uses_private_runtime_input_id_domain(self):
         with (
             mock.patch.object(ciel_runtime, "_runtime_input_scan_max_id", return_value=7) as private_tail,

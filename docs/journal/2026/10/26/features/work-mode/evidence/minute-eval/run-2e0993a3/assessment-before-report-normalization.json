@@ -1,0 +1,699 @@
+{
+  "initial_three_specs_read": true,
+  "receipts": {
+    "A1": [
+      {
+        "at": "2026-10-26T13:08:56.917Z",
+        "uuid": "2ae596a5-9b19-4919-b1da-2b1826c23cf6",
+        "delivery_id": "9b6d4407-92ab-4a69-8cd9-9a7955239f32",
+        "full_text": true
+      }
+    ],
+    "B1": [
+      {
+        "at": "2026-10-26T13:09:56.900Z",
+        "uuid": "1be6de4a-ed19-4cce-b0c3-b4bfab2068a1",
+        "delivery_id": "1e0266a4-71a9-477e-a467-eb2245f8d959",
+        "full_text": true
+      }
+    ],
+    "C1": [
+      {
+        "at": "2026-10-26T13:10:56.875Z",
+        "uuid": "94ba8e56-3adf-44a8-8e21-34fa5886bc96",
+        "delivery_id": "ffb92ea4-fd22-4b2d-a6dc-bdf0d3b7c7ed",
+        "full_text": true
+      }
+    ],
+    "A2": [
+      {
+        "at": "2026-10-26T13:11:56.888Z",
+        "uuid": "9d0bcfc2-f98d-4cf3-bb2c-d4b3a1600de7",
+        "delivery_id": "ad0ef666-b3ef-4868-a9f0-f80fa1371f82",
+        "full_text": true
+      }
+    ],
+    "B2": [
+      {
+        "at": "2026-10-26T13:12:56.985Z",
+        "uuid": "3ddd215a-c14f-46c3-843c-73e1d0002837",
+        "delivery_id": "36f9c6d1-0e70-40b5-addc-e236fc863aaa",
+        "full_text": true
+      }
+    ],
+    "C2": [
+      {
+        "at": "2026-10-26T13:13:56.869Z",
+        "uuid": "da2280a3-ff3c-4048-b3b2-d9e254bfd5f4",
+        "delivery_id": "77316cff-f43e-4afb-9da0-d5ce95864b40",
+        "full_text": true
+      }
+    ],
+    "A3": [
+      {
+        "at": "2026-10-26T13:14:56.878Z",
+        "uuid": "b497fe70-6272-4a37-be27-eb2498681c31",
+        "delivery_id": "89bcb63d-f260-4dea-a1c7-c27185f2d0ab",
+        "full_text": true
+      }
+    ],
+    "B3": [
+      {
+        "at": "2026-10-26T13:15:56.595Z",
+        "uuid": "52c2b2fc-ad1b-4c4a-92e6-82f2eb995a99",
+        "delivery_id": "420ae133-e908-4e58-a0d4-c7ef2d2f1868",
+        "full_text": true
+      }
+    ],
+    "C3": [
+      {
+        "at": "2026-10-26T13:16:56.671Z",
+        "uuid": "30b7964c-38c8-4134-909d-22645b36c86c",
+        "delivery_id": "62305d37-666d-45fe-babc-659bbd145cc8",
+        "full_text": true
+      }
+    ],
+    "FINAL": [
+      {
+        "at": "2026-10-26T13:17:04.832Z",
+        "uuid": "dcbe4472-f6f1-4b63-a5c4-0e2cf345d4ed",
+        "delivery_id": "29de1f3d-061a-4cb8-a458-e13711917b9d",
+        "full_text": true
+      }
+    ]
+  },
+  "missing_requests": [],
+  "duplicate_receipts": {},
+  "amendment_count": 9,
+  "amendments_per_task": {
+    "A": 3,
+    "B": 3,
+    "C": 3
+  },
+  "interval_seconds": [
+    60.008403301239014,
+    59.999348878860474,
+    60.0017294883728,
+    60.00218605995178,
+    59.999276876449585,
+    59.99915051460266,
+    60.01009559631348,
+    59.991413831710815
+  ],
+  "max_lateness_seconds": 0.014999999984866008,
+  "observed_active_count": 9,
+  "injection_activity": [
+    {
+      "id": "A1",
+      "at": 1793020136.4338148,
+      "activity_observed": true,
+      "before": {
+        "bytes": 660833,
+        "last_type": "user",
+        "last_tools": [
+          "Bash"
+        ],
+        "timestamp": "2026-10-26T13:08:28.957Z"
+      },
+      "router_activity": {
+        "updated_at": 1793020109.0988352,
+        "time": "2026-10-26T08:08:29",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 32078
+      },
+      "actual_offset_seconds": 60.0,
+      "schedule_lateness_seconds": 0.0
+    },
+    {
+      "id": "B1",
+      "at": 1793020196.442218,
+      "activity_observed": true,
+      "before": {
+        "bytes": 725433,
+        "last_type": "user",
+        "last_tools": [
+          "mcp__ciel-runtime-router__work_node_update"
+        ],
+        "timestamp": "2026-10-26T13:09:37.664Z"
+      },
+      "router_activity": {
+        "updated_at": 1793020190.4808524,
+        "time": "2026-10-26T08:09:50",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 37033
+      },
+      "actual_offset_seconds": 120.01499999998487,
+      "schedule_lateness_seconds": 0.014999999984866008
+    },
+    {
+      "id": "C1",
+      "at": 1793020256.441567,
+      "activity_observed": true,
+      "before": {
+        "bytes": 825772,
+        "last_type": "user",
+        "last_tools": [
+          "Read"
+        ],
+        "timestamp": "2026-10-26T13:10:44.261Z"
+      },
+      "router_activity": {
+        "updated_at": 1793020251.6905453,
+        "time": "2026-10-26T08:10:51",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 43058
+      },
+      "actual_offset_seconds": 180.01499999998487,
+      "schedule_lateness_seconds": 0.014999999984866008
+    },
+    {
+      "id": "A2",
+      "at": 1793020316.4432964,
+      "activity_observed": true,
+      "before": {
+        "bytes": 925315,
+        "last_type": "user",
+        "last_tools": [
+          "Write"
+        ],
+        "timestamp": "2026-10-26T13:11:46.581Z"
+      },
+      "router_activity": {
+        "updated_at": 1793020307.769594,
+        "time": "2026-10-26T08:11:47",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 50147
+      },
+      "actual_offset_seconds": 240.01499999998487,
+      "schedule_lateness_seconds": 0.014999999984866008
+    },
+    {
+      "id": "B2",
+      "at": 1793020376.4454825,
+      "activity_observed": true,
+      "before": {
+        "bytes": 1017255,
+        "last_type": "user",
+        "last_tools": [
+          "Read"
+        ],
+        "timestamp": "2026-10-26T13:12:50.378Z"
+      },
+      "router_activity": {
+        "updated_at": 1793020371.554921,
+        "time": "2026-10-26T08:12:51",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 57431
+      },
+      "actual_offset_seconds": 300.01499999998487,
+      "schedule_lateness_seconds": 0.014999999984866008
+    },
+    {
+      "id": "C2",
+      "at": 1793020436.4447594,
+      "activity_observed": true,
+      "before": {
+        "bytes": 1163527,
+        "last_type": "user",
+        "last_tools": [
+          "Read"
+        ],
+        "timestamp": "2026-10-26T13:13:51.458Z"
+      },
+      "router_activity": {
+        "updated_at": 1793020431.7900763,
+        "time": "2026-10-26T08:13:51",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 66606
+      },
+      "actual_offset_seconds": 360.01499999998487,
+      "schedule_lateness_seconds": 0.014999999984866008
+    },
+    {
+      "id": "A3",
+      "at": 1793020496.44391,
+      "activity_observed": true,
+      "before": {
+        "bytes": 1305387,
+        "last_type": "user",
+        "last_tools": [
+          "Edit"
+        ],
+        "timestamp": "2026-10-26T13:14:54.114Z"
+      },
+      "router_activity": {
+        "updated_at": 1793020494.3200827,
+        "time": "2026-10-26T08:14:54",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 75999
+      },
+      "actual_offset_seconds": 420.0,
+      "schedule_lateness_seconds": 0.0
+    },
+    {
+      "id": "B3",
+      "at": 1793020556.4540055,
+      "activity_observed": true,
+      "before": {
+        "bytes": 1417695,
+        "last_type": "user",
+        "last_tools": [
+          "mcp__ciel-runtime-router__work_node_update"
+        ],
+        "timestamp": "2026-10-26T13:15:50.945Z"
+      },
+      "router_activity": {
+        "updated_at": 1793020551.154614,
+        "time": "2026-10-26T08:15:51",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 83534
+      },
+      "actual_offset_seconds": 480.01499999998487,
+      "schedule_lateness_seconds": 0.014999999984866008
+    },
+    {
+      "id": "C3",
+      "at": 1793020616.4454193,
+      "activity_observed": true,
+      "before": {
+        "bytes": 1589135,
+        "last_type": "user",
+        "last_tools": [
+          "Read"
+        ],
+        "timestamp": "2026-10-26T13:16:48.701Z"
+      },
+      "router_activity": {
+        "updated_at": 1793020610.1589456,
+        "time": "2026-10-26T08:16:50",
+        "event": "request",
+        "attempt": 1,
+        "tokens": 94014
+      },
+      "actual_offset_seconds": 540.0,
+      "schedule_lateness_seconds": 0.0
+    }
+  ],
+  "work_call_count": 53,
+  "plan_nodes": 39,
+  "plan_roots": [
+    "REQ-INITIAL: three independent stdlib Python tasks A0/B0/C0 (+ amendments until REQ-FINAL)"
+  ],
+  "plan_branches": [
+    "A: routing_graph (REQ-A0)",
+    "B: booking_calendar (REQ-B0)",
+    "C: inventory_stream (REQ-C0)",
+    "Docs & verification"
+  ],
+  "all_leaves_done_with_evidence": true,
+  "completion_missing_ids": [
+    "A0",
+    "A1",
+    "A2",
+    "A3",
+    "B0",
+    "B1",
+    "B2",
+    "B3",
+    "C0",
+    "C1",
+    "C2",
+    "C3"
+  ],
+  "run_error": null,
+  "timeout": false,
+  "live_pids_unchanged": true,
+  "artifact_sha256": {
+    "booking_calendar.py": "f84f24bb11ecb31ac2e8eed33b4b7b246c400bd94bf04591ada186e215c94881",
+    "inventory_stream.py": "bd5f59fba66740946007a043707deeb431ee0939b7d5fa84488121767dce1a1d",
+    "routing_graph.py": "3b0945c2bbe105c4a67bbe39a0dc6fd6719a2c24a1137b8120b59da031c251d8",
+    "test_booking_calendar.py": "7e93cbec1f24ee2146d14678c2e8c824728094a83487f239d4944dd0fc0d9e24",
+    "test_inventory_stream.py": "a4434f4c10d1f3f12dbd63c788621a788498e89662c14171f6dc48ce3b545984",
+    "test_routing_graph.py": "ea41644cbcee1cdd6fd34b63a8eb1d58e4b4153516b91f8ded2f900ccd654098"
+  },
+  "delivery_valid": true,
+  "cadence_valid": true,
+  "plan_nodes_detail": [
+    {
+      "id": "n1",
+      "parent_id": null,
+      "title": "REQ-INITIAL: three independent stdlib Python tasks A0/B0/C0 (+ amendments until REQ-FINAL)",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020797.6204572
+    },
+    {
+      "id": "n2",
+      "parent_id": "n1",
+      "title": "A: routing_graph (REQ-A0)",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020607.3520892
+    },
+    {
+      "id": "n3",
+      "parent_id": "n2",
+      "title": "A0 implement routing_graph.py",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020136.3515732
+    },
+    {
+      "id": "n4",
+      "parent_id": "n3",
+      "title": "Write Graph/NoPathError/ConflictError with validation, version, Dijkstra (cost,hops,path)",
+      "status": "done",
+      "note": "",
+      "evidence": "Created routing_graph.py; 4 graph tests pass.",
+      "updated_at": 1793020136.3515732
+    },
+    {
+      "id": "n5",
+      "parent_id": "n2",
+      "title": "A0 tests",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020136.4272254
+    },
+    {
+      "id": "n6",
+      "parent_id": "n5",
+      "title": "Write test_routing_graph.py and run it green",
+      "status": "done",
+      "note": "",
+      "evidence": "python -m unittest -v test_routing_graph.py: 4 tests, OK",
+      "updated_at": 1793020136.4272254
+    },
+    {
+      "id": "n7",
+      "parent_id": "n1",
+      "title": "B: booking_calendar (REQ-B0)",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020661.3275642
+    },
+    {
+      "id": "n8",
+      "parent_id": "n7",
+      "title": "B0 implement booking_calendar.py",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020292.8648355
+    },
+    {
+      "id": "n9",
+      "parent_id": "n8",
+      "title": "Write Calendar/CapacityError/ConflictError with cumulative capacity sweep, atomic failures",
+      "status": "done",
+      "note": "",
+      "evidence": "5 calendar tests pass; sweep handles half-open cumulative units",
+      "updated_at": 1793020292.8648355
+    },
+    {
+      "id": "n10",
+      "parent_id": "n7",
+      "title": "B0 tests",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020292.930544
+    },
+    {
+      "id": "n11",
+      "parent_id": "n10",
+      "title": "Write test_booking_calendar.py incl. many overlaps and run green",
+      "status": "done",
+      "note": "",
+      "evidence": "python -m unittest -v test_booking_calendar: 5 OK including 100 overlaps",
+      "updated_at": 1793020292.930544
+    },
+    {
+      "id": "n12",
+      "parent_id": "n1",
+      "title": "C: inventory_stream (REQ-C0)",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020729.2260695
+    },
+    {
+      "id": "n13",
+      "parent_id": "n12",
+      "title": "C0 implement inventory_stream.py",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020370.1076777
+    },
+    {
+      "id": "n14",
+      "parent_id": "n13",
+      "title": "Write InventoryStream with fragment buffering, CRLF, validation, idempotency, conflict",
+      "status": "done",
+      "note": "",
+      "evidence": "5 inventory tests pass incl. all fragment boundaries and recovery",
+      "updated_at": 1793020370.1076777
+    },
+    {
+      "id": "n15",
+      "parent_id": "n12",
+      "title": "C0 tests",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020370.1761546
+    },
+    {
+      "id": "n16",
+      "parent_id": "n15",
+      "title": "Write test_inventory_stream.py incl. split fragments and run green",
+      "status": "done",
+      "note": "",
+      "evidence": "python -m unittest -v test_inventory_stream: 5 OK",
+      "updated_at": 1793020370.1761546
+    },
+    {
+      "id": "n17",
+      "parent_id": "n1",
+      "title": "Docs & verification",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020797.6204572
+    },
+    {
+      "id": "n18",
+      "parent_id": "n17",
+      "title": "Create docs/ OKF hierarchy journal and record REQ-INITIAL work",
+      "status": "done",
+      "note": "",
+      "evidence": "docs/index.md + docs/journal/2026/10/2026-10-26-req-initial-to-final.md written (4-level hierarchy)",
+      "updated_at": 1793020770.1742609
+    },
+    {
+      "id": "n19",
+      "parent_id": "n17",
+      "title": "Run full test suite and capture output",
+      "status": "done",
+      "note": "",
+      "evidence": "python -m unittest discover -v: Ran 27 tests OK, exit 0; saved docs/journal/2026/10/test-output.txt; ad-hoc zero-cycle/promote/finish checks OK",
+      "updated_at": 1793020771.3088696
+    },
+    {
+      "id": "n20",
+      "parent_id": "n2",
+      "title": "REQ-A1 blocked nodes and bounded hops",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020244.1083055
+    },
+    {
+      "id": "n21",
+      "parent_id": "n20",
+      "title": "Implement constrained simple route search and test cheap over-bound vs expensive feasible",
+      "status": "done",
+      "note": "",
+      "evidence": "5 graph tests pass incl. A1 hop and blocking regressions",
+      "updated_at": 1793020244.1083055
+    },
+    {
+      "id": "n22",
+      "parent_id": "n7",
+      "title": "REQ-B1 atomic batch and replacement",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020293.005196
+    },
+    {
+      "id": "n23",
+      "parent_id": "n22",
+      "title": "Implement and test reserve_many and replace atomicity, self-exclusion",
+      "status": "done",
+      "note": "",
+      "evidence": "Batch rollback and replacement excluding old tested green",
+      "updated_at": 1793020293.005196
+    },
+    {
+      "id": "n24",
+      "parent_id": "n12",
+      "title": "REQ-C1 ordered atomic batch events",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020370.238881
+    },
+    {
+      "id": "n25",
+      "parent_id": "n24",
+      "title": "Implement and test stock/move batches with rollback, retry and idempotency",
+      "status": "done",
+      "note": "",
+      "evidence": "Batch ordered move, rollback, corrected retry, duplicate and empty tested",
+      "updated_at": 1793020370.238881
+    },
+    {
+      "id": "n26",
+      "parent_id": "n2",
+      "title": "REQ-A2 frozen snapshot and atomic apply",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020431.2735114
+    },
+    {
+      "id": "n27",
+      "parent_id": "n26",
+      "title": "Implement/test read-only snapshot, ordered apply, rollback, expected_version and single increment",
+      "status": "done",
+      "note": "",
+      "evidence": "7 graph tests OK: snapshot freezing/read-only, apply rollback, version conflict, one increment",
+      "updated_at": 1793020431.2735114
+    },
+    {
+      "id": "n28",
+      "parent_id": "n7",
+      "title": "REQ-B2 priority waiting list and promotion",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020483.118194
+    },
+    {
+      "id": "n29",
+      "parent_id": "n28",
+      "title": "Implement/test wait, waiting order, skip-continue promote, cancel waiting, id reservation",
+      "status": "done",
+      "note": "",
+      "evidence": "7 calendar tests pass incl. priority/FIFO, skip-and-continue, waiting IDs protected",
+      "updated_at": 1793020483.118194
+    },
+    {
+      "id": "n30",
+      "parent_id": "n12",
+      "title": "REQ-C2 net-delta undo with tombstones",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020550.6042247
+    },
+    {
+      "id": "n31",
+      "parent_id": "n30",
+      "title": "Implement/test undo of events and batches, negative-check failure, tombstone idempotency",
+      "status": "done",
+      "note": "",
+      "evidence": "6 inventory tests pass incl. net-delta batch undo, negative refusal then retry, tombstone dedupe/conflict",
+      "updated_at": 1793020550.6042247
+    },
+    {
+      "id": "n32",
+      "parent_id": "n2",
+      "title": "REQ-A3 supersede default tie policy, preserve explicit original",
+      "status": "done",
+      "note": "A3 overrides only A0 equal-cost ordering: lexical full path before hops; explicit fewest_hops retains A0.",
+      "evidence": "",
+      "updated_at": 1793020607.3520892
+    },
+    {
+      "id": "n33",
+      "parent_id": "n32",
+      "title": "Implement/test lexical default and fewest_hops policy, snapshot policy freeze, zero-cycle longer lexical route",
+      "status": "done",
+      "note": "",
+      "evidence": "10 graph tests OK incl. lexical default longer route, explicit fewest_hops, policy-freezing snapshots, 300 brute-force comparisons",
+      "updated_at": 1793020607.3520892
+    },
+    {
+      "id": "n34",
+      "parent_id": "n7",
+      "title": "REQ-B3 checkpoints, restore and calendar version",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020661.3275642
+    },
+    {
+      "id": "n35",
+      "parent_id": "n34",
+      "title": "Implement/test opaque same-calendar checkpoints, exact restore, foreign rejection and one-increment versioning",
+      "status": "done",
+      "note": "",
+      "evidence": "9 calendar tests OK: version once per change (promote batch counts 1), restore exact FIFO, identical no-op, foreign/invalid ValueError, immutable checkpoint",
+      "updated_at": 1793020661.3275642
+    },
+    {
+      "id": "n36",
+      "parent_id": "n12",
+      "title": "REQ-C3 stream checkpoints and line-length bound",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020729.2260695
+    },
+    {
+      "id": "n37",
+      "parent_id": "n36",
+      "title": "Implement/test checkpoint/restore of all stream state and per-feed rollback at 4096 code points",
+      "status": "done",
+      "note": "",
+      "evidence": "8 inventory tests OK: checkpoint restores buffer/accepted/tombstones/deltas, reusable, foreign InventoryError; 4096 code-point line accepted, 4097 rejects whole feed incl earlier event",
+      "updated_at": 1793020729.2260695
+    },
+    {
+      "id": "n38",
+      "parent_id": "n17",
+      "title": "REQ-FINAL completion report",
+      "status": "done",
+      "note": "",
+      "evidence": "",
+      "updated_at": 1793020797.6204572
+    },
+    {
+      "id": "n39",
+      "parent_id": "n38",
+      "title": "Run unittest discover and write completion.json for all twelve IDs",
+      "status": "done",
+      "note": "",
+      "evidence": "completion.json parses with 12 request IDs; unittest discover: 27 tests OK",
+      "updated_at": 1793020797.6204572
+    }
+  ],
+  "all_twelve_requirement_ids_in_plan": true,
+  "amendments_three_per_task": true
+}

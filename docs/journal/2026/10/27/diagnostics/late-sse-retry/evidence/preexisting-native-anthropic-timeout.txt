@@ -1,0 +1,9 @@
+# test_native_anthropic_does_not_install_semantic_start under the same stripped env
+## HEAD eedd8eea729b0475eeaf7b6b69b2239fb966b3e3 (no late-SSE change)
+TimeoutError: timed out
+Ran 1 test in 2.059s
+FAILED (errors=1)
+## worktree
+TimeoutError: timed out
+Ran 1 test in 2.069s
+FAILED (errors=1)

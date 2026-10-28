@@ -1,0 +1,10 @@
+observed_at_utc 2026-10-26T21:14:00Z script scripts/e5.py (read-only, via scripts/remote_read.py)
+TOP_KEYS ['claude_code', 'claude_feedback_drafts', 'claude_stream_recovery', 'cleanup', 'current_provider', 'external_event_receivers', 'language', 'last_launch_action', 'migrations', 'providers', 'remote_bridge', 'remote_instructions', 'remote_memory', 'remote_provision', 'router_debug_external_access', 'router_debug_external_access_confirmed', 'router_debug_message_preview_chars', 'speech', 'tool_call_events', 'transcript_events', 'web_backend', 'web_backends', 'web_search', 'workspace_mcp']
+TOP current_provider nvidia-hosted
+CIELAIROUTER {"current_model": "ASTRA", "advisor_model": "", "context_window": 872000, "max_model_len": 872000, "native_compat": true, "preflight_prompt_compaction": false, "request_timeout_ms": 300000, "stream_enabled": true, "stream_word_chunking": false, "base_url": "<redacted>"}
+CUSTOM_MODELS []
+MODELFILE model-list-cache.json 284569 no walkie_opus55-sol61
+MODELFILE model-registry.json 284660 no walkie_opus55-sol61
+
+
+exit 0

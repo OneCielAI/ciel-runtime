@@ -25,6 +25,7 @@
     "ciel_runtime_support/*.cjs",
     "ciel_runtime_support/providers/*.py",
     "ciel_runtime_support/protocols/*.py",
+    "ciel_runtime_support/claude_mods/",
     "ciel-runtime",
     "ciel-runtime.cmd",
     "ciel-runtime.ps1",

@@ -1,0 +1,38 @@
+
+
+  Called ciel-runtime-router
+
+● E2EHINT-MAIN-DONE
+
+✻ Churned for 0s · done 1:16 PM
+
+❯ E2EHINT-QUEUE run item 1; a second independent request arrives meanwhile.
+
+  Called ciel-runtime-router 2 times
+
+● Update(subject.txt)
+  ⎿  Added 1 line, removed 1 line
+      1 -BEFORE
+      1 +AFTER
+
+  Called ciel-runtime-router 3 times
+
+● E2EHINT-QUEUE-DONE
+
+✻ Cooked for 2s · done 1:16 PM
+
+❯ /work-mode
+  ⎿  ciel-work: Ciel Work mode: planning · 0/1 steps · approval auto
+     Goal: 2. Second request
+       [ ] Phase 0/1
+     Next: Step
+     /work-mode help · view · tree · status
+Work planning 0/1 — 2. Second request                                                                                              [-]
+1: [ ] Phase 0/1
+w: All items / refresh
+Ctrl+X Tab: focus · Tab/↑↓: select · Enter: inspect · Esc: return · /work-mode help
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)                                                                        work: plan 0/1

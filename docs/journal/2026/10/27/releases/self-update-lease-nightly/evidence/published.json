@@ -1,0 +1,29 @@
+{
+  "version": "0.2.51-nightly.20261027-214004.a92bcd9",
+  "gitHead": "a92bcd901c68716337d1db1075ef8ed4cdb30c02",
+  "tags": {
+    "latest": "0.2.51",
+    "nightly": "0.2.51-nightly.20261027-214004.a92bcd9"
+  },
+  "dist": {
+    "shasum": "22128d06f7dc2546e0a3705ef10f451af287eaa0",
+    "tarball": "https://registry.npmjs.org/@one-ciel-ai/ciel-runtime/-/ciel-runtime-0.2.51-nightly.20261027-214004.a92bcd9.tgz",
+    "fileCount": 513,
+    "integrity": "sha512-X6A0bD0eUBH8Qcr7q0d3WLVDnKOJyt/BLYazzqD+YVE/TQWQ1m5+AlAIr86qrUQJYQSBM+FH66K24HV8KlwcHQ==",
+    "signatures": [
+      {
+        "sig": "MEUCIF5jWgQlFVodFjl9UlXozRdpGOdw+5n//ChArQDK6v0WAiEApgbpyerYK5vSo7vD67l3cKUhzUbRIGmea9Wj8ZMnyXA=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "sig": "MEYCIQCCEP3y1c14XOUfTv+VIFbFoOigu78yZvY614nrU2PvBgIhANRcbRUBYONLRn9XmPrOkfSislMy8ApcdO3XYAGVFB46",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      }
+    ],
+    "unpackedSize": 6926042
+  },
+  "tarball_sha256": "ee0d10c4071b992e6935320c54ddafac22b14acd9d1a3fad382010933c774e4c",
+  "tarball_bytes": 1575634,
+  "files": 513,
+  "package_dir": "docs\\journal\\2026\\10\\27\\releases\\self-update-lease-nightly\\evidence\\payload\\unpack\\package"
+}

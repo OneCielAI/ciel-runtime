@@ -1,0 +1,50 @@
+
+ ▐▛███▛█   Claude Code v2.1.310
+▝▜██████▀  ciel-runtime-cielairouter-owned-send · API Usage Billing
+ ▝▝   ▝▝   C:\Users\djlov\AppData\Local\Temp\selfupd-a10beeac\ws
+
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing approved Work. Items show above the prompt ·
+  /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Work mode: no plan yet — /work-mode help                                                                                                                            [-]
+[Progress 0] Queue 0 Completed 0
+No unfinished rows · inspect the active goal
+1/1 w: Inspector
+                                                                                                                                                      ● high · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents                                                                                          work: plan 0/0

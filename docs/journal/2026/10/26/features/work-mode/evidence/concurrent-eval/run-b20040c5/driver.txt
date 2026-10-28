@@ -1,0 +1,13 @@
+06:58:04 injected B0
+06:58:15 injected C0
+06:58:32 injected A1
+06:58:48 injected B1
+06:59:05 injected C1
+06:59:22 injected FINAL
+07:04:02 Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\concurrent-eval\evaluate.py", line 103, in <module>
+    if process.poll() is not None:raise RuntimeError("owned console exited during evaluation")
+                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: owned console exited during evaluation
+
+07:04:05 finished C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\concurrent-eval\run-b20040c5

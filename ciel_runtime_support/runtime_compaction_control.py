@@ -51,6 +51,12 @@ class NativeCompactionCheckpoint:
 
 
 @dataclass(frozen=True, slots=True)
+class NativeCompactionFailure:
+    identity: str
+    persisted_at: float
+
+
+@dataclass(frozen=True, slots=True)
 class RuntimeCompactionPolicy:
     # Semantic work is bounded at 900s plus the final native-wire generation.
     confirmation_timeout_seconds: float = 1200.0
@@ -107,6 +113,7 @@ _SCAN_CACHE_LIMIT = 4
 class _TranscriptScan:
     signature: tuple[int, int, int, int, int]
     checkpoint: NativeCompactionCheckpoint | None
+    failure: NativeCompactionFailure | None = None
 
 
 _scan_cache: OrderedDict[tuple[str, CompactionScope, int], _TranscriptScan] = OrderedDict()
@@ -200,9 +207,43 @@ def _input_tokens_record(record: Any, scope: CompactionScope) -> int | None:
     return None
 
 
+def _compact_idle_failure(record: Any, scope: CompactionScope) -> float:
+    """Only the native client's explicit compact idle-timeout verdict qualifies."""
+    if (scope.runtime != "claude" or not isinstance(record, dict)
+            or record.get("sessionId") != scope.session_id or record.get("isSidechain") is True
+            or not record.get("uuid")):
+        return 0.0
+    if record.get("type") == "system" and record.get("subtype") == "local_command":
+        command, outcome = record.get("commandRun"), record.get("commandOutcome")
+        if (not isinstance(command, dict) or command.get("command") != "compact"
+                or not isinstance(outcome, dict) or outcome.get("kind") != "failed"):
+            return 0.0
+        text = record.get("content")
+        expected = "<local-command-stderr>Error during compaction: API Error: Stream idle timeout - no chunks received</local-command-stderr>"
+        if text != expected:
+            return 0.0
+    elif record.get("type") == "assistant" and record.get("isApiErrorMessage") is True:
+        message = record.get("message")
+        content = message.get("content") if isinstance(message, dict) else None
+        expected = "Prompt is too long · automatic compaction failed: API Error: Stream idle timeout - no chunks received"
+        if (not isinstance(content, list) or len(content) != 1 or not isinstance(content[0], dict)
+                or content[0].get("type") != "text" or content[0].get("text") != expected):
+            return 0.0
+    else:
+        return 0.0
+    return _timestamp(record.get("timestamp"))
+
+
 def native_checkpoint_from_transcript(
-    path: Path | None, scope: CompactionScope, *, max_bytes: int = _MAX_RECORD_BYTES
+    path: Path | None, scope: CompactionScope, *, max_bytes: int = _MAX_RECORD_BYTES,
 ) -> NativeCompactionCheckpoint | None:
+    observation = _native_transcript_evidence(path, scope, max_bytes=max_bytes)
+    return observation.checkpoint if observation else None
+
+
+def _native_transcript_evidence(
+    path: Path | None, scope: CompactionScope, *, max_bytes: int = _MAX_RECORD_BYTES
+) -> _TranscriptScan | None:
     """Scan the exact native transcript with bounded per-record memory.
 
     ``max_bytes`` caps each JSON record, not the file tail. A 600 KiB native
@@ -222,13 +263,16 @@ def native_checkpoint_from_transcript(
             previous = _scan_cache.get(key)
             if previous is not None and previous.signature == signature:
                 _scan_cache.move_to_end(key)
-                return previous.checkpoint
-            newest = None
+                return previous
+            newest = failure = None
             for line in _read_jsonl(stream, cap):
                 try:
                     record = json.loads(line)
                 except (ValueError, TypeError, UnicodeError, RecursionError):
                     continue
+                failed_at = _compact_idle_failure(record, scope)
+                if failed_at:
+                    failure = NativeCompactionFailure(hashlib.sha256(line).hexdigest(), failed_at)
                 found = _checkpoint_record(record, scope, path)
                 if found is not None:
                     newest = NativeCompactionCheckpoint(
@@ -248,11 +292,11 @@ def native_checkpoint_from_transcript(
             current_signature = _signature(path)
             if after_signature != signature or current_signature != signature:
                 return None
-            _scan_cache[key] = _TranscriptScan(signature, newest)
+            _scan_cache[key] = _TranscriptScan(signature, newest, failure)
             _scan_cache.move_to_end(key)
             while len(_scan_cache) > _SCAN_CACHE_LIMIT:
                 _scan_cache.popitem(last=False)
-            return newest
+            return _scan_cache[key]
     except OSError:
         return None
 
@@ -282,6 +326,8 @@ class RuntimeCompactionControl:
             with self.ports.lock():
                 state = self._read(scope)
                 if current and fresh and state == snapshot:
+                    if isinstance(observed, _CheckpointObservation):
+                        self._observe_native_failure(state, checkpoint, observed.failure)
                     yield state, checkpoint
                     return
                 now = self.ports.now()
@@ -299,6 +345,10 @@ class RuntimeCompactionControl:
         value = self.ports.load()
         if value is None:
             raise OSError("compaction admission state is unreadable")
+        if value.get("unresolved_scope") is True:
+            value = {**value, "scope": scope.payload(), "requested_at": self.ports.now()}
+            value.pop("unresolved_scope", None)
+            self.ports.save(value)
         if value.get("scope") != scope.payload():
             return {}
         if value.get("phase") not in {"needed", "queued", "dispatching", "awaiting_checkpoint",
@@ -362,6 +412,28 @@ class RuntimeCompactionControl:
         state.update({'phase': 'verified', 'request_id': str(), 'failure': reason})
         self._write(state, reason)
 
+    def _observe_native_failure(self, state, checkpoint, failure):
+        if (not state or failure is None or state.get("phase") not in {
+                "dispatching", "awaiting_checkpoint", "compacting", "blocked"}
+                or (state.get("phase") == "blocked" and state.get("failure") != "checkpoint_unconfirmed")
+                or failure.identity == state.get("native_failure_id")):
+            return
+        dispatch = state.get("dispatch")
+        started = max(float(state.get("requested_at") or 0), float(state.get("native_started_at") or 0),
+                      float(dispatch.get("dispatched_at") or 0) if isinstance(dispatch, dict) else 0)
+        if (failure.persisted_at < started or failure.persisted_at > self.ports.now() + 30
+                or (checkpoint is not None and checkpoint.persisted_at >= failure.persisted_at)):
+            return
+        if state.get("request_id"):
+            self.ports.clear(str(state["request_id"]))
+        state["native_failure_id"] = failure.identity
+        state["native_failure_at"] = failure.persisted_at
+        state["baseline_checkpoint_id"] = checkpoint.identity if checkpoint else state.get("baseline_checkpoint_id", "")
+        state["checkpoint_id"] = ""
+        state.pop("shrink_observed", None)
+        state["attempts"] = max(1, _positive(state.get("attempts")))
+        self._retry(state, "native_compact_idle_timeout")
+
     def _refresh(self, state: dict[str, Any], scope: CompactionScope,
                  checkpoint: NativeCompactionCheckpoint | None) -> None:
         if not state or state.get("phase") == "verified":
@@ -374,6 +446,7 @@ class RuntimeCompactionControl:
         if (checkpoint and checkpoint.scope == scope
                 and checkpoint.identity != state.get("baseline_checkpoint_id")
                 and checkpoint.persisted_at >= float(state.get("requested_at") or 0)
+                and checkpoint.persisted_at > float(state.get("native_failure_at") or 0)
                 and checkpoint.identity != state.get("checkpoint_id")):
             state.update({"checkpoint_id": checkpoint.identity, "phase": "awaiting_shrink",
                           "checkpoint_observed_at": now})
@@ -381,7 +454,8 @@ class RuntimeCompactionControl:
         if (state.get("phase") == "awaiting_shrink" and checkpoint and checkpoint.scope == scope
                 and checkpoint.identity == state.get("checkpoint_id")
                 and checkpoint.identity != state.get("baseline_checkpoint_id")
-                and checkpoint.persisted_at >= float(state.get("requested_at") or 0)):
+                and checkpoint.persisted_at >= float(state.get("requested_at") or 0)
+                and checkpoint.persisted_at > float(state.get("native_failure_at") or 0)):
             # The phase and its evidence are durable, so the release decision
             # is re-evaluated on every refresh rather than only on the write
             # that observed the checkpoint: a restart between those two writes
@@ -462,7 +536,7 @@ class RuntimeCompactionControl:
                 if seen:
                     state['safeguard_seen'] = seen
                 if native:
-                    state.update({"phase": "compacting", "attempts": 1})
+                    state.update({"phase": "compacting", "attempts": 1, "native_started_at": self.ports.now()})
                 self._write(state, "admission_paused")
             elif recovery_required and state.get('proactive') and not native:
                 state.pop('proactive', None)
@@ -484,6 +558,7 @@ class RuntimeCompactionControl:
                 # earlier failed attempt of the same recovery epoch.
                 state["baseline_checkpoint_id"] = checkpoint.identity if checkpoint else ""
                 state["checkpoint_id"] = ""
+                state["native_started_at"] = self.ports.now()
                 self._write(state, "native_compact_started")
             if native:
                 # A new compaction cannot reuse an earlier cycle's request.
@@ -579,6 +654,29 @@ class RuntimeCompactionControl:
         except (OSError, ValueError, TypeError) as exc:
             self.ports.log("WARN", f"runtime_compaction_control admission=paused reason=state_unavailable error={type(exc).__name__}")
             return True
+
+    def admission_reason(self) -> str:
+        """Explain the current hold without using age as release authority."""
+        if not self.external_admission_paused():
+            return ""
+        try:
+            current = self.ports.scope()
+            if current is None:
+                return ""
+            with self.ports.lock():
+                state = self._read(current)
+            phase = state.get("phase")
+            if state.get("failure") == "state_unavailable":
+                return "state_unavailable"
+            if phase == "awaiting_shrink":
+                return "compaction_shrink_pending"
+            if phase == "retry_wait":
+                return "compaction_retry_wait"
+            if phase == "blocked":
+                return "compaction_" + str(state.get("failure") or "blocked")
+            return "compaction_checkpoint_pending"
+        except (OSError, ValueError, TypeError):
+            return "state_unavailable"
 
     def context_pause_reason(self, body: dict[str, Any]) -> str:
         if self.ports.compact_kind(body):
@@ -681,6 +779,7 @@ class RuntimeCompactionControl:
 class _CheckpointObservation:
     checkpoint: NativeCompactionCheckpoint | None
     valid: Callable[[], bool]
+    failure: NativeCompactionFailure | None = None
 
 
 def _signature(path):
@@ -711,31 +810,77 @@ def build_runtime_compaction_control(
 
     state = SecureJsonRepository(state_path, SecureJsonEffects(log=log))
 
-    def load_state() -> dict[str, Any] | None:
-        # An unreadable file used to pause external delivery forever, with no
-        # request able to repair it. Move it aside once; the next observed
-        # request then starts a new cycle from its own measured tokens, so a
-        # full context still pauses admission until shrink is proven.
-        value = state.load("runtime_compaction_control")
+    unresolved = SecureJsonRepository(state_path.with_name(state_path.name + ".unresolved"),
+                                     SecureJsonEffects(log=log))
+
+    def invalid_record(repository, value):
         if value is None:
-            state.quarantine("runtime_compaction_control")
-            return {}
+            return True
+        if value == {} and repository.path.exists():
+            try:
+                return not isinstance(json.loads(repository.path.read_text(encoding="utf-8")), dict)
+            except (OSError, ValueError, UnicodeError):
+                return True
+        if not value:
+            return False
+        identity = value.get("scope")
+        if value.get("unresolved_scope") is True and identity == {} and value.get("failure") == "state_unavailable":
+            return False
+        return (not isinstance(identity, dict)
+                or identity.get("runtime") not in {"claude", "codex"}
+                or any(not isinstance(identity.get(key), str) or not identity[key].strip()
+                       for key in ("session_id", "epoch"))
+                or value.get("phase") not in {"needed", "queued", "dispatching", "awaiting_checkpoint",
+                    "compacting", "awaiting_shrink", "blocked", "retry_wait", "verified"})
+
+    def unknown_marker():
+        return {"scope": {}, "phase": "blocked", "unresolved_scope": True,
+                "failure": "state_unavailable", "requested_at": time.time(),
+                "attempts": 0, "baseline_checkpoint_id": "", "checkpoint_id": ""}
+
+    def load_state() -> dict[str, Any] | None:
+        value = state.load("runtime_compaction_control")
+        if invalid_record(state, value):
+            # Save the hold first: crash between quarantine and replacement
+            # must not reinterpret unreadable in-flight work as absent state.
+            marker = unknown_marker()
+            unresolved.save(marker, "runtime_compaction_unresolved")
+            if state.quarantine("runtime_compaction_control") is None:
+                return None
+            return marker
+        if not value:
+            marker = unresolved.load("runtime_compaction_unresolved")
+            if invalid_record(unresolved, marker):
+                marker = unknown_marker()
+                unresolved.quarantine("runtime_compaction_unresolved")
+                unresolved.save(marker, "runtime_compaction_unresolved")
+            if marker:
+                return marker
         return value
+
+    def save_state(value):
+        state.save(value, "runtime_compaction_control")
+        # Bind the quarantine sidecar to the observed launch, too. It is not
+        # authority to hold an unrelated future launch if the primary is absent.
+        if unresolved.path.exists() and value.get("failure") == "state_unavailable":
+            unresolved.save(value, "runtime_compaction_unresolved")
 
     def checkpoint(current):
         path = transcript_path()
         signature = _signature(path)
         started = time.monotonic()
         proof = native_checkpoint_from_transcript(path, current)
+        evidence = _native_transcript_evidence(path, current)
         elapsed = time.monotonic() - started
         if elapsed >= 1:
             log("INFO", f"runtime_compaction_checkpoint_scan elapsed_ms={int(elapsed * 1000)} locks_held=0")
-        return _CheckpointObservation(proof, lambda: transcript_path() == path and _signature(path) == signature)
+        return _CheckpointObservation(proof, lambda: transcript_path() == path and _signature(path) == signature,
+                                      evidence.failure if evidence else None)
 
     return RuntimeCompactionControl(
         RuntimeCompactionPorts(
             load=load_state,
-            save=lambda value: state.save(value, "runtime_compaction_control"),
+            save=save_state,
             lock=lambda: exclusive_file_lock(state_path),
             scope=scope,
             checkpoint=checkpoint,

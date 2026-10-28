@@ -1,0 +1,10 @@
+01-persisted-tree
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\claude\run-532f0d94\01-persisted-tree.png handle=6100434 printwindow=True
+02-approval-dialog-deny
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\claude\run-532f0d94\02-approval-dialog-deny.png handle=6100434 printwindow=True
+03-denied-planning
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\claude\run-532f0d94\03-denied-planning.png handle=6100434 printwindow=True
+04-approval-dialog-approve
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\claude\run-532f0d94\04-approval-dialog-approve.png handle=6100434 printwindow=True
+05-approved-executing
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\claude\run-532f0d94\05-approved-executing.png handle=6100434 printwindow=True

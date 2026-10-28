@@ -1,15 +1,17 @@
 import errno
 import io
 import json
+import os
 import tempfile
 import threading
 import unittest
 from unittest import mock
 from pathlib import Path
 
+from ciel_runtime_support import runtime_input_status
 from ciel_runtime_support.channel_message_repository import ChannelFileLockBusy
 from ciel_runtime_support.runtime_input_status import (
-    RuntimeInputStatusRepository, StatusHistoryUnreadable, WakeAttemptConflict,
+    RuntimeInputStatusRepository, StatusHistoryUnreadable, WakeAttemptConflict, recorded_max_request_id,
 )
 
 
@@ -360,6 +362,50 @@ class RuntimeInputStatusRepositoryTests(unittest.TestCase):
                          [json.loads(raw)["request_id"] for raw in repository.path.read_bytes().splitlines()])
         self.assertEqual({repository.path.name, repository.path.name + ".lock"},
                          {path.name for path in repository.path.parent.iterdir()})
+
+
+class RecordedMaxRequestIdTests(unittest.TestCase):
+    def setUp(self):
+        temp_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(temp_dir.cleanup)
+        self.path = Path(temp_dir.name) / "runtime-input-status.jsonl"
+
+    def row(self, request_id, status="replied"):
+        return json.dumps({"request_id": request_id, "status": status}).encode() + b"\n"
+
+    def test_absent_history_records_nothing(self):
+        self.assertEqual(0, recorded_max_request_id(self.path))
+
+    def test_highest_id_survives_damage_and_ignores_unfinished_tail(self):
+        self.path.write_bytes(self.row(14907) + b"\x00" * 32 + self.row(14889, "failed")
+                              + b"not json\n" + self.row("14950") + b'{"request_id":99999,"status":"rep')
+        self.assertEqual(14950, recorded_max_request_id(self.path))
+        with self.path.open("ab") as stream:
+            stream.write(b'lied"}\n')
+        self.assertEqual(99999, recorded_max_request_id(self.path))
+
+    def test_appends_are_read_incrementally_and_a_replaced_file_is_rescanned(self):
+        self.path.write_bytes(self.row(5))
+        self.assertEqual(5, recorded_max_request_id(self.path))
+        with self.path.open("ab") as stream:
+            stream.write(self.row(9))
+        with mock.patch("ciel_runtime_support.runtime_input_status._decode_history_row",
+                        wraps=runtime_input_status._decode_history_row) as decode:
+            self.assertEqual(9, recorded_max_request_id(self.path))
+        self.assertEqual(1, decode.call_count)
+        replacement = self.path.with_name("compacted.jsonl")
+        replacement.write_bytes(self.row(3))
+        os.replace(replacement, self.path)
+        self.assertEqual(3, recorded_max_request_id(self.path))
+
+    def test_repository_writes_are_counted(self):
+        repository = RuntimeInputStatusRepository(self.path, lambda **_event: None,
+                                                  lambda *_args: None, threading.RLock())
+        repository.transition(40, "queued")
+        self.assertEqual(40, recorded_max_request_id(self.path))
+        repository.transition(41, "queued")
+        repository.transition(41, "submitted")
+        self.assertEqual(41, recorded_max_request_id(self.path))
 
 
 if __name__ == "__main__":

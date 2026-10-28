@@ -1,0 +1,35 @@
+import os, time
+def fmt(t): return time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(t))
+roots = [r"C:\Users\aapw-a24u24\AppData\Roaming\ciel-runtime", r"C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai"]
+ws = os.path.join(roots[0], "workspaces", "651d879f6c68")
+try:
+    with os.scandir(ws) as it:
+        for e in it:
+            st = e.stat()
+            print("WS_FILE", e.name, st.st_size, fmt(st.st_mtime))
+except Exception as e:
+    print("WS_ERR", type(e).__name__, e)
+inst = os.path.join(roots[0], "router-instances", "9780-651d879f6c68")
+try:
+    with os.scandir(inst) as it:
+        for e in it:
+            if e.name.endswith(".tmp"): continue
+            st = e.stat()
+            print("INST_FILE", e.name, st.st_size, fmt(st.st_mtime))
+except Exception as e:
+    print("INST_ERR", type(e).__name__, e)
+names = {"runtime-inputs.jsonl", "runtime-input-status.jsonl", "external-event-sse-cursors.json", "channel-llm-cursor.json", "log-level", "event-acks.jsonl", "chat-messages.jsonl"}
+for root in roots:
+    depth0 = root.count(os.sep)
+    for dp, dns, fns in os.walk(root):
+        if dp.count(os.sep) - depth0 > 5:
+            dns[:] = []
+            continue
+        dns[:] = [d for d in dns if d not in ("node_modules", ".git", "projects", "Cache", "cache")]
+        for f in fns:
+            if f in names or "event" in f.lower() and f.endswith((".json", ".jsonl")):
+                p = os.path.join(dp, f)
+                try:
+                    st = os.stat(p); print("FOUND", p, st.st_size, fmt(st.st_mtime))
+                except Exception as e:
+                    print("FOUND_ERR", p, type(e).__name__)

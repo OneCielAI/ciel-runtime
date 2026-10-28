@@ -1,0 +1,38 @@
+▝▜██████▀  fake-work · API Usage Billing                                   │                                                         ✕
+ ▝▝   ▝▝   C:\Users\djlov\AppData\Local\Temp\work-panel-tabs-27c68b9e\…    │Work details — version 1
+                                                                           │Progress Queue [Completed]
+⚠ Model "fake-work" isn't recognized · context assumed to be 200k tokens · │r: Refresh
+  update Claude Code, or see the docs                                      │w: All items
+                                                                           │q: Close
+▎ Debug mode enabled · logging to C:\Users\djlov\AppData\Local\Temp\work-pa│[~] 1. LARGE-WORK-PANEL
+▎ nel-tabs-27c68b9e\native-debug.log                                       │Title: 1. LARGE-WORK-PANEL
+                                                                           │  [~] Phase 00
+● ciel-work: Ciel Work mode is on: plan and execute by item; new           │✓     DONE-ITEM-00
+  independent requests queue without pausing approved Work. Items          │    [ ] OPEN-ITEM-00
+  show above the prompt · /work-mode help · turn off: ciel-runtime         │  [~] Phase 01
+  menu → LLM options → Work mode                                           │✓     DONE-ITEM-01
+                                                                           │    [ ] OPEN-ITEM-01
+❯ E2EHINT-MAIN inspect the owned Work panel and end the turn.              │  [~] Phase 02
+                                                                           │✓     DONE-ITEM-02
+  Called ciel-runtime-router                                               │1/9 n: Next
+                                                                           │Tab/↑↓: navigate · Enter: inspect · Esc: close
+● WORK-PANEL-FIXTURE-IDLE                                                  │
+                                                                           │
+✻ Brewed for 0s · done 2:44 AM                                             │
+                                                                           │
+❯ /work-mode view                                                          │
+  ⎿  ciel-work: Work inspector: Tab/arrows navigate, Enter opens, Esc      │
+     returns.                                                              │
+Work running 20/40 — 1. LARGE-WORK-PANEL                               [-] │
+Progress 40 Queue 6 [Completed 21]                                         │
+✓ Goal: Completed historical goal                                          │
+✓   DONE-ITEM-00                                                           │
+✓   DONE-ITEM-01                                                           │
+✓   DONE-ITEM-02                                                           │
+1/6 n: Next w: Inspector                                                   │
+TEAMMATE-AREA-SENTINEL other information remains visible                   │
+                                                                           │
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)                                                                       work: run 20/40

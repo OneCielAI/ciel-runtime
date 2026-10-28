@@ -1,0 +1,37 @@
+
+Resume this session with:
+claude --resume dc3b6238-4350-4e6d-ab6d-7ea44a92b866
+
+C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\navigation\run-fe89ec44\ws>/work-mode view
+'/work-mode' is not recognized as an internal or external command,
+operable program or batch file.
+
+C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\navigation\run-fe89ec44\ws>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

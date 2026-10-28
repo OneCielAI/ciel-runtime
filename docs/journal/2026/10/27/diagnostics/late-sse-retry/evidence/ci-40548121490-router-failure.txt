@@ -1,0 +1,6 @@
+FAIL: test_tls_eof_after_upstream_status_keeps_one_http_response (test_openai_responses_upstream_stream_error.NativeResponsesRouterWireTests.test_tls_eof_after_upstream_status_keeps_one_http_response)
+AssertionError: b'event: response.created\ndata: {"type":"response.created","response":{"id":"resp_wire"}}\n\n' not found in b'HTTP/1.0 200 OK\r\nServer: ciel-runtime/0.1 Python/3.11.17\r\nDate: Tue, 27 Oct 2026 17:17:06 GMT\r\ncontent-type: text/event-stream\r\nx-request-id: upstream-req\r\nconnection: close\r\n\r\n\n\nevent: response.failed\ndata: {"type": "response.failed", "response": {"id": "resp_ciel_upstream_failure", "status": "failed", "error": {"code": "upstream_stream_truncated", "type": "upstream_stream_truncated", "message": "Upstream provider \'cielairouter\' response stream was truncated (SSLEOFError: EOF occurred in violation of protocol (_ssl.c:2427); model=cx/gpt-6.1-sol-medium; attempts=1)"}}}\n\n'
+FAIL: test_upstream_reset_after_status_is_not_reported_as_client_disconnect (test_openai_responses_upstream_stream_error.NativeResponsesRouterWireTests.test_upstream_reset_after_status_is_not_reported_as_client_disconnect)
+AssertionError: Lists differ: ['response.created', 'response.failed'] != ['response.failed']
+Ran 1475 tests in 422.141s
+FAILED (failures=2)

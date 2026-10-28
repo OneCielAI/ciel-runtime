@@ -1,0 +1,23 @@
+import os, json, time
+acct = r"C:\Users\aapw-a11u4"
+root = os.path.join(acct, r"AppData\Roaming\ciel-runtime\router-instances")
+def t(x): return time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(x))
+try: print("LOG_LEVEL_FILE", open(os.path.join(acct, r"AppData\Roaming\ciel-runtime\log-level"), encoding="utf-8").read().strip()[:40])
+except Exception as e: print("LOG_LEVEL_ERR", type(e).__name__)
+for inst in sorted(os.listdir(root)):
+    d = os.path.join(root, inst)
+    files = [f for f in os.listdir(d) if not f.endswith(".tmp") and not f.endswith(".lock")]
+    print("INSTANCE", inst, "mtime", t(os.path.getmtime(d)))
+    for f in sorted(files):
+        p = os.path.join(d, f)
+        if os.path.isfile(p): print("  FILE", f, os.path.getsize(p), t(os.path.getmtime(p)))
+    try: print("  PID", open(os.path.join(d, "router.pid")).read().strip()[:80])
+    except Exception: pass
+    for name in ("compaction-scope.json", "compaction-admission.json", "context-compact-progress.json", "context-compact-activity.json", "context-usage.json", "channel-compact-request.json"):
+        p = os.path.join(d, name)
+        if os.path.isfile(p):
+            try:
+                v = json.load(open(p, encoding="utf-8"))
+                s = json.dumps(v, ensure_ascii=False)
+                print("  JSON", name, s[:1800])
+            except Exception as e: print("  JSON_ERR", name, type(e).__name__)

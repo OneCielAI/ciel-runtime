@@ -1,0 +1,3 @@
+["view", "@one-ciel-ai/ciel-runtime@latest", "version"]
+["--version"]
+["install", "-g", "--prefix", "C:\\Users\\djlov\\AppData\\Local\\Temp\\selfupd-3e562229\\prefix", "@one-ciel-ai/ciel-runtime@latest"]

@@ -1,0 +1,43 @@
+test_apply_conflict_precedes_ops_and_noops (__main__.GraphContract.test_apply_conflict_precedes_ops_and_noops) ... ok
+test_apply_order_atomicity_and_single_version (__main__.GraphContract.test_apply_order_atomicity_and_single_version) ... ok
+test_blocking_and_hop_bound_before_minimum_selection (__main__.GraphContract.test_blocking_and_hop_bound_before_minimum_selection) ... ok
+test_exhaustive_simple_path_oracle (__main__.GraphContract.test_exhaustive_simple_path_oracle) ... ok
+test_final_default_and_explicit_original_tie (__main__.GraphContract.test_final_default_and_explicit_original_tie) ... ok
+test_mutation_versions_noops_incident_edges (__main__.GraphContract.test_mutation_versions_noops_incident_edges) ... ok
+test_simple_paths_zero_cycles (__main__.GraphContract.test_simple_paths_zero_cycles) ... ok
+test_snapshot_freezes_data_version_and_policy (__main__.GraphContract.test_snapshot_freezes_data_version_and_policy) ... ok
+test_validation_and_atomic_errors (__main__.GraphContract.test_validation_and_atomic_errors) ... ok
+test_batch_atomic_capacity_duplicates_and_iterable (__main__.CalendarContract.test_batch_atomic_capacity_duplicates_and_iterable) ... ok
+test_capacity_half_open_negatives_sort_and_copy (__main__.CalendarContract.test_capacity_half_open_negatives_sort_and_copy) ... ok
+test_checkpoint_immutable_reusable_exact_restore_current_version (__main__.CalendarContract.test_checkpoint_immutable_reusable_exact_restore_current_version) ... ok
+test_checkpoint_restores_original_wait_sequence (__main__.CalendarContract.test_checkpoint_restores_original_wait_sequence) ... ok
+test_invalid_foreign_checkpoint_atomic (__main__.CalendarContract.test_invalid_foreign_checkpoint_atomic) ... ok
+test_many_overlaps_sweep_oracle (__main__.CalendarContract.test_many_overlaps_sweep_oracle) ... ok
+test_promotion_updates_later_fit (__main__.CalendarContract.test_promotion_updates_later_fit) ... ok
+test_replace_excludes_original_and_retains_on_failure (__main__.CalendarContract.test_replace_excludes_original_and_retains_on_failure) ... ok
+test_validation_across_public_operations (__main__.CalendarContract.test_validation_across_public_operations) ... ok
+test_wait_priority_fifo_skip_continue_and_promotion_version (__main__.CalendarContract.test_wait_priority_fifo_skip_continue_and_promotion_version) ... ok
+test_waiting_ids_cannot_be_stolen (__main__.CalendarContract.test_waiting_ids_cannot_be_stolen) ... ok
+test_batch_invalid_op_rollback_and_corrected_id_retry (__main__.StreamContract.test_batch_invalid_op_rollback_and_corrected_id_retry) ... ok
+test_batch_order_outer_id_empty_and_duplicates (__main__.StreamContract.test_batch_order_outer_id_empty_and_duplicates) ... ok
+test_batch_undo_aggregates_signed_deltas_atomically (__main__.StreamContract.test_batch_undo_aggregates_signed_deltas_atomically) ... ok
+test_checkpoint_buffer_payloads_tombstones_deltas_reuse (__main__.StreamContract.test_checkpoint_buffer_payloads_tombstones_deltas_reuse) ... ok
+test_checkpoint_restores_pre_undo_status (__main__.StreamContract.test_checkpoint_restores_pre_undo_status) ... ok
+test_finish_failure_consumed_and_corrected_retry (__main__.StreamContract.test_finish_failure_consumed_and_corrected_retry) ... ok
+test_fragmented_quotes_crlf_blank_and_final_line (__main__.StreamContract.test_fragmented_quotes_crlf_blank_and_final_line) ... ok
+test_identity_key_order_first_id_conflict_consumption (__main__.StreamContract.test_identity_key_order_first_id_conflict_consumption) ... ok
+test_invalid_events_consumed_and_ids_not_reserved (__main__.StreamContract.test_invalid_events_consumed_and_ids_not_reserved) ... ok
+test_invalid_foreign_checkpoint_preserves_buffer_state (__main__.StreamContract.test_invalid_foreign_checkpoint_preserves_buffer_state) ... ok
+test_overflow_whole_call_rolls_back_events_ids_buffer (__main__.StreamContract.test_overflow_whole_call_rolls_back_events_ids_buffer) ... ok
+test_overflow_whole_feed_even_after_semantically_bad_line (__main__.StreamContract.test_overflow_whole_feed_even_after_semantically_bad_line) ... ok
+test_semantic_failure_keeps_earlier_complete_event (__main__.StreamContract.test_semantic_failure_keeps_earlier_complete_event) ... ok
+test_undo_net_delta_not_reversed_validation_order (__main__.StreamContract.test_undo_net_delta_not_reversed_validation_order) ... ok
+test_undo_stock_failure_retry_and_tombstone (__main__.StreamContract.test_undo_stock_failure_retry_and_tombstone) ... ok
+test_unfinished_overflow_restores_prior_buffer_for_finish (__main__.StreamContract.test_unfinished_overflow_restores_prior_buffer_for_finish) ... ok
+test_unicode_codepoint_bound_complete_unfinished_finish (__main__.StreamContract.test_unicode_codepoint_bound_complete_unfinished_finish) ... ok
+test_unrelated_undo_not_a_stack (__main__.StreamContract.test_unrelated_undo_not_a_stack) ... ok
+
+----------------------------------------------------------------------
+Ran 38 tests in 0.081s
+
+OK

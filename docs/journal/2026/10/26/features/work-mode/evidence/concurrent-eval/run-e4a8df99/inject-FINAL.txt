@@ -1,0 +1,30 @@
+
+● Write(dag_scheduler.py)
+  ⎿  Wrote 125 lines to dag_scheduler.py
+       1 """Dependency-aware task scheduler (problem B).
+       2
+       3 Priority in this module means: a HIGHER number is scheduled first.
+       4 Ties between equal priorities are broken by original insertion order
+       5 (the order in which ``add`` was first called for each task).
+       6 There is no TTL, cache, or eviction behavior here.
+       7 """
+       8
+       9 PENDING = "pending"
+      10 RUNNING = "running"
+     … +115 lines
+
+❯ [ciel-runtime external channel message] channel=eval:C room=eval:C from=coding-evaluator id=5 thread=work-eval-C
+  text="REQ-C1: Amend C only: duplicate CSV id is LAST ROW WINS globally, including when its account changes; remove
+  earlier row contribution from prior account. Retain accounts with final zero total. Exact Decimal semantics, no
+  float; final mapping totals must reflect only last occurrence of each id. Validate EVERY row even if a later
+  duplicate would override it. No sorting/priority scheme from B and no FIFO key eviction from A. Preserve all tasks."
+
+● Calling ciel-runtime-router…
+
+* Honking… (1m 26s · ↓ 6.9k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt                                          work: 0/16

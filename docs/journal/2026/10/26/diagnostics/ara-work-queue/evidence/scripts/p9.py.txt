@@ -1,0 +1,36 @@
+# Read-only: tool calls whose results indicate background launch, and queue-operation records, in two local windows.
+import os, json, time, glob, calendar, re
+NL = chr(10)
+def L(ts):
+    try: return time.strftime("%m-%dT%H:%M:%S", time.localtime(calendar.timegm(time.strptime(ts[:19], "%Y-%m-%dT%H:%M:%S"))))
+    except Exception: return "?"
+f = sorted(glob.glob("C:/Users/aapw-a21u21/.claude/projects/*/*.jsonl"), key=os.path.getmtime)[-1]
+WIN = [("2026-10-26T23:39", "2026-10-27T00:16"), ("2026-10-27T00:55", "2026-10-27T02:40")]
+names = {}
+MARK = re.compile("(?i)(async agent launched|agentId|running in background|moved to background|backgrounded|background with ID|Monitor started|monitor)")
+with open(f, "rb") as h:
+    for raw in h:
+        try: o = json.loads(raw)
+        except Exception: continue
+        ts = o.get("timestamp", "")
+        if not any(a <= ts[:16] <= b for a, b in WIN): continue
+        t = o.get("type")
+        if t == "queue-operation":
+            print(L(ts), "QUEUE_OP", o.get("operation"), "content_len", len(str(o.get("content") or "")))
+            continue
+        c = (o.get("message") or {}).get("content")
+        if not isinstance(c, list): continue
+        for b in c:
+            if not isinstance(b, dict): continue
+            if b.get("type") == "tool_use":
+                inp = b.get("input") if isinstance(b.get("input"), dict) else {}
+                names[b.get("id")] = b.get("name")
+                if b.get("name") in ("Agent", "Task", "Bash", "PowerShell", "Monitor", "TaskStop", "TaskOutput", "CronCreate", "ScheduleWakeup"):
+                    print(L(ts), "USE", b.get("name"), "bg", inp.get("run_in_background"), "side", bool(o.get("isSidechain")), "use", str(b.get("id"))[-8:])
+            elif b.get("type") == "tool_result":
+                n = names.get(b.get("tool_use_id"))
+                if n in ("Agent", "Task", "Bash", "PowerShell", "Monitor", "TaskStop", "TaskOutput", "CronCreate", "ScheduleWakeup"):
+                    cc = b.get("content")
+                    txt = cc if isinstance(cc, str) else NL.join(x.get("text", "") for x in (cc or []) if isinstance(x, dict))
+                    m = MARK.search(txt)
+                    print(L(ts), "RESULT", n, "use", str(b.get("tool_use_id"))[-8:], "bg_marker", m.group(1) if m else None, "len", len(txt), "err", bool(b.get("is_error")))

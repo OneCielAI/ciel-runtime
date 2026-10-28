@@ -1,0 +1,7 @@
+import os, json, subprocess, time
+ps = r"Get-CimInstance Win32_Process | Where-Object { $_.CommandLine -match 'emily' -and ($_.Name -match 'python|claude|node') } | Select-Object ProcessId,ParentProcessId,Name,CreationDate,CommandLine | ConvertTo-Json -Depth 2"
+r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=40)
+rows = json.loads(r.stdout) if r.stdout.strip() else []
+rows = rows if isinstance(rows, list) else [rows]
+for x in rows:
+    print("PROC", x.get("ProcessId"), x.get("ParentProcessId"), x.get("Name"), x.get("CreationDate"), (x.get("CommandLine") or "")[:330])

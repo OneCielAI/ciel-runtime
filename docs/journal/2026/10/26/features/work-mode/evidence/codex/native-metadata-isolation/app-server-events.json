@@ -1,0 +1,723 @@
+[
+  {
+    "id": 1,
+    "result": {
+      "userAgent": "work-proof/0.158.0 (Windows 10.0.26200; x86_64) WindowsTerminal (work-proof; 1)",
+      "codexHome": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-lugxkcq6\\codex",
+      "platformFamily": "windows",
+      "platformOs": "windows"
+    }
+  },
+  {
+    "method": "configWarning",
+    "params": {
+      "summary": "Project-local config, hooks, and exec policies are disabled in the following folders until the project is trusted, but skills still load.\n    1. C:\\Users\\djlov\\.codex\n       To load project-local config, hooks, and exec policies, add c:\\ as a trusted project in C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-lugxkcq6\\codex\\config.toml.\n",
+      "details": null
+    },
+    "emittedAtMs": 1792997536865
+  },
+  {
+    "method": "remoteControl/status/changed",
+    "params": {
+      "status": "disabled",
+      "serverName": "SAMA",
+      "installationId": "d6856850-868f-48a4-89f9-99acd2a0276e",
+      "environmentId": null
+    },
+    "emittedAtMs": 1792997536865
+  },
+  {
+    "id": 2,
+    "result": {
+      "thread": {
+        "id": "01a176fb-3467-7932-9cf4-f93095e29055",
+        "environments": [
+          {
+            "environmentId": "local",
+            "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-lugxkcq6\\workspace",
+            "runtimeWorkspaceRoots": [
+              "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-lugxkcq6\\workspace"
+            ]
+          }
+        ],
+        "extra": null,
+        "sessionId": "01a176fb-3467-7932-9cf4-f93095e29055",
+        "forkedFromId": null,
+        "parentThreadId": null,
+        "preview": "",
+        "ephemeral": true,
+        "section": null,
+        "sectionEnteredAt": null,
+        "projectId": null,
+        "historyMode": "paginated",
+        "modelProvider": "workproof",
+        "model": "work-probe",
+        "reasoningEffort": null,
+        "createdAt": 1792997536,
+        "updatedAt": 1792997536,
+        "recencyAt": 1792997536,
+        "status": {
+          "type": "idle"
+        },
+        "path": null,
+        "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-lugxkcq6\\workspace",
+        "cliVersion": "0.158.0",
+        "originator": "work-proof",
+        "source": "vscode",
+        "canAcceptDirectInput": true,
+        "threadSource": null,
+        "agentNickname": null,
+        "agentRole": null,
+        "gitInfo": null,
+        "name": null,
+        "daybreakEnabled": null,
+        "turns": []
+      },
+      "model": "work-probe",
+      "modelProvider": "workproof",
+      "serviceTier": null,
+      "disabledPluginIds": [],
+      "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-lugxkcq6\\workspace",
+      "runtimeWorkspaceRoots": [
+        "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-lugxkcq6\\workspace"
+      ],
+      "instructionSources": [],
+      "approvalPolicy": "never",
+      "approvalsReviewer": "user",
+      "sandbox": {
+        "type": "readOnly",
+        "networkAccess": false
+      },
+      "activePermissionProfile": null,
+      "reasoningEffort": null,
+      "multiAgentMode": "explicitRequestOnly"
+    }
+  },
+  {
+    "method": "thread/started",
+    "params": {
+      "thread": {
+        "id": "01a176fb-3467-7932-9cf4-f93095e29055",
+        "environments": [
+          {
+            "environmentId": "local",
+            "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-lugxkcq6\\workspace",
+            "runtimeWorkspaceRoots": [
+              "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-lugxkcq6\\workspace"
+            ]
+          }
+        ],
+        "extra": null,
+        "sessionId": "01a176fb-3467-7932-9cf4-f93095e29055",
+        "forkedFromId": null,
+        "parentThreadId": null,
+        "preview": "",
+        "ephemeral": true,
+        "section": null,
+        "sectionEnteredAt": null,
+        "projectId": null,
+        "historyMode": "paginated",
+        "modelProvider": "workproof",
+        "model": "work-probe",
+        "reasoningEffort": null,
+        "createdAt": 1792997536,
+        "updatedAt": 1792997536,
+        "recencyAt": 1792997536,
+        "status": {
+          "type": "idle"
+        },
+        "path": null,
+        "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-lugxkcq6\\workspace",
+        "cliVersion": "0.158.0",
+        "originator": "work-proof",
+        "source": "vscode",
+        "canAcceptDirectInput": true,
+        "threadSource": null,
+        "agentNickname": null,
+        "agentRole": null,
+        "gitInfo": null,
+        "name": null,
+        "daybreakEnabled": null,
+        "turns": []
+      }
+    },
+    "emittedAtMs": 1792997536900
+  },
+  {
+    "method": "mcpServer/startupStatus/updated",
+    "params": {
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "name": "ciel-runtime-router",
+      "status": "starting",
+      "error": null,
+      "failureReason": null
+    },
+    "emittedAtMs": 1792997536901
+  },
+  {
+    "method": "warning",
+    "params": {
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "message": "Model metadata for `work-probe` not found. Defaulting to fallback metadata; this can degrade performance and cause issues."
+    },
+    "emittedAtMs": 1792997536912
+  },
+  {
+    "id": 3,
+    "result": {
+      "turn": {
+        "id": "01a176fb-3487-71f0-842f-87c066d39390",
+        "items": [],
+        "itemsView": "notLoaded",
+        "status": "inProgress",
+        "error": null,
+        "startedAt": null,
+        "completedAt": null,
+        "durationMs": null
+      }
+    }
+  },
+  {
+    "method": "thread/status/changed",
+    "params": {
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "status": {
+        "type": "active",
+        "activeFlags": []
+      }
+    },
+    "emittedAtMs": 1792997536932
+  },
+  {
+    "method": "turn/started",
+    "params": {
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "turn": {
+        "id": "01a176fb-3487-71f0-842f-87c066d39390",
+        "items": [],
+        "itemsView": "notLoaded",
+        "status": "inProgress",
+        "error": null,
+        "startedAt": 1792997536,
+        "completedAt": null,
+        "durationMs": null
+      }
+    },
+    "emittedAtMs": 1792997536932
+  },
+  {
+    "method": "mcpServer/startupStatus/updated",
+    "params": {
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "name": "ciel-runtime-router",
+      "status": "ready",
+      "error": null,
+      "failureReason": null
+    },
+    "emittedAtMs": 1792997536956
+  },
+  {
+    "method": "item/started",
+    "params": {
+      "item": {
+        "type": "userMessage",
+        "id": "01a176fb-34c6-74a2-80ae-6651a1776301",
+        "clientId": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "Verify Work integration using the router Work plan tools. This is an isolated fixture; no files need changes.",
+            "text_elements": []
+          }
+        ]
+      },
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "turnId": "01a176fb-3487-71f0-842f-87c066d39390",
+      "startedAtMs": 1792997536966
+    },
+    "emittedAtMs": 1792997536966
+  },
+  {
+    "method": "item/completed",
+    "params": {
+      "item": {
+        "type": "userMessage",
+        "id": "01a176fb-34c6-74a2-80ae-6651a1776301",
+        "clientId": null,
+        "content": [
+          {
+            "type": "text",
+            "text": "Verify Work integration using the router Work plan tools. This is an isolated fixture; no files need changes.",
+            "text_elements": []
+          }
+        ]
+      },
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "turnId": "01a176fb-3487-71f0-842f-87c066d39390",
+      "completedAtMs": 1792997536966
+    },
+    "emittedAtMs": 1792997536966
+  },
+  {
+    "method": "item/started",
+    "params": {
+      "item": {
+        "type": "mcpToolCall",
+        "id": "call_1",
+        "server": "ciel-runtime-router",
+        "tool": "work_plan_set",
+        "status": "inProgress",
+        "arguments": {
+          "goal": "Codex isolated Work proof",
+          "children": [
+            {
+              "title": "Protocol phase",
+              "children": [
+                {
+                  "title": "Inspect shared state",
+                  "children": [
+                    {
+                      "title": "Observe work_status output"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "appContext": null,
+        "mcpAppUi": null,
+        "pluginId": null,
+        "readOnlyHint": null,
+        "result": null,
+        "error": null,
+        "durationMs": null
+      },
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "turnId": "01a176fb-3487-71f0-842f-87c066d39390",
+      "startedAtMs": 1792997536973
+    },
+    "emittedAtMs": 1792997536973
+  },
+  {
+    "method": "item/completed",
+    "params": {
+      "item": {
+        "type": "mcpToolCall",
+        "id": "call_1",
+        "server": "ciel-runtime-router",
+        "tool": "work_plan_set",
+        "status": "completed",
+        "arguments": {
+          "goal": "Codex isolated Work proof",
+          "children": [
+            {
+              "title": "Protocol phase",
+              "children": [
+                {
+                  "title": "Inspect shared state",
+                  "children": [
+                    {
+                      "title": "Observe work_status output"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "appContext": null,
+        "mcpAppUi": null,
+        "pluginId": null,
+        "readOnlyHint": null,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Plan for goal n1 saved; Work is in the planning phase.\n\nWork phase: planning\nActive goal progress: 0/1 steps done\n[ ] n1 Codex isolated Work proof\n  [ ] n2 Protocol phase\n    [ ] n3 Inspect shared state\n      [ ] n4 Observe work_status output"
+            }
+          ],
+          "structuredContent": null,
+          "_meta": null
+        },
+        "error": null,
+        "durationMs": 9
+      },
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "turnId": "01a176fb-3487-71f0-842f-87c066d39390",
+      "completedAtMs": 1792997536983
+    },
+    "emittedAtMs": 1792997536983
+  },
+  {
+    "method": "thread/tokenUsage/updated",
+    "params": {
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "turnId": "01a176fb-3487-71f0-842f-87c066d39390",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 120,
+          "inputTokens": 100,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 20,
+          "reasoningOutputTokens": 0
+        },
+        "last": {
+          "totalTokens": 120,
+          "inputTokens": 100,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 20,
+          "reasoningOutputTokens": 0
+        },
+        "modelContextWindow": 258400
+      }
+    },
+    "emittedAtMs": 1792997536983
+  },
+  {
+    "method": "account/rateLimits/updated",
+    "params": {
+      "rateLimits": {
+        "limitId": "codex",
+        "limitName": null,
+        "normalModelSlug": null,
+        "primary": null,
+        "secondary": null,
+        "credits": null,
+        "individualLimit": null,
+        "spendControlReached": null,
+        "planType": null,
+        "rateLimitReachedType": null
+      }
+    },
+    "emittedAtMs": 1792997536983
+  },
+  {
+    "method": "item/started",
+    "params": {
+      "item": {
+        "type": "mcpToolCall",
+        "id": "call_2",
+        "server": "ciel-runtime-router",
+        "tool": "work_execute",
+        "status": "inProgress",
+        "arguments": {},
+        "appContext": null,
+        "mcpAppUi": null,
+        "pluginId": null,
+        "readOnlyHint": null,
+        "result": null,
+        "error": null,
+        "durationMs": null
+      },
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "turnId": "01a176fb-3487-71f0-842f-87c066d39390",
+      "startedAtMs": 1792997536993
+    },
+    "emittedAtMs": 1792997536993
+  },
+  {
+    "method": "item/completed",
+    "params": {
+      "item": {
+        "type": "mcpToolCall",
+        "id": "call_2",
+        "server": "ciel-runtime-router",
+        "tool": "work_execute",
+        "status": "completed",
+        "arguments": {},
+        "appContext": null,
+        "mcpAppUi": null,
+        "pluginId": null,
+        "readOnlyHint": null,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Plan approved; Work is in the executing phase. Start with the next step and record evidence.\n\nWork phase: executing\nActive goal progress: 0/1 steps done\n[ ] n1 Codex isolated Work proof\n  [ ] n2 Protocol phase\n    [ ] n3 Inspect shared state\n      [ ] n4 Observe work_status output"
+            }
+          ],
+          "structuredContent": null,
+          "_meta": null
+        },
+        "error": null,
+        "durationMs": 17
+      },
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "turnId": "01a176fb-3487-71f0-842f-87c066d39390",
+      "completedAtMs": 1792997537010
+    },
+    "emittedAtMs": 1792997537011
+  },
+  {
+    "method": "thread/tokenUsage/updated",
+    "params": {
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "turnId": "01a176fb-3487-71f0-842f-87c066d39390",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 240,
+          "inputTokens": 200,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 40,
+          "reasoningOutputTokens": 0
+        },
+        "last": {
+          "totalTokens": 120,
+          "inputTokens": 100,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 20,
+          "reasoningOutputTokens": 0
+        },
+        "modelContextWindow": 258400
+      }
+    },
+    "emittedAtMs": 1792997537011
+  },
+  {
+    "method": "account/rateLimits/updated",
+    "params": {
+      "rateLimits": {
+        "limitId": "codex",
+        "limitName": null,
+        "normalModelSlug": null,
+        "primary": null,
+        "secondary": null,
+        "credits": null,
+        "individualLimit": null,
+        "spendControlReached": null,
+        "planType": null,
+        "rateLimitReachedType": null
+      }
+    },
+    "emittedAtMs": 1792997537011
+  },
+  {
+    "method": "item/started",
+    "params": {
+      "item": {
+        "type": "mcpToolCall",
+        "id": "call_3",
+        "server": "ciel-runtime-router",
+        "tool": "work_status",
+        "status": "inProgress",
+        "arguments": {
+          "format": "json"
+        },
+        "appContext": null,
+        "mcpAppUi": null,
+        "pluginId": null,
+        "readOnlyHint": null,
+        "result": null,
+        "error": null,
+        "durationMs": null
+      },
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "turnId": "01a176fb-3487-71f0-842f-87c066d39390",
+      "startedAtMs": 1792997537022
+    },
+    "emittedAtMs": 1792997537023
+  },
+  {
+    "method": "item/completed",
+    "params": {
+      "item": {
+        "type": "mcpToolCall",
+        "id": "call_3",
+        "server": "ciel-runtime-router",
+        "tool": "work_status",
+        "status": "completed",
+        "arguments": {
+          "format": "json"
+        },
+        "appContext": null,
+        "mcpAppUi": null,
+        "pluginId": null,
+        "readOnlyHint": null,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "{\"enabled\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"version\": 2, \"active_root\": {\"id\": \"n1\", \"title\": \"Codex isolated Work proof\", \"status\": \"pending\"}, \"done\": 0, \"total\": 1, \"next\": {\"id\": \"n4\", \"title\": \"Observe work_status output\", \"status\": \"pending\", \"path\": [\"Codex isolated Work proof\", \"Protocol phase\", \"Inspect shared state\", \"Observe work_status output\"]}, \"ready\": true, \"ready_reason\": \"ready\", \"goals\": 1}"
+            }
+          ],
+          "structuredContent": null,
+          "_meta": null
+        },
+        "error": null,
+        "durationMs": 30
+      },
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "turnId": "01a176fb-3487-71f0-842f-87c066d39390",
+      "completedAtMs": 1792997537053
+    },
+    "emittedAtMs": 1792997537053
+  },
+  {
+    "method": "thread/tokenUsage/updated",
+    "params": {
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "turnId": "01a176fb-3487-71f0-842f-87c066d39390",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 360,
+          "inputTokens": 300,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 60,
+          "reasoningOutputTokens": 0
+        },
+        "last": {
+          "totalTokens": 120,
+          "inputTokens": 100,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 20,
+          "reasoningOutputTokens": 0
+        },
+        "modelContextWindow": 258400
+      }
+    },
+    "emittedAtMs": 1792997537054
+  },
+  {
+    "method": "account/rateLimits/updated",
+    "params": {
+      "rateLimits": {
+        "limitId": "codex",
+        "limitName": null,
+        "normalModelSlug": null,
+        "primary": null,
+        "secondary": null,
+        "credits": null,
+        "individualLimit": null,
+        "spendControlReached": null,
+        "planType": null,
+        "rateLimitReachedType": null
+      }
+    },
+    "emittedAtMs": 1792997537054
+  },
+  {
+    "method": "item/started",
+    "params": {
+      "item": {
+        "type": "agentMessage",
+        "id": "msg_final",
+        "text": "CODEX_WORK_PROTOCOL_OK",
+        "phase": null,
+        "memoryCitation": null,
+        "delivery": null,
+        "questions": null
+      },
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "turnId": "01a176fb-3487-71f0-842f-87c066d39390",
+      "startedAtMs": 1792997537065
+    },
+    "emittedAtMs": 1792997537066
+  },
+  {
+    "method": "item/completed",
+    "params": {
+      "item": {
+        "type": "agentMessage",
+        "id": "msg_final",
+        "text": "CODEX_WORK_PROTOCOL_OK",
+        "phase": null,
+        "memoryCitation": null,
+        "delivery": null,
+        "questions": null
+      },
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "turnId": "01a176fb-3487-71f0-842f-87c066d39390",
+      "completedAtMs": 1792997537066
+    },
+    "emittedAtMs": 1792997537066
+  },
+  {
+    "method": "thread/tokenUsage/updated",
+    "params": {
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "turnId": "01a176fb-3487-71f0-842f-87c066d39390",
+      "tokenUsage": {
+        "total": {
+          "totalTokens": 480,
+          "inputTokens": 400,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 80,
+          "reasoningOutputTokens": 0
+        },
+        "last": {
+          "totalTokens": 120,
+          "inputTokens": 100,
+          "cachedInputTokens": 0,
+          "cacheWriteInputTokens": 0,
+          "outputTokens": 20,
+          "reasoningOutputTokens": 0
+        },
+        "modelContextWindow": 258400
+      }
+    },
+    "emittedAtMs": 1792997537066
+  },
+  {
+    "method": "account/rateLimits/updated",
+    "params": {
+      "rateLimits": {
+        "limitId": "codex",
+        "limitName": null,
+        "normalModelSlug": null,
+        "primary": null,
+        "secondary": null,
+        "credits": null,
+        "individualLimit": null,
+        "spendControlReached": null,
+        "planType": null,
+        "rateLimitReachedType": null
+      }
+    },
+    "emittedAtMs": 1792997537066
+  },
+  {
+    "method": "thread/status/changed",
+    "params": {
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "status": {
+        "type": "idle"
+      }
+    },
+    "emittedAtMs": 1792997537066
+  },
+  {
+    "method": "turn/completed",
+    "params": {
+      "threadId": "01a176fb-3467-7932-9cf4-f93095e29055",
+      "turn": {
+        "id": "01a176fb-3487-71f0-842f-87c066d39390",
+        "items": [
+          {
+            "type": "agentMessage",
+            "id": "msg_final",
+            "text": "CODEX_WORK_PROTOCOL_OK",
+            "phase": null,
+            "memoryCitation": null,
+            "delivery": null,
+            "questions": null
+          }
+        ],
+        "itemsView": "summary",
+        "status": "completed",
+        "error": null,
+        "startedAt": 1792997536,
+        "completedAt": 1792997537,
+        "durationMs": 153
+      }
+    },
+    "emittedAtMs": 1792997537066
+  }
+]

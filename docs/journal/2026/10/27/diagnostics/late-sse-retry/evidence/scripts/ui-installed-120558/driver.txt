@@ -1,0 +1,10 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+turn outcome: yes
+owned stop 38500 SUCCESS: The process with PID 79404 (child process of PID 38500) has been terminated.
+SUCCESS: The process with PID 38500 (child process of PID 49736) has been terminated.
+owned stop 25416 SUCCESS: The process with PID 25416 (child process of PID 18504) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\late-sse-retry\evidence\scripts\ui-installed-120558

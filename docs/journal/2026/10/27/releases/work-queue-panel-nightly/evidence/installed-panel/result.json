@@ -1,0 +1,225 @@
+{
+ "repo": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-ea59a6105838f611d1c4168ab150f01c6f4e6fd2",
+ "stripped_env": [],
+ "mod": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-ea59a6105838f611d1c4168ab150f01c6f4e6fd2\\ciel_runtime_support\\claude_mods\\ciel-work",
+ "cli_version": "2.1.311 (Claude Code)",
+ "initial_screen": "\n ▐▛███▛█   Claude Code v2.1.311\n▝▜██████▀  fake-work · API Usage Billing\n ▝▝   ▝▝   C:\\Users\\djlov\\AppData\\Local\\Temp\\work-panel-tabs-bc4568c0\\ws\n\n⚠ Model \"fake-work\" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs\n\n▎ Debug mode enabled · logging to C:\\Users\\djlov\\AppData\\Local\\Temp\\work-panel-tabs-bc4568c0\\native-debug.log\n\n● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing approved Work.\n  Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode\n\n❯ E2EHINT-MAIN inspect the owned Work panel and end the turn.\n\n  Called ciel-runtime-router\n\n● WORK-PANEL-FIXTURE-IDLE\n\n✻ Worked for 0s · done 3:08 AM\n\n\n\n\n\n\nWork running 20/40 — 1. LARGE-WORK-PANEL                                                                                           [-]\n[Progress 40] Queue 6 Completed 21\n[~] Phase 00\n  [ ] OPEN-ITEM-00\n[~] Phase 01\n  [ ] OPEN-ITEM-01\n1/10 n: Next w: Inspector\nTEAMMATE-AREA-SENTINEL other information remains visible\n                                                                                                                     ● high · /effort\n───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n❯\n───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────\n  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents                                                        work: run 20/40",
+ "checks": {
+  "idle": true,
+  "companion_visible": true,
+  "open_visible": true,
+  "native_render_valid": true,
+  "work_band_at_most_10_rows": true,
+  "completed_hidden_initially": true,
+  "inspector": true,
+  "queue_tab": true,
+  "completed_tab": true,
+  "native_retained_after_tab": true,
+  "completed_page_two": true,
+  "display_only": true
+ },
+ "model_user_prompts_sent": 1,
+ "rows": [
+  {
+   "n": 1,
+   "tag": "aux",
+   "stage": 0,
+   "tool_names": [],
+   "context_number_hint": false,
+   "plan_tool_number_hint": false,
+   "notice_sent_to_model": false,
+   "prior_results": [],
+   "response": [
+    {
+     "type": "text",
+     "text": "E2EHINT-AUX-OK"
+    }
+   ]
+  },
+  {
+   "n": 2,
+   "tag": "main",
+   "stage": 0,
+   "tool_names": [
+    "Agent",
+    "AskUserQuestion",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterPlanMode",
+    "EnterWorktree",
+    "ExitPlanMode",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_reorder",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status",
+    "mcp__ciel-runtime-router__work_urgent"
+   ],
+   "context_number_hint": true,
+   "plan_tool_number_hint": true,
+   "notice_sent_to_model": false,
+   "prior_results": [],
+   "served_tool": "mcp__ciel-runtime-router__work_status",
+   "response": [
+    {
+     "type": "tool_use",
+     "id": "toolu_h2",
+     "name": "mcp__ciel-runtime-router__work_status",
+     "input": {
+      "format": "json"
+     }
+    }
+   ]
+  },
+  {
+   "n": 3,
+   "tag": "main",
+   "stage": 1,
+   "tool_names": [
+    "Agent",
+    "AskUserQuestion",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterPlanMode",
+    "EnterWorktree",
+    "ExitPlanMode",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_reorder",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status",
+    "mcp__ciel-runtime-router__work_urgent"
+   ],
+   "context_number_hint": true,
+   "plan_tool_number_hint": true,
+   "notice_sent_to_model": false,
+   "prior_results": [
+    {
+     "tool_use_id": "toolu_h2",
+     "type": "tool_result",
+     "content": [
+      {
+       "type": "text",
+       "text": "{\"enabled\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"version\": 1, \"active_root\": {\"id\": \"n4\", \"title\": \"1. LARGE-WORK-PANEL\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"executing\"}, \"continuation\": {\"actionable\": 20, \"next\": {\"id\": \"n7\", \"title\": \"OPEN-ITEM-00\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"path\": [\"1. LARGE-WORK-PANEL\", \"Phase 00\", \"OPEN-ITEM-00\"], \"root_id\": \"n4\", \"phase\": \"executing\"}, \"waiting\": [], \"blocked\": 0, \"held\": 0}, \"done\": 20, \"total\": 40, \"next\": {\"id\": \"n7\", \"title\": \"OPEN-ITEM-00\", \"status\": \"pending\", \"path\": [\"1. LARGE-WORK-PANEL\", \"Phase 00\", \"OPEN-ITEM-00\"]}, \"breakdown\": [{\"id\": \"n5\", \"title\": \"Phase 00\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 1, \"total\": 2, \"children\": [{\"id\": \"n6\", \"title\": \"DONE-ITEM-00\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n7\", \"title\": \"OPEN-ITEM-00\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"more\": 0}, {\"id\": \"n8\", \"title\": \"Phase 01\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 1, \"total\": 2, \"children\": [{\"id\": \"n9\", \"title\": \"DONE-ITEM-01\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n10\", \"title\": \"OPEN-ITEM-01\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"more\": 0}, {\"id\": \"n11\", \"title\": \"Phase 02\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 1, \"total\": 2, \"children\": [{\"id\": \"n12\", \"title\": \"DONE-ITEM-02\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n13\", \"title\": \"OPEN-ITEM-02\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"more\": 0}, {\"id\": \"n14\", \"title\": \"Phase 03\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 1, \"total\": 2, \"children\": [{\"id\": \"n15\", \"title\": \"DONE-ITEM-03\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n16\", \"title\": \"OPEN-ITEM-03\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"more\": 0}, {\"id\": \"n17\", \"title\": \"Phase 04\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 1, \"total\": 2, \"children\": [{\"id\": \"n18\", \"title\": \"DONE-ITEM-04\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n19\", \"title\": \"OPEN-ITEM-04\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"more\": 0}, {\"id\": \"n20\", \"title\": \"Phase 05\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 1, \"total\": 2, \"children\": [{\"id\": \"n21\", \"title\": \"DONE-ITEM-05\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n22\", \"title\": \"OPEN-ITEM-05\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"more\": 0}, {\"id\": \"n23\", \"title\": \"Phase 06\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 1, \"total\": 2, \"children\": [{\"id\": \"n24\", \"title\": \"DONE-ITEM-06\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n25\", \"title\": \"OPEN-ITEM-06\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"more\": 0}, {\"id\": \"n26\", \"title\": \"Phase 07\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 1, \"total\": 2, \"children\": [{\"id\": \"n27\", \"title\": \"DONE-ITEM-07\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n28\", \"title\": \"OPEN-ITEM-07\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"more\": 0}, {\"id\": \"n29\", \"title\": \"Phase 08\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 1, \"total\": 2, \"children\": [{\"id\": \"n30\", \"title\": \"DONE-ITEM-08\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n31\", \"title\": \"OPEN-ITEM-08\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"more\": 0}, {\"id\": \"n32\", \"title\": \"Phase 09\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 1, \"total\": 2, \"children\": [{\"id\": \"n33\", \"title\": \"DONE-ITEM-09\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n34\", \"title\": \"OPEN-ITEM-09\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"more\": 0}, {\"id\": \"n35\", \"title\": \"Phase 10\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 1, \"total\": 2, \"children\": [{\"id\": \"n36\", \"title\": \"DONE-ITEM-10\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n37\", \"title\": \"OPEN-ITEM-10\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"more\": 0}, {\"id\": \"n38\", \"title\": \"Phase 11\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 1, \"total\": 2, \"children\": [{\"id\": \"n39\", \"title\": \"DONE-ITEM-11\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n40\", \"title\": \"OPEN-ITEM-11\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"more\": 0}, {\"id\": \"n41\", \"title\": \"Phase 12\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 1, \"total\": 2, \"children\": [{\"id\": \"n42\", \"title\": \"DONE-ITEM-12\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n43\", \"title\": \"OPEN-ITEM-12\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"more\": 0}, {\"id\": \"n44\", \"title\": \"Phase 13\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 1, \"total\": 2, \"children\": [{\"id\": \"n45\", \"title\": \"DONE-ITEM-13\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n46\", \"title\": \"OPEN-ITEM-13\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"more\": 0}, {\"id\": \"n47\", \"title\": \"Phase 14\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 1, \"total\": 2, \"children\": [{\"id\": \"n48\", \"title\": \"DONE-ITEM-14\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n49\", \"title\": \"OPEN-ITEM-14\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"more\": 0}, {\"id\": \"n50\", \"title\": \"Phase 15\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 1, \"total\": 2, \"children\": [{\"id\": \"n51\", \"title\": \"DONE-ITEM-15\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n52\", \"title\": \"OPEN-ITEM-15\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"more\": 0}, {\"id\": \"n53\", \"title\": \"Phase 16\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 1, \"total\": 2, \"children\": [{\"id\": \"n54\", \"title\": \"DONE-ITEM-16\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n55\", \"title\": \"OPEN-ITEM-16\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"more\": 0}, {\"id\": \"n56\", \"title\": \"Phase 17\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 1, \"total\": 2, \"children\": [{\"id\": \"n57\", \"title\": \"DONE-ITEM-17\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n58\", \"title\": \"OPEN-ITEM-17\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"more\": 0}, {\"id\": \"n59\", \"title\": \"Phase 18\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 1, \"total\": 2, \"children\": [{\"id\": \"n60\", \"title\": \"DONE-ITEM-18\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n61\", \"title\": \"OPEN-ITEM-18\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"more\": 0}, {\"id\": \"n62\", \"title\": \"Phase 19\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 1, \"total\": 2, \"children\": [{\"id\": \"n63\", \"title\": \"DONE-ITEM-19\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n64\", \"title\": \"OPEN-ITEM-19\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"more\": 0}], \"root_index\": [{\"id\": \"n1\", \"title\": \"Completed historical goal\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"planning\", \"held\": false}, {\"id\": \"n4\", \"title\": \"1. LARGE-WORK-PANEL\", \"status\": \"in_progress\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"executing\", \"held\": false}, {\"id\": \"n65\", \"title\": \"QUEUED-GOAL-00\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"planning\", \"held\": false}, {\"id\": \"n68\", \"title\": \"QUEUED-GOAL-01\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"planning\", \"held\": false}, {\"id\": \"n71\", \"title\": \"QUEUED-GOAL-02\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"planning\", \"held\": false}, {\"id\": \"n74\", \"title\": \"QUEUED-GOAL-03\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"planning\", \"held\": false}, {\"id\": \"n77\", \"title\": \"QUEUED-GOAL-04\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"planning\", \"held\": false}, {\"id\": \"n80\", \"title\": \"QUEUED-GOAL-05\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"planning\", \"held\": false}], \"completed_active\": [{\"id\": \"n6\", \"title\": \"DONE-ITEM-00\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n9\", \"title\": \"DONE-ITEM-01\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n12\", \"title\": \"DONE-ITEM-02\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n15\", \"title\": \"DONE-ITEM-03\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n18\", \"title\": \"DONE-ITEM-04\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n21\", \"title\": \"DONE-ITEM-05\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n24\", \"title\": \"DONE-ITEM-06\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n27\", \"title\": \"DONE-ITEM-07\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n30\", \"title\": \"DONE-ITEM-08\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n33\", \"title\": \"DONE-ITEM-09\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n36\", \"title\": \"DONE-ITEM-10\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n39\", \"title\": \"DONE-ITEM-11\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n42\", \"title\": \"DONE-ITEM-12\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n45\", \"title\": \"DONE-ITEM-13\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n48\", \"title\": \"DONE-ITEM-14\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n51\", \"title\": \"DONE-ITEM-15\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n54\", \"title\": \"DONE-ITEM-16\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n57\", \"title\": \"DONE-ITEM-17\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n60\", \"title\": \"DONE-ITEM-18\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}, {\"id\": \"n63\", \"title\": \"DONE-ITEM-19\", \"status\": \"done\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false}], \"ready\": true, \"ready_reason\": \"ready\", \"goals\": 8, \"queue\": [{\"id\": \"n65\", \"title\": \"QUEUED-GOAL-00\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"planning\", \"done\": 0, \"total\": 1, \"held\": false}, {\"id\": \"n68\", \"title\": \"QUEUED-GOAL-01\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"planning\", \"done\": 0, \"total\": 1, \"held\": false}, {\"id\": \"n71\", \"title\": \"QUEUED-GOAL-02\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"planning\", \"done\": 0, \"total\": 1, \"held\": false}, {\"id\": \"n74\", \"title\": \"QUEUED-GOAL-03\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"planning\", \"done\": 0, \"total\": 1, \"held\": false}, {\"id\": \"n77\", \"title\": \"QUEUED-GOAL-04\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"planning\", \"done\": 0, \"total\": 1, \"held\": false}, {\"id\": \"n80\", \"title\": \"QUEUED-GOAL-05\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"planning\", \"done\": 0, \"total\": 1, \"held\": false}], \"auto_continue\": false}"
+      }
+     ],
+     "cache_control": {
+      "type": "ephemeral"
+     }
+    }
+   ],
+   "response": [
+    {
+     "type": "text",
+     "text": "WORK-PANEL-FIXTURE-IDLE"
+    }
+   ]
+  }
+ ],
+ "egress": [
+  {
+   "method": "CONNECT",
+   "path": "downloads.claude.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "github.com:443"
+  }
+ ],
+ "live_before": {
+  "9505": {
+   "pid": 33384,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  },
+  "9524": {
+   "pid": 65156,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  }
+ },
+ "live_after": {
+  "9505": {
+   "pid": 33384,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  },
+  "9524": {
+   "pid": 65156,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  }
+ }
+}

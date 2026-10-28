@@ -1,0 +1,38 @@
+
+ ▐▛███▛█   Claude Code v2.1.310
+▝▜██████▀  fake-work · API Usage Billing
+ ▝▝   ▝▝   C:\Users\djlov\AppData\Local\Temp\work-hybrid-979dd792\ws
+
+⚠ Model "fake-work" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs
+
+▎ Debug mode enabled · logging to C:\Users\djlov\AppData\Local\Temp\work-hybrid-979dd792\native-debug.log
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing approved Work.
+  Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode
+
+❯ E2EHINT-MAIN create approved active Work and keep working; print the harmless shell marker.
+
+  Calling ciel-runtime-router 2 times, running 1 shell command…
+  ⎿  $ echo SHELL-NATIVE-ALLOWED
+
+❯ E2EHINT-QUEUE new independent request: queue it first while active Work continues. Then I explicitly request moving it to priority
+  1. Keep refinements within existing scope, finish the priority request, and resume approved active Work. RAW-USER-QUEUED-TEXT
+  ctrl+x ctrl+s to send now
+
+
+
+
+
+
+
+✢ Frosting… (4s · ↓ 60 tokens)
+Work running 0/1 — 1. Active approved Work                                                                                         [-]
+1: [ ] Active phase
+  [ ] Active leaf
+w: All items / refresh
+Ctrl+X Tab: focus · Tab/↑↓: select · Enter: inspect · Esc: return · /work-mode help
+                                                                                                                     ● high · /effort
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ Press up to edit queued messages
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt · ← for agents                                       work: run 0/1

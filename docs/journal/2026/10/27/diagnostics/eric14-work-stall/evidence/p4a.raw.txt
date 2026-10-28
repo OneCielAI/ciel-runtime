@@ -1,0 +1,16 @@
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+    import base64,zlib;exec(zlib.decompress(base64.b64decode('eJzFkcFOwzAMhu99CksckqCtaHCrtAOCM0IVnChCWetCIE2iOKMaT49TygCNKyKXuvaf3/aXI6hRd0vv7K4C61udEEYfX5aERMY7gq3rMEJ6QsBoWqi9Hox7hNagXcatS2ZASBER5MZnbadKuPIwRpOQyqKPfoCg05M1GzBD8DHBNf8Wc9xxx+xR1LCeCjKKi6q5JYzUaB3GpT5dbU9XzXkIlzrpZh6g+T6AUEWIxiUpkg9iAcTO2MlQOs3T9T5CAOOgLnmm2JkolVJFTo+U87Nc1ici705Bt0hCfVOD6eGwTA9TFdASwt19VQCfkfcY6UO6pyimEpuM+1sf6nx6Y5H41jzGWD5av5Hi+GSyCFa78pm8E2oBL7hbWz1sOg19BX1JSSep+PMwZA4LiPjK4HB9E7eo7qqz+68uvG6ft53aVTADy/ZMrF/8cCPzxmafb1Pug/yaOWDlEORB/8zEc6OBs5MsYLsWhK13HRNTRYZTH7D5hct+2j+B8sX+Xyi8A9ZuKMc=')))
+                       ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 8, in <module>
+  File "C:\Program Files\Python313\Lib\pathlib\_abc.py", line 465, in is_dir
+    return S_ISDIR(self.stat(follow_symlinks=follow_symlinks).st_mode)
+                   ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Program Files\Python313\Lib\pathlib\_local.py", line 515, in stat
+    return os.stat(self, follow_symlinks=follow_symlinks)
+           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+PermissionError: [WinError 5] Access is denied: 'C:\\Users\\aapw-a21u21\\AppData\\Roaming\\ciel-runtime\\workspaces\\fe924fced90d\\work-sessions'
+top ['codex-model-catalogs', 'codex-remote', 'config.json', 'launch-state.json', 'model-list-cache.json', 'model-registry.json', 'router-instances', 'workspace-router-ports.json', 'workspaces']
+
+
+exit 1

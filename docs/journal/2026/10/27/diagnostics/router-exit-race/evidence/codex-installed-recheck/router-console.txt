@@ -1,0 +1,3 @@
+ciel-runtime router starting on 127.0.0.1:59507 (client base http://127.0.0.1:59507, log level ERROR, source=default)
+web: http://127.0.0.1:59507/
+web_tailscale_https_recommended: ciel-runtime --ca-web-port 59507 --ca-tailscale-https=59507

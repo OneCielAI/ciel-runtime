@@ -1,0 +1,50 @@
+== test_api_key_rotation
+----------------------------------------------------------------------
+Ran 46 tests in 30.812s
+
+OK
+== test_architecture_contracts
+----------------------------------------------------------------------
+Ran 261 tests in 47.382s
+
+OK (skipped=42)
+== test_cielairouter_handled_error_guards
+----------------------------------------------------------------------
+Ran 9 tests in 2.169s
+
+OK
+== test_cielairouter_timeout_route
+responses_loopback failure=timeout retries=0 success=False upstream_hits=1 http_status=504 status_blocks=1 sse_error_frames=1 bytes=108
+responses_loopback failure=504 retries=2 success=True upstream_hits=2 http_status=200 status_blocks=1 sse_error_frames=0 bytes=211
+responses_loopback failure=504 retries=2 success=False upstream_hits=3 http_status=504 status_blocks=1 sse_error_frames=1 bytes=230
+responses_loopback failure=504 retries=0 success=False upstream_hits=1 http_status=504 status_blocks=1 sse_error_frames=1 bytes=230
+== test_cielairouter_transient_integration
+----------------------------------------------------------------------
+Ran 5 tests in 2.553s
+
+OK
+== test_claude_compaction_liveness
+Ran 17 tests in 9.929s
+
+FAILED (errors=1)
+socket_resume disconnected_calls=3 retry_calls=3 reused=3 final_upstream=1
+== test_claude_transient_context_recovery
+OK
+native Messages 400 -> 200: upstream_hits=2 max_tokens=400->300 recovery_retries=0 client_responses=1
+native Messages 400 -> 503: upstream_hits=2 max_tokens=400->300 recovery_retries=0 client_responses=1
+native Messages 400 -> 400: upstream_hits=2 max_tokens=400->300 recovery_retries=0 client_responses=1
+== test_meta_provider
+----------------------------------------------------------------------
+Ran 49 tests in 0.842s
+
+OK
+== test_router_transient_retry_scope
+----------------------------------------------------------------------
+Ran 7 tests in 0.006s
+
+OK
+== test_upstream_retry
+----------------------------------------------------------------------
+Ran 4 tests in 0.656s
+
+OK

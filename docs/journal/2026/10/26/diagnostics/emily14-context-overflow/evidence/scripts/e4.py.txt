@@ -1,0 +1,35 @@
+import os, json
+f = r"C:\Users\aapw-a11u4\.claude\projects\C--Data-Source-SGSWMSCrossing-u4-home-emily-ai\a9a016f2-bd19-4066-8b44-6ee329194e16.jsonl"
+size = os.path.getsize(f)
+with open(f, "rb") as fh:
+    fh.seek(max(0, size - 80*1024*1024)); fh.readline(); data = fh.read()
+n = 0; prev = None
+for line in data.splitlines():
+    try: r = json.loads(line.replace(b"\x00", b""))
+    except Exception: continue
+    ts = r.get("timestamp") or ""
+    if ts < "2026-10-26T20:30": continue
+    if r.get("isSidechain") is True: continue
+    t = r.get("type"); st = r.get("subtype")
+    m = r.get("message") if isinstance(r.get("message"), dict) else {}
+    if t == "assistant":
+        u = m.get("usage") or {}
+        tot = sum(int(u.get(k) or 0) for k in ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"))
+        api = r.get("isApiErrorMessage")
+        txt = ""
+        if api:
+            c = m.get("content"); txt = " ".join(str(b.get("text") or "") for b in c if isinstance(b, dict))[:160] if isinstance(c, list) else ""
+        key = (m.get("id"))
+        if key == prev and not api: continue
+        prev = key
+        print("A", ts, "model", m.get("model"), "tot", tot, "stop", m.get("stop_reason"), "api" if api else "", txt)
+    elif t == "system":
+        cm = r.get("compactMetadata")
+        print("S", ts, st, json.dumps(cm)[:200] if cm else "", (str(r.get("content") or "")[:160]).replace("\n", " "))
+    elif t == "user" and r.get("isCompactSummary"):
+        print("U-compact-summary", ts)
+    elif t == "user":
+        c = m.get("content")
+        s = c if isinstance(c, str) else " ".join(str(b.get("text") or "") for b in (c or []) if isinstance(b, dict) and b.get("type") == "text")
+        if "/compact" in s or "compact" in s.lower()[:200]:
+            print("U", ts, s[:160].replace("\n", " "))

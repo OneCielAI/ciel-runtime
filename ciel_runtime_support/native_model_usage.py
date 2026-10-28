@@ -14,14 +14,24 @@ class NativeModelUsage:
     identity: str
     tokens: int
 
-def latest_native_model_usage(path, scope, since, model):
-    if path is None or scope.runtime != 'claude' or not since or not model:
-        return None
+def model_names(model):
+    """Casefolded names a CielAiRouter alias, its upstream id and its routed id go by."""
     adapter = CielAiRouterProviderAdapter()
     names = {Models.strip_claude_context_suffix(model).strip()}
     names.add(adapter.upstream_api_model_id(adapter.normalize_model_id(model)))
     names.update('ciel-runtime-cielairouter-' + Models.slug(name) for name in tuple(names) if name)
-    names = {name.casefold() for name in names if name}
+    return {name.casefold() for name in names if name}
+
+def request_model_key(model):
+    """How a routed request names its model, comparable with model_names()."""
+    return Models.strip_claude_context_suffix(str(model or '')).strip().casefold()
+
+def latest_native_model_usage(path, scope, since, model, extra_names=()):
+    """extra_names: upstream model names the router saw answer this alias (an
+    alias such as _walkie_opus55-sol61-fast reports claude-opus-5-5)."""
+    if path is None or scope.runtime != 'claude' or not since or not model:
+        return None
+    names = model_names(model) | {str(name).casefold() for name in extra_names if name}
     latest = None
     newest_boundary_at = 0.0
     try:

@@ -1,0 +1,147 @@
+{
+ "repo": "C:\\Users\\djlov\\ciel-runtime-wt-work",
+ "mode": "bypass",
+ "ps_env": null,
+ "live_gates": false,
+ "cli": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+ "stripped_env": [
+  "ANTHROPIC_AUTH_TOKEN",
+  "ANTHROPIC_BASE_URL",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION",
+  "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+  "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+  "ANTHROPIC_MODEL",
+  "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+  "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+  "CIEL_RUNTIME_CONFIG_DIR",
+  "CIEL_RUNTIME_HOME",
+  "CIEL_RUNTIME_LAUNCH_CWD",
+  "CIEL_RUNTIME_MODEL_ALIAS",
+  "CIEL_RUNTIME_PROVIDER",
+  "CIEL_RUNTIME_REGISTERED_HOME",
+  "CIEL_RUNTIME_SCRIPT",
+  "CIEL_RUNTIME_SELECTED_HOME",
+  "CIEL_RUNTIME_STATE_DIR",
+  "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+  "CLAUDECODE",
+  "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+  "CLAUDE_CODE_ATTRIBUTION_HEADER",
+  "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+  "CLAUDE_CODE_CHILD_SESSION",
+  "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+  "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+  "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+  "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+  "CLAUDE_CODE_ENTRYPOINT",
+  "CLAUDE_CODE_EXECPATH",
+  "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+  "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+  "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+  "CLAUDE_CODE_MAX_RETRIES",
+  "CLAUDE_CODE_MESSAGING_SOCKET",
+  "CLAUDE_CODE_MESSAGING_TOKEN",
+  "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+  "CLAUDE_CODE_RETRY_WATCHDOG",
+  "CLAUDE_CODE_SEND_FEEDBACK",
+  "CLAUDE_CODE_SESSION_ATTENDED",
+  "CLAUDE_CODE_SESSION_ID",
+  "CLAUDE_CODE_SUBAGENT_MODEL",
+  "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
+  "CLAUDE_EFFORT",
+  "CLAUDE_PID",
+  "CODEX_SPARKLE_ENABLED"
+ ],
+ "live_before": {
+  "9505": {
+   "pid": 79472,
+   "version": "0.2.51-nightly.20261027-080148.ea59a61",
+   "source_fingerprint": "11b9fec1d2441894"
+  },
+  "9524": {
+   "pid": 65156,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894"
+  }
+ },
+ "cli_version": "2.1.310 (Claude Code)",
+ "exit": 0,
+ "observed": [
+  {
+   "sent_command_chars": 2092,
+   "result": {
+    "error": false,
+    "text": "BYTES=1972 LAST=L00028 EXPECTED_LAST=L00028\nShell cwd was reset to C:\\Users\\djlov\\AppData\\Local\\Temp\\subps-13c0ffcd\\ws"
+   }
+  },
+  {
+   "sent_command_chars": 4064,
+   "result": {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   }
+  },
+  {
+   "sent_command_chars": 5968,
+   "result": {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   }
+  },
+  {
+   "sent_command_chars": 6988,
+   "result": {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   }
+  },
+  {
+   "sent_command_chars": 7940,
+   "result": {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   }
+  },
+  {
+   "sent_command_chars": 8892,
+   "result": {
+    "error": false,
+    "text": "/usr/bin/bash: line 107: warning: here-document at line 54 delimited by end-of-file (wanted `EOF')"
+   }
+  },
+  {
+   "sent_command_chars": 11816,
+   "result": {
+    "error": true,
+    "text": "ENAMETOOLONG: name too long, uv_spawn"
+   }
+  },
+  {
+   "sent_command_chars": 19568,
+   "result": {
+    "error": true,
+    "text": "ENAMETOOLONG: name too long, uv_spawn"
+   }
+  }
+ ],
+ "live_after": {
+  "9505": {
+   "pid": 79472,
+   "version": "0.2.51-nightly.20261027-080148.ea59a61",
+   "source_fingerprint": "11b9fec1d2441894"
+  },
+  "9524": {
+   "pid": 65156,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894"
+  }
+ },
+ "egress": []
+}

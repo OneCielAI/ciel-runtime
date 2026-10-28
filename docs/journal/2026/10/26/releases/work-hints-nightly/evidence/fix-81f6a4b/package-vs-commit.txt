@@ -1,0 +1,4 @@
+same ciel_runtime_support/claude_mods/ciel-work/hooks/register.js
+same ciel_runtime_support/claude_mods/ciel-work/tests/work.test.ts
+CI success 81f6a4b run 40377622625
+Publish success 81f6a4b run 40377622439 (npm test, publish, verify tarball)

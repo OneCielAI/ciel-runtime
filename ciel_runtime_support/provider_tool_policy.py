@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any, Callable
 
@@ -150,4 +151,27 @@ class ProviderToolPolicy:
         return adapter.normalize_tool_choice(contract, model, choice)
 
 
-__all__ = ["ProviderToolPolicy"]
+def configure_blocked_tools(config: ProviderConfig, raw_value: str) -> None:
+    """Set the existing per-provider override without accepting ambiguous input."""
+    value = raw_value.strip()
+    if value.lower() in {"auto", "default", "unset", "none", "null"}:
+        config.pop("blocked_tools", None)
+        return
+    try:
+        parsed = json.loads(value)
+    except (ValueError, TypeError) as exc:
+        raise ValueError("blocked_tools: enter default, false, or a JSON list of tool names.") from exc
+    if parsed is False:
+        config["blocked_tools"] = False
+    elif isinstance(parsed, list) and all(isinstance(name, str) and name.strip() for name in parsed):
+        config["blocked_tools"] = list(dict.fromkeys(name.strip() for name in parsed))
+    else:
+        raise ValueError("blocked_tools: enter default, false, or a JSON list of non-empty tool names.")
+
+
+def blocked_tools_option_value(config: ProviderConfig) -> str:
+    value = config.get("blocked_tools")
+    return json.dumps(value, ensure_ascii=False) if value is False or isinstance(value, list) else "default"
+
+
+__all__ = ["ProviderToolPolicy", "configure_blocked_tools", "blocked_tools_option_value"]

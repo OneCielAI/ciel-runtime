@@ -1,0 +1,4 @@
+01-native-plan-and-before-api
+saved C:\Users\djlov\AppData\Local\Temp\ciel-work-api-424a4f4d\01-native-plan-and-before-api.png handle=59841040 printwindow=True
+02-http-idle-refreshed
+saved C:\Users\djlov\AppData\Local\Temp\ciel-work-api-424a4f4d\02-http-idle-refreshed.png handle=59841040 printwindow=True

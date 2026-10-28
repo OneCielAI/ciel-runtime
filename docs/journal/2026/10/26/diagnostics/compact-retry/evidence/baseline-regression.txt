@@ -1,0 +1,17 @@
+observed phase= compacting
+test_terminal_failure_queues_bounded_retry (__main__.Repro.test_terminal_failure_queues_bounded_retry) ... FAIL
+
+======================================================================
+FAIL: test_terminal_failure_queues_bounded_retry (__main__.Repro.test_terminal_failure_queues_bounded_retry)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<string>", line 15, in test_terminal_failure_queues_bounded_retry
+AssertionError: 'retry_wait' != 'compacting'
+- retry_wait
++ compacting
+
+
+----------------------------------------------------------------------
+Ran 1 test in 0.013s
+
+FAILED (failures=1)

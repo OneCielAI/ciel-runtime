@@ -1,0 +1,11 @@
+registry CIEL_RUNTIME_HOME=C:\Users\djlov\.local\share\ciel-runtime-eec7d694af216308e2a95d4103535f43c5546f09
+== C:/Users/djlov/.local/bin/ciel-runtime.cmd
+C:\Users\djlov\.local\share\ciel-runtime-eec7d694af216308e2a95d4103535f43c5546f09\ciel_runtime_support\codex_app_server_session.py:417: SyntaxWarning: 'return' in a 'finally' block
+  return _RemoteRun(1)
+ciel-runtime 0.2.51-nightly.20261027-053202.eec7d69
+exit=0
+== C:/Users/djlov/AppData/Roaming/npm/ciel-runtime.cmd
+C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\codex_app_server_session.py:417: SyntaxWarning: 'return' in a 'finally' block
+  return _RemoteRun(1)
+ciel-runtime 0.2.51-nightly.20261027-053202.eec7d69
+exit=0

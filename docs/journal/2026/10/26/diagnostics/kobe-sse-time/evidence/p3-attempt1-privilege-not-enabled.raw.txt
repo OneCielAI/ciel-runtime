@@ -1,0 +1,82 @@
+LOCAL_BEFORE 1793062485.073 LOCAL_AFTER 1793062488.131 ROUNDTRIP 3.058
+PRIV_ERR 6
+REMOTE_NOW 1793062485.023 2026-10-27T00:54:45.022Z
+WS_LIST_ERR PermissionError [WinError 5] Access is denied: 'C:\\Users\\aapw-a24u24\\AppData\\Roaming\\ciel-runtime\\workspaces\\651d879f6c68'
+LOG_LEVEL_ERR [Errno 2] open failed: 'C:\\Users\\aapw-a24u24\\AppData\\Roaming\\ciel-runtime\\log-level'
+CFG_ERR time\workspaces\651d879f6c68\config.json OSError [Errno 5] open failed: 'C:\\Users\\aapw-a24u24\\AppData\\Roaming\\ciel-runtime\\workspaces\\651d879f6c68\\config.json'
+STATE_ERR external-event-sse-cursors.json OSError [Errno 5] open failed: 'C:\\Users\\aapw-a24u24\\AppData\\Roaming\\ciel-runtime\\workspaces\\651d879f6c68\\external-event-sse-cursors.json'
+STATE_ERR channel-llm-cursor.json OSError [Errno 5] open failed: 'C:\\Users\\aapw-a24u24\\AppData\\Roaming\\ciel-runtime\\workspaces\\651d879f6c68\\channel-llm-cursor.json'
+STATE_ERR channel-llm-clear-floor.json OSError [Errno 5] open failed: 'C:\\Users\\aapw-a24u24\\AppData\\Roaming\\ciel-runtime\\workspaces\\651d879f6c68\\channel-llm-clear-floor.json'
+STATE_ERR channel-llm-launch-guard.json OSError [Errno 5] open failed: 'C:\\Users\\aapw-a24u24\\AppData\\Roaming\\ciel-runtime\\workspaces\\651d879f6c68\\channel-llm-launch-guard.json'
+QUEUE_ERR OSError [Errno 5] open failed: 'C:\\Users\\aapw-a24u24\\AppData\\Roaming\\ciel-runtime\\workspaces\\651d879f6c68\\runtime-inputs.jsonl'
+STATUS_ERR OSError [Errno 5] open failed: 'C:\\Users\\aapw-a24u24\\AppData\\Roaming\\ciel-runtime\\workspaces\\651d879f6c68\\runtime-input-status.jsonl'
+ACKS_ERR OSError [Errno 5] open failed: 'C:\\Users\\aapw-a24u24\\AppData\\Roaming\\ciel-runtime\\workspaces\\651d879f6c68\\event-acks.jsonl'
+INST_STATE compaction-admission.json {"scope": {"runtime": "claude", "session_id": "5ac1ee55-d0d1-4ef7-b4df-3d68e62bbd1b", "epoch": "9d189d454bc2402388916eb9b9efae62"}, "phase": "verified", "pressure": false, "baseline_tokens": 1061699, "context_limit": 872000, "requested_at": 1793059848.0857396, "deadline": 1793061052.477365, "baseline_checkpoint_id": "8ee0d126d75ddff7aedf258bd5851631639ba055750120c76209c6b6f8dc8afe", "checkpoint_id": "333ec940873d01bda05e07a1f01f01994283f19f77484340407b979ec2dbd702", "request_id": "053465e0429143a4bdf3db0a5fb86b45", "attempts": 1, "safeguard_model": "_walkie_sol61-opus55-fast", "safeguard_sample": "7792e1004b57de8761e78bb5125ed4784e6a2d11f3e8f06e847fe4422aaff886", "safeguard_seen": ["7792e100
+INST_STATE compaction-scope.json {"runtime": "claude", "epoch": "9d189d454bc2402388916eb9b9efae62", "started_at": 1793058353.913797, "identity_since": 1793058357.9360049, "session_id": "5ac1ee55-d0d1-4ef7-b4df-3d68e62bbd1b", "cwd": "C:\\ProgramData\\aap-win\\sandboxes\\u24\\home\\kobe-ai", "codex_home": "", "path": "C:\\Users\\aapw-a24u24\\.claude\\projects\\C--ProgramData-aap-win-sandboxes-u24-home-kobe-ai\\5ac1ee55-d0d1-4ef7-b4df-3d68e62bbd1b.jsonl", "messaging_socket_path": "\\\\.\\pipe\\LOCAL\\cc-msg-19a58fa7d6372050c5319d5c41315ab3", "owned_pid": 0, "launcher_pid": 11480, "claude_config_dir": "C:\\Users\\aapw-a24u24\\.claude", "request_identity": true, "seeded": true, "request_observed": true, "identity_ready": {"sessi
+INST_STATE router-activity.json {"updated_at": 1793062473.7923722, "time": "2026-10-26T17:54:33", "event": "request", "provider": "cielairouter", "model": "_Walkie_Sol61-Opus55-Fast", "attempt": 1, "total": 1, "tokens": 503959, "bytes": 1933437, "timeout": 600.0, "stream": true, "endpoint": "http://127.0.0.1:20128/v1/messages"}
+INST_STATE context-usage.json {"updated_at": 1793062471.7194722, "time": "2026-10-26T17:54:31", "provider": "cielairouter", "model": "ciel-runtime-cielairouter-_walkie_sol61-opus55-fast", "source": "messages", "token_source": "estimated_json", "tokens": 503924, "context_limit": 872000, "percent": 57.8, "messages": 180, "tools": 67}
+ROUTER_LOG_SIZE 3145136 matching 600
+LOG 2026-10-26T03:30:13 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:30:18 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:30:23 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:30:28 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:30:34 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:30:39 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:30:44 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:30:50 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:30:55 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:31:00 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:31:06 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:31:11 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:31:17 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:31:22 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:31:27 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:31:32 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:31:38 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:31:44 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:31:51 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:32:00 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:32:05 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:32:11 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:32:15 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:32:20 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:32:25 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:32:31 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:32:36 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:32:42 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:32:46 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:32:52 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:32:57 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:33:02 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:33:08 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:33:14 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:33:19 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:33:24 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:33:30 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:33:35 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:33:40 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:33:46 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:33:51 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:33:57 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:34:01 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:34:06 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:34:12 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:34:17 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:34:22 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:34:28 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:34:33 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:34:38 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:34:43 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:34:48 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:34:54 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:34:59 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:35:05 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:35:11 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:35:16 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:35:21 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:35:26 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+LOG 2026-10-26T03:35:32 [ERROR] channel_stdin_proxy_blocked cursor=7621 message_id=7622 reason=prior_submission_failed detail=stale_unconfirmed action=skipped
+REMOTE_END 1793062485.329
+
+
+exit 0

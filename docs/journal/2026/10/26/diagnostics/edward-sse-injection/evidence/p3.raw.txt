@@ -1,0 +1,212 @@
+REMOTE_NOW 1793065602.767
+PROJ 2026-10-23T23:55:02 354281f4-a695-46c2-a0db-450d681953b8 0 dir
+PROJ 2026-10-24T00:47:21 memory 0 dir
+PROJ 2026-10-25T00:03:04 chunk2.txt 31567 file
+PROJ 2026-10-26T17:45:14 b1e17ad1-6afd-4210-86e4-5e327c749e3b 0 dir
+PROJ 2026-10-26T18:39:03 d799590a-0fa3-410e-9c0b-14e031aae6f7.jsonl 1487 file
+PROJ 2026-10-26T18:42:57 354281f4-a695-46c2-a0db-450d681953b8.jsonl 167972128 file
+PROJ 2026-10-26T18:45:01 b1e17ad1-6afd-4210-86e4-5e327c749e3b.jsonl 10314328 file
+TCURSOR /destinations/78f2db16e869c0e08217e354f89fcb83658ead46ff0b7a0b9eeae6cbf29d5d3c/path C:\Users\aapw-a22u22\.codex\sessions\2026\10\01\rollout-2026-10-01T20-32-24-01a0faab-9844-7ac0-9e2b-eb0a9b87a854.jsonl
+TCURSOR /destinations/78f2db16e869c0e08217e354f89fcb83658ead46ff0b7a0b9eeae6cbf29d5d3c/offset 1681404046
+TCURSOR /destinations/78f2db16e869c0e08217e354f89fcb83658ead46ff0b7a0b9eeae6cbf29d5d3c/updated_at 1792822806.430321
+TCURSOR /destinations/46c60ff1bfe4cbd377705b0bf697b950f0b31a57a09bb12f4f0099c86599c435/path w-a22u22\.claude\projects\C--ProgramData-aap-win-sandboxes-u22-home-edward-ai\354281f4-a695-46c2-a0db-450d681953b8.jsonl
+TCURSOR /destinations/46c60ff1bfe4cbd377705b0bf697b950f0b31a57a09bb12f4f0099c86599c435/offset 167972128
+TCURSOR /destinations/46c60ff1bfe4cbd377705b0bf697b950f0b31a57a09bb12f4f0099c86599c435/updated_at 1793065377.692587
+TCURSOR /tool_call_sources/2657385e24800366b44e93ff4669e6ce2efe9600c15a6b753becfd0b0e85a870/path C:\Users\aapw-a22u22\.codex\sessions\2026\10\01\rollout-2026-10-01T20-32-24-01a0faab-9844-7ac0-9e2b-eb0a9b87a854.jsonl
+TCURSOR /tool_call_sources/2657385e24800366b44e93ff4669e6ce2efe9600c15a6b753becfd0b0e85a870/offset 1681404046
+TCURSOR /tool_call_sources/2657385e24800366b44e93ff4669e6ce2efe9600c15a6b753becfd0b0e85a870/updated_at 1792822806.373783
+TCURSOR /tool_call_sources/2657385e24800366b44e93ff4669e6ce2efe9600c15a6b753becfd0b0e85a870/web_search_results/seen list 0
+TCURSOR /tool_call_sources/a392c27d8a5fbbc450ebea0c778ec0e641d27f80ba6067311371c4881915dfd0/path w-a22u22\.claude\projects\C--ProgramData-aap-win-sandboxes-u22-home-edward-ai\354281f4-a695-46c2-a0db-450d681953b8.jsonl
+TCURSOR /tool_call_sources/a392c27d8a5fbbc450ebea0c778ec0e641d27f80ba6067311371c4881915dfd0/offset 167972128
+TCURSOR /tool_call_sources/a392c27d8a5fbbc450ebea0c778ec0e641d27f80ba6067311371c4881915dfd0/updated_at 1793065377.651139
+TCURSOR /tool_call_sources/a392c27d8a5fbbc450ebea0c778ec0e641d27f80ba6067311371c4881915dfd0/web_search_results/seen list 0
+TCURSOR /version 1
+TCURSOR /agent_turn_sources/9b9c8392b198ebb42b84b4106a3a6c55aa913162552f4599a72f371f355bd689/path C:\Users\aapw-a22u22\.codex\sessions\2026\10\01\rollout-2026-10-01T20-32-24-01a0faab-9844-7ac0-9e2b-eb0a9b87a854.jsonl
+TCURSOR /agent_turn_sources/9b9c8392b198ebb42b84b4106a3a6c55aa913162552f4599a72f371f355bd689/offset 1681404046
+TCURSOR /agent_turn_sources/9b9c8392b198ebb42b84b4106a3a6c55aa913162552f4599a72f371f355bd689/updated_at 1792822806.513094
+TCURSOR /agent_turn_sources/6c690173fbd1cc1ae0a3ca9932d01d66fffc872657eb203ab5f7349474866a77/path w-a22u22\.claude\projects\C--ProgramData-aap-win-sandboxes-u22-home-edward-ai\354281f4-a695-46c2-a0db-450d681953b8.jsonl
+TCURSOR /agent_turn_sources/6c690173fbd1cc1ae0a3ca9932d01d66fffc872657eb203ab5f7349474866a77/offset 167972128
+TCURSOR /agent_turn_sources/6c690173fbd1cc1ae0a3ca9932d01d66fffc872657eb203ab5f7349474866a77/updated_at 1793065377.7213655
+CFG_LOG_LEVEL None keys_with_log []
+TR ward-ai\354281f4-a695-46c2-a0db-450d681953b8.jsonl size 167972128
+REC 2026-10-26T23:31:17.805Z system:informational sid 354281f4 origin None isMeta False peer_marker False ciel_marker False len 0 qcontent_len  api_err None
+REC 2026-10-26T23:31:22.648Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-26T23:31:22.669Z queue-operation:dequeue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-26T23:31:23.342Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-26T23:31:22.714Z user:text sid 354281f4 origin peer isMeta True peer_marker True ciel_marker True len 11762 qcontent_len  api_err None
+REC 2026-10-26T23:32:55.168Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-26T23:34:31.460Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-26T23:34:38.859Z user:text sid 354281f4 origin None isMeta True peer_marker False ciel_marker True len 583 qcontent_len  api_err None
+REC 2026-10-26T23:35:30.852Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-26T23:36:02.477Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-26T23:39:05.964Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-26T23:39:58.955Z queue-operation:dequeue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-26T23:39:59.328Z user:text sid 354281f4 origin human isMeta None peer_marker False ciel_marker False len 2 qcontent_len  api_err None
+REC 2026-10-26T23:40:19.956Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 2048 api_err None
+REC 2026-10-26T23:40:39.279Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3676 api_err None
+REC 2026-10-26T23:40:39.280Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3726 api_err None
+REC 2026-10-26T23:40:39.280Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3576 api_err None
+REC 2026-10-26T23:40:39.280Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 4139 api_err None
+REC 2026-10-26T23:40:39.280Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 4620 api_err None
+REC 2026-10-26T23:40:39.280Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 2048 api_err None
+REC 2026-10-26T23:45:52.740Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 2634 api_err None
+REC 2026-10-26T23:45:56.372Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 2634 api_err None
+REC 2026-10-26T23:48:05.462Z user:text sid 354281f4 origin None isMeta True peer_marker False ciel_marker True len 597 qcontent_len  api_err None
+REC 2026-10-26T23:50:31.022Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 2582 api_err None
+REC 2026-10-26T23:50:31.047Z queue-operation:dequeue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-26T23:50:31.081Z user:text sid 354281f4 origin task-notification isMeta None peer_marker False ciel_marker False len 2582 qcontent_len  api_err None
+REC 2026-10-26T23:50:42.310Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 1726 api_err None
+REC 2026-10-26T23:50:56.435Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 1726 api_err None
+REC 2026-10-26T23:51:05.654Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-26T23:51:11.434Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 4059 api_err None
+REC 2026-10-26T23:51:23.620Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-26T23:51:34.546Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 2695 api_err None
+REC 2026-10-26T23:51:48.971Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-26T23:51:58.146Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 4175 api_err None
+REC 2026-10-26T23:52:02.991Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-26T23:52:03.690Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 1322 api_err None
+REC 2026-10-26T23:52:18.617Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 4173 api_err None
+REC 2026-10-26T23:52:18.617Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 1322 api_err None
+REC 2026-10-26T23:52:45.814Z user:text sid 354281f4 origin None isMeta True peer_marker False ciel_marker True len 597 qcontent_len  api_err None
+REC 2026-10-26T23:53:35.576Z user:text sid 354281f4 origin None isMeta True peer_marker False ciel_marker True len 597 qcontent_len  api_err None
+REC 2026-10-26T23:53:45.708Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-26T23:53:55.990Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 4543 api_err None
+REC 2026-10-26T23:56:55.708Z user:text sid 354281f4 origin None isMeta True peer_marker False ciel_marker True len 589 qcontent_len  api_err None
+REC 2026-10-26T23:56:56.861Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-26T23:57:10.767Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3278 api_err None
+REC 2026-10-26T23:59:09.940Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-26T23:59:13.016Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-26T23:59:22.441Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3028 api_err None
+REC 2026-10-26T23:59:22.442Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3556 api_err None
+REC 2026-10-27T00:02:23.880Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 6221 api_err None
+REC 2026-10-27T00:02:26.829Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 6221 api_err None
+REC 2026-10-27T00:03:04.163Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:03:30.657Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 2955 api_err None
+REC 2026-10-27T00:06:24.089Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:09:24.156Z system:compact_boundary sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len  api_err None
+REC 2026-10-27T00:09:23.161Z user:text sid 354281f4 origin None isMeta None peer_marker False ciel_marker True len 33099 qcontent_len  api_err None
+REC 2026-10-27T00:09:32.047Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:09:50.203Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3269 api_err None
+REC 2026-10-27T00:09:50.204Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 7471 api_err None
+REC 2026-10-27T00:11:18.719Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:11:26.596Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3933 api_err None
+REC 2026-10-27T00:12:59.635Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3404 api_err None
+REC 2026-10-27T00:13:10.677Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3404 api_err None
+REC 2026-10-27T00:13:58.163Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:14:02.883Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3463 api_err None
+REC 2026-10-27T00:14:19.632Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:14:24.270Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3004 api_err None
+REC 2026-10-27T00:15:03.378Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:15:18.939Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3718 api_err None
+REC 2026-10-27T00:16:00.578Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:16:15.878Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 2964 api_err None
+REC 2026-10-27T00:16:34.796Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:16:41.067Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 5463 api_err None
+REC 2026-10-27T00:16:51.387Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:17:00.926Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 5143 api_err None
+REC 2026-10-27T00:18:33.262Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:18:46.325Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 4244 api_err None
+REC 2026-10-27T00:20:40.505Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 4596 api_err None
+REC 2026-10-27T00:20:44.644Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 4596 api_err None
+REC 2026-10-27T00:21:10.504Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:21:24.427Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 2991 api_err None
+REC 2026-10-27T00:21:29.065Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:21:43.319Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:22:43.134Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:23:05.100Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:23:26.942Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3381 api_err None
+REC 2026-10-27T00:23:26.943Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3476 api_err None
+REC 2026-10-27T00:23:26.943Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 4683 api_err None
+REC 2026-10-27T00:23:26.943Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3779 api_err None
+REC 2026-10-27T00:24:30.739Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 4674 api_err None
+REC 2026-10-27T00:24:41.846Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 4674 api_err None
+REC 2026-10-27T00:25:41.951Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:25:49.566Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3012 api_err None
+REC 2026-10-27T00:26:21.329Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:26:38.400Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3083 api_err None
+REC 2026-10-27T00:26:40.754Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:27:00.225Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3307 api_err None
+REC 2026-10-27T00:27:21.196Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:27:31.896Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 2959 api_err None
+REC 2026-10-27T00:28:10.363Z user:text sid 354281f4 origin None isMeta True peer_marker False ciel_marker True len 633 qcontent_len  api_err None
+REC 2026-10-27T00:29:41.013Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:29:53.318Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3190 api_err None
+REC 2026-10-27T00:29:54.028Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:30:10.005Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3334 api_err None
+REC 2026-10-27T00:30:18.127Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 2097 api_err None
+REC 2026-10-27T00:30:33.122Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 2097 api_err None
+REC 2026-10-27T00:31:35.741Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:31:39.738Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:31:59.215Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3563 api_err None
+REC 2026-10-27T00:31:59.215Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3466 api_err None
+REC 2026-10-27T00:33:25.216Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:33:30.307Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3297 api_err None
+REC 2026-10-27T00:34:35.878Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:34:45.218Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3608 api_err None
+REC 2026-10-27T00:35:37.494Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:35:44.023Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 3677 api_err None
+REC 2026-10-27T00:35:49.142Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:36:14.695Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 2958 api_err None
+REC 2026-10-27T00:37:46.985Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:37:53.589Z user:text sid 354281f4 origin None isMeta True peer_marker False ciel_marker True len 659 qcontent_len  api_err None
+REC 2026-10-27T00:38:09.369Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 4228 api_err None
+REC 2026-10-27T00:38:37.908Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:38:49.196Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:38:50.903Z queue-operation:remove sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 2862 api_err None
+REC 2026-10-27T00:41:09.632Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:51:36.262Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:51:47.243Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:53:43.524Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:58:06.461Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:58:11.021Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T00:58:54.762Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T01:01:00.930Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T01:01:12.840Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T01:02:42.553Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T01:03:54.888Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T01:05:09.995Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T01:06:15.378Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T01:07:03.420Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T01:16:29.914Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T01:22:42.467Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T01:25:25.858Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T01:25:29.142Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T01:26:17.593Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T01:26:59.469Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T01:28:31.627Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T01:29:34.469Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T01:31:53.280Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T01:34:58.696Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T01:42:15.858Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+REC 2026-10-27T01:42:57.133Z queue-operation:enqueue sid 354281f4 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 0 api_err None
+COUNTS ai\354281f4-a695-46c2-a0db-450d681953b8.jsonl {"api-request": 194, "api-request-shape": 2, "assistant:None": 1, "assistant:end_turn": 11, "assistant:tool_use": 372, "attachment": 129, "continued-in": 1, "file-history-delta": 7, "file-history-snapshot": 1, "queue-operation:dequeue": 3, "queue-operation:enqueue": 82, "queue-operation:remove": 52, "system:compact_boundary": 1, "system:informational": 1, "system:stop_hook_summary": 9, "system:turn_duration": 2, "user:text": 11, "user:tool_result": 318}
+TR ward-ai\b1e17ad1-6afd-4210-86e4-5e327c749e3b.jsonl size 10314328
+REC 2026-10-27T00:09:24.156Z system:compact_boundary sid b1e17ad1 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len  api_err None
+REC 2026-10-27T00:09:23.161Z user:text sid b1e17ad1 origin None isMeta None peer_marker False ciel_marker True len 33099 qcontent_len  api_err None
+REC 2026-10-27T00:28:10.363Z user:text sid b1e17ad1 origin None isMeta True peer_marker False ciel_marker True len 633 qcontent_len  api_err None
+REC 2026-10-27T00:37:53.589Z user:text sid b1e17ad1 origin None isMeta True peer_marker False ciel_marker True len 659 qcontent_len  api_err None
+REC 2026-10-27T00:39:12.998Z system:informational sid b1e17ad1 origin None isMeta False peer_marker False ciel_marker False len 0 qcontent_len  api_err None
+REC 2026-10-27T00:41:22.219Z queue-operation:enqueue sid b1e17ad1 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 124 api_err None
+REC 2026-10-27T00:41:27.154Z queue-operation:remove sid b1e17ad1 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 124 api_err None
+REC 2026-10-27T00:46:11.209Z queue-operation:enqueue sid b1e17ad1 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 1615 api_err None
+REC 2026-10-27T00:46:11.304Z queue-operation:enqueue sid b1e17ad1 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 1595 api_err None
+REC 2026-10-27T00:46:20.256Z queue-operation:remove sid b1e17ad1 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 1615 api_err None
+REC 2026-10-27T00:46:20.257Z queue-operation:remove sid b1e17ad1 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 1595 api_err None
+REC 2026-10-27T01:09:21.299Z user:text sid b1e17ad1 origin None isMeta True peer_marker False ciel_marker True len 801 qcontent_len  api_err None
+REC 2026-10-27T01:16:33.240Z system:compact_boundary sid b1e17ad1 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len  api_err None
+REC 2026-10-27T01:16:32.330Z user:text sid b1e17ad1 origin None isMeta None peer_marker False ciel_marker True len 33560 qcontent_len  api_err None
+REC 2026-10-27T01:18:31.739Z queue-operation:enqueue sid b1e17ad1 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 2626 api_err None
+REC 2026-10-27T01:18:40.141Z queue-operation:remove sid b1e17ad1 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 2626 api_err None
+REC 2026-10-27T01:26:03.488Z queue-operation:enqueue sid b1e17ad1 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 2283 api_err None
+REC 2026-10-27T01:26:12.909Z queue-operation:remove sid b1e17ad1 origin None isMeta None peer_marker False ciel_marker False len 0 qcontent_len 2283 api_err None
+REC 2026-10-27T01:34:05.414Z user:text sid b1e17ad1 origin None isMeta True peer_marker False ciel_marker True len 803 qcontent_len  api_err None
+REC 2026-10-27T00:39:57.839Z system:local_command sid b1e17ad1 origin None isMeta False peer_marker False ciel_marker False len 0 qcontent_len  api_err None
+REC 2026-10-27T00:39:57.839Z system:local_command sid b1e17ad1 origin None isMeta False peer_marker False ciel_marker False len 0 qcontent_len  api_err None
+REC 2026-10-27T01:36:02.199Z system:away_summary sid b1e17ad1 origin None isMeta False peer_marker False ciel_marker False len 0 qcontent_len  api_err None
+REC 2026-10-27T01:41:19.486Z user:text sid b1e17ad1 origin human isMeta None peer_marker False ciel_marker False len 1 qcontent_len  api_err None
+REC 2026-10-27T01:44:22.041Z user:text sid b1e17ad1 origin human isMeta None peer_marker False ciel_marker False len 76 qcontent_len  api_err None
+COUNTS ai\b1e17ad1-6afd-4210-86e4-5e327c749e3b.jsonl {"api-request": 164, "api-request-shape": 2, "assistant:end_turn": 9, "assistant:tool_use": 524, "attachment": 144, "file-history-delta": 4, "file-history-snapshot": 3, "queue-operation:enqueue": 5, "queue-operation:remove": 5, "system:away_summary": 1, "system:compact_boundary": 2, "system:informational": 1, "system:local_command": 2, "system:stop_hook_summary": 7, "system:turn_duration": 3, "user:text": 8, "user:tool_result": 441}
+REMOTE_END 1793065603.009
+
+
+exit 0

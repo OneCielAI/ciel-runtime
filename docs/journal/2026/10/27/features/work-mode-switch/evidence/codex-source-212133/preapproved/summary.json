@@ -1,0 +1,25 @@
+{
+  "case": "preapproved",
+  "temp_root": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-switch-j1r4jfs5",
+  "codex_args": [
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_mode_set.approval_mode=\"approve\""
+  ],
+  "config_before": false,
+  "router_work_tools_while_off": [
+    "work_mode_set"
+  ],
+  "version": "codex-cli 0.158.0",
+  "turn_status": "completed",
+  "config_after": true,
+  "gateway_requests": 2,
+  "tools_offered": [
+    "work_mode_set"
+  ],
+  "mcp_switch_calls": [
+    {
+      "enabled": true
+    }
+  ],
+  "tool_output_seen_by_model": "[{\"type\": \"input_text\", \"text\": \"Wall time: 0.0169 seconds\\nOutput:\"}, {\"type\": \"input_text\", \"text\": \"Ciel Work mode is now on for this workspace (ciel-runtime menu -> LLM options -> Work mode). Sessions launched with Work mode on resume Work at their next check; a session launched while it was off loads the Work tools, hooks and instructions on its next launch.\"}]"
+}

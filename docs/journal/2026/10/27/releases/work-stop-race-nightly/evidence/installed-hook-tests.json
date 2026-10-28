@@ -1,0 +1,20 @@
+[
+  {
+    "scenario": "stop-display-refresh",
+    "block": true,
+    "text": "Ciel Work has 1 actionable unfinished item(s). The next item is n3: queued. Every unfinished step of the active goal n1 waits or is blocked, so continue with queued goal n2: call work_select with root_id n2, then execute it. The waiting goal stays queued and is picked up again when this goal finishes or has no runnable step. Pending user requests belong in the Work tree without duplicates (independent goals, dependent children). Continue within the approved scope only. Approved actionable items remain to be completed and verified; independent actions may run in parallel. An external dependency belongs in waiting_on, including a person or approval that is needed; other independent items can proceed while it waits. No new scope or approval boundary is authorized by this notice. Waiting items: none",
+    "logs": []
+  },
+  {
+    "scenario": "stop-superseded",
+    "block": false
+  },
+  {
+    "scenario": "stop-session-end",
+    "block": false
+  },
+  {
+    "scenario": "stop-continues",
+    "block": true
+  }
+]

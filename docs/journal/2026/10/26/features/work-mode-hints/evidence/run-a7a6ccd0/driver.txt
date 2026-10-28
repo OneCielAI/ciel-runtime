@@ -1,0 +1,12 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+start notice: yes
+empty plan hint: yes
+console command: NO
+owned stop 67996 SUCCESS: The process with PID 69340 (child process of PID 67996) has been terminated.
+SUCCESS: The process with PID 67996 (child process of PID 49736) has been terminated.
+owned stop 65004 
+owned stop 11396 SUCCESS: The process with PID 11396 (child process of PID 48872) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-a7a6ccd0

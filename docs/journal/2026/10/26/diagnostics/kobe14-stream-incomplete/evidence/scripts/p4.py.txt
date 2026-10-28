@@ -1,0 +1,26 @@
+import os, json, time
+inst = r"C:\Users\aapw-a24u24\AppData\Roaming\ciel-runtime\router-instances\9780-651d879f6c68"
+led = json.load(open(os.path.join(inst, "claude-stream-recovery.json"), encoding="utf-8"))
+print("LEDGER_KEYS", sorted(led))
+fails = led.get("failures") or {}
+for k, v in sorted(fails.items(), key=lambda kv: float(kv[1].get("failed_at") or 0))[-6:]:
+    print("FAILURE", time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(float(v.get("failed_at") or 0))) + "Z", json.dumps(v, ensure_ascii=False))
+h = led.get("handled") or {}
+print("HANDLED_COUNT", len(h))
+for k, v in sorted(h.items(), key=lambda kv: float(kv[1].get("at") or 0))[-5:]:
+    print("HANDLED", k, json.dumps(v))
+for e in (led.get("recent") or [])[-8:]:
+    print("RECENT", time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(float(e.get("at") or 0))) + "Z", json.dumps(e))
+print("CHAINS", json.dumps(led.get("chains")))
+log = os.path.join(inst, "router.log")
+st = os.stat(log); print("ROUTER_LOG", st.st_size, time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(st.st_mtime)))
+with open(log, "rb") as fh:
+    fh.seek(max(0, st.st_size - 8*1024*1024)); data = fh.read().decode("utf-8", "replace").splitlines()
+keys = ("upstream_incomplete", "claude_stream_recovery", "anthropic_sse", "stream_failure", "log_level", "LOG_LEVEL")
+hits = [l for l in data if any(k in l for k in keys)]
+print("LOG_HITS", len(hits))
+for l in hits[-25:]: print("LOG", l[:600])
+print("LOG_TAIL_FIRSTLINE", data[0][:200] if data else "")
+lv = [l for l in data if " 13:5" in l or "T20:5" in l]
+print("LINES_1350_1359", len(lv))
+for l in lv[-40:]: print("L", l[:400])

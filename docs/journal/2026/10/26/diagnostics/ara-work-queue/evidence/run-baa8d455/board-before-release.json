@@ -1,0 +1,187 @@
+{
+ "enabled": true,
+ "phase": "executing",
+ "approval": "auto",
+ "version": 4,
+ "active_root": {
+  "id": "n1",
+  "title": "1. Waiting goal",
+  "status": "pending",
+  "ref": "",
+  "waiting_on": "",
+  "urgent": false
+ },
+ "continuation": {
+  "actionable": 0,
+  "next": null,
+  "waiting": [
+   {
+    "id": "n3",
+    "title": "Wait leaf",
+    "waiting_on": "external-proof"
+   }
+  ],
+  "blocked": 1,
+  "held": 0
+ },
+ "done": 0,
+ "total": 1,
+ "next": {
+  "id": "n3",
+  "title": "Wait leaf",
+  "status": "pending",
+  "path": [
+   "1. Waiting goal",
+   "Wait phase",
+   "Wait leaf"
+  ]
+ },
+ "breakdown": [
+  {
+   "id": "n2",
+   "title": "Wait phase",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "done": 0,
+   "total": 1,
+   "children": [
+    {
+     "id": "n3",
+     "title": "Wait leaf",
+     "status": "pending",
+     "ref": "",
+     "waiting_on": "external-proof",
+     "urgent": false
+    }
+   ],
+   "more": 0
+  }
+ ],
+ "ready": true,
+ "ready_reason": "ready",
+ "goals": 2,
+ "queue": [
+  {
+   "id": "n4",
+   "title": "2. Blocked queued goal",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "done": 0,
+   "total": 1,
+   "held": false
+  }
+ ],
+ "ok": true,
+ "schema_version": 1,
+ "session_id": "claude:d0e9ec8e-39a2-466a-bd42-b991a88c189e",
+ "updated_at": 1793070017.760085,
+ "nodes": [
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "1. Waiting goal",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793070017.1504958
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "Wait phase",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793070017.1504958
+  },
+  {
+   "id": "n3",
+   "parent_id": "n2",
+   "title": "Wait leaf",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "external-proof",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793070017.1504958
+  },
+  {
+   "id": "n4",
+   "parent_id": null,
+   "title": "2. Blocked queued goal",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793070017.760085
+  },
+  {
+   "id": "n5",
+   "parent_id": "n4",
+   "title": "Blocked phase",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793070017.760085
+  },
+  {
+   "id": "n6",
+   "parent_id": "n5",
+   "title": "Blocked leaf",
+   "status": "blocked",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793070017.760085
+  }
+ ],
+ "active_root_id": "n1",
+ "root_ids": [
+  "n1",
+  "n4"
+ ],
+ "queue_ids": [
+  "n4"
+ ],
+ "auto_continue": true,
+ "runtime": {
+  "ciel_runtime": {
+   "version": "0.2.51",
+   "source_fingerprint": "59743d83f45331de",
+   "instance_id": "49191-6d82b3062936"
+  },
+  "session_id": "claude:d0e9ec8e-39a2-466a-bd42-b991a88c189e",
+  "runtime": "claude",
+  "configured": {
+   "provider": "cielairouter",
+   "model": "fake-work",
+   "alias": "ciel-runtime-cielairouter-fake-work",
+   "source": "configuration"
+  },
+  "epoch": null,
+  "in_flight": [],
+  "last_observed": null,
+  "last_error": null,
+  "observation_status": "unavailable",
+  "errors": []
+ },
+ "events": "/ca/work/events"
+}

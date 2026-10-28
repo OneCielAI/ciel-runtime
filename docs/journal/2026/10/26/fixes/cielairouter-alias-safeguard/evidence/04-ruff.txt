@@ -1,0 +1,3 @@
+2026-10-26T21:38:32Z ruff 0.15.22 whole tree + git diff --check
+All checks passed!
+diff-check-exit=0

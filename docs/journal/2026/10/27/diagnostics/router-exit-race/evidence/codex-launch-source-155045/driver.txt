@@ -1,0 +1,34 @@
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+main prompt ready: yes
+console command: yes
+first launcher exited: yes
+router down after exit: yes
+console command: yes
+relaunch router up: yes
+relaunch CLI ready: NO
+console command: yes
+second launcher exited: NO
+router down after second exit: NO
+owned stop 13508 SUCCESS: The process with PID 65560 (child process of PID 22600) has been terminated.
+SUCCESS: The process with PID 22600 (child process of PID 65828) has been terminated.
+SUCCESS: The process with PID 53224 (child process of PID 47208) has been terminated.
+SUCCESS: The process with PID 65828 (child process of PID 27308) has been terminated.
+SUCCESS: The process with PID 47208 (child process of PID 51660) has been terminated.
+SUCCESS: The process with PID 8600 (child process of PID 17572) has been terminated.
+SUCCESS: The process with PID 17360 (child process of PID 65112) has been terminated.
+SUCCESS: The process with PID 46924 (child process of PID 68392) has been terminated.
+SUCCESS: The process with PID 27308 (child process of PID 65112) has been terminated.
+SUCCESS: The process with PID 51660 (child process of PID 68392) has been terminated.
+SUCCESS: The process with PID 17572 (child process of PID 38888) has been terminated.
+SUCCESS: The process with PID 65112 (child process of PID 38888) has been terminated.
+SUCCESS: The process with PID 68392 (child process of PID 38888) has been terminated.
+SUCCESS: The process with PID 39920 (child process of PID 65780) has been terminated.
+SUCCESS: The process with PID 40680 (child process of PID 65780) has been terminated.
+SUCCESS: The process with PID 38888 (child process of PID 65780) has been terminated.
+SUCCESS: The process with PID 17580 (child process of PID 65780) has been terminated.
+SUCCESS: The process with PID 65780 (child process of PID 13508) has been terminated.
+SUCCESS: The process with PID 13508 (child process of PID 28560) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\router-exit-race\evidence\codex-launch-source-155045

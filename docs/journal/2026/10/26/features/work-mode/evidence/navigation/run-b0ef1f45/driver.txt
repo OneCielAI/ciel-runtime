@@ -1,0 +1,33 @@
+owned router: yes
+interactive owned cmd: yes
+interactive ready: yes
+console command: yes
+vertical items ready: yes
+console command: yes
+console command: yes
+console command: yes
+console command: yes
+keyboard B details: yes
+console command: yes
+console command: yes
+console command: yes
+console command: yes
+console command: yes
+view command: yes
+console command: yes
+console command: yes
+console command: yes
+tree command: yes
+console command: yes
+ask deny dialog: yes
+console command: yes
+console command: yes
+deny response: yes
+console command: yes
+ask approve dialog: yes
+console command: yes
+approve response: yes
+owned stop 67684 SUCCESS: The process with PID 57508 (child process of PID 67684) has been terminated.
+SUCCESS: The process with PID 67684 (child process of PID 49736) has been terminated.
+owned stop 65752 SUCCESS: The process with PID 65752 (child process of PID 69216) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\navigation\run-b0ef1f45

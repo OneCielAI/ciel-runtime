@@ -1,0 +1,38 @@
+⚠ Model "fake-work" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs
+
+▎ Debug mode enabled · logging to C:\Users\djlov\AppData\Local\Temp\work-queue-yield-d6da1c8b\native-debug.log
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing approved Work.
+  Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode
+
+❯ E2EHINT-MAIN create waiting active Work and runnable queued Work, then end the turn. No user priority change is requested.
+
+  Called ciel-runtime-router 3 times
+
+● QUEUE-YIELD-FIRST-END
+
+  Called ciel-runtime-router 2 times
+
+● Write(subject.txt)
+  ⎿  Added 1 line, removed 1 line
+      1 -BEFORE
+      1 +QUEUE-YIELD-WROTE
+
+  Called ciel-runtime-router
+
+● QUEUE-YIELD-FINISHED
+
+● ciel-work: Ciel Work stopped: unfinished items remain but none can run now (waiting: n3 ◷ external-proof). Clear a wait,
+  unblock or close an item, or send a message to continue. /work-mode tree lists every item.
+
+✻ Worked for 3s · done 1:56 AM
+Work running 0/1 — 1. Waiting active goal                                                                                          [-]
+1: [ ] Wait phase
+  [ ] Wait leaf ◷ external-proof
+w: All items / refresh
+Ctrl+X Tab: focus · Tab/↑↓: select · Enter: inspect · Esc: return · /work-mode help
+                                                                                                                     ● high · /effort
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents                                                          work: run 0/1

@@ -1,0 +1,44 @@
+import os, json
+f = r"C:\Users\aapw-a24u24\.claude\projects\C--ProgramData-aap-win-sandboxes-u24-home-kobe-ai\5ac1ee55-d0d1-4ef7-b4df-3d68e62bbd1b.jsonl"
+size = os.path.getsize(f)
+start = max(0, size - 40*1024*1024)
+recs = []
+with open(f, "rb") as fh:
+    fh.seek(start)
+    if start: fh.readline()
+    for line in fh:
+        try: r = json.loads(line.replace(b"\x00", b""))
+        except Exception: continue
+        recs.append(r)
+def summ(r):
+    m = r.get("message") if isinstance(r.get("message"), dict) else {}
+    c = m.get("content")
+    blocks = []
+    if isinstance(c, list):
+        for b in c:
+            if isinstance(b, dict):
+                t = b.get("type"); blocks.append(b.get("name") if t == "tool_use" else t)
+    elif isinstance(c, str): blocks = ["str"]
+    return {"ts": r.get("timestamp"), "type": r.get("type"), "sub": r.get("subtype"), "uuid": r.get("uuid"), "parent": r.get("parentUuid"),
+            "stop": m.get("stop_reason"), "mid": m.get("id"), "api": r.get("isApiErrorMessage"), "tao": r.get("truncatedAfterOutput"),
+            "side": r.get("isSidechain"), "meta": r.get("isMeta"), "op": r.get("operation"), "pm": r.get("permissionMode"), "blocks": blocks}
+idx = [i for i, r in enumerate(recs) if r.get("isApiErrorMessage") is True]
+print("TOTAL_TAIL", len(recs), "API_ERRORS", len(idx))
+for i in idx[-8:]:
+    r = recs[i]; m = r.get("message") or {}
+    txt = ""
+    c = m.get("content")
+    if isinstance(c, list):
+        txt = " ".join(str(b.get("text") or "") for b in c if isinstance(b, dict))[:160]
+    print("ERR", json.dumps(summ(r), ensure_ascii=False), "TEXT", txt, "err_field", str(r.get("error"))[:80])
+last = idx[-1] if idx else None
+if last is not None:
+    byid = {r.get("uuid"): r for r in recs}
+    p = recs[last].get("parentUuid"); chain = []
+    for _ in range(4):
+        if p in byid: chain.append(summ(byid[p])); p = byid[p].get("parentUuid")
+    print("PARENT_CHAIN", json.dumps(chain, ensure_ascii=False))
+    for r in recs[last-3:last+25]:
+        print("NEAR", json.dumps(summ(r), ensure_ascii=False))
+pms = [summ(r) for r in recs if r.get("type") == "permission-mode"]
+print("PERM_MODES_LAST", json.dumps(pms[-3:], ensure_ascii=False))

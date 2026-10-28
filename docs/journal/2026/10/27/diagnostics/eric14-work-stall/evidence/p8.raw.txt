@@ -1,0 +1,19 @@
+17068 13152 node.exe 2026-10-26T23:02:53 "C:\Program Files\nodejs\node.exe" C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai\.npm-global/node_modules/@one-ciel-ai/ciel-runtime/npm-bin/ciel-runtime.js --continue
+22692 17068 py.exe 2026-10-26T23:02:53 py -3 C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py cli --continue
+3860 22692 python.exe 2026-10-26T23:02:53 "C:\Program Files\Python313\python.exe" C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py cli --continue
+19220 3860 python.exe 2026-10-26T23:04:06 "C:\Program Files\Python313\python.exe" C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py serve
+16460 3860 cmd.exe 2026-10-26T23:04:15 C:\WINDOWS\system32\cmd.exe /d /s /c "C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai\.npm-global\claude.cmd --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-_walkie_opus55-sol61-fast --mcp-config C:\Users\aapw-a11u4\AppData\Roaming\ciel-runt
+24012 3860 python.exe 2026-10-26T23:04:15 "C:\Program Files\Python313\python.exe" C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\windows_console_guard.py 3860 487 7
+6944 16460 claude.exe 2026-10-26T23:04:15 "C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai\.npm-global\\node_modules\@anthropic-ai\claude-code\bin\claude.exe"    --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-_walkie_opus55-sol61-fast --mcp-config C:\Users\aapw-a11u4\AppData\Roamin
+6384 6944 bash.exe 2026-10-26T23:38:00 "C:\Program Files\Git\bin\bash.exe" -c "source /c/Users/aapw-a11u4/.claude/shell-snapshots/snapshot-bash-1793081107579-s8xyfp.sh 2>/dev/null || true && export TEMP='C:\Users\AAPW-A~1\AppData\Local\Temp' TMP='C:\Users\AAPW-A~1\AppData\Local\Temp' && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unsetenv'; \builti
+19376 6384 bash.exe 2026-10-26T23:38:00 "C:\Program Files\Git\bin\..\usr\bin\bash.exe" -c "source /c/Users/aapw-a11u4/.claude/shell-snapshots/snapshot-bash-1793081107579-s8xyfp.sh 2>/dev/null || true && export TEMP='C:\Users\AAPW-A~1\AppData\Local\Temp' TMP='C:\Users\AAPW-A~1\AppData\Local\Temp' && shopt -u extglob 2>/dev/null || true && { \builtin unalias -- 'unseten
+10708 6944 cmd.exe 2026-10-26T23:38:04 C:\WINDOWS\System32\cmd.exe /d /s /c ""C:\WINDOWS\System32\chcp.com" 65001 >nul & "C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$__claudeCodeScript = $env:CLAUDE_CODE_SHELL_LAUNCHER_SCRIPT; $env:CLAUDE_CODE_SHELL_LAUNCHER_SCRIPT = $null; Invoke-Expression
+11544 10708 powershell.exe 2026-10-26T23:38:04 "C:\WINDOWS\System32\WindowsPowerShell\v1.0\powershell.exe"  -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command "$__claudeCodeScript = $env:CLAUDE_CODE_SHELL_LAUNCHER_SCRIPT; $env:CLAUDE_CODE_SHELL_LAUNCHER_SCRIPT = $null; Invoke-Expression -Command $__claudeCodeScript" 
+u23 .npm-global/node_modules/@one-ciel-ai/ciel-runtime/package.json False 
+u23 .claude False 
+projects C:\Users\aapw-a11u4\.claude\projects [('C--Data-Source-SGSWMSCrossing-u4-home-emily-ai\\566e829f-0746-4a5c-acbe-6ea301c1c4ac.jsonl', 11903956, '2026-10-26T23:38:20'), ('C--Data-Source-SGSWMSCrossing-u4-home-emily-ai\\a9a016f2-bd19-4066-8b44-6ee329194e16.jsonl', 1266885743, '2026-10-26T22:34:21'), ('C--Data-Source-SGSWMSCrossing-u4-home-emily-ai\\d8cc4f91-fc66-4075-88aa-426ac4f268a4.jsonl', 1483, '2026-10-26T22:32:15')]
+projects C:\Users\aapw-a23u23\.claude\projects []
+projects C:\ProgramData\aap-win\sandboxes\u23\home\eric-ai\.claude\projects []
+
+
+exit 0

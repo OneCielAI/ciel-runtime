@@ -53,6 +53,38 @@ class ChannelInflightStateMachineTests(unittest.TestCase):
         self.assertEqual([11], self.committed)
         self.assertEqual([12], self.completed)
 
+    def test_admission_pause_observes_exact_evidence_but_never_ages_any_state(self):
+        from dataclasses import replace
+        for state in ("missing", "unknown", "queued", "pending"):
+            with self.subTest(state=state):
+                update = advance_channel_inflight(
+                    replace(self.snapshot(state, now=1000000), admission_paused=True),
+                    self.policy(stale=True, commit_stale=True), self.effects,
+                )
+                self.assertEqual(12, update.message_id)
+                self.assertEqual([], self.released)
+                self.assertEqual([], self.committed)
+        update = advance_channel_inflight(
+            replace(self.snapshot("completed"), admission_paused=True),
+            self.policy(stale=True), self.effects,
+        )
+        self.assertEqual("completed", update.action)
+        self.assertEqual([12], self.completed)
+
+    def test_exact_failed_attempt_settles_while_admission_paused_without_release(self):
+        from dataclasses import replace
+        for outcome in ("failed", "retry"):
+            with self.subTest(outcome=outcome):
+                failed = Mock(return_value=outcome)
+                update = advance_channel_inflight(
+                    replace(self.snapshot("turn_failed:0:99.000:api_error 400"), admission_paused=True),
+                    self.policy(stale=True), replace(self.effects, turn_failed=failed),
+                )
+                self.assertEqual("retrying" if outcome == "retry" else "failed", update.action)
+                failed.assert_called_once_with(12, "turn_failed:0:99.000:api_error 400", 90)
+                self.assertIsNone(update.message_id)
+                self.assertEqual([], self.released)
+
     def test_unseen_missing_wake_is_released_and_cursor_reloaded(self):
         update = advance_channel_inflight(
             self.snapshot("missing", now=120.0, started=90.0),

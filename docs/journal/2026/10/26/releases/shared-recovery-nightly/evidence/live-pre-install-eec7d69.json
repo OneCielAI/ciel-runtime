@@ -1,0 +1,11 @@
+{
+  "9505": {
+    "unreachable": "URLError"
+  },
+  "9524": {
+    "pid": 25276,
+    "version": "0.2.51",
+    "source_fingerprint": "f86ee3638ee760f3"
+  },
+  "note_9505": "router 9505 pid77432 stopped before install at 2026-10-27T00:33:22 reason=claude_exit after its Claude child pid68232 exited returncode=0 at 00:33:17 (router.log); message_id 15066 was quarantined by channel_wake_child_exit_quarantined; not caused by release commands, initiator not recorded"
+}

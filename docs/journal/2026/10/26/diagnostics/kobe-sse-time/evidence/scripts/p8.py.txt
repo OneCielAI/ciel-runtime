@@ -1,0 +1,14 @@
+import json, subprocess
+# Read-only: names and executable paths (no arguments) of the console-owning parents seen in p7.
+ids = [4116, 7940, 464, 23036, 11124, 3536, 4356, 21036, 17844]
+ps = ("$ids=@(" + ",".join(str(i) for i in ids) + "); Get-CimInstance Win32_Process | Where-Object { $ids -contains $_.ProcessId } | "
+      "Select-Object ProcessId,ParentProcessId,Name,SessionId,CreationDate,ExecutablePath | ConvertTo-Json -Depth 2")
+r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+try:
+    rows = json.loads(r.stdout) if r.stdout.strip() else []
+    rows = rows if isinstance(rows, list) else [rows]
+except Exception as e:
+    print("PSERR", e); rows = []
+for x in rows:
+    print("PROC", x.get("ProcessId"), "ppid", x.get("ParentProcessId"), x.get("Name"), "session", x.get("SessionId"), x.get("CreationDate"), x.get("ExecutablePath"))
+print("ABSENT", sorted(set(ids) - {x.get("ProcessId") for x in rows}))

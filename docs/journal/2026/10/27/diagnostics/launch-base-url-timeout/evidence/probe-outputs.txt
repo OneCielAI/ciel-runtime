@@ -1,0 +1,59 @@
+Verbatim tool output of the read-only probes run 2026-10-27 (local Windows host, user config, no secrets printed).
+Scripts: scripts/probe_network.py, scripts/probe_auth_timing.py, scripts/probe_status_installed.py (an earlier
+revision of it read providers.cielairouter from config and called base_url_status_line only).
+
+== 1. probe_network.py (no API key)
+dns_ok 0.023 ['5.252.53.183']
+tcp_ok 5.252.53.183 0.041
+tls_ok 5.252.53.183 0.069 TLSv1.3
+http /v1/models?prefix=alias&configuredOnly=true&availableOnly=true 401 0.207
+http /health 404 0.221
+proxy_env {}
+urllib_proxies []
+
+== 2. earlier probe_status_installed.py, snapshot ea59a61 (base_url_status_line x3)
+active_provider None base_url https://ciel-router-01.ezonebot.com
+status 0 10.158 Base URL: unreachable (TimeoutError)
+status 1 10.093 Base URL: unreachable (TimeoutError)
+status 2 10.111 Base URL: unreachable (TimeoutError)
+
+== 3. probe_auth_timing.py (authenticated, 60 s timeout; key fingerprint only)
+key_present True key_fp c076585bb905
+ciel_gateway_route False ip_family None
+ok /v1/models?prefix=alias&configuredOnly=true&availableOnly=true 0 200 ttfb 15.936 total 19.43 bytes 389740 models 750
+ok /v1/models?prefix=alias&configuredOnly=true&availableOnly=true 1 200 ttfb 25.379 total 27.261 bytes 389740 models 750
+http_error /v1/models 0 503 12.994
+http_error /v1/models 1 503 18.822
+
+== 4. earlier probe_status_installed.py, previous snapshots
+== eec7d694af216308e2a95d4103535f43c5546f09
+status 0 2.065 Base URL: model list reachable (/v1/models?prefix=alias&configuredOnly=true&availableOnly=true)
+status 1 0.199 Base URL: model list reachable (/v1/models?prefix=alias&configuredOnly=true&availableOnly=true)
+== 0555b6c1e080d3466d44437d7eb01b7f61367615
+status 0 1.232 Base URL: model list reachable (/v1/models?prefix=alias&configuredOnly=true&availableOnly=true)
+status 1 1.042 Base URL: model list reachable (/v1/models?prefix=alias&configuredOnly=true&availableOnly=true)
+
+== 5. back-to-back ea59a61 / eec7d69 / ea59a61
+== ea59a6105838f611d1c4168ab150f01c6f4e6fd2
+status 0 0.262 Base URL: model list reachable (/v1/models?prefix=alias&configuredOnly=true&availableOnly=true)
+status 1 0.223 Base URL: model list reachable (/v1/models?prefix=alias&configuredOnly=true&availableOnly=true)
+== eec7d694af216308e2a95d4103535f43c5546f09
+status 0 0.297 Base URL: model list reachable (/v1/models?prefix=alias&configuredOnly=true&availableOnly=true)
+status 1 0.293 Base URL: model list reachable (/v1/models?prefix=alias&configuredOnly=true&availableOnly=true)
+== ea59a6105838f611d1c4168ab150f01c6f4e6fd2
+status 0 3.666 Base URL: model list reachable (/v1/models?prefix=alias&configuredOnly=true&availableOnly=true)
+status 1 0.211 Base URL: model list reachable (/v1/models?prefix=alias&configuredOnly=true&availableOnly=true)
+
+== 6. current probe_status_installed.py (current provider + launch_readiness_errors): gate-rounds-1.txt, gate-alternating-cold.txt
+
+== 7. git (worktree C:\Users\djlov\ciel-runtime-wt-work)
+git diff --stat 0555b6c ea59a61 -- ciel_runtime.py ciel_runtime_support/provider_status.py ciel_runtime_support/provider_readiness.py ciel_runtime_support/provider_readiness_context.py ciel_runtime_support/provider_network.py ciel_runtime_support/providers/ ciel_runtime_support/architecture.py ciel_runtime_support/cielairouter_gateway_overlay.py
+(no output: identical)
+git diff --stat eec7d69 ea59a61 -- . ':!docs' ':!tests'
+ .../claude_mods/ciel-work/hooks/register.js        | 240 ++++++++++++++----
+ .../claude_mods/ciel-work/tests/work.test.ts       | 276 ++++++++++++++++++++-
+ .../claude_mods/ciel-work/types/index.d.ts         |   3 +-
+ ciel_runtime_support/work_mcp_tools.py             |   5 +-
+ ciel_runtime_support/work_mode_launch.py           |   3 +-
+ ciel_runtime_support/work_plan_tree.py             |  15 +-
+ 6 files changed, 471 insertions(+), 71 deletions(-)

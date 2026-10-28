@@ -1,0 +1,23 @@
+{
+  "runtime": "claude",
+  "epoch": "8fca5ad32bb946488de0dddd1e10ee01",
+  "started_at": 1793050573.0165207,
+  "identity_since": 1793050573.9254167,
+  "session_id": "1025a27d-99cd-4c63-9597-e37e67b24221",
+  "cwd": "C:\\Windows\\Temp\\ciel-owned-alias-tirhdvb6\\ws",
+  "codex_home": "",
+  "path": "C:\\Windows\\Temp\\ciel-owned-alias-tirhdvb6\\home\\.claude\\projects\\C--Windows-Temp-ciel-owned-alias-tirhdvb6-ws\\1025a27d-99cd-4c63-9597-e37e67b24221.jsonl",
+  "messaging_socket_path": "\\\\.\\pipe\\LOCAL\\cc-msg-cb26519a3cd6a34b584d400158151332",
+  "owned_pid": 0,
+  "launcher_pid": 12144,
+  "claude_config_dir": "C:\\Windows\\Temp\\ciel-owned-alias-tirhdvb6\\home\\.claude",
+  "request_identity": true,
+  "seeded": true,
+  "request_observed": true,
+  "identity_ready": {
+    "session_id": "1025a27d-99cd-4c63-9597-e37e67b24221",
+    "pid": 61260,
+    "proc_start": "134375241730580630",
+    "at": 1793050573.999
+  }
+}

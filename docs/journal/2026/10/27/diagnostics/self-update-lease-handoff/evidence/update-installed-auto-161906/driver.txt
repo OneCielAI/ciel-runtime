@@ -1,0 +1,7 @@
+owned cmd: yes
+owned window: yes
+self-update restart announced: yes
+launch settled: yes
+launcher exited: yes
+owned stop 62072 SUCCESS: The process with PID 62072 (child process of PID 28560) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\self-update-lease-handoff\evidence\update-installed-auto-161906

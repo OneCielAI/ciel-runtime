@@ -1,0 +1,4 @@
+01-after-self-update
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\self-update-lease-handoff\evidence\update-installed-explicit-codex-164632\01-after-self-update.png handle=4526182 printwindow=True
+02-exit
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\self-update-lease-handoff\evidence\update-installed-explicit-codex-164632\02-exit.png handle=4526182 printwindow=True

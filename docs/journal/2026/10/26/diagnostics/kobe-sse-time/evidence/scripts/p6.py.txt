@@ -1,0 +1,64 @@
+import os, json, time, ctypes, msvcrt, datetime
+from ctypes import wintypes
+# Read-only: every restart_notice row in Kobe's runtime-input queue, and what happened to the
+# inputs queued after it (first submitted time, final status). Metadata only, no message text.
+k32 = ctypes.WinDLL("kernel32", use_last_error=True); adv = ctypes.WinDLL("advapi32", use_last_error=True)
+class LUID(ctypes.Structure): _fields_ = [("Low", wintypes.DWORD), ("High", wintypes.LONG)]
+class TP(ctypes.Structure): _fields_ = [("Count", wintypes.DWORD), ("Luid", LUID), ("Attr", wintypes.DWORD)]
+k32.GetCurrentProcess.restype = wintypes.HANDLE
+adv.OpenProcessToken.argtypes = [wintypes.HANDLE, wintypes.DWORD, ctypes.POINTER(wintypes.HANDLE)]
+adv.LookupPrivilegeValueW.argtypes = [wintypes.LPCWSTR, wintypes.LPCWSTR, ctypes.POINTER(LUID)]
+adv.AdjustTokenPrivileges.argtypes = [wintypes.HANDLE, wintypes.BOOL, ctypes.POINTER(TP), wintypes.DWORD, wintypes.LPVOID, wintypes.LPVOID]
+tok = wintypes.HANDLE(); adv.OpenProcessToken(k32.GetCurrentProcess(), 0x28, ctypes.byref(tok))
+luid = LUID(); adv.LookupPrivilegeValueW(None, "SeBackupPrivilege", ctypes.byref(luid))
+tp = TP(1, luid, 2); adv.AdjustTokenPrivileges(tok, False, ctypes.byref(tp), 0, None, None)
+k32.CreateFileW.restype = wintypes.HANDLE
+k32.CreateFileW.argtypes = [wintypes.LPCWSTR, wintypes.DWORD, wintypes.DWORD, wintypes.LPVOID, wintypes.DWORD, wintypes.DWORD, wintypes.HANDLE]
+def bopen(p):
+    h = k32.CreateFileW(p, 0x80000000, 7, None, 3, 0x02000000, None)
+    if h in (None, -1, wintypes.HANDLE(-1).value):
+        raise OSError(ctypes.get_last_error(), "open failed", p)
+    return os.fdopen(msvcrt.open_osfhandle(h, os.O_RDONLY | os.O_BINARY), "rb")
+def loc(e):
+    try: return time.strftime("%m-%dT%H:%M:%S", time.localtime(float(e)))
+    except Exception: return None
+ws = r"C:\Users\aapw-a24u24\AppData\Roaming\ciel-runtime\workspaces\651d879f6c68"
+rows = {}
+for name in ("runtime-inputs.jsonl.1", "runtime-inputs.jsonl"):
+    with bopen(os.path.join(ws, name)) as fh:
+        for ln in fh:
+            try: r = json.loads(ln.replace(b"\x00", b"").decode("utf-8"))
+            except Exception: continue
+            if isinstance(r, dict) and isinstance(r.get("id"), int):
+                m = r.get("meta") if isinstance(r.get("meta"), dict) else {}
+                rows[r["id"]] = (r.get("created_at_epoch"), r.get("kind"), m.get("input_transport"), {k: m.get(k) for k in ("restart_source", "restart_reason", "resumed", "runtime")} if r.get("kind") == "restart_notice" else None)
+print("QUEUE_ROWS", len(rows), "min", min(rows) if rows else None, "max", max(rows) if rows else None)
+hist = {}
+with bopen(os.path.join(ws, "runtime-input-status.jsonl")) as fh:
+    for ln in fh:
+        try: r = json.loads(ln.replace(b"\x00", b"").decode("utf-8"))
+        except Exception: continue
+        if isinstance(r, dict) and str(r.get("request_id", "")).isdigit():
+            d = r.get("data") if isinstance(r.get("data"), dict) else {}
+            hist.setdefault(int(r["request_id"]), []).append((r.get("status"), r.get("updated_at_epoch"), str(r.get("reason") or "")[:60], str(d.get("child_epoch") or "")[:8]))
+print("STATUS_IDS", len(hist), "min", min(hist) if hist else None, "max", max(hist) if hist else None)
+def first(rid, status):
+    for s, e, _, _ in hist.get(rid, []):
+        if s == status: return e
+    return None
+def final(rid):
+    h = hist.get(rid, [])
+    return (h[-1][0], h[-1][2], h[-1][3]) if h else (None, None, None)
+notices = sorted(i for i, v in rows.items() if v[1] == "restart_notice")
+print("RESTART_NOTICES", notices)
+for n in notices:
+    c, k, t, meta = rows[n]
+    print("NOTICE", n, "created", loc(c), "transport", t, meta, "history", [(s, loc(e), why, ep) for s, e, why, ep in hist.get(n, [])])
+    later = [i for i in sorted(rows) if i > n][:30]
+    for i in later:
+        c2, k2, t2, _ = rows[i]
+        sub = first(i, "submitted")
+        fs, why, ep = final(i)
+        print("  AFTER", i, k2, t2, "queued", loc(c2), "first_submitted", loc(sub), "wait_s", round(sub - c2) if sub and c2 else None, "final", fs, why, ep)
+        if k2 == "restart_notice": break
+print("REMOTE_END %.3f" % time.time())

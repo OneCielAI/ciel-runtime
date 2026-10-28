@@ -20,8 +20,6 @@ from ciel_runtime_support.channel_compact_poll import (
 from ciel_runtime_support.channel_message_repository import ChannelFileLockBusy
 from ciel_runtime_support.channel_inflight import (
     ChannelInflightPolicy,
-    ChannelInflightSnapshot,
-    advance_channel_inflight,
 )
 from ciel_runtime_support.channel_pending_poll import (
     ChannelPendingInjectionOptions,
@@ -29,6 +27,7 @@ from ciel_runtime_support.channel_pending_poll import (
     ChannelPendingPollServices,
     ChannelPendingPollState,
     poll_pending_channel_messages,
+    observe_pending_channel_inflight,
 )
 from ciel_runtime_support.runtime_compaction_control import RuntimeCompactionControl
 from ciel_runtime_support.pty_master_writer import PtyMasterWriter
@@ -647,44 +646,19 @@ def run_windows_channel_terminal_proxy(
             )
             try:
                 stage = "inflight_confirmation"
-                if pending_poll_state.inflight_message_id is not None and not pending_poll_state.inflight.hold_for_recovery(now, bool(getattr(policy, "compaction", None) and policy.compaction.external_admission_paused())):
-                    inflight_message_id = pending_poll_state.inflight_message_id
-                    channel_inflight_state = polling.wake_state(inflight_message_id)
-                    inflight_update = advance_channel_inflight(
-                        ChannelInflightSnapshot(
-                            message_id=inflight_message_id,
-                            cursor=pending_poll_state.inflight_cursor,
-                            wake_state=channel_inflight_state,
-                            started_at=pending_poll_state.inflight_started_at,
-                            logged_at=pending_poll_state.inflight_logged_at,
-                            now=now,
-                            last_id=pending_poll_state.last_id,
-                            recovery_protected=(
-                                pending_poll_state.inflight_message_id in pending_poll_state.inflight.recovery_protected
-                            ),
-                        ),
-                        ChannelInflightPolicy(
-                            unseen_retry_seconds=policy.unseen_retry_seconds(),
-                            waiting_log_interval=30.0,
-                            is_stale=policy.inflight_is_stale,
-                            commit_cursor_on_stale=False,
-                            log_namespace="channel_windows_console",
-                            stale_event="stale_inflight_retry",
-                        ),
-                        polling.inflight_effects(),
-                    )
-                    pending_poll_state.inflight_message_id = inflight_update.message_id
-                    pending_poll_state.inflight_cursor = inflight_update.cursor
-                    pending_poll_state.inflight_started_at = inflight_update.started_at
-                    pending_poll_state.inflight_logged_at = inflight_update.logged_at
-                    pending_poll_state.pending_recheck = (
-                        pending_poll_state.pending_recheck or inflight_update.pending_recheck
-                    )
-                    pending_poll_state.last_id = inflight_update.last_id
-                    if inflight_update.action == "completed":
-                        pending_poll_state.inflight.attempts = 0
-                    elif inflight_update.action == "failed":
-                        pending_poll_state.inflight.attempts = 0
+                observe_pending_channel_inflight(
+                    now, pending_poll_state,
+                    ChannelInflightPolicy(
+                        unseen_retry_seconds=policy.unseen_retry_seconds(),
+                        waiting_log_interval=30.0,
+                        is_stale=policy.inflight_is_stale,
+                        commit_cursor_on_stale=False,
+                        log_namespace="channel_windows_console",
+                        stale_event="stale_inflight_retry",
+                    ),
+                    polling.wake_state, polling.inflight_effects(),
+                    admission_paused=bool(getattr(policy, "compaction", None) and policy.compaction.external_admission_paused()),
+                )
             except ChannelFileLockBusy as exc:
                 policy.log("WARN", f"channel_windows_console_deferred phase=inflight_lock_acquire errno={exc.errno}")
                 console.sleep(0.5)
@@ -926,38 +900,19 @@ def run_posix_channel_terminal_proxy(
                     io_failure = ("master_read", exc)
                     break
                 forward_child_output(data or b"")
-            if pending_poll_state.inflight_message_id is not None and not pending_poll_state.inflight.hold_for_recovery(now, bool(getattr(policy, "compaction", None) and policy.compaction.external_admission_paused())):
-                inflight_update = advance_channel_inflight(
-                    ChannelInflightSnapshot(
-                        message_id=pending_poll_state.inflight_message_id,
-                        cursor=pending_poll_state.inflight_cursor,
-                        wake_state=polling.wake_state(pending_poll_state.inflight_message_id),
-                        started_at=pending_poll_state.inflight_started_at,
-                        logged_at=pending_poll_state.inflight_logged_at,
-                        now=now,
-                        last_id=pending_poll_state.last_id,
-                        recovery_protected=(
-                            pending_poll_state.inflight_message_id in pending_poll_state.inflight.recovery_protected
-                        ),
-                    ),
-                    ChannelInflightPolicy(
-                        unseen_retry_seconds=policy.unseen_retry_seconds(),
-                        waiting_log_interval=30.0,
-                        is_stale=policy.inflight_is_stale,
-                        commit_cursor_on_stale=False,
-                        log_namespace="channel_stdin_proxy",
-                        stale_event="stale_inflight_skipped",
-                    ),
-                    polling.inflight_effects(),
-                )
-                pending_poll_state.inflight_message_id = inflight_update.message_id
-                pending_poll_state.inflight_cursor = inflight_update.cursor
-                pending_poll_state.inflight_started_at = inflight_update.started_at
-                pending_poll_state.inflight_logged_at = inflight_update.logged_at
-                pending_poll_state.pending_recheck = (
-                    pending_poll_state.pending_recheck or inflight_update.pending_recheck
-                )
-                pending_poll_state.last_id = inflight_update.last_id
+            observe_pending_channel_inflight(
+                now, pending_poll_state,
+                ChannelInflightPolicy(
+                    unseen_retry_seconds=policy.unseen_retry_seconds(),
+                    waiting_log_interval=30.0,
+                    is_stale=policy.inflight_is_stale,
+                    commit_cursor_on_stale=False,
+                    log_namespace="channel_stdin_proxy",
+                    stale_event="stale_inflight_skipped",
+                ),
+                polling.wake_state, polling.inflight_effects(),
+                admission_paused=bool(getattr(policy, "compaction", None) and policy.compaction.external_admission_paused()),
+            )
             if startup_answers is not None and (startup_keys := startup_answers.due()):
                 child_input.write(startup_keys)
             dialog_open = modal_guard.blocking or (

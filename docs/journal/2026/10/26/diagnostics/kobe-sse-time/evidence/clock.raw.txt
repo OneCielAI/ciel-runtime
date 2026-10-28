@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\diagnostics\kobe-sse-time\evidence\scripts\clock_ping.py.txt", line 23, in <module>
+    lo = max(r - t1 for t0, r, t1 in samples); hi = min(r - t0 for t0, r, t1 in samples)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: max() arg is an empty sequence

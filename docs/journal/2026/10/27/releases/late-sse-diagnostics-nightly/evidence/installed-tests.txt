@@ -1,0 +1,24 @@
+TESTED_MODULE C:\Users\djlov\.local\share\ciel-runtime-ac3b505d6ae8f22ed59b7a5f46a404ea0bd7e15d\ciel_runtime_support\transient_retry.py
+test_mixed_stream_and_terminal_error_diagnostics_do_not_log_payload (test_transient_retry_late_sse.LateSSECommitDiagnosticsTests.test_mixed_stream_and_terminal_error_diagnostics_do_not_log_payload) ... ok
+test_unrecognized_error_shapes_are_observable_without_relaxing_replay (test_transient_retry_late_sse.LateSSECommitDiagnosticsTests.test_unrecognized_error_shapes_are_observable_without_relaxing_replay) ... ok
+test_wrong_or_missing_content_type_is_observable (test_transient_retry_late_sse.LateSSECommitDiagnosticsTests.test_wrong_or_missing_content_type_is_observable) ... ok
+test_failure_without_held_bytes_raises_unchanged (test_transient_retry_late_sse.LateSSEReadFailureTests.test_failure_without_held_bytes_raises_unchanged) ... ok
+test_partial_frame_is_delivered_before_upstream_failure (test_transient_retry_late_sse.LateSSEReadFailureTests.test_partial_frame_is_delivered_before_upstream_failure) ... ok
+test_sized_read_delivers_generation_before_upstream_failure (test_transient_retry_late_sse.LateSSEReadFailureTests.test_sized_read_delivers_generation_before_upstream_failure) ... ok
+test_after_message_start_never_replays (test_transient_retry_late_sse.LateSSETests.test_after_message_start_never_replays) ... ok
+test_close_during_reopen_closes_the_new_response (test_transient_retry_late_sse.LateSSETests.test_close_during_reopen_closes_the_new_response) ... ok
+test_close_during_retry_wait_never_reopens (test_transient_retry_late_sse.LateSSETests.test_close_during_retry_wait_never_reopens) ... ok
+test_comment_byte_bound_closes_retry_window (test_transient_retry_late_sse.LateSSETests.test_comment_byte_bound_closes_retry_window) ... ok
+test_crlf_and_comments_before_error (test_transient_retry_late_sse.LateSSETests.test_crlf_and_comments_before_error) ... ok
+test_delayed_error_only_retries_before_any_message_start (test_transient_retry_late_sse.LateSSETests.test_delayed_error_only_retries_before_any_message_start) ... ok
+test_error_after_deadline_relays_without_reopen (test_transient_retry_late_sse.LateSSETests.test_error_after_deadline_relays_without_reopen) ... ok
+test_error_after_five_minutes_retries_within_sized_deadline (test_transient_retry_late_sse.LateSSETests.test_error_after_five_minutes_retries_within_sized_deadline) ... ok
+test_exhaustion_stays_bounded_and_relays_final_error (test_transient_retry_late_sse.LateSSETests.test_exhaustion_stays_bounded_and_relays_final_error) ... ok
+test_mixed_error_and_generation_never_replays (test_transient_retry_late_sse.LateSSETests.test_mixed_error_and_generation_never_replays) ... ok
+test_terminal_auth_error_never_replays (test_transient_retry_late_sse.LateSSETests.test_terminal_auth_error_never_replays) ... ok
+test_unknown_and_partial_error_never_replay (test_transient_retry_late_sse.LateSSETests.test_unknown_and_partial_error_never_replay) ... ok
+
+----------------------------------------------------------------------
+Ran 18 tests in 7.915s
+
+OK

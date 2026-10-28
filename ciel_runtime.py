@@ -115,7 +115,7 @@ from ciel_runtime_support.channel_wake_delivery_repository import ChannelWakeDel
 from ciel_runtime_support.chat_files import ChatFilePorts, ChatFileRepository
 from ciel_runtime_support.chat_http_controller import ChatHttpController, ChatHttpReadServices, ChatHttpWriteServices
 from ciel_runtime_support.runtime_input_gateway import RuntimeInputGateway
-from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository
+from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository, recorded_max_request_id
 from ciel_runtime_support.runtime_input_delivery_health import runtime_input_delivery_health
 from ciel_runtime_support.runtime_sse_recovery import router_recovery
 from ciel_runtime_support.cielairouter_gateway_overlay import reselect_gateway as project_reselect_gateway
@@ -205,7 +205,7 @@ from ciel_runtime_support.model_context_hints import ModelContextHintPolicy, Mod
 from ciel_runtime_support.model_registry_repository import ModelRegistryApi
 from ciel_runtime_support.npm_runtime import claude_code_current_version, codex_current_version, npm_global_bin_dir_from_prefix, npm_global_install_command, npm_global_package_root, npm_install_runtime_command, npm_latest_package_version, npm_prefix_from_package_root, package_root_from_installed_path, parse_version_tuple, run_upgrade_command, version_newer
 from ciel_runtime_support.observability import EventBus, render_events_html
-from ciel_runtime_support.tui_observation import TuiObservationBus, TuiObservationHttpAdapter, TuiObservationHttpPorts, observe_runtime_response
+from ciel_runtime_support.tui_observation import TuiObservationBus, TuiObservationHttpAdapter, TuiObservationHttpPorts
 from ciel_runtime_support.ollama_catalog_cli import OllamaCatalogCliController
 from ciel_runtime_support.ollama_catalog_context import OllamaCatalogCompatibilityApi, OllamaCatalogContext, OllamaCatalogProjectionPorts, OllamaCatalogRepositoryPorts, OllamaCatalogWorkflowPorts
 from ciel_runtime_support.ollama_context_sync import OllamaContextPolicy, OllamaContextSources, sync_ollama_context_limit
@@ -218,6 +218,8 @@ from ciel_runtime_support.openai_responses_stream import write_openai_responses 
 from ciel_runtime_support.openai_responses_stream import write_openai_responses_error as project_openai_responses_error
 from ciel_runtime_support.output_budget import OpenAIContextBudgetPolicy, OutputBudgetPolicy
 from ciel_runtime_support.plan_artifact_controller import PlanArtifactController, PlanArtifactServices
+from ciel_runtime_support.work_http_runtime import build_work_http
+from ciel_runtime_support.work_runtime_observer import WorkRuntimeObserver
 from ciel_runtime_support.prelaunch_launch_preference import preferred_provider_launch_action
 from ciel_runtime_support.prelaunch_panel_context import AuthPanelPorts, ConfigurationPanelContextPorts, MainMenuPanelPorts, ModelPanelCatalogPorts, ModelPanelPresentationPorts, PrelaunchPanelCompatibilityApi, PrelaunchPanelContext, ProviderChoicePanelPorts, WebBackendPanelPorts
 from ciel_runtime_support.prelaunch_panel_projection import ProviderPanelConstants
@@ -1778,7 +1780,8 @@ def handle_usage_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str
 def handle_observability_get(handler: BaseHTTPRequestHandler, path: str, query: dict[str, list[str]]) -> bool: return _USAGE_HTTP_ADAPTER.handle_get(handler, path, query) or handle_events_get(handler, path, query)
 def tui_observation_http_adapter() -> TuiObservationHttpAdapter: return TuiObservationHttpAdapter(TuiObservationHttpPorts(TUI_OBSERVATION_BUS, write_json, write_text_response, router_log, delivery_health=lambda: runtime_input_delivery_health(_RUNTIME_INPUT_STATUS_REPOSITORY)))
 def handle_tui_observation_get(handler: BaseHTTPRequestHandler, path: str, query: dict[str, list[str]]) -> bool: return tui_observation_http_adapter().handle_get(handler, path, query)
-def observe_tui_runtime_response(handler: BaseHTTPRequestHandler, path: str, provider: str, model: str, body: dict[str, Any]) -> Any: return observe_runtime_response(handler, path, provider, model, body, TUI_OBSERVATION_BUS)
+_WORK_RUNTIME_OBSERVER = WorkRuntimeObserver()
+def observe_tui_runtime_response(handler: BaseHTTPRequestHandler, path: str, provider: str, model: str, body: dict[str, Any]) -> Any: return _WORK_RUNTIME_OBSERVER.combined(handler, path, provider, model, body, _RUNTIME_COMPACTION, TUI_OBSERVATION_BUS)
 _safe_segment = ChatFileRepository.safe_segment
 chat_file_max_bytes = ChatFileRepository.configured_max_bytes
 def chat_file_repository() -> ChatFileRepository: return ChatFileRepository(CHAT_FILES_DIR, ROUTER_BASE, ChatFilePorts(timestamp=time.time, timestamp_ns=time.time_ns, max_bytes=lambda: configured_workspace_request_limits().chat_attachment_max_bytes))
@@ -1839,6 +1842,10 @@ def _runtime_input_storage_path() -> Path:
     # queue port. Normal runtime execution always selects RUNTIME_INPUTS_PATH.
     return CHAT_MESSAGES_PATH if CHAT_MESSAGES_PATH != _CANONICAL_CHAT_MESSAGES_PATH else RUNTIME_INPUTS_PATH
 
+def _runtime_input_issued_id_floor() -> int:
+    # Status rows live beside the queue they describe; ids they recorded stay reserved.
+    return recorded_max_request_id(_runtime_input_storage_path().with_name(RUNTIME_INPUT_STATUS_PATH.name))
+
 def _runtime_input_next_id_cache() -> int | None: return _RUNTIME_INPUT_NEXT_ID
 
 def _set_runtime_input_next_id_cache(next_id: int) -> None:
@@ -1850,6 +1857,7 @@ def runtime_input_message_context() -> ChannelMessageContext:
         storage=ChannelMessageStoragePorts(
             _runtime_input_storage_path, CHAT_MESSAGES_MAX_BYTES,
             _RUNTIME_INPUT_CONDITION, exclusive_file_lock, router_log,
+            _runtime_input_issued_id_floor,
         ),
         identity=ChannelMessageIdentityPorts(
             _chat_message_stable_dedupe_key, _chat_message_fallback_dedupe_key,
@@ -2078,7 +2086,7 @@ def _write_channel_compact_request(source: str = "mcp", reason: str = "", action
 def _read_channel_compact_request() -> dict[str, Any] | None: return channel_compact_request_repository().read()
 def _clear_channel_compact_request(request_id: str | None = None) -> bool: return channel_compact_request_repository().clear(request_id)
 runtime_session_restart_service = local_runtime_session_restart(lambda: RuntimeSessionRestartServicePorts(ROUTER_INSTANCE_DIR, CONFIG_DIR / "router-instances", pid_is_running, router_log, lambda path: workspace_digest(workspace_identity(path)), unisolated_test=_unisolated_test_process))
-_channel_mcp_tool_schemas = channel_mcp_tool_schemas
+def _channel_mcp_tool_schemas() -> list[dict[str, Any]]: return channel_mcp_tool_schemas(load_config)
 _channel_mcp_tool_response = channel_mcp_tool_response
 
 def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> dict[str, Any]:
@@ -2093,7 +2101,7 @@ def _channel_mcp_tool_call_response(request_id: Any, params: dict[str, Any]) -> 
             runtime=ChannelMcpRuntimeServices(
                 submit_input=runtime_input_gateway().submit_stream_input, read_runtime_inputs=read_runtime_inputs,
                 telemetry_logs=_TELEMETRY_LOG_RUNTIME.tool, restart_session=runtime_session_restart_service().queue_tool,
-                recover_sse_delivery=lambda args: router_recovery(args, status_repository=_RUNTIME_INPUT_STATUS_REPOSITORY, compaction=_RUNTIME_COMPACTION, restart=runtime_session_restart_service().queue_tool, root=ROUTER_INSTANCE_DIR),
+                recover_sse_delivery=lambda args: router_recovery(args, status_repository=_RUNTIME_INPUT_STATUS_REPOSITORY, compaction=_RUNTIME_COMPACTION, restart=runtime_session_restart_service().queue_tool, root=ROUTER_INSTANCE_DIR), load_config=load_config, save_config=save_config,
             ),
         ),
     )
@@ -2141,9 +2149,10 @@ def chat_http_controller() -> ChatHttpController:
 def handle_chat_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return chat_http_controller().get(handler, path)
 def handle_chat_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool: return chat_http_controller().post(handler, path, body)
 def plan_artifact_controller() -> PlanArtifactController: return PlanArtifactController(PlanArtifactServices(PLAN_ARTIFACTS_DIR, ROUTER_BASE, _safe_segment, write_json, write_text_response, append_chat_message))
-def handle_plan_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return plan_artifact_controller().get(handler, path)
-def handle_plan_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool: return plan_artifact_controller().post(handler, path, body)
-
+_WORK_HTTP = build_work_http(WORKSPACE_STATE_DIR, ROUTER_INSTANCE_DIR, load_config, get_current_provider, current_alias,
+                            write_json, VERSION, SOURCE_FINGERPRINT, ROUTER_INSTANCE_ID, _WORK_RUNTIME_OBSERVER)
+def handle_plan_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return _WORK_HTTP.get(handler, path) or plan_artifact_controller().get(handler, path)
+def handle_plan_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool: return _WORK_HTTP.post(handler, path, body) or plan_artifact_controller().post(handler, path, body)
 COMPACT_TEXT_ONLY_SYSTEM_PROMPT = (
     "The coding client is compacting the conversation. Return only the requested summary text. "
     "Do not call tools, browse, inspect files, or request external data during compaction."
@@ -2931,7 +2940,7 @@ def _router_request_context() -> RouterRequestContext:
         assembly.ClaudeRouterResponsePorts(_rebatch_anthropic_sse_text, preserves_anthropic_thinking_contract, should_normalize_anthropic_stream_tool_use,
                                            set_upstream_stream_read_timeout, normalize_response_thinking_for_non_anthropic_provider, append_synthetic_tasklist_to_message,
                                            prepend_anthropic_text, rate_limit_notice, register_api_key_cooldown, key_from_request_headers),
-        assembly.ClaudeRouterContextRecoveryPorts(lambda body, raw, pcfg: native_context_recovery.recover_output_budget(body, raw, reserve_tokens=positive_int(pcfg.get("context_reserve_tokens")) or 0), _RUNTIME_COMPACTION.observe_request, _RUNTIME_COMPACTION.observe_failure, _RUNTIME_CONTEXT_REJECTION.reject_request, _STREAM_RECOVERY.request_scope, _STREAM_RECOVERY.recorder),
+        assembly.ClaudeRouterContextRecoveryPorts(lambda body, raw, pcfg: native_context_recovery.recover_output_budget(body, raw, reserve_tokens=positive_int(pcfg.get("context_reserve_tokens")) or 0), _RUNTIME_COMPACTION.observe_request, _RUNTIME_COMPACTION.observe_failure, _RUNTIME_CONTEXT_REJECTION.reject_request, _STREAM_RECOVERY.request_scope, _STREAM_RECOVERY.recorder, _RUNTIME_COMPACTION.observe_native_model),
     )
     return assembly.RouterRequestAssembly(
         openai, assembly.RouterRequestOuterPorts(forward_codex_backend_json, forward_codex_backend_get, write_openai_responses_error, try_write_json,
@@ -3525,7 +3534,8 @@ def option_panel_services() -> OptionPanelServices:
     return OptionPanelServices(
         text=OptionPanelText(compact_text, ui_text, context_setting_status, applied_preset_id, llm_preset_text, timeout_profile_status),
         runtime=OptionPanelRuntime(router_debug_external_access_enabled, router_debug_message_preview_chars, direct_native_anthropic_enabled,
-                                   claude_code_capability_string, current_upstream_model_id, claude_code_workflows_enabled, claude_code_ultracode_enabled, lambda: load_config().get("claude_feedback_drafts") is True),
+                                   claude_code_capability_string, current_upstream_model_id, claude_code_workflows_enabled, claude_code_ultracode_enabled, lambda: load_config().get("claude_feedback_drafts") is True,
+                                   load_config),
         provider=OptionPanelProvider(ollama_extra_options, ollama_num_ctx_status, ollama_think_status, upstream_query_string_status,
                                      provider_tool_choice_status, rate_limit_status_label, rate_limit_rpm_label, provider_ip_family, parse_bool,
                                      router_rate_limit_configured_rpm),

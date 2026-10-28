@@ -1,0 +1,57 @@
+[
+  {
+    "id": "INITIAL",
+    "task": "all",
+    "text": "REQ-INITIAL: Real coding evaluation with THREE independent complex tasks A0/B0/C0 below. Use standard-library Python and separate files/tests. Keep ONE hierarchical Work plan with separate A/B/C branches. Nine amendments will arrive at one-minute intervals, three for EACH task. Implement each promptly then continue review/testing while waiting; never finalize or remove prior branches before REQ-FINAL. Preserve request IDs. No external services, other sessions or session-control calls; work only in this workspace.\n\nREQ-A0: routing_graph.py class Graph and exceptions NoPathError, ConflictError. Graph.add_node(name), set_edge(src,dst,cost), remove_edge(src,dst)->bool, remove_node(name)->bool, shortest(src,dst)->(cost,path_tuple), version integer. Directed edges with nonnegative integer costs (bool invalid), nonempty string node names; unknown endpoints ValueError. set_edge overwrites. remove_node removes incident edges. shortest minimizes total cost, ties by FEWEST EDGES then lexical full path tuple. Paths are SIMPLE, including zero-cost cycles. src==dst gives (0,(src,)), unreachable NoPathError, unknown endpoint ValueError. version starts 0, increments once per state-changing public mutation, not errors/noops. Add rigorous tests.\n\nREQ-B0: booking_calendar.py class Calendar and exceptions CapacityError, ConflictError. Calendar(capacity=1), reserve(id,start,end,units=1), cancel(id)->bool, available(start,end,units=1)->bool, allocations()->list[(id,start,end,units)]. Capacity/units positive ints excluding bool. start/end ints excluding bool, start<end, negatives allowed. Capacity is cumulative units, half-open [start,end). Duplicate active id ValueError; invalid ValueError; overcapacity CapacityError; failures atomic. IDs nonempty strings. allocations sorts (start,id) ascending, NOT graph tie order. Add tests including many overlapping reservations.\n\nREQ-C0: inventory_stream.py class InventoryStream, exceptions InventoryError, ConflictError. feed(fragment)->list[event_id] parses arbitrary string fragments of JSONL (inside quotes/CRLF too), applies complete nonblank lines; finish()->list[event_id] consumes pending non-newline-terminated final line; repeated finish returns []. Events: {id,kind:stock,sku,qty} adds stock; {id,kind:move,src,dst,qty} transfers enough stock between distinct names. kind values stock/move are JSON strings. Nonempty id/SKU strings; qty positive int excluding bool; invalid fields/kind/JSON/insufficient stock -> InventoryError. Semantic failed line is consumed, balances/idempotency unchanged; later feed continues. balance(sku)->int defaults 0; snapshot()->dict copies known balances including zero. Identical parsed JSON for repeated id ignored with no returned ID (object key order irrelevant); different content same id ConflictError without mutation. Successful feed returns newly applied IDs in input order. First accepted id wins (unlike graph edge overwrite). Add tests. Preserve all three task contracts independently.\n"
+  },
+  {
+    "id": "A1",
+    "task": "A",
+    "text": "REQ-A1: Amend A only. shortest(src,dst,*,blocked=(),max_hops=None): blocked nodes excluded entirely, unknown blocked name ValueError. Blocked src/dst NoPathError even src==dst. max_hops None or nonnegative int excluding bool; invalid ValueError. Enforce hop bound BEFORE selecting minimum cost, not by truncating an unrestricted route. A0 cost/fewest-edge/lex ties unchanged. Add case where cheap route violates bound and more costly route succeeds. Preserve B/C."
+  },
+  {
+    "id": "B1",
+    "task": "B",
+    "text": "REQ-B1: Amend B only. reserve_many(requests) receives iterable (id,start,end,units) and reserves ALL atomically. Batch invalid/duplicate/capacity error leaves state unchanged, including duplicate IDs inside batch. replace(id,start,end,units=1) atomically replaces active id, capacity checked EXCLUDING its own old booking. Unknown id ValueError; failed replacement retains original. allocations sorting unchanged. Preserve A/C."
+  },
+  {
+    "id": "C1",
+    "task": "C",
+    "text": "REQ-C1: Amend C only. New kind batch: {id,kind:batch,ops:[stock-or-move dicts WITHOUT id]}; batch is a JSON string. Ops apply listed order, later ops may consume earlier stock. Any invalid op rolls back ALL effects and does not reserve outer id; nested batches forbidden; empty ops allowed and outer id recorded. Identical repeated outer id ignored, different content ConflictError. Failed batch can retry corrected payload with same id. Return outer ID only. Preserve A/B."
+  },
+  {
+    "id": "A2",
+    "task": "A",
+    "text": "REQ-A2: Amend A only. snapshot() returns independent read-only graph object with shortest and version frozen; later graph mutation cannot alter it. apply(changes,*,expected_version=None) atomically applies op dicts add_node/name, set_edge/src/dst/cost, remove_edge/src/dst, remove_node/name. Earlier ops visible to later. Any invalid op rolls back. Version mismatch raises ConflictError BEFORE applying. Changed successful batch increments version ONCE, empty/no-change batch no increment. Snapshots support A1 blocked/hops. Preserve B/C."
+  },
+  {
+    "id": "B2",
+    "task": "B",
+    "text": "REQ-B2: Amend B only. wait(id,start,end,units=1,priority=0) validates ordinary shape/unique id across active+waiting, but accepts overcapacity. priority int excluding bool, negative allowed. waiting()->list[id] order HIGHER priority then FIFO insertion (NOT lexical). promote()->list[id] scans this order, reserves every currently fitting request; skip nonfitting and CONTINUE. Success changes later fit. Return promoted IDs ordered, skipped remain waiting. Waiting consumes no capacity. cancel active OR waiting, no auto promotion. reserve/replace/reserve_many cannot steal waiting IDs. Preserve A/C."
+  },
+  {
+    "id": "C2",
+    "task": "C",
+    "text": "REQ-C2: Amend C only. undo(event_id) atomically reverses successful event including batch. Unknown/already undone InventoryError. If net reversal makes ANY SKU negative fail with balances/status unchanged; retry later allowed. Use per-event NET signed SKU delta, not reversed validation order of ops. Successful undo keeps tombstone: identical feed ignored, changed same ID ConflictError, cannot resurrect. Unrelated events independently undoable; no auto undo of later events. Preserve A/B."
+  },
+  {
+    "id": "A3",
+    "task": "A",
+    "text": "REQ-A3: Amend A only. SUPERSEDE A0 equal-cost tie: final default LEXICAL FULL PATH FIRST then hops (not fewest edges first). Simple paths, zero-cost cycles, blocked/hops unchanged. Include longer lex-smaller equal-cost route. Expose Graph(tie_policy=lexical) with string values lexical/fewest_hops; final default lexical; explicit fewest_hops preserves original policy. Invalid policy ValueError. Snapshots freeze data AND originating tie policy. Preserve B high-priority/FIFO and C first-id-wins."
+  },
+  {
+    "id": "B3",
+    "task": "B",
+    "text": "REQ-B3: Amend B only. checkpoint()->opaque immutable value; restore(cp) atomically restores active+waiting bookings, priorities, original waiting insertion sequence and capacity. Same Calendar checkpoints only, foreign/invalid ValueError. Reusable deep independent checkpoint. Calendar.version starts 0; increments ONCE per state-changing reserve/cancel/replace/reserve_many/wait/promote/restore; not per promoted member; no-op/error unchanged. restore increments CURRENT version, never rewinds; already identical state no-op. Restore exact wait FIFO. No auto promotion on cancel. Preserve A/C."
+  },
+  {
+    "id": "C3",
+    "task": "C",
+    "text": "REQ-C3: Amend C only. checkpoint()->opaque immutable; restore(cp) restores balances, accepted payloads/tombstones/undo deltas AND unfinished fragment buffer. Reusable independent checkpoint from same InventoryStream only; foreign/invalid InventoryError. Restore replays fragments correctly preserving idempotency/undo at checkpoint time. MAX line length 4096 Unicode code points (not bytes), complete or unfinished. Any feed that would exceed bound raises InventoryError and rolls back ALL effects/buffer/idempotency from THAT call, even earlier complete events in it. Preserve A/B policies."
+  },
+  {
+    "id": "FINAL",
+    "task": "all",
+    "text": "REQ-FINAL: All nine amendments delivered. Complete A0-A3, B0-B3, C0-C3 and retain superseding policies. Run python -m unittest discover -v plus verification. Save completion.json mapping all TWELVE IDs to implementation/tests/evidence and honest unsatisfied items. Retain A/B/C Work branches and verified evidence on every done leaf. If finished reply EVAL-COMPLETE; if blocked EVAL-BLOCKED with cause, do not loop. No external/session-control actions."
+  }
+]

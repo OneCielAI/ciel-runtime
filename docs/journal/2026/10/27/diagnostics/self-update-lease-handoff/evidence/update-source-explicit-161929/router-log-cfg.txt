@@ -1,0 +1,51 @@
+2026-10-27T16:19:45 [INFO] router_port_clear reason=pre_spawn port=56314 stopped=false
+2026-10-27T16:19:45 [INFO] router_check_state running=False spawn=True base=http://127.0.0.1:56314
+2026-10-27T16:19:45 [INFO] router_spawn_start base=http://127.0.0.1:56314 version=0.2.51 source=59743d83f45331de executable=C:\Users\djlov\AppData\Local\Python\pythoncore-3.14-64\python.exe entrypoint=C:\Users\djlov\AppData\Local\Temp\selfupd-7b8fef2b\prefix\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py log_path=C:\Users\djlov\AppData\Local\Temp\selfupd-7b8fef2b\cfg\router.log
+C:\Users\djlov\AppData\Local\Temp\selfupd-7b8fef2b\prefix\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\codex_app_server_session.py:417: SyntaxWarning: 'return' in a 'finally' block
+  return _RemoteRun(1)
+ciel-runtime router starting on 127.0.0.1:56314 (client base http://127.0.0.1:56314, log level INFO, source=env)
+web: http://127.0.0.1:56314/
+web_tailscale_https_recommended: ciel-runtime --ca-web-port 56314 --ca-tailscale-https=56314
+2026-10-27T16:19:47 [INFO] access "GET /health HTTP/1.1" 200 -
+2026-10-27T16:19:47 [INFO] router_spawned running=True base=http://127.0.0.1:56314 elapsed=2.1s
+2026-10-27T16:19:47 [INFO] launch_model_cache_ready provider=cielairouter count=1
+2026-10-27T16:19:47 [INFO] launch_catalog_profile provider=cielairouter CielAiRouter catalog profile applied for owned-send: 200,000-token context, 4,096-token output limit.
+2026-10-27T16:19:47 [INFO] claude_compaction_launch_snapshot provider=cielairouter model=owned-send context=200000 window=188000 percent=-
+2026-10-27T16:19:47 [INFO] workspace_mcp_launch_prepared launch_id=c758a87c3cdc411db206581a26a9669b runtime=claude servers=ciel-runtime-router
+2026-10-27T16:19:47 [INFO] claude_work_mode plugin_dir=C:\Users\djlov\AppData\Local\Temp\selfupd-7b8fef2b\prefix\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\claude_mods\ciel-work
+2026-10-27T16:19:47 [INFO] claude_launch_cmd ciel_mcp_config=C:\Users\djlov\AppData\Local\Temp\selfupd-7b8fef2b\cfg\web-tools-mcp.json argv_len=19
+2026-10-27T16:19:47 [INFO] claude_launch_env ANTHROPIC_BASE_URL=http://127.0.0.1:56314 ANTHROPIC_MODEL=ciel-runtime-cielairouter-owned-send ANTHROPIC_AUTH_TOKEN=owne...ummy CIEL_RUNTIME_PROVIDER=cielairouter CIEL_RUNTIME_MODEL_ALIAS=ciel-runtime-cielairouter-owned-send CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1 ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES=thinking ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS=thinking ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS=thinking ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS=thinking
+2026-10-27T16:19:47 [INFO] router_client_registered pid=67076 path=C:\Users\djlov\AppData\Local\Temp\selfupd-7b8fef2b\cfg\router-clients\67076.json
+2026-10-27T16:19:47 [INFO] claude_session_socket_configured target=\\.\pipe\LOCAL\cc-msg-35671bec6078501c651b39d468c232c4
+2026-10-27T16:19:47 [INFO] access "GET /health HTTP/1.1" 200 -
+2026-10-27T16:19:47 [INFO] channel_llm_cursor_fast_forward_on_launch last_id=0 previous_cursor=0 recent_seconds=600
+2026-10-27T16:19:47 [INFO] codex_child_process_registered pid=68544 path=C:\Users\djlov\AppData\Local\Temp\selfupd-7b8fef2b\cfg\mcp-launches\c758a87c3cdc411db206581a26a9669b\runtime-child.json
+2026-10-27T16:19:47 [INFO] startup_prompt_auto_answer_enabled
+2026-10-27T16:19:47 [INFO] channel_windows_console_proxy_started pid=68544 transport=conpty enter=crlf submit_retries=4 confirm_submit=True bracketed_paste=True display_body=False
+2026-10-27T16:19:47 [INFO] runtime_compaction_scope admission=paused reason=identity_pending runtime=claude
+2026-10-27T16:19:48 [INFO] runtime_compaction_scope_bound runtime=claude session=1ae39c1a-ba30-43a8-8823-d2f00d5aa2f6 via=socket
+2026-10-27T16:19:48 [INFO] runtime_compaction_scope admission=paused reason=request_identity_pending runtime=claude
+2026-10-27T16:19:48 [INFO] access "GET /v1/models?limit=1000 HTTP/1.1" 200 -
+2026-10-27T16:19:48 [INFO] runtime_compaction_scope identity=ready reason=published_idle runtime=claude session=1ae39c1a-ba30-43a8-8823-d2f00d5aa2f6
+2026-10-27T16:19:48 [INFO] access "POST /ca/mcp HTTP/1.1" 200 -
+2026-10-27T16:19:48 [INFO] channel_mcp_http method=server/discover request_id=server-discover-probe-1 protocol=2026-07-28
+2026-10-27T16:19:48 [INFO] access "POST /ca/mcp HTTP/1.1" 200 -
+2026-10-27T16:19:48 [INFO] channel_mcp_http method=tools/list request_id=0 protocol=2026-07-28
+2026-10-27T16:19:48 [INFO] access "POST /ca/mcp HTTP/1.1" 200 -
+2026-10-27T16:19:48 [INFO] channel_mcp_http method=tools/call request_id=1 protocol=2026-07-28
+2026-10-27T16:19:49 [INFO] access "POST /ca/mcp HTTP/1.1" 200 -
+2026-10-27T16:19:49 [INFO] channel_mcp_http method=tools/call request_id=2 protocol=2026-07-28
+2026-10-27T16:19:50 [INFO] runtime_compaction_seed runtime=claude session=1ae39c1a-ba30-43a8-8823-d2f00d5aa2f6 native_input_tokens=unknown input_budget=189654
+2026-10-27T16:19:51 [INFO] access "GET /health HTTP/1.1" 200 -
+2026-10-27T16:19:51 [INFO] access "POST /ca/mcp HTTP/1.1" 200 -
+2026-10-27T16:19:51 [INFO] channel_mcp_http method=tools/call request_id=3 protocol=2026-07-28
+2026-10-27T16:19:52 [INFO] access "GET /health HTTP/1.1" 200 -
+2026-10-27T16:19:52 [WARN] startup_prompt_option_not_found prompt=codex_update option=skip
+2026-10-27T16:19:54 [INFO] channel_windows_console_child_exit pid=68544 returncode=0
+2026-10-27T16:19:54 [INFO] codex_child_process_released path=C:\Users\djlov\AppData\Local\Temp\selfupd-7b8fef2b\cfg\mcp-launches\c758a87c3cdc411db206581a26a9669b\runtime-child.json
+2026-10-27T16:19:54 [INFO] claude_session_socket_cleared
+2026-10-27T16:19:54 [INFO] router_client_released path=C:\Users\djlov\AppData\Local\Temp\selfupd-7b8fef2b\cfg\router-clients\67076.json
+2026-10-27T16:19:54 [INFO] access "GET /health HTTP/1.1" 200 -
+2026-10-27T16:19:59 [INFO] router_kill_guarantee reason=claude_exit state=killed elapsed_ms=2059
+2026-10-27T16:19:59 [INFO] router_lifetime_stopped reason=claude_exit stopped=True
+2026-10-27T16:19:59 [INFO] workspace_mcp_launch_removed launch_id=c758a87c3cdc411db206581a26a9669b reason=normal_exit

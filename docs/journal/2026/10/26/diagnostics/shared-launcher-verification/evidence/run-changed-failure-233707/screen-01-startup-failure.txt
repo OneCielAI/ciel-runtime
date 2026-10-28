@@ -1,0 +1,29 @@
+    )
+  File "C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\remote_instructions.py", line 309, in __call__
+    return self.delegate(*args, **kwargs)
+           ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime.py", line 4892, in <lambda>
+    launch_codex_desktop, launch_codex_remote = (SynchronizedLaunch(lambda passthrough=None, _session=session, **kwargs:
+ runtime_launch.run_codex_app_server(list(passthrough or []), **kwargs, services=codex_app_server_launch_services(), des
+ktop=_session), sync_remote_launch_assets, "codex-app-server") for session in (_CODEX_SESSIONS.desktop, _CODEX_SESSIONS.
+remote_tui))
+
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^
+  File "C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\runtime_launch.py", line 1706, in run_codex_app_server
+    manage_router_lifetime = bool(start_router_if_needed())
+                                  ~~~~~~~~~~~~~~~~~~~~~~^^
+  File "C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime.py", line 4187, in start_router_if_needed
+    return start_project_router_if_needed(
+        replace_active_clients=replace_active_clients,
+    ...<11 lines>...
+        platform_name=os.name,
+    )
+  File "C:\Users\djlov\ciel-runtime-wt-work\ciel_runtime_support\router_process_lifecycle.py", line 267, in start_router
+_if_needed
+    raise RuntimeError(f"ciel-runtime router did not start ({failure}). See {log_path}")
+RuntimeError: ciel-runtime router did not start (pid=82360 exit_code=1 state=child_exited elapsed=30.6s version=0.2.51 s
+ource=59743d83f45331de executable=C:\Users\djlov\AppData\Local\Python\pythoncore-3.14-64\python.exe entrypoint=C:\Users\
+djlov\ciel-runtime-wt-work\ciel_runtime.py log_path=C:\Windows\Temp\ciel-owned-alias-ohbznsrf\cfg\router-instances\59836
+-3dabe9fda609\router.log). See C:\Windows\Temp\ciel-owned-alias-ohbznsrf\cfg\router-instances\59836-3dabe9fda609\router.
+log

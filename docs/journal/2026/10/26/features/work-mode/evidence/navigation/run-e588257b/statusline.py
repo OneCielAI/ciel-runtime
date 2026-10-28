@@ -1,0 +1,837 @@
+#!/usr/bin/env python3
+import hashlib
+import json
+import os
+import re
+import sys
+import time
+from pathlib import Path
+
+HOME = Path.home()
+
+
+def default_config_dir():
+    configured = os.environ.get("CIEL_RUNTIME_CONFIG_DIR")
+    if configured:
+        return Path(configured)
+    if os.name == "nt":
+        root = os.environ.get("APPDATA") or os.environ.get("LOCALAPPDATA")
+        if root:
+            return Path(root) / "ciel-runtime"
+        return HOME / "AppData" / "Roaming" / "ciel-runtime"
+    return HOME / ".config" / "ciel-runtime"
+
+
+CONFIG_DIR = default_config_dir()
+ROUTER_STATE_DIR = Path(os.environ.get("CIEL_RUNTIME_STATE_DIR") or CONFIG_DIR)
+WORKSPACE_STATE_DIR = Path(
+    os.environ.get("CIEL_RUNTIME_WORKSPACE_STATE_DIR") or ROUTER_STATE_DIR
+)
+CONFIG_PATH = WORKSPACE_STATE_DIR / "config.json"
+if not CONFIG_PATH.exists():
+    CONFIG_PATH = CONFIG_DIR / "config.json"
+STATE_PATH = ROUTER_STATE_DIR / "rate-limit-state.json"
+ACTIVITY_PATH = ROUTER_STATE_DIR / "router-activity.json"
+COMPACT_ACTIVITY_PATH = ROUTER_STATE_DIR / "context-compact-activity.json"
+CONTEXT_PATH = ROUTER_STATE_DIR / "context-usage.json"
+CHAT_MESSAGES_PATH = WORKSPACE_STATE_DIR / "chat-messages.jsonl"
+CHANNEL_LLM_CURSOR_PATH = WORKSPACE_STATE_DIR / "channel-llm-cursor.json"
+CHANNEL_LLM_CLEAR_FLOOR_PATH = WORKSPACE_STATE_DIR / "channel-llm-clear-floor.json"
+PALETTE = (203, 209, 215, 221, 229, 187, 151, 116, 111, 147, 183, 219)
+
+
+def load_json(path, default):
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+        return value if isinstance(value, type(default)) else default
+    except Exception:
+        return default
+
+
+def _status_meaningful_key(value):
+    text = str(value or "").strip()
+    if not text:
+        return False
+    return text.lower() not in {"none", "null", "unset", "missing", "not set"}
+
+
+def _status_parse_api_key_list(value):
+    if value is None:
+        return []
+    if isinstance(value, str):
+        items = re.split(r"[\r\n,;]+", value)
+    elif isinstance(value, (list, tuple, set)):
+        items = []
+        for item in value:
+            items.extend(_status_parse_api_key_list(item))
+    else:
+        items = [value]
+    keys = []
+    seen = set()
+    for item in items:
+        key = str(item or "").strip()
+        if not _status_meaningful_key(key) or key in seen:
+            continue
+        keys.append(key)
+        seen.add(key)
+    return keys
+
+
+def _status_provider_api_keys(pcfg):
+    keys = []
+    if isinstance(pcfg, dict):
+        keys.extend(_status_parse_api_key_list(pcfg.get("api_keys")))
+        keys.extend(_status_parse_api_key_list(pcfg.get("api_key")))
+    out = []
+    seen = set()
+    for key in keys:
+        if key in seen:
+            continue
+        out.append(key)
+        seen.add(key)
+    return out
+
+
+def _status_provider_rotation_name(provider, pcfg):
+    base = str((pcfg or {}).get("base_url") or "").rstrip("/")
+    return f"{provider}:{base}" if base else f"{provider}:"
+
+
+def _status_key_cooldown_summary(provider, pcfg, state, now):
+    keys = _status_provider_api_keys(pcfg)
+    if len(keys) <= 1 or not isinstance(state, dict):
+        return ""
+    prefix = _status_provider_rotation_name(provider, pcfg) + ":__key__:"
+    live = 0
+    next_until = 0.0
+    cooling = 0
+    for key in keys:
+        digest = hashlib.sha256(str(key).encode("utf-8")).hexdigest()[:12]
+        entry = state.get(prefix + digest)
+        until = 0.0
+        if isinstance(entry, dict):
+            try:
+                until = float(entry.get("cooldown_until") or 0.0)
+            except Exception:
+                until = 0.0
+        if until > now:
+            cooling += 1
+            next_until = until if not next_until else min(next_until, until)
+        else:
+            live += 1
+    if not cooling:
+        return f"RL {live}/{len(keys)}"
+    wait_s = max(0.0, next_until - now) if next_until else 0.0
+    if wait_s >= 3600:
+        wait_text = f"{wait_s / 3600.0:.1f}h"
+    elif wait_s >= 60:
+        wait_text = f"{wait_s / 60.0:.0f}m"
+    else:
+        wait_text = f"{wait_s:.0f}s"
+    text = f"RL {live}/{len(keys)} next {wait_text}"
+    if live == 0 and len(keys) > 1:
+        text = f"RL 0/{len(keys)} next {wait_text}"
+    return text
+
+
+def color(text):
+    if os.environ.get("CIEL_RUNTIME_STATUSLINE_ANSI", "1").lower() in ("0", "false", "no"):
+        return text
+    phase = int(time.monotonic() * 8)
+    out = []
+    for i, ch in enumerate(text):
+        if ch.isspace():
+            out.append(ch)
+        else:
+            out.append(f"\033[1;38;5;{PALETTE[(phase + i) % len(PALETTE)]}m{ch}\033[0m")
+    return "".join(out)
+
+
+def gray(text):
+    if os.environ.get("CIEL_RUNTIME_STATUSLINE_ANSI", "1").lower() in ("0", "false", "no"):
+        return text
+    return f"\033[38;5;245m{text}\033[0m"
+
+
+def token_text(value):
+    try:
+        return f"{int(value):,} tok"
+    except Exception:
+        return f"{value} tok"
+
+
+def token_part(value, muted=False):
+    text = token_text(value)
+    return gray(text) if muted else color(text)
+
+
+def _status_positive_int(value):
+    try:
+        number = int(value)
+        return number if number > 0 else 0
+    except Exception:
+        return 0
+
+
+def status_config_context_limit(provider, pcfg):
+    if not isinstance(pcfg, dict):
+        return 0
+    if provider in ("ollama", "ollama-cloud"):
+        fixed = str(pcfg.get("num_ctx") or "").strip().lower()
+        if fixed and fixed not in ("auto", "0", "false", "off", "none", "unset"):
+            parsed = _status_positive_int(fixed)
+            if parsed:
+                return parsed
+        return (
+            _status_positive_int(pcfg.get("num_ctx_max"))
+            or _status_positive_int(pcfg.get("model_context_max"))
+            or _status_positive_int(pcfg.get("context_window"))
+            or _status_positive_int(pcfg.get("max_model_len"))
+        )
+    return _status_positive_int(pcfg.get("context_window")) or _status_positive_int(pcfg.get("max_model_len"))
+
+
+def context_status_text(context, provider, model, expected_limit=0):
+    if not isinstance(context, dict):
+        return ""
+    if str(context.get("provider") or "") != str(provider or ""):
+        return ""
+    try:
+        age = time.time() - float(context.get("updated_at") or 0)
+    except Exception:
+        age = 999999
+    if age < 0 or age > 3600:
+        return ""
+    try:
+        tokens = int(context.get("tokens") or 0)
+    except Exception:
+        tokens = 0
+    if tokens <= 0:
+        return ""
+    limit = _status_positive_int(expected_limit) or _status_positive_int(context.get("context_limit"))
+    prefix = "ctx est" if str(context.get("token_source") or "") == "estimated_json" else "ctx"
+    if limit > 0:
+        pct = (tokens / limit) * 100.0
+        return f"{prefix} {tokens:,}/{limit:,} tok ({pct:.1f}%)"
+    return f"{prefix} {tokens:,} tok"
+
+
+def _as_int(value, default=0):
+    try:
+        return int(value)
+    except Exception:
+        return default
+
+
+def session_context_status_text(session, expected_limit=0):
+    if not isinstance(session, dict):
+        return ""
+    context_window = session.get("context_window")
+    if not isinstance(context_window, dict):
+        return ""
+    usage = context_window.get("current_usage")
+    if not isinstance(usage, dict):
+        return ""
+    tokens = (
+        _as_int(usage.get("input_tokens"))
+        + _as_int(usage.get("cache_creation_input_tokens"))
+        + _as_int(usage.get("cache_read_input_tokens"))
+    )
+    if tokens <= 0:
+        tokens = _as_int(context_window.get("total_input_tokens"))
+    if tokens <= 0:
+        return ""
+    limit = _status_positive_int(expected_limit) or _as_int(context_window.get("context_window_size"))
+    if limit > 0:
+        pct_value = (tokens / limit) * 100.0
+        return f"ctx {tokens:,}/{limit:,} tok ({pct_value:.1f}%)"
+    return f"ctx {tokens:,} tok"
+
+
+def session_cache_status_text(session):
+    if not isinstance(session, dict):
+        return ""
+    context_window = session.get("context_window")
+    if not isinstance(context_window, dict):
+        return ""
+    usage = context_window.get("current_usage")
+    if not isinstance(usage, dict):
+        return ""
+    details = usage.get("input_tokens_details")
+    details = details if isinstance(details, dict) else {}
+    cache_read = _as_int(
+        usage.get("cache_read_input_tokens"),
+        _as_int(details.get("cached_tokens")),
+    )
+    cache_write = _as_int(
+        usage.get("cache_creation_input_tokens"),
+        _as_int(details.get("cache_write_tokens")),
+    )
+    input_tokens = max(0, _as_int(usage.get("input_tokens")))
+    uncached = (
+        max(0, input_tokens - cache_read - cache_write)
+        if details
+        else input_tokens
+    )
+    total = uncached + cache_read + cache_write
+    if total <= 0 or (cache_read <= 0 and cache_write <= 0):
+        return ""
+    hit_pct = (cache_read / total) * 100.0
+    parts = [f"cache {hit_pct:.1f}%", f"hit {cache_read:,}"]
+    if cache_write > 0:
+        parts.append(f"write {cache_write:,}")
+    parts.append(f"new {uncached:,}")
+    return " ".join(parts)
+
+
+def _status_as_string_list(value):
+    if value is None:
+        return []
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return []
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, list):
+                return _status_as_string_list(parsed)
+        except Exception:
+            pass
+        return [text]
+    if isinstance(value, (list, tuple, set)):
+        out = []
+        for item in value:
+            out.extend(_status_as_string_list(item))
+        return out
+    return [str(value).strip()] if str(value).strip() else []
+
+
+def _status_channel_message_has_external_provenance(message):
+    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
+    for key in (
+        "mcp_server",
+        "mcp_method",
+        "mcp_json",
+        "sse_source",
+        "sse_event",
+        "sse_json",
+        "stream_id",
+        "sse_id",
+        "cursor",
+        "event_id",
+        "message_id",
+        "source_message_id",
+        "rpc_id",
+    ):
+        value = meta.get(key)
+        if value is not None and str(value).strip():
+            return True
+    return False
+
+
+def _status_channel_message_skip_reason(message):
+    visibility = str(message.get("visibility") or "user").strip().lower()
+    if visibility in {"hidden", "internal", "transport", "control", "system"}:
+        return f"visibility_{visibility}"
+    recipients = {item.strip().lower() for item in _status_as_string_list(message.get("recipients"))}
+    if "internal" in recipients:
+        return "recipient_internal"
+    delivery = _status_as_string_list(message.get("delivery"))
+    if delivery:
+        normalized_delivery = {item.strip().lower() for item in delivery}
+        if not ({"all", "*", "llm"} & normalized_delivery):
+            return "delivery_not_llm"
+    meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
+    meta_kind = str(meta.get("kind") or meta.get("type") or meta.get("event_type") or meta.get("eventType") or meta.get("event") or meta.get("status") or "").strip().lower()
+    if meta_kind in {
+        "agent_presence",
+        "check-in",
+        "checkin",
+        "checkins",
+        "checked_in",
+        "colleague_presence",
+        "connection",
+        "connected",
+        "disconnect",
+        "disconnected",
+        "endpoint",
+        "heartbeat",
+        "initialized",
+        "init",
+        "keepalive",
+        "ping",
+        "pong",
+        "presence",
+        "ready",
+        "status",
+        "system",
+        "user_presence",
+    }:
+        return meta_kind
+    body = re.sub(r"\s+", " ", str(message.get("message") or "")).strip().lower()
+    kind = str(message.get("kind") or "").strip().lower()
+    if not body:
+        return "empty"
+    if kind in {"connection", "connected", "heartbeat", "keepalive"}:
+        return kind
+    if re.fullmatch(r"[a-z0-9_.:-]{1,80}\.(ws|sse)\.connected", body):
+        return "transport_connected"
+    if not delivery and not _status_channel_message_has_external_provenance(message):
+        return "unscoped_channel_message"
+    return ""
+
+
+def runtime_delivery_status_text():
+    # Installed statuslines can run outside the package directory. Missing
+    # package observation is unknown, never an empty/healthy private queue.
+    try:
+        sys.path.insert(0, 'C:\\Users\\djlov\\ciel-runtime-wt-work')
+        from ciel_runtime_support.runtime_input_delivery_health import (
+            runtime_input_delivery_health, delivery_health_text,
+        )
+        health = runtime_input_delivery_health(
+            status_path=WORKSPACE_STATE_DIR / "runtime-input-status.jsonl",
+            inputs_path=WORKSPACE_STATE_DIR / "runtime-inputs.jsonl",
+        )
+        failure = health.get("last_failure") if isinstance(health.get("last_failure"), dict) else {}
+        # A resend in progress is queued; a failure stays visible for ten
+        # minutes so an exhausted resend is not silent once the queue drains.
+        recent_failure = time.time() - float(failure.get("at_epoch") or 0) < 600
+        if health.get("admission_blocked") or health.get("known_queued_count") or recent_failure:
+            return "session delivery " + delivery_health_text(health)
+    except (ImportError, OSError, ValueError):
+        return "session delivery unknown"
+    return ""
+
+
+def channel_pending_status_count():
+    cursor = load_json(CHANNEL_LLM_CURSOR_PATH, {})
+    last_id = _as_int(cursor.get("last_id") if isinstance(cursor, dict) else 0)
+    count = 0
+    try:
+        if not CHAT_MESSAGES_PATH.exists():
+            return 0
+        with CHAT_MESSAGES_PATH.open("r", encoding="utf-8") as f:
+            for line in f:
+                try:
+                    item = json.loads(line)
+                    item_id = int(item.get("id") or 0)
+                except Exception:
+                    continue
+                if item_id <= last_id:
+                    continue
+                if _status_channel_message_skip_reason(item):
+                    continue
+                count += 1
+                if count >= 999:
+                    return count
+    except Exception:
+        return 0
+    return count
+
+
+def is_ciel_runtime_session(session):
+    if os.environ.get("CIEL_RUNTIME_PROVIDER") or os.environ.get("CIEL_RUNTIME_MODEL_ALIAS"):
+        return True
+    if os.environ.get("CIEL_RUNTIME_STATUSLINE_FORCE", "").lower() in ("1", "true", "yes", "on"):
+        return True
+    info = session.get("model") if isinstance(session.get("model"), dict) else {}
+    return any(str(info.get(key) or "").startswith("ciel-runtime-") for key in ("id", "display_name"))
+
+
+def _status_model_slug(value):
+    normalized = re.sub(r"[^a-zA-Z0-9_.-]+", "-", str(value).lower())
+    return re.sub(r"-+", "-", normalized).strip("-") or "model"
+
+
+def routed_model_label(session, providers):
+    """The upstream model behind Claude Code's 'ciel-runtime-<provider>-<slug>' alias, e.g. 'ASTRA (cielairouter)'.
+
+    Claude Code only knows the alias, which lower-cases the model and folds '/' and spaces into '-';
+    the provider's own model id is recovered from the configured, custom and cached model ids.
+    """
+
+    info = session.get("model") if isinstance(session.get("model"), dict) else {}
+    display = str(info.get("display_name") or "")
+    alias = next((value for value in (str(info.get("id") or ""), display) if value.startswith("ciel-runtime-")), "")
+    if not alias:
+        return display
+    alias = re.sub(r"\[1m\]\s*$", "", alias, flags=re.IGNORECASE)
+    owners = [name for name in providers if isinstance(name, str) and alias.startswith(f"ciel-runtime-{name}-")]
+    if not owners:
+        return alias[len("ciel-runtime-"):]
+    owner = max(owners, key=len)
+    suffix = alias[len(f"ciel-runtime-{owner}-"):]
+    pcfg = providers.get(owner) if isinstance(providers.get(owner), dict) else {}
+    candidates = [pcfg.get("current_model"), pcfg.get("subagent_model"), *(pcfg.get("custom_models") or [])]
+    cache = load_json(CONFIG_DIR / "model-list-cache.json", {})
+    if isinstance(cache, dict) and isinstance(cache.get("models"), list):
+        candidates.extend(cache["models"])
+    for candidate in candidates:
+        if isinstance(candidate, str) and candidate.strip():
+            base = re.sub(r"\[1m\]\s*$", "", candidate.strip(), flags=re.IGNORECASE)
+            if _status_model_slug(base) == suffix:
+                return f"{base} ({owner})"
+    return f"{suffix} ({owner})"
+
+
+def display_capacity(rpm):
+    if rpm <= 1:
+        return rpm
+    reserve = 1 if rpm <= 20 else max(1, int((rpm * 0.05) + 0.999))
+    return max(1, rpm - reserve)
+
+
+def main():
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+    try:
+        session = json.load(sys.stdin)
+        if not isinstance(session, dict):
+            session = {}
+    except Exception:
+        session = {}
+    if not is_ciel_runtime_session(session):
+        # 비런타임 세션(일반 claude): 상태줄 전체는 생략하고 [work] 보드 세그먼트만 표시
+        work_only = (work_plan_status_text(session) or work_board_status_text(session))
+        if work_only:
+            print(work_only)
+        return
+    cfg = load_json(CONFIG_PATH, {})
+    providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+    provider = str(cfg.get("current_provider") or "")
+    pcfg = providers.get(provider) if isinstance(providers.get(provider), dict) else {}
+    # Provider fallback: the backup serving this workspace's requests is what the
+    # rest of the line (limits, context) describes, and the line says so.
+    failover_text = ""
+    failover = load_json(WORKSPACE_STATE_DIR / "provider-failover.json", {})
+    active = failover.get("active") if isinstance(failover, dict) else None
+    if isinstance(active, dict) and active.get("from") == provider and isinstance(active.get("to"), dict):
+        backup = str(active["to"].get("provider") or "")
+        if isinstance(providers.get(backup), dict):
+            until = time.strftime("%H:%M", time.localtime(float(active.get("until") or 0)))
+            # ASCII only: the status line's stdout may be a legacy code page (cp1252).
+            failover_text = f"fallback {backup}/{active['to'].get('model') or ''} until {until} ({provider} {active.get('trigger') or ''})"
+            provider = backup
+            pcfg = dict(providers[backup])
+            if active["to"].get("model"):
+                pcfg["current_model"] = active["to"]["model"]
+    router_debug_external = bool(cfg.get("router_debug_external_access", False))
+    rpm_status = bool(pcfg.get("rate_limit_status", False))
+    migrations = cfg.get("migrations") if isinstance(cfg.get("migrations"), dict) else {}
+    if not migrations.get("rate_limit_defaults_off_20260526"):
+        if (
+            provider in ("ollama", "ollama-cloud", "nvidia-hosted", "self-hosted-nim")
+            and str(pcfg.get("rate_limit_rpm", "")).strip() == "40"
+        ):
+            rpm_status = False
+        elif provider == "lm-studio" and str(pcfg.get("rate_limit_rpm", "")).strip() == "0":
+            rpm_status = False
+    model = str(pcfg.get("current_model") or "")
+    raw_rpm = pcfg.get("rate_limit_rpm", 0)
+    try:
+        rpm = int(raw_rpm)
+    except Exception:
+        rpm = 0
+    state = load_json(STATE_PATH, {})
+    activity = load_json(ACTIVITY_PATH, {})
+    compact_activity = load_json(COMPACT_ACTIVITY_PATH, {})
+    context = load_json(CONTEXT_PATH, {})
+    now = time.time()
+    key = f"{provider}:__global__" if provider else ""
+    entry = state.get(key) if key else None
+    if not isinstance(entry, dict):
+        legacy_key = f"{provider}:{model}" if provider and model else ""
+        entry = state.get(legacy_key) if legacy_key else None
+    if not isinstance(entry, dict):
+        prefix = f"{provider}:"
+        candidates = [(k, v) for k, v in state.items() if isinstance(k, str) and k.startswith(prefix) and ":__key__:" not in k and isinstance(v, dict)]
+        if not candidates:
+            candidates = [(k, v) for k, v in state.items() if isinstance(v, dict)]
+        if candidates:
+            key, entry = max(candidates, key=lambda item: float(item[1].get("updated_at") or 0))
+    timestamps = entry.get("timestamps") if isinstance(entry, dict) else []
+    if isinstance(entry, dict):
+        try:
+            rpm = int(entry.get("rpm") or rpm)
+        except Exception:
+            pass
+    try:
+        last_wait = float(entry.get("last_wait") or 0.0) if isinstance(entry, dict) else 0.0
+    except Exception:
+        last_wait = 0.0
+    try:
+        penalty_until = float(entry.get("penalty_until") or 0.0) if isinstance(entry, dict) else 0.0
+    except Exception:
+        penalty_until = 0.0
+    try:
+        updated_at = float(entry.get("updated_at") or 0.0) if isinstance(entry, dict) else 0.0
+    except Exception:
+        updated_at = 0.0
+    server_remaining = entry.get("server_remaining") if isinstance(entry, dict) else None
+    server_reset_seconds = entry.get("server_reset_seconds") if isinstance(entry, dict) else None
+    server_rpm = entry.get("server_rpm") if isinstance(entry, dict) else None
+    server_max_concurrent = entry.get("server_max_concurrent") if isinstance(entry, dict) else None
+    server_active = entry.get("server_active") if isinstance(entry, dict) else None
+    server_queue_limit = entry.get("server_queue_limit") if isinstance(entry, dict) else None
+    server_queued = entry.get("server_queued") if isinstance(entry, dict) else None
+    used = len([ts for ts in (timestamps or []) if isinstance(ts, (int, float)) and 0.0 <= now - float(ts) < 60.0])
+    model_name = routed_model_label(session, providers) or model or "model"
+    current_dir = ((session.get("workspace") or {}).get("current_dir") if isinstance(session.get("workspace"), dict) else None) or session.get("cwd") or ""
+    dir_name = Path(current_dir).name if current_dir else ""
+    left = f"[{model_name}]"
+    if dir_name:
+        left += f" {dir_name}"
+    status_parts = []
+    if failover_text:
+        status_parts.append(color(failover_text))
+    expected_ctx_limit = status_config_context_limit(provider, pcfg)
+    router_ctx_text = context_status_text(context, provider, model, expected_ctx_limit)
+    session_ctx_text = session_context_status_text(session, expected_ctx_limit)
+    # Claude/Codex status input contains provider-reported token usage. Prefer
+    # it over Ciel's pre-request JSON-size estimate, which can over-count
+    # tool-heavy or CJK sessions by several times and falsely show >100%.
+    ctx_text = session_ctx_text or router_ctx_text
+    if ctx_text:
+        status_parts.append(gray(ctx_text))
+    cache_text = session_cache_status_text(session)
+    if cache_text:
+        status_parts.append(color(cache_text))
+    delivery_text = runtime_delivery_status_text()
+    if delivery_text:
+        status_parts.append(color(delivery_text))
+    channel_pending = channel_pending_status_count()
+    if channel_pending > 0:
+        status_parts.append(color(f"channel queue {channel_pending}"))
+    if router_debug_external:
+        status_parts.append(color("debug external"))
+    if rpm_status:
+        key_rl_text = _status_key_cooldown_summary(provider, pcfg, state, now)
+        if key_rl_text:
+            rpm_text = key_rl_text
+        elif rpm > 0:
+            shown_limit = display_capacity(rpm)
+            shown_used = min(used, shown_limit)
+            rpm_text = f"RPM used: {shown_used}/{shown_limit}"
+        else:
+            rpm_text = f"RPM used: {used}/min (unmanaged)"
+        if server_rpm or server_remaining is not None or server_reset_seconds is not None:
+            parts = []
+            if server_remaining is not None:
+                parts.append(f"remaining {server_remaining}")
+            if server_rpm:
+                parts.append(f"limit {server_rpm}")
+            try:
+                if server_reset_seconds is not None and float(server_reset_seconds) > 0:
+                    parts.append(f"reset {float(server_reset_seconds):.0f}s")
+            except Exception:
+                pass
+            if parts:
+                rpm_text += " | server " + ", ".join(parts)
+        if server_max_concurrent is not None or server_active is not None:
+            try:
+                active_text = "?" if server_active is None else str(int(server_active))
+                max_text = "?" if server_max_concurrent is None else str(int(server_max_concurrent))
+                rpm_text += f" | conc {active_text}/{max_text}"
+            except Exception:
+                pass
+        if server_queue_limit is not None or server_queued is not None:
+            try:
+                queued_text = "?" if server_queued is None else str(int(server_queued))
+                limit_text = "?" if server_queue_limit is None else str(int(server_queue_limit))
+                rpm_text += f" | q {queued_text}/{limit_text}"
+            except Exception:
+                pass
+        if penalty_until > now:
+            rpm_text += f" | wait {max(0.0, penalty_until - now):.0f}s"
+        elif last_wait >= 0.5 and 0.0 <= now - updated_at < 60.0:
+            rpm_text += f" | wait {last_wait:.1f}s"
+        status_parts.append(color(rpm_text))
+    activity_text = ""
+    if isinstance(activity, dict):
+        try:
+            age = now - float(activity.get("updated_at") or 0)
+        except Exception:
+            age = 999999
+        if 0 <= age < 180:
+            event = str(activity.get("event") or "")
+            if event == "retry":
+                activity_text = color(f"retry {activity.get('attempt')}/{activity.get('total')}")
+                wait = activity.get("wait")
+                try:
+                    if rpm_status and wait is not None and float(wait) > 0:
+                        activity_text += " " + color(f"wait {float(wait):.0f}s")
+                except Exception:
+                    pass
+                tokens = activity.get("tokens")
+                if tokens:
+                    activity_text += " " + color("last input") + " " + token_part(tokens, muted=rpm_status)
+            elif event == "request":
+                tokens = activity.get("tokens")
+                activity_text = color(f"upstream {age:.0f}s")
+                if tokens:
+                    activity_text += " " + token_part(tokens, muted=rpm_status)
+                output_tokens = activity.get("output_tokens")
+                if output_tokens:
+                    activity_text += " " + color("->") + " " + token_part(output_tokens, muted=rpm_status)
+                chunks = activity.get("chunks")
+                if chunks:
+                    try:
+                        activity_text += " " + color(f"({int(chunks):,} chunks)")
+                    except Exception:
+                        activity_text += " " + color(f"({chunks} chunks)")
+            elif event in ("success", "error"):
+                activity_text = color(f"{event} {age:.0f}s")
+                cache_read = max(0, _as_int(activity.get("cache_read_tokens")))
+                cache_write = max(0, _as_int(activity.get("cache_creation_tokens")))
+                uncached = max(0, _as_int(activity.get("uncached_input_tokens")))
+                cache_total = cache_read + cache_write + uncached
+                if not cache_text and cache_total > 0 and (cache_read > 0 or cache_write > 0):
+                    cache_pct = (cache_read / cache_total) * 100.0
+                    activity_text += " " + color(
+                        f"cache {cache_pct:.1f}% hit {cache_read:,} "
+                        f"write {cache_write:,} new {uncached:,}"
+                    )
+    if activity_text:
+        status_parts.append(activity_text)
+    compact_text = ""
+    if isinstance(compact_activity, dict):
+        try:
+            compact_age = now - float(compact_activity.get("updated_at") or 0)
+        except Exception:
+            compact_age = 999999
+        if 0 <= compact_age < 180:
+            try:
+                compact_chunks = int(compact_activity.get("chunks") or 0)
+            except Exception:
+                compact_chunks = 0
+            try:
+                parallel_sessions = int(compact_activity.get("parallel_sessions") or 1)
+            except Exception:
+                parallel_sessions = 1
+            compact_phase = str(compact_activity.get("phase") or "").strip()
+            try:
+                completed_chunks = max(0, int(compact_activity.get("completed_chunks") or 0))
+            except Exception:
+                completed_chunks = 0
+            if compact_phase == "guard":
+                compact_text = color(f"context guard {compact_chunks:,} groups")
+            elif compact_phase in {"map", "reduce"}:
+                compact_text = color(f"compact {compact_phase} {completed_chunks:,}/{compact_chunks:,}")
+            elif compact_phase in {"completed", "failed", "cancelled", "uncertain", "checkpoint-confirmed"}:
+                compact_text = color(f"compact {compact_phase}")
+            elif compact_phase == "local-complete":
+                compact_text = color("compact summary ready")
+            elif compact_chunks > 0:
+                # Legacy records without a phase cannot prove semantic work.
+                compact_text = color(f"context guard {compact_chunks:,} groups")
+            elif str(compact_activity.get("event") or "") == "compact":
+                compact_text = color("compact pending")
+            try:
+                reused = max(0, int(compact_activity.get("reused_chunks") or 0))
+            except Exception:
+                reused = 0
+            if reused and compact_text:
+                compact_text += " " + color(f"reused {reused:,}")
+            if parallel_sessions > 1 and compact_phase in {"map", "reduce"}:
+                compact_text += " " + color(f"parallel {parallel_sessions:,}/{compact_chunks:,}")
+    if compact_text:
+        status_parts.append(compact_text)
+    status_text = " | ".join(status_parts)
+    # [work] 현재 대화의 세션별 보드만 표시한다.
+    work_text = (work_plan_status_text(session) or work_board_status_text(session))
+    if status_text:
+        print(f"{left} | {status_text}")
+    else:
+        print(left)
+    if work_text:
+        print(work_text)
+
+
+def work_plan_status_text(session):
+    session_id = session.get("session_id")
+    if not isinstance(session_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", session_id):
+        return ""
+    if load_json(CONFIG_PATH, {}).get("work_mode") is False:
+        return ""
+    digest = hashlib.sha256(("claude:" + session_id).encode("utf-8")).hexdigest()
+    plan = load_json(WORKSPACE_STATE_DIR / "work-sessions" / digest / "work-plan.json", {})
+    if not plan:
+        return ""
+    try:
+        package_root = 'C:\\Users\\djlov\\ciel-runtime-wt-work'
+        if package_root not in sys.path:
+            sys.path.insert(0, package_root)
+        from ciel_runtime_support.work_plan_tree import normalize_document, snapshot
+        state = snapshot(normalize_document(plan))
+    except Exception:
+        return "[work] unavailable"
+    clip = _work_status_clip
+    phase = state["phase"]
+    root = state.get("active_root")
+    summary = f"[work {phase}] {state['done']}/{state['total']}"
+    if root:
+        summary += " " + clip(root["title"], 48)
+    # One branch per line, every branch: the status line is vertical, so a
+    # breakdown is never cut to its first few branches.
+    lines = [summary]
+    for branch in state.get("breakdown", []):
+        lines.append(f"  - {clip(branch['title'], 48)} {branch['done']}/{branch['total']}")
+    current = state.get("next")
+    if current:
+        lines.append("  " + current["status"] + " " + clip(current["id"], 32) + " " + " > ".join(
+            clip(part, 32) for part in current["path"][-4:]))
+    else:
+        lines.append("  " + ("complete" if root else "no goal"))
+    return chr(10).join(lines)
+
+
+def _work_status_clip(value, limit):
+    # Terminal controls (C0, DEL, C1) and line breaks never reach the status
+    # line: each work entry must stay on exactly one row.
+    text = re.sub(r"[\x00-\x1f\x7f-\x9f]", " ", str(value or ""))
+    text = " ".join(text.split())
+    return text if len(text) <= limit else text[:limit - 3] + "..."
+
+
+def work_board_status_text(session):
+    session_id = session.get("session_id")
+    if not isinstance(session_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", session_id):
+        return ""
+    base = (
+        os.environ.get("CIEL_CODE_CONFIG_DIR")
+        or os.path.join(os.environ.get("APPDATA") or str(HOME), "ciel-code")
+    )
+    path = Path(base) / "boards" / "sessions" / session_id / "active.json"
+    board = load_json(path, {})
+    items = board.get("items")
+    if not isinstance(items, list) or not items:
+        return ""
+    steps_map = board.get("steps")
+    steps_map = steps_map if isinstance(steps_map, dict) else {}
+    active = str(board.get("activeItem") or "")
+    icons = {"running": ">", "done": "x", "planning": "~", "paused": "|"}
+    lines = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        item_id = str(item.get("id") or "")
+        status = str(item.get("status") or "")
+        steps = steps_map.get(item_id)
+        steps = steps if isinstance(steps, list) else []
+        done = sum(1 for s in steps if isinstance(s, dict) and s.get("state") == "done")
+        total = len(steps)
+        detail = f"{done}/{total}" if total else ("done" if status == "done" else "ready")
+        title = _work_status_clip(item.get("title"), 48)
+        mark = " <-" if item_id == active else ""
+        lines.append(f"  {icons.get(status, '*')}{detail} {title}{mark}")
+    if not lines:
+        return ""
+    return chr(10).join(["[work]"] + lines)
+
+
+if __name__ == "__main__":
+    main()
+

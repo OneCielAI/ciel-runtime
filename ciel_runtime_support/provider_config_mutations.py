@@ -200,6 +200,14 @@ def apply_provider_option(
     policy: ProviderOptionPolicy,
     capabilities: ProviderConfigurationPolicy,
 ) -> None:
+    if token.split("=", 1)[0].strip() == "blocked_tools" or token == "unset:blocked_tools":
+        from .provider_tool_policy import configure_blocked_tools
+        raw = "default" if token == "unset:blocked_tools" else token.partition("=")[2]
+        try:
+            configure_blocked_tools(pcfg, raw)
+        except ValueError as exc:
+            raise SystemExit(str(exc)) from exc
+        return
     if token.split("=", 1)[0].strip() == "gateway_selection" or token == "unset:gateway_selection":
         if not capabilities.supports_gateway_selection:
             raise SystemExit("gateway_selection is only available for cielairouter")

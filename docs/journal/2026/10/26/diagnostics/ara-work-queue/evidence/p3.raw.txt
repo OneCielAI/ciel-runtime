@@ -1,0 +1,13 @@
+REMOTE_START 2026-10-26T19:27:07 user DESKTOP-GBJII5F$
+WHOAMI nt authority\system
+WS_ERR 016457eb7a85 PermissionError
+  WORK_SESSIONS_ERR 016457eb7a85 FileNotFoundError
+WS_ERR fe924fced90d PermissionError
+  WORK_SESSIONS_ERR fe924fced90d PermissionError
+ICACLS C:\Users\aapw-a21u21\AppData\Roaming\ciel-runtime\workspaces\fe924fced90d DESKTOP-GBJII5F\aapw-a21u21:(OI)(CI)(F)
+
+Successfully processed 1 files; Failed processing 0 files
+REMOTE_END 2026-10-26T19:27:07
+
+
+exit 0

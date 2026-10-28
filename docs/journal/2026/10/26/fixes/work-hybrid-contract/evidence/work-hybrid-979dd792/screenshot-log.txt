@@ -1,0 +1,6 @@
+01-active-executing-shell-allowed
+saved C:\Users\djlov\AppData\Local\Temp\work-hybrid-979dd792\01-active-executing-shell-allowed.png handle=1246876 printwindow=True
+02-incoming-request-during-active-turn
+saved C:\Users\djlov\AppData\Local\Temp\work-hybrid-979dd792\02-incoming-request-during-active-turn.png handle=1246876 printwindow=True
+03-priority-finished-active-resumed
+saved C:\Users\djlov\AppData\Local\Temp\work-hybrid-979dd792\03-priority-finished-active-resumed.png handle=1246876 printwindow=True

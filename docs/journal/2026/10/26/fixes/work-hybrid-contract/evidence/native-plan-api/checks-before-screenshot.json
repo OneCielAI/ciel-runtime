@@ -1,0 +1,8 @@
+{
+ "fixture_reached_idle": true,
+ "repository_write_denied": true,
+ "native_plan_written": true,
+ "original_band": true,
+ "http_mutation": true,
+ "idle_band_refreshed": true
+}

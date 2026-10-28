@@ -1,0 +1,21 @@
+SESSION_FILE 15712.json 2026-10-26T18:45:01 906 {"pid": 15712, "sessionId": "b1e17ad1-6afd-4210-86e4-5e327c749e3b", "cwd": "str:51", "startedAt": 1793061545603, "procStart": "134375351441386505", "version": "2.1.311", "peerProtocol": 1, "peerFeatures": ["list", 2], "kind": "bg", "entrypoint": "cli", "pidDomain": "str:21", "messagingSocketPath": "str:54", "name": "e06 test deployment verification", "nameSince": 1793061640435, "jobId": "b1e17ad1", "status": "idle", "updatedAt": 1793065501594, "statusUpdatedAt": 1793065501594, "nameSource": "str:4", "formerNames": ["list", 1]}
+SESSION_FILE 15712.ec28a618543097a00be36813aff7b3d6cd0942a54654a8e2e6f5a42acc950351.key 2026-10-26T17:39:05 119 {"peerToken": "str:32", "procStartFt": "str:18", "pidDomain": "str:21"}
+SESSION_FILE 13456.json 2026-10-26T17:39:02 604 {"pid": 13456, "sessionId": "354281f4-a695-46c2-a0db-450d681953b8", "cwd": "str:51", "startedAt": 1793057468609, "procStart": "134375310673635950", "version": "2.1.311", "peerProtocol": 1, "peerFeatures": ["list", 2], "kind": "interactive", "entrypoint": "cli", "pidDomain": "str:21", "messagingSocketPath": "str:54", "name": "edward-ai-d2", "nameSource": "str:7", "nameSince": 1793057468609, "updatedAt": 1793061542230, "status": "busy", "statusUpdatedAt": 1793057482698, "parkedJobId": "b1e17ad1"}
+SESSION_FILE 13456.8b6a9c8be4a4b6e98c2e3b2112fb4c2f780ba9d57693776dbe8bfca5423b4cf2.key 2026-10-26T16:31:08 119 {"peerToken": "str:32", "procStartFt": "str:18", "pidDomain": "str:21"}
+REMOTE_END 1793065721.471
+LOGCOUNT 2026-10-26T16:0x ERROR channel_stdin_proxy_blocked 49
+LOGCOUNT 2026-10-26T16:1x ERROR channel_stdin_proxy_blocked 46
+LOGCOUNT 2026-10-26T17:1x ERROR channel_stdin_proxy_blocked 31
+LOGCOUNT 2026-10-26T17:2x ERROR channel_stdin_proxy_blocked 26
+LOGCOUNT 2026-10-26T17:3x ERROR channel_stdin_proxy_blocked 4
+LOGCOUNT 2026-10-26T17:4x ERROR channel_stdin_proxy_blocked 2
+LOGCOUNT 2026-10-26T17:5x ERROR channel_stdin_proxy_blocked 39
+LOGCOUNT 2026-10-26T18:0x ERROR channel_stdin_proxy_blocked 86
+LOGCOUNT 2026-10-26T18:1x ERROR channel_stdin_proxy_blocked 17
+LOGCOUNT 2026-10-26T18:2x ERROR channel_stdin_proxy_blocked 152
+LOGCOUNT 2026-10-26T18:3x ERROR channel_stdin_proxy_blocked 54
+LOGCOUNT 2026-10-26T18:4x ERROR channel_stdin_proxy_blocked 57
+SESSION_DIR_ALL ['13456.8b6a9c8be4a4b6e98c2e3b2112fb4c2f780ba9d57693776dbe8bfca5423b4cf2.key', '13456.json', '15712.ec28a618543097a00be36813aff7b3d6cd0942a54654a8e2e6f5a42acc950351.key', '15712.json']
+
+
+exit 0

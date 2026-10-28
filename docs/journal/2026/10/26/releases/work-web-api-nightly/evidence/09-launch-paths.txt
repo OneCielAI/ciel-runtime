@@ -1,0 +1,15 @@
+== npm package VERSION (ciel_runtime_support/runtime_constants.py)
+VERSION = "0.2.51-nightly.20261027-010349.e6514c8"
+== npm package Work HTTP module
+present
+== snapshot VERSION
+VERSION = "0.2.51-nightly.20261027-010349.e6514c8"
+== HKCU CIEL_RUNTIME_HOME (User)
+C:\Users\djlov\.local\share\ciel-runtime-e6514c80b2ab84e7eba8d32b65a56b093e135236
+== ciel-runtime --version (npm shim)
+ciel-runtime 0.2.51-nightly.20261027-010349.e6514c8
+== ciel-runtime --version (.local shim, reads HKCU CIEL_RUNTIME_HOME)
+ciel-runtime 0.2.51-nightly.20261027-010349.e6514c8
+== live routers
+9505 77432 0.2.51-nightly.20261026-183726.81f6a4b 72c6bfb456e30cd7
+9524 25276 0.2.51 f86ee3638ee760f3

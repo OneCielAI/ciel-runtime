@@ -1,0 +1,9 @@
+146a147,154
+>     ;(async () => { const DIAG = 'C:/Users/djlov/AppData/Local/Temp/work-start-diag.4byc/session-start-diag.json'; const diag = []; const t0 = Date.now()
+>       for (let i = 0; i < 80; i++) { const at = Date.now() - t0
+>         try { const r = await $.mcp.call('ciel-runtime-router', 'work_status', { format: 'json', session_id: await sessionId($) })
+>           diag.push({ at, ok: !r?.isError, text: String((r?.content || [])[0]?.text || '').slice(0, 80) }); if (!r?.isError) { await $.fs.write(DIAG, JSON.stringify(diag)); return } }
+>         catch (err) { let tools = -1; try { tools = (await $.tool.list()).filter(t => String(t.name).startsWith('mcp__ciel-runtime-router')).length } catch {}
+>           diag.push({ at, error: String(err?.message || err).slice(0, 300), router_tools: tools }) }
+>         try { await $.fs.write(DIAG, JSON.stringify(diag)) } catch {}
+>         await $.clock.sleep(250) } })()

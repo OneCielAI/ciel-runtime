@@ -1,0 +1,253 @@
+﻿2026-10-27T20:38:19.9782407Z Current runner version: '2.338.0'
+2026-10-27T20:38:19.9804891Z ##[group]Runner Image Provisioner
+2026-10-27T20:38:19.9805705Z Hosted Compute Agent
+2026-10-27T20:38:19.9806215Z Version: 20261021.618
+2026-10-27T20:38:19.9806785Z Commit: 21505ad2541d5be6135ed84fc33697146cf75b8e
+2026-10-27T20:38:19.9807389Z Build Date: 2026-10-21T00:45:21Z
+2026-10-27T20:38:19.9807941Z Worker ID: {c6e4f848-1c94-472f-b3d9-8e889aed0e41}
+2026-10-27T20:38:19.9808558Z Region: westus3
+2026-10-27T20:38:19.9809076Z Cloud: Azure
+2026-10-27T20:38:19.9809536Z ##[endgroup]
+2026-10-27T20:38:19.9810627Z ##[group]Operating System
+2026-10-27T20:38:19.9811137Z Ubuntu
+2026-10-27T20:38:19.9811628Z 24.04.5
+2026-10-27T20:38:19.9812293Z LTS
+2026-10-27T20:38:19.9812754Z ##[endgroup]
+2026-10-27T20:38:19.9813264Z ##[group]Runner Image
+2026-10-27T20:38:19.9813760Z Image: ubuntu-24.04
+2026-10-27T20:38:19.9814250Z Version: 20261012.334.1
+2026-10-27T20:38:19.9815332Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+2026-10-27T20:38:19.9816611Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+2026-10-27T20:38:19.9817383Z ##[endgroup]
+2026-10-27T20:38:19.9818394Z ##[group]GITHUB_TOKEN Permissions
+2026-10-27T20:38:19.9820223Z Contents: read
+2026-10-27T20:38:19.9820792Z Metadata: read
+2026-10-27T20:38:19.9821253Z Packages: read
+2026-10-27T20:38:19.9821674Z ##[endgroup]
+2026-10-27T20:38:19.9824018Z Secret source: Actions
+2026-10-27T20:38:19.9824772Z Cache mode: write
+2026-10-27T20:38:19.9825575Z Prepare workflow directory
+2026-10-27T20:38:20.0600934Z Prepare all required actions
+2026-10-27T20:38:20.0643130Z Getting action download info
+2026-10-27T20:38:20.3623338Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-10-27T20:38:20.5752738Z Download action repository 'actions/setup-python@v5' (SHA:a26af69be951a213d495a4c3e4e4022e16d87065)
+2026-10-27T20:38:21.0060959Z Complete job name: python-minimum
+2026-10-27T20:38:21.0777982Z ##[group]Run actions/checkout@v4
+2026-10-27T20:38:21.0778745Z with:
+2026-10-27T20:38:21.0779169Z   repository: OneCielAI/ciel-runtime
+2026-10-27T20:38:21.0782996Z   token: ***
+2026-10-27T20:38:21.0783384Z   ssh-strict: true
+2026-10-27T20:38:21.0783775Z   ssh-user: git
+2026-10-27T20:38:21.0784168Z   persist-credentials: true
+2026-10-27T20:38:21.0784597Z   clean: true
+2026-10-27T20:38:21.0784988Z   sparse-checkout-cone-mode: true
+2026-10-27T20:38:21.0785455Z   fetch-depth: 1
+2026-10-27T20:38:21.0785838Z   fetch-tags: false
+2026-10-27T20:38:21.0786233Z   show-progress: true
+2026-10-27T20:38:21.0786645Z   lfs: false
+2026-10-27T20:38:21.0787006Z   submodules: false
+2026-10-27T20:38:21.0787391Z   set-safe-directory: true
+2026-10-27T20:38:21.0787828Z   allow-unsafe-pr-checkout: false
+2026-10-27T20:38:21.0788502Z ##[endgroup]
+2026-10-27T20:38:21.4454158Z Syncing repository: OneCielAI/ciel-runtime
+2026-10-27T20:38:21.4456355Z ##[group]Getting Git version info
+2026-10-27T20:38:21.4457367Z Working directory is '/home/runner/work/ciel-runtime/ciel-runtime'
+2026-10-27T20:38:21.4458650Z [command]/usr/bin/git version
+2026-10-27T20:38:21.4515962Z git version 2.55.0
+2026-10-27T20:38:21.4532917Z ##[endgroup]
+2026-10-27T20:38:21.4545414Z Temporarily overriding HOME='/home/runner/work/_temp/a46a1f36-75bb-49a6-a1aa-cd284a9bc583' before making global git config changes
+2026-10-27T20:38:21.4547799Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-27T20:38:21.4549794Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ciel-runtime/ciel-runtime
+2026-10-27T20:38:21.4595199Z Deleting the contents of '/home/runner/work/ciel-runtime/ciel-runtime'
+2026-10-27T20:38:21.4599057Z ##[group]Initializing the repository
+2026-10-27T20:38:21.4602422Z [command]/usr/bin/git init /home/runner/work/ciel-runtime/ciel-runtime
+2026-10-27T20:38:21.4686409Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-10-27T20:38:21.4688929Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-10-27T20:38:21.4691154Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-10-27T20:38:21.4693187Z hint: call:
+2026-10-27T20:38:21.4694032Z hint:
+2026-10-27T20:38:21.4695031Z hint: 	git config --global init.defaultBranch <name>
+2026-10-27T20:38:21.4696200Z hint:
+2026-10-27T20:38:21.4697507Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-10-27T20:38:21.4699504Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-10-27T20:38:21.4701045Z hint:
+2026-10-27T20:38:21.4701909Z hint: 	git branch -m <name>
+2026-10-27T20:38:21.4703253Z hint:
+2026-10-27T20:38:21.4704533Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-10-27T20:38:21.4706640Z Initialized empty Git repository in /home/runner/work/ciel-runtime/ciel-runtime/.git/
+2026-10-27T20:38:21.4710098Z [command]/usr/bin/git remote add origin https://github.com/OneCielAI/ciel-runtime
+2026-10-27T20:38:21.4741776Z ##[endgroup]
+2026-10-27T20:38:21.4743543Z ##[group]Disabling automatic garbage collection
+2026-10-27T20:38:21.4744964Z [command]/usr/bin/git config --local gc.auto 0
+2026-10-27T20:38:21.4773232Z ##[endgroup]
+2026-10-27T20:38:21.4775146Z ##[group]Setting up auth
+2026-10-27T20:38:21.4779143Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-27T20:38:21.4808096Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-27T20:38:21.5305132Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-27T20:38:21.5337862Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-27T20:38:21.5536591Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-27T20:38:21.5565537Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-27T20:38:21.5754755Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-10-27T20:38:21.5788168Z ##[endgroup]
+2026-10-27T20:38:21.5789975Z ##[group]Fetching the repository
+2026-10-27T20:38:21.5798234Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +31608580bb380cd982dddf8d2dcadac92171c3d6:refs/remotes/origin/nightly
+2026-10-27T20:38:24.6626503Z From https://github.com/OneCielAI/ciel-runtime
+2026-10-27T20:38:24.6627036Z  * [new ref]         31608580bb380cd982dddf8d2dcadac92171c3d6 -> origin/nightly
+2026-10-27T20:38:24.6629057Z ##[endgroup]
+2026-10-27T20:38:24.6629434Z ##[group]Determining the checkout info
+2026-10-27T20:38:24.6630995Z ##[endgroup]
+2026-10-27T20:38:24.6635999Z [command]/usr/bin/git sparse-checkout disable
+2026-10-27T20:38:24.6699294Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-10-27T20:38:24.6727718Z ##[group]Checking out the ref
+2026-10-27T20:38:24.6732001Z [command]/usr/bin/git checkout --progress --force -B nightly refs/remotes/origin/nightly
+2026-10-27T20:38:25.1549699Z Switched to a new branch 'nightly'
+2026-10-27T20:38:25.1555075Z branch 'nightly' set up to track 'origin/nightly'.
+2026-10-27T20:38:25.1574289Z ##[endgroup]
+2026-10-27T20:38:25.1620634Z [command]/usr/bin/git log -1 --format=%H
+2026-10-27T20:38:25.1645057Z 31608580bb380cd982dddf8d2dcadac92171c3d6
+2026-10-27T20:38:25.1989687Z ##[group]Run actions/setup-python@v5
+2026-10-27T20:38:25.1989986Z with:
+2026-10-27T20:38:25.1990176Z   python-version: 3.10
+2026-10-27T20:38:25.1990384Z   check-latest: false
+2026-10-27T20:38:25.1992842Z   token: ***
+2026-10-27T20:38:25.1993052Z   update-environment: true
+2026-10-27T20:38:25.1993513Z   allow-prereleases: false
+2026-10-27T20:38:25.1993714Z   freethreaded: false
+2026-10-27T20:38:25.1993909Z ##[endgroup]
+2026-10-27T20:38:25.3163503Z ##[group]Installed versions
+2026-10-27T20:38:25.3387151Z (node:2063) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-10-27T20:38:25.3387819Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-10-27T20:38:25.3388508Z Successfully set up CPython (3.10.22)
+2026-10-27T20:38:25.3389150Z ##[endgroup]
+2026-10-27T20:38:25.3558979Z ##[group]Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+2026-10-27T20:38:25.3559807Z [36;1mpython -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts[0m
+2026-10-27T20:38:25.4301263Z shell: /usr/bin/bash -e {0}
+2026-10-27T20:38:25.4301555Z env:
+2026-10-27T20:38:25.4301813Z   pythonLocation: /opt/hostedtoolcache/Python/3.10.22/x64
+2026-10-27T20:38:25.4302393Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.10.22/x64/lib/pkgconfig
+2026-10-27T20:38:25.4302743Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.10.22/x64
+2026-10-27T20:38:25.4303067Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.10.22/x64
+2026-10-27T20:38:25.4303386Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.10.22/x64
+2026-10-27T20:38:25.4303696Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.10.22/x64/lib
+2026-10-27T20:38:25.4303970Z ##[endgroup]
+2026-10-27T20:38:26.5312650Z ##[group]Run python scripts/run_test_group.py unit
+2026-10-27T20:38:26.5312994Z [36;1mpython scripts/run_test_group.py unit[0m
+2026-10-27T20:38:26.5368545Z shell: /usr/bin/bash -e {0}
+2026-10-27T20:38:26.5368769Z env:
+2026-10-27T20:38:26.5368994Z   pythonLocation: /opt/hostedtoolcache/Python/3.10.22/x64
+2026-10-27T20:38:26.5369348Z   PKG_CONFIG_PATH: /opt/hostedtoolcache/Python/3.10.22/x64/lib/pkgconfig
+2026-10-27T20:38:26.5369700Z   Python_ROOT_DIR: /opt/hostedtoolcache/Python/3.10.22/x64
+2026-10-27T20:38:26.5370026Z   Python2_ROOT_DIR: /opt/hostedtoolcache/Python/3.10.22/x64
+2026-10-27T20:38:26.5370328Z   Python3_ROOT_DIR: /opt/hostedtoolcache/Python/3.10.22/x64
+2026-10-27T20:38:26.5370628Z   LD_LIBRARY_PATH: /opt/hostedtoolcache/Python/3.10.22/x64/lib
+2026-10-27T20:38:26.5370893Z ##[endgroup]
+2026-10-27T20:38:29.1866136Z Running unit test group (244 files)
+2026-10-27T20:39:52.7214938Z [?25h[?25hcompact_owned_transport checkpoint=1 socket_frames=2 http_requests=1 status=200 replay=0
+2026-10-27T20:39:52.7215483Z socket_resume disconnected_calls=3 retry_calls=3 reused=3 final_upstream=1
+2026-10-27T20:39:52.7215884Z Ciel Runtime: restarting Claude Code source=test reason=restart
+2026-10-27T20:39:55.5328738Z ...............................................s..sss.......s.ss......sssssssss..............ss...s....s..s.......s.............s..s..............s.ssssssssssss...........................ss..................................................................................s.ss..........................................................................................................................................................................................................................................usage: ciel-runtimectl copilot-oauth [-h] [{login,status,logout}]
+2026-10-27T20:39:55.5330608Z ciel-runtimectl copilot-oauth: error: argument action: invalid choice: 'import' (choose from 'login', 'status', 'logout')
+2026-10-27T20:40:10.8957925Z [?25hnative Messages 400 -> 200: upstream_hits=2 max_tokens=400->300 recovery_retries=0 client_responses=1
+2026-10-27T20:40:10.8958692Z native Messages 400 -> 503: upstream_hits=2 max_tokens=400->300 recovery_retries=0 client_responses=1
+2026-10-27T20:40:10.8959499Z native Messages 400 -> 400: upstream_hits=2 max_tokens=400->300 recovery_retries=0 client_responses=1
+2026-10-27T20:40:10.8960124Z idle_retry first=retry_wait admission=paused retry=queued scope=exact checkpoint+shrink=verified
+2026-10-27T20:40:10.8960772Z Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+2026-10-27T20:40:10.9018276Z Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+2026-10-27T20:40:10.9083414Z ................s.....................Could not inspect Codex MCP configuration; skipping native web MCP overrides
+2026-10-27T20:40:10.9084178Z Launching Codex App Server through Ciel Runtime.
+2026-10-27T20:40:10.9084594Z Codex App Server listen: ws://127.0.0.1:8899
+2026-10-27T20:40:10.9084980Z Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+2026-10-27T20:40:10.9085399Z HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+2026-10-27T20:40:10.9085728Z HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+2026-10-27T20:40:11.1661370Z Launching Codex App Server through Ciel Runtime.
+2026-10-27T20:40:11.1662025Z Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+2026-10-27T20:40:11.1662911Z Codex App Server listen: ws://127.0.0.1:8899
+2026-10-27T20:40:11.1663301Z Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+2026-10-27T20:40:11.1663730Z HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+2026-10-27T20:40:11.1664053Z HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+2026-10-27T20:40:37.8092732Z real_http_config: disabled -> reconnect_rejected409 -> enabled -> event_received; single_worker=true
+2026-10-27T20:40:37.8093560Z real_http_control: connected -> reconnect -> cursor_resume -> gateway_queue=2; single_worker=true
+2026-10-27T20:40:37.8094278Z real_http_policy: workspace_mismatch rejected; external_identity missing_token=403; valid_token=status_ok
+2026-10-27T20:40:37.8095045Z Compaction recovery  [awaiting_shrink ; reason shrink_unconfirmed ; checkpoint observed 100 ; failure at 200]
+2026-10-27T20:40:37.8096066Z spawned_compact_environment {'CLAUDE_CODE_MAX_CONTEXT_TOKENS': '872000', 'CLAUDE_CODE_AUTO_COMPACT_WINDOW': '837120', 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE': None}
+2026-10-27T20:40:37.8097172Z measured_safeguard usage=19000 capacity=20000 threshold=90 tool_deferred=1 turn_deferred=1 compact_writes=1
+2026-10-27T20:40:52.9124794Z [?25h[?25hcontention scan_lock_held=0 concurrent_writer=success stale_commit=rejected
+2026-10-27T20:40:52.9125442Z state_race failures=0 leftover_tmp=0
+2026-10-27T20:40:52.9125979Z full_binding slow_scan=unlocked seed=available scope=available admission=available
+2026-10-27T20:40:52.9127141Z HTTP SSE captured: {"id": 1, "time": "2026-10-27T20:40:50+00:00", "ts": 1793133650.9057252, "level": "error", "source": "router-response", "category": "runtime.error", "session_id": "", "request_id": "request-test", "provider": "", "model": "", "message": "upstream unavailable", "data": {"phase": "error", "kind": "output.error"}}
+2026-10-27T20:40:52.9128156Z Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+2026-10-27T20:40:52.9138398Z Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=mcp
+2026-10-27T20:40:52.9147305Z Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+2026-10-27T20:40:52.9546691Z Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+2026-10-27T20:40:52.9665945Z Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+2026-10-27T20:40:52.9713791Z Ciel Runtime: restarting Codex source=cli reason=deploy
+2026-10-27T20:40:52.9732244Z Ciel Runtime: restarting Claude Code source=mcp reason=deploy
+2026-10-27T20:40:52.9797725Z Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+2026-10-27T20:40:52.9811189Z Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+2026-10-27T20:40:52.9824442Z Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+2026-10-27T20:40:52.9846358Z Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+2026-10-27T20:40:52.9943067Z Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+2026-10-27T20:40:52.9980368Z Ciel Runtime: restarting Codex app-server and TUI source=ciel-runtime-router-tool reason=deploy thread=(new)
+2026-10-27T20:40:52.9994508Z Ciel Runtime: restarting Codex app-server and TUI source=ciel-runtime-router-tool reason=deploy thread=01a0-saved
+2026-10-27T20:40:53.0102262Z Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+2026-10-27T20:40:53.0151185Z Ciel Runtime: restarting Codex source=ciel-runtime-router-tool reason=deploy
+2026-10-27T20:40:55.3501417Z ciel-runtime restart-session: queued request_id=r1 client_pid=42 workspace=- resume=false
+2026-10-27T20:40:55.3501952Z ciel-runtime restart-session: no active CLI session is running through ciel-runtime
+2026-10-27T20:40:55.3502581Z ciel-runtime restart-session: multiple CLI sessions are active; select one:
+2026-10-27T20:40:55.3503112Z   --pid 1  workspace=C:/work router_port=9611 started=-
+2026-10-27T20:40:55.3503498Z   --pid 2  workspace=C:/work router_port=9611 started=-
+2026-10-27T20:40:55.3504328Z ciel-runtime restart-session: queued request_id=r1 client_pid=50788 workspace=C:/work resume=true
+2026-10-27T20:40:55.3505033Z ciel-runtime restart-session: client pid 99 is not an active CLI session
+2026-10-27T20:40:55.3505693Z ciel-runtime restart-session: queued request_id=r1 client_pid=7 workspace=- resume=true
+2026-10-27T20:40:55.3506440Z owned-pipeline mismatch reset= False reason= no_sse_delivery_problem queued= 0 coverage= complete
+2026-10-27T20:40:55.3507228Z owned-pipeline recent_B reset= False reason= no_sse_delivery_problem queued= 1 coverage= complete
+2026-10-27T20:40:55.3508073Z owned-pipeline terminal_B reset= False reason= restart_evidence_insufficient queued= 0 coverage= complete
+2026-10-27T20:40:55.3508912Z owned-pipeline uncertain_B reset= False reason= restart_evidence_insufficient queued= 0 coverage= complete
+2026-10-27T20:40:55.3509755Z owned-pipeline removed reset= False reason= no_sse_delivery_problem queued= 0 coverage= complete
+2026-10-27T20:40:55.3510620Z owned-pipeline corrupt_queue reset= False reason= restart_evidence_insufficient queued= 1 coverage= partial
+2026-10-27T20:40:55.3511486Z owned-pipeline torn_queue reset= False reason= restart_evidence_insufficient queued= 1 coverage= partial
+2026-10-27T20:40:55.3512553Z owned-pipeline partial_history reset= False reason= restart_evidence_insufficient queued= 1 coverage= partial
+2026-10-27T20:40:55.3513441Z owned-pipeline changed_history reset= False reason= restart_evidence_insufficient queued= 1 coverage= partial
+2026-10-27T20:40:55.3514245Z owned-pipeline reuse reset= False reason= restart_evidence_insufficient queued= 0 coverage= complete
+2026-10-27T20:40:55.3515064Z owned-pipeline retained_stale reset= True reason= sse_delivery_recovery_queued queued= 1 coverage= complete
+2026-10-27T20:40:55.3515889Z owned-pipeline cooldown reset= True reason= sse_delivery_recovery_queued queued= 1 coverage= complete
+2026-10-27T20:40:55.3516754Z owned-pipeline uncertain_restart reset= False reason= restart_failed:OSError queued= 1 coverage= complete
+2026-10-27T20:40:55.3517322Z Ciel Runtime: backing up the session (pre-restart)...
+2026-10-27T20:40:55.3517594Z Ciel Runtime: session backup x saved
+2026-10-27T20:41:34.9718549Z ........................................................................................................................................s.........................................................................................................................................................................................................................................................................................................................................................................................................................................................sss..s................................s...................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................ss.s..........................................................................................................................s....................................................................................................................................................................................................................................................s.................................................s............................................sss............................................s.....................................................................ss...............................................................................................................................
+2026-10-27T20:41:34.9722776Z ----------------------------------------------------------------------
+2026-10-27T20:41:34.9723080Z Ran 2935 tests in 185.785s
+2026-10-27T20:41:34.9723212Z 
+2026-10-27T20:41:34.9723287Z OK (skipped=61)
+2026-10-27T20:41:34.9929366Z Traceback (most recent call last):
+2026-10-27T20:41:34.9929902Z loopback_stall elapsed=0.151s socket_timeout=0.150s opens=1 retries=0 handled=True
+2026-10-27T20:41:34.9936727Z   File "/home/runner/work/ciel-runtime/ciel-runtime/scripts/run_test_group.py", line 103, in <module>
+2026-10-27T20:41:34.9937223Z     raise SystemExit(main())
+2026-10-27T20:41:34.9937630Z   File "/home/runner/work/ciel-runtime/ciel-runtime/scripts/run_test_group.py", line 99, in main
+2026-10-27T20:41:34.9938011Z     isolated_state.cleanup()
+2026-10-27T20:41:34.9938377Z   File "/opt/hostedtoolcache/Python/3.10.22/x64/lib/python3.10/tempfile.py", line 882, in cleanup
+2026-10-27T20:41:34.9984735Z     self._rmtree(self.name, ignore_errors=self._ignore_cleanup_errors)
+2026-10-27T20:41:34.9985467Z   File "/opt/hostedtoolcache/Python/3.10.22/x64/lib/python3.10/tempfile.py", line 864, in _rmtree
+2026-10-27T20:41:34.9986033Z     _shutil.rmtree(name, onerror=onerror)
+2026-10-27T20:41:34.9986613Z   File "/opt/hostedtoolcache/Python/3.10.22/x64/lib/python3.10/shutil.py", line 731, in rmtree
+2026-10-27T20:41:35.0130513Z     onerror(os.rmdir, path, sys.exc_info())
+2026-10-27T20:41:35.0131111Z   File "/opt/hostedtoolcache/Python/3.10.22/x64/lib/python3.10/shutil.py", line 729, in rmtree
+2026-10-27T20:41:35.0131656Z     os.rmdir(path)
+2026-10-27T20:41:35.0132186Z OSError: [Errno 39] Directory not empty: '/tmp/ciel-runtime-tests-tflx0thv'
+2026-10-27T20:41:35.1231877Z ##[error]Process completed with exit code 1.
+2026-10-27T20:41:35.1344744Z Post job cleanup.
+2026-10-27T20:41:35.2016186Z [command]/usr/bin/git version
+2026-10-27T20:41:35.2047409Z git version 2.55.0
+2026-10-27T20:41:35.2074263Z Temporarily overriding HOME='/home/runner/work/_temp/8b29fd04-ccf8-4a5d-97f0-2f77d4229b65' before making global git config changes
+2026-10-27T20:41:35.2075231Z Adding repository directory to the temporary git global config as a safe directory
+2026-10-27T20:41:35.2079103Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/ciel-runtime/ciel-runtime
+2026-10-27T20:41:35.2108163Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-10-27T20:41:35.2133833Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-10-27T20:41:35.2365693Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-10-27T20:41:35.2387171Z http.https://github.com/.extraheader
+2026-10-27T20:41:35.2394752Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-10-27T20:41:35.2420610Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-10-27T20:41:35.2615310Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-10-27T20:41:35.2640358Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-10-27T20:41:35.2958910Z Cleaning up orphan processes
+2026-10-27T20:41:35.3217929Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/setup-python@v5. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

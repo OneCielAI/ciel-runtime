@@ -1,0 +1,38 @@
+
+  Read 1 file
+
+● Update(subject.txt)
+  ⎿  Error: Work is planning. Build the plan and call work_execute before changing state.
+
+  Called ciel-runtime-router 2 times, ran 1 shell command
+
+● Update(subject.txt)
+  ⎿  Added 1 line, removed 1 line
+      1 -BEFORE
+      1 +AFTER
+
+  Read 1 file, called ciel-runtime-router 3 times
+
+● E2EWORK-MAIN-DONE
+
+❯ E2EWORK-CONTINUE verify persisted plan.
+
+  Called ciel-runtime-router
+
+● E2EWORK-CONTINUE-DONE
+
+❯ /work-mode tree
+  ⎿  ciel-work: Work phase: planning
+     Active goal progress: 1/2 steps done
+     [~] n1 Verify real Work mode
+       [~] n2 Exercise guarded mutation
+         [~] n3 Edit and verify subject
+           [x] n4 Apply verified edit  (evidence: Actual Edit returned success and Bash cat subject.txt returned AFTER.)
+           [ ] n5 Continue persisted plan
+                                                                                                                     ● high · /effort
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents
+                                              work: plan 1/2 [Exercise guar… 1/2] · Edit and verify subject > Continue persisted plan

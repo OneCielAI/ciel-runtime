@@ -1,0 +1,2 @@
+{"request_id":1,"status":"queued","updated_at":"2026-10-26T22:03:45-05:00","updated_at_epoch":1793070225.4595385,"data":{"channel":"external:default","input_transport":"session_socket"}}
+{"request_id":2,"status":"queued","updated_at":"2026-10-26T22:03:56-05:00","updated_at_epoch":1793070236.245941,"data":{"channel":"external:default","input_transport":"session_socket"}}

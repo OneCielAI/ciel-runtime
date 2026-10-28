@@ -1,0 +1,30 @@
+      341 +        with self.assertRaises(InventoryError):
+      342 +            s.undo("s1")
+      343 +
+      344 +    def test_no_auto_undo_of_later_events(self):
+      345 +        s = InventoryStream()
+      346 +        s.feed(line(id="s1", kind="stock", sku="A", qty=5))
+      347 +        s.feed(line(id="s2", kind="stock", sku="A", qty=1))
+      348 +        s.feed(line(id="m", kind="move", src="A", dst="B", qty=1))
+      349 +        s.undo("s1")
+      350 +        self.assertEqual(s.snapshot(), {"A": 0, "B": 1})
+      351 +        s.undo("m")
+      352 +        self.assertEqual(s.snapshot(), {"A": 1, "B": 0})
+      353 +
+      354 +
+      355  class RandomizedModel(unittest.TestCase):
+      356      def test_random_streams_vs_model(self):
+      357          rng = random.Random(11)
+
+● Running inventory tests
+  ⎿  $ python -m unittest test_inventory_stream 2>&1 | tail -15
+
+· Architecting… (9m 2s · ↓ 56.3k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt
+  work: run 16/22 [A: routing_gr… 6/8 | B: booking_ca… 6/6 | C: inventory_… 4/6 | …] · REQ-C2: undo(event_id) with net
+  deltas + tombstones > Implement …

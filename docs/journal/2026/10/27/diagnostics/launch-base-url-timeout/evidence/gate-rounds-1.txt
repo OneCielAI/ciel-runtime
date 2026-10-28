@@ -1,0 +1,8 @@
+snapshot ea59a61 provider cielairouter base_url https://ciel-router-01.ezonebot.com gateway_route False
+09:05:48 round 0 status 10.136 Base URL: unreachable (TimeoutError) | gate 0.64 no blockers
+09:05:48 round 1 status 0.202 Base URL: model list reachable (/v1/models?prefix=alias&configuredOnly=true&availableOnly=true) | gate 0.303 no blockers
+09:05:49 round 2 status 0.222 Base URL: model list reachable (/v1/models?prefix=alias&configuredOnly=true&availableOnly=true) | gate 0.22 no blockers
+snapshot eec7d69 provider cielairouter base_url https://ciel-router-01.ezonebot.com gateway_route False
+09:05:58 round 0 status 0.49 Base URL: model list reachable (/v1/models?prefix=alias&configuredOnly=true&availableOnly=true) | gate 0.293 no blockers
+09:05:58 round 1 status 0.213 Base URL: model list reachable (/v1/models?prefix=alias&configuredOnly=true&availableOnly=true) | gate 0.306 no blockers
+09:05:59 round 2 status 0.287 Base URL: model list reachable (/v1/models?prefix=alias&configuredOnly=true&availableOnly=true) | gate 0.194 no blockers

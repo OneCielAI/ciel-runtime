@@ -1,0 +1,11 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+focus tool: yes
+focused work finished: yes
+owned stop 65680 SUCCESS: The process with PID 78220 (child process of PID 65680) has been terminated.
+SUCCESS: The process with PID 65680 (child process of PID 49736) has been terminated.
+owned stop 78168 SUCCESS: The process with PID 78168 (child process of PID 83716) has been terminated.
+evidence C:\Users\djlov\AppData\Local\Temp\work-focus-71234d60

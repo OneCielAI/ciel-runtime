@@ -1,0 +1,79 @@
+[
+ {
+  "depth": 1,
+  "pid": 65740,
+  "ppid": 65632,
+  "name": "node.exe",
+  "cmd": "node  C:\\Users\\djlov\\AppData\\Local\\Temp\\selfupd-a10beeac\\prefix\\node_modules\\@one-ciel-ai\\ciel-runtime\\npm-bin\\ciel-runtime.js --ca-runtime claude --ca-no-update-check"
+ },
+ {
+  "depth": 2,
+  "pid": 47804,
+  "ppid": 65740,
+  "name": "py.exe",
+  "cmd": "py -3 C:\\Users\\djlov\\AppData\\Local\\Temp\\selfupd-a10beeac\\prefix\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime.py cli --ca-runtime claude --ca-no-update-check"
+ },
+ {
+  "depth": 3,
+  "pid": 66368,
+  "ppid": 47804,
+  "name": "python.exe",
+  "cmd": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\AppData\\Local\\Temp\\selfupd-a10beeac\\prefix\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime.py cli --ca-runtime claude --ca-no-update-check"
+ },
+ {
+  "depth": 4,
+  "pid": 55564,
+  "ppid": 66368,
+  "name": "python.exe",
+  "cmd": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\AppData\\Local\\Temp\\selfupd-a10beeac\\prefix\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime.py cli --ca-runtime claude --ca-no-update-check"
+ },
+ {
+  "depth": 5,
+  "pid": 65228,
+  "ppid": 55564,
+  "name": "python.exe",
+  "cmd": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\AppData\\Local\\Temp\\selfupd-a10beeac\\prefix\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime.py serve"
+ },
+ {
+  "depth": 5,
+  "pid": 22364,
+  "ppid": 55564,
+  "name": "conhost.exe",
+  "cmd": "\\\\?\\C:\\WINDOWS\\system32\\conhost.exe --headless --width 168 --height 50 --signal 0x300 --server 0x2f8"
+ },
+ {
+  "depth": 5,
+  "pid": 67760,
+  "ppid": 55564,
+  "name": "claude.exe",
+  "cmd": "C:\\Users\\djlov\\.local\\bin\\claude.exe --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-owned-send --mcp-config C:\\Users\\djlov\\AppData\\Local\\Temp\\selfupd-a10beeac\\cfg\\web-tools-mcp.json C:\\Users\\djlov\\AppData\\Loca"
+ },
+ {
+  "depth": 5,
+  "pid": 67004,
+  "ppid": 55564,
+  "name": "python.exe",
+  "cmd": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\AppData\\Local\\Temp\\selfupd-a10beeac\\prefix\\node_modules\\@one-ciel-ai\\ciel-runtime\\ciel_runtime_support\\windows_console_guard.py 55564 487 7"
+ },
+ {
+  "depth": 6,
+  "pid": 68120,
+  "ppid": 67760,
+  "name": "uvx.exe",
+  "cmd": "\"C:\\Program Files\\Python311\\Scripts\\uvx.exe\" --with mcp<2 mcp-server-fetch"
+ },
+ {
+  "depth": 7,
+  "pid": 67840,
+  "ppid": 68120,
+  "name": "conhost.exe",
+  "cmd": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"
+ },
+ {
+  "depth": 7,
+  "pid": 66736,
+  "ppid": 68120,
+  "name": "uv.exe",
+  "cmd": "\"C:\\Program Files\\Python311\\Scripts\\uv.exe\" tool uvx --with mcp<2 mcp-server-fetch"
+ }
+]

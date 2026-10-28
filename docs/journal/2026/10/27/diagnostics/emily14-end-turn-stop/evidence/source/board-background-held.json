@@ -1,0 +1,197 @@
+{
+ "enabled": true,
+ "phase": "executing",
+ "approval": "auto",
+ "version": 4,
+ "active_root": {
+  "id": "n1",
+  "title": "1. Background and independent Work",
+  "status": "in_progress",
+  "ref": "",
+  "waiting_on": "",
+  "urgent": false,
+  "phase": "executing"
+ },
+ "continuation": {
+  "actionable": 0,
+  "next": null,
+  "waiting": [
+   {
+    "id": "n3",
+    "title": "Background task",
+    "waiting_on": "owned background result"
+   }
+  ],
+  "blocked": 0,
+  "held": 0
+ },
+ "done": 1,
+ "total": 2,
+ "attention": {
+  "waiting": 1,
+  "blocked": 0
+ },
+ "next": {
+  "id": "n3",
+  "title": "Background task",
+  "status": "in_progress",
+  "waiting_on": "owned background result",
+  "path": [
+   "1. Background and independent Work",
+   "Phase",
+   "Background task"
+  ]
+ },
+ "breakdown": [
+  {
+   "id": "n2",
+   "title": "Phase",
+   "status": "in_progress",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "done": 1,
+   "total": 2,
+   "children": [
+    {
+     "id": "n3",
+     "title": "Background task",
+     "status": "in_progress",
+     "ref": "",
+     "waiting_on": "owned background result",
+     "urgent": false,
+     "hidden": {
+      "waiting": 0,
+      "blocked": 0
+     }
+    },
+    {
+     "id": "n4",
+     "title": "Independent item",
+     "status": "done",
+     "ref": "",
+     "waiting_on": "",
+     "urgent": false,
+     "hidden": {
+      "waiting": 0,
+      "blocked": 0
+     }
+    }
+   ],
+   "more": 0,
+   "more_attention": {
+    "waiting": 0,
+    "blocked": 0
+   }
+  }
+ ],
+ "root_index": [
+  {
+   "id": "n1",
+   "title": "1. Background and independent Work",
+   "status": "in_progress",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "phase": "executing",
+   "held": false
+  }
+ ],
+ "completed_active": [
+  {
+   "id": "n4",
+   "title": "Independent item",
+   "status": "done",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false
+  }
+ ],
+ "ready": true,
+ "ready_reason": "ready",
+ "goals": 1,
+ "queue": [],
+ "ok": true,
+ "schema_version": 1,
+ "session_id": "claude:036eb7b6-9dd2-4e4c-aac0-777bee095509",
+ "updated_at": 1793115471.970422,
+ "nodes": [
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "1. Background and independent Work",
+   "status": "in_progress",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793115471.0927422,
+   "phase": "executing"
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "Phase",
+   "status": "in_progress",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793115471.0927422
+  },
+  {
+   "id": "n3",
+   "parent_id": "n2",
+   "title": "Background task",
+   "status": "in_progress",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "owned background result",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793115471.0927422
+  },
+  {
+   "id": "n4",
+   "parent_id": "n2",
+   "title": "Independent item",
+   "status": "done",
+   "note": "",
+   "evidence": "Owned independent file write observed by driver",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793115471.970422
+  }
+ ],
+ "active_root_id": "n1",
+ "root_ids": [
+  "n1"
+ ],
+ "queue_ids": [],
+ "auto_continue": true,
+ "runtime": {
+  "ciel_runtime": {
+   "version": "0.2.51",
+   "source_fingerprint": "59743d83f45331de",
+   "instance_id": "50940-12adc674e5ea"
+  },
+  "session_id": "claude:036eb7b6-9dd2-4e4c-aac0-777bee095509",
+  "runtime": "claude",
+  "configured": {
+   "provider": "cielairouter",
+   "model": "fake-work",
+   "alias": "ciel-runtime-cielairouter-fake-work",
+   "source": "configuration"
+  },
+  "epoch": null,
+  "in_flight": [],
+  "last_observed": null,
+  "last_error": null,
+  "observation_status": "unavailable",
+  "errors": []
+ },
+ "events": "/ca/work/events"
+}

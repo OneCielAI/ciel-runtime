@@ -1,0 +1,296 @@
+{
+ "enabled": true,
+ "phase": "executing",
+ "approval": "auto",
+ "version": 4,
+ "active_root": {
+  "id": "n1",
+  "title": "1. Other existing work",
+  "status": "pending",
+  "ref": "",
+  "waiting_on": "",
+  "urgent": false,
+  "phase": "executing"
+ },
+ "continuation": {
+  "actionable": 1,
+  "next": {
+   "id": "n3",
+   "title": "Other leaf",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "path": [
+    "1. Other existing work",
+    "Phase",
+    "Other leaf"
+   ],
+   "root_id": "n1",
+   "phase": "executing"
+  },
+  "waiting": [],
+  "blocked": 0,
+  "held": 0
+ },
+ "done": 0,
+ "total": 1,
+ "attention": {
+  "waiting": 0,
+  "blocked": 0
+ },
+ "next": {
+  "id": "n3",
+  "title": "Other leaf",
+  "status": "pending",
+  "waiting_on": "",
+  "path": [
+   "1. Other existing work",
+   "Phase",
+   "Other leaf"
+  ]
+ },
+ "breakdown": [
+  {
+   "id": "n2",
+   "title": "Phase",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "done": 0,
+   "total": 1,
+   "children": [
+    {
+     "id": "n3",
+     "title": "Other leaf",
+     "status": "pending",
+     "ref": "",
+     "waiting_on": "",
+     "urgent": false,
+     "hidden": {
+      "waiting": 0,
+      "blocked": 0
+     }
+    }
+   ],
+   "more": 0,
+   "more_attention": {
+    "waiting": 0,
+    "blocked": 0
+   }
+  }
+ ],
+ "root_index": [
+  {
+   "id": "n1",
+   "title": "1. Other existing work",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "phase": "executing",
+   "held": false
+  },
+  {
+   "id": "n4",
+   "title": "2. AAAA first",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "phase": "planning",
+   "held": false
+  },
+  {
+   "id": "n7",
+   "title": "3. AAAA second",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "phase": "planning",
+   "held": false
+  }
+ ],
+ "completed_active": [],
+ "ready": true,
+ "ready_reason": "ready",
+ "goals": 3,
+ "queue": [
+  {
+   "id": "n4",
+   "title": "2. AAAA first",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "phase": "planning",
+   "done": 0,
+   "total": 1,
+   "held": false
+  },
+  {
+   "id": "n7",
+   "title": "3. AAAA second",
+   "status": "pending",
+   "ref": "",
+   "waiting_on": "",
+   "urgent": false,
+   "phase": "planning",
+   "done": 0,
+   "total": 1,
+   "held": false
+  }
+ ],
+ "ok": true,
+ "schema_version": 1,
+ "session_id": "claude:6dc180fb-2bb2-47c4-a2ab-1c5c10a52033",
+ "updated_at": 1793117284.2677965,
+ "nodes": [
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "1. Other existing work",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793117283.6475983,
+   "phase": "executing"
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "Phase",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793117283.6475983
+  },
+  {
+   "id": "n3",
+   "parent_id": "n2",
+   "title": "Other leaf",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793117283.6475983
+  },
+  {
+   "id": "n4",
+   "parent_id": null,
+   "title": "2. AAAA first",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793117284.0724258,
+   "phase": "planning"
+  },
+  {
+   "id": "n5",
+   "parent_id": "n4",
+   "title": "Phase",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793117284.0724258
+  },
+  {
+   "id": "n6",
+   "parent_id": "n5",
+   "title": "AAAA first leaf",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793117284.0724258
+  },
+  {
+   "id": "n7",
+   "parent_id": null,
+   "title": "3. AAAA second",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793117284.2677965,
+   "phase": "planning"
+  },
+  {
+   "id": "n8",
+   "parent_id": "n7",
+   "title": "Phase",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793117284.2677965
+  },
+  {
+   "id": "n9",
+   "parent_id": "n8",
+   "title": "AAAA second leaf",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793117284.2677965
+  }
+ ],
+ "active_root_id": "n1",
+ "root_ids": [
+  "n1",
+  "n4",
+  "n7"
+ ],
+ "queue_ids": [
+  "n4",
+  "n7"
+ ],
+ "auto_continue": true,
+ "runtime": {
+  "ciel_runtime": {
+   "version": "0.2.51-nightly.20261027-155105.8ebacfa",
+   "source_fingerprint": "11b9fec1d2441894",
+   "instance_id": "59448-fa640d826e6f"
+  },
+  "session_id": "claude:6dc180fb-2bb2-47c4-a2ab-1c5c10a52033",
+  "runtime": "claude",
+  "configured": {
+   "provider": "cielairouter",
+   "model": "fake-work",
+   "alias": "ciel-runtime-cielairouter-fake-work",
+   "source": "configuration"
+  },
+  "epoch": null,
+  "in_flight": [],
+  "last_observed": null,
+  "last_error": null,
+  "observation_status": "unavailable",
+  "errors": []
+ },
+ "events": "/ca/work/events"
+}

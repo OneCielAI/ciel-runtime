@@ -1,0 +1,1 @@
+register.js installed bytes equal git8ebacfa: True

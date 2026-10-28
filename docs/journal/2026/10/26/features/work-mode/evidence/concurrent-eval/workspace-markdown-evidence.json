@@ -1,0 +1,68 @@
+[
+  {
+    "original": "run-b20040c5/workspace/CLAUDE.md",
+    "retained": "run-b20040c5/workspace/CLAUDE.md.txt",
+    "sha256": "03d853df9e1f55189782a0f4cd1fddf7d5b9e61a76a6bd9eef0223b262865a46",
+    "reason": "verbatim evaluated-workspace content is evidence, not a concept in the enclosing OKF bundle"
+  },
+  {
+    "original": "run-e4a8df99/workspace/CLAUDE.md",
+    "retained": "run-e4a8df99/workspace/CLAUDE.md.txt",
+    "sha256": "03d853df9e1f55189782a0f4cd1fddf7d5b9e61a76a6bd9eef0223b262865a46",
+    "reason": "verbatim evaluated-workspace content is evidence, not a concept in the enclosing OKF bundle"
+  },
+  {
+    "original": "run-e4a8df99/workspace/docs/journal/2026/10/26/concurrent-eval-run.md",
+    "retained": "run-e4a8df99/workspace/docs/journal/2026/10/26/concurrent-eval-run.md.txt",
+    "sha256": "dee5e7ec2c46af086f69d18e093e183434b2a7aa6d3c6d463a1f42343f8ee90e",
+    "reason": "verbatim evaluated-workspace content is evidence, not a concept in the enclosing OKF bundle"
+  },
+  {
+    "original": "run-f5587ac4/workspace/CLAUDE.md",
+    "retained": "run-f5587ac4/workspace/CLAUDE.md.txt",
+    "sha256": "03d853df9e1f55189782a0f4cd1fddf7d5b9e61a76a6bd9eef0223b262865a46",
+    "reason": "verbatim evaluated-workspace content is evidence, not a concept in the enclosing OKF bundle"
+  },
+  {
+    "original": "run-f5587ac4/workspace/docs/okf/index.md",
+    "retained": "run-f5587ac4/workspace/docs/okf/index.md.txt",
+    "sha256": "6f5a463105c3e148db9af3b08f17369cf7cfbd1c5134edff603e4d7693d1a4a6",
+    "reason": "verbatim evaluated-workspace content is evidence, not a concept in the enclosing OKF bundle"
+  },
+  {
+    "original": "run-f5587ac4/workspace/docs/okf/log.md",
+    "retained": "run-f5587ac4/workspace/docs/okf/log.md.txt",
+    "sha256": "c3a9351579e6e89472c1c9e116c30db6b7bd5e5a79a8ef9e6f1f6159a022120a",
+    "reason": "verbatim evaluated-workspace content is evidence, not a concept in the enclosing OKF bundle"
+  },
+  {
+    "original": "run-f5587ac4/workspace/docs/okf/journal/index.md",
+    "retained": "run-f5587ac4/workspace/docs/okf/journal/index.md.txt",
+    "sha256": "e609a1d901b3bc777ac78e21c357ad88dd88525c45c899cb82ccd498051d3be8",
+    "reason": "verbatim evaluated-workspace content is evidence, not a concept in the enclosing OKF bundle"
+  },
+  {
+    "original": "run-f5587ac4/workspace/docs/okf/journal/2026-10-26/A.md",
+    "retained": "run-f5587ac4/workspace/docs/okf/journal/2026-10-26/A.md.txt",
+    "sha256": "6c20249d8d3beedd22e14a23398712ae2b95e326ebdd563991b733658fd249ef",
+    "reason": "verbatim evaluated-workspace content is evidence, not a concept in the enclosing OKF bundle"
+  },
+  {
+    "original": "run-f5587ac4/workspace/docs/okf/journal/2026-10-26/B.md",
+    "retained": "run-f5587ac4/workspace/docs/okf/journal/2026-10-26/B.md.txt",
+    "sha256": "711ffe1f2247d931df0f81ab7d00e6ba7523057f8a29ac28026820a23b05f284",
+    "reason": "verbatim evaluated-workspace content is evidence, not a concept in the enclosing OKF bundle"
+  },
+  {
+    "original": "run-f5587ac4/workspace/docs/okf/journal/2026-10-26/C.md",
+    "retained": "run-f5587ac4/workspace/docs/okf/journal/2026-10-26/C.md.txt",
+    "sha256": "afa1ff2d8dbc9c7f9e297c944109d2a9fdcdd349fec44bb412e32aa666b27d00",
+    "reason": "verbatim evaluated-workspace content is evidence, not a concept in the enclosing OKF bundle"
+  },
+  {
+    "original": "run-f5587ac4/workspace/docs/okf/journal/2026-10-26/index.md",
+    "retained": "run-f5587ac4/workspace/docs/okf/journal/2026-10-26/index.md.txt",
+    "sha256": "4ab4a007ffd98c31d2d79efedc5cddef1079a5cd179a99acc0c8aebfa389dc27",
+    "reason": "verbatim evaluated-workspace content is evidence, not a concept in the enclosing OKF bundle"
+  }
+]

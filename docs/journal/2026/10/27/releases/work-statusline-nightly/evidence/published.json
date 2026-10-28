@@ -1,0 +1,29 @@
+{
+  "version": "0.2.51-nightly.20261027-144102.54cfce3",
+  "gitHead": "54cfce39e031d6392a4a12c5640fb0dea9c44d2e",
+  "tags": {
+    "latest": "0.2.51",
+    "nightly": "0.2.51-nightly.20261027-144102.54cfce3"
+  },
+  "dist": {
+    "shasum": "41ad09c44b98136fe9aa50f7c8bfe5e0ca0cbae7",
+    "tarball": "https://registry.npmjs.org/@one-ciel-ai/ciel-runtime/-/ciel-runtime-0.2.51-nightly.20261027-144102.54cfce3.tgz",
+    "fileCount": 513,
+    "integrity": "sha512-Wa6RbRYD1dqLS1YCAhQF2Hq3vsMTJrSxlZCVJSDZkn2nAJ26hl4ZKsm35cn8IG1YpJabjWFhPNTZnKdzPhr+vA==",
+    "signatures": [
+      {
+        "sig": "MEUCIQCPlU98EPkRwJh2OaBUbrPfstTxxEkAUjie9ZfNPXwLTwIgEO6rspjosTXf5sHLymEQieln6F+gxC/Dtg3C5sKqfXM=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U",
+        "sig": "MEQCICWEjw7k1aRqcXStSz4T0LIDtjm0TzryCG6oaUVU/PozAiBWCeG8FPmO2RtAWumvoE6TqiyJDEjbJrHhTDjikm4NBg=="
+      }
+    ],
+    "unpackedSize": 6895994
+  },
+  "tarball_sha256": "c9f7417f1e2022edd41cde228b94b491142a3f5243fa7e0d86745870c4931bb1",
+  "tarball_bytes": 1568909,
+  "files": 513,
+  "package_dir": "C:\\Users\\djlov\\AppData\\Local\\Temp\\rel-54cfce3\\payload\\unpack\\package"
+}

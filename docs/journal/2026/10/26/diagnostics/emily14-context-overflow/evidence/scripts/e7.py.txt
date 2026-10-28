@@ -1,0 +1,11 @@
+import os, json, time
+acct = r"C:\Users\aapw-a11u4"
+ws = os.path.join(acct, r"AppData\Roaming\ciel-runtime\workspaces")
+for root, dirs, files in os.walk(ws):
+    for f in files:
+        p = os.path.join(root, f)
+        print("F", p[len(ws):], os.path.getsize(p), time.strftime("%Y-%m-%dT%H:%M:%S", time.localtime(os.path.getmtime(p))))
+    if root.count(os.sep) - ws.count(os.sep) > 2: dirs[:] = []
+ls = json.load(open(os.path.join(acct, r"AppData\Roaming\ciel-runtime\launch-state.json"), encoding="utf-8"))
+last = ls.get("last") or {}
+print("LAST", json.dumps({k: v for k, v in last.items() if isinstance(v, (str, int, bool, float)) and "key" not in k.lower()}, ensure_ascii=False)[:800])

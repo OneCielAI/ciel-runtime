@@ -1,0 +1,114 @@
+{
+  "fixture": "owned python protocol child (not native Claude Code)",
+  "platform": "nt",
+  "message_id": 1,
+  "cursor": 1,
+  "socket_sends": [
+    [
+      1
+    ]
+  ],
+  "repeat_scan_injected_ids": [],
+  "settled_while_paused": [],
+  "held_admission_checks_after_settlement": 0,
+  "gate_releases": [],
+  "status_events": [
+    [
+      1,
+      "queued"
+    ],
+    [
+      1,
+      "submitted"
+    ],
+    [
+      1,
+      "replied"
+    ]
+  ],
+  "old_states_before": {},
+  "old_states_after": {},
+  "history_health_after": {
+    "complete": true,
+    "coverage": "complete",
+    "scanned_bytes": 767,
+    "failure_count": 0,
+    "recovered_count": 0,
+    "diagnostics": [],
+    "diagnostics_truncated": false
+  },
+  "history_prefix_bytes": 0,
+  "history_prefix_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "history_prefix_unchanged": true,
+  "appended_rows": [
+    {
+      "request_id": 1,
+      "status": "queued"
+    },
+    {
+      "request_id": 1,
+      "status": "submitted"
+    },
+    {
+      "request_id": 1,
+      "status": "replied"
+    }
+  ],
+  "transcript_record_types": [
+    "user",
+    "assistant"
+  ],
+  "transcript_wake_state": "completed",
+  "receipt_user_frames": 1,
+  "process_count": 2,
+  "logs": [
+    [
+      "INFO",
+      "claude_session_socket_configured target=\\\\.\\pipe\\LOCAL\\cc-msg-ccd3c3dab59bedafede50be752150b06"
+    ],
+    [
+      "WARN",
+      "external_event_sse_disconnected receiver=default error=EOFError diagnostic={\"category\": \"eof\", \"class\": \"EOFError\", \"phase\": \"read\"}"
+    ],
+    [
+      "INFO",
+      "channel_windows_console_proxy_started pid=62476 transport=conpty enter=cr submit_retries=1 confirm_submit=True bracketed_paste=False display_body=False"
+    ],
+    [
+      "INFO",
+      "claude_session_socket_injected bytes=349 target=\\\\.\\pipe\\LOCAL\\cc-msg-ccd3c3dab59bedafede50be752150b06"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_injected count=1 message_ids=1 channels=external:default enter=cr transport=session_socket commit_cursor=False display_body=False"
+    ],
+    [
+      "ERROR",
+      "channel_windows_console_proxy_exception stage=terminal_io type=OSError errno=36 winerror=None frames=channel_terminal_proxy.py:612:run_windows_channel_terminal_proxy,test_channel_direct_socket_e2e.py:277:resize_if_needed pid=62476 cursor=1"
+    ],
+    [
+      "WARN",
+      "channel_windows_console_proxy_failed stage=windows_proxy type=OSError errno=36 winerror=None frames=channel_terminal_dispatch.py:122:dispatch,channel_terminal_context.py:327:run_windows,channel_terminal_context.py:186:run_windows,test_channel_direct_socket_e2e.py:317:<lambda>,test_channel_direct_socket_e2e.py:286:fail_proxy,channel_terminal_proxy.py:612:run_windows_channel_terminal_proxy,test_channel_direct_socket_e2e.py:277:resize_if_needed; using direct subprocess call"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_unavailable; using direct subprocess call"
+    ],
+    [
+      "INFO",
+      "channel_direct_socket_poller_started pid=51100 terminal_available=false"
+    ],
+    [
+      "INFO",
+      "channel_direct_socket_confirmed message_id=1 cursor=1"
+    ],
+    [
+      "INFO",
+      "channel_direct_socket_poller_stopped pid=51100"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_skipped_noise message_id=1 reason=durable_replied"
+    ]
+  ]
+}

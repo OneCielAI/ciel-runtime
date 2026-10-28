@@ -1,0 +1,18 @@
+01-start-notice-and-empty-hint
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-3fada75b\01-start-notice-and-empty-hint.png handle=20126740 printwindow=True
+02-work-mode-help
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-3fada75b\02-work-mode-help.png handle=20126740 printwindow=True
+03-work-mode-summary
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-3fada75b\03-work-mode-summary.png handle=20126740 printwindow=True
+04-planning-toast
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-3fada75b\04-planning-toast.png handle=20126740 printwindow=True
+05-planning-deny
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-3fada75b\05-planning-deny.png handle=20126740 printwindow=True
+06-numbered-item-band
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-3fada75b\06-numbered-item-band.png handle=20126740 printwindow=True
+07-queued-while-running
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-3fada75b\07-queued-while-running.png handle=20126740 printwindow=True
+08-queue-advanced
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-3fada75b\08-queue-advanced.png handle=20126740 printwindow=True
+09-summary-after-advance
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-3fada75b\09-summary-after-advance.png handle=20126740 printwindow=True

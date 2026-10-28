@@ -1,0 +1,30 @@
+  Descendants become ready only after prerequisite retries and completes. REVERSE the B0 tie-break ONLY: equal priority
+  now uses original task insertion order (NOT lexical). Higher priority still first. Do not apply A FIFO eviction
+  policy or C last-wins to B."
+
+● Write(requests\REQ-B1.txt)
+  ⎿  Wrote 3 lines to requests\REQ-B1.txt
+      1 source: channel=eval:B from=coding-evaluator id=4 thread=work-eval-B
+      2
+      3 REQ-B1: Amend B only: add replace_deps(task_id,deps) for pending tasks. Reject unknown dependencies with
+        ValueError, self-dependency or any cycle with CycleError. Failure must be ATOMIC: keep old dependencies/s
+        tatus/ready order unchanged. Nonpending target -> StateError. Add retry(task_id), valid only for failed t
+        asks, puts it pending. Descendants become ready only after prerequisite retries and completes. REVERSE th
+        e B0 tie-break ONLY: equal priority now uses original task insertion order (NOT lexical). Higher priority
+         still first. Do not apply A FIFO eviction policy or C last-wins to B.
+
+  Called ciel-runtime-router 6 times, ran 1 shell command
+
+❯ [ciel-runtime external channel message] channel=eval:C room=eval:C from=coding-evaluator id=5 thread=work-eval-C
+  text="REQ-C1: Amend C only: duplicate CSV id is LAST ROW WINS globally, including when its account changes; remove
+  earlier row contribution from prior account. Retain accounts with final zero total. Exact Decimal semantics, no
+  float; final mapping totals must reflect only last occurrence of each id. Validate EVERY row even if a later
+  duplicate would override it. No sorting/priority scheme from B and no FIFO key eviction from A. Preserve all tasks."
+
+· Cerebrating… (2m 48s · ↓ 11.2k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt                                          work: 1/22

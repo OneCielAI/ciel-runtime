@@ -1,0 +1,15 @@
+{"at": 1793080429.764, "kind": "launched", "pid": 10380, "watcher": 83484}
+{"at": 1793080439.404, "kind": "wait_pass", "label": "owned router health"}
+{"at": 1793080440.233, "kind": "wait_pass", "label": "native launch"}
+{"at": 1793080440.262, "kind": "wait_pass", "label": "native process present"}
+{"at": 1793080452.664, "kind": "wait_pass", "label": "watcher typed baseline"}
+{"at": 1793080454.266, "kind": "wait_pass", "label": "baseline reached loopback"}
+{"at": 1793080454.273, "kind": "wait_pass", "label": "baseline rendered"}
+{"at": 1793080457.877, "kind": "wait_pass", "label": "screenshot 01-baseline"}
+{"at": 1793080457.886, "kind": "notify", "marker": "WALKIE-NOTE-ONE", "request_id": 5, "error": null}
+{"at": 1793080458.306, "kind": "wait_pass", "label": "injector decision for 5"}
+{"at": 1793080458.307, "kind": "decision", "marker": "WALKIE-NOTE-ONE", "request_id": 5, "outcome": "injected"}
+{"at": 1793080460.71, "kind": "wait_pass", "label": "WALKIE-NOTE-ONE reached loopback"}
+{"at": 1793080461.512, "kind": "wait_pass", "label": "5 replied"}
+{"at": 1793080467.123, "kind": "wait_pass", "label": "screenshot 02-after-notifications"}
+RESULT C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\diagnostics\walkie-durable-replied\evidence\e2e\run-installed-eec7d69-005347 injected

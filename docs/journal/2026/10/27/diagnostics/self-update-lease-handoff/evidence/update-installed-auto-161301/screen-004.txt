@@ -1,0 +1,49 @@
+Ciel Runtime update available: 0.2.51-nightly.20261027-205033.3160858 -> 9.9.9; upgrading automatically.
+fake npm install: no files changed
+Ciel Runtime updated. Restarting with the new version...
+Traceback (most recent call last):
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py", line 23, in <module>
+    from ciel_runtime_support import agent_runtime_event_push, agent_turn_events, claude_stream_recovery_runtime, company_prompt_reload, event_delivery_ack, channel_llm
+_context, session_backup_service, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_config_effort, codex_launch_configuration, codex_turn_recovery,
+kimi_identity, launch_data_path, llm_option_config, llm_presets, native_context_recovery, remote_management_http, web_access_http
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\claude_launch_assembly.py", line 8, in <module>
+    from . import runtime_launch
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\runtime_launch.py", line 26, in <module>
+    from ciel_runtime_support.runtime_paths import CONFIG_DIR, LOG_PATH, ROUTER_BASE, ROUTER_INSTANCE_DIR, WORKSPACE_STATE_DIR
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\runtime_paths.py", line 136, in <module>
+    ROUTER_PORT = select_workspace_router_port(
+        _BASE_ROUTER_PORT,
+    ...<2 lines>...
+        registry_path=WORKSPACE_ROUTER_REGISTRY_PATH,
+    )
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\workspace_router_selection.py", line 256, in select_workspace_rou
+ter_port
+    _check_own_launch_lease(own_record)
+    ~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\workspace_router_selection.py", line 348, in _check_own_launch_le
+ase
+    raise RuntimeError("workspace router launch already reserved by another or unknown process")
+RuntimeError: workspace router launch already reserved by another or unknown process
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

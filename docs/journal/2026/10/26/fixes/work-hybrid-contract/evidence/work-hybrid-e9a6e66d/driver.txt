@@ -1,0 +1,13 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+active executing hold: yes
+console command: yes
+incoming native queue: yes
+queue and priority loop: yes
+owned stop 82748 SUCCESS: The process with PID 22376 (child process of PID 82748) has been terminated.
+SUCCESS: The process with PID 82748 (child process of PID 49736) has been terminated.
+owned stop 47708 SUCCESS: The process with PID 47708 (child process of PID 71656) has been terminated.
+evidence C:\Users\djlov\AppData\Local\Temp\work-hybrid-e9a6e66d

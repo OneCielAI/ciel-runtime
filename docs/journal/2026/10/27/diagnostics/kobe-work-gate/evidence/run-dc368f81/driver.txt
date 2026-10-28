@@ -1,0 +1,10 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+concurrent child edits complete: yes
+owned stop 64084 SUCCESS: The process with PID 64040 (child process of PID 64084) has been terminated.
+SUCCESS: The process with PID 64084 (child process of PID 28560) has been terminated.
+owned stop 48480 SUCCESS: The process with PID 48480 (child process of PID 5628) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\kobe-work-gate\evidence\run-dc368f81

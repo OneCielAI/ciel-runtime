@@ -1,0 +1,174 @@
+{
+  "label": "installed-shared",
+  "expect": "compact",
+  "runtime_root": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-eec7d694af216308e2a95d4103535f43c5546f09",
+  "scratch": "C:\\Windows\\Temp\\ciel-owned-alias-5enxj60e",
+  "stripped_env_names": [
+    "OLLAMA_CONTEXT_LENGTH",
+    "OLLAMA_FLASH_ATTENTION",
+    "OLLAMA_HOST",
+    "OLLAMA_KV_CACHE_TYPE",
+    "OLLAMA_MODELS",
+    "OLLAMA_NUM_PARALLEL",
+    "OLLAMA_SCHED_SPREAD"
+  ],
+  "claude_version": "2.1.310 (Claude Code)",
+  "command": [
+    "C:\\Program Files\\Python311\\python.exe",
+    "-I",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\fixes\\cielairouter-alias-safeguard\\evidence\\e2e\\launch_shim.py",
+    "--",
+    "cli",
+    "--ca-runtime",
+    "claude",
+    "--ca-no-update-check",
+    "--ca-no-self-update-check",
+    "--ca-no-web-search",
+    "--",
+    "--permission-mode",
+    "default",
+    "--debug-file",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\diagnostics\\compact-retry\\evidence\\repro\\run-installed-shared-004041\\native-debug.log"
+  ],
+  "ports": {
+    "router": 64340,
+    "fixture": 64341
+  },
+  "fixture": {
+    "alias": "owned-route-alias",
+    "native_model": "claude-opus-5-5",
+    "window": 200000,
+    "high_tokens": 1000
+  },
+  "events": [
+    {
+      "at": 1793079643.7,
+      "kind": "launched",
+      "pid": 67160,
+      "watcher": 41468
+    },
+    {
+      "at": 1793079654.688,
+      "kind": "wait_pass",
+      "label": "owned router health"
+    },
+    {
+      "at": 1793079655.103,
+      "kind": "wait_pass",
+      "label": "native launch"
+    },
+    {
+      "at": 1793079655.136,
+      "kind": "wait_pass",
+      "label": "native process present"
+    },
+    {
+      "at": 1793079667.538,
+      "kind": "wait_pass",
+      "label": "watcher typed baseline"
+    },
+    {
+      "at": 1793079667.939,
+      "kind": "wait_pass",
+      "label": "high-usage turn reached loopback"
+    },
+    {
+      "at": 1793079668.351,
+      "kind": "wait_pass",
+      "label": "high-usage reply rendered"
+    },
+    {
+      "at": 1793079669.955,
+      "kind": "wait_pass",
+      "label": "screenshot 01-before-compact"
+    },
+    {
+      "at": 1793079670.757,
+      "kind": "wait_pass",
+      "label": "first manual compact reached fixture"
+    },
+    {
+      "at": 1793079670.758,
+      "kind": "first_compact_started",
+      "native_watchdog": true
+    },
+    {
+      "at": 1793079671.196,
+      "kind": "wait_pass",
+      "label": "SSE queued during compact"
+    },
+    {
+      "at": 1793079970.96,
+      "kind": "wait_pass",
+      "label": "native idle-timeout error rendered"
+    },
+    {
+      "at": 1793079972.563,
+      "kind": "wait_pass",
+      "label": "screenshot 02-native-idle-error"
+    },
+    {
+      "at": 1793080001.786,
+      "kind": "wait_pass",
+      "label": "automatic retry reached fixture"
+    },
+    {
+      "at": 1793080001.79,
+      "kind": "wait_pass",
+      "label": "real retry checkpoint"
+    },
+    {
+      "at": 1793080002.596,
+      "kind": "wait_pass",
+      "label": "checkpoint shrink verified"
+    },
+    {
+      "at": 1793080004.206,
+      "kind": "wait_pass",
+      "label": "screenshot 03-retry-success"
+    },
+    {
+      "at": 1793080004.207,
+      "kind": "wait_pass",
+      "label": "queued SSE replied after recovery"
+    },
+    {
+      "at": 1793080005.817,
+      "kind": "wait_pass",
+      "label": "screenshot 04-queued-sse-replied"
+    }
+  ],
+  "live_before": {
+    "9505": {
+      "pid": null,
+      "version": null,
+      "source_fingerprint": null,
+      "error": "URLError: <urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>"
+    },
+    "9524": {
+      "pid": 25276,
+      "version": "0.2.51",
+      "source_fingerprint": "f86ee3638ee760f3",
+      "error": null
+    }
+  },
+  "queue_status": {
+    "1": {
+      "request_id": 1,
+      "status": "replied",
+      "updated_at": "2026-10-27T00:46:43-05:00",
+      "updated_at_epoch": 1793080003.980195,
+      "data": {
+        "channel": "external:default",
+        "input_transport": "session_socket",
+        "child_epoch": "1b12ad3c7d994234b8e8bd330bceaa7d",
+        "attempt_id": "c6c3b089ae324b84b2569d5a213dc91a",
+        "batch_ids": [
+          1
+        ]
+      }
+    }
+  },
+  "queue_model_requests": 1,
+  "queue_replied_once": true
+}

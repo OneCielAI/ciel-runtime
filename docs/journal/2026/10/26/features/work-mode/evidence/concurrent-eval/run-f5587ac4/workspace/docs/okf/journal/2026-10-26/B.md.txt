@@ -1,0 +1,19 @@
+---
+type: Task Journal
+title: Dependency scheduler and retries
+description: Implementation and verification for B0+B1.
+tags: [evaluation, task-b]
+timestamp: 2026-10-26T00:00:00Z
+---
+
+# Requests
+
+B0+B1; verbatim requests are preserved under workspace `requests/`.
+
+# Implementation
+
+`dag_scheduler.py`. Scheduler uses pending/running/done/failed states. Higher priority is first; equal priority uses original task insertion order as required by B1, superseding B0 lexical ties. Pending-only dependency replacement validates before publishing, rejecting unknown dependencies and cycles atomically. Failed-only retry returns to pending; descendants wait for successful completion.
+
+# Verification
+
+`python -m unittest test_dag_scheduler -v`: 8 tests passed. Full-suite output is captured at workspace `verification/unittest_output.txt`. These are Python library tasks; command output is the runtime evidence (no UI screenshot applies).

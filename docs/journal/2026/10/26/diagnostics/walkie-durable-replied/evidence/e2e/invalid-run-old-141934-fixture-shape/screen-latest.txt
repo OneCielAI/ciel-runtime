@@ -1,0 +1,30 @@
+
+ ▐▛███▛█   Claude Code v2.1.310
+▝▜██████▀  ciel-runtime-vllm-stub-model · API Usage Billing
+ ▝▝   ▝▝   C:\Windows\Temp\ciel-owned-walkie-oiy4nhi2\ws
+
+▎ Debug mode enabled · logging to C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\diagnostics\walkie-durable
+▎ -replied\evidence\e2e\run-old-141934\native-debug.log
+
+❯ E2E-WALKIE-BASE owned baseline
+
+● API Error: API returned an empty or malformed response (HTTP 200) — check for a proxy or gateway intercepting
+  the request. Response: content-type json, body is JSON but not a Message, size unknown, request-id absent,
+  server other. This was the non-streaming retry of streaming request (no Anthropic request-id), which failed
+  with: other; 0 stream events received.
+
+✻ Crunched for 0s · done 2:19 PM
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)                                                         work: plan 0/0

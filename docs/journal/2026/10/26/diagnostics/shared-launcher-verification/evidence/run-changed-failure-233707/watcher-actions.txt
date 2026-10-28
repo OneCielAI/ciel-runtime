@@ -1,0 +1,2 @@
+23:37:48 PrintWindow screenshot 993x519 ok=1 rows=519 extrema=((0, 255), (0, 255), (0, 255))
+23:37:48 stop requested

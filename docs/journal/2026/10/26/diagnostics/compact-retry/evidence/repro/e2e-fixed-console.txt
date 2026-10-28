@@ -1,0 +1,17 @@
+{"at": 1793072483.632, "kind": "launched", "pid": 68096, "watcher": 25020}
+{"at": 1793072493.779, "kind": "wait_pass", "label": "owned router health"}
+{"at": 1793072494.2, "kind": "wait_pass", "label": "native launch"}
+{"at": 1793072494.236, "kind": "wait_pass", "label": "native process present"}
+{"at": 1793072506.639, "kind": "wait_pass", "label": "watcher typed baseline"}
+{"at": 1793072507.04, "kind": "wait_pass", "label": "high-usage turn reached loopback"}
+{"at": 1793072507.455, "kind": "wait_pass", "label": "high-usage reply rendered"}
+{"at": 1793072509.059, "kind": "wait_pass", "label": "screenshot 01-before-compact"}
+{"at": 1793072509.861, "kind": "wait_pass", "label": "first manual compact reached fixture"}
+{"at": 1793072509.862, "kind": "first_compact_started", "native_watchdog": true}
+{"at": 1793072810.085, "kind": "wait_pass", "label": "native idle-timeout error rendered"}
+{"at": 1793072811.689, "kind": "wait_pass", "label": "screenshot 02-native-idle-error"}
+{"at": 1793072840.915, "kind": "wait_pass", "label": "automatic retry reached fixture"}
+{"at": 1793072840.919, "kind": "wait_pass", "label": "real retry checkpoint"}
+{"at": 1793072841.729, "kind": "wait_pass", "label": "checkpoint shrink verified"}
+{"at": 1793072843.334, "kind": "wait_pass", "label": "screenshot 03-retry-success"}
+RESULT C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\diagnostics\compact-retry\evidence\repro\run-fixed-224123 compact_dispatched_once

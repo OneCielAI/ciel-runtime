@@ -628,6 +628,30 @@ class ClaudeLaunchTests(ResolverHarness):
                 self.assertEqual(["0", "1", "0"],
                                  [env["CLAUDE_CODE_SEND_FEEDBACK"] for _cmd, env in launches])
 
+    def test_work_mode_is_reapplied_without_duplicates_after_restart(self):
+        launches, injected = [], []
+        self.parent_bypass = []
+        control = RuntimeSessionRestartControl(poll=_polls(
+            _request("claude", "work1"), _request("claude", "work2"), _request("claude", "work3")))
+        services = self.services(None, control, launches, injected, "router")
+        config = services.config.load_config()
+        original = services.process.subprocess_call_with_channel_wake_proxy
+
+        def child(*args, **kwargs):
+            result = original(*args, **kwargs)
+            config["work_mode"] = len(launches) != 1
+            return result
+
+        services = replace(services, process=replace(services.process,
+            subprocess_call_with_channel_wake_proxy=child, subprocess_call_with_child_pid_record=child))
+        with mock.patch.dict(os.environ), redirect_stdout(io.StringIO()):
+            self.assertEqual(0, runtime_launch.run_claude([], skip_menu=True, update_check=False,
+                                                       self_update_check=False, services=services))
+        self.assertEqual([1, 0, 1, 1], [cmd.count("--plugin-dir") for cmd, _env in launches])
+        # A resumed child keeps --plugin-dir ahead of the --continue the relaunch added.
+        last = launches[-1][0]
+        self.assertLess(last.index("--plugin-dir"), last.index("--continue"))
+
     def test_restart_selects_again_and_falls_back_to_the_router(self):
         policy = FakeGatewayPolicy(_gateway(), _gateway(endpoint="https://gw2.example", node="n2"),
                                    LaunchGateway(reason="central base (no healthy gateway)"))
@@ -840,12 +864,24 @@ class CodexAppServerLaunchTests(ResolverHarness):
                 restart=runtime_launch.SessionRestartPorts(),
                 data_path=resolver,
             )
-            stack.enter_context(redirect_stdout(io.StringIO()))
+            self.server_stdout = stack.enter_context(redirect_stdout(io.StringIO()))
             self.assertEqual(0, runtime_launch.run_codex_app_server(["--listen", "ws://127.0.0.1:8899"], services=services, desktop=session))
         return launches
 
     def test_router_mode_server_command_is_identical_with_or_without_the_resolver(self):
         self.assertEqual(self.run_server(None), self.run_server(self.resolver(NoDirectPolicy())))
+
+    def test_work_instructions_survive_app_server_and_remote_tui_materialization(self):
+        from ciel_runtime_support.codex_app_server_session import remote_tui_command
+        from ciel_runtime_support.work_mode_launch import WORK_MODE_INSTRUCTIONS, WORK_MODE_LAUNCH_NOTICE
+
+        launches = self.run_server(None)
+        self.assertEqual(1, self.server_stdout.getvalue().splitlines().count(WORK_MODE_LAUNCH_NOTICE))
+        command = launches[0][0]
+        for args in (command, remote_tui_command(command, "ws://127.0.0.1:8899")):
+            entries = [arg for arg in args if arg.startswith("developer_instructions=")]
+            self.assertEqual(1, len(entries))
+            self.assertEqual(WORK_MODE_INSTRUCTIONS, json.loads(entries[0].split("=", 1)[1]))
 
     def test_direct_server_and_remote_tui_overrides_name_the_gateway(self):
         from ciel_runtime_support.codex_app_server_session import remote_tui_command

@@ -1,0 +1,13 @@
+{
+ "repo": "C:\\Users\\djlov\\ciel-runtime-wt-work",
+ "codex_version": "codex-cli 0.158.0",
+ "exit": 0,
+ "checks": {
+  "triage": true,
+  "numbered_root_item": true,
+  "dependent_child": true,
+  "queue": true,
+  "how_to_turn_off": true
+ },
+ "temp_root": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-hints-qhfquu8k"
+}

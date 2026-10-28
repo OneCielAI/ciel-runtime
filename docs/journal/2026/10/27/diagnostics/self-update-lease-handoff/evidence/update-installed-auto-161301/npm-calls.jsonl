@@ -1,0 +1,4 @@
+["view", "@one-ciel-ai/ciel-runtime@nightly", "version"]
+["--version"]
+["install", "-g", "@one-ciel-ai/ciel-runtime@nightly"]
+["root", "-g"]

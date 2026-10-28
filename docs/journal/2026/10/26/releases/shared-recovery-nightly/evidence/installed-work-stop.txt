@@ -1,0 +1,68 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+unfinished notice: yes
+console command: yes
+actionable push: yes
+bounded no-progress notice: yes
+owned stop 56728 SUCCESS: The process with PID 83704 (child process of PID 56728) has been terminated.
+SUCCESS: The process with PID 56728 (child process of PID 49736) has been terminated.
+owned stop 83824 SUCCESS: The process with PID 83824 (child process of PID 51868) has been terminated.
+evidence C:\Users\djlov\AppData\Local\Temp\ara-work-stop-c651ef2b
+{
+ "repo": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-eec7d694af216308e2a95d4103535f43c5546f09",
+ "stripped_env": [],
+ "mod": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-eec7d694af216308e2a95d4103535f43c5546f09\\ciel_runtime_support\\claude_mods\\ciel-work",
+ "cli_version": "2.1.310 (Claude Code)",
+ "checks": {
+  "notice_visible": true,
+  "no_model_retry_when_blocked": true,
+  "notice_not_sent_to_model": true,
+  "once_per_stop": true,
+  "wait_released": true,
+  "actionable_pushed": true,
+  "no_progress_notice": true,
+  "bounded_requests": true
+ },
+ "model_user_prompts_sent": 2,
+ "egress": [
+  {
+   "method": "CONNECT",
+   "path": "downloads.claude.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "github.com:443"
+  }
+ ],
+ "live_before": {
+  "9505": {
+   "pid": null,
+   "version": null,
+   "source_fingerprint": null,
+   "error": "<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>"
+  },
+  "9524": {
+   "pid": 25276,
+   "version": "0.2.51",
+   "source_fingerprint": "f86ee3638ee760f3",
+   "error": null
+  }
+ },
+ "live_after": {
+  "9505": {
+   "pid": null,
+   "version": null,
+   "source_fingerprint": null,
+   "error": "<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>"
+  },
+  "9524": {
+   "pid": 25276,
+   "version": "0.2.51",
+   "source_fingerprint": "f86ee3638ee760f3",
+   "error": null
+  }
+ }
+}

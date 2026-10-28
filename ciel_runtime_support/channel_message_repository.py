@@ -82,18 +82,29 @@ class ChannelMessageAppendPorts:
     normalize_recipients: Callable[[Any], list[str]]
 
 
+def _no_issued_ids() -> int:
+    return 0
+
+
 @dataclass(frozen=True, slots=True)
 class ChannelMessageRepository:
     path: Path
     log: Callable[[str, str], None]
     max_bytes: int = 10 * 1024 * 1024
+    # Highest id recorded outside this file (the runtime input status history).
+    # A row lost from the queue keeps its id there, so it is never reissued.
+    issued_id_floor: Callable[[], int] = _no_issued_ids
 
     def append(self, payload: dict[str, Any], ports: ChannelMessageAppendPorts) -> dict[str, Any]:
         with ports.condition:
             with ports.file_lock():
                 self.path.parent.mkdir(parents=True, exist_ok=True)
-                previous_max_id = self.max_id()
+                own_max_id, issued_floor = self._frontier()
+                previous_max_id = max(own_max_id, issued_floor)
                 next_id = previous_max_id + 1
+                if issued_floor > own_max_id:
+                    self.log("WARN", f"chat_message_id_above_issued_floor queue={self.path.name} "
+                             f"queue_max_id={own_max_id} issued_floor={issued_floor} next_id={next_id}")
                 created_at = time.time()
                 message = {
                     "id": next_id,
@@ -128,6 +139,11 @@ class ChannelMessageRepository:
                 separator = "\n" if self._ends_unterminated() else ""
                 with self.path.open("a", encoding="utf-8") as stream:
                     stream.write(separator + json.dumps(message, ensure_ascii=False, separators=(",", ":")) + "\n")
+                    # Durable before the status history refers to it: an unflushed
+                    # append lost in an unclean shutdown left a NUL run where 31
+                    # rows had been (2026-10-26, workspace aae7db361c7f).
+                    stream.flush()
+                    os.fsync(stream.fileno())
                 # Bound the queue only after the new row is durable in it: that row
                 # carries the id frontier and is always kept by compaction.
                 self._compact_if_oversized()
@@ -335,8 +351,23 @@ class ChannelMessageRepository:
         return floor
 
     def max_id(self) -> int:
+        return max(self._frontier())
+
+    def _frontier(self) -> tuple[int, int]:
+        """The queue's own id frontier and the floor recorded outside it."""
         items, damaged_max_id, _complete = self._scan(self.path, "max id scan")
-        return max(self._items_max_id(items), damaged_max_id, self._legacy_id_floor())
+        own = max(self._items_max_id(items), damaged_max_id, self._legacy_id_floor())
+        return own, self._issued_floor()
+
+    def _issued_floor(self) -> int:
+        try:
+            floor = self.issued_id_floor()
+        except (OSError, ValueError, TypeError) as exc:
+            # Unreadable history: allocate from the queue alone, as before.
+            self.log("WARN", f"chat_message_issued_floor_unavailable queue={self.path.name} "
+                     f"error={type(exc).__name__}")
+            return 0
+        return floor if type(floor) is int and floor > 0 else 0
 
     def min_id(self) -> int:
         """Lowest positive id among decodable live rows; 0 when there are none."""

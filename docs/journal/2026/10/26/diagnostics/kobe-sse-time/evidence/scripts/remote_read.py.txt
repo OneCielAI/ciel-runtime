@@ -1,0 +1,12 @@
+import subprocess,base64,zlib,sys,time
+# Read-only runner: sends the probe on stdin over ssh (ara-ai@.14:1004, runs as SYSTEM) and
+# brackets the call with the local wall clock so the remote clock can be bounded.
+script=sys.stdin.read()
+b=base64.b64encode(zlib.compress(script.encode())).decode()
+cmd='py -3 -I -c "import base64,zlib;exec(zlib.decompress(base64.b64decode(\''+b+'\')))"'
+before=time.time()
+r=subprocess.run(['ssh','-o','BatchMode=yes','-o','ConnectTimeout=10','-i','C:/Users/djlov/.ssh/id_ed25519','-p','1004','ara-ai@100.64.0.14',cmd],capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=290)
+after=time.time()
+sys.stdout.reconfigure(encoding='utf-8',errors='replace')
+print('LOCAL_BEFORE %.3f LOCAL_AFTER %.3f ROUNDTRIP %.3f'%(before,after,after-before))
+print(r.stdout);print(r.stderr);print('exit',r.returncode)

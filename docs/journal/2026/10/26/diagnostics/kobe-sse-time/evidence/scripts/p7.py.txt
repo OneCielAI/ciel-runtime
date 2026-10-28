@@ -1,0 +1,15 @@
+import json, subprocess, time
+# Read-only process listing: console hosts and the console/session attributes of Kobe's launcher tree.
+ps = (r"$ids = @(11480,24044,21288,14376,18124,19944); "
+      r"Get-CimInstance Win32_Process | Where-Object { ($_.Name -match 'conhost|OpenConsole|WindowsTerminal') -or ($ids -contains $_.ProcessId) -or ($ids -contains $_.ParentProcessId) } | "
+      r"Select-Object ProcessId,ParentProcessId,Name,SessionId,CreationDate,CommandLine | ConvertTo-Json -Depth 2")
+r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=60)
+try:
+    rows = json.loads(r.stdout) if r.stdout.strip() else []
+    rows = rows if isinstance(rows, list) else [rows]
+except Exception as e:
+    print("PSERR", e, r.stdout[:300]); rows = []
+for x in rows:
+    print("PROC", x.get("ProcessId"), "ppid", x.get("ParentProcessId"), x.get("Name"), "session", x.get("SessionId"), x.get("CreationDate"), (x.get("CommandLine") or "")[:200])
+print(r.stderr[:300])
+print("REMOTE_NOW %.3f" % time.time())

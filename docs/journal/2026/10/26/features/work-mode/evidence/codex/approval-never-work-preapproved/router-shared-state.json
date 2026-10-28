@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1792996068443,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"enabled\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"version\": 2, \"active_root\": {\"id\": \"n1\", \"title\": \"Codex isolated Work proof\", \"status\": \"pending\"}, \"done\": 0, \"total\": 1, \"next\": {\"id\": \"n4\", \"title\": \"Observe work_status output\", \"status\": \"pending\", \"path\": [\"Codex isolated Work proof\", \"Protocol phase\", \"Inspect shared state\", \"Observe work_status output\"]}, \"ready\": true, \"ready_reason\": \"ready\", \"goals\": 1}"
+      }
+    ],
+    "isError": false
+  }
+}

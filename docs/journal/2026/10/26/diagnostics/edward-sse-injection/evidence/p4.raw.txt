@@ -1,0 +1,28 @@
+MAIN AROUND 2026-10-27T00:38:47.900Z user  kinds ['tool_result'] sid 354281f4 keys ['cwd', 'entrypoint', 'gitBranch', 'isSidechain', 'message', 'parentUuid', 'permissionDecision', 'promptId', 'sessionId', 'session_id', 'slug', 'sourceToolAssistantUUID', 'timestamp', 'toolUseResult', 'type', 'userType', 'uuid', 'version']
+MAIN AROUND 2026-10-27T00:38:49.196Z queue-operation enqueue kinds [] sid 354281f4 keys ['operation', 'sessionId', 'timestamp', 'type']
+MAIN AROUND 2026-10-27T00:38:50.903Z queue-operation remove kinds [] sid 354281f4 keys ['commandUuid', 'content', 'deliveryId', 'operation', 'reason', 'sessionId', 'timestamp', 'type']
+MAIN CONTINUED {"type": "continued-in", "timestamp": "2026-10-27T00:39:03.899Z", "sessionId": "354281f4-a695-46c2-a0db-450d681953b8", "continuedInSessionId": "b1e17ad1-6afd-4210-86e4-5e327c749e3b"}
+MAIN AROUND 2026-10-27T00:39:03.899Z continued-in  kinds [] sid 354281f4 keys ['continuedInSessionId', 'sessionId', 'timestamp', 'type']
+MAIN AROUND 2026-10-27T00:41:09.632Z queue-operation enqueue kinds [] sid 354281f4 keys ['operation', 'sessionId', 'timestamp', 'type']
+FORK AROUND 2026-10-27T00:38:47.900Z user  kinds ['tool_result'] sid b1e17ad1 keys ['cwd', 'entrypoint', 'gitBranch', 'isSidechain', 'message', 'parentUuid', 'permissionDecision', 'sessionId', 'sessionKind', 'session_id', 'sourceToolAssistantUUID', 'timestamp', 'toolUseResult', 'type', 'userType', 'uuid', 'version']
+FORK AROUND 2026-10-27T00:39:12.998Z system informational kinds [] sid b1e17ad1 keys ['content', 'cwd', 'entrypoint', 'gitBranch', 'isMeta', 'isSidechain', 'level', 'parentUuid', 'sessionId', 'sessionKind', 'subtype', 'timestamp', 'type', 'userType', 'uuid', 'version']
+FORK AROUND 2026-10-27T00:39:11.046Z api-request-shape  kinds [] sid b1e17ad1 keys ['sessionId', 'shape', 'shapeHash', 'timestamp', 'type', 'version']
+FORK AROUND 2026-10-27T00:39:48.781Z user  kinds ['tool_result'] sid b1e17ad1 keys ['cwd', 'entrypoint', 'gitBranch', 'isSidechain', 'mcpMeta', 'message', 'parentUuid', 'permissionDecision', 'sessionId', 'sessionKind', 'session_id', 'sourceToolAssistantUUID', 'timestamp', 'toolUseResult', 'type', 'userType', 'uuid', 'version']
+FORK AROUND 2026-10-27T00:39:51.647Z user  kinds ['tool_result'] sid b1e17ad1 keys ['cwd', 'entrypoint', 'gitBranch', 'isSidechain', 'mcpMeta', 'message', 'parentUuid', 'permissionDecision', 'sessionId', 'sessionKind', 'session_id', 'sourceToolAssistantUUID', 'timestamp', 'toolUseResult', 'type', 'userType', 'uuid', 'version']
+FORK AROUND 2026-10-27T00:39:54.861Z user  kinds ['tool_result'] sid b1e17ad1 keys ['cwd', 'entrypoint', 'gitBranch', 'isSidechain', 'message', 'parentUuid', 'permissionDecision', 'sessionId', 'sessionKind', 'session_id', 'sourceToolAssistantUUID', 'timestamp', 'toolUseResult', 'type', 'userType', 'uuid', 'version']
+FORK AROUND 2026-10-27T00:40:20.865Z user  kinds ['tool_result'] sid b1e17ad1 keys ['cwd', 'entrypoint', 'gitBranch', 'isSidechain', 'message', 'parentUuid', 'permissionDecision', 'sessionId', 'sessionKind', 'session_id', 'sourceToolAssistantUUID', 'timestamp', 'toolUseResult', 'type', 'userType', 'uuid', 'version']
+FORK LOCAL_CMD 2026-10-27T00:39:57.839Z names ['/work-mode'] len 138
+FORK AROUND 2026-10-27T00:39:57.839Z system local_command kinds [] sid b1e17ad1 keys ['content', 'cwd', 'entrypoint', 'gitBranch', 'isMeta', 'isSidechain', 'level', 'parentUuid', 'sessionId', 'sessionKind', 'slug', 'subtype', 'timestamp', 'type', 'userType', 'uuid', 'version']
+FORK LOCAL_CMD 2026-10-27T00:39:57.839Z names [] len 193
+FORK AROUND 2026-10-27T00:39:57.839Z system local_command kinds [] sid b1e17ad1 keys ['commandRun', 'content', 'cwd', 'entrypoint', 'gitBranch', 'isMeta', 'isSidechain', 'level', 'parentUuid', 'sessionId', 'sessionKind', 'slug', 'subtype', 'timestamp', 'type', 'userType', 'uuid', 'version']
+D799 agent-setting  None sid d799590a keys ['agentSetting', 'sessionId', 'type']
+D799 mode  None sid d799590a keys ['mode', 'sessionId', 'type']
+D799 permission-mode  None sid d799590a keys ['permissionMode', 'sessionId', 'type']
+D799 tools-used  None sid d799590a keys ['sessionId', 'tools', 'type']
+D799 system informational 2026-10-27T00:39:10.076Z sid d799590a keys ['content', 'cwd', 'entrypoint', 'gitBranch', 'isMeta', 'isSidechain', 'level', 'parentUuid', 'sessionId', 'sessionKind', 'subtype', 'timestamp', 'type', 'userType', 'uuid', 'version']
+D799 last-prompt  None sid d799590a keys ['leafUuid', 'sessionId', 'type']
+D799 cost-state  None sid d799590a keys ['hasUnknownModelCost', 'modelUsage', 'sessionId', 'startTime', 'totalAPIDuration', 'totalAPIDurationWithoutRetries', 'totalCostUSD', 'totalDuration', 'totalLinesAdded', 'totalLinesRemoved', 'totalToolDuration', 'type']
+REMOTE_END 1793065661.914
+
+
+exit 0

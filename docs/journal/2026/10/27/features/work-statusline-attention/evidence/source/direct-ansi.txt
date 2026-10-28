@@ -1,0 +1,11 @@
+[work executing] 0/6 1. STATUS-ATTENTION · [1;38;5;220m◷ 2 waiting[0m · [1;97;41m[!] 2 BLOCKED[0m
+  [~] Deploy
+    [1;38;5;220m◷[0m Reserve UI save · [1;38;5;220mwaiting: n201 source contract, incremental run...[0m
+    [1;97;41m[!] BLOCKED[0m Admission check · [1;31mdeploy approval from Daniel[0m
+    [~] Run smoke
+  [ ] Rollback
+    [ ] Drain path ([1;38;5;220m◷1[0m [1;31m!1[0m)
+  [ ] Docs
+    [ ] Write notes
+  Queued: [1;38;5;220m◷[0m 2. QUEUED-WAIT · [1;38;5;220mwaiting: Daniel 검수 응답[0m
+  in_progress n5 1. STATUS-ATTENTION > Deploy > Run smoke

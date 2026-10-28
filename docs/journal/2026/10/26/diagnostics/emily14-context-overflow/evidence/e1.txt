@@ -1,0 +1,13 @@
+observed_at_utc 2026-10-26T21:13:47Z script scripts/e1.py (read-only, via scripts/remote_read.py)
+PROC 15564 11552 python.exe /Date(1793013777615)/ "C:\Program Files\Python313\python.exe" C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai\.local\walkie-install\transcript-relay.py C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai\.local\walkie-install\transcript-relay.json
+PROC 7260 13152 node.exe /Date(1793047008766)/ "C:\Program Files\nodejs\node.exe" C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai\.npm-global/node_modules/@one-ciel-ai/ciel-runtime/npm-bin/ciel-runtime.js --continue
+PROC 4356 14268 python.exe /Date(1793047009041)/ "C:\Program Files\Python313\python.exe" C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py cli --continue
+PROC 23436 4356 python.exe /Date(1793047075712)/ "C:\Program Files\Python313\python.exe" C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py serve
+PROC 5664 4356 python.exe /Date(1793047092719)/ "C:\Program Files\Python313\python.exe" C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\windows_console_guard.py 4356 487 7
+PROC 7256 4344 claude.exe /Date(1793047092774)/ "C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai\.npm-global\\node_modules\@anthropic-ai\claude-code\bin\claude.exe"    --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-_walkie_opus55-sol61-fast --mcp-config C:\Users\aapw-a11u4\AppData\Roamin
+PROC 20956 7256 python.exe /Date(1793047112723)/ "C:\Program Files\Python313\python.exe" C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai\.local\walkie-install\mcp-stdio.py C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai\.local\walkie-install\mcp-credential.json
+PROC 7888 7256 python.exe /Date(1793047112737)/ "C:\Program Files\Python313\python.exe" C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai\.local\walkie-install\transcript-relay.py --stdio C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai\.local\walkie-install\mcp-credential.json
+PROC 16316 20956 node.exe /Date(1793047114709)/ "C:\Program Files\nodejs\node.EXE" C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai\.local\walkie-install\walkie-presence-mcp.mjs C:\Data\Source\SGSWMSCrossing\u4\home\emily-ai\.local\walkie-install\presence.json
+
+
+exit 0

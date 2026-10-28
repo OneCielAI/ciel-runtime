@@ -1,0 +1,30 @@
+      152 +            if candidates:
+      153 +                self.assertEqual(graph.shortest(src, dst, blocked=blocked, max_hops=hops),
+      154 +                                 (cost(candidates[0]), candidates[0]))
+      155 +            else:
+      156 +                with self.assertRaises(NoPathError):
+      157 +                    graph.shortest(src, dst, blocked=blocked, max_hops=hops)
+      158 +
+      159 +
+      160  if __name__ == "__main__":
+      161      unittest.main()
+
+● Update(test_routing_graph.py)
+  ⎿  Added 1 line
+      1 +import random
+      2  import unittest
+      3  from routing_graph import ConflictError, Graph, NoPathError
+      4
+
+● Reading booking_calendar.py
+  ⎿  booking_calendar.py
+
+✽ Pollinating… (10m 16s · ↓ 25.2k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt
+  work: run 13/16 [A: routing_gr… 5/5 | B: booking_ca… 4/5 | C: inventory_… 4/4 | …] · REQ-B3 checkpoints, restore and
+  calendar version > Implement/tes…

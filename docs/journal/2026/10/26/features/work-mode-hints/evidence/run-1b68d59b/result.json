@@ -1,0 +1,41 @@
+{
+ "repo": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-start-diag.4byc\\repo",
+ "stripped_env": [],
+ "mod": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-start-diag.4byc\\repo\\ciel_runtime_support\\claude_mods\\ciel-work",
+ "cli_version": "2.1.310 (Claude Code)",
+ "stray_input_before": [
+  {
+   "command": "/work-mode help",
+   "prompt": "cccccccc"
+  }
+ ],
+ "error": "RuntimeError: prompt not empty before typing; stray input recorded",
+ "live_before": {
+  "9505": {
+   "pid": 38368,
+   "version": "0.2.51-nightly.20261026-162537.2faae14",
+   "source_fingerprint": "72c6bfb456e30cd7",
+   "error": null
+  },
+  "9524": {
+   "pid": 25276,
+   "version": "0.2.51",
+   "source_fingerprint": "f86ee3638ee760f3",
+   "error": null
+  }
+ },
+ "live_after": {
+  "9505": {
+   "pid": 38368,
+   "version": "0.2.51-nightly.20261026-162537.2faae14",
+   "source_fingerprint": "72c6bfb456e30cd7",
+   "error": null
+  },
+  "9524": {
+   "pid": 25276,
+   "version": "0.2.51",
+   "source_fingerprint": "f86ee3638ee760f3",
+   "error": null
+  }
+ }
+}

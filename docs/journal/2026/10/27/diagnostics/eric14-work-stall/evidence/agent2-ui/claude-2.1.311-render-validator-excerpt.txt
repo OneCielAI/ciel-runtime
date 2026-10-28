@@ -1,0 +1,6 @@
+offset 249153277
+KSn=new Set(["width","height","minWidth","minHeight"]);var J5o=new Set(["display","overflow","position",...KSn,...TEt]);function qSn(e,o){let r=Y5o[e];if(r!==void 0)return typeof o==="string"&&r.has(o)?void 0:`must be one of ${[...r].join(", ")}`;if(KSn.has(e)
+offset 249227919
+if(te!==void 0)return`engine node under a ${te}`;let G=Object.keys(E).find((C)=>C!=="type"&&C!=="ref"&&E[C]!==void 0);if
+offset 249230795
+if(J5o.has(G))z??=`${E.type} with prop "${G}"`;let ne=typeof k==="number"?Math.a

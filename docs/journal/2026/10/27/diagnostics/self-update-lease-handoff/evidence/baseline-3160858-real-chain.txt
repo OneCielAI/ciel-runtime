@@ -1,0 +1,44 @@
+test_real_windows_restart_chain_runs_the_restarted_launchers_children (test_workspace_router_selection.SelfUpdateLeaseHandoffTests.test_real_windows_restart_chain_runs_the_restarted_launchers_children) ... 
+  test_real_windows_restart_chain_runs_the_restarted_launchers_children (test_workspace_router_selection.SelfUpdateLeaseHandoffTests.test_real_windows_restart_chain_runs_the_restarted_launchers_children) (mode='auto') ... FAIL
+  test_real_windows_restart_chain_runs_the_restarted_launchers_children (test_workspace_router_selection.SelfUpdateLeaseHandoffTests.test_real_windows_restart_chain_runs_the_restarted_launchers_children) (mode='explicit') ... FAIL
+
+======================================================================
+FAIL: test_real_windows_restart_chain_runs_the_restarted_launchers_children (test_workspace_router_selection.SelfUpdateLeaseHandoffTests.test_real_windows_restart_chain_runs_the_restarted_launchers_children) (mode='auto')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work\tests\test_workspace_router_selection.py", line 520, in test_real_windows_restart_chain_runs_the_restarted_launchers_children
+    self.assertEqual([0, str(port), []], result["helper"])
+AssertionError: Lists differ: [0, '9464', []] != [1, '', ['RuntimeError: workspace router l[50 chars]ss']]
+
+First differing element 0:
+0
+1
+
+- [0, '9464', []]
++ [1,
++  '',
++  ['RuntimeError: workspace router launch already reserved by another or '
++   'unknown process']]
+
+======================================================================
+FAIL: test_real_windows_restart_chain_runs_the_restarted_launchers_children (test_workspace_router_selection.SelfUpdateLeaseHandoffTests.test_real_windows_restart_chain_runs_the_restarted_launchers_children) (mode='explicit')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work\tests\test_workspace_router_selection.py", line 520, in test_real_windows_restart_chain_runs_the_restarted_launchers_children
+    self.assertEqual([0, str(port), []], result["helper"])
+AssertionError: Lists differ: [0, '9550', []] != [1, '', ['RuntimeError: workspace router l[50 chars]ss']]
+
+First differing element 0:
+0
+1
+
+- [0, '9550', []]
++ [1,
++  '',
++  ['RuntimeError: workspace router launch already reserved by another or '
++   'unknown process']]
+
+----------------------------------------------------------------------
+Ran 1 test in 0.975s
+
+FAILED (failures=2)

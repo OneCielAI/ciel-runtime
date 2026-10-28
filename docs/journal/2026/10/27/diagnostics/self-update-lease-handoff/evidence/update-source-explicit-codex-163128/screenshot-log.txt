@@ -1,0 +1,4 @@
+01-after-self-update
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\self-update-lease-handoff\evidence\update-source-explicit-codex-163128\01-after-self-update.png handle=8852776 printwindow=True
+02-exit
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\self-update-lease-handoff\evidence\update-source-explicit-codex-163128\02-exit.png handle=8852776 printwindow=True

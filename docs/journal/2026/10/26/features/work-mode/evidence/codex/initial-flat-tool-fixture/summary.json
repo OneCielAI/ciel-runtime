@@ -1,0 +1,130 @@
+{
+  "temp_root": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-hwkcdlg4",
+  "binary": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe",
+  "inherited_prefixes_removed": [
+    "CIEL_RUNTIME_*",
+    "CLAUDE*",
+    "ANTHROPIC*",
+    "CODEX*",
+    "OPENAI*"
+  ],
+  "version": "codex-cli 0.158.0",
+  "helper_args": [
+    "-c",
+    "developer_instructions=\"Ciel Work mode is on. Work like Plan mode, but with a deeper, hierarchical plan that you keep current while you execute.\\n1. Planning phase: before changing files, decompose the user's task into a tree with work_plan_set: goal -> phases -> tasks -> steps. Keep splitting until every leaf is one concrete, verifiable action. Read-only exploration is fine while planning; file edits and state-changing commands wait for execution.\\n2. When the plan is complete, call work_execute. If it reports that user confirmation is required, show the plan, ask the user, and call work_execute again with user_confirmed=true only after they agree.\\n3. Executing phase: work through the leaves in order. Mark a leaf in_progress when you start it and done with short evidence (command output, test result, file) when it is verified. Add or split nodes with work_node_add when you discover more work; use work_replan when the approach changes.\\n4. Call work_status to see the tree. Never report a step as done without evidence.\""
+  ],
+  "prompt_off": {
+    "exit": 0,
+    "work_in_developer": false
+  },
+  "prompt_on": {
+    "exit": 0,
+    "work_in_developer": true
+  },
+  "schema_thread_fields": [
+    "approvalPolicy",
+    "approvalsReviewer",
+    "baseInstructions",
+    "config",
+    "cwd",
+    "developerInstructions",
+    "ephemeral",
+    "model",
+    "modelProvider",
+    "personality",
+    "sandbox",
+    "serviceName",
+    "serviceTier",
+    "sessionStartSource",
+    "threadSource"
+  ],
+  "router_pid": 54264,
+  "router_port": 60270,
+  "router_work_tools": [
+    "work_status",
+    "work_plan_set",
+    "work_node_add",
+    "work_node_update",
+    "work_node_remove",
+    "work_select",
+    "work_execute",
+    "work_replan"
+  ],
+  "app_server_command": [
+    "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe",
+    "-c",
+    "developer_instructions=\"Ciel Work mode is on. Work like Plan mode, but with a deeper, hierarchical plan that you keep current while you execute.\\n1. Planning phase: before changing files, decompose the user's task into a tree with work_plan_set: goal -> phases -> tasks -> steps. Keep splitting until every leaf is one concrete, verifiable action. Read-only exploration is fine while planning; file edits and state-changing commands wait for execution.\\n2. When the plan is complete, call work_execute. If it reports that user confirmation is required, show the plan, ask the user, and call work_execute again with user_confirmed=true only after they agree.\\n3. Executing phase: work through the leaves in order. Mark a leaf in_progress when you start it and done with short evidence (command output, test result, file) when it is verified. Add or split nodes with work_node_add when you discover more work; use work_replan when the approach changes.\\n4. Call work_status to see the tree. Never report a step as done without evidence.\"",
+    "-c",
+    "model=\"work-probe\"",
+    "-c",
+    "model_provider=\"workproof\"",
+    "-c",
+    "model_providers.workproof.name=\"Work proof\"",
+    "-c",
+    "model_providers.workproof.base_url=\"http://127.0.0.1:60268/v1\"",
+    "-c",
+    "model_providers.workproof.wire_api=\"responses\"",
+    "-c",
+    "model_providers.workproof.requires_openai_auth=false",
+    "-c",
+    "mcp_servers.ciel-runtime-router.url=\"http://127.0.0.1:60270/ca/mcp\"",
+    "app-server"
+  ],
+  "initialize": {
+    "userAgent": "work-proof/0.158.0 (Windows 10.0.26200; x86_64) WindowsTerminal (work-proof; 1)",
+    "codexHome": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-hwkcdlg4\\codex",
+    "platformFamily": "windows",
+    "platformOs": "windows"
+  },
+  "turn_start": {
+    "turn": {
+      "id": "01a176dc-d193-7e31-90ae-7a2478bf8480",
+      "items": [],
+      "itemsView": "notLoaded",
+      "status": "inProgress",
+      "error": null,
+      "startedAt": null,
+      "completedAt": null,
+      "durationMs": null
+    }
+  },
+  "turn_completed": {
+    "method": "turn/completed",
+    "params": {
+      "threadId": "01a176dc-d12a-7693-b1ba-5c3a76e3f346",
+      "turn": {
+        "id": "01a176dc-d193-7e31-90ae-7a2478bf8480",
+        "items": [
+          {
+            "type": "agentMessage",
+            "id": "msg_final",
+            "text": "CODEX_WORK_PROTOCOL_OK",
+            "phase": null,
+            "memoryCitation": null,
+            "delivery": null,
+            "questions": null
+          }
+        ],
+        "itemsView": "summary",
+        "status": "completed",
+        "error": null,
+        "startedAt": 1792995545,
+        "completedAt": 1792995547,
+        "durationMs": 1614
+      }
+    },
+    "emittedAtMs": 1792995547128
+  },
+  "gateway_request_count": 4,
+  "app_server_work_tools": [],
+  "gateway_developer_instructions": true,
+  "gateway_errors": [
+    "RuntimeError(\"missing work_plan_set among ['exec_command', 'write_stdin', 'list_mcp_resources', 'list_mcp_resource_templates', 'read_mcp_resource', 'request_user_input', 'view_image', 'get_goal', 'create_goal', 'update_goal']\")",
+    "RuntimeError(\"missing work_execute among ['exec_command', 'write_stdin', 'list_mcp_resources', 'list_mcp_resource_templates', 'read_mcp_resource', 'request_user_input', 'view_image', 'get_goal', 'create_goal', 'update_goal']\")",
+    "RuntimeError(\"missing work_status among ['exec_command', 'write_stdin', 'list_mcp_resources', 'list_mcp_resource_templates', 'read_mcp_resource', 'request_user_input', 'view_image', 'get_goal', 'create_goal', 'update_goal']\")"
+  ],
+  "owned_processes_exited": {
+    "47648": 1,
+    "54264": 1
+  }
+}

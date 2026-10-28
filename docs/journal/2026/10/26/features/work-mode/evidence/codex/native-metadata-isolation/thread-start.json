@@ -1,0 +1,64 @@
+{
+  "thread": {
+    "id": "01a176fb-3467-7932-9cf4-f93095e29055",
+    "environments": [
+      {
+        "environmentId": "local",
+        "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-lugxkcq6\\workspace",
+        "runtimeWorkspaceRoots": [
+          "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-lugxkcq6\\workspace"
+        ]
+      }
+    ],
+    "extra": null,
+    "sessionId": "01a176fb-3467-7932-9cf4-f93095e29055",
+    "forkedFromId": null,
+    "parentThreadId": null,
+    "preview": "",
+    "ephemeral": true,
+    "section": null,
+    "sectionEnteredAt": null,
+    "projectId": null,
+    "historyMode": "paginated",
+    "modelProvider": "workproof",
+    "model": "work-probe",
+    "reasoningEffort": null,
+    "createdAt": 1792997536,
+    "updatedAt": 1792997536,
+    "recencyAt": 1792997536,
+    "status": {
+      "type": "idle"
+    },
+    "path": null,
+    "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-lugxkcq6\\workspace",
+    "cliVersion": "0.158.0",
+    "originator": "work-proof",
+    "source": "vscode",
+    "canAcceptDirectInput": true,
+    "threadSource": null,
+    "agentNickname": null,
+    "agentRole": null,
+    "gitInfo": null,
+    "name": null,
+    "daybreakEnabled": null,
+    "turns": []
+  },
+  "model": "work-probe",
+  "modelProvider": "workproof",
+  "serviceTier": null,
+  "disabledPluginIds": [],
+  "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-lugxkcq6\\workspace",
+  "runtimeWorkspaceRoots": [
+    "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-lugxkcq6\\workspace"
+  ],
+  "instructionSources": [],
+  "approvalPolicy": "never",
+  "approvalsReviewer": "user",
+  "sandbox": {
+    "type": "readOnly",
+    "networkAccess": false
+  },
+  "activePermissionProfile": null,
+  "reasoningEffort": null,
+  "multiAgentMode": "explicitRequestOnly"
+}

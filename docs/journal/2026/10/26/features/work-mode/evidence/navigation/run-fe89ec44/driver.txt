@@ -1,0 +1,22 @@
+owned router: yes
+interactive owned cmd: yes
+interactive ready: yes
+console command: yes
+vertical items ready: yes
+console command: yes
+console command: yes
+console command: yes
+console command: yes
+keyboard B details: yes
+console command: yes
+console command: yes
+console command: yes
+console command: yes
+console command: yes
+view command: NO
+owned stop 11780 
+owned stop 67884 
+owned stop 68940 SUCCESS: The process with PID 68940 (child process of PID 49736) has been terminated.
+owned stop 19844 SUCCESS: The process with PID 19844 (child process of PID 51540) has been terminated.
+owned stop 35216 SUCCESS: The process with PID 35216 (child process of PID 51540) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode\evidence\navigation\run-fe89ec44

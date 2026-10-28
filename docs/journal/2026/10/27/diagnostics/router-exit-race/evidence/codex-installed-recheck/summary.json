@@ -1,0 +1,192 @@
+{
+  "temp_root": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-fds7q7d8",
+  "binary": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe",
+  "inherited_prefixes_removed": [
+    "CIEL_RUNTIME_*",
+    "CLAUDE*",
+    "ANTHROPIC*",
+    "CODEX*",
+    "OPENAI*"
+  ],
+  "version": "codex-cli 0.158.0",
+  "helper_args": [
+    "-c",
+    "developer_instructions=\"When the user asks to prioritize existing items and work only on them, resolve exact node IDs from Work status, call work_focus(node_ids=[...], user_requested=true), and preserve unrelated Work. Focus remains after completion; clear with node_ids=[] only on explicit user request. Ciel Work mode is hybrid per-item planning and execution, not native Plan Mode. Keep a hierarchical plan current while executing approved work and planning queued requests concurrently.\\nWork plans are private to this conversation. Codex supplies the conversation identity in MCP metadata; do not supply or invent a session_id argument. A new conversation has a separate plan; resuming retains it.\\n1. Planning phase: before changing files, decompose the user's task into a tree with work_plan_set: goal -> phases -> tasks -> steps. Keep splitting until every leaf is one concrete, verifiable action. Read-only exploration is fine while planning; file edits and state-changing commands wait for execution. Shell permissions and sandboxing belong to the native host; Work does not inspect shell side effects or override native permissions. Do not use a shell to evade required planning or approval.\\nTriage every new user request first: an independent request becomes its own goal (root-level item), its title starting with its item number where possible (\\\"1. ...\\\", \\\"2. ...\\\"); a request that changes or extends an existing item goes under that item as a child (work_node_add with parent_id). A new goal queues behind the unfinished active goal and becomes active when that goal is done; keep the active goal going meanwhile.\\n2. When the plan is complete, call work_execute. If it reports that user confirmation is required, show the plan, ask the user, and call work_execute again with user_confirmed=true only after they agree.\\n3. Executing phase: work through the leaves in order. Mark a leaf in_progress when you start it and done with short evidence (command output, test result, file) when it is verified. Add or split nodes with work_node_add with within_scope=true only for refinements wholly inside already approved scope; omit it for new scope requiring review/approval. Planning queued requests never pauses active execution. Use work_replan when the approach changes.\\n4. Call work_status(root_id=...) for exact goal details only on demand. Raw user messages remain in native history; Work does not isolate that history. Never report a step as done without evidence.\\nSet ref for a linked id (shown as [ id ] description); set waiting_on for an external dependency, and clear it with empty text when ready. Reorder root goals with work_reorder (1-based position); by default reorder only queued goals. Changing the active slot requires the user's explicit request and user_requested=true, except that when every active step waits or is blocked, work_select may move to the queued goal holding the next runnable step. On an explicit urgent/ad-hoc request use work_urgent with user_requested=true to hold other goals, decompose that request and execute; held goals resume afterwards.\\nIf the user asks how Work mode works or why an edit waited, explain this briefly; it is switched on or off in the ciel-runtime menu under LLM options -> Work mode.\\nWork auto continue is on. In the executing phase, before you end a turn:\\n- Keep handling approved pending Work. While actionable unfinished items remain inside the approved plan, continue with the next one instead of stopping to ask whether to go on.\\n- Triage the backlog first: register any user request that is not yet in the tree, within the scope the user already approved and without duplicates (independent requests as numbered goals, dependent ones as children).\\n- Take the highest-priority actionable item first; equal priorities keep their plan order.\\n- When an item waits on something outside this conversation (a person, a review, a build, another agent), set its waiting_on label to what it waits for instead of editing its title, and meanwhile work on other independent actionable items, running independent actions in parallel where your tools allow.\\n- End the turn only when every unfinished item is truly blocked, waiting or needs user approval, and say what each one waits for. Do not invent work, expand the approved scope or cross an approval boundary to keep going.\\nWork auto continue is switched on or off in the ciel-runtime menu under LLM options -> Work auto continue.\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_status.approval_mode=\"approve\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_plan_set.approval_mode=\"approve\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_node_add.approval_mode=\"approve\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_node_update.approval_mode=\"approve\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_node_remove.approval_mode=\"approve\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_select.approval_mode=\"approve\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_execute.approval_mode=\"approve\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_replan.approval_mode=\"approve\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_reorder.approval_mode=\"approve\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_urgent.approval_mode=\"approve\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_focus.approval_mode=\"approve\""
+  ],
+  "prompt_off": {
+    "exit": 0,
+    "work_in_developer": false
+  },
+  "prompt_on": {
+    "exit": 0,
+    "work_in_developer": true
+  },
+  "schema_thread_fields": [
+    "approvalPolicy",
+    "approvalsReviewer",
+    "baseInstructions",
+    "config",
+    "cwd",
+    "developerInstructions",
+    "ephemeral",
+    "model",
+    "modelProvider",
+    "personality",
+    "sandbox",
+    "serviceName",
+    "serviceTier",
+    "sessionStartSource",
+    "threadSource"
+  ],
+  "router_pid": 22280,
+  "router_port": 59507,
+  "router_work_tools": [
+    "work_status",
+    "work_plan_set",
+    "work_node_add",
+    "work_node_update",
+    "work_node_remove",
+    "work_select",
+    "work_execute",
+    "work_replan",
+    "work_reorder",
+    "work_focus",
+    "work_urgent"
+  ],
+  "app_server_command": [
+    "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\node_modules\\@openai\\codex-win32-x64\\vendor\\x86_64-pc-windows-msvc\\bin\\codex.exe",
+    "-c",
+    "developer_instructions=\"When the user asks to prioritize existing items and work only on them, resolve exact node IDs from Work status, call work_focus(node_ids=[...], user_requested=true), and preserve unrelated Work. Focus remains after completion; clear with node_ids=[] only on explicit user request. Ciel Work mode is hybrid per-item planning and execution, not native Plan Mode. Keep a hierarchical plan current while executing approved work and planning queued requests concurrently.\\nWork plans are private to this conversation. Codex supplies the conversation identity in MCP metadata; do not supply or invent a session_id argument. A new conversation has a separate plan; resuming retains it.\\n1. Planning phase: before changing files, decompose the user's task into a tree with work_plan_set: goal -> phases -> tasks -> steps. Keep splitting until every leaf is one concrete, verifiable action. Read-only exploration is fine while planning; file edits and state-changing commands wait for execution. Shell permissions and sandboxing belong to the native host; Work does not inspect shell side effects or override native permissions. Do not use a shell to evade required planning or approval.\\nTriage every new user request first: an independent request becomes its own goal (root-level item), its title starting with its item number where possible (\\\"1. ...\\\", \\\"2. ...\\\"); a request that changes or extends an existing item goes under that item as a child (work_node_add with parent_id). A new goal queues behind the unfinished active goal and becomes active when that goal is done; keep the active goal going meanwhile.\\n2. When the plan is complete, call work_execute. If it reports that user confirmation is required, show the plan, ask the user, and call work_execute again with user_confirmed=true only after they agree.\\n3. Executing phase: work through the leaves in order. Mark a leaf in_progress when you start it and done with short evidence (command output, test result, file) when it is verified. Add or split nodes with work_node_add with within_scope=true only for refinements wholly inside already approved scope; omit it for new scope requiring review/approval. Planning queued requests never pauses active execution. Use work_replan when the approach changes.\\n4. Call work_status(root_id=...) for exact goal details only on demand. Raw user messages remain in native history; Work does not isolate that history. Never report a step as done without evidence.\\nSet ref for a linked id (shown as [ id ] description); set waiting_on for an external dependency, and clear it with empty text when ready. Reorder root goals with work_reorder (1-based position); by default reorder only queued goals. Changing the active slot requires the user's explicit request and user_requested=true, except that when every active step waits or is blocked, work_select may move to the queued goal holding the next runnable step. On an explicit urgent/ad-hoc request use work_urgent with user_requested=true to hold other goals, decompose that request and execute; held goals resume afterwards.\\nIf the user asks how Work mode works or why an edit waited, explain this briefly; it is switched on or off in the ciel-runtime menu under LLM options -> Work mode.\\nWork auto continue is on. In the executing phase, before you end a turn:\\n- Keep handling approved pending Work. While actionable unfinished items remain inside the approved plan, continue with the next one instead of stopping to ask whether to go on.\\n- Triage the backlog first: register any user request that is not yet in the tree, within the scope the user already approved and without duplicates (independent requests as numbered goals, dependent ones as children).\\n- Take the highest-priority actionable item first; equal priorities keep their plan order.\\n- When an item waits on something outside this conversation (a person, a review, a build, another agent), set its waiting_on label to what it waits for instead of editing its title, and meanwhile work on other independent actionable items, running independent actions in parallel where your tools allow.\\n- End the turn only when every unfinished item is truly blocked, waiting or needs user approval, and say what each one waits for. Do not invent work, expand the approved scope or cross an approval boundary to keep going.\\nWork auto continue is switched on or off in the ciel-runtime menu under LLM options -> Work auto continue.\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_status.approval_mode=\"approve\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_plan_set.approval_mode=\"approve\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_node_add.approval_mode=\"approve\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_node_update.approval_mode=\"approve\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_node_remove.approval_mode=\"approve\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_select.approval_mode=\"approve\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_execute.approval_mode=\"approve\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_replan.approval_mode=\"approve\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_reorder.approval_mode=\"approve\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_urgent.approval_mode=\"approve\"",
+    "-c",
+    "mcp_servers.ciel-runtime-router.tools.work_focus.approval_mode=\"approve\"",
+    "-c",
+    "model=\"work-probe\"",
+    "-c",
+    "model_provider=\"workproof\"",
+    "-c",
+    "model_providers.workproof.name=\"Work proof\"",
+    "-c",
+    "model_providers.workproof.base_url=\"http://127.0.0.1:59506/v1\"",
+    "-c",
+    "model_providers.workproof.wire_api=\"responses\"",
+    "-c",
+    "model_providers.workproof.requires_openai_auth=false",
+    "-c",
+    "mcp_servers.ciel-runtime-router.url=\"http://127.0.0.1:59506/mcp-forward\"",
+    "app-server"
+  ],
+  "initialize": {
+    "userAgent": "work-proof/0.158.0 (Windows 10.0.26200; x86_64) xterm-256color (work-proof; 1)",
+    "codexHome": "C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-fds7q7d8\\codex",
+    "platformFamily": "windows",
+    "platformOs": "windows"
+  },
+  "turn_start": {
+    "turn": {
+      "id": "01a17f27-2ce8-7d81-831f-ed47993d0e4b",
+      "items": [],
+      "itemsView": "notLoaded",
+      "status": "inProgress",
+      "error": null,
+      "startedAt": null,
+      "completedAt": null,
+      "durationMs": null
+    }
+  },
+  "turn_completed": {
+    "method": "turn/completed",
+    "params": {
+      "threadId": "01a17f27-2cbb-7971-856e-cc0b95fa4a8d",
+      "turn": {
+        "id": "01a17f27-2ce8-7d81-831f-ed47993d0e4b",
+        "items": [
+          {
+            "type": "agentMessage",
+            "id": "msg_final",
+            "text": "CODEX_WORK_PROTOCOL_OK",
+            "phase": null,
+            "memoryCitation": null,
+            "delivery": null,
+            "questions": null
+          }
+        ],
+        "itemsView": "summary",
+        "status": "completed",
+        "error": null,
+        "startedAt": 1793134636,
+        "completedAt": 1793134636,
+        "durationMs": 160
+      }
+    },
+    "emittedAtMs": 1793134636435
+  },
+  "gateway_request_count": 4,
+  "app_server_work_tools": [
+    "work_execute",
+    "work_focus",
+    "work_node_add",
+    "work_node_remove",
+    "work_node_update",
+    "work_plan_set",
+    "work_reorder",
+    "work_replan",
+    "work_select",
+    "work_status",
+    "work_urgent"
+  ],
+  "gateway_developer_instructions": true,
+  "session_isolation": {
+    "current_phase": "executing",
+    "other_goal": null,
+    "missing_id_rejected": true
+  },
+  "thread_identity_in_request": true,
+  "native_mcp_metadata_verified": true,
+  "gateway_errors": [],
+  "owned_processes_exited": {
+    "13332": 1,
+    "22280": 1
+  }
+}

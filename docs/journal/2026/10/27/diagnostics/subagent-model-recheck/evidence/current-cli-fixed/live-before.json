@@ -1,0 +1,30 @@
+{
+ "9385": {
+  "error": "URLError",
+  "attempts": 4
+ },
+ "9464": {
+  "error": "URLError",
+  "attempts": 4
+ },
+ "9466": {
+  "error": "URLError",
+  "attempts": 4
+ },
+ "9489": {
+  "error": "URLError",
+  "attempts": 4
+ },
+ "9505": {
+  "ok": true,
+  "version": "0.2.51-nightly.20261027-194324.273856d",
+  "pid": 62984,
+  "attempts": 1
+ },
+ "9524": {
+  "ok": true,
+  "version": "0.2.51-nightly.20261027-182520.7792965",
+  "pid": 8544,
+  "attempts": 1
+ }
+}

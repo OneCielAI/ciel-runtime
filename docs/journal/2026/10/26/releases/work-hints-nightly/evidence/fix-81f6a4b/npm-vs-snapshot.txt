@@ -1,0 +1,3 @@
+Only in /c/Users/djlov/.local/share/ciel-runtime-81f6a4ba5af240e6a3aa3e4437e8701a8c9bafa1/ciel_runtime_support/claude_mods/ciel-work/.claude-plugin: types
+ciel_runtime.py equal
+  "version": "0.2.51-nightly.20261026-183726.81f6a4b",

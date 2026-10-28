@@ -1,0 +1,24 @@
+LOCAL_BEFORE 1793062356.300 LOCAL_AFTER 1793062363.406 ROUNDTRIP 7.107
+WS_ERR PermissionError [WinError 5] Access is denied: 'C:\\Users\\aapw-a24u24\\AppData\\Roaming\\ciel-runtime\\workspaces\\651d879f6c68'
+INST_FILE channel-compact-request.json.lock 1 2026-10-19T16:06:38
+INST_FILE claude-stream-recovery.json 5408 2026-10-26T17:20:45
+INST_FILE claude-stream-recovery.json.lock 1 2026-10-21T12:10:47
+INST_FILE compaction-admission.json 1513 2026-10-26T17:20:47
+INST_FILE compaction-admission.json.lock 1 2026-10-19T16:06:30
+INST_FILE compaction-scope.json 1041 2026-10-26T17:49:54
+INST_FILE compaction-scope.json.lock 1 2026-10-19T16:06:28
+INST_FILE compaction-seed.lock 1 2026-10-19T16:06:28
+INST_FILE context-compact-activity.json 354 2026-10-26T17:19:43
+INST_FILE context-compact-progress.json 101607 2026-10-26T17:19:42
+INST_FILE context-compact-progress.json.lock 1 2026-10-24T15:55:27
+INST_FILE context-usage.json 281 2026-10-26T17:49:54
+INST_FILE duckduckgo-mcp.json 181 2026-10-26T16:45:53
+INST_FILE rate-limit-state.json 4 2026-10-19T16:06:24
+INST_FILE router-activity.json 273 2026-10-26T17:49:55
+INST_FILE router-clients 0 2026-10-26T16:45:53
+INST_FILE router.log 3145136 2026-10-26T17:10:59
+INST_FILE router.pid 4 2026-10-26T16:45:50
+INST_FILE web-tools-mcp.json 181 2026-10-26T16:45:53
+
+
+exit 0

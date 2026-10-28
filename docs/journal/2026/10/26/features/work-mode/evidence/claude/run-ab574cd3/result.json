@@ -1,0 +1,2222 @@
+{
+ "print_exit": 0,
+ "target": "AFTER\n",
+ "shell_planning_file": false,
+ "session_id": "be19fe44-0cc6-4cc9-b318-ff09915b64c0",
+ "main_snapshot": {
+  "enabled": true,
+  "phase": "executing",
+  "approval": "auto",
+  "version": 4,
+  "active_root": {
+   "id": "n1",
+   "title": "Verify real Work mode",
+   "status": "in_progress"
+  },
+  "done": 1,
+  "total": 2,
+  "next": {
+   "id": "n5",
+   "title": "Continue persisted plan",
+   "status": "pending",
+   "path": [
+    "Verify real Work mode",
+    "Exercise guarded mutation",
+    "Edit and verify subject",
+    "Continue persisted plan"
+   ]
+  },
+  "breakdown": [
+   {
+    "id": "n2",
+    "title": "Exercise guarded mutation",
+    "status": "in_progress",
+    "done": 1,
+    "total": 2
+   }
+  ],
+  "ready": true,
+  "ready_reason": "ready",
+  "goals": 1
+ },
+ "resume_exit": 0,
+ "resume_snapshot": {
+  "enabled": true,
+  "phase": "executing",
+  "approval": "auto",
+  "version": 4,
+  "active_root": {
+   "id": "n1",
+   "title": "Verify real Work mode",
+   "status": "in_progress"
+  },
+  "done": 1,
+  "total": 2,
+  "next": {
+   "id": "n5",
+   "title": "Continue persisted plan",
+   "status": "pending",
+   "path": [
+    "Verify real Work mode",
+    "Exercise guarded mutation",
+    "Edit and verify subject",
+    "Continue persisted plan"
+   ]
+  },
+  "breakdown": [
+   {
+    "id": "n2",
+    "title": "Exercise guarded mutation",
+    "status": "in_progress",
+    "done": 1,
+    "total": 2
+   }
+  ],
+  "ready": true,
+  "ready_reason": "ready",
+  "goals": 1
+ },
+ "denied_snapshot": {
+  "enabled": true,
+  "phase": "planning",
+  "approval": "ask",
+  "version": 5,
+  "active_root": {
+   "id": "n1",
+   "title": "Verify real Work mode",
+   "status": "in_progress"
+  },
+  "done": 1,
+  "total": 2,
+  "next": {
+   "id": "n5",
+   "title": "Continue persisted plan",
+   "status": "pending",
+   "path": [
+    "Verify real Work mode",
+    "Exercise guarded mutation",
+    "Edit and verify subject",
+    "Continue persisted plan"
+   ]
+  },
+  "breakdown": [
+   {
+    "id": "n2",
+    "title": "Exercise guarded mutation",
+    "status": "in_progress",
+    "done": 1,
+    "total": 2
+   }
+  ],
+  "ready": true,
+  "ready_reason": "ready",
+  "goals": 1
+ },
+ "approved_snapshot": {
+  "enabled": true,
+  "phase": "executing",
+  "approval": "ask",
+  "version": 6,
+  "active_root": {
+   "id": "n1",
+   "title": "Verify real Work mode",
+   "status": "in_progress"
+  },
+  "done": 1,
+  "total": 2,
+  "next": {
+   "id": "n5",
+   "title": "Continue persisted plan",
+   "status": "pending",
+   "path": [
+    "Verify real Work mode",
+    "Exercise guarded mutation",
+    "Edit and verify subject",
+    "Continue persisted plan"
+   ]
+  },
+  "breakdown": [
+   {
+    "id": "n2",
+    "title": "Exercise guarded mutation",
+    "status": "in_progress",
+    "done": 1,
+    "total": 2
+   }
+  ],
+  "ready": true,
+  "ready_reason": "ready",
+  "goals": 1
+ },
+ "work_instructions": true,
+ "rows": [
+  {
+   "n": 1,
+   "tag": "main",
+   "stage": 0,
+   "path": "/v1/messages?beta=true",
+   "model": "fake-work",
+   "tool_names": [
+    "Agent",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterWorktree",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status"
+   ],
+   "work_instructions": true,
+   "prior_results": [],
+   "served_tool": {
+    "name": "Read",
+    "input": {
+     "file_path": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\claude\\run-ab574cd3\\ws\\subject.txt"
+    }
+   },
+   "response": [
+    {
+     "type": "tool_use",
+     "id": "toolu_w1",
+     "name": "Read",
+     "input": {
+      "file_path": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\claude\\run-ab574cd3\\ws\\subject.txt"
+     }
+    }
+   ]
+  },
+  {
+   "n": 2,
+   "tag": "main",
+   "stage": 1,
+   "path": "/v1/messages?beta=true",
+   "model": "fake-work",
+   "tool_names": [
+    "Agent",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterWorktree",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status"
+   ],
+   "work_instructions": true,
+   "prior_results": [
+    {
+     "tool_use_id": "toolu_w1",
+     "type": "tool_result",
+     "content": "1\tBEFORE\n2\t",
+     "cache_control": {
+      "type": "ephemeral"
+     }
+    }
+   ],
+   "served_tool": {
+    "name": "Edit",
+    "input": {
+     "file_path": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\claude\\run-ab574cd3\\ws\\subject.txt",
+     "old_string": "BEFORE",
+     "new_string": "ILLEGAL-PLANNING"
+    }
+   },
+   "response": [
+    {
+     "type": "tool_use",
+     "id": "toolu_w2",
+     "name": "Edit",
+     "input": {
+      "file_path": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\claude\\run-ab574cd3\\ws\\subject.txt",
+      "old_string": "BEFORE",
+      "new_string": "ILLEGAL-PLANNING"
+     }
+    }
+   ]
+  },
+  {
+   "n": 3,
+   "tag": "main",
+   "stage": 2,
+   "path": "/v1/messages?beta=true",
+   "model": "fake-work",
+   "tool_names": [
+    "Agent",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterWorktree",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status"
+   ],
+   "work_instructions": true,
+   "prior_results": [
+    {
+     "tool_use_id": "toolu_w1",
+     "type": "tool_result",
+     "content": "1\tBEFORE\n2\t"
+    },
+    {
+     "type": "tool_result",
+     "content": "<tool_use_error>Work is planning. Build the plan and call work_execute before changing state.</tool_use_error>",
+     "is_error": true,
+     "tool_use_id": "toolu_w2",
+     "cache_control": {
+      "type": "ephemeral"
+     }
+    }
+   ],
+   "served_tool": {
+    "name": "Bash",
+    "input": {
+     "command": "printf SHELL-PLANNING > shell-planning.txt",
+     "description": "Probe Work planning shell guard"
+    }
+   },
+   "response": [
+    {
+     "type": "tool_use",
+     "id": "toolu_w3",
+     "name": "Bash",
+     "input": {
+      "command": "printf SHELL-PLANNING > shell-planning.txt",
+      "description": "Probe Work planning shell guard"
+     }
+    }
+   ]
+  },
+  {
+   "n": 4,
+   "tag": "main",
+   "stage": 3,
+   "path": "/v1/messages?beta=true",
+   "model": "fake-work",
+   "tool_names": [
+    "Agent",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterWorktree",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status"
+   ],
+   "work_instructions": true,
+   "prior_results": [
+    {
+     "type": "tool_result",
+     "content": "<tool_use_error>Work is planning. Build the plan and call work_execute before changing state.</tool_use_error>",
+     "is_error": true,
+     "tool_use_id": "toolu_w2"
+    },
+    {
+     "type": "tool_result",
+     "content": "Permission to use Bash denied by plugin ciel-work: Work is planning. Build the plan and call work_execute before changing state.",
+     "is_error": true,
+     "tool_use_id": "toolu_w3",
+     "cache_control": {
+      "type": "ephemeral"
+     }
+    }
+   ],
+   "served_tool": {
+    "name": "mcp__ciel-runtime-router__work_plan_set",
+    "input": {
+     "goal": "Verify real Work mode",
+     "children": [
+      {
+       "title": "Exercise guarded mutation",
+       "children": [
+        {
+         "title": "Edit and verify subject",
+         "children": [
+          {
+           "title": "Apply verified edit"
+          },
+          {
+           "title": "Continue persisted plan"
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   },
+   "response": [
+    {
+     "type": "tool_use",
+     "id": "toolu_w4",
+     "name": "mcp__ciel-runtime-router__work_plan_set",
+     "input": {
+      "goal": "Verify real Work mode",
+      "children": [
+       {
+        "title": "Exercise guarded mutation",
+        "children": [
+         {
+          "title": "Edit and verify subject",
+          "children": [
+           {
+            "title": "Apply verified edit"
+           },
+           {
+            "title": "Continue persisted plan"
+           }
+          ]
+         }
+        ]
+       }
+      ]
+     }
+    }
+   ]
+  },
+  {
+   "n": 5,
+   "tag": "main",
+   "stage": 4,
+   "path": "/v1/messages?beta=true",
+   "model": "fake-work",
+   "tool_names": [
+    "Agent",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterWorktree",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status"
+   ],
+   "work_instructions": true,
+   "prior_results": [
+    {
+     "type": "tool_result",
+     "content": "Permission to use Bash denied by plugin ciel-work: Work is planning. Build the plan and call work_execute before changing state.",
+     "is_error": true,
+     "tool_use_id": "toolu_w3"
+    },
+    {
+     "tool_use_id": "toolu_w4",
+     "type": "tool_result",
+     "content": [
+      {
+       "type": "text",
+       "text": "Plan for goal n1 saved; Work is in the planning phase.\n\nWork phase: planning\nActive goal progress: 0/2 steps done\n[ ] n1 Verify real Work mode\n  [ ] n2 Exercise guarded mutation\n    [ ] n3 Edit and verify subject\n      [ ] n4 Apply verified edit\n      [ ] n5 Continue persisted plan"
+      }
+     ],
+     "cache_control": {
+      "type": "ephemeral"
+     }
+    }
+   ],
+   "served_tool": {
+    "name": "mcp__ciel-runtime-router__work_execute",
+    "input": {}
+   },
+   "response": [
+    {
+     "type": "tool_use",
+     "id": "toolu_w5",
+     "name": "mcp__ciel-runtime-router__work_execute",
+     "input": {}
+    }
+   ]
+  },
+  {
+   "n": 6,
+   "tag": "main",
+   "stage": 5,
+   "path": "/v1/messages?beta=true",
+   "model": "fake-work",
+   "tool_names": [
+    "Agent",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterWorktree",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status"
+   ],
+   "work_instructions": true,
+   "prior_results": [
+    {
+     "tool_use_id": "toolu_w4",
+     "type": "tool_result",
+     "content": [
+      {
+       "type": "text",
+       "text": "Plan for goal n1 saved; Work is in the planning phase.\n\nWork phase: planning\nActive goal progress: 0/2 steps done\n[ ] n1 Verify real Work mode\n  [ ] n2 Exercise guarded mutation\n    [ ] n3 Edit and verify subject\n      [ ] n4 Apply verified edit\n      [ ] n5 Continue persisted plan"
+      }
+     ]
+    },
+    {
+     "tool_use_id": "toolu_w5",
+     "type": "tool_result",
+     "content": [
+      {
+       "type": "text",
+       "text": "Plan approved; Work is in the executing phase. Start with the next step and record evidence.\n\nWork phase: executing\nActive goal progress: 0/2 steps done\n[ ] n1 Verify real Work mode\n  [ ] n2 Exercise guarded mutation\n    [ ] n3 Edit and verify subject\n      [ ] n4 Apply verified edit\n      [ ] n5 Continue persisted plan"
+      }
+     ],
+     "cache_control": {
+      "type": "ephemeral"
+     }
+    }
+   ],
+   "served_tool": {
+    "name": "Edit",
+    "input": {
+     "file_path": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\claude\\run-ab574cd3\\ws\\subject.txt",
+     "old_string": "BEFORE",
+     "new_string": "AFTER"
+    }
+   },
+   "response": [
+    {
+     "type": "tool_use",
+     "id": "toolu_w6",
+     "name": "Edit",
+     "input": {
+      "file_path": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\claude\\run-ab574cd3\\ws\\subject.txt",
+      "old_string": "BEFORE",
+      "new_string": "AFTER"
+     }
+    }
+   ]
+  },
+  {
+   "n": 7,
+   "tag": "main",
+   "stage": 6,
+   "path": "/v1/messages?beta=true",
+   "model": "fake-work",
+   "tool_names": [
+    "Agent",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterWorktree",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status"
+   ],
+   "work_instructions": true,
+   "prior_results": [
+    {
+     "tool_use_id": "toolu_w5",
+     "type": "tool_result",
+     "content": [
+      {
+       "type": "text",
+       "text": "Plan approved; Work is in the executing phase. Start with the next step and record evidence.\n\nWork phase: executing\nActive goal progress: 0/2 steps done\n[ ] n1 Verify real Work mode\n  [ ] n2 Exercise guarded mutation\n    [ ] n3 Edit and verify subject\n      [ ] n4 Apply verified edit\n      [ ] n5 Continue persisted plan"
+      }
+     ]
+    },
+    {
+     "tool_use_id": "toolu_w6",
+     "type": "tool_result",
+     "content": "The file C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\claude\\run-ab574cd3\\ws\\subject.txt has been updated successfully. (file state is current in your context — no need to Read it back)",
+     "cache_control": {
+      "type": "ephemeral"
+     }
+    }
+   ],
+   "served_tool": {
+    "name": "mcp__ciel-runtime-router__work_status",
+    "input": {
+     "format": "json"
+    }
+   },
+   "response": [
+    {
+     "type": "tool_use",
+     "id": "toolu_w7",
+     "name": "mcp__ciel-runtime-router__work_status",
+     "input": {
+      "format": "json"
+     }
+    }
+   ]
+  },
+  {
+   "n": 8,
+   "tag": "main",
+   "stage": 7,
+   "path": "/v1/messages?beta=true",
+   "model": "fake-work",
+   "tool_names": [
+    "Agent",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterWorktree",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status"
+   ],
+   "work_instructions": true,
+   "prior_results": [
+    {
+     "tool_use_id": "toolu_w6",
+     "type": "tool_result",
+     "content": "The file C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\claude\\run-ab574cd3\\ws\\subject.txt has been updated successfully. (file state is current in your context — no need to Read it back)"
+    },
+    {
+     "tool_use_id": "toolu_w7",
+     "type": "tool_result",
+     "content": [
+      {
+       "type": "text",
+       "text": "{\"enabled\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"version\": 2, \"active_root\": {\"id\": \"n1\", \"title\": \"Verify real Work mode\", \"status\": \"pending\"}, \"done\": 0, \"total\": 2, \"next\": {\"id\": \"n4\", \"title\": \"Apply verified edit\", \"status\": \"pending\", \"path\": [\"Verify real Work mode\", \"Exercise guarded mutation\", \"Edit and verify subject\", \"Apply verified edit\"]}, \"breakdown\": [{\"id\": \"n2\", \"title\": \"Exercise guarded mutation\", \"status\": \"pending\", \"done\": 0, \"total\": 2}], \"ready\": true, \"ready_reason\": \"ready\", \"goals\": 1}"
+      }
+     ],
+     "cache_control": {
+      "type": "ephemeral"
+     }
+    }
+   ],
+   "served_tool": {
+    "name": "mcp__ciel-runtime-router__work_node_update",
+    "input": {
+     "id": "n4",
+     "status": "in_progress"
+    }
+   },
+   "response": [
+    {
+     "type": "tool_use",
+     "id": "toolu_w8",
+     "name": "mcp__ciel-runtime-router__work_node_update",
+     "input": {
+      "id": "n4",
+      "status": "in_progress"
+     }
+    }
+   ]
+  },
+  {
+   "n": 9,
+   "tag": "main",
+   "stage": 8,
+   "path": "/v1/messages?beta=true",
+   "model": "fake-work",
+   "tool_names": [
+    "Agent",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterWorktree",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status"
+   ],
+   "work_instructions": true,
+   "prior_results": [
+    {
+     "tool_use_id": "toolu_w7",
+     "type": "tool_result",
+     "content": [
+      {
+       "type": "text",
+       "text": "{\"enabled\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"version\": 2, \"active_root\": {\"id\": \"n1\", \"title\": \"Verify real Work mode\", \"status\": \"pending\"}, \"done\": 0, \"total\": 2, \"next\": {\"id\": \"n4\", \"title\": \"Apply verified edit\", \"status\": \"pending\", \"path\": [\"Verify real Work mode\", \"Exercise guarded mutation\", \"Edit and verify subject\", \"Apply verified edit\"]}, \"breakdown\": [{\"id\": \"n2\", \"title\": \"Exercise guarded mutation\", \"status\": \"pending\", \"done\": 0, \"total\": 2}], \"ready\": true, \"ready_reason\": \"ready\", \"goals\": 1}"
+      }
+     ]
+    },
+    {
+     "tool_use_id": "toolu_w8",
+     "type": "tool_result",
+     "content": [
+      {
+       "type": "text",
+       "text": "Updated n4 (in_progress).\n\nWork phase: executing\nActive goal progress: 0/2 steps done\n[~] n1 Verify real Work mode\n  [~] n2 Exercise guarded mutation\n    [~] n3 Edit and verify subject\n      [~] n4 Apply verified edit\n      [ ] n5 Continue persisted plan"
+      }
+     ],
+     "cache_control": {
+      "type": "ephemeral"
+     }
+    }
+   ],
+   "served_tool": {
+    "name": "Bash",
+    "input": {
+     "command": "cat subject.txt",
+     "description": "Verify edited file contents"
+    }
+   },
+   "response": [
+    {
+     "type": "tool_use",
+     "id": "toolu_w9",
+     "name": "Bash",
+     "input": {
+      "command": "cat subject.txt",
+      "description": "Verify edited file contents"
+     }
+    }
+   ]
+  },
+  {
+   "n": 10,
+   "tag": "main",
+   "stage": 9,
+   "path": "/v1/messages?beta=true",
+   "model": "fake-work",
+   "tool_names": [
+    "Agent",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterWorktree",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status"
+   ],
+   "work_instructions": true,
+   "prior_results": [
+    {
+     "tool_use_id": "toolu_w8",
+     "type": "tool_result",
+     "content": [
+      {
+       "type": "text",
+       "text": "Updated n4 (in_progress).\n\nWork phase: executing\nActive goal progress: 0/2 steps done\n[~] n1 Verify real Work mode\n  [~] n2 Exercise guarded mutation\n    [~] n3 Edit and verify subject\n      [~] n4 Apply verified edit\n      [ ] n5 Continue persisted plan"
+      }
+     ]
+    },
+    {
+     "tool_use_id": "toolu_w9",
+     "type": "tool_result",
+     "content": "AFTER",
+     "is_error": false,
+     "cache_control": {
+      "type": "ephemeral"
+     }
+    }
+   ],
+   "served_tool": {
+    "name": "mcp__ciel-runtime-router__work_node_update",
+    "input": {
+     "id": "n4",
+     "status": "done",
+     "evidence": "Actual Edit returned success and Bash cat subject.txt returned AFTER."
+    }
+   },
+   "response": [
+    {
+     "type": "tool_use",
+     "id": "toolu_w10",
+     "name": "mcp__ciel-runtime-router__work_node_update",
+     "input": {
+      "id": "n4",
+      "status": "done",
+      "evidence": "Actual Edit returned success and Bash cat subject.txt returned AFTER."
+     }
+    }
+   ]
+  },
+  {
+   "n": 11,
+   "tag": "main",
+   "stage": 10,
+   "path": "/v1/messages?beta=true",
+   "model": "fake-work",
+   "tool_names": [
+    "Agent",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterWorktree",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status"
+   ],
+   "work_instructions": true,
+   "prior_results": [
+    {
+     "tool_use_id": "toolu_w9",
+     "type": "tool_result",
+     "content": "AFTER",
+     "is_error": false
+    },
+    {
+     "tool_use_id": "toolu_w10",
+     "type": "tool_result",
+     "content": [
+      {
+       "type": "text",
+       "text": "Updated n4 (done).\n\nWork phase: executing\nActive goal progress: 1/2 steps done\n[~] n1 Verify real Work mode\n  [~] n2 Exercise guarded mutation\n    [~] n3 Edit and verify subject\n      [x] n4 Apply verified edit  (evidence: Actual Edit returned success and Bash cat subject.txt returned AFTER.)\n      [ ] n5 Continue persisted plan"
+      }
+     ],
+     "cache_control": {
+      "type": "ephemeral"
+     }
+    }
+   ],
+   "response": [
+    {
+     "type": "text",
+     "text": "E2EWORK-MAIN-DONE"
+    }
+   ]
+  },
+  {
+   "n": 12,
+   "tag": "continue",
+   "stage": 0,
+   "path": "/v1/messages?beta=true",
+   "model": "fake-work",
+   "tool_names": [
+    "Agent",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterWorktree",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status"
+   ],
+   "work_instructions": true,
+   "prior_results": [
+    {
+     "tool_use_id": "toolu_w9",
+     "type": "tool_result",
+     "content": "AFTER",
+     "is_error": false
+    },
+    {
+     "tool_use_id": "toolu_w10",
+     "type": "tool_result",
+     "content": [
+      {
+       "type": "text",
+       "text": "Updated n4 (done).\n\nWork phase: executing\nActive goal progress: 1/2 steps done\n[~] n1 Verify real Work mode\n  [~] n2 Exercise guarded mutation\n    [~] n3 Edit and verify subject\n      [x] n4 Apply verified edit  (evidence: Actual Edit returned success and Bash cat subject.txt returned AFTER.)\n      [ ] n5 Continue persisted plan"
+      }
+     ]
+    }
+   ],
+   "served_tool": {
+    "name": "mcp__ciel-runtime-router__work_status",
+    "input": {
+     "format": "json"
+    }
+   },
+   "response": [
+    {
+     "type": "tool_use",
+     "id": "toolu_w12",
+     "name": "mcp__ciel-runtime-router__work_status",
+     "input": {
+      "format": "json"
+     }
+    }
+   ]
+  },
+  {
+   "n": 13,
+   "tag": "continue",
+   "stage": 1,
+   "path": "/v1/messages?beta=true",
+   "model": "fake-work",
+   "tool_names": [
+    "Agent",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterWorktree",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status"
+   ],
+   "work_instructions": true,
+   "prior_results": [
+    {
+     "tool_use_id": "toolu_w10",
+     "type": "tool_result",
+     "content": [
+      {
+       "type": "text",
+       "text": "Updated n4 (done).\n\nWork phase: executing\nActive goal progress: 1/2 steps done\n[~] n1 Verify real Work mode\n  [~] n2 Exercise guarded mutation\n    [~] n3 Edit and verify subject\n      [x] n4 Apply verified edit  (evidence: Actual Edit returned success and Bash cat subject.txt returned AFTER.)\n      [ ] n5 Continue persisted plan"
+      }
+     ]
+    },
+    {
+     "tool_use_id": "toolu_w12",
+     "type": "tool_result",
+     "content": [
+      {
+       "type": "text",
+       "text": "{\"enabled\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"version\": 4, \"active_root\": {\"id\": \"n1\", \"title\": \"Verify real Work mode\", \"status\": \"in_progress\"}, \"done\": 1, \"total\": 2, \"next\": {\"id\": \"n5\", \"title\": \"Continue persisted plan\", \"status\": \"pending\", \"path\": [\"Verify real Work mode\", \"Exercise guarded mutation\", \"Edit and verify subject\", \"Continue persisted plan\"]}, \"breakdown\": [{\"id\": \"n2\", \"title\": \"Exercise guarded mutation\", \"status\": \"in_progress\", \"done\": 1, \"total\": 2}], \"ready\": true, \"ready_reason\": \"ready\", \"goals\": 1}"
+      }
+     ],
+     "cache_control": {
+      "type": "ephemeral"
+     }
+    }
+   ],
+   "response": [
+    {
+     "type": "text",
+     "text": "E2EWORK-CONTINUE-DONE"
+    }
+   ]
+  },
+  {
+   "n": 14,
+   "tag": "ask-deny",
+   "stage": 0,
+   "path": "/v1/messages?beta=true",
+   "model": "fake-work",
+   "tool_names": [
+    "Agent",
+    "AskUserQuestion",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterPlanMode",
+    "EnterWorktree",
+    "ExitPlanMode",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status"
+   ],
+   "work_instructions": true,
+   "prior_results": [
+    {
+     "tool_use_id": "toolu_w10",
+     "type": "tool_result",
+     "content": [
+      {
+       "type": "text",
+       "text": "Updated n4 (done).\n\nWork phase: executing\nActive goal progress: 1/2 steps done\n[~] n1 Verify real Work mode\n  [~] n2 Exercise guarded mutation\n    [~] n3 Edit and verify subject\n      [x] n4 Apply verified edit  (evidence: Actual Edit returned success and Bash cat subject.txt returned AFTER.)\n      [ ] n5 Continue persisted plan"
+      }
+     ]
+    },
+    {
+     "tool_use_id": "toolu_w12",
+     "type": "tool_result",
+     "content": [
+      {
+       "type": "text",
+       "text": "{\"enabled\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"version\": 4, \"active_root\": {\"id\": \"n1\", \"title\": \"Verify real Work mode\", \"status\": \"in_progress\"}, \"done\": 1, \"total\": 2, \"next\": {\"id\": \"n5\", \"title\": \"Continue persisted plan\", \"status\": \"pending\", \"path\": [\"Verify real Work mode\", \"Exercise guarded mutation\", \"Edit and verify subject\", \"Continue persisted plan\"]}, \"breakdown\": [{\"id\": \"n2\", \"title\": \"Exercise guarded mutation\", \"status\": \"in_progress\", \"done\": 1, \"total\": 2}], \"ready\": true, \"ready_reason\": \"ready\", \"goals\": 1}"
+      }
+     ]
+    }
+   ],
+   "served_tool": {
+    "name": "mcp__ciel-runtime-router__work_execute",
+    "input": {}
+   },
+   "response": [
+    {
+     "type": "tool_use",
+     "id": "toolu_w14",
+     "name": "mcp__ciel-runtime-router__work_execute",
+     "input": {}
+    }
+   ]
+  },
+  {
+   "n": 15,
+   "tag": "ask-deny",
+   "stage": 1,
+   "path": "/v1/messages?beta=true",
+   "model": "fake-work",
+   "tool_names": [
+    "Agent",
+    "AskUserQuestion",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterPlanMode",
+    "EnterWorktree",
+    "ExitPlanMode",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status"
+   ],
+   "work_instructions": true,
+   "prior_results": [
+    {
+     "tool_use_id": "toolu_w12",
+     "type": "tool_result",
+     "content": [
+      {
+       "type": "text",
+       "text": "{\"enabled\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"version\": 4, \"active_root\": {\"id\": \"n1\", \"title\": \"Verify real Work mode\", \"status\": \"in_progress\"}, \"done\": 1, \"total\": 2, \"next\": {\"id\": \"n5\", \"title\": \"Continue persisted plan\", \"status\": \"pending\", \"path\": [\"Verify real Work mode\", \"Exercise guarded mutation\", \"Edit and verify subject\", \"Continue persisted plan\"]}, \"breakdown\": [{\"id\": \"n2\", \"title\": \"Exercise guarded mutation\", \"status\": \"in_progress\", \"done\": 1, \"total\": 2}], \"ready\": true, \"ready_reason\": \"ready\", \"goals\": 1}"
+      }
+     ]
+    },
+    {
+     "type": "tool_result",
+     "content": "<tool_use_error>Work plan not approved; keep planning.</tool_use_error>",
+     "is_error": true,
+     "tool_use_id": "toolu_w14",
+     "cache_control": {
+      "type": "ephemeral"
+     }
+    }
+   ],
+   "response": [
+    {
+     "type": "text",
+     "text": "E2EWORK-ASK-DENY-DONE"
+    }
+   ]
+  },
+  {
+   "n": 16,
+   "tag": "ask-approve",
+   "stage": 0,
+   "path": "/v1/messages?beta=true",
+   "model": "fake-work",
+   "tool_names": [
+    "Agent",
+    "AskUserQuestion",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterPlanMode",
+    "EnterWorktree",
+    "ExitPlanMode",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status"
+   ],
+   "work_instructions": true,
+   "prior_results": [
+    {
+     "tool_use_id": "toolu_w12",
+     "type": "tool_result",
+     "content": [
+      {
+       "type": "text",
+       "text": "{\"enabled\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"version\": 4, \"active_root\": {\"id\": \"n1\", \"title\": \"Verify real Work mode\", \"status\": \"in_progress\"}, \"done\": 1, \"total\": 2, \"next\": {\"id\": \"n5\", \"title\": \"Continue persisted plan\", \"status\": \"pending\", \"path\": [\"Verify real Work mode\", \"Exercise guarded mutation\", \"Edit and verify subject\", \"Continue persisted plan\"]}, \"breakdown\": [{\"id\": \"n2\", \"title\": \"Exercise guarded mutation\", \"status\": \"in_progress\", \"done\": 1, \"total\": 2}], \"ready\": true, \"ready_reason\": \"ready\", \"goals\": 1}"
+      }
+     ]
+    },
+    {
+     "type": "tool_result",
+     "content": "<tool_use_error>Work plan not approved; keep planning.</tool_use_error>",
+     "is_error": true,
+     "tool_use_id": "toolu_w14"
+    }
+   ],
+   "served_tool": {
+    "name": "mcp__ciel-runtime-router__work_execute",
+    "input": {}
+   },
+   "response": [
+    {
+     "type": "tool_use",
+     "id": "toolu_w16",
+     "name": "mcp__ciel-runtime-router__work_execute",
+     "input": {}
+    }
+   ]
+  },
+  {
+   "n": 17,
+   "tag": "ask-approve",
+   "stage": 1,
+   "path": "/v1/messages?beta=true",
+   "model": "fake-work",
+   "tool_names": [
+    "Agent",
+    "AskUserQuestion",
+    "Bash",
+    "CronCreate",
+    "CronDelete",
+    "CronList",
+    "Edit",
+    "EnterPlanMode",
+    "EnterWorktree",
+    "ExitPlanMode",
+    "ExitWorktree",
+    "Glob",
+    "Grep",
+    "ListAgents",
+    "Monitor",
+    "NotebookEdit",
+    "Read",
+    "ReportFindings",
+    "ScheduleWakeup",
+    "SendMessage",
+    "Skill",
+    "TaskStop",
+    "WebFetch",
+    "WebSearch",
+    "Workflow",
+    "Write",
+    "mcp__ciel-runtime-router__compact_session",
+    "mcp__ciel-runtime-router__goal_clear",
+    "mcp__ciel-runtime-router__llm_options",
+    "mcp__ciel-runtime-router__new_session",
+    "mcp__ciel-runtime-router__provider_fallback",
+    "mcp__ciel-runtime-router__recover_sse_delivery",
+    "mcp__ciel-runtime-router__restart_session",
+    "mcp__ciel-runtime-router__send_file",
+    "mcp__ciel-runtime-router__session_backup",
+    "mcp__ciel-runtime-router__submit_input",
+    "mcp__ciel-runtime-router__telemetry_logs",
+    "mcp__ciel-runtime-router__work_execute",
+    "mcp__ciel-runtime-router__work_node_add",
+    "mcp__ciel-runtime-router__work_node_remove",
+    "mcp__ciel-runtime-router__work_node_update",
+    "mcp__ciel-runtime-router__work_plan_set",
+    "mcp__ciel-runtime-router__work_replan",
+    "mcp__ciel-runtime-router__work_select",
+    "mcp__ciel-runtime-router__work_status"
+   ],
+   "work_instructions": true,
+   "prior_results": [
+    {
+     "type": "tool_result",
+     "content": "<tool_use_error>Work plan not approved; keep planning.</tool_use_error>",
+     "is_error": true,
+     "tool_use_id": "toolu_w14"
+    },
+    {
+     "tool_use_id": "toolu_w16",
+     "type": "tool_result",
+     "content": [
+      {
+       "type": "text",
+       "text": "Plan approved; Work is in the executing phase. Start with the next step and record evidence.\n\nWork phase: executing\nActive goal progress: 1/2 steps done\n[~] n1 Verify real Work mode\n  [~] n2 Exercise guarded mutation\n    [~] n3 Edit and verify subject\n      [x] n4 Apply verified edit  (evidence: Actual Edit returned success and Bash cat subject.txt returned AFTER.)\n      [ ] n5 Continue persisted plan"
+      }
+     ],
+     "cache_control": {
+      "type": "ephemeral"
+     }
+    }
+   ],
+   "response": [
+    {
+     "type": "text",
+     "text": "E2EWORK-ASK-APPROVE-DONE"
+    }
+   ]
+  }
+ ],
+ "egress": [
+  {
+   "method": "CONNECT",
+   "path": "downloads.claude.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "github.com:443"
+  }
+ ],
+ "live_before": {
+  "9385": {
+   "ok": true,
+   "version": "0.2.51-nightly.20261024-115611.5d4dc0e",
+   "source_fingerprint": "49b907420b3f019f",
+   "pid": 6032,
+   "user": "aapw-a15u17",
+   "home": "G:\\ciel-bridge-service",
+   "config_dir": "G:\\ciel-bridge-service\\AppData\\Roaming\\ciel-runtime\\router-instances\\9385-52ea0f8a2296",
+   "workspace": "g:\\ciel-bridge-service",
+   "router_port": 9385,
+   "instance_id": "9385-52ea0f8a2296",
+   "active_client_count": 1,
+   "active_client_pids": [
+    48200
+   ],
+   "provider": "cielairouter",
+   "model": "ciel-runtime-cielairouter-_walkie_opus55-sol61-fast",
+   "web_chat": "/ca/web/chat",
+   "web_chat_api": "/ca/web/chat/api",
+   "speech": "/ca/speech/health",
+   "chat": "/ca/chat/health",
+   "plan": "/ca/plan/artifacts",
+   "events": "/ca/events",
+   "events_websocket": "/ca/events/ws",
+   "external_event_receivers": "/ca/events/receivers",
+   "otlp_logs": "/v1/logs",
+   "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+   "tui": "/ca/tui",
+   "tui_status": "/ca/tui/status",
+   "tui_stream": "/ca/tui/stream",
+   "cielairouter_gateway": {
+    "provider": "cielairouter",
+    "selector_module": "ciel_runtime_support.cielairouter_gateways",
+    "selector": "available",
+    "selector_error": "",
+    "sessions": 1,
+    "routes": [
+     {
+      "central": "ciel-router-01.ezonebot.com",
+      "state": "gateway",
+      "endpoint": "http://127.0.0.1:20128",
+      "node_id": "6016dfc3-4689-4e8b-8479-45eeb49cc48b",
+      "reason": "ranked",
+      "degraded": false,
+      "generation": 248,
+      "at": 1793014641.7461429,
+      "since": 1793006914.697351
+     }
+    ],
+    "gateways": [
+     {
+      "origin": "ciel-router-01.ezonebot.com",
+      "endpoint": "http://127.0.0.1:20128",
+      "reason": "ranked",
+      "degraded": false,
+      "generation": 248,
+      "cooldowns": {
+       "http://127.0.0.1:20128": 1792975812.661774
+      }
+     }
+    ]
+   }
+  },
+  "9464": {
+   "ok": true,
+   "version": "0.2.51-nightly.20261026-044702.d15822f",
+   "source_fingerprint": "49b907420b3f019f",
+   "pid": 51556,
+   "user": "djlov",
+   "home": "C:\\Users\\djlov",
+   "config_dir": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9464-3c2987735124",
+   "workspace": "c:\\users\\djlov\\ciel-code",
+   "router_port": 9464,
+   "instance_id": "9464-3c2987735124",
+   "active_client_count": 1,
+   "active_client_pids": [
+    90256
+   ],
+   "provider": "ollama-cloud",
+   "model": "ciel-runtime-ollama-cloud-glm-5.3-flash",
+   "web_chat": "/ca/web/chat",
+   "web_chat_api": "/ca/web/chat/api",
+   "speech": "/ca/speech/health",
+   "chat": "/ca/chat/health",
+   "plan": "/ca/plan/artifacts",
+   "events": "/ca/events",
+   "events_websocket": "/ca/events/ws",
+   "external_event_receivers": "/ca/events/receivers",
+   "otlp_logs": "/v1/logs",
+   "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+   "tui": "/ca/tui",
+   "tui_status": "/ca/tui/status",
+   "tui_stream": "/ca/tui/stream"
+  },
+  "9489": {
+   "ok": true,
+   "version": "0.2.51-nightly.20261024-102326.a7e28f9",
+   "source_fingerprint": "49b907420b3f019f",
+   "pid": 67368,
+   "user": "djlov",
+   "home": "C:\\Users\\djlov",
+   "config_dir": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9489-b35f12ba1034",
+   "workspace": "f:\\omini-router",
+   "router_port": 9489,
+   "instance_id": "9489-b35f12ba1034",
+   "active_client_count": 1,
+   "active_client_pids": [
+    50412
+   ],
+   "provider": "cielairouter",
+   "model": "ciel-runtime-cielairouter-_walkie_sol61-opus55-fast",
+   "web_chat": "/ca/web/chat",
+   "web_chat_api": "/ca/web/chat/api",
+   "speech": "/ca/speech/health",
+   "chat": "/ca/chat/health",
+   "plan": "/ca/plan/artifacts",
+   "events": "/ca/events",
+   "events_websocket": "/ca/events/ws",
+   "external_event_receivers": "/ca/events/receivers",
+   "otlp_logs": "/v1/logs",
+   "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+   "tui": "/ca/tui",
+   "tui_status": "/ca/tui/status",
+   "tui_stream": "/ca/tui/stream",
+   "cielairouter_gateway": {
+    "provider": "cielairouter",
+    "selector_module": "ciel_runtime_support.cielairouter_gateways",
+    "selector": "available",
+    "selector_error": "",
+    "sessions": 1,
+    "routes": [
+     {
+      "central": "ciel-router-01.ezonebot.com",
+      "state": "gateway",
+      "endpoint": "http://127.0.0.1:20128",
+      "node_id": "6016dfc3-4689-4e8b-8479-45eeb49cc48b",
+      "reason": "ranked",
+      "degraded": false,
+      "generation": 42,
+      "at": 1792979157.574416,
+      "since": 1792978445.915942
+     }
+    ],
+    "gateways": [
+     {
+      "origin": "ciel-router-01.ezonebot.com",
+      "endpoint": "http://127.0.0.1:20128",
+      "reason": "ranked",
+      "degraded": false,
+      "generation": 42,
+      "cooldowns": {
+       "http://127.0.0.1:20128": 1792975821.575979
+      }
+     }
+    ]
+   }
+  },
+  "9505": {
+   "ok": true,
+   "version": "0.2.51-nightly.20261026-044702.d15822f",
+   "source_fingerprint": "49b907420b3f019f",
+   "pid": 93416,
+   "user": "djlov",
+   "home": "C:\\Users\\djlov",
+   "config_dir": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9505-aae7db361c7f",
+   "workspace": "g:\\ciel-walkie",
+   "router_port": 9505,
+   "instance_id": "9505-aae7db361c7f",
+   "active_client_count": 1,
+   "active_client_pids": [
+    94844
+   ],
+   "provider": "cielairouter",
+   "model": "ciel-runtime-cielairouter-_walkie_opus55-sol61-fast",
+   "web_chat": "/ca/web/chat",
+   "web_chat_api": "/ca/web/chat/api",
+   "speech": "/ca/speech/health",
+   "chat": "/ca/chat/health",
+   "plan": "/ca/plan/artifacts",
+   "events": "/ca/events",
+   "events_websocket": "/ca/events/ws",
+   "external_event_receivers": "/ca/events/receivers",
+   "otlp_logs": "/v1/logs",
+   "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+   "tui": "/ca/tui",
+   "tui_status": "/ca/tui/status",
+   "tui_stream": "/ca/tui/stream",
+   "cielairouter_gateway": {
+    "provider": "cielairouter",
+    "selector_module": "ciel_runtime_support.cielairouter_gateways",
+    "selector": "available",
+    "selector_error": "",
+    "sessions": 1,
+    "routes": [
+     {
+      "central": "ciel-router-01.ezonebot.com",
+      "state": "gateway",
+      "endpoint": "http://127.0.0.1:20128",
+      "node_id": "6016dfc3-4689-4e8b-8479-45eeb49cc48b",
+      "reason": "ranked",
+      "degraded": false,
+      "generation": 28,
+      "at": 1793017645.790056,
+      "since": 1793015792.5598528
+     }
+    ],
+    "gateways": [
+     {
+      "origin": "ciel-router-01.ezonebot.com",
+      "endpoint": "http://127.0.0.1:20128",
+      "reason": "ranked",
+      "degraded": false,
+      "generation": 28,
+      "cooldowns": {}
+     }
+    ]
+   }
+  },
+  "9524": {
+   "ok": true,
+   "version": "0.2.51-nightly.20261025-050332.144bebc",
+   "source_fingerprint": "49b907420b3f019f",
+   "pid": 81772,
+   "user": "djlov",
+   "home": "C:\\Users\\djlov",
+   "config_dir": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9524-bd5f642b3583",
+   "workspace": "c:\\users\\djlov\\ciel-runtime",
+   "router_port": 9524,
+   "instance_id": "9524-bd5f642b3583",
+   "active_client_count": 1,
+   "active_client_pids": [
+    51992
+   ],
+   "provider": "cielairouter",
+   "model": "ciel-runtime-cielairouter-_walkie_opus55-sol61-fast",
+   "web_chat": "/ca/web/chat",
+   "web_chat_api": "/ca/web/chat/api",
+   "speech": "/ca/speech/health",
+   "chat": "/ca/chat/health",
+   "plan": "/ca/plan/artifacts",
+   "events": "/ca/events",
+   "events_websocket": "/ca/events/ws",
+   "external_event_receivers": "/ca/events/receivers",
+   "otlp_logs": "/v1/logs",
+   "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+   "tui": "/ca/tui",
+   "tui_status": "/ca/tui/status",
+   "tui_stream": "/ca/tui/stream",
+   "cielairouter_gateway": {
+    "provider": "cielairouter",
+    "selector_module": "ciel_runtime_support.cielairouter_gateways",
+    "selector": "available",
+    "selector_error": "",
+    "sessions": 1,
+    "routes": [
+     {
+      "central": "ciel-router-01.ezonebot.com",
+      "state": "gateway",
+      "endpoint": "http://127.0.0.1:20128",
+      "node_id": "6016dfc3-4689-4e8b-8479-45eeb49cc48b",
+      "reason": "ranked",
+      "degraded": false,
+      "generation": 49,
+      "at": 1793017636.201731,
+      "since": 1793017425.3262296
+     }
+    ],
+    "gateways": [
+     {
+      "origin": "ciel-router-01.ezonebot.com",
+      "endpoint": "http://127.0.0.1:20128",
+      "reason": "ranked",
+      "degraded": false,
+      "generation": 49,
+      "cooldowns": {
+       "http://127.0.0.1:20128": 1792975812.6588318
+      }
+     }
+    ]
+   }
+  }
+ },
+ "live_after": {
+  "9385": {
+   "ok": true,
+   "version": "0.2.51-nightly.20261024-115611.5d4dc0e",
+   "source_fingerprint": "49b907420b3f019f",
+   "pid": 6032,
+   "user": "aapw-a15u17",
+   "home": "G:\\ciel-bridge-service",
+   "config_dir": "G:\\ciel-bridge-service\\AppData\\Roaming\\ciel-runtime\\router-instances\\9385-52ea0f8a2296",
+   "workspace": "g:\\ciel-bridge-service",
+   "router_port": 9385,
+   "instance_id": "9385-52ea0f8a2296",
+   "active_client_count": 1,
+   "active_client_pids": [
+    48200
+   ],
+   "provider": "cielairouter",
+   "model": "ciel-runtime-cielairouter-_walkie_opus55-sol61-fast",
+   "web_chat": "/ca/web/chat",
+   "web_chat_api": "/ca/web/chat/api",
+   "speech": "/ca/speech/health",
+   "chat": "/ca/chat/health",
+   "plan": "/ca/plan/artifacts",
+   "events": "/ca/events",
+   "events_websocket": "/ca/events/ws",
+   "external_event_receivers": "/ca/events/receivers",
+   "otlp_logs": "/v1/logs",
+   "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+   "tui": "/ca/tui",
+   "tui_status": "/ca/tui/status",
+   "tui_stream": "/ca/tui/stream",
+   "cielairouter_gateway": {
+    "provider": "cielairouter",
+    "selector_module": "ciel_runtime_support.cielairouter_gateways",
+    "selector": "available",
+    "selector_error": "",
+    "sessions": 1,
+    "routes": [
+     {
+      "central": "ciel-router-01.ezonebot.com",
+      "state": "gateway",
+      "endpoint": "http://127.0.0.1:20128",
+      "node_id": "6016dfc3-4689-4e8b-8479-45eeb49cc48b",
+      "reason": "ranked",
+      "degraded": false,
+      "generation": 248,
+      "at": 1793014641.7461429,
+      "since": 1793006914.697351
+     }
+    ],
+    "gateways": [
+     {
+      "origin": "ciel-router-01.ezonebot.com",
+      "endpoint": "http://127.0.0.1:20128",
+      "reason": "ranked",
+      "degraded": false,
+      "generation": 248,
+      "cooldowns": {
+       "http://127.0.0.1:20128": 1792975812.661774
+      }
+     }
+    ]
+   }
+  },
+  "9464": {
+   "ok": true,
+   "version": "0.2.51-nightly.20261026-044702.d15822f",
+   "source_fingerprint": "49b907420b3f019f",
+   "pid": 51556,
+   "user": "djlov",
+   "home": "C:\\Users\\djlov",
+   "config_dir": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9464-3c2987735124",
+   "workspace": "c:\\users\\djlov\\ciel-code",
+   "router_port": 9464,
+   "instance_id": "9464-3c2987735124",
+   "active_client_count": 1,
+   "active_client_pids": [
+    90256
+   ],
+   "provider": "ollama-cloud",
+   "model": "ciel-runtime-ollama-cloud-glm-5.3-flash",
+   "web_chat": "/ca/web/chat",
+   "web_chat_api": "/ca/web/chat/api",
+   "speech": "/ca/speech/health",
+   "chat": "/ca/chat/health",
+   "plan": "/ca/plan/artifacts",
+   "events": "/ca/events",
+   "events_websocket": "/ca/events/ws",
+   "external_event_receivers": "/ca/events/receivers",
+   "otlp_logs": "/v1/logs",
+   "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+   "tui": "/ca/tui",
+   "tui_status": "/ca/tui/status",
+   "tui_stream": "/ca/tui/stream"
+  },
+  "9489": {
+   "ok": true,
+   "version": "0.2.51-nightly.20261024-102326.a7e28f9",
+   "source_fingerprint": "49b907420b3f019f",
+   "pid": 67368,
+   "user": "djlov",
+   "home": "C:\\Users\\djlov",
+   "config_dir": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9489-b35f12ba1034",
+   "workspace": "f:\\omini-router",
+   "router_port": 9489,
+   "instance_id": "9489-b35f12ba1034",
+   "active_client_count": 1,
+   "active_client_pids": [
+    50412
+   ],
+   "provider": "cielairouter",
+   "model": "ciel-runtime-cielairouter-_walkie_sol61-opus55-fast",
+   "web_chat": "/ca/web/chat",
+   "web_chat_api": "/ca/web/chat/api",
+   "speech": "/ca/speech/health",
+   "chat": "/ca/chat/health",
+   "plan": "/ca/plan/artifacts",
+   "events": "/ca/events",
+   "events_websocket": "/ca/events/ws",
+   "external_event_receivers": "/ca/events/receivers",
+   "otlp_logs": "/v1/logs",
+   "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+   "tui": "/ca/tui",
+   "tui_status": "/ca/tui/status",
+   "tui_stream": "/ca/tui/stream",
+   "cielairouter_gateway": {
+    "provider": "cielairouter",
+    "selector_module": "ciel_runtime_support.cielairouter_gateways",
+    "selector": "available",
+    "selector_error": "",
+    "sessions": 1,
+    "routes": [
+     {
+      "central": "ciel-router-01.ezonebot.com",
+      "state": "gateway",
+      "endpoint": "http://127.0.0.1:20128",
+      "node_id": "6016dfc3-4689-4e8b-8479-45eeb49cc48b",
+      "reason": "ranked",
+      "degraded": false,
+      "generation": 42,
+      "at": 1792979157.574416,
+      "since": 1792978445.915942
+     }
+    ],
+    "gateways": [
+     {
+      "origin": "ciel-router-01.ezonebot.com",
+      "endpoint": "http://127.0.0.1:20128",
+      "reason": "ranked",
+      "degraded": false,
+      "generation": 42,
+      "cooldowns": {
+       "http://127.0.0.1:20128": 1792975821.575979
+      }
+     }
+    ]
+   }
+  },
+  "9505": {
+   "ok": true,
+   "version": "0.2.51-nightly.20261026-044702.d15822f",
+   "source_fingerprint": "49b907420b3f019f",
+   "pid": 93416,
+   "user": "djlov",
+   "home": "C:\\Users\\djlov",
+   "config_dir": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9505-aae7db361c7f",
+   "workspace": "g:\\ciel-walkie",
+   "router_port": 9505,
+   "instance_id": "9505-aae7db361c7f",
+   "active_client_count": 1,
+   "active_client_pids": [
+    94844
+   ],
+   "provider": "cielairouter",
+   "model": "ciel-runtime-cielairouter-_walkie_opus55-sol61-fast",
+   "web_chat": "/ca/web/chat",
+   "web_chat_api": "/ca/web/chat/api",
+   "speech": "/ca/speech/health",
+   "chat": "/ca/chat/health",
+   "plan": "/ca/plan/artifacts",
+   "events": "/ca/events",
+   "events_websocket": "/ca/events/ws",
+   "external_event_receivers": "/ca/events/receivers",
+   "otlp_logs": "/v1/logs",
+   "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+   "tui": "/ca/tui",
+   "tui_status": "/ca/tui/status",
+   "tui_stream": "/ca/tui/stream",
+   "cielairouter_gateway": {
+    "provider": "cielairouter",
+    "selector_module": "ciel_runtime_support.cielairouter_gateways",
+    "selector": "available",
+    "selector_error": "",
+    "sessions": 1,
+    "routes": [
+     {
+      "central": "ciel-router-01.ezonebot.com",
+      "state": "gateway",
+      "endpoint": "http://127.0.0.1:20128",
+      "node_id": "6016dfc3-4689-4e8b-8479-45eeb49cc48b",
+      "reason": "ranked",
+      "degraded": false,
+      "generation": 28,
+      "at": 1793017691.6282783,
+      "since": 1793015792.5598528
+     }
+    ],
+    "gateways": [
+     {
+      "origin": "ciel-router-01.ezonebot.com",
+      "endpoint": "http://127.0.0.1:20128",
+      "reason": "ranked",
+      "degraded": false,
+      "generation": 28,
+      "cooldowns": {}
+     }
+    ]
+   }
+  },
+  "9524": {
+   "ok": true,
+   "version": "0.2.51-nightly.20261025-050332.144bebc",
+   "source_fingerprint": "49b907420b3f019f",
+   "pid": 81772,
+   "user": "djlov",
+   "home": "C:\\Users\\djlov",
+   "config_dir": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9524-bd5f642b3583",
+   "workspace": "c:\\users\\djlov\\ciel-runtime",
+   "router_port": 9524,
+   "instance_id": "9524-bd5f642b3583",
+   "active_client_count": 1,
+   "active_client_pids": [
+    51992
+   ],
+   "provider": "cielairouter",
+   "model": "ciel-runtime-cielairouter-_walkie_opus55-sol61-fast",
+   "web_chat": "/ca/web/chat",
+   "web_chat_api": "/ca/web/chat/api",
+   "speech": "/ca/speech/health",
+   "chat": "/ca/chat/health",
+   "plan": "/ca/plan/artifacts",
+   "events": "/ca/events",
+   "events_websocket": "/ca/events/ws",
+   "external_event_receivers": "/ca/events/receivers",
+   "otlp_logs": "/v1/logs",
+   "telemetry_logs_tool": "POST /ca/mcp tools/call telemetry_logs",
+   "tui": "/ca/tui",
+   "tui_status": "/ca/tui/status",
+   "tui_stream": "/ca/tui/stream",
+   "cielairouter_gateway": {
+    "provider": "cielairouter",
+    "selector_module": "ciel_runtime_support.cielairouter_gateways",
+    "selector": "available",
+    "selector_error": "",
+    "sessions": 1,
+    "routes": [
+     {
+      "central": "ciel-router-01.ezonebot.com",
+      "state": "gateway",
+      "endpoint": "http://127.0.0.1:20128",
+      "node_id": "6016dfc3-4689-4e8b-8479-45eeb49cc48b",
+      "reason": "ranked",
+      "degraded": false,
+      "generation": 49,
+      "at": 1793017687.1119616,
+      "since": 1793017425.3262296
+     }
+    ],
+    "gateways": [
+     {
+      "origin": "ciel-router-01.ezonebot.com",
+      "endpoint": "http://127.0.0.1:20128",
+      "reason": "ranked",
+      "degraded": false,
+      "generation": 49,
+      "cooldowns": {
+       "http://127.0.0.1:20128": 1792975812.6588318
+      }
+     }
+    ]
+   }
+  }
+ }
+}

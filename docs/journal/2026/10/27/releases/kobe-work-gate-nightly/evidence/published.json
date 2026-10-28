@@ -1,0 +1,29 @@
+{
+  "version": "0.2.51-nightly.20261027-194324.273856d",
+  "gitHead": "273856db23939e9a60c0c8d7ac634cf2051b72d9",
+  "tags": {
+    "latest": "0.2.51",
+    "nightly": "0.2.51-nightly.20261027-194324.273856d"
+  },
+  "dist": {
+    "shasum": "dedfa1f2e817140f6fbf0a58e1df8dd2137d51e4",
+    "tarball": "https://registry.npmjs.org/@one-ciel-ai/ciel-runtime/-/ciel-runtime-0.2.51-nightly.20261027-194324.273856d.tgz",
+    "fileCount": 513,
+    "integrity": "sha512-ekrSb6qIFZp+DhiopT+TLy2sFzxVQYDiLgAwMwY7vBH4IqWMbC0tIf0I5sW7ilzX1W/KqW5ACnXzUcqz5qZZJQ==",
+    "signatures": [
+      {
+        "sig": "MEQCIHaXf+Tp7rkBeyyiWXbQ6FGcmZhli2bvaJwjQd0WymL8AiAQP6CoG7qLzKw5EsTBpN69wjfmglC3eIoYJ7s9ipsyGg==",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "sig": "MEUCIASGNELqZw0iD8fQPnm2b7RW4kDd+WpjZbrNd5kMj+XXAiEA5gz2gGRWZXUj1p81AusBIGjr+wP/CkP/vSWvG66Lzpk=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      }
+    ],
+    "unpackedSize": 6922971
+  },
+  "tarball_sha256": "8847ddfd428dd2eb65f47b531f5aebe9d50f3f4b195c9df8710e2dc12099e0ab",
+  "tarball_bytes": 1574968,
+  "files": 513,
+  "package_dir": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\27\\releases\\kobe-work-gate-nightly\\evidence\\payload\\unpack\\package"
+}

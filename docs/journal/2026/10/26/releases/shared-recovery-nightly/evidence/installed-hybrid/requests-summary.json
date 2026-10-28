@@ -1,0 +1,1462 @@
+[
+ {
+  "n": 1,
+  "tag": "aux",
+  "stage": 0,
+  "tool_names": [],
+  "context_number_hint": false,
+  "plan_tool_number_hint": false,
+  "notice_sent_to_model": false,
+  "prior_results": [],
+  "response": [
+   {
+    "type": "text",
+    "text": "E2EHINT-AUX-OK"
+   }
+  ]
+ },
+ {
+  "n": 1,
+  "tag": "main",
+  "stage": 0,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [],
+  "served_tool": "mcp__ciel-runtime-router__work_plan_set",
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_h1",
+    "name": "mcp__ciel-runtime-router__work_plan_set",
+    "input": {
+     "goal": "1. Active approved Work",
+     "children": [
+      {
+       "title": "Active phase",
+       "children": [
+        {
+         "title": "Active leaf"
+        }
+       ]
+      }
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 3,
+  "tag": "main",
+  "stage": 1,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [
+   {
+    "tool_use_id": "toolu_h1",
+    "type": "tool_result",
+    "content": [
+     {
+      "type": "text",
+      "text": "Plan for goal n1 saved; Work is in the planning phase.\n\nWork phase: planning\nActive goal progress: 0/1 steps done\n[ ] n1 1. Active approved Work\n  [ ] n2 Active phase\n    [ ] n3 Active leaf"
+     }
+    ],
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "served_tool": "mcp__ciel-runtime-router__work_execute",
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_h3",
+    "name": "mcp__ciel-runtime-router__work_execute",
+    "input": {}
+   }
+  ]
+ },
+ {
+  "n": 4,
+  "tag": "main",
+  "stage": 2,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [
+   {
+    "tool_use_id": "toolu_h1",
+    "type": "tool_result",
+    "content": [
+     {
+      "type": "text",
+      "text": "Plan for goal n1 saved; Work is in the planning phase.\n\nWork phase: planning\nActive goal progress: 0/1 steps done\n[ ] n1 1. Active approved Work\n  [ ] n2 Active phase\n    [ ] n3 Active leaf"
+     }
+    ]
+   },
+   {
+    "tool_use_id": "toolu_h3",
+    "type": "tool_result",
+    "content": [
+     {
+      "type": "text",
+      "text": "Plan approved; Work is in the executing phase. Start with the next step and record evidence.\n\nWork phase: executing\nActive goal progress: 0/1 steps done\n[ ] n1 1. Active approved Work\n  [ ] n2 Active phase\n    [ ] n3 Active leaf"
+     }
+    ],
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "served_tool": "Bash",
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_h4",
+    "name": "Bash",
+    "input": {
+     "command": "echo SHELL-NATIVE-ALLOWED",
+     "description": "Print owned fixture marker"
+    }
+   }
+  ]
+ },
+ {
+  "n": 5,
+  "tag": "main",
+  "stage": 3,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [
+   {
+    "tool_use_id": "toolu_h3",
+    "type": "tool_result",
+    "content": [
+     {
+      "type": "text",
+      "text": "Plan approved; Work is in the executing phase. Start with the next step and record evidence.\n\nWork phase: executing\nActive goal progress: 0/1 steps done\n[ ] n1 1. Active approved Work\n  [ ] n2 Active phase\n    [ ] n3 Active leaf"
+     }
+    ]
+   },
+   {
+    "tool_use_id": "toolu_h4",
+    "type": "tool_result",
+    "content": "SHELL-NATIVE-ALLOWED\nShell cwd was reset to C:\\Users\\djlov\\AppData\\Local\\Temp\\work-hybrid-482fb007\\ws",
+    "is_error": false,
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "response": [
+   {
+    "type": "text",
+    "text": "HYBRID-ACTIVE-FIRST-TURN-DONE"
+   }
+  ]
+ },
+ {
+  "n": 6,
+  "tag": "aux",
+  "stage": 1,
+  "tool_names": [],
+  "context_number_hint": false,
+  "plan_tool_number_hint": false,
+  "notice_sent_to_model": false,
+  "prior_results": [],
+  "response": [
+   {
+    "type": "text",
+    "text": "E2EHINT-AUX-OK"
+   }
+  ]
+ },
+ {
+  "n": 6,
+  "tag": "queue",
+  "stage": 0,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [
+   {
+    "tool_use_id": "toolu_h3",
+    "type": "tool_result",
+    "content": [
+     {
+      "type": "text",
+      "text": "Plan approved; Work is in the executing phase. Start with the next step and record evidence.\n\nWork phase: executing\nActive goal progress: 0/1 steps done\n[ ] n1 1. Active approved Work\n  [ ] n2 Active phase\n    [ ] n3 Active leaf"
+     }
+    ]
+   },
+   {
+    "tool_use_id": "toolu_h4",
+    "type": "tool_result",
+    "content": "SHELL-NATIVE-ALLOWED\nShell cwd was reset to C:\\Users\\djlov\\AppData\\Local\\Temp\\work-hybrid-482fb007\\ws",
+    "is_error": false
+   }
+  ],
+  "served_tool": "mcp__ciel-runtime-router__work_plan_set",
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_h6",
+    "name": "mcp__ciel-runtime-router__work_plan_set",
+    "input": {
+     "goal": "2. Queued independent request",
+     "note": "QUEUED-PRIVATE-NOTE",
+     "children": [
+      {
+       "title": "Queued phase",
+       "children": [
+        {
+         "title": "QUEUED-PRIVATE-STEP"
+        }
+       ]
+      }
+     ]
+    }
+   }
+  ]
+ },
+ {
+  "n": 8,
+  "tag": "queue",
+  "stage": 1,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [
+   {
+    "tool_use_id": "toolu_h4",
+    "type": "tool_result",
+    "content": "SHELL-NATIVE-ALLOWED\nShell cwd was reset to C:\\Users\\djlov\\AppData\\Local\\Temp\\work-hybrid-482fb007\\ws",
+    "is_error": false
+   },
+   {
+    "tool_use_id": "toolu_h6",
+    "type": "tool_result",
+    "content": [
+     {
+      "type": "text",
+      "text": "Plan for goal n4 saved and queued behind the active goal n1; it becomes active when that goal is done, or earlier with work_select.\n\nWork phase: executing\nActive goal progress: 0/1 steps done\n[ ] n1 1. Active approved Work\n  [ ] n2 Active phase\n    [ ] n3 Active leaf\nQueued goals (next first): n4 2. Queued independent request (pending)"
+     }
+    ],
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "served_tool": "mcp__ciel-runtime-router__work_node_add",
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_h8",
+    "name": "mcp__ciel-runtime-router__work_node_add",
+    "input": {
+     "parent_id": "n3",
+     "title": "Scoped refinement",
+     "within_scope": true,
+     "children": [
+      {
+       "title": "Scoped verification"
+      }
+     ],
+     "expected_version": 3
+    }
+   }
+  ]
+ },
+ {
+  "n": 9,
+  "tag": "queue",
+  "stage": 2,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [
+   {
+    "tool_use_id": "toolu_h6",
+    "type": "tool_result",
+    "content": [
+     {
+      "type": "text",
+      "text": "Plan for goal n4 saved and queued behind the active goal n1; it becomes active when that goal is done, or earlier with work_select.\n\nWork phase: executing\nActive goal progress: 0/1 steps done\n[ ] n1 1. Active approved Work\n  [ ] n2 Active phase\n    [ ] n3 Active leaf\nQueued goals (next first): n4 2. Queued independent request (pending)"
+     }
+    ]
+   },
+   {
+    "tool_use_id": "toolu_h8",
+    "type": "tool_result",
+    "content": [
+     {
+      "type": "text",
+      "text": "Added n7.\n\nWork phase: executing\nActive goal progress: 0/1 steps done\n[ ] n1 1. Active approved Work\n  [ ] n2 Active phase\n    [ ] n3 Active leaf\n      [ ] n7 Scoped refinement\n        [ ] n8 Scoped verification\nQueued goals (next first): n4 2. Queued independent request (pending)"
+     }
+    ],
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "served_tool": "Write",
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_h9",
+    "name": "Write",
+    "input": {
+     "file_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-hybrid-482fb007\\ws\\subject.txt",
+     "content": "ACTIVE-WRITE-AFTER-QUEUE\n"
+    }
+   }
+  ]
+ },
+ {
+  "n": 10,
+  "tag": "queue",
+  "stage": 3,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [
+   {
+    "tool_use_id": "toolu_h8",
+    "type": "tool_result",
+    "content": [
+     {
+      "type": "text",
+      "text": "Added n7.\n\nWork phase: executing\nActive goal progress: 0/1 steps done\n[ ] n1 1. Active approved Work\n  [ ] n2 Active phase\n    [ ] n3 Active leaf\n      [ ] n7 Scoped refinement\n        [ ] n8 Scoped verification\nQueued goals (next first): n4 2. Queued independent request (pending)"
+     }
+    ]
+   },
+   {
+    "tool_use_id": "toolu_h9",
+    "type": "tool_result",
+    "content": "The file C:\\Users\\djlov\\AppData\\Local\\Temp\\work-hybrid-482fb007\\ws\\subject.txt has been updated successfully. (file state is current in your context — no need to Read it back)",
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "served_tool": "mcp__ciel-runtime-router__work_status",
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_h10",
+    "name": "mcp__ciel-runtime-router__work_status",
+    "input": {
+     "root_id": "n1",
+     "detail": true,
+     "format": "json"
+    }
+   }
+  ]
+ },
+ {
+  "n": 11,
+  "tag": "queue",
+  "stage": 4,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [
+   {
+    "tool_use_id": "toolu_h9",
+    "type": "tool_result",
+    "content": "The file C:\\Users\\djlov\\AppData\\Local\\Temp\\work-hybrid-482fb007\\ws\\subject.txt has been updated successfully. (file state is current in your context — no need to Read it back)"
+   },
+   {
+    "tool_use_id": "toolu_h10",
+    "type": "tool_result",
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"enabled\": true, \"version\": 4, \"root_id\": \"n1\", \"is_active\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"nodes\": [{\"id\": \"n1\", \"parent_id\": null, \"title\": \"1. Active approved Work\", \"status\": \"pending\", \"note\": \"\", \"evidence\": \"\", \"waiting_on\": \"\", \"ref\": \"\", \"urgent\": false, \"updated_at\": 1793080034.5819283, \"phase\": \"executing\"}, {\"id\": \"n2\", \"parent_id\": \"n1\", \"title\": \"Active phase\", \"status\": \"pending\", \"note\": \"\", \"evidence\": \"\", \"waiting_on\": \"\", \"ref\": \"\", \"urgent\": false, \"updated_at\": 1793080034.5819283}, {\"id\": \"n3\", \"parent_id\": \"n2\", \"title\": \"Active leaf\", \"status\": \"pending\", \"note\": \"\", \"evidence\": \"\", \"waiting_on\": \"\", \"ref\": \"\", \"urgent\": false, \"updated_at\": 1793080034.5819283}, {\"id\": \"n7\", \"parent_id\": \"n3\", \"title\": \"Scoped refinement\", \"status\": \"pending\", \"note\": \"\", \"evidence\": \"\", \"waiting_on\": \"\", \"ref\": \"\", \"urgent\": false, \"updated_at\": 1793080034.5819283}, {\"id\": \"n8\", \"parent_id\": \"n7\", \"title\": \"Scoped verification\", \"status\": \"pending\", \"note\": \"\", \"evidence\": \"\", \"waiting_on\": \"\", \"ref\": \"\", \"urgent\": false, \"updated_at\": 1793080034.5819283}]}"
+     }
+    ],
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "served_tool": "mcp__ciel-runtime-router__work_reorder",
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_h11",
+    "name": "mcp__ciel-runtime-router__work_reorder",
+    "input": {
+     "root_id": "n4",
+     "position": 1,
+     "expected_version": 4
+    }
+   }
+  ]
+ },
+ {
+  "n": 12,
+  "tag": "queue",
+  "stage": 5,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [
+   {
+    "tool_use_id": "toolu_h10",
+    "type": "tool_result",
+    "content": [
+     {
+      "type": "text",
+      "text": "{\"enabled\": true, \"version\": 4, \"root_id\": \"n1\", \"is_active\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"nodes\": [{\"id\": \"n1\", \"parent_id\": null, \"title\": \"1. Active approved Work\", \"status\": \"pending\", \"note\": \"\", \"evidence\": \"\", \"waiting_on\": \"\", \"ref\": \"\", \"urgent\": false, \"updated_at\": 1793080034.5819283, \"phase\": \"executing\"}, {\"id\": \"n2\", \"parent_id\": \"n1\", \"title\": \"Active phase\", \"status\": \"pending\", \"note\": \"\", \"evidence\": \"\", \"waiting_on\": \"\", \"ref\": \"\", \"urgent\": false, \"updated_at\": 1793080034.5819283}, {\"id\": \"n3\", \"parent_id\": \"n2\", \"title\": \"Active leaf\", \"status\": \"pending\", \"note\": \"\", \"evidence\": \"\", \"waiting_on\": \"\", \"ref\": \"\", \"urgent\": false, \"updated_at\": 1793080034.5819283}, {\"id\": \"n7\", \"parent_id\": \"n3\", \"title\": \"Scoped refinement\", \"status\": \"pending\", \"note\": \"\", \"evidence\": \"\", \"waiting_on\": \"\", \"ref\": \"\", \"urgent\": false, \"updated_at\": 1793080034.5819283}, {\"id\": \"n8\", \"parent_id\": \"n7\", \"title\": \"Scoped verification\", \"status\": \"pending\", \"note\": \"\", \"evidence\": \"\", \"waiting_on\": \"\", \"ref\": \"\", \"urgent\": false, \"updated_at\": 1793080034.5819283}]}"
+     }
+    ]
+   },
+   {
+    "type": "tool_result",
+    "content": "moving the active goal requires an explicit user request (user_requested=true)",
+    "is_error": true,
+    "tool_use_id": "toolu_h11",
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "served_tool": "mcp__ciel-runtime-router__work_reorder",
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_h12",
+    "name": "mcp__ciel-runtime-router__work_reorder",
+    "input": {
+     "root_id": "n4",
+     "position": 1,
+     "user_requested": true,
+     "expected_version": 4
+    }
+   }
+  ]
+ },
+ {
+  "n": 13,
+  "tag": "queue",
+  "stage": 6,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [
+   {
+    "type": "tool_result",
+    "content": "moving the active goal requires an explicit user request (user_requested=true)",
+    "is_error": true,
+    "tool_use_id": "toolu_h11"
+   },
+   {
+    "tool_use_id": "toolu_h12",
+    "type": "tool_result",
+    "content": [
+     {
+      "type": "text",
+      "text": "Goal priority updated.\n\nWork phase: planning\nActive goal progress: 0/1 steps done\n[ ] n4 2. Queued independent request\n  [ ] n5 Queued phase\n    [ ] n6 QUEUED-PRIVATE-STEP\nQueued goals (next first): n1 1. Active approved Work (pending)"
+     }
+    ],
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "served_tool": "Write",
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_h13",
+    "name": "Write",
+    "input": {
+     "file_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-hybrid-482fb007\\ws\\subject.txt",
+     "content": "UNAPPROVED-QUEUED-WRITE\n"
+    }
+   }
+  ]
+ },
+ {
+  "n": 14,
+  "tag": "queue",
+  "stage": 7,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [
+   {
+    "tool_use_id": "toolu_h12",
+    "type": "tool_result",
+    "content": [
+     {
+      "type": "text",
+      "text": "Goal priority updated.\n\nWork phase: planning\nActive goal progress: 0/1 steps done\n[ ] n4 2. Queued independent request\n  [ ] n5 Queued phase\n    [ ] n6 QUEUED-PRIVATE-STEP\nQueued goals (next first): n1 1. Active approved Work (pending)"
+     }
+    ]
+   },
+   {
+    "type": "tool_result",
+    "content": "<tool_use_error>Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)</tool_use_error>",
+    "is_error": true,
+    "tool_use_id": "toolu_h13",
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "served_tool": "mcp__ciel-runtime-router__work_execute",
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_h14",
+    "name": "mcp__ciel-runtime-router__work_execute",
+    "input": {}
+   }
+  ]
+ },
+ {
+  "n": 15,
+  "tag": "queue",
+  "stage": 8,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [
+   {
+    "type": "tool_result",
+    "content": "<tool_use_error>Work mode is planning: direct file edits wait until the plan is approved. Build it with work_plan_set, then call work_execute. (/work-mode help)</tool_use_error>",
+    "is_error": true,
+    "tool_use_id": "toolu_h13"
+   },
+   {
+    "tool_use_id": "toolu_h14",
+    "type": "tool_result",
+    "content": [
+     {
+      "type": "text",
+      "text": "Plan approved; Work is in the executing phase. Start with the next step and record evidence.\n\nWork phase: executing\nActive goal progress: 0/1 steps done\n[ ] n4 2. Queued independent request\n  [ ] n5 Queued phase\n    [ ] n6 QUEUED-PRIVATE-STEP\nQueued goals (next first): n1 1. Active approved Work (pending)"
+     }
+    ],
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "served_tool": "mcp__ciel-runtime-router__work_node_update",
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_h15",
+    "name": "mcp__ciel-runtime-router__work_node_update",
+    "input": {
+     "id": "n6",
+     "status": "done",
+     "evidence": "Owned queue priority proof verified"
+    }
+   }
+  ]
+ },
+ {
+  "n": 16,
+  "tag": "queue",
+  "stage": 9,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [
+   {
+    "tool_use_id": "toolu_h14",
+    "type": "tool_result",
+    "content": [
+     {
+      "type": "text",
+      "text": "Plan approved; Work is in the executing phase. Start with the next step and record evidence.\n\nWork phase: executing\nActive goal progress: 0/1 steps done\n[ ] n4 2. Queued independent request\n  [ ] n5 Queued phase\n    [ ] n6 QUEUED-PRIVATE-STEP\nQueued goals (next first): n1 1. Active approved Work (pending)"
+     }
+    ]
+   },
+   {
+    "tool_use_id": "toolu_h15",
+    "type": "tool_result",
+    "content": [
+     {
+      "type": "text",
+      "text": "Updated n6 (done). Goal n4 is done; the next queued goal n1 is now active in the executing phase. Review its plan; call work_execute if it is planning.\n\nWork phase: executing\nActive goal progress: 0/1 steps done\n[ ] n1 1. Active approved Work\n  [ ] n2 Active phase\n    [ ] n3 Active leaf\n      [ ] n7 Scoped refinement\n        [ ] n8 Scoped verification\nFinished goals: n4 2. Queued independent request"
+     }
+    ],
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "served_tool": "Write",
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_h16",
+    "name": "Write",
+    "input": {
+     "file_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-hybrid-482fb007\\ws\\subject.txt",
+     "content": "RESUMED-APPROVED-ACTIVE\n"
+    }
+   }
+  ]
+ },
+ {
+  "n": 17,
+  "tag": "queue",
+  "stage": 10,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [
+   {
+    "tool_use_id": "toolu_h15",
+    "type": "tool_result",
+    "content": [
+     {
+      "type": "text",
+      "text": "Updated n6 (done). Goal n4 is done; the next queued goal n1 is now active in the executing phase. Review its plan; call work_execute if it is planning.\n\nWork phase: executing\nActive goal progress: 0/1 steps done\n[ ] n1 1. Active approved Work\n  [ ] n2 Active phase\n    [ ] n3 Active leaf\n      [ ] n7 Scoped refinement\n        [ ] n8 Scoped verification\nFinished goals: n4 2. Queued independent request"
+     }
+    ]
+   },
+   {
+    "tool_use_id": "toolu_h16",
+    "type": "tool_result",
+    "content": "The file C:\\Users\\djlov\\AppData\\Local\\Temp\\work-hybrid-482fb007\\ws\\subject.txt has been updated successfully. (file state is current in your context — no need to Read it back)",
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "served_tool": "Bash",
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_h17",
+    "name": "Bash",
+    "input": {
+     "command": "echo NATIVE-DENY-MARKER > native-denied.txt",
+     "description": "Verify native deny rule"
+    }
+   }
+  ]
+ },
+ {
+  "n": 18,
+  "tag": "queue",
+  "stage": 11,
+  "tool_names": [
+   "Agent",
+   "AskUserQuestion",
+   "Bash",
+   "CronCreate",
+   "CronDelete",
+   "CronList",
+   "Edit",
+   "EnterPlanMode",
+   "EnterWorktree",
+   "ExitPlanMode",
+   "ExitWorktree",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Monitor",
+   "NotebookEdit",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "SendMessage",
+   "Skill",
+   "TaskStop",
+   "WebFetch",
+   "WebSearch",
+   "Workflow",
+   "Write",
+   "mcp__ciel-runtime-router__compact_session",
+   "mcp__ciel-runtime-router__goal_clear",
+   "mcp__ciel-runtime-router__llm_options",
+   "mcp__ciel-runtime-router__new_session",
+   "mcp__ciel-runtime-router__provider_fallback",
+   "mcp__ciel-runtime-router__recover_sse_delivery",
+   "mcp__ciel-runtime-router__restart_session",
+   "mcp__ciel-runtime-router__send_file",
+   "mcp__ciel-runtime-router__session_backup",
+   "mcp__ciel-runtime-router__submit_input",
+   "mcp__ciel-runtime-router__telemetry_logs",
+   "mcp__ciel-runtime-router__work_execute",
+   "mcp__ciel-runtime-router__work_node_add",
+   "mcp__ciel-runtime-router__work_node_remove",
+   "mcp__ciel-runtime-router__work_node_update",
+   "mcp__ciel-runtime-router__work_plan_set",
+   "mcp__ciel-runtime-router__work_reorder",
+   "mcp__ciel-runtime-router__work_replan",
+   "mcp__ciel-runtime-router__work_select",
+   "mcp__ciel-runtime-router__work_status",
+   "mcp__ciel-runtime-router__work_urgent"
+  ],
+  "context_number_hint": true,
+  "plan_tool_number_hint": true,
+  "notice_sent_to_model": false,
+  "prior_results": [
+   {
+    "tool_use_id": "toolu_h16",
+    "type": "tool_result",
+    "content": "The file C:\\Users\\djlov\\AppData\\Local\\Temp\\work-hybrid-482fb007\\ws\\subject.txt has been updated successfully. (file state is current in your context — no need to Read it back)"
+   },
+   {
+    "type": "tool_result",
+    "content": "Permission to use Bash with command echo NATIVE-DENY-MARKER > native-denied.txt has been denied.",
+    "is_error": true,
+    "tool_use_id": "toolu_h17",
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "response": [
+   {
+    "type": "text",
+    "text": "HYBRID-QUEUE-VERIFIED"
+   }
+  ]
+ }
+]

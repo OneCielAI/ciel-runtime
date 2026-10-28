@@ -1,0 +1,38 @@
+                                                                           │                                                         ✕
+⚠ Model "fake-work" isn't recognized · context assumed to be 200k tokens · │Work details — version 1
+  update Claude Code, or see the docs                                      │r: Refresh
+                                                                           │w: All items
+▎ Debug mode enabled · logging to C:\Users\djlov\AppData\Local\Temp\work-pa│b: Parent
+▎ nel-tabs-a9f1d4f2\native-debug.log                                       │q: Close
+                                                                           │[ ] OPEN-ITEM-00
+● ciel-work: Ciel Work mode is on: plan and execute by item; new           │Tab/↑↓: navigate/scroll · Enter: inspect node · Esc: close
+  independent requests queue without pausing approved Work. Items          │
+  show above the prompt · /work-mode help · turn off: ciel-runtime         │
+  menu → LLM options → Work mode                                           │
+                                                                           │
+❯ E2EHINT-MAIN inspect the owned Work panel and end the turn.              │
+                                                                           │
+  Called ciel-runtime-router                                               │
+                                                                           │
+● WORK-PANEL-FIXTURE-IDLE                                                  │
+                                                                           │
+✻ Crunched for 0s · done 2:33 AM                                           │
+Work running 20/40 — 1. LARGE-WORK-PANEL                               [-] │
+1: [~] Phase 00                                                            │
+✓    DONE-ITEM-00                                                          │
+  [ ] OPEN-ITEM-00                                                         │
+2: [~] Phase 01                                                            │
+✓    DONE-ITEM-01                                                          │
+  [ ] OPEN-ITEM-01                                                         │
+3: [~] Phase 02                                                            │
+✓    DONE-ITEM-02                                                          │
+  [ ] OPEN-ITEM-02                                                         │
+4: [~] Phase 03                                                            │
+✓    DONE-ITEM-03                                                          │
+  [ ] OPEN-ITEM-03                                                         │
+↓ 55 more                                                                  │
+                                                                           │
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)                                                                       work: run 20/40

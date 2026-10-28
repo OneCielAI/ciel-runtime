@@ -135,6 +135,9 @@ class ClaudeRouterContextRecovery:
     # then (that scope, metadata) once the stream broke before message_stop.
     stream_scope: Callable[..., Any] = lambda *_args: None
     observe_stream_failure: Callable[..., Any] = lambda *_args: None
+    # (that scope, the request's model, the model message_start named): an
+    # alias answered by another model name, for the 90% compact safeguard.
+    observe_native_model: Callable[..., Any] = lambda *_args: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -660,6 +663,9 @@ def handle_claude_messages_post(
                     stream_failure_observer=lambda metadata: context_recovery.observe_stream_failure(
                         stream_scope, metadata
                     ),
+                    **({"stream_model_observer": lambda native_model: context_recovery.observe_native_model(
+                        stream_scope, raw_body.get("model") if isinstance(raw_body, Mapping) else None, native_model
+                    )} if stream_scope is not None else {}),
                 )
             else:
                 self.send_response(status)

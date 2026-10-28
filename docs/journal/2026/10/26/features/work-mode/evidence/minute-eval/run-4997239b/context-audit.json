@@ -1,0 +1,146 @@
+{
+  "run": "run-4997239b",
+  "session_id": "969193cb-b91e-49e4-8cee-ae57574f5f3c",
+  "branches": [
+    {
+      "task": "A",
+      "id": "n2",
+      "title": "A: routing_graph.py (REQ-A0)",
+      "nodes": 14,
+      "leaves": 8,
+      "all_leaves_done_with_evidence": true
+    },
+    {
+      "task": "B",
+      "id": "n7",
+      "title": "B: booking_calendar.py (REQ-B0)",
+      "nodes": 14,
+      "leaves": 8,
+      "all_leaves_done_with_evidence": true
+    },
+    {
+      "task": "C",
+      "id": "n12",
+      "title": "C: inventory_stream.py (REQ-C0)",
+      "nodes": 14,
+      "leaves": 8,
+      "all_leaves_done_with_evidence": true
+    }
+  ],
+  "requirement_ancestry": {
+    "A0": [
+      {
+        "node_id": "n2",
+        "branch": "A"
+      },
+      {
+        "node_id": "n3",
+        "branch": "A"
+      },
+      {
+        "node_id": "n5",
+        "branch": "A"
+      },
+      {
+        "node_id": "n40",
+        "branch": "A"
+      },
+      {
+        "node_id": "n42",
+        "branch": "A"
+      }
+    ],
+    "A1": [
+      {
+        "node_id": "n22",
+        "branch": "A"
+      },
+      {
+        "node_id": "n32",
+        "branch": "A"
+      }
+    ],
+    "A2": [
+      {
+        "node_id": "n31",
+        "branch": "A"
+      }
+    ],
+    "A3": [
+      {
+        "node_id": "n40",
+        "branch": "A"
+      }
+    ],
+    "B0": [
+      {
+        "node_id": "n7",
+        "branch": "B"
+      },
+      {
+        "node_id": "n8",
+        "branch": "B"
+      },
+      {
+        "node_id": "n10",
+        "branch": "B"
+      }
+    ],
+    "B1": [
+      {
+        "node_id": "n25",
+        "branch": "B"
+      }
+    ],
+    "B2": [
+      {
+        "node_id": "n34",
+        "branch": "B"
+      }
+    ],
+    "B3": [
+      {
+        "node_id": "n43",
+        "branch": "B"
+      }
+    ],
+    "C0": [
+      {
+        "node_id": "n12",
+        "branch": "C"
+      },
+      {
+        "node_id": "n13",
+        "branch": "C"
+      },
+      {
+        "node_id": "n15",
+        "branch": "C"
+      }
+    ],
+    "C1": [
+      {
+        "node_id": "n28",
+        "branch": "C"
+      }
+    ],
+    "C2": [
+      {
+        "node_id": "n37",
+        "branch": "C"
+      }
+    ],
+    "C3": [
+      {
+        "node_id": "n46",
+        "branch": "C"
+      }
+    ]
+  },
+  "missing_requirement_ids_in_correct_branch": [],
+  "cross_branch_request_ids": [],
+  "own_store_present": true,
+  "work_store_count_in_isolated_config": 1,
+  "scope": "One conversation, three task contexts; not a concurrent multi-session isolation test. Node labels establish bookkeeping only; functionality is assessed by independent verifier.",
+  "bookkeeping_separated": true
+}

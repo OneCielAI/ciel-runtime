@@ -256,6 +256,17 @@ class ChannelWakeDeliveryRepository:
                 kwargs["expected_attempt"] = attempt_id
             self.status.transition(message_id, state, **kwargs)
 
+    def defer_unsubmitted(self, messages: list[dict[str, Any]], claimed_ids: list[int]) -> None:
+        """Transport proved it wrote no bytes: release only this owned attempt."""
+        for message in messages:
+            message_id = _message_id(message)
+            attempt = self.attempts.by_message.get(message_id) if self.attempts is not None else None
+            if self.status is not None and attempt:
+                self.status.defer_unsubmitted(message_id, attempt)
+            if self.attempts is not None:
+                self.attempts.by_message.pop(message_id, None)
+        self.rollback(messages, claimed_ids)
+
     def rollback(
         self, messages: list[dict[str, Any]], claimed_ids: list[int]
     ) -> None:

@@ -1,0 +1,21 @@
+{
+  "delivery": [
+    "A0 complete Read result observed before additions",
+    "B0,C0,A1,B1,C1,FINAL delivered exactly once",
+    "at least four additions overlap actual assistant tool or model activity"
+  ],
+  "code": [
+    "A0 and A1: TTL/MVCC/FIFO",
+    "B0 and B1: dependencies, atomic cycle rejection, priority descending/insertion tie",
+    "C0 and C1: fragmented CSV, Decimal, last duplicate wins, all-row validation"
+  ],
+  "bookkeeping": [
+    "single retained hierarchy with A/B/C branches",
+    "no skipped requirement claimed complete",
+    "done leaves carry verification evidence"
+  ],
+  "limits": [
+    "one model and one valid run cannot prove general context isolation",
+    "separate algorithm defect from missing/cross-contaminated requirements"
+  ]
+}

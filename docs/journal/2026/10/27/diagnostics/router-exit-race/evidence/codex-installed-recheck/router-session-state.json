@@ -1,0 +1,13 @@
+{
+  "jsonrpc": "2.0",
+  "id": 1793134636434,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"enabled\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"version\": 2, \"active_root\": {\"id\": \"n1\", \"title\": \"Codex isolated Work proof\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"executing\"}, \"continuation\": {\"actionable\": 1, \"next\": {\"id\": \"n4\", \"title\": \"Observe work_status output\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"path\": [\"Codex isolated Work proof\", \"Protocol phase\", \"Inspect shared state\", \"Observe work_status output\"], \"root_id\": \"n1\", \"phase\": \"executing\"}, \"waiting\": [], \"blocked\": 0, \"held\": 0}, \"focus\": {\"node_ids\": [], \"exhausted\": false}, \"done\": 0, \"total\": 1, \"attention\": {\"waiting\": 0, \"blocked\": 0}, \"next\": {\"id\": \"n4\", \"title\": \"Observe work_status output\", \"status\": \"pending\", \"waiting_on\": \"\", \"path\": [\"Codex isolated Work proof\", \"Protocol phase\", \"Inspect shared state\", \"Observe work_status output\"]}, \"breakdown\": [{\"id\": \"n2\", \"title\": \"Protocol phase\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 0, \"total\": 1, \"children\": [{\"id\": \"n3\", \"title\": \"Inspect shared state\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"hidden\": {\"waiting\": 0, \"blocked\": 0}}], \"more\": 0, \"more_attention\": {\"waiting\": 0, \"blocked\": 0}}], \"root_index\": [{\"id\": \"n1\", \"title\": \"Codex isolated Work proof\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"executing\", \"held\": false}], \"completed_active\": [], \"ready\": true, \"ready_reason\": \"ready\", \"goals\": 1, \"queue\": [], \"auto_continue\": true}"
+      }
+    ],
+    "isError": false
+  }
+}

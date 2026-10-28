@@ -1,0 +1,72 @@
+owned router: yes
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+console command: yes
+fixture idle: yes
+console command: yes
+full inspector: yes
+console command: yes
+console command: yes
+owned stop 69060 SUCCESS: The process with PID 18728 (child process of PID 69060) has been terminated.
+SUCCESS: The process with PID 69060 (child process of PID 49736) has been terminated.
+owned stop 71140 SUCCESS: The process with PID 71140 (child process of PID 82236) has been terminated.
+evidence C:\Users\djlov\AppData\Local\Temp\work-panel-tabs-1724c830
+{
+ "repo": "C:\\Users\\djlov\\ciel-runtime-wt-work",
+ "stripped_env": [],
+ "mod": "C:\\Users\\djlov\\ciel-runtime-wt-work\\ciel_runtime_support\\claude_mods\\ciel-work",
+ "cli_version": "2.1.311 (Claude Code)",
+ "initial_screen": "\n \u2590\u259b\u2588\u2588\u2588\u259b\u2588   Claude Code v2.1.311\n\u259d\u259c\u2588\u2588\u2588\u2588\u2588\u2588\u2580  fake-work \u00b7 API Usage Billing\n \u259d\u259d   \u259d\u259d   C:\\Users\\djlov\\AppData\\Local\\Temp\\work-panel-tabs-1724c830\\ws\n\n\u26a0 Model \"fake-work\" isn't recognized \u00b7 context assumed to be 200k tokens \u00b7 update Claude Code, or see the docs\n\n\u258e Debug mode enabled \u00b7 logging to C:\\Users\\djlov\\AppData\\Local\\Temp\\work-panel-tabs-1724c830\\native-debug.log\n\n\u25cf ciel-work: ui.render hook skipped: returned the wrong shape (a tree AbovePrompt refuses: engine node under a Box with prop\n  \"height\")\n\n\u25cf ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing approved Work.\n  Items show above the prompt \u00b7 /work-mode help \u00b7 turn off: ciel-runtime menu \u2192 LLM options \u2192 Work mode\n\n\u276f E2EHINT-MAIN inspect the owned Work panel and end the turn.\n\n  Called ciel-runtime-router\n\n\u25cf WORK-PANEL-FIXTURE-IDLE\n\n\u273b Cooked for 0s \u00b7 done 2:18 AM\n\n\n\n\n\n\n\n\n\n\n\n                                                                                                                     \u25cf high \u00b7 /effort\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n\u276f\n\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n  \u23f5\u23f5 bypass permissions on (shift+tab to cycle) \u00b7 \u2190 for agents                                                        work: run 20/40",
+ "checks": {
+  "idle": true,
+  "companion_visible": false,
+  "open_visible": false,
+  "completed_hidden_initially": true,
+  "inspector": true,
+  "display_only": true
+ },
+ "model_user_prompts_sent": 1,
+ "verification_failed": [
+  "companion_visible",
+  "open_visible"
+ ],
+ "egress": [
+  {
+   "method": "CONNECT",
+   "path": "downloads.claude.ai:443"
+  },
+  {
+   "method": "CONNECT",
+   "path": "github.com:443"
+  }
+ ],
+ "live_before": {
+  "9505": {
+   "pid": 33384,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  },
+  "9524": {
+   "pid": 65156,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  }
+ },
+ "live_after": {
+  "9505": {
+   "pid": 33384,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  },
+  "9524": {
+   "pid": 65156,
+   "version": "0.2.51-nightly.20261027-053202.eec7d69",
+   "source_fingerprint": "11b9fec1d2441894",
+   "error": null
+  }
+ }
+}

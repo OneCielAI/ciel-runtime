@@ -6,7 +6,8 @@ from unittest.mock import Mock
 import unittest
 from typing import Any
 
-from ciel_runtime_support.codex_app_server import CodexAppServerError, CodexAppServerState
+from ciel_runtime_support.codex_app_server import (
+    CodexAppServerError, CodexAppServerState, CodexAppServerNotSent, CodexAppServerRejected)
 from ciel_runtime_support.codex_app_server_resume import ResumeModel
 from ciel_runtime_support.codex_desktop_injection import (
     FULL_ACCESS,
@@ -37,12 +38,49 @@ def _message(message_id: int, text: str = "hello", *, transport: str = "session_
 
 
 class _Status:
+    """In-memory lifecycle double; durable semantics are covered separately."""
     def __init__(self) -> None:
         self.records: list[tuple[int, str, str]] = []
+        self.rows: dict[int, dict] = {}
+        self.count = 0
 
-    def transition(self, request_id: int, status: str, *, reason: str = "", data: Any = None):
-        self.records.append((request_id, status, reason))
-        return {}
+    def get(self, request_id):
+        return self.rows.get(request_id)
+
+    def list_latest(self, *, after_request_id=0, status="", limit=500):
+        return [row for key, row in sorted(self.rows.items())
+                if key > after_request_id and (not status or row["status"] == status)][:limit]
+
+    def begin_attempt(self, ids, child_epoch):
+        from ciel_runtime_support.runtime_input_status import WakeAttemptConflict
+        for key in ids:
+            state = self.rows.get(key, {}).get("status", "")
+            if state not in {"", "queued"}:
+                raise WakeAttemptConflict(key, state)
+        self.count += 1
+        attempt = str(self.count)
+        for key in ids:
+            self.rows[key] = {"request_id": key, "status": "submitted",
+                              "data": {"attempt_id": attempt, "child_epoch": child_epoch}}
+        return attempt
+
+    def defer_unsubmitted(self, key, attempt):
+        row = self.rows[key]
+        if row["data"]["attempt_id"] != attempt:
+            return False
+        self.rows.pop(key)
+        return True
+
+    def transition(self, request_id: int, status: str, *, reason: str = "", data: Any = None,
+                   expected_attempt=None):
+        previous = self.rows.get(request_id, {})
+        if expected_attempt is not None and previous.get("data", {}).get("attempt_id") != expected_attempt:
+            return previous
+        merged = {**previous.get("data", {}), **(data or {})}
+        self.rows[request_id] = {"request_id": request_id, "status": status, "data": merged}
+        if previous.get("status") != status or status == "submitted" and (data or {}).get("native_turn_id"):
+            self.records.append((request_id, status, reason))
+        return self.rows[request_id]
 
 
 class _Client:
@@ -84,13 +122,13 @@ class _Client:
     def turn_start(self, thread_id, text, *, cwd=None, **_kw):
         if self.fail_start:
             self.fail_start -= 1
-            raise CodexAppServerError("turn/start failed")
+            raise CodexAppServerNotSent("turn/start did not enter write")
         self.calls.append(("start", thread_id, text))
         return {"turn": {"id": f"turn-{len(self.calls)}", "status": "inProgress"}}
 
     def turn_steer(self, thread_id, expected_turn_id, text, **_kw):
         if self.fail_steer:
-            raise CodexAppServerError("no active turn")
+            raise CodexAppServerRejected("turn/steer", {"code": -32600, "message": "no active turn to steer"})
         self.calls.append(("steer", thread_id, expected_turn_id))
         return {}
 
@@ -334,7 +372,7 @@ class CodexDesktopInjectionTests(unittest.TestCase):
             self.assertEqual(0, self.cursor)
         self.injector.poll_once()
         self.assertEqual(9, self.cursor)
-        self.assertEqual([(9, "failed", "submit_failed")], self.status.records)
+        self.assertEqual([(9, "failed", "submit_not_sent")], self.status.records)
 
     def test_turns_started_in_another_chat_move_the_target(self):
         self.client.notifications.put({"method": "turn/started", "params": {"threadId": "thread-b", "turn": {"id": "x"}}})
@@ -345,6 +383,166 @@ class CodexDesktopInjectionTests(unittest.TestCase):
         # The turn that moved the target is still running, so the message steers into it.
         self.assertEqual(("steer", "thread-b", "x"), self.client.calls[0])
 
+
+
+class CodexDurableDeliveryTests(unittest.TestCase):
+    # Reuse setup, not inherited test cases (loaded explicitly by the runner).
+    def setUp(self):
+        CodexDesktopInjectionTests.setUp(self)
+        import tempfile
+        import threading
+        from pathlib import Path
+        from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.status = RuntimeInputStatusRepository(Path(self.temp.name) / "status.jsonl",
+                                                  lambda **kw: None, lambda *args: None, threading.RLock())
+        self.injector._ports = dataclasses.replace(self.injector._ports, status=self.status)
+        self.messages = [_message(1)]
+        self.status.transition(1, "queued")
+
+    _commit = CodexDesktopInjectionTests._commit
+
+    def test_ownership_is_durable_before_the_first_write(self):
+        original = self.client.turn_start
+        def check(*args, **kw):
+            row = self.status.get(1)
+            self.assertEqual("submitted", row["status"])
+            self.assertEqual(self.injector._child_epoch, row["data"]["child_epoch"])
+            self.assertTrue(row["data"]["attempt_id"])
+            return original(*args, **kw)
+        self.client.turn_start = check
+        self.injector.deliver_pending()
+        self.assertEqual(1, self.cursor)
+
+    def test_unknown_start_acceptance_never_replays_or_advances_cursor_after_restart(self):
+        from ciel_runtime_support.codex_app_server import CodexAppServerUncertain
+        calls = []
+        def accept_then_lose(*args, **kw):
+            calls.append(args)
+            raise CodexAppServerUncertain("ack lost")
+        self.client.turn_start = accept_then_lose
+        self.injector.deliver_pending()
+        self.assertEqual("interrupted_uncertain", self.status.get(1)["status"])
+        for _ in range(3):
+            self.injector.deliver_pending()
+        restarted = CodexAppServerChannelInjector(lambda: self.client, self.injector._ports,
+                                                  cwd="C:/work", version="test")
+        restarted.client, restarted.thread_id = self.client, "thread-a"
+        restarted._adopt_attempts()
+        restarted.deliver_pending()
+        self.assertEqual((1, 0), (len(calls), self.cursor))
+
+    def test_crash_after_wire_before_cursor_is_never_replayed(self):
+        calls = []
+        def crash(*args, **kw):
+            calls.append(args)
+            raise SystemExit("injector crash after write")
+        self.client.turn_start = crash
+        with self.assertRaises(SystemExit):
+            self.injector.deliver_pending()
+        self.assertEqual("submitted", self.status.get(1)["status"])
+        restarted = CodexAppServerChannelInjector(lambda: self.client, self.injector._ports,
+                                                  cwd="C:/work", version="test")
+        restarted.client, restarted.thread_id = self.client, "thread-a"
+        restarted._adopt_attempts()
+        restarted.deliver_pending()
+        self.assertEqual((1, 0), (len(calls), self.cursor))
+
+    def test_unknown_steer_does_not_fall_back_to_start(self):
+        from ciel_runtime_support.codex_app_server import CodexAppServerUncertain
+        self.client.state = CodexAppServerState(thread_id="thread-a", active_turn_id="turn-x")
+        self.client.turn_steer = Mock(side_effect=CodexAppServerUncertain("ack lost"))
+        self.injector.deliver_pending()
+        self.injector.deliver_pending()
+        self.assertEqual([], self.client.calls)
+        self.assertEqual(1, self.client.turn_steer.call_count)
+        self.assertEqual(("interrupted_uncertain", 0), (self.status.get(1)["status"], self.cursor))
+
+    def test_explicit_non_mismatch_rejection_is_terminal_not_a_start_fallback(self):
+        self.client.state = CodexAppServerState(thread_id="thread-a", active_turn_id="turn-x")
+        self.client.turn_steer = Mock(side_effect=CodexAppServerRejected(
+            "turn/steer", {"code": -32603, "message": "internal error"}))
+        self.injector.deliver_pending()
+        self.injector.deliver_pending()
+        self.assertEqual([], self.client.calls)
+        self.assertEqual(("failed", 1), (self.status.get(1)["status"], self.cursor))
+
+    def test_persistence_failure_prevents_the_wire(self):
+        from unittest.mock import patch
+        with patch.object(type(self.status), "begin_attempt", side_effect=OSError("fsync failed")):
+            with self.assertRaises(OSError):
+                self.injector.deliver_pending()
+        self.assertEqual(([], 0), (self.client.calls, self.cursor))
+
+    def test_unknown_retry_acceptance_keeps_claim_and_never_replays(self):
+        from ciel_runtime_support.codex_app_server import CodexAppServerUncertain
+        from ciel_runtime_support.runtime_input_retry import RetrySettings
+        clock = [1000.0]
+        self.injector._wall_clock = lambda: clock[0]
+        self.injector._ports = dataclasses.replace(self.injector._ports,
+                                                   retry_settings=lambda: RetrySettings(interval_seconds=1))
+        self.injector.deliver_pending()
+        self.injector._complete_turn({"threadId": "thread-a", "turn": {
+            "id": "turn-1", "status": "failed", "error": {"codexErrorInfo": "serverOverloaded"}}})
+        clock[0] += 2
+        calls = []
+        def lost(*args, **kwargs):
+            calls.append(args)
+            raise CodexAppServerUncertain("retry accepted; ack lost")
+        self.client.turn_start = lost
+        self.injector.deliver_pending()
+        self.assertEqual("interrupted_uncertain", self.status.get(1)["status"])
+        self.assertTrue(self.status.get(1)["data"]["retry"]["claim"])
+        clock[0] += 200
+        for _ in range(3):
+            self.injector.deliver_pending()
+        restarted = CodexAppServerChannelInjector(lambda: self.client, self.injector._ports,
+                                                  cwd="C:/work", version="test")
+        restarted.client, restarted.thread_id = self.client, "thread-a"
+        restarted._adopt_attempts()
+        restarted._adopt_retries()
+        restarted.deliver_pending()
+        self.assertEqual(1, len(calls))
+
+    def test_proven_not_sent_releases_attempt_then_retries_once(self):
+        self.client.fail_start = 1
+        self.injector.deliver_pending()
+        self.assertEqual(("queued", 0), (self.status.get(1)["status"], self.cursor))
+        self.injector.deliver_pending()
+        self.assertEqual(("submitted", 1, 1), (self.status.get(1)["status"], self.cursor, len(self.client.calls)))
+
+    def test_restart_reconciles_acknowledged_completed_turn_without_sending(self):
+        self.injector.deliver_pending()
+        self.cursor = 0
+        self.client.turns_list = {"data": [{"id": "turn-1", "status": "completed"}]}
+        restarted = CodexAppServerChannelInjector(lambda: self.client, self.injector._ports,
+                                                  cwd="C:/work", version="test")
+        restarted.client, restarted.thread_id = self.client, "thread-a"
+        restarted._adopt_attempts()
+        restarted.deliver_pending()
+        self.assertEqual(("replied", 1, 1), (self.status.get(1)["status"], self.cursor, len(self.client.calls)))
+
+    def test_another_injector_cannot_steal_a_durable_initial_attempt(self):
+        self.injector.deliver_pending()
+        self.cursor = 0
+        other_client = _Client()
+        other = CodexAppServerChannelInjector(lambda: other_client, self.injector._ports,
+                                              cwd="C:/work", version="other")
+        other.client, other.thread_id = other_client, "thread-a"
+        self.assertFalse(other._submit(1, "same input"))
+        other.deliver_pending()
+        self.assertEqual(([], 0, 1), (other_client.calls, self.cursor, len(self.client.calls)))
+
+    def test_wrong_thread_and_old_attempt_cannot_complete_the_new_owner(self):
+        self.injector.deliver_pending()
+        self.injector._complete_turn({"threadId": "foreign", "turn": {"id": "turn-1", "status": "completed"}})
+        self.assertEqual("submitted", self.status.get(1)["status"])
+        old = self.status.get(1)["data"]["attempt_id"]
+        self.assertTrue(self.status.defer_unsubmitted(1, old))
+        newer = self.status.begin_attempt([1], "new-owner")
+        self.injector._complete_turn({"threadId": "thread-a", "turn": {"id": "turn-1", "status": "completed"}})
+        self.assertEqual(("submitted", newer), (self.status.get(1)["status"], self.status.get(1)["data"]["attempt_id"]))
 
 
 class _Commands:

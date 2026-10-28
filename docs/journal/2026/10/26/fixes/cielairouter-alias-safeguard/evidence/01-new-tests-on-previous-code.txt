@@ -1,0 +1,7 @@
+new tests against previous source (HEAD 3c95a4b), 2026-10-26T21:19:42Z
+ERROR: test_alias_answered_by_other_native_model_uses_router_observed_names (test_model_compact_safeguard.SafeguardTests.test_alias_answered_by_other_native_model_uses_router_observed_names)
+AttributeError: 'RuntimeCompactionBinding' object has no attribute 'observe_native_model'
+ERROR: test_native_model_observation_is_bounded_and_sanitized (test_model_compact_safeguard.SafeguardTests.test_native_model_observation_is_bounded_and_sanitized)
+AttributeError: 'RuntimeCompactionBinding' object has no attribute 'observe_native_model'
+Ran 9 tests in 0.526s
+FAILED (errors=2)

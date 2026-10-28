@@ -1,0 +1,84 @@
+[
+ {
+  "n": 1,
+  "role": "main",
+  "tools_count": 40,
+  "has_powershell": false,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": []
+ },
+ {
+  "n": 2,
+  "role": "main",
+  "tools_count": 40,
+  "has_powershell": false,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": [
+   {
+    "error": true,
+    "text": "<tool_use_error>Error: No such tool available: PowerShell</tool_use_error>"
+   }
+  ]
+ },
+ {
+  "n": 3,
+  "role": "child",
+  "tools_count": 34,
+  "has_powershell": false,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": []
+ },
+ {
+  "n": 4,
+  "role": "main",
+  "tools_count": 40,
+  "has_powershell": false,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": [
+   {
+    "error": true,
+    "text": "<tool_use_error>Error: No such tool available: PowerShell</tool_use_error>"
+   },
+   {
+    "error": false,
+    "text": "[{\"type\": \"text\", \"text\": \"Async agent launched successfully. (This tool result is internal metadata \\u2014 never quote or paste any part of it, including the agentId below, into a user-facing reply.)\\nagentId: ac3e8e2043a98bc67 (internal ID - do not mention to user. Use SendMessage with to: 'ac3e8e2043a98bc67', summary: '<5-10 word recap>' to continue this agent.)\\nThe agent is working in the bac"
+   }
+  ]
+ },
+ {
+  "n": 5,
+  "role": "child",
+  "tools_count": 34,
+  "has_powershell": false,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": [
+   {
+    "error": true,
+    "text": "<tool_use_error>Error: No such tool available: PowerShell</tool_use_error>"
+   }
+  ]
+ },
+ {
+  "n": 6,
+  "role": "main",
+  "tools_count": 40,
+  "has_powershell": false,
+  "has_bash": true,
+  "agent_tool": "Agent",
+  "results": [
+   {
+    "error": true,
+    "text": "<tool_use_error>Error: No such tool available: PowerShell</tool_use_error>"
+   },
+   {
+    "error": false,
+    "text": "[{\"type\": \"text\", \"text\": \"Async agent launched successfully. (This tool result is internal metadata \\u2014 never quote or paste any part of it, including the agentId below, into a user-facing reply.)\\nagentId: ac3e8e2043a98bc67 (internal ID - do not mention to user. Use SendMessage with to: 'ac3e8e2043a98bc67', summary: '<5-10 word recap>' to continue this agent.)\\nThe agent is working in the bac"
+   }
+  ]
+ }
+]

@@ -1,0 +1,60 @@
+                                                                                                       │                                                              ✕
+ ▐▛███▛█   Claude Code v2.1.311                                                                        │Work details — version 1
+▝▜██████▀  fake-work · API Usage Billing                                                               │[Progress] Queue Completed
+ ▝▝   ▝▝   C:\Users\djlov\AppData\Local\Temp\work-focus-ui-7ec690b4\ws                                 │r: Refresh
+                                                                                                       │w: All items
+⚠ Model "fake-work" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see  │f: Focus only this item
+  the docs                                                                                             │q: Close
+                                                                                                       │[~] 1. STATUS-ATTENTION
+▎ Debug mode enabled · logging to                                                                      │Title: 1. STATUS-ATTENTION
+▎ C:\Users\djlov\AppData\Local\Temp\work-focus-ui-7ec690b4\native-debug.log                            │  [~] Deploy
+                                                                                                       │    [ ] Reserve UI save ◷ n201 source contract, incremental r…
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue            │    [!] Admission check ◷ deploy approval from Daniel
+  without pausing approved Work. Items show above the prompt · /work-mode help · turn off:             │    [~] Run smoke
+  ciel-runtime menu → LLM options → Work mode                                                          │  [ ] Rollback
+                                                                                                       │    [ ] Drain path
+❯ STATUSLINE-MAIN show the Work status line and end the turn.                                          │      [ ] Signal forwarding ◷ external ingress control
+                                                                                                       │      [!] Scheduler drain
+● STATUSLINE-FIXTURE-IDLE                                                                              │1/2 n: Next
+                                                                                                       │Tab/↑↓: navigate · Enter: inspect · Esc: close
+✻ Cooked for 0s · done 11:19 AM                                                                        │
+                                                                                                       │
+❯ /work-mode view                                                                                      │
+  ⎿  ciel-work: Work inspector: Tab/arrows navigate, Enter opens, Esc returns.                         │
+                                                                                                       │
+                                                                                                       │
+                                                                                                       │
+                                                                                                       │
+                                                                                                       │
+                                                                                                       │
+                                                                                                       │
+                                                                                                       │
+                                                                                                       │
+                                                                                                       │
+                                                                                                       │
+                                                                                                       │
+                                                                                                       │
+Work running 0/6 — 1. STATUS-ATTENTION                                                             [-] │
+[Progress 8] Queue 1 Completed 0                                                                       │
+[~] Deploy                                                                                             │
+  [ ] Reserve UI save ◷ n201 source contract, incremental run and Eric workspace routing verifi…       │
+  [!] Admission check ◷ deploy approval from Daniel                                                    │
+  [~] Run smoke                                                                                        │
+[ ] Rollback                                                                                           │
+1/2 n: Next w: Inspector                                                                               │
+                                                                                                       │
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [work executing] 0/6 1. STATUS-ATTENTION · ◷ 2 waiting · [!] 2 BLOCKED                                                                                 work: run 0/6
+  [~] Deploy
+  ◷ Reserve UI save · waiting: n201 source contract, incremental run...
+  [!] BLOCKED Admission check · deploy approval from Daniel
+  [~] Run smoke
+  [ ] Rollback
+  [ ] Drain path (◷1 !1)
+  [ ] Docs
+  [ ] Write notes
+  Queued: ◷ 2. QUEUED-WAIT · waiting: Daniel 검수 응답
+  in_progress n5 1. STATUS-ATTENTION > Deploy > Run smoke
+  ⏵⏵ bypass permissions on (shift+tab to cycle)

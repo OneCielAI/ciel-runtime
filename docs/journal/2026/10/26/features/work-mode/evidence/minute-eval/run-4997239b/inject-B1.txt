@@ -1,0 +1,30 @@
+      135 +            nxt_layer = {}
+      136 +            for node, (cost, path) in layer.items():
+      137 +                for nxt, w in self._adj[node].items():
+      138 +                    if nxt in blocked:
+      139 +                        continue
+      140 +                    cand = (cost + w, path + (nxt,))
+      141 +                    cur = nxt_layer.get(nxt)
+      142 +                    if cur is None or cand < cur:
+      143 +                        nxt_layer[nxt] = cand
+      144 +            if dst in nxt_layer:
+      145 +                cost, path = nxt_layer[dst]
+      146 +                key = (cost, hops, path)
+      147 +                if best is None or key < best:
+      148 +                    best = key
+      149 +            if not nxt_layer:
+      150 +                break
+      151 +            layer = nxt_layer
+      152 +        if best is None:
+      153 +            raise NoPathError("no path from %r to %r within %d hops" % (src, dst, max_hops))
+      154 +        return (best[0], best[2])
+
+· Architecting… (3m 2s · ↓ 18.6k tokens)
+  ⎿  Tip: Use /btw to ask a quick side question without interrupting Claude's current work
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt
+       work: run 4/10 [A: routing_gr… 2/4 | B: booking_ca… 2/2 | C: inventory_… 0/2 | …] · REQ-A1: shortest(blocked=,
+       max_hops=) > Implement blocked/max_ho…

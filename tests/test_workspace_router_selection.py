@@ -428,5 +428,210 @@ class ExhaustedRouterReservationTests(unittest.TestCase):
             self.assertFalse(selection.port_is_free(port))
 
 
+# The restarted launcher: takes its port, then runs a helper and a managed
+# router child the way the real launcher does.
+_RESTARTED_LAUNCHER = """
+import json, os, subprocess, sys
+from pathlib import Path
+root, registry, mode = sys.argv[2], Path(sys.argv[3]), sys.argv[4]
+sys.path.insert(0, root)
+import ciel_runtime_support.workspace_router_selection as s
+base = 9550 if mode == "explicit" else 9464
+pick = (
+    "import os, sys; from pathlib import Path; sys.path.insert(0, sys.argv[1]);"
+    "import ciel_runtime_support.workspace_router_selection as s;"
+    "print(s.select_workspace_router_port(int(sys.argv[3]), Path('C:/work/new'), os.environ,"
+    " registry_path=Path(sys.argv[2]), health=lambda _p: None, available=lambda _p: True))"
+)
+port = s.select_workspace_router_port(base, Path("C:/work/new"), os.environ, registry_path=registry,
+                                      health=lambda _p: None, available=lambda _p: True)
+result = {"pid": os.getpid(), "port": port}
+helper = subprocess.run([sys.executable, "-c", pick, root, str(registry), str(base)],
+                        capture_output=True, text=True, timeout=60)
+router = subprocess.run([sys.executable, "-c", pick, root, str(registry), str(port)],
+                        capture_output=True, text=True, timeout=60,
+                        env=dict(os.environ, CIEL_RUNTIME_ROUTER_PORT=str(port), CIEL_RUNTIME_MANAGED_ROUTER="1",
+                                 CIEL_RUNTIME_ROUTER_OWNER_PID=str(os.getpid())))
+for name, child in (("helper", helper), ("router", router)):
+    result[name] = [child.returncode, child.stdout.strip(), child.stderr.strip().splitlines()[-1:]]
+record = json.loads(registry.read_text())["workspaces"][s.workspace_digest("C:/work/new")]
+result["lease_pid"] = record["launch_lease"]["pid"]
+result["reservation"] = record["reservation"]
+print(json.dumps(result))
+"""
+
+# The updater: takes the lease at startup, then restarts through the real
+# RuntimeRestartService Windows branch (a waiting child process).
+_UPDATER = """
+import os, subprocess, sys
+from pathlib import Path
+sys.path.insert(0, sys.argv[1])
+import ciel_runtime_support.workspace_router_selection as s
+from ciel_runtime_support.runtime_restart import RuntimeRestartPorts, RuntimeRestartService, RuntimeRestartSettings
+registry, package, mode = Path(sys.argv[2]), Path(sys.argv[3]), sys.argv[4]
+environ = dict(os.environ)
+if mode == "explicit":
+    environ["CIEL_RUNTIME_ROUTER_PORT"] = "9550"
+s.select_workspace_router_port(9550 if mode == "explicit" else 9464, Path("C:/work/new"), environ,
+                               registry_path=registry, health=lambda _p: None, available=lambda _p: True)
+RuntimeRestartService(
+    RuntimeRestartSettings(["runtime", "cli", sys.argv[1], str(registry), mode], sys.executable, environ,
+                           platform_name="nt"),
+    RuntimeRestartPorts(lambda: package, lambda _npm: None, lambda _name: None, lambda *_a: None, subprocess.call),
+).restart("npm")
+"""
+
+
+class SelfUpdateLeaseHandoffTests(unittest.TestCase):
+    def setUp(self):
+        temporary = tempfile.TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        self.directory = Path(temporary.name)
+        self.registry = self.directory / "workspace-router-ports.json"
+
+    def select(self, environ=None, base=9464):
+        return select_workspace_router_port(
+            base, Path("C:/work/new"), environ or {}, registry_path=self.registry,
+            health=lambda _port: None, available=lambda _port: True,
+        )
+
+    def lease(self):
+        record = json.loads(self.registry.read_text())["workspaces"][selection.workspace_digest("C:/work/new")]
+        return record["launch_lease"], record["reservation"]
+
+    def test_real_windows_restart_chain_runs_the_restarted_launchers_children(self):
+        package = self.directory / "package"
+        package.mkdir()
+        (package / "ciel_runtime.py").write_text(_RESTARTED_LAUNCHER, encoding="utf-8")
+        root = str(Path(selection.__file__).resolve().parents[1])
+        # The live session's variables would redirect the workspace or port.
+        environ = {key: value for key, value in os.environ.items() if not key.startswith("CIEL_RUNTIME_")}
+        for mode, port, reservation in (("auto", 9464, "auto"), ("explicit", 9550, "explicit")):
+            with self.subTest(mode=mode):
+                if self.registry.exists():
+                    self.registry.unlink()
+                updater = subprocess.run(
+                    [sys.executable, "-c", _UPDATER, root, str(self.registry), str(package), mode],
+                    capture_output=True, text=True, timeout=120, env=environ,
+                )
+                self.assertEqual(0, updater.returncode, updater.stderr)
+                result = json.loads(updater.stdout.strip().splitlines()[-1])
+                self.assertEqual(port, result["port"])
+                self.assertEqual([0, str(port), []], result["helper"])
+                self.assertEqual([0, str(port), []], result["router"])
+                # The restarted launcher, not the waiting updater, owns the launch.
+                self.assertEqual(result["pid"], result["lease_pid"])
+                self.assertEqual(reservation, result["reservation"])
+
+    def test_handoff_moves_the_live_parents_lease_and_keeps_its_reservation(self):
+        for environ, base, reservation in (({}, 9464, "auto"), ({"CIEL_RUNTIME_ROUTER_PORT": "9550"}, 9550, "explicit")):
+            with self.subTest(reservation=reservation):
+                if self.registry.exists():
+                    self.registry.unlink()
+                port = self.select(environ, base)
+                parent = os.getpid()
+                child = parent + 1000000
+                handoff = dict(environ, **{selection.LAUNCH_LEASE_HANDOFF_ENV: str(parent)})
+                births = {parent: selection._process_identity(parent), child: "child-birth"}
+                with patch.object(selection.os, "getpid", return_value=child), \
+                        patch.object(selection.os, "getppid", return_value=parent), \
+                        patch.object(selection, "_process_identity", side_effect=lambda pid: births.get(pid)):
+                    self.assertEqual(port, self.select(handoff, base))
+                lease, kept = self.lease()
+                self.assertEqual((child, "child-birth"), (lease["pid"], lease["identity"]))
+                self.assertEqual(reservation, kept)
+
+    def test_handoff_is_refused_unless_it_names_the_live_parent_lease_holder(self):
+        self.select()
+        before = self.registry.read_bytes()
+        parent = os.getpid()
+        identity = selection._process_identity(parent)
+        cases = (
+            # The marker names the holder, but the holder is not the parent.
+            (str(parent), parent + 2000000, {parent: identity}),
+            # The parent PID was reused by another process.
+            (str(parent), parent, {parent: "another-birth"}),
+            # The holder's state cannot be read.
+            (str(parent), parent, {}),
+            ("not-a-pid", parent + 2000000, {parent: identity}),
+        )
+        for marker, ppid, births in cases:
+            with self.subTest(marker=marker, ppid=ppid, births=births), \
+                    patch.object(selection.os, "getpid", return_value=parent + 1000000), \
+                    patch.object(selection.os, "getppid", return_value=ppid), \
+                    patch.object(selection, "_process_identity", side_effect=lambda pid, b=births: b.get(pid)):
+                with self.assertRaisesRegex(RuntimeError, "launch already reserved"):
+                    self.select({selection.LAUNCH_LEASE_HANDOFF_ENV: marker})
+                self.assertEqual(before, self.registry.read_bytes())
+
+    def test_healthy_router_still_transfers_lease_before_later_helper_launch(self):
+        port = self.select()
+        parent = os.getpid()
+        child = parent + 1000000
+        births = {parent: selection._process_identity(parent), child: "child-birth"}
+        with patch.object(selection.os, "getpid", return_value=child), \
+                patch.object(selection.os, "getppid", return_value=parent), \
+                patch.object(selection, "_process_identity", side_effect=lambda pid: births.get(pid)):
+            self.assertEqual(port, select_workspace_router_port(
+                9464, Path("C:/work/new"), {selection.LAUNCH_LEASE_HANDOFF_ENV: str(parent)},
+                registry_path=self.registry,
+                health=lambda p: {"ok": True, "workspace": "C:/work/new"} if p == port else None,
+                available=lambda _p: False,
+            ))
+        self.assertEqual(child, self.lease()[0]["pid"])
+        # If the router later goes down, its launcher's helper still shares
+        # the right lease rather than being rejected against the updater.
+        before = self.registry.read_bytes()
+        with patch.object(selection.os, "getpid", return_value=child + 1), \
+                patch.object(selection.os, "getppid", return_value=child), \
+                patch.object(selection, "_process_identity", side_effect=lambda pid: births.get(pid)):
+            self.assertEqual(port, self.select({selection.LAUNCH_LEASE_HANDOFF_ENV: str(parent)}))
+        self.assertEqual(before, self.registry.read_bytes())
+
+    def test_explicit_handoff_preserves_unrelated_reused_and_unknown_leases(self):
+        environ = {"CIEL_RUNTIME_ROUTER_PORT": "9550"}
+        self.select(environ, 9550)
+        before = self.registry.read_bytes()
+        parent = os.getpid()
+        identity = selection._process_identity(parent)
+        for ppid, birth in ((parent + 2000000, identity), (parent, "reused-birth"), (parent, None)):
+            with self.subTest(ppid=ppid, birth=birth), \
+                    patch.object(selection.os, "getpid", return_value=parent + 1000000), \
+                    patch.object(selection.os, "getppid", return_value=ppid), \
+                    patch.object(selection, "_process_identity", return_value=birth):
+                with self.assertRaisesRegex(RuntimeError, "launch already reserved"):
+                    self.select(dict(environ, **{selection.LAUNCH_LEASE_HANDOFF_ENV: str(parent)}), 9550)
+                self.assertEqual(before, self.registry.read_bytes())
+
+    def test_explicit_handoff_cannot_claim_foreign_or_occupied_listener(self):
+        environ = {"CIEL_RUNTIME_ROUTER_PORT": "9550"}
+        self.select(environ, 9550)
+        before = self.registry.read_bytes()
+        parent = os.getpid()
+        for observed in ({"ok": True, "workspace": "C:/work/other"}, {"ok": True}, None):
+            with self.subTest(observed=observed), \
+                    patch.object(selection.os, "getpid", return_value=parent + 1000000), \
+                    patch.object(selection.os, "getppid", return_value=parent):
+                with self.assertRaisesRegex(RuntimeError, "already used"):
+                    select_workspace_router_port(
+                        9550, Path("C:/work/new"), dict(environ, **{selection.LAUNCH_LEASE_HANDOFF_ENV: str(parent)}),
+                        registry_path=self.registry, health=lambda _p: observed, available=lambda _p: False,
+                    )
+                self.assertEqual(before, self.registry.read_bytes())
+
+    def test_child_without_its_parents_handoff_still_only_shares_the_lease(self):
+        port = self.select()
+        before = self.registry.read_bytes()
+        parent = os.getpid()
+        # No marker, or a marker naming another process (inherited from an
+        # earlier restart), leaves a helper child sharing the parent's lease.
+        for environ in ({}, {selection.LAUNCH_LEASE_HANDOFF_ENV: str(parent + 3000000)}):
+            with self.subTest(environ=environ), \
+                    patch.object(selection.os, "getpid", return_value=parent + 1000000), \
+                    patch.object(selection.os, "getppid", return_value=parent):
+                self.assertEqual(port, self.select(environ))
+                self.assertEqual(before, self.registry.read_bytes())
+
+
 if __name__ == "__main__":
     unittest.main()

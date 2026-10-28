@@ -1,0 +1,24 @@
+# event-acks.jsonl (read-only): distinct (request_id, SSE stream_id, receiver) pairs for request_id 14876-14907, first received_at (as recorded). event ids omitted.
+# A request_id that appears with two different stream_ids was issued twice: once before the 08:32:16 local unclean shutdown and again after it.
+14876 stream_id=33157 receiver=default received_at=2026-10-26T10:55:18.765Z outcome=queued 
+14877 stream_id=33162 receiver=default received_at=2026-10-26T11:27:35.456Z outcome=queued 
+14878 stream_id=33223 receiver=default received_at=2026-10-26T14:28:52.994Z outcome=queued 
+14880 stream_id=33165 receiver=default received_at=2026-10-26T11:36:05.365Z outcome=queued; stream_id=33226 receiver=default received_at=2026-10-26T14:54:50.777Z outcome=queued   <== REUSED
+14881 stream_id=33166 receiver=default received_at=2026-10-26T11:36:56.212Z outcome=queued 
+14882 stream_id=33169 receiver=default received_at=2026-10-26T11:44:54.622Z outcome=queued 
+14883 stream_id=33170 receiver=default received_at=2026-10-26T11:45:03.739Z outcome=queued 
+14884 stream_id=33174 receiver=default received_at=2026-10-26T11:52:52.076Z outcome=queued 
+14886 stream_id=33178 receiver=default received_at=2026-10-26T11:53:24.971Z outcome=queued; stream_id=33239 receiver=default received_at=2026-10-26T15:29:16.797Z outcome=queued   <== REUSED
+14887 stream_id=33180 receiver=default received_at=2026-10-26T11:53:56.821Z outcome=queued; stream_id=33242 receiver=default received_at=2026-10-26T15:37:12.477Z outcome=queued   <== REUSED
+14888 stream_id=33181 receiver=default received_at=2026-10-26T11:55:58.214Z outcome=queued 
+14889 stream_id=33248 receiver=default received_at=2026-10-26T16:08:22.956Z outcome=queued 
+14890 stream_id=33186 receiver=default received_at=2026-10-26T12:11:34.259Z outcome=queued 
+14891 stream_id=33250 receiver=default received_at=2026-10-26T16:09:25.389Z outcome=queued 
+14893 stream_id=33189 receiver=default received_at=2026-10-26T12:16:24.029Z outcome=queued 
+14894 stream_id=33190 receiver=default received_at=2026-10-26T12:20:38.615Z outcome=queued 
+14897 stream_id=33194 receiver=default received_at=2026-10-26T12:30:12.117Z outcome=queued 
+14898 stream_id=33195 receiver=default received_at=2026-10-26T12:32:12.108Z outcome=queued 
+14900 stream_id=33198 receiver=default received_at=2026-10-26T12:35:29.238Z outcome=queued 
+14905 stream_id=33215 receiver=default received_at=2026-10-26T13:19:50.503Z outcome=queued 
+14906 stream_id=33216 receiver=default received_at=2026-10-26T13:21:41.164Z outcome=queued 
+14907 stream_id=33217 receiver=default received_at=2026-10-26T13:24:01.952Z outcome=queued 

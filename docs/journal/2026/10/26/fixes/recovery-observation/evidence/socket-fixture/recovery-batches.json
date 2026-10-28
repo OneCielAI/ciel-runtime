@@ -1,0 +1,285 @@
+{
+  "fixture": "owned python protocol child (not native Claude Code)",
+  "platform": "nt",
+  "message_id": 1,
+  "cursor": 6,
+  "socket_sends": [
+    [
+      1,
+      2,
+      3
+    ],
+    [
+      4,
+      5,
+      6
+    ]
+  ],
+  "repeat_scan_injected_ids": [],
+  "settled_while_paused": [
+    1,
+    2,
+    3
+  ],
+  "held_admission_checks_after_settlement": 6,
+  "gate_releases": [
+    "released_after_exact_settlement"
+  ],
+  "status_events": [
+    [
+      1,
+      "queued"
+    ],
+    [
+      2,
+      "queued"
+    ],
+    [
+      3,
+      "queued"
+    ],
+    [
+      4,
+      "queued"
+    ],
+    [
+      5,
+      "queued"
+    ],
+    [
+      6,
+      "queued"
+    ],
+    [
+      1,
+      "submitted"
+    ],
+    [
+      2,
+      "submitted"
+    ],
+    [
+      3,
+      "submitted"
+    ],
+    [
+      1,
+      "replied"
+    ],
+    [
+      2,
+      "replied"
+    ],
+    [
+      3,
+      "replied"
+    ],
+    [
+      4,
+      "submitted"
+    ],
+    [
+      5,
+      "submitted"
+    ],
+    [
+      6,
+      "submitted"
+    ],
+    [
+      4,
+      "replied"
+    ],
+    [
+      5,
+      "replied"
+    ],
+    [
+      6,
+      "replied"
+    ]
+  ],
+  "old_states_before": {},
+  "old_states_after": {},
+  "history_health_after": {
+    "complete": true,
+    "coverage": "complete",
+    "scanned_bytes": 4643,
+    "failure_count": 0,
+    "recovered_count": 0,
+    "diagnostics": [],
+    "diagnostics_truncated": false
+  },
+  "history_prefix_bytes": 0,
+  "history_prefix_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "history_prefix_unchanged": true,
+  "appended_rows": [
+    {
+      "request_id": 1,
+      "status": "queued"
+    },
+    {
+      "request_id": 2,
+      "status": "queued"
+    },
+    {
+      "request_id": 3,
+      "status": "queued"
+    },
+    {
+      "request_id": 4,
+      "status": "queued"
+    },
+    {
+      "request_id": 5,
+      "status": "queued"
+    },
+    {
+      "request_id": 6,
+      "status": "queued"
+    },
+    {
+      "request_id": 1,
+      "status": "submitted"
+    },
+    {
+      "request_id": 2,
+      "status": "submitted"
+    },
+    {
+      "request_id": 3,
+      "status": "submitted"
+    },
+    {
+      "request_id": 1,
+      "status": "replied"
+    },
+    {
+      "request_id": 2,
+      "status": "replied"
+    },
+    {
+      "request_id": 3,
+      "status": "replied"
+    },
+    {
+      "request_id": 4,
+      "status": "submitted"
+    },
+    {
+      "request_id": 5,
+      "status": "submitted"
+    },
+    {
+      "request_id": 6,
+      "status": "submitted"
+    },
+    {
+      "request_id": 4,
+      "status": "replied"
+    },
+    {
+      "request_id": 5,
+      "status": "replied"
+    },
+    {
+      "request_id": 6,
+      "status": "replied"
+    }
+  ],
+  "transcript_record_types": [
+    "user",
+    "assistant",
+    "user",
+    "assistant"
+  ],
+  "transcript_wake_state": "completed",
+  "receipt_user_frames": 2,
+  "process_count": 1,
+  "logs": [
+    [
+      "INFO",
+      "claude_session_socket_configured target=\\\\.\\pipe\\LOCAL\\cc-msg-82acd10d8124fa1f32b772b5c6078ea7"
+    ],
+    [
+      "WARN",
+      "external_event_sse_disconnected receiver=default error=EOFError diagnostic={\"category\": \"eof\", \"class\": \"EOFError\", \"phase\": \"read\"}"
+    ],
+    [
+      "WARN",
+      "channel_windows_console_proxy_failed stage=windows_proxy type=OSError errno=36 winerror=None frames=channel_terminal_dispatch.py:122:dispatch,channel_terminal_context.py:327:run_windows,channel_terminal_context.py:186:run_windows,test_channel_direct_socket_e2e.py:317:<lambda>,test_channel_direct_socket_e2e.py:256:fail_proxy; using direct subprocess call"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_unavailable; using direct subprocess call"
+    ],
+    [
+      "INFO",
+      "channel_direct_socket_poller_started pid=44136 terminal_available=false"
+    ],
+    [
+      "ERROR",
+      "claude_session_socket_unavailable reason=auth_key_unavailable target=\\\\.\\pipe\\LOCAL\\cc-msg-82acd10d8124fa1f32b772b5c6078ea7 fallback=terminal"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_deferred cursor=0 message_id=1 channel=external:default reason=session_socket_transport_unavailable"
+    ],
+    [
+      "INFO",
+      "claude_session_socket_available target=\\\\.\\pipe\\LOCAL\\cc-msg-82acd10d8124fa1f32b772b5c6078ea7 after=auth_key_unavailable"
+    ],
+    [
+      "INFO",
+      "claude_session_socket_injected bytes=693 target=\\\\.\\pipe\\LOCAL\\cc-msg-82acd10d8124fa1f32b772b5c6078ea7"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_injected count=3 message_ids=1,2,3 channels=external:default enter=cr transport=session_socket commit_cursor=False display_body=False"
+    ],
+    [
+      "INFO",
+      "channel_direct_socket_confirmed message_id=3 cursor=3"
+    ],
+    [
+      "INFO",
+      "claude_session_socket_injected bytes=693 target=\\\\.\\pipe\\LOCAL\\cc-msg-82acd10d8124fa1f32b772b5c6078ea7"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_injected count=3 message_ids=4,5,6 channels=external:default enter=cr transport=session_socket commit_cursor=False display_body=False"
+    ],
+    [
+      "INFO",
+      "channel_direct_socket_confirmed message_id=6 cursor=6"
+    ],
+    [
+      "INFO",
+      "channel_direct_socket_poller_stopped pid=44136"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_skipped_noise message_id=1 reason=durable_replied"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_skipped_noise message_id=2 reason=durable_replied"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_skipped_noise message_id=3 reason=durable_replied"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_skipped_noise message_id=4 reason=durable_replied"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_skipped_noise message_id=5 reason=durable_replied"
+    ],
+    [
+      "INFO",
+      "channel_stdin_proxy_skipped_noise message_id=6 reason=durable_replied"
+    ]
+  ]
+}

@@ -1,0 +1,15 @@
+{
+ "module": "C:/Users/djlov/ciel-runtime-wt-work/ciel_runtime_support/router_client_lifecycle.py",
+ "events": [
+  {
+   "event": "release"
+  },
+  {
+   "event": "stop"
+  }
+ ],
+ "exit_code": 0,
+ "lease_exists": false,
+ "port_listening_after_exit": false,
+ "alive_owned_router_pids": []
+}

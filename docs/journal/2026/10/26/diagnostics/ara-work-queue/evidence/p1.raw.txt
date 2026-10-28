@@ -1,0 +1,36 @@
+<string>:43: SyntaxWarning: invalid escape sequence '\/'
+REMOTE_START 2026-10-26T19:19:48 gmtoff -25200
+HOMES ['ara-ai']
+RUNTIME 0.2.51-nightly.20261027-010349.e6514c8 gitHead None mtime 2026-10-26T18:51:43
+MOD_REGISTER sha256 957ccfa06f39c1e58333eb004a31a9ddcbab99c052ff9161d3f2eff07b27ca6a bytes 28487 has_classic_Stop True
+CLAUDE_CODE 2.1.311
+CODEX 0.164.0
+PROC 10144 22772 python.exe 2026-10-26T13:20:47 exe=python.exe append_system_prompt_present=False
+PROC 8632 20428 node.exe 2026-10-26T18:51:57 exe=node.exe --continue append_system_prompt_present=False
+PROC 8036 8632 py.exe 2026-10-26T18:51:57 exe=ciel_runtime.py has[ciel_runtime.py cli] --continue append_system_prompt_present=False
+PROC 15244 8036 python.exe 2026-10-26T18:51:57 exe=python.exe has[ciel_runtime.py cli] --continue append_system_prompt_present=False
+PROC 12416 15244 python.exe 2026-10-26T18:53:36 exe=python.exe has[ciel_runtime.py serve] append_system_prompt_present=False
+PROC 9680 15244 cmd.exe 2026-10-26T18:53:46 exe=cmd.exe --dangerously-skip-permissions --model=ciel-runtime-cielairouter-_walkie_sol61-opus55-fast --plugin-dir=ciel-work --permission-mode=bypassPermissions append_system_prompt_present=True
+PROC 19916 15244 python.exe 2026-10-26T18:53:46 exe=python.exe has[windows_console_guard.py] append_system_prompt_present=False
+PROC 8904 9680 claude.exe 2026-10-26T18:53:46 exe=claude.exe --continue --dangerously-skip-permissions --model=ciel-runtime-cielairouter-_walkie_sol61-opus55-fast --plugin-dir=ciel-work --permission-mode=bypassPermissions append_system_prompt_present=True
+PROC 22160 8904 python.exe 2026-10-26T18:53:52 exe=python.exe append_system_prompt_present=False
+PROC 16568 8904 python.exe 2026-10-26T18:53:52 exe=python.exe append_system_prompt_present=False
+PROC 14632 8904 python.exe 2026-10-26T18:53:53 exe=python.exe append_system_prompt_present=False
+PROC 7360 8904 python.exe 2026-10-26T18:53:53 exe=python.exe append_system_prompt_present=False
+PROC 2696 8904 python.exe 2026-10-26T18:53:54 exe=python.exe append_system_prompt_present=False
+PROC 13560 8904 python.exe 2026-10-26T18:53:54 exe=python.exe append_system_prompt_present=False
+PROC 8824 8904 python.exe 2026-10-26T18:53:54 exe=python.exe append_system_prompt_present=False
+PROC 2812 8904 python.exe 2026-10-26T18:53:54 exe=python.exe append_system_prompt_present=False
+PROC 5268 8824 node.exe 2026-10-26T18:53:56 append_system_prompt_present=False
+CONFIG_WORK {'work_mode': 'ABSENT', 'work_plan_approval_ask': 'ABSENT', 'work_auto_continue': 'ABSENT'}
+INSTANCE 9178-016457eb7a85 mtime 2026-10-05T11:51:19 router.pid 
+INSTANCE 9178-fe924fced90d mtime 2026-10-05T11:51:19 router.pid 
+INSTANCE 9179-016457eb7a85 mtime 2026-10-24T01:13:11 router.pid 
+INSTANCE 9179-fe924fced90d mtime 2026-10-26T19:19:48 router.pid 12416
+PORT fe924fced90d 9179 ws c:\programdata\aap-win\sandboxes\u21\home\ara-ai lease_pid 15244
+CANDIDATE_SESSIONS 70
+CLAUDE_TRANSCRIPT amData-aap-win-sandboxes-u21-home-ara-ai ad4b04e9-84bb-496f-b441-9e79b55530cb.jsonl size 175285781 mtime 2026-10-26T19:19:48
+REMOTE_END 2026-10-26T19:19:49
+
+
+exit 0

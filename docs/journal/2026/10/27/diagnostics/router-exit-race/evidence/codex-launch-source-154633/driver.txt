@@ -1,0 +1,38 @@
+owned cmd: yes
+owned window: yes
+interactive ready: yes
+main prompt ready: yes
+console command: yes
+first launcher exited: NO
+router down after exit: NO
+console command: yes
+relaunch router up: yes
+relaunch CLI ready: yes
+console command: yes
+second launcher exited: NO
+router down after second exit: NO
+owned stop 68172 SUCCESS: The process with PID 66932 (child process of PID 48316) has been terminated.
+SUCCESS: The process with PID 48316 (child process of PID 44168) has been terminated.
+SUCCESS: The process with PID 64684 (child process of PID 68084) has been terminated.
+SUCCESS: The process with PID 66612 (child process of PID 23068) has been terminated.
+SUCCESS: The process with PID 44168 (child process of PID 63624) has been terminated.
+SUCCESS: The process with PID 68084 (child process of PID 67228) has been terminated.
+SUCCESS: The process with PID 23068 (child process of PID 1036) has been terminated.
+SUCCESS: The process with PID 65288 (child process of PID 59672) has been terminated.
+SUCCESS: The process with PID 67752 (child process of PID 24772) has been terminated.
+SUCCESS: The process with PID 53380 (child process of PID 67344) has been terminated.
+SUCCESS: The process with PID 6508 (child process of PID 56084) has been terminated.
+SUCCESS: The process with PID 63624 (child process of PID 67344) has been terminated.
+SUCCESS: The process with PID 67228 (child process of PID 59672) has been terminated.
+SUCCESS: The process with PID 1036 (child process of PID 56084) has been terminated.
+SUCCESS: The process with PID 59672 (child process of PID 65968) has been terminated.
+SUCCESS: The process with PID 24772 (child process of PID 65968) has been terminated.
+SUCCESS: The process with PID 67344 (child process of PID 65968) has been terminated.
+SUCCESS: The process with PID 56084 (child process of PID 65968) has been terminated.
+SUCCESS: The process with PID 49688 (child process of PID 25504) has been terminated.
+SUCCESS: The process with PID 2956 (child process of PID 25504) has been terminated.
+SUCCESS: The process with PID 65968 (child process of PID 25504) has been terminated.
+SUCCESS: The process with PID 66972 (child process of PID 25504) has been terminated.
+SUCCESS: The process with PID 25504 (child process of PID 68172) has been terminated.
+SUCCESS: The process with PID 68172 (child process of PID 28560) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\27\diagnostics\router-exit-race\evidence\codex-launch-source-154633

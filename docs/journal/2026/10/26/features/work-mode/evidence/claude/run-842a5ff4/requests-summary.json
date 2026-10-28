@@ -1,0 +1,254 @@
+[
+ {
+  "n": 1,
+  "tag": "main",
+  "stage": 0,
+  "path": "/v1/messages?beta=true",
+  "model": "fake-work",
+  "tool_names": [
+   "Agent",
+   "Bash",
+   "Edit",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "Skill",
+   "ToolSearch",
+   "Workflow",
+   "DeferredToolPlaceholder",
+   "Write"
+  ],
+  "work_instructions": true,
+  "prior_results": [],
+  "served_tool": {
+   "name": "Read",
+   "input": {
+    "file_path": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\claude\\run-842a5ff4\\ws\\subject.txt"
+   }
+  },
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_w1",
+    "name": "Read",
+    "input": {
+     "file_path": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\claude\\run-842a5ff4\\ws\\subject.txt"
+    }
+   }
+  ]
+ },
+ {
+  "n": 2,
+  "tag": "main",
+  "stage": 1,
+  "path": "/v1/messages?beta=true",
+  "model": "fake-work",
+  "tool_names": [
+   "Agent",
+   "Bash",
+   "Edit",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "Skill",
+   "ToolSearch",
+   "Workflow",
+   "DeferredToolPlaceholder",
+   "Write"
+  ],
+  "work_instructions": true,
+  "prior_results": [
+   {
+    "tool_use_id": "toolu_w1",
+    "type": "tool_result",
+    "content": "1\tBEFORE\n2\t",
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "served_tool": {
+   "name": "Edit",
+   "input": {
+    "file_path": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\claude\\run-842a5ff4\\ws\\subject.txt",
+    "old_string": "BEFORE",
+    "new_string": "ILLEGAL-PLANNING"
+   }
+  },
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_w2",
+    "name": "Edit",
+    "input": {
+     "file_path": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\features\\work-mode\\evidence\\claude\\run-842a5ff4\\ws\\subject.txt",
+     "old_string": "BEFORE",
+     "new_string": "ILLEGAL-PLANNING"
+    }
+   }
+  ]
+ },
+ {
+  "n": 3,
+  "tag": "main",
+  "stage": 2,
+  "path": "/v1/messages?beta=true",
+  "model": "fake-work",
+  "tool_names": [
+   "Agent",
+   "Bash",
+   "Edit",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "Skill",
+   "ToolSearch",
+   "Workflow",
+   "DeferredToolPlaceholder",
+   "Write"
+  ],
+  "work_instructions": true,
+  "prior_results": [
+   {
+    "tool_use_id": "toolu_w1",
+    "type": "tool_result",
+    "content": "1\tBEFORE\n2\t"
+   },
+   {
+    "type": "tool_result",
+    "content": "<tool_use_error>Work is planning. Build the plan and call work_execute before changing state.</tool_use_error>",
+    "is_error": true,
+    "tool_use_id": "toolu_w2",
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "served_tool": {
+   "name": "Bash",
+   "input": {
+    "command": "printf SHELL-PLANNING > shell-planning.txt",
+    "description": "Probe Work planning shell guard"
+   }
+  },
+  "response": [
+   {
+    "type": "tool_use",
+    "id": "toolu_w3",
+    "name": "Bash",
+    "input": {
+     "command": "printf SHELL-PLANNING > shell-planning.txt",
+     "description": "Probe Work planning shell guard"
+    }
+   }
+  ]
+ },
+ {
+  "n": 4,
+  "tag": "main",
+  "stage": 3,
+  "path": "/v1/messages?beta=true",
+  "model": "fake-work",
+  "tool_names": [
+   "Agent",
+   "Bash",
+   "Edit",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "Skill",
+   "ToolSearch",
+   "Workflow",
+   "DeferredToolPlaceholder",
+   "Write"
+  ],
+  "work_instructions": true,
+  "prior_results": [
+   {
+    "type": "tool_result",
+    "content": "<tool_use_error>Work is planning. Build the plan and call work_execute before changing state.</tool_use_error>",
+    "is_error": true,
+    "tool_use_id": "toolu_w2"
+   },
+   {
+    "type": "tool_result",
+    "content": "Permission to use Bash denied by plugin ciel-work: Work is planning. Build the plan and call work_execute before changing state.",
+    "is_error": true,
+    "tool_use_id": "toolu_w3",
+    "cache_control": {
+     "type": "ephemeral"
+    }
+   }
+  ],
+  "schema_error": {
+   "requested": "work_plan_set",
+   "matches": []
+  },
+  "response": [
+   {
+    "type": "text",
+    "text": "E2EWORK-SCHEMA-MISSING-work_plan_set"
+   }
+  ]
+ },
+ {
+  "n": 5,
+  "tag": "continue",
+  "stage": 0,
+  "path": "/v1/messages?beta=true",
+  "model": "fake-work",
+  "tool_names": [
+   "Agent",
+   "Bash",
+   "Edit",
+   "Glob",
+   "Grep",
+   "ListAgents",
+   "Read",
+   "ReportFindings",
+   "ScheduleWakeup",
+   "Skill",
+   "ToolSearch",
+   "Workflow",
+   "DeferredToolPlaceholder",
+   "Write"
+  ],
+  "work_instructions": true,
+  "prior_results": [
+   {
+    "type": "tool_result",
+    "content": "<tool_use_error>Work is planning. Build the plan and call work_execute before changing state.</tool_use_error>",
+    "is_error": true,
+    "tool_use_id": "toolu_w2"
+   },
+   {
+    "type": "tool_result",
+    "content": "Permission to use Bash denied by plugin ciel-work: Work is planning. Build the plan and call work_execute before changing state.",
+    "is_error": true,
+    "tool_use_id": "toolu_w3"
+   }
+  ],
+  "schema_error": {
+   "requested": "work_status",
+   "matches": []
+  },
+  "response": [
+   {
+    "type": "text",
+    "text": "E2EWORK-SCHEMA-MISSING-work_status"
+   }
+  ]
+ }
+]

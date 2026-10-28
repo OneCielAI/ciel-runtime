@@ -1,0 +1,49 @@
+C:\Users\djlov\AppData\Local\Temp\selfupd-f483303f\prefix\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\codex_app_server_session.py:417: SyntaxWarning: 'r
+eturn' in a 'finally' block
+  return _RemoteRun(1)
+Ciel Runtime update available: 0.2.51 -> 9.9.9; upgrading automatically.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

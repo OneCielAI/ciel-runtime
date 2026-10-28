@@ -1,0 +1,84 @@
+{
+ "schema": 1,
+ "version": 6,
+ "phase": "executing",
+ "active_root": "n1",
+ "next_id": 7,
+ "nodes": [
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "1. Waiting active goal",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793088515.153446,
+   "phase": "executing"
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "Wait phase",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793088515.153446
+  },
+  {
+   "id": "n3",
+   "parent_id": "n2",
+   "title": "Wait leaf",
+   "status": "pending",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "external-proof",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793088515.153446
+  },
+  {
+   "id": "n4",
+   "parent_id": null,
+   "title": "2. Runnable queued goal",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793088516.663223,
+   "phase": "planning"
+  },
+  {
+   "id": "n5",
+   "parent_id": "n4",
+   "title": "Queued phase",
+   "status": "done",
+   "note": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793088516.663223
+  },
+  {
+   "id": "n6",
+   "parent_id": "n5",
+   "title": "Queued leaf",
+   "status": "done",
+   "note": "",
+   "evidence": "Owned queued Write created subject.txt; read-back by fixture driver",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1793088516.663223
+  }
+ ],
+ "updated_at": 1793088516.6637216
+}

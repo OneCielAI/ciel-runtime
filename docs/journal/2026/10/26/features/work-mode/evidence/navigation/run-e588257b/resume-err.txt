@@ -1,0 +1,1 @@
+[claude-code:unrecognized_model] {"model":"fake-work","query_source":"sdk"}

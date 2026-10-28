@@ -1,0 +1,5 @@
+WARNING: proceeding, even though we could not create PATH aliases: Refusing to create helper binaries under temporary dir "C:\\Users\\djlov\\AppData\\Local\\Temp\\" (codex_home: AbsolutePathBuf("C:\\Users\\djlov\\AppData\\Local\\Temp\\codex-work-proof-n4puz55q\\codex"))
+[2m2026-10-26T06:27:48.280731Z[0m [31mERROR[0m [2mcodex_app_server[0m[2m:[0m Project-local config, hooks, and exec policies are disabled in the following folders until the project is trusted, but skills still load.
+    1. C:\Users\djlov\.codex
+       To load project-local config, hooks, and exec policies, add c:\ as a trusted project in C:\Users\djlov\AppData\Local\Temp\codex-work-proof-n4puz55q\codex\config.toml.
+

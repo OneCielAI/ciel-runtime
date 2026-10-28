@@ -1,0 +1,18 @@
+owned router: yes
+owned cmd: yes
+interactive ready: yes
+start notice: yes
+empty plan hint: yes
+console command: yes
+help: NO
+console command: yes
+bare summary: yes
+console command: yes
+planning deny text: NO
+planning toast: NO
+numbered band: yes
+main finished: yes
+owned stop 59916 SUCCESS: The process with PID 68988 (child process of PID 59916) has been terminated.
+SUCCESS: The process with PID 59916 (child process of PID 49736) has been terminated.
+owned stop 53284 SUCCESS: The process with PID 53284 (child process of PID 69236) has been terminated.
+evidence C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-c6b21f5b

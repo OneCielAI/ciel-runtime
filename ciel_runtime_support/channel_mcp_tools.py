@@ -21,6 +21,10 @@ class ChannelMcpRuntimeServices:
     session_backup: Callable[[dict[str, Any]], dict[str, Any]] | None = None
     # (args) -> result; reports or resets a session whose SSE inputs are stuck.
     recover_sse_delivery: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+    # () -> merged config; enables the shared Work plan tools (work_*).
+    load_config: Callable[[], dict[str, Any]] | None = None
+    # (config) -> None; persists work_mode_set like the menu's Work mode option.
+    save_config: Callable[[dict[str, Any]], None] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -39,7 +43,24 @@ class ChannelMcpToolServices:
 SESSION_COMMAND_TOOLS = {"compact_session": "compact", "new_session": "new_session", "goal_clear": "goal_clear"}
 
 
-def channel_mcp_tool_schemas() -> list[dict[str, Any]]:
+def channel_mcp_tool_schemas(load_config: Callable[[], dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    return [*_session_tool_schemas(), *_work_tool_schemas(load_config)]
+
+
+def _work_tool_schemas(load_config: Callable[[], dict[str, Any]] | None) -> list[dict[str, Any]]:
+    if load_config is None:
+        return []
+    from ciel_runtime_support.work_mcp_tools import work_tool_schemas
+    from ciel_runtime_support.work_mode_launch import work_mode_enabled
+
+    try:
+        enabled = work_mode_enabled(load_config())
+    except Exception:  # noqa: BLE001 - an unreadable config keeps the session tools listed
+        return []
+    return work_tool_schemas(enabled=enabled)
+
+
+def _session_tool_schemas() -> list[dict[str, Any]]:
     return [
         {
             "name": "submit_input",
@@ -429,6 +450,8 @@ def dispatch_channel_mcp_tool(
         return _telemetry_logs(request_id, args, services)
     if name == "session_backup":
         return _session_backup(request_id, args, services)
+    if name.startswith("work_"):
+        return _work_tool(request_id, name, args, services, metadata=params.get("_meta"))
     if name == "provider_fallback":
         from ciel_runtime_support.provider_failover import mcp_provider_fallback
 
@@ -437,6 +460,24 @@ def dispatch_channel_mcp_tool(
             return channel_mcp_tool_response(request_id, str(result.get("error")), True)
         return _json_response(request_id, result)
     return channel_mcp_tool_response(request_id, f"Unknown ciel-runtime-router tool: {name}", True)
+
+
+def _work_tool(request_id: Any, name: str, args: dict[str, Any], services: ChannelMcpToolServices,
+               *, metadata: Any = None) -> dict[str, Any]:
+    from ciel_runtime_support.work_mcp_tools import WORK_TOOL_NAMES, dispatch_work_tool
+
+    if name not in WORK_TOOL_NAMES or services.runtime.load_config is None:
+        return channel_mcp_tool_response(request_id, f"Unknown ciel-runtime-router tool: {name}", True)
+    from ciel_runtime_support.runtime_paths import WORKSPACE_STATE_DIR
+
+    return dispatch_work_tool(
+        request_id, name, args,
+        load_config=services.runtime.load_config,
+        state_dir=WORKSPACE_STATE_DIR,
+        respond=channel_mcp_tool_response,
+        metadata=metadata,
+        save_config=services.runtime.save_config,
+    )
 
 
 def _default_session_backup(args: dict[str, Any]) -> dict[str, Any]:

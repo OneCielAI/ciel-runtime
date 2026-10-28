@@ -234,6 +234,22 @@ class ChannelMcpToolsTests(unittest.TestCase):
         self.assertTrue(response["result"]["isError"])
         self.assertIn("missing", response["result"]["content"][0]["text"])
 
+    def test_work_mode_set_reaches_the_injected_config_writer_while_off(self):
+        config = {"work_mode": False}
+        saved = []
+        services = replace(self.services, runtime=ChannelMcpRuntimeServices(
+            load_config=lambda: dict(config), save_config=saved.append))
+        listed = {tool["name"] for tool in channel_mcp_tool_schemas(lambda: config)}
+        self.assertIn("work_mode_set", listed)
+        self.assertNotIn("work_plan_set", listed)
+        response = dispatch_channel_mcp_tool(11, {"name": "work_mode_set", "arguments": {"enabled": True}}, services)
+        self.assertFalse(response["result"].get("isError"), response)
+        self.assertIn("now on", response["result"]["content"][0]["text"])
+        self.assertEqual([{"work_mode": True}], saved)
+        unbound = dispatch_channel_mcp_tool(12, {"name": "work_mode_set", "arguments": {"enabled": True}},
+                                            replace(services, runtime=ChannelMcpRuntimeServices(load_config=lambda: dict(config))))
+        self.assertTrue(unbound["result"]["isError"])
+
     def test_compact_and_llm_options_use_injected_services(self):
         compact = dispatch_channel_mcp_tool(
             9,

@@ -183,12 +183,18 @@ class ObservationTests(BindingHarness):
         self.binding.bind("claude", session_id="exact", cwd=self.root)
         self.binding.observe_request("other", {}, {"tokens": 100}, "claude")  # resumed, small
 
+    def test_first_corrupt_state_diagnostic_does_not_claim_nongating_stale_scope(self):
+        (self.root / "compaction-admission.json").write_text("broken", encoding="utf-8")
+        self.assertEqual({"phase": "unknown", "failure": "state_unavailable"}, self.binding.recovery_status())
+        self.assertTrue(self.binding.external_admission_paused())
+        self.assertEqual("state_unavailable", self.binding.admission_reason())
+
     def test_raw_pressure_queues_once_and_router_append_stays_paused(self):
         self.binding.observe_failure("other", {}, {"tokens": 15000}, "prompt is too long: 21000 tokens > 20000 maximum", "claude")
         request = self.requests.read()
         self.binding.observe_request("other", {}, {"tokens": 16000}, "claude")
         self.assertEqual(request["id"], self.requests.read()["id"])
-        self.assertEqual("context_recovery", self.binding.context_pause_reason({}))
+        self.assertEqual("compaction_checkpoint_pending", self.binding.context_pause_reason({}))
         self.assertEqual("native_compaction", self.binding.context_pause_reason({"native": "claude"}))
 
     def test_remote_bridge_and_other_runtime_are_bypassed(self):
@@ -218,7 +224,7 @@ class ObservationTests(BindingHarness):
         self.checkpoint()
         # Persisted checkpoint alone must not release external SSE as a probe.
         self.assertTrue(self.binding.external_admission_paused())
-        self.assertEqual("context_recovery", self.binding.context_pause_reason({}))
+        self.assertEqual("compaction_shrink_pending", self.binding.context_pause_reason({}))
         self.assertEqual("awaiting_shrink", self.state()["phase"])
         self.binding.observe_request("other", {}, {"tokens": 900}, "claude")
         self.assertEqual("verified", self.state()["phase"])

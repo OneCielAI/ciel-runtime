@@ -40,6 +40,8 @@ class DeliveryHealthTests(unittest.TestCase):
             {"id": 3, "created_at_epoch": 110, "channel": "web"},
         ])
         if corrupt:
+            with self.inputs.open("ab") as stream:
+                stream.write(json.dumps({"id": 4, "created_at_epoch": 130}).encode() + b"\n")
             with self.path.open("ab") as stream:
                 stream.write(bytes([0]) + b"secret corrupt data" + bytes([10]))
                 # A complete row after NUL damage is recovered, as in history.
@@ -84,6 +86,8 @@ class DeliveryHealthTests(unittest.TestCase):
         with self.path.open("ab") as stream:
             stream.write(bytes([0, 0, 0]) + json.dumps(
                 {"request_id": 4, "status": "queued", "updated_at_epoch": 130}).encode() + bytes([10]))
+        with self.inputs.open("ab") as stream:
+            stream.write(json.dumps({"id": 4, "created_at_epoch": 130}).encode() + b"\n")
         h = runtime_input_delivery_health(self.status, now=200)
         self.assertEqual(("not_blocked", "", "complete"), (h["state"], h["reason"], h["queued_coverage"]))
         self.assertEqual(3, h["known_queued_count"])
@@ -95,6 +99,8 @@ class DeliveryHealthTests(unittest.TestCase):
         with self.path.open("ab") as stream:
             stream.write(bytes(300 * 1024) + json.dumps(
                 {"request_id": 4, "status": "queued", "updated_at_epoch": 130}).encode() + bytes([10]))
+        with self.inputs.open("ab") as stream:
+            stream.write(json.dumps({"id": 4, "created_at_epoch": 130}).encode() + b"\n")
         h = runtime_input_delivery_health(self.status, now=200)
         rows = self.status.list_latest(status="queued")
         self.assertEqual(len(rows), h["known_queued_count"])
@@ -120,6 +126,8 @@ class DeliveryHealthTests(unittest.TestCase):
             stream.write(b"x" * (2 * 1024 * 1024) + bytes([10]))
             stream.write(json.dumps({"request_id": 5, "status": "queued",
                                      "updated_at_epoch": 140}).encode() + bytes([10]))
+        with self.inputs.open("ab") as stream:
+            stream.write(json.dumps({"id": 5, "created_at_epoch": 130}).encode() + b"\n")
         h = runtime_input_delivery_health(self.status, now=200)
         self.assertEqual((3, "partial", "not_blocked"),
                          (h["known_queued_count"], h["queued_coverage"], h["state"]))
@@ -143,6 +151,85 @@ class DeliveryHealthTests(unittest.TestCase):
         self.assertEqual("unknown", h["history"]["coverage"])
         self.assertIn("observation unavailable", delivery_health_text(h))
         self.assertNotIn("admission_blocked", delivery_health_text(h))
+
+    def test_ids_whose_terminal_status_predates_the_row_are_reported_as_reused(self):
+        # 2026-10-26: rows 14877+ were lost in a crash; new inputs got those ids
+        # back while their old statuses still said replied/failed.
+        self.write_rows(self.path, [
+            {"request_id": 76, "status": "replied", "updated_at_epoch": 1000},
+            {"request_id": 77, "status": "replied", "updated_at_epoch": 1100},
+            {"request_id": 78, "status": "failed", "updated_at_epoch": 1200},
+            {"request_id": 79, "status": "replied", "updated_at_epoch": 9000},
+        ])
+        self.inputs.write_bytes(
+            json.dumps({"id": 76, "created_at_epoch": 990, "message": "SECRET_PAYLOAD"}).encode() + b"\n"
+            + bytes(4096) + b"\r\n"
+            + b"".join(json.dumps({"id": i, "created_at_epoch": 5000 + i}).encode() + b"\n" for i in (77, 78, 79)))
+        h = runtime_input_delivery_health(self.status, now=10000)
+        self.assertEqual((2, 78), (h["reused_id_count"], h["reused_id_newest"]))
+        self.assertIn("reused ids 2 (newest #78", delivery_health_text(h))
+        self.assertNotIn("SECRET", json.dumps(h))
+
+    def test_normal_history_reports_no_reuse(self):
+        self.fixture()
+        h = runtime_input_delivery_health(self.status, now=200)
+        self.assertEqual((0, None), (h["reused_id_count"], h["reused_id_newest"]))
+        self.assertNotIn("reused", delivery_health_text(h))
+
+    def test_reuse_check_reads_only_the_newest_megabyte(self):
+        from ciel_runtime_support import runtime_input_delivery_health as health
+        self.write_rows(self.path, [{"request_id": 1, "status": "replied", "updated_at_epoch": 10},
+                                    {"request_id": 2, "status": "replied", "updated_at_epoch": 10}])
+        filler = {"id": 0, "created_at_epoch": 1, "message": "x" * 2000}
+        with self.inputs.open("wb") as stream:
+            stream.write(json.dumps({"id": 1, "created_at_epoch": 500}).encode() + b"\n")
+            for _ in range(health._REUSE_SCAN_BYTES // 2000 + 10):
+                stream.write(json.dumps(filler).encode() + b"\n")
+            stream.write(json.dumps({"id": 2, "created_at_epoch": 500}).encode() + b"\n")
+        h = runtime_input_delivery_health(self.status, now=600)
+        self.assertEqual((1, 2), (h["reused_id_count"], h["reused_id_newest"]))
+
+    def test_historical_A_and_retained_B_never_share_count_or_age(self):
+        self.write_rows(self.path, [
+            {"request_id": 1, "status": "queued", "updated_at_epoch": 10},
+            {"request_id": 2, "status": "queued", "updated_at_epoch": 195},
+        ])
+        self.write_rows(self.inputs, [{"id": 2, "created_at_epoch": 190}])
+        h = runtime_input_delivery_health(self.status, now=200)
+        self.assertEqual((1, 10, "complete"),
+                         (h["known_queued_count"], h["oldest_queued_age_seconds"], h["queued_coverage"]))
+
+    def test_fresh_snapshot_drops_removed_rows_despite_cached_diagnostic(self):
+        self.fixture()
+        cached = runtime_input_delivery_health(self.status, now=200)
+        self.inputs.write_bytes(b"")
+        self.assertEqual(2, cached["known_queued_count"])
+        fresh = runtime_input_delivery_health(self.status, now=200, refresh=True)
+        self.assertEqual(0, fresh["known_queued_count"])
+        self.assertIsNone(fresh["oldest_queued_age_seconds"])
+
+    def test_cross_file_change_cannot_claim_complete_snapshot(self):
+        from ciel_runtime_support import runtime_input_delivery_health as module
+        self.fixture()
+        original = module._status_history
+        def changing(status):
+            result = original(status)
+            with self.path.open("ab") as stream:
+                stream.write(json.dumps({"request_id": 1, "status": "replied",
+                                         "updated_at_epoch": 199}).encode() + b"\n")
+            return result
+        with patch.object(module, "_status_history", changing):
+            h = runtime_input_delivery_health(self.status, now=200, refresh=True)
+        self.assertFalse(h["snapshot_consistent"])
+        self.assertEqual("partial", h["queued_coverage"])
+
+    def test_ambiguous_queue_ids_are_partial_not_authority(self):
+        for ids in ([1, 1], [True], [1.5], ["1"], [0]):
+            with self.subTest(ids=ids):
+                self.fixture()
+                self.write_rows(self.inputs, [{"id": value, "created_at_epoch": 90} for value in ids])
+                h = runtime_input_delivery_health(self.status, now=200, refresh=True)
+                self.assertEqual("partial", h["queued_coverage"])
 
     def test_missing_history_is_complete_empty_observation(self):
         h = runtime_input_delivery_health(self.status, now=200)

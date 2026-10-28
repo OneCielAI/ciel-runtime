@@ -1,0 +1,219 @@
+# Code on the skip path, read from the RUNNING snapshot C:/Users/djlov/.local/share/ciel-runtime-work-breakdown-20261026-122744/ciel_runtime_support (source_fingerprint f86ee3638ee760f3). Format: file:line: text
+channel_pending_injection.py:223:                 io.log("WARN", f"channel_stdin_proxy_quarantined message_id={message_id} reason=interrupted_uncertain action=no_replay")
+channel_pending_injection.py:224:                 continue
+channel_pending_injection.py:225:             failure_reason = wake_store.lifecycle.failure_reason(message_id)
+channel_pending_injection.py:226:             if failure_reason:
+channel_pending_injection.py:227:                 # A failed record is terminal - it is never retried - so holding
+channel_pending_injection.py:228:                 # the scan at it only stalls every later message behind it
+channel_pending_injection.py:229:                 # (2026-09-10, instance 9481: one message blocked the queue for
+channel_pending_injection.py:230:                 # minutes).  Record it and move on; the failure stays visible in
+channel_pending_injection.py:231:                 # the runtime-input status store and in this log.
+channel_pending_injection.py:232:                 io.log(
+channel_pending_injection.py:233:                     "ERROR",
+channel_pending_injection.py:234:                     "channel_stdin_proxy_blocked "
+channel_pending_injection.py:235:                     f"cursor={previous_last_id} message_id={message_id} "
+channel_pending_injection.py:236:                     f"reason=prior_submission_failed detail={failure_reason} "
+channel_pending_injection.py:237:                     "action=skipped",
+channel_pending_injection.py:238:                 )
+channel_pending_injection.py:239:                 continue
+channel_pending_injection.py:240:             admission_status = getattr(wake_store.lifecycle, "admission_status", None)
+channel_pending_injection.py:241:             durable = admission_status(message_id) if callable(admission_status) else ""
+channel_pending_injection.py:242:             if durable in {"replied", "skipped"}:
+channel_pending_injection.py:243:                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} reason=durable_{durable}")
+channel_pending_injection.py:244:                 continue
+
+channel_wake_delivery_repository.py:66:     def admission_status(self, message_id: int) -> str:
+channel_wake_delivery_repository.py:67:         get = getattr(self.status, "get", None)
+channel_wake_delivery_repository.py:68:         row = get(message_id) if callable(get) else None
+channel_wake_delivery_repository.py:69:         return str(row.get("status") or "") if isinstance(row, dict) else ""
+
+channel_wake_delivery_repository.py:129:     def complete(self, message_id: int) -> None:
+channel_wake_delivery_repository.py:130:         if self.interrupted(message_id):
+channel_wake_delivery_repository.py:131:             return
+channel_wake_delivery_repository.py:132:         with self.lock:
+channel_wake_delivery_repository.py:133:             message_ids = self._prompt_group(message_id)
+channel_wake_delivery_repository.py:134:         # Keep the full batch available if clearing a claim or persisting its
+channel_wake_delivery_repository.py:135:         # status must be retried after a transient lock-acquisition failure.
+channel_wake_delivery_repository.py:136:         for grouped_id in sorted(message_ids):
+channel_wake_delivery_repository.py:137:             self.clear_claim(grouped_id)
+channel_wake_delivery_repository.py:138:             self._transition(grouped_id, "replied")
+channel_wake_delivery_repository.py:139:         with self.lock:
+
+runtime_input_status.py:20: RUNTIME_INPUT_STATES = frozenset({"queued", "submitted", "replied", "failed", "skipped", "interrupted_uncertain"})
+runtime_input_status.py:21: # skipped: the scan consumed the input without delivering it (for example a
+runtime_input_status.py:22: # notice superseded by a newer one); a queued record would otherwise look
+runtime_input_status.py:23: # pending forever.
+runtime_input_status.py:24: _TERMINAL_STATES = frozenset({"replied", "failed", "skipped", "interrupted_uncertain"})
+
+runtime_input_status.py:130:         with self.lock, exclusive_file_lock(self.path):
+runtime_input_status.py:131:             current = self.get(request_id, _locked=True)
+runtime_input_status.py:132:             current_status = str((current or {}).get("status") or "")
+runtime_input_status.py:133:             current_data = dict((current or {}).get("data") or {})
+runtime_input_status.py:134:             if expected_attempt is not None and current_data.get("attempt_id") != expected_attempt:
+runtime_input_status.py:135:                 return current or {}
+runtime_input_status.py:136:             data = {**current_data, **(data or {})}
+runtime_input_status.py:137:             if current_status == status:
+runtime_input_status.py:138:                 # Equal status with new ownership data (a launch attempt
+runtime_input_status.py:139:                 # adopted by attempt bookkeeping) still records once, so the
+runtime_input_status.py:140:                 # row carries the epoch its reconciliation needs.
+runtime_input_status.py:141:                 if data and dict((current or {}).get("data") or {}) != data:
+runtime_input_status.py:142:                     return self._record(request_id, status, reason, data)
+runtime_input_status.py:143:                 return current or self._record(request_id, status, reason, data)
+runtime_input_status.py:144:             if status == "skipped" and not current_status:
+runtime_input_status.py:145:                 # Only queued runtime inputs carry a status; a skipped message
+runtime_input_status.py:146:                 # that never had one needs no record.
+runtime_input_status.py:147:                 return {}
+runtime_input_status.py:148:             late_completion = current_status == "failed" and status == "replied"
+runtime_input_status.py:149:             if current_status in _TERMINAL_STATES and not late_completion:
+runtime_input_status.py:150:                 return current or self._record(request_id, status, reason, data)
+runtime_input_status.py:151:             allowed = {
+
+runtime_input_status.py:338:         with self.path.open("a+b") as stream:
+runtime_input_status.py:339:             stream.seek(0, os.SEEK_END)
+runtime_input_status.py:340:             if stream.tell():
+runtime_input_status.py:341:                 # A torn tail without its newline would swallow this record.
+runtime_input_status.py:342:                 stream.seek(-1, os.SEEK_END)
+runtime_input_status.py:343:                 if stream.read(1) != b"\n":
+runtime_input_status.py:344:                     line = b"\n" + line
+runtime_input_status.py:345:             stream.write(line)
+runtime_input_status.py:346:             stream.flush()
+runtime_input_status.py:347:             os.fsync(stream.fileno())
+runtime_input_status.py:348:         self._compact_if_oversized()
+
+runtime_input_status.py:393:     def get(self, request_id: int, *, _locked: bool = False) -> dict[str, Any] | None:
+runtime_input_status.py:394:         def read() -> dict[str, Any] | None:
+runtime_input_status.py:395:             latest = None
+runtime_input_status.py:396:             for item in self._items():
+runtime_input_status.py:397:                 try:
+runtime_input_status.py:398:                     if int(item.get("request_id") or 0) == int(request_id):
+runtime_input_status.py:399:                         latest = item
+runtime_input_status.py:400:                 except (TypeError, ValueError):
+runtime_input_status.py:401:                     continue
+runtime_input_status.py:402:             return latest
+
+runtime_input_gateway.py:28:     def _append(self, payload: dict[str, Any]) -> dict[str, Any]:
+runtime_input_gateway.py:29:         message = self.append(payload)
+runtime_input_gateway.py:30:         request_id = int(message.get("id") or 0)
+runtime_input_gateway.py:31:         if (
+runtime_input_gateway.py:32:             request_id > 0
+runtime_input_gateway.py:33:             and not message.get("_ciel_runtime_duplicate")
+runtime_input_gateway.py:34:             and self.status is not None
+runtime_input_gateway.py:35:         ):
+runtime_input_gateway.py:36:             self.status.transition(
+runtime_input_gateway.py:37:                 request_id,
+runtime_input_gateway.py:38:                 "queued",
+runtime_input_gateway.py:39:                 data={
+runtime_input_gateway.py:40:                     "channel": str(message.get("channel") or "default"),
+runtime_input_gateway.py:41:                     "input_transport": str(
+runtime_input_gateway.py:42:                         (message.get("meta") or {}).get("input_transport") or ""
+runtime_input_gateway.py:43:                     ),
+runtime_input_gateway.py:44:                 },
+runtime_input_gateway.py:45:             )
+
+channel_message_repository.py:91:     def append(self, payload: dict[str, Any], ports: ChannelMessageAppendPorts) -> dict[str, Any]:
+channel_message_repository.py:92:         with ports.condition:
+channel_message_repository.py:93:             with ports.file_lock():
+channel_message_repository.py:94:                 self.path.parent.mkdir(parents=True, exist_ok=True)
+channel_message_repository.py:95:                 previous_max_id = self.max_id()
+channel_message_repository.py:96:                 next_id = previous_max_id + 1
+
+channel_message_repository.py:127:                 # A truncated last row must not swallow the next valid input.
+channel_message_repository.py:128:                 separator = "\n" if self._ends_unterminated() else ""
+channel_message_repository.py:129:                 with self.path.open("a", encoding="utf-8") as stream:
+channel_message_repository.py:130:                     stream.write(separator + json.dumps(message, ensure_ascii=False, separators=(",", ":")) + "\n")
+channel_message_repository.py:131:                 # Bound the queue only after the new row is durable in it: that row
+channel_message_repository.py:132:                 # carries the id frontier and is always kept by compaction.
+channel_message_repository.py:133:                 self._compact_if_oversized()
+
+channel_message_repository.py:337:     def max_id(self) -> int:
+channel_message_repository.py:338:         items, damaged_max_id, _complete = self._scan(self.path, "max id scan")
+channel_message_repository.py:339:         return max(self._items_max_id(items), damaged_max_id, self._legacy_id_floor())
+
+channel_cursor_repository.py:20:     def resolve_read(
+channel_cursor_repository.py:21:         file_cursor: int | None,
+channel_cursor_repository.py:22:         cached_cursor: int | None,
+channel_cursor_repository.py:23:         scan_cursor: Callable[[], int],
+channel_cursor_repository.py:24:     ) -> CursorReadResolution:
+channel_cursor_repository.py:25:         tail = max(0, scan_cursor())
+channel_cursor_repository.py:26:         if file_cursor is not None:
+channel_cursor_repository.py:27:             cursor = max(file_cursor, cached_cursor or 0)
+channel_cursor_repository.py:28:         elif cached_cursor is not None:
+channel_cursor_repository.py:29:             cursor = cached_cursor
+channel_cursor_repository.py:30:         else:
+channel_cursor_repository.py:31:             return CursorReadResolution(tail, persist=True)
+channel_cursor_repository.py:32:         if cursor > tail:
+channel_cursor_repository.py:33:             return CursorReadResolution(0, persist=True, rolled_back=True)
+channel_cursor_repository.py:34:         return CursorReadResolution(cursor)
+
+runtime_paths.py:120: WORKSPACE_STATE_DIR = (
+runtime_paths.py:121:     CONFIG_DIR
+runtime_paths.py:122:     if _TEST_STATE_ISOLATED
+runtime_paths.py:123:     else CONFIG_DIR / "workspaces" / _WORKSPACE_DIGEST
+runtime_paths.py:124: )
+
+runtime_paths.py:183: RUNTIME_INPUTS_PATH = WORKSPACE_STATE_DIR / "runtime-inputs.jsonl"
+runtime_paths.py:184: RUNTIME_INPUT_STATUS_PATH = WORKSPACE_STATE_DIR / "runtime-input-status.jsonl"
+
+runtime_input_delivery_health.py:130:             inputs[request_id] = row
+runtime_input_delivery_health.py:131:     queued = []
+runtime_input_delivery_health.py:132:     for request_id, row in latest.items():
+runtime_input_delivery_health.py:133:         if row.get("status") != "queued":
+runtime_input_delivery_health.py:134:             continue
+runtime_input_delivery_health.py:135:         message = inputs.get(request_id, {})
+runtime_input_delivery_health.py:136:         meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
+runtime_input_delivery_health.py:137:         data = row.get("data") if isinstance(row.get("data"), dict) else {}
+runtime_input_delivery_health.py:138:         if receiver_id is not None and not (
+runtime_input_delivery_health.py:139:             meta.get("receiver_id") == receiver_id or
+runtime_input_delivery_health.py:140:             message.get("channel") == "external:" + receiver_id or
+runtime_input_delivery_health.py:141:             data.get("channel") == "external:" + receiver_id
+runtime_input_delivery_health.py:142:         ):
+runtime_input_delivery_health.py:143:             continue
+runtime_input_delivery_health.py:144:         # Original queue time wins over repeated queued status writes.
+runtime_input_delivery_health.py:145:         stamp = _epoch(message.get("created_at_epoch")) or first_queued.get(request_id)
+
+runtime_input_delivery_health.py:158:                        "" if observation_complete else "history_observation_partial"),
+runtime_input_delivery_health.py:159:             "scope": "private_runtime_inputs", "blocker_scope": None,
+runtime_input_delivery_health.py:160:             "admission_blocked": False if available else None, "launcher_hold_observed": False,
+runtime_input_delivery_health.py:161:             "line_number": first.get("line_number"),
+runtime_input_delivery_health.py:162:             "known_queued_count": len(queued),
+runtime_input_delivery_health.py:163:             "oldest_queued_at_epoch": min(stamps) if stamps else None,
+
+runtime_sse_recovery.py:140:     queued_number = _number(health.get("known_queued_count"))
+runtime_sse_recovery.py:141:     queued = int(queued_number) if queued_number is not None and queued_number.is_integer() else 0
+runtime_sse_recovery.py:142:     oldest = _number(health.get("oldest_queued_age_seconds"))
+runtime_sse_recovery.py:143:     blocked = health.get("admission_blocked") is True
+runtime_sse_recovery.py:144:     min_age = _number(min_queue_age_seconds)
+runtime_sse_recovery.py:145:     stale = queued > 0 and oldest is not None and min_age is not None and oldest >= max(1.0, min_age)
+runtime_sse_recovery.py:146:     # This is observed delivery delay, not proof of a transport failure. Do
+runtime_sse_recovery.py:147:     # not promote a partial history scan (which may have missed a terminal
+runtime_sse_recovery.py:148:     # status) or an unavailable queue to restart authority.
+runtime_sse_recovery.py:149:     queue_observable = health.get("queued_coverage") == "complete"
+runtime_sse_recovery.py:150:     restart_signal = stale and queue_observable
+runtime_sse_recovery.py:151:     reasons = []
+runtime_sse_recovery.py:152:     if blocked:
+runtime_sse_recovery.py:153:         reasons.append("admission_blocked")
+runtime_sse_recovery.py:154:     if paused:
+runtime_sse_recovery.py:155:         reasons.append("compaction_admission_paused")
+runtime_sse_recovery.py:156:     if stale:
+runtime_sse_recovery.py:157:         reasons.append("queued_input_stale")
+runtime_sse_recovery.py:158:     return {
+runtime_sse_recovery.py:159:         "problem": bool(blocked or stale or paused),
+
+channel_llm_context.py:135:             if message_input_transport(message) != "router" and not handed_over:
+channel_llm_context.py:136:                 # A wake block that names this id means the terminal side
+channel_llm_context.py:137:                 # delivered it through the router (a session_socket request
+channel_llm_context.py:138:                 # in a CLI without a socket, e.g. Codex on Windows).
+channel_llm_context.py:139:                 # Transport ownership matters only after visibility/delivery
+channel_llm_context.py:140:                 # filtering.  A web-only self response stamped as TTY must not
+channel_llm_context.py:141:                 # block a later router-owned request from entering the model.
+channel_llm_context.py:142:                 deferred_tty_id = message_id
+channel_llm_context.py:143:                 services.log(
+channel_llm_context.py:144:                     "INFO",
+channel_llm_context.py:145:                     f"channel_llm_inject_deferred message_id={message.get('id')} "
+channel_llm_context.py:146:                     f"channel={message.get('channel')} reason=input_transport_tty",
+channel_llm_context.py:147:                 )
+channel_llm_context.py:148:                 break
+
+runtime_input_delivery_health.py:16: _SCAN_BYTES = 8 * 1024 * 1024
+runtime_input_delivery_health.py:17: _SCAN_LINE_BYTES = 1024 * 1024
+

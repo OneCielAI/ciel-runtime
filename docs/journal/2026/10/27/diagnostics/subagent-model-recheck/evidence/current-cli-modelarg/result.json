@@ -1,0 +1,121 @@
+{
+ "installed_modules": {
+  "ciel_runtime": {
+   "file": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-273856db23939e9a60c0c8d7ac634cf2051b72d9\\ciel_runtime.py",
+   "sha256": "11b9fec1d24418943a9d85674055ab4fe17532c0a64b733d49db6e5af042441b"
+  },
+  "claude_environment": {
+   "file": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-273856db23939e9a60c0c8d7ac634cf2051b72d9\\ciel_runtime_support\\claude_environment.py",
+   "sha256": "4ec39ea66a8d1f7085aa2d8c90503a999901c2c844c87279f9ba3edeea561f32"
+  },
+  "runtime_constants": {
+   "file": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-273856db23939e9a60c0c8d7ac634cf2051b72d9\\ciel_runtime_support\\runtime_constants.py",
+   "sha256": "838f65f7f04f6091bacbd7aad5afe168172afe9c3e438b3b83e0b19b35fd911b"
+  },
+  "runtime_version": "0.2.51-nightly.20261027-194324.273856d",
+  "config_dir": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\25\\fixes\\teammate-model-inheritance\\evidence\\installed-modelarg-42b593\\cfg",
+  "python": "3.11.6 (tags/v3.11.6:8b6ee5b, Oct  2 2023, 14:57:12) [MSC v.1935 64 bit (AMD64)]",
+  "flags": {
+   "isolated": 1,
+   "dont_write_bytecode": 0,
+   "utf8_mode": 0
+  }
+ },
+ "net_sampler": {
+  "samples": 1,
+  "max_tree": 3,
+  "nonloopback": [],
+  "errors": []
+ },
+ "case": "modelarg",
+ "cli_version": "2.1.311 (Claude Code)",
+ "requests": [
+  {
+   "n": 1,
+   "path": "/v1/messages",
+   "model": "fake-parent-b",
+   "role": "parent",
+   "tag": "modelarg",
+   "ua": "claude-cli/2.1.311 (external, sdk-cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "run_in_background",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false,
+   "served_tool_model": null,
+   "served_name": null,
+   "retry_without_model": false
+  },
+  {
+   "n": 2,
+   "path": "/v1/messages",
+   "model": "fake-parent-b",
+   "role": "child",
+   "tag": "modelarg",
+   "ua": "claude-cli/2.1.311 (external, sdk-cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "run_in_background",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false
+  },
+  {
+   "n": 3,
+   "path": "/v1/messages",
+   "model": "fake-parent-b",
+   "role": "parent",
+   "tag": "modelarg",
+   "ua": "claude-cli/2.1.311 (external, sdk-cli)",
+   "agent_schema_model": false,
+   "agent_schema_keys": [
+    "description",
+    "prompt",
+    "subagent_type",
+    "effort",
+    "run_in_background",
+    "name",
+    "team_name",
+    "mode",
+    "isolation"
+   ],
+   "prior_tool_error": false
+  }
+ ],
+ "print_results": [
+  {
+   "tag": "modelarg",
+   "rc": 0,
+   "stdout_bytes": 1683,
+   "stderr_bytes": 80,
+   "child_ok": false,
+   "parent_ok": true,
+   "type": "result",
+   "subtype": "success",
+   "is_error": false,
+   "num_turns": 2,
+   "result": "PARENT-OK-modelarg"
+  }
+ ],
+ "egress": [],
+ "owned_pids": [
+  55524
+ ],
+ "live_pid_unchanged": true,
+ "inherit_on_wire": false
+}

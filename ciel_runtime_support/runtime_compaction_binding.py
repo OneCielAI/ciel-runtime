@@ -17,13 +17,14 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .claude_session_socket import canonical_socket_path
+from .claude_session_handoff import follow_parked_session
 from .channel_message_repository import exclusive_file_lock
 from .channel_transcript_repository import (
     ChannelTranscriptRepository,
     read_codex_session_meta,
 )
 from .native_context_recovery import parse_context_overflow
-from .native_model_usage import latest_native_model_usage
+from .native_model_usage import latest_native_model_usage, model_names, request_model_key
 from .oauth_routing import codex_session_key
 from .process_control import pid_is_running
 from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER
@@ -40,6 +41,12 @@ PUBLISHED_RECHECK_SECONDS = 2.0
 # gate opens for the launch's own socket; the first request still re-binds the
 # exact scope, and any request that overflows re-arms compaction admission.
 REQUEST_IDENTITY_GRACE_SECONDS = 120.0
+
+# Upstream model names the router saw answer one request alias, kept per launch
+# epoch so the safeguard can read native usage recorded under those names.
+NATIVE_MODEL_ALIASES_LIMIT = 8
+NATIVE_MODEL_NAMES_LIMIT = 16
+NATIVE_MODEL_NAME_CHARS = 128
 
 
 def _positive(value: Any) -> int:
@@ -148,6 +155,7 @@ class RuntimeCompactionBinding:
         self.pending_logged = ""
         self.bound_epoch = ""
         self.published_checked: tuple[str, float] = ("", 0.0)
+        self.native_seen: set[tuple[str, str, str, str]] = set()
         self.control = build_runtime_compaction_control(
             root / "compaction-admission.json", scope=self.scope,
             transcript_path=self.transcript_path, requests=requests,
@@ -230,7 +238,12 @@ class RuntimeCompactionBinding:
                     candidates.append(record)
             except (OSError, ValueError, TypeError, UnicodeError):
                 continue
-        return candidates[0] if len(candidates) == 1 else {}
+        if len(candidates) != 1:
+            # Once a published identity was observed, a transient missing or
+            # unreadable record cannot demote it to legacy socket delivery.
+            return {"handoff_pending": True} if (candidates or value.get("delivery_socket_path")) else {}
+        handoff = follow_parked_session(directory, candidates[0])
+        return {"handoff_pending": True} if handoff.pending else handoff.record
 
     def _follow_published(self, value: dict[str, Any]) -> dict[str, Any]:
         epoch, now = value["epoch"], time.time()
@@ -262,14 +275,19 @@ class RuntimeCompactionBinding:
             if current is None:
                 raise OSError("compaction scope is unreadable")
             # A scan cannot overwrite a newer launch or a concurrent retarget.
-            fields = ("epoch", "session_id", "messaging_socket_path", "identity_since", "identity_ready", "request_observed")
+            fields = ("epoch", "session_id", "messaging_socket_path", "identity_since", "identity_ready", "request_observed", "handoff_pending")
             if any(current.get(key) != value.get(key) for key in fields):
                 return current
             switched = bool(session_id and session_id != current.get("session_id"))
             if switched:
                 current.update({"session_id": session_id, "path": "", "seeded": False,
                                 "request_observed": False, "identity_since": now})
-            changed = current.get("identity_ready") != ready
+            pending = record.get("handoff_pending") is True
+            changed = (current.get("identity_ready") != ready or bool(current.get("handoff_pending")) != pending
+                       or (record.get("messagingSocketPath") and current.get("delivery_socket_path") != record["messagingSocketPath"]))
+            current["handoff_pending"] = pending
+            if record.get("messagingSocketPath"):
+                current["delivery_socket_path"] = str(record["messagingSocketPath"])
             if ready:
                 current["identity_ready"] = ready
             else:
@@ -445,6 +463,41 @@ class RuntimeCompactionBinding:
             self.log("WARN", f"runtime_compaction_request_scope_failed runtime={runtime} error={type(exc).__name__}")
             return None
 
+    def observe_native_model(self, scope: CompactionScope | None, request_model: Any, native_model: Any) -> None:
+        """Remember that a main-session request for an alias was answered by another model name.
+
+        The relay calls this with message_start.message.model. Only the bound
+        launch epoch and session accept it; it never affects the response.
+        """
+
+        try:
+            key = request_model_key(request_model)[:NATIVE_MODEL_NAME_CHARS]
+            native = str(native_model or "").strip()[:NATIVE_MODEL_NAME_CHARS].casefold()
+            if scope is None or not key or not native or native == key:
+                return
+            seen = (scope.epoch, scope.session_id, key, native)
+            if seen in self.native_seen:
+                return
+            with exclusive_file_lock(self.repository.path):
+                value = self.repository.load("compaction_scope")
+                if (value is None or value.get("epoch") != scope.epoch
+                        or value.get("session_id") != scope.session_id):
+                    return
+                stored = value.get("native_models") if isinstance(value.get("native_models"), dict) else {}
+                names = [str(name) for name in stored.get(key) or [] if isinstance(name, str)]
+                if native not in names:
+                    names = [*names, native][-NATIVE_MODEL_NAMES_LIMIT:]
+                    stored = {k: v for k, v in stored.items() if k != key}
+                    stored = dict(list(stored.items())[-(NATIVE_MODEL_ALIASES_LIMIT - 1):])
+                    stored[key] = names
+                    value["native_models"] = stored
+                    self.repository.save(value, "compaction_scope")
+            self.native_seen.add(seen)
+            self.log("INFO", f"runtime_compaction_native_model request_model={key} native_model={native}")
+        except (OSError, ValueError, TypeError) as exc:
+            # An observation must never fail the response it describes.
+            self.log("WARN", f"runtime_compaction_native_model_failed error={type(exc).__name__}")
+
     def observe_request(self, provider: str, config: dict[str, Any], body: dict[str, Any], runtime: str,
                         headers: Any = None) -> None:
         try:
@@ -511,7 +564,8 @@ class RuntimeCompactionBinding:
             scope = self.scope()
             if scope is None:
                 return self._identity_pending()
-            if self._request_identity_pending(self._update("")):
+            value = self._update("")
+            if value.get("handoff_pending") or self._request_identity_pending(value):
                 return True
             if self.seeded != f"{scope.epoch}:{scope.session_id}":
                 self._seed(scope)
@@ -534,7 +588,14 @@ class RuntimeCompactionBinding:
                    and not config.get(REMOTE_BRIDGE_CONFIG_MARKER))
         limit = self.builder().budget.context_limit(provider, config) if enabled else 0
         since = max(float(value.get('started_at') or 0), float(value.get('identity_since') or 0))
-        sample = latest_native_model_usage(self.transcript_path(), scope, since, model) if enabled else None
+        extra = set()
+        observed = value.get('native_models') if value.get('epoch') == scope.epoch else None
+        if enabled and isinstance(observed, dict) and value.get('session_id') == scope.session_id:
+            names = model_names(model)
+            for key, natives in observed.items():
+                if key in names and isinstance(natives, list):
+                    extra.update(name for name in natives if isinstance(name, str))
+        sample = latest_native_model_usage(self.transcript_path(), scope, since, model, extra) if enabled else None
         def validate():
             current_provider, current = self.config()
             return (current_provider == provider
@@ -582,6 +643,8 @@ class RuntimeCompactionBinding:
         value = self._update("")
         if value.get("runtime") not in {"claude", "codex"} or not value.get("epoch"):
             return False
+        if value.get("handoff_pending"):
+            return True
         pid = _positive(value.get("launcher_pid"))
         sources = bool(value.get("messaging_socket_path")) or value.get("request_identity") is not False
         running = bool(pid and pid_is_running(pid))
@@ -633,19 +696,33 @@ class RuntimeCompactionBinding:
         # provider/model. It is diagnostic only, never proactive pressure. The
         # native CLI applies its own threshold to the resumed conversation.
 
+    def admission_reason(self) -> str:
+        try:
+            if not self._admission_paused():
+                return ""
+            value = self._update("")
+            if value.get("handoff_pending"):
+                return "native_handoff_pending"
+            if self.scope() is None or self._request_identity_pending(value):
+                return "identity_pending"
+            return self.control.admission_reason() or "context_recovery"
+        except (OSError, ValueError, TypeError):
+            return "state_unavailable"
+
     def context_pause_reason(self, body: dict[str, Any]) -> str:
         if self._compact_kind(body):
             return "native_compaction"
-        if not self._admission_paused():
-            return ""
-        return "context_recovery" if self.scope() is not None else "identity_pending"
+        return self.admission_reason()
 
     def recovery_status(self) -> dict[str, Any]:
         try:
             scope = self.scope()
             state = self._admission_state() if scope is not None else None
-            if not isinstance(state, dict):
-                return {}
+            if not isinstance(state, dict) or not state:
+                reason = self.control.admission_reason()
+                return {"phase": "unknown", "failure": reason} if reason else {}
+            if state.get("unresolved_scope") is True:
+                return {"phase": "unknown", "failure": "state_unavailable"}
             if state.get("scope") != scope.payload():
                 if state.get("phase") in {None, "verified"}:
                     return {}

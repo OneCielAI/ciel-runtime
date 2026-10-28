@@ -1,0 +1,308 @@
+LOCAL_BEFORE 1793063438.760 LOCAL_AFTER 1793063441.701 ROUNDTRIP 2.941
+QUEUE_ROWS 7681 min 1 max 7681
+STATUS_IDS 2892 min 4790 max 7681
+RESTART_NOTICES [3481, 3778, 3807, 3816, 3873, 3925, 3979, 5148, 5155, 5161, 6044, 7654]
+NOTICE 3481 created 10-14T10:21:29 transport tty {'restart_source': 'cli', 'restart_reason': 'Refresh Walkie MCP schema for github_access.create_repo visibility constraint while preserving active Walkie 54002 work', 'resumed': True, 'runtime': 'codex'} history []
+  AFTER 3482 external_event session_socket queued 10-14T10:29:38 first_submitted None wait_s None final None None None
+  AFTER 3483 external_event session_socket queued 10-14T10:29:38 first_submitted None wait_s None final None None None
+  AFTER 3484 external_event session_socket queued 10-14T10:33:22 first_submitted None wait_s None final None None None
+  AFTER 3485 external_event session_socket queued 10-14T10:40:04 first_submitted None wait_s None final None None None
+  AFTER 3486 external_event session_socket queued 10-14T10:44:39 first_submitted None wait_s None final None None None
+  AFTER 3487 external_event session_socket queued 10-14T10:48:03 first_submitted None wait_s None final None None None
+  AFTER 3488 external_event session_socket queued 10-14T10:48:04 first_submitted None wait_s None final None None None
+  AFTER 3489 external_event session_socket queued 10-14T10:52:21 first_submitted None wait_s None final None None None
+  AFTER 3490 external_event session_socket queued 10-14T10:52:22 first_submitted None wait_s None final None None None
+  AFTER 3491 external_event session_socket queued 10-14T10:53:09 first_submitted None wait_s None final None None None
+  AFTER 3492 external_event session_socket queued 10-14T10:54:42 first_submitted None wait_s None final None None None
+  AFTER 3493 external_event session_socket queued 10-14T10:55:21 first_submitted None wait_s None final None None None
+  AFTER 3494 external_event session_socket queued 10-14T10:57:26 first_submitted None wait_s None final None None None
+  AFTER 3495 external_event session_socket queued 10-14T11:00:11 first_submitted None wait_s None final None None None
+  AFTER 3496 external_event session_socket queued 10-14T11:02:41 first_submitted None wait_s None final None None None
+  AFTER 3497 external_event session_socket queued 10-14T11:03:50 first_submitted None wait_s None final None None None
+  AFTER 3498 external_event session_socket queued 10-14T11:12:16 first_submitted None wait_s None final None None None
+  AFTER 3499 external_event session_socket queued 10-14T11:14:36 first_submitted None wait_s None final None None None
+  AFTER 3500 external_event session_socket queued 10-14T11:28:12 first_submitted None wait_s None final None None None
+  AFTER 3501 external_event session_socket queued 10-14T11:31:31 first_submitted None wait_s None final None None None
+  AFTER 3502 external_event session_socket queued 10-14T11:31:32 first_submitted None wait_s None final None None None
+  AFTER 3503 external_event session_socket queued 10-14T11:33:03 first_submitted None wait_s None final None None None
+  AFTER 3504 external_event session_socket queued 10-14T11:34:07 first_submitted None wait_s None final None None None
+  AFTER 3505 external_event session_socket queued 10-14T11:37:58 first_submitted None wait_s None final None None None
+  AFTER 3506 external_event session_socket queued 10-14T11:40:43 first_submitted None wait_s None final None None None
+  AFTER 3507 external_event session_socket queued 10-14T11:40:44 first_submitted None wait_s None final None None None
+  AFTER 3508 external_event session_socket queued 10-14T11:45:44 first_submitted None wait_s None final None None None
+  AFTER 3509 external_event session_socket queued 10-14T11:48:00 first_submitted None wait_s None final None None None
+  AFTER 3510 external_event session_socket queued 10-14T11:48:01 first_submitted None wait_s None final None None None
+  AFTER 3511 external_event session_socket queued 10-14T11:48:37 first_submitted None wait_s None final None None None
+NOTICE 3778 created 10-14T22:13:31 transport tty {'restart_source': 'company-prompt', 'restart_reason': 'company prompt v9 167af132 announced; held v? -', 'resumed': True, 'runtime': 'codex'} history []
+  AFTER 3779 external_event session_socket queued 10-14T22:16:39 first_submitted None wait_s None final None None None
+  AFTER 3780 external_event session_socket queued 10-14T22:16:40 first_submitted None wait_s None final None None None
+  AFTER 3781 external_event session_socket queued 10-14T22:17:37 first_submitted None wait_s None final None None None
+  AFTER 3782 external_event session_socket queued 10-14T22:17:37 first_submitted None wait_s None final None None None
+  AFTER 3783 external_event session_socket queued 10-14T22:19:45 first_submitted None wait_s None final None None None
+  AFTER 3784 external_event session_socket queued 10-14T22:19:46 first_submitted None wait_s None final None None None
+  AFTER 3785 external_event session_socket queued 10-14T22:19:47 first_submitted None wait_s None final None None None
+  AFTER 3786 external_event session_socket queued 10-14T22:19:48 first_submitted None wait_s None final None None None
+  AFTER 3787 external_event session_socket queued 10-14T22:19:48 first_submitted None wait_s None final None None None
+  AFTER 3788 external_event session_socket queued 10-14T22:19:49 first_submitted None wait_s None final None None None
+  AFTER 3789 external_event session_socket queued 10-14T22:20:47 first_submitted None wait_s None final None None None
+  AFTER 3790 external_event session_socket queued 10-14T22:24:15 first_submitted None wait_s None final None None None
+  AFTER 3791 external_event session_socket queued 10-14T22:24:15 first_submitted None wait_s None final None None None
+  AFTER 3792 external_event session_socket queued 10-14T22:24:20 first_submitted None wait_s None final None None None
+  AFTER 3793 external_event session_socket queued 10-14T22:25:36 first_submitted None wait_s None final None None None
+  AFTER 3794 external_event session_socket queued 10-14T22:26:17 first_submitted None wait_s None final None None None
+  AFTER 3795 external_event session_socket queued 10-14T22:26:18 first_submitted None wait_s None final None None None
+  AFTER 3796 external_event session_socket queued 10-14T22:27:01 first_submitted None wait_s None final None None None
+  AFTER 3797 external_event session_socket queued 10-14T22:28:11 first_submitted None wait_s None final None None None
+  AFTER 3798 external_event session_socket queued 10-14T22:28:36 first_submitted None wait_s None final None None None
+  AFTER 3799 external_event session_socket queued 10-14T22:30:46 first_submitted None wait_s None final None None None
+  AFTER 3800 external_event session_socket queued 10-14T22:30:48 first_submitted None wait_s None final None None None
+  AFTER 3801 external_event session_socket queued 10-14T22:30:48 first_submitted None wait_s None final None None None
+  AFTER 3802 external_event session_socket queued 10-14T22:30:49 first_submitted None wait_s None final None None None
+  AFTER 3803 external_event session_socket queued 10-14T22:30:51 first_submitted None wait_s None final None None None
+  AFTER 3804 external_event session_socket queued 10-14T22:30:52 first_submitted None wait_s None final None None None
+  AFTER 3805 external_event session_socket queued 10-14T22:31:37 first_submitted None wait_s None final None None None
+  AFTER 3806 external_event session_socket queued 10-14T22:31:52 first_submitted None wait_s None final None None None
+  AFTER 3807 restart_notice tty queued 10-14T22:31:55 first_submitted None wait_s None final None None None
+NOTICE 3807 created 10-14T22:31:55 transport tty {'restart_source': 'company-prompt', 'restart_reason': 'company prompt v9 167af132 announced; held v? -', 'resumed': True, 'runtime': 'codex'} history []
+  AFTER 3808 external_event session_socket queued 10-14T22:35:02 first_submitted None wait_s None final None None None
+  AFTER 3809 external_event session_socket queued 10-14T22:35:55 first_submitted None wait_s None final None None None
+  AFTER 3810 external_event session_socket queued 10-14T22:35:55 first_submitted None wait_s None final None None None
+  AFTER 3811 external_event session_socket queued 10-14T22:43:12 first_submitted None wait_s None final None None None
+  AFTER 3812 external_event session_socket queued 10-14T22:43:15 first_submitted None wait_s None final None None None
+  AFTER 3813 external_event session_socket queued 10-14T22:52:20 first_submitted None wait_s None final None None None
+  AFTER 3814 external_event session_socket queued 10-14T22:52:36 first_submitted None wait_s None final None None None
+  AFTER 3815 external_event session_socket queued 10-14T22:52:37 first_submitted None wait_s None final None None None
+  AFTER 3816 restart_notice tty queued 10-14T22:53:37 first_submitted None wait_s None final None None None
+NOTICE 3816 created 10-14T22:53:37 transport tty {'restart_source': 'company-prompt', 'restart_reason': 'company prompt v9 167af132 announced; held v? -', 'resumed': True, 'runtime': 'codex'} history []
+  AFTER 3817 external_event session_socket queued 10-14T22:59:19 first_submitted None wait_s None final None None None
+  AFTER 3818 external_event session_socket queued 10-14T22:59:19 first_submitted None wait_s None final None None None
+  AFTER 3819 external_event session_socket queued 10-14T23:01:42 first_submitted None wait_s None final None None None
+  AFTER 3820 external_event session_socket queued 10-14T23:01:43 first_submitted None wait_s None final None None None
+  AFTER 3821 external_event session_socket queued 10-14T23:04:09 first_submitted None wait_s None final None None None
+  AFTER 3822 external_event session_socket queued 10-14T23:07:47 first_submitted None wait_s None final None None None
+  AFTER 3823 external_event session_socket queued 10-14T23:07:48 first_submitted None wait_s None final None None None
+  AFTER 3824 external_event session_socket queued 10-14T23:09:06 first_submitted None wait_s None final None None None
+  AFTER 3825 external_event session_socket queued 10-14T23:09:07 first_submitted None wait_s None final None None None
+  AFTER 3826 external_event session_socket queued 10-14T23:10:34 first_submitted None wait_s None final None None None
+  AFTER 3827 external_event session_socket queued 10-14T23:10:36 first_submitted None wait_s None final None None None
+  AFTER 3828 external_event session_socket queued 10-14T23:10:36 first_submitted None wait_s None final None None None
+  AFTER 3829 external_event session_socket queued 10-14T23:10:37 first_submitted None wait_s None final None None None
+  AFTER 3830 external_event session_socket queued 10-14T23:10:38 first_submitted None wait_s None final None None None
+  AFTER 3831 external_event session_socket queued 10-14T23:10:39 first_submitted None wait_s None final None None None
+  AFTER 3832 external_event session_socket queued 10-14T23:11:43 first_submitted None wait_s None final None None None
+  AFTER 3833 external_event session_socket queued 10-14T23:11:45 first_submitted None wait_s None final None None None
+  AFTER 3834 external_event session_socket queued 10-14T23:11:52 first_submitted None wait_s None final None None None
+  AFTER 3835 external_event session_socket queued 10-14T23:11:52 first_submitted None wait_s None final None None None
+  AFTER 3836 external_event session_socket queued 10-14T23:16:05 first_submitted None wait_s None final None None None
+  AFTER 3837 external_event session_socket queued 10-14T23:16:06 first_submitted None wait_s None final None None None
+  AFTER 3838 external_event session_socket queued 10-14T23:16:44 first_submitted None wait_s None final None None None
+  AFTER 3839 external_event session_socket queued 10-14T23:17:30 first_submitted None wait_s None final None None None
+  AFTER 3840 external_event session_socket queued 10-14T23:19:47 first_submitted None wait_s None final None None None
+  AFTER 3841 external_event session_socket queued 10-14T23:20:02 first_submitted None wait_s None final None None None
+  AFTER 3842 external_event session_socket queued 10-14T23:23:50 first_submitted None wait_s None final None None None
+  AFTER 3843 external_event session_socket queued 10-14T23:23:52 first_submitted None wait_s None final None None None
+  AFTER 3844 external_event session_socket queued 10-14T23:25:10 first_submitted None wait_s None final None None None
+  AFTER 3845 external_event session_socket queued 10-14T23:25:10 first_submitted None wait_s None final None None None
+  AFTER 3846 external_event session_socket queued 10-14T23:27:32 first_submitted None wait_s None final None None None
+NOTICE 3873 created 10-15T00:17:48 transport tty {'restart_source': 'company-prompt', 'restart_reason': 'company prompt v9 167af132 announced; held v? -', 'resumed': True, 'runtime': 'codex'} history []
+  AFTER 3874 external_event session_socket queued 10-15T00:20:39 first_submitted None wait_s None final None None None
+  AFTER 3875 external_event session_socket queued 10-15T00:20:40 first_submitted None wait_s None final None None None
+  AFTER 3876 external_event session_socket queued 10-15T00:22:34 first_submitted None wait_s None final None None None
+  AFTER 3877 external_event session_socket queued 10-15T00:22:35 first_submitted None wait_s None final None None None
+  AFTER 3878 external_event session_socket queued 10-15T00:22:36 first_submitted None wait_s None final None None None
+  AFTER 3879 external_event session_socket queued 10-15T00:22:36 first_submitted None wait_s None final None None None
+  AFTER 3880 external_event session_socket queued 10-15T00:22:51 first_submitted None wait_s None final None None None
+  AFTER 3881 external_event session_socket queued 10-15T00:23:52 first_submitted None wait_s None final None None None
+  AFTER 3882 external_event session_socket queued 10-15T00:28:53 first_submitted None wait_s None final None None None
+  AFTER 3883 external_event session_socket queued 10-15T00:30:10 first_submitted None wait_s None final None None None
+  AFTER 3884 external_event session_socket queued 10-15T00:30:26 first_submitted None wait_s None final None None None
+  AFTER 3885 external_event session_socket queued 10-15T00:30:27 first_submitted None wait_s None final None None None
+  AFTER 3886 external_event session_socket queued 10-15T00:37:03 first_submitted None wait_s None final None None None
+  AFTER 3887 external_event session_socket queued 10-15T00:37:11 first_submitted None wait_s None final None None None
+  AFTER 3888 external_event session_socket queued 10-15T00:41:00 first_submitted None wait_s None final None None None
+  AFTER 3889 external_event session_socket queued 10-15T00:41:38 first_submitted None wait_s None final None None None
+  AFTER 3890 external_event session_socket queued 10-15T00:42:26 first_submitted None wait_s None final None None None
+  AFTER 3891 external_event session_socket queued 10-15T00:42:28 first_submitted None wait_s None final None None None
+  AFTER 3892 external_event session_socket queued 10-15T00:42:28 first_submitted None wait_s None final None None None
+  AFTER 3893 external_event session_socket queued 10-15T00:44:21 first_submitted None wait_s None final None None None
+  AFTER 3894 external_event session_socket queued 10-15T00:47:54 first_submitted None wait_s None final None None None
+  AFTER 3895 external_event session_socket queued 10-15T00:47:55 first_submitted None wait_s None final None None None
+  AFTER 3896 external_event session_socket queued 10-15T00:47:58 first_submitted None wait_s None final None None None
+  AFTER 3897 external_event session_socket queued 10-15T00:47:59 first_submitted None wait_s None final None None None
+  AFTER 3898 external_event session_socket queued 10-15T00:49:31 first_submitted None wait_s None final None None None
+  AFTER 3899 external_event session_socket queued 10-15T00:49:32 first_submitted None wait_s None final None None None
+  AFTER 3900 external_event session_socket queued 10-15T00:49:33 first_submitted None wait_s None final None None None
+  AFTER 3901 external_event session_socket queued 10-15T00:49:33 first_submitted None wait_s None final None None None
+  AFTER 3902 external_event session_socket queued 10-15T00:49:34 first_submitted None wait_s None final None None None
+  AFTER 3903 external_event session_socket queued 10-15T00:49:35 first_submitted None wait_s None final None None None
+NOTICE 3925 created 10-15T01:21:37 transport tty {'restart_source': 'company-prompt', 'restart_reason': 'company prompt v9 167af132 announced; held v? -', 'resumed': True, 'runtime': 'codex'} history []
+  AFTER 3926 external_event session_socket queued 10-15T01:32:57 first_submitted None wait_s None final None None None
+  AFTER 3927 external_event session_socket queued 10-15T01:34:52 first_submitted None wait_s None final None None None
+  AFTER 3928 external_event session_socket queued 10-15T01:34:53 first_submitted None wait_s None final None None None
+  AFTER 3929 external_event session_socket queued 10-15T01:34:56 first_submitted None wait_s None final None None None
+  AFTER 3930 external_event session_socket queued 10-15T01:34:57 first_submitted None wait_s None final None None None
+  AFTER 3931 external_event session_socket queued 10-15T01:34:57 first_submitted None wait_s None final None None None
+  AFTER 3932 external_event session_socket queued 10-15T01:36:44 first_submitted None wait_s None final None None None
+  AFTER 3933 external_event session_socket queued 10-15T01:36:45 first_submitted None wait_s None final None None None
+  AFTER 3934 external_event session_socket queued 10-15T01:36:45 first_submitted None wait_s None final None None None
+  AFTER 3935 external_event session_socket queued 10-15T01:36:46 first_submitted None wait_s None final None None None
+  AFTER 3936 external_event session_socket queued 10-15T01:36:46 first_submitted None wait_s None final None None None
+  AFTER 3937 external_event session_socket queued 10-15T01:36:47 first_submitted None wait_s None final None None None
+  AFTER 3938 external_event session_socket queued 10-15T01:36:48 first_submitted None wait_s None final None None None
+  AFTER 3939 external_event session_socket queued 10-15T01:40:22 first_submitted None wait_s None final None None None
+  AFTER 3940 external_event session_socket queued 10-15T02:01:58 first_submitted None wait_s None final None None None
+  AFTER 3941 external_event session_socket queued 10-15T02:01:59 first_submitted None wait_s None final None None None
+  AFTER 3942 external_event session_socket queued 10-15T02:02:56 first_submitted None wait_s None final None None None
+  AFTER 3943 external_event session_socket queued 10-15T02:02:57 first_submitted None wait_s None final None None None
+  AFTER 3944 external_event session_socket queued 10-15T02:03:00 first_submitted None wait_s None final None None None
+  AFTER 3945 external_event session_socket queued 10-15T02:03:01 first_submitted None wait_s None final None None None
+  AFTER 3946 external_event session_socket queued 10-15T02:04:04 first_submitted None wait_s None final None None None
+  AFTER 3947 external_event session_socket queued 10-15T02:04:06 first_submitted None wait_s None final None None None
+  AFTER 3948 external_event session_socket queued 10-15T02:04:06 first_submitted None wait_s None final None None None
+  AFTER 3949 external_event session_socket queued 10-15T02:04:07 first_submitted None wait_s None final None None None
+  AFTER 3950 external_event session_socket queued 10-15T02:04:07 first_submitted None wait_s None final None None None
+  AFTER 3951 external_event session_socket queued 10-15T02:04:08 first_submitted None wait_s None final None None None
+  AFTER 3952 external_event session_socket queued 10-15T02:05:08 first_submitted None wait_s None final None None None
+  AFTER 3953 external_event session_socket queued 10-15T02:05:09 first_submitted None wait_s None final None None None
+  AFTER 3954 external_event session_socket queued 10-15T02:06:41 first_submitted None wait_s None final None None None
+  AFTER 3955 external_event session_socket queued 10-15T02:07:06 first_submitted None wait_s None final None None None
+NOTICE 3979 created 10-15T02:22:35 transport tty {'restart_source': 'company-prompt', 'restart_reason': 'company prompt v10 64a7c9be announced; held v? -', 'resumed': True, 'runtime': 'codex'} history []
+  AFTER 3980 external_event session_socket queued 10-15T02:45:18 first_submitted None wait_s None final None None None
+  AFTER 3981 external_event session_socket queued 10-15T02:50:04 first_submitted None wait_s None final None None None
+  AFTER 3982 external_event session_socket queued 10-15T03:00:12 first_submitted None wait_s None final None None None
+  AFTER 3983 external_event session_socket queued 10-15T03:02:13 first_submitted None wait_s None final None None None
+  AFTER 3984 external_event session_socket queued 10-15T03:03:49 first_submitted None wait_s None final None None None
+  AFTER 3985 external_event session_socket queued 10-15T03:10:30 first_submitted None wait_s None final None None None
+  AFTER 3986 external_event session_socket queued 10-15T03:10:30 first_submitted None wait_s None final None None None
+  AFTER 3987 external_event session_socket queued 10-15T03:11:16 first_submitted None wait_s None final None None None
+  AFTER 3988 external_event session_socket queued 10-15T03:11:17 first_submitted None wait_s None final None None None
+  AFTER 3989 external_event session_socket queued 10-15T03:11:57 first_submitted None wait_s None final None None None
+  AFTER 3990 external_event session_socket queued 10-15T03:11:58 first_submitted None wait_s None final None None None
+  AFTER 3991 external_event session_socket queued 10-15T03:11:58 first_submitted None wait_s None final None None None
+  AFTER 3992 external_event session_socket queued 10-15T03:11:59 first_submitted None wait_s None final None None None
+  AFTER 3993 external_event session_socket queued 10-15T03:12:00 first_submitted None wait_s None final None None None
+  AFTER 3994 external_event session_socket queued 10-15T03:12:00 first_submitted None wait_s None final None None None
+  AFTER 3995 external_event session_socket queued 10-15T03:12:04 first_submitted None wait_s None final None None None
+  AFTER 3996 external_event session_socket queued 10-15T03:13:59 first_submitted None wait_s None final None None None
+  AFTER 3997 external_event session_socket queued 10-15T03:14:30 first_submitted None wait_s None final None None None
+  AFTER 3998 external_event session_socket queued 10-15T03:15:12 first_submitted None wait_s None final None None None
+  AFTER 3999 external_event session_socket queued 10-15T03:15:43 first_submitted None wait_s None final None None None
+  AFTER 4000 external_event session_socket queued 10-15T03:16:37 first_submitted None wait_s None final None None None
+  AFTER 4001 external_event session_socket queued 10-15T03:19:47 first_submitted None wait_s None final None None None
+  AFTER 4002 external_event session_socket queued 10-15T03:23:42 first_submitted None wait_s None final None None None
+  AFTER 4003 external_event session_socket queued 10-15T03:24:46 first_submitted None wait_s None final None None None
+  AFTER 4004 external_event session_socket queued 10-15T03:25:11 first_submitted None wait_s None final None None None
+  AFTER 4005 external_event session_socket queued 10-15T03:30:12 first_submitted None wait_s None final None None None
+  AFTER 4006 external_event session_socket queued 10-15T03:40:12 first_submitted None wait_s None final None None None
+  AFTER 4007 external_event session_socket queued 10-15T03:50:12 first_submitted None wait_s None final None None None
+  AFTER 4008 external_event session_socket queued 10-15T04:00:12 first_submitted None wait_s None final None None None
+  AFTER 4009 external_event session_socket queued 10-15T04:00:15 first_submitted None wait_s None final None None None
+NOTICE 5148 created 10-19T16:23:05 transport tty {'restart_source': 'company-prompt', 'restart_reason': 'company prompt v11 80c285a1 announced; held v10 64a7c9be', 'resumed': True, 'runtime': 'claude'} history [('skipped', '10-24T09:47:12', 'launch_replay_window_expired', '')]
+  AFTER 5149 external_event session_socket queued 10-19T16:23:08 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 5150 external_event session_socket queued 10-19T16:29:10 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 5151 external_event session_socket queued 10-19T16:32:53 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 5152 external_event session_socket queued 10-19T16:51:41 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 5153 external_event session_socket queued 10-19T16:59:47 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 5154 external_event session_socket queued 10-19T18:15:39 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 5155 restart_notice tty queued 10-19T18:15:41 first_submitted None wait_s None final skipped launch_replay_window_expired 
+NOTICE 5155 created 10-19T18:15:41 transport tty {'restart_source': 'company-prompt', 'restart_reason': 'company prompt v12 0c7a87d0 announced; held v11 80c285a1', 'resumed': True, 'runtime': 'claude'} history [('skipped', '10-24T09:47:15', 'launch_replay_window_expired', '')]
+  AFTER 5156 external_event session_socket queued 10-19T18:46:30 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 5157 external_event session_socket queued 10-19T19:01:10 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 5158 external_event session_socket queued 10-19T19:01:11 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 5159 external_event session_socket queued 10-19T19:01:57 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 5160 external_event session_socket queued 10-19T19:33:08 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 5161 restart_notice tty queued 10-19T19:33:11 first_submitted None wait_s None final skipped launch_replay_window_expired 
+NOTICE 5161 created 10-19T19:33:11 transport tty {'restart_source': 'company-prompt', 'restart_reason': 'company prompt v13 b6684bb2 announced; held v12 0c7a87d0', 'resumed': True, 'runtime': 'claude'} history [('skipped', '10-24T09:47:16', 'launch_replay_window_expired', '')]
+  AFTER 5162 external_event session_socket queued 10-19T20:04:05 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 5163 external_event session_socket queued 10-19T21:33:46 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 5164 external_event session_socket queued 10-19T22:40:03 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 5165 external_event session_socket queued 10-19T22:40:04 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 5166 external_event session_socket queued 10-19T23:42:41 first_submitted None wait_s None final replied  
+  AFTER 5167 external_event session_socket queued 10-19T23:45:03 first_submitted None wait_s None final replied  
+  AFTER 5168 external_event session_socket queued 10-19T23:53:35 first_submitted None wait_s None final replied  
+  AFTER 5169 external_event session_socket queued 10-19T23:53:35 first_submitted None wait_s None final replied  
+  AFTER 5170 external_event session_socket queued 10-20T00:27:35 first_submitted None wait_s None final replied  
+  AFTER 5171 external_event session_socket queued 10-20T00:30:38 first_submitted None wait_s None final replied  
+  AFTER 5172 external_event session_socket queued 10-20T00:33:41 first_submitted None wait_s None final replied  
+  AFTER 5173 external_event session_socket queued 10-20T00:36:44 first_submitted None wait_s None final replied  
+  AFTER 5174 external_event session_socket queued 10-20T00:39:46 first_submitted None wait_s None final replied  
+  AFTER 5175 external_event session_socket queued 10-20T00:58:02 first_submitted None wait_s None final replied  
+  AFTER 5176 external_event session_socket queued 10-20T00:58:31 first_submitted None wait_s None final replied  
+  AFTER 5177 external_event session_socket queued 10-20T01:02:06 first_submitted None wait_s None final replied  
+  AFTER 5178 external_event session_socket queued 10-20T01:36:38 first_submitted None wait_s None final replied  
+  AFTER 5179 external_event session_socket queued 10-20T02:07:06 first_submitted None wait_s None final replied  
+  AFTER 5180 external_event session_socket queued 10-20T02:08:15 first_submitted None wait_s None final replied  
+  AFTER 5181 external_event session_socket queued 10-20T02:39:37 first_submitted None wait_s None final replied  
+  AFTER 5182 external_event session_socket queued 10-20T03:11:06 first_submitted None wait_s None final replied  
+  AFTER 5183 external_event session_socket queued 10-20T03:42:35 first_submitted None wait_s None final replied  
+  AFTER 5184 external_event session_socket queued 10-20T04:14:03 first_submitted None wait_s None final replied  
+  AFTER 5185 external_event session_socket queued 10-20T04:45:33 first_submitted None wait_s None final replied  
+  AFTER 5186 external_event session_socket queued 10-20T05:17:02 first_submitted None wait_s None final replied  
+  AFTER 5187 external_event session_socket queued 10-20T05:48:32 first_submitted None wait_s None final replied  
+  AFTER 5188 external_event session_socket queued 10-20T06:01:31 first_submitted None wait_s None final replied  
+  AFTER 5189 external_event session_socket queued 10-20T06:01:31 first_submitted None wait_s None final replied  
+  AFTER 5190 external_event session_socket queued 10-20T06:03:23 first_submitted None wait_s None final replied  
+  AFTER 5191 external_event session_socket queued 10-20T06:58:59 first_submitted None wait_s None final replied  
+NOTICE 6044 created 10-22T07:15:22 transport tty {'restart_source': 'company-prompt', 'restart_reason': 'company prompt v15 780fe4c2 announced; held v14 737c5f05', 'resumed': True, 'runtime': 'claude'} history [('skipped', '10-24T09:49:13', 'launch_replay_window_expired', '')]
+  AFTER 6045 external_event session_socket queued 10-22T07:15:33 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6046 external_event session_socket queued 10-22T07:15:35 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6047 external_event session_socket queued 10-22T07:17:22 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6048 external_event session_socket queued 10-22T07:18:17 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6049 external_event session_socket queued 10-22T07:18:41 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6050 external_event session_socket queued 10-22T07:21:13 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6051 external_event session_socket queued 10-22T07:22:35 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6052 external_event session_socket queued 10-22T07:29:44 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6053 external_event session_socket queued 10-22T07:31:38 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6054 external_event session_socket queued 10-22T07:57:12 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6055 external_event session_socket queued 10-22T07:58:13 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6056 external_event session_socket queued 10-22T08:03:24 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6057 external_event session_socket queued 10-22T08:03:44 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6058 external_event session_socket queued 10-22T08:07:10 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6059 external_event session_socket queued 10-22T08:07:45 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6060 external_event session_socket queued 10-22T08:09:50 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6061 external_event session_socket queued 10-22T08:09:57 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6062 external_event session_socket queued 10-22T08:09:59 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6063 external_event session_socket queued 10-22T08:10:22 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6064 external_event session_socket queued 10-22T08:12:40 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6065 external_event session_socket queued 10-22T08:13:44 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6066 external_event session_socket queued 10-22T08:13:50 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6067 external_event session_socket queued 10-22T08:14:07 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6068 external_event session_socket queued 10-22T08:16:21 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6069 external_event session_socket queued 10-22T08:19:01 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6070 external_event session_socket queued 10-22T08:19:28 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6071 external_event session_socket queued 10-22T08:21:15 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6072 external_event session_socket queued 10-22T08:23:07 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6073 external_event session_socket queued 10-22T08:26:55 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 6074 external_event session_socket queued 10-22T08:27:45 first_submitted None wait_s None final skipped launch_replay_window_expired 
+NOTICE 7654 created 10-26T12:15:09 transport tty {'restart_source': 'company-prompt', 'restart_reason': 'company prompt v16 06259400 announced; held v15 780fe4c2', 'resumed': True, 'runtime': 'claude'} history [('queued', '10-26T12:15:09', '', ''), ('skipped', '10-26T16:08:00', 'launch_replay_window_expired', '')]
+  AFTER 7655 external_event session_socket queued 10-26T12:16:26 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7656 external_event session_socket queued 10-26T12:17:08 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7657 external_event session_socket queued 10-26T12:27:29 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7658 external_event session_socket queued 10-26T12:46:05 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7659 external_event session_socket queued 10-26T12:46:28 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7660 external_event session_socket queued 10-26T12:55:01 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7661 external_event session_socket queued 10-26T12:56:25 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7662 external_event session_socket queued 10-26T12:57:52 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7663 external_event session_socket queued 10-26T14:02:02 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7664 external_event session_socket queued 10-26T14:26:59 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7665 external_event session_socket queued 10-26T14:42:02 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7666 external_event session_socket queued 10-26T14:55:57 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7667 external_event session_socket queued 10-26T15:00:38 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7668 external_event session_socket queued 10-26T15:02:23 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7669 external_event session_socket queued 10-26T15:02:24 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7670 external_event session_socket queued 10-26T15:02:24 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7671 external_event session_socket queued 10-26T15:03:32 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7672 external_event session_socket queued 10-26T15:10:46 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7673 external_event session_socket queued 10-26T15:13:13 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7674 external_event session_socket queued 10-26T15:34:59 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7675 external_event session_socket queued 10-26T15:52:58 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7676 external_event session_socket queued 10-26T15:52:59 first_submitted None wait_s None final skipped launch_replay_window_expired 
+  AFTER 7677 external_event session_socket queued 10-26T16:03:15 first_submitted 10-26T16:08:13 wait_s 297 final failed stale_unconfirmed d573d82d
+  AFTER 7678 external_event session_socket queued 10-26T16:18:16 first_submitted 10-26T16:18:18 wait_s 2 final replied  d573d82d
+  AFTER 7679 external_event session_socket queued 10-26T17:47:10 first_submitted 10-26T17:47:11 wait_s 2 final replied  bc2f24dc
+  AFTER 7680 external_event session_socket queued 10-26T17:55:28 first_submitted 10-26T17:55:30 wait_s 1 final replied  bc2f24dc
+  AFTER 7681 external_event session_socket queued 10-26T18:01:17 first_submitted 10-26T18:01:19 wait_s 2 final failed stale_unconfirmed bc2f24dc
+REMOTE_END 1793063438.894
+
+
+exit 0

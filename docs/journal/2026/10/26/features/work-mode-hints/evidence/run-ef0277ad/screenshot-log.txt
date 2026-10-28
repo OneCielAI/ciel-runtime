@@ -1,0 +1,10 @@
+01-start-notice-and-empty-hint
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-ef0277ad\01-start-notice-and-empty-hint.png handle=52625530 printwindow=True
+02-work-mode-help
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-ef0277ad\02-work-mode-help.png handle=52625530 printwindow=True
+03-work-mode-summary
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-ef0277ad\03-work-mode-summary.png handle=52625530 printwindow=True
+04-planning-deny-and-toast
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-ef0277ad\04-planning-deny-and-toast.png handle=52625530 printwindow=True
+05-numbered-items-band
+saved C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\26\features\work-mode-hints\evidence\run-ef0277ad\05-numbered-items-band.png handle=52625530 printwindow=True

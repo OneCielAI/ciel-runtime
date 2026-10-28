@@ -1,0 +1,14 @@
+observed_at_utc 2026-10-26T21:13:50Z script scripts/e2.py (read-only, via scripts/remote_read.py)
+RUNTIME 0.2.51-nightly.20261026-201733.3c95a4b
+CLAUDE 2.1.310
+CIEL_DIR ['backup-locks', 'backup-progress', 'backups', 'config.json', 'launch-state.json', 'log-level', 'model-list-cache.json', 'model-registry.json', 'router-instances', 'session-backup-state.json', 'workspace-router-ports.json', 'workspaces']
+CONFIG C:\Users\aapw-a11u4\AppData\Roaming\ciel-runtime\config.json {}
+PROVIDER_CIELAIROUTER_KEYS ['advisor_model', 'api_key', 'base_url', 'context_window', 'current_model', 'custom_models', 'max_model_len', 'native_compat', 'preflight_prompt_compaction', 'request_timeout_ms', 'stream_enabled', 'stream_word_chunking']
+PROVIDER_CIELAIROUTER_CTX {"context_window": 872000, "preflight_prompt_compaction": false}
+INSTANCES ['8965-c27b0d656c05', '8966-c27b0d656c05']
+JSONL 2026-10-09T12:16:56 414753414 C:\Users\aapw-a11u4\.claude\projects\C--Data-Source-SGSWMSCrossing-u4-home-emily-ai\b26d8710-fecf-4e8e-abfc-fd2bec53b4da.jsonl
+JSONL 2026-10-09T12:55:45 250000 C:\Users\aapw-a11u4\.claude\projects\C--Data-Source-SGSWMSCrossing-u4-home-emily-ai\86051e24-9c91-424c-8899-7f788958c219.jsonl
+JSONL 2026-10-26T14:13:48 1232803588 C:\Users\aapw-a11u4\.claude\projects\C--Data-Source-SGSWMSCrossing-u4-home-emily-ai\a9a016f2-bd19-4066-8b44-6ee329194e16.jsonl
+
+
+exit 0

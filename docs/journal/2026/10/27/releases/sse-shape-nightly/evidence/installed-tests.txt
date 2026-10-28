@@ -1,0 +1,11 @@
+MODULE_SOURCE test_sse_diagnostics
+MODULE_SOURCE test_transient_retry_late_sse
+MODULE_SOURCE test_anthropic_stream_integrity
+LOADED C:\Users\djlov\.local\share\ciel-runtime-d2856f828a9f48cf2122c438aa2b698b4cd72150\ciel_runtime_support\sse_diagnostics.py
+LOADED C:\Users\djlov\.local\share\ciel-runtime-d2856f828a9f48cf2122c438aa2b698b4cd72150\ciel_runtime_support\transient_retry.py
+LOADED C:\Users\djlov\.local\share\ciel-runtime-d2856f828a9f48cf2122c438aa2b698b4cd72150\ciel_runtime.py
+.............................................
+----------------------------------------------------------------------
+Ran 45 tests in 8.034s
+
+OK

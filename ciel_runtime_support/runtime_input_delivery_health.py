@@ -15,6 +15,9 @@ from .runtime_input_status import RuntimeInputStatusRepository
 
 _SCAN_BYTES = 8 * 1024 * 1024
 _SCAN_LINE_BYTES = 1024 * 1024
+# Newest queue rows checked for an id whose terminal status predates the row.
+_REUSE_SCAN_BYTES = 1024 * 1024
+_TERMINAL = frozenset({"replied", "failed", "skipped", "interrupted_uncertain"})
 _CACHE_SECONDS = 2.0
 _CACHE_LIMIT = 32
 _CACHE: OrderedDict = OrderedDict()
@@ -84,6 +87,51 @@ def _input_rows(path: Path) -> tuple[list[dict[str, Any]], bool]:
     return rows, complete
 
 
+def _tail_input_rows(path: Path) -> list[dict[str, Any]]:
+    """Decodable rows in the newest ``_REUSE_SCAN_BYTES`` of the queue."""
+    rows = []
+    try:
+        with path.open("rb") as stream:
+            start = max(0, stream.seek(0, 2) - _REUSE_SCAN_BYTES)
+            stream.seek(start)
+            if start:
+                stream.readline()  # the row the window cuts through
+            for raw in stream:
+                if not raw.endswith(bytes([10])):
+                    break
+                try:
+                    row = json.loads(raw)
+                except (ValueError, UnicodeError, RecursionError):
+                    continue
+                if isinstance(row, dict):
+                    rows.append(row)
+    except OSError:
+        return []
+    return rows
+
+
+def _reused_ids(latest: dict[int, dict[str, Any]], inputs_path: Path) -> list[int]:
+    """Queue ids whose terminal status was recorded before the row existed.
+
+    Such a status describes an earlier input that had the same id (queue rows
+    lost in an unclean shutdown, 2026-10-26), and delivery skips the new one.
+    """
+    reused = []
+    for row in _tail_input_rows(inputs_path):
+        try:
+            request_id = int(row.get("id") or 0)
+        except (TypeError, ValueError, OverflowError):
+            continue
+        status = latest.get(request_id)
+        if not status or status.get("status") not in _TERMINAL:
+            continue
+        created = _epoch(row.get("created_at_epoch"))
+        recorded = _epoch(status.get("updated_at_epoch"))
+        if created is not None and recorded is not None and recorded + 1.0 < created:
+            reused.append(request_id)
+    return reused
+
+
 def _status_history(status: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """One pass with the repository's own decoder and damage/recovery rules.
 
@@ -102,7 +150,18 @@ def _status_history(status: Any) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     return rows, history if history.get("coverage") == "unknown" else status.history_health()
 
 
+def _file_signature(path: Path) -> tuple | None:
+    """Read-only identity for optimistic, cross-file snapshot validation."""
+    try:
+        stat = path.stat()
+    except FileNotFoundError:
+        return None
+    return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns)
+
+
 def _snapshot(status: Any, inputs_path: Path, receiver_id: str | None) -> dict[str, Any]:
+    paths = (Path(status.path), inputs_path)
+    before = tuple(_file_signature(path) for path in paths)
     status_rows, history = _status_history(status)
     input_rows, inputs_complete = _input_rows(inputs_path)
     latest = {}
@@ -121,18 +180,18 @@ def _snapshot(status: Any, inputs_path: Path, receiver_id: str | None) -> dict[s
                 first_queued[request_id] = min(stamp, first_queued.get(request_id, stamp))
     inputs = {}
     for row in input_rows:
-        try:
-            request_id = int(row.get("id") or 0)
-        except (TypeError, ValueError, OverflowError):
+        request_id = row.get("id")
+        if type(request_id) is not int or request_id <= 0 or request_id in inputs:
             inputs_complete = False
             continue
-        if request_id > 0:
-            inputs[request_id] = row
+        inputs[request_id] = row
     queued = []
     for request_id, row in latest.items():
-        if row.get("status") != "queued":
+        if row.get("status") != "queued" or request_id not in inputs:
             continue
-        message = inputs.get(request_id, {})
+        # Historical queue statuses are not retained inputs. Count and age
+        # must describe the same exact, currently queued id intersection.
+        message = inputs[request_id]
         meta = message.get("meta") if isinstance(message.get("meta"), dict) else {}
         data = row.get("data") if isinstance(row.get("data"), dict) else {}
         if receiver_id is not None and not (
@@ -145,6 +204,7 @@ def _snapshot(status: Any, inputs_path: Path, receiver_id: str | None) -> dict[s
         stamp = _epoch(message.get("created_at_epoch")) or first_queued.get(request_id)
         queued.append(stamp)
     outcomes = _delivery_outcomes(latest)
+    reused = _reused_ids(latest, inputs_path)
     complete = bool(history.get("complete"))
     first = next(iter(history.get("diagnostics") or []), {})
     stamps = [stamp for stamp in queued if stamp is not None]
@@ -152,19 +212,23 @@ def _snapshot(status: Any, inputs_path: Path, receiver_id: str | None) -> dict[s
     # blocker here: it only makes this observation partial. A history that
     # could not be read at all is unknown, never a confirmed hold.
     available = history.get("coverage") != "unknown"
-    observation_complete = complete and inputs_complete
+    snapshot_consistent = before == tuple(_file_signature(path) for path in paths)
+    observation_complete = complete and inputs_complete and snapshot_consistent
     return {"state": "not_blocked" if available else "unknown",
             "reason": ("delivery_observation_unavailable" if not available else
                        "" if observation_complete else "history_observation_partial"),
             "scope": "private_runtime_inputs", "blocker_scope": None,
             "admission_blocked": False if available else None, "launcher_hold_observed": False,
             "line_number": first.get("line_number"),
+            "snapshot_consistent": snapshot_consistent,
             "known_queued_count": len(queued),
             "oldest_queued_at_epoch": min(stamps) if stamps else None,
             "queue_age_coverage": "complete" if len(stamps) == len(queued) else "partial",
             "queued_coverage": ("unknown" if not available else
                                 "complete" if observation_complete else "partial"),
             **outcomes,
+            "reused_id_count": len(reused),
+            "reused_id_newest": max(reused) if reused else None,
             "history": history}
 
 
@@ -192,12 +256,14 @@ def _delivery_outcomes(latest: dict[int, dict[str, Any]]) -> dict[str, Any]:
 def runtime_input_delivery_health(status: Any = None, *, status_path: Path | None = None,
                                   inputs_path: Path | None = None,
                                   receiver_id: str | None = None,
-                                  now: float | None = None) -> dict[str, Any]:
+                                  now: float | None = None,
+                                  refresh: bool = False) -> dict[str, Any]:
     """Cache bounded observations for two seconds without touching durable state.
 
     Status is duck-typed (path, history_health). Native repositories use their
     own read-only scan once for both rows and health. These are private runtime
     input paths, never the public chat frontier. Known counts may be partial.
+    Recovery uses refresh=True: cached diagnostics cannot authorize a restart.
     """
     if status is None and status_path is None:
         return unavailable_delivery_health()
@@ -212,7 +278,7 @@ def runtime_input_delivery_health(status: Any = None, *, status_path: Path | Non
     clock = time.monotonic()
     with _LOCK:
         cached = _CACHE.get(key)
-        if cached is None or clock - cached[0] >= _CACHE_SECONDS:
+        if refresh or cached is None or clock - cached[0] >= _CACHE_SECONDS:
             try:
                 snapshot = _snapshot(status, inputs_path, receiver_id)
             except (OSError, ValueError, TypeError, AttributeError, RecursionError):
@@ -248,6 +314,9 @@ def delivery_health_text(health: dict[str, Any]) -> str:
         detail += f"; resend exhausted {health['retry_exhausted_count']}"
     if health.get("launch_expired_count"):
         detail += f"; expired at launch {health['launch_expired_count']}"
+    if health.get("reused_id_count"):
+        detail += (f"; reused ids {health['reused_id_count']} (newest #{health.get('reused_id_newest')}, "
+                   "skipped as already delivered)")
     failure = health.get("last_failure")
     if isinstance(failure, dict) and failure.get("reason"):
         when = time.strftime("%H:%M", time.localtime(float(failure.get("at_epoch") or 0)))

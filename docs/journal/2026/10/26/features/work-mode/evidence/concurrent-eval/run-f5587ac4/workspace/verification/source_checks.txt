@@ -1,0 +1,4 @@
+mvcc_cache.py: stdlib-only imports verified: dataclasses, threading
+dag_scheduler.py: stdlib-only imports verified: dataclasses
+ledger.py: stdlib-only imports verified: decimal, io, csv
+Git status/diff unavailable: enclosing repository resolves to C:/ and Git rejected dubious ownership. No configuration was changed.

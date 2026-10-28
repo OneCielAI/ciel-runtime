@@ -1,0 +1,38 @@
+  ⎿  ciel-work: Ciel Work mode — plan first, then execute                                    ╭────────────────────────────────────────╮
+     • Planning: the model builds a plan with work_plan_set: goal → phases → tasks → verifiab│ ciel-work                              │
+     state-changing commands wait.                                                           │ Work mode is planning: edits wait for  │
+     • New requests: an independent request becomes its own numbered item ("2. …") and waits │ the approved plan · /work-mode help    │
+     change to an existing item is added under that item.                                    ╰────────────────────────────────────────╯
+     • Executing: after work_execute (automatic, or your approval when set to ask) the model works step by step and marks each step
+     done with evidence.
+     • Above the prompt: Ctrl+X Tab focuses the items · Tab/↑↓ select · Enter inspects · Esc returns.
+     • /work-mode view: keyboard inspector · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode help:
+     this help
+     • Settings: ciel-runtime menu → LLM options → Work mode (on/off) and Work plan approval (auto/ask).
+
+❯ /work-mode
+  ⎿  ciel-work: Ciel Work mode: planning · 0/0 steps · approval auto
+     No plan yet — the model plans before editing.
+     /work-mode help · view · tree · status
+
+❯ E2EHINT-MAIN try an edit while planning, then plan with numbered items.
+
+● Update(subject.txt)
+  ⎿  Error: Work mode is planning: edits and state-changing commands wait until the plan is approved. Build it with work_plan_set, then
+     call work_execute. (/work-mode help)
+
+  Called ciel-runtime-router
+
+● E2EHINT-MAIN-DONE
+
+✻ Brewed for 0s · done 12:36 PM
+Work planning 0/3 — 1. Hint check                                                                                                  [-]
+1: [ ] Parser 0/2
+2: [ ] Cache 0/1
+w: All items / refresh
+Ctrl+X Tab: focus · Tab/↑↓: select · Enter: inspect · Esc: return · /work-mode help
+
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+───────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)                                                                        work: plan 0/3
