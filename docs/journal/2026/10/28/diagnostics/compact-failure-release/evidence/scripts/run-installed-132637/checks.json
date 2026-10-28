@@ -1,0 +1,24 @@
+{
+  "functional_checks": {
+    "scenario_success": true,
+    "retry_before_release": true,
+    "sse_tool_after_release": true,
+    "one_sse_compact_tool": true,
+    "queue_replied": true,
+    "new_cycle_verified": true,
+    "live_unchanged": true,
+    "screenshots": true
+  },
+  "focus_noninterference_passed": false,
+  "focus_observation": {
+    "samples": 1318,
+    "owned_hits": 22,
+    "owned_intervals": [
+      [
+        1793212024.12,
+        1793212025.19
+      ]
+    ]
+  },
+  "note": "Functional recovery passes; do not claim focus noninterference. One foreground interval ~1.07 seconds observed."
+}
