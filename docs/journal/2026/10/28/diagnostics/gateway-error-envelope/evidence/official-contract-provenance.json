@@ -1,0 +1,52 @@
+[
+  {
+    "repository": "OneCiel/ciel-ai-router",
+    "path": "open-sse/utils/error.ts",
+    "blob_sha": "9d80dc159fd6ab07ccd79f38bf1b6b62a05c817a",
+    "line_start": 578,
+    "line_end": 590,
+    "excerpt": [
+      "export function errorResponseWithComboDiagnostics(",
+      "  statusCode: number,",
+      "  message: string,",
+      "  diagnostics: ComboDiagnostics,",
+      "  opts: { code?: string; type?: string } = {}",
+      "): Response {",
+      "  const safe = sanitizeComboDiagnostics(diagnostics);",
+      "  const body = buildErrorBody(statusCode, message, undefined, opts) as ErrorResponseBody & {",
+      "    diagnostics?: ComboDiagnostics;",
+      "    recovery_hint?: ComboRecoveryHint;",
+      "  };",
+      "  body.diagnostics = safe;",
+      "  if (safe.recovery) body.recovery_hint = safe.recovery;"
+    ],
+    "authority": "official-main-reference-not-live-version"
+  },
+  {
+    "repository": "OneCiel/ciel-ai-router",
+    "path": "open-sse/utils/earlyStreamKeepalive.ts",
+    "blob_sha": "063ea0618b7bc069a0d9566f6a85c7021c26e7f7",
+    "line_start": 374,
+    "line_end": 390,
+    "excerpt": [
+      "          } else {",
+      "            // Non-SSE response (e.g. a JSON error) reached us after we already",
+      "            // committed to a 200 event-stream, so the HTTP status can no longer",
+      "            // change. Frame the (already-sanitized) body as an in-band error event",
+      "            // instead of forwarding raw JSON, which would be malformed SSE.",
+      "            const text = response.body ? await response.text().catch(() => \"\") : \"\";",
+      "            const dataLine =",
+      "              errorFrameFormat === \"responses\"",
+      "                ? buildResponsesErrorDataLine(text, response.status)",
+      "                : text.trim() ||",
+      "                  JSON.stringify({ error: { message: \"stream_error\", type: \"stream_error\" } });",
+      "            const framed =",
+      "              errorFrameFormat === \"anthropic\"",
+      "                ? `event: error\\ndata: ${dataLine}\\n\\n`",
+      "                : `data: ${dataLine}\\n\\n`;",
+      "            const framedBytes = ENCODER.encode(framed);",
+      "            controller.enqueue(framedBytes);"
+    ],
+    "authority": "official-main-reference-not-live-version"
+  }
+]

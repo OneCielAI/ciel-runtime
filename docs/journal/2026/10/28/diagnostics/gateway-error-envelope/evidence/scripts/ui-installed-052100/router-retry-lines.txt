@@ -1,0 +1,8 @@
+2026-10-28T05:21:04 [INFO] upstream_direct_request provider=cielairouter model=owned-send endpoint=http://127.0.0.1:60284/v1/messages attempt=1/1 tokens=1023 bytes=4087 timeout=300.0
+2026-10-28T05:21:04 [INFO] cielairouter_preoutput_guard operation_id=6dbe564f3c0444a48e8c1e8124d7782a state=armed
+2026-10-28T05:21:04 [INFO] cielairouter_preoutput_commit operation_id=6dbe564f3c0444a48e8c1e8124d7782a reason=unrecognized_frame held_bytes=266 attempts=0 opens=1 shape={"complete_frames":1,"tail_bytes":0,"frames":[{"event":"message_start","data_chars":237,"json":"object","fields":{"message":"object","type":"string"},"other_fields":0,"other_lines":0}]}
+2026-10-28T05:21:05 [INFO] upstream_direct_request provider=cielairouter model=owned-send endpoint=http://127.0.0.1:60284/v1/messages attempt=1/1 tokens=21071 bytes=83127 timeout=300.0
+2026-10-28T05:21:05 [INFO] cielairouter_preoutput_guard operation_id=acc2e43519e14e2fa02b96402ecaa27b state=armed
+2026-10-28T05:21:13 [WARN] cielairouter_late_sse_retry operation_id=acc2e43519e14e2fa02b96402ecaa27b attempt=1/3 wait=1.00s message_start=False output_exposed=False
+2026-10-28T05:21:14 [INFO] cielairouter_preoutput_guard operation_id=acc2e43519e14e2fa02b96402ecaa27b state=armed
+2026-10-28T05:21:14 [INFO] cielairouter_preoutput_commit operation_id=acc2e43519e14e2fa02b96402ecaa27b reason=unrecognized_frame held_bytes=266 attempts=1 opens=2 shape={"complete_frames":1,"tail_bytes":0,"frames":[{"event":"message_start","data_chars":237,"json":"object","fields":{"message":"object","type":"string"},"other_fields":0,"other_lines":0}]}

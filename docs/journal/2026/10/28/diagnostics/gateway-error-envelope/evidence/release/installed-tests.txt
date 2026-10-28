@@ -1,0 +1,9 @@
+.........................................................
+----------------------------------------------------------------------
+Ran 57 tests in 9.766s
+
+OK
+LOADED C:\Users\djlov\.local\share\ciel-runtime-f8e54f929845299771b9ac120c1367638e8003ef\ciel_runtime_support\transient_retry.py
+LOADED C:\Users\djlov\.local\share\ciel-runtime-f8e54f929845299771b9ac120c1367638e8003ef\ciel_runtime_support\gateway_error_metadata.py
+LOADED C:\Users\djlov\.local\share\ciel-runtime-f8e54f929845299771b9ac120c1367638e8003ef\ciel_runtime_support\sse_diagnostics.py
+FOREIGN []

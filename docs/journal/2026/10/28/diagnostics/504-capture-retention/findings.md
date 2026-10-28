@@ -5,7 +5,7 @@ description: Router 9524 rotates its log about every two hours and keeps one bac
 tags: [retry, sse, diagnostics, logging]
 timestamp: 2026-10-28
 ---
-# Status of the recurring 504 (n436)
+# Initial status of the recurring 504 (n436), observed at 03:14
 
 - No SSE error event has occurred on router 9524 since the redacted shape diagnostics went live (2026-10-27 20:05 local). `router.log.1` (20:05-22:15) and `router.log` (22:15-03:14) contain no `anthropic_sse_error_shape` or `anthropic_sse_upstream_error_event` line.
 - 9524 was relaunched at 00:52 and again at 03:07 local, when the session was relaunched. I did not do either relaunch. Both launches started the router from the installed 679245f snapshot, which contains the d2856f8 diagnostics, so capture is still active. Router 9505 also runs 679245f (PID 30608).
@@ -21,8 +21,8 @@ timestamp: 2026-10-28
 - It keeps only lines carrying the retry/SSE diagnostic keys. These lines are already redacted by the router: no message text, request bodies, URLs or credentials.
 - It exits 120 s after the first SSE error line, so the matching guard, commit and retry lines are kept, or after 7 days.
 - [Self-test](evidence/watcher-selftest.json) on an owned synthetic log: all 8 checks passed. Covered: lines written before start, unrelated lines, a partial line split across polls, lines before and after a rotation, the rotation count, and exit after an error.
-- Running live on 9524 since 2026-10-28 03:14 local. Output goes to `evidence/live-9524/` (`kept-lines.txt` and `watch-status.json`). The router keeps about 33 KB of these lines per 5 hours.
+- Started on 9524 at 2026-10-28 03:14 local; ended at 04:35:36 after capturing the 04:33:34 recurrence. Output goes to `evidence/live-9524/` (`kept-lines.txt` and `watch-status.json`). The router keeps about 33 KB of these lines per 5 hours.
 
 # Boundary
 
-The watcher only reads. It does not change the router, its rotation rule or any session. The 504 cause is still unknown until the next occurrence is captured.
+The watcher only reads. It does not change the router, its rotation rule or any session. The next occurrence was captured at 04:33:34: unrecognized_frame, attempts=0. See [follow-up](../gateway-error-envelope/findings.md). The watcher is stopped, not still monitoring.

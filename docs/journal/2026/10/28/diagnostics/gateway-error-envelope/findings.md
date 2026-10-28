@@ -51,3 +51,19 @@ Owned fake gateway, actual Claude Code 2.1.312, native retries disabled, fresh H
 # Scope of result
 
 This proves official-contract compatibility and synthetic CLI recovery. Exact live sibling names remain unverified. The live reset and actual upstream504 source are not fixed by this change. No claim that recurring production errors are resolved.
+
+# Release tracking
+
+Source fix4dd9f04 pushed; initial publish40668931614 failed solely at test E702 lint. Correctionf8e54f9 changes test formatting, not product semantics; local ruff passed. Corrected CI40669228916 / Publish40669228839 running. Both owned CLI egress sentinels denied only downloads.claude.ai:443 and github.com:443 background CONNECT attempts; no allowed external upstream traffic.
+
+# Published and installed verification
+
+- Corrected release commit f8e54f929845299771b9ac120c1367638e8003ef is on nightly and nightly-20261028. [CI](evidence/ci.json) 6/6 succeeded; [Publish](evidence/publish.json) succeeded. Initial publish failure is preserved in first-publish-failed.json, not hidden.
+- Registry nightly `0.2.51-nightly.20261028-101259.f8e54f9`, exact gitHead, SHA1 and SHA512 verified. Tarball SHA256 `f2467968cae786124b04d5c6ae83f8a8d6f282725139fa0bfb0690849fc2325e`. [Receipt](evidence/release/published.json).
+- Package comparison: 515 files, 505 identical, 8 line-ending-only, 2 version stamps, no missing files. Snapshot 462 exact files; global npm515 exact files. [Comparison](evidence/release/package-vs-commit.json), [snapshot](evidence/release/snapshot-install.json), [global](evidence/release/npm-files.json).
+- Installed focused tests: 57 passed; transient_retry, gateway_error_metadata and sse_diagnostics loaded from the new snapshot, FOREIGN empty. [Output](evidence/release/installed-tests.txt).
+- Installed actual Claude Code2.1.312: [result](evidence/scripts/ui-installed-052100/result.json), [screenshot](evidence/scripts/ui-installed-052100/01-outcome.png). Seven checks passed: two main requests, same payload length, retry logged, success on screen, no native fallback, live PID preserved, screenshot saved. Gateway fixture is synthetic official-contract, NOT a captured live body.
+- HKCU CIEL_RUNTIME_HOME and generated statusline switched to fresh f8e54f9 snapshot. No install.ps1 run, no live router restart. [Switch](evidence/release/local-switch.json).
+- Protected live routers remain 9524 PID18536 and 9505 PID30608, still running679245f. Local installation does not hot-load new code into them. Production verification therefore waits for an authorized or normal launch of the new build and an actual recurrence. [After](evidence/release/live-after-install.json).
+
+The compatibility fix is published and installed; production504 recurrence resolution and WinError10054 origin/recovery remain unverified. No remote managed host, session history, queue or cursor was changed.
