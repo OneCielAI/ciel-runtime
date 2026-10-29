@@ -24,7 +24,7 @@ timestamp: 2026-10-29
 
 # Verified
 
--19new retention tests pass: exact24h boundary, recent/reopened work, legacy/future/unknown timestamps, focus, version/CAS/observer/noop, concurrent cleanup and work update, links, corrupt state, progress and menu persistence.
+-21retention tests pass (including replan aggregate reset and lifecycle callback order): exact24h boundary, recent/reopened work, legacy/future/unknown timestamps, focus, version/CAS/observer/noop, concurrent cleanup and work update, links, corrupt state, progress and menu persistence.
 - Focused combined154tests:153pass,1existing Windows `os.replace` PermissionError in `test_read_snapshot_observes_whole_atomic_documents_during_writes`. That exact test also fails on untouched HEAD support code; baseline output retained. No test was removed or weakened to hide it.
 - Native mod71tests:69pass/2existing baseline failures (native plan exemption cleanup and planning-denial toast). No claim all mod tests pass.
 - Actual owned production backend HTTP6checks: disabled retains old items; menu/MCP policy exposure; actual periodic worker deletes only old done, retains recent/open and2/3progress; stale CAS409; config persists; owned backend restart retains deletion and counts. No direct/manual sweep was used for that acceptance.
@@ -37,4 +37,4 @@ This release also includes the source-verified `display_current` correction: com
 
 # Release boundary
 
-User explicitly requested local/nightly feature deployment. At this journal write the feature is source-verified, not yet published/installed. Exact release identity and installed proofs will be recorded separately. Unrelated Gemini/Kimi provider changes and TLS evidence are excluded.
+User explicitly requested local/nightly feature deployment. Published and locally installed `0.2.51-nightly.20261029-220515.a54d98e`; installed134tests, actual backend6checks and actualCLI17checks/screenshots pass. See [exact release verification](../../releases/work-retention-nightly/verification.md). Existing live routers were not restarted; the worker starts on their next normal launch from the updated installation. Unrelated Gemini/Kimi provider changes and TLS evidence are excluded.

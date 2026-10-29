@@ -1,0 +1,22 @@
+{
+  "00-before-expiry.png": {
+    "width": 1129,
+    "height": 635,
+    "bytes": 40042
+  },
+  "01-progress-bounded.png": {
+    "width": 1129,
+    "height": 635,
+    "bytes": 39009
+  },
+  "05-completed-tab.png": {
+    "width": 1129,
+    "height": 635,
+    "bytes": 50616
+  },
+  "06-compact-again.png": {
+    "width": 1129,
+    "height": 635,
+    "bytes": 46971
+  }
+}

@@ -1,0 +1,155 @@
+{
+  "conclusion": "success",
+  "headSha": "a54d98eea0fcfd5c46ee5f0d2cbb2bb84b654154",
+  "jobs": [
+    {
+      "completedAt": "2026-10-29T22:10:29Z",
+      "conclusion": "success",
+      "databaseId": 123755928721,
+      "name": "publish",
+      "startedAt": "2026-10-29T21:55:02Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-29T21:55:03Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-29T21:55:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:06Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v4",
+          "number": 2,
+          "startedAt": "2026-10-29T21:55:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:07Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@v5",
+          "number": 3,
+          "startedAt": "2026-10-29T21:55:06Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:07Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v4",
+          "number": 4,
+          "startedAt": "2026-10-29T21:55:07Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:11Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install --upgrade pip \"ruff==0.15.22\" pillow",
+          "number": 5,
+          "startedAt": "2026-10-29T21:55:07Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:11Z",
+          "conclusion": "success",
+          "name": "Run python -m py_compile ciel_runtime.py ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts/make_demo_assets.py",
+          "number": 6,
+          "startedAt": "2026-10-29T21:55:11Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:12Z",
+          "conclusion": "success",
+          "name": "Run python -m ruff check .",
+          "number": 7,
+          "startedAt": "2026-10-29T21:55:11Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T22:05:15Z",
+          "conclusion": "success",
+          "name": "Run npm test",
+          "number": 8,
+          "startedAt": "2026-10-29T21:55:12Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T22:05:15Z",
+          "conclusion": "success",
+          "name": "Determine publish channel",
+          "number": 9,
+          "startedAt": "2026-10-29T22:05:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T22:05:15Z",
+          "conclusion": "success",
+          "name": "Compute and apply nightly version",
+          "number": 10,
+          "startedAt": "2026-10-29T22:05:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T22:05:16Z",
+          "conclusion": "success",
+          "name": "Run pkg=\"$(node -p \"require('./package.json').name\")\"",
+          "number": 11,
+          "startedAt": "2026-10-29T22:05:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T22:05:20Z",
+          "conclusion": "success",
+          "name": "Run npm publish --access public --tag nightly",
+          "number": 12,
+          "startedAt": "2026-10-29T22:05:16Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T22:10:27Z",
+          "conclusion": "success",
+          "name": "Verify published tarball",
+          "number": 13,
+          "startedAt": "2026-10-29T22:05:20Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T22:10:27Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v4",
+          "number": 24,
+          "startedAt": "2026-10-29T22:10:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T22:10:27Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@v5",
+          "number": 25,
+          "startedAt": "2026-10-29T22:10:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T22:10:27Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v4",
+          "number": 26,
+          "startedAt": "2026-10-29T22:10:27Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T22:10:27Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 27,
+          "startedAt": "2026-10-29T22:10:27Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/OneCielAI/ciel-runtime/actions/runs/40961722766/job/123755928721"
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/OneCielAI/ciel-runtime/actions/runs/40961722766"
+}

@@ -1,0 +1,39 @@
+{
+  "live_before": {
+    "9385": {
+      "pid": 89420,
+      "version": "0.2.51-nightly.20261029-150640.e3cb9a1",
+      "source_fingerprint": "122e12595997f09d"
+    },
+    "9505": {
+      "pid": 70956,
+      "version": "0.2.51-nightly.20261029-150640.e3cb9a1",
+      "source_fingerprint": "122e12595997f09d"
+    },
+    "9524": {
+      "pid": 18536,
+      "version": "0.2.51-nightly.20261028-023853.679245f",
+      "source_fingerprint": "122e12595997f09d"
+    }
+  },
+  "live_after": {
+    "9385": {
+      "pid": 89420,
+      "version": "0.2.51-nightly.20261029-150640.e3cb9a1",
+      "source_fingerprint": "122e12595997f09d"
+    },
+    "9505": {
+      "pid": 70956,
+      "version": "0.2.51-nightly.20261029-150640.e3cb9a1",
+      "source_fingerprint": "122e12595997f09d"
+    },
+    "9524": {
+      "pid": 18536,
+      "version": "0.2.51-nightly.20261028-023853.679245f",
+      "source_fingerprint": "122e12595997f09d"
+    }
+  },
+  "live_unchanged": true,
+  "unrelated_files_compared": 8,
+  "unrelated_changed": []
+}

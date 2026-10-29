@@ -1,0 +1,6 @@
+ciel-runtime router starting on 127.0.0.1:54601 (client base http://127.0.0.1:54601, log level ERROR, source=default)
+web: http://127.0.0.1:54601/
+web_tailscale_https_recommended: ciel-runtime --ca-web-port 54601 --ca-tailscale-https=54601
+ciel-runtime router starting on 127.0.0.1:54601 (client base http://127.0.0.1:54601, log level ERROR, source=default)
+web: http://127.0.0.1:54601/
+web_tailscale_https_recommended: ciel-runtime --ca-web-port 54601 --ca-tailscale-https=54601
