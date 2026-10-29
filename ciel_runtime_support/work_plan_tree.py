@@ -243,6 +243,8 @@ def set_plan(doc: dict[str, Any], spec: Any, root_id: str | None = None, *, now:
         if key in spec:
             root[key] = _line(spec[key], limit)
     root["status"] = "pending"
+    root.pop("completed_at", None)
+    root.pop("expired_done_steps", None)
     root["updated_at"] = time.time() if now is None else now
     for child in children:
         add_subtree(trial, root_id, child, now=now)

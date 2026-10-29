@@ -248,3 +248,17 @@ class WorkRetentionSafetyTests(unittest.TestCase):
         self.assertEqual(doc["active_root"], active)
         self.assertEqual(doc["phase"], phase)
         self.assertNotIn(old, {n["id"] for n in doc["nodes"]})
+
+
+class WorkRetentionReplanTests(unittest.TestCase):
+    def test_replacing_plan_clears_retired_counts_and_completion_clock(self):
+        doc = WorkRetentionTests().plan()
+        tree.expire_completed(doc, now=90000)
+        doc["nodes"][0]["expired_done_steps"] = 5
+        doc["nodes"][0]["completed_at"] = 1
+        tree.set_plan(doc, {"title": "Replacement", "children": [{"title": "Phase", "children": [
+            {"title": "New task"}]}]}, root_id="n1", now=90001)
+        self.assertNotIn("completed_at", doc["nodes"][0])
+        self.assertNotIn("expired_done_steps", doc["nodes"][0])
+        self.assertEqual(tree.progress(doc), (0, 1))
+        self.assertEqual(tree.expire_completed(doc, now=180000), 0)
