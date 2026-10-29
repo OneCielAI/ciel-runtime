@@ -53,6 +53,15 @@ class WorkRetentionService:
             self.log("INFO", f"work_completed_expired nodes={removed}")
         return removed
 
+    def bind_lifecycle(self, start: Callable[[], Any], stop: Callable[[], Any]) -> tuple[Callable[[], None], Callable[[], None]]:
+        def start_services() -> None:
+            self.start()
+            start()
+        def stop_services() -> None:
+            self.stop()
+            stop()
+        return start_services, stop_services
+
     def start(self) -> None:
         if self._thread and self._thread.is_alive():
             return

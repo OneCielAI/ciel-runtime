@@ -262,3 +262,16 @@ class WorkRetentionReplanTests(unittest.TestCase):
         self.assertNotIn("expired_done_steps", doc["nodes"][0])
         self.assertEqual(tree.progress(doc), (0, 1))
         self.assertEqual(tree.expire_completed(doc, now=180000), 0)
+
+
+class WorkRetentionLifecycleTests(unittest.TestCase):
+    def test_retention_wraps_existing_service_callbacks_in_order(self):
+        events = []
+        service = WorkRetentionService(Path("unused-owned-state"), lambda: {}, lambda *_: None)
+        with patch.object(service, "start", side_effect=lambda: events.append("retention.start")),              patch.object(service, "stop", side_effect=lambda: events.append("retention.stop")):
+            start, stop = service.bind_lifecycle(lambda: events.append("services.start"),
+                                                 lambda: events.append("services.stop"))
+            self.assertEqual(events, [])
+            start()
+            stop()
+        self.assertEqual(events, ["retention.start", "services.start", "retention.stop", "services.stop"])

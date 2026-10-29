@@ -2971,13 +2971,9 @@ def router_request_body_policy() -> RouterRequestBodyPolicy:
     return _ROUTER_REQUEST_BODY_POLICY
 def _router_server_context() -> RouterServerContext:
     usage_services = UsageRuntimeServices(USAGE_LEDGER, USAGE_API_KEYS, UsagePushDeliveryService(USAGE_LEDGER, load_config, os.environ, router_log), CONFIG_DIR, WORKSPACE_STATE_DIR, ROUTER_WORKSPACE_ID, USAGE_EVENTS_PATH, router_log)
-    work_retention = WorkRetentionService(WORKSPACE_STATE_DIR, load_config, router_log)
-    def start_router_services() -> None:
-        work_retention.start()
-        external_event_receiver_service().start(), _TELEMETRY_LOG_RUNTIME.start(), usage_services.start(), session_backup_service.start_router_scheduler(CONFIG_DIR, os.environ, HOME, CLI_ASSET_HOME, router_log), company_prompt_reload.start_router_listener(load_config, WORKSPACE_STATE_DIR, Path(ROUTER_WORKSPACE), lambda reason: runtime_session_restart_service().queue(source=company_prompt_reload.COMPANY_PROMPT_RESTART_SOURCE, reason=reason, wait_turn=True), router_log), agent_runtime_event_push.start_router_pusher(ROUTER_WORKSPACE_ID, lambda: agent_runtime_event_push.runtime_event_endpoints(load_config(), external_event_receiver_service().receiver_configs(), external_event_receiver_service().vault.load), router_log)  # Walkie 48926: turn ends pushed to Walkie
-    def stop_router_services() -> None:
-        work_retention.stop()
-        company_prompt_reload.stop_router_listener(), agent_runtime_event_push.stop_router_pusher(), session_backup_service.stop_router_scheduler(), usage_services.stop(), _TELEMETRY_LOG_RUNTIME.stop(), external_event_receiver_service().stop()
+    start_router_services, stop_router_services = WorkRetentionService(WORKSPACE_STATE_DIR, load_config, router_log).bind_lifecycle(
+        lambda: (external_event_receiver_service().start(), _TELEMETRY_LOG_RUNTIME.start(), usage_services.start(), session_backup_service.start_router_scheduler(CONFIG_DIR, os.environ, HOME, CLI_ASSET_HOME, router_log), company_prompt_reload.start_router_listener(load_config, WORKSPACE_STATE_DIR, Path(ROUTER_WORKSPACE), lambda reason: runtime_session_restart_service().queue(source=company_prompt_reload.COMPANY_PROMPT_RESTART_SOURCE, reason=reason, wait_turn=True), router_log), agent_runtime_event_push.start_router_pusher(ROUTER_WORKSPACE_ID, lambda: agent_runtime_event_push.runtime_event_endpoints(load_config(), external_event_receiver_service().receiver_configs(), external_event_receiver_service().vault.load), router_log)),  # Walkie 48926: turn ends pushed to Walkie
+        lambda: (company_prompt_reload.stop_router_listener(), agent_runtime_event_push.stop_router_pusher(), session_backup_service.stop_router_scheduler(), usage_services.stop(), _TELEMETRY_LOG_RUNTIME.stop(), external_event_receiver_service().stop()))
     provider_files = ProviderFilesProxy(
         ProviderFilesProxyPorts(
             current_provider=get_current_provider,
