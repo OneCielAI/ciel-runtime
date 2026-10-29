@@ -1,0 +1,40 @@
+commit e3cb9a17214e5139eb0b34a9b166ed5a73dd3040
+Author:     Andy Ai <ciel-walkie-agent@oneciel.com>
+AuthorDate: Thu Oct 29 09:53:59 2026 -0500
+Commit:     Andy Ai <ciel-walkie-agent@oneciel.com>
+CommitDate: Thu Oct 29 09:53:59 2026 -0500
+
+    feat(work): default to compact progress and preserve expanded views
+
+    Keep the footer on the current step, separate completed items, and verify REST/MCP management over owned HTTP fixtures.
+
+    Co-Authored-By: Claude Code <noreply@anthropic.com>
+
+ .../claude_mods/ciel-work/hooks/register.js        |  29 ++-
+ .../claude_mods/ciel-work/tests/work.test.ts       |  82 +++++-
+ ciel_runtime_support/statusline_script.py          |  44 ++++
+ .../work-compact-view/evidence/backend-probe.json  |  32 +++
+ .../evidence/baseline-mod-tests.txt                |  87 +++++++
+ .../features/work-compact-view/evidence/index.md   |   8 +
+ .../work-compact-view/evidence/mod-tests.txt       |  89 +++++++
+ .../evidence/scripts/backend_probe.py              | 111 ++++++++
+ .../evidence/scripts/e2e_panel_compact.py          | 287 +++++++++++++++++++++
+ .../evidence/statusline-tests.txt                  |  39 +++
+ .../evidence/ui/01-progress-bounded.png            | Bin 0 -> 40216 bytes
+ .../evidence/ui/02-expanded-progress.png           | Bin 0 -> 47558 bytes
+ .../evidence/ui/03-full-inspector.png              | Bin 0 -> 62495 bytes
+ .../work-compact-view/evidence/ui/04-queue-tab.png | Bin 0 -> 51440 bytes
+ .../evidence/ui/05-completed-tab.png               | Bin 0 -> 50770 bytes
+ .../evidence/ui/06-compact-again.png               | Bin 0 -> 47171 bytes
+ .../work-compact-view/evidence/ui/live-after.json  |  14 +
+ .../work-compact-view/evidence/ui/live-before.json |  14 +
+ .../evidence/ui/screen-01-progress-bounded.txt     |  38 +++
+ .../evidence/ui/screen-02-expanded-progress.txt    |  38 +++
+ .../evidence/ui/screen-05-completed-tab.txt        |  38 +++
+ .../evidence/ui/screen-06-compact-again.txt        |  38 +++
+ .../evidence/ui/verification.json                  |  60 +++++
+ .../10/29/features/work-compact-view/findings.md   |  43 +++
+ .../2026/10/29/features/work-compact-view/index.md |   4 +
+ .../2026/10/29/features/work-compact-view/log.md   |   6 +
+ tests/test_work_breakdown_statusline.py            |  36 ++-
+ 27 files changed, 1118 insertions(+), 19 deletions(-)

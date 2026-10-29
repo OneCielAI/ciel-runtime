@@ -1,0 +1,20 @@
+{
+  "commit": "e3cb9a17214e5139eb0b34a9b166ed5a73dd3040",
+  "package_files": 515,
+  "identical": 505,
+  "line_endings_only": [
+    "ciel-runtime-stop.cmd",
+    "ciel-runtime-stop.ps1",
+    "ciel-runtime.cmd",
+    "ciel-runtime.ps1",
+    "ciel-runtimectl.cmd",
+    "ciel-runtimectl.ps1",
+    "install.ps1",
+    "scripts/deploy_colab_speech.ps1"
+  ],
+  "other_differences": [
+    "ciel_runtime_support/runtime_constants.py",
+    "package.json"
+  ],
+  "not_in_commit": []
+}
