@@ -1,0 +1,60 @@
+{
+  "repo": "C:\\Users\\djlov\\ciel-runtime-wt-work",
+  "mod": "C:\\Users\\djlov\\ciel-runtime-wt-work\\ciel_runtime_support\\claude_mods\\ciel-work",
+  "cli_version": "2.1.312 (Claude Code)",
+  "checks": {
+    "idle": true,
+    "companion_visible": true,
+    "compact_counts_visible": true,
+    "current_only_visible": true,
+    "native_render_valid": true,
+    "work_band_at_most_10_rows": true,
+    "completed_hidden_initially": true,
+    "expanded_from_compact": true,
+    "inspector": true,
+    "queue_tab": true,
+    "completed_tab": true,
+    "native_retained_after_tab": true,
+    "collapsed_again": true,
+    "display_only": true
+  },
+  "model_user_prompts_sent": 1,
+  "egress": [
+    {
+      "method": "CONNECT",
+      "path": "downloads.claude.ai:443"
+    },
+    {
+      "method": "CONNECT",
+      "path": "github.com:443"
+    }
+  ],
+  "live_before": {
+    "9505": {
+      "pid": 86296,
+      "version": "0.2.51-nightly.20261028-181854.fe71169",
+      "source_fingerprint": "122e12595997f09d",
+      "error": null
+    },
+    "9524": {
+      "pid": 18536,
+      "version": "0.2.51-nightly.20261028-023853.679245f",
+      "source_fingerprint": "122e12595997f09d",
+      "error": null
+    }
+  },
+  "live_after": {
+    "9505": {
+      "pid": 86296,
+      "version": "0.2.51-nightly.20261028-181854.fe71169",
+      "source_fingerprint": "122e12595997f09d",
+      "error": null
+    },
+    "9524": {
+      "pid": 18536,
+      "version": "0.2.51-nightly.20261028-023853.679245f",
+      "source_fingerprint": "122e12595997f09d",
+      "error": null
+    }
+  }
+}

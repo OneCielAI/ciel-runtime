@@ -21,8 +21,8 @@ const HELP = [
   '• Planning: the model builds a plan with work_plan_set: goal → phases → tasks → verifiable steps. Reading is allowed; direct file edits wait. Bash/PowerShell use native permissions and sandboxing, not Work gates.',
   '• New requests: an independent request becomes its own numbered item ("2. …") and waits in the queue behind the active item; a change to an existing item is added under that item.',
   '• Executing: after work_execute (automatic, or your approval when set to ask) the model works step by step and marks each step done with evidence.',
-  '• Above the prompt: Progress / Queue / Completed are read-only button tabs; Prev / Next (p / n) page the list; w opens the Inspector. Ctrl+X Tab focuses · Tab/↑↓ select · Enter inspects · Esc returns. Tiny screens use Inspect Work. Rows of other plugins stay below the Work rows; the band scrolls to them.',
-  '• /work-mode view: keyboard inspector · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode help: this help',
+  '• Above the prompt: compact by default (done/total + current step); [+] / w expands, [-] collapses. Progress / Queue / Completed are read-only button tabs; Prev / Next (p / n) page the list; w opens the Inspector. Ctrl+X Tab focuses · Tab/↑↓ select · Enter inspects · Esc returns. Tiny screens use Inspect Work. Rows of other plugins stay below the Work rows; the band scrolls to them.',
+  '• /work-mode expand / compact: toggle the inline list · /work-mode view: keyboard inspector · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode help: this help',
   '• Focus: inspect an item → Focus only this item. Clear focus / resume all releases the hold. A chat request can select multiple exact IDs; focus stays until explicitly cleared.',
   '• Priorities: All items → Move up / Move down orders root goals. Moving the active goal requires your request; a button press is that request.',
   '• Linked IDs appear as [ id ] description; ◷ names an external wait; green ✓ means verified done. An urgent request holds other goals until it finishes.',
@@ -559,7 +559,13 @@ export function register(on) {
   })
   on('command.run', { command: 'work-mode' }, async ($, e) => {
     const arg = e.args.trim()
-    if (!['', 'help', 'view', 'status', 'tree'].includes(arg)) return { text: 'Usage: /work-mode [help|view|tree|status]' }
+    if (!['', 'help', 'view', 'status', 'tree', 'expand', 'compact'].includes(arg)) return { text: 'Usage: /work-mode [expand|compact|help|view|tree|status]' }
+    if (arg === 'expand' || arg === 'compact') {
+      await refresh($)
+      const origin = await sessionId($)
+      await displayState($, origin, old => ({ ...old, expanded: arg === 'expand', tab: 'progress', page: 0 }))
+      return { text: arg === 'expand' ? 'Work expanded · Completed is separate · /work-mode compact' : 'Work compact · /work-mode expand' }
+    }
     if (arg === 'help') return { text: HELP }
     if (arg === 'view') { await openDetails($); return { text: 'Work inspector: Tab/arrows navigate, Enter opens, Esc returns.' } }
     const s = await refresh($)
@@ -666,11 +672,17 @@ export function register(on) {
     const work = []
     // Tiny/narrow terminals get an actionable summary; the inspector carries
     // all three paged lists instead of leaving clipped-off controls unreachable.
-    if (budget.work < 5 || width < 58) {
+    const expanded = state?.session === origin && state.expanded === true
+    if (!expanded || budget.work < 5 || width < 58) {
+      const current = cached?.next
+      const summary = !cached ? 'Work unavailable' : 'Work ' + cached.done + '/' + cached.total
+        + (current ? ' ' + (current.status === 'blocked' ? '[!]' : current.waiting_on ? '◷' : current.status === 'in_progress' ? '[~]' : '[ ]') + ' ' + clipped(current.title || current.path?.at(-1) || '', width)
+          : cached.active_root ? ' complete' : ' no goal')
       work.push(strip('work-summary', [
-        Button({ key: 'work-all', plain: true, autoFocus: true,
-          label: clipped('Inspect Work' + (cached ? ' ' + cached.done + '/' + cached.total + ' · Q ' + counts.queue + ' · Done ' + counts.completed : ' unavailable'), width),
-          onPress: () => openDetails($, null, origin) }),
+        Button({ key: 'work-expand', plain: true, autoFocus: true, hotkey: 'w',
+          label: clipped(summary, Math.max(1, width - 4)) + ' [+]',
+          onPress: () => budget.work < 5 || width < 58 ? openDetails($, null, origin)
+            : displayState($, origin, old => ({ ...old, expanded: true, tab: 'progress', page: 0 })) }),
       ]))
     } else {
       work.push(line(heading))
@@ -685,6 +697,8 @@ export function register(on) {
         onPress: () => openDetails($, row.node.id, origin) }))
       if (!rows.length) work.push(line(tab === 'progress' ? 'No unfinished rows · inspect the active goal' : 'No ' + tab + ' items'))
       work.push(strip('work-footer', [
+        Button({ key: 'work-collapse', plain: true, label: '[-]', hotkey: 'c',
+          onPress: () => displayState($, origin, old => ({ ...old, expanded: false })) }),
         ...(page.current > 0 ? [Button({ key: 'work-prev', plain: true, hotkey: 'p', label: 'Prev',
           onPress: () => displayState($, origin, old => ({ ...old, page: page.current - 1 })) })] : []),
         line((page.current + 1) + '/' + page.pages),
@@ -746,6 +760,7 @@ export function register(on) {
     } else if (!fresh || view.error || !selected) rows.push(text(!fresh ? 'Plan changed — refresh to inspect current items.' : view.error || 'No active goal.'))
     else {
       const visit = (node, depth) => {
+        if (selected.status !== 'done' && node.status === 'done') return
         rows.push(statusButton(Box, Button, Text, node, { key: 'node-' + node.id, plain: true,
           label: rowLabel('  '.repeat(Math.min(depth, 8)), node, width),
           onPress: () => openDetails($, node.id, origin) }))

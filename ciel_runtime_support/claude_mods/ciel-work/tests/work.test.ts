@@ -435,6 +435,7 @@ test('three levels display linked ids, waits, urgent holds and green done checks
   s.snapshot.queue = [{ id: 'q', title: 'Other goal', status: 'pending', held: true, done: 0, total: 1 }]
   await $.command.run({ command: 'work-mode', args: 'status' })
   const band = await $.ui.mount(BAND)
+  if (await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
   expect((await band.find({ key: 'branch-a' }))?.text).toContain('[ A-10 ] Cache')
   expect(await band.find({ key: 'child-leaf' })).toBeUndefined()
   expect((await band.find({ key: 'child-wait' }))?.text).toContain('◷ CI publish')
@@ -501,6 +502,7 @@ test('compact footer and vertical branch buttons', async ($, on) => {
   expect((await footer.drawn()).children).toEqual(['work: run 0/2'])
   await footer.unmount()
   const ui = await $.ui.mount(BAND)
+  await ui.press({ key: 'work-expand' })
   expect((await ui.drawn()).props.flexDirection).toBe('column')
   expect((await ui.find({ key: 'branch-a' }))?.text).toContain('Cache')
   expect((await ui.find({ key: 'branch-b' }))?.text).toContain('DAG')
@@ -510,14 +512,18 @@ test('branch press opens read-only details with notes and evidence, nested node 
   const s = inspection(on)
   await $.command.run({ command: 'work-mode', args: 'status' })
   const band = await $.ui.mount(BAND)
+  if (await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
   await band.press({ key: 'branch-a' })
   expect(s.opened.id).toBe('work-details')
   const pane = await $.ui.mount(PANE)
   expect((await pane.find({ type: 'Text', text: /TTL policy/ }))?.text).toContain('TTL policy')
   expect(await pane.find({ type: 'Text', text: /expiry test passed/ })).toBeUndefined()
-  // A child of the inspected node keeps its indentation outside the clipped text.
-  expect((await pane.find({ key: 'node-leaf' }))?.text).toMatch(/^  Verify expiry/)
-  await pane.press({ key: 'node-leaf' })
+  // Completed descendants are reachable only through the separate Completed list.
+  expect(await pane.find({ key: 'node-leaf' })).toBeUndefined()
+  s.snapshot.completed_active = [{ id: 'leaf', title: 'Verify expiry', status: 'done' }]
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  await pane.press({ key: 'detail-tab-completed' })
+  await pane.press({ key: 'detail-completed-leaf' })
   expect((await pane.find({ type: 'Text', text: /expiry test passed/ }))?.text).toContain('expiry test passed')
   expect((await pane.find({ key: 'node-leaf' }))?.text).toContain('Verify expiry')
   expect(await pane.find({ key: 'node-a' })).toBeUndefined()
@@ -567,7 +573,8 @@ test('a router still connecting at start is read again; band and notice follow o
   s.offline = true
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
   const band = await $.ui.mount(BAND)
-  expect(await band.find({ type: 'Text', text: /Work unavailable/ })).toBeDefined()
+  if (await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
+  expect(await band.find({ text: /Work unavailable/ })).toBeDefined()
   expect(s.logs.length).toBe(0)
   await clock.advance(750)
   expect(s.logs.length).toBe(0)
@@ -610,6 +617,7 @@ test('idle refresh reflects out-of-band edits, backs off and never starts a mode
   const s = hints(on); const clock = mock.clock(on)
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
   const band = await $.ui.mount(BAND)
+  if (await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
   s.snapshot.active_root.title = 'Updated over HTTP'; s.snapshot.version++
   await clock.advance(1000)
   expect((await band.find({ type: 'Text', text: /Updated over HTTP/ }))?.text).toContain('Updated over HTTP')
@@ -668,7 +676,8 @@ test('idle refresh never overlaps a slow poll and discards its late response aft
   s.waitStatus = null; release()
   await clock.settle()
   const band = await $.ui.mount(BAND)
-  expect(await band.find({ type: 'Text', text: /Work unavailable/ })).toBeDefined()
+  if (await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
+  expect(await band.find({ text: /Work unavailable/ })).toBeDefined()
   await clock.advance(120000)
   expect(s.calls.length).toBe(reads)
   await band.unmount()
@@ -683,6 +692,7 @@ test('late old-session poll cannot overwrite new-session state or spawn another 
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
   release(); await clock.settle()
   const band = await $.ui.mount(BAND)
+  if (await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
   expect(await band.find({ type: 'Text', text: /Session B/ })).toBeDefined()
   const reads = s.calls.length
   await clock.advance(1000)
@@ -694,10 +704,11 @@ test('offline idle refresh backs off and recovers without a prompt; startup retr
   const s = hints(on); const clock = mock.clock(on)
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
   const band = await $.ui.mount(BAND)
+  if (await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
   s.offline = true
   await clock.advance(31000)
   expect(s.calls.length).toBe(6)
-  expect(await band.find({ type: 'Text', text: /Work unavailable/ })).toBeDefined()
+  expect(await band.find({ text: /Work unavailable/ })).toBeDefined()
   s.offline = false; s.snapshot.active_root.title = 'Recovered'; s.snapshot.version++
   await clock.advance(30000)
   expect(await band.find({ type: 'Text', text: /Recovered/ })).toBeDefined()
@@ -759,6 +770,7 @@ test('band shows a hint while no plan exists and the phase once one does', async
   s.snapshot.active_root = null; s.snapshot.breakdown = []; s.snapshot.total = 0
   await $.command.run({ command: 'work-mode', args: 'status' })
   const band = await $.ui.mount(BAND)
+  if (await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
   expect((await band.find({ type: 'Text', text: /no plan yet/ }))?.text).toContain('/work-mode help')
   s.snapshot.active_root = { id: 'g1', title: 'Goal' }; s.snapshot.phase = 'planning'; s.snapshot.total = 2
   await $.command.run({ command: 'work-mode', args: 'status' })
@@ -774,6 +786,7 @@ test('triage guidance reaches the model; queue tab is read-only and summary keep
   s.snapshot.queue = Array.from({ length: 5 }, (_, i) => ({ id: 'q' + i, title: (i + 2) + '. Queued ' + i, status: 'pending', done: 0, total: 2 }))
   await $.command.run({ command: 'work-mode', args: 'status' })
   const band = await $.ui.mount(BAND)
+  if (await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
   expect(await band.find({ key: 'queue-q0' })).toBeUndefined()
   const reads = s.calls.length
   await band.press({ key: 'work-tab-queue' })
@@ -791,6 +804,7 @@ test('survey yields, disabled hides, long branch list retains every item', async
   s.snapshot.breakdown = Array.from({ length: 20 }, (_, i) => ({ id: 'b'+i, title: 'Branch '+i, status: 'pending', done: 0, total: 1 }))
   await $.command.run({ command: 'work-mode', args: 'status' })
   const band = await $.ui.mount(BAND)
+  if (await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
   const found = []
   for (let i = 0; i < 4; i++) {
     for (let j = 0; j < 20; j++) if (await band.find({ key: 'branch-b' + j })) found.push(j)
@@ -870,6 +884,7 @@ test('tabs classify by status not ratios and completion counts follow the latest
     { id: 'past', title: 'Completed root', status: 'done' }]
   await $.command.run({ command: 'work-mode', args: 'status' })
   const band = await $.ui.mount(BAND)
+  if (await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
   expect(await band.find({ key: 'branch-open' })).toBeDefined()
   expect(await band.find({ key: 'branch-empty' })).toBeDefined()
   expect(await band.find({ key: 'branch-done' })).toBeUndefined()
@@ -886,7 +901,7 @@ test('tabs classify by status not ratios and completion counts follow the latest
   s.offline = true
   await $.command.run({ command: 'work-mode', args: 'status' })
   expect(await band.find({ key: 'finished-past' })).toBeUndefined()
-  expect(await band.find({ type: 'Text', text: /Work unavailable/ })).toBeDefined()
+  expect(await band.find({ text: /Work unavailable/ })).toBeDefined()
   await band.unmount()
 })
 test('bounded root index pages every queued/history root; details only read the pressed root', async ($, on) => {
@@ -897,6 +912,7 @@ test('bounded root index pages every queued/history root; details only read the 
   s.snapshot.queue = queue.slice(0, 20)
   await $.command.run({ command: 'work-mode', args: 'status' })
   const band = await $.ui.mount(BAND)
+  if (await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
   const reads = s.calls.length
   await band.press({ key: 'work-tab-queue' })
   const found = []
@@ -941,6 +957,7 @@ test('whole band cap follows host maxRows and viewport; only Work rows are bound
   for (const [maxRows, viewportRows, expected] of [[16, 40, 8], [12, 32, 6], [8, 24, 1], [4, 12, 1], [2, 8, 0]]) {
     const band = await $.ui.mount({ ...BAND, viewport: { columns: 80, rows: viewportRows }, props: { ...BAND.props, maxRows } })
     if (expected) {
+      if (expected > 1 && await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
       const drawn = await band.drawn()
       expect(drawn.props.height).toBeUndefined()
       expect((await band.find({ key: 'work-panel' }))?.props.height).toBe(expected)
@@ -950,6 +967,7 @@ test('whole band cap follows host maxRows and viewport; only Work rows are bound
     await band.unmount()
   }
   const band = await $.ui.mount(BAND)
+  if (await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
   const reads = s.calls.length
   // Paging and the inspector have letter hotkeys while the band holds the focus (never digits).
   expect((await band.find({ key: 'work-next' }))?.props.hotkey).toBe('n')
@@ -971,6 +989,7 @@ test('the host accepts the band around an engine-drawn native element and a comp
   s.nativeTree = { type: 'engine', ref: 0 }
   await $.command.run({ command: 'work-mode', args: 'status' })
   const band = await $.ui.mount(BAND)
+  if (await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
   // A refused tree is skipped by the host: the tabs would be absent and only the engine node drawn.
   expect(await band.find({ key: 'work-tab-progress' })).toBeDefined()
   for (const key of [null, 'work-tab-queue', 'work-tab-completed', 'work-tab-progress', 'work-next']) {
@@ -987,6 +1006,7 @@ test('the host accepts the band around an engine-drawn native element and a comp
   s.nativeTree = { type: 'Box', props: { flexDirection: 'column' }, children: [{ type: 'engine', ref: 0 },
     { type: 'Text', props: {}, children: ['COMPANION-ROW'] }] }
   const composed = await $.ui.mount(BAND)
+  if (await composed.find({ key: 'work-expand' })) await composed.press({ key: 'work-expand' })
   expect(await composed.find({ key: 'work-tab-progress' })).toBeDefined()
   expect(await composed.find({ text: 'COMPANION-ROW' })).toBeDefined()
   expect(enginePath(await composed.drawn())).not.toBeNull()
@@ -998,8 +1018,8 @@ test('tiny band opens inspector with all tab lists and exact details on demand',
   await $.command.run({ command: 'work-mode', args: 'status' })
   const band = await $.ui.mount({ ...BAND, viewport: { columns: 42, rows: 20 }, props: { ...BAND.props, bodyColumns: 42, maxRows: 8 } })
   expect(await band.find({ key: 'work-tab-progress' })).toBeUndefined()
-  expect(await band.find({ key: 'work-all' })).toBeDefined()
-  await band.press({ key: 'work-all' })
+  expect(await band.find({ key: 'work-expand' })).toBeDefined()
+  if (await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
   const pane = await $.ui.mount(PANE)
   const reads = s.calls.length
   await pane.press({ key: 'detail-tab-queue' })
@@ -1016,17 +1036,20 @@ test('tab and paging state resets at conversation change and end; no work mutati
   s.snapshot.queue = Array.from({ length: 20 }, (_, i) => ({ id: 'q' + i, title: 'Queued ' + i, status: 'pending' }))
   await $.command.run({ command: 'work-mode', args: 'status' })
   const band = await $.ui.mount(BAND)
+  if (await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
   await band.press({ key: 'work-tab-queue' }); await band.press({ key: 'work-next' })
   s.sessionId = 'session-b'
   // Before a new snapshot lands, the old session tree is not drawn.
   await band.redraw(BAND.props)
   expect(await band.find({ key: 'queue-q5' })).toBeUndefined()
   await $.command.run({ command: 'work-mode', args: 'status' })
+  if (await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
   expect((await band.find({ key: 'work-tab-progress' }))?.text).toContain('[Progress')
   expect(await band.find({ key: 'branch-a' })).toBeDefined()
   await band.press({ key: 'work-tab-queue' })
   await $.session.end({ reason: 'clear' })
   await $.command.run({ command: 'work-mode', args: 'status' })
+  if (await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
   expect((await band.find({ key: 'work-tab-progress' }))?.text).toContain('[Progress')
   expect(s.tools.length).toBe(0)
   expect(s.calls.every(c => c.tool === 'work_status')).toBe(true)
@@ -1058,6 +1081,7 @@ test('exact wide-character detail is paged without losing text and snapshot shri
   s.snapshot.breakdown = Array.from({ length: 22 }, (_, i) => ({ id: 'b' + i, title: 'Branch ' + i, status: 'pending' }))
   await $.command.run({ command: 'work-mode', args: 'status' })
   const band = await $.ui.mount(BAND)
+  if (await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
   for (let i = 0; i < 4; i++) await band.press({ key: 'work-next' })
   s.snapshot.version++; s.snapshot.breakdown = [{ id: 'a', title: 'Cache', status: 'in_progress' }]
   await $.command.run({ command: 'work-mode', args: 'status' })
@@ -1075,4 +1099,44 @@ test('exact wide-character detail is paged without losing text and snapshot shri
   }
   expect(captured).toBe('Note: ' + note.replace('\n', ''))
   await pane.unmount(); await band.unmount()
+})
+
+test('default compact uses one Work row, counts and current leaf; expanded mode and completion remain separate', async ($, on) => {
+  const s = inspection(on)
+  s.snapshot.next = { id: 'now', title: 'Run current smoke', status: 'in_progress' }
+  s.snapshot.done = 7; s.snapshot.total = 40
+  s.snapshot.completed_active = [{ id: 'finished', title: 'Archived result', status: 'done' }]
+  s.snapshot.breakdown.push({ id: 'finished', title: 'Archived result', status: 'done' })
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  const band = await $.ui.mount(BAND)
+  expect((await band.find({ key: 'work-expand' }))?.text).toContain('7/40 [~] Run current smoke')
+  expect((await band.find({ key: 'work-panel' }))?.props.height).toBe(1)
+  expect(await band.find({ key: 'branch-a' })).toBeUndefined()
+  expect(await band.find({ text: /Archived result/ })).toBeUndefined()
+  const reads = s.calls.length
+  if (await band.find({ key: 'work-expand' })) await band.press({ key: 'work-expand' })
+  expect(await band.find({ key: 'branch-a' })).toBeDefined()
+  expect(await band.find({ key: 'branch-finished' })).toBeUndefined()
+  await band.press({ key: 'work-tab-completed' })
+  expect(await band.find({ key: 'completed-finished' })).toBeDefined()
+  await band.press({ key: 'work-collapse' })
+  expect((await band.find({ key: 'work-panel' }))?.props.height).toBe(1)
+  expect(await band.find({ key: 'completed-finished' })).toBeUndefined()
+  expect(s.calls.length).toBe(reads)
+  expect(s.tools.length).toBe(0)
+  await band.unmount()
+})
+
+test('explicit expand and compact commands only change display state', async ($, on) => {
+  const s = inspection(on)
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  const band = await $.ui.mount(BAND)
+  expect(await band.find({ key: 'work-expand' })).toBeDefined()
+  expect((await $.command.run({ command: 'work-mode', args: 'expand' })).text).toContain('Work expanded')
+  expect(await band.find({ key: 'work-tab-progress' })).toBeDefined()
+  expect((await $.command.run({ command: 'work-mode', args: 'compact' })).text).toContain('Work compact')
+  expect((await band.find({ key: 'work-panel' }))?.props.height).toBe(1)
+  expect(s.calls.every(c => c.tool === 'work_status')).toBe(true)
+  expect(s.tools.length).toBe(0)
+  await band.unmount()
 })
