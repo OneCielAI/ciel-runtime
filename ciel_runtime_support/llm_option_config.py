@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import re
 from typing import Any, Callable
 
+from .work_retention import WORK_COMPLETED_AUTO_DELETE_KEY, retention_enabled
 from .work_mode_launch import (WORK_AUTO_CONTINUE_KEY, WORK_MODE_KEY, WORK_PLAN_APPROVAL_ASK_KEY,
                                work_auto_continue_menu_label, work_mode_menu_label, work_plan_approval_menu_label)
 
@@ -201,7 +202,7 @@ def set_llm_option_config(
         save_config(cfg)
         return [f"Claude feedback drafts {'on' if enabled else 'off'}.",
                 "Applied on every Claude launch; manual /feedback remains available. Restart Claude to change a running session."]
-    if key in (WORK_MODE_KEY, WORK_PLAN_APPROVAL_ASK_KEY, WORK_AUTO_CONTINUE_KEY):
+    if key in (WORK_MODE_KEY, WORK_PLAN_APPROVAL_ASK_KEY, WORK_AUTO_CONTINUE_KEY, WORK_COMPLETED_AUTO_DELETE_KEY):
         return set_work_mode_option(cfg, key, value, parse_bool, save_config)
     if key == "router_debug_message_preview_chars":
         fixed = positive_int(value)
@@ -327,6 +328,9 @@ def set_work_mode_option(cfg: dict[str, Any], key: str, value: str, parse_bool, 
     else:
         return [f"{key}: enter ask or auto." if key == WORK_PLAN_APPROVAL_ASK_KEY else f"{key}: enter on or off."]
     save_config(cfg)
+    if key == WORK_COMPLETED_AUTO_DELETE_KEY:
+        return [f"Work completed auto-delete (24h) {'on' if retention_enabled(cfg) else 'off'}.",
+                "Completed items expire after 24 hours; focused items stay protected until focus is cleared. No files or transcripts are deleted."]
     if key == WORK_MODE_KEY:
         return [f"Work mode {work_mode_menu_label(cfg)}.", "Native sessions are unchanged. Codex receives planning instructions only; this version does not enforce a planning gate for Codex."]
     if key == WORK_AUTO_CONTINUE_KEY:

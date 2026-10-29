@@ -11,6 +11,7 @@ All functions here are pure; persistence lives in ``work_plan_store``.
 from __future__ import annotations
 
 import copy
+import math
 import time
 from typing import Any
 
@@ -87,6 +88,16 @@ def normalize_document(raw: Any) -> dict[str, Any]:
             "urgent": item.get("urgent") is True and item.get("parent_id") is None,
             "updated_at": float(item.get("updated_at") or 0.0),
         }
+        if "completed_at" in item:
+            value = item["completed_at"]
+            if value is not None and (type(value) not in (int, float) or not math.isfinite(value) or value < 0):
+                raise WorkPlanError("invalid completion timestamp")
+            node["completed_at"] = value
+        if "expired_done_steps" in item:
+            value = item["expired_done_steps"]
+            if type(value) is not int or value < 0:
+                raise WorkPlanError("invalid expired step count")
+            node["expired_done_steps"] = value
         if node["parent_id"] is None:
             phase = item.get("phase", raw["phase"] if item.get("id") == raw.get("active_root") else PHASE_PLANNING)
             if phase not in PHASES:
@@ -283,6 +294,10 @@ def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title:
         return node
     scope_changed = (candidate["title"] != node["title"] or candidate["note"] != node["note"]
                      or (node["status"] == "done" and candidate["status"] != "done"))
+    if candidate["status"] == "done" and node["status"] != "done":
+        candidate["completed_at"] = stamp
+    elif candidate["status"] != "done" and "completed_at" in candidate:
+        candidate["completed_at"] = None
     node.update(candidate)
     if scope_changed:
         set_phase(doc, PHASE_PLANNING, _root_of(by_id, node_id))
@@ -299,6 +314,54 @@ def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title:
         set_phase(doc, PHASE_PLANNING)
         _advance_queue(doc)
     return node
+
+
+COMPLETED_RETENTION_SECONDS = 86400
+
+
+def expire_completed(doc: dict[str, Any], *, now: float | None = None) -> int:
+    """Remove fully expired done subtrees, retaining progress and explicit focus holds."""
+    stamp = time.time() if now is None else now
+    if not math.isfinite(stamp) or stamp <= 0:
+        raise WorkPlanError("invalid retention clock")
+    by_id = _index(doc)
+    for node in doc["nodes"]:
+        if node["status"] == "done" and not node.get("completed_at"):
+            old = node.get("updated_at")
+            node["completed_at"] = old if type(old) in (int, float) and math.isfinite(old) and old > 0 else stamp
+    # Legacy completed parents with unfinished descendants are not candidates.
+    focused = set(doc.get("focus_ids", []))
+    protected = set(focused)
+    for node_id in focused:
+        current = by_id[node_id]
+        while current["parent_id"] is not None:
+            protected.add(current["parent_id"])
+            current = by_id[current["parent_id"]]
+        protected.update(n for n, _ in _walk(doc, node_id))
+    expired = set()
+    for node in doc["nodes"]:
+        if node["id"] in protected or node["status"] != "done":
+            continue
+        subtree = [by_id[n] for n, _ in _walk(doc, node["id"])]
+        if all(child["status"] == "done" and stamp - child["completed_at"] >= COMPLETED_RETENTION_SECONDS
+               for child in subtree):
+            expired.add(node["id"])
+    roots = [by_id[n] for n in expired if by_id[n]["parent_id"] not in expired]
+    doomed = set()
+    for node in roots:
+        subtree = {n for n, _ in _walk(doc, node["id"])}
+        if node["parent_id"] is not None:
+            count = sum(by_id[n].get("expired_done_steps", 0) for n in subtree)
+            count += sum(not _children(doc, n) and not by_id[n].get("expired_done_steps") for n in subtree)
+            parent = by_id[node["parent_id"]]
+            parent["expired_done_steps"] = parent.get("expired_done_steps", 0) + count
+        doomed.update(subtree)
+    if doomed:
+        doc["nodes"] = [node for node in doc["nodes"] if node["id"] not in doomed]
+        if doc.get("active_root") in doomed:
+            remaining = queued_roots(doc)
+            _activate(doc, remaining[0]["id"] if remaining else None)
+    return len(doomed)
 
 
 def remove_node(doc: dict[str, Any], node_id: str) -> int:
@@ -582,7 +645,9 @@ def progress(doc: dict[str, Any], root: str | None = None) -> tuple[int, int]:
         return 0, 0
     by_id = _index(doc)
     leaves = [leaf for leaf in _leaves(doc, root) if leaf != root]
-    return sum(1 for leaf in leaves if by_id[leaf]["status"] == "done"), len(leaves)
+    expired = sum(by_id[n].get("expired_done_steps", 0) for n, _ in _walk(doc, root))
+    leaves = [leaf for leaf in leaves if not (by_id[leaf]["status"] == "done" and by_id[leaf].get("expired_done_steps"))]
+    return expired + sum(1 for leaf in leaves if by_id[leaf]["status"] == "done"), expired + len(leaves)
 
 
 def next_leaf(doc: dict[str, Any], root: str | None = None) -> dict[str, Any] | None:
@@ -618,13 +683,32 @@ def snapshot(doc: dict[str, Any], *, enabled: bool = True, approval_ask: bool = 
     done, total = progress(doc, root)
     nxt = next_leaf(doc, root)
     ready, reason = readiness(doc)
+    resume = continuation(doc)
+    current = resume["next"]
+    if current is not None:
+        current = dict(current, runnable=True)
+    elif nxt is not None:
+        path = []
+        node = nxt
+        while True:
+            path.append(node)
+            if node["parent_id"] is None:
+                break
+            node = by_id[node["parent_id"]]
+        wait = next((node for node in reversed(path) if node.get("waiting_on")), None)
+        blocked = next((node for node in reversed(path) if node["status"] == "blocked"), None)
+        current = dict(_node_summary(nxt), runnable=False,
+                       status="blocked" if blocked else nxt["status"],
+                       waiting_on=wait["waiting_on"] if wait else "",
+                       held_by=(wait or blocked or {}).get("id", ""))
     return {
         "enabled": bool(enabled),
         "phase": doc.get("phase", PHASE_PLANNING),
         "approval": "ask" if approval_ask else "auto",
         "version": doc.get("version", 0),
         "active_root": _node_summary(by_id[root]) if root else None,
-        "continuation": continuation(doc),
+        "continuation": resume,
+        "display_current": current,
         "focus": {"node_ids": list(doc.get("focus_ids", [])),
                   "exhausted": bool(doc.get("focus_ids")) and all(by_id[n]["status"] == "done" for n in _focus_leaves(doc))},
         "done": done,
@@ -788,6 +872,8 @@ def _complete_ancestors(doc: dict[str, Any], node_id: str | None, stamp: float) 
                 node["updated_at"] = stamp
             node_id = node["parent_id"]
             continue
+        if node["status"] != "done":
+            node["completed_at"] = stamp
         node["status"] = "done"
         node["updated_at"] = stamp
         node_id = node["parent_id"]
@@ -802,6 +888,8 @@ def _reopen_ancestors(doc: dict[str, Any], node_id: str | None, stamp: float) ->
                 child["status"] in ("done", "in_progress") for child in _children(doc, node_id)
             ) else "pending"
             node["updated_at"] = stamp
+            if "completed_at" in node:
+                node["completed_at"] = None
         node_id = node["parent_id"]
 
 

@@ -773,7 +773,7 @@ def work_plan_status_text(session):
     except Exception:
         return "[work] unavailable"
     if os.environ.get("CIEL_RUNTIME_WORK_VIEW", "compact") != "expanded":
-        current = state.get("next")
+        current = state.get("display_current") if "display_current" in state else state.get("next")
         label = f"[work] {state['done']}/{state['total']}"
         if current:
             label += " " + _work_item_mark(current) + " " + str(current.get("title") or (current.get("path") or [""])[-1])

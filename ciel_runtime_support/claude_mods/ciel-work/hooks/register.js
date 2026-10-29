@@ -27,6 +27,7 @@ const HELP = [
   '• Priorities: All items → Move up / Move down orders root goals. Moving the active goal requires your request; a button press is that request.',
   '• Linked IDs appear as [ id ] description; ◷ names an external wait; green ✓ means verified done. An urgent request holds other goals until it finishes.',
   '• Auto continue: normal turn endings resume actionable Work, bounded by no-progress checks; waits, blocks and approval do not trigger it; background tasks do not block independent Work, and a dim line says why it stopped. Codex receives instructions only.',
+  '• Completed items expire after 24 hours by default. Explicitly focused items remain until focus is cleared; progress counts are preserved. Toggle: LLM options → Work completed auto-delete (24h).',
   '• Settings: ciel-runtime menu → LLM options → Work mode (on/off), Work plan approval (auto/ask), Work auto continue (on/off).',
   '• The agent can switch the same workspace Work mode setting itself with work_mode_set (enabled true/false); plans are kept.',
 ].join('\n')
@@ -674,9 +675,10 @@ export function register(on) {
     // all three paged lists instead of leaving clipped-off controls unreachable.
     const expanded = state?.session === origin && state.expanded === true
     if (!expanded || budget.work < 5 || width < 58) {
-      const current = cached?.next
+      const current = cached && Object.hasOwn(cached, 'display_current') ? cached.display_current : cached?.next
       const summary = !cached ? 'Work unavailable' : 'Work ' + cached.done + '/' + cached.total
         + (current ? ' ' + (current.status === 'blocked' ? '[!]' : current.waiting_on ? '◷' : current.status === 'in_progress' ? '[~]' : '[ ]') + ' ' + clipped(current.title || current.path?.at(-1) || '', width)
+          + (current.waiting_on ? ' ◷ ' + clipped(current.waiting_on, 40) : '')
           : cached.active_root ? ' complete' : ' no goal')
       work.push(strip('work-summary', [
         Button({ key: 'work-expand', plain: true, autoFocus: true, hotkey: 'w',

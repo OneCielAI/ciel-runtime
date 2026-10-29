@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from . import work_plan_tree as tree
+from .work_retention import retention_status
 from .work_mode_launch import work_mode_enabled, work_plan_approval_ask, work_auto_continue_enabled
 from .work_plan_store import WorkPlanConflict, session_work_plan_store, subscribe_work_plan_changes
 
@@ -54,7 +55,7 @@ class WorkHttpController:
                        nodes=doc["nodes"], active_root_id=doc["active_root"],
                        root_ids=[n["id"] for n in doc["nodes"] if n["parent_id"] is None],
                        queue_ids=[n["id"] for n in tree.queued_roots(doc)],
-                       auto_continue=work_auto_continue_enabled(cfg),
+                       auto_continue=work_auto_continue_enabled(cfg), retention=retention_status(cfg),
                        runtime={**self.services.runtime_status(identity),
                                 "errors": self.services.recent_errors(identity)},
                        events="/ca/work/events")
@@ -240,4 +241,5 @@ class WorkHttpController:
                 "authentication": "Existing administrator Bearer token or signed-in web account; external access must already be enabled.",
                 "concurrency": "Read version; supply expected_version for every mutation; 409 means refetch, never blind retry.",
                 "notifications": "Version invalidations sampled each second; may coalesce commits. Last-Event-ID reconciles latest snapshot, not durable patch replay. Refetch after snapshot, change, reset or reconnect.",
+                "retention": {"completed_after_seconds": 86400, "toggle": "POST /ca/config/llm option work_completed_auto_delete on/off"},
                 "ordering": "One-based sibling positions; root positions order unfinished goals; active-slot changes need user_requested=true. No reparenting."}

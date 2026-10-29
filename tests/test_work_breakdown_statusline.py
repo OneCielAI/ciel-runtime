@@ -52,6 +52,30 @@ class BreakdownStatuslineTests(unittest.TestCase):
             self.assertIn("1/3", out)
             self.assertNotIn("Verify expiry", out)
 
+    def test_compact_uses_runnable_leaf_instead_of_pending_child_under_wait(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            doc, path = self.plan(tmp)
+            tree.update_node(doc, "n2", waiting_on="external approval")
+            path.write_text(json.dumps(doc), encoding="utf-8")
+            out = self.render(tmp, view=None)
+            self.assertIn("Cycles", out)
+            self.assertNotIn("Verify expiry", out)
+
+    def test_compact_shows_inherited_wait_and_block_when_no_work_can_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            doc = tree.empty_document()
+            tree.set_plan(doc, {"title": "Goal", "children": [{"title": "Phase", "children": [
+                {"title": "Pending check"}]}]})
+            tree.set_phase(doc, "executing")
+            tree.update_node(doc, "n2", status="blocked", waiting_on="official read access")
+            self.write_plan(tmp, doc)
+            out = self.render(tmp, view=None)
+            self.assertIn("[!] BLOCKED Pending check", out)
+            self.assertIn("official read access", out)
+            self.assertEqual(len(out.splitlines()), 1)
+            self.assertEqual(tree.snapshot(doc)["continuation"]["actionable"], 0)
+            self.assertEqual(tree.snapshot(doc)["display_current"]["held_by"], "n2")
+
     def test_compact_external_board_uses_active_item_only(self):
         with tempfile.TemporaryDirectory() as tmp:
             self.write_board(tmp, {"activeItem": "a", "items": [

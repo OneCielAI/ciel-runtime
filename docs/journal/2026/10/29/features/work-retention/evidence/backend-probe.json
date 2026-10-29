@@ -1,0 +1,31 @@
+{
+  "checks": [
+    {
+      "check": "disabled_retention_keeps_expired_and_menu_option_visible",
+      "ok": true
+    },
+    {
+      "check": "mcp_policy_visible_over_real_http",
+      "ok": true
+    },
+    {
+      "check": "actual_periodic_expiry_keeps_recent_open_and_progress",
+      "ok": true
+    },
+    {
+      "check": "atomic_version_persistence_and_phase_preserved",
+      "ok": true
+    },
+    {
+      "check": "cleanup_invalidates_stale_mutation_version",
+      "ok": true
+    },
+    {
+      "check": "owned_restart_preserves_pruned_state_and_counts",
+      "ok": true
+    }
+  ],
+  "owned_pid": 81140,
+  "transport": "real HTTP against owned production router",
+  "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-api-proof-00g1x93o"
+}

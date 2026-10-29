@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Any, Callable
 
 from .architecture import ProviderOptionPresentationPolicy
+from .work_retention import WORK_COMPLETED_AUTO_DELETE_KEY, retention_enabled
 from .work_mode_launch import (WORK_AUTO_CONTINUE_KEY, WORK_MODE_KEY, WORK_PLAN_APPROVAL_ASK_KEY,
                                work_auto_continue_enabled, work_auto_continue_menu_label, work_mode_enabled,
                                work_mode_menu_label, work_plan_approval_ask, work_plan_approval_menu_label)
@@ -99,6 +100,7 @@ def build_option_panel_rows(
     add("Work mode", WORK_MODE_KEY, work_mode_menu_label(work))
     add("Work plan approval", WORK_PLAN_APPROVAL_ASK_KEY, work_plan_approval_menu_label(work))
     add("Work auto continue", WORK_AUTO_CONTINUE_KEY, work_auto_continue_menu_label(work))
+    add("Work completed auto-delete (24h)", WORK_COMPLETED_AUTO_DELETE_KEY, "on (default)" if retention_enabled(work) else "off")
     if not runtime.direct_native(provider, config) and policy.shows_workflows:
         model = runtime.current_model(provider, config)
         capabilities = runtime.capability_string(provider, config, model)
@@ -235,6 +237,8 @@ def current_option_bool(
         return work_plan_approval_ask(runtime.work_settings())
     if key == WORK_AUTO_CONTINUE_KEY:
         return work_auto_continue_enabled(runtime.work_settings())
+    if key == WORK_COMPLETED_AUTO_DELETE_KEY:
+        return retention_enabled(runtime.work_settings())
     if key == "route_through_router":
         return projection.parse_bool(config.get("route_through_router"), default=False)
     if key == "workflows_enabled":
@@ -259,6 +263,7 @@ def option_prompt_default(
         WORK_MODE_KEY,
         WORK_PLAN_APPROVAL_ASK_KEY,
         WORK_AUTO_CONTINUE_KEY,
+        WORK_COMPLETED_AUTO_DELETE_KEY,
         "route_through_router",
         "stream_enabled",
         "stream_word_chunking",

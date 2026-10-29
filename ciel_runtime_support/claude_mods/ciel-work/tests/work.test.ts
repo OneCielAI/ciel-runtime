@@ -1140,3 +1140,21 @@ test('explicit expand and compact commands only change display state', async ($,
   expect(s.tools.length).toBe(0)
   await band.unmount()
 })
+
+test('compact display follows runnable selector and makes ancestor holds visible', async ($, on) => {
+  const s = inspection(on)
+  s.snapshot.next = { id: 'stale', title: 'Pending under blocked parent', status: 'pending' }
+  s.snapshot.display_current = { id: 'run', title: 'Actual runnable leaf', status: 'in_progress', runnable: true }
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  const band = await $.ui.mount(BAND)
+  expect((await band.find({ key: 'work-expand' }))?.text).toContain('Actual runnable leaf')
+  expect(await band.find({ text: /Pending under blocked parent/ })).toBeUndefined()
+  s.snapshot.version++
+  s.snapshot.display_current = { id: 'stale', title: 'Pending check', status: 'blocked',
+    waiting_on: 'official read access', runnable: false, held_by: 'parent' }
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  expect((await band.find({ key: 'work-expand' }))?.text).toContain('[!] Pending check ◷ official read access')
+  expect((await band.find({ key: 'work-panel' }))?.props.height).toBe(1)
+  expect(s.tools.length).toBe(0)
+  await band.unmount()
+})
