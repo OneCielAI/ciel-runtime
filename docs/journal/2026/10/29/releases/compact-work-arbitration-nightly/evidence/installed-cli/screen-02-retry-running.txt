@@ -1,0 +1,30 @@
+▝▜██████▀  ciel-runtime-cielairouter-owned-route-alias · API Usage Billing
+ ▝▝   ▝▝   C:\Windows\Temp\ciel-owned-alias-4sya365_\ws
+
+▎ Debug mode enabled · logging to C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\29\releases\compact-work-arbi
+▎ tration-nightly\evidence\scripts\run-installed-work-202845\native-debug.log
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing
+  approved Work. Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options →
+  Work mode, or the agent (work_mode_set)
+
+❯ ALIAS-SAFEGUARD-BASELINE owned baseline turn
+
+● ALIAS-HIGH-USAGE-REPLY
+
+✻ Cooked for 0s · done 8:29 PM
+
+❯ /compact
+  ⎿  Error during compaction: API Error: 500 owned compact terminal failure. This is a server-side issue, usually
+     temporary — try again in a moment. If it persists, check your inference gateway (127.0.0.1:49476).
+
+❯ /compact
+
+· Compacting conversation… (0s)
+  ⎿  Tip: Use Plan Mode to prepare for a complex request before making changes. Press shift+tab twice to enable.
+w: Work 0/0 no goal [+]                                                                                             [-]
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt                                      work: plan 0/0
