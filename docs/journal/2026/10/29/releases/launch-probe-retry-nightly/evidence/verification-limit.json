@@ -1,0 +1,9 @@
+{
+  "corrected_source_run": "run-corrected-source-launch-probe-225611",
+  "functionality": "gate_slash_local_verified",
+  "foreground_owned_hits": 45,
+  "foreground_interval_seconds": 2.23,
+  "cause": "not established",
+  "prior_source_owned_hits": 0,
+  "installed_acceptance_requires_no_owned_focus": true
+}

@@ -1,0 +1,49 @@
+{
+  "live_before": {
+    "8872": {
+      "pid": 76448,
+      "version": "0.2.51-nightly.20261030-015514.9077265",
+      "source_fingerprint": "18ae26315398c56f"
+    },
+    "9385": {
+      "pid": 89420,
+      "version": "0.2.51-nightly.20261029-150640.e3cb9a1",
+      "source_fingerprint": "122e12595997f09d"
+    },
+    "9505": {
+      "pid": 68964,
+      "version": "0.2.51-nightly.20261030-015514.9077265",
+      "source_fingerprint": "18ae26315398c56f"
+    },
+    "9524": {
+      "pid": 18536,
+      "version": "0.2.51-nightly.20261028-023853.679245f",
+      "source_fingerprint": "122e12595997f09d"
+    }
+  },
+  "live_after": {
+    "8872": {
+      "pid": 76448,
+      "version": "0.2.51-nightly.20261030-015514.9077265",
+      "source_fingerprint": "18ae26315398c56f"
+    },
+    "9385": {
+      "pid": 94220,
+      "version": "0.2.51-nightly.20261030-015514.9077265",
+      "source_fingerprint": "18ae26315398c56f"
+    },
+    "9505": {
+      "pid": 79700,
+      "version": "0.2.51-nightly.20261030-015514.9077265",
+      "source_fingerprint": "18ae26315398c56f"
+    },
+    "9524": {
+      "pid": 18536,
+      "version": "0.2.51-nightly.20261028-023853.679245f",
+      "source_fingerprint": "122e12595997f09d"
+    }
+  },
+  "live_unchanged": false,
+  "unrelated_files_compared": 4,
+  "unrelated_changed": []
+}

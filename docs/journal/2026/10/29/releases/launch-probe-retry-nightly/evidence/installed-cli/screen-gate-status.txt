@@ -1,0 +1,30 @@
+
+● ALIAS-HIGH-USAGE-REPLY
+
+✻ Brewed for 1s · done 11:09 PM
+
+❯ /sse-gate off
+
+● SSE gate off; open (none).
+  On/off controls the compact guard policy, not whether SSE reception is enabled.
+  External-message injection: not held by this gate; other delivery checks still apply.
+  Off bypasses compact recovery admission only. Identity, handoff, unreadable state, delivery ownership and
+  uncertain-write protections remain active. No queue, cursor or compact evidence is cleared.
+
+✻ Baked for 1s · done 11:09 PM
+
+❯ /sse-gate status
+
+● SSE gate off; open (none).
+  On/off controls the compact guard policy, not whether SSE reception is enabled.
+  External-message injection: not held by this gate; other delivery checks still apply.
+  Off bypasses compact recovery admission only. Identity, handoff, unreadable state, delivery ownership and
+  uncertain-write protections remain active. No queue, cursor or compact evidence is cleared.
+
+✻ Baked for 1s · done 11:09 PM
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [owned-route-alias (cielairouter)] ws | SSE gate off: open | ctx est 27,799/200,000 tok (13.9%) | upstream 11s 27,4…
+  ⏵⏵ bypass permissions on (shift+tab to cycle)

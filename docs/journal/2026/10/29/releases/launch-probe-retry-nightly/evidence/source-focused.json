@@ -1,0 +1,10 @@
+{
+  "tests": 112,
+  "success": true,
+  "modules": [
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\ciel_runtime_support\\provider_status.py",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\ciel_runtime_support\\provider_readiness.py",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\ciel_runtime_support\\architecture.py",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\ciel_runtime_support\\sse_gate.py"
+  ]
+}

@@ -1,0 +1,9 @@
+publish	Run npm test	2026-10-30T03:56:26.9426024Z Ran 3018 tests in 150.909s
+publish	Run npm test	2026-10-30T03:56:26.9426249Z OK (skipped=59)
+publish	Run npm test	2026-10-30T04:01:34.3657633Z Ran 1506 tests in 306.139s
+publish	Run npm test	2026-10-30T04:01:46.1521477Z Ran 582 tests in 10.949s
+publish	Run npm test	2026-10-30T04:01:46.1521641Z OK (skipped=80)
+publish	Run npm test	2026-10-30T04:02:12.3157610Z Ran 455 tests in 25.360s
+publish	Run npm test	2026-10-30T04:02:12.3157769Z OK (skipped=19)
+publish	Compute and apply nightly version	2026-10-30T04:02:12.4506025Z [36;1mecho "Nightly version: ${new}"[0m
+publish	Compute and apply nightly version	2026-10-30T04:02:12.4791244Z Nightly version: 0.2.51-nightly.20261030-040212.c1f9041

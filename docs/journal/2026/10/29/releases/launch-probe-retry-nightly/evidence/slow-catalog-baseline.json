@@ -1,0 +1,13 @@
+{
+  "root": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-907726516449764c26169a54c5d441cb0dd9be94",
+  "elapsed": 10.0,
+  "status": "Base URL: unreachable (TimeoutError)",
+  "initial_timeout": 10.0,
+  "retry_timeout": 0,
+  "requests": [
+    {
+      "started": 1793331542.4799788,
+      "path": "/v1/models?prefix=alias&configuredOnly=true&availableOnly=true"
+    }
+  ]
+}

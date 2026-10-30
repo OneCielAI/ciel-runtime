@@ -1,0 +1,18 @@
+{
+  "root": "C:\\Users\\djlov\\ciel-runtime-wt-work",
+  "elapsed": 40.01600000000326,
+  "status": "Base URL: model list unreachable (model-list probe timeout (10s + 30s retry); before response headers)",
+  "initial_timeout": 10.0,
+  "retry_timeout": 30.0,
+  "requests": [
+    {
+      "started": 1793332016.8053644,
+      "path": "/v1/models?prefix=alias&configuredOnly=true&availableOnly=true",
+      "client_closed_after_timeout": true
+    },
+    {
+      "started": 1793332026.8140566,
+      "path": "/v1/models?prefix=alias&configuredOnly=true&availableOnly=true"
+    }
+  ]
+}

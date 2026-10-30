@@ -1,0 +1,395 @@
+{
+  "label": "installed-launch-probe",
+  "expect": "compact",
+  "runtime_root": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-c1f9041305e3db5671e5c21af64e410a1c3782b7",
+  "scratch": "C:\\Windows\\Temp\\ciel-owned-alias-592dp5ni",
+  "stripped_env_names": [
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+    "ANTHROPIC_MODEL",
+    "CIEL_RUNTIME_AUTO_ALLOW_DANGEROUS_RM",
+    "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+    "CIEL_RUNTIME_CONFIG_DIR",
+    "CIEL_RUNTIME_HOME",
+    "CIEL_RUNTIME_LAUNCH_CWD",
+    "CIEL_RUNTIME_MODEL_ALIAS",
+    "CIEL_RUNTIME_PROVIDER",
+    "CIEL_RUNTIME_REGISTERED_HOME",
+    "CIEL_RUNTIME_SCRIPT",
+    "CIEL_RUNTIME_SELECTED_HOME",
+    "CIEL_RUNTIME_STATE_DIR",
+    "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+    "CLAUDECODE",
+    "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+    "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+    "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_EXECPATH",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+    "CLAUDE_CODE_MAX_RETRIES",
+    "CLAUDE_CODE_MESSAGING_SOCKET",
+    "CLAUDE_CODE_MESSAGING_TOKEN",
+    "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+    "CLAUDE_CODE_RETRY_WATCHDOG",
+    "CLAUDE_CODE_SEND_FEEDBACK",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
+    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
+    "CLAUDE_CODE_USE_POWERSHELL_TOOL",
+    "CLAUDE_EFFORT",
+    "CLAUDE_PID",
+    "CODEX_SPARKLE_ENABLED",
+    "OLLAMA_CONTEXT_LENGTH",
+    "OLLAMA_FLASH_ATTENTION",
+    "OLLAMA_HOST",
+    "OLLAMA_KV_CACHE_TYPE",
+    "OLLAMA_MODELS",
+    "OLLAMA_NUM_PARALLEL",
+    "OLLAMA_SCHED_SPREAD"
+  ],
+  "claude_version": "2.1.314 (Claude Code)",
+  "command": [
+    "C:\\Program Files\\Python311\\python.exe",
+    "-I",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\26\\fixes\\cielairouter-alias-safeguard\\evidence\\e2e\\launch_shim.py",
+    "--",
+    "cli",
+    "--ca-runtime",
+    "claude",
+    "--ca-no-update-check",
+    "--ca-no-self-update-check",
+    "--ca-no-web-search",
+    "--",
+    "--permission-mode",
+    "default",
+    "--debug-file",
+    "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\29\\releases\\launch-probe-retry-nightly\\evidence\\scripts\\run-installed-launch-probe-230821\\native-debug.log"
+  ],
+  "ports": {
+    "router": 57363,
+    "fixture": 57364
+  },
+  "fixture": {
+    "alias": "owned-route-alias",
+    "native_model": "claude-opus-5-5",
+    "window": 200000,
+    "high_tokens": 1000
+  },
+  "events": [
+    {
+      "at": 1793333301.575,
+      "kind": "launched",
+      "pid": 81312,
+      "watcher": 95956
+    },
+    {
+      "at": 1793333332.958,
+      "kind": "wait_pass",
+      "label": "owned router health"
+    },
+    {
+      "at": 1793333344.205,
+      "kind": "wait_pass",
+      "label": "native launch"
+    },
+    {
+      "at": 1793333344.266,
+      "kind": "wait_pass",
+      "label": "native process present"
+    },
+    {
+      "at": 1793333356.668,
+      "kind": "wait_pass",
+      "label": "watcher typed baseline"
+    },
+    {
+      "at": 1793333358.271,
+      "kind": "wait_pass",
+      "label": "high-usage turn reached loopback"
+    },
+    {
+      "at": 1793333358.684,
+      "kind": "wait_pass",
+      "label": "high-usage reply rendered"
+    },
+    {
+      "at": 1793333360.288,
+      "kind": "wait_pass",
+      "label": "screenshot 01-gate-default-on"
+    },
+    {
+      "at": 1793333360.69,
+      "kind": "wait_pass",
+      "label": "typed gate off"
+    },
+    {
+      "at": 1793333362.724,
+      "kind": "wait_pass",
+      "label": "local gate response off"
+    },
+    {
+      "at": 1793333363.132,
+      "kind": "wait_pass",
+      "label": "live statusline mode off"
+    },
+    {
+      "at": 1793333366.736,
+      "kind": "wait_pass",
+      "label": "screenshot gate-off"
+    },
+    {
+      "at": 1793333366.737,
+      "kind": "gate_command_verified",
+      "command": "off",
+      "enabled": false,
+      "upstream_requests": 1
+    },
+    {
+      "at": 1793333367.139,
+      "kind": "wait_pass",
+      "label": "typed gate status"
+    },
+    {
+      "at": 1793333369.171,
+      "kind": "wait_pass",
+      "label": "local gate response off"
+    },
+    {
+      "at": 1793333369.172,
+      "kind": "wait_pass",
+      "label": "live statusline mode off"
+    },
+    {
+      "at": 1793333372.777,
+      "kind": "wait_pass",
+      "label": "screenshot gate-status"
+    },
+    {
+      "at": 1793333372.778,
+      "kind": "gate_command_verified",
+      "command": "status",
+      "enabled": false,
+      "upstream_requests": 1
+    },
+    {
+      "at": 1793333373.179,
+      "kind": "wait_pass",
+      "label": "typed gate on"
+    },
+    {
+      "at": 1793333374.396,
+      "kind": "wait_pass",
+      "label": "local gate response on"
+    },
+    {
+      "at": 1793333374.805,
+      "kind": "wait_pass",
+      "label": "live statusline mode on"
+    },
+    {
+      "at": 1793333378.41,
+      "kind": "wait_pass",
+      "label": "screenshot gate-on"
+    },
+    {
+      "at": 1793333378.411,
+      "kind": "gate_command_verified",
+      "command": "on",
+      "enabled": true,
+      "upstream_requests": 1
+    }
+  ],
+  "live_before": {
+    "9505": {
+      "pid": 79700,
+      "version": "0.2.51-nightly.20261030-015514.9077265",
+      "source_fingerprint": "18ae26315398c56f",
+      "error": null
+    },
+    "9524": {
+      "pid": 18536,
+      "version": "0.2.51-nightly.20261028-023853.679245f",
+      "source_fingerprint": "122e12595997f09d",
+      "error": null
+    }
+  },
+  "status": "gate_slash_local_verified",
+  "local_only_request_count": 1,
+  "egress_denied": [
+    {
+      "method": "CONNECT",
+      "destination": "raw.githubusercontent.com:443"
+    },
+    {
+      "method": "CONNECT",
+      "destination": "api.anthropic.com:443"
+    },
+    {
+      "method": "CONNECT",
+      "destination": "downloads.claude.ai:443"
+    },
+    {
+      "method": "CONNECT",
+      "destination": "api.github.com:443"
+    },
+    {
+      "method": "CONNECT",
+      "destination": "github.com:443"
+    }
+  ],
+  "requests": [
+    {
+      "n": 1,
+      "at": 1793333358.1512272,
+      "path": "/v1/messages",
+      "model": "owned-route-alias",
+      "stream": true,
+      "tools": 35,
+      "high": true,
+      "baseline_in_last": true,
+      "queue_in_last": false,
+      "compact_like": true,
+      "native_compact": false,
+      "trigger_compact_tool": false,
+      "replied_at": 1793333358.1522305
+    }
+  ],
+  "catalog": [
+    {
+      "started": 1793333304.0612915,
+      "path": "/v1/models?prefix=alias&configuredOnly=true&availableOnly=true",
+      "response_at": 1793333315.061582
+    },
+    {
+      "started": 1793333314.0855017,
+      "path": "/v1/models?prefix=alias&configuredOnly=true&availableOnly=true",
+      "response_at": 1793333325.086435
+    },
+    {
+      "started": 1793333332.93169,
+      "path": "/v1/models?prefix=alias&configuredOnly=true&availableOnly=true",
+      "response_at": 1793333343.9325273
+    }
+  ],
+  "foreground": {
+    "samples": 1518,
+    "owned_hits": 0,
+    "owned_intervals": []
+  },
+  "teardown_owned_identities": [
+    {
+      "pid": 72956,
+      "name": "conhost.exe",
+      "ppid": 81312,
+      "cmd": [
+        "\\??\\C:\\WINDOWS\\system32\\conhost.exe",
+        "0x4"
+      ]
+    },
+    {
+      "pid": 55596,
+      "name": "python.exe",
+      "ppid": 81312,
+      "cmd": [
+        "C:\\Program Files\\Python311\\python.exe",
+        "C:\\Users\\djlov\\.local\\share\\ciel-runtime-c1f9041305e3db5671e5c21af64e410a1c3782b7\\ciel_runtime.py",
+        "serve"
+      ]
+    },
+    {
+      "pid": 47876,
+      "name": "conhost.exe",
+      "ppid": 81312,
+      "cmd": [
+        "\\\\?\\C:\\WINDOWS\\system32\\conhost.exe",
+        "--headless",
+        "--width",
+        "120",
+        "--height",
+        "30",
+        "--signal",
+        "0x3c4",
+        "--server",
+        "0x3bc"
+      ]
+    },
+    {
+      "pid": 81148,
+      "name": "claude.exe",
+      "ppid": 81312,
+      "cmd": [
+        "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@anthropic-ai\\claude-code\\bin\\claude.exe",
+        "--dangerously-skip-permissions",
+        "--disallowedTools",
+        "WebSearch,WebFetch",
+        "--model",
+        "ciel-runtime-cielairouter-owned-route-alias",
+        "--mcp-config",
+        "C:\\Windows\\Temp\\ciel-owned-alias-592dp5ni\\cfg\\mcp-launches\\d2d24ac91bde4d20983b97a5494b57da\\claude-mcp.json",
+        "--append-system-prompt",
+        "You are running inside Claude Code through the ciel-runtime router. Do not stop after announcing what you plan to do. When the user asks you to create, edit, or run code, immediately use the available Claude Code tools such as Write, Edit, Read, and Bash as appropriate, except while Claude Code is in Plan Mode. In Plan Mode, first explore/read as needed, write or update the plan file named by the plan_mode attachment, and only then call ExitPlanMode to leave Plan Mode; when bypass permissions is active, ciel-runtime auto-approves that plan exit, so do not ask the user separately and do not call EnterPlanMode again. then report the concrete result. If the task has several reasonable implementation parts, do all in-scope parts; do not ask the user which part to start or whether to do all unless the user explicitly requested a choice. If you decide not to use tools, provide the complete requested code or answer in the same turn. Use skills only when the user's request clearly matches that skill; never invoke keybindings-help unless the user asks about keybindings. Keep final answers concise and do not expose hidden chain-of-thought. When calling Claude Code tools, use exactly the tool schema and do not invent extra fields. Bash: command (string), description (string), timeout (integer), run_in_background (boolean). Read: file_path (string), offset (integer), limit (integer). Write: file_path (string), content (string). Edit: file_path (string), old_string (string), new_string (string), replace_all (boolean). TaskList: no input. TaskUpdate: taskId (string), optional status enum exactly one of pending, in_progress, completed, deleted. CronCreate: cron (standard 5-field local-time cron string), prompt (string), optional recurring (boolean), optional durable (boolean). CronDelete: id (string returned by CronCreate). CronList: no input. Do not call WaitForMcpServers; it is a Claude Code lifecycle tool that may exist but is often not enabled in the current routed context. If an MCP server appears disconnected, use only tools present in the current tool list, retry ordinary MCP tools when available, or report the concrete connection state. Never write pseudo tool calls, partial JSON, or markdown code fences when a real Claude Code tool call is required.",
+        "--messaging-socket-path",
+        "\\\\.\\pipe\\LOCAL\\cc-msg-4f33211abf3fe38740f5f4a5c2bdffb4",
+        "--settings",
+        "{\"crossSessionInbound\":\"accept\"}",
+        "--permission-mode",
+        "default",
+        "--debug-file",
+        "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\29\\releases\\launch-probe-retry-nightly\\evidence\\scripts\\run-installed-launch-probe-230821\\native-debug.log"
+      ]
+    },
+    {
+      "pid": 41892,
+      "name": "python.exe",
+      "ppid": 81312,
+      "cmd": [
+        "C:\\Program Files\\Python311\\python.exe",
+        "C:\\Users\\djlov\\.local\\share\\ciel-runtime-c1f9041305e3db5671e5c21af64e410a1c3782b7\\ciel_runtime_support\\windows_console_guard.py",
+        "81312",
+        "487",
+        "3"
+      ]
+    }
+  ],
+  "live_after": {
+    "9505": {
+      "pid": 79700,
+      "version": "0.2.51-nightly.20261030-015514.9077265",
+      "source_fingerprint": "18ae26315398c56f",
+      "error": null
+    },
+    "9524": {
+      "pid": 18536,
+      "version": "0.2.51-nightly.20261028-023853.679245f",
+      "source_fingerprint": "122e12595997f09d",
+      "error": null
+    }
+  },
+  "live_unchanged": true,
+  "source_digests": {
+    "ciel_runtime.py": "18ae26315398c56f200d1e34da337e3ad5de8480896f9d2b088572d4ef941e43",
+    "ciel_runtime_support/runtime_compaction_control.py": "47b2678e9376752e1a2344a90ebbc4aaa0e83d34842069c118ed00c7495b9814",
+    "ciel_runtime_support/runtime_compaction_binding.py": "01ce01914f3408de5846bad4bce3b1adee65053ca28f99d8585a67be9eeca6cf",
+    "ciel_runtime_support/streaming_anthropic.py": "e4a3a0786615c78d3787c82e14477806b4f5369ab37f620da11f335b9404199e",
+    "ciel_runtime_support/claude_router.py": "fed923ebedf3e0f64fca9b1854c4900436fb093c2db3e9c17bc8861234a8aada"
+  }
+}

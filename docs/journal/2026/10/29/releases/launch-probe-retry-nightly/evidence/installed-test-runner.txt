@@ -1,0 +1,10 @@
+{
+  "tests": 112,
+  "success": true,
+  "modules": [
+    "C:\\Users\\djlov\\.local\\share\\ciel-runtime-c1f9041305e3db5671e5c21af64e410a1c3782b7\\ciel_runtime_support\\provider_status.py",
+    "C:\\Users\\djlov\\.local\\share\\ciel-runtime-c1f9041305e3db5671e5c21af64e410a1c3782b7\\ciel_runtime_support\\provider_readiness.py",
+    "C:\\Users\\djlov\\.local\\share\\ciel-runtime-c1f9041305e3db5671e5c21af64e410a1c3782b7\\ciel_runtime_support\\architecture.py",
+    "C:\\Users\\djlov\\.local\\share\\ciel-runtime-c1f9041305e3db5671e5c21af64e410a1c3782b7\\ciel_runtime_support\\sse_gate.py"
+  ]
+}

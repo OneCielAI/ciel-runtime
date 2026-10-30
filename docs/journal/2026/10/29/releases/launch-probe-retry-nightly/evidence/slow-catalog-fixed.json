@@ -1,0 +1,19 @@
+{
+  "root": "C:\\Users\\djlov\\ciel-runtime-wt-work",
+  "elapsed": 21.01600000000326,
+  "status": "Base URL: model list reachable (/v1/models?prefix=alias&configuredOnly=true&availableOnly=true, 1 models; retry succeeded (30s timeout))",
+  "initial_timeout": 10.0,
+  "retry_timeout": 30.0,
+  "requests": [
+    {
+      "started": 1793331908.0542326,
+      "path": "/v1/models?prefix=alias&configuredOnly=true&availableOnly=true",
+      "client_closed_after_timeout": true
+    },
+    {
+      "started": 1793331918.070382,
+      "path": "/v1/models?prefix=alias&configuredOnly=true&availableOnly=true",
+      "sent": true
+    }
+  ]
+}

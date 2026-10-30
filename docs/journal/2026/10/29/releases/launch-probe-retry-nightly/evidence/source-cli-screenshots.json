@@ -1,0 +1,26 @@
+[
+  {
+    "file": "01-gate-default-on.png",
+    "width": 993,
+    "height": 519,
+    "sha256": "f4813f113ad1e834c345487a2cf44b46b3d0507c57e38c8a793a55dcf9417d0c"
+  },
+  {
+    "file": "gate-off.png",
+    "width": 993,
+    "height": 519,
+    "sha256": "633d7303f835a10c006edcc50e189db5a9831f2dc4a6c6cd8c7eecbe2f7c18ee"
+  },
+  {
+    "file": "gate-on.png",
+    "width": 993,
+    "height": 519,
+    "sha256": "d5502747476c0823198baf95728a817fca8e0b34be2a91e06b422f32e72f8718"
+  },
+  {
+    "file": "gate-status.png",
+    "width": 993,
+    "height": 519,
+    "sha256": "8820aa1030bad7967d583afe7b36a5017e60fb2e6f42a1a72c3813b047a9b82f"
+  }
+]

@@ -1,0 +1,3 @@
+ciel-runtime 0.2.51-nightly.20261030-040212.c1f9041
+C:\Users\djlov\.local\share\ciel-runtime-c1f9041305e3db5671e5c21af64e410a1c3782b7\ciel_runtime_support\codex_app_server_session.py:417: SyntaxWarning: 'return' in a 'finally' block
+  return _RemoteRun(1)

@@ -1,0 +1,9 @@
+[
+  "test_provider_status_retry",
+  "test_cielairouter_provider",
+  "test_sse_gate",
+  "test_router_shortcuts",
+  "test_runtime_compaction_binding",
+  "test_runtime_compaction_identity",
+  "test_statusline"
+]

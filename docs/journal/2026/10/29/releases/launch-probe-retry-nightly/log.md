@@ -1,0 +1,4 @@
+# Release log
+
+## 2026-10-29
+* Initial2ccfbafCIfailedexistingpolicyfieldbudget;correctedc1f9041withoutweakeningtest. CI/Publishsuccess;verifiedpackageandinstalled112tests;actual11sdelayedCLI4PNGpass;localinstall switched. Exactidentityincidentstillblocked;wholeinterval2PIDchangesunattributedandrecorded.

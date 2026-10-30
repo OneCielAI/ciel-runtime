@@ -1,0 +1,40 @@
+{
+  "protected_pids_in_teardown": [],
+  "owned_teardown_pids": [
+    72956,
+    55596,
+    47876,
+    81148,
+    41892
+  ],
+  "cli_before": {
+    "9505": {
+      "pid": 79700,
+      "version": "0.2.51-nightly.20261030-015514.9077265",
+      "source_fingerprint": "18ae26315398c56f",
+      "error": null
+    },
+    "9524": {
+      "pid": 18536,
+      "version": "0.2.51-nightly.20261028-023853.679245f",
+      "source_fingerprint": "122e12595997f09d",
+      "error": null
+    }
+  },
+  "cli_after": {
+    "9505": {
+      "pid": 79700,
+      "version": "0.2.51-nightly.20261030-015514.9077265",
+      "source_fingerprint": "18ae26315398c56f",
+      "error": null
+    },
+    "9524": {
+      "pid": 18536,
+      "version": "0.2.51-nightly.20261028-023853.679245f",
+      "source_fingerprint": "122e12595997f09d",
+      "error": null
+    }
+  },
+  "whole_interval_health_equal": false,
+  "cause_of_other_runtime_restarts": "unverified; no restart command issued by this task"
+}
