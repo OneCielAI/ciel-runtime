@@ -225,7 +225,7 @@ class ChannelTerminalDispatchService:
             returncode = proc.poll()
             if returncode is not None:
                 return returncode
-            request = self._restart_request(restart_poll, restart_state)
+            request = self._restart_request(restart_poll, restart_state, poller)
             if request is not None:
                 if restart_state is not None:
                     restart_state.mark(request)
@@ -246,11 +246,18 @@ class ChannelTerminalDispatchService:
                     )
             time.sleep(0.5)
 
-    def _restart_request(self, restart_poll: Callable[[], Any] | None, restart_state: Any) -> Any:
+    def _restart_request(
+        self, restart_poll: Callable[[], Any] | None, restart_state: Any,
+        poller: "_DirectChannelPoller | None" = None,
+    ) -> Any:
         if restart_poll is None:
             return None
         if self.delivery is not None and restart_poll == getattr(restart_state, "incoming", None):
-            return restart_state.incoming(busy=self.delivery.polling.input_busy)
+            return restart_state.incoming(
+                busy=self.delivery.polling.input_busy,
+                protected=lambda: bool(poller is not None and poller.state is not None
+                                       and poller.state.restart_protected),
+            )
         return restart_poll()
 
 

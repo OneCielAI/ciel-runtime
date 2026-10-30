@@ -33,6 +33,7 @@ from ciel_runtime_support.runtime_compaction_control import RuntimeCompactionCon
 from ciel_runtime_support.pty_master_writer import PtyMasterWriter
 from ciel_runtime_support.terminal_startup_gate import current_terminal_startup_gate
 from ciel_runtime_support.startup_prompt_answers import startup_prompt_responder, windows_startup_screen
+from ciel_runtime_support.windows_startup_screen_reader import WindowsStartupScreenReader
 from ciel_runtime_support.terminal_modal_guard import STARTUP_HOLD_SECONDS, TerminalModalGuard
 from ciel_runtime_support.runtime_interaction import (
     RuntimeInteractionDisplayState,
@@ -377,6 +378,7 @@ def _runtime_session_restart_requested(
     pid: int,
     busy: Callable[[], bool] | None = None,
     notify: Callable[[str], Any] | None = None,
+    protected: Callable[[], bool] | None = None,
 ) -> bool:
     """Whether a router-side restart request wants this CLI child replaced.
 
@@ -388,7 +390,7 @@ def _runtime_session_restart_requested(
     if restart_poll is None or (gate is not None and not gate.ready()):
         return False
     if restart_state is not None and restart_poll == getattr(restart_state, "incoming", None):
-        request = restart_state.incoming(busy=busy, notify=notify)
+        request = restart_state.incoming(busy=busy, notify=notify, protected=protected)
     else:
         request = restart_poll()
     if request is None:
@@ -431,6 +433,7 @@ def run_windows_channel_terminal_proxy(
     polling = services.polling
     console = services.console
     conpty = None
+    startup_screen_reader = None
     input_mode_guard = None
     proc = None
 
@@ -450,6 +453,8 @@ def run_windows_channel_terminal_proxy(
     recovery_admission = TerminalRecoveryAdmissionReporter(polling, policy)
 
     def cleanup_resources() -> None:
+        if startup_screen_reader is not None:
+            cleanup_step("startup_screen_reader", startup_screen_reader.close)
         cleanup_step("recovery_admission", lambda: recovery_admission.close(pending_poll_state))
         if proc is not None:
             cleanup_step(
@@ -512,8 +517,13 @@ def run_windows_channel_terminal_proxy(
             policy.log("WARN", "startup_prompt_auto_answer_unavailable transport=console-input")
             # Retain the responder as a fail-closed injection gate.
         if startup_answers is not None and conpty is not None:
-            # ConPTY.input_snapshot is an append-only tail, not rendered state.
-            startup_answers.screen_snapshot = windows_startup_screen
+            # Read the child's actual screen even when the launcher's stdout
+            # is a pipe (AAP). Never treat its append-only output as a viewport.
+            try:
+                startup_screen_reader = WindowsStartupScreenReader(proc.pid)
+                startup_answers.screen_snapshot = startup_screen_reader.snapshot
+            except OSError:
+                startup_answers.screen_snapshot = windows_startup_screen
         startup_output_cursor = 0
         recovery_modal_guard = TerminalModalGuard() if conpty is not None else None
         recovery_output_cursor = 0
@@ -602,6 +612,7 @@ def run_windows_channel_terminal_proxy(
                 transport="conpty" if conpty is not None else "console-input",
                 pid=proc.pid,
                 busy=polling.input_busy,
+                protected=lambda: pending_poll_state.restart_protected,
                 notify=lambda notice: _display_windows_runtime_interaction(writer, notice),
             ):
                 process.terminate_child(proc, "cli session restart")
@@ -856,6 +867,7 @@ def run_posix_channel_terminal_proxy(
                 transport="pty",
                 pid=proc.pid,
                 busy=polling.input_busy,
+                protected=lambda: pending_poll_state.restart_protected,
                 notify=lambda notice: terminal.write_all(stdout_fd, _runtime_interaction_bytes(notice)),
             ):
                 process.terminate_child(proc, "cli session restart")

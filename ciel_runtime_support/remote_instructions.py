@@ -206,10 +206,12 @@ class RemoteInstructionSynchronizer:
             return self._failed(runtime, url, f"missing authorization environment variable: {', '.join(sorted(set(missing)))}")
         if authorization.strip():
             headers["Authorization"] = authorization.strip()
-        # States written before normalized content verification cannot safely
-        # authorize pointer projection after platform newline conversion.
-        # Refresh them without validators once so the next state is verifiable.
-        if state.get("normalized_sha256"):
+        # A state without a prompt-metadata check cannot establish what
+        # company prompt the file carries.  Refresh it unconditionally once;
+        # otherwise a legacy state can keep returning 304 forever while the
+        # reloader sees an unknown prompt and repeatedly restarts the session.
+        prompt_checked = bool(state.get("company_prompt_checked"))
+        if prompt_checked and state.get("normalized_sha256"):
             if state.get("etag"):
                 headers["If-None-Match"] = str(state["etag"])
             if state.get("last_modified"):
@@ -237,6 +239,7 @@ class RemoteInstructionSynchronizer:
                     "last_modified": str(response.headers.get("last-modified") or ""),
                     "updated_at": self.now(),
                     "reason": reason,
+                    "company_prompt_checked": True,
                     **company_prompt_in(text, response.headers),
                 })
         except urllib.error.HTTPError as exc:

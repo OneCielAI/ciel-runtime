@@ -106,6 +106,54 @@ class TurnWaitTests(unittest.TestCase):
         self.assertTrue(_runtime_session_restart_requested(lambda *a: logs.append(a), control.incoming, control, **args))
         self.assertEqual(2, len(self.notices))
 
+    def test_submitted_input_protects_idle_restart_beyond_turn_timeout(self):
+        from ciel_runtime_support.channel_pending_poll import ChannelPendingPollState
+
+        state = ChannelPendingPollState(last_id=139)
+        state.inflight_message_id = 140
+        self.busy = False  # Transcript has not observed the just-submitted turn.
+        def protected():
+            return state.restart_protected
+        self.assertIsNone(self.control.incoming(busy=lambda: False, protected=protected))
+        self.assertEqual([], self.pending)  # Claim before its short TTL expires.
+        self.clock.now += 3600
+        self.assertIsNone(self.control.incoming(busy=lambda: False, protected=protected))
+        state.inflight_message_id = None  # Exact terminal evidence settled it.
+        self.assertEqual("r1", self.control.incoming(busy=lambda: False, protected=protected).id)
+
+    def test_older_submitted_backlog_also_protects_restart(self):
+        from ciel_runtime_support.channel_pending_poll import ChannelPendingPollState
+
+        state = ChannelPendingPollState(last_id=139)
+        state.inflight.backlog.append(140)
+        self.control.busy = lambda: False
+        self.assertIsNone(self.control.incoming(protected=lambda: state.restart_protected))
+        state.inflight.backlog.clear()
+        self.clock.now += 1
+        self.assertEqual("r1", self.control.incoming(protected=lambda: state.restart_protected).id)
+
+    def test_unreadable_submission_protection_fails_closed(self):
+        def unreadable():
+            raise OSError("status unavailable")
+
+        self.assertIsNone(self.control.incoming(busy=lambda: False, protected=unreadable))
+        self.clock.now += 3600
+        self.assertIsNone(self.control.incoming(busy=lambda: False, protected=unreadable))
+        self.assertEqual("r1", self.control.after_child_exit().id)
+
+    def test_console_proxy_passes_submission_protection(self):
+        self.busy = False
+        args = dict(transport="conpty", pid=1, busy=lambda: False,
+                    protected=lambda: True, notify=self.notices.append)
+        self.assertFalse(_runtime_session_restart_requested(
+            lambda *_a: None, self.control.incoming, self.control, **args))
+        self.clock.now += 3600
+        self.assertFalse(_runtime_session_restart_requested(
+            lambda *_a: None, self.control.incoming, self.control, **args))
+        args["protected"] = lambda: False
+        self.assertTrue(_runtime_session_restart_requested(
+            lambda *_a: None, self.control.incoming, self.control, **args))
+
     def test_a_foreign_poll_is_called_as_is(self):
         foreign = [_request("x")]
         self.assertTrue(_runtime_session_restart_requested(

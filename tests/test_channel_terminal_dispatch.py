@@ -650,7 +650,7 @@ class ChannelTerminalDispatchServiceTests(unittest.TestCase):
         responder = StartupPromptResponder(clock=lambda: clock[0])
         with terminal_startup_scope(gate), mock.patch(
             "ciel_runtime_support.channel_terminal_proxy.startup_prompt_responder", return_value=responder,
-        ), mock.patch("ciel_runtime_support.channel_terminal_proxy.windows_startup_screen", side_effect=lambda: frames[step[0] // 2]), mock.patch(
+        ), mock.patch("ciel_runtime_support.channel_terminal_proxy.WindowsStartupScreenReader", return_value=SimpleNamespace(snapshot=lambda: frames[step[0] // 2], close=lambda: None)), mock.patch(
             "ciel_runtime_support.channel_terminal_proxy.poll_pending_compaction", side_effect=lambda *a, **k: a[5],
         ), mock.patch("ciel_runtime_support.channel_terminal_proxy.poll_pending_channel_messages", side_effect=lambda *a, **k: a[3]):
             self.assertEqual(0, run_windows_channel_terminal_proxy(

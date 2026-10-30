@@ -66,7 +66,19 @@ class CompanyPromptReloader:
         if not announced or not auto_reload_enabled(self.load_config()):
             return None
         held = self.held()
-        held_sha8 = str(held.get("company_prompt_sha256") or "").lower()[:8]
+        held_digest = str(held.get("company_prompt_sha256") or "").strip().lower()
+        held_sha8 = held_digest[:8]
+        # An announcement is not proof of the prompt currently held by this
+        # workspace.  In particular, legacy instruction state may have no
+        # prompt marker at all; restarting on that unknown state creates an
+        # endless restart loop when the endpoint keeps returning unmarked 304s.
+        if len(held_digest) < 8:
+            self.log(
+                "WARN",
+                f"company_prompt_reload_skipped announced={announced['sha8']} "
+                "reason=held_company_prompt_unknown",
+            )
+            return None
         if held_sha8 == announced["sha8"]:
             return None
         with self._lock:

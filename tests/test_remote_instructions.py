@@ -194,6 +194,58 @@ class RemoteInstructionTests(unittest.TestCase):
                 refreshed["normalized_sha256"],
             )
 
+    def test_legacy_metadata_is_refreshed_once_even_with_normalized_digest(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            state_dir = root / "state"
+            state_dir.mkdir()
+            body = b"# Managed instructions without company metadata" + bytes([10])
+            state = {
+                "normalized_sha256": normalized_instruction_sha256(body.decode()),
+                "etag": '"old"', "last_modified": "Fri, 30 Oct 2026 00:00:00 GMT",
+            }
+            path = state_dir / "remote-instructions-claude.json"
+            path.write_text(json.dumps(state), encoding="utf-8")
+            requests = []
+
+            def opener(request, **_kwargs):
+                requests.append(request)
+                return _Response(body, headers={"etag": '"same"'})
+
+            config = {"remote_instructions": {"enabled": True, "claude_url": "https://config.example/claude"}}
+            service = self._service(root, config, opener)
+            service.sync("claude")
+            self.assertIsNone(requests[0].get_header("If-none-match"))
+            self.assertIsNone(requests[0].get_header("If-modified-since"))
+            refreshed = json.loads(path.read_text(encoding="utf-8"))
+            self.assertTrue(refreshed["company_prompt_checked"])
+            self.assertNotIn("company_prompt_sha256", refreshed)
+            service.sync("claude")
+            self.assertEqual('"same"', requests[1].get_header("If-none-match"))
+
+    def test_legacy_metadata_refresh_records_real_response_prompt(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            state_dir = root / "state"
+            state_dir.mkdir()
+            path = state_dir / "remote-instructions-claude.json"
+            path.write_text(json.dumps({"normalized_sha256": "old", "etag": '"old"'}), encoding="utf-8")
+            requests = []
+            digest = "b" * 64
+
+            def opener(request, **_kwargs):
+                requests.append(request)
+                return _Response(b"# Updated instructions" + bytes([10]), headers={
+                    "X-Walkie-Company-Prompt-Version": "16", "X-Walkie-Company-Prompt-Sha256": digest,
+                })
+
+            config = {"remote_instructions": {"enabled": True, "claude_url": "https://config.example/claude"}}
+            self._service(root, config, opener).sync("claude")
+            self.assertIsNone(requests[0].get_header("If-none-match"))
+            refreshed = json.loads(path.read_text(encoding="utf-8"))
+            self.assertEqual(digest, refreshed["company_prompt_sha256"])
+            self.assertEqual("16", refreshed["company_prompt_version"])
+
     def test_missing_authorization_environment_variable_fails_before_request(self):
         with tempfile.TemporaryDirectory() as td:
             config = {"remote_instructions": {
