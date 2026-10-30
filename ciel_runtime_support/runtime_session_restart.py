@@ -361,7 +361,8 @@ class RuntimeSessionRestartControl:
     A claimed request waits while ``busy`` (or the transport's own turn
     signal) reports a running turn, up to ``restart_turn_wait_seconds``; the
     transports then stop the CLI.  Without any turn signal the restart is
-    immediate, as before.
+    immediate, as before. Submitted channel inputs are protected separately:
+    their ownership must settle even if the turn signal has not caught up.
 
     The transports stop polling as soon as the CLI child has exited, so the
     launcher loop calls ``after_child_exit`` once the transport returns: a
@@ -426,6 +427,8 @@ class RuntimeSessionRestartControl:
         self,
         busy: Callable[[], bool] | None = None,
         notify: Callable[[str], Any] | None = None,
+        *,
+        protected: Callable[[], bool] | None = None,
     ) -> RuntimeSessionRestartRequest | None:
         """Poll for a new request while the CLI child runs.
 
@@ -443,11 +446,13 @@ class RuntimeSessionRestartControl:
             request = self.poll()
             if request is None:
                 return None
-            if turn_running is None or not self._busy(turn_running, now, fresh=True):
+            if not self._protected(protected) and not self._busy(turn_running, now, fresh=True):
                 return self._release(request, notify)
             self.deferred, self.deferred_at = request, now
             if notify is not None:
                 notify(restart_waiting_notice(request))
+            return None
+        if self._protected(protected):
             return None
         if self._busy(turn_running, now) and (
             self.deferred.wait_turn or now - self.deferred_at < restart_turn_wait_seconds()
@@ -455,6 +460,16 @@ class RuntimeSessionRestartControl:
             return None
         request, self.deferred = self.deferred, None
         return self._release(request, notify)
+
+    @staticmethod
+    def _protected(protected: Callable[[], bool] | None) -> bool:
+        if protected is None:
+            return False
+        try:
+            return bool(protected())
+        except Exception:
+            # Unknown submission ownership cannot authorize terminating its child.
+            return True
 
     def _busy(self, turn_running: Callable[[], bool] | None, now: float, *, fresh: bool = False) -> bool:
         if turn_running is None:

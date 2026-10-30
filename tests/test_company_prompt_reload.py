@@ -139,6 +139,24 @@ class ReloaderTests(unittest.TestCase):
         self.reloader.observe(_event())
         self.assertEqual(2, len(self.queued))  # the endpoint still served v7: try again after the window
 
+    def test_unknown_held_prompt_never_restarts_on_an_announcement(self):
+        self.held = {}
+        self.reloader.observe(_event())
+        self.now += 1801
+        self.reloader.observe(_event())
+        self.assertEqual([], self.queued)
+        self.assertIn("held_company_prompt_unknown", self.logs[-1])
+
+    def test_unknown_then_verified_held_prompt_can_restart_without_cooldown(self):
+        self.held = {}
+        self.reloader.observe(_event())
+        self.assertEqual([], self.queued)
+        self.held = {"company_prompt_version": "7", "company_prompt_sha256": V7}
+        self.now += 1
+        self.reloader.observe(_event())
+        self.assertEqual(1, len(self.queued))
+        self.assertIn("held v7 8c657195", self.queued[0])
+
     def test_the_held_prompt_and_turned_off_reloads_queue_nothing(self):
         self.held = {"company_prompt_version": "8", "company_prompt_sha256": V8}
         self.reloader.observe(_event())
@@ -166,7 +184,7 @@ class ReloaderTests(unittest.TestCase):
         finally:
             stop_router_listener()
         self.assertEqual(1, len(appended))
-        self.assertEqual(1, len(queued))  # nothing held in an empty workspace: reload once
+        self.assertEqual([], queued)  # an announcement does not prove the held prompt differs
         self.assertEqual([], runtime_input_gateway.EXTERNAL_EVENT_LISTENERS)
         self.assertEqual("company-prompt", COMPANY_PROMPT_RESTART_SOURCE)
 

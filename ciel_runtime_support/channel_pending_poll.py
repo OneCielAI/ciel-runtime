@@ -66,6 +66,11 @@ class ChannelPendingPollState:
     )
 
     @property
+    def restart_protected(self) -> bool:
+        """Submitted inputs stay owned until terminal evidence settles them."""
+        return self.inflight.message_id is not None or bool(self.inflight.backlog)
+
+    @property
     def inflight_message_id(self) -> int | None:
         return self.inflight.message_id
 
