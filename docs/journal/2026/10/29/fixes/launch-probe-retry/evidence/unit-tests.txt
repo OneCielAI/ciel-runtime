@@ -1,0 +1,29 @@
+Scoped source tests; isolated temporary HOME/config; purged inherited provider/CLI environment.
+test_body_read_timeout_can_recover_on_retry (test_provider_status_retry.ProviderStatusRetryTests.test_body_read_timeout_can_recover_on_retry) ... ok
+test_body_read_timeout_retries_then_preserves_header_evidence (test_provider_status_retry.ProviderStatusRetryTests.test_body_read_timeout_retries_then_preserves_header_evidence) ... ok
+test_both_timeout_attempts_remain_unreachable_and_bounded (test_provider_status_retry.ProviderStatusRetryTests.test_both_timeout_attempts_remain_unreachable_and_bounded) ... ok
+test_catalog_projection_failure_does_not_retry (test_provider_status_retry.ProviderStatusRetryTests.test_catalog_projection_failure_does_not_retry) ... ok
+test_context_error_preserves_parsed_catalog_reachability (test_provider_status_retry.ProviderStatusRetryTests.test_context_error_preserves_parsed_catalog_reachability) ... ok
+test_context_error_preserves_retry_success (test_provider_status_retry.ProviderStatusRetryTests.test_context_error_preserves_retry_success) ... ok
+test_context_limit_success_is_preserved (test_provider_status_retry.ProviderStatusRetryTests.test_context_limit_success_is_preserved) ... ok
+test_default_policy_does_not_retry_timeouts (test_provider_status_retry.ProviderStatusRetryTests.test_default_policy_does_not_retry_timeouts) ... ok
+test_final_connection_timeout_does_not_claim_headers_received (test_provider_status_retry.ProviderStatusRetryTests.test_final_connection_timeout_does_not_claim_headers_received) ... ok
+test_incomplete_catalog_fails_closed_without_retry (test_provider_status_retry.ProviderStatusRetryTests.test_incomplete_catalog_fails_closed_without_retry) ... ok
+test_initial_success_does_not_retry (test_provider_status_retry.ProviderStatusRetryTests.test_initial_success_does_not_retry) ... ok
+test_large_catalog_is_fully_read (test_provider_status_retry.ProviderStatusRetryTests.test_large_catalog_is_fully_read) ... ok
+test_launch_gate_blocks_exhausted_timeout_and_allows_recovered_catalog (test_provider_status_retry.ProviderStatusRetryTests.test_launch_gate_blocks_exhausted_timeout_and_allows_recovered_catalog) ... ok
+test_malformed_catalog_fails_closed_without_retry (test_provider_status_retry.ProviderStatusRetryTests.test_malformed_catalog_fails_closed_without_retry) ... ok
+test_non_timeout_failures_never_retry (test_provider_status_retry.ProviderStatusRetryTests.test_non_timeout_failures_never_retry) ... ok
+test_other_provider_keeps_preview_read_and_status (test_provider_status_retry.ProviderStatusRetryTests.test_other_provider_keeps_preview_read_and_status) ... ok
+test_oversized_catalog_fails_closed_without_retry (test_provider_status_retry.ProviderStatusRetryTests.test_oversized_catalog_fails_closed_without_retry) ... ok
+test_retry_non_timeout_failure_is_not_retried_again (test_provider_status_retry.ProviderStatusRetryTests.test_retry_non_timeout_failure_is_not_retried_again) ... ok
+test_retry_policy_is_owned_only_by_cielairouter (test_provider_status_retry.ProviderStatusRetryTests.test_retry_policy_is_owned_only_by_cielairouter) ... ok
+test_timeout_retry_success (test_provider_status_retry.ProviderStatusRetryTests.test_timeout_retry_success) ... ok
+test_adapter_contract_defaults (test_cielairouter_provider.CielAiRouterProviderTests.test_adapter_contract_defaults) ... ok
+
+----------------------------------------------------------------------
+Ran 21 tests in 0.032s
+
+OK
+
+Exit code: 0

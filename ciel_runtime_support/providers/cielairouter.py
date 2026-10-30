@@ -225,10 +225,13 @@ class CielAiRouterProviderAdapter(OpenAICompatibleProviderAdapter):
         )
 
     def status_policy(self, config: ProviderConfig) -> ProviderStatusPolicy:
-        # The readiness GET of the filtered catalog took up to 2.56 s on a cold
-        # server cache (measured 2026-10-02) and blocked a launch at the
-        # default 2.5 s; keep it well clear of that.
-        return replace(super().status_policy(config), probe_timeout_seconds=10.0)
+        # Authenticated catalog GETs took 15.9-25.4 s on 2026-10-27.
+        # Keep the initial probe and allow one longer timeout-only retry.
+        return replace(
+            super().status_policy(config),
+            probe_timeout_seconds=10.0,
+            probe_retry_timeout_seconds=30.0,
+        )
 
     def model_paths(self, config: ProviderConfig) -> tuple[str, ...]:
         # The server root has no /models API; only the filtered catalog applies.

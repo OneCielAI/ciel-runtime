@@ -333,6 +333,7 @@ class CielAiRouterProviderTests(unittest.TestCase):
         self.assertTrue(policy.reapply_catalog_profile_at_launch)
         status = adapter.status_policy(self.contract())
         self.assertEqual(10.0, status.probe_timeout_seconds)
+        self.assertEqual(30.0, status.probe_retry_timeout_seconds)
         self.assertEqual("/v1/models?prefix=alias&configuredOnly=true&availableOnly=true", status.catalog_path)
         self.assertEqual(("ASTRA",), policy.fallback_models)
 

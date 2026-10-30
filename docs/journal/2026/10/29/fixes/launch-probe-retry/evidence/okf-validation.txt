@@ -1,0 +1,4 @@
+Validator discovers .md files only; validate exact .okf bodies projected to .md with corresponding links.
+OKF v0.1 conformance — C:\Users\djlov\AppData\Local\Temp\ciel-okf-validation-r5sbr4h6
+  concepts: 2   index.md: 1   log.md: 0
+  [32m✓ conformant — no issues[0m
