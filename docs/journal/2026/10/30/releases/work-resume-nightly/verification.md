@@ -11,7 +11,7 @@ timestamp: 2026-10-30
 
 # Pending
 
-CI41007012084andPublish41007012112inprogress;installedproofpending. No live plan repair or session restart authorized/performed.
+Previous workflow required corrected acyclic graph after import-cycle/Ruff fixes; final exact head is8190f22 with CI/Publish rerun pending. No live plan repair or session restart authorized/performed.
 
 # Source proof
 
