@@ -218,6 +218,7 @@ def session_work_plan_store(state_dir: Path, session_id: str, *,
     with _STORES_LOCK:
         store = _STORES.get(key)
         if store is None:
-            store = WorkSessionStore(Path(state_dir), session_id, log=log)
+            store = WorkSessionStore(Path(state_dir), session_id, store_factory=WorkPlanStore,
+                                     notify=_notify_changes, log=log)
             _STORES[key] = store
         return store

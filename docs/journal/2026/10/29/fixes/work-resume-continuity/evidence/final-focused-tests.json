@@ -1,0 +1,14 @@
+{
+  "tests": 116,
+  "success": true,
+  "modules": [
+    "test_work_session_lineage",
+    "test_work_mcp_tools",
+    "test_work_http_controller",
+    "test_work_breakdown_statusline",
+    "test_statusline",
+    "test_compact_stop_liveness",
+    "test_work_retention"
+  ],
+  "architecture_contract_note": "The local architecture cycle check is blocked by unrelated dirty providers/catalog.py, not this change; CI uses committed tree."
+}

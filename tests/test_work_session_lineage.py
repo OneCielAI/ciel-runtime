@@ -53,7 +53,7 @@ class WorkLineageTests(unittest.TestCase):
         for path in self.directory.iterdir():
             path.unlink()
         from ciel_runtime_support.work_session_lineage import WorkSessionStore
-        resumed = WorkSessionStore(self.root, self.child)
+        resumed = WorkSessionStore(self.root, self.child, store_factory=WorkPlanStore, notify=lambda *_: None)
         self.assertEqual(expected, resumed.read_snapshot())
 
     def test_observers_can_read_and_mutate_same_lineage_without_deadlock(self):

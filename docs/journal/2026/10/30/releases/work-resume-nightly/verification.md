@@ -16,3 +16,7 @@ CI41007012084andPublish41007012112inprogress;installedproofpending. No live plan
 # Source proof
 
 Integrated95test driver (lineage/MCP/HTTP/statusline/compact) passes; native-handoff-visible proof passed with0foregroundhits/824samples and unchangedlivehealth. Source commit6637ad8is pushed.
+
+# CI corrections
+
+6637ad8 failed the existing acyclic support-module graph contract: work_plan_store→work_session_lineage→work_plan_store. A lazy import alone still counts as a graph edge.94e7eea additionally failed Ruff import ordering and did not publish. Corrected by passing store factory and notification ports into lineage; no lineage→store import remains.116focused tests pass; local full graph check sees unrelated dirty Gemini/Kimi provider cycles, so clean committed-tree graph proof is required before publication. No budgets/tests relaxed.

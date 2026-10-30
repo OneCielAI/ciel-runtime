@@ -11,8 +11,9 @@ from typing import Any
 
 from .channel_message_repository import exclusive_file_lock
 from .claude_session_handoff import follow_parked_session, session_records, _live_key
-WORK_PLAN_FILE_NAME = "work-plan.json"
 from .work_plan_tree import WorkPlanError
+
+WORK_PLAN_FILE_NAME = "work-plan.json"
 
 IDENTITY = re.compile(r"(?:claude|codex):[A-Za-z0-9_-]{1,200}\Z")
 
@@ -77,8 +78,7 @@ def _parent(identity: str) -> str | None:
     return parents[0] if parents else None
 
 
-def resolve_work_path(root: Path, identity: str) -> Path:
-    from .work_plan_store import WorkPlanStore
+def resolve_work_path(root: Path, identity: str, store_factory: Any) -> Path:
     canonical = _canonical(root, identity)
     if canonical != identity:
         path = _path(root, canonical)
@@ -92,12 +92,12 @@ def resolve_work_path(root: Path, identity: str) -> Path:
     source, target = _path(root, parent), _path(root, identity)
     if not source.is_file():
         return target
-    source_doc = WorkPlanStore(source).read_snapshot()
+    source_doc = store_factory(source).read_snapshot()
     if not source_doc["nodes"]:
         return target
     if target.exists():
         # A split board may already contain newer work; never guess a merge.
-        target_doc = WorkPlanStore(target).read_snapshot()
+        target_doc = store_factory(target).read_snapshot()
         if target_doc["nodes"] or target_doc["version"]:
             raise WorkPlanError("Work continuation has two saved boards; both preserved, explicit recovery required")
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -116,8 +116,9 @@ def resolve_work_path(root: Path, identity: str) -> Path:
 
 class WorkSessionStore:
     """Resolve under one workspace lock on every operation, including stale callers."""
-    def __init__(self, root: Path, identity: str, *, log: Any = None) -> None:
+    def __init__(self, root: Path, identity: str, *, store_factory: Any, notify: Any, log: Any = None) -> None:
         self.root, self.identity, self.log = root, identity, log
+        self.store_factory, self.notify = store_factory, notify
         self.lock = root / "work-sessions" / "lineage"
 
     def _snapshot_path(self) -> Path:
@@ -131,29 +132,25 @@ class WorkSessionStore:
             return _path(self.root, self.identity)
         # Only first discovery commits a mapping. Ordinary status reads remain lock-free.
         with exclusive_file_lock(self.lock):
-            return resolve_work_path(self.root, self.identity)
+            return resolve_work_path(self.root, self.identity, self.store_factory)
 
     @property
     def path(self) -> Path:
         return self._snapshot_path()
 
     def read(self) -> dict[str, Any]:
-        from .work_plan_store import WorkPlanStore
-        return WorkPlanStore(self._snapshot_path(), log=self.log).read()
+        return self.store_factory(self._snapshot_path(), log=self.log).read()
 
     def read_snapshot(self) -> dict[str, Any]:
-        from .work_plan_store import WorkPlanStore
-        return WorkPlanStore(self._snapshot_path(), log=self.log).read_snapshot()
+        return self.store_factory(self._snapshot_path(), log=self.log).read_snapshot()
 
     def transaction(self, mutate: Any, *, expected_version: int | None = None) -> Any:
         notifications = []
         with exclusive_file_lock(self.lock):
-            from .work_plan_store import WorkPlanStore
-            result = WorkPlanStore(resolve_work_path(self.root, self.identity), log=self.log).transaction(
+            result = self.store_factory(resolve_work_path(self.root, self.identity, self.store_factory), log=self.log).transaction(
                 mutate, expected_version=expected_version, _deferred_notifications=notifications)
-        from .work_plan_store import _notify_changes
         for notification in notifications:
-            _notify_changes(*notification)
+            self.notify(*notification)
         return result
 
     def expire_completed(self, *, now: float | None = None) -> int:
