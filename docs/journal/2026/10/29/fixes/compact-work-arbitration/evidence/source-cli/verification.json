@@ -1,0 +1,104 @@
+{
+  "status": "retry_failed_sse_retrigger_verified",
+  "compact_requests": 4,
+  "queue_model_requests": 1,
+  "live_unchanged": true,
+  "live_before": {
+    "9505": {
+      "pid": 70956,
+      "version": "0.2.51-nightly.20261029-150640.e3cb9a1",
+      "source_fingerprint": "122e12595997f09d",
+      "error": null
+    },
+    "9524": {
+      "pid": 18536,
+      "version": "0.2.51-nightly.20261028-023853.679245f",
+      "source_fingerprint": "122e12595997f09d",
+      "error": null
+    }
+  },
+  "live_after": {
+    "9505": {
+      "pid": 70956,
+      "version": "0.2.51-nightly.20261029-150640.e3cb9a1",
+      "source_fingerprint": "122e12595997f09d",
+      "error": null
+    },
+    "9524": {
+      "pid": 18536,
+      "version": "0.2.51-nightly.20261028-023853.679245f",
+      "source_fingerprint": "122e12595997f09d",
+      "error": null
+    }
+  },
+  "egress_denied": [
+    {
+      "method": "CONNECT",
+      "destination": "raw.githubusercontent.com:443"
+    },
+    {
+      "method": "CONNECT",
+      "destination": "api.github.com:443"
+    },
+    {
+      "method": "CONNECT",
+      "destination": "api.anthropic.com:443"
+    },
+    {
+      "method": "CONNECT",
+      "destination": "downloads.claude.ai:443"
+    },
+    {
+      "method": "CONNECT",
+      "destination": "github.com:443"
+    }
+  ],
+  "admission": {
+    "scope": {
+      "runtime": "claude",
+      "session_id": "3c410f87-635f-4e8c-963b-514a1dfd761d",
+      "epoch": "76e84d9af31b4cb99d3e665a881d558b"
+    },
+    "phase": "verified",
+    "pressure": false,
+    "baseline_tokens": 36936,
+    "context_limit": 189654,
+    "requested_at": 1793322722.7826245,
+    "deadline": 1793323923.1390154,
+    "baseline_checkpoint_id": "",
+    "checkpoint_id": "b246c0cbfc9137b13a202551c00e8972960429cec47879f0be66b758e590b250",
+    "request_id": "7bec730be49f4557a7ce9ed5aea569f3",
+    "attempts": 1,
+    "dispatch": {
+      "automatic": false,
+      "source": "ciel-runtime-router-tool",
+      "scope": {
+        "runtime": "claude",
+        "session_id": "3c410f87-635f-4e8c-963b-514a1dfd761d",
+        "epoch": "76e84d9af31b4cb99d3e665a881d558b"
+      },
+      "request_id": "7bec730be49f4557a7ce9ed5aea569f3",
+      "baseline_checkpoint_id": "",
+      "dispatched_at": 1793322722.7826245,
+      "submission": "submitted"
+    },
+    "native_started_at": 1793322723.1390154,
+    "checkpoint_observed_at": 1793322723.991288,
+    "verified_at": 1793322723.9937987,
+    "next_raw_tokens": 2820
+  },
+  "foreground": {
+    "samples": 1322,
+    "owned_hits": 0,
+    "owned_intervals": []
+  },
+  "source_digests": {
+    "ciel_runtime.py": "84930fa05387b82528ae86489ba146dd28f5866244a736544371ac248756fe8b",
+    "ciel_runtime_support/runtime_compaction_control.py": "f726eeec11814f13cd2922249e57ad4678bad6e2475b0d3dff6fe0902fd50222",
+    "ciel_runtime_support/runtime_compaction_binding.py": "14959270807660ea74b927f3c4b16ac88baa18e622c8e14b499dbeffd444f61e",
+    "ciel_runtime_support/streaming_anthropic.py": "e4a3a0786615c78d3787c82e14477806b4f5369ab37f620da11f335b9404199e",
+    "ciel_runtime_support/claude_router.py": "fed923ebedf3e0f64fca9b1854c4900436fb093c2db3e9c17bc8861234a8aada"
+  },
+  "runtime_root": "C:\\Users\\djlov\\ciel-runtime-wt-work",
+  "claude_version": "2.1.312 (Claude Code)"
+}

@@ -53,13 +53,17 @@ def poll_pending_compaction(
     policy: ChannelCompactPollPolicy = ChannelCompactPollPolicy(),
     *,
     input_ready: bool = True,
+    recovery_protected: bool = False,
 ) -> ChannelCompactPollState:
     if not input_ready or now - state.last_poll_at < policy.poll_interval_seconds:
         return state
     try:
-        if inflight_message_id is not None and not services.recovery_pending():
+        if inflight_message_id is not None and not (services.recovery_pending() or recovery_protected):
             return ChannelCompactPollState(now, state.defer_logged_at)
 
+        # A compact can retire the transcript that confirmed an earlier wake.
+        # Keep that wake's ownership; only session commands may cross its hold,
+        # still subject to the injector's tool/turn/draft guards.
         log_defer = now - state.defer_logged_at >= policy.defer_log_interval_seconds
         status = services.inject_pending(
             writer,

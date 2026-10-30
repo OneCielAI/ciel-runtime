@@ -42,6 +42,10 @@ let noticed = 0
 let continuationVersion = null
 let unchangedContinuations = 0
 let stopNoticeKey = ''
+let compactEpoch = 0
+const compacts = new Set()
+let continuationSession = null
+const STOP_READ_MS = 2000
 const RETRY_MS = [250, 500, 1000, 2000, 4000, 8000]
 const IDLE_REFRESH_MS = [1000, 2000, 4000, 8000, 16000, 30000]
 const nativePlanPaths = new Map()
@@ -206,6 +210,21 @@ async function gateRead($) {
 }
 function unavailable(read) {
   return UNAVAILABLE + ' [' + read.stage + (read.correlation ? '; ' + read.correlation : '') + ']'
+}
+// Stop alone has a wall-clock deadline: HookBudget pauses during MCP calls.
+// The losing read is pure, so a late response cannot update the cache, version
+// floor or continuation counters, or emit a stale gate failure notice.
+async function stopSnapshot($, identity) {
+  let timer
+  try {
+    return await Promise.race([
+      readSnapshot($, identity).catch(() => null),
+      new Promise(resolve => { timer = setTimeout(() => resolve(null), STOP_READ_MS) }),
+    ])
+  } finally { clearTimeout(timer) }
+}
+function compacting(identity) {
+  return [...compacts].some(c => c.lifecycle === starts && (c.identity === null || c.identity === identity))
 }
 // Only the host-pinned plan attachment identifies the file; never infer it from
 // tool arguments, a tool result, reminder prose or a path under a plans folder.
@@ -467,6 +486,8 @@ export function register(on) {
     await $.command.register({ name: 'work-mode', description: 'Work mode: summary, help, keyboard inspector, tree or raw status',
       argumentHint: '[help|view|tree|status]', immediate: true })
     const ticket = ++starts
+    compactEpoch++; compacts.clear(); continuationSession = null
+    continuationVersion = null; unchangedContinuations = 0
     stopIdleRefresh(); clearNativePlanPaths(); interactive = e.isInteractive
     const s = await refresh($)
     if (e.isInteractive && s?.enabled) { notice($, ticket); startIdleRefresh($, cachedSession) }
@@ -492,18 +513,54 @@ export function register(on) {
     if (e.agentId === undefined) { working = false; if (interactive) startIdleRefresh($, await sessionId($)) }
     return result
   })
+  on('session.compact', async ($, e, next) => {
+    // A child's transcript and a speculative summary do not replace main history.
+    if (e.agentId !== undefined || e.trigger === 'precompute') return next(e)
+    const compact = { lifecycle: starts, identity: null }
+    compacts.add(compact); compactEpoch++
+    try {
+      try { compact.identity = await sessionId($) } catch {}
+      return await next(e)
+    } finally {
+      // Keep the wait active through identity reconciliation. Never reset a new
+      // lifecycle's/session's no-progress state when an old compact settles.
+      let identity = null
+      try { identity = await sessionId($) } catch {}
+      if (compact.lifecycle === starts) {
+        compactEpoch++
+        if (compact.identity && compact.identity === identity
+            && (continuationSession === null || continuationSession === identity)) {
+          continuationVersion = null; unchangedContinuations = 0
+        }
+      }
+      compacts.delete(compact)
+    }
+  })
   on('classic.Stop', async ($, e, next) => {
-    const result = await next(e)
-    if (result?.block || result?.preventContinuation || e.agent_id) return result
     const lifecycle = starts
     const turn = mainTurnEpoch
-    const identity = await sessionId($)
-    if (e.session_id && identity !== 'claude:' + e.session_id) return result
-    // Display/idle reads may overlap Stop. Only a new main turn or session
-    // lifecycle invalidates this decision, not another reader's generation.
-    const read = await gateRead($)
-    if (lifecycle !== starts || turn !== mainTurnEpoch || await sessionId($) !== identity) return result
-    const s = read.s
+    const epoch = compactEpoch
+    const result = await next(e)
+    if (result?.block || result?.preventContinuation || e.agent_id) return result
+    let identity, s, current
+    try {
+      identity = await sessionId($)
+      if (e.session_id && identity !== 'claude:' + e.session_id) return result
+      if (lifecycle !== starts || turn !== mainTurnEpoch || epoch !== compactEpoch || compacting(identity)) return result
+      s = await stopSnapshot($, identity)
+      current = await sessionId($)
+    } catch { return result }
+    // Idle/display reads do not invalidate Stop; compact entry AND settlement do.
+    if (lifecycle !== starts || turn !== mainTurnEpoch || epoch !== compactEpoch
+        || current !== identity || compacting(identity)) return result
+    if (continuationSession !== identity) {
+      continuationSession = identity; continuationVersion = null; unchangedContinuations = 0
+    }
+    if (s && s.enabled !== false) {
+      if (gateIdentity !== identity) { gateIdentity = identity; gateVersion = -1 }
+      if (s.version < gateVersion) return result
+      gateVersion = s.version
+    }
     if (!s) { if (enabled) stopNotice($, identity, STOP_UNAVAILABLE); return result }
     if (!s.enabled || s.auto_continue !== true) return result
     // Every stop that leaves unfinished Work either continues with a runnable item or says why not.
@@ -642,7 +699,7 @@ export function register(on) {
   on('session.end', async ($, e, next) => {
     stopIdleRefresh(); interactive = false; working = false; clearNativePlanPaths(); starts++
     generation++; cached = null; cachedSession = null; hinted = ''; continuationVersion = null; unchangedContinuations = 0
-    stopNoticeKey = ''
+    stopNoticeKey = ''; compactEpoch++; compacts.clear(); continuationSession = null
     await update($, detailView, () => null)
     await update($, panelView, () => null)
     return next(e)

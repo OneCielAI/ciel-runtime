@@ -673,6 +673,7 @@ def run_windows_channel_terminal_proxy(
                 compact_injection_options,
                 compact_poll_services,
                 input_ready=input_ready,
+                recovery_protected=pending_poll_state.inflight_message_id in pending_poll_state.inflight.recovery_protected,
             )
             stage = "pending_poll"
             pending_poll_state = poll_pending_channel_messages(
@@ -943,6 +944,7 @@ def run_posix_channel_terminal_proxy(
                 compact_injection_options,
                 compact_poll_services,
                 input_ready=not dialog_open,
+                recovery_protected=pending_poll_state.inflight_message_id in pending_poll_state.inflight.recovery_protected,
             )
             pending_poll_state = poll_pending_channel_messages(
                 now,

@@ -23,7 +23,7 @@ function setup(on, extra = {}) {
   on('turn.start', (_, e) => ({ turnId: e.turnId }))
   on('turn.complete', (_, e) => ({ text: e.answer }))
   on('prompt.attachment', (_, e) => ({ text: e.text }))
-  on('prompt.submit', ($, e) => ({ text: e.text, context: e.context }))
+  on('prompt.submit', ($, e) => { s.prompts = (s.prompts || 0) + 1; return { text: e.text, context: e.context } })
   on('tool.check', (_, e) => { s.nativeChecks.push(e); return s.nativeVerdict })
   on('ui.render', ($, e) => { s.rendered = e; return s.nativeTree || { type: 'Text', props: {}, children: e.props.modes } })
   on('tool.call', ($, e) => {
@@ -278,7 +278,8 @@ const STOP = { hook_event_name: 'Stop', session_id: 'session-a', transcript_path
 function continuing(on, extra = {}) {
   const s = hints(on, { auto_continue: true, phase: 'executing', continuation: {
     actionable: 1, next: { id: 'leaf', title: 'Verify next' }, waiting: [] }, ...extra })
-  on('classic.Stop', () => ({}))
+  s.stopResult = {}
+  on('classic.Stop', () => s.stopResult)
   return s
 }
 test('normal Stop continues, unchanged plan is bounded, progress and user input reset it', async ($, on) => {
@@ -406,6 +407,239 @@ test('a Stop read superseded by a newer successful read is not reported as unava
 test('auto planning continues decomposition but never crosses an approval boundary', async ($, on) => {
   continuing(on, { phase: 'planning', approval: 'auto', ready: false })
   expect((await $.classic.Stop(STOP)).block).toContain('No new scope or approval boundary')
+})
+
+// Native lifecycle dispatches, not a synthetic prompt or Work mutation.
+const COMPACT = { trigger: 'auto', messages: [{ role: 'user', text: 'Owned compact fixture', toolUses: [] }] } as const
+function compactFixture(on, outcome = 'complete') {
+  let enter, release
+  const entered = new Promise(resolve => { enter = resolve })
+  const wait = new Promise(resolve => { release = resolve })
+  const calls = []
+  on('session.compact', async (_, e) => {
+    calls.push(e); enter()
+    await wait
+    if (outcome === 'fail') throw new Error('Owned compact failure')
+    return outcome === 'skip' ? { skip: 'Owned compact veto' }
+      : { messages: e.messages, tokensBefore: 950, tokensAfter: 100 }
+  })
+  return { entered, release, calls }
+}
+for (const extra of [{}, STALLED, { phase: 'planning', approval: 'ask', ready: true }]) {
+  test('main compact suppresses Stop decisions and reads ' + JSON.stringify(extra), async ($, on) => {
+    const s = continuing(on, extra); mock.clock(on)
+    const fixture = compactFixture(on)
+    const compact = $.session.compact(COMPACT)
+    await fixture.entered
+    const before = s.calls.length
+    try {
+      for (let i = 0; i < 4; i++) expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+      expect(s.calls.length).toBe(before)
+      expect(s.logs.length).toBe(0)
+      expect(s.toasts.length).toBe(0)
+    } finally { fixture.release() }
+    const result = await compact
+    expect(result.tokensAfter).toBe(100)
+    expect(result.messages[0].text).toBe('Owned compact fixture')
+    expect(s.tools.length).toBe(0)
+    expect(s.snapshot.phase).toBe(extra.phase || 'executing')
+    if (!extra.continuation && extra.approval !== 'ask') {
+      expect((await $.classic.Stop(STOP)).block).toContain('Verify next')
+      expect((await $.classic.Stop(STOP)).block).toContain('last continuation')
+      expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+    }
+  })
+}
+for (const outcome of ['complete', 'skip', 'fail']) {
+  test('main compact settlement resets no-progress without synthetic continuation: ' + outcome, async ($, on) => {
+    const s = continuing(on, { focus: { node_ids: ['leaf'], exhausted: false }, approval: 'ask' }); mock.clock(on)
+    const fixture = compactFixture(on, outcome)
+    expect((await $.classic.Stop(STOP)).block).toContain('Verify next')
+    expect((await $.classic.Stop(STOP)).block).toContain('last continuation')
+    expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+    const before = s.calls.length
+    const compact = $.session.compact(COMPACT).then(value => ({ value }), error => ({ error }))
+    await fixture.entered
+    try { expect((await $.classic.Stop(STOP)).block).toBeUndefined() }
+    finally { fixture.release() }
+    const result = await compact
+    if (outcome === 'skip') expect(result.value.skip).toBe('Owned compact veto')
+    if (outcome === 'fail') expect(Boolean(result.error)).toBe(true)
+    expect(s.calls.length).toBe(before)
+    expect(s.tools.length).toBe(0)
+    expect(s.prompts || 0).toBe(0)
+    expect(s.snapshot.focus.node_ids).toEqual(['leaf'])
+    expect(s.snapshot.approval).toBe('ask')
+    expect((await $.classic.Stop(STOP)).block).toContain('Verify next')
+    expect((await $.classic.Stop(STOP)).block).toContain('last continuation')
+    expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+  })
+}
+for (const extra of [{ agentId: 'child' }, { trigger: 'precompute' }]) {
+  test('child or precompute compact neither suppresses nor resets main Stop ' + JSON.stringify(extra), async ($, on) => {
+    const s = continuing(on); mock.clock(on)
+    const fixture = compactFixture(on)
+    expect((await $.classic.Stop(STOP)).block).toContain('Verify next')
+    const compact = $.session.compact({ ...COMPACT, ...extra })
+    await fixture.entered
+    try { expect((await $.classic.Stop(STOP)).block).toContain('last continuation') }
+    finally { fixture.release() }
+    await compact
+    expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+    expect(s.logs.at(-1)).toContain('plan did not change')
+    expect(fixture.calls[0].trigger).toBe(extra.trigger || 'auto')
+    expect(fixture.calls[0].agentId).toBe(extra.agentId)
+  })
+}
+
+for (const settledFirst of [false, true]) {
+  test('compact entering during Stop read invalidates late decision; settled first=' + settledFirst, async ($, on) => {
+    const s = continuing(on); mock.clock(on)
+    const fixture = compactFixture(on)
+    let release, entered
+    const readEntered = new Promise(resolve => { entered = resolve })
+    s.waitStatus = () => new Promise(resolve => { release = resolve; entered() })
+    const stop = $.classic.Stop(STOP)
+    await readEntered
+    const compact = $.session.compact(COMPACT)
+    await fixture.entered
+    if (settledFirst) { fixture.release(); await compact }
+    try {
+      release()
+      expect((await stop).block).toBeUndefined()
+      expect(s.logs.length).toBe(0)
+      expect(s.toasts.length).toBe(0)
+    } finally { fixture.release() }
+    await compact
+    s.waitStatus = null
+    expect((await $.classic.Stop(STOP)).block).toContain('Verify next')
+    expect((await $.classic.Stop(STOP)).block).toContain('last continuation')
+  })
+}
+for (const offline of [false, true]) {
+  test('compact invalidates an outstanding stalled or failed Stop read without logging; offline=' + offline, async ($, on) => {
+    const s = continuing(on, STALLED); const clock = mock.clock(on)
+    const fixture = compactFixture(on)
+    let release
+    s.waitStatus = () => new Promise(resolve => { release = resolve })
+    const stop = $.classic.Stop(STOP)
+    await clock.settle()
+    const compact = $.session.compact(COMPACT)
+    await fixture.entered
+    s.offline = offline
+    fixture.release(); await compact
+    release()
+    expect((await stop).block).toBeUndefined()
+    expect(s.logs.length).toBe(0)
+    expect(s.toasts.length).toBe(0)
+    s.waitStatus = null; s.offline = false
+    await $.classic.Stop(STOP)
+    expect(s.logs.at(-1)).toContain('none can run now')
+  })
+}
+test('session switch during Stop read cannot consume the new session continuation or version floor', async ($, on) => {
+  const s = continuing(on); const clock = mock.clock(on)
+  let release
+  s.snapshot.version = 100
+  s.waitStatus = () => new Promise(resolve => { release = resolve })
+  const stop = $.classic.Stop(STOP)
+  await clock.settle()
+  s.sessionId = 'session-b'; s.snapshot.version = 1; s.waitStatus = null
+  release()
+  expect((await stop).block).toBeUndefined()
+  expect(s.logs.length).toBe(0)
+  expect((await $.classic.Stop({ ...STOP, session_id: 'session-b' })).block).toContain('Verify next')
+  expect((await $.classic.Stop({ ...STOP, session_id: 'session-b' })).block).toContain('last continuation')
+})
+test('child and precompute entry during a Stop read do not invalidate it', async ($, on) => {
+  const s = continuing(on); const clock = mock.clock(on)
+  const fixture = compactFixture(on)
+  let release
+  s.waitStatus = () => new Promise(resolve => { release = resolve })
+  const stop = $.classic.Stop(STOP)
+  await clock.settle()
+  const child = $.session.compact({ ...COMPACT, agentId: 'child' })
+  await fixture.entered
+  const precompute = $.session.compact({ ...COMPACT, trigger: 'precompute' })
+  await clock.settle()
+  fixture.release(); await child; await precompute
+  release()
+  expect((await stop).block).toContain('Verify next')
+})
+for (const restart of [false, true]) {
+  test('old compact cannot suppress or reset a different session/lifecycle; restart=' + restart, async ($, on) => {
+    const s = continuing(on); mock.clock(on)
+    const fixture = compactFixture(on)
+    const compact = $.session.compact(COMPACT)
+    await fixture.entered
+    if (restart) {
+      await $.session.end({ reason: 'clear' })
+      await $.session.start({ surface: null, isInteractive: false, cwd: '/isolated' })
+    } else s.sessionId = 'session-b'
+    const event = { ...STOP, session_id: s.sessionId }
+    try {
+      expect((await $.classic.Stop(event)).block).toContain('Verify next')
+      expect((await $.classic.Stop(event)).block).toContain('last continuation')
+    } finally { fixture.release() }
+    await compact
+    expect((await $.classic.Stop(event)).block).toBeUndefined()
+    expect(s.logs.at(-1)).toContain('plan did not change')
+  })
+}
+test('overlapping main compacts wait for every settlement and preserve native Stop gates', async ($, on) => {
+  const s = continuing(on); const clock = mock.clock(on)
+  const releases = []
+  on('session.compact', async (_, e) => {
+    await new Promise(resolve => releases.push(resolve))
+    return { messages: e.messages }
+  })
+  const first = $.session.compact(COMPACT), second = $.session.compact({ ...COMPACT, trigger: 'manual' })
+  await clock.settle()
+  expect(releases.length).toBe(2)
+  releases[0](); await first
+  try {
+    expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+    expect(s.logs.length).toBe(0)
+    s.stopResult = { block: 'Native veto', preventContinuation: true }
+    expect(await $.classic.Stop(STOP)).toEqual({ block: 'Native veto', preventContinuation: true })
+  } finally { releases[1]() }
+  await second
+  expect(await $.classic.Stop(STOP)).toEqual({ block: 'Native veto', preventContinuation: true })
+})
+test('Stop status wall-clock deadline returns native result; late read cannot change Work state', async ($, on) => {
+  const s = continuing(on); const clock = mock.clock(on)
+  const prior = { stopReason: 'Native metadata stays intact' }
+  s.stopResult = prior
+  let release
+  s.snapshot.version = 100
+  s.waitStatus = () => new Promise(resolve => { release = resolve })
+  let settled = false
+  const stop = $.classic.Stop(STOP).then(value => { settled = true; return value })
+  await clock.settle()
+  expect(s.activeReads).toBe(1)
+  await new Promise(resolve => setTimeout(resolve, 100))
+  expect(settled).toBe(false)
+  const started = Date.now()
+  expect(await stop).toEqual(prior)
+  expect(Date.now() - started < 3000).toBe(true)
+  const before = s.logs.length
+  s.waitStatus = null; s.snapshot.version = 1
+  release(); await clock.settle()
+  expect(s.logs.length).toBe(before)
+  expect(s.toasts.length).toBe(0)
+  // A stale v100 must not set the gate floor or consume a continuation.
+  expect((await $.classic.Stop(STOP)).block).toContain('Verify next')
+  expect((await $.classic.Stop(STOP)).block).toContain('last continuation')
+  expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+})
+test('Stop read failure preserves native result and does not consume no-progress', async ($, on) => {
+  const s = continuing(on); mock.clock(on)
+  s.stopResult = { stopReason: 'Native metadata stays intact' }
+  s.offline = true
+  expect(await $.classic.Stop(STOP)).toEqual({ stopReason: 'Native metadata stays intact' })
+  s.offline = false
+  expect((await $.classic.Stop(STOP)).block).toContain('Verify next')
+  expect((await $.classic.Stop(STOP)).block).toContain('last continuation')
 })
 
 const BAND = { plugin: 'ciel-work', component: 'AbovePrompt', surface: 'terminal', viewport: { columns: 80, rows: 40 }, props: {

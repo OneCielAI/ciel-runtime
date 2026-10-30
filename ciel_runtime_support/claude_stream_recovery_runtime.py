@@ -376,6 +376,7 @@ class ClaudeStreamRecoveryMonitor:
 
     def reset(self) -> None:
         self._compact = CompactContinuationEvidence()
+        self._compact_bookkeeping: list[dict[str, Any]] = []
         self._assistant_ids: OrderedDict[str, str] = OrderedDict()
         self._last_prompt_recovery = False
         # Unknown until this attachment sees a permission-mode record; a
@@ -432,7 +433,7 @@ class ClaudeStreamRecoveryMonitor:
         self.log("INFO", f"claude_stream_recovery_skipped reason={reason} {subject}")
         self.ledger.note(pending["error_uuid"], "skipped", reason)
 
-    def _runtime_compact_owned(self, record: dict[str, Any]) -> bool:
+    def _runtime_compact_owned(self, record: dict[str, Any], *, pending: bool = False) -> bool:
         """Only confirmed automatic dispatch, never a transported manual command."""
         try:
             dispatch = self.compact_dispatch()
@@ -440,21 +441,53 @@ class ClaudeStreamRecoveryMonitor:
             if (scope is None or dispatch.get("scope") != scope.payload()
                     or dispatch.get("automatic") is not True
                     or dispatch.get("source") != "model-compact-safeguard"
-                    or dispatch.get("submission") != "submitted"):
+                    or (dispatch.get("submission") != "submitted"
+                        and not (pending and dispatch.get("submission") is None))):
                 return False
             from datetime import datetime
             at = datetime.fromisoformat(str(record.get("timestamp") or "").replace("Z", "+00:00")).timestamp()
             verified_at = dispatch.get("verified_at")
+            if pending and self.now() - float(dispatch.get("dispatched_at") or 0) > 1200:
+                return False
             return (record.get("sessionId") == scope.session_id
                     and (verified_at is None or at <= float(verified_at))
                     and 0 <= at - float(dispatch.get("dispatched_at") or 0) <= 1200)
         except (OSError, TypeError, ValueError, OverflowError):
             return False
 
+    def _drain_compact_bookkeeping(self) -> bool:
+        if not self._compact_bookkeeping:
+            return True
+        first = self._compact_bookkeeping[0]
+        if self._runtime_compact_owned(first, pending=True) and not self._runtime_compact_owned(first):
+            return False
+        records, self._compact_bookkeeping = self._compact_bookkeeping, []
+        for record in records:
+            self.observe(record)
+        return True
+
     def observe(self, record: dict[str, Any]) -> None:
         if record.get("isSidechain") is True:
             return
+        if self._compact_bookkeeping and not self._drain_compact_bookkeeping():
+            if len(self._compact_bookkeeping) < 16:
+                self._compact_bookkeeping.append(record)
+                return
+            # Bounded uncertainty withdraws authority; never assume submission.
+            self._compact_bookkeeping.clear()
+            self._compact.task_open = False
         kind = record.get("type")
+        message = record.get("message") if isinstance(record.get("message"), dict) else {}
+        text = _text(message.get("content"))
+        compact_echo = (kind == "system" and record.get("subtype") == "local_command"
+                        or kind == "user" and (text.strip() == "/compact" or "<command-name>/compact</command-name>" in text))
+        if (compact_echo and self._runtime_compact_owned(record, pending=True)
+                and not self._runtime_compact_owned(record)):
+            # write_prompt can confirm after the CLI already echoed its command.
+            # Delay classification, not authority: only confirmed dispatch can
+            # exempt this echo; failed/uncertain submission replays it normally.
+            self._compact_bookkeeping.append(record)
+            return
         if kind == "system" and record.get("subtype") == "compact_boundary":
             self._cancel("compaction")
             candidate = record
@@ -549,6 +582,8 @@ class ClaudeStreamRecoveryMonitor:
         }
 
     def tick(self) -> dict[str, Any] | None:
+        if not self._drain_compact_bookkeeping():
+            return None
         pending = self._pending
         if pending is None or self.now() - pending["seen_at"] < self.quiet_seconds:
             return None

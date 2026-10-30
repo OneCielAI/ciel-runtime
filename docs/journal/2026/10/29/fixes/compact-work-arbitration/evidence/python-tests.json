@@ -1,0 +1,16 @@
+{
+  "modules": [
+    "test_compact_stop_liveness",
+    "test_compact_failure_release",
+    "test_compact_idle_retry",
+    "test_channel_compact_poll",
+    "test_channel_compact_injection",
+    "test_channel_transcript",
+    "test_claude_compact_continuation",
+    "test_claude_stream_recovery_runtime",
+    "test_work_mcp_tools",
+    "test_architecture_budget"
+  ],
+  "tests": 152,
+  "success": true
+}

@@ -284,7 +284,7 @@ def _switch_work_mode(enabled: Any, load_config: Callable[[], dict[str, Any]],
 def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bool, *, auto_continue: bool = True, retention: dict[str, Any] | None = None) -> str:
     expected = _expected_version(args)
     if name == "work_status":
-        doc = store.read()
+        doc = store.read_snapshot()
         if args.get("root_id") is not None:
             root_id = str(args["root_id"])
             root = next((n for n in doc["nodes"] if n["id"] == root_id and n["parent_id"] is None), None)
