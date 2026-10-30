@@ -150,6 +150,12 @@ class CielAiRouterConfigurationPolicy(ProviderConfigurationPolicy):
         return select_launch_gateway(config, log=log)
 
 
+class CielAiRouterStatusPolicy(ProviderStatusPolicy):
+    @property
+    def probe_retry_timeout_seconds(self) -> float:
+        return 30.0
+
+
 class CielAiRouterPresentationPolicy(ProviderOptionPresentationPolicy):
     @property
     def show_gateway_selection(self) -> bool:
@@ -228,9 +234,8 @@ class CielAiRouterProviderAdapter(OpenAICompatibleProviderAdapter):
         # Authenticated catalog GETs took 15.9-25.4 s on 2026-10-27.
         # Keep the initial probe and allow one longer timeout-only retry.
         return replace(
-            super().status_policy(config),
+            CielAiRouterStatusPolicy(**vars(super().status_policy(config))),
             probe_timeout_seconds=10.0,
-            probe_retry_timeout_seconds=30.0,
         )
 
     def model_paths(self, config: ProviderConfig) -> tuple[str, ...]:

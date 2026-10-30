@@ -210,7 +210,9 @@ class ProviderStatusPolicy:
     unreachable_hint: str = "Set a reachable Base URL before launching Claude Code."
     readiness_validation: Literal["none", "lm_studio"] = "none"
     probe_timeout_seconds: float = 2.5
-    probe_retry_timeout_seconds: float = 0.0
+    @property
+    def probe_retry_timeout_seconds(self) -> float:
+        return 0.0
 
 
 @dataclass(frozen=True)

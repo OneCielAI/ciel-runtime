@@ -7,7 +7,7 @@ timestamp: 2026-10-29
 ---
 # Scope
 
-ProviderStatusPolicy gains probe_retry_timeout_seconds, default 0.0. Only CielAiRouter opts in at 30.0 seconds; its initial timeout stays 10.0 seconds. Both generic and catalog status GET probes use one second attempt only for TimeoutError or URLError whose immediate reason is TimeoutError. HTTP errors (including an HTTPError carrying TimeoutError as reason), authentication rejection, TLS, DNS, connection refusal, parsing and projection failures never trigger retry.
+ProviderStatusPolicy exposes a read-only probe_retry_timeout_seconds property, default 0.0, without adding dataclass dependency fields. Only CielAiRouter opts in at 30.0 seconds; its initial timeout stays 10.0 seconds. Both generic and catalog status GET probes use one second attempt only for TimeoutError or URLError whose immediate reason is TimeoutError. HTTP errors (including an HTTPError carrying TimeoutError as reason), authentication rejection, TLS, DNS, connection refusal, parsing and projection failures never trigger retry.
 
 # Fail closed
 
