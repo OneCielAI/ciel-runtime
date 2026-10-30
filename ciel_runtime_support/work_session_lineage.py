@@ -10,7 +10,7 @@ import time
 from typing import Any
 
 from .channel_message_repository import exclusive_file_lock
-from .claude_session_handoff import follow_parked_session, session_records, _live_key
+from .claude_session_handoff import session_records, _live_key, _cwd
 from .work_plan_tree import WorkPlanError
 
 WORK_PLAN_FILE_NAME = "work-plan.json"
@@ -70,15 +70,27 @@ def _parent(identity: str) -> str | None:
             continue
         if not _live_key(directory, row):
             continue
-        handoff = follow_parked_session(directory, row, records)
-        if not handoff.pending and handoff.record.get("sessionId") == child["sessionId"]:
+        job = row.get("parkedJobId")
+        candidates = [item for item in records if item.get("kind") == "bg" and item.get("jobId") == job]
+        try:
+            valid = (len(candidates) == 1 and candidates[0] == child
+                     and job in (child["sessionId"], child["sessionId"][:8])
+                     and _cwd(row.get("cwd")) and _cwd(child.get("cwd")) == _cwd(row.get("cwd"))
+                     and row.get("pidDomain") and child.get("pidDomain") == row.get("pidDomain")
+                     and float(child.get("startedAt") or 0) >= float(row.get("startedAt") or 0))
+        except (ValueError, TypeError, OverflowError):
+            valid = False
+        if valid:
             parents.append("claude:" + row["sessionId"])
     if len(set(parents)) > 1:
         raise WorkPlanError("Work continuation has multiple native parents; explicit recovery required")
     return parents[0] if parents else None
 
 
-def resolve_work_path(root: Path, identity: str, store_factory: Any) -> Path:
+def resolve_work_path(root: Path, identity: str, store_factory: Any,
+                      ancestors: tuple[str, ...] = ()) -> Path:
+    if identity in ancestors or len(ancestors) >= 8:
+        raise WorkPlanError("Work native continuation cycle or chain limit")
     canonical = _canonical(root, identity)
     if canonical != identity:
         path = _path(root, canonical)
@@ -88,12 +100,13 @@ def resolve_work_path(root: Path, identity: str, store_factory: Any) -> Path:
     parent = _parent(identity)
     if not parent:
         return _path(root, identity)
+    source = resolve_work_path(root, parent, store_factory, (*ancestors, identity))
     parent = _canonical(root, parent)
-    source, target = _path(root, parent), _path(root, identity)
+    target = _path(root, identity)
     if not source.is_file():
         return target
     source_doc = store_factory(source).read_snapshot()
-    if not source_doc["nodes"]:
+    if not source_doc["nodes"] and not source_doc["version"]:
         return target
     if target.exists():
         # A split board may already contain newer work; never guess a merge.

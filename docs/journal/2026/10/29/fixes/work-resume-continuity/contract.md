@@ -16,3 +16,7 @@ timestamp: 2026-10-30
 # Boundary
 
 The observed explicit current Walkie parked edge proves this is a real split mode, but this change is not accepted or deployed until isolated tests and restart/resume E2E pass.
+
+# Review boundary corrections
+
+Immediate edges are authenticated independently; recursive resolution reaches the original board even when intermediate native sessions never read Work. At most8nativeedgesand8persistedaliases;cyclesfailclosed. Savedemptyboardswithnonzero-versionarepreserved. Intermediate splitboardsorjobambiguityremainerrors/isolation,notlatestselection.

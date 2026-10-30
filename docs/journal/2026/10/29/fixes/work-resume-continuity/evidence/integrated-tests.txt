@@ -2,9 +2,13 @@ test_alias_cycle_and_invalid_target_fail_closed (test_work_session_lineage.WorkL
 test_ambiguous_parent_is_error (test_work_session_lineage.WorkLineageTests.test_ambiguous_parent_is_error) ... ok
 test_corrupt_alias_and_missing_source_fail_closed (test_work_session_lineage.WorkLineageTests.test_corrupt_alias_and_missing_source_fail_closed) ... ok
 test_cross_process_resume_uses_persisted_canonical_mapping (test_work_session_lineage.WorkLineageTests.test_cross_process_resume_uses_persisted_canonical_mapping) ... ok
+test_duplicate_immediate_job_does_not_choose_latest (test_work_session_lineage.WorkLineageTests.test_duplicate_immediate_job_does_not_choose_latest) ... ok
+test_empty_saved_board_preserves_version_and_shared_mutation (test_work_session_lineage.WorkLineageTests.test_empty_saved_board_preserves_version_and_shared_mutation) ... ok
 test_exact_handoff_keeps_path_version_and_mutations (test_work_session_lineage.WorkLineageTests.test_exact_handoff_keeps_path_version_and_mutations) ... ok
+test_first_access_on_grandchild_recovers_original_board (test_work_session_lineage.WorkLineageTests.test_first_access_on_grandchild_recovers_original_board) ... ok
 test_mapping_survives_restart_without_native_records (test_work_session_lineage.WorkLineageTests.test_mapping_survives_restart_without_native_records) ... ok
 test_mismatched_cwd_domain_job_and_dead_identity_never_link (test_work_session_lineage.WorkLineageTests.test_mismatched_cwd_domain_job_and_dead_identity_never_link) ... ok
+test_multihop_intermediate_split_board_is_preserved (test_work_session_lineage.WorkLineageTests.test_multihop_intermediate_split_board_is_preserved) ... ok
 test_observers_can_read_and_mutate_same_lineage_without_deadlock (test_work_session_lineage.WorkLineageTests.test_observers_can_read_and_mutate_same_lineage_without_deadlock) ... ok
 test_old_handle_follows_mapping_after_native_records_disappear (test_work_session_lineage.WorkLineageTests.test_old_handle_follows_mapping_after_native_records_disappear) ... ok
 test_ordinary_and_linked_snapshot_reads_do_not_take_store_lock (test_work_session_lineage.WorkLineageTests.test_ordinary_and_linked_snapshot_reads_do_not_take_store_lock) ... ok
@@ -95,6 +99,6 @@ test_released_gate_keeps_wake_ownership_but_does_not_starve_commands (test_compa
 test_mcp_status_uses_readonly_snapshot_without_exclusive_lock (test_compact_stop_liveness.WorkSnapshotReadTests.test_mcp_status_uses_readonly_snapshot_without_exclusive_lock) ... ok
 
 ----------------------------------------------------------------------
-Ran 95 tests in 22.221s
+Ran 99 tests in 21.561s
 
 OK

@@ -1,5 +1,5 @@
 {
-  "tests": 95,
+  "tests": 99,
   "success": true,
   "modules": [
     "test_work_session_lineage",

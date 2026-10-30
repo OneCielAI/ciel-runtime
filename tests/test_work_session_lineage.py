@@ -48,6 +48,51 @@ class WorkLineageTests(unittest.TestCase):
         self.assertEqual(2, self.source.read_snapshot()["version"])
         self.assertEqual(2, len(self.source.read_snapshot()["nodes"]))
 
+    def test_first_access_on_grandchild_recovers_original_board(self):
+        self.record(102, "12345678-child", kind="bg", jobId="12345678", parkedJobId="87654321")
+        self.record(103, "87654321-grandchild", kind="bg", jobId="87654321")
+        grandchild = session_work_plan_store(self.root, "claude:87654321-grandchild")
+        expected = self.source.read_snapshot()
+        self.assertEqual(expected, grandchild.read_snapshot())
+        self.assertEqual(self.source.path, grandchild.path)
+        self.assertFalse(_path(self.root, self.child).exists())
+        self.assertFalse(_path(self.root, "claude:87654321-grandchild").exists())
+        for path in self.directory.iterdir():
+            path.unlink()
+        grandchild.transaction(lambda doc: add_node(doc, None, "after two handoffs"), expected_version=1)
+        self.assertEqual(2, self.source.read_snapshot()["version"])
+
+    def test_empty_saved_board_preserves_version_and_shared_mutation(self):
+        from ciel_runtime_support.work_plan_tree import remove_node
+        self.source.transaction(lambda doc: remove_node(doc, "n1"))
+        expected = self.source.read_snapshot()
+        self.assertEqual([], expected["nodes"])
+        self.assertEqual(2, expected["version"])
+        child = session_work_plan_store(self.root, self.child)
+        self.assertEqual(expected, child.read_snapshot())
+        self.assertEqual(self.source.path, child.path)
+        for path in self.directory.iterdir():
+            path.unlink()
+        child.transaction(lambda doc: add_node(doc, None, "new continued work"), expected_version=2)
+        self.assertEqual(3, self.source.read_snapshot()["version"])
+        self.assertFalse(_path(self.root, self.child).exists())
+
+    def test_multihop_intermediate_split_board_is_preserved(self):
+        self.record(102, "12345678-child", kind="bg", jobId="12345678", parkedJobId="87654321")
+        self.record(103, "87654321-grandchild", kind="bg", jobId="87654321")
+        intermediate = _path(self.root, self.child)
+        WorkPlanStore(intermediate).transaction(lambda doc: add_node(doc, None, "split intermediate"))
+        before = intermediate.read_bytes()
+        with self.assertRaisesRegex(WorkPlanError, "two saved boards"):
+            session_work_plan_store(self.root, "claude:87654321-grandchild").read_snapshot()
+        self.assertEqual(before, intermediate.read_bytes())
+        self.assertFalse(_path(self.root, "claude:87654321-grandchild").with_name("work-lineage.json").exists())
+
+    def test_duplicate_immediate_job_does_not_choose_latest(self):
+        self.record(103, "12345678-duplicate", kind="bg", jobId="12345678")
+        self.assertEqual([], session_work_plan_store(self.root, self.child).read_snapshot()["nodes"])
+        self.assertFalse(_path(self.root, self.child).with_name("work-lineage.json").exists())
+
     def test_mapping_survives_restart_without_native_records(self):
         expected = session_work_plan_store(self.root, self.child).read_snapshot()
         for path in self.directory.iterdir():

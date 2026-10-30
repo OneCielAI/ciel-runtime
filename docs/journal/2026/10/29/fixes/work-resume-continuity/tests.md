@@ -38,3 +38,7 @@ Native restart→same-session resume board preservation was observed in two owne
 # Actual native handoff acceptance
 
 Fresh owned interactiveCLIstartedarealturn,parkedintoanewnativebgidentity,returnedwithEscanddisplayedthesamePRESERVED-STEPboard. HTTPreadsofparentandchildhadsamenodeIDs/version;childmutationwasvisiblefromparent;unrelatedidentityremainedempty.0foregroundhits/824samples;livehealthunchanged. [Result](evidence/native-handoff-visible/result.json), [continued Work screenshot](evidence/native-handoff-visible/03-native-handoff-board-preserved.png). Same-IDnative restart observed separately; donotattributeitschecktothefreshhandoffrun.
+
+# Reviewer regression evidence
+
+Before correction, the two new A→B→C and empty-nonzero-version cases failed in the97casefocusedrun. Failure output is retained underreleaseevidence/review-repro-integrated-tests.*. Immediateedgevalidation+recursivecanonicalresolutioncorrectbothwithoutrelaxingPID/key/cwd/domainmatching. Addedintermediatesplitboardandduplicatejobnegatives.
