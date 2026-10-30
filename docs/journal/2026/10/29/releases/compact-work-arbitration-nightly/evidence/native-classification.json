@@ -26,5 +26,7 @@
     "(pass) overlapping main compacts wait for every settlement and preserve native Stop gates [32.04ms]",
     "(pass) Stop status wall-clock deadline returns native result; late read cannot change Work state [2029.45ms]",
     "(pass) Stop read failure preserves native result and does not consume no-progress [29.89ms]"
-  ]
+  ],
+  "baseline_verified_against": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-a54d98eea0fcfd5c46ee5f0d2cbb2bb84b654154\\ciel_runtime_support\\claude_mods\\ciel-work",
+  "baseline_failure_names_match": true
 }
