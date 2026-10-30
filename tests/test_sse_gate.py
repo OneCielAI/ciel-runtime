@@ -39,6 +39,18 @@ class SseGateTests(unittest.TestCase):
         self.assertTrue(enabled(config))
         self.assertEqual(2, len(saves))
 
+    def test_command_distinguishes_policy_from_actual_admission(self):
+        for mode in (True, False):
+            for state, phrase in [("held", "HELD by this gate"), ("open", "not held by this gate"),
+                                  ("bypassed", "compact hold bypassed"), ("unknown", "UNKNOWN")]:
+                config = {"sse_gate_enabled": mode}
+                lines = command("status", lambda: config, lambda _: self.fail("status mutated config"),
+                                lambda: {"state": state, "reason": "identity_pending" if state == "held" else ""})
+                self.assertIn(phrase, " ".join(lines))
+                self.assertIn("not whether SSE reception is enabled", " ".join(lines))
+                if state == "held":
+                    self.assertIn("identity_pending", lines[0])
+
     def test_shortcut_intercepts_without_api_or_upstream(self):
         fixture = shortcuts.RouterShortcutControllerTests()
         controller = fixture.controller()

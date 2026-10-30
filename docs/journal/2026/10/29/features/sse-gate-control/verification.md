@@ -19,3 +19,7 @@ timestamp: 2026-10-29
 # Boundary
 
 This is source verification, not npm/install proof. Parent release task owns commit, CI/npm identity, installed snapshot validation and local switch. No live process restart or managed-host write was performed.
+
+# Clarified command semantics
+
+The local CLI proof harness was corrected to match the rendered command prompt rather than count viewport rows; the first run's failure was harness-only after the `on` response rendered, not a product failure. Focused source run118/118pass; exact result retained under the SAMA diagnostic evidence.

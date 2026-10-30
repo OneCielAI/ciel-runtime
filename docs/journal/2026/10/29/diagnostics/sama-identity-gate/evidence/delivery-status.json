@@ -1,0 +1,33 @@
+{
+  "state": "not_blocked",
+  "reason": "",
+  "scope": "private_runtime_inputs",
+  "blocker_scope": null,
+  "admission_blocked": false,
+  "launcher_hold_observed": false,
+  "line_number": null,
+  "snapshot_consistent": true,
+  "known_queued_count": 1,
+  "queue_age_coverage": "complete",
+  "queued_coverage": "complete",
+  "retrying_count": 0,
+  "retry_exhausted_count": 0,
+  "launch_expired_count": 29,
+  "last_failure": {
+    "request_id": 61,
+    "reason": "stale_unconfirmed",
+    "at_epoch": 1793319067.7688932
+  },
+  "reused_id_count": 0,
+  "reused_id_newest": null,
+  "history": {
+    "complete": true,
+    "coverage": "complete",
+    "scanned_bytes": 67871,
+    "failure_count": 0,
+    "recovered_count": 0,
+    "diagnostics": [],
+    "diagnostics_truncated": false
+  },
+  "oldest_queued_age_seconds": 1689.791740655899
+}

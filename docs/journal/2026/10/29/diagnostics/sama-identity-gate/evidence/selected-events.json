@@ -1,0 +1,29 @@
+[
+  {
+    "id": 9,
+    "time": "2026-10-29T21:51:08-05:00",
+    "ts": 1793328668.2724135,
+    "category": "runtime_input.status",
+    "request_id": "96",
+    "message": "runtime input queued",
+    "data": {
+      "request_id": 96,
+      "status": "queued",
+      "updated_at": "2026-10-29T21:51:08-05:00",
+      "updated_at_epoch": 1793328668.2713995,
+      "data": {
+        "channel": "external:default",
+        "input_transport": "session_socket"
+      }
+    }
+  },
+  {
+    "id": 27,
+    "time": "2026-10-29T21:58:16-05:00",
+    "ts": 1793329096.8138103,
+    "category": "api_keys.short_circuit",
+    "request_id": "76448-1793329096653840100",
+    "message": "live API key request handled locally",
+    "data": {}
+  }
+]

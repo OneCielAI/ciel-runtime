@@ -1,0 +1,18 @@
+{
+  "scope": "owned synthetic fixture, not grant incident evidence",
+  "one_candidate": {
+    "enabled": true,
+    "paused": false,
+    "state": "open",
+    "reason": "",
+    "updated_at": 1793330574.3540003
+  },
+  "two_candidates": {
+    "enabled": true,
+    "paused": true,
+    "state": "held",
+    "reason": "native_handoff_pending",
+    "updated_at": 1793330574.3700356
+  },
+  "limits": "Current fixture uses synthetic PIDs, so stale/dead process discriminator is not proven here; unknown identity must remain held."
+}

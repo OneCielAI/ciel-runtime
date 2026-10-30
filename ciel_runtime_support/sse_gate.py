@@ -46,7 +46,14 @@ def command(value: str, load, save, status) -> list[str]:
     mode = "on" if enabled(config) else "off"
     effective = state.get("state") or "unknown"
     reason = state.get("reason") or "none"
+    admission = {
+        "held": "External-message injection: HELD by this gate; messages are not discarded.",
+        "open": "External-message injection: not held by this gate; other delivery checks still apply.",
+        "bypassed": "External-message injection: compact hold bypassed; other delivery checks still apply.",
+    }.get(effective, "External-message injection: UNKNOWN; no release is confirmed.")
     return [f"SSE gate {mode}; {effective} ({reason}).",
+            "On/off controls the compact guard policy, not whether SSE reception is enabled.",
+            admission,
             "Off bypasses compact recovery admission only. Identity, handoff, unreadable state, "
             "delivery ownership and uncertain-write protections remain active. "
             "No queue, cursor or compact evidence is cleared."]

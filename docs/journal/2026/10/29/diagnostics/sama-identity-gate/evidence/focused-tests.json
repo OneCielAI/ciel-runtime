@@ -1,0 +1,15 @@
+{
+  "tests": 118,
+  "success": true,
+  "modules": [
+    "test_sse_gate",
+    "test_router_shortcuts",
+    "test_runtime_compaction_binding",
+    "test_runtime_compaction_identity",
+    "test_runtime_compaction_checkpoint_evidence",
+    "test_compact_stop_liveness",
+    "test_provider_option_panel",
+    "test_work_mode_option",
+    "test_statusline"
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "8872": {
+    "pid": 76448,
+    "version": "0.2.51-nightly.20261030-015514.9077265",
+    "workspace": "e:\\aap\\u22\\home\\ganti-ai",
+    "config_dir": "C:\\Users\\aapw-a20u22\\AppData\\Roaming\\ciel-runtime\\router-instances\\8872-6297d97234a2",
+    "instance_id": "8872-6297d97234a2",
+    "source_fingerprint": "18ae26315398c56f"
+  },
+  "9505": {
+    "pid": 68964,
+    "version": "0.2.51-nightly.20261030-015514.9077265",
+    "workspace": "g:\\ciel-walkie",
+    "config_dir": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9505-aae7db361c7f",
+    "instance_id": "9505-aae7db361c7f",
+    "source_fingerprint": "18ae26315398c56f"
+  },
+  "9524": {
+    "pid": 18536,
+    "version": "0.2.51-nightly.20261028-023853.679245f",
+    "workspace": "c:\\users\\djlov\\ciel-runtime",
+    "config_dir": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9524-bd5f642b3583",
+    "instance_id": "9524-bd5f642b3583",
+    "source_fingerprint": "122e12595997f09d"
+  },
+  "9385": {
+    "pid": 89420,
+    "version": "0.2.51-nightly.20261029-150640.e3cb9a1",
+    "workspace": "g:\\ciel-bridge-service",
+    "config_dir": "G:\\ciel-bridge-service\\AppData\\Roaming\\ciel-runtime\\router-instances\\9385-52ea0f8a2296",
+    "instance_id": "9385-52ea0f8a2296",
+    "source_fingerprint": "122e12595997f09d"
+  }
+}

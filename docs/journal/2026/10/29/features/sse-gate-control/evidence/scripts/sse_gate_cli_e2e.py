@@ -414,11 +414,10 @@ try:
     shot("01-gate-default-on")
     request_count = len(REQS)
     for value in ("off", "status", "on"):
-        before_commands = screen().count("❯ /sse-gate")
         (RUN / "input.txt").write_text("/sse-gate " + value, encoding="utf-8")
         wait(lambda: not (RUN / "input.txt").exists(), 20, "typed gate " + value)
         mode = "off" if value == "status" else value
-        wait(lambda: screen().count("❯ /sse-gate") > before_commands and "SSE gate " + mode + ";" in screen().rsplit("❯ /sse-gate", 1)[-1], 50, "local gate response " + mode)
+        wait(lambda: "❯ /sse-gate " + value in screen() and "SSE gate " + mode + ";" in screen().rsplit("❯ /sse-gate " + value, 1)[-1], 50, "local gate response " + mode)
         wait(lambda: "SSE gate " + mode + ":" in screen(), 20, "live statusline mode " + mode)
         time.sleep(2)
         shot("gate-" + value)
