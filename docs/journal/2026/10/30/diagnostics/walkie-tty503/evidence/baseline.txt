@@ -1,0 +1,55 @@
+test_terminal_tty_record_does_not_block_later_router_wake (test_channel_llm_context.ChannelLlmContextTests.test_terminal_tty_record_does_not_block_later_router_wake) ... 
+  test_terminal_tty_record_does_not_block_later_router_wake (test_channel_llm_context.ChannelLlmContextTests.test_terminal_tty_record_does_not_block_later_router_wake) (status='failed') ... FAIL
+  test_terminal_tty_record_does_not_block_later_router_wake (test_channel_llm_context.ChannelLlmContextTests.test_terminal_tty_record_does_not_block_later_router_wake) (status='skipped') ... FAIL
+  test_terminal_tty_record_does_not_block_later_router_wake (test_channel_llm_context.ChannelLlmContextTests.test_terminal_tty_record_does_not_block_later_router_wake) (status='replied') ... FAIL
+  test_terminal_tty_record_does_not_block_later_router_wake (test_channel_llm_context.ChannelLlmContextTests.test_terminal_tty_record_does_not_block_later_router_wake) (status='interrupted_uncertain') ... FAIL
+test_terminal_named_wake_never_replays_its_body (test_channel_llm_context.ChannelLlmContextTests.test_terminal_named_wake_never_replays_its_body) ... ok
+
+======================================================================
+FAIL: test_terminal_tty_record_does_not_block_later_router_wake (test_channel_llm_context.ChannelLlmContextTests.test_terminal_tty_record_does_not_block_later_router_wake) (status='failed')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work\tests\test_channel_llm_context.py", line 142, in test_terminal_tty_record_does_not_block_later_router_wake
+    self.assertEqual("stdin_wake_terminal_" + status, reason)
+AssertionError: 'stdin_wake_terminal_failed' != ''
+- stdin_wake_terminal_failed
++ 
+
+
+======================================================================
+FAIL: test_terminal_tty_record_does_not_block_later_router_wake (test_channel_llm_context.ChannelLlmContextTests.test_terminal_tty_record_does_not_block_later_router_wake) (status='skipped')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work\tests\test_channel_llm_context.py", line 142, in test_terminal_tty_record_does_not_block_later_router_wake
+    self.assertEqual("stdin_wake_terminal_" + status, reason)
+AssertionError: 'stdin_wake_terminal_skipped' != ''
+- stdin_wake_terminal_skipped
++ 
+
+
+======================================================================
+FAIL: test_terminal_tty_record_does_not_block_later_router_wake (test_channel_llm_context.ChannelLlmContextTests.test_terminal_tty_record_does_not_block_later_router_wake) (status='replied')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work\tests\test_channel_llm_context.py", line 142, in test_terminal_tty_record_does_not_block_later_router_wake
+    self.assertEqual("stdin_wake_terminal_" + status, reason)
+AssertionError: 'stdin_wake_terminal_replied' != ''
+- stdin_wake_terminal_replied
++ 
+
+
+======================================================================
+FAIL: test_terminal_tty_record_does_not_block_later_router_wake (test_channel_llm_context.ChannelLlmContextTests.test_terminal_tty_record_does_not_block_later_router_wake) (status='interrupted_uncertain')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work\tests\test_channel_llm_context.py", line 142, in test_terminal_tty_record_does_not_block_later_router_wake
+    self.assertEqual("stdin_wake_terminal_" + status, reason)
+AssertionError: 'stdin_wake_terminal_interrupted_uncertain' != ''
+- stdin_wake_terminal_interrupted_uncertain
++ 
+
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.043s
+
+FAILED (failures=4)

@@ -249,6 +249,10 @@ class ChannelWakeContext:
             )
 
     def stdin_skip_reason(self, message_id: int) -> str:
+        status = self.pending_delivery.lifecycle.admission_status(message_id)
+        if status in {"failed", "skipped", "replied", "interrupted_uncertain"}:
+            # Terminal input cannot be replayed and no longer owns FIFO admission.
+            return "stdin_wake_terminal_" + status
         if self.claims.delivery.is_delivered(message_id):
             return "stdin_wake_delivered"
         return (

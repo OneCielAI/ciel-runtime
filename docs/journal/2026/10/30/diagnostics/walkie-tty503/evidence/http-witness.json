@@ -1,0 +1,17 @@
+{
+  "http_status": 200,
+  "injected_ids": "15919",
+  "failed_status_preserved": true,
+  "durable_status_unchanged": true,
+  "failed_body_not_replayed": true,
+  "logs": [
+    [
+      "INFO",
+      "channel_llm_inject_skipped message_id=15918 channel=None reason=stdin_wake_terminal_failed"
+    ],
+    [
+      "INFO",
+      "channel_llm_injected count=1 message_ids=15919 channels=default"
+    ]
+  ]
+}

@@ -126,6 +126,61 @@ class ChannelLlmContextTests(unittest.TestCase):
         self.assertEqual([], self.committed)
         self.assertTrue(any("reason=input_transport_tty" in message for _level, message in self.logs))
 
+    def test_terminal_tty_record_does_not_block_later_router_wake(self):
+        from types import SimpleNamespace
+        from ciel_runtime_support.channel_wake_context import ChannelWakeContext
+
+        for status in ("failed", "skipped", "replied", "interrupted_uncertain"):
+            with self.subTest(status=status):
+                lifecycle = SimpleNamespace(admission_status=lambda _id: status)
+                context = SimpleNamespace(
+                    claims=SimpleNamespace(delivery=SimpleNamespace(is_delivered=lambda _id: False)),
+                    pending_delivery=SimpleNamespace(lifecycle=lifecycle),
+                    transcript_policy=SimpleNamespace(claim_prompt=lambda _id: ""),
+                )
+                reason = ChannelWakeContext.stdin_skip_reason(context, 11)
+                self.assertEqual("stdin_wake_terminal_" + status, reason)
+                messages = [
+                    {"id": 11, "message": "terminal", "meta": {"input_transport": "tty"}},
+                    {"id": 12, "message": "new", "meta": {"input_transport": "router"}},
+                ]
+                services = self.services(messages, wake=True, wake_ids={12})
+                services = dataclasses.replace(services, policy=dataclasses.replace(
+                    services.policy, stdin_skip_reason=lambda mid: reason if mid == 11 else ""))
+                out = inject_pending_channel_context({"messages": []}, services)
+                self.assertEqual("channel:new", out["messages"][-1]["content"][0]["text"])
+                self.assertEqual("12", out["metadata"]["ciel_runtime_channel_message_ids"])
+
+    def test_nonterminal_tty_ownership_stays_held(self):
+        from types import SimpleNamespace
+        from ciel_runtime_support.channel_wake_context import ChannelWakeContext
+
+        for status in ("queued", "submitted", ""):
+            with self.subTest(status=status):
+                context = SimpleNamespace(
+                    claims=SimpleNamespace(delivery=SimpleNamespace(is_delivered=lambda _id: False)),
+                    pending_delivery=SimpleNamespace(lifecycle=SimpleNamespace(admission_status=lambda _id: status)),
+                    transcript_policy=SimpleNamespace(claim_prompt=lambda _id: ""),
+                )
+                reason = ChannelWakeContext.stdin_skip_reason(context, 11)
+                self.assertEqual("", reason)
+                services = self.services([
+                    {"id": 11, "message": "still owned", "meta": {"input_transport": "tty"}},
+                    {"id": 12, "message": "later", "meta": {"input_transport": "router"}},
+                ], wake=True, wake_ids={12}, stdin_reason=reason)
+                with self.assertRaises(ChannelLlmInjectionDeferred):
+                    inject_pending_channel_context({"messages": []}, services)
+                self.assertEqual([], self.committed)
+
+    def test_terminal_named_wake_never_replays_its_body(self):
+        services = self.services([
+            {"id": 12, "message": "failed body", "meta": {"input_transport": "session_socket"}},
+        ], wake=True, wake_ids={12}, stdin_reason="stdin_wake_terminal_failed")
+        out = inject_pending_channel_context({"messages": []}, services)
+        self.assertNotIn("metadata", out)
+        self.assertEqual([12], self.committed)
+        self.assertTrue(out["wake_removed"])
+
     def test_wake_block_naming_a_session_socket_message_carries_its_body(self):
         # Codex has no session socket; the terminal side typed the wake block
         # for this id (e2e 2026-10-03: the router answered 503 instead).

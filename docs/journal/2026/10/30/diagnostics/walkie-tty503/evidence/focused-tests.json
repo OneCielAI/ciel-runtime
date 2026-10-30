@@ -1,0 +1,11 @@
+{
+  "tests": 99,
+  "success": true,
+  "modules": [
+    "test_channel_llm_context",
+    "test_channel_wake_delivery_repository",
+    "test_channel_pending_injection",
+    "test_channel_wake_claim_repository",
+    "test_runtime_input_status"
+  ]
+}
