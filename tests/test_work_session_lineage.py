@@ -114,7 +114,8 @@ class WorkLineageTests(unittest.TestCase):
                 "from ciel_runtime_support.work_plan_store import session_work_plan_store;"
                 "print(json.dumps(session_work_plan_store(Path(sys.argv[2]),sys.argv[3]).read_snapshot()))")
         result = subprocess.run([sys.executable, "-I", "-c", code,
-            str(Path(__file__).resolve().parents[1]), str(self.root), self.child],
+            str(Path(__import__("ciel_runtime_support.work_plan_store", fromlist=["__file__"]).__file__).resolve().parents[1]),
+            str(self.root), self.child],
             capture_output=True, text=True, timeout=20)
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertEqual(expected, json.loads(result.stdout))
