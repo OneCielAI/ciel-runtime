@@ -1,0 +1,14 @@
+test_stale_request_cannot_prove_retargeted_session (test_runtime_compaction_readiness.PublishedReadinessTests.test_stale_request_cannot_prove_retargeted_session) ... FAIL
+
+======================================================================
+FAIL: test_stale_request_cannot_prove_retargeted_session (test_runtime_compaction_readiness.PublishedReadinessTests.test_stale_request_cannot_prove_retargeted_session)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime-wt-work\tests\test_runtime_compaction_readiness.py", line 132, in test_stale_request_cannot_prove_retargeted_session
+    self.assertFalse(value.get("request_observed", False))
+AssertionError: True is not false
+
+----------------------------------------------------------------------
+Ran 1 test in 0.076s
+
+FAILED (failures=1)

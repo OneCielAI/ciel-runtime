@@ -1,0 +1,14 @@
+{
+  "tests": 165,
+  "success": true,
+  "modules": [
+    "test_runtime_compaction_binding",
+    "test_runtime_compaction_identity",
+    "test_runtime_compaction_readiness",
+    "test_runtime_compaction_control",
+    "test_sse_gate",
+    "test_claude_session_handoff",
+    "test_external_event_receiver",
+    "test_runtime_sse_recovery"
+  ]
+}

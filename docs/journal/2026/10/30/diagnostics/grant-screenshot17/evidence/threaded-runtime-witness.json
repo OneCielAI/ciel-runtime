@@ -1,0 +1,48 @@
+{
+  "scenario": "real-thread delayed A request vs same-epoch B retarget; isolated runtime files",
+  "before_stale_completion": {
+    "enabled": true,
+    "paused": true,
+    "state": "held",
+    "reason": "identity_pending",
+    "updated_at": 1793343966.9837146
+  },
+  "after_stale_completion": {
+    "enabled": true,
+    "paused": true,
+    "state": "held",
+    "reason": "identity_pending",
+    "updated_at": 1793343966.9912615
+  },
+  "successor_request": {
+    "enabled": true,
+    "paused": false,
+    "state": "open",
+    "reason": "",
+    "updated_at": 1793343967.006875
+  },
+  "checks": {
+    "same_epoch": true,
+    "stale_request_did_not_prove_successor": true,
+    "held_until_exact_successor_request": true,
+    "exact_successor_request_opens": true
+  },
+  "logs": [
+    [
+      "INFO",
+      "runtime_compaction_scope_bound runtime=claude session=exact via=socket"
+    ],
+    [
+      "INFO",
+      "runtime_compaction_scope admission=paused reason=request_identity_pending runtime=claude"
+    ],
+    [
+      "INFO",
+      "runtime_compaction_scope_bound runtime=claude session=successor via=socket"
+    ],
+    [
+      "INFO",
+      "runtime_compaction_scope admission=paused reason=request_identity_pending runtime=claude"
+    ]
+  ]
+}

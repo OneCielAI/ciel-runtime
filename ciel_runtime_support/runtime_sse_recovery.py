@@ -7,6 +7,7 @@ Durable cooldown reservations bound attempts when restart is uncertain.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import os
@@ -245,6 +246,52 @@ def recover_sse_delivery(args: Mapping[str, Any], *, delivery_health: Callable[[
                 "reason": f"recovery_state_unavailable:{type(exc).__name__}"}
 
 
+def _admission_diagnostics(root: Path) -> dict[str, Any]:
+    """Observe persisted identity/gate evidence without changing launch state."""
+    result: dict[str, Any] = {}
+    now = time.time()
+    for name, filename in (("identity", "compaction-scope.json"), ("gate_snapshot", "sse-gate-status.json")):
+        try:
+            with (root / filename).open("rb") as stream:
+                raw = stream.read(64 * 1024 + 1)
+            if len(raw) > 64 * 1024:
+                raise ValueError("diagnostic state exceeds limit")
+            value = json.loads(raw)
+            if not isinstance(value, dict):
+                raise ValueError("diagnostic state is not an object")
+        except FileNotFoundError:
+            result[name] = {"observable": False, "reason": "missing"}
+            continue
+        except (OSError, ValueError, TypeError, UnicodeError):
+            result[name] = {"observable": False, "reason": "unreadable"}
+            continue
+        observed: dict[str, Any] = {"observable": True}
+        if name == "identity":
+            for key in ("epoch", "session_id"):
+                token = value.get(key)
+                observed[key + "_sha256"] = hashlib.sha256(token.encode()).hexdigest() if isinstance(token, str) and token else None
+            for key in ("request_observed", "handoff_pending"):
+                observed[key] = value.get(key) is True
+            observed["identity_ready"] = bool(value.get("identity_ready"))
+            observed["socket_declared"] = bool(value.get("messaging_socket_path"))
+            stamp = _number(value.get("identity_since"))
+            observed["identity_age_seconds"] = max(0.0, now - stamp) if stamp else None
+            pid = value.get("launcher_pid")
+            observed["launcher_pid"] = pid if type(pid) is int and pid > 0 else None
+        else:
+            for key in ("enabled", "paused"):
+                observed[key] = value.get(key) if type(value.get(key)) is bool else None
+            observed["state"] = value.get("state") if value.get("state") in {"held", "open", "bypassed"} else "unknown"
+            reason = value.get("reason")
+            observed["reason"] = reason[:128] if isinstance(reason, str) else ""
+            stamp = _number(value.get("updated_at"))
+            observed["age_seconds"] = max(0.0, now - stamp) if stamp else None
+            pid = value.get("observer_pid")
+            observed["observer_pid"] = pid if type(pid) is int and pid > 0 else None
+        result[name] = observed
+    return result
+
+
 def router_recovery(args: Mapping[str, Any], *, status_repository: Any, compaction: Any,
                     restart: Callable[..., dict[str, Any]], root: Path) -> dict[str, Any]:
     """Instance-local diagnostics; never restart a different or ambiguous client."""
@@ -271,6 +318,8 @@ def router_recovery(args: Mapping[str, Any], *, status_repository: Any, compacti
         # must not turn a historical queued status into restart authority.
         return runtime_input_delivery_health(status_repository, refresh=True)
 
+    # Retain the launcher snapshot before the fresh admission check can update it.
+    diagnostics = _admission_diagnostics(Path(root))
     result = recover_sse_delivery(
         args,
         delivery_health=delivery_health,
@@ -278,6 +327,7 @@ def router_recovery(args: Mapping[str, Any], *, status_repository: Any, compacti
         restart=restart_local,
         state_path=Path(root) / "sse-recovery.json",
     )
+    result["admission_diagnostics"] = diagnostics
     status = getattr(compaction, "recovery_status", None)
     if callable(status):
         result["compaction"] = status()

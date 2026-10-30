@@ -188,14 +188,15 @@ class RuntimeCompactionBinding:
             # The launch proceeds; consumers fail closed on unreadable state.
             self.log("WARN", f"runtime_compaction_scope_bind_failed runtime={runtime} error={type(exc).__name__}")
 
-    def _update(self, epoch: str, **fields: Any) -> dict[str, Any]:
+    def _update(self, epoch: str, *, expected_session: str | None = None, **fields: Any) -> dict[str, Any]:
         # Reads take the short scope lock too: on Windows an open reader makes
         # the writer's atomic replace fail (measured: 2194 failed saves in 3 s).
         with exclusive_file_lock(self.repository.path):
             value = self.repository.load("compaction_scope")
             if value is None:
                 raise OSError("compaction scope is unreadable")
-            if fields and value.get("epoch") == epoch:
+            if (fields and value.get("epoch") == epoch
+                    and (expected_session is None or value.get("session_id") == expected_session)):
                 value.update(fields)
                 self.repository.save(value, "compaction_scope")
             return value
@@ -519,7 +520,7 @@ class RuntimeCompactionBinding:
         tokens = self.estimate({key: value for key, value in body.items() if key != "max_tokens"})
         # A raw Responses body names its output budget max_output_tokens.
         limit = self.input_budget(provider, config, {"max_tokens": body.get("max_tokens", body.get("max_output_tokens"))})
-        self._update(scope.epoch, request_observed=True)
+        self._update(scope.epoch, expected_session=scope.session_id, request_observed=True)
         active = self._active_state(scope)
         # Native clients own proactive timing. JSON/4 is not tokenizer
         # evidence and the Runtime input reserve is not the CLI threshold.
@@ -681,7 +682,7 @@ class RuntimeCompactionBinding:
                                          "compaction_shrink_pending", "compaction_retry_wait"}
         paused = bool(reason and not bypass)
         value = {"enabled": mode, "paused": paused, "state": "held" if paused else "bypassed" if bypass else "open",
-                 "reason": reason, "updated_at": time.time()}
+                 "reason": reason, "updated_at": time.time(), "observer_pid": os.getpid()}
         # Display evidence only: a failed status write never changes admission.
         try:
             previous = self.gate_snapshot.load("sse_gate_status") or {}

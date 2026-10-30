@@ -25,6 +25,7 @@ from ciel_runtime_support.runtime_sse_recovery import (
     DEFAULT_MIN_QUEUE_AGE_SECONDS,
     recover_sse_delivery,
     router_recovery,
+    _admission_diagnostics,
 )
 
 
@@ -622,3 +623,37 @@ class RecoveryTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AdmissionDiagnosticsTests(unittest.TestCase):
+    def test_missing_and_invalid_do_not_write(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "absent"
+            self.assertFalse(_admission_diagnostics(root)["identity"]["observable"])
+            self.assertFalse(root.exists())
+            root.mkdir()
+            path = root / "compaction-scope.json"
+            for raw in (b"bad", b"[]", b"x" * (64 * 1024 + 1)):
+                path.write_bytes(raw)
+                self.assertEqual("unreadable", _admission_diagnostics(root)["identity"]["reason"])
+                self.assertEqual(raw, path.read_bytes())
+
+    def test_payload_free_identity_and_gate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            scope = root / "compaction-scope.json"
+            gate = root / "sse-gate-status.json"
+            scope.write_text(json.dumps({"epoch": "private-epoch", "session_id": "private-session",
+                "identity_since": 950, "request_observed": False, "launcher_pid": 42,
+                "messaging_socket_path": "private-socket", "cwd": "private-cwd"}))
+            gate.write_text(json.dumps({"enabled": True, "paused": True, "state": "held",
+                "reason": "identity_pending", "updated_at": 999, "observer_pid": 43}))
+            before = {p: (p.read_bytes(), p.stat().st_mtime_ns) for p in (scope, gate)}
+            with patch("ciel_runtime_support.runtime_sse_recovery.time.time", return_value=1000):
+                value = _admission_diagnostics(root)
+            self.assertEqual(50, value["identity"]["identity_age_seconds"])
+            self.assertEqual(64, len(value["identity"]["session_id_sha256"]))
+            self.assertEqual(43, value["gate_snapshot"]["observer_pid"])
+            self.assertEqual(1, value["gate_snapshot"]["age_seconds"])
+            self.assertNotIn("private-", json.dumps(value))
+            self.assertEqual(before, {p: (p.read_bytes(), p.stat().st_mtime_ns) for p in (scope, gate)})

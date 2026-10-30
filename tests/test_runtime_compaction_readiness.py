@@ -108,3 +108,30 @@ class PublishedReadinessTests(IdentityHarness):
         path.write_text(json.dumps(record))
         self.binding.published_checked = ("", 0)
         self.assertTrue(self.binding.external_admission_paused())
+
+    def test_stale_request_cannot_prove_retargeted_session(self):
+        self.published()
+        self.assertTrue(self.binding.external_admission_paused())
+        original_scope = self.binding.scope()
+        original_estimate = self.binding.estimate
+
+        def retarget(body):
+            self.published("successor", status="busy")
+            self.binding.published_checked = ("", 0)
+            successor = self.binding.scope()
+            self.assertEqual(original_scope.epoch, successor.epoch)
+            self.assertEqual("successor", successor.session_id)
+            self.assertTrue(self.binding.external_admission_paused())
+            return original_estimate(body)
+
+        with patch.object(self.binding, "estimate", side_effect=retarget):
+            self.binding.observe_request("other", {}, {"tokens": 100}, "claude",
+                                         {"x-claude-code-session-id": "exact"})
+        value = self.binding.repository.load("test")
+        self.assertEqual("successor", value["session_id"])
+        self.assertFalse(value.get("request_observed", False))
+        self.assertTrue(self.binding.external_admission_paused())
+        self.binding.observe_request("other", {}, {"tokens": 100}, "claude",
+                                     {"x-claude-code-session-id": "successor"})
+        self.assertTrue(self.binding.repository.load("test")["request_observed"])
+        self.assertFalse(self.binding.external_admission_paused())
