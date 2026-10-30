@@ -1,0 +1,30 @@
+
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  ciel-runtime-cielairouter-owned-route-alias · API Usage Billing
+ ▝▝   ▝▝   C:\Windows\Temp\ciel-owned-alias-f06ai6wy\ws
+
+▎ Debug mode enabled · logging to C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\29\fixes\work-resume-continui
+▎ ty\evidence\scripts\run-source-work-resume-active-000015\native-debug.log
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing
+  approved Work. Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options →
+  Work mode, or the agent (work_mode_set)
+
+❯ ALIAS-SAFEGUARD-BASELINE owned baseline turn
+
+● ALIAS-HIGH-USAGE-REPLY
+
+✻ Cooked for 2s · done 12:00 AM
+
+
+
+
+w: Work 0/0 no goal [+]                                                                                             [-]
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [owned-route-alias (cielairouter)] ws | SSE gate on: open | ctx 1,000/200,000 tok (0.5%) | upstream 0s 30,961 tok
+  [work] 0/1 ◷ PRESERVED-STEP · waiting: owned proof holds continuation
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+                                                                                                        work: plan 0/0

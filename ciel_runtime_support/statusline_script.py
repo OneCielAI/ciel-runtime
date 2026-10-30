@@ -773,16 +773,16 @@ def work_plan_status_text(session):
         return ""
     if load_json(CONFIG_PATH, {}).get("work_mode") is False:
         return ""
-    digest = hashlib.sha256(("claude:" + session_id).encode("utf-8")).hexdigest()
-    plan = load_json(WORKSPACE_STATE_DIR / "work-sessions" / digest / "work-plan.json", {})
-    if not plan:
-        return ""
     try:
         package_root = __CIEL_RUNTIME_PACKAGE_ROOT__
         if package_root not in sys.path:
             sys.path.insert(0, package_root)
-        from ciel_runtime_support.work_plan_tree import normalize_document, snapshot
-        state = snapshot(normalize_document(plan))
+        from ciel_runtime_support.work_plan_store import session_work_plan_store
+        from ciel_runtime_support.work_plan_tree import snapshot
+        plan = session_work_plan_store(WORKSPACE_STATE_DIR, "claude:" + session_id).read_snapshot()
+        if not plan["nodes"] and not plan["version"]:
+            return ""
+        state = snapshot(plan)
     except Exception:
         return "[work] unavailable"
     if os.environ.get("CIEL_RUNTIME_WORK_VIEW", "compact") != "expanded":

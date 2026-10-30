@@ -1,0 +1,30 @@
+
+ ▐▛███▛█   Claude Code v2.1.314
+▝▜██████▀  New sessions: ciel-runtime-cielairouter-owned-route-alias · high effort
+ ▝▝   ▝▝   C:\Windows\Temp\ciel-owned-alias-7vh9mo8t\ws
+           1 awaiting input · 0 working · 0 completed
+
+Your conversation moved to the background — enter opens it · esc returns to it · ctrl+c twice quits
+
+Needs input
+ Sessions that have a question or need your decision land here
+ ✻ OWNED-PARK-WORK reply br…  OWNED-REPLY-2 summary: the owned baseline turn finished.                                0s
+
+Working
+ Sessions Claude is actively working on — they keep running even if you close the terminal
+
+Completed
+ Finished sessions wait here for you to review
+
+
+
+
+
+
+ A different way to work with Claude: hand off a bigger task than you would chat through, and Claude organizes it in the
+ sections above so you know when it needs you.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ describe a task for a new session
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions · enter to return · space to reply · ctrl+x to delete · ? for shortcuts

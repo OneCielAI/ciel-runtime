@@ -1,0 +1,16 @@
+test_ambiguous_parent_is_error (test_work_session_lineage.WorkLineageTests.test_ambiguous_parent_is_error) ... ok
+test_corrupt_alias_and_missing_source_fail_closed (test_work_session_lineage.WorkLineageTests.test_corrupt_alias_and_missing_source_fail_closed) ... ok
+test_exact_handoff_keeps_path_version_and_mutations (test_work_session_lineage.WorkLineageTests.test_exact_handoff_keeps_path_version_and_mutations) ... ok
+test_mapping_survives_restart_without_native_records (test_work_session_lineage.WorkLineageTests.test_mapping_survives_restart_without_native_records) ... ok
+test_mismatched_cwd_domain_job_and_dead_identity_never_link (test_work_session_lineage.WorkLineageTests.test_mismatched_cwd_domain_job_and_dead_identity_never_link) ... ok
+test_ordinary_and_linked_snapshot_reads_do_not_take_store_lock (test_work_session_lineage.WorkLineageTests.test_ordinary_and_linked_snapshot_reads_do_not_take_store_lock) ... ok
+test_preexisting_split_board_is_not_overwritten (test_work_session_lineage.WorkLineageTests.test_preexisting_split_board_is_not_overwritten) ... ok
+test_unrelated_session_is_isolated (test_work_session_lineage.WorkLineageTests.test_unrelated_session_is_isolated) ... ok
+test_real_dispatch_isolates_conversations_and_preserves_resume (test_work_mcp_tools.WorkMcpToolsTests.test_real_dispatch_isolates_conversations_and_preserves_resume) ... ok
+test_work_mode_set_switches_the_menu_setting_and_keeps_plans (test_work_mcp_tools.WorkMcpToolsTests.test_work_mode_set_switches_the_menu_setting_and_keeps_plans) ... ok
+test_session_stores_resume_same_and_new_sessions_distinct (test_work_plan_store.WorkPlanStoreTests.test_session_stores_resume_same_and_new_sessions_distinct) ... ok
+
+----------------------------------------------------------------------
+Ran 11 tests in 0.522s
+
+OK

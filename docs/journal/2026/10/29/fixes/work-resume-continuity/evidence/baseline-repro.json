@@ -1,0 +1,8 @@
+{
+  "parent_total": 1,
+  "parent_phase": "executing",
+  "continued_total": 0,
+  "continued_active": null,
+  "parent_still_present": true,
+  "limitation": "Reproduces store split for changed identity; actual explicit native parked link separately captured."
+}

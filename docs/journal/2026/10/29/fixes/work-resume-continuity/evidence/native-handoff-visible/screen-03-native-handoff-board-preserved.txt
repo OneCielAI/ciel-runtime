@@ -1,0 +1,30 @@
+
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing
+  approved Work. Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options →
+  Work mode, or the agent (work_mode_set)
+
+❯ ALIAS-SAFEGUARD-BASELINE owned baseline turn
+
+● ALIAS-HIGH-USAGE-REPLY
+
+✻ Cogitated for 1s · done 12:04 AM
+
+❯ OWNED-PARK-WORK reply briefly
+
+● Backgrounding after the current tool finishes…
+
+● OWNED-REPLY-2 summary: the owned baseline turn finished.
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing
+  approved Work. Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options →
+  Work mode, or the agent (work_mode_set)
+w: Work 0/1 ◷ PRESERVED-STEP ◷ owned proof holds continuation [+]                                                   [-]
+                                                                                                      ● high · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [owned-route-alias (cielairouter)] ws | SSE gate on: open | ctx 100/200,000 tok (0.1%) | upstream 1s 273 tok
+  [work] 0/1 ◷ PRESERVED-STEP · waiting: owned proof holds continuation
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents
+                                                                                                        work: plan 0/1

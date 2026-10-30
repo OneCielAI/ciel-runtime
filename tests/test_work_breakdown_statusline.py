@@ -32,6 +32,18 @@ class BreakdownStatuslineTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout
 
+    def test_resumed_session_uses_durable_canonical_board(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.plan(tmp)
+            child = Path(tmp) / "work-sessions" / hashlib.sha256(b"claude:continued").hexdigest()
+            child.mkdir(parents=True)
+            (child / "work-lineage.json").write_text(json.dumps({
+                "session": "claude:continued", "canonical": "claude:s1",
+                "authority": "native-parked-handoff"}), encoding="utf-8")
+            out = self.render(tmp, session_id="continued", view=None)
+            self.assertEqual(["[work] 0/3 [~] Verify expiry"], out.splitlines())
+            self.assertFalse((child / "work-plan.json").exists())
+
     def test_default_compact_shows_only_counts_and_current_leaf(self):
         with tempfile.TemporaryDirectory() as tmp:
             self.plan(tmp)

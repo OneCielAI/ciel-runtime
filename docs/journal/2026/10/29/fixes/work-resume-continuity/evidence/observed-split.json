@@ -1,0 +1,45 @@
+{
+  "boards": [
+    {
+      "session_id": "5bd157d5-5106-4f58-98ec-de5ecb8725d9",
+      "path": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\workspaces\\aae7db361c7f\\work-sessions\\10b90b338f8ad580b11ece85dce60c192742cc62386dbf60a36bcc5897d76089\\work-plan.json",
+      "sha256": "0486bd7b9faa0dfccad6379eac7eed4221740ab58527b2349fbecb7faf1f0275",
+      "nodes": 343,
+      "version": 1964,
+      "updated_at": 1793333596.1028316
+    },
+    {
+      "session_id": "8adb3585-3483-4d84-b360-ab9056ead316",
+      "path": "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\workspaces\\aae7db361c7f\\work-sessions\\c9df7e8dac33bbc7b9071253673a06a3f241140890747e2ede1ba2c5604ae905\\work-plan.json",
+      "sha256": "414222842bd7e8c38325d61d0a95a0a2b56b1396e0e84bba97ee46c0a7b2e220",
+      "nodes": 10,
+      "version": 9,
+      "updated_at": 1793334117.6886065
+    }
+  ],
+  "native_records": [
+    {
+      "pid": 16944,
+      "sessionId": "8adb3585-3483-4d84-b360-ab9056ead316",
+      "cwd": "G:\\ciel-Walkie",
+      "kind": "bg",
+      "parkedJobId": null,
+      "jobId": "8adb3585",
+      "startedAt": 1793333667034,
+      "procStart": "134378072665471685",
+      "pidDomain": "win32:sama"
+    },
+    {
+      "pid": 67872,
+      "sessionId": "5bd157d5-5106-4f58-98ec-de5ecb8725d9",
+      "cwd": "G:\\ciel-Walkie",
+      "kind": "interactive",
+      "parkedJobId": "8adb3585",
+      "jobId": null,
+      "startedAt": 1793333243780,
+      "procStart": "134378068432627399",
+      "pidDomain": "win32:sama"
+    }
+  ],
+  "claim": "Explicit parkedJobId links the two native identities; per-session store selection splits their Work. This is not proof all user-reported restart incidents share this cause."
+}

@@ -115,6 +115,7 @@ class WorkPlanStore:
         mutate: Callable[[dict[str, Any]], Any],
         *,
         expected_version: int | None = None,
+        _deferred_notifications: list | None = None,
     ) -> tuple[dict[str, Any], Any]:
         """Apply ``mutate`` to a copy and persist changed state with CAS semantics."""
 
@@ -137,7 +138,10 @@ class WorkPlanStore:
                 notification = (copy.deepcopy(current), copy.deepcopy(working))
                 current = working
         if notification is not None:
-            _notify_changes(self.path, *notification)
+            if _deferred_notifications is not None:
+                _deferred_notifications.append((self.path, *notification))
+            else:
+                _notify_changes(self.path, *notification)
         return current, result
 
     def expire_completed(self, *, now: float | None = None) -> int:
@@ -207,12 +211,13 @@ def session_work_plan_store(state_dir: Path, session_id: str, *,
 
     if not isinstance(session_id, str) or not re.fullmatch(r"(?:claude|codex):[A-Za-z0-9_-]{1,200}", session_id):
         raise WorkPlanError("a runtime-qualified conversation session_id is required (claude:<id> or codex:<id>)")
+    from .work_session_lineage import WorkSessionStore
     digest = hashlib.sha256(session_id.encode("utf-8")).hexdigest()
     path = Path(state_dir) / "work-sessions" / digest / WORK_PLAN_FILE_NAME
     key = os.path.normcase(str(path.resolve()))
     with _STORES_LOCK:
         store = _STORES.get(key)
         if store is None:
-            store = WorkPlanStore(path, log=log)
+            store = WorkSessionStore(Path(state_dir), session_id, log=log)
             _STORES[key] = store
         return store

@@ -1,0 +1,28 @@
+test_corrupt_done_parent_never_deletes_unfinished_child (test_work_retention.WorkRetentionIntegrationTests.test_corrupt_done_parent_never_deletes_unfinished_child) ... ok
+test_focus_parent_protects_all_completed_descendants (test_work_retention.WorkRetentionIntegrationTests.test_focus_parent_protects_all_completed_descendants) ... ok
+test_menu_option_and_persistence (test_work_retention.WorkRetentionIntegrationTests.test_menu_option_and_persistence) ... ok
+test_pruned_parent_can_finish_without_losing_old_progress (test_work_retention.WorkRetentionIntegrationTests.test_pruned_parent_can_finish_without_losing_old_progress) ... ok
+test_recent_done_parent_does_not_turn_into_unverified_leaf (test_work_retention.WorkRetentionIntegrationTests.test_recent_done_parent_does_not_turn_into_unverified_leaf) ... ok
+test_retention_wraps_existing_service_callbacks_in_order (test_work_retention.WorkRetentionLifecycleTests.test_retention_wraps_existing_service_callbacks_in_order) ... ok
+test_replacing_plan_clears_retired_counts_and_completion_clock (test_work_retention.WorkRetentionReplanTests.test_replacing_plan_clears_retired_counts_and_completion_clock) ... ok
+test_cleanup_noop_does_not_change_version_or_file_bytes (test_work_retention.WorkRetentionSafetyTests.test_cleanup_noop_does_not_change_version_or_file_bytes) ... ok
+test_completed_root_expiry_never_changes_active_approval_or_order (test_work_retention.WorkRetentionSafetyTests.test_completed_root_expiry_never_changes_active_approval_or_order) ... ok
+test_concurrent_cleanup_reopen_serializes_without_losing_pending_work (test_work_retention.WorkRetentionSafetyTests.test_concurrent_cleanup_reopen_serializes_without_losing_pending_work) ... ok
+test_symbolic_session_folders_are_never_followed (test_work_retention.WorkRetentionSafetyTests.test_symbolic_session_folders_are_never_followed) ... ok
+test_ancestor_completion_and_reopen (test_work_retention.WorkRetentionTests.test_ancestor_completion_and_reopen) ... ok
+test_atomic_version_and_events (test_work_retention.WorkRetentionTests.test_atomic_version_and_events) ... ok
+test_boundary_and_unfinished_progress (test_work_retention.WorkRetentionTests.test_boundary_and_unfinished_progress) ... ok
+test_focus_preserved (test_work_retention.WorkRetentionTests.test_focus_preserved) ... ok
+test_future_and_invalid_clock (test_work_retention.WorkRetentionTests.test_future_and_invalid_clock) ... ok
+test_legacy_and_unknown_clock (test_work_retention.WorkRetentionTests.test_legacy_and_unknown_clock) ... ok
+test_note_edit_and_reopen_completion_clock (test_work_retention.WorkRetentionTests.test_note_edit_and_reopen_completion_clock) ... ok
+test_policy (test_work_retention.WorkRetentionTests.test_policy) ... ok
+test_service_off_corrupt_scope_and_lifecycle (test_work_retention.WorkRetentionTests.test_service_off_corrupt_scope_and_lifecycle) ... ok
+test_subtree_expiration_and_stable_ids (test_work_retention.WorkRetentionTests.test_subtree_expiration_and_stable_ids) ... ok
+test_main_budget_does_not_exceed_final_limit (test_architecture_budget.ArchitectureBudgetTests.test_main_budget_does_not_exceed_final_limit) ... ok
+test_no_file_exceeds_its_current_budget (test_architecture_budget.ArchitectureBudgetTests.test_no_file_exceeds_its_current_budget) ... ok
+
+----------------------------------------------------------------------
+Ran 23 tests in 10.149s
+
+OK
