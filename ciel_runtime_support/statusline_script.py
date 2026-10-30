@@ -589,6 +589,19 @@ def main():
     if dir_name:
         left += f" {dir_name}"
     status_parts = []
+    gate_mode = "off" if cfg.get("sse_gate_enabled") is False else "on"
+    gate = load_json(ROUTER_STATE_DIR / "sse-gate-status.json", {})
+    try:
+        gate_fresh = 0 <= time.time() - float(gate.get("updated_at") or 0) < 15
+    except (ValueError, TypeError):
+        gate_fresh = False
+    if gate_fresh and gate.get("enabled") is (gate_mode == "on"):
+        gate_state = str(gate.get("state") or "unknown")
+        gate_reason = str(gate.get("reason") or "")
+        gate_text = f"SSE gate {gate_mode}: {gate_state}" + (f" ({gate_reason})" if gate_reason else "")
+    else:
+        gate_text = f"SSE gate {gate_mode}: unknown"
+    status_parts.append(color(gate_text))
     if failover_text:
         status_parts.append(color(failover_text))
     expected_ctx_limit = status_config_context_limit(provider, pcfg)

@@ -189,6 +189,13 @@ def set_llm_option_config(
         return ["Ollama empty response retries updated.", f"empty_response_retries: {configured_retries(pcfg)}"]
     if key == "router_debug_external_access":
         return set_router_debug_external_access_config(value)
+    if key == "sse_gate_enabled":
+        if value.lower() not in {"on", "off", "true", "false"}:
+            return ["sse_gate_enabled: enter on or off."]
+        cfg[key] = value.lower() in {"on", "true"}
+        save_config(cfg)
+        mode = "on" if cfg[key] else "off"
+        return [f"SSE gate {mode}. Applies immediately; delivery ownership is preserved."]
     if key == "claude_feedback_drafts":
         normalized = value.lower()
         if normalized in ("default", "unset", "none", "null"):

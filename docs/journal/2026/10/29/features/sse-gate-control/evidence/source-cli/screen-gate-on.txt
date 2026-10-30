@@ -1,0 +1,30 @@
+
+❯ /sse-gate off
+
+● SSE gate off; open (none).
+  Off bypasses compact recovery admission only. Identity, handoff, unreadable state, delivery ownership and
+  uncertain-write protections remain active. No queue, cursor or compact evidence is cleared.
+
+✻ Cooked for 0s · done 8:38 PM
+
+❯ /sse-gate status
+
+● SSE gate off; open (none).
+  Off bypasses compact recovery admission only. Identity, handoff, unreadable state, delivery ownership and
+  uncertain-write protections remain active. No queue, cursor or compact evidence is cleared.
+
+✻ Cooked for 0s · done 8:38 PM
+
+❯ /sse-gate on
+
+● SSE gate on; open (none).
+  Off bypasses compact recovery admission only. Identity, handoff, unreadable state, delivery ownership and
+  uncertain-write protections remain active. No queue, cursor or compact evidence is cleared.
+
+✻ Cooked for 0s · done 8:38 PM
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [owned-route-alias (cielairouter)] ws | SSE gate on: open | ctx est 27,900/200,000 tok (14.0%) | upstream 13s 27,36…
+  ⏵⏵ bypass permissions on (shift+tab to cycle)

@@ -37,6 +37,7 @@ from .slash_command_assets import (
     ROUTER_DEBUG_SLASH_COMMAND,
     VERSION_SLASH_COMMAND,
 )
+from .sse_gate import SSE_GATE_COMMAND, SSE_GATE_MARKER
 from .statusline_script import STATUSLINE_SCRIPT
 from .tool_guard_hooks import DEFAULT_TOOL_GUARD_HOOK_POLICY
 
@@ -73,6 +74,7 @@ def build_runtime_asset_context(ports: RuntimeAssetAssemblyPorts) -> RuntimeAsse
         )
 
     standard_assets = {
+        "sse-gate.md": CommandAsset(SSE_GATE_COMMAND, (SSE_GATE_MARKER,)),
         "router-debug.md": CommandAsset(
             ROUTER_DEBUG_SLASH_COMMAND, CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS
         ),

@@ -245,6 +245,12 @@ RUNTIME_LLM_OPTION_KEYS = {
 
 
 LLM_OPTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
+    "sse_gate_enabled": {
+        "en": "SSE compact admission gate (default on). Off bypasses compact recovery holds only; identity, handoff and delivery ownership protections remain. /sse-gate on|off|status applies live.",
+        "ko": "SSE compact 게이트(기본 on). off는 compact 복구 대기만 우회하며 세션 식별·핸드오프·전달 소유권 보호는 유지합니다. /sse-gate on|off|status로 즉시 제어합니다.",
+        "ja": "SSE compact gate: on (default), off bypasses compact holds only. /sse-gate on|off|status applies live; identity and delivery protections remain.",
+        "zh": "SSE compact gate: on (default), off bypasses compact holds only. /sse-gate on|off|status applies live; identity and delivery protections remain.",
+    },
     "preset": {
         "en": "Apply a bundled LLM preset (output tokens, sampling, timeout) tuned for this provider/model family.",
         "ko": "현재 provider/모델 계열에 맞춘 LLM 프리셋(출력 토큰, 샘플링, 타임아웃)을 한 번에 적용합니다.",
@@ -469,6 +475,7 @@ LLM_OPTION_DESCRIPTIONS: dict[str, dict[str, str]] = {
 
 
 LLM_OPTION_TOGGLE_KEYS = {
+    "sse_gate_enabled",
     "stream_enabled",
     "stream_word_chunking",
     "native_compat",

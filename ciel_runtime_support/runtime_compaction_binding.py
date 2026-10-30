@@ -146,9 +146,11 @@ class RuntimeCompactionBinding:
 
     def __init__(self, root: Path, home: Path, requests: Any, builder: Callable[[], Any],
                  estimate: Callable[[Any], int], config: Callable[[], tuple[str, dict[str, Any]]],
-                 log: Callable[[str, str], None]) -> None:
+                 log: Callable[[str, str], None], *, gate_config: Callable[[], dict[str, Any]] = lambda: {}) -> None:
         self.home, self.builder, self.estimate, self.config, self.log = home, builder, estimate, config, log
         self.repository = SecureJsonRepository(root / "compaction-scope.json", SecureJsonEffects(log=log))
+        self.gate_config = gate_config
+        self.gate_snapshot = SecureJsonRepository(root / "sse-gate-status.json", SecureJsonEffects(log=log))
         self.safeguard_checked = 0.0
         self.cache: dict[str, Any] = {}
         self.seeded = ""
@@ -666,7 +668,30 @@ class RuntimeCompactionBinding:
         status; new external input may trigger the native client's compact.
         Unproven launch identity and unreadable state remain separate holds.
         """
-        return self._admission_paused()
+        return self.gate_status()["paused"]
+
+    def gate_status(self) -> dict[str, Any]:
+        from .sse_gate import enabled
+        try:
+            mode = enabled(self.gate_config())
+            reason = self._raw_admission_reason()
+        except (OSError, ValueError, TypeError):
+            mode, reason = True, "state_unavailable"
+        bypass = not mode and reason in {"context_recovery", "compaction_checkpoint_pending",
+                                         "compaction_shrink_pending", "compaction_retry_wait"}
+        paused = bool(reason and not bypass)
+        value = {"enabled": mode, "paused": paused, "state": "held" if paused else "bypassed" if bypass else "open",
+                 "reason": reason, "updated_at": time.time()}
+        # Display evidence only: a failed status write never changes admission.
+        try:
+            previous = self.gate_snapshot.load("sse_gate_status") or {}
+            changed = any(previous.get(key) != value[key] for key in ("enabled", "paused", "state", "reason"))
+            expired = value["updated_at"] - float(previous.get("updated_at") or 0) >= 5
+            if changed or expired:
+                self.gate_snapshot.save(value, "sse_gate_status")
+        except (OSError, ValueError, TypeError):
+            pass
+        return value
 
     def _seed(self, scope: CompactionScope) -> None:
         value = self._update(scope.epoch)
@@ -697,6 +722,10 @@ class RuntimeCompactionBinding:
         # native CLI applies its own threshold to the resumed conversation.
 
     def admission_reason(self) -> str:
+        state = self.gate_status()
+        return state["reason"] if state["paused"] else ""
+
+    def _raw_admission_reason(self) -> str:
         try:
             if not self._admission_paused():
                 return ""

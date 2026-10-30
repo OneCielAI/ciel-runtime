@@ -97,6 +97,7 @@ def build_option_panel_rows(
     from .provider_tool_policy import blocked_tools_option_value
     add("Tool blocklist (routed)", "blocked_tools", blocked_tools_option_value(config))
     work = runtime.work_settings()
+    add("SSE compact gate", "sse_gate_enabled", "off" if work.get("sse_gate_enabled") is False else "on (default)")
     add("Work mode", WORK_MODE_KEY, work_mode_menu_label(work))
     add("Work plan approval", WORK_PLAN_APPROVAL_ASK_KEY, work_plan_approval_menu_label(work))
     add("Work auto continue", WORK_AUTO_CONTINUE_KEY, work_auto_continue_menu_label(work))
@@ -231,6 +232,8 @@ def current_option_bool(
         return runtime.router_debug_external()
     if key == "claude_feedback_drafts":
         return runtime.claude_feedback_drafts()
+    if key == "sse_gate_enabled":
+        return runtime.work_settings().get("sse_gate_enabled") is not False
     if key == WORK_MODE_KEY:
         return work_mode_enabled(runtime.work_settings())
     if key == WORK_PLAN_APPROVAL_ASK_KEY:
