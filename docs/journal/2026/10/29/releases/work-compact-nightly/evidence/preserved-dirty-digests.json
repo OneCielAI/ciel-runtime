@@ -1,0 +1,10 @@
+{
+  "ciel_runtime_support/config_migrations.py": "24f3c484bbb5edcd0177b76402926aea716810a4f7de25431d259ad22c60bb5b",
+  "ciel_runtime_support/providers/catalog.py": "c00cac8fb2961840ba30484b2f3bcbfcc8205e025f54880250bbbca918ec260d",
+  "docs/journal/2026/10/17/diagnostics/tls-eof/evidence/passthrough-before-wire.txt": "3867179e4f69e40b5799388f4b37f4f1db27eed7c6ccee612bfce9df0a011514",
+  "docs/journal/2026/10/17/diagnostics/tls-eof/evidence/passthrough-after-wire.txt": "01150675b671682cedb209936936b2be8d87686e5596c3fc6a97385fcf20922e",
+  "ciel_runtime_support/providers/gemini.py": "d4a24a2e093b7fc97612489b85626f5fb3b7332ce956b14b73724f9d9d82be00",
+  "ciel_runtime_support/providers/kimi_api.py": "34df41264ed28adfb4286541eac6ab20fad0f89982a2f42ca94f53587bad60de",
+  "tests/test_gemini4_provider.py": "3893287e871aa71f26b54a72d541b04cb648b719aa6b1ec03fe98e59fe4e80a2",
+  "tests/test_kimi31_provider.py": "6ab04503e8d315b99ba528c637ba1b1e8ccb71edac010d6cffcf1cf41c200d35"
+}

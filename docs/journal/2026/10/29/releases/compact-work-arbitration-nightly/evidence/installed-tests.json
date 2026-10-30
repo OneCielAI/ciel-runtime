@@ -1,0 +1,10 @@
+{
+  "tests": 150,
+  "success": true,
+  "modules": [
+    "C:\\Users\\djlov\\.local\\share\\ciel-runtime-037c55fc252641c41d8058db66fa055e9f43dfdf\\ciel_runtime_support\\channel_transcript.py",
+    "C:\\Users\\djlov\\.local\\share\\ciel-runtime-037c55fc252641c41d8058db66fa055e9f43dfdf\\ciel_runtime_support\\channel_compact_poll.py",
+    "C:\\Users\\djlov\\.local\\share\\ciel-runtime-037c55fc252641c41d8058db66fa055e9f43dfdf\\ciel_runtime_support\\claude_stream_recovery_runtime.py",
+    "C:\\Users\\djlov\\.local\\share\\ciel-runtime-037c55fc252641c41d8058db66fa055e9f43dfdf\\ciel_runtime_support\\work_mcp_tools.py"
+  ]
+}

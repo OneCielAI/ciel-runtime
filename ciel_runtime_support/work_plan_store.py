@@ -140,6 +140,13 @@ class WorkPlanStore:
             _notify_changes(self.path, *notification)
         return current, result
 
+    def expire_completed(self, *, now: float | None = None) -> int:
+        from .work_plan_tree import expire_completed
+        if not self.path.is_file() or self.path.is_symlink():
+            return 0
+        _, removed = self.transaction(lambda doc: expire_completed(doc, now=now))
+        return removed
+
     def _read_unlocked(self) -> dict[str, Any]:
         try:
             with self.path.open("rb") as handle:

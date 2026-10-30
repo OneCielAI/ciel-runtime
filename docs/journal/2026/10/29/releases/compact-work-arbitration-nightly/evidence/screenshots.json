@@ -1,0 +1,23 @@
+[
+  {
+    "file": "01-before-compact.png",
+    "width": 993,
+    "height": 519,
+    "sha256": "6f593e48ab471ece90fbd29f338d39363cbd5520d63d5fd0ca6589117f241b92",
+    "bytes": 35664
+  },
+  {
+    "file": "02-retry-running.png",
+    "width": 993,
+    "height": 519,
+    "sha256": "30bebcd315f3511682534014bca8eb5133189d6f38e7a5d09e05a09d5a14d190",
+    "bytes": 47020
+  },
+  {
+    "file": "03-sse-retriggered-compact-success.png",
+    "width": 993,
+    "height": 519,
+    "sha256": "392bf3588fe1cc4f369f78343fa594adcc8d92511445dbd6b5a031bc407375fc",
+    "bytes": 49797
+  }
+]

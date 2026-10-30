@@ -1,0 +1,28 @@
+679245f feat(work): let the agent switch Work mode with work_mode_set
+d2856f8 fix(retry): record redacted SSE error shape
+ac3b505 fix(retry): record redacted pre-output SSE commit reasons
+def252d fix(work): preserve Stop continuation across display refreshes
+a92bcd9 fix(router): hand self-update launch lease to restarted launcher
+3160858 fix(router): settle client supervision before exit cleanup
+273856d fix(work): gate edits on their own verified Work read
+7792965 fix(claude): give subagents the PowerShell tool on Windows
+56a84ac fix(cielairouter): deliver held SSE bytes before a later read failure
+f54104c fix(cielairouter): retry delayed pre-output SSE errors
+eedd8ee feat(work): focus existing items in user-selected priority order
+8ebacfa fix(work): continue independent items while background tasks run
+54cfce3 feat(work): flag waiting and blocked items in the status line
+ea59a61 fix(work): hand off waiting goals and bound tabbed panels
+eec7d69 test(recovery): pin first corrupt-state diagnostic as held unknown
+f2d090a test(recovery): align full-suite diagnostic contracts
+dc9914c fix(recovery): preserve durable ownership and hybrid Work execution
+0555b6c fix(channel): follow parked Claude handoffs and preserve Work continuation
+e6514c8 fix(work): keep HTTP composition within the facade budget
+701ed64 feat(work): expose authenticated board API and runtime observations
+5054af2 fix(work): keep the option panel runtime port within its dependency limit
+040b9ee feat(work): continue pending turns and prioritize urgent goals
+f9c3eea fix(compaction): read safeguard usage under the model that answered an alias
+3c95a4b fix(runtime-input): never reissue an id the status history recorded
+81f6a4b fix(work): read Work again when the router is still connecting at session start
+e182600 feat(work): usage hints, request triage and a goal queue that keeps the running goal
+2faae14 fix(work): keep --continue last on relaunch and skip TOML test on 3.10
+0af4180 feat(work): conversation-scoped hierarchical Work mode for Claude and Codex

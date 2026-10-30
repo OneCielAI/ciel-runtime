@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-_FIELDS = frozenset({"type", "error", "request_id", "message", "code", "param", "status", "detail"})
+_FIELDS = frozenset({"type", "error", "request_id", "message", "code", "param", "status", "detail", "diagnostics", "recovery_hint"})
 _EVENTS = frozenset({"error", "ping", "message_start", "message_delta", "message_stop",
                      "content_block_start", "content_block_delta", "content_block_stop"})
 _ERROR_TYPES = frozenset({"api_error", "server_error", "timeout_error", "overloaded_error",

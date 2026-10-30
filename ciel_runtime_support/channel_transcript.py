@@ -506,6 +506,17 @@ def active_turn_from_text(
             active = stop_reason in {"tool_use", "pause_turn"}
         elif record_type == "system" and str(record.get("subtype") or "") == "turn_duration":
             active = False
+        elif (record_type == "system" and record.get("subtype") == "compact_boundary"
+              and record.get("isSidechain") is not True):
+            metadata = record.get("compactMetadata")
+            if isinstance(metadata, dict):
+                pre, post = metadata.get("preTokens"), metadata.get("postTokens")
+                if (metadata.get("trigger") == "auto" and type(pre) is int and type(post) is int
+                        and 0 < post < pre):
+                    # This generation ended at a persisted shrinking checkpoint.
+                    # Pending tool ownership remains a separate injection guard;
+                    # a later native assistant/tool result opens the turn again.
+                    active = False
     return active
 
 

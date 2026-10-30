@@ -1,0 +1,57 @@
+{
+  "owned_teardown_pids": [
+    82792,
+    92776,
+    71416,
+    20340,
+    88912
+  ],
+  "protected_pids_in_owned_teardown": [],
+  "cli_before": {
+    "9505": {
+      "pid": null,
+      "version": null,
+      "source_fingerprint": null,
+      "error": "URLError: <urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>"
+    },
+    "9524": {
+      "pid": 18536,
+      "version": "0.2.51-nightly.20261028-023853.679245f",
+      "source_fingerprint": "122e12595997f09d",
+      "error": null
+    }
+  },
+  "cli_after": {
+    "9505": {
+      "pid": null,
+      "version": null,
+      "source_fingerprint": null,
+      "error": "URLError: <urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>"
+    },
+    "9524": {
+      "pid": 18536,
+      "version": "0.2.51-nightly.20261028-023853.679245f",
+      "source_fingerprint": "122e12595997f09d",
+      "error": null
+    }
+  },
+  "post_switch": {
+    "9385": {
+      "pid": 89420,
+      "version": "0.2.51-nightly.20261029-150640.e3cb9a1",
+      "source_fingerprint": "122e12595997f09d",
+      "original_pid_exists": true
+    },
+    "9505": {
+      "error": "<urlopen error [WinError 10061] No connection could be made because the target machine actively refused it>",
+      "original_pid_exists": false
+    },
+    "9524": {
+      "pid": 18536,
+      "version": "0.2.51-nightly.20261028-023853.679245f",
+      "source_fingerprint": "122e12595997f09d",
+      "original_pid_exists": true
+    }
+  },
+  "conclusion": "9505healthwasalreadyunavailablebeforeinstalledCLIandremainedunavailableafter;originalpidabsentatpostswitch;exitcauseunverified;noautomaticrestartperformed"
+}

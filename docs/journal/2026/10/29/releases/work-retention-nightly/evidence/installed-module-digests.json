@@ -1,0 +1,8 @@
+{
+  "ciel_runtime.py": "949e514cbb94ffed70ec42b020cd1345f09f4eca94de46f378777bebd3a10f74",
+  "ciel_runtime_support/work_retention.py": "c087c29afb55fc37e63faeb22d683abbbfc49455dd577d1d12f06ab5a3b2cb87",
+  "ciel_runtime_support/work_plan_tree.py": "2b2904e1c2f570f8a1cc612f7af31890061e7d12c97820d15af22c306c5c0724",
+  "ciel_runtime_support/work_plan_store.py": "f39c8f3cf93f6f0f5b46fc2dab6794696f5e07ab188208e82e4c6703e6535b49",
+  "ciel_runtime_support/statusline_script.py": "c5b299139845f5ecbfc8b8177de94e40e93a69e35454b173a2b692a96a90390c",
+  "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js": "3c1e28e32188f0dda7c5dfa5fcda6fd9979e99fc6538b3643f2cd57ac711ab23"
+}

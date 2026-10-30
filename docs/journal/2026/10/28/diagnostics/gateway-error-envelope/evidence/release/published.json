@@ -1,0 +1,29 @@
+{
+  "version": "0.2.51-nightly.20261028-101259.f8e54f9",
+  "gitHead": "f8e54f929845299771b9ac120c1367638e8003ef",
+  "tags": {
+    "latest": "0.2.51",
+    "nightly": "0.2.51-nightly.20261028-101259.f8e54f9"
+  },
+  "dist": {
+    "shasum": "3509b71255baa218d7075bbf0065875daf2bc2ee",
+    "tarball": "https://registry.npmjs.org/@one-ciel-ai/ciel-runtime/-/ciel-runtime-0.2.51-nightly.20261028-101259.f8e54f9.tgz",
+    "fileCount": 515,
+    "integrity": "sha512-w5HGEc65CMmVNzUEJ2G1Jo4QR8FFKZgo4x9uGhk7pANGCmCkG+iKs7tfeHjiVONWrA/cfgcYP84eM0vGNXQe5A==",
+    "signatures": [
+      {
+        "sig": "MEQCIFOumHrZ8kXvakZdCwaCfg0gD2DTOhGLXfH15l87SokuAiAOrxLI/0QJFOV08LxRtaW+AEsjgrkDuEfXrfqNJbst8Q==",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      },
+      {
+        "sig": "MEUCIECFoyM4e7WZhPfuhMXIUBNeY3CpDwkloGakO6Ndvmt0AiEA2zFz07RqRVINVOFLodllCQwXggwpOuaE7w0JwcJlmjU=",
+        "keyid": "SHA256:DhQ8wR5APBvFHLF/+Tc+AYvPOdTpcIDqOhxsBHRwC7U"
+      }
+    ],
+    "unpackedSize": 6941012
+  },
+  "tarball_sha256": "f2467968cae786124b04d5c6ae83f8a8d6f282725139fa0bfb0690849fc2325e",
+  "tarball_bytes": 1580057,
+  "files": 515,
+  "package_dir": "C:\\Users\\djlov\\ciel-runtime-wt-work\\docs\\journal\\2026\\10\\28\\diagnostics\\gateway-error-envelope\\evidence\\release\\payload\\unpack\\package"
+}

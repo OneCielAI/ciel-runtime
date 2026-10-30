@@ -35,6 +35,10 @@ def terminal_session_command(action: str, runtime: str) -> str:
     return NEW_SESSION_COMMANDS.get(runtime, "")
 
 
+class CompactSubmissionUncertain(RuntimeError):
+    """The controller durably recorded uncertainty; keep delivery polling alive."""
+
+
 @dataclass(frozen=True, slots=True)
 class ChannelCompactRequestPorts:
     read: Callable[[], dict[str, Any] | None]
@@ -104,9 +108,11 @@ class ChannelCompactInjectionService:
                     bracketed_paste=bracketed_paste,
                     submit_delay_seconds=submit_delay_seconds,
                 )
-            except Exception:
-                if control:
+            except Exception as exc:
+                if control and action == "compact":
                     control.command_failed(request, "command_submission_uncertain", uncertain=True)
+                    self.log("WARN", "channel_compact_request_failed reason=command_submission_uncertain")
+                    raise CompactSubmissionUncertain("compact submission recorded uncertain") from exc
                 raise
             if submitted is False:
                 if control:
@@ -123,10 +129,18 @@ class ChannelCompactInjectionService:
                 f"enter={self.runtime.enter_label(submit_bytes)}",
             )
             return "injected"
-        except ChannelFileLockBusy as exc:
-            # Polling may defer only failures known to precede submission.
+        except CompactSubmissionUncertain:
+            raise
+        except Exception as exc:
             # A send or its bookkeeping may already have changed native state.
-            raise RuntimeError("channel compact lock busy after submission attempt") from exc
+            # Contain only after durable controller accounting succeeded.
+            if control and action == "compact":
+                control.command_failed(request, "command_submission_uncertain", uncertain=True)
+                self.log("WARN", "channel_compact_request_failed reason=command_bookkeeping_uncertain")
+                raise CompactSubmissionUncertain("compact bookkeeping recorded uncertain") from exc
+            if isinstance(exc, ChannelFileLockBusy):
+                raise RuntimeError("channel compact lock busy after submission attempt") from exc
+            raise
 
     def _log_deferred(
         self, request_id: str, reason: str, enabled: bool

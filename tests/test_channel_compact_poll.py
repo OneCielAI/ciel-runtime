@@ -146,15 +146,16 @@ class ChannelCompactPollTests(unittest.TestCase):
                 services = ChannelCompactPollServices(
                     lambda *args, **kwargs: service.inject(*args, control=control, **kwargs)
                 )
-                with self.assertRaisesRegex(RuntimeError, "after submission attempt") as caught:
-                    poll_pending_compaction(40.0, 1, b"\r", None, ChannelCompactPollState(), self.options(), services)
-                self.assertNotIsInstance(caught.exception, ChannelFileLockBusy)
+                state = poll_pending_compaction(40.0, 1, bytes([13]), None,
+                    ChannelCompactPollState(), self.options(), services)
+                self.assertEqual(40.0, state.last_poll_at)
                 write.assert_called_once()
                 if stage == "write":
                     control.command_failed.assert_called_once_with(request, "command_submission_uncertain", uncertain=True)
                     clear.assert_not_called()
                 else:
                     control.command_submitted.assert_called_once_with(request)
+                    control.command_failed.assert_called_once_with(request, "command_submission_uncertain", uncertain=True)
 
     def test_other_errors_are_not_hidden_as_contention(self):
         services = ChannelCompactPollServices(Mock(side_effect=OSError(errno.EIO, "fixture I/O")))

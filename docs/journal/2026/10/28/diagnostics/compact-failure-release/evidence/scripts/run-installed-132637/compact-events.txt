@@ -1,0 +1,18 @@
+2026-10-28T13:27:01 [INFO] runtime_compaction_native_model request_model=ciel-runtime-cielairouter-owned-route-alias native_model=claude-opus-5-5
+2026-10-28T13:27:04 [INFO] runtime_compaction_control event=admission_paused phase=compacting runtime=claude session=cd5ab582-a9f0-48dc-a9af-099319cf6f8a epoch=b44e0810818a4a8eba10708505a7d953 attempts=1
+2026-10-28T13:27:07 [INFO] runtime_compaction_control event=native_compact_failed phase=retry_wait runtime=claude session=cd5ab582-a9f0-48dc-a9af-099319cf6f8a epoch=b44e0810818a4a8eba10708505a7d953 attempts=1
+2026-10-28T13:27:37 [INFO] channel_compact_request_queued id=ebcec650e9dc49c19ca0622149052bd7 source=context-pressure action=compact automatic=true
+2026-10-28T13:27:37 [INFO] runtime_compaction_control event=compact_queued phase=queued runtime=claude session=cd5ab582-a9f0-48dc-a9af-099319cf6f8a epoch=b44e0810818a4a8eba10708505a7d953 attempts=2
+2026-10-28T13:27:37 [INFO] runtime_compaction_control event=command_dispatch_started phase=dispatching runtime=claude session=cd5ab582-a9f0-48dc-a9af-099319cf6f8a epoch=b44e0810818a4a8eba10708505a7d953 attempts=2
+2026-10-28T13:27:37 [INFO] runtime_compaction_control event=native_compact_started phase=compacting runtime=claude session=cd5ab582-a9f0-48dc-a9af-099319cf6f8a epoch=b44e0810818a4a8eba10708505a7d953 attempts=2
+2026-10-28T13:27:38 [INFO] channel_compact_request_injected id=ebcec650e9dc49c19ca0622149052bd7 action=compact command=/compact enter=crlf
+2026-10-28T13:27:40 [INFO] runtime_compaction_control event=compact_failed_admission_released phase=failed_open runtime=claude session=cd5ab582-a9f0-48dc-a9af-099319cf6f8a epoch=b44e0810818a4a8eba10708505a7d953 attempts=2
+2026-10-28T13:27:40 [INFO] runtime_compaction_control event=smaller_request_before_checkpoint phase=failed_open runtime=claude session=cd5ab582-a9f0-48dc-a9af-099319cf6f8a epoch=b44e0810818a4a8eba10708505a7d953 attempts=2
+2026-10-28T13:27:40 [INFO] channel_compact_request_queued id=7f55bdc1e2534e87a82313417a8c3467 source=ciel-runtime-router-tool action=compact
+2026-10-28T13:27:40 [INFO] runtime_compaction_control event=smaller_request_before_checkpoint phase=failed_open runtime=claude session=cd5ab582-a9f0-48dc-a9af-099319cf6f8a epoch=b44e0810818a4a8eba10708505a7d953 attempts=2
+2026-10-28T13:27:41 [INFO] runtime_compaction_control event=observation_conflict admission=unchanged
+2026-10-28T13:27:41 [INFO] runtime_compaction_control event=command_dispatch_started phase=dispatching runtime=claude session=cd5ab582-a9f0-48dc-a9af-099319cf6f8a epoch=b44e0810818a4a8eba10708505a7d953 attempts=1
+2026-10-28T13:27:41 [INFO] runtime_compaction_control event=native_compact_started phase=compacting runtime=claude session=cd5ab582-a9f0-48dc-a9af-099319cf6f8a epoch=b44e0810818a4a8eba10708505a7d953 attempts=1
+2026-10-28T13:27:42 [INFO] channel_compact_request_injected id=7f55bdc1e2534e87a82313417a8c3467 action=compact command=/compact enter=crlf
+2026-10-28T13:27:42 [INFO] runtime_compaction_control event=native_checkpoint_observed phase=awaiting_shrink runtime=claude session=cd5ab582-a9f0-48dc-a9af-099319cf6f8a epoch=b44e0810818a4a8eba10708505a7d953 attempts=1
+2026-10-28T13:27:42 [INFO] runtime_compaction_control event=checkpoint_and_history_shrink_verified phase=verified runtime=claude session=cd5ab582-a9f0-48dc-a9af-099319cf6f8a epoch=b44e0810818a4a8eba10708505a7d953 attempts=1 evidence=manual_checkpoint_post_tokens

@@ -55,6 +55,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any, Callable, Mapping
 
+from .gateway_error_metadata import valid_error_metadata
 from .sse_diagnostics import prefix_shape
 from .upstream_error_policy import UpstreamFailure, terminal_usage_limit_error
 from .upstream_stream_io import UpstreamClientDisconnected
@@ -316,7 +317,8 @@ def _error_verdict(raw: bytes) -> tuple[str, str] | None:
         return None
     if not isinstance(value, dict):
         return None
-    if set(value) - {"type", "error", "request_id"} or value.get("type", "error") != "error":
+    if (set(value) - {"type", "error", "request_id", "diagnostics", "recovery_hint"}
+            or value.get("type", "error") != "error" or not valid_error_metadata(value)):
         return None
     detail = value.get("error")
     if not isinstance(detail, dict) or set(detail) - {"type", "message", "code", "param"}:

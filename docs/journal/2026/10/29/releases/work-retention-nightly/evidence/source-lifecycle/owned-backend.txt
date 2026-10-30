@@ -1,0 +1,6 @@
+ciel-runtime router starting on 127.0.0.1:56993 (client base http://127.0.0.1:56993, log level ERROR, source=default)
+web: http://127.0.0.1:56993/
+web_tailscale_https_recommended: ciel-runtime --ca-web-port 56993 --ca-tailscale-https=56993
+ciel-runtime router starting on 127.0.0.1:56993 (client base http://127.0.0.1:56993, log level ERROR, source=default)
+web: http://127.0.0.1:56993/
+web_tailscale_https_recommended: ciel-runtime --ca-web-port 56993 --ca-tailscale-https=56993

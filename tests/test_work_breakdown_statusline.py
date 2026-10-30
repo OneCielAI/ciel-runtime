@@ -14,7 +14,7 @@ ESC = chr(27)
 
 
 class BreakdownStatuslineTests(unittest.TestCase):
-    def render(self, directory, session_id="s1", config=None):
+    def render(self, directory, session_id="s1", config=None, view="expanded", columns="100"):
         directory = Path(directory)
         (directory / "config.json").write_text(json.dumps(config or {}), encoding="utf-8")
         script = directory / "statusline.py"
@@ -23,12 +23,66 @@ class BreakdownStatuslineTests(unittest.TestCase):
         # The external board fallback reads CIEL_CODE_CONFIG_DIR (else APPDATA);
         # pin it to the temp directory so a real user board is never rendered.
         env.update(CIEL_RUNTIME_CONFIG_DIR=str(directory), CIEL_RUNTIME_WORKSPACE_STATE_DIR=str(directory),
-                   CIEL_RUNTIME_STATUSLINE_ANSI="0", CIEL_CODE_CONFIG_DIR=str(directory / "ciel-code"))
+                   CIEL_RUNTIME_STATUSLINE_ANSI="0", CIEL_RUNTIME_WORK_VIEW=view, COLUMNS=columns, CIEL_CODE_CONFIG_DIR=str(directory / "ciel-code"))
+        if view is None:
+            env.pop("CIEL_RUNTIME_WORK_VIEW", None)
         payload = {} if session_id is None else {"session_id": session_id}
         result = subprocess.run([sys.executable, str(script)], input=json.dumps(payload), env=env,
             capture_output=True, text=True, encoding="utf-8", timeout=10)
         self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout
+
+    def test_default_compact_shows_only_counts_and_current_leaf(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.plan(tmp)
+            out = self.render(tmp, view=None)
+            self.assertEqual(out.splitlines(), ["[work] 0/3 [~] Verify expiry"])
+            for text in ("A Cache", "B DAG", "Three problems", "Queued", "TTL"):
+                self.assertNotIn(text, out)
+
+    def test_compact_is_cell_bounded_and_omits_completed_items(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            doc, path = self.plan(tmp)
+            tree.update_node(doc, "n4", status="done", evidence="verified")
+            doc["nodes"][5]["title"] = "한글" * 200
+            path.write_text(json.dumps(doc), encoding="utf-8")
+            out = self.render(tmp, view="compact", columns="42").strip()
+            self.assertEqual(len(out.splitlines()), 1)
+            self.assertLessEqual(sum(1 if ord(c) < 128 else 2 for c in out), 40)
+            self.assertIn("1/3", out)
+            self.assertNotIn("Verify expiry", out)
+
+    def test_compact_uses_runnable_leaf_instead_of_pending_child_under_wait(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            doc, path = self.plan(tmp)
+            tree.update_node(doc, "n2", waiting_on="external approval")
+            path.write_text(json.dumps(doc), encoding="utf-8")
+            out = self.render(tmp, view=None)
+            self.assertIn("Cycles", out)
+            self.assertNotIn("Verify expiry", out)
+
+    def test_compact_shows_inherited_wait_and_block_when_no_work_can_run(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            doc = tree.empty_document()
+            tree.set_plan(doc, {"title": "Goal", "children": [{"title": "Phase", "children": [
+                {"title": "Pending check"}]}]})
+            tree.set_phase(doc, "executing")
+            tree.update_node(doc, "n2", status="blocked", waiting_on="official read access")
+            self.write_plan(tmp, doc)
+            out = self.render(tmp, view=None)
+            self.assertIn("[!] BLOCKED Pending check", out)
+            self.assertIn("official read access", out)
+            self.assertEqual(len(out.splitlines()), 1)
+            self.assertEqual(tree.snapshot(doc)["continuation"]["actionable"], 0)
+            self.assertEqual(tree.snapshot(doc)["display_current"]["held_by"], "n2")
+
+    def test_compact_external_board_uses_active_item_only(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            self.write_board(tmp, {"activeItem": "a", "items": [
+                {"id": "b", "title": "Finished", "status": "done"},
+                {"id": "a", "title": "Active item", "status": "running"}],
+                "steps": {"a": [{"state": "done"}, {"state": "todo", "title": "Run smoke"}]}})
+            self.assertEqual(self.render(tmp, view="compact").splitlines(), ["[work] 1/2 Run smoke"])
 
     def write_plan(self, directory, doc):
         digest = hashlib.sha256(b"claude:s1").hexdigest()
@@ -231,7 +285,7 @@ class BreakdownStatuslineTests(unittest.TestCase):
             script = directory / "statusline.py"
             script.write_text(STATUSLINE_SCRIPT, encoding="utf-8")
             env = {k: v for k, v in os.environ.items() if not k.startswith(("CIEL_RUNTIME_", "CIEL_CODE_", "CLAUDE", "ANTHROPIC", "CODEX", "OPENAI"))}
-            env.update(CIEL_RUNTIME_CONFIG_DIR=tmp, CIEL_RUNTIME_WORKSPACE_STATE_DIR=tmp, CIEL_CODE_CONFIG_DIR=str(directory / "ciel-code"))
+            env.update(CIEL_RUNTIME_WORK_VIEW="expanded", CIEL_RUNTIME_CONFIG_DIR=tmp, CIEL_RUNTIME_WORKSPACE_STATE_DIR=tmp, CIEL_CODE_CONFIG_DIR=str(directory / "ciel-code"))
             (directory / "config.json").write_text("{}", encoding="utf-8")
             out = subprocess.run([sys.executable, str(script)], input=json.dumps({"session_id": "s1"}), env=env,
                                  capture_output=True, text=True, encoding="utf-8", timeout=10).stdout

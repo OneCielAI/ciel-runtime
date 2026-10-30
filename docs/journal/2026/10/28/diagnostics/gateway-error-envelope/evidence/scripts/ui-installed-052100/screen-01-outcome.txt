@@ -1,0 +1,50 @@
+
+ ▐▛███▛█   Claude Code v2.1.312
+▝▜██████▀  owned-send · API Usage Billing
+ ▝▝   ▝▝   C:\Users\djlov\AppData\Local\Temp\late-sse-ui-e1e43fdd\ws
+
+⚠ Model "owned-send" isn't recognized · context assumed to be 200k tokens · update Claude Code, or see the docs
+
+▎ Debug mode enabled · logging to
+▎ C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\28\diagnostics\gateway-error-envelope\evidence\scripts\ui-installed-052100\native-debug.log
+
+❯ LATE-SSE-MAIN answer once.
+
+● LATE-SSE-RETRY-SUCCEEDED
+
+✻ Brewed for 10s · done 5:21 AM
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)

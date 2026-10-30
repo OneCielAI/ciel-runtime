@@ -1,0 +1,9 @@
+{
+  "tests": 134,
+  "success": true,
+  "modules": [
+    "C:\\Users\\djlov\\.local\\share\\ciel-runtime-a54d98eea0fcfd5c46ee5f0d2cbb2bb84b654154\\ciel_runtime_support\\work_retention.py",
+    "C:\\Users\\djlov\\.local\\share\\ciel-runtime-a54d98eea0fcfd5c46ee5f0d2cbb2bb84b654154\\ciel_runtime_support\\work_plan_tree.py",
+    "C:\\Users\\djlov\\.local\\share\\ciel-runtime-a54d98eea0fcfd5c46ee5f0d2cbb2bb84b654154\\ciel_runtime_support\\work_plan_store.py"
+  ]
+}

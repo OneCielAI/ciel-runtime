@@ -1,0 +1,29 @@
+{
+  "checks": {
+    "skips_lines_before_start": true,
+    "drops_unrelated_lines": true,
+    "partial_line_joined": true,
+    "line_before_rotation_kept": true,
+    "line_after_rotation_kept": true,
+    "rotation_counted": true,
+    "exits_after_error": true,
+    "kept_count": true
+  },
+  "kept": [
+    "2026-10-28T00:00:02 [INFO] cielairouter_preoutput_guard state=armed A",
+    "2026-10-28T00:00:03 [INFO] cielairouter_preoutput_commit reason=multiple_frames B",
+    "2026-10-28T00:00:04 [INFO] cielairouter_late_sse_retry before rotation C",
+    "2026-10-28T01:00:01 [WARN] anthropic_sse_error_shape {\"payload\":{}} D"
+  ],
+  "status": {
+    "started": "2026-10-28T03:13:04",
+    "router_instance": "C:\\Users\\djlov\\AppData\\Local\\Temp\\watch-diag-lehg1koe\\instance",
+    "rotations": 1,
+    "kept": 4,
+    "first_error_at": "2026-10-28T03:13:29",
+    "polls": 7,
+    "last_poll": "2026-10-28T03:13:34",
+    "ended": "2026-10-28T03:13:39",
+    "reason": "sse_error_captured"
+  }
+}

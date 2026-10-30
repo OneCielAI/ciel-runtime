@@ -21,12 +21,13 @@ const HELP = [
   '• Planning: the model builds a plan with work_plan_set: goal → phases → tasks → verifiable steps. Reading is allowed; direct file edits wait. Bash/PowerShell use native permissions and sandboxing, not Work gates.',
   '• New requests: an independent request becomes its own numbered item ("2. …") and waits in the queue behind the active item; a change to an existing item is added under that item.',
   '• Executing: after work_execute (automatic, or your approval when set to ask) the model works step by step and marks each step done with evidence.',
-  '• Above the prompt: Progress / Queue / Completed are read-only button tabs; Prev / Next (p / n) page the list; w opens the Inspector. Ctrl+X Tab focuses · Tab/↑↓ select · Enter inspects · Esc returns. Tiny screens use Inspect Work. Rows of other plugins stay below the Work rows; the band scrolls to them.',
-  '• /work-mode view: keyboard inspector · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode help: this help',
+  '• Above the prompt: compact by default (done/total + current step); [+] / w expands, [-] collapses. Progress / Queue / Completed are read-only button tabs; Prev / Next (p / n) page the list; w opens the Inspector. Ctrl+X Tab focuses · Tab/↑↓ select · Enter inspects · Esc returns. Tiny screens use Inspect Work. Rows of other plugins stay below the Work rows; the band scrolls to them.',
+  '• /work-mode expand / compact: toggle the inline list · /work-mode view: keyboard inspector · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode help: this help',
   '• Focus: inspect an item → Focus only this item. Clear focus / resume all releases the hold. A chat request can select multiple exact IDs; focus stays until explicitly cleared.',
   '• Priorities: All items → Move up / Move down orders root goals. Moving the active goal requires your request; a button press is that request.',
   '• Linked IDs appear as [ id ] description; ◷ names an external wait; green ✓ means verified done. An urgent request holds other goals until it finishes.',
   '• Auto continue: normal turn endings resume actionable Work, bounded by no-progress checks; waits, blocks and approval do not trigger it; background tasks do not block independent Work, and a dim line says why it stopped. Codex receives instructions only.',
+  '• Completed items expire after 24 hours by default. Explicitly focused items remain until focus is cleared; progress counts are preserved. Toggle: LLM options → Work completed auto-delete (24h).',
   '• Settings: ciel-runtime menu → LLM options → Work mode (on/off), Work plan approval (auto/ask), Work auto continue (on/off).',
   '• The agent can switch the same workspace Work mode setting itself with work_mode_set (enabled true/false); plans are kept.',
 ].join('\n')
@@ -41,6 +42,10 @@ let noticed = 0
 let continuationVersion = null
 let unchangedContinuations = 0
 let stopNoticeKey = ''
+let compactEpoch = 0
+const compacts = new Set()
+let continuationSession = null
+const STOP_READ_MS = 2000
 const RETRY_MS = [250, 500, 1000, 2000, 4000, 8000]
 const IDLE_REFRESH_MS = [1000, 2000, 4000, 8000, 16000, 30000]
 const nativePlanPaths = new Map()
@@ -205,6 +210,21 @@ async function gateRead($) {
 }
 function unavailable(read) {
   return UNAVAILABLE + ' [' + read.stage + (read.correlation ? '; ' + read.correlation : '') + ']'
+}
+// Stop alone has a wall-clock deadline: HookBudget pauses during MCP calls.
+// The losing read is pure, so a late response cannot update the cache, version
+// floor or continuation counters, or emit a stale gate failure notice.
+async function stopSnapshot($, identity) {
+  let timer
+  try {
+    return await Promise.race([
+      readSnapshot($, identity).catch(() => null),
+      new Promise(resolve => { timer = setTimeout(() => resolve(null), STOP_READ_MS) }),
+    ])
+  } finally { clearTimeout(timer) }
+}
+function compacting(identity) {
+  return [...compacts].some(c => c.lifecycle === starts && (c.identity === null || c.identity === identity))
 }
 // Only the host-pinned plan attachment identifies the file; never infer it from
 // tool arguments, a tool result, reminder prose or a path under a plans folder.
@@ -466,6 +486,8 @@ export function register(on) {
     await $.command.register({ name: 'work-mode', description: 'Work mode: summary, help, keyboard inspector, tree or raw status',
       argumentHint: '[help|view|tree|status]', immediate: true })
     const ticket = ++starts
+    compactEpoch++; compacts.clear(); continuationSession = null
+    continuationVersion = null; unchangedContinuations = 0
     stopIdleRefresh(); clearNativePlanPaths(); interactive = e.isInteractive
     const s = await refresh($)
     if (e.isInteractive && s?.enabled) { notice($, ticket); startIdleRefresh($, cachedSession) }
@@ -491,18 +513,54 @@ export function register(on) {
     if (e.agentId === undefined) { working = false; if (interactive) startIdleRefresh($, await sessionId($)) }
     return result
   })
+  on('session.compact', async ($, e, next) => {
+    // A child's transcript and a speculative summary do not replace main history.
+    if (e.agentId !== undefined || e.trigger === 'precompute') return next(e)
+    const compact = { lifecycle: starts, identity: null }
+    compacts.add(compact); compactEpoch++
+    try {
+      try { compact.identity = await sessionId($) } catch {}
+      return await next(e)
+    } finally {
+      // Keep the wait active through identity reconciliation. Never reset a new
+      // lifecycle's/session's no-progress state when an old compact settles.
+      let identity = null
+      try { identity = await sessionId($) } catch {}
+      if (compact.lifecycle === starts) {
+        compactEpoch++
+        if (compact.identity && compact.identity === identity
+            && (continuationSession === null || continuationSession === identity)) {
+          continuationVersion = null; unchangedContinuations = 0
+        }
+      }
+      compacts.delete(compact)
+    }
+  })
   on('classic.Stop', async ($, e, next) => {
-    const result = await next(e)
-    if (result?.block || result?.preventContinuation || e.agent_id) return result
     const lifecycle = starts
     const turn = mainTurnEpoch
-    const identity = await sessionId($)
-    if (e.session_id && identity !== 'claude:' + e.session_id) return result
-    // Display/idle reads may overlap Stop. Only a new main turn or session
-    // lifecycle invalidates this decision, not another reader's generation.
-    const read = await gateRead($)
-    if (lifecycle !== starts || turn !== mainTurnEpoch || await sessionId($) !== identity) return result
-    const s = read.s
+    const epoch = compactEpoch
+    const result = await next(e)
+    if (result?.block || result?.preventContinuation || e.agent_id) return result
+    let identity, s, current
+    try {
+      identity = await sessionId($)
+      if (e.session_id && identity !== 'claude:' + e.session_id) return result
+      if (lifecycle !== starts || turn !== mainTurnEpoch || epoch !== compactEpoch || compacting(identity)) return result
+      s = await stopSnapshot($, identity)
+      current = await sessionId($)
+    } catch { return result }
+    // Idle/display reads do not invalidate Stop; compact entry AND settlement do.
+    if (lifecycle !== starts || turn !== mainTurnEpoch || epoch !== compactEpoch
+        || current !== identity || compacting(identity)) return result
+    if (continuationSession !== identity) {
+      continuationSession = identity; continuationVersion = null; unchangedContinuations = 0
+    }
+    if (s && s.enabled !== false) {
+      if (gateIdentity !== identity) { gateIdentity = identity; gateVersion = -1 }
+      if (s.version < gateVersion) return result
+      gateVersion = s.version
+    }
     if (!s) { if (enabled) stopNotice($, identity, STOP_UNAVAILABLE); return result }
     if (!s.enabled || s.auto_continue !== true) return result
     // Every stop that leaves unfinished Work either continues with a runnable item or says why not.
@@ -559,7 +617,13 @@ export function register(on) {
   })
   on('command.run', { command: 'work-mode' }, async ($, e) => {
     const arg = e.args.trim()
-    if (!['', 'help', 'view', 'status', 'tree'].includes(arg)) return { text: 'Usage: /work-mode [help|view|tree|status]' }
+    if (!['', 'help', 'view', 'status', 'tree', 'expand', 'compact'].includes(arg)) return { text: 'Usage: /work-mode [expand|compact|help|view|tree|status]' }
+    if (arg === 'expand' || arg === 'compact') {
+      await refresh($)
+      const origin = await sessionId($)
+      await displayState($, origin, old => ({ ...old, expanded: arg === 'expand', tab: 'progress', page: 0 }))
+      return { text: arg === 'expand' ? 'Work expanded · Completed is separate · /work-mode compact' : 'Work compact · /work-mode expand' }
+    }
     if (arg === 'help') return { text: HELP }
     if (arg === 'view') { await openDetails($); return { text: 'Work inspector: Tab/arrows navigate, Enter opens, Esc returns.' } }
     const s = await refresh($)
@@ -635,7 +699,7 @@ export function register(on) {
   on('session.end', async ($, e, next) => {
     stopIdleRefresh(); interactive = false; working = false; clearNativePlanPaths(); starts++
     generation++; cached = null; cachedSession = null; hinted = ''; continuationVersion = null; unchangedContinuations = 0
-    stopNoticeKey = ''
+    stopNoticeKey = ''; compactEpoch++; compacts.clear(); continuationSession = null
     await update($, detailView, () => null)
     await update($, panelView, () => null)
     return next(e)
@@ -666,11 +730,18 @@ export function register(on) {
     const work = []
     // Tiny/narrow terminals get an actionable summary; the inspector carries
     // all three paged lists instead of leaving clipped-off controls unreachable.
-    if (budget.work < 5 || width < 58) {
+    const expanded = state?.session === origin && state.expanded === true
+    if (!expanded || budget.work < 5 || width < 58) {
+      const current = cached && Object.hasOwn(cached, 'display_current') ? cached.display_current : cached?.next
+      const summary = !cached ? 'Work unavailable' : 'Work ' + cached.done + '/' + cached.total
+        + (current ? ' ' + (current.status === 'blocked' ? '[!]' : current.waiting_on ? '◷' : current.status === 'in_progress' ? '[~]' : '[ ]') + ' ' + clipped(current.title || current.path?.at(-1) || '', width)
+          + (current.waiting_on ? ' ◷ ' + clipped(current.waiting_on, 40) : '')
+          : cached.active_root ? ' complete' : ' no goal')
       work.push(strip('work-summary', [
-        Button({ key: 'work-all', plain: true, autoFocus: true,
-          label: clipped('Inspect Work' + (cached ? ' ' + cached.done + '/' + cached.total + ' · Q ' + counts.queue + ' · Done ' + counts.completed : ' unavailable'), width),
-          onPress: () => openDetails($, null, origin) }),
+        Button({ key: 'work-expand', plain: true, autoFocus: true, hotkey: 'w',
+          label: clipped(summary, Math.max(1, width - 4)) + ' [+]',
+          onPress: () => budget.work < 5 || width < 58 ? openDetails($, null, origin)
+            : displayState($, origin, old => ({ ...old, expanded: true, tab: 'progress', page: 0 })) }),
       ]))
     } else {
       work.push(line(heading))
@@ -685,6 +756,8 @@ export function register(on) {
         onPress: () => openDetails($, row.node.id, origin) }))
       if (!rows.length) work.push(line(tab === 'progress' ? 'No unfinished rows · inspect the active goal' : 'No ' + tab + ' items'))
       work.push(strip('work-footer', [
+        Button({ key: 'work-collapse', plain: true, label: '[-]', hotkey: 'c',
+          onPress: () => displayState($, origin, old => ({ ...old, expanded: false })) }),
         ...(page.current > 0 ? [Button({ key: 'work-prev', plain: true, hotkey: 'p', label: 'Prev',
           onPress: () => displayState($, origin, old => ({ ...old, page: page.current - 1 })) })] : []),
         line((page.current + 1) + '/' + page.pages),
@@ -746,6 +819,7 @@ export function register(on) {
     } else if (!fresh || view.error || !selected) rows.push(text(!fresh ? 'Plan changed — refresh to inspect current items.' : view.error || 'No active goal.'))
     else {
       const visit = (node, depth) => {
+        if (selected.status !== 'done' && node.status === 'done') return
         rows.push(statusButton(Box, Button, Text, node, { key: 'node-' + node.id, plain: true,
           label: rowLabel('  '.repeat(Math.min(depth, 8)), node, width),
           onPress: () => openDetails($, node.id, origin) }))

@@ -1,0 +1,54 @@
+test_delayed_contract_retries_before_generation (test_gateway_error_envelope.GatewayEnvelopeTests.test_delayed_contract_retries_before_generation) ... FAIL
+test_duplicate_keys_and_nonfinite_values_still_rejected (test_gateway_error_envelope.GatewayEnvelopeTests.test_duplicate_keys_and_nonfinite_values_still_rejected) ... ok
+test_http_contract_uses_same_budget (test_gateway_error_envelope.GatewayEnvelopeTests.test_http_contract_uses_same_budget) ... ERROR
+test_metadata_does_not_reopen_after_output_or_mixed_frames (test_gateway_error_envelope.GatewayEnvelopeTests.test_metadata_does_not_reopen_after_output_or_mixed_frames) ... ok
+test_official_contract_is_recognized (test_gateway_error_envelope.GatewayEnvelopeTests.test_official_contract_is_recognized) ... FAIL
+test_optional_contract_metadata (test_gateway_error_envelope.GatewayEnvelopeTests.test_optional_contract_metadata) ... FAIL
+test_terminal_error_is_not_reclassified_by_retry_hint (test_gateway_error_envelope.GatewayEnvelopeTests.test_terminal_error_is_not_reclassified_by_retry_hint) ... ok
+test_unknown_or_malformed_metadata_still_rejected (test_gateway_error_envelope.GatewayEnvelopeTests.test_unknown_or_malformed_metadata_still_rejected) ... ok
+
+======================================================================
+ERROR: test_http_contract_uses_same_budget (test_gateway_error_envelope.GatewayEnvelopeTests.test_http_contract_uses_same_budget)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users/djlov/ciel-runtime-wt-work/tests\test_gateway_error_envelope.py", line 48, in test_http_contract_uses_same_budget
+    with retry.open_with_transient_retry(open_once, provider="cielairouter", config={},
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users/djlov/.local/share/ciel-runtime-679245fa9feaff3d72d7c948a53b5a7a92d5a2d4\ciel_runtime_support\transient_retry.py", line 830, in open_with_transient_retry
+    return open_with_transient_retry(open_once, provider=provider, config=config,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users/djlov/.local/share/ciel-runtime-679245fa9feaff3d72d7c948a53b5a7a92d5a2d4\ciel_runtime_support\transient_retry.py", line 851, in open_with_transient_retry
+    return _execute(open_once, budget, log, publish, sleep, cancelled, request, reselect, model)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users/djlov/.local/share/ciel-runtime-679245fa9feaff3d72d7c948a53b5a7a92d5a2d4\ciel_runtime_support\transient_retry.py", line 941, in _execute
+    raise _mark(error, budget)
+urllib.error.HTTPError: HTTP Error 504: timeout
+
+======================================================================
+FAIL: test_delayed_contract_retries_before_generation (test_gateway_error_envelope.GatewayEnvelopeTests.test_delayed_contract_retries_before_generation)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users/djlov/ciel-runtime-wt-work/tests\test_gateway_error_envelope.py", line 37, in test_delayed_contract_retries_before_generation
+    self.assertEqual(result, OUTPUT)
+AssertionError: b': alive\n\nevent: ping\ndata: {"type":"pi[425 chars]\n\n' != b'event: message_start\ndata: {"type":"mess[37 chars]\n\n'
+
+======================================================================
+FAIL: test_official_contract_is_recognized (test_gateway_error_envelope.GatewayEnvelopeTests.test_official_contract_is_recognized)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users/djlov/ciel-runtime-wt-work/tests\test_gateway_error_envelope.py", line 31, in test_official_contract_is_recognized
+    self.assertEqual(retry._error_verdict(frame(value)),
+AssertionError: None != ('server_error', 'Model timed out (HTTP 504)')
+
+======================================================================
+FAIL: test_optional_contract_metadata (test_gateway_error_envelope.GatewayEnvelopeTests.test_optional_contract_metadata)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users/djlov/ciel-runtime-wt-work/tests\test_gateway_error_envelope.py", line 85, in test_optional_contract_metadata
+    self.assertIsNotNone(retry._error_verdict(frame(value)))
+AssertionError: unexpectedly None
+
+----------------------------------------------------------------------
+Ran 8 tests in 1.553s
+
+FAILED (failures=3, errors=1)

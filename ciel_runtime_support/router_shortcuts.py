@@ -18,6 +18,8 @@ class ShortcutResponsePorts:
     current_provider: Callable[[dict[str, Any]], tuple[str, dict[str, Any]]]
     write_anthropic: Callable[..., Any]
     publish_event: Callable[..., Any]
+    save_config: Callable[[dict[str, Any]], Any] | None = None
+    gate_status: Callable[[], dict[str, Any]] = lambda: {}
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,6 +187,16 @@ class RouterShortcutController:
     def handle_live_api_keys(
         self, handler: ShortcutHandler, body: dict[str, Any]
     ) -> bool:
+        from .sse_gate import arguments, command
+        gate_value = arguments(body)
+        if gate_value is not None:
+            if self.response.save_config is None:
+                lines = ["SSE gate configuration unavailable."]
+            else:
+                lines = command(gate_value, self.response.load_config, self.response.save_config, self.response.gate_status)
+            model, stream = self._model_and_stream(body)
+            self.response.write_anthropic(handler, model, "\n".join(lines), stream)
+            return True
         # /fallback shares this local-command hook (no extra wiring in the root module).
         if self.handle_provider_fallback(handler, body):
             return True

@@ -1,0 +1,10 @@
+{
+  "tests": 117,
+  "success": true,
+  "modules": [
+    "C:\\Users\\djlov\\.local\\share\\ciel-runtime-907726516449764c26169a54c5d441cb0dd9be94\\ciel_runtime_support\\runtime_compaction_binding.py",
+    "C:\\Users\\djlov\\.local\\share\\ciel-runtime-907726516449764c26169a54c5d441cb0dd9be94\\ciel_runtime_support\\statusline_script.py",
+    "C:\\Users\\djlov\\.local\\share\\ciel-runtime-907726516449764c26169a54c5d441cb0dd9be94\\ciel_runtime_support\\router_shortcuts.py",
+    "C:\\Users\\djlov\\.local\\share\\ciel-runtime-907726516449764c26169a54c5d441cb0dd9be94\\ciel_runtime_support\\provider_option_panel.py"
+  ]
+}

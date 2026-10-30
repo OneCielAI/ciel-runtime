@@ -19,6 +19,16 @@ class SSEDiagnosticsTests(unittest.TestCase):
         self.assertNotIn("PRIVATE", json.dumps(shape))
         self.assertNotIn("504", json.dumps(shape))
 
+    def test_gateway_metadata_names_without_values_are_observable(self):
+        shape = payload_shape(json.dumps({"error": {"type": "server_error", "message": "PRIVATE"},
+            "diagnostics": {"terminalReason": "PRIVATE"},
+            "recovery_hint": {"next_step": "PRIVATE"}}), "error")
+        self.assertEqual(shape["fields"]["diagnostics"], "object")
+        self.assertEqual(shape["fields"]["recovery_hint"], "object")
+        self.assertEqual(shape["other_fields"], 0)
+        self.assertNotIn("PRIVATE", json.dumps(shape))
+        self.assertNotIn("next_step", json.dumps(shape))
+
     def test_unknown_tokens_and_invalid_json_are_never_logged(self):
         for raw in ("PRIVATE invalid json", '["PRIVATE"]', '"PRIVATE"',
                     '{"error":{"type":"PRIVATE-TOKEN","message":"PRIVATE"}}',

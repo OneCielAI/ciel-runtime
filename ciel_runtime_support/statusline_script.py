@@ -589,6 +589,19 @@ def main():
     if dir_name:
         left += f" {dir_name}"
     status_parts = []
+    gate_mode = "off" if cfg.get("sse_gate_enabled") is False else "on"
+    gate = load_json(ROUTER_STATE_DIR / "sse-gate-status.json", {})
+    try:
+        gate_fresh = 0 <= time.time() - float(gate.get("updated_at") or 0) < 15
+    except (ValueError, TypeError):
+        gate_fresh = False
+    if gate_fresh and gate.get("enabled") is (gate_mode == "on"):
+        gate_state = str(gate.get("state") or "unknown")
+        gate_reason = str(gate.get("reason") or "")
+        gate_text = f"SSE gate {gate_mode}: {gate_state}" + (f" ({gate_reason})" if gate_reason else "")
+    else:
+        gate_text = f"SSE gate {gate_mode}: unknown"
+    status_parts.append(color(gate_text))
     if failover_text:
         status_parts.append(color(failover_text))
     expected_ctx_limit = status_config_context_limit(provider, pcfg)
@@ -772,6 +785,15 @@ def work_plan_status_text(session):
         state = snapshot(normalize_document(plan))
     except Exception:
         return "[work] unavailable"
+    if os.environ.get("CIEL_RUNTIME_WORK_VIEW", "compact") != "expanded":
+        current = state.get("display_current") if "display_current" in state else state.get("next")
+        label = f"[work] {state['done']}/{state['total']}"
+        if current:
+            label += " " + _work_item_mark(current) + " " + str(current.get("title") or (current.get("path") or [""])[-1])
+            label += _work_reason(current)
+        else:
+            label += " complete" if state.get("active_root") else " no goal"
+        return _work_cell_clip(label, _work_width())
     clip = _work_status_clip
     phase = state["phase"]
     root = state.get("active_root")
@@ -876,6 +898,28 @@ def _work_status_clip(value, limit):
     return text if len(text) <= limit else text[:limit - 3] + "..."
 
 
+def _work_width():
+    try:
+        return max(1, min(100, int(os.environ.get("COLUMNS", "100")) - 2))
+    except (ValueError, TypeError):
+        return 98
+
+
+def _work_cell_clip(value, width):
+    # Strip controls before measuring, so color escapes cannot break truncation.
+    text = re.sub(r"\[[0-9;]*m", "", str(value))
+    text = _work_status_clip(text, max(1, len(text) + 1))
+    cells = 0
+    kept = []
+    for char in text:
+        size = 1 if ord(char) < 128 else 2
+        if cells + size > max(0, width - 3):
+            return "".join(kept) + "." * min(3, width)
+        kept.append(char)
+        cells += size
+    return text
+
+
 def work_board_status_text(session):
     session_id = session.get("session_id")
     if not isinstance(session_id, str) or not re.fullmatch(r"[A-Za-z0-9_-]{1,200}", session_id):
@@ -892,6 +936,19 @@ def work_board_status_text(session):
     steps_map = board.get("steps")
     steps_map = steps_map if isinstance(steps_map, dict) else {}
     active = str(board.get("activeItem") or "")
+    if os.environ.get("CIEL_RUNTIME_WORK_VIEW", "compact") != "expanded":
+        unfinished = [item for item in items if isinstance(item, dict) and item.get("status") != "done"]
+        item = next((item for item in unfinished if str(item.get("id")) == active),
+                    next((item for item in unfinished if item.get("status") == "running"),
+                         unfinished[0] if unfinished else None))
+        if item is None:
+            return "[work] complete"
+        steps = steps_map.get(str(item.get("id"))) or []
+        steps = steps if isinstance(steps, list) else []
+        done = sum(1 for step in steps if isinstance(step, dict) and step.get("state") == "done")
+        current = next((step for step in steps if isinstance(step, dict) and step.get("state") not in ("done",)), None)
+        title = (current or {}).get("title") or item.get("title") or ""
+        return _work_cell_clip(f"[work] {done}/{len(steps)} " + str(title), _work_width())
     icons = {"running": ">", "done": _work_done_mark(), "planning": "~", "paused": "|"}
     lines = []
     for item in items:

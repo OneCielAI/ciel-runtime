@@ -1,0 +1,6 @@
+{
+  "reason": "Separate downloaded archive and extracted distribution docs from authored OKF bundle; no package bytes changed",
+  "payload_directory": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-f8e54f9-3013ad50",
+  "package_directory": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-f8e54f9-3013ad50\\unpack\\package",
+  "tarball": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-release-f8e54f9-3013ad50\\download\\published.tgz"
+}

@@ -1,0 +1,466 @@
+{
+  "conclusion": "success",
+  "headSha": "a54d98eea0fcfd5c46ee5f0d2cbb2bb84b654154",
+  "jobs": [
+    {
+      "completedAt": "2026-10-29T21:58:52Z",
+      "conclusion": "success",
+      "databaseId": 123755928829,
+      "name": "python-minimum",
+      "startedAt": "2026-10-29T21:55:02Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-29T21:55:04Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-29T21:55:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:08Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v4",
+          "number": 2,
+          "startedAt": "2026-10-29T21:55:04Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:14Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@v5",
+          "number": 3,
+          "startedAt": "2026-10-29T21:55:08Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:15Z",
+          "conclusion": "success",
+          "name": "Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts",
+          "number": 4,
+          "startedAt": "2026-10-29T21:55:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:58:50Z",
+          "conclusion": "success",
+          "name": "Run python scripts/run_test_group.py unit",
+          "number": 5,
+          "startedAt": "2026-10-29T21:55:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:58:50Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@v5",
+          "number": 9,
+          "startedAt": "2026-10-29T21:58:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:58:50Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v4",
+          "number": 10,
+          "startedAt": "2026-10-29T21:58:50Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:58:50Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 11,
+          "startedAt": "2026-10-29T21:58:50Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/OneCielAI/ciel-runtime/actions/runs/40961722822/job/123755928829"
+    },
+    {
+      "completedAt": "2026-10-29T21:55:55Z",
+      "conclusion": "success",
+      "databaseId": 123755929125,
+      "name": "test (runtime)",
+      "startedAt": "2026-10-29T21:55:02Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-29T21:55:03Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-29T21:55:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:07Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v4",
+          "number": 2,
+          "startedAt": "2026-10-29T21:55:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:07Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@v5",
+          "number": 3,
+          "startedAt": "2026-10-29T21:55:07Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:53Z",
+          "conclusion": "success",
+          "name": "Run python scripts/run_test_group.py runtime",
+          "number": 4,
+          "startedAt": "2026-10-29T21:55:07Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:53Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@v5",
+          "number": 7,
+          "startedAt": "2026-10-29T21:55:53Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:54Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v4",
+          "number": 8,
+          "startedAt": "2026-10-29T21:55:53Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:54Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 9,
+          "startedAt": "2026-10-29T21:55:54Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/OneCielAI/ciel-runtime/actions/runs/40961722822/job/123755929125"
+    },
+    {
+      "completedAt": "2026-10-29T21:55:19Z",
+      "conclusion": "success",
+      "databaseId": 123755929131,
+      "name": "quality",
+      "startedAt": "2026-10-29T21:55:02Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-29T21:55:04Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-29T21:55:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:08Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v4",
+          "number": 2,
+          "startedAt": "2026-10-29T21:55:04Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:08Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@v5",
+          "number": 3,
+          "startedAt": "2026-10-29T21:55:08Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:08Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-node@v4",
+          "number": 4,
+          "startedAt": "2026-10-29T21:55:08Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:13Z",
+          "conclusion": "success",
+          "name": "Run python -m pip install --upgrade pip \"ruff==0.15.22\" pillow",
+          "number": 5,
+          "startedAt": "2026-10-29T21:55:08Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:14Z",
+          "conclusion": "success",
+          "name": "Run python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts",
+          "number": 6,
+          "startedAt": "2026-10-29T21:55:13Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:14Z",
+          "conclusion": "success",
+          "name": "Run python -m ruff check .",
+          "number": 7,
+          "startedAt": "2026-10-29T21:55:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:14Z",
+          "conclusion": "success",
+          "name": "Run npm run check:docs",
+          "number": 8,
+          "startedAt": "2026-10-29T21:55:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:15Z",
+          "conclusion": "success",
+          "name": "Run npm pack --dry-run",
+          "number": 9,
+          "startedAt": "2026-10-29T21:55:14Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:15Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-node@v4",
+          "number": 16,
+          "startedAt": "2026-10-29T21:55:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:15Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@v5",
+          "number": 17,
+          "startedAt": "2026-10-29T21:55:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:15Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v4",
+          "number": 18,
+          "startedAt": "2026-10-29T21:55:15Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:15Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 19,
+          "startedAt": "2026-10-29T21:55:15Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/OneCielAI/ciel-runtime/actions/runs/40961722822/job/123755929131"
+    },
+    {
+      "completedAt": "2026-10-29T22:01:50Z",
+      "conclusion": "success",
+      "databaseId": 123755929181,
+      "name": "test (router)",
+      "startedAt": "2026-10-29T21:55:02Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-29T21:55:03Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-29T21:55:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:07Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v4",
+          "number": 2,
+          "startedAt": "2026-10-29T21:55:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:08Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@v5",
+          "number": 3,
+          "startedAt": "2026-10-29T21:55:07Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T22:01:48Z",
+          "conclusion": "success",
+          "name": "Run python scripts/run_test_group.py router",
+          "number": 4,
+          "startedAt": "2026-10-29T21:55:08Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T22:01:48Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@v5",
+          "number": 7,
+          "startedAt": "2026-10-29T22:01:48Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T22:01:48Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v4",
+          "number": 8,
+          "startedAt": "2026-10-29T22:01:48Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T22:01:49Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 9,
+          "startedAt": "2026-10-29T22:01:48Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/OneCielAI/ciel-runtime/actions/runs/40961722822/job/123755929181"
+    },
+    {
+      "completedAt": "2026-10-29T21:58:00Z",
+      "conclusion": "success",
+      "databaseId": 123755929216,
+      "name": "test (unit)",
+      "startedAt": "2026-10-29T21:55:03Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-29T21:55:04Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-29T21:55:03Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:08Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v4",
+          "number": 2,
+          "startedAt": "2026-10-29T21:55:04Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:08Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@v5",
+          "number": 3,
+          "startedAt": "2026-10-29T21:55:08Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:57:57Z",
+          "conclusion": "success",
+          "name": "Run python scripts/run_test_group.py unit",
+          "number": 4,
+          "startedAt": "2026-10-29T21:55:08Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:57:58Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@v5",
+          "number": 7,
+          "startedAt": "2026-10-29T21:57:57Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:57:58Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v4",
+          "number": 8,
+          "startedAt": "2026-10-29T21:57:58Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:57:58Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 9,
+          "startedAt": "2026-10-29T21:57:58Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/OneCielAI/ciel-runtime/actions/runs/40961722822/job/123755929216"
+    },
+    {
+      "completedAt": "2026-10-29T21:55:25Z",
+      "conclusion": "success",
+      "databaseId": 123755929243,
+      "name": "test (channel)",
+      "startedAt": "2026-10-29T21:55:03Z",
+      "status": "completed",
+      "steps": [
+        {
+          "completedAt": "2026-10-29T21:55:05Z",
+          "conclusion": "success",
+          "name": "Set up job",
+          "number": 1,
+          "startedAt": "2026-10-29T21:55:04Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:08Z",
+          "conclusion": "success",
+          "name": "Run actions/checkout@v4",
+          "number": 2,
+          "startedAt": "2026-10-29T21:55:05Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:08Z",
+          "conclusion": "success",
+          "name": "Run actions/setup-python@v5",
+          "number": 3,
+          "startedAt": "2026-10-29T21:55:08Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:22Z",
+          "conclusion": "success",
+          "name": "Run python scripts/run_test_group.py channel",
+          "number": 4,
+          "startedAt": "2026-10-29T21:55:08Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:22Z",
+          "conclusion": "success",
+          "name": "Post Run actions/setup-python@v5",
+          "number": 7,
+          "startedAt": "2026-10-29T21:55:22Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:23Z",
+          "conclusion": "success",
+          "name": "Post Run actions/checkout@v4",
+          "number": 8,
+          "startedAt": "2026-10-29T21:55:22Z",
+          "status": "completed"
+        },
+        {
+          "completedAt": "2026-10-29T21:55:23Z",
+          "conclusion": "success",
+          "name": "Complete job",
+          "number": 9,
+          "startedAt": "2026-10-29T21:55:23Z",
+          "status": "completed"
+        }
+      ],
+      "url": "https://github.com/OneCielAI/ciel-runtime/actions/runs/40961722822/job/123755929243"
+    }
+  ],
+  "status": "completed",
+  "url": "https://github.com/OneCielAI/ciel-runtime/actions/runs/40961722822"
+}

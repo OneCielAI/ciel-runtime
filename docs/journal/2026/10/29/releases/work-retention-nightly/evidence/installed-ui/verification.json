@@ -1,0 +1,64 @@
+{
+  "repo": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-a54d98eea0fcfd5c46ee5f0d2cbb2bb84b654154",
+  "mod": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-a54d98eea0fcfd5c46ee5f0d2cbb2bb84b654154\\ciel_runtime_support\\claude_mods\\ciel-work",
+  "cli_version": "2.1.312 (Claude Code)",
+  "checks": {
+    "idle": true,
+    "actual_periodic_expiry": true,
+    "recent_done_preserved": true,
+    "unfinished_preserved": true,
+    "companion_visible": true,
+    "compact_counts_visible": true,
+    "current_only_visible": true,
+    "native_render_valid": true,
+    "work_band_at_most_10_rows": true,
+    "completed_hidden_initially": true,
+    "expanded_from_compact": true,
+    "inspector": true,
+    "queue_tab": true,
+    "completed_tab": true,
+    "native_retained_after_tab": true,
+    "collapsed_again": true,
+    "display_only": true
+  },
+  "model_user_prompts_sent": 1,
+  "live_before": {
+    "9505": {
+      "pid": 70956,
+      "version": "0.2.51-nightly.20261029-150640.e3cb9a1",
+      "source_fingerprint": "122e12595997f09d",
+      "error": null
+    },
+    "9524": {
+      "pid": 18536,
+      "version": "0.2.51-nightly.20261028-023853.679245f",
+      "source_fingerprint": "122e12595997f09d",
+      "error": null
+    }
+  },
+  "live_after": {
+    "9505": {
+      "pid": 70956,
+      "version": "0.2.51-nightly.20261029-150640.e3cb9a1",
+      "source_fingerprint": "122e12595997f09d",
+      "error": null
+    },
+    "9524": {
+      "pid": 18536,
+      "version": "0.2.51-nightly.20261028-023853.679245f",
+      "source_fingerprint": "122e12595997f09d",
+      "error": null
+    }
+  },
+  "egress": [
+    {
+      "method": "CONNECT",
+      "path": "downloads.claude.ai:443"
+    },
+    {
+      "method": "CONNECT",
+      "path": "github.com:443"
+    }
+  ],
+  "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-panel-compact-be2855dc"
+}

@@ -1,0 +1,18 @@
+worktree tracked changes before:
+ M docs/journal/2026/10/17/diagnostics/tls-eof/evidence/passthrough-after-wire.txt
+ M docs/journal/2026/10/17/diagnostics/tls-eof/evidence/passthrough-before-wire.txt
+remote:
+remote: Create a pull request for 'nightly-20261028' on GitHub by visiting:
+remote:      https://github.com/OneCielAI/ciel-runtime/pull/new/nightly-20261028
+remote:
+To https://github.com/OneCielAI/ciel-runtime.git
+ * [new branch]      3aa9d904c41d393113dc4f581e1270766fdbbc36 -> nightly-20261028
+M	docs/journal/2026/10/17/diagnostics/tls-eof/evidence/passthrough-after-wire.txt
+M	docs/journal/2026/10/17/diagnostics/tls-eof/evidence/passthrough-before-wire.txt
+branch 'nightly-20261028' set up to track 'origin/nightly-20261028'.
+Switched to a new branch 'nightly-20261028'
+HEAD 3aa9d904c41d393113dc4f581e1270766fdbbc36 branch nightly-20261028 upstream origin/nightly-20261028
+worktree tracked changes after:
+ M docs/journal/2026/10/17/diagnostics/tls-eof/evidence/passthrough-after-wire.txt
+ M docs/journal/2026/10/17/diagnostics/tls-eof/evidence/passthrough-before-wire.txt
+tracked changes preserved

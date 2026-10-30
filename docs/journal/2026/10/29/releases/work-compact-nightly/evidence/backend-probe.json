@@ -1,0 +1,32 @@
+{
+  "checks": [
+    {
+      "check": "rest_board_add",
+      "ok": true,
+      "nodes": 3
+    },
+    {
+      "check": "mcp_list_and_status_over_http",
+      "ok": true
+    },
+    {
+      "check": "rest_mode_off_persisted_gates_mutations_and_mcp_catalog",
+      "ok": true
+    },
+    {
+      "check": "mcp_mode_on_persisted_preserves_plan",
+      "ok": true
+    },
+    {
+      "check": "rest_mode_on_and_full_mcp_restored",
+      "ok": true
+    },
+    {
+      "check": "rest_help",
+      "ok": true
+    }
+  ],
+  "owned_pid": 86828,
+  "transport": "real HTTP against owned production router",
+  "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\work-api-proof-0vdy6fe1"
+}

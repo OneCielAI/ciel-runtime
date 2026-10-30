@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from .channel_message_repository import ChannelFileLockBusy
+from .channel_compact_injection import CompactSubmissionUncertain
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,13 +53,17 @@ def poll_pending_compaction(
     policy: ChannelCompactPollPolicy = ChannelCompactPollPolicy(),
     *,
     input_ready: bool = True,
+    recovery_protected: bool = False,
 ) -> ChannelCompactPollState:
     if not input_ready or now - state.last_poll_at < policy.poll_interval_seconds:
         return state
     try:
-        if inflight_message_id is not None and not services.recovery_pending():
+        if inflight_message_id is not None and not (services.recovery_pending() or recovery_protected):
             return ChannelCompactPollState(now, state.defer_logged_at)
 
+        # A compact can retire the transcript that confirmed an earlier wake.
+        # Keep that wake's ownership; only session commands may cross its hold,
+        # still subject to the injector's tool/turn/draft guards.
         log_defer = now - state.defer_logged_at >= policy.defer_log_interval_seconds
         status = services.inject_pending(
             writer,
@@ -71,6 +76,10 @@ def poll_pending_compaction(
             runtime=options.runtime,
             actions=options.actions,
         )
+    except CompactSubmissionUncertain:
+        # The injector persisted the failed-open result. Do not kill the SSE
+        # poller or replay this command; the controller rejects its old id.
+        return ChannelCompactPollState(now, state.defer_logged_at)
     except ChannelFileLockBusy:
         # The injector masks this type once submission may have started.
         # Leave the request and defer-log timestamp intact for a bounded poll.

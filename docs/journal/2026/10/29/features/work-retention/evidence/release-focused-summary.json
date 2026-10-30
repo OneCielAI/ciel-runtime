@@ -1,0 +1,5 @@
+{
+  "tests": 132,
+  "success": true,
+  "scope": "exact named suites; storage concurrency baseline failure retained separately"
+}

@@ -1,0 +1,24 @@
+{
+  "nightly_tag": "0.2.51-nightly.20261028-073420.3aa9d90",
+  "gitHead": "3aa9d904c41d393113dc4f581e1270766fdbbc36",
+  "fileCount": 514,
+  "shasum": "37e7587594d138cb459f295a37d0815bfc7054eb",
+  "runs": {
+    "40650058447": {
+      "conclusion": "success",
+      "headBranch": "nightly",
+      "headSha": "3aa9d904c41d393113dc4f581e1270766fdbbc36",
+      "status": "completed",
+      "url": "https://github.com/OneCielAI/ciel-runtime/actions/runs/40650058447",
+      "workflowName": "CI"
+    },
+    "40650058464": {
+      "conclusion": "success",
+      "headBranch": "nightly",
+      "headSha": "3aa9d904c41d393113dc4f581e1270766fdbbc36",
+      "status": "completed",
+      "url": "https://github.com/OneCielAI/ciel-runtime/actions/runs/40650058464",
+      "workflowName": "Publish to npm"
+    }
+  }
+}

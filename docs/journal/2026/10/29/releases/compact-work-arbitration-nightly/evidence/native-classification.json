@@ -1,0 +1,32 @@
+{
+  "passed": 88,
+  "failed": 2,
+  "total": 90,
+  "baseline_failures": [
+    "native plan exemption clears on exit, missing facts and session changes; offline permits only that file",
+    "planning denial explains itself and toasts once per plan version"
+  ],
+  "new_lifecycle_passes": [
+    "(pass) main compact suppresses Stop decisions and reads {} [28.30ms]",
+    "(pass) main compact suppresses Stop decisions and reads {\"continuation\":{\"actionable\":0,\"next\":null,\"waiting\":[{\"id\":\"n76\",\"title\":\"Deploy\",\"waiting_on\":\"peer review\"}],\"blocked\":8,\"held\":0},\"queue\":[{\"id\":\"n1\",\"title\":\"Queued\",\"status\":\"in_progress\",\"done\":22,\"total\":24},{\"id\":\"n42\",\"title\":\"Closed steps\",\"status\":\"blocked\",\"done\":5,\"total\":5}]} [22.54ms]",
+    "(pass) main compact suppresses Stop decisions and reads {\"phase\":\"planning\",\"approval\":\"ask\",\"ready\":true} [21.41ms]",
+    "(pass) main compact settlement resets no-progress without synthetic continuation: complete [30.99ms]",
+    "(pass) main compact settlement resets no-progress without synthetic continuation: skip [27.74ms]",
+    "(pass) main compact settlement resets no-progress without synthetic continuation: fail [27.40ms]",
+    "(pass) child or precompute compact neither suppresses nor resets main Stop {\"agentId\":\"child\"} [22.31ms]",
+    "(pass) child or precompute compact neither suppresses nor resets main Stop {\"trigger\":\"precompute\"} [34.19ms]",
+    "(pass) compact entering during Stop read invalidates late decision; settled first=false [28.50ms]",
+    "(pass) compact entering during Stop read invalidates late decision; settled first=true [23.68ms]",
+    "(pass) compact invalidates an outstanding stalled or failed Stop read without logging; offline=false [58.02ms]",
+    "(pass) compact invalidates an outstanding stalled or failed Stop read without logging; offline=true [28.73ms]",
+    "(pass) session switch during Stop read cannot consume the new session continuation or version floor [33.33ms]",
+    "(pass) child and precompute entry during a Stop read do not invalidate it [34.10ms]",
+    "(pass) old compact cannot suppress or reset a different session/lifecycle; restart=false [29.50ms]",
+    "(pass) old compact cannot suppress or reset a different session/lifecycle; restart=true [25.15ms]",
+    "(pass) overlapping main compacts wait for every settlement and preserve native Stop gates [32.04ms]",
+    "(pass) Stop status wall-clock deadline returns native result; late read cannot change Work state [2029.45ms]",
+    "(pass) Stop read failure preserves native result and does not consume no-progress [29.89ms]"
+  ],
+  "baseline_verified_against": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-a54d98eea0fcfd5c46ee5f0d2cbb2bb84b654154\\ciel_runtime_support\\claude_mods\\ciel-work",
+  "baseline_failure_names_match": true
+}

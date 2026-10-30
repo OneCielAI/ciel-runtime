@@ -175,6 +175,12 @@ class _ControllerHarness(unittest.TestCase):
         self.assertTrue(self.control.external_admission_paused())
         self.assertEqual(phase, self.state_value()["phase"])
 
+    def assert_failed_open(self):
+        self.assertFalse(self.control.external_admission_paused())
+        self.assertEqual("failed_open", self.state_value()["phase"])
+        self.assertNotIn("verified_at", self.state_value())
+        self.assertIsNone(self.repository.read())
+
 
 class ClaudeHarness(_ControllerHarness):
     pass
@@ -223,9 +229,9 @@ class CheckpointScanTests(CodexHarness):
         self.assertIsNotNone(checkpoint)
         self.assert_held()
         self.assertNotEqual("", self.state_value()["checkpoint_id"])
-        # A detected checkpoint has no confirmation deadline to expire.
+        # Failure release is not success: late real shrink may still verify it.
         self.clock += 11
-        self.assert_held()
+        self.assert_failed_open()
         self.request(120)
         self.assert_verified()
 
@@ -317,7 +323,7 @@ class ClaudeUsageProofTests(ClaudeHarness):
         self.clock += 1
         self.append(claude_usage("session-b", self.clock))
         self.clock += 100000
-        self.assert_held()
+        self.assert_failed_open()
 
     def test_prompt_size_at_or_above_capacity_never_releases(self):
         self.request(1200, NATIVE_COMPACT)
@@ -326,7 +332,7 @@ class ClaudeUsageProofTests(ClaudeHarness):
         self.clock += 1
         self.append(claude_usage("session-a", self.clock, input_tokens=1200, cache_read=0))
         self.clock += 100000
-        self.assert_held()
+        self.assert_failed_open()
 
     def test_usage_with_pre_checkpoint_timestamp_is_not_proof(self):
         self.request(1200, NATIVE_COMPACT)
@@ -351,7 +357,7 @@ class ClaudeUsageProofTests(ClaudeHarness):
         self.clock += 1
         self.append(claude_boundary("session-a", self.clock))
         self.clock += 100000
-        self.assert_held()
+        self.assert_failed_open()
 
 
 class CodexPersistedNativeUsageTests(CodexHarness):
@@ -382,7 +388,7 @@ class CodexPersistedNativeUsageTests(CodexHarness):
         self.clock += 1
         self.append(codex_compacted("session-a", self.clock))
         self.clock += 100000
-        self.assert_held()
+        self.assert_failed_open()
 
     def test_native_usage_at_or_above_capacity_is_not_proof(self):
         self.request(1200, {"native": "codex"})
@@ -391,7 +397,7 @@ class CodexPersistedNativeUsageTests(CodexHarness):
         self.clock += 1
         self.append(codex_token_count(1200, self.clock))
         self.clock += 100000
-        self.assert_held()
+        self.assert_failed_open()
 
 
 class PersistedAwaitingShrinkTests(ClaudeHarness):
@@ -451,14 +457,14 @@ class PersistedAwaitingShrinkTests(ClaudeHarness):
         })
         self.state.save(state, "compaction")
         self.clock += 100000
-        self.assert_held()
+        self.assert_failed_open()
 
     def test_awaiting_shrink_without_shrink_evidence_never_releases(self):
         self.request(100, NATIVE_COMPACT)
         self.clock += 1
         self.append(claude_boundary("session-a", self.clock, post_tokens=120))
         self.clock += 100000
-        self.assert_held()
+        self.assert_failed_open()
 
 
 class BlockedRecoveryTests(ClaudeHarness):
@@ -469,7 +475,7 @@ class BlockedRecoveryTests(ClaudeHarness):
         self.control.command_submitted(request)
         self.repository.clear(request["id"])
         self.clock += 11
-        self.assert_held("blocked")
+        self.assert_failed_open()
         self.assertEqual("checkpoint_unconfirmed", self.state_value()["failure"])
 
     def test_blocked_cycle_observes_a_late_checkpoint_then_verifies(self):
@@ -477,7 +483,7 @@ class BlockedRecoveryTests(ClaudeHarness):
 
         self._dispatch_and_time_out()
         self.append(claude_boundary("session-a", self.clock))
-        self.assert_held()
+        self.assert_failed_open()
         self.assertNotEqual("", self.state_value()["checkpoint_id"])
         self.request(120)
         self.assert_verified()
@@ -486,16 +492,16 @@ class BlockedRecoveryTests(ClaudeHarness):
         self.append(claude_boundary("session-a", self.clock - 5, "old"))
         self._dispatch_and_time_out()
         self.clock += 100
-        self.assert_held("blocked")
+        self.assert_failed_open()
         self.assertEqual("", self.state_value()["checkpoint_id"])
         self.request(120)
-        self.assert_held("blocked")
+        self.assert_failed_open()
 
     def test_wrong_session_checkpoint_never_releases(self):
         self._dispatch_and_time_out()
         self.append(claude_boundary("session-b", self.clock))
         self.clock += 100
-        self.assert_held("blocked")
+        self.assert_failed_open()
         self.assertEqual("", self.state_value()["checkpoint_id"])
 
     def test_invalid_and_incomplete_records_never_release(self):
@@ -503,7 +509,7 @@ class BlockedRecoveryTests(ClaudeHarness):
         self.append_raw("not json\n")
         self.append_raw(json.dumps(claude_boundary("session-a", self.clock)))
         self.clock += 100
-        self.assert_held("blocked")
+        self.assert_failed_open()
         self.assertEqual("", self.state_value()["checkpoint_id"])
 
 
