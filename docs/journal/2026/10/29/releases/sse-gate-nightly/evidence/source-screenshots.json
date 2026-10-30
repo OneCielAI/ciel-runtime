@@ -1,0 +1,20 @@
+[
+  {
+    "file": "docs\\journal\\2026\\10\\29\\features\\sse-gate-control\\evidence\\source-cli\\gate-off.png",
+    "width": 993,
+    "height": 519,
+    "sha256": "087d27e684532e84fe408c12390d2f7da3b507819326c7770389b6e2622413da"
+  },
+  {
+    "file": "docs\\journal\\2026\\10\\29\\features\\sse-gate-control\\evidence\\source-cli\\gate-on.png",
+    "width": 993,
+    "height": 519,
+    "sha256": "7cfe0d9540758c4c71931378347f6938b448520fd837e893a2d7f5f01bc3aa84"
+  },
+  {
+    "file": "docs\\journal\\2026\\10\\29\\features\\sse-gate-control\\evidence\\source-cli\\gate-status.png",
+    "width": 993,
+    "height": 519,
+    "sha256": "50b5417a97dab04b8183c4b7c42a20abe61a222b7acf0e0b1b570f8c8fd649be"
+  }
+]

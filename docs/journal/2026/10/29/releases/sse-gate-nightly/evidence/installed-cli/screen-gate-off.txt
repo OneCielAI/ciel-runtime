@@ -1,0 +1,30 @@
+
+ ▐▛███▛█   Claude Code v2.1.312
+▝▜██████▀  ciel-runtime-cielairouter-owned-route-alias · API Usage Billing
+ ▝▝   ▝▝   C:\Windows\Temp\ciel-owned-alias-fsc29q5i\ws
+
+▎ Debug mode enabled · logging to C:\Users\djlov\ciel-runtime-wt-work\docs\journal\2026\10\29\features\sse-gate-control\
+▎ evidence\scripts\run-installed-gate-210219\native-debug.log
+
+❯ ALIAS-SAFEGUARD-BASELINE owned baseline turn
+
+● ALIAS-HIGH-USAGE-REPLY
+
+✻ Worked for 0s · done 9:02 PM
+
+❯ /sse-gate off
+
+● SSE gate off; open (none).
+  Off bypasses compact recovery admission only. Identity, handoff, unreadable state, delivery ownership and
+  uncertain-write protections remain active. No queue, cursor or compact evidence is cleared.
+
+✻ Churned for 0s · done 9:02 PM
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [owned-route-alias (cielairouter)] ws | SSE gate off: open | ctx est 27,507/200,000 tok (13.8%) | upstream 3s 27,36…
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
