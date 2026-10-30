@@ -11,7 +11,7 @@ from typing import Any
 
 from .channel_message_repository import exclusive_file_lock
 from .claude_session_handoff import follow_parked_session, session_records, _live_key
-from .work_plan_store import WorkPlanStore, WORK_PLAN_FILE_NAME, _notify_changes
+WORK_PLAN_FILE_NAME = "work-plan.json"
 from .work_plan_tree import WorkPlanError
 
 IDENTITY = re.compile(r"(?:claude|codex):[A-Za-z0-9_-]{1,200}\Z")
@@ -78,6 +78,7 @@ def _parent(identity: str) -> str | None:
 
 
 def resolve_work_path(root: Path, identity: str) -> Path:
+    from .work_plan_store import WorkPlanStore
     canonical = _canonical(root, identity)
     if canonical != identity:
         path = _path(root, canonical)
@@ -137,16 +138,20 @@ class WorkSessionStore:
         return self._snapshot_path()
 
     def read(self) -> dict[str, Any]:
+        from .work_plan_store import WorkPlanStore
         return WorkPlanStore(self._snapshot_path(), log=self.log).read()
 
     def read_snapshot(self) -> dict[str, Any]:
+        from .work_plan_store import WorkPlanStore
         return WorkPlanStore(self._snapshot_path(), log=self.log).read_snapshot()
 
     def transaction(self, mutate: Any, *, expected_version: int | None = None) -> Any:
         notifications = []
         with exclusive_file_lock(self.lock):
+            from .work_plan_store import WorkPlanStore
             result = WorkPlanStore(resolve_work_path(self.root, self.identity), log=self.log).transaction(
                 mutate, expected_version=expected_version, _deferred_notifications=notifications)
+        from .work_plan_store import _notify_changes
         for notification in notifications:
             _notify_changes(*notification)
         return result

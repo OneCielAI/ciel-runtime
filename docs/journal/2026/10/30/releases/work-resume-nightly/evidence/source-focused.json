@@ -1,0 +1,12 @@
+{
+  "tests": 95,
+  "success": true,
+  "modules": [
+    "test_work_session_lineage",
+    "test_work_mcp_tools",
+    "test_work_http_controller",
+    "test_work_breakdown_statusline",
+    "test_statusline",
+    "test_compact_stop_liveness"
+  ]
+}
