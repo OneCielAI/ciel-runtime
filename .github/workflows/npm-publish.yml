@@ -20,7 +20,7 @@ jobs:
           python-version: "3.11"
       - uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
           scope: "@one-ciel-ai"
       - run: python -m pip install --upgrade pip "ruff==0.15.22" pillow
@@ -70,16 +70,14 @@ jobs:
             echo "should_publish=true" >> "$GITHUB_OUTPUT"
           fi
 
+      # Register OneCielAI/ciel-runtime and npm-publish.yml as an npm trusted
+      # publisher with direct publish and dist-tag access before running this.
       - run: npm publish --access public --tag ${{ steps.channel.outputs.tag }}
         if: steps.publish-check.outputs.should_publish == 'true'
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Verify published tarball
         if: steps.publish-check.outputs.should_publish == 'true'
         shell: bash
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           pkg="$(node -p "require('./package.json').name")"
           version="$(node -p "require('./package.json').version")"
