@@ -1,0 +1,9 @@
+{
+  "main_before": "3aa9d904c41d393113dc4f581e1270766fdbbc36",
+  "nightly_merged": "b1f10234a618620412554d83a4e8dba13697e2a1",
+  "merge": "5ed3b8d88afb57ba5091882b4be9ebc1b6f9dc7f",
+  "source_tree_identical_to_nightly": true,
+  "dirty_files_preserved": 4,
+  "dirty_changed": [],
+  "work_branch": "nightly-20261028"
+}

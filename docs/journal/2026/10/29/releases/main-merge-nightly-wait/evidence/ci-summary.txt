@@ -1,0 +1,9 @@
+test (runtime)	Run python scripts/run_test_group.py runtime	2026-10-30T02:34:27.1498340Z Ran 455 tests in 39.831s
+test (runtime)	Run python scripts/run_test_group.py runtime	2026-10-30T02:34:27.1499008Z OK (skipped=19)
+python-minimum	Run python scripts/run_test_group.py unit	2026-10-30T02:37:38.4914153Z Ran 3017 tests in 222.997s
+python-minimum	Run python scripts/run_test_group.py unit	2026-10-30T02:37:38.4914499Z OK (skipped=61)
+test (router)	Run python scripts/run_test_group.py router	2026-10-30T02:41:58.3220954Z Ran 1486 tests in 487.581s
+test (channel)	Run python scripts/run_test_group.py channel	2026-10-30T02:34:00.1304817Z Ran 582 tests in 11.267s
+test (channel)	Run python scripts/run_test_group.py channel	2026-10-30T02:34:00.1305127Z OK (skipped=80)
+test (unit)	Run python scripts/run_test_group.py unit	2026-10-30T02:36:37.2242964Z Ran 3017 tests in 168.923s
+test (unit)	Run python scripts/run_test_group.py unit	2026-10-30T02:36:37.2243225Z OK (skipped=59)

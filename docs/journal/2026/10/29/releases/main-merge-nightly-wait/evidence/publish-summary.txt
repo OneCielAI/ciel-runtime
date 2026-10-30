@@ -1,0 +1,12 @@
+publish	Run npm test	2026-10-30T02:36:59.8458437Z Ran 3017 tests in 186.304s
+publish	Run npm test	2026-10-30T02:36:59.8458701Z OK (skipped=59)
+publish	Run npm test	2026-10-30T02:44:57.7460603Z Ran 1486 tests in 476.024s
+publish	Run npm test	2026-10-30T02:45:10.3601094Z Ran 582 tests in 11.223s
+publish	Run npm test	2026-10-30T02:45:10.3601477Z OK (skipped=80)
+publish	Run npm test	2026-10-30T02:45:55.7466705Z Ran 455 tests in 44.065s
+publish	Run npm test	2026-10-30T02:45:55.7467266Z OK (skipped=19)
+publish	Run pkg="$(node -p "require('./package.json').name")"	2026-10-30T02:45:55.8608060Z [36;1m  echo "Package ${pkg}@${version} is already published; skipping npm publish."[0m
+publish	Run pkg="$(node -p "require('./package.json').name")"	2026-10-30T02:45:55.8608533Z [36;1m  echo "should_publish=false" >> "$GITHUB_OUTPUT"[0m
+publish	Run pkg="$(node -p "require('./package.json').name")"	2026-10-30T02:45:55.8609541Z [36;1m  echo "should_publish=true" >> "$GITHUB_OUTPUT"[0m
+publish	Run pkg="$(node -p "require('./package.json').name")"	2026-10-30T02:45:55.9369138Z Checking @one-ciel-ai/ciel-runtime@0.2.51...
+publish	Run pkg="$(node -p "require('./package.json').name")"	2026-10-30T02:45:57.3778750Z Package @one-ciel-ai/ciel-runtime@0.2.51 is already published; skipping npm publish.
