@@ -17,6 +17,34 @@ def converted_openai_texts(messages):
 
 
 class UpstreamFilterTests(unittest.TestCase):
+    def test_long_tool_output_retains_failure_tail_in_both_converters(self):
+        result = "FIRST_OUTPUT" + chr(10) + "x" * 24000 + chr(10) + "FAILED: 2 tests" + chr(10) + "Exit code: 2"
+        body = [{"role": "assistant", "content": [{"type": "tool_use", "id": "long", "name": "Bash", "input": {"command": "test"}}]},
+                {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "long", "content": result, "is_error": True}]}]
+        for convert in (converted_texts, converted_openai_texts):
+            text = chr(10).join(convert(body))
+            self.assertIn("FIRST_OUTPUT", text)
+            self.assertIn("FAILED: 2 tests", text)
+            self.assertIn("Exit code: 2", text)
+            self.assertIn("omitted", text)
+            self.assertNotIn("completed successfully", text)
+
+    def test_pending_tool_results_do_not_inject_completion_instructions(self):
+        body = [{"role": "assistant", "content": [{"type": "tool_use", "id": "pending", "name": "Bash", "input": {"command": "health"}}]},
+                {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "pending", "content": "status: pending"}]}]
+        for convert in (converted_texts, converted_openai_texts):
+            text = chr(10).join(convert(body))
+            self.assertIn("status: pending", text)
+            self.assertNotIn("completed successfully", text)
+            self.assertNotIn("Do not call `Bash`", text)
+
+    def test_long_persisted_tool_output_remains_exact(self):
+        result = "<persisted-output>" + "x" * 24000 + "FULL_FILE_PATH</persisted-output>"
+        body = [{"role": "assistant", "content": [{"type": "tool_use", "id": "saved", "name": "Bash", "input": {"command": "test"}}]},
+                {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "saved", "content": result}]}]
+        for convert in (converted_texts, converted_openai_texts):
+            self.assertIn(result, convert(body))
+
     def test_all_known_transcript_event_types_are_filtered(self):
         for event_type in CLAUDE_CODE_TRANSCRIPT_EVENT_TYPES:
             with self.subTest(event_type=event_type):

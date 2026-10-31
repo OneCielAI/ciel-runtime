@@ -6,6 +6,8 @@ from dataclasses import dataclass
 import json
 from typing import Any, Callable
 
+from .tool_result_projection import truncate_tool_result
+
 
 @dataclass(frozen=True, slots=True)
 class ChatProjectionText:
@@ -202,25 +204,17 @@ def anthropic_messages_to_ollama(body: dict[str, Any], *, services: ChatProjecti
                     tool_text = raw_result_text
                     tool_summary = ""
                 else:
-                    result_text = tools.truncate_for_prompt(raw_result_text, services.policy.tool_result_limit)
+                    result_text = truncate_tool_result(raw_result_text, services.policy.tool_result_limit)
                     signature = tools.canonical_signature(tool_name, tool_input)
                     tool_text, tool_summary = tools.format_result(
                         tool_name=tool_name,
                         tool_input_text=tool_input_text,
                         result_text=result_text,
-                        is_error=bool(block.get("is_error")),
+                        is_error=bool(block.get("is_error") or block.get("isError")),
                         prior_success_text=prior_tool_results.get(signature, ""),
                         include_prior_success=tool_use_id in latest_noop_result_ids,
                         in_plan_mode=in_plan_mode,
                     )
-                    if not block.get("is_error") and tool_name == "TaskList":
-                        tool_summary = (
-                            f"The task list is current:\n{result_text}\n\n"
-                            "If any task is in_progress and the user's request is not finished, your next response "
-                            "must call a concrete work tool such as Write, Edit, Read, or Bash. Do not respond with "
-                            "another progress announcement like 'I will write the files now'. If everything is "
-                            "actually complete, provide the final answer."
-                        )
                 messages.append({"role": "tool", "tool_name": tool_name, "content": tool_text})
                 if tool_summary:
                     messages.append({"role": "user", "content": tool_summary})
@@ -311,7 +305,7 @@ def anthropic_messages_to_openai(
                     tool_id = str(block.get("tool_use_id") or "call_tool")
                     raw_result_text = text.content_to_text(block.get("content", ""))
                     if tool_id not in tool_names_by_id:
-                        result_text = raw_result_text if tools.persisted_output(raw_result_text) else tools.truncate_for_prompt(raw_result_text, services.policy.tool_result_limit)
+                        result_text = raw_result_text if tools.persisted_output(raw_result_text) else truncate_tool_result(raw_result_text, services.policy.tool_result_limit)
                         if tools.persisted_output(result_text):
                             text_blocks.append({"type": "text", "text": result_text})
                         else:
@@ -322,12 +316,12 @@ def anthropic_messages_to_openai(
                     if tools.persisted_output(raw_result_text):
                         tool_text = raw_result_text
                     else:
-                        result_text = tools.truncate_for_prompt(raw_result_text, services.policy.tool_result_limit)
+                        result_text = truncate_tool_result(raw_result_text, services.policy.tool_result_limit)
                         tool_text, _ = tools.format_result(
                             tool_name=tool_name,
                             tool_input_text=tools.input_for_prompt(tool_input),
                             result_text=result_text,
-                            is_error=bool(block.get("is_error")),
+                            is_error=bool(block.get("is_error") or block.get("isError")),
                             prior_success_text=prior_tool_results.get(tools.canonical_signature(tool_name, tool_input), ""),
                             include_prior_success=tool_id in latest_noop_result_ids,
                             in_plan_mode=in_plan_mode,

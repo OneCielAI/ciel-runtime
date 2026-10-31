@@ -22,18 +22,7 @@ def project_tool_result(
     include_prior_success: bool = False,
     in_plan_mode: bool = False,
 ) -> tuple[str, str]:
-    if is_error:
-        tool_text = (
-            f"Tool `{tool_name}` failed.\n"
-            f"Input:\n{tool_input_text}\n\n"
-            f"Error:\n{result_text}"
-        )
-        tool_summary = (
-            f"The `{tool_name}` tool call above failed. Its input was {tool_input_text}. "
-            "Use the error output to choose a different next step; do not blindly repeat it."
-        )
-        return tool_text, tool_summary
-    if services.is_read_unchanged(tool_name, result_text):
+    if not is_error and services.is_read_unchanged(tool_name, result_text):
         return _project_unchanged_read(
             tool_input_text,
             result_text,
@@ -43,18 +32,29 @@ def project_tool_result(
             in_plan_mode=in_plan_mode,
         )
     tool_text = (
-        f"Tool `{tool_name}` completed successfully.\n"
+        f"Tool `{tool_name}` returned a result (is_error={str(bool(is_error)).lower()}).\n"
         f"Input:\n{tool_input_text}\n\n"
-        f"Result:\n{result_text}\n\n"
-        "If this result satisfies the user's request, provide the final answer now. "
-        f"Do not call `{tool_name}` again with the same arguments."
+        f"Result:\n{result_text}"
     )
-    tool_summary = (
-        f"The `{tool_name}` tool call above already completed successfully. "
-        "Treat its tool output as authoritative. Do not repeat the same or equivalent "
-        f"`{tool_name}` call; continue with the next required concrete tool call or final answer."
-    )
-    return tool_text, tool_summary
+    return tool_text, ""
+
+
+def truncate_tool_result(text: str, limit: int) -> str:
+    """Bound output without discarding the final summary or exit status."""
+    limit = max(0, int(limit))
+    if len(text) <= limit:
+        return text
+    # A fixed-width count keeps the retained budget and omitted count consistent.
+    width = len(str(len(text)))
+    template = "\n...[tool output omitted: {count} chars]...\n"
+    marker_size = len(template.format(count="0" * width))
+    if marker_size > limit:
+        return text[-limit:] if limit else ""
+    budget = limit - marker_size
+    marker = template.format(count=str(len(text) - budget).rjust(width))
+    head = budget // 2
+    tail = budget - head
+    return text[:head] + marker + (text[-tail:] if tail else "")
 
 
 def _project_unchanged_read(
@@ -84,18 +84,16 @@ def _project_unchanged_read(
             f"Input:\n{tool_input_text}\n\n"
             f"Result:\n{result_text}\n\n"
             "No previous successful Read result for this exact input is available in the converted context. "
-            "Do not repeat the same Read. If the content is still needed, read a different or broader range once; "
-            "otherwise proceed with the next distinct step."
+            "The unchanged result alone does not supply the requested file content."
         )
         tool_summary = (
             "The latest `Read` result says the file/range is unchanged, but no prior exact Read content is available "
-            "in this converted context. Do not loop on the same Read; either read a different range once or continue "
-            f"with the next distinct step.{plan_hint}"
+            f"in this converted context.{plan_hint}"
         )
         return tool_text, tool_summary
     previous = (
         "\n\nPrevious successful Read result for this exact input remains authoritative:\n"
-        f"{services.truncate(prior_success_text, services.result_limit)}"
+        f"{truncate_tool_result(prior_success_text, services.result_limit)}"
     )
     tool_text = (
         "Tool `Read` returned a no-op unchanged result.\n"
