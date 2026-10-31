@@ -1181,7 +1181,7 @@ class OllamaProviderOptionTests(unittest.TestCase):
         self.assertIn('"stop_reason": "max_tokens"', output)
         self.assertNotIn("Upstream model returned an empty end_turn", output)
 
-    def test_ollama_stream_stops_identical_completed_shell_command_loop(self):
+    def test_ollama_stream_preserves_repeated_shell_status_check(self):
         chunks = [
             {
                 "message": {
@@ -1276,8 +1276,10 @@ class OllamaProviderOptionTests(unittest.TestCase):
             )
 
         output = handler.wfile.data.decode("utf-8")
-        self.assertIn("Stopped an identical completed tool call", output)
-        self.assertNotIn('"type": "tool_use"', output)
+        self.assertNotIn("Stopped an identical completed tool call", output)
+        self.assertIn('"type": "tool_use"', output)
+        self.assertIn('"name": "shell_command"', output)
+        self.assertIn("cargo check", output)
 
     def test_ollama_stream_never_overlaps_text_and_tool_content_blocks(self):
         chunks = [
