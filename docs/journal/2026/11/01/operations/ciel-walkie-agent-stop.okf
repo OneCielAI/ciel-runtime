@@ -1,0 +1,44 @@
+---
+title: Stop all G:\ciel-Walkie background agents
+date: 2026-11-01
+type: journal
+tags: [operations, ciel-walkie, background-sessions]
+---
+
+# Stop all G:\ciel-Walkie background agents
+
+## Request
+Stop every background agent running in G:\ciel-walkie so the oldest original
+session can take over, and identify that oldest session.
+
+## Observed (before)
+- `~/.claude/sessions/*.json` alive entries with cwd `G:\ciel-Walkie`:
+  pid 61768 = bg 57d7eb89; pid 62424 = bg 589869b8 "m4 child retry verification (3)"
+  (fork of transcript 8adb3585).
+- Orphan `gh run watch 41377115224 --repo OneCiel/ciel-walkie` chain (parent gone).
+- `claude agents --json` also held four `blocked` ciel-Walkie bg entries:
+  4303f1a2, 93e600db, 026372b7, d2d44ee2.
+
+## Actions
+1. `taskkill /T /F` on the two pty-host trees and the gh chain. The daemon
+   (pid 26224) respawned both sessions within seconds (ListAgents "started 0s ago"),
+   so process kill alone does not stop a daemon-managed bg session.
+2. `claude stop <id>` for 589869b8, 57d7eb89, 4303f1a2, 93e600db, 026372b7,
+   d2d44ee2 — each printed `stopped <id>`.
+3. Killed orphan `transcript-relay.py` pid 75152 left by the brief respawn.
+4. Daemon 26224 left running: it also hosts the ciel-runtime sessions.
+
+## Verified (after, +20s)
+- Only process whose command line contains `ciel-walkie`: daemon 26224
+  (via its `--spawned-by` label).
+- No alive registry entry with cwd `G:\ciel-Walkie`.
+- `claude agents --json`: no ciel-Walkie entries.
+- ListAgents peers: gam-495-43 (GAM-495), ciel-socket-e2e (2) (ciel-runtime).
+
+## Oldest original session
+- `417ef30b-1289-47a5-8921-a4d45eb93f2e` — interactive, transcript
+  `~/.claude/projects/G--ciel-Walkie/417ef30b-....jsonl`, created 2026-09-17 02:23,
+  2,958,180,900 bytes, last write 2026-10-26 14:38. Registry runs: pid 88740
+  (started 2026-10-22 11:27) and pid 92376 (2026-10-26 01:32), both not running.
+- Resume: `cd G:\ciel-Walkie; claude --resume 417ef30b-1289-47a5-8921-a4d45eb93f2e`
+  (not executed).
