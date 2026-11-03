@@ -34,6 +34,21 @@ const call = ($, agentId) => handlers['tool.call']($, { tool: 'Edit', agentId,
 const verdict = r => r?.decision === 'deny' ? 'deny: ' + r.reason : r?.deny ? 'deny: ' + r.deny : 'allow'
 
 const scenarios = {
+  async 'stop-discovery-approval'() {
+    const ready = { ...snapshot('planning'), approval: 'ask', ready: true,
+      discovery: { enabled: true, instruction: '와키 미결 아이템: 우선순위, 최신순. 기존 승인 유지.' } }
+    const { $ } = host(async () => text(ready))
+    const first = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
+    const second = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
+    return { first: first?.block || '', second: Boolean(second?.block) }
+  },
+  async 'stop-discovery-blocked'() {
+    const ready = { ...snapshot(), discovery: { enabled: true,
+      instruction: '와키 미결 아이템: 우선순위, 최신순. 기존 블록 유지.' } }
+    const { $ } = host(async () => text(ready))
+    const result = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
+    return { text: result?.block || '' }
+  },
   // Two agents gate their own Edit while the router answers the earlier read last.
   async 'concurrent-check'() {
     const delays = [60, 10]

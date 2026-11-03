@@ -1,0 +1,40 @@
+---
+title: Work parallel execution and idle discovery
+status: in-progress
+date: 2026-11-03
+---
+
+# Approved request
+Implement Work parallel execution with P1-P5 admission, natural-language policy changes, review/rework, cleanup verification, Claude-first/Codex adapter boundary; deploy to nightly. SSE configuration accepts an external idle-discovery instruction. Test default: search Walkie unresolved items by priority then latest creation time. Approval/block waits must include independent-item pickup guidance without approving blocked work.
+
+# Latest deletion rule
+Worktrees may be removed only after their HEAD is verified on a remote ref OR the user explicitly approved deletion of that exact target. Dirty/active/unowned targets remain blocked regardless. No force removal, no automatic branch deletion.
+
+# Isolation
+Base: remote nightly 4758efb. Dedicated feature/work-parallel-20261103 worktree. Root checkout has unrelated statusline changes and remains untouched. No live router restart or live test sweep.
+
+# Verification so far
+24 focused unittest tests passed across discovery policy, external SSE settings and existing concurrent Work mod gates (including two new approval/block discovery scenarios). Real local Git worktree cleanup: five cases passed, including pushed, unpushed, explicit approval and dirty retention. Parallel engine agent reported 35 tests; parent rerun after aligning Korean default: 34 pass, one outdated default-text assertion failed and corrected, rerun pending.
+
+# Not yet verified
+Actual Claude fork execution/host identity, full coordinator integration, real menu actions and screenshots, nightly publication. No deployment claim yet.
+
+# Parent verification update
+- 163 scheduler/MCP/tree/store/discovery/cleanup tests + 115 subtests passed in isolated config.
+- 33 launch-environment/menu regression tests + 63 subtests passed.
+- Native fork probe 81ab073d: actual Claude CLI agent.spawn observed fork=true,type=fork, exit0.
+- Integrated native mod E2E is NOT passing yet: actual compiler rejects duplicate/generic middleware hooks. Static hook composition is being fixed and re-tested; no nightly push has occurred.
+- Latest-first uses immutable created_at on new tree nodes; older nodes migrate with the only available historical timestamp, updated_at.
+- Deletion tests use owned temporary Git repositories and local bare remotes; no user worktree has been removed.
+
+# Final integration checks (2026-11-03)
+- Focused isolated regression: 204 passed, 188 subtests passed. After cleanup review: 58 scheduler/cleanup/MCP cases passed.
+- Native packaged-mod CLI run parallel-e2e-1115379f: default off, configure, reserve, bind, child result and hard-cap rejection all observed; no hooks-module compiler errors. Provider is an owned loopback fake gateway, not production LLM behavior.
+- Plugin validate passed; catalog icon warning only. Repository ruff check passed before final cleanup change; rerun required.
+- Review found cleanup-before-CAS and absent workspace ownership binding. Cleanup now executes only after transition validation under the CAS lock. Host workspace ownership/idle proof is required; the current native adapter does not expose it, so automatic workspace removal remains fail-closed. Pushed/explicit-approved deletion is verified in the isolated Git fixture with supplied authenticated host bindings, not claimed as a live native path.
+- Native adapter supports scheduling and result identity. Codex is explicitly unsupported; usage unknown blocks P2-P5. Review dispatch remains coordinator-driven.
+- Raw isolated run directories and credentials remain local and are excluded from commit/package. Compact summary is evidence/integration-summary.json.
+
+# Final regression and menu evidence
+- Final focused run: 208 passed, 188 subtests passed; repository ruff passed.
+- Actual isolated Windows menu: max_active=2 and P2=0.7 persisted via keyboard interaction. Console text and screenshots in evidence/menu-ui; verification.json confirms ledger values.

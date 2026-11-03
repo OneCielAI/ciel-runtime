@@ -22,6 +22,10 @@ CLAUDE_MOD_DIR = Path(__file__).resolve().parent / "claude_mods" / CLAUDE_MOD_NA
 WORK_MODE_SWITCH_TOOL = "work_mode_set"
 # The router's Work tools; work_mcp_tools serves them, launch pre-approves them.
 WORK_TOOL_NAMES = (
+    "work_parallel_status",
+    "work_parallel_configure",
+    "work_parallel_run",
+    "work_parallel_event",
     "work_status",
     "work_plan_set",
     "work_node_add",

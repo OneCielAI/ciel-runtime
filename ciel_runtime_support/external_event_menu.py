@@ -125,6 +125,13 @@ def panel_rows(
                     f"checkpoint observed {compact.get('checkpoint_observed_at') or '-'} ; "
                     f"failure at {compact.get('failure_at') or '-'}]")
         values.insert(-1, "__info__")
+    for label, key, display in (
+        ("Work idle discovery", "discovery_enabled", "on" if receiver.get("discovery_enabled") else "off"),
+        ("Work discovery instruction (literal or env reference)", "discovery_instruction", str(receiver.get("discovery_instruction") or "unset")),
+        ("TEST default instruction override", "test_default_override", "on" if receiver.get("test_default_override") else "off"),
+    ):
+        rows.insert(-1, f"{label}  [{display}]")
+        values.insert(-1, key)
     rows.insert(-1, "Recover SSE delivery now")
     values.insert(-1, "recover_sse_delivery")
     return rows, values
@@ -177,7 +184,11 @@ def update_config(
         "cursor_json_pointer": str(current.get("cursor_json_pointer") or ""),
         "cursor_query_parameter": str(current.get("cursor_query_parameter") or ""),
     }
-    if key == "enabled":
+    if key in {"discovery_enabled", "test_default_override"}:
+        body[key] = not current.get(key, False) if value == "toggle" else value
+    elif key == "discovery_instruction":
+        body[key] = value
+    elif key == "enabled":
         body["enabled"] = not body["enabled"]
     elif key == "transport":
         body["transport"] = "sse" if body["transport"] == "webhook" else "webhook"

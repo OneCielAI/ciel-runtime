@@ -207,6 +207,8 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
             }, "required": ["enabled"]},
         },
     ])
+    from .work_parallel_mcp import schemas as parallel_schemas
+    schemas.extend(parallel_schemas())
     if not enabled:
         schemas = [schema for schema in schemas if schema["name"] == WORK_MODE_SWITCH_TOOL]
     for schema in schemas:
@@ -253,8 +255,11 @@ def dispatch_work_tool(
                 raise tree.WorkPlanError("conversation identity is unavailable; no shared Work fallback is allowed")
         scoped = session_work_plan_store(state_dir, identity, log=log)
         store = store or scoped
-        return respond(request_id, _run(name, args, store, approval_ask, auto_continue=work_auto_continue_enabled(config), retention=retention_status(config)))
-    except tree.WorkPlanError as error:
+        if name.startswith("work_parallel_"):
+            from .work_parallel_mcp import run
+            return respond(request_id, run(name, args, store, identity, config, save_config))
+        return respond(request_id, _run(name, args, store, approval_ask, auto_continue=work_auto_continue_enabled(config), retention=retention_status(config), config=config))
+    except (tree.WorkPlanError, ValueError) as error:
         return respond(request_id, str(error), True)
 
 
@@ -281,7 +286,7 @@ def _switch_work_mode(enabled: Any, load_config: Callable[[], dict[str, Any]],
             "auto continue stop at their next check. Turn it back on with work_mode_set(enabled=true)."), False
 
 
-def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bool, *, auto_continue: bool = True, retention: dict[str, Any] | None = None) -> str:
+def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bool, *, auto_continue: bool = True, retention: dict[str, Any] | None = None, config: dict[str, Any] | None = None) -> str:
     expected = _expected_version(args)
     if name == "work_status":
         doc = store.read_snapshot()
@@ -305,6 +310,11 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         if args.get("format") == "json":
             state = tree.snapshot(doc, approval_ask=approval_ask)
             state["auto_continue"] = auto_continue
+            from .work_discovery import discovery_hint
+            state["discovery"] = discovery_hint(config or {}, state)
+            from .work_parallel_mcp import ledger, project
+            state["parallel"] = project(ledger(), "")
+            state["parallel"].pop("leases", None)
             state["retention"] = retention or retention_status({})
             if args.get("detail") is True:
                 active = {doc["active_root"]} if doc.get("active_root") else set()

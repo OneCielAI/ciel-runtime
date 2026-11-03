@@ -102,6 +102,9 @@ def build_option_panel_rows(
     add("Work plan approval", WORK_PLAN_APPROVAL_ASK_KEY, work_plan_approval_menu_label(work))
     add("Work auto continue", WORK_AUTO_CONTINUE_KEY, work_auto_continue_menu_label(work))
     add("Work completed auto-delete (24h)", WORK_COMPLETED_AUTO_DELETE_KEY, "on (default)" if retention_enabled(work) else "off")
+    from .work_parallel_menu import rows as parallel_rows
+    for label, key, value in parallel_rows(work):
+        add(label, key, value)
     if not runtime.direct_native(provider, config) and policy.shows_workflows:
         model = runtime.current_model(provider, config)
         capabilities = runtime.capability_string(provider, config, model)
@@ -275,6 +278,9 @@ def option_prompt_default(
         "workflows_enabled",
         "ultracode_enabled",
     }
+    from .work_parallel_menu import KEYS, rows as parallel_rows
+    if key in KEYS:
+        return next(str(value) for _, option, value in parallel_rows(runtime.work_settings()) if option == key)
     if key in boolean_keys:
         return "true" if current_option_bool(provider, config, key, policy, services) else "false"
     if key == "gateway_retries" and provider == "cielairouter":

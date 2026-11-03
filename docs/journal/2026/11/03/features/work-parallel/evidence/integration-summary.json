@@ -1,0 +1,31 @@
+{
+  "date": "2026-11-03",
+  "focused_tests": 208,
+  "subtests": 188,
+  "cleanup_scheduler_tests_after_review": 58,
+  "native_cli_checks": {
+    "default_off": true,
+    "configure": true,
+    "reserve": true,
+    "bind": true,
+    "child_result": true,
+    "hard_cap_rejection": true
+  },
+  "native_hook_errors": [],
+  "runtime": "actual native CLI against owned loopback fake gateway",
+  "limitations": [
+    "native workspace binding not exposed: automatic deletion fails closed",
+    "Codex adapter unsupported",
+    "P2-P5 blocked when usage unknown",
+    "not a shell sandbox"
+  ],
+  "review_fixes": [
+    "cleanup CAS and transition validated before filesystem action under ledger lock",
+    "cleanup requires authenticated host workspace ownership and idle binding"
+  ],
+  "menu_verified": {
+    "max_active": 2,
+    "P2": 0.7,
+    "screenshot": "menu-ui/13-p2-result.png"
+  }
+}

@@ -865,10 +865,17 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         cfg = load_config()
                         messages = runtime_input_retry.apply(cfg, value, entered)
                         save_config(cfg)
-                    elif value in {"enabled", "transport"}:
+                    elif value in {"enabled", "transport", "discovery_enabled", "test_default_override"}:
                         messages = set_external_event_config(value, "toggle")
                     elif value in {"refresh_receiver", "reconnect_receiver", "recover_sse_delivery"}:
                         messages = set_external_event_config(value, None)
+                    elif value == "discovery_instruction":
+                        entered = prompt_menu_value(
+                            "Work discovery instruction (literal or %ENV%/${ENV}/{ENV})",
+                            restore_tty=restore_line_mode,
+                            raw_tty=restore_raw_mode,
+                        )
+                        messages = set_external_event_config(value, entered)
                     elif value == "idle_timeout_seconds":
                         entered = prompt_menu_value(
                             "SSE idle timeout (1-300 seconds; blank restores automatic)",

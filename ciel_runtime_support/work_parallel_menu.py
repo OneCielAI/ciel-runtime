@@ -1,0 +1,64 @@
+"""Shared menu controls for the global Work parallel ledger and idle discovery."""
+from .work_parallel import WorkParallelError
+
+KEYS = ("work_parallel_enabled", "work_parallel_paused", "work_parallel_max_active",
+        "work_parallel_P2", "work_parallel_P3", "work_parallel_P4", "work_parallel_P5",
+        "work_discovery_enabled", "work_discovery_test_default_override", "work_discovery_instruction", "work_parallel_p1_reserved",
+        "work_parallel_launches_per_minute", "work_parallel_max_rework")
+
+
+def rows(config):
+    from .work_parallel_mcp import ledger
+    try:
+        p = ledger().read()["policy"]
+    except (ValueError, OSError):
+        return [("Work 병렬 실행 상태 오류 — 자동 실행 보류", "__info__", "unavailable")]
+    d = config.get("work_discovery", {})
+    return [("Work 병렬 실행", KEYS[0], str(p["enabled"]).lower()),
+            ("Work 병렬 실행 일시정지", KEYS[1], str(p["paused"]).lower()),
+            ("Work 동시 작업 한도", KEYS[2], str(p["max_active"]))] + [
+                (f"Work {k} 사용량 임계값", "work_parallel_" + k, str(p["thresholds"][k]))
+                for k in ("P2", "P3", "P4", "P5")] + [
+            ("Work 미결 아이템 탐색", KEYS[7], str(d.get("enabled", True)).lower()),
+            ("Work TEST 기본 탐색 지시 강제", KEYS[8], str(d.get("test_default_override", True)).lower()),
+            ("Work 탐색 지시 (SSE 설정에서도 주입)", KEYS[9], d.get("instruction", "test default")),
+            ("Work P1 예약 슬롯", KEYS[10], str(p["p1_reserved"])),
+            ("Work 분당 시작 한도", KEYS[11], str(p["launches_per_minute"])),
+            ("Work 자동 재처리 한도", KEYS[12], str(p["max_rework"]))]
+
+
+def apply(config, key, value, save_config):
+    from .work_parallel_mcp import ledger
+    if key not in KEYS:
+        raise WorkParallelError("unknown Work parallel option")
+    token = str(value).strip()
+    def boolean():
+        if token.lower() not in ("on", "off", "true", "false"):
+            raise WorkParallelError("enter on/off or true/false")
+        return token.lower() in ("on", "true")
+    if key.startswith("work_discovery_"):
+        d = dict(config.get("work_discovery", {}))
+        field = key[len("work_discovery_"):]
+        d[field] = token if field == "instruction" else boolean()
+        if field == "instruction" and (not token or len(token) > 4000):
+            raise WorkParallelError("instruction must contain 1-4000 characters")
+        config["work_discovery"] = d
+    else:
+        store = ledger()
+        state = store.read()
+        field = key[len("work_parallel_"):]
+        if field in ("enabled", "paused"):
+            changes = {field: boolean()}
+        elif field == "max_active":
+            cap = int(token)
+            changes = {field: cap, "p1_reserved": min(cap, state["policy"]["p1_reserved"])}
+        elif field in ("p1_reserved", "launches_per_minute", "max_rework"):
+            changes = {field: int(token)}
+        else:
+            thresholds = dict(state["policy"]["thresholds"])
+            thresholds[field] = float(token.rstrip("%")) / (100 if token.endswith("%") else 1)
+            changes = {"thresholds": thresholds}
+        state, _ = store.configure(changes, capability_ready=True, expected_version=state["version"])
+        config["work_parallel"] = state["policy"]
+    save_config(config)
+    return [f"{key}: {token}", "신규 작업부터 반영합니다. 기존 실행은 강제 종료하지 않습니다."]

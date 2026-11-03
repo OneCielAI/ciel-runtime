@@ -209,6 +209,9 @@ def set_llm_option_config(
         save_config(cfg)
         return [f"Claude feedback drafts {'on' if enabled else 'off'}.",
                 "Applied on every Claude launch; manual /feedback remains available. Restart Claude to change a running session."]
+    from .work_parallel_menu import KEYS as parallel_keys, apply as apply_parallel
+    if key in parallel_keys:
+        return apply_parallel(cfg, key, value, save_config)
     if key in (WORK_MODE_KEY, WORK_PLAN_APPROVAL_ASK_KEY, WORK_AUTO_CONTINUE_KEY, WORK_COMPLETED_AUTO_DELETE_KEY):
         return set_work_mode_option(cfg, key, value, parse_bool, save_config)
     if key == "router_debug_message_preview_chars":

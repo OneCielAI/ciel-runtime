@@ -25,6 +25,11 @@ from .event_receiver_diagnostics import receiver_failure
 from .runtime_input_delivery_health import delivery_health_for_callback
 
 
+MAX_WORK_DISCOVERY_INSTRUCTION_CHARS = 8192
+TEST_WORK_DISCOVERY_INSTRUCTION = (
+    "작업큐에 여유가 생기면 와키에서 최근 미결 아이템이 있는지 확인하고 스스로 할 일을 찾아라. "
+    "우선순위 P1→P5, 같은 우선순위에서는 최신순으로 검색해서 픽업하라."
+)
 MAX_EVENT_BYTES = 1024 * 1024
 WEBHOOK_TOLERANCE_SECONDS = 300
 CLOUDEVENTS_SSE_ACCEPT = "text/event-stream, application/cloudevents+json"
@@ -61,6 +66,51 @@ def resolve_environment_reference(
     if not resolved:
         raise MissingEnvironmentReference(f"environment variable {name} is not set")
     return resolved
+
+
+def _discovery_fields(config: Mapping[str, Any]) -> dict[str, Any]:
+    fields = {}
+    for name in ("discovery_enabled", "test_default_override"):
+        value = config.get(name, False)
+        if not isinstance(value, bool):
+            raise ValueError(f"{name} must be a boolean")
+        fields[name] = value
+    instruction = config.get("discovery_instruction", "")
+    if not isinstance(instruction, str):
+        raise ValueError("discovery_instruction must be a string")
+    if len(instruction) > MAX_WORK_DISCOVERY_INSTRUCTION_CHARS:
+        raise ValueError("discovery_instruction is too long")
+    fields["discovery_instruction"] = instruction.strip()
+    return fields
+
+
+def effective_work_discovery(config: Mapping[str, Any]) -> dict[str, Any] | None:
+    """Select from a workspace's receiver-id -> config map (receiver_configs()).
+
+    Select the first eligible receiver by sorted id; invalid/missing instructions
+    fail closed, without falling through to another source. Never inspect events,
+    connect a receiver, or mutate configuration. Environment references use the
+    same exact-reference contract as receiver URLs and authorization.
+    """
+    for receiver_id, receiver in sorted(config.items()):
+        if not isinstance(receiver, dict):
+            continue
+        if (receiver.get("enabled") is not True or receiver.get("transport") != "sse"
+                or receiver.get("discovery_enabled") is not True):
+            continue
+        try:
+            fields = _discovery_fields(receiver)
+            used_default = fields["test_default_override"]
+            instruction = (TEST_WORK_DISCOVERY_INSTRUCTION if used_default else
+                           resolve_environment_reference(fields["discovery_instruction"]))
+            instruction = instruction.strip()
+            if not instruction or len(instruction) > MAX_WORK_DISCOVERY_INSTRUCTION_CHARS:
+                return None
+        except (ValueError, MissingEnvironmentReference):
+            return None
+        return {"receiver_id": receiver_id, "instruction": instruction,
+                "config": dict(receiver), "used_test_default": used_default}
+    return None
 
 
 class EventReceiverSecretVault:
@@ -451,9 +501,14 @@ class ExternalEventReceiverService:
             workspace = self.receiver_configs()
             root[self.workspace_key] = workspace
         current = workspace.get(receiver_id) if isinstance(workspace.get(receiver_id), dict) else {}
+        discovery = _discovery_fields({**current, **{
+            key: body[key] for key in ("discovery_enabled", "discovery_instruction", "test_default_override")
+            if key in body
+        }})
         current.update(
             {
                 "enabled": bool(body.get("enabled", current.get("enabled", False))),
+                **discovery,
                 "transport": transport,
                 "url": url,
                 "event_types": [str(value) for value in event_types if str(value)],
@@ -496,6 +551,7 @@ class ExternalEventReceiverService:
         references: dict[str, dict[str, Any]] = {}
         for field_name, raw_value in (
             ("url", config.get("url")),
+            ("discovery_instruction", config.get("discovery_instruction")),
             ("webhook_secret", secrets_config.get("webhook_secret")),
             ("authorization", secrets_config.get("authorization")),
         ):
@@ -505,6 +561,9 @@ class ExternalEventReceiverService:
         return {
             "id": receiver_id,
             **config,
+            "discovery_enabled": config.get("discovery_enabled", False),
+            "discovery_instruction": config.get("discovery_instruction", ""),
+            "test_default_override": config.get("test_default_override", False),
             **self.vault.status(receiver_id),
             "environment_references": references,
             "status": status,
@@ -906,6 +965,9 @@ class ExternalEventReceiverService:
 __all__ = [
     "CLOUDEVENTS_SSE_ACCEPT",
     "EventReceiverSecretVault",
+    "MAX_WORK_DISCOVERY_INSTRUCTION_CHARS",
+    "TEST_WORK_DISCOVERY_INSTRUCTION",
+    "effective_work_discovery",
     "MissingEnvironmentReference",
     "ExternalEventReceiverService",
     "cloud_event_cursor",

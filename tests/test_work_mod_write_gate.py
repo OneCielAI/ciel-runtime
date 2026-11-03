@@ -89,6 +89,17 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertTrue(result["block"], result)
         self.assertIn("call work_select with root_id n2", result["text"])
 
+    def test_approval_wait_can_discover_without_repeating_or_approving(self):
+        result = self.run_scenario("stop-discovery-approval")
+        self.assertIn("Work 미결 아이템 탐색", result["first"])
+        self.assertIn("기존 승인 유지", result["first"])
+        self.assertFalse(result["second"])
+
+    def test_blocked_wait_includes_pickup_guidance(self):
+        result = self.run_scenario("stop-discovery-blocked")
+        self.assertIn("와키 미결 아이템", result["text"])
+        self.assertIn("기존 블록 유지", result["text"])
+
     def test_stop_after_session_end_does_not_continue(self):
         self.assertFalse(self.run_scenario("stop-session-end")["block"])
 

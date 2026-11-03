@@ -5,7 +5,7 @@ const detailView = atom({ plugin: 'ciel-work', key: 'detail' }, null)
 const panelView = atom({ plugin: 'ciel-work', key: 'panel' }, null)
 const PANE = 'work-details'
 const PREFIX = 'mcp__ciel-runtime-router__'
-const WORK = new Set(['work_status', 'work_plan_set', 'work_node_add', 'work_node_update',
+const WORK = new Set(['work_parallel_status', 'work_parallel_configure', 'work_parallel_run', 'work_parallel_event', 'work_status', 'work_plan_set', 'work_node_add', 'work_node_update',
   'work_node_remove', 'work_select', 'work_execute', 'work_replan', 'work_reorder', 'work_urgent', 'work_focus',
   'work_mode_set'])
 const WRITES = new Set(['Edit', 'Write', 'NotebookEdit', 'apply_patch'])
@@ -45,6 +45,8 @@ let stopNoticeKey = ''
 let compactEpoch = 0
 const compacts = new Set()
 let continuationSession = null
+let discoveryLast = 0
+let discoveryIdentity = null
 const STOP_READ_MS = 2000
 const RETRY_MS = [250, 500, 1000, 2000, 4000, 8000]
 const IDLE_REFRESH_MS = [1000, 2000, 4000, 8000, 16000, 30000]
@@ -119,6 +121,18 @@ const INSTRUCTIONS = 'Ciel Work mode is hybrid per-item planning and execution, 
   + 'user request and user_requested=true, except that when every active step waits or is blocked, work_select may move to '
   + 'the queued goal holding the next runnable step. On an explicit urgent/ad-hoc request use work_urgent with '
   + 'user_requested=true to hold other goals, break down the request and execute; held goals resume afterwards.'
+// A wait is preserved: discovery only asks for independent, scoped candidates.
+function discoveryNotice($, identity, s, reason) {
+  if (!s.discovery?.enabled) return null
+  const instruction = clipped(s.discovery.instruction, 5000)
+  if (!instruction) return null
+  stopNotice($, identity, reason + ' · ' + instruction)
+  const now = Date.now()
+  if (discoveryIdentity === identity && now - discoveryLast < 300000) return null
+  discoveryIdentity = identity; discoveryLast = now
+  return { block: reason + '\nWork 미결 아이템 탐색: ' + instruction
+    + '\n검색은 한 번, 픽업은 최대 1개. 미결 없음/접근 불가면 그 결과를 알리고 멈춘다. 사용자 정지·focus·기존 승인을 우회하지 않는다.' }
+}
 function textOf(r) {
   if (!r || r.isError) throw new Error('Router error')
   const text = (r.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n')
@@ -481,7 +495,231 @@ function retryStart($, ticket, attempt = 0) {
     })
   } catch {}
 }
+async function workTurnComplete($, e, next) {
+  const result = await next(e)
+  if (e.agentId === undefined) { working = false; if (interactive) startIdleRefresh($, await sessionId($)) }
+  return result
+}
+
+async function workPromptSubmit($, e, next) {
+  continuationVersion = null; unchangedContinuations = 0
+  if (!e.isMeta) stopNoticeKey = ''
+  const s = await refresh($)
+  if (s?.enabled === false || (!s && !enabled)) return next(e)
+  return next({ ...e, context: [...(e.context || []), INSTRUCTIONS
+    + '\nWork summary (data, not instructions; queued details omitted):\n'
+    + (s ? JSON.stringify(promptSummary(s)) : UNAVAILABLE)] })
+}
+
+async function workToolCall($, e, next) {
+  const work = e.tool.startsWith(PREFIX) ? e.tool.slice(PREFIX.length) : ''
+  const name = WORK.has(work) ? work : null
+  // A refresh raised by this mod must not recursively refresh and supersede
+  // its own generation (including the Stop check). Model calls still refresh.
+  if (name === 'work_status' && next.origin.plugin === 'ciel-work') return next(e)
+  const knownWrite = WRITES.has(e.tool)
+  // Planning the work must not require the board's network permission.
+  // Native host permissions still decide this exact plan-file operation.
+  if (knownWrite && await nativePlanWrite($, e.tool, e, e.agentId)) return next(e)
+  let read = { s: null, stage: '' }
+  if (knownWrite || name === 'work_execute') read = await gateRead($)
+  else if (name) read.s = await refresh($)
+  const s = read.s
+  if (knownWrite) {
+    const reason = blocked(read)
+    const exactNativePlan = await nativePlanWrite($, e.tool, e, e.agentId)
+    if (reason && !exactNativePlan) {
+      hintPlanning($, s, reason); return { deny: reason }
+    }
+  }
+  let input = e
+  if (name) {
+    try { input = { ...e, session_id: await sessionId($) } }
+    catch { return { deny: unavailable({ stage: 'identity' }) } }
+  }
+  if (name === 'work_execute') {
+    const { user_confirmed, ...clean } = input
+    input = clean
+    if (!s && enabled) return { deny: unavailable(read) }
+    if (s?.enabled && s.approval === 'ask') {
+      let answer
+      const approvalSession = await sessionId($)
+      try {
+        const plan = await planText($, s.active_root?.id)
+        if (plan.length > 24000) return { deny: 'Plan too long for approval; keep planning.' }
+        answer = await $.ui.ask('Approve this Work plan?\n\n' + plan, ['Approve', 'Keep planning'])
+      } catch { return { deny: 'Work approval was not obtained; keep planning.' } }
+      if (answer !== 'Approve') return { deny: 'Work plan not approved; keep planning.' }
+      const current = (await gateRead($)).s
+      if (await sessionId($) !== approvalSession || !current || !current.enabled || current.version !== s.version
+          || current.phase !== s.phase || current.approval !== s.approval
+          || current.active_root?.id !== s.active_root?.id) {
+        return { deny: 'Work plan changed or became unavailable during approval; review it again.' }
+      }
+      input = { ...clean, user_confirmed: true, expected_version: current.version }
+    }
+  }
+  try { return await next(input) } finally { if (name) await refresh($) }
+}
+
+async function workToolCheck($, e, next) {
+  if (!WRITES.has(e.tool)) return next(e)
+  if (await nativePlanWrite($, e.tool, e.input, e.agentId)) return next(e)
+  const read = await gateRead($)
+  const reason = blocked(read)
+  const planWrite = await nativePlanWrite($, e.tool, e.input, e.agentId)
+  if (reason && !planWrite) { hintPlanning($, read.s, reason); return { decision: 'deny', reason } }
+  return next(e)
+}
+
+// Native compiler requires $ to stay in direct module-local calls.
+const parallelTerminal = new Set(['completed', 'failed', 'killed'])
+const parallelPending = new Map()
+const parallelBound = new Map()
+async function parallelCall($, name, args = {}, observed = {}, scope = null) {
+  const token = await $.env.get('CIEL_RUNTIME_WORK_PARALLEL_HOST_TOKEN')
+  const r = await $.mcp.call('ciel-runtime-router', name, {
+    ...args, session_id: scope || await sessionId($), _host: { ...observed, token },
+  })
+  if (!r || r.isError) throw new Error(r ? (r.content || []).filter(b => b.type === 'text').map(b => b.text).join(' ') || 'Parallel router error' : 'Parallel router unavailable')
+  return JSON.parse(textOf(r))
+}
+async function parallelEvent($, args, observed = {}) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const s = await parallelCall($, 'work_parallel_status')
+    try { return await parallelCall($, 'work_parallel_event', { ...args, expected_version: s.version }, observed) }
+    catch (error) { if (attempt === 2 || !/state changed; reread/.test(String(error.message))) throw error }
+  }
+}
+async function parallelToolCall($, e, next) {
+  const name = e.tool.startsWith(PREFIX) ? e.tool.slice(PREFIX.length) : ''
+  if (next.origin?.plugin === 'ciel-work' && name.startsWith('work_parallel_')) return next(e)
+  if (name === 'work_node_update' && e.status === 'done') {
+    try {
+      const s = await parallelCall($, 'work_parallel_status')
+      // Conservative: a goal completion can auto-complete ancestors of a lease.
+      // Hold all completion writes while any conversation lease is unfinished.
+      if (Object.values(s.leases).some(r => r.state !== 'done')) {
+        return { deny: 'Work completion waits for parallel validation, review and cleanup.' }
+      }
+    } catch (error) { return { deny: 'Parallel completion check unavailable.' } }
+    return workToolCall($, e, next) // Preserve the existing Work gate and native permissions.
+  }
+  if (!['work_parallel_run', 'work_parallel_event', 'work_parallel_configure'].includes(name)) return workToolCall($, e, next)
+  // A direct MCP call by the mod is authenticated in call(); model flags are discarded.
+  const { _host, session_id, tool, tool_use_id, agentId, ...args } = e
+  try {
+    if (name === 'work_parallel_run') {
+      if (e.agentId !== undefined) return { deny: 'Workers cannot dispatch Work agents.' }
+      if (!await $.env.get('CIEL_RUNTIME_WORK_PARALLEL_HOST_TOKEN')) return { deny: 'Parallel host capability is not provisioned.' }
+      const key = 'work-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2)
+      parallelPending.set(key, { ...args, scope: await sessionId($) })
+      return { result: JSON.stringify({ dispatch: 'native_agent_required',
+        tool: 'Agent', subagent_type: 'fork', name: key, description: 'Approved Work agent',
+        prompt: 'Execute only approved Work item ' + args.item_id
+          + '. Report question or result through work_parallel_event. Do not configure policy or accept your result.',
+        instruction: 'Call the native Agent tool with these exact parameters. The spawn hook verifies fork identity and reserves capacity before execution.' }) }
+    }
+    if (name === 'work_parallel_configure' && e.agentId !== undefined) return { deny: 'Workers cannot configure policy.' }
+    if (e.agentId !== undefined && !parallelBound.has(e.agentId)) {
+      const agents = await $.agent.list()
+      const row = agents.find(a => a.id === e.agentId)
+      const request = row?.name ? parallelPending.get(row.name)
+        : [...parallelPending.values()].find(r => r.lease_id === args.lease_id && !r.host_id)
+      if (row && request?.lease_id && request.scope === await sessionId($)) {
+        await parallelEvent($, { event: 'bind', lease_id: request.lease_id }, { host_id: e.agentId })
+        request.host_id = e.agentId
+        parallelBound.set(e.agentId, { lease_id: request.lease_id, scope: request.scope, role: request.role || 'worker' })
+      }
+    }
+    const { expected_version, ...eventArgs } = args
+    const observed = { agent_id: e.agentId ?? null }
+    if (name === 'work_parallel_event' && args.event === 'cleanup' && typeof args.workspace === 'string') {
+      if (e.agentId !== undefined) return { deny: 'Only the coordinator removes Work worktrees.' }
+      try { return { result: JSON.stringify(await parallelEvent($, eventArgs, observed)) } }
+      catch (error) {
+        // Unpushed: removal needs the user's own answer for this exact path.
+        if (!/push or explicit user approval/.test(String(error.message))) throw error
+        const answer = await $.ui.ask('Delete Work worktree?\n\n' + args.workspace
+          + '\n\nIts HEAD is not verified on the remote. Dirty or active worktrees are always kept.',
+          ['Delete this worktree', 'Keep it'])
+        if (answer !== 'Delete this worktree') return { deny: 'Worktree kept: not pushed and deletion was not approved.' }
+        observed.approved_target = args.workspace
+      }
+    }
+    const state = name === 'work_parallel_event'
+      ? await parallelEvent($, eventArgs, observed)
+      : await parallelCall($, name, args, observed, parallelBound.get(e.agentId)?.scope)
+    await refresh($)
+    return { result: JSON.stringify(state) }
+  } catch (error) { return { deny: String(error.message || error) } }
+}
+async function parallelAgentSpawn($, e, next) {
+  try {
+    const s = await parallelCall($, 'work_parallel_status')
+    if (!s.policy.enabled) return next(e)
+    const request = parallelPending.get(e.name)
+    if (!request || request.scope !== await sessionId($) || e.parentAgentId !== undefined
+        || e.fork !== true || e.subagentType !== 'fork' || next.origin?.plugin !== 'engine') {
+      return { deny: 'Enabled Work parallel dispatch requires work_parallel_run and a verified native fork.' }
+    }
+    const { scope, ...args } = request
+    let measuredUsage
+    try { const usage = await $.session.usage(); const limits = usage.rateLimits || [];
+      if (limits.length) measuredUsage = Math.max(...limits.map(r => r.percentUsed / 100)) } catch {}
+    const r = await parallelEvent($, { ...args, event: 'reserve' }, { fork: e.fork, measured_usage: measuredUsage })
+    Object.assign(request, r)
+    const dispatch = { ...e, prompt: e.prompt + '\nExecution lease: ' + r.lease_id
+      + '; plan_version: ' + r.plan_version + '. Read work_parallel_status for your binding.' }
+    // Reservation precedes native launch. Failures/uncertainty retain capacity.
+    const started = await next(dispatch)
+    if (started?.agentId && !request.host_id) {
+      await parallelEvent($, { event: 'bind', lease_id: request.lease_id }, { host_id: started.agentId })
+      request.host_id = started.agentId
+      parallelPending.delete(e.name)
+      parallelBound.set(started.agentId, { lease_id: request.lease_id, scope, role: request.role || 'worker' })
+    }
+    return started
+  } catch (error) { return { deny: String(error.message || error) } }
+}
+async function parallelToolCheck($, e, next) {
+  const binding = parallelBound.get(e.agentId)
+  if (binding?.role === 'reviewer' && e.isReadOnly !== true
+      && e.tool !== PREFIX + 'work_parallel_event' && e.tool !== PREFIX + 'work_parallel_status') {
+    return { decision: 'deny', reason: 'Work reviewer is read-only; report findings, do not modify artifacts.' }
+  }
+  return workToolCheck($, e, next)
+}
+async function parallelTurnComplete($, e, next) {
+  const result = await workTurnComplete($, e, next)
+  // A turn ending is NOT positive idle evidence. Only terminal host task rows
+  // release slots, and only after review/acceptance (core requires an active slot).
+  try {
+    const scope = await sessionId($)
+    const s = await parallelCall($, 'work_parallel_status')
+    const agents = await $.agent.list()
+    for (const [id, binding] of parallelBound) {
+      if (binding.scope !== scope) continue
+      const lease = s.leases[binding.lease_id]
+      const row = agents.find(a => a.id === id)
+      const idle = row && parallelTerminal.has(row.status) && ['accepted', 'cleanup_pending'].includes(lease?.state)
+      await parallelEvent($, { event: 'reconcile', lease_id: binding.lease_id },
+        { state: idle ? 'idle' : row?.status === 'running' ? 'running' : 'unknown',
+          proof: idle ? 'Native agent.list terminal status: ' + row.status : undefined })
+    }
+  } catch { /* Unknown observations retain their slot, never guess completion. */ }
+  return result
+}
+async function parallelPromptSubmit($, e, next) {
+  return workPromptSubmit($, { ...e, context: [...(e.context || []),
+    'Work parallel: read work_parallel_status. Policy defaults off until native fork E2E checks pass. '
+    + 'Configure only on user request; dispatch approved/focused items with work_parallel_run. '
+    + 'Submission is not completion: validate, review, accept, observe idle and verify cleanup before done. '
+    + 'Unknown host capacity retains slots. Native permissions remain authoritative; this is not a shell sandbox.'] }, next)
+}
+
 export function register(on) {
+  on('agent.spawn', async ($, e, next) => parallelAgentSpawn($, e, next))
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'work-mode', description: 'Work mode: summary, help, keyboard inspector, tree or raw status',
       argumentHint: '[help|view|tree|status]', immediate: true })
@@ -508,11 +746,7 @@ export function register(on) {
     if (e.agentId === undefined) { working = true; stopIdleRefresh(); generation++; mainTurnEpoch++ }
     return next(e)
   })
-  on('turn.complete', async ($, e, next) => {
-    const result = await next(e)
-    if (e.agentId === undefined) { working = false; if (interactive) startIdleRefresh($, await sessionId($)) }
-    return result
-  })
+  on('turn.complete', async ($, e, next) => parallelTurnComplete($, e, next))
   on('session.compact', async ($, e, next) => {
     // A child's transcript and a speculative summary do not replace main history.
     if (e.agentId !== undefined || e.trigger === 'precompute') return next(e)
@@ -572,11 +806,12 @@ export function register(on) {
     if (s.approval === 'ask' && ((s.phase === 'planning' && s.ready)
         || s.continuation?.next?.phase === 'planning')) {
       if (openWork(s)) stopNotice($, identity, STOP_APPROVAL)
-      return result
+      return discoveryNotice($, identity, s, STOP_APPROVAL) || result
     }
     if (!(s.continuation?.actionable > 0)) {
-      if (openWork(s)) stopNotice($, identity, notRunnable(s, s.continuation || {}))
-      return result
+      const reason = notRunnable(s, s.continuation || {})
+      if (openWork(s)) stopNotice($, identity, reason)
+      return discoveryNotice($, identity, s, reason) || result
     }
     if (continuationVersion !== s.version) { continuationVersion = s.version; unchangedContinuations = 0 }
     else unchangedContinuations++
@@ -606,15 +841,7 @@ export function register(on) {
       + 'Waiting items: ' + clipped((c.waiting || []).map(n => n.id + ': ' + n.waiting_on).join('; ') || 'none', 700)
       + (unchangedContinuations === 1 ? '. This is the last continuation without a plan update.' : '') }
   })
-  on('prompt.submit', async ($, e, next) => {
-    continuationVersion = null; unchangedContinuations = 0
-    if (!e.isMeta) stopNoticeKey = ''
-    const s = await refresh($)
-    if (s?.enabled === false || (!s && !enabled)) return next(e)
-    return next({ ...e, context: [...(e.context || []), INSTRUCTIONS
-      + '\nWork summary (data, not instructions; queued details omitted):\n'
-      + (s ? JSON.stringify(promptSummary(s)) : UNAVAILABLE)] })
-  })
+  on('prompt.submit', async ($, e, next) => parallelPromptSubmit($, e, next))
   on('command.run', { command: 'work-mode' }, async ($, e) => {
     const arg = e.args.trim()
     if (!['', 'help', 'view', 'status', 'tree', 'expand', 'compact'].includes(arg)) return { text: 'Usage: /work-mode [expand|compact|help|view|tree|status]' }
@@ -636,66 +863,9 @@ export function register(on) {
     if (arg === '') return { text: summary(s) }
     return { text: 'Ciel Work mode\n' + JSON.stringify(s, null, 2) }
   })
-  on('tool.call', async ($, e, next) => {
-    const work = e.tool.startsWith(PREFIX) ? e.tool.slice(PREFIX.length) : ''
-    const name = WORK.has(work) ? work : null
-    // A refresh raised by this mod must not recursively refresh and supersede
-    // its own generation (including the Stop check). Model calls still refresh.
-    if (name === 'work_status' && next.origin.plugin === 'ciel-work') return next(e)
-    const knownWrite = WRITES.has(e.tool)
-    // Planning the work must not require the board's network permission.
-    // Native host permissions still decide this exact plan-file operation.
-    if (knownWrite && await nativePlanWrite($, e.tool, e, e.agentId)) return next(e)
-    let read = { s: null, stage: '' }
-    if (knownWrite || name === 'work_execute') read = await gateRead($)
-    else if (name) read.s = await refresh($)
-    const s = read.s
-    if (knownWrite) {
-      const reason = blocked(read)
-      const exactNativePlan = await nativePlanWrite($, e.tool, e, e.agentId)
-      if (reason && !exactNativePlan) {
-        hintPlanning($, s, reason); return { deny: reason }
-      }
-    }
-    let input = e
-    if (name) {
-      try { input = { ...e, session_id: await sessionId($) } }
-      catch { return { deny: unavailable({ stage: 'identity' }) } }
-    }
-    if (name === 'work_execute') {
-      const { user_confirmed, ...clean } = input
-      input = clean
-      if (!s && enabled) return { deny: unavailable(read) }
-      if (s?.enabled && s.approval === 'ask') {
-        let answer
-        const approvalSession = await sessionId($)
-        try {
-          const plan = await planText($, s.active_root?.id)
-          if (plan.length > 24000) return { deny: 'Plan too long for approval; keep planning.' }
-          answer = await $.ui.ask('Approve this Work plan?\n\n' + plan, ['Approve', 'Keep planning'])
-        } catch { return { deny: 'Work approval was not obtained; keep planning.' } }
-        if (answer !== 'Approve') return { deny: 'Work plan not approved; keep planning.' }
-        const current = (await gateRead($)).s
-        if (await sessionId($) !== approvalSession || !current || !current.enabled || current.version !== s.version
-            || current.phase !== s.phase || current.approval !== s.approval
-            || current.active_root?.id !== s.active_root?.id) {
-          return { deny: 'Work plan changed or became unavailable during approval; review it again.' }
-        }
-        input = { ...clean, user_confirmed: true, expected_version: current.version }
-      }
-    }
-    try { return await next(input) } finally { if (name) await refresh($) }
-  })
+  on('tool.call', async ($, e, next) => parallelToolCall($, e, next))
   // Shell authority stays with the native host, even when the Work board is offline.
-  on('tool.check', async ($, e, next) => {
-    if (!WRITES.has(e.tool)) return next(e)
-    if (await nativePlanWrite($, e.tool, e.input, e.agentId)) return next(e)
-    const read = await gateRead($)
-    const reason = blocked(read)
-    const planWrite = await nativePlanWrite($, e.tool, e.input, e.agentId)
-    if (reason && !planWrite) { hintPlanning($, read.s, reason); return { decision: 'deny', reason } }
-    return next(e)
-  })
+  on('tool.check', async ($, e, next) => parallelToolCheck($, e, next))
   on('session.end', async ($, e, next) => {
     stopIdleRefresh(); interactive = false; working = false; clearNativePlanPaths(); starts++
     generation++; cached = null; cachedSession = null; hinted = ''; continuationVersion = null; unchangedContinuations = 0

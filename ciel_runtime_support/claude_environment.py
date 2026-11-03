@@ -511,6 +511,8 @@ class ClaudeEnvironmentProjection:
 
     def apply_common(self, provider: str, config: dict[str, Any], env: dict[str, str], *, guarded: bool = True) -> dict[str, str]:
         env["CLAUDE_CODE_DISABLE_TERMINAL_TITLE"] = "1"
+        from .work_parallel_host import host_token
+        env["CIEL_RUNTIME_WORK_PARALLEL_HOST_TOKEN"] = host_token()
         output_tokens = self._limits.output_token_limit(provider, config)
         if output_tokens:
             env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = str(output_tokens)

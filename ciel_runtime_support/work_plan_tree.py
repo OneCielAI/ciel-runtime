@@ -87,6 +87,7 @@ def normalize_document(raw: Any) -> dict[str, Any]:
             "ref": _line(item.get("ref"), MAX_REF_CHARS),
             "urgent": item.get("urgent") is True and item.get("parent_id") is None,
             "updated_at": float(item.get("updated_at") or 0.0),
+            "created_at": float(item.get("created_at", item.get("updated_at")) or 0.0),
         }
         if "completed_at" in item:
             value = item["completed_at"]
@@ -184,6 +185,7 @@ def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any =
         "waiting_on": _line(waiting_on, MAX_WAIT_CHARS),
         "ref": _line(ref, MAX_REF_CHARS),
         "urgent": False,
+        "created_at": stamp,
         "updated_at": stamp,
     })
     if parent_id is None:
