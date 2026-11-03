@@ -249,12 +249,12 @@ class TuiObservationRouterIntegrationTests(unittest.TestCase):
         from ciel_runtime_support.runtime_input_delivery_health import runtime_input_delivery_health
         from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository
 
-        # Damaged history is ignored by admission: it is a partial observation,
-        # never admission_blocked. Only an unreadable history is unknown.
+        # Damaged history is not admission authority: partial observations
+        # retain known counts but cannot assert not_blocked.
         expectations = {
             "clean": ("not_blocked", False, "", 2, "complete", None),
             # Recovered history-only id 3 is diagnostic, not retained queue work.
-            "corrupt": ("not_blocked", False, "history_observation_partial", 2, "partial", 3),
+            "corrupt": ("unknown", None, "history_observation_partial", 2, "partial", 3),
             "unreadable": ("unknown", None, "delivery_observation_unavailable", 0, "unknown", None),
         }
         for case, expected in expectations.items():
