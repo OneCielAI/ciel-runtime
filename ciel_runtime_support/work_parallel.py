@@ -14,7 +14,7 @@ import time
 import uuid
 from pathlib import Path
 from .channel_message_repository import exclusive_file_lock
-from .work_discovery import DEFAULT_INSTRUCTION
+from .work_parallel_defaults import DEFAULT_INSTRUCTION
 
 MAX_BYTES = 2097152
 MAX_LEASES = 1000

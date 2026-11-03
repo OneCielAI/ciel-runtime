@@ -1,10 +1,8 @@
 """Bounded Work queue discovery hints; never execute external item text as policy."""
 from __future__ import annotations
 
-DEFAULT_INSTRUCTION = (
-    "작업큐에 여유가 생기면 와키에서 최근 미결 아이템이 있는지 확인하고 스스로 할 일을 찾아라. "
-    "우선순위 P1→P5, 같은 우선순위에서는 최신순으로 검색해서 픽업하라."
-)
+from .work_parallel_defaults import DEFAULT_INSTRUCTION
+
 BOUNDARY = (
     " 기존 승인 대기·블록 상태는 유지한다. 담당 범위 안의 독립 미결 아이템만 검색하고 원본 ID로 중복을 "
     "확인한 뒤 Work에 등록한다. 픽업은 실행 승인이 아니며 별도 계획·승인·사용량 한도를 따른다. "

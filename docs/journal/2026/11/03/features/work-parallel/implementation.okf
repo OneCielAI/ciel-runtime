@@ -38,3 +38,6 @@ Actual Claude fork execution/host identity, full coordinator integration, real m
 # Final regression and menu evidence
 - Final focused run: 208 passed, 188 subtests passed; repository ruff passed.
 - Actual isolated Windows menu: max_active=2 and P2=0.7 persisted via keyboard interaction. Console text and screenshots in evidence/menu-ui; verification.json confirms ledger values.
+
+# CI publication correction
+Initial publish run 41639128314 failed before npm publication: two new tests imported pytest although CI uses dependency-free unittest; architecture test detected work_parallel -> work_discovery -> work_parallel_mcp -> work_parallel cycle. Shared instruction moved into leaf work_parallel_defaults.py. Both pytest modules converted to unittest preserving 53 expanded cases (all passed). Remaining focused unittest modules: 155 passed. Import-graph architecture contract: passed. No test or publication gate bypassed.
