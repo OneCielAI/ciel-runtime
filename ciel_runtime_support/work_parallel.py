@@ -47,8 +47,12 @@ def fields(v, names):
     return type(v) is dict and set(v) == set(names.split())
 
 def default_policy():
-    return dict(enabled=False, paused=False, max_active=3, p1_reserved=1,
-                thresholds=dict(P2=.8, P3=.6, P4=.4, P5=.2), launches_per_minute=4,
+    # Parallel dispatch is on by default and limited only by concurrent fork slots
+    # (max_active, with p1_reserved kept free for P1) and the launch rate. The
+    # thresholds field is retained solely so ledgers written before slot-only
+    # admission stay readable; it no longer gates anything.
+    return dict(enabled=True, paused=False, max_active=3, p1_reserved=1,
+                thresholds=dict(P2=1.0, P3=1.0, P4=1.0, P5=1.0), launches_per_minute=4,
                 max_rework=2, discovery_text=DEFAULT_DISCOVERY_TEXT, test_override=True)
 
 def validate_policy(p):
@@ -179,32 +183,11 @@ class WorkParallelStore:
             require(not d["policy"]["enabled"] or capability_ready, "capability not ready")
         return self._change(apply, expected_version)
 
-    def observe_usage(self, measured_usage, *, expected_version, now=None):
-        """Persist 10-point/30-second recovery hysteresis; unknown never clears."""
-        require(measured_usage is None or number(measured_usage), "measured usage")
-        stamp = time.time() if now is None else now
-        require(number(stamp, 1e15), "clock")
-        def apply(d):
-            memory = d.setdefault("admission", {})
-            for priority, threshold in d["policy"]["thresholds"].items():
-                value = memory.setdefault(priority, {"blocked": False, "below_since": None})
-                if measured_usage is None or measured_usage >= threshold:
-                    value.update(blocked=True, below_since=None)
-                elif value["blocked"]:
-                    if measured_usage < max(0, threshold - .1):
-                        if value["below_since"] is None:
-                            value["below_since"] = stamp
-                        elif stamp - value["below_since"] >= 30:
-                            value.update(blocked=False, below_since=None)
-                    else:
-                        value["below_since"] = None
-        return self._change(apply, expected_version)
-
-    def reserve(self, candidates, *, scope, measured_usage, expected_version, now=None):
+    def reserve(self, candidates, *, scope, expected_version, now=None):
         """Candidates require exact fields validated below. Best eligible priority,
-        then newest created_at wins. Usage=measurement+reservations+request.
-        Reviewers/resumes consume slots and launch rate exactly like workers.
-        Discovery/test_override configuration NEVER bypasses admission gates.
+        then newest created_at wins. Admission is limited only by the number of
+        concurrent fork slots and the launch rate; reviewers/resumes consume a
+        slot. Discovery/test_override configuration NEVER bypasses admission gates.
         """
         require(text(scope, 200) and type(candidates) is list and 0 < len(candidates) <= 600, "candidates/scope")
         for r in candidates:
@@ -214,7 +197,6 @@ class WorkParallelStore:
             require(all(type(r[k]) is bool for k in ("approved", "focused", "dependencies_done")), "candidate gates")
             require(r["role"] in ("worker", "reviewer", "resume") and r["mode"] in ("fork", "fresh"), "candidate mode")
         require(len({r["item_id"] for r in candidates}) == len(candidates), "duplicate candidates")
-        require(measured_usage is None or number(measured_usage), "measured usage")
         stamp = time.time() if now is None else now
         require(number(stamp, 1e15), "clock")
         def apply(d):
@@ -228,15 +210,15 @@ class WorkParallelStore:
             if any(r["role"] == "reviewer" for r in candidates) and any(a["role"] == "reviewer" for a in active):
                 raise WorkParallelError("reviewer concurrency reached")
             for r in sorted(candidates, key=lambda a: (a["priority"], -a["created_at"], a["item_id"])):
-                if not all(r[k] for k in ("approved", "focused", "dependencies_done")):
+                # Focus only orders Work; it never blocks another approved item.
+                if not all(r[k] for k in ("approved", "dependencies_done")):
                     continue
                 if any(a["scope"] == scope and a["item_id"] == r["item_id"] and a["role"] == r["role"] and (a["slot"] or a["state"] != "done") for a in d["leases"].values()):
                     continue
                 if r["priority"] == "P1":
                     if r["mode"] != "fork":
                         continue
-                elif (d.get("admission", {}).get(r["priority"], {}).get("blocked", False) or len(active) >= max(1, p["max_active"] - p["p1_reserved"]) or measured_usage is None or
-                      measured_usage + sum(a["usage"] for a in active) + r["usage"] >= p["thresholds"][r["priority"]]):
+                elif len(active) >= max(1, p["max_active"] - p["p1_reserved"]):
                     continue
                 ident = uuid.uuid4().hex
                 d["leases"][ident] = dict(id=ident, scope=scope, item_id=r["item_id"], priority=r["priority"],

@@ -17,9 +17,9 @@ class WorkDiscoveryTests(unittest.TestCase):
         hint = discovery_hint({"work_discovery": {"enabled": True, "instruction": "custom", "test_default_override": False}}, {})
         self.assertTrue(hint["instruction"].startswith("custom"))
 
-    def test_focus_and_pause_are_not_bypassed(self):
+    def test_focus_orders_work_and_pause_is_not_bypassed(self):
         cfg = {"work_discovery": {"enabled": True}}
-        self.assertFalse(discovery_hint(cfg, {"focus": {"node_ids": ["n1"]}})["enabled"])
+        self.assertTrue(discovery_hint(cfg, {"focus": {"node_ids": ["n1"]}})["enabled"])
         cfg["work_parallel"] = {"paused": True}
         self.assertFalse(discovery_hint(cfg, {})["enabled"])
 

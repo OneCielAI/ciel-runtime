@@ -1,0 +1,6 @@
+{
+  "initial_high_sample_wait": true,
+  "same_session_fresh_launch_wait": false,
+  "epoch_changed": true,
+  "request_after_rebind": true
+}

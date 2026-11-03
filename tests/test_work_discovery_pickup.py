@@ -129,11 +129,15 @@ print(ingest_external_search_results(WorkPlanStore(Path(sys.argv[2])), source='t
             self.ingest()
         self.assertEqual(self.path.read_bytes(), before)
 
-    def test_focus_and_invalid_clock_fail_closed(self):
-        self.store.transaction(lambda d: d["focus_ids"].append(add_node(d, None, "Focused")))
-        before = self.path.read_bytes()
-        self.assertEqual(self.ingest().status, "focused")
-        self.assertEqual(self.path.read_bytes(), before)
+    def test_focus_does_not_block_pickup_and_invalid_clock_fails_closed(self):
+        def add_focus(doc):
+            node = add_node(doc, None, "Focused")
+            doc["focus_ids"].append(node)
+            return node
+        _, focused = self.store.transaction(add_focus)
+        result = self.ingest()
+        self.assertEqual(result.status, "registered")
+        self.assertEqual(self.store.read()["focus_ids"], [focused])
         for now in (True, float("nan"), float("inf"), -1, "1000"):
             with self.assertRaises(WorkPlanError):
                 self.ingest(now=now)

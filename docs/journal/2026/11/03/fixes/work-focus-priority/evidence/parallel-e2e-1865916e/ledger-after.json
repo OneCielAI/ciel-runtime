@@ -1,0 +1,96 @@
+{
+  "schema": 1,
+  "version": 9,
+  "policy": {
+    "enabled": true,
+    "paused": false,
+    "max_active": 1,
+    "p1_reserved": 1,
+    "thresholds": {
+      "P2": 1.0,
+      "P3": 1.0,
+      "P4": 1.0,
+      "P5": 1.0
+    },
+    "launches_per_minute": 4,
+    "max_rework": 2,
+    "discovery_text": "\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.",
+    "test_override": true
+  },
+  "leases": {
+    "08b152c68f694998952f13f3043baabf": {
+      "id": "08b152c68f694998952f13f3043baabf",
+      "scope": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "item_id": "n3",
+      "priority": "P1",
+      "created_at": 1793734195.8741972,
+      "role": "worker",
+      "mode": "fork",
+      "plan_version": 2,
+      "state": "submitted",
+      "host_id": "a59134415da6d539c",
+      "slot": false,
+      "usage": 0,
+      "artifact": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "rework": 0,
+      "evidence": "owned child result",
+      "idle_proof": "Native agent.list status: idle",
+      "cleanup_proof": null,
+      "workspace": {
+        "schema": 1,
+        "repo": "C:\\Users\\djlov\\AppData\\Local\\Temp\\wp-r8zqdbwo",
+        "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\wp-r8zqdbwo\\.claude\\worktrees\\work-parallel-3443c4a64291cda17cb8e365",
+        "head": "475072300d39b063eacd924c800b60aec17b9650",
+        "initial_head": "475072300d39b063eacd924c800b60aec17b9650",
+        "branch": "work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487",
+        "lease_id": "08b152c68f694998952f13f3043baabf",
+        "status": "ready",
+        "common_dir": "C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git",
+        "git_dir": "C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365",
+        "host_id": null,
+        "idle": false,
+        "idle_proof": null
+      },
+      "agent_name": "work-mw1310ee-d4tnkc0rn5h"
+    },
+    "b13d1607404745e9a8678c6dcc90b240": {
+      "id": "b13d1607404745e9a8678c6dcc90b240",
+      "scope": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "item_id": "n3",
+      "priority": "P1",
+      "created_at": 1793734195.8741972,
+      "role": "reviewer",
+      "mode": "fork",
+      "plan_version": 2,
+      "state": "running",
+      "host_id": "afcefcded4671266d",
+      "slot": true,
+      "usage": 0.05,
+      "artifact": null,
+      "rework": 0,
+      "evidence": null,
+      "idle_proof": null,
+      "cleanup_proof": null,
+      "workspace": {
+        "schema": 1,
+        "repo": "C:\\Users\\djlov\\AppData\\Local\\Temp\\wp-r8zqdbwo",
+        "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\wp-r8zqdbwo\\.claude\\worktrees\\work-parallel-bfa761fbe3c11b9145b1dadf",
+        "head": "475072300d39b063eacd924c800b60aec17b9650",
+        "initial_head": "475072300d39b063eacd924c800b60aec17b9650",
+        "branch": "work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e",
+        "lease_id": "b13d1607404745e9a8678c6dcc90b240",
+        "status": "ready",
+        "common_dir": "C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git",
+        "git_dir": "C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf",
+        "host_id": null,
+        "idle": false,
+        "idle_proof": null
+      },
+      "agent_name": "work-review-08b152c68f694998952f13f3043baabf"
+    }
+  },
+  "launches": [
+    1793734197.1291819,
+    1793734197.9795754
+  ]
+}

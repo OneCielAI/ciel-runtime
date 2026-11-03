@@ -100,6 +100,17 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn("와키 미결 아이템", result["text"])
         self.assertIn("기존 블록 유지", result["text"])
 
+    def test_focused_item_without_a_runnable_step_continues_other_work(self):
+        result = self.run_scenario("stop-focus-unrunnable")
+        self.assertIn("The next item is n5", result["text"])
+        self.assertIn("call work_select with root_id n3", result["text"])
+        self.assertNotIn("stays held", result["text"])
+
+    def test_focus_no_longer_suppresses_discovery_when_nothing_runs(self):
+        result = self.run_scenario("stop-discovery-focus")
+        self.assertIn("Work 미결 아이템 탐색", result["text"])
+        self.assertNotIn("focus only", result["text"])
+
     def test_parent_restart_rebinds_durable_worker_without_marking_it_idle(self):
         result = self.run_scenario("parallel-restart-rebind")
         self.assertEqual(result["result"], "allow", result)

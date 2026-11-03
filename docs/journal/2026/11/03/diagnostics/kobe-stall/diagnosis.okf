@@ -1,0 +1,26 @@
+---
+type: diagnosis
+title: Kobe sandbox stall, no backlog discovery, no parallel execution
+description: Read-only remote evidence links the stall to a persistent Work focus that disables discovery and continuation; parallel was never enabled.
+timestamp: 2026-11-03T17:35:00Z
+tags: [kobe, work, focus, discovery, parallel]
+---
+
+# Observed facts (evidence/remote-observations.json)
+- Kobe (u24) runs 8da2075; process alive and idle since end_turn 17:13:43Z.
+- Stop notice: none can run now; focus only n75,n84,n92; waiting n133; 2 blocked steps.
+- Focus was set by the model at 13:20:11Z with user_requested=true after the user ASKED whether the two top items were closed. No explicit instruction to work only on them was found in that window.
+- work_parallel_status three times: enabled=false, version0, no leases. work_parallel_configure/run never called.
+- Router usage observations empty ({}).
+
+# Code-confirmed mechanism
+work_discovery.discovery_hint disables discovery whenever focus node_ids exist. Stop hook therefore emits only the notice; it neither continues nor asks for backlog search. Focus persists until explicit clear, so 33 other registered items stay held and Walkie backlog is never queried.
+
+# Parallel
+Not a runtime crash: feature default is off and was never enabled. Even if enabled, P2-P5 admission requires usage observations; with none, only P1 could be admitted (per existing limitation text).
+
+# Item processing
+Final focused leaves were waiting/blocked; the model's stated next action was not recorded as a runnable leaf, so actionable=0. Walkie said thread still open, the model ended turn anyway.
+
+# Unverified
+Board snapshot files were ACL-denied; exact current focus/leaf state comes from transcript notices, not direct file reads. No root cause for model misinterpretation beyond the transcript. No remote state changed, no restart, no ACL change.

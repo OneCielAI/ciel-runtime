@@ -1,0 +1,80 @@
+---
+type: verification-journal
+title: Verification of focus priority, discovery and slot-only parallel admission
+status: verified-isolated-fixtures-and-owned-native-e2e
+date: 2026-11-03
+---
+
+# Scope
+Owned worktree `feature/work-parallel-20261103` at 8da2075 plus this change. Every
+command ran with all inherited `CIEL_RUNTIME_*` variables removed. No live router,
+production config, provider account or remote sandbox was started, restarted or
+modified.
+
+# Focus, discovery and parallel regression
+`evidence/final-regression.txt`: 472 tests passed, 42 skipped (platform-dependent),
+0 failures across 17 focused modules:
+
+test_work_focus, test_work_discovery, test_work_discovery_pickup,
+test_work_parallel, test_work_parallel_mcp, test_work_parallel_menu,
+test_work_retention, test_work_mcp_tools, test_work_mod_write_gate,
+test_work_breakdown_statusline, test_work_http_controller, test_work_mode_launch,
+test_work_mode_packaging, test_work_mode_option, test_work_parallel_workspace,
+test_external_work_discovery, test_architecture_contracts.
+
+New/updated assertions cover: focused leaves first with unrelated leaves still
+actionable and `held == 0`; a waiting focused item yielding to another runnable goal;
+a blocked focused leaf not stopping other work; automatic release on completion;
+selection/reorder no longer refused under focus; urgent still outranks focus and
+cannot be released by focus; discovery enabled with focus set; pickup registering
+while focus is set; default-on policy; P2-P5 admitted up to
+`max_active - p1_reserved` with no usage observation and refused beyond; 1.0
+thresholds retained only for file compatibility; menu rows reduced to 9.
+
+# Real hook behaviour
+`evidence/final-regression.txt` includes the real `register.js` scenarios (16 tests,
+Node with a scripted host, no Claude Code, router or network):
+- `stop-focus-unrunnable`: the focused goal's step waits, another goal has runnable
+  work; Stop continues with "The next item is n5" and "call work_select with root_id
+  n3", and no "stays held" text.
+- `stop-discovery-focus`: nothing runnable and focus set; the discovery block is
+  still emitted and no "focus only" barrier text appears.
+Existing approval/discovery, restart-rebind, reviewer and concurrency scenarios
+still pass.
+
+# Deterministic root-cause reproduction
+`evidence/fix-repro.py` builds Kobi's shape in a temporary board: the model focuses a
+question item, its only step waits on approval, and an unrelated approved goal has a
+runnable leaf. `evidence/fix-repro.json`:
+
+- before this change (recorded at
+  `docs/journal/2026/11/03/diagnostics/kobe-stall/evidence/focus-stall-repro.json`):
+  actionable 0, next null, discovery disabled, reason "paused or focused";
+- after: actionable 1, next "runnable research" in root n4, held 0, waiting n3,
+  discovery enabled, focus auto-released after the focused step completes, and the
+  next step remains the unrelated runnable one;
+- parallel: file-less ledger has enabled true, max_active 3; two P2 leases were
+  reserved without any usage observation and a third P2 was refused at the
+  `max_active - p1_reserved` bound.
+
+# Owned native Claude CLI E2E
+`evidence/parallel-e2e-1865916e/`: real Claude Code with the packaged ciel-work mod,
+the real Python dispatcher as an MCP server, and a loopback fake Anthropic gateway;
+isolated HOME/config/workspace under the worktree. CLI exit 0, no hook-module
+errors. `verification.json` checks: default_on true, configure true, reserve true,
+bind true, child_result true, hard_cap_rejection true. `mcp.json` shows two workers
+reserved and bound one at a time under `max_active=1`, with the third reservation
+refused with "hard cap reached" and no usage measurement in any argument.
+
+# Static checks
+`evidence/ruff.txt`: `ruff check` passed on every changed source and test file.
+
+# Limitations
+- The E2E provider is an owned loopback fake gateway, not a production LLM round trip.
+- Two child forks were dispatched in that owned E2E; the earlier worker crash/resume
+  and reviewer E2E were not repeated here. Codex dispatch remains unsupported.
+- Nothing was deployed: nightly and the local install still carry 8da2075, and the
+  remote sandboxes (Kobi, emily, edward) keep their installed versions until a fleet
+  update is explicitly requested.
+- Automatic release is evaluated on node updates; a focus set on an already-done
+  subtree is still stored until the next node update or explicit clear.

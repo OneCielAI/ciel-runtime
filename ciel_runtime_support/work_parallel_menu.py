@@ -2,9 +2,8 @@
 from .work_parallel import WorkParallelError
 
 KEYS = ("work_parallel_enabled", "work_parallel_paused", "work_parallel_max_active",
-        "work_parallel_P2", "work_parallel_P3", "work_parallel_P4", "work_parallel_P5",
-        "work_discovery_enabled", "work_discovery_test_default_override", "work_discovery_instruction", "work_parallel_p1_reserved",
-        "work_parallel_launches_per_minute", "work_parallel_max_rework")
+        "work_discovery_enabled", "work_discovery_test_default_override", "work_discovery_instruction",
+        "work_parallel_p1_reserved", "work_parallel_launches_per_minute", "work_parallel_max_rework")
 
 
 def rows(config):
@@ -16,15 +15,13 @@ def rows(config):
     d = config.get("work_discovery", {})
     return [("Work 병렬 실행", KEYS[0], str(p["enabled"]).lower()),
             ("Work 병렬 실행 일시정지", KEYS[1], str(p["paused"]).lower()),
-            ("Work 동시 작업 한도", KEYS[2], str(p["max_active"]))] + [
-                (f"Work {k} 사용량 임계값", "work_parallel_" + k, str(p["thresholds"][k]))
-                for k in ("P2", "P3", "P4", "P5")] + [
-            ("Work 미결 아이템 탐색", KEYS[7], str(d.get("enabled", True)).lower()),
-            ("Work TEST 기본 탐색 지시 강제", KEYS[8], str(d.get("test_default_override", True)).lower()),
-            ("Work 탐색 지시 (SSE 설정에서도 주입)", KEYS[9], d.get("instruction", "test default")),
-            ("Work P1 예약 슬롯", KEYS[10], str(p["p1_reserved"])),
-            ("Work 분당 시작 한도", KEYS[11], str(p["launches_per_minute"])),
-            ("Work 자동 재처리 한도", KEYS[12], str(p["max_rework"]))]
+            ("Work 동시 포크 세션 한도", KEYS[2], str(p["max_active"])),
+            ("Work 미결 아이템 탐색", KEYS[3], str(d.get("enabled", True)).lower()),
+            ("Work TEST 기본 탐색 지시 강제", KEYS[4], str(d.get("test_default_override", True)).lower()),
+            ("Work 탐색 지시 (SSE 설정에서도 주입)", KEYS[5], d.get("instruction", "test default")),
+            ("Work P1 예약 슬롯", KEYS[6], str(p["p1_reserved"])),
+            ("Work 분당 시작 한도", KEYS[7], str(p["launches_per_minute"])),
+            ("Work 자동 재처리 한도", KEYS[8], str(p["max_rework"]))]
 
 
 def apply(config, key, value, save_config):
@@ -55,9 +52,7 @@ def apply(config, key, value, save_config):
         elif field in ("p1_reserved", "launches_per_minute", "max_rework"):
             changes = {field: int(token)}
         else:
-            thresholds = dict(state["policy"]["thresholds"])
-            thresholds[field] = float(token.rstrip("%")) / (100 if token.endswith("%") else 1)
-            changes = {"thresholds": thresholds}
+            raise WorkParallelError("unknown Work parallel option")
         state, _ = store.configure(changes, capability_ready=True, expected_version=state["version"])
         config["work_parallel"] = state["policy"]
     save_config(config)

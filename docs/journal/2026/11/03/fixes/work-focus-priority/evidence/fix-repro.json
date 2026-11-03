@@ -1,0 +1,26 @@
+{
+ "focus_node": "n1",
+ "unrelated_runnable_leaf": "n6",
+ "after_focus": {
+  "actionable": 1,
+  "next": "runnable research",
+  "next_root": "n4",
+  "held": 0,
+  "waiting": [
+   "n3"
+  ]
+ },
+ "discovery_with_focus": {
+  "enabled": true,
+  "reason": ""
+ },
+ "parallel_default": {
+  "enabled": true,
+  "max_active": 3,
+  "reserved_without_usage_observation": true,
+  "third_non_p1_refused": true,
+  "active_slots": 2
+ },
+ "focus_auto_released": true,
+ "after_release_next": "runnable research"
+}

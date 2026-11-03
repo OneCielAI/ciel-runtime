@@ -200,7 +200,7 @@ class WorkParallelMCPTests(unittest.TestCase):
     def test_auth_and_default_capability(self):
         env = self.env
         s, b, c, run = env
-        assert not run("status")["policy"]["enabled"]
+        assert run("status")["policy"]["enabled"]
         with self.assertRaises(WorkParallelError):
             run("configure", changes={"enabled": True})
         with self.assertRaises(WorkParallelError):
@@ -234,27 +234,19 @@ class WorkParallelMCPTests(unittest.TestCase):
         assert not s.read()["leases"]
 
 
-    def test_server_gates_2(self):
+    def test_focus_does_not_block_dispatch(self):
         env = self.env
-        gate = 'focus'
         s, b, c, run = env
         run("configure", {}, changes={"enabled": True})
-        if gate == "approval":
-            b["phase"] = "planning"
-            b["nodes"][0]["phase"] = "planning"
-        if gate == "focus":
-            b["focus_ids"] = ["other"]
-        if gate == "blocked":
-            b["nodes"][0]["status"] = "blocked"
-        with self.assertRaises(WorkParallelError):
-            run(
-                "event",
-                {"fork": gate != "fork"},
-                event="reserve",
-                item_id="n1",
-                priority="P1",
-            )
-        assert not s.read()["leases"]
+        b["focus_ids"] = ["other"]
+        reserved = run(
+            "event",
+            {"fork": True},
+            event="reserve",
+            item_id="n1",
+            priority="P1",
+        )
+        assert s.read()["leases"][reserved["lease_id"]]["slot"]
 
 
     def test_server_gates_3(self):
@@ -303,7 +295,7 @@ class WorkParallelMCPTests(unittest.TestCase):
         assert not s.read()["leases"]
 
 
-    def test_unknown_usage_and_worker_authority(self):
+    def test_worker_authority_and_slot_admission(self):
         env = self.env
         s, b, c, run = env
         ident = launch(env)
@@ -330,8 +322,11 @@ class WorkParallelMCPTests(unittest.TestCase):
             )
         run("event", {}, event="reconcile", lease_id=ident)
         assert s.read()["leases"][ident]["slot"]
+        # No provider usage observation is needed: a second, non-P1 slot is available.
+        reserved = run("event", {"fork": True}, event="reserve", item_id="n1", priority="P2", role="reviewer")
+        assert s.read()["leases"][reserved["lease_id"]]["priority"] == "P2"
         with self.assertRaises(WorkParallelError):
-            run("event", {"fork": True}, event="reserve", item_id="n1", priority="P2")
+            run("event", {"fork": True}, event="reserve", item_id="n1", priority="P2", role="reviewer")
 
 
     def test_review_cleanup_lifecycle(self):

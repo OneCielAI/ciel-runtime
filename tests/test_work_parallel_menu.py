@@ -13,14 +13,16 @@ class ParallelMenuTests(unittest.TestCase):
             config = {}
             saved = []
             with patch("ciel_runtime_support.work_parallel_mcp.ledger", return_value=store):
-                self.assertEqual(len(rows(config)), 13)
+                self.assertEqual(len(rows(config)), 9)
                 apply(config, "work_parallel_max_active", "2", lambda c: saved.append(dict(c)))
-                apply(config, "work_parallel_P2", "70%", lambda c: saved.append(dict(c)))
+                apply(config, "work_parallel_launches_per_minute", "6", lambda c: saved.append(dict(c)))
                 apply(config, "work_discovery_enabled", "on", lambda c: saved.append(dict(c)))
                 self.assertEqual(store.read()["policy"]["max_active"], 2)
-                self.assertEqual(store.read()["policy"]["thresholds"]["P2"], .7)
+                self.assertEqual(store.read()["policy"]["launches_per_minute"], 6)
                 self.assertTrue(config["work_discovery"]["enabled"])
                 self.assertEqual(len(saved), 3)
+                with self.assertRaises(ValueError):
+                    apply(config, "work_parallel_P2", "70%", lambda c: self.fail("threshold menu row removed"))
 
     def test_invalid_value_does_not_save(self):
         with tempfile.TemporaryDirectory() as root:

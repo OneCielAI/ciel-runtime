@@ -1,0 +1,27 @@
+---
+type: safety-review
+title: SSE admission change safety comparison
+description: Verified liveness improvements, two reproduced controller defects and remaining context-safety limits.
+timestamp: 2026-11-03T16:00:00Z
+tags: [sse, compaction, review]
+---
+
+# Verdict
+8da2075 improves bounded progress but is not unconditionally safer. The new policy deliberately exchanges shrink-confirmed admission for bounded one-shot compact. Two concrete correctness regressions were reproduced independently; no implementation fix or deployment was performed during this audit.
+
+# Reproduced defects
+1. runtime_compaction_control.py:695-698: observation conflict yields None and injection_compact_pending returns false despite durable queued/injection_compact=true and a queued command. Competing write during checkpoint scan reproduced this result. Guard can admit input before compact completion.
+2. runtime_compaction_control.py:582-589,788,837-840: command_ready removes proactive; provider-proven overflow after dispatch reservation therefore fails conversion to pressure recovery. First command failure becomes failed_open at attempts1 although policy max_attempts2. Queued-before-reservation conversion has a passing existing test, but this later phase did not.
+Evidence: evidence/independent-findings-reproduced.json.
+
+# Deliberate tradeoffs, not newly discovered bugs
+At95% measured usage a pending input was withheld initially, then delivered at120s timeout with no native compact command submitted. Cursor advanced0 to1, phase failed_open/injection_compact_unconfirmed. This is the implemented liveness contract, NOT a guarantee of compact-before-input in all failures. A boundary without postTokens likewise releases without verified shrink. Existing tests explicitly require both behaviors.
+
+# Inherited measurement limits
+native_model_usage.py is unchanged from parent. An isolated transcript with input17000 reports17000 even with output6000 or pending100k-character user payload. A24-hour-old sample after launch also remains eligible: freshness means launch/boundary/model identity, not maximum wall-clock age. Do not infer actual provider overflow from character count. A fresh launch binding the same persisted high-usage session returned no preflight wait until a new eligible usage sample; stale prior command still existed in fixture. This is not a full native restart E2E and no duplicate-delivery conclusion follows.
+
+# Regression evidence
+124 compact/delivery/desktop tests passed;58 identity/state/contention tests passed. Previous real native CLI session_socket tests verify exactly90% compact-once and82.5% immediate delivery with screenshots. These successful tests do not cover every transport's real native execution or invalidate the reproduced races. No observed message-loss or duplicate-delivery failure in the executed regression set; global absence of such failures is not established.
+
+# Scope
+Owned temporary files, fixture processes and mocked time only. No live router restart, production state mutation or implementation edits. Request was verification, not authorization to deploy another change.

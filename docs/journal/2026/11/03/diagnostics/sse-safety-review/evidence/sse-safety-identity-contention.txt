@@ -1,0 +1,8 @@
+...............................contention scan_lock_held=0 concurrent_writer=success stale_commit=rejected
+state_race failures=0 leftover_tmp=0
+full_binding slow_scan=unlocked seed=available scope=available admission=available
+...........................
+----------------------------------------------------------------------
+Ran 58 tests in 12.483s
+
+OK

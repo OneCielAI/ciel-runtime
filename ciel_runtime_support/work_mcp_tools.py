@@ -177,7 +177,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
         },
         {
             "name": "work_focus",
-            "description": "On explicit user request, prioritize existing nodes (roots or subtrees) in node_ids order and work ONLY on them. Resolve exact IDs from Work status. Unrelated Work is held, never deleted or blocked. Focus remains after completion; clear with node_ids=[] only on explicit request. Approval and ancestor waits/blocks remain.",
+            "description": "On explicit user request, prioritize existing nodes (roots or subtrees) in node_ids order. Resolve exact IDs from Work status. Focus orders the work first but does not hold unrelated approved items: when no focused step can run, other approved items and discovery continue. Focus clears automatically once every focused step is done; node_ids=[] clears it now. Approval and ancestor waits/blocks remain; unrelated Work is never deleted or blocked.",
             "inputSchema": {"type": "object", "properties": {
                 "node_ids": {"type": "array", "items": {"type": "string"}, "maxItems": tree.MAX_NODES},
                 "user_requested": {"type": "boolean"}, "expected_version": _EXPECTED_VERSION,
@@ -382,7 +382,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
     if name == "work_focus":
         doc, _ = store.transaction(lambda d: tree.set_focus(d, args.get("node_ids"),
             user_requested=args.get("user_requested") is True), expected_version=expected)
-        return _after(doc, "Work focus updated; unrelated items stay held until explicit clear." if doc.get("focus_ids") else "Work focus cleared; normal priority resumed.")
+        return _after(doc, "Work focus updated; focused steps run first and other approved items continue when none can run." if doc.get("focus_ids") else "Work focus cleared; normal priority resumed.")
     if name == "work_urgent":
         spec = {"title": args.get("goal"), "note": args.get("note", ""),
                 "ref": args.get("ref", ""), "children": args.get("children") or []}

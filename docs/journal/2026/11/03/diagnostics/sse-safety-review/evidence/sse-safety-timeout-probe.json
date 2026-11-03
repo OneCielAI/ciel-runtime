@@ -1,0 +1,12 @@
+{
+  "before_cursor": 0,
+  "after_timeout_cursor": 1,
+  "delivered": [
+    "body-1"
+  ],
+  "native_command_submitted": false,
+  "state_phase": "failed_open",
+  "state_failure": "injection_compact_unconfirmed",
+  "measured_tokens": 19000,
+  "capacity": 20000
+}

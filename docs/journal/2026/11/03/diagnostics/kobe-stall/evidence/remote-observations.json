@@ -1,0 +1,23 @@
+{
+  "host": "DESKTOP-GBJII5F (100.64.0.14:1004, read-only as sjglobal)",
+  "sandbox": "u24 kobe-ai",
+  "session": "219f1b51-1044-4d57-ba0e-27f8d12b3bcd",
+  "claude_pid": 19832,
+  "router_pid": 20708,
+  "runtime": "0.2.51-nightly.20261103-153101.8da2075",
+  "timeline_utc": {
+    "13:19:44": "user: QuickBooks remote MCP sync and natural-language SKU search are top priority; are they closed? (question, absorbed mid-turn)",
+    "13:20:11": "model called work_focus node_ids=[n75,n84,n92] user_requested=true",
+    "14:10/14:58/17:06": "work_parallel_status: enabled=false version=0 leases={} (never configured)",
+    "17:05:33": "user: restarted, process priority items again",
+    "17:13:43": "assistant end_turn",
+    "17:13:44": "ciel-work: stopped, none can run now (focus only n75,n84,n92; waiting n133; 2 blocked)",
+    "17:16:58": "away_summary only; process alive, idle"
+  },
+  "code": {
+    "work_discovery.py": "discovery_hint returns enabled=false reason='paused or focused' when snapshot focus node_ids present",
+    "register.js": "classic.Stop: actionable==0 -> stop notice; discovery block only if s.discovery.enabled"
+  },
+  "usage_state": "router rate-limit-state.json = {} (no provider usage observations)",
+  "not_read": "workspace board files ACL-denied to sjglobal; ACL not changed"
+}

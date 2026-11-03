@@ -23,11 +23,11 @@ const HELP = [
   '• Executing: after work_execute (automatic, or your approval when set to ask) the model works step by step and marks each step done with evidence.',
   '• Above the prompt: compact by default (done/total + current step); [+] / w expands, [-] collapses. Progress / Queue / Completed are read-only button tabs; Prev / Next (p / n) page the list; w opens the Inspector. Ctrl+X Tab focuses · Tab/↑↓ select · Enter inspects · Esc returns. Tiny screens use Inspect Work. Rows of other plugins stay below the Work rows; the band scrolls to them.',
   '• /work-mode expand / compact: toggle the inline list · /work-mode view: keyboard inspector · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode help: this help',
-  '• Focus: inspect an item → Focus only this item. Clear focus / resume all releases the hold. A chat request can select multiple exact IDs; focus stays until explicitly cleared.',
+  '• Focus: inspect an item → Focus first. Focused items run before other Work; a focused item that waits or is blocked never holds unrelated approved Work or discovery. Clear focus releases it now; it also clears automatically once every focused item is done.',
   '• Priorities: All items → Move up / Move down orders root goals. Moving the active goal requires your request; a button press is that request.',
   '• Linked IDs appear as [ id ] description; ◷ names an external wait; green ✓ means verified done. An urgent request holds other goals until it finishes.',
   '• Auto continue: normal turn endings resume actionable Work, bounded by no-progress checks; waits, blocks and approval do not trigger it; background tasks do not block independent Work, and a dim line says why it stopped. Codex receives instructions only.',
-  '• Completed items expire after 24 hours by default. Explicitly focused items remain until focus is cleared; progress counts are preserved. Toggle: LLM options → Work completed auto-delete (24h).',
+  '• Completed items expire after 24 hours by default; progress counts are preserved. Toggle: LLM options → Work completed auto-delete (24h).',
   '• Settings: ciel-runtime menu → LLM options → Work mode (on/off), Work plan approval (auto/ask), Work auto continue (on/off).',
   '• The agent can switch the same workspace Work mode setting itself with work_mode_set (enabled true/false); plans are kept.',
 ].join('\n')
@@ -116,7 +116,7 @@ const INSTRUCTIONS = 'Ciel Work mode is hybrid per-item planning and execution, 
   + 'Bash and PowerShell permission decisions belong to the native host, not the Work board. Work does not inspect shell side effects or override native permissions; keep commands within the approved scope. '
   + 'These workflow rules include subagents: do not use a shell or delegate changes to evade required planning or approval. '
   + 'Set ref for a linked id, and waiting_on for what an item waits on (empty text clears). '
-  + 'When the user asks to prioritize specific existing items and work only on them, resolve the exact IDs from Work status and call work_focus with ordered node_ids and user_requested=true. Do not duplicate goals or mark unrelated items blocked. Focus persists after those items finish; only an explicit user request clears it with node_ids=[]. '
+  + 'When the user asks to prioritize specific existing items, resolve the exact IDs from Work status and call work_focus with ordered node_ids and user_requested=true. Focus orders the work first but does not hold unrelated approved items: when no focused step can run, keep working other approved items and discovery. Focus clears automatically once every focused step is done; node_ids=[] clears it now. Do not duplicate goals or mark unrelated items blocked. '
   + 'Use work_reorder to change root order: queue-only by default; changing the active slot needs an explicit '
   + 'user request and user_requested=true, except that when every active step waits or is blocked, work_select may move to '
   + 'the queued goal holding the next runnable step. On an explicit urgent/ad-hoc request use work_urgent with '
@@ -131,7 +131,7 @@ function discoveryNotice($, identity, s, reason) {
   if (discoveryIdentity === identity && now - discoveryLast < 300000) return null
   discoveryIdentity = identity; discoveryLast = now
   return { block: reason + '\nWork 미결 아이템 탐색: ' + instruction
-    + '\n검색은 한 번, 픽업은 최대 1개. 미결 없음/접근 불가면 그 결과를 알리고 멈춘다. 사용자 정지·focus·기존 승인을 우회하지 않는다.' }
+    + '\n검색은 한 번, 픽업은 최대 1개. 미결 없음/접근 불가면 그 결과를 알리고 멈춘다. 사용자 정지·기존 승인을 우회하지 않는다.' }
 }
 function textOf(r) {
   if (!r || r.isError) throw new Error('Router error')
@@ -277,7 +277,7 @@ function summary(s) {
   if (!s.active_root) lines.push('No plan yet — the model plans before editing.')
   else lines.push('Goal: ' + itemTitle(s.active_root, 240))
   for (const b of s.breakdown || []) lines.push('  ' + (b.status === 'done' ? '✓' : mark(b.status)) + ' ' + itemTitle(b, 240) + ' ' + b.done + '/' + b.total)
-  if (s.focus?.node_ids?.length) lines.push('Focus only: ' + s.focus.node_ids.join(', ') + (s.focus.exhausted ? ' — exhausted; other Work stays held until cleared' : ''))
+  if (s.focus?.node_ids?.length) lines.push('Focus first: ' + s.focus.node_ids.join(', '))
   if (s.next?.title) lines.push('Next: ' + clipped(s.next.title, 200))
   if (s.queue?.length) {
     lines.push('Queue (next first):')
@@ -468,8 +468,7 @@ function stopNotice($, identity, text) {
 }
 function notRunnable(s, c) {
   const parts = []
-  if (s.focus?.node_ids?.length) parts.push('focus only: ' + s.focus.node_ids.join(', ')
-    + (s.focus.exhausted ? ' finished; other Work stays held until you clear focus' : '; unrelated items stay held'))
+  if (s.focus?.node_ids?.length) parts.push('focus first: ' + s.focus.node_ids.join(', '))
   const waits = (c.waiting || []).map(n => clipped(n.id, 64) + ' ◷ ' + clipped(n.waiting_on, 120))
   if (waits.length) parts.push('waiting: ' + waits.join('; '))
   if (c.blocked > 0) parts.push(c.blocked + ' blocked step(s)')
@@ -690,11 +689,8 @@ async function parallelAgentSpawn($, e, next) {
       return { deny: 'Enabled Work parallel dispatch requires work_parallel_run and a verified native fork.' }
     }
     const { scope, ...args } = request
-    let measuredUsage
-    try { const usage = await $.session.usage(); const limits = usage.rateLimits || [];
-      if (limits.length) measuredUsage = Math.max(...limits.map(r => r.percentUsed / 100)) } catch {}
     const repo = await $.session.repo()
-    const r = await parallelEvent($, { ...args, event: 'reserve' }, { fork: e.fork, measured_usage: measuredUsage,
+    const r = await parallelEvent($, { ...args, event: 'reserve' }, { fork: e.fork,
       workspace_repo: repo ? await $.session.root() : undefined })
     Object.assign(request, r)
     const dispatch = { ...e, prompt: e.prompt + '\nExecution lease: ' + r.lease_id
@@ -789,8 +785,8 @@ async function parallelPromptSubmit($, e, next) {
   let recovery = []
   try { recovery = await parallelRecovery($) } catch { /* Unknown host state keeps slots and adds no instruction. */ }
   return workPromptSubmit($, { ...e, context: [...(e.context || []), ...recovery,
-    'Work parallel: read work_parallel_status. Policy defaults off until native fork E2E checks pass. '
-    + 'Configure only on user request; dispatch approved/focused items with work_parallel_run. '
+    'Work parallel: read work_parallel_status. Policy is on by default and limited by concurrent fork sessions; pause or change limits on user request. '
+    + 'Dispatch approved items with work_parallel_run, focused items first. '
     + 'Submission is not completion: validate, review, accept, observe idle and verify cleanup before done. '
     + 'Unknown host capacity retains slots. Native permissions remain authoritative; this is not a shell sandbox.'] }, next)
 }
@@ -973,7 +969,7 @@ export function register(on) {
     const heading = !cached ? 'Work unavailable — /work-mode status'
       : !cached.active_root ? 'Work mode: no plan yet — /work-mode help'
       : 'Work ' + (cached.phase === 'planning' ? 'planning' : 'running') + ' ' + cached.done + '/' + cached.total
-        + (cached.focus?.node_ids?.length ? ' [FOCUS ' + cached.focus.node_ids.join(',') + ']' : '')
+        + (cached.focus?.node_ids?.length ? ' [FOCUS-FIRST ' + cached.focus.node_ids.join(',') + ']' : '')
         + ' — ' + itemTitle(cached.active_root, width)
     const work = []
     // Tiny/narrow terminals get an actionable summary; the inspector carries
@@ -1035,12 +1031,12 @@ export function register(on) {
     const controls = [
       Button({ key: 'detail-refresh', plain: true, hotkey: 'r', label: 'Refresh', onPress: () => openDetails($, valid ? view.id : null, origin) }),
       Button({ key: 'detail-all', plain: true, hotkey: 'w', label: 'All items', onPress: () => openDetails($, null, origin) }),
-      ...(fresh && selected && selected.status !== 'done' ? [Button({ key: 'detail-focus', plain: true, hotkey: 'f', label: 'Focus only this item',
+      ...(fresh && selected && selected.status !== 'done' ? [Button({ key: 'detail-focus', plain: true, hotkey: 'f', label: 'Focus first: this item',
         onPress: () => focusItems($, [selected.id], origin) })] : []),
       ...(fresh && selected && selected.status !== 'done' && cached?.focus?.node_ids?.length && !cached.focus.node_ids.includes(selected.id)
         ? [Button({ key: 'detail-focus-add', plain: true, hotkey: 'a', label: 'Append to focus',
           onPress: () => focusItems($, [...cached.focus.node_ids, selected.id], origin) })] : []),
-      ...(cached?.focus?.node_ids?.length ? [Button({ key: 'detail-unfocus', plain: true, hotkey: 'c', label: 'Clear focus / resume all',
+      ...(cached?.focus?.node_ids?.length ? [Button({ key: 'detail-unfocus', plain: true, hotkey: 'c', label: 'Clear focus',
         onPress: () => focusItems($, [], origin) })] : []),
       ...(selected?.parent_id ? [Button({ key: 'detail-parent', plain: true, hotkey: 'b', label: 'Parent',
         onPress: () => openDetails($, selected.parent_id, origin) })] : []),
@@ -1056,8 +1052,7 @@ export function register(on) {
     const rows = []
     const width = Math.max(1, e.props.bodyColumns - 2)
     const text = value => Text({ wrap: 'truncate-end', children: value })
-    if (cached?.focus?.node_ids?.length) rows.push(text('Focus only: ' + cached.focus.node_ids.join(', ')
-      + (cached.focus.exhausted ? ' (finished — other Work held)' : ' (other Work held)')))
+    if (cached?.focus?.node_ids?.length) rows.push(text('Focus first: ' + cached.focus.node_ids.join(', ')))
     const listing = state?.session === identity && state.detailList === true
     if (listing) {
       for (const row of panelRows(cached, tab)) rows.push(statusButton(Box, Button, Text, row.node, {

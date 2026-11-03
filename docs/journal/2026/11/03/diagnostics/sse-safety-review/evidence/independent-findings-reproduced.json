@@ -1,0 +1,17 @@
+{
+  "contention": {
+    "reported_pending": false,
+    "durable_phase": "queued",
+    "durable_injection_compact": true,
+    "request_queued": true
+  },
+  "overflow_after_dispatch": {
+    "before_phase": "dispatching",
+    "injection_compact": true,
+    "pressure": false,
+    "proactive": null,
+    "after_failure_phase": "failed_open",
+    "attempts": 1,
+    "max_attempts": 2
+  }
+}

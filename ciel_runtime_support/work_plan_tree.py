@@ -161,7 +161,7 @@ def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any =
     stamp = time.time() if now is None else now
     by_id = _index(doc)
     # A new goal waits behind an unfinished active goal instead of taking its place.
-    queue_behind = parent_id is None and (_open_active_root(doc, by_id) is not None or bool(doc.get("focus_ids")))
+    queue_behind = parent_id is None and _open_active_root(doc, by_id) is not None
     if parent_id is not None:
         parent_id = str(parent_id)
         if parent_id not in by_id:
@@ -251,8 +251,7 @@ def set_plan(doc: dict[str, Any], spec: Any, root_id: str | None = None, *, now:
     for child in children:
         add_subtree(trial, root_id, child, now=now)
     set_phase(trial, PHASE_PLANNING, root_id)
-    if (open_active is None or open_active == root_id) and (not trial.get("focus_ids")
-            or root_id in {_root_of(_index(trial), n) for n in trial["focus_ids"]}):
+    if open_active is None or open_active == root_id:
         _activate(trial, root_id)
     doc.clear()
     doc.update(trial)
@@ -311,6 +310,7 @@ def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title:
             _complete_ancestors(doc, node["parent_id"], stamp)
         elif status in ("in_progress", "pending", "blocked"):
             _reopen_ancestors(doc, node["parent_id"], stamp)
+    _release_finished_focus(doc)
     root = _root_of(by_id, node_id)
     if by_id[root]["status"] == "done":
         set_phase(doc, PHASE_PLANNING, root)
@@ -395,8 +395,6 @@ def select_root(doc: dict[str, Any], root_id: str, *, user_requested: bool = Fal
     root_id = str(root_id)
     if root_id not in by_id or by_id[root_id]["parent_id"] is not None:
         raise WorkPlanError(f"{root_id} is not a goal")
-    if doc.get("focus_ids") and root_id not in {_root_of(by_id, n) for n in doc["focus_ids"]}:
-        raise WorkPlanError("clear or change focus before selecting unrelated Work")
     if doc.get("active_root") != root_id:
         # An unfinished active goal yields without a user request only when none of its steps can run and
         # this goal holds the first runnable step in queue order (never past an urgent hold).
@@ -421,10 +419,6 @@ def reorder_root(doc: dict[str, Any], root_id: str, position: int, *, user_reque
         raise WorkPlanError(f"position must be between 1 and {len(roots)}")
     roots.remove(selected)
     roots.insert(position - 1, selected)
-    if doc.get("focus_ids") and roots[0]["id"] != active and roots[0]["id"] not in {
-        _root_of(_index(doc), n) for n in doc["focus_ids"]
-    }:
-        raise WorkPlanError("clear or change focus before prioritizing unrelated Work")
     if roots[0]["id"] != active and not user_requested:
         raise WorkPlanError("moving the active goal requires an explicit user request (user_requested=true)")
     if roots == previous and roots[0]["id"] == active:
@@ -493,11 +487,18 @@ def _focus_leaves(doc: dict[str, Any]) -> list[str]:
     return list(dict.fromkeys(leaf for n in doc.get("focus_ids", []) for leaf in _leaves(doc, n)))
 
 
+def _release_finished_focus(doc: dict[str, Any]) -> None:
+    """Focus is a priority order, not a hold: release it once every focused leaf is done."""
+
+    if doc.get("focus_ids"):
+        by_id = _index(doc)
+        if all(by_id[leaf]["status"] == "done" for leaf in _focus_leaves(doc)):
+            doc["focus_ids"] = []
+
+
 def add_urgent(doc: dict[str, Any], spec: Any, *, user_requested: bool = False) -> str:
     if not user_requested:
         raise WorkPlanError("urgent mode requires an explicit user request (user_requested=true)")
-    if doc.get("focus_ids"):
-        raise WorkPlanError("clear focus before creating an unrelated urgent goal")
     trial = copy.deepcopy(doc)
     root = add_subtree(trial, None, spec)
     _index(trial)[root]["urgent"] = True
@@ -508,37 +509,37 @@ def add_urgent(doc: dict[str, Any], spec: Any, *, user_requested: bool = False) 
 
 
 def continuation(doc: dict[str, Any]) -> dict[str, Any]:
-    """Select runnable leaves, respecting ancestor waits, blocks and urgent holds."""
+    """Select runnable leaves, respecting ancestor waits, blocks and urgent holds.
+
+    Focus only orders work: focused runnable leaves come first, then every other
+    runnable leaf. A focused item that waits or is blocked never stops unrelated
+    approved work from running.
+    """
 
     by_id = _index(doc)
-    focus = doc.get("focus_ids", [])
-    focus_leaves = _focus_leaves(doc) if focus else []
-    roots, available, waiting, blocked = _runnable_by_root(doc, by_id, focus_leaves)
-    chosen_index = next((i for i, rows in enumerate(available) if rows), None)
-    chosen = available[chosen_index] if chosen_index is not None else []
-    if focus:
-        chosen = sorted((n for group in available for n in group), key=lambda n: focus_leaves.index(n["id"]))
+    focus_leaves = _focus_leaves(doc) if doc.get("focus_ids") else []
+    roots, available, waiting, blocked = _runnable_by_root(doc, by_id)
+    flat = [n for group in available for n in group]
+    focused = sorted((n for n in flat if n["id"] in focus_leaves), key=lambda n: focus_leaves.index(n["id"]))
+    chosen = focused or flat
     nxt = chosen[0] if chosen else None
     target_root = _root_of(by_id, nxt["id"]) if nxt else None
     active = by_id.get(doc.get("active_root"))
     held = bool(active and active.get("urgent") and active["status"] != "done")
     return {
-        "actionable": len(chosen),
+        "actionable": len(flat),
         "next": dict(_node_summary(nxt), path=path_titles(doc, nxt["id"]), root_id=target_root,
                      phase=root_phase(doc, target_root)) if nxt else None,
         "waiting": waiting[:MAX_WAITING_IN_CONTINUATION],
         "blocked": blocked,
-        "held": (sum(1 for n in doc["nodes"] if n["parent_id"] is None and n["status"] != "done"
-                      and n["id"] not in {_root_of(by_id, f) for f in focus})
-                 if focus else len(queued_roots(doc)) if held else 0),
+        "held": len(queued_roots(doc)) if held else 0,
     }
 
 
-def _runnable_by_root(doc: dict[str, Any], by_id: dict[str, dict[str, Any]], focus_leaves: list[str]
+def _runnable_by_root(doc: dict[str, Any], by_id: dict[str, dict[str, Any]]
                       ) -> tuple[list[dict[str, Any]], list[list[dict[str, Any]]], list[dict[str, Any]], int]:
     """Unfinished roots in activation order with each one's runnable leaves (in-progress first)."""
 
-    focus = doc.get("focus_ids", [])
     active = by_id.get(doc.get("active_root"))
     held = bool(active and active.get("urgent") and active["status"] != "done")
     roots = ([active] if active and active["status"] != "done" else []) + queued_roots(doc)
@@ -548,8 +549,6 @@ def _runnable_by_root(doc: dict[str, Any], by_id: dict[str, dict[str, Any]], foc
     for root in roots:
         candidates = []
         for leaf_id in _leaves(doc, root["id"]):
-            if focus and leaf_id not in focus_leaves:
-                continue
             leaf = by_id[leaf_id]
             if leaf["status"] == "done":
                 continue
@@ -577,8 +576,7 @@ def _select_refusal(doc: dict[str, Any], root_id: str) -> str:
     """Why an unrequested switch to root_id was refused, with the facts the guard used."""
 
     by_id = _index(doc)
-    focus_leaves = _focus_leaves(doc) if doc.get("focus_ids") else []
-    roots, available, waiting, blocked = _runnable_by_root(doc, by_id, focus_leaves)
+    roots, available, waiting, blocked = _runnable_by_root(doc, by_id)
     active = doc.get("active_root")
     runnable = {root["id"]: rows for root, rows in zip(roots, available)}
     nxt = continuation(doc)["next"]
@@ -660,9 +658,6 @@ def next_leaf(doc: dict[str, Any], root: str | None = None) -> dict[str, Any] | 
         return None
     by_id = _index(doc)
     leaves = [leaf for leaf in _leaves(doc, root) if leaf != root]
-    if doc.get("focus_ids"):
-        leaves = [leaf for leaf in _focus_leaves(doc) if leaf in leaves]
-        return next((by_id[leaf] for leaf in leaves if by_id[leaf]["status"] != "done"), None)
     for wanted in ("in_progress", "pending", "blocked"):
         for leaf in leaves:
             if by_id[leaf]["status"] == wanted:
@@ -685,9 +680,10 @@ def snapshot(doc: dict[str, Any], *, enabled: bool = True, approval_ask: bool = 
     root = doc.get("active_root")
     by_id = _index(doc)
     done, total = progress(doc, root)
-    nxt = next_leaf(doc, root)
     ready, reason = readiness(doc)
     resume = continuation(doc)
+    # The next runnable step may be in another goal when the active one waits or is blocked.
+    nxt = resume["next"] or next_leaf(doc, root)
     current = resume["next"]
     if current is not None:
         current = dict(current, runnable=True)
@@ -736,9 +732,7 @@ def snapshot(doc: dict[str, Any], *, enabled: bool = True, approval_ask: bool = 
         # preview and completed history reachable without loading other contexts.
         "root_index": [dict(_node_summary(node),
                             held=bool(root and node["id"] != root and by_id[root].get("urgent")
-                                      and by_id[root]["status"] != "done" and node["status"] != "done")
-                            or (bool(doc.get("focus_ids")) and node["status"] != "done" and node["id"] not in {
-                                _root_of(by_id, f) for f in doc["focus_ids"]}))
+                                      and by_id[root]["status"] != "done" and node["status"] != "done"))
                        for node in doc["nodes"] if node["parent_id"] is None],
         "completed_active": [_node_summary(by_id[node_id]) for node_id, _ in _walk(doc, root)
                              if node_id != root and by_id[node_id]["status"] == "done"] if root else [],
@@ -748,8 +742,7 @@ def snapshot(doc: dict[str, Any], *, enabled: bool = True, approval_ask: bool = 
         # Unfinished goals waiting behind the active one, in the order they become active.
         "queue": [
             dict(_node_summary(node), done=progress(doc, node["id"])[0], total=progress(doc, node["id"])[1],
-                 held=bool(root and by_id[root].get("urgent") and by_id[root]["status"] != "done")
-                      or (bool(doc.get("focus_ids")) and node["id"] not in {_root_of(by_id, f) for f in doc["focus_ids"]}))
+                 held=bool(root and by_id[root].get("urgent") and by_id[root]["status"] != "done"))
             for node in queued_roots(doc)[:MAX_QUEUE_IN_SNAPSHOT]
         ],
     }

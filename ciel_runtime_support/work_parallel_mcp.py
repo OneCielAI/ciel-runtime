@@ -27,7 +27,7 @@ def schemas():
     descriptions = {
         "work_discovery_pickup": "Register caller-verified external open search items by priority/latest, with durable dedup and cooldown; never approves execution. Requires source, scope, results. Each result: source,item_id,priority,created_at,title,link,status,scope.",
         "work_parallel_status": "Show Work 병렬 실행 settings, device capacity and this conversation's leases. Read before changing limits.",
-        "work_parallel_configure": "On the user's natural-language request, persist Work 병렬 실행 limits, P2-P5 usage thresholds or pause. Pass changes and expected_version from work_parallel_status. Thresholds are fractions 0-1. Does not approve a plan.",
+        "work_parallel_configure": "On the user's natural-language request, persist Work 병렬 실행 limits (concurrent fork sessions, reserved P1 slot, launch rate, rework limit) or pause. Pass changes and expected_version from work_parallel_status. Does not approve a plan.",
         "work_parallel_run": "Dispatch an approved Work item through the Claude host adapter. P1 requires a fork; all workers use fork. Requires item_id, priority, role and expected_version. Codex is unsupported until its native adapter passes capability tests.",
         "work_parallel_event": "Report a bound worker's question/result or coordinator validation/review/cleanup evidence. Never mark a submitted result done without validation and cleanup. Host supplies worker identity; do not impersonate an agent.",
     }
@@ -47,7 +47,7 @@ def project(store, identity):
             "leases": {k: v for k, v in d["leases"].items() if v["scope"] == identity},
             "runtime": "claude" if identity.startswith("claude:") else "codex",
             "codex_adapter": "unsupported",
-            "limitations": ["usage requires provider rate-limit observations; unknown blocks P2-P5",
+            "limitations": ["dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations",
                             "external discovery requires a configured authenticated source connector"]}
 
 
@@ -97,7 +97,7 @@ def run(name, args, board_store, identity, config, save_config):
         from .work_discovery import discovery_hint
         from .work_discovery_pickup import ExternalSearchItem, ingest_external_search_results
         if not discovery_hint(config, tree.snapshot(board_store.read(), approval_ask=False)).get("enabled"):
-            raise WorkParallelError("discovery disabled/paused/focused")
+            raise WorkParallelError("discovery disabled/paused")
         raw = args.get("results")
         if not isinstance(raw, list) or len(raw) > 100:
             raise WorkParallelError("bounded search results required")
@@ -115,8 +115,7 @@ def run(name, args, board_store, identity, config, save_config):
             raise WorkParallelError("verified coordinator fork capability required")
         board = board_store.read()
         c = candidate(board, args.get("item_id"), args.get("priority", "P1"), args.get("role", "worker"))
-        observed, _ = store.observe_usage(host.get("measured_usage"), expected_version=version)
-        d, ident = store.reserve([c], scope=identity, measured_usage=host.get("measured_usage"), expected_version=observed["version"])
+        d, ident = store.reserve([c], scope=identity, expected_version=version)
         workspace = None
         if host.get("workspace_repo"):
             from .work_parallel_workspace import prepare
@@ -152,8 +151,8 @@ def run(name, args, board_store, identity, config, save_config):
             raise WorkParallelError("worker host identity required")
         board = board_store.read()
         c = candidate(board, lease["item_id"], lease["priority"], lease["role"])
-        if board["version"] != lease["plan_version"] or not c["approved"] or not c["focused"]:
-            raise WorkParallelError("Work approval/focus/version changed; reconcile before continuing")
+        if board["version"] != lease["plan_version"] or not c["approved"]:
+            raise WorkParallelError("Work approval/version changed; reconcile before continuing")
         if event == "accept" and lease["role"] != "reviewer":
             reviewer = d["leases"].get(args.get("reviewer_lease_id"))
             if (not reviewer or reviewer["scope"] != identity or reviewer["role"] != "reviewer"

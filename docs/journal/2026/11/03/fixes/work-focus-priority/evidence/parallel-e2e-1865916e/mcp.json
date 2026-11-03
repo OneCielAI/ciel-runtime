@@ -1,0 +1,967 @@
+[
+  {
+    "name": "work_plan_set",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "goal": "Owned fixture",
+      "children": [
+        {
+          "title": "Phase",
+          "children": [
+            {
+              "title": "Proof A"
+            },
+            {
+              "title": "Proof B"
+            }
+          ]
+        }
+      ]
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "Plan for goal n1 saved; Work is in the planning phase.\n\nWork phase: planning\nActive goal progress: 0/2 steps done\n[ ] n1 Owned fixture\n  [ ] n2 Phase\n    [ ] n3 Proof A\n    [ ] n4 Proof B"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_execute",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "user_confirmed": true
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "Plan approved; Work is in the executing phase. Start with the next step and record evidence.\n\nWork phase: executing\nActive goal progress: 0/2 steps done\n[ ] n1 Owned fixture\n  [ ] n2 Phase\n    [ ] n3 Proof A\n    [ ] n4 Proof B"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_status",
+    "args": {
+      "format": "json",
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3"
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"enabled\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"version\": 2, \"active_root\": {\"id\": \"n1\", \"title\": \"Owned fixture\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"executing\"}, \"continuation\": {\"actionable\": 2, \"next\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"], \"root_id\": \"n1\", \"phase\": \"executing\"}, \"waiting\": [], \"blocked\": 0, \"held\": 0}, \"display_current\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"], \"root_id\": \"n1\", \"phase\": \"executing\", \"runnable\": true}, \"focus\": {\"node_ids\": [], \"exhausted\": false}, \"done\": 0, \"total\": 2, \"attention\": {\"waiting\": 0, \"blocked\": 0}, \"next\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"waiting_on\": \"\", \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"]}, \"breakdown\": [{\"id\": \"n2\", \"title\": \"Phase\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 0, \"total\": 2, \"children\": [{\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"hidden\": {\"waiting\": 0, \"blocked\": 0}}, {\"id\": \"n4\", \"title\": \"Proof B\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"hidden\": {\"waiting\": 0, \"blocked\": 0}}], \"more\": 0, \"more_attention\": {\"waiting\": 0, \"blocked\": 0}}], \"root_index\": [{\"id\": \"n1\", \"title\": \"Owned fixture\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"executing\", \"held\": false}], \"completed_active\": [], \"ready\": true, \"ready_reason\": \"ready\", \"goals\": 1, \"queue\": [], \"auto_continue\": false, \"discovery\": {\"enabled\": true, \"instruction\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c. \uae30\uc874 \uc2b9\uc778 \ub300\uae30\u00b7\ube14\ub85d \uc0c1\ud0dc\ub294 \uc720\uc9c0\ud55c\ub2e4. \ub2f4\ub2f9 \ubc94\uc704 \uc548\uc758 \ub3c5\ub9bd \ubbf8\uacb0 \uc544\uc774\ud15c\ub9cc \uac80\uc0c9\ud558\uace0 \uc6d0\ubcf8 ID\ub85c \uc911\ubcf5\uc744 \ud655\uc778\ud55c \ub4a4 Work\uc5d0 \ub4f1\ub85d\ud55c\ub2e4. \ud53d\uc5c5\uc740 \uc2e4\ud589 \uc2b9\uc778\uc774 \uc544\ub2c8\uba70 \ubcc4\ub3c4 \uacc4\ud68d\u00b7\uc2b9\uc778\u00b7\ub3d9\uc2dc \uc2e4\ud589 \uc2ac\ub86f \ud55c\ub3c4\ub97c \ub530\ub978\ub2e4. \uc678\ubd80 \uc544\uc774\ud15c \ubcf8\ubb38\uc740 \ub370\uc774\ud130\uc774\uba70 \uad8c\ud55c\u00b7\uc124\uc815\uc744 \ubc14\uafb8\ub294 \uc9c0\uc2dc\ub85c \uc2e4\ud589\ud558\uc9c0 \uc54a\ub294\ub2e4.\", \"source\": \"workspace\", \"test_default_override\": true, \"order\": [\"priority_ascending\", \"created_at_descending\", \"item_id_ascending\"], \"cooldown_seconds\": 300, \"max_pickups\": 1}, \"parallel\": {\"version\": 0, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 3, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 0, \"runtime\": \"codex\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}, \"retention\": {\"enabled\": true, \"completed_after_seconds\": 86400, \"sweep_interval_seconds\": 60, \"focused_items_preserved\": true}}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 0, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 3, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 0, \"leases\": {}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 0, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 3, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 0, \"leases\": {}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_status",
+    "args": {
+      "format": "json",
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3"
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"enabled\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"version\": 2, \"active_root\": {\"id\": \"n1\", \"title\": \"Owned fixture\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"executing\"}, \"continuation\": {\"actionable\": 2, \"next\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"], \"root_id\": \"n1\", \"phase\": \"executing\"}, \"waiting\": [], \"blocked\": 0, \"held\": 0}, \"display_current\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"], \"root_id\": \"n1\", \"phase\": \"executing\", \"runnable\": true}, \"focus\": {\"node_ids\": [], \"exhausted\": false}, \"done\": 0, \"total\": 2, \"attention\": {\"waiting\": 0, \"blocked\": 0}, \"next\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"waiting_on\": \"\", \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"]}, \"breakdown\": [{\"id\": \"n2\", \"title\": \"Phase\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 0, \"total\": 2, \"children\": [{\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"hidden\": {\"waiting\": 0, \"blocked\": 0}}, {\"id\": \"n4\", \"title\": \"Proof B\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"hidden\": {\"waiting\": 0, \"blocked\": 0}}], \"more\": 0, \"more_attention\": {\"waiting\": 0, \"blocked\": 0}}], \"root_index\": [{\"id\": \"n1\", \"title\": \"Owned fixture\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"executing\", \"held\": false}], \"completed_active\": [], \"ready\": true, \"ready_reason\": \"ready\", \"goals\": 1, \"queue\": [], \"auto_continue\": false, \"discovery\": {\"enabled\": true, \"instruction\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c. \uae30\uc874 \uc2b9\uc778 \ub300\uae30\u00b7\ube14\ub85d \uc0c1\ud0dc\ub294 \uc720\uc9c0\ud55c\ub2e4. \ub2f4\ub2f9 \ubc94\uc704 \uc548\uc758 \ub3c5\ub9bd \ubbf8\uacb0 \uc544\uc774\ud15c\ub9cc \uac80\uc0c9\ud558\uace0 \uc6d0\ubcf8 ID\ub85c \uc911\ubcf5\uc744 \ud655\uc778\ud55c \ub4a4 Work\uc5d0 \ub4f1\ub85d\ud55c\ub2e4. \ud53d\uc5c5\uc740 \uc2e4\ud589 \uc2b9\uc778\uc774 \uc544\ub2c8\uba70 \ubcc4\ub3c4 \uacc4\ud68d\u00b7\uc2b9\uc778\u00b7\ub3d9\uc2dc \uc2e4\ud589 \uc2ac\ub86f \ud55c\ub3c4\ub97c \ub530\ub978\ub2e4. \uc678\ubd80 \uc544\uc774\ud15c \ubcf8\ubb38\uc740 \ub370\uc774\ud130\uc774\uba70 \uad8c\ud55c\u00b7\uc124\uc815\uc744 \ubc14\uafb8\ub294 \uc9c0\uc2dc\ub85c \uc2e4\ud589\ud558\uc9c0 \uc54a\ub294\ub2e4.\", \"source\": \"workspace\", \"test_default_override\": true, \"order\": [\"priority_ascending\", \"created_at_descending\", \"item_id_ascending\"], \"cooldown_seconds\": 300, \"max_pickups\": 1}, \"parallel\": {\"version\": 0, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 3, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 0, \"runtime\": \"codex\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}, \"retention\": {\"enabled\": true, \"completed_after_seconds\": 86400, \"sweep_interval_seconds\": 60, \"focused_items_preserved\": true}}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_configure",
+    "args": {
+      "changes": {
+        "enabled": true,
+        "max_active": 1,
+        "p1_reserved": 1
+      },
+      "expected_version": 0,
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "agent_id": null,
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 1, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 0, \"leases\": {}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_status",
+    "args": {
+      "format": "json",
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3"
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"enabled\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"version\": 2, \"active_root\": {\"id\": \"n1\", \"title\": \"Owned fixture\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"executing\"}, \"continuation\": {\"actionable\": 2, \"next\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"], \"root_id\": \"n1\", \"phase\": \"executing\"}, \"waiting\": [], \"blocked\": 0, \"held\": 0}, \"display_current\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"], \"root_id\": \"n1\", \"phase\": \"executing\", \"runnable\": true}, \"focus\": {\"node_ids\": [], \"exhausted\": false}, \"done\": 0, \"total\": 2, \"attention\": {\"waiting\": 0, \"blocked\": 0}, \"next\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"waiting_on\": \"\", \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"]}, \"breakdown\": [{\"id\": \"n2\", \"title\": \"Phase\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 0, \"total\": 2, \"children\": [{\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"hidden\": {\"waiting\": 0, \"blocked\": 0}}, {\"id\": \"n4\", \"title\": \"Proof B\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"hidden\": {\"waiting\": 0, \"blocked\": 0}}], \"more\": 0, \"more_attention\": {\"waiting\": 0, \"blocked\": 0}}], \"root_index\": [{\"id\": \"n1\", \"title\": \"Owned fixture\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"executing\", \"held\": false}], \"completed_active\": [], \"ready\": true, \"ready_reason\": \"ready\", \"goals\": 1, \"queue\": [], \"auto_continue\": false, \"discovery\": {\"enabled\": true, \"instruction\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c. \uae30\uc874 \uc2b9\uc778 \ub300\uae30\u00b7\ube14\ub85d \uc0c1\ud0dc\ub294 \uc720\uc9c0\ud55c\ub2e4. \ub2f4\ub2f9 \ubc94\uc704 \uc548\uc758 \ub3c5\ub9bd \ubbf8\uacb0 \uc544\uc774\ud15c\ub9cc \uac80\uc0c9\ud558\uace0 \uc6d0\ubcf8 ID\ub85c \uc911\ubcf5\uc744 \ud655\uc778\ud55c \ub4a4 Work\uc5d0 \ub4f1\ub85d\ud55c\ub2e4. \ud53d\uc5c5\uc740 \uc2e4\ud589 \uc2b9\uc778\uc774 \uc544\ub2c8\uba70 \ubcc4\ub3c4 \uacc4\ud68d\u00b7\uc2b9\uc778\u00b7\ub3d9\uc2dc \uc2e4\ud589 \uc2ac\ub86f \ud55c\ub3c4\ub97c \ub530\ub978\ub2e4. \uc678\ubd80 \uc544\uc774\ud15c \ubcf8\ubb38\uc740 \ub370\uc774\ud130\uc774\uba70 \uad8c\ud55c\u00b7\uc124\uc815\uc744 \ubc14\uafb8\ub294 \uc9c0\uc2dc\ub85c \uc2e4\ud589\ud558\uc9c0 \uc54a\ub294\ub2e4.\", \"source\": \"workspace\", \"test_default_override\": true, \"order\": [\"priority_ascending\", \"created_at_descending\", \"item_id_ascending\"], \"cooldown_seconds\": 300, \"max_pickups\": 1}, \"parallel\": {\"version\": 1, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 0, \"runtime\": \"codex\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}, \"retention\": {\"enabled\": true, \"completed_after_seconds\": 86400, \"sweep_interval_seconds\": 60, \"focused_items_preserved\": true}}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 1, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 0, \"leases\": {}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 1, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 0, \"leases\": {}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 1, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 0, \"leases\": {}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_event",
+    "args": {
+      "item_id": "n3",
+      "priority": "P1",
+      "role": "worker",
+      "expected_version": 1,
+      "event": "reserve",
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "fork": true,
+        "workspace_repo": "C:\\Users\\djlov\\AppData\\Local\\Temp\\wp-r8zqdbwo",
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"version\": 3, \"plan_version\": 2, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_status",
+    "args": {
+      "format": "json",
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3"
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"enabled\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"version\": 2, \"active_root\": {\"id\": \"n1\", \"title\": \"Owned fixture\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"executing\"}, \"continuation\": {\"actionable\": 2, \"next\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"], \"root_id\": \"n1\", \"phase\": \"executing\"}, \"waiting\": [], \"blocked\": 0, \"held\": 0}, \"display_current\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"], \"root_id\": \"n1\", \"phase\": \"executing\", \"runnable\": true}, \"focus\": {\"node_ids\": [], \"exhausted\": false}, \"done\": 0, \"total\": 2, \"attention\": {\"waiting\": 0, \"blocked\": 0}, \"next\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"waiting_on\": \"\", \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"]}, \"breakdown\": [{\"id\": \"n2\", \"title\": \"Phase\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 0, \"total\": 2, \"children\": [{\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"hidden\": {\"waiting\": 0, \"blocked\": 0}}, {\"id\": \"n4\", \"title\": \"Proof B\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"hidden\": {\"waiting\": 0, \"blocked\": 0}}], \"more\": 0, \"more_attention\": {\"waiting\": 0, \"blocked\": 0}}], \"root_index\": [{\"id\": \"n1\", \"title\": \"Owned fixture\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"executing\", \"held\": false}], \"completed_active\": [], \"ready\": true, \"ready_reason\": \"ready\", \"goals\": 1, \"queue\": [], \"auto_continue\": false, \"discovery\": {\"enabled\": true, \"instruction\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c. \uae30\uc874 \uc2b9\uc778 \ub300\uae30\u00b7\ube14\ub85d \uc0c1\ud0dc\ub294 \uc720\uc9c0\ud55c\ub2e4. \ub2f4\ub2f9 \ubc94\uc704 \uc548\uc758 \ub3c5\ub9bd \ubbf8\uacb0 \uc544\uc774\ud15c\ub9cc \uac80\uc0c9\ud558\uace0 \uc6d0\ubcf8 ID\ub85c \uc911\ubcf5\uc744 \ud655\uc778\ud55c \ub4a4 Work\uc5d0 \ub4f1\ub85d\ud55c\ub2e4. \ud53d\uc5c5\uc740 \uc2e4\ud589 \uc2b9\uc778\uc774 \uc544\ub2c8\uba70 \ubcc4\ub3c4 \uacc4\ud68d\u00b7\uc2b9\uc778\u00b7\ub3d9\uc2dc \uc2e4\ud589 \uc2ac\ub86f \ud55c\ub3c4\ub97c \ub530\ub978\ub2e4. \uc678\ubd80 \uc544\uc774\ud15c \ubcf8\ubb38\uc740 \ub370\uc774\ud130\uc774\uba70 \uad8c\ud55c\u00b7\uc124\uc815\uc744 \ubc14\uafb8\ub294 \uc9c0\uc2dc\ub85c \uc2e4\ud589\ud558\uc9c0 \uc54a\ub294\ub2e4.\", \"source\": \"workspace\", \"test_default_override\": true, \"order\": [\"priority_ascending\", \"created_at_descending\", \"item_id_ascending\"], \"cooldown_seconds\": 300, \"max_pickups\": 1}, \"parallel\": {\"version\": 3, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"runtime\": \"codex\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}, \"retention\": {\"enabled\": true, \"completed_after_seconds\": 86400, \"sweep_interval_seconds\": 60, \"focused_items_preserved\": true}}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3"
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 3, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"reserved\", \"host_id\": null, \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_status",
+    "args": {
+      "format": "json",
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3"
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"enabled\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"version\": 2, \"active_root\": {\"id\": \"n1\", \"title\": \"Owned fixture\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"executing\"}, \"continuation\": {\"actionable\": 2, \"next\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"], \"root_id\": \"n1\", \"phase\": \"executing\"}, \"waiting\": [], \"blocked\": 0, \"held\": 0}, \"display_current\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"], \"root_id\": \"n1\", \"phase\": \"executing\", \"runnable\": true}, \"focus\": {\"node_ids\": [], \"exhausted\": false}, \"done\": 0, \"total\": 2, \"attention\": {\"waiting\": 0, \"blocked\": 0}, \"next\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"waiting_on\": \"\", \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"]}, \"breakdown\": [{\"id\": \"n2\", \"title\": \"Phase\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 0, \"total\": 2, \"children\": [{\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"hidden\": {\"waiting\": 0, \"blocked\": 0}}, {\"id\": \"n4\", \"title\": \"Proof B\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"hidden\": {\"waiting\": 0, \"blocked\": 0}}], \"more\": 0, \"more_attention\": {\"waiting\": 0, \"blocked\": 0}}], \"root_index\": [{\"id\": \"n1\", \"title\": \"Owned fixture\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"executing\", \"held\": false}], \"completed_active\": [], \"ready\": true, \"ready_reason\": \"ready\", \"goals\": 1, \"queue\": [], \"auto_continue\": false, \"discovery\": {\"enabled\": true, \"instruction\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c. \uae30\uc874 \uc2b9\uc778 \ub300\uae30\u00b7\ube14\ub85d \uc0c1\ud0dc\ub294 \uc720\uc9c0\ud55c\ub2e4. \ub2f4\ub2f9 \ubc94\uc704 \uc548\uc758 \ub3c5\ub9bd \ubbf8\uacb0 \uc544\uc774\ud15c\ub9cc \uac80\uc0c9\ud558\uace0 \uc6d0\ubcf8 ID\ub85c \uc911\ubcf5\uc744 \ud655\uc778\ud55c \ub4a4 Work\uc5d0 \ub4f1\ub85d\ud55c\ub2e4. \ud53d\uc5c5\uc740 \uc2e4\ud589 \uc2b9\uc778\uc774 \uc544\ub2c8\uba70 \ubcc4\ub3c4 \uacc4\ud68d\u00b7\uc2b9\uc778\u00b7\ub3d9\uc2dc \uc2e4\ud589 \uc2ac\ub86f \ud55c\ub3c4\ub97c \ub530\ub978\ub2e4. \uc678\ubd80 \uc544\uc774\ud15c \ubcf8\ubb38\uc740 \ub370\uc774\ud130\uc774\uba70 \uad8c\ud55c\u00b7\uc124\uc815\uc744 \ubc14\uafb8\ub294 \uc9c0\uc2dc\ub85c \uc2e4\ud589\ud558\uc9c0 \uc54a\ub294\ub2e4.\", \"source\": \"workspace\", \"test_default_override\": true, \"order\": [\"priority_ascending\", \"created_at_descending\", \"item_id_ascending\"], \"cooldown_seconds\": 300, \"max_pickups\": 1}, \"parallel\": {\"version\": 3, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"runtime\": \"codex\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}, \"retention\": {\"enabled\": true, \"completed_after_seconds\": 86400, \"sweep_interval_seconds\": 60, \"focused_items_preserved\": true}}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 3, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"reserved\", \"host_id\": null, \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_event",
+    "args": {
+      "event": "bind",
+      "lease_id": "08b152c68f694998952f13f3043baabf",
+      "expected_version": 3,
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "host_id": "a59134415da6d539c",
+        "agent_name": "work-mw1310ee-d4tnkc0rn5h",
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 4, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"running\", \"host_id\": \"a59134415da6d539c\", \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 4, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"running\", \"host_id\": \"a59134415da6d539c\", \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_event",
+    "args": {
+      "event": "result",
+      "lease_id": "08b152c68f694998952f13f3043baabf",
+      "plan_version": 2,
+      "artifact": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "evidence": "owned child result",
+      "expected_version": 4,
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "agent_id": "a59134415da6d539c",
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 5, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": true, \"usage\": 0.05, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_status",
+    "args": {
+      "format": "json",
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3"
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"enabled\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"version\": 2, \"active_root\": {\"id\": \"n1\", \"title\": \"Owned fixture\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"executing\"}, \"continuation\": {\"actionable\": 2, \"next\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"], \"root_id\": \"n1\", \"phase\": \"executing\"}, \"waiting\": [], \"blocked\": 0, \"held\": 0}, \"display_current\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"], \"root_id\": \"n1\", \"phase\": \"executing\", \"runnable\": true}, \"focus\": {\"node_ids\": [], \"exhausted\": false}, \"done\": 0, \"total\": 2, \"attention\": {\"waiting\": 0, \"blocked\": 0}, \"next\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"waiting_on\": \"\", \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"]}, \"breakdown\": [{\"id\": \"n2\", \"title\": \"Phase\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 0, \"total\": 2, \"children\": [{\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"hidden\": {\"waiting\": 0, \"blocked\": 0}}, {\"id\": \"n4\", \"title\": \"Proof B\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"hidden\": {\"waiting\": 0, \"blocked\": 0}}], \"more\": 0, \"more_attention\": {\"waiting\": 0, \"blocked\": 0}}], \"root_index\": [{\"id\": \"n1\", \"title\": \"Owned fixture\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"executing\", \"held\": false}], \"completed_active\": [], \"ready\": true, \"ready_reason\": \"ready\", \"goals\": 1, \"queue\": [], \"auto_continue\": false, \"discovery\": {\"enabled\": true, \"instruction\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c. \uae30\uc874 \uc2b9\uc778 \ub300\uae30\u00b7\ube14\ub85d \uc0c1\ud0dc\ub294 \uc720\uc9c0\ud55c\ub2e4. \ub2f4\ub2f9 \ubc94\uc704 \uc548\uc758 \ub3c5\ub9bd \ubbf8\uacb0 \uc544\uc774\ud15c\ub9cc \uac80\uc0c9\ud558\uace0 \uc6d0\ubcf8 ID\ub85c \uc911\ubcf5\uc744 \ud655\uc778\ud55c \ub4a4 Work\uc5d0 \ub4f1\ub85d\ud55c\ub2e4. \ud53d\uc5c5\uc740 \uc2e4\ud589 \uc2b9\uc778\uc774 \uc544\ub2c8\uba70 \ubcc4\ub3c4 \uacc4\ud68d\u00b7\uc2b9\uc778\u00b7\ub3d9\uc2dc \uc2e4\ud589 \uc2ac\ub86f \ud55c\ub3c4\ub97c \ub530\ub978\ub2e4. \uc678\ubd80 \uc544\uc774\ud15c \ubcf8\ubb38\uc740 \ub370\uc774\ud130\uc774\uba70 \uad8c\ud55c\u00b7\uc124\uc815\uc744 \ubc14\uafb8\ub294 \uc9c0\uc2dc\ub85c \uc2e4\ud589\ud558\uc9c0 \uc54a\ub294\ub2e4.\", \"source\": \"workspace\", \"test_default_override\": true, \"order\": [\"priority_ascending\", \"created_at_descending\", \"item_id_ascending\"], \"cooldown_seconds\": 300, \"max_pickups\": 1}, \"parallel\": {\"version\": 5, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"runtime\": \"codex\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}, \"retention\": {\"enabled\": true, \"completed_after_seconds\": 86400, \"sweep_interval_seconds\": 60, \"focused_items_preserved\": true}}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 5, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": true, \"usage\": 0.05, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 5, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": true, \"usage\": 0.05, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_event",
+    "args": {
+      "event": "reconcile",
+      "lease_id": "08b152c68f694998952f13f3043baabf",
+      "expected_version": 5,
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "state": "idle",
+        "proof": "Native agent.list status: idle",
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 6, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 0, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 6, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 0, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 6, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 0, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 6, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 0, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_event",
+    "args": {
+      "item_id": "n3",
+      "priority": "P1",
+      "role": "reviewer",
+      "event": "reserve",
+      "expected_version": 6,
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "fork": true,
+        "workspace_repo": "C:\\Users\\djlov\\AppData\\Local\\Temp\\wp-r8zqdbwo",
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"version\": 8, \"plan_version\": 2, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 8, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}, \"b13d1607404745e9a8678c6dcc90b240\": {\"id\": \"b13d1607404745e9a8678c6dcc90b240\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"reviewer\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"reserved\", \"host_id\": null, \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 8, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}, \"b13d1607404745e9a8678c6dcc90b240\": {\"id\": \"b13d1607404745e9a8678c6dcc90b240\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"reviewer\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"reserved\", \"host_id\": null, \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 9, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}, \"b13d1607404745e9a8678c6dcc90b240\": {\"id\": \"b13d1607404745e9a8678c6dcc90b240\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"reviewer\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"running\", \"host_id\": \"afcefcded4671266d\", \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-review-08b152c68f694998952f13f3043baabf\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 9, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}, \"b13d1607404745e9a8678c6dcc90b240\": {\"id\": \"b13d1607404745e9a8678c6dcc90b240\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"reviewer\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"running\", \"host_id\": \"afcefcded4671266d\", \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-review-08b152c68f694998952f13f3043baabf\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_event",
+    "args": {
+      "event": "bind",
+      "lease_id": "b13d1607404745e9a8678c6dcc90b240",
+      "expected_version": 8,
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "host_id": "afcefcded4671266d",
+        "agent_name": "work-review-08b152c68f694998952f13f3043baabf",
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 9, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}, \"b13d1607404745e9a8678c6dcc90b240\": {\"id\": \"b13d1607404745e9a8678c6dcc90b240\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"reviewer\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"running\", \"host_id\": \"afcefcded4671266d\", \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-review-08b152c68f694998952f13f3043baabf\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_event",
+    "args": {
+      "event": "reconcile",
+      "lease_id": "08b152c68f694998952f13f3043baabf",
+      "expected_version": 9,
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "state": "idle",
+        "proof": "Native agent.list status: idle",
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 9, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}, \"b13d1607404745e9a8678c6dcc90b240\": {\"id\": \"b13d1607404745e9a8678c6dcc90b240\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"reviewer\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"running\", \"host_id\": \"afcefcded4671266d\", \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-review-08b152c68f694998952f13f3043baabf\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 9, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}, \"b13d1607404745e9a8678c6dcc90b240\": {\"id\": \"b13d1607404745e9a8678c6dcc90b240\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"reviewer\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"running\", \"host_id\": \"afcefcded4671266d\", \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-review-08b152c68f694998952f13f3043baabf\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_event",
+    "args": {
+      "event": "reconcile",
+      "lease_id": "b13d1607404745e9a8678c6dcc90b240",
+      "expected_version": 9,
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "state": "unknown",
+        "proof": "Native agent.list status: idle",
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 9, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}, \"b13d1607404745e9a8678c6dcc90b240\": {\"id\": \"b13d1607404745e9a8678c6dcc90b240\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"reviewer\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"running\", \"host_id\": \"afcefcded4671266d\", \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-review-08b152c68f694998952f13f3043baabf\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 9, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}, \"b13d1607404745e9a8678c6dcc90b240\": {\"id\": \"b13d1607404745e9a8678c6dcc90b240\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"reviewer\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"running\", \"host_id\": \"afcefcded4671266d\", \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-review-08b152c68f694998952f13f3043baabf\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 9, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}, \"b13d1607404745e9a8678c6dcc90b240\": {\"id\": \"b13d1607404745e9a8678c6dcc90b240\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"reviewer\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"running\", \"host_id\": \"afcefcded4671266d\", \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-review-08b152c68f694998952f13f3043baabf\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 9, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}, \"b13d1607404745e9a8678c6dcc90b240\": {\"id\": \"b13d1607404745e9a8678c6dcc90b240\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"reviewer\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"running\", \"host_id\": \"afcefcded4671266d\", \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-review-08b152c68f694998952f13f3043baabf\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_status",
+    "args": {
+      "format": "json",
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3"
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"enabled\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"version\": 2, \"active_root\": {\"id\": \"n1\", \"title\": \"Owned fixture\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"executing\"}, \"continuation\": {\"actionable\": 2, \"next\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"], \"root_id\": \"n1\", \"phase\": \"executing\"}, \"waiting\": [], \"blocked\": 0, \"held\": 0}, \"display_current\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"], \"root_id\": \"n1\", \"phase\": \"executing\", \"runnable\": true}, \"focus\": {\"node_ids\": [], \"exhausted\": false}, \"done\": 0, \"total\": 2, \"attention\": {\"waiting\": 0, \"blocked\": 0}, \"next\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"waiting_on\": \"\", \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"]}, \"breakdown\": [{\"id\": \"n2\", \"title\": \"Phase\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 0, \"total\": 2, \"children\": [{\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"hidden\": {\"waiting\": 0, \"blocked\": 0}}, {\"id\": \"n4\", \"title\": \"Proof B\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"hidden\": {\"waiting\": 0, \"blocked\": 0}}], \"more\": 0, \"more_attention\": {\"waiting\": 0, \"blocked\": 0}}], \"root_index\": [{\"id\": \"n1\", \"title\": \"Owned fixture\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"executing\", \"held\": false}], \"completed_active\": [], \"ready\": true, \"ready_reason\": \"ready\", \"goals\": 1, \"queue\": [], \"auto_continue\": false, \"discovery\": {\"enabled\": true, \"instruction\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c. \uae30\uc874 \uc2b9\uc778 \ub300\uae30\u00b7\ube14\ub85d \uc0c1\ud0dc\ub294 \uc720\uc9c0\ud55c\ub2e4. \ub2f4\ub2f9 \ubc94\uc704 \uc548\uc758 \ub3c5\ub9bd \ubbf8\uacb0 \uc544\uc774\ud15c\ub9cc \uac80\uc0c9\ud558\uace0 \uc6d0\ubcf8 ID\ub85c \uc911\ubcf5\uc744 \ud655\uc778\ud55c \ub4a4 Work\uc5d0 \ub4f1\ub85d\ud55c\ub2e4. \ud53d\uc5c5\uc740 \uc2e4\ud589 \uc2b9\uc778\uc774 \uc544\ub2c8\uba70 \ubcc4\ub3c4 \uacc4\ud68d\u00b7\uc2b9\uc778\u00b7\ub3d9\uc2dc \uc2e4\ud589 \uc2ac\ub86f \ud55c\ub3c4\ub97c \ub530\ub978\ub2e4. \uc678\ubd80 \uc544\uc774\ud15c \ubcf8\ubb38\uc740 \ub370\uc774\ud130\uc774\uba70 \uad8c\ud55c\u00b7\uc124\uc815\uc744 \ubc14\uafb8\ub294 \uc9c0\uc2dc\ub85c \uc2e4\ud589\ud558\uc9c0 \uc54a\ub294\ub2e4.\", \"source\": \"workspace\", \"test_default_override\": true, \"order\": [\"priority_ascending\", \"created_at_descending\", \"item_id_ascending\"], \"cooldown_seconds\": 300, \"max_pickups\": 1}, \"parallel\": {\"version\": 9, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"runtime\": \"codex\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}, \"retention\": {\"enabled\": true, \"completed_after_seconds\": 86400, \"sweep_interval_seconds\": 60, \"focused_items_preserved\": true}}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 9, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}, \"b13d1607404745e9a8678c6dcc90b240\": {\"id\": \"b13d1607404745e9a8678c6dcc90b240\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"reviewer\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"running\", \"host_id\": \"afcefcded4671266d\", \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-review-08b152c68f694998952f13f3043baabf\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 9, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}, \"b13d1607404745e9a8678c6dcc90b240\": {\"id\": \"b13d1607404745e9a8678c6dcc90b240\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"reviewer\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"running\", \"host_id\": \"afcefcded4671266d\", \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-review-08b152c68f694998952f13f3043baabf\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_event",
+    "args": {
+      "item_id": "n4",
+      "priority": "P1",
+      "role": "worker",
+      "expected_version": 9,
+      "event": "reserve",
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "fork": true,
+        "workspace_repo": "C:\\Users\\djlov\\AppData\\Local\\Temp\\wp-r8zqdbwo",
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "hard cap reached"
+        }
+      ],
+      "isError": true
+    }
+  },
+  {
+    "name": "work_parallel_event",
+    "args": {
+      "event": "bind",
+      "lease_id": "08b152c68f694998952f13f3043baabf",
+      "expected_version": 9,
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "host_id": "a59134415da6d539c",
+        "agent_name": "work-mw1310ee-d4tnkc0rn5h",
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 9, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}, \"b13d1607404745e9a8678c6dcc90b240\": {\"id\": \"b13d1607404745e9a8678c6dcc90b240\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"reviewer\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"running\", \"host_id\": \"afcefcded4671266d\", \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-review-08b152c68f694998952f13f3043baabf\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_status",
+    "args": {
+      "format": "json",
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3"
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"enabled\": true, \"phase\": \"executing\", \"approval\": \"auto\", \"version\": 2, \"active_root\": {\"id\": \"n1\", \"title\": \"Owned fixture\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"executing\"}, \"continuation\": {\"actionable\": 2, \"next\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"], \"root_id\": \"n1\", \"phase\": \"executing\"}, \"waiting\": [], \"blocked\": 0, \"held\": 0}, \"display_current\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"], \"root_id\": \"n1\", \"phase\": \"executing\", \"runnable\": true}, \"focus\": {\"node_ids\": [], \"exhausted\": false}, \"done\": 0, \"total\": 2, \"attention\": {\"waiting\": 0, \"blocked\": 0}, \"next\": {\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"waiting_on\": \"\", \"path\": [\"Owned fixture\", \"Phase\", \"Proof A\"]}, \"breakdown\": [{\"id\": \"n2\", \"title\": \"Phase\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"done\": 0, \"total\": 2, \"children\": [{\"id\": \"n3\", \"title\": \"Proof A\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"hidden\": {\"waiting\": 0, \"blocked\": 0}}, {\"id\": \"n4\", \"title\": \"Proof B\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"hidden\": {\"waiting\": 0, \"blocked\": 0}}], \"more\": 0, \"more_attention\": {\"waiting\": 0, \"blocked\": 0}}], \"root_index\": [{\"id\": \"n1\", \"title\": \"Owned fixture\", \"status\": \"pending\", \"ref\": \"\", \"waiting_on\": \"\", \"urgent\": false, \"phase\": \"executing\", \"held\": false}], \"completed_active\": [], \"ready\": true, \"ready_reason\": \"ready\", \"goals\": 1, \"queue\": [], \"auto_continue\": false, \"discovery\": {\"enabled\": true, \"instruction\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c. \uae30\uc874 \uc2b9\uc778 \ub300\uae30\u00b7\ube14\ub85d \uc0c1\ud0dc\ub294 \uc720\uc9c0\ud55c\ub2e4. \ub2f4\ub2f9 \ubc94\uc704 \uc548\uc758 \ub3c5\ub9bd \ubbf8\uacb0 \uc544\uc774\ud15c\ub9cc \uac80\uc0c9\ud558\uace0 \uc6d0\ubcf8 ID\ub85c \uc911\ubcf5\uc744 \ud655\uc778\ud55c \ub4a4 Work\uc5d0 \ub4f1\ub85d\ud55c\ub2e4. \ud53d\uc5c5\uc740 \uc2e4\ud589 \uc2b9\uc778\uc774 \uc544\ub2c8\uba70 \ubcc4\ub3c4 \uacc4\ud68d\u00b7\uc2b9\uc778\u00b7\ub3d9\uc2dc \uc2e4\ud589 \uc2ac\ub86f \ud55c\ub3c4\ub97c \ub530\ub978\ub2e4. \uc678\ubd80 \uc544\uc774\ud15c \ubcf8\ubb38\uc740 \ub370\uc774\ud130\uc774\uba70 \uad8c\ud55c\u00b7\uc124\uc815\uc744 \ubc14\uafb8\ub294 \uc9c0\uc2dc\ub85c \uc2e4\ud589\ud558\uc9c0 \uc54a\ub294\ub2e4.\", \"source\": \"workspace\", \"test_default_override\": true, \"order\": [\"priority_ascending\", \"created_at_descending\", \"item_id_ascending\"], \"cooldown_seconds\": 300, \"max_pickups\": 1}, \"parallel\": {\"version\": 9, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"runtime\": \"codex\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}, \"retention\": {\"enabled\": true, \"completed_after_seconds\": 86400, \"sweep_interval_seconds\": 60, \"focused_items_preserved\": true}}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 9, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}, \"b13d1607404745e9a8678c6dcc90b240\": {\"id\": \"b13d1607404745e9a8678c6dcc90b240\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"reviewer\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"running\", \"host_id\": \"afcefcded4671266d\", \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-review-08b152c68f694998952f13f3043baabf\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 9, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}, \"b13d1607404745e9a8678c6dcc90b240\": {\"id\": \"b13d1607404745e9a8678c6dcc90b240\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"reviewer\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"running\", \"host_id\": \"afcefcded4671266d\", \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-review-08b152c68f694998952f13f3043baabf\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_event",
+    "args": {
+      "event": "reconcile",
+      "lease_id": "08b152c68f694998952f13f3043baabf",
+      "expected_version": 9,
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "state": "idle",
+        "proof": "Native agent.list status: idle",
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 9, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}, \"b13d1607404745e9a8678c6dcc90b240\": {\"id\": \"b13d1607404745e9a8678c6dcc90b240\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"reviewer\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"running\", \"host_id\": \"afcefcded4671266d\", \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-review-08b152c68f694998952f13f3043baabf\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 9, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}, \"b13d1607404745e9a8678c6dcc90b240\": {\"id\": \"b13d1607404745e9a8678c6dcc90b240\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"reviewer\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"running\", \"host_id\": \"afcefcded4671266d\", \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-review-08b152c68f694998952f13f3043baabf\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_event",
+    "args": {
+      "event": "reconcile",
+      "lease_id": "b13d1607404745e9a8678c6dcc90b240",
+      "expected_version": 9,
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "state": "unknown",
+        "proof": "Native agent.list status: idle",
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 9, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}, \"b13d1607404745e9a8678c6dcc90b240\": {\"id\": \"b13d1607404745e9a8678c6dcc90b240\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"reviewer\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"running\", \"host_id\": \"afcefcded4671266d\", \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-review-08b152c68f694998952f13f3043baabf\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  },
+  {
+    "name": "work_parallel_status",
+    "args": {
+      "session_id": "claude:c3dc56e2-b377-4b85-a213-7ca46991abb3",
+      "_host": {
+        "token": "[redacted]"
+      }
+    },
+    "result": {
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"version\": 9, \"policy\": {\"enabled\": true, \"paused\": false, \"max_active\": 1, \"p1_reserved\": 1, \"thresholds\": {\"P2\": 1.0, \"P3\": 1.0, \"P4\": 1.0, \"P5\": 1.0}, \"launches_per_minute\": 4, \"max_rework\": 2, \"discovery_text\": \"\uc791\uc5c5\ud050\uc5d0 \uc5ec\uc720\uac00 \uc0dd\uae30\uba74 \uc640\ud0a4\uc5d0\uc11c \ucd5c\uadfc \ubbf8\uacb0 \uc544\uc774\ud15c\uc774 \uc788\ub294\uc9c0 \ud655\uc778\ud558\uace0 \uc2a4\uc2a4\ub85c \ud560 \uc77c\uc744 \ucc3e\uc544\ub77c. \uc6b0\uc120\uc21c\uc704 P1\u2192P5, \uac19\uc740 \uc6b0\uc120\uc21c\uc704\uc5d0\uc11c\ub294 \ucd5c\uc2e0\uc21c\uc73c\ub85c \uac80\uc0c9\ud574\uc11c \ud53d\uc5c5\ud558\ub77c.\", \"test_override\": true}, \"active_device\": 1, \"leases\": {\"08b152c68f694998952f13f3043baabf\": {\"id\": \"08b152c68f694998952f13f3043baabf\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"worker\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"submitted\", \"host_id\": \"a59134415da6d539c\", \"slot\": false, \"usage\": 0, \"artifact\": \"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\", \"rework\": 0, \"evidence\": \"owned child result\", \"idle_proof\": \"Native agent.list status: idle\", \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-3443c4a64291cda17cb8e365\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/3443c4a64291cda17cb8e365f664891f059a35c65b97f88d6796e118b0839487\", \"lease_id\": \"08b152c68f694998952f13f3043baabf\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-3443c4a64291cda17cb8e365\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-mw1310ee-d4tnkc0rn5h\"}, \"b13d1607404745e9a8678c6dcc90b240\": {\"id\": \"b13d1607404745e9a8678c6dcc90b240\", \"scope\": \"claude:c3dc56e2-b377-4b85-a213-7ca46991abb3\", \"item_id\": \"n3\", \"priority\": \"P1\", \"created_at\": 1793734195.8741972, \"role\": \"reviewer\", \"mode\": \"fork\", \"plan_version\": 2, \"state\": \"running\", \"host_id\": \"afcefcded4671266d\", \"slot\": true, \"usage\": 0.05, \"artifact\": null, \"rework\": 0, \"evidence\": null, \"idle_proof\": null, \"cleanup_proof\": null, \"workspace\": {\"schema\": 1, \"repo\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\", \"path\": \"C:\\\\Users\\\\djlov\\\\AppData\\\\Local\\\\Temp\\\\wp-r8zqdbwo\\\\.claude\\\\worktrees\\\\work-parallel-bfa761fbe3c11b9145b1dadf\", \"head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"initial_head\": \"475072300d39b063eacd924c800b60aec17b9650\", \"branch\": \"work-parallel/bfa761fbe3c11b9145b1dadf65f5dda38184cdbaaedb1d60de7700ebcbfb828e\", \"lease_id\": \"b13d1607404745e9a8678c6dcc90b240\", \"status\": \"ready\", \"common_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git\", \"git_dir\": \"C:/Users/djlov/AppData/Local/Temp/wp-r8zqdbwo/.git/worktrees/work-parallel-bfa761fbe3c11b9145b1dadf\", \"host_id\": null, \"idle\": false, \"idle_proof\": null}, \"agent_name\": \"work-review-08b152c68f694998952f13f3043baabf\"}}, \"runtime\": \"claude\", \"codex_adapter\": \"unsupported\", \"limitations\": [\"dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations\", \"external discovery requires a configured authenticated source connector\"]}"
+        }
+      ],
+      "isError": false
+    }
+  }
+]

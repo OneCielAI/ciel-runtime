@@ -800,7 +800,7 @@ def work_plan_status_text(session):
     summary = f"[work {phase}] {state['done']}/{state['total']}"
     focus = state.get("focus") or {}
     if focus.get("node_ids"):
-        summary += " [FOCUS " + clip(",".join(focus["node_ids"]), 80) + (" finished; others held" if focus.get("exhausted") else "; others held") + "]"
+        summary += " [FOCUS-FIRST " + clip(",".join(focus["node_ids"]), 80) + "]"
     if root:
         summary += " " + _work_item_title(root)
     totals = state.get("attention") or {}

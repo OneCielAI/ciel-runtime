@@ -45,7 +45,7 @@ class ExternalSearchItem:
 
 @dataclass(frozen=True)
 class PickupResult:
-    status: Literal["registered", "cooldown", "no_candidates", "focused"]
+    status: Literal["registered", "cooldown", "no_candidates"]
     node_id: str | None = None
     ref: str | None = None
     rejected: int = 0
@@ -107,8 +107,9 @@ def ingest_external_search_results(
 
     ``source`` and ``scope`` are trusted caller selections, NOT values inferred
     from external prose. Exact open status and scope membership are required.
-    Pause/config authorization is the caller's responsibility; board focus is
-    checked atomically. Pickup never approves execution or changes active approval.
+    Pause/config authorization is the caller's responsibility. Board focus only
+    orders Work, so it does not block pickup. Pickup never approves execution or
+    changes active approval.
     No URLs are fetched and no item contents are interpreted as instructions.
     """
     if not _identity(source) or not _identity(scope):
@@ -128,8 +129,6 @@ def ingest_external_search_results(
     bucket = _digest("pickup-cooldown-v1", source, scope)
 
     def mutate(doc):
-        if doc.get("focus_ids"):
-            return PickupResult("focused", rejected=rejected)
         refs = {node.get("ref") for node in doc["nodes"]}
         latest = None
         for node in doc["nodes"]:

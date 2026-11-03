@@ -92,6 +92,24 @@ const scenarios = {
     const second = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
     return { first: first?.block || '', second: Boolean(second?.block) }
   },
+  async 'stop-focus-unrunnable'() {
+    // Focused items wait, but another approved goal has runnable steps: continue there.
+    const ready = { ...snapshot(), focus: { node_ids: ['n1'], exhausted: false },
+      continuation: { actionable: 2, waiting: [{ id: 'n1', title: 'goal', waiting_on: 'approval' }], blocked: 0, held: 0,
+        next: { id: 'n5', title: 'other step', root_id: 'n3', phase: 'executing' } },
+      queue: [{ id: 'n3', title: 'other goal', status: 'pending', done: 0, total: 2 }] }
+    const { $ } = host(async () => text(ready))
+    const result = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
+    return { text: result?.block || '' }
+  },
+  async 'stop-discovery-focus'() {
+    // Nothing is runnable and focus is set: discovery still runs.
+    const ready = { ...snapshot(), focus: { node_ids: ['n1'], exhausted: false },
+      discovery: { enabled: true, instruction: '와키 미결 아이템: 우선순위, 최신순. 기존 승인 유지.' } }
+    const { $ } = host(async () => text(ready))
+    const result = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
+    return { text: result?.block || '' }
+  },
   async 'stop-discovery-blocked'() {
     const ready = { ...snapshot(), discovery: { enabled: true,
       instruction: '와키 미결 아이템: 우선순위, 최신순. 기존 블록 유지.' } }

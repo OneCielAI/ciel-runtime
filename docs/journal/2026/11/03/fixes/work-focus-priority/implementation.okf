@@ -1,0 +1,84 @@
+---
+type: implementation-journal
+title: Work focus priority, discovery, and slot-only parallel admission
+status: verified-in-isolated-fixtures-and-owned-native-e2e
+date: 2026-11-03
+---
+
+# Root cause this change addresses
+Kobi's sandbox stopped with unfinished work and never queried the backlog. Diagnosis
+(`docs/journal/2026/11/03/diagnostics/kobe-stall/`) showed four runtime causes, not a
+Kobi-specific fault:
+
+1. focus was an exclusive hold over unrelated Work and the model can set it itself;
+2. when every focused leaf waited or was blocked, `continuation.next` was null,
+   unrelated approved items stayed held, and the Stop hook stopped;
+3. idle discovery was disabled whenever focus existed (`paused or focused`);
+4. parallel dispatch defaulted off, and even when enabled P2-P5 required a provider
+   usage observation that CielAiRouter never supplies, so admission always failed.
+
+# Confirmed contract (user decisions, 2026-11-03)
+- Focus is a priority order, not a hold. Focused runnable leaves run first; when no
+  focused leaf can run, other approved items and discovery continue. Focus clears
+  automatically once every focused leaf is done; `node_ids=[]` clears it now.
+- Focus provenance is unchanged (the model may still set it with user_requested=true).
+- Parallel dispatch is enabled by default.
+- Admission is limited only by the number of concurrent fork sessions
+  (`max_active`, with `p1_reserved` kept free for P1) and the launch rate. Provider
+  usage observations no longer gate anything.
+
+# Implementation
+- `work_plan_tree.py`
+  - `_runnable_by_root` no longer filters leaves by focus.
+  - `continuation` returns focused runnable leaves first, then every other runnable
+    leaf; `actionable` counts all runnable leaves; `held` now means only queued goals
+    held behind an urgent goal.
+  - `snapshot.next` is the first runnable step overall (possibly in another goal),
+    falling back to the active goal's next leaf only when nothing can run.
+  - `_release_finished_focus` clears focus when every focused leaf is done.
+  - Removed the focus-exclusion guards from `select_root`, `reorder_root`,
+    `add_urgent`, goal queueing and `set_plan` activation. Deletion/replacement of
+    focused items and the urgent-hold protection remain fail-closed.
+  - Removed focus filtering from `next_leaf`; root/queue `held` flags no longer
+    include focus.
+- `work_discovery.py`, `work_discovery_pickup.py`: an explicit pause still disables
+  discovery; focus no longer does. Pickup's `focused` result was removed.
+- `work_parallel.py`
+  - `default_policy().enabled` is now true; `thresholds` stays in the persisted
+    schema only so ledgers written by the previous version remain readable, and is
+    no longer consulted.
+  - `reserve` admits P1 against the hard cap and P2-P5 against
+    `max_active - p1_reserved`, plus the launch rate. `observe_usage` was removed.
+  - Removed the usage sum / unknown-usage gate and the `focused` candidate gate.
+- `work_parallel_mcp.py`, `work_parallel_menu.py`: dropped the four usage-threshold
+  menu rows and the usage limitation text; reserve no longer records or forwards
+  measured usage; result reconciliation no longer fails when focus changes.
+- `claude_mods/ciel-work/hooks/register.js`: focus instructions now describe
+  priority-without-hold and automatic release; discovery notice no longer names
+  focus as a barrier; Stop guidance and menu labels say "Focus first"; the fork
+  dispatch path no longer calls `$.session.usage()`.
+- `work_mcp_tools.py`, `statusline_script.py`: focus descriptions and the
+  `[FOCUS-FIRST ...]` label match the new contract.
+
+# Deliberate limits
+- Existing ledgers with an `enabled` value keep it. The default-on value applies to
+  workspaces that have never written a parallel ledger (Kobi's case). An explicit
+  off is not overridden.
+- `thresholds` and the optional `admission` memory remain accepted on read for
+  format compatibility; nothing consumes them.
+- The Codex adapter is still unsupported; only the Claude host path was exercised.
+- No remote sandbox was modified, restarted or upgraded. Kobi keeps running
+  8da2075 until a fleet update is explicitly requested.
+
+# Verification
+See `verification.okf` and `evidence/`.
+- 472 focused unit tests in 17 modules passed in an isolated config with every
+  CIEL_RUNTIME_* variable removed (42 platform-dependent skips).
+- Real `register.js` hook scenarios: a focused-but-unrunnable plan continues another
+  goal and tells the model to call `work_select`; discovery fires with focus set.
+- Deterministic Kobi-shape repro: before 0 actionable / discovery disabled; after
+  1 actionable ("runnable research"), discovery enabled, focus auto-released.
+- Owned native Claude CLI E2E against a loopback fake gateway with the default
+  policy: default on, configure, reserve, bind, child result and hard-cap rejection
+  all observed; no hook-module errors.
+- `ruff check` passed on every changed source and test file.
