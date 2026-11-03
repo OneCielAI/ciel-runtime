@@ -202,6 +202,7 @@ def inject_pending_channel_messages(
         pending: list[dict[str, Any]] = []
         return_last_id = last_id
         deferred = _DeferralFloor()
+        terminal_lane_deferred = False
         candidates = io.read_messages(last_id, None, None, state.pending_scan_limit())
         superseded_ids = state.superseded_ids(candidates)
         batch_limit = services.policy.wake_batch_limit() if wake_for_llm_delivery else 1
@@ -314,6 +315,11 @@ def inject_pending_channel_messages(
                 )
                 requested_session_socket = False
                 requested_router = wake_for_llm_delivery
+            if terminal_lane_deferred and not (requested_session_socket and socket_usable):
+                deferred.mark(message_id)
+                if metadata.get("source_kind") == "restart_notice":
+                    continue
+                break
             candidate_uses_router = requested_router
             if candidate_uses_router:
                 formatter = (
@@ -363,11 +369,21 @@ def inject_pending_channel_messages(
                 return deferred.clamp(last_id)
             if not requested_session_socket and (active_tool_call or active_turn):
                 reason = "active_tool_call" if active_tool_call else "active_turn"
-                io.log("INFO", f"channel_stdin_proxy_deferred cursor={previous_last_id} reason={reason}")
+                io.log(
+                    "INFO",
+                    f"channel_stdin_proxy_deferred cursor={previous_last_id} "
+                    f"message_id={message_id} reason={reason} "
+                    "turn_evidence=transcript_projection action=scan_independent_socket_lane",
+                )
                 deferred.mark(message_id)
                 last_id = previous_last_id
                 if pending:
                     break
+                # Preserve terminal/router ordering and the durable frontier,
+                # but do not make a terminal-only hold own the socket lane.
+                if metadata.get("source_kind") == "restart_notice":
+                    terminal_lane_deferred = True
+                    continue
                 return deferred.clamp(last_id)
             if requested_router and not wake_for_llm_delivery:
                 io.log(
@@ -534,7 +550,7 @@ def inject_pending_channel_messages(
                         "channel_stdin_proxy_deferred "
                         f"message_ids={ids} reason=prompt_not_submitted",
                     )
-                    return return_last_id if pending_uses_router else previous_last_id
+                    return deferred.clamp(return_last_id if pending_uses_router else previous_last_id)
                 wake_store.lifecycle.record_prompts(pending, prompt)
             except SessionHandoffPending:
                 wake_store.lifecycle.defer_unsubmitted(pending, claimed_ids)

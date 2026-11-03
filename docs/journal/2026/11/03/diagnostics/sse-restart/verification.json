@@ -1,0 +1,7 @@
+{
+  "baseline_active": true,
+  "fixed_active": false,
+  "tests": 123,
+  "six_socket_event_regression": "no_loss_no_duplicates",
+  "live_restart_performed": false
+}

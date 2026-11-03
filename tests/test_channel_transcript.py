@@ -101,6 +101,20 @@ class ChannelTranscriptTests(unittest.TestCase):
             now=lambda: 100.0,
         )
 
+    def test_transcript_only_notification_never_opens_a_model_turn(self):
+        for origin in (None, {"kind": "peer"}):
+            record = {
+                "type": "user", "queueTranscriptOnly": True,
+                "message": {"role": "user", "content": "<task-notification>done</task-notification>"},
+                "origin": origin,
+            }
+            text = json.dumps(record)
+            self.assertFalse(active_turn_from_text(text))
+            self.assertTrue(active_turn_from_text(text, initial_active=True))
+        peer = {"type": "user", "isMeta": True, "origin": {"kind": "peer"},
+                "message": {"role": "user", "content": "real socket request"}}
+        self.assertTrue(active_turn_from_text(json.dumps(peer)))
+
     def test_content_and_user_records_are_protocol_neutral(self):
         record = {
             "type": "response_item",

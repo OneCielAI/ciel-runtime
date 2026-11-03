@@ -1,0 +1,13 @@
+---
+id: sse-restart-stall-fix
+title: SSE restart stall correction
+type: journal
+---
+
+# Verified
+
+Transcript-only notification baseline active=True, patched=False. Restart-notice-only terminal hold no longer blocks socket lane; ordinary work retains ordering and deferred cursor floor applies to failed sends. Latest bounded health tail reports partial observations unknown. Persistent active projection logs model_request_state=unknown; does not fabricate request state or clear active turns.
+
+## Tests
+
+126 isolated targeted tests pass; tests.txt captures output. Includes six socket events once, ordinary ordering, failure cursor, compaction gate, recovery, restart loop and latest health tail. Independent review identified two issues, fixed with regressions. Real user live restart not performed.

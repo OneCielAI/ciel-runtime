@@ -575,6 +575,91 @@ class SocketOnlyInjectionTests(unittest.TestCase):
         self.assertEqual([41], [row["id"] for row in services.io.write_session_socket.call_args.args[1]])
         self.assertEqual([40, 41], harness.delivery.commits)
 
+    def test_restart_notice_does_not_hold_independent_socket_lane(self):
+        notice = _message(40)
+        notice["meta"] = {"input_transport": "tty", "source_kind": "restart_notice"}
+        harness = _InjectionHarness([notice, self.socket_message(41), self.socket_message(42)])
+        services = self.services(harness, busy=True)
+        services = dataclasses.replace(services, state=dataclasses.replace(
+            services.state, active_tool_call=lambda: False, active_turn=lambda: True,
+        ))
+        returned = inject_pending_channel_messages(99, 39, services=services)
+        self.assertEqual(39, returned)
+        self.assertEqual([], harness.written)
+        services.io.write_session_socket.assert_called_once()
+        self.assertEqual([41, 42], [r["id"] for r in services.io.write_session_socket.call_args.args[1]])
+        self.assertEqual([39], harness.delivery.commits)
+        services.io.write_session_socket.reset_mock()
+        inject_pending_channel_messages(99, 39, services=services)
+        services.io.write_session_socket.assert_not_called()
+        self.assertNotIn(40, harness.delivery.delivered)
+        self.assertTrue(any("transcript_projection" in msg for _, msg in harness.logs))
+
+    def test_persistent_turn_projection_is_diagnostic_only(self):
+        from types import SimpleNamespace
+        from ciel_runtime_support.channel_wake_context import ChannelWakeContext
+        scope = {}
+        log = Mock()
+        context = SimpleNamespace(transcript=SimpleNamespace(scope=scope),
+                                  transcript_policy=SimpleNamespace(log=log))
+        with patch("ciel_runtime_support.channel_wake_context.time.monotonic", side_effect=[10.0, 131.0]):
+            self.assertTrue(ChannelWakeContext._observe_turn_projection(context, True, False))
+            self.assertTrue(ChannelWakeContext._observe_turn_projection(context, True, False))
+        log.assert_called_once()
+        self.assertIn("model_request_state=unknown", log.call_args.args[1])
+        self.assertEqual(10.0, scope["turn_projection_since"])
+
+    def test_unattended_restart_notice_and_six_socket_events_deliver_once(self):
+        from ciel_runtime_support.channel_transcript import active_turn_from_text
+        notice = _message(100)
+        notice["meta"] = {"input_transport": "tty", "source_kind": "restart_notice"}
+        rows = [notice] + [self.socket_message(i) for i in range(101, 107)]
+        harness = _InjectionHarness(rows)
+        notification = json.dumps({"type": "user", "queueTranscriptOnly": True,
+            "message": {"role": "user", "content": "<task-notification>restart</task-notification>"}})
+        self.assertFalse(active_turn_from_text(notification))
+        services = self.services(harness, busy=True)
+        services = dataclasses.replace(services, state=dataclasses.replace(
+            services.state, active_tool_call=lambda: False, active_turn=lambda: True,
+        ))
+        cursor = inject_pending_channel_messages(99, 99, services=services)
+        self.assertEqual(99, cursor)
+        sent = services.io.write_session_socket.call_args.args[1]
+        self.assertEqual(list(range(101, 107)), [r["id"] for r in sent])
+        services.io.write_session_socket.reset_mock()
+        inject_pending_channel_messages(99, cursor, services=services)
+        services.io.write_session_socket.assert_not_called()
+        self.assertEqual(set(range(101, 107)), harness.delivery.delivered)
+        self.assertEqual([], harness.written)
+
+    def test_restart_notice_lookahead_stops_at_ordinary_work(self):
+        notice = _message(40)
+        notice["meta"] = {"input_transport": "tty", "source_kind": "restart_notice"}
+        ordinary = _message(41)
+        ordinary["meta"] = {"input_transport": "tty"}
+        harness = _InjectionHarness([notice, ordinary, self.socket_message(42)])
+        services = self.services(harness, busy=True)
+        self.assertEqual(39, inject_pending_channel_messages(99, 39, services=services))
+        services.io.write_session_socket.assert_not_called()
+
+    def test_failed_socket_batch_preserves_restart_notice_frontier(self):
+        notice = _message(40)
+        notice["meta"] = {"input_transport": "tty", "source_kind": "restart_notice"}
+        harness = _InjectionHarness([notice, self.socket_message(41), self.socket_message(42)])
+        services = self.services(harness, busy=True, send=Mock(return_value=False))
+        self.assertEqual(39, inject_pending_channel_messages(99, 39, services=services))
+        self.assertEqual([], harness.delivery.commits)
+
+    def test_ordinary_tty_work_keeps_order_during_active_turn(self):
+        first = _message(40)
+        first["meta"] = {"input_transport": "tty"}
+        harness = _InjectionHarness([first, self.socket_message(41)])
+        services = self.services(harness, busy=True)
+        returned = inject_pending_channel_messages(99, 39, services=services)
+        self.assertEqual(39, returned)
+        services.io.write_session_socket.assert_not_called()
+        self.assertEqual([], harness.delivery.commits)
+
     def test_non_socket_input_defers_without_leaping_to_later_socket(self):
         for transport in ("tty", "router"):
             with self.subTest(transport=transport):

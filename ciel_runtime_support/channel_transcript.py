@@ -266,6 +266,8 @@ def is_non_turn_user_record(record: dict[str, Any]) -> bool:
     message bodies verbatim).
     """
 
+    if record.get("queueTranscriptOnly") is True:
+        return True
     origin = record.get("origin")
     if isinstance(origin, dict) and origin.get("kind") == "peer":
         # Session-socket input is persisted as isMeta with a peer origin, yet

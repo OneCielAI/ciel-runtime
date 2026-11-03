@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import time
 from typing import Any, Callable
 
 from . import channel_injection, channel_llm_context
@@ -560,13 +561,13 @@ class ChannelWakeContext:
     def active_turn(self) -> bool:
         path = self.transcript_policy.latest_transcript()
         if path is None:
-            return bool(self.transcript.scope.get("turn_active"))
+            return self._observe_turn_projection(bool(self.transcript.scope.get("turn_active")), False)
         text = self.transcript_repository().read_turn_updates(
             path,
             log=self.transcript_policy.log,
         )
         if not text:
-            return bool(self.transcript.scope.get("turn_active"))
+            return self._observe_turn_projection(bool(self.transcript.scope.get("turn_active")), False)
         active = bool(
             self.transcript.active_turn_from_text(
                 text,
@@ -575,7 +576,26 @@ class ChannelWakeContext:
             )
         )
         self.transcript.scope["turn_active"] = active
-        return active
+        return self._observe_turn_projection(active, True)
+
+    def _observe_turn_projection(self, active: bool, updated: bool) -> bool:
+        scope = self.transcript.scope
+        now = time.monotonic()
+        if not active:
+            scope.pop("turn_projection_since", None)
+            scope.pop("turn_projection_last_log", None)
+            return False
+        since = scope.setdefault("turn_projection_since", now)
+        last_log = scope.get("turn_projection_last_log", since)
+        if now - last_log >= 120.0:
+            self.transcript_policy.log(
+                "WARN",
+                "channel_turn_projection_persistent "
+                f"age_seconds={int(now - since)} transcript_updated={updated} "
+                "model_request_state=unknown action=observe_only",
+            )
+            scope["turn_projection_last_log"] = now
+        return True
 
     def queued_command_ids_from_text(self, text: str) -> set[int]:
         return self.transcript_policy.queued_ids_from_text(

@@ -62,8 +62,8 @@ class DeliveryHealthTests(unittest.TestCase):
         self.fixture(True)
         before = self.path.read_bytes(), self.inputs.read_bytes()
         h = runtime_input_delivery_health(self.status, receiver_id="default", now=200)
-        self.assertEqual("not_blocked", h["state"])
-        self.assertIs(False, h["admission_blocked"])
+        self.assertEqual("unknown", h["state"])
+        self.assertIsNone(h["admission_blocked"])
         self.assertIsNone(h["blocker_scope"])
         self.assertFalse(h["launcher_hold_observed"])
         self.assertEqual("history_observation_partial", h["reason"])
@@ -74,7 +74,7 @@ class DeliveryHealthTests(unittest.TestCase):
         # The recovered NUL-prefixed row is a known queued request.
         self.assertEqual(3, runtime_input_delivery_health(self.status, now=200)["known_queued_count"])
         text = delivery_health_text(h)
-        self.assertIn("not_blocked", text)
+        self.assertIn("unknown", text)
         self.assertIn("history observation partial line 5", text)
         self.assertNotIn("admission_blocked", text)
         self.assertNotIn("wake_history_incomplete", text)
@@ -115,9 +115,9 @@ class DeliveryHealthTests(unittest.TestCase):
                                      "updated_at_epoch": 195}).encode() + bytes([10]))
         h = runtime_input_delivery_health(self.status, now=200)
         # Request 3 stays queued because the invalid row is ignored; 1 advanced.
-        self.assertEqual((1, "partial", "not_blocked"),
+        self.assertEqual((1, "partial", "unknown"),
                          (h["known_queued_count"], h["queued_coverage"], h["state"]))
-        self.assertIs(False, h["admission_blocked"])
+        self.assertIsNone(h["admission_blocked"])
         self.assertEqual(5, h["line_number"])
 
     def test_oversized_line_is_skipped_without_dropping_later_rows(self):
@@ -129,9 +129,9 @@ class DeliveryHealthTests(unittest.TestCase):
         with self.inputs.open("ab") as stream:
             stream.write(json.dumps({"id": 5, "created_at_epoch": 130}).encode() + b"\n")
         h = runtime_input_delivery_health(self.status, now=200)
-        self.assertEqual((3, "partial", "not_blocked"),
+        self.assertEqual((3, "partial", "unknown"),
                          (h["known_queued_count"], h["queued_coverage"], h["state"]))
-        self.assertIs(False, h["admission_blocked"])
+        self.assertIsNone(h["admission_blocked"])
 
     def test_unreadable_history_is_unknown_not_confirmed_hold(self):
         self.fixture()
@@ -260,7 +260,7 @@ class DeliveryHealthTests(unittest.TestCase):
         self.fixture(True)
         port = SimpleNamespace(path=self.path, history_health=self.status.history_health)
         h = runtime_input_delivery_health(port, now=200)
-        self.assertEqual(("not_blocked", False, "partial", 3),
+        self.assertEqual(("unknown", None, "partial", 3),
                          (h["state"], h["admission_blocked"], h["queued_coverage"], h["known_queued_count"]))
 
     def test_public_chat_is_not_private_queue(self):
@@ -278,7 +278,7 @@ class DeliveryHealthTests(unittest.TestCase):
         handler = Mock(path="/ca/channel/requests/1")
         self.assertTrue(controller.get(handler, handler.path))
         self.assertEqual("queued", replies[-1][0]["request"]["status"])
-        self.assertEqual("not_blocked", replies[-1][0]["delivery"]["state"])
+        self.assertEqual("unknown", replies[-1][0]["delivery"]["state"])
         self.assertEqual("history_observation_partial", replies[-1][0]["delivery"]["reason"])
         adapter = TuiObservationHttpAdapter(TuiObservationHttpPorts(
             TuiObservationBus(), lambda handler, body: replies.append((body, 200)), Mock(), Mock(),
@@ -286,7 +286,7 @@ class DeliveryHealthTests(unittest.TestCase):
         ))
         adapter.handle_get(handler, "/ca/tui/status", {})
         self.assertTrue(replies[-1][0]["ok"])
-        self.assertIs(False, replies[-1][0]["delivery"]["admission_blocked"])
+        self.assertIsNone(replies[-1][0]["delivery"]["admission_blocked"])
         self.assertEqual("partial", replies[-1][0]["delivery"]["queued_coverage"])
 
     def test_generated_statusline_runs_outside_package(self):
@@ -299,7 +299,7 @@ class DeliveryHealthTests(unittest.TestCase):
                    CIEL_RUNTIME_STATUSLINE_ANSI="0", PYTHONIOENCODING="utf-8")
         result = subprocess.run([sys.executable, str(script)], input="{}", text=True, capture_output=True,
                                 cwd=self.root, env=env, check=True)
-        self.assertIn("session delivery not_blocked", result.stdout)
+        self.assertIn("session delivery unknown", result.stdout)
         self.assertIn("history observation partial line 5", result.stdout)
         self.assertNotIn("admission_blocked", result.stdout)
         self.assertNotIn("wake_history_incomplete", result.stdout)
@@ -340,13 +340,13 @@ class DeliveryHealthTests(unittest.TestCase):
         service._status["default"] = {"state": "connected"}
         status = service.public_receiver("default", config)["status"]
         self.assertEqual("connected", status["state"])
-        self.assertEqual("not_blocked", status["delivery"]["state"])
-        self.assertIs(False, status["delivery"]["admission_blocked"])
+        self.assertEqual("unknown", status["delivery"]["state"])
+        self.assertIsNone(status["delivery"]["admission_blocked"])
         rows, values = panel_rows(service, "http://localhost", control=lambda action: {"available": True, "status": status})
         self.assertEqual(len(rows), len(values))
         delivery_rows = [row for row in rows if "Session delivery" in row]
         self.assertEqual(1, len(delivery_rows))
-        self.assertIn("not_blocked", delivery_rows[0])
+        self.assertIn("unknown", delivery_rows[0])
         self.assertIn("history observation partial", delivery_rows[0])
         self.assertNotIn("admission_blocked", delivery_rows[0])
         self.assertFalse(self.path.with_suffix(".json").exists())
@@ -379,11 +379,112 @@ class DeliveryHealthTests(unittest.TestCase):
                 body = json.load(response)
             self.assertTrue(body["ok"])
             self.assertEqual("queued", body["request"]["status"])
-            self.assertEqual("not_blocked", body["delivery"]["state"])
-            self.assertIs(False, body["delivery"]["admission_blocked"])
+            self.assertEqual("unknown", body["delivery"]["state"])
+            self.assertIsNone(body["delivery"]["admission_blocked"])
             self.assertEqual("history_observation_partial", body["delivery"]["reason"])
             self.assertEqual(before, (self.path.read_bytes(), self.inputs.read_bytes()))
         finally:
             server.shutdown()
             server.server_close()
             worker.join(3)
+
+
+class InputTailTests(unittest.TestCase):
+    setUp = DeliveryHealthTests.setUp
+    write_rows = DeliveryHealthTests.write_rows
+    fixture = DeliveryHealthTests.fixture
+    # Only explicit methods below are selected by the focused test invocation.
+    def test_large_tail_finds_recent_receiver_without_restart_authority(self):
+        from ciel_runtime_support.runtime_sse_recovery import recover_sse_delivery
+        self.write_rows(self.path, [{"request_id": 999, "status": "queued",
+                                     "updated_at_epoch": 100}])
+        old = json.dumps({"id": 1, "message": "x" * 65536}).encode() + bytes([10])
+        recent = json.dumps({"id": 999, "meta": {"receiver_id": "target"},
+                             "created_at_epoch": 90}).encode() + bytes([10])
+        self.inputs.write_bytes(old * 220 + recent)
+        before = self.inputs.read_bytes()
+        h = runtime_input_delivery_health(self.status, receiver_id="target", now=1000)
+        self.assertGreater(len(before), 13_600_000)
+        self.assertEqual((1, 910, "partial", "unknown", None),
+                         (h["known_queued_count"], h["oldest_queued_age_seconds"],
+                          h["queued_coverage"], h["state"], h["admission_blocked"]))
+        self.assertEqual("partial", h["queue_age_coverage"])
+        self.assertEqual("inputs_observation_partial", h["reason"])
+        self.assertIn("input observation partial", delivery_health_text(h))
+        restart = Mock()
+        state = self.root / "recovery.json"
+        result = recover_sse_delivery({"action": "reset"}, delivery_health=lambda: h,
+                                      admission_paused=lambda: False, restart=restart,
+                                      state_path=state, now=lambda: 1000)
+        self.assertFalse(result["reset"])
+        self.assertFalse(result["evidence"]["restart_eligible"])
+        restart.assert_not_called()
+        self.assertFalse(state.exists())
+        self.assertEqual(before, self.inputs.read_bytes())
+
+    def test_tail_boundary_discards_json_looking_fragment(self):
+        from ciel_runtime_support.runtime_input_delivery_health import _input_rows
+        valid = b'{"id": 2}' + bytes([10])
+        fragment = b'{"id": 999}' + bytes([10])
+        for prefix in (b"x", b"x" + bytes([10])):
+            with self.subTest(prefix=prefix):
+                self.inputs.write_bytes(prefix + fragment + valid)
+                with patch('ciel_runtime_support.runtime_input_delivery_health._SCAN_BYTES',
+                           len(fragment + valid)):
+                    rows, complete = _input_rows(self.inputs)
+                self.assertFalse(complete)
+                self.assertEqual([999, 2] if prefix.endswith(bytes([10])) else [2],
+                                 [r["id"] for r in rows])
+
+    def test_input_damage_oversize_torn_and_invalid_utf8_preserve_later_rows(self):
+        from ciel_runtime_support.runtime_input_delivery_health import _input_rows
+        good = b'{"id": 2}' + bytes([10])
+        cases = (b"x" * 80 + bytes([10]), b"{bad}" + bytes([10]), b"[]" + bytes([10]), bytes([255]) + bytes([10]))
+        for bad in cases:
+            with self.subTest(bad=bad):
+                self.inputs.write_bytes(bad + good + b'{"id": 3}')
+                with patch('ciel_runtime_support.runtime_input_delivery_health._SCAN_LINE_BYTES', 32):
+                    rows, complete = _input_rows(self.inputs)
+                self.assertEqual([{"id": 2}], rows)
+                self.assertFalse(complete)
+
+    def test_concurrent_append_truncate_replace_discard_mixed_rows(self):
+        from ciel_runtime_support.runtime_input_delivery_health import _input_rows
+        loads = json.loads
+        for mutation in ("append", "truncate", "replace"):
+            with self.subTest(mutation=mutation):
+                self.inputs.write_bytes(b'{"id": 1}' + bytes([10]))
+                def decode(raw):
+                    if mutation == "append":
+                        with self.inputs.open("ab") as stream:
+                            stream.write(b'{"id": 2}' + bytes([10]))
+                    elif mutation == "truncate":
+                        self.inputs.write_bytes(b"")
+                    else:
+                        replacement = self.root / "replacement"
+                        replacement.write_bytes(b'{"id": 2}' + bytes([10]))
+                        replacement.replace(self.inputs)
+                    return loads(raw)
+                with patch('ciel_runtime_support.runtime_input_delivery_health.json.loads',
+                           side_effect=decode):
+                    self.assertEqual(([], False), _input_rows(self.inputs))
+
+    def test_unreadable_inputs_never_report_complete_or_not_blocked(self):
+        self.fixture()
+        real_open = Path.open
+        def deny(path, *args, **kwargs):
+            if Path(path) == self.inputs:
+                raise PermissionError("denied")
+            return real_open(path, *args, **kwargs)
+        with patch.object(Path, "open", deny):
+            h = runtime_input_delivery_health(self.status, receiver_id="default", now=200)
+        self.assertEqual(("unknown", None, "partial", "partial"),
+                         (h["state"], h["admission_blocked"], h["queued_coverage"],
+                          h["queue_age_coverage"]))
+
+    def test_partial_status_empty_queue_age_is_not_complete(self):
+        self.path.write_bytes(b"{bad}" + bytes([10]))
+        h = runtime_input_delivery_health(self.status, now=200)
+        self.assertEqual(("unknown", None, 0, "partial", "partial"),
+                         (h["state"], h["admission_blocked"], h["known_queued_count"],
+                          h["queued_coverage"], h["queue_age_coverage"]))

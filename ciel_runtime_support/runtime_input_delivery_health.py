@@ -6,6 +6,7 @@ from contextlib import nullcontext
 from copy import deepcopy
 import json
 import math
+import os
 from pathlib import Path
 import threading
 import time
@@ -44,26 +45,39 @@ def _epoch(value: Any) -> float | None:
 def _input_rows(path: Path) -> tuple[list[dict[str, Any]], bool]:
     """Bound the private input scan used only for receiver scope and age."""
     rows = []
-    complete = True
-    offset = 0
     opened = False
+
+    def signature(stat):
+        return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns)
+
     try:
         with path.open("rb") as stream:
             opened = True
-            before = path.stat()
-            while offset < _SCAN_BYTES:
-                raw = stream.readline(min(_SCAN_LINE_BYTES + 1, _SCAN_BYTES - offset))
+            before = os.fstat(stream.fileno())
+            start = max(0, before.st_size - _SCAN_BYTES)
+            complete = start == 0
+            # Keep an exact row boundary; otherwise discard the first fragment,
+            # even if it looks like JSON. Never read beyond the observed EOF.
+            stream.seek(max(0, start - 1))
+            boundary = not start or stream.read(1) == bytes([10])
+            remaining = before.st_size - start
+            if not boundary:
+                raw = stream.readline(remaining)
+                remaining -= len(raw)
+            while remaining > 0:
+                raw = stream.readline(min(_SCAN_LINE_BYTES + 1, remaining))
                 if not raw:
+                    complete = False
                     break
-                offset += len(raw)
+                remaining -= len(raw)
                 if len(raw) > _SCAN_LINE_BYTES:
                     complete = False
                     # Skip this physical row, not every later valid record.
-                    while not raw.endswith(bytes([10])) and offset < _SCAN_BYTES:
-                        raw = stream.readline(min(_SCAN_LINE_BYTES + 1, _SCAN_BYTES - offset))
+                    while not raw.endswith(bytes([10])) and remaining > 0:
+                        raw = stream.readline(min(_SCAN_LINE_BYTES + 1, remaining))
                         if not raw:
                             break
-                        offset += len(raw)
+                        remaining -= len(raw)
                     continue
                 if not raw.endswith(bytes([10])):
                     complete = False
@@ -76,14 +90,15 @@ def _input_rows(path: Path) -> tuple[list[dict[str, Any]], bool]:
                         complete = False
                 except (ValueError, UnicodeError, RecursionError):
                     complete = False
-            after = path.stat()
-            def signature(stat):
-                return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns)
-            complete = complete and offset >= before.st_size and signature(before) == signature(after)
+            # Appends, truncation and path replacement invalidate the snapshot.
+            # Mixed-generation rows must not become known queue facts.
+            if (signature(before) != signature(os.fstat(stream.fileno())) or
+                    signature(before) != signature(path.stat())):
+                return [], False
     except FileNotFoundError:
-        complete = not opened
+        return [], not opened
     except OSError:
-        complete = False
+        return [], False
     return rows, complete
 
 
@@ -214,16 +229,18 @@ def _snapshot(status: Any, inputs_path: Path, receiver_id: str | None) -> dict[s
     available = history.get("coverage") != "unknown"
     snapshot_consistent = before == tuple(_file_signature(path) for path in paths)
     observation_complete = complete and inputs_complete and snapshot_consistent
-    return {"state": "not_blocked" if available else "unknown",
+    return {"state": "not_blocked" if available and observation_complete else "unknown",
             "reason": ("delivery_observation_unavailable" if not available else
+                       "inputs_observation_partial" if not inputs_complete else
                        "" if observation_complete else "history_observation_partial"),
             "scope": "private_runtime_inputs", "blocker_scope": None,
-            "admission_blocked": False if available else None, "launcher_hold_observed": False,
+            "admission_blocked": False if available and observation_complete else None, "launcher_hold_observed": False,
             "line_number": first.get("line_number"),
             "snapshot_consistent": snapshot_consistent,
             "known_queued_count": len(queued),
             "oldest_queued_at_epoch": min(stamps) if stamps else None,
-            "queue_age_coverage": "complete" if len(stamps) == len(queued) else "partial",
+            "queue_age_coverage": ("unknown" if not available else
+                                   "complete" if observation_complete and len(stamps) == len(queued) else "partial"),
             "queued_coverage": ("unknown" if not available else
                                 "complete" if observation_complete else "partial"),
             **outcomes,
@@ -326,6 +343,8 @@ def delivery_health_text(health: dict[str, Any]) -> str:
         if health.get("line_number"):
             detail += f" line {health['line_number']}"
         detail += " (damaged lines ignored)"
+    elif health.get("reason") == "inputs_observation_partial":
+        detail += "; input observation partial"
     elif state == "unknown":
         detail += "; observation unavailable"
     return detail
