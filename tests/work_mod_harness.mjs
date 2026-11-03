@@ -18,6 +18,8 @@ function host(respond) {
     mcp: { call: async (server, tool, args) => { state.calls++; return respond(tool, args, state) } },
     ui: { invalidate() {}, toast() {}, log(t) { state.logs.push(t) }, open: async () => {}, ask: async () => 'Approve' },
     clock: { after() { return { cancel() {} } } },
+    env: { get: async () => 'host-token' },
+    agent: { list: async () => state.agents || [] },
     command: { register: async () => {} },
   }
   return { $, state }
@@ -34,6 +36,54 @@ const call = ($, agentId) => handlers['tool.call']($, { tool: 'Edit', agentId,
 const verdict = r => r?.decision === 'deny' ? 'deny: ' + r.reason : r?.deny ? 'deny: ' + r.deny : 'allow'
 
 const scenarios = {
+  async 'parallel-auto-review'() {
+    const lease = { id: 'L1', item_id: 'n2', role: 'worker', state: 'submitted', host_id: 'agent-old', slot: true, plan_version: 7, artifact: 'a'.repeat(64), evidence: 'tested' }
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version: 9, policy: { enabled: true }, leases: { L1: lease } })
+      if (args.event === 'reconcile') { lease.slot = false; return text({}) }
+      return text({})
+    })
+    state.agents = [{ id: 'agent-old', status: 'completed' }]
+    $.agent.spawn = async (args) => { state.spawned = args; return { agentId: 'reviewer' } }
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    await handlers['turn.complete']($, {}, next(undefined))
+    return { spawned: state.spawned, released: !lease.slot }
+  },
+  async 'parallel-recovery-context'() {
+    const lease = { id: 'L1', item_id: 'n2', role: 'worker', state: 'running', host_id: 'agent-old', slot: true, plan_version: 7 }
+    const { $, state } = host(async (tool) => tool === 'work_parallel_status'
+      ? text({ version: 9, policy: { enabled: true }, leases: { L1: lease } }) : text(snapshot()))
+    state.agents = []
+    let seen = null
+    const capture = async (e) => { seen = e; return e }
+    capture.origin = { plugin: 'engine' }
+    await handlers['prompt.submit']($, { context: [] }, capture)
+    state.agents = [{ id: 'agent-old', status: 'running' }]
+    let live = null
+    const captureLive = async (e) => { live = e; return e }
+    captureLive.origin = { plugin: 'engine' }
+    await handlers['prompt.submit']($, { context: [] }, captureLive)
+    const duplicate = await handlers['tool.call']($, { tool: 'mcp__ciel-runtime-router__work_parallel_run',
+      item_id: 'n2', priority: 'P1', role: 'worker' }, next({}))
+    return { context: JSON.stringify(seen), live: JSON.stringify(live), duplicate: verdict(duplicate) }
+  },
+  // A parent restart has no in-memory map; the durable lease alone restores worker identity.
+  async 'parallel-restart-rebind'() {
+    const lease = { id: 'L1', role: 'worker', state: 'running', host_id: 'agent-old', slot: true, plan_version: 7 }
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version: 9, policy: { enabled: true }, leases: { L1: lease } })
+      if (tool === 'work_parallel_event') { state.event = args; return text({ version: 10, leases: {} }) }
+      return text({})
+    })
+    state.agents = []
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    const result = await handlers['tool.call']($, { tool: 'mcp__ciel-runtime-router__work_parallel_event',
+      agentId: 'agent-old', event: 'result', lease_id: 'L1', plan_version: 7, artifact: 'a'.repeat(64), evidence: 'r' }, next({}))
+    await handlers['turn.complete']($, {}, next(undefined))
+    return { result: verdict(result), event: state.event }
+  },
   async 'stop-discovery-approval'() {
     const ready = { ...snapshot('planning'), approval: 'ask', ready: true,
       discovery: { enabled: true, instruction: '와키 미결 아이템: 우선순위, 최신순. 기존 승인 유지.' } }

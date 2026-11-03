@@ -72,6 +72,7 @@ class ChannelLlmContextServices:
     projection: ChannelLlmContextProjection
     log: Callable[[str, str], Any]
     pause_reason: Callable[[dict[str, Any]], str] = lambda _body: ""
+    injection_pause_reason: Callable[[dict[str, Any]], str] = lambda _body: ""
 
 
 def inject_pending_channel_context(
@@ -166,7 +167,7 @@ def inject_pending_channel_context(
                 )
             return services.projection.remove_wake_prompt(body) if wake_request else body
 
-    if pause_reason := services.pause_reason(body):
+    if pause_reason := (services.pause_reason(body) or services.injection_pause_reason(body)):
         if wake_request and pause_reason != "native_compaction":
             raise ChannelLlmInjectionDeferred("Ciel Router deferred wake body during context recovery")
         services.log("INFO", f"channel_llm_inject_deferred reason={pause_reason}")

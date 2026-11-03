@@ -74,7 +74,11 @@ def validate(d):
     validate_policy(d["policy"])
     require(type(d["leases"]) is dict and len(d["leases"]) <= MAX_LEASES, "lease bound")
     for ident, r in d["leases"].items():
-        require(fields(r, "id scope item_id priority created_at role mode plan_version state host_id slot usage artifact rework evidence idle_proof cleanup_proof"), "lease fields")
+        # agent_name (the native Agent name used to resume after a parent restart) is
+        # optional so ledgers written before it existed stay readable.
+        base = "id scope item_id priority created_at role mode plan_version state host_id slot usage artifact rework evidence idle_proof cleanup_proof"
+        require(type(r) is dict and set(base.split()) <= set(r) and not set(r) - set((base + " agent_name workspace").split()), "lease fields")
+        require(r.get("agent_name") is None or text(r["agent_name"], 200), "agent name")
         require(text(ident, 200) and r["id"] == ident and text(r["scope"], 200) and text(r["item_id"], 200), "lease identity")
         require(r["priority"] in ("P1", "P2", "P3", "P4", "P5") and number(r["created_at"], 1e15), "priority/time")
         require(r["role"] in ("worker", "reviewer", "resume") and r["mode"] in ("fork", "fresh"), "role/mode")
@@ -249,14 +253,25 @@ class WorkParallelStore:
         require(text(ident, 200) and ident in d["leases"], "unknown lease")
         return d["leases"][ident]
 
-    def bind(self, ident, host_id, *, expected_version):
+    def bind(self, ident, host_id, *, expected_version, agent_name=None):
         """Bind once after launch. A failed launch still needs idle reconciliation."""
         require(text(host_id, 200), "host id")
+        require(agent_name is None or text(agent_name, 200), "agent name")
         def apply(d):
             r = self._lease(d, ident)
             require(r["state"] == "reserved" and r["slot"] and r["host_id"] is None, "not bindable")
             require(not any(a["slot"] and a["host_id"] == host_id for a in d["leases"].values()), "host already bound")
             r.update(host_id=host_id, state="running")
+            if agent_name is not None:
+                r["agent_name"] = agent_name
+        return self._change(apply, expected_version)
+
+    def attach_workspace(self, ident, workspace, *, expected_version):
+        require(type(workspace) is dict and text(workspace.get("path")) and text(workspace.get("repo")), "workspace binding")
+        def apply(d):
+            r = self._lease(d, ident)
+            require(r["state"] == "reserved" and r["host_id"] is None, "workspace must precede launch")
+            r["workspace"] = copy.deepcopy(workspace)
         return self._change(apply, expected_version)
 
     def reconcile(self, ident, *, host_state, proof=None, expected_version):
@@ -286,7 +301,7 @@ class WorkParallelStore:
                 submitted={"verifying"}, verifying={"reviewing", "running"}, reviewing={"accepted", "running"},
                 accepted={"cleanup_pending"}, cleanup_pending={"done"})
             require(type(target) is str and target in edges.get(r["state"], set()), "transition")
-            if target not in ("cleanup_pending", "done"):
+            if target in ("submitted", "waiting_input", "running"):
                 require(r["slot"] and r["host_id"] is not None, "no active slot")
             require(text(evidence), "transition evidence")
             if target == "submitted":

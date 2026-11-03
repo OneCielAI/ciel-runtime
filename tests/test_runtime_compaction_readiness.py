@@ -82,7 +82,8 @@ class PublishedReadinessTests(IdentityHarness):
         self.assertFalse(self.binding.external_admission_paused())
         self.binding.observe_request("other", {}, {"tokens": 16000, "native": "auto"}, "claude",
                                      {"x-claude-code-session-id": "exact"})
-        self.assertTrue(self.binding.external_admission_paused())
+        # Native compaction remains tracked, but no longer holds SSE admission.
+        self.assertFalse(self.binding.external_admission_paused())
         self.assertEqual("compacting", self.state()["phase"])
 
     def test_readiness_cannot_overwrite_concurrent_launch(self):

@@ -1,4 +1,5 @@
 ---
+type: implementation-journal
 title: Work parallel execution and idle discovery
 status: in-progress
 date: 2026-11-03
@@ -41,3 +42,15 @@ Actual Claude fork execution/host identity, full coordinator integration, real m
 
 # CI publication correction
 Initial publish run 41639128314 failed before npm publication: two new tests imported pytest although CI uses dependency-free unittest; architecture test detected work_parallel -> work_discovery -> work_parallel_mcp -> work_parallel cycle. Shared instruction moved into leaf work_parallel_defaults.py. Both pytest modules converted to unittest preserving 53 expanded cases (all passed). Remaining focused unittest modules: 155 passed. Import-graph architecture contract: passed. No test or publication gate bypassed.
+
+# Published nightly verification
+307ceec published as 0.2.51-nightly.20261103-131045.307ceec. Publish run 41640117627 and CI 41640117708 both success. Registry gitHead matches exact commit; npm pack downloaded tarball and verified scheduler/defaults/MCP/discovery/cleanup modules and native mod presence. No live session restarted or local install overwritten.
+
+# Scope reopened: all remaining automation and crash recovery
+User requested completing all remaining parts and recovering fork work after parent forced exit. Current release does not guarantee this: native adapter uses process-local pending/bound Maps; durable ledger alone cannot restart a native child. Investigating official/native resume and workspace observations before implementing. Recovery must reconcile before dispatch and never treat an absent list row as proof of termination. Owned isolated process tests only; no production forced termination.
+
+# Remaining implementation verification
+- Actual forced-kill/restart recovery passed repeatedly: same parent session, persisted native agent name/ID, same worker and single lease result (latest owned-worktree run crash-resume-dbc5991d). Resume permitted only during exact SendMessage coordinator call; pause/approval preserved. A waiting_input worker is not auto-resumed.
+- Automatic read-only reviewer dispatch verified in real native CLI run parallel-e2e-66fb183e; use $.agent.spawn (native host rejects $.tool.call Agent). Submitted idle workers release slots before review. Reviewer receives worker artifact and workspace path.
+- Runtime-owned worktree manifest verifies exact lease/repo/host/branch ownership; native cwd is supplied before launch. Windows Git children must use DEVNULL stdin in threaded MCP handler. Worktree tests passed17.
+- Durable pickup ingestion implemented and exposed as work_discovery_pickup: planning-only registration, source/item dedup, scope/status/priority/latest validation, cooldown and concurrency tests passed11. No actual authenticated Walkie item-search connector exists in this runtime/session; production external search remains unverified and must not be called complete.

@@ -66,6 +66,7 @@ class ChannelInjectionIO:
     session_socket_available: Callable[[], bool] | None = None
     external_admission_paused: Callable[[], bool] = lambda: False
     external_admission_reason: Callable[[], str] = lambda: "context_recovery"
+    before_external_injection: Callable[[], bool] = lambda: False
 
 
 @dataclass(frozen=True, slots=True)
@@ -477,7 +478,7 @@ def inject_pending_channel_messages(
         else:
             prompt = prompts.standard(pending)
         submit_bytes = prompts.enter_bytes(enter_bytes)
-        if io.external_admission_paused():
+        if io.external_admission_paused() or io.before_external_injection():
             io.log("INFO", f"channel_stdin_proxy_deferred cursor={original_cursor} reason={io.external_admission_reason() or 'context_recovery'}")
             return original_cursor
         claimed_ids: list[int] = []

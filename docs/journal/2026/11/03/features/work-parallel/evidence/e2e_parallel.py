@@ -1,11 +1,18 @@
 """Owned isolated packaged-mod E2E using actual Python dispatcher."""
 import sys, json
+import tempfile
 from pathlib import Path
 PACKAGE=Path(__file__).resolve().parents[8]
 # Reuse the proven loopback SSE transport, replacing its setup and scenario.
 source=(Path(__file__).parent/'run_fork_probe.py').read_text(encoding='utf-8')
 source=source.replace('fork-probe-', 'parallel-e2e-')
+source=source.replace('WS = RUN / "workspace"; WS.mkdir()', 'WS = Path(tempfile.mkdtemp(prefix="wp-"))')
 source=source.replace('ROWS=[]; COUNTS={}', r"""
+for argv in [('init',), ('config','user.name','fixture'), ('config','user.email','fixture@example.invalid')]:
+ subprocess.run(['git','-C',str(WS),*argv],check=True,capture_output=True)
+(WS/'fixture.txt').write_text('owned fixture')
+subprocess.run(['git','-C',str(WS),'add','fixture.txt'],check=True,capture_output=True)
+subprocess.run(['git','-C',str(WS),'commit','-m','owned fixture'],check=True,capture_output=True)
 SESSION=str(uuid.uuid4()); IDENTITY='claude:'+SESSION
 TOKEN=uuid.uuid4().hex+uuid.uuid4().hex
 HOME=RUN/'home';HOME.mkdir()

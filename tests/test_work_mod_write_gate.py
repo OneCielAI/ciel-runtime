@@ -100,6 +100,24 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn("와키 미결 아이템", result["text"])
         self.assertIn("기존 블록 유지", result["text"])
 
+    def test_parent_restart_rebinds_durable_worker_without_marking_it_idle(self):
+        result = self.run_scenario("parallel-restart-rebind")
+        self.assertEqual(result["result"], "allow", result)
+        self.assertEqual(result["event"]["event"], "reconcile")
+        self.assertEqual(result["event"]["_host"]["state"], "unknown")
+
+    def test_restart_recovery_resumes_same_worker_and_blocks_duplicates(self):
+        result = self.run_scenario("parallel-recovery-context")
+        self.assertIn('SendMessage({ to: \\"agent-old\\"', result["context"])
+        self.assertNotIn("Work recovery", result["live"])
+        self.assertTrue(result["duplicate"].startswith("deny: Work item n2 already has lease L1"), result)
+
+    def test_terminal_worker_starts_independent_readonly_review(self):
+        result = self.run_scenario("parallel-auto-review")
+        self.assertTrue(result["released"])
+        self.assertEqual(result["spawned"]["subagentType"], "fork")
+        self.assertIn("independent read-only reviewer", result["spawned"]["prompt"])
+
     def test_stop_after_session_end_does_not_continue(self):
         self.assertFalse(self.run_scenario("stop-session-end")["block"])
 

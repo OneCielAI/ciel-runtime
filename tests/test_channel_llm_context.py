@@ -16,6 +16,23 @@ from ciel_runtime_support.channel_llm_context import (
 
 
 class ChannelLlmContextTests(unittest.TestCase):
+    def test_safeguard_is_only_called_for_pending_injection(self):
+        body = {"messages": []}
+        check = Mock(return_value="injection_compact_pending")
+        services = dataclasses.replace(self.services([]), injection_pause_reason=check)
+        self.assertIs(body, inject_pending_channel_context(body, services))
+        check.assert_not_called()
+        services = dataclasses.replace(self.services([
+            {"id": 12, "message": "preserved", "meta": {"input_transport": "router"}}
+        ], wake=True), injection_pause_reason=check)
+        with self.assertRaises(ChannelLlmInjectionDeferred):
+            inject_pending_channel_context(body, services)
+        self.assertEqual([], self.committed)
+        check.assert_called_once_with(body)
+        check.return_value = ""
+        out = inject_pending_channel_context(body, services)
+        self.assertEqual("channel:preserved", out["messages"][-1]["content"][0]["text"])
+
     def test_internal_metadata_projection_preserves_public_values(self):
         body = {
             "metadata": {

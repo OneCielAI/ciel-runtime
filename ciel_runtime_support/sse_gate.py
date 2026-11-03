@@ -6,7 +6,7 @@ from typing import Any, Mapping
 SSE_GATE_KEY = "sse_gate_enabled"
 SSE_GATE_MARKER = "CIEL_RUNTIME_SSE_GATE"
 SSE_GATE_COMMAND = """---
-description: Control SSE compact admission gate and show its state
+description: Show SSE identity guards; legacy compact gate removed
 argument-hint: [on|off|status]
 ---
 
@@ -14,9 +14,9 @@ CIEL_RUNTIME_SSE_GATE
 
 Arguments: $ARGUMENTS
 
-Handle locally, never forward upstream. On enables compact admission (default).
-Off bypasses compact recovery admission only. Identity, handoff and uncertain
-submission protections remain active. No arguments shows status.
+Handle locally, never forward upstream. The pre-compact lifecycle gate is removed.
+Legacy on/off values do not enable a compact hold. Before pending SSE injection,
+measured context >=90% requests one compact. Identity and delivery guards remain.
 """
 
 
@@ -52,6 +52,7 @@ def command(value: str, load, save, status) -> list[str]:
         "bypassed": "External-message injection: compact hold bypassed; other delivery checks still apply.",
     }.get(effective, "External-message injection: UNKNOWN; no release is confirmed.")
     return [f"SSE gate {mode}; {effective} ({reason}).",
+            "Legacy pre-compact gate removed. Pending injection at measured context >=90% compacts once; boundary or bounded failure releases it.",
             "On/off controls the compact guard policy, not whether SSE reception is enabled.",
             admission,
             "Off bypasses compact recovery admission only. Identity, handoff, unreadable state, "

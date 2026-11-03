@@ -11,18 +11,25 @@ class SafeguardTests(BindingHarness):
                 'message': {'id': str(time.time_ns()), 'model': 'ASTRA', 'usage': {
                     'input_tokens': tokens, 'cache_read_input_tokens': 0, 'cache_creation_input_tokens': 0}}})
             self.binding.safeguard_checked = 0
+        usage(17999)
+        self.assertFalse(self.binding.before_external_injection())
+        self.assertIsNone(self.requests.read())
         usage(18000)
+        # Polling never queues compact; the actual pending-input boundary does.
         self.assertFalse(self.binding.external_admission_paused())
         self.assertIsNone(self.requests.read())
-        usage(18001)
-        self.assertFalse(self.binding.external_admission_paused())
+        self.assertTrue(self.binding.before_external_injection())
         request = self.requests.read()
         self.assertEqual(20000, self.state()['context_limit'])
         self.assertTrue(self.binding.command_ready(request))
         self.assertEqual('model-compact-safeguard', self.state()['dispatch']['source'])
         self.binding.command_failed(request, 'failed')
-        self.assertTrue(self.binding.external_admission_paused())
+        self.assertFalse(self.binding.external_admission_paused())
+        self.assertFalse(self.binding.before_external_injection())
         self.assertIsNone(self.requests.read())
+        usage(18001)
+        self.assertTrue(self.binding.before_external_injection())
+        self.assertIsNotNone(self.requests.read())
 
     def test_invalid_latest_checkpoint_alias_and_partial(self):
         from ciel_runtime_support.native_model_usage import latest_native_model_usage
@@ -99,7 +106,7 @@ class SafeguardTests(BindingHarness):
             self.binding.config = lambda: (provider, {'current_model': 'ASTRA', 'compact_safeguard': enabled})
             self.context_limit = limit
             self.binding.safeguard_checked = 0
-            self.assertFalse(self.binding.external_admission_paused())
+            self.assertFalse(self.binding.before_external_injection())
             self.assertIsNone(self.requests.read())
 
     def test_safeguard_dispatch_waits_for_real_tool_and_turn_boundary(self):
@@ -166,6 +173,7 @@ class SafeguardTests(BindingHarness):
         self.binding.observe_native_model(scope, 'ciel-runtime-cielairouter-_walkie_opus55-sol61-fast[1m]', 'claude-opus-5-5')
         self.binding.safeguard_checked = 0
         self.assertFalse(self.binding.external_admission_paused())
+        self.assertTrue(self.binding.before_external_injection())
         request = self.requests.read()
         self.assertIsNotNone(request)
         self.assertEqual(18500, self.state()['baseline_tokens'])
@@ -198,3 +206,104 @@ class SafeguardTests(BindingHarness):
             'message': {'id': 'late-old', 'model': 'ASTRA', 'usage': {'input_tokens': 19000,
                 'cache_read_input_tokens': 0, 'cache_creation_input_tokens': 0}}})
         self.assertIsNone(latest_native_model_usage(self.path, scope, since, 'ASTRA'))
+
+    def test_boundary_without_shrink_releases_pending_input(self):
+        from ciel_runtime_support.native_model_usage import NativeModelUsage
+        self.binding.bind('claude', session_id='exact', cwd=self.root)
+        control = self.binding.control
+        sample = NativeModelUsage('boundary-once', 18000)
+        control.observe_proactive(self.binding.scope(), sample, 20000, 'astra')
+        self.assertTrue(control.injection_compact_pending())
+        request = self.requests.read()
+        self.assertTrue(control.command_ready(request))
+        control.command_submitted(request)
+        self.write({'type': 'system', 'subtype': 'compact_boundary', 'sessionId': 'exact',
+                    'timestamp': stamp(time.time() + 1), 'uuid': 'no-shrink-count',
+                    'compactMetadata': {'trigger': 'manual'}})
+        self.assertFalse(control.injection_compact_pending())
+        self.assertEqual('injection_compact_boundary_observed', self.state()['failure'])
+        self.assertNotEqual('verified', self.state()['phase'])
+        control.observe_proactive(self.binding.scope(), sample, 20000, 'astra')
+        self.assertFalse(control.injection_compact_pending())
+        self.assertIsNone(self.requests.read())
+
+    def test_timeout_without_dispatch_releases_and_does_not_retry_same_sample(self):
+        from unittest.mock import patch
+        from ciel_runtime_support.native_model_usage import NativeModelUsage
+        self.binding.bind('claude', session_id='exact', cwd=self.root)
+        control = self.binding.control
+        sample = NativeModelUsage('timeout-once', 18000)
+        control.observe_proactive(self.binding.scope(), sample, 20000, 'astra')
+        self.assertTrue(control.injection_compact_pending())
+        deadline = self.state()['injection_deadline']
+        with patch('ciel_runtime_support.runtime_compaction_control.time.time', return_value=deadline + 1):
+            # ports.now is captured at construction, so replace it explicitly.
+            import dataclasses
+            control.ports = dataclasses.replace(control.ports, now=lambda: deadline + 1)
+            self.assertFalse(control.injection_compact_pending())
+            control.observe_proactive(self.binding.scope(), sample, 20000, 'astra')
+            self.assertFalse(control.injection_compact_pending())
+        self.assertEqual('injection_compact_unconfirmed', self.state()['failure'])
+        self.assertIsNone(self.requests.read())
+
+    def test_pending_sse_compact_pipe_boundary_then_deliver_once(self):
+        import dataclasses
+        import os
+        from test_channel_pending_injection import _InjectionHarness, _message
+        from ciel_runtime_support.channel_pending_injection import inject_pending_channel_messages
+        from ciel_runtime_support.channel_compact_injection import (
+            ChannelCompactInjectionService, ChannelCompactRequestPorts, ChannelCompactRuntimePorts)
+        self.provider = 'cielairouter'
+        self.binding.config = lambda: (self.provider, {'current_model': 'ASTRA'})
+        self.binding.bind('claude', session_id='exact', cwd=self.root)
+        self.write({'type': 'assistant', 'sessionId': 'exact', 'timestamp': stamp(time.time()),
+            'message': {'id': 'integration-high', 'model': 'ASTRA', 'usage': {
+                'input_tokens': 18000, 'cache_read_input_tokens': 0, 'cache_creation_input_tokens': 0}}})
+        harness = _InjectionHarness([_message(1)])
+        services = harness.services()
+        services = dataclasses.replace(services, io=dataclasses.replace(services.io,
+            before_external_injection=self.binding.before_external_injection))
+        self.assertEqual(0, inject_pending_channel_messages(None, 0, services=services))
+        self.assertEqual([], harness.written)
+        read_fd, write_fd = os.pipe()
+        self.addCleanup(os.close, read_fd)
+        self.addCleanup(os.close, write_fd)
+        def write_prompt(_writer, command, enter, **_):
+            os.write(write_fd, command.encode() + enter)
+            return True
+        compact = ChannelCompactInjectionService(
+            ChannelCompactRequestPorts(self.requests.read, self.requests.clear),
+            ChannelCompactRuntimePorts(lambda: False, lambda: False,
+                lambda value: value or bytes([13]), write_prompt, repr), self.log)
+        self.assertEqual('injected', compact.inject(None, runtime='claude', control=self.binding))
+        self.assertEqual(b'/compact' + bytes([13]), os.read(read_fd, 100))
+        self.assertEqual(0, inject_pending_channel_messages(None, 0, services=services))
+        self.assertEqual([], harness.written)
+        self.write({'type': 'system', 'subtype': 'compact_boundary', 'sessionId': 'exact',
+            'timestamp': stamp(time.time() + 1), 'uuid': 'integration-boundary',
+            'compactMetadata': {'trigger': 'manual'}})
+        cursor = inject_pending_channel_messages(None, 0, services=services)
+        self.assertEqual(1, cursor)
+        self.assertEqual(['body-1'], harness.written)
+        inject_pending_channel_messages(None, cursor, services=services)
+        self.assertEqual(['body-1'], harness.written)
+        self.assertEqual('none', compact.inject(None, runtime='claude', control=self.binding))
+        print('n89 pipe_command=/compact+CR boundary_without_postTokens=observed sse_body=body-1 deliveries=1 cursor=1')
+
+    def test_provider_overflow_converts_injection_wait_to_ungated_recovery(self):
+        from ciel_runtime_support.native_model_usage import NativeModelUsage
+        self.binding.bind('claude', session_id='exact', cwd=self.root)
+        self.binding.observe_request('other', {}, {'tokens': 100}, 'claude')
+        control = self.binding.control
+        control.observe_proactive(self.binding.scope(), NativeModelUsage('before-overflow', 18000), 20000, 'astra')
+        self.assertTrue(control.injection_compact_pending())
+        self.binding.observe_failure('other', {}, {'tokens': 15000},
+                                     'prompt is too long: 21000 tokens > 20000 maximum', 'claude')
+        self.assertTrue(self.state()['pressure'])
+        self.assertNotIn('injection_compact', self.state())
+        self.assertFalse(control.injection_compact_pending())
+        self.assertFalse(self.binding.external_admission_paused())
+        request = self.requests.read()
+        self.assertTrue(control.command_ready(request))
+        control.command_failed(request, 'command_not_submitted')
+        self.assertEqual('retry_wait', self.state()['phase'])

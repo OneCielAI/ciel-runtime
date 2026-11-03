@@ -1,0 +1,24 @@
+{
+  "label": "below90",
+  "status": "no_compact",
+  "fixture": {
+    "alias": "owned-route-alias",
+    "native_model": "claude-opus-5-5",
+    "window": 200000,
+    "high_tokens": 165000
+  },
+  "timeline": {
+    "sse_submitted_at": 1793718581.125,
+    "sse_model_request_at": 1793718581.3976114,
+    "sse_wait_seconds": 0.273,
+    "native_compact_requests": [],
+    "boundary_persisted_at": [],
+    "boundary_triggers": [],
+    "router_compact_injected": 0,
+    "router_compact_queued": 0,
+    "proactive_usage_observed": 0,
+    "sse_injected_log": 1,
+    "admission_released_at": null,
+    "injection_boundary_observed": null
+  }
+}

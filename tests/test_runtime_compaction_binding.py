@@ -189,12 +189,12 @@ class ObservationTests(BindingHarness):
         self.assertTrue(self.binding.external_admission_paused())
         self.assertEqual("state_unavailable", self.binding.admission_reason())
 
-    def test_raw_pressure_queues_once_and_router_append_stays_paused(self):
+    def test_raw_pressure_queues_once_without_gating_router_append(self):
         self.binding.observe_failure("other", {}, {"tokens": 15000}, "prompt is too long: 21000 tokens > 20000 maximum", "claude")
         request = self.requests.read()
         self.binding.observe_request("other", {}, {"tokens": 16000}, "claude")
         self.assertEqual(request["id"], self.requests.read()["id"])
-        self.assertEqual("compaction_checkpoint_pending", self.binding.context_pause_reason({}))
+        self.assertEqual("", self.binding.context_pause_reason({}))
         self.assertEqual("native_compaction", self.binding.context_pause_reason({"native": "claude"}))
 
     def test_remote_bridge_and_other_runtime_are_bypassed(self):
@@ -214,35 +214,36 @@ class ObservationTests(BindingHarness):
         self.assertTrue(self.requests.read()["automatic"])
         self.assertTrue(self.state()["pressure"])
 
-    def test_checkpoint_alone_holds_consumers_until_real_shrink(self):
+    def test_recovery_checkpoint_tracks_shrink_without_holding_consumers(self):
         self.binding.observe_failure("other", {}, {"tokens": 15000}, "prompt is too long: 21000 tokens > 20000 maximum", "claude")
         request = self.requests.read()
         self.assertTrue(self.binding.command_ready(request))
         self.binding.command_submitted(request)
         self.requests.clear(request["id"])
-        self.assertTrue(self.binding.external_admission_paused())
+        self.assertFalse(self.binding.external_admission_paused())
         self.checkpoint()
-        # Persisted checkpoint alone must not release external SSE as a probe.
-        self.assertTrue(self.binding.external_admission_paused())
-        self.assertEqual("compaction_shrink_pending", self.binding.context_pause_reason({}))
+        # Recovery evidence remains tracked, but it no longer gates SSE.
+        self.assertFalse(self.binding.external_admission_paused())
+        self.assertEqual("", self.binding.context_pause_reason({}))
+        self.binding.control.external_admission_paused()  # explicitly refresh recovery evidence
         self.assertEqual("awaiting_shrink", self.state()["phase"])
         self.binding.observe_request("other", {}, {"tokens": 900}, "claude")
         self.assertEqual("verified", self.state()["phase"])
         self.assertEqual("", self.binding.context_pause_reason({}))
         self.assertFalse(self.binding.external_admission_paused())
 
-    def test_non_shrinking_probe_closes_consumer_gate_without_fake_success(self):
+    def test_non_shrinking_probe_tracks_failure_without_gating_consumers(self):
         self.binding.observe_failure("other", {}, {"tokens": 15000}, "prompt is too long: 21000 tokens > 20000 maximum", "claude")
         request = self.requests.read()
         self.binding.command_ready(request)
         self.binding.command_submitted(request)
         self.requests.clear(request["id"])
         self.checkpoint()
-        self.assertTrue(self.binding.external_admission_paused())
+        self.assertFalse(self.binding.external_admission_paused())
         self.binding.observe_request("other", {}, {"tokens": 15500}, "claude")
         self.assertEqual("retry_wait", self.state()["phase"])
         self.assertEqual("next_request_not_below_budget", self.state()["failure"])
-        self.assertTrue(self.binding.external_admission_paused())
+        self.assertFalse(self.binding.external_admission_paused())
 
     def test_subagent_and_other_session_cannot_fake_shrink_or_pressure(self):
         main = {"X-Claude-Code-Session-Id": "exact"}
@@ -257,7 +258,7 @@ class ObservationTests(BindingHarness):
         self.binding.command_submitted(request)
         self.requests.clear(request["id"])
         self.checkpoint()
-        self.binding.external_admission_paused()
+        self.binding.control.external_admission_paused()
         self.binding.observe_request("other", {}, {"tokens": 50}, "claude", agent)
         self.assertEqual("awaiting_shrink", self.state()["phase"])
         self.binding.observe_failure("other", {}, {}, "prompt is too long: 21000 tokens > 20000 maximum", "claude", agent)
@@ -296,9 +297,9 @@ class ObservationTests(BindingHarness):
         self.context_limit = 0  # unknown capacity must not strand the cycle
         self.binding.observe_request("anthropic", {}, {"tokens": 15000, "native": "claude"}, "claude")
         self.assertEqual("compacting", self.state()["phase"])
-        self.assertTrue(self.binding.external_admission_paused())
+        self.assertFalse(self.binding.external_admission_paused())
         self.checkpoint()
-        self.assertTrue(self.binding.external_admission_paused())
+        self.assertFalse(self.binding.external_admission_paused())
         self.binding.observe_request("anthropic", {}, {"tokens": 900}, "claude")
         self.assertEqual("verified", self.state()["phase"])
 

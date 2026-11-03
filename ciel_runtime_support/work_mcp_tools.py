@@ -255,7 +255,7 @@ def dispatch_work_tool(
                 raise tree.WorkPlanError("conversation identity is unavailable; no shared Work fallback is allowed")
         scoped = session_work_plan_store(state_dir, identity, log=log)
         store = store or scoped
-        if name.startswith("work_parallel_"):
+        if name.startswith("work_parallel_") or name == "work_discovery_pickup":
             from .work_parallel_mcp import run
             return respond(request_id, run(name, args, store, identity, config, save_config))
         return respond(request_id, _run(name, args, store, approval_ask, auto_continue=work_auto_continue_enabled(config), retention=retention_status(config), config=config))

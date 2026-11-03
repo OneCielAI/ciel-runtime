@@ -7,7 +7,7 @@ from pathlib import Path
 from . import work_plan_tree as tree
 from .work_parallel import WorkParallelStore, WorkParallelError
 
-TOOL_NAMES = ("work_parallel_status", "work_parallel_configure", "work_parallel_run", "work_parallel_event")
+TOOL_NAMES = ("work_parallel_status", "work_parallel_configure", "work_parallel_run", "work_parallel_event", "work_discovery_pickup")
 
 
 def schemas():
@@ -22,8 +22,10 @@ def schemas():
         "cleanup_proof": {"type": "string"},
         "workspace": {"type": "string"}, "remote_ref": {"type": "string"},
         "reviewer_lease_id": {"type": "string"},
+        "source": {"type": "string"}, "scope": {"type": "string"}, "results": {"type": "array", "items": {"type": "object"}},
     }
     descriptions = {
+        "work_discovery_pickup": "Register caller-verified external open search items by priority/latest, with durable dedup and cooldown; never approves execution. Requires source, scope, results. Each result: source,item_id,priority,created_at,title,link,status,scope.",
         "work_parallel_status": "Show Work 병렬 실행 settings, device capacity and this conversation's leases. Read before changing limits.",
         "work_parallel_configure": "On the user's natural-language request, persist Work 병렬 실행 limits, P2-P5 usage thresholds or pause. Pass changes and expected_version from work_parallel_status. Thresholds are fractions 0-1. Does not approve a plan.",
         "work_parallel_run": "Dispatch an approved Work item through the Claude host adapter. P1 requires a fork; all workers use fork. Requires item_id, priority, role and expected_version. Codex is unsupported until its native adapter passes capability tests.",
@@ -46,7 +48,7 @@ def project(store, identity):
             "runtime": "claude" if identity.startswith("claude:") else "codex",
             "codex_adapter": "unsupported",
             "limitations": ["usage requires provider rate-limit observations; unknown blocks P2-P5",
-                            "workspace isolation and automatic review dispatch not yet verified"]}
+                            "external discovery requires a configured authenticated source connector"]}
 
 
 def host_context(args, config):
@@ -88,6 +90,23 @@ def run(name, args, board_store, identity, config, save_config):
             updated["work_parallel"] = d["policy"]
             save_config(updated)
         return json.dumps(project(store, identity), ensure_ascii=False)
+    if name == "work_discovery_pickup":
+        if actor is not None:
+            raise WorkParallelError("coordinator pickup required")
+        from dataclasses import asdict
+        from .work_discovery import discovery_hint
+        from .work_discovery_pickup import ExternalSearchItem, ingest_external_search_results
+        if not discovery_hint(config, tree.snapshot(board_store.read(), approval_ask=False)).get("enabled"):
+            raise WorkParallelError("discovery disabled/paused/focused")
+        raw = args.get("results")
+        if not isinstance(raw, list) or len(raw) > 100:
+            raise WorkParallelError("bounded search results required")
+        try:
+            items = [ExternalSearchItem(**item) for item in raw]
+        except (TypeError, ValueError) as error:
+            raise WorkParallelError("invalid external search result schema") from error
+        return json.dumps(asdict(ingest_external_search_results(board_store, source=args.get("source"),
+                           scope=args.get("scope"), results=items)), ensure_ascii=False)
     if name != "work_parallel_event":
         raise WorkParallelError("dispatch requires packaged host interception")
     event = args.get("event")
@@ -98,7 +117,12 @@ def run(name, args, board_store, identity, config, save_config):
         c = candidate(board, args.get("item_id"), args.get("priority", "P1"), args.get("role", "worker"))
         observed, _ = store.observe_usage(host.get("measured_usage"), expected_version=version)
         d, ident = store.reserve([c], scope=identity, measured_usage=host.get("measured_usage"), expected_version=observed["version"])
-        return json.dumps({"lease_id": ident, "version": d["version"], "plan_version": board["version"]})
+        workspace = None
+        if host.get("workspace_repo"):
+            from .work_parallel_workspace import prepare
+            workspace = prepare(host["workspace_repo"], ident)
+            d, _ = store.attach_workspace(ident, workspace, expected_version=d["version"])
+        return json.dumps({"lease_id": ident, "version": d["version"], "plan_version": board["version"], "workspace": workspace})
     d = store.read()
     lease = d["leases"].get(args.get("lease_id"))
     if not lease or lease["scope"] != identity:
@@ -110,7 +134,8 @@ def run(name, args, board_store, identity, config, save_config):
         if event == "bind" and lease["host_id"] is not None and lease["host_id"] == host.get("host_id"):
             pass  # Idempotent: the same observed native agent was already bound.
         elif event == "bind":
-            d, _ = store.bind(ident, host.get("host_id"), expected_version=version)
+            d, _ = store.bind(ident, host.get("host_id"), expected_version=version,
+                              agent_name=host.get("agent_name"))
         else:
             d, _ = store.reconcile(ident, host_state=host.get("state", "unknown"),
                                    proof=host.get("proof"), expected_version=version)
@@ -150,6 +175,14 @@ def run(name, args, board_store, identity, config, save_config):
         d, _ = store.transition(ident, targets[event], plan_version=args.get("plan_version"),
                                  expected_version=version, artifact=args.get("artifact"),
                                  evidence=evidence, cleanup_proof=cleanup_proof, cleanup_action=cleanup_action)
+    current = d["leases"].get(ident, {})
+    workspace = current.get("workspace")
+    if workspace and event in ("bind", "reconcile"):
+        from .work_parallel_workspace import bind, set_activity
+        if event == "bind":
+            bind(workspace["repo"], ident, current["host_id"])
+        elif host.get("state") == "idle":
+            set_activity(workspace["repo"], ident, current["host_id"], idle=True, proof=current["idle_proof"])
     return json.dumps(project(store, identity), ensure_ascii=False)
 
 
@@ -176,6 +209,16 @@ def _remove_workspace(workspace, lease, host, remote_ref):
     import subprocess
     from .worktree_cleanup import cleanup_worktree
     target = Path(workspace)
+    if lease.get("workspace"):
+        from .work_parallel_workspace import observe, remove
+        binding = lease["workspace"]
+        if target.resolve() != Path(binding["path"]).resolve():
+            raise WorkParallelError("workspace is not owned by this lease")
+        record = observe(binding["repo"], lease["id"])
+        return remove(binding["repo"], lease["id"], host_id=lease["host_id"], active=lease["slot"],
+                      idle_proof=lease["idle_proof"], expected_head=record["head"],
+                      approved_target=host.get("approved_target"),
+                      remote_ref=remote_ref or "refs/heads/" + record["branch"])
     # A model-selected path or root containment alone is not an ownership proof.
     # Until the native adapter supplies an observed workspace binding, retain it.
     observed = host.get("workspace_binding")

@@ -173,6 +173,30 @@ class WorkParallelMCPTests(unittest.TestCase):
         self.tmp_path = Path(temporary.name)
         self.env = _make_env(self.tmp_path)
 
+    def test_managed_workspace_launch_binding_and_idle_evidence(self):
+        store, board, config, run = self.env
+        repo = self.tmp_path / "owned"
+        _git(self.tmp_path, "init", str(repo))
+        _git(repo, "config", "user.name", "fixture")
+        _git(repo, "config", "user.email", "fixture@example.invalid")
+        (repo / "f").write_text("fixture")
+        _git(repo, "add", "f")
+        _git(repo, "commit", "-m", "fixture")
+        from ciel_runtime_support import runtime_paths
+        from ciel_runtime_support.work_parallel_workspace import observe
+        with patch.object(runtime_paths, "CONFIG_DIR", self.tmp_path / "cfg"):
+            run("configure", {}, changes={"enabled": True})
+            reserved = run("event", {"fork": True, "workspace_repo": str(repo)},
+                           event="reserve", item_id="n1", priority="P1")
+            ident = reserved["lease_id"]
+            self.assertTrue(Path(reserved["workspace"]["path"]).is_dir())
+            run("event", {"host_id": "native-worker", "agent_name": "owned-name"}, event="bind", lease_id=ident)
+            self.assertEqual(store.read()["leases"][ident]["agent_name"], "owned-name")
+            run("event", {"state": "idle", "proof": "native terminal"}, event="reconcile", lease_id=ident)
+            record = observe(repo, ident)
+            self.assertTrue(record["idle"])
+            self.assertEqual(record["host_id"], "native-worker")
+
     def test_auth_and_default_capability(self):
         env = self.env
         s, b, c, run = env

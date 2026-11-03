@@ -289,6 +289,7 @@ class ChannelWakeContext:
                     format_prompt=self.messages.format_batch_prompt,
                 ),
                 log=self.claims.log,
+                injection_pause_reason=getattr(self.pending_io.compaction, "injection_pause_reason", lambda _body: ""),
                 pause_reason=(self.pending_io.compaction.context_pause_reason
                               if self.pending_io.compaction else lambda _body: ""),
             ),
@@ -659,6 +660,7 @@ class ChannelWakeContext:
                 log=self.pending_io.log,
                 write_session_socket=self.pending_io.write_session_socket,
                 session_socket_available=self.pending_io.session_socket_available,
+                before_external_injection=getattr(self.pending_io.compaction, "before_external_injection", lambda: False),
                 external_admission_paused=(self.pending_io.compaction.external_admission_paused
                                            if self.pending_io.compaction else lambda: False),
                 external_admission_reason=(getattr(self.pending_io.compaction, "admission_reason", lambda: "context_recovery")

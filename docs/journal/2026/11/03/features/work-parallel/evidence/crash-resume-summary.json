@@ -1,0 +1,66 @@
+{
+  "passed_runs": [
+    {
+      "run": "crash-resume-2a8d270b",
+      "checks": {
+        "child_in_flight_before_kill": true,
+        "bound_before_kill": true,
+        "recovery_instruction_to_resumed_parent": true,
+        "same_worker_reported": true,
+        "single_lease_no_duplicate": true,
+        "submitted_after_resume": true,
+        "phase2_exit_zero": true
+      }
+    },
+    {
+      "run": "crash-resume-5b2ea208",
+      "checks": {
+        "child_in_flight_before_kill": true,
+        "bound_before_kill": true,
+        "recovery_instruction_to_resumed_parent": true,
+        "same_worker_reported": true,
+        "single_lease_no_duplicate": true,
+        "submitted_after_resume": true,
+        "phase2_exit_zero": true
+      }
+    },
+    {
+      "run": "crash-resume-9ddd349b",
+      "checks": {
+        "child_in_flight_before_kill": true,
+        "bound_before_kill": true,
+        "recovery_instruction_to_resumed_parent": true,
+        "same_worker_reported": true,
+        "single_lease_no_duplicate": true,
+        "submitted_after_resume": true,
+        "phase2_exit_zero": true
+      }
+    },
+    {
+      "run": "crash-resume-ad2a0e78",
+      "checks": {
+        "child_in_flight_before_kill": true,
+        "bound_before_kill": true,
+        "recovery_instruction_to_resumed_parent": true,
+        "same_worker_reported": true,
+        "single_lease_no_duplicate": true,
+        "submitted_after_resume": true,
+        "phase2_exit_zero": true
+      }
+    },
+    {
+      "run": "crash-resume-dbc5991d",
+      "checks": {
+        "child_in_flight_before_kill": true,
+        "bound_before_kill": true,
+        "recovery_instruction_to_resumed_parent": true,
+        "same_worker_reported": true,
+        "single_lease_no_duplicate": true,
+        "submitted_after_resume": true,
+        "phase2_exit_zero": true
+      }
+    }
+  ],
+  "mode": "actual native CLI forced kill and same-parent --resume, loopback model",
+  "production_processes_touched": false
+}

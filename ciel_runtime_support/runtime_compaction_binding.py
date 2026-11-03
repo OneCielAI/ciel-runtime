@@ -561,7 +561,7 @@ class RuntimeCompactionBinding:
         self.control.observe_request(body, overflow.message_tokens, limit, scope=scope, recovery_required=True)
 
     def _admission_paused(self) -> bool:
-        """Strict gate for router-side append: paused until shrink is verified."""
+        """Identity/scope admission only; compact lifecycle is not an SSE gate."""
 
         try:
             scope = self.scope()
@@ -570,13 +570,15 @@ class RuntimeCompactionBinding:
             value = self._update("")
             if value.get("handoff_pending") or self._request_identity_pending(value):
                 return True
+            admission = self._admission_state()
+            if admission is None or admission.get("unresolved_scope") is True:
+                return True
             if self.seeded != f"{scope.epoch}:{scope.session_id}":
                 self._seed(scope)
-            self._observe_safeguard(scope)
         except (OSError, ValueError, TypeError) as exc:
             self.log("WARN", f"runtime_compaction_scope admission=paused reason=state_unavailable error={type(exc).__name__}")
             return True
-        return self.control.external_admission_paused()
+        return False
 
     def _observe_safeguard(self, scope, force=False):
         now = time.monotonic()
@@ -662,14 +664,27 @@ class RuntimeCompactionBinding:
         return held
 
     def external_admission_paused(self) -> bool:
-        """Gate active compact recovery, with distinct success and failure release.
-
-        A checkpoint plus real shrink verifies success. Terminal failure or
-        confirmation expiry releases only the compact gate, retaining failed
-        status; new external input may trigger the native client's compact.
-        Unproven launch identity and unreadable state remain separate holds.
-        """
+        """Keep identity guards, never hold SSE on an unrelated compact cycle."""
         return self.gate_status()["paused"]
+
+    def before_external_injection(self) -> bool:
+        """Return True while a pending input's one-shot compact is unfinished.
+
+        Only actual injection boundaries call this, never backlog/status polls.
+        The queued native command is consumed by the existing TTY/app-server
+        command transport; a session-socket user message is not a slash command.
+        """
+        if self.external_admission_paused():
+            return True
+        scope = self.scope()
+        if scope is None:
+            return False
+        self._observe_safeguard(scope, force=True)
+        return self.control.injection_compact_pending()
+
+    def injection_compact_pending(self) -> bool:
+        """Allow the native compact command across an older wake, not SSE itself."""
+        return self.control.injection_compact_pending()
 
     def gate_status(self) -> dict[str, Any]:
         from .sse_gate import enabled
@@ -735,7 +750,7 @@ class RuntimeCompactionBinding:
                 return "native_handoff_pending"
             if self.scope() is None or self._request_identity_pending(value):
                 return "identity_pending"
-            return self.control.admission_reason() or "context_recovery"
+            return "state_unavailable"
         except (OSError, ValueError, TypeError):
             return "state_unavailable"
 
@@ -743,6 +758,13 @@ class RuntimeCompactionBinding:
         if self._compact_kind(body):
             return "native_compaction"
         return self.admission_reason()
+
+    def injection_pause_reason(self, body: dict[str, Any]) -> str:
+        if self._compact_kind(body):
+            return "native_compaction"
+        if self.before_external_injection():
+            return self.admission_reason() or "injection_compact_pending"
+        return ""
 
     def recovery_status(self) -> dict[str, Any]:
         try:
@@ -781,7 +803,8 @@ class RuntimeCompactionBinding:
         return {**dispatch, "verified_at": state.get("verified_at")}
 
     def command_ready(self, request: dict[str, Any]) -> bool:
-        if request.get('automatic') is True:
+        state = self._admission_state() or {}
+        if request.get('automatic') is True and state.get('proactive'):
             scope = self.scope()
             if scope is not None:
                 self._observe_safeguard(scope, force=True)

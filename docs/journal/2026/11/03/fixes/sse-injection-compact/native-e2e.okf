@@ -1,0 +1,22 @@
+---
+type: verification-journal
+title: Native Claude CLI E2E for compact-before-SSE injection (n89)
+status: verified-owned-e2e
+date: 2026-11-03
+---
+
+# Scope
+Owned real Claude Code 2.1.317 through worktree ciel_runtime.py, loopback CielAiRouter fixture, scratch HOME/config under C:/Windows/Temp, inherited CIEL_RUNTIME_* removed. No implementation file edited; live routers not touched.
+
+# Harness
+evidence/native_sse_e2e.py, derived from docs/journal/2026/10/26/diagnostics/compact-retry/evidence/repro/compact_retry_e2e.py. SSE is submitted through the owned router's /ca/mcp submit_input with input_transport=session_socket.
+
+# Verified runs
+- evidence/run-high90-090903: input usage 180000/200000. One proactive_usage_observed, one /compact queued and typed, one native source=compact request, compact_boundary trigger=manual persisted 09:09:32.73, admission released 09:09:34.50, SSE model request 09:09:34.90 (6.8 s after submit). Status compact_dispatched_once.
+- evidence/run-below90-090915: input usage 165000/200000. No proactive observation, no compact request, no boundary; SSE reached the model 0.27 s after submit. Status no_compact.
+
+# Invalid runs (kept, prefixed invalid-)
+Fixture defects, not product results: safeguard disabled at launch; later turns reported 100 tokens so latest usage was below 90; compact reply without a <summary> block caused native retry. The 179999-token below run also hit Claude Code's own autocompact threshold (trigger=auto), so it is not a router result.
+
+# Limitations
+Admission ends via compact_failed_admission_released (reason injection_compact_boundary_observed) followed by verified; release name says failed although the boundary was observed. Native log also shows Claude Code's own reactive autocompact attempt bailing before /compact. Only the Claude session_socket transport was exercised; Codex/TTY transports were not.

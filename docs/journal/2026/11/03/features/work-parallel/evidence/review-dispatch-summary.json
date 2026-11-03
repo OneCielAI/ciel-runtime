@@ -1,0 +1,13 @@
+{
+  "checks": {
+    "default_off": true,
+    "configure": true,
+    "reserve": true,
+    "bind": true,
+    "child_result": true,
+    "automatic_reviewer": true
+  },
+  "errors": [],
+  "fixture": "native installed CLI, owned repo and loopback model",
+  "run": "parallel-e2e-66fb183e"
+}

@@ -857,7 +857,8 @@ class CodexAppServerChannelInjector:
     def _submit(self, message_id: int, prompt: str, message: dict[str, Any] | None = None) -> bool:
         if not self._delivery_ready():
             return False
-        if self._ports.compaction and self._ports.compaction.external_admission_paused():
+        if self._ports.compaction and (self._ports.compaction.external_admission_paused()
+                or getattr(self._ports.compaction, "before_external_injection", lambda: False)()):
             return False
         client = self.client
         if client is None or not self.thread_id:

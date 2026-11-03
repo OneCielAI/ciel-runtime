@@ -5,7 +5,7 @@ const detailView = atom({ plugin: 'ciel-work', key: 'detail' }, null)
 const panelView = atom({ plugin: 'ciel-work', key: 'panel' }, null)
 const PANE = 'work-details'
 const PREFIX = 'mcp__ciel-runtime-router__'
-const WORK = new Set(['work_parallel_status', 'work_parallel_configure', 'work_parallel_run', 'work_parallel_event', 'work_status', 'work_plan_set', 'work_node_add', 'work_node_update',
+const WORK = new Set(['work_discovery_pickup', 'work_parallel_status', 'work_parallel_configure', 'work_parallel_run', 'work_parallel_event', 'work_status', 'work_plan_set', 'work_node_add', 'work_node_update',
   'work_node_remove', 'work_select', 'work_execute', 'work_replan', 'work_reorder', 'work_urgent', 'work_focus',
   'work_mode_set'])
 const WRITES = new Set(['Edit', 'Write', 'NotebookEdit', 'apply_patch'])
@@ -573,9 +573,10 @@ async function workToolCheck($, e, next) {
 }
 
 // Native compiler requires $ to stay in direct module-local calls.
-const parallelTerminal = new Set(['completed', 'failed', 'killed'])
+const parallelTerminal = new Set(['idle', 'completed', 'failed', 'killed'])
 const parallelPending = new Map()
 const parallelBound = new Map()
+const parallelResuming = new Set()
 async function parallelCall($, name, args = {}, observed = {}, scope = null) {
   const token = await $.env.get('CIEL_RUNTIME_WORK_PARALLEL_HOST_TOKEN')
   const r = await $.mcp.call('ciel-runtime-router', name, {
@@ -593,7 +594,18 @@ async function parallelEvent($, args, observed = {}) {
 }
 async function parallelToolCall($, e, next) {
   const name = e.tool.startsWith(PREFIX) ? e.tool.slice(PREFIX.length) : ''
-  if (next.origin?.plugin === 'ciel-work' && name.startsWith('work_parallel_')) return next(e)
+  if (e.tool === 'SendMessage' && e.agentId === undefined && next.origin?.plugin === 'engine') {
+    const state = await parallelCall($, 'work_parallel_status')
+    const lease = Object.values(state.leases).find(r => r.host_id === (e.to || e.recipient) && r.state !== 'done')
+    if (lease) {
+      if (state.policy.paused) return { deny: 'Work parallel is paused; its workers cannot resume.' }
+      const board = await readSnapshot($, await sessionId($))
+      if (!board || board.phase !== 'executing') return { deny: 'Work approval must be restored before resuming workers.' }
+      parallelResuming.add(lease.id)
+      try { return await next(e) } finally { parallelResuming.delete(lease.id) }
+    }
+  }
+  if (next.origin?.plugin === 'ciel-work' && (name.startsWith('work_parallel_') || name === 'work_discovery_pickup')) return next(e)
   if (name === 'work_node_update' && e.status === 'done') {
     try {
       const s = await parallelCall($, 'work_parallel_status')
@@ -605,13 +617,18 @@ async function parallelToolCall($, e, next) {
     } catch (error) { return { deny: 'Parallel completion check unavailable.' } }
     return workToolCall($, e, next) // Preserve the existing Work gate and native permissions.
   }
-  if (!['work_parallel_run', 'work_parallel_event', 'work_parallel_configure'].includes(name)) return workToolCall($, e, next)
+  if (!['work_parallel_run', 'work_parallel_event', 'work_parallel_configure', 'work_discovery_pickup'].includes(name)) return workToolCall($, e, next)
   // A direct MCP call by the mod is authenticated in call(); model flags are discarded.
   const { _host, session_id, tool, tool_use_id, agentId, ...args } = e
   try {
     if (name === 'work_parallel_run') {
       if (e.agentId !== undefined) return { deny: 'Workers cannot dispatch Work agents.' }
       if (!await $.env.get('CIEL_RUNTIME_WORK_PARALLEL_HOST_TOKEN')) return { deny: 'Parallel host capability is not provisioned.' }
+      const current = await parallelCall($, 'work_parallel_status')
+      const open = Object.values(current.leases).find(r => r.item_id === args.item_id
+        && r.role === (args.role || 'worker') && r.state !== 'done')
+      if (open?.host_id) return { deny: 'Work item ' + args.item_id + ' already has lease ' + open.id
+        + '; resume its worker with SendMessage to ' + open.host_id + ' instead of dispatching another Agent.' }
       const key = 'work-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2)
       parallelPending.set(key, { ...args, scope: await sessionId($) })
       return { result: JSON.stringify({ dispatch: 'native_agent_required',
@@ -627,7 +644,7 @@ async function parallelToolCall($, e, next) {
       const request = row?.name ? parallelPending.get(row.name)
         : [...parallelPending.values()].find(r => r.lease_id === args.lease_id && !r.host_id)
       if (row && request?.lease_id && request.scope === await sessionId($)) {
-        await parallelEvent($, { event: 'bind', lease_id: request.lease_id }, { host_id: e.agentId })
+        await parallelEvent($, { event: 'bind', lease_id: request.lease_id }, { host_id: e.agentId, agent_name: row.name })
         request.host_id = e.agentId
         parallelBound.set(e.agentId, { lease_id: request.lease_id, scope: request.scope, role: request.role || 'worker' })
       }
@@ -659,22 +676,33 @@ async function parallelAgentSpawn($, e, next) {
     const s = await parallelCall($, 'work_parallel_status')
     if (!s.policy.enabled) return next(e)
     const request = parallelPending.get(e.name)
+    const resumed = request ? null : Object.values(s.leases).find(r => r.agent_name && r.agent_name === e.name
+      && r.slot && r.host_id && ['running', 'waiting_input'].includes(r.state))
+    if (resumed && parallelResuming.has(resumed.id) && !s.policy.paused && e.fork === true && e.subagentType === 'fork' && e.parentAgentId === undefined
+        && next.origin?.plugin === 'engine') {
+      // Same lease, same worker: no new reservation, so the item cannot run twice.
+      const started = await next(e)
+      if (started?.agentId) parallelBound.set(started.agentId, { lease_id: resumed.id, scope: await sessionId($), role: resumed.role })
+      return started
+    }
     if (!request || request.scope !== await sessionId($) || e.parentAgentId !== undefined
-        || e.fork !== true || e.subagentType !== 'fork' || next.origin?.plugin !== 'engine') {
+        || e.fork !== true || e.subagentType !== 'fork' || !['engine', 'ciel-work'].includes(next.origin?.plugin)) {
       return { deny: 'Enabled Work parallel dispatch requires work_parallel_run and a verified native fork.' }
     }
     const { scope, ...args } = request
     let measuredUsage
     try { const usage = await $.session.usage(); const limits = usage.rateLimits || [];
       if (limits.length) measuredUsage = Math.max(...limits.map(r => r.percentUsed / 100)) } catch {}
-    const r = await parallelEvent($, { ...args, event: 'reserve' }, { fork: e.fork, measured_usage: measuredUsage })
+    const repo = await $.session.repo()
+    const r = await parallelEvent($, { ...args, event: 'reserve' }, { fork: e.fork, measured_usage: measuredUsage,
+      workspace_repo: repo ? await $.session.root() : undefined })
     Object.assign(request, r)
     const dispatch = { ...e, prompt: e.prompt + '\nExecution lease: ' + r.lease_id
       + '; plan_version: ' + r.plan_version + '. Read work_parallel_status for your binding.' }
     // Reservation precedes native launch. Failures/uncertainty retain capacity.
     const started = await next(dispatch)
     if (started?.agentId && !request.host_id) {
-      await parallelEvent($, { event: 'bind', lease_id: request.lease_id }, { host_id: started.agentId })
+      await parallelEvent($, { event: 'bind', lease_id: request.lease_id }, { host_id: started.agentId, agent_name: e.name })
       request.host_id = started.agentId
       parallelPending.delete(e.name)
       parallelBound.set(started.agentId, { lease_id: request.lease_id, scope, role: request.role || 'worker' })
@@ -690,10 +718,40 @@ async function parallelToolCheck($, e, next) {
   }
   return workToolCheck($, e, next)
 }
+async function parallelHydrate($) {
+  const scope = await sessionId($)
+  const state = await parallelCall($, 'work_parallel_status')
+  for (const lease of Object.values(state.leases)) {
+    if (lease.state === 'done' || !lease.host_id) continue
+    parallelBound.set(lease.host_id, { lease_id: lease.id, scope, role: lease.role })
+  }
+  // An absent native row is not proof of death; durable slots remain occupied.
+  return state
+}
+const parallelReviewStarting = new Set()
+async function parallelStartReview($) {
+  const state = await parallelCall($, 'work_parallel_status')
+  if (!state.policy.enabled || state.policy.paused) return
+  for (const lease of Object.values(state.leases)) {
+    if (lease.role !== 'worker' || lease.state !== 'submitted' || lease.slot || parallelReviewStarting.has(lease.id)) continue
+    if (Object.values(state.leases).some(r => r.item_id === lease.item_id && r.role === 'reviewer' && r.state !== 'done')) continue
+    parallelReviewStarting.add(lease.id)
+    const key = 'work-review-' + lease.id
+    try {
+      parallelPending.set(key, { item_id: lease.item_id, priority: lease.priority, role: 'reviewer', scope: await sessionId($) })
+      await $.agent.spawn({ subagentType: 'fork', name: key, description: 'Independent Work review',
+        prompt: 'Execute only approved Work item ' + lease.item_id + ' as an independent read-only reviewer. '
+          + 'Review worker artifact SHA256 ' + lease.artifact + ' and evidence: ' + lease.evidence
+          + '. Worker workspace: ' + (lease.workspace?.path || 'shared workspace')
+          + '. Do not edit files or accept results. Report findings and your report artifact SHA256 through work_parallel_event result using your own reviewer lease.' })
+    } finally { parallelReviewStarting.delete(lease.id) }
+    break
+  }
+}
 async function parallelTurnComplete($, e, next) {
   const result = await workTurnComplete($, e, next)
   // A turn ending is NOT positive idle evidence. Only terminal host task rows
-  // release slots, and only after review/acceptance (core requires an active slot).
+  // release slots after a submitted result; coordinator validation consumes no worker slot.
   try {
     const scope = await sessionId($)
     const s = await parallelCall($, 'work_parallel_status')
@@ -702,16 +760,35 @@ async function parallelTurnComplete($, e, next) {
       if (binding.scope !== scope) continue
       const lease = s.leases[binding.lease_id]
       const row = agents.find(a => a.id === id)
-      const idle = row && parallelTerminal.has(row.status) && ['accepted', 'cleanup_pending'].includes(lease?.state)
+      const idle = row && parallelTerminal.has(row.status) && ['submitted', 'verifying', 'reviewing', 'accepted', 'cleanup_pending'].includes(lease?.state)
       await parallelEvent($, { event: 'reconcile', lease_id: binding.lease_id },
         { state: idle ? 'idle' : row?.status === 'running' ? 'running' : 'unknown',
-          proof: idle ? 'Native agent.list terminal status: ' + row.status : undefined })
+          proof: row ? 'Native agent.list status: ' + row.status : 'Native agent.list row absent' })
     }
-  } catch { /* Unknown observations retain their slot, never guess completion. */ }
+    await parallelStartReview($)
+  } catch (error) { $.ui.log('Work reconciliation: ' + String(error.message || error)) }
   return result
 }
+// After a parent restart the engine resumes a subagent only through SendMessage by its
+// agent ID. A live row is never resumed twice.
+async function parallelRecovery($) {
+  const s = await parallelCall($, 'work_parallel_status')
+  const rows = await $.agent.list()
+  const lines = []
+  for (const lease of Object.values(s.leases)) {
+    if (!lease.slot || !lease.host_id || lease.state !== 'running') continue
+    const row = rows.find(a => a.id === lease.host_id)
+    if (row && ['pending', 'running'].includes(row.status)) continue
+    lines.push('Work recovery: lease ' + lease.id + ' for item ' + lease.item_id + ' was interrupted. Resume the same worker with '
+      + 'SendMessage({ to: "' + lease.host_id + '", message: "Work recovery: continue approved Work item ' + lease.item_id
+      + ' under lease ' + lease.id + ', then report through work_parallel_event." }). Do not dispatch a new Agent for this item.')
+  }
+  return lines
+}
 async function parallelPromptSubmit($, e, next) {
-  return workPromptSubmit($, { ...e, context: [...(e.context || []),
+  let recovery = []
+  try { recovery = await parallelRecovery($) } catch { /* Unknown host state keeps slots and adds no instruction. */ }
+  return workPromptSubmit($, { ...e, context: [...(e.context || []), ...recovery,
     'Work parallel: read work_parallel_status. Policy defaults off until native fork E2E checks pass. '
     + 'Configure only on user request; dispatch approved/focused items with work_parallel_run. '
     + 'Submission is not completion: validate, review, accept, observe idle and verify cleanup before done. '
@@ -728,6 +805,7 @@ export function register(on) {
     continuationVersion = null; unchangedContinuations = 0
     stopIdleRefresh(); clearNativePlanPaths(); interactive = e.isInteractive
     const s = await refresh($)
+    try { await parallelHydrate($) } catch { /* Preserve durable leases on unknown host state. */ }
     if (e.isInteractive && s?.enabled) { notice($, ticket); startIdleRefresh($, cachedSession) }
     else if (e.isInteractive && !s) retryStart($, ticket)
     return next(e)

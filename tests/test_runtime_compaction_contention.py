@@ -247,6 +247,8 @@ class FullBindingContentionTests(binding_fixtures.BindingHarness):
                     'message': {'id': 'disable', 'model': 'ASTRA', 'usage': {
                         'input_tokens': 19000, 'cache_read_input_tokens': 0, 'cache_creation_input_tokens': 0}}})
         self.assertFalse(self.binding.external_admission_paused())
+        self.assertIsNone(self.requests.read())
+        self.assertTrue(self.binding.before_external_injection())
         request = self.requests.read()
         self.assertIsNotNone(request)
         config['compact_safeguard'] = False
@@ -269,7 +271,7 @@ class FullBindingContentionTests(binding_fixtures.BindingHarness):
                 raise AssertionError('barrier timed out')
             return proof
         with patch.object(module, 'native_checkpoint_from_transcript', side_effect=slow):
-            thread = threading.Thread(target=lambda: result.append(self.binding.external_admission_paused()))
+            thread = threading.Thread(target=lambda: result.append(self.binding.control.external_admission_paused()))
             thread.start()
             try:
                 self.assertTrue(entered.wait(5))

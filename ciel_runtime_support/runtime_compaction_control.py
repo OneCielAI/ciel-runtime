@@ -390,10 +390,10 @@ class RuntimeCompactionControl:
     def observe_proactive(self, scope, sample, limit, model, *, validate=lambda: True):
         if scope != self.ports.scope():
             return
-        high = bool(sample and limit and sample.tokens * 10 > limit * 9)
+        high = bool(sample and limit and sample.tokens * 10 >= limit * 9)
         def needed(state):
             return bool((state.get('proactive') and state.get('phase') in {'needed', 'queued', 'retry_wait'})
-                        or (high and (not state or state.get('phase') == 'verified')
+                        or (high and (not state or state.get('phase') in {'verified', 'failed_open'})
                             and sample.identity not in (state.get('safeguard_seen') or [])))
         with self._observation(scope, needed, validate) as (state, cp):
             if state is None:
@@ -404,14 +404,15 @@ class RuntimeCompactionControl:
                         or checkpoint != state.get('baseline_checkpoint_id')
                         or sample.identity != state.get('safeguard_sample')):
                     self._cancel_proactive(state, 'proactive_evidence_superseded')
-            if state and state.get('phase') != 'verified':
+            if state and state.get('phase') not in {'verified', 'failed_open'}:
                 return
             seen = list(state.get('safeguard_seen') or [])[-127:]
             if not high or sample.identity in seen:
                 return
             seen.append(sample.identity)
             state = self._start(scope, sample.tokens, limit, pressure=False, checkpoint=cp)
-            state.update({'proactive': True, 'safeguard_model': model,
+            state.update({'proactive': True, 'injection_compact': True,
+                          'injection_deadline': self.ports.now() + 120, 'safeguard_model': model,
                           'safeguard_sample': sample.identity, 'safeguard_seen': seen})
             self._write(state, 'proactive_usage_observed')
             self._refresh(state, scope, cp)
@@ -448,6 +449,17 @@ class RuntimeCompactionControl:
         if not state or state.get("phase") == "verified":
             return
         now = self.ports.now()
+        if state.get("injection_compact") and state.get("phase") not in {"verified", "failed_open"}:
+            if (checkpoint and checkpoint.scope == scope
+                    and checkpoint.identity != state.get("baseline_checkpoint_id")
+                    and checkpoint.persisted_at >= float(state.get("requested_at") or 0)
+                    and checkpoint.persisted_at > float(state.get("native_failure_at") or 0)):
+                state["injection_boundary_observed"] = checkpoint.identity
+                self._fail_open(state, "injection_compact_boundary_observed")
+                return
+            if now >= float(state.get("injection_deadline") or state.get("deadline") or 0):
+                self._fail_open(state, "injection_compact_unconfirmed")
+                return
         if state.get("phase") == "blocked" and state.get("failure") != "state_unavailable":
             # Existing persisted terminal failures obey the same release contract.
             self._fail_open(state, str(state.get("failure") or "compact_blocked"))
@@ -569,7 +581,12 @@ class RuntimeCompactionControl:
                 self._write(state, "admission_paused")
             elif recovery_required and state.get('proactive') and not native:
                 state.pop('proactive', None)
+                # Provider-proven overflow keeps its bounded retry semantics;
+                # pending SSE is no longer held by that recovery lifecycle.
+                state.pop('injection_compact', None)
+                state.pop('injection_deadline', None)
                 state['pressure'] = True
+                self._write(state, 'proactive_converted_to_recovery')
             elif native:
                 state.pop("proactive", None)
                 if state.get("phase") == "queued" and state.get("request_id"):
@@ -669,6 +686,18 @@ class RuntimeCompactionControl:
         state.update({"baseline_checkpoint_id": state.get("checkpoint_id") or "",
                       "checkpoint_id": "", "requested_at": self.ports.now()})
         self._retry(state, reason)
+
+    def injection_compact_pending(self) -> bool:
+        """Bounded one-shot pre-injection wait, not the recovery/shrink gate."""
+        scope = self.ports.scope()
+        if scope is None:
+            return False
+        with self._observation(scope) as (state, checkpoint):
+            if state is None:
+                return False
+            self._refresh(state, scope, checkpoint)
+            return bool(state.get("injection_compact")
+                        and state.get("phase") not in {"verified", "failed_open"})
 
     def external_admission_paused(self) -> bool:
         try:
@@ -806,6 +835,9 @@ class RuntimeCompactionControl:
         self._write(state, "compact_failed_admission_released")
 
     def _retry(self, state: dict[str, Any], reason: str) -> None:
+        if state.get("injection_compact"):
+            self._fail_open(state, reason)
+            return
         if state.get('proactive'):
             self._cancel_proactive(state, reason)
             return

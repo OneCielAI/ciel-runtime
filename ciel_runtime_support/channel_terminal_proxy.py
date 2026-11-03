@@ -547,7 +547,7 @@ def run_windows_channel_terminal_proxy(
         )
         compact_poll_services = ChannelCompactPollServices(
             inject_pending=polling.inject_compact,
-            recovery_pending=(policy.compaction.external_admission_paused if getattr(policy, "compaction", None) else lambda: False),
+            recovery_pending=(lambda: policy.compaction.external_admission_paused() or policy.compaction.injection_compact_pending()) if getattr(policy, "compaction", None) else lambda: False,
         )
         pending_injection_options = ChannelPendingInjectionOptions(
             enabled=inject_channel_messages,
@@ -768,7 +768,7 @@ def run_posix_channel_terminal_proxy(
         runtime=session_command_runtime,
         actions=session_command_actions,
     )
-    compact_poll_services = ChannelCompactPollServices(inject_pending=polling.inject_compact, recovery_pending=(policy.compaction.external_admission_paused if getattr(policy, "compaction", None) else lambda: False))
+    compact_poll_services = ChannelCompactPollServices(inject_pending=polling.inject_compact, recovery_pending=(lambda: policy.compaction.external_admission_paused() or policy.compaction.injection_compact_pending()) if getattr(policy, "compaction", None) else lambda: False)
     compact_poll_state = ChannelCompactPollState()
     interaction_display_state = RuntimeInteractionDisplayState()
     interaction_pending = False

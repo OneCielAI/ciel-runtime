@@ -1,0 +1,26 @@
+---
+type: implementation-journal
+title: Injection-bound measured compact (n89)
+date: 2026-11-03
+status: verified-in-isolated-fixtures
+---
+
+# Implemented contract
+SSE polls/status checks retain identity, native handoff and unreadable-state safety holds, but do not consult the sticky compact/shrink lifecycle and do not queue measured compaction. Terminal/session-socket pending batches, pending router-body append, and desktop submit call the dedicated pre-injection check before claiming/submitting the body. The existing measured safeguard remains limited to cielairouter + Claude, enabled setting, known model capacity and fresh exact-session model usage (including observed aliases). Threshold is inclusive >=90%.
+
+A fresh high sample reserves one existing native compact command slot; the SSE body stays pending without cursor advance. Existing command consumers type /compact through the terminal (or use their existing app-server command path); no socket user-text /compact is introduced. Native active-tool/turn guards still apply. A fresh same-scope persisted compact boundary releases this injection wait even without postTokens; release is recorded as failed_open with boundary evidence, NOT fabricated shrink verification. Submission failure, uncertainty, expiry or immutable 120-second injection deadline releases without retrying that sample. Existing bounded 128-sample durable dedupe survives controller reconstruction. A genuinely new measured sample may reserve another compact. Missing/unsupported measurements do not invent pressure. The preexisting provider-overflow recovery bookkeeping remains, but does not gate SSE. If a provider-proven overflow arrives while an injection compact is queued, it is converted to pressure recovery (injection wait cleared, persisted), keeping that path's existing bounded retry instead of a one-shot release.
+
+# Verification
+301 focused unittest cases (13 modules) passed with inherited CIEL_RUNTIME_* removed; a second consumer set of 141 cases (8 modules: direct socket, terminal dispatch, stream recovery terminal, idle retry, failure release, continuation boundary, input retry, SSE recovery) also passed. ruff check on all changed source/test files passed. Evidence: evidence/focused-unittest.txt. Real os.pipe command bytes /compact+CR were captured; integrated pending-body fixture observed no delivery before compact, no delivery while awaiting boundary, then exactly one body delivery and cursor=1 after a boundary without postTokens. Empty scans do not call measured safeguard. Tests cover inclusive threshold, timeout, failure, sample reuse/new sample, alias freshness, identity protections, router-body injection and desktop delivery regressions.
+
+# Limitations
+- Native auto/manual compaction in progress, checkpoint-awaiting-shrink, retry_wait and verified/failed states no longer hold SSE admission at all; only identity/handoff/unreadable-state holds remain on polls.
+- A manual session command occupying the single command slot cancels the injection compact (manual priority); the pending input is then released without compact. Model/config/sample supersession likewise releases.
+- The sse_gate on/off setting and status display still exist; compact reasons are no longer produced, so the toggle has nothing compact-related to bypass. Removing that UI/setting was not done (not requested, outside touched files).
+This is isolated fixture/pipe execution, not a production native CLI compact round trip or UI screenshot. No live restarts, kills, installs, commits or pushes performed. Provider/runtime eligibility and compact_safeguard setting are unchanged. Existing SSE-gate setting remains compatibility/display configuration, but ordinary compact lifecycle is no longer a reason produced by the binding. Existing manual/overflow command processing remains separate from injection-scoped one-shot handling.
+
+# Parent integration update
+Removed obsolete SSE compact gate toggle row; menu states pre-compact gate removed / injection >=90% compacts once. Legacy sse-gate command retained compatibly with explicit removal notice. Native compact polling may bypass an older unconfirmed wake when injection_compact_pending, while native turn/tool/draft guards remain. Injection deadline shortened to120seconds, same sample never retries. Combined focused unittest regression343passed (2026-11-03). Native CLI E2E delegated, not yet claimed.
+
+# Native verification update
+Real Claude Code 2.1.317 loopback E2E passed: 180000/200000 tokens compacted once before session_socket SSE (6.798s); 165000/200000 delivered without compact (0.273s). See native-e2e.okf. Earlier fixture-only limitation is superseded for this transport. Release logs retain the legacy failed_open name without claiming shrink until separately verified.

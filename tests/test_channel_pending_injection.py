@@ -1122,3 +1122,28 @@ class CompactionAdmissionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class InjectionCompactBoundaryTests(unittest.TestCase):
+    def test_empty_scan_does_not_request_compact(self):
+        harness = _InjectionHarness([])
+        services = harness.services()
+        check = Mock(return_value=True)
+        services = dataclasses.replace(services, io=dataclasses.replace(
+            services.io, before_external_injection=check))
+        inject_pending_channel_messages(None, 0, services=services)
+        check.assert_not_called()
+
+    def test_pending_message_is_preserved_until_compact_releases(self):
+        harness = _InjectionHarness([_message(1)])
+        services = harness.services()
+        check = Mock(side_effect=[True, False])
+        services = dataclasses.replace(services, io=dataclasses.replace(
+            services.io, before_external_injection=check))
+        cursor = inject_pending_channel_messages(None, 0, services=services)
+        self.assertEqual(0, cursor)
+        self.assertEqual([], harness.written)
+        self.assertEqual([], harness.delivery.commits)
+        inject_pending_channel_messages(None, cursor, services=services)
+        self.assertEqual(['body-1'], harness.written)
+        self.assertEqual(2, check.call_count)

@@ -197,6 +197,7 @@ class CodexDesktopInjectionTests(unittest.TestCase):
         self.client.state = CodexAppServerState(thread_id="thread-a", active_turn_id="turn-live")
         control = Mock()
         control.external_admission_paused.return_value = True
+        control.before_external_injection.return_value = False
         self.injector._ports = dataclasses.replace(self.injector._ports, compaction=control)
         self.injector.poll_once()
         self.assertEqual([], self.client.calls)
@@ -212,6 +213,7 @@ class CodexDesktopInjectionTests(unittest.TestCase):
         control = Mock()
         control.command_ready.return_value = True
         control.external_admission_paused.return_value = True
+        control.before_external_injection.return_value = False
         cleared = []
         self.messages = [_message(7)]
         self.injector._ports = dataclasses.replace(

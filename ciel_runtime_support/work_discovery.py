@@ -40,8 +40,9 @@ def discovery_hint(config: dict, snapshot: dict) -> dict:
         return {"enabled": False, "reason": "external discovery configuration unavailable"}
     parallel = config.get("work_parallel", {})
     try:
-        from .work_parallel_mcp import ledger
-        parallel = ledger().read()["policy"]
+        from .work_parallel import WorkParallelStore
+        from .runtime_paths import CONFIG_DIR
+        parallel = WorkParallelStore(CONFIG_DIR / "work-parallel.json").read()["policy"]
     except (ValueError, OSError):
         return {"enabled": False, "reason": "parallel state unavailable"}
     if (isinstance(parallel, dict) and parallel.get("paused") is True) or (isinstance(config.get("work_parallel"), dict) and config["work_parallel"].get("paused") is True) or snapshot.get("focus", {}).get("node_ids"):

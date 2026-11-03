@@ -77,7 +77,8 @@ class SseGateTests(unittest.TestCase):
                 self.assertEqual(expected, config["sse_gate_enabled"])
                 self.assertEqual(expected, ciel_runtime.llm_option_current_bool("cielairouter", config["providers"]["cielairouter"], "sse_gate_enabled"))
                 rows, values = ciel_runtime.llm_option_panel_rows("cielairouter", config["providers"]["cielairouter"], "en")
-                self.assertIn("SSE compact gate", rows[values.index("sse_gate_enabled")])
+                self.assertNotIn("sse_gate_enabled", values)
+                self.assertTrue(any("pre-compact gate removed" in row for row in rows))
             self.assertEqual(4, save.call_count)
             ciel_runtime.set_llm_option_config("cielairouter", "sse_gate_enabled", "typo")
             self.assertEqual(4, save.call_count)
@@ -139,7 +140,7 @@ class SseGateBindingTests(unittest.TestCase):
         self.binding.bind("claude", session_id="exact", cwd=self.root)
         self.binding.observe_request("other", {}, {"tokens": 100}, "claude")
         self.binding.observe_failure("other", {}, {"tokens": 15000}, "prompt is too long: 21000 tokens > 20000 maximum", "claude")
-        self.assertTrue(self.binding.external_admission_paused())
+        self.assertFalse(self.binding.external_admission_paused())
         config = {"sse_gate_enabled": False}
         self.binding.gate_config = lambda: config
         before = self.binding.control.ports.load()
@@ -151,7 +152,7 @@ class SseGateBindingTests(unittest.TestCase):
         self.assertEqual(request, self.requests.read())
         self.assertNotEqual("verified", after["phase"])
         config["sse_gate_enabled"] = True
-        self.assertTrue(self.binding.external_admission_paused())
+        self.assertFalse(self.binding.external_admission_paused())
 
     def test_config_read_failure_holds_gate(self):
         self.binding.gate_config = lambda: (_ for _ in ()).throw(OSError("owned fixture"))
