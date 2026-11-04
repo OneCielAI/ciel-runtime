@@ -40,11 +40,49 @@ def ledger():
     return WorkParallelStore(Path(CONFIG_DIR) / "work-parallel.json")
 
 
-def project(store, identity):
+def _item_details(board):
+    """Item display metadata from the board: id -> title/ref/goal/path.
+
+    Titles are display data only; they never influence admission or identity.
+    A stale or unreadable board yields no details rather than failing status.
+    """
+
+    details = {}
+    try:
+        nodes = {n["id"]: n for n in board["nodes"]}
+    except (TypeError, KeyError):
+        return details
+    for node_id, node in nodes.items():
+        chain = []
+        current = node
+        seen = set()
+        while isinstance(current, dict) and current.get("id") not in seen:
+            seen.add(current.get("id"))
+            chain.append(current)
+            parent = current.get("parent_id")
+            current = nodes.get(parent) if parent is not None else None
+        chain.reverse()
+        titles = [str(n.get("title") or "") for n in chain]
+        details[node_id] = {
+            "item_title": titles[-1] if titles else "",
+            "item_ref": str(node.get("ref") or ""),
+            "goal_id": str(chain[0].get("id") or "") if chain else "",
+            "goal_title": titles[0] if titles else "",
+            "item_path": titles,
+        }
+    return details
+
+
+def project(store, identity, board=None):
     d = store.read()
+    leases = {k: dict(v) for k, v in d["leases"].items() if v["scope"] == identity}
+    if board is not None and leases:
+        details = _item_details(board)
+        for lease in leases.values():
+            lease.update(details.get(lease["item_id"], {}))
     return {"version": d["version"], "policy": d["policy"],
             "active_device": sum(r["slot"] for r in d["leases"].values()),
-            "leases": {k: v for k, v in d["leases"].items() if v["scope"] == identity},
+            "leases": leases,
             "runtime": "claude" if identity.startswith("claude:") else "codex",
             "codex_adapter": "unsupported",
             "limitations": ["dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations",
@@ -72,10 +110,17 @@ def host_context(args, config):
     return host, private.get("capability_ready", True) is True
 
 
+def _board_or_none(board_store):
+    try:
+        return board_store.read()
+    except Exception:
+        return None
+
+
 def run(name, args, board_store, identity, config, save_config):
     store = ledger()
     if name == "work_parallel_status":
-        return json.dumps(project(store, identity), ensure_ascii=False)
+        return json.dumps(project(store, identity, _board_or_none(board_store)), ensure_ascii=False)
     host, ready = host_context(args, config)
     if not identity.startswith("claude:"):
         raise WorkParallelError("native adapter unsupported")
@@ -89,7 +134,7 @@ def run(name, args, board_store, identity, config, save_config):
             updated = dict(config)
             updated["work_parallel"] = d["policy"]
             save_config(updated)
-        return json.dumps(project(store, identity), ensure_ascii=False)
+        return json.dumps(project(store, identity, _board_or_none(board_store)), ensure_ascii=False)
     if name == "work_discovery_pickup":
         if actor is not None:
             raise WorkParallelError("coordinator pickup required")
@@ -116,20 +161,25 @@ def run(name, args, board_store, identity, config, save_config):
         board = board_store.read()
         c = candidate(board, args.get("item_id"), args.get("priority", "P1"), args.get("role", "worker"))
         d, ident = store.reserve([c], scope=identity, expected_version=version)
+        item = _item_details(board).get(c["item_id"], {})
         workspace = None
         if host.get("workspace_repo"):
             from .work_parallel_workspace import prepare
             workspace = prepare(host["workspace_repo"], ident)
             d, _ = store.attach_workspace(ident, workspace, expected_version=d["version"])
-        return json.dumps({"lease_id": ident, "version": d["version"], "plan_version": board["version"], "workspace": workspace})
+        return json.dumps({"lease_id": ident, "version": d["version"], "plan_version": board["version"], "workspace": workspace, **item})
     d = store.read()
     lease = d["leases"].get(args.get("lease_id"))
     if not lease or lease["scope"] != identity:
         raise WorkParallelError("unknown conversation lease")
     ident = lease["id"]
-    if event in ("bind", "reconcile"):
+    if event in ("bind", "reconcile", "release"):
         if actor is not None:
             raise WorkParallelError("coordinator host observation required")
+        if event == "release":
+            d, _ = store.release_unbound(ident, proof=host.get("proof"), expected_version=version)
+            return json.dumps({"lease_id": ident, "version": d["version"], "released": True,
+                               "item_id": lease["item_id"], "item_kept": True}, ensure_ascii=False)
         if event == "bind" and lease["host_id"] is not None and lease["host_id"] == host.get("host_id"):
             pass  # Idempotent: the same observed native agent was already bound.
         elif event == "bind":
@@ -182,7 +232,7 @@ def run(name, args, board_store, identity, config, save_config):
             bind(workspace["repo"], ident, current["host_id"])
         elif host.get("state") == "idle":
             set_activity(workspace["repo"], ident, current["host_id"], idle=True, proof=current["idle_proof"])
-    return json.dumps(project(store, identity), ensure_ascii=False)
+    return json.dumps(project(store, identity, _board_or_none(board_store)), ensure_ascii=False)
 
 
 def candidate(board, item_id, priority, role):

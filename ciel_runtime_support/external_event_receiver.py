@@ -27,7 +27,7 @@ from .runtime_input_delivery_health import delivery_health_for_callback
 
 MAX_WORK_DISCOVERY_INSTRUCTION_CHARS = 8192
 TEST_WORK_DISCOVERY_INSTRUCTION = (
-    "작업큐에 여유가 생기면 와키에서 최근 미결 아이템이 있는지 확인하고 스스로 할 일을 찾아라. "
+    "작업큐에 여유가 생기면 이 세션에서 사용할 수 있는 검색 수단으로 최근 미결 아이템이 있는지 확인하고 스스로 할 일을 찾아라. "
     "우선순위 P1→P5, 같은 우선순위에서는 최신순으로 검색해서 픽업하라."
 )
 MAX_EVENT_BYTES = 1024 * 1024

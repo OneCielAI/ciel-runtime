@@ -23,10 +23,27 @@ def _make_env(tmp_path):
             {
                 "id": "n1",
                 "parent_id": None,
+                "title": "Product goal",
+                "ref": "PRD",
                 "phase": "executing",
                 "status": "pending",
                 "updated_at": 1,
-            }
+            },
+            {
+                "id": "n2",
+                "parent_id": "n1",
+                "title": "Checkout phase",
+                "status": "pending",
+                "updated_at": 1,
+            },
+            {
+                "id": "n3",
+                "parent_id": "n2",
+                "title": "Fix payment retry",
+                "ref": "PAY-227",
+                "status": "pending",
+                "updated_at": 1,
+            },
         ],
     }
 
@@ -196,6 +213,35 @@ class WorkParallelMCPTests(unittest.TestCase):
             record = observe(repo, ident)
             self.assertTrue(record["idle"])
             self.assertEqual(record["host_id"], "native-worker")
+
+    def test_status_enriches_leases_with_item_assignment_metadata(self):
+        env = self.env
+        s, b, c, run = env
+        run("configure", {}, changes={"enabled": True})
+        reserved = run("event", {"fork": True}, event="reserve", item_id="n3", priority="P1")
+        self.assertEqual(reserved["item_title"], "Fix payment retry")
+        self.assertEqual(reserved["item_ref"], "PAY-227")
+        self.assertEqual(reserved["goal_title"], "Product goal")
+        self.assertEqual(reserved["item_path"], ["Product goal", "Checkout phase", "Fix payment retry"])
+        run("event", {"host_id": "agent-1", "agent_name": "work-alpha"}, event="bind", lease_id=reserved["lease_id"])
+        lease = run("status")["leases"][reserved["lease_id"]]
+        self.assertEqual(lease["item_id"], "n3")
+        self.assertEqual(lease["item_title"], "Fix payment retry")
+        self.assertEqual(lease["agent_name"], "work-alpha")
+        self.assertEqual(lease["host_id"], "agent-1")
+
+    def test_unbound_reserve_release_keeps_item_dispatchable(self):
+        env = self.env
+        s, b, c, run = env
+        run("configure", {}, changes={"enabled": True})
+        reserved = run("event", {"fork": True}, event="reserve", item_id="n3", priority="P1")
+        ident = reserved["lease_id"]
+        run("event", {"proof": "native spawn denied before launch"}, event="release", lease_id=ident)
+        assert ident not in s.read()["leases"]
+        assert b["nodes"][2]["status"] == "pending"
+        retry = run("event", {"fork": True}, event="reserve", item_id="n3", priority="P1")
+        assert retry["lease_id"] != ident
+
 
     def test_auth_and_default_capability(self):
         env = self.env

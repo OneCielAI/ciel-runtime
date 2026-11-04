@@ -36,6 +36,58 @@ const call = ($, agentId) => handlers['tool.call']($, { tool: 'Edit', agentId,
 const verdict = r => r?.decision === 'deny' ? 'deny: ' + r.reason : r?.deny ? 'deny: ' + r.deny : 'allow'
 
 const scenarios = {
+  // One explicit assignment row per fork: item id/title/path, the exact Agent
+  // name, host id once bound, lease state and slot.
+  async 'parallel-assignment-labels'() {
+    const board = { ...snapshot(), nodes: [
+      { id: 'n1', parent_id: null, title: 'Product goal', ref: 'PRD', status: 'in_progress' },
+      { id: 'n2', parent_id: 'n1', title: 'Checkout phase', status: 'in_progress' },
+      { id: 'n227', parent_id: 'n2', title: 'Fix payment retry', ref: 'PAY-227', status: 'pending' },
+      { id: 'n229', parent_id: 'n2', title: 'Add retry backoff', ref: 'PAY-229', status: 'pending' },
+    ], active_root: { id: 'n1', title: 'Product goal', status: 'in_progress' } }
+    const leases = {
+      L1: { id: 'L1', item_id: 'n227', item_title: 'Fix payment retry', item_ref: 'PAY-227',
+        goal_title: 'Product goal', item_path: ['Product goal', 'Checkout phase', 'Fix payment retry'],
+        priority: 'P1', role: 'worker', state: 'running', slot: true, agent_name: 'work-alpha', host_id: 'host-1', plan_version: 7 },
+      L2: { id: 'L2', item_id: 'n228', priority: 'P2', role: 'reviewer', state: 'reserved', slot: true, plan_version: 7 },
+    }
+    const parallel = { version: 12, active_device: 2,
+      policy: { enabled: true, paused: false, max_active: 3, p1_reserved: 1, launches_per_minute: 4, max_rework: 2 }, leases }
+    const { $ } = host(async (tool, args) => {
+      if (tool === 'work_parallel_status') return text(parallel)
+      if (tool === 'work_status' && args.detail) return text({ ...board, version: 5, root_id: 'n1', nodes: board.nodes })
+      if (tool === 'work_status') return text(board)
+      if (tool === 'work_parallel_event' && args.event === 'reserve') {
+        return text({ lease_id: 'L9', version: 13, plan_version: 5,
+          item_title: 'Add retry backoff', item_ref: 'PAY-229', goal_id: 'n1', goal_title: 'Product goal',
+          item_path: ['Product goal', 'Checkout phase', 'Add retry backoff'] })
+      }
+      if (tool === 'work_parallel_event' && args.event === 'bind') {
+        leases.L9 = { id: 'L9', item_id: 'n229', item_title: 'Add retry backoff', item_ref: 'PAY-229',
+          goal_title: 'Product goal', item_path: ['Product goal', 'Checkout phase', 'Add retry backoff'],
+          priority: 'P1', role: 'worker', state: 'running', slot: true,
+          agent_name: args._host?.agent_name, host_id: args._host?.host_id, plan_version: 5 }
+        return text({ version: 14, leases })
+      }
+      return text(board)
+    })
+    $.session.repo = async () => null
+    $.session.root = async () => '/repo'
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    // L1 already holds the n227 worker, so the dispatch under test targets the
+    // next leaf. Re-dispatching n227 here would hit the resume-instead guard.
+    const run = await handlers['tool.call']($, { tool: 'mcp__ciel-runtime-router__work_parallel_run',
+      item_id: 'n229', priority: 'P1', role: 'worker', expected_version: 12 }, next({}))
+    if (run.deny || typeof run.result !== 'string') throw new Error('dispatch did not return a result: ' + JSON.stringify(run))
+    const dispatch = JSON.parse(run.result)
+    let spawnedEvent = null
+    const captureSpawn = async (e) => { spawnedEvent = e; return { agentId: 'host-9', model: 'fixture' } }
+    captureSpawn.origin = { plugin: 'engine' }
+    const spawned = await handlers['agent.spawn']($, { tool_use_id: 'spawn-1', prompt: dispatch.prompt,
+      description: dispatch.description, subagentType: 'fork', fork: true, background: true, name: dispatch.name }, captureSpawn)
+    const shown = await handlers['command.run']($, { args: 'parallel' })
+    return { spawned, spawnedEvent, dispatch, shown: shown.text || '' }
+  },
   // Mirrors Kobi 2026-11-04: work_parallel_run returned a name, but the model
   // called Agent without it. The gate must name that exact omission, and the
   // user-facing parallel view must expose the pending name without a router read.
@@ -44,8 +96,10 @@ const scenarios = {
       policy: { enabled: true, paused: false, max_active: 3, p1_reserved: 1, launches_per_minute: 4, max_rework: 2 }, leases: {} }
     const { $ } = host(async (tool) => tool === 'work_parallel_status' ? text(parallel) : text(snapshot()))
     await handlers['session.start']($, { isInteractive: false }, next(undefined))
-    const run = await handlers['tool.call']($, { tool: 'mcp__ciel-runtime-router__work_parallel_run',
+    const runRaw = await handlers['tool.call']($, { tool: 'mcp__ciel-runtime-router__work_parallel_run',
       item_id: 'n227', priority: 'P1', role: 'worker', expected_version: 11 }, next({}))
+    if (runRaw.deny || typeof runRaw.result !== 'string') throw new Error('dispatch did not return a result: ' + JSON.stringify(runRaw))
+    const run = runRaw
     const dispatch = JSON.parse(run.result)
     const denied = await handlers['agent.spawn']($, { tool_use_id: 'call-agent', prompt: dispatch.prompt,
       description: dispatch.description, subagentType: 'fork', fork: true, background: true }, next({ agentId: 'must-not-start' }))
@@ -101,6 +155,60 @@ const scenarios = {
       agentId: 'agent-old', event: 'result', lease_id: 'L1', plan_version: 7, artifact: 'a'.repeat(64), evidence: 'r' }, next({}))
     await handlers['turn.complete']($, {}, next(undefined))
     return { result: verdict(result), event: state.event }
+  },
+  async 'parallel-session-start-releases-orphan-reserved'() {
+    const leases = {
+      L1: { id: 'L1', item_id: 'n227', priority: 'P1', role: 'worker', state: 'reserved', slot: true, host_id: null, plan_version: 5 },
+      L2: { id: 'L2', item_id: 'n228', priority: 'P1', role: 'worker', state: 'running', slot: true, host_id: 'agent-live', plan_version: 5 },
+    }
+    const calls = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_parallel_status') return text({ version: 12, policy: { enabled: true }, leases })
+      if (tool === 'work_parallel_event') {
+        calls.push(args)
+        if (args.event === 'release') { delete leases.L1; return text({ version: 13, leases }) }
+        return text({ version: 12, leases })
+      }
+      return text(snapshot())
+    })
+    state.agents = [{ id: 'agent-live', status: 'running' }]
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    return { calls, leases }
+  },
+  async 'parallel-spawn-denied-releases-unbound'() {
+    const parallel = { version: 11, active_device: 0,
+      policy: { enabled: true, paused: false, max_active: 3, p1_reserved: 1, launches_per_minute: 4, max_rework: 2 }, leases: {} }
+    const calls = []
+    const { $ } = host(async (tool, args) => {
+      if (tool === 'work_parallel_status') return text(parallel)
+      if (tool === 'work_parallel_event') {
+        calls.push(args)
+        if (args.event === 'reserve') return text({ lease_id: 'L9', version: 12, plan_version: 5 })
+        if (args.event === 'release') return text({ lease_id: 'L9', version: 13, released: true, item_id: 'n227', item_kept: true })
+      }
+      return text(snapshot())
+    })
+    $.session.repo = async () => null
+    $.session.root = async () => '/repo'
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    const run = await handlers['tool.call']($, { tool: 'mcp__ciel-runtime-router__work_parallel_run',
+      item_id: 'n227', priority: 'P1', role: 'worker', expected_version: 11 }, next({}))
+    const dispatch = JSON.parse(run.result)
+    const deniedNext = async () => ({ deny: 'Subagent spawn denied by fixture' })
+    deniedNext.origin = { plugin: 'engine' }
+    const denied = await handlers['agent.spawn']($, { tool_use_id: 'spawn-2', prompt: dispatch.prompt,
+      description: dispatch.description, subagentType: 'fork', fork: true, background: true, name: dispatch.name }, deniedNext)
+    return { denied: verdict(denied), calls }
+  },
+  async 'stop-pause-discovery'() {
+    const ready = { ...snapshot(), focus: { node_ids: [] },
+      continuation: { actionable: 1, waiting: [], blocked: 0, held: 0, next: { id: 'n240', title: 'next item', root_id: 'n1', phase: 'executing' } },
+      discovery: { enabled: true, instruction: '이 세션의 검색 수단으로 미결 아이템을 확인하라. 기존 승인 유지.' } }
+    const { $ } = host(async () => text(ready))
+    await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
+    await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
+    const third = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
+    return { third: third?.block || '' }
   },
   async 'stop-discovery-approval'() {
     const ready = { ...snapshot('planning'), approval: 'ask', ready: true,

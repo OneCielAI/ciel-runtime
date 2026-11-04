@@ -248,6 +248,18 @@ class WorkParallelStore:
                 r["agent_name"] = agent_name
         return self._change(apply, expected_version)
 
+    def release_unbound(self, ident, *, proof, expected_version):
+        """A provisional reservation never became a worker. Release only that
+        execution lease; the Work item itself stays queued for a later dispatch.
+        A host-bound lease is a real run and must keep its slot/lifecycle.
+        """
+        require(text(proof), "release proof required")
+        def apply(d):
+            r = self._lease(d, ident)
+            require(r["state"] == "reserved" and r["host_id"] is None and r["slot"], "not an unbound reservation")
+            del d["leases"][ident]
+        return self._change(apply, expected_version)
+
     def attach_workspace(self, ident, workspace, *, expected_version):
         require(type(workspace) is dict and text(workspace.get("path")) and text(workspace.get("repo")), "workspace binding")
         def apply(d):

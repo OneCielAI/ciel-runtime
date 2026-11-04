@@ -30,7 +30,7 @@ class WorkDiscoveryTests(unittest.TestCase):
         self.assertIsNone(effective_work_discovery({"default": {"enabled": True, "transport": "sse"}}))
 
     def test_forced_default(self):
-        expected = "작업큐에 여유가 생기면 와키에서 최근 미결 아이템이 있는지 확인하고 스스로 할 일을 찾아라. 우선순위 P1→P5, 같은 우선순위에서는 최신순으로 검색해서 픽업하라."
+        expected = "작업큐에 여유가 생기면 이 세션에서 사용할 수 있는 검색 수단으로 최근 미결 아이템이 있는지 확인하고 스스로 할 일을 찾아라. 우선순위 P1→P5, 같은 우선순위에서는 최신순으로 검색해서 픽업하라."
         self.assertEqual(expected, TEST_WORK_DISCOVERY_INSTRUCTION)
         result = effective_work_discovery({"default": self.receiver(
             test_default_override=True, discovery_instruction="%MISSING_DISCOVERY_TEST%")})

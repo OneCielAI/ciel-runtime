@@ -1,0 +1,40 @@
+---
+type: diagnosis
+title: Kobi u24 stall recheck — version state and current stop reason
+status: observed
+date: 2026-11-04
+---
+
+# Question
+Is the Kobi sandbox on 100.64.0.14 still stalled with many items open, and did its version fail to update?
+
+# Confirmed (remote SYSTEM probes, read-only; sandbox u24, home kobe-ai)
+
+## Version and install state
+- Installed package: `@one-ciel-ai/ciel-runtime 0.2.51-nightly.20261104-041406.c886fb2` (package.json mtime 2026-11-04T04:22:18Z). The version WAS updated after the earlier `f30bff6` observation.
+- But `ciel-runtime.cmd` was regenerated at 04:22:25Z as the plain npm shim: `CODEX_HOME` match = false, `CIEL_RUNTIME_CONFIG_DIR` match = false. The sandbox-profile env wrapper was lost again in this install (same failure mode as the earlier observation).
+- `.config\ciel-runtime` does not exist under the kobe-ai home; `.claude\projects` does not exist there either. Session data lives under the sandbox user's Windows profile `C:\Users\aapw-a24u24\.claude\projects\...`, and the router instance is `C:\Users\aapw-a24u24\AppData\Roaming\ciel-runtime\router-instances\9780-651d879f6c68`.
+- Installed `register.js` is 73,563 bytes (mtime 04:22:18Z): it contains `/work-mode parallel`, the pending-dispatch text, and the omitted-name denial message, and does NOT contain the `Assignments (item` display. That matches the `c886fb2` generation, without this session's uncommitted assignment-display change.
+
+## Processes
+- All Kobi runtime processes are alive: ciel-runtime node (pid 1940), python cli (15580), serve (11580), console guard (21156), claude.exe (24328), started 2026-11-04T04:22–04:24Z, immediately after the install. claude.exe runs with `--continue` and the packaged ciel-work `--plugin-dir` from the `c886fb2` install.
+
+## Session and board state
+- Live transcript: `C:\Users\aapw-a24u24\.claude\projects\C--ProgramData-aap-win-sandboxes-u24-home-kobe-ai\219f1b51-1044-4d57-ba0e-27f8d12b3bcd.jsonl`, 39,045,313 bytes, last written 2026-11-04T04:36:22Z. Probe time was 2026-11-04T05:10:47Z, so the session has been idle for about 34 minutes. The process is alive; this is an ended/idle session, not a crash.
+- The board is not empty: the transcript's own `work_status` result shows `Work phase: executing`, `Active goal progress: 93/103 steps done`, goal `n67` still `in_progress`.
+- `work_parallel_status` at 04:31:49Z returned version 0 with `enabled=true, paused=false, max_active=3, p1_reserved=1` and no leases: no lease was ever reserved in this running session.
+
+# Stop timeline (transcript tail, UTC)
+- 04:28:26 PowerShell tool run; 04:28:31 its result reports a forcibly-closed transport connection.
+- 04:28:42 `walkie_identity` call; at 04:30:43 it is moved to the background after 120s. 04:30:59 a fetch result shows ECONNRESET; 04:31:08 an ssh attempt times out.
+- 04:31:21 `work_parallel_run` returns name `work-mw1md9jx-grlgde48uli`; 04:31:32 the native Agent call is denied: "the Agent call omitted the exact name returned by work_parallel_run".
+- 04:32:00 a second `work_parallel_run` returns name `work-mw1me4kb-8wlvkmjaw98`; 04:32:16 the Agent call is denied the same way.
+- 04:32:35 and 04:32:55 assistant `end_turn`. Final system row 04:36:21.991Z; nothing after.
+
+# Verdict
+- The version did update to `c886fb2`; "not updated" is disproved for the package itself.
+- Two things remain broken in the live sandbox: (1) the npm install again dropped the sandbox-profile wrapper env (`CODEX_HOME`/`CIEL_RUNTIME_CONFIG_DIR`) from `ciel-runtime.cmd`; (2) the fork-dispatch failure repeated — `work_parallel_run` returned names at 04:31Z and 04:32Z, both Agent calls omitted the name, both were denied before reserve, and the turn ended with the 93/103-step board still unfinished.
+- The new assignment display is not yet in the installed mod, so Kobi still cannot show item↔agent mapping; that remains true until the local uncommitted change is released, installed, and the session relaunched.
+
+# Estimated (not confirmed)
+- Whether the dropped wrapper env contributed to this specific end_turn cannot be proven from these probes; no remote file, process, or configuration was changed during this diagnosis.

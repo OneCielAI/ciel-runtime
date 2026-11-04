@@ -117,6 +117,18 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(result["event"]["event"], "reconcile")
         self.assertEqual(result["event"]["_host"]["state"], "unknown")
 
+    def test_parallel_ui_maps_each_item_to_its_fork_agent(self):
+        result = self.run_scenario("parallel-assignment-labels")
+        self.assertEqual(result["dispatch"]["description"], "Work n229 [ PAY-229 ] Add retry backoff")
+        self.assertIn("n229 [ PAY-229 ] Add retry backoff", result["dispatch"]["prompt"])
+        self.assertEqual(result["spawnedEvent"]["description"], result["dispatch"]["description"])
+        self.assertEqual(result["spawned"]["agentId"], "host-9")
+        self.assertIn("Assignments (item → fork agent): 3 lease(s), 3 holding a slot", result["shown"])
+        self.assertIn("n227 [ PAY-227 ] Fix payment retry → agent work-alpha [host host-1]", result["shown"])
+        self.assertIn("path: Product goal → Checkout phase → Fix payment retry", result["shown"])
+        self.assertIn("n228 → agent (not launched yet)", result["shown"])
+        self.assertIn(result["dispatch"]["name"] + " [host host-9]", result["shown"])
+
     def test_missing_agent_name_is_diagnosed_and_visible_in_parallel_ui(self):
         result = self.run_scenario("parallel-missing-agent-name")
         self.assertEqual(result["dispatch"]["required_parameters"]["name"], result["dispatch"]["name"])
@@ -128,6 +140,27 @@ class WorkModWriteGateTests(unittest.TestCase):
         # The harness host accepts every MCP call, so the scripted note passes
         # here; the production router rejects it (work_parallel_mcp.py
         # "unknown conversation lease"), as Kobi's transcript shows.
+
+    def test_session_start_releases_orphan_reserved_but_keeps_bound_worker(self):
+        result = self.run_scenario("parallel-session-start-releases-orphan-reserved")
+        self.assertEqual([call["event"] for call in result["calls"]], ["release"])
+        self.assertEqual(result["calls"][0]["lease_id"], "L1")
+        self.assertNotIn("L1", result["leases"])
+        self.assertIn("L2", result["leases"])
+        self.assertEqual(result["leases"]["L2"]["host_id"], "agent-live")
+
+    def test_spawn_denial_releases_unbound_reservation(self):
+        result = self.run_scenario("parallel-spawn-denied-releases-unbound")
+        events = [call["event"] for call in result["calls"]]
+        self.assertEqual(events, ["reserve", "release"])
+        self.assertEqual(result["calls"][1]["lease_id"], "L9")
+        self.assertIn("native spawn denied before launch", result["calls"][1]["_host"]["proof"])
+
+    def test_pause_after_no_progress_still_instructs_discovery(self):
+        result = self.run_scenario("stop-pause-discovery")
+        self.assertIn("auto continue paused", result["third"])
+        self.assertIn("Work 미결 아이템 탐색", result["third"])
+        self.assertIn("이 세션의 검색 수단", result["third"])
 
     def test_restart_recovery_resumes_same_worker_and_blocks_duplicates(self):
         result = self.run_scenario("parallel-recovery-context")

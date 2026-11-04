@@ -1,0 +1,6 @@
+{
+  "dispatch_description": "Work n229 [ PAY-229 ] Add retry backoff",
+  "spawned_description": "Work n229 [ PAY-229 ] Add retry backoff",
+  "spawned_prompt_tail": "Execution lease: L9; plan_version: 5. Read work_parallel_status for your binding.",
+  "assignments_text": "Ciel Work parallel\nPolicy: enabled · ledger v12 · device slots 3/3 · P1 reserved 1 · launches/min 4 · max rework 2\nAssignments (item → fork agent): 3 lease(s), 3 holding a slot\n  n227 [ PAY-227 ] Fix payment retry → agent work-alpha [host host-1] · P1 worker · running · slot held · lease L1 · plan v7\n    path: Product goal → Checkout phase → Fix payment retry\n  n228 → agent (not launched yet) · P2 reviewer · reserved · slot held · lease L2 · plan v7\n  n229 [ PAY-229 ] Add retry backoff → agent work-mw1n9au6-00xritv5papuq [host host-9] · P1 worker · running · slot held · lease L9 · plan v5\n    path: Product goal → Checkout phase → Add retry backoff\nPending native Agent dispatch: 0\nSettings: ciel-runtime menu → LLM options → Work 병렬 실행. Policy changes do not terminate existing workers."
+}

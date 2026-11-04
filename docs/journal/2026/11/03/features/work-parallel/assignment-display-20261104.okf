@@ -1,0 +1,35 @@
+---
+type: implementation-journal
+title: Fork agent to Work item assignment display
+status: implemented-not-deployed
+date: 2026-11-04
+---
+
+# User request
+Fork agents run, but it is not clear which Work item is assigned to which fork agent (screenshot 20261104). Make the assignment explicit: item id/title/ref, path, fork Agent name, host id, lease state/slot, plan version.
+
+# Implementation
+- `ciel_runtime_support/work_parallel_mcp.py`: `_item_details(board)` derives per-item display metadata (item_title, item_ref, goal_id, goal_title, item_path) from board nodes. `project(store, identity, board=None)` enriches conversation leases with that metadata; `run()` passes the board for status/configure/event returns, and reserve responses carry the same fields. Metadata is display data only; it never affects admission or identity. A stale or unreadable board yields no details instead of failing status.
+- `ciel_runtime_support/claude_mods/ciel-work/hooks/register.js`:
+  - `/work-mode parallel` now heads with `Assignments (item → fork agent): N lease(s), M holding a slot`, then one explicit row per item: `n227 [ PAY-227 ] Fix payment retry → agent work-alpha [host host-1] · P1 worker · running · slot held · lease L1 · plan v7`, plus `path: Product goal → Checkout phase → Fix payment retry` when the item is nested. Unlaunched leases render `agent (not launched yet)`.
+  - Pending dispatches render `→ next Agent name work-...` with the same item label.
+  - `work_parallel_run` dispatch carries `description: 'Work ' + label` and a prompt naming the labeled item; the `agent.spawn` hook rewrites the native spawn description to `Work n229 [ PAY-229 ] Add retry backoff`, so the fork agent's native label names its Work item in the agent list.
+  - Reviewer spawns use `Review <label>` and the label metadata is kept in the pending map.
+  - `parallelState` backfills titles from the Work snapshot when an older router returns leases without `item_title`, so mixed-version installs still render explicit rows.
+
+# Verification so far
+- Focused suites: `tests/test_work_mod_write_gate.py tests/test_work_parallel_mcp.py tests/test_work_parallel.py` — 60 passed, 10 subtests passed.
+- Harness scenario `parallel-assignment-labels` covers dispatch labeling, spawn-description rewrite, bind, and the rendered assignment rows. The dispatched item is `n229`, not `n227`: `n227` already has a running bound worker in the fixture, and re-dispatching it correctly hits the resume-instead guard; the bind fixture transitions the pending entry into a bound lease so the rendered header counts it.
+- `claude plugin test` (env-isolated): 84 pass / 7 fail. The same 7 failures reproduce on the pristine `c886fb2` HEAD baseline (verified via a stash cycle), so they are pre-existing and untouched by this change.
+- `claude plugin validate --json`: exit 0; catalog icon warning only (same as before this change).
+- Rendered-evidence replay: `evidence/assignment-render-20261104.json` records the exact `/work-mode parallel` text and spawn descriptions produced by the packaged `register.js` against the harness fixture, including the bound `n229 → agent work-... [host host-9]` row.
+
+# Not yet verified / deployment boundary
+- Not committed, pushed, published, or installed. Local sessions, the local install snapshot, and remote sandboxes still run `c886fb2` behavior; the explicit assignment view appears only after a new nightly install and session relaunch.
+- The 7 pre-existing plugin-test failures are unchanged from HEAD; they are not claimed fixed by this task.
+- Kobi (.14) still runs the older `f30bff6` nightly; upgrading the fleet remains a separate approved step.
+
+# 2026-11-04 follow-up diagnosis supersedes part of the boundary above
+- A later read-only probe found Kobi was actually running `0.2.51-nightly.20261104-041406.c886fb2`, so “still older f30bff6” is stale. The installed `register.js` still lacks this assignment display because the display change itself was uncommitted.
+- The idle cause was separately traced to two native spawn denials from omitted Agent names, followed by the auto-continue no-progress pause. See `docs/journal/2026/11/03/diagnostics/kobe-stall/recheck-20261104.okf` and `idle-cause-20261104.okf`.
+- The `hard cap reached` screenshot is a separate misbehavior: provisional `reserved + host_id=None + slot=True` leases can remain after a failed native launch. Its fix and the pause-discovery instruction are recorded in `stop-discovery-unbound-release-20261104.okf`.

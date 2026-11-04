@@ -45,7 +45,7 @@ class WorkParallelTests(unittest.TestCase):
         assert p["enabled"] and p["test_override"] and p["max_active"] == 3
         assert p["p1_reserved"] == 1 and p["max_rework"] == 2 and p["launches_per_minute"] == 4
         assert p["thresholds"] == dict(P2=1.0, P3=1.0, P4=1.0, P5=1.0)
-        assert "와키에서 최근 미결 아이템" in p["discovery_text"]
+        assert "미결 아이템" in p["discovery_text"]
         with self.assertRaises(WorkParallelError):
             s.configure(dict(enabled=True), capability_ready=False, expected_version=0)
         assert s.read()["version"] == 0
@@ -320,6 +320,18 @@ class WorkParallelTests(unittest.TestCase):
         call(s, "configure", dict(enabled=True, max_active=1), capability_ready=True)
         ident = reserve(s)
         assert s.read()["leases"][ident]["priority"] == "P2"
+
+
+    def test_provisional_unbound_reserve_is_released_without_touching_board(self):
+        store = self.store
+        ident = reserve(store)
+        row = store.read()["leases"][ident]
+        assert row["state"] == "reserved" and row["host_id"] is None and row["slot"]
+        # A worker that never launched must not keep occupying a device slot.
+        call(store, "release_unbound", ident, proof="native spawn denied before launch")
+        assert ident not in store.read()["leases"]
+        # The failure does not delete or mutate the Work item, so it remains queued
+        # for a later dispatch.
 
 
     def test_lowering_cap_drains_existing_leases(self):

@@ -596,6 +596,40 @@ function parallelDeny(e, next, scope) {
   return 'Work parallel dispatch denied: ' + detail
     + '. Call work_parallel_run again, then call Agent with the exact tool, subagent_type, name, description and prompt it returns. /work-mode parallel shows the pending name.'
 }
+function parallelItemLabel(r) {
+  const ref = r.item_ref ? '[ ' + clipped(r.item_ref, 64) + ' ] ' : ''
+  return clipped(r.item_id || '(unknown item)', 80) + (r.item_title ? ' ' + ref + clipped(r.item_title, 160) : '')
+}
+function boardTitleMap(board) {
+  const nodes = Array.isArray(board?.nodes) ? board.nodes : []
+  const byId = new Map(nodes.map(n => [n.id, n]))
+  const titles = {}
+  for (const node of byId.values()) {
+    const chain = []
+    let current = node
+    const seen = new Set()
+    while (current && !seen.has(current.id)) {
+      seen.add(current.id)
+      chain.push(current)
+      current = current.parent_id ? byId.get(current.parent_id) : null
+    }
+    chain.reverse()
+    titles[node.id] = { title: node.title || '', ref: node.ref || '',
+      goal_title: chain[0]?.title || '', path: chain.map(n => n.title || '') }
+  }
+  return titles
+}
+async function parallelState($, identity) {
+  const state = await parallelCall($, 'work_parallel_status')
+  const lacksTitles = Object.values(state.leases || {}).some(r => r.item_id && !r.item_title)
+  if (!lacksTitles) return state
+  try {
+    const board = await readSnapshot($, identity)
+    const titles = boardTitleMap(board)
+    for (const lease of Object.values(state.leases || {})) Object.assign(lease, titles[lease.item_id] || {})
+  } catch { /* Older routers and offline boards keep id-only rows. */ }
+  return state
+}
 function parallelStatusText(state, scope) {
   const p = state?.policy || {}
   const leases = Object.values(state?.leases || {})
@@ -607,19 +641,22 @@ function parallelStatusText(state, scope) {
       + ' · P1 reserved ' + String(p.p1_reserved ?? '?')
       + ' · launches/min ' + String(p.launches_per_minute ?? '?')
       + ' · max rework ' + String(p.max_rework ?? '?'),
-    'This conversation leases: ' + leases.length + ' (' + active.length + ' holding a slot)']
+    'Assignments (item → fork agent): ' + leases.length + ' lease(s), ' + active.length + ' holding a slot']
   for (const r of leases) {
-    lines.push('  ' + clipped(r.id, 40) + ' · item ' + clipped(r.item_id, 80) + ' · ' + clipped(r.priority, 8) + ' ' + clipped(r.role, 16)
+    lines.push('  ' + parallelItemLabel(r)
+      + ' → agent ' + clipped(r.agent_name || '(not launched yet)', 120)
+      + (r.host_id ? ' [host ' + clipped(r.host_id, 100) + ']' : '')
+      + ' · ' + clipped(r.priority, 8) + ' ' + clipped(r.role, 16)
       + ' · ' + clipped(r.state, 32) + (r.slot ? ' · slot held' : ' · slot released')
-      + (r.agent_name ? ' · agent ' + clipped(r.agent_name, 100) : '')
-      + (r.host_id ? ' · host ' + clipped(r.host_id, 100) : '')
-      + ' · plan v' + String(r.plan_version ?? '?'))
+      + ' · lease ' + clipped(r.id, 40) + ' · plan v' + String(r.plan_version ?? '?'))
+    if (r.item_path?.length > 1) lines.push('    path: ' + r.item_path.map(t => clipped(t, 100)).join(' → '))
     if (r.workspace?.path) lines.push('    workspace: ' + clipped(r.workspace.path, 300))
   }
   const pending = [...parallelPending.entries()].filter(([, r]) => !scope || r.scope === scope)
   lines.push('Pending native Agent dispatch: ' + pending.length)
   for (const [name, r] of pending) {
-    lines.push('  name ' + clipped(name, 120) + ' · item ' + clipped(r.item_id || '(from lease)', 80)
+    lines.push('  ' + parallelItemLabel(r)
+      + ' → next Agent name ' + clipped(name, 120)
       + ' · ' + clipped(r.priority || 'P1', 8) + ' ' + clipped(r.role || 'worker', 16)
       + (r.lease_id ? ' · lease ' + clipped(r.lease_id, 40) : ' · lease not reserved yet'))
     lines.push('    The next Agent call must include this exact name. Omitting it is denied and starts no worker.')
@@ -684,10 +721,15 @@ async function parallelToolCall($, e, next) {
       if (open?.host_id) return { deny: 'Work item ' + args.item_id + ' already has lease ' + open.id
         + '; resume its worker with SendMessage to ' + open.host_id + ' instead of dispatching another Agent.' }
       const key = 'work-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2)
-      parallelPending.set(key, { ...args, scope: await sessionId($) })
+      const board = await refresh($)
+      const meta = boardTitleMap(board)[args.item_id] || {}
+      const label = parallelItemLabel({ item_id: args.item_id, item_title: meta.title, item_ref: meta.ref })
+      parallelPending.set(key, { ...args, scope: await sessionId($), item_title: meta.title,
+        item_ref: meta.ref, goal_title: meta.goal_title, item_path: meta.path })
       return { result: JSON.stringify({ dispatch: 'native_agent_required',
-        tool: 'Agent', subagent_type: 'fork', name: key, description: 'Approved Work agent',
-        prompt: 'Execute only approved Work item ' + args.item_id
+        tool: 'Agent', subagent_type: 'fork', name: key,
+        description: 'Work ' + label,
+        prompt: 'Execute only approved Work item ' + label
           + '. Report question or result through work_parallel_event. Do not configure policy or accept your result.',
         required_parameters: { name: key },
         instruction: 'Call the native Agent tool with every returned field unchanged, including required_parameters.name. Omitting name is denied before any worker starts; /work-mode parallel shows the pending name.' }) }
@@ -750,12 +792,24 @@ async function parallelAgentSpawn($, e, next) {
     const r = await parallelEvent($, { ...args, event: 'reserve' }, { fork: e.fork,
       workspace_repo: repo ? await $.session.root() : undefined })
     Object.assign(request, r)
-    const dispatch = { ...e, prompt: e.prompt + '\nExecution lease: ' + r.lease_id
+    const label = parallelItemLabel({ ...request, item_title: r.item_title || request.item_title,
+      item_ref: r.item_ref ?? request.item_ref })
+    const dispatch = { ...e, description: 'Work ' + label,
+      prompt: e.prompt + '\nExecution lease: ' + r.lease_id
       + '; plan_version: ' + r.plan_version + '. Read work_parallel_status for your binding.' }
-    // Reservation precedes native launch. Failures/uncertainty retain capacity.
+    // Reservation precedes native launch. If the host proves the launch itself
+    // was denied, release only this still-unbound reservation; the Work item
+    // remains queued rather than consuming a slot or being deleted.
     const started = await next(dispatch)
     if (started?.deny) {
       rememberParallelFailure('native-spawn', started.deny)
+      try {
+        await parallelEvent($, { event: 'release', lease_id: request.lease_id },
+          { proof: 'native spawn denied before launch: ' + started.deny })
+        parallelPending.delete(e.name)
+      } catch (error) {
+        rememberParallelFailure('release-unbound', String(error.message || error))
+      }
       return started
     }
     if (started?.agentId && !request.host_id) {
@@ -786,7 +840,14 @@ async function parallelHydrate($) {
     if (lease.state === 'done' || !lease.host_id) continue
     parallelBound.set(lease.host_id, { lease_id: lease.id, scope, role: lease.role })
   }
-  // An absent native row is not proof of death; durable slots remain occupied.
+  // An absent native row is not proof of death for a bound worker; its slot
+  // stays occupied. A reserved lease that never acquired a host is different:
+  // it cannot be observed or resumed, so release exactly that provisional row.
+  for (const lease of Object.values(state.leases)) {
+    if (lease.state !== 'reserved' || lease.host_id || !lease.slot) continue
+    await parallelEvent($, { event: 'release', lease_id: lease.id },
+      { proof: 'session start observed an unbound reservation with no native host' })
+  }
   return state
 }
 const parallelReviewStarting = new Set()
@@ -798,10 +859,12 @@ async function parallelStartReview($) {
     if (Object.values(state.leases).some(r => r.item_id === lease.item_id && r.role === 'reviewer' && r.state !== 'done')) continue
     parallelReviewStarting.add(lease.id)
     const key = 'work-review-' + lease.id
+    const label = parallelItemLabel(lease)
     try {
-      parallelPending.set(key, { item_id: lease.item_id, priority: lease.priority, role: 'reviewer', scope: await sessionId($) })
-      await $.agent.spawn({ subagentType: 'fork', name: key, description: 'Independent Work review',
-        prompt: 'Execute only approved Work item ' + lease.item_id + ' as an independent read-only reviewer. '
+      parallelPending.set(key, { item_id: lease.item_id, priority: lease.priority, role: 'reviewer', scope: await sessionId($),
+        item_title: lease.item_title, item_ref: lease.item_ref, goal_title: lease.goal_title, item_path: lease.item_path })
+      await $.agent.spawn({ subagentType: 'fork', name: key, description: 'Review ' + label,
+        prompt: 'Execute only approved Work item ' + label + ' as an independent read-only reviewer. '
           + 'Review worker artifact SHA256 ' + lease.artifact + ' and evidence: ' + lease.evidence
           + '. Worker workspace: ' + (lease.workspace?.path || 'shared workspace')
           + '. Do not edit files or accept results. Report findings and your report artifact SHA256 through work_parallel_event result using your own reviewer lease.' })
@@ -976,10 +1039,14 @@ export function register(on) {
     else unchangedContinuations++
     if (unchangedContinuations > 1) {
       try { $.ui.toast('Work auto continue paused: no plan progress. Update the plan or send a message to resume.') } catch {}
-      stopNotice($, identity, 'Ciel Work auto continue paused: the plan did not change after the last continuation (next: '
+      const reason = 'Ciel Work auto continue paused: the plan did not change after the last continuation (next: '
         + clipped(s.continuation.next?.id, 64) + ' ' + itemTitle(s.continuation.next || {}, 200)
-        + '). Update the plan or send a message to resume.')
-      return result
+        + '). Update the plan or send a message to resume.'
+      stopNotice($, identity, reason)
+      // No planner progress is not permission to sit idle. Search for new
+      // independently approved work through whatever source this session has,
+      // without changing approvals, blocks, or deleting the current item.
+      return discoveryNotice($, identity, s, reason) || result
     }
     const c = s.continuation
     return { ...result, block: 'Ciel Work has ' + c.actionable + ' actionable unfinished item(s). '
@@ -1014,7 +1081,7 @@ export function register(on) {
     if (arg === 'parallel') {
       try {
         const identity = await sessionId($)
-        return { text: parallelStatusText(await parallelCall($, 'work_parallel_status'), identity) }
+        return { text: parallelStatusText(await parallelState($, identity), identity) }
       } catch (error) {
         const detail = String(error.message || error)
         rememberParallelFailure('status', detail)

@@ -1,0 +1,44 @@
+---
+type: diagnosis
+title: Kobi u24 idle cause — why it does not resume
+status: observed
+date: 2026-11-04
+---
+
+# Question
+Why is the Kobi session on 100.64.0.14 idle when the board still has many items?
+
+# Confirmed (remote SYSTEM probes, read-only)
+
+## The session is alive but ended and idle
+- Session file `.claude\sessions\24328.json`: sessionId `219f1b51-1044-4d57-ba0e-27f8d12b3bcd`, kind `interactive`, `status: "idle"`, `updatedAt: 1793766777641`, cwd `C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai`, Claude version 2.1.318.
+- Transcript `.../219f1b51-1044-4d57-ba0e-27f8d12b3bcd.jsonl` is 39,045,313 bytes with mtime 2026-11-04T04:36:22Z. Re-measured at 2026-11-04T05:18:14Z: unchanged. claude.exe pid 24328 is alive; CPU delta over 8s was 0.25s.
+- Probe confounder: `.claude\ciel-runtime-tool-guard\tool-events.jsonl` and `events.log` kept updating every ~31s during these probes because the remote PowerShell probes themselves pass through that guard. Those timestamps were excluded from the idle verdict.
+
+## The last real work attempt and how it ended
+- Last real (non-tool-result) user prompt in the tail window: 2026-11-04T03:40:59Z, `CIEL_RUNTIME_ADVISOR_CALL` about Q14: 97678 remote MCP sync tests pass, Q14 live since 02:00:09Z, SSH to the central host resetting at handshake, Walkie identity timed out.
+- Final window timeline:
+  - 04:28:26 PowerShell tool run; 04:28:31 result reports a forcibly-closed transport connection.
+  - 04:28:42 `walkie_identity` called; at 04:30:43 it is moved to the background after 120s (task `kn7fmuw4d`). Before that, nested node n239 was added under n132 with `within_scope=true`.
+  - 04:30:59 a fetch result shows ECONNRESET; 04:31:08 an ssh attempt times out.
+  - 04:31:21 `work_parallel_run` returns name `work-mw1md9jx-grlgde48uli`; 04:31:32 the Agent call is denied because the name was omitted.
+  - 04:32:00 a second `work_parallel_run` returns name `work-mw1me4kb-8wlvkmjaw98`; 04:32:16 the Agent call is denied the same way.
+  - 04:32:35 and 04:32:55 assistant `end_turn`. No transcript rows after 04:36:21.991Z.
+
+## Why auto-continue no longer resumes it
+- Stop-hook feedback in the transcript repeatedly says: `Ciel Work has 1 actionable unfinished item(s). The next item is n240`.
+- A later system row says: `ciel-work: Ciel Work auto continue paused: the plan did not change after the last continuation (next: n240 ... publication ...)`.
+- Local source for that exact behavior: `ciel_runtime_support/claude_mods/ciel-work/hooks/register.js:1022-1026` — when the same plan version repeats (`unchangedContinuations > 1`), auto-continue pauses with that notice and waits for a plan update or a new message.
+
+## Router and board storage access
+- Router instance dir `router-instances\9780-651d879f6c68` exists; `compaction-scope.json` and `context-usage.json` were last touched 2026-11-04T04:36:04Z, `claude-stream-recovery.json` on 2026-11-03.
+- Workspace dir `workspaces\651d879f6c68` returned an empty tree in the depth-3 listing; the roaming ciel-runtime tree contains only `work-parallel-host.token`, `work-parallel.json.lock` (2026-11-03T14:10Z) and `workspace-router-ports.json` matching work-state names. No readable board file was found, so board content still comes from the mod's authenticated results and the transcript's `work_status` output (executing, 93/103, n67 in_progress).
+
+# Verdict
+Confirmed: Kobi is not executing because the session ended its turn and the packaged auto-continue guard then paused continuation after the plan stopped changing. The last two fork dispatches failed before reserve because the Agent calls omitted the returned names; the Walkie identity call was parked in a 120-second background task; the last user intent on record is the Q14 advisor question, not a fresh instruction to keep executing the board.
+
+Estimated: the `Q14 terminal/publication` 2026-11-04T05:00Z reservation mentioned in the 04:32:55Z end_turn cannot fire by itself while the session sits idle after `end_turn`; these probes did not identify a separate durable scheduler that would wake it.
+
+# Limits
+- No remote file, process, service, configuration, or session was changed or restarted.
+- Node-level board rows were not read directly; the board-file search found no readable file under the searched roots.
