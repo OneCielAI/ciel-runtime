@@ -117,6 +117,18 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(result["event"]["event"], "reconcile")
         self.assertEqual(result["event"]["_host"]["state"], "unknown")
 
+    def test_missing_agent_name_is_diagnosed_and_visible_in_parallel_ui(self):
+        result = self.run_scenario("parallel-missing-agent-name")
+        self.assertEqual(result["dispatch"]["required_parameters"]["name"], result["dispatch"]["name"])
+        self.assertIn("omitted the exact name returned by work_parallel_run", result["denied"])
+        self.assertIn("Pending native Agent dispatch: 1", result["shown"])
+        self.assertIn(result["dispatch"]["name"], result["shown"])
+        self.assertIn("The next Agent call must include this exact name", result["shown"])
+        self.assertIn("Recent parallel failures in this session", result["shown"])
+        # The harness host accepts every MCP call, so the scripted note passes
+        # here; the production router rejects it (work_parallel_mcp.py
+        # "unknown conversation lease"), as Kobi's transcript shows.
+
     def test_restart_recovery_resumes_same_worker_and_blocks_duplicates(self):
         result = self.run_scenario("parallel-recovery-context")
         self.assertIn('SendMessage({ to: \\"agent-old\\"', result["context"])

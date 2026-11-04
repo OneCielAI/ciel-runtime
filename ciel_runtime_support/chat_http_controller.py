@@ -97,20 +97,48 @@ class ChatHttpController:
         self,
         handler: BaseHTTPRequestHandler,
         body: dict[str, Any],
-    ) -> tuple[bool, dict[str, Any] | None]:
+    ) -> tuple[bool, bool, dict[str, Any] | None]:
         value = body.get("raw_injection")
         if value is None:
             value = self._first(self._params(handler), "raw_injection", "")
+        btw = body.get("btw")
+        if btw is None:
+            btw = self._first(self._params(handler), "btw", "")
+        if isinstance(btw, bool):
+            return btw, btw, None
+        if isinstance(btw, str) and btw.strip():
+            normalized_btw = btw.strip().lower()
+            if normalized_btw in {"1", "true", "yes", "on"}:
+                return True, True, None
+            if normalized_btw in {"0", "false", "no", "off"}:
+                return False, False, None
+            return False, False, {
+                "ok": False,
+                "error": "invalid_btw",
+                "allowed": [True, False],
+            }
+        if btw not in (None, ""):
+            return False, False, {
+                "ok": False,
+                "error": "invalid_btw",
+                "allowed": [True, False],
+            }
+        message = body.get("message", body.get("content", body.get("text", "")))
+        if isinstance(message, str) and (
+            message == "/btw"
+            or message.startswith(("/btw ", "/btw\n", "/btw\t", "/btw\r"))
+        ):
+            return True, True, None
         if value in (None, ""):
-            return False, None
+            return False, False, None
         if isinstance(value, bool):
-            return value, None
+            return value, False, None
         normalized = str(value).strip().lower()
         if normalized in {"1", "true", "yes", "on"}:
-            return True, None
+            return True, False, None
         if normalized in {"0", "false", "no", "off"}:
-            return False, None
-        return False, {
+            return False, False, None
+        return False, False, {
             "ok": False,
             "error": "invalid_raw_injection",
             "allowed": [True, False],
@@ -405,7 +433,7 @@ class ChatHttpController:
         if path == "/ca/chat/notify":
             return self._notify(handler, body)
         if path == "/ca/chat/messages":
-            raw_injection, raw_error = self._raw_injection(handler, body)
+            raw_injection, btw, raw_error = self._raw_injection(handler, body)
             if raw_error is not None:
                 self.writes.write_json(handler, raw_error, 400)
                 return True
@@ -425,6 +453,7 @@ class ChatHttpController:
             meta["input_transport"] = input_transport
             meta["response_mode"] = response_mode
             meta["raw_injection"] = raw_injection
+            meta["btw"] = btw
             if response_mode == "web_chat":
                 admitted_body.setdefault("channel", "default")
                 admitted_body.setdefault("thread_id", admitted_body["channel"])
@@ -463,6 +492,7 @@ class ChatHttpController:
                         "input_transport": input_transport,
                         "response_mode": response_mode,
                         "raw_injection": raw_injection,
+                        "btw": btw,
                         "injection_mode": "tty",
                         "message": public_message or runtime_message,
                         "request_id": runtime_message.get("id"),
@@ -483,6 +513,7 @@ class ChatHttpController:
                     "input_transport": input_transport,
                     "response_mode": response_mode,
                     "raw_injection": raw_injection,
+                    "btw": btw,
                     "injection_mode": "web_chat",
                     "message": message,
                     **(

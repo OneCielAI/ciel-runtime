@@ -158,9 +158,44 @@ class ChatHttpInjectionModeTests(unittest.TestCase):
 
         admitted = calls[0][1][0]
         self.assertIs(admitted["meta"]["raw_injection"], True)
+        self.assertIs(admitted["meta"]["btw"], False)
         self.assertEqual("session_socket", admitted["meta"]["input_transport"])
         self.assertEqual("web_chat", admitted["meta"]["response_mode"])
         self.assertIs(responses[0][1]["raw_injection"], True)
+        self.assertIs(responses[0][1]["btw"], False)
+
+    def test_btw_option_and_prefix_admit_exact_raw_input(self):
+        for body, expected in (
+            ({"message": "/btw what changed?", "input_transport": "session_socket"}, True),
+            ({"message": " quote this exactly ", "btw": True, "input_transport": "tty"}, True),
+            ({"message": " quoted /btw text", "input_transport": "session_socket"}, False),
+        ):
+            with self.subTest(body=body):
+                calls = []
+                responses = []
+                controller = self.controller(calls, responses)
+                self.assertTrue(controller.post(Handler(), "/ca/chat/messages", body))
+                admitted = calls[0][1][0]
+                self.assertIs(admitted["meta"]["btw"], expected)
+                self.assertIs(admitted["meta"]["raw_injection"], expected)
+                self.assertIs(responses[0][1]["btw"], expected)
+
+    def test_invalid_btw_is_rejected_before_admission(self):
+        calls = []
+        responses = []
+        controller = self.controller(calls, responses)
+
+        self.assertTrue(
+            controller.post(
+                Handler(),
+                "/ca/chat/messages",
+                {"message": "reject", "btw": "sometimes"},
+            )
+        )
+
+        self.assertEqual([], calls)
+        self.assertEqual(400, responses[0][0])
+        self.assertEqual("invalid_btw", responses[0][1]["error"])
 
     def test_invalid_raw_injection_is_rejected_before_admission(self):
         calls = []

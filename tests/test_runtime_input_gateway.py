@@ -1,7 +1,7 @@
 import unittest
 from unittest import mock
 
-from ciel_runtime_support.channel_message_policy import message_is_web_chat_request
+from ciel_runtime_support.channel_message_policy import message_btw, message_is_web_chat_request, message_raw_injection
 from ciel_runtime_support.channel_message_prompt import format_llm_batch_prompt
 from ciel_runtime_support.runtime_input_gateway import RuntimeInputGateway
 
@@ -180,6 +180,38 @@ class RuntimeInputGatewayTests(unittest.TestCase):
         self.assertEqual("private_runtime", saved["visibility"])
         prompt = format_llm_batch_prompt([saved])
         self.assertIn("do not acknowledge or respond", prompt)
+
+    def test_btw_prefix_is_auto_detected_as_exact_raw_input(self):
+        gateway = RuntimeInputGateway(lambda value: {"id": 14, **value})
+
+        saved = gateway.submit_stream_input(
+            {"message": "/btw  what changed?  ", "input_transport": "session_socket"}
+        )
+
+        self.assertEqual("/btw  what changed?  ", saved["message"])
+        self.assertTrue(message_btw(saved))
+        self.assertTrue(message_raw_injection(saved))
+        self.assertEqual(saved["message"], format_llm_batch_prompt([saved]))
+
+    def test_btw_option_preserves_non_command_message_exactly(self):
+        gateway = RuntimeInputGateway(lambda value: {"id": 15, **value})
+
+        saved = gateway.submit_stream_input(
+            {"message": " quote this exactly ", "btw": True, "input_transport": "tty"}
+        )
+
+        self.assertEqual(" quote this exactly ", saved["message"])
+        self.assertTrue(message_btw(saved))
+        self.assertTrue(message_raw_injection(saved))
+
+    def test_btw_rejects_malformed_flag_and_quoted_prefix(self):
+        gateway = RuntimeInputGateway(lambda value: {"id": 16, **value})
+
+        with self.assertRaisesRegex(ValueError, "btw must be a boolean"):
+            gateway.submit_stream_input({"message": "x", "btw": "sometimes"})
+        saved = gateway.submit_stream_input({"message": " quoted /btw text"})
+        self.assertFalse(message_btw(saved))
+        self.assertFalse(message_raw_injection(saved))
 
 
 if __name__ == "__main__":

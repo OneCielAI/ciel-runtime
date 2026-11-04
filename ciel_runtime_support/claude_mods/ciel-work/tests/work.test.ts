@@ -1375,6 +1375,25 @@ test('explicit expand and compact commands only change display state', async ($,
   await band.unmount()
 })
 
+test('external /btw is bridged to the native command and never enters as a prompt', async ($, on) => {
+  const s = setup(on)
+  const clock = mock.clock(on)
+  const runs = []
+  on('command.run', ($, e) => { runs.push({ command: e.command, args: e.args }); return { text: 'btw-panel' } })
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  const dropped = await $.prompt.submit({ text: '/btw what changed?', origin: { kind: 'peer' }, wait: false })
+  expect(dropped.drop).toContain('native side question')
+  expect(s.prompts || 0).toBe(0)
+  await clock.advance(100)
+  expect(runs).toEqual([{ command: 'btw', args: 'what changed?' }])
+  const typed = await $.prompt.submit({ text: '/btw typed locally', origin: { kind: 'composer' }, wait: false })
+  expect(typed.drop).toBeUndefined()
+  expect(runs.length).toBe(1)
+  const prose = await $.prompt.submit({ text: 'quoted /btw text', origin: { kind: 'peer' }, wait: false })
+  expect(prose.drop).toBeUndefined()
+  expect(runs.length).toBe(1)
+})
+
 test('compact display follows runnable selector and makes ancestor holds visible', async ($, on) => {
   const s = inspection(on)
   s.snapshot.next = { id: 'stale', title: 'Pending under blocked parent', status: 'pending' }

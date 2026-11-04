@@ -22,7 +22,7 @@ const HELP = [
   '• New requests: an independent request becomes its own numbered item ("2. …") and waits in the queue behind the active item; a change to an existing item is added under that item.',
   '• Executing: after work_execute (automatic, or your approval when set to ask) the model works step by step and marks each step done with evidence.',
   '• Above the prompt: compact by default (done/total + current step); [+] / w expands, [-] collapses. Progress / Queue / Completed are read-only button tabs; Prev / Next (p / n) page the list; w opens the Inspector. Ctrl+X Tab focuses · Tab/↑↓ select · Enter inspects · Esc returns. Tiny screens use Inspect Work. Rows of other plugins stay below the Work rows; the band scrolls to them.',
-  '• /work-mode expand / compact: toggle the inline list · /work-mode view: keyboard inspector · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode help: this help',
+  '• /work-mode expand / compact: toggle the inline list · /work-mode view: keyboard inspector · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode parallel: fork slots, leases and the next Agent name · /work-mode help: this help',
   '• Focus: inspect an item → Focus first. Focused items run before other Work; a focused item that waits or is blocked never holds unrelated approved Work or discovery. Clear focus releases it now; it also clears automatically once every focused item is done.',
   '• Priorities: All items → Move up / Move down orders root goals. Moving the active goal requires your request; a button press is that request.',
   '• Linked IDs appear as [ id ] description; ◷ names an external wait; green ✓ means verified done. An urgent request holds other goals until it finishes.',
@@ -283,7 +283,7 @@ function summary(s) {
     lines.push('Queue (next first):')
     for (const q of s.queue) lines.push('  ' + (q.status === 'done' ? '✓' : mark(q.status)) + ' ' + itemTitle(q, 240) + ' ' + q.done + '/' + q.total)
   }
-  lines.push('/work-mode help · view · tree · status')
+  lines.push('/work-mode help · view · tree · status · parallel')
   return lines.join('\n')
 }
 // Deliberately select fields instead of slicing serialized snapshots (invalid JSON,
@@ -576,6 +576,61 @@ const parallelTerminal = new Set(['idle', 'completed', 'failed', 'killed'])
 const parallelPending = new Map()
 const parallelBound = new Map()
 const parallelResuming = new Set()
+const parallelFailures = []
+function rememberParallelFailure(stage, detail) {
+  parallelFailures.push({ at: new Date().toISOString(), stage, detail: clipped(detail, 500) })
+  if (parallelFailures.length > 5) parallelFailures.shift()
+}
+function parallelDeny(e, next, scope) {
+  const reasons = []
+  if (!e.name) reasons.push('the Agent call omitted the exact name returned by work_parallel_run')
+  else if (!parallelPending.has(e.name)) reasons.push('no pending work_parallel_run dispatch matches Agent name ' + clipped(e.name, 120))
+  else if (scope !== undefined && parallelPending.get(e.name).scope !== scope) reasons.push('the pending dispatch belongs to another conversation')
+  if (e.parentAgentId !== undefined) reasons.push('the spawn came from another agent, not the coordinator')
+  if (e.fork !== true) reasons.push('fork is ' + String(e.fork) + ', not true')
+  if (e.subagentType !== 'fork') reasons.push('subagent_type is ' + clipped(e.subagentType || '(missing)', 80) + ', not fork')
+  const origin = next.origin?.plugin
+  if (!['engine', 'ciel-work'].includes(origin)) reasons.push('the spawn origin is ' + clipped(origin || '(missing)', 80))
+  const detail = reasons.join('; ') || 'the native spawn did not match the pending Work dispatch'
+  rememberParallelFailure('agent-spawn', detail)
+  return 'Work parallel dispatch denied: ' + detail
+    + '. Call work_parallel_run again, then call Agent with the exact tool, subagent_type, name, description and prompt it returns. /work-mode parallel shows the pending name.'
+}
+function parallelStatusText(state, scope) {
+  const p = state?.policy || {}
+  const leases = Object.values(state?.leases || {})
+  const active = leases.filter(r => r.slot)
+  const lines = ['Ciel Work parallel',
+    'Policy: ' + (p.enabled ? 'enabled' : 'disabled') + (p.paused ? ' · paused' : '')
+      + ' · ledger v' + String(state?.version ?? '?')
+      + ' · device slots ' + String(state?.active_device ?? active.length) + '/' + String(p.max_active ?? '?')
+      + ' · P1 reserved ' + String(p.p1_reserved ?? '?')
+      + ' · launches/min ' + String(p.launches_per_minute ?? '?')
+      + ' · max rework ' + String(p.max_rework ?? '?'),
+    'This conversation leases: ' + leases.length + ' (' + active.length + ' holding a slot)']
+  for (const r of leases) {
+    lines.push('  ' + clipped(r.id, 40) + ' · item ' + clipped(r.item_id, 80) + ' · ' + clipped(r.priority, 8) + ' ' + clipped(r.role, 16)
+      + ' · ' + clipped(r.state, 32) + (r.slot ? ' · slot held' : ' · slot released')
+      + (r.agent_name ? ' · agent ' + clipped(r.agent_name, 100) : '')
+      + (r.host_id ? ' · host ' + clipped(r.host_id, 100) : '')
+      + ' · plan v' + String(r.plan_version ?? '?'))
+    if (r.workspace?.path) lines.push('    workspace: ' + clipped(r.workspace.path, 300))
+  }
+  const pending = [...parallelPending.entries()].filter(([, r]) => !scope || r.scope === scope)
+  lines.push('Pending native Agent dispatch: ' + pending.length)
+  for (const [name, r] of pending) {
+    lines.push('  name ' + clipped(name, 120) + ' · item ' + clipped(r.item_id || '(from lease)', 80)
+      + ' · ' + clipped(r.priority || 'P1', 8) + ' ' + clipped(r.role || 'worker', 16)
+      + (r.lease_id ? ' · lease ' + clipped(r.lease_id, 40) : ' · lease not reserved yet'))
+    lines.push('    The next Agent call must include this exact name. Omitting it is denied and starts no worker.')
+  }
+  if (parallelFailures.length) {
+    lines.push('Recent parallel failures in this session:')
+    for (const f of parallelFailures) lines.push('  ' + f.at + ' · ' + clipped(f.stage, 60) + ' · ' + f.detail)
+  }
+  lines.push('Settings: ciel-runtime menu → LLM options → Work 병렬 실행. Policy changes do not terminate existing workers.')
+  return lines.join('\n')
+}
 async function parallelCall($, name, args = {}, observed = {}, scope = null) {
   const token = await $.env.get('CIEL_RUNTIME_WORK_PARALLEL_HOST_TOKEN')
   const r = await $.mcp.call('ciel-runtime-router', name, {
@@ -634,7 +689,8 @@ async function parallelToolCall($, e, next) {
         tool: 'Agent', subagent_type: 'fork', name: key, description: 'Approved Work agent',
         prompt: 'Execute only approved Work item ' + args.item_id
           + '. Report question or result through work_parallel_event. Do not configure policy or accept your result.',
-        instruction: 'Call the native Agent tool with these exact parameters. The spawn hook verifies fork identity and reserves capacity before execution.' }) }
+        required_parameters: { name: key },
+        instruction: 'Call the native Agent tool with every returned field unchanged, including required_parameters.name. Omitting name is denied before any worker starts; /work-mode parallel shows the pending name.' }) }
     }
     if (name === 'work_parallel_configure' && e.agentId !== undefined) return { deny: 'Workers cannot configure policy.' }
     if (e.agentId !== undefined && !parallelBound.has(e.agentId)) {
@@ -684,11 +740,12 @@ async function parallelAgentSpawn($, e, next) {
       if (started?.agentId) parallelBound.set(started.agentId, { lease_id: resumed.id, scope: await sessionId($), role: resumed.role })
       return started
     }
-    if (!request || request.scope !== await sessionId($) || e.parentAgentId !== undefined
+    const scope = await sessionId($)
+    if (!request || request.scope !== scope || e.parentAgentId !== undefined
         || e.fork !== true || e.subagentType !== 'fork' || !['engine', 'ciel-work'].includes(next.origin?.plugin)) {
-      return { deny: 'Enabled Work parallel dispatch requires work_parallel_run and a verified native fork.' }
+      return { deny: parallelDeny(e, next, scope) }
     }
-    const { scope, ...args } = request
+    const { scope: _pendingScope, ...args } = request
     const repo = await $.session.repo()
     const r = await parallelEvent($, { ...args, event: 'reserve' }, { fork: e.fork,
       workspace_repo: repo ? await $.session.root() : undefined })
@@ -697,6 +754,10 @@ async function parallelAgentSpawn($, e, next) {
       + '; plan_version: ' + r.plan_version + '. Read work_parallel_status for your binding.' }
     // Reservation precedes native launch. Failures/uncertainty retain capacity.
     const started = await next(dispatch)
+    if (started?.deny) {
+      rememberParallelFailure('native-spawn', started.deny)
+      return started
+    }
     if (started?.agentId && !request.host_id) {
       await parallelEvent($, { event: 'bind', lease_id: request.lease_id }, { host_id: started.agentId, agent_name: e.name })
       request.host_id = started.agentId
@@ -704,7 +765,11 @@ async function parallelAgentSpawn($, e, next) {
       parallelBound.set(started.agentId, { lease_id: request.lease_id, scope, role: request.role || 'worker' })
     }
     return started
-  } catch (error) { return { deny: String(error.message || error) } }
+  } catch (error) {
+    const detail = String(error.message || error)
+    rememberParallelFailure('agent-spawn', detail)
+    return { deny: 'Work parallel dispatch denied: ' + detail + '. /work-mode parallel shows the last failure.' }
+  }
 }
 async function parallelToolCheck($, e, next) {
   const binding = parallelBound.get(e.agentId)
@@ -781,6 +846,26 @@ async function parallelRecovery($) {
   }
   return lines
 }
+// A session-socket prompt arrives with a peer/unclassified origin and is read
+// by the model as plain text, so `/btw ...` never reaches Claude's native
+// side-question command (isolated probe btw-bridge-4ca4f030). Bridge it:
+// schedule the native command after this submission settles — `$.command.run`
+// rejects inside the hook holding the turn — and drop the ordinary prompt. A
+// prompt typed at the composer (origin 'composer'), or one a command.run hook
+// already resolved into a command submission, is native already and passes
+// through untouched.
+function btwBridge($, e, next) {
+  if (e.command || e.origin?.kind === 'composer') return null
+  const match = /^\/btw(?:\s+([\s\S]*))?$/.exec(e.text || '')
+  if (!match) return null
+  const args = (match[1] || '').trim()
+  $.clock.after(50, async () => {
+    try { await $.command.run({ command: 'btw', args }) }
+    catch (error) { $.ui.log('Ciel /btw bridge: ' + String(error.message || error)) }
+  })
+  return { drop: 'Ciel: /btw delivered as a native side question (see the /btw panel).' }
+}
+
 async function parallelPromptSubmit($, e, next) {
   let recovery = []
   try { recovery = await parallelRecovery($) } catch { /* Unknown host state keeps slots and adds no instruction. */ }
@@ -915,10 +1000,10 @@ export function register(on) {
       + 'Waiting items: ' + clipped((c.waiting || []).map(n => n.id + ': ' + n.waiting_on).join('; ') || 'none', 700)
       + (unchangedContinuations === 1 ? '. This is the last continuation without a plan update.' : '') }
   })
-  on('prompt.submit', async ($, e, next) => parallelPromptSubmit($, e, next))
+  on('prompt.submit', async ($, e, next) => btwBridge($, e, next) || parallelPromptSubmit($, e, next))
   on('command.run', { command: 'work-mode' }, async ($, e) => {
     const arg = e.args.trim()
-    if (!['', 'help', 'view', 'status', 'tree', 'expand', 'compact'].includes(arg)) return { text: 'Usage: /work-mode [expand|compact|help|view|tree|status]' }
+    if (!['', 'help', 'view', 'status', 'tree', 'expand', 'compact', 'parallel'].includes(arg)) return { text: 'Usage: /work-mode [expand|compact|help|view|tree|status|parallel]' }
     if (arg === 'expand' || arg === 'compact') {
       await refresh($)
       const origin = await sessionId($)
@@ -926,6 +1011,17 @@ export function register(on) {
       return { text: arg === 'expand' ? 'Work expanded · Completed is separate · /work-mode compact' : 'Work compact · /work-mode expand' }
     }
     if (arg === 'help') return { text: HELP }
+    if (arg === 'parallel') {
+      try {
+        const identity = await sessionId($)
+        return { text: parallelStatusText(await parallelCall($, 'work_parallel_status'), identity) }
+      } catch (error) {
+        const detail = String(error.message || error)
+        rememberParallelFailure('status', detail)
+        return { text: 'Ciel Work parallel unavailable: ' + clipped(detail, 500) + '\nRecent parallel failures in this session:\n'
+          + (parallelFailures.map(f => '  ' + f.at + ' · ' + clipped(f.stage, 60) + ' · ' + f.detail).join('\n') || '  none recorded') }
+      }
+    }
     if (arg === 'view') { await openDetails($); return { text: 'Work inspector: Tab/arrows navigate, Enter opens, Esc returns.' } }
     const s = await refresh($)
     if (!s) return { text: UNAVAILABLE }

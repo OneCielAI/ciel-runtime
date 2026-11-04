@@ -115,6 +115,43 @@ class ChannelMcpToolsTests(unittest.TestCase):
         self.assertEqual("session_socket", admitted[0]["input_transport"])
         self.assertFalse(response["result"]["isError"])
 
+    def test_submit_input_accepts_btw_and_rejects_malformed_flag(self):
+        admitted = []
+        services = replace(
+            self.services,
+            runtime=replace(
+                self.services.runtime,
+                submit_input=lambda body: admitted.append(body) or {"id": 42, **body},
+            ),
+        )
+
+        response = dispatch_channel_mcp_tool(
+            8,
+            {
+                "name": "submit_input",
+                "arguments": {
+                    "message": "/btw what changed?",
+                    "input_transport": "session_socket",
+                    "btw": True,
+                },
+            },
+            services,
+        )
+        self.assertFalse(response["result"]["isError"])
+        self.assertIs(admitted[0]["btw"], True)
+
+        admitted.clear()
+        response = dispatch_channel_mcp_tool(
+            9,
+            {
+                "name": "submit_input",
+                "arguments": {"message": "x", "btw": "sometimes"},
+            },
+            services,
+        )
+        self.assertTrue(response["result"]["isError"])
+        self.assertEqual([], admitted)
+
     def test_send_message_builds_default_web_delivery(self):
         response = dispatch_channel_mcp_tool(
             7,

@@ -36,6 +36,24 @@ const call = ($, agentId) => handlers['tool.call']($, { tool: 'Edit', agentId,
 const verdict = r => r?.decision === 'deny' ? 'deny: ' + r.reason : r?.deny ? 'deny: ' + r.deny : 'allow'
 
 const scenarios = {
+  // Mirrors Kobi 2026-11-04: work_parallel_run returned a name, but the model
+  // called Agent without it. The gate must name that exact omission, and the
+  // user-facing parallel view must expose the pending name without a router read.
+  async 'parallel-missing-agent-name'() {
+    const parallel = { version: 11, active_device: 0,
+      policy: { enabled: true, paused: false, max_active: 3, p1_reserved: 1, launches_per_minute: 4, max_rework: 2 }, leases: {} }
+    const { $ } = host(async (tool) => tool === 'work_parallel_status' ? text(parallel) : text(snapshot()))
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    const run = await handlers['tool.call']($, { tool: 'mcp__ciel-runtime-router__work_parallel_run',
+      item_id: 'n227', priority: 'P1', role: 'worker', expected_version: 11 }, next({}))
+    const dispatch = JSON.parse(run.result)
+    const denied = await handlers['agent.spawn']($, { tool_use_id: 'call-agent', prompt: dispatch.prompt,
+      description: dispatch.description, subagentType: 'fork', fork: true, background: true }, next({ agentId: 'must-not-start' }))
+    const shown = await handlers['command.run']($, { args: 'parallel' })
+    const note = await handlers['tool.call']($, { tool: 'mcp__ciel-runtime-router__work_parallel_event',
+      item_id: 'n227', plan_version: 305, event: 'Native fork dispatch failed' }, next({}))
+    return { dispatch, denied: verdict(denied), shown: shown.text || '', note: verdict(note) }
+  },
   async 'parallel-auto-review'() {
     const lease = { id: 'L1', item_id: 'n2', role: 'worker', state: 'submitted', host_id: 'agent-old', slot: true, plan_version: 7, artifact: 'a'.repeat(64), evidence: 'tested' }
     const { $, state } = host(async (tool, args) => {

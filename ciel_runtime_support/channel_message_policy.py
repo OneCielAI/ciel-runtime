@@ -131,6 +131,12 @@ def message_raw_injection(message: dict[str, Any]) -> bool:
     return _metadata(message).get("raw_injection") is True
 
 
+def message_btw(message: dict[str, Any]) -> bool:
+    """Return whether this input targets Claude's native side-question command."""
+
+    return _metadata(message).get("btw") is True
+
+
 def message_input_transport(message: dict[str, Any]) -> str:
     """Return the per-request path used to enter the active model turn."""
 

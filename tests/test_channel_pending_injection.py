@@ -280,6 +280,31 @@ class SocketOnlyInjectionTests(unittest.TestCase):
         message["meta"] = {"input_transport": "session_socket"}
         return message
 
+    def test_btw_raw_message_is_sent_over_session_socket_without_envelope(self):
+        message = self.socket_message(42)
+        message["message"] = "/btw  what changed?  "
+        message["meta"].update({"btw": True, "raw_injection": True})
+        harness = _InjectionHarness([message])
+        services = self.services(harness)
+
+        self.assertEqual(42, inject_pending_channel_messages(None, 41, services=services, terminal_available=False))
+        services.io.write_session_socket.assert_called_once()
+        self.assertEqual("/btw  what changed?  ", services.io.write_session_socket.call_args.args[0])
+        self.assertEqual([42], [row["id"] for row in services.io.write_session_socket.call_args.args[1]])
+        self.assertEqual([], harness.written)
+
+    def test_btw_router_request_waits_for_a_whole_message_transport(self):
+        message = _message(43)
+        message["message"] = "/btw what changed?"
+        message["meta"] = {"input_transport": "router", "btw": True, "raw_injection": True}
+        harness = _InjectionHarness([message])
+        services = self.services(harness, available=False)
+
+        self.assertEqual(42, inject_pending_channel_messages(None, 42, services=services, terminal_available=False, wake_for_llm_delivery=True))
+        self.assertEqual([], harness.written)
+        services.io.write_session_socket.assert_not_called()
+        self.assertTrue(any("btw_requires_session_socket_or_tty" in text for _, text in harness.logs))
+
     def ownership(self, harness, root):
         status = RuntimeInputStatusRepository(
             pathlib.Path(root) / "status.jsonl", Mock(), lambda *_: None, threading.RLock())

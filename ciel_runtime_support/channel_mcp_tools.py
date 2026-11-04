@@ -67,7 +67,11 @@ def _session_tool_schemas() -> list[dict[str, Any]]:
             "description": (
                 "Submit an external message to the active Ciel Runtime session. "
                 "Claude sessions use their authenticated session socket by default; "
-                "callers may explicitly select session_socket, tty, or router."
+                "callers may explicitly select session_socket, tty, or router. "
+                "Set btw=true, or start the message with /btw, to ask it as a native "
+                "/btw side question in a Claude session (the bundled ciel-work mod "
+                "bridges the raw text to the native command); native /btw answers "
+                "from context only and has no tool or MCP access."
             ),
             "inputSchema": {
                 "type": "object",
@@ -84,6 +88,7 @@ def _session_tool_schemas() -> list[dict[str, Any]]:
                         "type": "string",
                         "enum": ["web_chat", "tty", "mcp"],
                     },
+                    "btw": {"type": "boolean"},
                 },
                 "required": ["message"],
             },
@@ -430,6 +435,8 @@ def dispatch_channel_mcp_tool(
             return channel_mcp_tool_response(request_id, "runtime input submission is unavailable", True)
         if not str(args.get("message") or args.get("content") or args.get("text") or "").strip():
             return channel_mcp_tool_response(request_id, "submit_input requires message", True)
+        if "btw" in args and not isinstance(args.get("btw"), bool):
+            return channel_mcp_tool_response(request_id, "btw must be a boolean", True)
         saved = services.runtime.submit_input(args)
         return _json_response(request_id, {"ok": True, "message": saved})
     if name == "restart_session":

@@ -59,6 +59,27 @@ class RuntimeInputGateway:
         transport = aliases.get(transport, transport)
         return transport if transport in {"session_socket", "router", "tty"} else "tty"
 
+    @staticmethod
+    def _btw(body: dict[str, Any], meta: dict[str, Any], content: Any) -> bool:
+        """Native Claude `/btw` is a client command, not model text decoration.
+
+        Explicit opt-in and automatic prefix detection converge on raw delivery.
+        Only an exact command at the start of the text qualifies; a quoted prefix
+        remains ordinary prose.
+        """
+
+        for owner in (body, meta):
+            value = owner.get("btw")
+            if value is None and owner is meta and isinstance(body.get("meta"), dict):
+                value = body["meta"].get("btw")
+            if value is True:
+                return True
+            if value is not None and value is not False:
+                raise ValueError("btw must be a boolean")
+        if not isinstance(content, str):
+            return False
+        return content == "/btw" or content.startswith(("/btw ", "/btw\n", "/btw\t", "/btw\r"))
+
     def submit_web_chat(
         self,
         public_message: dict[str, Any],
@@ -76,6 +97,9 @@ class RuntimeInputGateway:
             self._transport(inbound.get("input_transport") or meta.get("input_transport")),
         )
         meta.setdefault("response_mode", "web_chat")
+        if self._btw(inbound, meta, public_message.get("message")):
+            meta["btw"] = True
+            meta["raw_injection"] = True
         if meta["response_mode"] == "web_chat":
             meta["reply_parent_id"] = public_message.get("id")
             meta.setdefault("web_reply_token", secrets.token_urlsafe(24))
@@ -150,6 +174,9 @@ class RuntimeInputGateway:
         if isinstance(content, (dict, list)):
             content = json.dumps(content, ensure_ascii=False, separators=(",", ":"))
             meta["content_type"] = "application/json"
+        if self._btw(body, meta, content):
+            meta["btw"] = True
+            meta["raw_injection"] = True
 
         return self._append(
             {
@@ -181,6 +208,9 @@ class RuntimeInputGateway:
         content = params.get("content")
         if content is None:
             content = body.get("content", body.get("message", body.get("text", "")))
+        if self._btw(body, meta, content):
+            meta["btw"] = True
+            meta["raw_injection"] = True
         return self._append(
             {
                 "channel": body.get("channel") or meta.get("channel") or "default",
@@ -211,6 +241,9 @@ class RuntimeInputGateway:
         if isinstance(content, (dict, list)):
             content = json.dumps(content, ensure_ascii=False, separators=(",", ":"))
             meta["content_type"] = "application/json"
+        if self._btw(body, meta, content):
+            meta["btw"] = True
+            meta["raw_injection"] = True
         return self._append(
             {
                 "channel": body.get("channel") or "mcp-streamable",

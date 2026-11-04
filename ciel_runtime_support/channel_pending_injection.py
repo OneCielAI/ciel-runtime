@@ -12,6 +12,7 @@ from ciel_runtime_support.claude_session_socket import SessionHandoffPending
 from ciel_runtime_support.channel_message_repository import ChannelFileLockBusy
 from ciel_runtime_support.runtime_input_status import WakeAttemptConflict
 from ciel_runtime_support.channel_message_policy import (
+    message_btw,
     message_input_transport,
     message_is_external_event,
     message_response_mcp,
@@ -305,8 +306,9 @@ def inject_pending_channel_messages(
             if terminal_available and requested_session_socket and not socket_usable:
                 # Without a socket the router block is the next whole-message
                 # path; typing a large body into a Windows TUI loses characters
-                # and stalls (ara/edward, 2026-10-03).
-                fallback = "router" if wake_for_llm_delivery else "tty"
+                # and stalls (ara/edward, 2026-10-03). Native /btw cannot use
+                # that router block as a Claude side question, so it stays TTY.
+                fallback = "tty" if message_btw(message) else "router" if wake_for_llm_delivery else "tty"
                 io.log(
                     "WARN",
                     f"channel_stdin_proxy_transport_fallback cursor={previous_last_id} "
@@ -315,13 +317,16 @@ def inject_pending_channel_messages(
                     "reason=session_socket_transport_unavailable",
                 )
                 requested_session_socket = False
-                requested_router = wake_for_llm_delivery
+                requested_router = False if message_btw(message) else wake_for_llm_delivery
             if terminal_lane_deferred and not (requested_session_socket and socket_usable):
                 deferred.mark(message_id)
                 if metadata.get("source_kind") == "restart_notice":
                     continue
                 break
-            candidate_uses_router = requested_router
+            # Native /btw is a Claude client command. A router body cannot make
+            # Claude display it as a side question; retain it raw for the
+            # downstream whole-message transports and never claim router delivery.
+            candidate_uses_router = requested_router and not message_btw(message)
             if candidate_uses_router:
                 formatter = (
                     prompts.visible_llm_delivery
@@ -357,9 +362,13 @@ def inject_pending_channel_messages(
                 io.log("INFO", f"channel_stdin_proxy_skipped_noise message_id={message_id} channel={channel} reason=stdin_wake_delivered")
                 continue
             if not terminal_available and (not requested_session_socket or not socket_usable):
-                reason = "session_socket_transport_unavailable" if requested_session_socket else "terminal_transport_unavailable"
+                reason = (
+                    "btw_requires_session_socket_or_tty"
+                    if message_btw(message)
+                    else "session_socket_transport_unavailable" if requested_session_socket else "terminal_transport_unavailable"
+                )
                 io.log(
-                    "INFO",
+                    "INFO" if reason != "btw_requires_session_socket_or_tty" else "WARN",
                     f"channel_stdin_proxy_deferred cursor={previous_last_id} message_id={message_id} "
                     f"channel={channel} reason={reason}",
                 )
@@ -386,7 +395,18 @@ def inject_pending_channel_messages(
                     terminal_lane_deferred = True
                     continue
                 return deferred.clamp(last_id)
-            if requested_router and not wake_for_llm_delivery:
+            if message_btw(message) and requested_router and not socket_usable and not terminal_available:
+                io.log(
+                    "WARN",
+                    f"channel_stdin_proxy_deferred cursor={previous_last_id} message_id={message_id} "
+                    f"channel={channel} reason=btw_requires_session_socket_or_tty",
+                )
+                deferred.mark(message_id)
+                last_id = previous_last_id
+                if pending:
+                    break
+                return deferred.clamp(last_id)
+            if requested_router and not wake_for_llm_delivery and not message_btw(message):
                 io.log(
                     "WARN",
                     f"channel_stdin_proxy_deferred cursor={previous_last_id} message_id={message_id} "

@@ -10,6 +10,7 @@ from ciel_runtime_support.channel_event_projection import (
     pretty_json_value,
 )
 from ciel_runtime_support.channel_message_policy import (
+    message_btw,
     message_has_external_provenance,
     message_is_web_chat_request,
     message_is_external_event,
@@ -173,7 +174,7 @@ def _web_chat_reply_routes(
     routes: list[dict[str, str]] = []
     seen: set[tuple[str, str, str]] = set()
     for message in messages:
-        if message_raw_injection(message):
+        if message_raw_injection(message) or message_btw(message):
             continue
         if not message_is_web_chat_request(message):
             continue
@@ -260,7 +261,7 @@ def _mcp_reply_instruction(messages: list[dict[str, Any]]) -> str:
     instructions: list[str] = []
     seen: set[tuple[str, str, str]] = set()
     for message in messages:
-        if message_raw_injection(message):
+        if message_raw_injection(message) or message_btw(message):
             continue
         if message_response_mode(message) != "mcp":
             continue
