@@ -1,0 +1,38 @@
+---
+type: diagnosis
+title: Work board 100-node intake cap blocks new requests; all-waiting stop loops the blocked recheck
+status: diagnosed-fixed-pending-release
+date: 2026-11-04
+---
+
+# Reports under verification
+
+- 110115 (Grant Ai, Sama sandbox; relayed via Andy Ai and Daniel 110125): new independent Work requests refused with `a work plan holds at most 100 nodes` on both `work_plan_set` (minimal goal → phase → task) and `work_node_add`; `work_status` read-only OK (version 1784 / goals 22 / active goal executing, parallel off). Existing records were not deleted, falsely completed, or bypassed.
+- 110208 follow-up (Grant, same day): with every runnable item waiting, `Ciel Work stopped: no runnable item right now` was re-injected at every turn end, repeating the same blocked-item probe and no-change response tens of times without a new request or approval. Waiting records were preserved; the expectation is to stay parked until a real follow-up event arrives.
+- Neither report was independently reproduced by Andy; both were checked against ciel-runtime code and the work-mod harness before any code change.
+
+# Confirmed by code
+
+## Intake cap counted history as queue
+
+- `ciel_runtime_support/work_plan_tree.py` `add_node()` refused when `len(doc['nodes']) >= MAX_NODES` (100) counting done and unfinished nodes alike; `add_subtree()` recurses into `add_node()`, so `work_plan_set`, `work_node_add`, and `work_urgent` all hit the same refusal. A board that accumulated more than 100 nodes of history could never accept a new independent request again until retention swept something.
+- There is no Work completed-archive export/import path in code or tests. `work_retention.py` sweeps every 60 s and `expire_completed()` removes only fully-done subtrees older than 24 h (focus-protected items kept), leaving a parent `expired_done_steps` count. That is expiry, not preservation — and it is also not a path that frees intake within any useful time for a hot board.
+
+## Blocked recheck had no no-progress bound
+
+- `ciel_runtime_support/claude_mods/ciel-work/hooks/register.js` `classic.Stop`: when `continuation.actionable == 0` and `blocked_items` is non-empty, the handler returned `{ block: 'Ciel Work stopped: no runnable item right now. ' + reason + recheck }` on every stop. The no-progress guard (`continuationVersion` / `unchangedContinuations`) covers only the actionable branch; a blocked board never bumps its version, so the recheck branch re-injected the identical message forever. Each injected turn re-probed the same blockers and answered with the same no-change text.
+
+# Fix applied
+
+- Intake: `add_node()` now refuses only when the count of non-done nodes reaches `MAX_NODES` (100), message `a work plan holds at most 100 unfinished nodes`. Completed records are history, not queue: a board holding more than 100 done nodes accepts new goals again, done rows are never deleted to make room, and stored boards keep reading up to `STORAGE_MAX_NODES` (100,000). The header comment now states this split explicitly. This matches the user's standing rule for this project: queued items may be capped at 100 by default, running items are limited separately by `max_active`, and records must not be lost.
+- Stop loop: the work mod remembers `(identity, board version)` of the last demanded blocked recheck. The recheck block is injected once per exact board state; an unchanged board falls through to the existing time-spaced discovery notice (5-minute floor) or stays parked. Any board change — including a user message, an external update via `work_node_update`, or a completion — bumps the version and re-arms exactly one recheck. Waiting records are untouched.
+
+# Verification (focused, isolated)
+
+- `tests/test_work_plan_tree.py` + `tests/test_work_retention.py` → 76 tests OK. New `test_done_history_does_not_block_intake`: 150 done nodes normalize, `add_node` succeeds (151 total, done rows intact), and the unfinished cap still refuses after 100 open nodes. `test_oversized_open_board_adds_nothing_but_open_work_survives` keeps the open-work refusal and in-place mutability.
+- `tests/test_work_mod_write_gate.py` → 27 tests OK. The `stop-blocked-recheck` harness scenario now stops twice on the same board and asserts the second stop carries no `re-verify before reporting no work` text (only the separately floored discovery notice may appear).
+
+# Remaining boundary
+
+- Grant's sandbox is not touched from here (no code, config, restart, or record changes). The verified path for that board is the nightly build below; the reply goes to `ciel-walkie-48 [a20fd1]` / Walkie thread 110115.
+- Release evidence is appended below after the nightly publish and local snapshot install.

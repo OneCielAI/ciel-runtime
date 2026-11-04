@@ -1,0 +1,42 @@
+---
+type: diagnosis
+title: Kobi repeated invalid_request_error — upstream rejection with no self-recovery
+status: diagnosed-partial-evidence
+date: 2026-11-04
+---
+
+# Symptom (user screenshot, Image #15)
+- Kobi session, two consecutive turns both end in "API Error: The request contains invalid parameters. Check the request body for any errors or inconsistencies." (Brewed 43s → done 1:30; Sautéed 2m 8s → done 1:37).
+- Work footer: "Work 94/108 … full pull terminal 결과·publication 확인 … Central SSH handshake recovery; then re… [+]" — the queued item the session was trying to advance.
+- The user reports Kobi cannot recover by itself. A plain "계속" retry fails the same way, which means the defect travels inside the request the client re-sends, not in a transient server state.
+
+# Confirmed from the field (Kobi host .14, ssh sjglobal@100.64.0.14 -p 1004)
+- Router instance `9780-651d879f6c68` router.log holds exactly three rejections: 2026-11-04T12:58:12Z, 13:30:34Z, 13:37:49Z.
+- Each is one SSE error event: `type_token=invalid_request_error`, `message_chars=98`, `param=null`, `complete_frames` 2/3/48 (ping preamble, then the error), committed as `terminal_verdict` with `attempts=0 opens=1`.
+- The last rejected request: `upstream_direct_request provider=cielairouter model=mc/muse-wonder-full-1.0-high endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=958758 bytes=3483686 timeout=600.0` (log line 2414).
+- Immediately before it (line 2412): `filtered upstream tools for cielairouter: EnterWorktree, ExitWorktree, PushNotification, ScheduleWakeup, WaitForMcpServers` — the router strips these tools, but that proves the request was tool-heavy; it does NOT prove a tool caused the rejection.
+- Session state file: session `219f1b51-1044-4d57-ba0e-27f8d12b3bcd`, Claude Code 2.1.318, cwd `C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai`, status idle at check time.
+- No router crash/restart line surrounds the rejections; the same router kept serving.
+
+# Confirmed from the transcript (same session)
+- Claude transcript model string: `ciel-runtime-cielairouter-mc-muse-wonder-1.0-max`; the router log's upstream label: `mc/muse-wonder-full-1.0-high`. These are two projections of one request; which catalog row/parent applies is not yet proven.
+- Latest api-request record before the last rejection: keep=1011, i.e. the client kept 1011 history messages with a 1-message tail. The conversation is saturated by design.
+- Content-block census over the tail window: tool_use Bash ×284, Read ×198, MCP router/walkie calls, and 102 `thinking` blocks with zero characters. Whether empty-thinking or any other block is the rejected element is NOT established.
+
+# Confirmed by code (why there is no self-recovery)
+- In `claude_router.py` the Anthropic route only repairs two no-output cases: a context-window 400 (`_context_window_recovery_body`, `context_compaction.no_output_context_rejection` requires typed context errors or the named "exceeds the known context limit"/"compact the conversation before retrying" prose) and an output-budget 400 (`recover_output_budget`). An `invalid_request_error` outside those shapes is relayed unchanged.
+- `UpstreamFailure` classifies `invalid_request_error` as terminal `invalid_request` (status 400), never retryable — by design, replaying a truly wrong request cannot succeed.
+- The client re-sends the same history on the next turn, so the same rejection repeats forever. There is no path that downsizes or repairs the request on this verdict.
+
+# What is NOT proven (kept open on purpose)
+- The exact rejected element: no wire body was captured. Transcript `api-request` records do not carry the tools/messages bodies, and the generic 98-char upstream message ("The request contains invalid parameters. Check the request body for any errors or inconsistencies." is 98 chars) names nothing.
+- Tool-heavy is correlation, not causation. Other candidates are equally open until a capture exists: a 3.48MB body against a gateway/body-size limit wearing an invalid-request label, a strict-schema tool (the 2026-09-21 Meta incident had one tool pattern, `^[^\\0]*$`, reject every call; Kobi's transcript has `pattern` hits=152 and `Artifact` hits=112, but the exact fragment was not found verbatim), thinking-blocks passthrough mismatch, or a model-name/effort-tier projection the gateway does not accept.
+
+# Next measurement (one capture, user action)
+- `CIEL_RUNTIME_DUMP_UPSTREAM` is not a config option: `upstream_dump.py` reads the router server process's environment per request. In a NEW cmd window: `set CIEL_RUNTIME_DUMP_UPSTREAM=<empty writable dir>`, then run the usual `ciel-runtime` launch from that same window (a new router process must inherit it; the running router cannot take it).
+- One reproduced rejection then leaves `upstream-<utc>-<seq>-body.json` (exact wire bytes) and `-meta.json` (URL/byte count/sanitized headers) in that dir. Compare against the last successful body and bisect locally before any code change.
+
+# Possible root-fix scope (separate, unapproved until the capture)
+- If the capture names a strict-schema tool/pattern, repair it in the CielAiRouter adapter normalization like the Meta fix, not in the Claude route.
+- If the capture shows only size/history saturation with a generic verdict, the recovery gap is the Claude route's: a terminal invalid_request after zero output could compact once and retry, mirroring the existing context-window recovery contract — but only once the capture proves the verdict is size-shaped.
+- No code change was made in this diagnosis goal.
