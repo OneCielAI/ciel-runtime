@@ -66,3 +66,22 @@ Stale lease. 실제 라우터 소유자는 없는데, lease의 pid가 재사용�
 - Kobi 현장 상태는 앞선 수동 복구(lease 제거 + wrapper 복원) 그대로라, 사용자가
   `ciel-runtime --continue`를 다시 실행하면 지금 패키지로도 떠야 한다.
   근본 수정이 배포되면 다음부터는 이런 stale lease를 실행 시점에 스스로 정리한다.
+
+# Release (goal 32, 2026-11-04)
+- Commits: `b61fab5` (fix + tests), `a67a5ef` (this journal). Both
+  `origin/feature/work-parallel-20261103` and `origin/nightly` at `a67a5ef`.
+- CI `41898010259` success. npm nightly `0.2.51-nightly.20261104-194326.a67a5ef`,
+  gitHead `a67a5ef4540370559865aab167816f4fd8f93f0a`,
+  integrity `sha512-p/sFwPA4OGZChpJkJFwftXPROBjfkxab3W0ugyDgh1SsGUn9wcnmIU+r1wLAMz5yVoZiy0va+NQFLf2e7Pn6Pg==`.
+  Downloaded tarball SHA512 matches.
+- Local install (new snapshot only, PATH unchanged):
+  `C:\Users\djlov\.local\share\ciel-runtime-a67a5ef4540370559865aab167816f4fd8f93f0a` —
+  476/476 files match the tarball; installed smoke replays the Kobi shape
+  (recycled pid + expired lease) and selects port 9780 with a fresh lease.
+- Note: the docs-only push before this (`3623eb6`) also produced a nightly
+  (`0.2.51-nightly.20261104-183617.3623eb6`) because every nightly push
+  publishes; `194326.a67a5ef` supersedes it as the nightly tag.
+- Kobi still needs two things from the field: reinstall/refresh to the new
+  nightly is already done there (package 181656), so the next launch uses
+  the manual recovery; the self-healing lease arrives whenever Kobi next
+  updates to `194326.a67a5ef` or later. Kobi was not restarted from here.
