@@ -1,0 +1,53 @@
+---
+type: deployment-journal
+title: Work focus and slot-only parallel deployment
+date: 2026-11-04
+status: published-nightly-and-installed-locally
+---
+
+# Released commits
+- `717899e` — focus priority-only, discovery under focus, parallel default-on, fork-slot admission.
+- `fc4e6e9` — `continuation.actionable` defined as the global runnable leaf count, as the user selected after the first CI attempt exposed the stale fallback-goal expectation.
+
+Both `origin/nightly` and `origin/feature/work-parallel-20261103` point to `fc4e6e9547eecc87e9259d51d57c0616fe05c615`.
+
+# CI and npm publication
+- The first 717899e pipeline failed only in `test_work_plan_tree.WorkContinuationTreeTests.test_continuation_falls_back_to_queue_without_changing_active_or_phase`: expected actionable 2, actual 4. This was the deliberate contract decision recorded here; no production behavior was changed to restore the old count.
+- After `fc4e6e9`, CI run 41744446503 completed success (quality, unit, router, channel, runtime, python-minimum).
+- Publish run 41744446520 completed success at 2026-11-04T00:30:26Z.
+- npm package `@one-ciel-ai/ciel-runtime@nightly` is `0.2.51-nightly.20261104-002000.fc4e6e9`.
+- Registry `gitHead` is exactly `fc4e6e9547eecc87e9259d51d57c0616fe05c615`.
+- Registry integrity: `sha512-X9VbMHZsDYkDTcz4DIAgnvZ1pbiRg33+25VQTWLvFS0pD7D5atQzrFGhX/U4xhL1Mp8E+sbqSEI/Aik8Xav7Ow==`.
+- The `nightly` dist-tag points to that version.
+
+# Local installation
+The exact npm tarball was downloaded into `.local/release-fc4e6e9`, its SHA512 matched the registry integrity, then it was extracted and installed with `.local/install-release.ps1` using a new snapshot directory and `CIEL_RUNTIME_SKIP_PATH_REGISTRATION=1`.
+
+- Installed snapshot: `C:\Users\djlov\.local\share\ciel-runtime-fc4e6e9547eecc87e9259d51d57c0616fe05c615`
+- Registered User `CIEL_RUNTIME_HOME`: same snapshot.
+- `ciel-runtimectl version`: `ciel-runtime 0.2.51-nightly.20261104-002000.fc4e6e9`
+- Installed support source comparison, excluding runtime-generated `__pycache__`: 469 package files, 469 installed files, 469 matches, no mismatch.
+
+# Installed functional smoke
+The smoke ran directly against modules inside the installed snapshot, not the worktree:
+
+- focused leaf `n8` was selected first while focused leaf `n7` waited; `actionable=5`, `held=0`.
+- When both focused leaves waited, continuation fell through to another goal with `actionable=4`.
+- Completing both focused leaves cleared `focus_ids` automatically.
+- Discovery was enabled with focus present.
+- Default parallel policy was `enabled=true`, `max_active=3`, `p1_reserved=1`, `launches_per_minute=4`.
+- Two non-P1 reservations were accepted without any usage observation, the third non-P1 was refused, then a P1 used the reserved slot, for 3 active slots total.
+
+# Evidence
+- `evidence/pre-release-regression.txt` — first pre-release regression: 472 tests, OK (42 skipped).
+- `evidence/actionable-global-full-regression.txt` — corrected global-count run: 521 tests, OK (42 skipped).
+- `evidence/pre-release-ruff.txt`, `evidence/actionable-global-ruff.txt`, `evidence/ruff.txt` — ruff output.
+- `evidence/fix-repro.py`, `evidence/fix-repro.json` — deterministic Kobi-shape behavior.
+- `evidence/parallel-e2e-1865916e/verification.json` — owned native Claude CLI default-on run.
+- `.local/release-fc4e6e9/install-output.txt` — local installation output (kept locally, not committed as a source file).
+- `.local/release-fc4e6e9/installed-verification.json` and `installed-smoke.json` — local hash and functional results.
+
+# Limits and fleet boundary
+- No live router or running local session was restarted as part of this installation. Future launches use the new snapshot through `CIEL_RUNTIME_HOME`; already-running sessions continue with the code they loaded at start.
+- No remote sandbox was modified, restarted, or upgraded in this goal. Kobi, emily, and edward still run their previously installed versions until an explicitly approved fleet-update goal is executed.
+- Existing parallel ledgers that already contain an `enabled` value retain that value; default-on applies to ledgers that have not been written. This is deliberate and is not overwritten by the install.

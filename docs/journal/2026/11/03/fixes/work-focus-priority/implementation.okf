@@ -67,8 +67,9 @@ Kobi-specific fault:
 - `thresholds` and the optional `admission` memory remain accepted on read for
   format compatibility; nothing consumes them.
 - The Codex adapter is still unsupported; only the Claude host path was exercised.
-- No remote sandbox was modified, restarted or upgraded. Kobi keeps running
-  8da2075 until a fleet update is explicitly requested.
+- Deployment is recorded in `deployment.okf`. No remote sandbox was modified,
+  restarted or upgraded in this change; the fleet still needs an explicitly
+  approved update goal.
 
 # Verification
 See `verification.okf` and `evidence/`.

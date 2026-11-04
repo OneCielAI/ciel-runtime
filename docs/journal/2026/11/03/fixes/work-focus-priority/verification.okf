@@ -73,8 +73,8 @@ refused with "hard cap reached" and no usage measurement in any argument.
 - The E2E provider is an owned loopback fake gateway, not a production LLM round trip.
 - Two child forks were dispatched in that owned E2E; the earlier worker crash/resume
   and reviewer E2E were not repeated here. Codex dispatch remains unsupported.
-- Nothing was deployed: nightly and the local install still carry 8da2075, and the
-  remote sandboxes (Kobi, emily, edward) keep their installed versions until a fleet
-  update is explicitly requested.
+- Deployment is recorded in `deployment.okf`: nightly and the local snapshot are
+  `fc4e6e9`. Remote sandboxes (Kobi, emily, edward) keep their installed versions
+  until an explicitly approved fleet update executes.
 - Automatic release is evaluated on node updates; a focus set on an already-done
   subtree is still stored until the next node update or explicit clear.
