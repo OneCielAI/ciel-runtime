@@ -326,7 +326,11 @@ const scenarios = {
       discovery: { enabled: true, instruction: 'search elsewhere' } }
     const { $ } = host(async () => text(ready))
     const result = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
-    return { text: result?.block || '' }
+    // Same unchanged board on the next stop: no second re-injection (the
+    // first recheck changed nothing), so the session stays parked instead of
+    // looping the same probe every turn.
+    const second = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
+    return { text: result?.block || '', second: second?.block || '' }
   },
   // Two agents gate their own Edit while the router answers the earlier read last.
   async 'concurrent-check'() {

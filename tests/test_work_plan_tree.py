@@ -52,6 +52,24 @@ class WorkPlanTreeTests(unittest.TestCase):
             t.set_plan(t.empty_document(), {"title": "goal", "children": [
                 {"title": str(i)} for i in range(t.MAX_NODES)]})
 
+    def test_done_history_does_not_block_intake(self):
+        # Completed records are history, not queue: a board holding more
+        # than MAX_NODES done nodes still accepts a new goal, and the done
+        # rows stay in place (no delete-to-fit).
+        done = [dict(node(f"n{i}"), status="done") for i in range(t.MAX_NODES + 50)]
+        doc = t.normalize_document(dict(t.empty_document(), nodes=done))
+        new_id = t.add_node(doc, None, "new request", now=10)
+        self.assertEqual(t.MAX_NODES + 51, len(doc["nodes"]))
+        self.assertIn(new_id, {n["id"] for n in doc["nodes"]})
+        self.assertEqual(t.MAX_NODES + 50, sum(1 for n in doc["nodes"] if n["status"] == "done"))
+        # The unfinished cap still binds: once open work reaches it, intake
+        # refuses again even though history is preserved.
+        with self.assertRaises(t.WorkPlanError):
+            for i in range(t.MAX_NODES):
+                t.add_node(doc, None, f"open {i}", now=11)
+        remaining_done = sum(1 for n in doc["nodes"] if n["status"] == "done")
+        self.assertEqual(t.MAX_NODES + 50, remaining_done)
+
     def test_normalize_caps(self):
         # Reads accept boards above the new-addition cap (they were written
         # under the old cap or hold unfinished work); structure is still bounded.
@@ -112,9 +130,10 @@ class WorkPlanTreeTests(unittest.TestCase):
         t.update_node(self.doc, root[2], status="in_progress", waiting_on="")
         self.assertGreater(t.continuation(self.doc)["actionable"], 0)
 
-    def test_oversized_board_adds_nothing_but_open_work_survives(self):
-        # A board already past the cap keeps every unfinished item readable and
-        # mutable in place; only growing it further is refused until it drains.
+    def test_oversized_open_board_adds_nothing_but_open_work_survives(self):
+        # A board already past the unfinished cap keeps every unfinished item
+        # readable and mutable in place; only growing open work further is
+        # refused until it drains. Done history never blocks intake.
         raw = dict(t.empty_document(), nodes=[node(f"n{i}") for i in range(t.MAX_NODES + 5)])
         doc = t.normalize_document(raw)
         with self.assertRaises(t.WorkPlanError):

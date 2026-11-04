@@ -23,10 +23,12 @@ STATUSES = ("pending", "in_progress", "done", "blocked")
 MAX_DEPTH = 8
 # Queue capacity is deliberately separate from concurrent execution slots:
 # root goals and detail nodes share this backstop for NEW additions, while
-# max_active controls only work that is actually running. Stored boards may
-# exceed it (they were written under the old cap or hold unfinished work);
-# reads accept up to the storage ceiling and the queue drains as items
-# complete and expire. Unfinished items are never dropped to fit the cap.
+# max_active controls only work that is actually running. The intake cap
+# counts unfinished (not done) nodes only: completed history is record, not
+# queue, so a board full of done goals can still accept new requests. Stored
+# boards may exceed the cap in total; reads accept up to the storage ceiling.
+# Unfinished items are never dropped to fit the cap, and done items leave
+# only through the retention expiry below, never to make room for intake.
 MAX_NODES = 100
 STORAGE_MAX_NODES = 100_000
 MAX_TITLE_CHARS = 300
@@ -220,8 +222,8 @@ def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any =
     clean = _clip(title, MAX_TITLE_CHARS)
     if not clean:
         raise WorkPlanError("node title must not be empty")
-    if len(doc["nodes"]) >= MAX_NODES:
-        raise WorkPlanError(f"a work plan holds at most {MAX_NODES} nodes")
+    if sum(1 for node in doc["nodes"] if node["status"] != "done") >= MAX_NODES:
+        raise WorkPlanError(f"a work plan holds at most {MAX_NODES} unfinished nodes")
     node_id = f"n{doc['next_id']}"
     doc["next_id"] += 1
     node = {

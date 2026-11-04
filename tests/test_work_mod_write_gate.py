@@ -106,6 +106,11 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn("n92", result["text"])
         self.assertIn("Exact production freeze logs not identified", result["text"])
         self.assertIn("work_node_update", result["text"])
+        # The recheck changes nothing, so the same board state must not
+        # re-inject the same stop message on the next turn end. Only the
+        # time-spaced discovery notice may still fire (it has its own
+        # 5-minute floor and is the "look for new work later" path).
+        self.assertNotIn("re-verify before reporting no work", result["second"])
 
     def test_blocked_wait_includes_pickup_guidance(self):
         result = self.run_scenario("stop-discovery-blocked")

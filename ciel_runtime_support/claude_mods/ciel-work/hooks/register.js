@@ -45,6 +45,11 @@ let stopNoticeKey = ''
 let compactEpoch = 0
 const compacts = new Set()
 let continuationSession = null
+// A blocked recheck that changes nothing must not re-inject itself every turn:
+// remember the board version the last recheck ran against (per session) and
+// only demand it again when the board changed.
+let blockedRecheckVersion = null
+let blockedRecheckIdentity = null
 let discoveryLast = 0
 let discoveryIdentity = null
 const STOP_READ_MS = 2000
@@ -1128,7 +1133,14 @@ export function register(on) {
       const reason = notRunnable(s, s.continuation || {})
       if (openWork(s)) stopNotice($, identity, reason)
       const recheck = blockedRecheck(s.continuation || {})
-      if (recheck) return { block: 'Ciel Work stopped: no runnable item right now. ' + reason + recheck }
+      if (recheck && !(blockedRecheckIdentity === identity && blockedRecheckVersion === s.version)) {
+        blockedRecheckIdentity = identity; blockedRecheckVersion = s.version
+        return { block: 'Ciel Work stopped: no runnable item right now. ' + reason + recheck }
+      }
+      // Recheck already demanded for this exact board state and it changed
+      // nothing: stay parked (waiting records preserved) instead of looping
+      // the same probe every turn. The next board change re-arms the recheck;
+      // until then only time-spaced discovery may still look for new work.
       return discoveryNotice($, identity, s, reason) || result
     }
     if (continuationVersion !== s.version) { continuationVersion = s.version; unchangedContinuations = 0 }
