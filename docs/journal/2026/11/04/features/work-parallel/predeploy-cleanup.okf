@@ -1,0 +1,47 @@
+---
+type: implementation
+title: Pre-deploy cleanup — oversized boards/ledgers stay readable under the 100 caps
+status: implemented-not-deployed
+date: 2026-11-04
+---
+
+# Problem found during pre-deploy cleanup
+Goal 23 lowered the caps (board MAX_NODES 600→100, ledger MAX_LEASES 1000→100) as a single constant used by BOTH reads and writes. A live scan showed four boards already above 100 nodes:
+
+- aae7db361c7f/10b90b…: 339 nodes (9 done / 330 open, 20 open roots — unfinished work alone exceeds the cap)
+- aae7db361c7f/b40085…: 149 nodes (8 done / 141 open)
+- aae7db361c7f/c9df7e…: 104 nodes (21 done / 83 open)
+- bd5f642b3583/8d346e… (this session): 314 nodes (285 done / 29 open — shrinks by itself via 24h completed retention)
+- Live parallel ledger: 2 leases (waiting_input) — no overflow.
+
+Deploying the naive cap would have made those boards unreadable ("nodes exceed the node limit") and blocked the sessions owning them. Unfinished items must never be discarded to fit a cap — that is the whole point of the queue.
+
+# Fix: the 100 cap binds additions, not reads
+## Board (work_plan_tree.py)
+- `MAX_NODES = 100` now binds only `add_node` (new root/detail additions).
+- New `STORAGE_MAX_NODES = 100_000` structural ceiling for `normalize_document` reads.
+- Stored focus lists are bounded by the actual node count, not the addition cap.
+- `_depth` cycle guard uses MAX_DEPTH (it was accidentally coupled to MAX_NODES).
+- An over-cap board stays fully readable and mutable in place (status updates, removal); only growing it further is refused until completions/retention drain it back under 100.
+
+## Ledger (work_parallel.py)
+- Same split: `MAX_LEASES = 100` binds new lease records in reserve; `STORAGE_MAX_LEASES = 100_000` bounds stored-state validation.
+- Live ledger (2 leases) is unaffected either way.
+
+# Verification
+- New tests: oversized board normalizes, in-place update/remove work, add refused; stored ledger with 151 leases (template rows marked done with idle/cleanup proofs) re-reads fine.
+- Live proof: all four oversized live boards (339/149/104/314) normalize successfully under the new code, and the live ledger reads.
+- Combined focused suite: 144 passed, 66 subtests.
+
+# Worktree commit grouping (no commit made yet)
+On feature/work-parallel-20261103 @13cb02a, uncommitted: 17 modified + 1 new file.
+Suggested groups when the user approves committing:
+1. Direct spawn + JSON error surface (register.js, harness, write-gate tests, direct-spawn journal)
+2. CielAiRouter advisor transport (provider_compatibility.py + tests)
+3. Queue/active separation (work_parallel.py, work_parallel_mcp.py, work_parallel_menu.py, work_plan_tree.py + tests, queue-active-separation journal)
+4. Discovery file control (work_discovery.py, work_discovery_file.py, external_event_receiver.py, external_event_menu.py + tests, file-message-control journal)
+5. This cleanup (work_plan_tree.py, work_parallel.py read/add split — folds into group 3)
+
+# Deployment boundary
+- Still not committed/pushed/nightly/local-installed. Live sessions and Kobi (.14) untouched.
+- After this cleanup, no known data-migration blocker remains for deployment: oversized boards keep working and drain naturally; the live ledger policy still stores max_active=3 until someone changes it in the menu/configure (new default 5 applies to fresh ledgers).

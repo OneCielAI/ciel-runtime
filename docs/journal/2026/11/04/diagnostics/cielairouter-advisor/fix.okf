@@ -1,0 +1,36 @@
+---
+type: fix
+title: CielAiRouter advisor calling not implemented — missing compatibility registration
+status: implemented-not-deployed
+date: 2026-11-04
+---
+
+# Symptom
+사용자 스크린샷: Advisor Model을 `_Walkie_Sol61-Opus55-Fast`로 설정했는데 `/advisor` 호출 시 `Advisor Model is configured as `_Walkie_Sol61-Opus55-Fast`, but ciel-runtime advisor calling is not implemented for provider `cielairouter`.` 응답만 돌아옴.
+
+# Confirmed mechanism
+- `advisor_policy.py:71-78`의 `AdvisorShortcutController.handle`은 `provider_supported(provider)`가 거짓이면 정확히 그 문장을 반환한다.
+- `ciel_runtime.py:2244` `advisor_provider_supported(provider)` = `bool(PROVIDER_COMPATIBILITY.resolve(provider).advisor_transport)`.
+- `provider_compatibility.py`의 레지스트리에 `cielairouter` 항목이 없어 기본 정책(`advisor_transport=""`)이 적용됐다. 재현: `advisor_provider_supported('cielairouter') == False`, `advisor_provider_kind == ''`.
+- 같은 이유로 `openrouter`, `zai`도 미지원 상태이나, 이번 요청 범위 밖이라 건드리지 않았다.
+
+# Why openai-compatible is the right transport
+- `providers/cielairouter.py`: CielAiRouter는 하나의 서버 루트에서 `/v1/messages`, `/v1/chat/completions`, `/v1/responses`를 라우터 API 키로 제공한다. 어댑터 capabilities의 `upstream_protocol="openai_chat"`.
+- `AdvisorRequestBuilder`는 이미 kind `openai-compatible`를 완전히 지원한다: 요청은 `provider_upstream_request_base`(어댑터 `default_base_url`) + `/v1/chat/completions`, 응답은 `choices[0].message.content`, 예산은 `openai_context_limit_for_budget`. lm-studio가 정확히 이 경로를 쓴다.
+- 어드바이저 모델 문자열은 상류로 그대로 전달된다(`builder.model()`은 nvidia-hosted만 리맵). `_Walkie_Sol61-Opus55-Fast` 같은 별칭도 변형 없이 간다.
+
+# Fix
+- `provider_compatibility.py`에 한 항목 추가:
+  `"cielairouter": ProviderCompatibilityPolicy(advisor_transport="openai-compatible")`
+- 그 외 코드 변경 없음. 숏컷 컨트롤러, 어드바이저 클라이언트, 리파인먼트 게이트(`local_advisor`)가 모두 이 게이트를 공유하므로 한 번에 켜진다.
+
+# Verification
+- 단위 확인: `advisor_provider_supported('cielairouter') == True`, endpoint `https://router.example/v1/chat/completions`, 요청 모델 `_Walkie_Sol61-Opus55-Fast` verbatim, `stream: False`, 응답 텍스트 추출, 예산 840654 (872000 컨텍스트 기준).
+- 신규 테스트 `test_cielairouter_advisor_uses_openai_compatible_chat_call`: `post_json_with_rate_retry`를 목으로 교체해 실제 `call_advisor_text` 왕복이 `/v1/chat/completions`로 1회 나가는지까지 확인. 픽스처에 API 키가 없으면 어댑터가 헤더 단계에서 `requires a configured API key`로 막는 것도 이 과정에서 확인됨(테스트에 키 포함).
+- `test_provider_contract_matrix.py`의 advisor transport 매트릭스에 `cielairouter: openai-compatible` 행 추가.
+- RED 대조: 수정 전 파일로는 신규 테스트 2건 실패, 수정본으로는 통과.
+- 집중 스위트: `test_advisor_feedback.py` + `test_provider_contract_matrix.py` 50 passed / 538 subtests; `test_architecture_contracts.py` + `test_local_request_controllers.py` + `test_advisor_native_standard_flow.py` + `test_cielairouter_provider.py` 249 passed / 42 skipped / 743 subtests.
+
+# Deployment boundary
+- 아직 commit/push/nightly/local install 하지 않았다. 워크트리에는 goal 20(direct spawn), goal 21(JSON parse) 변경과 함께 누적되어 있다.
+- 스크린샷의 세션은 실행 중인 snapshot의 이전 빌드를 쓰므로, 효과를 보려면 별도 승인 후 commit → push → nightly publish → local install → 라우터/세션 재시작이 필요하다.

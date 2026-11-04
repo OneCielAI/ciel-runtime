@@ -1,0 +1,26 @@
+---
+type: implementation
+title: work_parallel_run direct fork spawn — no model name copy
+status: implemented-not-deployed
+date: 2026-11-04
+---
+
+# Problem
+모델이 `work_parallel_run` 결과에서 description과 prompt는 복사했지만 Agent `name`을 반복해서 누락했다. ciel-work의 `agent.spawn` 게이트는 pending dispatch를 그 이름으로 대조하므로, 이름이 없으면 reserve 전에 거부되어 워커가 한 번도 시작되지 않았다(Kobi, 04:31Z·04:32Z 연속 발생).
+
+# Change
+- `ciel_runtime_support/claude_mods/ciel-work/hooks/register.js` — `parallelDirectSpawn`: `work_parallel_run`의 tool.call 핸들러가 pending 등록 후 authenticated reserve를 하고, **mod가 직접 `$.agent.spawn({subagentType:'fork', name, description:'Work '+label, prompt})`를 호출**한다. 모델은 Agent name을 복사할 단계 자체가 없다.
+- 성공 시: 반환된 `agentId`로 bind, pending 정리, 결과 `{dispatch:'started', lease_id, agent_id, name}` 반환 — 모델에게 "이 아이템으로 Agent를 호출하지 말라"고 명시.
+- 거부/예외 시: 기존 `release_unbound`로 아직 host에 묶이지 않은 예약만 해제하고 `{dispatch:'spawn_denied', item_kept:true}` 반환 — 실패한 아이템은 board 큐에 남는다.
+- `$.agent.spawn`이 agentId도 deny도 주지 않는 이례적 경우에만 기존 `native_agent_required` 폴백 결과를 유지한다.
+- tool 설명(`work_parallel_mcp.py`)과 prompt.submit 힌트를 "호스트가 직접 fork를 시작한다"로 갱신.
+
+# Verification
+- 하네스 시나리오 `parallel-direct-spawn-started`: reserve → mod의 `$.agent.spawn` 호출(subagentType fork, `Work ...` description, lease를 담은 prompt) → bind, 결과 started.
+- `parallel-direct-spawn-denied-releases`: spawn deny 시 reserve → release 순서와 item 보존 확인.
+- `parallel-missing-agent-name`은 레거시 수동 Agent 호출 게이트 검증으로 재구성(새 흐름과 충돌 없음).
+- 집중 테스트 81 passed, 10 subtests. `claude plugin test` 84 pass / 7 fail — 7개는 pristine HEAD 기존 실패와 동일. `claude plugin validate` exit 0.
+
+# Deployment boundary
+- 아직 commit/push/nightly/local install 하지 않았다 (HEAD `13cb02a` 이후 워크트리 변경).
+- Kobi(.14)는 여전히 이전 세대 동작이며, 효과를 보려면 별도 승인 후 배포·설치·세션 재개가 필요하다.

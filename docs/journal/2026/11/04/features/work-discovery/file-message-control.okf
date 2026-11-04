@@ -1,0 +1,57 @@
+---
+type: implementation
+title: Stop-time discovery message file control and SSE file dump
+status: implemented-not-deployed
+date: 2026-11-04
+---
+
+# User contract
+- 작업이 멈출 때 주입되는 기본 메시지를 외부에서 제어할 수 있어야 한다.
+- 메시지는 로컬 파일에 저장한다.
+- 파일이 변경될 때마다 다음 주입에서 새로 로드한다. 메모리 캐시는 허용하되 파일 변경 시 무효화한다.
+- 외부 SSE로 알림/메시지가 올 때 별도 flag 또는 메시지 타입으로 이 메시지를 제어한다.
+- 이참에 file_path/file_stream으로 외부에서 파일 스트림을 SSE 메시지로 덤프하는 기능을 구현한다.
+
+# Confirmed current path before the change
+- Stop-time 기본 메시지는 ciel-work의 discovery instruction이다.
+- register.js `discoveryNotice()`가 STOP_UNAVAILABLE / STOP_APPROVAL / notRunnable / no-progress pause 분기에서 snapshot의 `discovery.instruction`을 주입한다.
+- 본문 출처는 `work_discovery.discovery_hint()`: 워크스페이스 `work_discovery.instruction`, 또는 SSE receiver의 `discovery_instruction`/`test_default_override`, 없으면 `DEFAULT_INSTRUCTION`. 고정 BOUNDARY 문구가 뒤에 붙는다.
+- 외부 SSE는 CloudEvents 1.0 structured JSON만 받는다. `validate_cloud_event`는 id/source/type만 투영하고, 수신 서비스는 raw text를 그대로 runtime input gateway에 넣는다.
+
+# Change
+## File-backed message (n378, n380)
+- 신규 모듈 `ciel_runtime_support/work_discovery_file.py`
+  - `resolve_instruction_path(value, workspace_dir)`: 절대경로 그대로, 상대경로는 `WORKSPACE_STATE_DIR` 기준.
+  - `load_file_instruction(...)`: 경로별 인메모리 캐시 1개. 서명은 `(mtime_ns, size, sha256)`. 파일이 바뀌면 다음 읽기에서 자동 리로드. 파일 없음/읽기 실패/빈 파일/과대(>8192자)면 None → fail closed.
+- `work_discovery.discovery_hint()`가 워크스페이스 설정 `work_discovery.file_path`를 지원한다. 파일 본문이 인라인 instruction과 test default보다 우선한다.
+- `external_event_receiver.effective_work_discovery()`가 receiver 설정 `discovery_file_path`를 지원한다. 파일 본문이 선택되면 `used_test_default=False`, `file_path`를 결과에 포함한다.
+
+## SSE control flag (n379)
+- receiver 설정에 `discovery_file_path` 추가: `_discovery_fields` 검증, `save_receiver` 저장, `public_receiver` 노출.
+- prelaunch 메뉴(`external_event_menu`)에 "Work discovery file (local path; body reloads on change)" 행 추가, 편집 가능.
+- 끄는 법은 기존과 동일: `work_discovery.enabled=false` 또는 receiver `discovery_enabled=false`, 파일 해제 시 `discovery_file_path=""`.
+
+## SSE file dump (n384)
+- 신규 CloudEvent 타입: `ciel.work.discovery.file`
+- `data.mode = "set"`: `file_path` + `file_stream` 전문을 받아 로컬 파일에 원자적으로 쓴다(temp 파일 + os.replace, 부모 디렉터리 생성, 64KiB 상한). 그 뒤 receiver를 그 파일로 지정한다(`discovery_enabled=true`, `discovery_file_path=file_path`).
+- `data.mode = "clear"`: receiver의 파일 지정을 해제한다.
+- 이 이벤트는 receiver 경계에서 소비되고 `submit_external_event`로 전달되지 않는다. 즉 채팅/세션 히스토리에 일반 메시지로 들어가지 않는다.
+- receiver에 `event_types` allowlist가 있으면 그 검사를 먼저 통과해야 한다.
+
+# Verification
+- tests/test_work_discovery.py: 워크스페이스 file_path 본문 우선, 파일 재작성 시 다음 hint 자동 반영, 파일 삭제 시 fail closed.
+- tests/test_external_work_discovery.py: receiver discovery_file_path 선택, 파일 재작성 시 자동 리로드, 파일 없음 fail closed, 메뉴 행 존재, file dump 이벤트가 파일을 실제로 쓰고 receiver를 지정하며 일반 이벤트와 분리되는지 확인.
+- 합산 집중 실행: 141 passed, 66 subtests passed.
+- Python py_compile 통과 (work_discovery, work_discovery_file, external_event_receiver, external_event_menu, work_parallel, work_plan_tree).
+
+# Interim default body (goal 25)
+- 사용자 확정: 지금은 `discovery_file_path`의 기본 본문으로 "와키에서 확인하라"는 현행 문구를 넣는다. 와키 인티그레이션이 끝나면 기본값을 null로 하거나 파일을 만들지 않도록 바꿀 예정이다.
+- 구현 위치는 한곳뿐이다: `work_discovery_file.DEFAULT_FILE_INSTRUCTION`.
+- 동작: `discovery_file_path`가 지정됐는데 파일이 아직 없으면, 디스크에 아무것도 만들지 않고 이 상수 본문을 쓴다. 실제 파일이 생기는 순간 파일 본문이 우선한다. 파일을 지우면 다시 기본 본문으로 돌아간다.
+- 나중에 기본값을 끄는 법: `DEFAULT_FILE_INSTRUCTION = None` 한 줄. 그 순간부터 파일 없음은 다시 fail closed가 된다.
+- 검증: test_work_discovery의 missing-file 테스트가 기본 본문 사용, 파일 미생성, 파일 작성 후 즉시 전환을 확인한다. 합산 142 passed, 66 subtests.
+
+# Deployment boundary
+- 아직 commit/push/nightly/local install 하지 않았다.
+- 이 워크스페이스(bd5f642b3583)는 현재 `work_discovery: {"enabled": false}`라서 파일 경로를 넣어도 먼저 enabled를 켜야 Stop 메시지가 나간다. 다른 워크스페이스에는 영향 없다.
+- live 라우터/세션 재시작과 Kobi(.14) 반영은 별도 배포 승인 후에만 가능하다.
