@@ -1,0 +1,59 @@
+---
+type: diagnosis
+title: Prody session Claude Code code 1 exit with repeated stale_unconfirmed blocks
+status: diagnosed-partial-evidence
+date: 2026-11-04
+---
+
+# Symptom (user screenshot, Image #14)
+- Sandbox u41, home prody-ai, session f7a53287-86a7-4210-82d2-9cdc35698083 ("parallel-teammates-speedup (3)", background, status busy/state working per `claude agents --json`).
+- Banner: "Your most recent conversation is running in the background (session f7a53287...). Use `claude agents` to find and attach to it, or `claude --resume` to pick another session."
+- "Ciel Runtime diagnostic: Claude Code exited with code 1 while routed through http://127.0.0.1:9592."
+- Router: health-ok base=http://127.0.0.1:9592 pid=14804 version=0.2.51-nightly.20261104-041406.c886fb2 provider=cielairouter model=ciel-runtime-cielairouter-_walkie_opus55-sol61-fast.
+- Router log path: C:\Users\aapw-a25u41\AppData\Roaming\ciel-runtime\router-instances\9592-c53b7c787223\router.log
+- Recent router events: repeated `[ERROR] channel_stdin_proxy_blocked cursor=24xx message_id=24xx reason=prior_submission_failed detail=stale_unconfirmed action=skipped` from 2026-11-04T10:14:21Z to 2026-11-04T11:43:17Z (cursors 2468→2491).
+- The user then ran `ciel-runtime -- --resume f7a53287-86a7-4210-82d2-9cdc35698083`.
+
+# Evidence limits (confirmed)
+- The reachable host DESKTOP-GBJII5F (ssh sjglobal@100.64.0.14 -p 1004) currently has aap-win sandboxes only u19/u21/u22/u23/u24. There is NO u41 sandbox, no C:\Users\aapw-a25u41, and no 9592 router instance on it now.
+- So that exact router.log/transcript is not reachable from this session (different host, or the sandbox was removed/rebuilt after the screenshot). The diagnosis below separates screenshot facts, code-proven behavior, and unproven hypotheses. No root-cause claim is made for the code-1 exit itself.
+
+# Confirmed by code
+1. Blocked-cursor skips cannot crash the client. `channel_pending_injection.py:230-244`: a candidate whose `lifecycle.failure_reason()` is set is logged once as `channel_stdin_proxy_blocked ... action=skipped` and the scan continues. The failed record is terminal by design (2026-09-10 incident comment: holding the scan at it stalled later messages for minutes).
+2. `stale_unconfirmed` is written by the wake lifecycle when a queued submission is never confirmed: `channel_wake_delivery_repository.release_stale` (queued wake considered stale/dropped after the stale window) or turn-failure settling. `inflight_is_stale` only treats state `unknown` past the stale window as stale; `queued` is deliberately not stale by age (2026-09-22 incident).
+3. The diagnostic banner is printed by `router_client_lifecycle.py:421` AFTER the Claude client process exits; the same banner reports `health-ok`, i.e. the router was alive at diagnosis time. So the router did not die; the foreground client process ended with code 1.
+
+# Supported interpretation
+- Several external messages queued for a busy/background session were never confirmed in the transcript, got marked failed/stale_unconfirmed, and every later injector poll re-logged the skip for each of them (the repeating ERROR lines over ~1.5 hours, cursor advancing 2468→2491).
+- That is a delivery-confirmation failure symptom chain, on an older nightly (c886fb2) — not, by itself, a session killer.
+- Why the Claude process exited 1 (native error, context limit, upstream failure, OS/user action, background-session lifecycle) is **unproven** without that host's router.log tail and the session transcript tail around the exit.
+
+# What would prove it (on the Prody host)
+1. router.log around the exit timestamp: last request/response, any upstream error, and whether a restart/deploy line follows.
+2. The session transcript tail (f7a53287...jsonl): last records before exit — error records, compact records, or a clean end.
+3. runtime-input-status.jsonl rows for message_ids 2468-2491: when each flipped to failed/stale_unconfirmed and why.
+4. Whether `ciel-runtime -- --resume f7a53287...` (as the user ran) actually resumed the same conversation.
+
+# Possible root-fix scope (separate, unapproved)
+- If the transcript proves wakes were delivered but never confirmed because the session stayed busy in background, the stale window/confirmation evidence for background sessions is the fix surface (do not shorten it blindly — 2026-09-22 shows the opposite failure).
+- The repeated ERROR re-logging of already-terminal failed records on every poll is log noise worth deduping, but it is cosmetic next to the confirmation failure.
+- No code change was made in this diagnosis goal.
+
+# Field evidence update (goal 34, .12 host WMS, same day)
+The user pointed to the right host: ssh sjglobal@100.64.0.12 -p 1004 (WMS). The u41
+sandbox lives there and the instance files were readable. This supersedes the
+"evidence limits" section above for everything except the workspace status store.
+
+## Confirmed from the field
+- Instance `9592-c53b7c787223` exists; router.log is 4,660,651 bytes / 34,077 lines, last write 2026-11-04 12:13:21 local. The stale_unconfirmed blocks run continuously: 08:47 (2447/2448/2451) → 10:14 (2469) → 11:43 (2492) → 12:04–12:13 (2495, re-logged every ~5s to the end of the log). At 12:06:44 message 2494 flips to detail `prompt_not_submitted`.
+- `claude-stream-recovery.json` and `compaction-admission.json` in the instance were both touched 11:40:55–59 local — recovery/compaction activity in the same window as the last screenshot-era stale lines.
+- Session transcript `f7a53287...jsonl` (53 MB, last write 12:13:57 local = 20:13Z) tail: the session itself called `restart_session` with reason **"User request: router MCP disconnected, Walkie SSE misrouted to temp session 543686ba. Resume f7a53287."** and got `ok/queued`; then a turn_duration record (7117 messages, bg session); then "Unknown command: /mcpo"; then a ciel-work notice **"Work reconciliation: Parallel read failed: ECONNREFUSED"** at 20:13:31Z.
+- Grep of router.log for exited/restart/deploy/ECONNREFUSED lines returned nothing — no router-side exit/restart line.
+- Processes after: claude daemon (Nov 3) and bg host session 3c31fbc4 still run; the f7a53287 foreground client is gone; a NEW chain `ciel-runtime --resume 543686ba` started 12:15:59 (node 21120 → py 13040 → python 14572 → python 24452) and transcript 543686ba (1.97 MB) was written 12:18:39. So a session is live — but it is the temp session 543686ba, not f7a53287.
+- The workspace status store (runtime-input-status.jsonl) could not be read: the SYSTEM ssh context is denied by the sandbox ACL on that workspace directory. Per-message rows remain unconfirmed; router.log + transcript cover the chain.
+
+## Verdict (evidence-based)
+- The code-1 foreground exit followed a **requested restart from inside the session** (MCP disconnected + SSE misrouted to a temp session), not a router crash. The router stayed healthy (banner health-ok; log continues; no restart line).
+- The stale_unconfirmed chain is a real secondary failure: queued wakes for the long busy bg session (7117 messages) were never confirmed, flipped to failed (one even prompt_not_submitted), and the injector re-logged the skip every ~5 seconds for hours. Log-noise dedupe and/or confirmation-evidence for busy bg sessions is the fix surface — after the MCP/SSE misroute question.
+- **Open root question, still unproven:** why the router MCP disconnected and why Walkie SSE was routed to temp session 543686ba in the first place. Neither router.log nor the transcript tail captured a disconnect line. That is the next investigation, not this one.
+- Resume state is partial/misrouted: 543686ba is live; f7a53287's clean resumability is not proven from process state (its daemon/bg host survives; the screenshot showed it background busy/working in `claude agents`).

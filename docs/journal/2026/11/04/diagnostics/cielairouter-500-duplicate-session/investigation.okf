@@ -1,0 +1,55 @@
+---
+type: diagnosis
+title: CielAiRouter 500 reported crash/background-move/duplicate-session chain — verification and status-faithful transport fix
+status: diagnosed-fixed-pending-release
+date: 2026-11-04
+---
+
+# Report under verification (user)
+"지금으로 써 알려진 레포트에 의하면 error 500같은 ciel ai router 단예세ㅓ 에러가 나오면 조용히 ciel runtime이 크래시되면서 claude는 백그라운드로 자동으로 이전되고. 사용자가 새로 실행하면 새로운 세션이 나와서 중복세션등이 생기는 문제로 알려져잇어"
+
+Chain to verify: (1) CielAiRouter-side HTTP 500 → (2) ciel-runtime quietly crashes → (3) Claude automatically moves to background → (4) user re-launches → (5) a new duplicate session instead of resuming.
+
+# Evidence collected
+
+## Prody router log (goal 34 host, ssh sjglobal@100.64.0.12 -p 1004, instance 9592-c53b7c787223)
+- `anthropic_route_error` hits = 22. Every one is a **local status=500 generated after an upstream transport `RuntimeError`** (Errno 10053 / WinError 10054 / 10061 / 11001) or transient-retry exhaustion — not an observed CielAiRouter HTTP 500 relayed downstream.
+- Previous journal (2026-10-28 gateway-error-envelope) independently confirms the mechanism: "upstream_retry wraps them in RuntimeError, then the local route responds HTTP500. This is not evidence that an HTTP500 response came from CielAiRouter."
+- Shutdown/traceback greps did not establish a router-process crash; the 218 `Traceback` lines are per-request handler traces (socketserver `process_request_thread`/`finish_request`), and the log's first line is the router starting on 127.0.0.1:9592.
+
+## Code paths (this worktree)
+- `claude_router.py:698-722` preserves an upstream `HTTPError` status/body verbatim (HTTPError path).
+- Non-HTTP exceptions fell into the generic boundary and were written as a **blind local 500** (`try_write_json(..., 500)`), erasing transport identity (10053/10054 reset vs timeout vs refused).
+- `upstream_retry.py` wrapped final `URLError`/`OSError` failures in bare `RuntimeError("upstream ... request failed ...")` in all three entry points, discarding the structured failure. `upstream_error_policy.py` already classifies these as `UpstreamFailure` (502, or 504 for real timeouts; `_transport_status:187-193`).
+- Router process: `ciel_runtime.py:3007` wires `ThreadingHTTPServer`; `router_server_runtime.py:80` `serve_forever()`. A route exception is a request-thread failure. No `sys.exit`/`os._exit`/terminate/kill exists in `claude_router.py`, `router_server_context.py`, or `router_client_lifecycle.py`. The launcher's SystemExit uses in `cli_dispatch.py:195-744` are argument-usage validation only.
+- `router_client_lifecycle.py` `RouterLifetime.stop_if_idle` only stops the **router** after the last client lease releases (`stop_if_idle("claude_exit")`) — it cannot move Claude to background.
+
+## Prody transcripts (duplicate condition)
+- Same project (`C--ProgramData-aap-win-sandboxes-u41-home-prody-ai`) holds multiple transcripts, all attach/bg-associated:
+  - `f7a53287` — long existing bg session, created 2026-11-03 20:56, `sessionKind=bg` throughout.
+  - `543686ba` — created 2026-11-04 12:04:46 (-08:00), first user message is `attach`, first bg info at 20:03:39Z; logs `Backgrounding after the current tool finishes…` then `Backgrounding cancelled ? the turn was stopped.`
+  - `c0d8ddd4` — same `attach` first message; `sessionKind` empty on first info line, bg marker later.
+  - `3c31fbc4…orphaned-…jsonl` — created in the same 12:04:46 window, `sessionKind=bg`.
+- `sessionKind=bg` and `Backgrounding…` lines are Claude Code's own background-session state. Nothing in ciel-runtime writes them.
+- `session_resume_last.py:47-83`: ciel-runtime's resume gate only checks that **some** `*.jsonl` exists in the folder and then adds `--continue`; it cannot name or attach a specific live Claude bg session. So when Claude starts (or misroutes to) a new transcript instead of attaching the intended bg session, ciel-runtime has no signal to prevent the duplicate.
+
+# Verdict (confirmed vs unproven)
+- ✅ **Refuted as stated**: an upstream 500 → ciel-runtime process crash → automatic background move. No code path and no field evidence supports the first two links. The router is threaded; route failures are per-request.
+- ✅ **Real defect found and fixed**: final upstream transport failures lost their identity and became a local naked 500. This is the client-visible "ciel-runtime 500" the report most plausibly points at — the client sees an opaque 500 from the local router, not a faithful 502/504 gateway error.
+- ✅ **Duplicate condition localized**: same-cwd multiple bg transcripts + folder-level `--continue` gate. The duplicate is produced by Claude's attach/new choice when session identity is not pinned; ciel-runtime cannot currently prevent it, and a hard launch block would be speculative without a stable ciel-runtime-owned live-session registry.
+- 🟡 **Unproven, left open**: why Prody's router MCP disconnected and why Walkie SSE routed to temp session 543686ba (goal 34 open question). No disconnect line in router.log or transcript tails; the f7a53287 tail shows work continuing (gates `wg-mw2k003g-4`) and then `ECONNREFUSED`/MCP-missing reconciliation notes, then end of file — no third session-start record. The 664a228b tail (`continued-in`, cost-state) is a different cwd-holding conversation and was not connected to the reported chain.
+
+# Fix applied (worktree, not yet released)
+- `upstream_retry.py`: in `post_json_with_rate_retry`, `open_provider_request_with_key_retry`, and `open_openai_stream_with_rate_retry`, a final transport error is now converted with `UpstreamFailure.from_transport_error(...)` when it is a real upstream transport failure (502, or 504 for timeouts); non-transport bugs keep the existing generic `RuntimeError`, so programming errors still surface unchanged.
+- `claude_router.py` generic exception boundary: if the exception is (or converts from transport into) an `UpstreamFailure`, the router logs `anthropic_route_error … status=<failure.status_code>` and writes `failure.anthropic_payload()` with that status; otherwise the pre-existing local 500 remains for genuine local defects.
+- `tests/test_upstream_retry.py`: gateway-boundary expectations updated from exact `RuntimeError` type to `RuntimeError` instance (UpstreamFailure **is** a RuntimeError subclass; the stricter claim is preserved via `isinstance`).
+- Scope boundary: observed upstream HTTP 500 bodies still classify as `upstream_error`/500 by the existing observed-status logic; only the transport-to-naked-500 erasure is removed. No launch-time duplicate guard was added (see verdict).
+
+# Verification
+- `python -m pytest tests/test_upstream_retry.py tests/test_upstream_failure_model.py tests/test_initial_stream_retry.py tests/test_router_client_lifecycle.py tests/test_unattended_restart.py -q` → **89 passed, 76 subtests passed**.
+- `python -m pytest tests/test_router_server_runtime.py -q` → 3 passed, 2 subtests passed.
+- `git diff --check` clean. Diff: `ciel_runtime_support/claude_router.py` +15, `ciel_runtime_support/upstream_retry.py` +9, `tests/test_upstream_retry.py` 4 changed lines.
+
+# Release boundary
+- Worktree only. Not committed, not pushed, no nightly, no local snapshot install. Running routers/sessions were not restarted.
+- Prody/Kobi field updates remain separate approvals; nothing was changed on .12/.14 in this goal beyond the read-only probes above.
