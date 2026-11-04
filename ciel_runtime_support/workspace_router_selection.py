@@ -369,10 +369,24 @@ def _check_own_launch_lease(record: dict[str, Any]) -> None:
         current = _process_identity(pid)
         if pid == os.getpid() and current and current == lease.get("identity"):
             return
-        float(lease["expires_at"])  # Validate the stored lease shape.
+        expires_at = float(lease["expires_at"])
         # A verified-dead owner cannot still be launching, even if its short
         # lease had not elapsed when the process disappeared.
         if current == "":
+            return
+        # An expired lease whose recorded birth token no longer matches the
+        # live process proves the owner is gone and the PID was recycled:
+        # nobody is launching under it, so evict instead of failing forever
+        # (Kobi 2026-11-04: svchost held the dead launcher's PID). An
+        # unexpired mismatch, a matching identity (live owner), or an
+        # unknown inspection (None) still fails closed.
+        identity = lease.get("identity")
+        if (
+            current is not None
+            and identity
+            and current != identity
+            and 0 < expires_at <= time.time()
+        ):
             return
     except (TypeError, ValueError, KeyError):
         pass

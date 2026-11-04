@@ -315,6 +315,49 @@ class ExhaustedRouterReservationTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "launch already reserved"):
                 self.select()
 
+    def _own_record_with_lease(self, lease):
+        # Work in a scratch registry: this class preloads 50 full reservations.
+        registry = Path(self.registry.parent) / "own-lease.json"
+        digest = selection.workspace_digest("C:/work/own")
+        record = {"workspace": "C:/work/own", "port": 9464, "reservation": "auto",
+                  "launch_lease": lease}
+        registry.write_text(json.dumps({"version": 1, "workspaces": {digest: record}}), encoding="utf-8")
+        return registry
+
+    def _select_own(self, registry):
+        return select_workspace_router_port(
+            9464, Path("C:/work/own"), {}, registry_path=registry,
+            health=lambda _port: None, available=lambda _port: True,
+        )
+
+    def test_own_expired_lease_with_recycled_pid_is_evicted(self):
+        # Kobi 2026-11-04: the dead launcher's PID was recycled by an
+        # unrelated live process, so the identity no longer matches. The
+        # lease is long past its 30 seconds: evict it and launch.
+        registry = self._own_record_with_lease(
+            {"pid": 20001, "identity": "dead-birth", "expires_at": time.time() - 60})
+        with patch.object(selection, "_process_identity", return_value="other-birth"):
+            self.assertEqual(9464, self._select_own(registry))
+        saved = json.loads(registry.read_text())["workspaces"]
+        digest = selection.workspace_digest("C:/work/own")
+        self.assertNotEqual("dead-birth", saved[digest]["launch_lease"]["identity"])
+
+    def test_own_unexpired_lease_with_recycled_pid_stays_closed(self):
+        # Same recycling, but the lease is still inside its window: a real
+        # launcher may be starting right now, so keep failing closed.
+        registry = self._own_record_with_lease(
+            {"pid": 20001, "identity": "dead-birth", "expires_at": time.time() + 30})
+        with patch.object(selection, "_process_identity", return_value="other-birth"):
+            with self.assertRaisesRegex(RuntimeError, "launch already reserved"):
+                self._select_own(registry)
+
+    def test_own_expired_lease_with_unknown_identity_stays_closed(self):
+        registry = self._own_record_with_lease(
+            {"pid": 20001, "identity": "dead-birth", "expires_at": time.time() - 60})
+        with patch.object(selection, "_process_identity", return_value=None):
+            with self.assertRaisesRegex(RuntimeError, "launch already reserved"):
+                self._select_own(registry)
+
     def test_concurrent_registry_calls_keep_distinct_startup_leases(self):
         def allocate(index):
             return select_workspace_router_port(
