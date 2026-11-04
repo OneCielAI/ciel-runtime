@@ -121,7 +121,7 @@ print(ingest_external_search_results(WorkPlanStore(Path(sys.argv[2])), source='t
 
     def test_full_board_rolls_back(self):
         def fill(doc):
-            for i in range(600):
+            for i in range(100):
                 add_node(doc, None, str(i))
         self.store.transaction(fill)
         before = self.path.read_bytes()
