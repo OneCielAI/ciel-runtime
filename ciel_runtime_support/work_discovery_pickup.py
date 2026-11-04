@@ -151,7 +151,8 @@ def ingest_external_search_results(
                 duplicates += 1
                 continue
             node_id = add_node(doc, None, item.title, now=stamp, ref=ref,
-                               note="External search result (untrusted data): " + item.link)
+                               note="External search result (untrusted data): " + item.link,
+                               priority=item.priority)
             node = next(n for n in doc["nodes"] if n["id"] == node_id)
             node["evidence"] = json.dumps({"kind": _METADATA, "bucket": bucket,
                 "picked_at": stamp, "source": source, "item_id": item.item_id,

@@ -53,10 +53,77 @@ class WorkPlanTreeTests(unittest.TestCase):
                 {"title": str(i)} for i in range(t.MAX_NODES)]})
 
     def test_normalize_caps(self):
-        for nodes in ([node(f"n{i}") for i in range(t.MAX_NODES + 1)],
+        # Reads accept boards above the new-addition cap (they were written
+        # under the old cap or hold unfinished work); structure is still bounded.
+        oversized = [node(f"n{i}") for i in range(t.MAX_NODES + 50)]
+        doc = t.normalize_document(dict(t.empty_document(), nodes=oversized))
+        self.assertEqual(len(doc["nodes"]), t.MAX_NODES + 50)
+        for nodes in ([node(f"n{i}") for i in range(t.STORAGE_MAX_NODES + 1)],
                       [node(f"n{i}", f"n{i-1}" if i else None) for i in range(t.MAX_DEPTH + 2)]):
             with self.subTest(count=len(nodes)), self.assertRaises(t.WorkPlanError):
                 t.normalize_document(dict(t.empty_document(), nodes=nodes))
+
+    def test_priority_inserts_new_goal_mid_queue(self):
+        active = t.add_node(self.doc, None, "active", now=10)
+        low = t.add_node(self.doc, None, "low", now=11, priority="P4")
+        plain = t.add_node(self.doc, None, "plain", now=12)
+        urgent = t.add_node(self.doc, None, "urgent", now=13, priority="P1")
+        mid = t.add_node(self.doc, None, "mid", now=14, priority="P2")
+        self.assertEqual([n["id"] for n in t.queued_roots(self.doc)], [urgent, mid, low, plain])
+        self.assertEqual(active, self.doc["active_root"])
+        node = next(n for n in self.doc["nodes"] if n["id"] == urgent)
+        self.assertEqual("P1", node["priority"])
+        # Unranked additions keep the old behavior: appended behind the queue.
+        self.assertEqual(plain, t.queued_roots(self.doc)[-1]["id"])
+
+    def test_priority_rejects_detail_items_and_bad_values(self):
+        root = self.plan()[0]
+        with self.assertRaises(t.WorkPlanError):
+            t.add_node(self.doc, root, "child", priority="P1")
+        with self.assertRaises(t.WorkPlanError):
+            t.add_node(self.doc, None, "bad", priority="P9")
+        with self.assertRaises(t.WorkPlanError):
+            t.update_node(self.doc, self.doc["nodes"][1]["id"], priority="P1")
+
+    def test_priority_change_reorders_queued_goal(self):
+        t.add_node(self.doc, None, "active", now=10)
+        first = t.add_node(self.doc, None, "first", now=11, priority="P3")
+        second = t.add_node(self.doc, None, "second", now=12, priority="P3")
+        self.assertEqual([first, second], [n["id"] for n in t.queued_roots(self.doc)])
+        t.update_node(self.doc, second, priority="P1")
+        self.assertEqual([second, first], [n["id"] for n in t.queued_roots(self.doc)])
+
+    def test_blocked_items_are_named_for_recheck(self):
+        root = self.plan()
+        t.update_node(self.doc, root[2], status="blocked", waiting_on="freeze logs missing")
+        t.update_node(self.doc, root[3], status="blocked", waiting_on="freeze logs missing")
+        state = t.continuation(self.doc)
+        self.assertEqual(0, state["actionable"])
+        # Leaf paths that also carry waiting_on count as waiting, so the
+        # blocked-leaf counter stays 0; the named recheck list is what matters.
+        self.assertEqual(2, len(state["blocked_items"]))
+        item = state["blocked_items"][0]
+        self.assertEqual(root[2], item["id"])
+        self.assertEqual("freeze logs missing", item["waiting_on"])
+        self.assertEqual(root[0], item["root_id"])
+        # Clearing the block makes the item runnable again without any
+        # other board change: blocked is a judgement, not a tombstone.
+        # The recorded wait itself remains until cleared separately.
+        t.update_node(self.doc, root[2], status="in_progress", waiting_on="")
+        self.assertGreater(t.continuation(self.doc)["actionable"], 0)
+
+    def test_oversized_board_adds_nothing_but_open_work_survives(self):
+        # A board already past the cap keeps every unfinished item readable and
+        # mutable in place; only growing it further is refused until it drains.
+        raw = dict(t.empty_document(), nodes=[node(f"n{i}") for i in range(t.MAX_NODES + 5)])
+        doc = t.normalize_document(raw)
+        with self.assertRaises(t.WorkPlanError):
+            t.add_node(doc, None, "one more")
+        updated = t.update_node(doc, "n3", status="in_progress")
+        self.assertEqual("in_progress", updated["status"])
+        removed = t.remove_node(doc, "n0")
+        self.assertEqual(1, removed)
+        self.assertEqual(t.MAX_NODES + 4, len(doc["nodes"]))
 
     def test_malformed_documents_and_cycles(self):
         for raw in (None, [], {"nodes": {}}, {"nodes": [None]},
@@ -578,7 +645,7 @@ class WorkContinuationTreeTests(unittest.TestCase):
         self.assertEqual((state["actionable"], state["next"]), (0, None))
         self.assertEqual([r["title"] for r in state["waiting"]], [str(i) for i in range(t.MAX_WAITING_IN_CONTINUATION)])
         self.assertEqual(t.continuation(t.empty_document()),
-                         {"actionable": 0, "next": None, "waiting": [], "blocked": 0, "held": 0})
+                         {"actionable": 0, "next": None, "waiting": [], "blocked": 0, "blocked_items": [], "held": 0})
 
     def test_nested_urgent_holds_queue_and_resumes_former_active_in_order(self):
         older = self.plan("older")

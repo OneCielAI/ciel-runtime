@@ -41,6 +41,42 @@ class WorkDiscoveryTests(unittest.TestCase):
         cfg = {"work_discovery": {"enabled": True, "instruction": "", "test_default_override": False}}
         self.assertFalse(discovery_hint(cfg, {})["enabled"])
 
+    def test_workspace_file_path_body_and_reload_on_change(self):
+        import tempfile
+        from pathlib import Path
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "stop.txt"
+            target.write_text("file body one", encoding="utf-8")
+            cfg = {"work_discovery": {"enabled": True, "file_path": str(target),
+                                       "instruction": "stale inline", "test_default_override": True}}
+            hint = discovery_hint(cfg, {})
+            self.assertTrue(hint["instruction"].startswith("file body one"))
+            self.assertEqual("file", hint["source"])
+            target.write_text("file body two", encoding="utf-8")
+            hint = discovery_hint(cfg, {})
+            self.assertTrue(hint["instruction"].startswith("file body two"))
+            # Deleting the file returns to the interim Walkie default body,
+            # still without creating anything on disk.
+            target.unlink()
+            hint = discovery_hint(cfg, {})
+            self.assertTrue(hint["instruction"].startswith("작업큐에 여유가 생기면 와키에서"))
+            self.assertFalse(target.exists())
+
+    def test_missing_file_uses_walkie_default_until_written(self):
+        import tempfile
+        from pathlib import Path
+        from ciel_runtime_support.work_discovery_file import DEFAULT_FILE_INSTRUCTION
+        self.assertIn("와키에서", DEFAULT_FILE_INSTRUCTION)
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "not-yet.txt"
+            cfg = {"work_discovery": {"enabled": True, "file_path": str(target)}}
+            hint = discovery_hint(cfg, {})
+            self.assertTrue(hint["instruction"].startswith(DEFAULT_FILE_INSTRUCTION))
+            self.assertFalse(target.exists())
+            target.write_text("written body", encoding="utf-8")
+            hint = discovery_hint(cfg, {})
+            self.assertTrue(hint["instruction"].startswith("written body"))
+
 
 if __name__ == "__main__":
     unittest.main()

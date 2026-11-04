@@ -17,7 +17,12 @@ from .channel_message_repository import exclusive_file_lock
 from .work_parallel_defaults import DEFAULT_INSTRUCTION
 
 MAX_BYTES = 2097152
-MAX_LEASES = 1000
+# New lease records stop at this backstop; a stored ledger above it (written
+# under the old bound) must stay readable — validate uses the storage ceiling
+# and the history drains as leases complete. Active execution slots are a
+# separate, much smaller limit (policy.max_active).
+MAX_LEASES = 100
+STORAGE_MAX_LEASES = 100_000
 DEFAULT_DISCOVERY_TEXT = DEFAULT_INSTRUCTION
 STATES = ("reserved", "running", "waiting_input", "submitted", "verifying", "reviewing", "accepted", "cleanup_pending", "done")
 
@@ -47,11 +52,13 @@ def fields(v, names):
     return type(v) is dict and set(v) == set(names.split())
 
 def default_policy():
-    # Parallel dispatch is on by default and limited only by concurrent fork slots
-    # (max_active, with p1_reserved kept free for P1) and the launch rate. The
-    # thresholds field is retained solely so ledgers written before slot-only
-    # admission stay readable; it no longer gates anything.
-    return dict(enabled=True, paused=False, max_active=3, p1_reserved=1,
+    # Parallel dispatch is on by default. This policy controls only concurrent
+    # execution slots and launch rate; it never limits Work-board queue intake.
+    # P1 candidates are always allowed to compete for every free slot, while
+    # lower priorities leave p1_reserved slots available for later P1 work.
+    # The thresholds field is retained solely so older ledgers stay readable;
+    # it no longer gates anything.
+    return dict(enabled=True, paused=False, max_active=5, p1_reserved=1,
                 thresholds=dict(P2=1.0, P3=1.0, P4=1.0, P5=1.0), launches_per_minute=4,
                 max_rework=2, discovery_text=DEFAULT_DISCOVERY_TEXT, test_override=True)
 
@@ -76,7 +83,7 @@ def validate(d):
                 and type(value["blocked"]) is bool and (value["below_since"] is None or number(value["below_since"], 1e15)), "admission state")
     require(type(d["schema"]) is int and d["schema"] == 1 and integer(d["version"]), "schema/version")
     validate_policy(d["policy"])
-    require(type(d["leases"]) is dict and len(d["leases"]) <= MAX_LEASES, "lease bound")
+    require(type(d["leases"]) is dict and len(d["leases"]) <= STORAGE_MAX_LEASES, "lease storage bound")
     for ident, r in d["leases"].items():
         # agent_name (the native Agent name used to resume after a parent restart) is
         # optional so ledgers written before it existed stay readable.
@@ -186,10 +193,13 @@ class WorkParallelStore:
     def reserve(self, candidates, *, scope, expected_version, now=None):
         """Candidates require exact fields validated below. Best eligible priority,
         then newest created_at wins. Admission is limited only by the number of
-        concurrent fork slots and the launch rate; reviewers/resumes consume a
-        slot. Discovery/test_override configuration NEVER bypasses admission gates.
+        concurrently executing fork slots and the launch rate; reviewers/resumes
+        consume a slot. P1 may use every free slot, while lower priorities leave
+        the configured P1 reserve available. Registering/queueing Work items is
+        never an admission decision. Discovery/test_override configuration NEVER
+        bypasses admission gates.
         """
-        require(text(scope, 200) and type(candidates) is list and 0 < len(candidates) <= 600, "candidates/scope")
+        require(text(scope, 200) and type(candidates) is list and 0 < len(candidates) <= MAX_LEASES, "candidates/scope")
         for r in candidates:
             require(fields(r, "item_id priority created_at approved focused dependencies_done plan_version usage role mode"), "candidate fields")
             require(text(r["item_id"], 200) and r["priority"] in ("P1", "P2", "P3", "P4", "P5"), "candidate identity")
@@ -203,7 +213,7 @@ class WorkParallelStore:
             p = d["policy"]
             require(p["enabled"] and not p["paused"], "disabled/paused")
             active = [a for a in d["leases"].values() if a["slot"]]
-            require(len(active) < p["max_active"], "hard cap reached")
+            require(len(active) < p["max_active"], "active slot capacity reached")
             history = [t for t in d["launches"] if stamp - t < 60]
             require(len(history) < p["launches_per_minute"], "launch rate reached")
             require(len(d["leases"]) < MAX_LEASES, "lease bound")
@@ -280,6 +290,34 @@ class WorkParallelStore:
                 r.update(slot=False, usage=0, idle_proof=proof)
         return self._change(apply, expected_version)
 
+    def wait(self, ident, *, proof, expected_version):
+        """Release only the execution slot when a bound worker is waiting.
+
+        A question/blocked wait is not completion: the durable lease, host
+        binding and Work item remain recorded so the same worker can later be
+        resumed.  The slot can immediately admit another queued candidate.
+        """
+        require(text(proof, 500), "wait proof required")
+        def apply(d):
+            r = self._lease(d, ident)
+            require(r["state"] == "waiting_input" and r["host_id"] is not None and r["slot"], "not a waiting worker")
+            r.update(slot=False, usage=0, idle_proof=proof)
+        return self._change(apply, expected_version)
+
+    def reacquire(self, ident, *, expected_version):
+        """Reclaim a slot for the same waiting lease before resuming it."""
+        def apply(d):
+            p = d["policy"]
+            require(p["enabled"] and not p["paused"], "disabled/paused")
+            r = self._lease(d, ident)
+            require(r["state"] == "waiting_input" and r["host_id"] is not None and not r["slot"], "not a slot-released wait")
+            active = [a for a in d["leases"].values() if a["slot"]]
+            require(len(active) < p["max_active"], "active slot capacity reached; item remains waiting")
+            if r["priority"] != "P1":
+                require(len(active) < max(1, p["max_active"] - p["p1_reserved"]), "non-P1 slot capacity is reserved for P1")
+            r.update(slot=True, idle_proof=None)
+        return self._change(apply, expected_version)
+
     def transition(self, ident, target, *, plan_version, expected_version, artifact=None, evidence=None, cleanup_proof=None, cleanup_action=None):
         """submitted->verifying->reviewing->accepted->cleanup_pending->done.
         verifying/reviewing->running requests bounded rework. Each transition
@@ -295,8 +333,14 @@ class WorkParallelStore:
                 submitted={"verifying"}, verifying={"reviewing", "running"}, reviewing={"accepted", "running"},
                 accepted={"cleanup_pending"}, cleanup_pending={"done"})
             require(type(target) is str and target in edges.get(r["state"], set()), "transition")
-            if target in ("submitted", "waiting_input", "running"):
+            if target in ("submitted", "running"):
+                # Entering running includes the waiting_input -> running resume;
+                # a slot-released wait must first pass through reacquire().
                 require(r["slot"] and r["host_id"] is not None, "no active slot")
+            elif target == "waiting_input":
+                # A running worker may report a question before its slot is
+                # released by the authenticated wait observation.
+                require(r["host_id"] is not None, "no bound worker")
             require(text(evidence), "transition evidence")
             if target == "submitted":
                 require(digest(artifact), "artifact SHA256 required")

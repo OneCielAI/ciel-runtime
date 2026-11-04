@@ -1,9 +1,15 @@
 // Drives the packaged ciel-work register.js with a scripted host: no Claude Code,
 // no router. Each scenario prints one JSON line describing the gate decisions.
 import { register } from './register.js'
+import { atom, read, update } from 'claude-code'
 
 const handlers = {}
 register((name, filter, handler) => { handlers[name] = typeof filter === 'function' ? filter : handler })
+// The engine's claude-code helpers are stubbed by the pytest fixture: atoms
+// live in a shared map keyed by plugin+key. Probe the detail pane state there.
+const detailAtom = atom({ plugin: 'ciel-work', key: 'detail' }, null)
+const readDetailAtom = $ => read($, detailAtom)
+const writeDetailAtom = async ($, v) => update($, detailAtom, () => v)
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 const snapshot = (phase = 'executing', version = 5) => ({ enabled: true, phase, approval: 'auto', version,
@@ -73,20 +79,64 @@ const scenarios = {
     })
     $.session.repo = async () => null
     $.session.root = async () => '/repo'
+    $.agent.spawn = async (args) => { leases.L9 = { id: 'L9', item_id: 'n229', item_title: 'Add retry backoff', item_ref: 'PAY-229',
+        goal_title: 'Product goal', item_path: ['Product goal', 'Checkout phase', 'Add retry backoff'],
+        priority: 'P1', role: 'worker', state: 'running', slot: true,
+        agent_name: args.name, host_id: 'host-9', plan_version: 5 }
+      return { agentId: 'host-9', model: 'fixture' } }
     await handlers['session.start']($, { isInteractive: false }, next(undefined))
-    // L1 already holds the n227 worker, so the dispatch under test targets the
-    // next leaf. Re-dispatching n227 here would hit the resume-instead guard.
+    // The mod starts the fork itself; the model never copies an Agent name.
     const run = await handlers['tool.call']($, { tool: 'mcp__ciel-runtime-router__work_parallel_run',
       item_id: 'n229', priority: 'P1', role: 'worker', expected_version: 12 }, next({}))
     if (run.deny || typeof run.result !== 'string') throw new Error('dispatch did not return a result: ' + JSON.stringify(run))
     const dispatch = JSON.parse(run.result)
-    let spawnedEvent = null
-    const captureSpawn = async (e) => { spawnedEvent = e; return { agentId: 'host-9', model: 'fixture' } }
-    captureSpawn.origin = { plugin: 'engine' }
-    const spawned = await handlers['agent.spawn']($, { tool_use_id: 'spawn-1', prompt: dispatch.prompt,
-      description: dispatch.description, subagentType: 'fork', fork: true, background: true, name: dispatch.name }, captureSpawn)
     const shown = await handlers['command.run']($, { args: 'parallel' })
-    return { spawned, spawnedEvent, dispatch, shown: shown.text || '' }
+    return { spawned: { agentId: dispatch.agent_id }, spawnedEvent: { description: dispatch.description, name: dispatch.name }, dispatch, shown: shown.text || '' }
+  },
+  // Direct spawn: work_parallel_run itself starts the fork; the model never
+  // copies an Agent name. A denied spawn releases the unbound reservation and
+  // keeps the Work item queued.
+  async 'parallel-direct-spawn-started'() {
+    const parallel = { version: 11, active_device: 0,
+      policy: { enabled: true, paused: false, max_active: 3, p1_reserved: 1, launches_per_minute: 4, max_rework: 2 }, leases: {} }
+    const calls = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_parallel_status') return text(parallel)
+      if (tool === 'work_parallel_event') {
+        calls.push(args)
+        if (args.event === 'reserve') return text({ lease_id: 'L9', version: 12, plan_version: 5 })
+        if (args.event === 'bind') return text({ version: 13, leases: {} })
+      }
+      return text(snapshot())
+    })
+    $.session.repo = async () => null
+    $.session.root = async () => '/repo'
+    $.agent.spawn = async (args) => { state.spawned = args; return { agentId: 'host-9', model: 'fixture' } }
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    const run = await handlers['tool.call']($, { tool: 'mcp__ciel-runtime-router__work_parallel_run',
+      item_id: 'n227', priority: 'P1', role: 'worker', expected_version: 11 }, next({}))
+    return { run: JSON.parse(run.result), spawned: state.spawned, calls }
+  },
+  async 'parallel-direct-spawn-denied-releases'() {
+    const parallel = { version: 11, active_device: 0,
+      policy: { enabled: true, paused: false, max_active: 3, p1_reserved: 1, launches_per_minute: 4, max_rework: 2 }, leases: {} }
+    const calls = []
+    const { $ } = host(async (tool, args) => {
+      if (tool === 'work_parallel_status') return text(parallel)
+      if (tool === 'work_parallel_event') {
+        calls.push(args)
+        if (args.event === 'reserve') return text({ lease_id: 'L9', version: 12, plan_version: 5 })
+        if (args.event === 'release') return text({ lease_id: 'L9', version: 13, released: true, item_id: 'n227', item_kept: true })
+      }
+      return text(snapshot())
+    })
+    $.session.repo = async () => null
+    $.session.root = async () => '/repo'
+    $.agent.spawn = async () => ({ deny: 'Subagent spawn denied by fixture' })
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    const run = await handlers['tool.call']($, { tool: 'mcp__ciel-runtime-router__work_parallel_run',
+      item_id: 'n227', priority: 'P1', role: 'worker', expected_version: 11 }, next({}))
+    return { run: JSON.parse(run.result), calls }
   },
   // Mirrors Kobi 2026-11-04: work_parallel_run returned a name, but the model
   // called Agent without it. The gate must name that exact omission, and the
@@ -95,14 +145,17 @@ const scenarios = {
     const parallel = { version: 11, active_device: 0,
       policy: { enabled: true, paused: false, max_active: 3, p1_reserved: 1, launches_per_minute: 4, max_rework: 2 }, leases: {} }
     const { $ } = host(async (tool) => tool === 'work_parallel_status' ? text(parallel) : text(snapshot()))
+    $.session.repo = async () => null
+    $.session.root = async () => '/repo'
+    $.agent.spawn = async () => ({ deny: 'fixture has no direct spawn' })
     await handlers['session.start']($, { isInteractive: false }, next(undefined))
     const runRaw = await handlers['tool.call']($, { tool: 'mcp__ciel-runtime-router__work_parallel_run',
       item_id: 'n227', priority: 'P1', role: 'worker', expected_version: 11 }, next({}))
     if (runRaw.deny || typeof runRaw.result !== 'string') throw new Error('dispatch did not return a result: ' + JSON.stringify(runRaw))
     const run = runRaw
     const dispatch = JSON.parse(run.result)
-    const denied = await handlers['agent.spawn']($, { tool_use_id: 'call-agent', prompt: dispatch.prompt,
-      description: dispatch.description, subagentType: 'fork', fork: true, background: true }, next({ agentId: 'must-not-start' }))
+    const denied = await handlers['agent.spawn']($, { tool_use_id: 'call-agent', prompt: 'Execute only approved Work item n227.',
+      description: 'Work n227', subagentType: 'fork', fork: true, background: true }, next({ agentId: 'must-not-start' }))
     const shown = await handlers['command.run']($, { args: 'parallel' })
     const note = await handlers['tool.call']($, { tool: 'mcp__ciel-runtime-router__work_parallel_event',
       item_id: 'n227', plan_version: 305, event: 'Native fork dispatch failed' }, next({}))
@@ -121,6 +174,28 @@ const scenarios = {
     await handlers['session.start']($, { isInteractive: false }, next(undefined))
     await handlers['turn.complete']($, {}, next(undefined))
     return { spawned: state.spawned, released: !lease.slot }
+  },
+  async 'parallel-waiting-releases-slot-and-sendmessage-reacquires'() {
+    const lease = { id: 'L1', item_id: 'n2', role: 'worker', state: 'waiting_input', host_id: 'agent-wait', slot: true, plan_version: 7 }
+    const calls = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version: 9, policy: { enabled: true, paused: false }, leases: { L1: lease } })
+      if (tool === 'work_parallel_event') {
+        calls.push(args)
+        if (args.event === 'wait') lease.slot = false
+        if (args.event === 'reacquire') lease.slot = true
+        return text({ version: 10, leases: { L1: lease } })
+      }
+      return text({})
+    })
+    state.agents = [{ id: 'agent-wait', status: 'waiting' }]
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    await handlers['turn.complete']($, {}, next(undefined))
+    const afterWait = { slot: lease.slot, calls: calls.map(c => c.event) }
+    calls.length = 0
+    const resumed = await handlers['tool.call']($, { tool: 'SendMessage', to: 'agent-wait', message: 'continue' }, next({ sent: true }))
+    return { afterWait, resumed: Boolean(resumed?.sent), slot: lease.slot, calls: calls.map(c => c.event) }
   },
   async 'parallel-recovery-context'() {
     const lease = { id: 'L1', item_id: 'n2', role: 'worker', state: 'running', host_id: 'agent-old', slot: true, plan_version: 7 }
@@ -243,6 +318,16 @@ const scenarios = {
     const result = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
     return { text: result?.block || '' }
   },
+  async 'stop-blocked-recheck'() {
+    // Nothing runnable, one blocked item with a recorded reason: the stop
+    // must name it and demand a fresh check instead of reporting no work.
+    const ready = { ...snapshot(), continuation: { actionable: 0, waiting: [], blocked: 1, held: 0,
+        blocked_items: [{ id: 'n92', title: 'freeze logs', waiting_on: 'Exact production freeze logs not identified', root_id: 'n1', path: ['goal', 'freeze logs'] }] },
+      discovery: { enabled: true, instruction: 'search elsewhere' } }
+    const { $ } = host(async () => text(ready))
+    const result = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
+    return { text: result?.block || '' }
+  },
   // Two agents gate their own Edit while the router answers the earlier read last.
   async 'concurrent-check'() {
     const delays = [60, 10]
@@ -335,6 +420,34 @@ const scenarios = {
   async 'not-json'() {
     const { $ } = host(async () => text('Work phase: executing'))
     return { first: verdict(await check($, 'agent-a')) }
+  },
+  // The inspector detail read receives a router error reply. Whether the
+  // bridge marks it isError or returns plain "Error…" text, the pane must
+  // show the router's own message — never a JSON.parse complaint about its
+  // first word (screenshot: 'JSON Parse error: Unexpected identifier "Error"').
+  ...Object.fromEntries(['plain', 'flagged'].map(kind => ['details-router-error-' + kind, async () => {
+    const errText = 'Error: Work plan store is locked by another writer'
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status' && args.detail) return kind === 'flagged'
+        ? { isError: true, content: [{ type: 'text', text: errText }] } : text(errText)
+      return text(snapshot())
+    })
+    $.ui.open = async spec => { state.opened = spec }
+    $.ui.resolve = () => ({ Box: props => props, Button: props => props, Text: props => props })
+    await handlers['session.end']($, {}, next(undefined))
+    await handlers['command.run']($, { args: 'view' })
+    const detail = await readDetailAtom($)
+    return { opened: state.opened?.id || '', shown: detail?.error || '' }
+  }])),
+  // A parallel read that returns non-JSON text names the read and shows what
+  // the router said, instead of a JSON.parse error about the first word.
+  async 'parallel-error-text'() {
+    const { $ } = host(async () => text('Error: parallel ledger unavailable'))
+    $.session.repo = async () => null
+    $.session.root = async () => '/repo'
+    const run = await handlers['tool.call']($, { tool: 'mcp__ciel-runtime-router__work_parallel_run',
+      item_id: 'n227', priority: 'P1', role: 'worker', expected_version: 11 }, next({}))
+    return { error: run.deny || '' }
   },
   // The conversation changes while the read is in flight: the gate must not use it.
   async 'identity-change'() {

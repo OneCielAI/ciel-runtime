@@ -81,6 +81,14 @@ def _discovery_fields(config: Mapping[str, Any]) -> dict[str, Any]:
     if len(instruction) > MAX_WORK_DISCOVERY_INSTRUCTION_CHARS:
         raise ValueError("discovery_instruction is too long")
     fields["discovery_instruction"] = instruction.strip()
+    file_path = config.get("discovery_file_path", "")
+    if file_path is None:
+        file_path = ""
+    if not isinstance(file_path, str):
+        raise ValueError("discovery_file_path must be a string")
+    if len(file_path) > 1024:
+        raise ValueError("discovery_file_path is too long")
+    fields["discovery_file_path"] = file_path.strip()
     return fields
 
 
@@ -101,6 +109,19 @@ def effective_work_discovery(config: Mapping[str, Any]) -> dict[str, Any] | None
         try:
             fields = _discovery_fields(receiver)
             used_default = fields["test_default_override"]
+            file_path = fields.get("discovery_file_path", "")
+            if file_path:
+                # The file body is selected remotely but read locally; the
+                # path itself is shown in status, never the body. A missing
+                # file fails closed like a missing instruction.
+                from .work_discovery_file import load_file_instruction
+                from .runtime_paths import WORKSPACE_STATE_DIR
+                instruction = load_file_instruction(file_path, WORKSPACE_STATE_DIR)
+                if instruction is None:
+                    return None
+                return {"receiver_id": receiver_id, "instruction": instruction,
+                        "config": dict(receiver), "used_test_default": False,
+                        "file_path": file_path}
             instruction = (TEST_WORK_DISCOVERY_INSTRUCTION if used_default else
                            resolve_environment_reference(fields["discovery_instruction"]))
             instruction = instruction.strip()
@@ -502,7 +523,8 @@ class ExternalEventReceiverService:
             root[self.workspace_key] = workspace
         current = workspace.get(receiver_id) if isinstance(workspace.get(receiver_id), dict) else {}
         discovery = _discovery_fields({**current, **{
-            key: body[key] for key in ("discovery_enabled", "discovery_instruction", "test_default_override")
+            key: body[key] for key in ("discovery_enabled", "discovery_instruction", "test_default_override",
+                                       "discovery_file_path")
             if key in body
         }})
         current.update(
@@ -563,6 +585,7 @@ class ExternalEventReceiverService:
             **config,
             "discovery_enabled": config.get("discovery_enabled", False),
             "discovery_instruction": config.get("discovery_instruction", ""),
+            "discovery_file_path": config.get("discovery_file_path", ""),
             "test_default_override": config.get("test_default_override", False),
             **self.vault.status(receiver_id),
             "environment_references": references,
@@ -634,11 +657,63 @@ class ExternalEventReceiverService:
         self.write_json(handler, {"ok": True, "accepted": True, "event_id": event["id"], "duplicate": bool(admitted.get("_ciel_runtime_duplicate"))}, 202)
         return True
 
+    # SSE-only control: an external sender dumps a local file's full stream as
+    # the stop-time discovery message. The flag travels in the CloudEvent
+    # data; the body never enters chat history as an instruction source.
+    FILE_DUMP_TYPE = "ciel.work.discovery.file"
+    MAX_FILE_DUMP_BYTES = 64 * 1024
+
+    def _admit_file_dump(self, receiver_id: str, raw_text: str) -> dict[str, Any] | None:
+        try:
+            value = json.loads(raw_text)
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(value, dict) or value.get("type") != self.FILE_DUMP_TYPE:
+            return None
+        data = value.get("data")
+        if not isinstance(data, dict):
+            raise ValueError("file dump data must be an object")
+        mode = str(data.get("mode") or "").strip()
+        if mode == "set":
+            file_path = data.get("file_path")
+            if not isinstance(file_path, str) or not file_path.strip() or len(file_path) > 1024:
+                raise ValueError("file dump set requires file_path")
+            stream = data.get("file_stream")
+            if not isinstance(stream, str):
+                raise ValueError("file dump set requires file_stream text")
+            encoded = stream.encode("utf-8")
+            if len(encoded) > self.MAX_FILE_DUMP_BYTES:
+                raise ValueError("file dump stream is too large")
+            from .runtime_paths import WORKSPACE_STATE_DIR
+            from .work_discovery_file import resolve_instruction_path
+            target = resolve_instruction_path(file_path.strip(), WORKSPACE_STATE_DIR)
+            if target is None:
+                raise ValueError("file dump path cannot be resolved")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            temporary = target.with_name(target.name + ".ciel-tmp")
+            temporary.write_text(stream, encoding="utf-8")
+            os.replace(temporary, target)
+            body: dict[str, Any] = {"discovery_enabled": True,
+                                    "discovery_file_path": file_path.strip()}
+        elif mode == "clear":
+            body = {"discovery_file_path": ""}
+        else:
+            raise ValueError("file dump mode must be set or clear")
+        current = self.receiver_configs().get(receiver_id, {})
+        merged = {**current, **body}
+        saved = self.save_receiver(receiver_id, merged)
+        return {"file_dump": mode, "file_path": saved.get("discovery_file_path", "")}
+
     def _admit(self, receiver_id: str, transport: str, raw_text: str, event: dict[str, str], transport_event_id: str = "") -> dict[str, Any]:
         receiver = self.receiver_configs().get(receiver_id, {})
         allowed = receiver.get("event_types", [])
         if allowed and event["type"] not in allowed:
             raise ValueError("CloudEvent type is not admitted by this receiver")
+        if transport == "sse" and event["type"] == self.FILE_DUMP_TYPE:
+            dumped = self._admit_file_dump(receiver_id, raw_text)
+            if dumped is not None:
+                self._set_status(receiver_id, state="connected", last_event_id=event["id"], last_event_at=time.time(), error="")
+                return {"_ciel_file_dump": dumped}
         result = self.submit_event(
             raw_text,
             receiver_id=receiver_id,

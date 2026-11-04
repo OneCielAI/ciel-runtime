@@ -29,6 +29,11 @@ _NODE_SPEC = {
     },
     "required": ["title"],
 }
+_PRIORITY = {
+    "type": "string",
+    "enum": ["", *tree.PRIORITIES],
+    "description": "Queue priority for a goal (root item only): P1 first, then P2..P5; empty keeps the existing unranked order. Does not change the active goal or running workers.",
+}
 _EXPECTED_VERSION = {
     "type": "integer",
     "minimum": 0,
@@ -71,6 +76,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
                     "note": {"type": "string"},
                     "ref": _NODE_SPEC["properties"]["ref"],
                     "waiting_on": _NODE_SPEC["properties"]["waiting_on"],
+                    "priority": _PRIORITY,
                     "children": {"type": "array", "items": _NODE_SPEC},
                     "root_id": {"type": "string", "description": "Replace the plan of this existing goal."},
                     "expected_version": _EXPECTED_VERSION,
@@ -96,6 +102,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
                     "note": {"type": "string"},
                     "ref": _NODE_SPEC["properties"]["ref"],
                     "waiting_on": _NODE_SPEC["properties"]["waiting_on"],
+                    "priority": _PRIORITY,
                     "children": {"type": "array", "items": _NODE_SPEC},
                     "expected_version": _EXPECTED_VERSION,
                 },
@@ -118,6 +125,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
                     "note": {"type": "string"},
                     "ref": _NODE_SPEC["properties"]["ref"],
                     "waiting_on": _NODE_SPEC["properties"]["waiting_on"],
+                    "priority": _PRIORITY,
                     "evidence": {"type": "string"},
                     "expected_version": _EXPECTED_VERSION,
                 },
@@ -325,7 +333,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         return tree.render(doc, max_lines=tree.MAX_NODES + 4)
     if name == "work_plan_set":
         spec = {"title": args.get("goal"), "note": args.get("note", ""), "children": args.get("children") or []}
-        spec.update({key: args[key] for key in ("ref", "waiting_on") if key in args})
+        spec.update({key: args[key] for key in ("ref", "waiting_on", "priority") if key in args})
         root_id = args.get("root_id")
         doc, root = store.transaction(
             lambda d: tree.set_plan(d, spec, str(root_id) if root_id else None), expected_version=expected
@@ -338,6 +346,8 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         parent = args.get("parent_id")
         spec = {"title": args.get("title"), "note": args.get("note", ""), "children": args.get("children") or [],
                 "ref": args.get("ref", ""), "waiting_on": args.get("waiting_on", "")}
+        if not parent and "priority" in args:
+            spec["priority"] = args["priority"]
         doc, node = store.transaction(
             lambda d: tree.add_subtree(d, str(parent) if parent else None, spec,
                                        within_scope=args.get("within_scope") is True), expected_version=expected
@@ -355,6 +365,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
                 d, node_id, status=args.get("status"), title=args.get("title"),
                 note=args.get("note"), evidence=args.get("evidence"),
                 ref=args.get("ref"), waiting_on=args.get("waiting_on"),
+                priority=args.get("priority"),
             ), before
 
         doc, (node, before) = store.transaction(update, expected_version=expected)

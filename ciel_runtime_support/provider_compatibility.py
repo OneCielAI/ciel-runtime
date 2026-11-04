@@ -149,6 +149,12 @@ PROVIDER_COMPATIBILITY = ProviderCompatibilityRegistry(
             advisor_transport="openai-compatible",
             failure_diagnosis=_nvidia_failure_diagnosis,
         ),
+        # CielAiRouter serves OpenAI Chat Completions from its server root
+        # with the router API key, so the generic openai-compatible advisor
+        # call (request/response/budget) applies unchanged.
+        "cielairouter": ProviderCompatibilityPolicy(
+            advisor_transport="openai-compatible",
+        ),
         "self-hosted-nim": ProviderCompatibilityPolicy(runtime_model_info_strategy="openai"),
         "zai": ProviderCompatibilityPolicy(
             auto_web_search=_zai_auto_web_search,

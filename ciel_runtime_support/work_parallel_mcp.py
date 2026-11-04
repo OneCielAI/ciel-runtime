@@ -27,8 +27,8 @@ def schemas():
     descriptions = {
         "work_discovery_pickup": "Register caller-verified external open search items by priority/latest, with durable dedup and cooldown; never approves execution. Requires source, scope, results. Each result: source,item_id,priority,created_at,title,link,status,scope.",
         "work_parallel_status": "Show Work 병렬 실행 settings, device capacity and this conversation's leases. Read before changing limits.",
-        "work_parallel_configure": "On the user's natural-language request, persist Work 병렬 실행 limits (concurrent fork sessions, reserved P1 slot, launch rate, rework limit) or pause. Pass changes and expected_version from work_parallel_status. Does not approve a plan.",
-        "work_parallel_run": "Dispatch an approved Work item through the Claude host adapter. P1 requires a fork; all workers use fork. Requires item_id, priority, role and expected_version. Codex is unsupported until its native adapter passes capability tests.",
+        "work_parallel_configure": "On the user's natural-language request, persist Work 병렬 실행 limits (concurrent executing fork sessions, reserved P1 slot, launch rate, rework limit) or pause. This never limits registering or queueing Work items. Pass changes and expected_version from work_parallel_status. Does not approve a plan.",
+        "work_parallel_run": "Dispatch an approved Work item: the packaged host starts the fork itself and returns the started lease/agent. You do not call the Agent tool or supply a name for this dispatch. Requires item_id, priority, role and expected_version. Codex is unsupported until its native adapter passes capability tests.",
         "work_parallel_event": "Report a bound worker's question/result or coordinator validation/review/cleanup evidence. Never mark a submitted result done without validation and cleanup. Host supplies worker identity; do not impersonate an agent.",
     }
     return [{"name": name, "description": descriptions[name],
@@ -173,9 +173,17 @@ def run(name, args, board_store, identity, config, save_config):
     if not lease or lease["scope"] != identity:
         raise WorkParallelError("unknown conversation lease")
     ident = lease["id"]
-    if event in ("bind", "reconcile", "release"):
+    if event in ("bind", "reconcile", "release", "wait", "reacquire"):
         if actor is not None:
             raise WorkParallelError("coordinator host observation required")
+        if event == "wait":
+            d, _ = store.wait(ident, proof=host.get("proof"), expected_version=version)
+            return json.dumps({"lease_id": ident, "version": d["version"], "waiting": True,
+                               "slot_released": True, "item_id": lease["item_id"], "item_kept": True}, ensure_ascii=False)
+        if event == "reacquire":
+            d, _ = store.reacquire(ident, expected_version=version)
+            return json.dumps({"lease_id": ident, "version": d["version"], "slot_reacquired": True,
+                               "item_id": lease["item_id"]}, ensure_ascii=False)
         if event == "release":
             d, _ = store.release_unbound(ident, proof=host.get("proof"), expected_version=version)
             return json.dumps({"lease_id": ident, "version": d["version"], "released": True,

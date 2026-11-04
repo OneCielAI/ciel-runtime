@@ -128,6 +128,7 @@ def panel_rows(
     for label, key, display in (
         ("Work idle discovery", "discovery_enabled", "on" if receiver.get("discovery_enabled") else "off"),
         ("Work discovery instruction (literal or env reference)", "discovery_instruction", str(receiver.get("discovery_instruction") or "unset")),
+        ("Work discovery file (local path; body reloads on change)", "discovery_file_path", str(receiver.get("discovery_file_path") or "unset")),
         ("TEST default instruction override", "test_default_override", "on" if receiver.get("test_default_override") else "off"),
     ):
         rows.insert(-1, f"{label}  [{display}]")
@@ -188,6 +189,8 @@ def update_config(
         body[key] = not current.get(key, False) if value == "toggle" else value
     elif key == "discovery_instruction":
         body[key] = value
+    elif key == "discovery_file_path":
+        body[key] = str(value or "")
     elif key == "enabled":
         body["enabled"] = not body["enabled"]
     elif key == "transport":
@@ -211,6 +214,10 @@ def update_config(
         body[key] = str(value or "")
     else:
         raise ValueError(f"unsupported external event option: {key}")
+    body.setdefault("discovery_instruction", str(current.get("discovery_instruction") or ""))
+    body.setdefault("discovery_file_path", str(current.get("discovery_file_path") or ""))
+    body.setdefault("test_default_override", bool(current.get("test_default_override", False)))
+    body.setdefault("discovery_enabled", bool(current.get("discovery_enabled", False)))
     updated = service.save_receiver("default", body)
     # Secrets were stored locally; they must not be sent over the control request.
     public_body = {name: item for name, item in body.items() if name not in {"webhook_secret", "authorization"}}

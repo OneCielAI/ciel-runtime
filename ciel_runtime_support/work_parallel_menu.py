@@ -15,7 +15,7 @@ def rows(config):
     d = config.get("work_discovery", {})
     return [("Work 병렬 실행", KEYS[0], str(p["enabled"]).lower()),
             ("Work 병렬 실행 일시정지", KEYS[1], str(p["paused"]).lower()),
-            ("Work 동시 포크 세션 한도", KEYS[2], str(p["max_active"])),
+            ("Work 동시 실행 포크 한도", KEYS[2], str(p["max_active"])),
             ("Work 미결 아이템 탐색", KEYS[3], str(d.get("enabled", True)).lower()),
             ("Work TEST 기본 탐색 지시 강제", KEYS[4], str(d.get("test_default_override", True)).lower()),
             ("Work 탐색 지시 (SSE 설정에서도 주입)", KEYS[5], d.get("instruction", "test default")),

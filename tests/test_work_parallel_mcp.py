@@ -242,6 +242,46 @@ class WorkParallelMCPTests(unittest.TestCase):
         retry = run("event", {"fork": True}, event="reserve", item_id="n3", priority="P1")
         assert retry["lease_id"] != ident
 
+    def test_wait_event_releases_only_execution_slot_and_reacquire_restores_it(self):
+        env = self.env
+        s, b, c, run = env
+        run("configure", {}, changes={"enabled": True, "launches_per_minute": 20})
+        ident = launch(env)
+        run(
+            "event",
+            {"agent_id": "agent-1"},
+            event="question",
+            lease_id=ident,
+            plan_version=7,
+            evidence="need input",
+        )
+        waited = run(
+            "event",
+            {"proof": "native host status: waiting"},
+            event="wait",
+            lease_id=ident,
+        )
+        self.assertTrue(waited["slot_released"])
+        parked = s.read()["leases"][ident]
+        self.assertEqual(parked["state"], "waiting_input")
+        self.assertEqual(parked["host_id"], "agent-1")
+        self.assertFalse(parked["slot"])
+        # The freed slot admits a different queued item; the waiting item itself
+        # stays recorded rather than being deleted or marked complete.
+        other = run("event", {"fork": True}, event="reserve", item_id="n3", priority="P1")
+        self.assertTrue(s.read()["leases"][other["lease_id"]]["slot"])
+        reacquired = run("event", {}, event="reacquire", lease_id=ident)
+        self.assertTrue(reacquired["slot_reacquired"])
+        run(
+            "event",
+            {},
+            event="resume",
+            lease_id=ident,
+            plan_version=7,
+            evidence="input received",
+        )
+        self.assertEqual(s.read()["leases"][ident]["state"], "running")
+
 
     def test_auth_and_default_capability(self):
         env = self.env

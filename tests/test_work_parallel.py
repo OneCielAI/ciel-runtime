@@ -41,8 +41,9 @@ class WorkParallelTests(unittest.TestCase):
         tmp_path = self.tmp_path
         s = WorkParallelStore(tmp_path / "state")
         p = s.read()["policy"]
-        # Parallel dispatch is on by default; admission is slot-based only.
-        assert p["enabled"] and p["test_override"] and p["max_active"] == 3
+        # Parallel dispatch is on by default; max_active is execution concurrency,
+        # not a queue-registration cap.
+        assert p["enabled"] and p["test_override"] and p["max_active"] == 5
         assert p["p1_reserved"] == 1 and p["max_rework"] == 2 and p["launches_per_minute"] == 4
         assert p["thresholds"] == dict(P2=1.0, P3=1.0, P4=1.0, P5=1.0)
         assert "미결 아이템" in p["discovery_text"]
@@ -83,8 +84,9 @@ class WorkParallelTests(unittest.TestCase):
         assert sum(r["slot"] for r in store.read()["leases"].values()) == 1
 
 
-    def test_slots_are_the_only_admission_gate(self):
+    def test_slots_are_the_only_execution_admission_gate(self):
         store = self.store
+        call(store, "configure", dict(max_active=3, launches_per_minute=20), capability_ready=True)
         # P2-P5 may use max_active - p1_reserved concurrent slots; usage is not consulted.
         reserve(store, "a", usage=.99)
         reserve(store, "b", usage=.99)
@@ -95,9 +97,24 @@ class WorkParallelTests(unittest.TestCase):
             reserve(store, "urgent2", priority="P1")
         assert sum(r["slot"] for r in store.read()["leases"].values()) == 3
 
+    def test_default_five_active_and_p2_waits_when_full(self):
+        store = self.store
+        call(store, "configure", dict(launches_per_minute=20), capability_ready=True)
+        # The fresh default has five execution slots. Four non-P1 workers start
+        # immediately in the non-reserved portion; P1 may take the fifth. Once
+        # all five are processing, another P2 remains a queued Work item rather
+        # than consuming an execution slot.
+        for i in range(4):
+            reserve(store, f"p2-{i}", priority="P2")
+        reserve(store, "urgent", priority="P1")
+        with self.assertRaises(WorkParallelError):
+            reserve(store, "waiting-p2", priority="P2")
+        assert sum(r["slot"] for r in store.read()["leases"].values()) == 5
+
 
     def test_shared_cap(self):
         store = self.store
+        call(store, "configure", dict(max_active=3, launches_per_minute=20), capability_ready=True)
         reserve(store, "worker")
         other = WorkParallelStore(store.path)
         reserve(other, "review", role="reviewer")
@@ -123,16 +140,50 @@ class WorkParallelTests(unittest.TestCase):
         assert WorkParallelStore(store.path).read()["leases"][ident]["slot"]
 
 
-    def test_wait_idle_resume(self):
+    def test_wait_releases_slot_then_same_worker_reacquires_before_resume(self):
         store = self.store
-        ident = reserve(store)
+        ident = reserve(store, "waiting-item", priority="P1")
         call(store, "bind", ident, "host")
         transition(store, ident, "waiting_input")
         before = store.read()
         d, _ = call(store, "reconcile", ident, host_state="unknown")
         assert d == before and d["leases"][ident]["slot"]
+
+        call(store, "wait", ident, proof="native host waiting for input")
+        parked = store.read()["leases"][ident]
+        assert parked["state"] == "waiting_input" and parked["host_id"] == "host" and not parked["slot"]
+        # The freed execution slot admits another queued item immediately.
+        other = reserve(store, "next-item", priority="P1")
+        assert store.read()["leases"][other]["slot"]
+        # A slot-released wait cannot silently resume by a lifecycle transition.
         with self.assertRaises(WorkParallelError):
-            call(store, "reconcile", ident, host_state="idle")
+            transition(store, ident, "running")
+
+        call(store, "reacquire", ident)
+        resumed = store.read()["leases"][ident]
+        assert resumed["slot"] and resumed["idle_proof"] is None
+        transition(store, ident, "running")
+        assert store.read()["leases"][ident]["state"] == "running"
+
+    def test_waiting_p2_cannot_reacquire_the_p1_reserve(self):
+        store = self.store
+        call(store, "configure", dict(max_active=2, p1_reserved=1, launches_per_minute=20), capability_ready=True)
+        waiting = reserve(store, "waiting-p2", priority="P2")
+        call(store, "bind", waiting, "host-wait")
+        transition(store, waiting, "waiting_input")
+        call(store, "wait", waiting, proof="waiting for input")
+        reserve(store, "busy-p2", priority="P2")
+        with self.assertRaises(WorkParallelError):
+            call(store, "reacquire", waiting)
+        # P1 may still use the reserved slot ASAP.
+        reserve(store, "urgent", priority="P1")
+        assert sum(r["slot"] for r in store.read()["leases"].values()) == 2
+
+    def test_idle_released_worker_still_uses_a_new_resume_lease(self):
+        store = self.store
+        ident = reserve(store)
+        call(store, "bind", ident, "host")
+        transition(store, ident, "waiting_input")
         call(store, "reconcile", ident, host_state="idle", proof="host idle observed")
         with self.assertRaises(WorkParallelError):
             transition(store, ident, "running")
@@ -312,6 +363,51 @@ class WorkParallelTests(unittest.TestCase):
             call(store, "bind", second, "host")
         call(store, "configure", dict(enabled=False), capability_ready=False)
         assert sum(r["slot"] for r in store.read()["leases"].values()) == 2
+
+    def test_full_active_slots_do_not_block_board_queue_additions(self):
+        # Execution admission and board intake are separate ledgers: with all
+        # five slots busy, a new goal still records on the board (goal 23/27).
+        from ciel_runtime_support import work_plan_tree as tree
+        store = self.store
+        call(store, "configure", dict(launches_per_minute=20), capability_ready=True)
+        for i in range(5):
+            reserve(store, f"busy-{i}", priority="P1")
+        with self.assertRaises(WorkParallelError):
+            reserve(store, "sixth", priority="P1")
+        doc = tree.empty_document()
+        active = tree.add_node(doc, None, "active", now=10)
+        queued = tree.add_node(doc, None, "arrived while full", now=11, priority="P1")
+        assert [n["id"] for n in tree.queued_roots(doc)] == [queued]
+        assert doc["active_root"] == active
+
+    def test_queue_storage_bound_is_100_not_execution_slots(self):
+        from ciel_runtime_support.work_parallel import MAX_LEASES
+        assert MAX_LEASES == 100
+
+    def test_stored_ledger_above_new_bound_stays_readable(self):
+        # A ledger written under the old 1000 bound must not become corrupt
+        # just because the new-record backstop dropped to 100.
+        import json
+        store = self.store
+        ident = reserve(store, priority="P1")
+        doc = store.read()
+        leases = doc["leases"]
+        template = dict(leases[ident])
+        for i in range(150):
+            row = dict(template)
+            row["id"] = f"old-{i}"
+            row["item_id"] = f"old-item-{i}"
+            row["state"] = "done"
+            row["slot"] = False
+            row["usage"] = 0
+            row["idle_proof"] = "observed idle"
+            row["host_id"] = f"old-host-{i}"
+            row["artifact"] = "a" * 64
+            row["cleanup_proof"] = "kept"
+            leases[f"old-{i}"] = row
+        store.path.write_text(json.dumps(doc), encoding="utf-8")
+        reread = WorkParallelStore(store.path).read()
+        assert len(reread["leases"]) == 151
 
 
     def test_single_slot_allows_non_p1(self):

@@ -529,6 +529,7 @@ class ProviderContractMatrixTests(unittest.TestCase):
             "ollama-cloud": "ollama",
             "lm-studio": "openai-compatible",
             "nvidia-hosted": "openai-compatible",
+            "cielairouter": "openai-compatible",
             "vllm": "",
             "zai": "",
         }

@@ -133,11 +133,31 @@ function discoveryNotice($, identity, s, reason) {
   return { block: reason + '\nWork 미결 아이템 탐색: ' + instruction
     + '\n검색은 한 번, 픽업은 최대 1개. 미결 없음/접근 불가면 그 결과를 알리고 멈춘다. 사용자 정지·기존 승인을 우회하지 않는다.' }
 }
+// Router text as the person should see it: MCP error results carry the real
+// message in their text blocks. Display callers surface it verbatim; gate
+// decisions never log or return it (they stay on fixed stage codes).
+function routerText(r) {
+  if (!r) return ''
+  return (r.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n').trim()
+}
 function textOf(r) {
   if (!r || r.isError) throw new Error('Router error')
-  const text = (r.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n')
+  const text = routerText(r)
   if (!text) throw new Error('Missing router text')
   return text
+}
+// Parse a JSON payload, or fail with a message that names the step and shows
+// what the router actually said. A router error reply that arrives without
+// isError (or any non-JSON text) must never surface as a raw JSON.parse
+// complaint about its first word.
+function parseJson(r, step) {
+  if (!r || r.isError) throw new Error(step + ' failed: ' + (clipped(routerText(r), 160) || 'router error'))
+  const text = routerText(r)
+  if (!text) throw new Error(step + ' failed: router returned no text')
+  try { return JSON.parse(text) }
+  catch {
+    throw new Error(step + ' failed: router did not return JSON: ' + clipped(text, 160))
+  }
 }
 async function sessionId($) {
   const id = await $.session.id()
@@ -426,10 +446,10 @@ async function openDetails($, id = null, origin = null) {
     const priorRoot = previous?.session === identity && previous.nodes?.some(n => n.id === id)
       ? previous.nodes.find(n => n.parent_id === null) : null
     const rootId = queuedRoot?.id || priorRoot?.id
-    const detail = JSON.parse(textOf(await $.mcp.call('ciel-runtime-router', 'work_status', {
-      format: 'json', detail: true, ...(rootId ? { root_id: rootId } : {}), session_id: identity })))
+    const detail = parseJson(await $.mcp.call('ciel-runtime-router', 'work_status', {
+      format: 'json', detail: true, ...(rootId ? { root_id: rootId } : {}), session_id: identity }), 'Work details read')
     if (await sessionId($) !== identity || cachedSession !== identity) return
-    if (!Array.isArray(detail.nodes) || detail.version !== s.version || cached?.version !== s.version)
+    if (!detail || !Array.isArray(detail.nodes) || detail.version !== s.version || cached?.version !== s.version)
       throw new Error('Plan changed; refresh to inspect the latest version.')
     const selected = id || detail.root_id || detail.active_root?.id
     if (selected && !detail.nodes.some(n => n.id === selected)) throw new Error('This item was removed.')
@@ -465,6 +485,15 @@ function stopNotice($, identity, text) {
   if (stopNoticeKey === key) return
   stopNoticeKey = key
   try { $.ui.log(text) } catch {}
+}
+// Blocked is a recorded judgement, not a fact of nature: name the items so
+// the next turn can re-verify whether each block still holds.
+function blockedRecheck(c) {
+  const items = c.blocked_items || []
+  if (!items.length) return ''
+  return ' Blocked items to re-verify before reporting no work: '
+    + items.map(n => clipped(n.id, 64) + (n.waiting_on ? ' ◷ ' + clipped(n.waiting_on, 120) : '')).join('; ')
+    + '. For each one, check whether the blocker still exists right now; if it is gone, call work_node_update to set it back to in_progress (or pending) and continue it, and if it still holds, leave it blocked and say what is still missing. Do not treat a past blocked mark as permanent.'
 }
 function notRunnable(s, c) {
   const parts = []
@@ -673,8 +702,8 @@ async function parallelCall($, name, args = {}, observed = {}, scope = null) {
   const r = await $.mcp.call('ciel-runtime-router', name, {
     ...args, session_id: scope || await sessionId($), _host: { ...observed, token },
   })
-  if (!r || r.isError) throw new Error(r ? (r.content || []).filter(b => b.type === 'text').map(b => b.text).join(' ') || 'Parallel router error' : 'Parallel router unavailable')
-  return JSON.parse(textOf(r))
+  if (!r) throw new Error('Parallel router unavailable')
+  return parseJson(r, 'Parallel read')
 }
 async function parallelEvent($, args, observed = {}) {
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -692,6 +721,16 @@ async function parallelToolCall($, e, next) {
       if (state.policy.paused) return { deny: 'Work parallel is paused; its workers cannot resume.' }
       const board = await readSnapshot($, await sessionId($))
       if (!board || board.phase !== 'executing') return { deny: 'Work approval must be restored before resuming workers.' }
+      // A question-wait lease gave its execution slot back while parked. The
+      // same worker needs a slot again before SendMessage resumes it; if the
+      // five active slots are busy, it remains recorded as waiting.
+      if (lease.state === 'waiting_input' && !lease.slot) {
+        try {
+          await parallelEvent($, { event: 'reacquire', lease_id: lease.id })
+        } catch (error) {
+          return { deny: 'Work item ' + lease.item_id + ' remains queued as waiting: ' + String(error.message || error) }
+        }
+      }
       parallelResuming.add(lease.id)
       try { return await next(e) } finally { parallelResuming.delete(lease.id) }
     }
@@ -724,8 +763,11 @@ async function parallelToolCall($, e, next) {
       const board = await refresh($)
       const meta = boardTitleMap(board)[args.item_id] || {}
       const label = parallelItemLabel({ item_id: args.item_id, item_title: meta.title, item_ref: meta.ref })
-      parallelPending.set(key, { ...args, scope: await sessionId($), item_title: meta.title,
-        item_ref: meta.ref, goal_title: meta.goal_title, item_path: meta.path })
+      const request = { ...args, scope: await sessionId($), item_title: meta.title,
+        item_ref: meta.ref, goal_title: meta.goal_title, item_path: meta.path }
+      parallelPending.set(key, request)
+      const started = await parallelDirectSpawn($, key, request)
+      if (started) return started
       return { result: JSON.stringify({ dispatch: 'native_agent_required',
         tool: 'Agent', subagent_type: 'fork', name: key,
         description: 'Work ' + label,
@@ -768,13 +810,58 @@ async function parallelToolCall($, e, next) {
     return { result: JSON.stringify(state) }
   } catch (error) { return { deny: String(error.message || error) } }
 }
+async function parallelDirectSpawn($, key, request) {
+  // The mod, not the model, performs the native spawn: the model never has to
+  // copy the pending Agent name, so the omission failure cannot occur. The
+  // reservation is made first; a denied spawn releases only that still-unbound
+  // reservation and the Work item stays queued.
+  const { scope, ...args } = request
+  const repo = await $.session.repo()
+  const r = await parallelEvent($, { ...args, event: 'reserve' }, { fork: true,
+    workspace_repo: repo ? await $.session.root() : undefined })
+  Object.assign(request, r)
+  const label = parallelItemLabel({ ...request, item_title: r.item_title || request.item_title,
+    item_ref: r.item_ref ?? request.item_ref })
+  const prompt = 'Execute only approved Work item ' + label
+    + '. Report question or result through work_parallel_event. Do not configure policy or accept your result.'
+    + '\nExecution lease: ' + r.lease_id + '; plan_version: ' + r.plan_version + '. Read work_parallel_status for your binding.'
+  let spawned
+  try {
+    spawned = await $.agent.spawn({ subagentType: 'fork', name: key, description: 'Work ' + label, prompt })
+  } catch (error) {
+    spawned = { deny: String(error.message || error) }
+  }
+  if (spawned?.deny) {
+    rememberParallelFailure('native-spawn', spawned.deny)
+    try {
+      await parallelEvent($, { event: 'release', lease_id: request.lease_id },
+        { proof: 'native spawn denied before launch: ' + spawned.deny })
+      parallelPending.delete(key)
+    } catch (error) {
+      rememberParallelFailure('release-unbound', String(error.message || error))
+    }
+    return { result: JSON.stringify({ dispatch: 'spawn_denied', item_id: request.item_id,
+      item_kept: true, detail: spawned.deny,
+      instruction: 'No worker started and the reservation was released; the Work item stays queued. Read /work-mode parallel, then call work_parallel_run again when ready.' }) }
+  }
+  if (!spawned?.agentId) return null
+  await parallelEvent($, { event: 'bind', lease_id: request.lease_id }, { host_id: spawned.agentId, agent_name: key })
+  request.host_id = spawned.agentId
+  parallelPending.delete(key)
+  parallelBound.set(spawned.agentId, { lease_id: request.lease_id, scope, role: request.role || 'worker' })
+  return { result: JSON.stringify({ dispatch: 'started', item_id: request.item_id,
+    lease_id: request.lease_id, agent_id: spawned.agentId, name: key,
+    description: 'Work ' + label,
+    instruction: 'Fork ' + key + ' started for Work item ' + label + ' under lease ' + request.lease_id
+      + '. Do not call Agent for this item; validate its reported result before acceptance.' }) }
+}
 async function parallelAgentSpawn($, e, next) {
   try {
     const s = await parallelCall($, 'work_parallel_status')
     if (!s.policy.enabled) return next(e)
     const request = parallelPending.get(e.name)
     const resumed = request ? null : Object.values(s.leases).find(r => r.agent_name && r.agent_name === e.name
-      && r.slot && r.host_id && ['running', 'waiting_input'].includes(r.state))
+      && r.slot && r.host_id && r.state === 'running')
     if (resumed && parallelResuming.has(resumed.id) && !s.policy.paused && e.fork === true && e.subagentType === 'fork' && e.parentAgentId === undefined
         && next.origin?.plugin === 'engine') {
       // Same lease, same worker: no new reservation, so the item cannot run twice.
@@ -874,8 +961,10 @@ async function parallelStartReview($) {
 }
 async function parallelTurnComplete($, e, next) {
   const result = await workTurnComplete($, e, next)
-  // A turn ending is NOT positive idle evidence. Only terminal host task rows
-  // release slots after a submitted result; coordinator validation consumes no worker slot.
+  // A turn ending is NOT positive idle evidence. A worker explicitly in
+  // waiting_input with a native waiting/idle row is parked, not processing:
+  // return only its execution slot and keep the durable lease/item queued.
+  // Terminal host rows still release submitted/review leases as before.
   try {
     const scope = await sessionId($)
     const s = await parallelCall($, 'work_parallel_status')
@@ -884,6 +973,11 @@ async function parallelTurnComplete($, e, next) {
       if (binding.scope !== scope) continue
       const lease = s.leases[binding.lease_id]
       const row = agents.find(a => a.id === id)
+      if (lease?.state === 'waiting_input' && lease.slot && row && ['waiting', 'idle'].includes(row.status)) {
+        await parallelEvent($, { event: 'wait', lease_id: binding.lease_id },
+          { proof: 'Native agent.list status while waiting_input: ' + row.status })
+        continue
+      }
       const idle = row && parallelTerminal.has(row.status) && ['submitted', 'verifying', 'reviewing', 'accepted', 'cleanup_pending'].includes(lease?.state)
       await parallelEvent($, { event: 'reconcile', lease_id: binding.lease_id },
         { state: idle ? 'idle' : row?.status === 'running' ? 'running' : 'unknown',
@@ -933,10 +1027,10 @@ async function parallelPromptSubmit($, e, next) {
   let recovery = []
   try { recovery = await parallelRecovery($) } catch { /* Unknown host state keeps slots and adds no instruction. */ }
   return workPromptSubmit($, { ...e, context: [...(e.context || []), ...recovery,
-    'Work parallel: read work_parallel_status. Policy is on by default and limited by concurrent fork sessions; pause or change limits on user request. '
-    + 'Dispatch approved items with work_parallel_run, focused items first. '
-    + 'Submission is not completion: validate, review, accept, observe idle and verify cleanup before done. '
-    + 'Unknown host capacity retains slots. Native permissions remain authoritative; this is not a shell sandbox.'] }, next)
+    'Work parallel: read work_parallel_status. Queue registration is not an execution-slot decision; max_active (default 5) limits only workers actually processing. '
+    + 'P1 may use every free slot ASAP; P2 and lower start in remaining slots and wait while all are busy. Dispatch approved items with work_parallel_run, focused items first; the host starts the fork and returns its lease, so do not call Agent for a Work dispatch. '
+    + 'A waiting/blocked worker returns its slot but its item and lease stay recorded; resume it only after its slot is reacquired. Submission is not completion: validate, review, accept, observe idle and verify cleanup before done. '
+    + 'Unknown host capacity retains actually-running slots. Native permissions remain authoritative; this is not a shell sandbox.'] }, next)
 }
 
 export function register(on) {
@@ -1033,6 +1127,8 @@ export function register(on) {
     if (!(s.continuation?.actionable > 0)) {
       const reason = notRunnable(s, s.continuation || {})
       if (openWork(s)) stopNotice($, identity, reason)
+      const recheck = blockedRecheck(s.continuation || {})
+      if (recheck) return { block: 'Ciel Work stopped: no runnable item right now. ' + reason + recheck }
       return discoveryNotice($, identity, s, reason) || result
     }
     if (continuationVersion !== s.version) { continuationVersion = s.version; unchangedContinuations = 0 }
@@ -1065,6 +1161,8 @@ export function register(on) {
         + 'Do not duplicate, poll, cancel or mark those tasks done; record their dependent items as waiting_on until their completion notification. ' : '')
       + 'No new scope or approval boundary is authorized by this notice. '
       + 'Waiting items: ' + clipped((c.waiting || []).map(n => n.id + ': ' + n.waiting_on).join('; ') || 'none', 700)
+      + ((c.blocked_items || []).length ? ' Blocked items (re-verify when nothing else can run): '
+        + clipped(c.blocked_items.map(n => n.id + (n.waiting_on ? ': ' + n.waiting_on : '')).join('; '), 500) : '')
       + (unchangedContinuations === 1 ? '. This is the last continuation without a plan update.' : '') }
   })
   on('prompt.submit', async ($, e, next) => btwBridge($, e, next) || parallelPromptSubmit($, e, next))

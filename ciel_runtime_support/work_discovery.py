@@ -11,13 +11,22 @@ BOUNDARY = (
 
 
 def discovery_hint(config: dict, snapshot: dict) -> dict:
-    """Return a configured read-only hint; an explicit pause still wins."""
+    """Return a configured read-only hint; an explicit pause still wins.
+
+    Instruction precedence: file-backed body (``file_path`` in the workspace
+    settings or the SSE receiver) > inline instruction > test default. A
+    configured file that cannot be read fails closed; it never falls back
+    to stale inline text.
+    """
     settings = config.get("work_discovery", {})
     if not isinstance(settings, dict):
         return {"enabled": False}
     enabled = settings.get("enabled", True) is True
     instruction = settings.get("instruction", DEFAULT_INSTRUCTION)
     source = "workspace"
+    file_value = settings.get("file_path")
+    override_external = False
+    external = None
     try:
         from .external_event_receiver import effective_work_discovery
         root = config.get("external_event_receivers", {})
@@ -35,6 +44,8 @@ def discovery_hint(config: dict, snapshot: dict) -> dict:
             instruction = external.get("instruction", instruction)
             source = external.get("receiver_id", "sse")
             override_external = external.get("used_test_default", False)
+            if external.get("file_path"):
+                file_value = external["file_path"]
     except (ImportError, ValueError, KeyError):
         # A configured but unavailable external source must not fall back silently.
         return {"enabled": False, "reason": "external discovery configuration unavailable"}
@@ -49,10 +60,25 @@ def discovery_hint(config: dict, snapshot: dict) -> dict:
         return {"enabled": False, "reason": "paused"}
     if not enabled:
         return {"enabled": False}
-    override = (override_external if external else settings.get("test_default_override", True) is True)
-    if override:
-        instruction = DEFAULT_INSTRUCTION
-    if not isinstance(instruction, str) or not instruction.strip() or len(instruction) > 4000:
+    if file_value:
+        # The file body is the message: reload it whenever the file changed,
+        # keep it in memory between Stops, and fail closed when it is gone.
+        from .work_discovery_file import load_file_instruction
+        try:
+            from .runtime_paths import WORKSPACE_STATE_DIR
+            workspace_dir = WORKSPACE_STATE_DIR
+        except (ImportError, ValueError, KeyError):
+            workspace_dir = None
+        instruction = load_file_instruction(file_value, workspace_dir)
+        if instruction is None:
+            return {"enabled": False, "reason": "instruction file unavailable"}
+        source = "file"
+        override = False
+    else:
+        override = (override_external if external else settings.get("test_default_override", True) is True)
+        if override:
+            instruction = DEFAULT_INSTRUCTION
+    if not isinstance(instruction, str) or not instruction.strip() or len(instruction) > 8192:
         return {"enabled": False, "reason": "invalid instruction"}
     return {"enabled": True, "instruction": instruction + BOUNDARY,
             "source": source, "test_default_override": override,

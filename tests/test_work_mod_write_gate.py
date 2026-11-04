@@ -30,9 +30,14 @@ class WorkModWriteGateTests(unittest.TestCase):
         (cls.root / "package.json").write_text('{"type":"module"}', encoding="utf-8")
         (stub / "package.json").write_text('{"name":"claude-code","type":"module","exports":"./index.js"}',
                                            encoding="utf-8")
-        (stub / "index.js").write_text("export const atom = (key, init) => ({ key, init })\n"
-                                       "export const read = async () => null\n"
-                                       "export const update = async () => {}\n", encoding="utf-8")
+        (stub / "index.js").write_text(
+            "const store = new Map()\n"
+            "export const atom = (key, init) => ({ key, init })\n"
+            "export const read = async ($, a) => store.has(a.key.plugin + '/' + a.key.key)"
+            " ? store.get(a.key.plugin + '/' + a.key.key) : (a.init ?? null)\n"
+            "export const update = async ($, a, fn) => { const cur = store.has(a.key.plugin + '/' + a.key.key)"
+            " ? store.get(a.key.plugin + '/' + a.key.key) : (a.init ?? null);"
+            " store.set(a.key.plugin + '/' + a.key.key, fn(cur)) }\n", encoding="utf-8")
         shutil.copyfile(w.CLAUDE_MOD_DIR / "hooks" / "register.js", cls.root / "register.js")
         shutil.copyfile(HARNESS, cls.root / HARNESS.name)
 
@@ -95,6 +100,13 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn("기존 승인 유지", result["first"])
         self.assertFalse(result["second"])
 
+    def test_stopped_with_only_blocked_work_demands_recheck(self):
+        result = self.run_scenario("stop-blocked-recheck")
+        self.assertIn("re-verify before reporting no work", result["text"])
+        self.assertIn("n92", result["text"])
+        self.assertIn("Exact production freeze logs not identified", result["text"])
+        self.assertIn("work_node_update", result["text"])
+
     def test_blocked_wait_includes_pickup_guidance(self):
         result = self.run_scenario("stop-discovery-blocked")
         self.assertIn("와키 미결 아이템", result["text"])
@@ -120,7 +132,7 @@ class WorkModWriteGateTests(unittest.TestCase):
     def test_parallel_ui_maps_each_item_to_its_fork_agent(self):
         result = self.run_scenario("parallel-assignment-labels")
         self.assertEqual(result["dispatch"]["description"], "Work n229 [ PAY-229 ] Add retry backoff")
-        self.assertIn("n229 [ PAY-229 ] Add retry backoff", result["dispatch"]["prompt"])
+        self.assertEqual(result["dispatch"]["dispatch"], "started")
         self.assertEqual(result["spawnedEvent"]["description"], result["dispatch"]["description"])
         self.assertEqual(result["spawned"]["agentId"], "host-9")
         self.assertIn("Assignments (item → fork agent): 3 lease(s), 3 holding a slot", result["shown"])
@@ -129,13 +141,27 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn("n228 → agent (not launched yet)", result["shown"])
         self.assertIn(result["dispatch"]["name"] + " [host host-9]", result["shown"])
 
+    def test_work_parallel_run_starts_fork_without_model_agent_call(self):
+        result = self.run_scenario("parallel-direct-spawn-started")
+        self.assertEqual(result["run"]["dispatch"], "started")
+        self.assertEqual(result["run"]["agent_id"], "host-9")
+        self.assertEqual(result["run"]["lease_id"], "L9")
+        self.assertEqual(result["spawned"]["subagentType"], "fork")
+        self.assertEqual(result["spawned"]["description"], "Work n227")
+        self.assertIn("Execution lease: L9", result["spawned"]["prompt"])
+        self.assertEqual([call["event"] for call in result["calls"]], ["reserve", "bind"])
+
+    def test_work_parallel_run_spawn_denial_releases_and_keeps_item(self):
+        result = self.run_scenario("parallel-direct-spawn-denied-releases")
+        self.assertEqual(result["run"]["dispatch"], "spawn_denied")
+        self.assertTrue(result["run"]["item_kept"])
+        self.assertEqual([call["event"] for call in result["calls"]], ["reserve", "release"])
+        self.assertEqual(result["calls"][1]["lease_id"], "L9")
+
     def test_missing_agent_name_is_diagnosed_and_visible_in_parallel_ui(self):
         result = self.run_scenario("parallel-missing-agent-name")
-        self.assertEqual(result["dispatch"]["required_parameters"]["name"], result["dispatch"]["name"])
+        self.assertEqual(result["dispatch"]["dispatch"], "spawn_denied")
         self.assertIn("omitted the exact name returned by work_parallel_run", result["denied"])
-        self.assertIn("Pending native Agent dispatch: 1", result["shown"])
-        self.assertIn(result["dispatch"]["name"], result["shown"])
-        self.assertIn("The next Agent call must include this exact name", result["shown"])
         self.assertIn("Recent parallel failures in this session", result["shown"])
         # The harness host accepts every MCP call, so the scripted note passes
         # here; the production router rejects it (work_parallel_mcp.py
@@ -155,6 +181,25 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(events, ["reserve", "release"])
         self.assertEqual(result["calls"][1]["lease_id"], "L9")
         self.assertIn("native spawn denied before launch", result["calls"][1]["_host"]["proof"])
+
+    def test_inspector_surfaces_router_error_text_not_json_parse_error(self):
+        for name in ("details-router-error-plain", "details-router-error-flagged"):
+            with self.subTest(name):
+                result = self.run_scenario(name)
+                self.assertEqual(result["opened"], "work-details", result)
+                self.assertIn("Work plan store is locked by another writer", result["shown"])
+                self.assertNotIn("Unexpected identifier", json.dumps(result))
+                self.assertNotIn("JSON Parse", json.dumps(result))
+
+    def test_parallel_read_error_names_the_read_and_router_text(self):
+        self.assertIn("parallel ledger unavailable", self.run_scenario("parallel-error-text")["error"])
+
+    def test_waiting_worker_releases_slot_and_resume_reacquires_it(self):
+        result = self.run_scenario("parallel-waiting-releases-slot-and-sendmessage-reacquires")
+        self.assertEqual(result["afterWait"], {"slot": False, "calls": ["wait"]})
+        self.assertTrue(result["resumed"])
+        self.assertTrue(result["slot"])
+        self.assertEqual(result["calls"], ["reacquire"])
 
     def test_pause_after_no_progress_still_instructs_discovery(self):
         result = self.run_scenario("stop-pause-discovery")

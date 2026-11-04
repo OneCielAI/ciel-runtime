@@ -73,6 +73,46 @@ class AdvisorFeedbackTests(unittest.TestCase):
         self.assertIn("The plan needs a validation step.", visible)
         self.assertIn("Updated plan is ready.", visible)
 
+    def test_cielairouter_advisor_uses_openai_compatible_chat_call(self):
+        pcfg = {
+            "base_url": "https://router.example",
+            "model": "ASTRA",
+            "context_window": 872000,
+            "advisor_model": "_Walkie_Sol61-Opus55-Fast",
+            "api_key": "router-key",
+            "api_keys": ["router-key"],
+        }
+        body = {"model": "ASTRA", "system": "identity",
+                "messages": [{"role": "user", "content": "review this plan"}]}
+        self.assertTrue(ciel_runtime.advisor_provider_supported("cielairouter"))
+        self.assertEqual(
+            "https://router.example/v1/chat/completions",
+            ciel_runtime.advisor_endpoint("cielairouter", pcfg),
+        )
+        request = ciel_runtime.advisor_request(
+            "cielairouter", "_Walkie_Sol61-Opus55-Fast", body, pcfg)
+        self.assertEqual("_Walkie_Sol61-Opus55-Fast", request["model"])
+        self.assertFalse(request["stream"])
+        self.assertEqual(
+            "Verdict: continue.",
+            ciel_runtime.advisor_response_text(
+                "cielairouter",
+                {"choices": [{"message": {"content": "Verdict: continue."}}]}),
+        )
+        self.assertGreater(ciel_runtime.advisor_input_budget("cielairouter", pcfg), 0)
+        calls = []
+
+        def fake_post(*args, **_kwargs):
+            calls.append(args)
+            return {"choices": [{"message": {"content": "Verdict: approve."}}]}
+
+        with patch("ciel_runtime.post_json_with_rate_retry", side_effect=fake_post):
+            text = ciel_runtime.call_advisor_text(
+                "cielairouter", pcfg, body, allow_rate_limit_wait=False)
+        self.assertEqual("Verdict: approve.", text)
+        self.assertEqual(1, len(calls))
+        self.assertIn("/v1/chat/completions", str(calls[0][0]))
+
     def test_advisor_prompt_requires_actual_verdict(self):
         self.assertIn("Review now", ciel_runtime.ADVISOR_REVIEW_PROMPT)
         self.assertIn("Verdict:", ciel_runtime.ADVISOR_REVIEW_PROMPT)

@@ -21,7 +21,14 @@ PHASE_EXECUTING = "executing"
 PHASES = (PHASE_PLANNING, PHASE_EXECUTING)
 STATUSES = ("pending", "in_progress", "done", "blocked")
 MAX_DEPTH = 8
-MAX_NODES = 600
+# Queue capacity is deliberately separate from concurrent execution slots:
+# root goals and detail nodes share this backstop for NEW additions, while
+# max_active controls only work that is actually running. Stored boards may
+# exceed it (they were written under the old cap or hold unfinished work);
+# reads accept up to the storage ceiling and the queue drains as items
+# complete and expire. Unfinished items are never dropped to fit the cap.
+MAX_NODES = 100
+STORAGE_MAX_NODES = 100_000
 MAX_TITLE_CHARS = 300
 MAX_TEXT_CHARS = 2000
 MAX_QUEUE_IN_SNAPSHOT = 20
@@ -32,10 +39,17 @@ MAX_REF_CHARS = 64
 # Third-level rows per branch in the snapshot; the rest is counted.
 MAX_BRANCH_CHILDREN_IN_SNAPSHOT = 8
 MAX_WAITING_IN_CONTINUATION = 5
+MAX_BLOCKED_IN_CONTINUATION = 5
 # A plan is ready to execute once the active goal reaches at least
 # goal -> phase -> task (a leaf at depth 2).
 READY_MIN_LEAF_DEPTH = 2
 STATUS_MARKS = {"pending": "[ ]", "in_progress": "[~]", "done": "[✓]", "blocked": "[!]"}
+PRIORITIES = ("P1", "P2", "P3", "P4", "P5")
+
+
+def priority_rank(value: Any) -> int:
+    """P1..P5 rank for queue ordering; unranked goals sort after ranked ones."""
+    return PRIORITIES.index(value) if value in PRIORITIES else len(PRIORITIES)
 
 
 class WorkPlanError(ValueError):
@@ -68,8 +82,12 @@ def normalize_document(raw: Any) -> dict[str, Any]:
     doc["next_id"] = max(1, _int(raw.get("next_id"), 1))
     doc["updated_at"] = float(raw.get("updated_at") or 0.0)
     nodes = raw.get("nodes")
-    if not isinstance(nodes, list) or len(nodes) > MAX_NODES:
-        raise WorkPlanError("work plan nodes are not a list or exceed the node limit")
+    # MAX_NODES binds new additions only (add_node). A stored board written
+    # before the cap was lowered — or grown past it by unfinished work — must
+    # stay readable: unfinished items are never discarded by a read, and the
+    # queue drains back under the cap as items complete and expire.
+    if not isinstance(nodes, list) or len(nodes) > STORAGE_MAX_NODES:
+        raise WorkPlanError("work plan nodes are not a list or exceed the storage limit")
     seen: set[str] = set()
     for item in nodes:
         if not isinstance(item, dict):
@@ -104,6 +122,12 @@ def normalize_document(raw: Any) -> dict[str, Any]:
             if phase not in PHASES:
                 raise WorkPlanError("work goal has an invalid phase")
             node["phase"] = phase
+            # Queue priority is optional and stored only on goals; older
+            # boards without it normalize to unranked ('').
+            priority = item.get("priority", "")
+            if priority not in ("", *PRIORITIES):
+                raise WorkPlanError("work goal has an invalid priority")
+            node["priority"] = priority
         if not node["id"] or node["id"] in seen or not node["title"]:
             raise WorkPlanError("work plan node has a missing or duplicate id or an empty title")
         seen.add(node["id"])
@@ -122,7 +146,7 @@ def normalize_document(raw: Any) -> dict[str, Any]:
     if doc["active_root"]:
         doc["phase"] = by_id[doc["active_root"]]["phase"]
     focus_ids = raw.get("focus_ids", [])
-    if not isinstance(focus_ids, list) or len(focus_ids) > MAX_NODES or any(
+    if not isinstance(focus_ids, list) or len(focus_ids) > len(by_id) or any(
         not isinstance(n, str) or n not in by_id for n in focus_ids
     ) or len(set(focus_ids)) != len(focus_ids):
         raise WorkPlanError("invalid stored Work focus; no implicit release is allowed")
@@ -156,8 +180,29 @@ def _activate(doc: dict[str, Any], root_id: str | None) -> None:
     doc["phase"] = phase
 
 
+def _insert_root_by_priority(doc: dict[str, Any], node: dict[str, Any]) -> None:
+    """Place a new goal in the node list by queue priority.
+
+    Roots are kept in queue order inside doc['nodes']: active first, then
+    P1..P5, unranked last, stable within a rank. The new goal never takes
+    the active slot and never lands before a done root's history position
+    relative to other done roots — only unfinished queue order is sorted.
+    """
+    active = doc.get("active_root")
+    nodes = doc["nodes"]
+    position = len(nodes)
+    for index, existing in enumerate(nodes):
+        if existing["parent_id"] is not None or existing["status"] == "done" or existing["id"] == active:
+            continue
+        if priority_rank(existing.get("priority")) > priority_rank(node.get("priority")):
+            position = index
+            break
+    nodes.insert(position, node)
+
+
 def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any = "", *, now: float | None = None,
-             ref: Any = "", waiting_on: Any = "", within_scope: bool = False) -> str:
+             ref: Any = "", waiting_on: Any = "", within_scope: bool = False,
+             priority: Any = "") -> str:
     stamp = time.time() if now is None else now
     by_id = _index(doc)
     # A new goal waits behind an unfinished active goal instead of taking its place.
@@ -168,6 +213,10 @@ def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any =
             raise WorkPlanError(f"unknown parent node {parent_id}")
         if _depth(by_id, parent_id) + 1 > MAX_DEPTH:
             raise WorkPlanError(f"plan depth is limited to {MAX_DEPTH} levels below the goal")
+        if priority:
+            raise WorkPlanError("priority belongs to a goal, not a detail item")
+    elif priority not in ("", *PRIORITIES):
+        raise WorkPlanError("priority must be one of P1, P2, P3, P4, P5")
     clean = _clip(title, MAX_TITLE_CHARS)
     if not clean:
         raise WorkPlanError("node title must not be empty")
@@ -175,7 +224,7 @@ def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any =
         raise WorkPlanError(f"a work plan holds at most {MAX_NODES} nodes")
     node_id = f"n{doc['next_id']}"
     doc["next_id"] += 1
-    doc["nodes"].append({
+    node = {
         "id": node_id,
         "parent_id": parent_id,
         "title": clean,
@@ -187,12 +236,18 @@ def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any =
         "urgent": False,
         "created_at": stamp,
         "updated_at": stamp,
-    })
+    }
     if parent_id is None:
-        _index(doc)[node_id]["phase"] = PHASE_PLANNING
+        node["phase"] = PHASE_PLANNING
+        node["priority"] = priority
+        if queue_behind and priority:
+            _insert_root_by_priority(doc, node)
+        else:
+            doc["nodes"].append(node)
         if not queue_behind:
             _activate(doc, node_id)
     else:
+        doc["nodes"].append(node)
         root = _root_of(_index(doc), parent_id)
         if not within_scope:
             set_phase(doc, PHASE_PLANNING, root)
@@ -207,7 +262,8 @@ def add_subtree(doc: dict[str, Any], parent_id: str | None, spec: Any, *, now: f
     if not isinstance(spec, dict):
         raise WorkPlanError("a plan node must be an object with a title")
     node_id = add_node(doc, parent_id, spec.get("title"), spec.get("note", ""), now=now,
-                       ref=spec.get("ref", ""), waiting_on=spec.get("waiting_on", ""), within_scope=within_scope)
+                       ref=spec.get("ref", ""), waiting_on=spec.get("waiting_on", ""), within_scope=within_scope,
+                       priority=spec.get("priority", ""))
     children = spec.get("children", [])
     if not isinstance(children, list):
         raise WorkPlanError("children must be a list")
@@ -244,6 +300,10 @@ def set_plan(doc: dict[str, Any], spec: Any, root_id: str | None = None, *, now:
     for key, limit in (("ref", MAX_REF_CHARS), ("waiting_on", MAX_WAIT_CHARS)):
         if key in spec:
             root[key] = _line(spec[key], limit)
+    if "priority" in spec:
+        if spec["priority"] not in ("", *PRIORITIES):
+            raise WorkPlanError("priority must be one of P1, P2, P3, P4, P5")
+        root["priority"] = spec["priority"]
     root["status"] = "pending"
     root.pop("completed_at", None)
     root.pop("expired_done_steps", None)
@@ -260,7 +320,7 @@ def set_plan(doc: dict[str, Any], spec: Any, root_id: str | None = None, *, now:
 
 def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title: Any = None,
                 note: Any = None, evidence: Any = None, now: float | None = None,
-                waiting_on: Any = None, ref: Any = None) -> dict[str, Any]:
+                waiting_on: Any = None, ref: Any = None, priority: Any = None) -> dict[str, Any]:
     stamp = time.time() if now is None else now
     by_id = _index(doc)
     node_id = str(node_id)
@@ -293,6 +353,12 @@ def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title:
         candidate["waiting_on"] = _line(waiting_on, MAX_WAIT_CHARS)
     if ref is not None:
         candidate["ref"] = _line(ref, MAX_REF_CHARS)
+    if priority is not None:
+        if node["parent_id"] is not None:
+            raise WorkPlanError("priority belongs to a goal, not a detail item")
+        if priority not in ("", *PRIORITIES):
+            raise WorkPlanError("priority must be one of P1, P2, P3, P4, P5")
+        candidate["priority"] = priority
     if candidate == node:
         return node
     scope_changed = (candidate["title"] != node["title"] or candidate["note"] != node["note"]
@@ -301,7 +367,13 @@ def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title:
         candidate["completed_at"] = stamp
     elif candidate["status"] != "done" and "completed_at" in candidate:
         candidate["completed_at"] = None
+    priority_changed = candidate.get("priority") != node.get("priority")
     node.update(candidate)
+    if priority_changed and node["parent_id"] is None and node["status"] != "done" and node_id != doc.get("active_root"):
+        # Reinsert this queued goal at its new rank; children keep parent links.
+        siblings = [n for n in doc["nodes"] if n["id"] != node_id]
+        doc["nodes"] = siblings
+        _insert_root_by_priority(doc, node)
     if scope_changed:
         set_phase(doc, PHASE_PLANNING, _root_of(by_id, node_id))
     node["updated_at"] = stamp
@@ -532,8 +604,29 @@ def continuation(doc: dict[str, Any]) -> dict[str, Any]:
                      phase=root_phase(doc, target_root)) if nxt else None,
         "waiting": waiting[:MAX_WAITING_IN_CONTINUATION],
         "blocked": blocked,
+        # Named blocked items (the blocking node itself), so a stop that finds
+        # no runnable work can re-verify whether each block still holds
+        # instead of treating "blocked" as permanent.
+        "blocked_items": _blocked_items(doc, by_id)[:MAX_BLOCKED_IN_CONTINUATION],
         "held": len(queued_roots(doc)) if held else 0,
     }
+
+
+def _blocked_items(doc: dict[str, Any], by_id: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    """Every unfinished blocked node, root first, with its recorded reason."""
+    items = []
+    for node in doc["nodes"]:
+        if node["status"] != "blocked":
+            continue
+        items.append({
+            "id": node["id"],
+            "title": node["title"],
+            "waiting_on": node.get("waiting_on", ""),
+            "root_id": _root_of(by_id, node["id"]),
+            "path": path_titles(doc, node["id"]),
+        })
+    items.sort(key=lambda row: (row["root_id"] != doc.get("active_root"), row["id"]))
+    return items
 
 
 def _runnable_by_root(doc: dict[str, Any], by_id: dict[str, dict[str, Any]]
@@ -600,6 +693,7 @@ def _node_summary(node: dict[str, Any]) -> dict[str, Any]:
     result = {key: node.get(key, "") for key in ("id", "title", "status", "ref", "waiting_on", "urgent")}
     if node.get("parent_id") is None:
         result["phase"] = node.get("phase", PHASE_PLANNING)
+        result["priority"] = node.get("priority", "")
     return result
 
 
@@ -808,7 +902,7 @@ def _depth(by_id: dict[str, dict[str, Any]], node_id: str) -> int:
     seen: set[str] = set()
     current = by_id[node_id]["parent_id"]
     while current is not None:
-        if current in seen or depth > MAX_NODES:
+        if current in seen or depth > MAX_DEPTH:
             raise WorkPlanError("work plan contains a cycle")
         seen.add(current)
         depth += 1

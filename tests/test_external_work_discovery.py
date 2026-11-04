@@ -109,3 +109,57 @@ class WorkDiscoveryTests(unittest.TestCase):
         self.assertEqual("Configured from menu", saved["discovery_instruction"])
         self.assertEqual("Configured from menu", control.call_args.args[1]["discovery_instruction"])
         service.urlopen.assert_not_called()
+
+    def test_file_backed_instruction_and_reload_on_change(self):
+        import tempfile
+        from pathlib import Path
+        from ciel_runtime_support.work_discovery import discovery_hint
+        from ciel_runtime_support.runtime_paths import ROUTER_WORKSPACE_ID
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "stop-message.txt"
+            target.write_text("first body", encoding="utf-8")
+            receiver = self.receiver(discovery_file_path=str(target), test_default_override=False)
+            result = effective_work_discovery({"default": receiver})
+            self.assertEqual("first body", result["instruction"])
+            self.assertEqual(str(target), result["file_path"])
+            # Rewriting the file changes the next read without touching config.
+            target.write_text("second body", encoding="utf-8")
+            result = effective_work_discovery({"default": receiver})
+            self.assertEqual("second body", result["instruction"])
+            cfg = {"external_event_receivers": {ROUTER_WORKSPACE_ID: {"walkie": receiver}}}
+            hint = discovery_hint(cfg, {})
+            self.assertTrue(hint["instruction"].startswith("second body"))
+            self.assertEqual("file", hint["source"])
+            # Until the file is written, the interim Walkie default body is
+            # used and nothing is created on disk.
+            target.unlink()
+            result = effective_work_discovery({"default": receiver})
+            self.assertIn("와키에서", result["instruction"])
+            self.assertFalse(target.exists())
+
+    def test_file_dump_event_writes_local_file_and_points_receiver_at_it(self):
+        import json as json_module
+        import tempfile
+        from pathlib import Path
+        service = self.service()
+        service.submit_event = mock.Mock(return_value={"queued": True})
+        with tempfile.TemporaryDirectory() as tmp:
+            target = Path(tmp) / "dumped.txt"
+            event = {
+                "specversion": "1.0", "id": "evt-1", "source": "walkie",
+                "type": "ciel.work.discovery.file",
+                "data": {"mode": "set", "file_path": str(target), "file_stream": "dumped body"},
+            }
+            admitted = service._admit("default", "sse", json_module.dumps(event),
+                                      {"id": "evt-1", "source": "walkie", "type": "ciel.work.discovery.file"})
+            self.assertIn("_ciel_file_dump", admitted)
+            self.assertEqual("dumped body", target.read_text(encoding="utf-8"))
+            saved = service.receiver_configs()["default"]
+            self.assertEqual(str(target), saved["discovery_file_path"])
+            self.assertTrue(saved["discovery_enabled"])
+            service.submit_event.assert_not_called()
+            # A normal event still flows to the runtime input gateway.
+            normal = {"specversion": "1.0", "id": "evt-2", "source": "walkie", "type": "message"}
+            service._admit("default", "sse", json_module.dumps(normal),
+                           {"id": "evt-2", "source": "walkie", "type": "message"})
+            service.submit_event.assert_called_once()
