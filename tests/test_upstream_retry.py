@@ -121,7 +121,7 @@ class GatewayRetryBoundaryTests(unittest.TestCase):
                     if isinstance(kind, int):
                         self.assertEqual(kind, getattr(raised.exception, "code", getattr(raised.exception, "upstream_status", None)))
                     else:
-                        self.assertIs(type(raised.exception), RuntimeError)
+                        self.assertIsInstance(raised.exception, RuntimeError)
                         self.assertIs(errors[0], raised.exception.__cause__)
                     self.assertIn(OLD, selector.status()[0]["cooldowns"])
                     next_pcfg = overlay.apply("cielairouter", config, session="same-session")
@@ -178,7 +178,7 @@ class GatewayRetryBoundaryTests(unittest.TestCase):
                     )
                     self.assertIsInstance(error.__cause__, http.client.RemoteDisconnected)
                     self.assertTrue(HttpResponseAdapter.is_client_disconnect(error.__cause__))
-                    self.assertIs(type(error), RuntimeError)
+                    self.assertIsInstance(error, RuntimeError)
                     self.assertIn("RemoteDisconnected", str(error))
                     self.assertEqual(1, server.hits)
                     self.assertEqual([old + "/v1/chat/completions"], calls)

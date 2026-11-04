@@ -798,6 +798,21 @@ def handle_claude_messages_post(
                 f"status={response_status} error={type(exc).__name__}: {exc}",
             )
             return
+        failure = exc if isinstance(exc, UpstreamFailure) else None
+        if failure is None:
+            transport = UpstreamFailure.from_transport_error(
+                provider, str(body.get("model") or ""), exc
+            )
+            failure = transport
+        if failure is not None:
+            router_log(
+                "ERROR",
+                f"anthropic_route_error provider={provider} model={body.get('model')} "
+                f"status={failure.status_code} "
+                f"error={type(exc).__name__}: {str(exc)[:300]}",
+            )
+            try_write_json(self, failure.anthropic_payload(), failure.status_code)
+            return
         router_log(
             "ERROR",
             f"anthropic_route_error provider={provider} model={body.get('model')} status=500 error={type(exc).__name__}: {str(exc)[:300]}",

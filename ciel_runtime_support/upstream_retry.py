@@ -423,6 +423,9 @@ def post_json_with_rate_retry(
                 f"upstream_transport_error provider={provider} model={model} "
                 f"error={_http_error_log_message(f'{type(exc).__name__}: {exc}')!r} tokens={token_estimate} bytes={byte_estimate}",
             )
+            failure = UpstreamFailure.from_transport_error(provider, model, exc)
+            if failure is not None:
+                raise failure from exc
             raise RuntimeError(
                 f"upstream request failed provider={provider} model={model}: "
                 f"{type(exc).__name__}: {exc}"
@@ -634,6 +637,9 @@ def open_provider_request_with_key_retry(
                 f"upstream_direct_transport_error provider={provider} model={model} endpoint={endpoint} "
                 f"error={error_message!r} after={elapsed} tokens={token_estimate} bytes={byte_estimate}",
             )
+            failure = UpstreamFailure.from_transport_error(provider, model, exc)
+            if failure is not None:
+                raise failure from exc
             raise RuntimeError(
                 f"upstream direct request failed provider={provider} model={model}: "
                 f"{type(exc).__name__}: {exc}"
@@ -843,6 +849,9 @@ def open_openai_stream_with_rate_retry(
                 f"endpoint={endpoint} error={error_message!r} "
                 f"tokens={token_estimate} bytes={byte_estimate}",
             )
+            failure = UpstreamFailure.from_transport_error(provider, model, exc)
+            if failure is not None:
+                raise failure from exc
             raise RuntimeError(
                 f"upstream stream request failed provider={provider} model={model}: "
                 f"{type(exc).__name__}: {exc}"
