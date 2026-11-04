@@ -1,7 +1,7 @@
 ---
 type: implementation-journal
 title: Fork agent to Work item assignment display
-status: implemented-not-deployed
+status: released-local-installed
 date: 2026-11-04
 ---
 
@@ -25,9 +25,11 @@ Fork agents run, but it is not clear which Work item is assigned to which fork a
 - Rendered-evidence replay: `evidence/assignment-render-20261104.json` records the exact `/work-mode parallel` text and spawn descriptions produced by the packaged `register.js` against the harness fixture, including the bound `n229 → agent work-... [host host-9]` row.
 
 # Not yet verified / deployment boundary
-- Not committed, pushed, published, or installed. Local sessions, the local install snapshot, and remote sandboxes still run `c886fb2` behavior; the explicit assignment view appears only after a new nightly install and session relaunch.
 - The 7 pre-existing plugin-test failures are unchanged from HEAD; they are not claimed fixed by this task.
-- Kobi (.14) still runs the older `f30bff6` nightly; upgrading the fleet remains a separate approved step.
+- Kobi (.14) fleet upgrade remains a separate approved step.
+
+# Release (2026-11-04)
+- This display shipped in commit `d40b895` (with the unbound-reservation release and pause-discovery fixes), npm nightly `0.2.51-nightly.20261104-131740.d40b895`, installed locally at `C:\Users\djlov\.local\share\ciel-runtime-d40b895a072e86cd0eaaddf04c98b6a87dda6573` with a 469/469 support-tree hash match and all assignment/release markers present. Running local sessions were not restarted; Kobi (.14) still runs `c886fb2`.
 
 # 2026-11-04 follow-up diagnosis supersedes part of the boundary above
 - A later read-only probe found Kobi was actually running `0.2.51-nightly.20261104-041406.c886fb2`, so “still older f30bff6” is stale. The installed `register.js` still lacks this assignment display because the display change itself was uncommitted.
