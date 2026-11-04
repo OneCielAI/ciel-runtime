@@ -1,0 +1,68 @@
+---
+type: diagnosis
+title: Kobi launch failure after nightly install — stale workspace router lease with recycled pid
+status: recovered-pending-user-relaunch
+date: 2026-11-04
+---
+
+# Symptom
+사용자 스크린샷: Kobi(u24) 샌드박스에서 새 nightly 설치 후 `ciel-runtime --continue` 실행 시
+`RuntimeError: workspace router launch already reserved by another or unknown process`
+(workspace_router_selection._check_own_launch_lease). 패키지 자체는 새 버전
+`0.2.51-nightly.20261104-181656.35843ad`로 설치되어 있었다.
+
+# Confirmed evidence (remote read-only probe, ssh sjglobal@100.64.0.14 -p 1004, SYSTEM)
+- Kobi u24에는 ciel-runtime/claude 프로세스가 하나도 없었다 (walkie transcript-relay.py만 존재).
+- `C:\Users\aapw-a24u24\AppData\Roaming\ciel-runtime\workspace-router-ports.json`:
+  workspace `651d879f6c68`, port 9780, `launch_lease {pid: 8472, identity: 134382731911532853, expires_at: 1793799632.98}`.
+- pid 8472는 살아 있었지만 `svchost.exe -k LocalSystemNetworkRestricted -p -s PcaSvc` (부팅 시 10:08:41 생성) — 재사용된 무관한 Windows 서비스 pid였다.
+- 포트 9780에는 listener가 없었다.
+
+# Verdict
+Stale lease. 실제 라우터 소유자는 없는데, lease의 pid가 재사용되어 "살아있는 프로세스"로 보여서
+새 실행이 예약 충돌로 거부된 것이다. 새 코드 자체의 설치 문제는 아니었다.
+
+# Second defect found again
+- `ciel-runtime.cmd`가 또 순수 npm shim으로 재생성되어 있었다: `CODEX_HOME`,
+  `CIEL_RUNTIME_CONFIG_DIR`, `CIEL_RUNTIME_LAUNCH_CWD` 환경 줄이 사라진 상태.
+  (goal 15에서 확인된 것과 같은 패턴 — npm 전역 설치가 wrapper를 덮어씀.)
+- 이 상태로 실행하면 설정 폴더를 확정할 수 없다는 인스톨러 경고대로 잘못된 config를 읽을 수 있다.
+
+# Recovery applied (minimal, backed up)
+- `workspace-router-ports.json.bak-20261104-stale-lease` 백업 후, workspace 651d879f6c68의
+  `launch_lease` 속성만 제거. port 9780/reservation/workspace는 유지. 적용 후 재읽기로 확인.
+- `ciel-runtime.cmd.bak-20261104` 백업 후, `:start` 뒤에 세 환경 줄 복원:
+  CODEX_HOME=...\kobe-ai\.codex, CIEL_RUNTIME_CONFIG_DIR=C:\Users\aapw-a24u24\AppData\Roaming\ciel-runtime,
+  CIEL_RUNTIME_LAUNCH_CWD=C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai.
+- 다른 팀원 세션(Ara u21, Emily)은 건드리지 않았다.
+
+# Root fix (goal 31, same day — user: "이걸 패키지가 실행하면서 해결했어야지")
+현장 복구만으로 끝내지 않고 패키지 코드를 고쳤다. 사용자 지적이 맞았다: 이 상황은
+실행하는 패키지가 스스로 판정해서 풀었어야 하는 케이스다.
+
+## 실제 코드 결함 (재확인)
+- `_check_own_launch_lease`는 이미 pid가 아니라 birth token(identity)으로 소유를
+  판정하고 있었다. pid 재사용 자체는 이미 구분 가능했다.
+- 진짜 결함은 `expires_at`을 float 형태 검증만 하고 **만료를 한 번도 적용하지 않은 것**.
+  identity가 불일치하면(=소유자 아님 증명) 영원히 같은 자리에서 실행이 거부됐다.
+  Kobi의 lease는 30초짜리였는데도 몇 시간이 지나도록 새 실행을 막았다.
+
+## 수정 (`workspace_router_selection.py`)
+- 검증 완료 사망(`current == ""`)은 기존대로 통과.
+- 신규: 기록된 identity가 있고, 현재 identity가 있고, 둘이 **다르고**, `expires_at`이
+  **과거**이면 stale로 판정해 해제(return)한다. 두 호출 지점 모두 직후에 새 lease를
+  기록·저장하므로 실행이 그대로 이어진다.
+- 여전히 fail closed인 경우: identity 일치(진짜 소유자 실행 중), 검사 불가(None),
+  **만료 전** identity 불일치(동시 실행 경합 보호), identity 없는 구형 lease.
+
+## 검증
+- 신규 테스트 3개: 만료+재사용 pid → 해제되고 새 lease 기록 / 만료 전+재사용 → 계속 거부 /
+  만료+검사불가 → 계속 거부. 기존 동시 실행·pid 재사용 보수성 테스트 포함 41 passed.
+- pytest 밖 직접 재현: Kobi와 같은 형태(9780 free, pid 생존·identity 불일치, lease 1시간 만료)
+  에서 포트 선택 성공 + lease 교체 확인.
+
+## 배포 경계 (root fix)
+- 워크트리 구현 완료. 아직 commit/push/nightly/local install 전이다.
+- Kobi 현장 상태는 앞선 수동 복구(lease 제거 + wrapper 복원) 그대로라, 사용자가
+  `ciel-runtime --continue`를 다시 실행하면 지금 패키지로도 떠야 한다.
+  근본 수정이 배포되면 다음부터는 이런 stale lease를 실행 시점에 스스로 정리한다.
