@@ -1,0 +1,39 @@
+---
+type: release
+title: Accumulated Work changes — local and nightly deployment
+status: released-local-installed
+date: 2026-11-04
+---
+
+# Released commits
+- `2d94f3a` feat: separate Work queue intake from execution slots and control the stop message from a file (21 files: direct fork spawn, router error text surface, CielAiRouter advisor transport, queue/active separation, priority insertion, blocked recheck, discovery file control + tests)
+- `a0df6d8` docs: journals for the above
+- `35843ad` test: fill the pickup full-board fixture to the new 100-node cap (first Publish failed only on this fixture; it filled 600 nodes under the lowered cap)
+- Both `origin/feature/work-parallel-20261103` and `origin/nightly` are at `35843ad3ec8d4e5f25840d61e9f04def453c1c82`.
+
+# CI / Publish
+- First attempt: Publish 41882959263 failed in `npm test` (3204 tests, 1 error: test_full_board_rolls_back fixture); CI 41882959271 failed for the same single fixture.
+- After `35843ad`: CI run `41883819534` success; Publish run `41883819270` success.
+- npm nightly: `0.2.51-nightly.20261104-181656.35843ad`
+- gitHead: `35843ad3ec8d4e5f25840d61e9f04def453c1c82`
+- integrity: `sha512-dBpuxcvVYUE+nZC1zkpxkxSbVi8Ea56S+UzChreVOwvRpVPl3JQpwkNHt43CE7Vt0e7Y7irz8HU0d0n3HMnlqg==`
+- Downloaded tarball SHA512 matches the registry integrity exactly.
+
+# Local install
+- New snapshot only (install.ps1 not run over live state, PATH unchanged):
+  `C:\Users\djlov\.local\share\ciel-runtime-35843ad3ec8d4e5f25840d61e9f04def453c1c82`
+- Contents: ciel_runtime.py + ciel_runtime_support + scripts from the published tarball.
+- Published tarball vs installed snapshot: 476/476 files, 0 SHA256 mismatches.
+- Snapshot runtime_constants VERSION: `0.2.51-nightly.20261104-181656.35843ad`.
+
+# Installed smoke (imported from the snapshot, not the worktree)
+- default_policy max_active=5, p1_reserved=1; MAX_LEASES=100; MAX_NODES=100.
+- Priority insertion: queue order [P1 goal, P4 goal] as expected.
+- continuation blocked_items names the blocked goal with its waiting_on.
+- DEFAULT_FILE_INSTRUCTION contains the Walkie wording and is returned for a missing instruction file.
+
+# Live state notes
+- The shared live ledger policy was separately raised to max_active=5 earlier (configure v8→v9). That value applies to running sessions independently of this code release.
+- This workspace still has work_discovery enabled=false, so the file-backed stop message stays blank here until enabled.
+- Running local sessions were not restarted; they still execute the older snapshot until relaunch.
+- Kobi (.14) was not upgraded; that remains a separate approved step.
