@@ -50,6 +50,10 @@ Chain to verify: (1) CielAiRouter-side HTTP 500 → (2) ciel-runtime quietly cra
 - `python -m pytest tests/test_router_server_runtime.py -q` → 3 passed, 2 subtests passed.
 - `git diff --check` clean. Diff: `ciel_runtime_support/claude_router.py` +15, `ciel_runtime_support/upstream_retry.py` +9, `tests/test_upstream_retry.py` 4 changed lines.
 
-# Release boundary
-- Worktree only. Not committed, not pushed, no nightly, no local snapshot install. Running routers/sessions were not restarted.
-- Prody/Kobi field updates remain separate approvals; nothing was changed on .12/.14 in this goal beyond the read-only probes above.
+# Release (goal 36, same day — standing user rule: ship to local + nightly without asking)
+- Commits: `d7ea750` (fix + test expectation), `d2f5a34` (this journal + Prody diagnosis journal). Both `origin/feature/work-parallel-20261103` and `origin/nightly` at `d2f5a340336737ac7973beaacac9ba9f184e9d51`.
+- CI run `41912431045` success; Publish run `41912431141` success.
+- npm nightly (package `@one-ciel-ai/ciel-runtime`): `0.2.51-nightly.20261104-211139.d2f5a34`, gitHead `d2f5a340336737ac7973beaacac9ba9f184e9d51`, integrity `sha512-GFGijUEJl3t85MRxVGBdOWNgNl1ZCPKAblF7pX4Wy4DVFXM3lAczUveo2SWT0oBT6kfoT3iKF4dbclbME2Jvvg==` (downloaded tarball SHA512 matches; shasum `db0cac5a57cd39c7b68c81b62f39e284e45bf0c6`).
+- Local install (new snapshot only, install.ps1 not run, PATH unchanged): `C:\Users\djlov\.local\share\ciel-runtime-d2f5a340336737ac7973beaacac9ba9f184e9d51` — tarball vs snapshot 529/529 files, 0 SHA256 mismatches.
+- Installed smoke (snapshot on sys.path, `python -I`): VERSION = the nightly above; reset(10054) → 502/upstream_error/api_error; URLError timeout → 504; a genuine HTTP 500 body → 500 with its own message preserved.
+- Running routers/sessions were not restarted; they still execute their older snapshot until relaunch. Prody/Kobi field updates remain separate approvals; nothing was changed on .12/.14 beyond the read-only probes above.
