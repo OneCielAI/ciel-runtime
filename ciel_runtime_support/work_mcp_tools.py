@@ -49,6 +49,10 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
          "inputSchema": {"type": "object", "properties": {"key": {"type": "string"}, "value": {"type": "string"}}}},
         {"name": "work_side_settings", "description": "Host-only live side-intake settings; default disabled, selected type btw_with_mcp.",
          "inputSchema": {"type": "object", "properties": {"enabled": {"type": "boolean"}}}},
+        {"name": "work_side_status", "description": "Coordinator-only read of durable side inbox receipts, independent of Work mode.",
+         "inputSchema": {"type": "object", "properties": {}}},
+        {"name": "work_side_drain", "description": "Coordinator-only: retry pending durable side inbox admission without approving execution. Full board remains queued.",
+         "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 100}}}},
         {"name": "work_side_intake", "description": "Durably queue an untrusted side request without approving execution or changing the active goal. Stable event_key deduplicates retries; host coordinator only.",
          "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "maxLength": 16000},
              "event_key": {"type": "string", "maxLength": 300}}, "required": ["text", "event_key"]}},
@@ -225,7 +229,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
     from .work_parallel_mcp import schemas as parallel_schemas
     schemas.extend(parallel_schemas())
     if not enabled:
-        schemas = [schema for schema in schemas if schema["name"] in (WORK_MODE_SWITCH_TOOL, "work_live_settings")]
+        schemas = [schema for schema in schemas if schema["name"] in (WORK_MODE_SWITCH_TOOL, "work_live_settings", "work_side_settings", "work_side_intake", "work_side_drain", "work_side_status")]
     for schema in schemas:
         inputs = schema["inputSchema"]
         inputs.setdefault("properties", {})["session_id"] = {
@@ -262,7 +266,7 @@ def dispatch_work_tool(
             return respond(request_id, json.dumps(settings(config, args, save_config), ensure_ascii=False))
         except (ValueError, OSError) as error:
             return respond(request_id, str(error), True)
-    if not work_mode_enabled(config):
+    if not work_mode_enabled(config) and name not in ('work_side_settings', 'work_side_intake', 'work_side_drain', 'work_side_status'):
         if name == "work_status" and args.get("format") == "json":
             return respond(request_id, json.dumps(tree.snapshot(tree.empty_document(), enabled=False)))
         return respond(request_id, "Ciel Work mode is off (prelaunch menu: LLM options -> Work mode, "
@@ -278,8 +282,9 @@ def dispatch_work_tool(
             identity = args.get("session_id")
             if not isinstance(identity, str) or not identity.startswith("claude:"):
                 raise tree.WorkPlanError("conversation identity is unavailable; no shared Work fallback is allowed")
-        scoped = session_work_plan_store(state_dir, identity, log=log)
-        store = store or scoped
+        if name not in ('work_side_status', 'work_side_settings', 'work_side_intake', 'work_side_drain'):
+            scoped = session_work_plan_store(state_dir, identity, log=log)
+            store = store or scoped
         if name == "work_side_settings":
             from .work_parallel_mcp import host_context
             host, _ = host_context(args, config)
@@ -293,17 +298,39 @@ def dispatch_work_tool(
                 save_config({**config, "work_side_intake": settings})
             return respond(request_id, json.dumps({"enabled": settings.get("enabled") is True,
                                                   "type": "btw_with_mcp"}))
+        if name == 'work_side_status':
+            from .work_parallel_mcp import host_context
+            from .side_intake_inbox import SideIntakeInbox
+            host, _ = host_context(args, config)
+            if host.get('agent_id') is not None:
+                raise tree.WorkPlanError('side status requires coordinator host')
+            return respond(request_id, json.dumps({'enabled': config.get('work_side_intake', {}).get('enabled') is True,
+                'side_inbox_receipts': SideIntakeInbox(state_dir, identity).summaries()}, ensure_ascii=False))
+        if name == 'work_side_drain':
+            from .work_parallel_mcp import host_context
+            from .side_intake_service import drain
+            host, _ = host_context(args, config)
+            if host.get('agent_id') is not None:
+                raise tree.WorkPlanError('side drain requires coordinator host')
+            return respond(request_id, json.dumps(drain(state_dir, identity, admit=work_mode_enabled(config), limit=args.get('limit', 10)), ensure_ascii=False))
         if name == "work_side_intake":
             from .work_parallel_mcp import host_context
-            from .work_side_intake import enqueue
+            from .side_intake_service import receive
             host, _ = host_context(args, config)
             if host.get("agent_id") is not None:
                 raise tree.WorkPlanError("side intake requires coordinator host")
-            return respond(request_id, json.dumps(enqueue(store, args.get("text"), args.get("event_key")), ensure_ascii=False))
+            return respond(request_id, json.dumps(receive(state_dir, identity, args.get("text"), args.get("event_key"), admit=work_mode_enabled(config)), ensure_ascii=False))
         if name.startswith("work_parallel_") or name == "work_discovery_pickup":
             from .work_parallel_mcp import run
             return respond(request_id, run(name, args, store, identity, config, save_config))
-        return respond(request_id, _run(name, args, store, approval_ask, auto_continue=work_auto_continue_enabled(config), retention=retention_status(config), config=config, log=log))
+        output = _run(name, args, store, approval_ask, auto_continue=work_auto_continue_enabled(config), retention=retention_status(config), config=config, log=log)
+        if name == 'work_status' and args.get('format') == 'json' and not args.get('root_id'):
+            from .side_intake_inbox import SideIntakeInbox
+            state = json.loads(output)
+            receipts = SideIntakeInbox(state_dir, identity).summaries()
+            state['side_inbox_receipts'] = receipts
+            output = json.dumps(state, ensure_ascii=False)
+        return respond(request_id, output)
     except (tree.WorkPlanError, ValueError) as error:
         return respond(request_id, str(error), True)
 
@@ -406,6 +433,13 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         return _after(doc, f"Added {node}.")
     if name == "work_node_update":
         node_id = str(args.get("id") or "")
+        mutable = {'status', 'title', 'note', 'evidence', 'ref', 'waiting_on', 'priority'}
+        if not any(key in args and args[key] is not None for key in mutable):
+            raise tree.WorkPlanError(
+                'NO CHANGE: work_node_update requires at least one mutation field. '
+                'id and expected_version only read nothing and change nothing. '
+                'To clear a verified wait, supply waiting_on="" explicitly; '
+                'do not repeat this empty call. Use work_status to inspect, or continue the next runnable item.')
 
         def update(d: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
             before = d.get("active_root")

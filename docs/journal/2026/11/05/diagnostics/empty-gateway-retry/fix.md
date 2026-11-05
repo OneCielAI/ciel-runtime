@@ -16,4 +16,4 @@ Allow complete empty real HTTP502/503/504 before output under existing request b
 
 # Verification
 
-82 existing focused retry tests pass plus two new loopback/policy tests. Actual loopback HTTP server returns Content-Length0 status502 then200: hits2, retry1, bodyok. Native provider traffic not used. Release and installed verification pending; active live router not restarted or overwritten.
+82 existing focused retry tests pass plus two new loopback/policy tests. Actual loopback HTTP server returns Content-Length0 status502 then200: hits2, retry1, bodyok. Native provider traffic not used. a187afa CI42099924738/Publish42099924787 success. npm201239.a187afa exact head verified and installed; actual installed loopback test again502empty->200 hits2retry1 passes. New immutable snapshot copied, smoke passed, persistent User launcher pin updated; exact wrapper version matched. Active live router not restarted or overwritten.

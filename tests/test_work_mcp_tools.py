@@ -29,6 +29,14 @@ class WorkMcpToolsTests(unittest.TestCase):
         self.assertFalse(response["error"], response)
         return self.store.read()
 
+    def test_update_with_only_id_and_version_is_rejected_without_mutation(self):
+        doc = self.plan()
+        result = self.call('work_node_update', id='n3', expected_version=doc['version'])
+        self.assertTrue(result['error'])
+        self.assertIn('NO CHANGE:', result['text'])
+        self.assertIn('waiting_on=""', result['text'])
+        self.assertEqual(doc, self.store.read())
+
     def test_update_evidence_explicitly_reports_wait_not_cleared(self):
         self.plan()
         self.call('work_execute')
@@ -84,7 +92,7 @@ class WorkMcpToolsTests(unittest.TestCase):
         for config, enabled in (({}, True), ({"work_mode": True}, True), ({"work_mode": False}, False)):
             with self.subTest(config=config):
                 names = {s["name"] for s in channel_mcp_tool_schemas(lambda: config)}
-                self.assertEqual(names & expected, expected if enabled else {"work_mode_set", "work_live_settings"})
+                self.assertEqual(names & expected, expected if enabled else {"work_mode_set", "work_live_settings", "work_side_intake", "work_side_settings", "work_side_drain", "work_side_status"})
         self.assertFalse({s["name"] for s in channel_mcp_tool_schemas()} & expected)
         switch = next(s for s in m.work_tool_schemas(enabled=False) if s["name"] == "work_mode_set")
         self.assertEqual(switch["inputSchema"]["required"], ["enabled"])

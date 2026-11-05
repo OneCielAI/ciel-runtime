@@ -50,10 +50,11 @@ let sidePanelReceipts = []
 let sidePanelSession = null
 function showSideReceipts($, identity, snapshot) {
   sidePanelSession = identity
-  sidePanelReceipts = snapshot.side_intake_receipts || []
+  sidePanelReceipts = [...(snapshot.side_intake_receipts || []), ...(snapshot.side_inbox_receipts || [])]
+    .filter((r, i, rows) => rows.findIndex(x => (x.receipt_id || x.item_id) === (r.receipt_id || r.item_id)) === i)
   $.ui.invalidate('ui.render')
-  for (const receipt of snapshot.side_intake_receipts || []) {
-    const key = identity + ':' + receipt.item_id
+  for (const receipt of sidePanelReceipts) {
+    const key = identity + ':' + (receipt.receipt_id || receipt.item_id) + ':' + (receipt.stage || '')
     if (seenSideReceipts.has(key)) continue
     seenSideReceipts.add(key)
     void $.ui.open({ id: 'ciel-side-intake', title: 'btw_with_mcp' }).catch(() => {})
@@ -66,7 +67,7 @@ function pollBusySideReceipts($, identity, turn) {
   $.clock.after(2000, async () => {
     if (!working || mainTurnEpoch !== turn || await sessionId($) !== identity) return
     try {
-      const snapshot = await readSnapshot($, identity)
+      const snapshot = await parallelCall($, 'work_side_status')
       if (!working || mainTurnEpoch !== turn || await sessionId($) !== identity || snapshot.enabled === false) return
       showSideReceipts($, identity, snapshot)
     } catch {}
@@ -1081,10 +1082,10 @@ async function sideIntake($, raw) {
   if (!input || typeof input.text !== 'string' || typeof input.event_key !== 'string') throw new Error('text and stable event_key are required')
   const identity = await sessionId($)
   const board = await readSnapshot($, identity)
-  if (!board?.enabled) throw new Error('Work mode unavailable; request was not acknowledged')
   const receipt = await parallelCall($, 'work_side_intake', { text: input.text, event_key: input.event_key })
   if (!receipt.accepted) throw new Error('No durable receipt; request was not acknowledged')
-  return 'ACK ' + clipped(receipt.item_id, 64) + (receipt.duplicate ? ' (already queued)' : ' (queued; not approved)')
+  return 'ACK ' + clipped(receipt.item_id || receipt.receipt_id, 64) + (receipt.duplicate ? ' (already received)' : ' (durably received; not approved)')
+    + '\nStage: ' + (receipt.stage || 'board_queued') + '; external ACK: ' + (receipt.external_ack || 'not_sent')
     + '\nRequest recap (quoted data): ' + clipped(receipt.recap, 500)
     + '\nCurrent queue: ' + String(board.queue?.length || 0) + '; runnable: ' + String(board.continuation?.actionable || 0)
 }
@@ -1381,7 +1382,7 @@ export function register(on) {
     return Box({ flexDirection: 'column', children: [
       Text({ children: 'btw_with_mcp · Runtime queue → mod receipt' }),
       Text({ children: 'Queued for planning; not execution approval. Main model is not interrupted.' }),
-      ...receipts.slice(-10).map(r => Text({ children: clipped(r.item_id, 64) + ' · ' + clipped(r.recap, 300) })),
+      ...receipts.slice(-10).map(r => Text({ children: clipped(r.item_id || r.receipt_id, 64) + ' · ' + (r.stage || 'board_queued') + ' · ACK: ' + (r.external_ack || 'not_sent') + ' · ' + clipped(r.recap, 300) })),
       ...(!receipts.length ? [Text({ children: 'No side-intake receipts for this session.' })] : []),
       Button({ key: 'side-close', plain: true, label: 'Close', onPress: () => $.ui.close({ id: 'ciel-side-intake' }) }),
     ] })

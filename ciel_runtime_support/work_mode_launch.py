@@ -28,7 +28,7 @@ WORK_TOOL_NAMES = (
     "work_parallel_run",
     "work_parallel_event",
     "work_status",
-    "work_side_intake",
+    "work_side_intake", "work_side_drain", "work_side_status",
     "work_side_settings",
     "work_live_settings",
     "work_plan_set",
@@ -146,7 +146,8 @@ def claude_work_mode_args(config: dict[str, Any], *, native: bool, router_mcp_at
                           mod_dir: Path = CLAUDE_MOD_DIR) -> list[str]:
     """``--plugin-dir`` for the bundled Work mod; the flag is repeatable, so user flags stay."""
 
-    if not work_mode_applies(config, native=native, router_mcp_attached=router_mcp_attached):
+    side_enabled = config.get('work_side_intake', {}).get('enabled') is True
+    if native or not router_mcp_attached or not (work_mode_enabled(config) or side_enabled):
         return []
     if not (mod_dir / ".claude-plugin" / "plugin.json").is_file():
         return []
