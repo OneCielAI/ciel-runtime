@@ -14,7 +14,7 @@ _runnable_by_root held every queued goal behind an urgent active root even when 
 
 # Verification
 
-118 tree/MCP/mod/architecture tests pass. Actual dispatch regression proves evidence-only update leaves review wait and emits explicit warning; explicit empty waiting_on clears it. Urgent-wait fixture selects queued goal with original review wait preserved. Nested urgent queue test updated to new user policy; runnable urgent still holds queue. Release pending.
+118 tree/MCP/mod/architecture tests pass. Actual dispatch regression proves evidence-only update leaves review wait and emits explicit warning; explicit empty waiting_on clears it. Urgent-wait fixture selects queued goal with original review wait preserved. Nested urgent queue test updated to new user policy; runnable urgent still holds queue. 9934ee7 CI42109779211/Publish42109779241 success. Actual npm211758.9934ee7 installed,81 installed tree/MCP tests pass; immutable snapshot smoke and persistent User launcher pin synchronized. Existing live sessions unchanged.
 
 # Separate interim release
 
