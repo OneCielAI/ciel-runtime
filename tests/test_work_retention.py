@@ -140,8 +140,8 @@ class WorkRetentionIntegrationTests(unittest.TestCase):
         import ciel_runtime
         from ciel_runtime_support.llm_option_config import set_work_mode_option
         cfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG)
-        provider = cfg["current_provider"]
-        rows, keys = ciel_runtime.llm_option_panel_rows(provider, cfg["providers"][provider], "en")
+        from ciel_runtime_support.work_settings_menu import panel_rows
+        rows, keys = panel_rows(cfg)
         self.assertIn("work_completed_auto_delete", keys)
         self.assertTrue(any("24h" in row for row in rows))
         saved = []
