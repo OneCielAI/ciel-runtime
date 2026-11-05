@@ -356,6 +356,24 @@ const scenarios = {
     const result = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
     return { text: result?.block || '' }
   },
+  async 'stop-background-wait-recheck'() {
+    const ready = { ...snapshot(), continuation: { actionable: 0, waiting: [{ id: 'n586', waiting_on: 'publish and external connector contract' }], blocked: 0 }, discovery: { enabled: false } }
+    const { $ } = host(async () => text(ready))
+    const event = { session_id: 'S1', background_tasks: [{ id: 'publish' }] }
+    const first = await handlers['classic.Stop']($, event, next({}))
+    const second = await handlers['classic.Stop']($, event, next({}))
+    return { text: first?.block || '', second: second?.block || '' }
+  },
+  async 'stop-background-blocked-recheck'() {
+    const ready = { ...snapshot(), continuation: { actionable: 0, waiting: [], blocked: 1, held: 0,
+      blocked_items: [{ id: 'n92', title: 'independent investigation', waiting_on: 'evidence', root_id: 'n1' }] },
+      discovery: { enabled: false } }
+    const { $, state } = host(async () => text(ready))
+    const event = { session_id: 'S1', background_tasks: [{ id: 'unrelated-publish' }] }
+    const first = await handlers['classic.Stop']($, event, next({}))
+    const second = await handlers['classic.Stop']($, event, next({}))
+    return { text: first?.block || '', second: second?.block || '', logs: state.logs }
+  },
   async 'stop-blocked-recheck'() {
     // Nothing runnable, one blocked item with a recorded reason: the stop
     // must name it and demand a fresh check instead of reporting no work.

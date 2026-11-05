@@ -47,6 +47,19 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(done.returncode, 0, done.stderr)
         return json.loads(done.stdout)
 
+    def test_background_waits_are_rechecked_once_without_polling_or_approval_bypass(self):
+        result = self.run_scenario('stop-background-wait-recheck')
+        self.assertIn('n586', result['text'])
+        self.assertIn('Do not poll', result['text'])
+        self.assertIn('clear approval holds', result['text'])
+        self.assertEqual('', result['second'])
+
+    def test_unrelated_background_task_does_not_suppress_bounded_block_recheck(self):
+        result = self.run_scenario('stop-background-blocked-recheck')
+        self.assertIn('n92', result['text'])
+        self.assertEqual('', result['second'])
+        self.assertFalse(any('still running will wake' in line for line in result['logs']))
+
     def test_concurrent_agent_gates_each_use_their_own_verified_read(self):
         for name in ("concurrent-check", "concurrent-call"):
             with self.subTest(name):

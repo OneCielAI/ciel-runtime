@@ -305,6 +305,15 @@ function continuing(on, extra = {}) {
   on('classic.Stop', () => s.stopResult)
   return s
 }
+test('background work does not suppress one bounded wait reassessment', async ($, on) => {
+  continuing(on, { discovery: { enabled: false }, continuation: { actionable: 0, next: null,
+    waiting: [{ id: 'n586', waiting_on: 'publish and connector' }], blocked: 0 } })
+  const event = { ...STOP, background_tasks: [{ id: 'publish' }] }
+  const first = await $.classic.Stop(event)
+  expect(first.block).toContain('n586')
+  expect(first.block).toContain('Do not poll')
+  expect((await $.classic.Stop(event)).block).toBeUndefined()
+})
 test('normal Stop continues, unchanged plan is bounded, progress and user input reset it', async ($, on) => {
   const s = continuing(on)
   expect((await $.classic.Stop(STOP)).block).toContain('Verify next')
@@ -338,7 +347,7 @@ const STALLED = { continuation: { actionable: 0, next: null, waiting: [{ id: 'n7
 test('a stop with unfinished but unrunnable Work explains why, once per state, without continuing', async ($, on) => {
   const s = continuing(on, STALLED)
   const first = await $.classic.Stop(STOP)
-  expect(first.block).toBeUndefined()
+  expect(first.block).toContain('Re-verify the recorded waits once')
   expect(s.logs.length).toBe(1)
   expect(s.logs[0]).toContain('none can run now')
   expect(s.logs[0]).toContain('n76 ◷ peer review')
@@ -381,8 +390,8 @@ test('approval, background tasks and an unreadable status explain the stop; fini
   expect(s.logs.at(-1)).toContain('waits for your approval')
   s.snapshot.phase = 'executing'
   s.snapshot.continuation = { actionable: 0, next: null, waiting: [{ id: 'n2', waiting_on: 'background result' }] }
-  expect((await $.classic.Stop({ ...STOP, background_tasks: [{ id: 'b', type: 'subagent', status: 'running', description: 'x' }] })).block).toBeUndefined()
-  expect(s.logs.at(-1)).toContain('1 background task(s) still running will wake this session')
+  expect((await $.classic.Stop({ ...STOP, background_tasks: [{ id: 'b', type: 'subagent', status: 'running', description: 'x' }] })).block).toContain('Re-verify the recorded waits once')
+  expect(s.logs.at(-1)).toContain('n2 ◷ background result')
   s.offline = true
   expect((await $.classic.Stop(STOP)).block).toBeUndefined()
   expect(s.logs.at(-1)).toContain('could not read the Work status')
@@ -424,7 +433,7 @@ test('a Stop read superseded by a newer successful read is not reported as unava
   s.waitStatus = null
   expect((await $.command.run({ command: 'work-mode', args: 'status' })).text).toContain('"version": 1')
   release()
-  expect((await stop).block).toBeUndefined()
+  expect((await stop).block).toContain('Re-verify the recorded waits once')
   expect(s.logs.some(l => l.includes('could not read'))).toBe(false)
 })
 test('auto planning continues decomposition but never crosses an approval boundary', async ($, on) => {

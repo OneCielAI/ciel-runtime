@@ -1153,11 +1153,6 @@ export function register(on) {
     if (!s) { if (enabled) stopNotice($, identity, STOP_UNAVAILABLE); return result }
     if (!s.enabled || s.auto_continue !== true) return result
     // Every stop that leaves unfinished Work either continues with a runnable item or says why not.
-    if (e.background_tasks?.length && !(s.continuation?.actionable > 0)) {
-      if (openWork(s)) stopNotice($, identity, 'Ciel Work auto continue waits: ' + e.background_tasks.length
-        + ' background task(s) still running will wake this session, and the next stop checks unfinished items again.')
-      return result
-    }
     if (s.approval === 'ask' && ((s.phase === 'planning' && s.ready)
         || s.continuation?.next?.phase === 'planning')) {
       if (openWork(s)) stopNotice($, identity, STOP_APPROVAL)
@@ -1167,6 +1162,11 @@ export function register(on) {
       const reason = notRunnable(s, s.continuation || {})
       if (openWork(s)) stopNotice($, identity, reason)
       const recheck = blockedRecheck(s.continuation || {})
+        + ((s.continuation?.waiting || []).length
+          ? ' Re-verify the recorded waits once for this board version: '
+            + clipped(s.continuation.waiting.map(n => n.id + ': ' + n.waiting_on).join('; '), 700)
+            + '. Check available completion evidence and separate authorized independent investigation from the dependent execution. Do not poll a running background task, duplicate it, clear approval holds, or invent progress; unchanged waits remain recorded.'
+          : '')
       if (recheck && !(blockedRecheckIdentity === identity && blockedRecheckVersion === s.version)) {
         blockedRecheckIdentity = identity; blockedRecheckVersion = s.version
         return { block: 'Ciel Work stopped: no runnable item right now. ' + reason + recheck }
