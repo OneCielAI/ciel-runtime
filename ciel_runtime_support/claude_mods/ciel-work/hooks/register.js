@@ -1235,16 +1235,17 @@ export function register(on) {
         let state = await parallelCall($, 'work_live_settings', request)
         if (!assignment && e.origin?.kind === 'composer') {
           const labels = state.settings.map(row => row.label + ' [' + row.key + '] = ' + String(row.value))
+          const ui = state.ui || { title: 'Work settings', next: 'Next', back: 'Back', cancel: 'Cancel', input_hint: 'Enter a number or instruction using Other.' }
           let page = 0
           while (true) {
-            const selected = await $.ui.ask('Work settings · ' + String(page + 1), [...labels.slice(page * 2, page * 2 + 2), 'Next', 'Back'])
-            if (selected === 'Back') break
-            if (selected === 'Next') { page = (page + 1) % Math.ceil(labels.length / 2); continue }
+            const selected = await $.ui.ask(ui.title + ' · ' + String(page + 1), [...labels.slice(page * 2, page * 2 + 2), ui.next, ui.back])
+            if (selected === ui.back) break
+            if (selected === ui.next) { page = (page + 1) % Math.ceil(labels.length / 2); continue }
             const index = labels.indexOf(selected)
             if (index < 0) break
             const row = state.settings[index]
-            const value = await $.ui.ask(row.label + ' · ' + row.key + '\nEnter a number or instruction using Other.', ['on', 'off', 'Cancel'])
-            if (value !== 'Cancel' && value) state = await parallelCall($, 'work_live_settings', { key: row.key, value })
+            const value = await $.ui.ask(row.label + ' · ' + row.key + '\n' + ui.input_hint, ['on', 'off', ui.cancel])
+            if (value !== ui.cancel && value) state = await parallelCall($, 'work_live_settings', { key: row.key, value })
             break
           }
         }

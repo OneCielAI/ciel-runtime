@@ -16,6 +16,8 @@ def settings(config, args, save):
         if key in KEYS:
             apply(config, key, value, save)
         elif key in BASIC or key == 'work_side_intake_enabled':
+            if key == 'work_plan_approval_ask':
+                value = {'ask': 'on', 'auto': 'off'}.get(value, value)
             if value not in ('on', 'off', 'true', 'false'):
                 raise WorkPlanError('use on/off or true/false')
             enabled = value in ('on', 'true')
@@ -31,4 +33,14 @@ def settings(config, args, save):
     projected += [{'key': k, 'label': label, 'value': value} for label, k, value in rows(config)]
     projected.append({'key': 'work_side_intake_enabled', 'label': 'btw_with_mcp',
                       'value': config.get('work_side_intake', {}).get('enabled') is True})
-    return {'settings': projected, 'language': language, 'applies': 'live; existing workers are not terminated'}
+    ui = {
+        'en': ('Work settings', 'Next', 'Back', 'Cancel', 'Enter a number or instruction using Other.'),
+        'ko': ('Work 설정', '다음', '뒤로', '취소', '숫자 또는 지시는 기타에 입력하세요.'),
+        'ja': ('Work 設定', '次へ', '戻る', 'キャンセル', '数値または指示は「その他」に入力してください。'),
+        'zh': ('Work 设置', '下一页', '返回', '取消', '请在“其他”中输入数字或指令。'),
+    }.get(language)
+    if ui is None:
+        ui = ('Work settings', 'Next', 'Back', 'Cancel', 'Enter a number or instruction using Other.')
+    return {'settings': projected, 'language': language,
+            'ui': dict(zip(('title', 'next', 'back', 'cancel', 'input_hint'), ui)),
+            'applies': 'live; existing workers are not terminated'}

@@ -11,6 +11,7 @@ function setup(on, extra = {}) {
     s.activeReads++; s.maxReads = Math.max(s.maxReads, s.activeReads)
     const snapshot = JSON.stringify(s.snapshot)
     try {
+      if (e.tool === 'work_live_settings' && s.liveSettings) return { value: { isError: false, content: [{ type: 'text', text: JSON.stringify({ settings: s.liveSettings }) }] } }
       if (e.tool === 'work_side_intake' && s.sideReceipt) return { value: { isError: false, content: [{ type: 'text', text: JSON.stringify(s.sideReceipt) }] } }
       if (s.waitStatus) await s.waitStatus()
       if (s.offline || (s.failText && e.args.format === 'text')) return { deny: 'offline' }
@@ -40,6 +41,16 @@ function setup(on, extra = {}) {
   })
   return s
 }
+test('live Work settings command works while board is off without model prompt', async ($, on) => {
+  const s = setup(on, { enabled: false })
+  s.liveSettings = [{ key: 'work_mode', label: 'Work mode', value: true }]
+  on('env.get', () => ({ value: 'fixture-host-token' }))
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  const result = await $.command.run({ command: 'work-mode', args: 'settings work_mode=on' })
+  expect(result.text).toContain('Work mode')
+  expect(s.prompts || 0).toBe(0)
+})
+
 test('side intake command calls MCP and keeps main prompt untouched', async ($, on) => {
   const s = setup(on, { enabled: true, phase: 'executing', continuation: { actionable: 1 }, queue: [] })
   s.sideReceipt = { accepted: true, item_id: 'n50', recap: 'request' }
