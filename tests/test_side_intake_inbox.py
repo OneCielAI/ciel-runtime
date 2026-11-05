@@ -41,6 +41,20 @@ class InboxTests(unittest.TestCase):
             self.assertEqual('received', result['stage'])
             self.assertFalse((state / 'work-sessions').exists())
 
+    def test_crash_after_board_commit_before_link_recovers_without_duplicate(self):
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as root:
+            state = Path(root)
+            sid = 'claude:fixture'
+            with patch.object(SideIntakeInbox, 'link', side_effect=OSError('simulated crash')):
+                with self.assertRaises(OSError):
+                    receive(state, sid, 'request', 'event')
+            store = session_work_plan_store(state, sid)
+            self.assertEqual(1, len(store.read()['nodes']))
+            result = receive(state, sid, 'request', 'event')
+            self.assertEqual('board_queued', result['stage'])
+            self.assertEqual(1, len(store.read()['nodes']))
+
     def test_receive_without_work_admission_is_durable(self):
         with tempfile.TemporaryDirectory() as root:
             result = receive(Path(root), 'claude:fixture', 'request', 'event', admit=False)

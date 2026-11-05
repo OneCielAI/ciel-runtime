@@ -125,7 +125,10 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
             "description": (
                 "Update a node: status (pending, in_progress, done, blocked), title, note or evidence. "
                 "Mark a step done only with evidence that it was verified; parents complete automatically. "
-                "Changing title or note returns only that goal to planning for scope review."
+                "Changing title or note returns only that goal to planning for scope review. "
+                "At least one mutation field is REQUIRED; id/expected_version alone is rejected. "
+                "waiting_on sets a dependency; explicitly waiting_on=\"\" clears that node's verified wait. "
+                "Evidence text never clears waits. Waiting excludes only its dependent subtree; continue independent runnable Work."
             ),
             "inputSchema": {
                 "type": "object",
@@ -141,6 +144,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
                     "expected_version": _EXPECTED_VERSION,
                 },
                 "required": ["id"],
+                "anyOf": [{"required": [key]} for key in ('status', 'title', 'note', 'ref', 'waiting_on', 'priority', 'evidence')],
             },
         },
         {

@@ -1392,7 +1392,11 @@ export function register(on) {
     return Box({ flexDirection: 'column', children: [
       Text({ children: 'btw_with_mcp · Runtime queue → mod receipt' }),
       Text({ children: 'Queued for planning; not execution approval. Main model is not interrupted.' }),
-      ...receipts.slice(-10).map(r => Text({ children: clipped(r.item_id || r.receipt_id, 64) + ' · ' + (r.stage || 'board_queued') + ' · ACK: ' + (r.external_ack || 'not_sent') + ' · ' + clipped(r.recap, 300) })),
+      ...receipts.slice(-10).map(r => Box({ flexDirection: 'column', children: [
+        Text({ wrap: 'wrap', children: 'Receipt: ' + clipped(r.item_id || r.receipt_id, 20) }),
+        Text({ wrap: 'wrap', children: 'Stage: ' + (r.stage || 'board_queued') + ' · external ACK: ' + (r.external_ack || 'not_sent') }),
+        Text({ wrap: 'wrap', children: clipped(r.recap, 300) }),
+      ] })),
       ...(!receipts.length ? [Text({ children: 'No side-intake receipts for this session.' })] : []),
       Button({ key: 'side-close', plain: true, label: 'Close', onPress: () => $.ui.close({ id: 'ciel-side-intake' }) }),
     ] })
