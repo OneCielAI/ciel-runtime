@@ -47,6 +47,11 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(done.returncode, 0, done.stderr)
         return json.loads(done.stdout)
 
+    def test_side_receipt_is_visible_in_mod_once(self):
+        result = self.run_scenario('side-receipt-visible')
+        self.assertEqual(1, len(result['logs']))
+        self.assertIn('n77', result['logs'][0])
+
     def test_work_off_turn_end_does_not_query_parallel(self):
         self.assertEqual(0, self.run_scenario('parallel-complete-off')['parallelCalls'])
 

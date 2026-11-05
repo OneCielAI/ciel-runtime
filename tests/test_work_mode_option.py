@@ -12,8 +12,14 @@ from ciel_runtime_support.work_mode_launch import (WORK_AUTO_CONTINUE_KEY, WORK_
 
 
 def _row(provider, pcfg, key):
-    rows, values = ciel_runtime.llm_option_panel_rows(provider, pcfg, "en")
-    return rows[values.index(key)]
+    from ciel_runtime_support.work_settings_menu import panel_rows
+    from ciel_runtime_support.work_mode_launch import work_mode_menu_label, work_plan_approval_menu_label, work_auto_continue_menu_label
+    config = ciel_runtime.load_config()
+    rows, values = panel_rows(config)
+    row = rows[values.index(key)]
+    labels = {WORK_MODE_KEY: work_mode_menu_label, WORK_PLAN_APPROVAL_ASK_KEY: work_plan_approval_menu_label,
+              WORK_AUTO_CONTINUE_KEY: work_auto_continue_menu_label}
+    return row + ' [' + labels[key](config) + ']'
 
 
 class WorkModeOptionTests(unittest.TestCase):

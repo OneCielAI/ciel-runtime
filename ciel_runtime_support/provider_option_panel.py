@@ -6,8 +6,7 @@ from typing import Any, Callable
 from .architecture import ProviderOptionPresentationPolicy
 from .work_retention import WORK_COMPLETED_AUTO_DELETE_KEY, retention_enabled
 from .work_mode_launch import (WORK_AUTO_CONTINUE_KEY, WORK_MODE_KEY, WORK_PLAN_APPROVAL_ASK_KEY,
-                               work_auto_continue_enabled, work_auto_continue_menu_label, work_mode_enabled,
-                               work_mode_menu_label, work_plan_approval_ask, work_plan_approval_menu_label)
+                               work_auto_continue_enabled, work_mode_enabled, work_plan_approval_ask)
 
 
 @dataclass(frozen=True)
@@ -102,15 +101,7 @@ def build_option_panel_rows(
         "on" if runtime.claude_feedback_drafts() else "off (default)")
     from .provider_tool_policy import blocked_tools_option_value
     add("Tool blocklist (routed)", "blocked_tools", blocked_tools_option_value(config))
-    work = runtime.work_settings()
     add(menu_text("sse_compact_info", language), "__info__", state_text("active", language))
-    add("Work mode", WORK_MODE_KEY, work_mode_menu_label(work))
-    add("Work plan approval", WORK_PLAN_APPROVAL_ASK_KEY, work_plan_approval_menu_label(work))
-    add("Work auto continue", WORK_AUTO_CONTINUE_KEY, work_auto_continue_menu_label(work))
-    add("Work completed auto-delete (24h)", WORK_COMPLETED_AUTO_DELETE_KEY, "on (default)" if retention_enabled(work) else "off")
-    from .work_parallel_menu import rows as parallel_rows
-    for label, key, value in parallel_rows(work, language=language):
-        add(label, key, value)
     if not runtime.direct_native(provider, config) and policy.shows_workflows:
         model = runtime.current_model(provider, config)
         capabilities = runtime.capability_string(provider, config, model)

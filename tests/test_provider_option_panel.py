@@ -63,7 +63,7 @@ class ProviderOptionPanelTests(unittest.TestCase):
                         presentation=GatewayPresentation(),
                         context_strategy="managed", shows_workflows=False, timeout_default="default"),
                     self.services(), language=language)
-                for key in ("work_mode", "work_parallel_enabled", "gateway_selection", "gateway_retries"):
+                for key in ("gateway_selection", "gateway_retries"):
                     self.assertIn(menu_text(key, language), rows[values.index(key)])
 
     def test_route_policy_projects_runtime_controls_without_provider_dispatch(self):

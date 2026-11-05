@@ -55,6 +55,8 @@ MAIN_MENU_ACTIONS: tuple[str, ...] = (
     "session-backup",
     "provider-fallback",
     "unattended-restart",
+    "work-settings",
+    "side-settings",
     "quit",
 )
 
@@ -406,6 +408,9 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
             from ciel_runtime_support import provider_failover_menu
 
             panel_rows, panel_values = provider_failover_menu.panel_rows(load_config())
+        elif name in ('work-settings', 'side-settings'):
+            from .work_settings_menu import panel_rows as settings_rows
+            panel_rows, panel_values = settings_rows(cfg, side=name == 'side-settings')
         elif name == "unattended-restart":
             from ciel_runtime_support import unattended_restart_menu
 
@@ -1172,6 +1177,16 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         restore_raw_mode()
                     panel_rows, panel_values = session_backup_menu.panel_rows(CONFIG_DIR, Path.cwd())
                     panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
+                elif panel in ('work-settings', 'side-settings'):
+                    if value == 'back':
+                        close_panel()
+                        continue
+                    from .work_settings_menu import apply as apply_settings, panel_rows as settings_rows
+                    entered = prompt_menu_value(value + ' (on/off, session/btw_with_mcp, or value)', '',
+                        restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
+                    apply_settings(load_config(), value, entered, save_config)
+                    panel_rows, panel_values = settings_rows(load_config(), side=panel == 'side-settings')
+                    messages = [value + ': ' + entered]
                 elif panel == "unattended-restart":
                     if value == "back":
                         close_panel()

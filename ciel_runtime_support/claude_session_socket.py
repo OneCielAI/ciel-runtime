@@ -186,7 +186,12 @@ class ClaudeSessionSocketClient:
             if not prompt.startswith(prefix):
                 return False
             request = json.loads(prompt[len(prefix):])
-            receipt = self._side_intake("claude:" + record["sessionId"], request["text"], request["event_key"])
+            from .work_plan_tree import WorkPlanError
+            try:
+                receipt = self._side_intake("claude:" + record["sessionId"], request["text"], request["event_key"])
+            except (WorkPlanError, OSError) as exc:
+                self._log('ERROR', f'channel_side_intake_deferred reason={type(exc).__name__} detail={str(exc)[:240]} action=retain_pending')
+                return False
             if not receipt or receipt.get("accepted") is not True:
                 return False
             self._log("INFO", f"channel_side_intake_accepted item_id={receipt['item_id']} duplicate={receipt.get('duplicate', False)}")

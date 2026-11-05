@@ -34,8 +34,12 @@ class RuntimeInputGateway:
         requested_side = (meta.get("btw_with_mcp") is True or meta.get("message_type") == "btw_with_mcp"
                           or meta.get("event_type") == "btw_with_mcp")
         side_enabled = settings.get("enabled") is True
-        default_side = meta.get("source_kind") == "external_event" and settings.get("type", "btw_with_mcp") == "btw_with_mcp"
-        if side_enabled and (requested_side or default_side):
+        explicit_type = meta.get('injection_type') or meta.get('message_type')
+        if explicit_type is not None and explicit_type not in ('session', 'btw_with_mcp'):
+            raise ValueError('injection_type must be session or btw_with_mcp')
+        selected_type = explicit_type or ('btw_with_mcp' if requested_side else settings.get('type', 'btw_with_mcp'))
+        eligible = requested_side or meta.get('source_kind') == 'external_event' or explicit_type is not None
+        if side_enabled and eligible and selected_type == 'btw_with_mcp':
             event_key = meta.get("event_id") or meta.get("event_key")
             if not isinstance(event_key, str) or not event_key.strip():
                 raise ValueError("btw_with_mcp requires stable meta.event_id or meta.event_key")
@@ -292,8 +296,16 @@ class RuntimeInputGateway:
         event_source: str,
         transport_event_id: str = "",
         input_transport: str = "",
+        injection_type: str = "",
     ) -> dict[str, Any]:
-        """Admit exact decoded event text; never normalize or re-serialize it."""
+        """Admit decoded event text with an explicit, validated injection lane."""
+        if not injection_type:
+            try:
+                decoded = json.loads(raw_event)
+                data = decoded.get('data', {}) if isinstance(decoded, dict) else {}
+                injection_type = data.get('injection_type', '') if isinstance(data, dict) else ''
+            except ValueError:
+                pass
 
         admitted = self._append(
             {
@@ -314,6 +326,7 @@ class RuntimeInputGateway:
                     "transport_event_id": transport_event_id,
                     "input_transport": self._transport(input_transport),
                     "raw_preserved": True,
+                    **({'injection_type': injection_type} if injection_type else {}),
                 },
                 "delivery": ["llm"],
                 "visibility": "private_runtime",

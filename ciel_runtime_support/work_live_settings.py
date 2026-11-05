@@ -23,6 +23,11 @@ def settings(config, args, save):
                 discovery.pop('file_path', None)
             config['work_discovery'] = discovery
             save(config)
+        elif key == 'work_side_intake_type':
+            if value not in ('session', 'btw_with_mcp'):
+                raise WorkPlanError('use session or btw_with_mcp')
+            config['work_side_intake'] = {**config.get('work_side_intake', {}), 'type': value}
+            save(config)
         elif key in KEYS:
             apply(config, key, value, save)
         elif key in BASIC or key == 'work_side_intake_enabled':
@@ -32,7 +37,7 @@ def settings(config, args, save):
                 raise WorkPlanError('use on/off or true/false')
             enabled = value in ('on', 'true')
             if key == 'work_side_intake_enabled':
-                config['work_side_intake'] = {**config.get('work_side_intake', {}), 'enabled': enabled, 'type': 'btw_with_mcp'}
+                config['work_side_intake'] = {**config.get('work_side_intake', {}), 'enabled': enabled, 'type': config.get('work_side_intake', {}).get('type', 'btw_with_mcp')}
             else:
                 config[key] = enabled
             save(config)
@@ -44,7 +49,9 @@ def settings(config, args, save):
     projected.append({'key': 'work_discovery_file_path',
                       'label': menu_text('work_discovery_file_path', language),
                       'value': config.get('work_discovery', {}).get('file_path', '')})
-    projected.append({'key': 'work_side_intake_enabled', 'label': 'btw_with_mcp',
+    projected.append({'key': 'work_side_intake_type', 'label': menu_text('work_side_intake_type', language),
+                      'value': config.get('work_side_intake', {}).get('type', 'btw_with_mcp')})
+    projected.append({'key': 'work_side_intake_enabled', 'label': menu_text('work_side_intake_enabled', language),
                       'value': config.get('work_side_intake', {}).get('enabled') is True})
     ui = {
         'en': ('Work settings', 'Next', 'Back', 'Cancel', 'Enter a number or instruction using Other.'),

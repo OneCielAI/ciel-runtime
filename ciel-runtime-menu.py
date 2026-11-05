@@ -601,6 +601,16 @@ def load_cfg() -> dict:
     return {"current_provider": "nvidia-hosted", "providers": {}}
 
 
+def save_cfg(config: dict) -> None:
+    CONFIG.parent.mkdir(parents=True, exist_ok=True)
+    temporary = CONFIG.with_name(f'.{CONFIG.name}.{os.getpid()}.settings.tmp')
+    try:
+        temporary.write_text(json.dumps(config, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+        temporary.replace(CONFIG)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 def persist_launch_action(action: str) -> None:
     config = load_cfg()
     if not remember_launch_action(config, action):
@@ -1014,6 +1024,9 @@ def main_items() -> list[tuple[str, str]]:
         add("ollama-options", f"{t('ollama_options')}  [{ollama_options_summary(pcfg)}]")
     if has_provider_options(provider):
         add("provider-options", f"{t('provider_options')}  [{provider_options_summary(provider, pcfg)}]")
+    from ciel_runtime_support.recent_menu_text import menu_text
+    add('work-settings', menu_text('work_settings_menu', lang))
+    add('side-settings', menu_text('side_settings_menu', lang))
     add("test", t("test"))
     launch_label = t("launch")
     if not claude_launch_enabled(provider):
@@ -2149,6 +2162,18 @@ def main() -> int:
                         checks = preflight_checks()
                         idx = index_for_action("test")
                     sub = None
+                elif sub['kind'] == 'work-settings':
+                    from ciel_runtime_support.work_live_settings import settings
+                    row = row_by_action.get('__sub_selected__', 10)
+                    key = item['value']
+                    prompt = ('session / btw_with_mcp' if key == 'work_side_intake_type' else 'on/off or value')
+                    entered = inline_prompt(None, item['label'] + ' [' + prompt + ']: ', row, '')
+                    try:
+                        settings(load_cfg(), {'key': key, 'value': entered}, save_cfg)
+                        notice = [item['label'] + ' → ' + entered]
+                    except (ValueError, RuntimeError) as exc:
+                        notice = [str(exc)]
+                    sub = None
                 elif sub["kind"] == "provider-options":
                     provider = current_provider()
                     row = row_by_action.get("__sub_selected__", row_by_action.get("provider-options", 10))
@@ -2294,6 +2319,17 @@ def main() -> int:
                 notice = []
             else:
                 notice = ["Ollama options are available only for ollama and ollama-cloud."]
+        elif action in ('work-settings', 'side-settings'):
+            from ciel_runtime_support.work_live_settings import settings
+            from ciel_runtime_support.recent_menu_text import menu_text
+            state = settings(load_cfg(), {}, None)
+            is_side = action == 'side-settings'
+            selected = [r for r in state['settings'] if (r['key'].startswith('work_side_intake_')) == is_side]
+            sub = {'kind': 'work-settings', 'parent': action, 'items': [
+                {'value': r['key'], 'label': r['label'] + ': ' + str(r['value']), 'current': False}
+                for r in selected], 'idx': 0, 'offset': 0,
+                'title': menu_text('side_settings_menu' if is_side else 'work_settings_menu', current_language())}
+            notice = []
         elif action == "provider-options":
             provider = current_provider()
             if has_provider_options(provider):

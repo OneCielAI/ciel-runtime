@@ -45,6 +45,28 @@ let stopNoticeKey = ''
 let compactEpoch = 0
 const compacts = new Set()
 let continuationSession = null
+const seenSideReceipts = new Set()
+function showSideReceipts($, identity, snapshot) {
+  for (const receipt of snapshot.side_intake_receipts || []) {
+    const key = identity + ':' + receipt.item_id
+    if (seenSideReceipts.has(key)) continue
+    seenSideReceipts.add(key)
+    if (seenSideReceipts.size > 200) seenSideReceipts.delete(seenSideReceipts.values().next().value)
+    $.ui.log('btw_with_mcp · mod observed runtime queue → ' + clipped(receipt.item_id, 64)
+      + ' · planning only · ' + clipped(receipt.recap, 300))
+  }
+}
+function pollBusySideReceipts($, identity, turn) {
+  $.clock.after(2000, async () => {
+    if (!working || mainTurnEpoch !== turn || await sessionId($) !== identity) return
+    try {
+      const snapshot = await readSnapshot($, identity)
+      if (!working || mainTurnEpoch !== turn || await sessionId($) !== identity || snapshot.enabled === false) return
+      showSideReceipts($, identity, snapshot)
+    } catch {}
+    if (working && mainTurnEpoch === turn) pollBusySideReceipts($, identity, turn)
+  })
+}
 let discoveryLast = 0
 let discoveryIdentity = null
 const STOP_READ_MS = 2000
@@ -201,7 +223,10 @@ async function refresh($) {
     const s = await readSnapshot($, identity)
     const currentIdentity = await sessionId($)
     if (ticket !== generation || currentIdentity !== identity) return null
-    if (ticket === generation) { cached = s; enabled = s.enabled; $.ui.invalidate('ui.render') }
+    if (ticket === generation) {
+      cached = s; enabled = s.enabled; $.ui.invalidate('ui.render')
+      showSideReceipts($, identity, s)
+    }
     return s
   } catch {
     if (ticket === generation) { cached = null; $.ui.invalidate('ui.render') }
@@ -1086,7 +1111,7 @@ export function register(on) {
     return next(e)
   })
   on('turn.start', async ($, e, next) => {
-    if (e.agentId === undefined) { working = true; stopIdleRefresh(); generation++; mainTurnEpoch++ }
+    if (e.agentId === undefined) { working = true; stopIdleRefresh(); generation++; mainTurnEpoch++; if (cached?.enabled && cached.side_intake_enabled) pollBusySideReceipts($, await sessionId($), mainTurnEpoch) }
     return next(e)
   })
   on('turn.complete', async ($, e, next) => parallelTurnComplete($, e, next))

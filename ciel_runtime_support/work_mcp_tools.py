@@ -355,6 +355,12 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         if args.get("format") == "json":
             state = tree.snapshot(doc, approval_ask=approval_ask)
             state["auto_continue"] = auto_continue
+            state['side_intake_enabled'] = (config or {}).get('work_side_intake', {}).get('enabled') is True
+            state['side_intake_receipts'] = [
+                {'item_id': receipt['item_id'], 'recap': receipt['recap'],
+                 'stage': 'runtime_queued', 'execution_approved': False}
+                for receipt in list(doc.get('side_intake_receipts', {}).values())[-10:]
+            ]
             if log is not None:
                 log("INFO", f"work_status_decision version={doc['version']} auto_continue={auto_continue} "
                     f"actionable={state['continuation']['actionable']} "

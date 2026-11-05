@@ -356,6 +356,14 @@ const scenarios = {
     const result = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
     return { text: result?.block || '' }
   },
+  async 'side-receipt-visible'() {
+    const board = { ...snapshot(), side_intake_receipts: [{ item_id: 'n77', recap: 'request recap' }] }
+    const { $, state } = host(async () => text(board))
+    await check($)
+    await handlers['command.run']($, { args: 'status' })
+    await handlers['command.run']($, { args: 'status' })
+    return { logs: state.logs.filter(s => s.includes('mod observed runtime queue')) }
+  },
   async 'parallel-complete-off'() {
     let parallelCalls = 0
     const { $ } = host(async tool => {

@@ -8,6 +8,28 @@ from ciel_runtime_support.work_side_intake import enqueue
 
 
 class SideIntakeTests(unittest.TestCase):
+    def test_explicit_sse_lane_overrides_default_without_changing_raw_body(self):
+        import json
+        from ciel_runtime_support.runtime_input_gateway import RuntimeInputGateway
+        captured = []
+        config = {'enabled': True, 'type': 'btw_with_mcp'}
+        gateway = RuntimeInputGateway(lambda p: captured.append(p) or {'id': 1},
+                                      load_side_settings=lambda: config)
+        args = dict(receiver_id='fixture', transport='sse', event_id='one',
+                    event_type='event', event_source='source')
+        raw = json.dumps({'data': {'injection_type': 'session', 'text': 'request'}})
+        gateway.submit_external_event(raw, **args)
+        self.assertEqual(raw, captured[-1]['message'])
+        self.assertFalse(captured[-1]['meta'].get('_side_intake_admitted', False))
+        config['type'] = 'session'
+        gateway.submit_external_event('request', injection_type='btw_with_mcp', **args)
+        self.assertTrue(captured[-1]['meta']['_side_intake_admitted'])
+        config['enabled'] = False
+        gateway.submit_external_event('request', injection_type='btw_with_mcp', **args)
+        self.assertEqual('request', captured[-1]['message'])
+        with self.assertRaises(ValueError):
+            gateway.submit_external_event('request', injection_type='unknown', **args)
+
     def test_durable_dedup_preserves_active_and_approval(self):
         with tempfile.TemporaryDirectory() as root:
             store = WorkPlanStore(Path(root) / 'work.json')

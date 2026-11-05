@@ -209,6 +209,10 @@ def set_llm_option_config(
         save_config(cfg)
         return [f"Claude feedback drafts {'on' if enabled else 'off'}.",
                 "Applied on every Claude launch; manual /feedback remains available. Restart Claude to change a running session."]
+    if key in ('work_side_intake_enabled', 'work_side_intake_type'):
+        from .work_live_settings import settings
+        state = settings(cfg, {'key': key, 'value': value}, save_config)
+        return [str(row['label']) + ': ' + str(row['value']) for row in state['settings'] if row['key'] == key]
     from .work_parallel_menu import KEYS as parallel_keys, apply as apply_parallel
     if key in parallel_keys:
         return apply_parallel(cfg, key, value, save_config)

@@ -449,6 +449,8 @@ def render_prelaunch_screen(
             "session-backup": menu_text("main_backup", lang),
             "provider-fallback": menu_text("main_fallback", lang),
             "unattended-restart": menu_text("main_restart", lang),
+            'work-settings': menu_text('work_settings_menu', lang),
+            'side-settings': menu_text('side_settings_menu', lang),
             "channels": "Channels",
             "context": ui_text("context_setup", lang),
             "preset": ui_text("presets", lang),

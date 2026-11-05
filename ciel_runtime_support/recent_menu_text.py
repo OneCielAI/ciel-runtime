@@ -3,6 +3,11 @@ from .ui_text import UI_TEXT
 
 # Each row is English, Korean, Japanese, Chinese; keys are option identities.
 TEXT = {
+    "state_back": ("Back", "뒤로", "戻る", "返回"),
+    "work_settings_menu": ("Work mode settings", "Work 모드 설정", "Work モード設定", "Work 模式设置"),
+    "side_settings_menu": ("btw_with_mcp settings", "btw_with_mcp 설정", "btw_with_mcp 設定", "btw_with_mcp 设置"),
+    "work_side_intake_enabled": ("SSE side intake", "SSE 사이드 접수", "SSE サイド受付", "SSE 侧边接收"),
+    "work_side_intake_type": ("SSE injection type (session / btw_with_mcp)", "SSE 주입 타입 (session / btw_with_mcp)", "SSE 注入タイプ (session / btw_with_mcp)", "SSE 注入类型 (session / btw_with_mcp)"),
     "work_parallel_enabled": ("Work parallel execution", "Work 병렬 실행", "Work 並列実行", "Work 并行执行"),
     "work_parallel_paused": ("Pause Work parallel execution", "Work 병렬 실행 일시정지", "Work 並列実行を一時停止", "暂停 Work 并行执行"),
     "work_parallel_max_active": ("Work concurrent fork limit", "Work 동시 실행 포크 한도", "Work 同時フォーク上限", "Work 同时运行分支上限"),
