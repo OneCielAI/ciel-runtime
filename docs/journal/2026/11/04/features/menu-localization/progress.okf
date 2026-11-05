@@ -18,7 +18,9 @@ Four supported languages: en/ko/ja/zh. Recent main-menu labels, Work and paralle
 - Focused provider option, Work option, parallel menu, external event, prelaunch projection suites: 27 tests passed. Ruff and diff checks passed.
 - Initial isolated four-language capture launched the actual app, but images showed only main menu; not accepted as options-panel verification.
 - Second driver attempt failed exit3221225786; no claim of UI verification.
-- Third isolated four-language run uses longer transition wait and is pending. Only owned conhost descendants are stopped; no live routers touched.
+- Actual options screenshots visually inspected: en .local/menu-locale-20261104-192818/en.png; ko/ja/zh .local/menu-locale-20261104-193034/{ko,ja,zh}.png. Recent main labels and Work/debug/discovery controls render in selected language. Only owned conhost descendants stopped; no live routers touched.
+- Remaining older generic context labels and some status summaries still render English; this change is not claimed as exhaustive localization of every submenu.
+- Extra regression verifies translated save notices preserve literal user instruction `on`; simplified option validation expression without behavior change.
 
 # Pending
 Inspect actual options screenshots, close remaining localization gaps, commit/push, verify published package and installed behavior. Task is not complete.

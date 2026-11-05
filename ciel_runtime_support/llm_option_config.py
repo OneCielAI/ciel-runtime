@@ -338,7 +338,8 @@ def set_work_mode_option(cfg: dict[str, Any], key: str, value: str, parse_bool, 
     elif normalized in _WORK_MODE_BOOL_WORDS:
         cfg[key] = parse_bool(normalized, default=key != WORK_PLAN_APPROVAL_ASK_KEY)
     else:
-        choices = ("ask or auto" if key == WORK_PLAN_APPROVAL_ASK_KEY else "on or off") if language == "en" else ("ask / auto" if key == WORK_PLAN_APPROVAL_ASK_KEY else "on / off")
+        separator = " or " if language == "en" else " / "
+        choices = separator.join(("ask", "auto") if key == WORK_PLAN_APPROVAL_ASK_KEY else ("on", "off"))
         return [menu_text("enter_work_value", language, choices=choices)]
     save_config(cfg)
     if key == WORK_COMPLETED_AUTO_DELETE_KEY:

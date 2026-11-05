@@ -24,6 +24,21 @@ class ParallelMenuTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     apply(config, "work_parallel_P2", "70%", lambda c: self.fail("threshold menu row removed"))
 
+    def test_all_languages_localize_labels_and_save_without_changing_instruction(self):
+        from ciel_runtime_support.recent_menu_text import LANGUAGES, menu_text
+        with tempfile.TemporaryDirectory() as root:
+            store = WorkParallelStore(Path(root) / "parallel.json")
+            with patch("ciel_runtime_support.work_parallel_mcp.ledger", return_value=store):
+                for language in LANGUAGES:
+                    config = {"language": language}
+                    message = apply(config, "work_discovery_instruction", "on", lambda _: None)
+                    self.assertEqual("on", config["work_discovery"]["instruction"])
+                    self.assertIn(menu_text("work_parallel_saved", language), message)
+                    projected = {key: (label, value) for label, key, value in rows(config)}
+                    self.assertEqual("on", projected["work_discovery_instruction"][1])
+                    self.assertEqual(menu_text("work_parallel_enabled", language),
+                                     projected["work_parallel_enabled"][0])
+
     def test_invalid_value_does_not_save(self):
         with tempfile.TemporaryDirectory() as root:
             store = WorkParallelStore(Path(root) / "parallel.json")
