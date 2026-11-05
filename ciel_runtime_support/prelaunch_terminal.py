@@ -451,6 +451,7 @@ def render_prelaunch_screen(
             "unattended-restart": menu_text("main_restart", lang),
             'work-settings': menu_text('work_settings_menu', lang),
             'side-settings': menu_text('side_settings_menu', lang),
+            'work-setting-choice': menu_text('work_settings_menu', lang),
             "channels": "Channels",
             "context": ui_text("context_setup", lang),
             "preset": ui_text("presets", lang),

@@ -3,6 +3,7 @@ from .ui_text import UI_TEXT
 
 # Each row is English, Korean, Japanese, Chinese; keys are option identities.
 TEXT = {
+    "settings_edit_text": ("Edit text…", "텍스트 편집…", "テキストを編集…", "编辑文本…"),
     "state_back": ("Back", "뒤로", "戻る", "返回"),
     "work_settings_menu": ("Work mode settings", "Work 모드 설정", "Work モード設定", "Work 模式设置"),
     "side_settings_menu": ("btw_with_mcp settings", "btw_with_mcp 설정", "btw_with_mcp 設定", "btw_with_mcp 设置"),

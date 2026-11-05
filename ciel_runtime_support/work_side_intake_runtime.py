@@ -1,5 +1,4 @@
-"""Bind automatic side intake to the verified native session, not a guessed cwd."""
-from .work_mode_launch import work_mode_enabled
+"""Stage automatic side mail for the exact native session; the mod consumes it."""
 
 
 def runtime_intake(load_config, state_dir, session_id, text, event_key):
@@ -7,10 +6,6 @@ def runtime_intake(load_config, state_dir, session_id, text, event_key):
     if config.get('work_side_intake', {}).get('enabled') is not True:
         return None
     from .side_intake_service import receive
-    from .work_plan_tree import WorkPlanCapacityError
-    receipt = receive(state_dir, session_id, text, event_key, admit=work_mode_enabled(config))
-    if receipt.get('board_pending') and not receipt.get('board_error'):
-        # Keep the user's interim ordinary-message fallback while retaining
-        # the independent receipt for subsequent ACK/triage implementation.
-        raise WorkPlanCapacityError('side inbox received; Work board admission pending')
-    return receipt
+    # Socket admission acknowledges durable receipt only. It must not mutate
+    # the Work board behind the mod or depend on Work execution being enabled.
+    return receive(state_dir, session_id, text, event_key, admit=False)

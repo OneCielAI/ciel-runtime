@@ -24,10 +24,26 @@ def receive(state_dir, session_id, text, event_key, *, admit=True):
 
 
 def drain(state_dir, session_id, *, admit=True, limit=10):
+    if type(limit) is not int or limit < 1 or limit > 100:
+        raise ValueError('side drain batch limit must be an integer from 1 to 100')
     inbox = SideIntakeInbox(state_dir, session_id)
+    errors = []
     if admit:
-        for row in inbox.pending(limit):
-            result = receive(state_dir, session_id, row['text'], row['event_key'])
-            if result.get('board_pending'):
-                break
-    return inbox.summaries()
+        from .channel_message_repository import exclusive_file_lock
+        cursor_path = inbox.directory / 'drain-cursor.json'
+        with exclusive_file_lock(cursor_path):
+            cursor = inbox._read_file(cursor_path) or {}
+            rows = inbox.pending(limit, after=str(cursor.get('after') or ''))
+            if rows:
+                inbox._save_file(cursor_path, {'after': rows[-1]['receipt_id']})
+        for row in rows:
+            # One unadmittable event must not strand independent mail. Every
+            # failure retains its pending file; a later hook can retry it.
+            try:
+                result = receive(state_dir, session_id, row['text'], row['event_key'])
+                if result.get('board_error'):
+                    errors.append({**result, 'error': result['board_error']})
+            except (OSError, ValueError) as error:
+                errors.append({'receipt_id': row['receipt_id'], 'stage': 'received',
+                               'recap': row['text'][:500], 'error': type(error).__name__})
+    return inbox.summaries() + errors

@@ -46,6 +46,47 @@ const call = ($, agentId) => handlers['tool.call']($, { tool: 'Edit', agentId,
 const verdict = r => r?.decision === 'deny' ? 'deny: ' + r.reason : r?.deny ? 'deny: ' + r.deny : 'allow'
 
 const scenarios = {
+  async 'side-mailbox-compact-recovery'() {
+    const timers = []
+    let drains = 0
+    const { $ } = host(async tool => {
+      if (tool === 'work_status') return text({ ...snapshot(), side_intake_enabled: true })
+      if (tool === 'work_side_status') return text({ enabled: true, side_inbox_receipts: [] })
+      if (tool === 'work_side_drain') { drains++; return text([]) }
+      return text({})
+    })
+    $.clock.after = (delay, callback) => { timers.push({ delay, callback }); return { cancel() {} } }
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    let settle
+    const compact = handlers['session.compact']($, { trigger: 'manual' },
+      async () => new Promise((resolve, reject) => { settle = reject }))
+    while (!settle) await Promise.resolve()
+    await timers.find(t => t.delay === 2000).callback()
+    const during = drains
+    settle(new Error('compact fixture failure'))
+    try { await compact } catch {}
+    await timers.filter(t => t.delay === 2000)[1].callback()
+    return { during, after: drains }
+  },
+  async 'side-mailbox-mod-drain'() {
+    const timers = []
+    const tools = []
+    const { $, state } = host(async tool => {
+      tools.push(tool)
+      if (tool === 'work_status') return text({ ...snapshot(), side_intake_enabled: true })
+      if (tool === 'work_side_status') return text({ enabled: true, side_inbox_receipts: [
+        { receipt_id: 'mail1', stage: 'received', recap: 'original request', item_id: null }] })
+      if (tool === 'work_side_drain') return text([
+        { receipt_id: 'mail1', stage: 'board_queued', recap: 'original request', item_id: 'n99' }])
+      return text({})
+    })
+    $.clock.after = (delay, callback) => { timers.push({ delay, callback }); return { cancel() {} } }
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    const timer = timers.find(t => t.delay === 2000)
+    if (!timer) throw new Error('mailbox consumer not scheduled')
+    await timer.callback()
+    return { tools, logs: state.logs, rearmed: timers.filter(t => t.delay === 2000).length }
+  },
   async 'live-settings-command'() {
     const changes = []
     const { $ } = host(async (tool, args) => {
@@ -362,7 +403,7 @@ const scenarios = {
     await check($)
     await handlers['command.run']($, { args: 'status' })
     await handlers['command.run']($, { args: 'status' })
-    return { logs: state.logs.filter(s => s.includes('mod observed runtime queue')) }
+    return { logs: state.logs.filter(s => s.includes('mod queued')) }
   },
   async 'parallel-complete-off'() {
     let parallelCalls = 0

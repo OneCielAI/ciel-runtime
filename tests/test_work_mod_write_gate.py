@@ -47,6 +47,18 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(done.returncode, 0, done.stderr)
         return json.loads(done.stdout)
 
+    def test_mail_waits_during_compact_and_resumes_after_compact_failure(self):
+        result = self.run_scenario('side-mailbox-compact-recovery')
+        self.assertEqual(0, result['during'])
+        self.assertEqual(1, result['after'])
+
+    def test_mod_consumes_staged_mail_and_displays_both_stages(self):
+        result = self.run_scenario('side-mailbox-mod-drain')
+        self.assertIn('work_side_drain', result['tools'])
+        self.assertTrue(any('awaiting mod consumption' in line for line in result['logs']))
+        self.assertTrue(any('mod queued' in line and 'n99' in line for line in result['logs']))
+        self.assertEqual(2, result['rearmed'])
+
     def test_side_receipt_is_visible_in_mod_once(self):
         result = self.run_scenario('side-receipt-visible')
         self.assertEqual(1, len(result['logs']))

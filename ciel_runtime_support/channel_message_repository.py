@@ -135,6 +135,18 @@ class ChannelMessageRepository:
                         f"channel={message.get('channel')} kind={message.get('kind')}",
                     )
                     return returned
+                # Preserve each external SSE event before queue append/rotation
+                # or native-session discovery. The receiver can advance its
+                # cursor only after this durable admission has succeeded.
+                metadata = message.get('meta') or {}
+                if metadata.get('source_kind') == 'external_event':
+                    from .side_intake_inbox import SideIntakeInbox
+                    identity = json.dumps([metadata.get('receiver_id'), metadata.get('event_source'),
+                                           metadata.get('event_id'), message['id']], separators=(',', ':'))
+                    import hashlib
+                    key = hashlib.sha256(identity.encode()).hexdigest()
+                    spool = self.path.parent / 'external-mail' / key[:2] / (key + '.json')
+                    SideIntakeInbox._save_file(spool, {'schema': 1, 'stage': 'received', 'message': message})
                 # A truncated last row must not swallow the next valid input.
                 separator = "\n" if self._ends_unterminated() else ""
                 with self.path.open("a", encoding="utf-8") as stream:

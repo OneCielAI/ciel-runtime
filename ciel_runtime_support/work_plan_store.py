@@ -134,6 +134,18 @@ class WorkPlanStore:
             if working != current:
                 working["version"] = current["version"] + 1
                 working["updated_at"] = time.time()
+                removed_ids = {node['id'] for node in current['nodes']} - {node['id'] for node in working['nodes']}
+                if removed_ids:
+                    # Commit recovery evidence first. A failed board replacement
+                    # may leave an unused archive, never a deletion without one.
+                    from .side_intake_inbox import SideIntakeInbox
+                    archive = self.path.parent / 'removed-work' / f'{current["version"]}-{time.time_ns()}.json'
+                    SideIntakeInbox._save_file(archive, {
+                        'schema': 1, 'before_version': current['version'],
+                        'after_version': working['version'], 'removed_at': time.time(),
+                        'active_root': current.get('active_root'),
+                        'nodes': [node for node in current['nodes'] if node['id'] in removed_ids],
+                    })
                 self._write_unlocked(working)
                 notification = (copy.deepcopy(current), copy.deepcopy(working))
                 current = working

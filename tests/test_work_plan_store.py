@@ -21,6 +21,26 @@ class WorkPlanStoreTests(unittest.TestCase):
         self.path = Path(self.temp.name) / "workspace" / "work-plan.json"
         self.store = WorkPlanStore(self.path)
 
+    def test_removed_queue_items_have_durable_recovery_archive(self):
+        self.store.transaction(lambda d: t.add_node(d, None, 'discarded request'))
+        self.store.transaction(lambda d: t.remove_node(d, 'n1'))
+        archives = list(self.path.parent.glob('removed-work/*.json'))
+        self.assertEqual(1, len(archives))
+        saved = json.loads(archives[0].read_text(encoding='utf8'))
+        self.assertEqual('discarded request', saved['nodes'][0]['title'])
+        self.assertEqual([], self.store.read()['nodes'])
+        self.assertEqual(1, saved['before_version'])
+        self.assertEqual(2, saved['after_version'])
+
+    def test_archive_write_failure_prevents_queue_deletion(self):
+        self.store.transaction(lambda d: t.add_node(d, None, 'preserve me'))
+        before = self.path.read_bytes()
+        with patch('ciel_runtime_support.side_intake_inbox.SideIntakeInbox._save_file',
+                   side_effect=OSError('disk full')):
+            with self.assertRaises(OSError):
+                self.store.transaction(lambda d: t.remove_node(d, 'n1'))
+        self.assertEqual(before, self.path.read_bytes())
+
     def test_missing_is_empty(self):
         self.assertEqual(self.store.read(), t.empty_document())
         self.assertFalse(self.path.exists())

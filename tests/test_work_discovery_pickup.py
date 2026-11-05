@@ -119,15 +119,13 @@ print(ingest_external_search_results(WorkPlanStore(Path(sys.argv[2])), source='t
                          ["cooldown", "cooldown", "cooldown", "registered"])
         self.assertEqual(len(self.store.read()["nodes"]), 1)
 
-    def test_full_board_rolls_back(self):
+    def test_discovery_registers_beyond_hundred_existing_items(self):
         def fill(doc):
-            for i in range(100):
+            for i in range(150):
                 add_node(doc, None, str(i))
         self.store.transaction(fill)
-        before = self.path.read_bytes()
-        with self.assertRaises(WorkPlanError):
-            self.ingest()
-        self.assertEqual(self.path.read_bytes(), before)
+        self.assertEqual('registered', self.ingest().status)
+        self.assertEqual(151, len(self.store.read()['nodes']))
 
     def test_focus_does_not_block_pickup_and_invalid_clock_fails_closed(self):
         def add_focus(doc):

@@ -15,7 +15,10 @@ class InboxTests(unittest.TestCase):
             store = session_work_plan_store(state, sid)
             for i in range(100):
                 store.transaction(lambda d: tree.add_node(d, None, 'existing'))
-            result = receive(state, sid, 'original request', 'event:one')
+            from unittest.mock import patch
+            with patch('ciel_runtime_support.side_intake_service.enqueue',
+                       side_effect=OSError('board temporarily unavailable')):
+                result = receive(state, sid, 'original request', 'event:one')
             self.assertTrue(result['accepted'])
             self.assertTrue(result['board_pending'])
             self.assertIsNone(result['item_id'])
@@ -30,6 +33,24 @@ class InboxTests(unittest.TestCase):
             drain(state, sid)
             self.assertEqual(count, len(store.read()['nodes']))
             self.assertFalse(summaries[0]['execution_approved'])
+
+    def test_one_failed_mail_does_not_prevent_independent_mail_admission(self):
+        from unittest.mock import patch
+        from ciel_runtime_support.side_intake_service import enqueue
+        with tempfile.TemporaryDirectory() as root:
+            state = Path(root)
+            sid = 'claude:fixture'
+            receive(state, sid, 'broken', 'one', admit=False)
+            receive(state, sid, 'healthy', 'two', admit=False)
+            def admit(store, text, key):
+                if text == 'broken':
+                    raise OSError('temporary board error')
+                return enqueue(store, text, key)
+            with patch('ciel_runtime_support.side_intake_service.enqueue', side_effect=admit):
+                summaries = drain(state, sid)
+            self.assertEqual(1, len(session_work_plan_store(state, sid).read()['nodes']))
+            self.assertEqual('broken', SideIntakeInbox(state, sid).pending()[0]['text'])
+            self.assertTrue(any(row.get('error') == 'OSError' for row in summaries))
 
     def test_runtime_receives_when_work_is_off_without_board_mutation(self):
         from ciel_runtime_support.work_side_intake_runtime import runtime_intake

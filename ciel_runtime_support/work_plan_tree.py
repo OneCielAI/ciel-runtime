@@ -21,16 +21,9 @@ PHASE_EXECUTING = "executing"
 PHASES = (PHASE_PLANNING, PHASE_EXECUTING)
 STATUSES = ("pending", "in_progress", "done", "blocked")
 MAX_DEPTH = 8
-# Queue capacity is deliberately separate from concurrent execution slots:
-# root goals and detail nodes share this backstop for NEW additions, while
-# max_active controls only work that is actually running. The intake cap
-# counts unfinished (not done) nodes only: completed history is record, not
-# queue, so a board full of done goals can still accept new requests. Stored
-# boards may exceed the cap in total; reads accept up to the storage ceiling.
-# Unfinished items are never dropped to fit the cap, and done items leave
-# only through the retention expiry below, never to make room for intake.
-MAX_NODES = 100
-STORAGE_MAX_NODES = 100_000
+# Presentation/input batching is independent of queue registration, which has
+# no item-count ceiling. Execution concurrency is controlled by max_active.
+MAX_FOCUS_BATCH = 100
 MAX_TITLE_CHARS = 300
 MAX_TEXT_CHARS = 2000
 MAX_QUEUE_IN_SNAPSHOT = 20
@@ -89,7 +82,7 @@ def normalize_document(raw: Any) -> dict[str, Any]:
     doc["updated_at"] = float(raw.get("updated_at") or 0.0)
     receipts = raw.get("side_intake_receipts")
     if receipts is not None:
-        if not isinstance(receipts, dict) or len(receipts) > 10000:
+        if not isinstance(receipts, dict):
             raise WorkPlanError("invalid side intake receipts")
         for key, receipt in receipts.items():
             if (not isinstance(key, str) or len(key) != 64 or not isinstance(receipt, dict)
@@ -98,12 +91,8 @@ def normalize_document(raw: Any) -> dict[str, Any]:
                 raise WorkPlanError("invalid side intake receipt")
         doc["side_intake_receipts"] = copy.deepcopy(receipts)
     nodes = raw.get("nodes")
-    # MAX_NODES binds new additions only (add_node). A stored board written
-    # before the cap was lowered — or grown past it by unfinished work — must
-    # stay readable: unfinished items are never discarded by a read, and the
-    # queue drains back under the cap as items complete and expire.
-    if not isinstance(nodes, list) or len(nodes) > STORAGE_MAX_NODES:
-        raise WorkPlanError("work plan nodes are not a list or exceed the storage limit")
+    if not isinstance(nodes, list):
+        raise WorkPlanError("work plan nodes are not a list")
     seen: set[str] = set()
     for item in nodes:
         if not isinstance(item, dict):
@@ -236,8 +225,6 @@ def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any =
     clean = _clip(title, MAX_TITLE_CHARS)
     if not clean:
         raise WorkPlanError("node title must not be empty")
-    if sum(1 for node in doc["nodes"] if node["status"] != "done") >= MAX_NODES:
-        raise WorkPlanCapacityError(f"a work plan holds at most {MAX_NODES} unfinished nodes")
     node_id = f"n{doc['next_id']}"
     doc["next_id"] += 1
     node = {
@@ -550,7 +537,7 @@ def set_focus(doc: dict[str, Any], node_ids: Any, *, user_requested: bool = Fals
     if not user_requested:
         raise WorkPlanError("changing focus requires an explicit user request (user_requested=true)")
     by_id = _index(doc)
-    if not isinstance(node_ids, list) or len(node_ids) > MAX_NODES or any(
+    if not isinstance(node_ids, list) or len(node_ids) > MAX_FOCUS_BATCH or any(
         not isinstance(n, str) or n not in by_id for n in node_ids
     ) or len(set(node_ids)) != len(node_ids):
         raise WorkPlanError("node_ids must be a unique list of existing node ids")
@@ -862,7 +849,7 @@ def snapshot(doc: dict[str, Any], *, enabled: bool = True, approval_ask: bool = 
                  more_attention=attention(doc, [node["id"] for node in _children(doc, child["id"])[MAX_BRANCH_CHILDREN_IN_SNAPSHOT:]]))
             for child in _children(doc, root)
         ] if root else [],
-        # Complete display index, bounded by MAX_NODES; summaries only (no notes,
+        # Complete display index; summaries only (no notes,
         # evidence or queued descendants). Keeps roots beyond the short queue
         # preview and completed history reachable without loading other contexts.
         "root_index": [dict(_node_summary(node),

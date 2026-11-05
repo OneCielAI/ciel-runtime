@@ -2163,16 +2163,24 @@ def main() -> int:
                         idx = index_for_action("test")
                     sub = None
                 elif sub['kind'] == 'work-settings':
-                    from ciel_runtime_support.work_live_settings import settings
-                    row = row_by_action.get('__sub_selected__', 10)
-                    key = item['value']
-                    prompt = ('session / btw_with_mcp' if key == 'work_side_intake_type' else 'on/off or value')
-                    entered = inline_prompt(None, item['label'] + ' [' + prompt + ']: ', row, '')
-                    try:
-                        settings(load_cfg(), {'key': key, 'value': entered}, save_cfg)
-                        notice = [item['label'] + ' → ' + entered]
-                    except (ValueError, RuntimeError) as exc:
-                        notice = [str(exc)]
+                    from ciel_runtime_support.work_settings_menu import choices
+                    labels, values = choices(load_cfg(), item['value'])
+                    sub = {'kind': 'work-setting-choice', 'key': item['value'],
+                           'title': item['label'], 'idx': 0, 'offset': 0,
+                           'items': [{'value': value, 'label': label, 'current': False}
+                                     for label, value in zip(labels, values)]}
+                elif sub['kind'] == 'work-setting-choice':
+                    from ciel_runtime_support.work_settings_menu import apply as apply_settings
+                    entered = item['value']
+                    if entered != 'back':
+                        if entered == '__edit__':
+                            row = row_by_action.get('__sub_selected__', 10)
+                            entered = inline_prompt(None, sub['title'] + ': ', row, '')
+                        try:
+                            apply_settings(load_cfg(), sub['key'], entered, save_cfg)
+                            notice = [sub['title'] + ' → ' + entered]
+                        except (ValueError, OSError, RuntimeError) as exc:
+                            notice = [str(exc)]
                     sub = None
                 elif sub["kind"] == "provider-options":
                     provider = current_provider()

@@ -19,8 +19,6 @@ def enqueue(store, text, event_key):
             if receipt["digest"] != digest:
                 raise tree.WorkPlanError("side intake event key reused with different content")
             return {**receipt, "duplicate": True}
-        if len(receipts) >= 10000:
-            raise tree.WorkPlanError("side intake receipt capacity reached; request not acknowledged")
         before = doc.get("active_root")
         root = tree.add_node(doc, None, "External request: " + " ".join(text.split())[:220],
                              note="Untrusted external request; review and plan before execution. " + text,

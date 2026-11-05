@@ -42,42 +42,36 @@ class WorkPlanTreeTests(unittest.TestCase):
         with self.assertRaises(t.WorkPlanError):
             t.set_plan(t.empty_document(), nested(t.MAX_DEPTH + 1))
 
-    def test_node_cap(self):
+    def test_registration_has_no_hundred_node_limit(self):
         root = t.set_plan(self.doc, {"title": "goal", "children": [
-            {"title": str(i)} for i in range(t.MAX_NODES - 1)]})
-        self.assertEqual(len(self.doc["nodes"]), t.MAX_NODES)
-        with self.assertRaises(t.WorkPlanError):
-            t.add_node(self.doc, root, "overflow")
-        with self.assertRaises(t.WorkPlanError):
-            t.set_plan(t.empty_document(), {"title": "goal", "children": [
-                {"title": str(i)} for i in range(t.MAX_NODES)]})
+            {"title": str(i)} for i in range(120)]})
+        t.add_node(self.doc, root, "additional work")
+        self.assertEqual(122, len(self.doc['nodes']))
+        self.assertEqual(self.doc, t.normalize_document(self.doc))
 
     def test_done_history_does_not_block_intake(self):
         # Completed records are history, not queue: a board holding more
         # than MAX_NODES done nodes still accepts a new goal, and the done
         # rows stay in place (no delete-to-fit).
-        done = [dict(node(f"n{i}"), status="done") for i in range(t.MAX_NODES + 50)]
+        done = [dict(node(f"n{i}"), status="done") for i in range(100 + 50)]
         doc = t.normalize_document(dict(t.empty_document(), nodes=done))
         new_id = t.add_node(doc, None, "new request", now=10)
-        self.assertEqual(t.MAX_NODES + 51, len(doc["nodes"]))
+        self.assertEqual(100 + 51, len(doc["nodes"]))
         self.assertIn(new_id, {n["id"] for n in doc["nodes"]})
-        self.assertEqual(t.MAX_NODES + 50, sum(1 for n in doc["nodes"] if n["status"] == "done"))
-        # The unfinished cap still binds: once open work reaches it, intake
-        # refuses again even though history is preserved.
-        with self.assertRaises(t.WorkPlanError):
-            for i in range(t.MAX_NODES):
-                t.add_node(doc, None, f"open {i}", now=11)
+        self.assertEqual(100 + 50, sum(1 for n in doc["nodes"] if n["status"] == "done"))
+        # Intake no longer has a hundred-item cutoff.
+        for i in range(150):
+            t.add_node(doc, None, f"open {i}", now=11)
         remaining_done = sum(1 for n in doc["nodes"] if n["status"] == "done")
-        self.assertEqual(t.MAX_NODES + 50, remaining_done)
+        self.assertEqual(100 + 50, remaining_done)
 
     def test_normalize_caps(self):
         # Reads accept boards above the new-addition cap (they were written
         # under the old cap or hold unfinished work); structure is still bounded.
-        oversized = [node(f"n{i}") for i in range(t.MAX_NODES + 50)]
+        oversized = [node(f"n{i}") for i in range(100 + 50)]
         doc = t.normalize_document(dict(t.empty_document(), nodes=oversized))
-        self.assertEqual(len(doc["nodes"]), t.MAX_NODES + 50)
-        for nodes in ([node(f"n{i}") for i in range(t.STORAGE_MAX_NODES + 1)],
-                      [node(f"n{i}", f"n{i-1}" if i else None) for i in range(t.MAX_DEPTH + 2)]):
+        self.assertEqual(len(doc["nodes"]), 100 + 50)
+        for nodes in ([node(f"n{i}", f"n{i-1}" if i else None) for i in range(t.MAX_DEPTH + 2)],):
             with self.subTest(count=len(nodes)), self.assertRaises(t.WorkPlanError):
                 t.normalize_document(dict(t.empty_document(), nodes=nodes))
 
@@ -144,19 +138,15 @@ class WorkPlanTreeTests(unittest.TestCase):
         t.update_node(self.doc, root[2], status="in_progress", waiting_on="")
         self.assertGreater(t.continuation(self.doc)["actionable"], 0)
 
-    def test_oversized_open_board_adds_nothing_but_open_work_survives(self):
-        # A board already past the unfinished cap keeps every unfinished item
-        # readable and mutable in place; only growing open work further is
-        # refused until it drains. Done history never blocks intake.
-        raw = dict(t.empty_document(), nodes=[node(f"n{i}") for i in range(t.MAX_NODES + 5)])
+    def test_large_open_board_can_grow_without_losing_existing_work(self):
+        raw = dict(t.empty_document(), nodes=[node(f"n{i}") for i in range(105)])
         doc = t.normalize_document(raw)
-        with self.assertRaises(t.WorkPlanError):
-            t.add_node(doc, None, "one more")
+        t.add_node(doc, None, "one more")
         updated = t.update_node(doc, "n3", status="in_progress")
         self.assertEqual("in_progress", updated["status"])
         removed = t.remove_node(doc, "n0")
         self.assertEqual(1, removed)
-        self.assertEqual(t.MAX_NODES + 4, len(doc["nodes"]))
+        self.assertEqual(105, len(doc["nodes"]))
 
     def test_malformed_documents_and_cycles(self):
         for raw in (None, [], {"nodes": {}}, {"nodes": [None]},
@@ -849,10 +839,10 @@ class WorkPanelSnapshotTests(unittest.TestCase):
         doc = t.empty_document()
         t.add_node(doc, None, "active")
         doc["nodes"][0]["urgent"] = True
-        for i in range(t.MAX_NODES - 1):
+        for i in range(100 - 1):
             t.add_node(doc, None, "queued " + str(i))
         state = t.snapshot(doc)
-        self.assertEqual(len(state["root_index"]), t.MAX_NODES)
+        self.assertEqual(len(state["root_index"]), 100)
         self.assertFalse(state["root_index"][0]["held"])
         self.assertTrue(all(n["held"] for n in state["root_index"][1:]))
 

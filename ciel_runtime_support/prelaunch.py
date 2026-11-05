@@ -318,6 +318,8 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     initial_action = default_prelaunch_action(provider)
     main_idx = prelaunch_action_index(initial_action) if settings_ready_except_api_key() else 0
     panel: str | None = None
+    settings_key = ''
+    settings_parent = 'work-settings'
     panel_idx = 0
     panel_rows: list[str] = []
     panel_values: list[str] = []
@@ -499,7 +501,10 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     panel_last_idx[panel_name] = panel_idx
                     continue
                 if key in ("esc", "left", "q"):
-                    close_panel()
+                    if panel == 'work-setting-choice':
+                        open_panel(settings_parent)
+                    else:
+                        close_panel()
                     continue
                 if key != "enter":
                     continue
@@ -1181,12 +1186,27 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     if value == 'back':
                         close_panel()
                         continue
-                    from .work_settings_menu import apply as apply_settings, panel_rows as settings_rows
-                    entered = prompt_menu_value(value + ' (on/off, session/btw_with_mcp, or value)', '',
-                        restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                    apply_settings(load_config(), value, entered, save_config)
-                    panel_rows, panel_values = settings_rows(load_config(), side=panel == 'side-settings')
-                    messages = [value + ': ' + entered]
+                    from .work_settings_menu import choices
+                    settings_key = value
+                    settings_parent = panel
+                    panel_rows, panel_values = choices(load_config(), value)
+                    panel = 'work-setting-choice'
+                    panel_idx = 0
+                elif panel == 'work-setting-choice':
+                    from .work_settings_menu import apply as apply_settings
+                    if value == 'back':
+                        open_panel(settings_parent)
+                        continue
+                    entered = value
+                    if value == '__edit__':
+                        entered = prompt_menu_value(settings_key, '', restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
+                    try:
+                        apply_settings(load_config(), settings_key, entered, save_config)
+                        feedback = [settings_key + ': ' + entered]
+                    except (ValueError, OSError, RuntimeError) as error:
+                        feedback = [str(error)]
+                    open_panel(settings_parent)
+                    messages = feedback
                 elif panel == "unattended-restart":
                     if value == "back":
                         close_panel()

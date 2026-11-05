@@ -94,8 +94,9 @@ class IsolatedCliAssetTests(unittest.TestCase):
             env=env,
             capture_output=True,
             text=True,
-            check=True,
+            check=False,
         )
+        self.assertEqual(result.returncode, 0, result.stderr)
         return result.stdout.strip()
 
     def test_cli_asset_paths_follow_isolation(self):

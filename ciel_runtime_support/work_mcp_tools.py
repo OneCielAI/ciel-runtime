@@ -149,7 +149,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
         },
         {
             "name": "work_node_remove",
-            "description": "Remove a node and everything below it.",
+            "description": "Remove an unnecessary queue item and its subtree without pretending it completed. Removed records are archived durably before deletion for recovery/audit. Clear explicit focus first. Use work_node_update priority=P1..P5 to reprioritize instead of deleting useful work.",
             "inputSchema": {
                 "type": "object",
                 "properties": {"id": {"type": "string"}, "expected_version": _EXPECTED_VERSION},
@@ -202,7 +202,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
             "name": "work_focus",
             "description": "On explicit user request, prioritize existing nodes (roots or subtrees) in node_ids order. Resolve exact IDs from Work status. Focus orders the work first but does not hold unrelated approved items: when no focused step can run, other approved items and discovery continue. Focus clears automatically once every focused step is done; node_ids=[] clears it now. Approval and ancestor waits/blocks remain; unrelated Work is never deleted or blocked.",
             "inputSchema": {"type": "object", "properties": {
-                "node_ids": {"type": "array", "items": {"type": "string"}, "maxItems": tree.MAX_NODES},
+                "node_ids": {"type": "array", "items": {"type": "string"}, "maxItems": tree.MAX_FOCUS_BATCH},
                 "user_requested": {"type": "boolean"}, "expected_version": _EXPECTED_VERSION,
             }, "required": ["node_ids", "user_requested"]},
         },
@@ -382,7 +382,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
                     "nodes": [n for n in doc["nodes"] if n["id"] in ids]}, ensure_ascii=False)
             scoped = dict(doc, nodes=[n for n in doc["nodes"] if n["id"] in ids], active_root=root_id,
                           phase=tree.root_phase(doc, root_id))
-            return tree.render(scoped, max_lines=tree.MAX_NODES + 4)
+            return tree.render(scoped, max_lines=104)
         if args.get("format") == "json":
             state = tree.snapshot(doc, approval_ask=approval_ask)
             state["auto_continue"] = auto_continue
@@ -409,7 +409,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
                     active.update(node["id"] for node in doc["nodes"] if node["parent_id"] in active)
                 state["nodes"] = [node for node in doc["nodes"] if node["id"] in active]
             return json.dumps(state, ensure_ascii=False)
-        return tree.render(doc, max_lines=tree.MAX_NODES + 4)
+        return tree.render(doc, max_lines=104)
     if name == "work_plan_set":
         spec = {"title": args.get("goal"), "note": args.get("note", ""), "children": args.get("children") or []}
         spec.update({key: args[key] for key in ("ref", "waiting_on", "priority") if key in args})

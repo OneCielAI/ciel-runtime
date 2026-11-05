@@ -220,7 +220,8 @@ class SafeguardTests(BindingHarness):
         self.write({'type': 'system', 'subtype': 'compact_boundary', 'sessionId': 'exact',
                     'timestamp': stamp(time.time() + 1), 'uuid': 'no-shrink-count',
                     'compactMetadata': {'trigger': 'manual'}})
-        self.assertFalse(control.injection_compact_pending())
+        self.assertFalse(control.injection_compact_pending(),
+                         {'state': self.state(), 'logs': self.logs})
         self.assertEqual('injection_compact_boundary_observed', self.state()['failure'])
         self.assertNotEqual('verified', self.state()['phase'])
         control.observe_proactive(self.binding.scope(), sample, 20000, 'astra')

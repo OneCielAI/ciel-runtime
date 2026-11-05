@@ -17,6 +17,32 @@ from ciel_runtime_support.channel_message_repository import (
 
 
 class ChannelMessageRepositoryTests(unittest.TestCase):
+    def test_external_event_is_spooled_before_queue_append(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'runtime-inputs.jsonl'
+            repository = ChannelMessageRepository(path, lambda *_: None)
+            ports = ChannelMessageAppendPorts(threading.Condition(),
+                lambda: exclusive_file_lock(path), lambda _: None, lambda value: [value])
+            message = repository.append({'message': 'original SSE body',
+                'meta': {'source_kind': 'external_event', 'event_id': 'one'}}, ports)
+            files = list((path.parent / 'external-mail').glob('*/*.json'))
+            self.assertEqual(1, len(files))
+            stored = json.loads(files[0].read_text(encoding='utf8'))
+            self.assertEqual(message, stored['message'])
+
+    def test_spool_failure_does_not_ack_or_append_event(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'runtime-inputs.jsonl'
+            repository = ChannelMessageRepository(path, lambda *_: None)
+            ports = ChannelMessageAppendPorts(threading.Condition(),
+                lambda: exclusive_file_lock(path), lambda _: None, lambda value: [value])
+            with patch('ciel_runtime_support.side_intake_inbox.SideIntakeInbox._save_file',
+                       side_effect=OSError('disk full')):
+                with self.assertRaises(OSError):
+                    repository.append({'message': 'original',
+                        'meta': {'source_kind': 'external_event'}}, ports)
+            self.assertFalse(path.exists())
+
     def test_exclusive_file_lock_creates_parent_and_lock_artifact(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "nested" / "messages.jsonl"

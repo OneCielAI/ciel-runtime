@@ -7,6 +7,13 @@ from ciel_runtime_support.work_settings_menu import panel_rows, apply
 
 
 class SeparateSettingsTests(unittest.TestCase):
+    def test_boolean_and_lane_choices_never_require_free_text(self):
+        from ciel_runtime_support.work_settings_menu import choices
+        self.assertEqual(['on', 'off', 'back'], choices({'language': 'ko'}, 'work_mode')[1])
+        self.assertEqual(['session', 'btw_with_mcp', 'back'], choices({}, 'work_side_intake_type')[1])
+        self.assertNotIn('__edit__', choices({}, 'work_parallel_max_active')[1])
+
+
     def test_first_screen_panels_are_independent_and_preserve_selected_type(self):
         with tempfile.TemporaryDirectory() as root:
             ledger = WorkParallelStore(Path(root) / 'parallel.json')
