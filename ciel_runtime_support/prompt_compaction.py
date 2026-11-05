@@ -420,6 +420,7 @@ def compact_responses_input_for_budget(
 def _context_window_tokens(pcfg: dict[str, Any] | None) -> int | None:
     """The model's whole context window, when the config states one."""
 
+    limits = []
     for key in ("context_window", "max_model_len"):
         raw = (pcfg or {}).get(key)
         if isinstance(raw, bool):
@@ -429,8 +430,8 @@ def _context_window_tokens(pcfg: dict[str, Any] | None) -> int | None:
         except (TypeError, ValueError):
             continue
         if value > 0:
-            return value
-    return None
+            limits.append(value)
+    return min(limits) if limits else None
 
 
 def anthropic_message_has_tool_result(message: dict[str, Any]) -> bool:
@@ -466,21 +467,23 @@ def compact_anthropic_body_for_budget(
     runtime = services.runtime
     budget_tokens = max(8192, budget_tokens)
     rejected = bool((pcfg or {}).get("_context_compact_context_rejected"))
-    # A request already past the model's whole context window cannot be served
-    # by any upstream, so it is chunked here. Everything below the window keeps
-    # the estimator out of the checkpoint decision: a native checkpoint waits
-    # for the upstream's explicit no-output rejection, and an ordinary turn
-    # keeps the tail guard.
+    # Routed Claude checkpoints above 95% of the smallest configured window
+    # use semantic chunking. Smaller checkpoints retain upstream handling;
+    # ordinary turns retain their existing preflight policy.
     window = (
         _context_window_tokens(pcfg)
         if (pcfg or {}).get("_context_compact_native_over_window")
         else None
     )
+    # Leave headroom for injected events and upstream token-accounting drift.
+    # This applies only to recognized routed Claude checkpoints; it never
+    # rewrites ordinary opted-out turns or native Anthropic compaction.
+    threshold = window * 95 // 100 if window is not None else None
     if full_compact_request and not rejected:
-        if window is None or runtime.estimate_tokens(body) <= window:
+        if threshold is None or runtime.estimate_tokens(body) <= threshold:
             return body
         text_only, media = opaque_media(body)
-        if media.images and runtime.estimate_tokens(text_only) <= window:
+        if media.images and runtime.estimate_tokens(text_only) <= threshold:
             # Only encoded image bytes put this checkpoint past the window, and
             # their visual cost is unknown here. Let the upstream decide; a real
             # overflow still returns the no-output rejection that recovers.
@@ -492,7 +495,7 @@ def compact_anthropic_body_for_budget(
             )
             return body
     initial_tokens = runtime.estimate_tokens(body)
-    over_window = window is not None and initial_tokens > window
+    over_window = threshold is not None and initial_tokens > threshold
     if (pcfg or {}).get("_context_compact_only_if_over_window") and not over_window:
         # The provider opted out of preflight; only the window guard may act.
         return body

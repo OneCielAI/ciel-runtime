@@ -1,0 +1,14 @@
+---
+type: implementation
+title: Routed checkpoint chunking above 95 percent
+status: tested-pending-release
+---
+
+# Change
+Recognized routed Claude compact requests now enter runtime semantic chunking above 95% of the smallest positive context_window/max_model_len, rather than waiting until above100%. The whole request estimator includes messages injected before request capping. Native Anthropic and ordinary opted-out turns retain their previous policy. Exactly95% remains passthrough; above95% chunks. Image-only encoded-size overflow still retains its conservative upstream handling.
+
+# Verification
+63 focused native passthrough, provider semantic compaction and context compaction tests passed in101.561s. New95/96 boundary regression checks minimum configured window and preflight opt-out. Existing failure/semantic budget coverage stayed green.
+
+# Not yet proven
+The 11m51s field compact delay is not attributed to chunk count: remote logs still needed to distinguish native checkpoint, runtime chunk map, and429 cooldown waits. Current map ceiling65536 was deliberately chosen after261K segments lost their connection; it is not raised blindly. No claim of reducing wall-clock duration or fixing exhausted credentials is made.

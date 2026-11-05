@@ -119,6 +119,21 @@ class NativeCompactOverWindowTests(unittest.TestCase):
         self.assertEqual([], result["tools"])
         services.runtime.llm_compact_messages.assert_called_once()
 
+    def test_checkpoint_above_95_percent_uses_smallest_configured_window(self):
+        for percent, expected in ((95, False), (96, True)):
+            with self.subTest(percent=percent):
+                services = self.services()
+                body = self.body()
+                services.runtime.estimate_tokens.side_effect = lambda value: percent * 100 if value is body else 100
+                result = compact_anthropic_body_for_budget(
+                    body, 8192, provider="cielairouter", model="model",
+                    pcfg={"context_window": 20000, "max_model_len": 10000,
+                          "_context_compact_native_over_window": True,
+                          "_context_compact_only_if_over_window": True},
+                    full_compact_request=True, services=services)
+                self.assertEqual(expected, result is not body)
+                self.assertEqual(int(expected), services.runtime.llm_compact_messages.call_count)
+
     def test_checkpoint_inside_the_window_still_passes_without_estimation(self):
         for config in ({"context_window": 10_000_000, "_context_compact_native_over_window": True},
                        {"context_window": 10_000_000}, {}, {"_context_compact_native_over_window": True}):
