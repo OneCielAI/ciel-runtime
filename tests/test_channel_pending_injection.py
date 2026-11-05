@@ -196,7 +196,7 @@ class FailedRecordTests(unittest.TestCase):
 class SideIntakeTransportTests(unittest.TestCase):
     def test_side_intake_without_socket_stays_pending_and_never_types(self):
         message = _message(40)
-        message["meta"] = {"input_transport": "session_socket", "btw_with_mcp": True, "btw": True}
+        message["meta"] = {"input_transport": "session_socket", "btw_with_mcp": True, "btw": True, "_side_intake_admitted": True}
         harness = _InjectionHarness([message])
         services = harness.services()
         services = dataclasses.replace(services, io=dataclasses.replace(

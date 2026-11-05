@@ -28,6 +28,8 @@ class RuntimeInputGateway:
 
     def _append(self, payload: dict[str, Any]) -> dict[str, Any]:
         meta = dict(payload.get("meta") or {})
+        meta.pop("_side_intake_admitted", None)
+        payload = {**payload, "meta": meta}
         settings = self.load_side_settings() or {}
         requested_side = (meta.get("btw_with_mcp") is True or meta.get("message_type") == "btw_with_mcp"
                           or meta.get("event_type") == "btw_with_mcp")
@@ -44,7 +46,8 @@ class RuntimeInputGateway:
             command = "/btw_with_mcp " + json.dumps({"event_key": source + ":" + event_key,
                                                     "text": original}, ensure_ascii=False)
             payload = {**payload, "message": command, "content": command, "meta": {**meta, "btw": True,
-                       "raw_injection": True, "btw_with_mcp": True, "input_transport": "session_socket"}}
+                       "raw_injection": True, "btw_with_mcp": True, "_side_intake_admitted": True,
+                       "input_transport": "session_socket"}}
         message = self.append(payload)
         request_id = int(message.get("id") or 0)
         if (

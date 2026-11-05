@@ -289,8 +289,7 @@ def inject_pending_channel_messages(
                 wake_store.lifecycle.skip(message_id, "duplicate_channel_event")
                 continue
             metadata = message.get("meta") if isinstance(message.get("meta"), dict) else {}
-            side_intake = (metadata.get("message_type") == "btw_with_mcp"
-                           or metadata.get("event_type") == "btw_with_mcp" or metadata.get("btw_with_mcp") is True)
+            side_intake = metadata.get("_side_intake_admitted") is True
             if side_intake and pending:
                 break
             input_transport = message_input_transport(message)
