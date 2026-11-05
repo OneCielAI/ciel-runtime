@@ -744,7 +744,7 @@ async function parallelToolCall($, e, next) {
       try { return await next(e) } finally { parallelResuming.delete(lease.id) }
     }
   }
-  if (next.origin?.plugin === 'ciel-work' && (name.startsWith('work_parallel_') || name === 'work_discovery_pickup')) return next(e)
+  if (next.origin?.plugin === 'ciel-work' && (name.startsWith('work_parallel_') || name === 'work_side_intake' || name === 'work_side_settings' || name === 'work_discovery_pickup')) return next(e)
   if (name === 'work_node_update' && e.status === 'done') {
     try {
       const s = await parallelCall($, 'work_parallel_status')
@@ -1020,8 +1020,22 @@ async function parallelRecovery($) {
 // prompt typed at the composer (origin 'composer'), or one a command.run hook
 // already resolved into a command submission, is native already and passes
 // through untouched.
-function btwBridge($, e, next) {
+async function btwBridge($, e, next) {
   if (e.command || e.origin?.kind === 'composer') return null
+  const side = /^\/btw_with_mcp(?:\s+([\s\S]*))?$/.exec(e.text || '')
+  if (side) {
+    const raw = (side[1] || '').trim()
+    // Commit the queue record before dropping the ordinary prompt. A crash
+    // between commit and transport confirmation is safe to replay by event key.
+    try {
+      const ack = await sideIntake($, raw)
+      $.ui.log(ack)
+      return { drop: ack }
+    } catch (error) {
+      $.ui.log('Side intake not acknowledged: ' + clipped(String(error.message || error), 300))
+      throw new Error('Side intake failed; no queue ACK. Retry the same event_key.')
+    }
+  }
   const match = /^\/btw(?:\s+([\s\S]*))?$/.exec(e.text || '')
   if (!match) return null
   const args = (match[1] || '').trim()
@@ -1042,9 +1056,25 @@ async function parallelPromptSubmit($, e, next) {
     + 'Unknown host capacity retains actually-running slots. Native permissions remain authoritative; this is not a shell sandbox.'] }, next)
 }
 
+async function sideIntake($, raw) {
+  let input
+  try { input = JSON.parse(raw) } catch { throw new Error('Use JSON: {"event_key":"source:event-id","text":"request"}') }
+  if (!input || typeof input.text !== 'string' || typeof input.event_key !== 'string') throw new Error('text and stable event_key are required')
+  const identity = await sessionId($)
+  const board = await readSnapshot($, identity)
+  if (!board?.enabled) throw new Error('Work mode unavailable; request was not acknowledged')
+  const receipt = await parallelCall($, 'work_side_intake', { text: input.text, event_key: input.event_key })
+  if (!receipt.accepted) throw new Error('No durable receipt; request was not acknowledged')
+  return 'ACK ' + clipped(receipt.item_id, 64) + (receipt.duplicate ? ' (already queued)' : ' (queued; not approved)')
+    + '\nRequest recap (quoted data): ' + clipped(receipt.recap, 500)
+    + '\nCurrent queue: ' + String(board.queue?.length || 0) + '; runnable: ' + String(board.continuation?.actionable || 0)
+}
+
 export function register(on) {
   on('agent.spawn', async ($, e, next) => parallelAgentSpawn($, e, next))
   on('session.start', async ($, e, next) => {
+    await $.command.register({ name: 'btw_with_mcp', description: 'Queue a side request via MCP without a main-thread model turn',
+      argumentHint: 'on|off|status|{"event_key":"source:id","text":"request"}', immediate: true })
     await $.command.register({ name: 'work-mode', description: 'Work mode: summary, help, keyboard inspector, tree or raw status',
       argumentHint: '[help|view|tree|status]', immediate: true })
     const ticket = ++starts
@@ -1181,7 +1211,16 @@ export function register(on) {
         + clipped(c.blocked_items.map(n => n.id + (n.waiting_on ? ': ' + n.waiting_on : '')).join('; '), 500) : '')
       + (unchangedContinuations === 1 ? '. This is the last continuation without a plan update.' : '') }
   })
-  on('prompt.submit', async ($, e, next) => btwBridge($, e, next) || parallelPromptSubmit($, e, next))
+  on('prompt.submit', async ($, e, next) => await btwBridge($, e, next) || parallelPromptSubmit($, e, next))
+  on('command.run', { command: 'btw_with_mcp' }, async ($, e) => {
+    if (['on', 'off', 'status'].includes(e.args.trim())) {
+      const arg = e.args.trim()
+      try { return { text: JSON.stringify(await parallelCall($, 'work_side_settings', arg === 'status' ? {} : { enabled: arg === 'on' })) } }
+      catch (error) { return { text: 'Side settings unavailable: ' + clipped(String(error.message || error), 300) } }
+    }
+    try { return { text: await sideIntake($, e.args) } }
+    catch (error) { return { text: 'Side intake not acknowledged: ' + clipped(String(error.message || error), 300) } }
+  })
   on('command.run', { command: 'work-mode' }, async ($, e) => {
     const arg = e.args.trim()
     if (!['', 'help', 'view', 'status', 'tree', 'expand', 'compact', 'parallel'].includes(arg)) return { text: 'Usage: /work-mode [expand|compact|help|view|tree|status|parallel]' }

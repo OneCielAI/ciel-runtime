@@ -4,7 +4,11 @@ import { register } from './register.js'
 import { atom, read, update } from 'claude-code'
 
 const handlers = {}
-register((name, filter, handler) => { handlers[name] = typeof filter === 'function' ? filter : handler })
+const sideHandlers = {}
+register((name, filter, handler) => {
+  if (filter?.command === 'btw_with_mcp') sideHandlers[name] = handler
+  else handlers[name] = typeof filter === 'function' ? filter : handler
+})
 // The engine's claude-code helpers are stubbed by the pytest fixture: atoms
 // live in a shared map keyed by plugin+key. Probe the detail pane state there.
 const detailAtom = atom({ plugin: 'ciel-work', key: 'detail' }, null)
@@ -42,6 +46,28 @@ const call = ($, agentId) => handlers['tool.call']($, { tool: 'Edit', agentId,
 const verdict = r => r?.decision === 'deny' ? 'deny: ' + r.reason : r?.deny ? 'deny: ' + r.deny : 'allow'
 
 const scenarios = {
+  async 'side-intake-external-bridge'() {
+    let queued = 0, main = 0
+    const { $ } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_side_intake') { queued++; return text({ accepted: true, item_id: 'n50', recap: args.text }) }
+      return text({})
+    })
+    const runMain = async () => { main++; return {} }
+    const result = await handlers['prompt.submit']($, { text: '/btw_with_mcp {"event_key":"source:1","text":"request"}', origin: { kind: 'peer' } }, runMain)
+    return { queued, main, drop: result.drop }
+  },
+  async 'side-intake-command'() {
+    const seen = []
+    const { $ } = host(async (tool, args) => {
+      seen.push({ tool, args })
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_side_intake') return text({ accepted: true, item_id: 'n50', recap: args.text, duplicate: false })
+      return text({})
+    })
+    const result = await sideHandlers['command.run']($, { args: JSON.stringify({ event_key: 'source:1', text: 'request' }) })
+    return { text: result.text, tools: seen.map(r => r.tool), token: Boolean(seen.find(r => r.tool === 'work_side_intake')?.args?._host?.token) }
+  },
   // One explicit assignment row per fork: item id/title/path, the exact Agent
   // name, host id once bound, lease state and slot.
   async 'parallel-assignment-labels'() {

@@ -1,0 +1,21 @@
+---
+type: design
+title: Tool-capable side intake without main-thread interruption
+status: feasibility-confirmed-not-implemented
+---
+
+# Verified API contract
+Bundled engine2.1.310 types: CommandSpec immediate:true explicitly executes command.run while a turn is streaming (1922-1944). $.mcp.call uses connected client credentials (2750-2771). $.model.complete runs isolated tool-less completion with no history, explicit prompt/system (2644-2671). $.model.fork denies tools and copies main prefix, so it is inappropriate for reducing main-context costs. Thus a custom immediate command orchestrator can call selected MCP tools independently; it is not native btw gaining tools.
+
+# Proposed contract
+- /btw_with_mcp receives bounded content plus stable source/event key and exact runtime-qualified session target.
+- Persist inbox before ACK, then atomically deduplicate and add a planning-only Work goal. Never execute, approve, clear waits, or change focus based on untrusted SSE.
+- Re-read compact queue through MCP; return explicit receipt with queued goal id and short recap. Optional semantic recap uses isolated complete and cannot authorize actions.
+- External metadata/message type must be routed to dedicated side intake rather than generic model injection. Preserve source/event identity and pending delivery on failure. No fallback that silently puts large original event into main history.
+- Native command busy-turn behavior, idle/restart recovery, exactly-once queue registration, receipt delivery and failure retention need isolated E2E before release.
+
+# Default and live switching
+User confirmed selected type btw_with_mcp but enabled default false. Gateway loads settings per admission; disabled preserves original SSE text and ordinary transport even for a side event type. Enabled converts external events to one raw side envelope; stable source/event key required. /btw_with_mcp on|off|status uses host-authenticated settings MCP and persists config. Direct JSON command intake remains an explicit action, independent of automatic SSE toggle. On/off/on transitions and unauthenticated setting rejection tested.
+
+# Status
+Implementation in progress (not released): immediate command, authenticated coordinator-only Work intake MCP, atomic board receipts with content-conflict detection and cross-process dedup, planning-only goal, preserved active goal, raw session-socket side message conversion. Focused tests70 passed before async bridge refinement;28 mod tests passed after refinement. ACK is currently local command/UI receipt, not an external Walkie message. Busy-turn native E2E and transport failure retention remain unverified; do not claim full SSE noninterference. Codex Work-off and all-Work slash settings are separate queued user requests. Latest screenshot registry lock timeout is tracked separately as goal46. Feasible API primitives are verified; end-to-end noninterference is not proven. Existing Work diagnostics release is separate: npm0.2.51-nightly.20261105-040528.9c28567, actual PATH install verified.

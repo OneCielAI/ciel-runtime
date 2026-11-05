@@ -11,6 +11,7 @@ function setup(on, extra = {}) {
     s.activeReads++; s.maxReads = Math.max(s.maxReads, s.activeReads)
     const snapshot = JSON.stringify(s.snapshot)
     try {
+      if (e.tool === 'work_side_intake' && s.sideReceipt) return { value: { isError: false, content: [{ type: 'text', text: JSON.stringify(s.sideReceipt) }] } }
       if (s.waitStatus) await s.waitStatus()
       if (s.offline || (s.failText && e.args.format === 'text')) return { deny: 'offline' }
       return { value: { isError: false, content: [{ type: 'text', text: e.args.format === 'json'
@@ -39,6 +40,17 @@ function setup(on, extra = {}) {
   })
   return s
 }
+test('side intake command calls MCP and keeps main prompt untouched', async ($, on) => {
+  const s = setup(on, { enabled: true, phase: 'executing', continuation: { actionable: 1 }, queue: [] })
+  s.sideReceipt = { accepted: true, item_id: 'n50', recap: 'request' }
+  on('env.get', () => ({ value: 'fixture-host-token' }))
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  const before = s.prompts || 0
+  const result = await $.command.run({ command: 'btw_with_mcp', args: '{"event_key":"source:1","text":"request"}' })
+  expect(result.text).toContain('ACK n50')
+  expect(s.prompts || 0).toBe(before)
+})
+
 test('immediate command, router tree, bounded prompt context', async ($, on) => {
   const s = setup(on)
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })

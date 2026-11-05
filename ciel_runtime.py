@@ -1909,6 +1909,7 @@ def runtime_input_gateway() -> RuntimeInputGateway:
         chat_file_repository().runtime_attachment,
         _default_channel_input_transport,
         _RUNTIME_INPUT_STATUS_REPOSITORY,
+        lambda: load_config().get("work_side_intake", {}),
     )
 
 def external_event_receiver_service() -> ExternalEventReceiverService:

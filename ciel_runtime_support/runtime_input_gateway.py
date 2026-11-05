@@ -24,8 +24,27 @@ class RuntimeInputGateway:
     project_attachment: Callable[[dict[str, Any]], dict[str, Any]] | None = None
     default_input_transport: Callable[[], str] = lambda: "session_socket"
     status: Any = None
+    load_side_settings: Callable[[], dict[str, Any]] = lambda: {}
 
     def _append(self, payload: dict[str, Any]) -> dict[str, Any]:
+        meta = dict(payload.get("meta") or {})
+        settings = self.load_side_settings() or {}
+        requested_side = (meta.get("btw_with_mcp") is True or meta.get("message_type") == "btw_with_mcp"
+                          or meta.get("event_type") == "btw_with_mcp")
+        side_enabled = settings.get("enabled") is True
+        default_side = meta.get("source_kind") == "external_event" and settings.get("type", "btw_with_mcp") == "btw_with_mcp"
+        if side_enabled and (requested_side or default_side):
+            event_key = meta.get("event_id") or meta.get("event_key")
+            if not isinstance(event_key, str) or not event_key.strip():
+                raise ValueError("btw_with_mcp requires stable meta.event_id or meta.event_key")
+            original = payload.get("content", payload.get("message", ""))
+            if not isinstance(original, str) or not original.strip() or len(original) > 16000:
+                raise ValueError("btw_with_mcp requires 1-16000 characters")
+            source = str(meta.get("event_source") or meta.get("source") or payload.get("channel") or "external")
+            command = "/btw_with_mcp " + json.dumps({"event_key": source + ":" + event_key,
+                                                    "text": original}, ensure_ascii=False)
+            payload = {**payload, "message": command, "content": command, "meta": {**meta, "btw": True,
+                       "raw_injection": True, "btw_with_mcp": True, "input_transport": "session_socket"}}
         message = self.append(payload)
         request_id = int(message.get("id") or 0)
         if (

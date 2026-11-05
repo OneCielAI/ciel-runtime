@@ -289,6 +289,10 @@ def inject_pending_channel_messages(
                 wake_store.lifecycle.skip(message_id, "duplicate_channel_event")
                 continue
             metadata = message.get("meta") if isinstance(message.get("meta"), dict) else {}
+            side_intake = (metadata.get("message_type") == "btw_with_mcp"
+                           or metadata.get("event_type") == "btw_with_mcp" or metadata.get("btw_with_mcp") is True)
+            if side_intake and pending:
+                break
             input_transport = message_input_transport(message)
             requested_session_socket = input_transport == "session_socket"
             requested_router = (
@@ -475,6 +479,10 @@ def inject_pending_channel_messages(
             if candidate_uses_router and len(pending) == 1:
                 return_last_id = previous_last_id
             last_id = message_id
+            if side_intake:
+                # A side command is one atomic intake envelope, never a joined
+                # multi-message prompt that can leak back into the main turn.
+                break
             if len(pending) >= (socket_batch_limit if requested_session_socket else batch_limit):
                 break
             if not candidate_uses_router and not requested_session_socket:

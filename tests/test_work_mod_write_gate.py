@@ -100,6 +100,18 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn("기존 승인 유지", result["first"])
         self.assertFalse(result["second"])
 
+    def test_external_side_intake_drops_only_after_queue_ack_without_main_turn(self):
+        result = self.run_scenario("side-intake-external-bridge")
+        self.assertEqual(1, result["queued"])
+        self.assertEqual(0, result["main"])
+        self.assertIn("ACK n50", result["drop"])
+
+    def test_side_intake_command_calls_mcp_and_returns_durable_ack(self):
+        result = self.run_scenario("side-intake-command")
+        self.assertIn("ACK n50", result["text"])
+        self.assertIn("work_side_intake", result["tools"])
+        self.assertTrue(result["token"])
+
     def test_stopped_with_only_blocked_work_demands_recheck(self):
         result = self.run_scenario("stop-blocked-recheck")
         self.assertIn("re-verify before reporting no work", result["text"])

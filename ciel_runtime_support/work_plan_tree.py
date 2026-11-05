@@ -83,6 +83,16 @@ def normalize_document(raw: Any) -> dict[str, Any]:
     doc["phase"] = raw["phase"]
     doc["next_id"] = max(1, _int(raw.get("next_id"), 1))
     doc["updated_at"] = float(raw.get("updated_at") or 0.0)
+    receipts = raw.get("side_intake_receipts")
+    if receipts is not None:
+        if not isinstance(receipts, dict) or len(receipts) > 10000:
+            raise WorkPlanError("invalid side intake receipts")
+        for key, receipt in receipts.items():
+            if (not isinstance(key, str) or len(key) != 64 or not isinstance(receipt, dict)
+                    or not all(isinstance(receipt.get(field), str) for field in ("item_id", "digest", "text", "recap"))
+                    or len(receipt["text"]) > 16000 or len(receipt["recap"]) > 500):
+                raise WorkPlanError("invalid side intake receipt")
+        doc["side_intake_receipts"] = copy.deepcopy(receipts)
     nodes = raw.get("nodes")
     # MAX_NODES binds new additions only (add_node). A stored board written
     # before the cap was lowered — or grown past it by unfinished work — must

@@ -45,6 +45,11 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
     """Every Work tool while Work mode is on; only the switch while it is off."""
 
     schemas = [
+        {"name": "work_side_settings", "description": "Host-only live side-intake settings; default disabled, selected type btw_with_mcp.",
+         "inputSchema": {"type": "object", "properties": {"enabled": {"type": "boolean"}}}},
+        {"name": "work_side_intake", "description": "Durably queue an untrusted side request without approving execution or changing the active goal. Stable event_key deduplicates retries; host coordinator only.",
+         "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "maxLength": 16000},
+             "event_key": {"type": "string", "maxLength": 300}}, "required": ["text", "event_key"]}},
         {
             "name": "work_status",
             "description": (
@@ -263,6 +268,26 @@ def dispatch_work_tool(
                 raise tree.WorkPlanError("conversation identity is unavailable; no shared Work fallback is allowed")
         scoped = session_work_plan_store(state_dir, identity, log=log)
         store = store or scoped
+        if name == "work_side_settings":
+            from .work_parallel_mcp import host_context
+            host, _ = host_context(args, config)
+            if host.get("agent_id") is not None:
+                raise tree.WorkPlanError("coordinator required")
+            settings = dict(config.get("work_side_intake") or {})
+            if "enabled" in args:
+                if type(args["enabled"]) is not bool or save_config is None:
+                    raise tree.WorkPlanError("boolean enabled and writable configuration required")
+                settings.update(enabled=args["enabled"], type="btw_with_mcp")
+                save_config({**config, "work_side_intake": settings})
+            return respond(request_id, json.dumps({"enabled": settings.get("enabled") is True,
+                                                  "type": "btw_with_mcp"}))
+        if name == "work_side_intake":
+            from .work_parallel_mcp import host_context
+            from .work_side_intake import enqueue
+            host, _ = host_context(args, config)
+            if host.get("agent_id") is not None:
+                raise tree.WorkPlanError("side intake requires coordinator host")
+            return respond(request_id, json.dumps(enqueue(store, args.get("text"), args.get("event_key")), ensure_ascii=False))
         if name.startswith("work_parallel_") or name == "work_discovery_pickup":
             from .work_parallel_mcp import run
             return respond(request_id, run(name, args, store, identity, config, save_config))
