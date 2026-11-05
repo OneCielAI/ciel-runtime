@@ -1118,7 +1118,7 @@ export function register(on) {
     return next(e)
   })
   on('turn.start', async ($, e, next) => {
-    if (e.agentId === undefined) { working = true; stopIdleRefresh(); generation++; mainTurnEpoch++; if (cached?.enabled && cached.side_intake_enabled) pollBusySideReceipts($, await sessionId($), mainTurnEpoch) }
+    if (e.agentId === undefined) { working = true; stopIdleRefresh(); generation++; mainTurnEpoch++; if (cached?.side_intake_enabled || cached?.enabled === false) pollBusySideReceipts($, await sessionId($), mainTurnEpoch) }
     return next(e)
   })
   on('turn.complete', async ($, e, next) => parallelTurnComplete($, e, next))
@@ -1226,6 +1226,16 @@ export function register(on) {
       const arg = e.args.trim()
       try { return { text: JSON.stringify(await parallelCall($, 'work_side_settings', arg === 'status' ? {} : { enabled: arg === 'on' })) } }
       catch (error) { return { text: 'Side settings unavailable: ' + clipped(String(error.message || error), 300) } }
+    }
+    if (e.args.trim() === 'drain') {
+      try { return { text: JSON.stringify(await parallelCall($, 'work_side_drain')) } }
+      catch (error) { return { text: 'Side drain failed: ' + clipped(String(error.message || error), 300) } }
+    }
+    if (e.args.trim() === 'receipts') {
+      const snapshot = await parallelCall($, 'work_side_status')
+      showSideReceipts($, await sessionId($), snapshot)
+      await $.ui.open({ id: 'ciel-side-intake', title: 'btw_with_mcp' })
+      return { text: 'Side inbox receipts opened; external ACK status is shown separately.' }
     }
     try { return { text: await sideIntake($, e.args) } }
     catch (error) { return { text: 'Side intake not acknowledged: ' + clipped(String(error.message || error), 300) } }

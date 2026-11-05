@@ -4,7 +4,7 @@ title: Independent durable side intake inbox
 description: Persist request before Work admission and reject empty mutation calls.
 tags: [inbox, dedup, work]
 timestamp: 2026-11-05
-status: implementation-in-progress
+status: partial-release-verified-external-ack-open
 ---
 
 # Contract
@@ -19,4 +19,4 @@ Read-only remote transcript26697479 at21:42:58,21:43:12,21:43:24 shows actual to
 
 # Verification status
 
-Independent full100 inbox receive/restart/dedup/drain test passes, Work OFF no-board receive test added. Existing source76 focused tests pass before final test addition. Release pending. External ACK/semantic triage and PostToolUse historical freeze unresolved; peer contract requested. These are not claimed complete.
+Independent full100 inbox receive/restart/dedup/drain test passes, Work OFF no-board receive test added. Existing source76 focused tests pass before final test addition. 6135578 CI42116064851/Publish42116064783 success; npm215940.6135578 installed,29 installed inbox/MCP tests pass. New immutable snapshot smoke+User pin synchronized. Real source native full100 probe105f3854 persists inbox and ordinary fallback reaches model, board stays100. Additional receipts/drain slash entry and WorkOFF observer gating follow-up still pending. External ACK/semantic triage and PostToolUse historical freeze unresolved; peer contract requested. These are not claimed complete.
