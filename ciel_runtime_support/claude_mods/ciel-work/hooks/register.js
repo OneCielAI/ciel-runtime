@@ -317,7 +317,11 @@ function promptSummary(s) {
   const node = n => n ? { id: clipped(n.id, 64), title: clipped(n.title, 180), status: n.status } : null
   return { version: s.version, phase: s.phase, approval: s.approval,
     active_root: node(s.active_root), done: s.done, total: s.total,
-    next: node(s.next), ready: s.ready,
+    next: node(s.continuation?.next), ready: s.ready,
+    actionable: s.continuation?.actionable ?? 0,
+    waiting_current: s.display_current?.runnable === false ? {
+      ...node(s.display_current), held_by: s.display_current.held_by,
+      waiting_on: clipped(s.display_current.waiting_on, 180) } : null,
     ...(s.focus?.node_ids?.length ? { focus: { node_ids: s.focus.node_ids, exhausted: s.focus.exhausted } } : {}),
     queue_count: s.queue?.length || 0,
     queued_ids: (s.queue || []).slice(0, 5).map(n => clipped(n.id, 64)),
@@ -498,7 +502,7 @@ function blockedRecheck(c) {
   if (!items.length) return ''
   return ' Blocked items to re-verify before reporting no work: '
     + items.map(n => clipped(n.id, 64) + (n.waiting_on ? ' ◷ ' + clipped(n.waiting_on, 120) : '')).join('; ')
-    + '. For each one, check whether the blocker still exists right now; if it is gone, call work_node_update to set it back to in_progress (or pending) and continue it, and if it still holds, leave it blocked and say what is still missing. Do not treat a past blocked mark as permanent.'
+    + '. For each one, check whether the blocker still exists right now; if it is gone, call work_node_update to set it back to in_progress (or pending) and continue it, and if it still holds, leave it blocked and say what is still missing. Do not treat a past blocked mark as permanent. If the missing evidence is the output of an authorized investigation you can perform, split that investigation into a runnable item outside the waiting branch; keep deployment, destructive actions and approval-dependent execution waiting. Never clear an approval or explicit hold based on prose alone.'
 }
 function notRunnable(s, c) {
   const parts = []

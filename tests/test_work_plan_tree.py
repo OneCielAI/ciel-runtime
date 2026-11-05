@@ -111,6 +111,20 @@ class WorkPlanTreeTests(unittest.TestCase):
         t.update_node(self.doc, second, priority="P1")
         self.assertEqual([second, first], [n["id"] for n in t.queued_roots(self.doc)])
 
+    def test_wait_diagnostics_distinguishes_inherited_and_in_progress_waits(self):
+        ids = self.plan()
+        t.update_node(self.doc, ids[1], waiting_on="deployment approval")
+        t.update_node(self.doc, ids[2], status="in_progress")
+        before = copy.deepcopy(self.doc)
+        state = t.snapshot(self.doc)
+        self.assertEqual(0, state["continuation"]["actionable"])
+        rows = {row["item_id"]: row for row in state["wait_diagnostics"]["items"]}
+        self.assertEqual([ids[1]], rows[ids[2]]["gate_ids"])
+        self.assertTrue(rows[ids[2]]["inherited"])
+        self.assertTrue(rows[ids[2]]["status_wait_conflict"])
+        self.assertFalse(state["display_current"]["runnable"])
+        self.assertEqual(before, self.doc)
+
     def test_blocked_items_are_named_for_recheck(self):
         root = self.plan()
         t.update_node(self.doc, root[2], status="blocked", waiting_on="freeze logs missing")

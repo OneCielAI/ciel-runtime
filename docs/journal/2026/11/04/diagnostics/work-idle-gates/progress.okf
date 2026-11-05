@@ -1,0 +1,14 @@
+---
+type: diagnosis
+title: Work idle gates and side-channel intake investigation
+status: implementation-in-progress
+---
+
+# Evidence
+Read-only Kobi API snapshot455: enabled/auto_continue true, executing,100/110 leaves done, continuation.actionable0, next null. All10 unfinished leaves have explicit waits; n174 in_progress also waits, n183 inherits parent n182 wait. Display previously selected n174 despite no runnable work. Snapshot files .local/kobi-work-snapshot455.json and .local/kobi-root-n67.json; INFO logs show request200 but not per-Stop scheduling decision.
+
+# Current changes
+Existing display_current already distinguishes runnable/held_by in current code. Added bounded wait_diagnostics to snapshot: exact leaf gate_ids, inherited and in_progress-with-wait conflict. Never clears waits, interprets prose as authorization, or mutates external boards. Added status decision INFO logging of version,auto_continue,actionable,next and excluded count.56 pure tree regressions pass.
+
+# Side intake requirements
+User requests btw_with_mcp: inspect current queue, ack/recap, enqueue without interrupting main work. Native btw cannot use MCP; do not claim native support. Must verify packaged mod/background-agent APIs and delivery transport. Prefer session-bound durable dedup intake; queued intake is not execution approval, peer SSE remains untrusted, ack only after durable acceptance, failure must retain pending event. No fallback that silently injects whole event into busy main context. Not implemented yet.

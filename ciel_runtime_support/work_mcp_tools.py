@@ -266,7 +266,7 @@ def dispatch_work_tool(
         if name.startswith("work_parallel_") or name == "work_discovery_pickup":
             from .work_parallel_mcp import run
             return respond(request_id, run(name, args, store, identity, config, save_config))
-        return respond(request_id, _run(name, args, store, approval_ask, auto_continue=work_auto_continue_enabled(config), retention=retention_status(config), config=config))
+        return respond(request_id, _run(name, args, store, approval_ask, auto_continue=work_auto_continue_enabled(config), retention=retention_status(config), config=config, log=log))
     except (tree.WorkPlanError, ValueError) as error:
         return respond(request_id, str(error), True)
 
@@ -294,7 +294,7 @@ def _switch_work_mode(enabled: Any, load_config: Callable[[], dict[str, Any]],
             "auto continue stop at their next check. Turn it back on with work_mode_set(enabled=true)."), False
 
 
-def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bool, *, auto_continue: bool = True, retention: dict[str, Any] | None = None, config: dict[str, Any] | None = None) -> str:
+def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bool, *, auto_continue: bool = True, retention: dict[str, Any] | None = None, config: dict[str, Any] | None = None, log: Callable[[str, str], Any] | None = None) -> str:
     expected = _expected_version(args)
     if name == "work_status":
         doc = store.read_snapshot()
@@ -318,6 +318,11 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         if args.get("format") == "json":
             state = tree.snapshot(doc, approval_ask=approval_ask)
             state["auto_continue"] = auto_continue
+            if log is not None:
+                log("INFO", f"work_status_decision version={doc['version']} auto_continue={auto_continue} "
+                    f"actionable={state['continuation']['actionable']} "
+                    f"next={(state['continuation']['next'] or {}).get('id')} "
+                    f"excluded_leaves={state['wait_diagnostics']['excluded_leaves']}")
             from .work_discovery import discovery_hint
             state["discovery"] = discovery_hint(config or {}, state)
             from .work_parallel_mcp import ledger, project

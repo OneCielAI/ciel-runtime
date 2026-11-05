@@ -614,6 +614,25 @@ def continuation(doc: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def wait_diagnostics(doc: dict[str, Any]) -> dict[str, Any]:
+    """Expose exact gates without guessing whether free-form waits are resolved."""
+    by_id = _index(doc)
+    rows = []
+    for leaf in doc["nodes"]:
+        if leaf["status"] == "done" or _children(doc, leaf["id"]):
+            continue
+        path = [leaf]
+        while path[-1]["parent_id"] is not None:
+            path.append(by_id[path[-1]["parent_id"]])
+        gates = [n for n in reversed(path) if n.get("waiting_on") or n["status"] == "blocked"]
+        if gates:
+            rows.append({"item_id": leaf["id"], "root_id": path[-1]["id"],
+                         "gate_ids": [n["id"] for n in gates],
+                         "inherited": any(n["id"] != leaf["id"] for n in gates),
+                         "status_wait_conflict": leaf["status"] == "in_progress"})
+    return {"excluded_leaves": len(rows), "items": rows[:20], "truncated": len(rows) > 20}
+
+
 def _blocked_items(doc: dict[str, Any], by_id: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     """Every unfinished blocked node, root first, with its recorded reason."""
     items = []
@@ -805,6 +824,7 @@ def snapshot(doc: dict[str, Any], *, enabled: bool = True, approval_ask: bool = 
         "active_root": _node_summary(by_id[root]) if root else None,
         "continuation": resume,
         "display_current": current,
+        "wait_diagnostics": wait_diagnostics(doc),
         "focus": {"node_ids": list(doc.get("focus_ids", [])),
                   "exhausted": bool(doc.get("focus_ids")) and all(by_id[n]["status"] == "done" for n in _focus_leaves(doc))},
         "done": done,
