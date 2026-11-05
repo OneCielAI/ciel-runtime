@@ -2,7 +2,10 @@
 
 The generation dispatcher enters request_scope; reusable config never owns a
 mutable budget. Typed TimeoutError (also inside URLError) during open may
-retry under that same budget; other ambiguous transport failures do not.
+retry under that same budget. So may a DNS resolution failure or a refused
+connection: both fail during connection setup, before any request byte can
+reach the upstream, so replaying them cannot duplicate work. Other ambiguous
+transport failures (reset, broken pipe, TLS EOF) do not retry.
 A timeout does not prove the upstream did no work, so replay may duplicate
 upstream generation or billing. After message_start or any unknown generation
 frame, reads never reopen. Before that boundary, delayed explicit SSE rejections
@@ -48,6 +51,7 @@ import contextvars
 import io
 import json
 import math
+import socket
 import threading
 import time
 import urllib.error
@@ -125,7 +129,7 @@ class TransientRetryBudget:
         return self._schedule_wait(headers)
 
     def timeout_wait(self, error: BaseException) -> float | None:
-        if retry_handled(error) or not _typed_open_timeout(error):
+        if retry_handled(error) or not (_typed_open_timeout(error) or _unsent_open_failure(error)):
             return None
         return self._schedule_wait()
 
@@ -861,6 +865,14 @@ def _typed_open_timeout(error: BaseException) -> bool:
         isinstance(error, urllib.error.URLError) and isinstance(error.reason, TimeoutError))
 
 
+def _unsent_open_failure(error: BaseException) -> bool:
+    """Connection setup failed before any request byte could reach the upstream."""
+    reason = error
+    if isinstance(error, urllib.error.URLError) and not isinstance(error, urllib.error.HTTPError):
+        reason = error.reason
+    return isinstance(reason, (socket.gaierror, ConnectionRefusedError))
+
+
 def _execute(open_once, budget, log, publish, sleep, cancelled, request, reselect, model):
     last = None
     while True:
@@ -876,7 +888,7 @@ def _execute(open_once, budget, log, publish, sleep, cancelled, request, reselec
         except urllib.error.HTTPError as caught:
             error = caught
         except BaseException as caught:
-            if not _typed_open_timeout(caught):
+            if not (_typed_open_timeout(caught) or _unsent_open_failure(caught)):
                 budget.stopped = True
                 _mark(caught, budget)
                 raise
@@ -934,7 +946,8 @@ def _execute(open_once, budget, log, publish, sleep, cancelled, request, reselec
             kind, status = "http_rejection", error.code
         else:
             wait = budget.timeout_wait(error)
-            kind, status = "transport_timeout", None
+            kind = "transport_timeout" if _typed_open_timeout(error) else "transport_unsent"
+            status = None
         if wait is None:
             budget.stopped = True
             log("WARN", f"cielairouter_transient_stopped operation_id={budget.operation_id} "

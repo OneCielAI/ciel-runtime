@@ -1,0 +1,21 @@
+---
+type: diagnosis
+title: Retry DNS and refused connections within pre-output budget
+status: tested-pending-release
+---
+
+# Evidence
+- User screenshot: router 9505 naked HTTP500, URLError socket.gaierror(11001), getaddrinfo failed.
+- Live router health: d40b895 snapshot. Log operation ef448497 at 18:42:16: gateway discovery unavailable, central fallback; 18:42:40 typed timeout retries 1/3; 18:43:00 DNS failure terminates at 44.39s with remaining budget unused.
+- Current transient_retry._execute only allowed typed TimeoutError. DNS failure was marked handled and raised immediately; legacy retry could not recover it. Current status-faithful code already fixes old naked500 but did not fix DNS retry admission.
+
+# Fix
+- Admit typed socket.gaierror and ConnectionRefusedError (bare or URLError-wrapped) in open phase under the same finite attempt/deadline budget as timeout retries.
+- DNS/refused connect are setup failures. Reset, broken pipe, TLS EOF, string-only errors and post-output failures remain non-replayable. Explicit retries=0 still disables retry; no nested budget or arbitrary string matching.
+- Log kind transport_unsent distinguishes setup failure from transport_timeout; retain existing reselect hook and cancellation handling.
+
+# Verification
+- Isolated focused transient suites, upstream retry/failure, integration, scope and initial-stream tests: 132 passed in 13.851s.
+- New regressions: raw/wrapped DNS and refused connection recover; exact field timeout->DNS->success uses three opens; persistent DNS stops at configured cap and marked handled.
+- Existing reset/TLS/broken-pipe/post-output no-replay coverage stayed green. Ruff passed; diff check clean.
+- Live router9505 health before/after tests: same PID29224, same d40b895 version. No live restart.

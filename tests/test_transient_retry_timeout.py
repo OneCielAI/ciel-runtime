@@ -204,6 +204,53 @@ class TimeoutRetryTests(unittest.TestCase):
             self.assertIs(error, caught.exception)
             self.assertEqual(1, opener.call_count)
 
+    def test_unsent_connect_failures_retry_under_same_budget(self):
+        # DNS resolution and a refused connection fail before any request byte
+        # reaches the upstream, so replay cannot duplicate generation.
+        for error in (urllib.error.URLError(socket.gaierror(11001, "getaddrinfo failed")),
+                      socket.gaierror(11001, "getaddrinfo failed"),
+                      urllib.error.URLError(ConnectionRefusedError(10061, "refused")),
+                      ConnectionRefusedError(10061, "refused")):
+            with self.subTest(error=error):
+                calls, logs = [], []
+                def open_once():
+                    calls.append(1)
+                    if len(calls) == 1:
+                        raise error
+                    return Response()
+                reselect = mock.Mock()
+                result = self.invoke(open_once, reselect=reselect, log=lambda *a: logs.append(a))
+                self.assertEqual(b"ok", result.read())
+                result.close()
+                self.assertEqual(2, len(calls))
+                reselect.assert_called_once_with()
+                self.assertTrue(any("kind=transport_unsent" in line for _, line in logs))
+
+    def test_field_timeout_then_dns_failure_then_success(self):
+        # 9505 router log, operation ef448497: a typed timeout retried once,
+        # then getaddrinfo 11001 ended the request with two attempts unused.
+        sequence = [urllib.error.URLError(TimeoutError("timed out")),
+                    urllib.error.URLError(socket.gaierror(11001, "getaddrinfo failed"))]
+        calls = []
+        def open_once():
+            calls.append(1)
+            if sequence:
+                raise sequence.pop(0)
+            return Response()
+        result = self.invoke(open_once, {"gateway_retries": 3})
+        self.assertEqual(b"ok", result.read())
+        result.close()
+        self.assertEqual(3, len(calls))
+
+    def test_persistent_dns_failure_stops_at_limit_and_is_marked_handled(self):
+        error = urllib.error.URLError(socket.gaierror(11001, "getaddrinfo failed"))
+        opener = mock.Mock(side_effect=error)
+        with self.assertRaises(urllib.error.URLError) as caught:
+            self.invoke(opener)
+        self.assertIs(error, caught.exception)
+        self.assertEqual(3, opener.call_count)
+        self.assertTrue(retry.retry_handled(caught.exception), "no legacy replay after the budget is spent")
+
     def test_expired_open_timeout_does_not_restart_deadline(self):
         clock = Clock()
         budget = retry.TransientRetryBudget(2, 2, clock)
