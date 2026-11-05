@@ -124,7 +124,9 @@ class TransientRetryBudget:
 
     def next_wait(self, error: urllib.error.HTTPError, raw: bytes,
                   headers: Mapping[str, Any] | None = None) -> float | None:
-        if not _retryable_verdict(error.code, raw):
+        empty_gateway_rejection = (not raw and error.code in {502, 503, 504}
+                                   and not getattr(error, '_ciel_sse_error', False))
+        if not empty_gateway_rejection and not _retryable_verdict(error.code, raw):
             return None
         return self._schedule_wait(headers)
 
@@ -702,6 +704,8 @@ def _read_error(error, budget, cancelled):
     prefix = bytearray()
     sock = _socket(error.fp)
     response = error.fp
+    if isinstance(response, io.BytesIO) and response.tell() == len(response.getbuffer()):
+        return b'', True
     reader = getattr(response, "read1", None)
     if reader is None and isinstance(response, io.BytesIO):
         reader = response.read

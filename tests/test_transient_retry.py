@@ -71,6 +71,13 @@ class TransientRetryTests(unittest.TestCase):
         )
         return response, calls, logs, sleeps, config
 
+    def test_empty_http_bad_gateway_retries_before_output(self):
+        response, calls, logs, sleeps, _ = self.run_open([failure(502, b''), Response()])
+        self.assertEqual(b'ok', response.read())
+        self.assertEqual(2, len(calls))
+        self.assertEqual([1.0], sleeps)
+        self.assertTrue(any('status=502' in message for _, message in logs))
+
     def test_screenshot_retries_then_succeeds_and_closes_error(self):
         rejected = failure()
         original = rejected.fp
