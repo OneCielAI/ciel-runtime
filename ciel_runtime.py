@@ -1941,7 +1941,7 @@ def handle_external_event_raw_post(handler: BaseHTTPRequestHandler, path: str, r
     return external_event_receiver_service().handle_raw_post(handler, path, raw)
 
 def external_event_panel_rows(_cfg: dict[str, Any]) -> tuple[list[str], list[str]]:
-    return project_external_event_panel_rows(external_event_receiver_service(), ROUTER_BASE, control=ExternalEventControl(ROUTER_BASE, ROUTER_WORKSPACE, _ROUTER_ACCESS_POLICY.health_headers(ROUTER_BASE, load_config(), router_external_access_token)).call)
+    return project_external_event_panel_rows(external_event_receiver_service(), ROUTER_BASE, language=_cfg.get("language", "en"), control=ExternalEventControl(ROUTER_BASE, ROUTER_WORKSPACE, _ROUTER_ACCESS_POLICY.health_headers(ROUTER_BASE, load_config(), router_external_access_token)).call)
 
 def set_external_event_config(key: str, value: Any) -> list[str]:
     return project_set_external_event_config(external_event_receiver_service(), key, value, control=ExternalEventControl(ROUTER_BASE, ROUTER_WORKSPACE, _ROUTER_ACCESS_POLICY.health_headers(ROUTER_BASE, load_config(), router_external_access_token)).call)

@@ -328,6 +328,8 @@ _WORK_MODE_BOOL_WORDS = ("on", "true", "yes", "1", "enable", "enabled", "off", "
 
 
 def set_work_mode_option(cfg: dict[str, Any], key: str, value: str, parse_bool, save_config) -> list[str]:
+    from .recent_menu_text import menu_text, state_text
+    language = cfg.get("language", "en")
     normalized = value.strip().lower()
     if key == WORK_PLAN_APPROVAL_ASK_KEY:
         normalized = {"ask": "true", "ask user": "true", "auto": "false"}.get(normalized, normalized)
@@ -336,16 +338,19 @@ def set_work_mode_option(cfg: dict[str, Any], key: str, value: str, parse_bool, 
     elif normalized in _WORK_MODE_BOOL_WORDS:
         cfg[key] = parse_bool(normalized, default=key != WORK_PLAN_APPROVAL_ASK_KEY)
     else:
-        return [f"{key}: enter ask or auto." if key == WORK_PLAN_APPROVAL_ASK_KEY else f"{key}: enter on or off."]
+        choices = ("ask or auto" if key == WORK_PLAN_APPROVAL_ASK_KEY else "on or off") if language == "en" else ("ask / auto" if key == WORK_PLAN_APPROVAL_ASK_KEY else "on / off")
+        return [menu_text("enter_work_value", language, choices=choices)]
     save_config(cfg)
     if key == WORK_COMPLETED_AUTO_DELETE_KEY:
-        return [f"Work completed auto-delete (24h) {'on' if retention_enabled(cfg) else 'off'}.",
-                "Completed items expire after 24 hours; focused items stay protected until focus is cleared. No files or transcripts are deleted."]
-    if key == WORK_MODE_KEY:
-        return [f"Work mode {work_mode_menu_label(cfg)}.", "Native sessions are unchanged. Codex receives planning instructions only; this version does not enforce a planning gate for Codex."]
-    if key == WORK_AUTO_CONTINUE_KEY:
-        return [f"Work auto continue {work_auto_continue_menu_label(cfg)}.", "Native sessions are unchanged. Codex receives continuation instructions only; this version does not enforce automatic continuation for Codex."]
-    return [f"Work plan approval {work_plan_approval_menu_label(cfg)}.", "Native sessions are unchanged. Codex receives planning instructions only; this version does not enforce this approval as a gate on Codex edits."]
+        label = "on" if retention_enabled(cfg) else "off"
+        notice = "work_retention_notice"
+    elif key == WORK_MODE_KEY:
+        label, notice = work_mode_menu_label(cfg), "work_native_notice"
+    elif key == WORK_AUTO_CONTINUE_KEY:
+        label, notice = work_auto_continue_menu_label(cfg), "work_native_notice"
+    else:
+        label, notice = work_plan_approval_menu_label(cfg), "work_native_notice"
+    return [f"{menu_text(key, language)}: {state_text(label, language)}.", menu_text(notice, language)]
 
 
 def gateway_status_lines(router_health, matches_config, load_config) -> list[str]:

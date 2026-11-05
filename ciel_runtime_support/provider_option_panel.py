@@ -82,7 +82,13 @@ def build_option_panel_rows(
     rows: list[str] = []
     values: list[str] = []
 
+    from .recent_menu_text import TEXT, menu_text, state_text
+
     def add(label: str, key: str, value: Any) -> None:
+        if key in TEXT:
+            label = menu_text(key, language)
+            if key not in ("blocked_tools", "work_discovery_instruction", "claude_code_supported_capabilities"):
+                value = state_text(value, language)
         rows.append(f"{label:<24} [{text.compact_text(value, 56)}]")
         values.append(key)
 
@@ -97,13 +103,13 @@ def build_option_panel_rows(
     from .provider_tool_policy import blocked_tools_option_value
     add("Tool blocklist (routed)", "blocked_tools", blocked_tools_option_value(config))
     work = runtime.work_settings()
-    add("SSE pre-compact gate removed; injection ≥90% compacts once", "__info__", "active")
+    add(menu_text("sse_compact_info", language), "__info__", state_text("active", language))
     add("Work mode", WORK_MODE_KEY, work_mode_menu_label(work))
     add("Work plan approval", WORK_PLAN_APPROVAL_ASK_KEY, work_plan_approval_menu_label(work))
     add("Work auto continue", WORK_AUTO_CONTINUE_KEY, work_auto_continue_menu_label(work))
     add("Work completed auto-delete (24h)", WORK_COMPLETED_AUTO_DELETE_KEY, "on (default)" if retention_enabled(work) else "off")
     from .work_parallel_menu import rows as parallel_rows
-    for label, key, value in parallel_rows(work):
+    for label, key, value in parallel_rows(work, language=language):
         add(label, key, value)
     if not runtime.direct_native(provider, config) and policy.shows_workflows:
         model = runtime.current_model(provider, config)
@@ -113,14 +119,14 @@ def build_option_panel_rows(
         add("Claude Code capabilities", "claude_code_supported_capabilities", capabilities or "auto/none")
     if policy.presentation.show_gateway_selection:
         from .cielairouter_gateway_overlay import selection_enabled
-        add("Automatic gateway", "gateway_selection", "auto" if selection_enabled(config) else "off (central)")
-        add("Gateway status", "gateway_status", "read-only /health (Enter)")
+        add("Automatic gateway", "gateway_selection", state_text("auto", language) if selection_enabled(config) else menu_text("gateway_central", language))
+        add("Gateway status", "gateway_status", menu_text("gateway_readonly", language))
         from .transient_retry import configured_retry_limit
         add("CielAiRouter retries", "gateway_retries",
-            f"{configured_retry_limit(config)} extra; 0 off, max 10; router/direct CLI HTTP")
+            menu_text("gateway_retry_value", language, count=configured_retry_limit(config)))
     if policy.presentation.show_gateway_data_path:
         from .launch_data_path import configured_data_path
-        add("Gateway data path", "gateway_data_path", f"{configured_data_path(config)} (applies at launch)")
+        add("Gateway data path", "gateway_data_path", menu_text("launch_apply", language, value=configured_data_path(config)))
     if policy.context_strategy == "ollama":
         _add_ollama_controls(add, provider, config, services)
     else:
@@ -280,6 +286,8 @@ def option_prompt_default(
     }
     from .work_parallel_menu import KEYS, rows as parallel_rows
     if key in KEYS:
+        if key == "work_discovery_instruction":
+            return str(runtime.work_settings().get("work_discovery", {}).get("instruction", ""))
         return next(str(value) for _, option, value in parallel_rows(runtime.work_settings()) if option == key)
     if key in boolean_keys:
         return "true" if current_option_bool(provider, config, key, policy, services) else "false"

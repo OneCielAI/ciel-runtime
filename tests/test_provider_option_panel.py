@@ -48,6 +48,24 @@ class ProviderOptionPanelTests(unittest.TestCase):
             ),
         )
 
+    def test_recent_menu_controls_follow_all_supported_languages(self):
+        from ciel_runtime_support.recent_menu_text import LANGUAGES, menu_text, TEXT
+        self.assertTrue(all(len(row) == len(LANGUAGES) and all(row) for row in TEXT.values()))
+        class GatewayPresentation(ProviderOptionPresentationPolicy):
+            @property
+            def show_gateway_selection(self):
+                return True
+        for language in LANGUAGES:
+            with self.subTest(language=language):
+                rows, values = build_option_panel_rows(
+                    "cielairouter", {},
+                    OptionPanelPolicy(
+                        presentation=GatewayPresentation(),
+                        context_strategy="managed", shows_workflows=False, timeout_default="default"),
+                    self.services(), language=language)
+                for key in ("work_mode", "work_parallel_enabled", "gateway_selection", "gateway_retries"):
+                    self.assertIn(menu_text(key, language), rows[values.index(key)])
+
     def test_route_policy_projects_runtime_controls_without_provider_dispatch(self):
         rows, values = build_option_panel_rows(
             "runtime",

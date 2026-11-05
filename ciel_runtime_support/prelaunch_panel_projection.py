@@ -122,6 +122,7 @@ class MainMenuProjection:
         )
         remote = config.get("remote_instructions")
         remote_enabled = bool(isinstance(remote, dict) and remote.get("enabled"))
+        from .recent_menu_text import menu_text
         return [
             f"0. {self.ports.ui_text('language', language)}  "
             f"[{self.ports.languages.get(language, language)}]",
@@ -139,20 +140,20 @@ class MainMenuProjection:
             f"7. {self.ports.ui_text('log_level', language)}  "
             f"[{self.ports.log_level_status()}]",
             f"8. {self.ports.ui_text('test', language)}",
-            "9. Launch  [Claude · Codex TUI · AGY · Kimi · Grok · Codex TUI + app-server · Codex app-server (no TUI) · Codex desktop]",
-            f"10. External event inputs  [CloudEvents + Webhook/SSE · {runtime_input_retry.short_summary(config)}]",
-            f"11. Remote instructions  [HTTP GET · {'on' if remote_enabled else 'off'}]",
-            "12. Workspace MCP modules  [launch scoped]",
-            "13. Request/file limits  [workspace scoped]",
+            f"9. {menu_text('main_launch', language)}  [Claude · Codex TUI · AGY · Kimi · Grok · Codex TUI + app-server · Codex app-server (no TUI) · Codex desktop]",
+            f"10. {menu_text('main_events', language)}  [CloudEvents + Webhook/SSE · {runtime_input_retry.short_summary(config)}]",
+            f"11. {menu_text('main_remote', language)}  [HTTP GET · {'on' if remote_enabled else 'off'}]",
+            f"12. {menu_text('main_mcp', language)}  [{menu_text('launch_scoped', language)}]",
+            f"13. {menu_text('main_limits', language)}  [{menu_text('workspace_scoped', language)}]",
             f"14. {self.ports.ui_text('web_backend', language)}  "
             f"[{web_backend_summary(config, 0)}]",
-            f"15. OAuth tokens  [{oauth_tokens_summary()}]",
-            f"16. Web access  [{web_access_summary()}]",
-            f"17. Dangerous delete prompt · Stream recovery  "
+            f"15. {menu_text('main_oauth', language)}  [{oauth_tokens_summary()}]",
+            f"16. {menu_text('main_web', language)}  [{web_access_summary()}]",
+            f"17. {menu_text('main_recovery', language)}  "
             f"[{dangerous_rm_auto_allow.summary(config)} · {claude_stream_recovery_settings.short_summary(config)}]",
-            f"18. Session backup  [{session_backup_summary()}]",
-            f"19. Provider fallback  [{provider_fallback_summary(config)}]",
-            f"20. Unattended restart  [{unattended_restart_summary()}]",
+            f"18. {menu_text('main_backup', language)}  [{session_backup_summary()}]",
+            f"19. {menu_text('main_fallback', language)}  [{provider_fallback_summary(config)}]",
+            f"20. {menu_text('main_restart', language)}  [{unattended_restart_summary()}]",
             self.ports.ui_text("quit", language),
         ]
 

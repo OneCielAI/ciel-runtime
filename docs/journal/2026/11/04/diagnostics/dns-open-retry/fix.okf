@@ -1,7 +1,7 @@
 ---
 type: diagnosis
 title: Retry DNS and refused connections within pre-output budget
-status: tested-pending-release
+status: released-installed-verified
 ---
 
 # Evidence
@@ -19,3 +19,11 @@ status: tested-pending-release
 - New regressions: raw/wrapped DNS and refused connection recover; exact field timeout->DNS->success uses three opens; persistent DNS stops at configured cap and marked handled.
 - Existing reset/TLS/broken-pipe/post-output no-replay coverage stayed green. Ruff passed; diff check clean.
 - Live router9505 health before/after tests: same PID29224, same d40b895 version. No live restart.
+
+# Release
+- CI41945459702 and Publish41945459881 completed/success for 33f02518a479704086820b006f944e14e22691c5.
+- npm 0.2.51-nightly.20261105-011221.33f0251, gitHead matched and tarball SHA512 verified against registry integrity.
+- New snapshot ciel-runtime-33f02518a479704086820b006f944e14e22691c5: published package 529/529 files match.
+- Installed smoke: TimeoutError -> gaierror11001 -> success, three opens, retry logs transport_timeout and transport_unsent with one shared operation_id.
+- User CIEL_RUNTIME_HOME updated for future launches; running routers untouched. This release also includes the preceding e208456 parallel dispatch correction.
+- Local evidence: .local/dns-release-result.json.

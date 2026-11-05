@@ -11,7 +11,7 @@ from .runtime_input_delivery_health import delivery_health_text
 
 def panel_rows(
     service: ExternalEventReceiverService, router_base: str,
-    *, control: Callable[..., dict[str, Any]] | None = None,
+    *, control: Callable[..., dict[str, Any]] | None = None, language: str = "en",
 ) -> tuple[list[str], list[str]]:
     receiver = service.receiver_configs().get("default", {})
     public_receiver = service.public_receiver("default", receiver)
@@ -125,15 +125,19 @@ def panel_rows(
                     f"checkpoint observed {compact.get('checkpoint_observed_at') or '-'} ; "
                     f"failure at {compact.get('failure_at') or '-'}]")
         values.insert(-1, "__info__")
+    from .recent_menu_text import menu_text, state_text
     for label, key, display in (
         ("Work idle discovery", "discovery_enabled", "on" if receiver.get("discovery_enabled") else "off"),
         ("Work discovery instruction (literal or env reference)", "discovery_instruction", str(receiver.get("discovery_instruction") or "unset")),
         ("Work discovery file (local path; body reloads on change)", "discovery_file_path", str(receiver.get("discovery_file_path") or "unset")),
         ("TEST default instruction override", "test_default_override", "on" if receiver.get("test_default_override") else "off"),
     ):
+        label = menu_text(key, language)
+        if key in ("discovery_enabled", "test_default_override"):
+            display = state_text(display, language)
         rows.insert(-1, f"{label}  [{display}]")
         values.insert(-1, key)
-    rows.insert(-1, "Recover SSE delivery now")
+    rows.insert(-1, menu_text("recover_sse_delivery", language))
     values.insert(-1, "recover_sse_delivery")
     return rows, values
 

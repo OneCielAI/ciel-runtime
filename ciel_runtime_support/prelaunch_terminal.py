@@ -429,6 +429,7 @@ def render_prelaunch_screen(
         else:
             add(line)
     if panel:
+        from .recent_menu_text import menu_text
         titles = {
             "language": "Language",
             "provider": "Provider",
@@ -440,14 +441,14 @@ def render_prelaunch_screen(
             "options": ui_text("options", lang),
             "channel-delivery": ui_text("channel_delivery", lang),
             "log-level": ui_text("log_level", lang),
-            "external-events": "External event inputs",
-            "workspace-mcp": "Workspace MCP modules",
-            "oauth-tokens": "OAuth tokens",
-            "web-access": "Web access",
-            "dangerous-rm": "Dangerous delete prompt · Stream recovery",
-            "session-backup": "Session backup",
-            "provider-fallback": "Provider fallback",
-            "unattended-restart": "Unattended restart",
+            "external-events": menu_text("main_events", lang),
+            "workspace-mcp": menu_text("main_mcp", lang),
+            "oauth-tokens": menu_text("main_oauth", lang),
+            "web-access": menu_text("main_web", lang),
+            "dangerous-rm": menu_text("main_recovery", lang),
+            "session-backup": menu_text("main_backup", lang),
+            "provider-fallback": menu_text("main_fallback", lang),
+            "unattended-restart": menu_text("main_restart", lang),
             "channels": "Channels",
             "context": ui_text("context_setup", lang),
             "preset": ui_text("presets", lang),
@@ -494,7 +495,8 @@ def render_prelaunch_screen(
         for line in checks[:2]:
             add("  " + line, "1;38;5;208")
     add("")
-    help_text = "Up/Down moves. PgUp/PgDn jumps. Home/End bounds. Enter selects. Esc/Left closes. q quits."
+    from .recent_menu_text import menu_text
+    help_text = menu_text("menu_navigation", lang)
     add(help_text, "2")
     rendered = "\n".join(screen) + "\n"
     if sys.stdout.isatty():

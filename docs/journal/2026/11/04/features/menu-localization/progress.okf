@@ -1,0 +1,24 @@
+---
+type: implementation
+title: Recent menu localization
+status: verification-in-progress
+---
+
+# Scope
+Four supported languages: en/ko/ja/zh. Recent main-menu labels, Work and parallel controls, gateway controls, debug controls, SSE discovery and Work settings responses had hardcoded English/Korean text.
+
+# Changes
+- recent_menu_text provides four-language entries with UI_TEXT fallback; raw command identifiers and user instructions are not translated.
+- provider_option_panel uses locale for recent labels and display states, preserving raw option_prompt_default values.
+- work_parallel_menu accepts explicit language for rows and uses configured language for save/error messages.
+- Work save responses and recent external-event discovery controls use locale; runtime entrypoint forwards configured language.
+- Main recently added menu labels use the same four-language entries.
+
+# Evidence
+- Focused provider option, Work option, parallel menu, external event, prelaunch projection suites: 27 tests passed. Ruff and diff checks passed.
+- Initial isolated four-language capture launched the actual app, but images showed only main menu; not accepted as options-panel verification.
+- Second driver attempt failed exit3221225786; no claim of UI verification.
+- Third isolated four-language run uses longer transition wait and is pending. Only owned conhost descendants are stopped; no live routers touched.
+
+# Pending
+Inspect actual options screenshots, close remaining localization gaps, commit/push, verify published package and installed behavior. Task is not complete.

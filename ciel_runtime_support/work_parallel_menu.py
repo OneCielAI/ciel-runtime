@@ -6,39 +6,39 @@ KEYS = ("work_parallel_enabled", "work_parallel_paused", "work_parallel_max_acti
         "work_parallel_p1_reserved", "work_parallel_launches_per_minute", "work_parallel_max_rework")
 
 
-def rows(config):
+def rows(config, language=None):
     from .work_parallel_mcp import ledger
+    from .recent_menu_text import menu_text
+    language = language or config.get("language", "en")
     try:
         p = ledger().read()["policy"]
     except (ValueError, OSError):
-        return [("Work 병렬 실행 상태 오류 — 자동 실행 보류", "__info__", "unavailable")]
+        return [(menu_text("work_parallel_unavailable", language), "__info__", "unavailable")]
     d = config.get("work_discovery", {})
-    return [("Work 병렬 실행", KEYS[0], str(p["enabled"]).lower()),
-            ("Work 병렬 실행 일시정지", KEYS[1], str(p["paused"]).lower()),
-            ("Work 동시 실행 포크 한도", KEYS[2], str(p["max_active"])),
-            ("Work 미결 아이템 탐색", KEYS[3], str(d.get("enabled", True)).lower()),
-            ("Work TEST 기본 탐색 지시 강제", KEYS[4], str(d.get("test_default_override", True)).lower()),
-            ("Work 탐색 지시 (SSE 설정에서도 주입)", KEYS[5], d.get("instruction", "test default")),
-            ("Work P1 예약 슬롯", KEYS[6], str(p["p1_reserved"])),
-            ("Work 분당 시작 한도", KEYS[7], str(p["launches_per_minute"])),
-            ("Work 자동 재처리 한도", KEYS[8], str(p["max_rework"]))]
+    values = (str(p["enabled"]).lower(), str(p["paused"]).lower(), str(p["max_active"]),
+              str(d.get("enabled", True)).lower(), str(d.get("test_default_override", True)).lower(),
+              d.get("instruction", menu_text("default_instruction", language)),
+              str(p["p1_reserved"]), str(p["launches_per_minute"]), str(p["max_rework"]))
+    return [(menu_text(key, language), key, value) for key, value in zip(KEYS, values)]
 
 
 def apply(config, key, value, save_config):
     from .work_parallel_mcp import ledger
+    from .recent_menu_text import menu_text
+    language = config.get("language", "en")
     if key not in KEYS:
-        raise WorkParallelError("unknown Work parallel option")
+        raise WorkParallelError(menu_text("work_parallel_unknown", language))
     token = str(value).strip()
     def boolean():
         if token.lower() not in ("on", "off", "true", "false"):
-            raise WorkParallelError("enter on/off or true/false")
+            raise WorkParallelError(menu_text("enter_bool", language))
         return token.lower() in ("on", "true")
     if key.startswith("work_discovery_"):
         d = dict(config.get("work_discovery", {}))
         field = key[len("work_discovery_"):]
         d[field] = token if field == "instruction" else boolean()
         if field == "instruction" and (not token or len(token) > 4000):
-            raise WorkParallelError("instruction must contain 1-4000 characters")
+            raise WorkParallelError(menu_text("instruction_length", language))
         config["work_discovery"] = d
     else:
         store = ledger()
@@ -56,4 +56,4 @@ def apply(config, key, value, save_config):
         state, _ = store.configure(changes, capability_ready=True, expected_version=state["version"])
         config["work_parallel"] = state["policy"]
     save_config(config)
-    return [f"{key}: {token}", "신규 작업부터 반영합니다. 기존 실행은 강제 종료하지 않습니다."]
+    return [f"{menu_text(key, language)}: {token}", menu_text("work_parallel_saved", language)]
