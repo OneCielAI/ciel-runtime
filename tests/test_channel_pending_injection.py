@@ -193,6 +193,19 @@ class FailedRecordTests(unittest.TestCase):
         )
 
 
+class SideIntakeTransportTests(unittest.TestCase):
+    def test_side_intake_without_socket_stays_pending_and_never_types(self):
+        message = _message(40)
+        message["meta"] = {"input_transport": "session_socket", "btw_with_mcp": True, "btw": True}
+        harness = _InjectionHarness([message])
+        services = harness.services()
+        services = dataclasses.replace(services, io=dataclasses.replace(
+            services.io, write_session_socket=lambda *_: False, session_socket_available=lambda: False))
+        cursor = inject_pending_channel_messages(99, 39, None, wake_for_llm_delivery=True, services=services)
+        self.assertEqual(39, cursor)
+        self.assertEqual([], harness.written)
+
+
 class SessionSocketFallbackTests(unittest.TestCase):
     """ara/edward 2026-10-03: Codex has no session socket, so these messages
     were typed in full into the Windows TUI and lost characters."""

@@ -307,6 +307,13 @@ def inject_pending_channel_messages(
                 requested_session_socket = _session_socket_usable(io)
                 requested_router = False
             socket_usable = requested_session_socket and _session_socket_usable(io)
+            if side_intake and not socket_usable:
+                io.log("WARN", f"channel_side_intake_deferred message_id={message_id} reason=session_socket_unavailable")
+                deferred.mark(message_id)
+                last_id = previous_last_id
+                if pending:
+                    break
+                return deferred.clamp(last_id)
             if terminal_available and requested_session_socket and not socket_usable:
                 # Without a socket the router block is the next whole-message
                 # path; typing a large body into a Windows TUI loses characters
@@ -542,7 +549,8 @@ def inject_pending_channel_messages(
             try:
                 if pending_uses_session_socket:
                     submitted = bool(io.write_session_socket and io.write_session_socket(prompt, pending))
-                    if submitted is False and terminal_available and not (active_tool_call or active_turn):
+                    if submitted is False and terminal_available and not (active_tool_call or active_turn) and not any(
+                            (m.get("meta") or {}).get("btw_with_mcp") is True for m in pending):
                         ids = ",".join(str(message.get("id") or "") for message in pending)
                         io.log(
                             "WARN",
