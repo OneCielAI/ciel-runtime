@@ -1,0 +1,14 @@
+---
+type: implementation
+title: Disable workspace Work mode on Codex launch
+status: testing-in-progress
+---
+
+# User request
+Work on reportedly prevents Codex launch. Switch Work off when launching Codex. Exact launch failure cause is not yet reproduced; do not claim proven causality.
+
+# Implementation
+CodexLaunchAssembly CLI/app-server shared loader returns config with work_mode=false and persists via existing facade save_config callback. Other keys unchanged; already-off no write. Because Work is workspace-scoped this also changes Work for other sessions in the same workspace; not a Codex-private setting. No config is modified until a Codex launch loads it. Native desktop route still needs independent verification.
+
+# Verification
+20 focused Codex policy/configuration tests passed. Real Codex launch and installed verification pending; no live session terminated/restarted for testing.

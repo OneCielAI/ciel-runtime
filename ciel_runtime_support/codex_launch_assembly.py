@@ -23,6 +23,7 @@ class CodexLaunchSharedConfigPorts:
     record_launch_state: Callback
     model_catalog_args: Callback
     workspace_mcp: Any = None
+    save_config: Callback | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,6 +101,16 @@ class CodexLaunchAssembly:
     # launch_data_path.LaunchDataPathResolver for the plain and app-server launches.
     data_path: Callback | None = None
 
+    def codex_config(self):
+        # Codex launch policy: disable Work before constructing its instructions
+        # and starting the router. Keep every unrelated setting unchanged.
+        config = self.config.load_config()
+        if config.get("work_mode") is not False:
+            config = {**config, "work_mode": False}
+            if self.config.save_config is not None:
+                self.config.save_config(config)
+        return config
+
     def cli_services(self) -> runtime_launch.CodexLaunchServices:
         return runtime_launch.CodexLaunchServices(
             constants=runtime_launch.build_default_codex_launch_constants(),
@@ -111,7 +122,7 @@ class CodexLaunchAssembly:
                 current_launch_cwd_key=self.config.current_launch_cwd_key,
                 ensure_model_cache_for_launch=self.config.ensure_model_cache,
                 get_current_provider=self.config.get_current_provider,
-                load_config=self.config.load_config,
+                load_config=self.codex_config,
                 provider_mode_label=self.config.provider_mode_label,
                 record_launch_state_for_cwd=self.config.record_launch_state,
                 codex_runtime_model_catalog_args=self.config.model_catalog_args,
@@ -168,7 +179,7 @@ class CodexLaunchAssembly:
                 current_launch_cwd_key=self.config.current_launch_cwd_key,
                 ensure_model_cache_for_launch=self.config.ensure_model_cache,
                 get_current_provider=self.config.get_current_provider,
-                load_config=self.config.load_config,
+                load_config=self.codex_config,
                 provider_mode_label=self.config.provider_mode_label,
                 record_launch_state_for_cwd=self.config.record_launch_state,
                 codex_runtime_model_catalog_args=self.config.model_catalog_args,

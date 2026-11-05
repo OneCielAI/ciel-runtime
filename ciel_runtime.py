@@ -4801,7 +4801,7 @@ def codex_launch_assembly() -> CodexLaunchAssembly:
     return CodexLaunchAssembly(
         config=CodexLaunchSharedConfigPorts(apply_launch_endpoint_policy, current_alias, current_launch_cwd_key, ensure_model_cache_for_launch, get_current_provider,
                                             load_config, provider_mode_label, record_launch_state_for_cwd, codex_runtime_model_catalog_args,
-                                            workspace_mcp_launch_service()),
+                                            workspace_mcp_launch_service(), save_config),
         installation=CodexLaunchSharedInstallationPorts(find_executable, install_codex_if_missing, warn_if_multiple_ciel_runtime_installs,
                                                         disable_ciel_runtime_codex_prompts_for_native, install_ciel_runtime_codex_prompts),
         dispatch=CodexLaunchSharedDispatchPorts(launch_agy, launch_claude, launch_codex, launch_codex_app_server, materialize_runtime_command,
