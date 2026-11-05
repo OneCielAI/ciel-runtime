@@ -744,7 +744,7 @@ async function parallelToolCall($, e, next) {
       try { return await next(e) } finally { parallelResuming.delete(lease.id) }
     }
   }
-  if (next.origin?.plugin === 'ciel-work' && (name.startsWith('work_parallel_') || name === 'work_side_intake' || name === 'work_side_settings' || name === 'work_discovery_pickup')) return next(e)
+  if (next.origin?.plugin === 'ciel-work' && (name.startsWith('work_parallel_') || name === 'work_side_intake' || name === 'work_side_settings' || name === 'work_live_settings' || name === 'work_discovery_pickup')) return next(e)
   if (name === 'work_node_update' && e.status === 'done') {
     try {
       const s = await parallelCall($, 'work_parallel_status')
@@ -1076,7 +1076,7 @@ export function register(on) {
     await $.command.register({ name: 'btw_with_mcp', description: 'Queue a side request via MCP without a main-thread model turn',
       argumentHint: 'on|off|status|{"event_key":"source:id","text":"request"}', immediate: true })
     await $.command.register({ name: 'work-mode', description: 'Work mode: summary, help, keyboard inspector, tree or raw status',
-      argumentHint: '[help|view|tree|status]', immediate: true })
+      argumentHint: '[help|view|tree|status|settings [key=value]]', immediate: true })
     const ticket = ++starts
     compactEpoch++; compacts.clear(); continuationSession = null
     continuationVersion = null; unchangedContinuations = 0
@@ -1223,6 +1223,35 @@ export function register(on) {
   })
   on('command.run', { command: 'work-mode' }, async ($, e) => {
     const arg = e.args.trim()
+    if (arg === 'settings' || arg.startsWith('settings ')) {
+      try {
+        const assignment = arg.slice(8).trim()
+        let request = {}
+        if (assignment) {
+          const split = assignment.indexOf('=')
+          if (split < 1) return { text: 'Usage: /work-mode settings [key=value]' }
+          request = { key: assignment.slice(0, split).trim(), value: assignment.slice(split + 1) }
+        }
+        let state = await parallelCall($, 'work_live_settings', request)
+        if (!assignment && e.origin?.kind === 'composer') {
+          const labels = state.settings.map(row => row.label + ' [' + row.key + '] = ' + String(row.value))
+          let page = 0
+          while (true) {
+            const selected = await $.ui.ask('Work settings · ' + String(page + 1), [...labels.slice(page * 2, page * 2 + 2), 'Next', 'Back'])
+            if (selected === 'Back') break
+            if (selected === 'Next') { page = (page + 1) % Math.ceil(labels.length / 2); continue }
+            const index = labels.indexOf(selected)
+            if (index < 0) break
+            const row = state.settings[index]
+            const value = await $.ui.ask(row.label + ' · ' + row.key + '\nEnter a number or instruction using Other.', ['on', 'off', 'Cancel'])
+            if (value !== 'Cancel' && value) state = await parallelCall($, 'work_live_settings', { key: row.key, value })
+            break
+          }
+        }
+        return { text: state.settings.map(row => row.label + ' [' + row.key + '] = ' + String(row.value)).join('\n')
+          + '\n/work-mode settings key=value · live' }
+      } catch (error) { return { text: 'Work settings unavailable: ' + clipped(String(error.message || error), 300) } }
+    }
     if (!['', 'help', 'view', 'status', 'tree', 'expand', 'compact', 'parallel'].includes(arg)) return { text: 'Usage: /work-mode [expand|compact|help|view|tree|status|parallel]' }
     if (arg === 'expand' || arg === 'compact') {
       await refresh($)

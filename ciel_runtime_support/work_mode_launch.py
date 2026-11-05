@@ -30,6 +30,7 @@ WORK_TOOL_NAMES = (
     "work_status",
     "work_side_intake",
     "work_side_settings",
+    "work_live_settings",
     "work_plan_set",
     "work_node_add",
     "work_node_update",

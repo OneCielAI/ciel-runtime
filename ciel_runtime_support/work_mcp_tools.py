@@ -45,6 +45,8 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
     """Every Work tool while Work mode is on; only the switch while it is off."""
 
     schemas = [
+        {"name": "work_live_settings", "description": "Host-only Work slash settings, applied live.",
+         "inputSchema": {"type": "object", "properties": {"key": {"type": "string"}, "value": {"type": "string"}}}},
         {"name": "work_side_settings", "description": "Host-only live side-intake settings; default disabled, selected type btw_with_mcp.",
          "inputSchema": {"type": "object", "properties": {"enabled": {"type": "boolean"}}}},
         {"name": "work_side_intake", "description": "Durably queue an untrusted side request without approving execution or changing the active goal. Stable event_key deduplicates retries; host coordinator only.",
@@ -223,7 +225,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
     from .work_parallel_mcp import schemas as parallel_schemas
     schemas.extend(parallel_schemas())
     if not enabled:
-        schemas = [schema for schema in schemas if schema["name"] == WORK_MODE_SWITCH_TOOL]
+        schemas = [schema for schema in schemas if schema["name"] in (WORK_MODE_SWITCH_TOOL, "work_live_settings")]
     for schema in schemas:
         inputs = schema["inputSchema"]
         inputs.setdefault("properties", {})["session_id"] = {
@@ -250,6 +252,16 @@ def dispatch_work_tool(
     if name == WORK_MODE_SWITCH_TOOL:
         return respond(request_id, *_switch_work_mode(args.get("enabled"), load_config, save_config))
     config = load_config()
+    if name == "work_live_settings":
+        from .work_parallel_mcp import host_context
+        from .work_live_settings import settings
+        try:
+            host, _ = host_context(args, config)
+            if host.get("agent_id") is not None:
+                raise tree.WorkPlanError("coordinator required")
+            return respond(request_id, json.dumps(settings(config, args, save_config), ensure_ascii=False))
+        except (ValueError, OSError) as error:
+            return respond(request_id, str(error), True)
     if not work_mode_enabled(config):
         if name == "work_status" and args.get("format") == "json":
             return respond(request_id, json.dumps(tree.snapshot(tree.empty_document(), enabled=False)))

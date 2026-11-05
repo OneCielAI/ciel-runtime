@@ -133,7 +133,7 @@ from ciel_runtime_support.codex_config import codex_alternate_screen_value_from_
 from ciel_runtime_support.codex_config import codex_config_paths_for_launch, repair_codex_mcp_header_collisions  # noqa: F401 - compatibility export
 from ciel_runtime_support.codex_app_server_session import CodexAppServerSessions, CodexDesktopChannelPorts, CodexDesktopPorts, CodexRemoteTuiPorts, CodexSessionCommandPorts
 from ciel_runtime_support.codex_config import toml_string, unquote_toml_string as _unquote_toml_string  # noqa: F401
-from ciel_runtime_support.codex_launch_assembly import CodexAppServerLaunchPorts, CodexCliLaunchPorts, CodexLaunchAssembly, CodexLaunchSharedChannelPorts, CodexLaunchSharedConfigPorts, CodexLaunchSharedDispatchPorts, CodexLaunchSharedInstallationPorts, CodexLaunchSharedRestartPorts, CodexLaunchSharedRoutingPorts
+from ciel_runtime_support.codex_launch_assembly import CodexAppServerLaunchPorts, CodexCliLaunchPorts, CodexLaunchAssembly, CodexLaunchSharedChannelPorts, CodexLaunchSharedConfigPorts, CodexLaunchSharedDispatchPorts, CodexLaunchSharedInstallationPorts, CodexLaunchSharedRestartPorts, CodexLaunchSharedRoutingPorts, codex_config_loader
 from ciel_runtime_support.codex_launch_policy import current_model_args as project_codex_current_model_args
 from ciel_runtime_support.codex_launch_policy import help_requested as project_codex_help_requested
 from ciel_runtime_support.codex_launch_policy import native_routed_config_args as project_codex_native_routed_config_args
@@ -4800,8 +4800,8 @@ select_codex_resume_session = _CODEX_SESSION_SELECTION.select_resume_session
 def codex_launch_assembly() -> CodexLaunchAssembly:
     return CodexLaunchAssembly(
         config=CodexLaunchSharedConfigPorts(apply_launch_endpoint_policy, current_alias, current_launch_cwd_key, ensure_model_cache_for_launch, get_current_provider,
-                                            load_config, provider_mode_label, record_launch_state_for_cwd, codex_runtime_model_catalog_args,
-                                            workspace_mcp_launch_service(), save_config),
+                                            codex_config_loader(load_config, save_config), provider_mode_label, record_launch_state_for_cwd, codex_runtime_model_catalog_args,
+                                            workspace_mcp_launch_service()),
         installation=CodexLaunchSharedInstallationPorts(find_executable, install_codex_if_missing, warn_if_multiple_ciel_runtime_installs,
                                                         disable_ciel_runtime_codex_prompts_for_native, install_ciel_runtime_codex_prompts),
         dispatch=CodexLaunchSharedDispatchPorts(launch_agy, launch_claude, launch_codex, launch_codex_app_server, materialize_runtime_command,

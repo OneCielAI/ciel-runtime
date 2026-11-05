@@ -1,0 +1,14 @@
+---
+type: implementation
+title: Work slash settings and Codex launch correction
+status: tests-passed-pending-native-ui-release
+---
+
+# Live settings
+/work-mode settings lists Work mode, approval,auto continue,retention,parallel limits,discovery instruction and side intake enable. key=value applies immediately via authenticated host-only MCP using same prelaunch mutation helpers. Local composer opens paginated selection(two settings plus Next/Back, respecting engine2-4 options); numeric/text uses Other. Work off still exposes host settings for reenable. External command does not silently open a permission dialog or grant execution.
+
+# Verification
+319 focused architecture/Codex/work settings/mod tests passed,42 platform/pre-existing skips. Native UI screenshot not yet captured. Four-locale field labels use existing catalog, navigation/help still English; do not claim complete multilingual menu yet.
+
+# Release failure correction
+Codex270db64 publish failed dependency budget: SharedConfigPorts11 fields>10. Replaced new save port with composed codex_config_loader(load,save) at facade, preserving10 fields and fixed facade line budget. Shared CLI/app-server/desktop loader Work off behavior retained. User workspace setting is persisted off, not per-Codex-private; unrelated keys unchanged.

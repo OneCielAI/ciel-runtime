@@ -11,6 +11,16 @@ from . import runtime_launch
 Callback = Callable[..., Any]
 
 
+def codex_config_loader(load, save):
+    def read():
+        config = load()
+        if config.get("work_mode") is not False:
+            config = {**config, "work_mode": False}
+            save(config)
+        return config
+    return read
+
+
 @dataclass(frozen=True, slots=True)
 class CodexLaunchSharedConfigPorts:
     apply_endpoint_policy: Callback
@@ -23,7 +33,6 @@ class CodexLaunchSharedConfigPorts:
     record_launch_state: Callback
     model_catalog_args: Callback
     workspace_mcp: Any = None
-    save_config: Callback | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,12 +113,7 @@ class CodexLaunchAssembly:
     def codex_config(self):
         # Codex launch policy: disable Work before constructing its instructions
         # and starting the router. Keep every unrelated setting unchanged.
-        config = self.config.load_config()
-        if config.get("work_mode") is not False:
-            config = {**config, "work_mode": False}
-            if self.config.save_config is not None:
-                self.config.save_config(config)
-        return config
+        return self.config.load_config()
 
     def cli_services(self) -> runtime_launch.CodexLaunchServices:
         return runtime_launch.CodexLaunchServices(

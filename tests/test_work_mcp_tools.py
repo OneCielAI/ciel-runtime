@@ -72,9 +72,9 @@ class WorkMcpToolsTests(unittest.TestCase):
         for config, enabled in (({}, True), ({"work_mode": True}, True), ({"work_mode": False}, False)):
             with self.subTest(config=config):
                 names = {s["name"] for s in channel_mcp_tool_schemas(lambda: config)}
-                self.assertEqual(names & expected, expected if enabled else {"work_mode_set"})
+                self.assertEqual(names & expected, expected if enabled else {"work_mode_set", "work_live_settings"})
         self.assertFalse({s["name"] for s in channel_mcp_tool_schemas()} & expected)
-        switch = next(s for s in m.work_tool_schemas(enabled=False))
+        switch = next(s for s in m.work_tool_schemas(enabled=False) if s["name"] == "work_mode_set")
         self.assertEqual(switch["inputSchema"]["required"], ["enabled"])
         self.assertEqual(switch["inputSchema"]["properties"]["enabled"]["type"], "boolean")
 
