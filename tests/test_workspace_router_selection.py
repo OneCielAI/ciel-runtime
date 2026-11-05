@@ -368,6 +368,21 @@ class ExhaustedRouterReservationTests(unittest.TestCase):
         self.assertEqual(9464, port)
         self.assertFalse(lock.exists())
 
+    def test_lock_cleanup_retries_windows_reader_permission_error(self):
+        original = Path.unlink
+        calls = []
+        def unlink(path, *args, **kwargs):
+            if path == self.registry.with_suffix('.json.lock'):
+                calls.append(1)
+                if len(calls) == 1:
+                    raise PermissionError('reader temporarily denies delete')
+            return original(path, *args, **kwargs)
+        with patch.object(Path, 'unlink', unlink):
+            select_workspace_router_port(9464, Path('C:/work/cleanup'), {}, registry_path=self.registry,
+                                         health=lambda _: None, available=lambda _: True)
+        self.assertEqual(2, len(calls))
+        self.assertFalse(self.registry.with_suffix('.json.lock').exists())
+
     def test_concurrent_registry_calls_keep_distinct_startup_leases(self):
         def allocate(index):
             return select_workspace_router_port(
