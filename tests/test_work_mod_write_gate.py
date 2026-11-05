@@ -47,6 +47,12 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(done.returncode, 0, done.stderr)
         return json.loads(done.stdout)
 
+    def test_identical_blockers_do_not_rearm_on_unrelated_board_version_change(self):
+        result = self.run_scenario('stop-identical-blockers-version-change')
+        self.assertIn('n586', result['first'])
+        self.assertEqual('', result['second'])
+        self.assertIn('new dependency', result['changed'])
+
     def test_background_waits_are_rechecked_once_without_polling_or_approval_bypass(self):
         result = self.run_scenario('stop-background-wait-recheck')
         self.assertIn('n586', result['text'])

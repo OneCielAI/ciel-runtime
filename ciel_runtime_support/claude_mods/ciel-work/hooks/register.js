@@ -46,9 +46,9 @@ let compactEpoch = 0
 const compacts = new Set()
 let continuationSession = null
 // A blocked recheck that changes nothing must not re-inject itself every turn:
-// remember the board version the last recheck ran against (per session) and
-// only demand it again when the board changed.
-let blockedRecheckVersion = null
+// remember the dependency signature (per session), not the global board
+// version: evidence-only updates must not re-arm the same blocker.
+let blockedRecheckKey = null
 let blockedRecheckIdentity = null
 let discoveryLast = 0
 let discoveryIdentity = null
@@ -1163,17 +1163,22 @@ export function register(on) {
       if (openWork(s)) stopNotice($, identity, reason)
       const recheck = blockedRecheck(s.continuation || {})
         + ((s.continuation?.waiting || []).length
-          ? ' Re-verify the recorded waits once for this board version: '
+          ? ' Re-verify the recorded waits once for this dependency state: '
             + clipped(s.continuation.waiting.map(n => n.id + ': ' + n.waiting_on).join('; '), 700)
             + '. Check available completion evidence and separate authorized independent investigation from the dependent execution. Do not poll a running background task, duplicate it, clear approval holds, or invent progress; unchanged waits remain recorded.'
           : '')
-      if (recheck && !(blockedRecheckIdentity === identity && blockedRecheckVersion === s.version)) {
-        blockedRecheckIdentity = identity; blockedRecheckVersion = s.version
+      const blockerKey = JSON.stringify({
+        waiting: (s.continuation?.waiting || []).map(n => [n.id, n.waiting_on || '']).sort(),
+        blocked: (s.continuation?.blocked_items || []).map(n => [n.id, n.waiting_on || '', n.root_id || '']).sort(),
+        held: s.continuation?.held || 0,
+      })
+      if (recheck && !(blockedRecheckIdentity === identity && blockedRecheckKey === blockerKey)) {
+        blockedRecheckIdentity = identity; blockedRecheckKey = blockerKey
         return { block: 'Ciel Work stopped: no runnable item right now. ' + reason + recheck }
       }
-      // Recheck already demanded for this exact board state and it changed
-      // nothing: stay parked (waiting records preserved) instead of looping
-      // the same probe every turn. The next board change re-arms the recheck;
+      // Recheck already demanded for these dependencies and changed nothing:
+      // stay parked with waits preserved, even if unrelated evidence updates
+      // increment the board version. Changed dependencies re-arm the recheck;
       // until then only time-spaced discovery may still look for new work.
       return discoveryNotice($, identity, s, reason) || result
     }

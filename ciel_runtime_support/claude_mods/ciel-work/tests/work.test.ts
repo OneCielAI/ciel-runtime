@@ -305,6 +305,15 @@ function continuing(on, extra = {}) {
   on('classic.Stop', () => s.stopResult)
   return s
 }
+test('identical blockers survive unrelated version changes without repeated reassessment', async ($, on) => {
+  const s = continuing(on, { discovery: { enabled: false }, continuation: { actionable: 0, next: null,
+    waiting: [{ id: 'n586', waiting_on: 'connector' }], blocked: 0 } })
+  expect((await $.classic.Stop(STOP)).block).toContain('n586')
+  s.snapshot.version++
+  expect((await $.classic.Stop(STOP)).block).toBeUndefined()
+  s.snapshot.continuation.waiting[0].waiting_on = 'changed dependency'
+  expect((await $.classic.Stop(STOP)).block).toContain('changed dependency')
+})
 test('background work does not suppress one bounded wait reassessment', async ($, on) => {
   continuing(on, { discovery: { enabled: false }, continuation: { actionable: 0, next: null,
     waiting: [{ id: 'n586', waiting_on: 'publish and connector' }], blocked: 0 } })

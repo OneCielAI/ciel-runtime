@@ -356,6 +356,17 @@ const scenarios = {
     const result = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
     return { text: result?.block || '' }
   },
+  async 'stop-identical-blockers-version-change'() {
+    const ready = { ...snapshot(), continuation: { actionable: 0, waiting: [{ id: 'n586', waiting_on: 'connector' }], blocked: 0 }, discovery: { enabled: false } }
+    const { $ } = host(async () => text(ready))
+    const event = { session_id: 'S1' }
+    const first = await handlers['classic.Stop']($, event, next({}))
+    ready.version++
+    const second = await handlers['classic.Stop']($, event, next({}))
+    ready.continuation.waiting[0].waiting_on = 'new dependency'
+    const changed = await handlers['classic.Stop']($, event, next({}))
+    return { first: first?.block || '', second: second?.block || '', changed: changed?.block || '' }
+  },
   async 'stop-background-wait-recheck'() {
     const ready = { ...snapshot(), continuation: { actionable: 0, waiting: [{ id: 'n586', waiting_on: 'publish and external connector contract' }], blocked: 0 }, discovery: { enabled: false } }
     const { $ } = host(async () => text(ready))
