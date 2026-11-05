@@ -58,6 +58,10 @@ class WorkPlanError(ValueError):
     """A plan operation was rejected; the message is shown to the model."""
 
 
+class WorkPlanCapacityError(WorkPlanError):
+    """No unfinished-node slot is available; existing records are preserved."""
+
+
 def empty_document() -> dict[str, Any]:
     return {
         "schema": SCHEMA,
@@ -233,7 +237,7 @@ def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any =
     if not clean:
         raise WorkPlanError("node title must not be empty")
     if sum(1 for node in doc["nodes"] if node["status"] != "done") >= MAX_NODES:
-        raise WorkPlanError(f"a work plan holds at most {MAX_NODES} unfinished nodes")
+        raise WorkPlanCapacityError(f"a work plan holds at most {MAX_NODES} unfinished nodes")
     node_id = f"n{doc['next_id']}"
     doc["next_id"] += 1
     node = {

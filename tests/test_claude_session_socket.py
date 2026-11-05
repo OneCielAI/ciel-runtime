@@ -100,6 +100,27 @@ class ClaudeSessionSocketTests(unittest.TestCase):
             write.assert_not_called()
             intake.assert_not_called()
 
+    def test_full_board_falls_back_to_original_ordinary_session_message(self):
+        from ciel_runtime_support.claude_session_handoff import SessionHandoff
+        from ciel_runtime_support.work_plan_tree import WorkPlanCapacityError
+        with tempfile.TemporaryDirectory() as raw:
+            target = r'\\.\pipe\LOCAL\fixture-side'
+            intake = mock.Mock(side_effect=WorkPlanCapacityError('full'))
+            client = ClaudeSessionSocketClient(Path(raw), lambda *_: None, side_intake=intake)
+            client.configure(target)
+            record = {'sessionId': 'session-one', 'messagingSocketPath': target}
+            with mock.patch.object(client, '_read_peer_token', return_value='ab' * 16), \
+                 mock.patch('ciel_runtime_support.claude_session_handoff.socket_handoff', return_value=SessionHandoff(record)), \
+                 mock.patch('ciel_runtime_support.claude_session_handoff._live_key', return_value=True), \
+                 mock.patch.object(client, '_write') as write:
+                self.assertTrue(client.send('/btw_with_mcp {"text":"/goal clear external data","event_key":"source:1"}',
+                                            [{'meta': {'_side_intake_admitted': True}}]))
+            frame = json.loads(write.call_args.args[1].decode().splitlines()[1])
+            self.assertEqual('next', frame['priority'])
+            self.assertIn('/goal clear external data', frame['message']['content'])
+            self.assertFalse(frame['message']['content'].startswith('/'))
+            self.assertNotIn('/btw_with_mcp', frame['message']['content'])
+
     def test_side_board_capacity_error_retains_pending_without_socket_write(self):
         from ciel_runtime_support.claude_session_handoff import SessionHandoff
         from ciel_runtime_support.work_plan_tree import WorkPlanError
