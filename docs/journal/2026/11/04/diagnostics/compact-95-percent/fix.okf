@@ -7,10 +7,13 @@ status: tested-pending-release
 # Change
 Recognized routed Claude compact requests now enter runtime semantic chunking above 95% of the smallest positive context_window/max_model_len, rather than waiting until above100%. The whole request estimator includes messages injected before request capping. Native Anthropic and ordinary opted-out turns retain their previous policy. Exactly95% remains passthrough; above95% chunks. Image-only encoded-size overflow still retains its conservative upstream handling.
 
+# Capacity-quarter refinement (user request)
+Default map target is now min(valid context_window,max_model_len)/4, falling back to budget/4 when capacity is absent. Fixed128K cap removed. Summary-request half-budget guard and actual overhead subtraction still bound the call; explicit chunk token settings retain their existing request-budget clamp. Examples872000->218000 and1000000->250000.63 focused summary/compaction tests passed(1skip), including small budgets, minimum configured capacity and source preservation. Production latency is not inferred from these tests.
+
 # Verification
 63 focused native passthrough, provider semantic compaction and context compaction tests passed in101.561s. New95/96 boundary regression checks minimum configured window and preflight opt-out. Existing failure/semantic budget coverage stayed green.
 
 # Not yet proven
 Read-only SSH on .14 confirms router9780 uses e208456. Logs show repeated muse compact failures at0/17 chunks, summary_calls1 with429 all credentials cooling down (Retry-After about342000s); chunk reduction cannot fix those failures. After model change,17:16:04 shows16/17 chunks, summary_calls17, saved_steps17, client_cancelled. Thus actual runtime chunking used17 sequential map calls, not just a native compact UI label.
 
-Default map ceiling changed65536->131072, retaining half-budget bound, explicit smaller settings and rejection splitting. This is below previously failing261K segments, but successful production128K latency/stability is NOT yet proven. Regression checks fewer chunks with identical concatenated source projection, and smaller budget/config clamps.21 summary compatibility tests passed (1 pre-existing skip). No wall-clock speedup or exhausted credential recovery is claimed.
+Initial default map ceiling changed65536->131072; superseded by the user's subsequent capacity-quarter rule below. Retains request budget bounds, explicit settings and rejection splitting. This is below previously failing261K segments, but successful production128K latency/stability is NOT yet proven. Regression checks fewer chunks with identical concatenated source projection, and smaller budget/config clamps.21 summary compatibility tests passed (1 pre-existing skip). No wall-clock speedup or exhausted credential recovery is claimed.

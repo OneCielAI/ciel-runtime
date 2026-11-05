@@ -358,12 +358,15 @@ class ContextSummaryPolicy:
     def chunk_target_tokens(self, config: dict[str, Any] | None, budget_tokens: int) -> int:
         """Clamp the map target in token units, independently of source bytes."""
         configured = self.positive_int((config or {}).get("context_compact_chunk_tokens"))
-        # Large histories otherwise spend 17 sequential round trips at 64K
-        # (observed on Kobi). Bound segments to 128K, still below the 261K
-        # segments previously observed losing their connection. Small budgets
-        # retain their half-window bound and explicit smaller targets win.
-        ceiling = max(256, min(131072, max(1, budget_tokens) // 2))
-        return min(ceiling, max(256, configured or ceiling))
+        # Size maps against the smallest configured model window, not a fixed
+        # token ceiling. The summary request budget remains a separate bound;
+        # the caller also subtracts its actual prompt/output overhead.
+        limits = [value for key in ("context_window", "max_model_len")
+                  if (value := self.positive_int((config or {}).get(key)))]
+        capacity = min(limits) if limits else max(1, budget_tokens)
+        target = max(256, capacity // 4)
+        ceiling = max(256, max(1, budget_tokens) // 2)
+        return min(ceiling, max(256, configured or target))
 
     def summary_output_tokens(self, config: dict[str, Any] | None, budget_tokens: int) -> int:
         configured = self.positive_int((config or {}).get("context_compact_summary_tokens"))

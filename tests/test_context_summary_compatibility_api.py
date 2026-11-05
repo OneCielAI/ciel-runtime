@@ -207,7 +207,11 @@ class ContextSummaryCompatibilityApiTests(unittest.TestCase):
 
     def test_large_context_uses_fewer_bounded_chunks_without_losing_source(self):
         policy = self.policy()
-        self.assertEqual(131072, policy.chunk_target_tokens({}, 872000))
+        self.assertEqual(218000, policy.chunk_target_tokens({"context_window": 872000}, 800000))
+        self.assertEqual(250000, policy.chunk_target_tokens({"context_window": 1000000}, 900000))
+        self.assertEqual(8192, policy.chunk_target_tokens({"context_window": 32768}, 30000))
+        self.assertEqual(218000, policy.chunk_target_tokens({"context_window": 1000000, "max_model_len": 872000}, 800000))
+        self.assertEqual(2048, policy.chunk_target_tokens({}, 8192))
         self.assertEqual(32768, policy.chunk_target_tokens({"context_compact_chunk_tokens": 32768}, 872000))
         messages = [{"role": "user", "content": "source " * 10000} for _ in range(18)]
         old = policy.split_messages(messages, 65536)
