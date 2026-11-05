@@ -483,7 +483,7 @@ def compact_anthropic_body_for_budget(
         if threshold is None or runtime.estimate_tokens(body) <= threshold:
             return body
         text_only, media = opaque_media(body)
-        if media.images and runtime.estimate_tokens(text_only) <= threshold:
+        if media.images and runtime.estimate_tokens(text_only) <= window:
             # Only encoded image bytes put this checkpoint past the window, and
             # their visual cost is unknown here. Let the upstream decide; a real
             # overflow still returns the no-output rejection that recovers.
