@@ -22,6 +22,10 @@ Remove broad background early return. In the no-runnable branch, request one rea
 
 Same background-wait notice appears at2026-11-05T07:50:05.320Z (two tasks) and07:53:25.410Z (one task), plus earlier instances. Both most recent user-reported stops have exact transcript evidence. Prior response framing this only as model stopping was incomplete.
 
+# Restart verification and launcher-pin correction
+
+After user-reported restart, actual CLI PID57024 still used `--plugin-dir` under d415736; router PID5476 healthz reported020801.d415736. PATH npm was082007.5b198fc, but persistent User CIEL_RUNTIME_HOME remained d415736. Exact `.local/bin/ciel-runtime.ps1` prioritizes that User pin. Thus restart did not load the deployed Stop correction; not evidence of latest-code recurrence. Created NEW immutable snapshot from verified npm5b198fc, ran smoke, then changed persistent User pin to that snapshot. Exact `.local/bin/ciel-runtime.ps1 --version` now082007.5b198fc. Running old snapshot was not overwritten and processes were not restarted. First copy command included an erroneous nonexistent-script smoke invocation (exit2); corrected real smoke subsequently passed before pin mutation.
+
 # Published release
 
 Commit5b198fc21edcafe56c0adeeae4c9278850e48788: CI41992158775 and Publish41992158794 success. Exact npm gitHead checked before global install. Actual PATH reports0.2.51-nightly.20261105-082007.5b198fc; installed cumulative smoke passes. Installed-package native Stop/bounded-loop probe `.local/side-busy-0415bbe0/result.json` passes: first model7363.413, automatic second model7388.488, no third model after second end-turn and extra observation. Installed-code100 focused regressions pass1skip. Live router9524 remains oldd40b895 because no live restart was authorized; do not claim this active process has loaded the new Stop code.
