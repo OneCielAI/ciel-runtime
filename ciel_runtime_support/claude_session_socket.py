@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from .work_side_intake_runtime import runtime_intake as runtime_intake
 import posixpath
 import secrets
 import socket
@@ -75,8 +76,10 @@ class ClaudeSessionSocketClient:
         *,
         platform_name: str | None = None,
         clock: Callable[[], float] = time.monotonic,
+        side_intake: Callable[[str, str, str], Any] | None = None,
     ) -> None:
         self._home = home
+        self._side_intake = side_intake
         self._log = log
         self._platform_name = platform_name or os.name
         self._clock = clock
@@ -168,6 +171,26 @@ class ClaudeSessionSocketClient:
             self._log("INFO", "claude_session_socket_deferred reason=auth_key_unavailable")
             self._mark_unavailable("auth_key_unavailable", target)
             return False
+        if any((message.get("meta") or {}).get("_side_intake_admitted") is True for message in (_messages or [])):
+            if len(_messages or []) != 1 or self._side_intake is None:
+                return False
+            from .claude_session_handoff import socket_handoff, _live_key
+            directory = Path(os.environ.get("CLAUDE_CONFIG_DIR") or self._home / ".claude") / "sessions"
+            handoff = socket_handoff(directory, target)
+            record = handoff.record
+            if handoff.pending or not record or not _live_key(directory, record):
+                return False
+            if str(record.get("messagingSocketPath") or "") != target:
+                return False
+            prefix = "/btw_with_mcp "
+            if not prompt.startswith(prefix):
+                return False
+            request = json.loads(prompt[len(prefix):])
+            receipt = self._side_intake("claude:" + record["sessionId"], request["text"], request["event_key"])
+            if not receipt or receipt.get("accepted") is not True:
+                return False
+            self._log("INFO", f"channel_side_intake_accepted item_id={receipt['item_id']} duplicate={receipt.get('duplicate', False)}")
+            return True
         frames = (
             json.dumps({"type": "auth", "token": token}, separators=(",", ":"))
             + "\n"

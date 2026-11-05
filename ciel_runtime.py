@@ -122,7 +122,7 @@ from ciel_runtime_support.cielairouter_gateway_overlay import reselect_gateway a
 from ciel_runtime_support.external_event_receiver import EventReceiverSecretVault, ExternalEventReceiverService
 from ciel_runtime_support.external_event_menu import panel_rows as project_external_event_panel_rows, update_config as project_set_external_event_config, ExternalEventControl
 from ciel_runtime_support.claude_environment import ClaudeEnvironmentFeaturePorts, ClaudeEnvironmentProjection, ClaudeEnvironmentShellRenderer, ClaudeEnvironmentSourcePorts, ClaudeLimitPolicy, ClaudeLimitPorts, ClaudeModelAliasCompatibilityApi, ClaudeModelAliasPolicy, ClaudeModelPorts, ClaudeRuntimeSettingsPolicy, ClaudeRuntimeSettingsPorts
-from ciel_runtime_support.claude_session_socket import ClaudeSessionSocketClient, prepared_socket_path
+from ciel_runtime_support.claude_session_socket import ClaudeSessionSocketClient, prepared_socket_path, runtime_intake
 from ciel_runtime_support.cli_application_context import CliApplicationCompatibilityApi, CliApplicationContext, CliApplicationDispatchPorts, CliApplicationPresentationPorts
 from ciel_runtime_support.cli_usage import cli_usage_text
 from ciel_runtime_support.codex_app_server import codex_app_server_launch_args
@@ -4347,7 +4347,7 @@ def should_use_channel_stdin_proxy(use_router_mode: bool, passthrough: list[str]
         return False
     claude_config = cfg.get("claude_code") if isinstance(cfg, dict) else {}
     return not (isinstance(claude_config, dict) and claude_config.get("web_chat_session_bridge") is False)
-_CLAUDE_SESSION_SOCKET = ClaudeSessionSocketClient(HOME, router_log)
+_CLAUDE_SESSION_SOCKET = ClaudeSessionSocketClient(HOME, router_log, side_intake=lambda sid, text, key: runtime_intake(load_config, WORKSPACE_STATE_DIR, sid, text, key))
 def _default_channel_input_transport() -> str: return "session_socket"
 def _channel_pending_scan_limit() -> int: return channel_runtime_environment_policy().pending_scan_limit()
 def _channel_stdin_wake_batch_limit() -> int: return channel_runtime_environment_policy().wake_batch_limit()
