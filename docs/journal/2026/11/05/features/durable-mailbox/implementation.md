@@ -42,6 +42,12 @@ Implementation checkpoint committed as 0798f73. Two fast-forward pushes to the e
 
 Mailbox status/drain calls now have a two-second UI-side wait bound and rearm on timeout while preserving durable mail. Actual-mod-source tests pass 38 cases including a never-resolving MCP call and compact failure settlement.
 
+# Corrected release verification
+
+Linux CI for c9700c2 rejected a static import cycle: channel_message_repository → side_intake_inbox → work_session_lineage → channel_message_repository. Commit 0c3b177 extracts dependency-free durable_json_file; architecture-cycle check plus 55 persistence tests pass. Corrected CI42131271422 has quality, Python3.10, unit, runtime and channel jobs successful; router job still running at this entry. Publish42131271444 and gated exact-commit installer remain pending. The original 7e7ccd9 import-subprocess failures do not recur in corrected CI unit/Python3.10 jobs; their original cause remains unconfirmed.
+
+Corrected real SSE/native test `.local/side-busy-fd076a0a` passes without the prior fixture shutdown exception. Observed receiver_spool_files=1, pending_files=0, receipt_files=1, work_nodes=2 (one existing + one incoming), intake_before_main_completed=true. Inspected screenshot and results preserved under evidence/corrected-real-sse-*. The pending external event envelope is retained as recovery evidence, not falsely reported deleted.
+
 # Unverified / remaining
 
 No full SSE receiver-to-mod end-to-end claim yet. No release/install of these changes yet. External conversational ACK remains not_sent until verified connector integration. Work OFF mail remains pending rather than being falsely marked consumed. Current summaries scan files with bounded result memory; filesystem scan cost is not yet an indexed enterprise-scale query. Work board still uses whole-document persistence and a 32 MiB parser/write bound; that storage design remains to be replaced for scalable board workloads. Queue cleanup audit/restore and actual arrow UI screenshots remain in progress. Live routers/sessions have not been restarted.

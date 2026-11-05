@@ -1,0 +1,71 @@
+{
+  "run": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\side-busy-fd076a0a",
+  "intake_before_main_completed": true,
+  "intake_received": true,
+  "records": [
+    {
+      "kind": "mcp",
+      "name": "work_status",
+      "at": 1793922154.608466,
+      "busy": false
+    },
+    {
+      "kind": "mcp",
+      "name": "work_parallel_status",
+      "at": 1793922154.6892612,
+      "busy": false
+    },
+    {
+      "kind": "mcp",
+      "name": "work_parallel_status",
+      "at": 1793922154.73767,
+      "busy": false
+    },
+    {
+      "kind": "mcp",
+      "name": "work_status",
+      "at": 1793922154.7507453,
+      "busy": false
+    },
+    {
+      "kind": "model",
+      "at": 1793922154.8132896,
+      "side_in_messages": false
+    },
+    {
+      "kind": "direct",
+      "busy": true,
+      "session": "claude:c20abef0-9b87-419e-b507-9365483a1142"
+    },
+    {
+      "kind": "direct",
+      "busy": true,
+      "session": "claude:c20abef0-9b87-419e-b507-9365483a1142"
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_status",
+      "at": 1793922156.6648803,
+      "busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_drain",
+      "at": 1793922156.719732,
+      "busy": true
+    },
+    {
+      "kind": "gateway",
+      "accepted": true,
+      "retry_accepted": true,
+      "board_nodes": 2
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_status",
+      "at": 1793922158.7594676,
+      "busy": true
+    }
+  ],
+  "board_nodes": 2
+}
