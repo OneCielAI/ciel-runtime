@@ -126,7 +126,7 @@ class NativeCompactOverWindowTests(unittest.TestCase):
                 body = self.body()
                 services.runtime.estimate_tokens.side_effect = lambda value: percent * 100 if value is body else 100
                 result = compact_anthropic_body_for_budget(
-                    body, 8192, provider="cielairouter", model="model",
+                    body, 9900, provider="cielairouter", model="model",
                     pcfg={"context_window": 20000, "max_model_len": 10000,
                           "_context_compact_native_over_window": True,
                           "_context_compact_only_if_over_window": True},

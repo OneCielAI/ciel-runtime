@@ -499,7 +499,7 @@ def compact_anthropic_body_for_budget(
     if (pcfg or {}).get("_context_compact_only_if_over_window") and not over_window:
         # The provider opted out of preflight; only the window guard may act.
         return body
-    if initial_tokens <= budget_tokens:
+    if initial_tokens <= budget_tokens and not (full_compact_request and over_window):
         return body
     if (full_compact_request or over_window) and pcfg is not None and provider and model:
         envelope = {key: value for key, value in body.items()
