@@ -47,6 +47,11 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(done.returncode, 0, done.stderr)
         return json.loads(done.stdout)
 
+    def test_hung_mailbox_call_times_out_and_rearms_without_losing_mail(self):
+        result = self.run_scenario('side-mailbox-timeout-rearms')
+        self.assertEqual(2, result['rearmed'])
+        self.assertTrue(any('inbox retained' in line for line in result['notices']))
+
     def test_mail_waits_during_compact_and_resumes_after_compact_failure(self):
         result = self.run_scenario('side-mailbox-compact-recovery')
         self.assertEqual(0, result['during'])

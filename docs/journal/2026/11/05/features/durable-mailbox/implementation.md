@@ -30,6 +30,12 @@ The first whole unit run executed 3249 tests with 4 errors from renamed constant
 
 Channel suite after receiver spool integration passed 602 tests in 15.218 seconds (80 skipped). Fair drain keyset rotation and concurrent duplicate receipt tests also passed. Primary menu now retains validation feedback after returning to its parent panel.
 
+# Publishing checkpoint
+
+Implementation checkpoint committed as 0798f73. Two fast-forward pushes to the existing feature branch were rejected by the remote with `fatal error in commit_refs`. Read-only remote inspection confirms all three branch heads remain 7e7ccd9 and repository push permission=true, archived=false, disabled=false. Cause is unconfirmed. GitHub status API fetch was blocked by robots policy; the public status homepage did not provide sufficient status detail in the fetched excerpt. No nightly update or local production install has occurred for this checkpoint.
+
+Mailbox status/drain calls now have a two-second UI-side wait bound and rearm on timeout while preserving durable mail. Actual-mod-source tests pass 38 cases including a never-resolving MCP call and compact failure settlement.
+
 # Unverified / remaining
 
 No full SSE receiver-to-mod end-to-end claim yet. No release/install of these changes yet. External conversational ACK remains not_sent until verified connector integration. Work OFF mail remains pending rather than being falsely marked consumed. Current summaries scan files with bounded result memory; filesystem scan cost is not yet an indexed enterprise-scale query. Work board still uses whole-document persistence and a 32 MiB parser/write bound; that storage design remains to be replaced for scalable board workloads. Queue cleanup audit/restore and actual arrow UI screenshots remain in progress. Live routers/sessions have not been restarted.

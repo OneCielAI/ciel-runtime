@@ -46,6 +46,20 @@ const call = ($, agentId) => handlers['tool.call']($, { tool: 'Edit', agentId,
 const verdict = r => r?.decision === 'deny' ? 'deny: ' + r.reason : r?.deny ? 'deny: ' + r.deny : 'allow'
 
 const scenarios = {
+  async 'side-mailbox-timeout-rearms'() {
+    const timers = []
+    const { $ } = host(async tool => {
+      if (tool === 'work_status') return text({ ...snapshot(), side_intake_enabled: true })
+      if (tool === 'work_side_status') return new Promise(() => {})
+      return text({})
+    })
+    const notices = []
+    $.ui.status = text => notices.push(text)
+    $.clock.after = (delay, callback) => { timers.push({ delay, callback }); return { cancel() {} } }
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    await timers.find(t => t.delay === 2000).callback()
+    return { notices, rearmed: timers.filter(t => t.delay === 2000).length }
+  },
   async 'side-mailbox-compact-recovery'() {
     const timers = []
     let drains = 0

@@ -64,6 +64,15 @@ function showSideReceipts($, identity, snapshot) {
   }
 }
 let sidePoll = null
+async function sideMailboxCall($, name, args = {}) {
+  let timer
+  try {
+    return await Promise.race([
+      parallelCall($, name, args),
+      new Promise((resolve, reject) => { timer = setTimeout(() => reject(new Error('mailbox operation timed out; durable inbox retained')), 2000) }),
+    ])
+  } finally { clearTimeout(timer) }
+}
 function pollBusySideReceipts($, identity) {
   if (sidePoll?.identity === identity && sidePoll.lifecycle === starts) return
   const poll = { identity, lifecycle: starts }
@@ -72,11 +81,11 @@ function pollBusySideReceipts($, identity) {
     if (sidePoll !== poll || poll.lifecycle !== starts) return
     try {
       if (await sessionId($) !== identity) return
-      const snapshot = await parallelCall($, 'work_side_status')
+      const snapshot = await sideMailboxCall($, 'work_side_status')
       if (sidePoll !== poll || poll.lifecycle !== starts || await sessionId($) !== identity) return
       showSideReceipts($, identity, snapshot)
       if (snapshot.enabled !== false && !compacting(identity)) {
-        const receipts = await parallelCall($, 'work_side_drain', { limit: 10 })
+        const receipts = await sideMailboxCall($, 'work_side_drain', { limit: 10 })
         if (sidePoll === poll && poll.lifecycle === starts && await sessionId($) === identity)
           showSideReceipts($, identity, { side_inbox_receipts: receipts })
       }
@@ -1248,7 +1257,7 @@ export function register(on) {
       catch (error) { return { text: 'Side drain failed: ' + clipped(String(error.message || error), 300) } }
     }
     if (e.args.trim() === 'receipts') {
-      const snapshot = await parallelCall($, 'work_side_status')
+      const snapshot = await sideMailboxCall($, 'work_side_status')
       showSideReceipts($, await sessionId($), snapshot)
       await $.ui.open({ id: 'ciel-side-intake', title: 'btw_with_mcp' })
       return { text: 'Side inbox receipts opened; external ACK status is shown separately.' }
