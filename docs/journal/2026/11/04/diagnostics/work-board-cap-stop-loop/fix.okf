@@ -36,3 +36,13 @@ date: 2026-11-04
 
 - Grant's sandbox is not touched from here (no code, config, restart, or record changes). The verified path for that board is the nightly build below; the reply goes to `ciel-walkie-48 [a20fd1]` / Walkie thread 110115.
 - Release evidence is appended below after the nightly publish and local snapshot install.
+
+# Release verification
+
+- CI 41936056117 and Publish 41936056140: completed/success; head e0b15366cf1df414dab806e43285ae2d4ceb634b.
+- npm: @one-ciel-ai/ciel-runtime@0.2.51-nightly.20261104-235605.e0b1536; gitHead matches; downloaded tarball SHA512 matches registry integrity.
+- New snapshot: C:\Users\djlov\.local\share\ciel-runtime-e0b15366cf1df414dab806e43285ae2d4ceb634b. Published package versus snapshot: 529 files matched.
+- Installed smoke: create and complete 150 history nodes, add goal/phase/task, assert all 150 old rows unchanged and 153 total; normalize roundtrip OK. Installed hook contains blocked recheck version guard.
+- User CIEL_RUNTIME_HOME now points to the new snapshot (previously d40b895); live sessions were not restarted.
+- Evidence: .local/release-e0b1536-result.json (local verification output).
+- Clarification: a new user message alone does not bump board version or re-arm the implemented blocked recheck. Only a board-version change does so; external messages can resume the native conversation normally. No claim of event-specific re-arm is verified here.
