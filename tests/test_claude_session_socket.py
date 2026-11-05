@@ -83,6 +83,23 @@ class ClaudeSessionSocketTests(unittest.TestCase):
             write.assert_not_called()
             intake.assert_called_once_with('claude:session-one', 'request', 'source:1')
 
+    def test_side_intake_rejects_unverified_identity_without_fallback(self):
+        from ciel_runtime_support.claude_session_handoff import SessionHandoff
+        with tempfile.TemporaryDirectory() as raw:
+            target = r'\\.\pipe\LOCAL\fixture-side'
+            intake = mock.Mock()
+            client = ClaudeSessionSocketClient(Path(raw), lambda *_: None, side_intake=intake)
+            client.configure(target)
+            record = {'sessionId': 'session-one', 'messagingSocketPath': target}
+            with mock.patch.object(client, '_read_peer_token', return_value='ab' * 16), \
+                 mock.patch('ciel_runtime_support.claude_session_handoff.socket_handoff', return_value=SessionHandoff(record)), \
+                 mock.patch('ciel_runtime_support.claude_session_handoff._live_key', return_value=False), \
+                 mock.patch.object(client, '_write') as write:
+                self.assertFalse(client.send('/btw_with_mcp {"text":"request","event_key":"source:1"}',
+                                             [{'meta': {'_side_intake_admitted': True}}]))
+            write.assert_not_called()
+            intake.assert_not_called()
+
     def test_send_defers_until_key_is_published(self):
         with tempfile.TemporaryDirectory() as raw:
             client = ClaudeSessionSocketClient(
