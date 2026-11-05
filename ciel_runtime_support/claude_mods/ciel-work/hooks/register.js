@@ -46,11 +46,17 @@ let compactEpoch = 0
 const compacts = new Set()
 let continuationSession = null
 const seenSideReceipts = new Set()
+let sidePanelReceipts = []
+let sidePanelSession = null
 function showSideReceipts($, identity, snapshot) {
+  sidePanelSession = identity
+  sidePanelReceipts = snapshot.side_intake_receipts || []
+  $.ui.invalidate('ui.render')
   for (const receipt of snapshot.side_intake_receipts || []) {
     const key = identity + ':' + receipt.item_id
     if (seenSideReceipts.has(key)) continue
     seenSideReceipts.add(key)
+    void $.ui.open({ id: 'ciel-side-intake', title: 'btw_with_mcp' }).catch(() => {})
     if (seenSideReceipts.size > 200) seenSideReceipts.delete(seenSideReceipts.values().next().value)
     $.ui.log('btw_with_mcp · mod observed runtime queue → ' + clipped(receipt.item_id, 64)
       + ' · planning only · ' + clipped(receipt.recap, 300))
@@ -1366,6 +1372,18 @@ export function register(on) {
       Box({ key: 'work-panel', height: Math.min(work.length, budget.work), flexShrink: 0, overflow: 'hidden',
         flexDirection: 'column', children: work }),
       native,
+    ] })
+  })
+  on('ui.render', { component: 'Pane', requestId: 'ciel-side-intake' }, async ($, e) => {
+    const { Box, Text, Button } = $.ui.resolve(e)
+    const identity = await sessionId($)
+    const receipts = sidePanelSession === identity ? sidePanelReceipts : []
+    return Box({ flexDirection: 'column', children: [
+      Text({ children: 'btw_with_mcp · Runtime queue → mod receipt' }),
+      Text({ children: 'Queued for planning; not execution approval. Main model is not interrupted.' }),
+      ...receipts.slice(-10).map(r => Text({ children: clipped(r.item_id, 64) + ' · ' + clipped(r.recap, 300) })),
+      ...(!receipts.length ? [Text({ children: 'No side-intake receipts for this session.' })] : []),
+      Button({ key: 'side-close', plain: true, label: 'Close', onPress: () => $.ui.close({ id: 'ciel-side-intake' }) }),
     ] })
   })
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e, next) => {
