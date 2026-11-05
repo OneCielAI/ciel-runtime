@@ -45,11 +45,6 @@ let stopNoticeKey = ''
 let compactEpoch = 0
 const compacts = new Set()
 let continuationSession = null
-// A blocked recheck that changes nothing must not re-inject itself every turn:
-// remember the dependency signature (per session), not the global board
-// version: evidence-only updates must not re-arm the same blocker.
-let blockedRecheckKey = null
-let blockedRecheckIdentity = null
 let discoveryLast = 0
 let discoveryIdentity = null
 const STOP_READ_MS = 2000
@@ -494,15 +489,6 @@ function stopNotice($, identity, text) {
   if (stopNoticeKey === key) return
   stopNoticeKey = key
   try { $.ui.log(text) } catch {}
-}
-// Blocked is a recorded judgement, not a fact of nature: name the items so
-// the next turn can re-verify whether each block still holds.
-function blockedRecheck(c) {
-  const items = c.blocked_items || []
-  if (!items.length) return ''
-  return ' Blocked items to re-verify before reporting no work: '
-    + items.map(n => clipped(n.id, 64) + (n.waiting_on ? ' ◷ ' + clipped(n.waiting_on, 120) : '')).join('; ')
-    + '. For each one, check whether the blocker still exists right now; if it is gone, call work_node_update to set it back to in_progress (or pending) and continue it, and if it still holds, leave it blocked and say what is still missing. Do not treat a past blocked mark as permanent. If the missing evidence is the output of an authorized investigation you can perform, split that investigation into a runnable item outside the waiting branch; keep deployment, destructive actions and approval-dependent execution waiting. Never clear an approval or explicit hold based on prose alone.'
 }
 function notRunnable(s, c) {
   const parts = []
@@ -970,6 +956,8 @@ async function parallelStartReview($) {
 }
 async function parallelTurnComplete($, e, next) {
   const result = await workTurnComplete($, e, next)
+  const board = await refresh($)
+  if (!board || board.enabled === false) return result
   // A turn ending is NOT positive idle evidence. A worker explicitly in
   // waiting_input with a native waiting/idle row is parked, not processing:
   // return only its execution slot and keep the durable lease/item queued.
@@ -1161,25 +1149,9 @@ export function register(on) {
     if (!(s.continuation?.actionable > 0)) {
       const reason = notRunnable(s, s.continuation || {})
       if (openWork(s)) stopNotice($, identity, reason)
-      const recheck = blockedRecheck(s.continuation || {})
-        + ((s.continuation?.waiting || []).length
-          ? ' Re-verify the recorded waits once for this dependency state: '
-            + clipped(s.continuation.waiting.map(n => n.id + ': ' + n.waiting_on).join('; '), 700)
-            + '. Check available completion evidence and separate authorized independent investigation from the dependent execution. Do not poll a running background task, duplicate it, clear approval holds, or invent progress; unchanged waits remain recorded.'
-          : '')
-      const blockerKey = JSON.stringify({
-        waiting: (s.continuation?.waiting || []).map(n => [n.id, n.waiting_on || '']).sort(),
-        blocked: (s.continuation?.blocked_items || []).map(n => [n.id, n.waiting_on || '', n.root_id || '']).sort(),
-        held: s.continuation?.held || 0,
-      })
-      if (recheck && !(blockedRecheckIdentity === identity && blockedRecheckKey === blockerKey)) {
-        blockedRecheckIdentity = identity; blockedRecheckKey = blockerKey
-        return { block: 'Ciel Work stopped: no runnable item right now. ' + reason + recheck }
-      }
-      // Recheck already demanded for these dependencies and changed nothing:
-      // stay parked with waits preserved, even if unrelated evidence updates
-      // increment the board version. Changed dependencies re-arm the recheck;
-      // until then only time-spaced discovery may still look for new work.
+      // Waiting and blocked records are not executable work. Explain locally,
+      // but never manufacture a model turn just to repeat their prerequisites.
+      // Only explicitly enabled, rate-limited discovery may request new work.
       return discoveryNotice($, identity, s, reason) || result
     }
     if (continuationVersion !== s.version) { continuationVersion = s.version; unchangedContinuations = 0 }

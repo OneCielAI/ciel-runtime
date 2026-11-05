@@ -308,19 +308,19 @@ function continuing(on, extra = {}) {
 test('identical blockers survive unrelated version changes without repeated reassessment', async ($, on) => {
   const s = continuing(on, { discovery: { enabled: false }, continuation: { actionable: 0, next: null,
     waiting: [{ id: 'n586', waiting_on: 'connector' }], blocked: 0 } })
-  expect((await $.classic.Stop(STOP)).block).toContain('n586')
+  expect((await $.classic.Stop(STOP)).block).toBeUndefined()
   s.snapshot.version++
   expect((await $.classic.Stop(STOP)).block).toBeUndefined()
   s.snapshot.continuation.waiting[0].waiting_on = 'changed dependency'
-  expect((await $.classic.Stop(STOP)).block).toContain('changed dependency')
+  expect((await $.classic.Stop(STOP)).block).toBeUndefined()
 })
 test('background work does not suppress one bounded wait reassessment', async ($, on) => {
   continuing(on, { discovery: { enabled: false }, continuation: { actionable: 0, next: null,
     waiting: [{ id: 'n586', waiting_on: 'publish and connector' }], blocked: 0 } })
   const event = { ...STOP, background_tasks: [{ id: 'publish' }] }
   const first = await $.classic.Stop(event)
-  expect(first.block).toContain('n586')
-  expect(first.block).toContain('Do not poll')
+  expect(first.block).toBeUndefined()
+  expect(first.block).toBeUndefined()
   expect((await $.classic.Stop(event)).block).toBeUndefined()
 })
 test('normal Stop continues, unchanged plan is bounded, progress and user input reset it', async ($, on) => {
@@ -356,7 +356,7 @@ const STALLED = { continuation: { actionable: 0, next: null, waiting: [{ id: 'n7
 test('a stop with unfinished but unrunnable Work explains why, once per state, without continuing', async ($, on) => {
   const s = continuing(on, STALLED)
   const first = await $.classic.Stop(STOP)
-  expect(first.block).toContain('Re-verify the recorded waits once')
+  expect(first.block).toBeUndefined()
   expect(s.logs.length).toBe(1)
   expect(s.logs[0]).toContain('none can run now')
   expect(s.logs[0]).toContain('n76 ◷ peer review')
@@ -399,7 +399,7 @@ test('approval, background tasks and an unreadable status explain the stop; fini
   expect(s.logs.at(-1)).toContain('waits for your approval')
   s.snapshot.phase = 'executing'
   s.snapshot.continuation = { actionable: 0, next: null, waiting: [{ id: 'n2', waiting_on: 'background result' }] }
-  expect((await $.classic.Stop({ ...STOP, background_tasks: [{ id: 'b', type: 'subagent', status: 'running', description: 'x' }] })).block).toContain('Re-verify the recorded waits once')
+  expect((await $.classic.Stop({ ...STOP, background_tasks: [{ id: 'b', type: 'subagent', status: 'running', description: 'x' }] })).block).toBeUndefined()
   expect(s.logs.at(-1)).toContain('n2 ◷ background result')
   s.offline = true
   expect((await $.classic.Stop(STOP)).block).toBeUndefined()
@@ -442,7 +442,7 @@ test('a Stop read superseded by a newer successful read is not reported as unava
   s.waitStatus = null
   expect((await $.command.run({ command: 'work-mode', args: 'status' })).text).toContain('"version": 1')
   release()
-  expect((await stop).block).toContain('Re-verify the recorded waits once')
+  expect((await stop).block).toBeUndefined()
   expect(s.logs.some(l => l.includes('could not read'))).toBe(false)
 })
 test('auto planning continues decomposition but never crosses an approval boundary', async ($, on) => {
@@ -920,10 +920,10 @@ test('idle refresh pauses in a main turn but not a child turn, and stops at end 
   expect(s.calls.length).toBe(busy)
   await $.turn.complete({ ...TURN_DONE, agentId: 'child' })
   await clock.advance(1000)
-  expect(s.calls.length).toBe(busy)
+  expect(s.calls.length).toBe(busy + 1) // reconciliation checks live Work enablement
   await $.turn.complete(TURN_DONE)
   await clock.advance(1000)
-  expect(s.calls.length).toBe(busy + 1)
+  expect(s.calls.length).toBe(busy + 3) // live check plus resumed idle refresh
   s.snapshot.enabled = false
   await clock.advance(2000)
   const disabled = s.calls.length

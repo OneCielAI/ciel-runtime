@@ -356,6 +356,15 @@ const scenarios = {
     const result = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
     return { text: result?.block || '' }
   },
+  async 'parallel-complete-off'() {
+    let parallelCalls = 0
+    const { $ } = host(async tool => {
+      if (tool === 'work_parallel_status') { parallelCalls++; throw Error('Work mode is off') }
+      return text({ enabled: false })
+    })
+    await handlers['turn.complete']($, {}, next({ text: 'done' }))
+    return { parallelCalls }
+  },
   async 'stop-identical-blockers-version-change'() {
     const ready = { ...snapshot(), continuation: { actionable: 0, waiting: [{ id: 'n586', waiting_on: 'connector' }], blocked: 0 }, discovery: { enabled: false } }
     const { $ } = host(async () => text(ready))

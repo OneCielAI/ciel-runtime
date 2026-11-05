@@ -47,22 +47,23 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(done.returncode, 0, done.stderr)
         return json.loads(done.stdout)
 
+    def test_work_off_turn_end_does_not_query_parallel(self):
+        self.assertEqual(0, self.run_scenario('parallel-complete-off')['parallelCalls'])
+
     def test_identical_blockers_do_not_rearm_on_unrelated_board_version_change(self):
         result = self.run_scenario('stop-identical-blockers-version-change')
-        self.assertIn('n586', result['first'])
+        self.assertEqual('', result['first'])
         self.assertEqual('', result['second'])
-        self.assertIn('new dependency', result['changed'])
+        self.assertEqual('', result['changed'])
 
     def test_background_waits_are_rechecked_once_without_polling_or_approval_bypass(self):
         result = self.run_scenario('stop-background-wait-recheck')
-        self.assertIn('n586', result['text'])
-        self.assertIn('Do not poll', result['text'])
-        self.assertIn('clear approval holds', result['text'])
+        self.assertEqual('', result['text'])
         self.assertEqual('', result['second'])
 
     def test_unrelated_background_task_does_not_suppress_bounded_block_recheck(self):
         result = self.run_scenario('stop-background-blocked-recheck')
-        self.assertIn('n92', result['text'])
+        self.assertEqual('', result['text'])
         self.assertEqual('', result['second'])
         self.assertFalse(any('still running will wake' in line for line in result['logs']))
 
@@ -137,12 +138,10 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn("work_side_intake", result["tools"])
         self.assertTrue(result["token"])
 
-    def test_stopped_with_only_blocked_work_demands_recheck(self):
+    def test_stopped_with_only_blocked_work_does_not_demand_recheck(self):
         result = self.run_scenario("stop-blocked-recheck")
-        self.assertIn("re-verify before reporting no work", result["text"])
-        self.assertIn("n92", result["text"])
-        self.assertIn("Exact production freeze logs not identified", result["text"])
-        self.assertIn("work_node_update", result["text"])
+        self.assertNotIn("re-verify before reporting no work", result["text"])
+        self.assertNotIn("work_node_update", result["text"])
         # The recheck changes nothing, so the same board state must not
         # re-inject the same stop message on the next turn end. Only the
         # time-spaced discovery notice may still fire (it has its own
