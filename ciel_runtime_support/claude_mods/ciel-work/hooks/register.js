@@ -632,7 +632,7 @@ function parallelDeny(e, next, scope) {
   const detail = reasons.join('; ') || 'the native spawn did not match the pending Work dispatch'
   rememberParallelFailure('agent-spawn', detail)
   return 'Work parallel dispatch denied: ' + detail
-    + '. Call work_parallel_run again, then call Agent with the exact tool, subagent_type, name, description and prompt it returns. /work-mode parallel shows the pending name.'
+    + '. For approved Work, call work_parallel_run: the packaged host starts the fork itself. Do not call Agent unless the result explicitly says native_agent_required; only that fallback needs its exact returned name. /work-mode parallel shows the last failure.'
 }
 function parallelItemLabel(r) {
   const ref = r.item_ref ? '[ ' + clipped(r.item_ref, 64) + ' ] ' : ''
