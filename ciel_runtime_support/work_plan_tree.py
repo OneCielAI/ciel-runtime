@@ -613,7 +613,8 @@ def continuation(doc: dict[str, Any]) -> dict[str, Any]:
     nxt = chosen[0] if chosen else None
     target_root = _root_of(by_id, nxt["id"]) if nxt else None
     active = by_id.get(doc.get("active_root"))
-    held = bool(active and active.get("urgent") and active["status"] != "done")
+    held = bool(active and active.get("urgent") and active["status"] != "done"
+                and any(root['id'] == active['id'] and rows for root, rows in zip(roots, available)))
     return {
         "actionable": len(flat),
         "next": dict(_node_summary(nxt), path=path_titles(doc, nxt["id"]), root_id=target_root,
@@ -697,6 +698,10 @@ def _runnable_by_root(doc: dict[str, Any], by_id: dict[str, dict[str, Any]]
                 candidates.append(leaf)
         candidates.sort(key=lambda node: node["status"] != "in_progress")
         available.append(candidates)
+        if root is active and held and not candidates:
+            # An urgent priority is not a workspace-wide dependency lock.
+            # Preserve its waits while independent queued goals use idle slots.
+            held = False
     return roots, available, waiting, blocked
 
 
@@ -861,8 +866,7 @@ def snapshot(doc: dict[str, Any], *, enabled: bool = True, approval_ask: bool = 
         # evidence or queued descendants). Keeps roots beyond the short queue
         # preview and completed history reachable without loading other contexts.
         "root_index": [dict(_node_summary(node),
-                            held=bool(root and node["id"] != root and by_id[root].get("urgent")
-                                      and by_id[root]["status"] != "done" and node["status"] != "done"))
+                            held=bool(resume['held'] and node['id'] != root and node['status'] != 'done'))
                        for node in doc["nodes"] if node["parent_id"] is None],
         "completed_active": [_node_summary(by_id[node_id]) for node_id, _ in _walk(doc, root)
                              if node_id != root and by_id[node_id]["status"] == "done"] if root else [],
@@ -872,7 +876,7 @@ def snapshot(doc: dict[str, Any], *, enabled: bool = True, approval_ask: bool = 
         # Unfinished goals waiting behind the active one, in the order they become active.
         "queue": [
             dict(_node_summary(node), done=progress(doc, node["id"])[0], total=progress(doc, node["id"])[1],
-                 held=bool(root and by_id[root].get("urgent") and by_id[root]["status"] != "done"))
+                 held=bool(resume['held']))
             for node in queued_roots(doc)[:MAX_QUEUE_IN_SNAPSHOT]
         ],
     }

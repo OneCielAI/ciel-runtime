@@ -29,6 +29,18 @@ class WorkMcpToolsTests(unittest.TestCase):
         self.assertFalse(response["error"], response)
         return self.store.read()
 
+    def test_update_evidence_explicitly_reports_wait_not_cleared(self):
+        self.plan()
+        self.call('work_execute')
+        self.call('work_node_update', id='n3', waiting_on='review')
+        response = self.call('work_node_update', id='n3', evidence='claimed resumed')
+        self.assertIn('WAITING:', response['text'])
+        self.assertIn('Evidence/notes do NOT clear a wait', response['text'])
+        self.assertIn('waiting_on=""', response['text'])
+        self.assertEqual('review', next(n for n in self.store.read()['nodes'] if n['id'] == 'n3')['waiting_on'])
+        response = self.call('work_node_update', id='n3', waiting_on='')
+        self.assertIn('waiting_on is empty on this node', response['text'])
+
     def test_real_dispatch_isolates_conversations_and_preserves_resume(self):
         def call(session_id, name, **args):
             return m.dispatch_work_tool(7, name, {"session_id": session_id, **args},

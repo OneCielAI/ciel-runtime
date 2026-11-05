@@ -418,6 +418,20 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
 
         doc, (node, before) = store.transaction(update, expected_version=expected)
         message = f"Updated {node['id']} ({node['status']})."
+        wait = node.get('waiting_on', '')
+        if wait:
+            message += (f" WAITING: waiting_on={json.dumps(wait, ensure_ascii=False)}. "
+                        'This item is still excluded from execution. Evidence/notes do NOT clear a wait. '
+                        'To clear this exact wait after verifying its prerequisite, explicitly send '
+                        f'work_node_update(id={json.dumps(node_id)}, waiting_on=""). '
+                        'Ancestor waits/blocks remain independent; do not clear approval or user holds without authorization.')
+        elif 'waiting_on' in args:
+            message += ' waiting_on is empty on this node; ancestor waits/blocks may still exclude it.'
+        else:
+            message += ' waiting_on was not supplied; existing wait state was not changed.'
+        resume = tree.continuation(doc)
+        if resume.get('next'):
+            message += f" Next runnable item: {resume['next']['id']} (goal {resume['next']['root_id']})."
         if before and doc.get("active_root") != before:
             message += (f" Goal {before} is done; the next queued goal {doc['active_root']} is now active in the "
                         f"{doc['phase']} phase. Review its plan; call work_execute if it is planning.")

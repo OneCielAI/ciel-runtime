@@ -313,17 +313,18 @@ class WorkPlanTreeTests(unittest.TestCase):
             t.select_root(self.doc, queued)
         self.assertEqual(self.doc, before)
 
-    def test_urgent_waiting_active_does_not_yield_automatically(self):
+    def test_urgent_waiting_active_yields_to_independent_queued_work(self):
         root, _, one, two = self.plan()
         t.set_phase(self.doc, "executing")
         queued = t.set_plan(self.doc, {"title": "queued", "children": [nested(2)]})
         self.doc["nodes"][0]["urgent"] = True
         t.update_node(self.doc, one, waiting_on="review")
         t.update_node(self.doc, two, status="blocked")
-        before = copy.deepcopy(self.doc)
-        with self.assertRaises(t.WorkPlanError):
-            t.select_root(self.doc, queued)
-        self.assertEqual(self.doc, before)
+        self.assertEqual(queued, t.continuation(self.doc)['next']['root_id'])
+        self.assertEqual(0, t.continuation(self.doc)['held'])
+        t.select_root(self.doc, queued)
+        self.assertEqual(queued, self.doc['active_root'])
+        self.assertEqual('review', next(n for n in self.doc['nodes'] if n['id'] == one)['waiting_on'])
 
     def waiting_board(self):
         """The .14 kobe v681 shape: the active goal waits at the root, its branches and leaves are
@@ -698,7 +699,8 @@ class WorkContinuationTreeTests(unittest.TestCase):
         self.assertTrue(all(row["held"] for row in state["queue"]))
         self.assertEqual((state["continuation"]["held"], state["continuation"]["next"]["title"]), (4, "nested step"))
         t.update_node(self.doc, second, waiting_on="external")
-        self.assertEqual((t.continuation(self.doc)["actionable"], t.continuation(self.doc)["next"]), (0, None))
+        self.assertGreater(t.continuation(self.doc)['actionable'], 0)
+        self.assertEqual(first, t.continuation(self.doc)['next']['root_id'])
         t.update_node(self.doc, second, waiting_on="")
         t.update_node(self.doc, self.doc["nodes"][-1]["id"], status="done", evidence="nested urgent verified")
         self.assertEqual((self.doc["active_root"], self.doc["phase"]), (first, "planning"))
