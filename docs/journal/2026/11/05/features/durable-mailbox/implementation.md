@@ -30,6 +30,12 @@ The first whole unit run executed 3249 tests with 4 errors from renamed constant
 
 Channel suite after receiver spool integration passed 602 tests in 15.218 seconds (80 skipped). Fair drain keyset rotation and concurrent duplicate receipt tests also passed. Primary menu now retains validation feedback after returning to its parent panel.
 
+# Latest user-requested settings revision
+
+The latest user request supersedes separate first-screen controls. Main menu now has one `Work · SSE settings` entry. The panel exposes one SSE injection selector (`session` / `btw_with_mcp`); the old enabled/type pair is hidden and selection updates both persisted fields atomically. Each selectable setting has an explanation shown in its choice panel. Real ConPTY `.local/choice-menu-2748fb2a/result.json` verifies Work off and btw_with_mcp selection persist, and `unified-sse-explanation.png` confirms one menu and explanatory text.
+
+Real loopback SSE + production receiver + production repository/gateway + exact native socket + actual native mod probe `.local/side-busy-1ee2fc70/result.json` passed. It verifies receiver event spool, side pending consumption/deletion, retained receipt, duplicate admission yielding one new Work node during main streaming. Screenshot `real-sse-mailbox.png` captured. One fixture HTTP response encountered ConnectionResetError during client shutdown; assertions passed, and this is not claimed as a clean shutdown trace. External conversational ACK remains unconnected.
+
 # Publishing checkpoint
 
 Implementation checkpoint committed as 0798f73. Two fast-forward pushes to the existing feature branch were rejected by the remote with `fatal error in commit_refs`. Read-only remote inspection confirms all three branch heads remain 7e7ccd9 and repository push permission=true, archived=false, disabled=false. Cause is unconfirmed. GitHub status API fetch was blocked by robots policy; the public status homepage did not provide sufficient status detail in the fetched excerpt. No nightly update or local production install has occurred for this checkpoint.

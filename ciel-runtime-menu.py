@@ -1026,7 +1026,6 @@ def main_items() -> list[tuple[str, str]]:
         add("provider-options", f"{t('provider_options')}  [{provider_options_summary(provider, pcfg)}]")
     from ciel_runtime_support.recent_menu_text import menu_text
     add('work-settings', menu_text('work_settings_menu', lang))
-    add('side-settings', menu_text('side_settings_menu', lang))
     add("test", t("test"))
     launch_label = t("launch")
     if not claude_launch_enabled(provider):
@@ -2163,7 +2162,8 @@ def main() -> int:
                         idx = index_for_action("test")
                     sub = None
                 elif sub['kind'] == 'work-settings':
-                    from ciel_runtime_support.work_settings_menu import choices
+                    from ciel_runtime_support.work_settings_menu import choices, description
+                    notice = [description(load_cfg(), item['value'])]
                     labels, values = choices(load_cfg(), item['value'])
                     sub = {'kind': 'work-setting-choice', 'key': item['value'],
                            'title': item['label'], 'idx': 0, 'offset': 0,
@@ -2328,15 +2328,13 @@ def main() -> int:
             else:
                 notice = ["Ollama options are available only for ollama and ollama-cloud."]
         elif action in ('work-settings', 'side-settings'):
-            from ciel_runtime_support.work_live_settings import settings
+            from ciel_runtime_support.work_settings_menu import panel_rows
             from ciel_runtime_support.recent_menu_text import menu_text
-            state = settings(load_cfg(), {}, None)
-            is_side = action == 'side-settings'
-            selected = [r for r in state['settings'] if (r['key'].startswith('work_side_intake_')) == is_side]
+            labels, values = panel_rows(load_cfg())
             sub = {'kind': 'work-settings', 'parent': action, 'items': [
-                {'value': r['key'], 'label': r['label'] + ': ' + str(r['value']), 'current': False}
-                for r in selected], 'idx': 0, 'offset': 0,
-                'title': menu_text('side_settings_menu' if is_side else 'work_settings_menu', current_language())}
+                {'value': value, 'label': label, 'current': False}
+                for label, value in zip(labels, values) if value != 'back'], 'idx': 0, 'offset': 0,
+                'title': menu_text('work_settings_menu', current_language())}
             notice = []
         elif action == "provider-options":
             provider = current_provider()

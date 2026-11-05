@@ -155,7 +155,6 @@ class MainMenuProjection:
             f"19. {menu_text('main_fallback', language)}  [{provider_fallback_summary(config)}]",
             f"20. {menu_text('main_restart', language)}  [{unattended_restart_summary()}]",
             f"21. {menu_text('work_settings_menu', language)}",
-            f"22. {menu_text('side_settings_menu', language)}",
             self.ports.ui_text("quit", language),
         ]
 

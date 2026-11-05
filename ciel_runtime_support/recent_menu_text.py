@@ -3,9 +3,10 @@ from .ui_text import UI_TEXT
 
 # Each row is English, Korean, Japanese, Chinese; keys are option identities.
 TEXT = {
+    "sse_injection_mode": ("SSE injection", "SSE 주입 방식", "SSE 注入方式", "SSE 注入方式"),
     "settings_edit_text": ("Edit text…", "텍스트 편집…", "テキストを編集…", "编辑文本…"),
     "state_back": ("Back", "뒤로", "戻る", "返回"),
-    "work_settings_menu": ("Work mode settings", "Work 모드 설정", "Work モード設定", "Work 模式设置"),
+    "work_settings_menu": ("Work & SSE settings", "Work · SSE 설정", "Work・SSE 設定", "Work · SSE 设置"),
     "side_settings_menu": ("btw_with_mcp settings", "btw_with_mcp 설정", "btw_with_mcp 設定", "btw_with_mcp 设置"),
     "work_side_intake_enabled": ("SSE side intake", "SSE 사이드 접수", "SSE サイド受付", "SSE 侧边接收"),
     "work_side_intake_type": ("SSE injection type (session / btw_with_mcp)", "SSE 주입 타입 (session / btw_with_mcp)", "SSE 注入タイプ (session / btw_with_mcp)", "SSE 注入类型 (session / btw_with_mcp)"),

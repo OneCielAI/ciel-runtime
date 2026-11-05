@@ -56,7 +56,6 @@ MAIN_MENU_ACTIONS: tuple[str, ...] = (
     "provider-fallback",
     "unattended-restart",
     "work-settings",
-    "side-settings",
     "quit",
 )
 
@@ -1186,7 +1185,8 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     if value == 'back':
                         close_panel()
                         continue
-                    from .work_settings_menu import choices
+                    from .work_settings_menu import choices, description
+                    messages = [description(load_config(), value)]
                     settings_key = value
                     settings_parent = panel
                     panel_rows, panel_values = choices(load_config(), value)
