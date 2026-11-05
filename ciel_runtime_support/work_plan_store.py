@@ -138,9 +138,9 @@ class WorkPlanStore:
                 if removed_ids:
                     # Commit recovery evidence first. A failed board replacement
                     # may leave an unused archive, never a deletion without one.
-                    from .side_intake_inbox import SideIntakeInbox
+                    from .durable_json_file import save
                     archive = self.path.parent / 'removed-work' / f'{current["version"]}-{time.time_ns()}.json'
-                    SideIntakeInbox._save_file(archive, {
+                    save(archive, {
                         'schema': 1, 'before_version': current['version'],
                         'after_version': working['version'], 'removed_at': time.time(),
                         'active_root': current.get('active_root'),

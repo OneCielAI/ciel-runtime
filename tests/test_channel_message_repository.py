@@ -36,7 +36,7 @@ class ChannelMessageRepositoryTests(unittest.TestCase):
             repository = ChannelMessageRepository(path, lambda *_: None)
             ports = ChannelMessageAppendPorts(threading.Condition(),
                 lambda: exclusive_file_lock(path), lambda _: None, lambda value: [value])
-            with patch('ciel_runtime_support.side_intake_inbox.SideIntakeInbox._save_file',
+            with patch('ciel_runtime_support.durable_json_file.save',
                        side_effect=OSError('disk full')):
                 with self.assertRaises(OSError):
                     repository.append({'message': 'original',

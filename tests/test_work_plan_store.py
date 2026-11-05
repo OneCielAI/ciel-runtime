@@ -35,7 +35,7 @@ class WorkPlanStoreTests(unittest.TestCase):
     def test_archive_write_failure_prevents_queue_deletion(self):
         self.store.transaction(lambda d: t.add_node(d, None, 'preserve me'))
         before = self.path.read_bytes()
-        with patch('ciel_runtime_support.side_intake_inbox.SideIntakeInbox._save_file',
+        with patch('ciel_runtime_support.durable_json_file.save',
                    side_effect=OSError('disk full')):
             with self.assertRaises(OSError):
                 self.store.transaction(lambda d: t.remove_node(d, 'n1'))

@@ -4,7 +4,6 @@ from __future__ import annotations
 import hashlib
 import heapq
 import json
-import os
 from pathlib import Path
 import time
 from typing import Any
@@ -59,23 +58,8 @@ class SideIntakeInbox:
 
     @staticmethod
     def _save_file(path: Path, row: dict[str, Any]) -> None:
-        raw = json.dumps(row, ensure_ascii=False).encode('utf8')
-        path.parent.mkdir(parents=True, exist_ok=True)
-        temporary = path.with_name(f'.{path.stem}.{os.getpid()}.{time.time_ns()}.tmp')
-        try:
-            with temporary.open('xb') as stream:
-                stream.write(raw)
-                stream.flush()
-                os.fsync(stream.fileno())
-            os.replace(temporary, path)
-            if os.name != 'nt':
-                descriptor = os.open(path.parent, os.O_RDONLY)
-                try:
-                    os.fsync(descriptor)
-                finally:
-                    os.close(descriptor)
-        finally:
-            temporary.unlink(missing_ok=True)
+        from .durable_json_file import save
+        save(path, row)
 
     def _migrate(self) -> None:
         marker = self.directory / 'mailbox-v2.json'
