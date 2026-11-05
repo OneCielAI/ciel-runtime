@@ -579,7 +579,10 @@ def inject_pending_channel_messages(
                         submit_delay_seconds=submit_delay_seconds,
                     )
                 if submitted is False:
-                    wake_store.lifecycle.fail(pending, claimed_ids, "prompt_not_submitted")
+                    if any((m.get("meta") or {}).get("_side_intake_admitted") is True for m in pending):
+                        wake_store.lifecycle.defer_unsubmitted(pending, claimed_ids)
+                    else:
+                        wake_store.lifecycle.fail(pending, claimed_ids, "prompt_not_submitted")
                     ids = ",".join(str(message.get("id") or "") for message in pending)
                     io.log(
                         "WARN",

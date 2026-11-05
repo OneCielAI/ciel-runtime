@@ -194,6 +194,40 @@ class FailedRecordTests(unittest.TestCase):
 
 
 class SideIntakeTransportTests(unittest.TestCase):
+    def test_busy_side_queue_failure_retains_cursor_then_commits_after_durable_intake(self):
+        from ciel_runtime_support.runtime_input_gateway import RuntimeInputGateway
+        from ciel_runtime_support.work_plan_store import WorkPlanStore
+        from ciel_runtime_support.work_side_intake import enqueue
+        rows = []
+        gateway = RuntimeInputGateway(lambda p: rows.append({**p, 'id': 40}) or rows[-1],
+                                      load_side_settings=lambda: {'enabled': True})
+        gateway.submit_external_event('new request', receiver_id='test', transport='sse',
+                                      event_id='one', event_type='request', event_source='fixture')
+        harness = _InjectionHarness(rows)
+        services = harness.services()
+        with tempfile.TemporaryDirectory() as root:
+            store = WorkPlanStore(pathlib.Path(root) / 'work.json')
+            available = False
+            def send(prompt, messages):
+                if not available:
+                    return False
+                request = json.loads(prompt.removeprefix('/btw_with_mcp '))
+                return enqueue(store, request['text'], request['event_key'])['accepted']
+            services = dataclasses.replace(services,
+                state=dataclasses.replace(services.state, active_turn=lambda: True),
+                io=dataclasses.replace(services.io, write_session_socket=send,
+                                       session_socket_available=lambda: True))
+            cursor = inject_pending_channel_messages(99, 39, services=services)
+            self.assertEqual(39, cursor)
+            self.assertEqual([], harness.delivery.commits)
+            self.assertEqual([], store.read()['nodes'])
+            available = True
+            cursor = inject_pending_channel_messages(99, cursor, services=services)
+            self.assertEqual(40, cursor)
+            self.assertEqual([40], harness.delivery.commits)
+            self.assertEqual(1, len(store.read()['nodes']))
+            self.assertEqual([], harness.written)
+
     def test_side_intake_without_socket_stays_pending_and_never_types(self):
         message = _message(40)
         message["meta"] = {"input_transport": "session_socket", "btw_with_mcp": True, "btw": True, "_side_intake_admitted": True}
