@@ -189,7 +189,7 @@ const scenarios = {
       }
       return text({})
     })
-    state.agents = [{ id: 'agent-wait', status: 'waiting' }]
+    state.agents = [{ id: 'agent-wait', status: 'completed' }]
     await handlers['session.start']($, { isInteractive: false }, next(undefined))
     await handlers['turn.complete']($, {}, next(undefined))
     const afterWait = { slot: lease.slot, calls: calls.map(c => c.event) }

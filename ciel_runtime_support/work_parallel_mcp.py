@@ -160,6 +160,9 @@ def run(name, args, board_store, identity, config, save_config):
             raise WorkParallelError("verified coordinator fork capability required")
         board = board_store.read()
         c = candidate(board, args.get("item_id"), args.get("priority", "P1"), args.get("role", "worker"))
+        refusal = dispatch_refusal(board, c["item_id"])
+        if refusal:
+            raise WorkParallelError(refusal)
         d, ident = store.reserve([c], scope=identity, expected_version=version)
         item = _item_details(board).get(c["item_id"], {})
         workspace = None
@@ -241,6 +244,24 @@ def run(name, args, board_store, identity, config, save_config):
         elif host.get("state") == "idle":
             set_activity(workspace["repo"], ident, current["host_id"], idle=True, proof=current["idle_proof"])
     return json.dumps(project(store, identity, _board_or_none(board_store)), ensure_ascii=False)
+
+
+def dispatch_refusal(board, item_id):
+    """Explain structured gates; never interpret wait prose as permission."""
+    nodes = {n["id"]: n for n in board["nodes"]}
+    current = nodes[item_id]
+    while True:
+        if current["status"] in ("done", "blocked"):
+            return f"Work item {item_id} cannot dispatch: node {current['id']} is {current['status']}"
+        if current.get("waiting_on"):
+            return (f"Work item {item_id} cannot dispatch: node {current['id']} has waiting_on: "
+                    f"{current['waiting_on']}. Clear a resolved wait explicitly; keep restrictions "
+                    "in notes or on the specific waiting child, not on a runnable branch.")
+        if current["parent_id"] is None:
+            if tree.root_phase(board, current["id"]) != "executing":
+                return f"Work item {item_id} cannot dispatch: goal {current['id']} is not approved for execution"
+            return ""
+        current = nodes[current["parent_id"]]
 
 
 def candidate(board, item_id, priority, role):

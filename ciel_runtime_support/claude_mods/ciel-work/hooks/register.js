@@ -978,7 +978,7 @@ async function parallelTurnComplete($, e, next) {
       if (binding.scope !== scope) continue
       const lease = s.leases[binding.lease_id]
       const row = agents.find(a => a.id === id)
-      if (lease?.state === 'waiting_input' && lease.slot && row && ['waiting', 'idle'].includes(row.status)) {
+      if (lease?.state === 'waiting_input' && lease.slot && row && (row.status === 'waiting' || parallelTerminal.has(row.status))) {
         await parallelEvent($, { event: 'wait', lease_id: binding.lease_id },
           { proof: 'Native agent.list status while waiting_input: ' + row.status })
         continue

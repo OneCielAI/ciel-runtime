@@ -1,0 +1,19 @@
+---
+type: diagnosis
+title: Walkie fork dispatch gates and terminal waiting workers
+status: verified-pending-release
+---
+
+# Confirmed
+
+- Live board version 1087 has n589 below n191, whose waiting_on says analysis may proceed but implementation awaits approval. The structured waiting_on gate blocks all descendants by design (also covered by test_continuation_excludes_ancestor_waits_blocks_done_and_leaf_waits). Earlier description of this as an admission misclassification was incorrect: the board prose contradicts its structured gate. Do not parse prose as permission or silently clear another session's wait.
+- Reserve previously returned generic no eligible candidate, hiding n191 as the blocking ancestor. Added exact node/status/wait/approval denial before reservation. Gate remains enforced.
+- Native waiting_input leases returned slots only for native waiting/idle, not completed/failed/killed. Extended positive terminal observation to return only the waiting slot; lease, host binding and item survive. Missing/unknown host observations still retain slots.
+- Existing duplicate lease rejection remains intentional: resume the same worker, never create duplicate ownership. No self-conflict bypass added.
+
+# Verification
+
+- Isolated focused test_work_parallel_mcp.py + test_work_mod_write_gate.py: 47 tests passed, 15.722 seconds.
+- New test: ancestor wait names node n2, creates no lease, and succeeds only after an explicit wait clear in the fixture.
+- Native harness waiting worker uses completed status, returns slot then reacquires for SendMessage.
+- No live board/lease/config/restart mutations performed for Walkie.

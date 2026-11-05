@@ -335,6 +335,17 @@ class WorkParallelMCPTests(unittest.TestCase):
         assert s.read()["leases"][reserved["lease_id"]]["slot"]
 
 
+    def test_ancestor_wait_denial_names_exact_gate_without_bypassing_it(self):
+        store, board, config, run = self.env
+        board["nodes"][1]["waiting_on"] = "analysis allowed; implementation approval pending"
+        with self.assertRaisesRegex(WorkParallelError, "node n2 has waiting_on"):
+            run("event", {"fork": True}, event="reserve", item_id="n3", priority="P1")
+        self.assertFalse(store.read()["leases"])
+        # The scheduler must not infer an exception from free-form prose.
+        board["nodes"][1]["waiting_on"] = ""
+        result = run("event", {"fork": True}, event="reserve", item_id="n3", priority="P1")
+        self.assertTrue(result["lease_id"])
+
     def test_server_gates_3(self):
         env = self.env
         gate = 'blocked'
