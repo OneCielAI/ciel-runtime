@@ -1,0 +1,14 @@
+---
+type: verification
+title: Cumulative Work side settings and registry release
+status: installed-smoke-verified
+---
+
+# Release
+CI41978491990 and Publish41978492015 success for9e203eb930cd6c91583da2cb308e0419c6878fa8. npm nightly0.2.51-nightly.20261105-061909.9e203eb exact gitHead verified. Actual PATH npm install updated and ciel-runtime --version matched.
+
+# Installed smoke
+Ran .local/smoke_cumulative_work.py against installed npm package using python-I and temporary state. Side atomic dedup/restart readback OK, execution_approved=false, Codex composed config loader persists Work off preserving language, disabled SSE remains original, enabled side produces command, fresh confirmed-dead owner registry lock recovered without30s delay. Real production sessions/boards were not restarted or changed.
+
+# Boundaries
+No actual native busy-turn SSE end-to-end success or external Walkie ACK delivery proven. Side command recap is quoted request data, not an LLM analysis. Live settings command native contract tests pass but screenshot verification pending; whole native plugin suite retains failing tests, not claimed green. Registry screenshot host owner unknown; package repro addressed verified local defects only. Codex policy smoke is not an authenticated Codex live session launch. All features included in release, but these verification limitations remain open.
