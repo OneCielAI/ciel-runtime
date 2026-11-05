@@ -207,6 +207,11 @@ class SideIntakeTransportTests(unittest.TestCase):
         services = harness.services()
         with tempfile.TemporaryDirectory() as root:
             store = WorkPlanStore(pathlib.Path(root) / 'work.json')
+            status = RuntimeInputStatusRepository(pathlib.Path(root) / 'status.jsonl',
+                publish_event=Mock(), log=lambda *_: None, lock=threading.Lock())
+            status.transition(40, 'queued')
+            harness.delivery.status = status
+            harness.delivery.bind_child_epoch('owned-fixture')
             available = False
             def send(prompt, messages):
                 if not available:
@@ -221,6 +226,7 @@ class SideIntakeTransportTests(unittest.TestCase):
             self.assertEqual(39, cursor)
             self.assertEqual([], harness.delivery.commits)
             self.assertEqual([], store.read()['nodes'])
+            self.assertEqual('queued', status.get(40)['status'])
             available = True
             cursor = inject_pending_channel_messages(99, cursor, services=services)
             self.assertEqual(40, cursor)
