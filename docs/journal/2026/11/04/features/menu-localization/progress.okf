@@ -23,4 +23,4 @@ Four supported languages: en/ko/ja/zh. Recent main-menu labels, Work and paralle
 - Extra regression verifies translated save notices preserve literal user instruction `on`; simplified option validation expression without behavior change.
 
 # Pending
-Inspect actual options screenshots, close remaining localization gaps, commit/push, verify published package and installed behavior. Task is not complete.
+Recent-menu changes shipped in cumulative npm0.2.51-nightly.20261105-020801.d415736; CI/Publish success; installed snapshot530/530 matches tarball and all four language entries verified. Actual options screenshots inspected as above. Generic older labels/status summaries remain English and are not claimed fully translated. No live restart.
