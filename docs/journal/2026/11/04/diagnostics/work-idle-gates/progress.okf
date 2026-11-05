@@ -1,7 +1,7 @@
 ---
 type: diagnosis
 title: Work idle gates and side-channel intake investigation
-status: implementation-in-progress
+status: work-diagnostics-released-side-intake-investigating
 ---
 
 # Evidence
@@ -9,6 +9,9 @@ Read-only Kobi API snapshot455: enabled/auto_continue true, executing,100/110 le
 
 # Current changes
 Existing display_current already distinguishes runnable/held_by in current code. Added bounded wait_diagnostics to snapshot: exact leaf gate_ids, inherited and in_progress-with-wait conflict. Never clears waits, interprets prose as authorization, or mutates external boards. Added status decision INFO logging of version,auto_continue,actionable,next and excluded count.56 pure tree regressions pass.
+
+# Release
+9c28567 CI41964470742 and Publish41964470728 success. npm0.2.51-nightly.20261105-040528.9c28567 exact gitHead verified. Actual PATH npm install updated and ciel-runtime --version matches; installed inherited gate/in_progress conflict/nonrunnable display smoke passed.107 isolated regressions passed. No Kobi restart or wait clearing. This improves observability and model context; it does not make explicit holds runnable or guarantee all tasks progress.
 
 # Side intake requirements
 User requests btw_with_mcp: inspect current queue, ack/recap, enqueue without interrupting main work. Native btw cannot use MCP; do not claim native support. Must verify packaged mod/background-agent APIs and delivery transport. Prefer session-bound durable dedup intake; queued intake is not execution approval, peer SSE remains untrusted, ack only after durable acceptance, failure must retain pending event. No fallback that silently injects whole event into busy main context. Not implemented yet.
