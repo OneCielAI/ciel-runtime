@@ -1,0 +1,18 @@
+---
+type: diagnosis
+title: Workspace registry lock relaunch and Windows deletion race
+status: tested-pending-release
+---
+
+# Evidence
+User screenshot shows FileExistsError on workspace-router-ports.json.lock then8s timeout during runtime_paths import. Owner PID/contents on Daniel machine not yet collected; do not claim its exact owner was dead.
+
+# Reproduced defects
+- Dead owner stale recovery required30s age but lock acquisition times out8s: immediate relaunch after a dead process cannot recover within first window.
+- Removing age gate caused existing four-thread registry test to reproduce timeout reliably on Windows. Owner inspection briefly opens sidecar; finally unlink swallowed OSError, leaving a live-PID lock behind. Bounded PermissionError retries in owner cleanup restored concurrency test.
+
+# Changes
+Confirmed dead owner can be reclaimed immediately, never own PID/live/unknown; metadata recheck before unlink reduces stale replacement risk. Cleanup retries Windows PermissionError20 times10ms instead of swallowing and stranding lock. Invalid/empty lock still fails closed; arbitrary age-based deletion not added. Cross-process replacement race not fully eliminated by metadata recheck and remains a design limitation.
+
+# Tests
+42 workspace router selection tests passed in2.398s, including new fresh dead-owner lock recovery and existing four-thread distinct lease allocation. No remote lock file deleted; no live routers restarted.

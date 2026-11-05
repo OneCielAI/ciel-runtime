@@ -206,10 +206,15 @@ def select_workspace_router_port(
             os.write(lock_fd, f"{os.getpid()}\n".encode("ascii", errors="replace"))
         except FileExistsError:
             try:
-                stale = time.time() - lock_path.stat().st_mtime > 30.0
-                if stale:
-                    lock_pid = int(lock_path.read_text(encoding="ascii").strip())
-                    stale = _process_identity(lock_pid) == ""
+                # A confirmed dead owner cannot finish initialization or
+                # release its lock. Waiting 30s while admission times out at
+                # 8s made immediate relaunch after a crash fail repeatedly.
+                observed = lock_path.stat()
+                lock_pid = int(lock_path.read_text(encoding="ascii").strip())
+                stale = lock_pid != os.getpid() and _process_identity(lock_pid) == ""
+                current = lock_path.stat()
+                stale = stale and (observed.st_ino, observed.st_mtime_ns, observed.st_size) == (
+                    current.st_ino, current.st_mtime_ns, current.st_size)
             except (OSError, ValueError):
                 stale = False
             if stale:
@@ -305,10 +310,16 @@ def select_workspace_router_port(
             if lock_fd is not None:
                 os.close(lock_fd)
         finally:
-            try:
-                lock_path.unlink()
-            except OSError:
-                pass
+            for attempt in range(20):
+                try:
+                    lock_path.unlink(missing_ok=True)
+                    break
+                except PermissionError:
+                    # Windows readers inspecting the owner briefly deny delete.
+                    # Silently abandoning a live-PID sidecar strands all launches.
+                    if attempt == 19:
+                        raise
+                    time.sleep(0.01)
 
 
 def _record_port(record: Any) -> int:

@@ -358,6 +358,16 @@ class ExhaustedRouterReservationTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "launch already reserved"):
                 self._select_own(registry)
 
+    def test_fresh_lock_with_confirmed_dead_owner_is_recovered_without_30s_age(self):
+        lock = self.registry.with_suffix('.json.lock')
+        lock.parent.mkdir(parents=True, exist_ok=True)
+        lock.write_text('20001\n', encoding='ascii')
+        with patch.object(selection, '_process_identity', side_effect=lambda pid: '' if pid == 20001 else 'live'):
+            port = select_workspace_router_port(9464, Path('C:/work/recover'), {}, registry_path=self.registry,
+                                               health=lambda _: None, available=lambda _: True)
+        self.assertEqual(9464, port)
+        self.assertFalse(lock.exists())
+
     def test_concurrent_registry_calls_keep_distinct_startup_leases(self):
         def allocate(index):
             return select_workspace_router_port(
