@@ -46,6 +46,18 @@ const call = ($, agentId) => handlers['tool.call']($, { tool: 'Edit', agentId,
 const verdict = r => r?.decision === 'deny' ? 'deny: ' + r.reason : r?.deny ? 'deny: ' + r.deny : 'allow'
 
 const scenarios = {
+  async 'live-settings-command'() {
+    const changes = []
+    const { $ } = host(async (tool, args) => {
+      if (tool === 'work_live_settings') {
+        changes.push(args)
+        return text({ settings: [{ key: 'work_mode', label: 'Work mode', value: args.value || false }] })
+      }
+      return text(snapshot())
+    })
+    const result = await handlers['command.run']($, { args: 'settings work_mode=on' })
+    return { text: result.text, key: changes[0].key, value: changes[0].value }
+  },
   async 'side-intake-external-bridge'() {
     let queued = 0, main = 0
     const { $ } = host(async (tool, args) => {

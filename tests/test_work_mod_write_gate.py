@@ -100,6 +100,12 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn("기존 승인 유지", result["first"])
         self.assertFalse(result["second"])
 
+    def test_live_settings_command_uses_host_mcp_without_model_turn(self):
+        result = self.run_scenario("live-settings-command")
+        self.assertEqual("work_mode", result["key"])
+        self.assertEqual("on", result["value"])
+        self.assertIn("Work mode", result["text"])
+
     def test_external_side_intake_drops_only_after_queue_ack_without_main_turn(self):
         result = self.run_scenario("side-intake-external-bridge")
         self.assertEqual(1, result["queued"])
