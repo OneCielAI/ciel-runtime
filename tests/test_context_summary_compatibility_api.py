@@ -205,6 +205,18 @@ class ContextSummaryCompatibilityApiTests(unittest.TestCase):
         self.assertIn(summary, reduced)
         self.assertNotIn("[truncated", reduced)
 
+    def test_large_context_uses_fewer_bounded_chunks_without_losing_source(self):
+        policy = self.policy()
+        self.assertEqual(131072, policy.chunk_target_tokens({}, 872000))
+        self.assertEqual(32768, policy.chunk_target_tokens({"context_compact_chunk_tokens": 32768}, 872000))
+        messages = [{"role": "user", "content": "source " * 10000} for _ in range(18)]
+        old = policy.split_messages(messages, 65536)
+        new = policy.split_messages(messages, policy.chunk_target_tokens({}, 872000))
+        self.assertLess(len(new), len(old))
+        def flatten(chunks):
+            return "".join(fragment.text for _, chunk in chunks for fragment in chunk)
+        self.assertEqual(flatten(old), flatten(new))
+
     def test_chunk_and_output_configuration_are_clamped_to_budget(self):
         policy = self.policy()
         config = {"context_compact_chunk_tokens": 10**9, "context_compact_summary_tokens": 10**9}

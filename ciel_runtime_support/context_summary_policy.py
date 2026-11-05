@@ -358,11 +358,11 @@ class ContextSummaryPolicy:
     def chunk_target_tokens(self, config: dict[str, Any] | None, budget_tokens: int) -> int:
         """Clamp the map target in token units, independently of source bytes."""
         configured = self.positive_int((config or {}).get("context_compact_chunk_tokens"))
-        # A map call is one HTTP round trip on a shared gateway: a smaller
-        # segment finishes well inside the request timeout and isolates a
-        # dropped connection to that segment (observed 261K-token segments
-        # losing the connection in the Celly session).
-        ceiling = max(256, min(65536, max(1, budget_tokens) // 2))
+        # Large histories otherwise spend 17 sequential round trips at 64K
+        # (observed on Kobi). Bound segments to 128K, still below the 261K
+        # segments previously observed losing their connection. Small budgets
+        # retain their half-window bound and explicit smaller targets win.
+        ceiling = max(256, min(131072, max(1, budget_tokens) // 2))
         return min(ceiling, max(256, configured or ceiling))
 
     def summary_output_tokens(self, config: dict[str, Any] | None, budget_tokens: int) -> int:
