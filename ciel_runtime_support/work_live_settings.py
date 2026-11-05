@@ -13,7 +13,17 @@ def settings(config, args, save):
         value = args.get('value')
         if not isinstance(value, str) or save is None:
             raise WorkPlanError('string value and writable configuration required')
-        if key in KEYS:
+        if key == 'work_discovery_file_path':
+            if len(value) > 4096 or '\x00' in value:
+                raise WorkPlanError('invalid discovery instruction file path')
+            discovery = dict(config.get('work_discovery', {}))
+            if value.strip():
+                discovery['file_path'] = value.strip()
+            else:
+                discovery.pop('file_path', None)
+            config['work_discovery'] = discovery
+            save(config)
+        elif key in KEYS:
             apply(config, key, value, save)
         elif key in BASIC or key == 'work_side_intake_enabled':
             if key == 'work_plan_approval_ask':
@@ -31,6 +41,9 @@ def settings(config, args, save):
     projected = [{'key': k, 'label': menu_text(k, language),
                   'value': config.get(k, k != 'work_plan_approval_ask')} for k in BASIC]
     projected += [{'key': k, 'label': label, 'value': value} for label, k, value in rows(config)]
+    projected.append({'key': 'work_discovery_file_path',
+                      'label': menu_text('work_discovery_file_path', language),
+                      'value': config.get('work_discovery', {}).get('file_path', '')})
     projected.append({'key': 'work_side_intake_enabled', 'label': 'btw_with_mcp',
                       'value': config.get('work_side_intake', {}).get('enabled') is True})
     ui = {

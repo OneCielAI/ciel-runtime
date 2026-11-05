@@ -255,7 +255,8 @@ class PtyMasterWriterTests(unittest.TestCase):
                 time.sleep(0.3)
                 writer.write(payload)
                 deadline = time.time() + 20
-                while b"CHILD_DONE" not in output and time.time() < deadline:
+                while (f"CHILD_DONE received={len(payload)} sha256={hashlib.sha256(payload).hexdigest()}".encode()
+                       not in output) and time.time() < deadline:
                     if select.select([master], [], [], 0.2)[0]:
                         chunk = writer.read_output()
                         if chunk is None:
@@ -337,7 +338,8 @@ class PosixChannelTerminalProxyDeadlockTests(unittest.TestCase):
             output = bytearray()
             try:
                 deadline = time.time() + 20
-                while b"CHILD_DONE" not in output and time.time() < deadline:
+                while (f"CHILD_DONE received={len(payload)} sha256={hashlib.sha256(payload).hexdigest()}".encode()
+                       not in output) and time.time() < deadline:
                     if select.select([master], [], [], 0.2)[0]:
                         try:
                             chunk = os.read(master, 65536)

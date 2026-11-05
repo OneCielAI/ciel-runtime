@@ -10,5 +10,8 @@ status: tests-passed-pending-native-ui-release
 # Verification
 319 focused architecture/Codex/work settings/mod tests passed,42 platform/pre-existing skips. Native UI screenshot not yet captured. Four-locale field labels use existing catalog, navigation/help still English; do not claim complete multilingual menu yet.
 
+# Follow-up verification 2026-11-05
+Native owned CLI VT capture `.local/side-busy-8faeb3f7/screen.txt` contains actual Work settings selection dialog, not just command text. Discovery instruction file path was missing from the live inventory; added four-language setting with explicit empty-value clear, no file writes and no automatic discovery enable. Focused settings/side/architecture9 tests pass. CI41986927815 failed because POSIX PTY tests stopped reading at CHILD_DONE before the complete digest arrived (failure tail contains the prefix and partial digest). Both affected loops now wait for the full expected line. Actual Linux/WSL PTY8 tests pass. Publication7770964 still pending at this check; not installed.
+
 # Release failure correction
 Codex270db64 publish failed dependency budget: SharedConfigPorts11 fields>10. Replaced new save port with composed codex_config_loader(load,save) at facade, preserving10 fields and fixed facade line budget. Shared CLI/app-server/desktop loader Work off behavior retained. User workspace setting is persisted off, not per-Codex-private; unrelated keys unchanged.

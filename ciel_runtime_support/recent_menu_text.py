@@ -8,6 +8,7 @@ TEXT = {
     "work_parallel_max_active": ("Work concurrent fork limit", "Work 동시 실행 포크 한도", "Work 同時フォーク上限", "Work 同时运行分支上限"),
     "work_discovery_enabled": ("Discover pending Work", "Work 미결 아이템 탐색", "Work 未処理項目を検索", "查找 Work 待办事项"),
     "work_discovery_test_default_override": ("Force default discovery instruction", "기본 탐색 지시 강제 사용", "既定の検索指示を強制使用", "强制使用默认查找指令"),
+    "work_discovery_file_path": ("Discovery instruction file (empty clears)", "탐색 지시 파일 (빈 값으로 해제)", "検索指示ファイル（空欄で解除）", "查找指令文件（留空清除）"),
     "work_discovery_instruction": ("Discovery instruction (also via SSE)", "탐색 지시 (SSE에서도 주입)", "検索指示（SSE でも注入）", "查找指令（也通过 SSE 注入）"),
     "work_parallel_p1_reserved": ("Work P1 reserved slots", "Work P1 예약 슬롯", "Work P1 予約枠", "Work P1 预留名额"),
     "work_parallel_launches_per_minute": ("Work launches per minute", "Work 분당 시작 한도", "Work 毎分起動上限", "Work 每分钟启动上限"),
