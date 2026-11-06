@@ -48,6 +48,8 @@ CLAUDE_PROJECTED_ENV_KEYS = (
     "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
     "CIEL_RUNTIME_MODEL_ALIAS",
     "CIEL_RUNTIME_PROVIDER",
+    "CIEL_RUNTIME_DIRECT_GATEWAY_ACTIVE",
+    "CIEL_RUNTIME_DIRECT_EMPTY_STREAM_RETRIES",
 )
 # Model values a gateway receives verbatim in direct data-path mode (no router
 # translates a ciel-runtime-* alias there).
@@ -641,6 +643,8 @@ class ClaudeEnvironmentProjection:
             # One retry owner: the router in routed mode, the CLI in direct mode.
             # Timeout resend and stream fallback are separate replay paths.
             env.update({
+                "CIEL_RUNTIME_DIRECT_GATEWAY_ACTIVE": "1" if direct else "0",
+                "CIEL_RUNTIME_DIRECT_EMPTY_STREAM_RETRIES": str(configured_retry_limit(provider_config) if direct else 0),
                 "CLAUDE_CODE_MAX_RETRIES": str(configured_retry_limit(provider_config) if direct else 0),
                 "CLAUDE_CODE_RETRY_WATCHDOG": "0",
                 "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES": "0",

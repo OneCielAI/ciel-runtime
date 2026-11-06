@@ -403,7 +403,8 @@ class ClaudeEnvironmentTests(unittest.TestCase):
         self.assertEqual({"ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL", "ANTHROPIC_CUSTOM_MODEL_OPTION",
                           "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL",
                           "CIEL_RUNTIME_MODEL_ALIAS",
-                          "CLAUDE_CODE_AUTO_COMPACT_WINDOW", "CLAUDE_CODE_MAX_RETRIES"}, changed)
+                          "CLAUDE_CODE_AUTO_COMPACT_WINDOW", "CLAUDE_CODE_MAX_RETRIES",
+                          "CIEL_RUNTIME_DIRECT_GATEWAY_ACTIVE", "CIEL_RUNTIME_DIRECT_EMPTY_STREAM_RETRIES"}, changed)
         for env in (routed, direct):
             self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
             self.assertEqual("1", env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"])
@@ -502,7 +503,10 @@ class ClaudeLaunchTests(ResolverHarness):
                  socket="session.sock", stdin_proxy=True):
         def env_vars(_cfg, data_path=None):
             env = dict(self.ROUTED)
-            if data_path is not None and data_path.direct:
+            direct = data_path is not None and data_path.direct
+            env.update(CIEL_RUNTIME_DIRECT_GATEWAY_ACTIVE='1' if direct else '0',
+                       CIEL_RUNTIME_DIRECT_EMPTY_STREAM_RETRIES='3' if direct else '0')
+            if direct:
                 env.update(ANTHROPIC_BASE_URL=data_path.endpoint, ANTHROPIC_AUTH_TOKEN=data_path.api_key,
                            ANTHROPIC_MODEL=data_path.model, CIEL_RUNTIME_MODEL_ALIAS=data_path.model)
             return env
@@ -603,6 +607,19 @@ class ClaudeLaunchTests(ResolverHarness):
                                                    "runtimes": ["claude"]}}], injected)
         services.routing.start_router_if_needed.assert_called_once()
 
+    def test_direct_network_recovery_loads_with_work_and_side_intake_off(self):
+        launches, injected = [], []
+        self.parent_bypass = []
+        services = self.services(self.resolver(FakeGatewayPolicy(_gateway())),
+                                 RuntimeSessionRestartControl(poll=_polls()), launches, injected)
+        services.config.load_config().update(work_mode=False, work_side_intake_enabled=False)
+        with mock.patch.dict(os.environ), redirect_stdout(io.StringIO()):
+            self.assertEqual(0, runtime_launch.run_claude([], skip_menu=True, update_check=False,
+                                                       self_update_check=False, services=services))
+        from ciel_runtime_support.claude_network_retry import MOD_DIR
+        self.assertEqual(1, launches[0][0].count(str(MOD_DIR)))
+        self.assertEqual(1, launches[0][0].count('--plugin-dir'))
+
     def test_feedback_choice_is_reapplied_for_each_routed_and_direct_child(self):
         for setting in ("router", "direct"):
             with self.subTest(setting=setting):
@@ -660,6 +677,12 @@ class ClaudeLaunchTests(ResolverHarness):
                          [env["ANTHROPIC_BASE_URL"] for _cmd, env in launches])
         self.assertEqual([SECRET] * 3, [env["ANTHROPIC_AUTH_TOKEN"] for _cmd, env in launches])
         self.assertEqual(3, len(injected))
+        from ciel_runtime_support.claude_network_retry import MOD_DIR
+        self.assertEqual([1, 1, 0], [cmd.count(str(MOD_DIR)) for cmd, _env in launches])
+        self.assertEqual(['1', '1', '0'],
+                         [env['CIEL_RUNTIME_DIRECT_GATEWAY_ACTIVE'] for _cmd, env in launches])
+        self.assertEqual(['3', '3', '0'],
+                         [env['CIEL_RUNTIME_DIRECT_EMPTY_STREAM_RETRIES'] for _cmd, env in launches])
         self.assertNotIn(SECRET, self.everything_written())
 
     def test_router_fallback_at_launch_is_never_upgraded_on_restart(self):

@@ -1,0 +1,30 @@
+{
+  "date": "2026-11-05",
+  "transport": "owned loopback HTTP server, actual installed non-bare Claude CLI, isolated config",
+  "direct_recovery_deployed": false,
+  "live_restarts": false,
+  "cases": [
+    {"run": "empty-observer-cf0a70cf", "case": "empty_then_success", "mod_retries": 3, "hits": 2, "exit": 0, "stdout": "ok\n"},
+    {"run": "empty-observer-508be920", "case": "normal", "mod_retries": 3, "hits": 1, "exit": 0, "response_bytes": [797]},
+    {"run": "empty-observer-23c5e9c7", "case": "persistent_empty", "mod_retries": 3, "hits": 4, "exit": 1, "response_status": [200,200,200,200], "response_bytes": [0,0,0,0]},
+    {"run": "empty-observer-ac0c298b", "case": "empty_recovery_disabled", "mod_retries": 0, "hits": 1, "exit": 1, "response_status": [200], "response_bytes": [0]},
+    {"run": "empty-observer-294b97dd", "case": "native_only_auth_then_success", "mod_retries": 0, "hits": 2, "exit": 0},
+    {"run": "empty-observer-8d093cc7", "case": "native_only_partial_then_success", "mod_retries": 0, "hits": 2, "exit": 0}
+  ],
+  "native_comparison_limit": "Auth and partial-stream two-hit results also occur with mod recovery disabled. They do not prove the mod initiated replay or that native CLI avoids partial replay; native mechanism unknown.",
+  "regression_tests": {
+    "launch": {"run": 50, "failures": 0, "includes": ["Work and side-intake OFF", "gateway restart", "router fallback removes plugin"]},
+    "architecture": {"run": 267, "failures": 0, "skipped": 42},
+    "recovery": {"run": 2, "failures": 0, "guards": ["text", "tool", "thinking", "input", "stop", "usage", "unknown error", "cancelled", "disabled", "new user input", "stale error"]},
+    "prior_full_unit": {"run": 3263, "failures": 1, "skipped": 50, "failure": "test_model_compact_safeguard.SafeguardTests.test_alias_answered_by_other_native_model_uses_router_observed_names:176", "isolated_file": "13 passed; cause unknown"},
+    "second_full_unit": {"task": "bqwbuccjd", "run": 3263, "failures": 1, "skipped": 51, "failure": "test_runtime_compaction_binding.py:263 awaiting_checkpoint instead of awaiting_shrink", "isolated_file": "24 passed", "isolated_failed_test_repeated": "60 passed"},
+    "combined_compaction": {"task": "bzncfj57z", "run": 369, "failures": 0},
+    "diagnostic_full_unit": {"task": "bd10q8pqx", "run": 3264, "failures": 0, "skipped": 51},
+    "uninstrumented_full_unit": {"task": "b4ktqwckw", "run": 3264, "failures": 1, "skipped": 51, "failure": "test_model_compact_safeguard.py:176"},
+    "router": {"task": "b6521p1vv", "run": 1516, "failures": 0},
+    "channel": {"run": 602, "failures": 0, "skipped": 80},
+    "runtime": {"run": 458, "failures": 0, "skipped": 19},
+    "failure_capture_gate": "btechotv6 pending"
+  },
+  "checks": {"ruff": "passed", "git_diff_check": "passed", "plugin_validate": "passed with author/icon catalog warnings"}
+}

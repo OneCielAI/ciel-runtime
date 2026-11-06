@@ -628,6 +628,9 @@ def run_claude(
     append_claude_code_runtime_settings_args(
         extra_args, launch_passthrough, provider, runtime_settings_config
     )
+    from .claude_network_retry import launch_args as network_retry_args
+    direct_network_args = network_retry_args(provider, env, native=use_native_anthropic)
+    extra_args.extend(direct_network_args)
     work_mode_args = claude_work_mode_args(
         cfg, native=use_native_anthropic, router_mcp_attached=claude_router_mcp is not None
     )
@@ -821,7 +824,7 @@ def run_claude(
             os.environ.pop(launch_data_path.ACTIVE_ENV, None)
 
     def run_claude_session() -> int:
-        nonlocal work_mode_args
+        nonlocal work_mode_args, direct_network_args
         handled: set[str] = set()
         if resume_last_requested():
             queue_restart_notice(services.restart, "claude", ResumeLastRequest(), router_log)
@@ -831,6 +834,14 @@ def run_claude(
             current_config = load_config()
             feedback = current_config.get("claude_feedback_drafts") is True
             env["CLAUDE_CODE_SEND_FEEDBACK"] = "1" if feedback else "0"
+            if direct_network_args:
+                for index in range(len(cmd) - 1):
+                    if cmd[index:index + 2] == direct_network_args:
+                        del cmd[index:index + 2]
+                        break
+            direct_network_args = network_retry_args(provider, env, native=use_native_anthropic)
+            if direct_network_args:
+                cmd[_work_mode_args_index(cmd):_work_mode_args_index(cmd)] = direct_network_args
             if work_mode_args:
                 for index in range(len(cmd) - 1):
                     if cmd[index:index + 2] == work_mode_args:

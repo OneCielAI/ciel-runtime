@@ -1,0 +1,25 @@
+................[?25h.[?25h..............................................................................................compact_owned_transport checkpoint=1 socket_frames=2 http_requests=1 status=200 replay=0
+socket_resume disconnected_calls=3 retry_calls=3 reused=3 final_upstream=1
+idle_retry first=retry_wait admission=paused retry=queued scope=exact checkpoint+shrink=verified
+Launching Codex App Server through Ciel Runtime.
+Codex App Server listen: ws://127.0.0.1:8899
+Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+..Launching Codex App Server through Ciel Runtime.
+Codex App Server listen: ws://127.0.0.1:8899
+Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+................................................................................................................................................................................................................................................................
+----------------------------------------------------------------------
+Ran 369 tests in 152.894s
+
+OK
+n89 pipe_command=/compact+CR boundary_without_postTokens=observed sse_body=body-1 deliveries=1 cursor=1
+measured_safeguard usage=19000 capacity=20000 threshold=90 tool_deferred=1 turn_deferred=1 compact_writes=1
+contention scan_lock_held=0 concurrent_writer=success stale_commit=rejected
+state_race failures=0 leftover_tmp=0
+full_binding slow_scan=unlocked seed=available scope=available admission=available
+
+[exited with code 0]

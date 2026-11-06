@@ -173,7 +173,10 @@ class SafeguardTests(BindingHarness):
         self.binding.observe_native_model(scope, 'ciel-runtime-cielairouter-_walkie_opus55-sol61-fast[1m]', 'claude-opus-5-5')
         self.binding.safeguard_checked = 0
         self.assertFalse(self.binding.external_admission_paused())
-        self.assertTrue(self.binding.before_external_injection())
+        pending = self.binding.before_external_injection()
+        self.assertTrue(pending, {'logs': self.logs, 'state': self.state(),
+                                 'binding': self.binding.repository.load('diagnostic'),
+                                 'transcript': self.path.read_text(encoding='utf-8')})
         request = self.requests.read()
         self.assertIsNotNone(request)
         self.assertEqual(18500, self.state()['baseline_tokens'])
