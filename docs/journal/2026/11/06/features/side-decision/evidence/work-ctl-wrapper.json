@@ -1,0 +1,312 @@
+{
+  "scope": "actual Windows ctl wrapper, owned temporary config only",
+  "runs": [
+    {
+      "args": [
+        "list"
+      ],
+      "result": {
+        "settings": [
+          {
+            "key": "work_mode",
+            "label": "Work mode",
+            "value": true,
+            "description": "Plan and execute queued work in this workspace; disabling keeps existing records."
+          },
+          {
+            "key": "sse_injection_mode",
+            "value": "session",
+            "description": "session: normal conversation input. btw_with_mcp: durable disk inbox, consumed by the mod without interrupting the main turn; not execution approval."
+          },
+          {
+            "key": "work_plan_approval_ask",
+            "label": "Work plan approval",
+            "value": false,
+            "description": "Require user approval before executing a new plan."
+          },
+          {
+            "key": "work_auto_continue",
+            "label": "Work auto continue",
+            "value": true,
+            "description": "Continue runnable approved work automatically; explicit waits remain."
+          },
+          {
+            "key": "work_completed_auto_delete",
+            "label": "Work completed auto-delete (24h)",
+            "value": true,
+            "description": "Expire completed records after 24 hours; unfinished work is preserved."
+          },
+          {
+            "key": "work_parallel_enabled",
+            "label": "Work parallel execution",
+            "value": "true",
+            "description": "Allow concurrent workers; this is not a queue registration limit."
+          },
+          {
+            "key": "work_parallel_paused",
+            "label": "Pause Work parallel execution",
+            "value": "false",
+            "description": "Pause new worker launches without terminating running workers."
+          },
+          {
+            "key": "work_parallel_max_active",
+            "label": "Work concurrent fork limit",
+            "value": "5",
+            "description": "Maximum workers running concurrently, not queued requests."
+          },
+          {
+            "key": "work_discovery_enabled",
+            "label": "Discover pending Work",
+            "value": "true",
+            "description": "Look for outstanding work when execution slots are available."
+          },
+          {
+            "key": "work_discovery_test_default_override",
+            "label": "Force default discovery instruction",
+            "value": "true",
+            "description": "Use the default discovery instruction instead of custom text."
+          },
+          {
+            "key": "work_discovery_instruction",
+            "label": "Discovery instruction (also via SSE)",
+            "value": "Default instruction",
+            "description": "Instruction used to discover outstanding requests; not approval to execute."
+          },
+          {
+            "key": "work_parallel_p1_reserved",
+            "label": "Work P1 reserved slots",
+            "value": "1",
+            "description": "Slots reserved for urgent P1 workers."
+          },
+          {
+            "key": "work_parallel_launches_per_minute",
+            "label": "Work launches per minute",
+            "value": "4",
+            "description": "Worker launch rate per minute; queued requests remain stored."
+          },
+          {
+            "key": "work_parallel_max_rework",
+            "label": "Work rework limit",
+            "value": "2",
+            "description": "Automatic rework attempts before review is required."
+          },
+          {
+            "key": "work_discovery_file_path",
+            "label": "Discovery instruction file (empty clears)",
+            "value": "",
+            "description": "Load discovery instructions from this file; empty clears the path."
+          },
+          {
+            "key": "work_side_intake_max_active",
+            "label": "Concurrent side actors",
+            "value": 2,
+            "status": "next_side_event",
+            "description": "Concurrent side actors only; durable incoming requests are never capped by this value."
+          },
+          {
+            "key": "work_side_intake_aging_seconds",
+            "label": "Side pickup aging (seconds)",
+            "value": 60,
+            "status": "next_side_event",
+            "description": "After this wait, ordinary side mail gains pickup priority to avoid starvation; Work execution priority is unchanged."
+          },
+          {
+            "key": "work_side_intake_context_mode",
+            "label": "Side context mode",
+            "value": "isolated",
+            "status": "router_capture_required",
+            "description": "isolated: Work only. full/recent: router-captured parent system/history; rebase at next event when parent advances. No direct-gateway fallback; Work always whole."
+          },
+          {
+            "key": "work_side_intake_context_percent",
+            "label": "Recent context percent",
+            "value": 30,
+            "status": "router_capture_required",
+            "description": "Provider-counted history share; complete tool pairs. System/tools/Work stay whole. Recent/model switch records omitted parent reasoning."
+          },
+          {
+            "key": "work_side_intake_model",
+            "label": "Side model (inherit / catalog ID)",
+            "value": "inherit",
+            "status": "next_side_event",
+            "description": "inherit follows main; exact catalog model applies to a new side actor. An existing process forcing parent model requires an explicit future launch."
+          },
+          {
+            "key": "work_side_intake_reply_connectors",
+            "label": "External reply MCP bindings (JSON)",
+            "value": [],
+            "status": "next_side_event",
+            "description": "Operator-owned JSON MCP reply bindings: exact source, receiver_id, server, tool and arguments. $reply/$event_id/$kind placeholders; inbound events cannot choose tools."
+          },
+          {
+            "key": "work_side_intake_priority_policy",
+            "label": "Side priority policy",
+            "value": "adaptive",
+            "status": "next_side_event",
+            "description": "adaptive considers P1\u2013P5, urgency and workload; explicit follows stated priority."
+          },
+          {
+            "key": "work_side_intake_comparison_enabled",
+            "label": "Side comparison experiment",
+            "value": false,
+            "status": "router_capture_required",
+            "description": "After primary reply, run up to four read-only full/recent \u00d7 main/comparison-model profiles. Billed model calls; no tools, Work writes or replies."
+          },
+          {
+            "key": "work_side_intake_comparison_model",
+            "label": "Comparison model (inherit / catalog ID)",
+            "value": "inherit",
+            "status": "router_capture_required",
+            "description": "Second model for read-only comparison; inherit compares only context modes. Requires router capture and provider token counting for recent."
+          },
+          {
+            "key": "work_side_intake_type",
+            "label": "SSE injection type (session / btw_with_mcp)",
+            "value": "btw_with_mcp",
+            "description": "Select a value; changes apply to this setting only."
+          },
+          {
+            "key": "work_side_intake_enabled",
+            "label": "SSE side intake",
+            "value": false,
+            "description": "Select a value; changes apply to this setting only."
+          }
+        ],
+        "applies": "live; existing workers are not terminated"
+      }
+    },
+    {
+      "args": [
+        "set",
+        "work_side_intake_max_active",
+        "3"
+      ],
+      "result": {
+        "settings": [
+          {
+            "key": "work_side_intake_max_active",
+            "label": "Concurrent side actors",
+            "value": 3,
+            "status": "next_side_event",
+            "description": "Concurrent side actors only; durable incoming requests are never capped by this value."
+          }
+        ],
+        "applies": "live; existing workers are not terminated"
+      }
+    },
+    {
+      "args": [
+        "get",
+        "work_side_intake_max_active"
+      ],
+      "result": {
+        "settings": [
+          {
+            "key": "work_side_intake_max_active",
+            "label": "Concurrent side actors",
+            "value": 3,
+            "status": "next_side_event",
+            "description": "Concurrent side actors only; durable incoming requests are never capped by this value."
+          }
+        ],
+        "applies": "live; existing workers are not terminated"
+      }
+    },
+    {
+      "args": [
+        "set",
+        "work_side_intake_model",
+        "fixture-side-model"
+      ],
+      "result": {
+        "settings": [
+          {
+            "key": "work_side_intake_model",
+            "label": "Side model (inherit / catalog ID)",
+            "value": "fixture-side-model",
+            "status": "next_side_event",
+            "description": "inherit follows main; exact catalog model applies to a new side actor. An existing process forcing parent model requires an explicit future launch."
+          }
+        ],
+        "applies": "live; existing workers are not terminated"
+      }
+    },
+    {
+      "args": [
+        "get",
+        "work_side_intake_model"
+      ],
+      "result": {
+        "settings": [
+          {
+            "key": "work_side_intake_model",
+            "label": "Side model (inherit / catalog ID)",
+            "value": "fixture-side-model",
+            "status": "next_side_event",
+            "description": "inherit follows main; exact catalog model applies to a new side actor. An existing process forcing parent model requires an explicit future launch."
+          }
+        ],
+        "applies": "live; existing workers are not terminated"
+      }
+    },
+    {
+      "args": [
+        "set",
+        "work_side_intake_reply_connectors",
+        "[{\"source\": \"urn:owned:events\", \"receiver_id\": \"owned\", \"server\": \"owned-mail\", \"tool\": \"reply\", \"arguments\": {\"text\": \"$reply\", \"event\": \"$event_id\"}}]"
+      ],
+      "result": {
+        "settings": [
+          {
+            "key": "work_side_intake_reply_connectors",
+            "label": "External reply MCP bindings (JSON)",
+            "value": [
+              {
+                "source": "urn:owned:events",
+                "receiver_id": "owned",
+                "server": "owned-mail",
+                "tool": "reply",
+                "arguments": {
+                  "text": "$reply",
+                  "event": "$event_id"
+                }
+              }
+            ],
+            "status": "next_side_event",
+            "description": "Operator-owned JSON MCP reply bindings: exact source, receiver_id, server, tool and arguments. $reply/$event_id/$kind placeholders; inbound events cannot choose tools."
+          }
+        ],
+        "applies": "live; existing workers are not terminated"
+      }
+    },
+    {
+      "args": [
+        "get",
+        "work_side_intake_reply_connectors"
+      ],
+      "result": {
+        "settings": [
+          {
+            "key": "work_side_intake_reply_connectors",
+            "label": "External reply MCP bindings (JSON)",
+            "value": [
+              {
+                "arguments": {
+                  "event": "$event_id",
+                  "text": "$reply"
+                },
+                "receiver_id": "owned",
+                "server": "owned-mail",
+                "source": "urn:owned:events",
+                "tool": "reply"
+              }
+            ],
+            "status": "next_side_event",
+            "description": "Operator-owned JSON MCP reply bindings: exact source, receiver_id, server, tool and arguments. $reply/$event_id/$kind placeholders; inbound events cannot choose tools."
+          }
+        ],
+        "applies": "live; existing workers are not terminated"
+      }
+    }
+  ]
+}

@@ -90,6 +90,21 @@ def normalize_document(raw: Any) -> dict[str, Any]:
                     or len(receipt["text"]) > 16000 or len(receipt["recap"]) > 500):
                 raise WorkPlanError("invalid side intake receipt")
         doc["side_intake_receipts"] = copy.deepcopy(receipts)
+    decisions = raw.get('side_decisions')
+    if decisions is not None:
+        if not isinstance(decisions, dict) or any(
+                not isinstance(key, str) or len(key) != 64 or not isinstance(row, dict)
+                or not isinstance(row.get('decision_digest'), str) or not isinstance(row.get('result'), dict)
+                for key, row in decisions.items()):
+            raise WorkPlanError('invalid side decision receipts')
+        doc['side_decisions'] = copy.deepcopy(decisions)
+    handoffs = raw.get('side_handoffs')
+    if handoffs is not None:
+        if not isinstance(handoffs, dict) or any(not isinstance(key, str) or len(key) != 64
+                or not isinstance(row, dict) or row.get('state') not in ('requested', 'acknowledged', 'answered')
+                for key, row in handoffs.items()):
+            raise WorkPlanError('invalid side handoff records')
+        doc['side_handoffs'] = copy.deepcopy(handoffs)
     nodes = raw.get("nodes")
     if not isinstance(nodes, list):
         raise WorkPlanError("work plan nodes are not a list")

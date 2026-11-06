@@ -39,6 +39,7 @@ class WorkModWriteGateTests(unittest.TestCase):
             " ? store.get(a.key.plugin + '/' + a.key.key) : (a.init ?? null);"
             " store.set(a.key.plugin + '/' + a.key.key, fn(cur)) }\n", encoding="utf-8")
         shutil.copyfile(w.CLAUDE_MOD_DIR / "hooks" / "register.js", cls.root / "register.js")
+        shutil.copyfile(w.CLAUDE_MOD_DIR / "hooks" / "side-intake.js", cls.root / "side-intake.js")
         shutil.copyfile(HARNESS, cls.root / HARNESS.name)
 
     def run_scenario(self, name):
@@ -47,22 +48,48 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(done.returncode, 0, done.stderr)
         return json.loads(done.stdout)
 
+    def test_high_priority_advice_prompts_main_at_safe_stop_even_without_auto_continue(self):
+        result=self.run_scenario('side-advice-stop')
+        self.assertIn('work_side_handoff',result['block'])
+        self.assertIn('n2',result['block'])
+        self.assertIn('not execution approval',result['block'])
+        self.assertNotIn('block', result['second'])
+
     def test_hung_mailbox_call_times_out_and_rearms_without_losing_mail(self):
         result = self.run_scenario('side-mailbox-timeout-rearms')
         self.assertEqual(2, result['rearmed'])
         self.assertTrue(any('inbox retained' in line for line in result['notices']))
 
-    def test_mail_waits_during_compact_and_resumes_after_compact_failure(self):
+    def test_mail_claims_continue_during_compact_and_after_failure(self):
         result = self.run_scenario('side-mailbox-compact-recovery')
-        self.assertEqual(0, result['during'])
-        self.assertEqual(1, result['after'])
+        self.assertEqual(1, result['during'])
+        self.assertEqual(2, result['after'])
 
     def test_mod_consumes_staged_mail_and_displays_both_stages(self):
         result = self.run_scenario('side-mailbox-mod-drain')
-        self.assertIn('work_side_drain', result['tools'])
+        self.assertIn('work_side_claim', result['tools'])
+        self.assertNotIn('work_side_drain', result['tools'])
         self.assertTrue(any('awaiting mod consumption' in line for line in result['logs']))
-        self.assertTrue(any('mod queued' in line and 'n99' in line for line in result['logs']))
+        self.assertTrue(any('processing' in line and 'original request' in line for line in result['logs']))
         self.assertEqual(2, result['rearmed'])
+
+    def test_redacted_main_status_does_not_erase_host_side_pane(self):
+        result = self.run_scenario('side-receipt-redacted-refresh')
+        pane = json.dumps(result['pane'])
+        self.assertIn('Private external question', pane)
+        self.assertIn('Verified answer', pane)
+        self.assertIn('submitted', pane)
+        self.assertIn('Receipt: mail1 \\u00b7 Work item: n1', pane)
+        self.assertIn('recent', pane)
+        self.assertIn('comparison-model', pane)
+        self.assertIn('selected 41.5%', pane)
+
+    def test_unknown_reply_retry_requires_explicit_duplicate_confirmation(self):
+        result = self.run_scenario('side-uncertain-retry-cancel-and-confirm')
+        self.assertEqual(0, result['before'])
+        self.assertEqual(1, len(result['retries']))
+        self.assertTrue(result['retries'][0]['confirmed'])
+        self.assertEqual('uncertain', result['retries'][0]['expected_state'])
 
     def test_side_receipt_is_visible_in_mod_once(self):
         result = self.run_scenario('side-receipt-visible')
@@ -111,7 +138,7 @@ class WorkModWriteGateTests(unittest.TestCase):
     def test_failed_reads_stay_closed_and_name_the_failed_step(self):
         expected = {
             "router-error": "router-error",
-            "router-throws": "router-call",
+            "router-throws": "router-disconnected",
             "router-timeout": "router-timeout",
             "invalid-snapshot": "snapshot-schema",
             "not-json": "snapshot-parse",
@@ -127,6 +154,17 @@ class WorkModWriteGateTests(unittest.TestCase):
         mixed = self.run_scenario("concurrent-mixed")
         self.assertTrue(mixed["first"].startswith(UNAVAILABLE + " [router-error; wg-"), mixed)
         self.assertEqual(mixed["second"], "allow")
+
+    def test_reconnect_retries_only_pure_snapshot_after_verified_connection(self):
+        result = self.run_scenario('router-reconnected')
+        self.assertEqual('allow', result['first'])
+        self.assertEqual(2, result['attempts'])
+        self.assertEqual(1, result['connections'])
+        self.assertNotIn('PRIVATE-TOKEN', json.dumps(result))
+        denied = self.run_scenario('router-auth-closed')
+        self.assertIn('router-auth', denied['first'])
+        self.assertEqual(0, denied['connections'])
+        self.assertNotIn('PRIVATE-TOKEN', json.dumps(denied))
 
     def test_disabled_work_mode_does_not_gate(self):
         self.assertEqual(self.run_scenario("disabled")["first"], "allow")

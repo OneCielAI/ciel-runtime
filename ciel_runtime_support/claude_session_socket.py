@@ -76,7 +76,7 @@ class ClaudeSessionSocketClient:
         *,
         platform_name: str | None = None,
         clock: Callable[[], float] = time.monotonic,
-        side_intake: Callable[[str, str, str], Any] | None = None,
+        side_intake: Callable[[str, str, str, dict[str, Any]], Any] | None = None,
     ) -> None:
         self._home = home
         self._side_intake = side_intake
@@ -188,7 +188,16 @@ class ClaudeSessionSocketClient:
             request = json.loads(prompt[len(prefix):])
             from .work_plan_tree import WorkPlanError, WorkPlanCapacityError
             try:
-                receipt = self._side_intake("claude:" + record["sessionId"], request["text"], request["event_key"])
+                message = _messages[0]
+                route = {key: message[key] for key in ('channel', 'sender_id', 'thread_id', 'parent_id', 'recipients') if message.get(key) is not None}
+                metadata = message.get('meta') or {}
+                route['source_kind'] = metadata.get('source_kind', '')
+                if metadata.get('source_kind') == 'web_chat':
+                    route.update(channel=metadata.get('reply_channel') or message.get('channel'),
+                                 thread_id=message.get('thread_id') or metadata.get('thread_id') or message.get('channel'),
+                                 parent_id=str(metadata.get('reply_parent_id') or message.get('id') or ''),
+                                 reply_token=str(metadata.get('web_reply_token') or ''))
+                receipt = self._side_intake("claude:" + record["sessionId"], request["text"], request["event_key"], route)
             except WorkPlanCapacityError:
                 # Explicit user policy: a full Work board must not block SSE.
                 # Send original event as ordinary peer input, never as a slash command.

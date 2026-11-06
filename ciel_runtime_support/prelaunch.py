@@ -477,6 +477,10 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
 
     try:
         while True:
+            if panel in ('work-settings', 'side-settings') and 0 <= panel_idx < len(panel_values):
+                from .work_settings_menu import description
+                selected_key = panel_values[panel_idx]
+                messages = [description(load_config(), selected_key)] if selected_key != 'back' else []
             first_render = render_prelaunch_screen(main_idx, panel, panel_idx, panel_rows, checks, messages, first_render)
             key = read_menu_key(fd) if fd >= 0 else read_menu_key()
             if panel:
@@ -1189,13 +1193,25 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     messages = [description(load_config(), value)]
                     settings_key = value
                     settings_parent = panel
-                    panel_rows, panel_values = choices(load_config(), value)
+                    if value in ('work_side_intake_model', 'work_side_intake_comparison_model'):
+                        from .side_model_menu import rows as side_model_rows
+                        panel_rows, panel_values = side_model_rows(load_config(), model_panel_rows(provider, pcfg, fetch=False), field=value.removeprefix('work_side_intake_'))
+                    else:
+                        panel_rows, panel_values = choices(load_config(), value)
                     panel = 'work-setting-choice'
                     panel_idx = 0
                 elif panel == 'work-setting-choice':
                     from .work_settings_menu import apply as apply_settings
                     if value == 'back':
                         open_panel(settings_parent)
+                        continue
+                    if settings_key in ('work_side_intake_model', 'work_side_intake_comparison_model') and value == '__refresh_models__':
+                        from .side_model_menu import rows as side_model_rows
+                        try:
+                            panel_rows, panel_values = side_model_rows(load_config(), model_panel_rows(provider, pcfg, fetch=True, force_refresh=True), field=settings_key.removeprefix('work_side_intake_'))
+                        except Exception as error:
+                            messages = ['Side model catalog unavailable: ' + type(error).__name__]
+                        panel_idx = 0
                         continue
                     entered = value
                     if value == '__edit__':

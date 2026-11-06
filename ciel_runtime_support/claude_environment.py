@@ -603,8 +603,12 @@ class ClaudeEnvironmentProjection:
         # Claude Code's force flag overrides Agent/model and agent definitions.
         # Inherit at spawn time so /model and --model cannot leave children on
         # a stale launch model (or a provider's auto-claude family route).
-        force_parent_model = provider != "anthropic"
-        if force_parent_model or configured_subagent == "inherit":
+        side = config.get('work_side_intake', {})
+        side_model_override = side.get('enabled') is True and (
+            side.get('model') not in (None, '', 'inherit')
+            or side.get('comparison_enabled') is True and side.get('comparison_model') not in (None, '', 'inherit'))
+        force_parent_model = provider != "anthropic" and not side_model_override
+        if force_parent_model or side_model_override or configured_subagent == "inherit":
             subagent_model = "inherit"
         elif configured_subagent:
             subagent_model = self._aliases.routed_model_alias(
@@ -631,7 +635,7 @@ class ClaudeEnvironmentProjection:
             CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV: CLAUDE_CHROME_CLASSIFIER_FLOOR_OFF,
             **_feedback_drafts_env(config),
         }
-        if force_parent_model or configured_subagent:
+        if not side_model_override and (force_parent_model or configured_subagent):
             env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"] = "1"
         auth_token = self._features.router_auth_token(provider, provider_config)
         if auth_token:

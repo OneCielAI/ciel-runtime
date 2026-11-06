@@ -231,9 +231,11 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
         },
     ])
     from .work_parallel_mcp import schemas as parallel_schemas
+    from .side_intake_mcp import schemas as side_schemas
     schemas.extend(parallel_schemas())
+    schemas.extend(side_schemas())
     if not enabled:
-        schemas = [schema for schema in schemas if schema["name"] in (WORK_MODE_SWITCH_TOOL, "work_live_settings", "work_side_settings", "work_side_intake", "work_side_drain", "work_side_status")]
+        schemas = [schema for schema in schemas if schema["name"] in (WORK_MODE_SWITCH_TOOL, "work_live_settings", "work_side_settings", "work_side_intake", "work_side_drain", "work_side_status", "work_side_claim", "work_side_resolve", "work_side_reply", "work_side_handoff", "work_side_renew", "work_side_retry_reply", "work_side_context", "work_side_compare")]
     for schema in schemas:
         inputs = schema["inputSchema"]
         inputs.setdefault("properties", {})["session_id"] = {
@@ -270,7 +272,7 @@ def dispatch_work_tool(
             return respond(request_id, json.dumps(settings(config, args, save_config), ensure_ascii=False))
         except (ValueError, OSError) as error:
             return respond(request_id, str(error), True)
-    if not work_mode_enabled(config) and name not in ('work_side_settings', 'work_side_intake', 'work_side_drain', 'work_side_status'):
+    if not work_mode_enabled(config) and name not in ('work_side_settings', 'work_side_intake', 'work_side_drain', 'work_side_status', 'work_side_claim', 'work_side_resolve', 'work_side_reply', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare'):
         if name == "work_status" and args.get("format") == "json":
             return respond(request_id, json.dumps(tree.snapshot(tree.empty_document(), enabled=False)))
         return respond(request_id, "Ciel Work mode is off (prelaunch menu: LLM options -> Work mode, "
@@ -289,6 +291,9 @@ def dispatch_work_tool(
         if name not in ('work_side_status', 'work_side_settings', 'work_side_intake', 'work_side_drain'):
             scoped = session_work_plan_store(state_dir, identity, log=log)
             store = store or scoped
+        if name in ('work_side_claim', 'work_side_resolve', 'work_side_reply', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare'):
+            from .side_intake_mcp import run as side_run
+            return respond(request_id, json.dumps(side_run(name, args, config, state_dir, identity, store), ensure_ascii=False))
         if name == "work_side_settings":
             from .work_parallel_mcp import host_context
             host, _ = host_context(args, config)
@@ -323,7 +328,7 @@ def dispatch_work_tool(
             host, _ = host_context(args, config)
             if host.get("agent_id") is not None:
                 raise tree.WorkPlanError("side intake requires coordinator host")
-            return respond(request_id, json.dumps(receive(state_dir, identity, args.get("text"), args.get("event_key"), admit=work_mode_enabled(config)), ensure_ascii=False))
+            return respond(request_id, json.dumps(receive(state_dir, identity, args.get("text"), args.get("event_key"), admit=False), ensure_ascii=False))
         if name.startswith("work_parallel_") or name == "work_discovery_pickup":
             from .work_parallel_mcp import run
             return respond(request_id, run(name, args, store, identity, config, save_config))
@@ -332,7 +337,11 @@ def dispatch_work_tool(
             from .side_intake_inbox import SideIntakeInbox
             state = json.loads(output)
             receipts = SideIntakeInbox(state_dir, identity).summaries()
-            state['side_inbox_receipts'] = receipts
+            # Ordinary Work status can reach the main model. Full originals and
+            # side conversations belong only in the host-only side-status pane.
+            state['side_inbox_receipts'] = [
+                {key: row[key] for key in ('receipt_id', 'stage', 'item_id', 'external_ack')}
+                for row in receipts]
             output = json.dumps(state, ensure_ascii=False)
         return respond(request_id, output)
     except (tree.WorkPlanError, ValueError) as error:
@@ -386,6 +395,8 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         if args.get("format") == "json":
             state = tree.snapshot(doc, approval_ask=approval_ask)
             state["auto_continue"] = auto_continue
+            state['side_handoffs'] = [{'event_id': key, **row} for key, row in doc.get('side_handoffs', {}).items()
+                                      if row.get('state') == 'requested']
             state['side_intake_enabled'] = (config or {}).get('work_side_intake', {}).get('enabled') is True
             state['side_intake_receipts'] = [
                 {'item_id': receipt['item_id'], 'recap': receipt['recap'],

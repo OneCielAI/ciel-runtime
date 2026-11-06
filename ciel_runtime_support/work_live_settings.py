@@ -13,7 +13,11 @@ def settings(config, args, save):
         value = args.get('value')
         if not isinstance(value, str) or save is None:
             raise WorkPlanError('string value and writable configuration required')
-        if key == 'work_discovery_file_path':
+        from .side_intake_settings import values, set_value
+        if key in values(config):
+            set_value(config, key, value)
+            save(config)
+        elif key == 'work_discovery_file_path':
             if len(value) > 4096 or '\x00' in value:
                 raise WorkPlanError('invalid discovery instruction file path')
             discovery = dict(config.get('work_discovery', {}))
@@ -53,6 +57,12 @@ def settings(config, args, save):
                       'value': config.get('work_side_intake', {}).get('type', 'btw_with_mcp')})
     projected.append({'key': 'work_side_intake_enabled', 'label': menu_text('work_side_intake_enabled', language),
                       'value': config.get('work_side_intake', {}).get('enabled') is True})
+    from .side_intake_settings import values
+    projected += [{'key': k, 'label': menu_text(k, language), 'value': v,
+                   'status': 'router_capture_required' if k in ('work_side_intake_context_mode', 'work_side_intake_context_percent',
+                       'work_side_intake_comparison_enabled', 'work_side_intake_comparison_model')
+                   else 'next_side_event'}
+                  for k, v in values(config).items()]
     ui = {
         'en': ('Work settings', 'Next', 'Back', 'Cancel', 'Enter a number or instruction using Other.'),
         'ko': ('Work 설정', '다음', '뒤로', '취소', '숫자 또는 지시는 기타에 입력하세요.'),

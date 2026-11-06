@@ -2,7 +2,7 @@ name: Publish to npm
 
 on:
   push:
-    branches: [main, nightly]
+    branches: [main, nightly, beta]
   # Manual publish for the branch's tip; the job reads the dispatching ref, so
   # `gh workflow run "Publish to npm" --ref nightly` publishes a nightly.
   workflow_dispatch:
@@ -33,25 +33,28 @@ jobs:
         shell: bash
         run: |
           ref="${GITHUB_REF_NAME:-}"
-          if [[ "${ref}" == "nightly" ]]; then
-            echo "tag=nightly" >> "$GITHUB_OUTPUT"
-            echo "kind=nightly" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=latest" >> "$GITHUB_OUTPUT"
-            echo "kind=stable" >> "$GITHUB_OUTPUT"
-          fi
+          case "${ref}" in
+            nightly|beta)
+              echo "tag=${ref}" >> "$GITHUB_OUTPUT"
+              echo "kind=${ref}" >> "$GITHUB_OUTPUT" ;;
+            main)
+              echo "tag=latest" >> "$GITHUB_OUTPUT"
+              echo "kind=stable" >> "$GITHUB_OUTPUT" ;;
+            *) echo "Unsupported publish ref: ${ref}" >&2; exit 1 ;;
+          esac
           echo "Channel for ref ${ref}: tag=$(grep '^tag=' "$GITHUB_OUTPUT" | tail -n1)"
 
-      - name: Compute and apply nightly version
-        if: steps.channel.outputs.kind == 'nightly'
+      - name: Compute and apply prerelease version
+        if: steps.channel.outputs.kind == 'nightly' || steps.channel.outputs.kind == 'beta'
         id: version
         shell: bash
         run: |
           base="$(node -p "require('./package.json').version")"
           short_sha="${GITHUB_SHA::7}"
           stamp="$(date -u +%Y%m%d-%H%M%S).${short_sha}"
-          new="${base}-nightly.${stamp}"
-          echo "Nightly version: ${new}"
+          kind="${{ steps.channel.outputs.kind }}"
+          new="${base}-${kind}.${stamp}"
+          echo "Prerelease version: ${new}"
           echo "version=${new}" >> "$GITHUB_OUTPUT"
           node -e "const fs=require('fs');const p=require('./package.json');p.version='${new}';fs.writeFileSync('./package.json',JSON.stringify(p,null,2)+'\n');"
           sed -i "s/^VERSION = .*/VERSION = \"${new}\"/" ciel_runtime_support/runtime_constants.py
@@ -95,14 +98,14 @@ jobs:
             echo "Tarball is not available yet; retry ${attempt}/${max_attempts}..."
             sleep 10
           done
-          if [[ "${tag}" == "nightly" ]]; then
-            echo "Published nightly tarball is unavailable; rolling nightly tag back to the newest installable nightly."
-            mapfile -t versions < <(npm view "${pkg}" versions --json | node -e "const fs=require('fs');const cur=process.argv[1];const versions=JSON.parse(fs.readFileSync(0,'utf8')); for (const v of versions.filter(v => v !== cur && v.includes('-nightly.')).reverse()) console.log(v);" "${version}")
+          if [[ "${tag}" == "nightly" || "${tag}" == "beta" ]]; then
+            echo "Published ${tag} tarball is unavailable; restoring only this channel's installable version."
+            mapfile -t versions < <(npm view "${pkg}" versions --json | node -e "const fs=require('fs');const cur=process.argv[1],tag=process.argv[2];const versions=JSON.parse(fs.readFileSync(0,'utf8')); for (const v of versions.filter(v => v !== cur && v.includes('-'+tag+'.')).reverse()) console.log(v);" "${version}" "${tag}")
             for previous in "${versions[@]}"; do
               if npm pack "${pkg}@${previous}" --dry-run >/tmp/npm-pack-previous.log 2>&1; then
                 cat /tmp/npm-pack-previous.log
-                npm dist-tag add "${pkg}@${previous}" nightly
-                echo "Rolled nightly back to ${previous}."
+                npm dist-tag add "${pkg}@${previous}" "${tag}"
+                echo "Restored ${tag} to ${previous}."
                 break
               fi
             done

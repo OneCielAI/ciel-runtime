@@ -1,0 +1,54 @@
+"""Canonical controls for independent side processing and comparison profiles."""
+
+FIELDS = {
+    'max_active': (2, None),
+    'aging_seconds': (60, None),
+    'context_mode': ('isolated', ('isolated', 'full', 'recent')),
+    'context_percent': (30, None),
+    'model': ('inherit', None),
+    'reply_connectors': ([], None),
+    'priority_policy': ('adaptive', ('adaptive', 'explicit')),
+    'comparison_enabled': (False, None),
+    'comparison_model': ('inherit', None),
+}
+PREFIX = 'work_side_intake_'
+
+
+def values(config):
+    stored = config.get('work_side_intake', {})
+    return {PREFIX + name: stored.get(name, default) for name, (default, _) in FIELDS.items()}
+
+
+def set_value(config, key, value):
+    name = key.removeprefix(PREFIX)
+    if key != PREFIX + name or name not in FIELDS:
+        raise ValueError('unknown side setting')
+    if name == 'reply_connectors':
+        import json
+        from .side_reply_connector import validate
+        try:
+            parsed = validate(json.loads(value))
+        except (ValueError, TypeError) as error:
+            raise ValueError('invalid side reply connectors: ' + str(error)) from None
+    elif name == 'comparison_enabled':
+        if value not in ('on', 'off', 'true', 'false'):
+            raise ValueError('use on/off or true/false')
+        parsed = value in ('on', 'true')
+    elif name in ('context_percent', 'max_active', 'aging_seconds'):
+        upper = {'max_active':16, 'context_percent':100, 'aging_seconds':3600}[name]
+        try:
+            parsed = int(value)
+        except (ValueError, TypeError):
+            raise ValueError(f'{name} must be an integer from 1 to {upper}') from None
+        if not 1 <= parsed <= upper:
+            raise ValueError(f'{name} must be an integer from 1 to {upper}')
+    elif name in ('model', 'comparison_model'):
+        parsed = value.strip()
+        if not parsed or len(parsed) > 300 or any(ord(c) < 32 for c in parsed):
+            raise ValueError('use inherit or a catalog model id')
+    else:
+        allowed = FIELDS[name][1]
+        if value not in allowed:
+            raise ValueError('use ' + ' or '.join(allowed))
+        parsed = value
+    config['work_side_intake'] = {**config.get('work_side_intake', {}), name: parsed}

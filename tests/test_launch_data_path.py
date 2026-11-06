@@ -354,14 +354,25 @@ class SelectLaunchGatewayTests(unittest.TestCase):
 class ClaudeEnvironmentTests(unittest.TestCase):
     IDS = ["ASTRA", "cc/claude-opus-5-5", "cc/claude-haiku-4-5", "cc/claude-sonnet-5"]
 
-    def env(self, data_path=None, **pcfg):
+    def env(self, data_path=None, side=None, **pcfg):
         cfg = copy.deepcopy(ciel_runtime.DEFAULT_CONFIG)
         cfg["current_provider"] = "cielairouter"
+        if side is not None:
+            cfg['work_side_intake']=side
         cfg["providers"]["cielairouter"].update(api_key=SECRET, current_model="cc/claude-opus-5-5", **pcfg)
         with (mock.patch.object(ciel_runtime, "upstream_model_ids", return_value=self.IDS),
               mock.patch.object(ciel_runtime, "cached_or_configured_model_ids", return_value=self.IDS),
               mock.patch.object(ciel_runtime, "http_json", side_effect=AssertionError("network"))):
             return ciel_runtime.env_vars(cfg) if data_path is None else ciel_runtime.env_vars(cfg, data_path=data_path)
+
+    def test_explicit_side_model_does_not_force_all_children_back_to_parent(self):
+        env=self.env(side={'enabled':True,'model':'API KEYS - SSE'})
+        self.assertNotIn('CLAUDE_CODE_SUBAGENT_MODEL_FORCE',env)
+        self.assertEqual('inherit',env['CLAUDE_CODE_SUBAGENT_MODEL'])
+        compared=self.env(side={'enabled':True,'model':'inherit','comparison_enabled':True,'comparison_model':'API KEYS - SSE'})
+        self.assertNotIn('CLAUDE_CODE_SUBAGENT_MODEL_FORCE',compared)
+        inherited=self.env(side={'enabled':True,'model':'inherit'})
+        self.assertEqual('1',inherited['CLAUDE_CODE_SUBAGENT_MODEL_FORCE'])
 
     def test_router_mode_environment_is_unchanged(self):
         routed = self.env()

@@ -1,6 +1,7 @@
 """Muse injection paths: MSP client, option model, and capability rules."""
 
 import json
+import os
 import sys
 import textwrap
 import unittest
@@ -140,7 +141,7 @@ class MuseMspConnectionTests(unittest.TestCase):
     def connect(self):
         connection = MuseMspConnection.start(
             [sys.executable, "-c", FAKE_HOST],
-            env={},
+            env={key: os.environ[key] for key in ('SystemRoot',) if key in os.environ},
             request_timeout_seconds=10.0,
         )
         self.addCleanup(connection.close)

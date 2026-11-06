@@ -1,5 +1,9 @@
+import os
 import unittest
 from pathlib import Path
+from unittest.mock import patch
+import subprocess
+import sys
 
 from ciel_runtime_support.npm_runtime import (
     npm_global_install_command,
@@ -8,6 +12,8 @@ from ciel_runtime_support.npm_runtime import (
     package_root_from_installed_path,
     parse_version_tuple,
     registry_package_name,
+    runtime_package_spec,
+    runtime_update_allowed,
     version_newer,
 )
 
@@ -37,6 +43,36 @@ class NpmRuntimeTests(unittest.TestCase):
             self.assertEqual(package, package_root_from_installed_path(package / "ciel_runtime.py"))
             self.assertTrue(running_from_npm_package(package / "ciel_runtime.py", {}))
         self.assertIsNone(package_root_from_installed_path(Path("/opt/npm/lib/node_modules/@other/ciel-runtime/x.py")))
+
+    def test_runtime_channels_never_follow_another_channel(self):
+        versions = {'latest': '0.2.51', 'nightly': '0.2.51-nightly.20261105-010000.abc1234',
+                    'beta': '0.2.51-beta.20261105-010000.abc1234'}
+        for channel, current in versions.items():
+            self.assertEqual('@one-ciel-ai/ciel-runtime@' + channel, runtime_package_spec(current))
+            for other, target in versions.items():
+                if other != channel:
+                    self.assertFalse(runtime_update_allowed(target, current))
+        self.assertTrue(runtime_update_allowed('0.2.52', '0.2.51'))
+        self.assertTrue(runtime_update_allowed('0.2.51-beta.20261105-020000.abc1234', versions['beta']))
+        self.assertFalse(runtime_update_allowed('0.2.51-beta.20261105-010000.9999999', versions['beta']))
+        self.assertFalse(runtime_update_allowed('0.2.51-beta.20261104-230000.9999999', versions['beta']))
+        self.assertFalse(runtime_update_allowed('', versions['beta']))
+        self.assertFalse(runtime_update_allowed('malformed', versions['beta']))
+
+    def test_utf8_child_output_never_uses_cp949_reader(self):
+        from ciel_runtime_support.npm_runtime import run_upgrade_command
+        # Python3.10 uses io.text_encoding; newer versions use _text_encoding.
+        with patch.object(subprocess.io, 'text_encoding', return_value='cp949'), patch.object(subprocess, '_text_encoding', return_value='cp949', create=True):
+            code, output = run_upgrade_command([sys.executable, '-c',
+                "import sys; sys.stdout.buffer.write('ready \\u2713'.encode('utf8')); sys.stderr.buffer.write(b'\\xff')"], dict(os.environ))
+        self.assertEqual(0, code)
+        self.assertIn('ready ✓', output)
+        self.assertIn('�', output)
+        with patch('ciel_runtime_support.npm_runtime.subprocess.run', return_value=subprocess.CompletedProcess([], 0, '1.2.3')) as run:
+            from ciel_runtime_support.npm_runtime import executable_version
+            self.assertEqual('1.2.3', executable_version('fixture'))
+        self.assertEqual('utf-8', run.call_args.kwargs['encoding'])
+        self.assertEqual('replace', run.call_args.kwargs['errors'])
 
     def test_global_install_command_targets_active_prefix(self):
         self.assertEqual(

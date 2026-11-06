@@ -5,18 +5,22 @@ from .recent_menu_text import menu_text
 
 BOOLEANS = {'work_mode', 'work_plan_approval_ask', 'work_auto_continue',
             'work_completed_auto_delete', 'work_parallel_enabled', 'work_parallel_paused',
-            'work_discovery_enabled', 'work_discovery_test_default_override', 'work_side_intake_enabled'}
+            'work_discovery_enabled', 'work_discovery_test_default_override', 'work_side_intake_enabled',
+            'work_side_intake_comparison_enabled'}
 NUMBERS = {
     'work_parallel_max_active': (1, 2, 3, 4, 5, 8, 10, 16),
     'work_parallel_p1_reserved': (0, 1, 2, 3, 4, 5),
     'work_parallel_launches_per_minute': (1, 2, 4, 8, 16, 30, 60),
     'work_parallel_max_rework': (0, 1, 2, 3, 5, 10),
+    'work_side_intake_context_percent': (10, 20, 30, 50, 75, 100),
+    'work_side_intake_max_active': (1, 2, 3, 4, 5, 8, 16),
+    'work_side_intake_aging_seconds': (10, 30, 60, 120, 300, 600),
 }
 
 
 def panel_rows(config, *, side=False):
     state = settings(config, {}, None)
-    selected = [r for r in state['settings'] if not r['key'].startswith('work_side_intake_')]
+    selected = [r for r in state['settings'] if r['key'] not in ('work_side_intake_enabled', 'work_side_intake_type')]
     selected.insert(1, {'key': 'sse_injection_mode', 'label': menu_text('sse_injection_mode', config.get('language', 'en')),
                         'value': 'btw_with_mcp' if config.get('work_side_intake', {}).get('enabled') is True
                         and config.get('work_side_intake', {}).get('type', 'btw_with_mcp') == 'btw_with_mcp' else 'session'})
@@ -25,6 +29,15 @@ def panel_rows(config, *, side=False):
 
 
 DESCRIPTIONS = {
+    'work_side_intake_reply_connectors': ('Operator-owned JSON MCP reply bindings: exact source, receiver_id, server, tool and arguments. $reply/$event_id/$kind placeholders; inbound events cannot choose tools.', '운영자가 설정한 JSON MCP 응답 연결입니다. source/server/tool/arguments를 지정하며 $reply/$event_id/$kind를 치환합니다. 수신 이벤트는 도구를 선택할 수 없습니다.'),
+    'work_side_intake_aging_seconds': ('After this wait, ordinary side mail gains pickup priority to avoid starvation; Work execution priority is unchanged.', '이 시간 대기한 일반 메시지의 접수 처리 순위를 높여 기아를 방지합니다. Work 실행 우선순위 승격은 아닙니다.'),
+    'work_side_intake_max_active': ('Concurrent side actors only; durable incoming requests are never capped by this value.', '동시 사이드 처리자 수만 제한합니다. 수신 요청의 내구성 등록 개수 제한이 아닙니다.'),
+    'work_side_intake_context_mode': ('isolated: Work only. full/recent: router-captured parent system/history; rebase at next event when parent advances. No direct-gateway fallback; Work always whole.', 'isolated: Work만. full/recent: 라우터에서 관측한 부모 시스템·이력. direct gateway는 지원하지 않습니다. Work 보드는 항상 전체입니다.'),
+    'work_side_intake_context_percent': ('Provider-counted history share; complete tool pairs. System/tools/Work stay whole. Recent/model switch records omitted parent reasoning.', '대화 토큰 비율입니다. 공급자 count_tokens가 필요하며 도구 쌍 경계까지 확장합니다. 시스템·도구·Work는 제외. 최근/모델 전환 시 부모 서명 추론을 제외하고 기록합니다.'),
+    'work_side_intake_model': ('inherit follows main; exact catalog model applies to a new side actor. An existing process forcing parent model requires an explicit future launch.', 'inherit는 메인 모델을 따릅니다. 별도 모델은 새 사이드 처리자에 적용되며 메인 강제 모델 환경의 기존 프로세스는 사용자의 다음 실행이 필요합니다.'),
+    'work_side_intake_priority_policy': ('adaptive considers P1–P5, urgency and workload; explicit follows stated priority.', 'adaptive는 P1~P5·긴급성·작업량을 함께 판단하며 explicit는 명시된 우선순위를 따릅니다.'),
+    'work_side_intake_comparison_enabled': ('After primary reply, run up to four read-only full/recent × main/comparison-model profiles. Billed model calls; no tools, Work writes or replies.', '주 응답 후 full/recent × 메인/비교 모델을 최대4개 읽기 전용 비교합니다. 유료 호출이며 도구·Work 변경·응답 전송은 없습니다.'),
+    'work_side_intake_comparison_model': ('Second model for read-only comparison; inherit compares only context modes. Requires router capture and provider token counting for recent.', '읽기 전용 비교용 두 번째 모델입니다. inherit는 문맥 모드만 비교하며 recent는 라우터 관측과 공급자 토큰 계산이 필요합니다.'),
     'work_mode': ('Plan and execute queued work in this workspace; disabling keeps existing records.', '이 작업공간의 작업 계획·실행을 관리합니다. 꺼도 기존 기록은 보존합니다.'),
     'sse_injection_mode': ('session: normal conversation input. btw_with_mcp: durable disk inbox, consumed by the mod without interrupting the main turn; not execution approval.', 'session: 일반 대화로 전달합니다. btw_with_mcp: 디스크 접수함을 mod가 처리하며 메인 응답을 끊지 않습니다. 실행 승인은 아닙니다.'),
     'work_plan_approval_ask': ('Require user approval before executing a new plan.', '새 계획 실행 전에 사용자 승인을 요청합니다.'),
@@ -54,6 +67,10 @@ def choices(config, key):
         values = ('on', 'off')
     elif key in ('sse_injection_mode', 'work_side_intake_type'):
         values = ('session', 'btw_with_mcp')
+    elif key == 'work_side_intake_context_mode':
+        values = ('isolated', 'full', 'recent')
+    elif key == 'work_side_intake_priority_policy':
+        values = ('adaptive', 'explicit')
     elif key in NUMBERS:
         values = tuple(str(n) for n in NUMBERS[key])
     else:

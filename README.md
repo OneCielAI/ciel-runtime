@@ -200,6 +200,17 @@ Nightly builds are published from `nightly` for pre-release validation:
 npm install -g @one-ciel-ai/ciel-runtime@nightly
 ```
 
+Experimental beta builds are published from `beta` and opt in separately:
+
+```sh
+npm install -g @one-ciel-ai/ciel-runtime@beta
+```
+
+Automatic updates stay on the installed channel: beta follows only `beta`,
+nightly only `nightly`, and stable only `latest`. A failed lookup or a candidate
+from another channel is never a reason to switch channels. These commands are
+explicit install/channel choices; they do not restart an existing session.
+
 Installs made before 2026-10-03 use the former package name
 `@oneciel-ai/ciel-runtime`, which no longer receives builds. Remove it once
 before installing the new name (both provide the `ciel-runtime` command):

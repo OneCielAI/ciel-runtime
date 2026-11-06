@@ -1,0 +1,13 @@
+{
+  "python": "3.13.5",
+  "scope": "owned help-output capture, not identification of screenshot command",
+  "permission_mode_detected": true,
+  "captures": [
+    {
+      "text": true,
+      "encoding": "utf-8",
+      "errors": "replace"
+    }
+  ],
+  "reader_errors": []
+}

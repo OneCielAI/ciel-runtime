@@ -52,6 +52,16 @@ class ChannelMessageRepositoryTests(unittest.TestCase):
 
             self.assertTrue(path.parent.exists())
 
+    @unittest.skipUnless(os.name == 'nt', 'Windows byte-range locking required')
+    def test_windows_empty_lock_uses_range_beyond_eof_without_initialization_write(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'fresh.json'
+            lock_path = path.with_name(path.name + '.lock')
+            with exclusive_file_lock(path):
+                self.assertEqual(0, lock_path.stat().st_size)
+            with exclusive_file_lock(path):
+                self.assertEqual(0, lock_path.stat().st_size)
+
     def test_windows_acquisition_contention_is_typed_with_errno(self):
         windows = Mock(LK_LOCK=1, LK_UNLCK=0)
         for code in (errno.EACCES, errno.EAGAIN, errno.EDEADLK):

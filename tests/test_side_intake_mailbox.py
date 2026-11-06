@@ -87,6 +87,39 @@ class MailboxTests(unittest.TestCase):
                 after = page[-1]['receipt_id']
             self.assertEqual(30, len(seen))
 
+    def test_processed_unicode_payload_remains_readable_after_pending_consumed(self):
+        from ciel_runtime_support.side_intake_processing import claim, finish
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            inbox = SideIntakeInbox(root, 'claude:mailbox')
+            original = '\U0001f4cc' * 16000
+            key = inbox.receive(original, 'unicode')['receipt_id']
+            leased = claim(root, 'claude:mailbox', 'actor')
+            finish(root, 'claude:mailbox', key, leased['generation'], {
+                'action': 'answer', 'summary': '\U0001f4cc' * 16000,
+                'reply': '\U0001f4cc' * 16000, 'delivery': 'pending'})
+            loaded = inbox._load(key)
+            self.assertEqual('processed', loaded['stage'])
+            self.assertEqual(original, loaded['text'])
+            self.assertFalse(inbox._event_path('pending', key).exists())
+            self.assertEqual(1, len(inbox.summaries()))
+
+    def test_oversized_receipt_never_replaces_valid_pending_original(self):
+        from ciel_runtime_support.side_intake_processing import claim, finish
+        from ciel_runtime_support.side_intake_inbox import MAX_RECEIPT_BYTES
+        from ciel_runtime_support.work_plan_tree import WorkPlanError
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            inbox = SideIntakeInbox(root, 'claude:mailbox')
+            key = inbox.receive('original', 'oversized')['receipt_id']
+            leased = claim(root, 'claude:mailbox', 'actor')
+            with self.assertRaises(WorkPlanError):
+                finish(root, 'claude:mailbox', key, leased['generation'], {'reply': 'x' * MAX_RECEIPT_BYTES})
+            self.assertEqual('original', inbox._load(key)['text'])
+            self.assertEqual('received', inbox._load(key)['stage'])
+            self.assertTrue(inbox._event_path('pending', key).exists())
+            self.assertFalse(inbox._event_path('receipts', key).exists())
+
     def test_more_than_hundred_events_are_durable_and_page_bounded(self):
         with tempfile.TemporaryDirectory() as directory:
             inbox = SideIntakeInbox(Path(directory), 'claude:mailbox')

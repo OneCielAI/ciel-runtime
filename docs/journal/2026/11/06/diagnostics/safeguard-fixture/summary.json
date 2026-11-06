@@ -1,0 +1,14 @@
+{
+  "before_runs": 10,
+  "before_failures": 10,
+  "same_line21": true,
+  "after_runs": 100,
+  "after_passes": 100,
+  "all_owned_pollers_stopped": true,
+  "source_sha256": {
+    "owned-poller-before.json": "672e1c40eedc3e78c0ab4e02d4afeacdbe0554c85b290fd525427cc2616a5211",
+    "owned-poller-after.json": "4d60c2c0162519ac0698e3d62d9f6e0c10fdaf4e19e95621e71b87ae7f238e5d",
+    "prefix-attribution.jsonl": "25244550a0a8d19461479b21f494a3d08c92b91cea87356a191f7c60adedbb27"
+  },
+  "original_interleaving_proven": false
+}

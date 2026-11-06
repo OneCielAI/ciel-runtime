@@ -1,0 +1,13 @@
+{
+  "model": "API KEYS - SSE",
+  "scope": "authorized synthetic read-only diagnostic, max output 32 tokens",
+  "http_status": 404,
+  "error_code": "model_not_found",
+  "error_message": "Combo has no executable targets",
+  "terminal_reason": "no_executable_targets",
+  "pool_size": 0,
+  "attempted_upstream_targets": 0,
+  "alternative_model_selected": false,
+  "cache_usage": "unavailable",
+  "billing": "unknown"
+}

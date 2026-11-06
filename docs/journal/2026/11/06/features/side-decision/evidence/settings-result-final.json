@@ -1,0 +1,98 @@
+{
+  "run": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\settings-description-e6a42d04",
+  "rows": [
+    {
+      "key": "work_mode",
+      "description_seen": true
+    },
+    {
+      "key": "sse_injection_mode",
+      "description_seen": true
+    },
+    {
+      "key": "work_plan_approval_ask",
+      "description_seen": true
+    },
+    {
+      "key": "work_auto_continue",
+      "description_seen": true
+    },
+    {
+      "key": "work_completed_auto_delete",
+      "description_seen": true
+    },
+    {
+      "key": "work_parallel_enabled",
+      "description_seen": true
+    },
+    {
+      "key": "work_parallel_paused",
+      "description_seen": true
+    },
+    {
+      "key": "work_parallel_max_active",
+      "description_seen": true
+    },
+    {
+      "key": "work_discovery_enabled",
+      "description_seen": true
+    },
+    {
+      "key": "work_discovery_test_default_override",
+      "description_seen": true
+    },
+    {
+      "key": "work_discovery_instruction",
+      "description_seen": true
+    },
+    {
+      "key": "work_parallel_p1_reserved",
+      "description_seen": true
+    },
+    {
+      "key": "work_parallel_launches_per_minute",
+      "description_seen": true
+    },
+    {
+      "key": "work_parallel_max_rework",
+      "description_seen": true
+    },
+    {
+      "key": "work_discovery_file_path",
+      "description_seen": true
+    },
+    {
+      "key": "work_side_intake_max_active",
+      "description_seen": true
+    },
+    {
+      "key": "work_side_intake_aging_seconds",
+      "description_seen": true
+    },
+    {
+      "key": "work_side_intake_context_mode",
+      "description_seen": true
+    },
+    {
+      "key": "work_side_intake_context_percent",
+      "description_seen": true
+    },
+    {
+      "key": "work_side_intake_model",
+      "description_seen": true
+    },
+    {
+      "key": "work_side_intake_reply_connectors",
+      "description_seen": true
+    },
+    {
+      "key": "work_side_intake_priority_policy",
+      "description_seen": true
+    },
+    {
+      "key": "work_side_intake_comparison_enabled",
+      "description_seen": true
+    }
+  ],
+  "side_model_picker": true
+}

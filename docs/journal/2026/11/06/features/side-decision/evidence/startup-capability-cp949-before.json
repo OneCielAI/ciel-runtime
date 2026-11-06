@@ -1,0 +1,18 @@
+{
+  "python": "3.13.5",
+  "scope": "owned help-output capture, not identification of screenshot command",
+  "permission_mode_detected": false,
+  "captures": [
+    {
+      "text": true,
+      "encoding": null,
+      "errors": null
+    }
+  ],
+  "reader_errors": [
+    {
+      "type": "UnicodeDecodeError",
+      "message": "'cp949' codec can't decode byte 0xe2 in position 36: illegal multibyte sequence"
+    }
+  ]
+}

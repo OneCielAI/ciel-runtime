@@ -10,12 +10,12 @@ from ciel_runtime_support.runtime_upgrade import (
 
 
 class RuntimeUpgradeServiceTests(unittest.TestCase):
-    def service(self, *, executables=None, latest="2.0.0", outputs=None, runs=None):
+    def service(self, *, executables=None, latest="2.0.0", current="1.0.0", outputs=None, runs=None):
         executables = executables or {}
         outputs = outputs if outputs is not None else []
         runs = runs if runs is not None else []
         return RuntimeUpgradeService(
-            settings=RuntimeUpgradeSettings("1.0.0", {}),
+            settings=RuntimeUpgradeSettings(current, {}),
             npm=RuntimeUpgradeNpmPorts(
                 find_executable=lambda name: executables.get(name),
                 latest_version=lambda _npm, _package: latest,
@@ -43,9 +43,33 @@ class RuntimeUpgradeServiceTests(unittest.TestCase):
         service = self.service(executables={"npm": "npm"}, runs=runs)
         self.assertEqual(0, service.ciel_runtime())
         self.assertEqual(
-            (["npm", "@one-ciel-ai/ciel-runtime@latest", str(Path("/prefix"))], 300.0),
+            (["npm", "@one-ciel-ai/ciel-runtime@2.0.0", str(Path("/prefix"))], 300.0),
             runs[0],
         )
+
+    def test_beta_missing_other_channel_and_older_never_install(self):
+        current = '0.2.51-beta.20261105-010000.abc1234'
+        for latest in ('', '9.0.0', '9.0.0-nightly.20261106-010000.abc1234',
+                       '0.2.51-beta.20261104-010000.9999999', current):
+            runs = []
+            service = self.service(executables={'npm': 'npm'}, current=current, latest=latest, runs=runs)
+            self.assertIn(service.ciel_runtime(), (0, 1))
+            self.assertEqual([], runs, latest)
+        runs = []
+        latest = '0.2.51-beta.20261106-010000.abc1234'
+        service = self.service(executables={'npm': 'npm'}, current=current, latest=latest, runs=runs)
+        self.assertEqual(0, service.ciel_runtime())
+        self.assertEqual('@one-ciel-ai/ciel-runtime@' + latest, runs[0][0][1])
+
+    def test_cross_channel_candidate_is_reported_as_rejected_not_up_to_date(self):
+        outputs, runs = [], []
+        service = self.service(executables={'npm': 'npm'},
+                               current='0.2.51-beta.20261105-010000.abc1234',
+                               latest='9.0.0', outputs=outputs, runs=runs)
+        self.assertEqual(1, service.ciel_runtime())
+        self.assertEqual([], runs)
+        self.assertIn('different channel', outputs[-1])
+        self.assertNotIn('up to date', outputs[-1])
 
     def test_missing_cli_uses_its_installer(self):
         service = self.service(executables={"npm": "npm"})

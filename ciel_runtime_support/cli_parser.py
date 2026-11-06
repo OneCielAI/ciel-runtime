@@ -74,6 +74,7 @@ class CliParserServices:
     settings: CliParserSettings
     provider: CliParserProvider
     models: CliParserModels
+    work: CliHandler = lambda _args: None
 
 
 def build_cli_parser(services: CliParserServices) -> argparse.ArgumentParser:
@@ -122,6 +123,12 @@ def build_cli_parser(services: CliParserServices) -> argparse.ArgumentParser:
     _add_values_command(commands, "usage-api-key", services.settings.usage_api_key)
     _add_values_command(commands, "remote-instructions", services.settings.remote_instructions)
     _add_values_command(commands, "remote-memory", services.settings.remote_memory)
+    work = commands.add_parser("work", help="Inspect or change every supported Work setting")
+    work.add_argument("action", nargs="?", choices=("status", "list", "get", "set"), default="status")
+    work.add_argument("key", nargs="?")
+    work.add_argument("value", nargs="?")
+    work.add_argument("--json", action="store_true")
+    work.set_defaults(func=services.work)
     _add_values_command(commands, "remote-provision", services.runtime.remote_provision)
     _add_optional_value_command(commands, "ollama-native", services.provider.ollama_native)
     _add_values_command(commands, "ollama-options", services.provider.ollama_options)

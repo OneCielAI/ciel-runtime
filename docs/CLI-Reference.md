@@ -67,6 +67,55 @@ ciel-runtimectl <subcommand> [args]
 
 ---
 
+### Work · SSE 설정
+
+```bash
+ciel-runtimectl work list --json
+ciel-runtimectl work status
+ciel-runtimectl work get work_mode
+ciel-runtimectl work set work_mode on
+ciel-runtimectl work set sse_injection_mode btw_with_mcp
+ciel-runtimectl work set work_side_intake_max_active 2
+ciel-runtimectl work set work_side_intake_model inherit
+```
+
+초기 메뉴 `Work & SSE settings`, 실행 중 `/work-mode settings`, ctl은 같은
+검증기와 설정 저장소를 사용한다. `list`는 승인·자동 계속·보존·병렬 실행·탐색·
+SSE·사이드 설정 전체를 열거한다. 사이드 판단에는 문맥 비율과 별개로 현재 Work
+보드 전체(활성 작업·큐 순서·계층·상태·우선순위·대기·메모·근거·버전)를 전달한다.
+최근30%는 대화 이력 비율이며 Work 보드를30%로 자르지 않는다.
+
+- `isolated`(기본): 부모 대화 없이 현재 Work 보드와 사이드 대화로 판단한다.
+- `full`: **라우터 경로에서 관측된** 부모 API 시스템·도구·대화 prefix를 사이드
+  요청 앞에 구조 그대로 투영한다. 메인·사이드의 native transcript 파일은 고치지 않는다.
+- `recent`: 공급자 `/v1/messages/count_tokens` 값으로 최근 대화 비율을 계산하고
+  완전한 user/tool 쌍 경계까지 확장한다. 시스템·도구·Work는 비율에서 제외한다.
+  정확한30%가 아닌 실제 선택 비율을 기록한다. 공급자 카운터가 없거나 거부하면
+  문자 수로 대체하지 않고 실패 상태로 원문을 보존한다.
+- recent 또는 모델 전환 시 이전 prefix에 묶인 부모 thinking 블록은 제외하고
+  제외 수를 표시한다. 동일 모델 full에서는 보존한다. 캐시 적중은 보장하지 않는다.
+- 부모 요청 버전이 같으면 사이드 agent를 재사용한다. 부모 이력이 진행·compact되어
+  달라지면 다음 이벤트에서 새 문맥 기준으로 전환하며 이전 이력을 끼워 고치지 않는다.
+- `comparison_enabled`: 주 결과와 별개로 full/recent × 메인/`comparison_model`을
+  최대4개 읽기 전용으로 비교한다. 추가 모델 과금이 발생하며, 비교 agent에는 실행
+  도구가 없고 Work 변경·외부 답장도 적용하지 않는다. 각 arm은 같은 Work 스냅샷을 쓴다.
+
+`router_capture_required` 설정은 routed 경로와 정확한 부모 관측이 필요하다.
+direct gateway 요청은 이 라우터를 지나지 않으므로 full/recent/comparison을
+적용했다고 표시하지 않는다. 부모 캡처는16MiB까지 지원하며 초과 시 생략하지 않고
+해당 side 요청을 보존한다. 실측 usage에 없는 캐시·비용 값은 unknown이다.
+
+외부 SSE 응답은 운영자가 `work_side_intake_reply_connectors` JSON 배열로
+등록한 정확한 source/receiver_id와 MCP server/tool/arguments만 사용한다.
+`$reply`, `$event_id`, `$receiver_id`, `$source`, `$kind`, `$receipt_id`는 전체
+문자열 값일 때 치환된다. 고정 목적지는 운영자가 arguments에 설정하고,
+인증정보는 MCP 연결에만 둔다. 이벤트 본문은 목적지나 도구를 정하지 않는다.
+연결이 없으면 `route_unavailable`이며 로컬 로그 저장을 외부 전송으로 표시하지 않는다.
+
+응답 패널의 `Retry reply…`는 실패한 응답을 명시적으로 재시도한다.
+`uncertain`/`submitting`은 이미 도착했을 가능성이 있으므로 중복 전송 경고에
+동의해야 한다. 자동 재전송하거나 성공으로 처리하지 않는다.
+
 ### 제공자/모델 설정
 
 #### `provider`

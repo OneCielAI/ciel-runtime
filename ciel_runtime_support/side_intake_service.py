@@ -5,10 +5,10 @@ from .work_side_intake import enqueue
 from .work_plan_tree import WorkPlanCapacityError
 
 
-def receive(state_dir, session_id, text, event_key, *, admit=True):
+def receive(state_dir, session_id, text, event_key, *, admit=True, route=None):
     inbox = SideIntakeInbox(state_dir, session_id)
-    receipt = inbox.receive(text, event_key)
-    if not admit or receipt['item_id']:
+    receipt = inbox.receive(text, event_key, route=route)
+    if not admit or receipt['item_id'] or receipt['stage'] == 'processed':
         return receipt
     try:
         store = session_work_plan_store(state_dir, session_id)

@@ -1,0 +1,89 @@
+Running unit test group (279 files)
+...............................................s..sss.......s.ss......sssssssss..............ss...s....s..s.......s.............s..s..............s.ssssssssssss...........................ss..................................................................................s.ss..................................................[?25h.[?25h.......................................................................................................s.......compact_owned_transport checkpoint=1 socket_frames=2 http_requests=1 status=200 replay=0
+socket_resume disconnected_calls=3 retry_calls=3 reused=3 final_upstream=1
+Ciel Runtime: restarting Claude Code source=test reason=restart
+..................................................[?25h...............................usage: ciel-runtimectl copilot-oauth [-h] [{login,status,logout}]
+ciel-runtimectl copilot-oauth: error: argument action: invalid choice: 'import' (choose from 'login', 'status', 'logout')
+...............................................................native Messages 400 -> 200: upstream_hits=2 max_tokens=400->300 recovery_retries=0 client_responses=1
+native Messages 400 -> 503: upstream_hits=2 max_tokens=400->300 recovery_retries=0 client_responses=1
+native Messages 400 -> 400: upstream_hits=2 max_tokens=400->300 recovery_retries=0 client_responses=1
+idle_retry first=retry_wait admission=paused retry=queued scope=exact checkpoint+shrink=verified
+Launching Codex App Server through Ciel Runtime.
+Codex App Server listen: ws://127.0.0.1:8899
+Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+..Launching Codex App Server through Ciel Runtime.
+Codex App Server listen: ws://127.0.0.1:8899
+Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+..........................................................................................................................................s........................................................................................................................................................................................................................................................................................................................................................................................F..............................................................................................................................................................................................................................................................................................................................real_http_config: disabled -> reconnect_rejected409 -> enabled -> event_received; single_worker=true
+real_http_control: connected -> reconnect -> cursor_resume -> gateway_queue=2; single_worker=true
+real_http_policy: workspace_mismatch rejected; external_identity missing_token=403; valid_token=status_ok
+Compaction recovery  [awaiting_shrink ; reason shrink_unconfirmed ; checkpoint observed 100 ; failure at 200]
+spawned_compact_environment {'CLAUDE_CODE_MAX_CONTEXT_TOKENS': '872000', 'CLAUDE_CODE_AUTO_COMPACT_WINDOW': '837120', 'CLAUDE_AUTOCOMPACT_PCT_OVERRIDE': None}
+n89 pipe_command=/compact+CR boundary_without_postTokens=observed sse_body=body-1 deliveries=1 cursor=1
+measured_safeguard usage=19000 capacity=20000 threshold=90 tool_deferred=1 turn_deferred=1 compact_writes=1
+[?25h.......[?25h................................................s.s....s...................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................contention scan_lock_held=0 concurrent_writer=success stale_commit=rejected
+state_race failures=0 leftover_tmp=0
+full_binding slow_scan=unlocked seed=available scope=available admission=available
+HTTP SSE captured: {"id": 1, "time": "2026-11-06T11:28:34-06:00", "ts": 1793986114.7442293, "level": "error", "source": "router-response", "category": "runtime.error", "session_id": "", "request_id": "request-test", "provider": "", "model": "", "message": "upstream unavailable", "data": {"phase": "error", "kind": "output.error"}}
+Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+.Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=mcp
+.Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+.Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+.Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+Ciel Runtime: restarting Codex source=cli reason=deploy
+........Ciel Runtime: restarting Claude Code source=mcp reason=deploy
+................Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+.Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+.Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+.Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+.Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+.Ciel Runtime: restarting Codex app-server and TUI source=ciel-runtime-router-tool reason=deploy thread=(new)
+.Ciel Runtime: restarting Codex app-server and TUI source=ciel-runtime-router-tool reason=deploy thread=01a0-saved
+..Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+Ciel Runtime: restarting Codex source=ciel-runtime-router-tool reason=deploy
+............................................................................................ciel-runtime restart-session: queued request_id=r1 client_pid=42 workspace=- resume=false
+ciel-runtime restart-session: no active CLI session is running through ciel-runtime
+ciel-runtime restart-session: multiple CLI sessions are active; select one:
+  --pid 1  workspace=C:/work router_port=9611 started=-
+  --pid 2  workspace=C:/work router_port=9611 started=-
+ciel-runtime restart-session: queued request_id=r1 client_pid=50788 workspace=C:/work resume=true
+ciel-runtime restart-session: client pid 99 is not an active CLI session
+ciel-runtime restart-session: queued request_id=r1 client_pid=7 workspace=- resume=true
+owned-pipeline mismatch reset= False reason= no_sse_delivery_problem queued= 0 coverage= complete
+owned-pipeline recent_B reset= False reason= no_sse_delivery_problem queued= 1 coverage= complete
+owned-pipeline terminal_B reset= False reason= restart_evidence_insufficient queued= 0 coverage= complete
+owned-pipeline uncertain_B reset= False reason= restart_evidence_insufficient queued= 0 coverage= complete
+owned-pipeline removed reset= False reason= no_sse_delivery_problem queued= 0 coverage= complete
+owned-pipeline corrupt_queue reset= False reason= restart_evidence_insufficient queued= 1 coverage= partial
+owned-pipeline torn_queue reset= False reason= restart_evidence_insufficient queued= 1 coverage= partial
+owned-pipeline partial_history reset= False reason= restart_evidence_insufficient queued= 1 coverage= partial
+owned-pipeline changed_history reset= False reason= restart_evidence_insufficient queued= 1 coverage= partial
+owned-pipeline reuse reset= False reason= restart_evidence_insufficient queued= 0 coverage= complete
+owned-pipeline retained_stale reset= True reason= sse_delivery_recovery_queued queued= 1 coverage= complete
+owned-pipeline cooldown reset= True reason= sse_delivery_recovery_queued queued= 1 coverage= complete
+owned-pipeline uncertain_restart reset= False reason= restart_failed:OSError queued= 1 coverage= complete
+Ciel Runtime: backing up the session (pre-restart)...
+Ciel Runtime: session backup x saved
+........................................................................................................................................................................................................................................s.......................s..............................................................................................................................................................................................................................................................................................................................s..............................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+======================================================================
+FAIL: test_high_fresh_metadata (test_model_compact_safeguard.SafeguardTests.test_high_fresh_metadata)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\tests\test_model_compact_safeguard.py", line 21, in test_high_fresh_metadata
+    self.assertTrue(self.binding.before_external_injection())
+AssertionError: False is not true
+
+----------------------------------------------------------------------
+Ran 3321 tests in 364.858s
+
+FAILED (failures=1, skipped=50)
+owned_provider_counts=['old', 'recent'] selected=35% work_version=99 upstream=200
+loopback_stall elapsed=0.172s socket_timeout=0.150s opens=1 retries=0 handled=True
+real_empty_gateway HTTP502 bytes=0 -> HTTP200 hits=2 retry=1
+Native ConPTY: child exit=7; raw 9001h observed; parent enable blocked; final 9001l observed
+
+[exited with code 1]

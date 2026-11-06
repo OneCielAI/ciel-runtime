@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from . import cli_dispatch, cli_parser
+from .work_settings_cli import command as work_settings_command  # noqa: F401
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,6 +35,7 @@ class CliParserAssembly:
     settings: cli_parser.CliParserSettings
     provider: cli_parser.CliParserProvider
     models: cli_parser.CliParserModels
+    work: cli_parser.CliHandler = lambda _args: None
 
     def services(self) -> cli_parser.CliParserServices:
         return cli_parser.CliParserServices(
@@ -42,6 +44,7 @@ class CliParserAssembly:
             settings=self.settings,
             provider=self.provider,
             models=self.models,
+            work=self.work,
         )
 
 

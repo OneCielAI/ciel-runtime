@@ -140,7 +140,26 @@ class PackageLifecycleTests(unittest.TestCase):
         ):
             self.assertTrue(lifecycle.run())
         self.assertEqual(["@one-ciel-ai/ciel-runtime@nightly"], queried)
-        self.assertEqual(["@one-ciel-ai/ciel-runtime@nightly"], installed)
+        self.assertEqual(["@one-ciel-ai/ciel-runtime@" + tags[queried[0]]], installed)
+
+    def test_beta_self_update_only_installs_newer_beta_exact_version(self):
+        from ciel_runtime_support.npm_runtime import version_newer
+        current='0.2.51-beta.20261105-010000.abc1234'
+        for latest, allowed in [('0.2.51-beta.20261106-010000.abc1234',True),
+                                ('9.0.0',False),('9.0.0-nightly.20261106-010000.abc1234',False),
+                                ('',False),('0.2.51-beta.20261104-010000.9999999',False)]:
+            queried=[]
+            installed=[]
+            lifecycle=SelfUpdateLifecycle(current,SelfUpdatePorts(
+                running_from_package=lambda:True,find_executable=lambda _: 'npm',
+                latest_version=lambda npm,spec:queried.append(spec) or latest,
+                version_newer=version_newer,package_root=lambda:None,prefix_from_root=lambda _:None,
+                install_command=lambda npm,spec,prefix:installed.append(spec) or [npm,'install',spec],
+                forced_environment=lambda:{},restart=lambda *a,**k:None,output=lambda *a,**k:None))
+            with mock.patch('ciel_runtime_support.package_lifecycle.subprocess.run',return_value=mock.Mock(returncode=0,stdout='ok')):
+                self.assertEqual(allowed,lifecycle.run())
+            self.assertEqual(['@one-ciel-ai/ciel-runtime@beta'],queried)
+            self.assertEqual(['@one-ciel-ai/ciel-runtime@'+latest] if allowed else [],installed)
 
     def test_nightly_install_is_not_updated_to_same_or_older_nightly(self):
         from ciel_runtime_support.npm_runtime import version_newer

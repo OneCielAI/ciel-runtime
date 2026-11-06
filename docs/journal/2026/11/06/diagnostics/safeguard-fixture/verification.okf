@@ -1,0 +1,53 @@
+---
+type: Diagnostic Journal
+title: Safeguard fixture scanner contention
+description: Deterministic reproduction and fixture-only isolation for the high-fresh-metadata regression.
+timestamp: 2026-11-06
+tags: [tests, compaction, transcript, isolation]
+---
+
+# Scope
+
+Only `SafeguardTests.test_high_fresh_metadata` and its shared `BindingHarness` fixture. Production code, safety thresholds, transcript scan deadlines, and live sessions are unchanged. All executions use `scripts.run_test_group.isolate_runtime_state()` before test imports or the supported `scripts/run_test_group.py unit` runner.
+
+# Preserved failure
+
+Original task `broo9p7wb`: 3321 tests, 1 failure, 50 skips. Failure at `test_model_compact_safeguard.py:21`: 18000-token `before_external_injection()` returned False. Original output remains unchanged at `C:/Users/djlov/AppData/Local/Temp/claude/C--Users-djlov-ciel-runtime/f129ddaa-21b3-4513-a939-9e349231c6c8/tasks/broo9p7wb.output`. It contains no state snapshot, so its exact interleaving cannot be reconstructed retrospectively.
+
+# Confirmed mechanism
+
+- `BindingHarness` replaces the module-global `_TRANSCRIPT_SCAN_WORKER`; that does not reserve the replacement for the fixture. Every `ChannelTranscriptRepository.latest()` caller resolves that same global.
+- A supported isolated unit-prefix run recorded a still-running `ciel-transcript-delivery` thread calling `poll_tool_call_events -> _latest_claude_transcript_path -> ChannelTranscriptRepository.latest()` on the SAME worker ID as the current fixture. The main test thread then received `completed=False`, `busy=True` immediately. Evidence: `.local/safeguard-class-prefix-attribution.jsonl`.
+- A previous prefix run reproduced the class's alias failure with binding.path empty and state empty despite a fresh 18500-token owned transcript. Task `baavuq3v1`: 1109 tests, 1 failure, 45 skips. `test_high_fresh_metadata` passed in that run.
+- Missing discovery produces sample=None. The first 17999 assertion accepts False without detecting missing evidence; the subsequent 18000 assertion reuses the empty cached path and fails. Production does not assert high usage when transcript evidence is unavailable.
+- A deterministic owned real `TranscriptDeltaDeliveryService` acquires the fixture's replacement worker before its first scan. The unchanged `test_high_fresh_metadata` fails at the identical line 21 in 10/10 cases. All test-owned pollers stop afterward. Evidence: `.local/safeguard-owned-poller-before.json`; harness `.local/safeguard_owned_poller.py`.
+
+# Fixture correction
+
+`tests/test_runtime_compaction_binding.py:35` checks the already-loaded facade in `sys.modules`, stops only its in-process `_TRANSCRIPT_DELIVERY_SERVICE`, and asserts its thread exited before creating the fixture's scanner. No facade import is added. Existing per-fixture scanner and explicit Claude home patches are preserved. No production code is modified.
+
+# Verification
+
+- Before correction: 200 normal repetitions passed, confirming that isolated green runs alone do not close the failure. Maximum observed discovery scan 9.364 ms. Evidence `.local/safeguard-normal-before.jsonl`.
+- Before correction: held discovery worker reproduces original line-21 failure; `.local/safeguard-blocked-before.jsonl`.
+- Before correction: foreign worker occupation reproduces original line-21 failure in 42 ms; `.local/safeguard-foreign-before.jsonl`.
+- Diagnostic alternative only, not committed: pinning fixture-known transcript path passed 100/100 foreign-worker cases. Production/path pinning was not adopted. Evidence `.local/safeguard-foreign-pin.jsonl`.
+- Before correction: instrumented supported full unit group passed 3321 tests, 51 skips, in 380.258 s (task `b1n4bi9aj`). This did not refute the contention; its trace recorded an immediate busy worker refusal.
+- Before correction: full class caller-stack prefix passed 1109 tests, 45 skips, in 184.168 s (task `b9w7bzgkf`) while recording foreign poller acquisition and main-thread refusal.
+- After correction: deterministic real owned-poller collision passed 100/100, all pollers verified stopped; `.local/safeguard-owned-poller-after.json`.
+- After correction: both focused files passed 37 tests in 3.581 s under pre-import runtime isolation. Runtime output includes actual `/compact` pipe write and exactly-once pending-input delivery assertions.
+- After correction: 10 repeated focused runs passed 370/370 assertions in 28.484 s; `.local/safeguard-focused-after.txt` and `.local/run_safeguard_focus.py` preserve execution evidence and the pre-import isolation runner.
+- After correction: supported uninstrumented full unit group task `b30xocvhn` passed 3320 tests, 51 skips, in 378.431 s. Evidence `unit-after.txt`. Its observed count differs from the earlier 3321; this fixture-only patch changes no test count. The team lead later reported the reconciliation (not independently verified here): the unused `test_side_context.py` prototype (1 test) was removed, and the clean staged export excludes one preexisting unrelated inbox test, giving 3321 -> 3320 -> 3319. The team lead's staged-export pass (task `b8ifkihzt`, 3319 tests, 50 skips) ran with this fixture guard present, so it is a post-fix run.
+- Archived harness `owned_poller_repro.py` was re-executed from its durable location: 10/10 pass, all owned pollers stopped; `archived-harness-after.json`.
+- Focused `git diff --check` passed.
+- Deterministic OKF checker `check_concept` applied directly to this `.okf` file: 1 concept, 0 errors, 0 warnings. The directory CLI ignores `.okf` suffixes, so its initial zero-concept result was not relied on.
+
+# Durable evidence copies
+
+The original failure output, deterministic before/after runs, focused repeat output, and caller-stack trace are copied alongside this journal as `original-unit-failure.txt`, `owned-poller-before.json`, `owned-poller-after.json`, `focused-after.txt`, and `prefix-attribution.jsonl`. `unit-after.txt` records the supported full regression pass. The original temporary evidence was not removed or overwritten.
+
+Re-execute the owned real-poller diagnostic from the worktree with `python docs/journal/2026/11/06/diagnostics/safeguard-fixture/owned_poller_repro.py --repeat 10 --output .local/safeguard-recheck.json`. The script clears inherited runtime identity variables and calls `isolate_runtime_state()` before importing tests or the facade.
+
+# Limitations
+
+The original failure did not preserve state, so its precise timing is not proven. The mechanism is nevertheless reproduced deterministically at the same assertion with a real owned poller and observed in the supported original unit sequence. Parallel owned CLI E2Es were not rerun. No live configuration, router, process, or session was stopped. Existing per-fixture scanner daemon threads remain alive until test-process exit; that separate lifecycle observation was not changed or asserted as the cause.

@@ -36,8 +36,26 @@ def runtime_package_spec(current_version: str) -> str:
     stable release.
     """
 
-    tag = "nightly" if "-nightly." in str(current_version or "") else "latest"
+    tag = runtime_release_channel(current_version)
     return f"{RUNTIME_PACKAGE_NAME}@{tag}"
+
+
+def runtime_release_channel(version: str) -> str:
+    value = str(version or '')
+    if '-beta.' in value:
+        return 'beta'
+    return 'nightly' if '-nightly.' in value else 'latest'
+
+
+def runtime_update_allowed(latest: str, current: str) -> bool:
+    """Compare validated runtime versions only inside the current release channel."""
+    pattern = r'^(\d+)\.(\d+)\.(\d+)(?:-(beta|nightly)\.(\d{8})-(\d{6})\.([0-9a-f]+))?$'
+    target, installed = re.fullmatch(pattern, latest), re.fullmatch(pattern, current)
+    if target is None or installed is None or target[4] != installed[4]:
+        return False
+    def order(match):
+        return tuple(int(match[i] or 0) for i in (1, 2, 3, 5, 6))
+    return order(target) > order(installed)
 
 
 def npm_latest_package_version(
@@ -47,6 +65,8 @@ def npm_latest_package_version(
         process = subprocess.run(
             [npm, "view", package_spec, "version"],
             text=True,
+            encoding="utf-8",
+            errors="replace",
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             timeout=timeout,
@@ -68,6 +88,8 @@ def npm_global_package_root(
         process = subprocess.run(
             [npm, "root", "-g"],
             text=True,
+            encoding="utf-8",
+            errors="replace",
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             timeout=timeout,
@@ -167,6 +189,8 @@ def executable_version(executable: str, timeout: float = 8.0) -> str:
         process = subprocess.run(
             [executable, "--version"],
             text=True,
+            encoding="utf-8",
+            errors="replace",
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             timeout=timeout,
@@ -188,6 +212,8 @@ def run_upgrade_command(
         process = subprocess.run(
             command,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             input="y\n",
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,

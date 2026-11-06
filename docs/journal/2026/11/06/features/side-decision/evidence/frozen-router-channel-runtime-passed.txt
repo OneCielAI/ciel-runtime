@@ -1,0 +1,65 @@
+All checks passed!
+Documentation metadata checks passed (30 Markdown files).
+Running router test group (113 files)
+...........................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................responses_loopback failure=timeout retries=2 success=True upstream_hits=2 http_status=200 status_blocks=1 sse_error_frames=0 bytes=211
+responses_loopback failure=timeout retries=2 success=False upstream_hits=3 http_status=504 status_blocks=1 sse_error_frames=1 bytes=108
+responses_loopback failure=timeout retries=0 success=False upstream_hits=1 http_status=504 status_blocks=1 sse_error_frames=1 bytes=108
+responses_loopback failure=504 retries=2 success=True upstream_hits=2 http_status=200 status_blocks=1 sse_error_frames=0 bytes=211
+responses_loopback failure=504 retries=2 success=False upstream_hits=3 http_status=504 status_blocks=1 sse_error_frames=1 bytes=230
+responses_loopback failure=504 retries=0 success=False upstream_hits=1 http_status=504 status_blocks=1 sse_error_frames=1 bytes=230
+Kimi Code OAuth login is required for first launch.
+..............................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+----------------------------------------------------------------------
+Ran 1529 tests in 671.294s
+
+OK
+Running channel test group (36 files)
+....sss.s....s.........ssssss............sssssssssssssssss....sss.....................................ss..................................s...ssssssssssssssssssssssss........ssss.....ssssssssssssssssss...................................................................................................................................................................................................................................................................................................................................................................................................................
+----------------------------------------------------------------------
+Ran 604 tests in 15.621s
+
+OK (skipped=80)
+Running runtime test group (35 files)
+................................Ciel Runtime AGY passthrough mapping:
+- --resume <session> -> --conversation <session>
+................................Ciel Runtime: restarting Codex app-server and TUI source=mcp reason=- thread=saved
+......Ciel Runtime: restarting Codex app-server and TUI source=mcp reason=deploy thread=01a0-saved
+..Ciel Runtime: restarting Codex app-server and TUI source=mcp reason=- thread=(new)
+...codex-remote needs a ws:// app-server listen address, got stdio://
+.Codex app-server port ws://127.0.0.1:19961 is still owned by another process; not starting a second server.
+.Ciel Runtime: restarting Codex app-server and TUI source=mcp reason=- thread=(new)
+...Codex app-server did not become ready at ws://127.0.0.1:19961; see C:\Users\djlov\AppData\Local\Temp\tmpeh2kmmtw\codex-remote\ws1\app-server.log
+.Ciel Runtime: restarting Codex app-server and TUI source=mcp reason=- thread=(new)
+.Ciel Runtime: restarting Codex app-server and TUI source=mcp reason=- thread=(new)
+.........................................................................................................Codex desktop app not found. Install it from the Microsoft Store (OpenAI Codex) or set CIEL_RUNTIME_CODEX_DESKTOP_EXE to its ChatGPT.exe.
+.Codex app-server ready: ws://127.0.0.1:9489
+Codex desktop app started. Close its window to end this session.
+.Codex app-server did not become ready at http://127.0.0.1:1/readyz; see C:\Users\djlov\AppData\Local\Temp\tmpkqh8ox3v\cfg\codex-desktop\ws1\logs\app-server.log
+............................ssss..............ss.........................s.......s.s.sssssss...........................Launching Codex App Server through Ciel Runtime.
+Codex App Server listen: ws://127.0.0.1:8899
+Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+.Launching Codex App Server through Ciel Runtime.
+Codex App Server listen: ws://127.0.0.1:8899
+Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+.Launching Codex App Server through Ciel Runtime.
+Codex App Server listen: ws://127.0.0.1:8899
+Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+.Launching Codex App Server through Ciel Runtime.
+Codex App Server listen: ws://127.0.0.1:8899
+Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+.s..s........s.....................................................................................................................................
+----------------------------------------------------------------------
+Ran 458 tests in 44.815s
+
+OK (skipped=19)
+Frozen release groups: {'router': 0, 'channel': 0, 'runtime': 0}
+
+[exited with code 0]

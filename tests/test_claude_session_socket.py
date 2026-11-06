@@ -81,7 +81,26 @@ class ClaudeSessionSocketTests(unittest.TestCase):
                 self.assertTrue(client.send('/btw_with_mcp {"text":"request","event_key":"source:1"}',
                                             [{'meta': {'_side_intake_admitted': True}}]))
             write.assert_not_called()
-            intake.assert_called_once_with('claude:session-one', 'request', 'source:1')
+            intake.assert_called_once_with('claude:session-one', 'request', 'source:1', {'source_kind': ''})
+
+    def test_side_web_reply_route_uses_original_message_not_parent_guess(self):
+        from ciel_runtime_support.claude_session_handoff import SessionHandoff
+        with tempfile.TemporaryDirectory() as raw:
+            target=r'\\\\.\\pipe\\LOCAL\\fixture-side'
+            intake=mock.Mock(return_value={'accepted':True,'item_id':None})
+            client=ClaudeSessionSocketClient(Path(raw),lambda *_:None,side_intake=intake)
+            client.configure(target)
+            record={'sessionId':'one','messagingSocketPath':target}
+            with mock.patch.object(client,'_read_peer_token',return_value='ab'*16), \
+                 mock.patch('ciel_runtime_support.claude_session_handoff.socket_handoff',return_value=SessionHandoff(record)), \
+                 mock.patch('ciel_runtime_support.claude_session_handoff._live_key',return_value=True):
+                self.assertTrue(client.send('/btw_with_mcp {"text":"q","event_key":"e"}',[
+                    {'id':42,'channel':'web','thread_id':'thread','meta':{'_side_intake_admitted':True,
+                     'source_kind':'web_chat','web_reply_token':'private'}}]))
+            route=intake.call_args.args[3]
+            self.assertEqual('42',route['parent_id'])
+            self.assertEqual('private',route['reply_token'])
+            self.assertEqual('thread',route['thread_id'])
 
     def test_side_intake_rejects_unverified_identity_without_fallback(self):
         from ciel_runtime_support.claude_session_handoff import SessionHandoff

@@ -9,7 +9,7 @@ from pathlib import Path
 import subprocess
 from typing import Callable
 
-from .npm_runtime import runtime_package_spec
+from .npm_runtime import RUNTIME_PACKAGE_NAME, runtime_package_spec, runtime_update_allowed
 
 
 def windows_executable_image_running(executable_name: str) -> bool:
@@ -194,20 +194,22 @@ class SelfUpdateLifecycle:
         if not npm:
             return False
         latest = self._ports.latest_version(npm, self.package_spec)
-        if not latest or not self._ports.version_newer(latest, self._current_version):
+        if not latest or not runtime_update_allowed(latest, self._current_version):
             return False
         self._print(
             f"Ciel Runtime update available: {self._current_version} -> {latest}; upgrading automatically."
         )
         package_root = self._ports.package_root()
         prefix = self._ports.prefix_from_root(package_root) if package_root else None
-        command = self._ports.install_command(npm, self.package_spec, prefix)
+        command = self._ports.install_command(npm, f'{RUNTIME_PACKAGE_NAME}@{latest}', prefix)
         if prefix is not None:
             self._print(f"Updating current Ciel Runtime install prefix: {prefix}")
         try:
             update = subprocess.run(
                 command,
                 text=True,
+                encoding="utf-8",
+                errors="replace",
                 input="y\n",
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,

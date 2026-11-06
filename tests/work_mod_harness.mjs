@@ -6,7 +6,7 @@ import { atom, read, update } from 'claude-code'
 const handlers = {}
 const sideHandlers = {}
 register((name, filter, handler) => {
-  if (filter?.command === 'btw_with_mcp') sideHandlers[name] = handler
+  if (filter?.command === 'btw_with_mcp' || filter?.requestId === 'ciel-side-intake') sideHandlers[name] = handler
   else handlers[name] = typeof filter === 'function' ? filter : handler
 })
 // The engine's claude-code helpers are stubbed by the pytest fixture: atoms
@@ -24,12 +24,14 @@ const text = value => ({ content: [{ type: 'text', text: typeof value === 'strin
 function host(respond) {
   const state = { session: 'S1', calls: 0, logs: [] }
   const $ = {
-    session: { id: async () => state.session },
-    mcp: { call: async (server, tool, args) => { state.calls++; return respond(tool, args, state) } },
+    session: { id: async () => state.session, model: async () => 'fixture-main' },
+    mcp: { connect: async () => ({}), call: async (server, tool, args) => { state.calls++; return respond(tool, args, state) } },
     ui: { invalidate() {}, toast() {}, log(t) { state.logs.push(t) }, open: async () => {}, ask: async () => 'Approve' },
     clock: { after() { return { cancel() {} } } },
     env: { get: async () => 'host-token' },
-    agent: { list: async () => state.agents || [] },
+    tool: { list: async () => [] },
+    agent: { list: async () => state.agents || [], register: async () => ({}),
+      spawn: async args => { if (args.subagentType !== 'ciel-work:side-intake') return {deny:'fixture'}; state.sideSpawn = args; return {agentId:'side1'} } },
     command: { register: async () => {} },
   }
   return { $, state }
@@ -46,6 +48,12 @@ const call = ($, agentId) => handlers['tool.call']($, { tool: 'Edit', agentId,
 const verdict = r => r?.decision === 'deny' ? 'deny: ' + r.reason : r?.deny ? 'deny: ' + r.deny : 'allow'
 
 const scenarios = {
+  async 'side-advice-stop'() {
+    const {$}=host(async()=>text({...snapshot(),auto_continue:false,side_handoffs:[{event_id:'event',item_id:'n2',summary:'P1 deadline',question:'Need decision'}]}))
+    const first = await handlers['classic.Stop']($,{session_id:'S1'},next({}))
+    const second = await handlers['classic.Stop']($,{session_id:'S1'},next({}))
+    return {...first,second}
+  },
   async 'side-mailbox-timeout-rearms'() {
     const timers = []
     const { $ } = host(async tool => {
@@ -66,7 +74,7 @@ const scenarios = {
     const { $ } = host(async tool => {
       if (tool === 'work_status') return text({ ...snapshot(), side_intake_enabled: true })
       if (tool === 'work_side_status') return text({ enabled: true, side_inbox_receipts: [] })
-      if (tool === 'work_side_drain') { drains++; return text([]) }
+      if (tool === 'work_side_claim') { drains++; return text({claim:null}) }
       return text({})
     })
     $.clock.after = (delay, callback) => { timers.push({ delay, callback }); return { cancel() {} } }
@@ -90,8 +98,7 @@ const scenarios = {
       if (tool === 'work_status') return text({ ...snapshot(), side_intake_enabled: true })
       if (tool === 'work_side_status') return text({ enabled: true, side_inbox_receipts: [
         { receipt_id: 'mail1', stage: 'received', recap: 'original request', item_id: null }] })
-      if (tool === 'work_side_drain') return text([
-        { receipt_id: 'mail1', stage: 'board_queued', recap: 'original request', item_id: 'n99' }])
+      if (tool === 'work_side_claim') return text({claim:{receipt_id:'mail1',generation:'g1',text:'original request',route:{},workload:{version:5,truncated:false,nodes:[],queue_order:[]}}})
       return text({})
     })
     $.clock.after = (delay, callback) => { timers.push({ delay, callback }); return { cancel() {} } }
@@ -411,6 +418,39 @@ const scenarios = {
     const result = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
     return { text: result?.block || '' }
   },
+  async 'side-receipt-redacted-refresh'() {
+    let hostOnly = true
+    const full = {receipt_id:'mail1',item_id:'n1',stage:'processed',original:'Private external question',
+      recap:'Private external question',result:{action:'answer',summary:'Looked up facts',reply:'Verified answer',delivery:'submitted',handoff:'not_required',version:5,
+        comparisons:{profile1:{state:'answered',profile:{mode:'recent',model:'comparison-model'},context:{selected_percent:41.5},usage:{input_tokens:100,cache_read_input_tokens:0}}}}}
+    const { $ } = host(async () => text({...snapshot(),side_inbox_receipts:[hostOnly ? full : {receipt_id:'mail1',stage:'processed',item_id:'n1',external_ack:'not_sent'}]}))
+    $.ui.resolve = () => ({Box: props=>props,Text: props=>props,Button: props=>props})
+    await handlers['command.run']($, {args:'status'})
+    hostOnly = false
+    await handlers['command.run']($, {args:'status'})
+    const pane = await sideHandlers['ui.render']($,{component:'Pane',requestId:'ciel-side-intake'},next(null))
+    return {pane}
+  },
+  async 'side-uncertain-retry-cancel-and-confirm'() {
+    const calls = []
+    const answers = ['Cancel','Send again (may duplicate)']
+    const receipt = {receipt_id:'mail1',stage:'processed',original:'Q',
+      result:{action:'answer',summary:'S',reply:'R',delivery:'uncertain',handoff:'not_required',version:1}}
+    const {$} = host(async(tool,args)=>{calls.push({tool,args});
+      if (tool === 'work_status') return text({...snapshot(),side_inbox_receipts:[receipt]})
+      if (tool === 'work_side_status') return text({enabled:true,side_inbox_receipts:[receipt]})
+      if (tool === 'work_side_claim') return text({claim:null})
+      return text({receipt})})
+    $.ui.ask = async()=>answers.shift()
+    $.ui.resolve = () => ({Box:props=>props,Text:props=>props,Button:props=>props})
+    await handlers['command.run']($,{args:'status'})
+    const pane = await sideHandlers['ui.render']($,{component:'Pane',requestId:'ciel-side-intake'},next(null))
+    const button = pane.children.flatMap(row=>row.children || []).find(child=>child.label === 'Retry reply…')
+    await button.onPress()
+    const before = calls.filter(row=>row.tool === 'work_side_retry_reply').length
+    await button.onPress()
+    return {before,retries:calls.filter(row=>row.tool === 'work_side_retry_reply').map(row=>row.args)}
+  },
   async 'side-receipt-visible'() {
     const board = { ...snapshot(), side_intake_receipts: [{ item_id: 'n77', recap: 'request recap' }] }
     const { $, state } = host(async () => text(board))
@@ -551,6 +591,19 @@ const scenarios = {
   async 'router-error'() {
     const { $ } = host(async () => ({ isError: true, content: [{ type: 'text', text: 'boom' }] }))
     return { first: verdict(await check($, 'agent-a')) }
+  },
+  async 'router-reconnected'() {
+    let attempts = 0
+    const {$,state} = host(async()=>{if (++attempts === 1) throw new Error('connection closed PRIVATE-TOKEN');return text(snapshot())})
+    let connections = 0
+    $.mcp.connect = async()=>{connections++;return {isConnected:true,server:'ciel-runtime-router'}}
+    return {first:verdict(await check($,'agent-a')),attempts,connections,logs:state.logs}
+  },
+  async 'router-auth-closed'() {
+    const {$,state} = host(async()=>{throw new Error('401 authentication PRIVATE-TOKEN')})
+    let connections = 0
+    $.mcp.connect = async()=>{connections++;return {isConnected:true,server:'ciel-runtime-router'}}
+    return {first:verdict(await check($,'agent-a')),connections,logs:state.logs}
   },
   async 'router-throws'() {
     const { $ } = host(async () => { throw new Error('no connected MCP tool') })

@@ -1,0 +1,131 @@
+{
+  "state": "verified_supported_paths_pending_beta_release",
+  "native_verified": {
+    "external_reply": "side-production-e8345713",
+    "second_mcp": "side-production-aae6736f",
+    "long_side_request": "side-production-2b65a7e5",
+    "heartbeats": 4,
+    "failed_reply_ui": "side-production-88498ded",
+    "settings_rows": 24,
+    "ctl_settings": 26,
+    "ctl_wrapper_calls": 7,
+    "full_board_profile": "side-production-c91657a3",
+    "recent_board_profile": "side-production-ca69bb75",
+    "board_items": 25,
+    "queued_goals": 24,
+    "retry_confirmation": "side-production-284ae00c",
+    "routed_full": "side-production-c7038ac3",
+    "routed_recent": "side-production-aca6baf8",
+    "shadow_four_profiles": "side-production-18e2312d",
+    "shadow_tool_denial": "side-production-3a6ef010",
+    "reviewed_recent": "side-production-de4b15df",
+    "reviewed_comparison": "side-production-12fe0ee8",
+    "recent_corpus_whole_board_comparison": "side-production-afaf7460",
+    "final_labeled_profiles": "side-production-04772971",
+    "handoff_receipt_reconciled": "side-production-122334d3"
+  },
+  "focused_tests": {
+    "side": 65,
+    "work_mcp": 26,
+    "work_hook": 42,
+    "architecture": 263,
+    "architecture_skipped": 42,
+    "beta_publish": 1,
+    "npm": 9,
+    "lifecycle": 9,
+    "updater": 5,
+    "launch": 51
+  },
+  "full_gate": {
+    "task": "bsfn9lmzg",
+    "state": "passed",
+    "unit": 3316,
+    "unit_skipped": 50,
+    "router": 1516,
+    "channel": 604,
+    "channel_skipped": 80,
+    "runtime": 458,
+    "runtime_skipped": 19,
+    "source_hashes_unchanged": true
+  },
+  "remaining": {
+    "full_recent_context": "Implemented on routed path; direct gateway unsupported; real provider counts required",
+    "comparison": "Four read-only profiles implemented; authorized API KEYS - SSE live combo has no_executable_targets/poolSize0",
+    "walkie_live_reply": "no connected Walkie MCP contract; operator binding infrastructure verified with owned fixtures",
+    "historical_router_call": "exact correlation not located"
+  },
+  "published": false,
+  "installed": false,
+  "live_restarts": false,
+  "board_projection_unit_gate": {
+    "task": "bc6kv9xmc",
+    "state": "passed",
+    "unit": 3317,
+    "skipped": 50
+  },
+  "context_gate": {
+    "task": "bhxi4dc9v",
+    "state": "passed",
+    "unit": 3319,
+    "unit_skipped": 50,
+    "router": 1526,
+    "channel": 604,
+    "channel_skipped": 80,
+    "runtime": 458,
+    "runtime_skipped": 19,
+    "note": "Before independently reproduced provider/hosted-tool and receipt overflow corrections"
+  },
+  "final_reviewed_gate": {
+    "task": "broo9p7wb",
+    "state": "failed",
+    "unit": 3321,
+    "unit_skipped": 50,
+    "failure": "test_model_compact_safeguard.SafeguardTests.test_high_fresh_metadata:21",
+    "later_groups": "not run due to &&"
+  },
+  "separate_remaining_gate": {
+    "task": "biovadxgk",
+    "state": "passed",
+    "router": 1528,
+    "channel": 604,
+    "channel_skipped": 80,
+    "runtime": 458,
+    "runtime_skipped": 19,
+    "note": "Before final handoff synchronization and pane labels; not final-source gate"
+  },
+  "final_focused": {
+    "tests": 112,
+    "state": "passed",
+    "package_files": 557,
+    "unused_prototypes_packaged": false
+  },
+  "frozen_release_gate": {
+    "snapshot": "release-tree-3b6a7f24",
+    "unit_task": "b8ifkihzt",
+    "remaining_task": "b2q1o3rcg",
+    "state": "passed",
+    "unit": 3319,
+    "unit_skipped": 50,
+    "router": 1529,
+    "channel": 604,
+    "channel_skipped": 80,
+    "runtime": 458,
+    "runtime_skipped": 19,
+    "safeguard_fixture_fix_included": true,
+    "native_run": "side-production-5369022f"
+  },
+  "python_minimum": {
+    "snapshot": "release-tree-29a7bee2",
+    "unit_task": "b0naq1gmq",
+    "state": "passed",
+    "unit": 3319,
+    "unit_skipped": 52,
+    "elapsed_seconds": 376.525,
+    "previous_gate": {"task":"b25rwl9oq","state":"failed","unit":3319,"skipped":52,"errors":5,"failures":1,"cause":"Windows child fixtures missing SystemRoot; separately reproduced and fixed"},
+    "side_tests": 64,
+    "side_state": "passed",
+    "encoding_tests": 17,
+    "encoding_passed_versions": ["3.10.6", "3.13.5", "3.14.2"],
+    "delta": "four Python-minimum test fixtures only; production unchanged"
+  }
+}

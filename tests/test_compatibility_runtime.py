@@ -41,6 +41,22 @@ class CompatibilityRuntimeProjectionTests(unittest.TestCase):
         self.assertTrue(probe.supports_permission_mode("claude"))
         run.assert_called_once()
 
+    def test_claude_help_capture_handles_utf8_under_cp949_default(self):
+        import subprocess
+        import sys
+        from unittest.mock import patch
+        observed = []
+
+        def run(command, **kwargs):
+            observed.append(kwargs)
+            return subprocess.run([sys.executable, '-c',
+                "import sys; sys.stdout.buffer.write(b'--permission-mode bypassPermissions \\xe2\\x9c\\x93\\xff')"], **kwargs)
+
+        with patch.object(subprocess.io, 'text_encoding', return_value='cp949'), patch.object(subprocess, '_text_encoding', return_value='cp949', create=True):
+            self.assertTrue(ClaudeCliCapabilityProbe({}, run).supports_permission_mode('owned-fixture'))
+        self.assertEqual('utf-8', observed[0]['encoding'])
+        self.assertEqual('replace', observed[0]['errors'])
+
     def test_claude_capability_probe_caches_failures(self):
         run = Mock(side_effect=OSError("missing"))
         probe = ClaudeCliCapabilityProbe({}, run)

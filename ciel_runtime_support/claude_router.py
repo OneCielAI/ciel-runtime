@@ -283,8 +283,27 @@ def handle_claude_messages_post(
     self = handler
     local_request = not is_remote_bridge_request(handler)
     raw_body = copy.deepcopy(body) if local_request else body
+    side_projected = False
+    if local_request and (getattr(self, 'headers', None) or {}).get('x-claude-code-agent-id'):
+        from .side_context_router import request_context, project as project_side_context, upstream_counter
+        from .side_context_projection import SideContextUnavailable
+        envelope = request_context(body)
+        if envelope is not None:
+            from .runtime_paths import WORKSPACE_STATE_DIR
+            identity = 'claude:' + str(self.headers.get('x-claude-code-session-id') or '')
+            try:
+                def counter(request):
+                    return upstream_counter(services, self, provider, pcfg, body.get('model'))(request)
+                body = project_side_context(WORKSPACE_STATE_DIR, identity,
+                    self.headers.get('x-claude-code-agent-id'), body, cfg, provider, counter)
+                side_projected = True
+            except (SideContextUnavailable, ValueError, OSError) as error:
+                router_log('WARN', 'side_context_unavailable reason=' + type(error).__name__)
+                write_json(self, {'type': 'error', 'error': {'type': 'invalid_request_error',
+                    'message': 'Side parent context unavailable; request retained. Verify routed capture, provider token counting and profile.'}}, 409)
+                return
     if local_request:
-        _update_tool_schema_registry(body.get("tools"))
+        _update_tool_schema_registry(raw_body.get("tools"))
     request_id = f"{os.getpid()}-{time.time_ns()}"
     event_bus.publish(
         level="info",
@@ -301,40 +320,49 @@ def handle_claude_messages_post(
         },
     )
     dump_request_for_trace(provider, path, body)
-    if local_request and maybe_handle_plan_mode_tool_choice(self, provider, pcfg, body):
+    if local_request and not side_projected and maybe_handle_plan_mode_tool_choice(self, provider, pcfg, body):
         event_bus.publish(level="info", category="plan_mode.short_circuit", message="plan mode tool choice handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
     if local_request:
         body = filter_blocked_tools(provider, pcfg, body)
         body = normalize_tool_choice_for_provider(provider, pcfg, body)
         write_context_usage(provider, pcfg, body, "messages")
-    if local_request and maybe_handle_router_debug_request(self, body):
+    if local_request and not side_projected and maybe_handle_router_debug_request(self, body):
         event_bus.publish(level="info", category="router_debug.short_circuit", message="router debug request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    if local_request and maybe_handle_version_request(self, body):
+    if local_request and not side_projected and maybe_handle_version_request(self, body):
         event_bus.publish(level="info", category="version.short_circuit", message="version request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    if local_request and maybe_handle_channel_clear_request(self, body):
+    if local_request and not side_projected and maybe_handle_channel_clear_request(self, body):
         event_bus.publish(level="info", category="channel_clear.short_circuit", message="channel backlog clear request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    if local_request and maybe_handle_import_session_request(self, body, client_runtime="claude"):
+    if local_request and not side_projected and maybe_handle_import_session_request(self, body, client_runtime="claude"):
         event_bus.publish(level="info", category="import_session.short_circuit", message="ImportSession request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    if local_request and maybe_handle_live_llm_options_request(self, body):
+    if local_request and not side_projected and maybe_handle_live_llm_options_request(self, body):
         event_bus.publish(level="info", category="llm_options.short_circuit", message="live LLM options request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    if local_request and maybe_handle_live_api_keys_request(self, body):
+    if local_request and not side_projected and maybe_handle_live_api_keys_request(self, body):
         event_bus.publish(level="info", category="api_keys.short_circuit", message="live API key request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    if local_request and maybe_handle_advisor_request(self, provider, pcfg, body):
+    if local_request and not side_projected and maybe_handle_advisor_request(self, provider, pcfg, body):
         event_bus.publish(level="info", category="advisor.short_circuit", message="advisor request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    if local_request:
+    if local_request and not side_projected:
         body = strip_autonomous_advisor_server_tools(provider, body)
     stream_scope = None
     if local_request:
         context_recovery.observe_request(provider, pcfg, raw_body, "claude", getattr(self, "headers", None))
         stream_scope = context_recovery.stream_scope(getattr(self, "headers", None), raw_body)
+        if (stream_scope is not None and cfg.get('work_side_intake', {}).get('enabled') is True
+                and (cfg.get('work_side_intake', {}).get('context_mode') in ('full', 'recent')
+                     or cfg.get('work_side_intake', {}).get('comparison_enabled') is True)):
+            from .side_context_store import SideContextStore
+            from .runtime_paths import WORKSPACE_STATE_DIR
+            try:
+                SideContextStore(WORKSPACE_STATE_DIR, 'claude:' + stream_scope.session_id).capture(raw_body, provider, stream_scope.epoch)
+            except (OSError, ValueError) as error:
+                router_log('WARN', 'side_parent_capture_unavailable reason=' + type(error).__name__)
         # Decided on the unmodified request, before pending input or the
         # outbound guard could change it; Claude Code compacts natively and
         # retries this same turn.
@@ -343,9 +371,10 @@ def handle_claude_messages_post(
             event_bus.publish(level="warning", category="context_recovery.local_rejection", message="over-budget request rejected before upstream", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
             write_json(self, dict(rejection), 400)
             return
-        body = body_with_pending_channel_messages(body)
-        body = body_with_channel_tool_result_context(body)
-        begin_pending_channel_delivery(self, body)
+        if not side_projected:
+            body = body_with_pending_channel_messages(body)
+            body = body_with_channel_tool_result_context(body)
+            begin_pending_channel_delivery(self, body)
     responses_projection_body = body
     early_sse: SemanticCompactionSSE | None = None
     compact_config = pcfg

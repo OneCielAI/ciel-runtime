@@ -1,0 +1,39 @@
+Validating plugin manifest: C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\ciel_runtime_support\claude_mods\ciel-work\.claude-plugin\plugin.json
+
+  ❯ types ./types/index.d.ts declares on $: nothing (no EngineInterface member)
+  ❯ types ./types/index.d.ts declares state: ciel-work.detail, ciel-work.panel
+
+Validating hooks: C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\ciel_runtime_support\claude_mods\ciel-work\hooks\hooks.json
+
+  ❯ ./register.js hooks: agent.spawn, session.start, prompt.attachment{type=plan_mode|plan_mode_exit}, turn.start, turn.complete, session.compact, classic.Stop, prompt.submit, command.run{command=btw_with_mcp}, command.run{command=work-mode}, tool.call, tool.check, session.end, ui.render{component=AbovePrompt}, ui.render{component=Pane, requestId=ciel-side-intake}, ui.render{component=Pane, requestId=work-details}, ui.render{component=SessionMode}
+  ❯ ./register.js answers its own command: command.run{command=btw_with_mcp}
+  ❯ ./register.js answers its own command: command.run{command=work-mode}
+  ❯ ./register.js gating hook without .catch: agent.spawn
+  ❯ ./register.js gating hook without .catch: session.compact
+  ❯ ./register.js gating hook without .catch: classic.Stop
+  ❯ ./register.js gating hook without .catch: prompt.submit
+  ❯ ./register.js gating hook without .catch: tool.call
+  ❯ ./register.js gating hook without .catch: tool.check
+  ❯ ./register.js calls: $.agent.list (via parallelRecovery, parallelToolCall, parallelTurnComplete), $.agent.register (via nextComparison, registerActor), $.agent.spawn (via nextComparison, parallelDirectSpawn, parallelStartReview, pollSide), $.clock.after (via btwBridge, completeSide, finishComparison, nextComparison, pollBusySideReceipts, pollSide, retryStart, scheduleIdleRefresh), $.command.register, $.command.run (via btwBridge), $.env.get (via callRouter, nextComparison, parallelCall, parallelToolCall, pollSide), $.mcp.call (via callRouter, focusItems, moveRoot, openDetails, parallelCall, planText, readSnapshot, submitReply), $.mcp.connect (via readSnapshot, startSide), $.session.append (via completeSide), $.session.id (via identityOf, sessionId), $.session.model (via pollSide), $.session.repo (via parallelAgentSpawn, parallelDirectSpawn), $.session.root (via parallelAgentSpawn, parallelDirectSpawn), $.session.send (via pollSide), $.state.get, $.state.set, $.tool.list (via registerAc… [+191 chars]
+  ❯ ./register.js env writes: nothing
+  ❯ ./register.js env reads: CIEL_RUNTIME_DIRECT_GATEWAY_ACTIVE, CIEL_RUNTIME_WORK_PARALLEL_HOST_TOKEN, CLAUDE_CODE_SUBAGENT_MODEL_FORCE
+  ❯ ./register.js state writes: ciel-work.detail, ciel-work.panel
+  ❯ ./register.js state reads: ciel-work.detail, ciel-work.panel
+
+Plugin directory checks for C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\ciel_runtime_support\claude_mods\ciel-work. The plugin directory is the catalog that plugins are submitted to; this is a subset of what it runs.
+
+⚠ Found 1 plugin directory warning:
+
+  ❯ .claude-plugin/plugin.json icon: No icon (ICON_MISSING). No icon found in the plugin. The validator looked for `icon` in plugin.json and for a file at .claude-plugin/icon.png or .svg, assets/icon.png or .svg, or a similar path.
+    Fix: Add a square PNG to the plugin folder at .claude-plugin/icon.png, or set `icon` in plugin.json to the path of a square PNG or JPEG in the plugin: 512 to 2048 px on each side, under 2 MB. SVG and WebP are not accepted. That file may become the listing icon only once: the first time the plugin is saved or submitted in the developer portal. Adding or changing it later does not change the icon.
+
+About these checks:
+
+  ❯ The repository root was taken to be C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel, the nearest parent folder with a .git folder or file. README.md and LICENSE were taken from it, because this plugin folder has none of its own. For a plugin submitted from a git repository, the repository root is the top folder of that repository, with only what is committed there, so check that the folder named above is that top folder.
+  ❯ hooks/hooks.json names a hooks module (a code file listed under `modules`). The plugin directory has rules of its own for such code, and these checks apply none of them, so passing here does not mean the directory accepts the plugin. The developer portal's own validation applies those rules.
+
+These plugin directory checks do not change the result below.
+
+The directory also runs a safety scan and a policy review that this command does not.
+
+✔ Validation passed

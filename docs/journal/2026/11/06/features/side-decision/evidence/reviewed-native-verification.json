@@ -1,0 +1,297 @@
+[
+  {
+    "run": "de4b15df",
+    "actual_native_cli": true,
+    "production_claude_router": true,
+    "provider": "owned loopback model/count fixture; not real tokenizer, cache or cost",
+    "answered_before_main_end": true,
+    "work_nodes": 25,
+    "pending": 0,
+    "external_sends": 1,
+    "main_original_absent": true,
+    "primary_context": {
+      "mode": "recent",
+      "requested_percent": 30,
+      "count_source": "provider_count_tokens",
+      "conversation_tokens": 16521,
+      "selected_tokens": 16521,
+      "selected_percent": 100.0,
+      "start": 0,
+      "thinking_blocks_omitted": 0,
+      "system_digest": "bddd7af30cea19c4c8834dc4f55dde581dd7d55bd239020c769db9f9e0a50677",
+      "tools_digest": "c34320a6aa31bfd743e7e556cd600361ed76675b6bc2306bf4fa36bb3c2fcfad",
+      "work_board_in_percentage": false,
+      "parent_captured_at": 1793985925.4097772,
+      "parent_digest": "cea7c8f773f66f48f7fd698afd429b1a3a10c931ce7bfc0581da1e3c915f37ea"
+    },
+    "shadow_profiles": [],
+    "shadow_work_snapshot_identical": false,
+    "shadow_work_nodes": null,
+    "raw_result_sha256": "a8207ca8a69b1ef96362c0ad5e737d46f9909a641e0db1b5e8c8586d0feeffc2",
+    "raw_records_sha256": "18ebc0b9edf22a35d2f95e610d1f63ee72e25db637bf53d109d910a771d935aa"
+  },
+  {
+    "run": "12fe0ee8",
+    "actual_native_cli": true,
+    "production_claude_router": true,
+    "provider": "owned loopback model/count fixture; not real tokenizer, cache or cost",
+    "answered_before_main_end": true,
+    "work_nodes": 1,
+    "pending": 0,
+    "external_sends": 1,
+    "main_original_absent": true,
+    "primary_context": {
+      "mode": "full",
+      "requested_percent": 100,
+      "count_source": "unavailable",
+      "conversation_tokens": null,
+      "selected_tokens": null,
+      "selected_percent": 100,
+      "start": 0,
+      "thinking_blocks_omitted": 0,
+      "system_digest": "895d4d05a02dccdd47eb6155d070099828db238e078edc046bdb2fce3c268902",
+      "tools_digest": "c34320a6aa31bfd743e7e556cd600361ed76675b6bc2306bf4fa36bb3c2fcfad",
+      "work_board_in_percentage": false,
+      "parent_captured_at": 1793985932.8563826,
+      "parent_digest": "8b2661f82287c39251ae7f7f084d6e443ccc7a85095c6fcabe7c38dbb2c1e729"
+    },
+    "shadow_profiles": [
+      {
+        "state": "answered",
+        "profile": {
+          "mode": "full",
+          "percent": 30,
+          "model": "claude-opus-5-5",
+          "shadow": true
+        },
+        "context": {
+          "mode": "full",
+          "requested_percent": 100,
+          "count_source": "unavailable",
+          "conversation_tokens": null,
+          "selected_tokens": null,
+          "selected_percent": 100,
+          "start": 0,
+          "thinking_blocks_omitted": 0,
+          "system_digest": "895d4d05a02dccdd47eb6155d070099828db238e078edc046bdb2fce3c268902",
+          "tools_digest": "c34320a6aa31bfd743e7e556cd600361ed76675b6bc2306bf4fa36bb3c2fcfad",
+          "work_board_in_percentage": false
+        },
+        "parent_digest": "8b2661f82287c39251ae7f7f084d6e443ccc7a85095c6fcabe7c38dbb2c1e729",
+        "work_applied": false,
+        "reply_sent": false
+      },
+      {
+        "state": "answered",
+        "profile": {
+          "mode": "recent",
+          "percent": 30,
+          "model": "claude-opus-5-5",
+          "shadow": true
+        },
+        "context": {
+          "mode": "recent",
+          "requested_percent": 30,
+          "count_source": "provider_count_tokens",
+          "conversation_tokens": 16483,
+          "selected_tokens": 16483,
+          "selected_percent": 100.0,
+          "start": 0,
+          "thinking_blocks_omitted": 0,
+          "system_digest": "895d4d05a02dccdd47eb6155d070099828db238e078edc046bdb2fce3c268902",
+          "tools_digest": "c34320a6aa31bfd743e7e556cd600361ed76675b6bc2306bf4fa36bb3c2fcfad",
+          "work_board_in_percentage": false
+        },
+        "parent_digest": "8b2661f82287c39251ae7f7f084d6e443ccc7a85095c6fcabe7c38dbb2c1e729",
+        "work_applied": false,
+        "reply_sent": false
+      },
+      {
+        "state": "answered",
+        "profile": {
+          "mode": "full",
+          "percent": 30,
+          "model": "fixture-side-model",
+          "shadow": true
+        },
+        "context": {
+          "mode": "full",
+          "requested_percent": 100,
+          "count_source": "unavailable",
+          "conversation_tokens": null,
+          "selected_tokens": null,
+          "selected_percent": 100,
+          "start": 0,
+          "thinking_blocks_omitted": 0,
+          "system_digest": "895d4d05a02dccdd47eb6155d070099828db238e078edc046bdb2fce3c268902",
+          "tools_digest": "c34320a6aa31bfd743e7e556cd600361ed76675b6bc2306bf4fa36bb3c2fcfad",
+          "work_board_in_percentage": false
+        },
+        "parent_digest": "8b2661f82287c39251ae7f7f084d6e443ccc7a85095c6fcabe7c38dbb2c1e729",
+        "work_applied": false,
+        "reply_sent": false
+      },
+      {
+        "state": "answered",
+        "profile": {
+          "mode": "recent",
+          "percent": 30,
+          "model": "fixture-side-model",
+          "shadow": true
+        },
+        "context": {
+          "mode": "recent",
+          "requested_percent": 30,
+          "count_source": "provider_count_tokens",
+          "conversation_tokens": 16483,
+          "selected_tokens": 16483,
+          "selected_percent": 100.0,
+          "start": 0,
+          "thinking_blocks_omitted": 0,
+          "system_digest": "895d4d05a02dccdd47eb6155d070099828db238e078edc046bdb2fce3c268902",
+          "tools_digest": "c34320a6aa31bfd743e7e556cd600361ed76675b6bc2306bf4fa36bb3c2fcfad",
+          "work_board_in_percentage": false
+        },
+        "parent_digest": "8b2661f82287c39251ae7f7f084d6e443ccc7a85095c6fcabe7c38dbb2c1e729",
+        "work_applied": false,
+        "reply_sent": false
+      }
+    ],
+    "shadow_work_snapshot_identical": true,
+    "shadow_work_nodes": 1,
+    "raw_result_sha256": "7d02c0160660f19337d5e507dab8d5c44518285701809e6c8ad026e6001f1683",
+    "raw_records_sha256": "0eaf541776562b3998425880044142ac86fb8542e7be1f4d5abcaeef04a5cf7e"
+  },
+  {
+    "run": "afaf7460",
+    "actual_native_cli": true,
+    "production_claude_router": true,
+    "provider": "owned loopback model/count fixture; not real tokenizer, cache or cost",
+    "answered_before_main_end": true,
+    "work_nodes": 25,
+    "pending": 0,
+    "external_sends": 1,
+    "main_original_absent": true,
+    "primary_context": {
+      "mode": "recent",
+      "requested_percent": 30,
+      "count_source": "provider_count_tokens",
+      "conversation_tokens": 77123,
+      "selected_tokens": 32024,
+      "selected_percent": 41.52328099269997,
+      "start": 2,
+      "thinking_blocks_omitted": 0,
+      "system_digest": "361dc0511d3e63569298a43d885235f1bee060eadec53d5c2b2e76d83cea88ca",
+      "tools_digest": "c34320a6aa31bfd743e7e556cd600361ed76675b6bc2306bf4fa36bb3c2fcfad",
+      "work_board_in_percentage": false,
+      "parent_captured_at": 1793986723.8839984,
+      "parent_digest": "f7c1cdd9670393e9c47a6d0d79a34a99efc2096cba5fbcdf30a0ec373932fd09"
+    },
+    "shadow_profiles": [
+      {
+        "state": "answered",
+        "profile": {
+          "mode": "full",
+          "percent": 30,
+          "model": "claude-opus-5-5",
+          "shadow": true
+        },
+        "context": {
+          "mode": "full",
+          "requested_percent": 100,
+          "count_source": "unavailable",
+          "conversation_tokens": null,
+          "selected_tokens": null,
+          "selected_percent": 100,
+          "start": 0,
+          "thinking_blocks_omitted": 0,
+          "system_digest": "361dc0511d3e63569298a43d885235f1bee060eadec53d5c2b2e76d83cea88ca",
+          "tools_digest": "c34320a6aa31bfd743e7e556cd600361ed76675b6bc2306bf4fa36bb3c2fcfad",
+          "work_board_in_percentage": false
+        },
+        "parent_digest": "f7c1cdd9670393e9c47a6d0d79a34a99efc2096cba5fbcdf30a0ec373932fd09",
+        "work_applied": false,
+        "reply_sent": false
+      },
+      {
+        "state": "answered",
+        "profile": {
+          "mode": "recent",
+          "percent": 30,
+          "model": "claude-opus-5-5",
+          "shadow": true
+        },
+        "context": {
+          "mode": "recent",
+          "requested_percent": 30,
+          "count_source": "provider_count_tokens",
+          "conversation_tokens": 77123,
+          "selected_tokens": 32024,
+          "selected_percent": 41.52328099269997,
+          "start": 2,
+          "thinking_blocks_omitted": 0,
+          "system_digest": "361dc0511d3e63569298a43d885235f1bee060eadec53d5c2b2e76d83cea88ca",
+          "tools_digest": "c34320a6aa31bfd743e7e556cd600361ed76675b6bc2306bf4fa36bb3c2fcfad",
+          "work_board_in_percentage": false
+        },
+        "parent_digest": "f7c1cdd9670393e9c47a6d0d79a34a99efc2096cba5fbcdf30a0ec373932fd09",
+        "work_applied": false,
+        "reply_sent": false
+      },
+      {
+        "state": "answered",
+        "profile": {
+          "mode": "full",
+          "percent": 30,
+          "model": "fixture-side-model",
+          "shadow": true
+        },
+        "context": {
+          "mode": "full",
+          "requested_percent": 100,
+          "count_source": "unavailable",
+          "conversation_tokens": null,
+          "selected_tokens": null,
+          "selected_percent": 100,
+          "start": 0,
+          "thinking_blocks_omitted": 0,
+          "system_digest": "361dc0511d3e63569298a43d885235f1bee060eadec53d5c2b2e76d83cea88ca",
+          "tools_digest": "c34320a6aa31bfd743e7e556cd600361ed76675b6bc2306bf4fa36bb3c2fcfad",
+          "work_board_in_percentage": false
+        },
+        "parent_digest": "f7c1cdd9670393e9c47a6d0d79a34a99efc2096cba5fbcdf30a0ec373932fd09",
+        "work_applied": false,
+        "reply_sent": false
+      },
+      {
+        "state": "answered",
+        "profile": {
+          "mode": "recent",
+          "percent": 30,
+          "model": "fixture-side-model",
+          "shadow": true
+        },
+        "context": {
+          "mode": "recent",
+          "requested_percent": 30,
+          "count_source": "provider_count_tokens",
+          "conversation_tokens": 77123,
+          "selected_tokens": 32024,
+          "selected_percent": 41.52328099269997,
+          "start": 2,
+          "thinking_blocks_omitted": 0,
+          "system_digest": "361dc0511d3e63569298a43d885235f1bee060eadec53d5c2b2e76d83cea88ca",
+          "tools_digest": "c34320a6aa31bfd743e7e556cd600361ed76675b6bc2306bf4fa36bb3c2fcfad",
+          "work_board_in_percentage": false
+        },
+        "parent_digest": "f7c1cdd9670393e9c47a6d0d79a34a99efc2096cba5fbcdf30a0ec373932fd09",
+        "work_applied": false,
+        "reply_sent": false
+      }
+    ],
+    "shadow_work_snapshot_identical": true,
+    "shadow_work_nodes": 25,
+    "raw_result_sha256": "b326ee8c2ffbce16d0bbd0e8ed182844f15e1ceeb331eae02c0ec1f3010eabe3",
+    "raw_records_sha256": "3eff9cb05286a48f369af57699ebfbc076d6aad884ebfca8b0977d25c24ad2f4"
+  }
+]

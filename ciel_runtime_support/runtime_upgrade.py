@@ -6,7 +6,7 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
-from .npm_runtime import runtime_package_spec
+from .npm_runtime import RUNTIME_PACKAGE_NAME, runtime_package_spec, runtime_release_channel, runtime_update_allowed
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,11 +52,16 @@ class RuntimeUpgradeService:
             return 1
         package_spec = runtime_package_spec(self.settings.runtime_version)
         latest = self.npm.latest_version(npm, package_spec)
-        if latest and not self.npm.version_newer(
-            latest, self.settings.runtime_version
-        ):
+        if not latest:
+            self.output(f"Ciel Runtime update skipped: selected channel lookup failed ({package_spec}).")
+            return 1
+        if runtime_release_channel(latest) != runtime_release_channel(self.settings.runtime_version):
+            self.output(f"Ciel Runtime update rejected: selected channel returned a different channel ({latest}).")
+            return 1
+        if not runtime_update_allowed(latest, self.settings.runtime_version):
             self.output(
-                f"Ciel Runtime is up to date ({self.settings.runtime_version})."
+                f"Ciel Runtime update not applied: no validated newer version in the selected channel "
+                f"({self.settings.runtime_version}; candidate {latest})."
             )
             return 0
         self.output(f"Updating Ciel Runtime to {latest or 'latest'}...")
@@ -65,7 +70,7 @@ class RuntimeUpgradeService:
         if install_prefix is not None:
             self.output(f"Updating current Ciel Runtime install prefix: {install_prefix}")
         return self._run_install(
-            self.npm.global_install_command(npm, package_spec, install_prefix),
+            self.npm.global_install_command(npm, f'{RUNTIME_PACKAGE_NAME}@{latest}', install_prefix),
             "Ciel Runtime",
             install_prefix,
         )

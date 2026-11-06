@@ -4347,7 +4347,7 @@ def should_use_channel_stdin_proxy(use_router_mode: bool, passthrough: list[str]
         return False
     claude_config = cfg.get("claude_code") if isinstance(cfg, dict) else {}
     return not (isinstance(claude_config, dict) and claude_config.get("web_chat_session_bridge") is False)
-_CLAUDE_SESSION_SOCKET = ClaudeSessionSocketClient(HOME, router_log, side_intake=lambda sid, text, key: runtime_intake(load_config, WORKSPACE_STATE_DIR, sid, text, key))
+_CLAUDE_SESSION_SOCKET = ClaudeSessionSocketClient(HOME, router_log, side_intake=lambda sid, text, key, route: runtime_intake(load_config, WORKSPACE_STATE_DIR, sid, text, key, route))
 def _default_channel_input_transport() -> str: return "session_socket"
 def _channel_pending_scan_limit() -> int: return channel_runtime_environment_policy().pending_scan_limit()
 def _channel_stdin_wake_batch_limit() -> int: return channel_runtime_environment_policy().wake_batch_limit()
@@ -4951,7 +4951,7 @@ def cli_parser_services() -> cli_parser.CliParserServices:
             settings=cli_parser.CliParserSettings(cmd_language, cmd_web_search, cmd_web_fetch, cmd_log_level, *event_settings_cli.handlers(event_settings_cli.EventSettingsCliPorts(load_config, save_config, external_event_receiver_service, lambda: set_remote_instruction_config('sync', ''), sync_all_remote_memories, print, lambda: USAGE_API_KEYS))),
             provider=cli_parser.CliParserProvider(cmd_ollama_native, cmd_ollama_options, cmd_provider_options, cmd_ollama_catalog, cmd_provider,
                                                   cmd_api_key, cmd_set_api_key, cmd_set_api_keys, cmd_base_url, {"copilot": cmd_copilot_oauth, "zai": cmd_zai_oauth}),
-            models=cli_parser.CliParserModels(cmd_model, cmd_advisor_model, cmd_models),
+            models=cli_parser.CliParserModels(cmd_model, cmd_advisor_model, cmd_models), work=cli_assembly.work_settings_command(load_config, save_config),
     ).services()
 
 def cli_application_context() -> CliApplicationContext:

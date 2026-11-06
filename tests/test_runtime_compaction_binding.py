@@ -32,9 +32,22 @@ def stamp(when):
 
 class BindingHarness(unittest.TestCase):
     def setUp(self):
+        # Earlier launch tests can leave the in-process delivery poller running;
+        # it would acquire this fixture's replacement global scanner as well.
+        delivery = getattr(sys.modules.get("ciel_runtime"), "_TRANSCRIPT_DELIVERY_SERVICE", None)
+        if delivery is not None:
+            delivery.stop(timeout=5)
+            self.assertFalse(delivery._thread and delivery._thread.is_alive(),
+                             "previous transcript poller is still running")
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
+        from ciel_runtime_support.channel_transcript_repository import _TranscriptScanWorker
+        # The fixture owns its transcript scan lifecycle. A different test's
+        # deliberately blocked shared scanner is not evidence about this file.
+        scanner = patch('ciel_runtime_support.channel_transcript_repository._TRANSCRIPT_SCAN_WORKER', _TranscriptScanWorker())
+        scanner.start()
+        self.addCleanup(scanner.stop)
         self.home = self.root / "home"
         # The exact-file runner provides its own safe Claude home. This fixture
         # owns a different home, so bind its transcript directory explicitly.

@@ -5,6 +5,23 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+### Beta: independent SSE processing
+
+- `btw_with_mcp` processes durable messages in a native side actor while the main
+  turn runs, uses available MCP tools under native permissions, answers without
+  adding Work roots, updates exact existing Work and submits bounded advice to
+  main. Receipt, decision, Work change and reply submission are separate states.
+- Routed `full` / provider-token-selected `recent` context preserves the parent
+  system and always includes the whole current Work board. Optional separate
+  models and read-only profile comparisons are selectable. Direct gateway
+  history projection is unsupported; actual cache/cost savings are not claimed.
+- Work controls are available in menus and `ciel-runtimectl work list/get/set`.
+  Operator-bound external reply connectors include explicit uncertain-send retry.
+  Main advice answers reconcile to the original durable receipt and display.
+- Beta, nightly and stable updates remain on their own npm dist-tag, install the
+  exact validated version and never silently fall back across channels. UTF8
+  subprocess capture replaces locale-dependent startup/version decoding.
+
 - Incomplete wake ownership history now holds external delivery with a rate-limited diagnostic instead of terminating the CLI at startup. Ownership and cursor checks remain fail-closed; history is not silently skipped or rewritten.
 
 - External runtime wake delivery now excludes durable terminal inputs, atomically preflights ownership batches, preserves existing submitted ownership, and defers pre-submit ownership conflicts without crashing the terminal proxy or advancing the cursor.

@@ -1940,6 +1940,10 @@ def main() -> int:
     while True:
         items = main_items()
         idx = max(0, min(idx, len(items) - 1))
+        if sub and sub.get('kind') == 'work-settings' and sub.get('items'):
+            from ciel_runtime_support.work_settings_menu import description
+            selected = sub['items'][max(0, min(sub.get('idx', 0), len(sub['items']) - 1))]
+            notice = [description(load_cfg(), selected['value'])] if selected['value'] != 'back' else []
         row_by_action = render(None, idx, sub, notice, checks)
         ch = read_menu_key()
 
@@ -2164,7 +2168,12 @@ def main() -> int:
                 elif sub['kind'] == 'work-settings':
                     from ciel_runtime_support.work_settings_menu import choices, description
                     notice = [description(load_cfg(), item['value'])]
-                    labels, values = choices(load_cfg(), item['value'])
+                    if item['value'] in ('work_side_intake_model', 'work_side_intake_comparison_model'):
+                        from ciel_runtime_support.side_model_menu import rows as side_model_rows
+                        models, _raw = get_models_for_current_provider()
+                        labels, values = side_model_rows(load_cfg(), ([mid for mid, _alias in models], [mid for mid, _alias in models]), field=item['value'].removeprefix('work_side_intake_'))
+                    else:
+                        labels, values = choices(load_cfg(), item['value'])
                     sub = {'kind': 'work-setting-choice', 'key': item['value'],
                            'title': item['label'], 'idx': 0, 'offset': 0,
                            'items': [{'value': value, 'label': label, 'current': False}

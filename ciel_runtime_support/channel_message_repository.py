@@ -48,10 +48,8 @@ def exclusive_file_lock(path: Path):
         if os.name == "nt":
             import msvcrt
 
-            lock_file.seek(0, os.SEEK_END)
-            if lock_file.tell() == 0:
-                lock_file.write(b"\0")
-                lock_file.flush()
+            # Windows permits locking beyond EOF. Do not initialize byte zero:
+            # concurrent first users can flush it while another holds its lock.
             lock_file.seek(0)
             try:
                 msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)

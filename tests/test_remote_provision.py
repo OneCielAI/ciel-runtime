@@ -1,6 +1,7 @@
 import hashlib
 import io
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -181,7 +182,8 @@ class RemoteProvisionTests(unittest.TestCase):
         body = b"pass\n"
         self.served[other] = body
         self.serve_manifest(steps=[{"id": "cdn", "shell": "python", "url": other, "sha256": sha(body)}])
-        result = self.provisioner(environ={"PROVISION_TOKEN": "t0k", "PATH": ""}).provision()
+        child_env = {key: os.environ[key] for key in ('SystemRoot',) if key in os.environ}
+        result = self.provisioner(environ={**child_env, "PROVISION_TOKEN": "t0k", "PATH": ""}).provision()
         self.assertEqual("ok", result.status, result.detail)
         self.assertEqual([(MANIFEST_URL, "Bearer t0k"), (other, None)], self.requests)
         missing = self.provisioner(environ={"PATH": ""}).provision()
