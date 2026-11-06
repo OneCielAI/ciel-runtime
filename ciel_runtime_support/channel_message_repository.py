@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from contextlib import contextmanager
 from datetime import datetime
-import errno
 import json
 from dataclasses import dataclass
 import os
@@ -14,6 +12,7 @@ import time
 import uuid
 
 from ciel_runtime_support.channel_message_policy import string_list
+from .durable_file_lock import ChannelFileLockBusy, exclusive_file_lock  # noqa: F401 - compatibility exports
 
 # Ids still visible in a damaged row; ignoring the row must not reissue them.
 _RECOVERABLE_ID = re.compile(
@@ -32,44 +31,6 @@ def _stat_identity(path: Path) -> tuple[int, int, int, int] | None:
     except FileNotFoundError:
         return None
     return (stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns)
-
-
-class ChannelFileLockBusy(OSError):
-    """A Windows advisory lock acquisition exhausted its bounded wait."""
-
-
-@contextmanager
-def exclusive_file_lock(path: Path):
-    """Hold a cross-platform advisory lock beside a repository artifact."""
-
-    path.parent.mkdir(parents=True, exist_ok=True)
-    lock_path = path.with_name(path.name + ".lock")
-    with lock_path.open("a+b") as lock_file:
-        if os.name == "nt":
-            import msvcrt
-
-            # Windows permits locking beyond EOF. Do not initialize byte zero:
-            # concurrent first users can flush it while another holds its lock.
-            lock_file.seek(0)
-            try:
-                msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
-            except OSError as exc:
-                if exc.errno in {errno.EACCES, errno.EAGAIN, errno.EDEADLK}:
-                    raise ChannelFileLockBusy(exc.errno, f"channel file lock acquisition busy: {lock_path}") from exc
-                raise
-            try:
-                yield
-            finally:
-                lock_file.seek(0)
-                msvcrt.locking(lock_file.fileno(), msvcrt.LK_UNLCK, 1)
-        else:
-            import fcntl
-
-            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
-            try:
-                yield
-            finally:
-                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
 
 @dataclass(frozen=True, slots=True)

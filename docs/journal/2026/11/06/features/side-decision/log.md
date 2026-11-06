@@ -2,6 +2,8 @@
 
 ## 2026-11-06
 
+- Published and installed beta3a71929 after CI success and exact tarball/source verification; stable/nightly unchanged. Installed native acceptance then failed on a Windows receipt replacement denial (fourth shadow missing), so release acceptance remains open. Real open-reader reproduction led to bounded local-only atomic replacement retries;100/100real collision repetitions and corrected native35433734 passed. Correction regression gates running; no live restart.
+
 - Frozen release export passed unit3319/50skip, router1529, channel604/80skip and runtime458/19skip. Actual native run5369022f used that exported product tree. Final profile labels,24menu rows and26ctl settings verified.
 - Independently verified safeguard fixture collision: old in-process poller shares the replacement global scanner; deterministic real-poller10/10fail before,100/100pass after fixture cleanup. The frozen gate already includes this test-only correction. Original failure's exact interleaving remains unknown.
 - Actual Python3.10 found two encoding-test compatibility defects; version-compatible mocks and a valid child environment fixed them,17focused tests passed on3.10/3.13/3.14. Full3.10unit gateb0naq1gmq passed3319/52skip on the final test-only corrected export; no publish yet.

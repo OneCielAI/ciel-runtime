@@ -1,0 +1,15 @@
+{
+  "writes": 200,
+  "readers": 4,
+  "reads": 16,
+  "read_errors": [
+    "PermissionError",
+    "PermissionError",
+    "PermissionError"
+  ],
+  "final_generation": 200,
+  "seconds": 0.2662708999996539,
+  "temporary_files": 0,
+  "write_error": null,
+  "reader_pause_seconds": 0.01
+}

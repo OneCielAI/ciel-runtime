@@ -35,8 +35,9 @@ class SideIntakeInbox:
     def _read_file(path: Path, limit: int | None = None) -> dict[str, Any] | None:
         if limit is None:
             limit = MAX_RECEIPT_BYTES if path.parent.parent.name == 'receipts' else MAX_EVENT_BYTES
+        from .durable_json_file import reader
         try:
-            with path.open('rb') as stream:
+            with reader(path) as stream:
                 raw = stream.read(limit + 1)
         except FileNotFoundError:
             return None

@@ -1,0 +1,16 @@
+{
+  "writers": 1,
+  "readers": 2,
+  "writes": 100,
+  "reader_results": [
+    {
+      "reads": 184
+    },
+    {
+      "reads": 276
+    }
+  ],
+  "seconds": 6.104546200003824,
+  "final_version": 100,
+  "live_runtime_touched": false
+}

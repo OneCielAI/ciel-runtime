@@ -1,5 +1,5 @@
 {
-  "state": "verified_supported_paths_pending_beta_release",
+  "state": "first_beta_published_installed_acceptance_failed_correction_in_validation",
   "native_verified": {
     "external_reply": "side-production-e8345713",
     "second_mcp": "side-production-aae6736f",
@@ -54,8 +54,11 @@
     "walkie_live_reply": "no connected Walkie MCP contract; operator binding infrastructure verified with owned fixtures",
     "historical_router_call": "exact correlation not located"
   },
-  "published": false,
-  "installed": false,
+  "published": true,
+  "installed": true,
+  "published_version": "0.2.51-beta.20261106-185033.3a71929",
+  "installed_native_acceptance": {"run":"side-production-f32d625b","state":"failed","primary_delivery":"submitted","persisted_shadows":3,"error":"Windows receipt replace PermissionError5"},
+  "correction_native": {"run":"side-production-35433734","state":"passed","shadow_profiles":4,"external_sends":1},
   "live_restarts": false,
   "board_projection_unit_gate": {
     "task": "bc6kv9xmc",

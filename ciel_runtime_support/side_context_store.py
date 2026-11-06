@@ -8,7 +8,7 @@ import uuid
 from pathlib import Path
 
 from .channel_message_repository import exclusive_file_lock
-from .durable_json_file import save
+from .durable_json_file import reader, save
 from .side_context_projection import SideContextUnavailable, digest
 
 MAX_BYTES = 64 * 1024 * 1024
@@ -32,7 +32,7 @@ class SideContextStore:
     @staticmethod
     def read(path):
         try:
-            with path.open('rb') as stream:
+            with reader(path) as stream:
                 raw = stream.read(MAX_BYTES + 1)
         except FileNotFoundError:
             return None

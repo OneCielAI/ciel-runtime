@@ -1,0 +1,37 @@
+----------------------------------------
+Exception occurred during processing of request from ('127.0.0.1', 49528)
+Traceback (most recent call last):
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 691, in process_request_thread
+    self.finish_request(request, client_address)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 361, in finish_request
+    self.RequestHandlerClass(request, client_address, self)
+  File "C:\Program Files\Python311\Lib\socketserver.py", line 755, in __init__
+    self.handle()
+  File "C:\Program Files\Python311\Lib\http\server.py", line 436, in handle
+    self.handle_one_request()
+  File "C:\Program Files\Python311\Lib\http\server.py", line 424, in handle_one_request
+    method()
+  File "C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\.local\side_production_e2e.py", line 82, in do_POST
+    else:result=dispatch_work_tool(ident,name,args,load_config=lambda:CONFIG,state_dir=RUN,respond=respond)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\.local\share\ciel-runtime-3a719290c58a0db69ff7d3792e60d73c5b79b90f\ciel_runtime_support\work_mcp_tools.py", line 296, in dispatch_work_tool
+    return respond(request_id, json.dumps(side_run(name, args, config, state_dir, identity, store), ensure_ascii=False))
+                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\.local\share\ciel-runtime-3a719290c58a0db69ff7d3792e60d73c5b79b90f\ciel_runtime_support\side_intake_mcp.py", line 86, in run
+    return {'receipt': side_comparison.record(state_dir, identity, args['receipt_id'], args['profile_id'], args.get('result'))}
+                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\.local\share\ciel-runtime-3a719290c58a0db69ff7d3792e60d73c5b79b90f\ciel_runtime_support\side_comparison.py", line 82, in record
+    inbox._save_file(inbox._event_path('receipts', receipt_id), row)
+  File "C:\Users\djlov\.local\share\ciel-runtime-3a719290c58a0db69ff7d3792e60d73c5b79b90f\ciel_runtime_support\side_intake_inbox.py", line 71, in _save_file
+    save(path, row)
+  File "C:\Users\djlov\.local\share\ciel-runtime-3a719290c58a0db69ff7d3792e60d73c5b79b90f\ciel_runtime_support\durable_json_file.py", line 18, in save
+    os.replace(temporary, path)
+PermissionError: [WinError 5] Access is denied: 'C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\side-production-f32d625b\\side-inboxes\\f52c1868d7b2a6e6be56078ea404a59719e2ac6efc7e4db9e17190001f72d146\\receipts\\34\\.34f012f3d727b5427bf87c8b4361978167ece7eedcfbb4c322ad912da71afb63.84532.1793991518979573800.tmp' -> 'C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\side-production-f32d625b\\side-inboxes\\f52c1868d7b2a6e6be56078ea404a59719e2ac6efc7e4db9e17190001f72d146\\receipts\\34\\34f012f3d727b5427bf87c8b4361978167ece7eedcfbb4c322ad912da71afb63.json'
+----------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\.local\side_production_e2e.py", line 276, in <module>
+    assert len(comparisons)==4,'Four read-only profiles did not settle'
+           ^^^^^^^^^^^^^^^^^^^
+AssertionError: Four read-only profiles did not settle
+
+[exited with code 1]

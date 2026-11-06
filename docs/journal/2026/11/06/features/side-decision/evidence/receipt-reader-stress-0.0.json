@@ -1,0 +1,14 @@
+{
+  "writes": 0,
+  "readers": 4,
+  "reads": 1293,
+  "read_errors": [],
+  "final_generation": 0,
+  "seconds": 0.05079259999911301,
+  "temporary_files": 0,
+  "write_error": {
+    "kind": "PermissionError",
+    "winerror": 5
+  },
+  "reader_pause_seconds": 0.0
+}

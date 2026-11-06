@@ -1,0 +1,11 @@
+{
+  "writes": 200,
+  "readers": 4,
+  "reads": 2730,
+  "read_errors": [],
+  "final_generation": 200,
+  "seconds": 42.721349800005555,
+  "temporary_files": 0,
+  "write_error": null,
+  "reader_pause_seconds": 0.01
+}

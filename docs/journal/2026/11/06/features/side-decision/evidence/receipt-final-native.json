@@ -1,0 +1,56 @@
+{
+  "run": "side-production-322efdca",
+  "product_home": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\receipt-release-4cff8d4f",
+  "resolved_before_main_end": true,
+  "work_nodes": 25,
+  "pending": 0,
+  "primary_delivery": "submitted",
+  "shadow_states": {
+    "0f2a205a3dbc803d": {
+      "state": "answered",
+      "profile": {
+        "mode": "full",
+        "percent": 30,
+        "model": "claude-opus-5-5",
+        "shadow": true
+      },
+      "work_applied": false,
+      "reply_sent": false
+    },
+    "a5905b1b92b358c7": {
+      "state": "answered",
+      "profile": {
+        "mode": "recent",
+        "percent": 30,
+        "model": "claude-opus-5-5",
+        "shadow": true
+      },
+      "work_applied": false,
+      "reply_sent": false
+    },
+    "9ff696877f041f0b": {
+      "state": "answered",
+      "profile": {
+        "mode": "full",
+        "percent": 30,
+        "model": "fixture-side-model",
+        "shadow": true
+      },
+      "work_applied": false,
+      "reply_sent": false
+    },
+    "0f3b1c9acdd2ea4c": {
+      "state": "answered",
+      "profile": {
+        "mode": "recent",
+        "percent": 30,
+        "model": "fixture-side-model",
+        "shadow": true
+      },
+      "work_applied": false,
+      "reply_sent": false
+    }
+  },
+  "external_sends": 1,
+  "result_sha256": "c502ddb9fd173b0d6cacbe8fff2c92aadf690fc433a80f9e8762b08bb838ffa7"
+}
