@@ -208,12 +208,12 @@ class TimeoutRouteTests(unittest.TestCase):
         self.check(s, 1)
         s.handler.send_response.assert_called_once_with(200)
 
-    def test_non_timeout_preheader_disconnect_does_not_replay(self):
+    def test_typed_preheader_disconnect_retries_before_downstream_output(self):
         s = self.fixture(["reset", "complete"], 3)
-        with self.assertRaises(http.client.RemoteDisconnected):
-            self.forward(s)
-        self.check(s, 1)
-        s.handler.send_response.assert_not_called()
+        self.forward(s)
+        self.check(s, 2)
+        s.handler.send_response.assert_called_once_with(200)
+        self.assertEqual(self.complete, s.handler.wfile.getvalue())
 
     def test_real_downstream_native_route_success_or_http504_sse(self):
         from ciel_runtime_support.openai_responses_router import _handle_provider_responses_route
