@@ -2,6 +2,7 @@
 
 ## 2026-11-06
 
+- Published and installed corrected betaa5794b4 after clean local/remote gates and exact registry verification. The new immutable snapshot passed installed native four-profile acceptance: whole25-item Work, one submitted primary reply, all four shadows answered, pending0. Stable/nightly remained unchanged and live routers retained their PIDs.
 - Published and installed beta3a71929 after CI success and exact tarball/source verification; stable/nightly unchanged. Installed native acceptance then failed on a Windows receipt replacement denial (fourth shadow missing), so release acceptance remains open. Real open-reader reproduction led to bounded local-only atomic replacement retries;100/100real collision repetitions and corrected native35433734 passed. Correction regression gates running; no live restart.
 
 - Frozen release export passed unit3319/50skip, router1529, channel604/80skip and runtime458/19skip. Actual native run5369022f used that exported product tree. Final profile labels,24menu rows and26ctl settings verified.

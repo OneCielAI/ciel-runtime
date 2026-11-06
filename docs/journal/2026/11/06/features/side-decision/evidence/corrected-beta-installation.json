@@ -1,0 +1,41 @@
+{
+  "commit": "a5794b443b99c64f756c7a9b0830e34ab5bdc336",
+  "ci": {
+    "run": 42284733097,
+    "conclusion": "success"
+  },
+  "publish": {
+    "run": 42284733096,
+    "conclusion": "success"
+  },
+  "installed": {
+    "version": "0.2.51-beta.20261106-201241.a5794b4",
+    "snapshot": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-a5794b443b99c64f756c7a9b0830e34ab5bdc336",
+    "matching_files": 558,
+    "commands_passed": 6,
+    "ctl_settings": 26
+  },
+  "live_routers": [
+    {
+      "port": 9487,
+      "pid": 95740,
+      "health": 200
+    },
+    {
+      "port": 9489,
+      "pid": 34792,
+      "health": 200
+    },
+    {
+      "port": 9505,
+      "pid": 29488,
+      "health": 200
+    },
+    {
+      "port": 9524,
+      "pid": 2664,
+      "health": 200
+    }
+  ],
+  "live_restarts": false
+}

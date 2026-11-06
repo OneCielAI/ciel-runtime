@@ -1,0 +1,1385 @@
+{
+  "run": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\side-production-fcc5e620",
+  "product_home": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-a5794b443b99c64f756c7a9b0830e34ab5bdc336",
+  "identity": "claude:92d93060-157c-426c-8ba8-cdda31184db6",
+  "resolved_before_main_end": true,
+  "nodes": 25,
+  "pending": 0,
+  "receipts": [
+    {
+      "receipt_id": "34f012f3d727b5427bf87c8b4361978167ece7eedcfbb4c322ad912da71afb63",
+      "accepted": true,
+      "duplicate": false,
+      "stage": "processed",
+      "item_id": null,
+      "recap": "SIDE QUESTION: answer now",
+      "original": "SIDE QUESTION: answer now",
+      "execution_approved": false,
+      "external_ack": "not_sent",
+      "processing": {
+        "owner": "side-1",
+        "generation": "54e2bd387872443a91ab9a428ea03cc9",
+        "lease_until": 1793996614.1786728,
+        "started_at": 1793996494.1786728
+      },
+      "result": {
+        "action": "answer",
+        "item_id": null,
+        "summary": "Side answer decision",
+        "reply": "Immediate answer",
+        "delivery": "submitted",
+        "execution_approved": false,
+        "handoff": "not_required",
+        "duplicate": false,
+        "version": 26,
+        "context": {
+          "mode": "recent",
+          "requested_percent": 30,
+          "count_source": "provider_count_tokens",
+          "conversation_tokens": 77100,
+          "selected_tokens": 32001,
+          "selected_percent": 41.505836575875485,
+          "start": 2,
+          "thinking_blocks_omitted": 0,
+          "system_digest": "33ab4598f6bd3da601694dbe580bf8cb54486ee69779e7c91f43e7a1de708679",
+          "tools_digest": "4797cdea61869850c8c2e7d7335f118b326a03d411af0db4f9dfa1164bd3afbb",
+          "work_board_in_percentage": false,
+          "parent_captured_at": 1793996492.3754733,
+          "parent_digest": "c9dc52bb97b8ca375a0aaae8cbdf527bdefd5b0b7948593b05deb8fb24ced989"
+        },
+        "usage": {
+          "input_tokens": 200,
+          "output_tokens": 20,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "model": "claude-opus-5-5"
+        },
+        "comparisons": {
+          "0f2a205a3dbc803d": {
+            "state": "answered",
+            "proposal": {
+              "decision": {
+                "action": "answer",
+                "summary": "Side answer decision",
+                "reply": "Immediate answer"
+              },
+              "expected_version": 26
+            },
+            "usage": {
+              "input_tokens": 100,
+              "output_tokens": 10,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0,
+              "model": "claude-opus-5-5"
+            },
+            "elapsed_ms": 249,
+            "context_key": "7280c61df92f476fa6ffa429f61ee36a",
+            "profile": {
+              "mode": "full",
+              "percent": 30,
+              "model": "claude-opus-5-5",
+              "shadow": true
+            },
+            "context": {
+              "mode": "full",
+              "requested_percent": 100,
+              "count_source": "unavailable",
+              "conversation_tokens": null,
+              "selected_tokens": null,
+              "selected_percent": 100,
+              "start": 0,
+              "thinking_blocks_omitted": 0,
+              "system_digest": "33ab4598f6bd3da601694dbe580bf8cb54486ee69779e7c91f43e7a1de708679",
+              "tools_digest": "4797cdea61869850c8c2e7d7335f118b326a03d411af0db4f9dfa1164bd3afbb",
+              "work_board_in_percentage": false
+            },
+            "parent_digest": "c9dc52bb97b8ca375a0aaae8cbdf527bdefd5b0b7948593b05deb8fb24ced989",
+            "recorded_at": 1793996495.720431,
+            "shadow": true,
+            "work_applied": false,
+            "reply_sent": false
+          },
+          "a5905b1b92b358c7": {
+            "state": "answered",
+            "proposal": {
+              "decision": {
+                "action": "answer",
+                "summary": "Side answer decision",
+                "reply": "Immediate answer"
+              },
+              "expected_version": 26
+            },
+            "usage": {
+              "input_tokens": 100,
+              "output_tokens": 10,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0,
+              "model": "claude-opus-5-5"
+            },
+            "elapsed_ms": 242,
+            "context_key": "98f3447356594b5ea2dc26e6a1ce7dff",
+            "profile": {
+              "mode": "recent",
+              "percent": 30,
+              "model": "claude-opus-5-5",
+              "shadow": true
+            },
+            "context": {
+              "mode": "recent",
+              "requested_percent": 30,
+              "count_source": "provider_count_tokens",
+              "conversation_tokens": 77100,
+              "selected_tokens": 32001,
+              "selected_percent": 41.505836575875485,
+              "start": 2,
+              "thinking_blocks_omitted": 0,
+              "system_digest": "33ab4598f6bd3da601694dbe580bf8cb54486ee69779e7c91f43e7a1de708679",
+              "tools_digest": "4797cdea61869850c8c2e7d7335f118b326a03d411af0db4f9dfa1164bd3afbb",
+              "work_board_in_percentage": false
+            },
+            "parent_digest": "c9dc52bb97b8ca375a0aaae8cbdf527bdefd5b0b7948593b05deb8fb24ced989",
+            "recorded_at": 1793996496.1426032,
+            "shadow": true,
+            "work_applied": false,
+            "reply_sent": false
+          },
+          "9ff696877f041f0b": {
+            "state": "answered",
+            "proposal": {
+              "decision": {
+                "action": "answer",
+                "summary": "Side answer decision",
+                "reply": "Immediate answer"
+              },
+              "expected_version": 26
+            },
+            "usage": {
+              "input_tokens": 100,
+              "output_tokens": 10,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0,
+              "model": "fixture-side-model"
+            },
+            "elapsed_ms": 194,
+            "context_key": "2eef8680a82e46e287cab7ef5bab4944",
+            "profile": {
+              "mode": "full",
+              "percent": 30,
+              "model": "fixture-side-model",
+              "shadow": true
+            },
+            "context": {
+              "mode": "full",
+              "requested_percent": 100,
+              "count_source": "unavailable",
+              "conversation_tokens": null,
+              "selected_tokens": null,
+              "selected_percent": 100,
+              "start": 0,
+              "thinking_blocks_omitted": 0,
+              "system_digest": "33ab4598f6bd3da601694dbe580bf8cb54486ee69779e7c91f43e7a1de708679",
+              "tools_digest": "4797cdea61869850c8c2e7d7335f118b326a03d411af0db4f9dfa1164bd3afbb",
+              "work_board_in_percentage": false
+            },
+            "parent_digest": "c9dc52bb97b8ca375a0aaae8cbdf527bdefd5b0b7948593b05deb8fb24ced989",
+            "recorded_at": 1793996496.5055954,
+            "shadow": true,
+            "work_applied": false,
+            "reply_sent": false
+          },
+          "0f3b1c9acdd2ea4c": {
+            "state": "answered",
+            "proposal": {
+              "decision": {
+                "action": "answer",
+                "summary": "Side answer decision",
+                "reply": "Immediate answer"
+              },
+              "expected_version": 26
+            },
+            "usage": {
+              "input_tokens": 100,
+              "output_tokens": 10,
+              "cache_read_input_tokens": 0,
+              "cache_creation_input_tokens": 0,
+              "model": "fixture-side-model"
+            },
+            "elapsed_ms": 204,
+            "context_key": "5ce02502ccc34f1b8c8d0655c147f8e1",
+            "profile": {
+              "mode": "recent",
+              "percent": 30,
+              "model": "fixture-side-model",
+              "shadow": true
+            },
+            "context": {
+              "mode": "recent",
+              "requested_percent": 30,
+              "count_source": "provider_count_tokens",
+              "conversation_tokens": 77100,
+              "selected_tokens": 32001,
+              "selected_percent": 41.505836575875485,
+              "start": 2,
+              "thinking_blocks_omitted": 0,
+              "system_digest": "33ab4598f6bd3da601694dbe580bf8cb54486ee69779e7c91f43e7a1de708679",
+              "tools_digest": "4797cdea61869850c8c2e7d7335f118b326a03d411af0db4f9dfa1164bd3afbb",
+              "work_board_in_percentage": false
+            },
+            "parent_digest": "c9dc52bb97b8ca375a0aaae8cbdf527bdefd5b0b7948593b05deb8fb24ced989",
+            "recorded_at": 1793996496.8655033,
+            "shadow": true,
+            "work_applied": false,
+            "reply_sent": false
+          }
+        }
+      }
+    }
+  ],
+  "records": [
+    {
+      "kind": "mcp",
+      "name": "work_parallel_status",
+      "args": {
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996492.1598616,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_parallel_status",
+      "args": {
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996492.2684639,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_status",
+      "args": {
+        "format": "json",
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": false,
+      "at": 1793996492.296822,
+      "main_busy": true
+    },
+    {
+      "kind": "model",
+      "session_header": "92d93060-157c-426c-8ba8-cdda31184db6",
+      "agent_header": null,
+      "model": "claude-opus-5-5",
+      "side": false,
+      "main_busy": true,
+      "at": 1793996492.389529,
+      "tools": [
+        "Agent",
+        "AskUserQuestion",
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "Edit",
+        "EnterPlanMode",
+        "EnterWorktree",
+        "ExitPlanMode",
+        "ExitWorktree",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "Monitor",
+        "NotebookEdit",
+        "Read",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "TaskStop",
+        "WaitForMcpServers",
+        "WebFetch",
+        "WebSearch",
+        "Workflow",
+        "Write",
+        "mcp__ciel-runtime-router__external_reply",
+        "mcp__ciel-runtime-router__send_message",
+        "mcp__ciel-runtime-router__work_discovery_pickup",
+        "mcp__ciel-runtime-router__work_execute",
+        "mcp__ciel-runtime-router__work_focus",
+        "mcp__ciel-runtime-router__work_live_settings",
+        "mcp__ciel-runtime-router__work_mode_set",
+        "mcp__ciel-runtime-router__work_node_add",
+        "mcp__ciel-runtime-router__work_node_remove",
+        "mcp__ciel-runtime-router__work_parallel_configure",
+        "mcp__ciel-runtime-router__work_parallel_event",
+        "mcp__ciel-runtime-router__work_parallel_run",
+        "mcp__ciel-runtime-router__work_parallel_status",
+        "mcp__ciel-runtime-router__work_plan_set",
+        "mcp__ciel-runtime-router__work_reorder",
+        "mcp__ciel-runtime-router__work_replan",
+        "mcp__ciel-runtime-router__work_select",
+        "mcp__ciel-runtime-router__work_side_claim",
+        "mcp__ciel-runtime-router__work_side_compare",
+        "mcp__ciel-runtime-router__work_side_context",
+        "mcp__ciel-runtime-router__work_side_drain",
+        "mcp__ciel-runtime-router__work_side_handoff",
+        "mcp__ciel-runtime-router__work_side_intake",
+        "mcp__ciel-runtime-router__work_side_renew",
+        "mcp__ciel-runtime-router__work_side_reply",
+        "mcp__ciel-runtime-router__work_side_resolve",
+        "mcp__ciel-runtime-router__work_side_retry_reply",
+        "mcp__ciel-runtime-router__work_side_settings",
+        "mcp__ciel-runtime-router__work_side_status",
+        "mcp__ciel-runtime-router__work_status",
+        "mcp__ciel-runtime-router__work_urgent"
+      ]
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_status",
+      "args": {
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996494.1410758,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_claim",
+      "args": {
+        "owner": "side-1",
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996494.169676,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_context",
+      "args": {
+        "model": "claude-opus-5-5",
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996494.291064,
+      "main_busy": true
+    },
+    {
+      "kind": "provider_count",
+      "path": "/provider/v1/messages/count_tokens",
+      "messages": 6
+    },
+    {
+      "kind": "provider_count",
+      "path": "/provider/v1/messages/count_tokens",
+      "messages": 4
+    },
+    {
+      "kind": "provider_count",
+      "path": "/provider/v1/messages/count_tokens",
+      "messages": 2
+    },
+    {
+      "kind": "model",
+      "session_header": "92d93060-157c-426c-8ba8-cdda31184db6",
+      "agent_header": "a571692ac82980575",
+      "model": "claude-opus-5-5",
+      "side": true,
+      "main_busy": true,
+      "at": 1793996494.642087,
+      "tools": [
+        "Agent",
+        "AskUserQuestion",
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "Edit",
+        "EnterPlanMode",
+        "EnterWorktree",
+        "ExitPlanMode",
+        "ExitWorktree",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "Monitor",
+        "NotebookEdit",
+        "Read",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "TaskStop",
+        "WaitForMcpServers",
+        "WebFetch",
+        "WebSearch",
+        "Workflow",
+        "Write",
+        "mcp__ciel-runtime-router__external_reply",
+        "mcp__ciel-runtime-router__send_message",
+        "mcp__ciel-runtime-router__work_discovery_pickup",
+        "mcp__ciel-runtime-router__work_execute",
+        "mcp__ciel-runtime-router__work_focus",
+        "mcp__ciel-runtime-router__work_live_settings",
+        "mcp__ciel-runtime-router__work_mode_set",
+        "mcp__ciel-runtime-router__work_node_add",
+        "mcp__ciel-runtime-router__work_node_remove",
+        "mcp__ciel-runtime-router__work_parallel_configure",
+        "mcp__ciel-runtime-router__work_parallel_event",
+        "mcp__ciel-runtime-router__work_parallel_run",
+        "mcp__ciel-runtime-router__work_parallel_status",
+        "mcp__ciel-runtime-router__work_plan_set",
+        "mcp__ciel-runtime-router__work_reorder",
+        "mcp__ciel-runtime-router__work_replan",
+        "mcp__ciel-runtime-router__work_select",
+        "mcp__ciel-runtime-router__work_side_claim",
+        "mcp__ciel-runtime-router__work_side_compare",
+        "mcp__ciel-runtime-router__work_side_context",
+        "mcp__ciel-runtime-router__work_side_drain",
+        "mcp__ciel-runtime-router__work_side_handoff",
+        "mcp__ciel-runtime-router__work_side_intake",
+        "mcp__ciel-runtime-router__work_side_renew",
+        "mcp__ciel-runtime-router__work_side_reply",
+        "mcp__ciel-runtime-router__work_side_resolve",
+        "mcp__ciel-runtime-router__work_side_retry_reply",
+        "mcp__ciel-runtime-router__work_side_settings",
+        "mcp__ciel-runtime-router__work_side_status",
+        "mcp__ciel-runtime-router__work_status",
+        "mcp__ciel-runtime-router__work_urgent"
+      ]
+    },
+    {
+      "kind": "mcp",
+      "name": "work_status",
+      "args": {
+        "format": "json",
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": false,
+      "at": 1793996494.6596482,
+      "main_busy": true
+    },
+    {
+      "kind": "model",
+      "session_header": "92d93060-157c-426c-8ba8-cdda31184db6",
+      "agent_header": "a571692ac82980575",
+      "model": "claude-opus-5-5",
+      "side": true,
+      "main_busy": true,
+      "at": 1793996494.8289802,
+      "tools": [
+        "Agent",
+        "AskUserQuestion",
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "Edit",
+        "EnterPlanMode",
+        "EnterWorktree",
+        "ExitPlanMode",
+        "ExitWorktree",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "Monitor",
+        "NotebookEdit",
+        "Read",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "TaskStop",
+        "WaitForMcpServers",
+        "WebFetch",
+        "WebSearch",
+        "Workflow",
+        "Write",
+        "mcp__ciel-runtime-router__external_reply",
+        "mcp__ciel-runtime-router__send_message",
+        "mcp__ciel-runtime-router__work_discovery_pickup",
+        "mcp__ciel-runtime-router__work_execute",
+        "mcp__ciel-runtime-router__work_focus",
+        "mcp__ciel-runtime-router__work_live_settings",
+        "mcp__ciel-runtime-router__work_mode_set",
+        "mcp__ciel-runtime-router__work_node_add",
+        "mcp__ciel-runtime-router__work_node_remove",
+        "mcp__ciel-runtime-router__work_parallel_configure",
+        "mcp__ciel-runtime-router__work_parallel_event",
+        "mcp__ciel-runtime-router__work_parallel_run",
+        "mcp__ciel-runtime-router__work_parallel_status",
+        "mcp__ciel-runtime-router__work_plan_set",
+        "mcp__ciel-runtime-router__work_reorder",
+        "mcp__ciel-runtime-router__work_replan",
+        "mcp__ciel-runtime-router__work_select",
+        "mcp__ciel-runtime-router__work_side_claim",
+        "mcp__ciel-runtime-router__work_side_compare",
+        "mcp__ciel-runtime-router__work_side_context",
+        "mcp__ciel-runtime-router__work_side_drain",
+        "mcp__ciel-runtime-router__work_side_handoff",
+        "mcp__ciel-runtime-router__work_side_intake",
+        "mcp__ciel-runtime-router__work_side_renew",
+        "mcp__ciel-runtime-router__work_side_reply",
+        "mcp__ciel-runtime-router__work_side_resolve",
+        "mcp__ciel-runtime-router__work_side_retry_reply",
+        "mcp__ciel-runtime-router__work_side_settings",
+        "mcp__ciel-runtime-router__work_side_status",
+        "mcp__ciel-runtime-router__work_status",
+        "mcp__ciel-runtime-router__work_urgent"
+      ]
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_resolve",
+      "args": {
+        "decision": {
+          "action": "answer",
+          "summary": "Side answer decision",
+          "reply": "Immediate answer"
+        },
+        "expected_version": 25,
+        "usage": {
+          "input_tokens": 200,
+          "output_tokens": 20,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "model": "claude-opus-5-5"
+        },
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996494.897483,
+      "main_busy": true
+    },
+    {
+      "kind": "resolution",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"receipt\": {\"receipt_id\": \"34f012f3d727b5427bf87c8b4361978167ece7eedcfbb4c322ad912da71afb63\", \"accepted\": true, \"duplicate\": false, \"stage\": \"processed\", \"item_id\": null, \"recap\": \"SIDE QUESTION: answer now\", \"original\": \"SIDE QUESTION: answer now\", \"execution_approved\": false, \"external_ack\": \"not_sent\", \"processing\": {\"owner\": \"side-1\", \"generation\": \"54e2bd387872443a91ab9a428ea03cc9\", \"lease_until\": 1793996614.1786728, \"started_at\": 1793996494.1786728}, \"result\": {\"action\": \"answer\", \"item_id\": null, \"summary\": \"Side answer decision\", \"reply\": \"Immediate answer\", \"delivery\": \"pending\", \"execution_approved\": false, \"handoff\": \"not_required\", \"duplicate\": false, \"version\": 26, \"context\": {\"mode\": \"recent\", \"requested_percent\": 30, \"count_source\": \"provider_count_tokens\", \"conversation_tokens\": 77100, \"selected_tokens\": 32001, \"selected_percent\": 41.505836575875485, \"start\": 2, \"thinking_blocks_omitted\": 0, \"system_digest\": \"33ab4598f6bd3da601694dbe580bf8cb54486ee69779e7c91f43e7a1de708679\", \"tools_digest\": \"4797cdea61869850c8c2e7d7335f118b326a03d411af0db4f9dfa1164bd3afbb\", \"work_board_in_percentage\": false, \"parent_captured_at\": 1793996492.3754733, \"parent_digest\": \"c9dc52bb97b8ca375a0aaae8cbdf527bdefd5b0b7948593b05deb8fb24ced989\"}, \"usage\": {\"input_tokens\": 200, \"output_tokens\": 20, \"cache_read_input_tokens\": 0, \"cache_creation_input_tokens\": 0, \"model\": \"claude-opus-5-5\"}}}, \"result\": {\"action\": \"answer\", \"item_id\": null, \"summary\": \"Side answer decision\", \"reply\": \"Immediate answer\", \"delivery\": \"pending\", \"execution_approved\": false, \"handoff\": \"not_required\", \"duplicate\": false, \"version\": 26, \"context\": {\"mode\": \"recent\", \"requested_percent\": 30, \"count_source\": \"provider_count_tokens\", \"conversation_tokens\": 77100, \"selected_tokens\": 32001, \"selected_percent\": 41.505836575875485, \"start\": 2, \"thinking_blocks_omitted\": 0, \"system_digest\": \"33ab4598f6bd3da601694dbe580bf8cb54486ee69779e7c91f43e7a1de708679\", \"tools_digest\": \"4797cdea61869850c8c2e7d7335f118b326a03d411af0db4f9dfa1164bd3afbb\", \"work_board_in_percentage\": false, \"parent_captured_at\": 1793996492.3754733, \"parent_digest\": \"c9dc52bb97b8ca375a0aaae8cbdf527bdefd5b0b7948593b05deb8fb24ced989\"}, \"usage\": {\"input_tokens\": 200, \"output_tokens\": 20, \"cache_read_input_tokens\": 0, \"cache_creation_input_tokens\": 0, \"model\": \"claude-opus-5-5\"}}}"
+          }
+        ],
+        "isError": false
+      },
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_reply",
+      "args": {
+        "receipt_id": "34f012f3d727b5427bf87c8b4361978167ece7eedcfbb4c322ad912da71afb63",
+        "state": "prepare",
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996495.043584,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_compare",
+      "args": {
+        "action": "plan",
+        "receipt_id": "34f012f3d727b5427bf87c8b4361978167ece7eedcfbb4c322ad912da71afb63",
+        "parent_model": "claude-opus-5-5",
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996495.0516183,
+      "main_busy": true
+    },
+    {
+      "kind": "reply_bridge_result",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"state\": \"submitting\", \"receipt_id\": \"34f012f3d727b5427bf87c8b4361978167ece7eedcfbb4c322ad912da71afb63\", \"attempt_id\": \"e04b366d3be54d5090edbaf25a53031c\", \"server\": \"ciel-runtime-router\", \"tool\": \"external_reply\", \"arguments\": {\"event\": \"external-event-one\", \"text\": \"Immediate answer\", \"kind\": \"reply\", \"receiver\": \"owned\"}}"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "kind": "mcp",
+      "name": "external_reply",
+      "args": {
+        "event": "external-event-one",
+        "text": "Immediate answer",
+        "kind": "reply",
+        "receiver": "owned"
+      },
+      "host_present": false,
+      "at": 1793996495.0664012,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_reply",
+      "args": {
+        "receipt_id": "34f012f3d727b5427bf87c8b4361978167ece7eedcfbb4c322ad912da71afb63",
+        "state": "submitted",
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996495.0754504,
+      "main_busy": true
+    },
+    {
+      "kind": "reply_bridge_result",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"receipt\": {\"receipt_id\": \"34f012f3d727b5427bf87c8b4361978167ece7eedcfbb4c322ad912da71afb63\", \"accepted\": true, \"duplicate\": false, \"stage\": \"processed\", \"item_id\": null, \"recap\": \"SIDE QUESTION: answer now\", \"original\": \"SIDE QUESTION: answer now\", \"execution_approved\": false, \"external_ack\": \"not_sent\", \"processing\": {\"owner\": \"side-1\", \"generation\": \"54e2bd387872443a91ab9a428ea03cc9\", \"lease_until\": 1793996614.1786728, \"started_at\": 1793996494.1786728}, \"result\": {\"action\": \"answer\", \"item_id\": null, \"summary\": \"Side answer decision\", \"reply\": \"Immediate answer\", \"delivery\": \"submitted\", \"execution_approved\": false, \"handoff\": \"not_required\", \"duplicate\": false, \"version\": 26, \"context\": {\"mode\": \"recent\", \"requested_percent\": 30, \"count_source\": \"provider_count_tokens\", \"conversation_tokens\": 77100, \"selected_tokens\": 32001, \"selected_percent\": 41.505836575875485, \"start\": 2, \"thinking_blocks_omitted\": 0, \"system_digest\": \"33ab4598f6bd3da601694dbe580bf8cb54486ee69779e7c91f43e7a1de708679\", \"tools_digest\": \"4797cdea61869850c8c2e7d7335f118b326a03d411af0db4f9dfa1164bd3afbb\", \"work_board_in_percentage\": false, \"parent_captured_at\": 1793996492.3754733, \"parent_digest\": \"c9dc52bb97b8ca375a0aaae8cbdf527bdefd5b0b7948593b05deb8fb24ced989\"}, \"usage\": {\"input_tokens\": 200, \"output_tokens\": 20, \"cache_read_input_tokens\": 0, \"cache_creation_input_tokens\": 0, \"model\": \"claude-opus-5-5\"}}}}"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_compare",
+      "args": {
+        "action": "context",
+        "receipt_id": "34f012f3d727b5427bf87c8b4361978167ece7eedcfbb4c322ad912da71afb63",
+        "parent_model": "claude-opus-5-5",
+        "profile_id": "0f2a205a3dbc803d",
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996495.1145873,
+      "main_busy": true
+    },
+    {
+      "kind": "model",
+      "session_header": "92d93060-157c-426c-8ba8-cdda31184db6",
+      "agent_header": "a4ffb611ee52df351",
+      "model": "claude-opus-5-5",
+      "side": true,
+      "main_busy": true,
+      "at": 1793996495.5906432,
+      "tools": [
+        "Agent",
+        "AskUserQuestion",
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "Edit",
+        "EnterPlanMode",
+        "EnterWorktree",
+        "ExitPlanMode",
+        "ExitWorktree",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "Monitor",
+        "NotebookEdit",
+        "Read",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "TaskStop",
+        "WaitForMcpServers",
+        "WebFetch",
+        "WebSearch",
+        "Workflow",
+        "Write",
+        "mcp__ciel-runtime-router__external_reply",
+        "mcp__ciel-runtime-router__send_message",
+        "mcp__ciel-runtime-router__work_discovery_pickup",
+        "mcp__ciel-runtime-router__work_execute",
+        "mcp__ciel-runtime-router__work_focus",
+        "mcp__ciel-runtime-router__work_live_settings",
+        "mcp__ciel-runtime-router__work_mode_set",
+        "mcp__ciel-runtime-router__work_node_add",
+        "mcp__ciel-runtime-router__work_node_remove",
+        "mcp__ciel-runtime-router__work_parallel_configure",
+        "mcp__ciel-runtime-router__work_parallel_event",
+        "mcp__ciel-runtime-router__work_parallel_run",
+        "mcp__ciel-runtime-router__work_parallel_status",
+        "mcp__ciel-runtime-router__work_plan_set",
+        "mcp__ciel-runtime-router__work_reorder",
+        "mcp__ciel-runtime-router__work_replan",
+        "mcp__ciel-runtime-router__work_select",
+        "mcp__ciel-runtime-router__work_side_claim",
+        "mcp__ciel-runtime-router__work_side_compare",
+        "mcp__ciel-runtime-router__work_side_context",
+        "mcp__ciel-runtime-router__work_side_drain",
+        "mcp__ciel-runtime-router__work_side_handoff",
+        "mcp__ciel-runtime-router__work_side_intake",
+        "mcp__ciel-runtime-router__work_side_renew",
+        "mcp__ciel-runtime-router__work_side_reply",
+        "mcp__ciel-runtime-router__work_side_resolve",
+        "mcp__ciel-runtime-router__work_side_retry_reply",
+        "mcp__ciel-runtime-router__work_side_settings",
+        "mcp__ciel-runtime-router__work_side_status",
+        "mcp__ciel-runtime-router__work_status",
+        "mcp__ciel-runtime-router__work_urgent"
+      ]
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_compare",
+      "args": {
+        "action": "record",
+        "receipt_id": "34f012f3d727b5427bf87c8b4361978167ece7eedcfbb4c322ad912da71afb63",
+        "parent_model": "claude-opus-5-5",
+        "profile_id": "0f2a205a3dbc803d",
+        "result": {
+          "state": "answered",
+          "proposal": {
+            "decision": {
+              "action": "answer",
+              "summary": "Side answer decision",
+              "reply": "Immediate answer"
+            },
+            "expected_version": 26
+          },
+          "usage": {
+            "input_tokens": 100,
+            "output_tokens": 10,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "model": "claude-opus-5-5"
+          },
+          "elapsed_ms": 249,
+          "context_key": "7280c61df92f476fa6ffa429f61ee36a"
+        },
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996495.6288679,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_compare",
+      "args": {
+        "action": "context",
+        "receipt_id": "34f012f3d727b5427bf87c8b4361978167ece7eedcfbb4c322ad912da71afb63",
+        "parent_model": "claude-opus-5-5",
+        "profile_id": "a5905b1b92b358c7",
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996495.7504644,
+      "main_busy": true
+    },
+    {
+      "kind": "provider_count",
+      "path": "/provider/v1/messages/count_tokens",
+      "messages": 6
+    },
+    {
+      "kind": "provider_count",
+      "path": "/provider/v1/messages/count_tokens",
+      "messages": 4
+    },
+    {
+      "kind": "provider_count",
+      "path": "/provider/v1/messages/count_tokens",
+      "messages": 2
+    },
+    {
+      "kind": "model",
+      "session_header": "92d93060-157c-426c-8ba8-cdda31184db6",
+      "agent_header": "a8fe9ec77453d6571",
+      "model": "claude-opus-5-5",
+      "side": true,
+      "main_busy": true,
+      "at": 1793996496.0289485,
+      "tools": [
+        "Agent",
+        "AskUserQuestion",
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "Edit",
+        "EnterPlanMode",
+        "EnterWorktree",
+        "ExitPlanMode",
+        "ExitWorktree",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "Monitor",
+        "NotebookEdit",
+        "Read",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "TaskStop",
+        "WaitForMcpServers",
+        "WebFetch",
+        "WebSearch",
+        "Workflow",
+        "Write",
+        "mcp__ciel-runtime-router__external_reply",
+        "mcp__ciel-runtime-router__send_message",
+        "mcp__ciel-runtime-router__work_discovery_pickup",
+        "mcp__ciel-runtime-router__work_execute",
+        "mcp__ciel-runtime-router__work_focus",
+        "mcp__ciel-runtime-router__work_live_settings",
+        "mcp__ciel-runtime-router__work_mode_set",
+        "mcp__ciel-runtime-router__work_node_add",
+        "mcp__ciel-runtime-router__work_node_remove",
+        "mcp__ciel-runtime-router__work_parallel_configure",
+        "mcp__ciel-runtime-router__work_parallel_event",
+        "mcp__ciel-runtime-router__work_parallel_run",
+        "mcp__ciel-runtime-router__work_parallel_status",
+        "mcp__ciel-runtime-router__work_plan_set",
+        "mcp__ciel-runtime-router__work_reorder",
+        "mcp__ciel-runtime-router__work_replan",
+        "mcp__ciel-runtime-router__work_select",
+        "mcp__ciel-runtime-router__work_side_claim",
+        "mcp__ciel-runtime-router__work_side_compare",
+        "mcp__ciel-runtime-router__work_side_context",
+        "mcp__ciel-runtime-router__work_side_drain",
+        "mcp__ciel-runtime-router__work_side_handoff",
+        "mcp__ciel-runtime-router__work_side_intake",
+        "mcp__ciel-runtime-router__work_side_renew",
+        "mcp__ciel-runtime-router__work_side_reply",
+        "mcp__ciel-runtime-router__work_side_resolve",
+        "mcp__ciel-runtime-router__work_side_retry_reply",
+        "mcp__ciel-runtime-router__work_side_settings",
+        "mcp__ciel-runtime-router__work_side_status",
+        "mcp__ciel-runtime-router__work_status",
+        "mcp__ciel-runtime-router__work_urgent"
+      ]
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_compare",
+      "args": {
+        "action": "record",
+        "receipt_id": "34f012f3d727b5427bf87c8b4361978167ece7eedcfbb4c322ad912da71afb63",
+        "parent_model": "claude-opus-5-5",
+        "profile_id": "a5905b1b92b358c7",
+        "result": {
+          "state": "answered",
+          "proposal": {
+            "decision": {
+              "action": "answer",
+              "summary": "Side answer decision",
+              "reply": "Immediate answer"
+            },
+            "expected_version": 26
+          },
+          "usage": {
+            "input_tokens": 100,
+            "output_tokens": 10,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "model": "claude-opus-5-5"
+          },
+          "elapsed_ms": 242,
+          "context_key": "98f3447356594b5ea2dc26e6a1ce7dff"
+        },
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996496.0625758,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_compare",
+      "args": {
+        "action": "context",
+        "receipt_id": "34f012f3d727b5427bf87c8b4361978167ece7eedcfbb4c322ad912da71afb63",
+        "parent_model": "claude-opus-5-5",
+        "profile_id": "9ff696877f041f0b",
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996496.1703236,
+      "main_busy": true
+    },
+    {
+      "kind": "model",
+      "session_header": "92d93060-157c-426c-8ba8-cdda31184db6",
+      "agent_header": "a4493627a7cddfc82",
+      "model": "fixture-side-model",
+      "side": true,
+      "main_busy": true,
+      "at": 1793996496.3979228,
+      "tools": [
+        "Agent",
+        "AskUserQuestion",
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "Edit",
+        "EnterPlanMode",
+        "EnterWorktree",
+        "ExitPlanMode",
+        "ExitWorktree",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "Monitor",
+        "NotebookEdit",
+        "Read",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "TaskStop",
+        "WaitForMcpServers",
+        "WebFetch",
+        "WebSearch",
+        "Workflow",
+        "Write",
+        "mcp__ciel-runtime-router__external_reply",
+        "mcp__ciel-runtime-router__send_message",
+        "mcp__ciel-runtime-router__work_discovery_pickup",
+        "mcp__ciel-runtime-router__work_execute",
+        "mcp__ciel-runtime-router__work_focus",
+        "mcp__ciel-runtime-router__work_live_settings",
+        "mcp__ciel-runtime-router__work_mode_set",
+        "mcp__ciel-runtime-router__work_node_add",
+        "mcp__ciel-runtime-router__work_node_remove",
+        "mcp__ciel-runtime-router__work_parallel_configure",
+        "mcp__ciel-runtime-router__work_parallel_event",
+        "mcp__ciel-runtime-router__work_parallel_run",
+        "mcp__ciel-runtime-router__work_parallel_status",
+        "mcp__ciel-runtime-router__work_plan_set",
+        "mcp__ciel-runtime-router__work_reorder",
+        "mcp__ciel-runtime-router__work_replan",
+        "mcp__ciel-runtime-router__work_select",
+        "mcp__ciel-runtime-router__work_side_claim",
+        "mcp__ciel-runtime-router__work_side_compare",
+        "mcp__ciel-runtime-router__work_side_context",
+        "mcp__ciel-runtime-router__work_side_drain",
+        "mcp__ciel-runtime-router__work_side_handoff",
+        "mcp__ciel-runtime-router__work_side_intake",
+        "mcp__ciel-runtime-router__work_side_renew",
+        "mcp__ciel-runtime-router__work_side_reply",
+        "mcp__ciel-runtime-router__work_side_resolve",
+        "mcp__ciel-runtime-router__work_side_retry_reply",
+        "mcp__ciel-runtime-router__work_side_settings",
+        "mcp__ciel-runtime-router__work_side_status",
+        "mcp__ciel-runtime-router__work_status",
+        "mcp__ciel-runtime-router__work_urgent"
+      ]
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_compare",
+      "args": {
+        "action": "record",
+        "receipt_id": "34f012f3d727b5427bf87c8b4361978167ece7eedcfbb4c322ad912da71afb63",
+        "parent_model": "claude-opus-5-5",
+        "profile_id": "9ff696877f041f0b",
+        "result": {
+          "state": "answered",
+          "proposal": {
+            "decision": {
+              "action": "answer",
+              "summary": "Side answer decision",
+              "reply": "Immediate answer"
+            },
+            "expected_version": 26
+          },
+          "usage": {
+            "input_tokens": 100,
+            "output_tokens": 10,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "model": "fixture-side-model"
+          },
+          "elapsed_ms": 194,
+          "context_key": "2eef8680a82e46e287cab7ef5bab4944"
+        },
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996496.4267986,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_status",
+      "args": {
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996496.4653652,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_claim",
+      "args": {
+        "owner": "side-1",
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996496.480148,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_compare",
+      "args": {
+        "action": "context",
+        "receipt_id": "34f012f3d727b5427bf87c8b4361978167ece7eedcfbb4c322ad912da71afb63",
+        "parent_model": "claude-opus-5-5",
+        "profile_id": "0f3b1c9acdd2ea4c",
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996496.5302482,
+      "main_busy": true
+    },
+    {
+      "kind": "provider_count",
+      "path": "/provider/v1/messages/count_tokens",
+      "messages": 6
+    },
+    {
+      "kind": "provider_count",
+      "path": "/provider/v1/messages/count_tokens",
+      "messages": 4
+    },
+    {
+      "kind": "provider_count",
+      "path": "/provider/v1/messages/count_tokens",
+      "messages": 2
+    },
+    {
+      "kind": "model",
+      "session_header": "92d93060-157c-426c-8ba8-cdda31184db6",
+      "agent_header": "a5faa94f8fa479379",
+      "model": "fixture-side-model",
+      "side": true,
+      "main_busy": true,
+      "at": 1793996496.7603898,
+      "tools": [
+        "Agent",
+        "AskUserQuestion",
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "Edit",
+        "EnterPlanMode",
+        "EnterWorktree",
+        "ExitPlanMode",
+        "ExitWorktree",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "Monitor",
+        "NotebookEdit",
+        "Read",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "TaskStop",
+        "WaitForMcpServers",
+        "WebFetch",
+        "WebSearch",
+        "Workflow",
+        "Write",
+        "mcp__ciel-runtime-router__external_reply",
+        "mcp__ciel-runtime-router__send_message",
+        "mcp__ciel-runtime-router__work_discovery_pickup",
+        "mcp__ciel-runtime-router__work_execute",
+        "mcp__ciel-runtime-router__work_focus",
+        "mcp__ciel-runtime-router__work_live_settings",
+        "mcp__ciel-runtime-router__work_mode_set",
+        "mcp__ciel-runtime-router__work_node_add",
+        "mcp__ciel-runtime-router__work_node_remove",
+        "mcp__ciel-runtime-router__work_parallel_configure",
+        "mcp__ciel-runtime-router__work_parallel_event",
+        "mcp__ciel-runtime-router__work_parallel_run",
+        "mcp__ciel-runtime-router__work_parallel_status",
+        "mcp__ciel-runtime-router__work_plan_set",
+        "mcp__ciel-runtime-router__work_reorder",
+        "mcp__ciel-runtime-router__work_replan",
+        "mcp__ciel-runtime-router__work_select",
+        "mcp__ciel-runtime-router__work_side_claim",
+        "mcp__ciel-runtime-router__work_side_compare",
+        "mcp__ciel-runtime-router__work_side_context",
+        "mcp__ciel-runtime-router__work_side_drain",
+        "mcp__ciel-runtime-router__work_side_handoff",
+        "mcp__ciel-runtime-router__work_side_intake",
+        "mcp__ciel-runtime-router__work_side_renew",
+        "mcp__ciel-runtime-router__work_side_reply",
+        "mcp__ciel-runtime-router__work_side_resolve",
+        "mcp__ciel-runtime-router__work_side_retry_reply",
+        "mcp__ciel-runtime-router__work_side_settings",
+        "mcp__ciel-runtime-router__work_side_status",
+        "mcp__ciel-runtime-router__work_status",
+        "mcp__ciel-runtime-router__work_urgent"
+      ]
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_compare",
+      "args": {
+        "action": "record",
+        "receipt_id": "34f012f3d727b5427bf87c8b4361978167ece7eedcfbb4c322ad912da71afb63",
+        "parent_model": "claude-opus-5-5",
+        "profile_id": "0f3b1c9acdd2ea4c",
+        "result": {
+          "state": "answered",
+          "proposal": {
+            "decision": {
+              "action": "answer",
+              "summary": "Side answer decision",
+              "reply": "Immediate answer"
+            },
+            "expected_version": 26
+          },
+          "usage": {
+            "input_tokens": 100,
+            "output_tokens": 10,
+            "cache_read_input_tokens": 0,
+            "cache_creation_input_tokens": 0,
+            "model": "fixture-side-model"
+          },
+          "elapsed_ms": 204,
+          "context_key": "5ce02502ccc34f1b8c8d0655c147f8e1"
+        },
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996496.7935061,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_status",
+      "args": {
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996498.514288,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_claim",
+      "args": {
+        "owner": "side-1",
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996498.529845,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_status",
+      "args": {
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996500.550138,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_claim",
+      "args": {
+        "owner": "side-1",
+        "session_id": "claude:92d93060-157c-426c-8ba8-cdda31184db6"
+      },
+      "host_present": true,
+      "at": 1793996500.561707,
+      "main_busy": true
+    }
+  ],
+  "comparisons": {
+    "0f2a205a3dbc803d": {
+      "state": "answered",
+      "proposal": {
+        "decision": {
+          "action": "answer",
+          "summary": "Side answer decision",
+          "reply": "Immediate answer"
+        },
+        "expected_version": 26
+      },
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 10,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "model": "claude-opus-5-5"
+      },
+      "elapsed_ms": 249,
+      "context_key": "7280c61df92f476fa6ffa429f61ee36a",
+      "profile": {
+        "mode": "full",
+        "percent": 30,
+        "model": "claude-opus-5-5",
+        "shadow": true
+      },
+      "context": {
+        "mode": "full",
+        "requested_percent": 100,
+        "count_source": "unavailable",
+        "conversation_tokens": null,
+        "selected_tokens": null,
+        "selected_percent": 100,
+        "start": 0,
+        "thinking_blocks_omitted": 0,
+        "system_digest": "33ab4598f6bd3da601694dbe580bf8cb54486ee69779e7c91f43e7a1de708679",
+        "tools_digest": "4797cdea61869850c8c2e7d7335f118b326a03d411af0db4f9dfa1164bd3afbb",
+        "work_board_in_percentage": false
+      },
+      "parent_digest": "c9dc52bb97b8ca375a0aaae8cbdf527bdefd5b0b7948593b05deb8fb24ced989",
+      "recorded_at": 1793996495.720431,
+      "shadow": true,
+      "work_applied": false,
+      "reply_sent": false
+    },
+    "a5905b1b92b358c7": {
+      "state": "answered",
+      "proposal": {
+        "decision": {
+          "action": "answer",
+          "summary": "Side answer decision",
+          "reply": "Immediate answer"
+        },
+        "expected_version": 26
+      },
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 10,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "model": "claude-opus-5-5"
+      },
+      "elapsed_ms": 242,
+      "context_key": "98f3447356594b5ea2dc26e6a1ce7dff",
+      "profile": {
+        "mode": "recent",
+        "percent": 30,
+        "model": "claude-opus-5-5",
+        "shadow": true
+      },
+      "context": {
+        "mode": "recent",
+        "requested_percent": 30,
+        "count_source": "provider_count_tokens",
+        "conversation_tokens": 77100,
+        "selected_tokens": 32001,
+        "selected_percent": 41.505836575875485,
+        "start": 2,
+        "thinking_blocks_omitted": 0,
+        "system_digest": "33ab4598f6bd3da601694dbe580bf8cb54486ee69779e7c91f43e7a1de708679",
+        "tools_digest": "4797cdea61869850c8c2e7d7335f118b326a03d411af0db4f9dfa1164bd3afbb",
+        "work_board_in_percentage": false
+      },
+      "parent_digest": "c9dc52bb97b8ca375a0aaae8cbdf527bdefd5b0b7948593b05deb8fb24ced989",
+      "recorded_at": 1793996496.1426032,
+      "shadow": true,
+      "work_applied": false,
+      "reply_sent": false
+    },
+    "9ff696877f041f0b": {
+      "state": "answered",
+      "proposal": {
+        "decision": {
+          "action": "answer",
+          "summary": "Side answer decision",
+          "reply": "Immediate answer"
+        },
+        "expected_version": 26
+      },
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 10,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "model": "fixture-side-model"
+      },
+      "elapsed_ms": 194,
+      "context_key": "2eef8680a82e46e287cab7ef5bab4944",
+      "profile": {
+        "mode": "full",
+        "percent": 30,
+        "model": "fixture-side-model",
+        "shadow": true
+      },
+      "context": {
+        "mode": "full",
+        "requested_percent": 100,
+        "count_source": "unavailable",
+        "conversation_tokens": null,
+        "selected_tokens": null,
+        "selected_percent": 100,
+        "start": 0,
+        "thinking_blocks_omitted": 0,
+        "system_digest": "33ab4598f6bd3da601694dbe580bf8cb54486ee69779e7c91f43e7a1de708679",
+        "tools_digest": "4797cdea61869850c8c2e7d7335f118b326a03d411af0db4f9dfa1164bd3afbb",
+        "work_board_in_percentage": false
+      },
+      "parent_digest": "c9dc52bb97b8ca375a0aaae8cbdf527bdefd5b0b7948593b05deb8fb24ced989",
+      "recorded_at": 1793996496.5055954,
+      "shadow": true,
+      "work_applied": false,
+      "reply_sent": false
+    },
+    "0f3b1c9acdd2ea4c": {
+      "state": "answered",
+      "proposal": {
+        "decision": {
+          "action": "answer",
+          "summary": "Side answer decision",
+          "reply": "Immediate answer"
+        },
+        "expected_version": 26
+      },
+      "usage": {
+        "input_tokens": 100,
+        "output_tokens": 10,
+        "cache_read_input_tokens": 0,
+        "cache_creation_input_tokens": 0,
+        "model": "fixture-side-model"
+      },
+      "elapsed_ms": 204,
+      "context_key": "5ce02502ccc34f1b8c8d0655c147f8e1",
+      "profile": {
+        "mode": "recent",
+        "percent": 30,
+        "model": "fixture-side-model",
+        "shadow": true
+      },
+      "context": {
+        "mode": "recent",
+        "requested_percent": 30,
+        "count_source": "provider_count_tokens",
+        "conversation_tokens": 77100,
+        "selected_tokens": 32001,
+        "selected_percent": 41.505836575875485,
+        "start": 2,
+        "thinking_blocks_omitted": 0,
+        "system_digest": "33ab4598f6bd3da601694dbe580bf8cb54486ee69779e7c91f43e7a1de708679",
+        "tools_digest": "4797cdea61869850c8c2e7d7335f118b326a03d411af0db4f9dfa1164bd3afbb",
+        "work_board_in_percentage": false
+      },
+      "parent_digest": "c9dc52bb97b8ca375a0aaae8cbdf527bdefd5b0b7948593b05deb8fb24ced989",
+      "recorded_at": 1793996496.8655033,
+      "shadow": true,
+      "work_applied": false,
+      "reply_sent": false
+    }
+  }
+}

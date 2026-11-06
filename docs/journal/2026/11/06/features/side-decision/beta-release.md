@@ -46,6 +46,14 @@ A real open-reader probe reproduced os.replace denial while preserving the old r
 
 Current live router health200 was confirmed for ports9487/9489/9505/9524 with PIDs95740/34792/29488/2664 before publication. Direct installed command checks also observed an existing Python3.14SyntaxWarning for return-in-finally in unchanged codex_app_server_session.py:417; both commands still returned the beta version. It is not the CP949reader exception and is not silently labelled fixed.
 
+# Corrected beta
+
+Commit `a5794b443b99c64f756c7a9b0830e34ab5bdc336` coordinates Windows side-context/mailbox readers and atomic replacements with a separate I/O lock, retains bounded retries for non-cooperating readers, and preserves read-only polling of absent nested receipts. Local final gates passed: Python 3.11 unit3325/50skip, Python 3.10 unit3325/52skip, router1529, channel604/80skip, runtime458/19skip. CI [42284733097](https://github.com/OneCielAI/ciel-runtime/actions/runs/42284733097) and beta publish [42284733096](https://github.com/OneCielAI/ciel-runtime/actions/runs/42284733096) both completed successfully at that exact head.
+
+Published corrected beta: `0.2.51-beta.20261106-201241.a5794b4`, gitHeada5794b443b99c64f756c7a9b0830e34ab5bdc336. The1,688,881-byte registry archive matched npm SHA512 integrity and504committed runtime source files. It was extracted to the new immutable snapshot `C:/Users/djlov/.local/share/ciel-runtime-a5794b443b99c64f756c7a9b0830e34ab5bdc336`; all558snapshot/global package files matched, six isolated installed commands passed, and the future-launch user home moved from the first beta snapshot to the corrected snapshot. Stable/latest and nightly tags remained unchanged. No live process was restarted; ports9487/9489/9505/9524 retained PIDs95740/34792/29488/2664 and returned health200 afterwards.
+
+Actual installed native run `side-production-fcc5e620` used that exact immutable snapshot. While the main turn was still running, it processed the external question against the whole25-item Work board, submitted exactly one primary reply, persisted all four full/recent × main/custom shadow answers with no Work/reply effects, and ended with pending0. The [installed corrected pane](evidence/installed-corrected-beta-native.png) is an actual ConPTY VT replay and visibly shows the committed delivery and all four profile states.
+
 # Limitations carried into beta
 
 Routed-only full/recent; provider count endpoint required; exact authorized API KEYS - SSE combo has no executable targets, so real cache/cost comparison is unavailable. No connected live Walkie reply contract, so recipient delivery is not claimed. Shadow result persistence is verified, but restart rescheduling of its in-memory queue is not. These are experimental boundaries, not silently completed requirements.

@@ -40,4 +40,4 @@ Frozen unit tests correctly rejected an import cycle: channel_message_repository
 
 # Release boundary
 
-Only a new beta will carry the correction. The already-installed3a71929snapshot is not edited in place; a corrected registry tarball must be verified and installed into a new immutable snapshot. Stable/latest and nightly remain untouched. Live routers must retain their PIDs and source snapshots.
+The correction shipped only through the new beta `0.2.51-beta.20261106-201241.a5794b4` at commit `a5794b443b99c64f756c7a9b0830e34ab5bdc336`. The already-installed3a71929snapshot was not edited in place; the corrected registry tarball was integrity/source verified and installed into the new immutable a5794b4snapshot. Stable/latest and nightly remained untouched. Live routers retained their PIDs and source snapshots.
