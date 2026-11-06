@@ -54,6 +54,44 @@ class TransientIntegrationTests(unittest.TestCase):
         self.assertEqual(COMPLETE, downstream.wfile.getvalue())
         downstream.send_response.assert_called_once_with(200)
 
+    def test_native_real_pre_response_disconnect_then_one_client_success(self):
+        import http.server
+        import socket
+        import threading
+        import urllib.request
+        from types import SimpleNamespace
+        from test_provider_responses_gateway_replay_guard import passthrough, COMPLETE, body
+        class Upstream(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *_args):
+                pass
+            def do_POST(self):
+                self.rfile.read(int(self.headers.get('content-length') or 0))
+                self.server.hits += 1
+                if self.server.hits == 1:
+                    self.connection.shutdown(socket.SHUT_RDWR)
+                    self.connection.close()
+                    return
+                self.send_response(200)
+                self.send_header('content-type', 'text/event-stream')
+                self.send_header('content-length', str(len(COMPLETE)))
+                self.end_headers()
+                self.wfile.write(COMPLETE)
+        server = http.server.ThreadingHTTPServer(('127.0.0.1', 0), Upstream)
+        server.hits = 0
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        downstream = SimpleNamespace(headers={}, wfile=io.BytesIO(),
+            send_response=mock.Mock(), end_headers=mock.Mock())
+        with mock.patch.object(transient_retry.time, 'sleep'):
+            passthrough(lambda req, timeout, **_: opener.open(req, timeout=timeout), []).forward(
+                downstream, 'cielairouter',
+                {'base_url': 'http://127.0.0.1:' + str(server.server_port)}, body())
+        self.assertEqual(2, server.hits)
+        self.assertEqual(COMPLETE, downstream.wfile.getvalue())
+        downstream.send_response.assert_called_once_with(200)
+
     def test_native_chat_rebuilds_url_and_headers_after_reselection(self):
         from types import SimpleNamespace
         from ciel_runtime_support.openai_chat_passthrough import OpenAIChatPassthrough, OpenAIChatPassthroughPorts

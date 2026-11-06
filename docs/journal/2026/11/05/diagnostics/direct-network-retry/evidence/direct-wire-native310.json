@@ -1,0 +1,78 @@
+[
+  {
+    "returncode": 0,
+    "stdout_tail": "ok",
+    "stderr_tail": "",
+    "elapsed_seconds": 1.42,
+    "case": {
+      "failures": 1,
+      "mode": "empty502"
+    },
+    "message_hits": 2,
+    "configured_retries": 3,
+    "cli_version": "2.1.310 (Claude Code)",
+    "retry_env": {
+      "CLAUDE_CODE_MAX_RETRIES": "3",
+      "CLAUDE_CODE_RETRY_WATCHDOG": "0",
+      "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES": "0",
+      "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK": "1"
+    }
+  },
+  {
+    "returncode": 0,
+    "stdout_tail": "ok",
+    "stderr_tail": "",
+    "elapsed_seconds": 1.38,
+    "case": {
+      "failures": 1,
+      "mode": "reset"
+    },
+    "message_hits": 2,
+    "configured_retries": 3,
+    "cli_version": "2.1.310 (Claude Code)",
+    "retry_env": {
+      "CLAUDE_CODE_MAX_RETRIES": "3",
+      "CLAUDE_CODE_RETRY_WATCHDOG": "0",
+      "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES": "0",
+      "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK": "1"
+    }
+  },
+  {
+    "returncode": 0,
+    "stdout_tail": "ok",
+    "stderr_tail": "",
+    "elapsed_seconds": 1.56,
+    "case": {
+      "failures": 1,
+      "mode": "sse200-error"
+    },
+    "message_hits": 2,
+    "configured_retries": 3,
+    "cli_version": "2.1.310 (Claude Code)",
+    "retry_env": {
+      "CLAUDE_CODE_MAX_RETRIES": "3",
+      "CLAUDE_CODE_RETRY_WATCHDOG": "0",
+      "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES": "0",
+      "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK": "1"
+    }
+  },
+  {
+    "returncode": 1,
+    "stdout_tail": "API Error: Stream ended without receiving any events",
+    "stderr_tail": "",
+    "elapsed_seconds": 0.88,
+    "case": {
+      "failures": 1,
+      "mode": "sse200-empty"
+    },
+    "message_hits": 1,
+    "configured_retries": 3,
+    "cli_version": "2.1.310 (Claude Code)",
+    "retry_env": {
+      "CLAUDE_CODE_MAX_RETRIES": "3",
+      "CLAUDE_CODE_RETRY_WATCHDOG": "0",
+      "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES": "0",
+      "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK": "1"
+    }
+  }
+]

@@ -409,6 +409,33 @@ class TransientRetryTests(unittest.TestCase):
             )
         self.assertEqual([1], calls)
 
+    def test_typed_pre_response_disconnect_spends_shared_retry_budget(self):
+        import http.client
+        for error in (ConnectionResetError(10054, 'connection reset'),
+                      http.client.RemoteDisconnected('no response'),
+                      urllib.error.URLError(ConnectionResetError(10054, 'connection reset'))):
+            with self.subTest(error=type(error).__name__):
+                budget = retry.TransientRetryBudget(1, 60)
+                self.assertIsNotNone(budget.timeout_wait(error))
+                self.assertIsNone(budget.timeout_wait(error))
+                budget = retry.TransientRetryBudget(3, 60, exposed=True)
+                self.assertIsNone(budget.timeout_wait(error))
+
+    def test_persistent_pre_response_disconnect_exhausts_one_budget(self):
+        calls = []
+        def opening():
+            calls.append(1)
+            raise ConnectionResetError(10054, 'reset before response')
+        with self.assertRaises(ConnectionResetError):
+            retry.open_with_transient_retry(opening, provider='cielairouter',
+                config={'gateway_retries': 2}, log=lambda *_: None, sleep=lambda _: None)
+        self.assertEqual(3, len(calls))
+        calls.clear()
+        with self.assertRaises(ConnectionResetError):
+            retry.open_with_transient_retry(opening, provider='cielairouter',
+                config={'gateway_retries': 0}, log=lambda *_: None, sleep=lambda _: None)
+        self.assertEqual(1, len(calls))
+
     def test_ambiguous_transport_is_never_retried(self):
         error = urllib.error.URLError("response lost")
         with self.assertRaises(urllib.error.URLError) as caught:

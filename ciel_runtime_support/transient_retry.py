@@ -4,8 +4,10 @@ The generation dispatcher enters request_scope; reusable config never owns a
 mutable budget. Typed TimeoutError (also inside URLError) during open may
 retry under that same budget. So may a DNS resolution failure or a refused
 connection: both fail during connection setup, before any request byte can
-reach the upstream, so replaying them cannot duplicate work. Other ambiguous
-transport failures (reset, broken pipe, TLS EOF) do not retry.
+reach the upstream, so replaying them cannot duplicate work. Typed connection
+reset/remote-disconnect during open also retry before a response is exposed,
+like open timeouts: upstream computation/billing may be duplicated. Broken pipe,
+TLS EOF and untyped transport failures do not authorize replay.
 A timeout does not prove the upstream did no work, so replay may duplicate
 upstream generation or billing. After message_start or any unknown generation
 frame, reads never reopen. Before that boundary, delayed explicit SSE rejections
@@ -49,6 +51,7 @@ from __future__ import annotations
 import contextlib
 import contextvars
 import io
+import http.client
 import json
 import math
 import socket
@@ -131,7 +134,7 @@ class TransientRetryBudget:
         return self._schedule_wait(headers)
 
     def timeout_wait(self, error: BaseException) -> float | None:
-        if retry_handled(error) or not (_typed_open_timeout(error) or _unsent_open_failure(error)):
+        if retry_handled(error) or not (_typed_open_timeout(error) or _unsent_open_failure(error) or _pre_response_disconnect(error)):
             return None
         return self._schedule_wait()
 
@@ -869,6 +872,16 @@ def _typed_open_timeout(error: BaseException) -> bool:
         isinstance(error, urllib.error.URLError) and isinstance(error.reason, TimeoutError))
 
 
+def _pre_response_disconnect(error: BaseException) -> bool:
+    """Typed disconnect during open; no response has been exposed to the CLI.
+
+    Like an open timeout, this can duplicate upstream computation or billing;
+    it does not prove the request was unsent. Read-time failures stay excluded.
+    """
+    reason = error.reason if isinstance(error, urllib.error.URLError) else error
+    return isinstance(reason, (ConnectionResetError, http.client.RemoteDisconnected))
+
+
 def _unsent_open_failure(error: BaseException) -> bool:
     """Connection setup failed before any request byte could reach the upstream."""
     reason = error
@@ -892,7 +905,7 @@ def _execute(open_once, budget, log, publish, sleep, cancelled, request, reselec
         except urllib.error.HTTPError as caught:
             error = caught
         except BaseException as caught:
-            if not (_typed_open_timeout(caught) or _unsent_open_failure(caught)):
+            if not (_typed_open_timeout(caught) or _unsent_open_failure(caught) or _pre_response_disconnect(caught)):
                 budget.stopped = True
                 _mark(caught, budget)
                 raise
@@ -950,7 +963,8 @@ def _execute(open_once, budget, log, publish, sleep, cancelled, request, reselec
             kind, status = "http_rejection", error.code
         else:
             wait = budget.timeout_wait(error)
-            kind = "transport_timeout" if _typed_open_timeout(error) else "transport_unsent"
+            kind = ("transport_timeout" if _typed_open_timeout(error) else
+                    "transport_disconnect" if _pre_response_disconnect(error) else "transport_unsent")
             status = None
         if wait is None:
             budget.stopped = True

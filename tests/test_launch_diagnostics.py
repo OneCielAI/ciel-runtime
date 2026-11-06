@@ -32,6 +32,16 @@ class LaunchCommandDiagnosticsTests(unittest.TestCase):
         self.assertIn("ANTHROPIC_API_KEY=masked:ey", messages)
         self.assertNotIn("secret-key", messages)
 
+    def test_claude_records_effective_native_retry_controls(self):
+        self.diagnostics.claude(['claude'], {
+            'ANTHROPIC_BASE_URL': 'http://127.0.0.1:20000',
+            'CLAUDE_CODE_MAX_RETRIES': '3', 'CLAUDE_CODE_RETRY_WATCHDOG': '0',
+            'CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES': '0',
+            'CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK': '1'})
+        messages = '\n'.join(message for _, message in self.events)
+        self.assertIn('CLAUDE_CODE_MAX_RETRIES=3', messages)
+        self.assertIn('CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK=1', messages)
+
     def test_codex_counts_provider_overrides_and_masks_runtime_key(self):
         self.diagnostics.codex(
             ["codex", "model_provider=ciel", "model_providers.ciel.base_url=http://localhost"],
