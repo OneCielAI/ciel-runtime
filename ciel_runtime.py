@@ -4863,7 +4863,7 @@ def agy_launch_services() -> runtime_launch.AgyLaunchServices:
         runtime_launch.AgyLaunchDispatch(launch_claude, launch_codex, launch_codex_app_server, log_agy_passthrough_mapping, materialize_runtime_command,
                                         run_agy_update_check, run_ciel_runtime_update_check, run_prelaunch_menu, launch_codex_remote),
         runtime_launch.AgyLaunchRouting(agy_routed_enabled, cleanup_managed_services_for_provider, launch_readiness_errors, native_agy_enabled,
-                                       run_with_router_lifetime, start_router_if_needed),
+                                       run_with_router_lifetime, start_router_if_needed, router_log),
     )
 
 def runtime_launch_context() -> RuntimeLaunchContext:

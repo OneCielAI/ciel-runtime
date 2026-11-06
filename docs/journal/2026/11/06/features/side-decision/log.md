@@ -2,6 +2,10 @@
 
 ## 2026-11-06
 
+- The primary side actor now snapshots the main session's MCP at each event boundary, records a count and a 16-hex digest, logs them and shows them in the pane. A changed digest registers a fresh actor without cancelling a running one.
+  - **Reply connector setting:** renamed "Advanced external-event reply route override". It is described as not MCP inheritance; ordinary external SSE/CloudEvent replies still need it.
+  - **Native E2E with two MCP servers:** the side actor received every non-Work main tool and called the second server while main was busy. The pane showed `32 tools · 2 servers`.
+  - **Screenshot and evidence:** `docs/journal/2026/11/06/diagnostics/startup-stall/fix-verification.md`. Design detail: mcp-parity.md.
 - User explicitly chose beta for this machine. Rechecked the immutable a5794b4 snapshot against the verified registry tarball (558/558 files identical). Installed that exact archive globally and set `CIEL_RUNTIME_HOME` to the snapshot. Both local launchers now report `0.2.51-beta.20261106-201241.a5794b4`. Updates follow only `@beta`, and stable/nightly candidates are rejected. Live routers 9487/9489/9524 kept their PIDs; nothing was restarted.
 - Channel violation corrected: local beta installs had moved this machine's default launcher home and global package to beta, and the ciel-walkie session relaunched on beta at 14:50:40. Restored the default to c00c8b6 (snapshot home plus registry nightly global). No live process was killed or restarted.
 - Published and installed corrected betaa5794b4 after clean local/remote gates and exact registry verification. The new immutable snapshot passed installed native four-profile acceptance: whole25-item Work, one submitted primary reply, all four shadows answered, pending0. Stable/nightly remained unchanged and live routers retained their PIDs.

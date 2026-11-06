@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import { startSide, pollSide, sideAllowsSpawn, sideTool, completeSide, suppressSide, sideReceipts } from './side-intake.js'
+import { startSide, pollSide, sideAllowsSpawn, sideTool, completeSide, suppressSide, sideReceipts, sideMcpParity } from './side-intake.js'
 
 // Router is authoritative; this cache is display-only and never persisted.
 const detailView = atom({ plugin: 'ciel-work', key: 'detail' }, null)
@@ -1308,7 +1308,10 @@ export function register(on) {
   on('command.run', { command: 'btw_with_mcp' }, async ($, e) => {
     if (['on', 'off', 'status'].includes(e.args.trim())) {
       const arg = e.args.trim()
-      try { return { text: JSON.stringify(await parallelCall($, 'work_side_settings', arg === 'status' ? {} : { enabled: arg === 'on' })) } }
+      try {
+        const settings = await parallelCall($, 'work_side_settings', arg === 'status' ? {} : { enabled: arg === 'on' })
+        return { text: JSON.stringify(arg === 'status' ? { ...settings, mcp_parity: sideMcpParity() } : settings) }
+      }
       catch (error) { return { text: 'Side settings unavailable: ' + clipped(String(error.message || error), 300) } }
     }
     if (e.args.trim() === 'drain') {
@@ -1478,8 +1481,11 @@ export function register(on) {
       if (index < 0) receipts.push(current)
       else receipts[index] = { ...receipts[index], ...current }
     }
+    const parity = sideMcpParity()
     return Box({ flexDirection: 'column', children: [
       Text({ children: 'btw_with_mcp · Inbox → side AI → response / Work decision' }),
+      Text({ children: 'Primary side MCP parity: '+parity.toolCount+' tools · '+parity.serverCount+' servers · digest '+parity.digest }),
+      Text({ children: 'Parity refreshes at the next side event; running actors are not cancelled. Shadow comparisons have no tools.' }),
       Text({ children: 'Receipt, AI decision, Work action and reply delivery are separate states.' }),
       ...receipts.slice(-10).map(r => Box({ flexDirection: 'column', children: [
         Text({ wrap: 'wrap', children: 'Receipt: ' + clipped(r.receipt_id || r.item_id, 20)

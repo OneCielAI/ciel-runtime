@@ -1,0 +1,1 @@
+{ "name": "side-parity-probe", "version": "0.1.0", "description": "Probe: runs ciel-work side-intake.js MCP parity digest in the hooks environment" }

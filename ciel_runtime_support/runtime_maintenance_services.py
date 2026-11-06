@@ -11,6 +11,7 @@ from .install_diagnostics import (
     InstallDiagnosticsPorts,
     InstallDiagnosticsService,
     InstallDiagnosticsSettings,
+    windows_user_runtime_home,
 )
 from .package_lifecycle import (
     NpmPackageLifecycle,
@@ -137,6 +138,7 @@ class RuntimeMaintenanceServices:
             ports=InstallDiagnosticsPorts(
                 extra_dirs=self.diagnostics.extra_dirs,
                 package_root=self.package.package_root,
+                windows_user_runtime_home=windows_user_runtime_home,
                 current_root=self.current_package_root,
                 parse_version=self.diagnostics.parse_version,
                 diagnostics=self.diagnostics.diagnostics,

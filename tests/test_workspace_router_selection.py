@@ -1,3 +1,4 @@
+import http.server
 import unittest
 from pathlib import Path
 import tempfile
@@ -6,6 +7,7 @@ import os
 import socket
 import subprocess
 import sys
+import threading
 import time
 from unittest.mock import patch
 
@@ -16,7 +18,109 @@ import json
 from ciel_runtime_support.workspace_router_selection import select_workspace_router_port
 
 
+class RouterHealthProbeTests(unittest.TestCase):
+    def free_loopback_port(self):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+            probe.bind(("127.0.0.1", 0))
+            return probe.getsockname()[1]
+
+    def test_closed_port_returns_none_without_http_attempt(self):
+        port = self.free_loopback_port()
+        with patch.object(selection.urllib.request, "urlopen",
+                          side_effect=AssertionError("closed ports must not be probed")) as urlopen:
+            self.assertIsNone(selection.probe_router_health(port))
+        urlopen.assert_not_called()
+
+    def test_bound_non_http_listener_still_uses_http_timeout_path(self):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
+            listener.bind(("127.0.0.1", 0))
+            listener.listen()
+            port = listener.getsockname()[1]
+            original = selection.urllib.request.urlopen
+            with patch.object(selection.urllib.request, "urlopen", side_effect=original) as urlopen:
+                self.assertIsNone(selection.probe_router_health(port, timeout=0.05))
+            self.assertEqual(1, urlopen.call_count)
+            self.assertEqual(0.05, urlopen.call_args.kwargs["timeout"])
+
+    def test_real_local_health_ok_listener_is_detected(self):
+        body = json.dumps({"ok": True, "workspace": "C:/work/live"}).encode("utf-8")
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                self.send_response(200 if self.path == "/health" else 404)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def log_message(self, *_args):
+                pass
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        self.addCleanup(thread.join, 5)
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+
+        self.assertEqual(
+            {"ok": True, "workspace": "C:/work/live"},
+            selection.probe_router_health(server.server_address[1], timeout=1.0),
+        )
+
+
 class WorkspaceRouterSelectionTests(unittest.TestCase):
+    def test_health_scan_is_bounded_complete_and_deterministic(self):
+        active = 0
+        maximum_active = 0
+        probed = []
+
+        def health(port):
+            nonlocal active, maximum_active
+            with calls_lock:
+                active += 1
+                maximum_active = max(maximum_active, active)
+                probed.append(port)
+            time.sleep(0.01)
+            with calls_lock:
+                active -= 1
+            if port in (9469, 9471):
+                return {"ok": True, "workspace": "C:/work/two"}
+            return None
+
+        calls_lock = threading.Lock()
+        selected = select_workspace_router_port(
+            9464, Path("C:/work/two"), {}, health=health,
+            available=lambda port: port in (9464, 9465), scan_size=12,
+        )
+
+        self.assertEqual(9469, selected)
+        self.assertEqual(list(range(9464, 9476)), sorted(probed))
+        self.assertLessEqual(maximum_active, selection.ROUTER_HEALTH_PROBE_WORKERS)
+        self.assertGreater(maximum_active, 1)
+
+    def test_health_probe_exception_fails_closed_for_that_port(self):
+        selected = select_workspace_router_port(
+            9464, Path("C:/work/two"), {}, scan_size=2,
+            health=lambda port: (_ for _ in ()).throw(OSError("unknown")) if port == 9464 else None,
+            available=lambda _port: True,
+        )
+        self.assertEqual(9465, selected)
+
+    def test_health_scan_latency_is_bounded_by_concurrent_probe_batches(self):
+        started = time.monotonic()
+        selected = select_workspace_router_port(
+            9464,
+            Path("C:/work/two"),
+            {},
+            health=lambda _port: (time.sleep(0.03), None)[1],
+            available=lambda port: port == 9464,
+        )
+        elapsed = time.monotonic() - started
+
+        self.assertEqual(9464, selected)
+        self.assertLess(elapsed, 0.8, f"50 health probes took {elapsed:.3f}s")
+
     def test_existing_workspace_router_wins_over_an_earlier_free_port(self):
         selected = select_workspace_router_port(
             9464,
@@ -232,7 +336,11 @@ class ExhaustedRouterReservationTests(unittest.TestCase):
     def test_live_same_workspace_wins_over_own_offline_mapping(self):
         self.records[selection.workspace_digest("C:/work/new")] = {"workspace": "C:/work/new", "port": 9464}
         self.save()
-        self.assertEqual(9513, self.select(health=lambda port: {"workspace": "C:/work/new"} if port == 9513 else None))
+        calls = []
+        self.assertEqual(9513, self.select(health=lambda port: (
+            calls.append(port), {"workspace": "C:/work/new"} if port == 9513 else None
+        )[1]))
+        self.assertEqual(9464, calls[0])
 
     def test_router_pid_live_or_unknown_preserves_reservation(self):
         (self.instance() / "router.pid").write_text("20001")
@@ -486,6 +594,31 @@ class ExhaustedRouterReservationTests(unittest.TestCase):
     def test_process_identity_distinguishes_current_pid_from_absent_pid(self):
         self.assertTrue(selection._process_identity(os.getpid()))
         self.assertEqual("", selection._process_identity(2147483647))
+
+    def test_release_own_launch_lease_keeps_port_and_releases_lock(self):
+        port = self.select()
+        record_before = json.loads(self.registry.read_text())["workspaces"][
+            selection.workspace_digest("C:/work/new")
+        ]
+        self.assertTrue(selection.release_own_launch_lease(self.registry, Path("C:/work/new")))
+        record_after = json.loads(self.registry.read_text())["workspaces"][
+            selection.workspace_digest("C:/work/new")
+        ]
+        self.assertEqual(port, record_after["port"])
+        self.assertEqual(record_before["reservation"], record_after["reservation"])
+        self.assertNotIn("launch_lease", record_after)
+        self.assertFalse(self.registry.with_suffix(".json.lock").exists())
+
+    def test_release_own_launch_lease_keeps_foreign_and_unknown_leases(self):
+        self.select()
+        before = self.registry.read_bytes()
+        with patch.object(selection.os, "getpid", return_value=os.getpid() + 1000000):
+            self.assertFalse(selection.release_own_launch_lease(self.registry, "C:/work/new"))
+        self.assertEqual(before, self.registry.read_bytes())
+        with patch.object(selection, "_process_identity", return_value=None):
+            self.assertFalse(selection.release_own_launch_lease(self.registry, "C:/work/new"))
+        self.assertEqual(before, self.registry.read_bytes())
+        self.assertFalse(self.registry.with_suffix(".json.lock").exists())
 
     def test_real_nonrouter_bound_socket_is_not_free(self):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:

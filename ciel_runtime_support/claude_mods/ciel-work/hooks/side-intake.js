@@ -65,6 +65,7 @@ async function finishComparison($,actor,event) {
   $.clock.after(10,async()=>{await nextComparison($)})
 }
 export function sideReceipts(identity) { return [...(displayedReceipts.get(identity)?.values() || [])] }
+export function sideMcpParity() { return {...mcpParity} }
 async function recoverReply($,identity,event) {
   if (replying.has(event.receipt_id)) return
   replying.add(event.receipt_id)
@@ -75,6 +76,8 @@ async function recoverReply($,identity,event) {
 let lifecycle = 0
 let busy = false
 let maxActive = 2
+let registeredActor = null
+let mcpParity = {toolCount:0,serverCount:0,digest:'unavailable'}
 async function identityOf($) {
   const id = await $.session.id()
   if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,200}$/.test(id)) throw new Error('Missing side parent identity')
@@ -122,17 +125,34 @@ Use outbound MCP only with a verified original reply route; never invent one.
 Do not send routine results or external originals to main. Choose advise only
 when important main input is necessary, stating the precise question.`
 
-async function registerActor($,model) {
+async function availableMcp($) {
   const tools = await $.tool.list()
-  const mcp = tools.filter(t => t.mcp).map(t => t.name).sort()
-  const servers = [...new Set(mcp.map(n => /^mcp__(.+?)__/.exec(n)?.[1]).filter(Boolean))]
+  // Only well-formed MCP rows are inherited; native and malformed rows never are.
+  const names = [...new Set(tools.filter(t => t?.mcp === true && typeof t.name === 'string' && /^mcp__.+?__.+/.test(t.name))
+    .map(t => t.name))].sort()
+  const servers = [...new Set(names.map(n => /^mcp__(.+?)__/.exec(n)[1]))].sort()
+  const bytes = new TextEncoder().encode(JSON.stringify({names,servers}))
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))
+  const digest = [...hash].map(value => value.toString(16).padStart(2,'0')).join('').slice(0,16)
+  return {names,servers,digest}
+}
+async function registerActor($,model,available = null) {
+  const mcp = available || await availableMcp($)
+  const registration = {model,digest:mcp.digest}
+  if (registeredActor?.model === registration.model && registeredActor?.digest === registration.digest) return mcp
   await $.agent.register({name:'side-intake',description:'Independent external message processing',
-    prompt:PROMPT,model,tools:mcp,
-    disallowedTools:mcp.filter(name => name.startsWith(PREFIX+'work_') && ![PREFIX+'work_status',PREFIX+'work_parallel_status'].includes(name)),
-    mcpServers:servers,background:true,maxTurns:12})
+    prompt:PROMPT,model,tools:mcp.names,
+    disallowedTools:mcp.names.filter(name => name.startsWith(PREFIX+'work_') && ![PREFIX+'work_status',PREFIX+'work_parallel_status'].includes(name)),
+    mcpServers:mcp.servers,background:true,maxTurns:12})
+  registeredActor = registration
+  mcpParity = {toolCount:mcp.names.length,serverCount:mcp.servers.length,digest:mcp.digest}
+  $.ui.log('Side MCP parity · tools '+mcpParity.toolCount+' · servers '+mcpParity.serverCount+' · digest '+mcpParity.digest)
+  $.ui.invalidate('ui.render')
+  return mcp
 }
 export async function startSide($) {
   lifecycle++; busy = false; pending.clear(); comparisonQueue.length = 0; comparisonBusy = false; comparisonActive = null
+  registeredActor = null
   for (const actor of actors.values()) actor.current = null
   await $.mcp.connect('ciel-runtime-router')
   await registerActor($,'inherit')
@@ -182,8 +202,11 @@ export async function pollSide($, identity) {
     const thread = event.route?.source_kind === 'external_event' ? '' : String(event.route?.thread_id || '')
     const contextMode = settings.context_mode || 'isolated'
     const resolvedModel = settings.model && settings.model !== 'inherit' ? settings.model : await $.session.model()
+    // Snapshot main MCP only at an event boundary. An already-running actor keeps
+    // its original registration; a changed digest selects a fresh actor below.
+    const eventMcp = await availableMcp($)
     const profile = JSON.stringify({model:resolvedModel,context_mode:contextMode,
-      context_percent:settings.context_percent || 30,priority_policy:settings.priority_policy || 'adaptive'})
+      context_percent:settings.context_percent || 30,priority_policy:settings.priority_policy || 'adaptive',mcp_digest:eventMcp.digest})
     const conversation = JSON.stringify([identity,String(event.route?.channel || 'local'),
       String(event.route?.sender_id || ''),thread,profile])
     let actor = [...actors.values()].find(a => a.conversation === conversation && a.generation === lifecycle && !a.retired && !a.current)
@@ -213,7 +236,7 @@ export async function pollSide($, identity) {
       const forced = await $.env.get('CLAUDE_CODE_SUBAGENT_MODEL_FORCE')
       if (settings.model && settings.model !== 'inherit' && forced === '1')
         throw new Error('Side model cannot apply: this process forces parent model; configure before an explicit future launch')
-      await registerActor($,settings.model || 'inherit')
+      await registerActor($,settings.model || 'inherit',eventMcp)
       const spawned = await $.agent.spawn({subagentType:'ciel-work:side-intake',name,
         description:'External message decision',prompt:text})
       if (!spawned.agentId) throw new Error(spawned.deny || 'side actor not started')
@@ -243,6 +266,8 @@ export async function sideTool($,e,next) {
   const name = e.tool?.startsWith(PREFIX) ? e.tool.slice(PREFIX.length) : ''
   if (!name.startsWith('work_')) {
     if (!e.tool?.startsWith('mcp__')) return {deny:'Side actor only uses parent MCP tools'}
+    // Preserve the native permission path for inherited non-Work MCP. This hook
+    // neither approves nor rewrites the call.
     return next(e)
   }
   if (!['work_status','work_parallel_status','work_side_resolve'].includes(name))

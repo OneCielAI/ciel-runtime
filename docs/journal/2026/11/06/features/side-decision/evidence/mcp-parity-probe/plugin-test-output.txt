@@ -1,0 +1,14 @@
+claude --version: 2.1.318 (Claude Code)
+side-intake.js sha256 (verbatim product copy): 6bdea7c7beb504cee4df0044467bf55de01427a4d76d3068fc1f982befa63f4b
+command: claude plugin test <probe>
+exit: 0
+
+PROBE {"globals":{"TextEncoder":"function","subtleDigest":"function","process":"undefined","require":"undefined"},"parity":{"toolCount":2,"serverCount":2,"digest":"66b71cafde6c0c90"}}
+PROBE-LOG ["Side MCP parity · tools 2 · servers 2 · digest 66b71cafde6c0c90"]
+
+parity.test.ts:
+(pass) side MCP parity digest runs in the hooks environment [48.03ms]
+
+ 1 pass
+ 0 fail
+Ran 1 test across 1 file. [0.23s]

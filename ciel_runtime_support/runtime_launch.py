@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import contextvars
+import functools
 import os
 import subprocess
+import time
 import uuid
 from pathlib import Path
 from typing import Any, Callable
@@ -23,7 +26,16 @@ from ciel_runtime_support.runtime_constants import (
     PRELAUNCH_LAUNCH_CODEX_REMOTE,
     ROUTED_COMPAT_PROMPT,
 )
-from ciel_runtime_support.runtime_paths import CONFIG_DIR, LOG_PATH, ROUTER_BASE, ROUTER_INSTANCE_DIR, WORKSPACE_STATE_DIR
+from ciel_runtime_support.runtime_paths import (
+    CONFIG_DIR,
+    LOG_PATH,
+    ROUTER_BASE,
+    ROUTER_INSTANCE_DIR,
+    ROUTER_PORT_SELECTION_ELAPSED_MS,
+    ROUTER_PORT_SELECTION_RESULT,
+    WORKSPACE_STATE_DIR,
+    release_current_launch_lease,
+)
 from ciel_runtime_support.runtime_session_restart import (
     SESSION_CONTROL_FLAGS,
     SessionRestartPorts,
@@ -45,6 +57,143 @@ from ciel_runtime_support.web_endpoints import (
 
 
 CLAUDE_CODE_GENERATED_GREEDY_OPTIONS = frozenset({"--mcp-config"})
+LAUNCH_SLOW_PHASE_SECONDS = 1.0
+
+
+def _launch_phase(
+    runtime: str,
+    phase: str,
+    operation: Callable[[], Any],
+    log: Callable[[str, str], Any],
+    *,
+    result: Callable[[Any], str] | None = None,
+) -> Any:
+    """Record one secret-free bounded launch phase."""
+
+    started = time.monotonic()
+    log("INFO", f"launch_phase_start runtime={runtime} phase={phase}")
+    try:
+        value = operation()
+    except BaseException as exc:
+        elapsed = max(0.0, time.monotonic() - started)
+        log(
+            "INFO",
+            f"launch_phase_end runtime={runtime} phase={phase} elapsed_ms={int(elapsed * 1000)} "
+            f"result=error error_type={type(exc).__name__}",
+        )
+        if elapsed >= LAUNCH_SLOW_PHASE_SECONDS:
+            print(f"Ciel Runtime startup: {phase} failed after {elapsed:.1f}s.", flush=True)
+        raise
+    elapsed = max(0.0, time.monotonic() - started)
+    outcome = result(value) if result is not None else "ok"
+    log(
+        "INFO",
+        f"launch_phase_end runtime={runtime} phase={phase} elapsed_ms={int(elapsed * 1000)} result={outcome}",
+    )
+    if elapsed >= LAUNCH_SLOW_PHASE_SECONDS:
+        print(f"Ciel Runtime startup: {phase} completed in {elapsed:.1f}s.", flush=True)
+    return value
+
+
+def _log_router_port_selection(runtime: str, log: Callable[[str, str], Any]) -> None:
+    """Replay the import-time port selection once per launch attempt.
+
+    It ran before any router log existed, so only its end is recorded.
+    """
+
+    attempt = _LAUNCH_ATTEMPT.get()
+    if attempt is not None:
+        if attempt.get("port_selection_logged"):
+            return
+        attempt["port_selection_logged"] = True
+    log(
+        "INFO",
+        f"launch_phase_end runtime={runtime} phase=runtime_paths.router_port_select "
+        f"elapsed_ms={ROUTER_PORT_SELECTION_ELAPSED_MS} result={ROUTER_PORT_SELECTION_RESULT}",
+    )
+
+
+# One launch (including a runtime the prelaunch menu dispatches to) shares one
+# record of whether a child was started; it decides who may drop the lease.
+_LAUNCH_ATTEMPT: contextvars.ContextVar[dict[str, bool] | None] = contextvars.ContextVar(
+    "ciel_runtime_launch_attempt", default=None
+)
+
+
+def _child_session(runtime: str, transport: str, operation: Callable[[], int], log: Callable[[str, str], Any]) -> int:
+    """Record the spawned child's lifetime; its exit is not startup progress."""
+
+    attempt = _LAUNCH_ATTEMPT.get()
+    started = time.monotonic()
+    log("INFO", f"launch_phase_start runtime={runtime} phase=child_spawn transport={transport}")
+    result = "error"
+    try:
+        rc = operation()
+        if attempt is not None:
+            # Returning from these launch transports proves the spawn path was
+            # entered; a synchronous Popen failure raises instead.
+            attempt["child_started"] = True
+    except BaseException as exc:
+        result = f"error error_type={type(exc).__name__}"
+        raise
+    else:
+        result = f"exit_{rc}"
+        return rc
+    finally:
+        log(
+            "INFO",
+            f"launch_phase_end runtime={runtime} phase=child_spawn transport={transport} "
+            f"elapsed_ms={int(max(0.0, time.monotonic() - started) * 1000)} result={result}",
+        )
+
+
+def _guard_launch_lease(
+    runtime: str, operation: Callable[[], int], log: Callable[[str, str], Any],
+) -> int:
+    """Run one launch; a failure before any child started drops our own lease.
+
+    The lease otherwise lives as long as this launcher, which is what refuses a
+    second launch of the same workspace. A post-spawn failure keeps it: the
+    child or its managed router may still be running.
+    """
+
+    attempt = _LAUNCH_ATTEMPT.get()
+    token = _LAUNCH_ATTEMPT.set({"child_started": False}) if attempt is None else None
+    try:
+        return operation()
+    except BaseException as exc:
+        if token is not None and not _LAUNCH_ATTEMPT.get()["child_started"]:
+            try:
+                released = release_current_launch_lease()
+            except Exception as release_error:  # noqa: BLE001 - the launch failure is the error to report
+                log(
+                    "WARN",
+                    f"launch_lease_release_failed runtime={runtime} "
+                    f"error_type={type(release_error).__name__}",
+                )
+            else:
+                log(
+                    "INFO",
+                    f"launch_lease_release runtime={runtime} cause={type(exc).__name__} "
+                    f"result={'released' if released else 'not_owned'}",
+                )
+        raise
+    finally:
+        if token is not None:
+            _LAUNCH_ATTEMPT.reset(token)
+
+
+def _launch_lease_guarded(runtime: str) -> Callable[[Callable[..., int]], Callable[..., int]]:
+    def decorate(function: Callable[..., int]) -> Callable[..., int]:
+        @functools.wraps(function)
+        def guarded(*args: Any, **kwargs: Any) -> int:
+            routing = getattr(kwargs.get("services"), "routing", None)
+            log = getattr(routing, "router_log", None) or (lambda _level, _message: None)
+            return _guard_launch_lease(runtime, lambda: function(*args, **kwargs), log)
+
+        return guarded
+
+    return decorate
 
 
 def web_backend_start_requested(config: dict[str, Any]) -> bool:
@@ -286,6 +435,7 @@ def _work_mode_args_index(cmd: list[str]) -> int:
     return len(cmd)
 
 
+@_launch_lease_guarded("claude")
 def run_claude(
     passthrough: list[str],
     skip_menu: bool = False,
@@ -371,8 +521,11 @@ def run_claude(
     workspace_mcp = services.mcp_config.workspace_mcp
     if has_noninteractive_claude_args(passthrough):
         self_update_check = False
-    warn_if_multiple_ciel_runtime_installs()
-    run_ciel_runtime_update_check(enabled=self_update_check)
+    _log_router_port_selection("claude", router_log)
+    _launch_phase("claude", "install_diagnostics", warn_if_multiple_ciel_runtime_installs, router_log)
+    _launch_phase(
+        "claude", "self_update_check", lambda: run_ciel_runtime_update_check(enabled=self_update_check), router_log,
+    )
     rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
     if rc == PRELAUNCH_LAUNCH_CODEX:
         return launch_codex(
@@ -460,13 +613,13 @@ def run_claude(
     )
     manage_router_lifetime = False
     if use_router_mode or llm_channel_delivery:
-        manage_router_lifetime = bool(start_router_if_needed())
+        manage_router_lifetime = bool(_launch_phase("claude", "router_start", start_router_if_needed, router_log))
     elif web_backend_start_requested(cfg):
-        manage_router_lifetime = bool(
-            start_router_if_needed(replace_active_clients=True)
-        )
+        manage_router_lifetime = bool(_launch_phase(
+            "claude", "router_start", lambda: start_router_if_needed(replace_active_clients=True), router_log,
+        ))
     if not use_native_anthropic:
-        ensure_model_cache_for_launch(provider, pcfg)
+        _launch_phase("claude", "model_cache", lambda: ensure_model_cache_for_launch(provider, pcfg), router_log)
         selected, selection_lines = ensure_current_model_from_provider_list(provider, pcfg)
         if selection_lines:
             for line in selection_lines:
@@ -589,7 +742,9 @@ def run_claude(
             "claude executable was not found in PATH or the Ciel Runtime user bin directories, "
             "and automatic install of @anthropic-ai/claude-code did not make it available"
         )
-    updated_claude = run_claude_update_check(claude, enabled=update_check)
+    updated_claude = _launch_phase(
+        "claude", "cli_update_check", lambda: run_claude_update_check(claude, enabled=update_check), router_log,
+    )
     if isinstance(updated_claude, str) and updated_claude:
         claude = updated_claude
     claude = find_executable("claude") or claude
@@ -608,9 +763,14 @@ def run_claude(
         (llm_channel_delivery and web_backend_start_requested(cfg))
         or router_mcp_enabled_for_launch(cfg, native=use_native_anthropic)
     ) else None
-    workspace_mcp_launch = (
-        workspace_mcp.prepare("claude", cfg, env, injected_servers=claude_router_mcp, native=provider == "anthropic")
-        if workspace_mcp is not None else None
+    workspace_mcp_launch = _launch_phase(
+        "claude",
+        "mcp_projection",
+        lambda: workspace_mcp.prepare(
+            "claude", cfg, env, injected_servers=claude_router_mcp, native=provider == "anthropic"
+        ) if workspace_mcp is not None else None,
+        router_log,
+        result=lambda value: "prepared" if value is not None and value.active else "none",
     )
     if workspace_mcp_launch is not None:
         mcp_config_paths.extend(str(path) for path in workspace_mcp_launch.claude_config_paths)
@@ -716,7 +876,7 @@ def run_claude(
                 print(f"  {router_health_summary()}", flush=True)
             if stdin_channel_proxy:
                 restart_supervised = True
-                rc = subprocess_call_with_channel_wake_proxy(
+                rc = _child_session("claude", "channel_proxy", lambda: subprocess_call_with_channel_wake_proxy(
                     cmd,
                     env,
                     wake_for_llm_delivery=llm_channel_delivery,
@@ -731,30 +891,30 @@ def run_claude(
                     restart_poll=restart_control.incoming,
                     restart_state=restart_control,
                     session_command_runtime="claude",
-                )
+                ), router_log)
             elif workspace_mcp_launch is not None and workspace_mcp_launch.active:
                 restart_supervised = True
-                rc = subprocess_call_with_child_pid_record(
+                rc = _child_session("claude", "direct", lambda: subprocess_call_with_child_pid_record(
                     cmd,
                     env,
                     workspace_mcp_launch.child_record_path,
                     restart_poll=restart_control.incoming,
                     restart_state=restart_control,
-                )
+                ), router_log)
             elif capture_stderr:
-                rc = _subprocess_call_capturing_stderr(cmd, env)
+                rc = _child_session("claude", "stderr_capture", lambda: _subprocess_call_capturing_stderr(cmd, env), router_log)
             elif has_noninteractive_claude_args(launch_passthrough):
                 # A one-shot print run (-p/--print) has no session to restart.
-                rc = subprocess.call(cmd, env=env)
+                rc = _child_session("claude", "print", lambda: subprocess.call(cmd, env=env), router_log)
             else:
                 restart_supervised = True
-                rc = subprocess_call_with_child_pid_record(
+                rc = _child_session("claude", "direct", lambda: subprocess_call_with_child_pid_record(
                     cmd,
                     env,
                     None,
                     restart_poll=restart_control.incoming,
                     restart_state=restart_control,
-                )
+                ), router_log)
             return rc
         finally:
             configure_session_socket(None)
@@ -1094,6 +1254,7 @@ def _reselect_codex_data_path(
     return authenticated_codex_command(routed, env, ROUTER_BASE)
 
 
+@_launch_lease_guarded("codex")
 def run_codex(
     passthrough: list[str],
     skip_menu: bool = False,
@@ -1166,8 +1327,11 @@ def run_codex(
     terminate_existing_codex_processes_for_launch = services.process.terminate_existing_codex_processes_for_launch
     terminate_existing_router_clients_for_launch = services.process.terminate_existing_router_clients_for_launch
     warn_if_multiple_ciel_runtime_installs = services.installation.warn_if_multiple_ciel_runtime_installs
-    warn_if_multiple_ciel_runtime_installs()
-    run_ciel_runtime_update_check(enabled=self_update_check)
+    _log_router_port_selection("codex", router_log)
+    _launch_phase("codex", "install_diagnostics", warn_if_multiple_ciel_runtime_installs, router_log)
+    _launch_phase(
+        "codex", "self_update_check", lambda: run_ciel_runtime_update_check(enabled=self_update_check), router_log,
+    )
     env = os.environ.copy()
     env["CIEL_RUNTIME_STATE_DIR"] = str(ROUTER_INSTANCE_DIR)
     env["CIEL_RUNTIME_WORKSPACE_STATE_DIR"] = str(WORKSPACE_STATE_DIR)
@@ -1178,14 +1342,16 @@ def run_codex(
             "codex executable was not found in PATH or the Ciel Runtime user bin directories, "
             "and automatic install of @openai/codex did not make it available"
         )
-    updated_codex = run_codex_update_check(codex, enabled=update_check)
+    updated_codex = _launch_phase(
+        "codex", "cli_update_check", lambda: run_codex_update_check(codex, enabled=update_check), router_log,
+    )
     if isinstance(updated_codex, str) and updated_codex:
         codex = updated_codex
     codex = find_executable("codex") or codex
     codex_passthrough, codex_passthrough_notes = codex_passthrough_args_for_launch(passthrough)
     if codex_help_requested(codex_passthrough):
         log_codex_passthrough_mapping(codex_passthrough_notes)
-        return subprocess.call([codex, *codex_passthrough], env=env)
+        return _child_session("codex", "help", lambda: subprocess.call([codex, *codex_passthrough], env=env), router_log)
     if codex_passthrough_has_command(codex_passthrough):
         skip_menu = True
     rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
@@ -1283,13 +1449,13 @@ def run_codex(
     if not use_native_codex:
         terminate_existing_router_clients_for_launch("codex_prelaunch_active_clients", quiet=True)
     if use_native_codex:
-        manage_router_lifetime = bool(
-            start_router_if_needed(replace_active_clients=True)
-        ) if web_backend_start_requested(cfg) else False
+        manage_router_lifetime = bool(_launch_phase(
+            "codex", "router_start", lambda: start_router_if_needed(replace_active_clients=True), router_log,
+        )) if web_backend_start_requested(cfg) else False
     else:
-        manage_router_lifetime = bool(start_router_if_needed())
+        manage_router_lifetime = bool(_launch_phase("codex", "router_start", start_router_if_needed, router_log))
     if not native_codex_enabled(provider):
-        ensure_model_cache_for_launch(provider, pcfg)
+        _launch_phase("codex", "model_cache", lambda: ensure_model_cache_for_launch(provider, pcfg), router_log)
     codex_router_mcp = (
         (channel_delivery_mode(cfg) == "llm" and web_backend_start_requested(cfg))
         or router_mcp_enabled_for_launch(cfg, native=use_native_codex)
@@ -1304,8 +1470,13 @@ def run_codex(
     codex_work_notice = work_mode_launch_notice(cfg, native=use_native_codex, router_mcp_attached=codex_router_mcp)
     if codex_work_notice:
         print(codex_work_notice, flush=True)
-    workspace_mcp_launch = (
-        workspace_mcp.prepare("codex", cfg, env, native=native_codex_enabled(provider)) if workspace_mcp is not None else None
+    workspace_mcp_launch = _launch_phase(
+        "codex",
+        "mcp_projection",
+        lambda: workspace_mcp.prepare("codex", cfg, env, native=native_codex_enabled(provider))
+        if workspace_mcp is not None else None,
+        router_log,
+        result=lambda value: "prepared" if value is not None and value.active else "none",
     )
     if workspace_mcp_launch is not None:
         codex_mcp_compat_args.extend(workspace_mcp_launch.codex_args)
@@ -1391,7 +1562,7 @@ def run_codex(
             request_identity=not native_codex_enabled(provider) and not launched_direct,
         )
         codex_synthetic_enter = None if _channel_wake_enter_env_is_fixed() else b"\r"
-        return subprocess_call_with_channel_wake_proxy(
+        return _child_session("codex", "channel_proxy", lambda: subprocess_call_with_channel_wake_proxy(
             cmd,
             env,
             wake_for_llm_delivery=channel_delivery_mode(cfg) == "llm",
@@ -1413,7 +1584,7 @@ def run_codex(
             restart_poll=codex_restart_control.incoming,
             restart_state=codex_restart_control,
             session_command_runtime="codex",
-        )
+        ), router_log)
 
     def renew_codex_mcp() -> None:
         """A restarted Codex gets a new workspace MCP launch (servers re-read from the config)."""
@@ -1556,6 +1727,7 @@ class CodexAppServerLaunchServices:
     data_path: Callable[..., Any] | None = None
 
 
+@_launch_lease_guarded("codex-app-server")
 def run_codex_app_server(
     passthrough: list[str],
     skip_menu: bool = True,
@@ -1624,8 +1796,13 @@ def run_codex_app_server(
     terminate_existing_router_clients_for_launch = services.process.terminate_existing_router_clients_for_launch
     toml_string = services.cli_policy.toml_string
     warn_if_multiple_ciel_runtime_installs = services.installation.warn_if_multiple_ciel_runtime_installs
-    warn_if_multiple_ciel_runtime_installs()
-    run_ciel_runtime_update_check(enabled=self_update_check)
+    router_log = services.routing.router_log
+    _log_router_port_selection("codex-app-server", router_log)
+    _launch_phase("codex-app-server", "install_diagnostics", warn_if_multiple_ciel_runtime_installs, router_log)
+    _launch_phase(
+        "codex-app-server", "self_update_check",
+        lambda: run_ciel_runtime_update_check(enabled=self_update_check), router_log,
+    )
     env = os.environ.copy()
     env["CIEL_RUNTIME_STATE_DIR"] = str(ROUTER_INSTANCE_DIR)
     env["CIEL_RUNTIME_WORKSPACE_STATE_DIR"] = str(WORKSPACE_STATE_DIR)
@@ -1636,7 +1813,9 @@ def run_codex_app_server(
             "codex executable was not found in PATH or the Ciel Runtime user bin directories, "
             "and automatic install of @openai/codex did not make it available"
         )
-    updated_codex = run_codex_update_check(codex, enabled=update_check)
+    updated_codex = _launch_phase(
+        "codex-app-server", "cli_update_check", lambda: run_codex_update_check(codex, enabled=update_check), router_log,
+    )
     if isinstance(updated_codex, str) and updated_codex:
         codex = updated_codex
     codex = find_executable("codex") or codex
@@ -1711,11 +1890,11 @@ def run_codex_app_server(
     if not use_native_codex:
         terminate_existing_router_clients_for_launch("codex_app_server_prelaunch_active_clients", quiet=True)
     if use_native_codex:
-        manage_router_lifetime = bool(
-            start_router_if_needed(replace_active_clients=True)
-        ) if web_backend_start_requested(cfg) else False
+        manage_router_lifetime = bool(_launch_phase(
+            "codex-app-server", "router_start", lambda: start_router_if_needed(replace_active_clients=True), router_log,
+        )) if web_backend_start_requested(cfg) else False
     else:
-        manage_router_lifetime = bool(start_router_if_needed())
+        manage_router_lifetime = bool(_launch_phase("codex-app-server", "router_start", start_router_if_needed, router_log))
     data_path = launch_data_path.ROUTER_PATH
     data_path_runtime = str(getattr(desktop, "launch_mode", "") or "codex-app-server")
     # Channel messages go in as whole app-server turns (the codex-remote TUI types none).
@@ -1738,7 +1917,9 @@ def run_codex_app_server(
     if native_codex_enabled(provider):
         config_args = [*config_args, *codex_current_model_config_args(pcfg, passthrough)]
     if not native_codex_enabled(provider):
-        ensure_model_cache_for_launch(provider, pcfg)
+        _launch_phase(
+            "codex-app-server", "model_cache", lambda: ensure_model_cache_for_launch(provider, pcfg), router_log,
+        )
         model = data_path.model if data_path.direct else current_alias(cfg)
         if model and not codex_passthrough_has_model_override(passthrough):
             config_args = [*config_args, "-c", f"model={toml_string(model)}"]
@@ -1761,9 +1942,14 @@ def run_codex_app_server(
     codex_mcp_compat_args.extend(codex_work_mode_args(
         cfg, native=use_native_codex, router_mcp_attached=app_server_router_mcp, passthrough=passthrough,
     ))
-    workspace_mcp_launch = (
-        workspace_mcp.prepare("codex-app-server", cfg, env, native=native_codex_enabled(provider))
-        if workspace_mcp is not None else None
+    workspace_mcp_launch = _launch_phase(
+        "codex-app-server",
+        "mcp_projection",
+        lambda: workspace_mcp.prepare(
+            "codex-app-server", cfg, env, native=native_codex_enabled(provider)
+        ) if workspace_mcp is not None else None,
+        router_log,
+        result=lambda value: "prepared" if value is not None and value.active else "none",
     )
     try:
         if workspace_mcp_launch is not None:
@@ -1819,19 +2005,18 @@ def run_codex_app_server(
     )
 
     def run_server() -> int:
-        return subprocess_call_with_child_pid_record(
+        return _child_session("codex-app-server", "app_server", lambda: subprocess_call_with_child_pid_record(
             cmd,
             env,
             workspace_mcp_launch.child_record_path
             if workspace_mcp_launch is not None and workspace_mcp_launch.active
             else codex_process_record_path("app-server"),
-        )
+        ), router_log)
 
     def relaunch(request: Any) -> list[str]:
         """codex-remote restart: a new workspace MCP launch and the restart notice; the next server command."""
 
         nonlocal cmd, workspace_mcp_launch
-        router_log = services.routing.router_log
         _session_backup_after_exit(restarting=True, log=router_log)
         os.environ[STARTUP_AUTO_ANSWER_ENV] = "1"
         if workspace_mcp is not None:
@@ -1875,7 +2060,11 @@ def run_codex_app_server(
         if resume_last_requested():
             queue_restart_notice(services.restart, "codex", ResumeLastRequest(), services.routing.router_log)
         if desktop is not None:
-            rc = desktop(cmd, env, launch_cwd, run_server=run_server, **session_kwargs)
+            rc = _child_session(
+                "codex-app-server", "desktop",
+                lambda: desktop(cmd, env, launch_cwd, run_server=run_server, **session_kwargs),
+                router_log,
+            )
         else:
             rc = run_server()
         _session_backup_after_exit(restarting=False, log=None)
@@ -1970,6 +2159,7 @@ class AgyLaunchRouting:
     native_agy_enabled: Callable[..., Any]
     run_with_router_lifetime: Callable[..., Any]
     start_router_if_needed: Callable[..., Any]
+    router_log: Callable[[str, str], Any] = lambda _level, _message: None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1984,6 +2174,7 @@ class AgyLaunchServices:
     routing: AgyLaunchRouting
 
 
+@_launch_lease_guarded("agy")
 def run_agy(
     passthrough: list[str],
     skip_menu: bool = False,
@@ -2031,8 +2222,10 @@ def run_agy(
     start_router_if_needed = services.routing.start_router_if_needed
     subprocess_call_with_channel_wake_proxy = services.process.subprocess_call_with_channel_wake_proxy
     warn_if_multiple_ciel_runtime_installs = services.installation.warn_if_multiple_ciel_runtime_installs
-    warn_if_multiple_ciel_runtime_installs()
-    run_ciel_runtime_update_check(enabled=self_update_check)
+    router_log = services.routing.router_log
+    _log_router_port_selection("agy", router_log)
+    _launch_phase("agy", "install_diagnostics", warn_if_multiple_ciel_runtime_installs, router_log)
+    _launch_phase("agy", "self_update_check", lambda: run_ciel_runtime_update_check(enabled=self_update_check), router_log)
     env = os.environ.copy()
     env["CIEL_RUNTIME_CONFIG_DIR"] = str(CONFIG_DIR)
     env["CIEL_RUNTIME_STATE_DIR"] = str(ROUTER_INSTANCE_DIR)
@@ -2045,14 +2238,14 @@ def run_agy(
             "agy executable was not found in PATH or the Ciel Runtime/AGY user bin directories, "
             "and automatic install from Google's official AGY manifest did not make it available"
         )
-    updated_agy = run_agy_update_check(agy, enabled=update_check)
+    updated_agy = _launch_phase("agy", "cli_update_check", lambda: run_agy_update_check(agy, enabled=update_check), router_log)
     if isinstance(updated_agy, str) and updated_agy:
         agy = updated_agy
     agy = find_executable("agy") or agy
     agy_passthrough, agy_passthrough_notes = agy_passthrough_args_for_launch(passthrough)
     if agy_help_requested(agy_passthrough):
         log_agy_passthrough_mapping(agy_passthrough_notes)
-        return subprocess.call([agy, *agy_passthrough], env=env)
+        return _child_session("agy", "help", lambda: subprocess.call([agy, *agy_passthrough], env=env), router_log)
     if agy_passthrough_has_command(agy_passthrough):
         skip_menu = True
     rc = run_prelaunch_menu(passthrough, skip_menu=skip_menu, force_menu=force_menu)
@@ -2104,11 +2297,11 @@ def run_agy(
     cleanup_managed_services_for_provider(provider, pcfg, cfg, quiet=True)
     use_agy_routed = agy_routed_enabled(provider, pcfg)
     if use_agy_routed and channel_delivery_mode(cfg) == "llm":
-        manage_router_lifetime = bool(start_router_if_needed())
+        manage_router_lifetime = bool(_launch_phase("agy", "router_start", start_router_if_needed, router_log))
     elif web_backend_start_requested(cfg):
-        manage_router_lifetime = bool(
-            start_router_if_needed(replace_active_clients=True)
-        )
+        manage_router_lifetime = bool(_launch_phase(
+            "agy", "router_start", lambda: start_router_if_needed(replace_active_clients=True), router_log,
+        ))
     else:
         manage_router_lifetime = False
     agy_dangerous_args = agy_dangerous_launch_args(agy_passthrough)
@@ -2136,7 +2329,7 @@ def run_agy(
 
     def run_agy_process() -> int:
         if use_agy_routed:
-            return subprocess_call_with_channel_wake_proxy(
+            return _child_session("agy", "channel_proxy", lambda: subprocess_call_with_channel_wake_proxy(
                 cmd,
                 env,
                 wake_for_llm_delivery=channel_delivery_mode(cfg) == "llm",
@@ -2146,8 +2339,8 @@ def run_agy(
                 channel_wake_confirm_submit=True,
                 channel_wake_bracketed_paste=True,
                 channel_wake_submit_delay_seconds=_codex_channel_wake_submit_delay_seconds(),
-            )
-        return subprocess.call(cmd, env=env)
+            ), router_log)
+        return _child_session("agy", "direct", lambda: subprocess.call(cmd, env=env), router_log)
 
     return run_with_router_lifetime(run_agy_process, manage_router_lifetime)
 

@@ -1,0 +1,59 @@
+== test_launch_phase_trace.py
+Ran 16 tests in 0.501s
+OK
+== test_workspace_router_selection.py
+Ran 51 tests in 3.615s
+OK
+== test_remote_instructions.py
+Ran 17 tests in 0.066s
+OK
+== test_remote_memory.py
+Ran 22 tests in 1.056s
+OK
+== test_remote_memory_runtime_integration.py
+Ran 12 tests in 2.876s
+OK
+== test_remote_provision.py
+Ran 11 tests in 2.471s
+OK
+== test_remote_instruction_compaction.py
+Ran 5 tests in 0.032s
+OK
+== test_workspace_mcp.py
+Ran 18 tests in 0.135s
+OK
+== test_runtime_session_restart.py
+Ran 63 tests in 0.354s
+OK
+== test_claude_session_socket_launch.py
+Ran 1 test in 0.007s
+OK
+== test_launch_data_path.py
+Ran 51 tests in 3.440s
+OK
+== test_codex_runtime.py
+Ran 77 tests in 9.544s
+OK (skipped=12)
+== test_agy_runtime.py
+Ran 7 tests in 0.014s
+OK
+== test_channel_bridge.py
+Ran 225 tests in 1.011s
+OK (skipped=80)
+== test_external_mcp_ownership.py
+Ran 3 tests in 0.001s
+OK
+== test_launch_diagnostics.py
+Ran 5 tests in 0.000s
+OK
+== test_work_mode_launch.py
+Ran 11 tests in 0.034s
+OK
+== test_codex_launch_configuration.py
+Ran 18 tests in 0.008s
+OK
+== test_architecture_contracts.py
+Ran 261 tests in 33.558s
+OK (skipped=42)
+== ruff
+All checks passed!

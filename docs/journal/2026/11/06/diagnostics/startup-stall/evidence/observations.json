@@ -1,0 +1,33 @@
+{
+  "observed_at": "2026-11-06",
+  "workspace": "G:/ciel-walkie",
+  "command": "ciel-runtime --continue",
+  "beta": "0.2.51-beta.20261106-201241.a5794b4",
+  "process": {
+    "python_pid": 408,
+    "started": "15:50:07",
+    "observed_age_seconds": 1653,
+    "cpu_seconds": 2.234375,
+    "children": 0,
+    "tcp_connections": 0,
+    "exited_without_assistant_action": true
+  },
+  "router_log_last_phase": [
+    "15:50:16 remote_instructions_unchanged runtime=claude reason=launch",
+    "15:50:16 remote_instructions_unchanged runtime=codex reason=launch"
+  ],
+  "measured_delays": {
+    "serial_router_health_scan_seconds": 7.5,
+    "health_probes": 50,
+    "per_probe_timeout_seconds": 0.15,
+    "duplicate_launcher_version_probe_seconds": 17.94,
+    "duplicate_cmd_launchers": 2
+  },
+  "indefinite_block_root_cause": "No hang proven. PID408 started 15:50:07 local (UTC-6); the user screenshot message followed at 15:50:46, inside the measured ~29.5 s blank pre-menu window. Its later lifetime matches the by-design prelaunch menu waiting for a key (owned repro main thread in read_menu_key; --continue has shown the menu since the initial commit; Regina 2026-10-25 menu held 85 s). Its own frame was not captured.",
+  "side_mcp": {
+    "primary": "inherits all main MCP tools and servers discovered by $.tool.list; non-Work calls use native next(e) permission path",
+    "work": "mutation restricted to work_side_resolve; status reads allowed",
+    "shadow": "no tools by design",
+    "external_reply_bindings": "outbound external-event route override, not MCP inheritance; normally no extra setting for correlated web-chat/session routes"
+  }
+}

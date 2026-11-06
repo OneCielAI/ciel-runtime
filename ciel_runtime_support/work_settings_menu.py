@@ -29,7 +29,7 @@ def panel_rows(config, *, side=False):
 
 
 DESCRIPTIONS = {
-    'work_side_intake_reply_connectors': ('Operator-owned JSON MCP reply bindings: exact source, receiver_id, server, tool and arguments. $reply/$event_id/$kind placeholders; inbound events cannot choose tools.', '운영자가 설정한 JSON MCP 응답 연결입니다. source/server/tool/arguments를 지정하며 $reply/$event_id/$kind를 치환합니다. 수신 이벤트는 도구를 선택할 수 없습니다.'),
+    'work_side_intake_reply_connectors': ('Advanced external-event reply route override, not MCP inheritance. Correlated web chat replies automatically; ordinary external SSE/CloudEvent replies need an exact source, receiver_id, connected server, tool and arguments override.', '고급 외부 이벤트 응답 경로 재정의이며 MCP 상속 설정이 아닙니다. 상관관계가 있는 웹 채팅은 자동 응답하지만 일반 외부 SSE/CloudEvent 응답에는 연결된 server/tool과 정확한 source/receiver_id/arguments 재정의가 필요합니다.'),
     'work_side_intake_aging_seconds': ('After this wait, ordinary side mail gains pickup priority to avoid starvation; Work execution priority is unchanged.', '이 시간 대기한 일반 메시지의 접수 처리 순위를 높여 기아를 방지합니다. Work 실행 우선순위 승격은 아닙니다.'),
     'work_side_intake_max_active': ('Concurrent side actors only; durable incoming requests are never capped by this value.', '동시 사이드 처리자 수만 제한합니다. 수신 요청의 내구성 등록 개수 제한이 아닙니다.'),
     'work_side_intake_context_mode': ('isolated: Work only. full/recent: router-captured parent system/history; rebase at next event when parent advances. No direct-gateway fallback; Work always whole.', 'isolated: Work만. full/recent: 라우터에서 관측한 부모 시스템·이력. direct gateway는 지원하지 않습니다. Work 보드는 항상 전체입니다.'),

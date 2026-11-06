@@ -5,12 +5,14 @@ import getpass
 import hashlib
 import os
 import sys
+import time
 from pathlib import Path, PureWindowsPath
 from typing import Any
 
 from .sandbox_profile import apply_sandbox_profile
 from .web_endpoints import apply_startup_web_options, load_saved_web_backend
 from .workspace_router_selection import (
+    release_workspace_router_launch_lease,
     select_workspace_router_port,
     workspace_digest,
     workspace_identity,
@@ -133,12 +135,31 @@ ROUTER_HOST = (
 )
 _BASE_ROUTER_PORT = default_router_port(_SAVED_WEB_BACKEND.port)
 WORKSPACE_ROUTER_REGISTRY_PATH = CONFIG_DIR / "workspace-router-ports.json"
+# Selection runs at import, before any router log exists. Launches replay the
+# measured duration as one launch_phase_end line (there is no start line).
+_router_port_selection_started = time.monotonic()
 ROUTER_PORT = select_workspace_router_port(
     _BASE_ROUTER_PORT,
     Path.cwd(),
     os.environ,
     registry_path=WORKSPACE_ROUTER_REGISTRY_PATH,
 )
+ROUTER_PORT_SELECTION_ELAPSED_MS = int(max(0.0, time.monotonic() - _router_port_selection_started) * 1000)
+ROUTER_PORT_SELECTION_RESULT = (
+    "explicit" if str(os.environ.get("CIEL_RUNTIME_ROUTER_PORT") or "").strip() else "selected"
+)
+
+
+def release_current_launch_lease() -> bool:
+    """Release this process's bounded startup lease, retaining its port mapping."""
+
+    return release_workspace_router_launch_lease(
+        Path.cwd(),
+        os.environ,
+        registry_path=WORKSPACE_ROUTER_REGISTRY_PATH,
+    )
+
+
 ROUTER_BASE = f"http://{ROUTER_HOST}:{ROUTER_PORT}"
 ROUTER_INSTANCE_ID = f"{ROUTER_PORT}-{_WORKSPACE_DIGEST}"
 # A launching router exports CIEL_RUNTIME_STATE_DIR so its client shares the
@@ -224,6 +245,6 @@ NCP_LOG = platform_config_dir("nvd-claude-proxy") / "proxy.log"
 
 __all__ = [name for name in globals() if name.isupper() or name in {
     "agy_user_bin_dir", "ciel_runtime_user_bin_dir", "default_router_port",
-    "path_with_ciel_runtime_user_dirs", "platform_config_dir", "platform_path",
+    "path_with_ciel_runtime_user_dirs", "platform_config_dir", "platform_path", "release_current_launch_lease",
     "windows_appdata_root", "windows_local_appdata_root",
 }]

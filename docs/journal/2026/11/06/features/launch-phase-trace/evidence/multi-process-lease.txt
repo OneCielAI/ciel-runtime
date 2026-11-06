@@ -1,0 +1,17 @@
+--- 1: launcher A holds the workspace lease
+{"role": "hold", "pid": 77884, "import": "ok", "port": 9464, "elapsed_s": 0.109, "lease_after": 77884}
+--- 2: same-workspace second launch while A lives
+{"role": "second", "pid": 90928, "import": "refused", "elapsed_s": 0.141, "message": "workspace router launch already reserved by another or unknown process (pid 77884) for c:\\users\\djlov\\appdata\\local\\temp\\tmp.<ws>: another Ciel Runtime launch of this workspace is still starting or running. Wait for it to finish or close it, then retry; nothing was stopped."}
+exit=3
+A still alive after refusal
+--- 3: launcher C takes the lease, then fails before any child
+[INFO] launch_phase_start runtime=agy phase=install_diagnostics
+[INFO] launch_phase_end runtime=agy phase=install_diagnostics elapsed_ms=0 result=ok
+[INFO] launch_phase_start runtime=agy phase=self_update_check
+[INFO] launch_phase_end runtime=agy phase=self_update_check elapsed_ms=0 result=ok
+[INFO] launch_lease_release runtime=agy cause=RuntimeError result=released
+{"role": "prechild-fail", "pid": 47184, "import": "ok", "port": 9464, "elapsed_s": 0.187, "launch_error": "RuntimeError", "lease_after": null}
+--- 4: next launch while C is still alive
+{"role": "second", "pid": 91968, "import": "ok", "port": 9464, "elapsed_s": 0.094, "lease_after": 91968}
+exit=0
+C still alive

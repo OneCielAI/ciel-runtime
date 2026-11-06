@@ -1,0 +1,23 @@
+{
+  "product": "installed beta 0.2.51-beta.20261106-201241.a5794b4",
+  "command": "~/.local/bin/ciel-runtime.cmd --continue",
+  "config": "isolated empty CIEL_RUNTIME_CONFIG_DIR, inherited CIEL_RUNTIME_* removed, automatic port",
+  "method": "owned ConPTY, 100 ms screen polling for the menu footer, owned tree killed after menu",
+  "runs": [
+    {
+      "run": "before-beta-1",
+      "menu_seen_seconds": 26.5,
+      "max_concurrent_version_probe_python": 1
+    },
+    {
+      "run": "before-beta-2",
+      "menu_seen_seconds": 26.5,
+      "max_concurrent_version_probe_python": 1
+    },
+    {
+      "run": "before-beta-3",
+      "menu_seen_seconds": 26.64,
+      "max_concurrent_version_probe_python": 1
+    }
+  ]
+}

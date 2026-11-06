@@ -9,6 +9,7 @@ import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
+import time
 from typing import Any, Callable, Mapping
 import urllib.error
 import urllib.parse
@@ -635,6 +636,26 @@ class RemoteMemorySynchronizer:
     urlopen: Callable[..., Any] = urllib.request.urlopen
 
     def sync(self, runtime: str, *, reason: str = "launch") -> RemoteMemoryResult:
+        started = time.monotonic()
+        self.log("INFO", f"launch_phase_start runtime={runtime} phase=remote_memory reason={reason}")
+        try:
+            result = self._sync(runtime, reason=reason)
+        except BaseException as exc:
+            self.log(
+                "INFO",
+                f"launch_phase_end runtime={runtime} phase=remote_memory reason={reason} "
+                f"elapsed_ms={int(max(0.0, time.monotonic() - started) * 1000)} "
+                f"result=error error_type={type(exc).__name__}",
+            )
+            raise
+        self.log(
+            "INFO",
+            f"launch_phase_end runtime={runtime} phase=remote_memory reason={reason} "
+            f"elapsed_ms={int(max(0.0, time.monotonic() - started) * 1000)} result={result.status}",
+        )
+        return result
+
+    def _sync(self, runtime: str, *, reason: str) -> RemoteMemoryResult:
         config = self.load_config()
         remote = settings(config)
         manifest_url = str(remote.get("manifest_url") or "").strip()

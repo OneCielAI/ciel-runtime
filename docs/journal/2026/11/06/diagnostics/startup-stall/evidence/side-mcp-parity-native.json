@@ -1,0 +1,27 @@
+{
+  "harness": ".local/side_production_e2e.py SIDE_MULTI_MCP=1 SIDE_BOARD_FULL=1 (native Claude Code 2.1.310, owned fixture provider + two owned MCP servers)",
+  "main_mcp_tool_count": 32,
+  "main_servers": [
+    "ciel-runtime-router",
+    "owned-mail"
+  ],
+  "side_mcp_tools": [
+    "mcp__ciel-runtime-router__external_reply",
+    "mcp__ciel-runtime-router__send_message",
+    "mcp__ciel-runtime-router__work_parallel_status",
+    "mcp__ciel-runtime-router__work_status",
+    "mcp__owned-mail__read_message"
+  ],
+  "side_non_work_equals_main_non_work": true,
+  "side_work_tools": [
+    "mcp__ciel-runtime-router__work_parallel_status",
+    "mcp__ciel-runtime-router__work_status"
+  ],
+  "side_called_second_server_while_main_busy": true,
+  "parity_log_line": "Side MCP parity · tools 32 · servers 2 · digest 1d262bf9b7aa81bf",
+  "board_nodes": 25,
+  "pending": 0,
+  "resolved_before_main_end": true,
+  "delivery": "submitted",
+  "screenshot": "screens/side-mcp-parity-native.png"
+}

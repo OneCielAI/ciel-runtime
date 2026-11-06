@@ -11,4 +11,5 @@ okf_version: "0.1"
 - [Reviewed release validation and constraints](release-validation.md)
 - [Beta publication and installed verification](beta-release.md)
 - [Installed beta receipt contention correction](receipt-replacement.md)
+- [Primary side MCP parity and reply-route override wording](mcp-parity.md)
 - [Change log](log.md)

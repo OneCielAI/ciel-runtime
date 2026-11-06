@@ -1,0 +1,64 @@
+{
+  "beta_default_scan": {
+    "launcher": "~/.local/bin/ciel-runtime.cmd --continue",
+    "product": "0.2.51-beta.20261106-201241.a5794b4",
+    "owned_config": "isolated CIEL_RUNTIME_CONFIG_DIR (empty)",
+    "timeline": [
+      {
+        "t": 2.0,
+        "screen": "blank",
+        "version_probe_python_children": 0
+      },
+      {
+        "t": 8.9,
+        "screen": "blank",
+        "version_probe_python_children": 1
+      },
+      {
+        "t": 26.2,
+        "screen": "blank",
+        "version_probe_python_children": 0
+      },
+      {
+        "t": 29.5,
+        "screen": "menu",
+        "version_probe_python_children": 0
+      }
+    ],
+    "main_thread_idle_frame": "prelaunch_terminal.py:226 read_menu_key",
+    "killed_owned_tree_after_seconds": 96.8
+  },
+  "beta_explicit_port_walkie_config": {
+    "launcher": "~/.local/bin/ciel-runtime.cmd --continue",
+    "product": "0.2.51-beta.20261106-201241.a5794b4",
+    "owned_config": "isolated CIEL_RUNTIME_CONFIG_DIR seeded from live global+walkie workspace config, outward receivers/bridges/web backends removed, CIEL_RUNTIME_ROUTER_PORT=19611",
+    "timeline": [
+      {
+        "t": 2.0,
+        "screen": "blank",
+        "version_probe_python_children": 0
+      },
+      {
+        "t": 9.1,
+        "screen": "menu",
+        "version_probe_python_children": 0
+      }
+    ],
+    "main_thread_idle_frame": "prelaunch_terminal.py:226 read_menu_key",
+    "killed_owned_tree_after_seconds": 126.3
+  },
+  "interpretation": {
+    "confirmed": "Default beta startup showed a blank terminal for about 29.5 s. Parent import plus its own 7.5 s scan precede the first diagnostic child at 8.9 s. Two recursive launcher --version children each pay about 1.3 s base plus their own 7.5 s scan (8.9 s to 26.2 s). Update check and menu render follow until 29.5 s. With an explicit port (no scan) the same product reached the menu at 9.1 s.",
+    "consistent_not_proven": "After the menu renders the launcher idles in read_menu_key with no child, no TCP and flat CPU, the same external signature recorded for PID408. Earlier walkie launches also show 55 s to 15 min gaps between remote sync and the next launch log line while the menu waited for input. PID408 exited before its frame could be captured."
+  },
+  "component_measurements": {
+    "isolated_version_wall_seconds_explicit_port_no_diagnostics": [
+      1.34,
+      1.33,
+      1.29
+    ],
+    "real_health_scan_9464_9513_seconds": 7.54,
+    "closed_loopback_probe_seconds": "0.154-0.187 each (full 150 ms timeout); live routers 9487/9489 answered in 0.005-0.007",
+    "note": "A separate exploration reported 0.79 s for an unused-loopback scan; direct measurement of the actual range on this machine contradicts it and is the value used here."
+  }
+}

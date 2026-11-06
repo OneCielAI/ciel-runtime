@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import concurrent.futures
 import ctypes
 import json
 import os
@@ -31,6 +32,10 @@ def workspace_digest(value: Any) -> str:
 
 
 def probe_router_health(port: int, timeout: float = 0.15) -> dict[str, Any] | None:
+    # An exclusive bind proves there is no listener to answer HTTP. Avoid the
+    # full Windows loopback timeout on every closed port in the scan range.
+    if port_is_free(port):
+        return None
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/health", timeout=timeout) as response:
             payload = json.loads(response.read().decode("utf-8", errors="replace"))
@@ -52,11 +57,33 @@ def port_is_free(port: int) -> bool:
         probe.close()
 
 
+def _probe_router_ports(
+    ports: list[int], health: Callable[[int], dict[str, Any] | None]
+) -> dict[int, dict[str, Any] | None]:
+    """Probe a bounded port set concurrently and preserve input order."""
+
+    def probe(port: int) -> dict[str, Any] | None:
+        try:
+            return health(port)
+        except Exception:
+            # A failed probe is not proof that the port has no listener. Keep
+            # it occupied for this selection instead of failing the whole scan.
+            return {}
+
+    if not ports:
+        return {}
+    workers = min(ROUTER_HEALTH_PROBE_WORKERS, len(ports))
+    with concurrent.futures.ThreadPoolExecutor(max_workers=workers) as pool:
+        observed = list(pool.map(probe, ports))
+    return dict(zip(ports, observed))
+
+
 # Every workspace keeps its registry reservation between launches, so the
 # range fills with reservations rather than live routers: on 2026-09-23 all 32
 # ports (9464-9495) were reserved while only 6 were listening, and a new
 # workspace could not start.
 ROUTER_PORT_SCAN_SIZE = 50
+ROUTER_HEALTH_PROBE_WORKERS = 4
 ROUTER_LAUNCH_LEASE_SECONDS = 30.0
 # Set by a launcher for the one child that continues its launch (the Windows
 # self-update restart); the value is the launcher's PID.
@@ -193,7 +220,12 @@ def select_workspace_router_port(
     if registry_path is None:
         if explicit_port:
             return base_port
-        return _select_port(base_port, target, health, available, scan_size, {})
+        maximum = min(65535, base_port + max(1, scan_size) - 1)
+        ports = list(range(base_port, maximum + 1))
+        observed_ports = _probe_router_ports(ports, health)
+        return _select_port(
+            base_port, target, observed_ports.get, available, scan_size, set()
+        )
 
     registry_path = Path(registry_path)
     registry_path.parent.mkdir(parents=True, exist_ok=True)
@@ -243,13 +275,21 @@ def select_workspace_router_port(
                 environ,
             )
             return base_port
-        # Scan live health before honoring even our own offline mapping.
+        # Probe our mapped port first, then scan the whole bounded range. The
+        # complete scan still happens before accepting an offline mapping: a
+        # live same-workspace router may have moved to another port.
         maximum = min(65535, base_port + max(1, scan_size) - 1)
-        observed_ports = {port: health(port) for port in range(base_port, maximum + 1)}
         own_record = records.get(key)
         mapped_port = _record_port(own_record)
-        if mapped_port and mapped_port not in observed_ports:
-            observed_ports[mapped_port] = health(mapped_port)
+        ports = list(range(base_port, maximum + 1))
+        observed_ports: dict[int, dict[str, Any] | None] = {}
+        if mapped_port:
+            try:
+                observed_ports[mapped_port] = health(mapped_port)
+            except Exception:
+                observed_ports[mapped_port] = {}
+        remaining = [port for port in ports if port != mapped_port]
+        observed_ports.update(_probe_router_ports(remaining, health))
         for port, observed in observed_ports.items():
             if isinstance(observed, dict) and workspace_identity(observed.get("workspace")) == target:
                 if port == mapped_port and _lease_handed_off_by_parent(own_record, environ):
@@ -322,6 +362,69 @@ def select_workspace_router_port(
                     time.sleep(0.01)
 
 
+def release_workspace_router_launch_lease(
+    workspace: Path,
+    environ: Mapping[str, str],
+    *,
+    registry_path: Path,
+) -> bool:
+    """Compatibility adapter for runtime_paths while launch assembly migrates."""
+
+    return release_own_launch_lease(
+        registry_path, environ.get("CIEL_RUNTIME_LAUNCH_CWD") or workspace
+    )
+
+
+def release_own_launch_lease(registry_path: Path, workspace: Any) -> bool:
+    """Release only this process's lease, keeping its stable port reservation."""
+
+    target = workspace_identity(workspace)
+    pid = os.getpid()
+    identity = _process_identity(pid)
+    if not target or not identity:
+        return False
+    registry_path = Path(registry_path)
+    lock_path = registry_path.with_suffix(registry_path.suffix + ".lock")
+    deadline = time.monotonic() + 8.0
+    lock_fd: int | None = None
+    while lock_fd is None:
+        try:
+            lock_fd = os.open(str(lock_path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            os.write(lock_fd, f"{pid}\n".encode("ascii", errors="replace"))
+        except FileExistsError:
+            if time.monotonic() >= deadline:
+                return False
+            time.sleep(0.05)
+    try:
+        registry = _load_registry(registry_path)
+        record = registry.get("workspaces", {}).get(workspace_digest(target))
+        lease = record.get("launch_lease") if isinstance(record, dict) else None
+        if not isinstance(lease, dict):
+            return False
+        try:
+            owned = int(lease["pid"]) == pid and lease.get("identity") == identity
+        except (TypeError, ValueError, KeyError):
+            return False
+        if not owned:
+            return False
+        del record["launch_lease"]
+        _save_registry(registry_path, registry)
+        return True
+    finally:
+        try:
+            if lock_fd is not None:
+                os.close(lock_fd)
+        finally:
+            for attempt in range(20):
+                try:
+                    lock_path.unlink(missing_ok=True)
+                    break
+                except PermissionError:
+                    if attempt == 19:
+                        raise
+                    time.sleep(0.01)
+
+
 def _record_port(record: Any) -> int:
     try:
         port = int(record.get("port") or 0) if isinstance(record, dict) else 0
@@ -375,8 +478,10 @@ def _check_own_launch_lease(record: dict[str, Any]) -> None:
     lease = record.get("launch_lease")
     if lease is None:
         return
+    holder = "another or unknown process"
     try:
         pid = int(lease["pid"])
+        holder = f"another or unknown process (pid {pid})"
         current = _process_identity(pid)
         if pid == os.getpid() and current and current == lease.get("identity"):
             return
@@ -401,7 +506,12 @@ def _check_own_launch_lease(record: dict[str, Any]) -> None:
             return
     except (TypeError, ValueError, KeyError):
         pass
-    raise RuntimeError("workspace router launch already reserved by another or unknown process")
+    workspace = workspace_identity(record.get("workspace")) or "this workspace"
+    raise RuntimeError(
+        f"workspace router launch already reserved by {holder} for {workspace}: "
+        "another Ciel Runtime launch of this workspace is still starting or running. "
+        "Wait for it to finish or close it, then retry; nothing was stopped."
+    )
 
 
 def _select_port(
@@ -526,6 +636,8 @@ def _save_registry(path: Path, payload: dict[str, Any]) -> None:
 __all__ = [
     "port_is_free",
     "probe_router_health",
+    "release_own_launch_lease",
+    "release_workspace_router_launch_lease",
     "select_workspace_router_port",
     "workspace_digest",
     "workspace_identity",

@@ -1,0 +1,29 @@
+{
+  "product": "patched source (work-parallel tree, uncommitted) via the same ~/.local/bin/ciel-runtime.cmd with CIEL_RUNTIME_HOME_OVERRIDE",
+  "command": "ciel-runtime.cmd --continue",
+  "config": "isolated empty config, automatic port",
+  "runs": [
+    {
+      "run": "after-src-1",
+      "menu_seen_seconds": 3.03,
+      "max_version_probe_children": 0
+    },
+    {
+      "run": "after-src-2",
+      "menu_seen_seconds": 4.5,
+      "max_version_probe_children": 0
+    },
+    {
+      "run": "after-src-3",
+      "menu_seen_seconds": 4.52,
+      "max_version_probe_children": 0
+    }
+  ],
+  "caveat": "A source tree does not perform the npm self-update check the installed package performs; the installed-beta after measurement is recorded separately after publish.",
+  "traced_phases": [
+    "runtime_paths.router_port_select 50 ms selected",
+    "install_diagnostics 6 ms",
+    "remote_instructions/memory/provision 1-2 ms each (disabled)",
+    "self_update_check 0 ms"
+  ]
+}

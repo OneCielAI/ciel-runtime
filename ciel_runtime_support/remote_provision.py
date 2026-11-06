@@ -217,6 +217,26 @@ class RemoteProvisioner:
         return bool(settings(self.load_config()).get("enabled", False))
 
     def provision(self, *, reason: str = "launch") -> ProvisionResult:
+        started = time.monotonic()
+        self.log("INFO", f"launch_phase_start runtime=all phase=remote_provision reason={reason}")
+        try:
+            result = self._provision(reason=reason)
+        except BaseException as exc:
+            self.log(
+                "INFO",
+                f"launch_phase_end runtime=all phase=remote_provision reason={reason} "
+                f"elapsed_ms={int(max(0.0, time.monotonic() - started) * 1000)} "
+                f"result=error error_type={type(exc).__name__}",
+            )
+            raise
+        self.log(
+            "INFO",
+            f"launch_phase_end runtime=all phase=remote_provision reason={reason} "
+            f"elapsed_ms={int(max(0.0, time.monotonic() - started) * 1000)} result={result.status}",
+        )
+        return result
+
+    def _provision(self, *, reason: str) -> ProvisionResult:
         remote = settings(self.load_config())
         if not bool(remote.get("enabled", False)):
             return ProvisionResult("disabled")

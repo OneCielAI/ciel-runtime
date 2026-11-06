@@ -186,6 +186,26 @@ class RemoteInstructionSynchronizer:
     now: Callable[[], float] = time.time
 
     def sync(self, runtime: str, *, reason: str = "launch") -> RemoteInstructionResult:
+        started = time.monotonic()
+        self.log("INFO", f"launch_phase_start runtime={runtime} phase=remote_instructions reason={reason}")
+        try:
+            result = self._sync(runtime, reason=reason)
+        except BaseException as exc:
+            self.log(
+                "INFO",
+                f"launch_phase_end runtime={runtime} phase=remote_instructions reason={reason} "
+                f"elapsed_ms={int(max(0.0, time.monotonic() - started) * 1000)} "
+                f"result=error error_type={type(exc).__name__}",
+            )
+            raise
+        self.log(
+            "INFO",
+            f"launch_phase_end runtime={runtime} phase=remote_instructions reason={reason} "
+            f"elapsed_ms={int(max(0.0, time.monotonic() - started) * 1000)} result={result.status}",
+        )
+        return result
+
+    def _sync(self, runtime: str, *, reason: str) -> RemoteInstructionResult:
         config = self.load_config()
         remote = settings(config)
         url = configured_url(config, runtime)
@@ -298,17 +318,41 @@ class RemoteInstructionSynchronizer:
         return max(minimum, min(maximum, parsed))
 
 
+REMOTE_ASSETS_SLOW_SECONDS = 1.0
+
+
+def _release_current_launch_lease() -> None:
+    from .runtime_paths import release_current_launch_lease
+
+    release_current_launch_lease()
+
+
 @dataclass(frozen=True, slots=True)
 class SynchronizedLaunch:
     delegate: Callable[..., Any]
     synchronize: Callable[..., Any]
     runtime: str
     prepare: Callable[..., Any] | None = None
+    # Drops this launcher's own startup lease; the default touches nothing else.
+    release: Callable[[], Any] = _release_current_launch_lease
+    output: Callable[[str], Any] = lambda text: print(text, flush=True)
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
-        if self.prepare is not None:
-            self.prepare(*args, **kwargs)
-        self.synchronize(self.runtime, reason="launch")
+        started = time.monotonic()
+        try:
+            if self.prepare is not None:
+                self.prepare(*args, **kwargs)
+            self.synchronize(self.runtime, reason="launch")
+        except BaseException:
+            # Nothing was spawned yet; the delegate guards its own failures.
+            try:
+                self.release()
+            except Exception:  # noqa: BLE001 - the launch failure is the error to report
+                pass
+            raise
+        elapsed = time.monotonic() - started
+        if elapsed >= REMOTE_ASSETS_SLOW_SECONDS:
+            self.output(f"Ciel Runtime startup: remote assets completed in {elapsed:.1f}s.")
         return self.delegate(*args, **kwargs)
 
 
