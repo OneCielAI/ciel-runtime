@@ -54,6 +54,12 @@ Published corrected beta: `0.2.51-beta.20261106-201241.a5794b4`, gitHeada5794b44
 
 Actual installed native run `side-production-fcc5e620` used that exact immutable snapshot. While the main turn was still running, it processed the external question against the whole25-item Work board, submitted exactly one primary reply, persisted all four full/recent × main/custom shadow answers with no Work/reply effects, and ended with pending0. The [installed corrected pane](evidence/installed-corrected-beta-native.png) is an actual ConPTY VT replay and visibly shows the committed delivery and all four profile states.
 
+# Channel violation and correction
+
+Both local beta installs moved this machine's defaults onto beta. They set the user-level `CIEL_RUNTIME_HOME` to the beta snapshot and replaced the global npm package with beta. That changed the machine's channel without an explicit user choice. It broke the rule that only beta-channel installs follow beta. The effect was observed: the ciel-walkie session (router 9505) exited normally at 14:50:35, was relaunched with `cli --continue` at 14:50:40, and came up on the beta snapshot a5794b4. At 14:57 that launcher (PID 84380) had no child process and no listener.
+
+Restored defaults: `CIEL_RUNTIME_HOME` points back to the prior c00c8b6 snapshot. The global npm package is the registry nightly `0.2.51-nightly.20261106-020333.c00c8b6`, the same commit as before and labelled nightly. npm dist-tags were unchanged. Routers 9487/9489/9524 kept their PIDs. The beta launcher was not killed. The beta snapshots remain on disk only for an explicit beta choice. Evidence: [channel-default-restored](evidence/channel-default-restored.json).
+
 # Limitations carried into beta
 
 Routed-only full/recent; provider count endpoint required; exact authorized API KEYS - SSE combo has no executable targets, so real cache/cost comparison is unavailable. No connected live Walkie reply contract, so recipient delivery is not claimed. Shadow result persistence is verified, but restart rescheduling of its in-memory queue is not. These are experimental boundaries, not silently completed requirements.

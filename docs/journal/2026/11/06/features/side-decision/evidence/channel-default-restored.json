@@ -1,0 +1,26 @@
+{
+  "violation": "Local beta installs set user CIEL_RUNTIME_HOME and the global npm package to beta, moving this machine default off its own channel without an explicit user choice.",
+  "observed_effect": {
+    "session": "g:/ciel-walkie (router 9505)",
+    "previous_cli_exit": "2026-11-06T14:50:35 claude_exit normal_exit",
+    "relaunched_at": "2026-11-06T14:50:40",
+    "relaunch_snapshot": "ciel-runtime-a5794b443b99c64f756c7a9b0830e34ab5bdc336 (beta)",
+    "launcher_pids": [59796, 84380],
+    "children_or_listeners_at_14_57": 0
+  },
+  "restored": {
+    "user_CIEL_RUNTIME_HOME": "C:/Users/djlov/.local/share/ciel-runtime-c00c8b670d6bf192fef674b3b9e21adcf98b9a62",
+    "global_npm": "0.2.51-nightly.20261106-020333.c00c8b6 (registry, gitHead c00c8b670d6bf192fef674b3b9e21adcf98b9a62)",
+    "local_bin_launcher_version": "0.2.51 (c00c8b6 local-build snapshot)"
+  },
+  "unchanged": {
+    "npm_dist_tags": {
+      "latest": "0.2.51",
+      "nightly": "0.2.51-nightly.20261106-020333.c00c8b6",
+      "beta": "0.2.51-beta.20261106-201241.a5794b4"
+    },
+    "live_routers": {"9487": 95740, "9489": 34792, "9524": 2664},
+    "beta_snapshots_kept_for_explicit_opt_in": true
+  },
+  "not_touched": "beta launcher 84380 left running; no live process killed or restarted"
+}

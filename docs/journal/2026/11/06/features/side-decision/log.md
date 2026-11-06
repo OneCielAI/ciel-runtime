@@ -2,6 +2,7 @@
 
 ## 2026-11-06
 
+- Channel violation corrected: local beta installs had moved this machine's default launcher home and global package to beta, and the ciel-walkie session relaunched on beta at 14:50:40. Restored the default to c00c8b6 (snapshot home plus registry nightly global). No live process was killed or restarted.
 - Published and installed corrected betaa5794b4 after clean local/remote gates and exact registry verification. The new immutable snapshot passed installed native four-profile acceptance: whole25-item Work, one submitted primary reply, all four shadows answered, pending0. Stable/nightly remained unchanged and live routers retained their PIDs.
 - Published and installed beta3a71929 after CI success and exact tarball/source verification; stable/nightly unchanged. Installed native acceptance then failed on a Windows receipt replacement denial (fourth shadow missing), so release acceptance remains open. Real open-reader reproduction led to bounded local-only atomic replacement retries;100/100real collision repetitions and corrected native35433734 passed. Correction regression gates running; no live restart.
 
