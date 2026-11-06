@@ -1,5 +1,5 @@
 {
-  "state": "first_beta_published_installed_acceptance_failed_correction_in_validation",
+  "state": "corrected_beta_published_installed_and_native_accepted",
   "native_verified": {
     "external_reply": "side-production-e8345713",
     "second_mcp": "side-production-aae6736f",
@@ -56,9 +56,14 @@
   },
   "published": true,
   "installed": true,
-  "published_version": "0.2.51-beta.20261106-185033.3a71929",
-  "installed_native_acceptance": {"run":"side-production-f32d625b","state":"failed","primary_delivery":"submitted","persisted_shadows":3,"error":"Windows receipt replace PermissionError5"},
+  "published_version": "0.2.51-beta.20261106-201241.a5794b4",
+  "published_commit": "a5794b443b99c64f756c7a9b0830e34ab5bdc336",
+  "first_beta_native_acceptance": {"run":"side-production-f32d625b","state":"failed","primary_delivery":"submitted","persisted_shadows":3,"error":"Windows receipt replace PermissionError5"},
+  "installed_native_acceptance": {"run":"side-production-fcc5e620","state":"passed","work_nodes":25,"pending":0,"primary_delivery":"submitted","shadow_profiles":4,"external_sends":1,"resolved_before_main_end":true},
   "correction_native": {"run":"side-production-35433734","state":"passed","shadow_profiles":4,"external_sends":1},
+  "final_local_gate": {"state":"passed","python311_unit":3325,"python311_skipped":50,"python310_unit":3325,"python310_skipped":52,"router":1529,"channel":604,"channel_skipped":80,"runtime":458,"runtime_skipped":19},
+  "final_remote_gate": {"state":"passed","ci_run":42284733097,"publish_run":42284733096},
+  "installed_snapshot": "C:/Users/djlov/.local/share/ciel-runtime-a5794b443b99c64f756c7a9b0830e34ab5bdc336",
   "live_restarts": false,
   "board_projection_unit_gate": {
     "task": "bc6kv9xmc",
