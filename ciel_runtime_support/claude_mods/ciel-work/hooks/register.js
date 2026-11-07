@@ -1509,7 +1509,7 @@ export function register(on) {
     // of ten full receipts overflowed the dock and left stale cells (walkie
     // 2026-11-07). The list shows one line per receipt; the selected receipt's
     // detail pages by the body height.
-    const width = Math.max(20, (e.props.bodyColumns || 100) - 1)
+    const width = Math.max(20, (e.props?.bodyColumns || 100) - 1)
     const row = (key, value) => Text({ key, wrap: 'truncate-end', children: cellClipped(value, width) })
     const recent = receipts.slice(-10).reverse()
     const selected = recent.find(r => (r.receipt_id || r.item_id) === sidePaneView.receipt) || recent[0]
@@ -1539,6 +1539,7 @@ export function register(on) {
         if (r.result.reported_sends?.length) detail.push('Side AI sent via: ' + r.result.reported_sends.map(n => n.replace(/^mcp__/, '')).join(', '))
         for (const [id, c] of Object.entries(r.result.comparisons || {})) detail.push('Shadow ' + id.slice(0, 8) + ': ' + c.state
           + ' · ' + (c.profile?.mode || 'context unknown') + ' · ' + (c.usage?.model || c.profile?.model || 'model unknown')
+          + ' · selected ' + (c.context?.selected_percent == null ? 'unknown' : Number(c.context.selected_percent).toFixed(1) + '%')
           + ' · input ' + (c.usage?.input_tokens ?? 'unknown') + ' · cache read ' + (c.usage?.cache_read_input_tokens ?? 'unknown') + ' · no Work/reply effects')
       } else detail.push(r.processing ? 'AI processing; no result committed yet.' : 'Received; AI has not processed this event yet.')
       detail.push('Original:', ...eventView(r.original || r.recap || '').lines.map(line => '  ' + line))
@@ -1546,7 +1547,7 @@ export function register(on) {
     // title, parity, states, list label, list rows, detail rule, pager row, slack
     const header = 4 + list.length + 3
     const page = pageOf(detail, sidePaneView.receipt === key ? sidePaneView.page : 0,
-      Math.max(3, (e.props.scroll?.bodyRows || 30) - header))
+      Math.max(3, (e.props?.scroll?.bodyRows || 30) - header))
     const pageTo = next => { sidePaneView = { receipt: key, page: next }; $.ui.invalidate('ui.render') }
     return Box({ flexDirection: 'column', children: [
       row('title', 'btw_with_mcp · Inbox → side AI → response / Work decision'),
