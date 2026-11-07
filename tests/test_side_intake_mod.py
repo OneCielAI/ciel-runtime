@@ -103,6 +103,14 @@ class SideModTests(unittest.TestCase):
             done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',check=True)
         self.assertEqual([{'tool':'TaskStop','task_id':'failed-side'}],json.loads(done.stdout))
 
+    def test_side_prompt_requires_answer_ack_queue_and_status_behaviors(self):
+        source=(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js').read_text(encoding='utf8')
+        self.assertIn('answer it immediately through the source',source)
+        self.assertIn("send the source's ACK/reaction first",source)
+        self.assertIn('create one root Work item',source)
+        self.assertIn('work_status/work_parallel_status',source)
+        self.assertIn('Never answer only from the event payload',source)
+
     def test_reply_route_override_is_not_mcp_inheritance(self):
         from ciel_runtime_support.recent_menu_text import menu_text
         from ciel_runtime_support.work_settings_menu import description
