@@ -28,9 +28,9 @@ def record(state_dir, identity, agent_id, receipt_id, outcome):
 def take(state_dir, identity, agent_id, receipt_id):
     candidates = [_path(state_dir, identity, agent_id, receipt_id)] if agent_id else []
     # Agent ids seen by Claude hooks and HTTP headers are not guaranteed to use
-    # one spelling across all native hosts. Receipt ids are unique inside the
-    # exact parent identity, so a verified host may recover one matching outcome.
-    if not candidates:
+    # one spelling across all native hosts. Always fall back to the exact parent
+    # identity + receipt when the direct spelling has no file.
+    if not candidates or not candidates[0].exists():
         candidates = list((Path(state_dir) / 'side-outcomes').glob('*/*.json'))
     matches = []
     for path in candidates:

@@ -24,6 +24,12 @@ class SideRequestOutcomeTests(unittest.TestCase):
             record(root,'claude:parent','http-agent','receipt-3',{'status':404,'terminal_reason':'no_executable_targets'})
             recovered=take(root,'claude:parent','','receipt-3')
             self.assertEqual('no_executable_targets',recovered['terminal_reason'])
+            # Native hook agent ids and routed HTTP agent ids differ in the real
+            # host. A non-empty hook spelling must still recover the exact
+            # parent+receipt outcome when its direct hash does not exist.
+            record(root,'claude:parent','http-agent','receipt-4',{'status':404,'terminal_reason':'no_executable_targets'})
+            recovered=take(root,'claude:parent','hook-agent','receipt-4')
+            self.assertEqual('no_executable_targets',recovered['terminal_reason'])
 
 
 if __name__ == '__main__':
