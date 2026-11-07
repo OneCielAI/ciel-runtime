@@ -1,0 +1,30 @@
+                                                                  │                                                   ✕
+           Claude Code v2.1.310                                   │┌───────────────────────────────────────────────────┐
+ ▐▛███▛█   ciel-runtime-cielairouter-_walkie_opus55-sol61-fas…    ││ WORK 0 · planning · 0/0                           │
+▝▜██████▀  API Usage Billing                                      ││ Queue 0 · Side 0 · Slots 4/5                      │
+ ▝▝   ▝▝   G:\ciel-Walkie                                         │└───────────────────────────────────────────────────┘
+                                                                  │w: [Work] s: SSE g: Settings
+                                                                  │[Progress] Queue Completed
+● ciel-work: Ciel Work mode is on: plan and execute by            │No active goal.
+  item; new independent requests queue without pausing            │All items r: Refresh q: Close
+  approved Work. Items show above the prompt · /work-mode         │1/1
+  help · turn off: ciel-runtime menu → LLM options → Work         │Touch tabs/items · Back closes
+  mode, or the agent (work_mode_set)                              │
+                                                                  │
+❯ /work-mode                                                      │
+  ⎿  ciel-work: Work & SSE pane: W Work · S SSE · G Settings ·    │
+     Tab/arrows navigate · Enter opens · Esc returns.             │
+                                                                  │
+                                                                  │
+                                                                  │
+                                                                  │
+                                                                  │
+                                                                  │
+w: Work 0/0 no goal [+]                                       [-] │
+  ⚠ claude.ai connectors are disabled because ANTHROPIC_API_KEY…  │
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [_Walkie_Opus55-Sol61-Fast (cielairouter)] ciel-Walkie | SSE gate on: open | ctx est 158,055/872,000 tok (18.1%) | …
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents
+                                                                                                        work: plan 0/0
