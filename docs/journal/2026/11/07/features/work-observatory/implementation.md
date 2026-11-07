@@ -35,4 +35,5 @@ Engine-backed plugin tests mount both the real `terminal` and `mobile` element t
 - New deterministic Observatory harness: 6 tests passed.
 - Engine-backed plugin tests: the two new terminal/mobile tests pass. The pre-existing `work.test.ts` pass/fail set is byte-for-byte identical to the HEAD baseline (18 pass / 77 fail); those old failures are the existing fixture issue where `setup()` does not implement `clock.after`, not introduced by this feature.
 - `claude plugin validate`: passed; existing missing-icon warning only.
-- Local install: `0.2.51-local.20261107-5266982` at `C:\Users\djlov\.local\share\ciel-runtime-5266982b715717de04590293730b382b566ee9b9`.
+- Local install after the settings-tab ordering fix: `0.2.51-local.20261107-cf76b0e` at `C:\Users\djlov\.local\share\ciel-runtime-cf76b0e7f85785e71f9ff4ce105805b5526d8de7`.
+- Real fresh console: `/work-mode view` opened and focused the installed Work & SSE pane, showing its colored header, Work/SSE/Settings tabs, parallel capacity and mobile/narrow hint ([screenshot](evidence/real-console-work-pane.png), [screen text](evidence/real-console-work-pane.txt)).
