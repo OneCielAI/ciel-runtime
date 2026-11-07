@@ -104,11 +104,12 @@ const scenarios = {
   async 'side-mailbox-mod-drain'() {
     const timers = []
     const tools = []
+    let statusFinished = false
     const { $, state } = host(async tool => {
       tools.push(tool)
       if (tool === 'work_status') return text({ ...snapshot(), side_intake_enabled: true })
-      if (tool === 'work_side_status') return text({ enabled: true, side_inbox_receipts: [
-        { receipt_id: 'mail1', stage: 'received', recap: 'original request', item_id: null }] })
+      if (tool === 'work_side_status') { statusFinished = true; return text({ enabled: true, side_inbox_receipts: [
+        { receipt_id: 'mail1', stage: 'received', recap: 'original request', item_id: null }] }) }
       if (tool === 'work_side_claim') return text({claim:{receipt_id:'mail1',generation:'g1',text:'original request',route:{},workload:{version:5,truncated:false,nodes:[],queue_order:[]}}})
       return text({})
     })
@@ -117,7 +118,8 @@ const scenarios = {
     const timer = timers.find(t => t.delay === 2000)
     if (!timer) throw new Error('mailbox consumer not scheduled')
     await timer.callback()
-    return { tools, logs: state.logs, rearmed: timers.filter(t => t.delay === 2000).length }
+    return { tools, logs: state.logs, rearmed: timers.filter(t => t.delay === 2000).length,
+      claimedBeforeStatus: tools.indexOf('work_side_claim') < tools.indexOf('work_side_status'), statusFinished }
   },
   async 'live-settings-command'() {
     const changes = []

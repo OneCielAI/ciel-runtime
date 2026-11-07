@@ -87,10 +87,13 @@ function pollBusySideReceipts($, identity) {
     if (sidePoll !== poll || poll.lifecycle !== starts) return
     try {
       if (await sessionId($) !== identity) return
+      // A full status projection can page through many private receipts. Claim
+      // first so display hydration can never starve the side worker.
+      await pollSide($, identity)
+      if (sidePoll !== poll || poll.lifecycle !== starts || await sessionId($) !== identity) return
       const snapshot = await sideMailboxCall($, 'work_side_status')
       if (sidePoll !== poll || poll.lifecycle !== starts || await sessionId($) !== identity) return
       showSideReceipts($, identity, snapshot)
-      if (snapshot.enabled !== false) await pollSide($, identity)
     } catch { /* Durable inbox and pane state remain authoritative. */
     } finally {
       if (sidePoll === poll && poll.lifecycle === starts) schedule()

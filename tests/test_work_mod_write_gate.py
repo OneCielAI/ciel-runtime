@@ -76,6 +76,8 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn('work_side_claim', result['tools'])
         self.assertNotIn('work_side_drain', result['tools'])
         self.assertEqual([], result['logs'])
+        self.assertTrue(result['claimedBeforeStatus'])
+        self.assertTrue(result['statusFinished'])
         self.assertEqual(2, result['rearmed'])
 
     def test_redacted_main_status_does_not_erase_host_side_pane(self):
