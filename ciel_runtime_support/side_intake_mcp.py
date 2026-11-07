@@ -42,6 +42,17 @@ def schemas():
     ]
 
 
+def _reported_sends(value):
+    """MCP tool names the side AI reports it used to reply; names only."""
+    names = []
+    for name in value if isinstance(value, list) else []:
+        if isinstance(name, str) and name.startswith('mcp__') and len(name) <= 200 and name not in names:
+            names.append(name)
+        if len(names) == 20:
+            break
+    return names
+
+
 def _answer_followup(inbox, event_id, answer):
     original = inbox._load(event_id)
     if original:
@@ -186,6 +197,9 @@ def run(name, args, config, state_dir, identity, store):
         if context_info is not None:
             result['context'] = context_info
         result['usage'] = args.get('usage') if isinstance(args.get('usage'), dict) else None
+        # What the side AI says it sent through inherited MCP. The host cannot
+        # observe a spawned agent's tool calls, so this stays labelled as reported.
+        result['reported_sends'] = _reported_sends(host.get('reported_sends'))
     # The board records the decision before pending mail is removed. A retry
     # recovers the same application if this receipt write was interrupted.
     receipt = finish(state_dir, identity, key, generation, result)

@@ -13,7 +13,7 @@ def pending(state_dir, identity, limit=10):
     def eligible():
         for path in directory.glob('*/*.json'):
             row=SideIntakeInbox._read_file(path)
-            if (row and row.get('stage')=='processed' and row.get('result',{}).get('delivery')!='route_unavailable'
+            if (row and row.get('stage')=='processed' and row.get('result',{}).get('delivery') not in ('route_unavailable','side_mcp')
                     and row.get('outbox',{}).get('state') not in ('submitted','uncertain','submitting','failed')):
                 yield {'receipt_id':path.stem,'state':row.get('outbox',{}).get('state','pending')}
     return heapq.nsmallest(limit,eligible(),key=lambda row:row['receipt_id'])
@@ -36,9 +36,12 @@ def prepare(state_dir, identity, receipt_id, *, config=None):
             connector = connector_prepare(config or {}, route, receipt_id, row['result']['reply'], kind)
         # External receiver channel names alone are not outbound connectors.
         if connector is None and (route.get('source_kind') != 'web_chat' or not route.get('reply_token') or not route.get('channel')):
-            row['result']['delivery'] = 'route_unavailable'
+            # The side AI may have answered through the source system's MCP itself,
+            # following the event's hints (reported by the side AI, not host-observed).
+            row['result']['delivery'] = 'side_mcp' if row['result'].get('reported_sends') else 'route_unavailable'
             inbox._save_file(inbox._event_path('receipts', receipt_id), row)
-            return {'state': 'route_unavailable', 'receipt_id': receipt_id}
+            return {'state': row['result']['delivery'], 'receipt_id': receipt_id,
+                    'receipt': inbox._receipt(receipt_id, row, duplicate=False)}
         attempt_id = uuid.uuid4().hex
         row['outbox'] = {'state': 'submitting', 'started_at': time.time(), 'attempt_id': attempt_id}
         row['result']['delivery'] = 'submitting'

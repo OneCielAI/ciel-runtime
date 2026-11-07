@@ -2,6 +2,7 @@ import {startSide,pollSide,completeSide,sideOwns,sideReceipts,sideTool,sideMcpPa
 let snapshotVersion=1
 let handoffReplies=[]
 let available=[{name:'mcp__ciel-runtime-router__work_status',mcp:true},{name:'mcp__mail__read',mcp:true},
+ {name:'mcp__github__create_issue',mcp:true},{name:'mcp__database__query',mcp:true},
  {name:'Read',mcp:false},{name:'mcp__malformed',mcp:true},{name:'mcp__flag__text',mcp:'true'},{mcp:true},null]
 let nonWorkNext=0
 const logs=[]

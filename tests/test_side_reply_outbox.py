@@ -104,3 +104,44 @@ class SideReplyTests(unittest.TestCase):
             from ciel_runtime_support.side_reply_outbox import retry
             self.assertEqual('pending', retry(root,'claude:test',row['receipt_id'],'route_unavailable')['result']['delivery'])
             self.assertEqual('route_unavailable',prepare(root,'claude:test',row['receipt_id'])['state'])
+
+    def test_external_event_answered_by_the_side_ai_through_mcp_is_side_mcp(self):
+        for reported, expected in ((['mcp__walkie__walkie_send_message'], 'side_mcp'), ([], 'route_unavailable')):
+            with self.subTest(reported=reported), tempfile.TemporaryDirectory() as raw:
+                root=Path(raw)
+                inbox=SideIntakeInbox(root,'claude:test')
+                row=inbox.receive('question','key',route={'channel':'external:default','source_kind':'external_event'})
+                leased=claim(root,'claude:test','actor')
+                finish(root,'claude:test',row['receipt_id'],leased['generation'],{'reply':'answer','reported_sends':reported})
+                prepared=prepare(root,'claude:test',row['receipt_id'])
+                self.assertEqual(expected,prepared['state'])
+                self.assertNotIn('arguments',prepared)
+                self.assertEqual(expected,prepared['receipt']['result']['delivery'])
+                self.assertEqual([],pending(root,'claude:test'))
+                if expected == 'side_mcp':
+                    from ciel_runtime_support.side_reply_outbox import retry
+                    from ciel_runtime_support.work_plan_tree import WorkPlanError
+                    with self.assertRaises(WorkPlanError):
+                        retry(root,'claude:test',row['receipt_id'],'side_mcp')
+
+    def test_resolve_keeps_only_reported_mcp_tool_names(self):
+        from ciel_runtime_support.work_mcp_tools import dispatch_work_tool
+        from ciel_runtime_support.work_plan_store import session_work_plan_store
+        import json
+        token='outbox-host-token-'*3
+        config={'work_mode':True,'work_parallel_host':{'token':token},'work_side_intake':{'enabled':True}}
+        def respond(_i,text,error=False): return {'content':[{'type':'text','text':text}],'isError':error}
+        with tempfile.TemporaryDirectory() as raw:
+            root=Path(raw)
+            SideIntakeInbox(root,'claude:test').receive('question','key',route={'source_kind':'external_event'})
+            claimed=dispatch_work_tool(1,'work_side_claim',{'owner':'side-1','session_id':'claude:test','_host':{'token':token}},
+                                       load_config=lambda:config,state_dir=root,respond=respond)
+            event=json.loads(claimed['content'][0]['text'])['claim']
+            version=session_work_plan_store(root,'claude:test').read()['version']
+            reported=['mcp__walkie__walkie_send_message','Bash',{'tool':'x'},'mcp__walkie__walkie_send_message']
+            resolved=dispatch_work_tool(2,'work_side_resolve',{'session_id':'claude:test',
+                'decision':{'action':'answer','summary':'s','reply':'r'},'expected_version':version,
+                '_host':{'token':token,'receipt_id':event['receipt_id'],'generation':event['generation'],'reported_sends':reported}},
+                load_config=lambda:config,state_dir=root,respond=respond)
+            self.assertFalse(resolved['isError'],resolved)
+            self.assertEqual(['mcp__walkie__walkie_send_message'],json.loads(resolved['content'][0]['text'])['result']['reported_sends'])

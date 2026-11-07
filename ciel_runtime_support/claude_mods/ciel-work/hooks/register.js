@@ -49,6 +49,8 @@ let continuationSession = null
 const seenSideReceipts = new Set()
 let sidePanelReceipts = []
 let sidePanelSession = null
+// Display-only selection in the side pane; never persisted.
+let sidePaneView = { receipt: null, page: 0 }
 const noticedSideHandoffs = new Set()
 function showSideReceipts($, identity, snapshot) {
   const previous = sidePanelSession === identity ? sidePanelReceipts : []
@@ -410,6 +412,19 @@ async function planText($, rootId = null) {
 function clipped(value, limit) {
   const text = String(value || '').replace(/[\x00-\x1f\x7f-\x9f]/g, ' ').replace(/\s+/g, ' ').trim()
   return text.length <= limit ? text : text.slice(0, limit - 1) + '…'
+}
+// East Asian Wide/Fullwidth ranges and emoji take two terminal cells. Clipping
+// by characters let Korean rows of the side pane overflow its dock.
+const WIDE = /[ᄀ-ᅟ⺀-〾ぁ-㏿㐀-䶿一-鿿ꀀ-꓏가-힣豈-﫿︰-﹏＀-｠￠-￦✅❌⭐]|[\ud83c-\ud83e][\udc00-\udfff]|[\ud840-\ud87f][\udc00-\udfff]/
+function cellClipped(value, cells) {
+  const text = String(value ?? '').replace(/[\x00-\x1f\x7f-\x9f]/g, ' ')
+  let used = 0, out = ''
+  for (const char of text) {
+    const width = WIDE.test(char) ? 2 : char === '​' ? 0 : 1
+    if (used + width > cells - 1) return out + '…'
+    out += char; used += width
+  }
+  return out
 }
 function itemTitle(node, width) {
   return clipped((node.ref ? '[ ' + node.ref + ' ] ' : '') + node.title
@@ -1490,37 +1505,64 @@ export function register(on) {
       else receipts[index] = { ...receipts[index], ...current }
     }
     const parity = sideMcpParity()
+    // One unwrapped row per element, cut to the body width: wrapped JSON lines
+    // of ten full receipts overflowed the dock and left stale cells (walkie
+    // 2026-11-07). The list shows one line per receipt; the selected receipt's
+    // detail pages by the body height.
+    const width = Math.max(20, (e.props.bodyColumns || 100) - 1)
+    const row = (key, value) => Text({ key, wrap: 'truncate-end', children: cellClipped(value, width) })
+    const recent = receipts.slice(-10).reverse()
+    const selected = recent.find(r => (r.receipt_id || r.item_id) === sidePaneView.receipt) || recent[0]
+    const key = selected ? (selected.receipt_id || selected.item_id) : null
+    const stageOf = r => r.result ? (r.result.delivery || 'decided') : r.processing ? 'processing' : (r.stage || 'received')
+    const list = recent.map(r => {
+      const id = r.receipt_id || r.item_id
+      return Button({ key: 'side-row-' + id, plain: true, label: cellClipped((id === key ? '▸ ' : '  ') + stageOf(r).padEnd(17)
+        + eventView(r.original || r.recap || '').summary, width - 4),
+      onPress: () => { sidePaneView = { receipt: id, page: 0 }; $.ui.invalidate('ui.render') } })
+    })
+    const detail = []
+    if (selected) {
+      const r = selected
+      detail.push('Receipt: ' + clipped(key, 20) + (r.receipt_id && r.item_id ? ' · Work item: ' + clipped(r.item_id, 64) : ''),
+        'Stage: ' + (r.stage || 'board_queued') + ' · external ACK: ' + (r.external_ack || 'not_sent') + (r.error ? ' · retained for retry: ' + r.error : ''))
+      if (r.result) {
+        detail.push('Decision: ' + r.result.summary, 'Action: ' + r.result.action + (r.result.item_id ? ' → ' + r.result.item_id : '') + ' · Work version ' + r.result.version,
+          'Reply: ' + r.result.reply)
+        if (r.result.context) detail.push('Context: ' + r.result.context.mode
+          + ' · selected ' + (r.result.context.selected_percent == null ? 'unknown' : Number(r.result.context.selected_percent).toFixed(1) + '%')
+          + ' · conversation tokens ' + (r.result.context.selected_tokens ?? 'unknown') + '/' + (r.result.context.conversation_tokens ?? 'unknown')
+          + ' · Work board: whole · omitted reasoning blocks ' + r.result.context.thinking_blocks_omitted)
+        const delivery = { side_mcp: 'sent by the side AI through MCP (reported by the side AI)',
+          route_unavailable: 'not sent (no host route; the side AI reported no MCP send)' }
+        detail.push('Delivery: ' + (delivery[r.result.delivery] || r.result.delivery || 'not confirmed') + ' · Main handoff: ' + r.result.handoff)
+        if (r.result.reported_sends?.length) detail.push('Side AI sent via: ' + r.result.reported_sends.map(n => n.replace(/^mcp__/, '')).join(', '))
+        for (const [id, c] of Object.entries(r.result.comparisons || {})) detail.push('Shadow ' + id.slice(0, 8) + ': ' + c.state
+          + ' · ' + (c.profile?.mode || 'context unknown') + ' · ' + (c.usage?.model || c.profile?.model || 'model unknown')
+          + ' · input ' + (c.usage?.input_tokens ?? 'unknown') + ' · cache read ' + (c.usage?.cache_read_input_tokens ?? 'unknown') + ' · no Work/reply effects')
+      } else detail.push(r.processing ? 'AI processing; no result committed yet.' : 'Received; AI has not processed this event yet.')
+      detail.push('Original:', ...eventView(r.original || r.recap || '').lines.map(line => '  ' + line))
+    }
+    // title, parity, states, list label, list rows, detail rule, pager row, slack
+    const header = 4 + list.length + 3
+    const page = pageOf(detail, sidePaneView.receipt === key ? sidePaneView.page : 0,
+      Math.max(3, (e.props.scroll?.bodyRows || 30) - header))
+    const pageTo = next => { sidePaneView = { receipt: key, page: next }; $.ui.invalidate('ui.render') }
     return Box({ flexDirection: 'column', children: [
-      Text({ children: 'btw_with_mcp · Inbox → side AI → response / Work decision' }),
-      Text({ children: 'Primary side MCP parity: '+parity.toolCount+' tools · '+parity.serverCount+' servers · digest '+parity.digest }),
-      Text({ children: 'Parity refreshes at the next side event; running actors are not cancelled. Shadow comparisons have no tools.' }),
-      Text({ children: 'Receipt, AI decision, Work action and reply delivery are separate states.' }),
-      ...receipts.slice(-10).map(r => Box({ flexDirection: 'column', children: [
-        Text({ wrap: 'wrap', children: 'Receipt: ' + clipped(r.receipt_id || r.item_id, 20)
-          + (r.receipt_id && r.item_id ? ' · Work item: ' + clipped(r.item_id, 64) : '') }),
-        Text({ wrap: 'wrap', children: 'Stage: ' + (r.stage || 'board_queued') + ' · external ACK: ' + (r.external_ack || 'not_sent') + (r.error ? ' · retained for retry: ' + r.error : '') }),
-        Text({ wrap: 'wrap', children: 'Original:' }),
-        ...eventView(r.original || r.recap || '').lines.map(row => Text({ wrap: 'wrap', children: '  ' + row })),
-        ...(r.result ? [
-          Text({wrap:'wrap',children:'Decision: '+r.result.summary}),
-          Text({wrap:'wrap',children:'Action: '+r.result.action+(r.result.item_id ? ' → '+r.result.item_id : '')+' · Work version '+r.result.version}),
-          Text({wrap:'wrap',children:'Reply: '+r.result.reply}),
-          ...(r.result.context ? [Text({wrap:'wrap',children:'Context: '+r.result.context.mode
-            +' · selected '+(r.result.context.selected_percent == null ? 'unknown' : Number(r.result.context.selected_percent).toFixed(1)+'%')
-            +' · conversation tokens '+(r.result.context.selected_tokens ?? 'unknown')+'/'+(r.result.context.conversation_tokens ?? 'unknown')
-            +' · Work board: whole · omitted reasoning blocks '+r.result.context.thinking_blocks_omitted})] : []),
-          Text({wrap:'wrap',children:'Delivery: '+(r.result.delivery || 'not confirmed')+' · Main handoff: '+r.result.handoff}),
-          ...Object.entries(r.result.comparisons || {}).map(([id,c])=>Text({wrap:'wrap',children:'Shadow '+id.slice(0,8)+': '+c.state
-            +' · '+(c.profile?.mode || 'context unknown')+' · '+(c.usage?.model || c.profile?.model || 'model unknown')
-            +' · selected '+(c.context?.selected_percent == null ? 'unknown' : Number(c.context.selected_percent).toFixed(1)+'%')
-            +' · input '+(c.usage?.input_tokens ?? 'unknown')+' · cache read '+(c.usage?.cache_read_input_tokens ?? 'unknown')
-            +' · no Work/reply effects'})),
-          ...(['failed','route_unavailable','uncertain','submitting'].includes(r.result.delivery) ? [
-            Button({key:'side-retry-'+r.receipt_id,plain:true,autoFocus:true,label:'Retry reply…',onPress:()=>retrySideReply($,r,identity)})] : []),
-        ] :[Text({children:r.processing ? 'AI processing; no result committed yet.' : 'Received; AI has not processed this event yet.'})]),
-      ] })),
-      ...(!receipts.length ? [Text({ children: 'No side-intake receipts for this session.' })] : []),
-      Button({ key: 'side-close', plain: true, label: 'Close', onPress: () => $.ui.close({ id: 'ciel-side-intake' }) }),
+      row('title', 'btw_with_mcp · Inbox → side AI → response / Work decision'),
+      row('parity', 'Primary side MCP parity: ' + parity.toolCount + ' tools · ' + parity.serverCount + ' servers · digest ' + parity.digest),
+      row('states', 'Receipt, AI decision, Work action and reply delivery are separate states. Shadows have no tools.'),
+      ...(!recent.length ? [row('empty', 'No side-intake receipts for this session.')] : [row('list', 'Receipts (newest first) · Enter selects:'), ...list,
+        row('detail', '── ' + clipped(key, 12) + ' · ' + (page.current + 1) + '/' + page.pages + ' ──'),
+        ...page.rows.map((line, index) => row('d' + index, line)),
+        Box({ key: 'side-pager', flexDirection: 'row', gap: 1, children: [
+          ...(page.current > 0 ? [Button({ key: 'side-prev', plain: true, hotkey: 'p', label: 'Prev', onPress: () => pageTo(page.current - 1) })] : []),
+          ...(page.current + 1 < page.pages ? [Button({ key: 'side-next', plain: true, hotkey: 'n', label: 'Next', onPress: () => pageTo(page.current + 1) })] : []),
+          ...(selected?.result && ['failed', 'route_unavailable', 'uncertain', 'submitting'].includes(selected.result.delivery) ? [
+            Button({ key: 'side-retry-' + key, plain: true, autoFocus: true, label: 'Retry reply…', onPress: () => retrySideReply($, selected, identity) })] : []),
+          Button({ key: 'side-close', plain: true, label: 'Close', onPress: () => $.ui.close({ id: 'ciel-side-intake' }) }),
+        ] })]),
+      ...(!recent.length ? [Button({ key: 'side-close', plain: true, label: 'Close', onPress: () => $.ui.close({ id: 'ciel-side-intake' }) })] : []),
     ] })
   })
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e, next) => {

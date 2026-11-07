@@ -56,6 +56,27 @@ timestamp: 2026-11-07
   - After the fix, the status line shows `Work 0/0 … Main active job` instead of "Work unavailable". Screenshot: [large-board-side-pane](evidence/large-board-side-pane.png).
 - **Real walkie events:** three CloudEvents from the walkie inbox were rendered read-only with `eventView`. They showed the expected kind, text and hidden `activity_context`.
 
+# Reply through the source system's MCP
+
+- **Before:** an external SSE reply needed a host route (web-chat token or a configured override). With neither, every walkie decision ended `route_unavailable`. The old prompt also told the side AI to use outbound MCP only with a verified original route.
+- **Now:** the side AI inherits every valid MCP tool from every MCP server connected to main, through main's existing connections, credentials and native permission prompts. This is not a Walkie-only allowlist and is not limited to reply tools. The prompt tells the side AI to follow the event's own hints and choose whichever inherited MCP is relevant. For example, a Walkie event carries conversation and message ids plus ACK and thread guidance, so the side AI can choose `walkie_send_message`. It answers with `sent_via`, listing the MCP tool names it used for the reply.
+- **Host record:** the host stores those names as `reported_sends`, and delivery becomes `side_mcp` instead of `route_unavailable`. The pane shows "sent by the side AI through MCP (reported by the side AI)" and the tool names.
+- **Why it is self-reported:** a plugin's `tool.call` and `turn.step` hooks never saw the spawned side agent's MCP calls. In the probe run they saw only the plugin's own calls. That was measured on Claude Code 2.1.310 by writing a file for every hook call. So the receipt cannot claim the host observed the send, and labels it as reported.
+- **Same MCP and credentials as main:**
+  - Registration starts from the complete valid MCP tool/server snapshot returned by main's `$.tool.list()`; there is no Walkie, server-name, or tool-name allowlist.
+  - The side agent receives all inherited non-Work MCP tools. Work MCP tools are present in the snapshot, but mutation tools are denied so an external event cannot bypass Work execution approval; only `work_status` and `work_parallel_status` are directly usable, while `work_side_resolve` remains the authenticated host commit path.
+  - Its calls use main's existing MCP connections and credentials under the native permission path. The owned proof server received one `walkie_send_message` while main was busy; arbitrary mail, GitHub, database, calendar and drive MCP names are covered by the registration harness as non-Walkie examples.
+- **Native E2E** (333-node board, owned walkie MCP server; `.local/side_production_e2e.py`, `SIDE_WALKIE=1`):
+  - 2 side model requests
+  - `walkie_send_message(conversation_id=<event conversation>)` called while main was busy
+  - delivery `side_mcp`, pending 0
+  - Screenshot: [side-walkie-mcp-reply](evidence/side-walkie-mcp-reply.png).
+
+# Pane layout
+
+- **Before:** walkie showed the original JSON of up to ten receipts, wrapped in full, which overflowed the dock and left stale cells. This was reproduced in a real Windows Terminal window on 6e07ee0.
+- **Now:** the pane lists one line per receipt, selectable with Enter. Only the selected receipt's detail is shown, and it is paged by the pane's `bodyRows` with Prev and Next. Rows are clipped by terminal cell width, with wide Hangul counted as two cells.
+
 # Not verified
 
 - **Model call in walkie:** whether the selected side model "API KEYS - SSE" is accepted in the walkie routed session. This is only observable after this build is installed and walkie is relaunched.
