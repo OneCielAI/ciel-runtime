@@ -17,6 +17,39 @@ class PrelaunchWiringTests(unittest.TestCase):
         self.assertEqual(8, len(fields(services)))
         self.assertEqual(["--verbose"], execute.call_args.args[0])
 
+    def test_continue_session_selector_skips_menu(self):
+        with (
+            mock.patch.object(ciel_runtime.sys.stdin, "isatty", return_value=True),
+            mock.patch.object(ciel_runtime.sys.stdout, "isatty", return_value=True),
+            mock.patch.object(ciel_runtime, "portable_prelaunch_menu") as menu,
+        ):
+            result = ciel_runtime.run_prelaunch_menu(["--continue"])
+
+        self.assertEqual(0, result)
+        menu.assert_not_called()
+
+    def test_resume_equals_session_selector_skips_menu(self):
+        with (
+            mock.patch.object(ciel_runtime.sys.stdin, "isatty", return_value=True),
+            mock.patch.object(ciel_runtime.sys.stdout, "isatty", return_value=True),
+            mock.patch.object(ciel_runtime, "portable_prelaunch_menu") as menu,
+        ):
+            result = ciel_runtime.run_prelaunch_menu(["--resume=session-id"])
+
+        self.assertEqual(0, result)
+        menu.assert_not_called()
+
+    def test_force_menu_overrides_continue_session_selector(self):
+        with (
+            mock.patch.object(ciel_runtime.sys.stdin, "isatty", return_value=True),
+            mock.patch.object(ciel_runtime.sys.stdout, "isatty", return_value=True),
+            mock.patch.object(ciel_runtime, "portable_prelaunch_menu", return_value=19) as menu,
+        ):
+            result = ciel_runtime.run_prelaunch_menu(["--continue"], force_menu=True)
+
+        self.assertEqual(19, result)
+        menu.assert_called_once_with(["--continue"])
+
     def test_web_config_reload_runs_after_menu_returns_and_cancels_parent(self):
         with (
             mock.patch.object(ciel_runtime.sys.stdin, "isatty", return_value=True),
