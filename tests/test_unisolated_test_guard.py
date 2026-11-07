@@ -59,6 +59,9 @@ class UnisolatedTestGuardTests(unittest.TestCase):
 
     def test_pid_tree_termination_fails_closed_but_keeps_self(self):
         controller = mock.MagicMock()
+        # A fixed "foreign" pid equal to the runner's own pid is allowed (CI
+        # python-minimum 2026-11-07 ran as pid 2468), so pick one that is not.
+        foreign = next(pid for pid in (2468, 2469) if pid != os.getpid())
         with (
             mock.patch.object(ciel_runtime, "_unisolated_test_process", return_value=True),
             mock.patch.object(ciel_runtime, "process_tree_controller", return_value=controller),
@@ -66,7 +69,7 @@ class UnisolatedTestGuardTests(unittest.TestCase):
             mock.patch.object(ciel_runtime.os, "getpid", return_value=os.getpid()),
             mock.patch.object(ciel_runtime.os, "getppid", return_value=4242),
         ):
-            self.assertFalse(ciel_runtime.terminate_pid_tree(2468, "router"))
+            self.assertFalse(ciel_runtime.terminate_pid_tree(foreign, "router"))
             self.assertTrue(ciel_runtime.terminate_pid_tree(4242, "own child"))
 
         controller.terminate_tree.assert_called_once_with(4242, "own child", quiet=False)
