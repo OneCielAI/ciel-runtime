@@ -1,0 +1,5 @@
+build 3a6ea3e | board copy version 1728 | decision expected_version 1725
+REFUSED WorkPlanConflict: the plan changed (stored version 1728, expected 1725); call work_status and retry
+build ac4789d | board copy version 1728 | decision expected_version 1725
+COMMITTED {'action': 'create', 'item_id': 'n873', 'priority': 'P1', 'title': '15. 116841 92953 G01–G19 결정 묶음 실행순서·Daniel 단일 결정 요청 초안 제출', 'based_on_version': 1725, 'version': 1729}
+active n766 | pending queue head ['n873', 'n401', 'n365', 'n133'] | new item position 1 of 12

@@ -1,0 +1,22 @@
+== installed ac4789d, copy of session 67746a0a inbox
+module C:\Users\djlov\.local\share\ciel-runtime-ac4789d094598b189f764ad4528f84758130f2e5\ciel_runtime_support
+pending 43 P1 by source 6
+reserved slot (urgent_only): 855e6cf34f8a message.created          #115628  P1
+ordinary order:
+  1 3e624eca15f8 message.created          #115903  P1
+  2 6be677ed71b7 message.approved         #116780  P1
+  3 c847a3c0e6fa message.created          #116802  P1
+  4 dba2c830ab45 system.notice            #        -
+  5 1b5482a17923 system.notice            #        -
+  6 022f0f449f82 message.created          #115586  -
+  7 7c9e2481b53f agent.pending_reminder   #        -
+  8 775a81254eaf agent.no_progress_recovered #        -
+priority markers {'P1': 6, 'P3': 24}
+== installed ac4789d, copy of live session 4a7760f9 inbox
+module C:\Users\djlov\.local\share\ciel-runtime-ac4789d094598b189f764ad4528f84758130f2e5\ciel_runtime_support
+pending 5 P1 by source 2
+reserved slot (urgent_only): None
+ordinary order:
+  1 9c0ce6a91f52 task.auto_assigned       #116884  P3
+  2 24a3c8bf30cd message.created          #116884  P3
+priority markers {'P1': 2, 'P3': 2}
