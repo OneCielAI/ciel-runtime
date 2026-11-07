@@ -45,6 +45,17 @@ timestamp: 2026-11-07
 - [Installed side pane screenshot](evidence/installed-side-pane.png)
 - [Captured main terminal](evidence/installed-main-screen.txt)
 
-# Known boundary
+# Superseding live evidence and fallback policy
 
-The owned acceptance proves alias routing, full context projection, inherited MCP use and transcript isolation against controlled provider/MCP endpoints. It does not prove that the real upstream `API KEYS - SSE` combo currently has an executable target. Earlier real-provider evidence returned `no_executable_targets`; the new lifecycle quarantines that failure instead of retrying continuously.
+The installed `cc9fd3f` was relaunched in the real Walkie workspace. Nine receipts failed to answer: seven requests correctly resolved the alias to `API KEYS - SSE`, but the gateway returned `404 Combo has no executable targets`; two requests were claimed before the first parent capture, retained leases for 120 seconds, then ended in a gateway `500 transient retry deadline`. The generic `reason=error → model_error` mapping quarantined all nine, and `$.ui.status` leaked `Side processing retained` into the main status line. This contradicts the earlier acceptance conclusion that quarantine was sufficient.
+
+Commit `8c7d5ac` supersedes that behavior:
+
+- full/recent events wait unleased until the exact parent capture is ready;
+- post-claim context/spawn/send/heartbeat failures release the generation immediately;
+- the child transcript gets a bounded redacted parent transcript preview while router projection remains authoritative and injects the exact durable external event once;
+- router-owned side outcomes record bounded typed HTTP/model diagnostics;
+- when the selected side model is unavailable, the receipt is generation-fenced and the original untrusted SSE event is queued into the main session exactly once. This is the only additional main-transcript exception beyond explicit advise/prioritize handoff;
+- all routine side failure status/log output remains outside the main UI.
+
+Controlled native success still proves normal side delivery (`side_mcp`, pending 0, full context, inherited Walkie MCP). Installed beta verification for `8c7d5ac` remains to be appended after publication completes.
