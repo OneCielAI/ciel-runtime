@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import { startSide, pollSide, sideAllowsSpawn, sideTool, completeSide, suppressSide, sideReceipts, sideMcpParity } from './side-intake.js'
+import { startSide, pollSide, sideAllowsSpawn, sideTool, completeSide, suppressSide, sideReceipts, sideMcpParity, hostJson, eventView } from './side-intake.js'
 
 // Router is authoritative; this cache is display-only and never persisted.
 const detailView = atom({ plugin: 'ciel-work', key: 'detail' }, null)
@@ -68,7 +68,7 @@ function showSideReceipts($, identity, snapshot) {
     const stage = receipt.stage === 'processed' ? 'AI decision committed'
       : receipt.stage === 'board_queued' || (!receipt.stage && receipt.item_id) ? 'mod queued → '+clipped(receipt.item_id,64)
         : receipt.processing ? 'AI processing' : 'mail received; awaiting mod consumption'
-    $.ui.log('btw_with_mcp · '+stage+' · '+clipped(receipt.recap,300)
+    $.ui.log('btw_with_mcp · '+stage+' · '+eventView(receipt.original || receipt.recap).summary
       +(receipt.result ? ' · action: '+receipt.result.action+' · reply delivery: '+(receipt.result.delivery || 'unconfirmed') : ' · receipt only; not an AI answer'))
   }
 }
@@ -230,7 +230,9 @@ function readFailure(stage) {
 // One verified snapshot of this conversation's board; failures name the step that failed.
 async function readSnapshot($, identity) {
   let r
-  try { r = await $.mcp.call('ciel-runtime-router', 'work_status', { format: 'json', session_id: identity }) }
+  // _host lets the router page a board snapshot above the native result limit.
+  const token = await $.env.get('CIEL_RUNTIME_WORK_PARALLEL_HOST_TOKEN')
+  try { r = await $.mcp.call('ciel-runtime-router', 'work_status', { format: 'json', session_id: identity, _host: { token } }) }
   catch (error) {
     const message = String(error?.message || '')
     // Report fixed categories only; native errors can contain credentials.
@@ -244,7 +246,7 @@ async function readSnapshot($, identity) {
       try {
         const connection = await $.mcp.connect('ciel-runtime-router')
         if (connection?.isConnected && await sessionId($) === identity)
-          r = await $.mcp.call(connection.server, 'work_status', {format:'json',session_id:identity})
+          r = await $.mcp.call(connection.server, 'work_status', {format:'json',session_id:identity,_host:{token}})
         else throw readFailure(stage)
       } catch { throw readFailure(stage) }
     } else throw readFailure(stage)
@@ -252,6 +254,9 @@ async function readSnapshot($, identity) {
   if (!r || r.isError) throw readFailure('router-error')
   let s
   try { s = JSON.parse(textOf(r)) } catch { throw readFailure('snapshot-parse') }
+  if (s?.paged) {
+    try { s = await hostJson($, 'work_status', r, identity, token) } catch { throw readFailure('snapshot-paged') }
+  }
   if (s?.enabled !== false && (s?.enabled !== true
     || !['planning', 'executing'].includes(s.phase) || !['auto', 'ask'].includes(s.approval)
     || !Number.isInteger(s.version) || s.version < 0 || !Number.isInteger(s.done)
@@ -789,11 +794,14 @@ function parallelStatusText(state, scope) {
 }
 async function parallelCall($, name, args = {}, observed = {}, scope = null) {
   const token = await $.env.get('CIEL_RUNTIME_WORK_PARALLEL_HOST_TOKEN')
+  const identity = scope || await sessionId($)
   const r = await $.mcp.call('ciel-runtime-router', name, {
-    ...args, session_id: scope || await sessionId($), _host: { ...observed, token },
+    ...args, session_id: identity, _host: { ...observed, token },
   })
   if (!r) throw new Error('Parallel router unavailable')
-  return parseJson(r, 'Parallel read')
+  const value = parseJson(r, 'Parallel read')
+  // Large host results arrive as verified pages (host_result_pages.py).
+  return value?.paged ? hostJson($, name, r, identity, token) : value
 }
 async function parallelEvent($, args, observed = {}) {
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -1491,7 +1499,8 @@ export function register(on) {
         Text({ wrap: 'wrap', children: 'Receipt: ' + clipped(r.receipt_id || r.item_id, 20)
           + (r.receipt_id && r.item_id ? ' · Work item: ' + clipped(r.item_id, 64) : '') }),
         Text({ wrap: 'wrap', children: 'Stage: ' + (r.stage || 'board_queued') + ' · external ACK: ' + (r.external_ack || 'not_sent') + (r.error ? ' · retained for retry: ' + r.error : '') }),
-        Text({ wrap: 'wrap', children: 'Original: ' + (r.original || r.recap || '') }),
+        Text({ wrap: 'wrap', children: 'Original:' }),
+        ...eventView(r.original || r.recap || '').lines.map(row => Text({ wrap: 'wrap', children: '  ' + row })),
         ...(r.result ? [
           Text({wrap:'wrap',children:'Decision: '+r.result.summary}),
           Text({wrap:'wrap',children:'Action: '+r.result.action+(r.result.item_id ? ' → '+r.result.item_id : '')+' · Work version '+r.result.version}),

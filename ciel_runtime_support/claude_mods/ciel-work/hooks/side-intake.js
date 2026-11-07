@@ -86,14 +86,76 @@ async function identityOf($) {
 async function callRouter($,name,args,observed,identity) {
   const token = await $.env.get('CIEL_RUNTIME_WORK_PARALLEL_HOST_TOKEN')
   const result = await $.mcp.call('ciel-runtime-router',name,{...args,session_id:identity,_host:{...observed,token}})
+  return hostJson($,name,result,identity,token)
+}
+// The native MCP client replaces an oversized result with "Error: result (N
+// characters ...) exceeds maximum allowed tokens" and no isError, so the router
+// pages large host results (host_result_pages.py); reassemble and verify them.
+export async function hostJson($,name,result,identity,token) {
   if (!result || result.isError) throw new Error('Side router operation failed: '+name)
   const text = (result.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n')
-  return JSON.parse(text)
+  let value
+  try { value = JSON.parse(text) }
+  catch { throw new Error(name+': router did not return JSON: '+line(text,160)) }
+  if (!value?.paged) return value
+  const {id,parts} = value.paged
+  if (typeof id !== 'string' || !/^[0-9a-f]{64}$/.test(id) || !Number.isInteger(parts) || parts < 1 || parts > 512)
+    throw new Error(name+': invalid paged result')
+  const pieces = []
+  for (let part = 0; part < parts; part++) {
+    const page = await hostJson($,'work_host_page',
+      await $.mcp.call('ciel-runtime-router','work_host_page',{id,part,session_id:identity,_host:{token}}),identity,token)
+    if (page?.id !== id || page.part !== part || page.parts !== parts || typeof page.text !== 'string')
+      throw new Error(name+': paged result changed while reading')
+    pieces.push(page.text)
+  }
+  const whole = pieces.join('')
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(whole)))
+  if ([...hash].map(value => value.toString(16).padStart(2,'0')).join('') !== id)
+    throw new Error(name+': paged result digest mismatch')
+  return JSON.parse(whole)
 }
 // Transcript log rows are single-line; the pane keeps the full original text.
 function line(value, limit = 300) {
   const text = String(value || '').replace(/[\x00-\x1f\x7f-\x9f]/g, ' ').replace(/\s+/g, ' ').trim()
   return text.length <= limit ? text : text.slice(0, limit - 1) + '…'
+}
+const OPAQUE_KEY = /token|secret|password|authori[sz]ation|signature|cookie|credential|activity_context/i
+function redacted(value, depth = 0) {
+  if (typeof value === 'string') return value.length > 300 ? value.slice(0, 299) + '…' : value
+  if (!value || typeof value !== 'object' || depth > 6) return value
+  if (Array.isArray(value)) return value.slice(0, 20).map(item => redacted(item, depth + 1))
+  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key,
+    OPAQUE_KEY.test(key) && item != null ? '‹hidden ' + String(typeof item === 'string' ? item.length + ' chars' : typeof item) + '›'
+      : redacted(item, depth + 1)]))
+}
+// External originals are often CloudEvents JSON. Show what a person reads
+// first (kind, time, text), then indented fields; credentials stay hidden.
+export function eventView(original) {
+  const raw = String(original || '')
+  let value = null
+  try { value = JSON.parse(raw) } catch {}
+  if (!value || typeof value !== 'object' || Array.isArray(value))
+    return {summary: line(raw), lines: raw.split('\n').slice(0, 40)}
+  const data = value.data && typeof value.data === 'object' && !Array.isArray(value.data) ? value.data : null
+  const body = data || value
+  const text = [body.text, body.message, body.payload?.text, value.text, value.message]
+    .find(item => typeof item === 'string' && item.trim())
+  const kind = [value.type, body.event_type].filter(item => typeof item === 'string' && item).join(' · ')
+  const {text: _text, message: _message, ...fields} = body
+  if (fields.payload && typeof fields.payload === 'object' && fields.payload.text === text) {
+    const {text: _payloadText, ...payload} = fields.payload
+    fields.payload = payload
+  }
+  const lines = []
+  if (value.specversion) lines.push('CloudEvent ' + [value.type, value.time].filter(Boolean).join(' · '))
+  if (data && typeof value.source === 'string') lines.push('Source: ' + value.source)
+  if (body.event_type) lines.push('Event: ' + body.event_type)
+  if (text) lines.push('Text:', ...text.split('\n').slice(0, 20).map(row => '  ' + row))
+  const pretty = JSON.stringify(redacted(fields), null, 2).split('\n')
+  lines.push('Fields:', ...pretty.slice(0, 24).map(row => '  ' + row),
+    ...(pretty.length > 24 ? ['  … ' + (pretty.length - 24) + ' more lines'] : []))
+  return {summary: (kind ? '[' + kind + '] ' : '') + (text ? line(text, 260) : line(raw, 200)), lines}
 }
 function display($,identity,snapshot) {
   for (const row of snapshot.side_inbox_receipts || []) {
@@ -103,7 +165,7 @@ function display($,identity,snapshot) {
     if (receipts.size > 10) receipts.delete(receipts.keys().next().value)
     $.ui.invalidate('ui.render')
     const result = row.result
-    $.ui.log('Side '+row.stage+' · '+line(row.recap)+(result ? ' | Decision: '+line(result.summary,200)+' | Action: '+result.action
+    $.ui.log('Side '+row.stage+' · '+eventView(row.original || row.recap).summary+(result ? ' | Decision: '+line(result.summary,200)+' | Action: '+result.action
       +' | Reply: '+line(result.reply,200)+' | Delivery: '+(result.delivery || 'pending') : ''))
   }
 }

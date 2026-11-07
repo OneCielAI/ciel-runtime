@@ -32,6 +32,31 @@ class SideModTests(unittest.TestCase):
         self.assertTrue(any('question second line' in line for line in row['logs']))
         self.assertFalse(any('\n' in line for line in row['logs']))
 
+    def test_paged_host_results_reassemble_and_events_render_interpreted(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path=Path(raw)
+            (path/'package.json').write_text('{"type":"module"}')
+            shutil.copyfile(ROOT/'tests/side_intake_paging_harness.mjs',path/'test.mjs')
+            shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
+            done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',check=True)
+        row=json.loads(done.stdout)
+        self.assertEqual(333,row['nodes'])
+        self.assertGreater(row['pageCalls'],1)
+        self.assertTrue(row['tokenSent'])
+        # The native client's oversize text must be a named failure, not a JSON.parse message.
+        self.assertIn('work_side_claim: router did not return JSON: Error: result',row['notJson'])
+        self.assertIn('digest mismatch',row['mismatch'])
+        self.assertEqual('[com.ciel.walkie.support.message · agent.pending_reminder] 첫 줄 둘째 줄',row['summary'])
+        rendered='\n'.join(row['lines'])
+        self.assertIn('Text:\n  첫 줄\n  둘째 줄',rendered)
+        self.assertIn('"activity_context": "‹hidden 344 chars›"',rendered)
+        self.assertIn('"token": "‹hidden 12 chars›"',rendered)
+        self.assertNotIn('S'*20,rendered)
+        self.assertNotIn('secret-value',rendered)
+        self.assertNotIn('"text"',rendered)
+        self.assertEqual('plain question second line',row['plainSummary'])
+        self.assertEqual(['plain question','second line'],row['plainLines'])
+
     def test_primary_side_inherits_changed_mcp_at_next_event_without_cancelling_actor(self):
         with tempfile.TemporaryDirectory() as raw:
             path=Path(raw)

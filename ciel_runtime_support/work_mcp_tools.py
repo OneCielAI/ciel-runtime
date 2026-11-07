@@ -232,10 +232,12 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
     ])
     from .work_parallel_mcp import schemas as parallel_schemas
     from .side_intake_mcp import schemas as side_schemas
+    from .host_result_pages import schema as host_page_schema
     schemas.extend(parallel_schemas())
     schemas.extend(side_schemas())
+    schemas.append(host_page_schema())
     if not enabled:
-        schemas = [schema for schema in schemas if schema["name"] in (WORK_MODE_SWITCH_TOOL, "work_live_settings", "work_side_settings", "work_side_intake", "work_side_drain", "work_side_status", "work_side_claim", "work_side_resolve", "work_side_reply", "work_side_handoff", "work_side_renew", "work_side_retry_reply", "work_side_context", "work_side_compare")]
+        schemas = [schema for schema in schemas if schema["name"] in (WORK_MODE_SWITCH_TOOL, "work_live_settings", "work_side_settings", "work_side_intake", "work_side_drain", "work_side_status", "work_side_claim", "work_side_resolve", "work_side_reply", "work_side_handoff", "work_side_renew", "work_side_retry_reply", "work_side_context", "work_side_compare", "work_host_page")]
     for schema in schemas:
         inputs = schema["inputSchema"]
         inputs.setdefault("properties", {})["session_id"] = {
@@ -244,6 +246,15 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
             "description": "Claude mod supplies the exact conversation identity. Codex identity comes from client metadata; omit this argument.",
         }
     return schemas
+
+
+def _host_verified(args: dict[str, Any], config: dict[str, Any]) -> bool:
+    from .work_parallel_mcp import host_context
+    try:
+        host_context(args, config)
+    except (ValueError, OSError):
+        return False
+    return True
 
 
 def dispatch_work_tool(
@@ -262,6 +273,29 @@ def dispatch_work_tool(
     if name == WORK_MODE_SWITCH_TOOL:
         return respond(request_id, *_switch_work_mode(args.get("enabled"), load_config, save_config))
     config = load_config()
+    from . import host_result_pages
+    if name == host_result_pages.TOOL:
+        from .work_parallel_mcp import host_context
+        try:
+            host_context(args, config)
+            identity = args.get("session_id")
+            if not isinstance(identity, str) or not identity.startswith("claude:"):
+                raise tree.WorkPlanError("conversation identity is unavailable")
+            return respond(request_id, json.dumps(
+                host_result_pages.page(state_dir, identity, args.get("id"), args.get("part")), ensure_ascii=False))
+        except (ValueError, OSError) as error:
+            return respond(request_id, str(error), True)
+    if isinstance(args.get("_host"), dict) and isinstance(args.get("session_id"), str) and _host_verified(args, config):
+        # Only the authenticated mod gets pages; it reassembles and checks the digest.
+        deliver, page_identity = respond, args["session_id"]
+
+        def respond(request_id: Any, text: Any, is_error: bool = False) -> dict[str, Any]:  # noqa: F811
+            if not is_error and isinstance(text, str):
+                try:
+                    text = host_result_pages.bound(state_dir, page_identity, text)
+                except (ValueError, OSError) as error:
+                    return deliver(request_id, "host result paging failed: " + type(error).__name__, True)
+            return deliver(request_id, text, is_error)
     if name == "work_live_settings":
         from .work_parallel_mcp import host_context
         from .work_live_settings import settings
