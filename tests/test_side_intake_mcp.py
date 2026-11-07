@@ -38,8 +38,16 @@ class SideMcpTests(unittest.TestCase):
         self.assertEqual('full',settings['context_mode'])
         self.assertEqual('API KEYS - SSE',self.config['work_side_intake']['model'])
 
-    def test_full_context_waits_without_lease_until_parent_capture(self):
+    def test_inherit_fork_claims_in_fresh_session_without_parent_capture(self):
         self.config['work_side_intake']['context_mode']='full'
+        data=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])
+        self.assertIsNone(data['waiting_reason'])
+        self.assertIsNotNone(data['claim'])
+        self.assertEqual('inherit',data['settings']['model'])
+
+    def test_full_context_waits_without_lease_until_parent_capture(self):
+        self.config.update(current_provider='cielairouter', providers={'cielairouter': {'current_model':'main'}})
+        self.config['work_side_intake'].update(context_mode='full', model='API KEYS - SSE')
         data=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])
         self.assertIsNone(data['claim'])
         self.assertEqual('parent_context',data['waiting_reason'])
@@ -58,7 +66,9 @@ class SideMcpTests(unittest.TestCase):
         # forever while the exact conversation's capture sat on disk.
         from unittest.mock import patch
         from ciel_runtime_support.side_context_store import SideContextStore
-        self.config['work_side_intake']['context_mode']='full'
+        # A selected model uses the router capture; inherit forks need none.
+        self.config.update(current_provider='cielairouter', providers={'cielairouter': {'current_model':'main'}})
+        self.config['work_side_intake'].update(context_mode='full', model='API KEYS - SSE')
         SideContextStore(self.root,self.identity).capture({'model':'main','system':[],'tools':[],
             'messages':[{'role':'user','content':[{'type':'text','text':'resumed history'}]}]},'cielairouter','old-launch')
         scope=self.root/'compaction-scope.json'

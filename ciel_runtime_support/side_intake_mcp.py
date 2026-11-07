@@ -180,7 +180,9 @@ def run(name, args, config, state_dir, identity, store):
         return {'receipt': record(state_dir, identity, args.get('receipt_id'), args.get('state'), attempt_id=host.get('attempt_id'))}
     if name == 'work_side_claim':
         waiting_reason = None
-        if runtime_side.get('context_mode', 'full') in ('full', 'recent'):
+        # inherit runs as a native fork that carries main's own transcript, so it
+        # never waits for a router capture (a fresh session has none yet).
+        if runtime_side.get('model') != 'inherit' and runtime_side.get('context_mode', 'full') in ('full', 'recent'):
             from .side_context_store import SideContextStore
             if SideContextStore(state_dir, identity).ready() is None:
                 waiting_reason = 'parent_context'
