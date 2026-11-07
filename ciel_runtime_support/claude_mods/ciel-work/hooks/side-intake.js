@@ -2,6 +2,7 @@
 const PREFIX = 'mcp__ciel-runtime-router__'
 const actors = new Map()
 const ownedSideActors = new Set()
+const retiredSideActors = new Set()
 const pending = new Map()
 const answeredHandoffs = new Set()
 const replying = new Set()
@@ -217,14 +218,23 @@ async function registerActor($,model,available = null) {
   $.ui.invalidate('ui.render')
   return mcp
 }
+async function stopRetired($) {
+  for (const id of [...retiredSideActors]) {
+    try { await $.tool.call({tool:'TaskStop',task_id:id}) } catch {}
+    retiredSideActors.delete(id); ownedSideActors.delete(id); actors.delete(id)
+  }
+}
 export async function startSide($) {
   lifecycle++; busy = false; pending.clear(); comparisonQueue.length = 0; comparisonBusy = false; comparisonActive = null
   registeredActor = null
   for (const actor of actors.values()) actor.current = null
   for (const actor of await $.agent.list()) {
-    if (actor.spawnedBy === 'ciel-work' && ['ciel-work:side-intake','ciel-work:side-shadow'].includes(actor.type))
+    if (actor.spawnedBy === 'ciel-work' && ['ciel-work:side-intake','ciel-work:side-shadow'].includes(actor.type)) {
       ownedSideActors.add(actor.id)
+      if (['completed','failed','killed'].includes(actor.status)) retiredSideActors.add(actor.id)
+    }
   }
+  await stopRetired($)
   await $.mcp.connect('ciel-runtime-router')
   await registerActor($,'inherit')
 }
@@ -467,10 +477,14 @@ export async function completeSide($,e) {
     const failure = await recordFailure($,actor,event,e.reason === 'error' ? 'turn_error' : e.reason || 'invalid_answer')
     if (failure?.main_fallback_eligible) await fallbackToMain($,actor,{...event,generation:(failure.receipt?.side_failure || {}).generation || event.generation},
       (failure.receipt?.side_failure || {}).terminal_reason || 'side model unavailable')
-    actor.retired = true
+    actor.retired = e.reason !== 'answer' || failure?.main_fallback_eligible === true
   }
   actor.current = null
   actor.resolved = false
+  if (actor.retired) {
+    retiredSideActors.add(actor.id)
+    $.clock.after(10,async()=>{await stopRetired($)})
+  }
   return true
 }
 function notificationTaskId(text) {

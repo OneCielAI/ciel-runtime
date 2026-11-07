@@ -28,7 +28,7 @@ const $={
   if(name==='work_side_fail')value={receipt:{receipt_id:args._host?.receipt_id,stage:'received'}}
   return {content:[{type:'text',text:JSON.stringify(value)}]}
  }},
- tool:{list:async()=>available},
+ tool:{list:async()=>available,call:async args=>{calls.push({toolCall:args});return {text:'stopped'}}},
  agent:{list:async()=>[],register:async args=>calls.push({registered:args}),spawn:async args=>{spawns.push(args);return {agentId:'actor'+spawns.length}}},
  env:{get:async()=>'x'.repeat(40)},
  ui:{log:text=>logs.push(text),status:text=>statuses.push(text),invalidate:()=>{}},clock:{after:(ms,callback)=>{timers.push(callback);return {cancel(){}}}},
@@ -68,7 +68,7 @@ await pollSide($,'claude:parent')
 const registrations=calls.filter(c=>c.registered?.name==='side-intake').map(c=>c.registered)
 console.log(JSON.stringify({handoff:sideReceipts('claude:parent').find(r=>r.receipt_id==='a'.repeat(64))?.result?.handoff,spawns:beforeChange.spawns,resumes:afterChange.resumes,parent:resolved.args.session_id,
  hostReceipt:resolved.args._host.receipt_id,usage:resolved.args.usage,
- workload:JSON.parse(spawns[0].prompt).workload,heartbeat:calls.some(c=>c.name==='work_side_renew'),current:activeAfterChange,tools:registrations[0].tools,logs,statuses,prompts,
+ workload:JSON.parse(spawns[0].prompt).workload,stops:calls.filter(c=>c.toolCall?.tool==='TaskStop').length,heartbeat:calls.some(c=>c.name==='work_side_renew'),current:activeAfterChange,tools:registrations[0].tools,logs,statuses,prompts,
  nonWorkNext,workDenied,beforeParity:beforeChange.parity,afterParity:afterChange.parity,registrations:changedRegistrations.length,
  changedSpawns:afterChange.spawns,changedCurrent,changedTools:changedRegistrations.at(-1).tools,
  changedServers:changedRegistrations.at(-1).mcpServers,changedDisallowed:changedRegistrations.at(-1).disallowedTools,

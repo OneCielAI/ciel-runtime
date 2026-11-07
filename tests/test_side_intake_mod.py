@@ -94,6 +94,15 @@ class SideModTests(unittest.TestCase):
         self.assertFalse(any(line.startswith(('Side processing', 'Side processed', 'Side MCP parity', 'Side event', 'btw_with_mcp')) for line in row['logs']))
         self.assertEqual([],row['statuses'])
 
+    def test_failed_owned_side_actor_is_removed_on_reload(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path=Path(raw)
+            (path/'package.json').write_text('{"type":"module"}')
+            shutil.copyfile(ROOT/'tests/side_cleanup_harness.mjs',path/'test.mjs')
+            shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
+            done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',check=True)
+        self.assertEqual([{'tool':'TaskStop','task_id':'failed-side'}],json.loads(done.stdout))
+
     def test_reply_route_override_is_not_mcp_inheritance(self):
         from ciel_runtime_support.recent_menu_text import menu_text
         from ciel_runtime_support.work_settings_menu import description
