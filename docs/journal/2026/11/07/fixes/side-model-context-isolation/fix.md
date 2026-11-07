@@ -75,3 +75,22 @@ Additional evidence:
 The real `G:/ciel-Walkie` launch on `82e2e28` exposed a second exact mismatch. Its persisted side settings omitted `context_mode`, while the prepared actor profile correctly defaulted to `full`; `side_context_router.project()` compared the actor profile against raw `settings.get('context_mode') == None` and rejected projection with `409 SideContextUnavailable`. The side call then retried as an unprojected two-message request. Commit `0ca35db` applies the same semantic default (`full`) at the router comparison boundary.
 
 Beta `0.2.51-beta.20261107-143907.0ca35db` passed every CI group, matched exact git head `0ca35dbd3ed8fc0fcdffe3f064e3aa815a2d0205`, preserved latest/nightly, and was installed as an immutable snapshot. Installed acceptance using the configured `_API_KEYS-SSE-1` identity proved the side request contained both `MAIN REQUEST: keep working.` and the new SSE question, selected full context at 100%, used inherited Walkie MCP exactly once, resolved while main remained busy, and finished with pending 0. The controlled provider accepts the request; the real gateway may still return `Combo has no executable targets`, in which case the typed unavailable-model policy moves the exact event to the main session once.
+
+# Context-visible side pane and event action policy
+
+Commits `1058bb9` and `35ff83d` make the inherited parent transcript explicit in the side pane and direct event handling by content:
+
+- answerable questions use current parent context plus Work/MCP facts and reply immediately;
+- genuinely new requests ACK/reply through the source MCP, then create one prioritized root Work item;
+- changes update the exact existing item; urgency changes prioritize the existing goal;
+- queue/status/workload questions read `work_status`/`work_parallel_status` and reply with actual state rather than event payload alone.
+
+Beta `0.2.51-beta.20261107-152223.35ff83d` passed all CI groups, registry/source integrity checks and protected-tag checks, and was installed as immutable snapshot `C:/Users/djlov/.local/share/ciel-runtime-35ff83d7b54a29ff75f318d4bdb254f81244a5f8`. Installed native acceptance covered answer, create, prioritize and update. Every case received full parent context at 100%, sent through inherited Walkie MCP, and completed with pending 0. Create added exactly one root (`n42`); prioritize and update targeted the existing `n1`.
+
+Evidence:
+
+- [Registry verification for 35ff83d](evidence/beta-registry-35ff83d.json)
+- [Installed answer](evidence/installed-action-answer-35ff83d.json)
+- [Installed create and ACK/reply](evidence/installed-action-create-35ff83d.json)
+- [Installed prioritize](evidence/installed-action-prioritize-35ff83d.json)
+- [Installed update](evidence/installed-action-update-35ff83d.json)
