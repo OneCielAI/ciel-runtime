@@ -472,7 +472,7 @@ from ciel_runtime_support.runtime_paths import (CHANNEL_COMPACT_REQUEST_PATH,  #
                                                 windows_appdata_root, windows_local_appdata_root)
 from ciel_runtime_support.runtime_restart import forced_upgrade_environment
 from ciel_runtime_support.runtime_restart import running_from_npm_package as detect_running_from_npm_package
-from ciel_runtime_support.runtime_session_restart import SESSION_CONTROL_FLAGS, RuntimeSessionRestartServicePorts, local_runtime_session_restart, primed_notice
+from ciel_runtime_support.runtime_session_restart import RuntimeSessionRestartServicePorts, local_runtime_session_restart, primed_notice, runtime_session_control_present
 from ciel_runtime_support.secure_json_repository import SecureJsonEffects, SecureJsonRepository
 from ciel_runtime_support.colab_speech_jobs import colab_speech_credential_status, colab_speech_job_status, launch_colab_speech_job
 from ciel_runtime_support.speech_http_controller import SpeechHttpController, SpeechHttpPorts
@@ -4165,24 +4165,10 @@ def run_external_menu(name: str) -> int | None:
 
 def has_noninteractive_claude_args(passthrough: list[str]) -> bool: return any((arg == '-p' or arg == '--print' or arg.startswith('--print=') for arg in passthrough))
 
-def has_session_control_claude_args(passthrough: list[str]) -> bool:
-    return any(
-        argument in SESSION_CONTROL_FLAGS
-        or any(
-            argument.startswith(f"{flag}=")
-            for flag in SESSION_CONTROL_FLAGS
-            if flag.startswith("--")
-        )
-        for argument in passthrough
-    )
-
 def run_prelaunch_menu(passthrough: list[str], skip_menu: bool = False, force_menu: bool = False) -> int:
-    if not force_menu and (
-        skip_menu
-        or has_noninteractive_claude_args(passthrough)
-        or has_session_control_claude_args(passthrough)
-        or os.environ.get("CIEL_RUNTIME_SKIP_MENU") == "1"
-    ):
+    if not force_menu and (skip_menu or has_noninteractive_claude_args(passthrough)
+        or runtime_session_control_present(["claude", *passthrough], "claude")
+        or os.environ.get("CIEL_RUNTIME_SKIP_MENU") == "1"):
         return 0
     if not (sys.stdin.isatty() and sys.stdout.isatty()):
         return 0
