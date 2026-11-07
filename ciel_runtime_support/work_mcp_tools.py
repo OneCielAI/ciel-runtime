@@ -490,17 +490,21 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
                 'To clear a verified wait, supply waiting_on="" explicitly; '
                 'do not repeat this empty call. Use work_status to inspect, or continue the next runnable item.')
 
-        def update(d: dict[str, Any]) -> tuple[dict[str, Any], str | None]:
+        def update(d: dict[str, Any]) -> tuple[dict[str, Any], str | None, int]:
             before = d.get("active_root")
             return tree.update_node(
                 d, node_id, status=args.get("status"), title=args.get("title"),
                 note=args.get("note"), evidence=args.get("evidence"),
                 ref=args.get("ref"), waiting_on=args.get("waiting_on"),
                 priority=args.get("priority"),
-            ), before
+            ), before, d.get("version", 0)
 
-        doc, (node, before) = store.transaction(update, expected_version=expected)
-        message = f"Updated {node['id']} ({node['status']})."
+        doc, (node, before, version_before) = store.transaction(update, expected_version=expected)
+        if doc.get("version", 0) == version_before:
+            message = (f"NO CHANGE: {node['id']} already had these values; version {version_before} is unchanged. "
+                       "Do not repeat this call.")
+        else:
+            message = f"Updated {node['id']} ({node['status']})."
         wait = node.get('waiting_on', '')
         if wait:
             message += (f" WAITING: waiting_on={json.dumps(wait, ensure_ascii=False)}. "
@@ -577,7 +581,9 @@ def _execute(store: WorkPlanStore, approval_ask: bool, user_confirmed: bool, *, 
 
 
 def _after(doc: dict[str, Any], message: str) -> str:
-    return f"{message}\n\n{tree.render(doc)}"
+    # Versions advance only when a change commits; state the real one so a
+    # follow-up mutation never has to guess it.
+    return f"{message}\nVersion: {doc.get('version', 0)} (expected_version for the next change)\n\n{tree.render(doc)}"
 
 
 def _expected_version(args: dict[str, Any]) -> int | None:

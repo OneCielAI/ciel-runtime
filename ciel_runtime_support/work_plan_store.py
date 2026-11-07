@@ -125,6 +125,14 @@ class WorkPlanStore:
         with self._lock, exclusive_file_lock(self.path):
             current = self._read_unlocked()
             if expected_version is not None and expected_version != current["version"]:
+                if expected_version > current["version"]:
+                    # Never-issued version: the caller guessed past an
+                    # unchanged commit. Nothing else changed the plan.
+                    raise WorkPlanConflict(
+                        f"expected_version {expected_version} was never issued; the current version is "
+                        f"{current['version']}. Use expected_version={current['version']}; versions advance "
+                        "only when a change commits"
+                    )
                 raise WorkPlanConflict(
                     f"the plan changed (stored version {current['version']}, expected {expected_version}); "
                     "call work_status and retry"

@@ -37,6 +37,24 @@ class WorkMcpToolsTests(unittest.TestCase):
         self.assertIn('waiting_on=""', result['text'])
         self.assertEqual(doc, self.store.read())
 
+    def test_unchanged_update_reports_real_version_and_guessed_next_is_named(self):
+        # Walkie 2026-11-07 17:43: a repeated identical update kept version 1706,
+        # the next call guessed 1707 and every second call failed as a conflict.
+        doc = self.plan()
+        version = doc['version']
+        first = self.call('work_node_update', id='n3', evidence='same', expected_version=version)
+        self.assertIn(f'Version: {version + 1} ', first['text'])
+        repeat = self.call('work_node_update', id='n3', evidence='same', expected_version=version + 1)
+        self.assertFalse(repeat['error'], repeat)
+        self.assertIn(f'NO CHANGE: n3 already had these values; version {version + 1} is unchanged', repeat['text'])
+        self.assertIn(f'Version: {version + 1} ', repeat['text'])
+        guessed = self.call('work_node_update', id='n3', evidence='other', expected_version=version + 2)
+        self.assertTrue(guessed['error'])
+        self.assertIn(f'expected_version {version + 2} was never issued; the current version is {version + 1}', guessed['text'])
+        self.assertEqual(version + 1, self.store.read()['version'])
+        stale = self.call('work_node_update', id='n3', evidence='other', expected_version=version)
+        self.assertIn('the plan changed', stale['text'])
+
     def test_update_evidence_explicitly_reports_wait_not_cleared(self):
         self.plan()
         self.call('work_execute')
