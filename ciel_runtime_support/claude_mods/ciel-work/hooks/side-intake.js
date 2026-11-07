@@ -14,7 +14,7 @@ async function queueComparison($,identity,event,parentModel) {
     const plan = await callRouter($,'work_side_compare',{action:'plan',receipt_id:event.receipt_id,parent_model:parentModel},{},identity)
     for (const profile of plan.profiles || []) comparisonQueue.push({identity,event,parentModel,profile,generation:lifecycle})
     await nextComparison($)
-  } catch { $.ui.log('Side comparison unavailable; primary decision and reply remain unchanged') }
+  } catch { /* Comparison failure remains visible in durable side state only. */ }
 }
 async function nextComparison($) {
   if (comparisonBusy) return
@@ -61,7 +61,7 @@ async function finishComparison($,actor,event) {
       result:{state:proposal ? 'answered' : event.reason === 'answer' ? 'invalid_proposal' : event.reason,proposal,usage:event.usage || null,
         elapsed_ms:Date.now()-actor.startedAt,context_key:actor.contextKey}},{},actor.identity)
     display($,actor.identity,{side_inbox_receipts:[value.receipt]})
-  } catch { $.ui.log('Comparison result not recorded; primary Work and reply unchanged') }
+  } catch { /* Comparison failure remains visible in durable side state only. */ }
   comparisonBusy = false; comparisonActive = null
   $.clock.after(10,async()=>{await nextComparison($)})
 }
@@ -71,7 +71,7 @@ async function recoverReply($,identity,event) {
   if (replying.has(event.receipt_id)) return
   replying.add(event.receipt_id)
   try { await submitReply($,{identity},event) }
-  catch { $.ui.log('Side reply not confirmed; durable outbox retained') }
+  catch { /* Durable side state retains an unconfirmed reply without main output. */ }
   finally { replying.delete(event.receipt_id) }
 }
 let lifecycle = 0
@@ -240,7 +240,7 @@ export async function pollSide($, identity) {
     }
     if (actor.current && actor.current.lease_until*1000 <= Date.now()) {
       actor.current = null; actor.retired = true
-      $.ui.log('Side processing lease expired; late decisions cannot commit')
+      /* Expired leases remain visible in the side pane, never the main log. */
     }
   }
   if (busy || [...actors.values()].filter(a => a.current).length >= maxActive) return
@@ -289,7 +289,7 @@ export async function pollSide($, identity) {
         {receipt_id:event.receipt_id,generation:event.generation},identity)
       if (actor && context.key !== actor.contextKey) {
         actor.retired = true; actor = null
-        $.ui.log('Parent context advanced; side rebased at event boundary without rewriting prior history')
+        /* Context rebases are side lifecycle state, not main conversation output. */
       }
     }
     const text = JSON.stringify({event_id:event.receipt_id,parent_session_id:identity,original:event.text,route:event.route || {},workload,handoff_context:event.handoff_context || [],
@@ -334,10 +334,7 @@ export function sideAllowsSpawn(e,next) {
 }
 export async function sideTool($,e,next) {
   const actor = actors.get(e.agentId)
-  if (!actor) {
-    if (e.tool === PREFIX+'work_side_resolve') $.ui.log('Side resolution binding unavailable; agent identity '+String(e.agentId || 'absent'))
-    return null
-  }
+  if (!actor) return null
   if (actor.generation !== lifecycle || !actor.current) return {deny:'No current side event'}
   const name = e.tool?.startsWith(PREFIX) ? e.tool.slice(PREFIX.length) : ''
   if (!name.startsWith('work_')) {
@@ -360,12 +357,9 @@ export async function sideTool($,e,next) {
 async function submitReply($,actor,event) {
   const prepared = await callRouter($,'work_side_reply',{receipt_id:event.receipt_id,state:'prepare'},{},actor.identity)
   if (!prepared.arguments) {
-    $.ui.log(prepared.state === 'side_mcp' ? 'Side AI sent through MCP itself; host route not used'
-      : 'Side reply prepare: '+prepared.state)
     if (prepared.receipt) display($,actor.identity,{side_inbox_receipts:[prepared.receipt]})
     return
   }
-  $.ui.log('Side reply prepared; submitting correlated route')
   let state = 'uncertain'
   try {
     const server = prepared.server || 'ciel-runtime-router'
@@ -390,7 +384,6 @@ export async function completeSide($,e) {
   if (!actor) return false
   if (actor.retired || actor.generation !== lifecycle || await identityOf($) !== actor.identity) {
     actor.current = null
-    $.ui.log('Old side actor result retained without applying to a different lifecycle')
     return true
   }
   if (actor.shadow) { await finishComparison($,actor,e); return true }
