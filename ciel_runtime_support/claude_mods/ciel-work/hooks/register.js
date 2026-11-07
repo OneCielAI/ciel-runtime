@@ -23,7 +23,8 @@ const HELP = [
   '• New requests: an independent request becomes its own numbered item ("2. …") and waits in the queue behind the active item; a change to an existing item is added under that item.',
   '• Executing: after work_execute (automatic, or your approval when set to ask) the model works step by step and marks each step done with evidence.',
   '• Above the prompt: compact by default (done/total + current step); [+] / w expands, [-] collapses. Progress / Queue / Completed are read-only button tabs; Prev / Next (p / n) page the list; w opens the Inspector. Ctrl+X Tab focuses · Tab/↑↓ select · Enter inspects · Esc returns. Tiny screens use Inspect Work. Rows of other plugins stay below the Work rows; the band scrolls to them.',
-  '• /work-mode expand / compact: toggle the inline list · /work-mode view: keyboard inspector · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode parallel: fork slots, leases and the next Agent name · /work-mode help: this help',
+  '• /work-mode view: Work & SSE pane — Work tree (w), SSE receipts with P1 filter (s), every Work setting incl. the live side model (g); mobile and narrow screens get a single-column touch layout.',
+  '• /work-mode expand / compact: toggle the inline list · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode parallel: fork slots, leases and the next Agent name · /work-mode help: this help',
   '• Focus: inspect an item → Focus first. Focused items run before other Work; a focused item that waits or is blocked never holds unrelated approved Work or discovery. Clear focus releases it now; it also clears automatically once every focused item is done.',
   '• Priorities: All items → Move up / Move down orders root goals. Moving the active goal requires your request; a button press is that request.',
   '• Linked IDs appear as [ id ] description; ◷ names an external wait; green ✓ means verified done. An urgent request holds other goals until it finishes.',
@@ -51,6 +52,12 @@ let sidePanelReceipts = []
 let sidePanelSession = null
 // Display-only selection in the side pane; never persisted.
 let sidePaneView = { receipt: null, page: 0 }
+let observatorySettings = null
+let observatoryParallel = null
+// A launch with side model inherit pins every child to the main model
+// (CLAUDE_CODE_SUBAGENT_MODEL_FORCE, d15822f); a selected model then applies
+// only after a relaunch. Launches with a selected side model switch live.
+let observatoryForced = false
 const noticedSideHandoffs = new Set()
 function showSideReceipts($, identity, snapshot) {
   const previous = sidePanelSession === identity ? sidePanelReceipts : []
@@ -535,7 +542,7 @@ function pageOf(rows, page, size) {
 async function displayState($, origin, change) {
   if (!origin || cachedSession !== origin || await sessionId($) !== origin) return
   await update($, panelView, old => change(old?.session === origin ? old
-    : { session: origin, tab: 'progress', page: 0, detailPage: 0 }))
+    : { session: origin, tab: 'work', workTab: 'progress', page: 0, detailPage: 0, settingsPage: 0, settingsChoicePage: 0 }))
 }
 function bandBudget(e) {
   const available = Math.max(0, Math.floor(e.props.maxRows))
@@ -548,6 +555,59 @@ function bandBudget(e) {
 }
 function mark(status) {
   return ({ pending: '[ ]', in_progress: '[~]', done: '', blocked: '[!]' })[status] ?? '[?]'
+}
+async function observatoryRefresh($, identity) {
+  const [settings, parallel] = await Promise.all([
+    parallelCall($, 'work_live_settings').catch(() => null),
+    parallelState($, identity).catch(() => null),
+  ])
+  if (await sessionId($) !== identity) return
+  if (settings) observatorySettings = settings
+  if (parallel) observatoryParallel = parallel
+  try { observatoryForced = await $.env.get('CLAUDE_CODE_SUBAGENT_MODEL_FORCE') === '1' } catch {}
+  try {
+    const mailbox = await sideMailboxCall($, 'work_side_status')
+    if (await sessionId($) === identity) showSideReceipts($, identity, mailbox)
+  } catch {}
+  $.ui.invalidate('ui.render')
+}
+async function setObservatorySetting($, row, value, identity) {
+  if (await sessionId($) !== identity) return
+  try {
+    observatorySettings = await parallelCall($, 'work_live_settings', { key: row.key, value: String(value) })
+    $.ui.toast(row.label + ' → ' + String(value) + (row.kind !== 'model' ? ''
+      : observatoryForced && value !== 'inherit' ? ' · saved; applies after relaunch (this session pins children to the main model)'
+        : ' · next SSE'))
+    $.ui.invalidate('ui.render')
+  } catch (error) { $.ui.toast('Setting not changed: ' + clipped(error?.message || error, 180)) }
+}
+// Booleans toggle in place; enums pick from their choices; free values are
+// typed under the dialog's "Other". Model rows use the pane's paged picker.
+async function editObservatorySetting($, row, identity) {
+  let value = null
+  try {
+    if (row.kind === 'boolean') value = String(row.value) === 'true' ? 'off' : 'on'
+    else if (row.kind === 'enum') value = await $.ui.ask(row.label + '?', row.choices.slice(0, 4))
+    else value = await $.ui.ask(row.label + '? Type the new value under Other.\nCurrent: '
+      + clipped(typeof row.value === 'string' ? row.value : JSON.stringify(row.value), 500), ['Keep current', 'Clear'])
+  } catch { return }
+  if (value === null || value === 'Keep current') return
+  await setObservatorySetting($, row, value === 'Clear' ? '' : value, identity)
+}
+async function customObservatoryModel($, row, identity) {
+  let value
+  try { value = await $.ui.ask(row.label + '? Type a provider model id under Other.', ['inherit', 'Keep current']) }
+  catch { return }
+  if (value && value !== 'Keep current') await setObservatorySetting($, row, value, identity)
+}
+// The source system's own urgency (Walkie: data.message_context.thread_task.priority, 1 = P1).
+function sourcePriority(original) {
+  let body
+  try { body = JSON.parse(String(original || '')) } catch { return '' }
+  const data = body && typeof body === 'object' ? (body.data && typeof body.data === 'object' ? body.data : body) : null
+  const level = value => /^P[1-5]$/.test(String(value)) ? String(value)
+    : Number.isInteger(value) && value >= 1 && value <= 5 ? 'P' + value : ''
+  return data ? level(data.priority) || level(data.message_context?.thread_task?.priority) : ''
 }
 async function openDetails($, id = null, origin = null) {
   const identity = await sessionId($)
@@ -575,8 +635,11 @@ async function openDetails($, id = null, origin = null) {
     await update($, detailView, () => ({ session: identity, id, version: s.version, nodes: [],
       error: clipped(error.message || 'Work details unavailable.', 200) }))
   }
-  if (await sessionId($) === identity) await $.ui.open({ id: PANE, title: 'Work details',
-    focus: true, closeOnEscape: true, rows: 18, columns: 64 })
+  if (await sessionId($) === identity) {
+    await observatoryRefresh($, identity)
+    await $.ui.open({ id: PANE, title: 'Work & SSE',
+      focus: true, closeOnEscape: true, rows: 22, columns: 72 })
+  }
 }
 // A transcript notice for the person, once per session start; the model never reads it.
 function notice($, ticket) {
@@ -1360,22 +1423,14 @@ export function register(on) {
           if (split < 1) return { text: 'Usage: /work-mode settings [key=value]' }
           request = { key: assignment.slice(0, split).trim(), value: assignment.slice(split + 1) }
         }
-        let state = await parallelCall($, 'work_live_settings', request)
+        const state = await parallelCall($, 'work_live_settings', request)
+        observatorySettings = state
         if (!assignment && e.origin?.kind === 'composer') {
-          const labels = state.settings.map(row => row.label + ' [' + row.key + '] = ' + String(row.value))
-          const ui = state.ui || { title: 'Work settings', next: 'Next', back: 'Back', cancel: 'Cancel', input_hint: 'Enter a number or instruction using Other.' }
-          let page = 0
-          while (true) {
-            const selected = await $.ui.ask(ui.title + ' · ' + String(page + 1), [...labels.slice(page * 2, page * 2 + 2), ui.next, ui.back])
-            if (selected === ui.back) break
-            if (selected === ui.next) { page = (page + 1) % Math.ceil(labels.length / 2); continue }
-            const index = labels.indexOf(selected)
-            if (index < 0) break
-            const row = state.settings[index]
-            const value = await $.ui.ask(row.label + ' · ' + row.key + '\n' + ui.input_hint, ['on', 'off', ui.cancel])
-            if (value !== ui.cancel && value) state = await parallelCall($, 'work_live_settings', { key: row.key, value })
-            break
-          }
+          // Every setting, typed by kind, is edited in the Work & SSE pane's Settings tab.
+          const origin = await sessionId($)
+          await openDetails($, null, origin)
+          await displayState($, origin, old => ({ ...old, tab: 'settings', detailPage: 0, settingsKey: null }))
+          return { text: 'Work settings opened in the Work & SSE pane (Settings tab).' }
         }
         return { text: state.settings.map(row => row.label + ' [' + row.key + '] = ' + String(row.value)).join('\n')
           + '\n/work-mode settings key=value · live' }
@@ -1385,7 +1440,7 @@ export function register(on) {
     if (arg === 'expand' || arg === 'compact') {
       await refresh($)
       const origin = await sessionId($)
-      await displayState($, origin, old => ({ ...old, expanded: arg === 'expand', tab: 'progress', page: 0 }))
+      await displayState($, origin, old => ({ ...old, expanded: arg === 'expand', workTab: 'progress', page: 0 }))
       return { text: arg === 'expand' ? 'Work expanded · Completed is separate · /work-mode compact' : 'Work compact · /work-mode expand' }
     }
     if (arg === 'help') return { text: HELP }
@@ -1400,7 +1455,7 @@ export function register(on) {
           + (parallelFailures.map(f => '  ' + f.at + ' · ' + clipped(f.stage, 60) + ' · ' + f.detail).join('\n') || '  none recorded') }
       }
     }
-    if (arg === 'view') { await openDetails($); return { text: 'Work inspector: Tab/arrows navigate, Enter opens, Esc returns.' } }
+    if (arg === 'view') { await openDetails($); return { text: 'Work & SSE pane: W Work · S SSE · G Settings · Tab/arrows navigate · Enter opens · Esc returns.' } }
     const s = await refresh($)
     if (!s) return { text: UNAVAILABLE }
     if (!s.enabled) return { text: 'Ciel Work mode is off. Turn it on: ciel-runtime menu → LLM options → Work mode, or ask the agent (work_mode_set).' }
@@ -1436,7 +1491,7 @@ export function register(on) {
     const state = await read($, panelView)
     // One terminal row per entry, whatever the labels' widths.
     const strip = (key, children) => Box({ key, height: 1, flexShrink: 0, overflow: 'hidden', flexDirection: 'row', gap: 1, children })
-    const tab = state?.session === origin ? state.tab : 'progress'
+    const tab = state?.session === origin ? (state.workTab || 'progress') : 'progress'
     const rows = cached ? panelRows(cached, tab) : []
     const counts = cached ? { progress: panelRows(cached, 'progress').length, queue: queueOf(cached).length,
       completed: panelRows(cached, 'completed').length } : { progress: 0, queue: 0, completed: 0 }
@@ -1459,14 +1514,14 @@ export function register(on) {
         Button({ key: 'work-expand', plain: true, autoFocus: true, hotkey: 'w',
           label: clipped(summary, Math.max(1, width - 4)) + ' [+]',
           onPress: () => budget.work < 5 || width < 58 ? openDetails($, null, origin)
-            : displayState($, origin, old => ({ ...old, expanded: true, tab: 'progress', page: 0 })) }),
+            : displayState($, origin, old => ({ ...old, expanded: true, workTab: 'progress', page: 0 })) }),
       ]))
     } else {
       work.push(line(heading))
       work.push(strip('work-tabs', ['progress', 'queue', 'completed'].map(name => Button({
         key: 'work-tab-' + name, plain: true, ...(name === tab ? { autoFocus: true } : {}),
         label: (name === tab ? '[' : '') + name[0].toUpperCase() + name.slice(1) + ' ' + counts[name] + (name === tab ? ']' : ''),
-        onPress: () => displayState($, origin, old => ({ ...old, tab: name, page: 0, detailPage: 0 })),
+        onPress: () => displayState($, origin, old => ({ ...old, workTab: name, page: 0, detailPage: 0 })),
       }))))
       const page = pageOf(rows, state?.page, budget.work - 3)
       for (const row of page.rows) work.push(statusButton(Box, Button, Text, row.node, {
@@ -1577,82 +1632,155 @@ export function register(on) {
       ...(!recent.length ? [Button({ key: 'side-close', plain: true, label: 'Close', onPress: () => $.ui.close({ id: 'ciel-side-intake' }) })] : []),
     ] })
   })
-  on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e, next) => {
+  on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
     const { Box, Button, Text } = $.ui.resolve(e)
     const view = await read($, detailView)
+    const state = await read($, panelView)
     const identity = await sessionId($)
     const origin = identity
     const valid = enabled && cached && view?.session === identity && cachedSession === identity
     const fresh = valid && view.version === cached.version
     const selected = fresh ? view.nodes.find(n => n.id === view.id) : null
-    const controls = [
-      Button({ key: 'detail-refresh', plain: true, hotkey: 'r', label: 'Refresh', onPress: () => openDetails($, valid ? view.id : null, origin) }),
-      Button({ key: 'detail-all', plain: true, hotkey: 'w', label: 'All items', onPress: () => openDetails($, null, origin) }),
-      ...(fresh && selected && selected.status !== 'done' ? [Button({ key: 'detail-focus', plain: true, hotkey: 'f', label: 'Focus first: this item',
-        onPress: () => focusItems($, [selected.id], origin) })] : []),
-      ...(fresh && selected && selected.status !== 'done' && cached?.focus?.node_ids?.length && !cached.focus.node_ids.includes(selected.id)
-        ? [Button({ key: 'detail-focus-add', plain: true, hotkey: 'a', label: 'Append to focus',
-          onPress: () => focusItems($, [...cached.focus.node_ids, selected.id], origin) })] : []),
-      ...(cached?.focus?.node_ids?.length ? [Button({ key: 'detail-unfocus', plain: true, hotkey: 'c', label: 'Clear focus',
-        onPress: () => focusItems($, [], origin) })] : []),
-      ...(selected?.parent_id ? [Button({ key: 'detail-parent', plain: true, hotkey: 'b', label: 'Parent',
-        onPress: () => openDetails($, selected.parent_id, origin) })] : []),
+    const mobile = e.surface === 'mobile' || e.props.bodyColumns < 58
+    const section = state?.session === identity ? (state.tab || 'work') : 'work'
+    const width = Math.max(20, e.props.bodyColumns - 2)
+    const text = (value, props = {}) => Text({ wrap: 'truncate-end', ...props, children: cellClipped(value, width) })
+    // A row is one Button whose label is a colored Text: one press, color by state.
+    const row = (key, label, color, onPress) => Button({ key, plain: true, label: cellClipped(label, width),
+      onPress, children: Text({ wrap: 'truncate-end', ...(color ? { color } : {}), children: cellClipped(label, width) }) })
+    const chooseSection = name => displayState($, origin, old => ({ ...old, tab: name, detailPage: 0,
+      settingsPage: old.settingsPage || 0, settingsChoicePage: 0 }))
+    const nav = Box({ key: 'observatory-nav', flexDirection: 'row', flexWrap: 'wrap', gap: 1,
+      children: [['work','w','Work'],['side','s','SSE'],['settings','g','Settings']].map(([name,hotkey,label]) => Button({
+        key: 'obs-' + name, plain: true, hotkey, ...(name === section ? { autoFocus: true } : {}),
+        label: (name === section ? '[' : '') + label + (name === section ? ']' : ''), onPress: () => chooseSection(name) })) })
+    const common = [
+      Button({ key: 'detail-refresh', plain: true, hotkey: 'r', label: 'Refresh', onPress: async () => {
+        await openDetails($, valid ? view.id : null, origin); await observatoryRefresh($, origin) } }),
       Button({ key: 'detail-close', plain: true, hotkey: 'q', label: 'Close', onPress: () => $.ui.close({ id: PANE }) }),
     ]
-    const state = await read($, panelView)
-    const tab = state?.session === identity ? state.tab : 'progress'
-    const tabs = Box({ flexDirection: 'row', gap: 1, children: ['progress', 'queue', 'completed'].map(name => Button({
-      key: 'detail-tab-' + name, plain: true, label: (name === tab ? '[' : '') + name[0].toUpperCase() + name.slice(1) + (name === tab ? ']' : ''),
-      onPress: () => displayState($, origin, old => ({ ...old, tab: name, page: 0, detailPage: 0, detailList: true })),
-    })) })
-    if (!valid) return Box({ flexDirection: 'column', children: [Text({ children: 'Work details unavailable for this conversation.' }), ...controls] })
+    if (!valid) return Box({ flexDirection: 'column', children: [nav,
+      Text({ color: 'error', children: 'Work & SSE unavailable for this conversation.' }), ...common] })
+
+    const header = Box({ key: 'obs-header', borderStyle: 'single', borderColor: cached.phase === 'planning' ? 'planMode' : 'suggestion',
+      paddingX: 1, flexDirection: mobile ? 'column' : 'row', justifyContent: 'space-between', children: [
+        text('WORK ' + cached.version + ' · ' + cached.phase + ' · ' + cached.done + '/' + cached.total,
+          { color: cached.phase === 'planning' ? 'planMode' : 'suggestion', weight: 'bold' }),
+        text('Queue ' + queueOf(cached).length + ' · Side ' + sidePanelReceipts.length
+          + (observatoryParallel ? ' · Slots ' + observatoryParallel.active_device + '/' + observatoryParallel.policy.max_active : ''), { dimColor: true }),
+      ] })
+
     const rows = []
-    const width = Math.max(1, e.props.bodyColumns - 2)
-    const text = value => Text({ wrap: 'truncate-end', children: value })
-    if (cached?.focus?.node_ids?.length) rows.push(text('Focus first: ' + cached.focus.node_ids.join(', ')))
-    const listing = state?.session === identity && state.detailList === true
-    if (listing) {
-      for (const row of panelRows(cached, tab)) rows.push(statusButton(Box, Button, Text, row.node, {
-        key: 'detail-' + row.key, plain: true, label: rowLabel(row.prefix, row.node, width, row.suffix),
-        onPress: () => openDetails($, row.node.id, origin) }))
-      if (!rows.length) rows.push(text('No ' + tab + ' items'))
-    } else if (!fresh || view.error || !selected) rows.push(text(!fresh ? 'Plan changed — refresh to inspect current items.' : view.error || 'No active goal.'))
-    else {
-      const visit = (node, depth) => {
-        if (selected.status !== 'done' && node.status === 'done') return
-        rows.push(statusButton(Box, Button, Text, node, { key: 'node-' + node.id, plain: true,
-          label: rowLabel('  '.repeat(Math.min(depth, 8)), node, width),
-          onPress: () => openDetails($, node.id, origin) }))
-        // Exact fields are shown only for the inspected node. Full content,
-        // including a title shortened in the band, remains reachable by paging.
-        if (node.id === selected.id) for (const [label, value] of [['Title', node.title], ['Ref', node.ref],
-          ['Waiting on', node.waiting_on], ['Note', node.note], ['Evidence', node.evidence]]) {
-          if (value) for (const line of detailLines(label + ': ' + value, width)) rows.push(text(line))
+    const controls = [...common]
+    if (section === 'work') {
+      const workTab = state?.workTab || 'progress'
+      rows.push(Box({ flexDirection: 'row', gap: 1, children: ['progress','queue','completed'].map(name => Button({
+        key: 'detail-tab-' + name, plain: true, label: (name === workTab ? '[' : '') + name[0].toUpperCase() + name.slice(1) + (name === workTab ? ']' : ''),
+        onPress: () => displayState($, origin, old => ({ ...old, workTab: name, page: 0, detailPage: 0, detailList: true })) })) }))
+      if (cached.focus?.node_ids?.length) rows.push(text('◆ Focus first: ' + cached.focus.node_ids.join(', '), { color: 'autoAccept' }))
+      const listing = state?.detailList === true
+      if (listing) {
+        for (const row of panelRows(cached, workTab)) rows.push(statusButton(Box, Button, Text, row.node, {
+          key: 'detail-' + row.key, plain: true,
+          label: (row.node.priority ? row.node.priority + ' ' : '') + rowLabel(row.prefix, row.node, width - 4, row.suffix),
+          onPress: () => openDetails($, row.node.id, origin) }))
+        if (!rows.length) rows.push(text('No ' + workTab + ' items', { dimColor: true }))
+      } else if (!fresh || view.error || !selected) rows.push(text(!fresh ? 'Plan changed — refresh.' : view.error || 'No active goal.', { color: 'warning' }))
+      else {
+        const visit = (node, depth) => {
+          if (selected.status !== 'done' && node.status === 'done') return
+          const color = node.status === 'blocked' ? 'error' : node.waiting_on ? 'warning' : node.status === 'done' ? 'success' : node.id === selected.id ? 'suggestion' : ''
+          rows.push(row('node-' + node.id,
+            '  '.repeat(Math.min(depth, 5)) + (node.priority ? node.priority + ' ' : '') + rowLabel('', node, width - depth * 2),
+            color, () => openDetails($, node.id, origin)))
+          if (node.id === selected.id) for (const [label, value] of [['Title',node.title],['Waiting',node.waiting_on],['Note',node.note],['Evidence',node.evidence]])
+            if (value) for (const line of detailLines(label + ': ' + value, width)) rows.push(Text({ color: label === 'Evidence' ? 'success' : 'subtle', children: line }))
+          for (const child of view.nodes.filter(n => n.parent_id === node.id)) visit(child, depth + 1)
         }
-        for (const child of view.nodes.filter(n => n.parent_id === node.id)) visit(child, depth + 1)
+        visit(selected, 0)
       }
-      visit(selected, 0)
-    }
-    if (!listing && fresh && selected && !selected.parent_id) {
-      const roots = [cached.active_root, ...queueOf(cached)].filter(n => n && n.status !== 'done')
-      for (const [i, root] of roots.entries()) {
-        rows.push(text('Priority ' + (i + 1) + ': ' + itemTitle(root, width) + (root.held ? ' [held]' : '')))
-        if (i > 0) rows.push(Button({ key: 'up-' + root.id, plain: true, label: 'Move up',
-          onPress: () => moveRoot($, root.id, -1, origin) }))
-        if (i + 1 < roots.length) rows.push(Button({ key: 'down-' + root.id, plain: true, label: 'Move down',
-          onPress: () => moveRoot($, root.id, 1, origin) }))
+      controls.splice(0, 0,
+        Button({ key: 'detail-all', plain: true, label: 'All items', onPress: () => openDetails($, null, origin) }),
+        ...(fresh && selected && selected.status !== 'done' ? [Button({ key: 'detail-focus', plain: true, hotkey: 'f', label: 'Focus first', onPress: () => focusItems($,[selected.id],origin) })] : []),
+        ...(cached.focus?.node_ids?.length ? [Button({ key: 'detail-unfocus', plain: true, hotkey: 'c', label: 'Clear focus', onPress: () => focusItems($,[],origin) })] : []))
+    } else if (section === 'side') {
+      const receipts = [...sidePanelReceipts]
+      for (const current of sideReceipts(identity)) {
+        const i = receipts.findIndex(r => r.receipt_id === current.receipt_id)
+        if (i < 0) receipts.push(current); else receipts[i] = { ...receipts[i], ...current }
+      }
+      const p1 = state?.sideP1 === true
+      const visible = receipts.filter(r => !p1 || sourcePriority(r.original) === 'P1').slice(-20).reverse()
+      rows.push(Box({ flexDirection: 'row', gap: 1, children: [
+        Button({ key:'side-all',plain:true,hotkey:'a',label:p1?'All':'[All]',onPress:()=>displayState($,origin,old=>({...old,sideP1:false,detailPage:0}))}),
+        Button({ key:'side-p1',plain:true,hotkey:'p',label:p1?'[P1]':'P1',onPress:()=>displayState($,origin,old=>({...old,sideP1:true,detailPage:0}))}),
+        text('MCP ' + sideMcpParity().toolCount + ' tools', { dimColor:true }),
+      ] }))
+      for (const r of visible) {
+        const id = r.receipt_id || r.item_id
+        const stage = r.result ? (r.result.delivery || 'decided') : r.processing ? 'processing' : r.side_failure?.quarantined ? 'quarantined' : r.stage || 'received'
+        const color = stage === 'quarantined' || stage === 'failed' ? 'error' : stage === 'processing' ? 'suggestion' : r.result ? 'success' : 'warning'
+        const priority = sourcePriority(r.original)
+        rows.push(row('obs-side-'+id, (priority || '--') + ' ' + stage.padEnd(12) + ' ' + eventView(r.original || r.recap || '').summary,
+          color, () => displayState($,origin,old=>({...old,sideReceipt:id,detailPage:0}))))
+      }
+      const chosen = visible.find(r => (r.receipt_id || r.item_id) === state?.sideReceipt) || visible[0]
+      if (chosen) {
+        rows.push(Text({ color:'suggestion', children:'── '+(chosen.receipt_id||chosen.item_id).slice(0,12)+' ──' }))
+        if (chosen.result) rows.push(text('Action: '+chosen.result.action+(chosen.result.item_id?' → '+chosen.result.item_id:''),{color:'success'}),
+          ...detailLines('Summary: '+chosen.result.summary,width).map(line=>Text({children:line})),
+          text('Delivery: '+(chosen.result.delivery||'pending')+(chosen.result.reported_sends?.length?' · '+chosen.result.reported_sends.join(', '):''),{color:'success'}))
+        else if (chosen.side_failure) rows.push(text('Failure: '+chosen.side_failure.category+' · '+(chosen.side_failure.model||'unknown'),{color:'error'}),
+          ...(chosen.side_failure.reason?detailLines(chosen.side_failure.reason,width).map(line=>Text({color:'error',children:line})):[]))
+        else rows.push(text(chosen.processing?'AI processing':'Received; not processed yet',{color:chosen.processing?'suggestion':'warning'}))
+      }
+    } else {
+      const settings = observatorySettings?.settings || []
+      const picking = settings.find(s => s.key === state?.settingsKey && s.kind === 'model')
+      if (picking) {
+        // Paged Buttons work on every surface; mobile has no Select or Input.
+        const choices = picking.choices || ['inherit']
+        const page = pageOf(choices, state?.settingsChoicePage, mobile ? 6 : 10)
+        rows.push(text(picking.label + ' · ' + choices.length + ' models · applies to the next SSE', { color:'suggestion' }))
+        if (observatoryForced) rows.push(text('This session pins children to the main model: a selected model applies after relaunch; inherit applies now.', { color:'warning' }))
+        for (const model of page.rows) rows.push(row('model-' + model,
+          (model === String(picking.value) ? '✓ ' : '  ') + (model === 'inherit' ? 'inherit — follow main model' : model),
+          model === String(picking.value) ? 'success' : model.startsWith('_') ? 'suggestion' : '',
+          async () => { await setObservatorySetting($, picking, model, origin)
+            await displayState($,origin,old=>({...old,settingsKey:null,settingsChoicePage:0})) }))
+        controls.splice(0, 0,
+          Button({key:'model-back',plain:true,hotkey:'b',label:'Back to settings',onPress:()=>displayState($,origin,old=>({...old,settingsKey:null,settingsChoicePage:0}))}),
+          Button({key:'model-custom',plain:true,hotkey:'m',label:'Custom id…',onPress:()=>customObservatoryModel($,picking,origin)}),
+          ...(page.current > 0 ? [Button({key:'model-prev',plain:true,hotkey:'p',label:'Prev models',onPress:()=>displayState($,origin,old=>({...old,settingsChoicePage:page.current-1}))})] : []),
+          text('Models '+(page.current+1)+'/'+page.pages,{dimColor:true}),
+          ...(page.current + 1 < page.pages ? [Button({key:'model-next',plain:true,hotkey:'n',label:'Next models',onPress:()=>displayState($,origin,old=>({...old,settingsChoicePage:page.current+1}))})] : []))
+      } else {
+        const page = pageOf(settings, state?.settingsPage, mobile ? 6 : 10)
+        rows.push(text('All Work settings · live · ' + (observatorySettings?.provider || 'provider unknown'), { color:'suggestion' }))
+        if (!settings.length) rows.push(text('Settings unavailable: router host bridge not reachable.', { color:'error' }))
+        for (const setting of page.rows) {
+          const value = typeof setting.value === 'string' ? setting.value : JSON.stringify(setting.value)
+          rows.push(row('setting-'+setting.key, setting.label+' = '+value,
+            setting.kind === 'model' ? 'suggestion' : setting.kind === 'boolean' ? (String(setting.value) === 'true' ? 'success' : 'inactive') : '',
+            () => setting.kind === 'model'
+              ? displayState($,origin,old=>({...old,settingsKey:setting.key,settingsChoicePage:0}))
+              : editObservatorySetting($,setting,origin)))
+        }
+        controls.splice(0, 0,
+          ...(page.current > 0 ? [Button({key:'settings-prev',plain:true,hotkey:'p',label:'Prev settings',onPress:()=>displayState($,origin,old=>({...old,settingsPage:page.current-1}))})] : []),
+          text('Settings '+(page.current+1)+'/'+page.pages,{dimColor:true}),
+          ...(page.current + 1 < page.pages ? [Button({key:'settings-next',plain:true,hotkey:'n',label:'Next settings',onPress:()=>displayState($,origin,old=>({...old,settingsPage:page.current+1}))})] : []))
       }
     }
-    const page = pageOf(rows, state?.detailPage, Math.max(1, Math.min(10, e.props.scroll.bodyRows - 9)))
-    return Box({ flexDirection: 'column', children: [text('Work details — version ' + cached.version), tabs,
-      ...controls, ...page.rows,
-      Box({ flexDirection: 'row', gap: 1, children: [
-        ...(page.current > 0 ? [Button({ key: 'detail-prev', plain: true, hotkey: 'p', label: 'Prev',
-          onPress: () => displayState($, origin, old => ({ ...old, detailPage: page.current - 1 })) })] : []),
-        text((page.current + 1) + '/' + page.pages),
-        ...(page.current + 1 < page.pages ? [Button({ key: 'detail-next', plain: true, hotkey: 'n', label: 'Next',
-          onPress: () => displayState($, origin, old => ({ ...old, detailPage: page.current + 1 })) })] : []),
-      ] }), text('Tab/↑↓: navigate · Enter: inspect · Esc: close')] })
+    const rowPage = pageOf(rows, state?.detailPage, Math.max(1, Math.min(mobile ? 9 : 13, (e.props.scroll?.bodyRows || 24) - 9)))
+    const pager = Box({ flexDirection:'row',gap:1,children:[
+      ...(rowPage.current>0?[Button({key:'obs-prev',plain:true,label:'Prev',onPress:()=>displayState($,origin,old=>({...old,detailPage:rowPage.current-1}))})]:[]),
+      text((rowPage.current+1)+'/'+rowPage.pages,{dimColor:true}),
+      ...(rowPage.current+1<rowPage.pages?[Button({key:'obs-next',plain:true,label:'Next',onPress:()=>displayState($,origin,old=>({...old,detailPage:rowPage.current+1}))})]:[]),
+    ] })
+    return Box({ flexDirection:'column',children:[header,nav,...rowPage.rows,
+      Box({flexDirection:'row',flexWrap:'wrap',gap:1,children:controls}),pager,
+      Text({dimColor:true,children:mobile?'Touch tabs/items · Back closes':'Ctrl+X Tab focus · Tab/↑↓ · Enter · W/S/G tabs · Esc'})] })
   })
   on('ui.render', { component: 'SessionMode' }, async ($, e, next) => {
     const label = !enabled ? null : !cached ? 'work: unavailable'
