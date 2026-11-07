@@ -52,6 +52,29 @@ class SideMcpTests(unittest.TestCase):
         data=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])
         self.assertIsNotNone(data['claim'])
 
+    def test_resumed_session_reuses_bound_capture_from_earlier_launch_epoch(self):
+        # Walkie 2026-11-07 11:18: --continue kept session 67746a0a but started
+        # a new launch epoch before any main request; full-context claims waited
+        # forever while the exact conversation's capture sat on disk.
+        from unittest.mock import patch
+        from ciel_runtime_support.side_context_store import SideContextStore
+        self.config['work_side_intake']['context_mode']='full'
+        SideContextStore(self.root,self.identity).capture({'model':'main','system':[],'tools':[],
+            'messages':[{'role':'user','content':[{'type':'text','text':'resumed history'}]}]},'cielairouter','old-launch')
+        scope=self.root/'compaction-scope.json'
+        with patch('ciel_runtime_support.runtime_paths.ROUTER_INSTANCE_DIR',self.root):
+            scope.write_text(json.dumps({'epoch':'new-launch','session_id':'other'}),encoding='utf8')
+            data=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])
+            self.assertIsNone(data['claim'])
+            self.assertEqual('parent_context',data['waiting_reason'])
+            scope.write_text(json.dumps({'epoch':'new-launch','session_id':'parent'}),encoding='utf8')
+            data=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])
+            self.assertIsNotNone(data['claim'])
+            host={'token':'x'*40,'receipt_id':data['claim']['receipt_id'],'generation':data['claim']['generation']}
+            prepared=self.invoke('work_side_context',{'model':'main'},host)
+            self.assertFalse(prepared['error'],prepared)
+            self.assertEqual('resumed history',json.loads(prepared['text'])['parent_transcript_preview'][0]['text'])
+
     def test_context_prepare_persists_visible_parent_transcript_preview(self):
         self.config['work_side_intake']['context_mode']='full'
         from ciel_runtime_support.side_context_store import SideContextStore

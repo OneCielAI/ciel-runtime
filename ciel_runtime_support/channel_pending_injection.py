@@ -598,7 +598,14 @@ def inject_pending_channel_messages(
             except Exception:
                 wake_store.lifecycle.fail(pending, claimed_ids, "submission_exception")
                 raise
-            if not web_chat_only:
+            if any((m.get("meta") or {}).get("_side_intake_admitted") is True for m in pending):
+                # The durable side-inbox receipt is the delivery proof. The main
+                # transcript never carries this input, so awaiting it there only
+                # ages a delivered event into failed/stale_unconfirmed.
+                for message in pending:
+                    wake_store.lifecycle.complete(_message_id(message))
+                wake_store.commit_cursor(deferred.clamp(last_id))
+            elif not web_chat_only:
                 if commit_cursor:
                     wake_store.commit_cursor(deferred.clamp(last_id))
                 if injected_message_ids is not None:

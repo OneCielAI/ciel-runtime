@@ -18,6 +18,13 @@ _ID = re.compile(r'^claude:[A-Za-z0-9_-]{1,200}$')
 _SECRET = re.compile(r'(?i)(bearer\s+|sk-|gh[pousr]_|AKIA|(?:api[_-]?key|token|secret|password|credential|cookie)["\s:=]+)[A-Za-z0-9._~+/=-]{8,}')
 
 
+def bound_session(identity):
+    """True when the router's current main binding is exactly this conversation."""
+    from .runtime_paths import ROUTER_INSTANCE_DIR
+    current = SideContextStore.read(ROUTER_INSTANCE_DIR / 'compaction-scope.json')
+    return bool(current) and 'claude:' + str(current.get('session_id')) == identity
+
+
 class SideContextStore:
     def __init__(self, state_dir, identity):
         if not isinstance(identity, str) or not _ID.fullmatch(identity):
@@ -45,16 +52,17 @@ class SideContextStore:
         return value
 
     def ready(self):
-        """Return current capture metadata only for this launch's exact session."""
+        """Return the latest capture only while this exact session is the bound main.
+
+        A native resume (--continue/--resume) keeps the session id but starts a
+        new launch epoch before the main sends any request. The last capture is
+        still that conversation's exact history, so the epoch alone never hides it.
+        """
         latest = self.read(self.directory / 'latest.json')
         if not latest or latest.get('unavailable') or not isinstance(latest.get('parent'), dict):
             return None
-        if latest.get('epoch'):
-            from .runtime_paths import ROUTER_INSTANCE_DIR
-            current = self.read(ROUTER_INSTANCE_DIR / 'compaction-scope.json')
-            if (not current or current.get('epoch') != latest['epoch']
-                    or 'claude:' + str(current.get('session_id')) != self.identity):
-                return None
+        if latest.get('epoch') and not bound_session(self.identity):
+            return None
         return latest
 
     @staticmethod

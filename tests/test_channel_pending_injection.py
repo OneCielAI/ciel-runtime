@@ -234,6 +234,32 @@ class SideIntakeTransportTests(unittest.TestCase):
             self.assertEqual(1, len(store.read()['nodes']))
             self.assertEqual([], harness.written)
 
+    def test_durable_side_receipt_completes_input_and_commits_cursor(self):
+        # Walkie 2026-11-07 11:16-11:18: accepted side events (16743, 16744)
+        # waited for main-transcript proof that never comes, failed as
+        # stale_unconfirmed after 20 s and blocked the next event.
+        message = _message(40)
+        message["meta"] = {"input_transport": "session_socket", "btw_with_mcp": True, "btw": True, "_side_intake_admitted": True}
+        harness = _InjectionHarness([message])
+        with tempfile.TemporaryDirectory() as root:
+            status = RuntimeInputStatusRepository(pathlib.Path(root) / 'status.jsonl',
+                publish_event=Mock(), log=lambda *_: None, lock=threading.Lock())
+            status.transition(40, 'queued')
+            harness.delivery.status = status
+            harness.delivery.bind_child_epoch('owned-fixture')
+            services = harness.services()
+            services = dataclasses.replace(services, io=dataclasses.replace(
+                services.io, write_session_socket=lambda *_: True, session_socket_available=lambda: True))
+            injected = []
+            cursor = inject_pending_channel_messages(99, 39, None, wake_for_llm_delivery=True, commit_cursor=False,
+                                                     injected_message_ids=injected, services=services)
+            self.assertEqual(40, cursor)
+            self.assertEqual([40], harness.delivery.commits)
+            self.assertEqual('replied', status.get(40)['status'])
+            # No main-transcript inflight wait is started for a side receipt.
+            self.assertEqual([], injected)
+            self.assertEqual([], harness.written)
+
     def test_side_intake_without_socket_stays_pending_and_never_types(self):
         message = _message(40)
         message["meta"] = {"input_transport": "session_socket", "btw_with_mcp": True, "btw": True, "_side_intake_admitted": True}

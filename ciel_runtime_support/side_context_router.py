@@ -7,7 +7,7 @@ import urllib.parse
 from .channel_message_repository import exclusive_file_lock
 from .durable_json_file import save
 from .side_context_projection import SideContextUnavailable, select
-from .side_context_store import SideContextStore
+from .side_context_store import SideContextStore, bound_session
 from .side_intake_inbox import SideIntakeInbox
 from .side_intake_processing import verify_claim
 
@@ -93,11 +93,8 @@ def project(state_dir, identity, agent_id, body, config, provider, count_tokens)
         value = store.read(path)
         if not value or value.get('provider') != provider or value.get('identity') != identity:
             raise SideContextUnavailable('side context source does not match this request')
-        if value.get('epoch'):
-            from .runtime_paths import ROUTER_INSTANCE_DIR
-            current = store.read(ROUTER_INSTANCE_DIR / 'compaction-scope.json')
-            if not current or current.get('epoch') != value['epoch'] or 'claude:' + str(current.get('session_id')) != identity:
-                raise SideContextUnavailable('parent request belongs to an earlier launch epoch')
+        if value.get('epoch') and not bound_session(identity):
+            raise SideContextUnavailable('parent conversation is not the bound main session')
         parent_tools = value['parent'].get('tools', [])
         if any(tool.get('type') not in (None, 'custom') for tool in parent_tools):
             # Provider-hosted tools execute outside the native child's permission
