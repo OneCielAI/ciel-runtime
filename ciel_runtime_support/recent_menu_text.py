@@ -15,7 +15,7 @@ TEXT = {
     "work_side_intake_context_mode": ("Side context mode", "사이드 문맥 모드", "サイド文脈モード", "侧边上下文模式"),
     "work_side_intake_context_percent": ("Recent context percent", "최근 문맥 비율", "最近の文脈比率", "最近上下文比例"),
     "work_side_intake_reply_connectors": ("Advanced external-event reply route override (JSON)", "고급 외부 이벤트 응답 경로 재정의 (JSON)", "高度な外部イベント返信ルート上書き（JSON）", "高级外部事件回复路由覆盖（JSON）"),
-    "work_side_intake_model": ("Side model (inherit / catalog ID)", "사이드 모델 (inherit / 카탈로그 ID)", "サイドモデル (inherit / ID)", "侧边模型 (inherit / ID)"),
+    "work_side_intake_model": ("Side model (main session connection)", "사이드 모델 (메인 세션 접속 상속)", "サイドモデル (メイン接続を継承)", "侧边模型 (继承主会话连接)"),
     "work_side_intake_priority_policy": ("Side priority policy", "사이드 우선순위 판단", "サイド優先度方針", "侧边优先级策略"),
     "work_side_intake_comparison_model": ("Comparison model (inherit / catalog ID)", "비교 모델 (inherit / 카탈로그 ID)", "比較モデル (inherit / ID)", "对比模型 (inherit / ID)"),
     "work_side_intake_comparison_enabled": ("Side comparison experiment", "사이드 비교 실험", "サイド比較実験", "侧边对比实验"),

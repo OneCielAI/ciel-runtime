@@ -604,9 +604,10 @@ class ClaudeEnvironmentProjection:
         # Inherit at spawn time so /model and --model cannot leave children on
         # a stale launch model (or a provider's auto-claude family route).
         side = config.get('work_side_intake', {})
+        # Primary side processing always inherits the parent; only the read-only
+        # comparison profile may name another model.
         side_model_override = side.get('enabled') is True and (
-            side.get('model') not in (None, '', 'inherit')
-            or side.get('comparison_enabled') is True and side.get('comparison_model') not in (None, '', 'inherit'))
+            side.get('comparison_enabled') is True and side.get('comparison_model') not in (None, '', 'inherit'))
         force_parent_model = provider != "anthropic" and not side_model_override
         if force_parent_model or side_model_override or configured_subagent == "inherit":
             subagent_model = "inherit"

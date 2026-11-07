@@ -365,9 +365,11 @@ class ClaudeEnvironmentTests(unittest.TestCase):
               mock.patch.object(ciel_runtime, "http_json", side_effect=AssertionError("network"))):
             return ciel_runtime.env_vars(cfg) if data_path is None else ciel_runtime.env_vars(cfg, data_path=data_path)
 
-    def test_explicit_side_model_does_not_force_all_children_back_to_parent(self):
+    def test_only_comparison_model_releases_parent_force(self):
+        # A legacy primary side model is ignored: the side actor shares the
+        # main session connection, so children stay forced to the parent.
         env=self.env(side={'enabled':True,'model':'API KEYS - SSE'})
-        self.assertNotIn('CLAUDE_CODE_SUBAGENT_MODEL_FORCE',env)
+        self.assertEqual('1',env['CLAUDE_CODE_SUBAGENT_MODEL_FORCE'])
         self.assertEqual('inherit',env['CLAUDE_CODE_SUBAGENT_MODEL'])
         compared=self.env(side={'enabled':True,'model':'inherit','comparison_enabled':True,'comparison_model':'API KEYS - SSE'})
         self.assertNotIn('CLAUDE_CODE_SUBAGENT_MODEL_FORCE',compared)

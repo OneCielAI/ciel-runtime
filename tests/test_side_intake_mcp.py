@@ -25,7 +25,7 @@ class SideMcpTests(unittest.TestCase):
             load_config=lambda:self.config, state_dir=self.root,
             respond=lambda _id,text,error=False:{'text':text,'error':error})
 
-    def test_claim_projects_catalog_model_to_routed_alias_without_mutating_config(self):
+    def test_claim_always_inherits_main_session_connection_even_with_legacy_model(self):
         self.config.update(current_provider='cielairouter', providers={'cielairouter': {'current_model':'main'}})
         self.config['work_side_intake'].update(model='API KEYS - SSE', context_mode='full')
         from ciel_runtime_support.side_context_store import SideContextStore
@@ -33,8 +33,8 @@ class SideMcpTests(unittest.TestCase):
             'messages':[{'role':'user','content':[{'type':'text','text':'main'}]}]},'cielairouter')
         claimed=self.invoke('work_side_claim',{'owner':'actor'})
         settings=json.loads(claimed['text'])['settings']
-        self.assertEqual('ciel-runtime-cielairouter-api-keys-sse',settings['model'])
-        self.assertEqual('API KEYS - SSE',settings['model_catalog'])
+        self.assertEqual('inherit',settings['model'])
+        self.assertEqual('inherit',settings['model_catalog'])
         self.assertEqual('full',settings['context_mode'])
         self.assertEqual('API KEYS - SSE',self.config['work_side_intake']['model'])
 
@@ -92,7 +92,7 @@ class SideMcpTests(unittest.TestCase):
         receipt=next(r for r in status['side_inbox_receipts'] if r['receipt_id']==event['receipt_id'])
         self.assertEqual('working on verified task',receipt['context']['preview'][-1]['text'])
 
-    def test_failed_generation_is_quarantined_until_model_changes(self):
+    def test_unavailable_legacy_model_retries_with_main_session_connection(self):
         self.config.update(current_provider='cielairouter', providers={'cielairouter': {'current_model':'main'}})
         self.config['work_side_intake']['model']='missing-model'
         event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
@@ -102,26 +102,31 @@ class SideMcpTests(unittest.TestCase):
             'model_fingerprint':runtime_settings(self.config)['model_fingerprint']},host)
         self.assertFalse(failed['error'],failed)
         row=self.inbox._load(event['receipt_id'])
-        self.assertTrue(row['side_failure']['quarantined'])
+        self.assertFalse(row['side_failure']['quarantined'])
+        self.assertTrue(row['side_failure']['use_main_connection'])
         self.assertNotIn('processing',row)
-        self.assertIsNone(json.loads(self.invoke('work_side_claim',{'owner':'actor2'})['text'])['claim'])
-        self.config['work_side_intake']['model']='valid-model'
-        self.assertIsNotNone(json.loads(self.invoke('work_side_claim',{'owner':'actor3'})['text'])['claim'])
+        retry=json.loads(self.invoke('work_side_claim',{'owner':'actor2'})['text'])
+        self.assertEqual(event['receipt_id'],retry['claim']['receipt_id'])
+        self.assertEqual('inherit',retry['settings']['model'])
 
-    def test_generation_fenced_main_fallback_is_exact_once(self):
+    def test_legacy_pending_main_fallback_is_reclaimed_by_side(self):
         event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
         host={'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation']}
         failed=self.invoke('work_side_fail',{'category':'invalid_model','model':'missing'},host)
         self.assertFalse(failed['error'])
-        self.invoke('work_side_fallback',{'state':'prepare','reason':'model unavailable'},host)
+        # Reproduce a pending intent written by a pre-fix runtime. A new claim
+        # must reclaim its retained original instead of prompting main.
+        row=self.inbox._load(event['receipt_id'])
+        row['main_fallback']={'state':'pending','reason':'model unavailable','generation':event['generation']}
+        row['processing']={'owner':'main-fallback','generation':event['generation'],'lease_until':9999999999}
+        self.inbox._save_file(self.inbox._event_path('pending',event['receipt_id']),row)
         self.assertEqual('pending',self.inbox._load(event['receipt_id'])['main_fallback']['state'])
-        self.assertIsNone(json.loads(self.invoke('work_side_claim',{'owner':'other'})['text'])['claim'])
-        duplicate=json.loads(self.invoke('work_side_fallback',{'state':'prepare','reason':'again'},host)['text'])['receipt']
-        self.assertTrue(duplicate['duplicate'])
-        queued=json.loads(self.invoke('work_side_fallback',{'state':'queued'},host)['text'])['receipt']
-        self.assertEqual('processed',queued['stage'])
-        self.assertEqual('main_session',queued['result']['delivery'])
-        self.assertEqual([],self.inbox.pending())
+        reclaimed=json.loads(self.invoke('work_side_claim',{'owner':'other'})['text'])
+        self.assertEqual(event['receipt_id'],reclaimed['claim']['receipt_id'])
+        self.assertEqual('inherit',reclaimed['settings']['model'])
+        row=self.inbox._load(event['receipt_id'])
+        self.assertNotIn('main_fallback',row)
+        self.assertEqual('legacy_main_fallback_reclaimed',row['side_failure']['category'])
 
     def test_transient_500_is_not_main_fallback_eligible(self):
         event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']

@@ -38,7 +38,8 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
                 if not row or row.get('stage')!='received':
                     marker.unlink(missing_ok=True)
                     continue
-                if row.get('processing',{}).get('lease_until',0)>stamp:
+                if (row.get('processing',{}).get('lease_until',0)>stamp
+                        and (row.get('main_fallback') or {}).get('state')!='pending'):
                     continue
                 yield (int(priority[1]),row.get('received_at',0),marker.stem,{**row,'receipt_id':marker.stem})
     prioritized=[entry[3] for entry in heapq.nsmallest(100,ranked(),key=lambda entry:entry[:3])]
@@ -51,10 +52,24 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
             if current is None or current.get('stage') != 'received':
                 continue
             processing = current.get('processing') or {}
-            if processing.get('lease_until', 0) > stamp:
+            fallback_state = current.get('main_fallback') or {}
+            if processing.get('lease_until', 0) > stamp and fallback_state.get('state') != 'pending':
                 continue
-            if (current.get('main_fallback') or {}).get('state') in ('pending', 'queued'):
+            if fallback_state.get('state') == 'queued':
                 continue
+            if fallback_state.get('state') == 'pending':
+                # Legacy builds prepared raw main-session injection. The primary
+                # side actor now always inherits the main connection, so reclaim
+                # the retained original here instead of submitting it to main.
+                current.pop('main_fallback', None)
+                current.pop('processing', None)
+                current['side_failure'] = {
+                    'category': 'legacy_main_fallback_reclaimed',
+                    'attempt_count': int((current.get('side_failure') or {}).get('attempt_count') or 0),
+                    'failed_at': stamp, 'retry_not_before': 0, 'quarantined': False,
+                    'retryable': True, 'using_main_connection': True,
+                }
+                inbox._save_file(inbox._event_path('pending', key), current)
             failure = current.get('side_failure') or {}
             if failure.get('quarantined') and failure.get('model_fingerprint') == model_fingerprint:
                 # Legacy generic model_error had no typed router outcome and may
@@ -120,7 +135,7 @@ def fail(state_dir, session_id, receipt_id, generation, failure, *, now=None):
     unavailable = (category in ('model_not_found', 'invalid_model')
                    or code in ('model_not_found', 'invalid_model')
                    or 'no_executable_targets' in terminal)
-    permanent = category in ('invalid_request',) or unavailable
+    permanent = category in ('invalid_request',)
     inbox = SideIntakeInbox(state_dir, session_id)
     with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
         row = verify_claim(inbox, receipt_id, generation, now=stamp)
@@ -133,13 +148,14 @@ def fail(state_dir, session_id, receipt_id, generation, failure, *, now=None):
             'model_fingerprint': fingerprint,
             'attempt_count': attempts,
             'failed_at': stamp,
-            'retry_not_before': stamp + delay,
-            'quarantined': permanent or attempts >= 6,
+            'retry_not_before': stamp if unavailable else stamp + delay,
+            'quarantined': permanent or (attempts >= 6 and not unavailable),
             'typed': bool(outcome),
             'retryable': not permanent,
             **({k: outcome[k] for k in ('status','code','terminal_reason','pool_size','attempted',
                                         'requested_model','effective_model','message') if k in outcome}),
-            'main_fallback_eligible': unavailable,
+            'use_main_connection': unavailable,
+            'main_fallback_eligible': False,
             'generation': generation,
         }
         row.pop('processing', None)

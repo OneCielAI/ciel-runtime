@@ -1,6 +1,6 @@
 """Host-scoped claim and decision tools for the independent side actor."""
 from .side_intake_inbox import SideIntakeInbox
-from .side_intake_processing import claim, fail, fallback, fallback_pending, finish, verify_claim
+from .side_intake_processing import claim, fail, fallback, finish, verify_claim
 from .side_work_decision import apply
 from .work_plan_tree import WorkPlanError
 from .channel_message_repository import exclusive_file_lock
@@ -218,7 +218,6 @@ def run(name, args, config, state_dir, identity, store):
                                              if active['event_key'] == 'handoff:' + key]
         from .side_reply_outbox import pending
         return {'claim': active, 'waiting_reason': waiting_reason, 'recovered_receipt': recovered,
-                'main_fallbacks': fallback_pending(state_dir, identity),
                 'settings': {k: v for k, v in runtime_side.items() if k != 'reply_connectors'}, 'handoff_replies': replies,
                 'pending_replies': pending(state_dir, identity)}
     key, generation = host.get('receipt_id'), host.get('generation')

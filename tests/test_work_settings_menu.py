@@ -34,8 +34,9 @@ class UnifiedSettingsTests(unittest.TestCase):
         self.assertIn('manual user approval', english)
         self.assertIn('approves plans automatically', english)
         self.assertIn('does not mean “no approval”', english)
-        self.assertIn('original SSE', description({}, 'work_side_intake_model'))
-        self.assertIn('main session', description({}, 'work_side_intake_model'))
+        side = description({}, 'work_side_intake_model')
+        self.assertIn('main session model, provider connection and authentication', side)
+        self.assertIn('stays out of the main transcript', side)
 
     def test_one_panel_one_side_option_and_explanations(self):
         with tempfile.TemporaryDirectory() as root:
