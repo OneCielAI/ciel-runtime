@@ -36,6 +36,16 @@ const pane = (surface, columns) => ({ plugin: 'ciel-work', component: 'Pane', re
   viewport: { columns, rows: 40 }, props: { title: 'Work & SSE', isFocused: true, bodyColumns: columns,
     placement: 'inline', scroll: { offset: 0, bodyRows: 24 }, view: {} } })
 
+test('/work-mode settings opens the pane on its Settings tab', async ($, on) => {
+  host(on)
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  const result = await $.command.run({ command: 'work-mode', args: 'settings', origin: { kind: 'composer' } } as any)
+  expect(result.text).toContain('Settings tab')
+  const ui = await $.ui.mount(pane('terminal', 100) as any)
+  expect((await ui.find({ key: 'setting-work_mode' }))?.text).toContain('Work mode = true')
+  await ui.unmount()
+})
+
 for (const [surface, columns] of [['terminal', 100], ['mobile', 40]] as const) {
   test('Work & SSE pane validates and navigates on ' + surface, async ($, on) => {
     const s = host(on)
