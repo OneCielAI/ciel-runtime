@@ -7,14 +7,14 @@ from .channel_message_repository import exclusive_file_lock
 from .durable_json_file import reader, save
 
 
-def _path(state_dir, identity, agent_id):
+def _path(state_dir, identity, agent_id, receipt_id):
     import hashlib
-    key = hashlib.sha256((identity + '\0' + agent_id).encode()).hexdigest()
+    key = hashlib.sha256((identity + '\0' + agent_id + '\0' + receipt_id).encode()).hexdigest()
     return Path(state_dir) / 'side-outcomes' / key[:2] / (key + '.json')
 
 
-def record(state_dir, identity, agent_id, outcome):
-    path = _path(state_dir, identity, agent_id)
+def record(state_dir, identity, agent_id, receipt_id, outcome):
+    path = _path(state_dir, identity, agent_id, receipt_id)
     value = {k: outcome.get(k) for k in ('status','code','terminal_reason','pool_size',
              'attempted','requested_model','effective_model','message') if outcome.get(k) is not None}
     value['recorded_at'] = time.time()
@@ -24,8 +24,8 @@ def record(state_dir, identity, agent_id, outcome):
         save(path, value)
 
 
-def take(state_dir, identity, agent_id):
-    path = _path(state_dir, identity, agent_id)
+def take(state_dir, identity, agent_id, receipt_id):
+    path = _path(state_dir, identity, agent_id, receipt_id)
     with exclusive_file_lock(path):
         try:
             with reader(path) as stream:

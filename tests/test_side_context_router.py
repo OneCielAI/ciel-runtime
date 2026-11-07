@@ -60,6 +60,13 @@ class SideContextRouterTests(unittest.TestCase):
         self.assertNotIn('parent_context',forwarded)
         self.assertEqual('external question',forwarded['original'])
 
+    def test_preview_redacts_common_credentials(self):
+        preview=self.store.preview({'messages':[{'role':'user','content':'password=supersecret api_key=abcdefgh123456 ghp_abcdefgh123456 AKIAABCDEFGH123456'}]})
+        text=preview[0]['text']
+        self.assertNotIn('supersecret',text)
+        self.assertNotIn('abcdefgh123456',text)
+        self.assertNotIn('AKIAABCDEFGH123456',text)
+
     def test_recent_uses_provider_count_not_message_count_and_keeps_tool_group(self):
         parent=copy.deepcopy(self.parent)
         parent['messages']=[{'role':'user','content':'old'}, {'role':'assistant','content':'old answer'},

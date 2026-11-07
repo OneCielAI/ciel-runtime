@@ -53,6 +53,8 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
             processing = current.get('processing') or {}
             if processing.get('lease_until', 0) > stamp:
                 continue
+            if (current.get('main_fallback') or {}).get('state') in ('pending', 'queued'):
+                continue
             failure = current.get('side_failure') or {}
             if failure.get('quarantined') and failure.get('model_fingerprint') == model_fingerprint:
                 # Legacy generic model_error had no typed router outcome and may
@@ -113,10 +115,11 @@ def fail(state_dir, session_id, receipt_id, generation, failure, *, now=None):
     model = str(failure.get('model') or '')[:300]
     fingerprint = str(failure.get('model_fingerprint') or '')[:128]
     outcome = failure.get('outcome') if isinstance(failure.get('outcome'), dict) else {}
-    status = outcome.get('status')
     terminal = str(outcome.get('terminal_reason') or '')[:200]
+    code = str(outcome.get('code') or '').lower()
     unavailable = (category in ('model_not_found', 'invalid_model')
-                   or status == 404 or 'no_executable_targets' in terminal)
+                   or code in ('model_not_found', 'invalid_model')
+                   or 'no_executable_targets' in terminal)
     permanent = category in ('invalid_request',) or unavailable
     inbox = SideIntakeInbox(state_dir, session_id)
     with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
@@ -137,6 +140,7 @@ def fail(state_dir, session_id, receipt_id, generation, failure, *, now=None):
             **({k: outcome[k] for k in ('status','code','terminal_reason','pool_size','attempted',
                                         'requested_model','effective_model','message') if k in outcome}),
             'main_fallback_eligible': unavailable,
+            'generation': generation,
         }
         row.pop('processing', None)
         inbox._save_file(inbox._event_path('pending', receipt_id), row)
@@ -157,10 +161,14 @@ def fallback(state_dir, session_id, receipt_id, generation, state, reason='', *,
         if state == 'prepare':
             if current.get('state') in ('pending', 'queued'):
                 return inbox._receipt(receipt_id, row, duplicate=True)
-            verify_claim(inbox, receipt_id, generation, now=stamp)
+            failure = row.get('side_failure') or {}
+            if not failure.get('main_fallback_eligible') or failure.get('generation') != generation:
+                verify_claim(inbox, receipt_id, generation, now=stamp)
             row['main_fallback'] = {'state': 'pending', 'reason': str(reason)[:160],
-                                    'prepared_at': stamp, 'generation': generation}
-            row.pop('processing', None)
+                                    'prepared_at': stamp, 'generation': generation,
+                                    'delivery_id': uuid.uuid4().hex}
+            row['processing'] = {'owner':'main-fallback','generation':generation,
+                                 'started_at':stamp,'lease_until':stamp + 3600}
         else:
             if current.get('generation') != generation or current.get('state') != 'pending':
                 raise WorkPlanError('stale side fallback')
@@ -177,10 +185,27 @@ def fallback(state_dir, session_id, receipt_id, generation, state, reason='', *,
                 inbox._clear_priority(receipt_id)
                 return inbox._receipt(receipt_id, row, duplicate=False)
             row.pop('main_fallback', None)
+            row.pop('processing', None)
             row['side_failure'] = {'category':'main_fallback_failed','attempt_count':1,
                                    'failed_at':stamp,'retry_not_before':stamp + 5,'quarantined':False}
         inbox._save_file(inbox._event_path('pending', receipt_id), row)
         return inbox._receipt(receipt_id, row, duplicate=False)
+
+
+def fallback_pending(state_dir, session_id, limit=10):
+    """Recover prepared fallback intents without reclaiming their side event."""
+    inbox = SideIntakeInbox(state_dir, session_id)
+    rows = []
+    for path in (inbox.directory / 'pending').glob('*/*.json'):
+        row = inbox._read_file(path)
+        fallback_state = (row or {}).get('main_fallback') or {}
+        if row and fallback_state.get('state') == 'pending':
+            rows.append({'receipt_id': path.stem, 'generation': fallback_state.get('generation'),
+                         'reason': fallback_state.get('reason', ''), 'text': row['text'],
+                         'route': row.get('route', {}), 'duplicate': True})
+        if len(rows) >= limit:
+            break
+    return rows
 
 
 def finish(state_dir, session_id, receipt_id, generation, result, *, now=None):

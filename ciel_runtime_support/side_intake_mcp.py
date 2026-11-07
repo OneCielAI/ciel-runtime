@@ -1,6 +1,6 @@
 """Host-scoped claim and decision tools for the independent side actor."""
 from .side_intake_inbox import SideIntakeInbox
-from .side_intake_processing import claim, fail, fallback, finish, verify_claim
+from .side_intake_processing import claim, fail, fallback, fallback_pending, finish, verify_claim
 from .side_work_decision import apply
 from .work_plan_tree import WorkPlanError
 from .channel_message_repository import exclusive_file_lock
@@ -117,10 +117,17 @@ def run(name, args, config, state_dir, identity, store):
             args.get('model'), key=args.get('context_key'))
     if name == 'work_side_fallback':
         from .side_request_outcome import take as take_side_outcome
-        outcome = take_side_outcome(state_dir, identity, str(args.get('agent_id') or '')) if args.get('agent_id') else None
+        outcome = take_side_outcome(state_dir, identity, str(args.get('agent_id') or ''),
+                                    str(host.get('receipt_id') or '')) if args.get('agent_id') else None
         reason = args.get('reason', '')
         if outcome:
             reason = outcome.get('terminal_reason') or outcome.get('message') or reason
+        if args.get('state') == 'prepare':
+            inbox = SideIntakeInbox(state_dir, identity)
+            row = inbox._load(host.get('receipt_id'))
+            failure = (row or {}).get('side_failure') or {}
+            if not failure.get('main_fallback_eligible') and not (row or {}).get('main_fallback'):
+                raise WorkPlanError('side model unavailability not verified')
         return {'receipt': fallback(state_dir, identity, host.get('receipt_id'), host.get('generation'),
                                     args.get('state'), reason)}
     if name == 'work_side_retry_reply':
@@ -132,10 +139,12 @@ def run(name, args, config, state_dir, identity, store):
         return renew(state_dir, identity, host.get('receipt_id'), host.get('generation'))
     if name == 'work_side_fail':
         from .side_request_outcome import take as take_side_outcome
-        outcome = take_side_outcome(state_dir, identity, str(args.get('agent_id') or '')) if args.get('agent_id') else None
-        return {'receipt': fail(state_dir, identity, host.get('receipt_id'), host.get('generation'), {
+        outcome = take_side_outcome(state_dir, identity, str(args.get('agent_id') or ''),
+                                    str(host.get('receipt_id') or '')) if args.get('agent_id') else None
+        receipt = fail(state_dir, identity, host.get('receipt_id'), host.get('generation'), {
             'category': args.get('category'), 'model': args.get('model'),
-            'model_fingerprint': args.get('model_fingerprint'), 'outcome': outcome})}
+            'model_fingerprint': args.get('model_fingerprint'), 'outcome': outcome})
+        return {'receipt': receipt, 'main_fallback_eligible': bool((receipt.get('side_failure') or {}).get('main_fallback_eligible'))}
     if name == 'work_side_handoff':
         from .side_handoff import acknowledge
         if config.get('work_mode', True) is not True:
@@ -201,6 +210,7 @@ def run(name, args, config, state_dir, identity, store):
                                              if active['event_key'] == 'handoff:' + key]
         from .side_reply_outbox import pending
         return {'claim': active, 'waiting_reason': waiting_reason, 'recovered_receipt': recovered,
+                'main_fallbacks': fallback_pending(state_dir, identity),
                 'settings': {k: v for k, v in runtime_side.items() if k != 'reply_connectors'}, 'handoff_replies': replies,
                 'pending_replies': pending(state_dir, identity)}
     key, generation = host.get('receipt_id'), host.get('generation')

@@ -40,7 +40,7 @@ class WorkSettingsCliTests(unittest.TestCase):
         self.assertEqual(1, len(saved))
         self.assertFalse(result['settings'][0]['value'])
         self.assertEqual('Work mode set to off.', result['feedback'])
-        self.assertIn('Selected value: False.', result['settings'][0]['description'])
+        self.assertIn('Selected value: off.', result['settings'][0]['description'])
 
     def test_localized_feedback_preserves_raw_configuration_value(self):
         config = {'language': 'ja'}

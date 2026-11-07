@@ -15,7 +15,7 @@ MAX_BYTES = 64 * 1024 * 1024
 MAX_PARENT_BYTES = 16 * 1024 * 1024
 _KEY = re.compile(r'^[0-9a-f]{32}$')
 _ID = re.compile(r'^claude:[A-Za-z0-9_-]{1,200}$')
-_SECRET = re.compile(r'(?i)(bearer\s+|sk-|token["\s:=]+)[A-Za-z0-9._~+/=-]{8,}')
+_SECRET = re.compile(r'(?i)(bearer\s+|sk-|gh[pousr]_|AKIA|(?:api[_-]?key|token|secret|password|credential|cookie)["\s:=]+)[A-Za-z0-9._~+/=-]{8,}')
 
 
 class SideContextStore:

@@ -87,7 +87,12 @@ def description(config, key, value=None):
                  '値を選択すると、この設定だけに反映されます。', '选择一个值；更改仅应用于此设置。')
     text = texts[LANGUAGES.index(language)]
     if value is not None and value not in ('back', '__edit__', '__refresh_models__'):
-        shown = menu_text('state_' + str(value), language) if str(value) in ('on', 'off', 'ask', 'auto') else str(value)
+        raw = value
+        if key == 'work_plan_approval_ask':
+            raw = 'ask' if value in (True, 'true', 'on', 'ask') else 'auto'
+        elif isinstance(value, bool):
+            raw = 'on' if value else 'off'
+        shown = menu_text('state_' + str(raw), language) if str(raw) in ('on', 'off', 'ask', 'auto') else str(raw)
         text += ' ' + VALUE_PREFIX[language].format(value=shown)
     return text
 

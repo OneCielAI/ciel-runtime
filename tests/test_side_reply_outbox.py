@@ -129,7 +129,7 @@ class SideReplyTests(unittest.TestCase):
         from ciel_runtime_support.work_plan_store import session_work_plan_store
         import json
         token='outbox-host-token-'*3
-        config={'work_mode':True,'work_parallel_host':{'token':token},'work_side_intake':{'enabled':True}}
+        config={'work_mode':True,'work_parallel_host':{'token':token},'work_side_intake':{'enabled':True,'context_mode':'isolated'}}
         def respond(_i,text,error=False): return {'content':[{'type':'text','text':text}],'isError':error}
         with tempfile.TemporaryDirectory() as raw:
             root=Path(raw)

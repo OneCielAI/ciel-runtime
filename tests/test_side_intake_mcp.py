@@ -71,14 +71,34 @@ class SideMcpTests(unittest.TestCase):
     def test_generation_fenced_main_fallback_is_exact_once(self):
         event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
         host={'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation']}
+        failed=self.invoke('work_side_fail',{'category':'invalid_model','model':'missing'},host)
+        self.assertFalse(failed['error'])
         self.invoke('work_side_fallback',{'state':'prepare','reason':'model unavailable'},host)
         self.assertEqual('pending',self.inbox._load(event['receipt_id'])['main_fallback']['state'])
+        self.assertIsNone(json.loads(self.invoke('work_side_claim',{'owner':'other'})['text'])['claim'])
         duplicate=json.loads(self.invoke('work_side_fallback',{'state':'prepare','reason':'again'},host)['text'])['receipt']
         self.assertTrue(duplicate['duplicate'])
         queued=json.loads(self.invoke('work_side_fallback',{'state':'queued'},host)['text'])['receipt']
         self.assertEqual('processed',queued['stage'])
         self.assertEqual('main_session',queued['result']['delivery'])
         self.assertEqual([],self.inbox.pending())
+
+    def test_transient_500_is_not_main_fallback_eligible(self):
+        event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
+        host={'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation']}
+        failed=json.loads(self.invoke('work_side_fail',{'category':'turn_error','model':'valid'},host)['text'])
+        self.assertFalse(failed['main_fallback_eligible'])
+        self.assertTrue(failed['receipt']['side_failure']['retryable'])
+        denied=self.invoke('work_side_fallback',{'state':'prepare','reason':'not model failure'},host)
+        self.assertTrue(denied['error'])
+
+    def test_unrelated_404_is_not_model_unavailable(self):
+        from ciel_runtime_support.side_intake_processing import fail
+        from ciel_runtime_support.side_intake_processing import claim
+        event=claim(self.root,self.identity,'actor')
+        receipt=fail(self.root,self.identity,event['receipt_id'],event['generation'],{
+            'category':'turn_error','outcome':{'status':404,'code':'route_not_found'}})
+        self.assertFalse(receipt['side_failure']['main_fallback_eligible'])
 
     def test_legacy_generic_model_error_is_rechecked_once(self):
         event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']

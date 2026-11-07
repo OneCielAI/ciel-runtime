@@ -360,7 +360,7 @@ def handle_claude_messages_post(
     if local_request:
         context_recovery.observe_request(provider, pcfg, raw_body, "claude", getattr(self, "headers", None))
         stream_scope = context_recovery.stream_scope(getattr(self, "headers", None), raw_body)
-        if (stream_scope is not None and cfg.get('work_side_intake', {}).get('enabled') is True
+        if (not side_projected and stream_scope is not None and cfg.get('work_side_intake', {}).get('enabled') is True
                 and (cfg.get('work_side_intake', {}).get('context_mode', 'full') in ('full', 'recent')
                      or cfg.get('work_side_intake', {}).get('comparison_enabled') is True)):
             from .side_context_store import SideContextStore
@@ -743,14 +743,17 @@ def handle_claude_messages_post(
                     parsed = {}
                 diagnostics = parsed.get('diagnostics', {}) if isinstance(parsed, dict) else {}
                 error = parsed.get('error', {}) if isinstance(parsed, dict) else {}
+                diagnostics = diagnostics if isinstance(diagnostics, dict) else {}
+                error = error if isinstance(error, dict) else {}
                 from .side_request_outcome import record as record_side_outcome
-                record_side_outcome(WORKSPACE_STATE_DIR, side_identity, side_agent_id, {
+                record_side_outcome(WORKSPACE_STATE_DIR, side_identity, side_agent_id,
+                    str((side_envelope or {}).get('event_id') or ''), {
                     'status': e.code, 'code': error.get('type'),
                     'terminal_reason': diagnostics.get('terminalReason'),
                     'pool_size': diagnostics.get('poolSize'), 'attempted': diagnostics.get('attempted'),
-                    'requested_model': (side_envelope or {}).get('side_context_key'),
+                    'requested_model': str(raw_body.get('model') or ''),
                     'effective_model': upstream_model,
-                    'message': error.get('message') if isinstance(error, dict) else ''})
+                    'message': error.get('message') or str(parsed)[:300]})
             committed = early_sse is not None and early_sse.started
             if e.code == 429:
                 register_api_key_cooldown(provider, pcfg, key_from_request_headers(headers), e.headers)
@@ -819,8 +822,10 @@ def handle_claude_messages_post(
         if side_projected and side_identity and side_agent_id:
             from .side_request_outcome import record as record_side_outcome
             status = getattr(exc, 'code', None) or getattr(exc, 'status_code', None) or 500
-            record_side_outcome(WORKSPACE_STATE_DIR, side_identity, side_agent_id, {
+            record_side_outcome(WORKSPACE_STATE_DIR, side_identity, side_agent_id,
+                str((side_envelope or {}).get('event_id') or ''), {
                 'status': status, 'code': type(exc).__name__,
+                'requested_model': str(raw_body.get('model') or ''),
                 'effective_model': str(body.get('model') or ''), 'message': str(exc)})
         if early_committed and early_sse is not None:
             # The 200 event-stream is committed: one typed SSE error, never a

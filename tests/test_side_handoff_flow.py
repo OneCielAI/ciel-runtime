@@ -14,7 +14,7 @@ class SideHandoffFlowTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as raw:
             root=Path(raw)
             identity='claude:test'
-            config={'work_mode':True,'work_side_intake':{'enabled':True},'work_parallel_host':{'token':'x'*40}}
+            config={'work_mode':True,'work_side_intake':{'enabled':True,'context_mode':'isolated'},'work_parallel_host':{'token':'x'*40}}
             store=session_work_plan_store(root,identity)
             _,item=store.transaction(lambda d:tree.add_node(d,None,'existing'))
             inbox=SideIntakeInbox(root,identity)

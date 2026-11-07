@@ -57,6 +57,7 @@ class HostResultPageTests(unittest.TestCase):
     def test_large_side_claim_is_paged_and_reassembles_exactly(self):
         self.big_board()
         from ciel_runtime_support.side_intake_inbox import SideIntakeInbox
+        self.config['work_side_intake']['context_mode'] = 'isolated'
         SideIntakeInbox(self.state, IDENTITY).receive('question', 'source:event-1', route={})
         result = self.call('work_side_claim', {'owner': 'side-1', '_host': {'token': TOKEN}})
         self.assertFalse(result['isError'])
