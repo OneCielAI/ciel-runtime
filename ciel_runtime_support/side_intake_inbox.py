@@ -210,4 +210,5 @@ class SideIntakeInbox:
                 'stage': row['stage'], 'item_id': row['item_id'],
                 'recap': ' '.join(row['text'].split())[:500], 'original': row['text'],
                 'execution_approved': False, 'external_ack': row.get('external_ack', 'not_sent'),
-                'processing': row.get('processing'), 'result': row.get('result')}
+                'processing': row.get('processing'), 'side_failure': row.get('side_failure'),
+                'main_fallback': row.get('main_fallback'), 'result': row.get('result')}

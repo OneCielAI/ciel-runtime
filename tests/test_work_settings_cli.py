@@ -39,6 +39,15 @@ class WorkSettingsCliTests(unittest.TestCase):
         self.assertFalse(config['work_mode'])
         self.assertEqual(1, len(saved))
         self.assertFalse(result['settings'][0]['value'])
+        self.assertEqual('Work mode set to off.', result['feedback'])
+        self.assertIn('Selected value: False.', result['settings'][0]['description'])
+
+    def test_localized_feedback_preserves_raw_configuration_value(self):
+        config = {'language': 'ja'}
+        result, saved = self.invoke(config, 'set', 'work_plan_approval_ask', 'ask')
+        self.assertIs(True, config['work_plan_approval_ask'])
+        self.assertEqual('ask', result['feedback'].split()[-2])
+        self.assertEqual(1, len(saved))
 
     def test_injection_mode_updates_one_canonical_setting(self):
         config = {}

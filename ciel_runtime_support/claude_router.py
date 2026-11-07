@@ -284,6 +284,9 @@ def handle_claude_messages_post(
     local_request = not is_remote_bridge_request(handler)
     raw_body = copy.deepcopy(body) if local_request else body
     side_projected = False
+    side_identity = None
+    side_agent_id = None
+    side_envelope = None
     if local_request and (getattr(self, 'headers', None) or {}).get('x-claude-code-agent-id'):
         from .side_context_router import request_context, project as project_side_context, upstream_counter
         from .side_context_projection import SideContextUnavailable
@@ -291,6 +294,9 @@ def handle_claude_messages_post(
         if envelope is not None:
             from .runtime_paths import WORKSPACE_STATE_DIR
             identity = 'claude:' + str(self.headers.get('x-claude-code-session-id') or '')
+            side_identity = identity
+            side_agent_id = str(self.headers.get('x-claude-code-agent-id') or '')
+            side_envelope = envelope
             try:
                 def counter(request):
                     return upstream_counter(services, self, provider, pcfg, body.get('model'))(request)
@@ -730,6 +736,21 @@ def handle_claude_messages_post(
                 err = e.read()
             if local_request:
                 context_recovery.observe_failure(provider, pcfg, raw_body, err, "claude", getattr(self, "headers", None))
+            if side_projected and side_identity and side_agent_id:
+                try:
+                    parsed = json.loads(err)
+                except (ValueError, TypeError, UnicodeDecodeError):
+                    parsed = {}
+                diagnostics = parsed.get('diagnostics', {}) if isinstance(parsed, dict) else {}
+                error = parsed.get('error', {}) if isinstance(parsed, dict) else {}
+                from .side_request_outcome import record as record_side_outcome
+                record_side_outcome(WORKSPACE_STATE_DIR, side_identity, side_agent_id, {
+                    'status': e.code, 'code': error.get('type'),
+                    'terminal_reason': diagnostics.get('terminalReason'),
+                    'pool_size': diagnostics.get('poolSize'), 'attempted': diagnostics.get('attempted'),
+                    'requested_model': (side_envelope or {}).get('side_context_key'),
+                    'effective_model': upstream_model,
+                    'message': error.get('message') if isinstance(error, dict) else ''})
             committed = early_sse is not None and early_sse.started
             if e.code == 429:
                 register_api_key_cooldown(provider, pcfg, key_from_request_headers(headers), e.headers)
@@ -795,6 +816,12 @@ def handle_claude_messages_post(
             )
             return
         event_bus.publish(level="error", category="router.error", message=str(exc), request_id=request_id, provider=provider, model=str(body.get("model") or ""), data={"error_type": type(exc).__name__})
+        if side_projected and side_identity and side_agent_id:
+            from .side_request_outcome import record as record_side_outcome
+            status = getattr(exc, 'code', None) or getattr(exc, 'status_code', None) or 500
+            record_side_outcome(WORKSPACE_STATE_DIR, side_identity, side_agent_id, {
+                'status': status, 'code': type(exc).__name__,
+                'effective_model': str(body.get('model') or ''), 'message': str(exc)})
         if early_committed and early_sse is not None:
             # The 200 event-stream is committed: one typed SSE error, never a
             # second status line and never a success.

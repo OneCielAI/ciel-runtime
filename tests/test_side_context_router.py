@@ -48,6 +48,18 @@ class SideContextRouterTests(unittest.TestCase):
         self.assertIn('n21',result['messages'][-1]['content'])
         self.assertEqual('agent-1',self.store.read(self.store.path(self.handle['key']))['agent_id'])
 
+    def test_preview_is_readable_bounded_and_not_duplicated_upstream(self):
+        preview=self.handle['parent_transcript_preview']
+        self.assertTrue(preview)
+        self.assertEqual('current main request',preview[-1]['text'])
+        envelope={**self.envelope,'parent_context':{'display_preview':preview}}
+        body={**self.body,'messages':[{'role':'user','content':json.dumps(envelope)}]}
+        result=project(self.root,self.identity,'agent-preview',body,
+                       {'work_side_intake':self.settings},'fixture',None)
+        forwarded=json.loads(result['messages'][-1]['content'])
+        self.assertNotIn('parent_context',forwarded)
+        self.assertEqual('external question',forwarded['original'])
+
     def test_recent_uses_provider_count_not_message_count_and_keeps_tool_group(self):
         parent=copy.deepcopy(self.parent)
         parent['messages']=[{'role':'user','content':'old'}, {'role':'assistant','content':'old answer'},

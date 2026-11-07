@@ -1,19 +1,23 @@
 """Host-scoped claim and decision tools for the independent side actor."""
 from .side_intake_inbox import SideIntakeInbox
-from .side_intake_processing import claim, fail, finish, verify_claim
+from .side_intake_processing import claim, fail, fallback, finish, verify_claim
 from .side_work_decision import apply
 from .work_plan_tree import WorkPlanError
 from .channel_message_repository import exclusive_file_lock
 
-NAMES = ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_reply', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare')
+NAMES = ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare')
 
 
 def schemas():
     return [
         {'name': 'work_side_fail', 'description': 'Host-only generation-fenced failure release with durable backoff or model quarantine.',
          'inputSchema': {'type':'object','properties':{'category':{'type':'string','maxLength':80},
-             'model':{'type':'string','maxLength':300},'model_fingerprint':{'type':'string','maxLength':128}},
+             'model':{'type':'string','maxLength':300},'model_fingerprint':{'type':'string','maxLength':128},
+             'agent_id':{'type':'string','maxLength':200}},
              'required':['category']}},
+        {'name': 'work_side_fallback', 'description': 'Host-only generation-fenced transition of a side-model failure to exact-once main-session delivery.',
+         'inputSchema': {'type':'object','properties':{'state':{'type':'string','enum':['prepare','queued','failed']},
+             'reason':{'type':'string','maxLength':160},'agent_id':{'type':'string','maxLength':200}},'required':['state']}},
         {'name': 'work_side_compare', 'description': 'Host-only read-only profile experiment; never commits Work or sends a reply.',
          'inputSchema': {'type':'object','properties':{'action':{'type':'string','enum':['plan','context','record']},
              'receipt_id':{'type':'string'},'parent_model':{'type':'string'},'profile_id':{'type':'string'},
@@ -111,6 +115,14 @@ def run(name, args, config, state_dir, identity, store):
         return SideContextStore(state_dir, identity).prepare(
             {'receipt_id': key, 'generation': generation}, runtime_side,
             args.get('model'), key=args.get('context_key'))
+    if name == 'work_side_fallback':
+        from .side_request_outcome import take as take_side_outcome
+        outcome = take_side_outcome(state_dir, identity, str(args.get('agent_id') or '')) if args.get('agent_id') else None
+        reason = args.get('reason', '')
+        if outcome:
+            reason = outcome.get('terminal_reason') or outcome.get('message') or reason
+        return {'receipt': fallback(state_dir, identity, host.get('receipt_id'), host.get('generation'),
+                                    args.get('state'), reason)}
     if name == 'work_side_retry_reply':
         from .side_reply_outbox import retry
         return {'receipt': retry(state_dir, identity, args.get('receipt_id'),
@@ -119,9 +131,11 @@ def run(name, args, config, state_dir, identity, store):
         from .side_intake_processing import renew
         return renew(state_dir, identity, host.get('receipt_id'), host.get('generation'))
     if name == 'work_side_fail':
+        from .side_request_outcome import take as take_side_outcome
+        outcome = take_side_outcome(state_dir, identity, str(args.get('agent_id') or '')) if args.get('agent_id') else None
         return {'receipt': fail(state_dir, identity, host.get('receipt_id'), host.get('generation'), {
             'category': args.get('category'), 'model': args.get('model'),
-            'model_fingerprint': args.get('model_fingerprint')})}
+            'model_fingerprint': args.get('model_fingerprint'), 'outcome': outcome})}
     if name == 'work_side_handoff':
         from .side_handoff import acknowledge
         if config.get('work_mode', True) is not True:
@@ -148,6 +162,11 @@ def run(name, args, config, state_dir, identity, store):
             return prepare(state_dir, identity, args.get('receipt_id'), config=config)
         return {'receipt': record(state_dir, identity, args.get('receipt_id'), args.get('state'), attempt_id=host.get('attempt_id'))}
     if name == 'work_side_claim':
+        waiting_reason = None
+        if runtime_side.get('context_mode', 'full') in ('full', 'recent'):
+            from .side_context_store import SideContextStore
+            if SideContextStore(state_dir, identity).ready() is None:
+                waiting_reason = 'parent_context'
         document = store.read_snapshot()
         replies = [{'event_id': key, **row} for key, row in document.get('side_handoffs', {}).items()
                    if row.get('state') in ('acknowledged', 'answered')]
@@ -161,9 +180,10 @@ def run(name, args, config, state_dir, identity, store):
                 followup_key = hashlib.sha256(('handoff:' + reply['event_id']).encode()).hexdigest()
                 if inbox._load(followup_key) is None:
                     _answer_followup(inbox, reply['event_id'], reply['answer'])
-        active = claim(state_dir, identity, args.get('owner'),
-                       aging_seconds=config.get('work_side_intake',{}).get('aging_seconds',60),
-                       model_fingerprint=runtime_side.get('model_fingerprint'))
+        active = None if waiting_reason else claim(
+            state_dir, identity, args.get('owner'),
+            aging_seconds=config.get('work_side_intake',{}).get('aging_seconds',60),
+            model_fingerprint=runtime_side.get('model_fingerprint'))
         recovered = None
         if active:
             # A board commit can survive a later receipt-write failure. Recover
@@ -180,7 +200,7 @@ def run(name, args, config, state_dir, identity, store):
                 active['handoff_context'] = [{'event_id': key, **row} for key, row in document.get('side_handoffs', {}).items()
                                              if active['event_key'] == 'handoff:' + key]
         from .side_reply_outbox import pending
-        return {'claim': active, 'recovered_receipt': recovered,
+        return {'claim': active, 'waiting_reason': waiting_reason, 'recovered_receipt': recovered,
                 'settings': {k: v for k, v in runtime_side.items() if k != 'reply_connectors'}, 'handoff_replies': replies,
                 'pending_replies': pending(state_dir, identity)}
     key, generation = host.get('receipt_id'), host.get('generation')

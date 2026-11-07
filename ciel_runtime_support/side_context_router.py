@@ -130,6 +130,27 @@ def project(state_dir, identity, agent_id, body, config, provider, count_tokens)
         selected = copy.deepcopy(value['projection'])
         parent = value['parent']
     result = copy.deepcopy(body)
+    envelope = request_context(result)
+    if envelope is not None:
+        # The native child transcript keeps the readable preview; the model gets
+        # one authoritative parent prefix plus the exact durable external event.
+        exact = SideIntakeInbox(state_dir, identity)._load(value['receipt_id'])
+        clean = {k: v for k, v in envelope.items() if k != 'parent_context'}
+        clean['original'] = exact['text'] if exact else ''
+        for message in result.get('messages', []):
+            content = message.get('content') if isinstance(message, dict) else None
+            if (isinstance(content, str) and envelope.get('side_context_key') in content
+                    and envelope.get('event_id') in content):
+                message['content'] = json.dumps(clean, ensure_ascii=False)
+                continue
+            if not isinstance(content, list):
+                continue
+            for block in content:
+                if isinstance(block, dict) and block.get('type') == 'text':
+                    text = block.get('text', '')
+                    if (isinstance(text, str) and envelope.get('side_context_key') in text
+                            and envelope.get('event_id') in text):
+                        block['text'] = json.dumps(clean, ensure_ascii=False)
     result['system'] = copy.deepcopy(parent.get('system', []))
     # Native execution permissions still decide which inherited schemas can run.
     # Preserve parent schema bytes and order to keep its prefix stable.

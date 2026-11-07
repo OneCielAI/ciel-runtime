@@ -32,6 +32,7 @@ class SideModTests(unittest.TestCase):
         self.assertEqual(['n21'],row['workload']['queue_order'])
         self.assertFalse(row['workload']['truncated'])
         self.assertFalse(any(line.startswith(('Side processing', 'Side processed', 'Side MCP parity', 'Side event', 'btw_with_mcp')) for line in row['logs']))
+        self.assertEqual([],row['statuses'])
 
     def test_paged_host_results_reassemble_and_events_render_interpreted(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -91,6 +92,7 @@ class SideModTests(unittest.TestCase):
         self.assertEqual(['mcp__ciel-runtime-router__work_status','mcp__database__query','mcp__drive__read','mcp__github__create_issue','mcp__mail__read'],replaced['tools'])
         self.assertNotIn(replaced['parity']['digest'],{row['beforeParity']['digest'],row['afterParity']['digest']})
         self.assertFalse(any(line.startswith(('Side processing', 'Side processed', 'Side MCP parity', 'Side event', 'btw_with_mcp')) for line in row['logs']))
+        self.assertEqual([],row['statuses'])
 
     def test_reply_route_override_is_not_mcp_inheritance(self):
         from ciel_runtime_support.recent_menu_text import menu_text

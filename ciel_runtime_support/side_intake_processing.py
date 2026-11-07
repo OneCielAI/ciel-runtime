@@ -55,7 +55,16 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
                 continue
             failure = current.get('side_failure') or {}
             if failure.get('quarantined') and failure.get('model_fingerprint') == model_fingerprint:
-                continue
+                # Legacy generic model_error had no typed router outcome and may
+                # have quarantined a transient 5xx. Re-evaluate once under the
+                # new exact-main-fallback lifecycle.
+                if failure.get('category') == 'model_error' and not failure.get('typed'):
+                    failure['quarantined'] = False
+                    failure['retry_not_before'] = 0
+                    failure['legacy_recheck'] = True
+                    current['side_failure'] = failure
+                else:
+                    continue
             if not failure.get('quarantined') and failure.get('retry_not_before', 0) > stamp:
                 continue
             generation = uuid.uuid4().hex
@@ -103,7 +112,12 @@ def fail(state_dir, session_id, receipt_id, generation, failure, *, now=None):
     category = str(failure.get('category') or 'error')[:80]
     model = str(failure.get('model') or '')[:300]
     fingerprint = str(failure.get('model_fingerprint') or '')[:128]
-    permanent = category in ('model_error', 'model_not_found', 'invalid_model', 'invalid_request')
+    outcome = failure.get('outcome') if isinstance(failure.get('outcome'), dict) else {}
+    status = outcome.get('status')
+    terminal = str(outcome.get('terminal_reason') or '')[:200]
+    unavailable = (category in ('model_not_found', 'invalid_model')
+                   or status == 404 or 'no_executable_targets' in terminal)
+    permanent = category in ('invalid_request',) or unavailable
     inbox = SideIntakeInbox(state_dir, session_id)
     with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
         row = verify_claim(inbox, receipt_id, generation, now=stamp)
@@ -118,8 +132,53 @@ def fail(state_dir, session_id, receipt_id, generation, failure, *, now=None):
             'failed_at': stamp,
             'retry_not_before': stamp + delay,
             'quarantined': permanent or attempts >= 6,
+            'typed': bool(outcome),
+            'retryable': not permanent,
+            **({k: outcome[k] for k in ('status','code','terminal_reason','pool_size','attempted',
+                                        'requested_model','effective_model','message') if k in outcome}),
+            'main_fallback_eligible': unavailable,
         }
         row.pop('processing', None)
+        inbox._save_file(inbox._event_path('pending', receipt_id), row)
+        return inbox._receipt(receipt_id, row, duplicate=False)
+
+
+def fallback(state_dir, session_id, receipt_id, generation, state, reason='', *, now=None):
+    """Generation-fenced exact-once main-session fallback transition."""
+    stamp = time.time() if now is None else now
+    if state not in ('prepare', 'queued', 'failed'):
+        raise WorkPlanError('invalid side fallback state')
+    inbox = SideIntakeInbox(state_dir, session_id)
+    with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
+        row = inbox._load(receipt_id)
+        if row is None:
+            raise WorkPlanError('side receipt missing')
+        current = row.get('main_fallback') or {}
+        if state == 'prepare':
+            if current.get('state') in ('pending', 'queued'):
+                return inbox._receipt(receipt_id, row, duplicate=True)
+            verify_claim(inbox, receipt_id, generation, now=stamp)
+            row['main_fallback'] = {'state': 'pending', 'reason': str(reason)[:160],
+                                    'prepared_at': stamp, 'generation': generation}
+            row.pop('processing', None)
+        else:
+            if current.get('generation') != generation or current.get('state') != 'pending':
+                raise WorkPlanError('stale side fallback')
+            current['state'] = state
+            current['updated_at'] = stamp
+            row['main_fallback'] = current
+            if state == 'queued':
+                row.update(stage='processed', item_id=None, consumed_at=stamp,
+                           result={'action':'main_fallback','summary':'Side model unavailable; delivered to main session',
+                                   'reply':'','delivery':'main_session','handoff':'main_fallback',
+                                   'fallback_reason':current.get('reason','')})
+                inbox._save_file(inbox._event_path('receipts', receipt_id), row)
+                inbox._event_path('pending', receipt_id).unlink(missing_ok=True)
+                inbox._clear_priority(receipt_id)
+                return inbox._receipt(receipt_id, row, duplicate=False)
+            row.pop('main_fallback', None)
+            row['side_failure'] = {'category':'main_fallback_failed','attempt_count':1,
+                                   'failed_at':stamp,'retry_not_before':stamp + 5,'quarantined':False}
         inbox._save_file(inbox._event_path('pending', receipt_id), row)
         return inbox._receipt(receipt_id, row, duplicate=False)
 

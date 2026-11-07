@@ -1,7 +1,7 @@
 """Work configuration CLI using the same settings projection as the menus."""
 import json
 
-from .work_settings_menu import apply, description, panel_rows
+from .work_settings_menu import apply, apply_feedback, description, panel_rows
 from .work_live_settings import settings
 
 
@@ -10,10 +10,12 @@ def command(load_config, save_config, output=print):
         config = load_config()
         action = args.action
         key = args.key
+        feedback = None
         if action == 'set':
             if not key or args.value is None:
                 raise ValueError('use work set KEY VALUE')
             apply(config, key, args.value, save_config)
+            feedback = apply_feedback(config, key, args.value)
         state = settings(config, {}, None)
         _, keys = panel_rows(config)
         values = {row['key']: row for row in state['settings']}
@@ -30,14 +32,18 @@ def command(load_config, save_config, output=print):
             keys = [key]
         elif action in ('get', 'set'):
             raise ValueError('Work setting key required')
-        result = {'settings': [{**values[k], 'description': description(config, k)} for k in keys if k in values],
+        result = {'settings': [{**values[k], 'description': description(config, k, values[k]['value'])} for k in keys if k in values],
                   'applies': state['applies']}
+        if feedback is not None:
+            result['feedback'] = feedback
         if args.json:
             output(json.dumps(result, ensure_ascii=False))
         else:
             for row in result['settings']:
                 output(row['key'] + ' = ' + str(row['value']) + (' ['+row['status']+']' if row.get('status') else ''))
                 output('  ' + row['description'])
+            if feedback is not None:
+                output(feedback)
             output(result['applies'])
         return result
     return run

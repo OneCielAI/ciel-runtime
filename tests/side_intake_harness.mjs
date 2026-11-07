@@ -5,11 +5,12 @@ let available=[{name:'mcp__ciel-runtime-router__work_status',mcp:true},{name:'mc
  {name:'mcp__github__create_issue',mcp:true},{name:'mcp__database__query',mcp:true},
  {name:'Read',mcp:false},{name:'mcp__malformed',mcp:true},{name:'mcp__flag__text',mcp:'true'},{mcp:true},null]
 let nonWorkNext=0
-const logs=[]
+const logs=[],statuses=[],prompts=[]
 let events=[{receipt_id:'a'.repeat(64),generation:'g1',text:'question\nsecond line',event_key:'source:one',lease_until:Date.now()/1000+120,route:{channel:'external:source',sender_id:'sender',source_kind:'external_event',thread_id:'one'}}]
 const calls=[],spawns=[],sent=[],timers=[]
 const $={
- session:{model:async()=>'fixture-main',id:async()=>'parent',send:async args=>{sent.push(args);return {isDelivered:true}},append:async args=>calls.push({append:args})},
+ session:{model:async()=>'fixture-main',id:async()=>'parent',send:async args=>{sent.push(args);return {isDelivered:true}},append:async args=>calls.push({append:args}),messages:async()=>[]},
+ prompt:{submit:async args=>{prompts.push(args);return {text:args.text}}},
  mcp:{connect:async()=>({}),call:async(server,name,args)=>{
   calls.push({server,name,args})
   let value={}
@@ -23,12 +24,14 @@ const $={
   if(name==='work_side_compare'&&args.action==='context')value={key:'shadow-context',original:'after MCP change',workload:{version:snapshotVersion}}
   if(name==='work_status')value={version:snapshotVersion,active_root:{id:'n1',title:'main'},queue:[]}
   if(name==='work_side_resolve')value={receipt:{stage:'processed',recap:'q',result:{action:args.decision.action,summary:'done',reply:'answer'}},result:{action:args.decision.action,summary:'done',reply:'answer',duplicate:false,version:++snapshotVersion}}
+  if(name==='work_side_fallback')value={receipt:{receipt_id:args._host?.receipt_id,stage:args.state==='queued'?'processed':'received',duplicate:false,result:{delivery:'main_session'}}}
+  if(name==='work_side_fail')value={receipt:{receipt_id:args._host?.receipt_id,stage:'received'}}
   return {content:[{type:'text',text:JSON.stringify(value)}]}
  }},
  tool:{list:async()=>available},
  agent:{list:async()=>[],register:async args=>calls.push({registered:args}),spawn:async args=>{spawns.push(args);return {agentId:'actor'+spawns.length}}},
  env:{get:async()=>'x'.repeat(40)},
- ui:{log:text=>logs.push(text),status:()=>{},invalidate:()=>{}},clock:{after:(ms,callback)=>{timers.push(callback);return {cancel(){}}}},
+ ui:{log:text=>logs.push(text),status:text=>statuses.push(text),invalidate:()=>{}},clock:{after:(ms,callback)=>{timers.push(callback);return {cancel(){}}}},
 }
 await startSide($)
 await pollSide($,'claude:parent')
@@ -65,7 +68,7 @@ await pollSide($,'claude:parent')
 const registrations=calls.filter(c=>c.registered?.name==='side-intake').map(c=>c.registered)
 console.log(JSON.stringify({handoff:sideReceipts('claude:parent').find(r=>r.receipt_id==='a'.repeat(64))?.result?.handoff,spawns:beforeChange.spawns,resumes:afterChange.resumes,parent:resolved.args.session_id,
  hostReceipt:resolved.args._host.receipt_id,usage:resolved.args.usage,
- workload:JSON.parse(spawns[0].prompt).workload,heartbeat:calls.some(c=>c.name==='work_side_renew'),current:activeAfterChange,tools:registrations[0].tools,logs,
+ workload:JSON.parse(spawns[0].prompt).workload,heartbeat:calls.some(c=>c.name==='work_side_renew'),current:activeAfterChange,tools:registrations[0].tools,logs,statuses,prompts,
  nonWorkNext,workDenied,beforeParity:beforeChange.parity,afterParity:afterChange.parity,registrations:changedRegistrations.length,
  changedSpawns:afterChange.spawns,changedCurrent,changedTools:changedRegistrations.at(-1).tools,
  changedServers:changedRegistrations.at(-1).mcpServers,changedDisallowed:changedRegistrations.at(-1).disallowedTools,

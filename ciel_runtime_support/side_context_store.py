@@ -15,6 +15,7 @@ MAX_BYTES = 64 * 1024 * 1024
 MAX_PARENT_BYTES = 16 * 1024 * 1024
 _KEY = re.compile(r'^[0-9a-f]{32}$')
 _ID = re.compile(r'^claude:[A-Za-z0-9_-]{1,200}$')
+_SECRET = re.compile(r'(?i)(bearer\s+|sk-|token["\s:=]+)[A-Za-z0-9._~+/=-]{8,}')
 
 
 class SideContextStore:
@@ -42,6 +43,45 @@ class SideContextStore:
         if not isinstance(value, dict):
             raise SideContextUnavailable('side context snapshot invalid')
         return value
+
+    def ready(self):
+        """Return current capture metadata only for this launch's exact session."""
+        latest = self.read(self.directory / 'latest.json')
+        if not latest or latest.get('unavailable') or not isinstance(latest.get('parent'), dict):
+            return None
+        if latest.get('epoch'):
+            from .runtime_paths import ROUTER_INSTANCE_DIR
+            current = self.read(ROUTER_INSTANCE_DIR / 'compaction-scope.json')
+            if (not current or current.get('epoch') != latest['epoch']
+                    or 'claude:' + str(current.get('session_id')) != self.identity):
+                return None
+        return latest
+
+    @staticmethod
+    def preview(parent, *, limit=12, chars=6000):
+        """Bounded readable transcript preview; exact history stays router-only."""
+        rows = []
+        for message in parent.get('messages', []):
+            if not isinstance(message, dict) or message.get('role') not in ('user', 'assistant'):
+                continue
+            content = message.get('content')
+            blocks = [{'type': 'text', 'text': content}] if isinstance(content, str) else content
+            if not isinstance(blocks, list):
+                continue
+            text = []
+            for block in blocks:
+                if not isinstance(block, dict) or block.get('type') != 'text':
+                    continue
+                value = block.get('text')
+                if isinstance(value, str) and value.strip():
+                    text.append(value.strip())
+            if text:
+                value = _SECRET.sub(r'\1‹hidden›', '\n'.join(text))[:1000]
+                rows.append({'role': message['role'], 'text': value})
+        selected = rows[-limit:]
+        while selected and len(json.dumps(selected, ensure_ascii=False)) > chars:
+            selected.pop(0)
+        return selected
 
     def capture(self, body, provider, epoch=None):
         # No credential headers, host tokens or full config are stored here.
@@ -77,8 +117,8 @@ class SideContextStore:
         previous_info = None
         with exclusive_file_lock(path):
             value = self.read(path)
-            latest = snapshot or self.read(self.directory / 'latest.json')
-            if not latest or latest.get('unavailable') or not isinstance(latest.get('parent'), dict):
+            latest = snapshot or self.ready()
+            if not latest:
                 raise SideContextUnavailable('current parent capture unavailable; stale context not reused')
             if value is not None and not shadow and latest and (
                 latest.get('digest') != value.get('digest') or latest.get('epoch') != value.get('epoch')
@@ -102,4 +142,5 @@ class SideContextStore:
         if rebase:
             return {**self.prepare(event, settings, model, snapshot=latest), 'rebased': True, **previous_info}
         return {'key': key, 'captured_at': value['captured_at'], 'parent_digest': value['digest'],
-                'profile': profile, 'selection': value.get('selection')}
+                'profile': profile, 'selection': value.get('selection'),
+                'parent_transcript_preview': self.preview(value['parent'])}
