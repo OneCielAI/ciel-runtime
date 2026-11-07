@@ -490,16 +490,28 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
                 'To clear a verified wait, supply waiting_on="" explicitly; '
                 'do not repeat this empty call. Use work_status to inspect, or continue the next runnable item.')
 
-        def update(d: dict[str, Any]) -> tuple[dict[str, Any], str | None, int]:
-            before = d.get("active_root")
-            return tree.update_node(
-                d, node_id, status=args.get("status"), title=args.get("title"),
-                note=args.get("note"), evidence=args.get("evidence"),
-                ref=args.get("ref"), waiting_on=args.get("waiting_on"),
-                priority=args.get("priority"),
-            ), before, d.get("version", 0)
+        # Re-sending the identical mutation after a lost response is safe. When
+        # it already matches current state, accept a future/stale expected
+        # version without writing; a genuinely new mutation still uses strict CAS.
+        current = store.read()
+        existing = next((node for node in current['nodes'] if node['id'] == node_id), None)
+        if existing is None:
+            raise tree.WorkPlanError(f'unknown Work item: {node_id}')
+        supplied = {key: args[key] for key in mutable if key in args and args[key] is not None}
+        replayed = all(existing.get(key, '') == value for key, value in supplied.items())
+        if replayed and expected != current['version']:
+            doc, node, before, version_before = current, existing, current.get('active_root'), current['version']
+        else:
+            def update(d: dict[str, Any]) -> tuple[dict[str, Any], str | None, int]:
+                before = d.get("active_root")
+                return tree.update_node(
+                    d, node_id, status=args.get("status"), title=args.get("title"),
+                    note=args.get("note"), evidence=args.get("evidence"),
+                    ref=args.get("ref"), waiting_on=args.get("waiting_on"),
+                    priority=args.get("priority"),
+                ), before, d.get("version", 0)
 
-        doc, (node, before, version_before) = store.transaction(update, expected_version=expected)
+            doc, (node, before, version_before) = store.transaction(update, expected_version=expected)
         if doc.get("version", 0) == version_before:
             message = (f"NO CHANGE: {node['id']} already had these values; version {version_before} is unchanged. "
                        "Do not repeat this call.")
