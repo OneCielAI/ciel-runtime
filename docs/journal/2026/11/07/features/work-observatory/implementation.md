@@ -37,3 +37,4 @@ Engine-backed plugin tests mount both the real `terminal` and `mobile` element t
 - `claude plugin validate`: passed; existing missing-icon warning only.
 - Local install after the settings-tab ordering fix: `0.2.51-local.20261107-cf76b0e` at `C:\Users\djlov\.local\share\ciel-runtime-cf76b0e7f85785e71f9ff4ce105805b5526d8de7`.
 - Real fresh console: `/work-mode view` opened and focused the installed Work & SSE pane, showing its colored header, Work/SSE/Settings tabs, parallel capacity and mobile/narrow hint ([screenshot](evidence/real-console-work-pane.png), [screen text](evidence/real-console-work-pane.txt)).
+- `/work-mode settings` opening directly on Settings is verified by an engine-mounted test. A final fresh-console probe after `cf76b0e` stopped before Claude started because the live Walkie router on port 9505 was still owned by the earlier `ac4789d` session (pid 82968), and the launcher refused mixed versions. No live session was stopped.

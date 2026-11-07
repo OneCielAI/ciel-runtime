@@ -1,0 +1,30 @@
+", line 163, in _guard_launch_lease
+    return operation()
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\runtime_launch.py
+", line 192, in <lambda>
+    return _guard_launch_lease(runtime, lambda: function(*args, **kwargs), log)
+                                                ~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\runtime_launch.py
+", line 616, in run_claude
+    manage_router_lifetime = bool(_launch_phase("claude", "router_start", start_router_if_needed, router_log))
+                                  ~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\runtime_launch.py
+", line 76, in _launch_phase
+    value = operation()
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py", line 4187, in start_
+router_if_needed
+    return start_project_router_if_needed(
+        replace_active_clients=replace_active_clients,
+    ...<11 lines>...
+        platform_name=os.name,
+    )
+  File "C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime_support\router_process_li
+fecycle.py", line 205, in start_router_if_needed
+    raise RuntimeError(
+    ...<5 lines>...
+    )
+RuntimeError: ciel-runtime router on http://127.0.0.1:9505 belongs to this config but has active clients (82968) and dif
+fers from this launch (running_version=0.2.51-local.20261107-ac4789d, current_version=0.2.51-local.20261107-cf76b0e). St
+op the other Claude Code session or launch this instance with a different CIEL_RUNTIME_ROUTER_PORT.
+
+G:\ciel-Walkie>
