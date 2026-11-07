@@ -31,3 +31,16 @@ timestamp: 2026-11-07
 - The harness accepted fenced JSON, preserved parent MCP policy, committed both decisions, and denied ordinary Work mutation from the side.
 - Installed local `0.2.51-local.20261107-3638400`; User `CIEL_RUNTIME_HOME` points to its immutable snapshot.
 - Live Walkie verification is intentionally not run: the user stopped the faulty session. No live session was restarted or killed by this task.
+
+# Live fresh-session E2E (2026-11-07 14:52, local `3a6ea3e`)
+
+Two more defects were found and fixed while running this:
+- `ad5d7b6`: a fresh session has no router parent capture yet; `work_side_claim` waited for it although the inherit fork never uses it. The receipt stayed `received`.
+- `3a6ea3e`: three of four forks ended with prose before a fenced decision, were rejected, and retried — posting the ACK and reply three extra times (Walkie 116639–116642). Decisions are now extracted from prose/fences; a completed turn without a decision is quarantined and never replayed.
+
+Final run ([result](evidence/live-e2e/result.json), [screenshot](evidence/live-e2e/verified.png)):
+- New session `be3cd747`, real Walkie SSE via `messages.renotify` for message 116659.
+- Exactly one native fork (`agentType=fork`, `model=inherit`, `finished=true`); router requests carry `tools=93`, the same tool set as main.
+- Walkie thread: 116662 `ACK — 받았습니다.` then 116663 `E2E-OK`, both replies to 116659. No duplicate posts.
+- Receipt `processed`, action `answer`, no Work item, delivery `side_mcp`.
+- Main transcript: 0 occurrences of the SSE marker and 0 task notifications. No side team members remain.

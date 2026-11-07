@@ -1,0 +1,32 @@
+{
+  "session_id": "be3cd747-e1e1-40b8-8937-bf4c57317317",
+  "marker": "CIEL-SIDE-E2E-8a596d61ff86",
+  "walkie_message_id": "116659",
+  "receipt_stage": "processed",
+  "result": {
+    "action": "answer",
+    "item_id": null,
+    "reply": "E2E-OK",
+    "reported_sends": [
+      "mcp__walkie__walkie_send_message"
+    ]
+  },
+  "forks": [
+    {
+      "agentType": "fork",
+      "isFork": true,
+      "model": "inherit",
+      "finished": true,
+      "description": "Side SSE 9f806ebecad3"
+    }
+  ],
+  "live_side_team_members": [],
+  "walkie_thread": [
+    "116659 source message",
+    "116662 ACK reply_to 116659",
+    "116663 E2E-OK reply_to 116659"
+  ],
+  "router_fork_requests": "tools=93 (same as main), msgs 2..11, model _walkie_opus55-sol61-fast",
+  "main_transcript_marker_hits": 0,
+  "main_transcript_task_notifications": 0
+}
