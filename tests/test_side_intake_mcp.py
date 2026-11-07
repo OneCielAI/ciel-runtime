@@ -138,6 +138,13 @@ class SideMcpTests(unittest.TestCase):
         self.assertNotIn('main_fallback',row)
         self.assertEqual('legacy_main_fallback_reclaimed',row['side_failure']['category'])
 
+    def test_completed_turn_without_decision_is_never_replayed(self):
+        event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
+        host={'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation']}
+        failed=json.loads(self.invoke('work_side_fail',{'category':'invalid_answer','model':'main'},host)['text'])
+        self.assertTrue(failed['receipt']['side_failure']['quarantined'])
+        self.assertIsNone(json.loads(self.invoke('work_side_claim',{'owner':'again'})['text'])['claim'])
+
     def test_transient_500_is_not_main_fallback_eligible(self):
         event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
         host={'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation']}

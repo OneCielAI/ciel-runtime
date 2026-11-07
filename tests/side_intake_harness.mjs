@@ -33,13 +33,20 @@ await pollSide($,'claude:parent')
 const first=sideOwns('actor1')
 const nonWork=await sideTool($,{agentId:'actor1',tool:'mcp__mail__read',tool_use_id:'t1'},async()=>({result:'native'}))
 const workDenied=await sideTool($,{agentId:'actor1',tool:'mcp__ciel-runtime-router__work_plan_update',tool_use_id:'t2'},async()=>({result:'bad'}))
-await completeSide($,{agentId:'actor1',reason:'answer',answer:'```json\n'+JSON.stringify({decision:{action:'answer',summary:'done',reply:'answer'},expected_version:1})+'\n```',usage:{input_tokens:3}})
+// Observed live: prose, then a fenced decision. It must commit, not retry.
+await completeSide($,{agentId:'actor1',reason:'answer',answer:'ACK and answer sent for 116635. No Work created.\n\n```json\n'+JSON.stringify({decision:{action:'answer',summary:'done',reply:'answer'},expected_version:1,sent_via:['mcp__mail__read']})+'\n```',usage:{input_tokens:3}})
 await drain()
 available=[...available,{name:'mcp__calendar__read',mcp:true}]
 events.push({receipt_id:'b'.repeat(64),generation:'g2',text:'second',event_key:'source:two',lease_until:Date.now()/1000+120,route:{channel:'external:source',sender_id:'sender',source_kind:'external_event'}})
 await pollSide($,'claude:parent')
 const second=sideOwns('actor2')
-await completeSide($,{agentId:'actor2',reason:'answer',answer:JSON.stringify({decision:{action:'answer',summary:'done2',reply:'answer2'},expected_version:snapshotVersion}),usage:null})
+await completeSide($,{agentId:'actor2',reason:'answer',answer:'Nothing new needed; already answered.\n\n'+JSON.stringify({decision:{action:'answer',summary:'done2',reply:'answer2'},expected_version:snapshotVersion}),usage:null})
+await drain()
+// A completed turn without any decision may already have sent through MCP:
+// it is recorded as invalid_answer (never retried), and its actor still stops.
+events.push({receipt_id:'c'.repeat(64),generation:'g3',text:'third',event_key:'source:three',lease_until:Date.now()/1000+120,route:{channel:'external:source',sender_id:'sender',source_kind:'external_event'}})
+await pollSide($,'claude:parent')
+await completeSide($,{agentId:'actor3',reason:'answer',answer:'I replied in the thread.',usage:null})
 await drain()
 const registrations=calls.filter(c=>c.registered?.name==='side-intake').map(c=>c.registered)
 console.log(JSON.stringify({
@@ -47,5 +54,6 @@ console.log(JSON.stringify({
  first:{current:first.current,retired:first.retired},second:{current:second.current,retired:second.retired},
  stopped:calls.filter(c=>c.toolCall?.tool==='TaskStop').map(c=>c.toolCall.task_id),
  nonWork,workDenied,registrations:registrations.map(r=>({tools:r.tools,mcpServers:r.mcpServers})),
- parity:sideMcpParity(),resolveCalls:calls.filter(c=>c.name==='work_side_resolve').map(c=>c.args)
+ parity:sideMcpParity(),resolveCalls:calls.filter(c=>c.name==='work_side_resolve').map(c=>c.args),
+ failures:calls.filter(c=>c.name==='work_side_fail').map(c=>({category:c.args.category,receipt:c.args._host.receipt_id}))
 }))

@@ -71,6 +71,10 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
                 }
                 inbox._save_file(inbox._event_path('pending', key), current)
             failure = current.get('side_failure') or {}
+            if failure.get('quarantined') and failure.get('category') == 'invalid_answer':
+                # A completed turn may already have replied externally; a model
+                # change must not replay it either.
+                continue
             if failure.get('quarantined') and failure.get('model_fingerprint') == model_fingerprint:
                 # Legacy generic model_error had no typed router outcome and may
                 # have quarantined a transient 5xx. Re-evaluate once under the

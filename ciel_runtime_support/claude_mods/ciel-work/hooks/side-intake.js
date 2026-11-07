@@ -414,6 +414,26 @@ async function recordFailure($, actor, event, category) {
     return value
   } catch { return null }
 }
+// The side turn ends with its decision, but models often wrap it in prose or a
+// ```json fence. Take the last parseable object that carries `decision`.
+export function decisionOf(answer) {
+  const text = String(answer || '')
+  const candidates = [text.trim(), ...[...text.matchAll(/```(?:json)?\s*([\s\S]*?)```/gi)].map(m => m[1].trim()).reverse()]
+  for (let end = text.lastIndexOf('}'); end >= 0; end = text.lastIndexOf('}', end - 1)) {
+    for (let start = text.lastIndexOf('{', end); start >= 0; start = text.lastIndexOf('{', start - 1)) {
+      const slice = text.slice(start, end + 1)
+      if (slice.includes('"decision"')) { candidates.push(slice); break }
+    }
+    if (candidates.length > 64) break
+  }
+  for (const candidate of candidates) {
+    try {
+      const value = JSON.parse(candidate)
+      if (value && typeof value === 'object' && value.decision && typeof value.decision === 'object') return value
+    } catch {}
+  }
+  throw new Error('side answer carries no decision JSON')
+}
 export async function completeSide($,e) {
   const actor = actors.get(e.agentId)
   if (!actor) return false
@@ -428,9 +448,7 @@ export async function completeSide($,e) {
       // A plugin's own hooks do not see the tool calls of an agent it spawned
       // (turn.step/tool.call, probed 2026-11-07 on Claude Code 2.1.310), so the
       // side AI's own report of what it sent is carried, labelled as reported.
-      const raw = String(e.answer || '').trim()
-      const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(raw)
-      const {sent_via, ...proposal} = JSON.parse(fenced ? fenced[1] : raw)
+      const {sent_via, ...proposal} = decisionOf(e.answer)
       const value = await callRouter($,'work_side_resolve',{...proposal,usage:e.usage || null},
         {receipt_id:event.receipt_id,generation:event.generation,context_key:actor.contextKey,
           reported_sends:Array.isArray(sent_via) ? sent_via : []},actor.identity)
@@ -449,8 +467,11 @@ export async function completeSide($,e) {
     }
   } catch { /* Failure is recorded below, never in the main transcript. */ }
   if (event && !actor.resolved) {
-    const failure = await recordFailure($,actor,event,e.reason === 'error' ? 'turn_error' : e.reason || 'invalid_answer')
-    actor.retired = e.reason !== 'answer'
+    // A turn that completed may already have ACKed or replied through MCP;
+    // replaying it duplicates those posts (observed 2026-11-07: three extra
+    // ACK/reply pairs). Only a turn that errored is retried.
+    await recordFailure($,actor,event,e.reason === 'error' ? 'turn_error'
+      : e.reason === 'answer' ? 'invalid_answer' : e.reason || 'invalid_answer')
   }
   actor.resolved = false
   // One event, one agent. TaskStop removes the in-process teammate instead of
