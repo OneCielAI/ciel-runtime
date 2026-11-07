@@ -59,6 +59,14 @@ The harness ran `~/.local/bin/ciel-runtime.cmd --continue` in an owned ConPTY wi
 
 Evidence: [before](evidence/benchmark-before.json), [after](evidence/benchmark-after-source.json).
 
+# Installed beta 6e07ee0
+
+- **Published:** `0.2.51-beta.20261106-235805.6e07ee0`. CI and the npm publish succeeded.
+- **Registry check:** gitHead and sha512 integrity were verified. 504 runtime source files matched commit 6e07ee0.
+- **Install:** the archive was extracted to a new immutable snapshot. Both local launchers now report this version. `latest` and `nightly` are unchanged.
+- **Time to the first menu frame:** 4.56, 4.61 and 4.55 s on the same harness and launcher as the 26.5 s baseline, with no `--version` child. See [installed-beta-6e07ee0](evidence/installed-beta-6e07ee0.json) and the [screenshot](evidence/screens/installed-beta-6e07ee0-menu.png).
+- **Live routers:** 9487, 9489 and 9524 kept PIDs 95740, 34792 and 2664. Nothing was restarted.
+
 # Side MCP parity (native)
 
 [side-mcp-parity-native](evidence/side-mcp-parity-native.json) used native Claude Code 2.1.310 with two owned MCP servers.

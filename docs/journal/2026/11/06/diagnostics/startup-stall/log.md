@@ -2,6 +2,10 @@
 
 ## 2026-11-06
 
+- Published and installed beta 6e07ee0 after the registry check:
+  - Both launchers report it, and `latest` and `nightly` are unchanged.
+  - Owned ConPTY runs reached the first menu frame in 4.55–4.61 s, down from 26.5 s.
+  - Live routers kept their PIDs.
 - Fixed and verified startup latency:
   - Owned ConPTY runs took `--continue` to the first menu frame in 26.5 s on beta a5794b4 and 3.0–4.5 s on the patched tree.
   - No recursive launcher children ran.

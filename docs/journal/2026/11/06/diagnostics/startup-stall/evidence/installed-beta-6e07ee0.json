@@ -1,0 +1,42 @@
+{
+  "product": "installed beta 0.2.51-beta.20261106-235805.6e07ee0 (gitHead 6e07ee031cf367599f178fbbe45bd51bda738b8e, registry integrity verified, new immutable snapshot)",
+  "command": "~/.local/bin/ciel-runtime.cmd --continue",
+  "config": "isolated empty config, inherited CIEL_RUNTIME_* removed, automatic port",
+  "runs": [
+    {
+      "run": "after-beta-1",
+      "menu_seen_seconds": 4.56,
+      "max_version_probe_children": 0
+    },
+    {
+      "run": "after-beta-2",
+      "menu_seen_seconds": 4.61,
+      "max_version_probe_children": 0
+    },
+    {
+      "run": "after-beta-3",
+      "menu_seen_seconds": 4.55,
+      "max_version_probe_children": 0
+    }
+  ],
+  "before_same_harness": [
+    26.5,
+    26.5,
+    26.64
+  ],
+  "screenshot": "screens/installed-beta-6e07ee0-menu.png",
+  "launchers": {
+    "~/.local/bin/ciel-runtime.cmd": "0.2.51-beta.20261106-235805.6e07ee0",
+    "AppData npm ciel-runtime.cmd": "0.2.51-beta.20261106-235805.6e07ee0"
+  },
+  "npm_tags": {
+    "latest": "0.2.51",
+    "nightly": "0.2.51-nightly.20261106-020333.c00c8b6",
+    "beta": "0.2.51-beta.20261106-235805.6e07ee0"
+  },
+  "live_router_pids_unchanged": {
+    "9487": 95740,
+    "9489": 34792,
+    "9524": 2664
+  }
+}
