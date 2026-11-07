@@ -459,12 +459,17 @@ class ExhaustedRouterReservationTests(unittest.TestCase):
             with self.assertRaisesRegex(RuntimeError, "launch already reserved"):
                 self._select_own(registry)
 
-    def test_own_expired_lease_with_unknown_identity_stays_closed(self):
+    def test_own_expired_lease_with_unknown_identity_is_evicted(self):
         registry = self._own_record_with_lease(
             {"pid": 20001, "identity": "dead-birth", "expires_at": time.time() - 60})
         with patch.object(selection, "_process_identity", return_value=None):
-            with self.assertRaisesRegex(RuntimeError, "launch already reserved"):
-                self._select_own(registry)
+            self.assertEqual(9464, self._select_own(registry))
+
+    def test_expired_live_helper_lease_does_not_block_new_cli(self):
+        registry = self._own_record_with_lease(
+            {"pid": 20001, "identity": "backup-birth", "expires_at": time.time() - 60})
+        with patch.object(selection, "_process_identity", return_value="backup-birth"):
+            self.assertEqual(9464, self._select_own(registry))
 
     def test_fresh_lock_with_confirmed_dead_owner_is_recovered_without_30s_age(self):
         lock = self.registry.with_suffix('.json.lock')

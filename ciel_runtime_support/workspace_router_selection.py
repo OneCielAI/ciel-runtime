@@ -490,19 +490,11 @@ def _check_own_launch_lease(record: dict[str, Any]) -> None:
         # lease had not elapsed when the process disappeared.
         if current == "":
             return
-        # An expired lease whose recorded birth token no longer matches the
-        # live process proves the owner is gone and the PID was recycled:
-        # nobody is launching under it, so evict instead of failing forever
-        # (Kobi 2026-11-04: svchost held the dead launcher's PID). An
-        # unexpired mismatch, a matching identity (live owner), or an
-        # unknown inspection (None) still fails closed.
-        identity = lease.get("identity")
-        if (
-            current is not None
-            and identity
-            and current != identity
-            and 0 < expires_at <= time.time()
-        ):
+        # A launch lease is a short startup mutex, not ownership of every
+        # long-running helper. Once its deadline passes, a live backup/helper
+        # cannot still be "starting" the router and must not block a new CLI.
+        # The stable port mapping and /health scan still prevent two routers.
+        if 0 < expires_at <= time.time():
             return
     except (TypeError, ValueError, KeyError):
         pass
