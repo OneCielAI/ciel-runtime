@@ -1528,6 +1528,12 @@ export function register(on) {
           : r.side_failure.quarantined ? ' · quarantined until model changes'
             : ' · retry after ' + new Date(r.side_failure.retry_not_before * 1000).toISOString()))
       if (r.main_fallback) detail.push('Main fallback: ' + r.main_fallback.state + ' · ' + (r.main_fallback.reason || 'side model unavailable'))
+      if (r.context) {
+        detail.push('Parent context: ' + r.context.mode + ' · captured ' + new Date(r.context.captured_at * 1000).toISOString()
+          + ' · digest ' + clipped(r.context.parent_digest, 16))
+        detail.push('Main transcript preview:', ...(r.context.preview || []).flatMap(row => String(row.text || '').split('\n').slice(0, 6)
+          .map((line, index) => '  ' + (index === 0 ? String(row.role || 'message') + ': ' : '   ') + line)))
+      }
       if (r.result) {
         detail.push('Decision: ' + r.result.summary, 'Action: ' + r.result.action + (r.result.item_id ? ' → ' + r.result.item_id : '') + ' · Work version ' + r.result.version,
           'Reply: ' + r.result.reply)

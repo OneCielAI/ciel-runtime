@@ -112,9 +112,17 @@ def run(name, args, config, state_dir, identity, store):
         inbox = SideIntakeInbox(state_dir, identity)
         with exclusive_file_lock(inbox._event_path('locks', key)):
             verify_claim(inbox, key, generation)
-        return SideContextStore(state_dir, identity).prepare(
+        prepared = SideContextStore(state_dir, identity).prepare(
             {'receipt_id': key, 'generation': generation}, runtime_side,
             args.get('model'), key=args.get('context_key'))
+        with exclusive_file_lock(inbox._event_path('locks', key)):
+            row = verify_claim(inbox, key, generation)
+            row['context'] = {'mode': prepared['profile']['mode'],
+                              'captured_at': prepared['captured_at'],
+                              'parent_digest': prepared['parent_digest'],
+                              'preview': prepared.get('parent_transcript_preview', [])}
+            inbox._save_file(inbox._event_path('pending', key), row)
+        return prepared
     if name == 'work_side_fallback':
         from .side_request_outcome import take as take_side_outcome
         outcome = take_side_outcome(state_dir, identity, str(args.get('agent_id') or ''),

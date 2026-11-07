@@ -52,6 +52,23 @@ class SideMcpTests(unittest.TestCase):
         data=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])
         self.assertIsNotNone(data['claim'])
 
+    def test_context_prepare_persists_visible_parent_transcript_preview(self):
+        self.config['work_side_intake']['context_mode']='full'
+        from ciel_runtime_support.side_context_store import SideContextStore
+        SideContextStore(self.root,self.identity).capture({'model':'main','system':[],'tools':[],
+            'messages':[{'role':'user','content':[{'type':'text','text':'current main work'}]},
+                        {'role':'assistant','content':[{'type':'text','text':'working on verified task'}]}]},'cielairouter')
+        event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
+        host={'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation']}
+        prepared=self.invoke('work_side_context',{'model':'main'},host)
+        self.assertFalse(prepared['error'],prepared)
+        row=self.inbox._load(event['receipt_id'])
+        self.assertEqual('full',row['context']['mode'])
+        self.assertEqual('current main work',row['context']['preview'][0]['text'])
+        status=json.loads(self.invoke('work_side_status',{})['text'])
+        receipt=next(r for r in status['side_inbox_receipts'] if r['receipt_id']==event['receipt_id'])
+        self.assertEqual('working on verified task',receipt['context']['preview'][-1]['text'])
+
     def test_failed_generation_is_quarantined_until_model_changes(self):
         self.config.update(current_provider='cielairouter', providers={'cielairouter': {'current_model':'main'}})
         self.config['work_side_intake']['model']='missing-model'
