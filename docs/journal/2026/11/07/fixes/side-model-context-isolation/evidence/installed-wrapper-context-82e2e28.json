@@ -1,0 +1,546 @@
+{
+  "run": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\side-production-155bb905",
+  "product_home": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-82e2e28dcc901888ae55f92262325433147aae32",
+  "identity": "claude:9006d107-d18d-4d0b-be57-bd340f9cb0da",
+  "resolved_before_main_end": true,
+  "nodes": 41,
+  "pending": 0,
+  "receipts": [
+    {
+      "receipt_id": "2b9c47298a895762db68f0203a786e8cbaba10bf3c01880f5c0711206e70eb5b",
+      "accepted": true,
+      "duplicate": false,
+      "stage": "processed",
+      "item_id": null,
+      "recap": "{\"specversion\": \"1.0\", \"id\": \"fixture-cloudevent\", \"source\": \"http://fixture/conversations/one\", \"type\": \"com.ciel.walkie.support.message\", \"time\": \"2026-11-07T00:00:00Z\", \"data\": {\"activity_context\": \"wkp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
+      "original": "{\"specversion\": \"1.0\", \"id\": \"fixture-cloudevent\", \"source\": \"http://fixture/conversations/one\", \"type\": \"com.ciel.walkie.support.message\", \"time\": \"2026-11-07T00:00:00Z\", \"data\": {\"activity_context\": \"wkp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\", \"stream_id\": \"1\", \"event_type\": \"agent.pending_reminder\", \"payload\": {\"held\": 1, \"text\": \"SIDE QUESTION: answer now\"}, \"conversation\": \"one\", \"text\": \"SIDE QUESTION: answer now\"}}",
+      "execution_approved": false,
+      "external_ack": "not_sent",
+      "processing": {
+        "owner": "side-1",
+        "generation": "0f723bed85674152945031b1ae9ce9e8",
+        "lease_until": 1794049759.8381531,
+        "started_at": 1794049639.8381531
+      },
+      "side_failure": null,
+      "main_fallback": null,
+      "result": {
+        "action": "answer",
+        "item_id": null,
+        "summary": "Side answer decision",
+        "reply": "Immediate answer",
+        "delivery": "side_mcp",
+        "execution_approved": false,
+        "handoff": "not_required",
+        "duplicate": false,
+        "version": 3,
+        "context": {
+          "mode": "full",
+          "requested_percent": 100,
+          "count_source": "unavailable",
+          "conversation_tokens": null,
+          "selected_tokens": null,
+          "selected_percent": 100,
+          "start": 0,
+          "thinking_blocks_omitted": 0,
+          "system_digest": "63124d458188d622c0682c5652e5e2dedc1cffb3df2f9af67df6a2217a1a0794",
+          "tools_digest": "e5a71e30631167b564875f202e10cc6ff1350c1dd29da37342bef51f126807d2",
+          "work_board_in_percentage": false,
+          "parent_captured_at": 1794049637.9932442,
+          "parent_digest": "bcc3c6988c2e60d4344cf0d2c630dceb51b1cea5e94ce3a52b0ad8e67dd97944"
+        },
+        "usage": {
+          "input_tokens": 200,
+          "output_tokens": 20,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "model": "ciel-runtime-cielairouter-_walkie_haiku_terra"
+        },
+        "reported_sends": [
+          "mcp__owned-walkie__walkie_send_message"
+        ]
+      }
+    }
+  ],
+  "records": [
+    {
+      "kind": "mcp",
+      "name": "work_parallel_status",
+      "args": {
+        "session_id": "claude:9006d107-d18d-4d0b-be57-bd340f9cb0da"
+      },
+      "host_present": true,
+      "at": 1794049637.7157774,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_parallel_status",
+      "args": {
+        "session_id": "claude:9006d107-d18d-4d0b-be57-bd340f9cb0da"
+      },
+      "host_present": true,
+      "at": 1794049637.823494,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_status",
+      "args": {
+        "format": "json",
+        "session_id": "claude:9006d107-d18d-4d0b-be57-bd340f9cb0da"
+      },
+      "host_present": true,
+      "at": 1794049637.8473837,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_host_page",
+      "args": {
+        "id": "906c683cd1044e376aa607215bab09dc24f68a44bef243607bcddf0568cdbbe9",
+        "part": 0,
+        "session_id": "claude:9006d107-d18d-4d0b-be57-bd340f9cb0da"
+      },
+      "host_present": true,
+      "at": 1794049637.899947,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_host_page",
+      "args": {
+        "id": "906c683cd1044e376aa607215bab09dc24f68a44bef243607bcddf0568cdbbe9",
+        "part": 1,
+        "session_id": "claude:9006d107-d18d-4d0b-be57-bd340f9cb0da"
+      },
+      "host_present": true,
+      "at": 1794049637.9165142,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_host_page",
+      "args": {
+        "id": "906c683cd1044e376aa607215bab09dc24f68a44bef243607bcddf0568cdbbe9",
+        "part": 2,
+        "session_id": "claude:9006d107-d18d-4d0b-be57-bd340f9cb0da"
+      },
+      "host_present": true,
+      "at": 1794049637.9275799,
+      "main_busy": true
+    },
+    {
+      "kind": "model",
+      "session_header": "9006d107-d18d-4d0b-be57-bd340f9cb0da",
+      "agent_header": null,
+      "model": "claude-opus-5-5",
+      "side": false,
+      "main_busy": true,
+      "at": 1794049638.0874362,
+      "tools": [
+        "Agent",
+        "AskUserQuestion",
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "Edit",
+        "EnterPlanMode",
+        "EnterWorktree",
+        "ExitPlanMode",
+        "ExitWorktree",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "Monitor",
+        "NotebookEdit",
+        "Read",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "TaskStop",
+        "WebFetch",
+        "WebSearch",
+        "Workflow",
+        "Write",
+        "mcp__ciel-runtime-router__external_reply",
+        "mcp__ciel-runtime-router__probe_log",
+        "mcp__ciel-runtime-router__send_message",
+        "mcp__ciel-runtime-router__work_discovery_pickup",
+        "mcp__ciel-runtime-router__work_execute",
+        "mcp__ciel-runtime-router__work_focus",
+        "mcp__ciel-runtime-router__work_host_page",
+        "mcp__ciel-runtime-router__work_live_settings",
+        "mcp__ciel-runtime-router__work_mode_set",
+        "mcp__ciel-runtime-router__work_node_add",
+        "mcp__ciel-runtime-router__work_node_remove",
+        "mcp__ciel-runtime-router__work_parallel_configure",
+        "mcp__ciel-runtime-router__work_parallel_event",
+        "mcp__ciel-runtime-router__work_parallel_run",
+        "mcp__ciel-runtime-router__work_parallel_status",
+        "mcp__ciel-runtime-router__work_plan_set",
+        "mcp__ciel-runtime-router__work_reorder",
+        "mcp__ciel-runtime-router__work_replan",
+        "mcp__ciel-runtime-router__work_select",
+        "mcp__ciel-runtime-router__work_side_claim",
+        "mcp__ciel-runtime-router__work_side_compare",
+        "mcp__ciel-runtime-router__work_side_context",
+        "mcp__ciel-runtime-router__work_side_drain",
+        "mcp__ciel-runtime-router__work_side_fail",
+        "mcp__ciel-runtime-router__work_side_fallback",
+        "mcp__ciel-runtime-router__work_side_handoff",
+        "mcp__ciel-runtime-router__work_side_intake",
+        "mcp__ciel-runtime-router__work_side_renew",
+        "mcp__ciel-runtime-router__work_side_reply",
+        "mcp__ciel-runtime-router__work_side_resolve",
+        "mcp__ciel-runtime-router__work_side_retry_reply",
+        "mcp__ciel-runtime-router__work_side_settings",
+        "mcp__ciel-runtime-router__work_side_status",
+        "mcp__ciel-runtime-router__work_status",
+        "mcp__ciel-runtime-router__work_urgent",
+        "mcp__owned-walkie__walkie_send_message"
+      ]
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_status",
+      "args": {
+        "session_id": "claude:9006d107-d18d-4d0b-be57-bd340f9cb0da"
+      },
+      "host_present": true,
+      "at": 1794049639.7009044,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_claim",
+      "args": {
+        "owner": "side-1",
+        "session_id": "claude:9006d107-d18d-4d0b-be57-bd340f9cb0da"
+      },
+      "host_present": true,
+      "at": 1794049639.7315652,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_host_page",
+      "args": {
+        "id": "4295dbb80a58a97003a817fd4d0a61403687c27b31e225a5cbe210a75c196f5c",
+        "part": 0,
+        "session_id": "claude:9006d107-d18d-4d0b-be57-bd340f9cb0da"
+      },
+      "host_present": true,
+      "at": 1794049639.8787358,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_host_page",
+      "args": {
+        "id": "4295dbb80a58a97003a817fd4d0a61403687c27b31e225a5cbe210a75c196f5c",
+        "part": 1,
+        "session_id": "claude:9006d107-d18d-4d0b-be57-bd340f9cb0da"
+      },
+      "host_present": true,
+      "at": 1794049639.894292,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_host_page",
+      "args": {
+        "id": "4295dbb80a58a97003a817fd4d0a61403687c27b31e225a5cbe210a75c196f5c",
+        "part": 2,
+        "session_id": "claude:9006d107-d18d-4d0b-be57-bd340f9cb0da"
+      },
+      "host_present": true,
+      "at": 1794049639.9018357,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_context",
+      "args": {
+        "model": "ciel-runtime-cielairouter-_walkie_haiku_terra",
+        "session_id": "claude:9006d107-d18d-4d0b-be57-bd340f9cb0da"
+      },
+      "host_present": true,
+      "at": 1794049639.9126182,
+      "main_busy": true
+    },
+    {
+      "kind": "model",
+      "session_header": "9006d107-d18d-4d0b-be57-bd340f9cb0da",
+      "agent_header": "a31fafad1a30abec0",
+      "model": "ciel-runtime-cielairouter-_walkie_haiku_terra",
+      "side": true,
+      "main_busy": true,
+      "at": 1794049640.286034,
+      "tools": [
+        "Agent",
+        "AskUserQuestion",
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "Edit",
+        "EnterPlanMode",
+        "EnterWorktree",
+        "ExitPlanMode",
+        "ExitWorktree",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "Monitor",
+        "NotebookEdit",
+        "Read",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "TaskStop",
+        "WebFetch",
+        "WebSearch",
+        "Workflow",
+        "Write",
+        "mcp__ciel-runtime-router__external_reply",
+        "mcp__ciel-runtime-router__probe_log",
+        "mcp__ciel-runtime-router__send_message",
+        "mcp__ciel-runtime-router__work_discovery_pickup",
+        "mcp__ciel-runtime-router__work_execute",
+        "mcp__ciel-runtime-router__work_focus",
+        "mcp__ciel-runtime-router__work_host_page",
+        "mcp__ciel-runtime-router__work_live_settings",
+        "mcp__ciel-runtime-router__work_mode_set",
+        "mcp__ciel-runtime-router__work_node_add",
+        "mcp__ciel-runtime-router__work_node_remove",
+        "mcp__ciel-runtime-router__work_parallel_configure",
+        "mcp__ciel-runtime-router__work_parallel_event",
+        "mcp__ciel-runtime-router__work_parallel_run",
+        "mcp__ciel-runtime-router__work_parallel_status",
+        "mcp__ciel-runtime-router__work_plan_set",
+        "mcp__ciel-runtime-router__work_reorder",
+        "mcp__ciel-runtime-router__work_replan",
+        "mcp__ciel-runtime-router__work_select",
+        "mcp__ciel-runtime-router__work_side_claim",
+        "mcp__ciel-runtime-router__work_side_compare",
+        "mcp__ciel-runtime-router__work_side_context",
+        "mcp__ciel-runtime-router__work_side_drain",
+        "mcp__ciel-runtime-router__work_side_fail",
+        "mcp__ciel-runtime-router__work_side_fallback",
+        "mcp__ciel-runtime-router__work_side_handoff",
+        "mcp__ciel-runtime-router__work_side_intake",
+        "mcp__ciel-runtime-router__work_side_renew",
+        "mcp__ciel-runtime-router__work_side_reply",
+        "mcp__ciel-runtime-router__work_side_resolve",
+        "mcp__ciel-runtime-router__work_side_retry_reply",
+        "mcp__ciel-runtime-router__work_side_settings",
+        "mcp__ciel-runtime-router__work_side_status",
+        "mcp__ciel-runtime-router__work_status",
+        "mcp__ciel-runtime-router__work_urgent",
+        "mcp__owned-walkie__walkie_send_message"
+      ]
+    },
+    {
+      "kind": "mcp",
+      "name": "work_status",
+      "args": {
+        "format": "json",
+        "session_id": "claude:9006d107-d18d-4d0b-be57-bd340f9cb0da"
+      },
+      "host_present": false,
+      "at": 1794049640.2990918,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "walkie_send_message",
+      "args": {
+        "conversation_id": "one",
+        "client_id": "side-fixture",
+        "text": "Immediate answer"
+      },
+      "host_present": false,
+      "at": 1794049640.3246295,
+      "main_busy": true
+    },
+    {
+      "kind": "model",
+      "session_header": "9006d107-d18d-4d0b-be57-bd340f9cb0da",
+      "agent_header": "a31fafad1a30abec0",
+      "model": "ciel-runtime-cielairouter-_walkie_haiku_terra",
+      "side": true,
+      "main_busy": true,
+      "at": 1794049640.5150225,
+      "tools": [
+        "Agent",
+        "AskUserQuestion",
+        "Bash",
+        "CronCreate",
+        "CronDelete",
+        "CronList",
+        "Edit",
+        "EnterPlanMode",
+        "EnterWorktree",
+        "ExitPlanMode",
+        "ExitWorktree",
+        "Glob",
+        "Grep",
+        "ListAgents",
+        "Monitor",
+        "NotebookEdit",
+        "Read",
+        "ReportFindings",
+        "ScheduleWakeup",
+        "SendMessage",
+        "Skill",
+        "TaskStop",
+        "WebFetch",
+        "WebSearch",
+        "Workflow",
+        "Write",
+        "mcp__ciel-runtime-router__external_reply",
+        "mcp__ciel-runtime-router__probe_log",
+        "mcp__ciel-runtime-router__send_message",
+        "mcp__ciel-runtime-router__work_discovery_pickup",
+        "mcp__ciel-runtime-router__work_execute",
+        "mcp__ciel-runtime-router__work_focus",
+        "mcp__ciel-runtime-router__work_host_page",
+        "mcp__ciel-runtime-router__work_live_settings",
+        "mcp__ciel-runtime-router__work_mode_set",
+        "mcp__ciel-runtime-router__work_node_add",
+        "mcp__ciel-runtime-router__work_node_remove",
+        "mcp__ciel-runtime-router__work_parallel_configure",
+        "mcp__ciel-runtime-router__work_parallel_event",
+        "mcp__ciel-runtime-router__work_parallel_run",
+        "mcp__ciel-runtime-router__work_parallel_status",
+        "mcp__ciel-runtime-router__work_plan_set",
+        "mcp__ciel-runtime-router__work_reorder",
+        "mcp__ciel-runtime-router__work_replan",
+        "mcp__ciel-runtime-router__work_select",
+        "mcp__ciel-runtime-router__work_side_claim",
+        "mcp__ciel-runtime-router__work_side_compare",
+        "mcp__ciel-runtime-router__work_side_context",
+        "mcp__ciel-runtime-router__work_side_drain",
+        "mcp__ciel-runtime-router__work_side_fail",
+        "mcp__ciel-runtime-router__work_side_fallback",
+        "mcp__ciel-runtime-router__work_side_handoff",
+        "mcp__ciel-runtime-router__work_side_intake",
+        "mcp__ciel-runtime-router__work_side_renew",
+        "mcp__ciel-runtime-router__work_side_reply",
+        "mcp__ciel-runtime-router__work_side_resolve",
+        "mcp__ciel-runtime-router__work_side_retry_reply",
+        "mcp__ciel-runtime-router__work_side_settings",
+        "mcp__ciel-runtime-router__work_side_status",
+        "mcp__ciel-runtime-router__work_status",
+        "mcp__ciel-runtime-router__work_urgent",
+        "mcp__owned-walkie__walkie_send_message"
+      ]
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_resolve",
+      "args": {
+        "decision": {
+          "action": "answer",
+          "summary": "Side answer decision",
+          "reply": "Immediate answer"
+        },
+        "expected_version": 2,
+        "usage": {
+          "input_tokens": 200,
+          "output_tokens": 20,
+          "cache_read_input_tokens": 0,
+          "cache_creation_input_tokens": 0,
+          "model": "ciel-runtime-cielairouter-_walkie_haiku_terra"
+        },
+        "session_id": "claude:9006d107-d18d-4d0b-be57-bd340f9cb0da"
+      },
+      "host_present": true,
+      "at": 1794049640.5723174,
+      "main_busy": true
+    },
+    {
+      "kind": "resolution",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"receipt\": {\"receipt_id\": \"2b9c47298a895762db68f0203a786e8cbaba10bf3c01880f5c0711206e70eb5b\", \"accepted\": true, \"duplicate\": false, \"stage\": \"processed\", \"item_id\": null, \"recap\": \"{\\\"specversion\\\": \\\"1.0\\\", \\\"id\\\": \\\"fixture-cloudevent\\\", \\\"source\\\": \\\"http://fixture/conversations/one\\\", \\\"type\\\": \\\"com.ciel.walkie.support.message\\\", \\\"time\\\": \\\"2026-11-07T00:00:00Z\\\", \\\"data\\\": {\\\"activity_context\\\": \\\"wkp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\", \"original\": \"{\\\"specversion\\\": \\\"1.0\\\", \\\"id\\\": \\\"fixture-cloudevent\\\", \\\"source\\\": \\\"http://fixture/conversations/one\\\", \\\"type\\\": \\\"com.ciel.walkie.support.message\\\", \\\"time\\\": \\\"2026-11-07T00:00:00Z\\\", \\\"data\\\": {\\\"activity_context\\\": \\\"wkp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\\\", \\\"stream_id\\\": \\\"1\\\", \\\"event_type\\\": \\\"agent.pending_reminder\\\", \\\"payload\\\": {\\\"held\\\": 1, \\\"text\\\": \\\"SIDE QUESTION: answer now\\\"}, \\\"conversation\\\": \\\"one\\\", \\\"text\\\": \\\"SIDE QUESTION: answer now\\\"}}\", \"execution_approved\": false, \"external_ack\": \"not_sent\", \"processing\": {\"owner\": \"side-1\", \"generation\": \"0f723bed85674152945031b1ae9ce9e8\", \"lease_until\": 1794049759.8381531, \"started_at\": 1794049639.8381531}, \"side_failure\": null, \"main_fallback\": null, \"result\": {\"action\": \"answer\", \"item_id\": null, \"summary\": \"Side answer decision\", \"reply\": \"Immediate answer\", \"delivery\": \"pending\", \"execution_approved\": false, \"handoff\": \"not_required\", \"duplicate\": false, \"version\": 3, \"context\": {\"mode\": \"full\", \"requested_percent\": 100, \"count_source\": \"unavailable\", \"conversation_tokens\": null, \"selected_tokens\": null, \"selected_percent\": 100, \"start\": 0, \"thinking_blocks_omitted\": 0, \"system_digest\": \"63124d458188d622c0682c5652e5e2dedc1cffb3df2f9af67df6a2217a1a0794\", \"tools_digest\": \"e5a71e30631167b564875f202e10cc6ff1350c1dd29da37342bef51f126807d2\", \"work_board_in_percentage\": false, \"parent_captured_at\": 1794049637.9932442, \"parent_digest\": \"bcc3c6988c2e60d4344cf0d2c630dceb51b1cea5e94ce3a52b0ad8e67dd97944\"}, \"usage\": {\"input_tokens\": 200, \"output_tokens\": 20, \"cache_read_input_tokens\": 0, \"cache_creation_input_tokens\": 0, \"model\": \"ciel-runtime-cielairouter-_walkie_haiku_terra\"}, \"reported_sends\": [\"mcp__owned-walkie__walkie_send_message\"]}}, \"result\": {\"action\": \"answer\", \"item_id\": null, \"summary\": \"Side answer decision\", \"reply\": \"Immediate answer\", \"delivery\": \"pending\", \"execution_approved\": false, \"handoff\": \"not_required\", \"duplicate\": false, \"version\": 3, \"context\": {\"mode\": \"full\", \"requested_percent\": 100, \"count_source\": \"unavailable\", \"conversation_tokens\": null, \"selected_tokens\": null, \"selected_percent\": 100, \"start\": 0, \"thinking_blocks_omitted\": 0, \"system_digest\": \"63124d458188d622c0682c5652e5e2dedc1cffb3df2f9af67df6a2217a1a0794\", \"tools_digest\": \"e5a71e30631167b564875f202e10cc6ff1350c1dd29da37342bef51f126807d2\", \"work_board_in_percentage\": false, \"parent_captured_at\": 1794049637.9932442, \"parent_digest\": \"bcc3c6988c2e60d4344cf0d2c630dceb51b1cea5e94ce3a52b0ad8e67dd97944\"}, \"usage\": {\"input_tokens\": 200, \"output_tokens\": 20, \"cache_read_input_tokens\": 0, \"cache_creation_input_tokens\": 0, \"model\": \"ciel-runtime-cielairouter-_walkie_haiku_terra\"}, \"reported_sends\": [\"mcp__owned-walkie__walkie_send_message\"]}}"
+          }
+        ],
+        "isError": false
+      },
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_reply",
+      "args": {
+        "receipt_id": "2b9c47298a895762db68f0203a786e8cbaba10bf3c01880f5c0711206e70eb5b",
+        "state": "prepare",
+        "session_id": "claude:9006d107-d18d-4d0b-be57-bd340f9cb0da"
+      },
+      "host_present": true,
+      "at": 1794049640.7063231,
+      "main_busy": true
+    },
+    {
+      "kind": "reply_bridge_result",
+      "result": {
+        "content": [
+          {
+            "type": "text",
+            "text": "{\"state\": \"side_mcp\", \"receipt_id\": \"2b9c47298a895762db68f0203a786e8cbaba10bf3c01880f5c0711206e70eb5b\", \"receipt\": {\"receipt_id\": \"2b9c47298a895762db68f0203a786e8cbaba10bf3c01880f5c0711206e70eb5b\", \"accepted\": true, \"duplicate\": false, \"stage\": \"processed\", \"item_id\": null, \"recap\": \"{\\\"specversion\\\": \\\"1.0\\\", \\\"id\\\": \\\"fixture-cloudevent\\\", \\\"source\\\": \\\"http://fixture/conversations/one\\\", \\\"type\\\": \\\"com.ciel.walkie.support.message\\\", \\\"time\\\": \\\"2026-11-07T00:00:00Z\\\", \\\"data\\\": {\\\"activity_context\\\": \\\"wkp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\", \"original\": \"{\\\"specversion\\\": \\\"1.0\\\", \\\"id\\\": \\\"fixture-cloudevent\\\", \\\"source\\\": \\\"http://fixture/conversations/one\\\", \\\"type\\\": \\\"com.ciel.walkie.support.message\\\", \\\"time\\\": \\\"2026-11-07T00:00:00Z\\\", \\\"data\\\": {\\\"activity_context\\\": \\\"wkp_XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX\\\", \\\"stream_id\\\": \\\"1\\\", \\\"event_type\\\": \\\"agent.pending_reminder\\\", \\\"payload\\\": {\\\"held\\\": 1, \\\"text\\\": \\\"SIDE QUESTION: answer now\\\"}, \\\"conversation\\\": \\\"one\\\", \\\"text\\\": \\\"SIDE QUESTION: answer now\\\"}}\", \"execution_approved\": false, \"external_ack\": \"not_sent\", \"processing\": {\"owner\": \"side-1\", \"generation\": \"0f723bed85674152945031b1ae9ce9e8\", \"lease_until\": 1794049759.8381531, \"started_at\": 1794049639.8381531}, \"side_failure\": null, \"main_fallback\": null, \"result\": {\"action\": \"answer\", \"item_id\": null, \"summary\": \"Side answer decision\", \"reply\": \"Immediate answer\", \"delivery\": \"side_mcp\", \"execution_approved\": false, \"handoff\": \"not_required\", \"duplicate\": false, \"version\": 3, \"context\": {\"mode\": \"full\", \"requested_percent\": 100, \"count_source\": \"unavailable\", \"conversation_tokens\": null, \"selected_tokens\": null, \"selected_percent\": 100, \"start\": 0, \"thinking_blocks_omitted\": 0, \"system_digest\": \"63124d458188d622c0682c5652e5e2dedc1cffb3df2f9af67df6a2217a1a0794\", \"tools_digest\": \"e5a71e30631167b564875f202e10cc6ff1350c1dd29da37342bef51f126807d2\", \"work_board_in_percentage\": false, \"parent_captured_at\": 1794049637.9932442, \"parent_digest\": \"bcc3c6988c2e60d4344cf0d2c630dceb51b1cea5e94ce3a52b0ad8e67dd97944\"}, \"usage\": {\"input_tokens\": 200, \"output_tokens\": 20, \"cache_read_input_tokens\": 0, \"cache_creation_input_tokens\": 0, \"model\": \"ciel-runtime-cielairouter-_walkie_haiku_terra\"}, \"reported_sends\": [\"mcp__owned-walkie__walkie_send_message\"]}}}"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_status",
+      "args": {
+        "session_id": "claude:9006d107-d18d-4d0b-be57-bd340f9cb0da"
+      },
+      "host_present": true,
+      "at": 1794049642.0241876,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_claim",
+      "args": {
+        "owner": "side-1",
+        "session_id": "claude:9006d107-d18d-4d0b-be57-bd340f9cb0da"
+      },
+      "host_present": true,
+      "at": 1794049642.0362494,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_status",
+      "args": {
+        "session_id": "claude:9006d107-d18d-4d0b-be57-bd340f9cb0da"
+      },
+      "host_present": true,
+      "at": 1794049644.0854359,
+      "main_busy": true
+    },
+    {
+      "kind": "mcp",
+      "name": "work_side_claim",
+      "args": {
+        "owner": "side-1",
+        "session_id": "claude:9006d107-d18d-4d0b-be57-bd340f9cb0da"
+      },
+      "host_present": true,
+      "at": 1794049644.0996835,
+      "main_busy": true
+    }
+  ]
+}
