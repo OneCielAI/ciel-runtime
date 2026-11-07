@@ -238,6 +238,17 @@ class SideMcpTests(unittest.TestCase):
         reserved=json.loads(self.invoke('work_side_claim',{'owner':'actor','urgent_only':True})['text'])
         self.assertEqual('P1',reserved['claim']['source_priority'])
 
+    def test_refused_answer_keeps_its_reason_and_is_never_replayed(self):
+        event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
+        host={'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation']}
+        failed=self.invoke('work_side_fail',{'category':'invalid_answer','reason':'Side router operation failed: work_side_resolve: '+'x'*400},host)
+        self.assertFalse(failed['error'],failed)
+        failure=json.loads(failed['text'])['receipt']['side_failure']
+        self.assertTrue(failure['quarantined'])
+        self.assertEqual(300,len(failure['reason']))
+        self.assertTrue(failure['reason'].startswith('Side router operation failed: work_side_resolve'))
+        self.assertIsNone(json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim'])
+
     def test_main_status_never_contains_side_original_or_answer(self):
         status=self.invoke('work_status',{'format':'json'})
         self.assertFalse(status['error'])

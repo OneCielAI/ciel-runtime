@@ -142,6 +142,7 @@ def fail(state_dir, session_id, receipt_id, generation, failure, *, now=None):
         raise WorkPlanError('side failure object required')
     category = str(failure.get('category') or 'error')[:80]
     model = str(failure.get('model') or '')[:300]
+    reason = str(failure.get('reason') or '')[:300]
     fingerprint = str(failure.get('model_fingerprint') or '')[:128]
     outcome = failure.get('outcome') if isinstance(failure.get('outcome'), dict) else {}
     terminal = str(outcome.get('terminal_reason') or '')[:200]
@@ -172,6 +173,9 @@ def fail(state_dir, session_id, receipt_id, generation, failure, *, now=None):
             'quarantined': permanent or (unavailable and not parent_retry) or attempts >= 6,
             'typed': bool(outcome),
             'retryable': not permanent,
+            # Why the host refused a completed turn (observed 2026-11-07: a
+            # valid #116841 decision quarantined with no recorded cause).
+            **({'reason': reason} if reason else {}),
             **({k: outcome[k] for k in ('status','code','terminal_reason','pool_size','attempted',
                                         'requested_model','effective_model','message') if k in outcome}),
             'use_parent_model': parent_retry,

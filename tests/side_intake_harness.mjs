@@ -56,5 +56,5 @@ console.log(JSON.stringify({
  stopped:calls.filter(c=>c.toolCall?.tool==='TaskStop').map(c=>c.toolCall.task_id),
  nonWork,workDenied,registrations:registrations.map(r=>({tools:r.tools,mcpServers:r.mcpServers})),
  parity:sideMcpParity(),resolveCalls:calls.filter(c=>c.name==='work_side_resolve').map(c=>c.args),
- failures:calls.filter(c=>c.name==='work_side_fail').map(c=>({category:c.args.category,receipt:c.args._host.receipt_id}))
+ failures:calls.filter(c=>c.name==='work_side_fail').map(c=>({category:c.args.category,receipt:c.args._host.receipt_id,reason:c.args.reason}))
 }))

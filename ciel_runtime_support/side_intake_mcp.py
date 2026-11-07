@@ -13,7 +13,7 @@ def schemas():
         {'name': 'work_side_fail', 'description': 'Host-only generation-fenced failure release with durable backoff or model quarantine.',
          'inputSchema': {'type':'object','properties':{'category':{'type':'string','maxLength':80},
              'model':{'type':'string','maxLength':300},'model_fingerprint':{'type':'string','maxLength':128},
-             'agent_id':{'type':'string','maxLength':200}},
+             'agent_id':{'type':'string','maxLength':200},'reason':{'type':'string','maxLength':300}},
              'required':['category']}},
         {'name': 'work_side_fallback', 'description': 'Host-only generation-fenced transition of a side-model failure to exact-once main-session delivery.',
          'inputSchema': {'type':'object','properties':{'state':{'type':'string','enum':['prepare','queued','failed']},
@@ -152,7 +152,7 @@ def run(name, args, config, state_dir, identity, store):
                                     str(host.get('receipt_id') or ''))
         receipt = fail(state_dir, identity, host.get('receipt_id'), host.get('generation'), {
             'category': args.get('category'), 'model': args.get('model'),
-            'model_fingerprint': args.get('model_fingerprint'), 'outcome': outcome})
+            'model_fingerprint': args.get('model_fingerprint'), 'reason': args.get('reason'), 'outcome': outcome})
         return {'receipt': receipt, 'main_fallback_eligible': bool((receipt.get('side_failure') or {}).get('main_fallback_eligible'))}
     if name == 'work_side_handoff':
         from .side_handoff import acknowledge

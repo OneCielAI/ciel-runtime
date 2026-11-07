@@ -28,7 +28,8 @@ class SideModTests(unittest.TestCase):
         self.assertEqual(['mcp__mail__read'],row['resolveCalls'][0]['_host']['reported_sends'])
         self.assertEqual({'action':'answer','summary':'done2','reply':'answer2'},row['resolveCalls'][1]['decision'])
         self.assertEqual(['mcp__mail__read'],row['resolveCalls'][1]['_host']['reported_sends'])
-        self.assertEqual([{'category':'invalid_answer','receipt':'c'*64}],row['failures'])
+        self.assertEqual([{'category':'invalid_answer','receipt':'c'*64,
+                           'reason':'side answer carries no decision JSON'}],row['failures'])
         self.assertTrue(row['first']['retired'])
         self.assertTrue(row['second']['retired'])
         self.assertIsNone(row['first']['current'])

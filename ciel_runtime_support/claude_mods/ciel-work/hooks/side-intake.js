@@ -94,8 +94,9 @@ async function callRouter($,name,args,observed,identity) {
 // characters ...) exceeds maximum allowed tokens" and no isError, so the router
 // pages large host results (host_result_pages.py); reassemble and verify them.
 export async function hostJson($,name,result,identity,token) {
-  if (!result || result.isError) throw new Error('Side router operation failed: '+name)
-  const text = (result.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n')
+  const text = (result?.content || []).filter(c => c.type === 'text').map(c => c.text).join('\n')
+  // The router's refusal text is the only record of why a decision failed.
+  if (!result || result.isError) throw new Error('Side router operation failed: '+name+(text ? ': '+line(text,240) : ''))
   let value
   try { value = JSON.parse(text) }
   catch { throw new Error(name+': router did not return JSON: '+line(text,160)) }
@@ -413,10 +414,11 @@ async function submitReply($,actor,event) {
   const update = await callRouter($,'work_side_reply',{receipt_id:event.receipt_id,state},{attempt_id:prepared.attempt_id},actor.identity)
   display($,actor.identity,{side_inbox_receipts:[update.receipt]})
 }
-async function recordFailure($, actor, event, category) {
+async function recordFailure($, actor, event, category, reason = '') {
   try {
     const value = await callRouter($,'work_side_fail',{
-      category, model:actor.model || '', model_fingerprint:actor.modelFingerprint || '', agent_id:actor.id || ''
+      category, model:actor.model || '', model_fingerprint:actor.modelFingerprint || '', agent_id:actor.id || '',
+      ...(reason ? {reason:line(reason,300)} : {})
     },{receipt_id:event.receipt_id,generation:event.generation},actor.identity)
     if (value.receipt) display($,actor.identity,{side_inbox_receipts:[value.receipt]})
     return value
@@ -477,6 +479,7 @@ export async function completeSide($,e) {
   }
   if (actor.shadow) { await finishComparison($,actor,e); return true }
   const event = actor.current
+  let reason = ''
   try {
     if (event && e.reason === 'answer') {
       // A plugin's own hooks do not see the tool calls of an agent it spawned
@@ -495,13 +498,13 @@ export async function completeSide($,e) {
       $.clock.after(10, async () => { await recoverReply($,actor.identity,event) })
       if (actor.comparisonEnabled) $.clock.after(20,async()=>{await queueComparison($,actor.identity,event,actor.parentModel)})
     }
-  } catch { /* Failure is recorded below, never in the main transcript. */ }
+  } catch (error) { reason = String(error?.message || error) /* Recorded below, never in the main transcript. */ }
   if (event && !actor.resolved) {
     // A turn that completed may already have ACKed or replied through MCP;
     // replaying it duplicates those posts (observed 2026-11-07: three extra
     // ACK/reply pairs). Only a turn that errored is retried.
     await recordFailure($,actor,event,e.reason === 'error' ? 'turn_error'
-      : e.reason === 'answer' ? 'invalid_answer' : e.reason || 'invalid_answer')
+      : e.reason === 'answer' ? 'invalid_answer' : e.reason || 'invalid_answer', reason)
   }
   actor.resolved = false
   // One event, one agent. TaskStop removes the in-process teammate instead of
