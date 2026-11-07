@@ -1,0 +1,27 @@
+2026-11-07T10:23:43 [INFO] launch_phase_end runtime=claude phase=remote_instructions reason=launch elapsed_ms=162 result=unchanged
+2026-11-07T10:23:44 [INFO] launch_phase_end runtime=codex phase=remote_instructions reason=launch elapsed_ms=122 result=unchanged
+2026-11-07T10:23:44 [INFO] launch_phase_end runtime=claude phase=remote_memory reason=launch elapsed_ms=4 result=disabled
+2026-11-07T10:23:44 [INFO] launch_phase_end runtime=all phase=remote_provision reason=launch elapsed_ms=2 result=disabled
+2026-11-07T10:23:44 [INFO] launch_phase_end runtime=claude phase=runtime_paths.router_port_select elapsed_ms=43 result=selected
+2026-11-07T10:23:44 [INFO] launch_phase_end runtime=claude phase=install_diagnostics elapsed_ms=0 result=ok
+2026-11-07T10:23:44 [INFO] launch_phase_end runtime=claude phase=self_update_check elapsed_ms=0 result=ok
+2026-11-07T10:23:50 [INFO] router_spawn_start base=http://127.0.0.1:9505 version=0.2.51-beta.20261107-161623.3e6f541 source=ad2522a915cc297f executable=C:\Users\djlov\AppData\Local\Python\pythoncore-3.14-64\python.exe entrypoint=C:\Users\djlov\.local\share\ciel-runtime-3e6f54107d04e23937768e12a306736cfadf3e4b\ciel_runtime.py log_path=C:\Users\djlov\AppData\Roaming\ciel-runtime\router-instances\9505-aae7db361c7f\router.log
+2026-11-07T10:24:21 [ERROR] router_spawn_failed pid=107220 exit_code=1 state=child_exited elapsed=30.6s version=0.2.51-beta.20261107-161623.3e6f541 source=ad2522a915cc297f executable=C:\Users\djlov\AppData\Local\Python\pythoncore-3.14-64\python.exe entrypoint=C:\Users\djlov\.local\share\ciel-runtime-3e6f54107d04e23937768e12a306736cfadf3e4b\ciel_runtime.py log_path=C:\Users\djlov\AppData\Roaming\ciel-runtime\router-instances\9505-aae7db361c7f\router.log
+2026-11-07T10:24:21 [INFO] launch_phase_end runtime=claude phase=router_start elapsed_ms=36836 result=error error_type=RuntimeError
+2026-11-07T10:24:21 [INFO] launch_lease_release runtime=claude cause=RuntimeError result=released
+2026-11-07T11:09:41 [INFO] launch_phase_end runtime=claude phase=remote_instructions reason=launch elapsed_ms=130 result=unchanged
+2026-11-07T11:09:42 [INFO] launch_phase_end runtime=codex phase=remote_instructions reason=launch elapsed_ms=99 result=unchanged
+2026-11-07T11:09:43 [INFO] launch_phase_end runtime=claude phase=remote_memory reason=launch elapsed_ms=2 result=disabled
+2026-11-07T11:09:43 [INFO] launch_phase_end runtime=all phase=remote_provision reason=launch elapsed_ms=2 result=disabled
+2026-11-07T11:09:43 [INFO] launch_phase_end runtime=claude phase=runtime_paths.router_port_select elapsed_ms=40 result=selected
+2026-11-07T11:09:43 [INFO] launch_phase_end runtime=claude phase=install_diagnostics elapsed_ms=5 result=ok
+2026-11-07T11:09:47 [INFO] launch_phase_end runtime=claude phase=self_update_check elapsed_ms=3643 result=ok
+2026-11-07T11:09:57 [INFO] router_spawn_start base=http://127.0.0.1:9505 version=0.2.51-beta.20261107-170304.713475f source=024c09f8555218bc executable=C:\Users\djlov\AppData\Local\Python\pythoncore-3.14-64\python.exe entrypoint=C:\Users\djlov\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime\ciel_runtime.py log_path=C:\Users\djlov\AppData\Roaming\ciel-runtime\router-instances\9505-aae7db361c7f\router.log
+2026-11-07T11:09:59 [INFO] router_spawned running=True base=http://127.0.0.1:9505 elapsed=1.5s
+2026-11-07T11:09:59 [INFO] launch_phase_end runtime=claude phase=router_start elapsed_ms=7655 result=ok
+2026-11-07T11:09:59 [INFO] launch_phase_end runtime=claude phase=model_cache elapsed_ms=484 result=ok
+2026-11-07T11:10:04 [INFO] launch_phase_end runtime=claude phase=cli_update_check elapsed_ms=4367 result=ok
+2026-11-07T11:10:04 [INFO] launch_phase_end runtime=claude phase=mcp_projection elapsed_ms=9 result=prepared
+2026-11-07T11:11:50 [INFO] launch_phase_end runtime=claude phase=child_spawn transport=channel_proxy elapsed_ms=105845 result=exit_0
+2026-11-07T11:11:55 [INFO] router_kill_guarantee reason=claude_exit state=killed elapsed_ms=2046
+2026-11-07T11:11:55 [INFO] router_lifetime_stopped reason=claude_exit stopped=True
