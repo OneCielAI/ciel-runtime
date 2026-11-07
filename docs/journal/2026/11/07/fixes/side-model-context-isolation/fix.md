@@ -58,4 +58,12 @@ Commit `8c7d5ac` supersedes that behavior:
 - when the selected side model is unavailable, the receipt is generation-fenced and the original untrusted SSE event is queued into the main session exactly once. This is the only additional main-transcript exception beyond explicit advise/prioritize handoff;
 - all routine side failure status/log output remains outside the main UI.
 
-Controlled native success still proves normal side delivery (`side_mcp`, pending 0, full context, inherited Walkie MCP). Installed beta verification for `8c7d5ac` remains to be appended after publication completes.
+Controlled native success proves normal side delivery (`side_mcp`, pending 0, full context, inherited Walkie MCP). The reviewed lifecycle and failed-actor cleanup shipped as beta `0.2.51-beta.20261107-071057.7606864` from exact git head `76068646b72675b35fb57b666c24645fc366ab4b`; registry integrity and 506 source files matched while latest/nightly stayed unchanged. The verified archive was installed as immutable snapshot `C:/Users/djlov/.local/share/ciel-runtime-76068646b72675b35fb57b666c24645fc366ab4b` without restarting live sessions.
+
+Installed native acceptance selected `_Walkie_Haiku_Terra`, reached the child wire as `ciel-runtime-cielairouter-_walkie_haiku_terra`, projected the exact main request into the side request, removed display-preview duplication before upstream, selected full context at 100%, sent through inherited Walkie MCP, and finished with pending 0. The real Walkie gateway independently proved the alias resolves to `_Walkie_Haiku_Terra`; its `404 Combo has no executable targets` means the combo currently has no executable backend, not that the runtime failed to find the catalog model. Existing Walkie processes still run the older `cc9fd3f` snapshot until explicitly relaunched.
+
+Additional evidence:
+
+- [Installed Haiku full-context E2E](evidence/installed-haiku-context-7606864.json)
+- [Installed Haiku side pane](evidence/installed-haiku-pane-7606864.png)
+- [Beta registry verification](evidence/beta-registry-7606864.json)
