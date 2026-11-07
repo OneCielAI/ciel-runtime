@@ -67,11 +67,6 @@ function showSideReceipts($, identity, snapshot) {
     seenSideReceipts.add(key)
     void $.ui.open({ id: 'ciel-side-intake', title: 'btw_with_mcp' }).catch(() => {})
     if (seenSideReceipts.size > 200) seenSideReceipts.delete(seenSideReceipts.values().next().value)
-    const stage = receipt.stage === 'processed' ? 'AI decision committed'
-      : receipt.stage === 'board_queued' || (!receipt.stage && receipt.item_id) ? 'mod queued → '+clipped(receipt.item_id,64)
-        : receipt.processing ? 'AI processing' : 'mail received; awaiting mod consumption'
-    $.ui.log('btw_with_mcp · '+stage+' · '+eventView(receipt.original || receipt.recap).summary
-      +(receipt.result ? ' · action: '+receipt.result.action+' · reply delivery: '+(receipt.result.delivery || 'unconfirmed') : ' · receipt only; not an AI answer'))
   }
 }
 let sidePoll = null
@@ -96,8 +91,7 @@ function pollBusySideReceipts($, identity) {
       if (sidePoll !== poll || poll.lifecycle !== starts || await sessionId($) !== identity) return
       showSideReceipts($, identity, snapshot)
       if (snapshot.enabled !== false) await pollSide($, identity)
-    } catch (error) {
-      $.ui.status('btw_with_mcp · inbox retained · ' + clipped(String(error), 120))
+    } catch { /* Durable inbox and pane state remain authoritative. */
     } finally {
       if (sidePoll === poll && poll.lifecycle === starts) schedule()
     }
@@ -1197,7 +1191,7 @@ export function register(on) {
     continuationVersion = null; unchangedContinuations = 0
     stopIdleRefresh(); clearNativePlanPaths(); interactive = e.isInteractive
     const s = await refresh($)
-    try { await startSide($) } catch (error) { $.ui.log('Side actor unavailable: '+String(error).slice(0,180)) }
+    try { await startSide($) } catch { /* Side pane remains empty until the host is available. */ }
     pollBusySideReceipts($, await sessionId($))
     try { await parallelHydrate($) } catch { /* Preserve durable leases on unknown host state. */ }
     if (e.isInteractive && s?.enabled) { notice($, ticket); startIdleRefresh($, cachedSession) }
@@ -1326,8 +1320,10 @@ export function register(on) {
         + clipped(c.blocked_items.map(n => n.id + (n.waiting_on ? ': ' + n.waiting_on : '')).join('; '), 500) : '')
       + (unchangedContinuations === 1 ? '. This is the last continuation without a plan update.' : '') }
   })
+  on('session.receive', async ($, e, next) => suppressSide(e)
+    ? {consumed:'Owned side notification retained outside main conversation'} : next(e))
   on('prompt.submit', async ($, e, next) => suppressSide(e)
-    ? {drop:'Side result retained in side processing history'} : await btwBridge($, e, next) || parallelPromptSubmit($, e, next))
+    ? {drop:'Owned side notification retained outside main conversation'} : await btwBridge($, e, next) || parallelPromptSubmit($, e, next))
   on('command.run', { command: 'btw_with_mcp' }, async ($, e) => {
     if (['on', 'off', 'status'].includes(e.args.trim())) {
       const arg = e.args.trim()
@@ -1526,6 +1522,8 @@ export function register(on) {
       const r = selected
       detail.push('Receipt: ' + clipped(key, 20) + (r.receipt_id && r.item_id ? ' · Work item: ' + clipped(r.item_id, 64) : ''),
         'Stage: ' + (r.stage || 'board_queued') + ' · external ACK: ' + (r.external_ack || 'not_sent') + (r.error ? ' · retained for retry: ' + r.error : ''))
+      if (r.side_failure) detail.push('Failure: ' + r.side_failure.category + ' · model ' + (r.side_failure.model || 'unknown')
+        + ' · attempt ' + r.side_failure.attempt_count + (r.side_failure.quarantined ? ' · quarantined until model changes' : ' · retry after ' + new Date(r.side_failure.retry_not_before * 1000).toISOString()))
       if (r.result) {
         detail.push('Decision: ' + r.result.summary, 'Action: ' + r.result.action + (r.result.item_id ? ' → ' + r.result.item_id : '') + ' · Work version ' + r.result.version,
           'Reply: ' + r.result.reply)

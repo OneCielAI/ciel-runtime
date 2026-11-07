@@ -55,10 +55,16 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn('not execution approval',result['block'])
         self.assertNotIn('block', result['second'])
 
+    def test_owned_side_notification_is_consumed_before_main_queue(self):
+        result = self.run_scenario('side-notification-isolation')
+        self.assertIn('consumed', result['owned'])
+        self.assertEqual({'text':'passed'}, result['foreign'])
+        self.assertEqual({'text':'passed'}, result['quoted'])
+
     def test_hung_mailbox_call_times_out_and_rearms_without_losing_mail(self):
         result = self.run_scenario('side-mailbox-timeout-rearms')
         self.assertEqual(2, result['rearmed'])
-        self.assertTrue(any('inbox retained' in line for line in result['notices']))
+        self.assertEqual([], result['notices'])
 
     def test_mail_claims_continue_during_compact_and_after_failure(self):
         result = self.run_scenario('side-mailbox-compact-recovery')
@@ -69,8 +75,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         result = self.run_scenario('side-mailbox-mod-drain')
         self.assertIn('work_side_claim', result['tools'])
         self.assertNotIn('work_side_drain', result['tools'])
-        self.assertTrue(any('awaiting mod consumption' in line for line in result['logs']))
-        self.assertTrue(any('processing' in line and 'original request' in line for line in result['logs']))
+        self.assertEqual([], result['logs'])
         self.assertEqual(2, result['rearmed'])
 
     def test_redacted_main_status_does_not_erase_host_side_pane(self):
@@ -93,8 +98,7 @@ class WorkModWriteGateTests(unittest.TestCase):
 
     def test_side_receipt_is_visible_in_mod_once(self):
         result = self.run_scenario('side-receipt-visible')
-        self.assertEqual(1, len(result['logs']))
-        self.assertIn('n77', result['logs'][0])
+        self.assertEqual([], result['logs'])
 
     def test_work_off_turn_end_does_not_query_parallel(self):
         self.assertEqual(0, self.run_scenario('parallel-complete-off')['parallelCalls'])

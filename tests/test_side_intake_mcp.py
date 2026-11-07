@@ -25,6 +25,32 @@ class SideMcpTests(unittest.TestCase):
             load_config=lambda:self.config, state_dir=self.root,
             respond=lambda _id,text,error=False:{'text':text,'error':error})
 
+    def test_claim_projects_catalog_model_to_routed_alias_without_mutating_config(self):
+        self.config.update(current_provider='cielairouter', providers={'cielairouter': {'current_model':'main'}})
+        self.config['work_side_intake']['model']='API KEYS - SSE'
+        claimed=self.invoke('work_side_claim',{'owner':'actor'})
+        settings=json.loads(claimed['text'])['settings']
+        self.assertEqual('ciel-runtime-cielairouter-api-keys-sse',settings['model'])
+        self.assertEqual('API KEYS - SSE',settings['model_catalog'])
+        self.assertEqual('full',settings['context_mode'])
+        self.assertEqual('API KEYS - SSE',self.config['work_side_intake']['model'])
+
+    def test_failed_generation_is_quarantined_until_model_changes(self):
+        self.config.update(current_provider='cielairouter', providers={'cielairouter': {'current_model':'main'}})
+        self.config['work_side_intake']['model']='missing-model'
+        event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
+        host={'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation']}
+        from ciel_runtime_support.side_intake_settings import runtime_settings
+        failed=self.invoke('work_side_fail',{'category':'model_not_found','model':'missing-model',
+            'model_fingerprint':runtime_settings(self.config)['model_fingerprint']},host)
+        self.assertFalse(failed['error'],failed)
+        row=self.inbox._load(event['receipt_id'])
+        self.assertTrue(row['side_failure']['quarantined'])
+        self.assertNotIn('processing',row)
+        self.assertIsNone(json.loads(self.invoke('work_side_claim',{'owner':'actor2'})['text'])['claim'])
+        self.config['work_side_intake']['model']='valid-model'
+        self.assertIsNotNone(json.loads(self.invoke('work_side_claim',{'owner':'actor3'})['text'])['claim'])
+
     def test_claim_resolve_answer_without_root_and_duplicate_recovers(self):
         claimed = self.invoke('work_side_claim', {'owner':'actor'})
         self.assertFalse(claimed['error'], claimed)

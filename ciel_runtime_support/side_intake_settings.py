@@ -1,9 +1,11 @@
 """Canonical controls for independent side processing and comparison profiles."""
+import hashlib
+import json
 
 FIELDS = {
     'max_active': (2, None),
     'aging_seconds': (60, None),
-    'context_mode': ('isolated', ('isolated', 'full', 'recent')),
+    'context_mode': ('full', ('isolated', 'full', 'recent')),
     'context_percent': (30, None),
     'model': ('inherit', None),
     'reply_connectors': ([], None),
@@ -12,6 +14,24 @@ FIELDS = {
     'comparison_model': ('inherit', None),
 }
 PREFIX = 'work_side_intake_'
+
+
+def runtime_settings(config):
+    """Project persisted catalog IDs to Claude-facing routed aliases."""
+    stored = dict(config.get('work_side_intake') or {})
+    provider = str(config.get('current_provider') or '')
+    from .provider_adapters import PROVIDER_ADAPTERS, PROVIDER_ALIASES, PROVIDER_LABELS
+    from .provider_model_identity import ProviderModelIdentityService
+    models = ProviderModelIdentityService(PROVIDER_ADAPTERS, PROVIDER_ALIASES, PROVIDER_LABELS)
+    for field in ('model', 'comparison_model'):
+        raw = str(stored.get(field) or 'inherit')
+        stored[field + '_catalog'] = raw
+        stored[field] = raw if raw == 'inherit' else models.alias_for(provider, models.normalize_model_id(provider, raw))
+    stored.setdefault('context_mode', 'full')
+    stored['model_fingerprint'] = hashlib.sha256(json.dumps({
+        'provider': provider, 'model': stored['model'], 'comparison_model': stored['comparison_model']
+    }, sort_keys=True).encode()).hexdigest()[:32]
+    return stored
 
 
 def values(config):

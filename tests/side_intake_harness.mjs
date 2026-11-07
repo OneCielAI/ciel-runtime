@@ -26,7 +26,7 @@ const $={
   return {content:[{type:'text',text:JSON.stringify(value)}]}
  }},
  tool:{list:async()=>available},
- agent:{register:async args=>calls.push({registered:args}),spawn:async args=>{spawns.push(args);return {agentId:'actor'+spawns.length}}},
+ agent:{list:async()=>[],register:async args=>calls.push({registered:args}),spawn:async args=>{spawns.push(args);return {agentId:'actor'+spawns.length}}},
  env:{get:async()=>'x'.repeat(40)},
  ui:{log:text=>logs.push(text),status:()=>{},invalidate:()=>{}},clock:{after:(ms,callback)=>{timers.push(callback);return {cancel(){}}}},
 }

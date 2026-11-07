@@ -8,7 +8,8 @@ from .side_intake_inbox import SideIntakeInbox
 from .work_plan_tree import WorkPlanError
 
 
-def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_seconds=60):
+def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_seconds=60,
+          model_fingerprint=None):
     if not isinstance(owner, str) or not owner or len(owner) > 200:
         raise WorkPlanError('side claim owner required')
     if type(lease_seconds) is not int or not 1 <= lease_seconds <= 3600:
@@ -52,6 +53,11 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
             processing = current.get('processing') or {}
             if processing.get('lease_until', 0) > stamp:
                 continue
+            failure = current.get('side_failure') or {}
+            if failure.get('quarantined') and failure.get('model_fingerprint') == model_fingerprint:
+                continue
+            if not failure.get('quarantined') and failure.get('retry_not_before', 0) > stamp:
+                continue
             generation = uuid.uuid4().hex
             current['processing'] = {'owner': owner, 'generation': generation,
                                      'lease_until': stamp + lease_seconds, 'started_at': stamp}
@@ -87,6 +93,35 @@ def renew(state_dir, session_id, receipt_id, generation, *, now=None, lease_seco
         row['processing']['lease_until'] = stamp + lease_seconds
         inbox._save_file(inbox._event_path('pending', receipt_id), row)
         return {'receipt_id': receipt_id, 'generation': generation, 'lease_until': stamp + lease_seconds}
+
+
+def fail(state_dir, session_id, receipt_id, generation, failure, *, now=None):
+    """Release an exact failed claim with durable backoff or quarantine."""
+    stamp = time.time() if now is None else now
+    if not isinstance(failure, dict):
+        raise WorkPlanError('side failure object required')
+    category = str(failure.get('category') or 'error')[:80]
+    model = str(failure.get('model') or '')[:300]
+    fingerprint = str(failure.get('model_fingerprint') or '')[:128]
+    permanent = category in ('model_error', 'model_not_found', 'invalid_model', 'invalid_request')
+    inbox = SideIntakeInbox(state_dir, session_id)
+    with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
+        row = verify_claim(inbox, receipt_id, generation, now=stamp)
+        prior = row.get('side_failure') or {}
+        attempts = int(prior.get('attempt_count') or 0) + 1
+        delay = min(300, 5 * (2 ** min(attempts - 1, 6)))
+        row['side_failure'] = {
+            'category': category,
+            'model': model,
+            'model_fingerprint': fingerprint,
+            'attempt_count': attempts,
+            'failed_at': stamp,
+            'retry_not_before': stamp + delay,
+            'quarantined': permanent or attempts >= 6,
+        }
+        row.pop('processing', None)
+        inbox._save_file(inbox._event_path('pending', receipt_id), row)
+        return inbox._receipt(receipt_id, row, duplicate=False)
 
 
 def finish(state_dir, session_id, receipt_id, generation, result, *, now=None):

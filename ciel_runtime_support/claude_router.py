@@ -355,7 +355,7 @@ def handle_claude_messages_post(
         context_recovery.observe_request(provider, pcfg, raw_body, "claude", getattr(self, "headers", None))
         stream_scope = context_recovery.stream_scope(getattr(self, "headers", None), raw_body)
         if (stream_scope is not None and cfg.get('work_side_intake', {}).get('enabled') is True
-                and (cfg.get('work_side_intake', {}).get('context_mode') in ('full', 'recent')
+                and (cfg.get('work_side_intake', {}).get('context_mode', 'full') in ('full', 'recent')
                      or cfg.get('work_side_intake', {}).get('comparison_enabled') is True)):
             from .side_context_store import SideContextStore
             from .runtime_paths import WORKSPACE_STATE_DIR

@@ -1,6 +1,7 @@
 // Independent actor state is host-owned, never accepted from model arguments.
 const PREFIX = 'mcp__ciel-runtime-router__'
 const actors = new Map()
+const ownedSideActors = new Set()
 const pending = new Map()
 const answeredHandoffs = new Set()
 const replying = new Set()
@@ -164,9 +165,6 @@ function display($,identity,snapshot) {
     receipts.delete(row.receipt_id); receipts.set(row.receipt_id,row)
     if (receipts.size > 10) receipts.delete(receipts.keys().next().value)
     $.ui.invalidate('ui.render')
-    const result = row.result
-    $.ui.log('Side '+row.stage+' · '+eventView(row.original || row.recap).summary+(result ? ' | Decision: '+line(result.summary,200)+' | Action: '+result.action
-      +' | Reply: '+line(result.reply,200)+' | Delivery: '+(result.delivery || 'pending') : ''))
   }
 }
 const PROMPT = `You independently process external requests while main Work runs.
@@ -216,7 +214,6 @@ async function registerActor($,model,available = null) {
     mcpServers:mcp.servers,background:true,maxTurns:12})
   registeredActor = registration
   mcpParity = {toolCount:mcp.names.length,serverCount:mcp.servers.length,digest:mcp.digest}
-  $.ui.log('Side MCP parity · tools '+mcpParity.toolCount+' · servers '+mcpParity.serverCount+' · digest '+mcpParity.digest)
   $.ui.invalidate('ui.render')
   return mcp
 }
@@ -224,6 +221,10 @@ export async function startSide($) {
   lifecycle++; busy = false; pending.clear(); comparisonQueue.length = 0; comparisonBusy = false; comparisonActive = null
   registeredActor = null
   for (const actor of actors.values()) actor.current = null
+  for (const actor of await $.agent.list()) {
+    if (actor.spawnedBy === 'ciel-work' && ['ciel-work:side-intake','ciel-work:side-shadow'].includes(actor.type))
+      ownedSideActors.add(actor.id)
+  }
   await $.mcp.connect('ciel-runtime-router')
   await registerActor($,'inherit')
 }
@@ -270,7 +271,7 @@ export async function pollSide($, identity) {
     // External receiver thread_id is the event id, not a conversation id.
     // Keep its stable source partition instead of spawning once per event.
     const thread = event.route?.source_kind === 'external_event' ? '' : String(event.route?.thread_id || '')
-    const contextMode = settings.context_mode || 'isolated'
+    const contextMode = settings.context_mode || 'full'
     const resolvedModel = settings.model && settings.model !== 'inherit' ? settings.model : await $.session.model()
     // Snapshot main MCP only at an event boundary. An already-running actor keeps
     // its original registration; a changed digest selects a fresh actor below.
@@ -297,6 +298,7 @@ export async function pollSide($, identity) {
       instruction:context ? PROMPT : 'Inspect Work and resolve; never inject the original into main.'})
     if (actor) {
       actor.current = event
+      actor.resolved = false
       const sent = await $.session.send({to:{agentId:actor.id},text})
       if (!sent.isDelivered) { actor.current = null; throw new Error('side input not delivered') }
     } else {
@@ -310,8 +312,12 @@ export async function pollSide($, identity) {
       const spawned = await $.agent.spawn({subagentType:'ciel-work:side-intake',name,
         description:'External message decision',prompt:text})
       if (!spawned.agentId) throw new Error(spawned.deny || 'side actor not started')
+      ownedSideActors.add(spawned.agentId)
       actor = actors.get(spawned.agentId) || {id:spawned.agentId,identity,conversation,generation,current:event}
       actor.contextKey = context?.key
+      actor.resolved = false
+      actor.model = resolvedModel
+      actor.modelFingerprint = settings.model_fingerprint || profile
       actors.set(actor.id,actor); pending.delete(name)
     }
     actor.comparisonEnabled = settings.comparison_enabled === true
@@ -370,6 +376,15 @@ async function submitReply($,actor,event) {
   const update = await callRouter($,'work_side_reply',{receipt_id:event.receipt_id,state},{attempt_id:prepared.attempt_id},actor.identity)
   display($,actor.identity,{side_inbox_receipts:[update.receipt]})
 }
+async function recordFailure($, actor, event, category) {
+  try {
+    const value = await callRouter($,'work_side_fail',{
+      category, model:actor.model || '', model_fingerprint:actor.modelFingerprint || ''
+    },{receipt_id:event.receipt_id,generation:event.generation},actor.identity)
+    if (value.receipt) display($,actor.identity,{side_inbox_receipts:[value.receipt]})
+  } catch { /* Durable lease expiry remains the final recovery boundary. */ }
+}
+
 export async function completeSide($,e) {
   const actor = actors.get(e.agentId)
   if (!actor) return false
@@ -402,12 +417,24 @@ export async function completeSide($,e) {
       $.clock.after(10, async () => { await recoverReply($,actor.identity,event) })
       if (actor.comparisonEnabled) $.clock.after(20,async()=>{await queueComparison($,actor.identity,event,actor.parentModel)})
     }
-  } catch (error) { $.ui.log('Side decision not committed; original retained: '+String(error).slice(0,160)) }
+  } catch { /* Failure is recorded below, never in the main transcript. */ }
+  if (event && !actor.resolved) {
+    await recordFailure($,actor,event,e.reason === 'error' ? 'model_error' : e.reason || 'invalid_answer')
+    actor.retired = true
+  }
   actor.current = null
-  if (event && !actor.resolved) $.ui.log('Side event '+event.receipt_id.slice(0,12)+' ended without committed decision; retained')
   actor.resolved = false
   return true
 }
+function notificationTaskId(text) {
+  const tagged = /^<task-notification>\s*<task-id>([^<]{1,300})<\/task-id>[\s\S]*<\/task-notification>$/.exec(String(text || '').trim())
+  if (tagged) return tagged[1]
+  try {
+    const value = JSON.parse(text)
+    return typeof value?.task_id === 'string' ? value.task_id : typeof value?.agentId === 'string' ? value.agentId : null
+  } catch { return null }
+}
 export function suppressSide(e) {
-  return e.origin?.kind === 'task-notification' && [...actors.keys()].some(id => e.text.includes(id))
+  return e.agentId === undefined && e.origin?.kind === 'task-notification'
+    && ownedSideActors.has(notificationTaskId(e.text))
 }

@@ -65,7 +65,7 @@ class SideContextStore:
         return value
 
     def prepare(self, event, settings, model, *, key=None, shadow=False, snapshot=None):
-        profile = {'mode': settings.get('context_mode', 'isolated'),
+        profile = {'mode': settings.get('context_mode', 'full'),
                    'percent': settings.get('context_percent', 30), 'model': model, 'shadow': shadow}
         if profile['mode'] not in ('full', 'recent'):
             raise SideContextUnavailable('parent context profile not enabled')

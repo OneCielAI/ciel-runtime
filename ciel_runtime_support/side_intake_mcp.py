@@ -1,15 +1,19 @@
 """Host-scoped claim and decision tools for the independent side actor."""
 from .side_intake_inbox import SideIntakeInbox
-from .side_intake_processing import claim, finish, verify_claim
+from .side_intake_processing import claim, fail, finish, verify_claim
 from .side_work_decision import apply
 from .work_plan_tree import WorkPlanError
 from .channel_message_repository import exclusive_file_lock
 
-NAMES = ('work_side_claim', 'work_side_resolve', 'work_side_reply', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare')
+NAMES = ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_reply', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare')
 
 
 def schemas():
     return [
+        {'name': 'work_side_fail', 'description': 'Host-only generation-fenced failure release with durable backoff or model quarantine.',
+         'inputSchema': {'type':'object','properties':{'category':{'type':'string','maxLength':80},
+             'model':{'type':'string','maxLength':300},'model_fingerprint':{'type':'string','maxLength':128}},
+             'required':['category']}},
         {'name': 'work_side_compare', 'description': 'Host-only read-only profile experiment; never commits Work or sends a reply.',
          'inputSchema': {'type':'object','properties':{'action':{'type':'string','enum':['plan','context','record']},
              'receipt_id':{'type':'string'},'parent_model':{'type':'string'},'profile_id':{'type':'string'},
@@ -76,14 +80,16 @@ def _sync_handoff_receipt(inbox, event_id, handoff):
 
 def run(name, args, config, state_dir, identity, store):
     from .work_parallel_mcp import host_context
+    from .side_intake_settings import runtime_settings
     host, _ = host_context(args, config)
+    runtime_side = runtime_settings(config)
     if host.get('agent_id') is not None:
         raise WorkPlanError('side coordinator bridge required')
     if config.get('work_side_intake', {}).get('enabled') is not True:
         raise WorkPlanError('side processing is disabled')
     if name == 'work_side_compare':
         from . import side_comparison
-        settings = config['work_side_intake']
+        settings = runtime_side
         profiles = side_comparison.plan(state_dir, identity, args.get('receipt_id'), args.get('parent_model'), settings)
         if args.get('action') == 'plan':
             from .side_workload import project as project_workload
@@ -103,7 +109,7 @@ def run(name, args, config, state_dir, identity, store):
         with exclusive_file_lock(inbox._event_path('locks', key)):
             verify_claim(inbox, key, generation)
         return SideContextStore(state_dir, identity).prepare(
-            {'receipt_id': key, 'generation': generation}, config['work_side_intake'],
+            {'receipt_id': key, 'generation': generation}, runtime_side,
             args.get('model'), key=args.get('context_key'))
     if name == 'work_side_retry_reply':
         from .side_reply_outbox import retry
@@ -112,6 +118,10 @@ def run(name, args, config, state_dir, identity, store):
     if name == 'work_side_renew':
         from .side_intake_processing import renew
         return renew(state_dir, identity, host.get('receipt_id'), host.get('generation'))
+    if name == 'work_side_fail':
+        return {'receipt': fail(state_dir, identity, host.get('receipt_id'), host.get('generation'), {
+            'category': args.get('category'), 'model': args.get('model'),
+            'model_fingerprint': args.get('model_fingerprint')})}
     if name == 'work_side_handoff':
         from .side_handoff import acknowledge
         if config.get('work_mode', True) is not True:
@@ -152,7 +162,8 @@ def run(name, args, config, state_dir, identity, store):
                 if inbox._load(followup_key) is None:
                     _answer_followup(inbox, reply['event_id'], reply['answer'])
         active = claim(state_dir, identity, args.get('owner'),
-                       aging_seconds=config.get('work_side_intake',{}).get('aging_seconds',60))
+                       aging_seconds=config.get('work_side_intake',{}).get('aging_seconds',60),
+                       model_fingerprint=runtime_side.get('model_fingerprint'))
         recovered = None
         if active:
             # A board commit can survive a later receipt-write failure. Recover
@@ -170,7 +181,7 @@ def run(name, args, config, state_dir, identity, store):
                                              if active['event_key'] == 'handoff:' + key]
         from .side_reply_outbox import pending
         return {'claim': active, 'recovered_receipt': recovered,
-                'settings': {k: v for k, v in config.get('work_side_intake', {}).items() if k != 'reply_connectors'}, 'handoff_replies': replies,
+                'settings': {k: v for k, v in runtime_side.items() if k != 'reply_connectors'}, 'handoff_replies': replies,
                 'pending_replies': pending(state_dir, identity)}
     key, generation = host.get('receipt_id'), host.get('generation')
     inbox = SideIntakeInbox(state_dir, identity)
