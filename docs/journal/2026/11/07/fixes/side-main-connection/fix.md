@@ -32,4 +32,4 @@ timestamp: 2026-11-07
 
 # Citations
 
-- Prior side-model fix: [side model context isolation](/docs/journal/2026/11/07/fixes/side-model-context-isolation/fix.md)
+- Prior side-model fix: [side model context isolation](../side-model-context-isolation/fix.md)
