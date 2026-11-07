@@ -1,0 +1,12 @@
+{
+  "version": "0.2.51-beta.20261107-032628.cc9fd3f",
+  "git_head": "cc9fd3fe866c5dc50d1d7bba6494b3441e985288",
+  "snapshot": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-cc9fd3fe866c5dc50d1d7bba6494b3441e985288",
+  "global_package": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime",
+  "matching_package_files": 559,
+  "commands_passed": 6,
+  "ctl_settings": 26,
+  "isolated_config_only": true,
+  "live_restarts": false,
+  "mod_sha256": "e8fe6bd78932a7780b98a39254c5822a63c004097031cd9a1dc332f1261a067f"
+}

@@ -28,6 +28,23 @@ timestamp: 2026-11-07
 - Owned native Claude Code E2E: configured catalog model `API KEYS - SSE` reached the side wire as `ciel-runtime-cielairouter-api-keys-sse`; full context selected 100%, 41-node board, two side model calls, inherited Walkie-compatible MCP send while main was busy, `side_mcp`, pending 0.
 - Owned terminal output contains none of `Side processing`, `Side processed`, `Side MCP parity`, `Side event`, or owned task-notification rows.
 
-# Release status
+# Release and installed acceptance
 
-Not published or installed yet. Beta-only publication and installed acceptance remain required; stable/nightly must remain unchanged and live Walkie sessions must not be restarted automatically.
+- Beta `0.2.51-beta.20261107-032628.cc9fd3f` was published from exact git head `cc9fd3fe866c5dc50d1d7bba6494b3441e985288`.
+- Registry SHA-512 and 505 source files matched. Protected tags remained `latest=0.2.51` and `nightly=0.2.51-nightly.20261106-020333.c00c8b6`.
+- The verified archive was installed globally and as immutable snapshot `C:/Users/djlov/.local/share/ciel-runtime-cc9fd3fe866c5dc50d1d7bba6494b3441e985288`; 559 package files matched and six isolated installed CLI commands passed.
+- Installed native acceptance resolved the Walkie-shaped question while main was busy: 41 Work nodes, pending 0, action `answer`, delivery `side_mcp`, model alias `ciel-runtime-cielairouter-api-keys-sse`, full context selected 100%, and inherited `owned-walkie` MCP send.
+- The captured main screen contained zero routine receipt/progress/parity/event/task-notification/reply-status rows. The side pane retained the decision, model/context, delivery and redacted original event.
+- No live runtime or Walkie session was restarted. Existing processes continue on their launch snapshot until explicitly relaunched.
+
+# Evidence
+
+- [Registry verification](evidence/beta-registry-verification.json)
+- [Installed package smoke](evidence/installed-beta-smoke-cc9fd3f.json)
+- [Installed native E2E](evidence/installed-native-e2e.json)
+- [Installed side pane screenshot](evidence/installed-side-pane.png)
+- [Captured main terminal](evidence/installed-main-screen.txt)
+
+# Known boundary
+
+The owned acceptance proves alias routing, full context projection, inherited MCP use and transcript isolation against controlled provider/MCP endpoints. It does not prove that the real upstream `API KEYS - SSE` combo currently has an executable target. Earlier real-provider evidence returned `no_executable_targets`; the new lifecycle quarantines that failure instead of retrying continuously.
