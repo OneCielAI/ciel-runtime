@@ -57,6 +57,9 @@ def apply(store, receipt_id, decision, expected_version):
                 raise tree.WorkPlanError('new Work title required')
             item = tree.add_node(doc, None, decision['title'], note=decision.get('note', ''),
                                  priority=decision.get('priority', ''), ref='side:' + receipt_id[:40])
+            # add_node inserts priority-ordered roots behind the active goal. P1
+            # therefore becomes the first pending root and is immediately visible
+            # to the main parallel scheduler without stealing the active slot.
         elif action == 'update':
             if not decision.get('note', '').strip():
                 raise tree.WorkPlanError('Work update note required')

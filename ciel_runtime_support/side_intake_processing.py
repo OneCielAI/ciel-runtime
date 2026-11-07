@@ -58,16 +58,16 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
             if fallback_state.get('state') == 'queued':
                 continue
             if fallback_state.get('state') == 'pending':
-                # Legacy builds prepared raw main-session injection. The primary
-                # side actor now always inherits the main connection, so reclaim
-                # the retained original here instead of submitting it to main.
+                # Legacy builds prepared raw main-session injection because the
+                # side model was unavailable. Reclaim the retained original for
+                # the side actor on the main session model instead.
                 current.pop('main_fallback', None)
                 current.pop('processing', None)
                 current['side_failure'] = {
                     'category': 'legacy_main_fallback_reclaimed',
                     'attempt_count': int((current.get('side_failure') or {}).get('attempt_count') or 0),
                     'failed_at': stamp, 'retry_not_before': 0, 'quarantined': False,
-                    'retryable': True, 'using_main_connection': True,
+                    'retryable': True, 'use_parent_model': True, 'model_fingerprint': model_fingerprint,
                 }
                 inbox._save_file(inbox._event_path('pending', key), current)
             failure = current.get('side_failure') or {}
@@ -90,6 +90,8 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
             inbox._save_file(inbox._event_path('pending', key), current)
             return {'receipt_id': key, 'text': current['text'], 'event_key': current['event_key'],
                     'generation': generation, 'lease_until': stamp + lease_seconds,
+                    'use_parent_model': bool(failure.get('use_parent_model')
+                                             and failure.get('model_fingerprint') == model_fingerprint),
                     'route': {k: v for k, v in current.get('route', {}).items() if k not in ('reply_token', 'authorization', 'token')}}
     return None
 
@@ -135,26 +137,32 @@ def fail(state_dir, session_id, receipt_id, generation, failure, *, now=None):
     unavailable = (category in ('model_not_found', 'invalid_model')
                    or code in ('model_not_found', 'invalid_model')
                    or 'no_executable_targets' in terminal)
-    permanent = category in ('invalid_request',)
+    # A completed model turn may already have sent an external MCP reply. If its
+    # final decision is invalid, retrying can duplicate that side effect.
+    permanent = category in ('invalid_request', 'invalid_answer')
     inbox = SideIntakeInbox(state_dir, session_id)
     with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
         row = verify_claim(inbox, receipt_id, generation, now=stamp)
         prior = row.get('side_failure') or {}
         attempts = int(prior.get('attempt_count') or 0) + 1
         delay = min(300, 5 * (2 ** min(attempts - 1, 6)))
+        # The selected side model is unavailable: the same side actor retries the
+        # event on the main session model (same provider connection). If that
+        # retry is unavailable too, quarantine instead of looping.
+        parent_retry = unavailable and not prior.get('use_parent_model')
         row['side_failure'] = {
             'category': category,
             'model': model,
             'model_fingerprint': fingerprint,
             'attempt_count': attempts,
             'failed_at': stamp,
-            'retry_not_before': stamp if unavailable else stamp + delay,
-            'quarantined': permanent or (attempts >= 6 and not unavailable),
+            'retry_not_before': stamp if parent_retry else stamp + delay,
+            'quarantined': permanent or (unavailable and not parent_retry) or attempts >= 6,
             'typed': bool(outcome),
             'retryable': not permanent,
             **({k: outcome[k] for k in ('status','code','terminal_reason','pool_size','attempted',
                                         'requested_model','effective_model','message') if k in outcome}),
-            'use_main_connection': unavailable,
+            'use_parent_model': parent_retry,
             'main_fallback_eligible': False,
             'generation': generation,
         }

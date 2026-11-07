@@ -25,7 +25,7 @@ class SideMcpTests(unittest.TestCase):
             load_config=lambda:self.config, state_dir=self.root,
             respond=lambda _id,text,error=False:{'text':text,'error':error})
 
-    def test_claim_always_inherits_main_session_connection_even_with_legacy_model(self):
+    def test_claim_routes_selected_same_provider_model_without_mutating_config(self):
         self.config.update(current_provider='cielairouter', providers={'cielairouter': {'current_model':'main'}})
         self.config['work_side_intake'].update(model='API KEYS - SSE', context_mode='full')
         from ciel_runtime_support.side_context_store import SideContextStore
@@ -33,8 +33,8 @@ class SideMcpTests(unittest.TestCase):
             'messages':[{'role':'user','content':[{'type':'text','text':'main'}]}]},'cielairouter')
         claimed=self.invoke('work_side_claim',{'owner':'actor'})
         settings=json.loads(claimed['text'])['settings']
-        self.assertEqual('inherit',settings['model'])
-        self.assertEqual('inherit',settings['model_catalog'])
+        self.assertEqual('ciel-runtime-cielairouter-api-keys-sse',settings['model'])
+        self.assertEqual('API KEYS - SSE',settings['model_catalog'])
         self.assertEqual('full',settings['context_mode'])
         self.assertEqual('API KEYS - SSE',self.config['work_side_intake']['model'])
 
@@ -103,7 +103,7 @@ class SideMcpTests(unittest.TestCase):
         self.assertFalse(failed['error'],failed)
         row=self.inbox._load(event['receipt_id'])
         self.assertFalse(row['side_failure']['quarantined'])
-        self.assertTrue(row['side_failure']['use_main_connection'])
+        self.assertTrue(row['side_failure']['use_parent_model'])
         self.assertNotIn('processing',row)
         retry=json.loads(self.invoke('work_side_claim',{'owner':'actor2'})['text'])
         self.assertEqual(event['receipt_id'],retry['claim']['receipt_id'])
@@ -178,6 +178,25 @@ class SideMcpTests(unittest.TestCase):
         self.assertFalse(again['error'])
         self.assertTrue(json.loads(again['text'])['receipt']['duplicate'])
         self.assertEqual(1,store.read()['version'])
+
+    def test_urgent_new_request_is_first_pending_p1_for_parallel_pickup(self):
+        from ciel_runtime_support import work_plan_tree as tree
+        store=session_work_plan_store(self.root,self.identity)
+        store.transaction(lambda doc: tree.add_node(doc,None,'active',priority='P3'))
+        store.transaction(lambda doc: tree.add_node(doc,None,'ordinary queued',priority='P3'))
+        event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
+        host={'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation']}
+        version=store.read()['version']
+        args={'decision':{'action':'create','title':'Urgent external task','note':'Blocking deadline',
+              'summary':'ACK sent; urgent work queued','reply':'ACK sent','priority':'P1'},
+              'expected_version':version}
+        result=self.invoke('work_side_resolve',args,host)
+        self.assertFalse(result['error'],result)
+        document=store.read()
+        pending=[node for node in document['nodes'] if node['parent_id'] is None
+                 and node['id']!=document['active_root'] and node['status']!='done']
+        self.assertEqual('Urgent external task',pending[0]['title'])
+        self.assertEqual('P1',pending[0]['priority'])
 
     def test_main_status_never_contains_side_original_or_answer(self):
         status=self.invoke('work_status',{'format':'json'})

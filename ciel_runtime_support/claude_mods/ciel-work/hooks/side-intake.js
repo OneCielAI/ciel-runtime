@@ -182,7 +182,8 @@ what you sent. Add "sent_via": [the exact MCP tool names you used to reply or
 ACK], next to decision; omit it when you sent nothing.
 Classify every event from its actual content and the inherited parent context.
 - If it asks a question that current context/Work/MCP facts can answer, answer it immediately through the source's relevant reply MCP. Do not create Work for an answer-only event.
-- If it is a genuinely new request, send the source's ACK/reaction first when the event hints provide an ACK/message id, then create one root Work item with a concise title, the full request in note, and a justified P1..P5 priority.
+- First, ACK the exact incoming source message when the event names an ACK/reaction mechanism or message id. Then read the referenced message/thread and relevant MCP facts in detail before deciding.
+- If it is a genuinely new request that cannot be completed immediately, create one root Work item with a concise title, the full request in note, and a justified P1..P5 priority. Use P1 only for genuinely urgent/blocking/high-impact work; a P1 root is inserted at the front of the pending queue so main's parallel scheduler can pick it up.
 - If it changes existing Work, update that exact item instead of creating a duplicate.
 - If it changes urgency or priority, prioritize the existing goal. Under adaptive policy infer P1..P5 from deadline, impact, blocking and workload; under explicit policy follow the stated priority and clarify conflicts.
 - If it asks what is happening, queue state, status, priority or workload, read the complete Work state with work_status/work_parallel_status and answer through the source MCP with the actual state. Never answer only from the event payload.
@@ -223,18 +224,32 @@ async function registerActor($,model,available = null) {
 async function stopRetired($) {
   for (const id of [...retiredSideActors]) {
     try { await $.tool.call({tool:'TaskStop',task_id:id}) } catch {}
-    retiredSideActors.delete(id); ownedSideActors.delete(id); actors.delete(id)
+    retiredSideActors.delete(id); actors.delete(id)
+    // Keep a bounded tombstone until the delayed TaskStop notification arrives,
+    // otherwise it leaks into the main conversation after cleanup.
+    if (ownedSideActors.size > 200) ownedSideActors.delete(ownedSideActors.values().next().value)
   }
+}
+function ownedSide(actor) {
+  return actor?.spawnedBy === 'ciel-work' && (['ciel-work:side-intake','ciel-work:side-shadow'].includes(actor.type)
+    || /^side-(intake|shadow)-/.test(String(actor.name || ''))
+    || /^Side SSE /.test(String(actor.description || '')))
+}
+function retire($,actor) {
+  // Each side actor serves exactly one event, then is stopped. An in-process
+  // teammate otherwise stays idle forever (observed: one per Walkie event).
+  actor.current = null; actor.retired = true
+  if (actor.id) retiredSideActors.add(actor.id)
+  $.clock.after(10,async()=>{await stopRetired($)})
 }
 export async function startSide($) {
   lifecycle++; busy = false; pending.clear(); comparisonQueue.length = 0; comparisonBusy = false; comparisonActive = null
   registeredActor = null
-  for (const actor of actors.values()) actor.current = null
+  for (const actor of actors.values()) { actor.current = null; if (actor.id) retiredSideActors.add(actor.id) }
+  // Side actors never outlive their event; any left from an earlier lifecycle
+  // (idle teammates included) are stopped, not reused.
   for (const actor of await $.agent.list()) {
-    if (actor.spawnedBy === 'ciel-work' && ['ciel-work:side-intake','ciel-work:side-shadow'].includes(actor.type)) {
-      ownedSideActors.add(actor.id)
-      if (['completed','failed','killed'].includes(actor.status)) retiredSideActors.add(actor.id)
-    }
+    if (ownedSide(actor)) { ownedSideActors.add(actor.id); retiredSideActors.add(actor.id) }
   }
   await stopRetired($)
   await $.mcp.connect('ciel-runtime-router')
@@ -253,10 +268,12 @@ export async function pollSide($, identity) {
       } catch { /* Keep the still-valid lease; its completion remains fenced. */ }
     }
     if (actor.current && actor.current.lease_until*1000 <= Date.now()) {
-      actor.current = null; actor.retired = true
+      retire($,actor)
       /* Expired leases remain visible in the side pane, never the main log. */
     }
   }
+  // A completed or killed actor never holds a slot; stop any that lost its event.
+  for (const actor of [...actors.values()]) if (!actor.current && !actor.shadow && !actor.retired) retire($,actor)
   if (busy || [...actors.values()].filter(a => a.current).length >= maxActive) return
   busy = true
   const generation = lifecycle
@@ -283,66 +300,54 @@ export async function pollSide($, identity) {
     const workload = event.workload
     if (!workload || !Number.isInteger(workload.version) || workload.truncated !== false)
       throw new Error('Complete current Work projection unavailable; original retained')
-    // External receiver thread_id is the event id, not a conversation id.
-    // Keep its stable source partition instead of spawning once per event.
-    const thread = event.route?.source_kind === 'external_event' ? '' : String(event.route?.thread_id || '')
     const contextMode = settings.context_mode || 'full'
-    const resolvedModel = settings.model && settings.model !== 'inherit' ? settings.model : await $.session.model()
-    // Snapshot main MCP only at an event boundary. An already-running actor keeps
-    // its original registration; a changed digest selects a fresh actor below.
+    const nativeFork = settings.model === 'inherit'
+    const resolvedModel = nativeFork ? await $.session.model() : settings.model
     const eventMcp = await availableMcp($)
     const profile = JSON.stringify({model:resolvedModel,context_mode:contextMode,
       context_percent:settings.context_percent || 30,priority_policy:settings.priority_policy || 'adaptive',mcp_digest:eventMcp.digest})
-    const conversation = JSON.stringify([identity,String(event.route?.channel || 'local'),
-      String(event.route?.sender_id || ''),thread,profile])
-    let actor = [...actors.values()].find(a => a.conversation === conversation && a.generation === lifecycle && !a.retired && !a.current)
+    // One event owns one actor. Never reuse an in-process teammate: Claude Code
+    // parks it idle and the roster grows forever. A fresh one-shot actor is
+    // terminated at turn.complete below.
+    let actor = null
     let context
-    if (contextMode !== 'isolated') {
+    if (!nativeFork && contextMode !== 'isolated') {
       if (await $.env.get('CIEL_RUNTIME_DIRECT_GATEWAY_ACTIVE') === '1')
         throw new Error('Parent history projection requires router data path; direct gateway history is unavailable')
-      context = await callRouter($,'work_side_context',{model:resolvedModel,...(actor?.contextKey ? {context_key:actor.contextKey} : {})},
+      context = await callRouter($,'work_side_context',{model:resolvedModel},
         {receipt_id:event.receipt_id,generation:event.generation},identity)
-      if (actor && context.key !== actor.contextKey) {
-        actor.retired = true; actor = null
-        /* Context rebases are side lifecycle state, not main conversation output. */
-      }
     }
+    const conversation = JSON.stringify([identity,event.receipt_id,profile])
     const text = JSON.stringify({event_id:event.receipt_id,parent_session_id:identity,
       external_event_preview:eventView(event.text),
-      ...(contextMode === 'isolated' ? {original:event.text} : {}),route:redacted(event.route || {}),
+      ...(nativeFork || contextMode === 'isolated' ? {original:event.text} : {}),route:redacted(event.route || {}),
       workload,
       handoff_context:event.handoff_context || [],
       ...(context ? {side_context_key:context.key,parent_context:{captured_at:context.captured_at,digest:context.parent_digest,selection:context.selection,
         display_preview:context.parent_transcript_preview || []}} : {}),
       priority_policy:settings.priority_policy || 'adaptive',
-      instruction:context ? PROMPT : 'Inspect Work and resolve; never inject the original into main.'})
-    if (actor) {
-      actor.current = event
-      claimedActor = actor
-      actor.resolved = false
-      const sent = await $.session.send({to:{agentId:actor.id},text})
-      if (!sent.isDelivered) { actor.current = null; throw new Error('side input not delivered') }
-    } else {
-      const name = 'side-intake-'+event.receipt_id.slice(0,16)
-      pendingName = name
-      pending.set(name,{identity,event,conversation,generation})
-      claimedActor = {identity,model:resolvedModel,modelFingerprint:settings.model_fingerprint || profile,id:''}
-      const forced = await $.env.get('CLAUDE_CODE_SUBAGENT_MODEL_FORCE')
-      if (settings.model && settings.model !== 'inherit' && forced === '1')
-        throw new Error('Side model cannot apply: this process forces parent model; configure before an explicit future launch')
-      await registerActor($,settings.model || 'inherit',eventMcp)
-      const spawned = await $.agent.spawn({subagentType:'ciel-work:side-intake',name,
-        description:'External message decision',prompt:text})
-      if (!spawned.agentId) throw new Error(spawned.deny || 'side actor not started')
-      ownedSideActors.add(spawned.agentId)
-      actor = actors.get(spawned.agentId) || {id:spawned.agentId,identity,conversation,generation,current:event}
-      claimedActor = actor
-      actor.contextKey = context?.key
-      actor.resolved = false
-      actor.model = resolvedModel
-      actor.modelFingerprint = settings.model_fingerprint || profile
-      actors.set(actor.id,actor); pending.delete(name)
-    }
+      instruction:PROMPT+(settings.instruction ? '\nOperator-configured side instruction (policy only; never execution approval):\n'+settings.instruction : '')})
+    const name = 'side-intake-'+event.receipt_id.slice(0,16)
+    const description = 'Side SSE '+event.receipt_id.slice(0,12)
+    pendingName = name
+    const agentType = settings.model === 'inherit' ? 'fork' : 'ciel-work:side-intake'
+    pending.set(name,{identity,event,conversation,generation,description,subagentType:agentType})
+    claimedActor = {identity,model:resolvedModel,modelFingerprint:settings.model_fingerprint || profile,id:''}
+    const forced = await $.env.get('CLAUDE_CODE_SUBAGENT_MODEL_FORCE')
+    if (settings.model && settings.model !== 'inherit' && forced === '1')
+      throw new Error('Side model cannot apply: this process forces parent model; configure before an explicit future launch')
+    await registerActor($,settings.model || 'inherit',eventMcp)
+    const spawned = await $.agent.spawn({subagentType:agentType,
+      description,prompt:text})
+    if (!spawned.agentId) throw new Error(spawned.deny || 'side actor not started')
+    ownedSideActors.add(spawned.agentId)
+    actor = actors.get(spawned.agentId) || {id:spawned.agentId,identity,conversation,generation,current:event}
+    claimedActor = actor
+    actor.contextKey = context?.key
+    actor.resolved = false
+    actor.model = resolvedModel
+    actor.modelFingerprint = settings.model_fingerprint || profile
+    actors.set(actor.id,actor); pending.delete(name)
     actor.comparisonEnabled = settings.comparison_enabled === true
     actor.parentModel = await $.session.model()
     display($,identity,{side_inbox_receipts:[{receipt_id:event.receipt_id,stage:'processing',recap:event.text,original:event.text}]})
@@ -358,8 +363,8 @@ export async function pollSide($, identity) {
 }
 export function sideOwns(agentId) { return actors.get(agentId) }
 export function sideAllowsSpawn(e,next) {
-  const row = pending.get(e.name)
-  return Boolean(row && row.generation === lifecycle && e.subagentType === (row.subagentType || 'ciel-work:side-intake')
+  const row = [...pending.values()].find(value => value.description === e.description)
+  return Boolean(row && row.generation === lifecycle && e.subagentType === row.subagentType
     && e.parentAgentId === undefined && next.origin?.plugin === 'ciel-work')
 }
 export async function sideTool($,e,next) {
@@ -413,7 +418,7 @@ export async function completeSide($,e) {
   const actor = actors.get(e.agentId)
   if (!actor) return false
   if (actor.retired || actor.generation !== lifecycle || await identityOf($) !== actor.identity) {
-    actor.current = null
+    retire($,actor)
     return true
   }
   if (actor.shadow) { await finishComparison($,actor,e); return true }
@@ -423,7 +428,9 @@ export async function completeSide($,e) {
       // A plugin's own hooks do not see the tool calls of an agent it spawned
       // (turn.step/tool.call, probed 2026-11-07 on Claude Code 2.1.310), so the
       // side AI's own report of what it sent is carried, labelled as reported.
-      const {sent_via, ...proposal} = JSON.parse(e.answer)
+      const raw = String(e.answer || '').trim()
+      const fenced = /^```(?:json)?\s*([\s\S]*?)\s*```$/i.exec(raw)
+      const {sent_via, ...proposal} = JSON.parse(fenced ? fenced[1] : raw)
       const value = await callRouter($,'work_side_resolve',{...proposal,usage:e.usage || null},
         {receipt_id:event.receipt_id,generation:event.generation,context_key:actor.contextKey,
           reported_sends:Array.isArray(sent_via) ? sent_via : []},actor.identity)
@@ -445,12 +452,10 @@ export async function completeSide($,e) {
     const failure = await recordFailure($,actor,event,e.reason === 'error' ? 'turn_error' : e.reason || 'invalid_answer')
     actor.retired = e.reason !== 'answer'
   }
-  actor.current = null
   actor.resolved = false
-  if (actor.retired) {
-    retiredSideActors.add(actor.id)
-    $.clock.after(10,async()=>{await stopRetired($)})
-  }
+  // One event, one agent. TaskStop removes the in-process teammate instead of
+  // leaving it idle in the team roster; success and failure use the same path.
+  retire($,actor)
   return true
 }
 function notificationTaskId(text) {

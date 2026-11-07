@@ -28,10 +28,14 @@ def request_context(body):
             if not isinstance(block, dict) or block.get('type') != 'text':
                 continue
             text = block.get('text', '')
+            # Claude Code 2.1.310 teammate mail may end with a trailing newline
+            # (observed 2026-11-07 after --continue); only surrounding
+            # whitespace is ignored, the wrapper shape stays exact.
+            text = text.strip() if isinstance(text, str) else text
             prefix = 'The coordinator sent a message while you were working:\n'
             suffix = '\n\nAddress this before completing your current task.'
-            if isinstance(text, str) and text.startswith(prefix) and text.endswith(suffix):
-                text = text[len(prefix):-len(suffix)]
+            if isinstance(text, str) and text.startswith(prefix) and text.endswith(suffix.strip()):
+                text = text[len(prefix):-len(suffix.strip())].strip()
             # Plugin-spawned teammates wrap the exact JSON in a verified
             # <teammate-message> envelope. Parse only that whole wrapper shape;
             # arbitrary quoted tags inside external text never qualify.

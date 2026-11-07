@@ -1527,7 +1527,7 @@ export function register(on) {
         'Stage: ' + (r.stage || 'board_queued') + ' · external ACK: ' + (r.external_ack || 'not_sent') + (r.error ? ' · retained for retry: ' + r.error : ''))
       if (r.side_failure) detail.push('Failure: ' + r.side_failure.category + ' · model ' + (r.side_failure.model || r.side_failure.effective_model || 'unknown')
         + ' · attempt ' + r.side_failure.attempt_count
-        + (r.side_failure.use_main_connection ? ' · retrying with main session connection'
+        + (r.side_failure.use_parent_model ? ' · selected side model unavailable → side retries on main session model'
           : r.side_failure.quarantined ? ' · quarantined until model changes'
             : ' · retry after ' + new Date(r.side_failure.retry_not_before * 1000).toISOString()))
       if (r.main_fallback) detail.push('Legacy main fallback retained for side reclaim: ' + r.main_fallback.state)

@@ -58,8 +58,10 @@ const scenarios = {
     const { $, state } = host(async tool => tool === 'work_status'
       ? text({ ...snapshot(), side_intake_enabled: true })
       : tool === 'work_side_status' ? text({ enabled: true, side_inbox_receipts: [] }) : text({}))
-    state.agents = [{ id:'owned-side', spawnedBy:'ciel-work', type:'ciel-work:side-intake', status:'idle', description:'side' }]
+    state.agents = [{ id:'owned-side', spawnedBy:'ciel-work', type:'fork', status:'completed', description:'Side SSE abcdef123456' }]
     await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    // startSide retains a bounded tombstone after stopping this prior side actor,
+    // so its delayed TaskStop notification is still consumed.
     const owned = await handlers['session.receive']($, { origin:{kind:'task-notification'}, text:'<task-notification><task-id>owned-side</task-id></task-notification>' }, next({text:'passed'}))
     const foreign = await handlers['session.receive']($, { origin:{kind:'task-notification'}, text:'<task-notification><task-id>foreign</task-id></task-notification>' }, next({text:'passed'}))
     const quoted = await handlers['session.receive']($, { origin:{kind:'peer'}, text:'owned-side' }, next({text:'passed'}))

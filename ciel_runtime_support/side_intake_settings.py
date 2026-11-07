@@ -10,6 +10,7 @@ FIELDS = {
     'model': ('inherit', None),
     'reply_connectors': ([], None),
     'priority_policy': ('adaptive', ('adaptive', 'explicit')),
+    'instruction': ('', None),
     'comparison_enabled': (False, None),
     'comparison_model': ('inherit', None),
 }
@@ -17,21 +18,16 @@ PREFIX = 'work_side_intake_'
 
 
 def runtime_settings(config):
-    """Use the main session connection for primary side work; project comparison IDs."""
+    """Project persisted catalog IDs to Claude-facing routed aliases."""
     stored = dict(config.get('work_side_intake') or {})
     provider = str(config.get('current_provider') or '')
     from .provider_adapters import PROVIDER_ADAPTERS, PROVIDER_ALIASES, PROVIDER_LABELS
     from .provider_model_identity import ProviderModelIdentityService
     models = ProviderModelIdentityService(PROVIDER_ADAPTERS, PROVIDER_ALIASES, PROVIDER_LABELS)
-    # Primary side processing is a companion to the live main session. Inherit
-    # its model so the native host also reuses the same provider connection and
-    # authentication; a separately persisted legacy side model is never routed.
-    stored['model_catalog'] = 'inherit'
-    stored['model'] = 'inherit'
-    raw = str(stored.get('comparison_model') or 'inherit')
-    stored['comparison_model_catalog'] = raw
-    stored['comparison_model'] = raw if raw == 'inherit' else models.alias_for(
-        provider, models.normalize_model_id(provider, raw))
+    for field in ('model', 'comparison_model'):
+        raw = str(stored.get(field) or 'inherit')
+        stored[field + '_catalog'] = raw
+        stored[field] = raw if raw == 'inherit' else models.alias_for(provider, models.normalize_model_id(provider, raw))
     stored.setdefault('context_mode', 'full')
     stored['model_fingerprint'] = hashlib.sha256(json.dumps({
         'provider': provider, 'model': stored['model'], 'comparison_model': stored['comparison_model']
@@ -41,8 +37,7 @@ def runtime_settings(config):
 
 def values(config):
     stored = config.get('work_side_intake', {})
-    return {PREFIX + name: ('inherit' if name == 'model' else stored.get(name, default))
-            for name, (default, _) in FIELDS.items()}
+    return {PREFIX + name: stored.get(name, default) for name, (default, _) in FIELDS.items()}
 
 
 def set_value(config, key, value):
@@ -72,8 +67,10 @@ def set_value(config, key, value):
         parsed = value.strip()
         if not parsed or len(parsed) > 300 or any(ord(c) < 32 for c in parsed):
             raise ValueError('use inherit or a catalog model id')
-        if name == 'model' and parsed != 'inherit':
-            raise ValueError('primary side processing must inherit the main session model and connection')
+    elif name == 'instruction':
+        parsed = value.strip()
+        if len(parsed) > 16000 or '\x00' in parsed:
+            raise ValueError('side instruction must be at most 16000 characters')
     else:
         allowed = FIELDS[name][1]
         if value not in allowed:

@@ -45,6 +45,15 @@ class SideContextRouterTests(unittest.TestCase):
         self.assertEqual(self.parent['messages'],result['messages'][:len(self.parent['messages'])])
         self.assertIn('external question',result['messages'][-1]['content'])
 
+    def test_teammate_wrapper_with_trailing_newline_is_recognized(self):
+        wrapped=copy.deepcopy(self.body)
+        raw=wrapped['messages'][0]['content']
+        wrapped['messages'][0]['content']='<teammate-message teammate_id="team-lead" summary="External message decision">\n'+raw+'\n</teammate-message>\n'
+        result=project(self.root,self.identity,'wrapped-newline',wrapped,
+                       {'work_side_intake':self.settings},'fixture',None)
+        self.assertEqual(self.parent['messages'],result['messages'][:len(self.parent['messages'])])
+        self.assertIn('external question',result['messages'][-1]['content'])
+
     def test_full_parent_prefix_and_current_board_are_exact_and_main_untouched(self):
         original = copy.deepcopy(self.parent)
         body = copy.deepcopy(self.body)

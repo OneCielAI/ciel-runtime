@@ -217,8 +217,12 @@ def run(name, args, config, state_dir, identity, store):
                 active['handoff_context'] = [{'event_id': key, **row} for key, row in document.get('side_handoffs', {}).items()
                                              if active['event_key'] == 'handoff:' + key]
         from .side_reply_outbox import pending
+        settings = {k: v for k, v in runtime_side.items() if k != 'reply_connectors'}
+        if active and active.get('use_parent_model'):
+            # Same provider connection; only this event moves to the main model.
+            settings.update(model='inherit', parent_model_retry=True)
         return {'claim': active, 'waiting_reason': waiting_reason, 'recovered_receipt': recovered,
-                'settings': {k: v for k, v in runtime_side.items() if k != 'reply_connectors'}, 'handoff_replies': replies,
+                'settings': settings, 'handoff_replies': replies,
                 'pending_replies': pending(state_dir, identity)}
     key, generation = host.get('receipt_id'), host.get('generation')
     inbox = SideIntakeInbox(state_dir, identity)

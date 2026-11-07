@@ -2,10 +2,6 @@
 
 
 def rows(config, catalog_rows, *, field='model'):
-    if field == 'model':
-        # Primary side processing shares the main session's model, provider
-        # connection and authentication; only the comparison model is selectable.
-        return (['* inherit — main session model and connection', '  Back'], ['inherit', 'back'])
     labels, values = catalog_rows
     current = config.get('work_side_intake', {}).get(field, 'inherit')
     choices = [('inherit — follow main model', 'inherit')]
