@@ -62,7 +62,7 @@ It excludes raw event text, routes, credentials, reply tokens, transcript previe
 
 # Evidence
 
-- [Interactive mockup](mockup.html) (open with `evidence/mockup-data.js` beside it in the original scratch run; screenshots are canonical evidence)
+- [Interactive mockup](mockup.html) with [allow-listed data](mockup-data.js)
 - [Overview](evidence/screens/01-overview.png)
 - [Work selection](evidence/screens/02-work-selected.png)
 - [SSE selection](evidence/screens/03-sse-selected.png)

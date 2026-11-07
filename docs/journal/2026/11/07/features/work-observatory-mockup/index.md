@@ -1,7 +1,7 @@
 # Ciel Work Observatory mockup
 
 - [Research and design](mockup.md)
-- [Interactive HTML](mockup.html)
+- [Interactive HTML](mockup.html) with its [allow-listed data script](mockup-data.js)
 - [Allow-listed snapshot](evidence/mockup-data.json)
 - [Read-only snapshot script](evidence/snapshot.py)
 - [Overview](evidence/screens/01-overview.png)
