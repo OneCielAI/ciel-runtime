@@ -67,3 +67,11 @@ Additional evidence:
 - [Installed Haiku full-context E2E](evidence/installed-haiku-context-7606864.json)
 - [Installed Haiku side pane](evidence/installed-haiku-pane-7606864.png)
 - [Beta registry verification](evidence/beta-registry-7606864.json)
+- [Installed SSE processing with full main context](evidence/installed-sse-processing-0ca35db.json)
+- [Full-context default beta registry verification](evidence/beta-registry-0ca35db.json)
+
+# Final live diagnosis and correction
+
+The real `G:/ciel-Walkie` launch on `82e2e28` exposed a second exact mismatch. Its persisted side settings omitted `context_mode`, while the prepared actor profile correctly defaulted to `full`; `side_context_router.project()` compared the actor profile against raw `settings.get('context_mode') == None` and rejected projection with `409 SideContextUnavailable`. The side call then retried as an unprojected two-message request. Commit `0ca35db` applies the same semantic default (`full`) at the router comparison boundary.
+
+Beta `0.2.51-beta.20261107-143907.0ca35db` passed every CI group, matched exact git head `0ca35dbd3ed8fc0fcdffe3f064e3aa815a2d0205`, preserved latest/nightly, and was installed as an immutable snapshot. Installed acceptance using the configured `_API_KEYS-SSE-1` identity proved the side request contained both `MAIN REQUEST: keep working.` and the new SSE question, selected full context at 100%, used inherited Walkie MCP exactly once, resolved while main remained busy, and finished with pending 0. The controlled provider accepts the request; the real gateway may still return `Combo has no executable targets`, in which case the typed unavailable-model policy moves the exact event to the main session once.
