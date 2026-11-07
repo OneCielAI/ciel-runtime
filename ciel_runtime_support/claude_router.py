@@ -304,7 +304,8 @@ def handle_claude_messages_post(
                     self.headers.get('x-claude-code-agent-id'), body, cfg, provider, counter)
                 side_projected = True
             except (SideContextUnavailable, ValueError, OSError) as error:
-                router_log('WARN', 'side_context_unavailable reason=' + type(error).__name__)
+                router_log('WARN', 'side_context_unavailable reason=' + type(error).__name__
+                           + ' detail=' + str(error)[:240])
                 write_json(self, {'type': 'error', 'error': {'type': 'invalid_request_error',
                     'message': 'Side parent context unavailable; request retained. Verify routed capture, provider token counting and profile.'}}, 409)
                 return

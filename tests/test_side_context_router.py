@@ -107,6 +107,11 @@ class SideContextRouterTests(unittest.TestCase):
         self.assertEqual(1,info['thinking_blocks_omitted'])
         self.assertNotIn('signature',json.dumps(switched))
 
+    def test_missing_context_mode_uses_full_semantic_default(self):
+        config={'work_side_intake':{'enabled':True,'context_percent':30}}
+        result=project(self.root,self.identity,'default-full',self.body,config,'fixture',None)
+        self.assertEqual(self.parent['messages'],result['messages'][:len(self.parent['messages'])])
+
     def test_other_agent_identity_profile_and_tool_drift_are_rejected(self):
         config={'work_side_intake':self.settings}
         project(self.root,self.identity,'a',self.body,config,'fixture',None)

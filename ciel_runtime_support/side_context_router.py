@@ -80,6 +80,7 @@ def project(state_dir, identity, agent_id, body, config, provider, count_tokens)
     if envelope is None:
         return body
     settings = config.get('work_side_intake', {})
+    effective_mode = settings.get('context_mode', 'full')
     if settings.get('enabled') is not True:
         raise SideContextUnavailable('side parent-context profile is disabled')
     key = envelope.get('side_context_key')
@@ -109,7 +110,7 @@ def project(state_dir, identity, agent_id, body, config, provider, count_tokens)
         shadow = profile.get('shadow') is True
         if shadow and settings.get('comparison_enabled') is not True:
             raise SideContextUnavailable('side comparison was disabled')
-        if not shadow and (profile['mode'] != settings.get('context_mode') or profile['percent'] != settings.get('context_percent', 30)):
+        if not shadow and (profile['mode'] != effective_mode or profile['percent'] != settings.get('context_percent', 30)):
             raise SideContextUnavailable('context profile changed while side turn was active')
         if value.get('agent_id') not in (None, agent_id):
             raise SideContextUnavailable('side context handle belongs to another native agent')
