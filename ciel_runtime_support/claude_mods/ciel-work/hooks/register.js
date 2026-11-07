@@ -1428,8 +1428,10 @@ export function register(on) {
         if (!assignment && e.origin?.kind === 'composer') {
           // Every setting, typed by kind, is edited in the Work & SSE pane's Settings tab.
           const origin = await sessionId($)
-          await openDetails($, null, origin)
+          // Select before opening: the pane's first committed frame is Settings,
+          // rather than briefly opening Work and relying on a later redraw.
           await displayState($, origin, old => ({ ...old, tab: 'settings', detailPage: 0, settingsKey: null }))
+          await openDetails($, null, origin)
           return { text: 'Work settings opened in the Work & SSE pane (Settings tab).' }
         }
         return { text: state.settings.map(row => row.label + ' [' + row.key + '] = ' + String(row.value)).join('\n')
