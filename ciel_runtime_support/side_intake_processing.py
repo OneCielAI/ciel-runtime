@@ -4,12 +4,12 @@ import uuid
 import heapq
 
 from .channel_message_repository import exclusive_file_lock
-from .side_intake_inbox import SideIntakeInbox
+from .side_intake_inbox import SideIntakeInbox, source_priority
 from .work_plan_tree import WorkPlanError
 
 
 def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_seconds=60,
-          model_fingerprint=None):
+          model_fingerprint=None, urgent_only=False):
     if not isinstance(owner, str) or not owner or len(owner) > 200:
         raise WorkPlanError('side claim owner required')
     if type(lease_seconds) is not int or not 1 <= lease_seconds <= 3600:
@@ -42,9 +42,16 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
                         and (row.get('main_fallback') or {}).get('state')!='pending'):
                     continue
                 yield (int(priority[1]),row.get('received_at',0),marker.stem,{**row,'receipt_id':marker.stem})
-    prioritized=[entry[3] for entry in heapq.nsmallest(100,ranked(),key=lambda entry:entry[:3])]
+    prioritized=heapq.nsmallest(100,ranked(),key=lambda entry:entry[:3])
+    urgent=[entry[3] for entry in prioritized if entry[0]==1]
+    ranked_rest=[entry[3] for entry in prioritized if entry[0]!=1]
     aged=sorted((row for row in rows if stamp-row.get('received_at',stamp)>=aging_seconds),key=lambda row:row.get('received_at',0))
-    unique={row['receipt_id']:row for row in [*aged,*prioritized,*rows]}
+    # P1 goes first, ahead of aged backlog: an urgent event waited behind
+    # every aged one (observed 2026-11-07, #116793). Aging still keeps older
+    # ordinary events ahead of fresh P2..P5. urgent_only is the host's
+    # reserved slot while ordinary capacity is full.
+    order=urgent if urgent_only else [*urgent,*aged,*ranked_rest,*rows]
+    unique={row['receipt_id']:row for row in order}
     for row in unique.values():
         key = row['receipt_id']
         with exclusive_file_lock(inbox._event_path('locks', key)):
@@ -94,6 +101,7 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
             inbox._save_file(inbox._event_path('pending', key), current)
             return {'receipt_id': key, 'text': current['text'], 'event_key': current['event_key'],
                     'generation': generation, 'lease_until': stamp + lease_seconds,
+                    'source_priority': source_priority(current['text']),
                     'use_parent_model': bool(failure.get('use_parent_model')
                                              and failure.get('model_fingerprint') == model_fingerprint),
                     'route': {k: v for k, v in current.get('route', {}).items() if k not in ('reply_token', 'authorization', 'token')}}

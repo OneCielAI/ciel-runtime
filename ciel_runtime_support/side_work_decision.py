@@ -35,8 +35,8 @@ def apply(store, receipt_id, decision, expected_version):
     validate(decision)
     if not isinstance(receipt_id, str) or len(receipt_id) != 64 or any(c not in '0123456789abcdef' for c in receipt_id):
         raise tree.WorkPlanError('invalid side receipt identity')
-    if type(expected_version) is not int:
-        raise tree.WorkPlanError('expected Work version required')
+    if expected_version is not None and type(expected_version) is not int:
+        raise tree.WorkPlanError('expected Work version must be an integer')
     digest = hashlib.sha256(json.dumps(decision, sort_keys=True).encode()).hexdigest()
     def mutate(doc):
         receipts = doc.setdefault('side_decisions', {})
@@ -84,7 +84,11 @@ def apply(store, receipt_id, decision, expected_version):
                                      'state': 'requested', 'requested_at': time.time()}
         result = {'action': action, 'item_id': item, 'summary': decision['summary'],
                   'reply': decision['reply'], 'delivery': 'pending', 'execution_approved': False,
-                  'handoff': 'requested' if action in ('prioritize', 'advise') else 'not_required'}
+                  'handoff': 'requested' if action in ('prioritize', 'advise') else 'not_required',
+                  'based_on_version': expected_version}
+        if action in ('create', 'prioritize'):
+            node = next(node for node in doc['nodes'] if node['id'] == item)
+            result.update(title=node['title'], priority=node.get('priority', ''))
         receipts[receipt_id] = {'decision_digest': digest, 'applied_at': time.time(),
                                 'item_id': item, 'recap': decision['summary'], 'result': result}
         return {**result, 'duplicate': False}
@@ -93,5 +97,10 @@ def apply(store, receipt_id, decision, expected_version):
     prior = current.get('side_decisions', {}).get(receipt_id)
     if prior and prior.get('decision_digest') == digest:
         return {**prior['result'], 'duplicate': True, 'version': current['version']}
-    document, result = store.transaction(mutate, expected_version=expected_version)
+    # The side actor decides from a board snapshot while main keeps committing
+    # (observed 2026-11-07: decisions on 1719-1721 against a board at
+    # 1721-1723, each lost as invalid_answer). mutate re-validates its own
+    # target (exists, not done) under the board lock, so it applies to the
+    # current board; the snapshot it saw stays recorded as based_on_version.
+    document, result = store.transaction(mutate)
     return {**result, 'version': document['version']}

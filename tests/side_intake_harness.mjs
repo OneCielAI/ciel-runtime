@@ -40,7 +40,8 @@ available=[...available,{name:'mcp__calendar__read',mcp:true}]
 events.push({receipt_id:'b'.repeat(64),generation:'g2',text:'second',event_key:'source:two',lease_until:Date.now()/1000+120,route:{channel:'external:source',sender_id:'sender',source_kind:'external_event'}})
 await pollSide($,'claude:parent')
 const second=sideOwns('actor2')
-await completeSide($,{agentId:'actor2',reason:'answer',answer:'Nothing new needed; already answered.\n\n'+JSON.stringify({decision:{action:'answer',summary:'done2',reply:'answer2'},expected_version:snapshotVersion}),usage:null})
+// Observed live: sent_via nested in decision and public_summary for summary.
+await completeSide($,{agentId:'actor2',reason:'answer',answer:'Nothing new needed; already answered.\n\n'+JSON.stringify({decision:{action:'answer',public_summary:'done2',reply:'answer2',sent_via:['mcp__mail__read']},expected_version:snapshotVersion}),usage:null})
 await drain()
 // A completed turn without any decision may already have sent through MCP:
 // it is recorded as invalid_answer (never retried), and its actor still stops.

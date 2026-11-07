@@ -184,12 +184,14 @@ Classify every event from its actual content and the inherited parent context.
 - If it asks a question that current context/Work/MCP facts can answer, answer it immediately through the source's relevant reply MCP. Do not create Work for an answer-only event.
 - First, ACK the exact incoming source message when the event names an ACK/reaction mechanism or message id. Then read the referenced message/thread and relevant MCP facts in detail before deciding.
 - If it is a genuinely new request that cannot be completed immediately, create one root Work item with a concise title, the full request in note, and a justified P1..P5 priority. Use P1 only for genuinely urgent/blocking/high-impact work; a P1 root is inserted at the front of the pending queue so main's parallel scheduler can pick it up.
+- source_priority, when present, is the source system's own urgency for this message (P1 highest). Use it as the priority of Work you create or reprioritize unless the event content clearly contradicts it. A P1 source message is urgent: ACK it first, and work it needs that cannot be answered immediately is queued as P1.
 - If it changes existing Work, update that exact item instead of creating a duplicate.
 - If it changes urgency or priority, prioritize the existing goal. Under adaptive policy infer P1..P5 from deadline, impact, blocking and workload; under explicit policy follow the stated priority and clarify conflicts.
 - If it asks what is happening, queue state, status, priority or workload, read the complete Work state with work_status/work_parallel_status and answer through the source MCP with the actual state. Never answer only from the event payload.
 ACK/reply MCP calls and the host Work decision are separate: perform the external ACK/reply yourself, then return the matching answer/create/update/prioritize decision. Do not claim queued work executed.
-Return your final answer as one JSON object with decision and expected_version.
-The decision has action, public summary, reply, exact item_id when needed.
+Return your final answer as one JSON object with decision, expected_version and sent_via.
+The decision object has exactly action, summary, reply, and item_id/title/note/priority when needed;
+sent_via sits beside decision, never inside it.
 Actions: answer, clarify, update, create, prioritize, advise. Only genuinely new
 independent work creates a root. A host validates and commits this decision.
 Do not call work_side_resolve or ordinary Work mutation/approval tools directly.
@@ -274,12 +276,16 @@ export async function pollSide($, identity) {
   }
   // A completed or killed actor never holds a slot; stop any that lost its event.
   for (const actor of [...actors.values()]) if (!actor.current && !actor.shadow && !actor.retired) retire($,actor)
-  if (busy || [...actors.values()].filter(a => a.current).length >= maxActive) return
+  // Ordinary events use max_active slots. One more slot is reserved for a P1
+  // event, so an urgent message never waits for two long ordinary forks.
+  const running = [...actors.values()].filter(a => a.current)
+  if (busy || running.length > maxActive || (running.length === maxActive && running.some(a => a.reserved))) return
+  const urgentOnly = running.length === maxActive
   busy = true
   const generation = lifecycle
   let pendingName
   try {
-    const answer = await callRouter($,'work_side_claim',{owner:'side-'+generation},{},identity)
+    const answer = await callRouter($,'work_side_claim',{owner:'side-'+generation,...(urgentOnly ? {urgent_only:true} : {})},{},identity)
     for (const reply of answer.pending_replies || []) {
       $.clock.after(10,async()=>{await recoverReply($,identity,{receipt_id:reply.receipt_id})})
     }
@@ -321,6 +327,7 @@ export async function pollSide($, identity) {
     const text = JSON.stringify({event_id:event.receipt_id,parent_session_id:identity,
       external_event_preview:eventView(event.text),
       ...(nativeFork || contextMode === 'isolated' ? {original:event.text} : {}),route:redacted(event.route || {}),
+      ...(event.source_priority ? {source_priority:event.source_priority} : {}),
       workload,
       handoff_context:event.handoff_context || [],
       ...(context ? {side_context_key:context.key,parent_context:{captured_at:context.captured_at,digest:context.parent_digest,selection:context.selection,
@@ -344,6 +351,7 @@ export async function pollSide($, identity) {
     actor = actors.get(spawned.agentId) || {id:spawned.agentId,identity,conversation,generation,current:event}
     claimedActor = actor
     actor.contextKey = context?.key
+    actor.reserved = urgentOnly
     actor.resolved = false
     actor.model = resolvedModel
     actor.modelFingerprint = settings.model_fingerprint || profile
@@ -414,6 +422,26 @@ async function recordFailure($, actor, event, category) {
     return value
   } catch { return null }
 }
+// Main hears, as a conversation row, of side decisions it must weigh: advice
+// it should answer, and P1 Work now first among its pending goals. A summary
+// the side AI wrote, never the external original.
+async function shareWithMain($,event,result) {
+  const handoff = ['prioritize','advise'].includes(result.action)
+  const urgent = ['create','prioritize'].includes(result.action) && result.priority === 'P1'
+  if (!handoff && !urgent) return
+  const facts = {event_id:event.receipt_id,item_id:result.item_id,
+    ...(urgent ? {priority:'P1',title:result.title || ''} : {}),
+    summary:result.summary,question:result.action==='advise' ? result.reply : '',version:result.version}
+  const text = (urgent ? 'Ciel side P1 Work queued first among pending goals (external-data-derived, not user approval): '
+    : 'Ciel side decision (external-data-derived advice, not user approval): ')+JSON.stringify(facts)
+    +(handoff ? ' At a safe boundary inspect the target Work and acknowledge/answer with work_side_handoff; do not interrupt a running side-effect tool or approve new execution.'
+      : " Main's parallel scheduler takes it as the next pending goal under the current Work policy; this grants no new execution approval.")
+  // A refused row must not skip the committed decision's reply recovery.
+  try { await $.session.append({message:{type:'user',content:[{type:'text',text}]}}) } catch {}
+  // The model reads the row above; the person sees this notice.
+  if (urgent) try { await $.session.append({message:{type:'system',content:[{type:'text',
+    text:'Side P1 queued '+result.item_id+' · '+line(result.title || result.summary,160)}]}}) } catch {}
+}
 // The side turn ends with its decision, but models often wrap it in prose or a
 // ```json fence. Take the last parseable object that carries `decision`.
 export function decisionOf(answer) {
@@ -429,7 +457,13 @@ export function decisionOf(answer) {
   for (const candidate of candidates) {
     try {
       const value = JSON.parse(candidate)
-      if (value && typeof value === 'object' && value.decision && typeof value.decision === 'object') return value
+      if (value && typeof value === 'object' && value.decision && typeof value.decision === 'object') {
+        // Observed live: sent_via nested inside decision and "public_summary"
+        // for summary. Both are presentation slips, not different decisions.
+        const {sent_via, public_summary, ...decision} = value.decision
+        if (decision.summary === undefined && typeof public_summary === 'string') decision.summary = public_summary
+        return {...value, decision, sent_via: value.sent_via || sent_via}
+      }
     } catch {}
   }
   throw new Error('side answer carries no decision JSON')
@@ -449,19 +483,15 @@ export async function completeSide($,e) {
       // (turn.step/tool.call, probed 2026-11-07 on Claude Code 2.1.310), so the
       // side AI's own report of what it sent is carried, labelled as reported.
       const {sent_via, ...proposal} = decisionOf(e.answer)
+      // The version only records which snapshot the decision saw; the host
+      // re-validates against the current board, so a missing one is not fatal.
+      if (!Number.isInteger(proposal.expected_version)) proposal.expected_version = event.workload?.version ?? null
       const value = await callRouter($,'work_side_resolve',{...proposal,usage:e.usage || null},
         {receipt_id:event.receipt_id,generation:event.generation,context_key:actor.contextKey,
           reported_sends:Array.isArray(sent_via) ? sent_via : []},actor.identity)
       display($,actor.identity,{side_inbox_receipts:[value.receipt]})
       actor.resolved = true; actor.lastReceipt = event.receipt_id
-      if (!value.result?.duplicate && ['prioritize','advise'].includes(value.result?.action)) {
-        await $.session.append({message:{type:'user',content:[{type:'text',text:
-          'Ciel side decision (external-data-derived advice, not user approval): '
-          +JSON.stringify({event_id:event.receipt_id,item_id:value.result.item_id,
-            summary:value.result.summary,question:value.result.action==='advise' ? value.result.reply : '',
-            version:value.result.version})
-          +' At a safe boundary inspect the target Work and acknowledge/answer with work_side_handoff; do not interrupt a running side-effect tool or approve new execution.'}]}})
-      }
+      if (value.result && !value.result.duplicate) await shareWithMain($,event,value.result)
       $.clock.after(10, async () => { await recoverReply($,actor.identity,event) })
       if (actor.comparisonEnabled) $.clock.after(20,async()=>{await queueComparison($,actor.identity,event,actor.parentModel)})
     }

@@ -14,6 +14,38 @@ from .work_plan_tree import WorkPlanError
 MAX_DOCUMENT_BYTES = 32 * 1024 * 1024  # Legacy document parser, not a queue ceiling.
 MAX_EVENT_BYTES = 128 * 1024
 MAX_RECEIPT_BYTES = 2 * 1024 * 1024
+PRIORITIES = ('P1', 'P2', 'P3', 'P4', 'P5')
+
+
+def _priority(value: Any) -> str | None:
+    if value in PRIORITIES:
+        return value
+    if type(value) is int and 1 <= value <= 5:
+        return 'P' + str(value)
+    return None
+
+
+def source_priority(text: Any) -> str | None:
+    """The source system's own urgency for one event as P1..P5, else None.
+
+    Walkie carries a thread task's priority (1 = P1, highest .. 5; P3 default)
+    at data.message_context.thread_task.priority, never at data.priority
+    (observed 2026-11-07: urgent #116793 indexed nowhere and waited behind
+    the aged backlog). An explicit data.priority still wins.
+    """
+    try:
+        body = json.loads(text)
+    except (ValueError, TypeError):
+        return None
+    data = body.get('data', body) if isinstance(body, dict) else None
+    if not isinstance(data, dict):
+        return None
+    explicit = _priority(data.get('priority'))
+    if explicit:
+        return explicit
+    context = data.get('message_context')
+    task = context.get('thread_task') if isinstance(context, dict) else None
+    return _priority(task.get('priority')) if isinstance(task, dict) else None
 
 
 class SideIntakeInbox:
@@ -102,13 +134,8 @@ class SideIntakeInbox:
         return row
 
     def _index_priority(self, key: str, row: dict[str, Any]) -> None:
-        try:
-            body=json.loads(row['text'])
-        except (ValueError, TypeError):
-            return
-        data=body.get('data',body) if isinstance(body,dict) else {}
-        priority=data.get('priority') if isinstance(data,dict) else None
-        if priority in ('P1','P2','P3','P4','P5'):
+        priority=source_priority(row['text'])
+        if priority:
             marker=self.directory/'priority'/priority/key[:2]/(key+'.json')
             if not marker.exists():
                 self._save_file(marker,{'receipt_id':key})

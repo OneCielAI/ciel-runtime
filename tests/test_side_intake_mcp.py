@@ -215,6 +215,29 @@ class SideMcpTests(unittest.TestCase):
         self.assertEqual('Urgent external task',pending[0]['title'])
         self.assertEqual('P1',pending[0]['priority'])
 
+    def test_resolve_from_older_snapshot_commits_and_reserved_claim_takes_only_p1(self):
+        from ciel_runtime_support import work_plan_tree as tree
+        store=session_work_plan_store(self.root,self.identity)
+        store.transaction(lambda doc: tree.add_node(doc,None,'active',priority='P3'))
+        event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
+        seen=event['workload']['version']
+        # Main keeps committing while the fork decides.
+        store.transaction(lambda doc: tree.add_node(doc,None,'main meanwhile',priority='P3'))
+        host={'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation']}
+        args={'decision':{'action':'create','title':'Urgent','note':'now','summary':'ACK sent; queued',
+              'reply':'ACK sent','priority':'P1'},'expected_version':seen}
+        result=self.invoke('work_side_resolve',args,host)
+        self.assertFalse(result['error'],result)
+        data=json.loads(result['text'])['result']
+        self.assertEqual((seen,'P1','Urgent'),(data['based_on_version'],data['priority'],data['title']))
+        self.assertEqual(data['item_id'],tree.queued_roots(store.read())[0]['id'])
+        self.inbox.receive('{"data":{"message_context":{"thread_task":{"priority":3}}}}','ordinary')
+        reserved=json.loads(self.invoke('work_side_claim',{'owner':'actor','urgent_only':True})['text'])
+        self.assertIsNone(reserved['claim'])
+        self.inbox.receive('{"data":{"message_context":{"thread_task":{"priority":1}}}}','urgent')
+        reserved=json.loads(self.invoke('work_side_claim',{'owner':'actor','urgent_only':True})['text'])
+        self.assertEqual('P1',reserved['claim']['source_priority'])
+
     def test_main_status_never_contains_side_original_or_answer(self):
         status=self.invoke('work_status',{'format':'json'})
         self.assertFalse(status['error'])

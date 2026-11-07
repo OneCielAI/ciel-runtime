@@ -66,13 +66,33 @@ class SideDecisionTests(unittest.TestCase):
         self.assertEqual('planning', doc['phase'])
         self.assertEqual(4, len(doc['nodes']))
 
-    def test_stale_version_and_unknown_target_do_not_mutate(self):
-        self.store.transaction(lambda d: tree.add_node(d, None, 'existing'))
-        with self.assertRaises(tree.WorkPlanError):
-            apply(self.store, self.key, self.base, 0)
+    def test_unknown_or_done_target_does_not_mutate(self):
+        doc, item = self.store.transaction(lambda d: tree.add_node(d, None, 'existing'))
+        self.store.transaction(lambda d: tree.update_node(d, item, status='done', evidence='verified'))
         with self.assertRaises(tree.WorkPlanError):
             apply(self.store, self.key, {**self.base, 'action': 'update', 'item_id': 'missing', 'note': 'x'}, 1)
+        with self.assertRaises(tree.WorkPlanError):
+            apply(self.store, self.key, {**self.base, 'action': 'prioritize', 'item_id': item, 'priority': 'P1'}, 1)
         self.assertNotIn('side_decisions', self.store.read())
+
+    def test_decision_from_older_snapshot_commits_on_current_board(self):
+        # Observed 2026-11-07: main committed 1-2 versions while each fork
+        # decided, and every stale-version decision was lost.
+        self.store.transaction(lambda d: tree.add_node(d, None, 'active', priority='P3'))
+        seen = self.store.read()['version']
+        self.store.transaction(lambda d: tree.add_node(d, None, 'main queued meanwhile', priority='P3'))
+        self.store.transaction(lambda d: tree.add_node(d, None, 'another', priority='P2'))
+        result = apply(self.store, self.key, {**self.base, 'action': 'create', 'title': 'Urgent external',
+                       'note': 'deadline today', 'priority': 'P1'}, seen)
+        doc = self.store.read()
+        self.assertEqual(seen, result['based_on_version'])
+        self.assertEqual(doc['version'], result['version'])
+        self.assertEqual(('P1', 'Urgent external'), (result['priority'], result['title']))
+        self.assertEqual(result['item_id'], tree.queued_roots(doc)[0]['id'])
+        answered = apply(self.store, hashlib.sha256(b'q').hexdigest(), self.base, seen)
+        self.assertFalse(answered['duplicate'])
+        self.assertEqual(seen, answered['based_on_version'])
+        self.assertEqual(4, len(self.store.read()['nodes']))
 
     def test_answer_receipt_consumes_pending_without_item(self):
         inbox = SideIntakeInbox(self.root, 'claude:test')
@@ -93,7 +113,8 @@ class SideDecisionTests(unittest.TestCase):
         picked=claim(self.root,'claude:test','actor')
         self.assertEqual(urgent['receipt_id'],picked['receipt_id'])
 
-    def test_old_ordinary_message_is_not_starved_by_new_p1(self):
+    def test_p1_precedes_aged_backlog_and_aged_precedes_fresh_ranks(self):
+        # Observed 2026-11-07: urgent #116793 waited behind every aged event.
         import time
         inbox=SideIntakeInbox(self.root,'claude:test')
         ordinary=inbox.receive('ordinary request','ordinary')
@@ -101,9 +122,33 @@ class SideDecisionTests(unittest.TestCase):
         row=inbox._load(ordinary['receipt_id'])
         row['received_at']=stamp-120
         inbox._save_file(inbox._event_path('pending',ordinary['receipt_id']),row)
-        inbox.receive('{"data":{"priority":"P1","text":"urgent"}}','urgent')
-        picked=claim(self.root,'claude:test','actor',now=stamp+1)
-        self.assertEqual(ordinary['receipt_id'],picked['receipt_id'])
+        fresh=inbox.receive('{"data":{"priority":"P2","text":"soon"}}','fresh-p2')
+        urgent=inbox.receive('{"data":{"priority":"P1","text":"urgent"}}','urgent')
+        picked=[claim(self.root,'claude:test','actor',now=stamp+1)['receipt_id'] for _ in range(3)]
+        self.assertEqual([urgent['receipt_id'],ordinary['receipt_id'],fresh['receipt_id']],picked)
+
+    def test_walkie_thread_task_priority_indexes_source_urgency(self):
+        from ciel_runtime_support.side_intake_inbox import source_priority
+        import json
+        walkie=lambda value:json.dumps({'specversion':'1.0','type':'com.ciel.walkie.message',
+            'data':{'event_type':'message.created','text':'fix it now',
+                    'message_context':{'id':'116793','thread_task':{'priority':value,'status':'open'}}}})
+        self.assertEqual('P1',source_priority(walkie(1)))
+        self.assertEqual('P3',source_priority(walkie(3)))
+        self.assertEqual('P2',source_priority(walkie('P2')))
+        self.assertIsNone(source_priority(walkie(7)))
+        self.assertIsNone(source_priority(walkie(True)))
+        self.assertIsNone(source_priority('plain text'))
+        self.assertEqual('P4',source_priority('{"data":{"priority":4}}'))
+        inbox=SideIntakeInbox(self.root,'claude:test')
+        ordinary=inbox.receive(walkie(3),'ordinary')
+        urgent=inbox.receive(walkie(1),'urgent')
+        self.assertTrue((inbox.directory/'priority'/'P1'/urgent['receipt_id'][:2]/(urgent['receipt_id']+'.json')).exists())
+        # Both slots full: the reserved claim takes only P1, and none is left.
+        first=claim(self.root,'claude:test','reserved',urgent_only=True)
+        self.assertEqual((urgent['receipt_id'],'P1'),(first['receipt_id'],first['source_priority']))
+        self.assertIsNone(claim(self.root,'claude:test','reserved',urgent_only=True))
+        self.assertEqual(ordinary['receipt_id'],claim(self.root,'claude:test','actor')['receipt_id'])
 
     def test_missing_priority_index_recovers_from_durable_pending(self):
         from unittest.mock import patch

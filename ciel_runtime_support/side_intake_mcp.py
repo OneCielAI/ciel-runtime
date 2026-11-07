@@ -37,7 +37,8 @@ def schemas():
          'inputSchema': {'type': 'object', 'properties': {'receipt_id': {'type': 'string'},
              'state': {'type': 'string', 'enum': ['prepare', 'submitted', 'uncertain', 'failed']}}, 'required': ['receipt_id', 'state']}},
         {'name': 'work_side_claim', 'description': 'Host-only: claim one durable request for immediate independent AI processing, without creating Work.',
-         'inputSchema': {'type': 'object', 'properties': {'owner': {'type': 'string', 'maxLength': 200}}, 'required': ['owner']}},
+         'inputSchema': {'type': 'object', 'properties': {'owner': {'type': 'string', 'maxLength': 200},
+             'urgent_only': {'type': 'boolean'}}, 'required': ['owner']}},
         {'name': 'work_side_resolve', 'description': 'Resolve one host-claimed external event: answer, clarify, update existing Work, create new Work, prioritize or advise. Never execution approval.',
          'inputSchema': {'type': 'object', 'properties': {
              'decision': {'type': 'object', 'properties': {
@@ -202,7 +203,8 @@ def run(name, args, config, state_dir, identity, store):
         active = None if waiting_reason else claim(
             state_dir, identity, args.get('owner'),
             aging_seconds=config.get('work_side_intake',{}).get('aging_seconds',60),
-            model_fingerprint=runtime_side.get('model_fingerprint'))
+            model_fingerprint=runtime_side.get('model_fingerprint'),
+            urgent_only=args.get('urgent_only') is True)
         recovered = None
         if active:
             # A board commit can survive a later receipt-write failure. Recover

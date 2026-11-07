@@ -26,6 +26,8 @@ class SideModTests(unittest.TestCase):
         # recorded once as invalid_answer, never as a retryable failure.
         self.assertEqual(['a'*64,'b'*64],[call['_host']['receipt_id'] for call in row['resolveCalls']])
         self.assertEqual(['mcp__mail__read'],row['resolveCalls'][0]['_host']['reported_sends'])
+        self.assertEqual({'action':'answer','summary':'done2','reply':'answer2'},row['resolveCalls'][1]['decision'])
+        self.assertEqual(['mcp__mail__read'],row['resolveCalls'][1]['_host']['reported_sends'])
         self.assertEqual([{'category':'invalid_answer','receipt':'c'*64}],row['failures'])
         self.assertTrue(row['first']['retired'])
         self.assertTrue(row['second']['retired'])
@@ -37,6 +39,31 @@ class SideModTests(unittest.TestCase):
         self.assertEqual('claude:parent',row['resolveCalls'][0]['session_id'])
         self.assertEqual('a'*64,row['resolveCalls'][0]['_host']['receipt_id'])
         self.assertEqual({'input_tokens':3},row['resolveCalls'][0]['usage'])
+
+    def test_p1_uses_reserved_slot_and_is_shared_with_main(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path=Path(raw)
+            (path/'package.json').write_text('{"type":"module"}')
+            shutil.copyfile(ROOT/'tests/side_urgency_harness.mjs',path/'test.mjs')
+            shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
+            done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',check=True)
+        row=json.loads(done.stdout)
+        # Two ordinary slots full: one reserved claim for P1 only, then none
+        # until the reserved actor finishes.
+        self.assertEqual([False,False,True],row['whileFull'])
+        self.assertEqual([False,False,True,True],row['claims'])
+        self.assertEqual(['a','b','c','d'],row['spawned'])
+        self.assertEqual(['P3',None,'P1','P1'],row['sourcePriority'])
+        self.assertEqual([7,7],row['resolveVersions'])
+        self.assertEqual(2,row['appendsAfterUrgent'])
+        self.assertEqual(['user','system'],[a['type'] for a in row['appends']])
+        shared=row['appends'][0]['text']
+        self.assertTrue(shared.startswith('Ciel side P1 Work queued first among pending goals'))
+        self.assertIn('"item_id":"n9"',shared)
+        self.assertIn('"title":"Fix outage"',shared)
+        self.assertNotIn('customer down',shared)
+        self.assertNotIn('event c',shared)
+        self.assertEqual('Side P1 queued n9 · Fix outage',row['appends'][1]['text'])
 
     def test_paged_host_results_reassemble_and_events_render_interpreted(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -99,6 +126,7 @@ class SideModTests(unittest.TestCase):
         self.assertIn('create one root Work item',source)
         self.assertIn('work_status/work_parallel_status',source)
         self.assertIn('Never answer only from the event payload',source)
+        self.assertIn('source_priority, when present',source)
 
     def test_reply_route_override_is_not_mcp_inheritance(self):
         from ciel_runtime_support.recent_menu_text import menu_text
