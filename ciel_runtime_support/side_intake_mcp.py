@@ -118,7 +118,7 @@ def run(name, args, config, state_dir, identity, store):
     if name == 'work_side_fallback':
         from .side_request_outcome import take as take_side_outcome
         outcome = take_side_outcome(state_dir, identity, str(args.get('agent_id') or ''),
-                                    str(host.get('receipt_id') or '')) if args.get('agent_id') else None
+                                    str(host.get('receipt_id') or ''))
         reason = args.get('reason', '')
         if outcome:
             reason = outcome.get('terminal_reason') or outcome.get('message') or reason
@@ -140,7 +140,7 @@ def run(name, args, config, state_dir, identity, store):
     if name == 'work_side_fail':
         from .side_request_outcome import take as take_side_outcome
         outcome = take_side_outcome(state_dir, identity, str(args.get('agent_id') or ''),
-                                    str(host.get('receipt_id') or '')) if args.get('agent_id') else None
+                                    str(host.get('receipt_id') or ''))
         receipt = fail(state_dir, identity, host.get('receipt_id'), host.get('generation'), {
             'category': args.get('category'), 'model': args.get('model'),
             'model_fingerprint': args.get('model_fingerprint'), 'outcome': outcome})

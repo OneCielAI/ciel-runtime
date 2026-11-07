@@ -21,6 +21,9 @@ class SideRequestOutcomeTests(unittest.TestCase):
             record(root,'claude:parent','agent-1','receipt-2',{'status':500})
             self.assertIsNone(take(root,'claude:parent','agent-1','receipt-1'))
             self.assertEqual(500,take(root,'claude:parent','agent-1','receipt-2')['status'])
+            record(root,'claude:parent','http-agent','receipt-3',{'status':404,'terminal_reason':'no_executable_targets'})
+            recovered=take(root,'claude:parent','','receipt-3')
+            self.assertEqual('no_executable_targets',recovered['terminal_reason'])
 
 
 if __name__ == '__main__':
