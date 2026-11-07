@@ -77,7 +77,16 @@ timestamp: 2026-11-07
 - **Before:** walkie showed the original JSON of up to ten receipts, wrapped in full, which overflowed the dock and left stale cells. This was reproduced in a real Windows Terminal window on 6e07ee0.
 - **Now:** the pane lists one line per receipt, selectable with Enter. Only the selected receipt's detail is shown, and it is paged by the pane's `bodyRows` with Prev and Next. Rows are clipped by terminal cell width, with wide Hangul counted as two cells.
 
+# Installed beta verification
+
+- **Published and installed:** `0.2.51-beta.20261107-015151.8be1f8a`, git head `8be1f8acd6066522f0cf04dfe244ba3fe0851690`.
+- **Registry:** the downloaded 1,699,554-byte archive matched npm's SHA-512 integrity; 505 runtime source files matched the commit. `latest=0.2.51` and `nightly=0.2.51-nightly.20261106-020333.c00c8b6` remained unchanged.
+- **Local install:** the verified archive was extracted to the new immutable snapshot `C:/Users/djlov/.local/share/ciel-runtime-8be1f8acd6066522f0cf04dfe244ba3fe0851690`. The user-level home and global launcher both report the exact beta. Snapshot and global package contain the same 559 files. No existing session or router was restarted; the nine observed runtime PIDs remained the same.
+- **Installed native acceptance:** with the installed snapshot, a 333-node board and an owned Walkie-compatible MCP server, the side model was called twice, called `walkie_send_message` for the conversation named by the event while main was busy, resolved as `side_mcp`, and left pending 0. The same acceptance passed under the supported Python 3.11 interpreter.
+- **Installed Windows Terminal capture:** [installed-beta-side-mcp-pane](evidence/installed-beta-side-mcp-pane.png) shows the bounded one-line receipt list, interpreted CloudEvent, hidden `activity_context`, direct `side_mcp` delivery, reported MCP tool, and the 34-tool/two-server parity line.
+- **CI:** quality, unit, router, channel, runtime and Python-minimum jobs passed; the npm workflow's complete test and tarball verification also passed.
+
 # Not verified
 
-- **Model call in walkie:** whether the selected side model "API KEYS - SSE" is accepted in the walkie routed session. This is only observable after this build is installed and walkie is relaunched.
+- **Real walkie model and server:** the owned installed acceptance proves the packaged path and generic MCP inheritance, but not whether the real walkie routed session accepts its selected "API KEYS - SSE" model or whether the production Walkie server accepts the generated call. That requires a normal future relaunch of the real walkie session; this installation did not restart it.
 - **Separate guard error:** the `Agent(...)` denial in the walkie screenshot comes from the Work parallel dispatch guard (the main model called Agent without `work_parallel_run`). It is unrelated to side intake and was not changed.

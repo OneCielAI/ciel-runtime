@@ -2,6 +2,7 @@
 
 ## 2026-11-07
 
+- Published and locally installed verified beta `0.2.51-beta.20261107-015151.8be1f8a` in a new immutable snapshot. Exact registry integrity/source checks and all CI jobs passed; stable/nightly tags and nine live runtime PIDs stayed unchanged. Installed native acceptance produced two side-model calls, one event-targeted MCP send while main was busy, `side_mcp`, pending 0, plus an actual Windows Terminal screenshot.
 - The side AI inherits every valid MCP tool from every MCP server connected to main, using the existing connections, credentials and native permission prompts; this is not Walkie-specific. It follows event hints to select the relevant source-system MCP, and the receipt records reported reply tool names as `side_mcp`. Work mutation remains host-controlled.
 - The side pane uses a one-line-per-receipt list and a paged detail view, clipped by cell width.
 - The foreign-pid guard test failed on CI python-minimum because the runner's own pid was 2468; the test now picks a pid that is not the runner's.
