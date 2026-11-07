@@ -32,6 +32,13 @@ def request_context(body):
             suffix = '\n\nAddress this before completing your current task.'
             if isinstance(text, str) and text.startswith(prefix) and text.endswith(suffix):
                 text = text[len(prefix):-len(suffix)]
+            # Plugin-spawned teammates wrap the exact JSON in a verified
+            # <teammate-message> envelope. Parse only that whole wrapper shape;
+            # arbitrary quoted tags inside external text never qualify.
+            if isinstance(text, str) and text.startswith('<teammate-message ') and text.endswith('\n</teammate-message>'):
+                first = text.find('\n')
+                if first > 0 and 'teammate_id="team-lead"' in text[:first]:
+                    text = text[first + 1:-len('\n</teammate-message>')]
             try:
                 value = json.loads(text)
             except (ValueError, TypeError):

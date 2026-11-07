@@ -36,6 +36,15 @@ class SideContextRouterTests(unittest.TestCase):
         self.body = {'model':'model-a','system':'Dedicated side prompt','tools':copy.deepcopy(self.parent['tools']),
                      'messages':[{'role':'user','content':json.dumps(self.envelope)}]}
 
+    def test_teammate_wrapper_is_recognized_and_projected(self):
+        wrapped=copy.deepcopy(self.body)
+        raw=wrapped['messages'][0]['content']
+        wrapped['messages'][0]['content']='<teammate-message teammate_id="team-lead" summary="External message decision">\n'+raw+'\n</teammate-message>'
+        result=project(self.root,self.identity,'wrapped-agent',wrapped,
+                       {'work_side_intake':self.settings},'fixture',None)
+        self.assertEqual(self.parent['messages'],result['messages'][:len(self.parent['messages'])])
+        self.assertIn('external question',result['messages'][-1]['content'])
+
     def test_full_parent_prefix_and_current_board_are_exact_and_main_untouched(self):
         original = copy.deepcopy(self.parent)
         body = copy.deepcopy(self.body)
