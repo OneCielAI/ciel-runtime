@@ -1,7 +1,7 @@
 ---
 type: diagnosis
 title: Prody SSE receiver blocked at admission
-description: "Prody u41's SSE receiver connects, then rejects the first frame at admission with ValueError, every 30 s. The cursor never advances, so no new SSE event has reached the session since its 03:49 router start. The exact ValueError message is not recorded anywhere readable."
+description: "Prody u41's SSE receiver connects, then rejects the first frame because the complete CloudEvent is 16,055 characters, exceeding the side-intake 16,000-character limit by 55. The cursor never advances, so the same event blocks all later SSE events."
 tags: [aap, prody, sse, receiver, admission, side-intake]
 timestamp: 2026-11-08
 ---
@@ -35,6 +35,31 @@ Prody's main session (transcript, [evidence](evidence/prody-main.txt)):
 - Since 07:00 UTC it holds only the user's own `계속` turns and Work stop-hook messages. No side forks ran after 07:03 UTC.
 - `/ca/work/runtime` reports no errors and a 200 for main's last request at 11:52:34 UTC ([evidence](evidence/prody-router-get.txt)).
 
+# Captured exact cause (04:14 PST)
+
+After the Prody session was stopped, a one-shot, metadata-only capture was installed before the next launch. On resume, the blocked frame was captured immediately ([evidence](evidence/admission-capture.txt)):
+
+| Field | Captured value |
+| --- | --- |
+| transport event id | `13492` |
+| raw length | **16,055 characters / 23,934 UTF-8 bytes** |
+| raw SHA-256 | `b6e5bd21599925d4adb453f1f7a8694da734003ad4bc3168e8934e2cf0bbdf4f` |
+| JSON / CloudEvent | valid object, `specversion: 1.0`, id/source/type present |
+| type | `com.ciel.walkie.support.message`, allowed |
+| stream id | present |
+| `injection_type` | absent (normal) |
+| exception | **`btw_with_mcp requires 1-16000 characters`** |
+
+So the event is structurally valid. It exceeds `runtime_input_gateway._append`'s side-intake limit by **55 characters**. The limit measures the entire serialized CloudEvent (`raw_text`), not only `data.text`.
+
+The capture did not store the message body, URLs, credentials, route or token. It stored only length, hash, field names and validation facts.
+
+The package file was restored after capture:
+- original and restored SHA-256: `06171FFF9360D2AB5D8257A5E463D58CAEABEF4A206B689CBCDFC390316D8528`;
+- backup removed;
+- helper scripts removed;
+- the 1,042-byte capture file remains while the current router is alive so the in-memory diagnostic code cannot recreate it.
+
 # Why one bad frame blocks the whole stream (code, confirmed)
 
 1. `external_event_receiver.py:981-997`: for each frame, the receiver runs `validate_cloud_event`, then `_admit_sse_frame`. Only after both succeed does it write the cursor (`cursor_write`).
@@ -48,9 +73,7 @@ The receiver status keeps only the exception class. These are the `ValueError`s 
 | `_admit` (`:707-711`) | `CloudEvent type is not admitted by this receiver` (type outside `com.ciel.walkie.support.message`) |
 | `runtime_input_gateway._append` (`:37-48`) | `injection_type must be session or btw_with_mcp`, `btw_with_mcp requires stable meta.event_id…`, or **`btw_with_mcp requires 1-16000 characters`** (side lane is on, so external events take it) |
 
-**Which one Prody's frame hits is not known.** Finding out needs one of:
-- the message itself, which needs Prody's router at INFO/WARN, a config and restart change not made here;
-- or the frame at Prody's stream cursor, found from the Walkie side.
+The one-shot capture proves it is the 16,000-character side-intake limit, not the other candidates.
 
 # The `runtime_queued` rows in the side pane
 

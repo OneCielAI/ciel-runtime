@@ -1,0 +1,59 @@
+now=2026-11-08T04:14:36
+processes=3
+4436 04:14:13 ciel_runtime.py cli --resume ef61c539-6328-4ef1-81ca-691822348e3f
+7832 04:14:13 ciel_runtime.py cli --resume ef61c539-6328-4ef1-81ca-691822348e3f
+20436 04:14:32 ciel_runtime.py serve
+capture_exists=True
+{
+  "time": "2026-11-08T04:14:34",
+  "receiver_id": "default",
+  "phase": "admission",
+  "transport_event_id": "13492",
+  "raw_chars": 16055,
+  "raw_bytes": 23934,
+  "raw_sha256": "b6e5bd21599925d4adb453f1f7a8694da734003ad4bc3168e8934e2cf0bbdf4f",
+  "json_parsed": true,
+  "json_kind": "dict",
+  "top_level_keys": [
+    "data",
+    "id",
+    "source",
+    "specversion",
+    "time",
+    "type"
+  ],
+  "specversion": "1.0",
+  "id_present": true,
+  "source_present": true,
+  "type": "com.ciel.walkie.support.message",
+  "type_allowed": true,
+  "data_kind": "dict",
+  "data_keys": [
+    "activity_context",
+    "company",
+    "conversation",
+    "event_type",
+    "files",
+    "message_id",
+    "own",
+    "payload",
+    "reply_to_message_id",
+    "sender",
+    "sender_id",
+    "stream_id",
+    "text",
+    "thread_root_id",
+    "trust"
+  ],
+  "injection_type": null,
+  "stream_id_present": true,
+  "exception_class": "ValueError",
+  "exception_message": "btw_with_mcp requires 1-16000 characters"
+}
+receiver=backoff phase=admission error=ValueError fails=2 last_event=
+Processing -File 'C:\ProgramData\prody_capture_restore.ps1;' failed because the file does not have a '.ps1' extension. Specify a valid Windows PowerShell script file name, and then try again.
+Windows PowerShell
+Copyright (C) Microsoft Corporation. All rights reserved.
+
+Install the latest PowerShell for new features and improvements! https://aka.ms/PSWindows
+
