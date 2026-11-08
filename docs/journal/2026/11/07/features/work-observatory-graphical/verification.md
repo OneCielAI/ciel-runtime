@@ -76,6 +76,17 @@ The owned process tree and router ended, the copied config was removed, and live
 Focused tests: `tests.test_work_observatory` 7 OK. `claude plugin test`: 22 pass / 77 fail, the same
 pre-existing `work.test.ts` baseline.
 
+## Corrected beta 0a881e0 release and local install
+
+- CI 42444984691 and Publish 42444984697: success. npm `beta` =
+  `0.2.51-beta.20261108-041205.0a881e0`; `latest` and `nightly` unchanged.
+- Registry integrity and gitHead verified (509 source files); extracted to immutable snapshot
+  `ciel-runtime-0a881e09382316de5ba635dc9ba66ddda7d784d6`, installed globally from the verified tarball,
+  and User `CIEL_RUNTIME_HOME` moved to that snapshot. No running process was restarted.
+- [Installed smoke](evidence/installed-beta-smoke-0a881e0.json): 563 package files match the snapshot,
+  five isolated CLI/ctl commands pass, and `claude plugin validate` passes. Live routers
+  9505/9489/9524 remained HTTP 200.
+
 # Betty .12
 
 Pending beta publish/install and on-target screenshot. The read-only pre-check established u42 currently runs

@@ -2,7 +2,7 @@
 
 ## 2026-11-07
 
-- Released and installed beta 8bd9fe2 locally (registry verified, new snapshot, smoke passed).
+- Released and installed corrected beta 0a881e0 locally after the initial 8bd9fe2 release (both registry-verified; new snapshots; installed smokes passed).
 - Real SSE probe found that `/work-mode view` did not open the pane, that SSE rows vanished and that
   finished forks stayed painted; fixed all three and verified fork active → ended → answered in a real console.
 
