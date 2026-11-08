@@ -87,6 +87,14 @@ export default function Observatory(props, surface) {
   const hitStart = props.tab === 'side' ? 9 + Math.min(3, (props.actors || []).length) : 7
   surface.onPointer(event => {
     if (event.type !== 'down' || event.button !== 'left') return
+    // Header hit targets keep the graphical surface mouse-navigable without
+    // adding plain Buttons around it (which would recreate the old list UI).
+    if (event.y === 0) {
+      if (event.x < Math.floor(width / 3)) surface.post({ action: 'tab', tab: 'work' })
+      else if (event.x < Math.floor(width * 2 / 3)) surface.post({ action: 'tab', tab: 'side' })
+      else surface.post({ action: 'tab', tab: 'settings' })
+      return
+    }
     const index = (state.scroll || 0) + event.y - hitStart
     if (index >= 0 && index < rows.length) setSelection(index)
   })
@@ -99,8 +107,11 @@ export default function Observatory(props, surface) {
 
   // Mockup-faithful status header: Work progress, parallel lanes and selected side model.
   children.push(boxLine('top-labels', [
-    Text({ color: C.cyan, children: clip('WORK / SESSION ' + (props.version ?? '?'), Math.max(12, width - 19)) }),
-    Text({ color: C.dim, children: clip('  SIDE ' + (props.actors?.length || 0), 11) }),
+    Text({ color: props.tab === 'work' ? C.cyan : C.dim, weight: props.tab === 'work' ? 'bold' : undefined,
+      children: clip('WORK / SESSION ' + (props.version ?? '?'), Math.max(12, Math.floor(width / 2))) }),
+    Text({ color: props.tab === 'side' ? C.cyan : C.dim, weight: props.tab === 'side' ? 'bold' : undefined,
+      children: clip('SSE FLOW ' + (props.receipts?.length || 0), 14) }),
+    Text({ color: C.dim, children: 'SETTINGS' }),
   ], { justifyContent: 'space-between' }))
   children.push(line('goal', (props.active ? '▶ ' + props.active : 'No active goal'), C.text, { weight: 'bold' }))
   const progressWidth = Math.max(8, width - 17)
@@ -190,6 +201,6 @@ export default function Observatory(props, surface) {
       if (node.waiting_on) children.push(line('inspect-wait', 'waiting: ' + node.waiting_on, C.yellow))
     }
   }
-  children.push(line('footer', '↑↓ move · W/S Work/SSE · Enter inspect · P P1 · F focus · R refresh', C.dim))
+  children.push(line('footer', 'click header: Work/SSE/Settings · ↑↓ move · W/S · Enter · P P1 · F focus · R refresh', C.dim))
   return Box({ flexDirection: 'column', backgroundColor: C.panel, children })
 }

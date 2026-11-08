@@ -63,6 +63,8 @@ for (const [surface, columns] of [['terminal', 100], ['mobile', 40]] as const) {
       await ui.key({ key: 'down', in: 'obs-graphic' })
       await ui.key({ key: 's', in: 'obs-graphic' })
       expect((await ui.findAll({ type: 'Text', in: 'obs-graphic' })).map(x=>x.text).join('\n')).toContain('SSE FLOW')
+      await ui.pointer({ type: 'down', x: 5, y: 0, button: 'left', in: 'obs-graphic' })
+      expect((await ui.findAll({ type: 'Text', in: 'obs-graphic' })).map(x=>x.text).join('\n')).toContain('WORK TREE')
     } else {
       expect((await ui.find({ key: 'obs-header' }))).toBeDefined()
       expect((await ui.find({ key: 'node-a' }))?.text).toContain('Cache')
