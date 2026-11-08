@@ -2,6 +2,8 @@
 
 ## 2026-11-07
 
+- Betty .12: isolated probe rendered the graphical dashboard from the 0a881e0 tarball; SSE fork display
+  not shown there (cause undetermined); SSH access was revoked mid-rerun, probe cleanup pending.
 - Released and installed corrected beta 0a881e0 locally after the initial 8bd9fe2 release (both registry-verified; new snapshots; installed smokes passed).
 - Real SSE probe found that `/work-mode view` did not open the pane, that SSE rows vanished and that
   finished forks stayed painted; fixed all three and verified fork active → ended → answered in a real console.

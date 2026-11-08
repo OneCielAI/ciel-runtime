@@ -89,7 +89,29 @@ pre-existing `work.test.ts` baseline.
 
 # Betty .12
 
-Pending beta publish/install and on-target screenshot. The read-only pre-check established u42 currently runs
-`0.2.51-beta.20261108-005232.93be24c` from
-`C:\ProgramData\aap-win\sandboxes\u42\home\betty-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime` and that
-its `register.js` exists. The old build is the plain-list implementation.
+**Status: partial. The graphical pane was verified on Betty; the SSE fork display was not.**
+
+The live u42 install was left alone: it still runs `0.2.51-beta.20261108-005232.93be24c` from its
+`.npm-global`, live PIDs 10996/7504/18912/13640, router 9564. Nothing there was restarted or reinstalled.
+The verified 0a881e0 tarball and an isolated Claude Code 2.1.319 (the same version the live session uses) were
+unpacked only under `C:\Windows\Temp\ciel-obs-probe`. The probe ran with its own HOME, APPDATA, Claude config
+and ciel config copy, and router port 9611.
+
+Observed over SSH:
+
+- After `/work-mode view`, Betty's console text showed the graphical dashboard: `WORK / SESSION 1`,
+  `SSE FLOW 0`, `SETTINGS`, progress bar `1/4`, `PARALLEL 0/5 □□□□□ +P1  M inherit`, `WORK TREE 7` with
+  the nested ✓/▶ rows, the `SSE FLOW 0 · IN 0 AI 0 ANS 0 WORK 0 · No active side fork` column, the inspector
+  and the footer. On Betty's wider console the pane rendered inline at full width.
+- The local SSE source served the CloudEvent (`event_served: true`), but no side receipt or fork appeared in
+  the frames captured. `work_side_claim` and `work_side_status` kept returning an empty receipt list (44
+  chars), and the receiver status at registration was `reconnecting`. **Cause not determined**: the probe
+  deleted the router log with its scratch directory. The rerun that kept the log was cut off.
+- Every PNG the probe captured on Betty was 2064 bytes. The console runs in session 0, and the images were
+  not retrieved or viewed, so there is no Betty screenshot evidence. The text buffer is the evidence above.
+- Live u42 processes were alive and router 9564 returned 200 after the earlier runs.
+
+During the last rerun, Betty answered "Device SSH authorization revoked or expired", then
+`Permission denied (publickey)`. No other key or route was tried. Whether that last probe started is
+unknown, so probe processes (conhost, router on 9611, temp claude.exe) and files under
+`C:\Windows\Temp\ciel-obs-probe` may still be present on Betty and need cleanup once access is restored.
