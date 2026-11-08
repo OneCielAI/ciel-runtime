@@ -8,14 +8,31 @@ admitted inputs still share one TUI delivery path.
 from __future__ import annotations
 
 from dataclasses import dataclass
+import hashlib
 import json
 import secrets
 from typing import Any, Callable
+
+from .side_intake_limits import SIDE_INTAKE_PENDING_RECORD_MAX_BYTES, SIDE_INTAKE_TEXT_MAX_CHARS, side_text_fits_pending_record
 
 
 # Router observers of each admitted external event's exact text (company_prompt_reload).
 # A listener handles its own errors: admission has already happened.
 EXTERNAL_EVENT_LISTENERS: list[Callable[[str], Any]] = []
+
+
+def _oversize_notice(meta: dict[str, Any], original: str) -> str:
+    """Name an event too large for a side record without carrying its content."""
+    encoded = original.encode("utf-8")
+    return json.dumps({
+        "ciel_runtime_notice": "external_event_too_large_for_side_inbox",
+        **{key: str(meta.get(key) or "")[:200] for key in
+           ("receiver_id", "event_source", "event_id", "event_type", "transport_event_id")},
+        "chars": len(original), "utf8_bytes": len(encoded),
+        "sha256": hashlib.sha256(encoded).hexdigest(),
+        "side_record_limit_bytes": SIDE_INTAKE_PENDING_RECORD_MAX_BYTES,
+        "original": "kept unchanged in the runtime external-mail spool; not delivered here",
+    }, ensure_ascii=False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -35,23 +52,55 @@ class RuntimeInputGateway:
                           or meta.get("event_type") == "btw_with_mcp")
         side_enabled = settings.get("enabled") is True
         explicit_type = meta.get('injection_type') or meta.get('message_type')
-        if explicit_type is not None and explicit_type not in ('session', 'btw_with_mcp'):
+        external = meta.get('source_kind') == 'external_event'
+        invalid_external_lane = (external and side_enabled and explicit_type is not None
+                                 and explicit_type not in ('session', 'btw_with_mcp'))
+        if explicit_type is not None and explicit_type not in ('session', 'btw_with_mcp') and not invalid_external_lane:
             raise ValueError('injection_type must be session or btw_with_mcp')
-        selected_type = explicit_type or ('btw_with_mcp' if requested_side else settings.get('type', 'btw_with_mcp'))
-        eligible = requested_side or meta.get('source_kind') == 'external_event' or explicit_type is not None
-        if side_enabled and eligible and selected_type == 'btw_with_mcp':
+        selected_type = ('btw_with_mcp' if invalid_external_lane else explicit_type
+                         or ('btw_with_mcp' if requested_side else settings.get('type', 'btw_with_mcp')))
+        fallback_side = meta.get('side_intake_fallback') == 'raw_text'
+        eligible = requested_side or external or explicit_type is not None or fallback_side
+        if (side_enabled or fallback_side) and eligible and (selected_type == 'btw_with_mcp' or fallback_side):
             event_key = meta.get("event_id") or meta.get("event_key")
             if not isinstance(event_key, str) or not event_key.strip():
                 raise ValueError("btw_with_mcp requires stable meta.event_id or meta.event_key")
             original = payload.get("content", payload.get("message", ""))
-            if not isinstance(original, str) or not original.strip() or len(original) > 16000:
-                raise ValueError("btw_with_mcp requires 1-16000 characters")
+            if not isinstance(original, str) or not original.strip():
+                raise ValueError("btw_with_mcp requires non-empty text")
             source = str(meta.get("event_source") or meta.get("source") or payload.get("channel") or "external")
-            command = "/btw_with_mcp " + json.dumps({"event_key": source + ":" + event_key,
-                                                    "text": original}, ensure_ascii=False)
-            payload = {**payload, "message": command, "content": command, "meta": {**meta, "btw": True,
-                       "raw_injection": True, "btw_with_mcp": True, "_side_intake_admitted": True,
-                       "input_transport": "session_socket"}}
+            side_key = source + ":" + event_key
+            if len(side_key) > 300:
+                # The inbox keys at most 300 characters; a longer CloudEvent
+                # identity must not become a permanently undeliverable row.
+                side_key = "sha256:" + hashlib.sha256(side_key.encode("utf-8")).hexdigest()
+            if external or fallback_side:
+                # The host, not untrusted event data, owns this lane. Keep the exact
+                # event text as data; the verified session socket moves it to the
+                # side inbox without parsing it as a slash command. Above the 32K
+                # ordinary contract (or for a malformed SSE frame with a synthetic
+                # host identity) it is an explicit raw fallback, never trimmed.
+                fallback = ("raw_text" if invalid_external_lane or fallback_side
+                            or len(original) > SIDE_INTAKE_TEXT_MAX_CHARS else "")
+                side_meta = {**meta, "event_key": side_key, "side_intake_only": True,
+                             "btw_with_mcp": True, "_side_intake_admitted": True,
+                             "input_transport": "session_socket", "raw_preserved": True}
+                if not side_text_fits_pending_record(original):
+                    # Larger than one side record: the queue row and its
+                    # external-mail spool keep the original; the side agent gets
+                    # a content-free notice naming it instead of a blocked stream.
+                    fallback = "notice"
+                    side_meta["side_intake_text"] = _oversize_notice(meta, original)
+                side_meta["side_intake_fallback"] = fallback
+                payload = {**payload, "message": original, "content": original, "meta": side_meta}
+            else:
+                if len(original) > SIDE_INTAKE_TEXT_MAX_CHARS:
+                    raise ValueError(f"btw_with_mcp requires 1-{SIDE_INTAKE_TEXT_MAX_CHARS} characters")
+                command = "/btw_with_mcp " + json.dumps({"event_key": side_key,
+                                                        "text": original}, ensure_ascii=False)
+                payload = {**payload, "message": command, "content": command, "meta": {**meta, "btw": True,
+                           "raw_injection": True, "btw_with_mcp": True, "_side_intake_admitted": True,
+                           "input_transport": "session_socket"}}
         message = self.append(payload)
         request_id = int(message.get("id") or 0)
         if (
@@ -297,6 +346,7 @@ class RuntimeInputGateway:
         transport_event_id: str = "",
         input_transport: str = "",
         injection_type: str = "",
+        side_intake_fallback: str = "",
     ) -> dict[str, Any]:
         """Admit decoded event text with an explicit, validated injection lane."""
         if not injection_type:
@@ -327,6 +377,7 @@ class RuntimeInputGateway:
                     "input_transport": self._transport(input_transport),
                     "raw_preserved": True,
                     **({'injection_type': injection_type} if injection_type else {}),
+                    **({'side_intake_fallback': side_intake_fallback} if side_intake_fallback else {}),
                 },
                 "delivery": ["llm"],
                 "visibility": "private_runtime",

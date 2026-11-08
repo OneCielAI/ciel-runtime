@@ -1,5 +1,6 @@
 """Host-scoped claim and decision tools for the independent side actor."""
 from .side_intake_inbox import SideIntakeInbox
+from .side_intake_limits import SIDE_INTAKE_TEXT_MAX_CHARS
 from .side_intake_processing import claim, fail, fallback, finish, verify_claim
 from .side_work_decision import apply
 from .work_plan_tree import WorkPlanError
@@ -62,12 +63,16 @@ def _reported_sends(value):
     return names
 
 
+def _followup_text(event_id, answer, original):
+    return ('Coordinator answer to side question ' + event_id + ':\n'
+            + answer + '\nOriginal request:\n' + original['text'])
+
+
 def _answer_followup(inbox, event_id, answer):
     original = inbox._load(event_id)
     if original:
-        followup = ('Coordinator answer to side question ' + event_id + ':\n'
-                    + answer + '\nOriginal request:\n' + original['text'])
-        if len(followup) > 16000:
+        followup = _followup_text(event_id, answer, original)
+        if len(followup) > SIDE_INTAKE_TEXT_MAX_CHARS:
             raise WorkPlanError('coordinator follow-up exceeds inbox text capacity; answer retained in Work')
         inbox.receive(followup, 'handoff:' + event_id, route=original.get('route', {}))
 
@@ -165,7 +170,8 @@ def run(name, args, config, state_dir, identity, store):
                 raise WorkPlanError('coordinator answer must be text')
             inbox = SideIntakeInbox(state_dir, identity)
             original = inbox._load(args.get('event_id'))
-            if original and len(args['answer']) + len(original['text']) + 150 > 16000:
+            # Same exact text _answer_followup writes, so the check cannot pass here and fail there.
+            if original and len(_followup_text(args['event_id'], args['answer'], original)) > SIDE_INTAKE_TEXT_MAX_CHARS:
                 raise WorkPlanError('coordinator follow-up exceeds inbox text capacity; no acknowledgment committed')
         result = acknowledge(store, args.get('event_id'), answer=args.get('answer', ''),
                              activate=args.get('activate', False), expected_version=args['expected_version'])

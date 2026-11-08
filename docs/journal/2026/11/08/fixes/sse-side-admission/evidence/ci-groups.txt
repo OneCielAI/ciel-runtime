@@ -1,0 +1,10 @@
+2026-11-08 supported isolated CI entrypoint, inherited CIEL_RUNTIME_* removed
+unit:   Ran 3427 tests in 326.960s — OK (skipped=50)
+router: Ran 1543 tests in 674.862s — OK
+channel: Ran 606 tests in 15.550s — OK (skipped=80)
+runtime: Ran 458 tests in 45.111s — OK (skipped=19)
+
+Live routers before and after:
+9505 pid=41716 version=0.2.51-beta.20261108-063433.6933b8d
+9489 pid=36140 version=0.2.51-beta.20261108-063433.6933b8d
+9524 pid=19788 version=0.2.51-beta.20261108-063433.6933b8d

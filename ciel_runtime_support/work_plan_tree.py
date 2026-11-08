@@ -15,6 +15,8 @@ import math
 import time
 from typing import Any
 
+from .side_intake_limits import SIDE_INTAKE_TEXT_MAX_CHARS
+
 SCHEMA = 1
 PHASE_PLANNING = "planning"
 PHASE_EXECUTING = "executing"
@@ -87,7 +89,7 @@ def normalize_document(raw: Any) -> dict[str, Any]:
         for key, receipt in receipts.items():
             if (not isinstance(key, str) or len(key) != 64 or not isinstance(receipt, dict)
                     or not all(isinstance(receipt.get(field), str) for field in ("item_id", "digest", "text", "recap"))
-                    or len(receipt["text"]) > 16000 or len(receipt["recap"]) > 500):
+                    or len(receipt["text"]) > SIDE_INTAKE_TEXT_MAX_CHARS or len(receipt["recap"]) > 500):
                 raise WorkPlanError("invalid side intake receipt")
         doc["side_intake_receipts"] = copy.deepcopy(receipts)
     decisions = raw.get('side_decisions')

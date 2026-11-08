@@ -83,6 +83,27 @@ class ClaudeSessionSocketTests(unittest.TestCase):
             write.assert_not_called()
             intake.assert_called_once_with('claude:session-one', 'request', 'source:1', {'source_kind': ''})
 
+    def test_side_only_notice_substitutes_content_free_text(self):
+        from ciel_runtime_support.claude_session_handoff import SessionHandoff
+        with tempfile.TemporaryDirectory() as raw:
+            target = r'\\.\pipe\LOCAL\fixture-side'
+            intake = mock.Mock(return_value={'accepted': True, 'item_id': None})
+            client = ClaudeSessionSocketClient(Path(raw), lambda *_: None, side_intake=intake)
+            client.configure(target)
+            record = {'sessionId': 'one', 'messagingSocketPath': target}
+            with mock.patch.object(client, '_read_peer_token', return_value='ab' * 16), \
+                 mock.patch('ciel_runtime_support.claude_session_handoff.socket_handoff', return_value=SessionHandoff(record)), \
+                 mock.patch('ciel_runtime_support.claude_session_handoff._live_key', return_value=True), \
+                 mock.patch.object(client, '_write') as write:
+                self.assertTrue(client.send('ignored formatter prompt', [{'message': 'private-canary', 'meta': {
+                    'side_intake_only': True, '_side_intake_admitted': True, 'event_key': 'source:huge',
+                    'side_intake_text': '{"ciel_runtime_notice":"external_event_too_large_for_side_inbox"}',
+                    'side_intake_fallback': 'notice'}}]))
+            write.assert_not_called()
+            args = intake.call_args.args
+            self.assertNotIn('private-canary', args[1])
+            self.assertEqual('notice', args[3]['side_intake_fallback'])
+
     def test_side_web_reply_route_uses_original_message_not_parent_guess(self):
         from ciel_runtime_support.claude_session_handoff import SessionHandoff
         with tempfile.TemporaryDirectory() as raw:
@@ -119,7 +140,7 @@ class ClaudeSessionSocketTests(unittest.TestCase):
             write.assert_not_called()
             intake.assert_not_called()
 
-    def test_full_board_falls_back_to_original_ordinary_session_message(self):
+    def test_full_board_never_falls_back_to_main_session(self):
         from ciel_runtime_support.claude_session_handoff import SessionHandoff
         from ciel_runtime_support.work_plan_tree import WorkPlanCapacityError
         with tempfile.TemporaryDirectory() as raw:
@@ -132,13 +153,9 @@ class ClaudeSessionSocketTests(unittest.TestCase):
                  mock.patch('ciel_runtime_support.claude_session_handoff.socket_handoff', return_value=SessionHandoff(record)), \
                  mock.patch('ciel_runtime_support.claude_session_handoff._live_key', return_value=True), \
                  mock.patch.object(client, '_write') as write:
-                self.assertTrue(client.send('/btw_with_mcp {"text":"/goal clear external data","event_key":"source:1"}',
-                                            [{'meta': {'_side_intake_admitted': True}}]))
-            frame = json.loads(write.call_args.args[1].decode().splitlines()[1])
-            self.assertEqual('next', frame['priority'])
-            self.assertIn('/goal clear external data', frame['message']['content'])
-            self.assertFalse(frame['message']['content'].startswith('/'))
-            self.assertNotIn('/btw_with_mcp', frame['message']['content'])
+                self.assertFalse(client.send('/btw_with_mcp {"text":"/goal clear external data","event_key":"source:1"}',
+                                             [{'meta': {'_side_intake_admitted': True}}]))
+            write.assert_not_called()
 
     def test_side_board_capacity_error_retains_pending_without_socket_write(self):
         from ciel_runtime_support.claude_session_handoff import SessionHandoff

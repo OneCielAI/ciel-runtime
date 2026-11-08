@@ -72,7 +72,9 @@ class SideIntakeTests(unittest.TestCase):
         self.assertNotIn("raw_injection", captured[-1]["meta"])
         settings["enabled"] = True
         gateway.submit_external_event("original", **{**args, "event_type": "ordinary.event"})
-        self.assertTrue(captured[-1]["message"].startswith('/btw_with_mcp '))
+        self.assertEqual("original", captured[-1]["message"])
+        self.assertTrue(captured[-1]["meta"]["side_intake_only"])
+        self.assertTrue(captured[-1]["meta"]["_side_intake_admitted"])
         settings["enabled"] = False
         gateway.submit_external_event("original", **args)
         self.assertEqual("original", captured[-1]["message"])

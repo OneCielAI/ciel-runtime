@@ -333,6 +333,24 @@ class DeliveryAckQueueTests(unittest.TestCase):
             self.assertEqual("rejected", ack["outcome"])
             self.assertNotIn("queued_at", ack)
 
+    def test_operator_filtered_type_is_dead_lettered_and_acknowledged_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fixture = _Fixture(directory)
+            fixture.service.save_receiver('default', {
+                'enabled': True, 'transport': 'sse', 'url': SSE_URL, 'authorization': 'wka_test',
+                'cursor_json_pointer': '/data/stream_id', 'cursor_query_parameter': 'after',
+                'event_types': ['allowed.type'],
+            })
+            fixture.stream(frame('filtered-1', '781'))
+            self.assertEqual([], fixture.submitted)
+            fixture.ack.flush()
+            ack = fixture.walkie.posts[0]['body']['acks'][0]
+            self.assertEqual(('filtered-1', 'rejected'), (ack['event_id'], ack['outcome']))
+            self.assertNotIn('queued_at', ack)
+            self.assertEqual('781', json.loads((Path(directory) / 'cursors.json').read_text())['default'])
+            letter = (Path(directory) / 'external-event-dead-letters.jsonl').read_text(encoding='utf-8')
+            self.assertNotIn('BODY-TEXT-7', letter)
+
     def test_events_without_delivery_ack_are_admitted_as_before(self):
         with tempfile.TemporaryDirectory() as directory:
             fixture = _Fixture(directory)

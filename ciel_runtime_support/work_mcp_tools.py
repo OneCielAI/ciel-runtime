@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ciel_runtime_support import work_plan_tree as tree
+from ciel_runtime_support.side_intake_limits import SIDE_INTAKE_TEXT_MAX_CHARS
 from ciel_runtime_support.work_mode_launch import WORK_TOOL_NAMES as WORK_TOOL_NAMES  # re-exported for the router
 from ciel_runtime_support.work_mode_launch import (WORK_MODE_KEY, WORK_MODE_SWITCH_TOOL, work_auto_continue_enabled,
                                                    work_mode_enabled, work_plan_approval_ask)
@@ -54,7 +55,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
         {"name": "work_side_drain", "description": "Coordinator-only: retry pending durable side inbox admission without approving execution. Full board remains queued.",
          "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 100}}}},
         {"name": "work_side_intake", "description": "Durably queue an untrusted side request without approving execution or changing the active goal. Stable event_key deduplicates retries; host coordinator only.",
-         "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "maxLength": 16000},
+         "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "maxLength": SIDE_INTAKE_TEXT_MAX_CHARS},
              "event_key": {"type": "string", "maxLength": 300}}, "required": ["text", "event_key"]}},
         {
             "name": "work_status",

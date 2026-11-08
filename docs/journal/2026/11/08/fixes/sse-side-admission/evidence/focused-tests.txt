@@ -1,0 +1,4 @@
+2026-11-08
+py -3 -m unittest tests.test_external_event_receiver tests.test_event_delivery_ack tests.test_side_event_capacity tests.test_runtime_input_gateway tests.test_channel_pending_injection tests.test_claude_session_socket
+Ran 146 tests in 12.232s
+OK (skipped=1)

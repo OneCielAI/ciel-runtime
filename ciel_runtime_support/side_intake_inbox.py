@@ -9,10 +9,13 @@ import time
 from typing import Any
 
 from .channel_message_repository import exclusive_file_lock
+from .side_intake_limits import SIDE_INTAKE_PENDING_RECORD_MAX_BYTES, SIDE_INTAKE_TEXT_MAX_CHARS
 from .work_plan_tree import WorkPlanError
 
 MAX_DOCUMENT_BYTES = 32 * 1024 * 1024  # Legacy document parser, not a queue ceiling.
-MAX_EVENT_BYTES = 128 * 1024
+# A pending record holds one original (up to 32,000 four-byte characters) plus
+# its key, digest, route and timestamps.
+MAX_PENDING_RECORD_BYTES = SIDE_INTAKE_PENDING_RECORD_MAX_BYTES
 MAX_RECEIPT_BYTES = 2 * 1024 * 1024
 PRIORITIES = ('P1', 'P2', 'P3', 'P4', 'P5')
 
@@ -66,7 +69,7 @@ class SideIntakeInbox:
     @staticmethod
     def _read_file(path: Path, limit: int | None = None) -> dict[str, Any] | None:
         if limit is None:
-            limit = MAX_RECEIPT_BYTES if path.parent.parent.name == 'receipts' else MAX_EVENT_BYTES
+            limit = MAX_RECEIPT_BYTES if path.parent.parent.name == 'receipts' else MAX_PENDING_RECORD_BYTES
         from .durable_json_file import reader
         try:
             with reader(path) as stream:
@@ -86,7 +89,9 @@ class SideIntakeInbox:
     @staticmethod
     def _validate(key: str, row: dict[str, Any]) -> None:
         if (not isinstance(row.get('text'), str) or not row['text'].strip()
-                or len(row['text']) > 16000 or not isinstance(row.get('event_key'), str)
+                or (len(row['text']) > SIDE_INTAKE_TEXT_MAX_CHARS
+                    and (row.get('route') or {}).get('side_intake_fallback') not in ('raw_text', 'notice'))
+                or not isinstance(row.get('event_key'), str)
                 or row.get('digest') != hashlib.sha256(row['text'].encode()).hexdigest()
                 or key != hashlib.sha256(row['event_key'].encode()).hexdigest()
                 or row.get('stage') not in ('received', 'board_queued', 'processed')
@@ -98,7 +103,7 @@ class SideIntakeInbox:
     @staticmethod
     def _save_file(path: Path, row: dict[str, Any]) -> None:
         from .durable_json_file import save
-        limit = MAX_RECEIPT_BYTES if path.parent.parent.name == 'receipts' else MAX_EVENT_BYTES
+        limit = MAX_RECEIPT_BYTES if path.parent.parent.name == 'receipts' else MAX_PENDING_RECORD_BYTES
         if len(json.dumps(row, ensure_ascii=False).encode('utf8')) > limit:
             raise WorkPlanError('side inbox write exceeds parser limit; previous record preserved')
         save(path, row)
@@ -141,8 +146,10 @@ class SideIntakeInbox:
                 self._save_file(marker,{'receipt_id':key})
 
     def receive(self, text: str, event_key: str, *, route: dict[str, Any] | None = None) -> dict[str, Any]:
-        if not isinstance(text, str) or not text.strip() or len(text) > 16000:
-            raise WorkPlanError('side intake text must contain 1-16000 characters')
+        fallback = route.get('side_intake_fallback') if isinstance(route, dict) else ''
+        if (not isinstance(text, str) or not text.strip()
+                or len(text) > SIDE_INTAKE_TEXT_MAX_CHARS and fallback not in ('raw_text', 'notice')):
+            raise WorkPlanError(f'side intake text must contain 1-{SIDE_INTAKE_TEXT_MAX_CHARS} characters')
         if not isinstance(event_key, str) or not event_key.strip() or len(event_key) > 300:
             raise WorkPlanError('stable event key required (1-300 characters)')
         if route is not None and (not isinstance(route, dict) or len(json.dumps(route).encode()) > 8192):

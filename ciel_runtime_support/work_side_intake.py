@@ -2,11 +2,12 @@
 import hashlib
 import time
 from . import work_plan_tree as tree
+from .side_intake_limits import SIDE_INTAKE_TEXT_MAX_CHARS
 
 
 def enqueue(store, text, event_key):
-    if not isinstance(text, str) or not text.strip() or len(text) > 16000:
-        raise tree.WorkPlanError("side intake text must contain 1-16000 characters")
+    if not isinstance(text, str) or not text.strip() or len(text) > SIDE_INTAKE_TEXT_MAX_CHARS:
+        raise tree.WorkPlanError(f"side intake text must contain 1-{SIDE_INTAKE_TEXT_MAX_CHARS} characters")
     if not isinstance(event_key, str) or not event_key.strip() or len(event_key) > 300:
         raise tree.WorkPlanError("stable side intake event key required (1-300 characters)")
     digest = hashlib.sha256(text.encode()).hexdigest()

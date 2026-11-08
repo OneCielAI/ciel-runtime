@@ -271,6 +271,143 @@ class ExternalEventReceiverTests(unittest.TestCase):
             self.assertEqual("session_socket", admitted[0][1]["input_transport"])
             self.assertEqual("11-1", json.loads(cursor_path.read_text(encoding="utf-8"))["default"])
 
+    def test_invalid_frame_with_transport_id_becomes_side_text_and_canary_flows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            rows = []
+            config = {'external_event_receivers': {'workspace': {}}}
+            gateway = RuntimeInputGateway(lambda row: rows.append({'id': len(rows) + 1, **row}) or rows[-1],
+                                          load_side_settings=lambda: {'enabled': True})
+            service = None
+            canary = json.dumps({'specversion': '1.0', 'id': 'canary', 'source': 'walkie',
+                                  'type': 'allowed', 'data': {'stream_id': 'canary'}})
+            response = _SseResponse([b'id: bad-1\ndata: not-json\n\n',
+                                     ('id: canary\ndata: ' + canary + '\n\n').encode()])
+            def submit(raw, **meta):
+                result = gateway.submit_external_event(raw, **meta)
+                if len(rows) == 2:
+                    service._stop.set()
+                return result
+            service = ExternalEventReceiverService(
+                load_config=lambda: config, save_config=lambda value: config.update(value),
+                write_json=lambda *_: None, submit_event=submit,
+                vault=EventReceiverSecretVault(root / 'vault.json'), workspace_key='workspace',
+                cursor_path=root / 'cursor.json', urlopen=lambda *_args, **_kwargs: response,
+                log=lambda *_: None)
+            service.save_receiver('default', {'enabled': True, 'transport': 'sse', 'url': 'https://events.example/stream',
+                                               'event_types': ['allowed'], 'cursor_query_parameter': 'after'})
+            service._run_sse('default')
+            self.assertEqual(2, len(rows))
+            self.assertEqual('not-json', rows[0]['message'])
+            self.assertEqual('raw_text', rows[0]['meta']['side_intake_fallback'])
+            self.assertTrue(rows[0]['meta']['side_intake_only'])
+            self.assertEqual(canary, rows[1]['message'])
+            self.assertEqual('canary', json.loads((root / 'cursor.json').read_text())['default'])
+
+    def _run_frames(self, root, frames, submit, *, event_types=None, logs=None):
+        config = {'external_event_receivers': {'workspace': {}}}
+        response = _SseResponse([frame.encode() for frame in frames])
+        service = ExternalEventReceiverService(
+            load_config=lambda: config, save_config=lambda value: config.update(value),
+            write_json=lambda *_: None, submit_event=lambda raw, **meta: submit(service, raw, meta),
+            vault=EventReceiverSecretVault(root / 'vault.json'), workspace_key='workspace',
+            cursor_path=root / 'cursor.json', urlopen=lambda *_args, **_kwargs: response,
+            log=lambda level, message: (logs if logs is not None else []).append((level, message)))
+        service.save_receiver('default', {'enabled': True, 'transport': 'sse', 'url': 'https://events.example/stream',
+                                           'event_types': event_types or [], 'cursor_query_parameter': 'after'})
+        service._run_sse('default')
+        cursor = root / 'cursor.json'
+        return json.loads(cursor.read_text())['default'] if cursor.exists() else None
+
+    def test_prody_shape_event_and_next_event_both_advance_the_cursor(self):
+        # Prody 2026-11-08 transport id 13492: 16,055 characters pinned the stream.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            rows = []
+            gateway = RuntimeInputGateway(lambda row: rows.append({'id': len(rows) + 1, **row}) or rows[-1],
+                                          load_side_settings=lambda: {'enabled': True})
+            big = json.dumps({'specversion': '1.0', 'id': '13492', 'source': 'walkie', 'type': 'allowed',
+                              'data': {'text': '한' * 15967}}, ensure_ascii=False, separators=(',', ':'))
+            nxt = json.dumps({'specversion': '1.0', 'id': '13493', 'source': 'walkie', 'type': 'allowed'})
+            def submit(service, raw, meta):
+                result = gateway.submit_external_event(raw, **meta)
+                if len(rows) == 2:
+                    service._stop.set()
+                return result
+            cursor = self._run_frames(root, ['id: 13492\ndata: ' + big + '\n\n',
+                                             'id: 13493\ndata: ' + nxt + '\n\n'], submit)
+            self.assertEqual(16055, len(big))
+            self.assertEqual([big, nxt], [row['message'] for row in rows])
+            self.assertTrue(all(row['meta']['side_intake_only'] for row in rows))
+            self.assertEqual('13493', cursor)
+
+    def test_filtered_type_is_dead_lettered_without_content_and_canary_flows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            rows, logs = [], []
+            blocked = json.dumps({'specversion': '1.0', 'id': 'f-1', 'source': 'walkie', 'type': 'other',
+                                  'data': {'text': 'private-canary'}})
+            canary = json.dumps({'specversion': '1.0', 'id': 'c-1', 'source': 'walkie', 'type': 'allowed'})
+            def submit(service, raw, meta):
+                rows.append(raw)
+                service._stop.set()
+                return {'id': 1}
+            cursor = self._run_frames(root, ['id: f-1\ndata: ' + blocked + '\n\n',
+                                             'id: c-1\ndata: ' + canary + '\n\n'], submit,
+                                      event_types=['allowed'], logs=logs)
+            self.assertEqual([canary], rows)
+            self.assertEqual('c-1', cursor)
+            letter = (root / 'external-event-dead-letters.jsonl').read_text(encoding='utf-8')
+            self.assertEqual('other', json.loads(letter)['event_type'])
+            self.assertNotIn('private-canary', letter)
+            self.assertNotIn('private-canary', json.dumps(logs))
+
+    def test_dead_letter_storage_failure_keeps_cursor_before_filtered_frame(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            event = json.dumps({'specversion': '1.0', 'id': 'f-1', 'source': 'walkie', 'type': 'other'})
+            service = None
+            config = {'external_event_receivers': {'workspace': {}}}
+            response = _SseResponse([('id: f-1\ndata: ' + event + '\n\n').encode()])
+            service = ExternalEventReceiverService(
+                load_config=lambda: config, save_config=lambda value: config.update(value),
+                write_json=lambda *_: None, submit_event=lambda *_args, **_kwargs: self.fail('filtered row queued'),
+                vault=EventReceiverSecretVault(root / 'vault.json'), workspace_key='workspace',
+                cursor_path=root / 'missing' / 'cursor.json', urlopen=lambda *_args, **_kwargs: response,
+                log=lambda *_: service._stop.set())
+            service.save_receiver('default', {'enabled': True, 'transport': 'sse',
+                                               'url': 'https://events.example/stream', 'event_types': ['allowed']})
+            with mock.patch('pathlib.Path.mkdir', side_effect=OSError('dead-letter disk full')):
+                service._run_sse('default')
+            self.assertFalse((root / 'missing' / 'cursor.json').exists())
+
+    def test_storage_failure_keeps_cursor_before_the_frame(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            event = json.dumps({'specversion': '1.0', 'id': 'e-1', 'source': 'walkie', 'type': 'allowed'})
+            def submit(service, raw, meta):
+                service._stop.set()
+                raise OSError('queue disk full')
+            self.assertIsNone(self._run_frames(root, ['id: e-1\ndata: ' + event + '\n\n'], submit))
+
+    def test_invalid_frame_redelivery_keeps_one_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            keys = []
+            def submit(service, raw, meta):
+                keys.append(meta['event_id'])
+                if len(keys) == 2:
+                    service._stop.set()
+                return {'id': len(keys)}
+            self._run_frames(root, ['id: bad-1\ndata: not-json\n\n', 'id: bad-1\ndata: not-json\n\n'], submit)
+            self.assertEqual(1, len(set(keys)))
+            self.assertTrue(keys[0].startswith('invalid:bad-1:'))
+
+    def test_invalid_frame_without_transport_id_has_no_identity_for_fallback(self):
+        self.assertEqual([('', 'not-json')], list(parse_sse_frames([b'data: not-json\n\n'])))
+        with self.assertRaisesRegex(ValueError, 'must be JSON'):
+            validate_cloud_event('not-json')
+
     def test_real_http_sse_reconnects_after_activity_timeout(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

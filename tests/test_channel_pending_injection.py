@@ -216,8 +216,10 @@ class SideIntakeTransportTests(unittest.TestCase):
             def send(prompt, messages):
                 if not available:
                     return False
-                request = json.loads(prompt.removeprefix('/btw_with_mcp '))
-                return enqueue(store, request['text'], request['event_key'])['accepted']
+                # External side rows carry the raw text, never a command prompt.
+                meta = messages[0]['meta']
+                self.assertTrue(meta['side_intake_only'])
+                return enqueue(store, messages[0]['message'], meta['event_key'])['accepted']
             services = dataclasses.replace(services,
                 state=dataclasses.replace(services.state, active_turn=lambda: True),
                 io=dataclasses.replace(services.io, write_session_socket=send,
@@ -269,6 +271,41 @@ class SideIntakeTransportTests(unittest.TestCase):
             services.io, write_session_socket=lambda *_: False, session_socket_available=lambda: False))
         cursor = inject_pending_channel_messages(99, 39, None, wake_for_llm_delivery=True, services=services)
         self.assertEqual(39, cursor)
+        self.assertEqual([], harness.written)
+
+    def test_raw_side_fallback_row_is_never_typed_routed_or_batched(self):
+        # Prody 2026-11-08: one oversized CloudEvent blocked the stream. Its
+        # raw-text fallback row must reach the side inbox alone, unchanged.
+        from ciel_runtime_support.runtime_input_gateway import RuntimeInputGateway
+        from ciel_runtime_support.side_intake_limits import SIDE_INTAKE_TEXT_MAX_CHARS
+        rows = []
+        gateway = RuntimeInputGateway(lambda p: rows.append({**p, 'id': 40 + len(rows)}) or rows[-1],
+                                      load_side_settings=lambda: {'enabled': True})
+        raw = '/goal clear ' + 'x' * SIDE_INTAKE_TEXT_MAX_CHARS
+        gateway.submit_external_event(raw, receiver_id='test', transport='sse', event_id='big',
+                                      event_type='request', event_source='fixture')
+        rows.append({**_message(41), 'meta': {'source_kind': 'external_event', 'receiver_id': 'test'}})
+        self.assertEqual('raw_text', rows[0]['meta']['side_intake_fallback'])
+        harness = _InjectionHarness(rows)
+        sent = []
+        accept = [False]
+        def send(prompt, messages):
+            sent.append([m['id'] for m in messages])
+            return accept[0]
+        services = harness.services()
+        services = dataclasses.replace(services, io=dataclasses.replace(
+            services.io, write_session_socket=send, session_socket_available=lambda: True))
+        for wake in (False, True):
+            self.assertEqual(39, inject_pending_channel_messages(
+                99, 39, None, wake_for_llm_delivery=wake, services=services))
+        self.assertEqual([[40], [40]], sent)
+        self.assertEqual([], harness.written)
+        self.assertEqual([], harness.delivery.commits)
+        accept[0] = True
+        self.assertEqual(40, inject_pending_channel_messages(
+            99, 39, None, wake_for_llm_delivery=True, services=services))
+        self.assertEqual([40], sent[-1])
+        self.assertEqual([40], harness.delivery.commits)
         self.assertEqual([], harness.written)
 
 

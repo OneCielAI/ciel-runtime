@@ -320,6 +320,8 @@ class DeliveryAckService:
         received_at: float,
         admitted: dict[str, Any] | None,
         original: dict[str, Any] | None = None,
+        *,
+        rejected: bool = False,
     ) -> dict[str, Any]:
         """Record one delivery_ack event after its queue admission and schedule its queued ack."""
 
@@ -327,7 +329,9 @@ class DeliveryAckService:
         event_id = str(event.get("id") or "")
         queued_at = 0.0
         request_id = 0
-        if original is not None:
+        if rejected:
+            outcome = "rejected"
+        elif original is not None:
             outcome = "already_queued"
             request_id = int(original.get("request_id") or 0)
             queued_at = float(original.get("queued_at_epoch") or 0) or received_at
