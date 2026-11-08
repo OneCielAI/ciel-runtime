@@ -1,0 +1,21 @@
+=== u42
+npm pkg: 0.2.51-beta.20261108-063433.6933b8d mtime=11/07/2026 22:39:45
+last router_start: 2026-11-07T22:43:10
+lines since start: 736  last: 2026-11-07T22:45:47
+FileNotFoundError                      0
+channel_side_intake_deferred           0
+channel_side_intake_accepted           1
+anthropic_sse_upstream_error_event     0
+upstream_direct_request                9
+models since start: _Walkie_Haiku_Terra=7 _Walkie_Sol61-Opus55-Fast=2
+side-inboxes visible: 0
+=== u41
+npm pkg: 0.2.51-beta.20261108-050016.2df49b7 mtime=11/07/2026 21:44:11
+lines since start: 47591  last: 2026-11-07T21:46:21
+FileNotFoundError                      5665
+channel_side_intake_deferred           2522
+channel_side_intake_accepted           0
+anthropic_sse_upstream_error_event     0
+upstream_direct_request                0
+models since start: 
+side-inboxes visible: 0

@@ -1,0 +1,30 @@
+                                                                  │                                                   ✕
+           Claude Code v2.1.310                                   │┌───────────────────────────────────────────────────┐
+ ▐▛███▛█   ciel-runtime-cielairouter-astra with xhigh effort      ││ WORK 1 · executing · 1/4                          │
+▝▜██████▀  API Usage Billing                                      ││ Queue 0 · Side 0 · Slots 0/5                      │
+ ▝▝   ▝▝   ~\AppData\Local\Temp\ciel-owned-sse-fork-6v5lpkc4\…    │└───────────────────────────────────────────────────┘
+                                                                  │w: Work s: SSE g: [Settings]
+▎ Debug mode enabled · logging to                                 │All Work settings · live · cielairouter
+▎ C:\Users\<user>\ciel-runtime\.local\tmp\work-parallel\.local\owne│Work mode = true
+▎ d-keyboard-sse-20261108-004131\claude-debug.txt                 │Work plan approval = auto
+                                                                  │Work auto continue = false
+● ciel-work: Ciel Work mode is on: plan and execute by            │Work completed auto-delete (24h) = true
+  item; new independent requests queue without pausing            │Left arrow opens agents view = false
+  approved Work. Items show above the prompt · /work-mode         │Background agents / agent view enabled = true
+  help · turn off: ciel-runtime menu → LLM options → Work         │Settings 1/5 n: Next settings r: Refresh q: Close
+  mode, or the agent (work_mode_set)                              │1/1
+                                                                  │Touch tabs/items · Back closes
+❯ /work-mode                                                      │
+  ⎿  ciel-work: Work & SSE pane: W Work · S SSE · G Settings · J/K│
+     move · I inspect · Tab/arrows + Enter on the controls ·      │
+     click the dashboard for ↑↓/PgUp · Esc returns.               │
+                                                                  │
+                                                                  │
+                                                                  │
+w: Work 1/4 [~] Verify Betty .12 [+]                          [-] │
+                                                                  │
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [ASTRA (cielairouter)] workspace | SSE gate on: open                                                   work: run 1/4
+  ⏵⏵ bypass permissions on (shift+tab to cycle)

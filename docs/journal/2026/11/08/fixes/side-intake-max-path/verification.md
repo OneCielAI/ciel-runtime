@@ -79,3 +79,80 @@ The inbox files persisted: pending, then receipts. No `.tmp` was left. The route
 Cleanup:
 - The owned tree and router ended and the copied config was removed.
 - Live routers 9505/9489/9524 returned 200 before and after the run.
+
+# Beta 6933b8d release and local install
+
+- CI 42454579415 succeeded in every group.
+- Publish 42454579337 succeeded.
+- npm `beta` = `0.2.51-beta.20261108-063433.6933b8d`; `latest` 0.2.51 and `nightly` are unchanged.
+
+Registry check ([report](evidence/installed-beta-registry-6933b8d.json)): integrity, gitHead `6933b8d…f4f1` and all 509 source files verified.
+
+Local install:
+- The verified tarball was extracted to a new immutable snapshot (563 files) and installed with `npm install -g`.
+- User `CIEL_RUNTIME_HOME` now points to that snapshot.
+- Local live sessions run from older snapshots and were not restarted. Routers 9505/9489/9524 returned 200.
+
+[Installed smoke](evidence/installed-beta-smoke-6933b8d.json):
+- 563 package files match.
+- 5 isolated commands pass.
+- `claude plugin validate` passes.
+
+The keyboard + SSE console probe was rerun on the installed snapshot ([result](evidence/installed-keyboard/result.json)):
+- Keys behaved the same: `j`→n2, `j`→n3, `k`→n2, `s`→SSE, `w`→n2, Tab Tab Enter→Settings.
+- The strip now draws on two rows with no blank row between them ([frame](evidence/installed-keyboard/02-dashboard-before-sse.png)).
+- The P1 fork was shown ([frame](evidence/installed-keyboard/03-frame-05.png)) and answered ([frame](evidence/installed-keyboard/03-frame-21.png)).
+- No `.tmp` was left, and the scratch config was removed.
+
+# Betty u42 / Prody u41
+
+## How they launch
+
+A read-only check covered process command lines and user environment:
+- Both run `npm-bin/ciel-runtime.js` from their sandbox npm prefix (`C:\ProgramData\aap-win\sandboxes\u4X\home\<agent>\.npm-global`). That launcher runs the package it sits in.
+- Neither user has `CIEL_RUNTIME_HOME` set.
+- So only that package reaches their sessions. No remote install or restart was done from here.
+
+## Betty u42 after its own relaunch
+
+All times are Betty's clock, 2026-11-07.
+
+| Item | Value |
+| --- | --- |
+| Package in Betty's prefix | `0.2.51-beta.20261108-063433.6933b8d` |
+| Package written | 22:39:45, about five minutes after Publish |
+| Router 9564 started | 22:43:10 |
+
+How the package got there was not determined. This job ran no install or restart on .12.
+
+Betty's router log, from that start to 22:46:50:
+
+| Event | Count |
+| --- | --- |
+| `FileNotFoundError` | 0 |
+| `channel_side_intake_deferred` | 0 |
+| `channel_side_intake_accepted` | 1 |
+| `anthropic_sse_upstream_error_event` | 0 |
+
+Upstream requests in the same window:
+- `_Walkie_Haiku_Terra`: 7 requests of about 364k tokens. That size matches the side fork's full context.
+- `_Walkie_Sol61-Opus55-Fast`: 2 requests, the main session.
+
+## "Combo has no executable targets" (user screenshot)
+
+Before the relaunch, Betty's router sent six side requests to `model=_API_KEYS-SSE-1` (22:40:40–22:42:03, about 364k tokens each). Each one ended in `anthropic_sse_upstream_error_event` with no output.
+
+This matches the gateway answer recorded on 2026-11-07: the `API KEYS - SSE` combo returns `404 Combo has no executable targets` (`poolSize 0`). See [side-main-connection](../../../07/fixes/side-main-connection/fix.md).
+
+After the relaunch, no request names that combo. Why the side model differs before and after has not been determined: no ciel-runtime config file on u42 names either model.
+
+## Prody u41
+
+- Still runs `2df49b7` (package written 21:44:11).
+- Its router log holds 5,665 `FileNotFoundError` and 2,522 deferred events, and has not been written since 21:46:21.
+- Router 9592 returns 200.
+- Prody gets the fix only when its prefix holds 6933b8d or later and it relaunches.
+
+## Cleanup
+
+The owned probe folder `C:\Windows\Temp\ciel-obs-probe` was removed (722 MB, 2,102 files). No probe process or 9611 listener was left.
