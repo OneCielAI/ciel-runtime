@@ -134,7 +134,7 @@ export default function Observatory(props, surface) {
   // At the requested 90-column dock, match the reviewed overview: Work tree
   // and SSE flow are visible together. The active tab only chooses which side
   // owns ↑↓/Enter and the shared inspector; it never hides the other half.
-  if (width >= 72) {
+  if (width >= 48) {
     const workWidth = Math.floor(width * .58)
     const sideWidth = width - workWidth - 1
     const bodyRows = Math.max(7, height - 13)
