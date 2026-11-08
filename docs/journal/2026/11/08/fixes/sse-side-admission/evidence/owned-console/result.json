@@ -1,7 +1,28 @@
 {
+  "snapshot": "git archive of 34a83c335aa0a4658cf92e5d8a5ff8d96af1d513",
+  "frames_sent": [
+    "16,055-char Prody-shape CloudEvent (id prody-t)",
+    "32,259-char valid CloudEvent (id over-t)",
+    "not-json with SSE id (invalid-t)",
+    "whitespace-only frame with SSE id (empty-t)",
+    "canary CloudEvent (id canary-t)"
+  ],
+  "isolation": "owned conhost, copied sanitized config, router port 9611, loopback SSE source 9711; live routers 9505/9489/9524 untouched",
   "cursor": "canary-t",
   "fork_count": 4,
   "queue_rows_total": 4,
+  "dead_letters": [
+    {
+      "reason": "empty_frame",
+      "receiver_id": "default",
+      "event_source": "urn:ciel-runtime:invalid-sse:default",
+      "event_id": "invalid:empty-t:36a9e7f1c95b82ffb99743e0c5c4ce95d83c9a430aac59f84ef3cbfab6145068",
+      "event_type": "ciel.invalid_cloud_event",
+      "transport_event_id": "empty-t",
+      "chars": 1,
+      "sha256": "36a9e7f1c95b82ffb99743e0c5c4ce95d83c9a430aac59f84ef3cbfab6145068"
+    }
+  ],
   "events": [
     {
       "event": "urn:ciel-runtime:invalid-sse:default:invalid:invalid-t:0c21a879c732a6791",
@@ -26,7 +47,7 @@
       "event": "urn:owned:sse-admission:canary",
       "chars": 186,
       "utf8_bytes": 186,
-      "sha256": "239d28f34148d39f0e8ca10c24fda655b6ac2c8312b60fa9063ab6e20e03a527",
+      "sha256": "9abc25753e5f0039d9e81ddf53bee89d28c31c3d97869899f85580f9392a13ba",
       "stage": "processed",
       "fallback": "",
       "action": "answer",
@@ -45,7 +66,7 @@
       "event": "urn:owned:sse-admission:over-32k",
       "chars": 32259,
       "utf8_bytes": 32259,
-      "sha256": "b1000ad251959323e8620192a9bd5f2c2625b163ddaebeedaecef74e560c2d25",
+      "sha256": "94c39d9bc8858ea2f4a0eedaa370e3bcaab8f5036a501a044c1a84c60fd31f55",
       "stage": "processed",
       "fallback": "raw_text",
       "action": "answer",
@@ -64,7 +85,7 @@
       "event": "urn:owned:sse-admission:prody-16055",
       "chars": 16055,
       "utf8_bytes": 47655,
-      "sha256": "06e4d4b12c02b8ab3035dee969616d770654a87a8ada19563e842983cafa762e",
+      "sha256": "c76621fe04ff2ea53b679619bf37a4b548ffb5be53339ad47753dc0f2c2ae887",
       "stage": "processed",
       "fallback": "",
       "action": "answer",
@@ -79,13 +100,5 @@
         "agent-<fork>.jsonl"
       ]
     }
-  ],
-  "snapshot": "git archive of ede68b19f419596913b2438bd828447047b51bbc",
-  "frames_sent": [
-    "16,055-char Prody-shape CloudEvent (id prody-t)",
-    "32,259-char valid CloudEvent (id over-t)",
-    "not-json with SSE id (invalid-t)",
-    "canary CloudEvent (id canary-t)"
-  ],
-  "isolation": "owned conhost, copied sanitized config, router port 9611, loopback SSE source 9711; live routers 9505/9489/9524 untouched"
+  ]
 }

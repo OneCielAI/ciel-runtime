@@ -42,26 +42,28 @@ The supported isolated test entrypoint was used with inherited `CIEL_RUNTIME_*` 
 
 # Owned isolated console proof
 
-Snapshot: `git archive` of commit `ede68b1`, launched in an owned console with a new workspace, a copied sanitized config, router port 9611 and a loopback SSE source. The source sent four frames in this order:
+Snapshot: `git archive` of the reviewed commit `34a83c3`. It ran in an owned console with a new workspace, a copied sanitized config, router port 9611 and a loopback SSE source. The source sent five frames in this order:
 
 1. a 16,055-character Prody-shape CloudEvent (47,655 UTF-8 bytes);
 2. a valid 32,259-character CloudEvent;
 3. `not-json` carrying SSE id `invalid-t`;
-4. a canary CloudEvent.
+4. a whitespace-only frame carrying SSE id `empty-t`;
+5. a canary CloudEvent.
 
 Result ([manifest](evidence/owned-console/result.json)):
 
-| Event | Fallback | Queue row exact | Side stage | Fork action | Copies in main transcript |
+| Frame | Fallback | Queue row exact | Side stage | Fork action | Copies in main transcript |
 | --- | --- | --- | --- | --- | --- |
 | Prody shape, 16,055 chars | none | yes | processed | answer | 0 |
 | over 32K, 32,259 chars | `raw_text` | yes | processed | answer | 0 |
 | malformed, transport id | `raw_text` | yes | processed | clarify | 0 |
+| empty, transport id | content-free dead letter `empty_frame` | no queue row | — | — | 0 |
 | canary | none | yes | processed | answer | 0 |
 
 - The SSE cursor reached `canary-t`. In the earlier code, the first frame alone pinned the stream.
 - Each exact original was found in exactly one side-fork transcript.
 - No queue row was `raw_injection`, and each runtime status ended `replied`.
-- Two earlier runs of the same scenario gave the same four `processed` receipts and the same cursor. Their screenshots were blank because the probe window was minimized; the capture helper now restores the owned window first.
+- Earlier runs on `ede68b1` gave the same four `processed` receipts and the same cursor. Two of them had blank screenshots because the probe window was minimized; the capture helper now restores the owned window first.
 
 Screenshots (title bar and debug-log path redacted):
 
@@ -69,7 +71,7 @@ Screenshots (title bar and debug-log path redacted):
 - [three side forks active](evidence/owned-console/02-three-side-forks-active.png)
 - [all four answered (`IN 0 AI 0 ANS 4`)](evidence/owned-console/03-all-four-answered.png)
 
-Observed but not explained: in this run the status line read `SSE gate on: held (identity_pending)`; the earlier run showed `open`. That label comes from `runtime_compaction_binding.py`, which this change does not modify, and delivery completed in both runs. Its cause was not investigated.
+Observed but not explained: in the screenshot runs the status line read `SSE gate on: held (identity_pending)`, while one earlier run showed `open`. That label comes from `runtime_compaction_binding.py`, which this change does not modify, and delivery completed in both runs. Its cause was not investigated.
 
 # Beta and Prody pickup
 
