@@ -160,30 +160,40 @@ export default function Observatory(props, surface) {
 
     const counts = { received: 0, processing: 0, answered: 0, work: 0, failed: 0 }
     for (const receipt of sideRows) counts[stage(receipt)] = (counts[stage(receipt)] || 0) + 1
-    const sideChildren = [
-      Text({ color: C.cyan, weight: 'bold', children: pad('SSE FLOW ' + sideRows.length, sideWidth) }),
-      Text({ color: C.dim, children: clip('IN ' + counts.received + '  AI ' + counts.processing
-        + '  ANSWER ' + counts.answered + '  WORK ' + counts.work, sideWidth) }),
+    // The bordered column draws inside its border and left padding. Text wraps by
+    // default, so a row clipped to the outer width wrapped and pushed later rows out
+    // (real console, 51-cell dock: summaries and "No active side fork" vanished).
+    const inner = Math.max(8, sideWidth - 2)
+    const innerRows = Math.max(3, bodyRows - 1)
+    // Rows are keyed by position and padded to the full width on a solid background.
+    // Content-keyed rows (actor or receipt ids) left a retired row's cells painted in
+    // Claude Code 2.1.310 when a fork ended (real console, owned probe).
+    const specs = [
+      { value: 'SSE FLOW ' + sideRows.length, color: C.cyan, weight: 'bold' },
+      { value: 'IN ' + counts.received + ' AI ' + counts.processing + ' ANS ' + counts.answered + ' WORK ' + counts.work, color: C.dim },
     ]
     const activeActors = (props.actors || []).slice(0, 3)
-    if (activeActors.length) {
-      sideChildren.push(Text({ color: C.pink, weight: 'bold', children: clip('ACTIVE FORKED SSE SESSIONS', sideWidth) }))
-      for (const actor of activeActors) sideChildren.push(Text({ key: 'wide-actor-' + actor.id, color: C.cyan,
-        children: clip('▶ ' + actor.id + ' · ' + (actor.model || 'inherit'), sideWidth) }))
-    } else sideChildren.push(Text({ color: C.dim, children: 'No active side fork' }))
-    const sideLimit = Math.max(2, bodyRows - sideChildren.length)
-    for (const [index, receipt] of sideRows.slice(0, sideLimit).entries()) {
+    const actor = activeActors[0]
+    // Fixed actor slots keep the first receipt on the same terminal row before,
+    // during and after a fork. The header reports the full active count; the full
+    // width SSE tab lists up to three actors.
+    specs.push({ value: activeActors.length ? 'ACTIVE SSE FORKS ' + activeActors.length : 'No active side fork',
+      color: activeActors.length ? C.pink : C.dim, weight: activeActors.length ? 'bold' : undefined })
+    specs.push({ value: actor ? '▶ fork ' + actor.id : ' ', color: C.cyan })
+    specs.push({ value: actor ? '  model ' + (actor.model || 'inherit') : ' ', color: C.violet })
+    for (const [index, receipt] of sideRows.slice(0, Math.max(1, innerRows - specs.length)).entries()) {
       const selectedRow = props.tab === 'side' && index === selected
-      sideChildren.push(Box({ key: 'wide-side-' + receipt.id, height: 1, overflow: 'hidden',
-        backgroundColor: selectedRow ? C.selected : undefined, children: [Text({ color: stageColor(stage(receipt)),
-          children: clip((selectedRow ? '▸ ' : '  ') + (receipt.priority || '--') + ' ' + stage(receipt)
-            + ' ' + receipt.summary, sideWidth) })] }))
+      specs.push({ value: (selectedRow ? '▸' : ' ') + (receipt.priority || '--') + ' ' + stage(receipt) + ' ' + (receipt.summary || ''),
+        color: stageColor(stage(receipt)), background: selectedRow ? C.selected : undefined })
     }
-    while (sideChildren.length < bodyRows + 1) sideChildren.push(Text({ key: 'side-space-' + sideChildren.length, children: ' ' }))
+    while (specs.length < innerRows) specs.push({ value: ' ', color: C.dim })
+    const sideChildren = specs.slice(0, innerRows).map((spec, index) => Box({ key: 'side-row-' + index, height: 1,
+      flexShrink: 0, overflow: 'hidden', backgroundColor: spec.background || C.panel, children: [Text({ wrap: 'truncate-end',
+        color: spec.color, weight: spec.weight, children: pad(spec.value, inner) })] }))
     children.push(Box({ key: 'wide-body', height: bodyRows + 1, overflow: 'hidden', flexDirection: 'row', children: [
       Box({ key: 'wide-work', width: workWidth, height: bodyRows + 1, overflow: 'hidden',
         flexDirection: 'column', children: workChildren }),
-      Box({ key: 'wide-side', width: sideWidth + 1, height: bodyRows + 1, overflow: 'hidden',
+      Box({ key: 'wide-side', width: sideWidth + 1, height: bodyRows + 1, overflow: 'hidden', backgroundColor: C.panel,
         borderStyle: 'single', borderColor: C.line, paddingLeft: 1, flexDirection: 'column', children: sideChildren }),
     ] }))
     const chosen = props.tab === 'side' ? sideRows[selected] : workRows[selected]

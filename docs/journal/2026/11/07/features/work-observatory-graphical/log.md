@@ -2,6 +2,10 @@
 
 ## 2026-11-07
 
+- Released and installed beta 8bd9fe2 locally (registry verified, new snapshot, smoke passed).
+- Real SSE probe found that `/work-mode view` did not open the pane, that SSE rows vanished and that
+  finished forks stayed painted; fixed all three and verified fork active → ended → answered in a real console.
+
 - Acknowledged that 93be24c did not implement the reviewed graphical mockup.
 - Added terminal Client dashboard with Work hierarchy, SSE flow, progress, parallel lanes and inspector.
 - Added host-owned active side-fork projection.

@@ -662,11 +662,18 @@ function graphicProps(identity, view, state) {
       reserved: Number(policy.p1_reserved || 0) > 0 },
     model: observatorySettings?.settings?.find(row => row.key === 'work_side_intake_model')?.value || 'inherit' }
 }
+// Resolves 'opened', 'off' or 'unavailable'.
 async function openDetails($, id = null, origin = null) {
   const identity = await sessionId($)
-  if (origin && identity !== origin) return
-  const s = await refresh($)
-  if (!s?.enabled || await sessionId($) !== identity) return
+  if (origin && identity !== origin) return 'unavailable'
+  // A display refresh started meanwhile (idle poll, turn start) supersedes this one and
+  // refresh() yields null; /work-mode view then returned without opening the pane
+  // (owned console, 2026-11-07). The person asked for the pane: read this request's own snapshot.
+  let s = await refresh($)
+  if (!s && await sessionId($) === identity) s = await readSnapshot($, identity).catch(() => null)
+  if (await sessionId($) !== identity) return 'unavailable'
+  if (!s) return 'unavailable'
+  if (!s.enabled) return 'off'
   try {
     const previous = await read($, detailView)
     const queuedRoot = rootsOf(s).find(n => n.id === id)
@@ -688,11 +695,11 @@ async function openDetails($, id = null, origin = null) {
     await update($, detailView, () => ({ session: identity, id, version: s.version, nodes: [],
       error: clipped(error.message || 'Work details unavailable.', 200) }))
   }
-  if (await sessionId($) === identity) {
-    await observatoryRefresh($, identity)
-    await $.ui.open({ id: PANE, title: 'Work & SSE Observatory',
-      focus: true, closeOnEscape: true, backgroundColor: '#0b1118', rows: 32, columns: 90 })
-  }
+  if (await sessionId($) !== identity) return 'unavailable'
+  await observatoryRefresh($, identity)
+  await $.ui.open({ id: PANE, title: 'Work & SSE Observatory',
+    focus: true, closeOnEscape: true, backgroundColor: '#0b1118', rows: 32, columns: 90 })
+  return 'opened'
 }
 // A transcript notice for the person, once per session start; the model never reads it.
 function notice($, ticket) {
@@ -1510,7 +1517,12 @@ export function register(on) {
           + (parallelFailures.map(f => '  ' + f.at + ' · ' + clipped(f.stage, 60) + ' · ' + f.detail).join('\n') || '  none recorded') }
       }
     }
-    if (arg === 'view') { await openDetails($); return { text: 'Work & SSE pane: W Work · S SSE · G Settings · Tab/arrows navigate · Enter opens · Esc returns.' } }
+    if (arg === 'view') {
+      const opened = await openDetails($)
+      return { text: opened === 'opened' ? 'Work & SSE pane: W Work · S SSE · G Settings · Tab/arrows navigate · Enter opens · Esc returns.'
+        : opened === 'off' ? 'Ciel Work mode is off. Turn it on: ciel-runtime menu → LLM options → Work mode, or ask the agent (work_mode_set).'
+          : UNAVAILABLE + ' The pane was not opened; retry /work-mode view.' }
+    }
     const s = await refresh($)
     if (!s) return { text: UNAVAILABLE }
     if (!s.enabled) return { text: 'Ciel Work mode is off. Turn it on: ciel-runtime menu → LLM options → Work mode, or ask the agent (work_mode_set).' }

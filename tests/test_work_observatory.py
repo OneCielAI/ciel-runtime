@@ -100,6 +100,11 @@ class WorkObservatoryTests(unittest.TestCase):
     def test_settings_command_opens_the_pane_settings_tab(self):
         self.assertIn('Settings tab', self.result['composer'])
 
+    def test_view_opens_even_when_a_display_refresh_overlaps(self):
+        race = self.result['race']
+        self.assertTrue(race['opened'])
+        self.assertIn('Work & SSE pane', race['text'])
+
 
 if __name__ == '__main__':
     unittest.main()

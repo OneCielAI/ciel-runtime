@@ -1,0 +1,62 @@
+{
+  "outcome": "fork-shown",
+  "fork_settled": true,
+  "event_served": true,
+  "scratch_removed": true,
+  "owned_router_pids": [],
+  "tree_before_kill": [
+    "conhost.exe",
+    "cmd.exe",
+    "py.exe",
+    "python.exe"
+  ],
+  "sse_column_transitions": [
+    {
+      "label": "03-frame-01",
+      "active_fork": false,
+      "sse_column": [
+        "SSE FLOW 0",
+        "IN 0 AI 0 ANS 0 WOR…",
+        "No active side fork"
+      ]
+    },
+    {
+      "label": "03-frame-02",
+      "active_fork": true,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 1 ANS 0 WOR…",
+        "ACTIVE SSE FORKS 1",
+        "▶ fork a8cdd466f0da…",
+        "model ciel-runtim…",
+        "P1 processing [mes…"
+      ]
+    },
+    {
+      "label": "03-frame-17",
+      "active_fork": false,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 0 ANS 0 WOR…",
+        "No active side fork",
+        "P1 pending [messag…"
+      ]
+    },
+    {
+      "label": "03-frame-18",
+      "active_fork": false,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 0 ANS 1 WOR…",
+        "No active side fork",
+        "P1 answered [messa…"
+      ]
+    }
+  ],
+  "receiver": {
+    "transport": "sse",
+    "enabled": true,
+    "input_transport": "auto"
+  },
+  "probe": ".local/owned_sse_fork_probe.py (copied here as real-sse-fork-probe.py)"
+}

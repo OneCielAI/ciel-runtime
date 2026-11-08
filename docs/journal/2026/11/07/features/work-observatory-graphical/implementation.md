@@ -27,6 +27,25 @@ Box/Text/Button list for Work and SSE:
 - Mouse: top thirds switch Work/SSE/Settings; rows select by pointer.
 - Mobile, desktop, VS Code and narrow surfaces retain the cross-surface Button fallback.
 
+# Real-SSE corrections (after beta 8bd9fe2)
+
+A real SSE event delivered through the owned router's receiver exposed three defects that the engine
+tests did not:
+
+1. **`/work-mode view` silently did not open the pane.** `openDetails` gave up when its display refresh
+   was superseded (an idle poll or turn start bumps the refresh generation, and `refresh()` then yields
+   `null`). The command still printed "Work & SSE pane: …". Fix: the request falls back to its own
+   snapshot read, and the command reports `off`/`unavailable` instead of claiming success. Regression:
+   `tests/test_work_observatory.py::test_view_opens_even_when_a_display_refresh_overlaps` fails on
+   8bd9fe2's `register.js` (`opened: False`) and passes now.
+2. **SSE column rows vanished.** Rows were clipped to the column's outer width; inside the border and
+   padding they wrapped, so "No active side fork" and receipt summaries were pushed out of the 51-cell
+   dock. Rows are now one-row boxes clipped to the inner width with `wrap: 'truncate-end'`.
+3. **A finished fork stayed painted.** When the actor list shrank, Claude Code 2.1.310 left the retired
+   rows' cells on screen. Rows are now keyed by position, padded to the full inner width on the panel
+   background, and the fork area keeps a fixed three-row slot (title, fork id, model), so the
+   receipt rows never move between the active and finished states.
+
 # Fullscreen boundary
 
 Claude Code 2.1.319's Mods `$.ui.open()` accepts `rows` and `columns`, not a fullscreen flag. The binary's dock

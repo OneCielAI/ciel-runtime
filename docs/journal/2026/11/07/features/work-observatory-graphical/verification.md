@@ -35,6 +35,47 @@ one seven-node Work hierarchy and two redacted SSE receipts in its isolated work
 
 The owned process tree ended, its copied config was removed, and live router health on 9505/9489/9524 remained 200.
 
+## Beta 8bd9fe2 release and local install
+
+- CI 42441323599 and Publish 42441323714: success. npm `beta` = `0.2.51-beta.20261108-031852.8bd9fe2`;
+  `latest` and `nightly` unchanged.
+- Registry tarball verified (integrity, gitHead, 509 source files); extracted to a new immutable snapshot;
+  `npm install -g` of that tarball; User `CIEL_RUNTIME_HOME` switched to the snapshot. No live session or
+  router was restarted.
+- [Installed smoke](evidence/installed-beta-smoke-8bd9fe2.json) ([script](evidence/installed-beta-smoke.py)):
+  563 matching package files, `claude plugin validate` passes, Client module present, isolated ctl
+  settings read/write.
+
+## Real SSE event and side fork (owned console)
+
+[Probe](evidence/real-sse-fork-probe.py): installed snapshot plus the patched mod, isolated copied
+config, router port 9611. A local SSE source registered as the router's `default` receiver sends one P1
+CloudEvent. It goes through the production receiver, then the side inbox, then the mod's
+`ciel-work:side-intake` fork. No prompt goes to the main session.
+
+On 8bd9fe2 itself:
+
+- the pane did not open at all ([screenshot](evidence/real-sse-bug-pane-not-opened.png)); only the old
+  `btw_with_mcp` pane opened;
+- after the first fix, a finished fork stayed painted
+  ([screenshot](evidence/real-sse-bug-stale-fork-cells.png)).
+
+After the three corrections ([result](evidence/real-sse-fork-result.json)), the SSE column moved
+through these states:
+
+| Frame | SSE column |
+| --- | --- |
+| [before event](evidence/real-sse-00-before-event.png) | SSE FLOW 0 · No active side fork |
+| [fork active](evidence/real-sse-01-fork-active.png) | SSE FLOW 1 · AI 1 · ACTIVE SSE FORKS 1 · ▶ fork a8cdd466f0da… · model ciel-runtim… · P1 processing |
+| [fork ended](evidence/real-sse-02-fork-ended-pending.png) | No active side fork · P1 pending |
+| [answered](evidence/real-sse-03-answered.png) | ANS 1 · No active side fork · P1 answered |
+
+The owned process tree and router ended, the copied config was removed, and live routers
+9505/9489/9524 stayed at 200.
+
+Focused tests: `tests.test_work_observatory` 7 OK. `claude plugin test`: 22 pass / 77 fail, the same
+pre-existing `work.test.ts` baseline.
+
 # Betty .12
 
 Pending beta publish/install and on-target screenshot. The read-only pre-check established u42 currently runs

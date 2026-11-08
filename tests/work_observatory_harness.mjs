@@ -124,4 +124,19 @@ const narrow = await render('terminal', 50)
 out.narrow = { hint: texts(narrow).at(-1) }
 const composer = await hook('command.run', { command: 'work-mode' })($, { args: 'settings', origin: { kind: 'composer' } })
 out.composer = composer.text
+// A display refresh (turn start) begun while /work-mode view reads its snapshot must not
+// cancel opening the pane.
+const call = $.mcp.call
+let release, gate = new Promise(resolve => { release = resolve })
+$.mcp.call = async (server, tool, args) => {
+  if (gate && tool === 'work_status' && !args.detail) { const held = gate; gate = null; await held }
+  return call(server, tool, args)
+}
+opens.length = 0
+const racing = hook('command.run', { command: 'work-mode' })($, { args: 'view', origin: { kind: 'composer' } })
+await new Promise(resolve => setTimeout(resolve, 0))
+await hook('turn.start', {})($, {}, async e => e)
+release()
+out.race = { text: (await racing).text, opened: opens.some(o => o.id === 'work-details') }
+$.mcp.call = call
 console.log(JSON.stringify(out))

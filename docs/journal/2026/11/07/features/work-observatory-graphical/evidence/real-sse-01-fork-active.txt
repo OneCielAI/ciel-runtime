@@ -1,0 +1,30 @@
+                                                                  │ Work & SSE Observatory   btw_with_mcp             ✕
+           Claude Code v2.1.310                                   │WORK / SESSION 1         SSE FLOW 1          SETTINGS
+ ▐▛███▛█   ciel-runtime-cielairouter-astra with xhigh effort      │▶ Graphical Work Observatory
+▝▜██████▀  API Usage Billing                                      │█████████░░░░░░░░░░░░░░░░░░░░░░░░░░░ 1/4
+ ▝▝   ▝▝   ~\AppData\Local\Temp\ciel-owned-sse-fork-anrnydeb\…    │PARALLEL 0/5 □□□□□ +P1  M inherit
+                                                                  │─────────────────────────────────────────────────────
+▎ Debug mode enabled · logging to                                 │WORK TREE 7                   ┌─────────────────────┐
+▎ C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\.local\owne│▸ · P1 Graphical Work Ob…0/2  │ SSE FLOW 1          │
+▎ d-sse-fork-20261107-215602\claude-debug.txt                     │    · Release graphical p…1/2 │ IN 0 AI 1 ANS 0 WOR…│
+                                                                  │      ✓ Render Work hierarchy │ ACTIVE SSE FORKS 1  │
+● ciel-work: Ciel Work mode is on: plan and execute by            │      ▶ Verify Betty .12      │ ▶ fork a8cdd466f0da…│
+  item; new independent requests queue without pausing            │    · Process external SS…0/2 │   model ciel-runtim…│
+  approved Work. Items show above the prompt · /work-mode         │      · ACK incoming message  │  P1 processing [mes…│
+  help · turn off: ciel-runtime menu → LLM options → Work         │      · Queue P1 work         └─────────────────────┘
+  mode, or the agent (work_mode_set)                              │─ INSPECTOR WORK n1 ────────────────────────────────…
+                                                                  │Graphical Work Observatory
+❯ /work-mode                                                      │P1 · pending
+  ⎿  ciel-work: Work & SSE pane: W Work · S SSE · G Settings ·    │click header: Work/SSE/Settings · ↑↓ move · W/S · En…
+     Tab/arrows navigate · Enter opens · Esc returns.             │
+                                                                  │
+w: Work 1/4 [~] Verify Betty .12 [+]                          [-] │
+  ⚠ claude.ai connectors are disabled because ANTHROPIC_API_KEY…  │
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [ASTRA (cielairouter)] workspace | SSE gate on: open                                                   work: run 1/4
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+
+  ● main
+  ◯ fork  Side SSE fd5f7411488b                                                                                     2s
