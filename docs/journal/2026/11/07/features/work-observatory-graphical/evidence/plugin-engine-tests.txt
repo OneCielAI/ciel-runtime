@@ -1,0 +1,452 @@
+
+tests\observatory.test.ts:
+(pass) /work-mode settings opens the pane on its Settings tab [155.42ms]
+(pass) Work & SSE pane validates and navigates on terminal [122.27ms]
+(pass) Work & SSE pane validates and navigates on mobile [96.83ms]
+
+tests\work.test.ts:
+(pass) live Work settings command works while board is off without model prompt [118.85ms]
+(pass) side intake command calls MCP and keeps main prompt untouched [74.36ms]
+(fail) immediate command, router tree, bounded prompt context [89.20ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "Goal -> phase"
+  Received: "Work status unavailable: router connection or snapshot could not be verified."
+  
+  nothing beneath the plugins answers clock.after: a test answers it with on('clock.after', ...): { value: ... } for a call on $, the event's own result otherwise
+  
+  the engine reported:
+    ciel-work: $.clock.after refused: no implementation for clock.after
+    ciel-work: $.clock.after refused: no implementation for clock.after
+(fail) planning denies all known writes including subagents; live phase refresh [63.76ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "planning"
+  Received: "Work status unavailable: router connection or snapshot could not be verified. [unknown; wg-mw787ftp-1]"
+  
+  nothing beneath the plugins answers ui.log: a test answers it with on('ui.log', ...): { value: ... } for a call on $, the event's own result otherwise
+  
+  the engine reported:
+    [ciel-work] $.ui.log dropped: HooksError: no implementation for ui.log
+(fail) only exact engine plan attachments exempt Edit and Write in the same native loop [59.35ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "planning"
+  Received: "Work status unavailable: router connection or snapshot could not be verified. [unknown; wg-mw787fvd-1]"
+  
+  nothing beneath the plugins answers ui.log: a test answers it with on('ui.log', ...): { value: ... } for a call on $, the event's own result otherwise
+  
+  the engine reported:
+    [ciel-work] $.ui.log dropped: HooksError: no implementation for ui.log
+(fail) native Windows plan facts accept slash spelling without widening the path [69.13ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "planning"
+  Received: "Work status unavailable: router connection or snapshot could not be verified. [unknown; wg-mw787fxa-1]"
+  
+  nothing beneath the plugins answers ui.log: a test answers it with on('ui.log', ...): { value: ... } for a call on $, the event's own result otherwise
+  
+  the engine reported:
+    [ciel-work] $.ui.log dropped: HooksError: no implementation for ui.log
+(fail) no guessed paths, prose, plugin context or EnterPlanMode result can identify a plan file [54.82ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "planning"
+  Received: "Work status unavailable: router connection or snapshot could not be verified. [unknown; wg-mw787fys-1]"
+  
+  nothing beneath the plugins answers ui.log: a test answers it with on('ui.log', ...): { value: ... } for a call on $, the event's own result otherwise
+  
+  the engine reported:
+    [ciel-work] $.ui.log dropped: HooksError: no implementation for ui.log
+(fail) native plan exemption clears on exit, missing facts and session changes; offline permits only that file [55.51ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "planning"
+  Received: "Work status unavailable: router connection or snapshot could not be verified. [unknown; wg-mw787g0c-1]"
+  
+  nothing beneath the plugins answers ui.log: a test answers it with on('ui.log', ...): { value: ... } for a call on $, the event's own result otherwise
+  
+  the engine reported:
+    [ciel-work] $.ui.log dropped: HooksError: no implementation for ui.log
+(fail) shells delegate to native policy and disabled state clears edit guards [62.48ms]
+  AssertionError: expect(received).toBeUndefined()
+  
+  Expected: undefined
+  Received: "Work status unavailable: router connection or snapshot could not be verified. [unknown; wg-mw787g22-1]"
+  
+  nothing beneath the plugins answers ui.log: a test answers it with on('ui.log', ...): { value: ... } for a call on $, the event's own result otherwise
+  
+  the engine reported:
+    [ciel-work] $.ui.log dropped: HooksError: no implementation for ui.log
+(pass) Bash never depends on Work status or rewrites native permission results [97.51ms]
+(pass) PowerShell never depends on Work status or rewrites native permission results [116.25ms]
+(pass) unavailable and malformed status fail closed but reads pass [56.48ms]
+(fail) auto strips forged confirmation and refreshes after result [51.88ms]
+  TypeError: undefined is not an object (evaluating 's.tools[0].user_confirmed')
+  
+  nothing beneath the plugins answers ui.log: a test answers it with on('ui.log', ...): { value: ... } for a call on $, the event's own result otherwise
+  
+  the engine reported:
+    [ciel-work] $.ui.log dropped: HooksError: no implementation for ui.log
+(fail) ask: Approve [59.42ms]
+  AssertionError: expect(received).toBe()
+  
+  Expected: 1
+  Received: 0
+  
+  nothing beneath the plugins answers ui.log: a test answers it with on('ui.log', ...): { value: ... } for a call on $, the event's own result otherwise
+  
+  the engine reported:
+    [ciel-work] $.ui.log dropped: HooksError: no implementation for ui.log
+(fail) ask: Keep planning [58.25ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "not approved"
+  Received: "Work status unavailable: router connection or snapshot could not be verified. [unknown; wg-mw787ge9-1]"
+  
+  nothing beneath the plugins answers ui.log: a test answers it with on('ui.log', ...): { value: ... } for a call on $, the event's own result otherwise
+  
+  the engine reported:
+    [ciel-work] $.ui.log dropped: HooksError: no implementation for ui.log
+(fail) ask: Other [52.79ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "not approved"
+  Received: "Work status unavailable: router connection or snapshot could not be verified. [unknown; wg-mw787gfr-1]"
+  
+  nothing beneath the plugins answers ui.log: a test answers it with on('ui.log', ...): { value: ... } for a call on $, the event's own result otherwise
+  
+  the engine reported:
+    [ciel-work] $.ui.log dropped: HooksError: no implementation for ui.log
+(fail) approval rejects changed plan [55.70ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "changed"
+  Received: "Work status unavailable: router connection or snapshot could not be verified. [unknown; wg-mw787gha-1]"
+  
+  nothing beneath the plugins answers ui.log: a test answers it with on('ui.log', ...): { value: ... } for a call on $, the event's own result otherwise
+  
+  the engine reported:
+    [ciel-work] $.ui.log dropped: HooksError: no implementation for ui.log
+(fail) SessionMode planning, progress, off and unavailable are read-only renders [55.29ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "work: plan 0/2"
+  Received: "work: unavailable"
+(fail) offline shells delegate but execute and missing approval tree still fail closed [60.55ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "not obtained"
+  Received: "Work status unavailable: router connection or snapshot could not be verified. [unknown; wg-mw787gki-2]"
+  
+  nothing beneath the plugins answers ui.log: a test answers it with on('ui.log', ...): { value: ... } for a call on $, the event's own result otherwise
+  
+  the engine reported:
+    [ciel-work] $.ui.log dropped: HooksError: no implementation for ui.log
+    [ciel-work] $.ui.log dropped: HooksError: no implementation for ui.log
+(fail) every Work result refreshes; another server is not treated as Work [50.99ms]
+  AssertionError: expect(received).toBe()
+  
+  Expected: 2
+  Received: 0
+(fail) agent work_mode_set refreshes: off lifts the edit gate and prompt context, on restores them [64.92ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "planning"
+  Received: "Work status unavailable: router connection or snapshot could not be verified. [unknown; wg-mw787gnq-1]"
+  
+  nothing beneath the plugins answers ui.log: a test answers it with on('ui.log', ...): { value: ... } for a call on $, the event's own result otherwise
+  
+  the engine reported:
+    [ciel-work] $.ui.log dropped: HooksError: no implementation for ui.log
+(fail) conversation changes isolate every router read and override forged tool session ids [56.35ms]
+  TypeError: undefined is not an object (evaluating 's.calls.at(-1).args')
+(fail) approval rejects a conversation switch even when plan counters match [61.52ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "changed"
+  Received: "Work status unavailable: router connection or snapshot could not be verified. [unknown; wg-mw787gr0-1]"
+  
+  nothing beneath the plugins answers ui.log: a test answers it with on('ui.log', ...): { value: ... } for a call on $, the event's own result otherwise
+  
+  the engine reported:
+    [ciel-work] $.ui.log dropped: HooksError: no implementation for ui.log
+(pass) identical blockers survive unrelated version changes without repeated reassessment [61.21ms]
+(pass) background work does not suppress one bounded wait reassessment [57.02ms]
+(fail) normal Stop continues, unchanged plan is bounded, progress and user input reset it [58.66ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "Verify next"
+  Received: undefined
+(pass) Stop guard {"enabled":false} [62.39ms]
+(pass) Stop guard {"auto_continue":false} [52.51ms]
+(pass) Stop guard {"continuation":{"actionable":0}} [63.48ms]
+(pass) Stop guard {"phase":"planning","approval":"ask","ready":true} [51.20ms]
+(fail) Stop continues independent Work despite background tasks; excludes children, other conversations and offline [50.52ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "proceed only with independent Work"
+  Received: undefined
+(fail) a stop with unfinished but unrunnable Work explains why, once per state, without continuing [58.36ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "none can run now"
+  Received: "Ciel Work auto continue could not read the Work status, so unfinished items were not checked. /work-mode status"
+(fail) a runnable item is still pushed after an explained stall, with the same no-progress bound [54.52ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "The next item is n2: Runnable step"
+  Received: undefined
+(fail) approval, background tasks and an unreadable status explain the stop; finished or off Work stays silent [54.17ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "waits for your approval"
+  Received: "Ciel Work auto continue could not read the Work status, so unfinished items were not checked. /work-mode status"
+(fail) background Work continuation reaches the same bounded block path, not person-only log [56.18ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "The next item is leaf: Verify next"
+  Received: undefined
+(fail) a Stop read superseded by a newer successful read is not reported as unavailable [58.92ms]
+  AssertionError: expect(received).toBe()
+  
+  Expected: 1
+  Received: 0
+(fail) auto planning continues decomposition but never crosses an approval boundary [47.14ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "No new scope or approval boundary"
+  Received: undefined
+(fail) main compact suppresses Stop decisions and reads {} [57.46ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "Verify next"
+  Received: undefined
+(pass) main compact suppresses Stop decisions and reads {"continuation":{"actionable":0,"next":null,"waiting":[{"id":"n76","title":"Deploy","waiting_on":"peer review"}],"blocked":8,"held":0},"queue":[{"id":"n1","title":"Queued","status":"in_progress","done":22,"total":24},{"id":"n42","title":"Closed steps","status":"blocked","done":5,"total":5}]} [51.96ms]
+(pass) main compact suppresses Stop decisions and reads {"phase":"planning","approval":"ask","ready":true} [48.81ms]
+(fail) main compact settlement resets no-progress without synthetic continuation: complete [43.64ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "Verify next"
+  Received: undefined
+(fail) main compact settlement resets no-progress without synthetic continuation: skip [47.10ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "Verify next"
+  Received: undefined
+(fail) main compact settlement resets no-progress without synthetic continuation: fail [58.81ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "Verify next"
+  Received: undefined
+(fail) child or precompute compact neither suppresses nor resets main Stop {"agentId":"child"} [63.88ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "Verify next"
+  Received: undefined
+(fail) child or precompute compact neither suppresses nor resets main Stop {"trigger":"precompute"} [52.92ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "Verify next"
+  Received: undefined
+(fail) compact entering during Stop read invalidates late decision; settled first=false [5002.49ms]
+  Error: timed out after 5000 ms
+(fail) compact entering during Stop read invalidates late decision; settled first=true [5002.32ms]
+  Error: timed out after 5000 ms
+(fail) compact invalidates an outstanding stalled or failed Stop read without logging; offline=false [75.69ms]
+  TypeError: release is not a function. (In 'release()', 'release' is undefined)
+(fail) compact invalidates an outstanding stalled or failed Stop read without logging; offline=true [77.19ms]
+  TypeError: release is not a function. (In 'release()', 'release' is undefined)
+(fail) session switch during Stop read cannot consume the new session continuation or version floor [72.99ms]
+  TypeError: release is not a function. (In 'release()', 'release' is undefined)
+(fail) child and precompute entry during a Stop read do not invalidate it [76.48ms]
+  TypeError: release is not a function. (In 'release()', 'release' is undefined)
+(fail) old compact cannot suppress or reset a different session/lifecycle; restart=false [79.67ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "Verify next"
+  Received: undefined
+(fail) old compact cannot suppress or reset a different session/lifecycle; restart=true [93.04ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "Verify next"
+  Received: undefined
+(pass) overlapping main compacts wait for every settlement and preserve native Stop gates [82.87ms]
+(fail) Stop status wall-clock deadline returns native result; late read cannot change Work state [75.73ms]
+  AssertionError: expect(received).toBe()
+  
+  Expected: 1
+  Received: 0
+(fail) Stop read failure preserves native result and does not consume no-progress [90.80ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "Verify next"
+  Received: undefined
+(fail) three levels display linked ids, waits, urgent holds and green done checks [92.57ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "[ A-10 ] Cache"
+  Received: undefined
+(fail) root move buttons pin version, identity and explicit user request [99.79ms]
+  HooksError: press: no Button of ciel-work keyed "up-q" is drawn in this Pane on the terminal surface
+(fail) Inspector focus and clear pin exact user intent, version and conversation [82.31ms]
+  HooksError: press: no Button of ciel-work keyed "detail-focus" is drawn in this Pane on the terminal surface
+(fail) Inspector appends an inspected existing item to focus in order [84.68ms]
+  HooksError: press: no Button of ciel-work keyed "detail-focus-add" is drawn in this Pane on the terminal surface
+(fail) focus intent reaches model and exhausted focus explains held unrelated Work [69.58ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "call work_focus"
+  Received: "Work parallel: read work_parallel_status. Queue registration is not an execution-slot decision; max_active (default 5) limits only workers actually processing. P1 may use every free slot ASAP; P2 and lower start in remaining slots and wait while all are busy. Dispatch approved items with work_parallel_run, focused items first; the host starts the fork and returns its lease, so do not call Agent for a Work dispatch. A waiting/blocked worker returns its slot but its item and lease stay recorded; resume it only after its slot is reacquired. Submission is not completion: validate, review, accept, observe idle and verify cleanup before done. Unknown host capacity retains actually-running slots. Native permissions remain authoritative; this is not a shell sandbox."
+(fail) compact footer and vertical branch buttons [82.41ms]
+  AssertionError: expect(received).toEqual()
+  
+  Expected: ["work: run 0/2"]
+  Received: ["work: unavailable"]
+(fail) branch press opens read-only details with notes and evidence, nested node and parent [78.16ms]
+  HooksError: press: no Button of ciel-work keyed "branch-a" is drawn in this AbovePrompt on the terminal surface
+(fail) detail state is hidden after version or conversation changes and offline [87.31ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "refresh"
+  Received: undefined
+(fail) interactive start logs one person-facing notice; -p and off do not [90.21ms]
+  AssertionError: expect(received).toBe()
+  
+  Expected: 1
+  Received: 0
+  
+  nothing beneath the plugins answers clock.after: a test answers it with on('clock.after', ...): { value: ... } for a call on $, the event's own result otherwise
+  
+  the engine reported:
+    ciel-work: $.clock.after refused: no implementation for clock.after
+    ciel-work: $.clock.after refused: no implementation for clock.after
+    ciel-work: $.clock.after refused: no implementation for clock.after
+(fail) a router still connecting at start is read again; band and notice follow once it answers [112.85ms]
+  AssertionError: expect(received).toBe()
+  
+  Expected: 1
+  Received: 0
+(fail) start retries stop after a bounded window, on a new session start and when Work is off [109.38ms]
+  AssertionError: expect(received).toBe()
+  
+  Expected: 1
+  Received: 0
+(fail) idle refresh reflects out-of-band edits, backs off and never starts a model turn [96.27ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "Updated over HTTP"
+  Received: undefined
+(fail) idle refresh pauses in a main turn but not a child turn, and stops at end or disabled [74.48ms]
+  AssertionError: expect(received).toBe()
+  
+  Expected: 2
+  Received: 0
+(fail) idle refresh never overlaps a slow poll and discards its late response after end [90.45ms]
+  AssertionError: expect(received).toBe()
+  
+  Expected: 1
+  Received: 0
+(fail) late old-session poll cannot overwrite new-session state or spawn another timer [78.57ms]
+  TypeError: release is not a function. (In 'release()', 'release' is undefined)
+(fail) offline idle refresh backs off and recovers without a prompt; startup retries stop at end [108.04ms]
+  AssertionError: expect(received).toBe()
+  
+  Expected: 6
+  Received: 0
+(pass) silent identity changes stop the idle poll before any cross-session router read [87.09ms]
+(fail) planning denial explains itself and toasts once per plan version [67.67ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "work_execute"
+  Received: "Work status unavailable: router connection or snapshot could not be verified. [unknown; wg-mw787r79-1]"
+(fail) help, readable bare command and raw status [62.02ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "planning · 0/2 steps"
+  Received: "Work status unavailable: router connection or snapshot could not be verified."
+  
+  nothing beneath the plugins answers clock.after: a test answers it with on('clock.after', ...): { value: ... } for a call on $, the event's own result otherwise
+  
+  the engine reported:
+    ciel-work: $.clock.after refused: no implementation for clock.after
+    ciel-work: $.clock.after refused: no implementation for clock.after
+(fail) band shows a hint while no plan exists and the phase once one does [72.47ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "/work-mode help"
+  Received: undefined
+(fail) triage guidance reaches the model; queue tab is read-only and summary keeps root order [67.54ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "Triage every new user request"
+  Received: "Work parallel: read work_parallel_status. Queue registration is not an execution-slot decision; max_active (default 5) limits only workers actually processing. P1 may use every free slot ASAP; P2 and lower start in remaining slots and wait while all are busy. Dispatch approved items with work_parallel_run, focused items first; the host starts the fork and returns its lease, so do not call Agent for a Work dispatch. A waiting/blocked worker returns its slot but its item and lease stay recorded; resume it only after its slot is reacquired. Submission is not completion: validate, review, accept, observe idle and verify cleanup before done. Unknown host capacity retains actually-running slots. Native permissions remain authoritative; this is not a shell sandbox."
+(fail) survey yields, disabled hides, long branch list retains every item [74.51ms]
+  HooksError: press: no Button of ciel-work keyed "work-next" is drawn in this AbovePrompt on the terminal surface
+(fail) hybrid prompt keeps bounded valid active summary without queued title note or subtree [77.61ms]
+  SyntaxError: JSON Parse error: Unexpected identifier "Work"
+(fail) ask approval reads exact active goal only and never overrides native edit denial [63.91ms]
+  AssertionError: expect(received).toEqual()
+  
+  Expected: { decision: "deny", reason: "native policy" }
+  Received: {
+    decision: "deny",
+    reason: "Work status unavailable: router connection or snapshot could not be verified. [unknown; wg-mw787riv-1]"
+  }
+  
+  nothing beneath the plugins answers ui.log: a test answers it with on('ui.log', ...): { value: ... } for a call on $, the event's own result otherwise
+  
+  the engine reported:
+    [ciel-work] $.ui.log dropped: HooksError: no implementation for ui.log
+(fail) Stop moves on to the runnable queued goal when every active step waits [72.93ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "call work_select with root_id q1"
+  Received: undefined
+(fail) Stop keeps the active goal when its own step is next [64.90ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "Active step"
+  Received: undefined
+(pass) queued planning target cannot inherit active approval during continuation [77.54ms]
+(fail) tabs classify by status not ratios and completion counts follow the latest snapshot [71.90ms]
+  AssertionError: expect(received).toBeDefined()
+  
+  Expected: defined
+  Received: undefined
+(fail) bounded root index pages every queued/history root; details only read the pressed root [75.15ms]
+  HooksError: press: no Button of ciel-work keyed "work-next" is drawn in this AbovePrompt on the terminal surface
+(fail) whole band cap follows host maxRows and viewport; only Work rows are bounded, native follows [86.38ms]
+  AssertionError: expect(received).toBe()
+  
+  Expected: 8
+  Received: 4
+(fail) the host accepts the band around an engine-drawn native element and a companion tree [82.29ms]
+  HooksError: press: no Button of ciel-work keyed "work-next" is drawn in this AbovePrompt on the terminal surface
+(fail) tiny band opens inspector with all tab lists and exact details on demand [71.52ms]
+  HooksError: press: no Button of ciel-work keyed "detail-tab-queue" is drawn in this Pane on the terminal surface
+(fail) tab and paging state resets at conversation change and end; no work mutations [70.05ms]
+  HooksError: press: no Button of ciel-work keyed "work-next" is drawn in this AbovePrompt on the terminal surface
+(fail) inspector bounds long notes and trees with paging; every note chunk stays reachable [66.19ms]
+  AssertionError: expect(received).toBe()
+  
+  Expected: true
+  Received: false
+(fail) exact wide-character detail is paged without losing text and snapshot shrink clamps pages [65.48ms]
+  HooksError: press: no Button of ciel-work keyed "work-next" is drawn in this AbovePrompt on the terminal surface
+(fail) default compact uses one Work row, counts and current leaf; expanded mode and completion remain separate [66.65ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "7/40 [~] Run current smoke"
+  Received: "Work unavailable [+]"
+(pass) explicit expand and compact commands only change display state [76.01ms]
+(pass) external /btw is bridged to the native command and never enters as a prompt [84.60ms]
+(fail) compact display follows runnable selector and makes ancestor holds visible [77.64ms]
+  AssertionError: expect(received).toContain()
+  
+  Expected: containing "Actual runnable leaf"
+  Received: "Work unavailable [+]"
+
+ 21 pass
+ 77 fail
+Ran 98 tests across 2 files. [16.93s]

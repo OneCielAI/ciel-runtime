@@ -1,0 +1,18 @@
+{
+  "base": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-graphic-20261107-205658",
+  "port": 9611,
+  "outcome": "shown",
+  "graphic_lines": [
+    "Claude Code v2.1.310                                   │WORK / SESSION 1         SSE FLOW 2          SETTINGS",
+    "▝▝   ▝▝   ~\\AppData\\Local\\Temp\\ciel-owned-agent-view-cmp2h2z…    │PARALLEL 0/5 □□□□□ +P1  M inherit",
+    "de enabled · logging to                                 │WORK TREE 7                   ┌─────────────────────┐"
+  ],
+  "tree_before_kill": [
+    "conhost.exe",
+    "cmd.exe",
+    "py.exe",
+    "python.exe"
+  ],
+  "owned_router_pids": [],
+  "scratch_removed": true
+}
