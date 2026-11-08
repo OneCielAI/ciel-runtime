@@ -62,12 +62,12 @@ def settings(config, args, save):
                       else config.get(k, True),
                   'kind': 'enum' if k == 'work_plan_approval_ask' else 'boolean',
                   **({'choices': ['auto', 'ask']} if k == 'work_plan_approval_ask' else {})} for k in BASIC]
-    # Claude Code's own preferences: the left-arrow shortcut is re-read by running
-    # sessions; disabling agent view is read when a Claude session starts.
+    # Claude Code's own preferences. A running Claude session kept opening the
+    # agents view 17 s after leftArrowOpensAgents was turned off (real-console
+    # probe, 2.1.310), so both apply to Claude sessions started afterwards.
     claude = claude_values()
     projected += [{'key': key, 'label': label, 'value': claude[key], 'kind': 'boolean',
-                   'status': 'unreadable' if claude[key] is None
-                       else 'next_claude_session' if key == BACKGROUND else 'live'}
+                   'status': 'unreadable' if claude[key] is None else 'next_claude_session'}
                   for key, label in zip((LEFT_ARROW, BACKGROUND), claude_labels)]
     bool_parallel = {'work_parallel_enabled', 'work_parallel_paused', 'work_discovery_enabled',
                      'work_discovery_test_default_override'}

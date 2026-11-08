@@ -1,9 +1,9 @@
 """Allow-listed edits to Claude Code's two agent-view preferences.
 
 Claude Code keeps ``leftArrowOpensAgents`` in its global config
-(``~/.claude.json``), which a running session re-reads when another process
-changes it, and ``disableAgentView`` in user settings
-(``~/.claude/settings.json``).  Both files belong to Claude Code, so unknown
+(``~/.claude.json``) and ``disableAgentView`` in user settings
+(``~/.claude/settings.json``); both take effect in Claude sessions started
+after the change.  Both files belong to Claude Code, so unknown
 keys are kept verbatim, nothing is written when a file cannot be parsed, and the
 global config is replaced only while holding Claude Code's own proper-lockfile
 lock: the ``<config>.lock`` directory its saves create with ``mkdir``.  That

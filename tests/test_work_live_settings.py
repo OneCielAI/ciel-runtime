@@ -66,7 +66,7 @@ class LiveSettingsTests(unittest.TestCase):
             self.assertIs(True, user['disableAgentView'])
             self.assertEqual([], saved)
             rows = {row['key']: row for row in result['settings']}
-            self.assertEqual((False, 'live'), (rows['claude_left_arrow_opens_agents']['value'],
+            self.assertEqual((False, 'next_claude_session'), (rows['claude_left_arrow_opens_agents']['value'],
                                                rows['claude_left_arrow_opens_agents']['status']))
             self.assertEqual((False, 'next_claude_session'), (rows['claude_background_agents_enabled']['value'],
                                                               rows['claude_background_agents_enabled']['status']))

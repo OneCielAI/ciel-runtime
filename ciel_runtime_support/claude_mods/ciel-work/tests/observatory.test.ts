@@ -12,7 +12,7 @@ const DETAIL = { version: 3, root_id: 'g1', nodes: [
   { id: 'a', parent_id: 'g1', title: 'Cache', status: 'blocked', note: 'TTL', evidence: '' }] }
 const SETTINGS = [
   { key: 'work_mode', label: 'Work mode', value: true, kind: 'boolean' },
-  { key: 'claude_left_arrow_opens_agents', label: 'Left arrow opens agents view', value: true, kind: 'boolean', status: 'live' },
+  { key: 'claude_left_arrow_opens_agents', label: 'Left arrow opens agents view', value: true, kind: 'boolean', status: 'next_claude_session' },
   { key: 'claude_background_agents_enabled', label: 'Background agents', value: null, kind: 'boolean', status: 'unreadable' },
   { key: 'work_side_intake_model', label: 'Side model', value: 'inherit', kind: 'model', choices: ['inherit', '_A', '_B'] }]
 function host(on) {
