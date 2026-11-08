@@ -1,0 +1,27 @@
+=== u41
+22:52:36 af6ff5d8 side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_walkie_haiku_terrax3,gpt-5.6-terrax4,claude-haiku-5-5x1] sendLines=2 err=
+22:54:14 a222c6bf side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_walkie_haiku_terrax8,gpt-5.6-terrax10,claude-haiku-5-5x4] sendLines=7 err=
+22:55:18 a97d7ebd side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_walkie_haiku_terrax4,gpt-5.6-terrax10] sendLines=8 err=
+22:56:15 a21a80a0 side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_walkie_haiku_terrax3,gpt-5.6-terrax6] sendLines=6 err=
+22:58:14 a15febf4 side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_walkie_haiku_terrax12,gpt-5.6-terrax17,claude-haiku-5-5x8] sendLines=12 err=
+23:03:12 ad2b5286 side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_walkie_haiku_terrax2,gpt-5.6-terrax4] sendLines=3 err=
+=== u42
+22:40:46 acce885f side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_api_keys-sse-1x1,<synthetic>x1] sendLines=1 err=
+22:41:01 a98de443 side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_api_keys-sse-1x1,<synthetic>x1] sendLines=1 err=API Error: Combo has no executable targets
+22:41:18 a065a1d1 side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_api_keys-sse-1x1,<synthetic>x1] sendLines=1 err=API Error: Combo has no executable targets
+22:41:38 a54e2991 side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_api_keys-sse-1x1,<synthetic>x1] sendLines=1 err=API Error: Combo has no executable targets
+22:41:53 abf6dd82 side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_api_keys-sse-1x1,<synthetic>x1] sendLines=1 err=API Error: Combo has no executable targets
+22:42:09 a440c5a1 side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_api_keys-sse-1x1,<synthetic>x1] sendLines=1 err=API Error: Combo has no executable targets
+22:49:40 a414bc72 side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_walkie_haiku_terrax4,gpt-5.6-terrax4,claude-haiku-5-5x6] sendLines=8 err=
+22:52:15 a7bc6ecf side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_walkie_haiku_terrax5,gpt-5.6-terrax10,claude-haiku-5-5x5] sendLines=7 err=
+22:52:25 a92a2df8 side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_walkie_haiku_terrax5,gpt-5.6-terrax11,claude-haiku-5-5x3] sendLines=6 err=
+22:56:11 a4ee5553 side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_walkie_haiku_terrax4,gpt-5.6-terrax3,claude-haiku-5-5x9] sendLines=2 err=
+22:56:33 a2b2319f side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_walkie_haiku_terrax1] sendLines=1 err=
+22:56:58 a2e57398 side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_walkie_haiku_terrax5,gpt-5.6-terrax11] sendLines=5 err=
+22:57:11 aa425208 side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_walkie_haiku_terrax1] sendLines=1 err=
+23:02:58 ae510bbd side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_walkie_haiku_terrax2,claude-haiku-5-5x4] sendLines=2 err=
+23:03:07 a91e8879 side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_walkie_haiku_terrax2,gpt-5.6-terrax5,claude-haiku-5-5x2] sendLines=3 err=
+23:08:01 a46249bb side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_walkie_haiku_terrax5,claude-haiku-5-5x4,gpt-5.6-terrax8] sendLines=13 err=
+23:10:32 a5bdd8af side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_walkie_haiku_terrax3,gpt-5.6-terrax7,claude-haiku-5-5x4] sendLines=8 err=
+23:10:32 ab2e8cc0 side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_walkie_haiku_terrax2,claude-haiku-5-5x4] sendLines=4 err=
+23:10:57 a7795221 side=True type=ciel-work:side-intake models=[ciel-runtime-cielairouter-_walkie_haiku_terrax1] sendLines=1 err=

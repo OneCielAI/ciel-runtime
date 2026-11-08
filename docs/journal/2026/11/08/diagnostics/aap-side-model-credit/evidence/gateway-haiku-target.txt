@@ -1,0 +1,17 @@
+=== app.2026-10-30_075856.log
+count=0
+=== app.2026-11-07_163614.log
+count=2
+   2 first=11-08T00:44:07 last=11-08T00:45:38 ROUTING Guardrail model reroute: auto/claude-haiku → anthropic/claude-haiku-5-5
+=== app.log
+count=10
+   3 first=11-08T06:41:18 last=11-08T06:41:53 COMBO Least-sessions ordering emptied the pool: anthropic/claude-haiku-5-5-max: unavailable ? falling through to the switch-combo 404
+   2 first=11-08T06:41:01 last=11-08T06:42:09 COMBO Least-sessions ordering emptied the pool: anthropic/anthropic/claude-haiku-5-5-max: unavailable ? falling through to the switch-combo 404
+   2 first=11-08T02:23:48 last=11-08T06:40:45 ROUTING anthropic/claude-haiku-5-5-max → anthropic/claude-haiku-5-5
+   1 first=11-08T06:40:46 last=11-08T06:40:46 COMBO Model anthropic/claude-haiku-5-5-max failed, trying next
+   1 first=11-08T06:40:46 last=11-08T06:40:46 COMBO Provider anthropic quota exhausted ? marking for skip on remaining targets (#1731)
+   1 first=11-08T06:40:46 last=11-08T06:40:46 COMBO All models failed | anthropic/claude-haiku-5-5-max: model ? Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits. (HTTP 400)
+--- haiku-5-5-max outcomes (succeeded vs failed) per file
+app.2026-10-30_075856.log ok=0 fail/unavailable=0
+app.2026-11-07_163614.log ok=0 fail/unavailable=0
+app.log ok=1 fail/unavailable=6

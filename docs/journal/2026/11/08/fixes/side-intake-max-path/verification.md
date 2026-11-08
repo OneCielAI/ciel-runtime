@@ -152,6 +152,7 @@ After the relaunch, no request names that combo. Why the side model differs befo
 - Its router log holds 5,665 `FileNotFoundError` and 2,522 deferred events, and has not been written since 21:46:21.
 - Router 9592 returns 200.
 - Prody gets the fix only when its prefix holds 6933b8d or later and it relaunches.
+- Later the same evening (not done from here): u41's package became 6933b8d (22:59:05) and its session relaunched (23:02:03). u42's package was rewritten at 22:57:44 and its router restarted at 22:58:30. See [aap-side-model-credit](../../diagnostics/aap-side-model-credit/finding.md).
 
 ## Cleanup
 

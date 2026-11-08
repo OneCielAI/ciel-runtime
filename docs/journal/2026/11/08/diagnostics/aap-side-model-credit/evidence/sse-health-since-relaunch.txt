@@ -1,0 +1,49 @@
+now=2026-11-07T23:09:33
+=================== u42 since router start
+start=2026-11-07T22:58:30 lines=3708
+   26 INFO upstream_direct_request
+   26 INFO filtered
+   25 INFO cielairouter_preoutput_guard
+   23 INFO cielairouter_preoutput_commit
+   17 INFO channel_windows_console_deferred
+   10 WARN external_event_sse_disconnected
+    7 INFO transcript_delta_delivered
+    4 INFO runtime_compaction_scope
+    4 INFO launch_phase_end
+    4 INFO channel_side_intake_accepted
+    4 INFO channel_stdin_proxy_injected
+    4 WARN channel_turn_projection_persistent
+    4 INFO launch_phase_start
+    3 INFO cielairouter_gateway_selected
+    2 INFO runtime_compaction_scope_bound
+    2 INFO runtime_compaction_native_model
+    1 INFO claude_work_mode
+    1 WARN web_fetch_disabled_missing_runner
+--- launch phases since start
+   1 claude model_cache
+   1 claude cli_update_check
+   1 claude mcp_projection
+   1 claude child_spawn
+--- side accepted times
+22:59:50 23:00:07 23:03:28 23:05:30
+--- upstream error events since start
+2026-11-07T23:07:11 [WARN] anthropic_sse_error_shape {"payload":{"event":"error","data_chars":68,"json":"object","fields":{"error":"object","type":"string"},"other_fields":0,"error":{"fields":{"message":"string","type":"string"},"other_fiel
+2026-11-07T23:07:11 [WARN] anthropic_sse_upstream_error_event provider=cielairouter model=_Walkie_Haiku_Terra text_len=0 emitted_tool_use=True message_start=True message_delta=False open_blocks=1
+--- requests by model since start
+_Walkie_Sol61-Opus55-Fast=6
+_Walkie_Haiku_Terra=20
+=================== u41 processes
+1756 python.exe 20:46:34 "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u41\home\prody-ai\.local\walkie-insta
+11460 node.exe 23:02:03 ciel-runtime.js --resume ef61c539-6328-4ef1-81ca-691822348e3f
+6028 py.exe 23:02:03 ciel_runtime.py cli --resume ef61c539-6328-4ef1-81ca-691822348e3f
+18692 python.exe 23:02:03 ciel_runtime.py cli --resume ef61c539-6328-4ef1-81ca-691822348e3f
+23496 python.exe 23:02:21 ciel_runtime.py serve
+14548 python.exe 23:02:28 "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u41\home\prody-ai\.npm-global\node_mo
+18448 claude.exe 23:02:28 claude.exe" --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,Web
+21428 python.exe 23:02:35 "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u41\home\prody-ai\.local\walkie-insta
+19504 python.exe 23:02:35 "C:\Program Files\Python313\python.exe" C:\ProgramData\aap-win\sandboxes\u41\home\prody-ai\.local\walkie-insta
+6108 node.exe 23:02:36 "C:\Program Files\nodejs\node.EXE" C:\ProgramData\aap-win\sandboxes\u41\home\prody-ai\.local\walkie-install\wa
+--- u41 recent transcripts
+C:\Users\<u>\.claude\projects\C--ProgramData-aap-win-sandboxes-u41-home-prody-ai\ef61c539-6328-4ef1-81ca-691822348e3f.jsonl 149422775 23:08:04
+C:\Users\<u>\.claude\projects\C--ProgramData-aap-win-sandboxes-u41-home-prody-ai\ef61c539-6328-4ef1-81ca-691822348e3f\subagents\agent-ad2b5286af42d64bc.jsonl 347127 23:03:12
+C:\Users\<u>\.claude\projects\C--ProgramData-aap-win-sandboxes-u41-home-prody-ai\ef61c539-6328-4ef1-81ca-691822348e3f\subagents\agent-a15febf44e4d93916.jsonl 1260634 22:58:14

@@ -1,0 +1,46 @@
+hits=7 lines=19564
+=== resolution at line 17350
+06:41:37.297 CHAT Combo \"_API_KEYS-SSE-1\" [least-sessions] with 1 models
+06:41:37.382 COMBO Least-sessions ordering emptied the pool: anthropic/claude-haiku-5-5-max: unavailable ??falling through to the switch-combo 404
+06:41:37.385 COMBO combo trace combo-f219ace9-a9a4-4b39-989c-ec008da29428 terminal=null decisions=0
+06:41:40.621 COMBO combo trace combo-8791086d-0802-41a6-929f-9cf3af5f60ed terminal=null decisions=0
+06:41:46.812 HTTP ?뱿 POST /v1/messages | _API_KEYS-SSE-1 | 1881 msgs | 91 tools
+06:41:52.973 CHAT Combo \"_API_KEYS-SSE-1\" [least-sessions] with 1 models
+06:41:53.034 COMBO Least-sessions ordering emptied the pool: anthropic/claude-haiku-5-5-max: unavailable ??falling through to the switch-combo 404
+06:41:53.038 COMBO combo trace combo-7b8d9c7a-da51-4cb9-a946-7c56dd45c09c terminal=null decisions=0
+06:41:53.345 AUTH claude | quota-aware: 4 with quota, skipping 2 exhausted
+06:41:53.492 CONTEXT Combo context limit: 1000000 (source=target)
+06:41:53.657 SERVICE_TIER Removed unsupported Claude service_tier before dispatch on https://api.anthropic.com/v1/messages?beta=true
+06:41:56.059 COMBO combo trace combo-a9b4e0ae-fc3f-4a53-9706-2c7e1c3e3736 terminal=null decisions=0
+06:42:01.655 AUTH claude | quota-aware: 4 with quota, skipping 2 exhausted
+06:42:01.784 CONTEXT Combo context limit: 1000000 (source=target)
+=== resolution at line 17357
+06:41:52.973 CHAT Combo \"_API_KEYS-SSE-1\" [least-sessions] with 1 models
+06:41:53.034 COMBO Least-sessions ordering emptied the pool: anthropic/claude-haiku-5-5-max: unavailable ??falling through to the switch-combo 404
+06:41:53.038 COMBO combo trace combo-7b8d9c7a-da51-4cb9-a946-7c56dd45c09c terminal=null decisions=0
+06:41:53.345 AUTH claude | quota-aware: 4 with quota, skipping 2 exhausted
+06:41:53.492 CONTEXT Combo context limit: 1000000 (source=target)
+06:41:53.657 SERVICE_TIER Removed unsupported Claude service_tier before dispatch on https://api.anthropic.com/v1/messages?beta=true
+06:41:56.059 COMBO combo trace combo-a9b4e0ae-fc3f-4a53-9706-2c7e1c3e3736 terminal=null decisions=0
+06:42:01.655 AUTH claude | quota-aware: 4 with quota, skipping 2 exhausted
+06:42:01.784 CONTEXT Combo context limit: 1000000 (source=target)
+06:42:01.926 SERVICE_TIER Removed unsupported Claude service_tier before dispatch on https://api.anthropic.com/v1/messages?beta=true
+06:42:03.679 HTTP ?뱿 POST /v1/messages | _API_KEYS-SSE-1 | 1881 msgs | 91 tools
+06:42:09.544 CHAT Combo \"_API_KEYS-SSE-1\" [least-sessions] with 1 models
+06:42:09.619 COMBO Least-sessions ordering emptied the pool: anthropic/anthropic/claude-haiku-5-5-max: unavailable ??falling through to the switch-combo 404
+06:42:09.623 COMBO combo trace combo-ba5f4018-2598-4020-911c-e8cfe3afd8f2 terminal=null decisions=0
+=== resolution at line 17387
+06:42:09.544 CHAT Combo \"_API_KEYS-SSE-1\" [least-sessions] with 1 models
+06:42:09.619 COMBO Least-sessions ordering emptied the pool: anthropic/anthropic/claude-haiku-5-5-max: unavailable ??falling through to the switch-combo 404
+06:42:09.623 COMBO combo trace combo-ba5f4018-2598-4020-911c-e8cfe3afd8f2 terminal=null decisions=0
+06:42:09.843 COMBO combo trace combo-0a25ea5d-b5f5-46ee-ba5f-0afced578328 terminal=null decisions=0
+06:42:11.754 AUTH claude | quota-aware: 0 with quota, skipping 1 exhausted
+06:42:11.755 AUTH claude | quota-aware: 0 with quota, skipping 1 exhausted
+06:42:11.756 AUTH claude | all 1 active accounts rate limited (reset after 51m 43s) | lastErrorCode=429.0, lastError=[429]: This request would exceed your account's ra
+06:42:11.774 AUTH claude | all 1 active accounts rate limited (reset after 51m 36s) | lastErrorCode=429.0, lastError=[429]: This request would exceed your account's ra
+06:42:11.842 CONTEXT Combo context limit: 872000 (source=target)
+06:42:15.439 COMBO combo trace combo-773e9009-261f-404a-bd40-a949675325b1 terminal={\"status\":200,\"errorClass\":null} decisions=7
+06:42:17.833 AUTH claude | quota-aware: 4 with quota, skipping 2 exhausted
+06:42:18.000 CONTEXT Combo context limit: 1000000 (source=target)
+06:42:18.152 SERVICE_TIER Removed unsupported Claude service_tier before dispatch on https://api.anthropic.com/v1/messages?beta=true
+06:42:22.910 COMBO combo trace combo-25a69341-222e-4531-a979-300b56651af7 terminal=null decisions=0

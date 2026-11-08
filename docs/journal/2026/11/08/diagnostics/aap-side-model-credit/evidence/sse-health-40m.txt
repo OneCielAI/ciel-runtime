@@ -1,0 +1,66 @@
+now=2026-11-07T23:08:41
+=================== u42
+log last=2026-11-07T23:08:41  lines(last 40m)=8767
+   85 INFO filtered
+   85 INFO upstream_direct_request
+   84 INFO cielairouter_preoutput_guard
+   77 INFO cielairouter_preoutput_commit
+   68 INFO launch_phase_end
+   62 INFO launch_phase_start
+   40 INFO channel_windows_console_deferred
+   28 WARN external_event_sse_disconnected
+   20 INFO transcript_delta_delivered
+   19 ERROR router_post_uncaught
+   16 INFO runtime_compaction_scope
+   16 INFO remote_instructions_unchanged
+   13 INFO channel_stdin_proxy_injected
+   13 INFO channel_side_intake_accepted
+    8 INFO runtime_compaction_scope_bound
+    8 INFO cielairouter_gateway_selected
+    8 INFO claude_stream_recovery_failure_skipped
+    8 WARN channel_turn_projection_persistent
+    7 WARN anthropic_sse_upstream_error_event
+    7 WARN anthropic_sse_error_shape
+    4 INFO runtime_compaction_native_model
+    4 INFO claude_compaction_launch_snapshot
+--- SSE / side / reply lines (last 12, last 40m)
+2026-11-07T23:06:38 [WARN] external_event_sse_disconnected receiver=default error=EOFError diagnostic={"category": "eof", "class": "EOFError", "phase": "read"}
+2026-11-07T23:07:11 [WARN] anthropic_sse_upstream_error_event provider=cielairouter model=_Walkie_Haiku_Terra text_len=0 emitted_tool_use=True message_start=True message_delta=False open_blocks=1
+2026-11-07T23:07:13 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Haiku_Terra endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=398998 bytes=1519359 timeout=300.0
+2026-11-07T23:07:28 [INFO] transcript_delta_delivered runtime=claude session=26697479-95e8-4c8b-af3a-368d2cc617d4 bytes=160 filter=public_only offset=625297906->625301362
+2026-11-07T23:07:31 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Sol61-Opus55-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=329674 bytes=1277785 timeout=300.0
+2026-11-07T23:07:40 [WARN] external_event_sse_disconnected receiver=default error=EOFError diagnostic={"category": "eof", "class": "EOFError", "phase": "read"}
+2026-11-07T23:07:53 [INFO] transcript_delta_delivered runtime=claude session=26697479-95e8-4c8b-af3a-368d2cc617d4 bytes=108 filter=public_only offset=625343337->625441048
+2026-11-07T23:07:55 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Sol61-Opus55-Fast endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=330376 bytes=1280595 timeout=300.0
+2026-11-07T23:08:03 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Haiku_Terra endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=414338 bytes=1577001 timeout=300.0
+2026-11-07T23:08:16 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Haiku_Terra endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=414499 bytes=1577644 timeout=300.0
+2026-11-07T23:08:28 [INFO] upstream_direct_request provider=cielairouter model=_Walkie_Haiku_Terra endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=413815 bytes=1575322 timeout=300.0
+2026-11-07T23:08:41 [WARN] external_event_sse_disconnected receiver=default error=EOFError diagnostic={"category": "eof", "class": "EOFError", "phase": "read"}
+=================== u41
+log last=web: http://127.0.0  lines(last 40m)=1025
+--- SSE / side / reply lines (last 12, last 40m)
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+Traceback (most recent call last):
+=================== gateway combo outcomes last 40m
+requests _Walkie_Opus55-Sol61-Fast=45
+requests _Walkie_Haiku_Terra=63
+requests _API_KEYS-SSE-1=6
+requests _Walkie_Sol61-Opus55-Fast=20
+terminal null x56
+terminal {"status":200,"errorClass":null} x74
+terminal {"status":400,"errorClass":null} x1
+terminal {"status":504,"errorClass":null} x3
+06:42:09 Least-sessions ordering emptied the pool: anthropic/anthropic/claude-haiku-5-5-max: unavailable ? falling through to the switch-combo 404
+06:49:38 All models failed | claude/claude-opus-5-5: provider ? Model claude/claude-opus-5-5 timed out (HTTP 504)
+06:51:33 All models failed | claude/claude-opus-5-5: provider ? Model claude/claude-opus-5-5 timed out (HTTP 504)
+07:07:10 All models failed | codex/gpt-5.6-sol-high: provider ? Model codex/gpt-5.6-sol-high timed out (HTTP 504); claude/claude-opus-5-5: provider ? Model claude/claude-opus-5-5 timed out (HTTP 504)
