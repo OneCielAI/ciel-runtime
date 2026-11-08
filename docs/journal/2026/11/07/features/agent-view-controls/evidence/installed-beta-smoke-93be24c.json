@@ -1,0 +1,30 @@
+{
+  "version": "0.2.51-beta.20261108-005232.93be24c",
+  "git_head": "93be24c383fdc420eb30bf0ff8c3e51057f785f2",
+  "snapshot": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-93be24c383fdc420eb30bf0ff8c3e51057f785f2",
+  "global_package": "C:\\Users\\djlov\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime",
+  "matching_package_files": 562,
+  "commands_passed": 6,
+  "ctl_settings": 29,
+  "agent_view_rows": [
+    {
+      "key": "claude_left_arrow_opens_agents",
+      "label": "Left arrow opens agents view",
+      "value": false,
+      "kind": "boolean",
+      "status": "next_claude_session",
+      "description": "Select a value; changes apply to this setting only. Selected value: off."
+    },
+    {
+      "key": "claude_background_agents_enabled",
+      "label": "Background agents / agent view enabled",
+      "value": true,
+      "kind": "boolean",
+      "status": "next_claude_session",
+      "description": "Select a value; changes apply to this setting only. Selected value: on."
+    }
+  ],
+  "isolated_config_only": true,
+  "live_restarts": false,
+  "mod_sha256": "0a0bcffe63f1ae8239d77844ef5c178cbadd4166764d86a0bba65c37b274a621"
+}

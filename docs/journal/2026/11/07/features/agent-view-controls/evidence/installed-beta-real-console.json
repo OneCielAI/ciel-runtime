@@ -1,0 +1,19 @@
+{
+  "base": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-agent-view-20261107-190727",
+  "port": 9611,
+  "outcome": "shown",
+  "agent_lines": [
+    " ~\\AppData\\Local\\Temp\\ciel-owned-agent-view-3_xtvcx…    │└───────────────────────────────────────────────────┘",
+    "mode, or the agent (work_mode_set)                              │Left arrow opens agents view = false",
+    "│Background agents / agent view enabled = true"
+  ],
+  "tree_before_kill": [
+    "conhost.exe",
+    "cmd.exe",
+    "node.exe",
+    "py.exe",
+    "python.exe"
+  ],
+  "owned_router_pids": [],
+  "scratch_removed": true
+}

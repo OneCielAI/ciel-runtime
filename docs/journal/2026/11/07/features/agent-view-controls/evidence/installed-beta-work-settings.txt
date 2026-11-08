@@ -1,0 +1,30 @@
+                                                                  │                                                   ✕
+           Claude Code v2.1.310                                   │┌───────────────────────────────────────────────────┐
+ ▐▛███▛█   ciel-runtime-cielairouter-astra with xhigh effort      ││ WORK 0 · planning · 0/0                           │
+▝▜██████▀  API Usage Billing                                      ││ Queue 0 · Side 0 · Slots 0/5                      │
+ ▝▝   ▝▝   ~\AppData\Local\Temp\ciel-owned-agent-view-3_xtvcx…    │└───────────────────────────────────────────────────┘
+                                                                  │w: Work s: SSE g: [Settings]
+                                                                  │All Work settings · live · cielairouter
+● ciel-work: Ciel Work mode is on: plan and execute by            │Work mode = true
+  item; new independent requests queue without pausing            │Work plan approval = auto
+  approved Work. Items show above the prompt · /work-mode         │Work auto continue = true
+  help · turn off: ciel-runtime menu → LLM options → Work         │Work completed auto-delete (24h) = true
+  mode, or the agent (work_mode_set)                              │Left arrow opens agents view = false
+                                                                  │Background agents / agent view enabled = true
+❯ /work-mode                                                      │Settings 1/5 n: Next settings r: Refresh q: Close
+  ⎿  ciel-work: Work settings opened in the Work & SSE pane       │1/1
+     (Settings tab).                                              │Touch tabs/items · Back closes
+                                                                  │
+                                                                  │
+                                                                  │
+                                                                  │
+                                                                  │
+                                                                  │
+                                                                  │
+w: Work 0/0 no goal [+]                                       [-] │
+  ⚠ claude.ai connectors are disabled because ANTHROPIC_API_KEY…  │
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [ASTRA (cielairouter)] workspace | SSE gate on: open                                                  work: plan 0/0
+  ⏵⏵ bypass permissions on (shift+tab to cycle)

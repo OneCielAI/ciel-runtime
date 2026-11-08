@@ -38,7 +38,21 @@ nor the view in either state, so it is not used as evidence.
 - `ruff check .` on a clean `git archive HEAD` export: all checks passed. The first beta Publish run for 72e59e2
   failed on two lint findings (an unused import, and a lambda in `test_side_work_decision.py`); 9293d59 fixed them.
 
-# Release
+# Release and installed-beta console
 
-Beta pushes: 72e59e2 (Publish failed: lint), 9293d59, 93be24c. Registry and local install results are recorded in
-the [log](log.md).
+Beta pushes: 72e59e2 (Publish failed: lint), 9293d59, 93be24c. The 93be24c CI and Publish runs passed.
+Registry verification proved:
+
+- beta `0.2.51-beta.20261108-005232.93be24c`, `gitHead=93be24c383fdc420eb30bf0ff8c3e51057f785f2`;
+- tarball SHA-512 integrity matched and 508 runtime source files matched Git;
+- `latest=0.2.51` and `nightly=0.2.51-nightly.20261106-020333.c00c8b6` did not move.
+
+The verified tarball was extracted to a new immutable snapshot and installed globally. No running process was
+restarted. Installed smoke compared all 562 package files, passed six isolated CLI commands, and returned both
+settings rows with the intended values and `next_claude_session` status.
+
+Finally, an owned isolated real-console launch of the installed beta opened `/work-mode settings`. The first page
+visibly shows `Left arrow opens agents view = false` and `Background agents / agent view enabled = true`:
+[screen](evidence/installed-beta-work-settings.png), [result](evidence/installed-beta-real-console.json).
+Its scratch config was removed, its owned processes ended, and the live router health results on 9505/9489/9524
+remained 200 before and after. Registry and local install details are also recorded in the [log](log.md).
