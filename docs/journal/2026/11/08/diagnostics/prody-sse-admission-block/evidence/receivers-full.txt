@@ -1,0 +1,18 @@
+=== 9592
+id=default enabled=True transport=sse event_types=com.ciel.walkie.support.message cursor_ptr=/data/stream_id cursor_q=after input_transport=auto
+  state=backoff
+  phase=admission
+  error=ValueError
+  consecutive_failures=16
+  attempt_count=16
+  last_event_id=
+  last_event_at=
+  connected_at=11-08 03:54:49
+  last_failure_at=11-08 03:54:49
+  retry_seconds=30.0
+  worker_alive=True
+  recovery_count=0
+  diagnostic={"class":"ValueError","category":"validation","phase":"admission"}
+  delivery={"state":"unknown","reason":"inputs_observation_partial","scope":"private_runtime_inputs","blocker_scope":null,"admission_blocked":null,"launcher_hold_observed":false,"line_number":null,"snapshot_consistent":true,"known_queued_count":0,"queue_age_coverage":"partial","queued_coverage":"partial","retrying_count":0,"retry_exhausted_count":0,"launch_expired_count":318,"last_failure":{"request_id":3771,"reason":"stale_unconfirmed","at_epoch":1794075806.6640213},"reused_id_count":0,"reused_id_newest":null,"history":{"complete":true,"coverage":"complete","scanned_bytes":2263519,"failure_count":0,"recovered_count":0,"diagnostics":[],"diagnostics_truncated":false},"oldest_queued_age_seconds":null}
+=== 9564
+ERR Unable to connect to the remote server

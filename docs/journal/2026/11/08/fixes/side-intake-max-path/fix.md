@@ -59,4 +59,4 @@ What changed:
 
 # Open
 
-On both hosts, a read-only check over the SYSTEM SSH found no `side-inboxes` directory. The isolated old-code probe on Betty did write the pending record before the marker failed (see verification). Why the live users' records were not visible to SYSTEM has not been determined.
+Correction (2026-11-08): the earlier check reported no `side-inboxes` directory, but that came from `Test-Path` hiding an access error. SYSTEM gets `UnauthorizedAccessException` on `workspaces\<digest>`. The directory is not readable from SYSTEM; it was never shown to be absent. See [prody-sse-admission-block](../../diagnostics/prody-sse-admission-block/finding.md).

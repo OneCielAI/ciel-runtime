@@ -1,0 +1,1 @@
+betty receiver default types=com.ciel.walkie.support.message state=connected phase=read err= fails=0 last_event=b1d0fff9-bdaa-4394-bd8b-d260ffcc3b02:118035

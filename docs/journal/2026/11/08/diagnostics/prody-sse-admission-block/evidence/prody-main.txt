@@ -1,0 +1,42 @@
+main bytes=152205722 mtime=11-08 03:52:36
+rows since 2026-11-08T07:00:00 UTC: 294
+--- tool calls by name (main)
+  32 Bash
+   9 walkie__walkie_call_tool
+   7 Read
+   5 walkie__walkie_send_message
+   4 walkie__walkie_files_upload
+   3 walkie__walkie_read_messages
+   3 Write
+   2 ciel-runtime-router__work_node_update
+   2 walkie__walkie_search_tools
+   1 PowerShell
+   1 Edit
+   1 walkie__walkie_threads_stop
+--- work_side_* / Agent calls (time, name, key args)
+--- user-side rows: kinds
+07:18:50 other len=27 head=0.....///?�ㅕ?�ㅣ?�ㅕ?�ㅣ?�ㅕ?�ㅑ
+07:30:52 stop-hook len=818 head=Stop hook feedback: Ciel Work stopped: unfinished items remain but non
+11:49:31 other len=3 head=계속
+11:50:17 other len=3 head=계속
+11:52:02 other len=1 head='
+11:52:23 stop-hook len=818 head=Stop hook feedback: Ciel Work stopped: unfinished items remain but non
+--- system rows
+11:51:04 local_command <local-command-stdout>ciel-work: Work &amp; SSE pane: W Work · S SSE · G Settings · J/K move · I inspect · Tab/arrows + Enter on the controls · click the dashbo
+11:51:33 turn_duration 
+11:51:33 informational ciel-work: Ciel Work auto continue could not read the Work status, so unfinished items were not checked. /work-mode status
+11:52:23 informational ciel-work: Ciel Work stopped: unfinished items remain but none can run now (waiting: n202 ??117324 (105816) finished per JUN 117598; LIVE writes only after; n20
+11:52:23 informational ciel-work: Ciel Work stopped: unfinished items remain but none can run now (waiting: n202 ??117324 (105816) finished per JUN 117598; LIVE writes only after; n20
+11:52:23 stop_hook_summary 
+11:52:36 informational ciel-work: Ciel Work stopped: unfinished items remain but none can run now (waiting: n202 ??117324 (105816) finished per JUN 117598; LIVE writes only after; n20
+11:52:36 informational ciel-work: Ciel Work stopped: unfinished items remain but none can run now (waiting: n202 ??117324 (105816) finished per JUN 117598; LIVE writes only after; n20
+11:52:36 stop_hook_summary 
+11:52:36 turn_duration 
+--- side forks since 07:00Z
+--- router log tail
+    self._sock.sendall(b)
+    ~~~~~~~~~~~~~~~~~~^^^
+ConnectionAbortedError: [WinError 10053] An established connection was aborted by the software in your host machine
+----------------------------------------
+ciel-runtime router starting on 127.0.0.1:9592 (client base http://127.0.0.1:9592, log level ERROR, source=default)
+web: http://127.0.0.1:9592/
