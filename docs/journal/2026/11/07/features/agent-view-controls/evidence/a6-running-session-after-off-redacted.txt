@@ -1,0 +1,30 @@
+
+ ▐▛███▛█   Claude Code v2.1.310
+▝▜██████▀  New sessions: Opus 5.5 · high effort · ~\ciel-runtime\.local\tmp\work-parallel
+ ▝▝   ▝▝   1 awaiting input · 2 working · 25 completed
+
+Your conversation moved to the background — enter opens it · esc returns to it · ctrl+c twice quits
+
+Needs input
+[session list redacted]
+
+Working
+[session list redacted]
+[session list redacted]
+
+Completed
+[session list redacted]
+[session list redacted]
+[session list redacted]
+[session list redacted]
+[session list redacted]
+[session list redacted]
+[session list redacted]
+[session list redacted]
+[session list redacted]
+[session list redacted]
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ describe a task for a new session
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode · enter to return · space to reply · ctrl+x to delete · ? for shortcuts

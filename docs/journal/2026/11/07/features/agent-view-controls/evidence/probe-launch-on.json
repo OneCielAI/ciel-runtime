@@ -1,0 +1,34 @@
+{
+  "base": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\left-arrow-20261107-184132",
+  "claude": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+  "launch_on": [
+    {
+      "step": "on-start",
+      "version_line": "\u2590\u259b\u2588\u2588\u2588\u259b\u2588   Claude Code v2.1.310"
+    },
+    {
+      "step": "on-left-once",
+      "confirm_hint": false
+    },
+    {
+      "step": "on-left-twice",
+      "prompt_still_shown": false,
+      "confirm_hint": false
+    },
+    {
+      "step": "after-esc",
+      "prompt_shown": true
+    },
+    {
+      "step": "live-off-left-once",
+      "seconds_after_flip": 17.0,
+      "confirm_hint": false
+    },
+    {
+      "step": "live-off-left-twice",
+      "prompt_still_shown": false,
+      "confirm_hint": false
+    }
+  ],
+  "final_setting": false
+}

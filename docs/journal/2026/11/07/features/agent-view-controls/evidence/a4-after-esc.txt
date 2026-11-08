@@ -1,0 +1,30 @@
+
+ ▐▛███▛█   Claude Code v2.1.310
+▝▜██████▀  Opus 5.5 with high effort · Claude Ultra
+ ▝▝   ▝▝   ~\ciel-runtime\.local\tmp\work-parallel
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                                                                                                      ● high · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ Try "how do I log an error?"
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [Opus 5.5] work-parallel | SSE gate on: open | ctx est 176,956/872,000 tok (20.3%) | upstream 25s 176,466 tok
+  ⏵⏵ auto mode on (shift+tab to cycle) · ← for agents

@@ -1,0 +1,16 @@
+{
+  "base": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\left-arrow-20261107-184250",
+  "claude": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+  "launch_off": [
+    {
+      "step": "off-left-once",
+      "confirm_hint": false
+    },
+    {
+      "step": "off-left-twice",
+      "prompt_still_shown": true,
+      "confirm_hint": false
+    }
+  ],
+  "final_setting": false
+}
