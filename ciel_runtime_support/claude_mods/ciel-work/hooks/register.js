@@ -1711,8 +1711,10 @@ export function register(on) {
     const selected = fresh ? view.nodes.find(n => n.id === view.id) : null
     const mobile = e.surface === 'mobile' || e.props.bodyColumns < 58
     const section = state?.session === identity ? (state.tab || 'work') : 'work'
-    const graphic = e.surface === 'terminal' && elements.Client && e.props.bodyColumns >= 42
-      && (section === 'work' || section === 'side')
+    // Terminal always has Client in the Mods element table. Do not gate this on
+    // bodyColumns: Claude's dock can report its width while still settling, and
+    // that made the old plain-list branch stick in the real console.
+    const graphic = e.surface === 'terminal' && (section === 'work' || section === 'side')
     const width = Math.max(20, e.props.bodyColumns - 2)
     const text = (value, props = {}) => Text({ wrap: 'truncate-end', ...props, children: cellClipped(value, width) })
     // A row is one Button whose label is a colored Text: one press, color by state.
