@@ -131,6 +131,73 @@ export default function Observatory(props, surface) {
   ]))
   children.push(line('rule', '─'.repeat(width), C.line))
 
+  // At the requested 90-column dock, match the reviewed overview: Work tree
+  // and SSE flow are visible together. The active tab only chooses which side
+  // owns ↑↓/Enter and the shared inspector; it never hides the other half.
+  if (width >= 72) {
+    const workWidth = Math.floor(width * .58)
+    const sideWidth = width - workWidth - 1
+    const bodyRows = Math.max(7, height - 13)
+    const workChildren = [Text({ color: C.cyan, weight: 'bold', children: pad('WORK TREE ' + workRows.length, workWidth) })]
+    const workPage = workRows.slice(state.scroll || 0, (state.scroll || 0) + bodyRows)
+    for (const [offset, node] of workPage.entries()) {
+      const index = (state.scroll || 0) + offset
+      const selectedRow = props.tab === 'work' && index === selected
+      const indent = '  '.repeat(Math.min(3, node.depth || 0))
+      const left = (selectedRow ? '▸ ' : '  ') + indent + statusGlyph(node.status, node.waiting_on) + ' '
+      const priority = node.priority || ''
+      const count = node.total ? node.done + '/' + node.total : ''
+      const room = Math.max(4, workWidth - left.length - (priority ? 4 : 0) - count.length - 1)
+      workChildren.push(Box({ key: 'wide-work-' + node.id, height: 1, overflow: 'hidden',
+        flexDirection: 'row', backgroundColor: selectedRow ? C.selected : undefined, children: [
+          Text({ color: statusColor(node.status), children: left }),
+          ...(priority ? [Text({ color: priorityColor(priority), weight: 'bold', children: priority + ' ' })] : []),
+          Text({ color: selectedRow ? C.cyan : C.text, children: pad(node.title, room) }),
+          Text({ color: C.dim, children: count }),
+        ] }))
+    }
+    while (workChildren.length < bodyRows + 1) workChildren.push(Text({ key: 'work-space-' + workChildren.length, children: ' ' }))
+
+    const counts = { received: 0, processing: 0, answered: 0, work: 0, failed: 0 }
+    for (const receipt of sideRows) counts[stage(receipt)] = (counts[stage(receipt)] || 0) + 1
+    const sideChildren = [
+      Text({ color: C.cyan, weight: 'bold', children: pad('SSE FLOW ' + sideRows.length, sideWidth) }),
+      Text({ color: C.dim, children: clip('IN ' + counts.received + '  AI ' + counts.processing
+        + '  ANSWER ' + counts.answered + '  WORK ' + counts.work, sideWidth) }),
+    ]
+    const activeActors = (props.actors || []).slice(0, 3)
+    if (activeActors.length) {
+      sideChildren.push(Text({ color: C.pink, weight: 'bold', children: clip('ACTIVE FORKED SSE SESSIONS', sideWidth) }))
+      for (const actor of activeActors) sideChildren.push(Text({ key: 'wide-actor-' + actor.id, color: C.cyan,
+        children: clip('▶ ' + actor.id + ' · ' + (actor.model || 'inherit'), sideWidth) }))
+    } else sideChildren.push(Text({ color: C.dim, children: 'No active side fork' }))
+    const sideLimit = Math.max(2, bodyRows - sideChildren.length)
+    for (const [index, receipt] of sideRows.slice(0, sideLimit).entries()) {
+      const selectedRow = props.tab === 'side' && index === selected
+      sideChildren.push(Box({ key: 'wide-side-' + receipt.id, height: 1, overflow: 'hidden',
+        backgroundColor: selectedRow ? C.selected : undefined, children: [Text({ color: stageColor(stage(receipt)),
+          children: clip((selectedRow ? '▸ ' : '  ') + (receipt.priority || '--') + ' ' + stage(receipt)
+            + ' ' + receipt.summary, sideWidth) })] }))
+    }
+    while (sideChildren.length < bodyRows + 1) sideChildren.push(Text({ key: 'side-space-' + sideChildren.length, children: ' ' }))
+    children.push(Box({ key: 'wide-body', height: bodyRows + 1, overflow: 'hidden', flexDirection: 'row', children: [
+      Box({ key: 'wide-work', width: workWidth, height: bodyRows + 1, overflow: 'hidden',
+        flexDirection: 'column', children: workChildren }),
+      Box({ key: 'wide-side', width: sideWidth + 1, height: bodyRows + 1, overflow: 'hidden',
+        borderStyle: 'single', borderColor: C.line, paddingLeft: 1, flexDirection: 'column', children: sideChildren }),
+    ] }))
+    const chosen = props.tab === 'side' ? sideRows[selected] : workRows[selected]
+    children.push(line('wide-inspector-rule', '─ INSPECTOR ' + (props.tab === 'side' ? 'SSE ' : 'WORK ')
+      + clip(chosen?.id || 'none', 12) + ' ' + '─'.repeat(width), C.line))
+    if (chosen) children.push(line('wide-inspector-title', chosen.title || chosen.summary || '', C.text, { weight: 'bold' }))
+    if (chosen) children.push(line('wide-inspector-meta', props.tab === 'side'
+      ? stage(chosen) + (chosen.actor ? ' · fork ' + chosen.actor : '') + (chosen.item_id ? ' → ' + chosen.item_id : '')
+      : (chosen.priority || '--') + ' · ' + chosen.status + (chosen.waiting_on ? ' · waiting ' + chosen.waiting_on : ''),
+      props.tab === 'side' ? stageColor(stage(chosen)) : statusColor(chosen.status)))
+    children.push(line('footer', 'click header: Work/SSE/Settings · ↑↓ move · W/S · Enter · P P1 · F focus · R refresh', C.dim))
+    return Box({ flexDirection: 'column', backgroundColor: C.panel, children })
+  }
+
   if (props.tab === 'side') {
     const counts = { received: 0, processing: 0, answered: 0, work: 0, failed: 0 }
     for (const row of sideRows) counts[stage(row)] = (counts[stage(row)] || 0) + 1
