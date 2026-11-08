@@ -45,7 +45,10 @@ def reader(path: Path):
 def save(path: Path, row: dict[str, Any]) -> None:
     raw = json.dumps(row, ensure_ascii=False).encode('utf8')
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(f'.{path.stem}.{os.getpid()}.{time.time_ns()}.tmp')
+    # Keep the name independent of (and shorter than) the target's: with the
+    # 64-hex stem, priority-marker temps reached 262 characters on AAP hosts
+    # and failed under the legacy 260-character Windows path limit.
+    temporary = path.with_name(f'.{os.getpid()}.{time.time_ns()}.{os.urandom(4).hex()}.tmp')
     try:
         with temporary.open('xb') as stream:
             stream.write(raw)

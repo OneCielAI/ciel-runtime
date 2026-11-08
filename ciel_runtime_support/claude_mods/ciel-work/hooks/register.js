@@ -651,9 +651,19 @@ function graphicReceipts(identity) {
       actor: actor?.id || '' }
   })
 }
+// The rows the graphical tab's cursor walks, as the Client filters them.
+function graphicRows(identity, view, state) {
+  const p1 = state?.obsP1 === true
+  const rows = state?.tab === 'side' ? graphicReceipts(identity) : graphicNodes(view, cached)
+  return rows.filter(row => !p1 || row.priority === 'P1')
+}
+function graphicSelected(state) {
+  return Number((state?.tab === 'side' ? state?.obsSide : state?.obsWork) || 0)
+}
 function graphicProps(identity, view, state) {
   const policy = observatoryParallel?.policy || {}
-  return { tab: state?.tab === 'side' ? 'side' : 'work', version: cached?.version,
+  return { tab: state?.tab === 'side' ? 'side' : 'work', selected: graphicSelected(state), p1: state?.obsP1 === true,
+    version: cached?.version,
     active: cached?.active_root?.title || '', done: cached?.done || 0, total: cached?.total || 0,
     nodes: graphicNodes(view, cached), receipts: graphicReceipts(identity),
     actors: sideActors(identity).map(actor => ({ id: actor.id, receipt: actor.receipt_id, model: actor.model,
@@ -661,6 +671,30 @@ function graphicProps(identity, view, state) {
     parallel: { active: observatoryParallel?.active_device || 0, max: policy.max_active || 0,
       reserved: Number(policy.p1_reserved || 0) > 0 },
     model: observatorySettings?.settings?.find(row => row.key === 'work_side_intake_model')?.value || 'inherit' }
+}
+// One action set for the pane's native control strip (Tab/arrows/Enter and
+// hotkeys, no click needed) and the Client's click-focused keys and pointer.
+async function graphicAction($, identity, data) {
+  const state = await read($, panelView)
+  const rows = graphicRows(identity, await read($, detailView), state)
+  const clamp = index => Math.max(0, Math.min(index, Math.max(0, rows.length - 1)))
+  const cursor = state?.tab === 'side' ? 'obsSide' : 'obsWork'
+  const chosen = rows[clamp(graphicSelected(state))]
+  const id = typeof data.id === 'string' ? data.id : chosen?.id
+  const action = data.action === 'inspect' ? (state?.tab === 'side' ? 'receipt' : 'work') : data.action
+  if (action === 'tab' && ['work','side','settings'].includes(data.tab))
+    await displayState($, identity, old => ({ ...old, tab: data.tab, detailPage: 0 }))
+  else if (action === 'select' && Number.isInteger(data.index))
+    await displayState($, identity, old => ({ ...old, [cursor]: clamp(data.index) }))
+  else if (action === 'move' && Number.isInteger(data.by))
+    await displayState($, identity, old => ({ ...old, [cursor]: clamp(graphicSelected(old) + data.by) }))
+  else if (action === 'p1')
+    await displayState($, identity, old => ({ ...old, obsP1: old.obsP1 !== true, obsWork: 0, obsSide: 0 }))
+  else if (action === 'refresh') { await openDetails($, null, identity); await observatoryRefresh($, identity) }
+  else if (action === 'work' && id) await openDetails($, id, identity)
+  else if (action === 'receipt' && id)
+    await displayState($, identity, old => ({ ...old, tab: 'side', sideReceipt: id, detailPage: 0 }))
+  else if (action === 'focus' && id && state?.tab !== 'side') await focusItems($, [id], identity)
 }
 // Resolves 'opened', 'off' or 'unavailable'.
 async function openDetails($, id = null, origin = null) {
@@ -1519,7 +1553,7 @@ export function register(on) {
     }
     if (arg === 'view') {
       const opened = await openDetails($)
-      return { text: opened === 'opened' ? 'Work & SSE pane: W Work · S SSE · G Settings · Tab/arrows navigate · Enter opens · Esc returns.'
+      return { text: opened === 'opened' ? 'Work & SSE pane: W Work · S SSE · G Settings · J/K move · I inspect · Tab/arrows + Enter on the controls · click the dashboard for ↑↓/PgUp · Esc returns.'
         : opened === 'off' ? 'Ciel Work mode is off. Turn it on: ciel-runtime menu → LLM options → Work mode, or ask the agent (work_mode_set).'
           : UNAVAILABLE + ' The pane was not opened; retry /work-mode view.' }
     }
@@ -1700,15 +1734,7 @@ export function register(on) {
     ] })
   })
   on('ui.message', { component: 'Pane', requestId: PANE, element: 'obs-graphic' }, async ($, e, next) => {
-    const identity = await sessionId($)
-    const data = e.data && typeof e.data === 'object' ? e.data : {}
-    if (data.action === 'tab' && ['work','side','settings'].includes(data.tab))
-      await displayState($, identity, old => ({ ...old, tab: data.tab, detailPage: 0 }))
-    else if (data.action === 'refresh') { await openDetails($, null, identity); await observatoryRefresh($, identity) }
-    else if (data.action === 'work' && typeof data.id === 'string') await openDetails($, data.id, identity)
-    else if (data.action === 'receipt' && typeof data.id === 'string')
-      await displayState($, identity, old => ({ ...old, tab: 'side', sideReceipt: data.id, detailPage: 0 }))
-    else if (data.action === 'focus' && typeof data.id === 'string') await focusItems($, [data.id], identity)
+    await graphicAction($, await sessionId($), e.data && typeof e.data === 'object' ? e.data : {})
     return next(e)
   })
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
@@ -1745,9 +1771,27 @@ export function register(on) {
     ]
     if (!valid) return Box({ flexDirection: 'column', children: [nav,
       Text({ color: 'error', children: 'Work & SSE unavailable for this conversation.' }), ...common] })
-    if (graphic) return elements.Client({ key: 'obs-graphic', module: './observatory.client.js',
-      props: graphicProps(identity, view, state), width: '100%',
-      height: Math.max(20, e.props?.scroll?.bodyRows || e.viewport?.rows || 32), flexGrow: 1 })
+    if (graphic) {
+      // A Client takes keys only after a click (Mods API, Claude Code 2.1.319), so
+      // the keyboard path is this strip: hook-drawn Buttons are the pane's focus
+      // ring, the active tab takes it when the pane opens, hotkeys work at once.
+      const act = data => () => graphicAction($, origin, data)
+      const control = (key, hotkey, label, data, color) => Button({ key, plain: true, hotkey, label,
+        onPress: act(data), children: Text({ ...(color ? { color } : {}), children: label }) })
+      const strip = Box({ key: 'obs-strip', flexDirection: 'row', flexWrap: 'wrap', columnGap: 1, children: [
+        nav,
+        control('obs-up', 'k', '▲Prev', { action: 'move', by: -1 }, 'suggestion'),
+        control('obs-down', 'j', '▼Next', { action: 'move', by: 1 }, 'suggestion'),
+        control('obs-inspect', 'i', 'Inspect', { action: 'inspect' }, 'suggestion'),
+        control('obs-p1', 'p', state?.obsP1 ? '[P1]' : 'P1', { action: 'p1' }, 'error'),
+        ...(section === 'work' ? [control('obs-focus', 'f', 'Focus', { action: 'focus' }, 'autoAccept')] : []),
+        ...common,
+      ] })
+      return Box({ flexDirection: 'column', children: [strip,
+        elements.Client({ key: 'obs-graphic', module: './observatory.client.js',
+          props: graphicProps(identity, view, state), width: '100%',
+          height: Math.max(18, (e.props?.scroll?.bodyRows || e.viewport?.rows || 32) - 2), flexGrow: 1 })] })
+    }
 
     const header = Box({ key: 'obs-header', borderStyle: 'single', borderColor: cached.phase === 'planning' ? 'planMode' : 'suggestion',
       paddingX: 1, flexDirection: mobile ? 'column' : 'row', justifyContent: 'space-between', children: [

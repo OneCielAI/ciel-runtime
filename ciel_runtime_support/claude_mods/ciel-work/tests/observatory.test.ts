@@ -58,6 +58,37 @@ test('graphical SSE view labels processing receipts while side work is active', 
   } finally { ACTIVE_ACTORS = false }
 })
 
+// A Client takes keys only after a click. These are the controls a keyboard
+// reaches with the pane's own focus (open, Ctrl+X Tab): no ui.key into the Client.
+test('terminal control strip drives the graphical view without a Client click', async ($, on) => {
+  host(on)
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  await $.command.run({ command: 'work-mode', args: 'view' })
+  const ui = await $.ui.mount(pane('terminal', 100) as any)
+  await ui.resize({ columns: 100, rows: 30, in: 'obs-graphic' })
+  const graphic = async () => (await ui.findAll({ type: 'Text', in: 'obs-graphic' })).map(x => x.text).join('\n')
+  const work = await ui.find({ key: 'obs-work' })
+  expect(work?.type).toBe('Button')
+  expect(work?.props.autoFocus).toBe(true)
+  for (const [key, hotkey] of [['obs-work', 'w'], ['obs-side', 's'], ['obs-settings', 'g'], ['obs-up', 'k'],
+    ['obs-down', 'j'], ['obs-inspect', 'i'], ['obs-p1', 'p'], ['obs-focus', 'f'], ['detail-refresh', 'r']])
+    expect((await ui.find({ key }))?.props.hotkey).toBe(hotkey)
+  expect(await graphic()).toContain('INSPECTOR WORK g1')
+  await ui.press({ key: 'obs-down' })
+  expect(await graphic()).toContain('INSPECTOR WORK a')
+  expect(await graphic()).toContain('blocked')
+  await ui.press({ key: 'obs-up' })
+  expect(await graphic()).toContain('INSPECTOR WORK g1')
+  await ui.press({ key: 'obs-side' })
+  expect(await graphic()).toContain('INSPECTOR SSE')
+  expect((await ui.find({ key: 'obs-side' }))?.props.autoFocus).toBe(true)
+  await ui.press({ key: 'obs-work' })
+  await ui.press({ key: 'obs-p1' })
+  expect((await ui.find({ key: 'obs-p1' }))?.text).toContain('[P1]')
+  expect(await graphic()).toContain('INSPECTOR WORK none')
+  await ui.unmount()
+})
+
 test('/work-mode settings opens the pane on its Settings tab', async ($, on) => {
   host(on)
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
@@ -80,6 +111,7 @@ for (const [surface, columns] of [['terminal', 100], ['mobile', 40]] as const) {
       await ui.resize({ columns: 100, rows: 30, in: 'obs-graphic' })
       expect((await ui.findAll({ type: 'Text', in: 'obs-graphic' })).map(x=>x.text).join('\n')).toContain('WORK / SESSION')
       expect((await ui.findAll({ type: 'Text', in: 'obs-graphic' })).map(x=>x.text).join('\n')).toContain('WORK TREE')
+      // The click-focused path: keys and pointer handed straight to the Client.
       await ui.key({ key: 'down', in: 'obs-graphic' })
       await ui.key({ key: 's', in: 'obs-graphic' })
       expect((await ui.findAll({ type: 'Text', in: 'obs-graphic' })).map(x=>x.text).join('\n')).toContain('SSE FLOW')

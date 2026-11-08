@@ -1,0 +1,63 @@
+EEE
+======================================================================
+ERROR: test_marker_shape_saves_with_temp_under_the_limit (test_legacy_max_path.LegacyMaxPathTests.test_marker_shape_saves_with_temp_under_the_limit)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<HEAD 2df49b7 export>\test_legacy_max_path.py", line 82, in test_marker_shape_saves_with_temp_under_the_limit
+    save(target, {'receipt_id': stem})
+    ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<HEAD 2df49b7 export>\ciel_runtime_support\durable_json_file.py", line 50, in save
+    with temporary.open('xb') as stream:
+         ~~~~~~~~~~~~~~^^^^^^
+  File "<HEAD 2df49b7 export>\test_legacy_max_path.py", line 35, in bounded
+    raise FileNotFoundError(2, 'No such file or directory', str(self))
+FileNotFoundError: [Errno 2] No such file or directory: '<TEMP>\\tmpobqg5g9d\\xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\\xxxxxxxxxxxxxxxxxxx\\.b8e1f80bd70ae0784c7855a451731b745fddb67749d23f637be9082b75e9575b.106092.1794118846545312700.tmp'
+
+======================================================================
+ERROR: test_p1_reserved_claim_works_at_aap_depth (test_legacy_max_path.LegacyMaxPathTests.test_p1_reserved_claim_works_at_aap_depth)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<HEAD 2df49b7 export>\test_legacy_max_path.py", line 124, in test_p1_reserved_claim_works_at_aap_depth
+    urgent = inbox.receive(json.dumps({'data': {'priority': 'P1', 'text': 'now'}}), 'walkie:urgent')
+  File "<HEAD 2df49b7 export>\ciel_runtime_support\side_intake_inbox.py", line 167, in receive
+    self._index_priority(key,row)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "<HEAD 2df49b7 export>\ciel_runtime_support\side_intake_inbox.py", line 141, in _index_priority
+    self._save_file(marker,{'receipt_id':key})
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<HEAD 2df49b7 export>\ciel_runtime_support\side_intake_inbox.py", line 104, in _save_file
+    save(path, row)
+    ~~~~^^^^^^^^^^^
+  File "<HEAD 2df49b7 export>\ciel_runtime_support\durable_json_file.py", line 50, in save
+    with temporary.open('xb') as stream:
+         ~~~~~~~~~~~~~~^^^^^^
+  File "<HEAD 2df49b7 export>\test_legacy_max_path.py", line 35, in bounded
+    raise FileNotFoundError(2, 'No such file or directory', str(self))
+FileNotFoundError: [Errno 2] No such file or directory: '<TEMP>\\tmpr0t9l2z_\\xxxxxxxxxxxxxxxxxxxxxxxxxxx\\side-inboxes\\19d8a769ad0e3a7419b9a621e9857427759a566f3142578e0cbc65f08dae0a8e\\priority\\P1\\97\\.97a5d3656fdf81b35ba212554d23b5bd955187e168426b39fe811c04807b0c90.106092.1794118846592178400.tmp'
+
+======================================================================
+ERROR: test_p3_event_is_received_claimed_and_finished_at_aap_depth (test_legacy_max_path.LegacyMaxPathTests.test_p3_event_is_received_claimed_and_finished_at_aap_depth)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<HEAD 2df49b7 export>\test_legacy_max_path.py", line 99, in test_p3_event_is_received_claimed_and_finished_at_aap_depth
+    first = inbox.receive(text, 'walkie:1')
+  File "<HEAD 2df49b7 export>\ciel_runtime_support\side_intake_inbox.py", line 167, in receive
+    self._index_priority(key,row)
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^
+  File "<HEAD 2df49b7 export>\ciel_runtime_support\side_intake_inbox.py", line 141, in _index_priority
+    self._save_file(marker,{'receipt_id':key})
+    ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<HEAD 2df49b7 export>\ciel_runtime_support\side_intake_inbox.py", line 104, in _save_file
+    save(path, row)
+    ~~~~^^^^^^^^^^^
+  File "<HEAD 2df49b7 export>\ciel_runtime_support\durable_json_file.py", line 50, in save
+    with temporary.open('xb') as stream:
+         ~~~~~~~~~~~~~~^^^^^^
+  File "<HEAD 2df49b7 export>\test_legacy_max_path.py", line 35, in bounded
+    raise FileNotFoundError(2, 'No such file or directory', str(self))
+FileNotFoundError: [Errno 2] No such file or directory: '<TEMP>\\tmps2fo28yd\\xxxxxxxxxxxxxxxxxxxxxxxxxxx\\side-inboxes\\19d8a769ad0e3a7419b9a621e9857427759a566f3142578e0cbc65f08dae0a8e\\priority\\P3\\20\\.20d8544dd33b908a635a341050959f20108183841096c8f4f056b0119f60027f.106092.1794118846602236800.tmp'
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.062s
+
+FAILED (errors=3)

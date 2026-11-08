@@ -1,0 +1,320 @@
+{
+  "outcome": "fork-shown",
+  "event_served": true,
+  "fork_settled": true,
+  "keyboard": [
+    {
+      "key": "j",
+      "inspector": "move · I inspect · Tab/arrows + Enter on the controls ·      │─ INSPECTOR WORK n2 ────────",
+      "prompt_line": ""
+    },
+    {
+      "key": "j",
+      "inspector": "move · I inspect · Tab/arrows + Enter on the controls ·      │─ INSPECTOR WORK n3 ────────",
+      "prompt_line": ""
+    },
+    {
+      "key": "k",
+      "inspector": "move · I inspect · Tab/arrows + Enter on the controls ·      │─ INSPECTOR WORK n2 ────────",
+      "prompt_line": ""
+    },
+    {
+      "key": "s",
+      "inspector": "move · I inspect · Tab/arrows + Enter on the controls ·      │─ INSPECTOR SSE none ───────",
+      "prompt_line": ""
+    },
+    {
+      "key": "w",
+      "inspector": "move · I inspect · Tab/arrows + Enter on the controls ·      │─ INSPECTOR WORK n2 ────────",
+      "prompt_line": ""
+    },
+    {
+      "key": "tab",
+      "inspector": "move · I inspect · Tab/arrows + Enter on the controls ·      │─ INSPECTOR WORK n2 ────────",
+      "prompt_line": ""
+    },
+    {
+      "key": "tab",
+      "inspector": "move · I inspect · Tab/arrows + Enter on the controls ·      │─ INSPECTOR WORK n2 ────────",
+      "prompt_line": ""
+    },
+    {
+      "key": "enter",
+      "inspector": "",
+      "prompt_line": ""
+    }
+  ],
+  "side_inbox_paths": [
+    "workspaces\\330da3062d46\\side-inboxes\\a5a876c86efa837c37cee96a1efb0139b0869ed244d3de4ac8ce68b95f1d320c\\decision-cursor.json",
+    "workspaces\\330da3062d46\\side-inboxes\\a5a876c86efa837c37cee96a1efb0139b0869ed244d3de4ac8ce68b95f1d320c\\decision-cursor.json.io.lock",
+    "workspaces\\330da3062d46\\side-inboxes\\a5a876c86efa837c37cee96a1efb0139b0869ed244d3de4ac8ce68b95f1d320c\\decision-cursor.json.lock",
+    "workspaces\\330da3062d46\\side-inboxes\\a5a876c86efa837c37cee96a1efb0139b0869ed244d3de4ac8ce68b95f1d320c\\inbox.json.lock",
+    "workspaces\\330da3062d46\\side-inboxes\\a5a876c86efa837c37cee96a1efb0139b0869ed244d3de4ac8ce68b95f1d320c\\locks\\fd\\fd5f7411488be8be7aa98dc344ce7c87868363e4c0faa5ff9de486f2a0dddff3.json.lock",
+    "workspaces\\330da3062d46\\side-inboxes\\a5a876c86efa837c37cee96a1efb0139b0869ed244d3de4ac8ce68b95f1d320c\\mailbox-v2.json",
+    "workspaces\\330da3062d46\\side-inboxes\\a5a876c86efa837c37cee96a1efb0139b0869ed244d3de4ac8ce68b95f1d320c\\mailbox-v2.json.io.lock",
+    "workspaces\\330da3062d46\\side-inboxes\\a5a876c86efa837c37cee96a1efb0139b0869ed244d3de4ac8ce68b95f1d320c\\pending\\fd\\fd5f7411488be8be7aa98dc344ce7c87868363e4c0faa5ff9de486f2a0dddff3.json.io.lock",
+    "workspaces\\330da3062d46\\side-inboxes\\a5a876c86efa837c37cee96a1efb0139b0869ed244d3de4ac8ce68b95f1d320c\\priority\\P1\\fd\\fd5f7411488be8be7aa98dc344ce7c87868363e4c0faa5ff9de486f2a0dddff3.json.io.lock",
+    "workspaces\\330da3062d46\\side-inboxes\\a5a876c86efa837c37cee96a1efb0139b0869ed244d3de4ac8ce68b95f1d320c\\receipts\\fd\\fd5f7411488be8be7aa98dc344ce7c87868363e4c0faa5ff9de486f2a0dddff3.json",
+    "workspaces\\330da3062d46\\side-inboxes\\a5a876c86efa837c37cee96a1efb0139b0869ed244d3de4ac8ce68b95f1d320c\\receipts\\fd\\fd5f7411488be8be7aa98dc344ce7c87868363e4c0faa5ff9de486f2a0dddff3.json.io.lock"
+  ],
+  "side_inbox_tmp_left": [],
+  "scratch_removed": true,
+  "owned_router_pids": [],
+  "frames": [
+    {
+      "label": "03-frame-01",
+      "active_fork": false,
+      "sse_column": [
+        "SSE FLOW 0",
+        "IN 0 AI 0 ANS 0 WOR…",
+        "No active side fork"
+      ]
+    },
+    {
+      "label": "03-frame-02",
+      "active_fork": true,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 1 ANS 0 WOR…",
+        "ACTIVE SSE FORKS 1",
+        "▶ fork ae0cb9349cbd…",
+        "model ciel-runtim…",
+        "P1 processing [mes…"
+      ]
+    },
+    {
+      "label": "03-frame-03",
+      "active_fork": true,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 1 ANS 0 WOR…",
+        "ACTIVE SSE FORKS 1",
+        "▶ fork ae0cb9349cbd…",
+        "model ciel-runtim…",
+        "P1 processing [mes…"
+      ]
+    },
+    {
+      "label": "03-frame-04",
+      "active_fork": true,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 1 ANS 0 WOR…",
+        "ACTIVE SSE FORKS 1",
+        "▶ fork ae0cb9349cbd…",
+        "model ciel-runtim…",
+        "P1 processing [mes…"
+      ]
+    },
+    {
+      "label": "03-frame-05",
+      "active_fork": true,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 1 ANS 0 WOR…",
+        "ACTIVE SSE FORKS 1",
+        "▶ fork ae0cb9349cbd…",
+        "model ciel-runtim…",
+        "P1 processing [mes…"
+      ]
+    },
+    {
+      "label": "03-frame-06",
+      "active_fork": true,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 1 ANS 0 WOR…",
+        "ACTIVE SSE FORKS 1",
+        "▶ fork ae0cb9349cbd…",
+        "model ciel-runtim…",
+        "P1 processing [mes…"
+      ]
+    },
+    {
+      "label": "03-frame-07",
+      "active_fork": true,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 1 ANS 0 WOR…",
+        "ACTIVE SSE FORKS 1",
+        "▶ fork ae0cb9349cbd…",
+        "model ciel-runtim…",
+        "P1 processing [mes…"
+      ]
+    },
+    {
+      "label": "03-frame-08",
+      "active_fork": true,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 1 ANS 0 WOR…",
+        "ACTIVE SSE FORKS 1",
+        "▶ fork ae0cb9349cbd…",
+        "model ciel-runtim…",
+        "P1 processing [mes…"
+      ]
+    },
+    {
+      "label": "03-frame-09",
+      "active_fork": true,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 1 ANS 0 WOR…",
+        "ACTIVE SSE FORKS 1",
+        "▶ fork ae0cb9349cbd…",
+        "model ciel-runtim…",
+        "P1 processing [mes…"
+      ]
+    },
+    {
+      "label": "03-frame-10",
+      "active_fork": true,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 1 ANS 0 WOR…",
+        "ACTIVE SSE FORKS 1",
+        "▶ fork ae0cb9349cbd…",
+        "model ciel-runtim…",
+        "P1 processing [mes…"
+      ]
+    },
+    {
+      "label": "03-frame-11",
+      "active_fork": true,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 1 ANS 0 WOR…",
+        "ACTIVE SSE FORKS 1",
+        "▶ fork ae0cb9349cbd…",
+        "model ciel-runtim…",
+        "P1 processing [mes…"
+      ]
+    },
+    {
+      "label": "03-frame-12",
+      "active_fork": true,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 1 ANS 0 WOR…",
+        "ACTIVE SSE FORKS 1",
+        "▶ fork ae0cb9349cbd…",
+        "model ciel-runtim…",
+        "P1 processing [mes…"
+      ]
+    },
+    {
+      "label": "03-frame-13",
+      "active_fork": true,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 1 ANS 0 WOR…",
+        "ACTIVE SSE FORKS 1",
+        "▶ fork ae0cb9349cbd…",
+        "model ciel-runtim…",
+        "P1 processing [mes…"
+      ]
+    },
+    {
+      "label": "03-frame-14",
+      "active_fork": true,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 1 ANS 0 WOR…",
+        "ACTIVE SSE FORKS 1",
+        "▶ fork ae0cb9349cbd…",
+        "model ciel-runtim…",
+        "P1 processing [mes…"
+      ]
+    },
+    {
+      "label": "03-frame-15",
+      "active_fork": true,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 1 ANS 0 WOR…",
+        "ACTIVE SSE FORKS 1",
+        "▶ fork ae0cb9349cbd…",
+        "model ciel-runtim…",
+        "P1 processing [mes…"
+      ]
+    },
+    {
+      "label": "03-frame-16",
+      "active_fork": true,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 1 ANS 0 WOR…",
+        "ACTIVE SSE FORKS 1",
+        "▶ fork ae0cb9349cbd…",
+        "model ciel-runtim…",
+        "P1 processing [mes…"
+      ]
+    },
+    {
+      "label": "03-frame-17",
+      "active_fork": true,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 1 ANS 0 WOR…",
+        "ACTIVE SSE FORKS 1",
+        "▶ fork ae0cb9349cbd…",
+        "model ciel-runtim…",
+        "P1 processing [mes…"
+      ]
+    },
+    {
+      "label": "03-frame-18",
+      "active_fork": true,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 1 ANS 0 WOR…",
+        "ACTIVE SSE FORKS 1",
+        "▶ fork ae0cb9349cbd…",
+        "model ciel-runtim…",
+        "P1 processing [mes…"
+      ]
+    },
+    {
+      "label": "03-frame-19",
+      "active_fork": true,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 1 ANS 0 WOR…",
+        "ACTIVE SSE FORKS 1",
+        "▶ fork ae0cb9349cbd…",
+        "model ciel-runtim…",
+        "P1 processing [mes…"
+      ]
+    },
+    {
+      "label": "03-frame-20",
+      "active_fork": false,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 0 ANS 0 WOR…",
+        "No active side fork",
+        "P1 pending [messag…"
+      ]
+    },
+    {
+      "label": "03-frame-21",
+      "active_fork": false,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 0 ANS 1 WOR…",
+        "No active side fork",
+        "P1 answered [messa…"
+      ]
+    },
+    {
+      "label": "03-frame-22",
+      "active_fork": false,
+      "sse_column": [
+        "SSE FLOW 1",
+        "IN 0 AI 0 ANS 1 WOR…",
+        "No active side fork",
+        "P1 answered [messa…"
+      ]
+    }
+  ]
+}

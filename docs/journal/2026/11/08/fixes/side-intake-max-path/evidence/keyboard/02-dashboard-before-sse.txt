@@ -1,0 +1,30 @@
+                                                                  │                                                   ✕
+           Claude Code v2.1.310                                   │w: [Work] s: SSE g: Settings k: ▲Prev j: ▼Next
+ ▐▛███▛█   ciel-runtime-cielairouter-astra with xhigh effort      │
+▝▜██████▀  API Usage Billing                                      │i: Inspect p: P1 f: Focus r: Refresh q: Close
+ ▝▝   ▝▝   ~\AppData\Local\Temp\ciel-owned-sse-fork-zkz6rr7x\…    │WORK / SESSION 1         SSE FLOW 0          SETTINGS
+                                                                  │▶ Graphical Work Observatory
+▎ Debug mode enabled · logging to                                 │█████████░░░░░░░░░░░░░░░░░░░░░░░░░░░ 1/4
+▎ C:\Users\<user>\ciel-runtime\.local\tmp\work-parallel\.local\owne│PARALLEL 0/5 □□□□□ +P1  M inherit
+▎ d-keyboard-sse-20261108-001302\claude-debug.txt                 │─────────────────────────────────────────────────────
+                                                                  │WORK TREE 7                   ┌─────────────────────┐
+● ciel-work: Ciel Work mode is on: plan and execute by            │▸ · P1 Graphical Work Ob…0/2  │ SSE FLOW 0          │
+  item; new independent requests queue without pausing            │    · Release graphical p…1/2 │ IN 0 AI 0 ANS 0 WOR…│
+  approved Work. Items show above the prompt · /work-mode         │      ✓ Render Work hierarchy │ No active side fork │
+  help · turn off: ciel-runtime menu → LLM options → Work         │      ▶ Verify Betty .12      │                     │
+  mode, or the agent (work_mode_set)                              │    · Process external SS…0/2 │                     │
+                                                                  │      · ACK incoming message  │                     │
+❯ /work-mode                                                      │      · Queue P1 work         │                     │
+  ⎿  ciel-work: Work & SSE pane: W Work · S SSE · G Settings · J/K│                              └─────────────────────┘
+     move · I inspect · Tab/arrows + Enter on the controls ·      │─ INSPECTOR WORK n1 ────────────────────────────────…
+     click the dashboard for ↑↓/PgUp · Esc returns.               │Graphical Work Observatory
+                                                                  │P1 · pending
+                                                                  │W/S/G tabs · J/K move · I inspect · P P1 · F focus ·…
+                                                                  │
+w: Work 1/4 [~] Verify Betty .12 [+]                          [-] │
+  ⚠ claude.ai connectors are disabled because ANTHROPIC_API_KEY…  │
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [ASTRA (cielairouter)] workspace | SSE gate on: open                                                   work: run 1/4
+  ⏵⏵ bypass permissions on (shift+tab to cycle)

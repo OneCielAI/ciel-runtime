@@ -1,0 +1,74 @@
+LongPathsEnabled=0
+old durable: temporary = path.with_name(f'.{path.stem}.{os.getpid()}.{time.time_ns()}.tmp')
+fix durable: temporary = path.with_name(f'.{os.getpid()}.{time.time_ns()}.{os.urandom(4).hex()}.tmp')
+=== OLD (0a881e0 as installed on u42/u41 path shape) ===
+{
+  "label": "old",
+  "root": "C:\\Windows\\Temp\\ciel-obs-probe\\snapshot",
+  "state_dir_len": 73,
+  "events": [
+    {
+      "step": "error",
+      "type": "FileNotFoundError",
+      "message": "[Errno 2] No such file or directory: 'C:\\\\Windows\\\\Temp\\\\ciel-obs-probe\\\\maxpath\\\\old-221917\\\\xxxxxxxxxxxxxxxxxxxxxxx\\\\side-inboxes\\\\294d6966b179f737774f4fc740c701da6ff71d92513aaa8eb137eaadbede7fe3\\\\priority\\\\P3\\\\d8\\\\.d80c2fe52920015e2c179931d99ec309c101c06556fda2cc0f644190701fcede.22948.1794118758069800200.tmp'",
+      "path_len": 262
+    }
+  ],
+  "trace_tail": [
+    "  File \"C:\\Program Files\\Python313\\Lib\\pathlib\\_local.py\", line 537, in open",
+    "    return io.open(self, mode, buffering, encoding, errors, newline)",
+    "           ~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+    "FileNotFoundError: [Errno 2] No such file or directory: 'C:\\\\Windows\\\\Temp\\\\ciel-obs-probe\\\\maxpath\\\\old-221917\\\\xxxxxxxxxxxxxxxxxxxxxxx\\\\side-inboxes\\\\294d6966b179f737774f4fc740c701da6ff71d92513aaa8eb137eaadbede7fe3\\\\priority\\\\P3\\\\d8\\\\.d80c2fe52920015e2c179931d99ec309c101c06556fda2cc0f644190701fcede.22948.1794118758069800200.tmp'"
+  ],
+  "files": [
+    "d80c2fe52920015e2c179931d99ec309c101c06556fda2cc0f644190701fcede.json",
+    "d80c2fe52920015e2c179931d99ec309c101c06556fda2cc0f644190701fcede.json.io.lock",
+    "d80c2fe52920015e2c179931d99ec309c101c06556fda2cc0f644190701fcede.json.lock",
+    "inbox.json.lock",
+    "mailbox-v2.json",
+    "mailbox-v2.json.io.lock"
+  ],
+  "tmp_left": []
+}
+=== FIX ===
+{
+  "label": "fix",
+  "root": "C:\\Windows\\Temp\\ciel-obs-probe\\fixroot",
+  "state_dir_len": 73,
+  "events": [
+    {
+      "step": "receive",
+      "ok": true,
+      "receipt": "d80c2fe52920"
+    },
+    {
+      "step": "claim",
+      "ok": true,
+      "priority": "P3"
+    },
+    {
+      "step": "finish",
+      "ok": true,
+      "stage": "processed"
+    }
+  ],
+  "marker_dir_len": 166,
+  "marker_len": 236,
+  "old_temp_len": 261,
+  "marker_exists": true,
+  "marker_after_finish": false,
+  "files": [
+    "d80c2fe52920015e2c179931d99ec309c101c06556fda2cc0f644190701fcede.json",
+    "d80c2fe52920015e2c179931d99ec309c101c06556fda2cc0f644190701fcede.json.io.lock",
+    "d80c2fe52920015e2c179931d99ec309c101c06556fda2cc0f644190701fcede.json.io.lock",
+    "d80c2fe52920015e2c179931d99ec309c101c06556fda2cc0f644190701fcede.json.io.lock",
+    "d80c2fe52920015e2c179931d99ec309c101c06556fda2cc0f644190701fcede.json.lock",
+    "decision-cursor.json",
+    "decision-cursor.json.io.lock",
+    "decision-cursor.json.lock",
+    "inbox.json.lock",
+    "mailbox-v2.json",
+    "mailbox-v2.json.io.lock"
+  ],
+  "tmp_left": []
+}

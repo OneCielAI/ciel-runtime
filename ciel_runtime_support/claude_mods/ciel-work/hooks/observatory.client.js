@@ -6,6 +6,10 @@ const C = {
   text: '#dbe8f3', panel: '#101820', selected: '#173241', line: '#2a4354',
 }
 
+// The pane's control strip above takes Tab/arrows/Enter and these hotkeys without
+// a click; a click here adds ↑↓, PgUp/PgDn, Home/End until Esc.
+const FOOTER = 'W/S/G tabs · J/K move · I inspect · P P1 · F focus · R refresh · click: ↑↓ PgUp'
+
 function clip(value, width) {
   const text = String(value ?? '').replace(/[\x00-\x1f\x7f]/g, ' ')
   if (width <= 0) return ''
@@ -52,19 +56,24 @@ export default function Observatory(props, surface) {
   const { Box, Text } = surface.elements
   const width = Math.max(24, surface.columns || 48)
   const height = Math.max(12, surface.rows || 20)
-  const initial = { selected: 0, scroll: 0, p1: false }
-  const state = surface.state || initial
-  const workRows = (props.nodes || []).filter(row => !state.p1 || row.priority === 'P1')
-  const sideRows = (props.receipts || []).filter(row => !state.p1 || row.priority === 'P1')
+  // Selection and the P1 filter belong to the plugin (props), so the pane's
+  // native control strip and this region's click-focused keys move one cursor.
+  // Only the scroll offset is local.
+  const state = surface.state || { scroll: 0 }
+  const p1 = props.p1 === true
+  const workRows = (props.nodes || []).filter(row => !p1 || row.priority === 'P1')
+  const sideRows = (props.receipts || []).filter(row => !p1 || row.priority === 'P1')
   const rows = props.tab === 'side' ? sideRows : workRows
-  const selected = Math.max(0, Math.min(state.selected || 0, Math.max(0, rows.length - 1)))
+  const selected = Math.max(0, Math.min(Number(props.selected) || 0, Math.max(0, rows.length - 1)))
+  const visible = Math.max(3, height - (props.tab === 'side' ? 13 : 12))
+  const scroll = Math.max(0, Math.min(selected, Math.max(state.scroll || 0, selected - visible + 1)))
   const setSelection = next => {
     const index = Math.max(0, Math.min(next, Math.max(0, rows.length - 1)))
-    const visible = Math.max(3, height - (props.tab === 'side' ? 13 : 12))
-    let scroll = state.scroll || 0
-    if (index < scroll) scroll = index
-    if (index >= scroll + visible) scroll = index - visible + 1
-    surface.setState({ ...state, selected: index, scroll })
+    let top = scroll
+    if (index < top) top = index
+    if (index >= top + visible) top = index - visible + 1
+    surface.setState({ scroll: top })
+    surface.post({ action: 'select', index })
   }
   surface.onKey(event => {
     if (event.key === 'up' || event.key === 'k') setSelection(selected - 1)
@@ -73,14 +82,14 @@ export default function Observatory(props, surface) {
     else if (event.key === 'pagedown') setSelection(selected + 8)
     else if (event.key === 'home') setSelection(0)
     else if (event.key === 'end') setSelection(rows.length - 1)
-    else if (event.key === 'p') surface.setState({ ...state, p1: !state.p1, selected: 0, scroll: 0 })
+    else if (event.key === 'p') { surface.setState({ scroll: 0 }); surface.post({ action: 'p1' }) }
     else if (event.key === 'w') surface.post({ action: 'tab', tab: 'work' })
     else if (event.key === 's') surface.post({ action: 'tab', tab: 'side' })
     else if (event.key === 'g') surface.post({ action: 'tab', tab: 'settings' })
     else if (event.key === 'r') surface.post({ action: 'refresh' })
     else if (event.key === 'f' && props.tab === 'work' && rows[selected])
       surface.post({ action: 'focus', id: rows[selected].id })
-    else if (event.key === 'return' && rows[selected])
+    else if ((event.key === 'return' || event.key === 'i') && rows[selected])
       surface.post({ action: props.tab === 'work' ? 'work' : 'receipt', id: rows[selected].id })
   })
 
@@ -95,7 +104,7 @@ export default function Observatory(props, surface) {
       else surface.post({ action: 'tab', tab: 'settings' })
       return
     }
-    const index = (state.scroll || 0) + event.y - hitStart
+    const index = scroll + event.y - hitStart
     if (index >= 0 && index < rows.length) setSelection(index)
   })
 
@@ -139,9 +148,9 @@ export default function Observatory(props, surface) {
     const sideWidth = width - workWidth - 1
     const bodyRows = Math.max(7, height - 13)
     const workChildren = [Text({ color: C.cyan, weight: 'bold', children: pad('WORK TREE ' + workRows.length, workWidth) })]
-    const workPage = workRows.slice(state.scroll || 0, (state.scroll || 0) + bodyRows)
+    const workPage = workRows.slice(scroll, scroll + bodyRows)
     for (const [offset, node] of workPage.entries()) {
-      const index = (state.scroll || 0) + offset
+      const index = scroll + offset
       const selectedRow = props.tab === 'work' && index === selected
       const indent = '  '.repeat(Math.min(3, node.depth || 0))
       const left = (selectedRow ? '▸ ' : '  ') + indent + statusGlyph(node.status, node.waiting_on) + ' '
@@ -204,7 +213,7 @@ export default function Observatory(props, surface) {
       ? stage(chosen) + (chosen.actor ? ' · fork ' + chosen.actor : '') + (chosen.item_id ? ' → ' + chosen.item_id : '')
       : (chosen.priority || '--') + ' · ' + chosen.status + (chosen.waiting_on ? ' · waiting ' + chosen.waiting_on : ''),
       props.tab === 'side' ? stageColor(stage(chosen)) : statusColor(chosen.status)))
-    children.push(line('footer', 'click header: Work/SSE/Settings · ↑↓ move · W/S · Enter · P P1 · F focus · R refresh', C.dim))
+    children.push(line('footer', FOOTER, C.dim))
     return Box({ flexDirection: 'column', backgroundColor: C.panel, children })
   }
 
@@ -213,7 +222,7 @@ export default function Observatory(props, surface) {
     for (const row of sideRows) counts[stage(row)] = (counts[stage(row)] || 0) + 1
     children.push(boxLine('side-head', [
       Text({ color: C.cyan, weight: 'bold', children: 'SSE FLOW ' + sideRows.length }),
-      Text({ color: state.p1 ? C.red : C.dim, children: state.p1 ? ' P1 ONLY' : ' ALL · P P1' }),
+      Text({ color: p1 ? C.red : C.dim, children: p1 ? ' P1 ONLY' : ' ALL · P P1' }),
     ], { justifyContent: 'space-between' }))
     children.push(boxLine('stage-counts', [
       Text({ color: C.yellow, children: 'IN ' + counts.received + '  ' }),
@@ -228,10 +237,10 @@ export default function Observatory(props, surface) {
         '▶ ' + clip(actor.id, 10) + ' · ' + clip(actor.model || 'inherit', 18) + ' · ' + clip(actor.receipt, 12), C.cyan))
     } else children.push(line('no-fork', 'No active side fork', C.dim))
     const visible = Math.max(3, height - 13 - actors.length)
-    const page = sideRows.slice(state.scroll || 0, (state.scroll || 0) + visible)
+    const page = sideRows.slice(scroll, scroll + visible)
     children.push(line('receipt-head', 'RECEIPTS · ↑↓ MOVE · ENTER INSPECT', C.dim))
     for (const [offset, receipt] of page.entries()) {
-      const index = (state.scroll || 0) + offset
+      const index = scroll + offset
       const selectedRow = index === selected
       const value = (selectedRow ? '▸ ' : '  ') + pad(receipt.priority || '--', 3) + ' '
         + pad(stage(receipt), 10) + ' ' + clip(receipt.summary, Math.max(0, width - 19))
@@ -248,12 +257,12 @@ export default function Observatory(props, surface) {
   } else {
     children.push(boxLine('work-head', [
       Text({ color: C.cyan, weight: 'bold', children: 'WORK TREE ' + workRows.length }),
-      Text({ color: state.p1 ? C.red : C.dim, children: state.p1 ? ' P1 ONLY' : ' ALL · P P1' }),
+      Text({ color: p1 ? C.red : C.dim, children: p1 ? ' P1 ONLY' : ' ALL · P P1' }),
     ], { justifyContent: 'space-between' }))
     const visible = Math.max(3, height - 12)
-    const page = workRows.slice(state.scroll || 0, (state.scroll || 0) + visible)
+    const page = workRows.slice(scroll, scroll + visible)
     for (const [offset, node] of page.entries()) {
-      const index = (state.scroll || 0) + offset
+      const index = scroll + offset
       const selectedRow = index === selected
       const indent = '  '.repeat(Math.min(4, node.depth || 0))
       const left = (selectedRow ? '▸ ' : '  ') + indent + statusGlyph(node.status, node.waiting_on) + ' '
@@ -278,6 +287,6 @@ export default function Observatory(props, surface) {
       if (node.waiting_on) children.push(line('inspect-wait', 'waiting: ' + node.waiting_on, C.yellow))
     }
   }
-  children.push(line('footer', 'click header: Work/SSE/Settings · ↑↓ move · W/S · Enter · P P1 · F focus · R refresh', C.dim))
+  children.push(line('footer', FOOTER, C.dim))
   return Box({ flexDirection: 'column', backgroundColor: C.panel, children })
 }

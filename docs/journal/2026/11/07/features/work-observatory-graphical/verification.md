@@ -87,6 +87,16 @@ pre-existing `work.test.ts` baseline.
   five isolated CLI/ctl commands pass, and `claude plugin validate` passes. Live routers
   9505/9489/9524 remained HTTP 200.
 
+# Keyboard correction (2026-11-08)
+
+The earlier "focused" capture sent only Ctrl+X, with no Tab, so it did not prove keyboard access. The engine tests had handed keys straight to the Client.
+
+In Claude Code 2.1.319 a `Client` gets keys only after a click inside it. A pane-drawn control strip now provides a keyboard path that needs no click. It was verified in a real console:
+- `j`/`k`/`s`/`w` moved the cursor and switched tabs.
+- Tab, Tab, then Enter moved the ring and opened Settings.
+
+See [the fix verification](../../../08/fixes/side-intake-max-path/verification.md).
+
 # Betty .12
 
 **Status: partial. The graphical pane was verified on Betty; the SSE fork display was not.**
