@@ -130,9 +130,10 @@ class SideDecisionTests(unittest.TestCase):
     def test_walkie_thread_task_priority_indexes_source_urgency(self):
         from ciel_runtime_support.side_intake_inbox import source_priority
         import json
-        walkie=lambda value:json.dumps({'specversion':'1.0','type':'com.ciel.walkie.message',
-            'data':{'event_type':'message.created','text':'fix it now',
-                    'message_context':{'id':'116793','thread_task':{'priority':value,'status':'open'}}}})
+        def walkie(value):
+            return json.dumps({'specversion':'1.0','type':'com.ciel.walkie.message',
+                'data':{'event_type':'message.created','text':'fix it now',
+                        'message_context':{'id':'116793','thread_task':{'priority':value,'status':'open'}}}})
         self.assertEqual('P1',source_priority(walkie(1)))
         self.assertEqual('P3',source_priority(walkie(3)))
         self.assertEqual('P2',source_priority(walkie('P2')))
