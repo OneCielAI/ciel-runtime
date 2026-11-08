@@ -1,0 +1,36 @@
+--- side forks since 22:30 (host clock), by receipt
+22:40:46 5084b4154ee8 _api_keys-sse-1        sends=1 err=Credit balance is too low
+22:41:01 e0b3500cf8d6 _api_keys-sse-1        sends=1 err=API Error: Combo has no executable targets
+22:41:18 5084b4154ee8 _api_keys-sse-1        sends=1 err=API Error: Combo has no executable targets
+22:41:38 e0b3500cf8d6 _api_keys-sse-1        sends=1 err=API Error: Combo has no executable targets
+22:41:53 5084b4154ee8 _api_keys-sse-1        sends=1 err=API Error: Combo has no executable targets
+22:42:09 e0b3500cf8d6 _api_keys-sse-1        sends=1 err=API Error: Combo has no executable targets
+22:49:40 5084b4154ee8 _walkie_haiku_terra    sends=3 err=
+22:52:15 a1888493bae2 _walkie_haiku_terra    sends=3 err=
+22:52:25 e0b3500cf8d6 _walkie_haiku_terra    sends=5 err=
+22:56:11 41dca3ecffd7 _walkie_haiku_terra    sends=2 err=
+22:56:33 cddc99470eb8 _walkie_haiku_terra    sends=1 err=
+22:56:58 045dca669fa8 _walkie_haiku_terra    sends=4 err=
+22:57:11 180f1fa48d6f _walkie_haiku_terra    sends=1 err=
+23:02:58 6ad84bc085e5 _walkie_haiku_terra    sends=2 err=
+23:03:07 651086f76efc _walkie_haiku_terra    sends=2 err=
+23:08:01 180f1fa48d6f _walkie_haiku_terra    sends=6 err=
+23:10:32 e94d56fc63d2 _walkie_haiku_terra    sends=5 err=
+23:11:22 045dca669fa8 _walkie_haiku_terra    sends=4 err=
+23:11:44 cddc99470eb8 _walkie_haiku_terra    sends=2 err=
+23:18:42 dbdd30888f7c _walkie_haiku_terra    sends=1 err=API Error: Upstream Anthropic stream failed before message_stop (TimeoutError).
+23:18:46 07defb0c291f _walkie_haiku_terra    sends=1 err=API Error: 409 Side parent context unavailable; request retained. Verify routed capture, p
+23:20:32 07defb0c291f _walkie_haiku_terra    sends=1 err=
+--- per receipt
+045dca669fa8 forks=2 models=_walkie_haiku_terra
+07defb0c291f forks=2 models=_walkie_haiku_terra
+180f1fa48d6f forks=2 models=_walkie_haiku_terra
+41dca3ecffd7 forks=1 models=_walkie_haiku_terra
+5084b4154ee8 forks=4 models=System.Object[]
+651086f76efc forks=1 models=_walkie_haiku_terra
+6ad84bc085e5 forks=1 models=_walkie_haiku_terra
+a1888493bae2 forks=1 models=_walkie_haiku_terra
+cddc99470eb8 forks=2 models=_walkie_haiku_terra
+dbdd30888f7c forks=1 models=_walkie_haiku_terra
+e0b3500cf8d6 forks=4 models=System.Object[]
+e94d56fc63d2 forks=1 models=_walkie_haiku_terra

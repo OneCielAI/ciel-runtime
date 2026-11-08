@@ -1,0 +1,36 @@
+=== acce885f  file=subagents/agent-acce885fbdfdc6793.jsonl bytes=767436
+meta: {"agentType":"ciel-work:side-intake","isBuiltIn":false,"pluginSteered":true,"description":"Side SSE 5084b4154ee8","toolUseId":"toolu_plugin_1065d63344a645608d355e782ea1b000","spawnDepth":1,"requestShape":"background","requestNonInteractive":true,"pickedEffortModel":"ciel-runtime-cielairouter-_walkie
+rows=8 types=attachment:5,api-request-blob:1,api-request:1,assistant:1
+prompt_chars=0
+time 2026-11-08T06:40:37.876Z -> 2026-11-08T06:40:46.856Z
+assistant ts=2026-11-08T06:40:46.856Z model=<synthetic> apiErr=True stop=stop_sequence err=billing_error tools= text=Credit balance is too low
+=== a98de443  file=subagents/agent-a98de443c1212d2ea.jsonl bytes=766063
+meta: {"agentType":"ciel-work:side-intake","isBuiltIn":false,"pluginSteered":true,"description":"Side SSE e0b3500cf8d6","toolUseId":"toolu_plugin_666fd0b5f4754e7f8a57ffbe4a4e1aaa","spawnDepth":1,"requestShape":"background","requestNonInteractive":true,"pickedEffortModel":"ciel-runtime-cielairouter-_walkie
+rows=8 types=attachment:5,api-request-blob:1,api-request:1,assistant:1
+prompt_chars=0
+time 2026-11-08T06:40:55.017Z -> 2026-11-08T06:41:01.456Z
+assistant ts=2026-11-08T06:41:01.456Z model=<synthetic> apiErr=True stop=stop_sequence err=unknown tools= text=API Error: Combo has no executable targets
+=== a065a1d1  file=subagents/agent-a065a1d165d259b7b.jsonl bytes=767423
+meta: {"agentType":"ciel-work:side-intake","isBuiltIn":false,"pluginSteered":true,"description":"Side SSE 5084b4154ee8","toolUseId":"toolu_plugin_cb995480ab784fd487d73112b8dabcad","spawnDepth":1,"requestShape":"background","requestNonInteractive":true,"pickedEffortModel":"ciel-runtime-cielairouter-_walkie
+rows=8 types=attachment:5,api-request-blob:1,api-request:1,assistant:1
+prompt_chars=0
+time 2026-11-08T06:41:11.535Z -> 2026-11-08T06:41:18.325Z
+assistant ts=2026-11-08T06:41:18.325Z model=<synthetic> apiErr=True stop=stop_sequence err=unknown tools= text=API Error: Combo has no executable targets
+=== a54e2991  file=subagents/agent-a54e2991ec79c8332.jsonl bytes=766063
+meta: {"agentType":"ciel-work:side-intake","isBuiltIn":false,"pluginSteered":true,"description":"Side SSE e0b3500cf8d6","toolUseId":"toolu_plugin_4e73615ada8747a690988886356c3a23","spawnDepth":1,"requestShape":"background","requestNonInteractive":true,"pickedEffortModel":"ciel-runtime-cielairouter-_walkie
+rows=8 types=attachment:5,api-request-blob:1,api-request:1,assistant:1
+prompt_chars=0
+time 2026-11-08T06:41:28.737Z -> 2026-11-08T06:41:38.217Z
+assistant ts=2026-11-08T06:41:38.217Z model=<synthetic> apiErr=True stop=stop_sequence err=unknown tools= text=API Error: Combo has no executable targets
+=== abf6dd82  file=subagents/agent-abf6dd827def30282.jsonl bytes=767423
+meta: {"agentType":"ciel-work:side-intake","isBuiltIn":false,"pluginSteered":true,"description":"Side SSE 5084b4154ee8","toolUseId":"toolu_plugin_3079e287be384c3c9a9706b0065acf0f","spawnDepth":1,"requestShape":"background","requestNonInteractive":true,"pickedEffortModel":"ciel-runtime-cielairouter-_walkie
+rows=8 types=attachment:5,api-request-blob:1,api-request:1,assistant:1
+prompt_chars=0
+time 2026-11-08T06:41:45.738Z -> 2026-11-08T06:41:53.609Z
+assistant ts=2026-11-08T06:41:53.609Z model=<synthetic> apiErr=True stop=stop_sequence err=unknown tools= text=API Error: Combo has no executable targets
+=== a440c5a1  file=subagents/agent-a440c5a141b46c53b.jsonl bytes=766063
+meta: {"agentType":"ciel-work:side-intake","isBuiltIn":false,"pluginSteered":true,"description":"Side SSE e0b3500cf8d6","toolUseId":"toolu_plugin_ab12b78730354a9a954aaba5a2cdb0d0","spawnDepth":1,"requestShape":"background","requestNonInteractive":true,"pickedEffortModel":"ciel-runtime-cielairouter-_walkie
+rows=8 types=attachment:5,api-request-blob:1,api-request:1,assistant:1
+prompt_chars=0
+time 2026-11-08T06:42:02.557Z -> 2026-11-08T06:42:09.879Z
+assistant ts=2026-11-08T06:42:09.879Z model=<synthetic> apiErr=True stop=stop_sequence err=unknown tools= text=API Error: Combo has no executable targets
