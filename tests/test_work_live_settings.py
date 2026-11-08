@@ -42,6 +42,38 @@ class LiveSettingsTests(unittest.TestCase):
                 self.assertEqual(4, len(saved))
                 self.assertIn('work_discovery_instruction', [r['key'] for r in result['settings']])
 
+    def test_claude_agent_view_controls_write_claude_files_not_work_config(self):
+        import json
+        import os
+        with tempfile.TemporaryDirectory() as root:
+            ledger = WorkParallelStore(Path(root) / 'ledger.json')
+            (Path(root) / '.claude.json').write_text('{"projects":{"x":{"keep":true}}}', encoding='utf8')
+            config = {'language': 'ko'}
+            saved = []
+            with patch('ciel_runtime_support.work_parallel_mcp.ledger', return_value=ledger), \
+                 patch.dict(os.environ), patch('pathlib.Path.home', return_value=Path(root)):
+                os.environ.pop('CLAUDE_CONFIG_DIR', None)
+                os.environ.pop('CLAUDE_CODE_CUSTOM_OAUTH_URL', None)
+                before = {row['key']: row for row in settings(config, {}, None)['settings']}
+                settings(config, {'key': 'claude_left_arrow_opens_agents', 'value': 'off'}, saved.append)
+                result = settings(config, {'key': 'claude_background_agents_enabled', 'value': 'off'}, saved.append)
+            self.assertEqual((True, True), (before['claude_left_arrow_opens_agents']['value'],
+                                            before['claude_background_agents_enabled']['value']))
+            stored = json.loads((Path(root) / '.claude.json').read_text(encoding='utf8'))
+            self.assertEqual({'x': {'keep': True}}, stored['projects'])
+            self.assertIs(False, stored['leftArrowOpensAgents'])
+            user = json.loads((Path(root) / '.claude' / 'settings.json').read_text(encoding='utf8'))
+            self.assertIs(True, user['disableAgentView'])
+            self.assertEqual([], saved)
+            rows = {row['key']: row for row in result['settings']}
+            self.assertEqual((False, 'live'), (rows['claude_left_arrow_opens_agents']['value'],
+                                               rows['claude_left_arrow_opens_agents']['status']))
+            self.assertEqual((False, 'next_claude_session'), (rows['claude_background_agents_enabled']['value'],
+                                                              rows['claude_background_agents_enabled']['status']))
+            self.assertIn('왼쪽 화살표', rows['claude_left_arrow_opens_agents']['label'])
+            keys = [row['key'] for row in result['settings']]
+            self.assertLess(keys.index('claude_background_agents_enabled'), 10)
+
     def test_projection_describes_every_editor_and_cached_model_choice(self):
         with tempfile.TemporaryDirectory() as root:
             ledger = WorkParallelStore(Path(root) / 'ledger.json')

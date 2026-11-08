@@ -34,6 +34,9 @@ def settings(config, args, save):
             save(config)
         elif key in KEYS:
             apply(config, key, value, save)
+        elif key.startswith('claude_'):
+            from .claude_user_settings import set_value as set_claude_value
+            set_claude_value(key, value)
         elif key in BASIC or key == 'work_side_intake_enabled':
             if key == 'work_plan_approval_ask':
                 value = {'ask': 'on', 'auto': 'off'}.get(value, value)
@@ -47,11 +50,25 @@ def settings(config, args, save):
             save(config)
         else:
             raise WorkPlanError('unknown Work setting')
+    from .claude_user_settings import LEFT_ARROW, BACKGROUND, values as claude_values
+    claude_labels = {
+        'en': ('Left arrow opens agents view', 'Background agents / agent view enabled'),
+        'ko': ('왼쪽 화살표로 에이전트 화면 열기', '백그라운드 에이전트 / 에이전트 화면 사용'),
+        'ja': ('左矢印でエージェント画面を開く', 'バックグラウンドエージェント / エージェント画面'),
+        'zh': ('左箭头打开代理视图', '后台代理 / 代理视图'),
+    }.get(language, ('Left arrow opens agents view', 'Background agents / agent view enabled'))
     projected = [{'key': k, 'label': menu_text(k, language),
                   'value': ('ask' if config.get(k, False) else 'auto') if k == 'work_plan_approval_ask'
                       else config.get(k, True),
                   'kind': 'enum' if k == 'work_plan_approval_ask' else 'boolean',
                   **({'choices': ['auto', 'ask']} if k == 'work_plan_approval_ask' else {})} for k in BASIC]
+    # Claude Code's own preferences: the left-arrow shortcut is re-read by running
+    # sessions; disabling agent view is read when a Claude session starts.
+    claude = claude_values()
+    projected += [{'key': key, 'label': label, 'value': claude[key], 'kind': 'boolean',
+                   'status': 'unreadable' if claude[key] is None
+                       else 'next_claude_session' if key == BACKGROUND else 'live'}
+                  for key, label in zip((LEFT_ARROW, BACKGROUND), claude_labels)]
     bool_parallel = {'work_parallel_enabled', 'work_parallel_paused', 'work_discovery_enabled',
                      'work_discovery_test_default_override'}
     projected += [{'key': k, 'label': label, 'value': value,

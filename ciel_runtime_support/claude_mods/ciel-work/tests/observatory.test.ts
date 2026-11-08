@@ -12,6 +12,8 @@ const DETAIL = { version: 3, root_id: 'g1', nodes: [
   { id: 'a', parent_id: 'g1', title: 'Cache', status: 'blocked', note: 'TTL', evidence: '' }] }
 const SETTINGS = [
   { key: 'work_mode', label: 'Work mode', value: true, kind: 'boolean' },
+  { key: 'claude_left_arrow_opens_agents', label: 'Left arrow opens agents view', value: true, kind: 'boolean', status: 'live' },
+  { key: 'claude_background_agents_enabled', label: 'Background agents', value: null, kind: 'boolean', status: 'unreadable' },
   { key: 'work_side_intake_model', label: 'Side model', value: 'inherit', kind: 'model', choices: ['inherit', '_A', '_B'] }]
 function host(on) {
   const s = { writes: [] }
@@ -56,10 +58,12 @@ for (const [surface, columns] of [['terminal', 100], ['mobile', 40]] as const) {
     expect((await ui.find({ key: 'node-a' }))?.text).toContain('Cache')
     await ui.press({ key: 'obs-settings' })
     expect((await ui.find({ key: 'setting-work_mode' }))?.text).toContain('Work mode = true')
+    expect((await ui.find({ key: 'setting-claude_background_agents_enabled' }))?.text).toContain('= unreadable')
+    await ui.press({ key: 'setting-claude_left_arrow_opens_agents' })
     await ui.press({ key: 'setting-work_side_intake_model' })
     expect((await ui.find({ key: 'model-_B' }))?.text).toContain('_B')
     await ui.press({ key: 'model-_B' })
-    expect(s.writes).toEqual([['work_side_intake_model', '_B']])
+    expect(s.writes).toEqual([['claude_left_arrow_opens_agents', 'off'], ['work_side_intake_model', '_B']])
     await ui.press({ key: 'obs-side' })
     expect((await ui.find({ key: 'side-p1' }))).toBeDefined()
     await ui.unmount()

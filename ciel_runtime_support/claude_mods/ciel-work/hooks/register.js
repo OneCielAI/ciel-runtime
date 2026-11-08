@@ -575,7 +575,8 @@ async function setObservatorySetting($, row, value, identity) {
   if (await sessionId($) !== identity) return
   try {
     observatorySettings = await parallelCall($, 'work_live_settings', { key: row.key, value: String(value) })
-    $.ui.toast(row.label + ' → ' + String(value) + (row.kind !== 'model' ? ''
+    $.ui.toast(row.label + ' → ' + String(value) + (row.kind !== 'model'
+      ? (row.status === 'next_claude_session' ? ' · applies to new Claude sessions' : '')
       : observatoryForced && value !== 'inherit' ? ' · saved; applies after relaunch (this session pins children to the main model)'
         : ' · next SSE'))
     $.ui.invalidate('ui.render')
@@ -1761,7 +1762,8 @@ export function register(on) {
         rows.push(text('All Work settings · live · ' + (observatorySettings?.provider || 'provider unknown'), { color:'suggestion' }))
         if (!settings.length) rows.push(text('Settings unavailable: router host bridge not reachable.', { color:'error' }))
         for (const setting of page.rows) {
-          const value = typeof setting.value === 'string' ? setting.value : JSON.stringify(setting.value)
+          const value = setting.status === 'unreadable' ? 'unreadable'
+            : typeof setting.value === 'string' ? setting.value : JSON.stringify(setting.value)
           rows.push(row('setting-'+setting.key, setting.label+' = '+value,
             setting.kind === 'model' ? 'suggestion' : setting.kind === 'boolean' ? (String(setting.value) === 'true' ? 'success' : 'inactive') : '',
             () => setting.kind === 'model'
