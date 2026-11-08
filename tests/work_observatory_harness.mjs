@@ -60,7 +60,7 @@ const $ = {
     return { content: [{ type: 'text', text: JSON.stringify(value) }] }
   } },
   ui: { invalidate() {}, log() {}, toast: t => toasts.push(t), open: async args => { opens.push(args); return { isPlaced: true } },
-    close: async () => {}, ask: async () => asks.shift(), resolve: () => ({ Box: el('Box'), Text: el('Text'), Button: el('Button') }) },
+    close: async () => {}, ask: async () => asks.shift(), resolve: () => ({ Box: el('Box'), Text: el('Text'), Button: el('Button'), Client: el('Client') }) },
   clock: { after: () => ({ cancel() {} }) },
   tool: { list: async () => [], call: async () => ({}) },
   agent: { list: async () => [], register: async () => ({}), spawn: async () => ({ deny: 'fixture' }) },
@@ -90,27 +90,31 @@ await hook('session.start', {})($, { isInteractive: true }, async e => e)
 const view = await hook('command.run', { command: 'work-mode' })($, { args: 'view', origin: { kind: 'composer' } })
 const out = { view: view.text, opened: opens.find(o => o.id === 'work-details') }
 let tree = await render('terminal', 110)
+out.graphical = Boolean(walk(tree).find(n => n.props?.key === 'obs-graphic'))
+// The remaining portable assertions exercise the plain cross-surface fallback;
+// observatory.test.ts drives the terminal Client itself.
+tree = await render('desktop', 110)
 out.work = { texts: texts(tree), colors: colors(tree), types: types(tree), hovers: hovers(tree),
   headerDirection: walk(tree).find(n => n.props?.key === 'obs-header').props.flexDirection }
-await press(tree, 'obs-side'); tree = await render('terminal', 110)
+await press(tree, 'obs-side'); tree = await render('desktop', 110)
 out.side = { texts: texts(tree), colors: colors(tree) }
-await press(tree, 'side-p1'); tree = await render('terminal', 110)
+await press(tree, 'side-p1'); tree = await render('desktop', 110)
 out.sideP1 = texts(tree).filter(t => /request|urgent|quarantined|side_mcp/.test(t))
-await press(tree, 'obs-settings'); tree = await render('terminal', 110)
+await press(tree, 'obs-settings'); tree = await render('desktop', 110)
 out.settings = { first: texts(tree).filter(t => t.includes(' = ')) }
-await press(tree, 'settings-next'); tree = await render('terminal', 110)
+await press(tree, 'settings-next'); tree = await render('desktop', 110)
 out.settings.second = texts(tree).filter(t => t.includes(' = '))
-await press(tree, 'settings-prev'); tree = await render('terminal', 110)
+await press(tree, 'settings-prev'); tree = await render('desktop', 110)
 const before = calls.length
 await press(tree, 'setting-work_mode')
 asks = ['ask']; await press(tree, 'setting-work_plan_approval_ask')
 asks = ['3']; await press(tree, 'setting-work_parallel_max_active')
 out.writes = calls.slice(before).filter(c => c.tool === 'work_live_settings' && c.args.key).map(c => [c.args.key, c.args.value])
-await press(tree, 'setting-work_side_intake_model'); tree = await render('terminal', 110)
+await press(tree, 'setting-work_side_intake_model'); tree = await render('desktop', 110)
 out.picker = { texts: texts(tree).filter(t => /_Combo_|inherit/.test(t)), pages: texts(tree).find(t => t.startsWith('Models ')) }
-await press(tree, 'model-next'); tree = await render('terminal', 110)
+await press(tree, 'model-next'); tree = await render('desktop', 110)
 out.picker.second = texts(tree).filter(t => /_Combo_/.test(t))
-await press(tree, 'model-_Combo_11'); tree = await render('terminal', 110)
+await press(tree, 'model-_Combo_11'); tree = await render('desktop', 110)
 out.picked = { write: calls.filter(c => c.tool === 'work_live_settings' && c.args.key === 'work_side_intake_model').map(c => c.args.value),
   toast: toasts.at(-1), backToList: texts(tree).some(t => t.startsWith('Side model = _Combo_11')) }
 const mobile = await render('mobile', 40)

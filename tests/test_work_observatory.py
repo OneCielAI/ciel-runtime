@@ -47,7 +47,8 @@ class WorkObservatoryTests(unittest.TestCase):
     def test_view_opens_work_and_sse_pane_with_colored_hierarchy(self):
         r = self.result
         self.assertIn('Work & SSE pane', r['view'])
-        self.assertEqual('Work & SSE', r['opened']['title'])
+        self.assertEqual('Work & SSE Observatory', r['opened']['title'])
+        self.assertTrue(r['graphical'])
         work = '\n'.join(r['work']['texts'])
         self.assertIn('WORK 7 · executing · 1/3', work)
         self.assertIn('Slots 1/5', work)
