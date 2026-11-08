@@ -54,9 +54,21 @@ for (const [surface, columns] of [['terminal', 100], ['mobile', 40]] as const) {
     await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
     await $.command.run({ command: 'work-mode', args: 'view' })
     const ui = await $.ui.mount(pane(surface, columns) as any)
-    expect((await ui.find({ key: 'obs-header' }))).toBeDefined()
-    expect((await ui.find({ key: 'node-a' }))?.text).toContain('Cache')
-    await ui.press({ key: 'obs-settings' })
+    if (surface === 'terminal') {
+      expect((await ui.find({ key: 'obs-graphic' }))).toBeDefined()
+      expect((await ui.find({ key: 'obs-header' }))).toBeUndefined()
+      await ui.resize({ columns: 100, rows: 30, in: 'obs-graphic' })
+      expect((await ui.findAll({ type: 'Text', in: 'obs-graphic' })).map(x=>x.text).join('\n')).toContain('WORK / SESSION')
+      expect((await ui.findAll({ type: 'Text', in: 'obs-graphic' })).map(x=>x.text).join('\n')).toContain('WORK TREE')
+      await ui.key({ key: 'down', in: 'obs-graphic' })
+      await ui.key({ key: 's', in: 'obs-graphic' })
+      expect((await ui.findAll({ type: 'Text', in: 'obs-graphic' })).map(x=>x.text).join('\n')).toContain('SSE FLOW')
+    } else {
+      expect((await ui.find({ key: 'obs-header' }))).toBeDefined()
+      expect((await ui.find({ key: 'node-a' }))?.text).toContain('Cache')
+    }
+    if (surface === 'terminal') await ui.key({ key: 'g', in: 'obs-graphic' })
+    else await ui.press({ key: 'obs-settings' })
     expect((await ui.find({ key: 'setting-work_mode' }))?.text).toContain('Work mode = true')
     expect((await ui.find({ key: 'setting-claude_background_agents_enabled' }))?.text).toContain('= unreadable')
     await ui.press({ key: 'setting-claude_left_arrow_opens_agents' })
@@ -64,8 +76,10 @@ for (const [surface, columns] of [['terminal', 100], ['mobile', 40]] as const) {
     expect((await ui.find({ key: 'model-_B' }))?.text).toContain('_B')
     await ui.press({ key: 'model-_B' })
     expect(s.writes).toEqual([['claude_left_arrow_opens_agents', 'off'], ['work_side_intake_model', '_B']])
-    await ui.press({ key: 'obs-side' })
-    expect((await ui.find({ key: 'side-p1' }))).toBeDefined()
+    if (surface !== 'terminal') {
+      await ui.press({ key: 'obs-side' })
+      expect((await ui.find({ key: 'side-p1' }))).toBeDefined()
+    }
     await ui.unmount()
   })
 }

@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import { startSide, pollSide, sideAllowsSpawn, sideTool, completeSide, suppressSide, sideReceipts, sideMcpParity, hostJson, eventView } from './side-intake.js'
+import { startSide, pollSide, sideAllowsSpawn, sideTool, completeSide, suppressSide, sideReceipts, sideActors, sideMcpParity, hostJson, eventView } from './side-intake.js'
 
 // Router is authoritative; this cache is display-only and never persisted.
 const detailView = atom({ plugin: 'ciel-work', key: 'detail' }, null)
@@ -610,6 +610,58 @@ function sourcePriority(original) {
     : Number.isInteger(value) && value >= 1 && value <= 5 ? 'P' + value : ''
   return data ? level(data.priority) || level(data.message_context?.thread_task?.priority) : ''
 }
+function graphicNodes(view, snapshot) {
+  if (!Array.isArray(view?.nodes)) return []
+  const children = new Map()
+  for (const node of view.nodes) {
+    const key = node.parent_id || ''
+    if (!children.has(key)) children.set(key, [])
+    children.get(key).push(node)
+  }
+  const rows = []
+  const visit = (node, depth) => {
+    const descendants = children.get(node.id) || []
+    rows.push({ id: node.id, parent_id: node.parent_id, depth, title: node.title || node.id,
+      status: node.status || 'pending', priority: node.priority || '', waiting_on: node.waiting_on || '',
+      done: descendants.filter(child => child.status === 'done').length, total: descendants.length })
+    for (const child of descendants) visit(child, depth + 1)
+  }
+  for (const root of children.get('') || []) visit(root, 0)
+  for (const root of rootsOf(snapshot || {}).filter(root => !rows.some(row => row.id === root.id)))
+    rows.push({ id: root.id, parent_id: null, depth: 0, title: root.title || root.id,
+      status: root.status || 'pending', priority: root.priority || '', waiting_on: root.waiting_on || '',
+      done: Number(root.done || 0), total: Number(root.total || 0) })
+  return rows.slice(0, 500)
+}
+function graphicReceipts(identity) {
+  const merged = [...sidePanelReceipts]
+  for (const current of sideReceipts(identity)) {
+    const index = merged.findIndex(row => row.receipt_id === current.receipt_id)
+    if (index < 0) merged.push(current); else merged[index] = { ...merged[index], ...current }
+  }
+  const actors = sideActors(identity)
+  return merged.slice(-100).reverse().map(receipt => {
+    const id = receipt.receipt_id || receipt.item_id || ''
+    const actor = actors.find(row => row.receipt_id === id)
+    return { id, priority: sourcePriority(receipt.original), summary: eventView(receipt.original || receipt.recap || '').summary,
+      stage: receipt.result ? receipt.result.delivery || 'decided' : receipt.processing ? 'processing'
+        : receipt.side_failure?.quarantined ? 'quarantined' : receipt.stage || 'received',
+      delivery: receipt.result?.delivery || '', action: receipt.result?.action || '',
+      item_id: receipt.result?.item_id || receipt.item_id || '', failed: Boolean(receipt.side_failure),
+      actor: actor?.id || '' }
+  })
+}
+function graphicProps(identity, view, state) {
+  const policy = observatoryParallel?.policy || {}
+  return { tab: state?.tab === 'side' ? 'side' : 'work', version: cached?.version,
+    active: cached?.active_root?.title || '', done: cached?.done || 0, total: cached?.total || 0,
+    nodes: graphicNodes(view, cached), receipts: graphicReceipts(identity),
+    actors: sideActors(identity).map(actor => ({ id: actor.id, receipt: actor.receipt_id, model: actor.model,
+      reserved: actor.reserved, lease_until: actor.lease_until })),
+    parallel: { active: observatoryParallel?.active_device || 0, max: policy.max_active || 0,
+      reserved: Number(policy.p1_reserved || 0) > 0 },
+    model: observatorySettings?.settings?.find(row => row.key === 'work_side_intake_model')?.value || 'inherit' }
+}
 async function openDetails($, id = null, origin = null) {
   const identity = await sessionId($)
   if (origin && identity !== origin) return
@@ -638,8 +690,8 @@ async function openDetails($, id = null, origin = null) {
   }
   if (await sessionId($) === identity) {
     await observatoryRefresh($, identity)
-    await $.ui.open({ id: PANE, title: 'Work & SSE',
-      focus: true, closeOnEscape: true, rows: 22, columns: 72 })
+    await $.ui.open({ id: PANE, title: 'Work & SSE Observatory',
+      focus: true, closeOnEscape: true, backgroundColor: '#0b1118', rows: 32, columns: 90 })
   }
 }
 // A transcript notice for the person, once per session start; the model never reads it.
@@ -1635,8 +1687,21 @@ export function register(on) {
       ...(!recent.length ? [Button({ key: 'side-close', plain: true, label: 'Close', onPress: () => $.ui.close({ id: 'ciel-side-intake' }) })] : []),
     ] })
   })
+  on('ui.message', { component: 'Pane', requestId: PANE, element: 'obs-graphic' }, async ($, e, next) => {
+    const identity = await sessionId($)
+    const data = e.data && typeof e.data === 'object' ? e.data : {}
+    if (data.action === 'tab' && ['work','side','settings'].includes(data.tab))
+      await displayState($, identity, old => ({ ...old, tab: data.tab, detailPage: 0 }))
+    else if (data.action === 'refresh') { await openDetails($, null, identity); await observatoryRefresh($, identity) }
+    else if (data.action === 'work' && typeof data.id === 'string') await openDetails($, data.id, identity)
+    else if (data.action === 'receipt' && typeof data.id === 'string')
+      await displayState($, identity, old => ({ ...old, tab: 'side', sideReceipt: data.id, detailPage: 0 }))
+    else if (data.action === 'focus' && typeof data.id === 'string') await focusItems($, [data.id], identity)
+    return next(e)
+  })
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const { Box, Button, Text } = $.ui.resolve(e)
+    const elements = $.ui.resolve(e)
+    const { Box, Button, Text } = elements
     const view = await read($, detailView)
     const state = await read($, panelView)
     const identity = await sessionId($)
@@ -1646,6 +1711,8 @@ export function register(on) {
     const selected = fresh ? view.nodes.find(n => n.id === view.id) : null
     const mobile = e.surface === 'mobile' || e.props.bodyColumns < 58
     const section = state?.session === identity ? (state.tab || 'work') : 'work'
+    const graphic = e.surface === 'terminal' && elements.Client && e.props.bodyColumns >= 42
+      && (section === 'work' || section === 'side')
     const width = Math.max(20, e.props.bodyColumns - 2)
     const text = (value, props = {}) => Text({ wrap: 'truncate-end', ...props, children: cellClipped(value, width) })
     // A row is one Button whose label is a colored Text: one press, color by state.
@@ -1664,6 +1731,9 @@ export function register(on) {
     ]
     if (!valid) return Box({ flexDirection: 'column', children: [nav,
       Text({ color: 'error', children: 'Work & SSE unavailable for this conversation.' }), ...common] })
+    if (graphic) return elements.Client({ key: 'obs-graphic', module: './observatory.client.js',
+      props: graphicProps(identity, view, state), width: '100%',
+      height: Math.max(20, e.props?.scroll?.bodyRows || e.viewport?.rows || 32), flexGrow: 1 })
 
     const header = Box({ key: 'obs-header', borderStyle: 'single', borderColor: cached.phase === 'planning' ? 'planMode' : 'suggestion',
       paddingX: 1, flexDirection: mobile ? 'column' : 'row', justifyContent: 'space-between', children: [

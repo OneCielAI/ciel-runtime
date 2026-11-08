@@ -67,6 +67,11 @@ async function finishComparison($,actor,event) {
   $.clock.after(10,async()=>{await nextComparison($)})
 }
 export function sideReceipts(identity) { return [...(displayedReceipts.get(identity)?.values() || [])] }
+export function sideActors(identity) {
+  return [...actors.values()].filter(actor => actor.identity === identity && actor.current && !actor.retired)
+    .map(actor => ({ id: actor.id, receipt_id: actor.current.receipt_id, model: actor.model || 'inherit',
+      reserved: actor.reserved === true, lease_until: actor.current.lease_until }))
+}
 export function sideMcpParity() { return {...mcpParity} }
 async function recoverReply($,identity,event) {
   if (replying.has(event.receipt_id)) return
