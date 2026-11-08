@@ -819,29 +819,36 @@ class ExternalEventReceiverService:
 
         The transport id gives it a stable, provider-owned identity and cursor,
         so it no longer pins every later SSE event. Its body asks for nothing:
-        no delivery acknowledgement and no injection lane is read from it.
+        no delivery acknowledgement and no injection lane is read from it. With
+        side intake off it takes the ordinary untrusted external-event lane.
         """
         digest = hashlib.sha256(raw_text.encode("utf-8")).hexdigest()
+        event = {"id": "invalid:" + transport_event_id[:200] + ":" + digest,
+                 "source": "urn:ciel-runtime:invalid-sse:" + receiver_id, "type": "ciel.invalid_cloud_event"}
+        if not raw_text.strip():
+            # Nothing to deliver; record it so the cursor may move past it.
+            self._dead_letter(receiver_id, "", raw_text, event, transport_event_id, reason="empty_frame")
+            return
         self.submit_event(
             raw_text,
             receiver_id=receiver_id,
             transport="sse",
-            event_id="invalid:" + transport_event_id[:200] + ":" + digest,
-            event_type="ciel.invalid_cloud_event",
-            event_source="urn:ciel-runtime:invalid-sse:" + receiver_id,
+            event_id=event["id"],
+            event_type=event["type"],
+            event_source=event["source"],
             transport_event_id=transport_event_id,
             input_transport="session_socket",
-            injection_type="btw_with_mcp",
             side_intake_fallback="raw_text",
         )
         self.log("WARN", "external_event_invalid_frame_admitted_as_side_text "
                  f"receiver={receiver_id} transport_id={transport_event_id[:200]} "
                  f"chars={len(raw_text)} sha256={digest} error={type(error).__name__}")
 
-    def _dead_letter(self, receiver_id: str, sse_url: str, raw_text: str, event: dict[str, str], transport_event_id: str) -> None:
-        """Durably record a filtered event, without its content, before its cursor moves."""
+    def _dead_letter(self, receiver_id: str, sse_url: str, raw_text: str, event: dict[str, str],
+                     transport_event_id: str, *, reason: str = "event_type_not_admitted") -> None:
+        """Durably record an undeliverable frame, without its content, before its cursor moves."""
         digest = hashlib.sha256(raw_text.encode("utf-8")).hexdigest()
-        entry = {"at": time.time(), "reason": "event_type_not_admitted", "receiver_id": receiver_id,
+        entry = {"at": time.time(), "reason": reason, "receiver_id": receiver_id,
                  **{key: str(value)[:200] for key, value in (
                      ("event_source", event.get("source")), ("event_id", event.get("id")),
                      ("event_type", event.get("type")), ("transport_event_id", transport_event_id))},
@@ -855,12 +862,12 @@ class ExternalEventReceiverService:
                 stream.write(json.dumps(entry, ensure_ascii=False, separators=(",", ":")) + "\n")
                 stream.flush()
                 os.fsync(stream.fileno())
-        request = delivery_ack_request(raw_text) if self.delivery_ack is not None else None
+        request = delivery_ack_request(raw_text) if self.delivery_ack is not None and sse_url else None
         if request is not None:
             self._set_status(receiver_id, phase="ack")
             self.delivery_ack.observe(receiver_id, sse_url, event, request,
                                       self.delivery_ack.clock(), None, rejected=True)
-        self.log("WARN", f"external_event_filtered_dead_letter receiver={receiver_id} "
+        self.log("WARN", f"external_event_filtered_dead_letter receiver={receiver_id} reason={reason} "
                  f"type={entry['event_type'][:120]} transport_id={entry['transport_event_id']} "
                  f"chars={len(raw_text)} sha256={digest}")
 

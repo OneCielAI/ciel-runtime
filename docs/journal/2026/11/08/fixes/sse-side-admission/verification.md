@@ -10,10 +10,11 @@ timestamp: 2026-11-08
 
 | Check | Result |
 | --- | --- |
-| Focused fallback and transport suites | 146 tests passed, 1 skipped |
-| Full unit CI group | 3,427 passed, 50 skipped |
+| Focused side, receiver, ACK, transport and Codex suites (final tree) | 258 tests passed, 1 skipped |
+| Review regression tests against `ede68b1` source | 7 of 7 fail there (5 failures, 2 errors); all pass with the fixes |
+| Full unit CI group | 3,437 passed, 50 skipped |
 | Full router CI group | 1,543 passed |
-| Full channel CI group | 606 passed, 80 skipped |
+| Full channel CI group | 607 passed, 80 skipped |
 | Full runtime CI group | 458 passed, 19 skipped |
 | Ruff 0.15.22 on changed Python files | passed |
 | Observatory plugin focused tests | 5 passed |
@@ -41,7 +42,34 @@ The supported isolated test entrypoint was used with inherited `CIEL_RUNTIME_*` 
 
 # Owned isolated console proof
 
-Pending. The probe uses a new workspace, a copied sanitized config, an owned router port and an owned console. It sends four frames in order: 16,055-character Prody shape, over-32K valid event, malformed frame with transport id, and canary. Evidence is recorded under [evidence](evidence/index.md).
+Snapshot: `git archive` of commit `ede68b1`, launched in an owned console with a new workspace, a copied sanitized config, router port 9611 and a loopback SSE source. The source sent four frames in this order:
+
+1. a 16,055-character Prody-shape CloudEvent (47,655 UTF-8 bytes);
+2. a valid 32,259-character CloudEvent;
+3. `not-json` carrying SSE id `invalid-t`;
+4. a canary CloudEvent.
+
+Result ([manifest](evidence/owned-console/result.json)):
+
+| Event | Fallback | Queue row exact | Side stage | Fork action | Copies in main transcript |
+| --- | --- | --- | --- | --- | --- |
+| Prody shape, 16,055 chars | none | yes | processed | answer | 0 |
+| over 32K, 32,259 chars | `raw_text` | yes | processed | answer | 0 |
+| malformed, transport id | `raw_text` | yes | processed | clarify | 0 |
+| canary | none | yes | processed | answer | 0 |
+
+- The SSE cursor reached `canary-t`. In the earlier code, the first frame alone pinned the stream.
+- Each exact original was found in exactly one side-fork transcript.
+- No queue row was `raw_injection`, and each runtime status ended `replied`.
+- Two earlier runs of the same scenario gave the same four `processed` receipts and the same cursor. Their screenshots were blank because the probe window was minimized; the capture helper now restores the owned window first.
+
+Screenshots (title bar and debug-log path redacted):
+
+- [before the stream](evidence/owned-console/01-before-sse.png)
+- [three side forks active](evidence/owned-console/02-three-side-forks-active.png)
+- [all four answered (`IN 0 AI 0 ANS 4`)](evidence/owned-console/03-all-four-answered.png)
+
+Observed but not explained: in this run the status line read `SSE gate on: held (identity_pending)`; the earlier run showed `open`. That label comes from `runtime_compaction_binding.py`, which this change does not modify, and delivery completed in both runs. Its cause was not investigated.
 
 # Beta and Prody pickup
 

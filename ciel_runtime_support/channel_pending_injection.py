@@ -291,6 +291,9 @@ def inject_pending_channel_messages(
             metadata = message.get("meta") if isinstance(message.get("meta"), dict) else {}
             side_intake = metadata.get("_side_intake_admitted") is True
             if side_intake and pending:
+                # The side row goes alone on the next scan; the committed cursor
+                # must not pass it with this batch.
+                last_id = previous_last_id
                 break
             input_transport = message_input_transport(message)
             requested_session_socket = input_transport == "session_socket"

@@ -4,10 +4,13 @@ import json
 
 SIDE_INTAKE_TEXT_MAX_CHARS = 32_000
 SIDE_INTAKE_PENDING_RECORD_MAX_BYTES = 256 * 1024
-# Room a pending record keeps beside its text: event key (300 characters, at
-# most 6 escaped bytes each), digest, an 8 KiB reply route, session identity
-# and field names. Held separate so the gateway can decide before queueing.
-SIDE_INTAKE_RECORD_OVERHEAD_BYTES = 16 * 1024
+# Room a pending record keeps beside its text for fields written before and
+# during processing: event key (300 characters, up to 6 escaped bytes each),
+# digest, an 8 KiB reply route, session identity, the claim lease, the context
+# preview (6,000 characters, up to 24 KB in UTF-8), the bounded side failure
+# and main-fallback records, and field names. Held separate so the gateway can
+# decide before queueing; 32,000 escaped characters (192,000 bytes) still fit.
+SIDE_INTAKE_RECORD_OVERHEAD_BYTES = 64 * 1024
 
 
 def side_text_fits_pending_record(text: str) -> bool:

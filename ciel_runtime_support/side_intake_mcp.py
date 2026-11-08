@@ -1,6 +1,6 @@
 """Host-scoped claim and decision tools for the independent side actor."""
 from .side_intake_inbox import SideIntakeInbox
-from .side_intake_limits import SIDE_INTAKE_TEXT_MAX_CHARS
+from .side_intake_limits import SIDE_INTAKE_TEXT_MAX_CHARS, side_text_fits_pending_record
 from .side_intake_processing import claim, fail, fallback, finish, verify_claim
 from .side_work_decision import apply
 from .work_plan_tree import WorkPlanError
@@ -63,18 +63,29 @@ def _reported_sends(value):
     return names
 
 
-def _followup_text(event_id, answer, original):
-    return ('Coordinator answer to side question ' + event_id + ':\n'
+def _followup(event_id, answer, original):
+    """The exact follow-up text and route, or None when one record cannot hold it.
+
+    Above the ordinary 32K contract it uses the same raw-text route an
+    oversized original does, so an answer to a large event is not refused.
+    """
+    text = ('Coordinator answer to side question ' + event_id + ':\n'
             + answer + '\nOriginal request:\n' + original['text'])
+    route = dict(original.get('route', {}))
+    if len(text) > SIDE_INTAKE_TEXT_MAX_CHARS:
+        if not side_text_fits_pending_record(text):
+            return None
+        route['side_intake_fallback'] = 'raw_text'
+    return text, route
 
 
 def _answer_followup(inbox, event_id, answer):
     original = inbox._load(event_id)
     if original:
-        followup = _followup_text(event_id, answer, original)
-        if len(followup) > SIDE_INTAKE_TEXT_MAX_CHARS:
-            raise WorkPlanError('coordinator follow-up exceeds inbox text capacity; answer retained in Work')
-        inbox.receive(followup, 'handoff:' + event_id, route=original.get('route', {}))
+        followup = _followup(event_id, answer, original)
+        if followup is None:
+            raise WorkPlanError('coordinator follow-up exceeds inbox record capacity; answer retained in Work')
+        inbox.receive(followup[0], 'handoff:' + event_id, route=followup[1])
 
 
 def _sync_handoff_receipt(inbox, event_id, handoff):
@@ -170,9 +181,9 @@ def run(name, args, config, state_dir, identity, store):
                 raise WorkPlanError('coordinator answer must be text')
             inbox = SideIntakeInbox(state_dir, identity)
             original = inbox._load(args.get('event_id'))
-            # Same exact text _answer_followup writes, so the check cannot pass here and fail there.
-            if original and len(_followup_text(args['event_id'], args['answer'], original)) > SIDE_INTAKE_TEXT_MAX_CHARS:
-                raise WorkPlanError('coordinator follow-up exceeds inbox text capacity; no acknowledgment committed')
+            # Same exact text and route _answer_followup writes, so the check cannot pass here and fail there.
+            if original and _followup(args['event_id'], args['answer'], original) is None:
+                raise WorkPlanError('coordinator follow-up exceeds inbox record capacity; no acknowledgment committed')
         result = acknowledge(store, args.get('event_id'), answer=args.get('answer', ''),
                              activate=args.get('activate', False), expected_version=args['expected_version'])
         inbox = SideIntakeInbox(state_dir, identity)

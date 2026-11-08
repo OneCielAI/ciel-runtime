@@ -1,4 +1,7 @@
-2026-11-08
-py -3 -m unittest tests.test_external_event_receiver tests.test_event_delivery_ack tests.test_side_event_capacity tests.test_runtime_input_gateway tests.test_channel_pending_injection tests.test_claude_session_socket
-Ran 146 tests in 12.232s
+2026-11-08, CIEL_RUNTIME_* unset, tree = ede68b1 plus the review fixes
+py -3 -m unittest tests.test_side_event_capacity tests.test_runtime_input_gateway tests.test_external_event_receiver tests.test_event_delivery_ack tests.test_channel_pending_injection tests.test_channel_direct_socket_e2e tests.test_side_intake_mailbox tests.test_side_intake_mcp tests.test_side_work_decision tests.test_work_side_intake tests.test_claude_session_socket tests.test_side_intake_inbox tests.test_codex_desktop_injection
+Ran 258 tests in 36.814s
 OK (skipped=1)
+
+Regression proof: the 7 review regression tests run against ede68b1's source files
+Ran 7 tests — FAILED (failures=5, errors=2); all 7 pass with the fixes.

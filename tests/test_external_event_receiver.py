@@ -390,6 +390,38 @@ class ExternalEventReceiverTests(unittest.TestCase):
                 raise OSError('queue disk full')
             self.assertIsNone(self._run_frames(root, ['id: e-1\ndata: ' + event + '\n\n'], submit))
 
+    def test_empty_frame_with_id_is_dead_lettered_and_canary_flows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            rows = []
+            canary = json.dumps({'specversion': '1.0', 'id': 'c-1', 'source': 'walkie', 'type': 'allowed'})
+            def submit(service, raw, meta):
+                rows.append(raw)
+                service._stop.set()
+                return {'id': 1}
+            cursor = self._run_frames(root, ['id: empty-1\ndata:  \n\n', 'id: c-1\ndata: ' + canary + '\n\n'], submit)
+            self.assertEqual([canary], rows)
+            self.assertEqual('c-1', cursor)
+            letter = json.loads((root / 'external-event-dead-letters.jsonl').read_text(encoding='utf-8'))
+            self.assertEqual(('empty_frame', 'empty-1'), (letter['reason'], letter['transport_event_id']))
+
+    def test_invalid_frame_with_side_off_is_an_ordinary_row_and_canary_flows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            rows = []
+            gateway = RuntimeInputGateway(lambda row: rows.append({'id': len(rows) + 1, **row}) or rows[-1],
+                                          load_side_settings=lambda: {'enabled': False})
+            canary = json.dumps({'specversion': '1.0', 'id': 'c-1', 'source': 'walkie', 'type': 'allowed'})
+            def submit(service, raw, meta):
+                result = gateway.submit_external_event(raw, **meta)
+                if len(rows) == 2:
+                    service._stop.set()
+                return result
+            cursor = self._run_frames(root, ['id: bad-1\ndata: not-json\n\n', 'id: c-1\ndata: ' + canary + '\n\n'], submit)
+            self.assertEqual(['not-json', canary], [row['message'] for row in rows])
+            self.assertFalse(any(row['meta'].get('side_intake_only') for row in rows))
+            self.assertEqual('c-1', cursor)
+
     def test_invalid_frame_redelivery_keeps_one_identity(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

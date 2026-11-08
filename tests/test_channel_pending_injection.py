@@ -273,6 +273,28 @@ class SideIntakeTransportTests(unittest.TestCase):
         self.assertEqual(39, cursor)
         self.assertEqual([], harness.written)
 
+    def test_side_row_ending_a_socket_batch_is_not_skipped_by_the_cursor(self):
+        # Review 2026-11-08: rows 40 (ordinary), 41 (side), 42 with a batch limit
+        # above 1 sent [40] and committed cursor 41, so row 41 was never sent.
+        side = {**_message(41), 'meta': {'_side_intake_admitted': True, 'side_intake_only': True,
+                                         'input_transport': 'session_socket'}}
+        rows = [{**_message(40), 'meta': {'input_transport': 'session_socket'}}, side,
+                {**_message(42), 'meta': {'input_transport': 'session_socket'}}]
+        harness = _InjectionHarness(rows)
+        sent = []
+        services = harness.services()
+        services = dataclasses.replace(services,
+            policy=dataclasses.replace(services.policy, wake_batch_limit=lambda: 5),
+            io=dataclasses.replace(services.io, session_socket_available=lambda: True,
+                                   write_session_socket=lambda _prompt, messages: sent.append([m['id'] for m in messages]) or True))
+        cursor = 39
+        for _ in range(3):
+            cursor = inject_pending_channel_messages(99, cursor, None, wake_for_llm_delivery=True, services=services)
+        self.assertEqual([[40], [41], [42]], sent)
+        self.assertEqual(42, cursor)
+        self.assertEqual(sorted(harness.delivery.commits), harness.delivery.commits)
+        self.assertNotIn(41, harness.delivery.commits[:1])
+
     def test_raw_side_fallback_row_is_never_typed_routed_or_batched(self):
         # Prody 2026-11-08: one oversized CloudEvent blocked the stream. Its
         # raw-text fallback row must reach the side inbox alone, unchanged.

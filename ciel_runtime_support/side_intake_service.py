@@ -1,5 +1,6 @@
 """Receive before board admission; retries reconcile cross-file commits safely."""
 from .side_intake_inbox import SideIntakeInbox
+from .side_intake_limits import SIDE_INTAKE_TEXT_MAX_CHARS
 from .work_plan_store import session_work_plan_store
 from .work_side_intake import enqueue
 from .work_plan_tree import WorkPlanCapacityError
@@ -37,6 +38,10 @@ def drain(state_dir, session_id, *, admit=True, limit=10):
             if rows:
                 inbox._save_file(cursor_path, {'after': rows[-1]['receipt_id']})
         for row in rows:
+            if len(row['text']) > SIDE_INTAKE_TEXT_MAX_CHARS:
+                # A raw-fallback original above the board's 32K receipt limit is
+                # side-actor-only: it stays pending for a side fork, not an error.
+                continue
             # One unadmittable event must not strand independent mail. Every
             # failure retains its pending file; a later hook can retry it.
             try:

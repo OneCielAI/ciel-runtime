@@ -8,3 +8,11 @@
 - Added malformed-frame synthetic identity, operator-filter dead letters and rejected delivery ACKs.
 - Added cursor, storage, deduplication, command-inertness and 32K capacity regression tests.
 - Ran all four supported CI groups without changing any live-router PID.
+- Fixed the independent review's findings on `ede68b1`:
+  - side lane only while side intake is on;
+  - host-only side markers;
+  - 64 KiB record overhead;
+  - empty-frame dead letter;
+  - drain and follow-up handling above 32K;
+  - side row cursor at a batch boundary.
+- Proved on an owned console from commit `ede68b1`: Prody shape, over-32K, malformed-with-id and canary frames all reached side forks unchanged, none reached main, and the cursor reached the canary.

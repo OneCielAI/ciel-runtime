@@ -43,25 +43,30 @@ class RuntimeInputGateway:
     status: Any = None
     load_side_settings: Callable[[], dict[str, Any]] = lambda: {}
 
-    def _append(self, payload: dict[str, Any]) -> dict[str, Any]:
+    def _append(self, payload: dict[str, Any], *, side_fallback: str = "") -> dict[str, Any]:
         meta = dict(payload.get("meta") or {})
-        meta.pop("_side_intake_admitted", None)
+        # Side-lane markers are host decisions; a caller's metadata never sets them.
+        for name in ("_side_intake_admitted", "side_intake_only", "side_intake_text", "side_intake_fallback"):
+            meta.pop(name, None)
         payload = {**payload, "meta": meta}
         settings = self.load_side_settings() or {}
         requested_side = (meta.get("btw_with_mcp") is True or meta.get("message_type") == "btw_with_mcp"
                           or meta.get("event_type") == "btw_with_mcp")
         side_enabled = settings.get("enabled") is True
-        explicit_type = meta.get('injection_type') or meta.get('message_type')
         external = meta.get('source_kind') == 'external_event'
+        fallback_side = external and side_fallback == 'raw_text'
+        # A host raw fallback ignores any lane the untrusted event body names.
+        explicit_type = None if fallback_side else meta.get('injection_type') or meta.get('message_type')
         invalid_external_lane = (external and side_enabled and explicit_type is not None
                                  and explicit_type not in ('session', 'btw_with_mcp'))
         if explicit_type is not None and explicit_type not in ('session', 'btw_with_mcp') and not invalid_external_lane:
             raise ValueError('injection_type must be session or btw_with_mcp')
-        selected_type = ('btw_with_mcp' if invalid_external_lane else explicit_type
+        selected_type = ('btw_with_mcp' if invalid_external_lane or fallback_side else explicit_type
                          or ('btw_with_mcp' if requested_side else settings.get('type', 'btw_with_mcp')))
-        fallback_side = meta.get('side_intake_fallback') == 'raw_text'
-        eligible = requested_side or external or explicit_type is not None or fallback_side
-        if (side_enabled or fallback_side) and eligible and (selected_type == 'btw_with_mcp' or fallback_side):
+        eligible = requested_side or external or explicit_type is not None
+        # Only a live side lane takes side-only rows: with side intake off nothing
+        # would consume them and they would hold every later runtime input.
+        if side_enabled and eligible and selected_type == 'btw_with_mcp':
             event_key = meta.get("event_id") or meta.get("event_key")
             if not isinstance(event_key, str) or not event_key.strip():
                 raise ValueError("btw_with_mcp requires stable meta.event_id or meta.event_key")
@@ -74,7 +79,7 @@ class RuntimeInputGateway:
                 # The inbox keys at most 300 characters; a longer CloudEvent
                 # identity must not become a permanently undeliverable row.
                 side_key = "sha256:" + hashlib.sha256(side_key.encode("utf-8")).hexdigest()
-            if external or fallback_side:
+            if external:
                 # The host, not untrusted event data, owns this lane. Keep the exact
                 # event text as data; the verified session socket moves it to the
                 # side inbox without parsing it as a slash command. Above the 32K
@@ -349,7 +354,7 @@ class RuntimeInputGateway:
         side_intake_fallback: str = "",
     ) -> dict[str, Any]:
         """Admit decoded event text with an explicit, validated injection lane."""
-        if not injection_type:
+        if not injection_type and not side_intake_fallback:
             try:
                 decoded = json.loads(raw_event)
                 data = decoded.get('data', {}) if isinstance(decoded, dict) else {}
@@ -377,11 +382,11 @@ class RuntimeInputGateway:
                     "input_transport": self._transport(input_transport),
                     "raw_preserved": True,
                     **({'injection_type': injection_type} if injection_type else {}),
-                    **({'side_intake_fallback': side_intake_fallback} if side_intake_fallback else {}),
                 },
                 "delivery": ["llm"],
                 "visibility": "private_runtime",
-            }
+            },
+            side_fallback=side_intake_fallback,
         )
         for listener in list(EXTERNAL_EVENT_LISTENERS):
             listener(raw_event)

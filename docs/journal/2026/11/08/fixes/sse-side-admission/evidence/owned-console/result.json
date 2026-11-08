@@ -1,0 +1,91 @@
+{
+  "cursor": "canary-t",
+  "fork_count": 4,
+  "queue_rows_total": 4,
+  "events": [
+    {
+      "event": "urn:ciel-runtime:invalid-sse:default:invalid:invalid-t:0c21a879c732a6791",
+      "chars": 8,
+      "utf8_bytes": 8,
+      "sha256": "0c21a879c732a67910d80988df4919d794f6a070aab610ef865032a28046b021",
+      "stage": "processed",
+      "fallback": "raw_text",
+      "action": "clarify",
+      "queue_rows": 1,
+      "queue_text_exact": true,
+      "queue_raw_injection": false,
+      "runtime_status": [
+        "replied"
+      ],
+      "main_exact_matches": 0,
+      "fork_files_with_exact_text": [
+        "agent-<fork>.jsonl"
+      ]
+    },
+    {
+      "event": "urn:owned:sse-admission:canary",
+      "chars": 186,
+      "utf8_bytes": 186,
+      "sha256": "239d28f34148d39f0e8ca10c24fda655b6ac2c8312b60fa9063ab6e20e03a527",
+      "stage": "processed",
+      "fallback": "",
+      "action": "answer",
+      "queue_rows": 1,
+      "queue_text_exact": true,
+      "queue_raw_injection": false,
+      "runtime_status": [
+        "replied"
+      ],
+      "main_exact_matches": 0,
+      "fork_files_with_exact_text": [
+        "agent-<fork>.jsonl"
+      ]
+    },
+    {
+      "event": "urn:owned:sse-admission:over-32k",
+      "chars": 32259,
+      "utf8_bytes": 32259,
+      "sha256": "b1000ad251959323e8620192a9bd5f2c2625b163ddaebeedaecef74e560c2d25",
+      "stage": "processed",
+      "fallback": "raw_text",
+      "action": "answer",
+      "queue_rows": 1,
+      "queue_text_exact": true,
+      "queue_raw_injection": false,
+      "runtime_status": [
+        "replied"
+      ],
+      "main_exact_matches": 0,
+      "fork_files_with_exact_text": [
+        "agent-<fork>.jsonl"
+      ]
+    },
+    {
+      "event": "urn:owned:sse-admission:prody-16055",
+      "chars": 16055,
+      "utf8_bytes": 47655,
+      "sha256": "06e4d4b12c02b8ab3035dee969616d770654a87a8ada19563e842983cafa762e",
+      "stage": "processed",
+      "fallback": "",
+      "action": "answer",
+      "queue_rows": 1,
+      "queue_text_exact": true,
+      "queue_raw_injection": false,
+      "runtime_status": [
+        "replied"
+      ],
+      "main_exact_matches": 0,
+      "fork_files_with_exact_text": [
+        "agent-<fork>.jsonl"
+      ]
+    }
+  ],
+  "snapshot": "git archive of ede68b19f419596913b2438bd828447047b51bbc",
+  "frames_sent": [
+    "16,055-char Prody-shape CloudEvent (id prody-t)",
+    "32,259-char valid CloudEvent (id over-t)",
+    "not-json with SSE id (invalid-t)",
+    "canary CloudEvent (id canary-t)"
+  ],
+  "isolation": "owned conhost, copied sanitized config, router port 9611, loopback SSE source 9711; live routers 9505/9489/9524 untouched"
+}
