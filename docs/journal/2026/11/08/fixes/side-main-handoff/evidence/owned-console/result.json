@@ -1,0 +1,322 @@
+{
+  "outcome": "completed",
+  "model_a": "_Walkie_Haiku_Terra",
+  "model_b": "_API_KEYS-SSE-1",
+  "switch": {
+    "status": "next_side_event",
+    "value": "_API_KEYS-SSE-1",
+    "error": null,
+    "stored_model": "_API_KEYS-SSE-1"
+  },
+  "seed": {
+    "version": 1,
+    "gate": "n2",
+    "phase": "executing"
+  },
+  "phase1_processed": true,
+  "phase2_processed": true,
+  "phase3_processed": true,
+  "phase4_processed": true,
+  "main_woke_without_human_prompt": true,
+  "handoff_count": 1,
+  "main_wake_prompts": 1,
+  "gate_after": {
+    "id": "n2",
+    "waiting_on": "Daniel approval 118269",
+    "status": "pending"
+  },
+  "handoffs": {
+    "2418bd4bf5ee40b5b017f4a003d8f77eb3c920ac837b9e51f32fa8798073a22e": {
+      "kind": "advise",
+      "item_id": "n2",
+      "state": "answered",
+      "waits": [
+        {
+          "id": "n2",
+          "waiting_on": "Daniel approval 118269"
+        }
+      ],
+      "wake": {
+        "state": "acknowledged",
+        "requested_at": 1794182734.8639164,
+        "attempt_id": "ef755be04db9427499b231cd5ee65c30",
+        "started_at": 1794182735.517785,
+        "updated_at": 1794182736.035151,
+        "acknowledged_at": 1794182800.6426098
+      },
+      "clear_wait": []
+    }
+  },
+  "side_status_main_handoffs": [],
+  "receipts": [
+    {
+      "event_key": "urn:owned:side-handoff:approval",
+      "stage": "processed",
+      "action": "advise",
+      "handoff": "answered",
+      "item_id": "n2",
+      "reply": "ACK sent for message id approval. The approval claim is recorded but not accepted as execution approval, so the approval gate is not treated as satisfied and no implementation has started. Main resume is pending.",
+      "reported_sends": [
+        "mcp__ciel-runtime-router__send_message"
+      ],
+      "failure": null
+    },
+    {
+      "event_key": "handoff:2418bd4bf5ee40b5b017f4a003d8f77eb3c920ac837b9e51f32fa8798073a22e",
+      "stage": "processed",
+      "action": "advise",
+      "handoff": "not_required",
+      "item_id": "n2",
+      "reply": "Status: the approval claim is recorded but not accepted as execution approval. n2's wait is preserved, and n3 stays gated on the same wait (confirmed at Work version 9). The coordinator already sent the ACK for message id 'approval'. I sent nothing in this triage pass. Main resume is pending; implementation has not started.",
+      "reported_sends": [],
+      "failure": null
+    },
+    {
+      "event_key": "urn:owned:side-handoff:code-change",
+      "stage": "processed",
+      "action": "create",
+      "handoff": "not_required",
+      "item_id": "n4",
+      "reply": "Triage result for code-change (priority 2): queued as a new root Work item for main. Nothing has been executed. No edit, test run, or restart_session call has been made, and this message does not approve execution. The active Work item n1 (P1 118160 fail-first fix) is still waiting on n2 \"Daniel design approval 118269\", so the request cannot proceed until that approval is recorded or main decides ",
+      "reported_sends": [
+        "mcp__ciel-runtime-router__send_message"
+      ],
+      "failure": null
+    },
+    {
+      "event_key": "urn:owned:side-handoff:model-a",
+      "stage": "processed",
+      "action": "answer",
+      "handoff": "not_required",
+      "item_id": null,
+      "reply": "Reported one pending P1 root item, “118160 fail-first fix,” with two pending children: the Daniel approval item (waiting on approval) and the fail-first test implementation item. No other root items are shown.",
+      "reported_sends": [
+        "mcp__ciel-runtime-router__send_message"
+      ],
+      "failure": null
+    },
+    {
+      "event_key": "urn:owned:side-handoff:model-b",
+      "stage": "processed",
+      "action": "answer",
+      "handoff": "not_required",
+      "item_id": null,
+      "reply": "Active Work goal: n1 \"P1 118160 fail-first fix\" (phase: executing, progress 0/2 steps done). Child n2 \"Daniel design approval 118269\" is waiting on Daniel approval 118269. Child n3 \"Implement fail-first test\" is pending. No Work change was made.",
+      "reported_sends": [
+        "mcp__ciel-runtime-router__send_message"
+      ],
+      "failure": null
+    }
+  ],
+  "board_after": {
+    "version": 12,
+    "phase": "executing",
+    "nodes": [
+      {
+        "id": "n1",
+        "title": "P1 118160 fail-first fix",
+        "status": "in_progress",
+        "parent_id": null,
+        "waiting_on": ""
+      },
+      {
+        "id": "n2",
+        "title": "Daniel design approval 118269",
+        "status": "pending",
+        "parent_id": "n1",
+        "waiting_on": "Daniel approval 118269"
+      },
+      {
+        "id": "n3",
+        "title": "Implement fail-first test",
+        "status": "pending",
+        "parent_id": "n1",
+        "waiting_on": "Daniel approval 118269"
+      },
+      {
+        "id": "n4",
+        "title": "Fix crash in ciel_runtime.py (side-handoff code-change)",
+        "status": "pending",
+        "parent_id": null,
+        "waiting_on": ""
+      },
+      {
+        "id": "n5",
+        "title": "Record approval handoff inspection",
+        "status": "in_progress",
+        "parent_id": "n1",
+        "waiting_on": ""
+      },
+      {
+        "id": "n6",
+        "title": "Write local OKF journal of observed Work state",
+        "status": "in_progress",
+        "parent_id": "n5",
+        "waiting_on": ""
+      },
+      {
+        "id": "n7",
+        "title": "Validate journal and confirm approval waits remain",
+        "status": "pending",
+        "parent_id": "n5",
+        "waiting_on": ""
+      }
+    ]
+  },
+  "actors": [
+    {
+      "description": "Side SSE a5b772a7417a",
+      "agent_type": "ciel-work:side-intake",
+      "requested_models": [
+        "ciel-runtime-cielairouter-_walkie_haiku_terra"
+      ],
+      "native_models": [
+        "gpt-5.6-terra"
+      ],
+      "tools_called": [
+        "mcp__ciel-runtime-router__send_message"
+      ]
+    },
+    {
+      "description": "Side SSE b50c94b99b99",
+      "agent_type": "ciel-work:side-intake",
+      "requested_models": [
+        "ciel-runtime-cielairouter-_api_keys-sse-1"
+      ],
+      "native_models": [
+        "claude-haiku-5-5"
+      ],
+      "tools_called": [
+        "mcp__ciel-runtime-router__send_message",
+        "mcp__ciel-runtime-router__work_status",
+        "mcp__ciel-runtime-router__send_message"
+      ]
+    },
+    {
+      "description": "Side SSE 9eccd47c9859",
+      "agent_type": "ciel-work:side-intake",
+      "requested_models": [
+        "ciel-runtime-cielairouter-_api_keys-sse-1"
+      ],
+      "native_models": [
+        "claude-haiku-5-5"
+      ],
+      "tools_called": [
+        "mcp__ciel-runtime-router__send_message",
+        "mcp__ciel-runtime-router__work_status",
+        "mcp__ciel-runtime-router__send_message"
+      ]
+    },
+    {
+      "description": "Side SSE 2418bd4bf5ee",
+      "agent_type": "ciel-work:side-intake",
+      "requested_models": [
+        "ciel-runtime-cielairouter-_api_keys-sse-1"
+      ],
+      "native_models": [
+        "claude-haiku-5-5"
+      ],
+      "tools_called": [
+        "mcp__ciel-runtime-router__send_message",
+        "mcp__ciel-runtime-router__work_status"
+      ]
+    },
+    {
+      "description": "Side SSE 789e96462f6a",
+      "agent_type": "ciel-work:side-intake",
+      "requested_models": [
+        "ciel-runtime-cielairouter-_api_keys-sse-1"
+      ],
+      "native_models": [
+        "claude-haiku-5-5"
+      ],
+      "tools_called": [
+        "mcp__ciel-runtime-router__work_status"
+      ]
+    }
+  ],
+  "main_rows_after_approval": [
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T00:05:35.648Z",
+      "tools": [],
+      "text": "The ciel-work plugin sent a message:\nCiel side event requires main action: {\"event_id\":\"2418bd4bf5ee40b5b017f4a003d8f77eb3c920ac837b9e51f32fa8798073a22e\",\"item_id\":\"n2\",\"kind\":\"advise\",\"summary\":\"Daniel approval for design 118269 (P1 118160) arrived from urn:owned:side-handoff as a claim, not a veri"
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T00:05:41.804Z",
+      "tools": [
+        "mcp__ciel-runtime-router__work_status"
+      ],
+      "text": ""
+    },
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T00:05:42.279Z",
+      "tools": [],
+      "text": ""
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T00:05:49.790Z",
+      "tools": [
+        "mcp__ciel-runtime-router__work_status"
+      ],
+      "text": ""
+    },
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T00:05:50.268Z",
+      "tools": [],
+      "text": ""
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T00:06:01.444Z",
+      "tools": [],
+      "text": ""
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T00:06:01.890Z",
+      "tools": [
+        "mcp__ciel-runtime-router__work_side_status"
+      ],
+      "text": ""
+    },
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T00:06:02.111Z",
+      "tools": [],
+      "text": ""
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T00:06:22.257Z",
+      "tools": [],
+      "text": ""
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T00:06:22.499Z",
+      "tools": [
+        "mcp__ciel-runtime-router__work_node_update"
+      ],
+      "text": ""
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T00:06:22.502Z",
+      "tools": [
+        "Glob"
+      ],
+      "text": ""
+    },
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T00:06:23.005Z",
+      "tools": [],
+      "text": ""
+    }
+  ]
+}

@@ -1,0 +1,38 @@
+{
+  "runtime_version": "0.2.51-beta.20261108-172016.857fd52",
+  "receiver": {
+    "state": "connected",
+    "phase": "read",
+    "heartbeat_observed": true,
+    "consecutive_failures": 0,
+    "last_event_id_present": true,
+    "last_event_at_present": true
+  },
+  "side_actors": 63,
+  "requested_aliases": {
+    "ciel-runtime-cielairouter-_walkie_haiku_terra": 370
+  },
+  "native_targets": {
+    "claude-haiku-5-5": 222,
+    "gpt-5.6-terra": 148
+  },
+  "decision_validation": {
+    "valid_shape": 14,
+    "no_decision_json": 30,
+    "update_missing_note": 6,
+    "missing_item_id": 7,
+    "answer_carries_work_edits": 2,
+    "missing_summary_or_reply": 1,
+    "no_final_answer": 3
+  },
+  "recent_54_correlation": {
+    "invalid_rows": 28,
+    "invalid_with_tool_errors": 24,
+    "invalid_with_native_tools": 23,
+    "valid_rows": 26,
+    "valid_with_tool_errors": 11,
+    "valid_with_native_tools": 10
+  },
+  "api_sse_alias_requests": 0,
+  "access": "read-only; no process, config, file, Work or side-claim mutation"
+}
