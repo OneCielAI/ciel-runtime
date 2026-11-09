@@ -79,9 +79,50 @@ def upstream_counter(services, handler, provider, config, model):
     return count
 
 
+MAX_CACHE_MARKS = 4
+
+
+def _marked_blocks(items):
+    """Every block carrying cache_control, including blocks nested in tool results."""
+    for block in items if isinstance(items, list) else []:
+        if not isinstance(block, dict):
+            continue
+        if 'cache_control' in block:
+            yield block
+        yield from _marked_blocks(block.get('content'))
+
+
+def _request_marks(request):
+    marks = list(_marked_blocks(request.get('system'))) + list(_marked_blocks(request.get('tools')))
+    for message in request.get('messages') or []:
+        if isinstance(message, dict):
+            marks += list(_marked_blocks(message.get('content')))
+    return marks
+
+
+def _fit_parent_cache_marks(request, parent_count):
+    """Keep the assembled request within the API's four cache breakpoints.
+
+    The parent boundary is marked only when a breakpoint is free. When parent and
+    child already carry more than four, the parent messages' own marks go first,
+    oldest first; system, tools and the child's marks are left as sent.
+    """
+    total = len(_request_marks(request))
+    parents = request['messages'][:parent_count]
+    if total < MAX_CACHE_MARKS:
+        _mark_parent_cache_boundary(parents, 0)
+        return
+    for message in parents:
+        for block in list(_marked_blocks(message.get('content'))):
+            if total <= MAX_CACHE_MARKS:
+                return
+            block.pop('cache_control', None)
+            total -= 1
+
+
 def _mark_parent_cache_boundary(messages, existing=0):
     """Mark the last parent text block without exceeding four request breakpoints."""
-    if existing >= 4:
+    if existing >= MAX_CACHE_MARKS:
         return
     for message in reversed(messages):
         content = message.get('content')
@@ -155,11 +196,6 @@ def project(state_dir, identity, agent_id, body, config, provider, count_tokens)
         value['agent_id'] = agent_id
         save(path, value)
         selected = copy.deepcopy(value['projection'])
-        # The full selected parent prefix is identical for consecutive side
-        # events on the same model. Mark its last text block, never the event.
-        # Respect the API's four-breakpoint request limit.
-        existing = json.dumps({'system': value['parent'].get('system', []), 'messages': selected}).count('"cache_control"')
-        _mark_parent_cache_boundary(selected, existing)
         parent = value['parent']
     result = copy.deepcopy(body)
     envelope = request_context(result)
@@ -196,4 +232,10 @@ def project(state_dir, identity, agent_id, body, config, provider, count_tokens)
         offered = {tool.get('name') for tool in body.get('tools', [])}
         result['tools'] = [copy.deepcopy(tool) for tool in parent.get('tools', []) if tool.get('name') in offered]
     result['messages'] = selected + result.get('messages', [])
+    # The full selected parent prefix is identical for consecutive side events
+    # on the same model: mark its last text block, never the event. Counted on
+    # the assembled request: Claude Code also marks the child's own messages
+    # (Prody 2026-11-09, 30b0d70: "A maximum of 4 blocks with cache_control
+    # may be provided. Found 5." on anthropic/claude-haiku-5-5-max).
+    _fit_parent_cache_marks(result, len(selected))
     return result

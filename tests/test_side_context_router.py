@@ -149,6 +149,53 @@ class SideContextRouterTests(unittest.TestCase):
         self.assertEqual(4,json.dumps(result).count('"cache_control"'))
         self.assertEqual('current main request',result['messages'][4]['content'])
 
+    def _project_marked(self, identity, parent, tools=None):
+        store=SideContextStore(self.root,identity)
+        store.capture(parent,'fixture')
+        inbox=SideIntakeInbox(self.root,identity)
+        inbox.receive('event','event')
+        event=claim(self.root,identity,'a')
+        handle=store.prepare(event,self.settings,'model-a')
+        envelope=json.dumps({**self.envelope,'side_context_key':handle['key'],'event_id':event['receipt_id']})
+        # Claude Code marks the side actor's own last message as well.
+        body={**self.body,'tools':copy.deepcopy(tools if tools is not None else self.body['tools']),
+              'messages':[{'role':'user','content':[{'type':'text','text':envelope,'cache_control':{'type':'ephemeral'}}]}]}
+        result=project(self.root,identity,'agent',body,{'work_side_intake':self.settings},'fixture',None)
+        def marks(items):
+            if not isinstance(items,list):
+                return 0
+            return sum(('cache_control' in b)+marks(b.get('content')) for b in items if isinstance(b,dict))
+        total=marks(result['system'])+marks(result['tools'])+sum(marks(m.get('content')) for m in result['messages'])
+        return result,total
+
+    def test_parent_boundary_counts_the_child_marks_of_the_assembled_request(self):
+        # Prody 2026-11-09 on 30b0d70: two system marks, the parent's last tool
+        # result mark, the parent-boundary mark and the child's own mark made 5,
+        # and anthropic/claude-haiku-5-5-max refused every side event with 400.
+        parent=copy.deepcopy(self.parent)
+        parent['system']=[{'type':'text','text':'a','cache_control':{'type':'ephemeral'}},
+                          {'type':'text','text':'b','cache_control':{'type':'ephemeral'}}]
+        parent['messages']=[{'role':'user','content':'question'},
+            {'role':'assistant','content':[{'type':'text','text':'reading'},{'type':'tool_use','id':'t1','name':'mcp__mail__read','input':{}}]},
+            {'role':'user','content':[{'type':'tool_result','tool_use_id':'t1','content':'mail','cache_control':{'type':'ephemeral'}}]}]
+        result,total=self._project_marked('claude:cache-child',parent)
+        self.assertEqual(4,total)
+        self.assertIn('cache_control',json.dumps(result['messages'][-1]))
+        self.assertNotIn('cache_control',json.dumps(result['messages'][1]))
+
+    def test_parent_and_child_marks_over_four_drop_the_parent_message_marks(self):
+        parent=copy.deepcopy(self.parent)
+        parent['system']=[{'type':'text','text':'a','cache_control':{'type':'ephemeral'}},
+                          {'type':'text','text':'b','cache_control':{'type':'ephemeral'}}]
+        parent['tools']=[{**parent['tools'][0],'cache_control':{'type':'ephemeral'}}]
+        parent['messages'][-1]['content']=[{'type':'text','text':'current','cache_control':{'type':'ephemeral'}}]
+        result,total=self._project_marked('claude:cache-over',parent,tools=parent['tools'])
+        self.assertEqual(4,total)
+        # System, tools and the child's own mark are kept as sent.
+        self.assertEqual(2,json.dumps(result['system']).count('"cache_control"'))
+        self.assertIn('cache_control',json.dumps(result['tools']))
+        self.assertIn('cache_control',json.dumps(result['messages'][-1]))
+
     def test_missing_context_mode_uses_full_semantic_default(self):
         config={'work_side_intake':{'enabled':True,'context_percent':30}}
         result=project(self.root,self.identity,'default-full',self.body,config,'fixture',None)
