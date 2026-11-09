@@ -20,6 +20,12 @@ SIDE_TURN_HEADER = ('SIDE ACTOR TURN. You are not the main session and must not 
                     'report its progress or call its tools. Handle only the external event above.\n\n')
 SIDE_TURN_FOOTER = ('\n\nYour whole final answer is exactly one JSON object '
                     '{"decision":{...},"expected_version":N} and nothing else.')
+# A captured parent is main's request, so it ends on main's own unanswered turn
+# (usually a tool_result). Appended directly, the side event merged into that
+# turn and the actor answered main's pending instruction instead (owned run
+# 2026-11-09: "TURN-2-DONE"; Walkie: "진행을 재개했습니다 ..." and Bash calls).
+MAIN_PAUSED = ('[Main session paused here. Its pending work continues in main, not in this '
+               'conversation. The next message is a separate side actor turn.]')
 
 
 def request_context(body):
@@ -244,7 +250,10 @@ def project(state_dir, identity, agent_id, body, config, provider, count_tokens)
         # 2026-11-08). Parent bytes and order are kept for that subset.
         offered = {tool.get('name') for tool in body.get('tools', [])}
         result['tools'] = [copy.deepcopy(tool) for tool in parent.get('tools', []) if tool.get('name') in offered]
-    result['messages'] = selected + result.get('messages', [])
+    closing = []
+    if selected and isinstance(selected[-1], dict) and selected[-1].get('role') == 'user':
+        closing = [{'role': 'assistant', 'content': [{'type': 'text', 'text': MAIN_PAUSED}]}]
+    result['messages'] = selected + closing + result.get('messages', [])
     # The full selected parent prefix is identical for consecutive side events
     # on the same model: mark its last text block, never the event. Counted on
     # the assembled request: Claude Code also marks the child's own messages

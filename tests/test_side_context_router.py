@@ -91,6 +91,18 @@ class SideContextRouterTests(unittest.TestCase):
         self.assertIn('Return one JSON decision.',blocks[1]['text'])
         self.assertTrue(blocks[1]['text'].endswith('"expected_version":N} and nothing else.'))
 
+    def test_main_unanswered_turn_is_closed_before_the_side_event(self):
+        # Owned run 2026-11-09: the actor answered main's pending "reply exactly:
+        # TURN-2-DONE" because the side event merged into main's open turn.
+        from ciel_runtime_support.side_context_router import MAIN_PAUSED
+        result=project(self.root,self.identity,'closed',self.body,{'work_side_intake':self.settings},'fixture',None)
+        parent_count=len(self.parent['messages'])
+        self.assertEqual('user',result['messages'][parent_count-1]['role'])
+        self.assertEqual({'role':'assistant','content':[{'type':'text','text':MAIN_PAUSED}]},
+                         result['messages'][parent_count])
+        self.assertEqual('user',result['messages'][parent_count+1]['role'])
+        self.assertEqual(parent_count+2,len(result['messages']))
+
     def test_primary_projection_shows_only_tools_the_side_actor_can_run(self):
         # Prody 2026-11-08: projected parent Bash/Write/restart schemas made side
         # actors call tools their AgentSpec refused. Only the offered subset stays.

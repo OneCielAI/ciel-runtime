@@ -50,7 +50,8 @@ class SideContextBoundaryTests(unittest.TestCase):
                 self.assertEqual(parent['system'],outputs[1]['system'])
                 projected=copy.deepcopy(parent['messages'])
                 projected[-1]['content']=[{'type':'text','text':'main history','cache_control':{'type':'ephemeral'}}]
-                self.assertEqual(projected,outputs[1]['messages'][:-1])
+                self.assertEqual(projected,outputs[1]['messages'][:len(projected)])
+                self.assertEqual('assistant',outputs[1]['messages'][len(projected)]['role'])
                 self.assertIn('n21',outputs[1]['messages'][-1]['content'][0]['text'])
                 self.assertEqual(parent,store.read(store.directory/'latest.json')['parent'])
 
