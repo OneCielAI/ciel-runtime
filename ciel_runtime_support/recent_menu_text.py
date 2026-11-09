@@ -36,6 +36,8 @@ TEXT = {
     "work_parallel_unavailable": ("Work parallel state unavailable — automatic execution held", "Work 병렬 실행 상태 오류 — 자동 실행 보류", "Work 並列状態を取得できません — 自動実行を保留", "无法读取 Work 并行状态 — 暂停自动执行"),
     "work_parallel_saved": ("Applies to new work; existing workers are not terminated.", "신규 작업부터 반영합니다. 기존 실행은 강제 종료하지 않습니다.", "新しい作業に適用します。既存の実行は強制終了しません。", "对新任务生效，不会终止现有任务。"),
     "work_parallel_unknown": ("Unknown Work parallel option", "알 수 없는 Work 병렬 실행 옵션", "不明な Work 並列オプション", "未知的 Work 并行选项"),
+    "work_parallel_orphans": ("Clean up: leases whose owner session is gone", "정리: 소유 세션이 없는 lease", "整理: 所有セッションがない lease", "清理：所属会话已不存在的 lease"),
+    "work_parallel_orphans_help": ("Type apply to release dead-owner slots. For a lease from an older build (no owner record), confirm the session is shut down, then type legacy <lease id>.", "apply 입력: 소유 세션이 종료된 lease의 슬롯을 해제합니다. 이전 빌드의 lease(소유 기록 없음)는 세션 종료를 확인한 뒤 legacy <lease id>를 입력하세요.", "apply で所有セッションが終了した lease のスロットを解放します。旧ビルドの lease（所有記録なし）はセッション終了を確認してから legacy <lease id> を入力してください。", "输入 apply 释放所属会话已结束的 lease 槽位。旧版本的 lease（无所属记录）请确认会话已关闭后输入 legacy <lease id>。"),
     "enter_bool": ("Enter on/off or true/false", "on/off 또는 true/false 입력", "on/off または true/false を入力", "请输入 on/off 或 true/false"),
     "instruction_length": ("Instruction must contain 1–4000 characters", "지시는 1~4000자여야 합니다", "指示は1～4000文字で入力してください", "指令长度必须为 1–4000 个字符"),
     "work_mode": ("Work mode", "Work 모드", "Work モード", "Work 模式"),

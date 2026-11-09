@@ -29,6 +29,8 @@ def _make_env(tmp_path):
                 "phase": "executing",
                 "status": "pending",
                 "updated_at": 1,
+                "priority": "P1",
+                "note": "Ship the exact approved checkout behavior.",
             },
             {
                 "id": "n2",
@@ -253,6 +255,77 @@ class WorkParallelMCPTests(unittest.TestCase):
         self.assertEqual(lease["agent_name"], "work-alpha")
         self.assertEqual(lease["host_id"], "agent-1")
 
+    def test_reserve_uses_root_priority_and_returns_worker_token_and_note(self):
+        store, board, config, run = self.env
+        reserved = run("event", {"fork": True, "dispatch_name": "work-n3"},
+                       event="reserve", item_id="n3", priority="P5")
+        self.assertEqual(reserved["priority"], "P1")
+        self.assertEqual(reserved["item_note"], "")
+        self.assertEqual(len(reserved["worker_token"]), 64)
+        row = store.read()["leases"][reserved["lease_id"]]
+        self.assertNotIn(reserved["worker_token"], json.dumps(row))
+        self.assertEqual(row["dispatch_name"], "work-n3")
+
+    def test_worker_report_token_needs_no_host_identity_and_revokes_on_result(self):
+        store, board, config, run = self.env
+        reserved = run("event", {"fork": True, "dispatch_name": "work-n3"},
+                       event="reserve", item_id="n3", priority="P1")
+        run("event", {"host_id": "agent-1", "agent_name": "work-n3"},
+            event="bind", lease_id=reserved["lease_id"])
+        with patch.object(m, "ledger", return_value=store):
+            class Board:
+                def read(_self):
+                    return board
+            result = json.loads(m.report({"lease_id": reserved["lease_id"],
+                "worker_token": reserved["worker_token"], "event": "result",
+                "plan_version": 7, "artifact": "a" * 64, "evidence": "tested"},
+                Board(), config))
+            self.assertEqual(result["state"], "submitted")
+            with self.assertRaises(WorkParallelError):
+                m.report({"lease_id": reserved["lease_id"],
+                    "worker_token": reserved["worker_token"], "event": "result",
+                    "plan_version": 7, "artifact": "a" * 64, "evidence": "replay"},
+                    Board(), config)
+
+    def test_reserve_next_skips_waiting_leaf_and_returns_next_runnable(self):
+        store, board, config, run = self.env
+        board["nodes"][2]["waiting_on"] = "review"
+        board["nodes"].append({"id": "n4", "parent_id": "n2", "title": "Second item",
+                               "note": "Do second", "status": "pending", "updated_at": 2})
+        reserved = run("event", {"fork": True, "dispatch_name": "auto-one"}, event="reserve_next")
+        self.assertEqual(reserved["item_id"], "n4")
+        self.assertEqual(reserved["priority"], "P1")
+        self.assertEqual(reserved["item_note"], "Do second")
+
+    def test_owner_comes_only_from_this_conversations_bound_scope(self):
+        from ciel_runtime_support import runtime_paths
+        instance = self.tmp_path / "instance"
+        instance.mkdir()
+        scope = instance / "compaction-scope.json"
+        scope.write_text(json.dumps({"runtime": "claude", "session_id": "other", "launcher_pid": 4242}), encoding="utf-8")
+        with patch.object(runtime_paths, "ROUTER_INSTANCE_DIR", instance), \
+             patch.object(m, "process_identity", return_value="birth-4242"):
+            self.assertIsNone(m._owner_from_host({}, SCOPE))
+            scope.write_text(json.dumps({"runtime": "claude", "session_id": "test", "launcher_pid": 4242}), encoding="utf-8")
+            self.assertEqual({"session_pid": 4242, "identity": "birth-4242"}, m._owner_from_host({}, SCOPE))
+
+    def test_orphan_preview_is_read_only_and_apply_requires_observation(self):
+        store, board, config, run = self.env
+        # No provable owner: this models a lease written by an older build.
+        with patch.object(m, "_owner_from_host", return_value=None):
+            reserved = run("event", {"fork": True, "dispatch_name": "old"}, event="reserve", item_id="n3")
+        run("event", {"host_id": "old-agent", "agent_name": "old"}, event="bind", lease_id=reserved["lease_id"])
+        before = store.read()
+        with patch.object(m, "process_identity", return_value=""):
+            preview = run("event", {}, event="reconcile_orphans", operation="preview")
+        self.assertEqual(store.read(), before)
+        row = next(item for item in preview["leases"] if item["lease_id"] == reserved["lease_id"])
+        self.assertEqual(row["owner_state"], "legacy_no_owner")
+        with self.assertRaises(WorkParallelError):
+            run("event", {}, event="reconcile_orphans", operation="apply",
+                lease_id=reserved["lease_id"], preview_digest=preview["digest"],
+                observation={"owner_state": "legacy_no_owner"})
+
     def test_unbound_reserve_release_keeps_item_dispatchable(self):
         env = self.env
         s, b, c, run = env
@@ -442,9 +515,9 @@ class WorkParallelMCPTests(unittest.TestCase):
             )
         run("event", {}, event="reconcile", lease_id=ident)
         assert s.read()["leases"][ident]["slot"]
-        # No provider usage observation is needed: a second, non-P1 slot is available.
+        # Caller input cannot demote the root; the root's P1 priority is authoritative.
         reserved = run("event", {"fork": True}, event="reserve", item_id="n1", priority="P2", role="reviewer")
-        assert s.read()["leases"][reserved["lease_id"]]["priority"] == "P2"
+        assert s.read()["leases"][reserved["lease_id"]]["priority"] == "P1"
         with self.assertRaises(WorkParallelError):
             run("event", {"fork": True}, event="reserve", item_id="n1", priority="P2", role="reviewer")
 

@@ -4,7 +4,7 @@ from unittest.mock import patch
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from ciel_runtime_support.work_parallel import WorkParallelStore, WorkParallelError, WorkParallelConflict
+from ciel_runtime_support.work_parallel import WorkParallelStore, WorkParallelError, WorkParallelConflict, hash_worker_token
 
 
 def candidate(name="n1", **changes):
@@ -437,6 +437,45 @@ class WorkParallelTests(unittest.TestCase):
         # The failure does not delete or mutate the Work item, so it remains queued
         # for a later dispatch.
 
+
+    def test_worker_token_terminal_without_report_and_orphan_lifecycle(self):
+        store = self.store
+        token = "worker-token-" + "x" * 40
+        d, ident = call(store, "reserve", [candidate("worker", priority="P1")], scope="scope", now=100,
+                        dispatch_name="work-one", report_hash=hash_worker_token(token),
+                        owner={"session_pid": 42, "identity": "birth-42"})
+        row = d["leases"][ident]
+        assert row["dispatch_name"] == "work-one"
+        assert row["report_hash"] == hash_worker_token(token)
+        assert "worker-token" not in str(row)
+        call(store, "bind", ident, "host", agent_name="work-one")
+        call(store, "terminate_unreported", ident, proof="turn.complete answer")
+        terminal = store.read()["leases"][ident]
+        assert terminal["state"] == "unreported" and not terminal["slot"]
+        assert terminal["report_hash"] is None and terminal["idle_proof"]
+        replacement = reserve(store, "worker", priority="P1")
+        assert replacement != ident
+
+        d, orphan = call(store, "reserve", [candidate("orphan", priority="P1")], scope="old", now=101,
+                         dispatch_name="work-old", owner={"session_pid": 7, "identity": "birth-7"})
+        call(store, "bind", orphan, "old-host", agent_name="work-old")
+        with self.assertRaises(WorkParallelError):
+            call(store, "orphan_release", orphan, proof="guess", observation={"owner_state": "unknown"})
+        call(store, "orphan_release", orphan, proof="process identity absent",
+             observation={"owner_state": "dead", "observed_identity": ""})
+        stale = store.read()["leases"][orphan]
+        assert stale["state"] == "orphaned" and not stale["slot"]
+
+    def test_legacy_orphan_requires_explicit_operator_observation(self):
+        store = self.store
+        ident = reserve(store, "legacy", priority="P1")
+        call(store, "bind", ident, "old-host")
+        with self.assertRaises(WorkParallelError):
+            call(store, "orphan_release", ident, proof="legacy", observation={"owner_state": "legacy_no_owner"})
+        observed = {"owner_state": "legacy_no_owner", "host_dead": True,
+                    "scope_board_missing": True, "pid_absent": True}
+        call(store, "orphan_release", ident, proof="operator verified shutdown", observation=observed)
+        assert store.read()["leases"][ident]["state"] == "orphaned"
 
     def test_lowering_cap_drains_existing_leases(self):
         store = self.store

@@ -6,7 +6,7 @@ from .side_work_decision import WorkChanged, apply
 from .work_plan_tree import WorkPlanError
 from .channel_message_repository import exclusive_file_lock
 
-NAMES = ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare', 'work_side_code_read', 'work_side_code_search')
+NAMES = ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare', 'work_side_code_read', 'work_side_code_search')
 
 
 def schemas():
@@ -35,6 +35,11 @@ def schemas():
          'inputSchema':{'type':'object','properties':{'event_id':{'type':'string'},'answer':{'type':'string'},
              'activate':{'type':'boolean'},'clear_wait':{'type':'array','items':{'type':'string'},'uniqueItems':True},
              'expected_version':{'type':'integer','minimum':0}},'required':['event_id','expected_version']}},
+        {'name':'work_side_review','description':'Main: mark external messages the side actor already answered as reviewed. Do not answer or ACK them again; '
+             'only when a side reply was wrong, send one correction to the same source, then use verdict=corrected with a note.',
+         'inputSchema':{'type':'object','properties':{'receipt_ids':{'type':'array','items':{'type':'string'},'uniqueItems':True,
+             'minItems':1,'maxItems':50},'verdict':{'type':'string','enum':['ok','corrected']},'note':{'type':'string','maxLength':2000},
+             'expected_version':{'type':'integer','minimum':0}},'required':['receipt_ids','verdict','expected_version']}},
         {'name': 'work_side_reply', 'description': 'Host-only prepare or record a correlated side reply; submission is not proof of human delivery.',
          'inputSchema': {'type': 'object', 'properties': {'receipt_id': {'type': 'string'},
              'state': {'type': 'string', 'enum': ['prepare', 'submitted', 'uncertain', 'failed']}}, 'required': ['receipt_id', 'state']}},
@@ -206,6 +211,10 @@ def run(name, args, config, state_dir, identity, store):
         if args.get('answer'):
             _answer_followup(inbox, args['event_id'], args['answer'])
         return result
+    if name == 'work_side_review':
+        from .side_review import review
+        return review(store, args.get('receipt_ids'), verdict=args.get('verdict'),
+                      note=args.get('note', ''), expected_version=args.get('expected_version'))
     if name == 'work_side_reply':
         from .side_reply_outbox import prepare, record
         if args.get('state') == 'prepare':
@@ -304,8 +313,10 @@ def run(name, args, config, state_dir, identity, store):
         observed = host.get('work_digest') if not (row or {}).get('rechecks') else None
         changed = None
         try:
+            from .side_intake_inbox import source_identity
             result = apply(store, key, decision, args.get('expected_version'), main_reply=main_reply,
-                           observed_digest=observed if isinstance(observed, str) else None)
+                           observed_digest=observed if isinstance(observed, str) else None,
+                           source=source_identity((row or {}).get('text')))
         except WorkChanged as error:
             changed = str(error)
         if changed is None:

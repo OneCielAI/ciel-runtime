@@ -13,7 +13,7 @@ def pending(state_dir, identity, limit=10):
     def eligible():
         for path in directory.glob('*/*.json'):
             row=SideIntakeInbox._read_file(path)
-            if (row and row.get('stage')=='processed' and row.get('result',{}).get('delivery') not in ('route_unavailable','side_mcp')
+            if (row and row.get('stage')=='processed' and row.get('result',{}).get('delivery') not in ('route_unavailable','side_mcp','duplicate_source')
                     and row.get('outbox',{}).get('state') not in ('submitted','uncertain','submitting','failed')):
                 yield {'receipt_id':path.stem,'state':row.get('outbox',{}).get('state','pending')}
     return heapq.nsmallest(limit,eligible(),key=lambda row:row['receipt_id'])

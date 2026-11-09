@@ -250,6 +250,46 @@ class SideDecisionTests(unittest.TestCase):
         self.assertEqual([], inbox.pending())
         self.assertTrue(inbox.receive('question', 'event')['duplicate'])
 
+    def test_events_for_one_source_message_get_one_side_actor_and_one_reply(self):
+        # Prody 2026-11-09 18:40Z: message.created and task.auto_assigned for
+        # Walkie 119649 each started an actor, and two replies were sent.
+        import json
+        from ciel_runtime_support.side_reply_outbox import pending
+        def walkie(kind, event_id):
+            return json.dumps({'id': event_id, 'type': 'com.ciel.walkie.support.message',
+                'data': {'event_type': kind, 'conversation': '3c720143-016f-4061-850e-4546bb8da35c',
+                         'message_id': '119649', 'text': 'list the Work queue'}})
+        inbox = SideIntakeInbox(self.root, 'claude:test')
+        first = inbox.receive(walkie('message.created', 'a'), 'source:a')
+        second = inbox.receive(walkie('task.auto_assigned', 'b'), 'source:b')
+        lease = claim(self.root, 'claude:test', 'actor-1', now=100)
+        handled = lease['receipt_id']
+        other = ({first['receipt_id'], second['receipt_id']} - {handled}).pop()
+        # The first actor still holds its source: the duplicate waits instead of
+        # starting a concurrent second actor.
+        self.assertIsNone(claim(self.root, 'claude:test', 'actor-2', now=101))
+        finish(self.root, 'claude:test', handled, lease['generation'],
+               {**self.base, 'kind': 'status', 'delivery': 'pending', 'final_text': 'queue'}, now=102)
+        self.assertIsNone(claim(self.root, 'claude:test', 'actor-2', now=103))
+        duplicate = inbox._load(other)
+        self.assertEqual(('processed', 'duplicate_source', handled),
+                         (duplicate['stage'], duplicate['result']['delivery'], duplicate['result']['duplicate_of']))
+        self.assertEqual([handled], [row['receipt_id'] for row in pending(self.root, 'claude:test')])
+
+    def test_side_answer_leaves_a_main_review_note_until_reviewed(self):
+        from ciel_runtime_support.side_review import review
+        result = apply(self.store, self.key, {**self.base, 'kind': 'status'}, 0,
+                       source='walkie:3c720143:119649')
+        row = self.store.read()['side_reviews'][self.key]
+        self.assertEqual(('pending', 'walkie:3c720143:119649', 'status'),
+                         (row['state'], row['source'], row['kind']))
+        self.assertEqual(result['final_text'], row['reply'])
+        reviewed = review(self.store, [self.key], verdict='ok', note='', expected_version=self.store.read()['version'])
+        self.assertEqual('reviewed', reviewed['reviews'][0]['state'])
+        self.assertEqual('reviewed', self.store.read()['side_reviews'][self.key]['state'])
+        with self.assertRaises(tree.WorkPlanError):
+            review(self.store, ['0' * 64], verdict='ok', note='', expected_version=self.store.read()['version'])
+
     def test_structured_p1_is_picked_before_ordinary_backlog(self):
         inbox=SideIntakeInbox(self.root,'claude:test')
         inbox.receive('ordinary request','ordinary')

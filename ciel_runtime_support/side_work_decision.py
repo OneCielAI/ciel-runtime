@@ -92,7 +92,27 @@ def outcome_text(result):
     return head + '.'
 
 
-def apply(store, receipt_id, decision, expected_version, *, main_reply=False, observed_digest=None):
+MAX_SIDE_REVIEWS = 50
+
+
+def _record_review(doc, receipt_id, result, source):
+    """Leave main a review note for what the side already handled and sent.
+
+    Main reads it with Work status and does not repeat the answer or ACK; it
+    sends a correction only when the side's reply was wrong.
+    """
+    reviews = doc.setdefault('side_reviews', {})
+    reviews[receipt_id] = {
+        'state': 'pending', 'kind': result.get('kind') or result['action'], 'action': result['action'],
+        'item_id': result.get('item_id'), 'summary': result['summary'][:1000],
+        'reply': str(result.get('final_text') or result['reply'])[:4000],
+        'source': source[:300] if isinstance(source, str) else None, 'recorded_at': time.time()}
+    finished = [key for key, row in reviews.items() if row.get('state') != 'pending']
+    for key in sorted(finished, key=lambda k: reviews[k].get('recorded_at', 0))[:max(0, len(reviews) - MAX_SIDE_REVIEWS)]:
+        reviews.pop(key, None)
+
+
+def apply(store, receipt_id, decision, expected_version, *, main_reply=False, observed_digest=None, source=None):
     validate(decision)
     if not isinstance(receipt_id, str) or len(receipt_id) != 64 or any(c not in '0123456789abcdef' for c in receipt_id):
         raise tree.WorkPlanError('invalid side receipt identity')
@@ -228,6 +248,9 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             result['final_text'] = text + '\n\n' + outcome_text(result)
         receipts[receipt_id] = {'decision_digest': digest, 'applied_at': time.time(),
                                 'item_id': item, 'recap': decision['summary'], 'result': result}
+        if not main_reply:
+            # Main's own handoff answers come back as follow-ups; main already knows them.
+            _record_review(doc, receipt_id, result, source)
         return {**result, 'duplicate': False}
     # An already-committed event may be recovered after a version change.
     current = store.read()

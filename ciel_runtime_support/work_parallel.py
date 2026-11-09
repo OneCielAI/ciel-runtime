@@ -6,6 +6,8 @@ expire. Every mutation requires snapshot-version CAS and returns (state, result)
 """
 from __future__ import annotations
 import copy
+import hashlib
+import hmac
 import json
 import math
 import os
@@ -24,7 +26,8 @@ MAX_BYTES = 2097152
 MAX_LEASES = 100
 STORAGE_MAX_LEASES = 100_000
 DEFAULT_DISCOVERY_TEXT = DEFAULT_INSTRUCTION
-STATES = ("reserved", "running", "waiting_input", "submitted", "verifying", "reviewing", "accepted", "cleanup_pending", "done")
+STATES = ("reserved", "running", "waiting_input", "submitted", "verifying", "reviewing", "accepted", "cleanup_pending", "done", "unreported", "orphaned")
+ACTIVE_STATES = frozenset(("reserved", "running", "waiting_input", "submitted", "verifying", "reviewing", "accepted", "cleanup_pending"))
 
 class WorkParallelError(ValueError):
     pass
@@ -47,6 +50,14 @@ def text(v, limit=2000):
 
 def digest(v):
     return type(v) is str and len(v) == 64 and all(c in "0123456789abcdef" for c in v)
+
+def hash_worker_token(value):
+    require(text(value, 512), "worker token")
+    return hashlib.sha256(value.encode("utf-8")).hexdigest()
+
+def worker_token_matches(lease, value):
+    expected = lease.get("report_hash")
+    return digest(expected) and hmac.compare_digest(expected, hash_worker_token(value))
 
 def fields(v, names):
     return type(v) is dict and set(v) == set(names.split())
@@ -108,11 +119,20 @@ def validate(d):
     validate_policy(d["policy"])
     require(type(d["leases"]) is dict and len(d["leases"]) <= STORAGE_MAX_LEASES, "lease storage bound")
     for ident, r in d["leases"].items():
-        # agent_name (the native Agent name used to resume after a parent restart) is
-        # optional so ledgers written before it existed stay readable.
+        # Optional fields keep ledgers written before the corresponding lifecycle
+        # evidence readable. Plain worker capabilities are never persisted.
         base = "id scope item_id priority created_at role mode plan_version state host_id slot usage artifact rework evidence idle_proof cleanup_proof"
-        require(type(r) is dict and set(base.split()) <= set(r) and not set(r) - set((base + " agent_name workspace").split()), "lease fields")
+        optional = "agent_name workspace dispatch_name owner report_hash terminal"
+        require(type(r) is dict and set(base.split()) <= set(r) and not set(r) - set((base + " " + optional).split()), "lease fields")
         require(r.get("agent_name") is None or text(r["agent_name"], 200), "agent name")
+        require(r.get("dispatch_name") is None or text(r["dispatch_name"], 200), "dispatch name")
+        owner = r.get("owner")
+        require(owner is None or (fields(owner, "session_pid identity") and integer(owner["session_pid"], 1)
+                and (owner["identity"] is None or type(owner["identity"]) is str)), "owner identity")
+        require(r.get("report_hash") is None or digest(r["report_hash"]), "report hash")
+        terminal = r.get("terminal")
+        require(terminal is None or (fields(terminal, "reason observed_at proof") and text(terminal["reason"], 100)
+                and number(terminal["observed_at"], 1e15) and text(terminal["proof"])), "terminal proof")
         require(text(ident, 200) and r["id"] == ident and text(r["scope"], 200) and text(r["item_id"], 200), "lease identity")
         require(r["priority"] in ("P1", "P2", "P3", "P4", "P5") and number(r["created_at"], 1e15), "priority/time")
         require(r["role"] in ("worker", "reviewer", "resume") and r["mode"] in ("fork", "fresh"), "role/mode")
@@ -127,12 +147,15 @@ def validate(d):
             require(r["host_id"] is not None, "unbound worker")
         if r["state"] in ("submitted", "verifying", "reviewing", "accepted", "cleanup_pending", "done"):
             require(r["artifact"] is not None, "missing artifact")
-        if r["state"] in ("reserved", "running", "waiting_input"):
+        if r["state"] in ("reserved", "running", "waiting_input", "unreported", "orphaned"):
             require(r["artifact"] is None, "unexpected artifact")
         if r["state"] == "reserved":
             require(r["host_id"] is None, "reserved host already bound")
         if r["state"] == "done":
             require(not r["slot"] and r["cleanup_proof"] is not None, "cleanup missing")
+        if r["state"] in ("unreported", "orphaned"):
+            require(not r["slot"] and r["idle_proof"] is not None and r.get("terminal") is not None, "terminal release missing")
+            require(r.get("report_hash") is None, "terminal worker capability remains active")
     # Cap reductions drain existing leases; reserve enforces the new cap.
     require(type(d["launches"]) is list and len(d["launches"]) <= 60 and all(number(t, 1e15) for t in d["launches"]), "launch history")
 
@@ -216,7 +239,8 @@ class WorkParallelStore:
             require(not d["policy"]["enabled"] or capability_ready, "capability not ready")
         return self._change(apply, expected_version)
 
-    def reserve(self, candidates, *, scope, expected_version, now=None):
+    def reserve(self, candidates, *, scope, expected_version, now=None, dispatch_name=None,
+                report_hash=None, owner=None):
         """Candidates require exact fields validated below. Best eligible priority,
         then newest created_at wins. Admission is limited only by the number of
         concurrently executing fork slots and the launch rate; reviewers/resumes
@@ -226,6 +250,10 @@ class WorkParallelStore:
         bypasses admission gates.
         """
         require(text(scope, 200) and type(candidates) is list and 0 < len(candidates) <= MAX_LEASES, "candidates/scope")
+        require(dispatch_name is None or text(dispatch_name, 200), "dispatch name")
+        require(report_hash is None or digest(report_hash), "report hash")
+        require(owner is None or (fields(owner, "session_pid identity") and integer(owner["session_pid"], 1)
+                and (owner["identity"] is None or type(owner["identity"]) is str)), "owner identity")
         for r in candidates:
             require(fields(r, "item_id priority created_at approved focused dependencies_done plan_version usage role mode"), "candidate fields")
             require(text(r["item_id"], 200) and r["priority"] in ("P1", "P2", "P3", "P4", "P5"), "candidate identity")
@@ -253,7 +281,8 @@ class WorkParallelStore:
                 # Focus only orders Work; it never blocks another approved item.
                 if not all(r[k] for k in ("approved", "dependencies_done")):
                     continue
-                if any(a["scope"] == scope and a["item_id"] == r["item_id"] and a["role"] == r["role"] and (a["slot"] or a["state"] != "done") for a in d["leases"].values()):
+                if any(a["scope"] == scope and a["item_id"] == r["item_id"] and a["role"] == r["role"]
+                       and a["state"] in ACTIVE_STATES for a in d["leases"].values()):
                     continue
                 if r["priority"] == "P1" and r["mode"] != "fork":
                     continue
@@ -264,7 +293,8 @@ class WorkParallelStore:
                 d["leases"][ident] = dict(id=ident, scope=scope, item_id=r["item_id"], priority=r["priority"],
                     created_at=r["created_at"], role=r["role"], mode=r["mode"], plan_version=r["plan_version"],
                     state="reserved", host_id=None, slot=True, usage=r["usage"], artifact=None,
-                    rework=0, evidence=None, idle_proof=None, cleanup_proof=None)
+                    rework=0, evidence=None, idle_proof=None, cleanup_proof=None,
+                    dispatch_name=dispatch_name, owner=copy.deepcopy(owner), report_hash=report_hash, terminal=None)
                 d["launches"] = history + [stamp]
                 return ident
             raise WorkParallelError("no eligible candidate")
@@ -318,6 +348,52 @@ class WorkParallelStore:
             r = self._lease(d, ident)
             if host_state == "idle":
                 r.update(slot=False, usage=0, idle_proof=proof)
+        return self._change(apply, expected_version)
+
+    def terminate_unreported(self, ident, *, proof, expected_version, now=None):
+        """Record a positive terminal host observation without a worker report.
+
+        The Work item remains unfinished and can receive a replacement lease.
+        """
+        require(text(proof, 500), "terminal proof required")
+        stamp = time.time() if now is None else now
+        require(number(stamp, 1e15), "clock")
+        def apply(d):
+            r = self._lease(d, ident)
+            if r["state"] == "unreported":
+                return
+            require(r["state"] == "running" and r["host_id"] is not None, "worker is not running")
+            r.update(state="unreported", slot=False, usage=0, report_hash=None,
+                     idle_proof=proof, evidence=proof,
+                     terminal={"reason": "unreported", "observed_at": stamp, "proof": proof})
+        return self._change(apply, expected_version)
+
+    def orphan_release(self, ident, *, proof, observation, expected_version, now=None):
+        """Release a positively proven dead owner while retaining an audit row."""
+        require(text(proof, 500) and type(observation) is dict, "orphan proof required")
+        state = observation.get("owner_state")
+        if state == "dead":
+            require(observation.get("observed_identity") == "", "dead process identity proof required")
+        elif state == "legacy_no_owner":
+            require(all(observation.get(k) is True for k in
+                        ("host_dead", "scope_board_missing", "pid_absent")),
+                    "legacy orphan requires explicit operator observations")
+        else:
+            raise WorkParallelError("live or unknown owner is retained")
+        stamp = time.time() if now is None else now
+        require(number(stamp, 1e15), "clock")
+        def apply(d):
+            r = self._lease(d, ident)
+            if r["state"] == "orphaned":
+                return
+            require(r["slot"] and r["state"] in ACTIVE_STATES, "lease does not hold an active slot")
+            if state == "dead":
+                require(r.get("owner") is not None, "owner identity unavailable")
+            else:
+                require(r.get("owner") is None, "legacy observation does not match lease")
+            r.update(state="orphaned", slot=False, usage=0, report_hash=None,
+                     idle_proof=proof, evidence=proof,
+                     terminal={"reason": "orphaned", "observed_at": stamp, "proof": proof})
         return self._change(apply, expected_version)
 
     def wait(self, ident, *, proof, expected_version):
@@ -374,6 +450,7 @@ class WorkParallelStore:
             if target == "submitted":
                 require(digest(artifact), "artifact SHA256 required")
                 r["artifact"] = artifact
+                r["report_hash"] = None
             elif r["artifact"] is not None and artifact != r["artifact"]:
                 raise WorkParallelConflict("stale artifact")
             if target == "running" and r["state"] in ("verifying", "reviewing"):

@@ -51,6 +51,32 @@ def source_priority(text: Any) -> str | None:
     return _priority(task.get('priority')) if isinstance(task, dict) else None
 
 
+def source_identity(text: Any) -> str | None:
+    """The source message one event is about, shared by every event for it.
+
+    Walkie sends message.created, task.auto_assigned and task updates for one
+    message (Prody 2026-11-09: 119649 got two side replies). Events without a
+    concrete message id, such as reminders, have no shared source.
+    """
+    try:
+        body = json.loads(text)
+    except (ValueError, TypeError):
+        return None
+    data = body.get('data') if isinstance(body, dict) else None
+    if not isinstance(data, dict):
+        return None
+    payload = data.get('payload') if isinstance(data.get('payload'), dict) else {}
+    context = data.get('message_context') if isinstance(data.get('message_context'), dict) else {}
+    conversation = data.get('conversation') or data.get('conversation_id') or payload.get('conversation_id')
+    message = data.get('message_id') or payload.get('message_id') or context.get('id')
+    if not isinstance(conversation, str) or not conversation or len(conversation) > 200:
+        return None
+    message = str(message) if isinstance(message, (str, int)) and not isinstance(message, bool) else ''
+    if not message or len(message) > 100:
+        return None
+    return 'message:' + conversation + ':' + message
+
+
 class SideIntakeInbox:
     def __init__(self, state_dir: Path, session_id: str) -> None:
         from .work_session_lineage import IDENTITY

@@ -321,13 +321,23 @@ def dispatch_work_tool(
         except (tree.WorkPlanError, ValueError, OSError) as error:
             return respond(request_id, str(error), True)
         return respond(request_id, json.dumps(value, ensure_ascii=False))
-    if not work_mode_enabled(config) and name not in ('work_side_settings','work_side_intake', 'work_side_drain', 'work_side_status', 'work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare', 'work_side_code_read', 'work_side_code_search'):
+    if not work_mode_enabled(config) and name not in ('work_side_settings','work_side_intake', 'work_side_drain', 'work_side_status', 'work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare', 'work_side_code_read', 'work_side_code_search'):
         if name == "work_status" and args.get("format") == "json":
             return respond(request_id, json.dumps(tree.snapshot(tree.empty_document(), enabled=False)))
         return respond(request_id, "Ciel Work mode is off (prelaunch menu: LLM options -> Work mode, "
                                    "or work_mode_set with enabled=true).", True)
     approval_ask = work_plan_approval_ask(config)
     try:
+        if name == "work_parallel_report":
+            from .work_parallel_mcp import report, ledger
+            # The capability resolves the exact lease and scope. A plugin-spawned
+            # fork may skip ciel-work's own tool hook, so no session_id is required.
+            global_store = ledger()
+            lease = global_store.read()["leases"].get(args.get("lease_id"))
+            if not lease:
+                raise tree.WorkPlanError("invalid or revoked worker capability")
+            scoped = session_work_plan_store(state_dir, lease["scope"], log=log)
+            return respond(request_id, report(args, scoped, config))
         if isinstance(metadata, dict) and "sessionId" in metadata:
             native_id = metadata["sessionId"]
             if not isinstance(native_id, str) or not native_id:
@@ -340,7 +350,7 @@ def dispatch_work_tool(
         if name not in ('work_side_status', 'work_side_settings', 'work_side_intake', 'work_side_drain'):
             scoped = session_work_plan_store(state_dir, identity, log=log)
             store = store or scoped
-        if name in ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare', 'work_side_code_read', 'work_side_code_search'):
+        if name in ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare', 'work_side_code_read', 'work_side_code_search'):
             from .side_intake_mcp import run as side_run
             return respond(request_id, json.dumps(side_run(name, args, config, state_dir, identity, store), ensure_ascii=False))
         if name == "work_side_settings":
@@ -457,6 +467,9 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
             state["auto_continue"] = auto_continue
             state['side_handoffs'] = [{'event_id': key, **row} for key, row in doc.get('side_handoffs', {}).items()
                                       if row.get('state') == 'requested']
+            from .side_review import pending as pending_reviews
+            state['side_reviews'] = [{key: row.get(key) for key in ('receipt_id', 'kind', 'action', 'item_id', 'summary', 'reply', 'source')}
+                                     for row in pending_reviews(doc)]
             state['side_intake_enabled'] = (config or {}).get('work_side_intake', {}).get('enabled') is True
             state['side_intake_receipts'] = [
                 {'item_id': receipt['item_id'], 'recap': receipt['recap'],

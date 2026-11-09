@@ -1,13 +1,18 @@
 """Conversation-scoped projection over the device-wide Work execution ledger."""
 from __future__ import annotations
 import copy
+import hashlib
 import json
 import hmac
+import secrets
 from pathlib import Path
 from . import work_plan_tree as tree
-from .work_parallel import WorkParallelStore, WorkParallelError, active_by_priority
+from .work_parallel import (WorkParallelStore, WorkParallelError, active_by_priority,
+                            hash_worker_token, worker_token_matches)
+from .workspace_router_selection import _process_identity as process_identity
 
-TOOL_NAMES = ("work_parallel_status", "work_parallel_configure", "work_parallel_run", "work_parallel_event", "work_discovery_pickup")
+TOOL_NAMES = ("work_parallel_status", "work_parallel_configure", "work_parallel_run",
+              "work_parallel_event", "work_parallel_report", "work_discovery_pickup")
 
 
 def schemas():
@@ -22,6 +27,8 @@ def schemas():
         "cleanup_proof": {"type": "string"},
         "workspace": {"type": "string"}, "remote_ref": {"type": "string"},
         "reviewer_lease_id": {"type": "string"},
+        "worker_token": {"type": "string"}, "operation": {"type": "string"},
+        "preview_digest": {"type": "string"}, "observation": {"type": "object"},
         "source": {"type": "string"}, "scope": {"type": "string"}, "results": {"type": "array", "items": {"type": "object"}},
     }
     descriptions = {
@@ -29,7 +36,8 @@ def schemas():
         "work_parallel_status": "Show Work 병렬 실행 settings, device capacity and this conversation's leases. Read before changing limits.",
         "work_parallel_configure": "On the user's natural-language request, persist Work 병렬 실행 limits (concurrent executing fork sessions, reserved P1 slot, launch rate, rework limit) or pause. This never limits registering or queueing Work items. Pass changes and expected_version from work_parallel_status. Does not approve a plan.",
         "work_parallel_run": "Dispatch an approved Work item: the packaged host starts the fork itself and returns the started lease/agent. You do not call the Agent tool or supply a name for this dispatch. Requires item_id, priority, role and expected_version. Codex is unsupported until its native adapter passes capability tests.",
-        "work_parallel_event": "Report a bound worker's question/result or coordinator validation/review/cleanup evidence. Never mark a submitted result done without validation and cleanup. Host supplies worker identity; do not impersonate an agent.",
+        "work_parallel_event": "Coordinator lifecycle and authenticated host observations for Work forks. Workers report through work_parallel_report.",
+        "work_parallel_report": "Worker-only question/result report. Requires the exact lease_id and one-use worker_token from the fork assignment; no session_id or host token.",
     }
     return [{"name": name, "description": descriptions[name],
              "inputSchema": {"type": "object", "properties": copy.deepcopy(props)}} for name in TOOL_NAMES]
@@ -69,6 +77,7 @@ def _item_details(board):
             "goal_id": str(chain[0].get("id") or "") if chain else "",
             "goal_title": titles[0] if titles else "",
             "item_path": titles,
+            "item_note": str(node.get("note") or ""),
         }
     return details
 
@@ -76,6 +85,8 @@ def _item_details(board):
 def project(store, identity, board=None):
     d = store.read()
     leases = {k: dict(v) for k, v in d["leases"].items() if v["scope"] == identity}
+    for lease in leases.values():
+        lease.pop("report_hash", None)
     if board is not None and leases:
         details = _item_details(board)
         for lease in leases.values():
@@ -88,6 +99,36 @@ def project(store, identity, board=None):
             "codex_adapter": "unsupported",
             "limitations": ["dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations",
                             "external discovery requires a configured authenticated source connector"]}
+
+
+def _worker_event(store, board_store, lease, args):
+    if args.get("event") not in ("question", "result"):
+        raise WorkParallelError("worker may only report question or result")
+    if lease["state"] != "running" or not lease["slot"]:
+        raise WorkParallelError("worker lease is not active")
+    board = board_store.read()
+    c = candidate(board, lease["item_id"], lease["priority"], lease["role"])
+    if board["version"] != lease["plan_version"] or not c["approved"]:
+        raise WorkParallelError("Work approval/version changed; reconcile before continuing")
+    target = "waiting_input" if args["event"] == "question" else "submitted"
+    d, _ = store.transition(
+        lease["id"], target, plan_version=args.get("plan_version"),
+        expected_version=store.read()["version"], artifact=args.get("artifact"),
+        evidence=args.get("evidence"),
+    )
+    return {"lease_id": lease["id"], "version": d["version"],
+            "item_id": lease["item_id"], "state": d["leases"][lease["id"]]["state"]}
+
+
+def report(args, board_store, config):
+    """Capability-scoped worker report; no conversation or host identity needed."""
+    del config
+    store = ledger()
+    d = store.read()
+    lease = d["leases"].get(args.get("lease_id"))
+    if not lease or not worker_token_matches(lease, args.get("worker_token")):
+        raise WorkParallelError("invalid or revoked worker capability")
+    return json.dumps(_worker_event(store, board_store, lease, args), ensure_ascii=False)
 
 
 def host_context(args, config):
@@ -116,6 +157,97 @@ def _board_or_none(board_store):
         return board_store.read()
     except Exception:
         return None
+
+
+def _owner_from_host(host, conversation):
+    """The launcher process that owns this conversation's leases, when provable.
+
+    The router's bound scope names the launcher of its current conversation;
+    it is used only when that conversation is the one reserving, so a lease is
+    never attributed to a different session's process.
+    """
+    pid = host.get("session_pid")
+    identity = host.get("session_process_identity")
+    if type(pid) is not int or pid <= 0:
+        try:
+            from .runtime_paths import ROUTER_INSTANCE_DIR
+            scope = json.loads((Path(ROUTER_INSTANCE_DIR) / "compaction-scope.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError, TypeError):
+            return None
+        if not isinstance(scope, dict) or str(scope.get("runtime")) + ":" + str(scope.get("session_id")) != conversation:
+            return None
+        pid = scope.get("launcher_pid")
+        if type(pid) is not int or pid <= 0:
+            return None
+        identity = process_identity(pid)
+    return {"session_pid": pid, "identity": identity if isinstance(identity, str) else None}
+
+
+def _reserve_assignment(store, board_store, identity, host, version, *, item_id=None, role="worker"):
+    board = board_store.read()
+    if item_id is None:
+        rows = tree.runnable_leaves(board)
+        if not rows:
+            raise WorkParallelError("no eligible candidate")
+        candidates = [candidate(board, row["item_id"], row["priority"], role) for row in rows]
+    else:
+        details = _item_details(board).get(item_id)
+        if details is None:
+            raise WorkParallelError("unknown Work item")
+        nodes = {node["id"]: node for node in board["nodes"]}
+        current = nodes[item_id]
+        while current["parent_id"] is not None:
+            current = nodes[current["parent_id"]]
+        priority = current.get("priority") if current.get("priority") in tree.PRIORITIES else "P5"
+        candidates = [candidate(board, item_id, priority, role)]
+        refusal = dispatch_refusal(board, item_id)
+        if refusal:
+            raise WorkParallelError(refusal)
+    token = secrets.token_hex(32)
+    d, ident = store.reserve(
+        candidates, scope=identity, expected_version=version,
+        dispatch_name=host.get("dispatch_name"), report_hash=hash_worker_token(token),
+        owner=_owner_from_host(host, identity),
+    )
+    lease = d["leases"][ident]
+    item = _item_details(board).get(lease["item_id"], {})
+    workspace = None
+    if host.get("workspace_repo"):
+        from .work_parallel_workspace import prepare
+        try:
+            workspace = prepare(host["workspace_repo"], ident)
+            d, _ = store.attach_workspace(ident, workspace, expected_version=d["version"])
+        except Exception as error:
+            current = store.read()
+            if current["leases"].get(ident, {}).get("host_id", 0) is None:
+                store.release_unbound(ident, proof="workspace preparation failed: " + type(error).__name__,
+                                      expected_version=current["version"])
+            raise WorkParallelError("workspace preparation failed; reservation released: "
+                                    + (str(error) or type(error).__name__)[:300]) from error
+    return {"lease_id": ident, "version": d["version"], "plan_version": board["version"],
+            "workspace": workspace, "worker_token": token, "priority": lease["priority"],
+            "item_id": lease["item_id"], **item}
+
+
+def _orphan_preview(store):
+    d = store.read()
+    rows = []
+    for lease in d.get("leases", {}).values():
+        if not lease["slot"]:
+            continue
+        owner = lease.get("owner")
+        if owner is None:
+            state, observed = "legacy_no_owner", None
+        else:
+            observed = process_identity(owner["session_pid"])
+            state = "unknown" if observed is None else ("dead" if observed == "" else
+                    "live" if observed == owner["identity"] else "dead")
+        rows.append({"lease_id": lease["id"], "scope": lease["scope"], "item_id": lease["item_id"],
+                     "priority": lease["priority"], "state": lease["state"],
+                     "owner_state": state, "observed_identity": observed})
+    body = {"version": d.get("version", 0), "leases": rows}
+    body["digest"] = hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    return body
 
 
 def run(name, args, board_store, identity, config, save_config):
@@ -156,41 +288,45 @@ def run(name, args, board_store, identity, config, save_config):
     if name != "work_parallel_event":
         raise WorkParallelError("dispatch requires packaged host interception")
     event = args.get("event")
-    if event == "reserve":
+    if event in ("reserve", "reserve_next"):
         if actor is not None or host.get("fork") is not True or not ready:
             raise WorkParallelError("verified coordinator fork capability required")
-        board = board_store.read()
-        c = candidate(board, args.get("item_id"), args.get("priority", "P1"), args.get("role", "worker"))
-        refusal = dispatch_refusal(board, c["item_id"])
-        if refusal:
-            raise WorkParallelError(refusal)
-        d, ident = store.reserve([c], scope=identity, expected_version=version)
-        item = _item_details(board).get(c["item_id"], {})
-        workspace = None
-        if host.get("workspace_repo"):
-            from .work_parallel_workspace import prepare
-            try:
-                workspace = prepare(host["workspace_repo"], ident)
-                d, _ = store.attach_workspace(ident, workspace, expected_version=d["version"])
-            except Exception as error:
-                # The reservation is not returned to the host on failure, so no
-                # one could bind or release it: it held a slot for good (owned
-                # runs and the live ledger, 2026-11-09). Release it here.
-                current = store.read()
-                if current["leases"].get(ident, {}).get("host_id", 0) is None:
-                    store.release_unbound(ident, proof="workspace preparation failed: " + type(error).__name__,
-                                          expected_version=current["version"])
-                raise WorkParallelError("workspace preparation failed; reservation released: "
-                                        + (str(error) or type(error).__name__)[:300]) from error
-        return json.dumps({"lease_id": ident, "version": d["version"], "plan_version": board["version"], "workspace": workspace, **item})
+        assignment = _reserve_assignment(
+            store, board_store, identity, host, version,
+            item_id=args.get("item_id") if event == "reserve" else None,
+            role=args.get("role", "worker"),
+        )
+        return json.dumps(assignment, ensure_ascii=False)
+    if event == "reconcile_orphans":
+        if actor is not None:
+            raise WorkParallelError("coordinator required")
+        preview = _orphan_preview(store)
+        if args.get("operation") in (None, "preview"):
+            return json.dumps(preview, ensure_ascii=False)
+        if args.get("operation") != "apply" or args.get("preview_digest") != preview["digest"]:
+            raise WorkParallelError("stale or invalid orphan preview")
+        row = next((item for item in preview["leases"] if item["lease_id"] == args.get("lease_id")), None)
+        if row is None:
+            raise WorkParallelError("unknown preview lease")
+        observation = dict(args.get("observation") or {})
+        observation.setdefault("owner_state", row["owner_state"])
+        observation.setdefault("observed_identity", row["observed_identity"])
+        d, _ = store.orphan_release(row["lease_id"], proof=host.get("proof"), observation=observation,
+                                    expected_version=version)
+        return json.dumps({"lease_id": row["lease_id"], "version": d["version"],
+                           "state": d["leases"][row["lease_id"]]["state"]}, ensure_ascii=False)
     d = store.read()
     lease = d["leases"].get(args.get("lease_id"))
     if not lease or lease["scope"] != identity:
         raise WorkParallelError("unknown conversation lease")
     ident = lease["id"]
-    if event in ("bind", "reconcile", "release", "wait", "reacquire"):
+    if event in ("bind", "reconcile", "release", "wait", "reacquire", "unreported"):
         if actor is not None:
             raise WorkParallelError("coordinator host observation required")
+        if event == "unreported":
+            d, _ = store.terminate_unreported(ident, proof=host.get("proof"), expected_version=version)
+            return json.dumps({"lease_id": ident, "version": d["version"], "state": "unreported",
+                               "slot_released": True, "item_kept": True}, ensure_ascii=False)
         if event == "wait":
             d, _ = store.wait(ident, proof=host.get("proof"), expected_version=version)
             return json.dumps({"lease_id": ident, "version": d["version"], "waiting": True,

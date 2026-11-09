@@ -1,11 +1,44 @@
 """Fenced per-event AI processing; receipt commits precede pending removal."""
+import hashlib
 import time
 import uuid
 import heapq
 
 from .channel_message_repository import exclusive_file_lock
-from .side_intake_inbox import SideIntakeInbox, source_priority
+from .side_intake_inbox import SideIntakeInbox, source_identity, source_priority
 from .work_plan_tree import WorkPlanError
+
+
+def _source_holder(inbox, key, row, stamp):
+    """Bind one source message to one side actor; settle later events for it.
+
+    Returns 'claim' when this event may start an actor, 'wait' while the first
+    event for the same source is still being handled, or 'settled' when this
+    event was recorded as a duplicate of an already handled source.
+    """
+    source = source_identity(row['text'])
+    if not source:
+        return 'claim'
+    marker = inbox.directory / 'sources' / (hashlib.sha256(source.encode()).hexdigest() + '.json')
+    with exclusive_file_lock(marker):
+        holder = (inbox._read_file(marker, 4096) or {}).get('receipt_id')
+        if holder and holder != key:
+            other = inbox._load(holder)
+            if other and other.get('stage') == 'processed':
+                row.update(stage='processed', item_id=None, consumed_at=stamp, result={
+                    'action': 'answer', 'kind': 'status', 'item_id': None, 'summary':
+                    'Same source message already handled by side receipt ' + holder,
+                    'reply': '', 'delivery': 'duplicate_source', 'duplicate_of': holder,
+                    'execution_approved': False, 'handoff': 'not_required'})
+                row.pop('processing', None)
+                inbox._save_file(inbox._event_path('receipts', key), row)
+                inbox._event_path('pending', key).unlink(missing_ok=True)
+                inbox._clear_priority(key)
+                return 'settled'
+            if other and not (other.get('side_failure') or {}).get('quarantined'):
+                return 'wait'
+        inbox._save_file(marker, {'receipt_id': key, 'source': source, 'bound_at': stamp})
+    return 'claim'
 
 
 def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_seconds=60,
@@ -94,6 +127,8 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
                 else:
                     continue
             if not failure.get('quarantined') and failure.get('retry_not_before', 0) > stamp:
+                continue
+            if _source_holder(inbox, key, current, stamp) != 'claim':
                 continue
             generation = uuid.uuid4().hex
             current['processing'] = {'owner': owner, 'generation': generation,

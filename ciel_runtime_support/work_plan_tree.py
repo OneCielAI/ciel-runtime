@@ -107,6 +107,13 @@ def normalize_document(raw: Any) -> dict[str, Any]:
                 for key, row in handoffs.items()):
             raise WorkPlanError('invalid side handoff records')
         doc['side_handoffs'] = copy.deepcopy(handoffs)
+    reviews = raw.get('side_reviews')
+    if reviews is not None:
+        if not isinstance(reviews, dict) or any(not isinstance(key, str) or len(key) != 64
+                or not isinstance(row, dict) or row.get('state') not in ('pending', 'reviewed', 'corrected')
+                for key, row in reviews.items()):
+            raise WorkPlanError('invalid side review records')
+        doc['side_reviews'] = copy.deepcopy(reviews)
     nodes = raw.get("nodes")
     if not isinstance(nodes, list):
         raise WorkPlanError("work plan nodes are not a list")
@@ -631,6 +638,32 @@ def continuation(doc: dict[str, Any]) -> dict[str, Any]:
         "blocked_items": _blocked_items(doc, by_id)[:MAX_BLOCKED_IN_CONTINUATION],
         "held": len(queued_roots(doc)) if held else 0,
     }
+
+
+def runnable_leaves(doc: dict[str, Any]) -> list[dict[str, Any]]:
+    """Ordered host scheduler projection of every runnable approved leaf."""
+
+    by_id = _index(doc)
+    focus_leaves = _focus_leaves(doc) if doc.get("focus_ids") else []
+    roots, available, _, _ = _runnable_by_root(doc, by_id)
+    rows = []
+    for root, candidates in zip(roots, available):
+        if root_phase(doc, root["id"]) != PHASE_EXECUTING:
+            continue
+        for leaf in candidates:
+            rows.append({
+                "item_id": leaf["id"],
+                "root_id": root["id"],
+                "priority": root.get("priority") if root.get("priority") in PRIORITIES else "P5",
+                "created_at": leaf.get("created_at", leaf.get("updated_at", 0)),
+                "focused": leaf["id"] in focus_leaves,
+                "title": leaf.get("title", ""),
+                "note": leaf.get("note", ""),
+                "path": path_titles(doc, leaf["id"]),
+            })
+    rows.sort(key=lambda row: (not row["focused"], priority_rank(row["priority"]),
+                               -float(row["created_at"]), row["item_id"]))
+    return rows
 
 
 def wait_diagnostics(doc: dict[str, Any]) -> dict[str, Any]:

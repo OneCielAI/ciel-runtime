@@ -277,7 +277,8 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(result["run"]["lease_id"], "L9")
         self.assertEqual(result["spawned"]["subagentType"], "fork")
         self.assertEqual(result["spawned"]["description"], "Work n227")
-        self.assertIn("Execution lease: L9", result["spawned"]["prompt"])
+        self.assertIn('"lease_id":"L9"', result["spawned"]["prompt"])
+        self.assertIn("work_parallel_report", result["spawned"]["prompt"])
         self.assertEqual([call["event"] for call in result["calls"]], ["reserve", "bind"])
 
     def test_direct_spawn_through_own_hook_reserves_once_and_starts(self):
@@ -287,7 +288,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(["reserve", "bind"], result["calls"])
         self.assertEqual("started", result["run"]["dispatch"])
         self.assertEqual("host-9", result["run"]["agent_id"])
-        self.assertIn("Execution lease: L9", result["spawned"]["prompt"])
+        self.assertIn('"lease_id":"L9"', result["spawned"]["prompt"])
 
     def test_work_parallel_run_spawn_denial_releases_and_keeps_item(self):
         result = self.run_scenario("parallel-direct-spawn-denied-releases")
@@ -305,13 +306,29 @@ class WorkModWriteGateTests(unittest.TestCase):
         # here; the production router rejects it (work_parallel_mcp.py
         # "unknown conversation lease"), as Kobi's transcript shows.
 
-    def test_session_start_releases_orphan_reserved_but_keeps_bound_worker(self):
+    def test_session_start_retains_unknown_reserved_and_keeps_bound_worker(self):
         result = self.run_scenario("parallel-session-start-releases-orphan-reserved")
-        self.assertEqual([call["event"] for call in result["calls"]], ["release"])
-        self.assertEqual(result["calls"][0]["lease_id"], "L1")
-        self.assertNotIn("L1", result["leases"])
+        self.assertEqual(result["calls"], [])
+        self.assertIn("L1", result["leases"])
         self.assertIn("L2", result["leases"])
         self.assertEqual(result["leases"]["L2"]["host_id"], "agent-live")
+
+    def test_side_answer_is_reviewed_once_by_main_with_host_identity(self):
+        result = self.run_scenario("side-review-stop-once")
+        self.assertIn("Do not answer, ACK or repeat them", result["first"]["block"])
+        self.assertIn("message:c:119649", result["first"]["block"])
+        self.assertNotIn("block", result["second"])
+        self.assertEqual("host-token", result["sent"][0]["_host"]["token"])
+        self.assertEqual("S1", result["sent"][0]["session_id"].split(":")[-1])
+
+    def test_unreported_fork_is_stopped_and_free_slot_auto_dispatches_exact_assignment(self):
+        result = self.run_scenario("parallel-unreported-stops-and-fills")
+        self.assertEqual(["unreported", "reserve_next", "bind", "reserve_next"], result["calls"])
+        self.assertEqual({"tool": "TaskStop", "task_id": "agent-old"}, result["tools"][0])
+        self.assertEqual("/wt/n3", result["spawned"]["cwd"])
+        self.assertIn('"note":"exact note"', result["spawned"]["prompt"])
+        self.assertIn('"worker_token":"' + "b" * 64 + '"', result["spawned"]["prompt"])
+        self.assertIn("Owned Work notification", result["consumed"]["consumed"])
 
     def test_spawn_denial_releases_unbound_reservation(self):
         result = self.run_scenario("parallel-spawn-denied-releases-unbound")

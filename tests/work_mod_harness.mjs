@@ -63,6 +63,19 @@ const scenarios = {
       tool_use_id: 't1', event_id: 'e1', expected_version: 1685, answer: 'stale' }, next({ ran: true }))
     return { result, sent: state.handoff }
   },
+  async 'side-review-stop-once'() {
+    const reviews = [{ receipt_id: 'r'.repeat(64), source: 'message:c:119649', kind: 'status', summary: 'queue listed', reply: 'queue text' }]
+    const sent = []
+    const { $ } = host(async (tool, args) => {
+      if (tool === 'work_side_review') { sent.push(args); return text({ version: 9, reviews: [] }) }
+      return text({ ...snapshot(), auto_continue: false, side_reviews: reviews })
+    })
+    const first = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
+    const second = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
+    const reviewed = await handlers['tool.call']($, { tool: 'mcp__ciel-runtime-router__work_side_review',
+      receipt_ids: [reviews[0].receipt_id], verdict: 'ok', expected_version: 8 }, next({ ran: true }))
+    return { first, second, reviewed, sent }
+  },
   async 'side-advice-stop'() {
     const {$}=host(async()=>text({...snapshot(),auto_continue:false,side_handoffs:[{event_id:'event',item_id:'n2',kind:'resume',summary:'P1 deadline',question:'Need decision',
       waits:[{id:'n3',waiting_on:'Daniel approval 118269'}],gates:[{id:'n3',waiting_on:'Daniel approval 118269',blocked:false}],wake:{state:'pending',requested_at:1}}]}))
@@ -360,6 +373,33 @@ const scenarios = {
     calls.length = 0
     const resumed = await handlers['tool.call']($, { tool: 'SendMessage', to: 'agent-wait', message: 'continue' }, next({ sent: true }))
     return { afterWait, resumed: Boolean(resumed?.sent), slot: lease.slot, calls: calls.map(c => c.event) }
+  },
+  async 'parallel-unreported-stops-and-fills'() {
+    const leases = { L1: { id: 'L1', item_id: 'n2', role: 'worker', state: 'running', host_id: 'agent-old', slot: true, plan_version: 7 } }
+    const calls = [], tools = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version: 9, policy: { enabled: true, paused: false }, leases })
+      if (tool === 'work_parallel_event') {
+        calls.push(args.event)
+        if (args.event === 'unreported') { leases.L1.state = 'unreported'; leases.L1.slot = false; return text({ version: 10 }) }
+        if (args.event === 'reserve_next' && calls.filter(e => e === 'reserve_next').length === 1)
+          return text({ lease_id: 'L2', version: 11, plan_version: 7, item_id: 'n3', item_title: 'Next',
+            item_note: 'exact note', item_path: ['Goal', 'Next'], workspace: { path: '/wt/n3' }, worker_token: 'b'.repeat(64) })
+        if (args.event === 'reserve_next') return { content: [{ type: 'text', text: 'no eligible candidate' }], isError: true }
+        if (args.event === 'bind') return text({ version: 12 })
+      }
+      return text({})
+    })
+    $.tool.call = async args => { tools.push(args); return {} }
+    $.session.repo = async () => ({})
+    $.session.root = async () => '/repo'
+    $.agent.spawn = async args => { state.spawned = args; return { agentId: 'agent-new' } }
+    state.agents = [{ id: 'agent-old', status: 'completed' }]
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    await handlers['turn.complete']($, { agentId: 'agent-old', reason: 'answer', answer: 'done' }, next(undefined))
+    const consumed = await handlers['session.receive']($, { text: '<task-notification><task-id>agent-old</task-id></task-notification>' }, next({ text: 'passed' }))
+    return { calls, tools, spawned: state.spawned, consumed }
   },
   async 'parallel-recovery-context'() {
     const lease = { id: 'L1', item_id: 'n2', role: 'worker', state: 'running', host_id: 'agent-old', slot: true, plan_version: 7 }
