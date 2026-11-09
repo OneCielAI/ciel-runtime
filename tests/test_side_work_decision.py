@@ -66,6 +66,15 @@ class SideDecisionTests(unittest.TestCase):
         self.assertEqual(2, len(self.store.read()['nodes']))
         self.assertNotIn('side_decisions', self.store.read())
 
+    def test_missing_create_title_and_update_note_fall_back_to_summary(self):
+        created = apply(self.store, self.key, {**self.base, 'kind': 'request', 'action': 'create'}, 0)
+        self.assertEqual('Question answered', created['title'])
+        next_key = hashlib.sha256(b'summary-update').hexdigest()
+        updated = apply(self.store, next_key, {**self.base, 'kind': 'request', 'action': 'update',
+                        'item_id': created['item_id']}, created['version'])
+        self.assertEqual(created['item_id'], updated['item_id'])
+        self.assertIn('Side request: Question answered', self.store.read()['nodes'][0]['note'])
+
     def test_existing_update_and_priority_preserve_identity(self):
         doc, item = self.store.transaction(lambda d: tree.add_node(d, None, 'existing'))
         result = apply(self.store, self.key, {**self.base, 'action': 'update', 'item_id': item, 'note': 'new detail'}, doc['version'])
@@ -184,14 +193,24 @@ class SideDecisionTests(unittest.TestCase):
         self.assertEqual('planning', doc['phase'])
         self.assertEqual(4, len(doc['nodes']))
 
-    def test_unknown_or_done_target_does_not_mutate(self):
+    def test_unknown_target_does_not_mutate_but_done_target_becomes_status(self):
         doc, item = self.store.transaction(lambda d: tree.add_node(d, None, 'existing'))
         self.store.transaction(lambda d: tree.update_node(d, item, status='done', evidence='verified'))
         with self.assertRaises(tree.WorkPlanError):
             apply(self.store, self.key, {**self.base, 'action': 'update', 'item_id': 'missing', 'note': 'x'}, 1)
-        with self.assertRaises(tree.WorkPlanError):
-            apply(self.store, self.key, {**self.base, 'action': 'prioritize', 'item_id': item, 'priority': 'P1'}, 1)
-        self.assertNotIn('side_decisions', self.store.read())
+        result = apply(self.store, self.key, {**self.base, 'kind': 'request', 'action': 'prioritize',
+                       'item_id': item, 'priority': 'P1'}, 1)
+        self.assertEqual(('answer', 'status', 'not_required'),
+                         (result['action'], result['kind'], result['handoff']))
+        self.assertEqual('done', self.store.read()['nodes'][0]['status'])
+        self.assertEqual('The answer\n\n큐에 등록하지 않았습니다.', result['final_text'])
+
+    def test_status_answer_ignores_copied_work_edit_fields(self):
+        result = apply(self.store, self.key, {**self.base, 'kind': 'status', 'item_id': 'n1',
+                       'title': 'copied', 'note': 'copied', 'priority': 'P1', 'queue_position': 2}, 0)
+        self.assertEqual(('answer', 'status', 'not_required'),
+                         (result['action'], result['kind'], result['handoff']))
+        self.assertEqual([], self.store.read()['nodes'])
 
     def test_decision_from_older_snapshot_commits_on_current_board(self):
         # Observed 2026-11-07: main committed 1-2 versions while each fork
