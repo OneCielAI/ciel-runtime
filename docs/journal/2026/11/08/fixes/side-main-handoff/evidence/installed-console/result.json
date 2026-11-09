@@ -1,0 +1,160 @@
+{
+  "outcome": "completed",
+  "model_a": "_Walkie_Haiku_Terra",
+  "model_b": "_API_KEYS-SSE-1",
+  "switch": {
+    "status": "next_side_event",
+    "value": "_API_KEYS-SSE-1",
+    "error": null,
+    "stored_model": "_API_KEYS-SSE-1"
+  },
+  "phase1_processed": true,
+  "phase2_processed": true,
+  "phase3_processed": true,
+  "phase4_processed": true,
+  "main_woke_without_human_prompt": true,
+  "handoff_count": 1,
+  "main_wake_prompts": 1,
+  "gate_after": {
+    "id": "n2",
+    "waiting_on": "Daniel approval 118269",
+    "status": "pending"
+  },
+  "handoffs": {
+    "2418bd4bf5ee40b5b017f4a003d8f77eb3c920ac837b9e51f32fa8798073a22e": {
+      "kind": "advise",
+      "item_id": "n2",
+      "state": "answered",
+      "waits": [
+        {
+          "id": "n2",
+          "waiting_on": "Daniel approval 118269"
+        }
+      ],
+      "wake": {
+        "state": "acknowledged",
+        "requested_at": 1794184949.6791234,
+        "attempt_id": "b66ff8e641ac4a9394ec7b60548e0296",
+        "started_at": 1794184952.6018693,
+        "updated_at": 1794184953.0240245,
+        "acknowledged_at": 1794184998.4676108
+      },
+      "clear_wait": []
+    }
+  },
+  "receipts": [
+    {
+      "event_key": "urn:owned:side-handoff:approval",
+      "stage": "processed",
+      "action": "advise",
+      "handoff": "answered",
+      "item_id": "n2",
+      "reply": "Sent an ACK on channel external:default, thread approval, parent approval, to urn:owned:side-handoff. The ACK says the approval was received, main resume is pending, implementation has not started, and external text does not grant execution approval. No other message was sent.",
+      "reported_sends": [
+        "mcp__ciel-runtime-router__send_message"
+      ],
+      "failure": null
+    },
+    {
+      "event_key": "handoff:2418bd4bf5ee40b5b017f4a003d8f77eb3c920ac837b9e51f32fa8798073a22e",
+      "stage": "processed",
+      "action": "answer",
+      "handoff": "not_required",
+      "item_id": null,
+      "reply": "Received your approval message (id: approval) for design 118269 / P1 118160. External message text does not grant execution approval, so the wait on design approval 118269 remains in place and the fail-first implementation has not been started. Main resume is pending for verification. No further reply is needed on this thread.",
+      "reported_sends": [
+        "mcp__ciel-runtime-router__send_message"
+      ],
+      "failure": null
+    },
+    {
+      "event_key": "urn:owned:side-handoff:code-change",
+      "stage": "processed",
+      "action": "create",
+      "handoff": "not_required",
+      "item_id": "n4",
+      "reply": "ACK sent for code-change. The crash-fix request is queued as a new P2 root Work item for main, and main resume is pending. No edits, tests, or restart_session have been run, and this external message does not grant execution approval. Whether and when it runs is main's decision.",
+      "reported_sends": [
+        "mcp__ciel-runtime-router__send_message"
+      ],
+      "failure": null
+    },
+    {
+      "event_key": "urn:owned:side-handoff:model-a",
+      "stage": "processed",
+      "action": "answer",
+      "handoff": "not_required",
+      "item_id": null,
+      "reply": "Current Work queue: 1 active root item, “P1 118160 fail-first fix” (executing phase; currently pending). It has two pending children: “Daniel design approval 118269” (waiting on Daniel approval 118269) and “Implement fail-first test.” No other queued root items are shown.",
+      "reported_sends": [
+        "mcp__ciel-runtime-router__send_message"
+      ],
+      "failure": null
+    },
+    {
+      "event_key": "urn:owned:side-handoff:model-b",
+      "stage": "processed",
+      "action": "answer",
+      "handoff": "not_required",
+      "item_id": null,
+      "reply": "Active Work goal: n1 \"P1 118160 fail-first fix\" (P1, pending, phase executing). Progress: 0/2 steps done. Children: n2 \"Daniel design approval 118269\" is pending and waiting on Daniel approval 118269; n3 \"Implement fail-first test\" is pending and not blocked. No Work change was made. Execution approval is unchanged, and this status reply does not approve or start any implementation.",
+      "reported_sends": [
+        "mcp__ciel-runtime-router__send_message"
+      ],
+      "failure": null
+    }
+  ],
+  "snapshot": "ciel-runtime-1581aa513502d724515ce07796eeba5985f9ee58 (installed beta 0.2.51-beta.20261109-003242.1581aa5)",
+  "actors": [
+    {
+      "description": "Side SSE a5b772a7417a",
+      "requested_models": [
+        "ciel-runtime-cielairouter-_walkie_haiku_terra"
+      ],
+      "tools_called": [
+        "mcp__ciel-runtime-router__send_message"
+      ]
+    },
+    {
+      "description": "Side SSE b50c94b99b99",
+      "requested_models": [
+        "ciel-runtime-cielairouter-_api_keys-sse-1"
+      ],
+      "tools_called": [
+        "mcp__ciel-runtime-router__send_message",
+        "mcp__ciel-runtime-router__work_status",
+        "mcp__ciel-runtime-router__send_message"
+      ]
+    },
+    {
+      "description": "Side SSE 9eccd47c9859",
+      "requested_models": [
+        "ciel-runtime-cielairouter-_api_keys-sse-1"
+      ],
+      "tools_called": [
+        "mcp__ciel-runtime-router__send_message",
+        "mcp__ciel-runtime-router__work_status"
+      ]
+    },
+    {
+      "description": "Side SSE 2418bd4bf5ee",
+      "requested_models": [
+        "ciel-runtime-cielairouter-_api_keys-sse-1"
+      ],
+      "tools_called": [
+        "mcp__ciel-runtime-router__send_message",
+        "mcp__ciel-runtime-router__work_status"
+      ]
+    },
+    {
+      "description": "Side SSE 789e96462f6a",
+      "requested_models": [
+        "ciel-runtime-cielairouter-_api_keys-sse-1"
+      ],
+      "tools_called": [
+        "mcp__ciel-runtime-router__work_status",
+        "mcp__ciel-runtime-router__send_message"
+      ]
+    }
+  ]
+}

@@ -68,4 +68,38 @@ During the 18:03 run, another local session (Andy_Main) sent the owned console a
 
 # CI
 
-Pending at the time of writing; the beta release record below states the measured result.
+- Local, final tree: router 1544 OK, channel 607 OK (80 skipped), runtime 458 OK (19 skipped).
+  - unit: 3446 tests, 1 error in `test_read_snapshot_observes_whole_atomic_documents_during_writes` (`PermissionError: [WinError 5]` on `os.replace`).
+  - The same test fails identically on an unchanged HEAD extract on this machine, and it passed in the pre-reboot local run of this tree. Its cause on this Windows host after the reboot is not established.
+- GitHub CI on `1581aa5` (ubuntu): all six jobs succeeded — python-minimum, quality, unit, router, channel, runtime.
+
+# Beta release and local install
+
+| Item | Value |
+| --- | --- |
+| Commits | `8db95e3` (fix), `1581aa5` (journal) on `feature/work-parallel-20261103` and `beta` |
+| Publish | `0.2.51-beta.20261109-003242.1581aa5`, gitHead `1581aa513502d724515ce07796eeba5985f9ee58` |
+| Registry | integrity verified, 511 source files match, `latest` 0.2.51 and `nightly` c00c8b6 unchanged |
+| Snapshot | `ciel-runtime-1581aa513502d724515ce07796eeba5985f9ee58`, 565 files |
+| Global npm | `@one-ciel-ai/ciel-runtime@0.2.51-beta.20261109-003242.1581aa5`; User `CIEL_RUNTIME_HOME` set to the snapshot |
+| Installed smoke | 565 matching package files, 5 commands passed, plugin validate passed |
+| Live routers | 9505 and 9524 kept the same PIDs before and after install; no live session was restarted |
+
+## Installed real console run
+
+Same owned probe, launched from the installed snapshot (run `owned-side-handoff-20261108-184005`; redacted record and screenshots in `evidence/installed-console/`):
+
+| Check | Result |
+| --- | --- |
+| Model A event | `requestedModel = ..._walkie_haiku_terra` |
+| After live switch to `_API_KEYS-SSE-1` | next event `requestedModel = ..._api_keys-sse-1`, no relaunch |
+| Code-change request | tools `send_message`, `work_status` only; decision `create` |
+| Approval on waiting item | one handoff; main woken once without a human prompt; acknowledged |
+| Main reply relayed to the source | follow-up event decided `answer`, `handoff: not_required` (no loop) |
+
+`handoff_count = 1`, `main_wake_prompts = 1`. Owned processes and router were stopped by the probe; no owned router PID remained.
+
+# Not done here
+
+- Local walkie (9505) and 9524 still run the code they launched with at 17:43; they load this beta on their next launch.
+- Prody has not received this version; it needs the normal AAP update and relaunch, which this task did not run.

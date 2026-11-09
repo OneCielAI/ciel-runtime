@@ -1,6 +1,7 @@
 # Change log
 
 ## 2026-11-08
+- Beta `0.2.51-beta.20261109-003242.1581aa5` published, registry verified, installed locally; installed real console run passed all four phases.
 
 - Owned real console run 18:03: model switch, triage-only tools, and one durable wake that main acknowledged without a human prompt.
 - Fixed review and real-run findings: spawn-hook model binding, stricter allowlist, real Walkie names, no handoff for answer/clarify or main-reply follow-ups, a durable wake ledger, a single path to main, and decision field normalization.
