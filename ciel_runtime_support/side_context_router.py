@@ -161,12 +161,16 @@ def project(state_dir, identity, agent_id, body, config, provider, count_tokens)
                             and envelope.get('event_id') in text):
                         block['text'] = json.dumps(clean, ensure_ascii=False)
     result['system'] = copy.deepcopy(parent.get('system', []))
-    # Native execution permissions still decide which inherited schemas can run.
-    # Preserve parent schema bytes and order to keep its prefix stable.
-    result['tools'] = copy.deepcopy(parent.get('tools', []))
-    result['messages'] = selected + result.get('messages', [])
     if shadow:
         # Keep custom schema prefix but force no execution. Native shadow
         # AgentSpec also withholds every local and MCP runtime tool.
+        result['tools'] = copy.deepcopy(parent.get('tools', []))
         result['tool_choice'] = {'type': 'none'}
+    else:
+        # The model sees only the tools its AgentSpec can run. Showing parent
+        # shell/edit/runtime schemas made side actors attempt them (Prody
+        # 2026-11-08). Parent bytes and order are kept for that subset.
+        offered = {tool.get('name') for tool in body.get('tools', [])}
+        result['tools'] = [copy.deepcopy(tool) for tool in parent.get('tools', []) if tool.get('name') in offered]
+    result['messages'] = selected + result.get('messages', [])
     return result

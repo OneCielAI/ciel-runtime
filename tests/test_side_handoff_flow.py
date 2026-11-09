@@ -10,6 +10,53 @@ from ciel_runtime_support.side_intake_inbox import SideIntakeInbox
 
 
 class SideHandoffFlowTests(unittest.TestCase):
+    def test_waiting_item_wake_is_reoffered_until_main_acknowledges(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root=Path(raw)
+            identity='claude:test'
+            config={'work_mode':True,'work_side_intake':{'enabled':True,'context_mode':'isolated'},'work_parallel_host':{'token':'x'*40}}
+            store=session_work_plan_store(root,identity)
+            _,goal=store.transaction(lambda d:tree.add_node(d,None,'P1 fix'))
+            _,gate=store.transaction(lambda d:tree.add_node(d,goal,'design approval',waiting_on='approval 118269'))
+            SideIntakeInbox(root,identity).receive('118269 approved','approval')
+            def call(name,args,extra=None):
+                result=dispatch_work_tool(1,name,{**args,'session_id':identity,'_host':{'token':'x'*40,**(extra or {})}},
+                    load_config=lambda:config,state_dir=root,respond=lambda _id,text,error=False:{'text':text,'error':error})
+                self.assertFalse(result['error'],result)
+                return json.loads(result['text'])
+            claim=call('work_side_claim',{'owner':'actor'})['claim']
+            decision=call('work_side_resolve',{'decision':{'action':'update','item_id':gate,'summary':'approval received',
+                'reply':'main resume pending','note':'118269 approved'},'expected_version':store.read()['version']},
+                {'receipt_id':claim['receipt_id'],'generation':claim['generation']})
+            self.assertEqual('requested',decision['result']['handoff'])
+            for _ in range(2):
+                wakes=call('work_side_claim',{'owner':'actor'})['main_wakes']
+                self.assertEqual([claim['receipt_id']],[w['event_id'] for w in wakes])
+                self.assertEqual([{'id':gate,'waiting_on':'approval 118269'}],wakes[0]['waits'])
+            prepared=call('work_side_wake',{'event_id':claim['receipt_id'],'state':'prepare'})
+            call('work_side_wake',{'event_id':claim['receipt_id'],'state':'queued','attempt_id':prepared['attempt_id']})
+            # A queued prompt survives plugin reload without a duplicate wake.
+            self.assertEqual([],call('work_side_claim',{'owner':'restarted-actor'})['main_wakes'])
+            status=call('work_side_status',{})
+            self.assertEqual([('resume','queued')],[(h['kind'],h['wake_state']) for h in status['main_handoffs']])
+            self.assertGreaterEqual(status['main_handoffs'][0]['wake_age_seconds'],0)
+            self.assertNotIn('118269 approved',json.dumps(status['main_handoffs']))
+            call('work_side_handoff',{'event_id':claim['receipt_id'],'answer':'Gate cleared; resuming at next boundary',
+                                      'clear_wait':[gate],'expected_version':store.read()['version']})
+            # Main's answer is relayed as a follow-up side event; its decision
+            # must not ask main again, even for the same P1 item.
+            followup=call('work_side_claim',{'owner':'actor'})
+            self.assertEqual([],followup['main_wakes'])
+            relay=followup['claim']
+            self.assertTrue(relay['event_key'].startswith('handoff:'))
+            relayed=call('work_side_resolve',{'decision':{'action':'update','item_id':gate,'summary':'relayed',
+                'reply':'main resumed','note':'main answered'},'expected_version':store.read()['version']},
+                {'receipt_id':relay['receipt_id'],'generation':relay['generation']})
+            self.assertEqual('not_required',relayed['result']['handoff'])
+            self.assertEqual([],call('work_side_claim',{'owner':'actor'})['main_wakes'])
+            self.assertEqual([],call('work_side_status',{})['main_handoffs'])
+            self.assertEqual('',next(n for n in store.read()['nodes'] if n['id']==gate)['waiting_on'])
+
     def test_coordinator_answer_is_durable_side_followup_not_new_work(self):
         with tempfile.TemporaryDirectory() as raw:
             root=Path(raw)

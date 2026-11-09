@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import { startSide, pollSide, sideAllowsSpawn, sideTool, completeSide, suppressSide, sideReceipts, sideActors, sideMcpParity, hostJson, eventView } from './side-intake.js'
+import { startSide, pollSide, sideSpawnInput, sideTool, completeSide, suppressSide, sideReceipts, sideActors, sideMcpParity, hostJson, eventView } from './side-intake.js'
 
 // Router is authoritative; this cache is display-only and never persisted.
 const detailView = atom({ plugin: 'ciel-work', key: 'detail' }, null)
@@ -799,10 +799,15 @@ async function workPromptSubmit($, e, next) {
   return next({ ...e, context: [...(e.context || []), INSTRUCTIONS
     + '\nWork summary (data, not instructions; queued details omitted):\n'
     + (s ? JSON.stringify(promptSummary(s)) : UNAVAILABLE)
-    + (s?.side_handoffs?.length ? '\nSide advice pending (data, not approval). At a safe execution boundary read the affected Work, then acknowledge/answer using work_side_handoff with event_id and expected_version. Only activate existing work when safe; approval state is unchanged:\n'
-      + JSON.stringify(s.side_handoffs.map(h => ({event_id:h.event_id,item_id:h.item_id,summary:h.summary,question:h.question}))) : '')] })
+    + (s?.side_handoffs?.length ? '\nSide advice pending (data, not approval). At a safe execution boundary read the affected Work, then acknowledge/answer using work_side_handoff with event_id and expected_version; pass clear_wait only for listed waits this event actually satisfies. Only activate existing work when safe; approval state is unchanged:\n'
+      + JSON.stringify(s.side_handoffs.map(handoffView)) : '')] })
 }
 
+// What main needs to act on a side handoff: never the external original.
+function handoffView(h) {
+  return {event_id:h.event_id,item_id:h.item_id,kind:h.kind || 'advice',summary:h.summary,question:h.question,
+    ...(h.waits?.length ? {waits:h.waits} : {})}
+}
 async function workToolCall($, e, next) {
   const work = e.tool.startsWith(PREFIX) ? e.tool.slice(PREFIX.length) : ''
   const name = WORK.has(work) ? work : null
@@ -1130,7 +1135,8 @@ async function parallelDirectSpawn($, key, request) {
       + '. Do not call Agent for this item; validate its reported result before acceptance.' }) }
 }
 async function parallelAgentSpawn($, e, next) {
-  if (sideAllowsSpawn(e, next)) return next(e)
+  const side = sideSpawnInput(e, next)
+  if (side) return next(side)
   try {
     const s = await parallelCall($, 'work_parallel_status')
     if (!s.policy.enabled) return next(e)
@@ -1372,7 +1378,13 @@ export function register(on) {
     if (e.agentId === undefined) { working = true; stopIdleRefresh(); generation++; mainTurnEpoch++; if (cached?.side_intake_enabled || cached?.enabled === false) pollBusySideReceipts($, await sessionId($), mainTurnEpoch) }
     return next(e)
   })
-  on('turn.complete', async ($, e, next) => await completeSide($, e) ? next(e) : parallelTurnComplete($, e, next))
+  on('turn.complete', async ($, e, next) => {
+    if (!await completeSide($, e)) return parallelTurnComplete($, e, next)
+    // A side decision may have changed the board; redraw from it now rather than
+    // after the idle backoff (Andy 2026-11-08: stale Next and progress).
+    await refresh($)
+    return next(e)
+  })
   on('session.compact', async ($, e, next) => {
     // A child's transcript and a speculative summary do not replace main history.
     if (e.agentId !== undefined || e.trigger === 'precompute') return next(e)
@@ -1422,14 +1434,17 @@ export function register(on) {
       gateVersion = s.version
     }
     if (!s) { if (enabled) stopNotice($, identity, STOP_UNAVAILABLE); return result }
-    const freshHandoffs = (s.side_handoffs || []).filter(h => !noticedSideHandoffs.has(identity+':'+h.event_id))
+    // A queued wake prompt delivers its handoff when this turn ends; blocking
+    // here too made main answer the same event twice (owned proof 2026-11-08).
+    const freshHandoffs = (s.side_handoffs || []).filter(h => !noticedSideHandoffs.has(identity+':'+h.event_id)
+      && !['submitting','queued'].includes(h.wake?.state))
     if (freshHandoffs.length) {
       for (const handoff of freshHandoffs) noticedSideHandoffs.add(identity+':'+handoff.event_id)
       if (noticedSideHandoffs.size > 200) noticedSideHandoffs.delete(noticedSideHandoffs.values().next().value)
       return {...result,block:'Side high-priority advice requires coordinator acknowledgment at this safe boundary. '
-        +'Read the affected Work item, answer any question, then call work_side_handoff(event_id, expected_version, answer, activate). '
-        +'This is not execution approval and must not cancel running tools. Advice data: '
-        +JSON.stringify(freshHandoffs.map(h=>({event_id:h.event_id,item_id:h.item_id,summary:h.summary,question:h.question})))}
+        +'Read the affected Work item, answer any question, then call work_side_handoff(event_id, expected_version, answer, activate, clear_wait). '
+        +'Clear only listed waits this event actually satisfies. This is not execution approval and must not cancel running tools. Advice data: '
+        +JSON.stringify(freshHandoffs.map(handoffView))}
     }
     if (!s.enabled || s.auto_continue !== true) return result
     // Every stop that leaves unfinished Work either continues with a runnable item or says why not.

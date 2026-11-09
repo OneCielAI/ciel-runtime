@@ -238,7 +238,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
     schemas.extend(side_schemas())
     schemas.append(host_page_schema())
     if not enabled:
-        schemas = [schema for schema in schemas if schema["name"] in (WORK_MODE_SWITCH_TOOL, "work_live_settings", "work_side_settings", "work_side_intake", "work_side_drain", "work_side_status", "work_side_claim", "work_side_resolve", "work_side_fail", "work_side_fallback", "work_side_reply", "work_side_handoff", "work_side_renew", "work_side_retry_reply", "work_side_context", "work_side_compare", "work_host_page")]
+        schemas = [schema for schema in schemas if schema["name"] in (WORK_MODE_SWITCH_TOOL, "work_live_settings", "work_side_settings", "work_side_intake", "work_side_drain", "work_side_status", "work_side_claim", "work_side_resolve", "work_side_fail", "work_side_fallback", "work_side_reply", "work_side_wake", "work_side_handoff", "work_side_renew", "work_side_retry_reply", "work_side_context", "work_side_compare", "work_host_page")]
     for schema in schemas:
         inputs = schema["inputSchema"]
         inputs.setdefault("properties", {})["session_id"] = {
@@ -307,7 +307,7 @@ def dispatch_work_tool(
             return respond(request_id, json.dumps(settings(config, args, save_config), ensure_ascii=False))
         except (ValueError, OSError) as error:
             return respond(request_id, str(error), True)
-    if not work_mode_enabled(config) and name not in ('work_side_settings', 'work_side_intake', 'work_side_drain', 'work_side_status', 'work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare'):
+    if not work_mode_enabled(config) and name not in ('work_side_settings', 'work_side_intake', 'work_side_drain', 'work_side_status', 'work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare'):
         if name == "work_status" and args.get("format") == "json":
             return respond(request_id, json.dumps(tree.snapshot(tree.empty_document(), enabled=False)))
         return respond(request_id, "Ciel Work mode is off (prelaunch menu: LLM options -> Work mode, "
@@ -326,7 +326,7 @@ def dispatch_work_tool(
         if name not in ('work_side_status', 'work_side_settings', 'work_side_intake', 'work_side_drain'):
             scoped = session_work_plan_store(state_dir, identity, log=log)
             store = store or scoped
-        if name in ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare'):
+        if name in ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare'):
             from .side_intake_mcp import run as side_run
             return respond(request_id, json.dumps(side_run(name, args, config, state_dir, identity, store), ensure_ascii=False))
         if name == "work_side_settings":
@@ -348,8 +348,17 @@ def dispatch_work_tool(
             host, _ = host_context(args, config)
             if host.get('agent_id') is not None:
                 raise tree.WorkPlanError('side status requires coordinator host')
+            import time
+            board = (store or session_work_plan_store(state_dir, identity, log=log)).read_snapshot()
+            now = time.time()
+            main_handoffs = [{'event_id': key, 'item_id': row.get('item_id'), 'kind': row.get('kind', ''),
+                              'summary': row.get('summary', ''), 'question': row.get('question', ''),
+                              'wake_state': (row.get('wake') or {}).get('state', 'pending'),
+                              'wake_age_seconds': max(0, int(now - float((row.get('wake') or {}).get('requested_at') or row.get('requested_at') or now)))}
+                             for key, row in board.get('side_handoffs', {}).items() if row.get('state') == 'requested']
             return respond(request_id, json.dumps({'enabled': config.get('work_side_intake', {}).get('enabled') is True,
-                'side_inbox_receipts': SideIntakeInbox(state_dir, identity).summaries()}, ensure_ascii=False))
+                'side_inbox_receipts': SideIntakeInbox(state_dir, identity).summaries(),
+                'main_handoffs': main_handoffs}, ensure_ascii=False))
         if name == 'work_side_drain':
             from .work_parallel_mcp import host_context
             from .side_intake_service import drain

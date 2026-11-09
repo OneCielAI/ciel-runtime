@@ -31,7 +31,7 @@ def validate(decision):
     return decision
 
 
-def apply(store, receipt_id, decision, expected_version):
+def apply(store, receipt_id, decision, expected_version, *, main_reply=False):
     validate(decision)
     if not isinstance(receipt_id, str) or len(receipt_id) != 64 or any(c not in '0123456789abcdef' for c in receipt_id):
         raise tree.WorkPlanError('invalid side receipt identity')
@@ -52,6 +52,16 @@ def apply(store, receipt_id, decision, expected_version):
             raise tree.WorkPlanError('side target Work item missing')
         if action in ('update','prioritize') and by_id[item]['status']=='done':
             raise tree.WorkPlanError('completed Work cannot be reopened by side decision')
+        target_path = []
+        if item in by_id:
+            current = by_id[item]
+            while current:
+                target_path.append(current)
+                current = by_id.get(current.get('parent_id'))
+        gates = [{'id': node['id'], 'waiting_on': node.get('waiting_on', ''),
+                  'blocked': node.get('status') == 'blocked'}
+                 for node in target_path
+                 if node.get('waiting_on') or node.get('status') == 'blocked']
         if action == 'create':
             if not decision.get('title', '').strip():
                 raise tree.WorkPlanError('new Work title required')
@@ -67,7 +77,10 @@ def apply(store, receipt_id, decision, expected_version):
             addition = '\n\nSide request: ' + decision['note']
             if len(previous + addition) > tree.MAX_TEXT_CHARS:
                 raise tree.WorkPlanError('side update exceeds note capacity; original preserved')
-            tree.update_node(doc, item, note=previous + addition)
+            # Side observations are input for main to review, not a scope change
+            # approved by main. Preserve the existing execution phase.
+            by_id[item]['note'] = previous + addition
+            by_id[item]['updated_at'] = time.time()
         elif action == 'prioritize':
             if decision.get('priority') not in tree.PRIORITIES:
                 raise tree.WorkPlanError('explicit priority required')
@@ -77,15 +90,36 @@ def apply(store, receipt_id, decision, expected_version):
             tree.update_node(doc, item, priority=decision['priority'])
             if decision['priority']=='P1' and item != doc.get('active_root'):
                 tree.reorder_root(doc, item, 2 if doc.get('active_root') else 1)
-        if action in ('prioritize', 'advise'):
+        priority = ''
+        if action == 'create':
+            priority = decision.get('priority', '')
+        elif item in by_id:
+            priority = by_id[tree._root_of(by_id, item)].get('priority', '')
+        # Answer/clarify are source-facing only, even when they name a P1 or
+        # gated item. Otherwise a coordinator follow-up answer creates another
+        # handoff forever. Main-action decisions wake only when they actually
+        # need its boundary (wait/block, P1, explicit advice/priority).
+        needs_handoff = not main_reply and (action in ('prioritize', 'advise')
+                                            or action in ('update', 'create') and (bool(gates) or priority == 'P1'))
+        if needs_handoff:
+            stamp = time.time()
+            kind = ('advise' if action == 'advise' else 'resume' if gates
+                    else 'p1' if priority == 'P1' else 'priority')
             handoffs = doc.setdefault('side_handoffs', {})
             handoffs[receipt_id] = {'item_id': item, 'summary': decision['summary'],
                                      'question': decision['reply'] if action == 'advise' else '',
-                                     'state': 'requested', 'requested_at': time.time()}
+                                     'kind': kind, 'gates': gates,
+                                     'waits': [{'id': gate['id'], 'waiting_on': gate['waiting_on']}
+                                               for gate in gates if gate['waiting_on']],
+                                     'state': 'requested', 'requested_at': stamp,
+                                     'wake': {'state': 'pending', 'requested_at': stamp}}
         result = {'action': action, 'item_id': item, 'summary': decision['summary'],
                   'reply': decision['reply'], 'delivery': 'pending', 'execution_approved': False,
-                  'handoff': 'requested' if action in ('prioritize', 'advise') else 'not_required',
+                  'handoff': 'requested' if needs_handoff else 'not_required',
                   'based_on_version': expected_version}
+        if needs_handoff:
+            result['main_handoff'] = {'kind': kind, 'waits': handoffs[receipt_id]['waits'],
+                                      'question': handoffs[receipt_id]['question']}
         if action in ('create', 'prioritize'):
             node = next(node for node in doc['nodes'] if node['id'] == item)
             result.update(title=node['title'], priority=node.get('priority', ''))

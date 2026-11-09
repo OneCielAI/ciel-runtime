@@ -66,6 +66,18 @@ class SideContextRouterTests(unittest.TestCase):
         self.assertIn('n21',result['messages'][-1]['content'])
         self.assertEqual('agent-1',self.store.read(self.store.path(self.handle['key']))['agent_id'])
 
+    def test_primary_projection_shows_only_tools_the_side_actor_can_run(self):
+        # Prody 2026-11-08: projected parent Bash/Write/restart schemas made side
+        # actors call tools their AgentSpec refused. Only the offered subset stays.
+        shell = [{'name':'Bash','input_schema':{'type':'object'}},
+                 {'name':'mcp__ciel-runtime-router__restart_session','input_schema':{'type':'object'}}]
+        self.store.capture({**self.parent,'tools':shell+self.parent['tools']},'fixture')
+        handle = self.store.prepare(self.event,self.settings,'model-a')
+        body = {**self.body,'messages':[{'role':'user','content':json.dumps({**self.envelope,'side_context_key':handle['key']})}]}
+        result = project(self.root,self.identity,'filtered',body,{'work_side_intake':self.settings},'fixture',None)
+        self.assertEqual(self.parent['tools'],result['tools'])
+        self.assertNotIn('tool_choice',result)
+
     def test_preview_is_readable_bounded_and_not_duplicated_upstream(self):
         preview=self.handle['parent_transcript_preview']
         self.assertTrue(preview)

@@ -53,7 +53,16 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn('work_side_handoff',result['block'])
         self.assertIn('n2',result['block'])
         self.assertIn('not execution approval',result['block'])
+        # Andy 2026-11-08: main must see which recorded wait the event satisfied.
+        self.assertIn('clear_wait',result['block'])
+        self.assertIn('"kind":"resume"',result['block'])
+        self.assertIn('Daniel approval 118269',result['block'])
+        self.assertNotIn('requested_at',result['block'])
         self.assertNotIn('block', result['second'])
+
+    def test_queued_side_wake_is_not_blocked_again_at_stop(self):
+        # The queued wake prompt delivers it next; blocking here duplicated it.
+        self.assertNotIn('block', self.run_scenario('side-advice-stop-queued-wake'))
 
     def test_owned_side_notification_is_consumed_before_main_queue(self):
         result = self.run_scenario('side-notification-isolation')

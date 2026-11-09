@@ -48,8 +48,14 @@ const call = ($, agentId) => handlers['tool.call']($, { tool: 'Edit', agentId,
 const verdict = r => r?.decision === 'deny' ? 'deny: ' + r.reason : r?.deny ? 'deny: ' + r.deny : 'allow'
 
 const scenarios = {
+  async 'side-advice-stop-queued-wake'() {
+    const {$}=host(async()=>text({...snapshot(),auto_continue:false,side_handoffs:[{event_id:'queued',item_id:'n2',kind:'resume',summary:'S',question:'',
+      waits:[],wake:{state:'queued'}}]}))
+    return await handlers['classic.Stop']($,{session_id:'S1'},next({}))
+  },
   async 'side-advice-stop'() {
-    const {$}=host(async()=>text({...snapshot(),auto_continue:false,side_handoffs:[{event_id:'event',item_id:'n2',summary:'P1 deadline',question:'Need decision'}]}))
+    const {$}=host(async()=>text({...snapshot(),auto_continue:false,side_handoffs:[{event_id:'event',item_id:'n2',kind:'resume',summary:'P1 deadline',question:'Need decision',
+      waits:[{id:'n3',waiting_on:'Daniel approval 118269'}],gates:[{id:'n3',waiting_on:'Daniel approval 118269',blocked:false}],wake:{state:'pending',requested_at:1}}]}))
     const first = await handlers['classic.Stop']($,{session_id:'S1'},next({}))
     const second = await handlers['classic.Stop']($,{session_id:'S1'},next({}))
     return {...first,second}

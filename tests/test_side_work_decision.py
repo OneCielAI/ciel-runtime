@@ -37,6 +37,85 @@ class SideDecisionTests(unittest.TestCase):
         self.assertEqual('P1', self.store.read()['nodes'][0]['priority'])
         self.assertEqual('planning', self.store.read()['phase'])
 
+    def test_approval_for_waiting_item_requests_main_without_demoting_goal(self):
+        # Andy 2026-11-08: a side update on an executing goal cleared its approval
+        # and left the n993 wait in place while main stayed idle.
+        doc, goal = self.store.transaction(lambda d: tree.add_node(d, None, 'implement fix'))
+        doc, gate = self.store.transaction(lambda d: tree.add_node(d, goal, 'approval', waiting_on='Daniel approval 118269'))
+        self.store.transaction(lambda d: tree.set_phase(d, tree.PHASE_EXECUTING, goal))
+        result = apply(self.store, self.key, {**self.base, 'action': 'update', 'item_id': gate,
+                       'note': '118269 approved', 'reply': 'main resume pending'}, self.store.read()['version'])
+        doc = self.store.read()
+        self.assertEqual(tree.PHASE_EXECUTING, doc['phase'])
+        self.assertEqual('requested', result['handoff'])
+        self.assertEqual({'kind': 'resume', 'waits': [{'id': gate, 'waiting_on': 'Daniel approval 118269'}], 'question': ''},
+                         result['main_handoff'])
+        row = doc['side_handoffs'][self.key]
+        self.assertEqual(('resume', 'pending'), (row['kind'], row['wake']['state']))
+        self.assertEqual('Daniel approval 118269', next(n for n in doc['nodes'] if n['id'] == gate)['waiting_on'])
+        self.assertIn('118269 approved', next(n for n in doc['nodes'] if n['id'] == gate)['note'])
+
+    def test_plain_answer_and_unrelated_update_do_not_wake_main(self):
+        self.assertEqual('not_required', apply(self.store, self.key, self.base, 0)['handoff'])
+        doc, item = self.store.transaction(lambda d: tree.add_node(d, None, 'idle goal'))
+        other = hashlib.sha256(b'other').hexdigest()
+        result = apply(self.store, other, {**self.base, 'action': 'update', 'item_id': item, 'note': 'fyi'}, doc['version'])
+        self.assertEqual('not_required', result['handoff'])
+        self.assertEqual({}, self.store.read().get('side_handoffs', {}))
+
+    def test_p1_create_requests_durable_main_wake(self):
+        result = apply(self.store, self.key, {**self.base, 'action': 'create', 'title': 'urgent',
+                       'note': 'impact', 'priority': 'P1'}, 0)
+        row = self.store.read()['side_handoffs'][self.key]
+        self.assertEqual(('requested', 'p1', 'pending'), (result['handoff'], row['kind'], row['wake']['state']))
+
+    def test_handoff_clears_only_recorded_unchanged_waits(self):
+        from ciel_runtime_support.side_handoff import acknowledge
+        doc, goal = self.store.transaction(lambda d: tree.add_node(d, None, 'goal'))
+        doc, gate = self.store.transaction(lambda d: tree.add_node(d, goal, 'gate', waiting_on='approval A'))
+        doc, other = self.store.transaction(lambda d: tree.add_node(d, goal, 'other', waiting_on='approval B'))
+        result = apply(self.store, self.key, {**self.base, 'action': 'update', 'item_id': gate, 'note': 'A approved'},
+                       doc['version'])
+        with self.assertRaisesRegex(tree.WorkPlanError, 'unrecorded wait'):
+            acknowledge(self.store, self.key, clear_wait=[other], expected_version=result['version'])
+        self.store.transaction(lambda d: tree.update_node(d, gate, waiting_on='approval A2'))
+        with self.assertRaisesRegex(tree.WorkPlanError, 'changed'):
+            acknowledge(self.store, self.key, clear_wait=[gate], expected_version=self.store.read()['version'])
+        self.store.transaction(lambda d: tree.update_node(d, gate, waiting_on='approval A'))
+        self.assertEqual('requested', self.store.read()['side_handoffs'][self.key]['state'])
+        ack = acknowledge(self.store, self.key, clear_wait=[gate], expected_version=self.store.read()['version'])
+        doc = self.store.read()
+        self.assertEqual(('acknowledged', 'acknowledged'), (ack['state'], ack['wake']['state']))
+        self.assertEqual('', next(n for n in doc['nodes'] if n['id'] == gate)['waiting_on'])
+        self.assertEqual('approval B', next(n for n in doc['nodes'] if n['id'] == other)['waiting_on'])
+        again = acknowledge(self.store, self.key, clear_wait=[gate], expected_version=ack['version'])
+        self.assertEqual(ack['version'], again['version'])
+
+    def test_answer_or_clarify_naming_p1_gate_never_creates_handoff(self):
+        doc, goal = self.store.transaction(lambda d: tree.add_node(d, None, 'P1 goal', priority='P1'))
+        doc, gate = self.store.transaction(lambda d: tree.add_node(d, goal, 'gate', waiting_on='approval'))
+        for index, action in enumerate(('answer', 'clarify')):
+            key = hashlib.sha256(('relay-' + action).encode()).hexdigest()
+            result = apply(self.store, key, {**self.base, 'action': action, 'item_id': gate}, self.store.read()['version'])
+            self.assertEqual('not_required', result['handoff'])
+        self.assertEqual({}, self.store.read().get('side_handoffs', {}))
+
+    def test_main_reply_followup_never_wakes_main_again(self):
+        # Owned proof 2026-11-08: main's handoff answer came back as a side event,
+        # the side updated the same P1 gate, and main was woken four times.
+        doc, goal = self.store.transaction(lambda d: tree.add_node(d, None, 'P1 goal', priority='P1'))
+        doc, gate = self.store.transaction(lambda d: tree.add_node(d, goal, 'gate', waiting_on='approval'))
+        result = apply(self.store, self.key, {**self.base, 'action': 'update', 'item_id': gate, 'note': 'relay'},
+                       doc['version'], main_reply=True)
+        self.assertEqual('not_required', result['handoff'])
+        self.assertEqual({}, self.store.read().get('side_handoffs', {}))
+
+    def test_wait_gate_kind_takes_precedence_over_p1(self):
+        doc, goal = self.store.transaction(lambda d: tree.add_node(d, None, 'P1 goal', priority='P1'))
+        doc, gate = self.store.transaction(lambda d: tree.add_node(d, goal, 'gate', waiting_on='approval'))
+        result = apply(self.store, self.key, {**self.base, 'action': 'update', 'item_id': gate, 'note': 'ok'}, doc['version'])
+        self.assertEqual('resume', result['main_handoff']['kind'])
+
     def test_priority_handoff_selects_existing_goal_without_approving(self):
         from ciel_runtime_support.side_handoff import acknowledge
         doc, first = self.store.transaction(lambda d: tree.add_node(d, None, 'main'))

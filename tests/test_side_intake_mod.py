@@ -10,7 +10,7 @@ ROOT=Path(__file__).resolve().parents[1]
 
 @unittest.skipUnless(shutil.which('node'),'node required')
 class SideModTests(unittest.TestCase):
-    def test_each_external_event_uses_one_fork_then_stops_it(self):
+    def test_each_external_event_uses_one_constrained_actor_then_stops_it(self):
         with tempfile.TemporaryDirectory() as raw:
             path=Path(raw)
             (path/'package.json').write_text('{"type":"module"}')
@@ -19,7 +19,19 @@ class SideModTests(unittest.TestCase):
             done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',check=True)
         row=json.loads(done.stdout)
         self.assertEqual(3,len(row['spawns']))
-        self.assertEqual(['fork']*3,[spawn['subagentType'] for spawn in row['spawns']])
+        # A native fork inherits main's shell/edit/runtime tools; external data
+        # always gets the registered, constrained side type instead.
+        self.assertEqual(['ciel-work:side-intake']*3,[spawn['subagentType'] for spawn in row['spawns']])
+        # agent.register applies from the next turn: the spawn itself names the
+        # event's model, so a live model change cannot run on the previous one.
+        self.assertEqual(['fixture-main','fixture-main','ciel-runtime-fixture-_selected_b'],
+                         [spawn['model'] for spawn in row['spawns']])
+        self.assertEqual('ciel-runtime-fixture-_selected_b',row['registeredModels'][-1])
+        # A durable main wake is submitted once although later claims offer it again.
+        self.assertEqual(1,len(row['submits']))
+        self.assertIn('"kind":"resume"',row['submits'][0])
+        self.assertIn('clear_wait',row['submits'][0])
+        self.assertIn('no new execution approval',row['submits'][0])
         self.assertEqual([None]*3,[spawn['name'] for spawn in row['spawns']])
         self.assertEqual(['actor1','actor2','actor3'],row['stopped'])
         # Prose + fenced JSON and prose + raw JSON both commit; no-decision is
@@ -56,15 +68,12 @@ class SideModTests(unittest.TestCase):
         self.assertEqual(['a','b','c','d'],row['spawned'])
         self.assertEqual(['P3',None,'P1','P1'],row['sourcePriority'])
         self.assertEqual([7,7],row['resolveVersions'])
-        self.assertEqual(2,row['appendsAfterUrgent'])
-        self.assertEqual(['user','system'],[a['type'] for a in row['appends']])
-        shared=row['appends'][0]['text']
-        self.assertTrue(shared.startswith('Ciel side P1 Work queued first among pending goals'))
-        self.assertIn('"item_id":"n9"',shared)
-        self.assertIn('"title":"Fix outage"',shared)
-        self.assertNotIn('customer down',shared)
-        self.assertNotIn('event c',shared)
-        self.assertEqual('Side P1 queued n9 · Fix outage',row['appends'][1]['text'])
+        # Main is reached by the durable wake prompt only; the person still sees
+        # a system notice. A hidden user row as well duplicated every handoff.
+        self.assertEqual(1,row['appendsAfterUrgent'])
+        self.assertEqual(['system'],[a['type'] for a in row['appends']])
+        self.assertEqual('Side P1 queued n9 · Fix outage',row['appends'][0]['text'])
+        self.assertNotIn('customer down',row['appends'][0]['text'])
 
     def test_paged_host_results_reassemble_and_events_render_interpreted(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -91,7 +100,7 @@ class SideModTests(unittest.TestCase):
         self.assertEqual('plain question second line',row['plainSummary'])
         self.assertEqual(['plain question','second line'],row['plainLines'])
 
-    def test_fork_policy_allows_parent_mcp_and_denies_work_mutation(self):
+    def test_side_actor_offers_only_read_reply_and_status_tools(self):
         with tempfile.TemporaryDirectory() as raw:
             path=Path(raw)
             (path/'package.json').write_text('{"type":"module"}')
@@ -100,12 +109,25 @@ class SideModTests(unittest.TestCase):
             done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',check=True)
         row=json.loads(done.stdout)
         self.assertEqual({'result':'native'},row['nonWork'])
-        self.assertEqual({'deny':'Use work_side_resolve; execution approval is not granted'},row['workDenied'])
-        self.assertEqual({'toolCount':5,'serverCount':5},{k:row['parity'][k] for k in ('toolCount','serverCount')})
+        self.assertEqual({'deny':'Return a decision JSON; the host commits it. Execution approval is not granted'},row['workDenied'])
         self.assertRegex(row['parity']['digest'],r'^[0-9a-f]{16}$')
-        self.assertEqual(2,len(row['registrations']))
-        self.assertIn('mcp__mail__read',row['registrations'][0]['tools'])
-        self.assertIn('mcp__calendar__read',row['registrations'][1]['tools'])
+        self.assertGreaterEqual(len(row['registrations']),2)
+        safe={'mcp__ciel-runtime-router__work_status','mcp__mail__read',
+              'mcp__walkie__walkie_read_messages','mcp__walkie__walkie_send_message'}
+        # Prody 2026-11-08: a side actor queued restart_session through the
+        # inherited router MCP. Execution and runtime controls are never offered.
+        dangerous={'mcp__github__create_issue','mcp__database__query','mcp__ciel-runtime-router__restart_session',
+                   'mcp__ciel-runtime-router__work_node_update','mcp__ciel-runtime-router__work_side_resolve',
+                   'mcp__ciel-runtime-router__submit_input','mcp__walkie__walkie_call_tool',
+                   'mcp__walkie__walkie_threads_stop','mcp__aap__run_agent',
+                   'mcp__x__get_shell','mcp__x__read_and_post','mcp__x__search_and_replace',
+                   'mcp__x__fetch_and_save','mcp__x__reply_and_close','mcp__x__ack_then_delete_all'}
+        for registration in row['registrations']:
+            self.assertTrue(safe <= set(registration['tools']),registration)
+            self.assertFalse(dangerous & set(registration['tools']),registration)
+        self.assertEqual(sorted(safe),row['registrations'][0]['tools'])
+        self.assertIn('mcp__calendar__read',row['registrations'][-1]['tools'])
+        self.assertEqual({'toolCount':5,'serverCount':4},{k:row['parity'][k] for k in ('toolCount','serverCount')})
 
     def test_failed_owned_side_actor_is_removed_on_reload(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -122,12 +144,17 @@ class SideModTests(unittest.TestCase):
 
     def test_side_prompt_requires_answer_ack_queue_and_status_behaviors(self):
         source=(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js').read_text(encoding='utf8')
-        self.assertIn('answer it immediately through the source',source)
+        self.assertIn('answer through the source reply tool',source)
         self.assertIn('ACK the exact incoming source message',source)
         self.assertIn('create one root Work item',source)
         self.assertIn('work_status/work_parallel_status',source)
-        self.assertIn('Never answer only from the event payload',source)
         self.assertIn('source_priority, when present',source)
+        # Code-change requests are investigated read-only and queued for main.
+        self.assertIn('code/config/test/build/deploy/implementation request, do only basic read-only investigation',source)
+        self.assertIn('Do not perform the change',source)
+        self.assertIn('restart or control sessions/runtime',source)
+        self.assertIn('never that implementation is proceeding',source)
+        self.assertNotIn('act when the event requests it',source)
 
     def test_reply_route_override_is_not_mcp_inheritance(self):
         from ciel_runtime_support.recent_menu_text import menu_text

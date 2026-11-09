@@ -6,7 +6,7 @@ from .side_work_decision import apply
 from .work_plan_tree import WorkPlanError
 from .channel_message_repository import exclusive_file_lock
 
-NAMES = ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare')
+NAMES = ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare')
 
 
 def schemas():
@@ -31,12 +31,17 @@ def schemas():
              'required': ['receipt_id', 'expected_state']}},
         {'name': 'work_side_renew', 'description': 'Host-only heartbeat for one live side actor; never revives an expired generation.',
          'inputSchema': {'type': 'object', 'properties': {}}},
-        {'name':'work_side_handoff','description':'Acknowledge side advice at a safe main execution boundary; selecting an existing goal never approves it.',
+        {'name':'work_side_handoff','description':'Acknowledge side advice at a safe main execution boundary; selecting existing work or clearing a recorded wait never approves new execution.',
          'inputSchema':{'type':'object','properties':{'event_id':{'type':'string'},'answer':{'type':'string'},
-             'activate':{'type':'boolean'},'expected_version':{'type':'integer','minimum':0}},'required':['event_id','expected_version']}},
+             'activate':{'type':'boolean'},'clear_wait':{'type':'array','items':{'type':'string'},'uniqueItems':True},
+             'expected_version':{'type':'integer','minimum':0}},'required':['event_id','expected_version']}},
         {'name': 'work_side_reply', 'description': 'Host-only prepare or record a correlated side reply; submission is not proof of human delivery.',
          'inputSchema': {'type': 'object', 'properties': {'receipt_id': {'type': 'string'},
              'state': {'type': 'string', 'enum': ['prepare', 'submitted', 'uncertain', 'failed']}}, 'required': ['receipt_id', 'state']}},
+        {'name': 'work_side_wake', 'description': 'Host-only prepare or record one durable main wake attempt.',
+         'inputSchema': {'type': 'object', 'properties': {'event_id': {'type': 'string'},
+             'state': {'type': 'string', 'enum': ['prepare', 'queued', 'uncertain', 'failed']},
+             'attempt_id': {'type': 'string'}}, 'required': ['event_id', 'state']}},
         {'name': 'work_side_claim', 'description': 'Host-only: claim one durable request for immediate independent AI processing, without creating Work.',
          'inputSchema': {'type': 'object', 'properties': {'owner': {'type': 'string', 'maxLength': 200},
              'urgent_only': {'type': 'boolean'}}, 'required': ['owner']}},
@@ -185,7 +190,8 @@ def run(name, args, config, state_dir, identity, store):
             if original and _followup(args['event_id'], args['answer'], original) is None:
                 raise WorkPlanError('coordinator follow-up exceeds inbox record capacity; no acknowledgment committed')
         result = acknowledge(store, args.get('event_id'), answer=args.get('answer', ''),
-                             activate=args.get('activate', False), expected_version=args['expected_version'])
+                             activate=args.get('activate', False), clear_wait=args.get('clear_wait', []),
+                             expected_version=args['expected_version'])
         inbox = SideIntakeInbox(state_dir, identity)
         _sync_handoff_receipt(inbox, args['event_id'], result)
         if args.get('answer'):
@@ -196,13 +202,20 @@ def run(name, args, config, state_dir, identity, store):
         if args.get('state') == 'prepare':
             return prepare(state_dir, identity, args.get('receipt_id'), config=config)
         return {'receipt': record(state_dir, identity, args.get('receipt_id'), args.get('state'), attempt_id=host.get('attempt_id'))}
+    if name == 'work_side_wake':
+        from .side_wake import prepare, record
+        if args.get('state') == 'prepare':
+            return prepare(store, args.get('event_id'))
+        return record(store, args.get('event_id'), args.get('state'), args.get('attempt_id'))
     if name == 'work_side_claim':
         waiting_reason = None
-        # inherit runs as a native fork that carries main's own transcript, so it
-        # never waits for a router capture (a fresh session has none yet).
-        if runtime_side.get('model') != 'inherit' and runtime_side.get('context_mode', 'full') in ('full', 'recent'):
+        context_ready = False
+        if runtime_side.get('context_mode', 'full') in ('full', 'recent'):
             from .side_context_store import SideContextStore
-            if SideContextStore(state_dir, identity).ready() is None:
+            context_ready = SideContextStore(state_dir, identity).ready() is not None
+            # A selected model promised an explicit parent projection. Inherit
+            # may safely fall back to isolated triage before the first capture.
+            if runtime_side.get('model') != 'inherit' and not context_ready:
                 waiting_reason = 'parent_context'
         document = store.read_snapshot()
         replies = [{'event_id': key, **row} for key, row in document.get('side_handoffs', {}).items()
@@ -237,13 +250,17 @@ def run(name, args, config, state_dir, identity, store):
                 active['workload'] = project_workload(document)
                 active['handoff_context'] = [{'event_id': key, **row} for key, row in document.get('side_handoffs', {}).items()
                                              if active['event_key'] == 'handoff:' + key]
+        main_wakes = [{'event_id': key, **row} for key, row in document.get('side_handoffs', {}).items()
+                      if row.get('state') == 'requested'
+                      and (row.get('wake') or {}).get('state') in ('pending', 'failed')]
         from .side_reply_outbox import pending
         settings = {k: v for k, v in runtime_side.items() if k != 'reply_connectors'}
+        settings['context_ready'] = context_ready
         if active and active.get('use_parent_model'):
             # Same provider connection; only this event moves to the main model.
             settings.update(model='inherit', parent_model_retry=True)
         return {'claim': active, 'waiting_reason': waiting_reason, 'recovered_receipt': recovered,
-                'settings': settings, 'handoff_replies': replies,
+                'settings': settings, 'handoff_replies': replies, 'main_wakes': main_wakes,
                 'pending_replies': pending(state_dir, identity)}
     key, generation = host.get('receipt_id'), host.get('generation')
     inbox = SideIntakeInbox(state_dir, identity)
@@ -266,7 +283,10 @@ def run(name, args, config, state_dir, identity, store):
                 raise WorkPlanError('side context projection not verified for this event')
             context_info = {**context['selection'], 'parent_captured_at': context['captured_at'],
                             'parent_digest': context['digest']}
-        result = apply(store, key, decision, args.get('expected_version'))
+        # A handoff follow-up carries main's own answer back to the source. Its
+        # decision never asks main again (owned proof 2026-11-08: 4 cycles in 5 min).
+        main_reply = str((row or {}).get('event_key') or '').startswith('handoff:')
+        result = apply(store, key, decision, args.get('expected_version'), main_reply=main_reply)
         if context_info is not None:
             result['context'] = context_info
         result['usage'] = args.get('usage') if isinstance(args.get('usage'), dict) else None
