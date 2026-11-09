@@ -205,6 +205,13 @@ class SideDecisionTests(unittest.TestCase):
         self.assertEqual('done', self.store.read()['nodes'][0]['status'])
         self.assertEqual('The answer\n\n큐에 등록하지 않았습니다.', result['final_text'])
 
+    def test_classification_used_as_action_is_normalized_to_answer(self):
+        for kind in ('status', 'info'):
+            key = hashlib.sha256(('class-action-' + kind).encode()).hexdigest()
+            result = apply(self.store, key, {**self.base, 'action': kind, 'kind': kind},
+                           self.store.read()['version'])
+            self.assertEqual(('answer', kind), (result['action'], result['kind']))
+
     def test_status_answer_ignores_copied_work_edit_fields(self):
         result = apply(self.store, self.key, {**self.base, 'kind': 'status', 'item_id': 'n1',
                        'title': 'copied', 'note': 'copied', 'priority': 'P1', 'queue_position': 2}, 0)

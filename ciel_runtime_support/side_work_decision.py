@@ -36,6 +36,10 @@ class WorkChanged(tree.WorkPlanError):
 def validate(decision):
     if not isinstance(decision, dict) or set(decision) - FIELDS:
         raise tree.WorkPlanError('invalid side decision fields')
+    # Live side models sometimes put the classification in both fields
+    # (action="status"/"info") instead of mapping it to action="answer".
+    if decision.get('action') in ('status', 'info') and decision.get('kind') == decision['action']:
+        decision['action'] = 'answer'
     if decision.get('action') not in ACTIONS:
         raise tree.WorkPlanError('invalid side decision action')
     if decision.get('kind', 'request') not in KINDS:
