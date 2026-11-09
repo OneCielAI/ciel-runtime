@@ -1,0 +1,200 @@
+{
+  "outcome": "completed",
+  "main_busy_since": "2026-11-09T02:24:37.288Z",
+  "approval_processed": true,
+  "wake_states_after_approval": {
+    "2418bd4bf5ee40b5b017f4a003d8f77eb3c920ac837b9e51f32fa8798073a22e": "submitting"
+  },
+  "status_processed": false,
+  "status_seconds_after_send": null,
+  "status_receipt": {},
+  "wake_states_when_status_done": {
+    "2418bd4bf5ee40b5b017f4a003d8f77eb3c920ac837b9e51f32fa8798073a22e": "submitting"
+  },
+  "main_done_when_status_done": null,
+  "wake_entered_when_status_done": false,
+  "main_done_at": "2026-11-09T02:31:46.057Z",
+  "handoff_acknowledged": false,
+  "handoffs": {
+    "2418bd4bf5ee40b5b017f4a003d8f77eb3c920ac837b9e51f32fa8798073a22e": {
+      "kind": "resume",
+      "item_id": "n2",
+      "state": "requested",
+      "waits": [
+        {
+          "id": "n2",
+          "waiting_on": "Daniel approval 118269"
+        }
+      ],
+      "wake": {
+        "state": "queued",
+        "requested_at": 1794191098.3457444,
+        "attempt_id": "9fc8d378ea8a44db9d8223c868624802",
+        "started_at": 1794191099.75542,
+        "updated_at": 1794191507.291195
+      }
+    }
+  },
+  "main_wake_prompts": 1,
+  "gate_after": {
+    "id": "n2",
+    "waiting_on": "Daniel approval 118269",
+    "status": "pending"
+  },
+  "main_rows": [
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T02:24:20.962Z",
+      "origin": {
+        "kind": "human"
+      },
+      "tools": [],
+      "text": "Run this exact Bash command once in the foreground (run_in_background false, timeout 600000) and wait for it to finish: py -3 -c \"import time; time.sleep(420)\" . When it has finished, reply with exactly: SLEEP DONE"
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T02:24:37.288Z",
+      "origin": null,
+      "tools": [
+        "Bash"
+      ],
+      "text": ""
+    },
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T02:31:38.550Z",
+      "origin": null,
+      "tools": [],
+      "text": ""
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T02:31:46.057Z",
+      "origin": null,
+      "tools": [],
+      "text": "SLEEP DONE"
+    },
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T02:31:46.891Z",
+      "origin": {
+        "kind": "plugin",
+        "name": "ciel-work"
+      },
+      "tools": [],
+      "text": "The ciel-work plugin sent a message:\nCiel side event requires main action: {\"event_id\":\"2418bd4bf5ee40b5b017f4a003d8f77eb3c920ac837b9e51f32fa8798073a22e\",\"item_id\":\"n2\",\"kind\":\"resume\",\"summary\":\"Daniel's approval for design 118269 (P1 118160) arrived as an external side-handoff message. It satisfies the existing wait on n2 'Daniel design approval 118269'. Recorded only as approval input. Main resume is pending, and no implementation has started.\",\"question\":\"\",\"waits\":[{\"id\":\"n2\",\"waiting_on\":\""
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T02:31:56.763Z",
+      "origin": null,
+      "tools": [
+        "mcp__ciel-runtime-router__work_status"
+      ],
+      "text": ""
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T02:31:56.767Z",
+      "origin": null,
+      "tools": [
+        "mcp__ciel-runtime-router__work_parallel_status"
+      ],
+      "text": ""
+    },
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T02:31:57.314Z",
+      "origin": null,
+      "tools": [],
+      "text": ""
+    },
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T02:31:58.013Z",
+      "origin": null,
+      "tools": [],
+      "text": ""
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T02:32:22.409Z",
+      "origin": null,
+      "tools": [
+        "mcp__ciel-runtime-router__work_side_handoff"
+      ],
+      "text": ""
+    },
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T02:32:22.890Z",
+      "origin": null,
+      "tools": [],
+      "text": ""
+    }
+  ],
+  "receipts": [
+    {
+      "event_key": "urn:owned:side-handoff:approval",
+      "stage": "processed",
+      "mtime": 1794191098.6,
+      "action": "update",
+      "handoff": "requested",
+      "item_id": "n2",
+      "reply": "ACK sent for Daniel's approval of design 118269 (P1 118160). Main resume is pending. Implementation has not started from this message.",
+      "reported_sends": [
+        "mcp__ciel-runtime-router__send_message"
+      ],
+      "failure": null
+    },
+    {
+      "event_key": "urn:owned:side-handoff:status-busy",
+      "stage": "processed",
+      "mtime": 1794191521.2,
+      "action": "answer",
+      "handoff": "not_required",
+      "item_id": null,
+      "reply": "Current Work queue: 3 nodes, 1 root. n1 'P1 118160 fail-first fix' is P1, pending, executing. n2 'Daniel design approval 118269' is pending, waiting on Daniel approval 118269. n3 'Implement fail-first test' is pending and runnable once n2 clears. execution_approval is recorded as 'unchanged; external input is not approval', so the wait is not cleared. Main resume is pending, not implementation pro",
+      "reported_sends": [
+        "mcp__ciel-runtime-router__send_message"
+      ],
+      "failure": null
+    }
+  ],
+  "actors": [
+    {
+      "description": "Side SSE 2418bd4bf5ee",
+      "agent_type": "ciel-work:side-intake",
+      "mtime": 1794191098.2,
+      "requested_models": [
+        "ciel-runtime-cielairouter-_walkie_haiku_terra"
+      ],
+      "native_models": [
+        "claude-haiku-5-5"
+      ],
+      "tools_called": [
+        "mcp__ciel-runtime-router__send_message",
+        "mcp__ciel-runtime-router__work_status"
+      ]
+    },
+    {
+      "description": "Side SSE 7dde5e841134",
+      "agent_type": "ciel-work:side-intake",
+      "mtime": 1794191520.8,
+      "requested_models": [
+        "ciel-runtime-cielairouter-_walkie_haiku_terra"
+      ],
+      "native_models": [
+        "claude-haiku-5-5"
+      ],
+      "tools_called": [
+        "mcp__ciel-runtime-router__send_message"
+      ]
+    }
+  ],
+  "owned_router_pids": [],
+  "debug_counts": {
+    "identity is unavailable; no shared Work fallback is allowed": 2,
+    "tool.call hook skipped": 1
+  }
+}

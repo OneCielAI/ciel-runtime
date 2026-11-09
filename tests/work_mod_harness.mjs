@@ -53,6 +53,16 @@ const scenarios = {
       waits:[],wake:{state:'queued'}}]}))
     return await handlers['classic.Stop']($,{session_id:'S1'},next({}))
   },
+  async 'side-handoff-conflict'() {
+    const conflict='the plan changed (stored version 1688, expected 1685); call work_status and retry'
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_side_handoff') { state.handoff = args; return { isError: true, ...text(conflict) } }
+      return text(snapshot())
+    })
+    const result = await handlers['tool.call']($, { tool: 'mcp__ciel-runtime-router__work_side_handoff',
+      tool_use_id: 't1', event_id: 'e1', expected_version: 1685, answer: 'stale' }, next({ ran: true }))
+    return { result, sent: state.handoff }
+  },
   async 'side-advice-stop'() {
     const {$}=host(async()=>text({...snapshot(),auto_continue:false,side_handoffs:[{event_id:'event',item_id:'n2',kind:'resume',summary:'P1 deadline',question:'Need decision',
       waits:[{id:'n3',waiting_on:'Daniel approval 118269'}],gates:[{id:'n3',waiting_on:'Daniel approval 118269',blocked:false}],wake:{state:'pending',requested_at:1}}]}))

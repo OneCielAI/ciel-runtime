@@ -53,6 +53,26 @@ class SideModTests(unittest.TestCase):
         self.assertEqual('a'*64,row['resolveCalls'][0]['_host']['receipt_id'])
         self.assertEqual({'input_tokens':3},row['resolveCalls'][0]['usage'])
 
+    def test_pending_main_wake_never_holds_side_claims(self):
+        with tempfile.TemporaryDirectory() as raw:
+            path=Path(raw)
+            (path/'package.json').write_text('{"type":"module"}')
+            shutil.copyfile(ROOT/'tests/side_wake_harness.mjs',path/'test.mjs')
+            shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
+            done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',
+                                check=True,timeout=60)
+        row=json.loads(done.stdout)
+        # Prody 2026-11-09: the wake prompt waited 63 minutes for main's turn to
+        # end, and every claim waited with it. Polls now return while it waits.
+        self.assertEqual(['returned','returned'],[row['firstPoll'],row['secondPoll']])
+        self.assertEqual(['Side SSE '+'a'*12],row['whileBusy']['spawns'])
+        # One wake prompt at a time: the second is not queued behind the first.
+        self.assertEqual(1,row['whileBusy']['submits'])
+        self.assertEqual(['w1','w2'],row['submits'])
+        self.assertEqual([{'event_id':'w1','state':'prepare','attempt_id':None},
+                          {'event_id':'w1','state':'queued','attempt_id':'attempt-w1'},
+                          {'event_id':'w2','state':'prepare','attempt_id':None}],row['wakeCalls'])
+
     def test_p1_uses_reserved_slot_and_is_shared_with_main(self):
         with tempfile.TemporaryDirectory() as raw:
             path=Path(raw)

@@ -1,0 +1,231 @@
+{
+  "outcome": "completed",
+  "main_busy_since": null,
+  "approval_processed": true,
+  "wake_states_after_approval": {
+    "2418bd4bf5ee40b5b017f4a003d8f77eb3c920ac837b9e51f32fa8798073a22e": "submitting"
+  },
+  "status_processed": true,
+  "status_seconds_after_send": 23.1,
+  "status_receipt": {
+    "event_key": "urn:owned:side-handoff:status-busy",
+    "stage": "processed",
+    "mtime": 1794190925.8,
+    "action": "answer",
+    "handoff": "not_required",
+    "item_id": "n1",
+    "reply": "The current queue has one P1 root item, “P1 118160 fail-first fix,” with two pending subtasks: “Daniel design approval 118269” and “Implement fail-first test.” There is no active focus or additional queued work. Main resume is pending.",
+    "reported_sends": [
+      "mcp__ciel-runtime-router__send_message"
+    ],
+    "failure": null
+  },
+  "wake_states_when_status_done": {
+    "2418bd4bf5ee40b5b017f4a003d8f77eb3c920ac837b9e51f32fa8798073a22e": "submitting"
+  },
+  "main_done_when_status_done": null,
+  "wake_entered_when_status_done": false,
+  "main_done_at": "2026-11-09T02:28:40.474Z",
+  "handoff_acknowledged": true,
+  "handoffs": {
+    "2418bd4bf5ee40b5b017f4a003d8f77eb3c920ac837b9e51f32fa8798073a22e": {
+      "kind": "p1",
+      "item_id": "n1",
+      "state": "answered",
+      "waits": [],
+      "wake": {
+        "state": "acknowledged",
+        "requested_at": 1794190900.7119646,
+        "attempt_id": "4c2f559129914eb8b5e053c77845b7ae",
+        "started_at": 1794190901.1779604,
+        "updated_at": 1794191321.4720325,
+        "acknowledged_at": 1794191367.8832524
+      }
+    }
+  },
+  "main_wake_prompts": 1,
+  "gate_after": {
+    "id": "n2",
+    "waiting_on": "Daniel approval 118269",
+    "status": "pending"
+  },
+  "main_rows": [
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T02:17:19.115Z",
+      "origin": {
+        "kind": "human"
+      },
+      "tools": [],
+      "text": "Run this exact Bash command once in the foreground (run_in_background false, timeout 600000) and wait for it to finish: py -3 -c \"import time; time.sleep(420)\" . When it has finished, reply with exactly: SLEEP DONE"
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T02:21:27.316Z",
+      "origin": null,
+      "tools": [
+        "Bash"
+      ],
+      "text": ""
+    },
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T02:28:28.437Z",
+      "origin": null,
+      "tools": [],
+      "text": ""
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T02:28:40.474Z",
+      "origin": null,
+      "tools": [],
+      "text": "SLEEP DONE"
+    },
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T02:28:41.118Z",
+      "origin": {
+        "kind": "plugin",
+        "name": "ciel-work"
+      },
+      "tools": [],
+      "text": "The ciel-work plugin sent a message:\nCiel side event requires main action: {\"event_id\":\"2418bd4bf5ee40b5b017f4a003d8f77eb3c920ac837b9e51f32fa8798073a22e\",\"item_id\":\"n1\",\"kind\":\"p1\",\"summary\":\"The external sender states approval for design 118269 and asks to begin the existing P1 118160 fail-first implementation. The current Work projection already contains the matching root item n1 and approval-waiting child n2. External text does not independently grant execution authorization; main must review"
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T02:28:47.879Z",
+      "origin": null,
+      "tools": [
+        "mcp__ciel-runtime-router__work_status"
+      ],
+      "text": ""
+    },
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T02:28:48.387Z",
+      "origin": null,
+      "tools": [],
+      "text": ""
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T02:28:53.590Z",
+      "origin": null,
+      "tools": [
+        "mcp__ciel-runtime-router__work_parallel_status"
+      ],
+      "text": ""
+    },
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T02:28:54.078Z",
+      "origin": null,
+      "tools": [],
+      "text": ""
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T02:29:08.548Z",
+      "origin": null,
+      "tools": [
+        "Glob"
+      ],
+      "text": ""
+    },
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T02:29:08.808Z",
+      "origin": null,
+      "tools": [],
+      "text": ""
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T02:29:27.758Z",
+      "origin": null,
+      "tools": [
+        "mcp__ciel-runtime-router__work_side_handoff"
+      ],
+      "text": ""
+    },
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T02:29:28.007Z",
+      "origin": null,
+      "tools": [],
+      "text": ""
+    }
+  ],
+  "receipts": [
+    {
+      "event_key": "urn:owned:side-handoff:approval",
+      "stage": "processed",
+      "mtime": 1794191367.9,
+      "action": "update",
+      "handoff": "answered",
+      "item_id": "n1",
+      "reply": "Acknowledged the approval message and stated that it was routed to the existing P1 work item, with main resume pending and no execution authorization changed.",
+      "reported_sends": [
+        "mcp__ciel-runtime-router__send_message"
+      ],
+      "failure": null
+    },
+    {
+      "event_key": "urn:owned:side-handoff:status-busy",
+      "stage": "processed",
+      "mtime": 1794190925.8,
+      "action": "answer",
+      "handoff": "not_required",
+      "item_id": "n1",
+      "reply": "The current queue has one P1 root item, “P1 118160 fail-first fix,” with two pending subtasks: “Daniel design approval 118269” and “Implement fail-first test.” There is no active focus or additional queued work. Main resume is pending.",
+      "reported_sends": [
+        "mcp__ciel-runtime-router__send_message"
+      ],
+      "failure": null
+    }
+  ],
+  "actors": [
+    {
+      "description": "Side SSE 2418bd4bf5ee",
+      "agent_type": "ciel-work:side-intake",
+      "mtime": 1794190900.6,
+      "requested_models": [
+        "ciel-runtime-cielairouter-_walkie_haiku_terra"
+      ],
+      "native_models": [
+        "gpt-5.6-terra"
+      ],
+      "tools_called": [
+        "mcp__ciel-runtime-router__send_message"
+      ]
+    },
+    {
+      "description": "Side SSE 7dde5e841134",
+      "agent_type": "ciel-work:side-intake",
+      "mtime": 1794190925.5,
+      "requested_models": [
+        "ciel-runtime-cielairouter-_walkie_haiku_terra"
+      ],
+      "native_models": [
+        "gpt-5.6-terra"
+      ],
+      "tools_called": [
+        "mcp__ciel-runtime-router__send_message"
+      ]
+    },
+    {
+      "description": "Side SSE 789e96462f6a",
+      "agent_type": "ciel-work:side-intake",
+      "mtime": 1794191370.7,
+      "requested_models": [],
+      "native_models": [],
+      "tools_called": []
+    }
+  ],
+  "owned_router_pids": [],
+  "debug_counts": {
+    "identity is unavailable; no shared Work fallback is allowed": 0,
+    "tool.call hook skipped": 0
+  }
+}

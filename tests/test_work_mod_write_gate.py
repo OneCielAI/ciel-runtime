@@ -60,6 +60,15 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertNotIn('requested_at',result['block'])
         self.assertNotIn('block', result['second'])
 
+    def test_side_handoff_conflict_reaches_main_instead_of_identity_error(self):
+        # Prody 2026-11-09: the thrown hook was skipped and the engine's call
+        # without session_id answered "conversation identity is unavailable".
+        result = self.run_scenario('side-handoff-conflict')
+        self.assertEqual({'deny': 'work_side_handoff: the plan changed (stored version 1688, expected 1685); '
+                                  'call work_status and retry'}, result['result'])
+        self.assertEqual('claude:S1', result['sent']['session_id'])
+        self.assertEqual(1685, result['sent']['expected_version'])
+
     def test_queued_side_wake_is_not_blocked_again_at_stop(self):
         # The queued wake prompt delivers it next; blocking here duplicated it.
         self.assertNotIn('block', self.run_scenario('side-advice-stop-queued-wake'))

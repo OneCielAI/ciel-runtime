@@ -988,7 +988,11 @@ async function parallelToolCall($, e, next) {
   if (next.origin?.plugin === 'ciel-work' && (e.tool === PREFIX+'send_message' || e.tool.startsWith(PREFIX+'work_side_'))) return next(e)
   if (e.tool === PREFIX+'work_side_handoff' && e.agentId === undefined && next.origin?.plugin === 'engine') {
     const {tool,tool_use_id,agentId,session_id,_host,...args} = e
-    return {result:JSON.stringify(await parallelCall($,'work_side_handoff',args))}
+    // A thrown hook is skipped and the engine's own call then carries no
+    // conversation identity, so main saw "identity is unavailable" instead of
+    // the router's version conflict (Prody 2026-11-09). Answer with it here.
+    try { return {result:JSON.stringify(await parallelCall($,'work_side_handoff',args))} }
+    catch (error) { return {deny:String(error?.message || error).replace(/^Parallel read failed: /,'work_side_handoff: ')} }
   }
   const side = await sideTool($, e, next)
   if (side) return side

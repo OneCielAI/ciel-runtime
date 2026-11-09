@@ -6,6 +6,8 @@ const retiredSideActors = new Set()
 const pending = new Map()
 const answeredHandoffs = new Set()
 const wokenHandoffs = new Set()
+// identity -> event_id whose wake prompt has not entered main yet (one at a time).
+const wakesInFlight = new Map()
 const replying = new Set()
 const displayedReceipts = new Map()
 const comparisonQueue = []
@@ -275,6 +277,18 @@ export async function startSide($) {
   await $.mcp.connect('ciel-runtime-router')
   await registerActor($,'inherit')
 }
+async function submitWake($,identity,key,eventId,attemptId,text) {
+  let state = 'uncertain'
+  try {
+    const submitted = await $.prompt.submit({text})
+    state = submitted?.drop ? 'failed' : 'queued'
+  } catch { /* Unknown whether it entered: recorded uncertain, never resubmitted. */ }
+  try {
+    await callRouter($,'work_side_wake',{event_id:eventId,state,attempt_id:attemptId},{},identity)
+    if (state === 'queued') wokenHandoffs.add(key)
+  } catch { /* The ledger keeps this attempt as submitting. */ }
+  finally { if (wakesInFlight.get(identity) === eventId) wakesInFlight.delete(identity) }
+}
 export async function pollSide($, identity) {
   let claimed = null
   let claimedActor = null
@@ -316,22 +330,19 @@ export async function pollSide($, identity) {
     }
     for (const wake of answer.main_wakes || []) {
       const key = identity+':'+wake.event_id
-      if (wokenHandoffs.has(key)) continue
+      if (wokenHandoffs.has(key) || wakesInFlight.has(identity)) continue
       const text = 'Ciel side event requires main action: '+JSON.stringify({event_id:wake.event_id,item_id:wake.item_id,
         kind:wake.kind || 'resume',summary:wake.summary,question:wake.question || '',waits:wake.waits || []})
         +' Inspect the target Work at this safe boundary. Use work_side_handoff with expected_version after acting; pass clear_wait only for waits this event actually satisfies. This grants no new execution approval.'
-      let attempt
       try {
-        attempt = await callRouter($,'work_side_wake',{event_id:wake.event_id,state:'prepare'},{},identity)
+        const attempt = await callRouter($,'work_side_wake',{event_id:wake.event_id,state:'prepare'},{},identity)
         if (attempt.state !== 'submitting') { wokenHandoffs.add(key); continue }
-        const submitted = await $.prompt.submit({text})
-        await callRouter($,'work_side_wake',{event_id:wake.event_id,state:submitted?.drop ? 'failed' : 'queued',
-          attempt_id:attempt.attempt_id},{},identity)
-        if (!submitted?.drop) wokenHandoffs.add(key)
-      } catch {
-        if (attempt?.attempt_id) await callRouter($,'work_side_wake',{event_id:wake.event_id,state:'uncertain',
-          attempt_id:attempt.attempt_id},{},identity).catch(()=>{})
-      }
+        // A plugin prompt enters only once main is idle, so submit resolves
+        // after main's running turn ends. Prody 2026-11-09: awaiting it here held
+        // every claim for 63 minutes. The wake settles on its own instead.
+        wakesInFlight.set(identity,wake.event_id)
+        void submitWake($,identity,key,wake.event_id,attempt.attempt_id,text)
+      } catch { /* The ledger keeps the wake pending; the next claim offers it again. */ }
     }
     const event = answer.claim
     claimed = event
