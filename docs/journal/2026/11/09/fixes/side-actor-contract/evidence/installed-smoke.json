@@ -1,0 +1,22 @@
+{
+  "expected": "0.2.51-beta.20261109-171240.503be09",
+  "versions": {
+    "C:\\Users\\<user>\\.local\\share\\ciel-runtime-503be09f985d62f0766adfc9e917fb5b4690d0b6": "0.2.51-beta.20261109-171240.503be09",
+    "C:\\Users\\<user>\\AppData\\Roaming\\npm\\node_modules\\@one-ciel-ai\\ciel-runtime": "0.2.51-beta.20261109-171240.503be09"
+  },
+  "all_versions_match": true,
+  "runtime_home": "C:\\Users\\<user>\\.local\\share\\ciel-runtime-503be09f985d62f0766adfc9e917fb5b4690d0b6",
+  "matching_files": 566,
+  "file_differences": [],
+  "ctl_version_ok": true,
+  "installed_behavior": {
+    "main_paused": true,
+    "contract_header": true,
+    "status_as_action": [
+      "answer",
+      "status"
+    ],
+    "create_without_title": "no title given"
+  },
+  "live_restarts": false
+}

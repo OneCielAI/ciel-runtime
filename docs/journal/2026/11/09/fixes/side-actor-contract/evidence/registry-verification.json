@@ -1,0 +1,15 @@
+{
+  "version": "0.2.51-beta.20261109-171240.503be09",
+  "git_head": "503be09f985d62f0766adfc9e917fb5b4690d0b6",
+  "integrity_verified": true,
+  "sha512": "sha512-f93F4XvXxloRefJMubp4UiBHNBkuuy44vzSxIiqyDRrK0Na6Pdr4wMJyONjkgiWQLu4oGL5dj7RDGz1OiEYMdg==",
+  "tarball_bytes": 1744131,
+  "source_files_verified": 512,
+  "tags": {
+    "latest": "0.2.51",
+    "nightly": "0.2.51-nightly.20261106-020333.c00c8b6",
+    "beta": "0.2.51-beta.20261109-171240.503be09"
+  },
+  "stable_nightly_unchanged": true,
+  "live_restarts": false
+}
