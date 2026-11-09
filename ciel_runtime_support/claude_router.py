@@ -361,13 +361,15 @@ def handle_claude_messages_post(
     if local_request:
         context_recovery.observe_request(provider, pcfg, raw_body, "claude", getattr(self, "headers", None))
         stream_scope = context_recovery.stream_scope(getattr(self, "headers", None), raw_body)
-        if (not side_projected and stream_scope is not None and cfg.get('work_side_intake', {}).get('enabled') is True
+        if (not side_projected and stream_scope is not None
+                and cfg.get('work_side_intake', {}).get('enabled') is True
                 and (cfg.get('work_side_intake', {}).get('context_mode', 'full') in ('full', 'recent')
                      or cfg.get('work_side_intake', {}).get('comparison_enabled') is True)):
-            from .side_context_store import SideContextStore
+            from .side_context_store import SideContextStore, main_turn_request
             from .runtime_paths import WORKSPACE_STATE_DIR
             try:
-                SideContextStore(WORKSPACE_STATE_DIR, 'claude:' + stream_scope.session_id).capture(raw_body, provider, stream_scope.epoch)
+                if main_turn_request(getattr(self, 'headers', None), raw_body):
+                    SideContextStore(WORKSPACE_STATE_DIR, 'claude:' + stream_scope.session_id).capture(raw_body, provider, stream_scope.epoch)
             except (OSError, ValueError) as error:
                 router_log('WARN', 'side_parent_capture_unavailable reason=' + type(error).__name__)
         # Decided on the unmodified request, before pending input or the

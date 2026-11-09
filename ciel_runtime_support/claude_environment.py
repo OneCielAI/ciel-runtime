@@ -22,6 +22,7 @@ CLAUDE_PROJECTED_ENV_KEYS = (
     "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
     "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
     "CLAUDE_CODE_ATTRIBUTION_HEADER",
+    "CLAUDE_CODE_GATEWAY_HINT_HEADERS",
     "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
     "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
     "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
@@ -513,6 +514,11 @@ class ClaudeEnvironmentProjection:
 
     def apply_common(self, provider: str, config: dict[str, Any], env: dict[str, str], *, guarded: bool = True) -> dict[str, str]:
         env["CLAUDE_CODE_DISABLE_TERMINAL_TITLE"] = "1"
+        # Claude Code otherwise gates request-class headers behind a first-party
+        # feature flag. Routed launches need the native main/auxiliary boundary:
+        # auxiliary suggestion/title requests must never replace the side
+        # actor's full main-conversation snapshot.
+        env["CLAUDE_CODE_GATEWAY_HINT_HEADERS"] = "1"
         from .work_parallel_host import host_token
         env["CIEL_RUNTIME_WORK_PARALLEL_HOST_TOKEN"] = host_token()
         output_tokens = self._limits.output_token_limit(provider, config)
