@@ -115,8 +115,11 @@ host outbox가 정확히 한 번 source reply를 보낸다. MCP 목록이 바뀌
 `work_side_intake_reply_connectors`(메뉴: External reply route / Walkie preset)는
 신뢰된 상관관계가 있는 웹 채팅을 원래 채널로 자동 전달하고, 일반 외부
 SSE/CloudEvent는 운영자가 exact source/receiver_id에 대한 outbound route를 등록한다.
-Walkie는 `{source, receiver_id, preset:"walkie", server}`를 쓴다. 그 외 source는
-기존 server/tool/arguments 템플릿을 쓴다.
+Walkie는 `{source, receiver_id, preset:"walkie", server}`를 쓴다. Walkie는 대화마다
+CloudEvent source가 다르므로(`.../conversations/<uuid>`) 프리셋에 한해 `source:"*"`로
+그 수신기의 모든 대화를 덮을 수 있다. 보낼 대화와 메시지는 이벤트의 형식 검사된
+`data.conversation`/`data.message_id`에서만 정한다. 그 외 source는 기존
+server/tool/arguments 템플릿을 쓰며 `"*"`를 쓸 수 없다.
 템플릿 route의 `$reply`, `$event_id`, `$receiver_id`, `$source`, `$kind`,
 `$receipt_id`는 전체 문자열 값일 때 치환된다. 고정 목적지는 운영자가 arguments에
 설정하고 인증정보는 MCP 연결에만 둔다. 이벤트 본문은 목적지나 도구를 정하지 않는다.

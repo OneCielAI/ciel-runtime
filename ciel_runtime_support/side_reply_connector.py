@@ -14,6 +14,10 @@ _NAME = re.compile(r'[A-Za-z0-9_.:-]{1,150}')
 _UUID = re.compile(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}')
 _MESSAGE_ID = re.compile(r'[0-9]{1,20}')
 PRESETS = ('walkie',)
+# Walkie names each conversation as its own CloudEvent source
+# (".../conversations/<uuid>", Prody 2026-11-09), so a preset may cover every
+# source of one receiver. The preset still reads only pattern-checked fields.
+ANY_SOURCE = '*'
 
 
 def _check_source(row, sources):
@@ -42,6 +46,10 @@ def validate(value):
             continue
         if not isinstance(row, dict) or set(row) != {'source', 'receiver_id', 'server', 'tool', 'arguments'}:
             raise ValueError('connector needs source, receiver_id, server, tool and arguments, or source, receiver_id, preset and server')
+        if row['source'] == ANY_SOURCE:
+            # A template sends wherever its arguments say; only a preset, which
+            # reads pattern-checked event fields, may cover every source.
+            raise ValueError('source "*" is allowed only for a preset')
         _check_source(row, sources)
         for key in ('server', 'tool'):
             if not isinstance(row[key], str) or not _NAME.fullmatch(row[key]):
@@ -95,7 +103,9 @@ def binding_for(config, route):
     bindings = validate(config.get('work_side_intake', {}).get('reply_connectors', []))
     source = route.get('sender_id', '')
     receiver = str(route.get('channel', '')).removeprefix('external:')
-    return next((row for row in bindings if row['source'] == source and row['receiver_id'] == receiver), None)
+    exact = next((row for row in bindings if row['source'] == source and row['receiver_id'] == receiver), None)
+    return exact or next((row for row in bindings if row['source'] == ANY_SOURCE and row['receiver_id'] == receiver
+                          and row.get('preset')), None)
 
 
 def prepare(config, route, receipt_id, reply, kind, *, original=''):
