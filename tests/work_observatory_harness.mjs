@@ -14,7 +14,7 @@ const models = ['inherit', ...Array.from({ length: 12 }, (_, i) => '_Combo_' + i
 let settings = [
   { key: 'work_mode', label: 'Work mode', value: true, kind: 'boolean' },
   { key: 'work_plan_approval_ask', label: 'Work plan approval', value: 'auto', kind: 'enum', choices: ['auto', 'ask'] },
-  { key: 'work_parallel_max_active', label: 'Parallel max', value: '5', kind: 'number' },
+  { key: 'work_parallel_p1_limit', label: 'Parallel P1', value: '5', kind: 'number' },
   { key: 'work_discovery_instruction', label: 'Discovery instruction', value: 'scan', kind: 'text' },
   { key: 'work_side_intake_reply_connectors', label: 'Reply connectors', value: [], kind: 'json' },
   { key: 'work_side_intake_model', label: 'Side model', value: '_Combo_0', kind: 'model', choices: models },
@@ -54,7 +54,7 @@ const $ = {
       value = { settings, provider: 'cielairouter', ui: {} }
     }
     if (tool === 'work_parallel_status') value = { version: 1, active_device: 1, leases: {},
-      policy: { enabled: true, paused: false, max_active: 5, p1_reserved: 1, launches_per_minute: 4, max_rework: 2 } }
+      policy: { enabled: true, paused: false, priority_limits: { P1: 5, P2: 3, P3: 1, P4: 1, P5: 1 }, launches_per_minute: 4, max_rework: 2 } }
     if (tool === 'work_side_status') value = { side_inbox_receipts: receipts }
     if (tool === 'work_side_claim') value = { claim: null, settings: {}, handoff_replies: [] }
     return { content: [{ type: 'text', text: JSON.stringify(value) }] }
@@ -108,7 +108,7 @@ await press(tree, 'settings-prev'); tree = await render('desktop', 110)
 const before = calls.length
 await press(tree, 'setting-work_mode')
 asks = ['ask']; await press(tree, 'setting-work_plan_approval_ask')
-asks = ['3']; await press(tree, 'setting-work_parallel_max_active')
+asks = ['3']; await press(tree, 'setting-work_parallel_p1_limit')
 out.writes = calls.slice(before).filter(c => c.tool === 'work_live_settings' && c.args.key).map(c => [c.args.key, c.args.value])
 await press(tree, 'setting-work_side_intake_model'); tree = await render('desktop', 110)
 out.picker = { texts: texts(tree).filter(t => /_Combo_|inherit/.test(t)), pages: texts(tree).find(t => t.startsWith('Models ')) }

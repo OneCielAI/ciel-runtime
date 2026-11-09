@@ -24,7 +24,7 @@ PHASES = (PHASE_PLANNING, PHASE_EXECUTING)
 STATUSES = ("pending", "in_progress", "done", "blocked")
 MAX_DEPTH = 8
 # Presentation/input batching is independent of queue registration, which has
-# no item-count ceiling. Execution concurrency is controlled by max_active.
+# no item-count ceiling. Execution concurrency is controlled by the per-priority fork limits.
 MAX_FOCUS_BATCH = 100
 MAX_TITLE_CHARS = 300
 MAX_TEXT_CHARS = 2000

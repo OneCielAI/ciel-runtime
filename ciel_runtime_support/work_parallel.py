@@ -20,7 +20,7 @@ MAX_BYTES = 2097152
 # New lease records stop at this backstop; a stored ledger above it (written
 # under the old bound) must stay readable — validate uses the storage ceiling
 # and the history drains as leases complete. Active execution slots are a
-# separate, much smaller limit (policy.max_active).
+# separate, much smaller limit (policy.priority_limits).
 MAX_LEASES = 100
 STORAGE_MAX_LEASES = 100_000
 DEFAULT_DISCOVERY_TEXT = DEFAULT_INSTRUCTION
@@ -51,21 +51,44 @@ def digest(v):
 def fields(v, names):
     return type(v) is dict and set(v) == set(names.split())
 
+PRIORITIES = ("P1", "P2", "P3", "P4", "P5")
+# Concurrent fork sessions per priority (user, 2026-11-09). There is no
+# separate device total: the device maximum is the sum of these limits.
+DEFAULT_PRIORITY_LIMITS = dict(P1=5, P2=3, P3=1, P4=1, P5=1)
+MAX_PRIORITY_LIMIT = 16
+
 def default_policy():
     # Parallel dispatch is on by default. This policy controls only concurrent
     # execution slots and launch rate; it never limits Work-board queue intake.
-    # P1 candidates are always allowed to compete for every free slot, while
-    # lower priorities leave p1_reserved slots available for later P1 work.
+    # Each priority has its own number of concurrent fork sessions.
     # The thresholds field is retained solely so older ledgers stay readable;
     # it no longer gates anything.
-    return dict(enabled=True, paused=False, max_active=5, p1_reserved=1,
+    return dict(enabled=True, paused=False, priority_limits=dict(DEFAULT_PRIORITY_LIMITS),
                 thresholds=dict(P2=1.0, P3=1.0, P4=1.0, P5=1.0), launches_per_minute=4,
                 max_rework=2, discovery_text=DEFAULT_DISCOVERY_TEXT, test_override=True)
+
+def migrate_policy(p):
+    """A ledger written before per-priority limits keeps its leases; its single
+    device cap and P1 reserve are replaced by the default per-priority limits."""
+    if type(p) is dict and ("max_active" in p or "p1_reserved" in p or "priority_limits" not in p):
+        p.pop("max_active", None)
+        p.pop("p1_reserved", None)
+        p.setdefault("priority_limits", dict(DEFAULT_PRIORITY_LIMITS))
+    return p
+
+def active_by_priority(leases):
+    counts = dict.fromkeys(PRIORITIES, 0)
+    for lease in leases.values():
+        if lease["slot"]:
+            counts[lease["priority"]] += 1
+    return counts
 
 def validate_policy(p):
     require(type(p) is dict and set(p) == set(default_policy()), "policy fields")
     require(all(type(p[k]) is bool for k in ("enabled", "paused", "test_override")), "policy flags")
-    require(integer(p["max_active"], 1, 100) and integer(p["p1_reserved"], 0, p["max_active"]), "policy cap")
+    limits = p["priority_limits"]
+    require(type(limits) is dict and set(limits) == set(PRIORITIES)
+            and all(integer(limits[k], 1, MAX_PRIORITY_LIMIT) for k in PRIORITIES), "priority limits")
     require(integer(p["launches_per_minute"], 1, 60) and integer(p["max_rework"], 0, 10), "policy rate/rework")
     require(text(p["discovery_text"]), "discovery text")
     t = p["thresholds"]
@@ -137,6 +160,8 @@ class WorkParallelStore:
         require(len(raw) <= MAX_BYTES, "byte limit")
         try:
             d = json.loads(raw.decode("utf-8"), object_pairs_hook=unique_object)
+            if type(d) is dict:
+                migrate_policy(d.get("policy"))
             validate(d)
             return d
         except (ValueError, TypeError, KeyError, OverflowError, RecursionError) as e:
@@ -183,8 +208,9 @@ class WorkParallelStore:
         require(type(capability_ready) is bool, "capability flag")
         def apply(d):
             patch = copy.deepcopy(changes)
-            if isinstance(patch.get("thresholds"), dict):
-                patch["thresholds"] = {**d["policy"]["thresholds"], **patch["thresholds"]}
+            for nested in ("thresholds", "priority_limits"):
+                if isinstance(patch.get(nested), dict):
+                    patch[nested] = {**d["policy"][nested], **patch[nested]}
             d["policy"].update(patch)
             validate_policy(d["policy"])
             require(not d["policy"]["enabled"] or capability_ready, "capability not ready")
@@ -213,7 +239,11 @@ class WorkParallelStore:
             p = d["policy"]
             require(p["enabled"] and not p["paused"], "disabled/paused")
             active = [a for a in d["leases"].values() if a["slot"]]
-            require(len(active) < p["max_active"], "active slot capacity reached")
+            counts, limits = active_by_priority(d["leases"]), p["priority_limits"]
+            full = sorted({r["priority"] for r in candidates if counts[r["priority"]] >= limits[r["priority"]]})
+            require(len(full) < len({r["priority"] for r in candidates}),
+                    "active slot capacity reached for " + ", ".join(
+                        f"{k} ({counts[k]}/{limits[k]})" for k in full))
             history = [t for t in d["launches"] if stamp - t < 60]
             require(len(history) < p["launches_per_minute"], "launch rate reached")
             require(len(d["leases"]) < MAX_LEASES, "lease bound")
@@ -225,10 +255,10 @@ class WorkParallelStore:
                     continue
                 if any(a["scope"] == scope and a["item_id"] == r["item_id"] and a["role"] == r["role"] and (a["slot"] or a["state"] != "done") for a in d["leases"].values()):
                     continue
-                if r["priority"] == "P1":
-                    if r["mode"] != "fork":
-                        continue
-                elif len(active) >= max(1, p["max_active"] - p["p1_reserved"]):
+                if r["priority"] == "P1" and r["mode"] != "fork":
+                    continue
+                # Each priority runs up to its own number of fork sessions.
+                if counts[r["priority"]] >= limits[r["priority"]]:
                     continue
                 ident = uuid.uuid4().hex
                 d["leases"][ident] = dict(id=ident, scope=scope, item_id=r["item_id"], priority=r["priority"],
@@ -311,10 +341,9 @@ class WorkParallelStore:
             require(p["enabled"] and not p["paused"], "disabled/paused")
             r = self._lease(d, ident)
             require(r["state"] == "waiting_input" and r["host_id"] is not None and not r["slot"], "not a slot-released wait")
-            active = [a for a in d["leases"].values() if a["slot"]]
-            require(len(active) < p["max_active"], "active slot capacity reached; item remains waiting")
-            if r["priority"] != "P1":
-                require(len(active) < max(1, p["max_active"] - p["p1_reserved"]), "non-P1 slot capacity is reserved for P1")
+            counts = active_by_priority(d["leases"])
+            require(counts[r["priority"]] < p["priority_limits"][r["priority"]],
+                    f"active slot capacity reached for {r['priority']}; item remains waiting")
             r.update(slot=True, idle_proof=None)
         return self._change(apply, expected_version)
 

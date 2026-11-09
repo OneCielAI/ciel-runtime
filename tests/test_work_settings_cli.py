@@ -16,7 +16,7 @@ class WorkSettingsCliTests(unittest.TestCase):
         args = argparse.Namespace(action=action, key=key, value=value, json=True)
         with patch('ciel_runtime_support.work_parallel_mcp.ledger') as ledger:
             ledger.return_value.read.return_value = {'policy': {
-                'enabled': True, 'paused': False, 'max_active': 5, 'p1_reserved': 1,
+                'enabled': True, 'paused': False, 'priority_limits': {'P1': 5, 'P2': 3, 'P3': 1, 'P4': 1, 'P5': 1},
                 'launches_per_minute': 4, 'max_rework': 2}}
             result = command(lambda: config, lambda c: saved.append(dict(c)), output.append)(args)
         self.assertEqual(result, json.loads(output[0]))

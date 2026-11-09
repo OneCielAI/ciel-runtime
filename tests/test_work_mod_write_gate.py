@@ -280,6 +280,15 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn("Execution lease: L9", result["spawned"]["prompt"])
         self.assertEqual([call["event"] for call in result["calls"]], ["reserve", "bind"])
 
+    def test_direct_spawn_through_own_hook_reserves_once_and_starts(self):
+        result = self.run_scenario("parallel-direct-spawn-through-own-hook")
+        # Owned run 2026-11-09: the hook reserved the same item again, the router
+        # refused it, and the fork never started at any cap.
+        self.assertEqual(["reserve", "bind"], result["calls"])
+        self.assertEqual("started", result["run"]["dispatch"])
+        self.assertEqual("host-9", result["run"]["agent_id"])
+        self.assertIn("Execution lease: L9", result["spawned"]["prompt"])
+
     def test_work_parallel_run_spawn_denial_releases_and_keeps_item(self):
         result = self.run_scenario("parallel-direct-spawn-denied-releases")
         self.assertEqual(result["run"]["dispatch"], "spawn_denied")

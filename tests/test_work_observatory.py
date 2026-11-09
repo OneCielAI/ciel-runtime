@@ -51,7 +51,8 @@ class WorkObservatoryTests(unittest.TestCase):
         self.assertTrue(r['graphical'])
         work = '\n'.join(r['work']['texts'])
         self.assertIn('WORK 7 · executing · 1/3', work)
-        self.assertIn('Slots 1/5', work)
+        # Device maximum is the sum of the per-priority limits (5+3+1+1+1).
+        self.assertIn('Slots 1/11', work)
         self.assertIn('P1', work)
         self.assertIn('  Mobile layout', ''.join(t for t in r['work']['texts'] if 'Mobile layout' in t).replace('[!] ', ''))
         self.assertIn('error', r['work']['colors'])      # blocked child
@@ -74,7 +75,7 @@ class WorkObservatoryTests(unittest.TestCase):
         s = self.result['settings']
         self.assertEqual(10, len(s['first']))
         self.assertEqual(4, len(s['second']))
-        self.assertEqual([['work_mode', 'off'], ['work_plan_approval_ask', 'ask'], ['work_parallel_max_active', '3']],
+        self.assertEqual([['work_mode', 'off'], ['work_plan_approval_ask', 'ask'], ['work_parallel_p1_limit', '3']],
                          self.result['writes'])
 
     def test_side_model_picker_pages_catalog_and_applies_live(self):

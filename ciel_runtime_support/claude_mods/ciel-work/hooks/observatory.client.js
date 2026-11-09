@@ -135,7 +135,6 @@ export default function Observatory(props, surface) {
     Text({ color: C.green, children: active + '/' + max + ' ' }),
     Text({ color: C.dim, children: '□'.repeat(Math.max(0, max - active)) }),
     Text({ color: C.cyan, children: '■'.repeat(Math.min(max, active)) }),
-    Text({ color: C.red, children: props.parallel?.reserved ? ' +P1' : '' }),
     Text({ color: C.dim, children: clip('  M ' + (props.model || 'inherit'), Math.max(0, width - max - 25)) }),
   ]))
   children.push(line('rule', '─'.repeat(width), C.line))

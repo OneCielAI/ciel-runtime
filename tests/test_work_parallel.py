@@ -41,10 +41,12 @@ class WorkParallelTests(unittest.TestCase):
         tmp_path = self.tmp_path
         s = WorkParallelStore(tmp_path / "state")
         p = s.read()["policy"]
-        # Parallel dispatch is on by default; max_active is execution concurrency,
-        # not a queue-registration cap.
-        assert p["enabled"] and p["test_override"] and p["max_active"] == 5
-        assert p["p1_reserved"] == 1 and p["max_rework"] == 2 and p["launches_per_minute"] == 4
+        # Parallel dispatch is on by default; the per-priority limits are execution
+        # concurrency, not a queue-registration cap (user, 2026-11-09).
+        assert p["enabled"] and p["test_override"]
+        assert p["priority_limits"] == dict(P1=5, P2=3, P3=1, P4=1, P5=1)
+        assert "max_active" not in p and "p1_reserved" not in p
+        assert p["max_rework"] == 2 and p["launches_per_minute"] == 4
         assert p["thresholds"] == dict(P2=1.0, P3=1.0, P4=1.0, P5=1.0)
         assert "미결 아이템" in p["discovery_text"]
         with self.assertRaises(WorkParallelError):
@@ -86,8 +88,8 @@ class WorkParallelTests(unittest.TestCase):
 
     def test_slots_are_the_only_execution_admission_gate(self):
         store = self.store
-        call(store, "configure", dict(max_active=3, launches_per_minute=20), capability_ready=True)
-        # P2-P5 may use max_active - p1_reserved concurrent slots; usage is not consulted.
+        call(store, "configure", dict(priority_limits=dict(P1=1, P2=2), launches_per_minute=20), capability_ready=True)
+        # Each priority uses its own concurrent slots; usage is not consulted.
         reserve(store, "a", usage=.99)
         reserve(store, "b", usage=.99)
         with self.assertRaises(WorkParallelError):
@@ -97,24 +99,30 @@ class WorkParallelTests(unittest.TestCase):
             reserve(store, "urgent2", priority="P1")
         assert sum(r["slot"] for r in store.read()["leases"].values()) == 3
 
-    def test_default_five_active_and_p2_waits_when_full(self):
+    def test_default_priority_limits_run_independently(self):
         store = self.store
-        call(store, "configure", dict(launches_per_minute=20), capability_ready=True)
-        # The fresh default has five execution slots. Four non-P1 workers start
-        # immediately in the non-reserved portion; P1 may take the fifth. Once
-        # all five are processing, another P2 remains a queued Work item rather
-        # than consuming an execution slot.
-        for i in range(4):
-            reserve(store, f"p2-{i}", priority="P2")
+        call(store, "configure", dict(launches_per_minute=60), capability_ready=True)
+        # Defaults P1 5, P2 3, P3-P5 1 each: a full priority never blocks another,
+        # and the device maximum is their sum.
+        for priority, limit in dict(P1=5, P2=3, P3=1, P4=1, P5=1).items():
+            for i in range(limit):
+                reserve(store, f"{priority}-{i}", priority=priority)
+            with self.assertRaisesRegex(WorkParallelError, rf"capacity reached for {priority} \({limit}/{limit}\)"):
+                reserve(store, f"{priority}-waiting", priority=priority)
+        assert sum(r["slot"] for r in store.read()["leases"].values()) == 11
+
+    def test_mixed_candidates_skip_a_full_priority(self):
+        store = self.store
+        call(store, "configure", dict(priority_limits=dict(P1=1, P2=1), launches_per_minute=20), capability_ready=True)
         reserve(store, "urgent", priority="P1")
-        with self.assertRaises(WorkParallelError):
-            reserve(store, "waiting-p2", priority="P2")
-        assert sum(r["slot"] for r in store.read()["leases"].values()) == 5
+        rows = [candidate("urgent2", priority="P1"), candidate("normal", priority="P2")]
+        d, ident = call(store, "reserve", rows, scope="scope", now=100)
+        assert d["leases"][ident]["item_id"] == "normal"
 
 
     def test_shared_cap(self):
         store = self.store
-        call(store, "configure", dict(max_active=3, launches_per_minute=20), capability_ready=True)
+        call(store, "configure", dict(priority_limits=dict(P1=1, P2=2), launches_per_minute=20), capability_ready=True)
         reserve(store, "worker")
         other = WorkParallelStore(store.path)
         reserve(other, "review", role="reviewer")
@@ -165,9 +173,9 @@ class WorkParallelTests(unittest.TestCase):
         transition(store, ident, "running")
         assert store.read()["leases"][ident]["state"] == "running"
 
-    def test_waiting_p2_cannot_reacquire_the_p1_reserve(self):
+    def test_waiting_worker_reacquires_only_within_its_priority(self):
         store = self.store
-        call(store, "configure", dict(max_active=2, p1_reserved=1, launches_per_minute=20), capability_ready=True)
+        call(store, "configure", dict(priority_limits=dict(P1=1, P2=1), launches_per_minute=20), capability_ready=True)
         waiting = reserve(store, "waiting-p2", priority="P2")
         call(store, "bind", waiting, "host-wait")
         transition(store, waiting, "waiting_input")
@@ -175,7 +183,7 @@ class WorkParallelTests(unittest.TestCase):
         reserve(store, "busy-p2", priority="P2")
         with self.assertRaises(WorkParallelError):
             call(store, "reacquire", waiting)
-        # P1 may still use the reserved slot ASAP.
+        # P1 has its own slots.
         reserve(store, "urgent", priority="P1")
         assert sum(r["slot"] for r in store.read()["leases"].values()) == 2
 
@@ -296,7 +304,7 @@ class WorkParallelTests(unittest.TestCase):
         store = self.store
         import json
         ident = reserve(store, priority="P1")
-        call(store, "configure", dict(max_active=1), capability_ready=True)
+        call(store, "configure", dict(priority_limits=dict(P1=1)), capability_ready=True)
         with self.assertRaises(WorkParallelError):
             reserve(store, "three", priority="P1")
         doc = store.read()
@@ -413,7 +421,7 @@ class WorkParallelTests(unittest.TestCase):
     def test_single_slot_allows_non_p1(self):
         tmp_path = self.tmp_path
         s = WorkParallelStore(tmp_path / "single.json")
-        call(s, "configure", dict(enabled=True, max_active=1), capability_ready=True)
+        call(s, "configure", dict(enabled=True, priority_limits=dict(P1=1, P2=1, P3=1, P4=1, P5=1)), capability_ready=True)
         ident = reserve(s)
         assert s.read()["leases"][ident]["priority"] == "P2"
 
@@ -434,10 +442,34 @@ class WorkParallelTests(unittest.TestCase):
         store = self.store
         reserve(store, "one", priority="P1")
         reserve(store, "two", priority="P1")
-        call(store, "configure", dict(max_active=1), capability_ready=True)
+        call(store, "configure", dict(priority_limits=dict(P1=1)), capability_ready=True)
         assert len([r for r in store.read()["leases"].values() if r["slot"]]) == 2
         with self.assertRaises(WorkParallelError):
             reserve(store, "three", priority="P1")
+
+
+    def test_ledger_written_with_a_device_cap_migrates_and_keeps_leases(self):
+        import json
+        store = self.store
+        ident = reserve(store, "kept", priority="P2")
+        doc = json.loads(store.path.read_text(encoding="utf-8"))
+        limits = doc["policy"].pop("priority_limits")
+        assert limits == dict(P1=5, P2=3, P3=1, P4=1, P5=1)
+        doc["policy"].update(max_active=8, p1_reserved=3)
+        store.path.write_text(json.dumps(doc), encoding="utf-8")
+        migrated = store.read()
+        assert migrated["policy"]["priority_limits"] == dict(P1=5, P2=3, P3=1, P4=1, P5=1)
+        assert "max_active" not in migrated["policy"] and ident in migrated["leases"]
+        # The next write persists the migrated policy.
+        call(store, "configure", dict(priority_limits=dict(P2=2)), capability_ready=True)
+        stored = json.loads(store.path.read_text(encoding="utf-8"))["policy"]
+        assert stored["priority_limits"]["P2"] == 2 and "max_active" not in stored
+
+    def test_priority_limits_are_bounded(self):
+        store = self.store
+        for bad in (dict(P1=0), dict(P2=17), dict(P6=1), dict(P3="2")):
+            with self.assertRaises(WorkParallelError):
+                call(store, "configure", dict(priority_limits=bad), capability_ready=True)
 
 
 if __name__ == "__main__":

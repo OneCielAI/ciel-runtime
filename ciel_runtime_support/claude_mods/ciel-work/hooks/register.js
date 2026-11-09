@@ -668,8 +668,7 @@ function graphicProps(identity, view, state) {
     nodes: graphicNodes(view, cached), receipts: graphicReceipts(identity),
     actors: sideActors(identity).map(actor => ({ id: actor.id, receipt: actor.receipt_id, model: actor.model,
       reserved: actor.reserved, lease_until: actor.lease_until })),
-    parallel: { active: observatoryParallel?.active_device || 0, max: policy.max_active || 0,
-      reserved: Number(policy.p1_reserved || 0) > 0 },
+    parallel: { active: observatoryParallel?.active_device || 0, max: parallelCapacity(policy) },
     model: observatorySettings?.settings?.find(row => row.key === 'work_side_intake_model')?.value || 'inherit' }
 }
 // One action set for the pane's native control strip (Tab/arrows/Enter and
@@ -894,6 +893,15 @@ function parallelDeny(e, next, scope) {
   return 'Work parallel dispatch denied: ' + detail
     + '. For approved Work, call work_parallel_run: the packaged host starts the fork itself. Do not call Agent unless the result explicitly says native_agent_required; only that fallback needs its exact returned name. /work-mode parallel shows the last failure.'
 }
+const PRIORITY_ORDER = ['P1', 'P2', 'P3', 'P4', 'P5']
+// Per-priority fork limits; the device maximum is their sum.
+function parallelCapacity(policy) {
+  return PRIORITY_ORDER.reduce((sum, key) => sum + (Number(policy?.priority_limits?.[key]) || 0), 0)
+}
+function parallelPriorityUse(state) {
+  const limits = state?.policy?.priority_limits || {}
+  return PRIORITY_ORDER.map(key => key + ' ' + String(state?.active_by_priority?.[key] ?? 0) + '/' + String(limits[key] ?? '?')).join(' · ')
+}
 function parallelItemLabel(r) {
   const ref = r.item_ref ? '[ ' + clipped(r.item_ref, 64) + ' ] ' : ''
   return clipped(r.item_id || '(unknown item)', 80) + (r.item_title ? ' ' + ref + clipped(r.item_title, 160) : '')
@@ -935,8 +943,8 @@ function parallelStatusText(state, scope) {
   const lines = ['Ciel Work parallel',
     'Policy: ' + (p.enabled ? 'enabled' : 'disabled') + (p.paused ? ' · paused' : '')
       + ' · ledger v' + String(state?.version ?? '?')
-      + ' · device slots ' + String(state?.active_device ?? active.length) + '/' + String(p.max_active ?? '?')
-      + ' · P1 reserved ' + String(p.p1_reserved ?? '?')
+      + ' · device slots ' + String(state?.active_device ?? active.length) + '/' + String(parallelCapacity(p) || '?')
+      + ' · per priority ' + parallelPriorityUse(state)
       + ' · launches/min ' + String(p.launches_per_minute ?? '?')
       + ' · max rework ' + String(p.max_rework ?? '?'),
     'Assignments (item → fork agent): ' + leases.length + ' lease(s), ' + active.length + ' holding a slot']
@@ -1155,6 +1163,11 @@ async function parallelAgentSpawn($, e, next) {
       return started
     }
     const scope = await sessionId($)
+    // parallelDirectSpawn reserved this lease before its own native spawn, and
+    // the engine still runs this hook for it. A second reserve for the same item
+    // is always refused, so the fork never started (owned run 2026-11-09).
+    if (request?.lease_id && !request.host_id && request.scope === scope && next.origin?.plugin === 'ciel-work'
+        && e.parentAgentId === undefined && e.fork === true && e.subagentType === 'fork') return next(e)
     if (!request || request.scope !== scope || e.parentAgentId !== undefined
         || e.fork !== true || e.subagentType !== 'fork' || !['engine', 'ciel-work'].includes(next.origin?.plugin)) {
       return { deny: parallelDeny(e, next, scope) }
@@ -1328,8 +1341,8 @@ async function parallelPromptSubmit($, e, next) {
   let recovery = []
   try { recovery = await parallelRecovery($) } catch { /* Unknown host state keeps slots and adds no instruction. */ }
   return workPromptSubmit($, { ...e, context: [...(e.context || []), ...recovery,
-    'Work parallel: read work_parallel_status. Queue registration is not an execution-slot decision; max_active (default 5) limits only workers actually processing. '
-    + 'P1 may use every free slot ASAP; P2 and lower start in remaining slots and wait while all are busy. Dispatch approved items with work_parallel_run, focused items first; the host starts the fork and returns its lease, so do not call Agent for a Work dispatch. '
+    'Work parallel: read work_parallel_status. Queue registration is not an execution-slot decision; policy.priority_limits (default P1 5, P2 3, P3-P5 1) limit only fork sessions actually processing, per priority. '
+    + 'A priority at its limit waits while the others keep starting. Dispatch approved items with work_parallel_run, focused items first; the host starts the fork and returns its lease, so do not call Agent for a Work dispatch. '
     + 'A waiting/blocked worker returns its slot but its item and lease stay recorded; resume it only after its slot is reacquired. Submission is not completion: validate, review, accept, observe idle and verify cleanup before done. '
     + 'Unknown host capacity retains actually-running slots. Native permissions remain authoritative; this is not a shell sandbox.'] }, next)
 }
@@ -1822,7 +1835,7 @@ export function register(on) {
         text('WORK ' + cached.version + ' · ' + cached.phase + ' · ' + cached.done + '/' + cached.total,
           { color: cached.phase === 'planning' ? 'planMode' : 'suggestion', weight: 'bold' }),
         text('Queue ' + queueOf(cached).length + ' · Side ' + sidePanelReceipts.length
-          + (observatoryParallel ? ' · Slots ' + observatoryParallel.active_device + '/' + observatoryParallel.policy.max_active : ''), { dimColor: true }),
+          + (observatoryParallel ? ' · Slots ' + observatoryParallel.active_device + '/' + parallelCapacity(observatoryParallel.policy) : ''), { dimColor: true }),
       ] })
 
     const rows = []

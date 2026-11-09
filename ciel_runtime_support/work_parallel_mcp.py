@@ -5,7 +5,7 @@ import json
 import hmac
 from pathlib import Path
 from . import work_plan_tree as tree
-from .work_parallel import WorkParallelStore, WorkParallelError
+from .work_parallel import WorkParallelStore, WorkParallelError, active_by_priority
 
 TOOL_NAMES = ("work_parallel_status", "work_parallel_configure", "work_parallel_run", "work_parallel_event", "work_discovery_pickup")
 
@@ -82,6 +82,7 @@ def project(store, identity, board=None):
             lease.update(details.get(lease["item_id"], {}))
     return {"version": d["version"], "policy": d["policy"],
             "active_device": sum(r["slot"] for r in d["leases"].values()),
+            "active_by_priority": active_by_priority(d["leases"]),
             "leases": leases,
             "runtime": "claude" if identity.startswith("claude:") else "codex",
             "codex_adapter": "unsupported",
@@ -168,8 +169,19 @@ def run(name, args, board_store, identity, config, save_config):
         workspace = None
         if host.get("workspace_repo"):
             from .work_parallel_workspace import prepare
-            workspace = prepare(host["workspace_repo"], ident)
-            d, _ = store.attach_workspace(ident, workspace, expected_version=d["version"])
+            try:
+                workspace = prepare(host["workspace_repo"], ident)
+                d, _ = store.attach_workspace(ident, workspace, expected_version=d["version"])
+            except Exception as error:
+                # The reservation is not returned to the host on failure, so no
+                # one could bind or release it: it held a slot for good (owned
+                # runs and the live ledger, 2026-11-09). Release it here.
+                current = store.read()
+                if current["leases"].get(ident, {}).get("host_id", 0) is None:
+                    store.release_unbound(ident, proof="workspace preparation failed: " + type(error).__name__,
+                                          expected_version=current["version"])
+                raise WorkParallelError("workspace preparation failed; reservation released: "
+                                        + (str(error) or type(error).__name__)[:300]) from error
         return json.dumps({"lease_id": ident, "version": d["version"], "plan_version": board["version"], "workspace": workspace, **item})
     d = store.read()
     lease = d["leases"].get(args.get("lease_id"))

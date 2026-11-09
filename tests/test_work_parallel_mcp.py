@@ -1,6 +1,7 @@
 """Focused temporary-ledger/router/host tests; never start runtime sessions."""
 
 import json
+import subprocess
 from unittest.mock import patch
 import unittest
 from pathlib import Path
@@ -213,6 +214,28 @@ class WorkParallelMCPTests(unittest.TestCase):
             record = observe(repo, ident)
             self.assertTrue(record["idle"])
             self.assertEqual(record["host_id"], "native-worker")
+
+    def test_failed_workspace_preparation_releases_its_reservation(self):
+        store, board, config, run = self.env
+        not_root = self.tmp_path / "plain"
+        not_root.mkdir()
+        from ciel_runtime_support import runtime_paths
+        from ciel_runtime_support import work_parallel_workspace
+        with patch.object(runtime_paths, "CONFIG_DIR", self.tmp_path / "cfg"):
+            run("configure", {}, changes={"enabled": True, "priority_limits": {"P2": 1}})
+            # Owned runs 2026-11-09: "repo must be exact worktree root" and a git
+            # timeout each left a reserved lease that held the only slot.
+            with self.assertRaisesRegex(Exception, "reservation released"):
+                run("event", {"fork": True, "workspace_repo": str(not_root)}, event="reserve", item_id="n1", priority="P2")
+            self.assertEqual({}, store.read()["leases"])
+            def hang(*args, **kwargs):
+                raise subprocess.TimeoutExpired(args[0], 30)
+            with patch.object(work_parallel_workspace.subprocess, "run", hang):
+                with self.assertRaisesRegex(Exception, "timed out after"):
+                    run("event", {"fork": True, "workspace_repo": str(not_root)}, event="reserve", item_id="n1", priority="P2")
+            self.assertEqual({}, store.read()["leases"])
+            # The slot is free again: a plain reservation is admitted.
+            self.assertIn("lease_id", run("event", {"fork": True}, event="reserve", item_id="n1", priority="P2"))
 
     def test_status_enriches_leases_with_item_assignment_metadata(self):
         env = self.env

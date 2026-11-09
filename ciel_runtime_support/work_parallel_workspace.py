@@ -5,6 +5,7 @@ import json
 import os
 from pathlib import Path
 import subprocess
+import time
 import uuid
 from .channel_message_repository import exclusive_file_lock
 from .worktree_cleanup import cleanup_worktree
@@ -13,8 +14,15 @@ class WorkspaceError(ValueError):
     pass
 
 def _git(repo, *args):
-    r = subprocess.run(["git", "-C", str(repo), *args], capture_output=True,
-                       text=True, encoding="utf-8", timeout=30, check=False, stdin=subprocess.DEVNULL)
+    started = time.monotonic()
+    try:
+        r = subprocess.run(["git", "-C", str(repo), *args], capture_output=True,
+                           text=True, encoding="utf-8", timeout=30, check=False, stdin=subprocess.DEVNULL)
+    except subprocess.TimeoutExpired as exc:
+        # Seen only inside the router (owned run 2026-11-09: worktree add, 30 s);
+        # the same command outside it took 0.06 s. Name the step for the log.
+        raise WorkspaceError("git " + " ".join(str(a) for a in args[:2]) + " timed out after "
+                             + format(time.monotonic() - started, ".0f") + " s") from exc
     if r.returncode:
         raise WorkspaceError("Git verification failed: " + r.stderr.strip()[:400])
     return r.stdout.strip()

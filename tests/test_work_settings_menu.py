@@ -11,7 +11,7 @@ class UnifiedSettingsTests(unittest.TestCase):
         self.assertEqual(['on', 'off', 'back'], choices({'language': 'ko'}, 'work_mode')[1])
         self.assertEqual(['ask', 'auto', 'back'], choices({}, 'work_plan_approval_ask')[1])
         self.assertEqual(['session', 'btw_with_mcp', 'back'], choices({}, 'sse_injection_mode')[1])
-        self.assertNotIn('__edit__', choices({}, 'work_parallel_max_active')[1])
+        self.assertNotIn('__edit__', choices({}, 'work_parallel_p1_limit')[1])
 
     def test_every_description_and_feedback_is_localized(self):
         for key, texts in DESCRIPTIONS.items():

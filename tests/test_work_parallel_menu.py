@@ -13,11 +13,11 @@ class ParallelMenuTests(unittest.TestCase):
             config = {}
             saved = []
             with patch("ciel_runtime_support.work_parallel_mcp.ledger", return_value=store):
-                self.assertEqual(len(rows(config)), 9)
-                apply(config, "work_parallel_max_active", "2", lambda c: saved.append(dict(c)))
+                self.assertEqual(len(rows(config)), 12)
+                apply(config, "work_parallel_p1_limit", "2", lambda c: saved.append(dict(c)))
                 apply(config, "work_parallel_launches_per_minute", "6", lambda c: saved.append(dict(c)))
                 apply(config, "work_discovery_enabled", "on", lambda c: saved.append(dict(c)))
-                self.assertEqual(store.read()["policy"]["max_active"], 2)
+                self.assertEqual(store.read()["policy"]["priority_limits"], dict(P1=2, P2=3, P3=1, P4=1, P5=1))
                 self.assertEqual(store.read()["policy"]["launches_per_minute"], 6)
                 self.assertTrue(config["work_discovery"]["enabled"])
                 self.assertEqual(len(saved), 3)
@@ -44,7 +44,7 @@ class ParallelMenuTests(unittest.TestCase):
             store = WorkParallelStore(Path(root) / "parallel.json")
             with patch("ciel_runtime_support.work_parallel_mcp.ledger", return_value=store):
                 with self.assertRaises(ValueError):
-                    apply({}, "work_parallel_max_active", "0", lambda c: self.fail("saved"))
+                    apply({}, "work_parallel_p3_limit", "0", lambda c: self.fail("saved"))
 
 
 if __name__ == "__main__":

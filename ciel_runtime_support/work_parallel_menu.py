@@ -1,9 +1,10 @@
 """Shared menu controls for the global Work parallel ledger and idle discovery."""
 from .work_parallel import WorkParallelError
 
-KEYS = ("work_parallel_enabled", "work_parallel_paused", "work_parallel_max_active",
+PRIORITY_KEYS = tuple(f"work_parallel_p{n}_limit" for n in range(1, 6))
+KEYS = ("work_parallel_enabled", "work_parallel_paused", *PRIORITY_KEYS,
         "work_discovery_enabled", "work_discovery_test_default_override", "work_discovery_instruction",
-        "work_parallel_p1_reserved", "work_parallel_launches_per_minute", "work_parallel_max_rework")
+        "work_parallel_launches_per_minute", "work_parallel_max_rework")
 
 
 def rows(config, language=None):
@@ -15,10 +16,11 @@ def rows(config, language=None):
     except (ValueError, OSError):
         return [(menu_text("work_parallel_unavailable", language), "__info__", "unavailable")]
     d = config.get("work_discovery", {})
-    values = (str(p["enabled"]).lower(), str(p["paused"]).lower(), str(p["max_active"]),
+    values = (str(p["enabled"]).lower(), str(p["paused"]).lower(),
+              *(str(p["priority_limits"][f"P{n}"]) for n in range(1, 6)),
               str(d.get("enabled", True)).lower(), str(d.get("test_default_override", True)).lower(),
               d.get("instruction", menu_text("default_instruction", language)),
-              str(p["p1_reserved"]), str(p["launches_per_minute"]), str(p["max_rework"]))
+              str(p["launches_per_minute"]), str(p["max_rework"]))
     return [(menu_text(key, language), key, value) for key, value in zip(KEYS, values)]
 
 
@@ -46,10 +48,10 @@ def apply(config, key, value, save_config):
         field = key[len("work_parallel_"):]
         if field in ("enabled", "paused"):
             changes = {field: boolean()}
-        elif field == "max_active":
-            cap = int(token)
-            changes = {field: cap, "p1_reserved": min(cap, state["policy"]["p1_reserved"])}
-        elif field in ("p1_reserved", "launches_per_minute", "max_rework"):
+        elif key in PRIORITY_KEYS:
+            # Concurrent fork sessions for one priority; the others are unchanged.
+            changes = {"priority_limits": {"P" + field[1]: int(token)}}
+        elif field in ("launches_per_minute", "max_rework"):
             changes = {field: int(token)}
         else:
             raise WorkParallelError("unknown Work parallel option")

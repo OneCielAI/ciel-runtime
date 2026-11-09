@@ -33,12 +33,13 @@ class LiveSettingsTests(unittest.TestCase):
             saved = []
             with patch('ciel_runtime_support.work_parallel_mcp.ledger', return_value=ledger):
                 for key, value in [('work_mode', 'on'), ('work_auto_continue', 'off'),
-                                   ('work_parallel_max_active', '4'), ('work_side_intake_enabled', 'on')]:
+                                   ('work_parallel_p2_limit', '4'), ('work_side_intake_enabled', 'on')]:
                     result = settings(config, {'key': key, 'value': value}, lambda c: saved.append(dict(c)))
                 self.assertTrue(config['work_mode'])
                 self.assertFalse(config['work_auto_continue'])
                 self.assertTrue(config['work_side_intake']['enabled'])
-                self.assertEqual(4, ledger.read()['policy']['max_active'])
+                self.assertEqual(4, ledger.read()['policy']['priority_limits']['P2'])
+                self.assertEqual(5, ledger.read()['policy']['priority_limits']['P1'])
                 self.assertEqual(4, len(saved))
                 self.assertIn('work_discovery_instruction', [r['key'] for r in result['settings']])
 
@@ -90,7 +91,7 @@ class LiveSettingsTests(unittest.TestCase):
                              (rows['work_plan_approval_ask']['kind'],rows['work_plan_approval_ask']['value'],
                               rows['work_plan_approval_ask']['choices']))
             self.assertEqual('boolean',rows['work_mode']['kind'])
-            self.assertEqual('number',rows['work_parallel_max_active']['kind'])
+            self.assertEqual(['number']*5,[rows[f'work_parallel_p{n}_limit']['kind'] for n in range(1,6)])
             self.assertEqual('text',rows['work_discovery_instruction']['kind'])
             self.assertEqual('json',rows['work_side_intake_reply_connectors']['kind'])
             self.assertEqual('model',rows['work_side_intake_model']['kind'])

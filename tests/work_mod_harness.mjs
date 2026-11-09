@@ -189,7 +189,7 @@ const scenarios = {
       L2: { id: 'L2', item_id: 'n228', priority: 'P2', role: 'reviewer', state: 'reserved', slot: true, plan_version: 7 },
     }
     const parallel = { version: 12, active_device: 2,
-      policy: { enabled: true, paused: false, max_active: 3, p1_reserved: 1, launches_per_minute: 4, max_rework: 2 }, leases }
+      policy: { enabled: true, paused: false, priority_limits: { P1: 5, P2: 3, P3: 1, P4: 1, P5: 1 }, launches_per_minute: 4, max_rework: 2 }, leases }
     const { $ } = host(async (tool, args) => {
       if (tool === 'work_parallel_status') return text(parallel)
       if (tool === 'work_status' && args.detail) return text({ ...board, version: 5, root_id: 'n1', nodes: board.nodes })
@@ -229,7 +229,7 @@ const scenarios = {
   // keeps the Work item queued.
   async 'parallel-direct-spawn-started'() {
     const parallel = { version: 11, active_device: 0,
-      policy: { enabled: true, paused: false, max_active: 3, p1_reserved: 1, launches_per_minute: 4, max_rework: 2 }, leases: {} }
+      policy: { enabled: true, paused: false, priority_limits: { P1: 5, P2: 3, P3: 1, P4: 1, P5: 1 }, launches_per_minute: 4, max_rework: 2 }, leases: {} }
     const calls = []
     const { $, state } = host(async (tool, args) => {
       if (tool === 'work_parallel_status') return text(parallel)
@@ -248,9 +248,42 @@ const scenarios = {
       item_id: 'n227', priority: 'P1', role: 'worker', expected_version: 11 }, next({}))
     return { run: JSON.parse(run.result), spawned: state.spawned, calls }
   },
+  async 'parallel-direct-spawn-through-own-hook'() {
+    // The engine runs ciel-work's agent.spawn hook for the host's own spawn
+    // (owned run 2026-11-09, "agent.spawn nested in ciel-work"). The router
+    // refuses a second reserve for the same item, as work_parallel.py does.
+    const parallel = { version: 11, active_device: 0,
+      policy: { enabled: true, paused: false, priority_limits: { P1: 1, P2: 1, P3: 1, P4: 1, P5: 1 }, launches_per_minute: 4, max_rework: 2 }, leases: {} }
+    const calls = []
+    let reserved = 0
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_parallel_status') return text(parallel)
+      if (tool === 'work_parallel_event') {
+        calls.push(args.event)
+        if (args.event === 'reserve') {
+          if (++reserved > 1) return { content: [{ type: 'text', text: 'active slot capacity reached' }], isError: true }
+          return text({ lease_id: 'L9', version: 12, plan_version: 5 })
+        }
+        if (args.event === 'bind') return text({ version: 13, leases: {} })
+        if (args.event === 'release') return text({ lease_id: 'L9', version: 13, released: true })
+      }
+      return text(snapshot())
+    })
+    $.session.repo = async () => null
+    $.session.root = async () => '/repo'
+    $.agent.spawn = async (args) => {
+      const own = async (input) => { state.spawned = input; return { agentId: 'host-9', model: 'fixture' } }
+      own.origin = { plugin: 'ciel-work' }
+      return handlers['agent.spawn']($, { ...args, fork: true }, own)
+    }
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    const run = await handlers['tool.call']($, { tool: 'mcp__ciel-runtime-router__work_parallel_run',
+      item_id: 'n227', priority: 'P2', role: 'worker', expected_version: 11 }, next({}))
+    return { run: JSON.parse(run.result), spawned: state.spawned || null, calls }
+  },
   async 'parallel-direct-spawn-denied-releases'() {
     const parallel = { version: 11, active_device: 0,
-      policy: { enabled: true, paused: false, max_active: 3, p1_reserved: 1, launches_per_minute: 4, max_rework: 2 }, leases: {} }
+      policy: { enabled: true, paused: false, priority_limits: { P1: 5, P2: 3, P3: 1, P4: 1, P5: 1 }, launches_per_minute: 4, max_rework: 2 }, leases: {} }
     const calls = []
     const { $ } = host(async (tool, args) => {
       if (tool === 'work_parallel_status') return text(parallel)
@@ -274,7 +307,7 @@ const scenarios = {
   // user-facing parallel view must expose the pending name without a router read.
   async 'parallel-missing-agent-name'() {
     const parallel = { version: 11, active_device: 0,
-      policy: { enabled: true, paused: false, max_active: 3, p1_reserved: 1, launches_per_minute: 4, max_rework: 2 }, leases: {} }
+      policy: { enabled: true, paused: false, priority_limits: { P1: 5, P2: 3, P3: 1, P4: 1, P5: 1 }, launches_per_minute: 4, max_rework: 2 }, leases: {} }
     const { $ } = host(async (tool) => tool === 'work_parallel_status' ? text(parallel) : text(snapshot()))
     $.session.repo = async () => null
     $.session.root = async () => '/repo'
@@ -383,7 +416,7 @@ const scenarios = {
   },
   async 'parallel-spawn-denied-releases-unbound'() {
     const parallel = { version: 11, active_device: 0,
-      policy: { enabled: true, paused: false, max_active: 3, p1_reserved: 1, launches_per_minute: 4, max_rework: 2 }, leases: {} }
+      policy: { enabled: true, paused: false, priority_limits: { P1: 5, P2: 3, P3: 1, P4: 1, P5: 1 }, launches_per_minute: 4, max_rework: 2 }, leases: {} }
     const calls = []
     const { $ } = host(async (tool, args) => {
       if (tool === 'work_parallel_status') return text(parallel)

@@ -73,7 +73,7 @@ def settings(config, args, save):
                      'work_discovery_test_default_override'}
     projected += [{'key': k, 'label': label, 'value': value,
                    'kind': 'boolean' if k in bool_parallel else 'number' if k in {
-                       'work_parallel_max_active', 'work_parallel_p1_reserved',
+                       *(f'work_parallel_p{n}_limit' for n in range(1, 6)),
                        'work_parallel_launches_per_minute', 'work_parallel_max_rework'} else 'text'}
                   for label, k, value in rows(config)]
     projected.append({'key': 'work_discovery_file_path',
