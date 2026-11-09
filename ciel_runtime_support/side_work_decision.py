@@ -36,6 +36,10 @@ class WorkChanged(tree.WorkPlanError):
 def validate(decision):
     if not isinstance(decision, dict) or set(decision) - FIELDS:
         raise tree.WorkPlanError('invalid side decision fields')
+    # Live side models sometimes put the classification in both fields
+    # (action="status"/"info") instead of mapping it to action="answer".
+    if decision.get('action') in ('status', 'info') and decision.get('kind') == decision['action']:
+        decision['action'] = 'answer'
     if decision.get('action') not in ACTIONS:
         raise tree.WorkPlanError('invalid side decision action')
     if decision.get('kind', 'request') not in KINDS:
@@ -53,8 +57,13 @@ def validate(decision):
         raise tree.WorkPlanError('invalid side decision queue_position')
     action = decision['action']
     kind = decision.get('kind')
-    if action in ('answer', 'clarify') and any(key in decision for key in ('note', 'title', 'priority', 'queue_position')):
-        raise tree.WorkPlanError('answer-only decisions cannot carry Work edits')
+    # Models occasionally copy Work-identifying fields into a status/info answer.
+    # They are presentation noise: answer/clarify never mutates Work, so discard
+    # them instead of failing the entire external message (Walkie 2026-11-09).
+    if action in ('answer', 'clarify'):
+        for key in ('item_id', 'note', 'title', 'priority', 'queue_position'):
+            decision.pop(key, None)
+        place = None
     if kind in ('status', 'info') and action != 'answer' or kind == 'clarify' and action != 'clarify':
         raise tree.WorkPlanError('side decision kind does not match its action')
     if kind == 'request' and action not in ('create', 'update', 'prioritize'):
@@ -98,12 +107,16 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
                 raise tree.WorkPlanError('side event already applied with different decision')
             return {**prior['result'], 'duplicate': True}
         action = decision['action']
+        effective_kind = decision.get('kind')
         item = decision.get('item_id')
         by_id = {node['id']: node for node in doc['nodes']}
         if action in ('update', 'prioritize', 'advise') and item not in by_id:
             raise tree.WorkPlanError('side target Work item missing')
         if action in ('update','prioritize') and by_id[item]['status']=='done':
-            raise tree.WorkPlanError('completed Work cannot be reopened by side decision')
+            # A delayed approval/status event may name Work main already finished.
+            # Report the current completed state without reopening or editing it.
+            action = 'answer'
+            effective_kind = 'status'
         if action == 'create' and observed_digest is not None and observed_digest != unfinished_digest(doc):
             # The actor decided "new" against a board main has since changed;
             # the event is re-evaluated against the current board instead.
@@ -120,18 +133,25 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
                  if node.get('waiting_on') or node.get('status') == 'blocked']
         place = decision.get('queue_position')
         if action == 'create':
-            if not decision.get('title', '').strip():
+            title = decision.get('title', '').strip()
+            if not title:
+                # The actor already supplied a bounded restatement. Preserve the
+                # request instead of losing it solely because it omitted a short
+                # display title (Walkie live failure 2026-11-09).
+                title = decision['summary'].strip().splitlines()[0][:tree.MAX_TITLE_CHARS].strip()
+            if not title:
                 raise tree.WorkPlanError('new Work title required')
-            item = tree.add_node(doc, None, decision['title'], note=decision.get('note', ''),
+            item = tree.add_node(doc, None, title, note=decision.get('note', ''),
                                  priority=decision.get('priority', ''), ref='side:' + receipt_id[:40])
             # add_node inserts priority-ordered roots behind the active goal. P1
             # therefore becomes the first pending root and is immediately visible
             # to the main parallel scheduler without stealing the active slot.
         elif action == 'update':
-            if not decision.get('note', '').strip():
+            note = decision.get('note', '').strip() or decision['summary'].strip()
+            if not note:
                 raise tree.WorkPlanError('Work update note required')
             previous = by_id[item].get('note', '')
-            addition = '\n\nSide request: ' + decision['note']
+            addition = '\n\nSide request: ' + note
             if len(previous + addition) > tree.MAX_TEXT_CHARS:
                 raise tree.WorkPlanError('side update exceeds note capacity; original preserved')
             # Side observations are input for main to review, not a scope change
@@ -187,8 +207,8 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
                   'reply': decision['reply'], 'delivery': 'pending', 'execution_approved': False,
                   'handoff': 'requested' if needs_handoff else 'not_required',
                   'based_on_version': expected_version}
-        if decision.get('kind'):
-            result['kind'] = decision['kind']
+        if effective_kind:
+            result['kind'] = effective_kind
         if needs_handoff:
             result['main_handoff'] = {'kind': kind, 'waits': handoffs[receipt_id]['waits'],
                                       'question': handoffs[receipt_id]['question']}
@@ -198,11 +218,11 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             position['version'] = doc['version'] + 1
             result.update(title=node['title'], priority=by_id[tree._root_of(by_id, item)].get('priority', ''),
                           queue=position)
-        if decision.get('kind'):
+        if effective_kind:
             # Requests carry an explicit ACK together with the model's transcript-
             # based restatement. Status/info answer directly without boilerplate.
             text = decision['reply'].rstrip()
-            if decision['kind'] == 'request':
+            if effective_kind == 'request':
                 text = 'ACK — ' + text
             # The committed outcome, never the model's guess, closes the reply.
             result['final_text'] = text + '\n\n' + outcome_text(result)

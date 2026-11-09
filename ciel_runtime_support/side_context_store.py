@@ -23,6 +23,30 @@ def redact_text(value):
     return _SECRET.sub(r'\1‹hidden›', str(value))
 
 
+def main_turn_request(headers, body):
+    """True when this main-session request is a turn of the conversation itself.
+
+    Claude Code sends auxiliary forks (prompt suggestion, session title) and
+    compaction under the main session id without an agent id. Their history is
+    main's plus one extra instruction, so capturing one would make every side
+    actor follow that instruction (Prody 2026-11-09: 846 actors projected the
+    prompt-suggestion request and answered "Status check", "Silent").
+    """
+    request_class = str((headers or {}).get('x-claude-code-request-class') or '').casefold()
+    if request_class:
+        return request_class == 'main'
+    # Launched before gateway hint headers were enabled: the suggestion fork is
+    # still recognisable by the instruction Claude Code 2.1.319 appends last.
+    messages = body.get('messages') if isinstance(body, dict) else None
+    last = messages[-1] if isinstance(messages, list) and messages else None
+    if not isinstance(last, dict) or last.get('role') != 'user':
+        return True
+    content = last.get('content')
+    blocks = [{'type': 'text', 'text': content}] if isinstance(content, str) else content
+    first = next((b.get('text') for b in blocks or [] if isinstance(b, dict) and b.get('type') == 'text'), None)
+    return not (isinstance(first, str) and first.lstrip().startswith('[SUGGESTION MODE:'))
+
+
 def bound_session(identity):
     """True when the router's current main binding is exactly this conversation."""
     from .runtime_paths import ROUTER_INSTANCE_DIR

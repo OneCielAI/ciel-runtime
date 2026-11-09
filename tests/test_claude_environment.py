@@ -156,6 +156,7 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
         self.assertEqual("token", env["ANTHROPIC_AUTH_TOKEN"])
         self.assertEqual("1024", env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"])
         self.assertEqual("1", env["CLAUDE_CODE_DISABLE_TERMINAL_TITLE"])
+        self.assertEqual("1", env["CLAUDE_CODE_GATEWAY_HINT_HEADERS"])
         self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
         self.assertEqual("1", env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"])
 

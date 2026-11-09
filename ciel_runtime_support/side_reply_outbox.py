@@ -35,7 +35,14 @@ def prepare(state_dir, identity, receipt_id, *, config=None):
         connector = None
         if route.get('source_kind') == 'external_event':
             from .side_reply_connector import prepare as connector_prepare
-            connector = connector_prepare(config or {}, route, receipt_id, message, kind, original=row.get('text', ''))
+            original = row.get('text', '')
+            event_key = str(row.get('event_key') or '')
+            if event_key.startswith('handoff:'):
+                # A coordinator follow-up answers the event that asked; its own
+                # text is the answer, so the reply target is that event's.
+                source = inbox._load(event_key[len('handoff:'):])
+                original = source.get('text', '') if source else ''
+            connector = connector_prepare(config or {}, route, receipt_id, message, kind, original=original)
         # External receiver channel names alone are not outbound connectors.
         if connector is None and (route.get('source_kind') != 'web_chat' or not route.get('reply_token') or not route.get('channel')):
             # Legacy actors may have answered through the source MCP themselves

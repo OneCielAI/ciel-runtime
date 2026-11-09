@@ -12,6 +12,12 @@ from ciel_runtime_support.side_intake_inbox import SideIntakeInbox
 from ciel_runtime_support.side_intake_processing import claim
 
 
+def event_text(message):
+    """The projected event JSON block; the side contract follows it as its own block."""
+    content = message['content']
+    return content[0]['text'] if isinstance(content, list) else content
+
+
 class SideContextRouterTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -45,7 +51,7 @@ class SideContextRouterTests(unittest.TestCase):
         expected=copy.deepcopy(self.parent['messages'])
         expected[-1]['content']=[{'type':'text','text':'current main request','cache_control':{'type':'ephemeral'}}]
         self.assertEqual(expected,result['messages'][:len(expected)])
-        self.assertIn('external question',result['messages'][-1]['content'])
+        self.assertIn('external question',event_text(result['messages'][-1]))
 
     def test_teammate_wrapper_with_trailing_newline_is_recognized(self):
         wrapped=copy.deepcopy(self.body)
@@ -56,7 +62,7 @@ class SideContextRouterTests(unittest.TestCase):
         expected=copy.deepcopy(self.parent['messages'])
         expected[-1]['content']=[{'type':'text','text':'current main request','cache_control':{'type':'ephemeral'}}]
         self.assertEqual(expected,result['messages'][:len(expected)])
-        self.assertIn('external question',result['messages'][-1]['content'])
+        self.assertIn('external question',event_text(result['messages'][-1]))
 
     def test_full_parent_prefix_and_current_board_are_exact_and_main_untouched(self):
         original = copy.deepcopy(self.parent)
@@ -69,8 +75,33 @@ class SideContextRouterTests(unittest.TestCase):
         projected=copy.deepcopy(original['messages'])
         projected[-1]['content']=[{'type':'text','text':'current main request','cache_control':{'type':'ephemeral'}}]
         self.assertEqual(projected,result['messages'][:len(projected)])
-        self.assertIn('n21',result['messages'][-1]['content'])
+        self.assertIn('n21',event_text(result['messages'][-1]))
         self.assertEqual('agent-1',self.store.read(self.store.path(self.handle['key']))['agent_id'])
+
+    def test_side_contract_is_last_block_after_projected_main_history(self):
+        # Walkie 2026-11-09: with the contract only inside the event JSON, actors
+        # under main's projected history answered as main, without decision JSON.
+        envelope={**self.envelope,'instruction':'Return one JSON decision.'}
+        body={**self.body,'messages':[{'role':'user','content':json.dumps(envelope)}]}
+        result=project(self.root,self.identity,'contract',body,{'work_side_intake':self.settings},'fixture',None)
+        blocks=result['messages'][-1]['content']
+        self.assertEqual(2,len(blocks))
+        self.assertNotIn('instruction',json.loads(blocks[0]['text']))
+        self.assertTrue(blocks[1]['text'].startswith('SIDE ACTOR TURN.'))
+        self.assertIn('Return one JSON decision.',blocks[1]['text'])
+        self.assertTrue(blocks[1]['text'].endswith('"expected_version":N} and nothing else.'))
+
+    def test_main_unanswered_turn_is_closed_before_the_side_event(self):
+        # Owned run 2026-11-09: the actor answered main's pending "reply exactly:
+        # TURN-2-DONE" because the side event merged into main's open turn.
+        from ciel_runtime_support.side_context_router import MAIN_PAUSED
+        result=project(self.root,self.identity,'closed',self.body,{'work_side_intake':self.settings},'fixture',None)
+        parent_count=len(self.parent['messages'])
+        self.assertEqual('user',result['messages'][parent_count-1]['role'])
+        self.assertEqual({'role':'assistant','content':[{'type':'text','text':MAIN_PAUSED}]},
+                         result['messages'][parent_count])
+        self.assertEqual('user',result['messages'][parent_count+1]['role'])
+        self.assertEqual(parent_count+2,len(result['messages']))
 
     def test_primary_projection_shows_only_tools_the_side_actor_can_run(self):
         # Prody 2026-11-08: projected parent Bash/Write/restart schemas made side
@@ -92,7 +123,7 @@ class SideContextRouterTests(unittest.TestCase):
         body={**self.body,'messages':[{'role':'user','content':json.dumps(envelope)}]}
         result=project(self.root,self.identity,'agent-preview',body,
                        {'work_side_intake':self.settings},'fixture',None)
-        forwarded=json.loads(result['messages'][-1]['content'])
+        forwarded=json.loads(event_text(result['messages'][-1]))
         self.assertNotIn('parent_context',forwarded)
         self.assertEqual('external question',forwarded['original'])
 
@@ -227,8 +258,11 @@ class SideContextRouterTests(unittest.TestCase):
         body={**self.body,'messages':self.body['messages']+[{'role':'assistant','content':'done'}, {'role':'user','content':'The coordinator sent a message while you were working:\n'+json.dumps(envelope)+'\n\nAddress this before completing your current task.'}]}
         next_request=project(self.root,self.identity,'a',body,{'work_side_intake':self.settings},'fixture',None)
         self.assertEqual(first['system'],next_request['system'])
-        self.assertEqual(first['messages'],next_request['messages'][:len(first['messages'])])
-        self.assertIn('"version": 8',next_request['messages'][-1]['content'])
+        # One actor serves one event in production; the projected parent prefix
+        # is what must stay byte-identical between events.
+        parent_count=len(self.parent['messages'])
+        self.assertEqual(first['messages'][:parent_count],next_request['messages'][:parent_count])
+        self.assertIn('"version": 8',event_text(next_request['messages'][-1]))
 
     def test_new_parent_version_rebases_between_events_not_inside_signed_history(self):
         project(self.root,self.identity,'a',self.body,{'work_side_intake':self.settings},'fixture',None)

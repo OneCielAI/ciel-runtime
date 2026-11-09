@@ -1,0 +1,83 @@
+{
+  "released_84cd701": {
+    "result_file": "owned-suggestion-capture-old-20261109-053037/result.json",
+    "sha256": "f7f26bd9450a8f4ef137752c9f984d9f4933b92d4eed16122ddd7375622f5980",
+    "outcome": "completed",
+    "turns": [
+      {
+        "marker": "TURN-1-DONE",
+        "done": true
+      },
+      {
+        "marker": "TURN-2-DONE",
+        "done": true
+      }
+    ],
+    "capture_before_events": null,
+    "events": [
+      {
+        "label": "status",
+        "action": null,
+        "kind": null,
+        "failure": "invalid_answer",
+        "outbox": null
+      },
+      {
+        "label": "request",
+        "action": null,
+        "kind": null,
+        "failure": "invalid_answer",
+        "outbox": null
+      }
+    ],
+    "actor_finals": [
+      "Silence",
+      "Stay silent"
+    ],
+    "walkie_sends": 0,
+    "duplicate_client_ids": 0,
+    "owned_router_pids_after": []
+  },
+  "fixed_6d0f7ce": {
+    "result_file": "owned-suggestion-capture-fixed-20261109-053310/result.json",
+    "sha256": "b776113196305b6c2d76dd4b1aaf78a6adc3a56a112dbcbd74b683f7540476dd",
+    "outcome": "completed",
+    "turns": [
+      {
+        "marker": "TURN-1-DONE",
+        "done": true
+      },
+      {
+        "marker": "TURN-2-DONE",
+        "done": true
+      }
+    ],
+    "capture_before_events": {
+      "kind": "main",
+      "expected": "main"
+    },
+    "events": [
+      {
+        "label": "status",
+        "action": "answer",
+        "kind": "status",
+        "failure": null,
+        "outbox": "submitted"
+      },
+      {
+        "label": "request",
+        "action": "create",
+        "kind": "request",
+        "failure": null,
+        "outbox": "submitted"
+      }
+    ],
+    "actor_finals": [
+      "```json\n{\"decision\":{\"action\":\"answer\",\"kind\":\"status\",\"summary\":\"진행 중 1건(n1 결제 모듈 리팩터링, 하위 n2·n3 대기), 대기열 3건(n4·n5·n6)\"",
+      "{\"decision\":{\"action\":\"create\",\"kind\":\"request\",\"title\":\"로그인 화면 비밀번호 보기 토글 추가\",\"summary\":\"로그인 화면의 비밀번호 입력란에 보기/숨기기 토글 버튼"
+    ],
+    "walkie_sends": 2,
+    "duplicate_client_ids": 0,
+    "owned_router_pids_after": []
+  }
+}
