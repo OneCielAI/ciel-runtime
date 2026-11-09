@@ -1,0 +1,867 @@
+{
+  "base": "C:\\Users\\<user>\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-suggestion-capture-paused-20261109-110059",
+  "snapshot": "C:\\Users\\<user>\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\probe-contract2",
+  "port": 9621,
+  "side_model": "_Walkie_Haiku_Terra",
+  "outcome": "completed",
+  "events": [
+    {
+      "label": "status",
+      "message_id": "9001",
+      "text": "지금 작업 상태 어때? 진행 중인 것과 대기열만 알려줘.",
+      "sent_at": 1794243768.1159995,
+      "receipt": {
+        "receipt_id": "40d1efcef02ae706ebc3d9f7b0e5be33ee89434c88a448456e58db273d7f20bf",
+        "folder": "receipts",
+        "event_key": "urn:owned:walkie:walkie-9001",
+        "stage": "processed",
+        "received_at": 1794243771.4320228,
+        "claimed_at": 1794243772.2750013,
+        "consumed_at": 1794243781.7101488,
+        "outbox": {
+          "state": "submitted",
+          "updated_at": 1794243782.3634608,
+          "attempt_id": "a19fc8561f3a410b98e8418520aef769"
+        },
+        "action": "answer",
+        "kind": "status",
+        "item_id": null,
+        "queue": null,
+        "duplicate": false,
+        "delivery": "submitted",
+        "final_text": "진행 중: 결제 모듈 리팩터링(결제 어댑터 인터페이스 분리, 회귀 테스트 보강이 아직 대기 상태)입니다.\n\n대기열: 문서 번역 업데이트, CI 캐시 정리, 로그 보존 정책 변경입니다.\n\n큐에 등록하지 않았습니다.",
+        "rechecks": null,
+        "failure": null
+      },
+      "main_finished_at_commit": false,
+      "board_after": {
+        "version": 2,
+        "active_root": "n1",
+        "queued": [
+          "n4",
+          "n5",
+          "n6"
+        ],
+        "roots": [
+          {
+            "id": "n1",
+            "title": "결제 모듈 리팩터링",
+            "priority": "P2",
+            "status": "pending",
+            "note": ""
+          },
+          {
+            "id": "n4",
+            "title": "문서 번역 업데이트",
+            "priority": "P3",
+            "status": "pending",
+            "note": ""
+          },
+          {
+            "id": "n5",
+            "title": "CI 캐시 정리",
+            "priority": "P3",
+            "status": "pending",
+            "note": ""
+          },
+          {
+            "id": "n6",
+            "title": "로그 보존 정책 변경",
+            "priority": "P3",
+            "status": "pending",
+            "note": ""
+          }
+        ],
+        "render": "Work phase: executing\nActive goal progress: 0/2 steps done\n[ ] n1 결제 모듈 리팩터링\n  [ ] n2 결제 어댑터 인터페이스 분리\n  [ ] n3 회귀 테스트 보강\nQueued goals (next first): n4 문서 번역 업데이트 (pending); n5 CI 캐시 정리 (pending); n6 로그 보존 정책 변경 (pending)"
+      }
+    },
+    {
+      "label": "request",
+      "message_id": "9002",
+      "text": "로그인 화면에 비밀번호 보기 토글 버튼을 추가해줘. 모바일 브라우저에서도 동작해야 해.",
+      "sent_at": 1794243785.6151803,
+      "receipt": {
+        "receipt_id": "946a141e387ff136ca1dfb3475259dcf70f6781ca126979d68adaed9ad461b53",
+        "folder": "receipts",
+        "event_key": "urn:owned:walkie:walkie-9002",
+        "stage": "processed",
+        "received_at": 1794243787.299253,
+        "claimed_at": 1794243787.7016141,
+        "consumed_at": 1794243800.9269123,
+        "outbox": {
+          "state": "submitted",
+          "updated_at": 1794243801.5399246,
+          "attempt_id": "53bc8b48c98046b49140fcc481de6cea"
+        },
+        "action": "create",
+        "kind": "request",
+        "item_id": "n7",
+        "queue": {
+          "root_id": "n7",
+          "state": "queued",
+          "position": 4,
+          "ahead": 3,
+          "total": 4,
+          "active_root": "n1",
+          "priority": "P3",
+          "phase": "planning",
+          "version": 3
+        },
+        "duplicate": false,
+        "delivery": "submitted",
+        "final_text": "ACK — 로그인 화면에 비밀번호 보기 토글 버튼을 추가하고, 모바일 브라우저에서도 동작하도록 해달라는 요청으로 등록했습니다.\n\nn7 등록 · P3 · 대기 4번째 (앞 3건).",
+        "rechecks": null,
+        "failure": null
+      },
+      "main_finished_at_commit": false,
+      "board_after": {
+        "version": 3,
+        "active_root": "n1",
+        "queued": [
+          "n4",
+          "n5",
+          "n6",
+          "n7"
+        ],
+        "roots": [
+          {
+            "id": "n1",
+            "title": "결제 모듈 리팩터링",
+            "priority": "P2",
+            "status": "pending",
+            "note": ""
+          },
+          {
+            "id": "n4",
+            "title": "문서 번역 업데이트",
+            "priority": "P3",
+            "status": "pending",
+            "note": ""
+          },
+          {
+            "id": "n5",
+            "title": "CI 캐시 정리",
+            "priority": "P3",
+            "status": "pending",
+            "note": ""
+          },
+          {
+            "id": "n6",
+            "title": "로그 보존 정책 변경",
+            "priority": "P3",
+            "status": "pending",
+            "note": ""
+          },
+          {
+            "id": "n7",
+            "title": "7. 로그인 화면 비밀번호 보기 토글 추가",
+            "priority": "P3",
+            "status": "pending",
+            "note": "로그인 화면에 비밀번호 표시/숨김 토글 버튼을 추가하며, 모바일 브라우저 호환 동작을 포함한다."
+          }
+        ],
+        "render": "Work phase: executing\nActive goal progress: 0/2 steps done\n[ ] n1 결제 모듈 리팩터링\n  [ ] n2 결제 어댑터 인터페이스 분리\n  [ ] n3 회귀 테스트 보강\nQueued goals (next first): n4 문서 번역 업데이트 (pending); n5 CI 캐시 정리 (pending); n6 로그 보존 정책 변경 (pending); n7 [ side:946a141e387ff136ca1dfb3475259dcf70f6781c ] 7. 로그인 화면 비밀번호 보기 토글 추가 (pending)"
+      }
+    },
+    {
+      "label": "notice",
+      "message_id": "9003",
+      "text": "GitHub · CI 실패 — 자세한 내용은 메시지를 직접 읽으세요.",
+      "sent_at": 1794243804.5839553,
+      "receipt": {
+        "receipt_id": "75bf7433752b3efc350737cda1bfe8370cd95ddf7ef24aed064af698970600ce",
+        "folder": "receipts",
+        "event_key": "urn:owned:walkie:walkie-9003",
+        "stage": "processed",
+        "received_at": 1794243805.1203487,
+        "claimed_at": 1794243805.7639515,
+        "consumed_at": 1794243816.3475308,
+        "outbox": {
+          "state": "submitted",
+          "updated_at": 1794243816.9496312,
+          "attempt_id": "e9531db2432b4b26b749b6d5560eed60"
+        },
+        "action": "clarify",
+        "kind": "clarify",
+        "item_id": null,
+        "queue": null,
+        "duplicate": false,
+        "delivery": "submitted",
+        "final_text": "CI 실패의 원인을 확인할 수 있도록 GitHub Actions 실행 링크나 실패한 단계의 로그를 보내 주세요.\n\n큐에 등록하지 않았습니다.",
+        "rechecks": null,
+        "failure": null
+      },
+      "main_finished_at_commit": false,
+      "board_after": {
+        "version": 4,
+        "active_root": "n1",
+        "queued": [
+          "n4",
+          "n5",
+          "n6",
+          "n7"
+        ],
+        "roots": [
+          {
+            "id": "n1",
+            "title": "결제 모듈 리팩터링",
+            "priority": "P2",
+            "status": "pending",
+            "note": ""
+          },
+          {
+            "id": "n4",
+            "title": "문서 번역 업데이트",
+            "priority": "P3",
+            "status": "pending",
+            "note": ""
+          },
+          {
+            "id": "n5",
+            "title": "CI 캐시 정리",
+            "priority": "P3",
+            "status": "pending",
+            "note": ""
+          },
+          {
+            "id": "n6",
+            "title": "로그 보존 정책 변경",
+            "priority": "P3",
+            "status": "pending",
+            "note": ""
+          },
+          {
+            "id": "n7",
+            "title": "7. 로그인 화면 비밀번호 보기 토글 추가",
+            "priority": "P3",
+            "status": "pending",
+            "note": "로그인 화면에 비밀번호 표시/숨김 토글 버튼을 추가하며, 모바일 브라우저 호환 동작을 포함한다."
+          }
+        ],
+        "render": "Work phase: executing\nActive goal progress: 0/2 steps done\n[ ] n1 결제 모듈 리팩터링\n  [ ] n2 결제 어댑터 인터페이스 분리\n  [ ] n3 회귀 테스트 보강\nQueued goals (next first): n4 문서 번역 업데이트 (pending); n5 CI 캐시 정리 (pending); n6 로그 보존 정책 변경 (pending); n7 [ side:946a141e387ff136ca1dfb3475259dcf70f6781c ] 7. 로그인 화면 비밀번호 보기 토글 추가 (pending)"
+      }
+    }
+  ],
+  "board_before": {
+    "version": 1,
+    "active_root": "n1",
+    "queued": [
+      "n4",
+      "n5",
+      "n6"
+    ],
+    "roots": [
+      {
+        "id": "n1",
+        "title": "결제 모듈 리팩터링",
+        "priority": "P2",
+        "status": "pending",
+        "note": ""
+      },
+      {
+        "id": "n4",
+        "title": "문서 번역 업데이트",
+        "priority": "P3",
+        "status": "pending",
+        "note": ""
+      },
+      {
+        "id": "n5",
+        "title": "CI 캐시 정리",
+        "priority": "P3",
+        "status": "pending",
+        "note": ""
+      },
+      {
+        "id": "n6",
+        "title": "로그 보존 정책 변경",
+        "priority": "P3",
+        "status": "pending",
+        "note": ""
+      }
+    ],
+    "render": "Work phase: executing\nActive goal progress: 0/2 steps done\n[ ] n1 결제 모듈 리팩터링\n  [ ] n2 결제 어댑터 인터페이스 분리\n  [ ] n3 회귀 테스트 보강\nQueued goals (next first): n4 문서 번역 업데이트 (pending); n5 CI 캐시 정리 (pending); n6 로그 보존 정책 변경 (pending)"
+  },
+  "receiver": {
+    "ok": true,
+    "receiver": {
+      "id": "default",
+      "enabled": true,
+      "discovery_enabled": false,
+      "test_default_override": false,
+      "discovery_instruction": "",
+      "discovery_file_path": "",
+      "transport": "sse",
+      "url": "http://127.0.0.1:9721/events",
+      "event_types": [],
+      "cursor_json_pointer": "",
+      "cursor_query_parameter": "after",
+      "input_transport": "auto",
+      "stored_webhook_secret": false,
+      "stored_authorization": false,
+      "environment_references": {},
+      "status": {
+        "state": "reconnecting",
+        "phase": "reconnect",
+        "attempt_count": 1,
+        "last_attempt_at": 1794243688.7728176,
+        "error": "",
+        "retry_seconds": null,
+        "next_retry_at": null,
+        "worker_alive": true,
+        "last_failure_at": null,
+        "last_recovery_at": null,
+        "consecutive_failures": 0,
+        "diagnostic": null,
+        "recovery_count": 0,
+        "last_failure": null,
+        "delivery": {
+          "state": "not_blocked",
+          "reason": "",
+          "scope": "private_runtime_inputs",
+          "blocker_scope": null,
+          "admission_blocked": false,
+          "launcher_hold_observed": false,
+          "line_number": null,
+          "snapshot_consistent": true,
+          "known_queued_count": 0,
+          "queue_age_coverage": "complete",
+          "queued_coverage": "complete",
+          "retrying_count": 0,
+          "retry_exhausted_count": 0,
+          "launch_expired_count": 0,
+          "last_failure": null,
+          "reused_id_count": 0,
+          "reused_id_newest": null,
+          "history": {
+            "complete": true,
+            "coverage": "complete",
+            "scanned_bytes": 0,
+            "failure_count": 0,
+            "recovered_count": 0,
+            "diagnostics": [],
+            "diagnostics_truncated": false
+          },
+          "oldest_queued_age_seconds": null
+        },
+        "idle_timeout_seconds": null,
+        "effective_idle_timeout_seconds": null
+      }
+    },
+    "restart_required": false
+  },
+  "turn_markers": [
+    {
+      "marker": "TURN-1-DONE",
+      "done": true
+    },
+    {
+      "marker": "TURN-2-DONE",
+      "done": true
+    }
+  ],
+  "capture_before_events": {
+    "kind": "main",
+    "expected": "main"
+  },
+  "redelivery": null,
+  "board_after": {
+    "version": 4,
+    "active_root": "n1",
+    "queued": [
+      "n4",
+      "n5",
+      "n6",
+      "n7"
+    ],
+    "roots": [
+      {
+        "id": "n1",
+        "title": "결제 모듈 리팩터링",
+        "priority": "P2",
+        "status": "pending",
+        "note": ""
+      },
+      {
+        "id": "n4",
+        "title": "문서 번역 업데이트",
+        "priority": "P3",
+        "status": "pending",
+        "note": ""
+      },
+      {
+        "id": "n5",
+        "title": "CI 캐시 정리",
+        "priority": "P3",
+        "status": "pending",
+        "note": ""
+      },
+      {
+        "id": "n6",
+        "title": "로그 보존 정책 변경",
+        "priority": "P3",
+        "status": "pending",
+        "note": ""
+      },
+      {
+        "id": "n7",
+        "title": "7. 로그인 화면 비밀번호 보기 토글 추가",
+        "priority": "P3",
+        "status": "pending",
+        "note": "로그인 화면에 비밀번호 표시/숨김 토글 버튼을 추가하며, 모바일 브라우저 호환 동작을 포함한다."
+      }
+    ],
+    "render": "Work phase: executing\nActive goal progress: 0/2 steps done\n[ ] n1 결제 모듈 리팩터링\n  [ ] n2 결제 어댑터 인터페이스 분리\n  [ ] n3 회귀 테스트 보강\nQueued goals (next first): n4 문서 번역 업데이트 (pending); n5 CI 캐시 정리 (pending); n6 로그 보존 정책 변경 (pending); n7 [ side:946a141e387ff136ca1dfb3475259dcf70f6781c ] 7. 로그인 화면 비밀번호 보기 토글 추가 (pending)"
+  },
+  "walkie": {
+    "messages": [
+      {
+        "id": "9001",
+        "conversation_id": "7b0c6f1e-2d4a-4c11-9e55-0a1b2c3d4e5f",
+        "sender_id": "1f2e3d4c-5b6a-4789-8abc-def012345678",
+        "sender": "Owner Kim",
+        "text": "지금 작업 상태 어때? 진행 중인 것과 대기열만 알려줘.",
+        "sender_kind": "user",
+        "created_at": "2026-11-09T17:02:48Z",
+        "reply_to_message_id": null,
+        "files": []
+      },
+      {
+        "id": "9002",
+        "conversation_id": "7b0c6f1e-2d4a-4c11-9e55-0a1b2c3d4e5f",
+        "sender_id": "1f2e3d4c-5b6a-4789-8abc-def012345678",
+        "sender": "Owner Kim",
+        "text": "로그인 화면에 비밀번호 보기 토글 버튼을 추가해줘. 모바일 브라우저에서도 동작해야 해.",
+        "sender_kind": "user",
+        "created_at": "2026-11-09T17:03:05Z",
+        "reply_to_message_id": null,
+        "files": []
+      },
+      {
+        "id": "9003",
+        "conversation_id": "7b0c6f1e-2d4a-4c11-9e55-0a1b2c3d4e5f",
+        "sender_id": "1f2e3d4c-5b6a-4789-8abc-def012345678",
+        "sender": "Owner Kim",
+        "text": "GitHub · CI 실패 — 자세한 내용은 메시지를 직접 읽으세요.",
+        "sender_kind": "user",
+        "created_at": "2026-11-09T17:03:24Z",
+        "reply_to_message_id": null,
+        "files": []
+      }
+    ],
+    "sends": [
+      {
+        "at": 1794243782.1556096,
+        "args": {
+          "conversation_id": "7b0c6f1e-2d4a-4c11-9e55-0a1b2c3d4e5f",
+          "client_id": "29af1541-1308-ceee-1a7e-032bb4b514f4",
+          "reply_to_message_id": "9001",
+          "text": "진행 중: 결제 모듈 리팩터링(결제 어댑터 인터페이스 분리, 회귀 테스트 보강이 아직 대기 상태)입니다.\n\n대기열: 문서 번역 업데이트, CI 캐시 정리, 로그 보존 정책 변경입니다.\n\n큐에 등록하지 않았습니다."
+        },
+        "duplicate_client_id": false
+      },
+      {
+        "at": 1794243801.3388178,
+        "args": {
+          "conversation_id": "7b0c6f1e-2d4a-4c11-9e55-0a1b2c3d4e5f",
+          "client_id": "f50a7478-5052-99a1-b371-101d04519dff",
+          "reply_to_message_id": "9002",
+          "text": "ACK — 로그인 화면에 비밀번호 보기 토글 버튼을 추가하고, 모바일 브라우저에서도 동작하도록 해달라는 요청으로 등록했습니다.\n\nn7 등록 · P3 · 대기 4번째 (앞 3건)."
+        },
+        "duplicate_client_id": false
+      },
+      {
+        "at": 1794243816.7634897,
+        "args": {
+          "conversation_id": "7b0c6f1e-2d4a-4c11-9e55-0a1b2c3d4e5f",
+          "client_id": "4173f669-c130-59d2-ea8c-ae7b2cdcd04e",
+          "reply_to_message_id": "9003",
+          "text": "CI 실패의 원인을 확인할 수 있도록 GitHub Actions 실행 링크나 실패한 단계의 로그를 보내 주세요.\n\n큐에 등록하지 않았습니다."
+        },
+        "duplicate_client_id": false
+      }
+    ],
+    "reads": [
+      {
+        "at": 1794243772.757467,
+        "after": "9000",
+        "returned": [
+          "9001"
+        ]
+      },
+      {
+        "at": 1794243788.1530566,
+        "after": "9001",
+        "returned": [
+          "9002"
+        ]
+      },
+      {
+        "at": 1794243806.226201,
+        "after": "9002",
+        "returned": [
+          "9003"
+        ]
+      }
+    ]
+  },
+  "actors": [
+    {
+      "receipt_prefix": "40d1efcef02a",
+      "started_at": 1794243772.958,
+      "first_response_at": 1794243778.815,
+      "last_response_at": 1794243780.929,
+      "requested_models": [
+        "ciel-runtime-cielairouter-_walkie_haiku_terra"
+      ],
+      "native_models": [
+        "gpt-5.6-terra"
+      ],
+      "model_requests": 1,
+      "usage": [
+        {
+          "input": 104733,
+          "cache_read": 94720,
+          "cache_write": 0,
+          "output": 142
+        }
+      ],
+      "tools_called": [],
+      "final_tail": "{\"decision\":{\"action\":\"answer\",\"kind\":\"status\",\"summary\":\"현재 Work 상태\",\"reply\":\"진행 중: 결제 모듈 리팩터링(결제 어댑터 인터페이스 분리, 회귀 테스트 보강이 아직 대기 상태)입니다.\\n\\n대기열: 문서 번역 업데이트, CI 캐시 정리, 로그 보존 정책 변경입니다.\"},\"expected_version\":1}"
+    },
+    {
+      "receipt_prefix": "946a141e387f",
+      "started_at": 1794243788.329,
+      "first_response_at": 1794243797.566,
+      "last_response_at": 1794243800.207,
+      "requested_models": [
+        "ciel-runtime-cielairouter-_walkie_haiku_terra"
+      ],
+      "native_models": [
+        "gpt-5.6-terra"
+      ],
+      "model_requests": 1,
+      "usage": [
+        {
+          "input": 104728,
+          "cache_read": 94720,
+          "cache_write": 0,
+          "output": 177
+        }
+      ],
+      "tools_called": [],
+      "final_tail": "{\"decision\":{\"action\":\"create\",\"kind\":\"request\",\"title\":\"7. 로그인 화면 비밀번호 보기 토글 추가\",\"summary\":\"로그인 화면에 비밀번호 표시/숨김 토글 버튼을 추가하는 요청입니다.\",\"reply\":\"로그인 화면에 비밀번호 보기 토글 버튼을 추가하고, 모바일 브라우저에서도 동작하도록 해달라는 요청으로 등록했습니다.\",\"note\":\"로그인 화면에 비밀번호 표시/숨김 토글 버튼을 추가하며, 모바일 브라우저 호환 동작을 포함한다.\",\"priority\":\"P3\"},\"expected_version\":2}"
+    },
+    {
+      "receipt_prefix": "75bf7433752b",
+      "started_at": 1794243806.399,
+      "first_response_at": 1794243814.47,
+      "last_response_at": 1794243815.888,
+      "requested_models": [
+        "ciel-runtime-cielairouter-_walkie_haiku_terra"
+      ],
+      "native_models": [
+        "gpt-5.6-terra"
+      ],
+      "model_requests": 1,
+      "usage": [
+        {
+          "input": 104849,
+          "cache_read": 94720,
+          "cache_write": 0,
+          "output": 165
+        }
+      ],
+      "tools_called": [],
+      "final_tail": "{\"decision\":{\"action\":\"clarify\",\"kind\":\"clarify\",\"summary\":\"CI 실패 원인 정보가 없습니다.\",\"reply\":\"CI 실패의 원인을 확인할 수 있도록 GitHub Actions 실행 링크나 실패한 단계의 로그를 보내 주세요.\"},\"expected_version\":3}"
+    }
+  ],
+  "receipts": [
+    {
+      "receipt_id": "40d1efcef02ae706ebc3d9f7b0e5be33ee89434c88a448456e58db273d7f20bf",
+      "folder": "receipts",
+      "event_key": "urn:owned:walkie:walkie-9001",
+      "stage": "processed",
+      "received_at": 1794243771.4320228,
+      "claimed_at": 1794243772.2750013,
+      "consumed_at": 1794243781.7101488,
+      "outbox": {
+        "state": "submitted",
+        "updated_at": 1794243782.3634608,
+        "attempt_id": "a19fc8561f3a410b98e8418520aef769"
+      },
+      "action": "answer",
+      "kind": "status",
+      "item_id": null,
+      "queue": null,
+      "duplicate": false,
+      "delivery": "submitted",
+      "final_text": "진행 중: 결제 모듈 리팩터링(결제 어댑터 인터페이스 분리, 회귀 테스트 보강이 아직 대기 상태)입니다.\n\n대기열: 문서 번역 업데이트, CI 캐시 정리, 로그 보존 정책 변경입니다.\n\n큐에 등록하지 않았습니다.",
+      "rechecks": null,
+      "failure": null
+    },
+    {
+      "receipt_id": "75bf7433752b3efc350737cda1bfe8370cd95ddf7ef24aed064af698970600ce",
+      "folder": "receipts",
+      "event_key": "urn:owned:walkie:walkie-9003",
+      "stage": "processed",
+      "received_at": 1794243805.1203487,
+      "claimed_at": 1794243805.7639515,
+      "consumed_at": 1794243816.3475308,
+      "outbox": {
+        "state": "submitted",
+        "updated_at": 1794243816.9496312,
+        "attempt_id": "e9531db2432b4b26b749b6d5560eed60"
+      },
+      "action": "clarify",
+      "kind": "clarify",
+      "item_id": null,
+      "queue": null,
+      "duplicate": false,
+      "delivery": "submitted",
+      "final_text": "CI 실패의 원인을 확인할 수 있도록 GitHub Actions 실행 링크나 실패한 단계의 로그를 보내 주세요.\n\n큐에 등록하지 않았습니다.",
+      "rechecks": null,
+      "failure": null
+    },
+    {
+      "receipt_id": "946a141e387ff136ca1dfb3475259dcf70f6781ca126979d68adaed9ad461b53",
+      "folder": "receipts",
+      "event_key": "urn:owned:walkie:walkie-9002",
+      "stage": "processed",
+      "received_at": 1794243787.299253,
+      "claimed_at": 1794243787.7016141,
+      "consumed_at": 1794243800.9269123,
+      "outbox": {
+        "state": "submitted",
+        "updated_at": 1794243801.5399246,
+        "attempt_id": "53bc8b48c98046b49140fcc481de6cea"
+      },
+      "action": "create",
+      "kind": "request",
+      "item_id": "n7",
+      "queue": {
+        "root_id": "n7",
+        "state": "queued",
+        "position": 4,
+        "ahead": 3,
+        "total": 4,
+        "active_root": "n1",
+        "priority": "P3",
+        "phase": "planning",
+        "version": 3
+      },
+      "duplicate": false,
+      "delivery": "submitted",
+      "final_text": "ACK — 로그인 화면에 비밀번호 보기 토글 버튼을 추가하고, 모바일 브라우저에서도 동작하도록 해달라는 요청으로 등록했습니다.\n\nn7 등록 · P3 · 대기 4번째 (앞 3건).",
+      "rechecks": null,
+      "failure": null
+    }
+  ],
+  "main_transcript_has_raw_event": {
+    "cloudevent_type": false,
+    "event_texts": []
+  },
+  "main_finished_before_end": false,
+  "main_rows": [
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T17:01:29.107Z",
+      "tools": [],
+      "text": "Run Bash `echo probe-1` and then reply exactly: TURN-1-DONE",
+      "usage": null
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T17:01:37.772Z",
+      "tools": [
+        "Bash"
+      ],
+      "text": "",
+      "usage": {
+        "input_tokens": 6769,
+        "cache_creation_input_tokens": 0,
+        "cache_read_input_tokens": 263631,
+        "output_tokens": 166,
+        "output_tokens_details": {
+          "thinking_tokens": 88
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 0,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [
+          {
+            "input_tokens": 6769,
+            "output_tokens": 166,
+            "cache_read_input_tokens": 263631,
+            "cache_creation_input_tokens": 0,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 0
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T17:01:38.816Z",
+      "tools": [],
+      "text": "",
+      "usage": null
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T17:01:43.656Z",
+      "tools": [],
+      "text": "TURN-1-DONE",
+      "usage": {
+        "input_tokens": 2,
+        "cache_creation_input_tokens": 10309,
+        "cache_read_input_tokens": 260318,
+        "output_tokens": 11,
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 10309,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 11,
+            "cache_read_input_tokens": 260318,
+            "cache_creation_input_tokens": 10309,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 10309
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T17:02:10.564Z",
+      "tools": [],
+      "text": "Run Bash `echo probe-2` and then reply exactly: TURN-2-DONE",
+      "usage": null
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T17:02:16.820Z",
+      "tools": [
+        "Bash"
+      ],
+      "text": "",
+      "usage": {
+        "input_tokens": 1308,
+        "cache_creation_input_tokens": 43,
+        "cache_read_input_tokens": 270627,
+        "output_tokens": 77,
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 43,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [
+          {
+            "input_tokens": 1308,
+            "output_tokens": 77,
+            "cache_read_input_tokens": 270627,
+            "cache_creation_input_tokens": 43,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 43
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    },
+    {
+      "type": "user",
+      "timestamp": "2026-11-09T17:02:17.082Z",
+      "tools": [],
+      "text": "",
+      "usage": null
+    },
+    {
+      "type": "assistant",
+      "timestamp": "2026-11-09T17:02:21.567Z",
+      "tools": [],
+      "text": "TURN-2-DONE",
+      "usage": {
+        "input_tokens": 2,
+        "cache_creation_input_tokens": 1446,
+        "cache_read_input_tokens": 270670,
+        "output_tokens": 11,
+        "output_tokens_details": {
+          "thinking_tokens": 0
+        },
+        "server_tool_use": {
+          "web_search_requests": 0,
+          "web_fetch_requests": 0
+        },
+        "service_tier": "standard",
+        "cache_creation": {
+          "ephemeral_1h_input_tokens": 1446,
+          "ephemeral_5m_input_tokens": 0
+        },
+        "inference_geo": "global",
+        "iterations": [
+          {
+            "input_tokens": 2,
+            "output_tokens": 11,
+            "cache_read_input_tokens": 270670,
+            "cache_creation_input_tokens": 1446,
+            "cache_creation": {
+              "ephemeral_5m_input_tokens": 0,
+              "ephemeral_1h_input_tokens": 1446
+            },
+            "type": "message"
+          }
+        ],
+        "speed": "standard",
+        "fallback_credit": null
+      }
+    }
+  ],
+  "tree_before_kill": [
+    "conhost.exe",
+    "cmd.exe",
+    "py.exe",
+    "python.exe"
+  ],
+  "owned_router_pids": [],
+  "preserved_config": "C:\\Users\\<user>\\AppData\\Local\\Temp\\ciel-owned-side-contract-d60er2qm\\config"
+}
