@@ -42,7 +42,9 @@ class SideContextRouterTests(unittest.TestCase):
         wrapped['messages'][0]['content']='<teammate-message teammate_id="team-lead" summary="External message decision">\n'+raw+'\n</teammate-message>'
         result=project(self.root,self.identity,'wrapped-agent',wrapped,
                        {'work_side_intake':self.settings},'fixture',None)
-        self.assertEqual(self.parent['messages'],result['messages'][:len(self.parent['messages'])])
+        expected=copy.deepcopy(self.parent['messages'])
+        expected[-1]['content']=[{'type':'text','text':'current main request','cache_control':{'type':'ephemeral'}}]
+        self.assertEqual(expected,result['messages'][:len(expected)])
         self.assertIn('external question',result['messages'][-1]['content'])
 
     def test_teammate_wrapper_with_trailing_newline_is_recognized(self):
@@ -51,7 +53,9 @@ class SideContextRouterTests(unittest.TestCase):
         wrapped['messages'][0]['content']='<teammate-message teammate_id="team-lead" summary="External message decision">\n'+raw+'\n</teammate-message>\n'
         result=project(self.root,self.identity,'wrapped-newline',wrapped,
                        {'work_side_intake':self.settings},'fixture',None)
-        self.assertEqual(self.parent['messages'],result['messages'][:len(self.parent['messages'])])
+        expected=copy.deepcopy(self.parent['messages'])
+        expected[-1]['content']=[{'type':'text','text':'current main request','cache_control':{'type':'ephemeral'}}]
+        self.assertEqual(expected,result['messages'][:len(expected)])
         self.assertIn('external question',result['messages'][-1]['content'])
 
     def test_full_parent_prefix_and_current_board_are_exact_and_main_untouched(self):
@@ -62,7 +66,9 @@ class SideContextRouterTests(unittest.TestCase):
         self.assertEqual(body,self.body)
         self.assertEqual(original['system'],result['system'])
         self.assertEqual(original['tools'],result['tools'])
-        self.assertEqual(original['messages'],result['messages'][:len(original['messages'])])
+        projected=copy.deepcopy(original['messages'])
+        projected[-1]['content']=[{'type':'text','text':'current main request','cache_control':{'type':'ephemeral'}}]
+        self.assertEqual(projected,result['messages'][:len(projected)])
         self.assertIn('n21',result['messages'][-1]['content'])
         self.assertEqual('agent-1',self.store.read(self.store.path(self.handle['key']))['agent_id'])
 
@@ -128,10 +134,30 @@ class SideContextRouterTests(unittest.TestCase):
         self.assertEqual(1,info['thinking_blocks_omitted'])
         self.assertNotIn('signature',json.dumps(switched))
 
+    def test_cache_boundary_never_exceeds_four_existing_marks(self):
+        parent=copy.deepcopy(self.parent)
+        parent['system']=[{'type':'text','text':str(i),'cache_control':{'type':'ephemeral'}} for i in range(4)]
+        store=SideContextStore(self.root,'claude:cache-full')
+        store.capture(parent,'fixture')
+        inbox=SideIntakeInbox(self.root,'claude:cache-full')
+        inbox.receive('event','event')
+        event=claim(self.root,'claude:cache-full','a')
+        handle=store.prepare(event,self.settings,'model-a')
+        body={**self.body,'messages':[{'role':'user','content':json.dumps({**self.envelope,
+              'side_context_key':handle['key'],'event_id':event['receipt_id']})}]}
+        result=project(self.root,'claude:cache-full','agent',body,{'work_side_intake':self.settings},'fixture',None)
+        self.assertEqual(4,json.dumps(result).count('"cache_control"'))
+        self.assertEqual('current main request',result['messages'][4]['content'])
+
     def test_missing_context_mode_uses_full_semantic_default(self):
         config={'work_side_intake':{'enabled':True,'context_percent':30}}
         result=project(self.root,self.identity,'default-full',self.body,config,'fixture',None)
-        self.assertEqual(self.parent['messages'],result['messages'][:len(self.parent['messages'])])
+        expected=copy.deepcopy(self.parent['messages'])
+        expected[-1]['content']=[{'type':'text','text':'current main request',
+                                  'cache_control':{'type':'ephemeral'}}]
+        self.assertEqual(expected,result['messages'][:len(expected)])
+        # The external event comes after the reusable parent cache boundary.
+        self.assertNotIn('cache_control',json.dumps(result['messages'][-1]))
 
     def test_other_agent_identity_profile_and_tool_drift_are_rejected(self):
         config={'work_side_intake':self.settings}

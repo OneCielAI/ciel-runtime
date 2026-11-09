@@ -1699,7 +1699,9 @@ export function register(on) {
     if (selected) {
       const r = selected
       detail.push('Receipt: ' + clipped(key, 20) + (r.receipt_id && r.item_id ? ' · Work item: ' + clipped(r.item_id, 64) : ''),
-        'Stage: ' + (r.stage || 'board_queued') + ' · external ACK: ' + (r.external_ack || 'not_sent') + (r.error ? ' · retained for retry: ' + r.error : ''))
+        // The source reply's state is the Delivery line below; external_ack is
+        // never updated after intake and read "not_sent" beside a sent reply.
+        'Stage: ' + (r.stage || 'board_queued') + (r.error ? ' · retained for retry: ' + r.error : ''))
       if (r.side_failure) detail.push('Failure: ' + r.side_failure.category + ' · model ' + (r.side_failure.model || r.side_failure.effective_model || 'unknown')
         + ' · attempt ' + r.side_failure.attempt_count
         + (r.side_failure.use_parent_model ? ' · selected side model unavailable → side retries on main session model'
@@ -1719,10 +1721,13 @@ export function register(on) {
           + ' · selected ' + (r.result.context.selected_percent == null ? 'unknown' : Number(r.result.context.selected_percent).toFixed(1) + '%')
           + ' · conversation tokens ' + (r.result.context.selected_tokens ?? 'unknown') + '/' + (r.result.context.conversation_tokens ?? 'unknown')
           + ' · Work board: whole · omitted reasoning blocks ' + r.result.context.thinking_blocks_omitted)
-        const delivery = { side_mcp: 'sent by the side AI through MCP (reported by the side AI)',
-          route_unavailable: 'not sent (no host route; the side AI reported no MCP send)' }
+        const delivery = { side_mcp: 'legacy: sent by the side AI through MCP (reported)',
+          route_unavailable: 'not sent (no operator-owned host route)', submitted: 'sent once by the host outbox',
+          submitting: 'host outbox send in progress', uncertain: 'host send outcome unknown; not retried' }
         detail.push('Delivery: ' + (delivery[r.result.delivery] || r.result.delivery || 'not confirmed') + ' · Main handoff: ' + r.result.handoff)
-        if (r.result.reported_sends?.length) detail.push('Side AI sent via: ' + r.result.reported_sends.map(n => n.replace(/^mcp__/, '')).join(', '))
+        if (r.result.queue) detail.push(r.result.queue.state === 'active' ? 'Queue: active Work item'
+          : 'Queue: waiting #' + r.result.queue.position + ' · ahead ' + r.result.queue.ahead + ' · board v' + r.result.queue.version)
+        if (r.result.reported_sends?.length) detail.push('Legacy side AI reported send via: ' + r.result.reported_sends.map(n => n.replace(/^mcp__/, '')).join(', '))
         for (const [id, c] of Object.entries(r.result.comparisons || {})) detail.push('Shadow ' + id.slice(0, 8) + ': ' + c.state
           + ' · ' + (c.profile?.mode || 'context unknown') + ' · ' + (c.usage?.model || c.profile?.model || 'model unknown')
           + ' · selected ' + (c.context?.selected_percent == null ? 'unknown' : Number(c.context.selected_percent).toFixed(1) + '%')

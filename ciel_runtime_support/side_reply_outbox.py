@@ -30,14 +30,16 @@ def prepare(state_dir, identity, receipt_id, *, config=None):
         if previous.get('state') in ('submitting', 'uncertain', 'submitted'):
             return {'state': previous['state'], 'receipt_id': receipt_id}
         kind = 'status' if row['result'].get('action') == 'advise' else 'reply'
+        # final_text closes the model's reply with the committed queue outcome.
+        message = row['result'].get('final_text') or row['result']['reply']
         connector = None
         if route.get('source_kind') == 'external_event':
             from .side_reply_connector import prepare as connector_prepare
-            connector = connector_prepare(config or {}, route, receipt_id, row['result']['reply'], kind)
+            connector = connector_prepare(config or {}, route, receipt_id, message, kind, original=row.get('text', ''))
         # External receiver channel names alone are not outbound connectors.
         if connector is None and (route.get('source_kind') != 'web_chat' or not route.get('reply_token') or not route.get('channel')):
-            # The side AI may have answered through the source system's MCP itself,
-            # following the event's hints (reported by the side AI, not host-observed).
+            # Legacy actors may have answered through the source MCP themselves
+            # (reported by the side AI, not host-observed). New actors cannot send.
             row['result']['delivery'] = 'side_mcp' if row['result'].get('reported_sends') else 'route_unavailable'
             inbox._save_file(inbox._event_path('receipts', receipt_id), row)
             return {'state': row['result']['delivery'], 'receipt_id': receipt_id,
@@ -52,7 +54,7 @@ def prepare(state_dir, identity, receipt_id, *, config=None):
         # Advice is an interim status, not the browser's one allowed final
         # reply. Its correlated coordinator follow-up can then send that reply.
         return {'state': 'submitting', 'receipt_id': receipt_id, 'attempt_id': attempt_id,
-                'arguments': {**arguments, 'message': row['result']['reply'],
+                'arguments': {**arguments, 'message': message,
                               'kind': kind, 'delivery': ['web']}}
 
 

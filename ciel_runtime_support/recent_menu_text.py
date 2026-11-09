@@ -14,7 +14,7 @@ TEXT = {
     "work_side_intake_max_active": ("Concurrent side actors", "동시 사이드 처리자", "同時サイド処理数", "侧边并发处理数"),
     "work_side_intake_context_mode": ("Side context mode", "사이드 문맥 모드", "サイド文脈モード", "侧边上下文模式"),
     "work_side_intake_context_percent": ("Recent context percent", "최근 문맥 비율", "最近の文脈比率", "最近上下文比例"),
-    "work_side_intake_reply_connectors": ("Advanced external-event reply route override (JSON)", "고급 외부 이벤트 응답 경로 재정의 (JSON)", "高度な外部イベント返信ルート上書き（JSON）", "高级外部事件回复路由覆盖（JSON）"),
+    "work_side_intake_reply_connectors": ("External reply route / Walkie preset (JSON)", "외부 응답 경로 / Walkie 프리셋 (JSON)", "外部返信経路 / Walkie プリセット（JSON）", "外部回复路径 / Walkie 预设（JSON）"),
     "work_side_intake_model": ("Side model (inherit / catalog ID)", "사이드 모델 (inherit / 카탈로그 ID)", "サイドモデル (inherit / ID)", "侧边模型 (inherit / ID)"),
     "work_side_intake_priority_policy": ("Side priority policy", "사이드 우선순위 판단", "サイド優先度方針", "侧边优先级策略"),
     "work_side_intake_instruction": ("Side SSE processing instruction", "사이드 SSE 처리 지침", "サイド SSE 処理指示", "侧边 SSE 处理指令"),

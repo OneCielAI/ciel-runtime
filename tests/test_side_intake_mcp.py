@@ -18,12 +18,54 @@ class SideMcpTests(unittest.TestCase):
                        'work_parallel_host': {'token': 'x'*40}}
         self.inbox = SideIntakeInbox(self.root, self.identity)
         self.inbox.receive('Question', 'event')
+        self.store = session_work_plan_store(self.root, self.identity)
+
+    def _claim(self):
+        result = self.invoke('work_side_claim', {'owner':'actor'})
+        self.assertFalse(result['error'], result)
+        return json.loads(result['text'])['claim']
 
     def invoke(self, name, args, host=None, identity=None):
         return dispatch_work_tool(1, name,
             {**args, 'session_id': identity or self.identity, '_host': host or {'token': 'x'*40}},
             load_config=lambda:self.config, state_dir=self.root,
             respond=lambda _id,text,error=False:{'text':text,'error':error})
+
+    def test_claim_prepares_operator_owned_walkie_prefetch(self):
+        event_text=json.dumps({'data':{'conversation':'34886995-4a66-4527-a618-814e9cb0a5bf','message_id':'118635'}})
+        self.inbox=SideIntakeInbox(self.root,self.identity)
+        self.inbox.receive(event_text,'walkie',route={'source_kind':'external_event',
+            'channel':'external:default','sender_id':'urn:walkie'})
+        self.config['work_side_intake']['reply_connectors']=[{
+            'source':'urn:walkie','receiver_id':'default','preset':'walkie','server':'walkie'}]
+        event=self._claim()
+        self.assertEqual({'server':'walkie','tool':'walkie_read_messages',
+            'arguments':{'conversation_id':'34886995-4a66-4527-a618-814e9cb0a5bf','after':'118634'},
+            'message_id':'118635'},event['source_read'])
+        self.assertRegex(event['work_digest'],r'^[0-9a-f]{64}$')
+
+    def test_native_side_code_read_needs_no_host_identity_and_stays_bounded(self):
+        import os
+        from unittest.mock import patch
+        (self.root/'proof.py').write_text('marker = 1\n',encoding='utf8')
+        # Owned run 2026-11-09: the side actor's own call reached the router with
+        # only its tool arguments (the engine skips the plugin hook on re-entry)
+        # and was refused for missing conversation identity.
+        def native(name,args):
+            return dispatch_work_tool(1,name,args,load_config=lambda:self.config,state_dir=self.root,
+                                      respond=lambda _id,text,error=False:{'text':text,'error':error})
+        with patch.dict(os.environ,{'CIEL_RUNTIME_LAUNCH_CWD':str(self.root)}):
+            result=native('work_side_code_read',{'path':'proof.py'})
+            self.assertFalse(result['error'],result)
+            self.assertIn('marker = 1',json.loads(result['text'])['text'])
+            found=native('work_side_code_search',{'pattern':'marker','glob':'*.py'})
+            self.assertFalse(found['error'],found)
+            self.assertIn('proof.py',found['text'])
+            self.assertTrue(native('work_side_code_read',{'path':'../outside'})['error'])
+            self.assertTrue(native('work_side_code_read',{'path':str(self.root/'proof.py')})['error'])
+            self.config['work_side_intake']['enabled']=False
+            disabled=native('work_side_code_read',{'path':'proof.py'})
+            self.assertEqual({'text':'side processing is disabled','error':True},disabled)
 
     def test_claim_routes_selected_same_provider_model_without_mutating_config(self):
         self.config.update(current_provider='cielairouter', providers={'cielairouter': {'current_model':'main'}})
@@ -177,6 +219,34 @@ class SideMcpTests(unittest.TestCase):
         claimed=json.loads(self.invoke('work_side_claim',{'owner':'actor2'})['text'])['claim']
         self.assertEqual(event['receipt_id'],claimed['receipt_id'])
         self.assertTrue(self.inbox._load(event['receipt_id'])['side_failure']['legacy_recheck'])
+
+    def test_new_contract_status_reply_says_no_queue_item(self):
+        event=self._claim()
+        result=self.invoke('work_side_resolve',{'decision':{'action':'answer','kind':'status',
+            'summary':'current state','reply':'현재 n1을 진행 중입니다.'},'expected_version':event['workload']['version']},
+            {'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation'],
+             'work_digest':event['work_digest']})
+        self.assertFalse(result['error'], result)
+        result=json.loads(result['text'])
+        self.assertEqual('현재 n1을 진행 중입니다.\n\n큐에 등록하지 않았습니다.',result['result']['final_text'])
+        self.assertIsNone(result['receipt']['item_id'])
+        self.assertEqual([],self.store.read()['nodes'])
+
+    def test_changed_create_is_released_once_for_fresh_deduplication(self):
+        from ciel_runtime_support import work_plan_tree as tree
+        event=self._claim()
+        self.store.transaction(lambda d:tree.add_node(d,None,'main added same work'))
+        first=self.invoke('work_side_resolve',{'decision':{'action':'create','kind':'request',
+            'summary':'new request','reply':'요청을 복기했습니다.','title':'same work','note':'details'},
+            'expected_version':event['workload']['version']},
+            {'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation'],
+             'work_digest':event['work_digest']})
+        self.assertFalse(first['error'], first)
+        first=json.loads(first['text'])
+        self.assertEqual('work_changed',first['recheck'])
+        self.assertEqual('received',first['receipt']['stage'])
+        self.assertEqual(1,self.inbox._load(event['receipt_id'])['rechecks'])
+        self.assertNotIn('side_decisions',self.store.read())
 
     def test_claim_resolve_answer_without_root_and_duplicate_recovers(self):
         claimed = self.invoke('work_side_claim', {'owner':'actor'})

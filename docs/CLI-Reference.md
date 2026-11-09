@@ -105,22 +105,21 @@ direct gateway 요청은 이 라우터를 지나지 않으므로 full/recent/com
 적용했다고 표시하지 않는다. 부모 캡처는16MiB까지 지원하며 초과 시 생략하지 않고
 해당 side 요청을 보존한다. 실측 usage에 없는 캐시·비용 값은 unknown이다.
 
-주 사이드 처리자는 메인 세션에 연결된 MCP 도구·서버 전체를 별도 설정 없이
-상속한다. 비-Work MCP 호출은 메인과 같은 native 권한 확인을 거치고, Work 변경·승인
-도구는 계속 막으며 결정은 host가 `work_side_resolve`로 커밋한다. MCP 목록이 바뀌면
-실행 중인 사이드 처리자는 취소하지 않고, 다음 사이드 이벤트에서 바뀐 목록으로 새
-처리자를 등록한다. 응답 패널과 로그는 도구 수·서버 수·16자리 digest만 표시하며
-도구 인자나 인증정보는 기록하지 않는다. 비교(shadow) agent는 도구가 없다.
+주 사이드 처리자는 메인 세션에 연결된 MCP 중 **읽기 도구만** 상속한다.
+응답·ACK·Work 변경·승인·실행 도구는 주지 않으며, workspace 경계 안의 bounded 코드
+검색/읽기와 host의 `work_side_resolve`만 사용한다. 결정은 host가 원자적으로 커밋하고
+host outbox가 정확히 한 번 source reply를 보낸다. MCP 목록이 바뀌면 실행 중인
+처리자는 취소하지 않고 다음 이벤트에서 새 목록으로 등록한다. 비교(shadow) agent는
+도구가 없다.
 
-`work_side_intake_reply_connectors`(메뉴: Advanced external-event reply route
-override)는 **MCP 상속 설정이 아니다.** 신뢰된 상관관계가 있는 웹 채팅 응답은
-추가 설정 없이 원래 채널로 자동 전달된다. 반면 일반 외부 SSE/CloudEvent에 outbound
-응답 계약이 없다면 이 재정의를 별도로 설정해야 한다. 운영자가 정확한
-source/receiver_id와 이미 메인 세션에 연결된 MCP server/tool/arguments를 JSON 배열로
-등록한다.
-`$reply`, `$event_id`, `$receiver_id`, `$source`, `$kind`, `$receipt_id`는 전체
-문자열 값일 때 치환된다. 고정 목적지는 운영자가 arguments에 설정하고,
-인증정보는 MCP 연결에만 둔다. 이벤트 본문은 목적지나 도구를 정하지 않는다.
+`work_side_intake_reply_connectors`(메뉴: External reply route / Walkie preset)는
+신뢰된 상관관계가 있는 웹 채팅을 원래 채널로 자동 전달하고, 일반 외부
+SSE/CloudEvent는 운영자가 exact source/receiver_id에 대한 outbound route를 등록한다.
+Walkie는 `{source, receiver_id, preset:"walkie", server}`를 쓴다. 그 외 source는
+기존 server/tool/arguments 템플릿을 쓴다.
+템플릿 route의 `$reply`, `$event_id`, `$receiver_id`, `$source`, `$kind`,
+`$receipt_id`는 전체 문자열 값일 때 치환된다. 고정 목적지는 운영자가 arguments에
+설정하고 인증정보는 MCP 연결에만 둔다. 이벤트 본문은 목적지나 도구를 정하지 않는다.
 외부 이벤트에 일치하는 재정의가 없으면 `route_unavailable`이며 로컬 로그 저장을
 외부 전송으로 표시하지 않는다.
 

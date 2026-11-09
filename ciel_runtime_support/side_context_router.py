@@ -79,6 +79,24 @@ def upstream_counter(services, handler, provider, config, model):
     return count
 
 
+def _mark_parent_cache_boundary(messages, existing=0):
+    """Mark the last parent text block without exceeding four request breakpoints."""
+    if existing >= 4:
+        return
+    for message in reversed(messages):
+        content = message.get('content')
+        if isinstance(content, str) and content:
+            message['content'] = [{'type': 'text', 'text': content, 'cache_control': {'type': 'ephemeral'}}]
+            return
+        if not isinstance(content, list):
+            continue
+        for index in range(len(content) - 1, -1, -1):
+            block = content[index]
+            if isinstance(block, dict) and block.get('type') == 'text' and isinstance(block.get('text'), str):
+                content[index] = {**block, 'cache_control': {'type': 'ephemeral'}}
+                return
+
+
 def project(state_dir, identity, agent_id, body, config, provider, count_tokens):
     envelope = request_context(body)
     if envelope is None:
@@ -137,6 +155,11 @@ def project(state_dir, identity, agent_id, body, config, provider, count_tokens)
         value['agent_id'] = agent_id
         save(path, value)
         selected = copy.deepcopy(value['projection'])
+        # The full selected parent prefix is identical for consecutive side
+        # events on the same model. Mark its last text block, never the event.
+        # Respect the API's four-breakpoint request limit.
+        existing = json.dumps({'system': value['parent'].get('system', []), 'messages': selected}).count('"cache_control"')
+        _mark_parent_cache_boundary(selected, existing)
         parent = value['parent']
     result = copy.deepcopy(body)
     envelope = request_context(result)

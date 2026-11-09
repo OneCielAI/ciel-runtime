@@ -115,7 +115,7 @@ class WorkMcpToolsTests(unittest.TestCase):
         for config, enabled in (({}, True), ({"work_mode": True}, True), ({"work_mode": False}, False)):
             with self.subTest(config=config):
                 names = {s["name"] for s in channel_mcp_tool_schemas(lambda: config)}
-                self.assertEqual(names & expected, expected if enabled else {"work_mode_set", "work_live_settings", "work_side_intake", "work_side_settings", "work_side_drain", "work_side_status", "work_side_claim", "work_side_resolve", "work_side_fail", "work_side_fallback", "work_side_reply", "work_side_wake", "work_side_handoff", "work_side_renew", "work_side_retry_reply", "work_side_context", "work_side_compare", "work_host_page"})
+                self.assertEqual(names & expected, expected if enabled else {"work_mode_set", "work_live_settings", "work_side_intake", "work_side_settings", "work_side_drain", "work_side_status", "work_side_claim", "work_side_resolve", "work_side_fail", "work_side_fallback", "work_side_reply", "work_side_wake", "work_side_handoff", "work_side_renew", "work_side_retry_reply", "work_side_context", "work_side_compare", "work_side_code_read", "work_side_code_search", "work_host_page"})
         self.assertFalse({s["name"] for s in channel_mcp_tool_schemas()} & expected)
         switch = next(s for s in m.work_tool_schemas(enabled=False) if s["name"] == "work_mode_set")
         self.assertEqual(switch["inputSchema"]["required"], ["enabled"])
@@ -250,6 +250,18 @@ class WorkMcpToolsTests(unittest.TestCase):
         before = self.store.read()
         self.assertTrue(self.call("work_execute", user_confirmed=True)["error"])
         self.assertEqual(self.store.read(), before)
+
+    def test_side_drain_preserves_status_mail_for_classification(self):
+        from ciel_runtime_support.side_intake_inbox import SideIntakeInbox
+        from ciel_runtime_support.side_intake_service import receive
+        self.config={'work_mode':True,'work_side_intake':{'enabled':True},
+                     'work_parallel_host':{'token':'x'*40}}
+        inbox=SideIntakeInbox(self.directory,'claude:test-session')
+        receive(self.directory,'claude:test-session','what is the current status?','status',admit=False)
+        result=self.call('work_side_drain',limit=10,_host={'token':'x'*40})
+        self.assertFalse(result['error'],result)
+        self.assertEqual(1,len(inbox.pending()))
+        self.assertEqual([],self.store.read()['nodes'])
 
     def test_add_remove_update_completion(self):
         doc = self.plan()

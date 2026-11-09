@@ -2,11 +2,11 @@
 from .side_intake_inbox import SideIntakeInbox
 from .side_intake_limits import SIDE_INTAKE_TEXT_MAX_CHARS, side_text_fits_pending_record
 from .side_intake_processing import claim, fail, fallback, finish, verify_claim
-from .side_work_decision import apply
+from .side_work_decision import WorkChanged, apply
 from .work_plan_tree import WorkPlanError
 from .channel_message_repository import exclusive_file_lock
 
-NAMES = ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare')
+NAMES = ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare', 'work_side_code_read', 'work_side_code_search')
 
 
 def schemas():
@@ -42,16 +42,25 @@ def schemas():
          'inputSchema': {'type': 'object', 'properties': {'event_id': {'type': 'string'},
              'state': {'type': 'string', 'enum': ['prepare', 'queued', 'uncertain', 'failed']},
              'attempt_id': {'type': 'string'}}, 'required': ['event_id', 'state']}},
+        {'name': 'work_side_code_read', 'description': 'Side-only bounded read of one UTF-8 file inside the session workspace.',
+         'inputSchema': {'type': 'object', 'properties': {'path': {'type': 'string', 'maxLength': 1000},
+             'offset': {'type': 'integer', 'minimum': 1}, 'limit': {'type': 'integer', 'minimum': 1, 'maximum': 400}},
+             'required': ['path']}},
+        {'name': 'work_side_code_search', 'description': 'Side-only bounded regex search inside the session workspace.',
+         'inputSchema': {'type': 'object', 'properties': {'pattern': {'type': 'string', 'maxLength': 300},
+             'glob': {'type': 'string', 'maxLength': 200}}, 'required': ['pattern']}},
         {'name': 'work_side_claim', 'description': 'Host-only: claim one durable request for immediate independent AI processing, without creating Work.',
          'inputSchema': {'type': 'object', 'properties': {'owner': {'type': 'string', 'maxLength': 200},
              'urgent_only': {'type': 'boolean'}}, 'required': ['owner']}},
-        {'name': 'work_side_resolve', 'description': 'Resolve one host-claimed external event: answer, clarify, update existing Work, create new Work, prioritize or advise. Never execution approval.',
+        {'name': 'work_side_resolve', 'description': 'Resolve one host-claimed external event: answer status/info, clarify, or queue a request (create, update or reprioritize Work). Never execution approval.',
          'inputSchema': {'type': 'object', 'properties': {
              'decision': {'type': 'object', 'properties': {
                  'action': {'type': 'string', 'enum': ['answer', 'clarify', 'update', 'create', 'prioritize', 'advise']},
+                 'kind': {'type': 'string', 'enum': ['status', 'info', 'request', 'clarify']},
                  'item_id': {'type': 'string'}, 'summary': {'type': 'string'}, 'reply': {'type': 'string'},
                  'note': {'type': 'string'}, 'title': {'type': 'string'},
-                 'priority': {'type': 'string', 'enum': ['', 'P1', 'P2', 'P3', 'P4', 'P5']}},
+                 'priority': {'type': 'string', 'enum': ['', 'P1', 'P2', 'P3', 'P4', 'P5']},
+                 'queue_position': {'type': 'integer', 'minimum': 1}},
                  'required': ['action', 'summary', 'reply'], 'additionalProperties': False},
              'expected_version': {'type': 'integer', 'minimum': 0}}, 'required': ['decision', 'expected_version']}}
     ]
@@ -247,7 +256,12 @@ def run(name, args, config, state_dir, identity, store):
                 active = None
             else:
                 from .side_workload import project as project_workload
+                from .side_work_decision import unfinished_digest
                 active['workload'] = project_workload(document)
+                # Host-held: returned in _host at resolve, never taken from the model.
+                active['work_digest'] = unfinished_digest(document)
+                from .side_reply_connector import source_read
+                active['source_read'] = source_read(config, active.get('route', {}), active['text'])
                 active['handoff_context'] = [{'event_id': key, **row} for key, row in document.get('side_handoffs', {}).items()
                                              if active['event_key'] == 'handoff:' + key]
         main_wakes = [{'event_id': key, **row} for key, row in document.get('side_handoffs', {}).items()
@@ -286,13 +300,26 @@ def run(name, args, config, state_dir, identity, store):
         # A handoff follow-up carries main's own answer back to the source. Its
         # decision never asks main again (owned proof 2026-11-08: 4 cycles in 5 min).
         main_reply = str((row or {}).get('event_key') or '').startswith('handoff:')
-        result = apply(store, key, decision, args.get('expected_version'), main_reply=main_reply)
-        if context_info is not None:
-            result['context'] = context_info
-        result['usage'] = args.get('usage') if isinstance(args.get('usage'), dict) else None
-        # What the side AI says it sent through inherited MCP. The host cannot
-        # observe a spawned agent's tool calls, so this stays labelled as reported.
-        result['reported_sends'] = _reported_sends(host.get('reported_sends'))
+        # One recheck per event: a second board change commits on the current board.
+        observed = host.get('work_digest') if not (row or {}).get('rechecks') else None
+        changed = None
+        try:
+            result = apply(store, key, decision, args.get('expected_version'), main_reply=main_reply,
+                           observed_digest=observed if isinstance(observed, str) else None)
+        except WorkChanged as error:
+            changed = str(error)
+        if changed is None:
+            if context_info is not None:
+                result['context'] = context_info
+            result['usage'] = args.get('usage') if isinstance(args.get('usage'), dict) else None
+            # Legacy decisions only: what the side AI says it sent itself. New
+            # actors have no send tool; the host sends final_text.
+            result['reported_sends'] = _reported_sends(host.get('reported_sends'))
+    if changed is not None:
+        # Decided "new" against goals main has since changed: decide again once.
+        from .side_intake_processing import release_for_recheck
+        return {'receipt': release_for_recheck(state_dir, identity, key, generation, changed),
+                'recheck': 'work_changed'}
     # The board records the decision before pending mail is removed. A retry
     # recovers the same application if this receipt write was interrupted.
     receipt = finish(state_dir, identity, key, generation, result)

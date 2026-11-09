@@ -1,4 +1,9 @@
-"""Apply a side actor's decision once, without granting execution approval."""
+"""Apply a side actor's decision once, without granting execution approval.
+
+A side event is either answered (status/info/clarify, no Work change) or a
+request (create/update/prioritize Work). The host, never the model, states
+the outcome: whether anything was queued and where the goal now stands.
+"""
 import hashlib
 import json
 import time
@@ -6,13 +11,35 @@ import time
 from . import work_plan_tree as tree
 
 ACTIONS = ('answer', 'clarify', 'update', 'create', 'prioritize', 'advise')
+KINDS = ('status', 'info', 'request', 'clarify')
+FIELDS = {'action', 'kind', 'item_id', 'summary', 'reply', 'note', 'title', 'priority', 'queue_position'}
+NO_QUEUE = '큐에 등록하지 않았습니다.'
+
+
+def unfinished_digest(document):
+    """Fingerprint of the unfinished goals a side create is checked against for duplicates.
+
+    Goals only: a side create adds a goal, and main expands steps and notes
+    constantly (Prody: 15 board versions in 70 minutes), which must not force
+    a full side re-run each time.
+    """
+
+    rows = [[node['id'], node['title'], node.get('ref', '')]
+            for node in document['nodes'] if node['parent_id'] is None and node['status'] != 'done']
+    return hashlib.sha256(json.dumps(rows, ensure_ascii=False).encode()).hexdigest()
+
+
+class WorkChanged(tree.WorkPlanError):
+    """Unfinished Work changed after the actor read it; a create may now duplicate."""
 
 
 def validate(decision):
-    if not isinstance(decision, dict) or set(decision) - {'action', 'item_id', 'summary', 'reply', 'note', 'title', 'priority'}:
+    if not isinstance(decision, dict) or set(decision) - FIELDS:
         raise tree.WorkPlanError('invalid side decision fields')
     if decision.get('action') not in ACTIONS:
         raise tree.WorkPlanError('invalid side decision action')
+    if decision.get('kind', 'request') not in KINDS:
+        raise tree.WorkPlanError('invalid side decision kind')
     for key in ('summary', 'reply'):
         if not isinstance(decision.get(key), str) or not decision[key].strip() or len(decision[key]) > 16000:
             raise tree.WorkPlanError('side decision needs bounded summary and reply')
@@ -21,17 +48,42 @@ def validate(decision):
             raise tree.WorkPlanError('invalid side decision ' + key)
     if decision.get('priority', '') not in ('', *tree.PRIORITIES):
         raise tree.WorkPlanError('invalid side decision priority')
-    action=decision['action']
-    if action in ('answer','clarify') and any(key in decision for key in ('note','title','priority')):
+    place = decision.get('queue_position')
+    if place is not None and (isinstance(place, bool) or not isinstance(place, int) or place < 1):
+        raise tree.WorkPlanError('invalid side decision queue_position')
+    action = decision['action']
+    kind = decision.get('kind')
+    if action in ('answer', 'clarify') and any(key in decision for key in ('note', 'title', 'priority', 'queue_position')):
         raise tree.WorkPlanError('answer-only decisions cannot carry Work edits')
-    if action in ('update','prioritize','advise') and not decision.get('item_id'):
+    if kind in ('status', 'info') and action != 'answer' or kind == 'clarify' and action != 'clarify':
+        raise tree.WorkPlanError('side decision kind does not match its action')
+    if kind == 'request' and action not in ('create', 'update', 'prioritize'):
+        raise tree.WorkPlanError('a request must create, update or prioritize Work')
+    if place is not None and action not in ('create', 'update', 'prioritize'):
+        raise tree.WorkPlanError('queue_position applies only to queued Work')
+    if action in ('update', 'prioritize', 'advise') and not decision.get('item_id'):
         raise tree.WorkPlanError('existing Work identity required')
-    if action=='create' and decision.get('item_id'):
+    if action == 'create' and decision.get('item_id'):
         raise tree.WorkPlanError('new Work cannot overwrite an existing identity')
     return decision
 
 
-def apply(store, receipt_id, decision, expected_version, *, main_reply=False):
+def outcome_text(result):
+    """The host-owned last line of the source reply, from committed state only."""
+
+    if result['action'] in ('answer', 'clarify'):
+        return NO_QUEUE
+    queue = result.get('queue') or {}
+    verb = '등록' if result['action'] == 'create' else '갱신'
+    head = f"{result['item_id']} {verb}" + (f" · {queue['priority']}" if queue.get('priority') else '')
+    if queue.get('state') == 'active':
+        return head + ' · 현재 진행 중인 항목입니다.'
+    if queue.get('state') == 'queued':
+        return head + f" · 대기 {queue['position']}번째 (앞 {queue['ahead']}건)."
+    return head + '.'
+
+
+def apply(store, receipt_id, decision, expected_version, *, main_reply=False, observed_digest=None):
     validate(decision)
     if not isinstance(receipt_id, str) or len(receipt_id) != 64 or any(c not in '0123456789abcdef' for c in receipt_id):
         raise tree.WorkPlanError('invalid side receipt identity')
@@ -52,6 +104,10 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False):
             raise tree.WorkPlanError('side target Work item missing')
         if action in ('update','prioritize') and by_id[item]['status']=='done':
             raise tree.WorkPlanError('completed Work cannot be reopened by side decision')
+        if action == 'create' and observed_digest is not None and observed_digest != unfinished_digest(doc):
+            # The actor decided "new" against a board main has since changed;
+            # the event is re-evaluated against the current board instead.
+            raise WorkChanged('unfinished Work changed since the side actor read it')
         target_path = []
         if item in by_id:
             current = by_id[item]
@@ -62,6 +118,7 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False):
                   'blocked': node.get('status') == 'blocked'}
                  for node in target_path
                  if node.get('waiting_on') or node.get('status') == 'blocked']
+        place = decision.get('queue_position')
         if action == 'create':
             if not decision.get('title', '').strip():
                 raise tree.WorkPlanError('new Work title required')
@@ -81,15 +138,28 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False):
             # approved by main. Preserve the existing execution phase.
             by_id[item]['note'] = previous + addition
             by_id[item]['updated_at'] = time.time()
-        elif action == 'prioritize':
-            if decision.get('priority') not in tree.PRIORITIES:
-                raise tree.WorkPlanError('explicit priority required')
+        if action in ('update', 'prioritize') and decision.get('priority'):
             # Priority is goal-scoped in the canonical tree. A request naming
             # a detail promotes its existing goal, never creates a replacement.
-            item = tree._root_of(by_id, item)
-            tree.update_node(doc, item, priority=decision['priority'])
-            if decision['priority']=='P1' and item != doc.get('active_root'):
-                tree.reorder_root(doc, item, 2 if doc.get('active_root') else 1)
+            item_root = tree._root_of(by_id, item)
+            tree.update_node(doc, item_root, priority=decision['priority'])
+            if (action == 'prioritize' and place is None and decision['priority'] == 'P1'
+                    and item_root != doc.get('active_root')):
+                tree.reorder_root(doc, item_root, 2 if doc.get('active_root') else 1)
+        if action == 'prioritize':
+            if not decision.get('priority') and place is None:
+                raise tree.WorkPlanError('explicit priority or queue_position required')
+            item = tree._root_of({node['id']: node for node in doc['nodes']}, item)
+        if place is not None:
+            root = tree._root_of({node['id']: node for node in doc['nodes']}, item)
+            if root == doc.get('active_root'):
+                if action != 'create':
+                    raise tree.WorkPlanError('the active goal has no waiting place; it is not moved by a side decision')
+                # An empty board makes the new goal active; report that fact
+                # instead of inventing or rejecting a waiting position.
+            else:
+                tree.reorder_queued_root(doc, root, place)
+        by_id = {node['id']: node for node in doc['nodes']}
         priority = ''
         if action == 'create':
             priority = decision.get('priority', '')
@@ -117,12 +187,25 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False):
                   'reply': decision['reply'], 'delivery': 'pending', 'execution_approved': False,
                   'handoff': 'requested' if needs_handoff else 'not_required',
                   'based_on_version': expected_version}
+        if decision.get('kind'):
+            result['kind'] = decision['kind']
         if needs_handoff:
             result['main_handoff'] = {'kind': kind, 'waits': handoffs[receipt_id]['waits'],
                                       'question': handoffs[receipt_id]['question']}
-        if action in ('create', 'prioritize'):
-            node = next(node for node in doc['nodes'] if node['id'] == item)
-            result.update(title=node['title'], priority=node.get('priority', ''))
+        if action in ('create', 'update', 'prioritize'):
+            node = by_id[item]
+            position = tree.queue_position(doc, item)
+            position['version'] = doc['version'] + 1
+            result.update(title=node['title'], priority=by_id[tree._root_of(by_id, item)].get('priority', ''),
+                          queue=position)
+        if decision.get('kind'):
+            # Requests carry an explicit ACK together with the model's transcript-
+            # based restatement. Status/info answer directly without boilerplate.
+            text = decision['reply'].rstrip()
+            if decision['kind'] == 'request':
+                text = 'ACK — ' + text
+            # The committed outcome, never the model's guess, closes the reply.
+            result['final_text'] = text + '\n\n' + outcome_text(result)
         receipts[receipt_id] = {'decision_digest': digest, 'applied_at': time.time(),
                                 'item_id': item, 'recap': decision['summary'], 'result': result}
         return {**result, 'duplicate': False}

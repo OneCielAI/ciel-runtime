@@ -967,10 +967,43 @@ def _open_active_root(doc: dict[str, Any], by_id: dict[str, dict[str, Any]]) -> 
 
 
 def queued_roots(doc: dict[str, Any]) -> list[dict[str, Any]]:
-    """Unfinished goals other than the active one, oldest first: the order they become active."""
+    """Unfinished goals other than the active one, in the order they become active."""
 
     active = doc.get("active_root")
     return [node for node in doc["nodes"] if node["parent_id"] is None and node["status"] != "done" and node["id"] != active]
+
+
+def reorder_queued_root(doc: dict[str, Any], root_id: str, position: int) -> None:
+    """Move a waiting goal to a 1-based place among queued_roots; the active goal never moves."""
+
+    queued = queued_roots(doc)
+    selected = next((node for node in queued if node["id"] == root_id), None)
+    if selected is None:
+        raise WorkPlanError(f"{root_id} is not a waiting goal")
+    if isinstance(position, bool) or not isinstance(position, int) or not 1 <= position <= len(queued):
+        raise WorkPlanError(f"queue position must be between 1 and {len(queued)}")
+    ordered = [node for node in queued if node["id"] != root_id]
+    ordered.insert(position - 1, selected)
+    slots = iter(ordered)
+    active = doc.get("active_root")
+    doc["nodes"] = [next(slots) if node["parent_id"] is None and node["status"] != "done" and node["id"] != active
+                    else node for node in doc["nodes"]]
+
+
+def queue_position(doc: dict[str, Any], node_id: str) -> dict[str, Any]:
+    """Where a node's goal stands now: active, queued at N of M, or done."""
+
+    by_id = _index(doc)
+    if node_id not in by_id:
+        raise WorkPlanError(f"unknown node {node_id}")
+    root = _root_of(by_id, node_id)
+    queued = [node["id"] for node in queued_roots(doc)]
+    state = ("done" if by_id[root]["status"] == "done" else "active" if root == doc.get("active_root")
+             else "queued")
+    position = queued.index(root) + 1 if state == "queued" else 0
+    return {"root_id": root, "state": state, "position": position, "ahead": max(0, position - 1),
+            "total": len(queued), "active_root": doc.get("active_root"),
+            "priority": by_id[root].get("priority", ""), "phase": root_phase(doc, root)}
 
 
 def _advance_queue(doc: dict[str, Any]) -> None:

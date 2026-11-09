@@ -37,9 +37,9 @@ class SideModTests(unittest.TestCase):
         # Prose + fenced JSON and prose + raw JSON both commit; no-decision is
         # recorded once as invalid_answer, never as a retryable failure.
         self.assertEqual(['a'*64,'b'*64],[call['_host']['receipt_id'] for call in row['resolveCalls']])
-        self.assertEqual(['mcp__mail__read'],row['resolveCalls'][0]['_host']['reported_sends'])
-        self.assertEqual({'action':'answer','summary':'done2','reply':'answer2'},row['resolveCalls'][1]['decision'])
-        self.assertEqual(['mcp__mail__read'],row['resolveCalls'][1]['_host']['reported_sends'])
+        self.assertEqual([],row['resolveCalls'][0]['_host']['reported_sends'])
+        self.assertEqual({'action':'answer','kind':'info','summary':'done2','reply':'answer2'},row['resolveCalls'][1]['decision'])
+        self.assertEqual([],row['resolveCalls'][1]['_host']['reported_sends'])
         self.assertEqual([{'category':'invalid_answer','receipt':'c'*64,
                            'reason':'side answer carries no decision JSON'}],row['failures'])
         self.assertTrue(row['first']['retired'])
@@ -49,6 +49,7 @@ class SideModTests(unittest.TestCase):
         self.assertEqual(['n21'],row['spawns'][0]['prompt']['workload']['queue_order'])
         self.assertFalse(row['spawns'][0]['prompt']['workload']['truncated'])
         self.assertEqual('question',row['spawns'][0]['prompt']['original'])
+        self.assertEqual('move the existing work to queue position 2',row['spawns'][0]['prompt']['source_message']['text'])
         self.assertEqual('claude:parent',row['resolveCalls'][0]['session_id'])
         self.assertEqual('a'*64,row['resolveCalls'][0]['_host']['receipt_id'])
         self.assertEqual({'input_tokens':3},row['resolveCalls'][0]['usage'])
@@ -129,11 +130,11 @@ class SideModTests(unittest.TestCase):
             done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',check=True)
         row=json.loads(done.stdout)
         self.assertEqual({'result':'native'},row['nonWork'])
-        self.assertEqual({'deny':'Return a decision JSON; the host commits it. Execution approval is not granted'},row['workDenied'])
+        self.assertEqual({'deny':'Return a decision JSON; the host commits and sends it. Execution approval is not granted'},row['workDenied'])
         self.assertRegex(row['parity']['digest'],r'^[0-9a-f]{16}$')
         self.assertGreaterEqual(len(row['registrations']),2)
-        safe={'mcp__ciel-runtime-router__work_status','mcp__mail__read',
-              'mcp__walkie__walkie_read_messages','mcp__walkie__walkie_send_message'}
+        safe={'mcp__ciel-runtime-router__work_side_code_read','mcp__ciel-runtime-router__work_side_code_search',
+              'mcp__mail__read','mcp__walkie__walkie_read_messages'}
         # Prody 2026-11-08: a side actor queued restart_session through the
         # inherited router MCP. Execution and runtime controls are never offered.
         dangerous={'mcp__github__create_issue','mcp__database__query','mcp__ciel-runtime-router__restart_session',
@@ -142,9 +143,12 @@ class SideModTests(unittest.TestCase):
                    'mcp__walkie__walkie_threads_stop','mcp__aap__run_agent',
                    'mcp__x__get_shell','mcp__x__read_and_post','mcp__x__search_and_replace',
                    'mcp__x__fetch_and_save','mcp__x__reply_and_close','mcp__x__ack_then_delete_all'}
+        dangerous |= {'mcp__ciel-runtime-router__work_status','mcp__ciel-runtime-router__work_parallel_status',
+                      'mcp__walkie__walkie_send_message'}
         for registration in row['registrations']:
             self.assertTrue(safe <= set(registration['tools']),registration)
             self.assertFalse(dangerous & set(registration['tools']),registration)
+            self.assertEqual((4,'low',True),(registration['maxTurns'],registration['effort'],registration['omitClaudeMd']))
         self.assertEqual(sorted(safe),row['registrations'][0]['tools'])
         self.assertIn('mcp__calendar__read',row['registrations'][-1]['tools'])
         self.assertEqual({'toolCount':5,'serverCount':4},{k:row['parity'][k] for k in ('toolCount','serverCount')})
@@ -164,31 +168,31 @@ class SideModTests(unittest.TestCase):
 
     def test_side_prompt_requires_answer_ack_queue_and_status_behaviors(self):
         source=(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js').read_text(encoding='utf8')
-        self.assertIn('answer through the source reply tool',source)
-        self.assertIn('ACK the exact incoming source message',source)
-        self.assertIn('create one root Work item',source)
-        self.assertIn('work_status/work_parallel_status',source)
-        self.assertIn('source_priority, when present',source)
-        # Code-change requests are investigated read-only and queued for main.
-        self.assertIn('code/config/test/build/deploy/implementation request, do only basic read-only investigation',source)
-        self.assertIn('Do not perform the change',source)
-        self.assertIn('restart or control sessions/runtime',source)
-        self.assertIn('never that implementation is proceeding',source)
+        self.assertIn('status: report the current Work state directly. No request recap and no Work',source)
+        self.assertIn('info: gather only what is needed, organize it, and answer. No Work',source)
+        self.assertIn('request: restate what the person asks using source_message plus the transcript',source)
+        # Owned run 2026-11-09: the recap dropped "mobile browsers", and a new
+        # payment outage was merged into the active payment refactoring item.
+        self.assertIn('every\n  concrete requirement, constraint, target, environment and deadline',source)
+        self.assertIn("Update an existing item only when the event is\n  about that item's own requested outcome",source)
+        self.assertIn('A different problem, failure, incident or\n  feature is a new item even in the same area or system',source)
+        self.assertIn('an urgent new problem is create with priority P1',source)
+        self.assertIn('queue_position is 1-based among waiting',source)
+        self.assertIn('Never claim a queue position in reply; the host appends the committed one',source)
+        self.assertIn('Never implement, edit, build, test, deploy, execute commands',source)
+        self.assertIn('mutate Work, ACK or send a source message',source)
         self.assertNotIn('act when the event requests it',source)
 
     def test_reply_route_override_is_not_mcp_inheritance(self):
         from ciel_runtime_support.recent_menu_text import menu_text
         from ciel_runtime_support.work_settings_menu import description
         key='work_side_intake_reply_connectors'
-        self.assertEqual('Advanced external-event reply route override (JSON)',menu_text(key))
+        self.assertEqual('External reply route / Walkie preset (JSON)',menu_text(key))
         text=description({},key)
-        self.assertIn('not MCP inheritance',text)
-        self.assertIn('Correlated web chat replies automatically',text)
-        self.assertIn('ordinary external SSE/CloudEvent replies need',text)
-        # The prelaunch menu clips descriptions to one line; keep the distinction visible first.
-        self.assertLess(text.index('not MCP inheritance'),100)
+        self.assertIn('Walkie preset',text)
+        self.assertIn('The side model never sends',text)
         korean=description({'language':'ko'},key)
-        self.assertIn('MCP 상속 설정이 아닙니다',korean)
-        self.assertIn('일반 외부 SSE/CloudEvent 응답에는',korean)
+        self.assertIn('Walkie 프리셋',korean)
+        self.assertIn('사이드 모델은 전송하지 않습니다',korean)
         for language in ('en','ko','ja','zh'):
             self.assertNotIn('MCP',menu_text(key,language))

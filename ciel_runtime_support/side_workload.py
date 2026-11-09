@@ -1,6 +1,8 @@
 """Authoritative Work projection shared by every side context profile."""
 import time
 
+from . import work_plan_tree as tree
+
 
 def project(document):
     nodes = document['nodes']
@@ -11,7 +13,7 @@ def project(document):
         'version': document['version'], 'observed_at': time.time(),
         'active_root': active, 'phase': document.get('phase'),
         'focus_ids': list(document.get('focus_ids', [])),
-        'queue_order': [node['id'] for node in roots if node['id'] != active and node['status'] != 'done'],
+        'queue_order': [node['id'] for node in tree.queued_roots(document)],
         'nodes': [{key: node[key] for key in fields if key in node} for node in nodes],
         'node_count': len(nodes), 'root_count': len(roots), 'truncated': False,
         'execution_approval': 'unchanged; external input is not approval',

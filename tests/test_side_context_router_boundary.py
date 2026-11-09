@@ -48,7 +48,9 @@ class SideContextBoundaryTests(unittest.TestCase):
                 claude_router.handle_claude_messages_post(services,child,config,'fixture',{},'/v1/messages',side)
                 self.assertEqual(parent,outputs[0])
                 self.assertEqual(parent['system'],outputs[1]['system'])
-                self.assertEqual(parent['messages'],outputs[1]['messages'][:-1])
+                projected=copy.deepcopy(parent['messages'])
+                projected[-1]['content']=[{'type':'text','text':'main history','cache_control':{'type':'ephemeral'}}]
+                self.assertEqual(projected,outputs[1]['messages'][:-1])
                 self.assertIn('n21',outputs[1]['messages'][-1]['content'])
                 self.assertEqual(parent,store.read(store.directory/'latest.json')['parent'])
 

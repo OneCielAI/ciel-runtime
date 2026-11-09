@@ -27,6 +27,45 @@ class SideDecisionTests(unittest.TestCase):
         self.assertTrue(again['duplicate'])
         self.assertEqual(1, self.store.read()['version'])
 
+    def test_new_contract_composes_no_queue_and_committed_queue_messages(self):
+        answered = apply(self.store, self.key, {**self.base, 'kind': 'status'}, 0)
+        self.assertEqual([], self.store.read()['nodes'])
+        self.assertEqual('The answer\n\n큐에 등록하지 않았습니다.', answered['final_text'])
+        self.assertNotIn('queue', answered)
+
+        doc, active = self.store.transaction(lambda d: tree.add_node(d, None, 'active'))
+        self.store.transaction(lambda d: tree.add_node(d, None, 'older', priority='P3'))
+        created = apply(self.store, hashlib.sha256(b'new-contract').hexdigest(),
+                        {**self.base, 'kind': 'request', 'action': 'create', 'title': 'queued request',
+                         'note': 'restated request', 'priority': 'P2'}, doc['version'])
+        self.assertEqual(active, self.store.read()['active_root'])
+        self.assertEqual(('queued', 1, 0), (created['queue']['state'], created['queue']['position'], created['queue']['ahead']))
+        self.assertTrue(created['final_text'].startswith('ACK — The answer'))
+        self.assertIn(created['item_id'] + ' 등록 · P2 · 대기 1번째 (앞 0건).', created['final_text'])
+
+    def test_existing_request_can_update_priority_and_queue_place_atomically(self):
+        doc, active = self.store.transaction(lambda d: tree.add_node(d, None, 'active'))
+        doc, first = self.store.transaction(lambda d: tree.add_node(d, None, 'first'))
+        doc, target = self.store.transaction(lambda d: tree.add_node(d, None, 'target'))
+        doc, last = self.store.transaction(lambda d: tree.add_node(d, None, 'last'))
+        result = apply(self.store, self.key, {**self.base, 'kind': 'request', 'action': 'update',
+                       'item_id': target, 'note': 'new facts', 'priority': 'P1', 'queue_position': 3}, doc['version'])
+        self.assertEqual(active, self.store.read()['active_root'])
+        self.assertEqual([first, last, target], [n['id'] for n in tree.queued_roots(self.store.read())])
+        self.assertEqual(('P1', 3, 2), (result['priority'], result['queue']['position'], result['queue']['ahead']))
+        self.assertIn(target + ' 갱신 · P1 · 대기 3번째 (앞 2건).', result['final_text'])
+
+    def test_create_rechecks_once_when_unfinished_goals_changed(self):
+        from ciel_runtime_support.side_work_decision import WorkChanged, unfinished_digest
+        doc, _ = self.store.transaction(lambda d: tree.add_node(d, None, 'active'))
+        observed = unfinished_digest(doc)
+        self.store.transaction(lambda d: tree.add_node(d, None, 'main added same work'))
+        with self.assertRaises(WorkChanged):
+            apply(self.store, self.key, {**self.base, 'kind': 'request', 'action': 'create',
+                  'title': 'same work', 'note': 'details'}, doc['version'], observed_digest=observed)
+        self.assertEqual(2, len(self.store.read()['nodes']))
+        self.assertNotIn('side_decisions', self.store.read())
+
     def test_existing_update_and_priority_preserve_identity(self):
         doc, item = self.store.transaction(lambda d: tree.add_node(d, None, 'existing'))
         result = apply(self.store, self.key, {**self.base, 'action': 'update', 'item_id': item, 'note': 'new detail'}, doc['version'])

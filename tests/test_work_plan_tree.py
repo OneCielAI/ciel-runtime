@@ -105,6 +105,26 @@ class WorkPlanTreeTests(unittest.TestCase):
         t.update_node(self.doc, second, priority="P1")
         self.assertEqual([second, first], [n["id"] for n in t.queued_roots(self.doc)])
 
+    def test_queued_root_moves_to_any_waiting_place_without_touching_active(self):
+        active = t.add_node(self.doc, None, "active", now=10)
+        a, b, c = (t.add_node(self.doc, None, name, now=11 + i) for i, name in enumerate("abc"))
+        child = t.add_node(self.doc, c, "detail", now=20, within_scope=True)
+        t.reorder_queued_root(self.doc, c, 1)
+        self.assertEqual([c, a, b], [n["id"] for n in t.queued_roots(self.doc)])
+        t.reorder_queued_root(self.doc, c, 2)
+        self.assertEqual([a, c, b], [n["id"] for n in t.queued_roots(self.doc)])
+        t.reorder_queued_root(self.doc, a, 3)
+        self.assertEqual([c, b, a], [n["id"] for n in t.queued_roots(self.doc)])
+        self.assertEqual(active, self.doc["active_root"])
+        self.assertEqual({"root_id": c, "state": "queued", "position": 1, "ahead": 0, "total": 3},
+                         {k: t.queue_position(self.doc, child)[k] for k in ("root_id", "state", "position", "ahead", "total")})
+        self.assertEqual(("active", 0), (t.queue_position(self.doc, active)["state"], t.queue_position(self.doc, active)["position"]))
+        before = copy.deepcopy(self.doc)
+        for target, place in ((active, 1), (c, 0), (c, 4), (c, True), (child, 1)):
+            with self.subTest(target=target, place=place), self.assertRaises(t.WorkPlanError):
+                t.reorder_queued_root(self.doc, target, place)
+        self.assertEqual(before, self.doc)
+
     def test_wait_diagnostics_distinguishes_inherited_and_in_progress_waits(self):
         ids = self.plan()
         t.update_node(self.doc, ids[1], waiting_on="deployment approval")

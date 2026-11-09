@@ -93,6 +93,27 @@ class SideReplyTests(unittest.TestCase):
             self.assertTrue(final['result']['isError'])
             self.assertEqual(['web_chat', 'status', 'reply'], [row['kind'] for row in fixture.messages])
 
+    def test_new_contract_sends_host_composed_final_text_once_through_walkie_preset(self):
+        import json
+        config = {'work_side_intake': {'reply_connectors': [{
+            'source': 'urn:owned', 'receiver_id': 'receiver', 'preset': 'walkie', 'server': 'walkie'}]}}
+        original = json.dumps({'data': {'conversation': '34886995-4a66-4527-a618-814e9cb0a5bf', 'message_id': '118635'}})
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            inbox = SideIntakeInbox(root, 'claude:test')
+            row = inbox.receive(original, 'key', route={'channel': 'external:receiver',
+                'sender_id': 'urn:owned', 'source_kind': 'external_event'})
+            leased = claim(root, 'claude:test', 'actor')
+            finish(root, 'claude:test', row['receipt_id'], leased['generation'], {
+                'action': 'answer', 'reply': 'model answer',
+                'final_text': 'model answer\n\n큐에 등록하지 않았습니다.', 'delivery': 'pending'})
+            first = prepare(root, 'claude:test', row['receipt_id'], config=config)
+            self.assertEqual('walkie_send_message', first['tool'])
+            self.assertEqual('model answer\n\n큐에 등록하지 않았습니다.', first['arguments']['text'])
+            self.assertNotIn('arguments', prepare(root, 'claude:test', row['receipt_id'], config=config))
+            record(root, 'claude:test', row['receipt_id'], 'submitted', attempt_id=first['attempt_id'])
+            self.assertNotIn('arguments', prepare(root, 'claude:test', row['receipt_id'], config=config))
+
     def test_external_input_channel_is_not_assumed_to_be_reply_connector(self):
         with tempfile.TemporaryDirectory() as raw:
             root=Path(raw)

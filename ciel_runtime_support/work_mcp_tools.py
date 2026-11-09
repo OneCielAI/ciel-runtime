@@ -238,7 +238,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
     schemas.extend(side_schemas())
     schemas.append(host_page_schema())
     if not enabled:
-        schemas = [schema for schema in schemas if schema["name"] in (WORK_MODE_SWITCH_TOOL, "work_live_settings", "work_side_settings", "work_side_intake", "work_side_drain", "work_side_status", "work_side_claim", "work_side_resolve", "work_side_fail", "work_side_fallback", "work_side_reply", "work_side_wake", "work_side_handoff", "work_side_renew", "work_side_retry_reply", "work_side_context", "work_side_compare", "work_host_page")]
+        schemas = [schema for schema in schemas if schema["name"] in (WORK_MODE_SWITCH_TOOL, "work_live_settings", "work_side_settings", "work_side_intake", "work_side_drain", "work_side_status", "work_side_claim", "work_side_resolve", "work_side_fail", "work_side_fallback", "work_side_reply", "work_side_wake", "work_side_handoff", "work_side_renew", "work_side_retry_reply", "work_side_context", "work_side_compare", "work_side_code_read", "work_side_code_search", "work_host_page")]
     for schema in schemas:
         inputs = schema["inputSchema"]
         inputs.setdefault("properties", {})["session_id"] = {
@@ -307,7 +307,21 @@ def dispatch_work_tool(
             return respond(request_id, json.dumps(settings(config, args, save_config), ensure_ascii=False))
         except (ValueError, OSError) as error:
             return respond(request_id, str(error), True)
-    if not work_mode_enabled(config) and name not in ('work_side_settings', 'work_side_intake', 'work_side_drain', 'work_side_status', 'work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare'):
+    if name in ("work_side_code_read", "work_side_code_search"):
+        # The side actor calls these natively: the engine skips the ciel-work
+        # tool.call hook for agents that plugin spawned (re-entry), so no host
+        # token or conversation identity is attached (owned run 2026-11-09).
+        # They read only the router's launch workspace, through every path guard.
+        if (config.get("work_side_intake") or {}).get("enabled") is not True:
+            return respond(request_id, "side processing is disabled", True)
+        from .side_code_read import read_code, search_code
+        try:
+            value = (read_code(args.get("path"), offset=args.get("offset", 1), limit=args.get("limit", 200))
+                     if name == "work_side_code_read" else search_code(args.get("pattern"), glob=args.get("glob", "*")))
+        except (tree.WorkPlanError, ValueError, OSError) as error:
+            return respond(request_id, str(error), True)
+        return respond(request_id, json.dumps(value, ensure_ascii=False))
+    if not work_mode_enabled(config) and name not in ('work_side_settings','work_side_intake', 'work_side_drain', 'work_side_status', 'work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare', 'work_side_code_read', 'work_side_code_search'):
         if name == "work_status" and args.get("format") == "json":
             return respond(request_id, json.dumps(tree.snapshot(tree.empty_document(), enabled=False)))
         return respond(request_id, "Ciel Work mode is off (prelaunch menu: LLM options -> Work mode, "
@@ -326,7 +340,7 @@ def dispatch_work_tool(
         if name not in ('work_side_status', 'work_side_settings', 'work_side_intake', 'work_side_drain'):
             scoped = session_work_plan_store(state_dir, identity, log=log)
             store = store or scoped
-        if name in ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare'):
+        if name in ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare', 'work_side_code_read', 'work_side_code_search'):
             from .side_intake_mcp import run as side_run
             return respond(request_id, json.dumps(side_run(name, args, config, state_dir, identity, store), ensure_ascii=False))
         if name == "work_side_settings":
@@ -365,7 +379,9 @@ def dispatch_work_tool(
             host, _ = host_context(args, config)
             if host.get('agent_id') is not None:
                 raise tree.WorkPlanError('side drain requires coordinator host')
-            return respond(request_id, json.dumps(drain(state_dir, identity, admit=work_mode_enabled(config), limit=args.get('limit', 10)), ensure_ascii=False))
+            # A drain recovers durable side mail for AI classification. It must
+            # never turn status questions into blanket Work roots.
+            return respond(request_id, json.dumps(drain(state_dir, identity, admit=False, limit=args.get('limit', 10)), ensure_ascii=False))
         if name == "work_side_intake":
             from .work_parallel_mcp import host_context
             from .side_intake_service import receive

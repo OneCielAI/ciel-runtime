@@ -34,6 +34,30 @@ class SideConnectorTests(unittest.TestCase):
             record(root, 'claude:test', key, 'submitted',attempt_id=out['attempt_id'])
             self.assertNotIn('arguments', prepare(root, 'claude:test', key, config=config))
 
+    def test_walkie_preset_uses_only_pattern_checked_event_identity(self):
+        from ciel_runtime_support.side_reply_connector import prepare, source_read
+        binding = {'source': 'urn:owned:events', 'receiver_id': 'receiver',
+                   'preset': 'walkie', 'server': 'walkie'}
+        config = {'work_side_intake': {'reply_connectors': [binding]}}
+        route = {'sender_id': 'urn:owned:events', 'channel': 'external:receiver'}
+        original = json.dumps({'data': {'conversation': '34886995-4a66-4527-a618-814e9cb0a5bf',
+                                              'message_id': '118635', 'server': 'attacker'}})
+        read = source_read(config, route, original)
+        self.assertEqual({'conversation_id': '34886995-4a66-4527-a618-814e9cb0a5bf', 'after': '118634'},
+                         read['arguments'])
+        self.assertEqual(('walkie', 'walkie_read_messages', '118635'),
+                         (read['server'], read['tool'], read['message_id']))
+        sent = prepare(config, route, 'a' * 64, 'answer', 'reply', original=original)
+        self.assertEqual(('walkie', 'walkie_send_message'), (sent['server'], sent['tool']))
+        self.assertEqual('118635', sent['arguments']['reply_to_message_id'])
+        self.assertEqual('answer', sent['arguments']['text'])
+        self.assertRegex(sent['arguments']['client_id'], r'^[0-9a-f-]{36}$')
+        for data in ({'conversation': '../escape', 'message_id': '118635'},
+                     {'conversation': '34886995-4a66-4527-a618-814e9cb0a5bf', 'message_id': '../118635'}):
+            with self.subTest(data=data):
+                self.assertIsNone(prepare(config, route, 'b' * 64, 'x', 'reply',
+                                          original=json.dumps({'data': data})))
+
     def test_unknown_fields_and_unbounded_bindings_are_rejected(self):
         for value in ({}, [{'source':'x'}], [{'source':'x','server':'s','tool':'t','arguments':{'message':'$unknown'}}]):
             with self.subTest(value=value), self.assertRaises(ValueError):

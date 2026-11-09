@@ -18,6 +18,11 @@ _ID = re.compile(r'^claude:[A-Za-z0-9_-]{1,200}$')
 _SECRET = re.compile(r'(?i)(bearer\s+|sk-|gh[pousr]_|AKIA|(?:api[_-]?key|token|secret|password|credential|cookie)["\s:=]+)[A-Za-z0-9._~+/=-]{8,}')
 
 
+def redact_text(value):
+    """Hide common credential shapes in bounded side evidence."""
+    return _SECRET.sub(r'\1‹hidden›', str(value))
+
+
 def bound_session(identity):
     """True when the router's current main binding is exactly this conversation."""
     from .runtime_paths import ROUTER_INSTANCE_DIR
@@ -84,7 +89,7 @@ class SideContextStore:
                 if isinstance(value, str) and value.strip():
                     text.append(value.strip())
             if text:
-                value = _SECRET.sub(r'\1‹hidden›', '\n'.join(text))[:1000]
+                value = redact_text('\n'.join(text))[:1000]
                 rows.append({'role': message['role'], 'text': value})
         selected = rows[-limit:]
         while selected and len(json.dumps(selected, ensure_ascii=False)) > chars:

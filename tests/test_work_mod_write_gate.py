@@ -105,6 +105,10 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn('Verified answer', pane)
         self.assertIn('submitted', pane)
         self.assertIn('Receipt: mail1 \\u00b7 Work item: n1', pane)
+        # Owned run 2026-11-09: the pane read "external ACK: not_sent" above
+        # "Delivery: sent once by the host outbox" for the same receipt.
+        self.assertNotIn('external ACK', pane)
+        self.assertIn('Delivery: sent once by the host outbox', pane)
         self.assertIn('recent', pane)
         self.assertIn('comparison-model', pane)
         self.assertIn('selected 41.5%', pane)

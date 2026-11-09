@@ -248,6 +248,22 @@ def fallback_pending(state_dir, session_id, limit=10):
     return rows
 
 
+def release_for_recheck(state_dir, session_id, receipt_id, generation, reason):
+    """Return an exact claim to pending once, without counting a failure.
+
+    Used when the board changed under a create: the event is decided again
+    against the current board. A second change commits rather than looping.
+    """
+    inbox = SideIntakeInbox(state_dir, session_id)
+    with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
+        row = verify_claim(inbox, receipt_id, generation)
+        row.pop('processing', None)
+        row['rechecks'] = int(row.get('rechecks') or 0) + 1
+        row['recheck_reason'] = str(reason)[:200]
+        inbox._save_file(inbox._event_path('pending', receipt_id), row)
+        return inbox._receipt(receipt_id, row, duplicate=False)
+
+
 def finish(state_dir, session_id, receipt_id, generation, result, *, now=None):
     inbox = SideIntakeInbox(state_dir, session_id)
     with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
