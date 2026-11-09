@@ -197,6 +197,44 @@ except WorkPlanConflict:
         self.assertEqual(self.path.read_bytes(), b"\xff")
         self.assertEqual(list(self.path.parent.glob("*.corrupt-*")), [])
 
+    def test_bounded_reads_never_request_a_limit_sized_buffer(self):
+        # read(32 MiB + 1) held each handle open ~6 ms on Windows, refusing a
+        # concurrent os.replace (2026-11-08). Reads stay chunked; the limit holds.
+        from ciel_runtime_support import work_plan_store as store_module
+        self.store.transaction(lambda d: t.add_node(d, None, "x" * 100))
+        requested = []
+        real_open = Path.open
+
+        class Recording:
+            def __init__(self, handle):
+                self.handle = handle
+
+            def __enter__(self):
+                self.handle.__enter__()
+                return self
+
+            def read(self, size=-1):
+                requested.append(size)
+                return self.handle.read(size)
+
+            def __exit__(self, *exc):
+                return self.handle.__exit__(*exc)
+
+        def recording_open(path, mode="r", *args, **kwargs):
+            handle = real_open(path, mode, *args, **kwargs)
+            return Recording(handle) if path == self.path and mode == "rb" else handle
+
+        with patch.object(Path, "open", recording_open):
+            self.store.read_snapshot()
+            self.store.read()
+        self.assertTrue(requested)
+        self.assertLessEqual(max(requested), store_module.READ_CHUNK_BYTES)
+        with patch.object(store_module, "READ_CHUNK_BYTES", 7), patch.object(store_module, "MAX_WORK_PLAN_BYTES", 20):
+            with self.assertRaisesRegex(t.WorkPlanError, "size limit"):
+                self.store.read_snapshot()
+        with patch.object(store_module, "READ_CHUNK_BYTES", 7):
+            self.assertEqual(self.store.read_snapshot()["nodes"][0]["title"], "x" * 100)
+
     def test_read_snapshot_observes_whole_atomic_documents_during_writes(self):
         self.store.transaction(lambda d: t.add_node(d, None, "0"))
         writer = WorkPlanStore(self.path)

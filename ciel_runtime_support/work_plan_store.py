@@ -24,6 +24,26 @@ from ciel_runtime_support.work_plan_tree import WorkPlanError, empty_document, n
 
 WORK_PLAN_FILE_NAME = "work-plan.json"
 MAX_WORK_PLAN_BYTES = 32 * 1024 * 1024
+READ_CHUNK_BYTES = 64 * 1024
+
+
+def _read_bounded(handle: Any, limit: int) -> bytes:
+    """Read at most ``limit + 1`` bytes without asking for a ``limit``-sized buffer.
+
+    ``read(32 MiB + 1)`` cost about 6 ms even for a 600-byte board on Windows
+    (2026-11-08), and the handle stayed open that long. Windows refuses
+    ``os.replace`` onto an open file, so a concurrent writer's retries ran out.
+    """
+
+    chunks: list[bytes] = []
+    total = 0
+    while total <= limit:
+        chunk = handle.read(min(READ_CHUNK_BYTES, limit + 1 - total))
+        if not chunk:
+            break
+        chunks.append(chunk)
+        total += len(chunk)
+    return b"".join(chunks)
 
 # Observers are process-wide so writes through independently constructed stores
 # reach the same subscriber. Events are invalidations, not an ordered journal.
@@ -91,7 +111,7 @@ class WorkPlanStore:
         for attempt in range(20):
             try:
                 with self.path.open("rb") as handle:
-                    payload = handle.read(MAX_WORK_PLAN_BYTES + 1)
+                    payload = _read_bounded(handle, MAX_WORK_PLAN_BYTES)
                 break
             except FileNotFoundError:
                 return empty_document()
@@ -174,7 +194,7 @@ class WorkPlanStore:
     def _read_unlocked(self) -> dict[str, Any]:
         try:
             with self.path.open("rb") as handle:
-                payload = handle.read(MAX_WORK_PLAN_BYTES + 1)
+                payload = _read_bounded(handle, MAX_WORK_PLAN_BYTES)
         except FileNotFoundError:
             return empty_document()
         except OSError as error:
