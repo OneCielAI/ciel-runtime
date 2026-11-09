@@ -12,6 +12,14 @@ from .side_intake_inbox import SideIntakeInbox
 from .side_intake_processing import verify_claim
 
 _HANDLE = re.compile(r'^[0-9a-f]{32}$')
+# The projected request carries main's system prompt and transcript, so the side
+# contract must be the last thing the model reads, outside the event JSON.
+# Walkie 2026-11-09: with the contract only inside the JSON "instruction" field,
+# side actors answered as main ("진행을 재개했습니다 ...") with no decision JSON.
+SIDE_TURN_HEADER = ('SIDE ACTOR TURN. You are not the main session and must not continue its work, '
+                    'report its progress or call its tools. Handle only the external event above.\n\n')
+SIDE_TURN_FOOTER = ('\n\nYour whole final answer is exactly one JSON object '
+                    '{"decision":{...},"expected_version":N} and nothing else.')
 
 
 def request_context(body):
@@ -203,22 +211,27 @@ def project(state_dir, identity, agent_id, body, config, provider, count_tokens)
         # The native child transcript keeps the readable preview; the model gets
         # one authoritative parent prefix plus the exact durable external event.
         exact = SideIntakeInbox(state_dir, identity)._load(value['receipt_id'])
-        clean = {k: v for k, v in envelope.items() if k != 'parent_context'}
+        clean = {k: v for k, v in envelope.items() if k not in ('parent_context', 'instruction')}
         clean['original'] = exact['text'] if exact else ''
+        instruction = envelope.get('instruction')
+        contract = {'type': 'text', 'text': SIDE_TURN_HEADER + (instruction if isinstance(instruction, str) else '')
+                    + SIDE_TURN_FOOTER}
         for message in result.get('messages', []):
             content = message.get('content') if isinstance(message, dict) else None
             if (isinstance(content, str) and envelope.get('side_context_key') in content
                     and envelope.get('event_id') in content):
-                message['content'] = json.dumps(clean, ensure_ascii=False)
+                message['content'] = [{'type': 'text', 'text': json.dumps(clean, ensure_ascii=False)}, contract]
                 continue
             if not isinstance(content, list):
                 continue
-            for block in content:
+            for index, block in enumerate(content):
                 if isinstance(block, dict) and block.get('type') == 'text':
                     text = block.get('text', '')
                     if (isinstance(text, str) and envelope.get('side_context_key') in text
                             and envelope.get('event_id') in text):
                         block['text'] = json.dumps(clean, ensure_ascii=False)
+                        content.insert(index + 1, contract)
+                        break
     result['system'] = copy.deepcopy(parent.get('system', []))
     if shadow:
         # Keep custom schema prefix but force no execution. Native shadow

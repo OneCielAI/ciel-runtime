@@ -51,7 +51,7 @@ class SideContextBoundaryTests(unittest.TestCase):
                 projected=copy.deepcopy(parent['messages'])
                 projected[-1]['content']=[{'type':'text','text':'main history','cache_control':{'type':'ephemeral'}}]
                 self.assertEqual(projected,outputs[1]['messages'][:-1])
-                self.assertIn('n21',outputs[1]['messages'][-1]['content'])
+                self.assertIn('n21',outputs[1]['messages'][-1]['content'][0]['text'])
                 self.assertEqual(parent,store.read(store.directory/'latest.json')['parent'])
 
     def test_auxiliary_request_never_replaces_main_capture(self):

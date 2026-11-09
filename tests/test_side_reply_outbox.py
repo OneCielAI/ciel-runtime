@@ -114,6 +114,30 @@ class SideReplyTests(unittest.TestCase):
             record(root, 'claude:test', row['receipt_id'], 'submitted', attempt_id=first['attempt_id'])
             self.assertNotIn('arguments', prepare(root, 'claude:test', row['receipt_id'], config=config))
 
+    def test_coordinator_followup_replies_to_the_original_walkie_message(self):
+        # Walkie 2026-11-09: 8 handoff follow-ups ended route_unavailable because
+        # their own text is main's answer, not a Walkie CloudEvent.
+        import json
+        config = {'work_side_intake': {'reply_connectors': [{
+            'source': '*', 'receiver_id': 'default', 'preset': 'walkie', 'server': 'walkie'}]}}
+        route = {'channel': 'external:default', 'sender_id': 'http://walkie/conversations/c',
+                 'source_kind': 'external_event'}
+        original = json.dumps({'data': {'conversation': '34886995-4a66-4527-a618-814e9cb0a5bf', 'message_id': '119474'}})
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            inbox = SideIntakeInbox(root, 'claude:test')
+            source = inbox.receive(original, 'walkie-event', route=route)['receipt_id']
+            leased = claim(root, 'claude:test', 'actor')
+            finish(root, 'claude:test', source, leased['generation'], {'action': 'update', 'reply': 'queued'})
+            followup = inbox.receive('Coordinator answer to side question ' + source + ':\nHandled as P1',
+                                     'handoff:' + source, route=route)['receipt_id']
+            leased = claim(root, 'claude:test', 'actor')
+            finish(root, 'claude:test', followup, leased['generation'], {'action': 'answer', 'reply': 'main answered'})
+            prepared = prepare(root, 'claude:test', followup, config=config)
+            self.assertEqual('walkie_send_message', prepared['tool'])
+            self.assertEqual(('34886995-4a66-4527-a618-814e9cb0a5bf', '119474'),
+                             (prepared['arguments']['conversation_id'], prepared['arguments']['reply_to_message_id']))
+
     def test_external_input_channel_is_not_assumed_to_be_reply_connector(self):
         with tempfile.TemporaryDirectory() as raw:
             root=Path(raw)
