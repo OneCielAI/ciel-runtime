@@ -112,6 +112,17 @@ Screenshots:
 
 Stability: one run, right after the mobile check was added, exited without a result, and its output was not kept, so the cause is not known. The six runs after it all passed.
 
+## Installed operator-control smoke (0b84a74)
+
+The registry-verified immutable snapshot `ciel-runtime-0b84a74…` reran the same browser proof after publication. Its persisted result again shows both delivery labels, retry → pending, reviewed/corrected decisions, answered handoff with wait removal, sibling reorder, plan replacement, orphan release, 390 px width, and zero page errors: [JSON](evidence/e2e-operator-result-installed.json).
+
+Installed screenshots:
+- [side before](evidence/04-side-before-installed.png)
+- [side actions](evidence/05-side-actions-installed.png)
+- [replanned](evidence/06-node-replanned-installed.png)
+- [orphan review](evidence/07-parallel-orphan-installed.png)
+- [mobile side](evidence/08-side-mobile-installed.png)
+
 # Release fe559b3
 
 - **beta** `0.2.51-beta.20261110-030358.fe559b3`.
@@ -123,6 +134,14 @@ Stability: one run, right after the mobile check was added, exited without a res
   - `npm install -g` of the same version: snapshot and global package match on 574 files.
   - User `CIEL_RUNTIME_HOME` points to the snapshot. No live session or router was restarted.
 - **Installed smoke.** `E2E_RUNTIME_ROOT=<snapshot> e2e_tls_router.py` passed: plain local 200, verified TLS 1.3, REST over HTTPS, console with live SSE ([result](evidence/tls-router-result-installed.json), [screenshot](evidence/03-work-console-direct-tls-installed.png)).
+
+# Release 0b84a74 (console completion, side contract, comparison removal)
+
+- **beta** `0.2.51-beta.20261110-040200.0b84a74`.
+  - CI and Publish succeeded.
+  - npm registry SHA512 and all 519 source files match commit `0b84a74`.
+  - `latest` remains `0.2.51`; `nightly` remains `0.2.51-nightly.20261106-020333.c00c8b6`.
+- The verified immutable snapshot reran the installed operator-control browser smoke above. No live process was restarted.
 
 # Remaining
 

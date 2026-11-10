@@ -1,5 +1,9 @@
 # Change log
 
+## 2026-11-10
+- Published beta `0.2.51-beta.20261110-040200.0b84a74`; registry integrity and all 519 source files match the commit.
+- Reran the full operator-control Playwright proof from the immutable installed snapshot and saved desktop/mobile screenshots plus persisted-state JSON.
+
 ## 2026-11-09
 - Completed the console: every REST command has a control (side review/handoff/retry, orphan release, sibling move, replace plan). Owned browser run verified each against the stores; capped the toast stack; added lease titles.
 - Released fe559b3 to beta, verified the registry, installed locally and ran the TLS smoke on the installed snapshot.
