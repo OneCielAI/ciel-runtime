@@ -32,7 +32,7 @@ Focused tests on the final source:
 - Web UI: confirmed/waiting/reserved/uncertain/validating/ended rendering, aggregate capacity, mobile overflow, and `parallel.changed` refresh.
 - HTTP/SSE, OpenAPI and observatory: browser-safe projection, documented evidence/redaction rules, content-free no-id invalidation, and independent FORKS / DEVICE / SIDE display.
 
-The four isolated repository groups are run with every inherited `CIEL_RUNTIME_*` variable removed and an independent temporary config directory per group. Final counts will be recorded after the final-source rerun completes.
+The four isolated repository groups were run with every inherited `CIEL_RUNTIME_*` variable removed and an independent temporary config directory per group. Final-source results: unit 3,606 (52 skipped), channel 607 (80 skipped), runtime 458 (19 skipped), all passed. The router group was rerun independently after its first concurrent run was stopped before completion; its result is recorded once complete.
 
 # Owned real-model proof
 
