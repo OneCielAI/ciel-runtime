@@ -5,6 +5,29 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+### Beta: the Work web console shows every received SSE event, and side work is not redone by main
+
+- The web console Side tab now opens on the received-event stream: newest first,
+  with stage (received, processing, processed, failed, quarantined, duplicate),
+  P1 badge, delivery result, Work item and time. All/P1, stage filter, search and
+  Load older work across the whole inbox. Each event expands to a redacted detail:
+  original, side decision, failure, fallback and source.
+- New events and stage changes appear without a click through a content-free
+  `side.changed` stream event. A handoff answer being typed is never overwritten;
+  a refresh notice appears instead.
+- Credentials, reply routes and tokens, claim and fallback generations, outbox
+  attempt ids and main-context previews are never returned to the browser.
+- The side actor must base its decision on the event it was given. In ciel-walkie
+  two unrelated events were answered with an older event's content.
+- An update the side already committed to an existing P1 item no longer wakes
+  main to do the same work again. Main is still woken for a new P1 item, a
+  priority change, advice, or a wait that is still recorded.
+- Main's answer to a handoff is relayed back to the side, and so to the source,
+  only when the side asked a question or advice. A P1 or resume acknowledgment
+  no longer produces a second external reply.
+- An answer given in the web console updates the receipt the same way as the
+  tool path.
+
 ### Beta: the side actor claims SSE events at once and releases the waits they satisfy
 
 - An SSE event reaches the side actor immediately. The router sends the live

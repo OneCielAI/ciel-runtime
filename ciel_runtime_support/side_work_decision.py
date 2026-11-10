@@ -250,10 +250,13 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             priority = by_id[tree._root_of(by_id, item)].get('priority', '')
         # Answer/clarify are source-facing only, even when they name a P1 or
         # gated item. Otherwise a coordinator follow-up answer creates another
-        # handoff forever. Main-action decisions wake only when they actually
-        # need its boundary (wait/block, P1, explicit advice/priority).
+        # handoff forever. A committed update of an existing P1 is already the
+        # side actor's work; priority alone is not another action for main. Main
+        # wakes only for an unresolved wait/block, explicit advice/priority, or
+        # a newly-created P1 that still needs scheduling at a safe boundary.
         needs_handoff = not main_reply and (action in ('prioritize', 'advise')
-                                            or action in ('update', 'create') and (bool(gates) or priority == 'P1'))
+                                            or action == 'update' and bool(gates)
+                                            or action == 'create' and (bool(gates) or priority == 'P1'))
         if released and not gates and action == 'update':
             # The waiter is woken with the release itself (no acknowledgment);
             # only a wait or block that is still recorded needs main's boundary.

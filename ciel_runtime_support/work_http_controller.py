@@ -80,7 +80,7 @@ class WorkHttpController:
         v1 = ("/ca/work/api/v1/board", "/ca/work/api/v1/state", "/ca/work/api/v1/queue",
               "/ca/work/api/v1/runtime", "/ca/work/api/v1/openapi", "/ca/work/api/v1/events",
               "/ca/work/api/v1/settings", "/ca/work/api/v1/parallel", "/ca/work/api/v1/side",
-              "/ca/work/api/v1/audit")
+              "/ca/work/api/v1/side/receipt", "/ca/work/api/v1/audit")
         if path not in (*legacy, *v1):
             return False
         query = urllib.parse.parse_qs(urllib.parse.urlsplit(handler.path).query, keep_blank_values=True)
@@ -122,8 +122,31 @@ class WorkHttpController:
                 document = application.document()
                 side = self._side_projection(identity, document)
                 from .side_review import with_delivery
+                from .side_intake_inbox import SideIntakeInbox
                 side["reviews"] = with_delivery(side["reviews"], self.services.state_dir, identity)
+                limit = self._single_query(query, "limit", "50")
+                if not isinstance(limit, str) or not limit.isdigit():
+                    raise tree.WorkPlanError("side receipt limit must be an integer from 1 to 100")
+                page = SideIntakeInbox(self.services.state_dir, identity).receipt_page(
+                    limit=int(limit), cursor=self._single_query(query, "cursor", ""),
+                    stage=self._single_query(query, "stage", ""),
+                    priority=self._single_query(query, "priority", ""),
+                    search=self._single_query(query, "q", ""))
+                side.update({"receipts": page["items"],
+                             "enabled": (self.services.load_config().get("work_side_intake") or {}).get(
+                                 "enabled") is True,
+                             **{key: page[key] for key in ("next_cursor", "has_more", "total", "counts",
+                                                           "counts_complete", "quarantined_count", "watermark")}})
                 self.services.write_json(handler, side)
+            elif path == "/ca/work/api/v1/side/receipt":
+                from .side_intake_inbox import SideIntakeInbox
+                receipt_id = self._single_query(query, "receipt_id", "")
+                detail = SideIntakeInbox(self.services.state_dir, identity).receipt_detail(receipt_id)
+                if detail is None:
+                    self.services.write_json(handler, {"ok": False, "error": "unknown_side_receipt"}, 404)
+                else:
+                    self.services.write_json(handler, {"ok": True, "schema_version": 1,
+                                                       "session_id": identity, "receipt": detail})
             elif path == "/ca/work/api/v1/audit":
                 document = application.document()
                 self.services.write_json(handler, self._audit_projection(identity, document))
@@ -135,6 +158,15 @@ class WorkHttpController:
         except (OSError, tree.WorkPlanError) as exc:
             self._error(handler, exc)
         return True
+
+    @staticmethod
+    def _single_query(query: dict[str, list[str]], name: str, default: str) -> str:
+        supplied = query.get(name)
+        if supplied is None:
+            return default
+        if len(supplied) != 1:
+            raise tree.WorkPlanError(f'supply {name} only once')
+        return supplied[0]
 
     @staticmethod
     def _side_projection(identity: str, document: dict[str, Any]) -> dict[str, Any]:
@@ -319,9 +351,26 @@ class WorkHttpController:
                                 note=body.get("note", ""), expected_version=body.get("expected_version"))
             elif action == "side_handoff":
                 from .side_handoff import acknowledge
-                result = acknowledge(self._store(identity), body.get("event_id"), answer=body.get("answer", ""),
+                from .side_intake_inbox import SideIntakeInbox
+                from .side_intake_mcp import (_answer_followup, _followup, _handoff_needs_followup,
+                                              _sync_handoff_receipt)
+                event_id, answer = body.get("event_id"), body.get("answer", "")
+                inbox = SideIntakeInbox(self.services.state_dir, identity)
+                original = inbox._load(event_id) if isinstance(event_id, str) else None
+                # Same sequence as MCP work_side_handoff: a follow-up that cannot
+                # be represented must not commit the board acknowledgement first.
+                if not isinstance(answer, str):
+                    raise tree.WorkPlanError("coordinator answer must be text")
+                if (answer and original and _handoff_needs_followup(original)
+                        and _followup(event_id, answer, original) is None):
+                    raise tree.WorkPlanError(
+                        "coordinator follow-up exceeds inbox record capacity; no acknowledgment committed")
+                result = acknowledge(self._store(identity), event_id, answer=answer,
                     activate=body.get("activate", False), clear_wait=body.get("clear_wait"),
                     expected_version=body.get("expected_version"))
+                _sync_handoff_receipt(inbox, event_id, result)
+                if answer:
+                    _answer_followup(inbox, event_id, answer)
             else:
                 from .side_reply_outbox import retry
                 result = retry(self.services.state_dir, identity, body.get("receipt_id"),
@@ -358,6 +407,9 @@ class WorkHttpController:
             handler.end_headers()
             opened = True
             error_cursor = json.dumps(self.services.recent_errors(identity), sort_keys=True)
+            from .side_intake_inbox import SideIntakeInbox
+            side_inbox = SideIntakeInbox(self.services.state_dir, identity)
+            side_cursor = side_inbox.watermark()
             refetch = "/ca/work/api/v1/board" if v1 else "/ca/work"
             self._event(handler, identity, doc, "work.snapshot" if not cursor else "work.resync_required", previous,
                         refetch=refetch)
@@ -384,6 +436,19 @@ class WorkHttpController:
                     handler.wfile.write(frame.encode("utf-8"))
                     handler.wfile.flush()
                     error_cursor = serialized_errors
+                latest_side = side_inbox.watermark()
+                # None is a momentarily unreadable marker: keep the cursor. An
+                # unreadable initial marker yields at most one extra refetch.
+                if latest_side is not None and latest_side != side_cursor:
+                    # Content-free invalidation; no id line keeps board
+                    # Last-Event-ID reconciliation unchanged.
+                    frame = chr(10).join(("event: side.changed", "data: " + json.dumps({
+                        "session_id": identity, "watermark": latest_side,
+                        "refetch": "/ca/work/api/v1/side", "coalesced": True}), "", ""))
+                    handler.wfile.write(frame.encode("utf-8"))
+                    handler.wfile.flush()
+                    side_cursor = latest_side
+                    heartbeat = time.monotonic()
                 wake.wait(1)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             pass
@@ -421,11 +486,14 @@ class WorkHttpController:
                 "v1": {"board": "GET /ca/work/api/v1/board", "state": "GET /ca/work/api/v1/state",
                        "queue": "GET /ca/work/api/v1/queue", "runtime": "GET /ca/work/api/v1/runtime",
                        "events": "GET /ca/work/api/v1/events", "openapi": "GET /ca/work/api/v1/openapi",
+                       "side": "GET /ca/work/api/v1/side?limit=1-100&cursor=<next_cursor>&stage=<stage>&priority=P1..P5&q=<text>",
+                       "side_receipt": "GET /ca/work/api/v1/side/receipt?receipt_id=<64 lowercase hex>",
                        "commands": "POST /ca/work/api/v1/commands/<command> with Idempotency-Key or operation_id"},
+                "side_receipts": "Current-session receipts only, newest activity first. Stages: received, processing, processed, failed, quarantined, duplicate. Filters and search use bounded public fields. Credentials, reply routes, claim/fallback generations, outbox attempts and main-context previews are never returned; originals and replies are redacted and limited to 16,000 characters.",
                 "runtime": "GET /ca/work/runtime", "events": "GET /ca/work/events",
                 "mutations": ["POST /ca/work/nodes/" + n for n in ("add", "update", "remove", "reorder")],
                 "authentication": "Existing administrator Bearer token or signed-in web account; external access must already be enabled.",
                 "concurrency": "Read version; supply expected_version for every mutation; 409 means refetch, never blind retry.",
-                "notifications": "Version invalidations sampled each second; may coalesce commits. Last-Event-ID reconciles latest snapshot, not durable patch replay. Refetch after snapshot, change, reset or reconnect.",
+                "notifications": "Version invalidations sampled each second; may coalesce commits. Last-Event-ID reconciles latest snapshot, not durable patch replay. side.changed is content-free, has no event id and asks for a /side refetch. Refetch after snapshot, change, reset or reconnect.",
                 "retention": {"completed_after_seconds": 86400, "toggle": "POST /ca/config/llm option work_completed_auto_delete on/off"},
                 "ordering": "One-based sibling positions; root positions order unfinished goals; active-slot changes need user_requested=true. No reparenting."}

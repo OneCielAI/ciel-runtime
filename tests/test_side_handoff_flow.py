@@ -43,17 +43,12 @@ class SideHandoffFlowTests(unittest.TestCase):
             self.assertNotIn('118269 approved',json.dumps(status['main_handoffs']))
             call('work_side_handoff',{'event_id':claim['receipt_id'],'answer':'Gate cleared; resuming at next boundary',
                                       'clear_wait':[gate],'expected_version':store.read()['version']})
-            # Main's answer is relayed as a follow-up side event; its decision
-            # must not ask main again, even for the same P1 item.
+            # A resume/P1 acknowledgment is durable board history, not another
+            # external event for side to process and reply to a second time.
             followup=call('work_side_claim',{'owner':'actor'})
             self.assertEqual([],followup['main_wakes'])
-            relay=followup['claim']
-            self.assertTrue(relay['event_key'].startswith('handoff:'))
-            relayed=call('work_side_resolve',{'decision':{'action':'update','item_id':gate,'summary':'relayed',
-                'reply':'main resumed','note':'main answered'},'expected_version':store.read()['version']},
-                {'receipt_id':relay['receipt_id'],'generation':relay['generation']})
-            self.assertEqual('not_required',relayed['result']['handoff'])
-            self.assertEqual([],call('work_side_claim',{'owner':'actor'})['main_wakes'])
+            self.assertIsNone(followup['claim'])
+            self.assertEqual([],SideIntakeInbox(root,identity).pending())
             self.assertEqual([],call('work_side_status',{})['main_handoffs'])
             self.assertEqual('',next(n for n in store.read()['nodes'] if n['id']==gate)['waiting_on'])
 

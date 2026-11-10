@@ -1,4 +1,6 @@
+import os
 import re
+import tempfile
 import unittest
 from unittest import mock
 
@@ -123,6 +125,80 @@ class WorkWebUiTests(unittest.TestCase):
         # Unknown send outcomes and lease releases go through the confirmation dialog.
         self.assertRegex(self.html, r"Resend \(may duplicate\)',\(\)=>confirmDanger\(")
         self.assertRegex(self.html, r"'Release lease',\(\)=>confirmDanger\(")
+
+    def test_side_tab_is_receipt_first_paginated_and_draft_safe(self):
+        for marker in (
+            "Side receipts", "All stages", "Load older", "Newest side receipts",
+            "Search receipt recap or ID", "Redacted receipt detail", "['quarantined','quarantined']", "['duplicate','duplicate']",
+            "request('/side/receipt?receipt_id='+encodeURIComponent(id))",
+            "const token=++state.sideDetailToken",
+            "if(token!==state.sideDetailToken||state.sideExpanded!==id",
+            "if(sideHasDraft())", "Your draft is preserved.",
+            "source.addEventListener('side.changed',onSideChanged)",
+        ):
+            self.assertIn(marker, self.html)
+        self.assertRegex(self.html, r"params\.set\('cursor',cursor\)")
+        self.assertRegex(self.html, r"params\.set\('priority','P1'\)")
+        self.assertRegex(self.html, r"params\.set\('stage',state\.sideQuery\.stage\)")
+        self.assertRegex(self.html, r"params\.set\('q',state\.sideQuery\.search\)")
+        self.assertIn("const receipts=Array.isArray(data.receipts)?data.receipts:[]", self.html)
+        self.assertNotIn("data.receipts||{}", self.html)
+        self.assertLess(self.html.index("panel.append(list);if(state.sideCursor)"),
+                        self.html.index("renderSideLegacy(panel,data)"))
+
+    @unittest.skipUnless(os.environ.get("CIEL_TEST_BROWSER"), "opt-in browser verification")
+    def test_side_receipts_browser_flow_preserves_draft_and_ignores_stale_detail(self):
+        from playwright.sync_api import sync_playwright
+        html = self.html
+        board = {"session_id": "claude:fixture", "version": 1, "nodes": [], "phase": "idle"}
+        newest = {"version": 1, "counts": {"received": 1}, "next_cursor": "older-1",
+                  "reviews": [], "handoffs": [], "receipts": [
+                      {"receipt_id": "r-new", "priority": "P1", "stage": "received",
+                       "delivery": "submitted", "recap": "Newest request <script>not executable</script>",
+                       "received_at": 1}]}
+        older = {"version": 1, "next_cursor": None, "reviews": [], "handoffs": [], "receipts": [
+                    {"receipt_id": "r-old", "stage": "processed", "recap": "Older request"}]}
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(executable_path=os.environ["CIEL_TEST_BROWSER"], headless=True)
+            page = browser.new_page(viewport={"width": 390, "height": 844})
+            detail_routes = []
+            def route(request):
+                url = request.request.url
+                if url.endswith("/ca/work/ui"):
+                    request.fulfill(content_type="text/html", body=html)
+                elif "/events" in url:
+                    request.fulfill(content_type="text/event-stream", body=": ready\n\n")
+                elif "/side/receipt" in url:
+                    detail_routes.append(url)
+                    receipt = "r-old" if "r-old" in url else "r-new"
+                    request.fulfill(json={"receipt": {"receipt_id": receipt, "stage": "processed",
+                                                       "recap": "safe <b>text</b>", "route": "redacted"}})
+                elif "/side?" in url:
+                    request.fulfill(json=older if "cursor=older-1" in url else newest)
+                elif "/board" in url:
+                    request.fulfill(json=board)
+                else:
+                    request.fulfill(json={"reviews": [], "handoffs": []})
+            page.route("http://fixture.test/**", route)
+            page.goto("http://fixture.test/ca/work/ui")
+            page.get_by_role("tab", name="Side").click()
+            page.get_by_text("Newest request").wait_for()
+            self.assertIn("<script>not executable</script>", page.locator(".receipt-title").inner_text())
+            self.assertIn("submitted", page.locator(".receipt-row").first.locator(".receipt-meta").inner_text())
+            page.get_by_role("button", name="Load older").click()
+            page.get_by_text("Older request").wait_for()
+            self.assertEqual(2, page.locator(".receipt-row").count())
+            page.locator(".receipt-row").first.get_by_role("button", name=re.compile("Show redacted detail")).click()
+            page.get_by_text("safe <b>text</b>").wait_for()
+            self.assertEqual(1, len(detail_routes))
+            self.assertEqual(0, page.locator(".receipt-detail b").count())
+            page.evaluate("state.sideRefreshPending=true; showSideRefreshNotice()")
+            self.assertIn("draft is preserved", page.locator("#side-refresh-note").inner_text())
+            with tempfile.TemporaryDirectory() as directory:
+                shot = os.path.join(directory, "side-receipts-mobile.png")
+                page.screenshot(path=shot, full_page=True)
+                self.assertGreater(os.path.getsize(shot), 0)
+            browser.close()
 
 class WorkHttpRoutesTests(unittest.TestCase):
     def test_console_shell_is_mounted_before_rest_and_post_stays_on_rest(self):

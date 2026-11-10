@@ -171,6 +171,11 @@ class SideModTests(unittest.TestCase):
         self.assertIn('status: report the current Work state directly. No request recap and no Work',source)
         self.assertIn('info: gather only what is needed, organize it, and answer. No Work',source)
         self.assertIn('request: restate what the person asks using source_message plus the transcript',source)
+        # ciel-walkie 2026-11-10: Celly 121710 and Daniel 121677 were both
+        # replaced by a stale Grant 121686 decision copied from main context.
+        self.assertIn("The decision MUST describe this event's source_message", source)
+        self.assertIn('never substitute a stale prior event', source)
+        self.assertIn('verify every person, message id, approval, result and', source)
         # Owned run 2026-11-09: the recap dropped "mobile browsers", and a new
         # payment outage was merged into the active payment refactoring item.
         self.assertIn('every\n  concrete requirement, constraint, target, environment and deadline',source)

@@ -97,9 +97,21 @@ def _followup(event_id, answer, original):
     return text, route
 
 
+def _handoff_needs_followup(original):
+    """Only a side question/advice answer is new side input.
+
+    P1 and resume handoffs merely notify main that side work was committed. Main's
+    acknowledgment is durable board history, not another external event to answer.
+    """
+    result = original.get('result') if isinstance(original, dict) else None
+    handoff = result.get('main_handoff') if isinstance(result, dict) else None
+    return bool(isinstance(handoff, dict) and
+                (handoff.get('kind') == 'advise' or str(handoff.get('question') or '').strip()))
+
+
 def _answer_followup(inbox, event_id, answer):
     original = inbox._load(event_id)
-    if original:
+    if original and _handoff_needs_followup(original):
         followup = _followup(event_id, answer, original)
         if followup is None:
             raise WorkPlanError('coordinator follow-up exceeds inbox record capacity; answer retained in Work')
@@ -185,7 +197,8 @@ def run(name, args, config, state_dir, identity, store):
             inbox = SideIntakeInbox(state_dir, identity)
             original = inbox._load(args.get('event_id'))
             # Same exact text and route _answer_followup writes, so the check cannot pass here and fail there.
-            if original and _followup(args['event_id'], args['answer'], original) is None:
+            if (original and _handoff_needs_followup(original)
+                    and _followup(args['event_id'], args['answer'], original) is None):
                 raise WorkPlanError('coordinator follow-up exceeds inbox record capacity; no acknowledgment committed')
         result = acknowledge(store, args.get('event_id'), answer=args.get('answer', ''),
                              activate=args.get('activate', False), clear_wait=args.get('clear_wait', []),
@@ -234,7 +247,7 @@ def run(name, args, config, state_dir, identity, store):
             receipt_unsynced = bool(receipt and receipt.get('stage') == 'processed'
                                     and receipt.get('result', {}).get('handoff') != row['state'])
             followup_missing = False
-            if row.get('answer'):
+            if row.get('answer') and _handoff_needs_followup(receipt):
                 followup_key = hashlib.sha256(('handoff:' + key).encode()).hexdigest()
                 followup_missing = inbox._load(followup_key) is None
             if not receipt_unsynced and not followup_missing:

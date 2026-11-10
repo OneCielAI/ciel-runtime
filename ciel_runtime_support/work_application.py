@@ -221,6 +221,30 @@ def openapi_document() -> dict[str, Any]:
         f"/ca/work/api/v1/{name}": {"get": {"summary": f"Read current-session Work {name}"}}
         for name in reads
     }
+    redaction = ("Credentials, reply routes and tokens, claim and fallback generations, outbox attempt ids "
+                 "and main-context previews are never returned. Text is redacted and limited to 16,000 characters.")
+    stages = ["received", "processing", "processed", "failed", "quarantined", "duplicate"]
+    paths["/ca/work/api/v1/side"]["get"].update({
+        "description": "Pending reviews, main handoffs and a newest-first side receipt page. " + redaction,
+        "parameters": [
+            {"in": "query", "name": "limit", "schema": {"type": "integer", "minimum": 1, "maximum": 100, "default": 50}},
+            {"in": "query", "name": "cursor", "description": "next_cursor from the previous page",
+             "schema": {"type": "string"}},
+            {"in": "query", "name": "stage", "schema": {"type": "string", "enum": stages}},
+            {"in": "query", "name": "priority", "schema": {"type": "string", "enum": ["P1", "P2", "P3", "P4", "P5"]}},
+            {"in": "query", "name": "q", "description": "Case-insensitive match on bounded public fields",
+             "schema": {"type": "string", "maxLength": 200}}]})
+    paths["/ca/work/api/v1/side/receipt"] = {"get": {
+        "summary": "Read one current-session side receipt detail",
+        "description": redaction,
+        "parameters": [{"in": "query", "name": "receipt_id", "required": True,
+                        "schema": {"type": "string", "pattern": "^[0-9a-f]{64}$"}}],
+        "responses": {"200": {"description": "Redacted receipt detail"},
+                      "404": {"description": "unknown_side_receipt"},
+                      "422": {"description": "Malformed receipt id"}}}}
+    paths["/ca/work/api/v1/events"]["get"]["description"] = (
+        "Server-sent events: work.snapshot, work.changed, work.resync_required, runtime.error and "
+        "content-free side.changed (no event id; refetch /ca/work/api/v1/side).")
     for name in commands:
         paths[f"/ca/work/api/v1/commands/{name}"] = {"post": {
             "summary": f"Apply current-session Work command {name}",

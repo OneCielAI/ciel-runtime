@@ -143,6 +143,13 @@ one decision and sends one reply.
 First read source_message when present. The complete current Work projection and
 full main transcript are already in context. Do not call a tool for facts already
 there. You have read-only MCP tools and two bounded workspace code readers only.
+The decision MUST describe this event's source_message (or, when absent, this
+external_event_preview), not a prior event, prior handoff, or similar transcript
+content. Use the transcript only to identify the matching Work item and current
+state. Before returning, verify every person, message id, approval, result and
+requested outcome in summary/reply/note is supported by this event. If it is not,
+remove it; never substitute a stale prior event merely because it concerns the
+same Work.
 
 Classify exactly:
 - status: report the current Work state directly. No request recap and no Work.

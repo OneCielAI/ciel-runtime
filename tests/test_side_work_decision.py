@@ -117,6 +117,16 @@ class SideDecisionTests(unittest.TestCase):
         row = self.store.read()['side_handoffs'][self.key]
         self.assertEqual(('requested', 'p1', 'pending'), (result['handoff'], row['kind'], row['wake']['state']))
 
+    def test_committed_p1_update_without_gate_does_not_duplicate_work_in_main(self):
+        # ciel-walkie 2026-11-10: side committed the same unrelated update to a
+        # P1 item three times; priority alone woke main to process each again.
+        doc, item = self.store.transaction(lambda d: tree.add_node(d, None, 'P1 work', priority='P1'))
+        result = apply(self.store, self.key, {**self.base, 'kind': 'request', 'action': 'update',
+                       'item_id': item, 'note': 'new fact already committed by side'}, doc['version'])
+        self.assertEqual('not_required', result['handoff'])
+        self.assertEqual({}, self.store.read().get('side_handoffs', {}))
+        self.assertIn('new fact already committed', self.store.read()['nodes'][0]['note'])
+
     def test_handoff_clears_only_recorded_unchanged_waits(self):
         from ciel_runtime_support.side_handoff import acknowledge
         doc, goal = self.store.transaction(lambda d: tree.add_node(d, None, 'goal'))

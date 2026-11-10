@@ -138,7 +138,15 @@ class SideEventCapacityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as raw:
             inbox = SideIntakeInbox(Path(raw), 'claude:capacity')
             receipt = inbox.receive('y' * SIDE_INTAKE_TEXT_MAX_CHARS, 'max')
-            _answer_followup(inbox, receipt['receipt_id'], 'answer')
+            # Only a side question/advice handoff is relayed back as a new event.
+            key = receipt['receipt_id']
+            row = inbox._load(key)
+            row.update(stage='processed', consumed_at=1.0, result={
+                'action': 'advise', 'kind': 'request', 'handoff': 'requested',
+                'main_handoff': {'kind': 'advise', 'waits': [], 'question': 'proceed?'}})
+            inbox._save_file(inbox._event_path('receipts', key), row)
+            inbox._event_path('pending', key).unlink(missing_ok=True)
+            _answer_followup(inbox, key, 'answer')
             followups = [row for row in inbox.pending() if row['event_key'] == 'handoff:' + receipt['receipt_id']]
             self.assertEqual(1, len(followups))
             self.assertTrue(followups[0]['text'].endswith('y' * SIDE_INTAKE_TEXT_MAX_CHARS))
