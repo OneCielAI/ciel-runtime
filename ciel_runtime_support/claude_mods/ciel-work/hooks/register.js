@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import { startSide, pollSide, sideSpawnInput, sideTool, completeSide, suppressSide, sideReceipts, sideActors, sideMcpParity, hostJson, eventView } from './side-intake.js'
+import { startSide, pollSide, sideSpawnInput, sideTool, completeSide, suppressSide, sideReceipts, sideActors, sideMcpParity, hostJson, eventView, sideMainBusy } from './side-intake.js'
 
 // Router is authoritative; this cache is display-only and never persisted.
 const detailView = atom({ plugin: 'ciel-work', key: 'detail' }, null)
@@ -78,6 +78,64 @@ function showSideReceipts($, identity, snapshot) {
   }
 }
 let sidePoll = null
+let sidePumpAgain = false
+let sidePumpRunning = false
+const SIDE_PUMP_BURST = 17
+// Resolves to the number of events this run claimed (0 when another run was
+// already pumping; that run picks up the request through sidePumpAgain).
+async function runSidePump($, identity) {
+  sidePumpAgain = true
+  if (sidePumpRunning) return 0
+  sidePumpRunning = true
+  let total = 0
+  try {
+    // A claim that took an event is followed at once by the next one, so a
+    // burst drains into every free slot without waiting for the 2 s tick.
+    // pollSide returns false when no slot is free or the inbox has nothing.
+    // The burst is bounded by the largest slot count (16 + the P1 reserve), so
+    // an inbox that kept answering one event can never spin this loop.
+    let claimed = false
+    let burst = 0
+    do {
+      sidePumpAgain = false
+      claimed = await pollSide($, identity) === true
+      if (claimed) total++
+      burst = claimed ? burst + 1 : 0
+    } while (sidePumpAgain || (claimed && burst < SIDE_PUMP_BURST))
+  } finally { sidePumpRunning = false }
+  return total
+}
+// The side pane's status projection carries full originals and pages through
+// the router. Prody 2026-11-10: a 106K/14-page status on every tick, plus a 2 s
+// race that abandoned (but never cancelled) each fetch, overlapped the claims.
+// One fetch at a time; refreshed at once after a change, otherwise every 15 s.
+let sideStatusFlight = null
+let sideStatusAt = 0
+let sideStatusDirty = true
+const SIDE_STATUS_IDLE_MS = 15000
+function refreshSideStatus($, identity, poll) {
+  if (sideStatusFlight || (!sideStatusDirty && Date.now() - sideStatusAt < SIDE_STATUS_IDLE_MS)) return
+  sideStatusDirty = false
+  sideStatusFlight = (async () => {
+    try {
+      const snapshot = await parallelCall($, 'work_side_status')
+      if (sidePoll !== poll || poll.lifecycle !== starts || await sessionId($) !== identity) return
+      showSideReceipts($, identity, snapshot)
+    } catch { /* Durable inbox and pane state remain authoritative. */
+    } finally { sideStatusAt = Date.now(); sideStatusFlight = null }
+  })()
+}
+// The router's session socket sends this exact host-minted text after it has
+// durably committed an external event to the side inbox. It carries no event
+// content. A person typing it at the composer is not a host signal.
+const SIDE_RECEIPT_READY = /^\[ciel-side-receipt-ready\] ([0-9a-f]{64})$/
+async function sideReceiptReady($, e) {
+  if (e.origin?.kind === 'composer' || !SIDE_RECEIPT_READY.test(String(e.text || '').trim())) return false
+  // Claiming is the durable inbox's decision; this signal only wakes the pump.
+  sideStatusDirty = true
+  void runSidePump($, await sessionId($)).catch(() => {})
+  return true
+}
 async function sideMailboxCall($, name, args = {}) {
   let timer
   try {
@@ -96,12 +154,10 @@ function pollBusySideReceipts($, identity) {
     try {
       if (await sessionId($) !== identity) return
       // A full status projection can page through many private receipts. Claim
-      // first so display hydration can never starve the side worker.
-      await pollSide($, identity)
+      // first, and never wait for the display refresh before the next tick.
+      if (await runSidePump($, identity) > 0) sideStatusDirty = true
       if (sidePoll !== poll || poll.lifecycle !== starts || await sessionId($) !== identity) return
-      const snapshot = await sideMailboxCall($, 'work_side_status')
-      if (sidePoll !== poll || poll.lifecycle !== starts || await sessionId($) !== identity) return
-      showSideReceipts($, identity, snapshot)
+      refreshSideStatus($, identity, poll)
     } catch { /* Durable inbox and pane state remain authoritative. */
     } finally {
       if (sidePoll === poll && poll.lifecycle === starts) schedule()
@@ -119,6 +175,8 @@ let idleRefresh = null
 let idleReadPending = false
 let interactive = false
 let working = false
+// Side notices choose append (busy turn) or prompt (idle) from main's turn state.
+sideMainBusy(() => working)
 function planKey(identity, agentId) {
   return identity + ':' + (typeof agentId === 'string' ? agentId : '')
 }
@@ -481,7 +539,7 @@ async function retrySideReply($, receipt, identity) {
   try {
     await parallelCall($,'work_side_retry_reply',{receipt_id:receipt.receipt_id,expected_state:state,confirmed:uncertain})
     showSideReceipts($,identity,await sideMailboxCall($,'work_side_status'))
-    await pollSide($,identity)
+    await runSidePump($,identity)
   } catch { $.ui.toast('Reply retry not accepted; retained state preserved. Refresh and inspect.') }
 }
 function breakdownLabel(s) {
@@ -1081,7 +1139,11 @@ async function parallelToolCall($, e, next) {
       // Conservative: a goal completion can auto-complete ancestors of a lease.
       // Hold all completion writes while any conversation lease is unfinished.
       if (Object.values(s.leases).some(r => r.state !== 'done')) {
-        return { deny: 'Work completion waits for parallel validation, review and cleanup.' }
+        // The whole call is refused, so a wait clear sent with it was not
+        // applied either (Prody: waiting_on="" + status=done stayed waiting).
+        return { deny: 'Work completion waits for parallel validation, review and cleanup. Nothing in this call was applied'
+          + (e.waiting_on !== undefined || e.note !== undefined || e.evidence !== undefined
+            ? '; send the other fields (for example waiting_on="") in a separate work_node_update without status.' : '.') }
       }
     } catch (error) { return { deny: 'Parallel completion check unavailable.' } }
     return workToolCall($, e, next) // Preserve the existing Work gate and native permissions.
@@ -1491,6 +1553,7 @@ export function register(on) {
   })
   on('turn.complete', async ($, e, next) => {
     if (!await completeSide($, e)) return parallelTurnComplete($, e, next)
+    sideStatusDirty = true
     // A side decision may have changed the board; redraw from it now rather than
     // after the idle backoff (Andy 2026-11-08: stale Next and progress).
     await refresh($)
@@ -1606,7 +1669,8 @@ export function register(on) {
         : '')
       + 'Pending user requests belong in the Work tree without duplicates (independent goals, dependent children). '
       + 'Continue within the approved scope only. Approved actionable items remain to be completed and verified; independent actions may run in parallel. '
-      + 'An external dependency belongs in waiting_on, including a person or approval that is needed; other '
+      + 'An external dependency belongs in waiting_on, including a person or approval that is needed; name the signal '
+      + 'and its source in one short line so the side actor can release it when that SSE event arrives; other '
       + 'independent items can proceed while it waits. '
       + (e.background_tasks?.length ? e.background_tasks.length + ' background task(s) still run; proceed only with independent Work. '
         + 'Do not duplicate, poll, cancel or mark those tasks done; record their dependent items as waiting_on until their completion notification. ' : '')
@@ -1617,13 +1681,19 @@ export function register(on) {
       + (unchangedContinuations === 1 ? '. This is the last continuation without a plan update.' : '') }
   })
   on('session.receive', async ($, e, next) => {
+    if (e.agentId === undefined && await sideReceiptReady($, e)) {
+      return {consumed:'Ciel side receipt claimed outside main conversation'}
+    }
     if (suppressSide(e)) return {consumed:'Owned side notification retained outside main conversation'}
     const id = String(e.text || '').match(/<task-id>([^<]+)<\/task-id>/)?.[1]
     if (id && retiredParallelAgents.has(id)) return {consumed:'Owned Work notification retained outside main conversation'}
     return next(e)
   })
-  on('prompt.submit', async ($, e, next) => suppressSide(e)
-    ? {drop:'Owned side notification retained outside main conversation'} : await btwBridge($, e, next) || parallelPromptSubmit($, e, next))
+  on('prompt.submit', async ($, e, next) => {
+    if (await sideReceiptReady($, e)) return {drop:'Ciel side receipt claimed outside main conversation'}
+    return suppressSide(e)
+      ? {drop:'Owned side notification retained outside main conversation'} : await btwBridge($, e, next) || parallelPromptSubmit($, e, next)
+  })
   on('command.run', { command: 'btw_with_mcp' }, async ($, e) => {
     if (['on', 'off', 'status'].includes(e.args.trim())) {
       const arg = e.args.trim()

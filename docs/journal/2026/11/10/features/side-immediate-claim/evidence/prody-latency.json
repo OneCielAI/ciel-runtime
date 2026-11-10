@@ -1,0 +1,90 @@
+{
+  "source": "Prody side inbox receipts (read-only, numeric fields only), collected 2026-11-10T16:0xZ",
+  "windows": {
+    "2026-11-09T22Z..2026-11-10T07:25Z": {
+      "received_to_claim_s": {
+        "n": 108,
+        "p50": 77.6,
+        "p90": 181.3,
+        "max": 868.2,
+        "min": 1.0
+      },
+      "claim_to_processed_s": {
+        "n": 108,
+        "p50": 52.5,
+        "p90": 92.4,
+        "max": 286.8,
+        "min": 35.7
+      }
+    },
+    "after 2026-11-10T07:26Z (beta 3757675)": {
+      "received_to_claim_s": {
+        "n": 12,
+        "p50": 95.6,
+        "p90": 110.3,
+        "max": 148.6,
+        "min": 17.5
+      },
+      "claim_to_processed_s": {
+        "n": 12,
+        "p50": 47.7,
+        "p90": 51.2,
+        "max": 56.2,
+        "min": 39.3
+      }
+    }
+  },
+  "received_to_claim_by_load_since_2026-11-09T22Z": {
+    "queued_ahead=0": {
+      "n": 76,
+      "p50": 69.3,
+      "p90": 109.4,
+      "max": 811.9,
+      "min": 1.0
+    },
+    "queued_ahead=1": {
+      "n": 30,
+      "p50": 95.6,
+      "p90": 200.8,
+      "max": 868.2,
+      "min": 5.9
+    },
+    "queued_ahead=2": {
+      "n": 10,
+      "p50": 181.3,
+      "p90": 858.9,
+      "max": 858.9,
+      "min": 17.9
+    },
+    "queued_ahead=3": {
+      "n": 4,
+      "p50": 157.9,
+      "p90": 206.0,
+      "max": 206.0,
+      "min": 59.4
+    },
+    "running_at_receipt=0": {
+      "n": 83,
+      "p50": 77.6,
+      "p90": 148.6,
+      "max": 868.2,
+      "min": 1.0
+    },
+    "running_at_receipt=1": {
+      "n": 35,
+      "p50": 93.2,
+      "p90": 206.0,
+      "max": 512.4,
+      "min": 17.9
+    },
+    "running_at_receipt=2": {
+      "n": 2,
+      "p50": 103.2,
+      "p90": 103.2,
+      "max": 103.2,
+      "min": 70.9
+    }
+  },
+  "pending_rows": 230,
+  "processed_receipts": 233
+}

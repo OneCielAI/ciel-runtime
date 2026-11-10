@@ -12,8 +12,9 @@ from . import work_plan_tree as tree
 
 ACTIONS = ('answer', 'clarify', 'update', 'create', 'prioritize', 'advise')
 KINDS = ('status', 'info', 'request', 'clarify')
-FIELDS = {'action', 'kind', 'item_id', 'summary', 'reply', 'note', 'title', 'priority', 'queue_position'}
+FIELDS = {'action', 'kind', 'item_id', 'summary', 'reply', 'note', 'title', 'priority', 'queue_position', 'release_waits'}
 NO_QUEUE = '큐에 등록하지 않았습니다.'
+MAX_RELEASES = 16
 
 
 def unfinished_digest(document):
@@ -55,15 +56,31 @@ def validate(decision):
     place = decision.get('queue_position')
     if place is not None and (isinstance(place, bool) or not isinstance(place, int) or place < 1):
         raise tree.WorkPlanError('invalid side decision queue_position')
+    releases = decision.get('release_waits')
+    if releases is not None:
+        # Each entry names a recorded wait and the exact text the actor saw, so a
+        # wait main changed meanwhile is never released on stale evidence.
+        if (not isinstance(releases, list) or len(releases) > MAX_RELEASES
+                or any(not isinstance(row, dict) or set(row) != {'id', 'waiting_on'}
+                       or not isinstance(row['id'], str) or not 0 < len(row['id']) <= 200
+                       or not isinstance(row['waiting_on'], str) or not 0 < len(row['waiting_on']) <= tree.MAX_WAIT_CHARS
+                       for row in releases)
+                or len({row['id'] for row in releases}) != len(releases)):
+            raise tree.WorkPlanError('invalid side decision release_waits')
     action = decision['action']
     kind = decision.get('kind')
     # Models occasionally copy Work-identifying fields into a status/info answer.
     # They are presentation noise: answer/clarify never mutates Work, so discard
     # them instead of failing the entire external message (Walkie 2026-11-09).
     if action in ('answer', 'clarify'):
-        for key in ('item_id', 'note', 'title', 'priority', 'queue_position'):
+        for key in ('item_id', 'note', 'title', 'priority', 'queue_position', 'release_waits'):
             decision.pop(key, None)
         place = None
+    if action != 'update':
+        # Only an update of the waiting Work releases a wait. Elsewhere the
+        # field is dropped rather than failing (and losing) the whole event;
+        # advise/prioritize still reach main, which may clear the wait itself.
+        decision.pop('release_waits', None)
     if kind in ('status', 'info') and action != 'answer' or kind == 'clarify' and action != 'clarify':
         raise tree.WorkPlanError('side decision kind does not match its action')
     if kind == 'request' and action not in ('create', 'update', 'prioritize'):
@@ -141,6 +158,32 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             # The actor decided "new" against a board main has since changed;
             # the event is re-evaluated against the current board instead.
             raise WorkChanged('unfinished Work changed since the side actor read it')
+        # The side is the key for a recorded wait: when this event is the signal
+        # a wait names, it releases it here, atomically with the decision, so the
+        # waiting session needs no acknowledgment round trip. Only an unfinished
+        # node of the same goal whose wait text is still exactly what the actor
+        # saw; anything else stays for main. Execution approval is unchanged.
+        released, unreleased = [], []
+        if action == 'update':
+            goal = tree._root_of(by_id, item)
+            for wait in decision.get('release_waits') or []:
+                node = by_id.get(wait['id'])
+                if node is None or node['status'] == 'done' or tree._root_of(by_id, node['id']) != goal:
+                    unreleased.append({'id': wait['id'], 'reason': 'not an unfinished node of this goal'})
+                elif node.get('waiting_on', '') != wait['waiting_on']:
+                    unreleased.append({'id': wait['id'], 'reason': 'wait changed since side observation'
+                                       if node.get('waiting_on') else 'no recorded wait'})
+                else:
+                    released.append({'id': node['id'], 'waiting_on': node['waiting_on']})
+            for wait in released:
+                tree.update_node(doc, wait['id'], waiting_on='')
+                # update_node may replace the node object; annotate the stored one.
+                node = next(row for row in doc['nodes'] if row['id'] == wait['id'])
+                line = ('\n\nSide released wait "' + wait['waiting_on'] + '" (event ' + receipt_id[:12] + '): '
+                        + decision['summary'].strip().splitlines()[0][:300])
+                if len(node.get('note', '') + line) <= tree.MAX_TEXT_CHARS:
+                    node['note'] = node.get('note', '') + line
+            by_id = {node['id']: node for node in doc['nodes']}
         target_path = []
         if item in by_id:
             current = by_id[item]
@@ -211,6 +254,10 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
         # need its boundary (wait/block, P1, explicit advice/priority).
         needs_handoff = not main_reply and (action in ('prioritize', 'advise')
                                             or action in ('update', 'create') and (bool(gates) or priority == 'P1'))
+        if released and not gates and action == 'update':
+            # The waiter is woken with the release itself (no acknowledgment);
+            # only a wait or block that is still recorded needs main's boundary.
+            needs_handoff = False
         if needs_handoff:
             stamp = time.time()
             kind = ('advise' if action == 'advise' else 'resume' if gates
@@ -229,6 +276,10 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
                   'based_on_version': expected_version}
         if effective_kind:
             result['kind'] = effective_kind
+        if released:
+            result['released_waits'] = released
+        if unreleased:
+            result['unreleased_waits'] = unreleased
         if needs_handoff:
             result['main_handoff'] = {'kind': kind, 'waits': handoffs[receipt_id]['waits'],
                                       'question': handoffs[receipt_id]['question']}

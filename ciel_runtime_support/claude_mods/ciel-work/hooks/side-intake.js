@@ -162,6 +162,14 @@ Classify exactly:
   priority/queue_position with update. queue_position is 1-based among waiting
   goals after the active goal. Never move the active goal.
 
+Recorded waits: a node with waiting_on is blocked until the signal it names
+(a person's approval or answer, a review, a build/CI/deploy/git result). When
+this event IS that signal, use action update on the waiting node (kind request)
+and add release_waits: [{"id": node id, "waiting_on": its exact current text}].
+The host releases it at once and wakes the waiting worker or main; nobody has
+to acknowledge. Release only a wait this event clearly satisfies, never one it
+merely mentions, and never treat the event as execution approval.
+
 Never claim a queue position in reply; the host appends the committed one.
 Never claim implementation started. source_priority is the source's P1..P5 hint.
 Under adaptive policy infer priority from deadline, impact and blocking; under
@@ -169,7 +177,7 @@ explicit policy follow stated priority and clarify conflicts.
 
 Return one JSON object: {"decision":{...},"expected_version":N}.
 Decision fields: action, kind, summary, reply, and when needed item_id, title,
-note, priority, queue_position. No other fields.
+note, priority, queue_position, release_waits. No other fields.
 Kinds/actions:
 - status or info: answer
 - clarify: clarify
@@ -245,18 +253,39 @@ export async function startSide($) {
   await $.mcp.connect('ciel-runtime-router')
   await registerActor($,'inherit')
 }
-async function submitWake($,identity,key,eventId,attemptId,text) {
-  let state = 'uncertain'
+// Whether main is inside a turn; register.js owns that state (turn.start/complete).
+let mainBusy = () => false
+export function sideMainBusy(fn) { mainBusy = fn }
+// Delivers one host notice to main as soon as main can read it. Owned Claude
+// Code 2.1.321 probe (2026-11-10, delivery-4f4c90b8): a plugin's user-role
+// append reaches main's very next model request inside a busy turn (beside the
+// tool result) and starts no turn when idle; a plugin prompt enters only when
+// main is idle. So a busy main gets the append, an idle main the prompt. If
+// main went idle while appending, the prompt follows so the notice is not left
+// waiting for an unrelated future turn.
+async function deliverToMain($,text) {
+  if (mainBusy()) {
+    try {
+      await $.session.append({message:{type:'user',content:[{type:'text',text}]}})
+      if (mainBusy()) return 'appended'
+    } catch { /* Fall through to the prompt path. */ }
+  }
   try {
     const submitted = await $.prompt.submit({text})
-    state = submitted?.drop ? 'failed' : 'queued'
-  } catch { /* Unknown whether it entered: recorded uncertain, never resubmitted. */ }
+    return submitted?.drop ? 'failed' : 'queued'
+  } catch { return 'uncertain' /* Unknown whether it entered: never resubmitted. */ }
+}
+async function submitWake($,identity,key,eventId,attemptId,text) {
+  const state = await deliverToMain($,text)
   try {
     await callRouter($,'work_side_wake',{event_id:eventId,state,attempt_id:attemptId},{},identity)
-    if (state === 'queued') wokenHandoffs.add(key)
+    if (state === 'queued' || state === 'appended') wokenHandoffs.add(key)
   } catch { /* The ledger keeps this attempt as submitting. */ }
   finally { if (wakesInFlight.get(identity) === eventId) wakesInFlight.delete(identity) }
 }
+// Resolves true when this call took an event from the durable inbox (started,
+// or failed and recorded), so the caller claims again at once instead of
+// leaving the rest of a burst for the next periodic tick.
 export async function pollSide($, identity) {
   let claimed = null
   let claimedActor = null
@@ -279,7 +308,7 @@ export async function pollSide($, identity) {
   // Ordinary events use max_active slots. One more slot is reserved for a P1
   // event, so an urgent message never waits for two long ordinary forks.
   const running = [...actors.values()].filter(a => a.current)
-  if (busy || running.length > maxActive || (running.length === maxActive && running.some(a => a.reserved))) return
+  if (busy || running.length > maxActive || (running.length === maxActive && running.some(a => a.reserved))) return false
   const urgentOnly = running.length === maxActive
   busy = true
   const generation = lifecycle
@@ -314,7 +343,7 @@ export async function pollSide($, identity) {
     }
     const event = answer.claim
     claimed = event
-    if (!event || generation !== lifecycle || await identityOf($) !== identity) return
+    if (!event || generation !== lifecycle || await identityOf($) !== identity) return false
     const settings = answer.settings || {}
     maxActive = Number.isInteger(settings.max_active) ? Math.max(1,Math.min(16,settings.max_active)) : 2
     // Host claim attaches one complete, versioned board projection. Context
@@ -382,6 +411,7 @@ export async function pollSide($, identity) {
     actor.modelFingerprint = settings.model_fingerprint || profile
     actors.set(actor.id,actor); pending.delete(name)
     display($,identity,{side_inbox_receipts:[{receipt_id:event.receipt_id,stage:'processing',recap:event.text,original:event.text}]})
+    return true
   } catch (error) {
     if (claimed) {
       const message = String(error)
@@ -389,7 +419,9 @@ export async function pollSide($, identity) {
       if (/model|forces parent model/i.test(message))
         await recordFailure($,actor,claimed,'invalid_model')
       else await recordFailure($,actor,claimed,'processing_error')
+      return generation === lifecycle
     }
+    return false
   } finally { if (pendingName) pending.delete(pendingName); busy = false }
 }
 export function sideOwns(agentId) { return actors.get(agentId) }
@@ -451,7 +483,55 @@ async function shareWithMain($,event,result) {
   try { await $.session.append({message:{type:'system',content:[{type:'text',
     text:'Side P1 queued '+result.item_id+' · '+line(result.title || result.summary,160)}]}}) } catch {}
 }
-const DECISION_FIELDS = new Set(['action','kind','item_id','summary','reply','note','title','priority','queue_position'])
+// The side releases a recorded wait (host-validated, already committed) and is
+// the key that unblocks whoever waits on it, at once:
+//  - a fork running on that item's lease: its inbox (read at its next request,
+//    owned probe delivery-4f4c90b8: delivered, no new spawn);
+//  - otherwise main: appended into a busy turn or prompted when idle. A worker
+//    parked in waiting_input is named for main to resume through SendMessage,
+//    where the lease reacquire and resume authorization already live.
+// Nothing here grants execution approval or needs an acknowledgment.
+async function notifyReleased($,identity,event,result) {
+  let leases = {}
+  try { leases = (await callRouter($,'work_parallel_status',{},{},identity)).leases || {} } catch {}
+  const nodes = new Map((event.workload?.nodes || []).map(node => [node.id,node]))
+  const chain = id => {
+    const ids = new Set([id])
+    for (let node = nodes.get(id); node?.parent_id && !ids.has(node.parent_id); node = nodes.get(node.parent_id)) ids.add(node.parent_id)
+    return ids
+  }
+  const source = 'event '+event.receipt_id.slice(0,12)+': '+line(result.summary,240)
+  const toMain = []
+  const toFork = new Map()
+  for (const wait of result.released_waits) {
+    const ids = chain(wait.id)
+    const lease = Object.values(leases).find(row => ids.has(row.item_id) && row.host_id && ['running','waiting_input'].includes(row.state))
+    if (lease?.state === 'running') {
+      const rows = toFork.get(lease.host_id) || []
+      rows.push({wait,lease}); toFork.set(lease.host_id,rows)
+    } else toMain.push({wait,lease})
+  }
+  for (const [agentId,rows] of toFork) {
+    const text = 'Ciel side released your recorded wait'+(rows.length > 1 ? 's' : '')+' '
+      +rows.map(({wait}) => wait.id+' ("'+line(wait.waiting_on,160)+'")').join(', ')
+      +' — '+source+'. Continue your approved Work item; this is not new execution approval.'
+    let sent = null
+    try { sent = await $.session.send({to:{agentId},text}) } catch {}
+    if (sent?.isDelivered) $.ui.log('Side released '+rows.map(({wait}) => wait.id).join(', ')+' → worker '+agentId.slice(0,12))
+    else toMain.push(...rows)
+  }
+  if (!toMain.length) return
+  const parked = toMain.filter(({lease}) => lease?.state === 'waiting_input')
+  const text = 'Ciel side released recorded wait'+(toMain.length > 1 ? 's' : '')+' '
+    +toMain.map(({wait}) => wait.id+' ("'+line(wait.waiting_on,160)+'")').join(', ')+' — '+source+'. '
+    +(parked.length ? 'Parked worker'+(parked.length > 1 ? 's' : '')+' waiting on '+(parked.length > 1 ? 'them' : 'it')+': '
+      +parked.map(({lease}) => lease.host_id+' (lease '+lease.id+', item '+lease.item_id+')').join(', ')
+      +'; resume with SendMessage to that worker if this is what it waited for. ' : '')
+    +'The wait is already cleared; no acknowledgment is needed. This is not new execution approval.'
+  const state = await deliverToMain($,text)
+  $.ui.log('Side released '+toMain.map(({wait}) => wait.id).join(', ')+' → main ('+state+')')
+}
+const DECISION_FIELDS = new Set(['action','kind','item_id','summary','reply','note','title','priority','queue_position','release_waits'])
 // The side turn ends with its decision, but models often wrap it in prose or a
 // ```json fence. Take the last parseable object that carries `decision`.
 export function decisionOf(answer) {
@@ -512,6 +592,8 @@ export async function completeSide($,e) {
       actor.resolved = true; actor.lastReceipt = event.receipt_id
       if (value.recheck !== 'work_changed') {
         if (value.result && !value.result.duplicate) await shareWithMain($,event,value.result)
+        if (value.result?.released_waits?.length && !value.result.duplicate)
+          void notifyReleased($,actor.identity,event,value.result).catch(() => {})
         $.clock.after(10, async () => { await recoverReply($,actor.identity,event) })
       }
     }

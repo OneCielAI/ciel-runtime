@@ -1,0 +1,197 @@
+{
+  "run": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\10\\features\\side-immediate-claim\\evidence\\delivery-4f4c90b8",
+  "token_found": true,
+  "registered": true,
+  "main_busy_seen": true,
+  "requests_after_idle_append": 0,
+  "fork_busy_seen": true,
+  "hook_events": [
+    {
+      "event": "registered",
+      "at": 1794328215013
+    },
+    {
+      "event": "append-busy",
+      "result": {
+        "message": {
+          "type": "user",
+          "role": "user",
+          "isMeta": true,
+          "content": [
+            {
+              "type": "text",
+              "text": "APPEND-NOTE-append-busy"
+            }
+          ]
+        },
+        "uuid": "e5df2229-0bff-4aee-a8e3-8df3a9b7c348"
+      },
+      "at": 1794328220165
+    },
+    {
+      "event": "turn.complete",
+      "agentId": null,
+      "reason": "answer",
+      "at": 1794328234183
+    },
+    {
+      "event": "append-idle",
+      "result": {
+        "message": {
+          "type": "user",
+          "role": "user",
+          "isMeta": true,
+          "content": [
+            {
+              "type": "text",
+              "text": "APPEND-NOTE-append-idle"
+            }
+          ]
+        },
+        "uuid": "8aee8b9f-9d8a-433c-9f5a-2550e5e7774e"
+      },
+      "at": 1794328238206
+    },
+    {
+      "event": "turn.complete",
+      "agentId": null,
+      "reason": "answer",
+      "at": 1794328246262
+    },
+    {
+      "event": "agent.spawn",
+      "subagentType": "delivery-probe:probe-worker",
+      "description": "Probe fork",
+      "at": 1794328249310
+    },
+    {
+      "event": "spawn-fork",
+      "agentId": "a6945705980def8e5",
+      "deny": null,
+      "at": 1794328249800
+    },
+    {
+      "event": "send-fork",
+      "agentId": "a6945705980def8e5",
+      "result": {
+        "isDelivered": true
+      },
+      "at": 1794328251130
+    },
+    {
+      "event": "turn.complete",
+      "agentId": "a6945705980def8e5",
+      "reason": "answer",
+      "at": 1794328265133
+    }
+  ],
+  "marks": {
+    "append_busy": 3.026,
+    "append_idle": 21.075,
+    "next_prompt": 29.076,
+    "spawn_fork": 32.177,
+    "send_fork": 33.982
+  },
+  "requests": [
+    {
+      "t": 0.0,
+      "fork": false,
+      "append_busy": false,
+      "append_idle": false,
+      "send_note": false,
+      "shape": [
+        "user[text:<system-reminder>\nCodebase and user inst, text:<system-reminder>\nAs you answer the user, text:<system-reminder>\nAttribution for git co, text:Another Claude session sent a message:\nM]",
+        "system[text:Today's date is 2026-11-10.]"
+      ]
+    },
+    {
+      "t": 17.021,
+      "fork": false,
+      "append_busy": true,
+      "append_idle": false,
+      "send_note": false,
+      "shape": [
+        "user[text:<system-reminder>\nCodebase and user inst, text:<system-reminder>\nAs you answer the user, text:<system-reminder>\nAttribution for git co, text:Another Claude session sent a message:\nM]",
+        "system[text]",
+        "assistant[tool_use]",
+        "user[tool_result, text:APPEND-NOTE-append-busy]",
+        "system[text:# Environment\nYou have been invoked in t]"
+      ]
+    },
+    {
+      "t": 29.108,
+      "fork": false,
+      "append_busy": true,
+      "append_idle": true,
+      "send_note": false,
+      "shape": [
+        "system[text]",
+        "assistant[tool_use]",
+        "user[tool_result, text:APPEND-NOTE-append-busy]",
+        "system[text]",
+        "assistant[text:PROBE-DONE]",
+        "user[text:APPEND-NOTE-append-idle\n, text:Another Claude session sent a message:\nN]"
+      ]
+    },
+    {
+      "t": 32.791,
+      "fork": true,
+      "append_busy": false,
+      "append_idle": false,
+      "send_note": false,
+      "shape": [
+        "user[text:<system-reminder>\nAs you answer the user, text:<system-reminder>\nAttribution for git co, text:FORK-START run the busy command]",
+        "system[text:# Environment\nYou have been invoked in t]"
+      ]
+    },
+    {
+      "t": 47.957,
+      "fork": true,
+      "append_busy": false,
+      "append_idle": false,
+      "send_note": true,
+      "shape": [
+        "user[text:<system-reminder>\nAs you answer the user, text:<system-reminder>\nAttribution for git co, text:FORK-START run the busy command]",
+        "system[text]",
+        "assistant[tool_use]",
+        "user[tool_result]",
+        "system[text:The coordinator sent a message while you]"
+      ]
+    }
+  ],
+  "append_busy": {
+    "carried": true,
+    "request_after_mark_s": 13.995,
+    "shape": [
+      "user[text:<system-reminder>\nCodebase and user inst, text:<system-reminder>\nAs you answer the user, text:<system-reminder>\nAttribution for git co, text:Another Claude session sent a message:\nM]",
+      "system[text]",
+      "assistant[tool_use]",
+      "user[tool_result, text:APPEND-NOTE-append-busy]",
+      "system[text:# Environment\nYou have been invoked in t]"
+    ]
+  },
+  "append_idle": {
+    "started_turn": false,
+    "carried_by_next_prompt": true
+  },
+  "send_fork": {
+    "delivered_to_fork_request": true,
+    "request_after_mark_s": 13.975,
+    "shape": [
+      "user[text:<system-reminder>\nAs you answer the user, text:<system-reminder>\nAttribution for git co, text:FORK-START run the busy command]",
+      "system[text]",
+      "assistant[tool_use]",
+      "user[tool_result]",
+      "system[text:The coordinator sent a message while you]"
+    ],
+    "spawns": [
+      {
+        "event": "agent.spawn",
+        "subagentType": "delivery-probe:probe-worker",
+        "description": "Probe fork",
+        "at": 1794328249310
+      }
+    ]
+  },
+  "exit": null
+}

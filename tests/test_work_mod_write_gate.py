@@ -98,6 +98,22 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertTrue(result['statusFinished'])
         self.assertEqual(2, result['rearmed'])
 
+    def test_side_status_refresh_is_single_flight_throttled_and_never_blocks_ticks(self):
+        result = self.run_scenario('side-status-single-flight-and-throttled')
+        # A hanging pane refresh neither starts a second fetch nor stops the
+        # claim ticks from re-arming.
+        self.assertEqual(1, result['whileInFlight'])
+        self.assertEqual(3, result['ticksWhileInFlight'])
+        self.assertEqual(1, result['afterThrottle'])
+        self.assertEqual(2, result['afterSignal'])
+
+    def test_one_tick_drains_a_burst_into_every_free_side_slot(self):
+        result = self.run_scenario('side-pump-drains-burst-into-free-slots')
+        # Two ordinary slots, then the reserved P1-only slot, then no slot left.
+        self.assertEqual([{'urgent_only': False}, {'urgent_only': False}, {'urgent_only': True}], result['claims'])
+        self.assertEqual(3, len(result['spawned']))
+        self.assertEqual(1, result['left'])
+
     def test_redacted_main_status_does_not_erase_host_side_pane(self):
         result = self.run_scenario('side-receipt-redacted-refresh')
         pane = json.dumps(result['pane'])
@@ -310,6 +326,18 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn("L1", result["leases"])
         self.assertIn("L2", result["leases"])
         self.assertEqual(result["leases"]["L2"]["host_id"], "agent-live")
+
+    def test_host_receipt_signal_claims_immediately_without_reaching_main(self):
+        result = self.run_scenario("side-receipt-ready-is-consumed-and-claims-now")
+        self.assertGreater(result["after"], result["before"])
+        self.assertEqual({"consumed": "Ciel side receipt claimed outside main conversation"}, result["ready"])
+        self.assertEqual({"text": "passed"}, result["malformed"])
+        self.assertEqual({"text": "agent-passed"}, result["agentTarget"])
+        # The router socket delivers it as a peer prompt: dropped, never a main turn.
+        self.assertEqual({"drop": "Ciel side receipt claimed outside main conversation"}, result["submitted"])
+        self.assertGreater(result["afterSubmit"], result["after"])
+        self.assertNotEqual({"text": "leaked-to-main"}, result["submitted"])
+        self.assertNotIn("drop", result["typed"])
 
     def test_side_answer_is_reviewed_once_by_main_with_host_identity(self):
         result = self.run_scenario("side-review-stop-once")

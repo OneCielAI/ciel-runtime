@@ -41,7 +41,7 @@ def schemas():
              'state': {'type': 'string', 'enum': ['prepare', 'submitted', 'uncertain', 'failed']}}, 'required': ['receipt_id', 'state']}},
         {'name': 'work_side_wake', 'description': 'Host-only prepare or record one durable main wake attempt.',
          'inputSchema': {'type': 'object', 'properties': {'event_id': {'type': 'string'},
-             'state': {'type': 'string', 'enum': ['prepare', 'queued', 'uncertain', 'failed']},
+             'state': {'type': 'string', 'enum': ['prepare', 'queued', 'appended', 'uncertain', 'failed']},
              'attempt_id': {'type': 'string'}}, 'required': ['event_id', 'state']}},
         {'name': 'work_side_code_read', 'description': 'Side-only bounded read of one UTF-8 file inside the session workspace.',
          'inputSchema': {'type': 'object', 'properties': {'path': {'type': 'string', 'maxLength': 1000},
@@ -61,7 +61,10 @@ def schemas():
                  'item_id': {'type': 'string'}, 'summary': {'type': 'string'}, 'reply': {'type': 'string'},
                  'note': {'type': 'string'}, 'title': {'type': 'string'},
                  'priority': {'type': 'string', 'enum': ['', 'P1', 'P2', 'P3', 'P4', 'P5']},
-                 'queue_position': {'type': 'integer', 'minimum': 1}},
+                 'queue_position': {'type': 'integer', 'minimum': 1},
+                 'release_waits': {'type': 'array', 'maxItems': 16, 'items': {
+                     'type': 'object', 'properties': {'id': {'type': 'string'}, 'waiting_on': {'type': 'string'}},
+                     'required': ['id', 'waiting_on'], 'additionalProperties': False}}},
                  'required': ['action', 'summary', 'reply'], 'additionalProperties': False},
              'expected_version': {'type': 'integer', 'minimum': 0}}, 'required': ['decision', 'expected_version']}}
     ]
@@ -217,18 +220,30 @@ def run(name, args, config, state_dir, identity, store):
             if runtime_side.get('model') != 'inherit' and not context_ready:
                 waiting_reason = 'parent_context'
         document = store.read_snapshot()
-        replies = [{'event_id': key, **row} for key, row in document.get('side_handoffs', {}).items()
-                   if row.get('state') in ('acknowledged', 'answered')]
-        # The acknowledgment is the durable outbox intent if a crash prevented
-        # writing its follow-up event. Repair missing mail before claiming it.
+        # Acknowledged handoffs are durable history, not a per-poll payload.
+        # Prody 2026-11-10: returning all 30 answered rows made every empty claim
+        # a 361K/46-page response, so one poll consumed 30-40 seconds. Synchronize
+        # and return only rows whose receipt/follow-up still needs recovery.
         import hashlib
         inbox = SideIntakeInbox(state_dir, identity)
-        for reply in replies:
-            reply['receipt'] = _sync_handoff_receipt(inbox, reply['event_id'], reply)
-            if reply.get('answer'):
-                followup_key = hashlib.sha256(('handoff:' + reply['event_id']).encode()).hexdigest()
-                if inbox._load(followup_key) is None:
-                    _answer_followup(inbox, reply['event_id'], reply['answer'])
+        replies = []
+        for key, row in document.get('side_handoffs', {}).items():
+            if row.get('state') not in ('acknowledged', 'answered'):
+                continue
+            receipt = inbox._load(key)
+            receipt_unsynced = bool(receipt and receipt.get('stage') == 'processed'
+                                    and receipt.get('result', {}).get('handoff') != row['state'])
+            followup_missing = False
+            if row.get('answer'):
+                followup_key = hashlib.sha256(('handoff:' + key).encode()).hexdigest()
+                followup_missing = inbox._load(followup_key) is None
+            if not receipt_unsynced and not followup_missing:
+                continue
+            reply = {'event_id': key, **row}
+            reply['receipt'] = _sync_handoff_receipt(inbox, key, reply) if receipt_unsynced else None
+            if followup_missing:
+                _answer_followup(inbox, key, row['answer'])
+            replies.append(reply)
         active = None if waiting_reason else claim(
             state_dir, identity, args.get('owner'),
             aging_seconds=config.get('work_side_intake',{}).get('aging_seconds',60),

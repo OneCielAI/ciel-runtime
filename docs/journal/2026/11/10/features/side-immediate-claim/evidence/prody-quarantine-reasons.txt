@@ -1,0 +1,20 @@
+63 x 11-08 | invalid_answer | side answer carries no decision JSON
+2 x 11-08 | invalid_answer | Side router operation failed: work_side_resolve: answer-only decisions cannot carry Work edits
+9 x 11-08 | invalid_answer | Side router operation failed: work_side_resolve: existing Work identity required
+1 x 11-08 | invalid_answer | Side router operation failed: work_side_resolve: invalid side decision fields
+2 x 11-08 | invalid_answer | Side router operation failed: work_side_resolve: side decision needs bounded summary and reply
+17 x 11-08 | invalid_answer | Side router operation failed: work_side_resolve: Work update note required
+102 x 11-09 | invalid_answer | side answer carries no decision JSON
+14 x 11-09 | invalid_answer | Side router operation failed: work_side_resolve: answer-only decisions cannot carry Work edits
+3 x 11-09 | invalid_answer | Side router operation failed: work_side_resolve: completed Work cannot be reopened by side decision
+1 x 11-09 | invalid_answer | Side router operation failed: work_side_resolve: invalid side decision action
+1 x 11-09 | invalid_answer | Side router operation failed: work_side_resolve: new Work cannot overwrite an existing identity
+1 x 11-09 | invalid_answer | Side router operation failed: work_side_resolve: new Work title required
+3 x 11-09 | invalid_answer | Side router operation failed: work_side_resolve: side decision needs bounded summary and reply
+3 x 11-09 | invalid_answer | Side router operation failed: work_side_resolve: side update exceeds note capacity; original preserved
+2 x 11-09 | invalid_answer | Side router operation failed: work_side_resolve: Work update note required
+2 x 11-10 | invalid_answer | side answer carries no decision JSON
+1 x 11-10 | invalid_answer | Side router operation failed: work_side_resolve: existing Work identity required
+1 x 11-10 | invalid_answer | Side router operation failed: work_side_resolve: invalid side decision kind
+1 x 11-10 | invalid_answer | Side router operation failed: work_side_resolve: invalid side decision queue_position
+2 x 11-10 | invalid_answer | Side router operation failed: work_side_resolve: side decision needs bounded summary and reply

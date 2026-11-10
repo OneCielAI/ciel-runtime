@@ -17,6 +17,8 @@ MAX_DOCUMENT_BYTES = 32 * 1024 * 1024  # Legacy document parser, not a queue cei
 # its key, digest, route and timestamps.
 MAX_PENDING_RECORD_BYTES = SIDE_INTAKE_PENDING_RECORD_MAX_BYTES
 MAX_RECEIPT_BYTES = 2 * 1024 * 1024
+# 64-hex keys: about 60,000 quarantined events before the index stops growing.
+MAX_QUARANTINE_INDEX_BYTES = 4 * 1024 * 1024
 PRIORITIES = ('P1', 'P2', 'P3', 'P4', 'P5')
 
 
@@ -204,6 +206,37 @@ class SideIntakeInbox:
         for priority in ('P1','P2','P3','P4','P5'):
             (self.directory/'priority'/priority/key[:2]/(key+'.json')).unlink(missing_ok=True)
 
+    # Permanently quarantined events (a completed turn whose decision was
+    # invalid; retrying may duplicate an external reply) stay in pending/ for
+    # the pane and the operator, but are never claimable. Prody 2026-11-10: 230
+    # of them filled claim's 100-row keyset windows, so a fresh event waited up
+    # to three windows. This index lets claim skip them without opening them.
+    def _quarantine_index_path(self) -> Path:
+        return self.directory / 'quarantine-index.json'
+
+    def quarantined_keys(self) -> set[str]:
+        # Only an optimization: an unreadable index means "skip nothing", and
+        # claim still refuses every quarantined row it opens.
+        try:
+            row = self._read_file(self._quarantine_index_path(), MAX_QUARANTINE_INDEX_BYTES) or {}
+        except WorkPlanError:
+            return set()
+        keys = row.get('keys')
+        return {key for key in keys if isinstance(key, str) and len(key) == 64} if isinstance(keys, list) else set()
+
+    def mark_quarantined(self, key: str) -> None:
+        self._event_path('locks', key)  # validates the receipt identity
+        path = self._quarantine_index_path()
+        from .durable_json_file import save
+        with exclusive_file_lock(path):
+            keys = self.quarantined_keys()
+            if key not in keys:
+                keys.add(key)
+                body = {'keys': sorted(keys)}
+                if len(json.dumps(body).encode('utf8')) <= MAX_QUARANTINE_INDEX_BYTES:
+                    save(path, body)
+        self._clear_priority(key)
+
     def link(self, receipt_id: str, item_id: str) -> None:
         if not isinstance(item_id, str) or not item_id.strip():
             raise WorkPlanError('side receipt requires a committed item identity')
@@ -219,7 +252,7 @@ class SideIntakeInbox:
             self._event_path('pending', receipt_id).unlink(missing_ok=True)
             self._clear_priority(receipt_id)
 
-    def pending(self, limit: int = 10, *, after: str = '') -> list[dict[str, Any]]:
+    def pending(self, limit: int = 10, *, after: str = '', skip: set[str] | frozenset[str] = frozenset()) -> list[dict[str, Any]]:
         self._migrate()
         rows = []
         if limit <= 0:
@@ -227,9 +260,10 @@ class SideIntakeInbox:
         # Keyset rotation prevents a permanently failing first batch from
         # starving independent events. Only one page is retained in memory.
         paths = (self.directory / 'pending').glob('*/*.json')
-        selected = heapq.nsmallest(limit, (p for p in paths if p.stem > after), key=lambda p: p.stem)
+        selected = heapq.nsmallest(limit, (p for p in paths if p.stem > after and p.stem not in skip), key=lambda p: p.stem)
         if not selected and after:
-            selected = heapq.nsmallest(limit, (self.directory / 'pending').glob('*/*.json'), key=lambda p: p.stem)
+            selected = heapq.nsmallest(limit, (p for p in (self.directory / 'pending').glob('*/*.json') if p.stem not in skip),
+                                       key=lambda p: p.stem)
         for path in selected:
             key = path.stem
             with exclusive_file_lock(self._event_path('locks', key)):

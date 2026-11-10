@@ -28,10 +28,18 @@ def acknowledge(store, event_id, *, answer='', activate=False, clear_wait=None, 
             if by_id[node_id].get('waiting_on', '') != recorded[node_id]:
                 raise tree.WorkPlanError('handoff wait changed since side observation')
         if activate:
-            target = next((n for n in doc['nodes'] if n['id'] == row['item_id']), None)
-            if not target or target['parent_id'] is not None or target['status'] == 'done':
+            # A wait gate or step handoff names the child it concerns; activating
+            # means selecting the goal that owns it. ciel-walkie 2026-11-10: a
+            # P1 gate handoff (n1235) stayed requested because only roots passed.
+            goal = None
+            if row.get('item_id') in by_id:
+                try:
+                    goal = by_id[tree._root_of(by_id, row['item_id'])]
+                except KeyError:
+                    goal = None
+            if not goal or goal['status'] == 'done':
                 raise tree.WorkPlanError('handoff target is not an unfinished goal')
-            tree._activate(doc, target['id'])
+            tree._activate(doc, goal['id'])
         for node_id in clear_wait:
             tree.update_node(doc, node_id, waiting_on='')
         stamp = time.time()

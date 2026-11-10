@@ -1,0 +1,96 @@
+{
+  "run": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\10\\features\\side-immediate-claim\\evidence\\receipt-ready-85ed3cbe",
+  "token_found": true,
+  "tool_marker_seen": true,
+  "stream_open_seen": true,
+  "sent_at": {
+    "tool": 1794326438.1585786,
+    "stream": 1794326461.3245308,
+    "idle": 1794326478.3655536
+  },
+  "hook_events": [
+    {
+      "hook": "session.receive",
+      "origin": "peer",
+      "agentId": null,
+      "text": "[ciel-side-receipt-ready] aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "at": 1794326438160
+    },
+    {
+      "hook": "session.receive",
+      "origin": "peer",
+      "agentId": null,
+      "text": "[ciel-side-receipt-ready] bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "at": 1794326461326
+    },
+    {
+      "hook": "session.receive",
+      "origin": "peer",
+      "agentId": null,
+      "text": "[ciel-side-receipt-ready] cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "at": 1794326478367
+    }
+  ],
+  "phases": {
+    "tool": {
+      "hooks": [
+        {
+          "hook": "session.receive",
+          "origin": "peer",
+          "agentId": null,
+          "latency_s": 0.001
+        }
+      ],
+      "main_busy_at_signal": true
+    },
+    "stream": {
+      "hooks": [
+        {
+          "hook": "session.receive",
+          "origin": "peer",
+          "agentId": null,
+          "latency_s": 0.001
+        }
+      ],
+      "main_busy_at_signal": true,
+      "every_hook_before_stream_closed": true
+    },
+    "idle": {
+      "hooks": [
+        {
+          "hook": "session.receive",
+          "origin": "peer",
+          "agentId": null,
+          "latency_s": 0.001
+        }
+      ]
+    }
+  },
+  "model_saw_any_signal": false,
+  "requests": [
+    {
+      "t_from_first": 0.0,
+      "has_signal": false,
+      "has_tool_result": false,
+      "has_stream_start": false
+    },
+    {
+      "t_from_first": 22.444,
+      "has_signal": false,
+      "has_tool_result": true,
+      "has_stream_start": false
+    },
+    {
+      "t_from_first": 25.506,
+      "has_signal": false,
+      "has_tool_result": true,
+      "has_stream_start": true
+    }
+  ],
+  "sent_from_first": {
+    "tool": 3.38,
+    "stream": 26.546,
+    "idle": 43.587
+  },
+  "exit": null
+}

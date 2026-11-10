@@ -178,6 +178,87 @@ class SideDecisionTests(unittest.TestCase):
         self.assertTrue(ack['activated'])
         self.assertEqual(2, len(self.store.read()['nodes']))
 
+    def test_gate_handoff_activation_selects_owning_goal_and_clears_recorded_wait(self):
+        # ciel-walkie 2026-11-10: the P1 handoff for gate n1235 failed
+        # "handoff target is not an unfinished goal" and stayed requested.
+        from ciel_runtime_support.side_handoff import acknowledge
+        doc, main = self.store.transaction(lambda d: tree.add_node(d, None, 'main'))
+        doc, goal = self.store.transaction(lambda d: tree.add_node(d, None, 'P1 goal', priority='P1'))
+        doc, gate = self.store.transaction(lambda d: tree.add_node(d, goal, 'gate', waiting_on='approval'))
+        result = apply(self.store, self.key, {**self.base, 'action': 'update', 'item_id': gate, 'note': 'approved'},
+                       doc['version'])
+        self.assertEqual(gate, self.store.read()['side_handoffs'][self.key]['item_id'])
+        ack = acknowledge(self.store, self.key, activate=True, clear_wait=[gate], expected_version=result['version'])
+        doc = self.store.read()
+        self.assertEqual(('acknowledged', True, [gate]), (ack['state'], ack['activated'], ack['clear_wait']))
+        self.assertEqual(goal, doc['active_root'])
+        self.assertEqual('', next(n for n in doc['nodes'] if n['id'] == gate)['waiting_on'])
+        self.assertNotEqual(main, doc['active_root'])
+
+    def test_side_releases_the_wait_its_event_satisfies_without_a_main_handoff(self):
+        doc, goal = self.store.transaction(lambda d: tree.add_node(d, None, 'release goal'))
+        self.store.transaction(lambda d: tree.update_node(d, goal, status='in_progress'))
+        doc, gate = self.store.transaction(lambda d: tree.add_node(d, goal, 'deploy gate', waiting_on='approval from Andy via Walkie'))
+        before_phase = self.store.read()['phase']
+        result = apply(self.store, self.key, {**self.base, 'kind': 'request', 'action': 'update', 'item_id': gate,
+                       'note': 'Andy approved', 'release_waits': [{'id': gate, 'waiting_on': 'approval from Andy via Walkie'}]},
+                       doc['version'])
+        doc = self.store.read()
+        node = next(n for n in doc['nodes'] if n['id'] == gate)
+        self.assertEqual('', node['waiting_on'])
+        self.assertIn('Side released wait "approval from Andy via Walkie"', node['note'])
+        self.assertEqual([{'id': gate, 'waiting_on': 'approval from Andy via Walkie'}], result['released_waits'])
+        self.assertEqual('not_required', result['handoff'])
+        self.assertEqual({}, doc.get('side_handoffs', {}))
+        self.assertFalse(result['execution_approved'])
+        self.assertEqual(before_phase, doc['phase'])
+        # The same decision replayed is the committed result, not a second release.
+        self.assertTrue(apply(self.store, self.key, {**self.base, 'kind': 'request', 'action': 'update', 'item_id': gate,
+                        'note': 'Andy approved', 'release_waits': [{'id': gate, 'waiting_on': 'approval from Andy via Walkie'}]},
+                        doc['version'])['duplicate'])
+
+    def test_changed_or_foreign_wait_is_not_released_and_still_reaches_main(self):
+        doc, goal = self.store.transaction(lambda d: tree.add_node(d, None, 'goal'))
+        doc, gate = self.store.transaction(lambda d: tree.add_node(d, goal, 'gate', waiting_on='CI build 41 result'))
+        doc, other_goal = self.store.transaction(lambda d: tree.add_node(d, None, 'other'))
+        doc, foreign = self.store.transaction(lambda d: tree.add_node(d, other_goal, 'foreign', waiting_on='review'))
+        result = apply(self.store, self.key, {**self.base, 'kind': 'request', 'action': 'update', 'item_id': gate,
+                       'note': 'build 40 passed', 'release_waits': [{'id': gate, 'waiting_on': 'CI build 40 result'},
+                                                                     {'id': foreign, 'waiting_on': 'review'}]},
+                       doc['version'])
+        doc = self.store.read()
+        self.assertEqual('CI build 41 result', next(n for n in doc['nodes'] if n['id'] == gate)['waiting_on'])
+        self.assertEqual('review', next(n for n in doc['nodes'] if n['id'] == foreign)['waiting_on'])
+        self.assertNotIn('released_waits', result)
+        self.assertEqual([{'id': gate, 'reason': 'wait changed since side observation'},
+                          {'id': foreign, 'reason': 'not an unfinished node of this goal'}], result['unreleased_waits'])
+        # The unreleased gate keeps the ordinary resume handoff for main.
+        self.assertEqual('requested', result['handoff'])
+        self.assertEqual('resume', result['main_handoff']['kind'])
+
+    def test_release_waits_outside_update_is_dropped_not_fatal(self):
+        from ciel_runtime_support.side_work_decision import validate
+        answer = validate({**self.base, 'kind': 'status', 'release_waits': [{'id': 'n1', 'waiting_on': 'x'}]})
+        self.assertNotIn('release_waits', answer)
+        with self.assertRaises(tree.WorkPlanError):
+            validate({**self.base, 'action': 'update', 'item_id': 'n1', 'release_waits': [{'id': 'n1'}]})
+
+    def test_gate_handoff_activation_refuses_finished_goal_without_mutation(self):
+        from ciel_runtime_support.side_handoff import acknowledge
+        doc, goal = self.store.transaction(lambda d: tree.add_node(d, None, 'P1 goal', priority='P1'))
+        doc, gate = self.store.transaction(lambda d: tree.add_node(d, goal, 'gate', waiting_on='approval'))
+        result = apply(self.store, self.key, {**self.base, 'action': 'update', 'item_id': gate, 'note': 'approved'},
+                       doc['version'])
+        def finish_goal(d):
+            for node in d['nodes']:
+                node.update(status='done', evidence='verified', waiting_on='')
+        doc, _ = self.store.transaction(finish_goal)
+        with self.assertRaisesRegex(tree.WorkPlanError, 'not an unfinished goal'):
+            acknowledge(self.store, self.key, activate=True, expected_version=doc['version'])
+        after = self.store.read()
+        self.assertEqual(doc['version'], after['version'])
+        self.assertEqual('requested', after['side_handoffs'][self.key]['state'])
+
     def test_prioritizing_child_moves_its_existing_goal_without_new_root(self):
         doc, main = self.store.transaction(lambda d: tree.add_node(d, None, 'active'))
         self.store.transaction(lambda d: tree.add_node(d, None, 'other queued'))

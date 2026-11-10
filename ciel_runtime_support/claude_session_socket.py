@@ -204,6 +204,47 @@ class ClaudeSessionSocketClient:
                                  parent_id=str(metadata.get('reply_parent_id') or message.get('id') or ''),
                                  reply_token=str(metadata.get('web_reply_token') or ''))
                 receipt = self._side_intake("claude:" + record["sessionId"], request["text"], request["event_key"], route)
+                # Admission writes no user frame, so without a verified wake the
+                # mod notices this receipt only at its next 2 s poll — and native
+                # clock callbacks can be delayed behind a busy turn. Queue a
+                # content-free engine event for the exact live session. It wakes
+                # only the side claim pump; external text remains in the inbox.
+                receipt_id = str((receipt or {}).get("receipt_id") or "")
+                if (
+                    receipt
+                    and receipt.get("accepted") is True
+                    and len(receipt_id) == 64
+                    and all(character in "0123456789abcdef" for character in receipt_id)
+                ):
+                    # This carries only a host-minted receipt id, never external
+                    # text. ciel-work consumes it in session.receive and starts
+                    # the claim pump without waiting for the 2 s fallback clock.
+                    notice = "[ciel-side-receipt-ready] " + receipt_id
+                    frames = (
+                        json.dumps({"type": "auth", "token": token}, separators=(",", ":"))
+                        + "\n"
+                        + json.dumps(
+                            {
+                                "type": "user",
+                                "uuid": str(uuid.uuid4()),
+                                "message": {"role": "user", "content": notice},
+                                "priority": "now",
+                            },
+                            separators=(",", ":"),
+                        )
+                        + "\n"
+                    ).encode("utf-8")
+                    try:
+                        self._write(target, frames)
+                    except OSError as exc:
+                        # The durable receipt is already committed. A failed
+                        # acceleration notice falls back to the periodic poll;
+                        # never report intake failure and replay source effects.
+                        self._log(
+                            "WARN",
+                            "channel_side_intake_wake_failed "
+                            f"reason={type(exc).__name__} action=poll_fallback",
+                        )
             except (WorkPlanError, OSError) as exc:
                 self._log('ERROR', f'channel_side_intake_deferred reason={type(exc).__name__} detail={str(exc)[:240]} action=retain_pending')
                 return False

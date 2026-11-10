@@ -1,0 +1,6 @@
+ciel 0.2.51-beta.20261110-064501.3757675 
+claude 2.1.322
+ciel_runtime_support\claude_mods\ciel-work\hooks\register.js 130864 40ad7adbb1cf900f59d47634de6e57a103fc099bc5f1aa3099e7234053bfc5cc sidePoll=True pump=False wakeNonBlocking=False receiptReady=False
+ciel_runtime_support\claude_mods\ciel-work\hooks\side-intake.js 31885 321d9d445aa001491f361d159327f9ecbd8cde0f156f3a0a9c0976258f9c0ac0 sidePoll=False pump=False wakeNonBlocking=True receiptReady=False
+ciel_runtime_support\claude_session_socket.py 12997 f0f388391ef6e1f11c488b275700f88cf1ab5f9b04a69ef570c8a68499efe159 sidePoll=False pump=False wakeNonBlocking=False receiptReady=False
+home 

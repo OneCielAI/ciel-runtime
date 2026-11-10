@@ -52,9 +52,12 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
     stamp = time.time() if now is None else now
     inbox = SideIntakeInbox(state_dir, session_id)
     cursor_path = inbox.directory / 'decision-cursor.json'
+    # Never-claimable rows do not occupy the rotating window (see
+    # SideIntakeInbox.mark_quarantined); a fresh event is seen on this call.
+    skip = inbox.quarantined_keys()
     with exclusive_file_lock(cursor_path):
         cursor = inbox._read_file(cursor_path) or {}
-        rows = inbox.pending(100, after=str(cursor.get('after') or ''))
+        rows = inbox.pending(100, after=str(cursor.get('after') or ''), skip=skip)
         if rows:
             inbox._save_file(cursor_path, {'after': rows[-1]['receipt_id']})
             # Reconcile a crash after durable pending write but before optional
@@ -66,7 +69,7 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
     def ranked():
         for priority in ('P1','P2','P3','P4','P5'):
             paths=(inbox.directory/'priority'/priority).glob('*/*.json')
-            for marker in heapq.nsmallest(100,paths,key=lambda p:p.stem):
+            for marker in heapq.nsmallest(100,(p for p in paths if p.stem not in skip),key=lambda p:p.stem):
                 row=inbox._load(marker.stem)
                 if not row or row.get('stage')!='received':
                     marker.unlink(missing_ok=True)
@@ -113,7 +116,9 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
             failure = current.get('side_failure') or {}
             if failure.get('quarantined') and failure.get('category') == 'invalid_answer':
                 # A completed turn may already have replied externally; a model
-                # change must not replay it either.
+                # change must not replay it either. Rows quarantined by an older
+                # build are indexed here the first time a window opens them.
+                inbox.mark_quarantined(key)
                 continue
             if failure.get('quarantined') and failure.get('model_fingerprint') == model_fingerprint:
                 # Legacy generic model_error had no typed router outcome and may
@@ -219,6 +224,8 @@ def fail(state_dir, session_id, receipt_id, generation, failure, *, now=None):
         }
         row.pop('processing', None)
         inbox._save_file(inbox._event_path('pending', receipt_id), row)
+        if row['side_failure']['quarantined'] and category == 'invalid_answer':
+            inbox.mark_quarantined(receipt_id)
         return inbox._receipt(receipt_id, row, duplicate=False)
 
 

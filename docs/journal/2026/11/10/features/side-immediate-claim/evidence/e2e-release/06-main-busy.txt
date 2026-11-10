@@ -1,0 +1,30 @@
+                                                                      │                                               ✕
+                                                                      │btw_with_mcp · Inbox → side AI → response / Wor…
+ eThought for 30s, called ciel-runtime-router 4 times                 │Primary side MCP parity: 87 tools · 4 servers ·…
+                                                                      │Receipt, AI decision, Work action and reply del…
+● 디자인 승인 이벤트를 반영해 n2를 완료 처리했습니다.               si│Receipts (newest first) · Enter selects:
+                                                                      │▸ route_unavailable[message.created] Daniel…
+현재 P1 118160은 CI run 4312 결과를 기다리는 n3만 남아 있습니다.      │── ddd0f99f678… · 1/2 ──
+  실행 중인 병렬 작업 슬롯은 없습니다.                                │Receipt: ddd0f99f67852482968… · Work item: n2
+                                                                      │Stage: processed
+✻ Churned for 40s · done 10:59 AM                                     │Decision: Design 118269 approved for P1 118160
+                                                                      │Action: update → n2 · Work version 2
+❯ Run exactly this with the Bash tool in the foreground and wait for  │Reply: Design 118269 is approved for P1 118160;…
+  it to finish: python -c "import time; time.sleep(75); print(75)" .  │Delivery: not sent (no reply route); main sends…
+  Then reply only with the word FINISHED.                             │Queue: active Work item
+                                                                      │Original:
+  Sleeping 75 seconds then printing 75 · 3s                           │  CloudEvent message.created · 2026-11-10T16:59…
+  ⎿  $ python -c "import time; time.sleep(75); print(75)"             │  Source: urn:owned:side-release
+                                                                      │  Text:
+✻ Considering… (11s · ↓ 274 tokens)                                   │    Daniel: I approve design 118269 for P1 1181…
+  ⎿  Tip: /loop runs any prompt on a recurring schedule. Great for    │  Fields:
+     monitoring deploys, babysitting PRs, or polling status.          │n: Next Retry reply… Close
+w: Work 1/2 ◷ Wait for CI run 4312 ◷ CI run 4312 result [+]       [-] │
+                                                                      │
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [_Walkie_Opus55-Sol61-Fast (cielairouter)] workspace | SSE gate on: open | ctx 277,179/872,000 tok (31.8%) | cache …
+  [work] 1/2 ◷ Wait for CI run 4312 · waiting: CI run 4312 result
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+                                                                                                         work: run 1/2

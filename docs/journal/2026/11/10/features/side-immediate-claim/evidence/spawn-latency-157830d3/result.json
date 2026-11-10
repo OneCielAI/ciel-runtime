@@ -1,0 +1,70 @@
+{
+  "run": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\10\\features\\side-immediate-claim\\evidence\\spawn-latency-157830d3",
+  "token_found": true,
+  "registered": true,
+  "tool_marker_seen": true,
+  "hook_events": [
+    {
+      "event": "registered",
+      "at": 1794326651518
+    },
+    {
+      "event": "spawn-resolved",
+      "phase": "idle",
+      "call": 1794326653635,
+      "resolved": 1794326653657,
+      "agentId": "a116699ef346a8e95",
+      "deny": null
+    },
+    {
+      "event": "turn.complete",
+      "agentId": "a116699ef346a8e95",
+      "reason": "answer",
+      "at": 1794326673968
+    },
+    {
+      "event": "spawn-resolved",
+      "phase": "busy",
+      "call": 1794326682426,
+      "resolved": 1794326682444,
+      "agentId": "a7e417c548b1e5ae3",
+      "deny": null
+    },
+    {
+      "event": "turn.complete",
+      "agentId": "a7e417c548b1e5ae3",
+      "reason": "answer",
+      "at": 1794326702633
+    }
+  ],
+  "phases": {
+    "idle": {
+      "spawn": {
+        "event": "spawn-resolved",
+        "agentId": "a116699ef346a8e95",
+        "deny": null,
+        "error": null
+      },
+      "call_s": 0.002,
+      "resolved_s": 0.024,
+      "actor_request_s": 0.324,
+      "actor_stream_closed_s": 20.325,
+      "turn_complete_s": 20.335
+    },
+    "busy": {
+      "spawn": {
+        "event": "spawn-resolved",
+        "agentId": "a7e417c548b1e5ae3",
+        "deny": null,
+        "error": null
+      },
+      "call_s": 0.002,
+      "resolved_s": 0.02,
+      "actor_request_s": 0.2,
+      "actor_stream_closed_s": 20.201,
+      "turn_complete_s": 20.209
+    }
+  },
+  "tool_result_requests_after_busy_signal": 0,
+  "exit": null
+}

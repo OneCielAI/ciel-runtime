@@ -129,6 +129,9 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
                 "Changing title or note returns only that goal to planning for scope review. "
                 "At least one mutation field is REQUIRED; id/expected_version alone is rejected. "
                 "waiting_on sets a dependency; explicitly waiting_on=\"\" clears that node's verified wait. "
+                "When you wait on git, a build/CI/deploy result, a review or a person's approval or answer, record it on the "
+                "waiting node in one short line naming the signal and its source (e.g. \"approval from Andy via Walkie\", "
+                "\"CI run 4312 result\"): the side actor matches incoming SSE events against it, releases it and wakes you. "
                 "Evidence text never clears waits. Waiting excludes only its dependent subtree; continue independent runnable Work."
             ),
             "inputSchema": {
@@ -380,8 +383,12 @@ def dispatch_work_tool(
                               'wake_state': (row.get('wake') or {}).get('state', 'pending'),
                               'wake_age_seconds': max(0, int(now - float((row.get('wake') or {}).get('requested_at') or row.get('requested_at') or now)))}
                              for key, row in board.get('side_handoffs', {}).items() if row.get('state') == 'requested']
+            inbox = SideIntakeInbox(state_dir, identity)
             return respond(request_id, json.dumps({'enabled': config.get('work_side_intake', {}).get('enabled') is True,
-                'side_inbox_receipts': SideIntakeInbox(state_dir, identity).summaries(),
+                'side_inbox_receipts': inbox.summaries(),
+                # Events whose completed side turn returned an invalid decision:
+                # never retried (a reply may already have been sent), so count them.
+                'quarantined_count': len(inbox.quarantined_keys()),
                 'main_handoffs': main_handoffs}, ensure_ascii=False))
         if name == 'work_side_drain':
             from .work_parallel_mcp import host_context

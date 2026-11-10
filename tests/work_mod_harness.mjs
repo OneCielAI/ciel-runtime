@@ -48,6 +48,88 @@ const call = ($, agentId) => handlers['tool.call']($, { tool: 'Edit', agentId,
 const verdict = r => r?.decision === 'deny' ? 'deny: ' + r.reason : r?.deny ? 'deny: ' + r.deny : 'allow'
 
 const scenarios = {
+  async 'side-receipt-ready-is-consumed-and-claims-now'() {
+    let claims = 0
+    const { $, state } = host(async (tool) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:1, policy:{enabled:false}, leases:{} })
+      if (tool === 'work_side_claim') { claims++; return text({ claim:null, settings:{}, handoff_replies:[], main_wakes:[] }) }
+      if (tool === 'work_side_status') return text({ side_inbox_receipts:[] })
+      return text({})
+    })
+    await handlers['session.start']($, { isInteractive:false }, next({cwd:'C:/w'}))
+    const before = claims
+    // Owned Claude Code 2.1.321 probe (2026-11-10): the socket frame reaches
+    // session.receive with origin peer, whether main is idle or busy.
+    const ready = await handlers['session.receive']($, { origin:{kind:'peer'},
+      text:'[ciel-side-receipt-ready] '+'a'.repeat(64) }, next({text:'leaked'}))
+    await sleep(20)
+    const malformed = await handlers['session.receive']($, { origin:{kind:'task-notification'},
+      text:'[ciel-side-receipt-ready] not-a-receipt' }, next({text:'passed'}))
+    const agentTarget = await handlers['session.receive']($, { origin:{kind:'task-notification'}, agentId:'side1',
+      text:'[ciel-side-receipt-ready] '+'b'.repeat(64) }, next({text:'agent-passed'}))
+    const afterReceive = claims
+    // The session socket's user frame reaches prompt.submit as a peer prompt.
+    const submitted = await handlers['prompt.submit']($, { origin:{kind:'peer'},
+      text:'[ciel-side-receipt-ready] '+'c'.repeat(64), context:[] }, next({text:'leaked-to-main'}))
+    await sleep(20)
+    const typed = await handlers['prompt.submit']($, { origin:{kind:'composer'},
+      text:'[ciel-side-receipt-ready] '+'d'.repeat(64), context:[] }, next({text:'typed-passes'}))
+    return { before, after:afterReceive, afterSubmit:claims, ready, malformed, agentTarget, submitted, typed }
+  },
+  async 'side-status-single-flight-and-throttled'() {
+    let statusCalls = 0
+    let release
+    const gate = new Promise(resolve => { release = resolve })
+    const timers = []
+    const { $ } = host(async tool => {
+      if (tool === 'work_status') return text({ ...snapshot(), side_intake_enabled: true })
+      if (tool === 'work_side_claim') return text({ claim: null, settings: {} })
+      if (tool === 'work_side_status') { statusCalls++; if (statusCalls === 1) await gate; return text({ enabled: true, side_inbox_receipts: [] }) }
+      return text({})
+    })
+    $.clock.after = (delay, callback) => { timers.push({ delay, callback }); return { cancel() {} } }
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    const tick = async () => { const timer = timers.filter(t => t.delay === 2000).at(-1); await timer.callback(); await sleep(10) }
+    await tick()                       // first refresh starts and hangs
+    await tick()                       // still in flight: no second fetch
+    const whileInFlight = statusCalls
+    const ticksWhileInFlight = timers.filter(t => t.delay === 2000).length
+    release(); await sleep(10)
+    await tick()                       // nothing changed within 15 s: throttled
+    const afterThrottle = statusCalls
+    await handlers['session.receive']($, { origin: { kind: 'peer' }, text: '[ciel-side-receipt-ready] ' + 'e'.repeat(64) }, next({}))
+    await sleep(10)
+    await tick()                       // a receipt arrived: refreshed at once
+    return { whileInFlight, ticksWhileInFlight, afterThrottle, afterSignal: statusCalls }
+  },
+  async 'side-pump-drains-burst-into-free-slots'() {
+    // Three events wait. One tick must start all that fit (max_active 2 plus
+    // the P1 reserve) instead of one event per 2 s tick.
+    const queue = ['e1', 'e2', 'e3', 'e4'].map(id => id.padEnd(64, '0'))
+    const claims = []
+    const spawned = []
+    const timers = []
+    const { $ } = host(async (tool, args) => {
+      if (tool === 'work_status') return text({ ...snapshot(), side_intake_enabled: true })
+      if (tool === 'work_side_status') return text({ enabled: true, side_inbox_receipts: [] })
+      if (tool === 'work_side_claim') {
+        claims.push({ urgent_only: args.urgent_only === true })
+        const id = queue.shift()
+        return text(id ? { claim: { receipt_id: id, generation: 'g-' + id.slice(0, 2), text: 'event ' + id.slice(0, 2), route: {},
+          lease_until: Date.now() / 1000 + 600, workload: { version: 5, truncated: false, nodes: [], queue_order: [] } },
+          settings: { max_active: 2 } } : { claim: null, settings: { max_active: 2 } })
+      }
+      return text({})
+    })
+    $.clock.after = (delay, callback) => { timers.push({ delay, callback }); return { cancel() {} } }
+    $.agent.spawn = async args => { const agentId = 'side-' + (spawned.length + 1); spawned.push(args.description); return { agentId } }
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    const timer = timers.find(t => t.delay === 2000)
+    if (!timer) throw new Error('side pump not scheduled')
+    await timer.callback()
+    return { claims, spawned, left: queue.length }
+  },
   async 'side-advice-stop-queued-wake'() {
     const {$}=host(async()=>text({...snapshot(),auto_continue:false,side_handoffs:[{event_id:'queued',item_id:'n2',kind:'resume',summary:'S',question:'',
       waits:[],wake:{state:'queued'}}]}))
@@ -147,12 +229,18 @@ const scenarios = {
     const timers = []
     const tools = []
     let statusFinished = false
+    let claimed = false
     const { $, state } = host(async tool => {
       tools.push(tool)
       if (tool === 'work_status') return text({ ...snapshot(), side_intake_enabled: true })
       if (tool === 'work_side_status') { statusFinished = true; return text({ enabled: true, side_inbox_receipts: [
         { receipt_id: 'mail1', stage: 'received', recap: 'original request', item_id: null }] }) }
-      if (tool === 'work_side_claim') return text({claim:{receipt_id:'mail1',generation:'g1',text:'original request',route:{},workload:{version:5,truncated:false,nodes:[],queue_order:[]}}})
+      // The inbox hands an event out once; a claimed event is processing.
+      if (tool === 'work_side_claim') {
+        if (claimed) return text({claim:null})
+        claimed = true
+        return text({claim:{receipt_id:'mail1',generation:'g1',text:'original request',route:{},workload:{version:5,truncated:false,nodes:[],queue_order:[]}}})
+      }
       return text({})
     })
     $.clock.after = (delay, callback) => { timers.push({ delay, callback }); return { cancel() {} } }
@@ -160,6 +248,8 @@ const scenarios = {
     const timer = timers.find(t => t.delay === 2000)
     if (!timer) throw new Error('mailbox consumer not scheduled')
     await timer.callback()
+    // The pane refresh runs beside the tick and no longer delays it.
+    await sleep(20)
     return { tools, logs: state.logs, rearmed: timers.filter(t => t.delay === 2000).length,
       claimedBeforeStatus: tools.indexOf('work_side_claim') < tools.indexOf('work_side_status'), statusFinished }
   },

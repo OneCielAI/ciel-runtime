@@ -1,0 +1,9 @@
+{"event":"registered","at":1794328215013}
+{"event":"append-busy","result":{"message":{"type":"user","role":"user","isMeta":true,"content":[{"type":"text","text":"APPEND-NOTE-append-busy"}]},"uuid":"e5df2229-0bff-4aee-a8e3-8df3a9b7c348"},"at":1794328220165}
+{"event":"turn.complete","agentId":null,"reason":"answer","at":1794328234183}
+{"event":"append-idle","result":{"message":{"type":"user","role":"user","isMeta":true,"content":[{"type":"text","text":"APPEND-NOTE-append-idle"}]},"uuid":"8aee8b9f-9d8a-433c-9f5a-2550e5e7774e"},"at":1794328238206}
+{"event":"turn.complete","agentId":null,"reason":"answer","at":1794328246262}
+{"event":"agent.spawn","subagentType":"delivery-probe:probe-worker","description":"Probe fork","at":1794328249310}
+{"event":"spawn-fork","agentId":"a6945705980def8e5","deny":null,"at":1794328249800}
+{"event":"send-fork","agentId":"a6945705980def8e5","result":{"isDelivered":true},"at":1794328251130}
+{"event":"turn.complete","agentId":"a6945705980def8e5","reason":"answer","at":1794328265133}

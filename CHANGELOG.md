@@ -5,6 +5,25 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+### Beta: the side actor claims SSE events at once and releases the waits they satisfy
+
+- An SSE event reaches the side actor immediately. The router sends the live
+  session a content-free receipt signal; the Work mod consumes it outside the
+  main conversation and claims at once, idle or busy. A burst fills every free
+  slot instead of one event per tick.
+- Prody claimed once every ~30 s, because an empty claim returned every settled
+  handoff with its full text (361K characters in 46 pages). Settled handoffs are
+  no longer resent; quarantined events no longer hide fresh ones; the pane
+  refresh no longer runs on the claim path.
+- A session that waits on git, a build, a review or a person's approval records
+  it in one line on its Work item. When an event is that signal, the side
+  releases the wait under the board lock, with the exact recorded text, and wakes
+  the waiter at once. A running fork gets a message; main gets it in its running
+  turn or as a prompt when idle. Nobody has to acknowledge, and nothing grants
+  execution approval.
+- A handoff about a child step can now activate its goal, and a refused
+  completion says that a wait cleared in the same call was not applied.
+
 ### Beta: shared API keys can no longer be wiped by a partial save or a test run
 
 - Saving a config that lacks credentials no longer deletes the shared API keys and

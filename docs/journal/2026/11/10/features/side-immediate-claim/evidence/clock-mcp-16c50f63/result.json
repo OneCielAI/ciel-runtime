@@ -1,0 +1,98 @@
+{
+  "run": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\10\\features\\side-immediate-claim\\evidence\\clock-mcp-16c50f63",
+  "token_found": true,
+  "tool_marker_seen": true,
+  "stream_open_seen": true,
+  "setup_events": [
+    {
+      "event": "connected",
+      "at": 1794326784633
+    }
+  ],
+  "phases": {
+    "idle": {
+      "window_s": 10.0,
+      "ticks": 5,
+      "max_gap_s": 2.027,
+      "gaps_s": [
+        2.027,
+        2.011,
+        2.008,
+        2.008
+      ],
+      "mcp_rtt_s": [
+        0.023,
+        0.006,
+        0.005,
+        0.005,
+        0.006
+      ],
+      "errors": []
+    },
+    "tool": {
+      "window_s": 30.103,
+      "ticks": 15,
+      "max_gap_s": 2.013,
+      "gaps_s": [
+        2.009,
+        2.011,
+        2.01,
+        2.01,
+        2.01,
+        2.01,
+        2.012,
+        2.012,
+        2.01,
+        2.01,
+        2.01,
+        2.011,
+        2.013,
+        2.011
+      ],
+      "mcp_rtt_s": [
+        0.006,
+        0.007,
+        0.006,
+        0.006,
+        0.006,
+        0.006,
+        0.008,
+        0.007,
+        0.006,
+        0.006,
+        0.007,
+        0.006,
+        0.007,
+        0.007,
+        0.006
+      ],
+      "errors": []
+    },
+    "stream": {
+      "window_s": 15.0,
+      "ticks": 8,
+      "max_gap_s": 2.011,
+      "gaps_s": [
+        2.009,
+        2.011,
+        2.011,
+        2.009,
+        2.009,
+        2.01,
+        2.011
+      ],
+      "mcp_rtt_s": [
+        0.006,
+        0.007,
+        0.007,
+        0.005,
+        0.006,
+        0.006,
+        0.008,
+        0.007
+      ],
+      "errors": []
+    }
+  },
+  "exit": null
+}

@@ -57,6 +57,50 @@ class SideHandoffFlowTests(unittest.TestCase):
             self.assertEqual([],call('work_side_status',{})['main_handoffs'])
             self.assertEqual('',next(n for n in store.read()['nodes'] if n['id']==gate)['waiting_on'])
 
+    def test_settled_handoffs_do_not_inflate_every_claim(self):
+        # Prody 2026-11-10: 30 answered handoffs were returned (with every
+        # original text) on each poll; an empty claim became 361K characters in
+        # 46 host pages and claims ran every ~30 s instead of every 2 s.
+        with tempfile.TemporaryDirectory() as raw:
+            root=Path(raw)
+            identity='claude:test'
+            config={'work_mode':True,'work_side_intake':{'enabled':True,'context_mode':'isolated'},'work_parallel_host':{'token':'x'*40}}
+            store=session_work_plan_store(root,identity)
+            _,item=store.transaction(lambda d:tree.add_node(d,None,'existing'))
+            inbox=SideIntakeInbox(root,identity)
+            def call(name,args,extra=None,raw_text=False):
+                result=dispatch_work_tool(1,name,{**args,'session_id':identity,'_host':{'token':'x'*40,**(extra or {})}},
+                    load_config=lambda:config,state_dir=root,respond=lambda _id,text,error=False:{'text':text,'error':error})
+                self.assertFalse(result['error'],result)
+                if raw_text:
+                    return result['text']
+                value=json.loads(result['text'])
+                if isinstance(value,dict) and 'paged' in value:
+                    pages=[call('work_host_page',{'id':value['paged']['id'],'part':part})['text']
+                           for part in range(value['paged']['parts'])]
+                    value=json.loads(''.join(pages))
+                return value
+            for index in range(5):
+                inbox.receive('Need a decision '+str(index)+' '+'x'*20000,'event-'+str(index))
+                claim=call('work_side_claim',{'owner':'actor'})['claim']
+                if claim['event_key'].startswith('handoff:'):
+                    self.fail('a follow-up was claimed before its question')
+                decision=call('work_side_resolve',{'decision':{'action':'advise','item_id':item,'summary':'Need input','reply':'Which?'},
+                    'expected_version':store.read()['version']},{'receipt_id':claim['receipt_id'],'generation':claim['generation']})
+                call('work_side_handoff',{'event_id':claim['receipt_id'],'answer':'Answer '+str(index),'activate':False,
+                                          'expected_version':decision['result']['version']})
+                # The follow-up relay is ordinary side mail; settle it so the next
+                # question is the only pending event.
+                relay=call('work_side_claim',{'owner':'actor'})['claim']
+                self.assertTrue(relay['event_key'].startswith('handoff:'))
+                call('work_side_resolve',{'decision':{'action':'answer','summary':'relayed','reply':'ok'},
+                    'expected_version':store.read()['version']},{'receipt_id':relay['receipt_id'],'generation':relay['generation']})
+            self.assertEqual(5,sum(1 for row in store.read()['side_handoffs'].values() if row['state']=='answered'))
+            text=call('work_side_claim',{'owner':'actor'},raw_text=True)
+            self.assertNotIn('"paged"',text)
+            self.assertLess(len(text),8000)
+            self.assertEqual([],json.loads(text)['handoff_replies'])
+
     def test_coordinator_answer_is_durable_side_followup_not_new_work(self):
         with tempfile.TemporaryDirectory() as raw:
             root=Path(raw)

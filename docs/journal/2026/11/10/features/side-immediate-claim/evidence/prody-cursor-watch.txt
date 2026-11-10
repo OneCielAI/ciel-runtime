@@ -1,0 +1,7 @@
+# Prody decision-cursor.json last-write time, polled read-only every 200 ms for 120 s (UTC)
+# observed_at  file_mtime   (every work_side_claim rewrites the cursor)
+16:14:09.169 16:13:53.054
+16:14:24.408 16:14:24.282
+16:14:54.730 16:14:54.619
+16:15:25.728 16:15:25.702
+16:15:55.666 16:15:55.556
