@@ -62,3 +62,18 @@ Before and after the run:
 
 - Ports 9505 and 9524 stayed on PIDs 76496 and 82844.
 - The real `%APPDATA%\ciel-runtime\config.json` mtime stayed `2026-11-09 19:10:37.283137300 -0600`.
+
+# Release and installed-package proof
+
+- CI and npm Publish passed for commit `46398fc`.
+- **Registry.** Beta `0.2.51-beta.20261110-062933.46398fc` has a matching git head and SHA512. All 519 source files match the commit ([registry](evidence/registry-verification-46398fc.json)). `latest` remains `0.2.51`; `nightly` is unchanged.
+- **Install.**
+  - The immutable snapshot and the global npm install match on all 573 files.
+  - User `CIEL_RUNTIME_HOME` points to the snapshot.
+  - No live router or session was restarted.
+- **Incident replay on the installed code.** The exact incident command ran with the installed runtime code (repository tests, since the tarball ships no tests):
+  - 243 tests passed;
+  - the shared credentials stayed at 6;
+  - the workspace provider stayed `cielairouter`;
+  - both configs were unchanged ([summary](evidence/repro-installed-46398fc.json)).
+- **Sandbox cleanup.** All sandbox copies of the real config were deleted after each run.
