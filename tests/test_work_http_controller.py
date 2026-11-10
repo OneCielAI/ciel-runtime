@@ -200,6 +200,8 @@ class WorkHttpTests(unittest.TestCase):
         self.assertEqual(200, status)
         serialized = json.dumps(side)
         self.assertIn("review this", serialized)
+        # No inbox receipt exists for this seeded review, so delivery is not claimed.
+        self.assertEqual("unknown", side["reviews"][0]["delivery"])
         self.assertNotIn("private reply", serialized)
         self.assertNotIn("secret", serialized)
         status, audit = self.request("/ca/work/api/v1/audit")

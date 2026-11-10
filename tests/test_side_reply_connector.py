@@ -98,3 +98,57 @@ class SideConnectorTests(unittest.TestCase):
     def test_missing_binding_does_not_invent_external_connector(self):
         from ciel_runtime_support.side_reply_connector import prepare as route
         self.assertIsNone(route({}, {'sender_id': 'unknown'}, 'a'*64, 'answer', 'reply'))
+
+
+class ImplicitWalkieRouteTests(unittest.TestCase):
+    """KOBE 2026-11-09: no reply_connectors, so every side answer stayed route_unavailable."""
+
+    CONVERSATION = '0a1ad60f-34fe-460d-a36a-36971ab9e8b3'
+    ROUTE = {'source_kind': 'external_event', 'channel': 'external:default',
+             'sender_id': 'http://walkie.invalid/conversations/0a1ad60f-34fe-460d-a36a-36971ab9e8b3',
+             'thread_id': '0a1ad60f-34fe-460d-a36a-36971ab9e8b3:120354:task.auto_assigned:e'}
+
+    def event(self, kind='com.ciel.walkie.support.message', **data):
+        return json.dumps({'specversion': '1.0', 'type': kind, 'data': {
+            'conversation': self.CONVERSATION, 'message_id': '120354', 'event_type': 'task.auto_assigned', **data}})
+
+    def test_unconfigured_walkie_event_replies_through_walkie_server(self):
+        from ciel_runtime_support.side_reply_connector import prepare as route, source_read
+        sent = route({'work_side_intake': {'enabled': True}}, self.ROUTE, 'a' * 64, 'answer', 'reply',
+                     original=self.event())
+        self.assertEqual(('walkie', 'walkie_send_message'), (sent['server'], sent['tool']))
+        self.assertEqual((self.CONVERSATION, '120354', 'answer'),
+                         (sent['arguments']['conversation_id'], sent['arguments']['reply_to_message_id'],
+                          sent['arguments']['text']))
+        self.assertEqual('walkie_read_messages', source_read({}, self.ROUTE, self.event())['tool'])
+
+    def test_implicit_route_needs_a_walkie_event_and_no_operator_routes(self):
+        from ciel_runtime_support.side_reply_connector import prepare as route
+        other = {'work_side_intake': {'reply_connectors': [{'source': 'urn:mail', 'receiver_id': 'default',
+                                                            'server': 'mail', 'tool': 'reply',
+                                                            'arguments': {'message': '$reply'}}]}}
+        cases = {
+            'foreign event type': ({}, self.ROUTE, self.event(kind='com.example.chat')),
+            'no message identity': ({}, self.ROUTE, self.event(message_id='not-a-number')),
+            'not an external event': ({}, {**self.ROUTE, 'source_kind': 'web_chat'}, self.event()),
+            'operator routes configured': (other, self.ROUTE, self.event()),
+        }
+        for name, (config, route_value, original) in cases.items():
+            with self.subTest(name):
+                self.assertIsNone(route(config, route_value, 'a' * 64, 'answer', 'reply', original=original))
+
+    def test_kobe_task_auto_assigned_answer_is_sent_not_route_unavailable(self):
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            inbox = SideIntakeInbox(root, 'claude:kobe')
+            key = inbox.receive(self.event(), 'kobe-120354', route=self.ROUTE)['receipt_id']
+            leased = claim(root, 'claude:kobe', 'side-1')
+            finish(root, 'claude:kobe', key, leased['generation'], {
+                'action': 'answer', 'kind': 'info', 'reply': 'repo answer',
+                'final_text': 'repo answer\n\n큐에 등록하지 않았습니다.', 'delivery': 'pending'})
+            prepared = prepare(root, 'claude:kobe', key, config={'work_side_intake': {'enabled': True}})
+            self.assertEqual('submitting', prepared['state'])
+            self.assertEqual(('walkie', 'walkie_send_message', '120354'),
+                             (prepared['server'], prepared['tool'], prepared['arguments']['reply_to_message_id']))
+            record(root, 'claude:kobe', key, 'submitted', attempt_id=prepared['attempt_id'])
+            self.assertEqual('submitted', inbox._load(key)['result']['delivery'])

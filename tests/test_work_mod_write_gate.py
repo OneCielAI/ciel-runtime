@@ -109,9 +109,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         # "Delivery: sent once by the host outbox" for the same receipt.
         self.assertNotIn('external ACK', pane)
         self.assertIn('Delivery: sent once by the host outbox', pane)
-        self.assertIn('recent', pane)
-        self.assertIn('comparison-model', pane)
-        self.assertIn('selected 41.5%', pane)
+        self.assertNotIn('Shadow', pane)
 
     def test_unknown_reply_retry_requires_explicit_duplicate_confirmation(self):
         result = self.run_scenario('side-uncertain-retry-cancel-and-confirm')
@@ -320,6 +318,23 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertNotIn("block", result["second"])
         self.assertEqual("host-token", result["sent"][0]["_host"]["token"])
         self.assertEqual("S1", result["sent"][0]["session_id"].split(":")[-1])
+
+    def test_side_review_prompt_follows_real_reply_delivery(self):
+        # KOBE 2026-11-09: a committed side answer was never sent
+        # (route_unavailable) while main was told it had been.
+        result = self.run_scenario("side-review-delivery-states")
+        block = result["first"]["block"]
+        sent, rest = block.split("the host could NOT send the reply", 1)
+        unsent, pending = rest.split("the host is still sending", 1)
+        self.assertIn("message:c:a", sent)
+        self.assertNotIn("message:c:b", sent)
+        self.assertIn("message:c:b", unsent)
+        self.assertIn("Do not investigate again", unsent)
+        self.assertIn("message:c:c", pending)
+        self.assertIn("Do not send, ACK or answer them", pending)
+        self.assertNotIn("block", result["repeat"])
+        self.assertIn("message:c:c", result["failedLater"]["block"])
+        self.assertIn("could NOT send", result["failedLater"]["block"])
 
     def test_unreported_fork_is_stopped_and_free_slot_auto_dispatches_exact_assignment(self):
         result = self.run_scenario("parallel-unreported-stops-and-fills")

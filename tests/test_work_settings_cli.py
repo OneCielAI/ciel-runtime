@@ -59,15 +59,17 @@ class WorkSettingsCliTests(unittest.TestCase):
     def test_new_side_flags_use_shared_menu_and_cli_store(self):
         config = {}
         for key, value in [('context_mode', 'full'), ('context_percent', '30'),
-                           ('model', 'inherit'), ('priority_policy', 'adaptive'),
-                           ('comparison_enabled', 'on'), ('comparison_model', 'fixture-comparison')]:
+                           ('model', 'inherit'), ('priority_policy', 'adaptive')]:
             self.invoke(config, 'set', 'work_side_intake_' + key, value)
         self.assertEqual('full', config['work_side_intake']['context_mode'])
         self.assertEqual(30, config['work_side_intake']['context_percent'])
         result, _ = self.invoke(config)
         rows = {r['key']:r for r in result['settings']}
-        self.assertTrue(rows['work_side_intake_comparison_enabled']['value'])
-        self.assertEqual('fixture-comparison', rows['work_side_intake_comparison_model']['value'])
+        # The comparison experiment was removed on 2026-11-10.
+        self.assertFalse({'work_side_intake_comparison_enabled', 'work_side_intake_comparison_model'} & set(rows))
+        for retired in ('comparison_enabled', 'comparison_model'):
+            with self.assertRaises(ValueError):
+                self.invoke(config, 'set', 'work_side_intake_' + retired, 'on')
         self.assertEqual('router_capture_required', rows['work_side_intake_context_mode']['status'])
         with self.assertRaises(ValueError):
             self.invoke(config, 'set', 'work_side_intake_context_percent', '0')

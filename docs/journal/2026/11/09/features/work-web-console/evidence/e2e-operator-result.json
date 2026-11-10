@@ -1,0 +1,37 @@
+{
+  "runtime_root": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel",
+  "unsent_label": "info · not sent: no reply route",
+  "sent_label": "status · sent to the source",
+  "retry_outbox": {
+    "state": "pending"
+  },
+  "reviews": {
+    "unsent": "corrected",
+    "sent": "reviewed"
+  },
+  "handoff": {
+    "state": "answered",
+    "answer": "Approval recorded; continuing",
+    "clear_wait": [
+      "n3"
+    ]
+  },
+  "approval_wait_after": "",
+  "children_after_move": [
+    "Wait for approval",
+    "Write notes"
+  ],
+  "children_after_replan": [
+    "Draft notes",
+    "Publish beta",
+    "Verify install"
+  ],
+  "lease_after_release": {
+    "state": "orphaned",
+    "slot": false
+  },
+  "toasts_kept": 3,
+  "mobile_focus": "tab:Side",
+  "mobile_scroll_width": 390,
+  "page_errors": []
+}

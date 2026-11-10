@@ -22,6 +22,9 @@ import time
 
 ROOT = Path(__file__).resolve().parents[8]
 OUT = Path(__file__).resolve().parent
+# E2E_RUNTIME_ROOT runs an installed snapshot instead of this checkout.
+RUNTIME = Path(os.environ.get("E2E_RUNTIME_ROOT") or ROOT)
+LABEL = os.environ.get("E2E_LABEL", "")
 sys.path.insert(0, str(ROOT / "tests"))
 from tls_test_certificates import generate_rsa_key, make_certificate  # noqa: E402
 
@@ -38,7 +41,7 @@ def get(connection: http.client.HTTPConnection, path: str) -> tuple[int, bytes]:
     return response.status, response.read()
 
 
-result: dict = {}
+result: dict = {"runtime_root": str(RUNTIME)}
 with tempfile.TemporaryDirectory(prefix="ciel-owned-tls-router-") as temporary:
     base = Path(temporary)
     config_dir, workspace = base / "cfg", base / "ws"
@@ -58,9 +61,9 @@ with tempfile.TemporaryDirectory(prefix="ciel-owned-tls-router-") as temporary:
     env = {name: value for name, value in os.environ.items() if not name.startswith("CIEL_RUNTIME_")}
     env.update(CIEL_RUNTIME_CONFIG_DIR=str(config_dir), CIEL_RUNTIME_ROUTER_PORT=str(port),
                CIEL_RUNTIME_LAUNCH_CWD=str(workspace), PYTHONIOENCODING="utf-8")
-    log_path = OUT / "tls-router-serve.log"
+    log_path = OUT / f"tls-router-serve{LABEL}.log"
     with log_path.open("w", encoding="utf-8") as log:
-        router = subprocess.Popen([sys.executable, str(ROOT / "ciel_runtime.py"), "serve"], cwd=workspace,
+        router = subprocess.Popen([sys.executable, str(RUNTIME / "ciel_runtime.py"), "serve"], cwd=workspace,
                                   env=env, stdout=log, stderr=subprocess.STDOUT)
     result.update(port=port, router_pid=router.pid)
     try:
@@ -118,7 +121,7 @@ with tempfile.TemporaryDirectory(prefix="ciel-owned-tls-router-") as temporary:
             result["browser_goal_title"] = page.locator(".tree-row .node-title").first.inner_text()
             result["browser_https_url"] = page.url
             result["browser_https_protocol"] = page.evaluate("location.protocol")
-            page.screenshot(path=str(OUT / "03-work-console-direct-tls.png"), full_page=True)
+            page.screenshot(path=str(OUT / f"03-work-console-direct-tls{LABEL}.png"), full_page=True)
             browser.close()
 
         untrusted = http.client.HTTPSConnection("127.0.0.1", port, timeout=5,
@@ -137,5 +140,5 @@ with tempfile.TemporaryDirectory(prefix="ciel-owned-tls-router-") as temporary:
             router.wait(15)
         result["router_exit"] = router.returncode
 
-(OUT / "tls-router-result.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
+(OUT / f"tls-router-result{LABEL}.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
 print(json.dumps(result, indent=2))

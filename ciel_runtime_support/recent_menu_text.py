@@ -18,8 +18,6 @@ TEXT = {
     "work_side_intake_model": ("Side model (inherit / catalog ID)", "사이드 모델 (inherit / 카탈로그 ID)", "サイドモデル (inherit / ID)", "侧边模型 (inherit / ID)"),
     "work_side_intake_priority_policy": ("Side priority policy", "사이드 우선순위 판단", "サイド優先度方針", "侧边优先级策略"),
     "work_side_intake_instruction": ("Side SSE processing instruction", "사이드 SSE 처리 지침", "サイド SSE 処理指示", "侧边 SSE 处理指令"),
-    "work_side_intake_comparison_model": ("Comparison model (inherit / catalog ID)", "비교 모델 (inherit / 카탈로그 ID)", "比較モデル (inherit / ID)", "对比模型 (inherit / ID)"),
-    "work_side_intake_comparison_enabled": ("Side comparison experiment", "사이드 비교 실험", "サイド比較実験", "侧边对比实验"),
     "work_parallel_enabled": ("Work parallel execution", "Work 병렬 실행", "Work 並列実行", "Work 并行执行"),
     "work_parallel_paused": ("Pause Work parallel execution", "Work 병렬 실행 일시정지", "Work 並列実行を一時停止", "暂停 Work 并行执行"),
     "work_parallel_p1_limit": ("Work P1 concurrent forks", "Work P1 동시 포크 수", "Work P1 同時フォーク数", "Work P1 同时分支数"),

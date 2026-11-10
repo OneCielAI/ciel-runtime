@@ -30,7 +30,7 @@ WORK_TOOL_NAMES = (
     "work_parallel_report",
     "work_status",
     "work_side_intake", "work_side_drain", "work_side_status",
-    "work_side_settings", "work_side_claim", "work_side_resolve", "work_side_fail", "work_side_fallback", "work_side_reply", "work_side_wake", "work_side_handoff", "work_side_review", "work_side_renew", "work_side_retry_reply", "work_side_context", "work_side_compare", "work_side_code_read", "work_side_code_search",
+    "work_side_settings", "work_side_claim", "work_side_resolve", "work_side_fail", "work_side_fallback", "work_side_reply", "work_side_wake", "work_side_handoff", "work_side_review", "work_side_renew", "work_side_retry_reply", "work_side_context", "work_side_code_read", "work_side_code_search",
     "work_host_page",
     "work_live_settings",
     "work_plan_set",

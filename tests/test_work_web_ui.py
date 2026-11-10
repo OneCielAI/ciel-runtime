@@ -107,6 +107,23 @@ class WorkWebUiTests(unittest.TestCase):
         )
 
 
+    def test_every_rest_command_has_a_console_control(self):
+        # A feature reachable only through REST is not finished (UI exposure rule).
+        from ciel_runtime_support.work_application import openapi_document
+        rest = {path.rsplit("/", 1)[1] for path in openapi_document()["paths"] if "/commands/" in path}
+        ui = set(re.findall(r"command\('([a-z-]+)'", self.html))
+        self.assertEqual(set(), rest - ui)
+        self.assertEqual(set(), ui - rest)
+
+    def test_side_and_parallel_tabs_render_operator_controls(self):
+        for marker in ("function renderSide(", "function renderParallel(", "function renderOrphans(",
+                       "'Retry send'", "'Resend (may duplicate)'", "'Release lease'", "'Acknowledge'",
+                       "'Move up'", "'Replace plan…'"):
+            self.assertIn(marker, self.html)
+        # Unknown send outcomes and lease releases go through the confirmation dialog.
+        self.assertRegex(self.html, r"Resend \(may duplicate\)',\(\)=>confirmDanger\(")
+        self.assertRegex(self.html, r"'Release lease',\(\)=>confirmDanger\(")
+
 class WorkHttpRoutesTests(unittest.TestCase):
     def test_console_shell_is_mounted_before_rest_and_post_stays_on_rest(self):
         from ciel_runtime_support.work_http_runtime import WorkHttpRoutes

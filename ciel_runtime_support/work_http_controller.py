@@ -120,7 +120,10 @@ class WorkHttpController:
                     **self.services.parallel_status(identity, document)})
             elif path == "/ca/work/api/v1/side":
                 document = application.document()
-                self.services.write_json(handler, self._side_projection(identity, document))
+                side = self._side_projection(identity, document)
+                from .side_review import with_delivery
+                side["reviews"] = with_delivery(side["reviews"], self.services.state_dir, identity)
+                self.services.write_json(handler, side)
             elif path == "/ca/work/api/v1/audit":
                 document = application.document()
                 self.services.write_json(handler, self._audit_projection(identity, document))
@@ -140,7 +143,7 @@ class WorkHttpController:
             if row.get(field) is not None}}
             for key, row in document.get("side_reviews", {}).items()]
         handoffs = [{"event_id": key, **{field: row.get(field) for field in (
-            "state", "kind", "action", "item_id", "summary", "question", "requested_at", "answered_at")
+            "state", "kind", "action", "item_id", "summary", "question", "waits", "requested_at", "answered_at")
             if row.get(field) is not None}}
             for key, row in document.get("side_handoffs", {}).items()]
         return {"ok": True, "schema_version": 1, "session_id": identity,

@@ -1218,7 +1218,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     messages = [description(load_config(), value)]
                     settings_key = value
                     settings_parent = panel
-                    if value in ('work_side_intake_model', 'work_side_intake_comparison_model'):
+                    if value == 'work_side_intake_model':
                         from .side_model_menu import rows as side_model_rows
                         panel_rows, panel_values = side_model_rows(load_config(), model_panel_rows(provider, pcfg, fetch=False), field=value.removeprefix('work_side_intake_'))
                     else:
@@ -1230,7 +1230,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     if value == 'back':
                         open_panel(settings_parent)
                         continue
-                    if settings_key in ('work_side_intake_model', 'work_side_intake_comparison_model') and value == '__refresh_models__':
+                    if settings_key == 'work_side_intake_model' and value == '__refresh_models__':
                         from .side_model_menu import rows as side_model_rows
                         try:
                             panel_rows, panel_values = side_model_rows(load_config(), model_panel_rows(provider, pcfg, fetch=True, force_refresh=True), field=settings_key.removeprefix('work_side_intake_'))

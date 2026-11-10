@@ -181,32 +181,19 @@ def project(state_dir, identity, agent_id, body, config, provider, count_tokens)
         if any(tool.get('name') not in parent_names for tool in body.get('tools', [])):
             raise SideContextUnavailable('side tools were not present in captured parent; recapture parent first')
         profile = value['profile']
-        shadow = profile.get('shadow') is True
-        if shadow and settings.get('comparison_enabled') is not True:
-            raise SideContextUnavailable('side comparison was disabled')
-        if not shadow and (profile['mode'] != effective_mode or profile['percent'] != settings.get('context_percent', 30)):
+        if profile['mode'] != effective_mode or profile['percent'] != settings.get('context_percent', 30):
             raise SideContextUnavailable('context profile changed while side turn was active')
         if value.get('agent_id') not in (None, agent_id):
             raise SideContextUnavailable('side context handle belongs to another native agent')
         if value['receipt_id'] != envelope.get('event_id'):
             raise SideContextUnavailable('side context does not match current event')
-        if shadow:
-            receipt = SideIntakeInbox(state_dir, identity)._load(value['receipt_id'])
-            if not receipt or receipt.get('stage') != 'processed':
-                raise SideContextUnavailable('comparison primary decision missing')
-        else:
-            verify_claim(SideIntakeInbox(state_dir, identity), value['receipt_id'], value['generation'])
+        verify_claim(SideIntakeInbox(state_dir, identity), value['receipt_id'], value['generation'])
         if value.get('projection') is None:
             selected, info = select(value['parent'], profile['mode'], profile['percent'], profile['model'], count_tokens)
             value['projection'] = selected
             value['selection'] = info
         # Token counting may take time. Recheck fencing before exposing data.
-        if shadow:
-            receipt = SideIntakeInbox(state_dir, identity)._load(value['receipt_id'])
-            if not receipt or receipt.get('stage') != 'processed':
-                raise SideContextUnavailable('comparison primary decision missing')
-        else:
-            verify_claim(SideIntakeInbox(state_dir, identity), value['receipt_id'], value['generation'])
+        verify_claim(SideIntakeInbox(state_dir, identity), value['receipt_id'], value['generation'])
         value['agent_id'] = agent_id
         save(path, value)
         selected = copy.deepcopy(value['projection'])
@@ -239,17 +226,11 @@ def project(state_dir, identity, agent_id, body, config, provider, count_tokens)
                         content.insert(index + 1, contract)
                         break
     result['system'] = copy.deepcopy(parent.get('system', []))
-    if shadow:
-        # Keep custom schema prefix but force no execution. Native shadow
-        # AgentSpec also withholds every local and MCP runtime tool.
-        result['tools'] = copy.deepcopy(parent.get('tools', []))
-        result['tool_choice'] = {'type': 'none'}
-    else:
-        # The model sees only the tools its AgentSpec can run. Showing parent
-        # shell/edit/runtime schemas made side actors attempt them (Prody
-        # 2026-11-08). Parent bytes and order are kept for that subset.
-        offered = {tool.get('name') for tool in body.get('tools', [])}
-        result['tools'] = [copy.deepcopy(tool) for tool in parent.get('tools', []) if tool.get('name') in offered]
+    # The model sees only the tools its AgentSpec can run. Showing parent
+    # shell/edit/runtime schemas made side actors attempt them (Prody
+    # 2026-11-08). Parent bytes and order are kept for that subset.
+    offered = {tool.get('name') for tool in body.get('tools', [])}
+    result['tools'] = [copy.deepcopy(tool) for tool in parent.get('tools', []) if tool.get('name') in offered]
     closing = []
     if selected and isinstance(selected[-1], dict) and selected[-1].get('role') == 'user':
         closing = [{'role': 'assistant', 'content': [{'type': 'text', 'text': MAIN_PAUSED}]}]

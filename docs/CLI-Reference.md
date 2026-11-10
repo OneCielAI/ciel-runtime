@@ -96,12 +96,9 @@ SSE·사이드 설정 전체를 열거한다. 사이드 판단에는 문맥 비�
   제외 수를 표시한다. 동일 모델 full에서는 보존한다. 캐시 적중은 보장하지 않는다.
 - 부모 요청 버전이 같으면 사이드 agent를 재사용한다. 부모 이력이 진행·compact되어
   달라지면 다음 이벤트에서 새 문맥 기준으로 전환하며 이전 이력을 끼워 고치지 않는다.
-- `comparison_enabled`: 주 결과와 별개로 full/recent × 메인/`comparison_model`을
-  최대4개 읽기 전용으로 비교한다. 추가 모델 과금이 발생하며, 비교 agent에는 실행
-  도구가 없고 Work 변경·외부 답장도 적용하지 않는다. 각 arm은 같은 Work 스냅샷을 쓴다.
 
 `router_capture_required` 설정은 routed 경로와 정확한 부모 관측이 필요하다.
-direct gateway 요청은 이 라우터를 지나지 않으므로 full/recent/comparison을
+direct gateway 요청은 이 라우터를 지나지 않으므로 full/recent를
 적용했다고 표시하지 않는다. 부모 캡처는16MiB까지 지원하며 초과 시 생략하지 않고
 해당 side 요청을 보존한다. 실측 usage에 없는 캐시·비용 값은 unknown이다.
 

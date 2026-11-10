@@ -304,9 +304,6 @@ class SideContextRouterTests(unittest.TestCase):
         with patch('ciel_runtime_support.side_context_store.MAX_PARENT_BYTES',1):
             with self.assertRaises(SideContextUnavailable):
                 self.store.capture({**self.parent,'system':'new oversized parent'},'fixture')
-        from ciel_runtime_support.side_comparison import freeze
-        with self.assertRaises(ValueError):
-            freeze(self.root,self.identity,self.event['receipt_id'],{'version':7})
         self.inbox.receive('new event','second')
         event=claim(self.root,self.identity,'a')
         for key in (None,self.handle['key']):

@@ -24,6 +24,17 @@ capability, followed by the complete commit ledger merged into each release.
   atomic renewal). Both serve HTTPS on the router port, and plain HTTP only to
   this host, so local CLI clients are unchanged. A public-IP ACME issuance has
   not been run yet.
+- Side actor replies to Walkie events no longer need a configured route. With no
+  `reply_connectors`, a Walkie support event replies and prefetches its source
+  through the session's `walkie` MCP server. Configured routes still decide.
+  Previously every answer was committed but left `route_unavailable`.
+- Main's side review states the real delivery of each reply: sent (review
+  only), not sent (send the prepared answer once, with no ACK or new
+  investigation) or still sending (do not send).
+- Removed the side comparison experiment: the `work_side_compare` tool, the
+  `comparison_enabled` and `comparison_model` settings, and their menu rows.
+  It only made extra billed read-only calls and never produced a measurement.
+  Values still saved in a config are ignored.
 
 ### Beta: independent SSE processing
 

@@ -1,0 +1,10 @@
+[9001] Owner Kim: 지금 작업 상태 어때? 진행 중인 것과 대기열만 알려줘.
+[9002] Owner Kim: 이 워크스페이스 ciel_runtime_support/work_plan_tree.py 에 정의된 MAX_DEPTH 값이 몇이야? 파일을 직접 확인해서 알려줘.
+[reply to 9001] side (host send, client_id 29af1541): 
+    현재 진행 중인 작업은 1개입니다. 결제 모듈 리팩터링(n1, 실행 단계, 완료 0/2)이며, 다음 단계는 결제 어댑터 인터페이스 분리(n2)입니다. 회귀 테스트 보강(n3)도 대기 중입니다. 대기열에는 문서 번역 업데이트(n4), CI 캐시 정리(n5), 로그 보존 정책 변경(n6) 3개가 있으며 모두 P3이고 계획 단계입니다. 현재 실행 중인 단계는 없습니다.
+    
+    큐에 등록하지 않았습니다.
+[reply to 9002] side (host send, client_id f50a7478): 
+    ciel_runtime_support/work_plan_tree.py 25행에서 `MAX_DEPTH = 8` 로 정의되어 있는 것을 직접 확인했습니다. 이 값은 목표 아래 계획 깊이의 상한으로 쓰이며(254–255행에서 초과 시 WorkPlanError), 파일 내 다른 검사 지점(180행, 993행)도 같은 상수를 참조합니다.
+    
+    큐에 등록하지 않았습니다.

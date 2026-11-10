@@ -1,0 +1,74 @@
+{
+ "build": "worktree fe559b3 + item-3 change",
+ "condition": "work_side_intake.reply_connectors absent (KOBE)",
+ "outcome": "completed",
+ "receipts": [
+  {
+   "receipt_id": "40d1efcef02ae706ebc3d9f7b0e5be33ee89434c88a448456e58db273d7f20bf",
+   "event_key": "urn:owned:walkie:walkie-9001",
+   "stage": "processed",
+   "action": "answer",
+   "kind": "status",
+   "delivery": "submitted",
+   "outbox": {
+    "state": "submitted",
+    "updated_at": 1794279886.5882497,
+    "attempt_id": "1eb7685883484209940d8355fa0cd328"
+   },
+   "final_text": "현재 진행 중인 작업은 1개입니다. 결제 모듈 리팩터링(n1, 실행 단계, 완료 0/2)이며, 다음 단계는 결제 어댑터 인터페이스 분리(n2)입니다. 회귀 테스트 보강(n3)도 대기 중입니다. 대기열에는 문서 번역 업데이트(n4), CI 캐시 정리(n5), 로그 보존 정책 변경(n6) 3개가 있으며 모두 P3이고 계획 단계입니다. 현재 실행 중인 단계는 없습니다.\n\n큐에 등록하지 않았습니다.",
+   "commit_seconds": 7.1
+  },
+  {
+   "receipt_id": "946a141e387ff136ca1dfb3475259dcf70f6781ca126979d68adaed9ad461b53",
+   "event_key": "urn:owned:walkie:walkie-9002",
+   "stage": "processed",
+   "action": "answer",
+   "kind": "info",
+   "delivery": "submitted",
+   "outbox": {
+    "state": "submitted",
+    "updated_at": 1794279901.436828,
+    "attempt_id": "3608b84bc59d4b508553a16b8f595045"
+   },
+   "final_text": "ciel_runtime_support/work_plan_tree.py 25행에서 `MAX_DEPTH = 8` 로 정의되어 있는 것을 직접 확인했습니다. 이 값은 목표 아래 계획 깊이의 상한으로 쓰이며(254–255행에서 초과 시 WorkPlanError), 파일 내 다른 검사 지점(180행, 993행)도 같은 상수를 참조합니다.\n\n큐에 등록하지 않았습니다.",
+   "commit_seconds": 10.5
+  }
+ ],
+ "walkie_source_reads": [
+  {
+   "at": 1794279879.7427711,
+   "after": "9000",
+   "returned": [
+    "9001"
+   ]
+  },
+  {
+   "at": 1794279891.2602258,
+   "after": "9001",
+   "returned": [
+    "9002"
+   ]
+  }
+ ],
+ "walkie_sends": [
+  {
+   "conversation_id": "7b0c6f1e-2d4a-4c11-9e55-0a1b2c3d4e5f",
+   "reply_to_message_id": "9001",
+   "client_id": "29af1541-1308-ceee-1a7e-032bb4b514f4",
+   "duplicate_client_id": false,
+   "text": "현재 진행 중인 작업은 1개입니다. 결제 모듈 리팩터링(n1, 실행 단계, 완료 0/2)이며, 다음 단계는 결제 어댑터 인터페이스 분리(n2)입니다. 회귀 테스트 보강(n3)도 대기 중입니다. 대기열에는 문서 번역 업데이트(n4), CI 캐시 정리(n5), 로그 보존 정책 변경(n6) 3개가 있으며 모두 P3이고 계획 단계입니다. 현재 실행 중인 단계는 없습니다.\n\n큐에 등록하지 않았습니다."
+  },
+  {
+   "conversation_id": "7b0c6f1e-2d4a-4c11-9e55-0a1b2c3d4e5f",
+   "reply_to_message_id": "9002",
+   "client_id": "f50a7478-5052-99a1-b371-101d04519dff",
+   "duplicate_client_id": false,
+   "text": "ciel_runtime_support/work_plan_tree.py 25행에서 `MAX_DEPTH = 8` 로 정의되어 있는 것을 직접 확인했습니다. 이 값은 목표 아래 계획 깊이의 상한으로 쓰이며(254–255행에서 초과 시 WorkPlanError), 파일 내 다른 검사 지점(180행, 993행)도 같은 상수를 참조합니다.\n\n큐에 등록하지 않았습니다."
+  }
+ ],
+ "main_transcript_has_raw_event": {
+  "cloudevent_type": false,
+  "event_texts": []
+ },
+ "owned_router_pids_after": []
+}

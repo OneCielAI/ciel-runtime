@@ -14,6 +14,11 @@ _NAME = re.compile(r'[A-Za-z0-9_.:-]{1,150}')
 _UUID = re.compile(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}')
 _MESSAGE_ID = re.compile(r'[0-9]{1,20}')
 PRESETS = ('walkie',)
+# Walkie support CloudEvents. With no operator route configured, these reply
+# through the session's own ``walkie`` MCP server (KOBE 2026-11-09: every side
+# answer was committed but silently undelivered as route_unavailable).
+WALKIE_EVENT_PREFIX = 'com.ciel.walkie.'
+DEFAULT_WALKIE_SERVER = 'walkie'
 # Walkie names each conversation as its own CloudEvent source
 # (".../conversations/<uuid>", Prody 2026-11-09), so a preset may cover every
 # source of one receiver. The preset still reads only pattern-checked fields.
@@ -99,17 +104,33 @@ def walkie_target(original):
     return {'conversation_id': conversation, 'message_id': message}
 
 
-def binding_for(config, route):
+def _walkie_event(original):
+    try:
+        body = json.loads(original)
+    except (ValueError, TypeError):
+        return False
+    return isinstance(body, dict) and str(body.get('type') or '').startswith(WALKIE_EVENT_PREFIX)
+
+
+def binding_for(config, route, original=''):
     bindings = validate(config.get('work_side_intake', {}).get('reply_connectors', []))
     source = route.get('sender_id', '')
     receiver = str(route.get('channel', '')).removeprefix('external:')
     exact = next((row for row in bindings if row['source'] == source and row['receiver_id'] == receiver), None)
-    return exact or next((row for row in bindings if row['source'] == ANY_SOURCE and row['receiver_id'] == receiver
-                          and row.get('preset')), None)
+    found = exact or next((row for row in bindings if row['source'] == ANY_SOURCE and row['receiver_id'] == receiver
+                           and row.get('preset')), None)
+    if found or bindings:
+        # Operator-configured routes decide; nothing is added implicitly.
+        return found
+    if (route.get('source_kind') == 'external_event' and _NAME.fullmatch(receiver or '')
+            and _walkie_event(original) and walkie_target(original) is not None):
+        return {'source': ANY_SOURCE, 'receiver_id': receiver, 'preset': 'walkie',
+                'server': DEFAULT_WALKIE_SERVER, 'implicit': True}
+    return None
 
 
 def prepare(config, route, receipt_id, reply, kind, *, original=''):
-    binding = binding_for(config, route)
+    binding = binding_for(config, route, original)
     if binding is None:
         return None
     if binding.get('preset') == 'walkie':
@@ -137,7 +158,7 @@ def prepare(config, route, receipt_id, reply, kind, *, original=''):
 
 def source_read(config, route, original):
     """The host read of the message a Walkie event names, before the side actor runs."""
-    binding = binding_for(config, route)
+    binding = binding_for(config, route, original)
     target = walkie_target(original) if binding and binding.get('preset') == 'walkie' else None
     if target is None:
         return None

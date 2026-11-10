@@ -1,4 +1,4 @@
-"""Canonical controls for independent side processing and comparison profiles."""
+"""Canonical controls for independent side processing."""
 import hashlib
 import json
 
@@ -11,26 +11,25 @@ FIELDS = {
     'reply_connectors': ([], None),
     'priority_policy': ('adaptive', ('adaptive', 'explicit')),
     'instruction': ('', None),
-    'comparison_enabled': (False, None),
-    'comparison_model': ('inherit', None),
 }
+# Removed 2026-11-10 with the comparison experiment; ignored if still persisted.
+RETIRED = ('comparison_enabled', 'comparison_model')
 PREFIX = 'work_side_intake_'
 
 
 def runtime_settings(config):
     """Project persisted catalog IDs to Claude-facing routed aliases."""
-    stored = dict(config.get('work_side_intake') or {})
+    stored = {key: value for key, value in (config.get('work_side_intake') or {}).items() if key not in RETIRED}
     provider = str(config.get('current_provider') or '')
     from .provider_adapters import PROVIDER_ADAPTERS, PROVIDER_ALIASES, PROVIDER_LABELS
     from .provider_model_identity import ProviderModelIdentityService
     models = ProviderModelIdentityService(PROVIDER_ADAPTERS, PROVIDER_ALIASES, PROVIDER_LABELS)
-    for field in ('model', 'comparison_model'):
-        raw = str(stored.get(field) or 'inherit')
-        stored[field + '_catalog'] = raw
-        stored[field] = raw if raw == 'inherit' else models.alias_for(provider, models.normalize_model_id(provider, raw))
+    raw = str(stored.get('model') or 'inherit')
+    stored['model_catalog'] = raw
+    stored['model'] = raw if raw == 'inherit' else models.alias_for(provider, models.normalize_model_id(provider, raw))
     stored.setdefault('context_mode', 'full')
     stored['model_fingerprint'] = hashlib.sha256(json.dumps({
-        'provider': provider, 'model': stored['model'], 'comparison_model': stored['comparison_model']
+        'provider': provider, 'model': stored['model']
     }, sort_keys=True).encode()).hexdigest()[:32]
     return stored
 
@@ -51,10 +50,6 @@ def set_value(config, key, value):
             parsed = validate(json.loads(value))
         except (ValueError, TypeError) as error:
             raise ValueError('invalid side reply connectors: ' + str(error)) from None
-    elif name == 'comparison_enabled':
-        if value not in ('on', 'off', 'true', 'false'):
-            raise ValueError('use on/off or true/false')
-        parsed = value in ('on', 'true')
     elif name in ('context_percent', 'max_active', 'aging_seconds'):
         upper = {'max_active':16, 'context_percent':100, 'aging_seconds':3600}[name]
         try:
@@ -63,7 +58,7 @@ def set_value(config, key, value):
             raise ValueError(f'{name} must be an integer from 1 to {upper}') from None
         if not 1 <= parsed <= upper:
             raise ValueError(f'{name} must be an integer from 1 to {upper}')
-    elif name in ('model', 'comparison_model'):
+    elif name == 'model':
         parsed = value.strip()
         if not parsed or len(parsed) > 300 or any(ord(c) < 32 for c in parsed):
             raise ValueError('use inherit or a catalog model id')

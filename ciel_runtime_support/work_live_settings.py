@@ -89,17 +89,16 @@ def settings(config, args, save):
         'work_side_intake_context_mode': ['isolated', 'full', 'recent'],
         'work_side_intake_priority_policy': ['adaptive', 'explicit'],
     }
-    side_booleans = {'work_side_intake_comparison_enabled'}
+    side_booleans = set()
     side_numbers = {'work_side_intake_max_active', 'work_side_intake_aging_seconds',
                     'work_side_intake_context_percent'}
     projected += [{'key': k, 'label': menu_text(k, language), 'value': v,
-                   'kind': 'model' if k in ('work_side_intake_model', 'work_side_intake_comparison_model')
+                   'kind': 'model' if k == 'work_side_intake_model'
                        else 'enum' if k in side_enums else 'boolean' if k in side_booleans
                        else 'number' if k in side_numbers else 'json' if k == 'work_side_intake_reply_connectors'
                        else 'text',
                    **({'choices': side_enums[k]} if k in side_enums else {}),
-                   'status': 'router_capture_required' if k in ('work_side_intake_context_mode', 'work_side_intake_context_percent',
-                       'work_side_intake_comparison_enabled', 'work_side_intake_comparison_model')
+                   'status': 'router_capture_required' if k in ('work_side_intake_context_mode', 'work_side_intake_context_percent')
                    else 'next_side_event'}
                   for k, v in values(config).items()]
     provider = str(config.get('current_provider') or '')

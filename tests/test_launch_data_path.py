@@ -369,8 +369,9 @@ class ClaudeEnvironmentTests(unittest.TestCase):
         env=self.env(side={'enabled':True,'model':'API KEYS - SSE'})
         self.assertNotIn('CLAUDE_CODE_SUBAGENT_MODEL_FORCE',env)
         self.assertEqual('inherit',env['CLAUDE_CODE_SUBAGENT_MODEL'])
-        compared=self.env(side={'enabled':True,'model':'inherit','comparison_enabled':True,'comparison_model':'API KEYS - SSE'})
-        self.assertNotIn('CLAUDE_CODE_SUBAGENT_MODEL_FORCE',compared)
+        # The removed comparison experiment no longer opts children out of the parent model.
+        retired=self.env(side={'enabled':True,'model':'inherit','comparison_enabled':True,'comparison_model':'API KEYS - SSE'})
+        self.assertEqual('1',retired['CLAUDE_CODE_SUBAGENT_MODEL_FORCE'])
         inherited=self.env(side={'enabled':True,'model':'inherit'})
         self.assertEqual('1',inherited['CLAUDE_CODE_SUBAGENT_MODEL_FORCE'])
 

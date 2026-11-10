@@ -238,7 +238,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
     schemas.extend(side_schemas())
     schemas.append(host_page_schema())
     if not enabled:
-        schemas = [schema for schema in schemas if schema["name"] in (WORK_MODE_SWITCH_TOOL, "work_live_settings", "work_side_settings", "work_side_intake", "work_side_drain", "work_side_status", "work_side_claim", "work_side_resolve", "work_side_fail", "work_side_fallback", "work_side_reply", "work_side_wake", "work_side_handoff", "work_side_renew", "work_side_retry_reply", "work_side_context", "work_side_compare", "work_side_code_read", "work_side_code_search", "work_host_page")]
+        schemas = [schema for schema in schemas if schema["name"] in (WORK_MODE_SWITCH_TOOL, "work_live_settings", "work_side_settings", "work_side_intake", "work_side_drain", "work_side_status", "work_side_claim", "work_side_resolve", "work_side_fail", "work_side_fallback", "work_side_reply", "work_side_wake", "work_side_handoff", "work_side_renew", "work_side_retry_reply", "work_side_context", "work_side_code_read", "work_side_code_search", "work_host_page")]
     for schema in schemas:
         inputs = schema["inputSchema"]
         inputs.setdefault("properties", {})["session_id"] = {
@@ -321,7 +321,7 @@ def dispatch_work_tool(
         except (tree.WorkPlanError, ValueError, OSError) as error:
             return respond(request_id, str(error), True)
         return respond(request_id, json.dumps(value, ensure_ascii=False))
-    if not work_mode_enabled(config) and name not in ('work_side_settings','work_side_intake', 'work_side_drain', 'work_side_status', 'work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare', 'work_side_code_read', 'work_side_code_search'):
+    if not work_mode_enabled(config) and name not in ('work_side_settings','work_side_intake', 'work_side_drain', 'work_side_status', 'work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_code_read', 'work_side_code_search'):
         if name == "work_status" and args.get("format") == "json":
             return respond(request_id, json.dumps(tree.snapshot(tree.empty_document(), enabled=False)))
         return respond(request_id, "Ciel Work mode is off (prelaunch menu: LLM options -> Work mode, "
@@ -350,7 +350,7 @@ def dispatch_work_tool(
         if name not in ('work_side_status', 'work_side_settings', 'work_side_intake', 'work_side_drain'):
             scoped = session_work_plan_store(state_dir, identity, log=log)
             store = store or scoped
-        if name in ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare', 'work_side_code_read', 'work_side_code_search'):
+        if name in ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_code_read', 'work_side_code_search'):
             from .side_intake_mcp import run as side_run
             return respond(request_id, json.dumps(side_run(name, args, config, state_dir, identity, store), ensure_ascii=False))
         if name == "work_side_settings":
@@ -412,6 +412,10 @@ def dispatch_work_tool(
             state['side_inbox_receipts'] = [
                 {key: row[key] for key in ('receipt_id', 'stage', 'item_id', 'external_ack')}
                 for row in receipts]
+            if state.get('side_reviews'):
+                # Main must know whether the person actually received each answer.
+                from .side_review import with_delivery
+                state['side_reviews'] = with_delivery(state['side_reviews'], state_dir, identity)
             output = json.dumps(state, ensure_ascii=False)
         return respond(request_id, output)
     except (tree.WorkPlanError, ValueError) as error:

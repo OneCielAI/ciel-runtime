@@ -54,6 +54,13 @@ def bound_session(identity):
     return bool(current) and 'claude:' + str(current.get('session_id')) == identity
 
 
+def _without_retired_fields(profile):
+    """Contexts written before the comparison experiment was removed carry shadow=False."""
+    if not isinstance(profile, dict):
+        return profile
+    return {key: value for key, value in profile.items() if not (key == 'shadow' and value is False)}
+
+
 class SideContextStore:
     def __init__(self, state_dir, identity):
         if not isinstance(identity, str) or not _ID.fullmatch(identity):
@@ -141,9 +148,9 @@ class SideContextStore:
             raise SideContextUnavailable(value['unavailable'])
         return value
 
-    def prepare(self, event, settings, model, *, key=None, shadow=False, snapshot=None):
+    def prepare(self, event, settings, model, *, key=None, snapshot=None):
         profile = {'mode': settings.get('context_mode', 'full'),
-                   'percent': settings.get('context_percent', 30), 'model': model, 'shadow': shadow}
+                   'percent': settings.get('context_percent', 30), 'model': model}
         if profile['mode'] not in ('full', 'recent'):
             raise SideContextUnavailable('parent context profile not enabled')
         if not isinstance(model, str) or not model or len(model) > 300:
@@ -157,7 +164,7 @@ class SideContextStore:
             latest = snapshot or self.ready()
             if not latest:
                 raise SideContextUnavailable('current parent capture unavailable; stale context not reused')
-            if value is not None and not shadow and latest and (
+            if value is not None and latest and (
                 latest.get('digest') != value.get('digest') or latest.get('epoch') != value.get('epoch')
                 or latest.get('provider') != value.get('provider')
             ):
@@ -171,7 +178,8 @@ class SideContextStore:
                     raise SideContextUnavailable('parent request not observed on this router; direct path cannot project history')
                 value = {**latest, 'identity': self.identity, 'profile': profile, 'agent_id': None,
                          'projection': None, 'selection': None}
-            elif value.get('profile') != profile or value.get('identity') != self.identity:
+            elif (_without_retired_fields(value.get('profile')) != profile
+                  or value.get('identity') != self.identity):
                 raise SideContextUnavailable('side context profile changed; a new actor is required')
             if not rebase:
                 value.update(receipt_id=event['receipt_id'], generation=event['generation'])

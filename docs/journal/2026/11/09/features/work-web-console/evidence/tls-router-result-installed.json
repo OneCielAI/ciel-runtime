@@ -1,0 +1,31 @@
+{
+  "runtime_root": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-fe559b389647e9ba15f6a1a29b571944cf54b821",
+  "port": 65380,
+  "router_pid": 79456,
+  "plain_local_health": {
+    "status": 200,
+    "ok": true
+  },
+  "https_peer_san": [
+    "router.example.test",
+    "127.0.0.1"
+  ],
+  "https_protocol": "TLSv1.3",
+  "https_health": {
+    "status": 200,
+    "ok": true
+  },
+  "https_work_console": {
+    "status": 200,
+    "has_title": true
+  },
+  "https_rest_node_add": {
+    "status": 200,
+    "version": 1
+  },
+  "browser_goal_title": "P2 Goal created over direct TLS",
+  "browser_https_url": "https://127.0.0.1:65380/ca/work/ui",
+  "browser_https_protocol": "https:",
+  "untrusted_client": "rejected: self-signed certificate",
+  "router_exit": 1
+}

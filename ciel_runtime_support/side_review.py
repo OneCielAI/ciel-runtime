@@ -13,6 +13,34 @@ def pending(doc, limit=10):
     return rows[:limit]
 
 
+# The host only sent the reply in these states. Anything else is not "sent".
+SENT = ('submitted', 'side_mcp')
+UNSENT = ('route_unavailable', 'failed')
+
+
+def delivery_state(inbox, receipt_id):
+    """What the host actually did with the side reply for one review row.
+
+    KOBE 2026-11-09: main was told every side reply "was sent" while each one
+    sat in the inbox as route_unavailable, so a person never saw the answer
+    and main corrected text nobody had received.
+    """
+    try:
+        row = inbox._load(receipt_id) if isinstance(receipt_id, str) else None
+    except (tree.WorkPlanError, OSError, ValueError):
+        return 'unknown'
+    if not row:
+        return 'unknown'
+    outbox = (row.get('outbox') or {}).get('state')
+    return str(outbox or (row.get('result') or {}).get('delivery') or 'pending')
+
+
+def with_delivery(rows, state_dir, identity):
+    from .side_intake_inbox import SideIntakeInbox
+    inbox = SideIntakeInbox(state_dir, identity)
+    return [{**row, 'delivery': delivery_state(inbox, row.get('receipt_id'))} for row in rows]
+
+
 def review(store, receipt_ids, *, verdict, note, expected_version):
     """Mark side answers reviewed. 'corrected' records that main sent a correction."""
     if (not isinstance(receipt_ids, list) or not 1 <= len(receipt_ids) <= 50

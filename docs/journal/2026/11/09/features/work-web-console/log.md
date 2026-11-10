@@ -1,6 +1,8 @@
 # Change log
 
 ## 2026-11-09
+- Completed the console: every REST command has a control (side review/handoff/retry, orphan release, sibling move, replace plan). Owned browser run verified each against the stores; capped the toast stack; added lease titles.
+- Released fe559b3 to beta, verified the registry, installed locally and ran the TLS smoke on the installed snapshot.
 - Replaced the whole-socket TLS wrap with per-connection TLS detection. Local clients keep `http://127.0.0.1`, and external peers must use HTTPS on the same port. Proved it on an owned real router: plain local health, verified HTTPS, REST v1 over HTTPS, and the console over HTTPS with live SSE.
 - Fixed the queue card layout (title and meta on separate lines) and refreshed the browser evidence.
 - Passed all four isolated full regression groups: unit 3530, router 1552, channel 607 and runtime 458 tests; live routers 9505/9524 remained healthy on their original PIDs.

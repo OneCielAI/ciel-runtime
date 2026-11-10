@@ -10,65 +10,6 @@ const wokenHandoffs = new Set()
 const wakesInFlight = new Map()
 const replying = new Set()
 const displayedReceipts = new Map()
-const comparisonQueue = []
-let comparisonBusy = false
-let comparisonActive = null
-async function queueComparison($,identity,event,parentModel) {
-  try {
-    const plan = await callRouter($,'work_side_compare',{action:'plan',receipt_id:event.receipt_id,parent_model:parentModel},{},identity)
-    for (const profile of plan.profiles || []) comparisonQueue.push({identity,event,parentModel,profile,generation:lifecycle})
-    await nextComparison($)
-  } catch { /* Comparison failure remains visible in durable side state only. */ }
-}
-async function nextComparison($) {
-  if (comparisonBusy) return
-  const job = comparisonQueue.shift()
-  if (!job) return
-  if (job.generation !== lifecycle || await identityOf($) !== job.identity) return
-  comparisonBusy = true
-  const name = 'side-shadow-'+job.event.receipt_id.slice(0,10)+'-'+job.profile.profile_id
-  try {
-    if (await $.env.get('CIEL_RUNTIME_DIRECT_GATEWAY_ACTIVE') === '1') throw new Error('comparison requires router capture')
-    const context = await callRouter($,'work_side_compare',{action:'context',receipt_id:job.event.receipt_id,
-      parent_model:job.parentModel,profile_id:job.profile.profile_id},{},job.identity)
-    const forced = await $.env.get('CLAUDE_CODE_SUBAGENT_MODEL_FORCE')
-    if (forced === '1' && job.profile.model !== job.parentModel) throw new Error('comparison model forced to parent')
-    await $.agent.register({name:'side-shadow',description:'Read-only side profile comparison',model:job.profile.model,
-      prompt:'You independently process external requests in read-only comparison. Return a decision JSON; no tools or external side effects.',
-      tools:[],mcpServers:[],background:true,maxTurns:1})
-    pending.set(name,{generation:lifecycle,subagentType:'ciel-work:side-shadow',model:job.profile.model})
-    const started = await $.agent.spawn({subagentType:'ciel-work:side-shadow',name,description:'Read-only side comparison',
-      prompt:JSON.stringify({event_id:job.event.receipt_id,parent_session_id:job.identity,side_context_key:context.key,
-        original:context.original,workload:context.workload,comparison:true,
-        instruction:PROMPT+' This is read-only SHADOW comparison. Do not call any tool. Return your decision proposal only.'})})
-    if (!started.agentId) throw new Error('comparison actor not started')
-    comparisonActive = {...job,id:started.agentId,shadow:true,contextKey:context.key,startedAt:Date.now()}
-    actors.set(started.agentId,comparisonActive)
-    $.clock.after(180000,async()=>{
-      if (comparisonActive?.id !== started.agentId) return
-      comparisonActive.retired = true
-      await finishComparison($,comparisonActive,{reason:'timeout',answer:'',usage:null})
-    })
-  } catch {
-    comparisonBusy = false
-    await callRouter($,'work_side_compare',{action:'record',receipt_id:job.event.receipt_id,parent_model:job.parentModel,
-      profile_id:job.profile.profile_id,result:{state:'unavailable',usage:null}},{},job.identity).catch(()=>{})
-    $.clock.after(10,async()=>{await nextComparison($)})
-  } finally { pending.delete(name) }
-}
-async function finishComparison($,actor,event) {
-  let proposal = null
-  try { proposal = JSON.parse(event.answer) } catch {}
-  try {
-    const value = await callRouter($,'work_side_compare',{action:'record',receipt_id:actor.event.receipt_id,
-      parent_model:actor.parentModel,profile_id:actor.profile.profile_id,
-      result:{state:proposal ? 'answered' : event.reason === 'answer' ? 'invalid_proposal' : event.reason,proposal,usage:event.usage || null,
-        elapsed_ms:Date.now()-actor.startedAt,context_key:actor.contextKey}},{},actor.identity)
-    display($,actor.identity,{side_inbox_receipts:[value.receipt]})
-  } catch { /* Comparison failure remains visible in durable side state only. */ }
-  comparisonBusy = false; comparisonActive = null
-  $.clock.after(10,async()=>{await nextComparison($)})
-}
 export function sideReceipts(identity) { return [...(displayedReceipts.get(identity)?.values() || [])] }
 export function sideActors(identity) {
   return [...actors.values()].filter(actor => actor.identity === identity && actor.current && !actor.retired)
@@ -280,8 +221,8 @@ async function stopRetired($) {
   }
 }
 function ownedSide(actor) {
-  return actor?.spawnedBy === 'ciel-work' && (['ciel-work:side-intake','ciel-work:side-shadow'].includes(actor.type)
-    || /^side-(intake|shadow)-/.test(String(actor.name || ''))
+  return actor?.spawnedBy === 'ciel-work' && (actor.type === 'ciel-work:side-intake'
+    || /^side-intake-/.test(String(actor.name || ''))
     || /^Side SSE /.test(String(actor.description || '')))
 }
 function retire($,actor) {
@@ -292,7 +233,7 @@ function retire($,actor) {
   $.clock.after(10,async()=>{await stopRetired($)})
 }
 export async function startSide($) {
-  lifecycle++; busy = false; pending.clear(); comparisonQueue.length = 0; comparisonBusy = false; comparisonActive = null
+  lifecycle++; busy = false; pending.clear()
   registeredActor = null
   for (const actor of actors.values()) { actor.current = null; if (actor.id) retiredSideActors.add(actor.id) }
   // Side actors never outlive their event; any left from an earlier lifecycle
@@ -334,7 +275,7 @@ export async function pollSide($, identity) {
     }
   }
   // A completed or killed actor never holds a slot; stop any that lost its event.
-  for (const actor of [...actors.values()]) if (!actor.current && !actor.shadow && !actor.retired) retire($,actor)
+  for (const actor of [...actors.values()]) if (!actor.current && !actor.retired) retire($,actor)
   // Ordinary events use max_active slots. One more slot is reserved for a P1
   // event, so an urgent message never waits for two long ordinary forks.
   const running = [...actors.values()].filter(a => a.current)
@@ -440,8 +381,6 @@ export async function pollSide($, identity) {
     actor.model = resolvedModel
     actor.modelFingerprint = settings.model_fingerprint || profile
     actors.set(actor.id,actor); pending.delete(name)
-    actor.comparisonEnabled = settings.comparison_enabled === true
-    actor.parentModel = await $.session.model()
     display($,identity,{side_inbox_receipts:[{receipt_id:event.receipt_id,stage:'processing',recap:event.text,original:event.text}]})
   } catch (error) {
     if (claimed) {
@@ -552,7 +491,6 @@ export async function completeSide($,e) {
     retire($,actor)
     return true
   }
-  if (actor.shadow) { await finishComparison($,actor,e); return true }
   const event = actor.current
   let reason = ''
   try {
@@ -575,7 +513,6 @@ export async function completeSide($,e) {
       if (value.recheck !== 'work_changed') {
         if (value.result && !value.result.duplicate) await shareWithMain($,event,value.result)
         $.clock.after(10, async () => { await recoverReply($,actor.identity,event) })
-        if (actor.comparisonEnabled) $.clock.after(20,async()=>{await queueComparison($,actor.identity,event,actor.parentModel)})
       }
     }
   } catch (error) { reason = String(error?.message || error) /* Recorded below, never in the main transcript. */ }

@@ -6,7 +6,7 @@ from .side_work_decision import WorkChanged, apply
 from .work_plan_tree import WorkPlanError
 from .channel_message_repository import exclusive_file_lock
 
-NAMES = ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_compare', 'work_side_code_read', 'work_side_code_search')
+NAMES = ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_code_read', 'work_side_code_search')
 
 
 def schemas():
@@ -19,10 +19,6 @@ def schemas():
         {'name': 'work_side_fallback', 'description': 'Host-only generation-fenced transition of a side-model failure to exact-once main-session delivery.',
          'inputSchema': {'type':'object','properties':{'state':{'type':'string','enum':['prepare','queued','failed']},
              'reason':{'type':'string','maxLength':160},'agent_id':{'type':'string','maxLength':200}},'required':['state']}},
-        {'name': 'work_side_compare', 'description': 'Host-only read-only profile experiment; never commits Work or sends a reply.',
-         'inputSchema': {'type':'object','properties':{'action':{'type':'string','enum':['plan','context','record']},
-             'receipt_id':{'type':'string'},'parent_model':{'type':'string'},'profile_id':{'type':'string'},
-             'result':{'type':'object'}},'required':['action','receipt_id','parent_model']}},
         {'name': 'work_side_context', 'description': 'Host-only bind a live side event to a captured parent request; full or provider-token-selected history.',
          'inputSchema': {'type': 'object', 'properties': {'model': {'type': 'string'}, 'context_key': {'type': 'string'}}, 'required': ['model']}},
         {'name': 'work_side_retry_reply', 'description': 'Host UI only: explicitly retry failed or unknown side reply; unknown outcomes require person confirmation.',
@@ -127,21 +123,6 @@ def run(name, args, config, state_dir, identity, store):
         raise WorkPlanError('side coordinator bridge required')
     if config.get('work_side_intake', {}).get('enabled') is not True:
         raise WorkPlanError('side processing is disabled')
-    if name == 'work_side_compare':
-        from . import side_comparison
-        settings = runtime_side
-        profiles = side_comparison.plan(state_dir, identity, args.get('receipt_id'), args.get('parent_model'), settings)
-        if args.get('action') == 'plan':
-            from .side_workload import project as project_workload
-            frozen = side_comparison.freeze(state_dir, identity, args['receipt_id'], project_workload(store.read_snapshot()))
-            return {'profiles': profiles, 'workload': frozen['workload']}
-        if args.get('profile_id') not in {row['profile_id'] for row in profiles}:
-            raise WorkPlanError('unknown side comparison profile')
-        if args.get('action') == 'context':
-            return side_comparison.context(state_dir, identity, args['receipt_id'], args['profile_id'], args['parent_model'], settings)
-        if args.get('action') == 'record':
-            return {'receipt': side_comparison.record(state_dir, identity, args['receipt_id'], args['profile_id'], args.get('result'))}
-        raise WorkPlanError('invalid comparison action')
     if name == 'work_side_context':
         from .side_context_store import SideContextStore
         key, generation = host.get('receipt_id'), host.get('generation')

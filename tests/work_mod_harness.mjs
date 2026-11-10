@@ -76,6 +76,17 @@ const scenarios = {
       receipt_ids: [reviews[0].receipt_id], verdict: 'ok', expected_version: 8 }, next({ ran: true }))
     return { first, second, reviewed, sent }
   },
+  async 'side-review-delivery-states'() {
+    const row = (id, delivery) => ({ receipt_id: id.repeat(64), source: 'message:c:' + id, kind: 'info', summary: 'repo check ' + id,
+      reply: 'answer ' + id, ...(delivery ? { delivery } : {}) })
+    let reviews = [row('a', 'submitted'), row('b', 'route_unavailable'), row('c', 'submitting')]
+    const { $ } = host(async () => text({ ...snapshot(), auto_continue: false, side_reviews: reviews }))
+    const first = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
+    const repeat = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
+    reviews = [row('c', 'failed')]
+    const failedLater = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
+    return { first, repeat, failedLater }
+  },
   async 'side-advice-stop'() {
     const {$}=host(async()=>text({...snapshot(),auto_continue:false,side_handoffs:[{event_id:'event',item_id:'n2',kind:'resume',summary:'P1 deadline',question:'Need decision',
       waits:[{id:'n3',waiting_on:'Daniel approval 118269'}],gates:[{id:'n3',waiting_on:'Daniel approval 118269',blocked:false}],wake:{state:'pending',requested_at:1}}]}))
@@ -526,7 +537,7 @@ const scenarios = {
     let hostOnly = true
     const full = {receipt_id:'mail1',item_id:'n1',stage:'processed',original:'Private external question',
       recap:'Private external question',result:{action:'answer',summary:'Looked up facts',reply:'Verified answer',delivery:'submitted',handoff:'not_required',version:5,
-        comparisons:{profile1:{state:'answered',profile:{mode:'recent',model:'comparison-model'},context:{selected_percent:41.5},usage:{input_tokens:100,cache_read_input_tokens:0}}}}}
+        comparisons:{profile1:{state:'answered',profile:{mode:'recent',model:'retired-comparison'}}}}}
     const { $ } = host(async () => text({...snapshot(),side_inbox_receipts:[hostOnly ? full : {receipt_id:'mail1',stage:'processed',item_id:'n1',external_ack:'not_sent'}]}))
     $.ui.resolve = () => ({Box: props=>props,Text: props=>props,Button: props=>props})
     await handlers['command.run']($, {args:'status'})

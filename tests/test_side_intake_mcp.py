@@ -415,3 +415,39 @@ class SideMcpTests(unittest.TestCase):
         result=self.invoke('work_side_claim',{'owner':'actor'},{'token':'wrong'})
         self.assertTrue(result['error'])
         self.assertEqual(1,len(self.inbox.pending()))
+
+
+class SideReviewDeliveryStatusTests(unittest.TestCase):
+    """Main's Work status says whether the person actually received each side answer."""
+
+    def test_status_reviews_carry_the_receipt_delivery_state(self):
+        from ciel_runtime_support.side_intake_processing import claim, finish
+        from ciel_runtime_support.side_reply_outbox import prepare, record
+        from ciel_runtime_support.side_work_decision import apply
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            identity = 'claude:parent'
+            config = {'work_mode': True, 'work_side_intake': {'enabled': True}}
+            inbox = SideIntakeInbox(root, identity)
+            store = session_work_plan_store(root, identity)
+            route = {'source_kind': 'external_event', 'channel': 'external:default', 'sender_id': 'urn:mail'}
+            keys = []
+            for event in ('plain mail question', 'second question'):
+                key = inbox.receive(event, event, route=route)['receipt_id']
+                leased = claim(root, identity, 'side-1')
+                result = apply(store, key, {'action': 'answer', 'kind': 'info', 'summary': event, 'reply': 'answer'},
+                               store.read()['version'])
+                finish(root, identity, key, leased['generation'], result)
+                keys.append(key)
+            self.assertEqual('route_unavailable', prepare(root, identity, keys[0], config=config)['state'])
+            bound = {'work_side_intake': {'enabled': True, 'reply_connectors': [{
+                'source': 'urn:mail', 'receiver_id': 'default', 'server': 'mail', 'tool': 'reply',
+                'arguments': {'message': '$reply'}}]}}
+            sent = prepare(root, identity, keys[1], config=bound)
+            record(root, identity, keys[1], 'submitted', attempt_id=sent['attempt_id'])
+            status = dispatch_work_tool(1, 'work_status', {'format': 'json', 'session_id': identity},
+                                        load_config=lambda: config, state_dir=root,
+                                        respond=lambda _id, text, error=False: {'text': text, 'error': error})
+            self.assertFalse(status['error'], status)
+            delivery = {row['receipt_id']: row['delivery'] for row in json.loads(status['text'])['side_reviews']}
+            self.assertEqual({keys[0]: 'route_unavailable', keys[1]: 'submitted'}, delivery)

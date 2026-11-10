@@ -79,7 +79,51 @@ The final run, after the same-port TLS change, passed all supported groups with 
 
 Live routers remained on the same listening PIDs before and after the run: port 9505 PID 76496 and port 9524 PID 82844; both returned HTTP 200. Output: [final run](evidence/full-tests/all-groups-final.txt); the first run, before the TLS change: [first run](evidence/full-tests/all-groups.txt).
 
+# Operator controls (console completion)
+
+Every REST v1 command now has a console control. `test_every_rest_command_has_a_console_control` compares the OpenAPI command list with the page's `command(...)` calls in both directions.
+
+New controls:
+- **Side tab**
+  - pending reviews with their real delivery state;
+  - Mark OK, and Corrected with a note;
+  - Retry send for `failed`/`route_unavailable`;
+  - Resend for unknown outcomes, behind a duplicate warning;
+  - handoffs with an answer, per-wait clear checkboxes and activate.
+- **Parallel tab:** orphan review and a digest-bound Release lease for a positively dead owner, behind confirmation.
+- **Node:** Move up/down among siblings (`sibling-reorder`), and Replace plan for goals (`plan-set`, behind confirmation).
+
+[`e2e_work_console_operator.py`](evidence/e2e_work_console_operator.py) is an owned run of the real controller, side inbox, parallel ledger and web login, driven from Playwright. Results were read back from the stores ([JSON](evidence/e2e-operator-result.json)):
+- delivery labels `not sent: no reply route` and `sent to the source`;
+- the retry reset the outbox to `pending`;
+- reviews: `corrected` and `reviewed`;
+- the handoff was `answered` with the typed answer, `clear_wait=[n3]`, and the wait was removed;
+- sibling order was reversed;
+- the plan was replaced with three steps;
+- the lease became `orphaned` with its slot released;
+- 390 px width with no overflow, and zero page errors.
+
+Screenshots:
+- [side before](evidence/04-side-before.png)
+- [side actions](evidence/05-side-actions.png)
+- [replanned](evidence/06-node-replanned.png)
+- [orphan review](evidence/07-parallel-orphan.png)
+- [mobile side](evidence/08-side-mobile.png)
+
+Stability: one run, right after the mobile check was added, exited without a result, and its output was not kept, so the cause is not known. The six runs after it all passed.
+
+# Release fe559b3
+
+- **beta** `0.2.51-beta.20261110-030358.fe559b3`.
+  - CI and Publish succeeded.
+  - Registry integrity verified; 520 source files match the commit: [registry](evidence/registry-verification-fe559b3.json).
+  - `latest` and `nightly` are unchanged.
+- **Local install.**
+  - The immutable snapshot `~/.local/share/ciel-runtime-fe559b3…` was extracted from the verified tarball.
+  - `npm install -g` of the same version: snapshot and global package match on 574 files.
+  - User `CIEL_RUNTIME_HOME` points to the snapshot. No live session or router was restarted.
+- **Installed smoke.** `E2E_RUNTIME_ROOT=<snapshot> e2e_tls_router.py` passed: plain local 200, verified TLS 1.3, REST over HTTPS, console with live SSE ([result](evidence/tls-router-result-installed.json), [screenshot](evidence/03-work-console-direct-tls-installed.png)).
+
 # Remaining
 
-- Commit/merge to beta, wait for CI and Publish, verify registry SHA, install locally, and smoke the installed package.
 - Perform a public-IP issuance only when an owned public target is selected.
