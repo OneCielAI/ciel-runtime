@@ -247,8 +247,8 @@ class SideDecisionTests(unittest.TestCase):
         from ciel_runtime_support.side_handoff import acknowledge
         doc, goal = self.store.transaction(lambda d: tree.add_node(d, None, 'P1 goal', priority='P1'))
         doc, gate = self.store.transaction(lambda d: tree.add_node(d, goal, 'gate', waiting_on='approval'))
-        result = apply(self.store, self.key, {**self.base, 'action': 'update', 'item_id': gate, 'note': 'approved'},
-                       doc['version'])
+        apply(self.store, self.key, {**self.base, 'action': 'update', 'item_id': gate, 'note': 'approved'},
+              doc['version'])
         def finish_goal(d):
             for node in d['nodes']:
                 node.update(status='done', evidence='verified', waiting_on='')
