@@ -1,0 +1,30 @@
+                                                                      │                                               ✕
+                                                                      │btw_with_mcp · Inbox → side AI → response / Wor…
+※ recap: Goal is the P1 118160 fail-first fix: Daniel's approval of   │Primary side MCP parity: 87 tools · 4 servers ·…
+  design 118269 is recorded and the step is done, but my ACK to him   │Receipt, AI decision, Work action and reply del…
+  had no reply route and wasn't sent. Next: wait for the CI run 4312  │Receipts (newest first) · Enter selects:
+  result. (disable recaps in /config)                                 │▸ processing       [message.created] CI run…
+                                                                      │  route_unavailable[message.created] Daniel…
+❯ Run exactly this with the Bash tool in the foreground and wait for  │── 7b3199416f6… · 1/2 ──
+  it to finish: python -c "import time; time.sleep(75); print(75)" .  │Receipt: 7b3199416f620e0b87b…
+  Then reply only with the word FINISHED.                             │Stage: processing
+                                                                      │AI processing; no result committed yet.
+● Running a 75-second Python sleep and printing 75 · 12s              │Original:
+  ⎿  $ python -c "import time; time.sleep(75); print(75)" (10s)       │  CloudEvent message.created · 2026-11-10T17:58…
+     (ctrl+b to run in background)                                    │  Source: urn:owned:side-release
+                                                                      │  Text:
+✢ Ebbing… (19s · ↓ 328 tokens)                                        │    CI run 4312 finished: all checks passed on …
+  ⎿  Tip: Use /permissions to pre-approve and pre-deny bash, edit, and│  Fields:
+     MCP tools                                                        │n: Next Close
+w: Work 1/2 ◷ Wait for CI run 4312 ◷ CI run 4312 result [+]       [-] │
+                                                                      │
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [_Walkie_Opus55-Sol61-Fast (cielairouter)] workspace | SSE gate on: open | ctx 279,190/872,000 tok (32.0%) | cache …
+  [work] 1/2 ◷ Wait for CI run 4312 · waiting: CI run 4312 result
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+                                                                                                         work: run 1/2
+
+  ● main
+  ◯ ciel-work:side-intake  Side SSE 7b3199416f62                                                       4s · ↑ 5 tokens

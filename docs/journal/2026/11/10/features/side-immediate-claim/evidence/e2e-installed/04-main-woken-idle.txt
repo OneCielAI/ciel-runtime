@@ -1,0 +1,30 @@
+ ▐▛███▛█   ciel-runtime-cielairouter-_walkie_opus55-sol61-fast wi…    │                                               ✕
+▝▜██████▀  API Usage Billing                                          │btw_with_mcp · Inbox → side AI → response / Wor…
+ ▝▝   ▝▝   ~\AppData\Local\Temp\ciel-owned-side-release-skq2ww78\…    │Primary side MCP parity: 87 tools · 4 servers ·…
+                                                                      │Receipt, AI decision, Work action and reply del…
+▎ Debug mode enabled · logging to                                     │Receipts (newest first) · Enter selects:
+▎ C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\.local\owned-si│▸ route_unavailable[message.created] Daniel…
+▎ de-release-20261110-115209\claude-debug.txt                         │── ddd0f99f678… · 1/2 ──
+                                                                      │Receipt: ddd0f99f67852482968… · Work item: n2
+● ciel-work: Ciel Work mode is on: plan and execute by item;          │Stage: processed
+  new independent requests queue without pausing approved             │Decision: Daniel approved design 118269 for P1 …
+  Work. Items show above the prompt · /work-mode help · turn          │Action: update → n2 · Work version 2
+  off: ciel-runtime menu → LLM options → Work mode, or the            │Reply: Daniel approved design 118269 for P1 118…
+  agent (work_mode_set)                                               │Delivery: not sent (no reply route); main sends…
+                                                                      │Queue: active Work item
+› Prompt from the ciel-work plugin                                    │Original:
+❯ Ciel side released recorded wait n2 ("Daniel approval 118269") —    │  CloudEvent message.created · 2026-11-10T17:52…
+  event ddd0f99f6785: Daniel approved design 118269 for P1 118160;    │  Source: urn:owned:side-release
+  release approval wait.. The wait is already cleared; no             │  Text:
+  acknowledgment is needed. This is not new execution approval.       │    Daniel: I approve design 118269 for P1 1181…
+                                                                      │  Fields:
+● ciel-work: Side released n2 → main (queued)                         │    {
+                                                                      │      "priority": 1
+· Flibbertigibbeting…                                                 │n: Next Retry reply… Close
+w: Work 0/2 [ ] Daniel design approval 118269 [+]                 [-] │
+                                                   ◉ xhigh · /effort  │
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [_Walkie_Opus55-Sol61-Fast (cielairouter)] workspace | SSE gate on: open                               work: run 0/2
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · /tasks to see subagents

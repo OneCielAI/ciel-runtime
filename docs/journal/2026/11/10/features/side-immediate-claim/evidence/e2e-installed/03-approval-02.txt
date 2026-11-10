@@ -1,0 +1,30 @@
+                                                                      │                                               ✕
+           Claude Code v2.1.322                                       │btw_with_mcp · Inbox → side AI → response / Wor…
+ ▐▛███▛█   ciel-runtime-cielairouter-_walkie_opus55-sol61-fast wi…    │Primary side MCP parity: 87 tools · 4 servers ·…
+▝▜██████▀  API Usage Billing                                          │Receipt, AI decision, Work action and reply del…
+ ▝▝   ▝▝   ~\AppData\Local\Temp\ciel-owned-side-release-skq2ww78\…    │Receipts (newest first) · Enter selects:
+                                                                      │▸ processing       [message.created] Daniel…
+▎ Debug mode enabled · logging to                                     │── ddd0f99f678… · 1/1 ──
+▎ C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\.local\owned-si│Receipt: ddd0f99f67852482968…
+▎ de-release-20261110-115209\claude-debug.txt                         │Stage: processing
+                                                                      │AI processing; no result committed yet.
+● ciel-work: Ciel Work mode is on: plan and execute by item;          │Original:
+  new independent requests queue without pausing approved             │  CloudEvent message.created · 2026-11-10T17:52…
+  Work. Items show above the prompt · /work-mode help · turn          │  Source: urn:owned:side-release
+  off: ciel-runtime menu → LLM options → Work mode, or the            │  Text:
+  agent (work_mode_set)                                               │    Daniel: I approve design 118269 for P1 1181…
+                                                                      │  Fields:
+                                                                      │    {
+                                                                      │      "priority": 1
+                                                                      │    }
+                                                                      │Close
+w: Work 0/2 ◷ Daniel design approval 118269 ◷ Daniel approval…    [-] │
+  ⚠ claude.ai connectors are disabled because ANTHROPIC_API_KEY or …  │
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ Try "refactor <filepath>"
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [_Walkie_Opus55-Sol61-Fast (cielairouter)] workspace | SSE gate on: open                               work: run 0/2
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+
+  ● main
+  ◯ ciel-work:side-intake  Side SSE ddd0f99f6785                                                                    2s

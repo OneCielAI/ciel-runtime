@@ -32,6 +32,8 @@ REPO = Path(__file__).resolve().parents[1]
 TOOLS = REPO / 'docs/journal/2026/11/03/features/work-parallel/evidence/menu-ui'
 SNAP = os.environ['PROBE_SNAPSHOT']
 SIDE_MODEL = os.environ.get('PROBE_SIDE_MODEL', 'inherit')
+# The wait text names the expected signal; a source it names must match the event's.
+APPROVAL_WAIT = os.environ.get('PROBE_APPROVAL_WAIT', 'Daniel approval 118269 via Walkie')
 MAIN_MODEL = os.environ.get('PROBE_MAIN_MODEL', '_Walkie_Opus55-Sol61-Fast')
 BASE = REPO / '.local' / ('owned-side-release-' + time.strftime('%Y%m%d-%H%M%S'))
 BASE.mkdir(parents=True)
@@ -357,7 +359,7 @@ try:
 
         def seed(doc):
             work_tree.set_plan(doc, {'title': 'P1 118160 fail-first fix', 'priority': 'P1', 'children': [
-                {'title': 'Daniel design approval 118269', 'waiting_on': 'Daniel approval 118269 via Walkie'},
+                {'title': 'Daniel design approval 118269', 'waiting_on': APPROVAL_WAIT},
                 {'title': 'Wait for CI run 4312', 'waiting_on': 'CI run 4312 result'}]})
             work_tree.set_phase(doc, work_tree.PHASE_EXECUTING)
         store.transaction(seed)
@@ -384,7 +386,7 @@ try:
         doc = store.read()
         result['a'] = {'receipt': row_a, 'timing': timing(row_a, woke_a), 'main_row': woke_a,
                        'gate_after': next((n.get('waiting_on', '') for n in doc['nodes']
-                                           if n['id'] == gates['Daniel approval 118269 via Walkie']), None),
+                                           if n['id'] == gates[APPROVAL_WAIT]), None),
                        'handoffs': len(doc.get('side_handoffs', {}))}
         # Let main's woken turn settle before the busy phase.
         end = time.time() + 300

@@ -33,6 +33,25 @@ tags: [side-intake, sse, waits, verification, e2e]
 - **Expected in this probe:** "reply not sent (no reply route)". The loopback source has no reply connector; this is the existing review notice, unrelated to this change.
 - **Live sessions untouched.** The PIDs of the three live routers and three live `claude.exe` processes were identical before and after (82844/77720, 76496/54988, 5880/25960). The probe killed only its own tree and router port.
 
+# Same run on the installed beta `5c91ea8`
+
+- The registry-verified package was installed globally, and the snapshot matched the global install on all 573 files.
+- [Installed run](evidence/e2e-installed/result.json) used `PROBE_SNAPSHOT` = that snapshot and the approval wait `Daniel approval 118269`:
+
+| Phase | received→claim | received→resolved | resolved→main reached | Result |
+|---|---|---|---|---|
+| A, main idle | 0.260 s | 9.2 s | 1.3 s, plugin prompt | `n2` released, 0 handoffs ([04](evidence/e2e-installed/04-main-woken-idle.png)) |
+| B, main inside the 75 s command | 0.436 s | 7.7 s | 0.75 s, appended into the running turn | `n3` released, 0 handoffs ([08](evidence/e2e-installed/08-main-after-busy-release.png)) |
+
+- **An earlier installed run** ([source-mismatch run](evidence/e2e-installed-source-mismatch/result.json)) seeded the wait as `Daniel approval 118269 via Walkie`.
+  - The side model declined to release it: the event came from `urn:owned:side-release`, not Walkie. It answered `clarify` and asked for confirmation on Walkie, so the wait stayed.
+  - Phase B of that run released `n3` as expected.
+  - This is the prompt's "release only a wait this event clearly satisfies" rule at work. A source named in the wait text is therefore part of the match.
+- **Live sessions.**
+  - Two live sessions (82844/77720, 76496/54988) were unchanged across all runs.
+  - The third (5880/25960) ended at 12:02:59 local with `channel_windows_console_child_exit pid=25960 returncode=0`. Its router then stopped with `router_managed_lifetime_shutdown reason=idle_no_clients`, and a new `cli` session started at 12:03:08 on `5c91ea8`.
+  - That was after the probe had finished. The probe recorded no owned router PID to kill and only kills its own console tree.
+
 # Owned Claude Code probes (2.1.321, loopback model)
 
 - [receipt_ready_probe](evidence/receipt_ready_probe.py) ([run](evidence/receipt-ready-85ed3cbe/result.json)):
