@@ -1,0 +1,8 @@
+{
+  "shared_provider_credentials_before": 6,
+  "shared_provider_credentials_after": 6,
+  "shared_unchanged": true,
+  "workspace_provider_before": "cielairouter",
+  "workspace_provider_after": "cielairouter",
+  "workspace_work_mode_after": false
+}

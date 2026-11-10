@@ -1,15 +1,20 @@
 """Platform-aware filesystem and local router endpoint configuration."""
 from __future__ import annotations
 
+import atexit
 import getpass
 import hashlib
 import os
+import shutil
+import socket
 import sys
+import tempfile
 import time
 from pathlib import Path, PureWindowsPath
 from typing import Any
 
 from .sandbox_profile import apply_sandbox_profile
+from .test_isolation_guard import loose_test_entrypoint, path_within
 from .web_endpoints import apply_startup_web_options, load_saved_web_backend
 from .workspace_router_selection import (
     release_workspace_router_launch_lease,
@@ -106,19 +111,46 @@ def default_router_port(saved_port: int = 0) -> int:
     return base + (int(digest[:8], 16) % 1000)
 
 
-CONFIG_DIR = Path(os.environ.get("CIEL_RUNTIME_CONFIG_DIR") or platform_config_dir("ciel-runtime"))
+_TEST_STATE_ISOLATED = str(os.environ.get("CIEL_RUNTIME_TEST_ISOLATED") or "").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+} or loose_test_entrypoint()
+_CONFIG_DIR_OVERRIDE = str(os.environ.get("CIEL_RUNTIME_CONFIG_DIR") or "").strip()
+# 2026-11-09 23:29Z: a loose `python -m unittest discover -s tests -p
+# "test_*runtime.py"` started inside a live session inherited
+# CIEL_RUNTIME_CONFIG_DIR=<real profile>. A Codex launch test then saved its
+# minimal fixture through the shared repository and removed every API key on
+# this machine. A test process therefore never binds a profile by inheritance:
+# only a test-owned directory under the system temp root is accepted (the group
+# runner's), otherwise this process gets its own temporary profile and router
+# port, exported so child processes stay inside it too.
+_TEST_CONFIG_ROOT: Path | None = None
+if _TEST_STATE_ISOLATED and not (
+    _CONFIG_DIR_OVERRIDE and path_within(_CONFIG_DIR_OVERRIDE, tempfile.gettempdir())
+):
+    _TEST_CONFIG_ROOT = Path(tempfile.mkdtemp(prefix="ciel-runtime-test-"))
+    atexit.register(shutil.rmtree, _TEST_CONFIG_ROOT, True)
+    _CONFIG_DIR_OVERRIDE = str(_TEST_CONFIG_ROOT)
+    _port_probe = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        _port_probe.bind(("127.0.0.1", 0))
+        os.environ["CIEL_RUNTIME_ROUTER_PORT"] = str(_port_probe.getsockname()[1])
+    finally:
+        _port_probe.close()
+    os.environ["CIEL_RUNTIME_CONFIG_DIR"] = _CONFIG_DIR_OVERRIDE
+    os.environ["CIEL_RUNTIME_TEST_ISOLATED"] = "1"
+    # The live session's state pointers must not reach test children either.
+    for _inherited in ("CIEL_RUNTIME_STATE_DIR", "CIEL_RUNTIME_WORKSPACE_STATE_DIR"):
+        os.environ.pop(_inherited, None)
+CONFIG_DIR = Path(_CONFIG_DIR_OVERRIDE) if _CONFIG_DIR_OVERRIDE else platform_config_dir("ciel-runtime")
 LEGACY_CONFIG_PATH = CONFIG_DIR / "config.json"
 ROUTER_WORKSPACE = workspace_identity(
     os.environ.get("CIEL_RUNTIME_LAUNCH_CWD") or Path.cwd()
 )
 _WORKSPACE_DIGEST = workspace_digest(ROUTER_WORKSPACE)
 ROUTER_WORKSPACE_ID = _WORKSPACE_DIGEST
-_TEST_STATE_ISOLATED = str(os.environ.get("CIEL_RUNTIME_TEST_ISOLATED") or "").strip().lower() in {
-    "1",
-    "true",
-    "yes",
-    "on",
-}
 WORKSPACE_STATE_DIR = (
     CONFIG_DIR
     if _TEST_STATE_ISOLATED

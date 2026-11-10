@@ -5,6 +5,19 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+### Beta: shared API keys can no longer be wiped by a partial save or a test run
+
+- Saving a config that lacks credentials no longer deletes the shared API keys and
+  authorizations of every runtime on the machine. Only credentials the caller
+  changed are written; a stale full config cannot undo a newer key rotation, and
+  two conflicting key edits fail instead of one silently winning. The merge runs
+  under a cross-process lock. Clearing a key from the menu still works.
+- A test process never binds the real profile: a loose `python -m unittest` or
+  `test_*.py` run, or `CIEL_RUNTIME_TEST_ISOLATED=1`, now gets its own temporary
+  profile and router port even when it inherited `CIEL_RUNTIME_CONFIG_DIR` from a
+  live session. On 2026-11-09 such a run replaced the shared config through a
+  Codex launch test and every runtime here lost its keys and provider.
+
 ### Beta: Work web console, REST v1 and direct TLS
 
 - `/ca/work/ui` is a responsive web console for the current session's Work. It

@@ -16,6 +16,7 @@ from pathlib import Path
 from unittest import mock
 
 import ciel_runtime
+from ciel_runtime_support import test_isolation_guard
 
 
 class UnisolatedTestGuardTests(unittest.TestCase):
@@ -43,6 +44,14 @@ class UnisolatedTestGuardTests(unittest.TestCase):
         ):
             with self.subTest(argv=argv):
                 self.assertFalse(self.is_test_invocation(argv[1:]))
+
+    def test_loose_entrypoint_recognizes_python_m_unittest_argv(self):
+        self.assertTrue(test_isolation_guard.loose_test_entrypoint(
+            environ={}, modules={}, argv=["unittest", "discover", "-s", "tests"]
+        ))
+        self.assertFalse(test_isolation_guard.loose_test_entrypoint(
+            environ={}, modules={}, argv=["ciel_runtime.py", "serve"]
+        ))
 
     def test_active_client_termination_fails_closed(self):
         registry = mock.MagicMock()

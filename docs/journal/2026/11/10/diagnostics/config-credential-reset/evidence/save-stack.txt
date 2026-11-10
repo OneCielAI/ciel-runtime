@@ -1,0 +1,31 @@
+# config passed to save_config by test_launch_codex_native_uses_plain_codex_command (test fixture, no secrets)
+{"current_provider": "codex", "providers": {"codex": {"route_through_router": false, "base_url": "https://api.openai.com", "current_model": ""}}, "work_mode": false}
+
+# stack
+  File "C:\Program Files\Python311\Lib\unittest\case.py", line 623, in run
+    self._callTestMethod(testMethod)
+  File "C:\Program Files\Python311\Lib\unittest\case.py", line 579, in _callTestMethod
+    if method() is not None:
+  File "C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\tests\test_codex_runtime.py", line 964, in test_launch_codex_native_uses_plain_codex_command
+    rc = ciel_runtime.launch_codex(["exec", "hello"], skip_menu=True)
+  File "C:\Users/djlov/ciel-runtime/.local/tmp/work-parallel\ciel_runtime_support\remote_instructions.py", line 356, in __call__
+    return self.delegate(*args, **kwargs)
+  File "C:\Users/djlov/ciel-runtime/.local/tmp/work-parallel\ciel_runtime_support\runtime_launch_context.py", line 116, in launch_codex
+    return self.context().launch_codex(*args, **kwargs)
+  File "C:\Users/djlov/ciel-runtime/.local/tmp/work-parallel\ciel_runtime_support\runtime_launch_context.py", line 64, in launch_codex
+    return self.runners.codex(
+  File "C:\Users/djlov/ciel-runtime/.local/tmp/work-parallel\ciel_runtime_support\runtime_launch.py", line 192, in guarded
+    return _guard_launch_lease(runtime, lambda: function(*args, **kwargs), log)
+  File "C:\Users/djlov/ciel-runtime/.local/tmp/work-parallel\ciel_runtime_support\runtime_launch.py", line 163, in _guard_launch_lease
+    return operation()
+  File "C:\Users/djlov/ciel-runtime/.local/tmp/work-parallel\ciel_runtime_support\runtime_launch.py", line 192, in <lambda>
+    return _guard_launch_lease(runtime, lambda: function(*args, **kwargs), log)
+  File "C:\Users/djlov/ciel-runtime/.local/tmp/work-parallel\ciel_runtime_support\runtime_launch.py", line 1391, in run_codex
+    cfg = load_config()
+  File "C:\Users/djlov/ciel-runtime/.local/tmp/work-parallel\ciel_runtime_support\codex_launch_assembly.py", line 116, in codex_config
+    return self.config.load_config()
+  File "C:\Users/djlov/ciel-runtime/.local/tmp/work-parallel\ciel_runtime_support\codex_launch_assembly.py", line 19, in read
+    save(config)
+  File "C:\Users/djlov/ciel-runtime/.local/tmp/work-parallel\ciel_runtime.py", line 853, in save_config
+    def save_config(cfg: dict[str, Any]) -> None: config_repository().save(cfg)
+

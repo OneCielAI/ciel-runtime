@@ -1,0 +1,33 @@
+..........Ciel Runtime AGY passthrough mapping:
+- --resume <session> -> --conversation <session>
+..........................................Codex desktop app not found. Install it from the Microsoft Store (OpenAI Codex) or set CIEL_RUNTIME_CODEX_DESKTOP_EXE to its ChatGPT.exe.
+.Codex app-server ready: ws://127.0.0.1:9489
+Codex desktop app started. Close its window to end this session.
+.Codex app-server did not become ready at http://127.0.0.1:1/readyz; see C:\Users\djlov\AppData\Local\Temp\tmp830dsvkk\cfg\codex-desktop\ws1\logs\app-server.log
+.............s.s.sssssss...........................Launching Codex App Server through Ciel Runtime.
+Codex App Server listen: ws://127.0.0.1:8899
+Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+.Launching Codex App Server through Ciel Runtime.
+Codex App Server listen: ws://127.0.0.1:8899
+Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+.Launching Codex App Server through Ciel Runtime.
+Codex App Server listen: ws://127.0.0.1:8899
+Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+.Launching Codex App Server through Ciel Runtime.
+Codex App Server listen: ws://127.0.0.1:8899
+Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+.s..s........s..............................Kimi Code OAuth login is required for first launch.
+...........................................................................................
+----------------------------------------------------------------------
+Ran 243 tests in 14.447s
+
+OK (skipped=12)
+rc=0

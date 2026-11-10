@@ -5,6 +5,7 @@ from pathlib import Path
 
 from ciel_runtime_support.config_repository import (
     ConfigRepositoryProvider,
+    StaleCredentialWriteError,
     WorkspaceConfigRepository,
     build_default_config,
     deep_merge,
@@ -121,6 +122,127 @@ class ConfigRepositoryTest(unittest.TestCase):
             self.assertEqual("k3[1m]", config["providers"]["kimi"]["current_model"])
             persisted = json.loads(workspace.read_text(encoding="utf-8"))
             self.assertEqual("kimi", persisted["current_provider"])
+
+    def test_partial_workspace_save_preserves_every_shared_credential(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            defaults = {"providers": {"kimi": {}, "alitoken": {}}, "work_mode": True}
+            callbacks = {
+                "defaults": defaults,
+                "merge": deep_merge,
+                "migrate": lambda config: None,
+                "normalize": lambda config: None,
+            }
+            shared_path = root / "config.json"
+            shared_path.write_text(json.dumps({"providers": {
+                "kimi": {"api_key": "keep-kimi"},
+                "alitoken": {"api_keys": ["keep-ali"]},
+            }}), encoding="utf-8")
+            repository = WorkspaceConfigRepository(
+                workspace=ConfigRepositoryProvider().get(
+                    path=root / "workspaces" / "alpha" / "config.json", **callbacks
+                ),
+                shared=ConfigRepositoryProvider().get(path=shared_path, **callbacks),
+            )
+
+            repository.save({"current_provider": "codex", "work_mode": False,
+                             "providers": {"codex": {"current_model": ""}}})
+
+            persisted = json.loads(shared_path.read_text(encoding="utf-8"))
+            self.assertEqual("keep-kimi", persisted["providers"]["kimi"]["api_key"])
+            self.assertEqual(["keep-ali"], persisted["providers"]["alitoken"]["api_keys"])
+
+    def test_loaded_credential_can_be_explicitly_deleted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            defaults = {"providers": {"kimi": {}}}
+            callbacks = {"defaults": defaults, "merge": deep_merge,
+                         "migrate": lambda config: None, "normalize": lambda config: None}
+            shared_path = root / "config.json"
+            shared_path.write_text(
+                json.dumps({"providers": {"kimi": {"api_key": "old", "api_keys": ["old"]}}}),
+                encoding="utf-8",
+            )
+            repository = WorkspaceConfigRepository(
+                workspace=ConfigRepositoryProvider().get(
+                    path=root / "workspaces" / "alpha" / "config.json", **callbacks
+                ),
+                shared=ConfigRepositoryProvider().get(path=shared_path, **callbacks),
+            )
+            config = repository.load()
+            config["providers"]["kimi"].pop("api_key")
+            config["providers"]["kimi"].pop("api_keys")
+            repository.save(config)
+
+            persisted = json.loads(shared_path.read_text(encoding="utf-8"))
+            self.assertNotIn("api_key", persisted["providers"]["kimi"])
+            self.assertNotIn("api_keys", persisted["providers"]["kimi"])
+
+    def test_stale_full_save_preserves_newer_credential_rotation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            defaults = {"providers": {"kimi": {}}}
+            callbacks = {
+                "defaults": defaults,
+                "merge": deep_merge,
+                "migrate": lambda config: None,
+                "normalize": lambda config: None,
+            }
+            shared_path = root / "config.json"
+            shared_path.write_text(
+                json.dumps({"providers": {"kimi": {"api_key": "old"}}}), encoding="utf-8"
+            )
+            shared = ConfigRepositoryProvider().get(path=shared_path, **callbacks)
+            stale = WorkspaceConfigRepository(
+                workspace=ConfigRepositoryProvider().get(
+                    path=root / "workspaces" / "stale" / "config.json", **callbacks
+                ), shared=shared,
+            )
+            rotating = WorkspaceConfigRepository(
+                workspace=ConfigRepositoryProvider().get(
+                    path=root / "workspaces" / "rotating" / "config.json", **callbacks
+                ), shared=shared,
+            )
+            stale_config = stale.load()
+            rotating_config = rotating.load()
+            rotating_config["providers"]["kimi"]["api_key"] = "new"
+            rotating.save(rotating_config)
+            stale_config["work_mode"] = False
+            stale.save(stale_config)
+
+            persisted = json.loads(shared_path.read_text(encoding="utf-8"))
+            self.assertEqual("new", persisted["providers"]["kimi"]["api_key"])
+
+    def test_conflicting_stale_credential_edit_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            defaults = {"providers": {"kimi": {}}}
+            callbacks = {"defaults": defaults, "merge": deep_merge,
+                         "migrate": lambda config: None, "normalize": lambda config: None}
+            shared_path = root / "config.json"
+            shared_path.write_text(
+                json.dumps({"providers": {"kimi": {"api_key": "old"}}}), encoding="utf-8"
+            )
+            shared = ConfigRepositoryProvider().get(path=shared_path, **callbacks)
+            first = WorkspaceConfigRepository(
+                workspace=ConfigRepositoryProvider().get(
+                    path=root / "workspaces" / "first" / "config.json", **callbacks
+                ), shared=shared,
+            )
+            second = WorkspaceConfigRepository(
+                workspace=ConfigRepositoryProvider().get(
+                    path=root / "workspaces" / "second" / "config.json", **callbacks
+                ), shared=shared,
+            )
+            first_config, second_config = first.load(), second.load()
+            first_config["providers"]["kimi"]["api_key"] = "first"
+            first.save(first_config)
+            second_config["providers"]["kimi"]["api_key"] = "second"
+
+            with self.assertRaisesRegex(StaleCredentialWriteError, "providers.kimi.api_key"):
+                second.save(second_config)
+            persisted = json.loads(shared_path.read_text(encoding="utf-8"))
+            self.assertEqual("first", persisted["providers"]["kimi"]["api_key"])
 
     def test_workspace_selections_are_isolated_while_credentials_are_shared(self):
         with tempfile.TemporaryDirectory() as tmp:

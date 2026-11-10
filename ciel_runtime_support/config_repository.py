@@ -10,6 +10,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from .durable_file_lock import exclusive_file_lock
+
 
 _SHARED_CREDENTIAL_NAMES = frozenset(
     {
@@ -90,6 +92,76 @@ def overlay_config(base: dict[str, Any], overlay: dict[str, Any]) -> dict[str, A
             result[key] = overlay_config(result[key], value)
         else:
             result[key] = copy.deepcopy(value)
+    return result
+
+
+class StaleCredentialWriteError(RuntimeError):
+    """A credential changed after this repository loaded its edit baseline."""
+
+
+def merge_changed_credentials(
+    current: dict[str, Any],
+    incoming: dict[str, Any],
+    baseline: dict[str, Any] | None,
+    *,
+    path: tuple[str, ...] = (),
+) -> dict[str, Any]:
+    """Apply only credentials changed from the caller's last loaded snapshot.
+
+    Missing fields are never deletions. An unchanged credential in a stale full
+    config is also not a write, so a rotation committed by another runtime is
+    retained. Concurrent edits of the same credential fail rather than choosing
+    one value by write order.
+    """
+
+    result = copy.deepcopy(current)
+    keys = set(incoming)
+    if isinstance(baseline, dict):
+        keys.update(baseline)
+    for key in keys:
+        prior_present = isinstance(baseline, dict) and key in baseline
+        prior = baseline.get(key) if prior_present else None
+        existing_present = key in current
+        existing = current.get(key)
+        incoming_present = key in incoming
+        if not incoming_present:
+            # Only a caller that previously loaded this exact field may delete
+            # it. This preserves credentials for partial/minimal saves while
+            # keeping the existing API-key clear operation (which pops fields).
+            if not prior_present:
+                continue
+            if existing_present and existing != prior:
+                raise StaleCredentialWriteError(
+                    "credential changed since load: " + ".".join((*path, str(key)))
+                )
+            result.pop(key, None)
+            continue
+        value = incoming[key]
+        if isinstance(value, dict):
+            nested = merge_changed_credentials(
+                existing if isinstance(existing, dict) else {},
+                value,
+                prior if isinstance(prior, dict) else ({} if baseline is None else None),
+                path=(*path, str(key)),
+            )
+            if nested:
+                result[key] = nested
+            else:
+                result.pop(key, None)
+            continue
+        if baseline is not None and prior_present and value == prior:
+            continue
+        if (
+            baseline is not None
+            and prior_present
+            and existing_present
+            and existing != prior
+            and value != existing
+        ):
+            raise StaleCredentialWriteError(
+                "credential changed since load: " + ".".join((*path, str(key)))
+            )
+        result[key] = copy.deepcopy(value)
     return result
 
 
@@ -300,6 +372,18 @@ class JsonConfigRepository:
     def path(self) -> Path:
         return self._path
 
+    def read_persisted(self) -> dict[str, Any]:
+        """Read and normalize the current file without consulting the cache."""
+
+        try:
+            data = json.loads(self._path.read_text(encoding="utf-8")) if self._path.exists() else {}
+        except (OSError, ValueError, TypeError):
+            data = {}
+        config = self._merge(self._defaults, data if isinstance(data, dict) else {})
+        self._migrate(config)
+        self._normalize(config)
+        return config
+
     def load(self) -> dict[str, Any]:
         try:
             mtime = self._path.stat().st_mtime
@@ -388,6 +472,7 @@ class WorkspaceConfigRepository:
     ) -> None:
         self._workspace = workspace
         self._shared = shared
+        self._loaded_credentials: dict[str, Any] | None = None
 
     @property
     def path(self) -> Path:
@@ -398,29 +483,47 @@ class WorkspaceConfigRepository:
         sanitized = without_shared_credentials(workspace_config)
         if workspace_config != sanitized:
             self._workspace.save(sanitized)
-        return overlay_config(sanitized, shared_credentials(self._shared.load()))
+        credentials = shared_credentials(self._shared.load())
+        self._loaded_credentials = copy.deepcopy(credentials)
+        return overlay_config(sanitized, credentials)
 
     def save(self, config: dict[str, Any]) -> None:
-        shared_config = self._shared.load()
-        updated_shared = overlay_config(
-            without_shared_credentials(shared_config),
-            shared_credentials(config),
-        )
-        self._shared.save(updated_shared)
+        incoming_credentials = shared_credentials(config)
+        lock_target = self._shared.path.with_name(self._shared.path.name + ".credentials")
+        with exclusive_file_lock(lock_target):
+            # Bypass the repository cache inside the lock: another process may
+            # have rotated a key since this repository's last load.
+            shared_config = self._shared.read_persisted()
+            current_credentials = shared_credentials(shared_config)
+            updated_credentials = merge_changed_credentials(
+                current_credentials,
+                incoming_credentials,
+                self._loaded_credentials,
+            )
+            # Preserve every credential omitted by a partial config. Write the
+            # shared file only when this caller actually changed credentials.
+            if updated_credentials != current_credentials:
+                self._shared.save(
+                    overlay_config(without_shared_credentials(shared_config), updated_credentials)
+                )
         self._workspace.save(without_shared_credentials(config))
+        self._loaded_credentials = copy.deepcopy(updated_credentials)
 
     def invalidate(self) -> None:
         self._workspace.invalidate()
         self._shared.invalidate()
+        self._loaded_credentials = None
 
 
 __all__ = [
     "ConfigRepositoryProvider",
     "JsonConfigRepository",
+    "StaleCredentialWriteError",
     "WorkspaceConfigRepository",
     "build_default_config",
     "deep_merge",
     "is_shared_credential_field",
+    "merge_changed_credentials",
     "normalize_loaded_config",
     "overlay_config",
     "shared_credentials",

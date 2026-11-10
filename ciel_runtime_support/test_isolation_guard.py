@@ -26,6 +26,46 @@ def test_state_isolated(environ: Mapping[str, str] | None = None) -> bool:
     return str(source.get("CIEL_RUNTIME_TEST_ISOLATED") or "").strip().lower() in _TRUTHY
 
 
+def loose_test_entrypoint(
+    *,
+    environ: Mapping[str, str] | None = None,
+    modules: Mapping[str, Any] | None = None,
+    argv: Sequence[str] | None = None,
+) -> bool:
+    """Report whether this process itself is a unittest/pytest test run.
+
+    Unlike ``unisolated_test_process`` this deliberately ignores a merely loaded
+    ``unittest`` module: a production router must never be mistaken for a test
+    and moved to a temporary profile. Only the process entrypoint counts.
+    """
+
+    source = os.environ if environ is None else environ
+    if source.get("PYTEST_CURRENT_TEST"):
+        return True
+    loaded = sys.modules if modules is None else modules
+    if "pytest" in loaded or "_pytest" in loaded:
+        return True
+    main = loaded.get("__main__")
+    spec = getattr(main, "__spec__", None)
+    if getattr(spec, "name", "") in {"unittest.__main__", "pytest.__main__"}:
+        return True
+    if Path(str(getattr(main, "__file__", "") or "")).name.startswith("test_"):
+        return True
+    arguments = sys.argv if argv is None else argv
+    return test_runner_arguments([str(argument) for argument in arguments[1:]])
+
+
+def path_within(path: str | os.PathLike[str], root: str | os.PathLike[str]) -> bool:
+    """Case-normalized containment check for an existing or future path."""
+
+    child = os.path.normcase(os.path.abspath(os.fspath(path)))
+    parent = os.path.normcase(os.path.abspath(os.fspath(root)))
+    try:
+        return os.path.commonpath([child, parent]) == parent and child != parent
+    except ValueError:
+        return False
+
+
 def test_runner_arguments(arguments: Sequence[str]) -> bool:
     """Report whether command arguments are a loose test-runner invocation.
 
@@ -103,6 +143,8 @@ def terminate_clients(
 
 
 __all__ = [
+    "loose_test_entrypoint",
+    "path_within",
     "terminate_clients",
     "terminate_tree",
     "test_runner_arguments",
