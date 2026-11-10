@@ -5,6 +5,26 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+### Beta: Work web console, REST v1 and direct TLS
+
+- `/ca/work/ui` is a responsive web console for the current session's Work. It
+  shows the tree, queue, side reviews and handoffs, parallel leases, live
+  settings and an audit list. It refreshes on Work SSE and resolves stale edits
+  through the version check.
+- Every console operation is current-session REST under `/ca/work/api/v1`. It
+  publishes an OpenAPI document, and mutations take `expected_version` and an
+  idempotency key. Queue position, sibling order and active selection are
+  separate commands. The legacy `/ca/work` routes are unchanged.
+- Access reuses the existing web login and the router administrator token; there
+  is no new API key. A loopback peer that carries forwarding headers no longer
+  skips authentication. A session cookie gets `Secure` only on a real TLS socket
+  or from the managed local proxy.
+- New `web_backend.tls_mode` values: `certificate` (operator PEM bundle) and
+  `acme-ip` (stdlib ACME v2 with HTTP-01 on port 80, short-lived profile and
+  atomic renewal). Both serve HTTPS on the router port, and plain HTTP only to
+  this host, so local CLI clients are unchanged. A public-IP ACME issuance has
+  not been run yet.
+
 ### Beta: independent SSE processing
 
 - `btw_with_mcp` processes durable messages in a native side actor while the main

@@ -39,6 +39,7 @@ class RouterServerEffects:
     server_factory: Callable[..., Any]
     start_watchdog: Callable[[Any], None]
     configure_web_endpoints: Callable[[str], list[str]]
+    configure_server_transport: Callable[[Any, dict[str, Any]], Any] = lambda server, _config: server
     start_services: Callable[[], None] = lambda: None
     stop_services: Callable[[], None] = lambda: None
 
@@ -71,6 +72,7 @@ class RouterServerRuntime:
         server = self.effects.server_factory(
             (bind_host, self.config.port), self.config.handler
         )
+        server = self.effects.configure_server_transport(server, runtime_config)
         for line in self.effects.configure_web_endpoints(bind_host):
             self.effects.stderr.write(f"{line}\n")
         self.effects.stderr.flush()

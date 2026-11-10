@@ -53,6 +53,26 @@ def session_token(handler: Any) -> str:
     return morsel.value if morsel is not None else ""
 
 
+def _forwarded_by_local_proxy(handler: Any) -> bool:
+    """Only the managed frontend may make forwarded scheme/host authoritative."""
+    try:
+        from .router_access import is_loopback_address
+        return (is_loopback_address(str(handler.client_address[0]))
+                and str(handler.headers.get("x-ciel-runtime-forwarded") or "") == "1")
+    except Exception:
+        return False
+
+
+def _request_is_secure(handler: Any) -> bool:
+    try:
+        if isinstance(getattr(handler, "connection", None), __import__("ssl").SSLSocket):
+            return True
+    except (AttributeError, TypeError):
+        pass
+    return (_forwarded_by_local_proxy(handler)
+            and str(handler.headers.get("x-forwarded-proto") or "").lower() == "https")
+
+
 def _same_origin(handler: Any) -> bool:
     origin = str(handler.headers.get("origin") or "").strip()
     if not origin:
@@ -154,7 +174,7 @@ class WebAccessHttpController:
 
     def _write_with_cookie(self, handler: Any, payload: dict[str, Any], status: int, token: str, max_age: int) -> None:
         body = json.dumps(payload).encode("utf-8")
-        secure = str(handler.headers.get("x-forwarded-proto") or "").lower() == "https"
+        secure = _request_is_secure(handler)
         cookie = f"{SESSION_COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age={max_age}" + ("; Secure" if secure else "")
         handler.send_response(status)
         handler.send_header("content-type", "application/json")

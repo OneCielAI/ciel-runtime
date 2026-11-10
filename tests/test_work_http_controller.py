@@ -23,10 +23,11 @@ class WorkHttpTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.state = Path(self.temp.name) / "state"
         self.config = {}
+        self.saved_config = []
         self.controller = WorkHttpController(WorkHttpServices(
             self.state, lambda: self.config, lambda: "claude:one",
             lambda identity: {"session_id": identity, "ciel_runtime": {"version": "test"}, "last_observed": None},
-            HttpResponseAdapter.write_json, "test-instance"))
+            HttpResponseAdapter.write_json, "test-instance", save_config=self._save_config))
         controller = self.controller
 
         class Handler(BaseHTTPRequestHandler):
@@ -47,15 +48,23 @@ class WorkHttpTests(unittest.TestCase):
         self.thread.start()
         self.base = "http://127.0.0.1:" + str(self.server.server_port)
 
+    def _save_config(self, value):
+        saved = dict(value)
+        self.config.clear()
+        self.config.update(saved)
+        self.saved_config.append(saved)
+
     def tearDown(self):
         self.server.shutdown()
         self.server.server_close()
         self.thread.join(3)
         self.temp.cleanup()
 
-    def request(self, path="/ca/work", body=None):
+    def request(self, path="/ca/work", body=None, headers=None):
         data = None if body is None else json.dumps(body).encode()
-        req = urllib.request.Request(self.base + path, data=data, headers={"Content-Type": "application/json"})
+        request_headers = {"Content-Type": "application/json"}
+        request_headers.update(headers or {})
+        req = urllib.request.Request(self.base + path, data=data, headers=request_headers)
         try:
             response = urllib.request.urlopen(req, timeout=3)
         except urllib.error.HTTPError as exc:
@@ -74,7 +83,9 @@ class WorkHttpTests(unittest.TestCase):
         self.assertFalse(self.state.exists())
         self.assertEqual("claude:one", board["runtime"]["session_id"])
         self.assertIsNone(board["runtime"]["last_observed"])
-        self.assertEqual(200, self.request("/ca/work?session_id=codex:two")[0])
+        status, error = self.request("/ca/work?session_id=codex:two")
+        self.assertEqual(422, status)
+        self.assertEqual("invalid_request", error["error"])
         self.assertFalse(self.state.exists())
 
     def test_full_tree_mutations_and_conflict(self):
@@ -105,7 +116,9 @@ class WorkHttpTests(unittest.TestCase):
         self.assertEqual(3, len(board["nodes"]))
         self.assertEqual(2, len(board["root_ids"]))
         self.assertEqual(1, len(board["queue_ids"]))
-        self.assertEqual([], self.request("/ca/work?session_id=codex:two")[1]["nodes"])
+        status, error = self.request("/ca/work?session_id=codex:two")
+        self.assertEqual(422, status)
+        self.assertEqual("invalid_request", error["error"])
 
     def test_runtime_error_invalidation_has_no_error_body(self):
         errors = []
@@ -141,6 +154,170 @@ class WorkHttpTests(unittest.TestCase):
         self.assertEqual(before, sorted(str(p.relative_to(self.state)) for p in self.state.rglob("*")))
         self.assertEqual("invalid", store.path.read_text())
 
+    def test_current_identity_is_required_and_legacy_id_must_match(self):
+        from dataclasses import replace
+        original = self.controller.services
+        self.controller.services = replace(original, current_identity=lambda: None)
+        self.assertEqual(422, self.request()[0])
+        self.assertEqual(422, self.request("/ca/work/api/v1/openapi")[0])
+        self.assertEqual(422, self.request("/ca/work/nodes/add", {
+            "session_id": "claude:one", "expected_version": 0, "title": "x"})[0])
+        self.controller.services = original
+        self.assertFalse(self.state.exists())
+
+    def test_v1_reads_use_current_session_and_legacy_board_matches(self):
+        _, legacy = self.change("add", title="root", children=[{"title": "phase"}])
+        status, board = self.request("/ca/work/api/v1/board")
+        self.assertEqual(200, status)
+        self.assertEqual(legacy["nodes"], board["nodes"])
+        status, state = self.request("/ca/work/api/v1/state?session_id=claude:one")
+        self.assertEqual((200, legacy["version"]), (status, state["version"]))
+        status, queue = self.request("/ca/work/api/v1/queue")
+        self.assertEqual(200, status)
+        self.assertEqual("n1", queue["active"]["id"])
+        self.assertEqual([], queue["items"])
+        self.assertEqual(422, self.request("/ca/work/api/v1/board?session_id=codex:two")[0])
+        self.assertEqual("3.1.0", self.request("/ca/work/api/v1/openapi")[1]["openapi"])
+
+    def test_v1_operator_projections_are_redacted_and_current_session_scoped(self):
+        self.config.update({"work_mode": True, "work_auto_continue": False})
+        store = session_work_plan_store(self.state, "claude:one")
+        def seed(doc):
+            doc["side_reviews"] = {"a" * 64: {"state": "pending", "kind": "info",
+                "action": "answer", "summary": "review this", "reply": "private reply",
+                "source": {"authorization": "secret"}, "recorded_at": 1}}
+            doc["side_handoffs"] = {"b" * 64: {"state": "requested", "kind": "request",
+                "summary": "act on this", "question": "safe question", "reply_token": "secret"}}
+        store.transaction(seed)
+
+        status, settings = self.request("/ca/work/api/v1/settings")
+        self.assertEqual(200, status)
+        self.assertTrue(any(row["key"] == "work_mode" for row in settings["settings"]))
+        status, parallel = self.request("/ca/work/api/v1/parallel")
+        self.assertEqual(200, status)
+        self.assertEqual("claude:one", parallel["session_id"])
+        status, side = self.request("/ca/work/api/v1/side")
+        self.assertEqual(200, status)
+        serialized = json.dumps(side)
+        self.assertIn("review this", serialized)
+        self.assertNotIn("private reply", serialized)
+        self.assertNotIn("secret", serialized)
+        status, audit = self.request("/ca/work/api/v1/audit")
+        self.assertEqual((200, []), (status, audit["events"]))
+        self.assertEqual(422, self.request("/ca/work/api/v1/side?session_id=codex:two")[0])
+
+    def test_v1_operator_commands_update_settings_and_side_records(self):
+        status, result = self.request("/ca/work/api/v1/commands/settings-update", {
+            "key": "work_auto_continue", "value": "off"})
+        self.assertEqual(200, status)
+        self.assertFalse(self.config["work_auto_continue"])
+        self.assertTrue(self.saved_config)
+
+        store = session_work_plan_store(self.state, "claude:one")
+        def seed(doc):
+            doc["side_reviews"] = {"a" * 64: {"state": "pending", "kind": "info",
+                "action": "answer", "summary": "review", "reply": "private", "recorded_at": 1}}
+            doc["side_handoffs"] = {"b" * 64: {"state": "requested", "item_id": "n1",
+                "kind": "request", "summary": "handoff", "gates": []}}
+        store.transaction(lambda doc: tree.add_subtree(doc, None, {"title": "root"}))
+        store.transaction(seed)
+        version = store.read_snapshot()["version"]
+        status, reviewed = self.request("/ca/work/api/v1/commands/side-review", {
+            "receipt_ids": ["a" * 64], "verdict": "ok", "note": "", "expected_version": version})
+        self.assertEqual(200, status)
+        version = reviewed["result"]["version"]
+        status, handed = self.request("/ca/work/api/v1/commands/side-handoff", {
+            "event_id": "b" * 64, "answer": "handled", "expected_version": version})
+        self.assertEqual(200, status)
+        self.assertEqual("answered", handed["result"]["state"])
+
+    def test_v1_idempotency_cas_and_changed_request_conflict(self):
+        request = {"expected_version": 0, "goal": "goal", "children": [
+            {"title": "phase", "children": [{"title": "task"}]}]}
+        headers = {"Idempotency-Key": "create-goal"}
+        status, first = self.request("/ca/work/api/v1/commands/plan-set", request, headers)
+        self.assertEqual(200, status)
+        self.assertEqual(1, first["version"])
+        self.assertEqual(first, self.request("/ca/work/api/v1/commands/plan-set", request, headers)[1])
+        self.assertEqual(1, self.request()[1]["version"])
+        status, conflict = self.request("/ca/work/api/v1/commands/plan-set",
+            {**request, "goal": "different"}, headers)
+        self.assertEqual((409, "idempotency_conflict"), (status, conflict["error"]))
+        status, conflict = self.request("/ca/work/api/v1/commands/node-add",
+            {"expected_version": 0, "title": "stale", "operation_id": "stale-add"})
+        self.assertEqual((409, "version_conflict"), (status, conflict["error"]))
+
+    def test_v1_human_commands_queue_and_sibling_semantics(self):
+        def command(name, key, **body):
+            return self.request("/ca/work/api/v1/commands/" + name,
+                {"expected_version": self.request()[1]["version"], **body},
+                {"Idempotency-Key": key})
+        self.assertEqual(200, command("plan-set", "one", goal="one", children=[
+            {"title": "phase", "children": [{"title": "a"}, {"title": "b"}]}])[0])
+        self.assertEqual(200, command("plan-set", "two", goal="two")[0])
+        self.assertEqual(200, command("plan-set", "three", goal="three")[0])
+        board = self.request()[1]
+        ids = {node["title"]: node["id"] for node in board["nodes"]}
+        status, error = command("queue-position", "active-no-queue", root_id=ids["one"], queue_position=1)
+        self.assertEqual(422, status)
+        self.assertIn("not a waiting goal", error["message"])
+        self.assertEqual(200, command("queue-position", "queue-three", root_id=ids["three"], queue_position=1)[0])
+        self.assertEqual([ids["three"], ids["two"]], [row["id"] for row in self.request("/ca/work/api/v1/queue")[1]["items"]])
+        self.assertEqual(200, command("sibling-reorder", "move-b", id=ids["b"], position=1)[0])
+        board = self.request()[1]
+        self.assertEqual([ids["b"], ids["a"]], [n["id"] for n in board["nodes"] if n["parent_id"] == ids["phase"]])
+        self.assertEqual(404, command("node-remove", "missing", id="n999")[0])
+        self.assertEqual(200, command("node-update", "priority-two", id=ids["two"], priority="P1")[0])
+        self.assertEqual("P1", next(n for n in self.request()[1]["nodes"] if n["id"] == ids["two"])["priority"])
+
+    def test_v1_commands_match_mcp_tree_results(self):
+        from ciel_runtime_support import work_mcp_tools
+        mcp_state = Path(self.temp.name) / "mcp-state"
+        def mcp(name, **args):
+            result = work_mcp_tools.dispatch_work_tool(
+                1, name, dict(args, session_id="claude:one"), load_config=lambda: {}, state_dir=mcp_state,
+                respond=lambda _id, text, error=False: {"text": text, "error": error})
+            self.assertFalse(result["error"], result)
+        def rest(name, key, **body):
+            status, payload = self.request("/ca/work/api/v1/commands/" + name,
+                {"expected_version": self.request()[1]["version"], **body}, {"Idempotency-Key": key})
+            self.assertEqual(200, status, payload)
+        plan = {"children": [{"title": "phase", "children": [{"title": "a"}, {"title": "b"}]}]}
+        mcp("work_plan_set", goal="one", **plan)
+        rest("plan-set", "one", goal="one", **plan)
+        mcp("work_plan_set", goal="two")
+        rest("plan-set", "two", goal="two")
+        mcp("work_node_update", id="n1", note="scoped")
+        rest("node-update", "note", id="n1", note="scoped")
+        mcp("work_node_update", id="n5", priority="P2")
+        rest("node-update", "priority", id="n5", priority="P2")
+        mcp("work_select", root_id="n5", user_requested=True)
+        rest("active-select", "select", root_id="n5", user_requested=True)
+        def comparable(doc):
+            return {"active_root": doc["active_root"], "phase": doc["phase"], "nodes": [
+                {key: value for key, value in node.items() if key not in ("created_at", "updated_at")}
+                for node in doc["nodes"]]}
+        expected = comparable(session_work_plan_store(mcp_state, "claude:one").read_snapshot())
+        self.assertEqual(expected, comparable(session_work_plan_store(self.state, "claude:one").read_snapshot()))
+
+    def test_v1_execute_replan_select_focus_and_urgent(self):
+        def command(name, key, **body):
+            return self.request("/ca/work/api/v1/commands/" + name,
+                {"expected_version": self.request()[1]["version"], **body},
+                {"Idempotency-Key": key})
+        command("plan-set", "plan", goal="goal", children=[
+            {"title": "phase", "children": [{"title": "task"}]}])
+        self.assertEqual("executing", command("execute", "execute")[1]["result"]["phase"])
+        self.assertEqual("planning", command("replan", "replan", reason="revise")[1]["result"]["phase"])
+        command("node-add", "queued", title="queued")
+        board = self.request()[1]
+        queued = board["queue_ids"][0]
+        self.assertEqual(200, command("active-select", "select", root_id=queued, user_requested=True)[0])
+        self.assertEqual(200, command("focus", "focus", node_ids=[queued], user_requested=True)[0])
+        status, urgent = command("urgent", "urgent", goal="urgent", user_requested=True)
+        self.assertEqual(200, status)
+        self.assertTrue(urgent["result"]["urgent"])
+
     def test_sse_snapshot_then_mcp_store_commit_and_reconnect(self):
         response = urllib.request.urlopen(self.base + "/ca/work/events", timeout=4)
         def frame(stream):
@@ -152,6 +329,11 @@ class WorkHttpTests(unittest.TestCase):
                 lines.append(line)
         initial = frame(response)
         self.assertIn("event: work.snapshot", initial)
+        v1 = urllib.request.urlopen(self.base + "/ca/work/api/v1/events", timeout=4)
+        v1_initial = frame(v1)
+        self.assertIn("event: work.snapshot", v1_initial)
+        self.assertIn('"refetch": "/ca/work/api/v1/board"', str(v1_initial))
+        v1.close()
         store = session_work_plan_store(self.state, "claude:one")
         store.transaction(lambda d: tree.add_node(d, None, "MCP-equivalent commit"))
         changed = frame(response)
@@ -206,10 +388,11 @@ class WorkRouterAuthTests(WorkHttpTests):
         self.thread.start()
         self.base = "http://127.0.0.1:" + str(self.server.server_port)
 
-    def request(self, path="/ca/work", body=None, token="owned-admin"):
+    def request(self, path="/ca/work", body=None, headers=None, token="owned-admin"):
         data = None if body is None else json.dumps(body).encode()
-        req = urllib.request.Request(self.base + path, data=data, headers={
-            "Content-Type": "application/json", "Authorization": "Bearer " + token})
+        request_headers = {"Content-Type": "application/json", "Authorization": "Bearer " + token}
+        request_headers.update(headers or {})
+        req = urllib.request.Request(self.base + path, data=data, headers=request_headers)
         try:
             response = urllib.request.urlopen(req, timeout=3)
         except urllib.error.HTTPError as exc:

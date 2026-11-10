@@ -52,6 +52,13 @@ class WebBackendSettings:
     port: int = 0
     tailscale_https: bool = False
     workspace: str = ""
+    tls_mode: str = "http"
+    tls_cert_file: str = ""
+    tls_key_file: str = ""
+    tls_server_names: tuple[str, ...] = ()
+    acme_directory_url: str = ""
+    acme_profile: str = "shortlived"
+    acme_contacts: tuple[str, ...] = ()
 
     @property
     def client_host(self) -> str:
@@ -91,13 +98,30 @@ def web_backend_settings(
         if enabled_value is not None
         else bool(tailscale_https or host != "127.0.0.1" or port)
     )
+    tls_mode = str(values.get("tls_mode") or ("tailscale" if tailscale_https else "http")).strip().lower()
+    if tls_mode not in ("http", "tailscale", "certificate", "acme-ip"):
+        tls_mode = "http"
+    tls = values.get("tls") if isinstance(values.get("tls"), dict) else {}
+    cert_file = str(tls.get("cert_file") or "").strip()
+    key_file = str(tls.get("key_file") or "").strip()
+    server_names = tuple(dict.fromkeys(str(value).strip() for value in (tls.get("server_names") or ())
+                                       if str(value).strip()))
+    acme = values.get("acme") if isinstance(values.get("acme"), dict) else {}
+    acme_directory = str(acme.get("directory_url") or "").strip()
+    acme_profile = str(acme.get("profile") or "shortlived").strip()
+    acme_contacts = tuple(dict.fromkeys(str(value).strip() for value in (acme.get("contacts") or ())
+                                       if str(value).strip()))
+    if tls_mode == "tailscale":
+        tailscale_https = True
     saved_workspace = workspace_identity(values.get("workspace"))
     if target and saved_workspace and saved_workspace != target:
         port = effective_port if 1 <= effective_port <= 65535 else 0
         saved_workspace = target
     elif target and not saved_workspace:
         saved_workspace = target
-    return WebBackendSettings(enabled, host, port, tailscale_https, saved_workspace)
+    return WebBackendSettings(enabled, host, port, tailscale_https, saved_workspace, tls_mode,
+                              cert_file, key_file, server_names, acme_directory, acme_profile,
+                              acme_contacts)
 
 
 def current_web_workspace(
@@ -137,7 +161,8 @@ def load_saved_web_backend(path: os.PathLike[str] | str) -> WebBackendSettings:
 def web_backend_summary(config: dict[str, Any], effective_port: int) -> str:
     settings = web_backend_settings(config, current_web_workspace(), effective_port)
     port = settings.port or effective_port or int(config.get("_effective_web_port") or 0)
-    mode = " + Tailscale HTTPS" if settings.tailscale_https else ""
+    mode = " + " + {"tailscale": "Tailscale HTTPS", "certificate": "direct TLS",
+                      "acme-ip": "ACME IP TLS"}.get(settings.tls_mode, "") if settings.tls_mode != "http" else ""
     state = "on" if settings.enabled else "off"
     return f"{state} · {settings.host}:{port or 'auto'}{mode}"
 
@@ -158,10 +183,19 @@ def web_backend_panel_rows(
             f"Web backend  [{'on' if settings.enabled else 'off'}]",
             f"Web bind address  [{settings.host}]",
             f"Web port  [{port}]",
+            f"TLS mode  [{settings.tls_mode}]",
+            f"Certificate file  [{settings.tls_cert_file or 'not set'}]",
+            f"Private key file  [{'configured' if settings.tls_key_file else 'not set'}]",
+            f"TLS server names  [{', '.join(settings.tls_server_names) or 'not set'}]",
+            f"ACME directory  [{settings.acme_directory_url or 'not set'}]",
+            f"ACME profile  [{settings.acme_profile}]",
+            f"ACME contacts  [{', '.join(settings.acme_contacts) or 'not set'}]",
             f"Tailscale HTTPS  [{tailscale}]",
             "Back",
         ],
-        ["enabled", "host", "port", "tailscale", "back"],
+        ["enabled", "host", "port", "tls_mode", "tls_cert_file", "tls_key_file",
+         "tls_server_names", "acme_directory_url", "acme_profile", "acme_contacts",
+         "tailscale", "back"],
     )
 
 
@@ -178,6 +212,11 @@ def update_web_backend_config(
     host = current.host
     port = current.port
     tailscale_https = current.tailscale_https
+    tls_mode = current.tls_mode
+    tls = {"cert_file": current.tls_cert_file, "key_file": current.tls_key_file,
+           "server_names": list(current.tls_server_names)}
+    acme = {"directory_url": current.acme_directory_url, "profile": current.acme_profile,
+            "contacts": list(current.acme_contacts)}
     if key == "enabled":
         enabled = bool(value)
     elif key == "host":
@@ -188,8 +227,30 @@ def update_web_backend_config(
     elif key == "port":
         port = _valid_port(str(value), "web port")
         enabled = True
+    elif key == "tls_mode":
+        tls_mode = str(value).strip().lower()
+        if tls_mode not in ("http", "tailscale", "certificate", "acme-ip"):
+            raise ValueError("TLS mode must be http, tailscale, certificate, or acme-ip")
+        tailscale_https = tls_mode == "tailscale"
+        enabled = True
+    elif key in ("tls_cert_file", "tls_key_file"):
+        tls["cert_file" if key == "tls_cert_file" else "key_file"] = str(value).strip()
+        enabled = True
+    elif key == "tls_server_names":
+        tls["server_names"] = [item.strip() for item in str(value).split(",") if item.strip()]
+        enabled = True
+    elif key == "acme_directory_url":
+        acme["directory_url"] = str(value).strip()
+        enabled = True
+    elif key == "acme_profile":
+        acme["profile"] = str(value).strip() or "shortlived"
+        enabled = True
+    elif key == "acme_contacts":
+        acme["contacts"] = [item.strip() for item in str(value).split(",") if item.strip()]
+        enabled = True
     elif key == "tailscale":
         tailscale_https = bool(value)
+        tls_mode = "tailscale" if tailscale_https else "http"
         enabled = True
     else:
         raise ValueError(f"unknown web backend setting: {key}")
@@ -198,6 +259,9 @@ def update_web_backend_config(
         "host": host,
         "port": port or effective_port,
         "tailscale_https": tailscale_https,
+        "tls_mode": tls_mode,
+        "tls": tls,
+        "acme": acme,
         "workspace": target_workspace,
     }
     instances = config.setdefault("web_backends", {})
@@ -211,7 +275,7 @@ def update_web_backend_config(
     external = host in _WILDCARD_HOSTS or not _is_loopback(host)
     config["router_debug_external_access"] = external
     config["router_debug_external_access_confirmed"] = external
-    scheme = "https" if tailscale_https else "http"
+    scheme = "https" if tls_mode != "http" else "http"
     return [
         f"Web backend: {'on' if enabled else 'off'} · {host}:{port or effective_port}.",
         f"Tailscale HTTPS: {'on' if tailscale_https else 'off'}.",
@@ -608,6 +672,11 @@ def configure_requested_web_endpoints(
             f"{owner}:{saved.port or 'auto'}, current instance is "
             f"{current_workspace}:{router_port}"
         )
+    if saved.tls_mode in ("certificate", "acme-ip") and owned:
+        # Same port: TLS for external peers, plain HTTP only from this host.
+        for name in saved.tls_server_names:
+            lines.append(f"web_direct_tls: https://{_url_host(name)}:{router_port}/")
+        lines.append("web_direct_tls_plain_http: this host only")
     lines.extend(build_web_endpoint_report(client_host, bind_host, router_port).status_lines())
     return lines
 

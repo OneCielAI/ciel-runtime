@@ -39,6 +39,26 @@ def is_loopback_address(host: str | None) -> bool:
     )
 
 
+def request_from_forwarding_proxy(handler: RouterRequest) -> bool:
+    """Whether a local peer explicitly represents an externally forwarded request.
+
+    The built-in HTTPS frontends remove client-supplied forwarding headers before
+    adding their own. Treating such a request as ordinary loopback would bypass
+    the existing administrator/session authentication boundary.
+    """
+    try:
+        peer = str(handler.client_address[0])
+        if not is_loopback_address(peer):
+            return False
+        headers = handler.headers
+        return bool(str(headers.get("forwarded") or "").strip()
+                    or str(headers.get("x-forwarded-for") or "").strip()
+                    or str(headers.get("x-forwarded-proto") or "").strip()
+                    or str(headers.get("x-forwarded-host") or "").strip())
+    except Exception:
+        return False
+
+
 def router_request_bearer_token(handler: RouterRequest) -> str:
     try:
         authorization = str(
@@ -174,7 +194,8 @@ class RouterAccessPolicy:
         session_allowed: Callable[[RouterRequest], bool] | None = None,
     ) -> bool:
         try:
-            if is_loopback_address(str(handler.client_address[0])):
+            if (is_loopback_address(str(handler.client_address[0]))
+                    and not request_from_forwarding_proxy(handler)):
                 return True
         except Exception:
             return False
@@ -375,6 +396,7 @@ __all__ = [
     "RouterAccessMutationPorts",
     "RouterAccessPolicy",
     "RouterExternalTokenRepository",
+    "request_from_forwarding_proxy",
     "is_loopback_address",
     "router_request_bearer_token",
 ]

@@ -64,6 +64,33 @@ class RouterServerRuntimeTests(unittest.TestCase):
             self.assertIn("bridge-token", events)
             self.assertIn("serve", events)
 
+    def test_server_transport_is_configured_before_watchdog_and_services(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            events = []
+            raw = object()
+            class Wrapped:
+                def serve_forever(self):
+                    events.append("serve")
+                    raise RuntimeError("stop")
+            wrapped_server = Wrapped()
+            runtime = RouterServerRuntime(
+                RouterServerConfig(root, root / "router.pid", 8787, "base", root / "level", {}, object()),
+                RouterServerStatePorts(lambda: {"tls": True}, lambda: None, lambda _cfg: "127.0.0.1",
+                    lambda: 20, lambda: 1, lambda _name: None, lambda _cfg: False,
+                    lambda _cfg: False, lambda: "", lambda: ""),
+                RouterServerEffects(lambda _path, _mode: None, io.StringIO(),
+                    lambda _address, _handler: raw,
+                    lambda server: events.append(("watchdog", server)), lambda _host: [],
+                    lambda server, config: events.append(("transport", server, config)) or wrapped_server,
+                    lambda: events.append("services"), lambda: events.append("stopped")),
+            )
+            with self.assertRaisesRegex(RuntimeError, "stop"):
+                runtime.run()
+            self.assertIn(("transport", raw, {"tls": True}), events)
+            self.assertIn(("watchdog", wrapped_server), events)
+            self.assertLess(events.index(("transport", raw, {"tls": True})), events.index(("watchdog", wrapped_server)))
+
     def test_run_generates_only_tokens_for_enabled_external_modes(self):
         scenarios = (
             ({"remote_bridge": True}, ["bridge-token"]),

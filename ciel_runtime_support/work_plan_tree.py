@@ -114,6 +114,17 @@ def normalize_document(raw: Any) -> dict[str, Any]:
                 for key, row in reviews.items()):
             raise WorkPlanError('invalid side review records')
         doc['side_reviews'] = copy.deepcopy(reviews)
+    operations = raw.get('rest_operations')
+    if operations is not None:
+        if not isinstance(operations, dict) or len(operations) > 128 or any(
+                not isinstance(key, str) or not key or len(key) > 200
+                or not isinstance(row, dict) or len(str(row.get('digest', ''))) != 64
+                or not isinstance(row.get('command'), str)
+                or type(row.get('created_at')) not in (int, float)
+                or not isinstance(row.get('response'), dict)
+                for key, row in operations.items()):
+            raise WorkPlanError('invalid REST operation receipts')
+        doc['rest_operations'] = copy.deepcopy(operations)
     nodes = raw.get("nodes")
     if not isinstance(nodes, list):
         raise WorkPlanError("work plan nodes are not a list")

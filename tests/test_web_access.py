@@ -145,6 +145,28 @@ class WebAccessControllerTests(unittest.TestCase):
         self.login(password="wrong password")
         self.assertEqual(401, self.json[-1][0])
 
+    def test_forged_forwarded_proto_does_not_mark_direct_http_cookie_secure(self):
+        self.accounts.add("admin@example.com", "long password")
+        handler = FakeHandler(
+            "/ca/auth/login", command="POST", peer="127.0.0.1",
+            headers={"x-forwarded-proto": "https"},
+        )
+        self.controller.handle_post(handler, "/ca/auth/login", {
+            "email": "admin@example.com", "password": "long password"})
+
+        self.assertNotIn("; Secure", handler.header("set-cookie"))
+
+    def test_managed_forwarded_https_marks_cookie_secure(self):
+        self.accounts.add("admin@example.com", "long password")
+        handler = FakeHandler(
+            "/ca/auth/login", command="POST", peer="127.0.0.1",
+            headers={"x-forwarded-proto": "https", "x-ciel-runtime-forwarded": "1"},
+        )
+        self.controller.handle_post(handler, "/ca/auth/login", {
+            "email": "admin@example.com", "password": "long password"})
+
+        self.assertIn("; Secure", handler.header("set-cookie"))
+
     def test_cross_site_post_with_a_session_is_refused(self):
         self.accounts.add("admin@example.com", "long password")
         token = self.accounts.create_session("admin@example.com")

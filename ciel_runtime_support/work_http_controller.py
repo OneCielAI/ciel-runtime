@@ -11,7 +11,9 @@ from pathlib import Path
 from typing import Any, Callable
 
 from . import work_plan_tree as tree
+from .work_application import WorkApplication, WorkOperationConflict, openapi_document
 from .work_retention import retention_status
+from .work_live_settings import settings as live_settings
 from .work_mode_launch import work_mode_enabled, work_plan_approval_ask, work_auto_continue_enabled
 from .work_plan_store import WorkPlanConflict, session_work_plan_store, subscribe_work_plan_changes
 
@@ -28,6 +30,10 @@ class WorkHttpServices:
     write_json: Callable[..., None]
     instance_id: str
     recent_errors: Callable[[str], list[dict[str, Any]]] = lambda _identity: []
+    parallel_status: Callable[[str, dict[str, Any]], dict[str, Any]] = lambda _identity, _board: {
+        "version": 0, "policy": {}, "active_device": 0, "active_by_priority": {}, "leases": {}}
+    save_config: Callable[[dict[str, Any]], Any] | None = None
+    parallel_store: Callable[[], Any] | None = None
 
 
 class WorkHttpController:
@@ -36,13 +42,21 @@ class WorkHttpController:
         self._streams = threading.BoundedSemaphore(16)
 
     def _identity(self, value: Any) -> str:
-        if value is None:
-            value = self.services.current_identity()
-            if value is None:
-                raise tree.WorkPlanError("current conversation identity unavailable; supply session_id")
-        if not isinstance(value, str) or IDENTITY.fullmatch(value) is None:
-            raise tree.WorkPlanError("session_id must be exact claude:<id> or codex:<id>")
-        return value
+        current = self.services.current_identity()
+        if current is None:
+            raise tree.WorkPlanError("current conversation identity unavailable")
+        if not isinstance(current, str) or IDENTITY.fullmatch(current) is None:
+            raise tree.WorkPlanError("current conversation identity is invalid")
+        if value is not None:
+            if not isinstance(value, str) or IDENTITY.fullmatch(value) is None:
+                raise tree.WorkPlanError("session_id must be exact claude:<id> or codex:<id>")
+            if value != current:
+                raise tree.WorkPlanError("session_id must equal the current conversation identity")
+        return current
+
+    def _application(self, identity: str) -> WorkApplication:
+        cfg = self.services.load_config()
+        return WorkApplication(self._store(identity), approval_ask=work_plan_approval_ask(cfg))
 
     def _store(self, identity: str) -> Any:
         return session_work_plan_store(self.services.state_dir, identity)
@@ -62,7 +76,12 @@ class WorkHttpController:
         return payload
 
     def get(self, handler: Any, path: str) -> bool:
-        if path not in ("/ca/work", "/ca/work/runtime", "/ca/work/events", "/ca/work/help"):
+        legacy = ("/ca/work", "/ca/work/runtime", "/ca/work/events", "/ca/work/help")
+        v1 = ("/ca/work/api/v1/board", "/ca/work/api/v1/state", "/ca/work/api/v1/queue",
+              "/ca/work/api/v1/runtime", "/ca/work/api/v1/openapi", "/ca/work/api/v1/events",
+              "/ca/work/api/v1/settings", "/ca/work/api/v1/parallel", "/ca/work/api/v1/side",
+              "/ca/work/api/v1/audit")
+        if path not in (*legacy, *v1):
             return False
         query = urllib.parse.parse_qs(urllib.parse.urlsplit(handler.path).query, keep_blank_values=True)
         try:
@@ -73,18 +92,72 @@ class WorkHttpController:
             if len(supplied) != 1:
                 raise tree.WorkPlanError("supply session_id only once")
             identity = self._identity(supplied[0])
-            if path == "/ca/work/events":
-                self._stream(handler, identity, query)
-            elif path == "/ca/work/runtime":
+            if path == "/ca/work/api/v1/openapi":
+                # Even discovery is current-session scoped: fail closed when this
+                # router is not bound to an authoritative conversation.
+                self.services.write_json(handler, openapi_document())
+                return True
+            application = self._application(identity)
+            if path in ("/ca/work/events", "/ca/work/api/v1/events"):
+                self._stream(handler, identity, query, v1=path.startswith("/ca/work/api/v1/"))
+            elif path in ("/ca/work/runtime", "/ca/work/api/v1/runtime"):
                 runtime = self.services.runtime_status(identity)
                 runtime["errors"] = self.services.recent_errors(identity)
                 self.services.write_json(handler, {"ok": True, "schema_version": 1, "session_id": identity,
                                                    "runtime": runtime})
+            elif path == "/ca/work/api/v1/state":
+                self.services.write_json(handler, {"ok": True, "schema_version": 1, "session_id": identity,
+                    **application.state(enabled=work_mode_enabled(self.services.load_config()))})
+            elif path == "/ca/work/api/v1/queue":
+                self.services.write_json(handler, {"ok": True, "schema_version": 1, "session_id": identity,
+                    **application.queue()})
+            elif path == "/ca/work/api/v1/settings":
+                self.services.write_json(handler, {"ok": True, "schema_version": 1, "session_id": identity,
+                    **live_settings(self.services.load_config(), {}, None)})
+            elif path == "/ca/work/api/v1/parallel":
+                document = application.document()
+                self.services.write_json(handler, {"ok": True, "schema_version": 1, "session_id": identity,
+                    **self.services.parallel_status(identity, document)})
+            elif path == "/ca/work/api/v1/side":
+                document = application.document()
+                self.services.write_json(handler, self._side_projection(identity, document))
+            elif path == "/ca/work/api/v1/audit":
+                document = application.document()
+                self.services.write_json(handler, self._audit_projection(identity, document))
             else:
-                self.services.write_json(handler, self.board(identity))
+                board = self.board(identity)
+                if path == "/ca/work/api/v1/board":
+                    board["events"] = "/ca/work/api/v1/events"
+                self.services.write_json(handler, board)
         except (OSError, tree.WorkPlanError) as exc:
             self._error(handler, exc)
         return True
+
+    @staticmethod
+    def _side_projection(identity: str, document: dict[str, Any]) -> dict[str, Any]:
+        reviews = [{"receipt_id": key, **{field: row.get(field) for field in (
+            "state", "kind", "action", "item_id", "summary", "recorded_at", "reviewed_at", "verdict")
+            if row.get(field) is not None}}
+            for key, row in document.get("side_reviews", {}).items()]
+        handoffs = [{"event_id": key, **{field: row.get(field) for field in (
+            "state", "kind", "action", "item_id", "summary", "question", "requested_at", "answered_at")
+            if row.get(field) is not None}}
+            for key, row in document.get("side_handoffs", {}).items()]
+        return {"ok": True, "schema_version": 1, "session_id": identity,
+                "version": document["version"], "reviews": reviews[-100:], "handoffs": handoffs[-100:]}
+
+    @staticmethod
+    def _audit_projection(identity: str, document: dict[str, Any]) -> dict[str, Any]:
+        operations = sorted(({
+            "operation_id": key,
+            "command": row.get("command"),
+            "created_at": row.get("created_at"),
+            "version": (row.get("response") or {}).get("version"),
+            "changed": (row.get("response") or {}).get("changed"),
+        } for key, row in document.get("rest_operations", {}).items()),
+            key=lambda row: float(row.get("created_at") or 0), reverse=True)
+        return {"ok": True, "schema_version": 1, "session_id": identity,
+                "version": document["version"], "events": operations[:100]}
 
     def _error(self, handler: Any, exc: Exception) -> None:
         unavailable = isinstance(exc, OSError) or "stored" in str(exc) or "invalid Work plan" in str(exc) or "snapshot" in str(exc)
@@ -94,6 +167,16 @@ class WorkHttpController:
 
     def post(self, handler: Any, path: str, body: dict[str, Any]) -> bool:
         actions = {"/ca/work/nodes/" + n: n for n in ("add", "update", "remove", "reorder")}
+        commands = {"/ca/work/api/v1/commands/" + name.replace("_", "-"): name for name in (
+            "plan_set", "node_add", "node_update", "node_remove", "active_select", "execute", "replan",
+            "sibling_reorder", "queue_position", "focus", "urgent")}
+        operator_actions = {"/ca/work/api/v1/commands/" + name.replace("_", "-"): name for name in (
+            "settings_update", "parallel_configure", "parallel_orphans_preview", "parallel_orphans_apply",
+            "side_review", "side_handoff", "side_reply_retry")}
+        if path in operator_actions:
+            return self._post_operator(handler, operator_actions[path], body)
+        if path in commands:
+            return self._post_v1(handler, commands[path], body)
         if path not in actions:
             return False
         try:
@@ -153,7 +236,100 @@ class WorkHttpController:
             self._error(handler, exc)
         return True
 
-    def _stream(self, handler: Any, identity: str, query: dict[str, list[str]]) -> None:
+    def _post_v1(self, handler: Any, command: str, body: dict[str, Any]) -> bool:
+        identity = ""
+        try:
+            if not isinstance(body, dict):
+                raise tree.WorkPlanError("body must be an object")
+            identity = self._identity(body.get("session_id"))
+            if not work_mode_enabled(self.services.load_config()):
+                self.services.write_json(handler, {"ok": False, "error": "work_disabled"}, 409)
+                return True
+            header_key = handler.headers.get("Idempotency-Key")
+            body_key = body.get("operation_id")
+            if header_key is not None and body_key is not None and header_key != body_key:
+                raise tree.WorkPlanError("Idempotency-Key and operation_id must match")
+            payload = {key: value for key, value in body.items() if key not in ("session_id", "operation_id")}
+            response = self._application(identity).command(command, payload, header_key or body_key)
+            response["session_id"] = identity
+            self.services.write_json(handler, response)
+        except WorkOperationConflict as exc:
+            self.services.write_json(handler, {"ok": False, "error": "idempotency_conflict",
+                                               "message": str(exc)}, 409)
+        except WorkPlanConflict:
+            try:
+                current = self._store(identity).read_snapshot()["version"] if identity else None
+            except (OSError, tree.WorkPlanError):
+                current = None
+            self.services.write_json(handler, {"ok": False, "error": "version_conflict", "version": current}, 409)
+        except KeyError:
+            self.services.write_json(handler, {"ok": False, "error": "unknown_node"}, 404)
+        except (OSError, tree.WorkPlanError, ValueError) as exc:
+            self._error(handler, exc)
+        return True
+
+    def _post_operator(self, handler: Any, action: str, body: dict[str, Any]) -> bool:
+        try:
+            if not isinstance(body, dict):
+                raise tree.WorkPlanError("body must be an object")
+            identity = self._identity(body.get("session_id"))
+            if action == "settings_update":
+                if self.services.save_config is None:
+                    raise tree.WorkPlanError("Work settings are read-only")
+                result = live_settings(self.services.load_config(), {
+                    "key": body.get("key"), "value": body.get("value")}, self.services.save_config)
+            elif action == "parallel_configure":
+                if self.services.parallel_store is None:
+                    raise tree.WorkPlanError("parallel controls are unavailable")
+                store = self.services.parallel_store()
+                state, _ = store.configure(body.get("changes"), capability_ready=True,
+                                           expected_version=body.get("expected_version"))
+                result = self.services.parallel_status(identity, self._store(identity).read_snapshot())
+                if self.services.save_config is not None:
+                    config = self.services.load_config()
+                    config["work_parallel"] = state["policy"]
+                    self.services.save_config(config)
+            elif action in ("parallel_orphans_preview", "parallel_orphans_apply"):
+                if self.services.parallel_store is None:
+                    raise tree.WorkPlanError("parallel controls are unavailable")
+                from .work_parallel_mcp import _orphan_preview
+                store = self.services.parallel_store()
+                preview = _orphan_preview(store)
+                if action.endswith("preview"):
+                    result = preview
+                else:
+                    if body.get("preview_digest") != preview["digest"]:
+                        raise tree.WorkPlanError("stale or invalid orphan preview")
+                    row = next((item for item in preview["leases"]
+                                if item["lease_id"] == body.get("lease_id")), None)
+                    if row is None or row["owner_state"] != "dead":
+                        raise tree.WorkPlanError("only a positively dead owner can be released")
+                    observation = {"owner_state": row["owner_state"],
+                                   "observed_identity": row["observed_identity"]}
+                    state, _ = store.orphan_release(row["lease_id"], proof="authenticated web operator",
+                        observation=observation, expected_version=body.get("expected_version"))
+                    result = {"lease_id": row["lease_id"], "version": state["version"],
+                              "state": state["leases"][row["lease_id"]]["state"]}
+            elif action == "side_review":
+                from .side_review import review
+                result = review(self._store(identity), body.get("receipt_ids"), verdict=body.get("verdict"),
+                                note=body.get("note", ""), expected_version=body.get("expected_version"))
+            elif action == "side_handoff":
+                from .side_handoff import acknowledge
+                result = acknowledge(self._store(identity), body.get("event_id"), answer=body.get("answer", ""),
+                    activate=body.get("activate", False), clear_wait=body.get("clear_wait"),
+                    expected_version=body.get("expected_version"))
+            else:
+                from .side_reply_outbox import retry
+                result = retry(self.services.state_dir, identity, body.get("receipt_id"),
+                               body.get("expected_state"), body.get("confirmed", False))
+            self.services.write_json(handler, {"ok": True, "schema_version": 1,
+                                               "session_id": identity, "result": result})
+        except (OSError, tree.WorkPlanError, ValueError) as exc:
+            self._error(handler, exc)
+        return True
+
+    def _stream(self, handler: Any, identity: str, query: dict[str, list[str]], *, v1: bool = False) -> None:
         if not self._streams.acquire(blocking=False):
             self.services.write_json(handler, {"ok": False, "error": "stream_capacity"}, 429)
             return
@@ -179,14 +355,16 @@ class WorkHttpController:
             handler.end_headers()
             opened = True
             error_cursor = json.dumps(self.services.recent_errors(identity), sort_keys=True)
-            self._event(handler, identity, doc, "work.snapshot" if not cursor else "work.resync_required", previous)
+            refetch = "/ca/work/api/v1/board" if v1 else "/ca/work"
+            self._event(handler, identity, doc, "work.snapshot" if not cursor else "work.resync_required", previous,
+                        refetch=refetch)
             version = doc["version"]
             heartbeat = time.monotonic()
             while True:
                 wake.clear()
                 current = store.read_snapshot()
                 if current["version"] != version:
-                    self._event(handler, identity, current, "work.changed", version, doc)
+                    self._event(handler, identity, current, "work.changed", version, doc, refetch=refetch)
                     doc = current
                     version = current["version"]
                     heartbeat = time.monotonic()
@@ -197,8 +375,9 @@ class WorkHttpController:
                 latest_errors = self.services.recent_errors(identity)
                 serialized_errors = json.dumps(latest_errors, sort_keys=True)
                 if serialized_errors != error_cursor:
+                    runtime_refetch = "/ca/work/api/v1/runtime" if v1 else "/ca/work/runtime"
                     frame = chr(10).join(("event: runtime.error", "data: " + json.dumps({
-                        "session_id": identity, "refetch": "/ca/work/runtime"}), "", ""))
+                        "session_id": identity, "refetch": runtime_refetch}), "", ""))
                     handler.wfile.write(frame.encode("utf-8"))
                     handler.wfile.flush()
                     error_cursor = serialized_errors
@@ -215,9 +394,9 @@ class WorkHttpController:
             self._streams.release()
 
     def _event(self, handler: Any, identity: str, doc: dict[str, Any], kind: str, previous: int | None,
-               before: dict[str, Any] | None = None) -> None:
+               before: dict[str, Any] | None = None, *, refetch: str = "/ca/work") -> None:
         event = {"session_id": identity, "version": doc["version"], "previous_version": previous,
-                 "updated_at": doc["updated_at"], "refetch": "/ca/work", "coalesced": True}
+                 "updated_at": doc["updated_at"], "refetch": refetch, "coalesced": True}
         if before is not None:
             old = {n["id"]: n for n in before["nodes"]}
             new = {n["id"]: n for n in doc["nodes"]}
@@ -235,7 +414,11 @@ class WorkHttpController:
 
     @staticmethod
     def help_payload() -> dict[str, Any]:
-        return {"ok": True, "schema_version": 1, "board": "GET /ca/work?session_id=claude:<id>",
+        return {"ok": True, "schema_version": 1, "board": "GET /ca/work?session_id=<current identity>",
+                "v1": {"board": "GET /ca/work/api/v1/board", "state": "GET /ca/work/api/v1/state",
+                       "queue": "GET /ca/work/api/v1/queue", "runtime": "GET /ca/work/api/v1/runtime",
+                       "events": "GET /ca/work/api/v1/events", "openapi": "GET /ca/work/api/v1/openapi",
+                       "commands": "POST /ca/work/api/v1/commands/<command> with Idempotency-Key or operation_id"},
                 "runtime": "GET /ca/work/runtime", "events": "GET /ca/work/events",
                 "mutations": ["POST /ca/work/nodes/" + n for n in ("add", "update", "remove", "reorder")],
                 "authentication": "Existing administrator Bearer token or signed-in web account; external access must already be enabled.",

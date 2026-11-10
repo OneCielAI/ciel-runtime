@@ -2,10 +2,26 @@
 import json
 from pathlib import Path
 from .work_http_controller import WorkHttpController, WorkHttpServices
+from .work_parallel import WorkParallelStore
+from .work_parallel_mcp import project as project_parallel
+from .work_web_controller import WorkWebController
+
+
+class WorkHttpRoutes:
+    """Mount the data-free console shell beside the Work REST controller."""
+
+    def __init__(self, api, web=None):
+        self.api, self.web = api, web
+
+    def get(self, handler, path):
+        return bool(self.web is not None and self.web.handle_get(handler, path)) or self.api.get(handler, path)
+
+    def post(self, handler, path, body):
+        return self.api.post(handler, path, body)
 
 
 def build_work_http(state_dir, instance_dir, load_config, current_provider, current_alias,
-                    write_json, version, fingerprint, instance_id, observer):
+                    write_json, version, fingerprint, instance_id, observer, save_config=None, write_text=None):
     def read_scope():
         try:
             value = json.loads((Path(instance_dir) / "compaction-scope.json").read_text(encoding="utf-8"))
@@ -33,5 +49,14 @@ def build_work_http(state_dir, instance_dir, load_config, current_provider, curr
         error = runtime_status(identity).get("last_error")
         return [error] if error else []
 
-    return WorkHttpController(WorkHttpServices(state_dir, load_config, current_identity,
-        runtime_status, write_json, instance_id, recent_errors))
+    def parallel_store():
+        from .runtime_paths import CONFIG_DIR
+        return WorkParallelStore(Path(CONFIG_DIR) / "work-parallel.json")
+
+    def parallel_status(identity, board):
+        return project_parallel(parallel_store(), identity, board)
+
+    api = WorkHttpController(WorkHttpServices(state_dir, load_config, current_identity,
+        runtime_status, write_json, instance_id, recent_errors, parallel_status,
+        save_config, parallel_store))
+    return WorkHttpRoutes(api, WorkWebController(write_text) if write_text is not None else None)

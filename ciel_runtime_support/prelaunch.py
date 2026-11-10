@@ -870,6 +870,23 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                             "tailscale",
                             not web_config.tailscale_https,
                         )
+                    elif value in {"tls_mode", "tls_cert_file", "tls_key_file", "tls_server_names",
+                                   "acme_directory_url", "acme_profile", "acme_contacts"}:
+                        defaults = {
+                            "tls_mode": web_config.tls_mode,
+                            "tls_cert_file": web_config.tls_cert_file,
+                            "tls_key_file": "",
+                            "tls_server_names": ",".join(web_config.tls_server_names),
+                            "acme_directory_url": web_config.acme_directory_url,
+                            "acme_profile": web_config.acme_profile,
+                            "acme_contacts": ",".join(web_config.acme_contacts),
+                        }
+                        entered = prompt_menu_value(
+                            value.replace("_", " ").title(), defaults[value],
+                            restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
+                        if not entered:
+                            continue
+                        messages = set_web_backend_config(value, entered)
                     else:
                         continue
                     return PRELAUNCH_RELOAD

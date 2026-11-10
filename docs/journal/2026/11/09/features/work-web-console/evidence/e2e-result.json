@@ -1,0 +1,15 @@
+{
+  "base": "http://127.0.0.1:63161",
+  "session": "claude:owned-work-web-e2e",
+  "login_url": "http://127.0.0.1:63161/ca/login?next=%2Fca%2Fwork%2Fui",
+  "login_title": "Ciel Runtime \u00b7 Sign in",
+  "login_html": "<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"utf-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>Ciel Runtime \u00b7 Sign in</title>\n<style>\n:root { color-scheme: dark; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif; }\nbody { margin: 0; background: #090b0f; color: #e8edf4; }\nheader { padding: 18px 24px; border-bottom: 1px solid #253044; background: #101722; display: flex; justify-content: space-between; align-items: center; gap: 12px; ",
+  "external_service_version": 4,
+  "browser_sse_saw_external_goal": true,
+  "stale_status": 409,
+  "stale_error": "version_conflict",
+  "mobile_scroll_width": 390,
+  "mobile_viewport": 390,
+  "page_errors": [],
+  "final_version": 4
+}

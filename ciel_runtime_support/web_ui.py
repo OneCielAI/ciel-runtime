@@ -1991,6 +1991,7 @@ def render_router_home_page(
 ) -> str:
     links = [
         ("Events UI", "/ca/events", "Live router event stream with filters"),
+        ("Work Console", "/ca/work/ui", "Live current-session Work tree, queue and operator controls"),
         ("Work API", "/ca/work", "Current Work board with runtime/model/build metadata"),
         ("Work API help", "/ca/work/help", "Authenticated queue and all-depth item mutations, CAS and change SSE"),
         ("Admin", "/ca/admin", "OAuth tokens, web accounts and the admin API token"),

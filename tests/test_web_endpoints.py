@@ -49,6 +49,35 @@ class WebEndpointTests(unittest.TestCase):
         ):
             self.assertTrue(web_backend_start_requested(config))
 
+    def test_direct_tls_and_acme_settings_are_workspace_scoped(self):
+        manual = web_backend_settings({"web_backend": {"enabled": True, "tls_mode": "certificate",
+            "tls": {"cert_file": "cert.pem", "key_file": "key.pem",
+                    "server_names": ["api.example.test", "api.example.test"]}}})
+        self.assertEqual("certificate", manual.tls_mode)
+        self.assertEqual(("api.example.test",), manual.tls_server_names)
+        self.assertEqual("cert.pem", manual.tls_cert_file)
+        acme = web_backend_settings({"web_backend": {"enabled": True, "tls_mode": "acme-ip",
+            "acme": {"directory_url": "https://acme.test/directory", "profile": "shortlived",
+                     "contacts": ["mailto:ops@example.test"]}}})
+        self.assertEqual("acme-ip", acme.tls_mode)
+        self.assertEqual("shortlived", acme.acme_profile)
+        self.assertEqual(("mailto:ops@example.test",), acme.acme_contacts)
+
+    def test_menu_updates_direct_tls_and_acme_fields_without_exposing_key_content(self):
+        config = {}
+        update_web_backend_config(config, "tls_mode", "acme-ip", 9464)
+        update_web_backend_config(config, "tls_server_names", "203.0.113.8", 9464)
+        update_web_backend_config(config, "acme_directory_url", "https://acme.test/directory", 9464)
+        update_web_backend_config(config, "acme_contacts", "mailto:ops@example.test", 9464)
+        settings = web_backend_settings(config)
+        self.assertEqual("acme-ip", settings.tls_mode)
+        self.assertEqual(("203.0.113.8",), settings.tls_server_names)
+        self.assertEqual(("mailto:ops@example.test",), settings.acme_contacts)
+        update_web_backend_config(config, "tls_key_file", "C:/private/key.pem", 9464)
+        rows, _ = web_backend_panel_rows(config, 9464)
+        self.assertIn("configured", rows[5])
+        self.assertNotIn("C:/private/key.pem", json.dumps(rows))
+
     def test_previous_nightly_tailscale_setting_migrates_to_enabled(self):
         settings = web_backend_settings(
             {
@@ -144,6 +173,21 @@ class WebEndpointTests(unittest.TestCase):
 
         configure.assert_called_once_with(9234, None)
         self.assertEqual(["configured", "web: local"], lines)
+
+    @mock.patch("ciel_runtime_support.web_endpoints.build_web_endpoint_report")
+    @mock.patch("ciel_runtime_support.web_endpoints.configure_tailscale_https")
+    def test_direct_certificate_mode_reports_https_names_on_router_port(self, configure, report):
+        report.return_value.status_lines.return_value = ["web: local"]
+        lines = configure_requested_web_endpoints(
+            9234, "127.0.0.1", "0.0.0.0", environ={},
+            config={"web_backend": {"enabled": True, "host": "0.0.0.0", "port": 9234,
+                                    "tls_mode": "certificate",
+                                    "tls": {"server_names": ["router.example.test", "2001:db8::7"]}}},
+        )
+        configure.assert_not_called()
+        self.assertEqual(["web_direct_tls: https://router.example.test:9234/",
+                          "web_direct_tls: https://[2001:db8::7]:9234/",
+                          "web_direct_tls_plain_http: this host only", "web: local"], lines)
 
     @mock.patch("ciel_runtime_support.web_endpoints.build_web_endpoint_report")
     @mock.patch("ciel_runtime_support.web_endpoints.configure_tailscale_https")
@@ -286,9 +330,11 @@ class WebEndpointTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            ["enabled", "host", "port", "tailscale", "back"], values
+            ["enabled", "host", "port", "tls_mode", "tls_cert_file", "tls_key_file",
+             "tls_server_names", "acme_directory_url", "acme_profile", "acme_contacts",
+             "tailscale", "back"], values
         )
-        self.assertIn("host.example.ts.net:9234", rows[3])
+        self.assertIn("host.example.ts.net:9234", rows[10])
 
     @mock.patch("ciel_runtime_support.web_endpoints.shutil.which", return_value="tailscale")
     @mock.patch("ciel_runtime_support.web_endpoints.subprocess.run")

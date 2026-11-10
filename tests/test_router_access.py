@@ -105,6 +105,22 @@ class RouterAccessTests(unittest.TestCase):
         self.assertFalse(policy.external_access_enabled())
         self.assertEqual("127.0.0.1", policy.bind_host())
 
+    def test_forwarded_loopback_request_does_not_bypass_external_auth(self):
+        config = {
+            "router_debug_external_access": True,
+            "router_debug_external_access_confirmed": True,
+        }
+        policy = self.policy(config=config)
+        proxied = SimpleNamespace(
+            client_address=("127.0.0.1", 1),
+            path="/ca/work/ui",
+            headers={"x-forwarded-proto": "https", "x-forwarded-for": "192.0.2.9"},
+        )
+
+        self.assertFalse(policy.request_allowed(proxied, config, lambda: "admin-token", lambda: "bridge"))
+        proxied.headers["Authorization"] = "Bearer admin-token"
+        self.assertTrue(policy.request_allowed(proxied, config, lambda: "admin-token", lambda: "bridge"))
+
     def test_request_auth_allows_loopback_and_compares_external_token(self):
         config = {
             "router_debug_external_access": True,

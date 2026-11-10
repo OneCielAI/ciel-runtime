@@ -1,0 +1,109 @@
+=== unit ===
+.Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+.Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+.Ciel Runtime: restarting Claude Code source=ciel-runtime-router-tool reason=deploy
+.Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+.Ciel Runtime: restarting Codex app-server and TUI source=ciel-runtime-router-tool reason=deploy thread=(new)
+.Ciel Runtime: restarting Codex app-server and TUI source=ciel-runtime-router-tool reason=deploy thread=01a0-saved
+..Ciel Work mode is on: the model plans first (work_plan_set) and edits after work_execute. Turn off: ciel-runtime menu -> LLM options -> Work mode.
+Ciel Runtime: restarting Codex source=ciel-runtime-router-tool reason=deploy
+............................................................................................ciel-runtime restart-session: queued request_id=r1 client_pid=42 workspace=- resume=false
+ciel-runtime restart-session: no active CLI session is running through ciel-runtime
+ciel-runtime restart-session: multiple CLI sessions are active; select one:
+  --pid 1  workspace=C:/work router_port=9611 started=-
+  --pid 2  workspace=C:/work router_port=9611 started=-
+ciel-runtime restart-session: queued request_id=r1 client_pid=50788 workspace=C:/work resume=true
+ciel-runtime restart-session: client pid 99 is not an active CLI session
+ciel-runtime restart-session: queued request_id=r1 client_pid=7 workspace=- resume=true
+owned-pipeline mismatch reset= False reason= no_sse_delivery_problem queued= 0 coverage= complete
+owned-pipeline recent_B reset= False reason= no_sse_delivery_problem queued= 1 coverage= complete
+owned-pipeline terminal_B reset= False reason= restart_evidence_insufficient queued= 0 coverage= complete
+owned-pipeline uncertain_B reset= False reason= restart_evidence_insufficient queued= 0 coverage= complete
+owned-pipeline removed reset= False reason= no_sse_delivery_problem queued= 0 coverage= complete
+owned-pipeline corrupt_queue reset= False reason= restart_evidence_insufficient queued= 1 coverage= partial
+owned-pipeline torn_queue reset= False reason= restart_evidence_insufficient queued= 1 coverage= partial
+owned-pipeline partial_history reset= False reason= restart_evidence_insufficient queued= 1 coverage= partial
+owned-pipeline changed_history reset= False reason= restart_evidence_insufficient queued= 1 coverage= partial
+owned-pipeline reuse reset= False reason= restart_evidence_insufficient queued= 0 coverage= complete
+owned-pipeline retained_stale reset= True reason= sse_delivery_recovery_queued queued= 1 coverage= complete
+owned-pipeline cooldown reset= True reason= sse_delivery_recovery_queued queued= 1 coverage= complete
+owned-pipeline uncertain_restart reset= False reason= restart_failed:OSError queued= 1 coverage= complete
+Ciel Runtime: backing up the session (pre-restart)...
+Ciel Runtime: session backup x saved
+...........................................................................................................................................................................................................................................................................................................s.......................s.....................................................................................................................................................................................................................................................................................................................................s............................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+----------------------------------------------------------------------
+Ran 3530 tests in 393.671s
+
+OK (skipped=50)
+owned_provider_counts=['old', 'recent'] selected=35% work_version=99 upstream=200
+loopback_stall elapsed=0.157s socket_timeout=0.150s opens=1 retries=0 handled=True
+real_empty_gateway HTTP502 bytes=0 -> HTTP200 hits=2 retry=1
+Native ConPTY: child exit=7; raw 9001h observed; parent enable blocked; final 9001l observed
+exit=0
+=== router ===
+Running router test group (113 files)
+...........................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................responses_loopback failure=timeout retries=2 success=True upstream_hits=2 http_status=200 status_blocks=1 sse_error_frames=0 bytes=211
+responses_loopback failure=timeout retries=2 success=False upstream_hits=3 http_status=504 status_blocks=1 sse_error_frames=1 bytes=108
+responses_loopback failure=timeout retries=0 success=False upstream_hits=1 http_status=504 status_blocks=1 sse_error_frames=1 bytes=108
+responses_loopback failure=504 retries=2 success=True upstream_hits=2 http_status=200 status_blocks=1 sse_error_frames=0 bytes=211
+responses_loopback failure=504 retries=2 success=False upstream_hits=3 http_status=504 status_blocks=1 sse_error_frames=1 bytes=230
+responses_loopback failure=504 retries=0 success=False upstream_hits=1 http_status=504 status_blocks=1 sse_error_frames=1 bytes=230
+Kimi Code OAuth login is required for first launch.
+.....................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................
+----------------------------------------------------------------------
+Ran 1552 tests in 681.722s
+
+OK
+exit=0
+=== channel ===
+Running channel test group (36 files)
+....sss.s....s.........ssssss............sssssssssssssssss....sss.....................................ss..................................s...ssssssssssssssssssssssss........ssss.....ssssssssssssssssss......................................................................................................................................................................................................................................................................................................................................................................................................................
+----------------------------------------------------------------------
+Ran 607 tests in 15.665s
+
+OK (skipped=80)
+exit=0
+=== runtime ===
+................................Ciel Runtime AGY passthrough mapping:
+- --resume <session> -> --conversation <session>
+................................Ciel Runtime: restarting Codex app-server and TUI source=mcp reason=- thread=saved
+......Ciel Runtime: restarting Codex app-server and TUI source=mcp reason=deploy thread=01a0-saved
+..Ciel Runtime: restarting Codex app-server and TUI source=mcp reason=- thread=(new)
+...codex-remote needs a ws:// app-server listen address, got stdio://
+.Codex app-server port ws://127.0.0.1:19961 is still owned by another process; not starting a second server.
+.Ciel Runtime: restarting Codex app-server and TUI source=mcp reason=- thread=(new)
+...Codex app-server did not become ready at ws://127.0.0.1:19961; see C:\Users\djlov\AppData\Local\Temp\tmpogir1ua7\codex-remote\ws1\app-server.log
+.Ciel Runtime: restarting Codex app-server and TUI source=mcp reason=- thread=(new)
+.Ciel Runtime: restarting Codex app-server and TUI source=mcp reason=- thread=(new)
+.........................................................................................................Codex desktop app not found. Install it from the Microsoft Store (OpenAI Codex) or set CIEL_RUNTIME_CODEX_DESKTOP_EXE to its ChatGPT.exe.
+.Codex app-server ready: ws://127.0.0.1:9489
+Codex desktop app started. Close its window to end this session.
+.Codex app-server did not become ready at http://127.0.0.1:1/readyz; see C:\Users\djlov\AppData\Local\Temp\tmpag7l__yh\cfg\codex-desktop\ws1\logs\app-server.log
+............................ssss..............ss.........................s.......s.s.sssssss...........................Launching Codex App Server through Ciel Runtime.
+Codex App Server listen: ws://127.0.0.1:8899
+Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+.Launching Codex App Server through Ciel Runtime.
+Codex App Server listen: ws://127.0.0.1:8899
+Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+.Launching Codex App Server through Ciel Runtime.
+Codex App Server listen: ws://127.0.0.1:8899
+Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+.Launching Codex App Server through Ciel Runtime.
+Codex App Server listen: ws://127.0.0.1:8899
+Standalone Codex app-server: no conversation TUI. Waiting for a WebSocket JSON-RPC client.
+HTTP status (not a web chat UI): http://127.0.0.1:8899/readyz
+HTTP status (not a web chat UI): http://127.0.0.1:8899/healthz
+.s..s........s.....................................................................................................................................
+----------------------------------------------------------------------
+Ran 458 tests in 46.000s
+
+OK (skipped=19)
+exit=0
+
+[exited with code 0]

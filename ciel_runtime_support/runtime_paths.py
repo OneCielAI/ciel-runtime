@@ -160,6 +160,8 @@ def release_current_launch_lease() -> bool:
     )
 
 
+# Direct TLS modes keep plain HTTP for loopback clients on the same port
+# (web_tls_runtime.admit_connection); only external peers must use HTTPS.
 ROUTER_BASE = f"http://{ROUTER_HOST}:{ROUTER_PORT}"
 ROUTER_INSTANCE_ID = f"{ROUTER_PORT}-{_WORKSPACE_DIGEST}"
 # A launching router exports CIEL_RUNTIME_STATE_DIR so its client shares the
