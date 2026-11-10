@@ -36,3 +36,7 @@ Passed in the owned, isolated source-tree browser run. The API uses a top-level 
 - Screenshots: [desktop list](evidence/00-side-receipts-desktop.png), [redacted detail](evidence/01-side-receipt-redacted-detail.png), [mobile 390 px](evidence/06-side-receipts-mobile-390.png).
 - Focused automated tests: receipt projection, controller and UI — 33 passed, 1 skipped; browser-enabled UI/controller set — 43 passed.
 - Side duplicate-processing regressions: source-message grounding, no P1-update duplicate handoff, and question-only coordinator follow-up — 46 passed.
+- Four isolated test groups: unit 3,591 (51 skipped), router 1,552, channel 607 (80 skipped), runtime 458 (19 skipped); all passed.
+- Published beta `0.2.51-beta.20261110-215246.09f0c4c`: CI and npm publish passed; registry gitHead and SHA-512 integrity matched commit `09f0c4c`; latest `0.2.51` and nightly `0.2.51-nightly.20261106-020333.c00c8b6` were unchanged.
+- Local install: the immutable snapshot and npm global install matched on all 573 files; future launches point at the snapshot. No live session was restarted.
+- Installed snapshot browser proof: [result](evidence/e2e-side-receipts-result-installed.json), 38/38 checks passed, no page errors, three `side.changed` frames; seven screenshots including [desktop](evidence/00-side-receipts-desktop-installed.png), [detail](evidence/01-side-receipt-redacted-detail-installed.png), and [mobile 390 px](evidence/06-side-receipts-mobile-390-installed.png).

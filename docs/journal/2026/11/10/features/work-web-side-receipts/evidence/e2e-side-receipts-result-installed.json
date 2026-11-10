@@ -1,0 +1,490 @@
+{
+  "runtime_root": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-09f0c4c558732f5c565f8deea8acdaec1d25c4fc",
+  "page_size": 25,
+  "fillers": 57,
+  "checks": {
+    "seed_route_unavailable": {
+      "ok": true
+    },
+    "seed_duplicate_source_settled": {
+      "ok": true
+    },
+    "seed_secrets_on_disk": {
+      "ok": true
+    },
+    "seed_quarantined": {
+      "ok": true
+    },
+    "seed_exact_duplicate_same_receipt": {
+      "ok": true
+    },
+    "seed_p1_priority": {
+      "ok": true
+    },
+    "first_page_is_one_page": {
+      "ok": true,
+      "detail": 25
+    },
+    "first_page_excludes_oldest": {
+      "ok": true
+    },
+    "load_older_offered": {
+      "ok": true
+    },
+    "every_state_rendered": {
+      "ok": true,
+      "detail": {
+        "p1_processed": [
+          "P1",
+          "processed",
+          "pending",
+          "n3",
+          "11/10/2026, 4:00:30 PM"
+        ],
+        "sent": [
+          "processed",
+          "submitted",
+          "11/10/2026, 4:00:30 PM"
+        ],
+        "route_unavailable": [
+          "processed",
+          "route_unavailable",
+          "11/10/2026, 4:00:30 PM"
+        ],
+        "delivery_failed": [
+          "processed",
+          "failed",
+          "11/10/2026, 4:00:30 PM"
+        ],
+        "duplicate_source": [
+          "duplicate",
+          "duplicate_source",
+          "11/10/2026, 4:00:31 PM"
+        ],
+        "secret": [
+          "processed",
+          "pending",
+          "11/10/2026, 4:00:31 PM"
+        ],
+        "quarantined": [
+          "quarantined",
+          "11/10/2026, 4:00:31 PM"
+        ],
+        "processing": [
+          "processing",
+          "11/10/2026, 4:00:31 PM"
+        ],
+        "retryable": [
+          "failed",
+          "11/10/2026, 4:00:31 PM"
+        ],
+        "received": [
+          "received",
+          "11/10/2026, 4:00:31 PM"
+        ],
+        "p1_received": [
+          "P1",
+          "received",
+          "11/10/2026, 4:00:31 PM"
+        ]
+      }
+    },
+    "p1_rendered": {
+      "ok": true
+    },
+    "exact_duplicate_one_row": {
+      "ok": true
+    },
+    "list_json_redacted": {
+      "ok": true,
+      "detail": []
+    },
+    "detail_json_redacted": {
+      "ok": true,
+      "detail": []
+    },
+    "detail_keeps_original_text": {
+      "ok": true
+    },
+    "detail_opaque_keys_omitted": {
+      "ok": true,
+      "detail": "opaque keys absent from detail JSON"
+    },
+    "detail_dom_redacted": {
+      "ok": true,
+      "detail": []
+    },
+    "route_unavailable_detail": {
+      "ok": true
+    },
+    "quarantine_detail": {
+      "ok": true
+    },
+    "live_arrival_without_click": {
+      "ok": true,
+      "detail": {
+        "seconds": 1.0,
+        "meta": [
+          "received",
+          "11/10/2026, 4:00:35 PM"
+        ]
+      }
+    },
+    "live_arrival_on_top": {
+      "ok": true
+    },
+    "live_processing_to_processed_without_click": {
+      "ok": true,
+      "detail": {
+        "seconds": 0.172,
+        "meta": [
+          "processed",
+          "pending",
+          "11/10/2026, 4:00:31 PM"
+        ]
+      }
+    },
+    "draft_preserved": {
+      "ok": true
+    },
+    "draft_defers_rerender": {
+      "ok": true
+    },
+    "refresh_shows_deferred_receipt": {
+      "ok": true
+    },
+    "stage_filter_quarantined": {
+      "ok": true,
+      "detail": [
+        "00208f9db228bb38ef80aaaab4359e317a834c2c46090757b0633ba167802ca1"
+      ]
+    },
+    "stage_filter_duplicate": {
+      "ok": true,
+      "detail": [
+        "e9cf60e842dc4a11d95d162f499f9cb66a39ba953b656bf9ef4cf3c5d8b66558"
+      ]
+    },
+    "priority_scope_p1": {
+      "ok": true,
+      "detail": [
+        "02b56cb94b5846809f168565091c059315cece0fd3798c8195eab8f2d35419fc",
+        "d1ee7bb2050ca50c5b5261b62a326302e876eb9b448604b8693bf70f6951df43"
+      ]
+    },
+    "search_by_text": {
+      "ok": true,
+      "detail": [
+        "b7ab0b09e2f55a610bf46b151a8d6f5b300b2b3be3c7022b50712206d2918318"
+      ]
+    },
+    "search_reaches_older_pages": {
+      "ok": true,
+      "detail": 1
+    },
+    "search_by_receipt_id": {
+      "ok": true,
+      "detail": [
+        "b7ab0b09e2f55a610bf46b151a8d6f5b300b2b3be3c7022b50712206d2918318"
+      ]
+    },
+    "load_older_available_page_2": {
+      "ok": true
+    },
+    "load_older_available_page_3": {
+      "ok": true
+    },
+    "load_older_reaches_oldest": {
+      "ok": true,
+      "detail": {
+        "pages": 3,
+        "rows": 71
+      }
+    },
+    "load_older_complete": {
+      "ok": true
+    },
+    "mobile_390_no_overflow": {
+      "ok": true,
+      "detail": {
+        "width": 390,
+        "scrollWidth": 390,
+        "bodyScrollWidth": 390,
+        "offenders": []
+      }
+    },
+    "side_changed_frames_seen": {
+      "ok": true,
+      "detail": 3
+    },
+    "no_page_errors": {
+      "ok": true,
+      "detail": []
+    }
+  },
+  "seed_seconds": 3.62,
+  "seeded": {
+    "oldest": "2721403a2ce4234813a4d689c74ab6be71b920aef6344bf742012e6f7044b9b0",
+    "p1_processed": "d1ee7bb2050ca50c5b5261b62a326302e876eb9b448604b8693bf70f6951df43",
+    "sent": "9a66349e0e53ca0f14ae8acdb2e2ae9ad527183043eab1ff72b2e2d82667e298",
+    "route_unavailable": "5f9585293c06ae06af87c9e337bf7075e2f69fd55ef076d64ffa15c4bd79921b",
+    "delivery_failed": "57cd80a797dd05d07d1d0104904265e3142158cc66b560e0396f45fb68dfaf1a",
+    "source_first": "e57cc8be09bfed384129c98a0fc839dacf022d281f46e39784403be1bcc0812d",
+    "duplicate_source": "e9cf60e842dc4a11d95d162f499f9cb66a39ba953b656bf9ef4cf3c5d8b66558",
+    "secret": "b7ab0b09e2f55a610bf46b151a8d6f5b300b2b3be3c7022b50712206d2918318",
+    "quarantined": "00208f9db228bb38ef80aaaab4359e317a834c2c46090757b0633ba167802ca1",
+    "processing": "5ee7572160b23d6b89ca395f2e34e4064ae4e488fed50553bd7e18797686357e",
+    "retryable": "0d6309d9e2a7983d456d361fec8187c528195d074ab400db3333c395bb69be8e",
+    "received": "e394114a3e69d5d091def43a1bef377b4a056ec0e61ec6dedf7412611e0e5d09",
+    "p1_received": "02b56cb94b5846809f168565091c059315cece0fd3798c8195eab8f2d35419fc"
+  },
+  "first_page_meta": {
+    "p1_processed": [
+      "P1",
+      "processed",
+      "pending",
+      "n3",
+      "11/10/2026, 4:00:30 PM"
+    ],
+    "sent": [
+      "processed",
+      "submitted",
+      "11/10/2026, 4:00:30 PM"
+    ],
+    "route_unavailable": [
+      "processed",
+      "route_unavailable",
+      "11/10/2026, 4:00:30 PM"
+    ],
+    "delivery_failed": [
+      "processed",
+      "failed",
+      "11/10/2026, 4:00:30 PM"
+    ],
+    "duplicate_source": [
+      "duplicate",
+      "duplicate_source",
+      "11/10/2026, 4:00:31 PM"
+    ],
+    "secret": [
+      "processed",
+      "pending",
+      "11/10/2026, 4:00:31 PM"
+    ],
+    "quarantined": [
+      "quarantined",
+      "11/10/2026, 4:00:31 PM"
+    ],
+    "processing": [
+      "processing",
+      "11/10/2026, 4:00:31 PM"
+    ],
+    "retryable": [
+      "failed",
+      "11/10/2026, 4:00:31 PM"
+    ],
+    "received": [
+      "received",
+      "11/10/2026, 4:00:31 PM"
+    ],
+    "p1_received": [
+      "P1",
+      "received",
+      "11/10/2026, 4:00:31 PM"
+    ]
+  },
+  "detail_fields": [
+    "action",
+    "claimed_at",
+    "consumed_at",
+    "decision",
+    "delivery",
+    "failure",
+    "fallback",
+    "handoff",
+    "kind",
+    "latency_seconds",
+    "original",
+    "original_truncated",
+    "quarantined",
+    "recap",
+    "receipt_id",
+    "received_at",
+    "released_waits",
+    "source",
+    "stage"
+  ],
+  "side_requests_during_live": 8,
+  "side_changed_frames": [
+    {
+      "at": 1794348036965,
+      "id": "owned-receipt-instance:66",
+      "data": {
+        "session_id": "claude:owned-side-receipts",
+        "watermark": "1794348035973231300-f89cdfe50079252c",
+        "refetch": "/ca/work/api/v1/side",
+        "coalesced": true
+      }
+    },
+    {
+      "at": 1794348037010,
+      "id": "owned-receipt-instance:67",
+      "data": {
+        "session_id": "claude:owned-side-receipts",
+        "watermark": "1794348037000305400-5ca3e748f22ad1d9",
+        "refetch": "/ca/work/api/v1/side",
+        "coalesced": true
+      }
+    },
+    {
+      "at": 1794348038029,
+      "id": "owned-receipt-instance:67",
+      "data": {
+        "session_id": "claude:owned-side-receipts",
+        "watermark": "1794348037329997700-f8bd728db2a67b2b",
+        "refetch": "/ca/work/api/v1/side",
+        "coalesced": true
+      }
+    }
+  ],
+  "side_requests": 22,
+  "page_errors": [],
+  "readback": {
+    "oldest": {
+      "receipt_id": "2721403a2ce4234813a4d689c74ab6be71b920aef6344bf742012e6f7044b9b0",
+      "stage": "processed",
+      "processing": true,
+      "priority": null,
+      "delivery": "pending",
+      "failure": null,
+      "quarantined": false
+    },
+    "p1_processed": {
+      "receipt_id": "d1ee7bb2050ca50c5b5261b62a326302e876eb9b448604b8693bf70f6951df43",
+      "stage": "processed",
+      "processing": true,
+      "priority": "P1",
+      "delivery": "pending",
+      "failure": null,
+      "quarantined": false
+    },
+    "sent": {
+      "receipt_id": "9a66349e0e53ca0f14ae8acdb2e2ae9ad527183043eab1ff72b2e2d82667e298",
+      "stage": "processed",
+      "processing": true,
+      "priority": null,
+      "delivery": "submitted",
+      "failure": null,
+      "quarantined": false
+    },
+    "route_unavailable": {
+      "receipt_id": "5f9585293c06ae06af87c9e337bf7075e2f69fd55ef076d64ffa15c4bd79921b",
+      "stage": "processed",
+      "processing": true,
+      "priority": null,
+      "delivery": "route_unavailable",
+      "failure": null,
+      "quarantined": false
+    },
+    "delivery_failed": {
+      "receipt_id": "57cd80a797dd05d07d1d0104904265e3142158cc66b560e0396f45fb68dfaf1a",
+      "stage": "processed",
+      "processing": true,
+      "priority": null,
+      "delivery": "failed",
+      "failure": null,
+      "quarantined": false
+    },
+    "source_first": {
+      "receipt_id": "e57cc8be09bfed384129c98a0fc839dacf022d281f46e39784403be1bcc0812d",
+      "stage": "processed",
+      "processing": true,
+      "priority": null,
+      "delivery": "pending",
+      "failure": null,
+      "quarantined": false
+    },
+    "duplicate_source": {
+      "receipt_id": "e9cf60e842dc4a11d95d162f499f9cb66a39ba953b656bf9ef4cf3c5d8b66558",
+      "stage": "processed",
+      "processing": false,
+      "priority": null,
+      "delivery": "duplicate_source",
+      "failure": null,
+      "quarantined": false
+    },
+    "secret": {
+      "receipt_id": "b7ab0b09e2f55a610bf46b151a8d6f5b300b2b3be3c7022b50712206d2918318",
+      "stage": "processed",
+      "processing": true,
+      "priority": null,
+      "delivery": "pending",
+      "failure": null,
+      "quarantined": false
+    },
+    "quarantined": {
+      "receipt_id": "00208f9db228bb38ef80aaaab4359e317a834c2c46090757b0633ba167802ca1",
+      "stage": "received",
+      "processing": false,
+      "priority": null,
+      "delivery": null,
+      "failure": "invalid_answer",
+      "quarantined": true
+    },
+    "processing": {
+      "receipt_id": "5ee7572160b23d6b89ca395f2e34e4064ae4e488fed50553bd7e18797686357e",
+      "stage": "processed",
+      "processing": true,
+      "priority": null,
+      "delivery": "pending",
+      "failure": null,
+      "quarantined": false
+    },
+    "retryable": {
+      "receipt_id": "0d6309d9e2a7983d456d361fec8187c528195d074ab400db3333c395bb69be8e",
+      "stage": "received",
+      "processing": false,
+      "priority": null,
+      "delivery": null,
+      "failure": "model_error",
+      "quarantined": false
+    },
+    "received": {
+      "receipt_id": "e394114a3e69d5d091def43a1bef377b4a056ec0e61ec6dedf7412611e0e5d09",
+      "stage": "received",
+      "processing": false,
+      "priority": null,
+      "delivery": null,
+      "failure": null,
+      "quarantined": false
+    },
+    "p1_received": {
+      "receipt_id": "02b56cb94b5846809f168565091c059315cece0fd3798c8195eab8f2d35419fc",
+      "stage": "received",
+      "processing": false,
+      "priority": "P1",
+      "delivery": null,
+      "failure": null,
+      "quarantined": false
+    },
+    "live": {
+      "receipt_id": "60adfdbf65fd5909790282fbddc95631390bb5b8056502cabd4a0f811464560c",
+      "stage": "received",
+      "processing": false,
+      "priority": null,
+      "delivery": null,
+      "failure": null,
+      "quarantined": false
+    },
+    "during_draft": {
+      "receipt_id": "d7d25428e61ec484a02c63683b5db293fea3ea0e8dafd64a997ffac695bdd34d",
+      "stage": "received",
+      "processing": false,
+      "priority": null,
+      "delivery": null,
+      "failure": null,
+      "quarantined": false
+    }
+  },
+  "secrets_still_on_disk": true
+}
