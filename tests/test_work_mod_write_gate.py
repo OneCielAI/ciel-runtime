@@ -383,6 +383,14 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertNotIn("Work recovery", result["live"])
         self.assertTrue(result["duplicate"].startswith("deny: Work item n2 already has lease L1"), result)
 
+    def test_restart_sendmessage_authorizes_deferred_exact_spawn_once(self):
+        # Prody 2026-11-09: SendMessage returned, then agent.spawn arrived after
+        # the old finally block had already deleted the resume authorization.
+        result = self.run_scenario("parallel-restart-sendmessage-deferred-spawn")
+        self.assertTrue(result["sent"], result)
+        self.assertEqual("agent-new", result["spawned"], result)
+        self.assertIn("no pending work_parallel_run dispatch", result["duplicate"])
+
     def test_terminal_worker_starts_independent_readonly_review(self):
         result = self.run_scenario("parallel-auto-review")
         self.assertTrue(result["released"])

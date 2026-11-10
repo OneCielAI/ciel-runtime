@@ -430,6 +430,23 @@ const scenarios = {
       item_id: 'n2', priority: 'P1', role: 'worker' }, next({}))
     return { context: JSON.stringify(seen), live: JSON.stringify(live), duplicate: verdict(duplicate) }
   },
+  // SendMessage returns before the engine emits the deferred restart spawn.
+  // The exact durable lease/name authorization must survive that boundary.
+  async 'parallel-restart-sendmessage-deferred-spawn'() {
+    const lease = { id: 'L1', item_id: 'n2', role: 'worker', state: 'running', host_id: 'agent-old',
+      agent_name: 'work-auto-exact', dispatch_name: 'work-auto-exact', slot: true, plan_version: 7 }
+    const { $, state } = host(async (tool) => tool === 'work_parallel_status'
+      ? text({ version: 9, policy: { enabled: true, paused: false }, leases: { L1: lease } }) : text(snapshot()))
+    state.agents = []
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    const sent = await handlers['tool.call']($, { tool: 'SendMessage', to: 'agent-old', message: 'continue' }, next({ sent: true }))
+    const spawnNext = next({ agentId: 'agent-new' }); spawnNext.origin = { plugin: 'engine' }
+    const spawned = await handlers['agent.spawn']($, { name: 'work-auto-exact', subagentType: 'fork', fork: true,
+      prompt: 'resume', description: 'resume', background: true }, spawnNext)
+    const duplicate = await handlers['agent.spawn']($, { name: 'work-auto-exact', subagentType: 'fork', fork: true,
+      prompt: 'duplicate', description: 'duplicate', background: true }, spawnNext)
+    return { sent: Boolean(sent.sent), spawned: spawned.agentId || '', duplicate: verdict(duplicate) }
+  },
   // A parent restart has no in-memory map; the durable lease alone restores worker identity.
   async 'parallel-restart-rebind'() {
     const lease = { id: 'L1', role: 'worker', state: 'running', host_id: 'agent-old', slot: true, plan_version: 7 }

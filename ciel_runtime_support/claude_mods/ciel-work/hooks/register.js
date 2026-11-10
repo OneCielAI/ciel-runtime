@@ -907,7 +907,10 @@ async function workToolCheck($, e, next) {
 const parallelTerminal = new Set(['idle', 'completed', 'failed', 'killed'])
 const parallelPending = new Map()
 const parallelBound = new Map()
-const parallelResuming = new Set()
+// SendMessage returns before Claude's deferred agent.spawn on restart recovery.
+// Keep the exact durable lease/name authorization until that spawn consumes it;
+// a finally around next(e) cleared it too early (Prody 2026-11-09).
+const parallelResuming = new Map()
 const parallelFailures = []
 function rememberParallelFailure(stage, detail) {
   parallelFailures.push({ at: new Date().toISOString(), stage, detail: clipped(detail, 500) })
@@ -1063,8 +1066,12 @@ async function parallelToolCall($, e, next) {
           return { deny: 'Work item ' + lease.item_id + ' remains queued as waiting: ' + String(error.message || error) }
         }
       }
-      parallelResuming.add(lease.id)
-      try { return await next(e) } finally { parallelResuming.delete(lease.id) }
+      parallelResuming.set(lease.id, lease.agent_name || lease.dispatch_name || '')
+      const resumed = await next(e)
+      // A synchronous resume can finish without a new spawn. Deferred native
+      // resumes consume this authorization in parallelAgentSpawn below.
+      if (resumed?.sent === false || resumed?.deny) parallelResuming.delete(lease.id)
+      return resumed
     }
   }
   if (next.origin?.plugin === 'ciel-work' && (name.startsWith('work_parallel_') || name === 'work_side_intake' || name === 'work_side_settings' || name === 'work_live_settings' || name === 'work_discovery_pickup')) return next(e)
@@ -1197,9 +1204,11 @@ async function parallelAgentSpawn($, e, next) {
     const request = parallelPending.get(e.name)
     const resumed = request ? null : Object.values(s.leases).find(r => r.agent_name && r.agent_name === e.name
       && r.slot && r.host_id && r.state === 'running')
-    if (resumed && parallelResuming.has(resumed.id) && !s.policy.paused && e.fork === true && e.subagentType === 'fork' && e.parentAgentId === undefined
+    if (resumed && parallelResuming.get(resumed.id) === e.name && !s.policy.paused && e.fork === true && e.subagentType === 'fork' && e.parentAgentId === undefined
         && next.origin?.plugin === 'engine') {
-      // Same lease, same worker: no new reservation, so the item cannot run twice.
+      // Same durable lease and exact stored agent name: no new reservation, so
+      // the item cannot run twice. Consume the one-shot recovery authorization.
+      parallelResuming.delete(resumed.id)
       const started = await next(e)
       if (started?.agentId) parallelBound.set(started.agentId, { lease_id: resumed.id, scope: await sessionId($), role: resumed.role })
       return started
