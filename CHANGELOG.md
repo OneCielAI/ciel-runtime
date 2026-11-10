@@ -5,6 +5,22 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+### Beta: Work parallel shows native forks, not just reserved slots
+
+- `FORKS` now counts only Work fork agents that the native agent list observed as
+  pending or running within 30 seconds. The main session is explicitly the
+  coordinator, and side actors remain separate.
+- The terminal and `/work-mode parallel` identify each confirmed fork and Work
+  item. The web Parallel tab shows confirmed, waiting, reserved, uncertain,
+  validating and ended groups, plus device capacity aggregated across sessions.
+- Native observations are stored in their own versioned file so heartbeat writes
+  cannot conflict with lease admission. Browser projections omit raw leases,
+  worker capabilities, process identity, workspace paths and other sessions'
+  item data.
+- A content-free `parallel.changed` SSE event refreshes the open Parallel tab.
+  Assignment bodies are passed directly from the host to forks and are not
+  echoed into the main coordinator transcript by parallel status.
+
 ### Beta: the Work web console shows every received SSE event, and side work is not redone by main
 
 - The web console Side tab now opens on the received-event stream: newest first,

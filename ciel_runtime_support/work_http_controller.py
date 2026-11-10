@@ -116,8 +116,8 @@ class WorkHttpController:
                     **live_settings(self.services.load_config(), {}, None)})
             elif path == "/ca/work/api/v1/parallel":
                 document = application.document()
-                self.services.write_json(handler, {"ok": True, "schema_version": 1, "session_id": identity,
-                    **self.services.parallel_status(identity, document)})
+                self.services.write_json(handler, {"ok": True, "schema_version": 2,
+                    **self._public_parallel(identity, document)})
             elif path == "/ca/work/api/v1/side":
                 document = application.document()
                 side = self._side_projection(identity, document)
@@ -319,7 +319,7 @@ class WorkHttpController:
                 store = self.services.parallel_store()
                 state, _ = store.configure(body.get("changes"), capability_ready=True,
                                            expected_version=body.get("expected_version"))
-                result = self.services.parallel_status(identity, self._store(identity).read_snapshot())
+                result = self._public_parallel(identity, self._store(identity).read_snapshot())
                 if self.services.save_config is not None:
                     config = self.services.load_config()
                     config["work_parallel"] = state["policy"]
@@ -381,6 +381,50 @@ class WorkHttpController:
             self._error(handler, exc)
         return True
 
+    def _public_parallel(self, identity: str, board: dict[str, Any]) -> dict[str, Any]:
+        """Browser-safe parallel view: evidence groups and device aggregates only."""
+        projected = self.services.parallel_status(identity, board)
+        if "forks" not in projected:
+            # A projection without native evidence is never read as running forks.
+            return {"session_id": identity, "version": projected.get("version", 0), "policy": projected.get("policy", {}),
+                    "forks": {"schema": "native-fork-evidence/1", "available": False, "confirmed_count": 0,
+                              **{name: [] for name in ("confirmed", "waiting", "reservation", "uncertain",
+                                                       "validating", "ended")}},
+                    "device": {"active_slots": projected.get("active_device", 0)}}
+        from .work_parallel_mcp import public_projection
+        return public_projection(projected, identity)
+
+    def _parallel_paths(self) -> tuple[Path, ...]:
+        if self.services.parallel_store is None:
+            return ()
+        path = Path(self.services.parallel_store().path)
+        return (path, path.with_name("work-parallel-native.json"))
+
+    @staticmethod
+    def _stat(paths: tuple[Path, ...]) -> tuple[Any, ...]:
+        marks = []
+        for path in paths:
+            try:
+                stat = path.stat()
+                marks.append((stat.st_mtime_ns, stat.st_size))
+            except OSError:
+                marks.append(None)
+        return tuple(marks)
+
+    def _parallel_fingerprint(self, identity: str, board: dict[str, Any]) -> tuple[str, bool]:
+        """What the Parallel tab would show; changes when its evidence does."""
+        try:
+            view = self._public_parallel(identity, board)
+        except (OSError, ValueError, tree.WorkPlanError):
+            return "", False
+        forks = view["forks"]
+        rows = [(group, row.get("lease_id"), row.get("state"), (row.get("native") or {}).get("status"))
+                for group in ("confirmed", "waiting", "reservation", "uncertain", "validating", "ended")
+                for row in forks.get(group, [])]
+        device = view.get("device", {})
+        return (json.dumps([rows, device.get("active_by_priority"), device.get("paused")], sort_keys=True),
+                bool(forks.get("confirmed_count")))
+
     def _stream(self, handler: Any, identity: str, query: dict[str, list[str]], *, v1: bool = False) -> None:
         if not self._streams.acquire(blocking=False):
             self.services.write_json(handler, {"ok": False, "error": "stream_capacity"}, 429)
@@ -410,6 +454,10 @@ class WorkHttpController:
             from .side_intake_inbox import SideIntakeInbox
             side_inbox = SideIntakeInbox(self.services.state_dir, identity)
             side_cursor = side_inbox.watermark()
+            parallel_paths = self._parallel_paths()
+            parallel_stat = self._stat(parallel_paths)
+            parallel_print, parallel_live = self._parallel_fingerprint(identity, doc) if parallel_paths else ("", False)
+            parallel_due = time.monotonic() + 5
             refetch = "/ca/work/api/v1/board" if v1 else "/ca/work"
             self._event(handler, identity, doc, "work.snapshot" if not cursor else "work.resync_required", previous,
                         refetch=refetch)
@@ -449,6 +497,22 @@ class WorkHttpController:
                     handler.wfile.flush()
                     side_cursor = latest_side
                     heartbeat = time.monotonic()
+                if parallel_paths:
+                    # Stat first: the ledger is read only when a file changed,
+                    # or every 5 s while a confirmed fork could go stale.
+                    latest_stat = self._stat(parallel_paths)
+                    if latest_stat != parallel_stat or (parallel_live and time.monotonic() >= parallel_due):
+                        parallel_stat = latest_stat
+                        parallel_due = time.monotonic() + 5
+                        latest_print, parallel_live = self._parallel_fingerprint(identity, doc)
+                        if latest_print != parallel_print:
+                            frame = chr(10).join(("event: parallel.changed", "data: " + json.dumps({
+                                "session_id": identity, "refetch": "/ca/work/api/v1/parallel",
+                                "coalesced": True}), "", ""))
+                            handler.wfile.write(frame.encode("utf-8"))
+                            handler.wfile.flush()
+                            parallel_print = latest_print
+                            heartbeat = time.monotonic()
                 wake.wait(1)
         except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
             pass

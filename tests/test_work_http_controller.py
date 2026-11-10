@@ -177,7 +177,14 @@ class WorkHttpTests(unittest.TestCase):
         self.assertEqual("n1", queue["active"]["id"])
         self.assertEqual([], queue["items"])
         self.assertEqual(422, self.request("/ca/work/api/v1/board?session_id=codex:two")[0])
-        self.assertEqual("3.1.0", self.request("/ca/work/api/v1/openapi")[1]["openapi"])
+        openapi = self.request("/ca/work/api/v1/openapi")[1]
+        self.assertEqual("3.1.0", openapi["openapi"])
+        parallel_help = openapi["paths"]["/ca/work/api/v1/parallel"]["get"]["description"]
+        self.assertIn("main session is the coordinator", parallel_help)
+        self.assertIn("Other sessions expose counts only", parallel_help)
+        events_help = openapi["paths"]["/ca/work/api/v1/events"]["get"]["description"]
+        self.assertIn("parallel.changed", events_help)
+        self.assertIn("no event id", events_help)
 
     def test_v1_operator_projections_are_redacted_and_current_session_scoped(self):
         self.config.update({"work_mode": True, "work_auto_continue": False})

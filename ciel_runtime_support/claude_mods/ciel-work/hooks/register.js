@@ -616,6 +616,7 @@ function mark(status) {
   return ({ pending: '[ ]', in_progress: '[~]', done: '', blocked: '[!]' })[status] ?? '[?]'
 }
 async function observatoryRefresh($, identity) {
+  try { await parallelObserveNative($) } catch { /* The pane still shows the last projection. */ }
   const [settings, parallel] = await Promise.all([
     parallelCall($, 'work_live_settings').catch(() => null),
     parallelState($, identity).catch(() => null),
@@ -727,7 +728,14 @@ function graphicProps(identity, view, state) {
     nodes: graphicNodes(view, cached), receipts: graphicReceipts(identity),
     actors: sideActors(identity).map(actor => ({ id: actor.id, receipt: actor.receipt_id, model: actor.model,
       reserved: actor.reserved, lease_until: actor.lease_until })),
-    parallel: { active: observatoryParallel?.active_device || 0, max: parallelCapacity(policy) },
+    parallel: { active: observatoryParallel?.active_device || 0, max: parallelCapacity(policy),
+      // Only a fresh native observation counts as a running fork.
+      forks: observatoryParallel?.forks?.confirmed_count || 0,
+      evidence: observatoryParallel?.forks?.available !== false && !!observatoryParallel?.forks,
+      confirmed: (observatoryParallel?.forks?.confirmed || []).slice(0, 3).map(r => ({
+        item: r.item_id, title: r.item_title, priority: r.priority, agent: r.agent_name || r.agent_id,
+        status: r.native?.status, seen: r.native?.last_seen_at })),
+      side: sideActors(identity).length },
     model: observatorySettings?.settings?.find(row => row.key === 'work_side_intake_model')?.value || 'inherit' }
 }
 // One action set for the pane's native control strip (Tab/arrows/Enter and
@@ -1041,23 +1049,32 @@ function parallelStatusText(state, scope) {
   const p = state?.policy || {}
   const leases = Object.values(state?.leases || {})
   const active = leases.filter(r => r.slot)
+  const forks = state?.forks
+  const confirmed = forks?.confirmed || []
   const lines = ['Ciel Work parallel',
+    'FORKS: ' + (forks ? String(confirmed.length) + ' confirmed by native agent list' : 'evidence unavailable')
+      + ' · main is coordinator, never a fork · side actors are separate',
+    'DEVICE: slots ' + String(state?.active_device ?? active.length) + '/' + String(parallelCapacity(p) || '?')
+      + ' · per priority ' + parallelPriorityUse(state),
     'Policy: ' + (p.enabled ? 'enabled' : 'disabled') + (p.paused ? ' · paused' : '')
       + ' · ledger v' + String(state?.version ?? '?')
-      + ' · device slots ' + String(state?.active_device ?? active.length) + '/' + String(parallelCapacity(p) || '?')
-      + ' · per priority ' + parallelPriorityUse(state)
       + ' · launches/min ' + String(p.launches_per_minute ?? '?')
-      + ' · max rework ' + String(p.max_rework ?? '?'),
-    'Assignments (item → fork agent): ' + leases.length + ' lease(s), ' + active.length + ' holding a slot']
-  for (const r of leases) {
-    lines.push('  ' + parallelItemLabel(r)
-      + ' → agent ' + clipped(r.agent_name || '(not launched yet)', 120)
-      + (r.host_id ? ' [host ' + clipped(r.host_id, 100) + ']' : '')
-      + ' · ' + clipped(r.priority, 8) + ' ' + clipped(r.role, 16)
-      + ' · ' + clipped(r.state, 32) + (r.slot ? ' · slot held' : ' · slot released')
-      + ' · lease ' + clipped(r.id, 40) + ' · plan v' + String(r.plan_version ?? '?'))
-    if (r.item_path?.length > 1) lines.push('    path: ' + r.item_path.map(t => clipped(t, 100)).join(' → '))
-    if (r.workspace?.path) lines.push('    workspace: ' + clipped(r.workspace.path, 300))
+      + ' · max rework ' + String(p.max_rework ?? '?')]
+  const groups = forks ? [['confirmed', forks.confirmed], ['waiting', forks.waiting], ['reservation', forks.reservation],
+    ['uncertain', forks.uncertain], ['validating', forks.validating], ['ended', forks.ended]] : [['legacy leases', leases]]
+  for (const [group, rows] of groups) {
+    if (!rows?.length) continue
+    lines.push(group.toUpperCase() + ' (' + rows.length + ')')
+    for (const r of rows) {
+      const label = parallelItemLabel({ item_id:r.item_id || r.id, item_title:r.item_title, item_ref:r.item_ref })
+      const native = r.native?.status || 'not observed'
+      const agent = r.agent_name || r.agent_id || '(native fork not observed)'
+      lines.push('  ' + label + ' → ' + clipped(agent, 120)
+        + ' · ' + clipped(r.priority || '', 8) + ' ' + clipped(r.role || '', 16)
+        + ' · lease ' + clipped(r.state || '', 32) + ' · native ' + native
+        + (r.slot ? ' · slot held' : ' · slot released'))
+      if (r.item_path?.length > 1) lines.push('    path: ' + r.item_path.map(t => clipped(t, 100)).join(' → '))
+    }
   }
   const pending = [...parallelPending.entries()].filter(([, r]) => !scope || r.scope === scope)
   lines.push('Pending native Agent dispatch: ' + pending.length)
@@ -1251,6 +1268,8 @@ async function parallelDirectSpawn($, key, request) {
   request.host_id = spawned.agentId
   parallelPending.delete(key)
   parallelBound.set(spawned.agentId, { lease_id: request.lease_id, scope, role: request.role || 'worker' })
+  // The spawn result is not evidence; the observer confirms it from the list.
+  scheduleNativeObservation($)
   return { result: JSON.stringify({ dispatch: 'started', item_id: request.item_id,
     lease_id: request.lease_id, agent_id: spawned.agentId, name: key,
     description: 'Work ' + label,
@@ -1330,6 +1349,54 @@ async function parallelToolCheck($, e, next) {
     return { decision: 'deny', reason: 'Work reviewer is read-only; report findings, do not modify artifacts.' }
   }
   return workToolCheck($, e, next)
+}
+// Native fork evidence. The host compares $.agent.list() with this session's
+// own bound Work leases and records only ids and the AgentStatus word: never a
+// prompt, description, transcript or result. Nothing is appended to main's
+// context, so watching forks does not contaminate main. Main is not in
+// $.agent.list(), and side actors are never bound to a Work lease.
+const NATIVE_STATUSES = new Set(['pending', 'running', 'waiting', 'idle', 'completed', 'failed', 'killed'])
+const NATIVE_OPEN = new Set(['reserved', 'running', 'waiting_input', 'submitted', 'verifying', 'reviewing', 'accepted', 'cleanup_pending'])
+let nativeObserving = false
+let nativeTimer = null
+let lastNativeConfirmed = null
+async function parallelObserveNative($) {
+  if (nativeObserving) return null
+  nativeObserving = true
+  try {
+    const state = await parallelCall($, 'work_parallel_status')
+    const open = Object.values(state.leases || {}).filter(r => NATIVE_OPEN.has(r.state))
+    const agents = await $.agent.list()
+    const rows = []
+    for (const lease of open) {
+      if (!lease.host_id) continue
+      const row = agents.find(a => a.id === lease.host_id)
+      if (!row || !NATIVE_STATUSES.has(row.status)) continue
+      if (sideOwned(row)) continue
+      rows.push({ lease_id: lease.id, agent_id: row.id, status: row.status,
+        ...(row.name ? { agent_name: String(row.name).slice(0, 200) } : {}) })
+    }
+    const result = await parallelCall($, 'work_parallel_event', { event: 'native_observation', rows, complete: true,
+      expected_evidence_version: Number(state?.forks?.evidence_version ?? 0) })
+    const confirmed = rows.filter(r => r.status === 'pending' || r.status === 'running').length
+    if (confirmed !== lastNativeConfirmed) {
+      lastNativeConfirmed = confirmed
+      $.ui.log('Work forks confirmed by native agent list: ' + confirmed)
+    }
+    return { open: open.length, confirmed, result }
+  } finally { nativeObserving = false }
+}
+function scheduleNativeObservation($) {
+  if (nativeTimer) return
+  nativeTimer = $.clock.after(2000, async () => {
+    nativeTimer = null
+    let observed = null
+    try { observed = await parallelObserveNative($) } catch { /* Unknown host state: try again on the next trigger. */ }
+    if (observed?.open) scheduleNativeObservation($)
+  })
+}
+function sideOwned(row) {
+  return row?.type === 'ciel-work:side-intake' || /^side-intake-/.test(String(row?.name || ''))
 }
 async function parallelHydrate($) {
   const scope = await sessionId($)
@@ -1440,6 +1507,7 @@ async function parallelTurnComplete($, e, next) {
     }
     await parallelStartReview($)
     await parallelFillSlots($)
+    scheduleNativeObservation($)
   } catch (error) { $.ui.log('Work reconciliation: ' + String(error.message || error)) }
   return result
 }
@@ -1532,7 +1600,7 @@ export function register(on) {
     const s = await refresh($)
     try { await startSide($) } catch { /* Side pane remains empty until the host is available. */ }
     pollBusySideReceipts($, await sessionId($))
-    try { await parallelHydrate($); if (e.isInteractive) await parallelFillSlots($) } catch { /* Preserve durable leases on unknown host state. */ }
+    try { await parallelHydrate($); if (e.isInteractive) await parallelFillSlots($); scheduleNativeObservation($) } catch { /* Preserve durable leases on unknown host state. */ }
     if (e.isInteractive && s?.enabled) { notice($, ticket); startIdleRefresh($, cachedSession) }
     else if (e.isInteractive && !s) retryStart($, ticket)
     return next(e)
@@ -1753,6 +1821,8 @@ export function register(on) {
     if (arg === 'parallel') {
       try {
         const identity = await sessionId($)
+        // Observe first, so FORKS is the native list as of this command.
+        try { await parallelObserveNative($) } catch { /* Shown as unobserved. */ }
         return { text: parallelStatusText(await parallelState($, identity), identity) }
       } catch (error) {
         const detail = String(error.message || error)
@@ -2010,7 +2080,8 @@ export function register(on) {
         text('WORK ' + cached.version + ' · ' + cached.phase + ' · ' + cached.done + '/' + cached.total,
           { color: cached.phase === 'planning' ? 'planMode' : 'suggestion', weight: 'bold' }),
         text('Queue ' + queueOf(cached).length + ' · Side ' + sidePanelReceipts.length
-          + (observatoryParallel ? ' · Slots ' + observatoryParallel.active_device + '/' + parallelCapacity(observatoryParallel.policy) : ''), { dimColor: true }),
+          + (observatoryParallel ? ' · Forks ' + (observatoryParallel.forks ? observatoryParallel.forks.confirmed_count : '?')
+            + ' · Device ' + observatoryParallel.active_device + '/' + parallelCapacity(observatoryParallel.policy) : ''), { dimColor: true }),
       ] })
 
     const rows = []

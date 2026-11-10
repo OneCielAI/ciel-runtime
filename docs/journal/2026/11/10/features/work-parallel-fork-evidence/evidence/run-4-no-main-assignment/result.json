@@ -1,0 +1,407 @@
+{
+  "out": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\10\\features\\work-parallel-fork-evidence\\evidence\\run-4-no-main-assignment",
+  "base": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-parallel-fork-20261110-172916",
+  "snapshot": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-src-snapshot-forkproof5",
+  "port": 9631,
+  "main_model": "_Walkie_Opus55-Sol61-Fast",
+  "canary": {
+    "a": "FORKCANARY-A-662557a7dec6",
+    "b": "FORKCANARY-B-bb420c7ea9b2"
+  },
+  "outcome": "completed",
+  "seed": {
+    "version": 1,
+    "items": {
+      "Fork item A": "n2",
+      "Fork item B": "n3"
+    }
+  },
+  "native_while_running": {
+    "schema": 1,
+    "version": 3,
+    "records": {
+      "e2f429af7b9440ee91bad5c4f4c62efa": {
+        "scope": "claude:66666666-6666-4666-8666-666666666666",
+        "lease_id": "e2f429af7b9440ee91bad5c4f4c62efa",
+        "agent_id": "ae4d829af468cc050",
+        "agent_name": "work-mwbboo2f-r57mcuza5xo",
+        "status": "running",
+        "first_seen_at": 1794353408.1196983,
+        "last_seen_at": 1794353408.1196983,
+        "status_changed_at": 1794353408.1196983,
+        "missing_since": null,
+        "terminal_at": null
+      },
+      "4c7544f537c34dfdbe11ffdf97ed8d61": {
+        "scope": "claude:66666666-6666-4666-8666-666666666666",
+        "lease_id": "4c7544f537c34dfdbe11ffdf97ed8d61",
+        "agent_id": "af618f12f550a20bc",
+        "agent_name": "work-mwbboyv7-4sp14vwygh3",
+        "status": "running",
+        "first_seen_at": 1794353418.5657978,
+        "last_seen_at": 1794353418.5657978,
+        "status_changed_at": 1794353418.5657978,
+        "missing_since": null,
+        "terminal_at": null
+      }
+    },
+    "scans": {
+      "claude:66666666-6666-4666-8666-666666666666": 1794353418.5657978
+    }
+  },
+  "api_while_running": {
+    "ok": true,
+    "schema_version": 2,
+    "session_id": "claude:66666666-6666-4666-8666-666666666666",
+    "version": 6,
+    "forks": {
+      "schema": "native-fork-evidence/1",
+      "rule": "A fork counts as processing only when the native agent list showed it pending or running within the last 30 seconds. A reserved slot, a running lease state or a bound host id alone is not evidence. The main session is the coordinator and is never a fork; side actors are counted separately.",
+      "available": true,
+      "evidence_version": 3,
+      "fresh_seconds": 30,
+      "observed_at": 1794353418.5657978,
+      "confirmed_count": 2,
+      "confirmed": [
+        {
+          "lease_id": "e2f429af7b9440ee91bad5c4f4c62efa",
+          "item_id": "n2",
+          "item_title": "Fork item A",
+          "item_ref": "",
+          "goal_title": "Parallel fork proof",
+          "item_path": [
+            "Parallel fork proof",
+            "Fork item A"
+          ],
+          "priority": "P2",
+          "role": "worker",
+          "state": "running",
+          "slot": true,
+          "agent_name": "work-mwbboo2f-r57mcuza5xo",
+          "agent_id": "ae4d829af468cc050",
+          "rework": 0,
+          "reserved_at": 1794353400.6872675,
+          "bound_at": 1794353404.6172876,
+          "state_changed_at": 1794353404.6172876,
+          "native": {
+            "status": "running",
+            "first_seen_at": 1794353408.1196983,
+            "last_seen_at": 1794353408.1196983,
+            "status_changed_at": 1794353408.1196983,
+            "missing_since": null,
+            "terminal_at": null
+          },
+          "evidence": "confirmed"
+        },
+        {
+          "lease_id": "4c7544f537c34dfdbe11ffdf97ed8d61",
+          "item_id": "n3",
+          "item_title": "Fork item B",
+          "item_ref": "",
+          "goal_title": "Parallel fork proof",
+          "item_path": [
+            "Parallel fork proof",
+            "Fork item B"
+          ],
+          "priority": "P2",
+          "role": "worker",
+          "state": "running",
+          "slot": true,
+          "agent_name": "work-mwbboyv7-4sp14vwygh3",
+          "agent_id": "af618f12f550a20bc",
+          "rework": 0,
+          "reserved_at": 1794353414.4252381,
+          "bound_at": 1794353418.0689864,
+          "state_changed_at": 1794353418.0689864,
+          "native": {
+            "status": "running",
+            "first_seen_at": 1794353418.5657978,
+            "last_seen_at": 1794353418.5657978,
+            "status_changed_at": 1794353418.5657978,
+            "missing_since": null,
+            "terminal_at": null
+          },
+          "evidence": "confirmed"
+        }
+      ],
+      "waiting": [],
+      "reservation": [],
+      "uncertain": [],
+      "validating": [],
+      "ended": []
+    },
+    "device": {
+      "active_slots": 2,
+      "capacity": 11,
+      "priority_limits": {
+        "P1": 5,
+        "P2": 3,
+        "P3": 1,
+        "P4": 1,
+        "P5": 1
+      },
+      "active_by_priority": {
+        "P1": 0,
+        "P2": 2,
+        "P3": 0,
+        "P4": 0,
+        "P5": 0
+      },
+      "this_session_by_priority": {
+        "P1": 0,
+        "P2": 2,
+        "P3": 0,
+        "P4": 0,
+        "P5": 0
+      },
+      "other_sessions_by_priority": {
+        "P1": 0,
+        "P2": 0,
+        "P3": 0,
+        "P4": 0,
+        "P5": 0
+      },
+      "paused": false,
+      "enabled": true,
+      "note": "Device-wide lease slots across every session; a slot is not proof that a fork is running."
+    },
+    "policy": {
+      "enabled": true,
+      "paused": false,
+      "priority_limits": {
+        "P1": 5,
+        "P2": 3,
+        "P3": 1,
+        "P4": 1,
+        "P5": 1
+      },
+      "launches_per_minute": 4,
+      "max_rework": 2
+    },
+    "runtime": "claude",
+    "limitations": [
+      "dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations",
+      "external discovery requires a configured authenticated source connector"
+    ]
+  },
+  "web_while_running": {
+    "ok": false,
+    "error": "router admin token unavailable"
+  },
+  "web_mobile_while_running": {
+    "ok": false,
+    "error": "router admin token unavailable"
+  },
+  "main_busy_epoch": 1794353421.6893668,
+  "both_confirmed_epoch": 1794353421.185053,
+  "marker_windows": {
+    "a": [
+      1794353410.6708338,
+      1794353478.6934788,
+      35
+    ],
+    "b": [
+      1794353420.0942988,
+      1794353488.1166663,
+      35
+    ]
+  },
+  "fork_overlap_seconds": 58.6,
+  "main_busy_inside_overlap": true,
+  "main_contains_canary": {
+    "a": false,
+    "b": false
+  },
+  "fork_transcripts": [
+    {
+      "file": "agent-ae4d829af468cc050.jsonl",
+      "type": "fork",
+      "description": "Work n2 Fork item A",
+      "canary_a": true,
+      "canary_b": false
+    },
+    {
+      "file": "agent-af618f12f550a20bc.jsonl",
+      "type": "fork",
+      "description": "Work n3 Fork item B",
+      "canary_a": false,
+      "canary_b": true
+    }
+  ],
+  "native_final": {
+    "schema": 1,
+    "version": 36,
+    "records": {
+      "e2f429af7b9440ee91bad5c4f4c62efa": {
+        "scope": "claude:66666666-6666-4666-8666-666666666666",
+        "lease_id": "e2f429af7b9440ee91bad5c4f4c62efa",
+        "agent_id": "ae4d829af468cc050",
+        "agent_name": "work-mwbboo2f-r57mcuza5xo",
+        "status": "idle",
+        "first_seen_at": 1794353408.1196983,
+        "last_seen_at": 1794353532.9997993,
+        "status_changed_at": 1794353517.7901251,
+        "missing_since": 1794353548.2697487,
+        "terminal_at": null
+      },
+      "4c7544f537c34dfdbe11ffdf97ed8d61": {
+        "scope": "claude:66666666-6666-4666-8666-666666666666",
+        "lease_id": "4c7544f537c34dfdbe11ffdf97ed8d61",
+        "agent_id": "af618f12f550a20bc",
+        "agent_name": "work-mwbboyv7-4sp14vwygh3",
+        "status": "idle",
+        "first_seen_at": 1794353418.5657978,
+        "last_seen_at": 1794353545.5438728,
+        "status_changed_at": 1794353527.9315743,
+        "missing_since": 1794353557.4865837,
+        "terminal_at": null
+      }
+    },
+    "scans": {
+      "claude:66666666-6666-4666-8666-666666666666": 1794353824.2556794
+    }
+  },
+  "api_final": {
+    "ok": true,
+    "schema_version": 2,
+    "session_id": "claude:66666666-6666-4666-8666-666666666666",
+    "version": 10,
+    "forks": {
+      "schema": "native-fork-evidence/1",
+      "rule": "A fork counts as processing only when the native agent list showed it pending or running within the last 30 seconds. A reserved slot, a running lease state or a bound host id alone is not evidence. The main session is the coordinator and is never a fork; side actors are counted separately.",
+      "available": true,
+      "evidence_version": 36,
+      "fresh_seconds": 30,
+      "observed_at": 1794353824.2556794,
+      "confirmed_count": 0,
+      "confirmed": [],
+      "waiting": [],
+      "reservation": [],
+      "uncertain": [],
+      "validating": [
+        {
+          "lease_id": "e2f429af7b9440ee91bad5c4f4c62efa",
+          "item_id": "n2",
+          "item_title": "Fork item A",
+          "item_ref": "",
+          "goal_title": "Parallel fork proof",
+          "item_path": [
+            "Parallel fork proof",
+            "Fork item A"
+          ],
+          "priority": "P2",
+          "role": "worker",
+          "state": "submitted",
+          "slot": false,
+          "agent_name": "work-mwbboo2f-r57mcuza5xo",
+          "agent_id": "ae4d829af468cc050",
+          "rework": 0,
+          "reserved_at": 1794353400.6872675,
+          "bound_at": 1794353404.6172876,
+          "state_changed_at": 1794353517.4525928,
+          "native": {
+            "status": "idle",
+            "first_seen_at": 1794353408.1196983,
+            "last_seen_at": 1794353532.9997993,
+            "status_changed_at": 1794353517.7901251,
+            "missing_since": 1794353548.2697487,
+            "terminal_at": null
+          },
+          "evidence": "validating"
+        },
+        {
+          "lease_id": "4c7544f537c34dfdbe11ffdf97ed8d61",
+          "item_id": "n3",
+          "item_title": "Fork item B",
+          "item_ref": "",
+          "goal_title": "Parallel fork proof",
+          "item_path": [
+            "Parallel fork proof",
+            "Fork item B"
+          ],
+          "priority": "P2",
+          "role": "worker",
+          "state": "submitted",
+          "slot": false,
+          "agent_name": "work-mwbboyv7-4sp14vwygh3",
+          "agent_id": "af618f12f550a20bc",
+          "rework": 0,
+          "reserved_at": 1794353414.4252381,
+          "bound_at": 1794353418.0689864,
+          "state_changed_at": 1794353528.4947777,
+          "native": {
+            "status": "idle",
+            "first_seen_at": 1794353418.5657978,
+            "last_seen_at": 1794353545.5438728,
+            "status_changed_at": 1794353527.9315743,
+            "missing_since": 1794353557.4865837,
+            "terminal_at": null
+          },
+          "evidence": "validating"
+        }
+      ],
+      "ended": []
+    },
+    "device": {
+      "active_slots": 0,
+      "capacity": 11,
+      "priority_limits": {
+        "P1": 5,
+        "P2": 3,
+        "P3": 1,
+        "P4": 1,
+        "P5": 1
+      },
+      "active_by_priority": {
+        "P1": 0,
+        "P2": 0,
+        "P3": 0,
+        "P4": 0,
+        "P5": 0
+      },
+      "this_session_by_priority": {
+        "P1": 0,
+        "P2": 0,
+        "P3": 0,
+        "P4": 0,
+        "P5": 0
+      },
+      "other_sessions_by_priority": {
+        "P1": 0,
+        "P2": 0,
+        "P3": 0,
+        "P4": 0,
+        "P5": 0
+      },
+      "paused": false,
+      "enabled": true,
+      "note": "Device-wide lease slots across every session; a slot is not proof that a fork is running."
+    },
+    "policy": {
+      "enabled": true,
+      "paused": false,
+      "priority_limits": {
+        "P1": 5,
+        "P2": 3,
+        "P3": 1,
+        "P4": 1,
+        "P5": 1
+      },
+      "launches_per_minute": 4,
+      "max_rework": 2
+    },
+    "runtime": "claude",
+    "limitations": [
+      "dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations",
+      "external discovery requires a configured authenticated source connector"
+    ]
+  },
+  "tree_before_kill": [
+    "conhost.exe",
+    "cmd.exe",
+    "py.exe",
+    "python.exe"
+  ],
+  "owned_router_pids": [],
+  "preserved_config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-parallel-fork-3dnr10t8\\config"
+}

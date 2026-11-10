@@ -224,6 +224,12 @@ def openapi_document() -> dict[str, Any]:
     redaction = ("Credentials, reply routes and tokens, claim and fallback generations, outbox attempt ids "
                  "and main-context previews are never returned. Text is redacted and limited to 16,000 characters.")
     stages = ["received", "processing", "processed", "failed", "quarantined", "duplicate"]
+    paths["/ca/work/api/v1/parallel"]["get"]["description"] = (
+        "Current-session Work forks grouped by native agent-list evidence, plus aggregate device slot capacity. "
+        "Only a native pending/running row observed within 30 seconds is confirmed. The main session is the "
+        "coordinator and is never a fork; side actors are excluded. Other sessions expose counts only, never item "
+        "or agent metadata. Raw leases, workspace paths, process identities, worker capabilities and fork content "
+        "are never returned.")
     paths["/ca/work/api/v1/side"]["get"].update({
         "description": "Pending reviews, main handoffs and a newest-first side receipt page. " + redaction,
         "parameters": [
@@ -243,8 +249,9 @@ def openapi_document() -> dict[str, Any]:
                       "404": {"description": "unknown_side_receipt"},
                       "422": {"description": "Malformed receipt id"}}}}
     paths["/ca/work/api/v1/events"]["get"]["description"] = (
-        "Server-sent events: work.snapshot, work.changed, work.resync_required, runtime.error and "
-        "content-free side.changed (no event id; refetch /ca/work/api/v1/side).")
+        "Server-sent events: work.snapshot, work.changed, work.resync_required, runtime.error, "
+        "content-free side.changed (no event id; refetch /ca/work/api/v1/side), and content-free "
+        "parallel.changed (no event id; refetch /ca/work/api/v1/parallel).")
     for name in commands:
         paths[f"/ca/work/api/v1/commands/{name}"] = {"post": {
             "summary": f"Apply current-session Work command {name}",

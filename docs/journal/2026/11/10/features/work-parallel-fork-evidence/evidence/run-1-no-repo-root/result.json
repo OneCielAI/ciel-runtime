@@ -1,0 +1,121 @@
+{
+  "out": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\10\\features\\work-parallel-fork-evidence\\evidence\\run",
+  "base": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-parallel-fork-20261110-164733",
+  "snapshot": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-src-snapshot-hVMz",
+  "port": 9631,
+  "main_model": "_Walkie_Opus55-Sol61-Fast",
+  "canary": {
+    "a": "FORKCANARY-A-be84e4e424f2",
+    "b": "FORKCANARY-B-328db271485f"
+  },
+  "outcome": "completed",
+  "seed": {
+    "version": 1,
+    "items": {
+      "Fork item A": "n2",
+      "Fork item B": "n3"
+    }
+  },
+  "main_busy_epoch": null,
+  "both_confirmed_epoch": null,
+  "marker_windows": {
+    "a": null,
+    "b": null
+  },
+  "main_contains_canary": {
+    "a": false,
+    "b": false
+  },
+  "fork_transcripts": [],
+  "native_final": {
+    "schema": 1,
+    "version": 1,
+    "records": {},
+    "scans": {
+      "claude:66666666-6666-4666-8666-666666666666": 1794350876.6912086
+    }
+  },
+  "api_final": {
+    "ok": true,
+    "schema_version": 2,
+    "session_id": "claude:66666666-6666-4666-8666-666666666666",
+    "version": 6,
+    "forks": {
+      "schema": "native-fork-evidence/1",
+      "rule": "A fork counts as processing only when the native agent list showed it pending or running within the last 30 seconds. A reserved slot, a running lease state or a bound host id alone is not evidence. The main session is the coordinator and is never a fork; side actors are counted separately.",
+      "available": true,
+      "evidence_version": 1,
+      "fresh_seconds": 30,
+      "observed_at": 1794350876.6912086,
+      "confirmed_count": 0,
+      "confirmed": [],
+      "waiting": [],
+      "reservation": [],
+      "uncertain": [],
+      "validating": [],
+      "ended": []
+    },
+    "device": {
+      "active_slots": 0,
+      "capacity": 11,
+      "priority_limits": {
+        "P1": 5,
+        "P2": 3,
+        "P3": 1,
+        "P4": 1,
+        "P5": 1
+      },
+      "active_by_priority": {
+        "P1": 0,
+        "P2": 0,
+        "P3": 0,
+        "P4": 0,
+        "P5": 0
+      },
+      "this_session_by_priority": {
+        "P1": 0,
+        "P2": 0,
+        "P3": 0,
+        "P4": 0,
+        "P5": 0
+      },
+      "other_sessions_by_priority": {
+        "P1": 0,
+        "P2": 0,
+        "P3": 0,
+        "P4": 0,
+        "P5": 0
+      },
+      "paused": false,
+      "enabled": true,
+      "note": "Device-wide lease slots across every session; a slot is not proof that a fork is running."
+    },
+    "policy": {
+      "enabled": true,
+      "paused": false,
+      "priority_limits": {
+        "P1": 5,
+        "P2": 3,
+        "P3": 1,
+        "P4": 1,
+        "P5": 1
+      },
+      "launches_per_minute": 4,
+      "max_rework": 2
+    },
+    "runtime": "claude",
+    "limitations": [
+      "dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations",
+      "external discovery requires a configured authenticated source connector"
+    ]
+  },
+  "tree_before_kill": [
+    "AOTListenerService.exe",
+    "conhost.exe",
+    "cmd.exe",
+    "py.exe",
+    "python.exe"
+  ],
+  "owned_router_pids": [],
+  "preserved_config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-parallel-fork-219fllfd\\config"
+}

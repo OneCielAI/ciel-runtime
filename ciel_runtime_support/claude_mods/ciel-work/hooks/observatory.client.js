@@ -128,15 +128,23 @@ export default function Observatory(props, surface) {
     Text({ color: C.cyan, children: bar(props.done || 0, props.total || 0, progressWidth) }),
     Text({ color: C.text, children: ' ' + (props.done || 0) + '/' + (props.total || 0) }),
   ]))
+  // FORKS counts only Work forks a fresh native agent-list observation shows
+  // running. DEVICE is lease slots across every session on this machine (it
+  // includes reservations, waits and stale leases). Main is never a fork.
   const max = Math.max(1, props.parallel?.max || 1)
   const active = Math.max(0, props.parallel?.active || 0)
+  const forks = Math.max(0, props.parallel?.forks || 0)
+  const forkText = props.parallel?.evidence === false ? 'FORKS ? ' : 'FORKS ' + forks + ' running '
   children.push(boxLine('lanes', [
-    Text({ color: C.blue, children: 'PARALLEL ' }),
-    Text({ color: C.green, children: active + '/' + max + ' ' }),
-    Text({ color: C.dim, children: '□'.repeat(Math.max(0, max - active)) }),
-    Text({ color: C.cyan, children: '■'.repeat(Math.min(max, active)) }),
-    Text({ color: C.dim, children: clip('  M ' + (props.model || 'inherit'), Math.max(0, width - max - 25)) }),
+    Text({ color: C.blue, children: forkText }),
+    Text({ color: C.dim, children: '· DEVICE ' + active + '/' + max + ' slots · SIDE ' + (props.parallel?.side || 0) }),
+    Text({ color: C.dim, children: clip('  M ' + (props.model || 'inherit'), Math.max(0, width - 48)) }),
   ]))
+  for (const [index, fork] of (props.parallel?.confirmed || []).entries()) {
+    const age = typeof fork.seen === 'number' ? Math.max(0, Math.round(Date.now() / 1000 - fork.seen)) + 's ago' : ''
+    children.push(line('fork-' + index, clip('  ▸ ' + [fork.item, fork.priority, fork.title, fork.agent, fork.status, age]
+      .filter(Boolean).join(' · '), width), C.green))
+  }
   children.push(line('rule', '─'.repeat(width), C.line))
 
   // At the requested 90-column dock, match the reviewed overview: Work tree

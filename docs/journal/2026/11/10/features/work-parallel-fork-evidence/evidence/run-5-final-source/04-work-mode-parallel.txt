@@ -1,0 +1,30 @@
+❯ Call work_parallel_run for Work item n2 and then for Work item n3 (priority P2, role worker, expected_version from
+  work_parallel_status). Right after both are dispatched, run exactly this with the Bash tool in the foreground: python
+  -c "import time;
+  p=r'C:/Users/djlov/AppData/Local/Temp/ciel-owned-parallel-fork-mts7vwwr/workspace/markers/main.txt'; open(p,
+  'w').write(str(time.time())); time.sleep(40); open(p, 'a').write(' ' + str(time.time())); print(40)" . Then reply
+  only with the word FINISHED.
+
+  Writing main marker timestamps around a 40-second sleep · 8s
+  ⎿  $ python -c "import time;
+     p=r'C:/Users/djlov/AppData/Local/Temp/ciel-owned-parallel-fork-mts7vwwr/workspace/markers/main.txt'; open(p,
+     'w').write(str(time.time())); time.sleep(40); open(p, 'a').write(' ' + str(time.time())); print(40)" (8s)
+
+● ciel-work: Work forks confirmed by native agent list: 1
+
+● ciel-work: Work forks confirmed by native agent list: 2
+     (ctrl+b to run in background)
+
+✶ Cooking… (running PostToolUse hooks… 1/2 · 44s · ↓ 907 tokens)
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [_Walkie_Opus55-Sol61-Fast (cielairouter)] workspace | SSE gate on: open | ctx 275,581/872,000 tok (31.6%) | cache …
+  [work] 0/2 [ ] Fork item A
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+                                                                                                         work: run 0/2
+
+  ● main
+  ◯ work-mwbc0zws-579owb6tke5  Work n2 Fork item A                                               28s · ↓ 273.8k tokens
+  ◯ work-mwbc19ex-ig3eczutd7e  Work n3 Fork item B                                               17s · ↓ 276.2k tokens

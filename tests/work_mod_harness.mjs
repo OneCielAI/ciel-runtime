@@ -338,6 +338,49 @@ const scenarios = {
     const shown = await handlers['command.run']($, { args: 'parallel' })
     return { spawned: { agentId: dispatch.agent_id }, spawnedEvent: { description: dispatch.description, name: dispatch.name }, dispatch, shown: shown.text || '' }
   },
+  // Native fork evidence: the host reports only this session's bound Work
+  // forks seen in $.agent.list(). Main is not in the list; a side actor and an
+  // unrelated agent are never recorded; nothing reaches main's context.
+  async 'parallel-native-observation'() {
+    const leases = {
+      L1: { id: 'L1', item_id: 'n1', priority: 'P1', role: 'worker', state: 'running', slot: true, host_id: 'fork-a', agent_name: 'work-a' },
+      L2: { id: 'L2', item_id: 'n2', priority: 'P2', role: 'worker', state: 'running', slot: true, host_id: 'fork-b', agent_name: 'work-b' },
+      L3: { id: 'L3', item_id: 'n3', priority: 'P2', role: 'worker', state: 'reserved', slot: true, host_id: null },
+      L4: { id: 'L4', item_id: 'n4', priority: 'P3', role: 'worker', state: 'done', slot: false, host_id: 'fork-old' },
+    }
+    const parallel = { version: 20, active_device: 3,
+      policy: { enabled: true, paused: false, priority_limits: { P1: 5, P2: 3, P3: 1, P4: 1, P5: 1 }, launches_per_minute: 4, max_rework: 2 }, leases,
+      forks: { schema: 'native-fork-evidence/1', available: true, evidence_version: 7, confirmed_count: 0,
+        confirmed: [], waiting: [], reservation: [], uncertain: [], validating: [], ended: [] } }
+    const observations = []
+    const appended = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_parallel_status') return text(parallel)
+      if (tool === 'work_parallel_event' && args.event === 'native_observation') {
+        observations.push(args)
+        return text({ evidence_version: observations.length, changed: args.rows.map(r => r.lease_id) })
+      }
+      return text(snapshot())
+    })
+    $.session.append = async row => { appended.push(row) }
+    state.agents = [
+      { id: 'fork-a', name: 'work-a', type: 'fork', status: 'running', spawnedBy: 'ciel-work', description: 'Work n1 SECRET-PROMPT' },
+      { id: 'fork-b', name: 'work-b', type: 'fork', status: 'pending', spawnedBy: 'ciel-work', description: 'Work n2' },
+      { id: 'side-1', name: 'side-intake-abc', type: 'ciel-work:side-intake', status: 'running', spawnedBy: 'ciel-work' },
+      { id: 'other', name: 'helper', type: 'Explore', status: 'running' },
+      { id: 'fork-old', name: 'work-old', type: 'fork', status: 'completed', spawnedBy: 'ciel-work' },
+    ]
+    const shown = async () => (await handlers['command.run']($, { args: 'parallel' })).text || ''
+    // A projection carrying evidence groups renders FORKS from them only.
+    parallel.forks = { schema: 'native-fork-evidence/1', available: true, evidence_version: 8, confirmed_count: 2,
+      confirmed: [{ item_id: 'n1', item_title: 'Fix A', priority: 'P1', role: 'worker', state: 'running', slot: true, agent_name: 'work-a', native: { status: 'running' } },
+                  { item_id: 'n2', item_title: 'Fix B', priority: 'P2', role: 'worker', state: 'running', slot: true, agent_name: 'work-b', native: { status: 'pending' } }],
+      waiting: [], reservation: [{ item_id: 'n3', priority: 'P2', role: 'worker', state: 'reserved', slot: true, native: null }],
+      uncertain: [], validating: [], ended: [] }
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    const view = await shown()
+    return { observations, appended, logs: state.logs, view }
+  },
   // Direct spawn: work_parallel_run itself starts the fork; the model never
   // copies an Agent name. A denied spawn releases the unbound reservation and
   // keeps the Work item queued.

@@ -51,8 +51,11 @@ class WorkObservatoryTests(unittest.TestCase):
         self.assertTrue(r['graphical'])
         work = '\n'.join(r['work']['texts'])
         self.assertIn('WORK 7 · executing · 1/3', work)
-        # Device maximum is the sum of the per-priority limits (5+3+1+1+1).
-        self.assertIn('Slots 1/11', work)
+        # Device slots (sum of per-priority limits 5+3+1+1+1) are shown apart
+        # from forks. With no native evidence the fork count is unknown, never
+        # inferred from the held slot.
+        self.assertIn('Device 1/11', work)
+        self.assertIn('Forks ?', work)
         self.assertIn('P1', work)
         self.assertIn('  Mobile layout', ''.join(t for t in r['work']['texts'] if 'Mobile layout' in t).replace('[!] ', ''))
         self.assertIn('error', r['work']['colors'])      # blocked child

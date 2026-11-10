@@ -254,6 +254,7 @@ class WorkParallelMCPTests(unittest.TestCase):
         self.assertEqual(lease["item_title"], "Fix payment retry")
         self.assertEqual(lease["agent_name"], "work-alpha")
         self.assertEqual(lease["host_id"], "agent-1")
+        self.assertNotIn("item_note", lease)
 
     def test_reserve_uses_root_priority_and_returns_worker_token_and_note(self):
         store, board, config, run = self.env

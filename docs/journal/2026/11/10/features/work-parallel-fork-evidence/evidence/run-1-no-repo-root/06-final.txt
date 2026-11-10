@@ -1,0 +1,30 @@
+  Called ciel-runtime-router 3 times, ran 1 shell command
+  ⎿  2 actions not run · permission denied
+
+● I'm not replying FINISHED because neither item was dispatched, so I also didn't run the 40-second sleep that was meant
+  to follow.
+
+  - What failed: work_parallel_status gave expected_version 0. With that value, work_parallel_run for n2 and then n3
+    (P2, worker) both returned: workspace preparation failed; reservation released: repo must be exact worktree root.
+  - Likely cause: git rev-parse --show-toplevel in the workspace returns C:/. So the workspace folder
+    (...\ciel-owned-parallel-fork-219fllfd\workspace) sits inside a git repo whose root is the whole C:\ drive and isn't
+    a repo root itself. The error text matches that, but I haven't confirmed it is the only cause.
+  - Board state: No fork leases were created and both reservations were released, so n2 and n3 are still pending.
+
+  To fix it, make the workspace folder its own git repo root (for example, run git init inside it) and then dispatch
+  again. I can do that and re-run the whole sequence if you want.
+
+✻ Baked for 39s · done 4:48 PM
+
+※ recap: Goal is to dispatch Work items n2 and n3 in parallel, then run a 40-second foreground sleep. Both dispatches
+  failed because the workspace folder isn't a git repo root. Next: run git init in the workspace, then dispatch again.
+  (disable recaps in /config)
+w: Work 0/2 [ ] Fork item A [+]                                                                                     [-]
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ git init the workspace and dispatch again
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [_Walkie_Opus55-Sol61-Fast (cielairouter)] workspace | SSE gate on: open | ctx 274,737/872,000 tok (31.5%) | cache …
+  [work] 0/2 [ ] Fork item A
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+                                                                                                         work: run 0/2

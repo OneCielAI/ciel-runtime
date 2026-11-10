@@ -122,10 +122,12 @@ def validate(d):
         # Optional fields keep ledgers written before the corresponding lifecycle
         # evidence readable. Plain worker capabilities are never persisted.
         base = "id scope item_id priority created_at role mode plan_version state host_id slot usage artifact rework evidence idle_proof cleanup_proof"
-        optional = "agent_name workspace dispatch_name owner report_hash terminal"
+        optional = "agent_name workspace dispatch_name owner report_hash terminal reserved_at bound_at state_changed_at"
         require(type(r) is dict and set(base.split()) <= set(r) and not set(r) - set((base + " " + optional).split()), "lease fields")
         require(r.get("agent_name") is None or text(r["agent_name"], 200), "agent name")
         require(r.get("dispatch_name") is None or text(r["dispatch_name"], 200), "dispatch name")
+        require(all(r.get(k) is None or number(r[k], 1e15) for k in ("reserved_at", "bound_at", "state_changed_at")),
+                "lifecycle times")
         owner = r.get("owner")
         require(owner is None or (fields(owner, "session_pid identity") and integer(owner["session_pid"], 1)
                 and (owner["identity"] is None or type(owner["identity"]) is str)), "owner identity")
@@ -204,6 +206,18 @@ class WorkParallelStore:
             result = fn(d)
             if d != before:
                 d["version"] += 1
+                # Lifecycle time for the dashboard: when a lease last changed
+                # state or slot. Written only alongside a real mutation.
+                stamp = time.time()
+                for ident, lease in d["leases"].items():
+                    old = before["leases"].get(ident)
+                    if old is None:
+                        lease.setdefault("reserved_at", stamp)
+                        lease["state_changed_at"] = stamp
+                    elif (old["state"], old["slot"]) != (lease["state"], lease["slot"]):
+                        lease["state_changed_at"] = stamp
+                    if old is not None and old["host_id"] is None and lease["host_id"] is not None:
+                        lease["bound_at"] = stamp
                 validate(d)
                 raw = json.dumps(d, ensure_ascii=False, allow_nan=False).encode("utf-8")
                 require(len(raw) <= MAX_BYTES, "byte limit")

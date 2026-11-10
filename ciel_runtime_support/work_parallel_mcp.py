@@ -5,6 +5,7 @@ import hashlib
 import json
 import hmac
 import secrets
+import time
 from pathlib import Path
 from . import work_plan_tree as tree
 from .work_parallel import (WorkParallelStore, WorkParallelError, active_by_priority,
@@ -30,6 +31,8 @@ def schemas():
         "worker_token": {"type": "string"}, "operation": {"type": "string"},
         "preview_digest": {"type": "string"}, "observation": {"type": "object"},
         "source": {"type": "string"}, "scope": {"type": "string"}, "results": {"type": "array", "items": {"type": "object"}},
+        "rows": {"type": "array", "items": {"type": "object"}}, "complete": {"type": "boolean"},
+        "expected_evidence_version": {"type": "integer", "minimum": 0},
     }
     descriptions = {
         "work_discovery_pickup": "Register caller-verified external open search items by priority/latest, with durable dedup and cooldown; never approves execution. Requires source, scope, results. Each result: source,item_id,priority,created_at,title,link,status,scope.",
@@ -46,6 +49,13 @@ def schemas():
 def ledger():
     from .runtime_paths import CONFIG_DIR
     return WorkParallelStore(Path(CONFIG_DIR) / "work-parallel.json")
+
+
+def native_evidence(store=None):
+    """The native fork evidence file beside the given (or device) ledger."""
+    from .work_parallel_native import NativeForkEvidence
+    base = store.path if store is not None else Path(ledger().path)
+    return NativeForkEvidence(base.with_name("work-parallel-native.json"))
 
 
 def _item_details(board):
@@ -82,23 +92,103 @@ def _item_details(board):
     return details
 
 
+def _clip(value, limit):
+    value = str(value or "")
+    return value if len(value) <= limit else value[:limit - 1] + "…"
+
+
+EVIDENCE_GROUPS = ("confirmed", "waiting", "reservation", "uncertain", "validating", "ended")
+EVIDENCE_RULE = ("A fork counts as processing only when the native agent list showed it pending or running "
+                 "within the last 30 seconds. A reserved slot, a running lease state or a bound host id alone "
+                 "is not evidence. The main session is the coordinator and is never a fork; side actors are "
+                 "counted separately.")
+
+
+def _fork_projection(store, identity, leases, details):
+    """Evidence-classified, allow-listed view of this conversation's leases.
+
+    Only ids, titles, priorities, states, a fixed native status word and
+    timestamps leave the host: never owner pids, workspaces, proofs, tokens
+    or anything a fork wrote.
+    """
+    from .work_parallel_native import FRESH_SECONDS, classify
+    try:
+        evidence = native_evidence(store).read()
+        available = True
+    except Exception:
+        evidence, available = {"version": None, "records": {}, "scans": {}}, False
+    now = time.time()
+    groups = {name: [] for name in EVIDENCE_GROUPS}
+    for lease in sorted(leases.values(), key=lambda r: (r["priority"], r.get("reserved_at") or 0, r["id"])):
+        record = evidence["records"].get(lease["id"])
+        if record is not None and record.get("scope") != identity:
+            record = None
+        group = classify(lease, record, evidence["scans"].get(identity), now=now)
+        item = details.get(lease["item_id"], {})
+        row = {"lease_id": lease["id"], "item_id": lease["item_id"],
+               "item_title": _clip(item.get("item_title"), 300), "item_ref": _clip(item.get("item_ref"), 100),
+               "goal_title": _clip(item.get("goal_title"), 300),
+               "item_path": [_clip(t, 120) for t in (item.get("item_path") or [])[:8]],
+               "priority": lease["priority"], "role": lease["role"], "state": lease["state"],
+               "slot": lease["slot"], "agent_name": lease.get("agent_name") or lease.get("dispatch_name"),
+               "agent_id": lease.get("host_id"), "rework": lease["rework"],
+               "reserved_at": lease.get("reserved_at"), "bound_at": lease.get("bound_at"),
+               "state_changed_at": lease.get("state_changed_at"),
+               "native": None if record is None else {k: record[k] for k in (
+                   "status", "first_seen_at", "last_seen_at", "status_changed_at", "missing_since", "terminal_at")},
+               "evidence": group}
+        if lease.get("terminal"):
+            row["terminal_reason"] = _clip(lease["terminal"].get("reason"), 100)
+        groups[group].append(row)
+    groups["ended"] = groups["ended"][-50:]
+    return {"schema": "native-fork-evidence/1", "rule": EVIDENCE_RULE, "available": available,
+            "evidence_version": evidence["version"], "fresh_seconds": FRESH_SECONDS,
+            "observed_at": evidence["scans"].get(identity),
+            "confirmed_count": len(groups["confirmed"]), **groups}
+
+
+def _device_projection(d, identity):
+    counts = active_by_priority(d["leases"])
+    mine = active_by_priority({k: v for k, v in d["leases"].items() if v["scope"] == identity})
+    limits = d["policy"]["priority_limits"]
+    return {"active_slots": sum(counts.values()), "capacity": sum(limits.values()),
+            "priority_limits": dict(limits), "active_by_priority": counts,
+            "this_session_by_priority": mine,
+            "other_sessions_by_priority": {k: counts[k] - mine[k] for k in counts},
+            "paused": d["policy"]["paused"], "enabled": d["policy"]["enabled"],
+            "note": "Device-wide lease slots across every session; a slot is not proof that a fork is running."}
+
+
 def project(store, identity, board=None):
     d = store.read()
     leases = {k: dict(v) for k, v in d["leases"].items() if v["scope"] == identity}
     for lease in leases.values():
         lease.pop("report_hash", None)
-    if board is not None and leases:
-        details = _item_details(board)
-        for lease in leases.values():
-            lease.update(details.get(lease["item_id"], {}))
+    details = _item_details(board) if board is not None and leases else {}
+    forks = _fork_projection(store, identity, leases, details)
+    for lease in leases.values():
+        # Status is model-visible coordinator data. Keep display metadata, but do
+        # not echo the assignment body into the main transcript: the packaged
+        # host reads the board and passes the note directly to the native fork.
+        visible = {k: v for k, v in details.get(lease["item_id"], {}).items() if k != "item_note"}
+        lease.update(visible)
     return {"version": d["version"], "policy": d["policy"],
             "active_device": sum(r["slot"] for r in d["leases"].values()),
             "active_by_priority": active_by_priority(d["leases"]),
-            "leases": leases,
+            "leases": leases, "forks": forks, "device": _device_projection(d, identity),
             "runtime": "claude" if identity.startswith("claude:") else "codex",
             "codex_adapter": "unsupported",
             "limitations": ["dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations",
                             "external discovery requires a configured authenticated source connector"]}
+
+
+def public_projection(projected, identity):
+    """Browser-safe /parallel: evidence groups and aggregates, no raw leases."""
+    return {"session_id": identity, "version": projected["version"],
+            "forks": projected["forks"], "device": projected["device"],
+            "policy": {k: projected["policy"][k] for k in ("enabled", "paused", "priority_limits",
+                                                          "launches_per_minute", "max_rework")},
+            "runtime": projected["runtime"], "limitations": projected["limitations"]}
 
 
 def _worker_event(store, board_store, lease, args):
@@ -297,6 +387,20 @@ def run(name, args, board_store, identity, config, save_config):
             role=args.get("role", "worker"),
         )
         return json.dumps(assignment, ensure_ascii=False)
+    if event == "native_observation":
+        # Host-only: the mod reports what $.agent.list() showed, outside any
+        # model turn. Rows are checked against this conversation's own bound
+        # leases, so neither main nor a side actor can be recorded as a fork.
+        if actor is not None:
+            raise WorkParallelError("coordinator host observation required")
+        leases = {k: v for k, v in store.read()["leases"].items() if v["scope"] == identity}
+        evidence = native_evidence(store)
+        expected = args.get("expected_evidence_version")
+        if type(expected) is not int:
+            raise WorkParallelError("expected_evidence_version required")
+        state, changed = evidence.observe(identity, leases, args.get("rows") or [],
+                                          complete=args.get("complete") is True, expected_version=expected)
+        return json.dumps({"evidence_version": state["version"], "changed": changed}, ensure_ascii=False)
     if event == "reconcile_orphans":
         if actor is not None:
             raise WorkParallelError("coordinator required")

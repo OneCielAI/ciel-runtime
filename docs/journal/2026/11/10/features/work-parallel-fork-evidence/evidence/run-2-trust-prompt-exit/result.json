@@ -1,0 +1,18 @@
+{
+  "out": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\10\\features\\work-parallel-fork-evidence\\evidence\\run",
+  "base": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-parallel-fork-20261110-165818",
+  "snapshot": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-src-snapshot-hVMz",
+  "port": 9631,
+  "main_model": "_Walkie_Opus55-Sol61-Fast",
+  "canary": {
+    "a": "FORKCANARY-A-4ea5ae5383e4",
+    "b": "FORKCANARY-B-6c0bbedbc4a8"
+  },
+  "outcome": "error",
+  "tree_before_kill": [
+    "conhost.exe",
+    "cmd.exe"
+  ],
+  "owned_router_pids": [],
+  "preserved_config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-parallel-fork-ajiwlxrq\\config"
+}

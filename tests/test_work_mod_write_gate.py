@@ -278,11 +278,35 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(result["dispatch"]["dispatch"], "started")
         self.assertEqual(result["spawnedEvent"]["description"], result["dispatch"]["description"])
         self.assertEqual(result["spawned"]["agentId"], "host-9")
-        self.assertIn("Assignments (item → fork agent): 3 lease(s), 3 holding a slot", result["shown"])
-        self.assertIn("n227 [ PAY-227 ] Fix payment retry → agent work-alpha [host host-1]", result["shown"])
+        # Without a native evidence projection nothing is presented as a running fork.
+        self.assertIn("FORKS: evidence unavailable", result["shown"])
+        self.assertIn("LEGACY LEASES (3)", result["shown"])
+        self.assertIn("n227 [ PAY-227 ] Fix payment retry → work-alpha", result["shown"])
+        self.assertIn("native not observed", result["shown"])
         self.assertIn("path: Product goal → Checkout phase → Fix payment retry", result["shown"])
-        self.assertIn("n228 → agent (not launched yet)", result["shown"])
-        self.assertIn(result["dispatch"]["name"] + " [host host-9]", result["shown"])
+        self.assertIn("n228 → (native fork not observed)", result["shown"])
+        self.assertIn(result["dispatch"]["name"], result["shown"])
+
+    def test_native_observation_records_only_bound_work_forks_outside_main(self):
+        result = self.run_scenario("parallel-native-observation")
+        self.assertTrue(result["observations"], result)
+        rows = result["observations"][-1]["rows"]
+        # Only this session's two bound, open Work forks: never main, the side
+        # actor, an unrelated agent, a reservation or a finished lease.
+        self.assertEqual({("L1", "fork-a", "running"), ("L2", "fork-b", "pending")},
+                         {(r["lease_id"], r["agent_id"], r["status"]) for r in rows})
+        self.assertTrue(result["observations"][-1]["complete"])
+        self.assertEqual(8, result["observations"][-1]["expected_evidence_version"])
+        # Content-free: no description/prompt text leaves the host.
+        self.assertNotIn("SECRET-PROMPT", json.dumps(result["observations"]))
+        self.assertEqual([], result["appended"])
+        view = result["view"]
+        self.assertIn("FORKS: 2 confirmed by native agent list", view)
+        self.assertIn("main is coordinator, never a fork", view)
+        self.assertIn("CONFIRMED (2)", view)
+        self.assertIn("RESERVATION (1)", view)
+        self.assertIn("n3 → (native fork not observed)", view)
+        self.assertIn("Work forks confirmed by native agent list: 2", " ".join(result["logs"]))
 
     def test_work_parallel_run_starts_fork_without_model_agent_call(self):
         result = self.run_scenario("parallel-direct-spawn-started")

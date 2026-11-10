@@ -1,0 +1,30 @@
+
+
+● ciel-work: Work forks confirmed by native agent list: 1
+
+● ciel-work: Work forks confirmed by native agent list: 2
+
+❯ /work-mode
+  ⎿  ciel-work: Ciel Work parallel
+     FORKS: 2 confirmed by native agent list · main is coordinator, never a fork · side actors are separate
+     DEVICE: slots 2/11 · per priority P1 0/5 · P2 2/3 · P3 0/1 · P4 0/1 · P5 0/1
+     Policy: enabled · ledger v6 · launches/min 4 · max rework 2
+     CONFIRMED (2)
+       n2 Fork item A → work-mwbboo2f-r57mcuza5xo · P2 worker · lease running · native running · slot held
+         path: Parallel fork proof → Fork item A
+       n3 Fork item B → work-mwbboyv7-4sp14vwygh3 · P2 worker · lease running · native running · slot held
+         path: Parallel fork proof → Fork item B
+     Pending native Agent dispatch: 0
+     Settings: ciel-runtime menu → LLM options → Work 병렬 실행. Policy changes do not terminate existing workers.
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [_Walkie_Opus55-Sol61-Fast (cielairouter)] workspace | SSE gate on: open | ctx 275,591/872,000 tok (31.6%) | cache …
+  [work] 0/2 [ ] Fork item A
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+                                                                                                         work: run 0/2
+
+  ● main
+  ◯ work-mwbboo2f-r57mcuza5xo  Work n2 Fork item A                                               26s · ↓ 273.7k tokens
+  ◯ work-mwbboyv7-4sp14vwygh3  Work n3 Fork item B                                               13s · ↓ 276.3k tokens

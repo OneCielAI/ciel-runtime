@@ -126,6 +126,25 @@ class WorkWebUiTests(unittest.TestCase):
         self.assertRegex(self.html, r"Resend \(may duplicate\)',\(\)=>confirmDanger\(")
         self.assertRegex(self.html, r"'Release lease',\(\)=>confirmDanger\(")
 
+    def test_parallel_tab_uses_native_fork_evidence_not_raw_leases(self):
+        for marker in (
+            "Main session is the coordinator, not a parallel fork. Side actors are on the Side tab.",
+            "Native fork evidence unavailable", "Processing now · confirmed native forks",
+            "No fork is processing Work right now.", "confirmed by native agent list",
+            "Waiting for input", "Reservations · no native fork yet", "Uncertain or stale",
+            "A slot may be held without a running fork.", "Validating", "Device capacity · all sessions",
+            "Pause dispatch on this device", "function confirmedFork(", "function compactFork(",
+            "source.addEventListener('parallel.changed',refreshParallel)",
+            "source.addEventListener('work.changed',refreshParallel)",
+        ):
+            self.assertIn(marker, self.html)
+        renderer = self.html.split("function renderParallel(", 1)[1].split("function renderOrphans(", 1)[0]
+        self.assertNotIn("data.leases", renderer)
+        self.assertNotIn("active_device", renderer)
+        self.assertIn("data.forks", renderer)
+        self.assertIn("deviceSection(data)", renderer)
+        self.assertIn("const device=data.device||{}", self.html)
+
     def test_side_tab_is_receipt_first_paginated_and_draft_safe(self):
         for marker in (
             "Side receipts", "All stages", "Load older", "Newest side receipts",
@@ -198,6 +217,75 @@ class WorkWebUiTests(unittest.TestCase):
                 shot = os.path.join(directory, "side-receipts-mobile.png")
                 page.screenshot(path=shot, full_page=True)
                 self.assertGreater(os.path.getsize(shot), 0)
+            browser.close()
+
+    @unittest.skipUnless(os.environ.get("CIEL_TEST_BROWSER"), "opt-in browser verification")
+    def test_parallel_browser_separates_confirmed_forks_from_non_running_groups(self):
+        from playwright.sync_api import sync_playwright
+        html = self.html
+        now = 1_800_000_000.0
+        def row(item, group, priority="P2", native_status="running"):
+            return {"lease_id": "lease-" + item, "item_id": item, "item_title": "Title " + item,
+                    "item_ref": "REF-" + item, "goal_title": "Goal", "item_path": ["Goal", "Title " + item],
+                    "priority": priority, "role": "implement", "state": group, "slot": True,
+                    "agent_name": "fork-" + item, "agent_id": "agent-1234567890-" + item,
+                    "state_changed_at": now - 8, "native": {"status": native_status,
+                    "first_seen_at": now - 20, "last_seen_at": now - 2,
+                    "missing_since": now - 5}, "evidence": group}
+        parallel = {"schema_version": 2, "version": 7,
+                    "policy": {"enabled": True, "paused": False, "priority_limits": {"P1": 1, "P2": 3}},
+                    "forks": {"schema": "native-fork-evidence/1", "rule": "Only fresh native agent evidence counts.",
+                              "available": True, "observed_at": now, "confirmed_count": 2,
+                              "confirmed": [row("a", "running", "P1"), row("b", "running")],
+                              "waiting": [row("c", "waiting_input", native_status="waiting")],
+                              "reservation": [row("d", "reserved", native_status="not observed")],
+                              "uncertain": [row("e", "running", native_status="stale")],
+                              "validating": [], "ended": [row("f", "released", native_status="completed")]},
+                    "device": {"active_slots": 3, "capacity": 6,
+                               "priority_limits": {"P1": 1, "P2": 3, "P3": 1, "P4": 1, "P5": 0},
+                               "this_session_by_priority": {"P1": 1, "P2": 1, "P3": 0, "P4": 0, "P5": 0},
+                               "other_sessions_by_priority": {"P1": 0, "P2": 1, "P3": 0, "P4": 0, "P5": 0},
+                               "paused": False, "enabled": True,
+                               "note": "Device-wide lease slots; not fork evidence."}}
+        board = {"session_id": "claude:fixture", "version": 1, "nodes": [], "phase": "idle"}
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(executable_path=os.environ["CIEL_TEST_BROWSER"], headless=True)
+            page = browser.new_page(viewport={"width": 390, "height": 844})
+            def route(request):
+                url = request.request.url
+                if url.endswith("/ca/work/ui"):
+                    request.fulfill(content_type="text/html", body=html)
+                elif "/events" in url:
+                    request.fulfill(content_type="text/event-stream", body=": ready\n\n")
+                elif "/parallel" in url:
+                    request.fulfill(json=parallel)
+                elif "/board" in url:
+                    request.fulfill(json=board)
+                else:
+                    request.fulfill(json={})
+            page.route("http://fixture.test/**", route)
+            page.goto("http://fixture.test/ca/work/ui")
+            page.get_by_role("tab", name="Parallel").click()
+            page.locator('[data-group="confirmed"] .fork-title').first.wait_for()
+            self.assertEqual(2, page.locator('[data-group="confirmed"] .fork-card').count())
+            self.assertEqual(1, page.locator('[data-group="waiting"] .compact-fork').count())
+            self.assertEqual(1, page.locator('[data-group="reservation"] .compact-fork').count())
+            self.assertEqual(1, page.locator('[data-group="uncertain"] .compact-fork').count())
+            self.assertEqual(1, page.locator('[data-group="ended"] .compact-fork').count())
+            self.assertIn("confirmed native forks (2)", page.locator('[data-group="confirmed"] h3').inner_text())
+            self.assertIn("confirmed by native agent list", page.locator('.fork-card').first.inner_text())
+            self.assertIn("P2 · this session 1 · other sessions 1 · free 1 / 3",
+                          page.locator('[data-group="device"]').inner_text())
+            self.assertIn("slot may be held without a running fork",
+                          page.locator('[data-group="uncertain"]').inner_text())
+            self.assertFalse(page.locator('[data-group="ended"]').evaluate("node => node.open"))
+            orphan = {"version": 7, "digest": "d" * 64, "leases": []}
+            page.evaluate("preview => renderOrphans(byId('panel-parallel'), preview)", orphan)
+            page.evaluate("refreshParallel()")
+            page.locator("#orphan-review .orphan-stale").wait_for()
+            self.assertEqual(2, page.locator('[data-group="confirmed"] .fork-card').count())
+            overflow = page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
+            self.assertLessEqual(overflow, 0)
             browser.close()
 
 class WorkHttpRoutesTests(unittest.TestCase):

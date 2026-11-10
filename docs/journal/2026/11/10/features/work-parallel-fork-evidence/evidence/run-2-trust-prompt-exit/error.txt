@@ -1,0 +1,29 @@
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Accessing workspace:
+
+ C:\Users\djlov\AppData\Local\Temp\ciel-owned-parallel-fork-ajiwlxrq\workspace
+
+ Quick safety check: Is this a project you created or one you trust? (Like your own code, a well-known open source
+ project, or work from your team). If not, take a moment to review what's in this folder first.
+
+ Claude Code'll be able to read, edit, and execute files here.
+
+ Security guide
+
+ ❯ No, exit
+   Yes, I trust this folder
+
+ Enter to confirm · Esc to cancel
+Ciel Runtime diagnostic: Claude Code exited with code 1 while routed through http://127.0.0.1:9631.
+Router: health=ok base=http://127.0.0.1:9631 pid=90976 version=0.2.51 source=0ef386a2b1761e00 provider=cielairouter mode
+l=ciel-runtime-cielairouter-_walkie_opus55-sol61-fast config_dir=C:\Users\djlov\AppData\Local\Temp\ciel-owned-parallel-f
+ork-ajiwlxrq\config\router-instances\9631-c7a399bd0bb3
+Provider: cielairouter upstream=https://ciel-router-01.ezonebot.com/v1/messages
+Router log: C:\Users\djlov\AppData\Local\Temp\ciel-owned-parallel-fork-ajiwlxrq\config\router-instances\9631-c7a399bd0bb
+3\router.log
+[probe] ciel-runtime exited with 1
+
+C:\Users\djlov\AppData\Local\Temp\ciel-owned-parallel-fork-ajiwlxrq\workspace>
+
+
