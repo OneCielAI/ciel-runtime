@@ -76,9 +76,38 @@ The run's acceptance booleans for restart correctness were all true. Desktop/mob
 - The immutable snapshot contains 575 files; the global exact-archive install matched all 575 files.
 - User `CIEL_RUNTIME_HOME` now points future launches to the `8e08b97…` snapshot. No live process was restarted.
 
-# Remaining definition-of-done work
+# Installed-build scheduler repetition
 
-Installed-build scheduler repetition remains required.
+Both runs used the immutable installed snapshot `ciel-runtime-8e08b97…` with a new temporary config, and all inherited `CIEL_RUNTIME_*` variables were removed.
+
+**Attempt 1 failed.** Evidence is in `evidence/scheduler-run-installed-beta-attempt1/`.
+
+- The forks were first seen at 12.1 s, 40.9 s, 68.2 s and 127.4 s. The 66-second P1 marker ended before the fourth fork started, so the initial four never overlapped.
+- Eight gates failed. The automatic-refill and main-isolation gates passed.
+- Every measured hop was slower than in source-6. See `verification/installed-run-latency.json`:
+
+  | Hop | Source-6 median | Attempt 1 median |
+  |---|---|---|
+  | `work_parallel_event` | 0.8 s | 4.3 s |
+  | `work_parallel_status` | 0.6 s | 4.5 s |
+  | `Agent` tool | 1.3 s | 14.5 s |
+  | Unrelated external `orca-agent-hook` | 0.30 s | 1.96 s |
+
+- The root cause of the slowdown was not identified.
+- After the run, six probe-owned resumed restart consoles were found still alive. They came from `owned-restart-20261110-225953…232817` and used temporary `%TEMP%/ciel-owned-restart-*` configs. Only those trees were stopped, and the live PIDs 12600, 90872 and 102668 were unchanged. Five of the six were already running during source-6, so they are not a proven cause.
+- `owned_restart_probe.py` now also stops every process whose command line names its own run directory or scratch directory.
+
+**Attempt 2 passed.** Evidence is in `evidence/scheduler-run-installed-beta-2/`.
+
+- Every acceptance gate was true.
+- Four distinct native forks ran at P1=2 / P2=1 / P3=1, with an initial marker overlap of 23.3 s.
+- After P1 released its slot, a new P1 lease and agent (`a5741037…`) started automatically.
+- Main-model rows contained no fork canary.
+- The terminal, the desktop web view and the 390 px web view all show the four confirmed forks.
+- Median latencies: event 1.9 s, status 0.8 s, Agent 3.7 s, external hook 0.32 s.
+- No probe process was left afterwards.
+
+**Observed limitation, not changed in this release.** The host pump starts forks one at a time. Each fork needs status, reserve, the spawn hook, the `Agent` call and bind, in order. Initial fill time therefore grows with per-call latency: about 6 s per fork in source-6, about 20 s in attempt 2 and about 30 s in attempt 1.
 
 # Related concepts
 

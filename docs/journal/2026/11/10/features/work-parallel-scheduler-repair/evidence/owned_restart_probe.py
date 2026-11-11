@@ -319,6 +319,26 @@ def kill_tree(pid: int) -> None:
                    stderr=subprocess.DEVNULL)
 
 
+def kill_owned_launches() -> list[int]:
+    """Stop every console tree started from this run's own launch scripts or scratch root.
+
+    The resumed console can outlive the Popen handle (or the driver can be interrupted),
+    so cleanup matches command lines that name this run's BASE or scratch directory.
+    """
+    markers = [str(BASE), str(scratch)]
+    script = ("$m=@(" + ",".join("'" + item.replace("'", "''") + "'" for item in markers) + "); "
+              "Get-CimInstance Win32_Process | Where-Object { $c=$_.CommandLine; $c -and $_.ProcessId -ne $PID "
+              "-and ($m | Where-Object { $c.Contains($_) }) } | Select-Object -ExpandProperty ProcessId")
+    pids = subprocess.run(["powershell", "-NoProfile", "-Command", script],
+                          capture_output=True, text=True).stdout.split()
+    stopped = []
+    for pid in pids:
+        if pid.isdigit() and int(pid) != os.getpid():
+            kill_tree(int(pid))
+            stopped.append(int(pid))
+    return stopped
+
+
 def kill_owned_router() -> list[str]:
     pids = subprocess.run(["powershell", "-NoProfile", "-Command",
         f"(Get-NetTCPConnection -LocalPort {port} -State Listen -ErrorAction SilentlyContinue).OwningProcess"],
@@ -485,6 +505,7 @@ finally:
         if process is not None and process.poll() is None:
             kill_tree(process.pid)
     time.sleep(2)
+    result["final_owned_launch_pids"] = kill_owned_launches()
     result["final_owned_router_pids"] = kill_owned_router()
     result["preserved_config"] = str(config)
     (OUT / "result.json").write_text(json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8")

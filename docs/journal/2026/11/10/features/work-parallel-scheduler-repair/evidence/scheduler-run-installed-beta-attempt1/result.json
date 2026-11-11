@@ -1,0 +1,536 @@
+{
+  "out": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\10\\features\\work-parallel-scheduler-repair\\evidence\\scheduler-run-installed-beta",
+  "base": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-scheduler-20261111-000050",
+  "snapshot": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06",
+  "port": 9731,
+  "session": "77777777-7777-4777-8777-777777777777",
+  "main_model": "_Walkie_Opus55-Sol61-Fast",
+  "seed": {
+    "version": 1,
+    "items": {
+      "P1 first release": "n2",
+      "P1 automatic refill": "n3",
+      "P1 long": "n5",
+      "P2 long": "n7",
+      "P3 long": "n9"
+    },
+    "terminal_rows": 24,
+    "stale_launch_rows": 24
+  },
+  "outcome": "failed",
+  "initial_four_epoch": null,
+  "api_initial_four": null,
+  "automatic_refill": {
+    "at": 1794377200.5614345,
+    "agent_ids": [
+      "a888677013da29045"
+    ],
+    "lease_ids": [
+      "36ea6fc6ec4a4200837edfb96b95bdcb"
+    ],
+    "rows": [
+      {
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "lease_id": "36ea6fc6ec4a4200837edfb96b95bdcb",
+        "agent_id": "a888677013da29045",
+        "agent_name": "work-auto-mwbps1aj-9j393cuqcre",
+        "status": "running",
+        "first_seen_at": 1794377199.730683,
+        "last_seen_at": 1794377199.730683,
+        "status_changed_at": 1794377199.730683,
+        "missing_since": null,
+        "terminal_at": null
+      }
+    ]
+  },
+  "marker_windows": {
+    "P1 first release": [
+      1794376951.262905,
+      1794377017.3030655,
+      34
+    ],
+    "P1 automatic refill": [
+      1794376971.0399232,
+      1794377119.1062267,
+      75
+    ],
+    "P2 long": [
+      1794377007.8291984,
+      1794377155.9101062,
+      75
+    ],
+    "P3 long": [
+      1794377041.538119,
+      1794377189.6210527,
+      75
+    ],
+    "P1 long": [
+      1794377134.8579483,
+      1794377200.8922184,
+      34
+    ]
+  },
+  "initial_marker_overlap_seconds": 0,
+  "native_final": {
+    "schema": 1,
+    "version": 8,
+    "records": {
+      "858cd7ba3f83472b9756895d7d375cfa": {
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "lease_id": "858cd7ba3f83472b9756895d7d375cfa",
+        "agent_id": "a54b27b8ebd9ea3d8",
+        "agent_name": "work-auto-mwbpo7b1-4rj55eiu6jt",
+        "status": "idle",
+        "first_seen_at": 1794376963.3409317,
+        "last_seen_at": 1794377046.9023023,
+        "status_changed_at": 1794377046.9023023,
+        "missing_since": 1794377078.645072,
+        "terminal_at": null
+      },
+      "91ff220d11ae4542867d5e8add85e412": {
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "lease_id": "91ff220d11ae4542867d5e8add85e412",
+        "agent_id": "a006bf327fa186a46",
+        "agent_name": "work-auto-mwbpp51v-khc9snwphmp",
+        "status": "running",
+        "first_seen_at": 1794376992.1350183,
+        "last_seen_at": 1794377148.4822016,
+        "status_changed_at": 1794376992.1350183,
+        "missing_since": 1794377199.730683,
+        "terminal_at": null
+      },
+      "f87a30f886bc4479ae289048daaee52e": {
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "lease_id": "f87a30f886bc4479ae289048daaee52e",
+        "agent_id": "a31e5c06120f4a5c5",
+        "agent_name": "work-auto-mwbppqqk-iuyruc8elkl",
+        "status": "running",
+        "first_seen_at": 1794377019.450507,
+        "last_seen_at": 1794377199.730683,
+        "status_changed_at": 1794377019.450507,
+        "missing_since": null,
+        "terminal_at": null
+      },
+      "8fb219b24a41424abd5532f742ba487b": {
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "lease_id": "8fb219b24a41424abd5532f742ba487b",
+        "agent_id": "a64a5e9d1029e7494",
+        "agent_name": "work-auto-mwbpqgpo-xrwuathy6j",
+        "status": "running",
+        "first_seen_at": 1794377078.645072,
+        "last_seen_at": 1794377199.730683,
+        "status_changed_at": 1794377078.645072,
+        "missing_since": null,
+        "terminal_at": null
+      },
+      "36ea6fc6ec4a4200837edfb96b95bdcb": {
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "lease_id": "36ea6fc6ec4a4200837edfb96b95bdcb",
+        "agent_id": "a888677013da29045",
+        "agent_name": "work-auto-mwbps1aj-9j393cuqcre",
+        "status": "running",
+        "first_seen_at": 1794377199.730683,
+        "last_seen_at": 1794377199.730683,
+        "status_changed_at": 1794377199.730683,
+        "missing_since": null,
+        "terminal_at": null
+      }
+    },
+    "scans": {
+      "claude:77777777-7777-4777-8777-777777777777": 1794377199.730683
+    }
+  },
+  "coordination_final": {
+    "archive": [],
+    "archive_dropped": 0,
+    "details": {
+      "28bece97e13a90a2eaffa1e47864a2e1b140a560c5cca8ca4a5a4c1c000004b7": {
+        "body": {
+          "coverage": [
+            {
+              "item_id": "n7",
+              "verified": true
+            }
+          ],
+          "summary": "owned scheduler marker completed",
+          "verification": "owned scheduler marker completed",
+          "workspace": null
+        },
+        "kind": "completion"
+      },
+      "99fce9ac65023f6e9979b32e76b51c5c1eba0ef44d2e8774a2db530427321067": {
+        "body": {
+          "coverage": [
+            {
+              "item_id": "n3",
+              "verified": true
+            }
+          ],
+          "summary": "owned scheduler marker completed",
+          "verification": "owned scheduler marker completed",
+          "workspace": null
+        },
+        "kind": "completion"
+      },
+      "c9d5255bd91ef0ef7c8415bdbebf805afbdea9e259cdbdc6d51623ebd40a483d": {
+        "body": {
+          "blocking_todos": [
+            "Decide whether n2 (P1 first release) should be resumed or accepted after the marker run"
+          ],
+          "decision_needed": "Resume or accept item n2 after the deliberate park that released its slot.",
+          "question": "The marker command for P1 first release ran to completion (34 iterations, 2s apart, exited with no output). Per the assignment this item is deliberately parked: should it be resumed or accepted as complete?"
+        },
+        "kind": "question"
+      }
+    },
+    "receipts": {
+      "28bece97e13a90a2eaffa1e47864a2e1b140a560c5cca8ca4a5a4c1c000004b7": {
+        "created_at": 1794377195.5633554,
+        "digest": "28bece97e13a90a2eaffa1e47864a2e1b140a560c5cca8ca4a5a4c1c000004b7",
+        "kind": "completion",
+        "lease_id": "f87a30f886bc4479ae289048daaee52e"
+      },
+      "99fce9ac65023f6e9979b32e76b51c5c1eba0ef44d2e8774a2db530427321067": {
+        "created_at": 1794377142.0964615,
+        "digest": "99fce9ac65023f6e9979b32e76b51c5c1eba0ef44d2e8774a2db530427321067",
+        "kind": "completion",
+        "lease_id": "91ff220d11ae4542867d5e8add85e412"
+      },
+      "c9d5255bd91ef0ef7c8415bdbebf805afbdea9e259cdbdc6d51623ebd40a483d": {
+        "created_at": 1794377028.8627136,
+        "digest": "c9d5255bd91ef0ef7c8415bdbebf805afbdea9e259cdbdc6d51623ebd40a483d",
+        "kind": "question",
+        "lease_id": "858cd7ba3f83472b9756895d7d375cfa"
+      }
+    },
+    "root_generations": {
+      "claude:77777777-7777-4777-8777-777777777777\u0000n1": {
+        "approval_generation": 1,
+        "phase": "executing",
+        "root_id": "n1",
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "scope_digest": "d68c2c2a0a108f3411560b6088acaab536c412e128777b2eaf332cbe0cbbbb38",
+        "updated_at": 1794376898.9388614
+      },
+      "claude:77777777-7777-4777-8777-777777777777\u0000n4": {
+        "approval_generation": 1,
+        "phase": "executing",
+        "root_id": "n4",
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "scope_digest": "dc578f34b02780c11c7ef11ad93ed9e9adfd66eee9c7b5518cebcab060b52347",
+        "updated_at": 1794377084.4206052
+      },
+      "claude:77777777-7777-4777-8777-777777777777\u0000n6": {
+        "approval_generation": 1,
+        "phase": "executing",
+        "root_id": "n6",
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "scope_digest": "6aed1495bdc5136e54252da4b635a4170ab8540fa6d8e9a99bd9e3eac33eaa4d",
+        "updated_at": 1794376966.7319033
+      },
+      "claude:77777777-7777-4777-8777-777777777777\u0000n8": {
+        "approval_generation": 1,
+        "phase": "executing",
+        "root_id": "n8",
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "scope_digest": "a4ab2df8e6b6cf5f8e9c66478614f256e2396b36602e145fd24352694c01458c",
+        "updated_at": 1794377004.9753287
+      }
+    },
+    "runs": {
+      "36ea6fc6ec4a4200837edfb96b95bdcb": {
+        "agent_id": "a888677013da29045",
+        "agent_name": "work-auto-mwbps1aj-9j393cuqcre",
+        "approval_generation": 1,
+        "assigned_todos": [
+          "n5"
+        ],
+        "bound_at": 1794377164.1542761,
+        "exit": null,
+        "exit_attempts": 0,
+        "fingerprint": "dc578f34b02780c11c7ef11ad93ed9e9adfd66eee9c7b5518cebcab060b52347",
+        "generation": 1,
+        "item_id": "n5",
+        "lease_id": "36ea6fc6ec4a4200837edfb96b95bdcb",
+        "native_seen_at": 1794377199.7368846,
+        "native_status": "running",
+        "priority": "P1",
+        "recovery": {
+          "attempts": 0,
+          "error_code": null,
+          "state": "none"
+        },
+        "replaced_by": null,
+        "reserved_at": 1794377084.4437277,
+        "role": "worker",
+        "root_id": "n4",
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "state": "active",
+        "state_changed_at": 1794377199.7368846,
+        "workspace": {
+          "branch": "work-parallel/114878298955f26046cb96545797fbb7ff3172323e525be08a21ae8853a21242",
+          "head": "0fa32bb6acbf4209da330275bc5ccf114fc4870e",
+          "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-scheduler-c___8cy9\\workspace\\.claude\\worktrees\\work-parallel-114878298955f26046cb9654"
+        }
+      },
+      "858cd7ba3f83472b9756895d7d375cfa": {
+        "agent_id": "a54b27b8ebd9ea3d8",
+        "agent_name": "work-auto-mwbpo7b1-4rj55eiu6jt",
+        "approval_generation": 1,
+        "assigned_todos": [
+          "n2"
+        ],
+        "bound_at": 1794376930.8389523,
+        "exit": {
+          "digest": "c9d5255bd91ef0ef7c8415bdbebf805afbdea9e259cdbdc6d51623ebd40a483d",
+          "kind": "question"
+        },
+        "exit_attempts": 0,
+        "fingerprint": "d68c2c2a0a108f3411560b6088acaab536c412e128777b2eaf332cbe0cbbbb38",
+        "generation": 1,
+        "item_id": "n2",
+        "lease_id": "858cd7ba3f83472b9756895d7d375cfa",
+        "native_seen_at": 1794377046.9085388,
+        "native_status": "idle",
+        "priority": "P1",
+        "recovery": {
+          "attempts": 0,
+          "error_code": null,
+          "state": "none"
+        },
+        "replaced_by": null,
+        "reserved_at": 1794376898.9476557,
+        "role": "worker",
+        "root_id": "n1",
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "state": "waiting",
+        "state_changed_at": 1794377046.9085388,
+        "workspace": {
+          "branch": "work-parallel/99d33fccc9e1a863cb6931360ba7df536de5db7aad76c1c6d851311182cb39e6",
+          "head": "0fa32bb6acbf4209da330275bc5ccf114fc4870e",
+          "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-scheduler-c___8cy9\\workspace\\.claude\\worktrees\\work-parallel-99d33fccc9e1a863cb693136"
+        }
+      },
+      "8fb219b24a41424abd5532f742ba487b": {
+        "agent_id": "a64a5e9d1029e7494",
+        "agent_name": "work-auto-mwbpqgpo-xrwuathy6j",
+        "approval_generation": 1,
+        "assigned_todos": [
+          "n9"
+        ],
+        "bound_at": 1794377055.3394282,
+        "exit": null,
+        "exit_attempts": 0,
+        "fingerprint": "a4ab2df8e6b6cf5f8e9c66478614f256e2396b36602e145fd24352694c01458c",
+        "generation": 1,
+        "item_id": "n9",
+        "lease_id": "8fb219b24a41424abd5532f742ba487b",
+        "native_seen_at": 1794377078.656519,
+        "native_status": "running",
+        "priority": "P3",
+        "recovery": {
+          "attempts": 0,
+          "error_code": null,
+          "state": "none"
+        },
+        "replaced_by": null,
+        "reserved_at": 1794377004.987614,
+        "role": "worker",
+        "root_id": "n8",
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "state": "active",
+        "state_changed_at": 1794377078.656519,
+        "workspace": {
+          "branch": "work-parallel/8c87b39d37a2c9d6cfa61b52d9f4dc5456b062a07066a3410e3aae4ccb2caefb",
+          "head": "0fa32bb6acbf4209da330275bc5ccf114fc4870e",
+          "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-scheduler-c___8cy9\\workspace\\.claude\\worktrees\\work-parallel-8c87b39d37a2c9d6cfa61b52"
+        }
+      },
+      "91ff220d11ae4542867d5e8add85e412": {
+        "agent_id": "a006bf327fa186a46",
+        "agent_name": "work-auto-mwbpp51v-khc9snwphmp",
+        "approval_generation": 1,
+        "assigned_todos": [
+          "n3"
+        ],
+        "bound_at": 1794376962.9954143,
+        "exit": {
+          "digest": "99fce9ac65023f6e9979b32e76b51c5c1eba0ef44d2e8774a2db530427321067",
+          "kind": "completion"
+        },
+        "exit_attempts": 0,
+        "fingerprint": "d68c2c2a0a108f3411560b6088acaab536c412e128777b2eaf332cbe0cbbbb38",
+        "generation": 1,
+        "item_id": "n3",
+        "lease_id": "91ff220d11ae4542867d5e8add85e412",
+        "native_seen_at": 1794376992.213924,
+        "native_status": "running",
+        "priority": "P1",
+        "recovery": {
+          "attempts": 0,
+          "error_code": null,
+          "state": "none"
+        },
+        "replaced_by": null,
+        "reserved_at": 1794376938.6390245,
+        "role": "worker",
+        "root_id": "n1",
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "state": "terminal",
+        "state_changed_at": 1794377142.0964615,
+        "workspace": {
+          "branch": "work-parallel/1e8d7dde4e1c861784d477f87cdc9822becd9ee6494bd8aeda21d10c9c8771dc",
+          "head": "0fa32bb6acbf4209da330275bc5ccf114fc4870e",
+          "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-scheduler-c___8cy9\\workspace\\.claude\\worktrees\\work-parallel-1e8d7dde4e1c861784d477f8"
+        }
+      },
+      "f87a30f886bc4479ae289048daaee52e": {
+        "agent_id": "a31e5c06120f4a5c5",
+        "agent_name": "work-auto-mwbppqqk-iuyruc8elkl",
+        "approval_generation": 1,
+        "assigned_todos": [
+          "n7"
+        ],
+        "bound_at": 1794376993.267063,
+        "exit": {
+          "digest": "28bece97e13a90a2eaffa1e47864a2e1b140a560c5cca8ca4a5a4c1c000004b7",
+          "kind": "completion"
+        },
+        "exit_attempts": 0,
+        "fingerprint": "6aed1495bdc5136e54252da4b635a4170ab8540fa6d8e9a99bd9e3eac33eaa4d",
+        "generation": 1,
+        "item_id": "n7",
+        "lease_id": "f87a30f886bc4479ae289048daaee52e",
+        "native_seen_at": 1794377019.4630718,
+        "native_status": "running",
+        "priority": "P2",
+        "recovery": {
+          "attempts": 0,
+          "error_code": null,
+          "state": "none"
+        },
+        "replaced_by": null,
+        "reserved_at": 1794376966.7495027,
+        "role": "worker",
+        "root_id": "n6",
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "state": "terminal",
+        "state_changed_at": 1794377195.5633554,
+        "workspace": {
+          "branch": "work-parallel/5816e8f59facd8309c33874c2fc671e4e21fbdee5dca4632484cea6806381839",
+          "head": "0fa32bb6acbf4209da330275bc5ccf114fc4870e",
+          "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-scheduler-c___8cy9\\workspace\\.claude\\worktrees\\work-parallel-5816e8f59facd8309c33874c"
+        }
+      }
+    },
+    "scheduler": {
+      "cursors": {},
+      "diagnostics": []
+    },
+    "schema": 1,
+    "version": 28
+  },
+  "fork_transcripts": [
+    {
+      "file": "agent-a006bf327fa186a46.jsonl",
+      "agent_id": "a006bf327fa186a46",
+      "type": "fork",
+      "description": "Work n3 P1 automatic refill",
+      "canaries": [
+        "P1 automatic refill"
+      ]
+    },
+    {
+      "file": "agent-a31e5c06120f4a5c5.jsonl",
+      "agent_id": "a31e5c06120f4a5c5",
+      "type": "fork",
+      "description": "Work n7 P2 long",
+      "canaries": [
+        "P2 long"
+      ]
+    },
+    {
+      "file": "agent-a54b27b8ebd9ea3d8.jsonl",
+      "agent_id": "a54b27b8ebd9ea3d8",
+      "type": "fork",
+      "description": "Work n2 P1 first release",
+      "canaries": [
+        "P1 first release"
+      ]
+    },
+    {
+      "file": "agent-a64a5e9d1029e7494.jsonl",
+      "agent_id": "a64a5e9d1029e7494",
+      "type": "fork",
+      "description": "Work n9 P3 long",
+      "canaries": [
+        "P3 long"
+      ]
+    },
+    {
+      "file": "agent-a888677013da29045.jsonl",
+      "agent_id": "a888677013da29045",
+      "type": "fork",
+      "description": "Work n5 P1 long",
+      "canaries": [
+        "P1 long"
+      ]
+    }
+  ],
+  "main_leaks": [],
+  "acceptance": {
+    "host_started_four_without_main_prompt": false,
+    "four_distinct_native_ids": false,
+    "priority_use_2_1_1": false,
+    "initial_four_overlap": false,
+    "marker_overlap_support": false,
+    "automatic_next_started": true,
+    "fork_transcripts_cover_observed_ids": true,
+    "main_transcript_isolated": true,
+    "desktop_capture": false,
+    "mobile_390_capture": false,
+    "seeded_history_did_not_block": false
+  },
+  "tree_before_kill": [
+    "conhost.exe",
+    "cmd.exe",
+    "py.exe",
+    "python.exe",
+    "python.exe",
+    "conhost.exe",
+    "claude.exe",
+    "python.exe",
+    "cmd.exe",
+    "conhost.exe",
+    "cmd.exe",
+    "conhost.exe",
+    "uvx.exe",
+    "conhost.exe",
+    "uv.exe",
+    "node.exe",
+    "node.exe",
+    "mcp-server-fetch.exe",
+    "python.exe",
+    "python.exe",
+    "cmd.exe",
+    "cmd.exe",
+    "node.exe",
+    "node.exe",
+    "bash.exe",
+    "bash.exe",
+    "conhost.exe",
+    "bash.exe",
+    "python.exe",
+    "bash.exe",
+    "conhost.exe",
+    "bash.exe",
+    "bash.exe",
+    "conhost.exe",
+    "bash.exe",
+    "bash.exe",
+    "conhost.exe",
+    "bash.exe"
+  ],
+  "owned_router_pids": [],
+  "preserved_config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-scheduler-c___8cy9\\config"
+}

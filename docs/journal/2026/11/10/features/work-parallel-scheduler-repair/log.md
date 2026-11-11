@@ -1,5 +1,12 @@
 # Change log
 
+## 2026-11-11
+- Installed-snapshot scheduler attempt 1 failed. All tool and hook latencies were 5–10× above source-6, including an unrelated external hook. The four forks started about 30 s apart and never overlapped. The cause of the slowdown was not identified.
+- Stopped six probe-owned resumed restart consoles that the restart probe had left running. Live routers were untouched.
+- Hardened `owned_restart_probe.py` cleanup so it also stops processes by run and scratch path.
+- Installed-snapshot attempt 2 passed every gate: four distinct native forks at P1=2/P2=1/P3=1, 23.3 s overlap, automatic P1 refill, isolated main, and terminal/desktop/390 px captures.
+- Recorded that serial fork launch makes initial fill time depend on per-call latency.
+
 ## 2026-11-10
 - Replaced session-local best-effort fill with a serialized event-driven host pump and per-priority refill.
 - Removed the device-wide reviewer singleton and added reviewer retirement after receipt consumption.

@@ -1,0 +1,30 @@
+     DEVICE: slots 4/6 · per priority P1 2/2 · P2 1/1 · P3 1/1 · P4 0/1 · P5 0/1
+     Policy: enabled · ledger v13 · launches/min 24 · max rework 2
+     CONFIRMED (4)
+       n3 P1 automatic refill → work-auto-mwbq370o-v0hbzia5yq · P1 worker · lease running · native running · slot held
+         path: P1 capacity root → P1 automatic refill
+       n2 P1 first release → work-auto-mwbq2yp9-kmrpb90yr1o · P1 worker · lease running · native running · slot held
+         path: P1 capacity root → P1 first release
+       n7 P2 long → work-auto-mwbq3e5a-ci7qe96uxab · P2 worker · lease running · native running · slot held
+         path: P2 root → P2 long
+       n9 P3 long → work-auto-mwbq3ry7-g5ttbonqe79 · P3 worker · lease running · native running · slot held
+         path: P3 root → P3 long
+     Pending native Agent dispatch: 0
+     Settings: ciel-runtime menu → LLM options → Work 병렬 실행. Policy changes do not terminate existing workers.
+
+● ciel-work: Work forks confirmed by native agent list: 3
+
+● ciel-work: Work forks confirmed by native agent list: 4
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [_Walkie_Opus55-Sol61-Fast (cielairouter)] workspace | SSE gate on: held (identity_pending)            work: run 0/2
+  [work] 0/2 [ ] P1 first release
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+
+  ● main
+  ◯ work-auto-mwbq370o-v0hbzia5…  Preparing p1-automatic-refill.txt marker command            2m 39s · ↓ 270.5k tokens
+  ◯ work-auto-mwbq3e5a-ci7qe96u…  Starting p2-long.txt marker run                             2m 27s · ↓ 270.6k tokens
+  ◯ work-auto-mwbq3ry7-g5ttbonq…  Starting the p3-long.txt marker loop                         2m 6s · ↓ 271.5k tokens
+  ◯ work-auto-mwbq604h-wnqkxrv6…  Work n5 P1 long                                                25s · ↓ 271.1k tokens

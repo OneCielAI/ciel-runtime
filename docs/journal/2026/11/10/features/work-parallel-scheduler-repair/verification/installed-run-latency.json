@@ -1,0 +1,120 @@
+{
+  "scheduler-run-source-6": {
+    "outcome": "passed",
+    "snapshot": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel",
+    "debug_dir": "owned-scheduler-20261110-232419",
+    "initial_marker_overlap_seconds": 46.4,
+    "fork_first_seen_offsets_s": [
+      9.5,
+      9.5,
+      9.5,
+      27.1,
+      134.5
+    ],
+    "work_parallel_event": {
+      "n": 26,
+      "median_ms": 831.5,
+      "max_ms": 2420
+    },
+    "work_parallel_status": {
+      "n": 36,
+      "median_ms": 610.0,
+      "max_ms": 1203
+    },
+    "agent_tool": {
+      "n": 5,
+      "median_ms": 1345,
+      "max_ms": 3654
+    },
+    "external_orca_hook": {
+      "n": 427,
+      "median_ms": 296,
+      "max_ms": 647
+    }
+  },
+  "scheduler-run-installed-beta-attempt1": {
+    "outcome": "failed",
+    "snapshot": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06",
+    "debug_dir": "owned-scheduler-20261111-000050",
+    "initial_marker_overlap_seconds": 0,
+    "fork_first_seen_offsets_s": [
+      12.1,
+      40.9,
+      68.2,
+      127.4,
+      248.5
+    ],
+    "work_parallel_event": {
+      "n": 25,
+      "median_ms": 4334,
+      "max_ms": 14177
+    },
+    "work_parallel_status": {
+      "n": 35,
+      "median_ms": 4462,
+      "max_ms": 12320
+    },
+    "agent_tool": {
+      "n": 5,
+      "median_ms": 14502,
+      "max_ms": 22809
+    },
+    "external_orca_hook": {
+      "n": 382,
+      "median_ms": 1959.0,
+      "max_ms": 8979
+    }
+  },
+  "scheduler-run-installed-beta-2": {
+    "outcome": "passed",
+    "snapshot": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06",
+    "debug_dir": "owned-scheduler-20261111-001228",
+    "initial_marker_overlap_seconds": 23.3,
+    "fork_first_seen_offsets_s": [
+      4.3,
+      4.3,
+      24.9,
+      42.8,
+      149.0
+    ],
+    "work_parallel_event": {
+      "n": 25,
+      "median_ms": 1904,
+      "max_ms": 3781
+    },
+    "work_parallel_status": {
+      "n": 35,
+      "median_ms": 785,
+      "max_ms": 3846
+    },
+    "agent_tool": {
+      "n": 5,
+      "median_ms": 3702,
+      "max_ms": 4175
+    },
+    "external_orca_hook": {
+      "n": 414,
+      "median_ms": 319.0,
+      "max_ms": 3261
+    }
+  },
+  "notes": {
+    "attempt1_failed_gates": [
+      "host_started_four_without_main_prompt",
+      "four_distinct_native_ids",
+      "priority_use_2_1_1",
+      "initial_four_overlap",
+      "marker_overlap_support",
+      "desktop_capture",
+      "mobile_390_capture",
+      "seeded_history_did_not_block"
+    ],
+    "leftover_probe_trees_stopped_before_rerun": 6,
+    "leftover_source": "resumed --continue consoles from owned-restart runs 20261110-225953..232817 (temporary configs under %TEMP%/ciel-owned-restart-*)",
+    "live_pids_unchanged": [
+      12600,
+      90872,
+      102668
+    ]
+  }
+}
