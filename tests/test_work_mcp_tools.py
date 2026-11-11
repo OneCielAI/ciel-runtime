@@ -29,6 +29,17 @@ class WorkMcpToolsTests(unittest.TestCase):
         self.assertFalse(response["error"], response)
         return self.store.read()
 
+    def test_progress_update_preserves_execution_approval(self):
+        doc = self.plan()
+        execute = self.call("work_execute", expected_version=doc["version"])
+        self.assertFalse(execute["error"], execute)
+        running = self.store.read()
+        result = self.call("work_node_update", id="n3", progress="tests passed", expected_version=running["version"])
+        self.assertFalse(result["error"], result)
+        updated = self.store.read()
+        self.assertEqual("executing", updated["phase"])
+        self.assertEqual("tests passed", next(n for n in updated["nodes"] if n["id"] == "n3")["progress"])
+
     def test_update_with_only_id_and_version_is_rejected_without_mutation(self):
         doc = self.plan()
         result = self.call('work_node_update', id='n3', expected_version=doc['version'])

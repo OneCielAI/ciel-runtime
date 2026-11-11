@@ -278,6 +278,8 @@ class WorkHttpTests(unittest.TestCase):
         self.assertEqual(404, command("node-remove", "missing", id="n999")[0])
         self.assertEqual(200, command("node-update", "priority-two", id=ids["two"], priority="P1")[0])
         self.assertEqual("P1", next(n for n in self.request()[1]["nodes"] if n["id"] == ids["two"])["priority"])
+        self.assertEqual(200, command("node-update", "progress-a", id=ids["a"], progress="tests passed")[0])
+        self.assertEqual("tests passed", next(n for n in self.request()[1]["nodes"] if n["id"] == ids["a"])["progress"])
 
     def test_v1_commands_match_mcp_tree_results(self):
         from ciel_runtime_support import work_mcp_tools

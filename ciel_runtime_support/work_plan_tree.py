@@ -140,6 +140,10 @@ def normalize_document(raw: Any) -> dict[str, Any]:
             "title": _clip(item.get("title"), MAX_TITLE_CHARS),
             "status": item.get("status") if item.get("status") in STATUSES else "pending",
             "note": _clip(item.get("note"), MAX_TEXT_CHARS),
+            # ``note`` is approved scope/requirements.  Runtime narrative belongs
+            # in ``progress`` so ordinary implementation, CI and cleanup updates
+            # do not revoke the root's execution approval.
+            "progress": _clip(item.get("progress"), MAX_TEXT_CHARS),
             "evidence": _clip(item.get("evidence"), MAX_TEXT_CHARS),
             "waiting_on": _line(item.get("waiting_on"), MAX_WAIT_CHARS),
             "ref": _line(item.get("ref"), MAX_REF_CHARS),
@@ -268,6 +272,7 @@ def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any =
         "title": clean,
         "status": "pending",
         "note": _clip(note, MAX_TEXT_CHARS),
+        "progress": "",
         "evidence": "",
         "waiting_on": _line(waiting_on, MAX_WAIT_CHARS),
         "ref": _line(ref, MAX_REF_CHARS),
@@ -357,7 +362,7 @@ def set_plan(doc: dict[str, Any], spec: Any, root_id: str | None = None, *, now:
 
 
 def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title: Any = None,
-                note: Any = None, evidence: Any = None, now: float | None = None,
+                note: Any = None, progress: Any = None, evidence: Any = None, now: float | None = None,
                 waiting_on: Any = None, ref: Any = None, priority: Any = None) -> dict[str, Any]:
     stamp = time.time() if now is None else now
     by_id = _index(doc)
@@ -385,6 +390,8 @@ def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title:
         candidate["title"] = clean
     if note is not None:
         candidate["note"] = _clip(note, MAX_TEXT_CHARS)
+    if progress is not None:
+        candidate["progress"] = _clip(progress, MAX_TEXT_CHARS)
     if evidence is not None:
         candidate["evidence"] = _clip(evidence, MAX_TEXT_CHARS)
     if waiting_on is not None:

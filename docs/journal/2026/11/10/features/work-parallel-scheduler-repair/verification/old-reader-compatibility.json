@@ -1,0 +1,27 @@
+{
+  "4eebfdc": "accepted",
+  "5c91ea8": "accepted",
+  "fields": [
+    "artifact",
+    "cleanup_proof",
+    "created_at",
+    "dispatch_name",
+    "evidence",
+    "host_id",
+    "id",
+    "idle_proof",
+    "item_id",
+    "mode",
+    "owner",
+    "plan_version",
+    "priority",
+    "report_hash",
+    "rework",
+    "role",
+    "scope",
+    "slot",
+    "state",
+    "terminal",
+    "usage"
+  ]
+}

@@ -1,0 +1,30 @@
+
+ ▐▛███▛█   Claude Code v2.1.322
+▝▜██████▀  ciel-runtime-cielairouter-_walkie_opus55-sol61-fast with xhigh effort · API Usage Billing
+ ▝▝   ▝▝   ~\AppData\Local\Temp\ciel-owned-scheduler-drwt2lty\workspace
+
+▎ Debug mode enabled · logging to
+▎ C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\.local\owned-scheduler-20261110-232419\claude-debug.txt
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+w: Work 0/2 [ ] P1 first release [+]                                                                                [-]
+  ⚠ claude.ai connectors are disabled because ANTHROPIC_API_KEY or another auth source is set and takes precedence ov…
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ Try "edit <filepath> to..."
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [_Walkie_Opus55-Sol61-Fast (cielairouter)] workspace | SSE gate on: open                               work: run 0/2
+  [work] 0/2 [ ] P1 first release
+  ⏵⏵ bypass permissions on (shift+tab to cycle)

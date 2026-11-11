@@ -24,7 +24,8 @@ const text = value => ({ content: [{ type: 'text', text: typeof value === 'strin
 function host(respond) {
   const state = { session: 'S1', calls: 0, logs: [] }
   const $ = {
-    session: { id: async () => state.session, model: async () => 'fixture-main' },
+    session: { id: async () => state.session, model: async () => 'fixture-main',
+      send: async args => { (state.sent ||= []).push(args); return { isDelivered: true } } },
     mcp: { connect: async () => ({}), call: async (server, tool, args) => { state.calls++; return respond(tool, args, state) } },
     ui: { invalidate() {}, toast() {}, log(t) { state.logs.push(t) }, open: async () => {}, ask: async () => 'Approve' },
     clock: { after() { return { cancel() {} } } },
@@ -483,18 +484,120 @@ const scenarios = {
     return { dispatch, denied: verdict(denied), shown: shown.text || '', note: verdict(note) }
   },
   async 'parallel-auto-review'() {
-    const lease = { id: 'L1', item_id: 'n2', role: 'worker', state: 'submitted', host_id: 'agent-old', slot: true, plan_version: 7, artifact: 'a'.repeat(64), evidence: 'tested' }
-    const { $, state } = host(async (tool, args) => {
+    const lease = { id:'L1', item_id:'n2', priority:'P1', role:'worker', state:'submitted', host_id:'agent-old', slot:false,
+      plan_version:7, artifact:'a'.repeat(64), evidence:'tested' }
+    const leases={L1:lease}; let reserved=0
+    const { $, state } = host(async (tool,args) => {
       if (tool === 'work_status') return text(snapshot())
-      if (tool === 'work_parallel_status') return text({ version: 9, policy: { enabled: true }, leases: { L1: lease } })
-      if (args.event === 'reconcile') { lease.slot = false; return text({}) }
+      if (tool === 'work_parallel_status') return text({version:9,active_device:0,
+        policy:{enabled:true,paused:false,priority_limits:{P1:2,P2:1,P3:1,P4:1,P5:1}},leases})
+      if (tool === 'work_parallel_event') {
+        if (args.event === 'reserve') return text({lease_id:'R'+(++reserved),plan_version:7,item_id:'n2',priority:'P1',worker_token:'b'.repeat(64)})
+        if (args.event === 'bind') return text({})
+        if (args.event === 'reserve_next') return {isError:true,...text('no eligible candidate')}
+        return text({})
+      }
       return text({})
     })
-    state.agents = [{ id: 'agent-old', status: 'completed' }]
-    $.agent.spawn = async (args) => { state.spawned = args; return { agentId: 'reviewer' } }
-    await handlers['session.start']($, { isInteractive: false }, next(undefined))
-    await handlers['turn.complete']($, {}, next(undefined))
-    return { spawned: state.spawned, released: !lease.slot }
+    $.session.repo=async()=>null; $.session.root=async()=>'/repo'
+    $.agent.spawn=async args=>{state.spawned=args;return {agentId:'reviewer'}}
+    await handlers['session.start']($,{isInteractive:false},next(undefined))
+    await handlers['turn.complete']($,{},next(undefined))
+    return {spawned:state.spawned,released:!lease.slot}
+  },
+  async 'parallel-multi-review-fills-capacity'() {
+    const leases = {
+      L1:{id:'L1',item_id:'n1',priority:'P1',role:'worker',state:'submitted',slot:false,plan_version:7,artifact:'a'.repeat(64),evidence:'one'},
+      L2:{id:'L2',item_id:'n2',priority:'P1',role:'worker',state:'submitted',slot:false,plan_version:7,artifact:'b'.repeat(64),evidence:'two'},
+    }
+    let reserve=0; const spawned=[]
+    const {$}=host(async(tool,args)=>{
+      if(tool==='work_status') return text(snapshot())
+      if(tool==='work_parallel_status') return text({version:9,active_device:0,
+        policy:{enabled:true,paused:false,priority_limits:{P1:2,P2:0,P3:0,P4:0,P5:0}},leases})
+      if(tool==='work_parallel_event'){
+        if(args.event==='reserve') return text({lease_id:'R'+(++reserve),plan_version:7,item_id:args.item_id,priority:'P1',worker_token:'c'.repeat(64)})
+        if(args.event==='bind') return text({})
+        if(args.event==='reserve_next') return {isError:true,...text('no eligible candidate')}
+        return text({})
+      }
+      return text({})
+    })
+    $.session.repo=async()=>null; $.session.root=async()=>'/repo'
+    $.agent.spawn=async args=>{spawned.push(args);return {agentId:'review-'+spawned.length}}
+    await handlers['session.start']($,{isInteractive:true},next(undefined))
+    return {spawned}
+  },
+  async 'parallel-fill-beyond-twenty'() {
+    let reserve=0; const spawned=[]
+    const {$}=host(async(tool,args)=>{
+      if(tool==='work_status') return text(snapshot())
+      if(tool==='work_parallel_status') return text({version:9,active_device:0,
+        policy:{enabled:true,paused:false,priority_limits:{P1:80,P2:0,P3:0,P4:0,P5:0}},leases:{}})
+      if(tool==='work_parallel_event'){
+        if(args.event==='reserve_next'){
+          reserve++
+          if(reserve>25) return {isError:true,...text('no eligible candidate')}
+          return text({lease_id:'L'+reserve,plan_version:7,item_id:'n'+reserve,priority:'P1',worker_token:'d'.repeat(64)})
+        }
+        if(args.event==='bind') return text({})
+        return text({})
+      }
+      return text({})
+    })
+    $.session.repo=async()=>null; $.session.root=async()=>'/repo'
+    $.agent.spawn=async args=>{spawned.push(args);return {agentId:'agent-'+spawned.length}}
+    await handlers['session.start']($,{isInteractive:true},next(undefined))
+    return {spawned:spawned.length,reserve}
+  },
+  async 'parallel-report-refills-released-slot'() {
+    let reserve=0; const spawned=[]
+    const {$}=host(async(tool,args)=>{
+      if(tool==='work_status') return text(snapshot())
+      if(tool==='work_parallel_status') return text({version:9,active_device:0,
+        policy:{enabled:true,paused:false,priority_limits:{P1:1,P2:0,P3:0,P4:0,P5:0}},leases:{}})
+      if(tool==='work_parallel_event'){
+        if(args.event==='reserve_next'){
+          if(++reserve>1) return {isError:true,...text('no eligible candidate')}
+          return text({lease_id:'L1',plan_version:7,item_id:'n2',priority:'P1',worker_token:'e'.repeat(64)})
+        }
+        if(args.event==='bind') return text({})
+        return text({})
+      }
+      return text({})
+    })
+    $.session.repo=async()=>null; $.session.root=async()=>'/repo'
+    $.agent.spawn=async args=>{spawned.push(args);return {agentId:'agent-new'}}
+    await handlers['session.start']($,{isInteractive:false},next(undefined))
+    await handlers['tool.call']($,{tool:'mcp__ciel-runtime-router__work_parallel_report',agentId:'worker'},next({ok:true}))
+    await sleep(20)
+    return {spawned:spawned.length,reserve}
+  },
+  async 'parallel-report-trigger-during-fill-latches'() {
+    let reserve=0; const spawned=[]
+    const {$}=host(async(tool,args)=>{
+      if(tool==='work_status') return text(snapshot())
+      if(tool==='work_parallel_status') return text({version:9,active_device:0,
+        policy:{enabled:true,paused:false,priority_limits:{P1:3,P2:0,P3:0,P4:0,P5:0}},leases:{}})
+      if(tool==='work_parallel_event'){
+        if(args.event==='reserve_next'){
+          reserve++
+          if(reserve===1 || reserve===3) return text({lease_id:'L'+reserve,plan_version:7,item_id:'n'+reserve,priority:'P1',worker_token:'e'.repeat(64)})
+          return {isError:true,...text('no eligible candidate')}
+        }
+        if(args.event==='bind') return text({})
+        return text({})
+      }
+      return text({})
+    })
+    $.session.repo=async()=>null; $.session.root=async()=>'/repo'
+    $.agent.spawn=async args=>{
+      spawned.push(args)
+      if(spawned.length===1) await handlers['tool.call']($,{tool:'mcp__ciel-runtime-router__work_parallel_report'},next({ok:true}))
+      return {agentId:'agent-'+spawned.length}
+    }
+    await handlers['session.start']($,{isInteractive:true},next(undefined))
+    return {spawned:spawned.length,reserve}
   },
   async 'parallel-waiting-releases-slot-and-sendmessage-reacquires'() {
     const lease = { id: 'L1', item_id: 'n2', role: 'worker', state: 'waiting_input', host_id: 'agent-wait', slot: true, plan_version: 7 }
@@ -518,50 +621,62 @@ const scenarios = {
     const resumed = await handlers['tool.call']($, { tool: 'SendMessage', to: 'agent-wait', message: 'continue' }, next({ sent: true }))
     return { afterWait, resumed: Boolean(resumed?.sent), slot: lease.slot, calls: calls.map(c => c.event) }
   },
-  async 'parallel-unreported-stops-and-fills'() {
-    const leases = { L1: { id: 'L1', item_id: 'n2', role: 'worker', state: 'running', host_id: 'agent-old', slot: true, plan_version: 7 } }
+  async 'parallel-missing-exit-report-requests-contract'() {
+    const leases = { L1: { id:'L1', item_id:'n2', role:'worker', state:'running', host_id:'agent-old', slot:true, plan_version:7 } }
     const calls = [], tools = []
     const { $, state } = host(async (tool, args) => {
       if (tool === 'work_status') return text(snapshot())
-      if (tool === 'work_parallel_status') return text({ version: 9, policy: { enabled: true, paused: false }, leases })
+      if (tool === 'work_parallel_status') return text({ version:9, active_device:1,
+        policy:{enabled:true,paused:false,priority_limits:{P1:5,P2:3,P3:1,P4:1,P5:1}}, leases,
+        coordination:{runs:[{lease_id:'L1',exit:null}],receipts:[]} })
+      if (tool === 'work_parallel_event') { calls.push(args.event); return text({}) }
+      return text({})
+    })
+    $.tool.call = async args => { tools.push(args); return {} }
+    state.agents = [{ id:'agent-old', status:'running' }]
+    await handlers['session.start']($, { isInteractive:false }, next(undefined))
+    state.sent = []; state.agents[0].status='completed'
+    await handlers['turn.complete']($, { agentId:'agent-old', reason:'answer' }, next(undefined))
+    return { calls, tools, sent:state.sent, lease:leases.L1 }
+  },
+  async 'parallel-second-missing-exit-salvages-before-stop'() {
+    const leases = { L1: { id:'L1', item_id:'n2', role:'worker', state:'running', host_id:'agent-old', slot:true, plan_version:7 } }
+    const calls = [], tools = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:9, active_device:1,
+        policy:{enabled:true,paused:false,priority_limits:{P1:5,P2:3,P3:1,P4:1,P5:1}}, leases,
+        coordination:{runs:[{lease_id:'L1',exit:null}],receipts:[]} })
       if (tool === 'work_parallel_event') {
         calls.push(args.event)
-        if (args.event === 'unreported') { leases.L1.state = 'unreported'; leases.L1.slot = false; return text({ version: 10 }) }
-        if (args.event === 'reserve_next' && calls.filter(e => e === 'reserve_next').length === 1)
-          return text({ lease_id: 'L2', version: 11, plan_version: 7, item_id: 'n3', item_title: 'Next',
-            item_note: 'exact note', item_path: ['Goal', 'Next'], workspace: { path: '/wt/n3' }, worker_token: 'b'.repeat(64) })
-        if (args.event === 'reserve_next') return { content: [{ type: 'text', text: 'no eligible candidate' }], isError: true }
-        if (args.event === 'bind') return text({ version: 12 })
+        if (args.event === 'host_salvage') return text({ receipt_digest:'a'.repeat(64), salvaged:true })
+        if (args.event === 'unreported') { leases.L1.state='unreported'; leases.L1.slot=false; return text({state:'unreported'}) }
+        return text({})
       }
       return text({})
     })
     $.tool.call = async args => { tools.push(args); return {} }
-    $.session.repo = async () => ({})
-    $.session.root = async () => '/repo'
-    $.agent.spawn = async args => { state.spawned = args; return { agentId: 'agent-new' } }
-    state.agents = [{ id: 'agent-old', status: 'completed' }]
-    await handlers['session.start']($, { isInteractive: false }, next(undefined))
-    await handlers['turn.complete']($, { agentId: 'agent-old', reason: 'answer', answer: 'done' }, next(undefined))
-    const consumed = await handlers['session.receive']($, { text: '<task-notification><task-id>agent-old</task-id></task-notification>' }, next({ text: 'passed' }))
-    return { calls, tools, spawned: state.spawned, consumed }
+    state.agents = [{ id:'agent-old', status:'running' }]
+    await handlers['session.start']($, { isInteractive:false }, next(undefined))
+    state.sent = []; calls.length = 0; state.agents[0].status='completed'
+    await handlers['turn.complete']($, { agentId:'agent-old', reason:'answer' }, next(undefined))
+    await handlers['turn.complete']($, { agentId:'agent-old', reason:'answer' }, next(undefined))
+    return { calls, tools, sent:state.sent, lease:leases.L1 }
   },
   async 'parallel-recovery-context'() {
-    const lease = { id: 'L1', item_id: 'n2', role: 'worker', state: 'running', host_id: 'agent-old', slot: true, plan_version: 7 }
-    const { $, state } = host(async (tool) => tool === 'work_parallel_status'
-      ? text({ version: 9, policy: { enabled: true }, leases: { L1: lease } }) : text(snapshot()))
+    const lease = { id:'L1', item_id:'n2', role:'worker', state:'running', host_id:'agent-old',
+      agent_name:'work-auto-exact', dispatch_name:'work-auto-exact', slot:true, plan_version:7 }
+    const { $, state } = host(async tool => tool === 'work_parallel_status'
+      ? text({ version:9, active_device:1, policy:{enabled:true,paused:false,priority_limits:{P1:5,P2:3,P3:1,P4:1,P5:1}}, leases:{L1:lease} })
+      : text(snapshot()))
     state.agents = []
+    await handlers['session.start']($, { isInteractive:false }, next(undefined))
     let seen = null
-    const capture = async (e) => { seen = e; return e }
-    capture.origin = { plugin: 'engine' }
-    await handlers['prompt.submit']($, { context: [] }, capture)
-    state.agents = [{ id: 'agent-old', status: 'running' }]
-    let live = null
-    const captureLive = async (e) => { live = e; return e }
-    captureLive.origin = { plugin: 'engine' }
-    await handlers['prompt.submit']($, { context: [] }, captureLive)
-    const duplicate = await handlers['tool.call']($, { tool: 'mcp__ciel-runtime-router__work_parallel_run',
-      item_id: 'n2', priority: 'P1', role: 'worker' }, next({}))
-    return { context: JSON.stringify(seen), live: JSON.stringify(live), duplicate: verdict(duplicate) }
+    const capture = async e => { seen=e; return e }; capture.origin={plugin:'engine'}
+    await handlers['prompt.submit']($, { context:[] }, capture)
+    const duplicate = await handlers['tool.call']($, { tool:'mcp__ciel-runtime-router__work_parallel_run',
+      item_id:'n2', priority:'P1', role:'worker' }, next({}))
+    return { context:JSON.stringify(seen), sent:state.sent || [], duplicate:verdict(duplicate) }
   },
   // SendMessage returns before the engine emits the deferred restart spawn.
   // The exact durable lease/name authorization must survive that boundary.
@@ -573,9 +688,9 @@ const scenarios = {
     state.agents = []
     await handlers['session.start']($, { isInteractive: false }, next(undefined))
     const sent = await handlers['tool.call']($, { tool: 'SendMessage', to: 'agent-old', message: 'continue' }, next({ sent: true }))
-    const spawnNext = next({ agentId: 'agent-new' }); spawnNext.origin = { plugin: 'engine' }
+    const spawnNext = next({ agentId: 'agent-new' }); spawnNext.origin = { plugin: 'ciel-work' }
     const spawned = await handlers['agent.spawn']($, { name: 'work-auto-exact', subagentType: 'fork', fork: true,
-      prompt: 'resume', description: 'resume', background: true }, spawnNext)
+      resume: { agentId: 'agent-old' }, prompt: 'resume', description: 'resume', background: true }, spawnNext)
     const duplicate = await handlers['agent.spawn']($, { name: 'work-auto-exact', subagentType: 'fork', fork: true,
       prompt: 'duplicate', description: 'duplicate', background: true }, spawnNext)
     return { sent: Boolean(sent.sent), spawned: spawned.agentId || '', duplicate: verdict(duplicate) }
@@ -586,7 +701,7 @@ const scenarios = {
     const { $, state } = host(async (tool, args) => {
       if (tool === 'work_status') return text(snapshot())
       if (tool === 'work_parallel_status') return text({ version: 9, policy: { enabled: true }, leases: { L1: lease } })
-      if (tool === 'work_parallel_event') { state.event = args; return text({ version: 10, leases: {} }) }
+      if (tool === 'work_parallel_event') { (state.events ||= []).push(args); return text({ version: 10, leases: {} }) }
       return text({})
     })
     state.agents = []
@@ -594,7 +709,7 @@ const scenarios = {
     const result = await handlers['tool.call']($, { tool: 'mcp__ciel-runtime-router__work_parallel_event',
       agentId: 'agent-old', event: 'result', lease_id: 'L1', plan_version: 7, artifact: 'a'.repeat(64), evidence: 'r' }, next({}))
     await handlers['turn.complete']($, {}, next(undefined))
-    return { result: verdict(result), event: state.event }
+    return { result: verdict(result), events: state.events || [] }
   },
   async 'parallel-session-start-releases-orphan-reserved'() {
     const leases = {
@@ -723,6 +838,19 @@ const scenarios = {
     await handlers['command.run']($, { args: 'status' })
     await handlers['command.run']($, { args: 'status' })
     return { logs: state.logs.filter(s => s.includes('mod queued')) }
+  },
+  async 'parallel-completion-gate-target-scoped'() {
+    const leases={
+      A:{id:'A',item_id:'n-other',role:'worker',state:'running',slot:true},
+      B:{id:'B',item_id:'n-terminal',role:'worker',state:'unreported',slot:false},
+    }
+    const {$}=host(async(tool)=>tool==='work_parallel_status'
+      ? text({version:1,policy:{enabled:true},leases,coordination:{runs:[],receipts:[]}})
+      : text(snapshot()))
+    const unrelated=await handlers['tool.call']($,{tool:'mcp__ciel-runtime-router__work_node_update',id:'n-target',status:'done'},next({ran:true}))
+    leases.C={id:'C',item_id:'n-child',role:'worker',state:'running',slot:true}
+    const blocked=await handlers['tool.call']($,{tool:'mcp__ciel-runtime-router__work_node_update',id:'n-child',status:'done'},next({ran:true}))
+    return {unrelated:verdict(unrelated),blocked:verdict(blocked)}
   },
   async 'parallel-complete-off'() {
     let parallelCalls = 0
@@ -939,6 +1067,24 @@ const scenarios = {
     await handlers['command.run']($, { args: 'status' })
     const result = await pending
     return { block: Boolean(result?.block), text: result?.block || '', logs: state.logs }
+  },
+  async 'parallel-stale-stop-no-spawn'() {
+    const ready={...snapshot(),auto_continue:false}; let release
+    const gate=new Promise(resolve=>{release=resolve}); const spawned=[]
+    const {$}=host(async(tool,args)=>{
+      if(tool==='work_status'){await gate;return text(ready)}
+      if(tool==='work_parallel_status') return text({version:1,active_device:0,
+        policy:{enabled:true,paused:false,priority_limits:{P1:2,P2:0,P3:0,P4:0,P5:0}},leases:{}})
+      if(tool==='work_parallel_event'&&args.event==='reserve_next') return text({lease_id:'L1',plan_version:7,item_id:'n2',priority:'P1',worker_token:'f'.repeat(64)})
+      if(tool==='work_parallel_event') return text({})
+      return text({})
+    })
+    $.session.repo=async()=>null; $.session.root=async()=>'/repo'
+    $.agent.spawn=async args=>{spawned.push(args);return {agentId:'agent-new'}}
+    const pending=handlers['classic.Stop']($,{session_id:'S1'},next({}))
+    await sleep(10); await handlers['turn.start']($,{},next(undefined)); release()
+    await pending
+    return {spawned:spawned.length}
   },
   async 'stop-session-end'() {
     const ready = { ...snapshot(), continuation: { actionable: 1, next: { id: 'n2', title: 'x', root_id: 'n1' }, waiting: [] } }

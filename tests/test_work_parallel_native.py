@@ -89,7 +89,9 @@ class NativeEvidenceTests(unittest.TestCase):
         row = next(r for r in forks["confirmed"] if r["item_id"] == "n1")
         self.assertEqual(("Item 1", "R-1", "running", "agent-a"),
                          (row["item_title"], row["item_ref"], row["native"]["status"], row["agent_id"]))
-        self.assertIsNotNone(row["bound_at"])
+        # Lifecycle timestamps moved to the coordination sidecar so the shared
+        # lease ledger stays readable by old live builds.
+        self.assertIsNone(row["bound_at"])
         self.assertIsNotNone(row["reserved_at"])
 
     def test_reservation_waiting_and_slot_alone_are_never_confirmed(self):

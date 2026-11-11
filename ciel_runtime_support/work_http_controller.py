@@ -398,7 +398,8 @@ class WorkHttpController:
         if self.services.parallel_store is None:
             return ()
         path = Path(self.services.parallel_store().path)
-        return (path, path.with_name("work-parallel-native.json"))
+        return (path, path.with_name("work-parallel-native.json"),
+                path.with_name("work-parallel-coordination.json"))
 
     @staticmethod
     def _stat(paths: tuple[Path, ...]) -> tuple[Any, ...]:

@@ -125,6 +125,22 @@ class WorkPlanTreeTests(unittest.TestCase):
                 t.reorder_queued_root(self.doc, target, place)
         self.assertEqual(before, self.doc)
 
+    def test_progress_preserves_approval_while_note_is_scope(self):
+        root = t.add_node(self.doc, None, "Goal")
+        leaf = t.add_node(self.doc, root, "Step", within_scope=True)
+        t.set_phase(self.doc, t.PHASE_EXECUTING, root)
+        t.update_node(self.doc, leaf, progress="build passed")
+        self.assertEqual(t.PHASE_EXECUTING, t.root_phase(self.doc, root))
+        self.assertEqual("build passed", next(n for n in self.doc["nodes"] if n["id"] == leaf)["progress"])
+        t.update_node(self.doc, leaf, note="scope changed")
+        self.assertEqual(t.PHASE_PLANNING, t.root_phase(self.doc, root))
+
+    def test_progress_round_trips_normalization(self):
+        root = t.add_node(self.doc, None, "Goal")
+        t.update_node(self.doc, root, progress="CI 42 passed")
+        normalized = t.normalize_document(self.doc)
+        self.assertEqual("CI 42 passed", next(n for n in normalized["nodes"] if n["id"] == root)["progress"])
+
     def test_wait_diagnostics_distinguishes_inherited_and_in_progress_waits(self):
         ids = self.plan()
         t.update_node(self.doc, ids[1], waiting_on="deployment approval")

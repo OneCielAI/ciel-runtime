@@ -87,6 +87,20 @@ def migrate_policy(p):
         p.setdefault("priority_limits", dict(DEFAULT_PRIORITY_LIMITS))
     return p
 
+LEGACY_LIFECYCLE_TIMES = ("reserved_at", "bound_at", "state_changed_at")
+
+def migrate_leases(leases):
+    """Beta builds persisted dashboard timestamps that strict 4eebfdc/5c91ea8
+    readers reject. Drop well-formed values on read so the next write is
+    readable by those builds; malformed values stay and fail validation."""
+    if type(leases) is dict:
+        for lease in leases.values():
+            if type(lease) is dict:
+                for key in LEGACY_LIFECYCLE_TIMES:
+                    if key in lease and (lease[key] is None or number(lease[key], 1e15)):
+                        del lease[key]
+    return leases
+
 def active_by_priority(leases):
     counts = dict.fromkeys(PRIORITIES, 0)
     for lease in leases.values():
@@ -122,12 +136,10 @@ def validate(d):
         # Optional fields keep ledgers written before the corresponding lifecycle
         # evidence readable. Plain worker capabilities are never persisted.
         base = "id scope item_id priority created_at role mode plan_version state host_id slot usage artifact rework evidence idle_proof cleanup_proof"
-        optional = "agent_name workspace dispatch_name owner report_hash terminal reserved_at bound_at state_changed_at"
+        optional = "agent_name workspace dispatch_name owner report_hash terminal"
         require(type(r) is dict and set(base.split()) <= set(r) and not set(r) - set((base + " " + optional).split()), "lease fields")
         require(r.get("agent_name") is None or text(r["agent_name"], 200), "agent name")
         require(r.get("dispatch_name") is None or text(r["dispatch_name"], 200), "dispatch name")
-        require(all(r.get(k) is None or number(r[k], 1e15) for k in ("reserved_at", "bound_at", "state_changed_at")),
-                "lifecycle times")
         owner = r.get("owner")
         require(owner is None or (fields(owner, "session_pid identity") and integer(owner["session_pid"], 1)
                 and (owner["identity"] is None or type(owner["identity"]) is str)), "owner identity")
@@ -187,6 +199,7 @@ class WorkParallelStore:
             d = json.loads(raw.decode("utf-8"), object_pairs_hook=unique_object)
             if type(d) is dict:
                 migrate_policy(d.get("policy"))
+                migrate_leases(d.get("leases"))
             validate(d)
             return d
         except (ValueError, TypeError, KeyError, OverflowError, RecursionError) as e:
@@ -206,18 +219,6 @@ class WorkParallelStore:
             result = fn(d)
             if d != before:
                 d["version"] += 1
-                # Lifecycle time for the dashboard: when a lease last changed
-                # state or slot. Written only alongside a real mutation.
-                stamp = time.time()
-                for ident, lease in d["leases"].items():
-                    old = before["leases"].get(ident)
-                    if old is None:
-                        lease.setdefault("reserved_at", stamp)
-                        lease["state_changed_at"] = stamp
-                    elif (old["state"], old["slot"]) != (lease["state"], lease["slot"]):
-                        lease["state_changed_at"] = stamp
-                    if old is not None and old["host_id"] is None and lease["host_id"] is not None:
-                        lease["bound_at"] = stamp
                 validate(d)
                 raw = json.dumps(d, ensure_ascii=False, allow_nan=False).encode("utf-8")
                 require(len(raw) <= MAX_BYTES, "byte limit")
@@ -255,13 +256,12 @@ class WorkParallelStore:
 
     def reserve(self, candidates, *, scope, expected_version, now=None, dispatch_name=None,
                 report_hash=None, owner=None):
-        """Candidates require exact fields validated below. Best eligible priority,
-        then newest created_at wins. Admission is limited only by the number of
-        concurrently executing fork slots and the launch rate; reviewers/resumes
-        consume a slot. P1 may use every free slot, while lower priorities leave
-        the configured P1 reserve available. Registering/queueing Work items is
-        never an admission decision. Discovery/test_override configuration NEVER
-        bypasses admission gates.
+        """Candidates require exact fields validated below. Caller order is the
+        authoritative tree projection (including focus ordering); ineligible rows
+        and rows whose priority is full are skipped without re-sorting. Admission
+        is limited by open leases, concurrent per-priority slots, and launch rate.
+        Registering/queueing Work items is never an admission decision.
+        Discovery/test_override configuration NEVER bypasses admission gates.
         """
         require(text(scope, 200) and type(candidates) is list and 0 < len(candidates) <= MAX_LEASES, "candidates/scope")
         require(dispatch_name is None or text(dispatch_name, 200), "dispatch name")
@@ -288,10 +288,9 @@ class WorkParallelStore:
                         f"{k} ({counts[k]}/{limits[k]})" for k in full))
             history = [t for t in d["launches"] if stamp - t < 60]
             require(len(history) < p["launches_per_minute"], "launch rate reached")
-            require(len(d["leases"]) < MAX_LEASES, "lease bound")
-            if any(r["role"] == "reviewer" for r in candidates) and any(a["role"] == "reviewer" for a in active):
-                raise WorkParallelError("reviewer concurrency reached")
-            for r in sorted(candidates, key=lambda a: (a["priority"], -a["created_at"], a["item_id"])):
+            open_leases = sum(a["state"] in ACTIVE_STATES for a in d["leases"].values())
+            require(open_leases < MAX_LEASES, "lease bound")
+            for r in candidates:
                 # Focus only orders Work; it never blocks another approved item.
                 if not all(r[k] for k in ("approved", "dependencies_done")):
                     continue
@@ -405,6 +404,12 @@ class WorkParallelStore:
                 require(r.get("owner") is not None, "owner identity unavailable")
             else:
                 require(r.get("owner") is None, "legacy observation does not match lease")
+                # A legacy reservation that never bound a host is only provisional.
+                # It cannot form a valid orphaned audit row (terminal states require
+                # host_id), so release it exactly like an observed failed launch.
+                if r["state"] == "reserved" and r["host_id"] is None:
+                    del d["leases"][ident]
+                    return
             r.update(state="orphaned", slot=False, usage=0, report_hash=None,
                      idle_proof=proof, evidence=proof,
                      terminal={"reason": "orphaned", "observed_at": stamp, "proof": proof})
@@ -422,6 +427,85 @@ class WorkParallelStore:
             r = self._lease(d, ident)
             require(r["state"] == "waiting_input" and r["host_id"] is not None and r["slot"], "not a waiting worker")
             r.update(slot=False, usage=0, idle_proof=proof)
+        return self._change(apply, expected_version)
+
+    def report_question(self, ident, *, plan_version, evidence, expected_version):
+        """Atomically record a worker question and release its execution slot."""
+        require(integer(plan_version), "plan version")
+        require(text(evidence), "question evidence required")
+        def apply(d):
+            r = self._lease(d, ident)
+            if r["plan_version"] != plan_version:
+                raise WorkParallelConflict("stale plan version")
+            require(r["state"] == "running" and r["host_id"] is not None and r["slot"],
+                    "worker lease is not active")
+            r.update(state="waiting_input", slot=False, usage=0,
+                     evidence=evidence, idle_proof=evidence)
+        return self._change(apply, expected_version)
+
+    def report_completion(self, ident, *, plan_version, artifact, evidence, expected_version):
+        """Atomically submit evidenced output, release the slot, and revoke reporting."""
+        require(integer(plan_version), "plan version")
+        require(digest(artifact), "artifact SHA256 required")
+        require(text(evidence), "completion evidence required")
+        def apply(d):
+            r = self._lease(d, ident)
+            if r["plan_version"] != plan_version:
+                raise WorkParallelConflict("stale plan version")
+            require(r["state"] == "running" and r["host_id"] is not None and r["slot"],
+                    "worker lease is not active")
+            r.update(state="submitted", slot=False, usage=0, artifact=artifact,
+                     evidence=evidence, idle_proof=evidence, report_hash=None)
+        return self._change(apply, expected_version)
+
+    def report_handoff(self, ident, *, plan_version, receipt_digest, proof,
+                       expected_version, now=None):
+        """Atomically terminate a handed-off worker after durable receipt proof."""
+        require(integer(plan_version), "plan version")
+        require(digest(receipt_digest), "handoff receipt digest required")
+        require(text(proof, 500), "handoff proof required")
+        stamp = time.time() if now is None else now
+        require(number(stamp, 1e15), "clock")
+        evidence = "handoff receipt " + receipt_digest + ": " + proof
+        def apply(d):
+            r = self._lease(d, ident)
+            if r["plan_version"] != plan_version:
+                raise WorkParallelConflict("stale plan version")
+            require(r["state"] == "running" and r["host_id"] is not None and r["slot"],
+                    "worker lease is not active")
+            r.update(state="unreported", slot=False, usage=0, artifact=None,
+                     evidence=evidence, idle_proof=evidence, report_hash=None,
+                     terminal={"reason": "handoff", "observed_at": stamp, "proof": evidence})
+        return self._change(apply, expected_version)
+
+    def accept_with_reviewer(self, ident, reviewer_ident, *, plan_version, artifact,
+                             evidence, expected_version):
+        """Accept one worker result and atomically retire its consumed reviewer.
+
+        Reviewer forks are read-only.  Their structured review receipt is the
+        deliverable; after consumption the reviewer lease is terminal with an
+        explicit retained-workspace proof, so it cannot block item completion or
+        replacement review forever.
+        """
+        require(integer(plan_version), "plan version")
+        require(digest(artifact), "artifact SHA256 required")
+        require(text(evidence), "acceptance evidence required")
+        def apply(d):
+            worker = self._lease(d, ident)
+            reviewer = self._lease(d, reviewer_ident)
+            require(worker["plan_version"] == plan_version and reviewer["plan_version"] == plan_version,
+                    "stale plan version")
+            require(worker["state"] == "reviewing" and worker["artifact"] == artifact,
+                    "worker is not reviewable")
+            require(reviewer["role"] == "reviewer" and reviewer["scope"] == worker["scope"]
+                    and reviewer["item_id"] == worker["item_id"]
+                    and reviewer["host_id"] != worker["host_id"] and reviewer["state"] == "submitted",
+                    "independent reviewer result required before acceptance")
+            worker.update(state="accepted", evidence=evidence)
+            proof = "review receipt consumed: " + evidence
+            reviewer.update(state="done", slot=False, usage=0, report_hash=None,
+                            evidence=proof, idle_proof=proof,
+                            cleanup_proof="reviewer workspace retained after read-only review")
         return self._change(apply, expected_version)
 
     def reacquire(self, ident, *, expected_version):

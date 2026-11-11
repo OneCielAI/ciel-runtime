@@ -55,14 +55,18 @@ class WorkParallelTests(unittest.TestCase):
         assert reserve(s)
 
 
-    def test_order(self):
+    def test_caller_order_is_authoritative(self):
         store = self.store
-        rows = [candidate("old", created_at=1), candidate("new", created_at=20), candidate("blocked", priority="P1", dependencies_done=False)]
+        # runnable_leaves already projects focused rows first. The ledger must not
+        # undo that tree ordering by sorting priority or creation time again.
+        rows = [candidate("focused-old", created_at=1, focused=True),
+                candidate("new", created_at=20, focused=False),
+                candidate("blocked", priority="P1", dependencies_done=False)]
         d, ident = call(store, "reserve", rows, scope="s", now=100)
-        assert d["leases"][ident]["item_id"] == "new"
-        rows = [candidate("p2", created_at=30), candidate("p1", priority="P1", created_at=0)]
+        assert d["leases"][ident]["item_id"] == "focused-old"
+        rows = [candidate("p2-first", created_at=30), candidate("p1-second", priority="P1", created_at=0)]
         d, ident = call(store, "reserve", rows, scope="s", now=100)
-        assert d["leases"][ident]["item_id"] == "p1"
+        assert d["leases"][ident]["item_id"] == "p2-first"
 
 
     def test_gates_1(self):
@@ -134,6 +138,15 @@ class WorkParallelTests(unittest.TestCase):
         with self.assertRaises(WorkParallelError):
             reserve(other, "urgent2", priority="P1")
         assert sum(r["slot"] for r in store.read()["leases"].values()) == 3
+
+    def test_reviewers_are_limited_only_by_priority_slots(self):
+        store = self.store
+        call(store, "configure", dict(priority_limits=dict(P2=3), launches_per_minute=20), capability_ready=True)
+        first = reserve(store, "review-one", role="reviewer")
+        second = reserve(store, "review-two", role="reviewer")
+        assert first != second
+        assert len([r for r in store.read()["leases"].values()
+                    if r["role"] == "reviewer" and r["slot"]]) == 2
 
 
     def test_pause_cas(self):
@@ -392,9 +405,8 @@ class WorkParallelTests(unittest.TestCase):
         from ciel_runtime_support.work_parallel import MAX_LEASES
         assert MAX_LEASES == 100
 
-    def test_stored_ledger_above_new_bound_stays_readable(self):
-        # A ledger written under the old 1000 bound must not become corrupt
-        # just because the new-record backstop dropped to 100.
+    def test_terminal_history_above_bound_stays_readable_and_allows_admission(self):
+        # MAX_LEASES bounds open leases, not retained terminal audit history.
         import json
         store = self.store
         ident = reserve(store, priority="P1")
@@ -416,6 +428,8 @@ class WorkParallelTests(unittest.TestCase):
         store.path.write_text(json.dumps(doc), encoding="utf-8")
         reread = WorkParallelStore(store.path).read()
         assert len(reread["leases"]) == 151
+        admitted = reserve(store, "after-history", priority="P2")
+        assert store.read()["leases"][admitted]["state"] == "reserved"
 
 
     def test_single_slot_allows_non_p1(self):
@@ -476,6 +490,116 @@ class WorkParallelTests(unittest.TestCase):
                     "scope_board_missing": True, "pid_absent": True}
         call(store, "orphan_release", ident, proof="operator verified shutdown", observation=observed)
         assert store.read()["leases"][ident]["state"] == "orphaned"
+
+    def test_legacy_unbound_orphan_is_released_not_recorded_without_host(self):
+        store = self.store
+        ident = reserve(store, "legacy-unbound", priority="P1")
+        assert store.read()["leases"][ident]["host_id"] is None
+        observed = {"owner_state": "legacy_no_owner", "host_dead": True,
+                    "scope_board_missing": True, "pid_absent": True}
+        call(store, "orphan_release", ident, proof="operator verified shutdown", observation=observed)
+        assert ident not in store.read()["leases"]
+        # Unknown/live owners stay conservative even for an unbound reservation.
+        kept = reserve(store, "unbound-unknown", priority="P1")
+        for observation in ({"owner_state": "unknown"}, {"owner_state": "live"}):
+            with self.assertRaises(WorkParallelError):
+                call(store, "orphan_release", kept, proof="guess", observation=observation)
+        assert store.read()["leases"][kept]["slot"]
+
+    def test_question_report_releases_slot_in_one_version(self):
+        store = self.store
+        ident = reserve(store, "asks", priority="P1")
+        call(store, "bind", ident, "host")
+        before = store.read()["version"]
+        d, _ = call(store, "report_question", ident, plan_version=7, evidence="which branch?")
+        row = d["leases"][ident]
+        assert d["version"] == before + 1
+        assert row["state"] == "waiting_input" and not row["slot"] and row["usage"] == 0
+        assert row["idle_proof"] == "which branch?" and row["report_hash"] is None
+        call(store, "reacquire", ident)
+        transition(store, ident, "running")
+        with self.assertRaises(WorkParallelConflict):
+            call(store, "report_question", ident, plan_version=8, evidence="stale")
+
+    def test_completion_report_requires_artifact_evidence_and_revokes_capability(self):
+        store = self.store
+        token = "worker-token-" + "c" * 40
+        d, ident = call(store, "reserve", [candidate("done-item", priority="P1")], scope="scope", now=100,
+                        report_hash=hash_worker_token(token))
+        call(store, "bind", ident, "host")
+        before = store.read()
+        for bad in (dict(artifact=None, evidence="ok"), dict(artifact="z" * 64, evidence="ok"),
+                    dict(artifact="a" * 64, evidence="")):
+            with self.assertRaises(WorkParallelError):
+                call(store, "report_completion", ident, plan_version=7, **bad)
+        assert store.read() == before
+        d, _ = call(store, "report_completion", ident, plan_version=7, artifact="a" * 64, evidence="tests passed")
+        row = d["leases"][ident]
+        assert d["version"] == before["version"] + 1
+        assert row["state"] == "submitted" and not row["slot"] and row["artifact"] == "a" * 64
+        assert row["report_hash"] is None and row["evidence"] == "tests passed"
+        with self.assertRaises(WorkParallelError):
+            call(store, "report_completion", ident, plan_version=7, artifact="a" * 64, evidence="again")
+        # Review still proceeds on the released submission; rework needs a slot.
+        transition(store, ident, "verifying")
+        with self.assertRaises(WorkParallelError):
+            transition(store, ident, "running")
+        for target in ("reviewing", "accepted", "cleanup_pending"):
+            transition(store, ident, target)
+        transition(store, ident, "done", cleanup_proof="artifact cleanup verified")
+        assert store.read()["leases"][ident]["state"] == "done"
+
+    def test_handoff_report_requires_receipt_and_frees_item_for_replacement(self):
+        store = self.store
+        token = "worker-token-" + "h" * 40
+        d, ident = call(store, "reserve", [candidate("handed", priority="P1")], scope="scope", now=100,
+                        report_hash=hash_worker_token(token))
+        call(store, "bind", ident, "host")
+        before = store.read()
+        for bad in (dict(receipt_digest="short", proof="ok"), dict(receipt_digest="b" * 64, proof="")):
+            with self.assertRaises(WorkParallelError):
+                call(store, "report_handoff", ident, plan_version=7, **bad)
+        assert store.read() == before
+        d, _ = call(store, "report_handoff", ident, plan_version=7, receipt_digest="b" * 64,
+                    proof="receipt stored", now=200)
+        row = d["leases"][ident]
+        assert d["version"] == before["version"] + 1
+        assert row["state"] == "unreported" and not row["slot"] and row["artifact"] is None
+        assert row["report_hash"] is None and row["terminal"]["reason"] == "handoff"
+        assert "b" * 64 in row["terminal"]["proof"]
+        assert reserve(store, "handed", priority="P1") != ident
+
+    def test_persisted_leases_use_only_4eebfdc_fields(self):
+        import json
+        store = self.store
+        allowed = set(("id scope item_id priority created_at role mode plan_version state host_id slot usage "
+                       "artifact rework evidence idle_proof cleanup_proof agent_name workspace dispatch_name "
+                       "owner report_hash terminal").split())
+        first = reserve(store, "one", priority="P1")
+        call(store, "bind", first, "host-1", agent_name="work-one")
+        call(store, "report_completion", first, plan_version=7, artifact="a" * 64, evidence="done")
+        second = reserve(store, "two", priority="P1")
+        call(store, "bind", second, "host-2")
+        call(store, "report_handoff", second, plan_version=7, receipt_digest="c" * 64, proof="receipt")
+        stored = json.loads(store.path.read_text(encoding="utf-8"))["leases"]
+        assert stored and all(set(row) <= allowed for row in stored.values())
+
+    def test_beta_lifecycle_times_are_read_and_dropped_on_next_write(self):
+        import json
+        store = self.store
+        ident = reserve(store, "beta", priority="P1")
+        doc = json.loads(store.path.read_text(encoding="utf-8"))
+        doc["leases"][ident].update(reserved_at=100.5, bound_at=None, state_changed_at=101)
+        store.path.write_text(json.dumps(doc), encoding="utf-8")
+        assert "reserved_at" not in store.read()["leases"][ident]
+        call(store, "bind", ident, "host")
+        stored = json.loads(store.path.read_text(encoding="utf-8"))["leases"][ident]
+        assert not {"reserved_at", "bound_at", "state_changed_at"} & set(stored)
+        doc = json.loads(store.path.read_text(encoding="utf-8"))
+        doc["leases"][ident]["state_changed_at"] = "bad"
+        store.path.write_text(json.dumps(doc), encoding="utf-8")
+        with self.assertRaises(WorkParallelError):
+            store.read()
 
     def test_lowering_cap_drains_existing_leases(self):
         store = self.store

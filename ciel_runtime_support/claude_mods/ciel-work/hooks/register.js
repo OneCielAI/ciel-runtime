@@ -6,7 +6,7 @@ const detailView = atom({ plugin: 'ciel-work', key: 'detail' }, null)
 const panelView = atom({ plugin: 'ciel-work', key: 'panel' }, null)
 const PANE = 'work-details'
 const PREFIX = 'mcp__ciel-runtime-router__'
-const WORK = new Set(['work_discovery_pickup', 'work_parallel_status', 'work_parallel_configure', 'work_parallel_run', 'work_parallel_event', 'work_status', 'work_plan_set', 'work_node_add', 'work_node_update',
+const WORK = new Set(['work_discovery_pickup', 'work_parallel_status', 'work_parallel_configure', 'work_parallel_run', 'work_parallel_event', 'work_parallel_report', 'work_status', 'work_plan_set', 'work_node_add', 'work_node_update',
   'work_node_remove', 'work_select', 'work_execute', 'work_replan', 'work_reorder', 'work_urgent', 'work_focus',
   'work_mode_set'])
 const WRITES = new Set(['Edit', 'Write', 'NotebookEdit', 'apply_patch'])
@@ -206,7 +206,11 @@ function scheduleIdleRefresh($, poll, attempt = poll.attempt) {
         if (idleRefresh !== poll || !poll.active) return
         if (s?.enabled === false) { stopIdleRefresh(); return }
         if (cachedSession !== poll.identity || await sessionId($) !== poll.identity) { stopIdleRefresh(); return }
-        poll.attempt = s && s.version !== before ? 0 : Math.min(poll.attempt + 1, IDLE_REFRESH_MS.length - 1)
+        const changed = s && s.version !== before
+        poll.attempt = changed ? 0 : Math.min(poll.attempt + 1, IDLE_REFRESH_MS.length - 1)
+        // An idle board refresh can expose newly-approved runnable leaves. Wake
+        // the host scheduler directly; no scheduler detail enters main context.
+        if (changed) void parallelPump($, 'board-version').catch(() => {})
       } catch {
         poll.attempt = Math.min(poll.attempt + 1, IDLE_REFRESH_MS.length - 1)
       } finally {
@@ -984,7 +988,8 @@ function rememberParallelFailure(stage, detail) {
 }
 function parallelDeny(e, next, scope) {
   const reasons = []
-  if (!e.name) reasons.push('the Agent call omitted the exact name returned by work_parallel_run')
+  if (e.resume?.agentId) reasons.push('no persisted Work recovery authorization matches resumed agent ' + clipped(e.resume.agentId, 120))
+  else if (!e.name) reasons.push('the Agent call omitted the exact name returned by work_parallel_run')
   else if (!parallelPending.has(e.name)) reasons.push('no pending work_parallel_run dispatch matches Agent name ' + clipped(e.name, 120))
   else if (scope !== undefined && parallelPending.get(e.name).scope !== scope) reasons.push('the pending dispatch belongs to another conversation')
   if (e.parentAgentId !== undefined) reasons.push('the spawn came from another agent, not the coordinator')
@@ -1110,6 +1115,20 @@ async function parallelEvent($, args, observed = {}) {
     catch (error) { if (attempt === 2 || !/state changed; reread/.test(String(error.message))) throw error }
   }
 }
+function parallelLeaseBlocksTarget(state, target) {
+  const active = new Set(['reserved', 'running', 'waiting_input', 'submitted', 'verifying', 'reviewing', 'accepted', 'cleanup_pending'])
+  const runs = new Map((state?.coordination?.runs || []).map(run => [run.lease_id, run]))
+  return Object.values(state?.leases || {}).some(lease => {
+    if (!active.has(lease.state)) return false
+    if (lease.item_id === target) return true
+    // Newer projections may carry identity paths; legacy item_path is titles and
+    // therefore normally does not match an id. assigned_todos is authoritative
+    // when the coordination projection is present.
+    if (Array.isArray(lease.item_path) && lease.item_path.includes(target)) return true
+    const run = runs.get(lease.id)
+    return run?.item_id === target || run?.root_id === target || run?.assigned_todos?.includes(target)
+  })
+}
 async function parallelToolCall($, e, next) {
   if (next.origin?.plugin === 'ciel-work' && (e.tool === PREFIX+'send_message' || e.tool.startsWith(PREFIX+'work_side_'))) return next(e)
   const mainSide = ['work_side_handoff','work_side_review'].find(tool => e.tool === PREFIX+tool)
@@ -1153,17 +1172,23 @@ async function parallelToolCall($, e, next) {
   if (name === 'work_node_update' && e.status === 'done') {
     try {
       const s = await parallelCall($, 'work_parallel_status')
-      // Conservative: a goal completion can auto-complete ancestors of a lease.
-      // Hold all completion writes while any conversation lease is unfinished.
-      if (Object.values(s.leases).some(r => r.state !== 'done')) {
+      // Completion is scoped to this item and its assigned descendant path. A
+      // terminal unreported/orphaned run has already relinquished its slot and
+      // cannot block unrelated completion forever.
+      if (parallelLeaseBlocksTarget(s, e.id)) {
         // The whole call is refused, so a wait clear sent with it was not
         // applied either (Prody: waiting_on="" + status=done stayed waiting).
-        return { deny: 'Work completion waits for parallel validation, review and cleanup. Nothing in this call was applied'
+        return { deny: 'Work completion waits for this item\'s parallel validation, review and cleanup. Nothing in this call was applied'
           + (e.waiting_on !== undefined || e.note !== undefined || e.evidence !== undefined
             ? '; send the other fields (for example waiting_on="") in a separate work_node_update without status.' : '.') }
       }
     } catch (error) { return { deny: 'Parallel completion check unavailable.' } }
     return workToolCall($, e, next) // Preserve the existing Work gate and native permissions.
+  }
+  if (name === 'work_parallel_report') {
+    const reported = await next(e)
+    if (!reported?.deny && reported?.isError !== true) void parallelPump($, 'worker-report').catch(() => {})
+    return reported
   }
   if (!['work_parallel_run', 'work_parallel_event', 'work_parallel_configure', 'work_discovery_pickup'].includes(name)) return workToolCall($, e, next)
   // A direct MCP call by the mod is authenticated in call(); model flags are discarded.
@@ -1225,6 +1250,9 @@ async function parallelToolCall($, e, next) {
       ? await parallelEvent($, eventArgs, observed)
       : await parallelCall($, name, args, observed, parallelBound.get(e.agentId)?.scope)
     await refresh($)
+    // A successful worker report or coordinator transition may have released a
+    // slot. Refill outside the model's call stack through the serialized pump.
+    if (name === 'work_parallel_event') void parallelPump($, 'event:' + String(args.event || '')).catch(() => {})
     return { result: JSON.stringify(state) }
   } catch (error) { return { deny: String(error.message || error) } }
 }
@@ -1240,9 +1268,14 @@ async function parallelDirectSpawn($, key, request) {
   Object.assign(request, r)
   const label = parallelItemLabel({ ...request, item_title: r.item_title || request.item_title,
     item_ref: r.item_ref ?? request.item_ref })
-  const prompt = 'Execute exactly this approved Work assignment. Native fork context/model/permission are inherited. '
-    + 'Report a question or result only through work_parallel_report using the exact worker_token. '
-    + 'Do not configure policy or accept your result. Assignment JSON:\n' + parallelAssignment(request)
+  const prompt = request.role === 'reviewer'
+    ? 'Execute exactly this approved Work assignment as an independent read-only reviewer. Native fork context/model/permission are inherited. '
+      + 'Review worker artifact SHA256 ' + String(request.review_artifact || '') + ' and evidence: ' + String(request.review_evidence || '')
+      + '. Do not edit files or accept results. Report review findings only through work_parallel_report using the exact worker_token. Assignment JSON:\n'
+      + parallelAssignment(request, 'reviewer')
+    : 'Execute exactly this approved Work assignment. Native fork context/model/permission are inherited. '
+      + 'Report a question or result only through work_parallel_report using the exact worker_token. '
+      + 'Do not configure policy or accept your result. Assignment JSON:\n' + parallelAssignment(request)
   let spawned
   try {
     spawned = await $.agent.spawn({ subagentType: 'fork', name: key, description: 'Work ' + label,
@@ -1284,9 +1317,19 @@ async function parallelAgentSpawn($, e, next) {
     if (!s.policy.enabled) return next(e)
     const request = parallelPending.get(e.name)
     const resumed = request ? null : Object.values(s.leases).find(r => r.agent_name && r.agent_name === e.name
-      && r.slot && r.host_id && r.state === 'running')
-    if (resumed && parallelResuming.get(resumed.id) === e.name && !s.policy.paused && e.fork === true && e.subagentType === 'fork' && e.parentAgentId === undefined
-        && next.origin?.plugin === 'engine') {
+      && r.slot && r.host_id && r.state === 'running'
+      && (!e.resume || e.resume.agentId === r.host_id))
+    if (resumed && e.resume?.agentId === resumed.host_id && !parallelResuming.has(resumed.id)
+        && next.origin?.plugin === 'ciel-work') {
+      // `$.session.send({agentId})` raises its deferred resume spawn inside the
+      // same plugin-origin frame. Bind this one exact persisted lease/id tuple;
+      // a model/engine-origin spawn still needs the one-shot map below.
+      parallelResuming.set(resumed.id, e.name || resumed.agent_name || '')
+    }
+    if (resumed && parallelResuming.get(resumed.id) === e.name
+        && (!e.resume || e.resume.agentId === resumed.host_id)
+        && !s.policy.paused && e.fork === true && e.subagentType === 'fork' && e.parentAgentId === undefined
+        && ['engine','ciel-work'].includes(next.origin?.plugin)) {
       // Same durable lease and exact stored agent name: no new reservation, so
       // the item cannot run twice. Consume the one-shot recovery authorization.
       parallelResuming.delete(resumed.id)
@@ -1357,16 +1400,21 @@ async function parallelToolCheck($, e, next) {
 // $.agent.list(), and side actors are never bound to a Work lease.
 const NATIVE_STATUSES = new Set(['pending', 'running', 'waiting', 'idle', 'completed', 'failed', 'killed'])
 const NATIVE_OPEN = new Set(['reserved', 'running', 'waiting_input', 'submitted', 'verifying', 'reviewing', 'accepted', 'cleanup_pending'])
-let nativeObserving = false
+let nativeObserving = null
 let nativeTimer = null
 let lastNativeConfirmed = null
 async function parallelObserveNative($) {
-  if (nativeObserving) return null
-  nativeObserving = true
+  const lifecycle = starts
+  const identity = await sessionId($)
+  if (nativeObserving?.lifecycle === lifecycle && nativeObserving.identity === identity) return null
+  const flight = { lifecycle, identity }
+  nativeObserving = flight
   try {
     const state = await parallelCall($, 'work_parallel_status')
+    if (lifecycle !== starts || await sessionId($) !== identity) return null
     const open = Object.values(state.leases || {}).filter(r => NATIVE_OPEN.has(r.state))
     const agents = await $.agent.list()
+    if (lifecycle !== starts || await sessionId($) !== identity) return null
     const rows = []
     for (const lease of open) {
       if (!lease.host_id) continue
@@ -1378,21 +1426,25 @@ async function parallelObserveNative($) {
     }
     const result = await parallelCall($, 'work_parallel_event', { event: 'native_observation', rows, complete: true,
       expected_evidence_version: Number(state?.forks?.evidence_version ?? 0) })
+    if (lifecycle !== starts || await sessionId($) !== identity) return null
     const confirmed = rows.filter(r => r.status === 'pending' || r.status === 'running').length
     if (confirmed !== lastNativeConfirmed) {
       lastNativeConfirmed = confirmed
       $.ui.log('Work forks confirmed by native agent list: ' + confirmed)
     }
     return { open: open.length, confirmed, result }
-  } finally { nativeObserving = false }
+  } finally { if (nativeObserving === flight) nativeObserving = null }
 }
 function scheduleNativeObservation($) {
   if (nativeTimer) return
-  nativeTimer = $.clock.after(2000, async () => {
+  const lifecycle = starts
+  const identity = cachedSession
+  nativeTimer = $.clock.after(15000, async () => {
     nativeTimer = null
+    if (lifecycle !== starts || !identity || await sessionId($).catch(() => null) !== identity) return
     let observed = null
     try { observed = await parallelObserveNative($) } catch { /* Unknown host state: try again on the next trigger. */ }
-    if (observed?.open) scheduleNativeObservation($)
+    if (lifecycle === starts && observed?.open) scheduleNativeObservation($)
   })
 }
 function sideOwned(row) {
@@ -1417,9 +1469,22 @@ async function parallelHydrate($) {
   return state
 }
 const parallelReviewStarting = new Set()
-let parallelFilling = false
+const parallelExitAttempts = new Map()
+let parallelPumpRunning = false
+let parallelPumpAgain = false
 let parallelRetry = null
 const retiredParallelAgents = new Set()
+function cancelParallelTimers() {
+  if (nativeTimer) { try { nativeTimer.cancel() } catch {}; nativeTimer = null }
+  if (parallelRetry) { try { parallelRetry.cancel() } catch {}; parallelRetry = null }
+}
+function resetParallelHostState() {
+  cancelParallelTimers()
+  parallelPending.clear(); parallelBound.clear(); parallelResuming.clear()
+  parallelReviewStarting.clear(); parallelExitAttempts.clear(); retiredParallelAgents.clear()
+  parallelFailures.length = 0; parallelPumpRunning = false; parallelPumpAgain = false
+  nativeObserving = null; lastNativeConfirmed = null
+}
 async function stopParallelAgent($, id) {
   if (!id) return
   retiredParallelAgents.add(id)
@@ -1427,48 +1492,120 @@ async function stopParallelAgent($, id) {
   try { await $.tool.call({tool:'TaskStop',task_id:id}) } catch {}
   parallelBound.delete(id)
 }
-async function parallelFillSlots($) {
-  if (parallelFilling) return
-  parallelFilling = true
-  try {
-    for (let i = 0; i < 20; i++) {
-      const key = 'work-auto-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2)
-      const request = { scope:await sessionId($), role:'worker', auto:true }
-      parallelPending.set(key, request)
-      let result
-      try { result = await parallelDirectSpawn($, key, request) }
-      catch (error) {
-        parallelPending.delete(key)
-        const detail = String(error.message || error)
-        if (/launch rate reached/.test(detail) && !parallelRetry) {
-          parallelRetry = $.clock.after(15000, async () => { parallelRetry = null; await parallelFillSlots($) })
-        }
-        if (!/no eligible candidate|capacity reached|launch rate reached|lease bound/.test(detail)) rememberParallelFailure('auto-fill', detail)
-        break
-      }
-      if (!result || JSON.parse(result.result || '{}').dispatch !== 'started') break
-    }
-  } finally { parallelFilling = false }
+function parallelHasReceipt(state, lease) {
+  const run = (state?.coordination?.runs || []).find(row => row.lease_id === lease.id)
+  return Boolean(run?.exit || (state?.coordination?.receipts || []).some(row => row.lease_id === lease.id))
 }
-async function parallelStartReview($) {
-  const state = await parallelCall($, 'work_parallel_status')
-  if (!state.policy.enabled || state.policy.paused) return
-  for (const lease of Object.values(state.leases)) {
-    if (lease.role !== 'worker' || lease.state !== 'submitted' || lease.slot || parallelReviewStarting.has(lease.id)) continue
-    if (Object.values(state.leases).some(r => r.item_id === lease.item_id && r.role === 'reviewer' && r.state !== 'done')) continue
-    parallelReviewStarting.add(lease.id)
-    const key = 'work-review-' + lease.id
-    const label = parallelItemLabel(lease)
+async function parallelEnsureExitContract($, state, lease, row, reason = 'native terminal') {
+  if (!lease?.host_id) return false
+  const key = (await sessionId($)) + ':' + lease.id
+  if (lease.state !== 'running' || parallelHasReceipt(state, lease)) {
+    parallelExitAttempts.delete(key)
+    await stopParallelAgent($, lease.host_id)
+    return true
+  }
+  const prior = parallelExitAttempts.get(key) || { attempts: 0, failures: 0 }
+  if (prior.attempts < 2) {
+    const current = { attempts: prior.attempts + 1, failures: prior.failures + 1 }
+    parallelExitAttempts.set(key, current)
     try {
-      parallelPending.set(key, { item_id: lease.item_id, priority: lease.priority, role: 'reviewer', scope: await sessionId($),
-        item_title: lease.item_title, item_ref: lease.item_ref, goal_title: lease.goal_title, item_path: lease.item_path })
-      await $.agent.spawn({ subagentType: 'fork', name: key, description: 'Review ' + label,
-        prompt: 'Execute only approved Work item ' + label + ' as an independent read-only reviewer. '
-          + 'Review worker artifact SHA256 ' + lease.artifact + ' and evidence: ' + lease.evidence
-          + '. Worker workspace: ' + (lease.workspace?.path || 'shared workspace')
-          + '. Do not edit files or accept results. Report findings and your report artifact SHA256 through work_parallel_event result using your own reviewer lease.' })
+      await $.session.send({ to: { agentId: lease.host_id },
+        text: 'Your native turn ended without a durable Work exit receipt. Report completion through work_parallel_report with the exact lease_id and worker_token, or report a structured handoff with done, remaining, blockers, workspace and next_step. Lease: ' + lease.id + '; item: ' + lease.item_id + '.' })
+    } catch { /* The missing durable receipt, not transport ACK, bounds attempts. */ }
+    if (current.attempts < 2) return false
+  }
+  // The current backend may not expose a host-salvage event. Never discard a
+  // worker's result merely because that optional event is absent. If a newer
+  // backend durably returns a salvage receipt, only then terminate/release it.
+  const attempts = parallelExitAttempts.get(key) || prior
+  if (attempts.failures < 2) return false
+  try {
+    const salvaged = await parallelEvent($, { event:'host_salvage', lease_id:lease.id,
+      reason:String(reason || row?.status || 'native terminal').slice(0, 200) },
+    { proof:'Two exit-contract delivery failures; native status ' + String(row?.status || reason || 'terminal') })
+    if (!(salvaged?.receipt_digest || salvaged?.contract_receipt || salvaged?.salvaged === true)) return false
+    await parallelEvent($, { event:'unreported', lease_id:lease.id },
+      { proof:'Durable host salvage receipt ' + (salvaged.receipt_digest || salvaged.contract_receipt || 'recorded') })
+    await stopParallelAgent($, lease.host_id)
+    parallelExitAttempts.delete(key)
+    return true
+  } catch { return false }
+}
+async function parallelStartReview($, state = null) {
+  state ||= await parallelCall($, 'work_parallel_status')
+  if (!state.policy.enabled || state.policy.paused) return 0
+  let available = Math.max(0, parallelCapacity(state.policy) - Number(state.active_device || 0))
+  const priorityUse = { ...(state.active_by_priority || {}) }
+  let started = 0
+  for (const lease of Object.values(state.leases || {})) {
+    if (available <= 0) break
+    if (lease.role !== 'worker' || lease.state !== 'submitted' || lease.slot || parallelReviewStarting.has(lease.id)) continue
+    if (Number(priorityUse[lease.priority] || 0) >= Number(state.policy.priority_limits?.[lease.priority] || 0)) continue
+    // Only an active reviewer blocks a replacement. Terminal audit rows are not
+    // in the actionable projection and must not become global singleton locks.
+    if (Object.values(state.leases || {}).some(r => r.item_id === lease.item_id && r.role === 'reviewer'
+        && NATIVE_OPEN.has(r.state))) continue
+    parallelReviewStarting.add(lease.id)
+    const key = 'work-review-' + lease.id + '-' + Date.now().toString(36)
+    try {
+      const request = { item_id:lease.item_id, priority:lease.priority, role:'reviewer', scope:await sessionId($),
+        item_title:lease.item_title, item_ref:lease.item_ref, goal_title:lease.goal_title, item_path:lease.item_path,
+        review_artifact:lease.artifact, review_evidence:lease.evidence }
+      parallelPending.set(key, request)
+      const result = await parallelDirectSpawn($, key, request)
+      if (result && JSON.parse(result.result || '{}').dispatch === 'started') {
+        started++; available--; priorityUse[lease.priority] = Number(priorityUse[lease.priority] || 0) + 1
+      }
+    } catch (error) {
+      parallelPending.delete(key)
+      const detail = String(error?.message || error)
+      if (!/no eligible candidate|capacity reached|launch rate reached|lease bound|disabled\/paused/.test(detail))
+        rememberParallelFailure('review-fill', detail)
+      if (/capacity reached|launch rate reached|lease bound|disabled\/paused/.test(detail)) break
     } finally { parallelReviewStarting.delete(lease.id) }
-    break
+  }
+  return started
+}
+async function parallelPump($, trigger = 'host') {
+  parallelPumpAgain = true
+  if (parallelPumpRunning) return
+  parallelPumpRunning = true
+  const lifecycle = starts
+  try {
+    do {
+      parallelPumpAgain = false
+      if (lifecycle !== starts) return
+      let state = await parallelCall($, 'work_parallel_status')
+      if (!state.policy.enabled || state.policy.paused || lifecycle !== starts) return
+      await parallelStartReview($, state)
+      for (let i = 0; i < 100; i++) {
+        if (lifecycle !== starts) return
+        const key = 'work-auto-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2)
+        const request = { scope:await sessionId($), role:'worker', auto:true }
+        parallelPending.set(key, request)
+        let result
+        try { result = await parallelDirectSpawn($, key, request) }
+        catch (error) {
+          parallelPending.delete(key)
+          const detail = String(error?.message || error)
+          if (/launch rate reached/.test(detail) && !parallelRetry) {
+            const retryLifecycle = starts
+            parallelRetry = $.clock.after(15000, async () => {
+              parallelRetry = null
+              if (retryLifecycle === starts) await parallelPump($, 'launch-rate-retry')
+            })
+          }
+          if (!/no eligible candidate|capacity reached|launch rate reached|lease bound|disabled\/paused/.test(detail))
+            rememberParallelFailure('auto-fill:' + trigger, detail)
+          break
+        }
+        if (!result || JSON.parse(result.result || '{}').dispatch !== 'started') break
+      }
+    } while (parallelPumpAgain && lifecycle === starts)
+  } finally {
+    parallelPumpRunning = false
+    // A trigger can arrive after the loop condition but before finally.
+    if (parallelPumpAgain && lifecycle === starts) void parallelPump($, 'pending-again').catch(() => {})
   }
 }
 async function parallelTurnComplete($, e, next) {
@@ -1476,56 +1613,60 @@ async function parallelTurnComplete($, e, next) {
   const board = await refresh($)
   if (!board || board.enabled === false) return result
   // A turn ending is NOT positive idle evidence. A worker explicitly in
-  // waiting_input with a native waiting/idle row is parked, not processing:
-  // return only its execution slot and keep the durable lease/item queued.
-  // Terminal host rows still release submitted/review leases as before.
+  // waiting_input with a native waiting/idle row is parked, not processing.
   try {
     const scope = await sessionId($)
     const s = await parallelCall($, 'work_parallel_status')
     const agents = await $.agent.list()
-    for (const [id, binding] of parallelBound) {
+    for (const [id, binding] of [...parallelBound]) {
       if (binding.scope !== scope) continue
       const lease = s.leases[binding.lease_id]
       const row = agents.find(a => a.id === id)
       const terminal = id === e.agentId || (row && parallelTerminal.has(row.status))
       if (lease?.state === 'waiting_input' && lease.slot && terminal) {
-        await parallelEvent($, { event: 'wait', lease_id: binding.lease_id },
-          { proof: 'Native worker waiting/terminal: ' + (row?.status || e.reason || 'turn.complete') })
+        await parallelEvent($, { event:'wait', lease_id:binding.lease_id },
+          { proof:'Native worker waiting/terminal: ' + (row?.status || e.reason || 'turn.complete') })
         continue
       }
       if (terminal && lease?.state === 'running') {
-        await parallelEvent($, { event:'unreported', lease_id:binding.lease_id },
-          { proof:'Native turn.complete without work_parallel_report: ' + (e.reason || row?.status || 'answer') })
-        await stopParallelAgent($, id)
+        await parallelEnsureExitContract($, s, lease, row, e.reason || 'turn.complete')
         continue
       }
       const idle = terminal && ['submitted', 'verifying', 'reviewing', 'accepted', 'cleanup_pending'].includes(lease?.state)
-      await parallelEvent($, { event: 'reconcile', lease_id: binding.lease_id },
-        { state: idle ? 'idle' : row?.status === 'running' ? 'running' : 'unknown',
-          proof: row ? 'Native agent.list status: ' + row.status : 'Native agent.list row absent' })
+      if (lease) await parallelEvent($, { event:'reconcile', lease_id:binding.lease_id },
+        { state:idle ? 'idle' : row?.status === 'running' ? 'running' : 'unknown',
+          proof:row ? 'Native agent.list status: ' + row.status : 'Native agent.list row absent' })
       if (idle) await stopParallelAgent($, id)
     }
-    await parallelStartReview($)
-    await parallelFillSlots($)
+    try { await parallelObserveNative($) } catch {}
+    await parallelPump($, 'turn.complete')
     scheduleNativeObservation($)
   } catch (error) { $.ui.log('Work reconciliation: ' + String(error.message || error)) }
   return result
 }
-// After a parent restart the engine resumes a subagent only through SendMessage by its
-// agent ID. A live row is never resumed twice.
-async function parallelRecovery($) {
-  const s = await parallelCall($, 'work_parallel_status')
+// Restart recovery is host-to-worker only. Main receives no recovery prompt or
+// scheduler context. Exact durable lease/name authorization is retained for the
+// deferred native resume spawn.
+async function parallelRecoverWorkers($, state = null) {
+  state ||= await parallelCall($, 'work_parallel_status')
   const rows = await $.agent.list()
-  const lines = []
-  for (const lease of Object.values(s.leases)) {
+  for (const lease of Object.values(state.leases || {})) {
     if (!lease.slot || !lease.host_id || lease.state !== 'running') continue
     const row = rows.find(a => a.id === lease.host_id)
-    if (row && ['pending', 'running'].includes(row.status)) continue
-    lines.push('Work recovery: lease ' + lease.id + ' for item ' + lease.item_id + ' was interrupted. Resume the same worker with '
-      + 'SendMessage({ to: "' + lease.host_id + '", message: "Work recovery: continue approved Work item ' + lease.item_id
-      + ' under lease ' + lease.id + ', then report through work_parallel_report with the worker_token from your original assignment." }). Do not dispatch a new Agent for this item.')
+    if (row && ['pending','running'].includes(row.status)) continue
+    if (row && parallelTerminal.has(row.status)) {
+      await parallelEnsureExitContract($, state, lease, row, 'session.start terminal recovery')
+      continue
+    }
+    const name = lease.agent_name || lease.dispatch_name || ''
+    parallelResuming.set(lease.id, name)
+    try {
+      const sent = await $.session.send({ to:{agentId:lease.host_id},
+        text:'Work recovery: continue approved Work item ' + lease.item_id + ' under lease ' + lease.id
+          + ', then report through work_parallel_report with the worker_token from your original assignment.' })
+      if (!sent?.isDelivered) parallelResuming.delete(lease.id)
+    } catch { parallelResuming.delete(lease.id) }
   }
-  return lines
 }
 // A session-socket prompt arrives with a peer/unclassified origin and is read
 // by the model as plain text, so `/btw ...` never reaches Claude's native
@@ -1562,13 +1703,9 @@ async function btwBridge($, e, next) {
 }
 
 async function parallelPromptSubmit($, e, next) {
-  let recovery = []
-  try { recovery = await parallelRecovery($) } catch { /* Unknown host state keeps slots and adds no instruction. */ }
-  return workPromptSubmit($, { ...e, context: [...(e.context || []), ...recovery,
-    'Work parallel: read work_parallel_status. Queue registration is not an execution-slot decision; policy.priority_limits (default P1 5, P2 3, P3-P5 1) limit only fork sessions actually processing, per priority. '
-    + 'A priority at its limit waits while the others keep starting. Dispatch approved items with work_parallel_run, focused items first; the host starts the fork and returns its lease, so do not call Agent for a Work dispatch. '
-    + 'A waiting/blocked worker returns its slot but its item and lease stay recorded; resume it only after its slot is reacquired. Submission is not completion: validate, review, accept, observe idle and verify cleanup before done. '
-    + 'Unknown host capacity retains actually-running slots. Native permissions remain authoritative; this is not a shell sandbox.'] }, next)
+  // Scheduler, native evidence and restart recovery are host responsibilities.
+  // Main receives only the ordinary Work plan/summary context.
+  return workPromptSubmit($, e, next)
 }
 
 async function sideIntake($, raw) {
@@ -1594,13 +1731,19 @@ export function register(on) {
     await $.command.register({ name: 'work-mode', description: 'Work mode: summary, help, keyboard inspector, tree or raw status',
       argumentHint: '[help|view|tree|status|settings [key=value]]', immediate: true })
     const ticket = ++starts
+    resetParallelHostState()
     compactEpoch++; compacts.clear(); continuationSession = null
     continuationVersion = null; unchangedContinuations = 0
     stopIdleRefresh(); clearNativePlanPaths(); interactive = e.isInteractive
     const s = await refresh($)
     try { await startSide($) } catch { /* Side pane remains empty until the host is available. */ }
     pollBusySideReceipts($, await sessionId($))
-    try { await parallelHydrate($); if (e.isInteractive) await parallelFillSlots($); scheduleNativeObservation($) } catch { /* Preserve durable leases on unknown host state. */ }
+    try {
+      const parallel = await parallelHydrate($)
+      await parallelRecoverWorkers($, parallel)
+      if (e.isInteractive) await parallelPump($, 'session.start')
+      scheduleNativeObservation($)
+    } catch { /* Preserve durable leases on unknown host state. */ }
     if (e.isInteractive && s?.enabled) { notice($, ticket); startIdleRefresh($, cachedSession) }
     else if (e.isInteractive && !s) retryStart($, ticket)
     return next(e)
@@ -1621,6 +1764,7 @@ export function register(on) {
   })
   on('turn.complete', async ($, e, next) => {
     if (!await completeSide($, e)) return parallelTurnComplete($, e, next)
+    try { await parallelObserveNative($); await parallelPump($, 'side-turn.complete') } catch {}
     sideStatusDirty = true
     // A side decision may have changed the board; redraw from it now rather than
     // after the idle backoff (Andy 2026-11-08: stale Next and progress).
@@ -1656,7 +1800,6 @@ export function register(on) {
     const epoch = compactEpoch
     const result = await next(e)
     if (result?.block || result?.preventContinuation || e.agent_id) return result
-    try { await parallelFillSlots($) } catch {}
     let identity, s, current
     try {
       identity = await sessionId($)
@@ -1668,6 +1811,11 @@ export function register(on) {
     // Idle/display reads do not invalidate Stop; compact entry AND settlement do.
     if (lifecycle !== starts || turn !== mainTurnEpoch || epoch !== compactEpoch
         || current !== identity || compacting(identity)) return result
+    // Fill only after every stale lifecycle/session guard has passed. A Stop from
+    // an ended or superseded turn must never start a native fork.
+    try { await parallelPump($, 'classic.Stop') } catch {}
+    if (lifecycle !== starts || turn !== mainTurnEpoch || epoch !== compactEpoch
+        || await sessionId($).catch(() => null) !== identity || compacting(identity)) return result
     if (continuationSession !== identity) {
       continuationSession = identity; continuationVersion = null; unchangedContinuations = 0
     }
@@ -1852,6 +2000,7 @@ export function register(on) {
   on('tool.check', async ($, e, next) => parallelToolCheck($, e, next))
   on('session.end', async ($, e, next) => {
     stopIdleRefresh(); interactive = false; working = false; clearNativePlanPaths(); starts++
+    resetParallelHostState()
     generation++; cached = null; cachedSession = null; hinted = ''; continuationVersion = null; unchangedContinuations = 0
     stopNoticeKey = ''; compactEpoch++; compacts.clear(); continuationSession = null
     await update($, detailView, () => null)

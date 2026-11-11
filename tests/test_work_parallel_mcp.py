@@ -187,6 +187,11 @@ def _workspace_host(ident, target):
 
 
 class WorkParallelMCPTests(unittest.TestCase):
+    def test_worker_report_schema_requires_identity_capability_and_event(self):
+        schema = next(row for row in m.schemas() if row["name"] == "work_parallel_report")["inputSchema"]
+        self.assertEqual(["lease_id", "worker_token", "event"], schema["required"])
+        self.assertIn("detail", schema["properties"])
+
     def setUp(self):
         temporary = TemporaryDirectory()
         self.addCleanup(temporary.cleanup)
@@ -210,12 +215,39 @@ class WorkParallelMCPTests(unittest.TestCase):
                            event="reserve", item_id="n1", priority="P1")
             ident = reserved["lease_id"]
             self.assertTrue(Path(reserved["workspace"]["path"]).is_dir())
+            coordinated = m.coordination(store).read()["runs"][ident]["workspace"]
+            self.assertEqual({key: reserved["workspace"][key] for key in ("path", "branch", "head")}, coordinated)
             run("event", {"host_id": "native-worker", "agent_name": "owned-name"}, event="bind", lease_id=ident)
             self.assertEqual(store.read()["leases"][ident]["agent_name"], "owned-name")
             run("event", {"state": "idle", "proof": "native terminal"}, event="reconcile", lease_id=ident)
             record = observe(repo, ident)
             self.assertTrue(record["idle"])
             self.assertEqual(record["host_id"], "native-worker")
+
+    def test_host_salvage_persists_structured_receipt_before_unreported(self):
+        store, board, config, run = self.env
+        repo = self.tmp_path / "salvage-repo"
+        _git(self.tmp_path, "init", str(repo))
+        _git(repo, "config", "user.name", "fixture")
+        _git(repo, "config", "user.email", "fixture@example.invalid")
+        (repo / "f").write_text("fixture")
+        _git(repo, "add", "f")
+        _git(repo, "commit", "-m", "fixture")
+        from ciel_runtime_support import runtime_paths
+        with patch.object(runtime_paths, "CONFIG_DIR", self.tmp_path / "cfg"):
+            reserved = run("event", {"fork": True, "workspace_repo": str(repo)},
+                           event="reserve", item_id="n1", priority="P1")
+            run("event", {"host_id": "native-worker"}, event="bind", lease_id=reserved["lease_id"])
+            Path(reserved["workspace"]["path"], "partial.txt").write_text("partial")
+            salvaged = run("event", {"proof": "native terminal"}, event="host_salvage",
+                           lease_id=reserved["lease_id"], reason="missing exit report")
+            self.assertTrue(salvaged["salvaged"])
+            detail = m.coordination(store).detail(salvaged["receipt_digest"])
+            self.assertEqual(["n1"], detail["remaining"])
+            self.assertIn("partial.txt", detail["workspace"]["changed_files"])
+            run("event", {"proof": "salvage " + salvaged["receipt_digest"]},
+                event="unreported", lease_id=reserved["lease_id"])
+            self.assertEqual("unreported", store.read()["leases"][reserved["lease_id"]]["state"])
 
     def test_failed_workspace_preparation_releases_its_reservation(self):
         store, board, config, run = self.env
@@ -288,6 +320,38 @@ class WorkParallelMCPTests(unittest.TestCase):
                     "plan_version": 7, "artifact": "a" * 64, "evidence": "replay"},
                     Board(), config)
 
+    def test_unrelated_board_change_does_not_invalidate_scoped_assignment(self):
+        store, board, config, run = self.env
+        reserved = run("event", {"fork": True, "dispatch_name": "work-n3"},
+                       event="reserve", item_id="n3", priority="P1")
+        run("event", {"host_id": "agent-1", "agent_name": "work-n3"},
+            event="bind", lease_id=reserved["lease_id"])
+        board["version"] += 1
+        board["nodes"].append({"id": "other", "parent_id": None, "title": "Other root",
+                               "note": "unrelated", "status": "pending", "updated_at": 2,
+                               "priority": "P5", "phase": "planning"})
+        with patch.object(m, "ledger", return_value=store):
+            class Board:
+                def read(_self): return board
+            result = json.loads(m.report({"lease_id": reserved["lease_id"],
+                "worker_token": reserved["worker_token"], "event": "result",
+                "plan_version": 7, "artifact": "a" * 64, "evidence": "tested"}, Board(), config))
+        self.assertEqual("submitted", result["state"])
+        self.assertTrue(result["slot_released"])
+
+    def test_assigned_scope_change_invalidates_scoped_assignment(self):
+        store, board, config, run = self.env
+        reserved = run("event", {"fork": True}, event="reserve", item_id="n3", priority="P1")
+        run("event", {"host_id": "agent-1"}, event="bind", lease_id=reserved["lease_id"])
+        board["version"] += 1
+        board["nodes"][2]["note"] = "changed approved requirement"
+        with patch.object(m, "ledger", return_value=store):
+            class Board:
+                def read(_self): return board
+            with self.assertRaisesRegex(WorkParallelError, "approval scope changed"):
+                m.report({"lease_id": reserved["lease_id"], "worker_token": reserved["worker_token"],
+                          "event": "result", "artifact": "a" * 64, "evidence": "tested"}, Board(), config)
+
     def test_reserve_next_skips_waiting_leaf_and_returns_next_runnable(self):
         store, board, config, run = self.env
         board["nodes"][2]["waiting_on"] = "review"
@@ -297,6 +361,16 @@ class WorkParallelMCPTests(unittest.TestCase):
         self.assertEqual(reserved["item_id"], "n4")
         self.assertEqual(reserved["priority"], "P1")
         self.assertEqual(reserved["item_note"], "Do second")
+
+    def test_owner_without_birth_identity_is_never_classified_dead(self):
+        store, board, config, run = self.env
+        reserved = run("event", {"fork": True, "session_pid": 4242,
+                                  "session_process_identity": None},
+                       event="reserve", item_id="n3", priority="P1")
+        with patch.object(m, "process_identity", return_value="different-birth"):
+            preview = m._orphan_preview(store)
+        row = next(item for item in preview["leases"] if item["lease_id"] == reserved["lease_id"])
+        self.assertEqual("unknown", row["owner_state"])
 
     def test_owner_comes_only_from_this_conversations_bound_scope(self):
         from ciel_runtime_support import runtime_paths
@@ -326,6 +400,20 @@ class WorkParallelMCPTests(unittest.TestCase):
             run("event", {}, event="reconcile_orphans", operation="apply",
                 lease_id=reserved["lease_id"], preview_digest=preview["digest"],
                 observation={"owner_state": "legacy_no_owner"})
+
+    def test_legacy_unbound_orphan_apply_releases_invalid_reservation_shape(self):
+        store, board, config, run = self.env
+        with patch.object(m, "_owner_from_host", return_value=None):
+            reserved = run("event", {"fork": True}, event="reserve", item_id="n3")
+        with patch.object(m, "process_identity", return_value=""):
+            preview = run("event", {}, event="reconcile_orphans", operation="preview")
+        result = run("event", {"proof": "operator verified legacy owner absent"},
+                     event="reconcile_orphans", operation="apply", lease_id=reserved["lease_id"],
+                     preview_digest=preview["digest"], observation={"owner_state": "legacy_no_owner",
+                         "host_dead": True, "scope_board_missing": True, "pid_absent": True})
+        self.assertTrue(result["released"])
+        self.assertEqual("released", result["state"])
+        self.assertNotIn(reserved["lease_id"], store.read()["leases"])
 
     def test_unbound_reserve_release_keeps_item_dispatchable(self):
         env = self.env
@@ -619,7 +707,10 @@ class WorkParallelMCPTests(unittest.TestCase):
             evidence="checked",
             cleanup_proof="checked cleanup",
         )
-        assert s.read()["leases"][ident]["state"] == "done"
+        leases = s.read()["leases"]
+        assert leases[ident]["state"] == "done"
+        assert leases[reviewer]["state"] == "done"
+        assert leases[reviewer]["cleanup_proof"]
 
 
     def test_stale_board_and_cross_scope(self):
@@ -627,16 +718,17 @@ class WorkParallelMCPTests(unittest.TestCase):
         s, b, c, run = env
         ident = launch(env)
         b["version"] += 1
-        with self.assertRaises(WorkParallelError):
-            run(
-                "event",
-                {"agent_id": "agent-1"},
-                event="result",
-                lease_id=ident,
-                plan_version=7,
-                artifact="a" * 64,
-                evidence="stale",
-            )
+        # The global CAS version is not approval identity: unrelated bookkeeping
+        # must not strand an in-flight assignment.
+        run(
+            "event",
+            {"agent_id": "agent-1"},
+            event="result",
+            lease_id=ident,
+            plan_version=7,
+            artifact="a" * 64,
+            evidence="still approved",
+        )
         with patch.object(m, "ledger", return_value=s):
             with self.assertRaises(WorkParallelError):
                 m.run(
@@ -652,7 +744,7 @@ class WorkParallelMCPTests(unittest.TestCase):
                     c,
                     None,
                 )
-        assert s.read()["leases"][ident]["state"] == "running"
+        assert s.read()["leases"][ident]["state"] == "submitted"
 
 
     def test_cleanup_keeps_unpushed_worktree_without_user_approval(self):
@@ -820,6 +912,29 @@ class WorkParallelMCPTests(unittest.TestCase):
                 evidence="c",
             )
         assert target.exists()
+
+
+    def test_status_is_bounded_and_omits_private_terminal_history(self):
+        store, board, config, run = self.env
+        doc = store.read()
+        template = {
+            "id": "", "scope": SCOPE, "item_id": "n3", "priority": "P1", "created_at": 1,
+            "role": "worker", "mode": "fork", "plan_version": 7, "state": "unreported",
+            "host_id": "agent", "slot": False, "usage": 0, "artifact": None, "rework": 0,
+            "evidence": "PRIVATE" * 200, "idle_proof": "terminal", "cleanup_proof": None,
+            "workspace": {"path": "C:/PRIVATE/" + "x" * 500, "repo": "C:/PRIVATE"},
+            "report_hash": None, "terminal": {"reason": "unreported", "observed_at": 1, "proof": "terminal"},
+        }
+        for index in range(200):
+            ident = f"old-{index}"
+            doc["leases"][ident] = {**template, "id": ident, "host_id": f"agent-{index}"}
+        store.path.write_text(json.dumps(doc), encoding="utf-8")
+        value = run("status")
+        encoded = json.dumps(value, ensure_ascii=False)
+        self.assertLess(len(encoded), 12_000)
+        self.assertNotIn("PRIVATE", encoded)
+        self.assertEqual(200, value["lease_counts"]["unreported"])
+        self.assertFalse(value["leases"])
 
 
 if __name__ == "__main__":

@@ -1,0 +1,730 @@
+{
+  "out": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\10\\features\\work-parallel-scheduler-repair\\evidence\\scheduler-run-source-6",
+  "base": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-scheduler-20261110-232419",
+  "snapshot": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel",
+  "port": 9731,
+  "session": "77777777-7777-4777-8777-777777777777",
+  "main_model": "_Walkie_Opus55-Sol61-Fast",
+  "seed": {
+    "version": 1,
+    "items": {
+      "P1 first release": "n2",
+      "P1 automatic refill": "n3",
+      "P1 long": "n5",
+      "P2 long": "n7",
+      "P3 long": "n9"
+    },
+    "terminal_rows": 24,
+    "stale_launch_rows": 24
+  },
+  "outcome": "passed",
+  "initial_four_epoch": 1794374726.2070262,
+  "api_initial_four": {
+    "ok": true,
+    "schema_version": 2,
+    "session_id": "claude:77777777-7777-4777-8777-777777777777",
+    "version": 13,
+    "forks": {
+      "schema": "native-fork-evidence/1",
+      "rule": "A fork counts as processing only when the native agent list showed it pending or running within the last 30 seconds. A reserved slot, a running lease state or a bound host id alone is not evidence. The main session is the coordinator and is never a fork; side actors are counted separately.",
+      "available": true,
+      "evidence_version": 2,
+      "fresh_seconds": 30,
+      "observed_at": 1794374725.168752,
+      "confirmed_count": 4,
+      "counts": {
+        "confirmed": 4,
+        "waiting": 0,
+        "reservation": 0,
+        "uncertain": 0,
+        "validating": 0,
+        "ended": 0
+      },
+      "confirmed": [
+        {
+          "lease_id": "68838727b1e2414bb0d1d146819c7e82",
+          "item_id": "n2",
+          "item_title": "P1 first release",
+          "item_ref": "",
+          "goal_title": "P1 capacity root",
+          "item_path": [
+            "P1 capacity root",
+            "P1 first release"
+          ],
+          "priority": "P1",
+          "role": "worker",
+          "state": "running",
+          "slot": true,
+          "agent_name": "work-auto-mwbocv3w-5mgqtovzqea",
+          "agent_id": "a0c26e5f435afe9b9",
+          "rework": 0,
+          "reserved_at": 1794374661.9317129,
+          "bound_at": null,
+          "state_changed_at": null,
+          "native": {
+            "status": "running",
+            "first_seen_at": 1794374707.5643742,
+            "last_seen_at": 1794374725.168752,
+            "status_changed_at": 1794374707.5643742,
+            "missing_since": null,
+            "terminal_at": null
+          },
+          "evidence": "confirmed"
+        },
+        {
+          "lease_id": "b2a91a6c39c44e4a9128dfe47abb4f9b",
+          "item_id": "n3",
+          "item_title": "P1 automatic refill",
+          "item_ref": "",
+          "goal_title": "P1 capacity root",
+          "item_path": [
+            "P1 capacity root",
+            "P1 automatic refill"
+          ],
+          "priority": "P1",
+          "role": "worker",
+          "state": "running",
+          "slot": true,
+          "agent_name": "work-auto-mwboczz7-83mha1rmx68",
+          "agent_id": "af11b25ff64b5b092",
+          "rework": 0,
+          "reserved_at": 1794374661.9317129,
+          "bound_at": null,
+          "state_changed_at": null,
+          "native": {
+            "status": "running",
+            "first_seen_at": 1794374707.5643742,
+            "last_seen_at": 1794374725.168752,
+            "status_changed_at": 1794374707.5643742,
+            "missing_since": null,
+            "terminal_at": null
+          },
+          "evidence": "confirmed"
+        },
+        {
+          "lease_id": "f13df4ec9b9d4e948e684e6371527b11",
+          "item_id": "n7",
+          "item_title": "P2 long",
+          "item_ref": "",
+          "goal_title": "P2 root",
+          "item_path": [
+            "P2 root",
+            "P2 long"
+          ],
+          "priority": "P2",
+          "role": "worker",
+          "state": "running",
+          "slot": true,
+          "agent_name": "work-auto-mwbod4rg-pcb60yx8na",
+          "agent_id": "a4f74f54c78d19879",
+          "rework": 0,
+          "reserved_at": 1794374661.9317129,
+          "bound_at": null,
+          "state_changed_at": null,
+          "native": {
+            "status": "running",
+            "first_seen_at": 1794374707.5643742,
+            "last_seen_at": 1794374725.168752,
+            "status_changed_at": 1794374707.5643742,
+            "missing_since": null,
+            "terminal_at": null
+          },
+          "evidence": "confirmed"
+        },
+        {
+          "lease_id": "f208408dfffe450b8ceb45ec0c59d47f",
+          "item_id": "n9",
+          "item_title": "P3 long",
+          "item_ref": "",
+          "goal_title": "P3 root",
+          "item_path": [
+            "P3 root",
+            "P3 long"
+          ],
+          "priority": "P3",
+          "role": "worker",
+          "state": "running",
+          "slot": true,
+          "agent_name": "work-auto-mwbod8hy-zpugcjckgxp",
+          "agent_id": "a0d8e0e68d739b981",
+          "rework": 0,
+          "reserved_at": 1794374661.9317129,
+          "bound_at": null,
+          "state_changed_at": null,
+          "native": {
+            "status": "running",
+            "first_seen_at": 1794374725.168752,
+            "last_seen_at": 1794374725.168752,
+            "status_changed_at": 1794374725.168752,
+            "missing_since": null,
+            "terminal_at": null
+          },
+          "evidence": "confirmed"
+        }
+      ],
+      "waiting": [],
+      "reservation": [],
+      "uncertain": [],
+      "validating": [],
+      "ended": []
+    },
+    "device": {
+      "active_slots": 4,
+      "capacity": 6,
+      "priority_limits": {
+        "P1": 2,
+        "P2": 1,
+        "P3": 1,
+        "P4": 1,
+        "P5": 1
+      },
+      "active_by_priority": {
+        "P1": 2,
+        "P2": 1,
+        "P3": 1,
+        "P4": 0,
+        "P5": 0
+      },
+      "this_session_by_priority": {
+        "P1": 2,
+        "P2": 1,
+        "P3": 1,
+        "P4": 0,
+        "P5": 0
+      },
+      "other_sessions_by_priority": {
+        "P1": 0,
+        "P2": 0,
+        "P3": 0,
+        "P4": 0,
+        "P5": 0
+      },
+      "paused": false,
+      "enabled": true,
+      "note": "Device-wide lease slots across every session; a slot is not proof that a fork is running."
+    },
+    "policy": {
+      "enabled": true,
+      "paused": false,
+      "priority_limits": {
+        "P1": 2,
+        "P2": 1,
+        "P3": 1,
+        "P4": 1,
+        "P5": 1
+      },
+      "launches_per_minute": 24,
+      "max_rework": 2
+    },
+    "runtime": "claude",
+    "limitations": [
+      "dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations",
+      "external discovery requires a configured authenticated source connector"
+    ]
+  },
+  "web_initial_four": {
+    "ok": true,
+    "confirmed_cards": 4,
+    "titles": {
+      "P1 first release": true,
+      "P1 automatic refill": true,
+      "P2 long": true,
+      "P3 long": true,
+      "P1 long": false
+    },
+    "page_errors": [],
+    "text": "Main session is the coordinator, not a parallel fork. Side actors are on the Side tab.\nA fork counts as processing only when the native agent list showed it pending or running within the last 30 seconds. A reserved slot, a running lease state or a bound host id alone is not evidence. The main session is the coordinator and is never a fork; side actors are counted separately.\nProcessing now · confirmed native forks (4)\nP1\nn2 · P1 first release\nrunning\nP1 capacity root → P1 first release\nworker\nwork-auto-mwbocv3w-5mgqtovzqea · a0c26e5f435a\nrunning\nfirst seen 21 s ago\nlast seen 4 s ago\nconfirmed by native agent list\nP1\nn3 · P1 automatic refill\nrunning\nP1 capacity root → P1 automatic refill\nworker\nwork-auto-mwboczz7-83mha1rmx68 · af11b25ff64b\nrunning\nfirst seen 21 s ago\nlast seen 4 s ago\nconfirmed by native agent list\nP2\nn7 · P2 long\nrunning\nP2 root → P2 long\nworker\nwork-auto-mwbod4rg-pcb60yx8na · a4f74f54c78d\nrunning\nfirst seen 21 s ago\nlast seen 4 s ago\nconfirmed by native agent list\nP3\nn9 · P3 long\nrunning\nP3 root → P3 long\nworker\nwork-auto-mwbod8hy-zpugcjckgxp · a0d8e0e68d73\nrunning\nfirst seen 4 s ago\nlast seen 4 s ago\nconfirmed by native agent list\nWaiting for input (0)\nNo fork is waiting for input.\nReservations · no native fork yet (0)\nNo unbound reservations.\nUncertain or stale (0)\nA slot may be held without a running fork.\nNo uncertain or stale fork evidence.\nValidating (0)\nNo fork is validating.\nEnded (0)\nDevice capacity · all sessions\nActive slots 4 / 6\nP1\nP1 · this session 2 · other sessions 0 · free 0 / 2\nP2\nP2 · this session 1 · other sessions 0 · free 0 / 1\nP3\nP3 · this session 1 · other sessions 0 · free 0 / 1\nP4\nP4 · this session 0 · other sessions 0 · free 1 / 1\nP5\nP5 · this session 0 · other sessions 0 · free 1 / 1\nDevice-wide lease slots across every session; a slot is not proof that a fork is running.\nPause dispatch on this device\nInspect orphan leases"
+  },
+  "web_mobile_initial_four": {
+    "ok": true,
+    "confirmed_cards": 4,
+    "titles": {
+      "P1 first release": true,
+      "P1 automatic refill": true,
+      "P2 long": true,
+      "P3 long": true,
+      "P1 long": false
+    },
+    "page_errors": [],
+    "text": "Main session is the coordinator, not a parallel fork. Side actors are on the Side tab.\nA fork counts as processing only when the native agent list showed it pending or running within the last 30 seconds. A reserved slot, a running lease state or a bound host id alone is not evidence. The main session is the coordinator and is never a fork; side actors are counted separately.\nProcessing now · confirmed native forks (4)\nP1\nn2 · P1 first release\nrunning\nP1 capacity root → P1 first release\nworker\nwork-auto-mwbocv3w-5mgqtovzqea · a0c26e5f435a\nrunning\nfirst seen 23 s ago\nlast seen 6 s ago\nconfirmed by native agent list\nP1\nn3 · P1 automatic refill\nrunning\nP1 capacity root → P1 automatic refill\nworker\nwork-auto-mwboczz7-83mha1rmx68 · af11b25ff64b\nrunning\nfirst seen 23 s ago\nlast seen 6 s ago\nconfirmed by native agent list\nP2\nn7 · P2 long\nrunning\nP2 root → P2 long\nworker\nwork-auto-mwbod4rg-pcb60yx8na · a4f74f54c78d\nrunning\nfirst seen 23 s ago\nlast seen 6 s ago\nconfirmed by native agent list\nP3\nn9 · P3 long\nrunning\nP3 root → P3 long\nworker\nwork-auto-mwbod8hy-zpugcjckgxp · a0d8e0e68d73\nrunning\nfirst seen 6 s ago\nlast seen 6 s ago\nconfirmed by native agent list\nWaiting for input (0)\nNo fork is waiting for input.\nReservations · no native fork yet (0)\nNo unbound reservations.\nUncertain or stale (0)\nA slot may be held without a running fork.\nNo uncertain or stale fork evidence.\nValidating (0)\nNo fork is validating.\nEnded (0)\nDevice capacity · all sessions\nActive slots 4 / 6\nP1\nP1 · this session 2 · other sessions 0 · free 0 / 2\nP2\nP2 · this session 1 · other sessions 0 · free 0 / 1\nP3\nP3 · this session 1 · other sessions 0 · free 0 / 1\nP4\nP4 · this session 0 · other sessions 0 · free 1 / 1\nP5\nP5 · this session 0 · other sessions 0 · free 1 / 1\nDevice-wide lease slots across every session; a slot is not proof that a fork is running.\nPause dispatch on this device\nInspect orphan leases"
+  },
+  "automatic_refill": {
+    "at": 1794374832.8852813,
+    "agent_ids": [
+      "aa358ef45dc5f181c"
+    ],
+    "lease_ids": [
+      "22e382c7bfa24449a376aa7fb7068758"
+    ],
+    "rows": [
+      {
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "lease_id": "22e382c7bfa24449a376aa7fb7068758",
+        "agent_id": "aa358ef45dc5f181c",
+        "agent_name": "work-auto-mwbofg6c-w1ftjm8oiq",
+        "status": "running",
+        "first_seen_at": 1794374832.4831655,
+        "last_seen_at": 1794374832.4831655,
+        "status_changed_at": 1794374832.4831655,
+        "missing_since": null,
+        "terminal_at": null
+      }
+    ]
+  },
+  "marker_windows": {
+    "P1 first release": [
+      1794374698.0254614,
+      1794374764.0583599,
+      34
+    ],
+    "P1 automatic refill": [
+      1794374706.1228094,
+      1794374832.1834002,
+      64
+    ],
+    "P2 long": [
+      1794374717.666111,
+      1794374831.7252557,
+      58
+    ],
+    "P3 long": [
+      1794374714.3266194,
+      1794374832.3808908,
+      60
+    ],
+    "P1 long": [
+      1794374819.5963404,
+      1794374831.6901326,
+      7
+    ]
+  },
+  "initial_marker_overlap_seconds": 46.4,
+  "native_final": {
+    "schema": 1,
+    "version": 8,
+    "records": {
+      "68838727b1e2414bb0d1d146819c7e82": {
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "lease_id": "68838727b1e2414bb0d1d146819c7e82",
+        "agent_id": "a0c26e5f435afe9b9",
+        "agent_name": "work-auto-mwbocv3w-5mgqtovzqea",
+        "status": "idle",
+        "first_seen_at": 1794374707.5643742,
+        "last_seen_at": 1794374796.4758444,
+        "status_changed_at": 1794374796.4758444,
+        "missing_since": 1794374814.9224617,
+        "terminal_at": null
+      },
+      "b2a91a6c39c44e4a9128dfe47abb4f9b": {
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "lease_id": "b2a91a6c39c44e4a9128dfe47abb4f9b",
+        "agent_id": "af11b25ff64b5b092",
+        "agent_name": "work-auto-mwboczz7-83mha1rmx68",
+        "status": "running",
+        "first_seen_at": 1794374707.5643742,
+        "last_seen_at": 1794374832.4831655,
+        "status_changed_at": 1794374707.5643742,
+        "missing_since": null,
+        "terminal_at": null
+      },
+      "f13df4ec9b9d4e948e684e6371527b11": {
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "lease_id": "f13df4ec9b9d4e948e684e6371527b11",
+        "agent_id": "a4f74f54c78d19879",
+        "agent_name": "work-auto-mwbod4rg-pcb60yx8na",
+        "status": "running",
+        "first_seen_at": 1794374707.5643742,
+        "last_seen_at": 1794374832.4831655,
+        "status_changed_at": 1794374707.5643742,
+        "missing_since": null,
+        "terminal_at": null
+      },
+      "f208408dfffe450b8ceb45ec0c59d47f": {
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "lease_id": "f208408dfffe450b8ceb45ec0c59d47f",
+        "agent_id": "a0d8e0e68d739b981",
+        "agent_name": "work-auto-mwbod8hy-zpugcjckgxp",
+        "status": "running",
+        "first_seen_at": 1794374725.168752,
+        "last_seen_at": 1794374832.4831655,
+        "status_changed_at": 1794374725.168752,
+        "missing_since": null,
+        "terminal_at": null
+      },
+      "22e382c7bfa24449a376aa7fb7068758": {
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "lease_id": "22e382c7bfa24449a376aa7fb7068758",
+        "agent_id": "aa358ef45dc5f181c",
+        "agent_name": "work-auto-mwbofg6c-w1ftjm8oiq",
+        "status": "running",
+        "first_seen_at": 1794374832.4831655,
+        "last_seen_at": 1794374832.4831655,
+        "status_changed_at": 1794374832.4831655,
+        "missing_since": null,
+        "terminal_at": null
+      }
+    },
+    "scans": {
+      "claude:77777777-7777-4777-8777-777777777777": 1794374832.4831655
+    }
+  },
+  "coordination_final": {
+    "archive": [],
+    "archive_dropped": 0,
+    "details": {
+      "4f05553b7da37962d7344945ee384bada816a90b7e3448563875394bc9be94fd": {
+        "body": {
+          "blocking_todos": [
+            "Await coordinator decision before any further work on item n2."
+          ],
+          "decision_needed": "Decide whether and when item n2 should resume after releasing its scheduler slot.",
+          "question": "P1 first-release marker command completed; what decision should unblock and resume this parked item?"
+        },
+        "kind": "question"
+      }
+    },
+    "receipts": {
+      "4f05553b7da37962d7344945ee384bada816a90b7e3448563875394bc9be94fd": {
+        "created_at": 1794374771.8060863,
+        "digest": "4f05553b7da37962d7344945ee384bada816a90b7e3448563875394bc9be94fd",
+        "kind": "question",
+        "lease_id": "68838727b1e2414bb0d1d146819c7e82"
+      }
+    },
+    "root_generations": {
+      "claude:77777777-7777-4777-8777-777777777777\u0000n1": {
+        "approval_generation": 1,
+        "phase": "executing",
+        "root_id": "n1",
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "scope_digest": "bd1829b7688dc75ae7d02e93ea93defdae14159ad47268bdb8100d2b4b0404d1",
+        "updated_at": 1794374684.8066258
+      },
+      "claude:77777777-7777-4777-8777-777777777777\u0000n4": {
+        "approval_generation": 1,
+        "phase": "executing",
+        "root_id": "n4",
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "scope_digest": "1945121db281ab081cf2b111abc41ff376bf42ff96dc3b619808e130fd3c7491",
+        "updated_at": 1794374807.083762
+      },
+      "claude:77777777-7777-4777-8777-777777777777\u0000n6": {
+        "approval_generation": 1,
+        "phase": "executing",
+        "root_id": "n6",
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "scope_digest": "9aec01c1ce3001146e41e9b50c608f24d131b55ddda466665139e1ee9bd8784b",
+        "updated_at": 1794374697.4088712
+      },
+      "claude:77777777-7777-4777-8777-777777777777\u0000n8": {
+        "approval_generation": 1,
+        "phase": "executing",
+        "root_id": "n8",
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "scope_digest": "f6f832cb11cf5f98a0c48cce5b878436228e93f544c15ca3a0ec1248fde0f49c",
+        "updated_at": 1794374701.7824388
+      }
+    },
+    "runs": {
+      "22e382c7bfa24449a376aa7fb7068758": {
+        "agent_id": "aa358ef45dc5f181c",
+        "agent_name": "work-auto-mwbofg6c-w1ftjm8oiq",
+        "approval_generation": 1,
+        "assigned_todos": [
+          "n5"
+        ],
+        "bound_at": 1794374816.1101642,
+        "exit": null,
+        "exit_attempts": 0,
+        "fingerprint": "1945121db281ab081cf2b111abc41ff376bf42ff96dc3b619808e130fd3c7491",
+        "generation": 1,
+        "item_id": "n5",
+        "lease_id": "22e382c7bfa24449a376aa7fb7068758",
+        "native_seen_at": 1794374832.4884887,
+        "native_status": "running",
+        "priority": "P1",
+        "recovery": {
+          "attempts": 0,
+          "error_code": null,
+          "state": "none"
+        },
+        "replaced_by": null,
+        "reserved_at": 1794374807.0952497,
+        "role": "worker",
+        "root_id": "n4",
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "state": "active",
+        "state_changed_at": 1794374832.4884887,
+        "workspace": {
+          "branch": "work-parallel/39e94b37d5b23bec078d5f1e013c82596b795534bb233de322e6ec280868c63b",
+          "head": "36194f64dca011cb24d8781c3f7d0d027f777b09",
+          "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-scheduler-drwt2lty\\workspace\\.claude\\worktrees\\work-parallel-39e94b37d5b23bec078d5f1e"
+        }
+      },
+      "68838727b1e2414bb0d1d146819c7e82": {
+        "agent_id": "a0c26e5f435afe9b9",
+        "agent_name": "work-auto-mwbocv3w-5mgqtovzqea",
+        "approval_generation": 1,
+        "assigned_todos": [
+          "n2"
+        ],
+        "bound_at": 1794374689.436556,
+        "exit": {
+          "digest": "4f05553b7da37962d7344945ee384bada816a90b7e3448563875394bc9be94fd",
+          "kind": "question"
+        },
+        "exit_attempts": 0,
+        "fingerprint": "bd1829b7688dc75ae7d02e93ea93defdae14159ad47268bdb8100d2b4b0404d1",
+        "generation": 1,
+        "item_id": "n2",
+        "lease_id": "68838727b1e2414bb0d1d146819c7e82",
+        "native_seen_at": 1794374796.4811828,
+        "native_status": "idle",
+        "priority": "P1",
+        "recovery": {
+          "attempts": 0,
+          "error_code": null,
+          "state": "none"
+        },
+        "replaced_by": null,
+        "reserved_at": 1794374684.8205926,
+        "role": "worker",
+        "root_id": "n1",
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "state": "waiting",
+        "state_changed_at": 1794374796.4811828,
+        "workspace": {
+          "branch": "work-parallel/da1ae72c0f1f8f95a12f302fbe12b8a63117b4d560f0d2f977d41869093574c9",
+          "head": "36194f64dca011cb24d8781c3f7d0d027f777b09",
+          "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-scheduler-drwt2lty\\workspace\\.claude\\worktrees\\work-parallel-da1ae72c0f1f8f95a12f302f"
+        }
+      },
+      "b2a91a6c39c44e4a9128dfe47abb4f9b": {
+        "agent_id": "af11b25ff64b5b092",
+        "agent_name": "work-auto-mwboczz7-83mha1rmx68",
+        "approval_generation": 1,
+        "assigned_todos": [
+          "n3"
+        ],
+        "bound_at": 1794374695.3153927,
+        "exit": null,
+        "exit_attempts": 0,
+        "fingerprint": "bd1829b7688dc75ae7d02e93ea93defdae14159ad47268bdb8100d2b4b0404d1",
+        "generation": 1,
+        "item_id": "n3",
+        "lease_id": "b2a91a6c39c44e4a9128dfe47abb4f9b",
+        "native_seen_at": 1794374707.5811512,
+        "native_status": "running",
+        "priority": "P1",
+        "recovery": {
+          "attempts": 0,
+          "error_code": null,
+          "state": "none"
+        },
+        "replaced_by": null,
+        "reserved_at": 1794374691.376454,
+        "role": "worker",
+        "root_id": "n1",
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "state": "active",
+        "state_changed_at": 1794374707.5811512,
+        "workspace": {
+          "branch": "work-parallel/2782341277792efe692fe373ed523ccfdcf107c37ea1497206dc799f63364a4a",
+          "head": "36194f64dca011cb24d8781c3f7d0d027f777b09",
+          "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-scheduler-drwt2lty\\workspace\\.claude\\worktrees\\work-parallel-2782341277792efe692fe373"
+        }
+      },
+      "f13df4ec9b9d4e948e684e6371527b11": {
+        "agent_id": "a4f74f54c78d19879",
+        "agent_name": "work-auto-mwbod4rg-pcb60yx8na",
+        "approval_generation": 1,
+        "assigned_todos": [
+          "n7"
+        ],
+        "bound_at": 1794374700.5341303,
+        "exit": null,
+        "exit_attempts": 0,
+        "fingerprint": "9aec01c1ce3001146e41e9b50c608f24d131b55ddda466665139e1ee9bd8784b",
+        "generation": 1,
+        "item_id": "n7",
+        "lease_id": "f13df4ec9b9d4e948e684e6371527b11",
+        "native_seen_at": 1794374707.591103,
+        "native_status": "running",
+        "priority": "P2",
+        "recovery": {
+          "attempts": 0,
+          "error_code": null,
+          "state": "none"
+        },
+        "replaced_by": null,
+        "reserved_at": 1794374697.4194198,
+        "role": "worker",
+        "root_id": "n6",
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "state": "active",
+        "state_changed_at": 1794374707.591103,
+        "workspace": {
+          "branch": "work-parallel/30da17c3e768da7def92f772e09cb0ddc976b1fb981bb245471f20ea2e9d0c17",
+          "head": "36194f64dca011cb24d8781c3f7d0d027f777b09",
+          "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-scheduler-drwt2lty\\workspace\\.claude\\worktrees\\work-parallel-30da17c3e768da7def92f772"
+        }
+      },
+      "f208408dfffe450b8ceb45ec0c59d47f": {
+        "agent_id": "a0d8e0e68d739b981",
+        "agent_name": "work-auto-mwbod8hy-zpugcjckgxp",
+        "approval_generation": 1,
+        "assigned_todos": [
+          "n9"
+        ],
+        "bound_at": 1794374708.028057,
+        "exit": null,
+        "exit_attempts": 0,
+        "fingerprint": "f6f832cb11cf5f98a0c48cce5b878436228e93f544c15ca3a0ec1248fde0f49c",
+        "generation": 1,
+        "item_id": "n9",
+        "lease_id": "f208408dfffe450b8ceb45ec0c59d47f",
+        "native_seen_at": 1794374725.1847928,
+        "native_status": "running",
+        "priority": "P3",
+        "recovery": {
+          "attempts": 0,
+          "error_code": null,
+          "state": "none"
+        },
+        "replaced_by": null,
+        "reserved_at": 1794374701.7923157,
+        "role": "worker",
+        "root_id": "n8",
+        "scope": "claude:77777777-7777-4777-8777-777777777777",
+        "state": "active",
+        "state_changed_at": 1794374725.1847928,
+        "workspace": {
+          "branch": "work-parallel/d12521c078a92bdfc767b801086c6cf632aaaeea3a9fb61069d09912e01dae94",
+          "head": "36194f64dca011cb24d8781c3f7d0d027f777b09",
+          "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-scheduler-drwt2lty\\workspace\\.claude\\worktrees\\work-parallel-d12521c078a92bdfc767b801"
+        }
+      }
+    },
+    "scheduler": {
+      "cursors": {},
+      "diagnostics": []
+    },
+    "schema": 1,
+    "version": 26
+  },
+  "fork_transcripts": [
+    {
+      "file": "agent-a0c26e5f435afe9b9.jsonl",
+      "agent_id": "a0c26e5f435afe9b9",
+      "type": "fork",
+      "description": "Work n2 P1 first release",
+      "canaries": [
+        "P1 first release"
+      ]
+    },
+    {
+      "file": "agent-a0d8e0e68d739b981.jsonl",
+      "agent_id": "a0d8e0e68d739b981",
+      "type": "fork",
+      "description": "Work n9 P3 long",
+      "canaries": [
+        "P3 long"
+      ]
+    },
+    {
+      "file": "agent-a4f74f54c78d19879.jsonl",
+      "agent_id": "a4f74f54c78d19879",
+      "type": "fork",
+      "description": "Work n7 P2 long",
+      "canaries": [
+        "P2 long"
+      ]
+    },
+    {
+      "file": "agent-aa358ef45dc5f181c.jsonl",
+      "agent_id": "aa358ef45dc5f181c",
+      "type": "fork",
+      "description": "Work n5 P1 long",
+      "canaries": [
+        "P1 long"
+      ]
+    },
+    {
+      "file": "agent-af11b25ff64b5b092.jsonl",
+      "agent_id": "af11b25ff64b5b092",
+      "type": "fork",
+      "description": "Work n3 P1 automatic refill",
+      "canaries": [
+        "P1 automatic refill"
+      ]
+    }
+  ],
+  "main_leaks": [],
+  "acceptance": {
+    "host_started_four_without_main_prompt": true,
+    "four_distinct_native_ids": true,
+    "priority_use_2_1_1": true,
+    "initial_four_overlap": true,
+    "marker_overlap_support": true,
+    "automatic_next_started": true,
+    "fork_transcripts_cover_observed_ids": true,
+    "main_transcript_isolated": true,
+    "desktop_capture": true,
+    "mobile_390_capture": true,
+    "seeded_history_did_not_block": true
+  },
+  "tree_before_kill": [
+    "conhost.exe",
+    "cmd.exe",
+    "py.exe",
+    "python.exe",
+    "python.exe",
+    "conhost.exe",
+    "claude.exe",
+    "python.exe",
+    "cmd.exe",
+    "cmd.exe",
+    "conhost.exe",
+    "uvx.exe",
+    "conhost.exe",
+    "conhost.exe",
+    "uv.exe",
+    "node.exe",
+    "node.exe",
+    "mcp-server-fetch.exe",
+    "python.exe",
+    "python.exe",
+    "cmd.exe",
+    "cmd.exe",
+    "node.exe",
+    "node.exe",
+    "bash.exe",
+    "bash.exe",
+    "conhost.exe",
+    "bash.exe",
+    "python.exe",
+    "bash.exe",
+    "bash.exe",
+    "conhost.exe",
+    "bash.exe",
+    "python.exe",
+    "bash.exe",
+    "bash.exe",
+    "conhost.exe",
+    "bash.exe",
+    "python.exe",
+    "bash.exe",
+    "bash.exe",
+    "conhost.exe",
+    "bash.exe",
+    "python.exe",
+    "bash.exe",
+    "bash.exe",
+    "conhost.exe",
+    "conhost.exe",
+    "bash.exe",
+    "bash.exe"
+  ],
+  "owned_router_pids": [],
+  "preserved_config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-scheduler-drwt2lty\\config"
+}

@@ -1,0 +1,7 @@
+Source: isolated .local/groups-parallel-scheduler-repair logs
+Environment: inherited CIEL_RUNTIME_* removed; temporary CIEL_RUNTIME_CONFIG_DIR per group
+
+unit: Ran 3641 tests in 492.401s — OK (skipped=52) — EXIT 0
+router: Ran 1552 tests in 706.774s — OK — EXIT 0
+channel: Ran 607 tests in 15.762s — OK (skipped=80) — EXIT 0
+runtime: Ran 458 tests in 49.476s — OK (skipped=19) — EXIT 0

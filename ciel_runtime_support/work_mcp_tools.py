@@ -124,9 +124,10 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
         {
             "name": "work_node_update",
             "description": (
-                "Update a node: status (pending, in_progress, done, blocked), title, note or evidence. "
+                "Update a node: status (pending, in_progress, done, blocked), title, note, progress or evidence. "
+                "Use progress for implementation, CI, review and cleanup narrative; it preserves execution approval. "
                 "Mark a step done only with evidence that it was verified; parents complete automatically. "
-                "Changing title or note returns only that goal to planning for scope review. "
+                "Title and note are approved scope: changing either returns only that goal to planning for scope review. "
                 "At least one mutation field is REQUIRED; id/expected_version alone is rejected. "
                 "waiting_on sets a dependency; explicitly waiting_on=\"\" clears that node's verified wait. "
                 "When you wait on git, a build/CI/deploy result, a review or a person's approval or answer, record it on the "
@@ -141,6 +142,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
                     "status": {"type": "string", "enum": list(tree.STATUSES)},
                     "title": {"type": "string"},
                     "note": {"type": "string"},
+                    "progress": {"type": "string", "description": "Phase-preserving implementation, CI, review or cleanup progress; not approved scope."},
                     "ref": _NODE_SPEC["properties"]["ref"],
                     "waiting_on": _NODE_SPEC["properties"]["waiting_on"],
                     "priority": _PRIORITY,
@@ -148,7 +150,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
                     "expected_version": _EXPECTED_VERSION,
                 },
                 "required": ["id"],
-                "anyOf": [{"required": [key]} for key in ('status', 'title', 'note', 'ref', 'waiting_on', 'priority', 'evidence')],
+                "anyOf": [{"required": [key]} for key in ('status', 'title', 'note', 'progress', 'ref', 'waiting_on', 'priority', 'evidence')],
             },
         },
         {
@@ -532,7 +534,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         return _after(doc, f"Added {node}.")
     if name == "work_node_update":
         node_id = str(args.get("id") or "")
-        mutable = {'status', 'title', 'note', 'evidence', 'ref', 'waiting_on', 'priority'}
+        mutable = {'status', 'title', 'note', 'progress', 'evidence', 'ref', 'waiting_on', 'priority'}
         if not any(key in args and args[key] is not None for key in mutable):
             raise tree.WorkPlanError(
                 'NO CHANGE: work_node_update requires at least one mutation field. '
@@ -556,7 +558,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
                 before = d.get("active_root")
                 return tree.update_node(
                     d, node_id, status=args.get("status"), title=args.get("title"),
-                    note=args.get("note"), evidence=args.get("evidence"),
+                    note=args.get("note"), progress=args.get("progress"), evidence=args.get("evidence"),
                     ref=args.get("ref"), waiting_on=args.get("waiting_on"),
                     priority=args.get("priority"),
                 ), before, d.get("version", 0)

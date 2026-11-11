@@ -1,0 +1,405 @@
+{
+  "out": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\10\\features\\work-parallel-scheduler-repair\\evidence\\restart-run-source-7",
+  "base": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-restart-20261110-232817",
+  "snapshot": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel",
+  "port": 9836,
+  "session": "88888888-8888-4888-8888-888888888888",
+  "item_id": "n2",
+  "outcome": "failed",
+  "first_launch": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-restart-20261110-232817\\first.cmd",
+  "pre_restart_api": {
+    "ok": true,
+    "schema_version": 2,
+    "session_id": "claude:88888888-8888-4888-8888-888888888888",
+    "version": 3,
+    "forks": {
+      "schema": "native-fork-evidence/1",
+      "rule": "A fork counts as processing only when the native agent list showed it pending or running within the last 30 seconds. A reserved slot, a running lease state or a bound host id alone is not evidence. The main session is the coordinator and is never a fork; side actors are counted separately.",
+      "available": true,
+      "evidence_version": 1,
+      "fresh_seconds": 30,
+      "observed_at": 1794374965.9001665,
+      "confirmed_count": 1,
+      "counts": {
+        "confirmed": 1,
+        "waiting": 0,
+        "reservation": 0,
+        "uncertain": 0,
+        "validating": 0,
+        "ended": 0
+      },
+      "confirmed": [
+        {
+          "lease_id": "45c1bcd9ac2943ed8e0d8cc3e07fd7e4",
+          "item_id": "n2",
+          "item_title": "Persistent restart assignment",
+          "item_ref": "",
+          "goal_title": "Restart recovery root",
+          "item_path": [
+            "Restart recovery root",
+            "Persistent restart assignment"
+          ],
+          "priority": "P1",
+          "role": "worker",
+          "state": "running",
+          "slot": true,
+          "agent_name": "work-auto-mwboi87w-abzta2nu4d",
+          "agent_id": "a95967b673d1dc17d",
+          "rework": 0,
+          "reserved_at": 1794374899.4727123,
+          "bound_at": null,
+          "state_changed_at": null,
+          "native": {
+            "status": "running",
+            "first_seen_at": 1794374965.9001665,
+            "last_seen_at": 1794374965.9001665,
+            "status_changed_at": 1794374965.9001665,
+            "missing_since": null,
+            "terminal_at": null
+          },
+          "evidence": "confirmed"
+        }
+      ],
+      "waiting": [],
+      "reservation": [],
+      "uncertain": [],
+      "validating": [],
+      "ended": []
+    },
+    "device": {
+      "active_slots": 1,
+      "capacity": 5,
+      "priority_limits": {
+        "P1": 1,
+        "P2": 1,
+        "P3": 1,
+        "P4": 1,
+        "P5": 1
+      },
+      "active_by_priority": {
+        "P1": 1,
+        "P2": 0,
+        "P3": 0,
+        "P4": 0,
+        "P5": 0
+      },
+      "this_session_by_priority": {
+        "P1": 1,
+        "P2": 0,
+        "P3": 0,
+        "P4": 0,
+        "P5": 0
+      },
+      "other_sessions_by_priority": {
+        "P1": 0,
+        "P2": 0,
+        "P3": 0,
+        "P4": 0,
+        "P5": 0
+      },
+      "paused": false,
+      "enabled": true,
+      "note": "Device-wide lease slots across every session; a slot is not proof that a fork is running."
+    },
+    "policy": {
+      "enabled": true,
+      "paused": false,
+      "priority_limits": {
+        "P1": 1,
+        "P2": 1,
+        "P3": 1,
+        "P4": 1,
+        "P5": 1
+      },
+      "launches_per_minute": 24,
+      "max_rework": 2
+    },
+    "runtime": "claude",
+    "limitations": [
+      "dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations",
+      "external discovery requires a configured authenticated source connector"
+    ]
+  },
+  "pre_restart_run": {
+    "agent_id": "a95967b673d1dc17d",
+    "agent_name": "work-auto-mwboi87w-abzta2nu4d",
+    "approval_generation": 1,
+    "assigned_todos": [
+      "n2"
+    ],
+    "bound_at": 1794374948.4658418,
+    "exit": null,
+    "exit_attempts": 0,
+    "fingerprint": "d3093e5a720547a58afd9990126070e7b299303b09dbe81124ea058541643c6a",
+    "generation": 1,
+    "item_id": "n2",
+    "lease_id": "45c1bcd9ac2943ed8e0d8cc3e07fd7e4",
+    "native_seen_at": 1794374965.906034,
+    "native_status": "running",
+    "priority": "P1",
+    "recovery": {
+      "attempts": 0,
+      "error_code": null,
+      "state": "none"
+    },
+    "replaced_by": null,
+    "reserved_at": 1794374939.5524828,
+    "role": "worker",
+    "root_id": "n1",
+    "scope": "claude:88888888-8888-4888-8888-888888888888",
+    "state": "active",
+    "state_changed_at": 1794374965.906034,
+    "workspace": {
+      "branch": "work-parallel/9cf5352b6ae40b2d32ed74cbb90dc7c93763a24f99a8697dc8675ddc7fd4518b",
+      "head": "9d53c1c34d4eb5ad9bc97a8b8df44bef6fe8c5bd",
+      "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-restart-_7jio5jg\\workspace\\.claude\\worktrees\\work-parallel-9cf5352b6ae40b2d32ed74cb"
+    }
+  },
+  "pre_restart": {
+    "lease_id": "45c1bcd9ac2943ed8e0d8cc3e07fd7e4",
+    "agent_id": "a95967b673d1dc17d",
+    "generation": 1,
+    "approval_generation": 1,
+    "workspace": {
+      "branch": "work-parallel/9cf5352b6ae40b2d32ed74cbb90dc7c93763a24f99a8697dc8675ddc7fd4518b",
+      "head": "9d53c1c34d4eb5ad9bc97a8b8df44bef6fe8c5bd",
+      "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-restart-_7jio5jg\\workspace\\.claude\\worktrees\\work-parallel-9cf5352b6ae40b2d32ed74cb"
+    },
+    "transcript": "C:\\Users\\djlov\\.claude\\projects\\C--Users-djlov-AppData-Local-Temp-ciel-owned-restart--7jio5jg-workspace\\88888888-8888-4888-8888-888888888888\\subagents\\agent-a95967b673d1dc17d.jsonl",
+    "transcript_exists": true,
+    "pre_marker": "1794374964.3942661 RESTART-FORK-CANARY-38af6faeab64d1\n"
+  },
+  "first_tree_before_kill": [
+    "conhost.exe",
+    "cmd.exe",
+    "py.exe",
+    "python.exe",
+    "python.exe",
+    "conhost.exe",
+    "claude.exe",
+    "python.exe",
+    "cmd.exe",
+    "cmd.exe",
+    "conhost.exe",
+    "conhost.exe",
+    "uvx.exe",
+    "conhost.exe",
+    "uv.exe",
+    "node.exe",
+    "mcp-server-fetch.exe",
+    "node.exe",
+    "python.exe",
+    "python.exe",
+    "cmd.exe",
+    "cmd.exe",
+    "node.exe",
+    "node.exe",
+    "bash.exe",
+    "bash.exe",
+    "conhost.exe",
+    "bash.exe",
+    "python.exe"
+  ],
+  "first_router_pids_killed": [],
+  "second_launch": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-restart-20261110-232817\\second.cmd",
+  "post_restart_epoch": 1794375047.3488142,
+  "continued_scope": {
+    "runtime": "claude",
+    "epoch": "dd38db5dad3a403fae3b2490c1bdeccb",
+    "started_at": 1794374995.1223345,
+    "identity_since": 1794374997.672482,
+    "session_id": "88888888-8888-4888-8888-888888888888",
+    "cwd": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-restart-_7jio5jg\\workspace",
+    "codex_home": "",
+    "path": "C:\\Users\\djlov\\.claude\\projects\\C--Users-djlov-AppData-Local-Temp-ciel-owned-restart--7jio5jg-workspace\\88888888-8888-4888-8888-888888888888.jsonl",
+    "messaging_socket_path": "\\\\.\\pipe\\LOCAL\\cc-msg-8abc8e9ceb5cd05f0b92af2d57383db0",
+    "owned_pid": 0,
+    "launcher_pid": 96504,
+    "claude_config_dir": "C:\\Users\\djlov\\.claude",
+    "request_identity": true,
+    "seeded": true,
+    "request_observed": false,
+    "handoff_pending": false,
+    "delivery_socket_path": "\\\\.\\pipe\\LOCAL\\cc-msg-8abc8e9ceb5cd05f0b92af2d57383db0",
+    "identity_ready": {
+      "session_id": "88888888-8888-4888-8888-888888888888",
+      "pid": 110940,
+      "proc_start": "134388485953932533",
+      "at": 1794374999.192
+    }
+  },
+  "post_restart_api": {
+    "ok": true,
+    "schema_version": 2,
+    "session_id": "claude:88888888-8888-4888-8888-888888888888",
+    "version": 3,
+    "forks": {
+      "schema": "native-fork-evidence/1",
+      "rule": "A fork counts as processing only when the native agent list showed it pending or running within the last 30 seconds. A reserved slot, a running lease state or a bound host id alone is not evidence. The main session is the coordinator and is never a fork; side actors are counted separately.",
+      "available": true,
+      "evidence_version": 2,
+      "fresh_seconds": 30,
+      "observed_at": 1794375041.119886,
+      "confirmed_count": 1,
+      "counts": {
+        "confirmed": 1,
+        "waiting": 0,
+        "reservation": 0,
+        "uncertain": 0,
+        "validating": 0,
+        "ended": 0
+      },
+      "confirmed": [
+        {
+          "lease_id": "45c1bcd9ac2943ed8e0d8cc3e07fd7e4",
+          "item_id": "n2",
+          "item_title": "Persistent restart assignment",
+          "item_ref": "",
+          "goal_title": "Restart recovery root",
+          "item_path": [
+            "Restart recovery root",
+            "Persistent restart assignment"
+          ],
+          "priority": "P1",
+          "role": "worker",
+          "state": "running",
+          "slot": true,
+          "agent_name": "work-auto-mwboi87w-abzta2nu4d",
+          "agent_id": "a95967b673d1dc17d",
+          "rework": 0,
+          "reserved_at": 1794374899.4727123,
+          "bound_at": null,
+          "state_changed_at": null,
+          "native": {
+            "status": "running",
+            "first_seen_at": 1794374965.9001665,
+            "last_seen_at": 1794375041.119886,
+            "status_changed_at": 1794374965.9001665,
+            "missing_since": null,
+            "terminal_at": null
+          },
+          "evidence": "confirmed"
+        }
+      ],
+      "waiting": [],
+      "reservation": [],
+      "uncertain": [],
+      "validating": [],
+      "ended": []
+    },
+    "device": {
+      "active_slots": 1,
+      "capacity": 5,
+      "priority_limits": {
+        "P1": 1,
+        "P2": 1,
+        "P3": 1,
+        "P4": 1,
+        "P5": 1
+      },
+      "active_by_priority": {
+        "P1": 1,
+        "P2": 0,
+        "P3": 0,
+        "P4": 0,
+        "P5": 0
+      },
+      "this_session_by_priority": {
+        "P1": 1,
+        "P2": 0,
+        "P3": 0,
+        "P4": 0,
+        "P5": 0
+      },
+      "other_sessions_by_priority": {
+        "P1": 0,
+        "P2": 0,
+        "P3": 0,
+        "P4": 0,
+        "P5": 0
+      },
+      "paused": false,
+      "enabled": true,
+      "note": "Device-wide lease slots across every session; a slot is not proof that a fork is running."
+    },
+    "policy": {
+      "enabled": true,
+      "paused": false,
+      "priority_limits": {
+        "P1": 1,
+        "P2": 1,
+        "P3": 1,
+        "P4": 1,
+        "P5": 1
+      },
+      "launches_per_minute": 24,
+      "max_rework": 2
+    },
+    "runtime": "claude",
+    "limitations": [
+      "dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations",
+      "external discovery requires a configured authenticated source connector"
+    ]
+  },
+  "post_restart_run": {
+    "agent_id": "a95967b673d1dc17d",
+    "agent_name": "work-auto-mwboi87w-abzta2nu4d",
+    "approval_generation": 1,
+    "assigned_todos": [
+      "n2"
+    ],
+    "bound_at": 1794374948.4658418,
+    "exit": null,
+    "exit_attempts": 0,
+    "fingerprint": "d3093e5a720547a58afd9990126070e7b299303b09dbe81124ea058541643c6a",
+    "generation": 1,
+    "item_id": "n2",
+    "lease_id": "45c1bcd9ac2943ed8e0d8cc3e07fd7e4",
+    "native_seen_at": 1794374965.906034,
+    "native_status": "running",
+    "priority": "P1",
+    "recovery": {
+      "attempts": 0,
+      "error_code": null,
+      "state": "none"
+    },
+    "replaced_by": null,
+    "reserved_at": 1794374939.5524828,
+    "role": "worker",
+    "root_id": "n1",
+    "scope": "claude:88888888-8888-4888-8888-888888888888",
+    "state": "active",
+    "state_changed_at": 1794374965.906034,
+    "workspace": {
+      "branch": "work-parallel/9cf5352b6ae40b2d32ed74cbb90dc7c93763a24f99a8697dc8675ddc7fd4518b",
+      "head": "9d53c1c34d4eb5ad9bc97a8b8df44bef6fe8c5bd",
+      "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-restart-_7jio5jg\\workspace\\.claude\\worktrees\\work-parallel-9cf5352b6ae40b2d32ed74cb"
+    }
+  },
+  "web_after_restart": {
+    "ok": false,
+    "error": "AttributeError(\"'PlaywrightContextManager' object has no attribute '_playwright'\")"
+  },
+  "web_mobile_after_restart": {
+    "ok": false,
+    "error": "AttributeError(\"'PlaywrightContextManager' object has no attribute '_playwright'\")"
+  },
+  "main_leaks": [],
+  "post_marker": "1794375046.3338025 RESTART-FORK-CANARY-38af6faeab64d1\n",
+  "same_transcript_contains_canary": true,
+  "acceptance": {
+    "pre_restart_native_fork": true,
+    "owned_tree_was_terminated": true,
+    "same_session_continued": true,
+    "same_lease_retained": true,
+    "same_generation_retained": true,
+    "same_agent_id_resumed": true,
+    "post_restart_marker": true,
+    "same_transcript_resumed": true,
+    "main_transcript_isolated": true,
+    "desktop_capture": false,
+    "mobile_390_capture": false
+  },
+  "final_owned_router_pids": [],
+  "preserved_config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-restart-_7jio5jg\\config"
+}

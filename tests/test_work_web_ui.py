@@ -74,7 +74,9 @@ class WorkWebUiTests(unittest.TestCase):
         ):
             self.assertIn(action, self.html)
         self.assertIn("confirm-dialog", self.html)
-        self.assertIn("Search title, note, evidence, reference", self.html)
+        self.assertIn("Search title, scope note, progress, evidence, reference", self.html)
+        self.assertIn("Note (approved scope)", self.html)
+        self.assertIn("node-progress", self.html)
         self.assertIn("All statuses", self.html)
 
     def test_responsive_keyboard_and_accessibility_contract(self):

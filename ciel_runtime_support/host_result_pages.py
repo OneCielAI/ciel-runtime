@@ -63,11 +63,24 @@ def _directory(state_dir: Path, identity: str) -> Path:
 
 
 def _prune(directory: Path) -> None:
+    """Expire page payloads and their durable lock sidecars.
+
+    ``durable_json_file.reader/save`` uses ``<payload>.io.lock``.  Pruning only
+    ``*.json`` left thousands of lock files after page expiry, so lock sidecars
+    are removed once their payload is gone or both files are older than the TTL.
+    """
     cutoff = time.time() - TTL_SECONDS
     for path in directory.glob('*.json'):
         try:
             if path.stat().st_mtime < cutoff:
                 path.unlink()
+        except OSError:
+            pass
+    for lock in directory.glob('*.io.lock'):
+        try:
+            payload = Path(str(lock)[:-len('.io.lock')])
+            if not payload.exists() and lock.stat().st_mtime < cutoff:
+                lock.unlink()
         except OSError:
             pass
 

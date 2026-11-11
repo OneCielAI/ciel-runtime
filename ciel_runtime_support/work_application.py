@@ -125,7 +125,7 @@ class WorkApplication:
                                     within_scope=args.get("within_scope") is True)
             return {"id": node, "active_root_id": doc.get("active_root")}
         if command == "node_update":
-            mutable = {"status", "title", "note", "evidence", "ref", "waiting_on", "priority"}
+            mutable = {"status", "title", "note", "progress", "evidence", "ref", "waiting_on", "priority"}
             self._only(args, {"expected_version", "id", *mutable})
             node_id = self._existing(doc, args)
             supplied = {key: args[key] for key in mutable if key in args}

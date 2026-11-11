@@ -90,6 +90,23 @@ class HostResultPageTests(unittest.TestCase):
         denied = self.call('work_host_page', {'id': envelope['id'], 'part': 0, '_host': {'token': 'y' * 40}})
         self.assertTrue(denied['isError'])
 
+    def test_prune_removes_expired_payloads_and_orphan_lock_sidecars(self):
+        import os
+        import time
+        directory = pages._directory(self.state, IDENTITY)
+        directory.mkdir(parents=True)
+        old = time.time() - pages.TTL_SECONDS - 10
+        expired, live = directory / ('a' * 64 + '.json'), directory / ('b' * 64 + '.json')
+        expired_lock, live_lock = Path(str(expired) + '.io.lock'), Path(str(live) + '.io.lock')
+        orphan_lock = directory / ('c' * 64 + '.json.io.lock')
+        for path in (expired, live, expired_lock, live_lock, orphan_lock):
+            path.write_text('{}', encoding='utf-8')
+        for path in (expired, expired_lock, orphan_lock):
+            os.utime(path, (old, old))
+        pages._prune(directory)
+        self.assertFalse(expired.exists() or expired_lock.exists() or orphan_lock.exists())
+        self.assertTrue(live.exists() and live_lock.exists())
+
     def test_pages_respect_the_byte_budget_for_multibyte_text(self):
         text = '가' * 50000
         parts = pages._split(text)

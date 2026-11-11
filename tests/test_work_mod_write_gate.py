@@ -138,6 +138,11 @@ class WorkModWriteGateTests(unittest.TestCase):
         result = self.run_scenario('side-receipt-visible')
         self.assertEqual([], result['logs'])
 
+    def test_completion_gate_is_target_scoped_and_ignores_terminal_rows(self):
+        result = self.run_scenario('parallel-completion-gate-target-scoped')
+        self.assertEqual('allow', result['unrelated'], result)
+        self.assertIn("this item's parallel validation", result['blocked'])
+
     def test_work_off_turn_end_does_not_query_parallel(self):
         self.assertEqual(0, self.run_scenario('parallel-complete-off')['parallelCalls'])
 
@@ -269,8 +274,9 @@ class WorkModWriteGateTests(unittest.TestCase):
     def test_parent_restart_rebinds_durable_worker_without_marking_it_idle(self):
         result = self.run_scenario("parallel-restart-rebind")
         self.assertEqual(result["result"], "allow", result)
-        self.assertEqual(result["event"]["event"], "reconcile")
-        self.assertEqual(result["event"]["_host"]["state"], "unknown")
+        reconciles = [event for event in result["events"] if event.get("event") == "reconcile"]
+        self.assertEqual(1, len(reconciles), result)
+        self.assertEqual(reconciles[0]["_host"]["state"], "unknown")
 
     def test_parallel_ui_maps_each_item_to_its_fork_agent(self):
         result = self.run_scenario("parallel-assignment-labels")
@@ -388,14 +394,19 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn("message:c:c", result["failedLater"]["block"])
         self.assertIn("could NOT send", result["failedLater"]["block"])
 
-    def test_unreported_fork_is_stopped_and_free_slot_auto_dispatches_exact_assignment(self):
-        result = self.run_scenario("parallel-unreported-stops-and-fills")
-        self.assertEqual(["unreported", "reserve_next", "bind", "reserve_next"], result["calls"])
+    def test_missing_exit_report_resumes_fork_without_taskstop(self):
+        result = self.run_scenario("parallel-missing-exit-report-requests-contract")
+        self.assertTrue(result["sent"], result)
+        self.assertFalse(result["tools"], result)
+        self.assertNotIn("unreported", result["calls"])
+        self.assertEqual("running", result["lease"]["state"])
+
+    def test_second_missing_exit_salvages_before_stop(self):
+        result = self.run_scenario("parallel-second-missing-exit-salvages-before-stop")
+        self.assertEqual(["host_salvage", "unreported"],
+                         [event for event in result["calls"] if event != "native_observation"], result)
         self.assertEqual({"tool": "TaskStop", "task_id": "agent-old"}, result["tools"][0])
-        self.assertEqual("/wt/n3", result["spawned"]["cwd"])
-        self.assertIn('"note":"exact note"', result["spawned"]["prompt"])
-        self.assertIn('"worker_token":"' + "b" * 64 + '"', result["spawned"]["prompt"])
-        self.assertIn("Owned Work notification", result["consumed"]["consumed"])
+        self.assertEqual("unreported", result["lease"]["state"])
 
     def test_spawn_denial_releases_unbound_reservation(self):
         result = self.run_scenario("parallel-spawn-denied-releases-unbound")
@@ -418,7 +429,9 @@ class WorkModWriteGateTests(unittest.TestCase):
 
     def test_waiting_worker_releases_slot_and_resume_reacquires_it(self):
         result = self.run_scenario("parallel-waiting-releases-slot-and-sendmessage-reacquires")
-        self.assertEqual(result["afterWait"], {"slot": False, "calls": ["wait"]})
+        self.assertFalse(result["afterWait"]["slot"])
+        self.assertEqual("wait", result["afterWait"]["calls"][0])
+        self.assertIn("native_observation", result["afterWait"]["calls"])
         self.assertTrue(result["resumed"])
         self.assertTrue(result["slot"])
         self.assertEqual(result["calls"], ["reacquire"])
@@ -429,10 +442,12 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn("Work 미결 아이템 탐색", result["third"])
         self.assertIn("이 세션의 검색 수단", result["third"])
 
-    def test_restart_recovery_resumes_same_worker_and_blocks_duplicates(self):
+    def test_restart_recovery_stays_out_of_main_context_and_blocks_duplicates(self):
         result = self.run_scenario("parallel-recovery-context")
-        self.assertIn('SendMessage({ to: \\"agent-old\\"', result["context"])
-        self.assertNotIn("Work recovery", result["live"])
+        self.assertNotIn("Work recovery", result["context"])
+        self.assertNotIn("agent-old", result["context"])
+        self.assertTrue(result["sent"], result)
+        self.assertIn("Work recovery", result["sent"][0]["text"])
         self.assertTrue(result["duplicate"].startswith("deny: Work item n2 already has lease L1"), result)
 
     def test_restart_sendmessage_authorizes_deferred_exact_spawn_once(self):
@@ -448,6 +463,29 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertTrue(result["released"])
         self.assertEqual(result["spawned"]["subagentType"], "fork")
         self.assertIn("independent read-only reviewer", result["spawned"]["prompt"])
+
+    def test_every_submitted_worker_starts_a_reviewer_up_to_capacity(self):
+        result = self.run_scenario("parallel-multi-review-fills-capacity")
+        self.assertEqual(2, len(result["spawned"]), result)
+        self.assertTrue(all("independent read-only reviewer" in row["prompt"] for row in result["spawned"]))
+
+    def test_parallel_fill_is_not_hard_limited_to_twenty(self):
+        result = self.run_scenario("parallel-fill-beyond-twenty")
+        self.assertEqual(25, result["spawned"], result)
+        self.assertEqual(26, result["reserve"], result)
+
+    def test_successful_worker_report_triggers_refill(self):
+        result = self.run_scenario("parallel-report-refills-released-slot")
+        self.assertEqual(1, result["spawned"], result)
+        self.assertEqual(2, result["reserve"], result)
+
+    def test_report_trigger_during_fill_sets_pending_again_latch(self):
+        result = self.run_scenario("parallel-report-trigger-during-fill-latches")
+        self.assertEqual(2, result["spawned"], result)
+        self.assertGreaterEqual(result["reserve"], 3)
+
+    def test_stale_stop_never_starts_a_fork(self):
+        self.assertEqual(0, self.run_scenario("parallel-stale-stop-no-spawn")["spawned"])
 
     def test_stop_after_session_end_does_not_continue(self):
         self.assertFalse(self.run_scenario("stop-session-end")["block"])
