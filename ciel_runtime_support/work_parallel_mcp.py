@@ -666,7 +666,7 @@ def run(name, args, board_store, identity, config, save_config):
             try:
                 coord.bind_run(ident, host.get("host_id"), host.get("agent_name") or host.get("host_id"),
                                expected_version=cstate["version"])
-            except WorkParallelError as error:
+            except WorkParallelError:
                 # An identical bind may have committed before a lost response.
                 row = coord.read().get("runs", {}).get(ident)
                 if not row or row.get("native_id") != host.get("host_id"):

@@ -280,7 +280,6 @@ class WorkParallelStore:
         def apply(d):
             p = d["policy"]
             require(p["enabled"] and not p["paused"], "disabled/paused")
-            active = [a for a in d["leases"].values() if a["slot"]]
             counts, limits = active_by_priority(d["leases"]), p["priority_limits"]
             full = sorted({r["priority"] for r in candidates if counts[r["priority"]] >= limits[r["priority"]]})
             require(len(full) < len({r["priority"] for r in candidates}),

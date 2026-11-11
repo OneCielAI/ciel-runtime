@@ -12,7 +12,6 @@ Run with PROBE_SNAPSHOT pointing at an immutable installed/snapshot runtime.
 """
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
@@ -458,7 +457,7 @@ try:
                 result["same_transcript_contains_canary"] = CANARY in transcript_text
                 result["acceptance"] = {
                     "pre_restart_native_fork": first_run is not None and bool(first_api),
-                    "owned_tree_was_terminated": not first_proc.poll() is None,
+                    "owned_tree_was_terminated": first_proc.poll() is not None,
                     "same_session_continued": ((continued_session or continued_scope.get("session_id") == SESSION)
                                                and (project_dir() / (SESSION + ".jsonl")).exists()),
                     "same_lease_retained": bool(post_run and post_run.get("lease_id") == first_run["lease_id"]),
