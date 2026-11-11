@@ -1,0 +1,15 @@
+{
+  "version": "0.2.51-beta.20261111-055322.8e08b97",
+  "git_head": "8e08b97bf29878a9cf7302c5e945c0307675aa06",
+  "ci": "success",
+  "publish": "success",
+  "integrity": "sha512-3G0x6xgUTQXDq0J+a7Lw+9OhUusI/1gjYwE1T6ROp1brAemEn6cgueUJqsI7Sf3Kh+AuMarbkRh9qb4WkgRDEg==",
+  "source_files_verified": 521,
+  "snapshot_files": 575,
+  "global_files": 575,
+  "snapshot_global_match": true,
+  "latest": "0.2.51",
+  "nightly": "0.2.51-nightly.20261106-020333.c00c8b6",
+  "future_home": "C:/Users/djlov/.local/share/ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06",
+  "live_restarts": false
+}

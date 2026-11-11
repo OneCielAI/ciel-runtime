@@ -68,9 +68,17 @@ Both live old validators (`4eebfdc`, `5c91ea8`) accepted new serialized lease ou
 
 The run's acceptance booleans for restart correctness were all true. Desktop/mobile capture was already proven in `scheduler-run-source-6`; the source-7 runner itself exited nonzero only because its detached resumed console could not be attached for duplicate screenshots.
 
+# Beta release and local install
+
+- CI and npm beta workflow passed at commit `8e08b97bf29878a9cf7302c5e945c0307675aa06`.
+- Beta `0.2.51-beta.20261111-055322.8e08b97` was verified against registry gitHead and SHA-512 integrity; 521 packaged source files matched the commit.
+- `latest` remained `0.2.51`; `nightly` remained `0.2.51-nightly.20261106-020333.c00c8b6`.
+- The immutable snapshot contains 575 files; the global exact-archive install matched all 575 files.
+- User `CIEL_RUNTIME_HOME` now points future launches to the `8e08b97…` snapshot. No live process was restarted.
+
 # Remaining definition-of-done work
 
-Beta registry integrity verification, local immutable install and installed-build repetition remain required.
+Installed-build scheduler repetition remains required.
 
 # Related concepts
 
