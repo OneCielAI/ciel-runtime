@@ -52,6 +52,13 @@ Attempts are retained as evidence rather than overwritten:
 - `run-4-no-main-assignment`: two independent fork canaries stayed out of main and both forks were confirmed. It also exposed two probe defects: the screenshot required no bearer on loopback, and an injected Escape interrupted main's foreground command. The probe now records main start/end stamps and no longer sends Escape.
 - `run-5-final-source`: final-source acceptance passed. Two distinct native fork ids were confirmed as running for `n2` and `n3`; fork marker windows overlapped for 58.8 s; main's independently stamped 40.0 s foreground interval was wholly inside the two-fork overlap; each confirmed fork transcript contained only its own canary; neither canary appeared in main. The REST API returned two confirmed cards, and desktop plus 390 px Playwright captures showed both cards with no page error.
 
+- `run-6-installed-beta`: the same probe against the installed registry snapshot `ciel-runtime-4ade76a…` (beta `0.2.51-beta.20261111-002410.4ade76a`) passed. Two distinct native forks were confirmed running for `n2` and `n3`; fork marker windows overlapped for 55.9 s; main's 40 s foreground command overlapped both forks for 38.3 s; each fork transcript held only its own canary and main held neither; desktop and 390 px Parallel captures showed two confirmed cards with no page error. [Result](evidence/run-6-installed-beta/result.json), [desktop](evidence/run-6-installed-beta/05-web-parallel.png), [terminal](evidence/run-6-installed-beta/03-two-forks-terminal.png).
+
+# Release
+
+- Beta `0.2.51-beta.20261111-002410.4ade76a`: CI and npm publish passed; registry gitHead `4ade76a961559248a2f3a3c21980b2beda985104` and SHA-512 integrity matched; 520 published source files matched the commit; latest `0.2.51` and nightly `0.2.51-nightly.20261106-020333.c00c8b6` were unchanged. The beta tag first landed on the docs-only commit `f9f163f` after overlapping pushes; a manual beta publish of the same head restored it to `4ade76a`.
+- Local install: immutable snapshot and npm global package matched on all 574 files; `CIEL_RUNTIME_HOME` points future launches at the snapshot. No live session was restarted.
+
 Key evidence: [result JSON](evidence/run-5-final-source/result.json), [terminal with two native forks](evidence/run-5-final-source/03-two-forks-terminal.png), [`/work-mode parallel`](evidence/run-5-final-source/04-work-mode-parallel.png), [main busy while both forks run](evidence/run-5-final-source/05-main-busy-forks-running.png), [desktop Parallel tab](evidence/run-5-final-source/05-web-parallel.png), and [390 px Parallel tab](evidence/run-5-final-source/05-web-parallel-mobile.png).
 
 # Safety

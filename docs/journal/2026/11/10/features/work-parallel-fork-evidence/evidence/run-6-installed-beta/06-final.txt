@@ -1,0 +1,30 @@
+     CONFIRMED (2)
+       n2 Fork item A → work-mwbdwfed-tz7fc0vwtz · P2 worker · lease running · native running · slot held
+         path: Parallel fork proof → Fork item A
+       n3 Fork item B → work-mwbdwneo-b20f5xm0gf4 · P2 worker · lease running · native running · slot held
+         path: Parallel fork proof → Fork item B
+     Pending native Agent dispatch: 0
+     Settings: ciel-runtime menu → LLM options → Work 병렬 실행. Policy changes do not terminate existing workers.
+
+✻ Waiting for 2 background agents to finish
+
+● ciel-work: Work forks confirmed by native agent list: 1
+
+● ciel-work: Work forks confirmed by native agent list: 2
+
+● ciel-work: Work forks confirmed by native agent list: 1
+
+● ciel-work: Work forks confirmed by native agent list: 0
+
+● ciel-work: Work forks confirmed by native agent list: 1
+
+● ciel-work: Work forks confirmed by native agent list: 0
+w: Work 0/2 [ ] Fork item A [+]                                                                                     [-]
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ show work_parallel_status for both leases
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [_Walkie_Opus55-Sol61-Fast (cielairouter)] workspace | SSE gate on: open | ctx 275,874/872,000 tok (31.6%) | cache …
+  [work] 0/2 [ ] Fork item A
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+                                                                                                         work: run 0/2

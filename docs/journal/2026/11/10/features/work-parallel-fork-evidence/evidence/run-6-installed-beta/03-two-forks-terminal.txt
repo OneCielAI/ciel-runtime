@@ -1,0 +1,30 @@
+
+
+● ciel-work: Work forks confirmed by native agent list: 0
+
+❯ Call work_parallel_run for Work item n2 and then for Work item n3 (priority P2, role worker, expected_version from
+  work_parallel_status). Right after both are dispatched, run exactly this with the Bash tool in the foreground: python
+  -c "import time;
+  p=r'C:/Users/djlov/AppData/Local/Temp/ciel-owned-parallel-fork-8qijw_r8/workspace/markers/main.txt'; open(p,
+  'w').write(str(time.time())); time.sleep(40); open(p, 'a').write(' ' + str(time.time())); print(40)" . Then reply
+  only with the word FINISHED.
+
+● Calling ciel-runtime-router 4 times, running 1 shell command…
+
+● ciel-work: Work forks confirmed by native agent list: 1
+
+● ciel-work: Work forks confirmed by native agent list: 2
+
+✢ Crafting… (running PostToolUse hooks… 0/2 · 28s · ↓ 659 tokens)
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [_Walkie_Opus55-Sol61-Fast (cielairouter)] workspace | SSE gate on: open | ctx 275,246/872,000 tok (31.6%) | cache …
+  [work] 0/2 [ ] Fork item A
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+                                                                                                         work: run 0/2
+
+  ● main
+  ◯ work-mwbdwfed-tz7fc0vwtz   Work n2 Fork item A                                               15s · ↓ 273.7k tokens
+  ◯ work-mwbdwneo-b20f5xm0gf4  Work n3 Fork item B                                                                  4s
