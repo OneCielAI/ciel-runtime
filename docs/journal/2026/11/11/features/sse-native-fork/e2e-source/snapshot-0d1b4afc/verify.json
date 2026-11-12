@@ -1,0 +1,191 @@
+{
+ "started": "2026-11-11T17:37:47-0600",
+ "finished": "2026-11-11T17:37:56-0600",
+ "python": "3.11.6",
+ "source": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel",
+ "snapshot": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\snapshot-0d1b4afc",
+ "files": 1075,
+ "snapshot_digest": "1713ac02d23218fc8a1e873c8b95abc935cf4c3047dd5a88cf13054ccf19f387",
+ "freezes": [
+  [
+   "sse",
+   "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\tmp\\freeze-sse-0d1b4afc",
+   "3b26047f6211e6aa6ef5148132c8bc81868d44fe2c124c1f1bb0e13d48f132a9"
+  ],
+  [
+   "restart",
+   "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\tmp\\freeze-09255642",
+   "ea5138cd81d3ab26b7fe9bf0450486b01b43069bd7cbb678ac5c94b0eb52a7a3"
+  ]
+ ],
+ "changed_during_copy": [],
+ "copy_mismatch": [],
+ "freeze_rows": [
+  {
+   "freeze": "sse",
+   "entry": "hooks/register.js",
+   "path": "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js",
+   "expected": "0d1b4afcff4c4d44436209d750411f36825a22486e519e7f4de89242a5d968c8",
+   "snapshot": "0d1b4afcff4c4d44436209d750411f36825a22486e519e7f4de89242a5d968c8",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "hooks/side-intake.js",
+   "path": "ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js",
+   "expected": "194fa123ca8e88ed7ddf0f12d6b1d7e5424efa827415fbaa8f1f0da7ffb721a4",
+   "snapshot": "194fa123ca8e88ed7ddf0f12d6b1d7e5424efa827415fbaa8f1f0da7ffb721a4",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "types/index.d.ts",
+   "path": "ciel_runtime_support/claude_mods/ciel-work/types/index.d.ts",
+   "expected": "986a5d43a0c668b7fc41efb99074c6bedbfb4e006a7556b0320a4f6b78bff297",
+   "snapshot": "986a5d43a0c668b7fc41efb99074c6bedbfb4e006a7556b0320a4f6b78bff297",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "tests/side_time_limit_harness.mjs",
+   "path": "tests/side_time_limit_harness.mjs",
+   "expected": "bb94033c3a6960d312b2e3e0ca76c8633a350477d015c0e5a3c56768479edce7",
+   "snapshot": "bb94033c3a6960d312b2e3e0ca76c8633a350477d015c0e5a3c56768479edce7",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "tests/test_side_intake_mod.py",
+   "path": "tests/test_side_intake_mod.py",
+   "expected": "f49a371a2649542ef2fa30277f372ca106d93204aae9c1dd08456d9336a7a71c",
+   "snapshot": "f49a371a2649542ef2fa30277f372ca106d93204aae9c1dd08456d9336a7a71c",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "tests/test_side_wake_protocol.py",
+   "path": "tests/test_side_wake_protocol.py",
+   "expected": "bb38dc68f0c8371e9c9049b00ccc9c44ac1aba010218dd18e6df842abb732e32",
+   "snapshot": "bb38dc68f0c8371e9c9049b00ccc9c44ac1aba010218dd18e6df842abb732e32",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "tests/test_work_mod_write_gate.py",
+   "path": "tests/test_work_mod_write_gate.py",
+   "expected": "6376cf291dea1f43ea18545cf9f76682edeca9c5115738256e94068bf60faae4",
+   "snapshot": "6376cf291dea1f43ea18545cf9f76682edeca9c5115738256e94068bf60faae4",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "tests/work_mod_harness.mjs",
+   "path": "tests/work_mod_harness.mjs",
+   "expected": "4ab033e382fbbebcaf8ad7320927df9b37d1f5c98130137b1c935cabcf2bb080",
+   "snapshot": "4ab033e382fbbebcaf8ad7320927df9b37d1f5c98130137b1c935cabcf2bb080",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "journal/duplicate-side-wake.md",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "journal/log.md",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "restart",
+   "entry": "hooks/register.js",
+   "path": "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js",
+   "expected": "0925564224644a2261ffd1a9fcdac185ec0b63bf7143080436af388f13cc92f1",
+   "snapshot": "0d1b4afcff4c4d44436209d750411f36825a22486e519e7f4de89242a5d968c8",
+   "status": "superseded_by_sse_freeze"
+  },
+  {
+   "freeze": "restart",
+   "entry": "pkg/work_parallel_mcp.py",
+   "path": "ciel_runtime_support/work_parallel_mcp.py",
+   "expected": "3521486981a1d99891094c56bf63e36cf4a958d5504cc2cef3c7a146ac17f717",
+   "snapshot": "3521486981a1d99891094c56bf63e36cf4a958d5504cc2cef3c7a146ac17f717",
+   "status": "match"
+  },
+  {
+   "freeze": "restart",
+   "entry": "tests/test_work_mod_real_backend.py",
+   "path": "tests/test_work_mod_real_backend.py",
+   "expected": "7fc2238be3da316072710c3f3c7c85213b833b23df176695a608611e63c2421b",
+   "snapshot": "7fc2238be3da316072710c3f3c7c85213b833b23df176695a608611e63c2421b",
+   "status": "match"
+  },
+  {
+   "freeze": "restart",
+   "entry": "tests/test_work_mod_write_gate.py",
+   "path": "tests/test_work_mod_write_gate.py",
+   "expected": "ecf06a3a94ec523aefcfc5165cb2c5aa16b812c5b4e5268985e55f5d95386ff4",
+   "snapshot": "6376cf291dea1f43ea18545cf9f76682edeca9c5115738256e94068bf60faae4",
+   "status": "superseded_by_sse_freeze"
+  },
+  {
+   "freeze": "restart",
+   "entry": "tests/work_mod_harness.mjs",
+   "path": "tests/work_mod_harness.mjs",
+   "expected": "ad8e171d7a480bf552cb3a53f753d9d80adc28641936a0fbc2a058472d2da653",
+   "snapshot": "4ab033e382fbbebcaf8ad7320927df9b37d1f5c98130137b1c935cabcf2bb080",
+   "status": "superseded_by_sse_freeze"
+  },
+  {
+   "freeze": "restart",
+   "entry": "tests/work_mod_real_backend_harness.mjs",
+   "path": "tests/work_mod_real_backend_harness.mjs",
+   "expected": "bceb467f259116747170576794f2d7739f4bbf9951af05d33f485d13388ad9fc",
+   "snapshot": "bceb467f259116747170576794f2d7739f4bbf9951af05d33f485d13388ad9fc",
+   "status": "match"
+  },
+  {
+   "freeze": "restart",
+   "entry": "tests/work_mod_real_backend_server.py",
+   "path": "tests/work_mod_real_backend_server.py",
+   "expected": "33ac87462927187d6da369ce4537e43ecf806a4cea5bf4fabbdfbeed82255207",
+   "snapshot": "33ac87462927187d6da369ce4537e43ecf806a4cea5bf4fabbdfbeed82255207",
+   "status": "match"
+  },
+  {
+   "freeze": "restart",
+   "entry": "journal/restart-submitted-terminal.md",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "restart",
+   "entry": "journal/rework-launch-nonce.md",
+   "path": null,
+   "status": "not_runtime (journal)"
+  }
+ ],
+ "freeze_mismatch": [],
+ "product_bounds": {
+  "product_root": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\snapshot-0d1b4afc",
+  "missing": [],
+  "passed": true
+ },
+ "backend_hashes": {
+  "side_wake.py": "a728a99eb2e4aaa7306512c293291555e2c5b166ae496fd52feed6352e5ceefe",
+  "side_handoff.py": "866a4c9ca8b87b6ddf5bd54a781711e2132ff55f363d3db25c68c2fbf6996698",
+  "work_plan_store.py": "4b29ff5f8fc068f599be8b464e5332d4da4207f8dd2818ab9076b2d0f8dcbdde",
+  "side_intake_mcp.py": "55e51b942c80a0a422ec86ee1514c44585df023cf8e2ad3c7798d0d18d17f8b1",
+  "side_intake_processing.py": "d88d5cade31e6c1b99db6fa8e378d25a3858d854bdb4c4da1efa99b19fc18a3d",
+  "side_work_decision.py": "59be46460802bc9f715694b9c82f04471cabd19a965b7a49db24386740c8f0b6",
+  "side_reply_outbox.py": "b14ea0b6b1421bbbf302bff307961c333449a54a5169de58f37d4df6a02ad0ad",
+  "side_reply_connector.py": "00a81a6dc25f4e97aa5d10cf31785d163706903e21b5a4d0e65d01fa1ddbef6a",
+  "work_mcp_tools.py": "719c85392311ddbd994ac40f3d77d9804eaa78f9d070149aa22cb0a379c9bcc4",
+  "work_http_controller.py": "b7cd27c111e367843844a76d1aa9389586c0baedf369d1f390dee5dab6aca497",
+  "work_web_ui.py": "2cade9acd076572c6dfaccc1b296897c72dc8a7827ab7e4fc160ab79ab613bdb",
+  "runtime_paths.py": "54fad9e8b78cc4c5ddbfc8bec642083c374a6112d8a19408273938d030d41234",
+  "work_parallel_mcp.py": "3521486981a1d99891094c56bf63e36cf4a958d5504cc2cef3c7a146ac17f717"
+ },
+ "head": "ba8b13c5f05385d12a9b983fcab8f8e5cfcb0320"
+}

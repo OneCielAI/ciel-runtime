@@ -1,0 +1,11 @@
+221 passed, 142 subtests passed in 209.65s (0:03:29)
+router/web group:
+179 passed, 3 skipped, 33 subtests passed in 45.62s
+
+2026-11-11 launch_ref / status split / review pump gate (finalization 9484324f, mcp 1ef1170b, test 5df1ada4):
+backend group: 231 passed, 193 subtests passed in 206.32s (0:03:26)
+router/web group: 184 passed, 4 skipped, 38 subtests passed in 48.25s
+tests/test_work_mod_real_backend.py with register.js acaa2c53 and controller bf199eba: 6 failed, 5 passed in 57.09s
+same suite with scratch register.js copy adding {internal:true} at review_wake x2 and review_roll_forward: Ran 11 tests, FAILED (failures=2)
+  remaining 2: exact rework launch reference required (controller _parallel_launch_resolve and pane manual request still send dispatch_name)
+new tests on before-files 7a1fdc0a/6b3ab438: 17 failed (8 tests incl. subtests), 4 subtests passed

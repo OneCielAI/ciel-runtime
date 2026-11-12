@@ -1,0 +1,407 @@
+{
+ "minimum_length": 24,
+ "allowed_fields": [
+  "review.reply",
+  "review.summary",
+  "wake.summary",
+  "wake.time_limit.evidence",
+  "wake.time_limit.text"
+ ],
+ "field_bounds": {
+  "wake.summary": 1000,
+  "wake.time_limit.text": 1000,
+  "wake.time_limit.evidence": 2000,
+  "review.summary": 300,
+  "review.reply": 1200
+ },
+ "source_ids": [
+  "1000",
+  "1001",
+  "1002",
+  "1003",
+  "1004",
+  "event:95ce2085e5cc:text"
+ ],
+ "forbidden_payload_ids": [
+  "event:95ce2085e5cc:raw",
+  "event:95ce2085e5cc:data"
+ ],
+ "injected": [
+  {
+   "row": 62,
+   "kind": "wake",
+   "parse_error": null,
+   "fields": {
+    "minimum_length": 24,
+    "allowed_fields": [
+     "review.reply",
+     "review.summary",
+     "wake.summary",
+     "wake.time_limit.evidence",
+     "wake.time_limit.text"
+    ],
+    "field_bounds": {
+     "wake.summary": 1000,
+     "wake.time_limit.text": 1000,
+     "wake.time_limit.evidence": 2000,
+     "review.summary": 300,
+     "review.reply": 1200
+    },
+    "matches": [
+     {
+      "source_message_id": "1001",
+      "source_offset": 50,
+      "destination_field": "wake.summary",
+      "destination_offset": 126,
+      "length": 31,
+      "sha256": "f938a27efd160b6432ea8b203ea4a0b874da9a6214f98aea07b50b7096462bc4",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1002",
+      "source_offset": 72,
+      "destination_field": "wake.summary",
+      "destination_offset": 62,
+      "length": 29,
+      "sha256": "91bd31ad77227713cb8620360b5561e17549182381516951c27ce035a28e1502",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1002",
+      "source_offset": 194,
+      "destination_field": "wake.time_limit.text",
+      "destination_offset": 0,
+      "length": 56,
+      "sha256": "da8cc92786c359857d3a32c85bff29bacca58d4dc2de14e1dd303bedb9b2b916",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1002",
+      "source_offset": 194,
+      "destination_field": "wake.time_limit.evidence",
+      "destination_offset": 14,
+      "length": 86,
+      "sha256": "1b83cb5b6d4ea25a7eb68e079946b22c3cf33faf1474bd64806cd3378d3026b5",
+      "allowed": true
+     }
+    ],
+    "disallowed_matches": [],
+    "whole_source_messages": [],
+    "raw_event_fields": [],
+    "bounds_exceeded": [],
+    "passed": true
+   },
+   "block_whole_messages": [],
+   "block_raw_event": [],
+   "passed": true
+  }
+ ],
+ "non_side_host_rows": [],
+ "request_context": [
+  {
+   "row": 63,
+   "block": 0,
+   "origin": "attachment:UserPromptSubmit",
+   "views": {
+    "wake_views": 1,
+    "review_views": 1
+   },
+   "parse_error": null,
+   "fields": {
+    "minimum_length": 24,
+    "allowed_fields": [
+     "review.reply",
+     "review.summary",
+     "wake.summary",
+     "wake.time_limit.evidence",
+     "wake.time_limit.text"
+    ],
+    "field_bounds": {
+     "wake.summary": 1000,
+     "wake.time_limit.text": 1000,
+     "wake.time_limit.evidence": 2000,
+     "review.summary": 300,
+     "review.reply": 1200
+    },
+    "matches": [
+     {
+      "source_message_id": "1001",
+      "source_offset": 50,
+      "destination_field": "wake.summary",
+      "destination_offset": 126,
+      "length": 31,
+      "sha256": "f938a27efd160b6432ea8b203ea4a0b874da9a6214f98aea07b50b7096462bc4",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1002",
+      "source_offset": 72,
+      "destination_field": "wake.summary",
+      "destination_offset": 62,
+      "length": 29,
+      "sha256": "91bd31ad77227713cb8620360b5561e17549182381516951c27ce035a28e1502",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1002",
+      "source_offset": 194,
+      "destination_field": "wake.time_limit.text",
+      "destination_offset": 0,
+      "length": 56,
+      "sha256": "da8cc92786c359857d3a32c85bff29bacca58d4dc2de14e1dd303bedb9b2b916",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1002",
+      "source_offset": 194,
+      "destination_field": "wake.time_limit.evidence",
+      "destination_offset": 14,
+      "length": 86,
+      "sha256": "1b83cb5b6d4ea25a7eb68e079946b22c3cf33faf1474bd64806cd3378d3026b5",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1001",
+      "source_offset": 50,
+      "destination_field": "review.summary",
+      "destination_offset": 126,
+      "length": 31,
+      "sha256": "f938a27efd160b6432ea8b203ea4a0b874da9a6214f98aea07b50b7096462bc4",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1002",
+      "source_offset": 72,
+      "destination_field": "review.summary",
+      "destination_offset": 62,
+      "length": 29,
+      "sha256": "91bd31ad77227713cb8620360b5561e17549182381516951c27ce035a28e1502",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1002",
+      "source_offset": 72,
+      "destination_field": "review.reply",
+      "destination_offset": 58,
+      "length": 29,
+      "sha256": "91bd31ad77227713cb8620360b5561e17549182381516951c27ce035a28e1502",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1002",
+      "source_offset": 219,
+      "destination_field": "review.reply",
+      "destination_offset": 123,
+      "length": 31,
+      "sha256": "a8b7501345123b0b7239b387d6f1c9b2956bac8648339c7728655a87f58117b2",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1002",
+      "source_offset": 320,
+      "destination_field": "review.reply",
+      "destination_offset": 202,
+      "length": 34,
+      "sha256": "41be098aac36bcabe321625078b9ecb2fc5cd2ec14f5f99576b991253b9d5c6a",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1002",
+      "source_offset": 448,
+      "destination_field": "review.reply",
+      "destination_offset": 326,
+      "length": 46,
+      "sha256": "0be4dc421b3aecb94b65d283324e500b82e63747cfda5067c1e5be61ae3985d8",
+      "allowed": true
+     }
+    ],
+    "disallowed_matches": [],
+    "whole_source_messages": [],
+    "raw_event_fields": [],
+    "bounds_exceeded": [],
+    "passed": true
+   },
+   "block_whole_messages": [],
+   "block_raw_event": [],
+   "passed": true
+  },
+  {
+   "row": 64,
+   "block": 0,
+   "origin": "request:user",
+   "views": {
+    "wake_views": 1,
+    "review_views": 1
+   },
+   "parse_error": null,
+   "fields": {
+    "minimum_length": 24,
+    "allowed_fields": [
+     "review.reply",
+     "review.summary",
+     "wake.summary",
+     "wake.time_limit.evidence",
+     "wake.time_limit.text"
+    ],
+    "field_bounds": {
+     "wake.summary": 1000,
+     "wake.time_limit.text": 1000,
+     "wake.time_limit.evidence": 2000,
+     "review.summary": 300,
+     "review.reply": 1200
+    },
+    "matches": [
+     {
+      "source_message_id": "1001",
+      "source_offset": 50,
+      "destination_field": "wake.summary",
+      "destination_offset": 126,
+      "length": 31,
+      "sha256": "f938a27efd160b6432ea8b203ea4a0b874da9a6214f98aea07b50b7096462bc4",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1002",
+      "source_offset": 72,
+      "destination_field": "wake.summary",
+      "destination_offset": 62,
+      "length": 29,
+      "sha256": "91bd31ad77227713cb8620360b5561e17549182381516951c27ce035a28e1502",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1002",
+      "source_offset": 194,
+      "destination_field": "wake.time_limit.text",
+      "destination_offset": 0,
+      "length": 56,
+      "sha256": "da8cc92786c359857d3a32c85bff29bacca58d4dc2de14e1dd303bedb9b2b916",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1002",
+      "source_offset": 194,
+      "destination_field": "wake.time_limit.evidence",
+      "destination_offset": 14,
+      "length": 86,
+      "sha256": "1b83cb5b6d4ea25a7eb68e079946b22c3cf33faf1474bd64806cd3378d3026b5",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1001",
+      "source_offset": 50,
+      "destination_field": "review.summary",
+      "destination_offset": 126,
+      "length": 31,
+      "sha256": "f938a27efd160b6432ea8b203ea4a0b874da9a6214f98aea07b50b7096462bc4",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1002",
+      "source_offset": 72,
+      "destination_field": "review.summary",
+      "destination_offset": 62,
+      "length": 29,
+      "sha256": "91bd31ad77227713cb8620360b5561e17549182381516951c27ce035a28e1502",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1002",
+      "source_offset": 72,
+      "destination_field": "review.reply",
+      "destination_offset": 58,
+      "length": 29,
+      "sha256": "91bd31ad77227713cb8620360b5561e17549182381516951c27ce035a28e1502",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1002",
+      "source_offset": 219,
+      "destination_field": "review.reply",
+      "destination_offset": 123,
+      "length": 31,
+      "sha256": "a8b7501345123b0b7239b387d6f1c9b2956bac8648339c7728655a87f58117b2",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1002",
+      "source_offset": 320,
+      "destination_field": "review.reply",
+      "destination_offset": 202,
+      "length": 34,
+      "sha256": "41be098aac36bcabe321625078b9ecb2fc5cd2ec14f5f99576b991253b9d5c6a",
+      "allowed": true
+     },
+     {
+      "source_message_id": "1002",
+      "source_offset": 448,
+      "destination_field": "review.reply",
+      "destination_offset": 326,
+      "length": 46,
+      "sha256": "0be4dc421b3aecb94b65d283324e500b82e63747cfda5067c1e5be61ae3985d8",
+      "allowed": true
+     }
+    ],
+    "disallowed_matches": [],
+    "whole_source_messages": [],
+    "raw_event_fields": [],
+    "bounds_exceeded": [],
+    "passed": true
+   },
+   "block_whole_messages": [],
+   "block_raw_event": [],
+   "passed": true
+  }
+ ],
+ "failures": [],
+ "passed": true,
+ "observations": {
+  "main_own_source_reads": [
+   {
+    "row": 77,
+    "tool": "mcp__walkie__walkie_read_messages",
+    "input": {
+     "conversation_id": "34886995-4a66-4527-a618-814e9cb0a5bf"
+    }
+   }
+  ],
+  "main_tool_results_with_source_text": [
+   {
+    "row": 78,
+    "tool": "mcp__walkie__walkie_read_messages",
+    "matches": 3,
+    "whole_source_messages": [
+     "1000",
+     "1001",
+     "1002"
+    ]
+   },
+   {
+    "row": 84,
+    "tool": "mcp__ciel-runtime-router__work_side_review",
+    "matches": 6,
+    "whole_source_messages": []
+   },
+   {
+    "row": 89,
+    "tool": "mcp__ciel-runtime-router__work_side_handoff",
+    "matches": 5,
+    "whole_source_messages": []
+   }
+  ],
+  "main_assistant_rows_with_source_text": [
+   {
+    "row": 88,
+    "matches": 1,
+    "whole_source_messages": []
+   },
+   {
+    "row": 96,
+    "matches": 1,
+    "whole_source_messages": []
+   }
+  ],
+  "attachment_rows_with_source_text": []
+ },
+ "inventory_sha256": "33b0d0bb66eb8087787f65ef91c795968ad579e2374c398959f15390dbbc6c94"
+}

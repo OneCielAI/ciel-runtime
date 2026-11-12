@@ -1,0 +1,167 @@
+{
+ "reason": "drill process 69700 aborted on protected intersection; its 6 sleepers were orphaned and removed by exact identity",
+ "results": {
+  "35304": {
+   "owned_identities": [
+    [
+     21084,
+     "/Date(1794437611010)/"
+    ],
+    [
+     35304,
+     "/Date(1794437610906)/"
+    ],
+    [
+     52444,
+     "/Date(1794437610951)/"
+    ],
+    [
+     67176,
+     "/Date(1794437610957)/"
+    ],
+    [
+     71220,
+     "/Date(1794437610954)/"
+    ],
+    [
+     79088,
+     "/Date(1794437610911)/"
+    ],
+    [
+     82108,
+     "/Date(1794437611003)/"
+    ],
+    [
+     83068,
+     "/Date(1794437610955)/"
+    ],
+    [
+     84432,
+     "/Date(1794437611009)/"
+    ],
+    [
+     85764,
+     "/Date(1794437611003)/"
+    ]
+   ],
+   "killed": [
+    {
+     "identity": [
+      21084,
+      "/Date(1794437611010)/"
+     ],
+     "name": "conhost.exe",
+     "parent_pid": 85764
+    },
+    {
+     "identity": [
+      67176,
+      "/Date(1794437610957)/"
+     ],
+     "name": "conhost.exe",
+     "parent_pid": 71220
+    },
+    {
+     "identity": [
+      79088,
+      "/Date(1794437610911)/"
+     ],
+     "name": "conhost.exe",
+     "parent_pid": 35304
+    },
+    {
+     "identity": [
+      83068,
+      "/Date(1794437610955)/"
+     ],
+     "name": "conhost.exe",
+     "parent_pid": 52444
+    },
+    {
+     "identity": [
+      84432,
+      "/Date(1794437611009)/"
+     ],
+     "name": "conhost.exe",
+     "parent_pid": 82108
+    },
+    {
+     "identity": [
+      82108,
+      "/Date(1794437611003)/"
+     ],
+     "name": "python.exe",
+     "parent_pid": 52444
+    },
+    {
+     "identity": [
+      85764,
+      "/Date(1794437611003)/"
+     ],
+     "name": "python.exe",
+     "parent_pid": 71220
+    },
+    {
+     "identity": [
+      52444,
+      "/Date(1794437610951)/"
+     ],
+     "name": "python.exe",
+     "parent_pid": 35304
+    },
+    {
+     "identity": [
+      71220,
+      "/Date(1794437610954)/"
+     ],
+     "name": "python.exe",
+     "parent_pid": 35304
+    },
+    {
+     "identity": [
+      35304,
+      "/Date(1794437610906)/"
+     ],
+     "name": "python.exe",
+     "parent_pid": 69700
+    }
+   ],
+   "final_live": [],
+   "completed": true,
+   "protected_intersections": []
+  },
+  "77732": {
+   "owned_identities": [
+    [
+     72368,
+     "/Date(1794437610914)/"
+    ],
+    [
+     77732,
+     "/Date(1794437610910)/"
+    ]
+   ],
+   "killed": [
+    {
+     "identity": [
+      72368,
+      "/Date(1794437610914)/"
+     ],
+     "name": "conhost.exe",
+     "parent_pid": 77732
+    },
+    {
+     "identity": [
+      77732,
+      "/Date(1794437610910)/"
+     ],
+     "name": "python.exe",
+     "parent_pid": 69700
+    }
+   ],
+   "final_live": [],
+   "completed": true,
+   "protected_intersections": []
+  }
+ }
+}

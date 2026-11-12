@@ -1,0 +1,30 @@
+--- /tmp/probe_v2_3c0cab1a.py	2026-11-11 23:57:11.844482600 -0800
++++ owned_main_review_probe_v2.py	2026-11-11 23:57:11.891176600 -0800
+@@ -29,20 +29,21 @@
+ 
+ SOURCE = Path(__file__).resolve().parents[8]
+ TOOLS = SOURCE / "docs/journal/2026/11/03/features/work-parallel/evidence/menu-ui"
+-# Current integrated tree named by the team lead (freeze-sse-eab3ad33-final:
+-# per-identity prompt registry in side-intake.js 9b955068, register.js eab3ad33)
+-# plus the review-projection fix in work_parallel_finalization.py c7610d77.
++# Current integrated tree named by the team lead: freeze eab3ad33 prompt registry
++# (side-intake.js 9b955068), review-projection fix and rework bind/launch_bound
++# fix (register.js ea7768f5, work_parallel_mcp.py 704cb811,
++# work_parallel_finalization.py 5c9afdc5).
+ KEY_HASHES = {
+     "ciel_runtime_support/work_parallel_finalization.py":
+-        "c7610d7727563100f3afb32b61d902a41d24e199e07461242fb9cb7d83201ad6",
++        "5c9afdc540aff656e630fd334b93e25fc74d98f973127baadbe15c3cd989d342",
+     "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js":
+-        "eab3ad333104d0914e7dee552f241c23eb873405c85330514b9c6a9d337db31b",
++        "ea7768f5348e61883cfe6833420abf0e98e1e001576c5868fb1b4005d526271a",
+     "ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js":
+         "9b9550685fa278f330f45b06a1a996ac6e52c7034c208f38518d8ebd1a47d1af",
+     "ciel_runtime_support/claude_mods/ciel-work/types/index.d.ts":
+         "542ff492abb1eb2f2363c45acc8eaa75002a71cbca4772aa6474537eece6030a",
+     "ciel_runtime_support/work_parallel_mcp.py":
+-        "3521486981a1d99891094c56bf63e36cf4a958d5504cc2cef3c7a146ac17f717",
++        "704cb81151f6553577516a98a2a3fce39e3b2966da6a42a8d220512a0913f6f0",
+ }
+ # Live Ciel launchers and their cmd parents. Every current descendant of the
+ # launchers (python routers, claude.exe, node.exe/MCP children) is protected too.

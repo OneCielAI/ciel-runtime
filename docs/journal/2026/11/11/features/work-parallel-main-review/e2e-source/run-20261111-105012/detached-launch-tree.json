@@ -1,0 +1,26 @@
+{
+  "at": "2026-11-11T16:50:17.7857238Z",
+  "detached_root_pid": 79048,
+  "created_by": "Win32_Process.Create (detached from agent shell)",
+  "launch_log": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-launch-20261111-105011.log",
+  "processes": [
+    {
+      "ProcessId": 79048,
+      "ParentProcessId": 14204,
+      "Name": "cmd.exe",
+      "CreationDateUtc": "2026-11-11T16:50:11.9706210Z"
+    },
+    {
+      "ProcessId": 69980,
+      "ParentProcessId": 79048,
+      "Name": "conhost.exe",
+      "CreationDateUtc": "2026-11-11T16:50:11.9783560Z"
+    },
+    {
+      "ProcessId": 24612,
+      "ParentProcessId": 79048,
+      "Name": "python.exe",
+      "CreationDateUtc": "2026-11-11T16:50:12.1271070Z"
+    }
+  ]
+}

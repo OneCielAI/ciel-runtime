@@ -1,0 +1,84 @@
+{
+ "type": "deleted-evidence-record",
+ "recorded_at": "2026-11-11T17:46:57-06:00",
+ "process_rule": "team-lead 2026-11-11: evidence folders must not be deleted; superseded ones are kept and marked superseded",
+ "deleted": [
+  {
+   "path": "e2e-source/preflight-drill-20261111-173941/ and preflight-drill-20261111-173941.log",
+   "deleted_at": "2026-11-11 ~17:42 local, by e2e-sse-fork with Remove-Item -Recurse -Force (bypasses the recycle bin)",
+   "reason_given_at_the_time": "after the hook_additional_context gate was added, its harness copy (raw_text_inventory 4b10870a) no longer matched the module; that was not a valid reason to delete",
+   "recoverable": {
+    "recycle_bin": "no match (checked 2026-11-11 ~17:46 local via Shell.Application namespace 10)",
+    "temp": "only rti-mutation-check.json: %TEMP%\rti-mutation-r4.json, mtime 17:39:34, 7 s before the drill started, and it was the file copied into the folder after the drill; restored here byte-for-byte",
+    "other_files": "not recoverable: drill-result.json, cleanup.jsonl, cleanup-decoy.jsonl, harness-unittest.txt, harness/ copy, .log"
+   },
+   "reconstructed_from_agent_tool_output_not_original_files": {
+    "launcher_pid": 71620,
+    "harness_unit_gate": {
+     "returncode": 0,
+     "ran": 35,
+     "sha256": {
+      "owned_process_control.py": "797bba5ccb5e25bd2041b5366f238fb3b0d69f14536e4a5d4d4ec01221a91fb0",
+      "test_owned_process_control.py": "e9eb56f955bbefc0f58948c0a82d714249c0b0cf3a6dba5b0562c1ab34f6ab2e",
+      "raw_text_inventory.py": "4b10870afda57aaaea8c7060d9024bf3b11919949ce4c2a32c45b62525f90680",
+      "test_raw_text_inventory.py": "4adf47e1b47929a4a8f08e1ed3587e6b2c28e5d20d3ddf1d4e4f13fc4feac661"
+     }
+    },
+    "harness_unittest_txt": "Ran 35 tests ... OK",
+    "rule_checks": {
+     "child_newer_than_parent": true,
+     "reused_pid_not_matched_by_identity": true,
+     "no_adoption_under_reused_parent_pid": true
+    },
+    "passed": true,
+    "any_slash_T": false,
+    "leaf_first": true,
+    "decoy_alive_after": true,
+    "decoy_cleanup_completed": true,
+    "protected_unchanged": true,
+    "protected_gate_size": 40,
+    "live_profile_unchanged": true,
+    "owned_left": [],
+    "owned_before_kill_count": 10,
+    "taskkill_calls_count": 10,
+    "last_two_taskkill_lines": [
+     "{'identity': [83804, '/Date(1794440384696)/'], 'argv': ['taskkill', '/PID', '83804', '/F'], 'rc': 0, 'stdout': 'SUCCESS: The process with PID 83804 has been terminated.'}",
+     "{'identity': [59984, '/Date(1794440384638)/'], 'argv': ['taskkill', '/PID', '59984', '/F'], 'rc': 0, 'stdout': 'SUCCESS: The process with PID 59984 has been terminated.'}"
+    ],
+    "harness_SHA256SUMS": [
+     "67e94ec2064978fa6bbd6d63826f36b2fb3ff656345fbebcc477e1f7de834c49 *console_driver.py",
+     "eaab7723aa58d0bdd2153c8ea8265d9490ac93abed85095ac56f25929def2364 *make_snapshot_v4.py",
+     "797bba5ccb5e25bd2041b5366f238fb3b0d69f14536e4a5d4d4ec01221a91fb0 *owned_process_control.py",
+     "4b10870afda57aaaea8c7060d9024bf3b11919949ce4c2a32c45b62525f90680 *raw_text_inventory.py",
+     "513c859a9d883cb0464a896c0193811d9097029eeac1052e0556201e1ccda64b *shot_hwnd.ps1",
+     "027b0cb59f0582e0a2a74071bb3985fdfaf8d3350022a09276bacad9186b6b5c *start_detached.py",
+     "e9eb56f955bbefc0f58948c0a82d714249c0b0cf3a6dba5b0562c1ab34f6ab2e *test_owned_process_control.py",
+     "4adf47e1b47929a4a8f08e1ed3587e6b2c28e5d20d3ddf1d4e4f13fc4feac661 *test_raw_text_inventory.py",
+     "590dcf4f4e229b5221916be13efd297f2d7ed570a8ce1560689b553b62fcb803 *walkie_e2e_driver_v4.py"
+    ]
+   },
+   "superseded_by": "preflight-drill-20261111-174230 (inventory 33b0d0bb, adds the hook_additional_context gate)"
+  },
+  {
+   "path": "e2e-source/recheck-378f6d73/raw-text-inventory-recheck-v3.json (first version)",
+   "sha256": "f2c0800ffb19531cc7246414db45066c0e260b9b576eaff556b1476010f17809",
+   "deleted_at": "2026-11-11 ~17:42 local, same command; then regenerated at the same path with inventory 33b0d0bb (current sha 9aaadc66...)",
+   "written_with": {
+    "raw_text_inventory.py": "4b10870a",
+    "test_raw_text_inventory.py": "4adf47e1",
+    "walkie_e2e_driver_v4.py": "590dcf4f"
+   },
+   "recoverable": "no (not in the recycle bin or %TEMP%)",
+   "reconstructed_summary_from_agent_tool_output": {
+    "run-a-20261111-161820": "passed; side rows 65 wake (1 match), 72 review (1 match); request context row 62 (1 handoff view, 1 review view); attachment row 66 hook_additional_context had 2 matches and was only an observation (not yet gated)",
+    "run-b-20261111-162135": "passed; side rows 61 wake (4 matches), 81 review (5 matches); no non-side rows, no request context"
+   }
+  }
+ ],
+ "restored_file": {
+  "name": "rti-mutation-check.json",
+  "sha256": "c49f669cfdf38884fa2e7ba2b544dae40f2e15568c4804bb529b6e870203e2a5",
+  "module_sha256": "4b10870afda57aaaea8c7060d9024bf3b11919949ce4c2a32c45b62525f90680",
+  "test_sha256": "4adf47e1b47929a4a8f08e1ed3587e6b2c28e5d20d3ddf1d4e4f13fc4feac661"
+ }
+}

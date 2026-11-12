@@ -1,0 +1,49 @@
+{
+ "at": "2026-11-11T10:01:13-0600",
+ "python": "3.11.6",
+ "snapshot": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\snapshot-frozen",
+ "snapshot_files": 1083,
+ "manifest_files": 1081,
+ "extras": [
+  {
+   "path": "ciel_runtime_support/__pycache__/__init__.cpython-311.pyc",
+   "sha256": "774ddc5453df3c716f69a9520c363565baeee2ce8b9fb8be7d7d79ab647cf7f3",
+   "bytes": 444,
+   "ctime": "2026-11-11T07:34:15",
+   "mtime": "2026-11-11T07:34:15"
+  },
+  {
+   "path": "ciel_runtime_support/__pycache__/workspace_router_selection.cpython-311.pyc",
+   "sha256": "032010a419a78898ef78ffb69a6d7044df5bbf15d5a0c43f4315d9cbcb5d5454",
+   "bytes": 42628,
+   "ctime": "2026-11-11T07:34:15",
+   "mtime": "2026-11-11T07:34:15"
+  }
+ ],
+ "missing": [],
+ "changed": [],
+ "full_directory_digest": "500a0088747f1b4fdfb253d6520e24c8b65086dfa3a14bcdf79aeef2c8a93df5",
+ "manifest_files_digest": "3426e4b6f17d18844e854e3c5e228ef01ea98f3ef8949bda40756c74598b9884",
+ "recorded_digest": "3426e4b6f17d18844e854e3c5e228ef01ea98f3ef8949bda40756c74598b9884",
+ "digest_matches_recorded": false,
+ "empty_dirs": [],
+ "snapshot_checks": {
+  "freeze_lines": 29,
+  "freeze_mismatch": [],
+  "sse_lines_checked": 39,
+  "sse_mismatch": [],
+  "release_manifest_files": 1048,
+  "release_manifest_mismatch": []
+ },
+ "worktree_checks": {
+  "freeze_lines": 29,
+  "freeze_mismatch": [],
+  "sse_lines_checked": 56,
+  "sse_mismatch": [
+   "docs/journal/2026/11/11/features/sse-native-fork/log.md",
+   "docs/journal/2026/11/11/features/sse-native-fork/verification.md"
+  ],
+  "release_manifest_files": 1048,
+  "release_manifest_mismatch": []
+ }
+}

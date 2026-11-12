@@ -1,0 +1,7 @@
+{
+ "attempt": 4,
+ "verdict": "harness_failure",
+ "observed": "same as attempt 3 at 10:24:05 (~79 s after start); driver-steps.log stops at \"attached\"; the added console control handler logged nothing",
+ "cause": "not determined (see attempt 3)",
+ "product_defect": false
+}

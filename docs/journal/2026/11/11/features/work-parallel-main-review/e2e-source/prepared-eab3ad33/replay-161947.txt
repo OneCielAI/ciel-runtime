@@ -1,0 +1,12 @@
+reviews in final state: 5
+raw submit second 2026-11-11T22:22:46.501Z 11f824dc32734d6fb2cc9e6f50856d07 single-attempt ["parallel:11f824dc32734d6fb2cc9e6f50856d07", "single-attempt-ref-unobserved"]
+raw submit second 2026-11-11T22:22:47.650Z 30353fd4180346a2a7093e9c70bb786c single-attempt ["parallel:30353fd4180346a2a7093e9c70bb786c", "single-attempt-ref-unobserved"]
+raw submit third 2026-11-11T22:24:58.583Z fb0a3ece44165615918faca357122b6e single-attempt ["parallel:fb0a3ece44165615918faca357122b6e", "single-attempt-ref-unobserved"]
+non-review submits: 0
+duplicates: {} unattributed: 0
+stuck_submitting: ['30353fd4180346a2a7093e9c70bb786c']
+stop_during_pending_prompt: []
+presentations: {"11f824dc32734d6fb2cc9e6f50856d07": {"wake": ["2026-11-11T22:22:46.525Z"], "stop": []}, "5891f06573ed4eb0bc4ed787aedf6867": {"wake": ["2026-11-11T22:22:48.980Z"], "stop": []}, "442c6973bde24ca0b9e3dab8000b6bb4": {"wake": ["2026-11-11T22:22:51.142Z"], "stop": []}, "fb0a3ece44165615918faca357122b6e": {"wake": ["2026-11-11T22:24:58.608Z"], "stop": []}}
+no_same_identity_raw_submit_twice: True
+no_wake_left_submitting: False
+wake_delivery_terminal: False

@@ -1,0 +1,542 @@
+[
+  {
+    "ProcessId": 23728,
+    "ParentProcessId": 9008,
+    "Name": "py.exe",
+    "CreationDateUtc": "2026-11-11T15:49:31.2438970Z"
+  },
+  {
+    "ProcessId": 42764,
+    "ParentProcessId": 23728,
+    "Name": "python.exe",
+    "CreationDateUtc": "2026-11-11T15:49:31.2572340Z"
+  },
+  {
+    "ProcessId": 42924,
+    "ParentProcessId": 42764,
+    "Name": "python.exe",
+    "CreationDateUtc": "2026-11-11T15:49:42.9719160Z"
+  },
+  {
+    "ProcessId": 39992,
+    "ParentProcessId": 42764,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T15:49:49.6969890Z"
+  },
+  {
+    "ProcessId": 36344,
+    "ParentProcessId": 42764,
+    "Name": "claude.exe",
+    "CreationDateUtc": "2026-11-11T15:49:49.7027510Z"
+  },
+  {
+    "ProcessId": 40616,
+    "ParentProcessId": 42764,
+    "Name": "python.exe",
+    "CreationDateUtc": "2026-11-11T15:49:49.7115240Z"
+  },
+  {
+    "ProcessId": 45560,
+    "ParentProcessId": 36344,
+    "Name": "uvx.exe",
+    "CreationDateUtc": "2026-11-11T15:49:56.2167840Z"
+  },
+  {
+    "ProcessId": 45860,
+    "ParentProcessId": 45560,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T15:49:56.2213180Z"
+  },
+  {
+    "ProcessId": 41784,
+    "ParentProcessId": 36344,
+    "Name": "python.exe",
+    "CreationDateUtc": "2026-11-11T15:49:56.2217360Z"
+  },
+  {
+    "ProcessId": 37468,
+    "ParentProcessId": 41784,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T15:49:56.2272720Z"
+  },
+  {
+    "ProcessId": 45356,
+    "ParentProcessId": 45560,
+    "Name": "uv.exe",
+    "CreationDateUtc": "2026-11-11T15:49:56.2341380Z"
+  },
+  {
+    "ProcessId": 45700,
+    "ParentProcessId": 45356,
+    "Name": "mcp-server-fetch.exe",
+    "CreationDateUtc": "2026-11-11T15:49:57.0522370Z"
+  },
+  {
+    "ProcessId": 45164,
+    "ParentProcessId": 45700,
+    "Name": "python.exe",
+    "CreationDateUtc": "2026-11-11T15:49:57.0622360Z"
+  },
+  {
+    "ProcessId": 45572,
+    "ParentProcessId": 45164,
+    "Name": "python.exe",
+    "CreationDateUtc": "2026-11-11T15:49:57.0808500Z"
+  },
+  {
+    "ProcessId": 40000,
+    "ParentProcessId": 36344,
+    "Name": "python.exe",
+    "CreationDateUtc": "2026-11-11T15:49:59.5029580Z"
+  },
+  {
+    "ProcessId": 43680,
+    "ParentProcessId": 40000,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T15:49:59.5097310Z"
+  },
+  {
+    "ProcessId": 39984,
+    "ParentProcessId": 44500,
+    "Name": "py.exe",
+    "CreationDateUtc": "2026-11-11T15:49:59.7350270Z"
+  },
+  {
+    "ProcessId": 45652,
+    "ParentProcessId": 39984,
+    "Name": "python.exe",
+    "CreationDateUtc": "2026-11-11T15:49:59.7460130Z"
+  },
+  {
+    "ProcessId": 25780,
+    "ParentProcessId": 40000,
+    "Name": "python.exe",
+    "CreationDateUtc": "2026-11-11T15:50:04.2317660Z"
+  },
+  {
+    "ProcessId": 37308,
+    "ParentProcessId": 25780,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T15:50:04.2365670Z"
+  },
+  {
+    "ProcessId": 45428,
+    "ParentProcessId": 45652,
+    "Name": "python.exe",
+    "CreationDateUtc": "2026-11-11T15:50:07.6855540Z"
+  },
+  {
+    "ProcessId": 46564,
+    "ParentProcessId": 45652,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T15:50:10.3053740Z"
+  },
+  {
+    "ProcessId": 46232,
+    "ParentProcessId": 45652,
+    "Name": "claude.exe",
+    "CreationDateUtc": "2026-11-11T15:50:10.3111480Z"
+  },
+  {
+    "ProcessId": 46508,
+    "ParentProcessId": 45652,
+    "Name": "python.exe",
+    "CreationDateUtc": "2026-11-11T15:50:10.3174250Z"
+  },
+  {
+    "ProcessId": 22076,
+    "ParentProcessId": 46232,
+    "Name": "cmd.exe",
+    "CreationDateUtc": "2026-11-11T15:50:12.6985390Z"
+  },
+  {
+    "ProcessId": 32980,
+    "ParentProcessId": 22076,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T15:50:12.7062650Z"
+  },
+  {
+    "ProcessId": 36044,
+    "ParentProcessId": 46232,
+    "Name": "cmd.exe",
+    "CreationDateUtc": "2026-11-11T15:50:12.7263480Z"
+  },
+  {
+    "ProcessId": 20972,
+    "ParentProcessId": 46232,
+    "Name": "uvx.exe",
+    "CreationDateUtc": "2026-11-11T15:50:12.7332090Z"
+  },
+  {
+    "ProcessId": 47028,
+    "ParentProcessId": 36044,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T15:50:12.7332330Z"
+  },
+  {
+    "ProcessId": 47060,
+    "ParentProcessId": 20972,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T15:50:12.7374290Z"
+  },
+  {
+    "ProcessId": 35728,
+    "ParentProcessId": 20972,
+    "Name": "uv.exe",
+    "CreationDateUtc": "2026-11-11T15:50:12.7532850Z"
+  },
+  {
+    "ProcessId": 46196,
+    "ParentProcessId": 22076,
+    "Name": "node.exe",
+    "CreationDateUtc": "2026-11-11T15:50:12.8488060Z"
+  },
+  {
+    "ProcessId": 29796,
+    "ParentProcessId": 35728,
+    "Name": "mcp-server-fetch.exe",
+    "CreationDateUtc": "2026-11-11T15:50:12.8617570Z"
+  },
+  {
+    "ProcessId": 35344,
+    "ParentProcessId": 29796,
+    "Name": "python.exe",
+    "CreationDateUtc": "2026-11-11T15:50:12.8705160Z"
+  },
+  {
+    "ProcessId": 23144,
+    "ParentProcessId": 36044,
+    "Name": "node.exe",
+    "CreationDateUtc": "2026-11-11T15:50:12.8746380Z"
+  },
+  {
+    "ProcessId": 11840,
+    "ParentProcessId": 35344,
+    "Name": "python.exe",
+    "CreationDateUtc": "2026-11-11T15:50:12.8776780Z"
+  },
+  {
+    "ProcessId": 41236,
+    "ParentProcessId": 23144,
+    "Name": "cmd.exe",
+    "CreationDateUtc": "2026-11-11T15:50:17.4316660Z"
+  },
+  {
+    "ProcessId": 7148,
+    "ParentProcessId": 46196,
+    "Name": "cmd.exe",
+    "CreationDateUtc": "2026-11-11T15:50:17.4463370Z"
+  },
+  {
+    "ProcessId": 31320,
+    "ParentProcessId": 41236,
+    "Name": "node.exe",
+    "CreationDateUtc": "2026-11-11T15:50:17.4673290Z"
+  },
+  {
+    "ProcessId": 40176,
+    "ParentProcessId": 7148,
+    "Name": "node.exe",
+    "CreationDateUtc": "2026-11-11T15:50:17.4805780Z"
+  },
+  {
+    "ProcessId": 21912,
+    "ParentProcessId": 20744,
+    "Name": "py.exe",
+    "CreationDateUtc": "2026-11-11T15:50:47.3842160Z"
+  },
+  {
+    "ProcessId": 2272,
+    "ParentProcessId": 21912,
+    "Name": "python.exe",
+    "CreationDateUtc": "2026-11-11T15:50:47.3968980Z"
+  },
+  {
+    "ProcessId": 9764,
+    "ParentProcessId": 2272,
+    "Name": "python.exe",
+    "CreationDateUtc": "2026-11-11T15:50:54.8996440Z"
+  },
+  {
+    "ProcessId": 24624,
+    "ParentProcessId": 2272,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T15:50:57.8013440Z"
+  },
+  {
+    "ProcessId": 12240,
+    "ParentProcessId": 2272,
+    "Name": "claude.exe",
+    "CreationDateUtc": "2026-11-11T15:50:57.8131280Z"
+  },
+  {
+    "ProcessId": 48104,
+    "ParentProcessId": 2272,
+    "Name": "python.exe",
+    "CreationDateUtc": "2026-11-11T15:50:57.8189060Z"
+  },
+  {
+    "ProcessId": 48464,
+    "ParentProcessId": 12240,
+    "Name": "cmd.exe",
+    "CreationDateUtc": "2026-11-11T15:50:59.6019420Z"
+  },
+  {
+    "ProcessId": 48472,
+    "ParentProcessId": 48464,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T15:50:59.6099710Z"
+  },
+  {
+    "ProcessId": 48480,
+    "ParentProcessId": 12240,
+    "Name": "uvx.exe",
+    "CreationDateUtc": "2026-11-11T15:50:59.6106010Z"
+  },
+  {
+    "ProcessId": 48608,
+    "ParentProcessId": 48480,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T15:50:59.6268110Z"
+  },
+  {
+    "ProcessId": 48672,
+    "ParentProcessId": 48480,
+    "Name": "uv.exe",
+    "CreationDateUtc": "2026-11-11T15:50:59.6431000Z"
+  },
+  {
+    "ProcessId": 8520,
+    "ParentProcessId": 48464,
+    "Name": "node.exe",
+    "CreationDateUtc": "2026-11-11T15:50:59.8178590Z"
+  },
+  {
+    "ProcessId": 48168,
+    "ParentProcessId": 48672,
+    "Name": "mcp-server-fetch.exe",
+    "CreationDateUtc": "2026-11-11T15:50:59.8280830Z"
+  },
+  {
+    "ProcessId": 47928,
+    "ParentProcessId": 48168,
+    "Name": "python.exe",
+    "CreationDateUtc": "2026-11-11T15:50:59.8485840Z"
+  },
+  {
+    "ProcessId": 48284,
+    "ParentProcessId": 47928,
+    "Name": "python.exe",
+    "CreationDateUtc": "2026-11-11T15:50:59.8816580Z"
+  },
+  {
+    "ProcessId": 48816,
+    "ParentProcessId": 8520,
+    "Name": "cmd.exe",
+    "CreationDateUtc": "2026-11-11T15:51:01.6851260Z"
+  },
+  {
+    "ProcessId": 47684,
+    "ParentProcessId": 48816,
+    "Name": "node.exe",
+    "CreationDateUtc": "2026-11-11T15:51:01.7095890Z"
+  },
+  {
+    "ProcessId": 16812,
+    "ParentProcessId": 36344,
+    "Name": "bash.exe",
+    "CreationDateUtc": "2026-11-11T16:29:42.9149790Z"
+  },
+  {
+    "ProcessId": 57244,
+    "ParentProcessId": 16812,
+    "Name": "bash.exe",
+    "CreationDateUtc": "2026-11-11T16:29:42.9232380Z"
+  },
+  {
+    "ProcessId": 28392,
+    "ParentProcessId": 57244,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T16:29:42.9283250Z"
+  },
+  {
+    "ProcessId": 64168,
+    "ParentProcessId": 41784,
+    "Name": "node.exe",
+    "CreationDateUtc": "2026-11-11T16:58:14.6803210Z"
+  },
+  {
+    "ProcessId": 76016,
+    "ParentProcessId": 64168,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T16:58:14.6851970Z"
+  },
+  {
+    "ProcessId": 79412,
+    "ParentProcessId": 36344,
+    "Name": "bash.exe",
+    "CreationDateUtc": "2026-11-11T17:00:36.6568120Z"
+  },
+  {
+    "ProcessId": 78148,
+    "ParentProcessId": 79412,
+    "Name": "bash.exe",
+    "CreationDateUtc": "2026-11-11T17:00:36.6644820Z"
+  },
+  {
+    "ProcessId": 76020,
+    "ParentProcessId": 78148,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T17:00:36.6693550Z"
+  },
+  {
+    "ProcessId": 22212,
+    "ParentProcessId": 36344,
+    "Name": "bash.exe",
+    "CreationDateUtc": "2026-11-11T17:04:50.9605830Z"
+  },
+  {
+    "ProcessId": 54520,
+    "ParentProcessId": 22212,
+    "Name": "bash.exe",
+    "CreationDateUtc": "2026-11-11T17:04:50.9686800Z"
+  },
+  {
+    "ProcessId": 24436,
+    "ParentProcessId": 54520,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T17:04:50.9740290Z"
+  },
+  {
+    "ProcessId": 75000,
+    "ParentProcessId": 12240,
+    "Name": "cmd.exe",
+    "CreationDateUtc": "2026-11-11T17:05:19.9114960Z"
+  },
+  {
+    "ProcessId": 77948,
+    "ParentProcessId": 75000,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T17:05:19.9196100Z"
+  },
+  {
+    "ProcessId": 55640,
+    "ParentProcessId": 75000,
+    "Name": "pwsh.exe",
+    "CreationDateUtc": "2026-11-11T17:05:19.9537430Z"
+  },
+  {
+    "ProcessId": 67636,
+    "ParentProcessId": 36344,
+    "Name": "bash.exe",
+    "CreationDateUtc": "2026-11-11T17:05:20.7914340Z"
+  },
+  {
+    "ProcessId": 34052,
+    "ParentProcessId": 67636,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T17:05:20.7940200Z"
+  },
+  {
+    "ProcessId": 69060,
+    "ParentProcessId": 12240,
+    "Name": "pwsh.exe",
+    "CreationDateUtc": "2026-11-11T17:05:20.7973050Z"
+  },
+  {
+    "ProcessId": 50728,
+    "ParentProcessId": 69060,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T17:05:20.7998810Z"
+  },
+  {
+    "ProcessId": 56788,
+    "ParentProcessId": 67636,
+    "Name": "bash.exe",
+    "CreationDateUtc": "2026-11-11T17:05:20.8075060Z"
+  },
+  {
+    "ProcessId": 59416,
+    "ParentProcessId": 46232,
+    "Name": "bash.exe",
+    "CreationDateUtc": "2026-11-11T17:05:20.8218710Z"
+  },
+  {
+    "ProcessId": 78668,
+    "ParentProcessId": 56788,
+    "Name": "python.exe",
+    "CreationDateUtc": "2026-11-11T17:05:20.8225760Z"
+  },
+  {
+    "ProcessId": 2040,
+    "ParentProcessId": 59416,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T17:05:20.8241510Z"
+  },
+  {
+    "ProcessId": 67956,
+    "ParentProcessId": 59416,
+    "Name": "bash.exe",
+    "CreationDateUtc": "2026-11-11T17:05:20.8378780Z"
+  },
+  {
+    "ProcessId": 79232,
+    "ParentProcessId": 36344,
+    "Name": "bash.exe",
+    "CreationDateUtc": "2026-11-11T17:05:20.8422000Z"
+  },
+  {
+    "ProcessId": 10312,
+    "ParentProcessId": 36344,
+    "Name": "bash.exe",
+    "CreationDateUtc": "2026-11-11T17:05:20.8443570Z"
+  },
+  {
+    "ProcessId": 79352,
+    "ParentProcessId": 79232,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T17:05:20.8446320Z"
+  },
+  {
+    "ProcessId": 75604,
+    "ParentProcessId": 10312,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T17:05:20.8467100Z"
+  },
+  {
+    "ProcessId": 76620,
+    "ParentProcessId": 36344,
+    "Name": "bash.exe",
+    "CreationDateUtc": "2026-11-11T17:05:20.8476090Z"
+  },
+  {
+    "ProcessId": 79036,
+    "ParentProcessId": 76620,
+    "Name": "conhost.exe",
+    "CreationDateUtc": "2026-11-11T17:05:20.8500370Z"
+  },
+  {
+    "ProcessId": 43208,
+    "ParentProcessId": 67956,
+    "Name": "python.exe",
+    "CreationDateUtc": "2026-11-11T17:05:20.8540640Z"
+  },
+  {
+    "ProcessId": 72636,
+    "ParentProcessId": 79232,
+    "Name": "bash.exe",
+    "CreationDateUtc": "2026-11-11T17:05:20.8588300Z"
+  },
+  {
+    "ProcessId": 55952,
+    "ParentProcessId": 10312,
+    "Name": "bash.exe",
+    "CreationDateUtc": "2026-11-11T17:05:20.8617340Z"
+  },
+  {
+    "ProcessId": 67076,
+    "ParentProcessId": 76620,
+    "Name": "bash.exe",
+    "CreationDateUtc": "2026-11-11T17:05:20.8691570Z"
+  }
+]

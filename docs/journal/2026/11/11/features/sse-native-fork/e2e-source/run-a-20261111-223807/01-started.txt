@@ -1,0 +1,30 @@
+
+ ▐▛███▛█   Claude Code v2.1.322
+▝▜██████▀  Opus 5.5 · API Usage Billing
+ ▝▝   ▝▝   ~\AppData\Local\Temp\ciel-sse-true-fork-a-hl8aa6bt\workspace
+
+▎ Debug mode enabled · logging to C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\docs\journal\2026\11\11\features\
+▎ sse-native-fork\e2e-source\run-a-20261111-223807\claude-debug.txt
+
+● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing
+  approved Work. Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options →
+  Work mode, or the agent (work_mode_set)
+
+
+
+
+
+
+
+
+
+
+
+w: Work 0/1 [ ] Review owned Walkie target thread [+]                                                               [-]
+                                                                                                    ◐ medium · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [claude-opus-5-5 (cielairouter)] workspace | SSE gate on: open                                        work: plan 0/1
+  [work] 0/1 [ ] Review owned Walkie target thread
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · ← for agents

@@ -1,0 +1,474 @@
+{
+  "probe": "135e1028",
+  "mode": "reload-held-prompt",
+  "run_dir": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m",
+  "cli": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+  "markers": {
+    "a": "FIFO-REVIEW-A-135e1028",
+    "b": "FIFO-REVIEW-B-135e1028",
+    "bappend": "FIFO-REVIEW-BAPPEND-135e1028",
+    "seed": "FIFO-REVIEW-SEED-135e1028",
+    "old": "FIFO-REVIEW-OLD-135e1028",
+    "new": "FIFO-REVIEW-NEW-135e1028"
+  },
+  "script_sha256": "a082db8daae141fce514522631061600bc00a90e3e54d7319bca655b854ab62a",
+  "cli_version": "2.1.322 (Claude Code)",
+  "protected_count": 62,
+  "inherited_ciel_after_strip": [],
+  "pid": 34064,
+  "started": true,
+  "seed_held": true,
+  "old_awaiting": true,
+  "reload_written_at": 1794441065.6758678,
+  "new_invoked": false,
+  "analysis": {
+    "submit_lines_before_release": [
+      {
+        "at": 1794441064523.0,
+        "line": "2026-11-11T23:51:04.523Z [DEBUG] $.prompt.submit (fifo-review-probe): \"FIFO-REVIEW-SEED-135e1028\""
+      },
+      {
+        "at": 1794441064621.0,
+        "line": "2026-11-11T23:51:04.621Z [DEBUG] $.prompt.submit (fifo-review-probe): \"FIFO-REVIEW-OLD-135e1028\""
+      }
+    ],
+    "submit_lines": [
+      {
+        "at": 1794441064523.0,
+        "line": "2026-11-11T23:51:04.523Z [DEBUG] $.prompt.submit (fifo-review-probe): \"FIFO-REVIEW-SEED-135e1028\""
+      },
+      {
+        "at": 1794441064621.0,
+        "line": "2026-11-11T23:51:04.621Z [DEBUG] $.prompt.submit (fifo-review-probe): \"FIFO-REVIEW-OLD-135e1028\""
+      },
+      {
+        "at": 1794441158943.0,
+        "line": "2026-11-11T23:52:38.943Z [DEBUG] $.prompt.submit (fifo-review-probe): \"FIFO-REVIEW-NEW-135e1028\""
+      }
+    ],
+    "seed": [
+      {
+        "gen": "A",
+        "boot": "ry4wulg4dsa",
+        "at": 1794441064561,
+        "event": "seed.resolve",
+        "value": {
+          "text": "FIFO-REVIEW-SEED-135e1028",
+          "origin": {
+            "kind": "plugin",
+            "name": "fifo-review-probe"
+          }
+        },
+        "channel": "fs"
+      }
+    ],
+    "old": [
+      {
+        "gen": "A",
+        "boot": "ry4wulg4dsa",
+        "at": 1794441158779,
+        "event": "old.resolve",
+        "value": {
+          "text": "FIFO-REVIEW-OLD-135e1028",
+          "origin": {
+            "kind": "plugin",
+            "name": "fifo-review-probe"
+          }
+        },
+        "channel": "fs"
+      }
+    ],
+    "old_activity_after_reload": [
+      {
+        "gen": "A",
+        "boot": "ry4wulg4dsa",
+        "at": 1794441158737,
+        "event": "turn.complete",
+        "turnId": "8c68f4e8-98b0-4f42-852a-5b1c1ccf7ad5",
+        "reason": "answer",
+        "channel": "fs"
+      },
+      {
+        "gen": "A",
+        "boot": "ry4wulg4dsa",
+        "at": 1794441158779,
+        "event": "old.resolve",
+        "value": {
+          "text": "FIFO-REVIEW-OLD-135e1028",
+          "origin": {
+            "kind": "plugin",
+            "name": "fifo-review-probe"
+          }
+        },
+        "channel": "fs"
+      },
+      {
+        "gen": "A",
+        "boot": "ry4wulg4dsa",
+        "at": 1794441158846,
+        "event": "turn.start",
+        "turnId": "f688c900-0e02-47c4-ace2-b4ea4fe42a51",
+        "text": "The fifo-review-probe plugin sent a message:\nFIFO-REVIEW-OLD-135e1028\n\nThis is how Claude Code surfaces a prompt a plugi",
+        "channel": "fs"
+      }
+    ],
+    "new": [
+      {
+        "gen": "B",
+        "boot": "cb2pwxd8jre",
+        "at": 1794441158977,
+        "event": "new.resolve",
+        "value": {
+          "text": "FIFO-REVIEW-NEW-135e1028",
+          "origin": {
+            "kind": "plugin",
+            "name": "fifo-review-probe"
+          }
+        },
+        "channel": "fs"
+      }
+    ],
+    "turn_starts": [
+      {
+        "gen": "A",
+        "at": 1794441064560,
+        "turnId": "8c68f4e8-98b0-4f42-852a-5b1c1ccf7ad5",
+        "text": "The fifo-review-probe plugin sent a message:\nFIFO-REVIEW-SEED-135e1028\n\nThis is how Claude Code surfaces a prompt a plug"
+      },
+      {
+        "gen": "A",
+        "at": 1794441158846,
+        "turnId": "f688c900-0e02-47c4-ace2-b4ea4fe42a51",
+        "text": "The fifo-review-probe plugin sent a message:\nFIFO-REVIEW-OLD-135e1028\n\nThis is how Claude Code surfaces a prompt a plugi"
+      },
+      {
+        "gen": "B",
+        "at": 1794441159033,
+        "turnId": "2bcac763-82da-4a3b-8ca0-16f4215277e7",
+        "text": "The fifo-review-probe plugin sent a message:\nFIFO-REVIEW-NEW-135e1028\n\nThis is how Claude Code surfaces a prompt a plugi"
+      }
+    ],
+    "requests": [
+      {
+        "at": 1794441064.6026025,
+        "number": 1,
+        "message_count": 2,
+        "a": 0,
+        "b": 0,
+        "bappend": 0,
+        "seed": 1,
+        "old": 0,
+        "new": 0
+      },
+      {
+        "at": 1794441158.798757,
+        "number": 2,
+        "message_count": 4,
+        "a": 0,
+        "b": 0,
+        "bappend": 0,
+        "seed": 1,
+        "old": 1,
+        "new": 0
+      },
+      {
+        "at": 1794441159.0041945,
+        "number": 3,
+        "message_count": 6,
+        "a": 0,
+        "b": 0,
+        "bappend": 0,
+        "seed": 1,
+        "old": 1,
+        "new": 1
+      }
+    ],
+    "old_in_requests": [
+      2,
+      3
+    ],
+    "new_in_requests": [
+      3
+    ],
+    "same_process_after_reload": true
+  },
+  "reports": [
+    {
+      "gen": "A",
+      "boot": "ry4wulg4dsa",
+      "at": 1794441062481,
+      "event": "session.start",
+      "channel": "fs"
+    },
+    {
+      "gen": "A",
+      "boot": "ry4wulg4dsa",
+      "at": 1794441062506,
+      "event": "native.status",
+      "nativeStatus": "fetch:undefined",
+      "globals": {
+        "fetch": "undefined",
+        "WebSocket": "undefined",
+        "XMLHttpRequest": "undefined",
+        "EventSource": "undefined",
+        "process": "undefined",
+        "require": "undefined",
+        "Deno": "undefined",
+        "Bun": "undefined",
+        "navigator": "undefined",
+        "importScripts": "undefined",
+        "postMessage": "undefined"
+      },
+      "channel": "fs"
+    },
+    {
+      "gen": "A",
+      "boot": "ry4wulg4dsa",
+      "at": 1794441064521,
+      "event": "seed.invoke",
+      "channel": "fs"
+    },
+    {
+      "gen": "A",
+      "boot": "ry4wulg4dsa",
+      "at": 1794441064523,
+      "event": "old.invoke",
+      "channel": "fs"
+    },
+    {
+      "gen": "A",
+      "boot": "ry4wulg4dsa",
+      "at": 1794441064560,
+      "event": "turn.start",
+      "turnId": "8c68f4e8-98b0-4f42-852a-5b1c1ccf7ad5",
+      "text": "The fifo-review-probe plugin sent a message:\nFIFO-REVIEW-SEED-135e1028\n\nThis is how Claude Code surfaces a prompt a plug",
+      "channel": "fs"
+    },
+    {
+      "gen": "A",
+      "boot": "ry4wulg4dsa",
+      "at": 1794441064561,
+      "event": "seed.resolve",
+      "value": {
+        "text": "FIFO-REVIEW-SEED-135e1028",
+        "origin": {
+          "kind": "plugin",
+          "name": "fifo-review-probe"
+        }
+      },
+      "channel": "fs"
+    },
+    {
+      "gen": "A",
+      "boot": "ry4wulg4dsa",
+      "at": 1794441064621,
+      "event": "old.awaiting",
+      "channel": "fs"
+    },
+    {
+      "gen": "A",
+      "boot": "ry4wulg4dsa",
+      "at": 1794441158737,
+      "event": "turn.complete",
+      "turnId": "8c68f4e8-98b0-4f42-852a-5b1c1ccf7ad5",
+      "reason": "answer",
+      "channel": "fs"
+    },
+    {
+      "gen": "A",
+      "boot": "ry4wulg4dsa",
+      "at": 1794441158779,
+      "event": "old.resolve",
+      "value": {
+        "text": "FIFO-REVIEW-OLD-135e1028",
+        "origin": {
+          "kind": "plugin",
+          "name": "fifo-review-probe"
+        }
+      },
+      "channel": "fs"
+    },
+    {
+      "gen": "A",
+      "boot": "ry4wulg4dsa",
+      "at": 1794441158846,
+      "event": "turn.start",
+      "turnId": "f688c900-0e02-47c4-ace2-b4ea4fe42a51",
+      "text": "The fifo-review-probe plugin sent a message:\nFIFO-REVIEW-OLD-135e1028\n\nThis is how Claude Code surfaces a prompt a plugi",
+      "channel": "fs"
+    },
+    {
+      "gen": "B",
+      "boot": "cb2pwxd8jre",
+      "at": 1794441158890,
+      "event": "session.start",
+      "channel": "fs"
+    },
+    {
+      "gen": "B",
+      "boot": "cb2pwxd8jre",
+      "at": 1794441158914,
+      "event": "native.status",
+      "nativeStatus": "fetch:undefined",
+      "globals": {
+        "fetch": "undefined",
+        "WebSocket": "undefined",
+        "XMLHttpRequest": "undefined",
+        "EventSource": "undefined",
+        "process": "undefined",
+        "require": "undefined",
+        "Deno": "undefined",
+        "Bun": "undefined",
+        "navigator": "undefined",
+        "importScripts": "undefined",
+        "postMessage": "undefined"
+      },
+      "channel": "fs"
+    },
+    {
+      "gen": "B",
+      "boot": "cb2pwxd8jre",
+      "at": 1794441158937,
+      "event": "new.invoke",
+      "channel": "fs"
+    },
+    {
+      "gen": "B",
+      "boot": "cb2pwxd8jre",
+      "at": 1794441158939,
+      "event": "turn.complete",
+      "turnId": "f688c900-0e02-47c4-ace2-b4ea4fe42a51",
+      "reason": "answer",
+      "channel": "fs"
+    },
+    {
+      "gen": "B",
+      "boot": "cb2pwxd8jre",
+      "at": 1794441158977,
+      "event": "new.resolve",
+      "value": {
+        "text": "FIFO-REVIEW-NEW-135e1028",
+        "origin": {
+          "kind": "plugin",
+          "name": "fifo-review-probe"
+        }
+      },
+      "channel": "fs"
+    },
+    {
+      "gen": "B",
+      "boot": "cb2pwxd8jre",
+      "at": 1794441159033,
+      "event": "turn.start",
+      "turnId": "2bcac763-82da-4a3b-8ca0-16f4215277e7",
+      "text": "The fifo-review-probe plugin sent a message:\nFIFO-REVIEW-NEW-135e1028\n\nThis is how Claude Code surfaces a prompt a plugi",
+      "channel": "fs"
+    },
+    {
+      "gen": "B",
+      "boot": "cb2pwxd8jre",
+      "at": 1794441159072,
+      "event": "turn.complete",
+      "turnId": "2bcac763-82da-4a3b-8ca0-16f4215277e7",
+      "reason": "answer",
+      "channel": "fs"
+    }
+  ],
+  "native_reports": 0,
+  "native_status": [
+    "fetch:undefined",
+    "fetch:undefined"
+  ],
+  "requests": [
+    {
+      "at": 1794441064.6026025,
+      "number": 1,
+      "message_count": 2,
+      "a": 0,
+      "b": 0,
+      "bappend": 0,
+      "seed": 1,
+      "old": 0,
+      "new": 0
+    },
+    {
+      "at": 1794441158.798757,
+      "number": 2,
+      "message_count": 4,
+      "a": 0,
+      "b": 0,
+      "bappend": 0,
+      "seed": 1,
+      "old": 1,
+      "new": 0
+    },
+    {
+      "at": 1794441159.0041945,
+      "number": 3,
+      "message_count": 6,
+      "a": 0,
+      "b": 0,
+      "bappend": 0,
+      "seed": 1,
+      "old": 1,
+      "new": 1
+    }
+  ],
+  "owned_tree": [
+    {
+      "pid": 34064,
+      "ppid": 85760,
+      "name": "claude.exe",
+      "created": "2026-11-11T23:51:01.8596300Z"
+    }
+  ],
+  "killed": [
+    {
+      "pid": 34064,
+      "name": "claude.exe",
+      "rc": 0
+    }
+  ],
+  "protected_missing_after": [
+    {
+      "pid": 52788,
+      "ppid": 87300,
+      "name": "node.exe",
+      "created": "2026-11-11T23:51:01.2124190Z"
+    },
+    {
+      "pid": 19508,
+      "ppid": 73272,
+      "name": "python.exe",
+      "created": "2026-11-11T23:51:01.6514100Z"
+    }
+  ],
+  "live_before": {
+    "C:\\Users\\djlov\\.claude.json": "5478c51dbed9bbfb2caac008fd897f0883937f39c5cde64d5184a3152286d50d",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_after": {
+    "C:\\Users\\djlov\\.claude.json": "7e3099f232eecf6c06aa0933f51aaca9eea176d51bc1c903cbe18420ab0fce29",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_hash_changed": [
+    "C:\\Users\\djlov\\.claude.json"
+  ],
+  "owned_path_in_live_files": []
+}

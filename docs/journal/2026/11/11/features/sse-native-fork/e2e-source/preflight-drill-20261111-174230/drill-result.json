@@ -1,0 +1,367 @@
+{
+ "started": 1794440551.871839,
+ "harness": {
+  "walkie_e2e_driver_v4.py": "590dcf4f4e229b5221916be13efd297f2d7ed570a8ce1560689b553b62fcb803",
+  "owned_process_control.py": "797bba5ccb5e25bd2041b5366f238fb3b0d69f14536e4a5d4d4ec01221a91fb0",
+  "test_owned_process_control.py": "e9eb56f955bbefc0f58948c0a82d714249c0b0cf3a6dba5b0562c1ab34f6ab2e",
+  "raw_text_inventory.py": "33b0d0bb66eb8087787f65ef91c795968ad579e2374c398959f15390dbbc6c94",
+  "test_raw_text_inventory.py": "3993c33d0b48fc0f8b16cdafde21ae243362eb10804dc3fddf3d6cc63b3a31ce",
+  "console_driver.py": "67e94ec2064978fa6bbd6d63826f36b2fb3ff656345fbebcc477e1f7de834c49",
+  "shot_hwnd.ps1": "513c859a9d883cb0464a896c0193811d9097029eeac1052e0556201e1ccda64b",
+  "start_detached.py": "027b0cb59f0582e0a2a74071bb3985fdfaf8d3350022a09276bacad9186b6b5c",
+  "make_snapshot_v4.py": "eaab7723aa58d0bdd2153c8ea8265d9490ac93abed85095ac56f25929def2364"
+ },
+ "harness_unit_gate": {
+  "returncode": 0,
+  "ran": 36,
+  "sha256": {
+   "owned_process_control.py": "797bba5ccb5e25bd2041b5366f238fb3b0d69f14536e4a5d4d4ec01221a91fb0",
+   "test_owned_process_control.py": "e9eb56f955bbefc0f58948c0a82d714249c0b0cf3a6dba5b0562c1ab34f6ab2e",
+   "raw_text_inventory.py": "33b0d0bb66eb8087787f65ef91c795968ad579e2374c398959f15390dbbc6c94",
+   "test_raw_text_inventory.py": "3993c33d0b48fc0f8b16cdafde21ae243362eb10804dc3fddf3d6cc63b3a31ce"
+  }
+ },
+ "rule_checks": {
+  "child_newer_than_parent": true,
+  "reused_pid_not_matched_by_identity": true,
+  "no_adoption_under_reused_parent_pid": true
+ },
+ "owned_before_kill": [
+  [
+   28612,
+   "/Date(1794440553951)/",
+   "python.exe"
+  ],
+  [
+   68320,
+   "/Date(1794440553955)/",
+   "python.exe"
+  ],
+  [
+   76556,
+   "/Date(1794440554005)/",
+   "conhost.exe"
+  ],
+  [
+   80456,
+   "/Date(1794440554005)/",
+   "conhost.exe"
+  ],
+  [
+   82304,
+   "/Date(1794440554001)/",
+   "python.exe"
+  ],
+  [
+   83172,
+   "/Date(1794440553956)/",
+   "conhost.exe"
+  ],
+  [
+   83440,
+   "/Date(1794440554000)/",
+   "python.exe"
+  ],
+  [
+   83764,
+   "/Date(1794440553958)/",
+   "conhost.exe"
+  ],
+  [
+   86308,
+   "/Date(1794440553907)/",
+   "conhost.exe"
+  ],
+  [
+   86656,
+   "/Date(1794440553902)/",
+   "python.exe"
+  ]
+ ],
+ "decoy": [
+  69424,
+  "/Date(1794440553906)/"
+ ],
+ "cleanup": {
+  "owned_identities": [
+   [
+    28612,
+    "/Date(1794440553951)/"
+   ],
+   [
+    68320,
+    "/Date(1794440553955)/"
+   ],
+   [
+    76556,
+    "/Date(1794440554005)/"
+   ],
+   [
+    80456,
+    "/Date(1794440554005)/"
+   ],
+   [
+    82304,
+    "/Date(1794440554001)/"
+   ],
+   [
+    83172,
+    "/Date(1794440553956)/"
+   ],
+   [
+    83440,
+    "/Date(1794440554000)/"
+   ],
+   [
+    83764,
+    "/Date(1794440553958)/"
+   ],
+   [
+    86308,
+    "/Date(1794440553907)/"
+   ],
+   [
+    86656,
+    "/Date(1794440553902)/"
+   ]
+  ],
+  "killed": [
+   {
+    "identity": [
+     76556,
+     "/Date(1794440554005)/"
+    ],
+    "name": "conhost.exe",
+    "parent_pid": 83440
+   },
+   {
+    "identity": [
+     80456,
+     "/Date(1794440554005)/"
+    ],
+    "name": "conhost.exe",
+    "parent_pid": 82304
+   },
+   {
+    "identity": [
+     83172,
+     "/Date(1794440553956)/"
+    ],
+    "name": "conhost.exe",
+    "parent_pid": 28612
+   },
+   {
+    "identity": [
+     83764,
+     "/Date(1794440553958)/"
+    ],
+    "name": "conhost.exe",
+    "parent_pid": 68320
+   },
+   {
+    "identity": [
+     86308,
+     "/Date(1794440553907)/"
+    ],
+    "name": "conhost.exe",
+    "parent_pid": 86656
+   },
+   {
+    "identity": [
+     82304,
+     "/Date(1794440554001)/"
+    ],
+    "name": "python.exe",
+    "parent_pid": 68320
+   },
+   {
+    "identity": [
+     83440,
+     "/Date(1794440554000)/"
+    ],
+    "name": "python.exe",
+    "parent_pid": 28612
+   },
+   {
+    "identity": [
+     28612,
+     "/Date(1794440553951)/"
+    ],
+    "name": "python.exe",
+    "parent_pid": 86656
+   },
+   {
+    "identity": [
+     68320,
+     "/Date(1794440553955)/"
+    ],
+    "name": "python.exe",
+    "parent_pid": 86656
+   },
+   {
+    "identity": [
+     86656,
+     "/Date(1794440553902)/"
+    ],
+    "name": "python.exe",
+    "parent_pid": 40508
+   }
+  ],
+  "rejected": [],
+  "protected_intersections": [],
+  "final_live": [],
+  "completed": true
+ },
+ "decoy_alive_after": true,
+ "owned_left": [],
+ "protected_unchanged": true,
+ "protected_gate_size": 40,
+ "live_profile_unchanged": true,
+ "taskkill_calls": [
+  {
+   "identity": [
+    76556,
+    "/Date(1794440554005)/"
+   ],
+   "argv": [
+    "taskkill",
+    "/PID",
+    "76556",
+    "/F"
+   ],
+   "rc": 0,
+   "stdout": "SUCCESS: The process with PID 76556 has been terminated."
+  },
+  {
+   "identity": [
+    80456,
+    "/Date(1794440554005)/"
+   ],
+   "argv": [
+    "taskkill",
+    "/PID",
+    "80456",
+    "/F"
+   ],
+   "rc": 0,
+   "stdout": "SUCCESS: The process with PID 80456 has been terminated."
+  },
+  {
+   "identity": [
+    83172,
+    "/Date(1794440553956)/"
+   ],
+   "argv": [
+    "taskkill",
+    "/PID",
+    "83172",
+    "/F"
+   ],
+   "rc": 0,
+   "stdout": "SUCCESS: The process with PID 83172 has been terminated."
+  },
+  {
+   "identity": [
+    83764,
+    "/Date(1794440553958)/"
+   ],
+   "argv": [
+    "taskkill",
+    "/PID",
+    "83764",
+    "/F"
+   ],
+   "rc": 0,
+   "stdout": "SUCCESS: The process with PID 83764 has been terminated."
+  },
+  {
+   "identity": [
+    86308,
+    "/Date(1794440553907)/"
+   ],
+   "argv": [
+    "taskkill",
+    "/PID",
+    "86308",
+    "/F"
+   ],
+   "rc": 0,
+   "stdout": "SUCCESS: The process with PID 86308 has been terminated."
+  },
+  {
+   "identity": [
+    82304,
+    "/Date(1794440554001)/"
+   ],
+   "argv": [
+    "taskkill",
+    "/PID",
+    "82304",
+    "/F"
+   ],
+   "rc": 0,
+   "stdout": "SUCCESS: The process with PID 82304 has been terminated."
+  },
+  {
+   "identity": [
+    83440,
+    "/Date(1794440554000)/"
+   ],
+   "argv": [
+    "taskkill",
+    "/PID",
+    "83440",
+    "/F"
+   ],
+   "rc": 0,
+   "stdout": "SUCCESS: The process with PID 83440 has been terminated."
+  },
+  {
+   "identity": [
+    28612,
+    "/Date(1794440553951)/"
+   ],
+   "argv": [
+    "taskkill",
+    "/PID",
+    "28612",
+    "/F"
+   ],
+   "rc": 0,
+   "stdout": "SUCCESS: The process with PID 28612 has been terminated."
+  },
+  {
+   "identity": [
+    68320,
+    "/Date(1794440553955)/"
+   ],
+   "argv": [
+    "taskkill",
+    "/PID",
+    "68320",
+    "/F"
+   ],
+   "rc": 0,
+   "stdout": "SUCCESS: The process with PID 68320 has been terminated."
+  },
+  {
+   "identity": [
+    86656,
+    "/Date(1794440553902)/"
+   ],
+   "argv": [
+    "taskkill",
+    "/PID",
+    "86656",
+    "/F"
+   ],
+   "rc": 0,
+   "stdout": "SUCCESS: The process with PID 86656 has been terminated."
+  }
+ ],
+ "any_slash_T": false,
+ "leaf_first": true,
+ "decoy_cleanup_completed": true,
+ "passed": true,
+ "finished": 1794440605.3148363
+}

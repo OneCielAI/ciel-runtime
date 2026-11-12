@@ -1,0 +1,7 @@
+{"event":"session.start","seq":1,"at":1794427677421}
+{"event":"turn.start","turnId":"8fd31a32-650f-473a-9d34-2520513c9d84","text":"STOP-PROBE-ON say hi","seq":2,"at":1794427679543}
+{"event":"turn.step","turnId":"8fd31a32-650f-473a-9d34-2520513c9d84","index":0,"messageCount":6,"seq":3,"at":1794427679621}
+{"event":"classic.Stop","decision":"block","stop_hook_active":false,"seq":4,"at":1794427679710}
+{"event":"turn.step","turnId":"8fd31a32-650f-473a-9d34-2520513c9d84","index":1,"messageCount":9,"seq":5,"at":1794427679734}
+{"event":"classic.Stop","decision":"pass","stop_hook_active":true,"seq":6,"at":1794427679815}
+{"event":"turn.complete","turnId":"8fd31a32-650f-473a-9d34-2520513c9d84","reason":"answer","answer":"STOPPED-OK","seq":7,"at":1794427679832}

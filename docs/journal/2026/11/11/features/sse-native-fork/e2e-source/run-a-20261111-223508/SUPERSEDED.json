@@ -1,0 +1,16 @@
+{
+ "status": "superseded \u2014 harness failure before launch; not a product result",
+ "recorded_at": "2026-11-11T22:40-06:00",
+ "snapshot": "snapshot-eab3ad33-a-20261111-223431 (digest 5741380f78638f86fd49285c9d162c07f95840092faae0e40d6d74186c0fce3c)",
+ "driver_pid": 66004,
+ "failure": "assert_detached_from_protected -> owned_process_control.snapshot_all: json.decoder.JSONDecodeError Invalid control character at line 4592 column 1141 (char 275611)",
+ "evidence": [
+  "driver-stdout.log (copy of .local/sse-true-fork/e2e/run-a-eab3ad33.log)",
+  "driver-steps.log",
+  "console_driver.py"
+ ],
+ "not_reached": "harness copy, unit gate, run copy, scratch config, claude launch, any owned process; no cleanup needed",
+ "cause": "one Win32_Process string value (very likely a CommandLine) carried a raw control character that the strict Python JSON parser rejects. A re-read at ~22:39 parsed strictly, so the process was transient and is not identified.",
+ "fix": "owned_process_control.parse_cim_json (json.loads strict=False, control characters inside strings only), used by snapshot_all, driver ps_snapshot and process_tree; unit test test_cim_json_with_raw_control_character_parses",
+ "superseded_by": "the next run-a folder on eab3ad33"
+}

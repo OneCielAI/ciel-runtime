@@ -1,0 +1,28 @@
+[?9001h[?1004h[?25l[2J[m[H]0;claude[?25h[?2004h[?2031h[?1004h[<u[>5u[>4;2m]0;✳ Claude Code[?1049h[2J[<u[>5u[>4;2m[?1000h[?1002h[?1003h[?1006h[?2026h[?2026l[K[38;2;215;119;87m
+ ▐[48;2;0;0;0m▛███▛█[m   [1mClaude Code[22m [38;2;153;153;153mv2.1.322[K[38;2;215;119;87m
+▝▜[48;2;0;0;0m█████[49m█▀  [38;2;153;153;153mfixture · API Usage Billing[K[38;2;215;119;87m
+ ▝▝   ▝▝   [38;2;153;153;153m~\AppData\Local\Temp\ciel-reload-probe-f63b94ea-k9_v1u66\workspace[K[m
+[K[38;2;255;193;7m
+⚠ Model "fixture" isn't recognized [38;2;153;153;153m· context assumed to be 200k tokens · update Claude Code, or see ]8;id=u-6mdv8p%10319244302621100894;https://code.claude.com/docs/en/model-config#correct-the-window-for-a-gateway-or-custom-model-id\the docs[m]8;;\[K
+[K[2m
+▎[22m [38;2;153;153;153mDebug mode enabled · logging to C:\Users\djlov\AppData\Local\Temp\ciel-reload-probe-f63b94ea-k9_v1u66\phase2-debug.txt[m
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[102X[38;2;153;153;153m[102C● high · /effort  [38;2;136;136;136m
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[m❯ [7m [27m[K[38;2;136;136;136m
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[m  [38;2;153;153;153m⏸ manual mode on · ? for shortcuts · ← for agents[K[?25l[69C[m[>0q[?u]7501;?[?2026h[?2026l[26;103H[K[18C[?2026h[?2026l[30;37H[K[84C

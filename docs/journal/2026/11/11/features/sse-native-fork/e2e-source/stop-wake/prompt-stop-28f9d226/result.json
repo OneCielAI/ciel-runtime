@@ -1,0 +1,301 @@
+{
+  "probe": "28f9d226",
+  "run_dir": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-prompt-stop-28f9d226-w1g52swm",
+  "cli": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+  "markers": {
+    "p1": "PROMPT-STOP-P1-28f9d226",
+    "p2": "PROMPT-STOP-P2-28f9d226",
+    "stop": "PROMPT-STOP-BLOCK-FOR-P2-28f9d226"
+  },
+  "cli_version": "2.1.322 (Claude Code)",
+  "protected_count": 63,
+  "inherited_ciel_after_strip": [],
+  "pid": 46920,
+  "started": true,
+  "all_settled": true,
+  "events": [
+    {
+      "seq": 1,
+      "at": 1794437817650,
+      "event": "session.start"
+    },
+    {
+      "seq": 2,
+      "at": 1794437819701,
+      "event": "p1.invoke"
+    },
+    {
+      "seq": 3,
+      "at": 1794437819703,
+      "event": "p2.invoke"
+    },
+    {
+      "seq": 4,
+      "at": 1794437819734,
+      "event": "turn.start",
+      "turnId": "c33bdf9c-3cc2-4b66-b0a5-0ac5fd37dbff",
+      "text": "The prompt-stop-probe plugin sent a message:\nPROMPT-STOP-P1-28f9d226\n\nThis is how Claude Code surfac"
+    },
+    {
+      "seq": 5,
+      "at": 1794437819736,
+      "event": "p1.resolve",
+      "value": {
+        "text": "PROMPT-STOP-P1-28f9d226",
+        "origin": {
+          "kind": "plugin",
+          "name": "prompt-stop-probe"
+        }
+      }
+    },
+    {
+      "seq": 6,
+      "at": 1794437819774,
+      "event": "turn.step",
+      "turnId": "c33bdf9c-3cc2-4b66-b0a5-0ac5fd37dbff",
+      "index": 0,
+      "messageCount": 6
+    },
+    {
+      "seq": 7,
+      "at": 1794437823837,
+      "event": "stop.block",
+      "stop_hook_active": false
+    },
+    {
+      "seq": 8,
+      "at": 1794437823853,
+      "event": "turn.step",
+      "turnId": "c33bdf9c-3cc2-4b66-b0a5-0ac5fd37dbff",
+      "index": 1,
+      "messageCount": 9
+    },
+    {
+      "seq": 9,
+      "at": 1794437823896,
+      "event": "stop.pass",
+      "stop_hook_active": true,
+      "p2Resolved": false
+    },
+    {
+      "seq": 10,
+      "at": 1794437823903,
+      "event": "turn.complete",
+      "turnId": "c33bdf9c-3cc2-4b66-b0a5-0ac5fd37dbff",
+      "reason": "answer"
+    },
+    {
+      "seq": 11,
+      "at": 1794437823930,
+      "event": "p2.resolve",
+      "value": {
+        "text": "PROMPT-STOP-P2-28f9d226",
+        "origin": {
+          "kind": "plugin",
+          "name": "prompt-stop-probe"
+        }
+      }
+    },
+    {
+      "seq": 12,
+      "at": 1794437823946,
+      "event": "turn.start",
+      "turnId": "00248349-176f-47d0-b5f8-bb56548eff13",
+      "text": "The prompt-stop-probe plugin sent a message:\nPROMPT-STOP-P2-28f9d226\n\nThis is how Claude Code surfac"
+    },
+    {
+      "seq": 13,
+      "at": 1794437823950,
+      "event": "all.settled"
+    },
+    {
+      "seq": 14,
+      "at": 1794437823958,
+      "event": "turn.step",
+      "turnId": "00248349-176f-47d0-b5f8-bb56548eff13",
+      "index": 0,
+      "messageCount": 12
+    },
+    {
+      "seq": 15,
+      "at": 1794437823999,
+      "event": "stop.pass",
+      "stop_hook_active": false,
+      "p2Resolved": true
+    },
+    {
+      "seq": 16,
+      "at": 1794437824005,
+      "event": "turn.complete",
+      "turnId": "00248349-176f-47d0-b5f8-bb56548eff13",
+      "reason": "answer"
+    }
+  ],
+  "requests": [
+    {
+      "at": 1794437819.8051357,
+      "number": 1,
+      "message_count": 2,
+      "p1": true,
+      "p2": false,
+      "stop": false
+    },
+    {
+      "at": 1794437823.873202,
+      "number": 2,
+      "message_count": 4,
+      "p1": true,
+      "p2": false,
+      "stop": true
+    },
+    {
+      "at": 1794437823.9780505,
+      "number": 3,
+      "message_count": 6,
+      "p1": true,
+      "p2": true,
+      "stop": true
+    }
+  ],
+  "analysis": {
+    "request_count": 3,
+    "p2_request_numbers": [
+      3
+    ],
+    "stop_request_numbers": [
+      2,
+      3
+    ],
+    "requests_with_both_p2_and_stop": [
+      3
+    ],
+    "p2_resolved_after_stop_block": true,
+    "turn_starts": [
+      {
+        "at": 1794437819734,
+        "turnId": "c33bdf9c-3cc2-4b66-b0a5-0ac5fd37dbff",
+        "text": "The prompt-stop-probe plugin sent a message:\nPROMPT-STOP-P1-28f9d226\n\nThis is how Claude Code surfac"
+      },
+      {
+        "at": 1794437823946,
+        "turnId": "00248349-176f-47d0-b5f8-bb56548eff13",
+        "text": "The prompt-stop-probe plugin sent a message:\nPROMPT-STOP-P2-28f9d226\n\nThis is how Claude Code surfac"
+      }
+    ],
+    "turn_completes": [
+      {
+        "at": 1794437823903,
+        "turnId": "c33bdf9c-3cc2-4b66-b0a5-0ac5fd37dbff",
+        "reason": "answer"
+      },
+      {
+        "at": 1794437824005,
+        "turnId": "00248349-176f-47d0-b5f8-bb56548eff13",
+        "reason": "answer"
+      }
+    ],
+    "stops": [
+      {
+        "at": 1794437823837,
+        "event": "stop.block",
+        "stop_hook_active": false,
+        "p2Resolved": null
+      },
+      {
+        "at": 1794437823896,
+        "event": "stop.pass",
+        "stop_hook_active": true,
+        "p2Resolved": false
+      },
+      {
+        "at": 1794437823999,
+        "event": "stop.pass",
+        "stop_hook_active": false,
+        "p2Resolved": true
+      }
+    ]
+  },
+  "owned_tree": [
+    {
+      "pid": 46920,
+      "ppid": 85088,
+      "name": "claude.exe",
+      "created": "2026-11-11T22:56:57.0233440Z"
+    },
+    {
+      "pid": 72060,
+      "ppid": 46920,
+      "name": "git.exe",
+      "created": "2026-11-11T22:56:57.7066680Z"
+    },
+    {
+      "pid": 624,
+      "ppid": 72060,
+      "name": "conhost.exe",
+      "created": "2026-11-11T22:56:57.7113350Z"
+    }
+  ],
+  "killed": [
+    {
+      "pid": 624,
+      "name": "conhost.exe",
+      "rc": 0
+    },
+    {
+      "pid": 72060,
+      "name": "git.exe",
+      "rc": 128
+    },
+    {
+      "pid": 46920,
+      "name": "claude.exe",
+      "rc": 0
+    }
+  ],
+  "protected_missing_after": [
+    {
+      "pid": 66676,
+      "ppid": 74028,
+      "name": "python.exe",
+      "created": "2026-11-11T22:56:06.7758900Z"
+    },
+    {
+      "pid": 86248,
+      "ppid": 60572,
+      "name": "python.exe",
+      "created": "2026-11-11T22:56:56.7888420Z"
+    },
+    {
+      "pid": 66692,
+      "ppid": 58772,
+      "name": "python.exe",
+      "created": "2026-11-11T22:56:56.8060690Z"
+    }
+  ],
+  "live_before": {
+    "C:\\Users\\djlov\\.claude.json": "693510313ad8c9fcbc74f8c00341a052fc975ac107d2a2f284c9c5a33567ec41",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_after": {
+    "C:\\Users\\djlov\\.claude.json": "693510313ad8c9fcbc74f8c00341a052fc975ac107d2a2f284c9c5a33567ec41",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_hash_changed": [],
+  "owned_path_in_live_files": []
+}

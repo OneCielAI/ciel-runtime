@@ -1,0 +1,222 @@
+{
+  "probe": "f006e2ae",
+  "mode": "append-clean",
+  "run_dir": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-fifo-review-append-clean-f006e2ae-hoq1efmx",
+  "cli": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+  "markers": {
+    "a": "FIFO-REVIEW-A-f006e2ae",
+    "b": "FIFO-REVIEW-B-f006e2ae",
+    "bappend": "FIFO-REVIEW-BAPPEND-f006e2ae",
+    "seed": "FIFO-REVIEW-SEED-f006e2ae",
+    "old": "FIFO-REVIEW-OLD-f006e2ae",
+    "new": "FIFO-REVIEW-NEW-f006e2ae"
+  },
+  "script_sha256": "d2e89a120a4ce80c7742846ab9087e75401e5faf69933ff08076385e3f6a8cf9",
+  "cli_version": "2.1.322 (Claude Code)",
+  "protected_count": 60,
+  "inherited_ciel_after_strip": [],
+  "pid": 74232,
+  "started": true,
+  "settled": true,
+  "analysis": {
+    "append_resolved": [
+      {
+        "gen": "A",
+        "boot": "g1cg9orvey",
+        "at": 1794441735250,
+        "event": "append.resolve",
+        "uuid": "817f98f4-cb11-45cc-a4b9-6ae975887b04",
+        "deny": null,
+        "channel": "fs"
+      }
+    ],
+    "append_before_next_returned": true,
+    "request_count": 1,
+    "request_1_has_a": true,
+    "request_1_has_bappend": false,
+    "bappend_by_request": [
+      {
+        "number": 1,
+        "bappend": 0,
+        "message_count": 2
+      }
+    ],
+    "first_step": {
+      "gen": "A",
+      "boot": "g1cg9orvey",
+      "at": 1794441735278,
+      "event": "turn.step",
+      "turnId": "043c1185-0fc9-4692-a171-2a149b804f0f",
+      "index": 0,
+      "messageCount": 6,
+      "channel": "fs"
+    },
+    "submit_lines": [
+      {
+        "at": 1794441735186.0,
+        "line": "2026-11-12T00:02:15.186Z [DEBUG] $.prompt.submit (fifo-review-probe): \"FIFO-REVIEW-A-f006e2ae\""
+      }
+    ]
+  },
+  "reports": [
+    {
+      "gen": "A",
+      "boot": "g1cg9orvey",
+      "at": 1794441733137,
+      "event": "session.start",
+      "channel": "fs"
+    },
+    {
+      "gen": "A",
+      "boot": "g1cg9orvey",
+      "at": 1794441735184,
+      "event": "a.invoke",
+      "channel": "fs"
+    },
+    {
+      "gen": "A",
+      "boot": "g1cg9orvey",
+      "at": 1794441735215,
+      "event": "turn.start.before-next",
+      "turnId": "043c1185-0fc9-4692-a171-2a149b804f0f",
+      "text": "The fifo-review-probe plugin sent a message:\nFIFO-REVIEW-A-f006e2ae\n\nThis is how Claude Code surfaces a prompt a plugin ",
+      "channel": "fs"
+    },
+    {
+      "gen": "A",
+      "boot": "g1cg9orvey",
+      "at": 1794441735217,
+      "event": "a.resolve",
+      "value": {
+        "text": "FIFO-REVIEW-A-f006e2ae",
+        "origin": {
+          "kind": "plugin",
+          "name": "fifo-review-probe"
+        }
+      },
+      "channel": "fs"
+    },
+    {
+      "gen": "A",
+      "boot": "g1cg9orvey",
+      "at": 1794441735250,
+      "event": "append.resolve",
+      "uuid": "817f98f4-cb11-45cc-a4b9-6ae975887b04",
+      "deny": null,
+      "channel": "fs"
+    },
+    {
+      "gen": "A",
+      "boot": "g1cg9orvey",
+      "at": 1794441735257,
+      "event": "all.settled",
+      "channel": "fs"
+    },
+    {
+      "gen": "A",
+      "boot": "g1cg9orvey",
+      "at": 1794441735264,
+      "event": "turn.start.after-next",
+      "turnId": "043c1185-0fc9-4692-a171-2a149b804f0f",
+      "channel": "fs"
+    },
+    {
+      "gen": "A",
+      "boot": "g1cg9orvey",
+      "at": 1794441735278,
+      "event": "turn.step",
+      "turnId": "043c1185-0fc9-4692-a171-2a149b804f0f",
+      "index": 0,
+      "messageCount": 6,
+      "channel": "fs"
+    },
+    {
+      "gen": "A",
+      "boot": "g1cg9orvey",
+      "at": 1794441737335,
+      "event": "turn.complete",
+      "turnId": "043c1185-0fc9-4692-a171-2a149b804f0f",
+      "reason": "answer",
+      "channel": "fs"
+    }
+  ],
+  "native_reports": 0,
+  "native_status": [],
+  "requests": [
+    {
+      "at": 1794441735.3056715,
+      "number": 1,
+      "message_count": 2,
+      "a": 1,
+      "b": 0,
+      "bappend": 0,
+      "seed": 0,
+      "old": 0,
+      "new": 0
+    }
+  ],
+  "owned_tree": [
+    {
+      "pid": 74232,
+      "ppid": 77696,
+      "name": "claude.exe",
+      "created": "2026-11-12T00:02:12.5687060Z"
+    },
+    {
+      "pid": 84216,
+      "ppid": 74232,
+      "name": "git.exe",
+      "created": "2026-11-12T00:02:13.1797320Z"
+    },
+    {
+      "pid": 86048,
+      "ppid": 84216,
+      "name": "conhost.exe",
+      "created": "2026-11-12T00:02:13.1842600Z"
+    }
+  ],
+  "killed": [
+    {
+      "pid": 86048,
+      "name": "conhost.exe",
+      "rc": 0
+    },
+    {
+      "pid": 84216,
+      "name": "git.exe",
+      "rc": 0
+    },
+    {
+      "pid": 74232,
+      "name": "claude.exe",
+      "rc": 0
+    }
+  ],
+  "protected_missing_after": [],
+  "live_before": {
+    "C:\\Users\\djlov\\.claude.json": "c0ffb3ff4c5656e2ed46ebdb9a8a5537c88f85ea3a9a612f703d0acd9748b13c",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_after": {
+    "C:\\Users\\djlov\\.claude.json": "c0ffb3ff4c5656e2ed46ebdb9a8a5537c88f85ea3a9a612f703d0acd9748b13c",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_hash_changed": [],
+  "owned_path_in_live_files": []
+}

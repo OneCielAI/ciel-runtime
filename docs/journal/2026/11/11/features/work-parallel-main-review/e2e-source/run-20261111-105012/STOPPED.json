@@ -1,0 +1,84 @@
+{
+  "written_at": "2026-11-11T17:12:00Z",
+  "status": "stopped; not a passing run; superseded because the frozen tree is no longer final (team lead: confirmed defect in frozen side-intake.js)",
+  "stop_order": "team lead ordered stop at ~17:05Z. The runner had already exited at 16:52:09Z, so it was not killed. Root 79048 no longer existed (taskkill: process not found).",
+  "result": {
+    "file": "result.json",
+    "outcome": "error",
+    "error": "RuntimeError('owned console did not start')",
+    "raised_at_utc": "16:52:07.8Z (99-error-state.json at=1794415927.814)",
+    "acceptance": null
+  },
+  "timeline_utc": {
+    "runner_start": "16:50:20.0Z (probe-process-tree-initial.json)",
+    "first_console_ready": "16:50:48Z (first-process-tree-ready.json, 23 owned processes)",
+    "n2_review_row_published": "16:51:10.89Z (wake.updated_at)",
+    "checkpoint_a_gate_hit": "16:51:15.36Z: review_wake operation=prepare, lease 21318a9db30b43ef9d0b686f15e9eefe, held and never forwarded (response-gate.jsonl)",
+    "checkpoint_a_durable_snapshot": "16:51:18.42Z (03-completion-before-review.json)",
+    "checkpoint_a_owned_kill": "16:51:19.78Z (taskkill /T of the owned first conhost tree; proc_exited=true)",
+    "second_launch": "16:51:22.7Z (owned conhost 78844 was created at 16:51:22.688Z)",
+    "single_wake_delivered_to_resumed_main": "16:51:42.522Z: plugin message 'Ciel Work result is awaiting main review' (origin kind=plugin) in the owned transcript",
+    "main_first_item_review_call": "16:51:54.847Z approve, refused: 'Work finalization changed; reread'",
+    "main_second_item_review_call": "16:52:05.064Z approve, committed (decision_id review-n2-21318a9d-approve-1)",
+    "approve_saga_blocked": "16:52:06.13Z: stage_failed 'run is not terminal'",
+    "runner_error": "16:52:07.8Z: owned console did not start",
+    "orphan_owned_tree_killed_by_agent": "17:05:05.96Z (stop-orphan-owned-tree.json)"
+  },
+  "checkpoint_a_exact_durable_state": {
+    "source": "03-completion-before-review.json and result.json checkpoint_a",
+    "review_lease": "21318a9db30b43ef9d0b686f15e9eefe",
+    "item": "n2 Passing implementation",
+    "review_state": "pending",
+    "decision": null,
+    "wake_at_kill": {"state": "pending", "attempts": 0, "attempt_id": null},
+    "stages": {"accepted": false, "workspace": false, "board": false, "lease": false, "archive": false},
+    "ledger": {"n2 lease 21318a9d": "worker submitted slot=false bound", "n4 lease 9b9c5c43": "worker submitted slot=false bound"},
+    "coordination_runs": {"n2": "active", "n4": "terminal"},
+    "board": "all four nodes pending",
+    "web_captures_checked": "03-awaiting-main-review-desktop.png (1440) and -mobile.png (390): Main review (1), n2 'Awaiting main review', bounded receipt (test_pass.py: PASS, n2 verified), Approve/Rework controls. Both frames were viewed and are valid."
+  },
+  "last_durable_state_overall": {
+    "source": "preserved config ciel-owned-main-review-k0ilobzo/config; finalization v9 last written 16:52:06Z, ledger 16:52:06Z, coordination 16:51:14Z, native 16:51:59Z. The orphaned owned session ran until 17:05:05Z and made no durable change after 16:52:06Z.",
+    "n2_review": {"state": "deciding", "decision": "approve", "wake": {"state": "acknowledged", "attempts": 1}, "stages": {"accepted": true, "workspace": true, "board": true, "lease": true, "archive": false}, "blocked": {"code": "stage_failed", "message": "run is not terminal", "at": "16:52:06.13Z"}},
+    "n2_board": "done; main's evidence: independently inspected the worktree and re-ran python -m unittest -v test_pass.py (OK)",
+    "n4": "lease submitted; coordination run terminal with a completion receipt; no review row was ever published, so main never reviewed it and no rework happened",
+    "coordination_n2_run": "state active, native_status idle, exit.kind=completion with receipt efa03f39..., state_changed_at 16:51:14.15Z (before the checkpoint A gate hit at 16:51:15.36Z)",
+    "not_reached": "rework decision, checkpoint B, rework fork, second review, finalized"
+  },
+  "observed_unexplained_product_state_not_root_caused": "With both workers holding completion receipts and native idle in the same observation, n2's coordination run stayed 'active' while n4's became 'terminal'. Later the n2 approve saga blocked at its archive stage with 'run is not terminal'. n4 never got a review row in about 14 minutes. The n2 'active' write (16:51:14.15Z) came before this harness held any request (16:51:15.36Z). The cause is not investigated. It may be product behavior or an interaction with the checkpoint A kill; it is not proven either way.",
+  "why_resumed_console_did_not_start": {
+    "fact": "console_for() polls PowerShell Get-CimInstance for a cmd.exe child of the launched conhost. It got nothing for 45 s, then raised. The owned conhost 78844 (created 16:51:22.688Z) and its cmd.exe 14580 (16:51:22.698Z) did exist; an independent query at 17:04Z showed them with those creation times.",
+    "fact_2": "From 16:51:19.78Z on (the owned kill of the first console), every PowerShell query the runner made returned no rows: second-process-tree-launch.json n=0 at 16:51:22.7Z; probe-process-tree-final.json n=0 at 16:52:09.9Z, even though that query targeted the runner's own live PID 24612; live_rows() returned []; kill_owned_commands() and kill_owned_router() returned [] although owned router 75676 was listening on 9931. The same queries had worked until 16:51:19.78Z (03-...-process-tree-before-kill.json n=19).",
+    "hypothesis_unverified": "The runner attaches to the owned console (console_driver.Console: FreeConsole + AttachConsole). Killing that console probably left the runner on a destroyed console, so its later powershell.exe children produced no output. Their return codes and stderr were not recorded, so this is not proven. Verification: record returncode/stderr of each subprocess, and FreeConsole before killing the attached console.",
+    "consequence": "The runner's final cleanup found no owned PIDs. The resumed owned tree (19 processes, root 78844) stayed alive until the agent killed it at 17:05:05Z."
+  },
+  "protected_processes": {
+    "result_json_value": "protected_pids_unchanged=false",
+    "explanation": "false is a measurement failure, not a process change. live_after is an empty list because the runner's PowerShell query returned no rows (see why_resumed_console_did_not_start.fact_2). Comparing 18 before-rows with 0 after-rows makes every PID differ.",
+    "independent_check": "At 17:0xZ all 18 protected PIDs (23728, 39984, 21912, 42764, 42924, 36344, 40616, 45652, 45428, 46232, 46508, 2272, 9764, 12240, 48104, 9008, 44500, 20744) were present. Each matched the runner's live_before row exactly on pid, parent pid, name and raw CreationDateUtc string: 18/18. Live launcher descendants (90, including 7 node.exe) are recorded in live-launcher-descendants-after.json. No before-snapshot of node.exe descendants exists for this run, so only the 18 listed PIDs are proven unchanged."
+  },
+  "live_profile": {
+    "baseline": "sha256 of ~/.claude/settings.json, ~/AppData/Local/ciel-runtime/bin/*, ~/.claude/commands/* (49 files), taken at about 16:53Z, after this run's owned assets were written to temp. The baseline was taken mid-run, not before launch.",
+    "after": "sha256sum -c at about 17:10Z: all 49 OK",
+    "mtimes": "settings.json and bin/ciel-runtime-statusline.py 10:49:17.69 local (team lead restore), unchanged",
+    "claude_json": "~/.claude.json mtime 11:03:59 local; it contains 0 entries matching ciel-owned-main-review",
+    "owned_paths_in_live_files": "none (grep for owned-main-review in settings.json, bin/*, commands/*: no match)",
+    "owned_assets_location": "owned settings.json, hooks and statusline are under ciel-owned-main-review-k0ilobzo/config/.claude and config/ciel-runtime-statusline.py (CIEL_RUNTIME_TEST_ISOLATED=1, CLAUDE_CONFIG_DIR=config/.claude)"
+  },
+  "owned_orphan_cleanup": {
+    "file": "stop-orphan-owned-tree.json",
+    "killed": "root 78844 (owned conhost for second.cmd): 19 processes including py/python launcher, owned router 75676 on 127.0.0.1:9931, claude.exe 79676, uvx/mcp-server-fetch and node.exe children. Verified first that no protected PID was in the tree.",
+    "left_after": 0,
+    "port_9931_listeners_after": "none"
+  },
+  "env_isolation": {
+    "unexpected_inherited_prefix_names_after_strip": [],
+    "owned_prefix_values_are_owned": true
+  },
+  "preserved": {
+    "config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-k0ilobzo\\config",
+    "workspace": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-k0ilobzo\\workspace",
+    "claude_config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-k0ilobzo\\config\\.claude",
+    "debug_logs": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-20261111-105012\\{first,second}-claude-debug.txt"
+  }
+}

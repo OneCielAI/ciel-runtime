@@ -1,0 +1,248 @@
+{
+ "minimum_length": 24,
+ "allowed_fields": [
+  "review.reply",
+  "review.summary",
+  "wake.summary",
+  "wake.time_limit.evidence",
+  "wake.time_limit.text"
+ ],
+ "field_bounds": {
+  "wake.summary": 1000,
+  "wake.time_limit.text": 1000,
+  "wake.time_limit.evidence": 2000,
+  "review.summary": 300,
+  "review.reply": 1200
+ },
+ "source_ids": [
+  "1000",
+  "1001",
+  "1002",
+  "1003",
+  "1004",
+  "event:44c0fc73753c:text",
+  "event:655f8ece287d:text",
+  "event:88ba5d0350c6:text"
+ ],
+ "forbidden_payload_ids": [
+  "event:88ba5d0350c6:raw",
+  "event:88ba5d0350c6:data",
+  "event:655f8ece287d:raw",
+  "event:655f8ece287d:data",
+  "event:44c0fc73753c:raw",
+  "event:44c0fc73753c:data"
+ ],
+ "injected": [
+  {
+   "row": 62,
+   "kind": "wake",
+   "parse_error": null,
+   "fields": {
+    "minimum_length": 24,
+    "allowed_fields": [
+     "review.reply",
+     "review.summary",
+     "wake.summary",
+     "wake.time_limit.evidence",
+     "wake.time_limit.text"
+    ],
+    "field_bounds": {
+     "wake.summary": 1000,
+     "wake.time_limit.text": 1000,
+     "wake.time_limit.evidence": 2000,
+     "review.summary": 300,
+     "review.reply": 1200
+    },
+    "matches": [
+     {
+      "source_message_id": "event:655f8ece287d:text",
+      "source_offset": 34,
+      "destination_field": "wake.summary",
+      "destination_offset": 1,
+      "length": 25,
+      "sha256": "8e1eaceb74f353fa3914368e11a1801ddada1b90cfe7ef3aab6781951ff0074a",
+      "allowed": true
+     }
+    ],
+    "disallowed_matches": [],
+    "whole_source_messages": [],
+    "raw_event_fields": [],
+    "bounds_exceeded": [],
+    "passed": true
+   },
+   "block_whole_messages": [],
+   "block_raw_event": [],
+   "passed": true
+  },
+  {
+   "row": 71,
+   "kind": "review",
+   "parse_error": null,
+   "fields": {
+    "minimum_length": 24,
+    "allowed_fields": [
+     "review.reply",
+     "review.summary",
+     "wake.summary",
+     "wake.time_limit.evidence",
+     "wake.time_limit.text"
+    ],
+    "field_bounds": {
+     "wake.summary": 1000,
+     "wake.time_limit.text": 1000,
+     "wake.time_limit.evidence": 2000,
+     "review.summary": 300,
+     "review.reply": 1200
+    },
+    "matches": [
+     {
+      "source_message_id": "event:655f8ece287d:text",
+      "source_offset": 34,
+      "destination_field": "review.summary",
+      "destination_offset": 1,
+      "length": 25,
+      "sha256": "8e1eaceb74f353fa3914368e11a1801ddada1b90cfe7ef3aab6781951ff0074a",
+      "allowed": true
+     }
+    ],
+    "disallowed_matches": [],
+    "whole_source_messages": [],
+    "raw_event_fields": [],
+    "bounds_exceeded": [],
+    "passed": true
+   },
+   "block_whole_messages": [],
+   "block_raw_event": [],
+   "passed": true
+  }
+ ],
+ "non_side_host_rows": [],
+ "request_context": [
+  {
+   "row": 63,
+   "block": 0,
+   "origin": "attachment:UserPromptSubmit",
+   "views": {
+    "wake_views": 1,
+    "review_views": 1
+   },
+   "parse_error": null,
+   "fields": {
+    "minimum_length": 24,
+    "allowed_fields": [
+     "review.reply",
+     "review.summary",
+     "wake.summary",
+     "wake.time_limit.evidence",
+     "wake.time_limit.text"
+    ],
+    "field_bounds": {
+     "wake.summary": 1000,
+     "wake.time_limit.text": 1000,
+     "wake.time_limit.evidence": 2000,
+     "review.summary": 300,
+     "review.reply": 1200
+    },
+    "matches": [
+     {
+      "source_message_id": "event:655f8ece287d:text",
+      "source_offset": 34,
+      "destination_field": "wake.summary",
+      "destination_offset": 1,
+      "length": 25,
+      "sha256": "8e1eaceb74f353fa3914368e11a1801ddada1b90cfe7ef3aab6781951ff0074a",
+      "allowed": true
+     },
+     {
+      "source_message_id": "event:655f8ece287d:text",
+      "source_offset": 34,
+      "destination_field": "review.summary",
+      "destination_offset": 1,
+      "length": 25,
+      "sha256": "8e1eaceb74f353fa3914368e11a1801ddada1b90cfe7ef3aab6781951ff0074a",
+      "allowed": true
+     }
+    ],
+    "disallowed_matches": [],
+    "whole_source_messages": [],
+    "raw_event_fields": [],
+    "bounds_exceeded": [],
+    "passed": true
+   },
+   "block_whole_messages": [],
+   "block_raw_event": [],
+   "passed": true
+  },
+  {
+   "row": 64,
+   "block": 0,
+   "origin": "request:user",
+   "views": {
+    "wake_views": 1,
+    "review_views": 1
+   },
+   "parse_error": null,
+   "fields": {
+    "minimum_length": 24,
+    "allowed_fields": [
+     "review.reply",
+     "review.summary",
+     "wake.summary",
+     "wake.time_limit.evidence",
+     "wake.time_limit.text"
+    ],
+    "field_bounds": {
+     "wake.summary": 1000,
+     "wake.time_limit.text": 1000,
+     "wake.time_limit.evidence": 2000,
+     "review.summary": 300,
+     "review.reply": 1200
+    },
+    "matches": [
+     {
+      "source_message_id": "event:655f8ece287d:text",
+      "source_offset": 34,
+      "destination_field": "wake.summary",
+      "destination_offset": 1,
+      "length": 25,
+      "sha256": "8e1eaceb74f353fa3914368e11a1801ddada1b90cfe7ef3aab6781951ff0074a",
+      "allowed": true
+     },
+     {
+      "source_message_id": "event:655f8ece287d:text",
+      "source_offset": 34,
+      "destination_field": "review.summary",
+      "destination_offset": 1,
+      "length": 25,
+      "sha256": "8e1eaceb74f353fa3914368e11a1801ddada1b90cfe7ef3aab6781951ff0074a",
+      "allowed": true
+     }
+    ],
+    "disallowed_matches": [],
+    "whole_source_messages": [],
+    "raw_event_fields": [],
+    "bounds_exceeded": [],
+    "passed": true
+   },
+   "block_whole_messages": [],
+   "block_raw_event": [],
+   "passed": true
+  }
+ ],
+ "failures": [],
+ "passed": true,
+ "observations": {
+  "main_own_source_reads": [],
+  "main_tool_results_with_source_text": [
+   {
+    "row": 68,
+    "tool": "mcp__ciel-runtime-router__work_side_handoff",
+    "matches": 1,
+    "whole_source_messages": []
+   }
+  ],
+  "main_assistant_rows_with_source_text": [],
+  "attachment_rows_with_source_text": []
+ },
+ "inventory_sha256": "33b0d0bb66eb8087787f65ef91c795968ad579e2374c398959f15390dbbc6c94"
+}

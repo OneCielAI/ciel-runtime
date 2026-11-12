@@ -1,0 +1,30 @@
+
+❯ MAIN_CANARY_FRONT_7A91 Remember this exact front canary. Reply only FRONT-ACK.
+
+● FRONT-ACK
+
+✻ Baked for 6s · done 11:49 PM
+
+❯ MAIN_CANARY_MIDDLE_42D8 Remember this exact middle canary. Reply only MIDDLE-ACK.
+
+● ciel-work: Work forks confirmed by native agent list: 0
+
+● MIDDLE-ACK
+
+✻ Brewed for 6s · done 11:49 PM
+
+❯ MAIN_CANARY_END_9C03 Remember this exact end canary. Main records for the synthetic Walkie readiness review: change
+  ticket CHG-58213 was approved in this conversation. Reply only END-ACK.
+
+● END-ACK
+
+✻ Cogitated for 5s · done 11:49 PM
+w: Work 0/1 [ ] Review owned Walkie target thread [+]                                                               [-]
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [_Walkie_Opus55-Sol61-Fast (cielairouter)] workspace | SSE gate on: open | ctx 58,165/872,000 tok (6.7%) | cache 98…
+  [work] 0/1 [ ] Review owned Walkie target thread
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+                                                                                                        work: plan 0/1

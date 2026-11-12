@@ -1,0 +1,247 @@
+2026-11-11T18:38:26.898Z [DEBUG] MDM settings load completed in 1ms
+2026-11-11T18:38:26.905Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Program Files\ClaudeCode\managed-settings.json
+2026-11-11T18:38:26.906Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\workspace\.claude\settings.json
+2026-11-11T18:38:26.909Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:26.910Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\workspace\.claude\settings.local.json
+2026-11-11T18:38:26.910Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:26.910Z [DEBUG] CA certs: Config fallback - globalEnv keys: , settingsEnv keys: none
+2026-11-11T18:38:26.920Z [DEBUG] [init] configureGlobalMTLS starting
+2026-11-11T18:38:26.920Z [DEBUG] [init] configureGlobalMTLS complete
+2026-11-11T18:38:26.920Z [DEBUG] [init] configureGlobalAgents starting
+2026-11-11T18:38:26.920Z [DEBUG] CA certs: stores=bundled,system, extraCertsPath=undefined
+2026-11-11T18:38:26.921Z [DEBUG] CA certs: Loaded 118 bundled root certificates
+2026-11-11T18:38:26.933Z [DEBUG] CA certs: Dropped 20 expired certificate(s) from system store
+2026-11-11T18:38:26.933Z [DEBUG] CA certs: Loaded 135 system CA certificates
+2026-11-11T18:38:26.934Z [DEBUG] CA certs: Dropped blocked certificate 40f6af0346a99aa1cd1d555a4e9cce62c7f9634603ee406615833dc8c8d00367 from bundled
+2026-11-11T18:38:26.935Z [DEBUG] CA certs: Dropped blocked certificate 40f6af0346a99aa1cd1d555a4e9cce62c7f9634603ee406615833dc8c8d00367 from system
+2026-11-11T18:38:26.935Z [DEBUG] CA certs: Dropped blocked certificate 40f6af0346a99aa1cd1d555a4e9cce62c7f9634603ee406615833dc8c8d00367 from system
+2026-11-11T18:38:26.945Z [ERROR] CA certs: Dropped the certificate with SHA-256 fingerprint E7:68:56:34:EF:AC:F6:9A:CE:93:9A:6B:25:5B:7B:4F:AB:EF:42:93:5B:50:A2:65:AC:B5:CB:60:27:E4:4E:70 and subject "C=US\nO=VeriSign\\, Inc.\nOU=Class 3 Public Primary Certification Authority": it names itself as its issuer, but its own key did not sign it, or signed it in a form that Claude Code cannot check, and no CA that chains to a root in the CA list signed it. If another root certificate of the same CA signed it, this one stays once this list holds that root certificate too. Only the lists for Claude Code's own connections take certificates from the NODE_EXTRA_CA_CERTS file. If you add that root and connections still fail, take it out again: while this list holds it, the variable below changes nothing. CLAUDE_CODE_DISABLE_SELF_NAMED_CERT_DROP=1 keeps every such certificate, whoever signed it, and can break connections that work without it.
+2026-11-11T18:38:26.945Z [ERROR] CA certs: Dropped the certificate with SHA-256 fingerprint 8B:13:DB:B2:5E:B3:39:A6:30:C7:6C:81:0D:14:B4:4B:55:2E:68:DC:10:A9:3E:82:E7:54:DA:23:F8:58:77:4A and subject "CN=Root Agency": it names itself as its issuer, but whether its own key signed it could not be checked (Error: error:0b00007d:X.509 certificate routines:OPENSSL_internal:PUBLIC_KEY_DECODE_ERROR), most likely because the runtime cannot read that key, and then TLS can verify nothing under it either, and no CA that chains to a root in the CA list signed it. If another root certificate of the same CA signed it, this one stays once this list holds that root certificate too. Only the lists for Claude Code's own connections take certificates from the NODE_EXTRA_CA_CERTS file. If you add that root and connections still fail, take it out again: while this list holds it, the variable below changes nothing. CLAUDE_CODE_DISABLE_SELF_NAMED_CERT_DROP=1 keeps every such certificate, whoever signed it, and can break connections that work without it.
+2026-11-11T18:38:26.945Z [DEBUG] CA certs: Dropped 3 certificate(s) that do not chain to a root in the CA list
+2026-11-11T18:38:26.946Z [DEBUG] mTLS: Creating HTTPS agent with custom certificates
+2026-11-11T18:38:26.947Z [DEBUG] [init] configureGlobalAgents complete
+2026-11-11T18:38:26.948Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:26.948Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:26.949Z [DEBUG] Using bash path: "C:\Program Files\Git\bin\bash.exe"
+2026-11-11T18:38:26.949Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:26.952Z [DEBUG] Error log sink initialized
+2026-11-11T18:38:26.953Z [DEBUG] clearPluginCache: invalidating loadAllPlugins cache (preAction: --plugin-dir inline plugins)
+2026-11-11T18:38:26.968Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:26.972Z [DEBUG] [Claude in Chrome] Disabled: OAuth token has no scope accepted by /api/oauth/validate (needs user:profile, user:office, or user:ccr_inference; env-var and setup-token sessions default to user:inference only)
+2026-11-11T18:38:26.974Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.007Z [DEBUG] [ToolSearch:optimistic] mode=standard, ENABLE_TOOL_SEARCH=false, result=false
+2026-11-11T18:38:27.008Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.008Z [DEBUG] [STARTUP] Loading MCP configs...
+2026-11-11T18:38:27.009Z [DEBUG] [STARTUP] Running setup()...
+2026-11-11T18:38:27.024Z [DEBUG] Loading skills from: managed=C:\Program Files\ClaudeCode\.claude\skills, user=C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\skills, project=[]
+2026-11-11T18:38:27.025Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\agents: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\agents'
+2026-11-11T18:38:27.025Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\agents: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\agents'
+2026-11-11T18:38:27.025Z [DEBUG] installed_plugins.json doesn't exist, returning empty V2 object
+2026-11-11T18:38:27.025Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\commands: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\commands'
+2026-11-11T18:38:27.025Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\commands: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\commands'
+2026-11-11T18:38:27.026Z [DEBUG] Loaded 0 unique skills (0 unconditional, 0 conditional, managed: 0, user: 0, project: 0, additional: 0, legacy commands: 0)
+2026-11-11T18:38:27.032Z [DEBUG] --plugin-dir C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\plugin is one plugin: .claude-plugin at its top marks it
+2026-11-11T18:38:27.033Z [INFO] [uds-messaging] Listening: \\.\pipe\LOCAL\cc-msg-1f0ad26654fdc81eb3f2527eae7494df
+2026-11-11T18:38:27.035Z [DEBUG] [uds-messaging] Inject messages (auth line REQUIRED here; a pipe is not reachable via socat/AF_UNIX): node -e "const c=require('net').connect(process.argv[1],()=>{c.write(JSON.stringify({type:'auth',token:[REDACTED]})+'\n'+JSON.stringify({type:'user',message:{role:'user',content:'hello'}})+'\n');c.end()})" "\\.\pipe\LOCAL\cc-msg-1f0ad26654fdc81eb3f2527eae7494df"
+2026-11-11T18:38:27.035Z [DEBUG] [uds-messaging] Connect when the data is ready (run the command first, then connect and write its output as ONE line, as in the node recipe above): a connection that sends no complete line within 30000 ms is closed
+2026-11-11T18:38:27.036Z [DEBUG] Error log sink initialized
+2026-11-11T18:38:27.038Z [DEBUG] [STARTUP] setup() completed in 29ms
+2026-11-11T18:38:27.038Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.039Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.039Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.039Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.039Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.039Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.039Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.039Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.039Z [DEBUG] [STARTUP] Loading commands and agents...
+2026-11-11T18:38:27.041Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.041Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.046Z [DEBUG] Read hooks.json for plugin nonce-probe (enabled=true): C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\plugin\hooks\hooks.json
+2026-11-11T18:38:27.047Z [DEBUG] Loaded inline plugin from path: nonce-probe
+2026-11-11T18:38:27.047Z [DEBUG] Loaded 1 directory-loaded plugins
+2026-11-11T18:38:27.048Z [DEBUG] Found 5 plugins (5 enabled, 0 disabled)
+2026-11-11T18:38:27.049Z [DEBUG] getPluginSkills: Processing 5 enabled plugins
+2026-11-11T18:38:27.049Z [DEBUG] Checking plugin nonce-probe: skillsPath=none, skillsPaths=0 paths
+2026-11-11T18:38:27.049Z [DEBUG] Checking plugin cc-plugin-agents-md: skillsPath=none, skillsPaths=0 paths
+2026-11-11T18:38:27.049Z [DEBUG] Checking plugin cc-plugin-privacy: skillsPath=none, skillsPaths=0 paths
+2026-11-11T18:38:27.049Z [DEBUG] Checking plugin cc-plugin-plugin-authoring: skillsPath=none, skillsPaths=0 paths
+2026-11-11T18:38:27.049Z [DEBUG] Checking plugin cc-plugin-diff: skillsPath=none, skillsPaths=0 paths
+2026-11-11T18:38:27.049Z [DEBUG] Total plugin workflows loaded: 0
+2026-11-11T18:38:27.049Z [DEBUG] Total plugin commands loaded: 0
+2026-11-11T18:38:27.049Z [DEBUG] Total plugin skills loaded: 0 (0 duplicate/user-owned entries skipped)
+2026-11-11T18:38:27.049Z [DEBUG] Total plugin agents loaded: 0
+2026-11-11T18:38:27.050Z [DEBUG] cc-plugin-sec-default@builtin not seated: no managed settings and not a Team or Enterprise organization (none)
+2026-11-11T18:38:27.052Z [DEBUG] getSkills returning: 0 skill dir commands, 0 plugin skills, 30 bundled skills, 1 builtin plugin skills
+2026-11-11T18:38:27.054Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.054Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.057Z [DEBUG] [STARTUP] Commands and agents loaded in 18ms
+2026-11-11T18:38:27.058Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.060Z [WARN] [autocompact] "fixture" isn't described by this version's model catalog; update Claude Code, or map it with behavesAs on a modelPicker row (or modelOverrides, if it is a provider id of a model this version knows). Until then auto-compact keeps this session within 200k tokens (the context window it assumes); if the model accepts more, append [1m] to the model name for 1M, or set CLAUDE_CODE_MAX_CONTEXT_TOKENS to its real window; CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1 restores the previous wait-for-the-API behavior.
+2026-11-11T18:38:27.061Z [DEBUG] fullscreen disabled: a previous fullscreen launch on this machine died before it was healthy (strike) · /tui fullscreen or CLAUDE_CODE_NO_FLICKER=1 to override
+2026-11-11T18:38:27.062Z [DEBUG] [STARTUP] Running showSetupScreens()...
+2026-11-11T18:38:27.063Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.066Z [ERROR] MCP config errors for C:\Users\djlov\.mcp.json: ["Missing \"mcpServers\" — found \"servers\" instead. Claude Code reads MCP servers from the \"mcpServers\" key."]
+2026-11-11T18:38:27.066Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.066Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.070Z [DEBUG] Git remote URL: null
+2026-11-11T18:38:27.070Z [DEBUG] No git remote URL found
+2026-11-11T18:38:27.076Z [DEBUG] Cleared mTLS configuration cache
+2026-11-11T18:38:27.076Z [DEBUG] Cleared proxy agent cache
+2026-11-11T18:38:27.076Z [DEBUG] [STARTUP] showSetupScreens() completed in 14ms
+2026-11-11T18:38:27.077Z [DEBUG] [LSP MANAGER] initializeLspServerManager() called
+2026-11-11T18:38:27.077Z [DEBUG] [LSP MANAGER] Created manager instance, state=pending
+2026-11-11T18:38:27.077Z [DEBUG] [LSP MANAGER] Starting async initialization (generation 1)
+2026-11-11T18:38:27.077Z [DEBUG] Starting background startup prefetches
+2026-11-11T18:38:27.078Z [DEBUG] [Bootstrap] Skipped: Nonessential traffic disabled
+2026-11-11T18:38:27.078Z [DEBUG] [STARTUP] MCP configs resolved in 1ms (awaited at +70ms)
+2026-11-11T18:38:27.078Z [DEBUG] Artifacts MCP server not added: managed_or_strict_mcp_config (strict_mcp_config)
+2026-11-11T18:38:27.079Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.083Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.084Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-11T18:38:27.084Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.084Z [DEBUG] Initialized versioned plugins system with 0 plugins
+2026-11-11T18:38:27.085Z [DEBUG] LSP Diagnostics: Resetting all state (0 pending, 0 files tracked)
+2026-11-11T18:38:27.086Z [DEBUG] Total LSP servers loaded: 0
+2026-11-11T18:38:27.086Z [DEBUG] [LSP SERVER MANAGER] getAllLspServers returned 0 server(s)
+2026-11-11T18:38:27.086Z [DEBUG] LSP manager initialized with 0 servers
+2026-11-11T18:38:27.086Z [DEBUG] LSP server manager initialized successfully
+2026-11-11T18:38:27.086Z [DEBUG] LSP notification handlers registered successfully for all 0 server(s)
+2026-11-11T18:38:27.090Z [DEBUG] [Perfetto] initializePerfettoTracing called, env value: undefined
+2026-11-11T18:38:27.090Z [DEBUG] [3P telemetry] isTelemetryEnabled=false (CLAUDE_CODE_ENABLE_TELEMETRY=undefined)
+2026-11-11T18:38:27.091Z [DEBUG] getPluginSkills: Processing 5 enabled plugins
+2026-11-11T18:38:27.091Z [DEBUG] Checking plugin nonce-probe: skillsPath=none, skillsPaths=0 paths
+2026-11-11T18:38:27.091Z [DEBUG] Checking plugin cc-plugin-agents-md: skillsPath=none, skillsPaths=0 paths
+2026-11-11T18:38:27.091Z [DEBUG] Checking plugin cc-plugin-privacy: skillsPath=none, skillsPaths=0 paths
+2026-11-11T18:38:27.091Z [DEBUG] Checking plugin cc-plugin-plugin-authoring: skillsPath=none, skillsPaths=0 paths
+2026-11-11T18:38:27.091Z [DEBUG] Checking plugin cc-plugin-diff: skillsPath=none, skillsPaths=0 paths
+2026-11-11T18:38:27.091Z [DEBUG] Total plugin workflows loaded: 0
+2026-11-11T18:38:27.092Z [DEBUG] Total plugin commands loaded: 0
+2026-11-11T18:38:27.102Z [DEBUG] [sessionRegistry] sweep permitted (domain win32:sama)
+2026-11-11T18:38:27.102Z [DEBUG] Loading skills from: managed=C:\Program Files\ClaudeCode\.claude\skills, user=C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\skills, project=[]
+2026-11-11T18:38:27.102Z [DEBUG] Total plugin skills loaded: 0 (0 duplicate/user-owned entries skipped)
+2026-11-11T18:38:27.103Z [DEBUG] plugin cc-plugin-agents-md: no pluginConfigs["agents-md@builtin" or "cc-plugin-agents-md@builtin"].options in user, --settings or managed settings (project settings are not read); every option is its default
+2026-11-11T18:38:27.104Z [DEBUG] hooks worker spawned (one for every plugin)
+2026-11-11T18:38:27.105Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.105Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T18:38:27.105Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\.claude.json.tmp.31392.40228929bdb1
+2026-11-11T18:38:27.105Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\commands: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\commands'
+2026-11-11T18:38:27.107Z [DEBUG] FileHistory: No need to copy file history for resuming with same session id: d8ee6390-9b39-42a4-a4db-9b5b7154e760
+2026-11-11T18:38:27.107Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\commands: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\commands'
+2026-11-11T18:38:27.107Z [DEBUG] Loaded 0 unique skills (0 unconditional, 0 conditional, managed: 0, user: 0, project: 0, additional: 0, legacy commands: 0)
+2026-11-11T18:38:27.108Z [DEBUG] getSkills returning: 0 skill dir commands, 0 plugin skills, 30 bundled skills, 1 builtin plugin skills
+2026-11-11T18:38:27.109Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.109Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.111Z [DEBUG] [3P telemetry] Event dropped (no event logger initialized): plugin_loaded
+2026-11-11T18:38:27.117Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.118Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.148Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.149Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.159Z [DEBUG] [keybindings] KeybindingSetup initialized with 227 bindings, 0 warnings
+2026-11-11T18:38:27.171Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-11T18:38:27.183Z [DEBUG] [engine] send set_max_thinking_tokens max=null
+2026-11-11T18:38:27.183Z [DEBUG] [engine] send set_model model=fixture
+2026-11-11T18:38:27.186Z [DEBUG] prompt.edit: unhooked; the composer relays nothing
+2026-11-11T18:38:27.191Z [DEBUG] performStartupChecks called
+2026-11-11T18:38:27.194Z [DEBUG] [jobStateNameSync] watch skipped: Error: ENOENT: no such file or directory, watch 'C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\jobs\d8ee6390'
+2026-11-11T18:38:27.195Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.200Z [DEBUG] [REPL:mount] REPL mounted, disabled=false
+2026-11-11T18:38:27.200Z [DEBUG] Official marketplace auto-install skipped: already_installed
+2026-11-11T18:38:27.201Z [ERROR] MCP config errors for C:\Users\djlov\.mcp.json: ["Missing \"mcpServers\" — found \"servers\" instead. Claude Code reads MCP servers from the \"mcpServers\" key."]
+2026-11-11T18:38:27.201Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.201Z [INFO] 1 setup issue: settings (run `claude doctor` for details)
+2026-11-11T18:38:27.202Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.202Z [DEBUG] [Claude in Chrome] Disabled: OAuth token has no scope accepted by /api/oauth/validate (needs user:profile, user:office, or user:ccr_inference; env-var and setup-token sessions default to user:inference only)
+2026-11-11T18:38:27.205Z [DEBUG] [ScheduledTasks] scheduler start() — enabled=false, hasTasks=false
+2026-11-11T18:38:27.207Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\workspace\.claude\settings.json
+2026-11-11T18:38:27.207Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.207Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.207Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\workspace\.claude\settings.local.json
+2026-11-11T18:38:27.207Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Program Files\ClaudeCode\managed-settings.json
+2026-11-11T18:38:27.218Z [DEBUG] [servedCatalog] off (essential_traffic)
+2026-11-11T18:38:27.252Z [DEBUG] Starting background plugin installations
+2026-11-11T18:38:27.253Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.253Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.254Z [DEBUG] [auto-mode] verifyAutoModeGateAccess: enabledState=enabled disabledBySettings=false model=fixture modelSupported=true disableFastModeBreakerFires=false carouselAvailable=true canEnterAuto=true
+2026-11-11T18:38:27.254Z [DEBUG] performBackgroundPluginInstallations called
+2026-11-11T18:38:27.280Z [DEBUG] Applied original permissions to temp file
+2026-11-11T18:38:27.281Z [DEBUG] hooks module nonce-probe@inline loaded (worker, environment 1, tier user); events: session.start,classic.SessionStart,turn.complete
+2026-11-11T18:38:27.281Z [DEBUG] hooks native host made (for the plugins the binary carries)
+2026-11-11T18:38:27.282Z [DEBUG] hooks module cc-plugin-agents-md@builtin loaded (native, environment 2, tier builtin); events: session.start,prompt.context,command.run,session.compact,prompt.submit,turn.start,turn.complete,agent.spawn,tool.call,prompt.mention
+2026-11-11T18:38:27.282Z [DEBUG] hooks module cc-plugin-plugin-authoring@builtin loaded (native, environment 3, tier builtin); events: skill.prompt,tool.check,tool.call
+2026-11-11T18:38:27.283Z [DEBUG] hooks module cc-plugin-diff@builtin loaded (native, environment 4, tier builtin); events: session.start,ui.render,command.run,ui.close,ui.focus,ui.scroll,tool.call,prompt.submit
+2026-11-11T18:38:27.283Z [DEBUG] hooks module cc-plugin-privacy@builtin loaded (native, environment 5, tier builtin); events: tool.check
+2026-11-11T18:38:27.284Z [DEBUG] [keybindings] Watching for changes to C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\keybindings.json
+2026-11-11T18:38:27.285Z [DEBUG] mcp runtime arm: v2 (source: default)
+2026-11-11T18:38:27.286Z [DEBUG] [sessionRegistry] sweep permitted (domain win32:sama)
+2026-11-11T18:38:27.286Z [DEBUG] [sessionRegistry] sweep permitted (domain win32:sama)
+2026-11-11T18:38:27.286Z [DEBUG] engine.create: no plugin-provided interfaces; $ built for nonce-probe,cc-plugin-agents-md,cc-plugin-plugin-authoring,cc-plugin-diff,cc-plugin-privacy
+2026-11-11T18:38:27.287Z [DEBUG] plugin.register: cc-plugin-agents-md (builtin, cc-plugin-agents-md@builtin), judged by core alone: admitted
+2026-11-11T18:38:27.287Z [DEBUG] plugin.register: cc-plugin-plugin-authoring (builtin, cc-plugin-plugin-authoring@builtin), judged by core alone: admitted
+2026-11-11T18:38:27.287Z [DEBUG] plugin.register: cc-plugin-diff (builtin, cc-plugin-diff@builtin), judged by core alone: admitted
+2026-11-11T18:38:27.287Z [DEBUG] plugin.register: cc-plugin-privacy (builtin, cc-plugin-privacy@builtin), judged by core alone: admitted
+2026-11-11T18:38:27.287Z [DEBUG] plugin.register: nonce-probe (user, nonce-probe@inline), judged by core alone: admitted
+2026-11-11T18:38:27.290Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.290Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.292Z [DEBUG] plugin-dir watch: watching nonce-probe; folders of plugins none
+2026-11-11T18:38:27.311Z [DEBUG] Artifact gates frozen: capabilities=true comments=false db=true files=false types=false type_create=false type_catalog=false room=false verify=false delete=false preview=false preview_browser=unread open=false endpoints=false pin=true share=false versions=false flag_source=disabled gb_fresh=false
+2026-11-11T18:38:27.311Z [DEBUG] Artifact publish edits offer frozen: edit_hook=false
+2026-11-11T18:38:27.312Z [DEBUG] Artifact input schema built: assets=false copy_from=false publish_edits=true assets_source=cold_no_identity
+2026-11-11T18:38:27.362Z [DEBUG] anchor: ntdll reached through Bun.ant.windowsFsAt
+2026-11-11T18:38:27.364Z [DEBUG] anchor (win32): identity bridge serial32 — bun dev=2862732396 ino=18858823443020164; nt serial32=2862732396 serial64=14747777971920163948 index=18858823443020164
+2026-11-11T18:38:27.364Z [DEBUG] anchor (win32): held-handle backend up
+2026-11-11T18:38:27.377Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 2.5ms (native link, next() included)
+2026-11-11T18:38:27.378Z [DEBUG] [FileIndex] getProjectFiles called, respectGitignore=true
+2026-11-11T18:38:27.378Z [DEBUG] [FileIndex] getFilesUsingGit called
+2026-11-11T18:38:27.384Z [DEBUG] Git remote URL: null
+2026-11-11T18:38:27.385Z [DEBUG] No git remote URL found
+2026-11-11T18:38:27.385Z [DEBUG] Not in a GitHub repository, skipping path mapping update
+2026-11-11T18:38:27.386Z [DEBUG] XTVERSION: no reply (terminal ignored query)
+2026-11-11T18:38:27.386Z [DEBUG] Terminal capabilities: extendedKeys=yes (env: terminal=windows-terminal); synchronizedOutput=yes (env: WT_SESSION, no answer); kittyKeyboard=no (probe: no reply to CSI ? u); kittyGraphics=no (env: terminal=windows-terminal, not asked yet, no answer); itermImages=no (yes only on an XTVERSION reply naming iTerm2 3.5 or later, no answer); mousePixels=no (env: terminal=windows-terminal, not asked yet, no answer); programStatus=no (probe: no reply to OSC 7501 ; ?); terminal said: no reply to CSI ? u; DECRQM 2026 not asked (no XTVERSION reply)
+2026-11-11T18:38:27.386Z [DEBUG] DECSTBM: gated (TMUX=unset ZELLIJ=unset TERM_PROGRAM=unset TERM=xterm-256color)
+2026-11-11T18:38:27.392Z [DEBUG] Temp file written successfully, size: 3032 bytes
+2026-11-11T18:38:27.392Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\.claude.json.tmp.31392.40228929bdb1 to C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\.claude.json
+2026-11-11T18:38:27.393Z [DEBUG] "Loaded 1 CLAUDE.md/rules files:\n  [Project] C:\\Users\\djlov\\.claude\\CLAUDE.md (2190 chars)"
+2026-11-11T18:38:27.399Z [DEBUG] hooks module cc-plugin-agents-md@builtin prompt.context settled in 1.5ms (native link, next() included)
+2026-11-11T18:38:27.413Z [DEBUG] Total plugin agents loaded: 0
+2026-11-11T18:38:27.415Z [DEBUG] Watching C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\workspace for C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\workspace\.claude to appear
+2026-11-11T18:38:27.415Z [DEBUG] Watching for changes in setting files C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\settings.json...
+2026-11-11T18:38:27.415Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\.claude.json written atomically
+2026-11-11T18:38:27.416Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\skills: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\skills'
+2026-11-11T18:38:27.416Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\agents: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\agents'
+2026-11-11T18:38:27.416Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\skills: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\skills'
+2026-11-11T18:38:27.416Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\output-styles: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\output-styles'
+2026-11-11T18:38:27.416Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\agents: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\agents'
+2026-11-11T18:38:27.416Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\output-styles: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\output-styles'
+2026-11-11T18:38:27.416Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\routines: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\routines'
+2026-11-11T18:38:27.416Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\workflows: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\workflows'
+2026-11-11T18:38:27.416Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\routines: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\routines'
+2026-11-11T18:38:27.416Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\workflows: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\workflows'
+2026-11-11T18:38:27.417Z [DEBUG] [engine] send seed_read_state path=C:\Users\djlov\.claude\CLAUDE.md
+2026-11-11T18:38:27.423Z [DEBUG] [FileIndex] git ls-files (tracked) took 45ms
+2026-11-11T18:38:27.427Z [DEBUG] [FileIndex] git ls-files: 0 tracked files in 49ms
+2026-11-11T18:38:27.434Z [DEBUG] [FileIndex] using git ls-files result (0 files)
+2026-11-11T18:38:27.434Z [DEBUG] [FileIndex] cache refresh completed in 56ms
+2026-11-11T18:38:27.473Z [DEBUG] type root of nonce-probe at C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\plugin\.claude-plugin\types: entries claude-code, claude-code-tools, claude-code-mcp; wrote nothing
+2026-11-11T18:38:27.473Z [DEBUG] Registered 0 hooks from 5 plugins
+2026-11-11T18:38:27.473Z [DEBUG] session.start: raised (surface terminal, interactive)
+2026-11-11T18:38:27.475Z [DEBUG] settings.read: the engine's merge was raised (the loaded plugins changed) in 2.4 ms; 0 keys answered otherwise than the files.
+2026-11-11T18:38:27.475Z [DEBUG] settings.read: the engine's merge is not raised again (the loaded plugins changed): neither the loaded plugins nor the settings changed.
+2026-11-11T18:38:27.476Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T18:38:27.476Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\.claude.json.tmp.31392.8c803e54418d
+2026-11-11T18:38:27.477Z [DEBUG] Loaded plugins - Enabled: 5, Disabled: 0, Commands: 0, Agents: 0, Errors: 0
+2026-11-11T18:38:27.477Z [DEBUG] Plugin autoupdate: command-source refresh disabled by tengu_plugin_command_source_refresh (still excluding command-sourced plugins from the regular pass)
+2026-11-11T18:38:27.483Z [DEBUG] Applied original permissions to temp file
+2026-11-11T18:38:27.487Z [DEBUG] Temp file written successfully, size: 3032 bytes
+2026-11-11T18:38:27.487Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\.claude.json.tmp.31392.8c803e54418d to C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\.claude.json
+2026-11-11T18:38:27.488Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\ccfg\.claude.json written atomically
+2026-11-11T18:38:27.492Z [DEBUG] $.fs.write (nonce-probe): C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\workspace\nonce-events.jsonl (6101 bytes)
+2026-11-11T18:38:27.494Z [DEBUG] hooks module nonce-probe@inline classic.SessionStart settled in 18.8ms (worker hop, next() included)
+2026-11-11T18:38:27.500Z [DEBUG] $.fs.write (nonce-probe): C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\workspace\nonce-events.jsonl (6402 bytes)
+2026-11-11T18:38:27.503Z [DEBUG] $.command.register (cc-plugin-diff): /diff listed
+2026-11-11T18:38:27.504Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.504Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T18:38:27.506Z [DEBUG] hooks module cc-plugin-diff@builtin session.start settled in 4.8ms (native link, next() included)
+2026-11-11T18:38:27.506Z [DEBUG] hooks module cc-plugin-agents-md@builtin session.start settled in 5.0ms (native link, next() included)
+2026-11-11T18:38:27.511Z [DEBUG] $.fs.write (nonce-probe): C:\Users\djlov\AppData\Local\Temp\ciel-nonce-probe-44e40778-idlq90ti\workspace\nonce-events.jsonl (6683 bytes)
+2026-11-11T18:38:27.512Z [DEBUG] hooks module nonce-probe@inline session.start settled in 37.9ms (worker hop, next() included)

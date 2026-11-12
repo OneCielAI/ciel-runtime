@@ -1,0 +1,42 @@
+Side receipts
+Newest durable intake receipts. Detail responses are redacted by the server.
+All
+P1
+All stages
+received
+processing
+processed
+failed
+quarantined
+duplicate
+Search
+received 0
+processing 0
+processed 2
+failed 1
+quarantined 0
+duplicate 0
+[com.ciel.walkie.support.message · message.created] This target must fail source prefetch.
+P5 · failed · 11/11/2026, 4:14:03 PM
+Details
+[com.ciel.walkie.support.message · agent.pending_reminder] Reminder: continue observing the synthetic readiness review; no message is referenced.
+processed · not_applicable · 11/11/2026, 4:13:46 PM
+Details
+[com.ciel.walkie.support.message · message.created] Synthetic target 1002 readiness request; full thread is canonical.
+P5 · processed · submitted · n1 · 11/11/2026, 4:13:12 PM
+Details
+Side
+Board v4 · side answers waiting for main review and side advice waiting for main action.
+Pending reviews (2)
+Synthetic readiness review for sandbox-east; no deployment.
+request · sent to the source
+67d93c61fddd · n1
+Mark OK
+Corrected…
+Synthetic reminder only; Work readiness review unchanged.
+status · no source reply (event referenced no message)
+a11dc6a6ecf2
+Mark OK
+Corrected…
+Main handoffs (0)
+No side advice is waiting for main.

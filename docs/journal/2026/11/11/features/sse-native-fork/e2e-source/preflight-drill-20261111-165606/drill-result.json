@@ -1,0 +1,355 @@
+{
+ "started": 1794437767.808752,
+ "harness": {
+  "walkie_e2e_driver_v4.py": "dd3f08cd5a4f39724a7291ff88ecc9bf188551a27bc7daf98b0eb4c7ad70551e",
+  "owned_process_control.py": "797bba5ccb5e25bd2041b5366f238fb3b0d69f14536e4a5d4d4ec01221a91fb0",
+  "raw_text_inventory.py": "7412cc068febbfe558a8ef0d25f246f9ee322a0d84c72c01b5647a8dd4ee74ea",
+  "console_driver.py": "67e94ec2064978fa6bbd6d63826f36b2fb3ff656345fbebcc477e1f7de834c49",
+  "shot_hwnd.ps1": "513c859a9d883cb0464a896c0193811d9097029eeac1052e0556201e1ccda64b",
+  "start_detached.py": "027b0cb59f0582e0a2a74071bb3985fdfaf8d3350022a09276bacad9186b6b5c",
+  "make_snapshot_v3.py": "38e28cf2f183f9ec247da473b2aa9575249d7229da8c272ec5feb49e8c395071"
+ },
+ "rule_checks": {
+  "child_newer_than_parent": true,
+  "reused_pid_not_matched_by_identity": true,
+  "no_adoption_under_reused_parent_pid": true
+ },
+ "owned_before_kill": [
+  [
+   40192,
+   "/Date(1794437768772)/",
+   "python.exe"
+  ],
+  [
+   57800,
+   "/Date(1794437768778)/",
+   "conhost.exe"
+  ],
+  [
+   65032,
+   "/Date(1794437768777)/",
+   "conhost.exe"
+  ],
+  [
+   68948,
+   "/Date(1794437768676)/",
+   "python.exe"
+  ],
+  [
+   69708,
+   "/Date(1794437768726)/",
+   "python.exe"
+  ],
+  [
+   80780,
+   "/Date(1794437768732)/",
+   "conhost.exe"
+  ],
+  [
+   84488,
+   "/Date(1794437768731)/",
+   "conhost.exe"
+  ],
+  [
+   84680,
+   "/Date(1794437768773)/",
+   "python.exe"
+  ],
+  [
+   85100,
+   "/Date(1794437768730)/",
+   "python.exe"
+  ],
+  [
+   87688,
+   "/Date(1794437768680)/",
+   "conhost.exe"
+  ]
+ ],
+ "decoy": [
+  87472,
+  "/Date(1794437768679)/"
+ ],
+ "cleanup": {
+  "owned_identities": [
+   [
+    40192,
+    "/Date(1794437768772)/"
+   ],
+   [
+    57800,
+    "/Date(1794437768778)/"
+   ],
+   [
+    65032,
+    "/Date(1794437768777)/"
+   ],
+   [
+    68948,
+    "/Date(1794437768676)/"
+   ],
+   [
+    69708,
+    "/Date(1794437768726)/"
+   ],
+   [
+    80780,
+    "/Date(1794437768732)/"
+   ],
+   [
+    84488,
+    "/Date(1794437768731)/"
+   ],
+   [
+    84680,
+    "/Date(1794437768773)/"
+   ],
+   [
+    85100,
+    "/Date(1794437768730)/"
+   ],
+   [
+    87688,
+    "/Date(1794437768680)/"
+   ]
+  ],
+  "killed": [
+   {
+    "identity": [
+     57800,
+     "/Date(1794437768778)/"
+    ],
+    "name": "conhost.exe",
+    "parent_pid": 84680
+   },
+   {
+    "identity": [
+     65032,
+     "/Date(1794437768777)/"
+    ],
+    "name": "conhost.exe",
+    "parent_pid": 40192
+   },
+   {
+    "identity": [
+     80780,
+     "/Date(1794437768732)/"
+    ],
+    "name": "conhost.exe",
+    "parent_pid": 85100
+   },
+   {
+    "identity": [
+     84488,
+     "/Date(1794437768731)/"
+    ],
+    "name": "conhost.exe",
+    "parent_pid": 69708
+   },
+   {
+    "identity": [
+     87688,
+     "/Date(1794437768680)/"
+    ],
+    "name": "conhost.exe",
+    "parent_pid": 68948
+   },
+   {
+    "identity": [
+     40192,
+     "/Date(1794437768772)/"
+    ],
+    "name": "python.exe",
+    "parent_pid": 85100
+   },
+   {
+    "identity": [
+     84680,
+     "/Date(1794437768773)/"
+    ],
+    "name": "python.exe",
+    "parent_pid": 69708
+   },
+   {
+    "identity": [
+     69708,
+     "/Date(1794437768726)/"
+    ],
+    "name": "python.exe",
+    "parent_pid": 68948
+   },
+   {
+    "identity": [
+     85100,
+     "/Date(1794437768730)/"
+    ],
+    "name": "python.exe",
+    "parent_pid": 68948
+   },
+   {
+    "identity": [
+     68948,
+     "/Date(1794437768676)/"
+    ],
+    "name": "python.exe",
+    "parent_pid": 66676
+   }
+  ],
+  "rejected": [],
+  "protected_intersections": [],
+  "final_live": [],
+  "completed": true
+ },
+ "decoy_alive_after": true,
+ "owned_left": [],
+ "protected_unchanged": true,
+ "protected_gate_size": 40,
+ "live_profile_unchanged": true,
+ "taskkill_calls": [
+  {
+   "identity": [
+    57800,
+    "/Date(1794437768778)/"
+   ],
+   "argv": [
+    "taskkill",
+    "/PID",
+    "57800",
+    "/F"
+   ],
+   "rc": 0,
+   "stdout": "SUCCESS: The process with PID 57800 has been terminated."
+  },
+  {
+   "identity": [
+    65032,
+    "/Date(1794437768777)/"
+   ],
+   "argv": [
+    "taskkill",
+    "/PID",
+    "65032",
+    "/F"
+   ],
+   "rc": 0,
+   "stdout": "SUCCESS: The process with PID 65032 has been terminated."
+  },
+  {
+   "identity": [
+    80780,
+    "/Date(1794437768732)/"
+   ],
+   "argv": [
+    "taskkill",
+    "/PID",
+    "80780",
+    "/F"
+   ],
+   "rc": 0,
+   "stdout": "SUCCESS: The process with PID 80780 has been terminated."
+  },
+  {
+   "identity": [
+    84488,
+    "/Date(1794437768731)/"
+   ],
+   "argv": [
+    "taskkill",
+    "/PID",
+    "84488",
+    "/F"
+   ],
+   "rc": 0,
+   "stdout": "SUCCESS: The process with PID 84488 has been terminated."
+  },
+  {
+   "identity": [
+    87688,
+    "/Date(1794437768680)/"
+   ],
+   "argv": [
+    "taskkill",
+    "/PID",
+    "87688",
+    "/F"
+   ],
+   "rc": 0,
+   "stdout": "SUCCESS: The process with PID 87688 has been terminated."
+  },
+  {
+   "identity": [
+    40192,
+    "/Date(1794437768772)/"
+   ],
+   "argv": [
+    "taskkill",
+    "/PID",
+    "40192",
+    "/F"
+   ],
+   "rc": 0,
+   "stdout": "SUCCESS: The process with PID 40192 has been terminated."
+  },
+  {
+   "identity": [
+    84680,
+    "/Date(1794437768773)/"
+   ],
+   "argv": [
+    "taskkill",
+    "/PID",
+    "84680",
+    "/F"
+   ],
+   "rc": 0,
+   "stdout": "SUCCESS: The process with PID 84680 has been terminated."
+  },
+  {
+   "identity": [
+    69708,
+    "/Date(1794437768726)/"
+   ],
+   "argv": [
+    "taskkill",
+    "/PID",
+    "69708",
+    "/F"
+   ],
+   "rc": 0,
+   "stdout": "SUCCESS: The process with PID 69708 has been terminated."
+  },
+  {
+   "identity": [
+    85100,
+    "/Date(1794437768730)/"
+   ],
+   "argv": [
+    "taskkill",
+    "/PID",
+    "85100",
+    "/F"
+   ],
+   "rc": 0,
+   "stdout": "SUCCESS: The process with PID 85100 has been terminated."
+  },
+  {
+   "identity": [
+    68948,
+    "/Date(1794437768676)/"
+   ],
+   "argv": [
+    "taskkill",
+    "/PID",
+    "68948",
+    "/F"
+   ],
+   "rc": 0,
+   "stdout": "SUCCESS: The process with PID 68948 has been terminated."
+  }
+ ],
+ "any_slash_T": false,
+ "leaf_first": true,
+ "decoy_cleanup_completed": true,
+ "passed": true,
+ "finished": 1794437819.5861378
+}

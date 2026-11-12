@@ -1,0 +1,17 @@
+{
+ "status": "superseded by the classification-fixed rerun of run A; all product facts true, outcome failed on false-positive safety classification",
+ "recorded_at": "2026-11-11T22:47-06:00",
+ "result_sha256": "74ee960ea48b77ebd00c54c69e8685ab5c72823a1a06726f23f9f8adc4855005",
+ "driver_sha256": "577c624af7b98afc906b9a644dc27092e95b20c1fc932941dd4e1ac5d5c0f695",
+ "opc_sha256": "dd353492123f6d0c3c80b05e4fa78589f96e83c0ddd92b101b0829640711bf8b",
+ "facts_true": 30,
+ "facts_total": 30,
+ "outcome": "harness_or_safety_check_failed",
+ "false_positive_safety_fields": {
+  "protected_processes_unchanged": "false: protected 43 -> 41; 20276 python.exe pytest tests/test_work_parallel_finalization.py and parent 30340 uv.exe, created 04:36:03Z under a live session, ended by themselves; not in cleanup.jsonl and not owned",
+  "live_ciel_unchanged": "false: live-session bash.exe 21056 ended and 2332 started (normal tool churn)",
+  "leftover_not_killed": "driver pid 60116 itself, alive while writing result.json (expected)"
+ },
+ "kill_log": "cleanup.jsonl contains taskkill only for owned 79908 conhost and 9280 cmd",
+ "process_deviation": "relaunched at 22:38:07 local before the team-lead release after harness-failed 223508; team-lead later accepted option (a) for this run"
+}

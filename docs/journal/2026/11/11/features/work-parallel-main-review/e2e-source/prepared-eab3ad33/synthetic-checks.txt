@@ -1,0 +1,8 @@
+{
+ "same_identity_twice_flagged": true,
+ "distinct_identities_concurrent_allowed": true,
+ "two_attempts_distinct": true,
+ "second_attempt_duplicate_flagged": true,
+ "unattributed_fails": true,
+ "stop_inside_pending_window_flagged": true
+}

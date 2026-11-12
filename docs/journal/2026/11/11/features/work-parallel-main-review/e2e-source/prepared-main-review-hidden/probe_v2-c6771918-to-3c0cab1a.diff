@@ -1,0 +1,15 @@
+--- /tmp/probe_v2_c6771918.py	2026-11-12 00:06:17.835693300 -0600
++++ owned_main_review_probe_v2.py	2026-11-12 00:05:30.010795300 -0600
+@@ -30,8 +30,11 @@
+ SOURCE = Path(__file__).resolve().parents[8]
+ TOOLS = SOURCE / "docs/journal/2026/11/03/features/work-parallel/evidence/menu-ui"
+ # Current integrated tree named by the team lead (freeze-sse-eab3ad33-final:
+-# per-identity prompt registry in side-intake.js 9b955068, register.js eab3ad33).
++# per-identity prompt registry in side-intake.js 9b955068, register.js eab3ad33)
++# plus the review-projection fix in work_parallel_finalization.py c7610d77.
+ KEY_HASHES = {
++    "ciel_runtime_support/work_parallel_finalization.py":
++        "c7610d7727563100f3afb32b61d902a41d24e199e07461242fb9cb7d83201ad6",
+     "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js":
+         "eab3ad333104d0914e7dee552f241c23eb873405c85330514b9c6a9d337db31b",
+     "ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js":

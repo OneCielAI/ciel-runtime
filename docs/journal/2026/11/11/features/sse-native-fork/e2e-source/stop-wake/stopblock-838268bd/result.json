@@ -1,0 +1,113 @@
+{
+  "run": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\tmp\\stop-wake-draft\\probe\\stopblock-838268bd",
+  "cli": "C:/Users/djlov/AppData/Roaming/npm/node_modules/@anthropic-ai/claude-code/bin/claude.exe",
+  "token_found": true,
+  "session_started": true,
+  "prompt_sent_at": 1794427436.3299825,
+  "hook_events": [
+    {
+      "event": "session.start",
+      "seq": 1,
+      "at": 1794427434151
+    },
+    {
+      "event": "turn.start",
+      "turnId": "2bf924f5-6a72-4d9b-8d1c-a5346cf13327",
+      "text": "STOP-PROBE-ON say hi",
+      "seq": 2,
+      "at": 1794427436411
+    },
+    {
+      "event": "turn.step",
+      "turnId": "2bf924f5-6a72-4d9b-8d1c-a5346cf13327",
+      "index": 0,
+      "messageCount": 6,
+      "seq": 3,
+      "at": 1794427436508
+    },
+    {
+      "event": "classic.Stop",
+      "decision": "block",
+      "stop_hook_active": false,
+      "seq": 4,
+      "at": 1794427436617
+    },
+    {
+      "event": "turn.step",
+      "turnId": "2bf924f5-6a72-4d9b-8d1c-a5346cf13327",
+      "index": 1,
+      "messageCount": 9,
+      "seq": 5,
+      "at": 1794427436839
+    },
+    {
+      "event": "classic.Stop",
+      "decision": "pass",
+      "stop_hook_active": true,
+      "seq": 6,
+      "at": 1794427436889
+    },
+    {
+      "event": "turn.complete",
+      "turnId": "2bf924f5-6a72-4d9b-8d1c-a5346cf13327",
+      "reason": "answer",
+      "answer": "STOPPED-OK",
+      "seq": 7,
+      "at": 1794427436899
+    }
+  ],
+  "requests": [
+    {
+      "at": 1794427436.5729632,
+      "carries_marker": false,
+      "message_count": 2,
+      "probe_prompt": true
+    },
+    {
+      "at": 1794427436.860613,
+      "carries_marker": true,
+      "message_count": 4,
+      "probe_prompt": true
+    }
+  ],
+  "analysis": {
+    "blocked": true,
+    "block_turn": "2bf924f5-6a72-4d9b-8d1c-a5346cf13327",
+    "next_request_carries_marker": true,
+    "events_after_block": [
+      {
+        "event": "turn.step",
+        "turnId": "2bf924f5-6a72-4d9b-8d1c-a5346cf13327",
+        "index": 1,
+        "text": null,
+        "decision": null,
+        "stop_hook_active": null,
+        "reason": null,
+        "messageCount": 9
+      },
+      {
+        "event": "classic.Stop",
+        "turnId": null,
+        "index": null,
+        "text": null,
+        "decision": "pass",
+        "stop_hook_active": true,
+        "reason": null,
+        "messageCount": null
+      },
+      {
+        "event": "turn.complete",
+        "turnId": "2bf924f5-6a72-4d9b-8d1c-a5346cf13327",
+        "index": null,
+        "text": null,
+        "decision": null,
+        "stop_hook_active": null,
+        "reason": "answer",
+        "messageCount": null
+      }
+    ],
+    "marker_request_at_minus_block_ms": 244,
+    "first_step_after_block_ms_before_request": 22
+  },
+  "exit": null
+}

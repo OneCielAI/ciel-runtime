@@ -1,0 +1,310 @@
+[
+ {
+  "ProcessId": 12372,
+  "ParentProcessId": 7524,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794409545761)/",
+  "CommandLine": null
+ },
+ {
+  "ProcessId": 14556,
+  "ParentProcessId": 15864,
+  "Name": "py.exe",
+  "CreationDate": "/Date(1794409547692)/",
+  "CommandLine": null
+ },
+ {
+  "ProcessId": 14560,
+  "ParentProcessId": 14556,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794409547701)/",
+  "CommandLine": null
+ },
+ {
+  "ProcessId": 14604,
+  "ParentProcessId": 15872,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794409547721)/",
+  "CommandLine": null
+ },
+ {
+  "ProcessId": 10660,
+  "ParentProcessId": 14560,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794409570423)/",
+  "CommandLine": null
+ },
+ {
+  "ProcessId": 4284,
+  "ParentProcessId": 14560,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794409576611)/",
+  "CommandLine": null
+ },
+ {
+  "ProcessId": 5212,
+  "ParentProcessId": 3928,
+  "Name": "claude.exe",
+  "CreationDate": "/Date(1794409576621)/",
+  "CommandLine": null
+ },
+ {
+  "ProcessId": 12780,
+  "ParentProcessId": 14604,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794409585801)/",
+  "CommandLine": null
+ },
+ {
+  "ProcessId": 8912,
+  "ParentProcessId": 14604,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794409589330)/",
+  "CommandLine": null
+ },
+ {
+  "ProcessId": 10300,
+  "ParentProcessId": 8440,
+  "Name": "claude.exe",
+  "CreationDate": "/Date(1794409589339)/",
+  "CommandLine": null
+ },
+ {
+  "ProcessId": 2068,
+  "ParentProcessId": 10300,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794409592112)/",
+  "CommandLine": null
+ },
+ {
+  "ProcessId": 8024,
+  "ParentProcessId": 17140,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794409594147)/",
+  "CommandLine": null
+ },
+ {
+  "ProcessId": 19768,
+  "ParentProcessId": 8024,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794409594153)/",
+  "CommandLine": null
+ },
+ {
+  "ProcessId": 15608,
+  "ParentProcessId": 10300,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794409595668)/",
+  "CommandLine": null
+ },
+ {
+  "ProcessId": 12672,
+  "ParentProcessId": 2068,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794409596575)/",
+  "CommandLine": null
+ },
+ {
+  "ProcessId": 23728,
+  "ParentProcessId": 9008,
+  "Name": "py.exe",
+  "CreationDate": "/Date(1794412171243)/",
+  "CommandLine": "py  -3 \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py\" cli --continue"
+ },
+ {
+  "ProcessId": 42764,
+  "ParentProcessId": 23728,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412171257)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py\" cli --continue"
+ },
+ {
+  "ProcessId": 42924,
+  "ParentProcessId": 42764,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412182971)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py serve"
+ },
+ {
+  "ProcessId": 36344,
+  "ParentProcessId": 42764,
+  "Name": "claude.exe",
+  "CreationDate": "/Date(1794412189702)/",
+  "CommandLine": "C:\\Users\\djlov\\.local\\bin\\claude.exe --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-_walkie_opus55-sol61-fast --mcp-config C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9505-aae7db361c7f\\web-tools-mcp.json C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\workspaces\\aae7db361c7f\\mcp-launches\\9892877993d64c6c8a2aed10aa7b9c93\\claude-mcp.json --append-system-prompt \"You are running inside Claude Code through the ciel-runtime router. Do not stop after announcing what you plan to do. When the user asks you to create, edit, or run code, immediately use the available Claude Code tools such as Write, Edit, Read, and Bash as appropriate, except while Claude Code is in Plan Mode. In Plan Mode, first explore/read as needed, write or update the plan file named by the plan_mode attachment, and only then call ExitPlanMode to leave Plan Mode; when bypass permissions is active, ciel-runtime auto-approves that plan exit, so do not ask the user separately and do not call EnterPlanMode again. then report the concrete result. If the task has several reasonable implementation parts, do all in-scope parts; do not ask the user which part to start or whether to do all unless the user explicitly requested a choice. If you decide not to use tools, provide the complete requested code or answer in the same turn. Use skills only when the user's request clearly matches that skill; never invoke keybindings-help unless the user asks about keybindings. Keep final answers concise and do not expose hidden chain-of-thought. When calling Claude Code tools, use exactly the tool schema and do not invent extra fields. Bash: command (string), description (string), timeout (integer), run_in_background (boolean). Read: file_path (string), offset (integer), limit (integer). Write: file_path (string), content (string). Edit: file_path (string), old_string (string), new_string (string), replace_all (boolean). TaskList: no input. TaskUpdate: taskId (string), optional status enum exactly one of pending, in_progress, completed, deleted. CronCreate: cron (standard 5-field local-time cron string), prompt (string), optional recurring (boolean), optional durable (boolean). CronDelete: id (string returned by CronCreate). CronList: no input. Do not call WaitForMcpServers; it is a Claude Code lifecycle tool that may exist but is often not enabled in the current routed context. If an MCP server appears disconnected, use only tools present in the current tool list, retry ordinary MCP tools when available, or report the concrete connection state. Never write pseudo tool calls, partial JSON, or markdown code fences when a real Claude Code tool call is required.\" --messaging-socket-path \\\\.\\pipe\\LOCAL\\cc-msg-e3df32154c003c97f70f367bf985606f --settings {\\\"crossSessionInbound\\\":\\\"accept\\\"} --plugin-dir C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime_support\\claude_mods\\ciel-work --continue"
+ },
+ {
+  "ProcessId": 40616,
+  "ParentProcessId": 42764,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412189711)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime_support\\windows_console_guard.py 42764 487 7"
+ },
+ {
+  "ProcessId": 41784,
+  "ParentProcessId": 36344,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412196221)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe G:\\ciel-Walkie\\.local\\walkie-install\\mcp-stdio.py G:\\ciel-Walkie\\.local\\walkie-install\\mcp-credential.json"
+ },
+ {
+  "ProcessId": 45164,
+  "ParentProcessId": 45700,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412197062)/",
+  "CommandLine": "\"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\python.exe\" \"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\""
+ },
+ {
+  "ProcessId": 45572,
+  "ParentProcessId": 45164,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412197080)/",
+  "CommandLine": "\"C:\\Program Files\\Python311\\python.exe\" \"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\""
+ },
+ {
+  "ProcessId": 40000,
+  "ParentProcessId": 36344,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412199502)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe G:\\ciel-Walkie\\.local\\walkie-install\\transcript-relay.py --stdio G:\\ciel-Walkie\\.local\\walkie-install\\mcp-credential.json"
+ },
+ {
+  "ProcessId": 39984,
+  "ParentProcessId": 44500,
+  "Name": "py.exe",
+  "CreationDate": "/Date(1794412199735)/",
+  "CommandLine": "py  -3 \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py\" cli --continue"
+ },
+ {
+  "ProcessId": 45652,
+  "ParentProcessId": 39984,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412199746)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py\" cli --continue"
+ },
+ {
+  "ProcessId": 25780,
+  "ParentProcessId": 40000,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412204231)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe G:\\ciel-Walkie\\.local\\walkie-install\\transcript-relay.py G:\\ciel-Walkie\\.local\\walkie-install\\transcript-relay.json"
+ },
+ {
+  "ProcessId": 45428,
+  "ParentProcessId": 45652,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412207685)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py serve"
+ },
+ {
+  "ProcessId": 46232,
+  "ParentProcessId": 45652,
+  "Name": "claude.exe",
+  "CreationDate": "/Date(1794412210311)/",
+  "CommandLine": "C:\\Users\\djlov\\.local\\bin\\claude.exe --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-_walkie_sol61-opus55-fast --mcp-config C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9489-b35f12ba1034\\web-tools-mcp.json C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\workspaces\\b35f12ba1034\\mcp-launches\\e25e3383eb5346bd9b3459427f227bb4\\claude-mcp.json --append-system-prompt \"You are running inside Claude Code through the ciel-runtime router. Do not stop after announcing what you plan to do. When the user asks you to create, edit, or run code, immediately use the available Claude Code tools such as Write, Edit, Read, and Bash as appropriate, except while Claude Code is in Plan Mode. In Plan Mode, first explore/read as needed, write or update the plan file named by the plan_mode attachment, and only then call ExitPlanMode to leave Plan Mode; when bypass permissions is active, ciel-runtime auto-approves that plan exit, so do not ask the user separately and do not call EnterPlanMode again. then report the concrete result. If the task has several reasonable implementation parts, do all in-scope parts; do not ask the user which part to start or whether to do all unless the user explicitly requested a choice. If you decide not to use tools, provide the complete requested code or answer in the same turn. Use skills only when the user's request clearly matches that skill; never invoke keybindings-help unless the user asks about keybindings. Keep final answers concise and do not expose hidden chain-of-thought. When calling Claude Code tools, use exactly the tool schema and do not invent extra fields. Bash: command (string), description (string), timeout (integer), run_in_background (boolean). Read: file_path (string), offset (integer), limit (integer). Write: file_path (string), content (string). Edit: file_path (string), old_string (string), new_string (string), replace_all (boolean). TaskList: no input. TaskUpdate: taskId (string), optional status enum exactly one of pending, in_progress, completed, deleted. CronCreate: cron (standard 5-field local-time cron string), prompt (string), optional recurring (boolean), optional durable (boolean). CronDelete: id (string returned by CronCreate). CronList: no input. Do not call WaitForMcpServers; it is a Claude Code lifecycle tool that may exist but is often not enabled in the current routed context. If an MCP server appears disconnected, use only tools present in the current tool list, retry ordinary MCP tools when available, or report the concrete connection state. Never write pseudo tool calls, partial JSON, or markdown code fences when a real Claude Code tool call is required.\" --messaging-socket-path \\\\.\\pipe\\LOCAL\\cc-msg-5aba0cfc38f1a59cf9ccdec2b53ebbab --settings {\\\"crossSessionInbound\\\":\\\"accept\\\"} --plugin-dir C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime_support\\claude_mods\\ciel-work --continue"
+ },
+ {
+  "ProcessId": 46508,
+  "ParentProcessId": 45652,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412210317)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime_support\\windows_console_guard.py 45652 487 7"
+ },
+ {
+  "ProcessId": 35344,
+  "ParentProcessId": 29796,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412212870)/",
+  "CommandLine": "\"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\python.exe\" \"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\""
+ },
+ {
+  "ProcessId": 11840,
+  "ParentProcessId": 35344,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412212877)/",
+  "CommandLine": "\"C:\\Program Files\\Python311\\python.exe\" \"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\""
+ },
+ {
+  "ProcessId": 21912,
+  "ParentProcessId": 20744,
+  "Name": "py.exe",
+  "CreationDate": "/Date(1794412247384)/",
+  "CommandLine": "py  -3 \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py\" cli --continue"
+ },
+ {
+  "ProcessId": 2272,
+  "ParentProcessId": 21912,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412247396)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py\" cli --continue"
+ },
+ {
+  "ProcessId": 9764,
+  "ParentProcessId": 2272,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412254899)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py serve"
+ },
+ {
+  "ProcessId": 12240,
+  "ParentProcessId": 2272,
+  "Name": "claude.exe",
+  "CreationDate": "/Date(1794412257813)/",
+  "CommandLine": "C:\\Users\\djlov\\.local\\bin\\claude.exe --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-_walkie_opus55-sol61-fast --mcp-config C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9524-bd5f642b3583\\web-tools-mcp.json C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\workspaces\\bd5f642b3583\\mcp-launches\\5a00ad4e6fb6462a8ad8be68175218ee\\claude-mcp.json --append-system-prompt \"You are running inside Claude Code through the ciel-runtime router. Do not stop after announcing what you plan to do. When the user asks you to create, edit, or run code, immediately use the available Claude Code tools such as Write, Edit, Read, and Bash as appropriate, except while Claude Code is in Plan Mode. In Plan Mode, first explore/read as needed, write or update the plan file named by the plan_mode attachment, and only then call ExitPlanMode to leave Plan Mode; when bypass permissions is active, ciel-runtime auto-approves that plan exit, so do not ask the user separately and do not call EnterPlanMode again. then report the concrete result. If the task has several reasonable implementation parts, do all in-scope parts; do not ask the user which part to start or whether to do all unless the user explicitly requested a choice. If you decide not to use tools, provide the complete requested code or answer in the same turn. Use skills only when the user's request clearly matches that skill; never invoke keybindings-help unless the user asks about keybindings. Keep final answers concise and do not expose hidden chain-of-thought. When calling Claude Code tools, use exactly the tool schema and do not invent extra fields. Bash: command (string), description (string), timeout (integer), run_in_background (boolean). Read: file_path (string), offset (integer), limit (integer). Write: file_path (string), content (string). Edit: file_path (string), old_string (string), new_string (string), replace_all (boolean). TaskList: no input. TaskUpdate: taskId (string), optional status enum exactly one of pending, in_progress, completed, deleted. CronCreate: cron (standard 5-field local-time cron string), prompt (string), optional recurring (boolean), optional durable (boolean). CronDelete: id (string returned by CronCreate). CronList: no input. Do not call WaitForMcpServers; it is a Claude Code lifecycle tool that may exist but is often not enabled in the current routed context. If an MCP server appears disconnected, use only tools present in the current tool list, retry ordinary MCP tools when available, or report the concrete connection state. Never write pseudo tool calls, partial JSON, or markdown code fences when a real Claude Code tool call is required.\" --messaging-socket-path \\\\.\\pipe\\LOCAL\\cc-msg-52cac6d92833f1f65b5bfa517fc9bd1a --settings {\\\"crossSessionInbound\\\":\\\"accept\\\"} --continue"
+ },
+ {
+  "ProcessId": 48104,
+  "ParentProcessId": 2272,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412257818)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime_support\\windows_console_guard.py 2272 487 7"
+ },
+ {
+  "ProcessId": 47928,
+  "ParentProcessId": 48168,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412259848)/",
+  "CommandLine": "\"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\python.exe\" \"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\""
+ },
+ {
+  "ProcessId": 48284,
+  "ParentProcessId": 47928,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412259881)/",
+  "CommandLine": "\"C:\\Program Files\\Python311\\python.exe\" \"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\""
+ },
+ {
+  "ProcessId": 79008,
+  "ParentProcessId": 5212,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794413670012)/",
+  "CommandLine": null
+ },
+ {
+  "ProcessId": 76232,
+  "ParentProcessId": 79008,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794413681147)/",
+  "CommandLine": null
+ },
+ {
+  "ProcessId": 77124,
+  "ParentProcessId": 5212,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794413682475)/",
+  "CommandLine": null
+ },
+ {
+  "ProcessId": 49672,
+  "ParentProcessId": 70168,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794414511499)/",
+  "CommandLine": "\"C:\\Program Files\\Python311\\python.exe\" -B C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\walkie_e2e_driver_v2.py A --output C:/Users/djlov/ciel-runtime/.local/tmp/work-parallel/docs/journal/2026/11/11/features/sse-native-fork/e2e-source"
+ },
+ {
+  "ProcessId": 74748,
+  "ParentProcessId": 72428,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794414512594)/",
+  "CommandLine": null
+ }
+]

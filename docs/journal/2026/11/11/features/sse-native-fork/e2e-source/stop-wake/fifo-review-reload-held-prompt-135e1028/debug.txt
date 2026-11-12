@@ -1,0 +1,468 @@
+2026-11-11T23:51:01.989Z [DEBUG] MDM settings load completed in 2ms
+2026-11-11T23:51:02.002Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Program Files\ClaudeCode\managed-settings.json
+2026-11-11T23:51:02.003Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\.claude\settings.json
+2026-11-11T23:51:02.006Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.006Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\.claude\settings.local.json
+2026-11-11T23:51:02.006Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.006Z [DEBUG] CA certs: Config fallback - globalEnv keys: , settingsEnv keys: none
+2026-11-11T23:51:02.015Z [DEBUG] [init] configureGlobalMTLS starting
+2026-11-11T23:51:02.015Z [DEBUG] [init] configureGlobalMTLS complete
+2026-11-11T23:51:02.015Z [DEBUG] [init] configureGlobalAgents starting
+2026-11-11T23:51:02.015Z [DEBUG] CA certs: stores=bundled,system, extraCertsPath=undefined
+2026-11-11T23:51:02.016Z [DEBUG] CA certs: Loaded 118 bundled root certificates
+2026-11-11T23:51:02.027Z [DEBUG] CA certs: Dropped 20 expired certificate(s) from system store
+2026-11-11T23:51:02.028Z [DEBUG] CA certs: Loaded 135 system CA certificates
+2026-11-11T23:51:02.028Z [DEBUG] CA certs: Dropped blocked certificate 40f6af0346a99aa1cd1d555a4e9cce62c7f9634603ee406615833dc8c8d00367 from bundled
+2026-11-11T23:51:02.029Z [DEBUG] CA certs: Dropped blocked certificate 40f6af0346a99aa1cd1d555a4e9cce62c7f9634603ee406615833dc8c8d00367 from system
+2026-11-11T23:51:02.029Z [DEBUG] CA certs: Dropped blocked certificate 40f6af0346a99aa1cd1d555a4e9cce62c7f9634603ee406615833dc8c8d00367 from system
+2026-11-11T23:51:02.037Z [ERROR] CA certs: Dropped the certificate with SHA-256 fingerprint E7:68:56:34:EF:AC:F6:9A:CE:93:9A:6B:25:5B:7B:4F:AB:EF:42:93:5B:50:A2:65:AC:B5:CB:60:27:E4:4E:70 and subject "C=US\nO=VeriSign\\, Inc.\nOU=Class 3 Public Primary Certification Authority": it names itself as its issuer, but its own key did not sign it, or signed it in a form that Claude Code cannot check, and no CA that chains to a root in the CA list signed it. If another root certificate of the same CA signed it, this one stays once this list holds that root certificate too. Only the lists for Claude Code's own connections take certificates from the NODE_EXTRA_CA_CERTS file. If you add that root and connections still fail, take it out again: while this list holds it, the variable below changes nothing. CLAUDE_CODE_DISABLE_SELF_NAMED_CERT_DROP=1 keeps every such certificate, whoever signed it, and can break connections that work without it.
+2026-11-11T23:51:02.038Z [ERROR] CA certs: Dropped the certificate with SHA-256 fingerprint 8B:13:DB:B2:5E:B3:39:A6:30:C7:6C:81:0D:14:B4:4B:55:2E:68:DC:10:A9:3E:82:E7:54:DA:23:F8:58:77:4A and subject "CN=Root Agency": it names itself as its issuer, but whether its own key signed it could not be checked (Error: error:0b00007d:X.509 certificate routines:OPENSSL_internal:PUBLIC_KEY_DECODE_ERROR), most likely because the runtime cannot read that key, and then TLS can verify nothing under it either, and no CA that chains to a root in the CA list signed it. If another root certificate of the same CA signed it, this one stays once this list holds that root certificate too. Only the lists for Claude Code's own connections take certificates from the NODE_EXTRA_CA_CERTS file. If you add that root and connections still fail, take it out again: while this list holds it, the variable below changes nothing. CLAUDE_CODE_DISABLE_SELF_NAMED_CERT_DROP=1 keeps every such certificate, whoever signed it, and can break connections that work without it.
+2026-11-11T23:51:02.038Z [DEBUG] CA certs: Dropped 3 certificate(s) that do not chain to a root in the CA list
+2026-11-11T23:51:02.038Z [DEBUG] mTLS: Creating HTTPS agent with custom certificates
+2026-11-11T23:51:02.040Z [DEBUG] [init] configureGlobalAgents complete
+2026-11-11T23:51:02.040Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.040Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.041Z [DEBUG] Using bash path: "C:\Program Files\Git\bin\bash.exe"
+2026-11-11T23:51:02.041Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.043Z [DEBUG] Error log sink initialized
+2026-11-11T23:51:02.043Z [DEBUG] clearPluginCache: invalidating loadAllPlugins cache (preAction: --plugin-dir inline plugins)
+2026-11-11T23:51:02.053Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T23:51:02.053Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.829b8b50eef0
+2026-11-11T23:51:02.054Z [DEBUG] Applied original permissions to temp file
+2026-11-11T23:51:02.055Z [DEBUG] Temp file written successfully, size: 447 bytes
+2026-11-11T23:51:02.055Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.829b8b50eef0 to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json
+2026-11-11T23:51:02.055Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json written atomically
+2026-11-11T23:51:02.059Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T23:51:02.059Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.e569aade3338
+2026-11-11T23:51:02.060Z [DEBUG] Applied original permissions to temp file
+2026-11-11T23:51:02.061Z [DEBUG] Temp file written successfully, size: 530 bytes
+2026-11-11T23:51:02.061Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.e569aade3338 to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json
+2026-11-11T23:51:02.061Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json written atomically
+2026-11-11T23:51:02.066Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T23:51:02.066Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.ddf9dda109a3
+2026-11-11T23:51:02.067Z [DEBUG] Applied original permissions to temp file
+2026-11-11T23:51:02.067Z [DEBUG] Temp file written successfully, size: 566 bytes
+2026-11-11T23:51:02.067Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.ddf9dda109a3 to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json
+2026-11-11T23:51:02.068Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json written atomically
+2026-11-11T23:51:02.074Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T23:51:02.074Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.f73ffef1601b
+2026-11-11T23:51:02.075Z [DEBUG] Applied original permissions to temp file
+2026-11-11T23:51:02.075Z [DEBUG] Temp file written successfully, size: 605 bytes
+2026-11-11T23:51:02.075Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.f73ffef1601b to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json
+2026-11-11T23:51:02.076Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json written atomically
+2026-11-11T23:51:02.077Z [DEBUG] Git remote URL: null
+2026-11-11T23:51:02.077Z [DEBUG] No git remote URL found
+2026-11-11T23:51:02.082Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T23:51:02.082Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.b0e6721ac608
+2026-11-11T23:51:02.082Z [DEBUG] Applied original permissions to temp file
+2026-11-11T23:51:02.083Z [DEBUG] Temp file written successfully, size: 632 bytes
+2026-11-11T23:51:02.083Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.b0e6721ac608 to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json
+2026-11-11T23:51:02.083Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json written atomically
+2026-11-11T23:51:02.089Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T23:51:02.089Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.7f21e5542bd9
+2026-11-11T23:51:02.090Z [DEBUG] Applied original permissions to temp file
+2026-11-11T23:51:02.090Z [DEBUG] Temp file written successfully, size: 680 bytes
+2026-11-11T23:51:02.090Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.7f21e5542bd9 to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json
+2026-11-11T23:51:02.091Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json written atomically
+2026-11-11T23:51:02.097Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T23:51:02.097Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.0b1126d88961
+2026-11-11T23:51:02.097Z [DEBUG] Applied original permissions to temp file
+2026-11-11T23:51:02.098Z [DEBUG] Temp file written successfully, size: 706 bytes
+2026-11-11T23:51:02.098Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.0b1126d88961 to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json
+2026-11-11T23:51:02.098Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json written atomically
+2026-11-11T23:51:02.109Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.112Z [DEBUG] [Claude in Chrome] Disabled: OAuth token has no scope accepted by /api/oauth/validate (needs user:profile, user:office, or user:ccr_inference; env-var and setup-token sessions default to user:inference only)
+2026-11-11T23:51:02.113Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.138Z [DEBUG] [ToolSearch:optimistic] mode=standard, ENABLE_TOOL_SEARCH=false, result=false
+2026-11-11T23:51:02.139Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.139Z [DEBUG] [STARTUP] Loading MCP configs...
+2026-11-11T23:51:02.140Z [DEBUG] [STARTUP] Running setup()...
+2026-11-11T23:51:02.150Z [DEBUG] Loading skills from: managed=C:\Program Files\ClaudeCode\.claude\skills, user=C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\skills, project=[]
+2026-11-11T23:51:02.150Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\agents: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\agents'
+2026-11-11T23:51:02.150Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\agents: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\agents'
+2026-11-11T23:51:02.151Z [DEBUG] installed_plugins.json doesn't exist, returning empty V2 object
+2026-11-11T23:51:02.151Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\commands: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\commands'
+2026-11-11T23:51:02.151Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\commands: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\commands'
+2026-11-11T23:51:02.151Z [DEBUG] Loaded 0 unique skills (0 unconditional, 0 conditional, managed: 0, user: 0, project: 0, additional: 0, legacy commands: 0)
+2026-11-11T23:51:02.151Z [DEBUG] --plugin-dir C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\plugin is one plugin: .claude-plugin at its top marks it
+2026-11-11T23:51:02.152Z [INFO] [uds-messaging] Listening: \\.\pipe\LOCAL\cc-msg-c18935a04d130081da5ac68d0bc49ac8
+2026-11-11T23:51:02.153Z [DEBUG] [uds-messaging] Inject messages (auth line REQUIRED here; a pipe is not reachable via socat/AF_UNIX): node -e "const c=require('net').connect(process.argv[1],()=>{c.write(JSON.stringify({type:'auth',token:[REDACTED]})+'\n'+JSON.stringify({type:'user',message:{role:'user',content:'hello'}})+'\n');c.end()})" "\\.\pipe\LOCAL\cc-msg-c18935a04d130081da5ac68d0bc49ac8"
+2026-11-11T23:51:02.153Z [DEBUG] [uds-messaging] Connect when the data is ready (run the command first, then connect and write its output as ONE line, as in the node recipe above): a connection that sends no complete line within 30000 ms is closed
+2026-11-11T23:51:02.154Z [DEBUG] Error log sink initialized
+2026-11-11T23:51:02.156Z [DEBUG] [STARTUP] setup() completed in 16ms
+2026-11-11T23:51:02.156Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.156Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.156Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.156Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.156Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.156Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.156Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.156Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.157Z [DEBUG] [STARTUP] Loading commands and agents...
+2026-11-11T23:51:02.158Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.158Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.165Z [DEBUG] Read hooks.json for plugin fifo-review-probe (enabled=true): C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\plugin\hooks\hooks.json
+2026-11-11T23:51:02.166Z [DEBUG] Loaded inline plugin from path: fifo-review-probe
+2026-11-11T23:51:02.166Z [DEBUG] Loaded 1 directory-loaded plugins
+2026-11-11T23:51:02.167Z [DEBUG] Found 5 plugins (5 enabled, 0 disabled)
+2026-11-11T23:51:02.168Z [DEBUG] getPluginSkills: Processing 5 enabled plugins
+2026-11-11T23:51:02.168Z [DEBUG] Checking plugin fifo-review-probe: skillsPath=none, skillsPaths=0 paths
+2026-11-11T23:51:02.168Z [DEBUG] Checking plugin cc-plugin-agents-md: skillsPath=none, skillsPaths=0 paths
+2026-11-11T23:51:02.168Z [DEBUG] Checking plugin cc-plugin-privacy: skillsPath=none, skillsPaths=0 paths
+2026-11-11T23:51:02.168Z [DEBUG] Checking plugin cc-plugin-plugin-authoring: skillsPath=none, skillsPaths=0 paths
+2026-11-11T23:51:02.168Z [DEBUG] Checking plugin cc-plugin-diff: skillsPath=none, skillsPaths=0 paths
+2026-11-11T23:51:02.168Z [DEBUG] Total plugin workflows loaded: 0
+2026-11-11T23:51:02.168Z [DEBUG] Total plugin commands loaded: 0
+2026-11-11T23:51:02.168Z [DEBUG] Total plugin skills loaded: 0 (0 duplicate/user-owned entries skipped)
+2026-11-11T23:51:02.168Z [DEBUG] Total plugin agents loaded: 0
+2026-11-11T23:51:02.169Z [DEBUG] cc-plugin-sec-default@builtin not seated: no managed settings and not a Team or Enterprise organization (none)
+2026-11-11T23:51:02.171Z [DEBUG] getSkills returning: 0 skill dir commands, 0 plugin skills, 30 bundled skills, 1 builtin plugin skills
+2026-11-11T23:51:02.173Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.173Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.175Z [DEBUG] [STARTUP] Commands and agents loaded in 18ms
+2026-11-11T23:51:02.176Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.178Z [WARN] [autocompact] "fixture" isn't described by this version's model catalog; update Claude Code, or map it with behavesAs on a modelPicker row (or modelOverrides, if it is a provider id of a model this version knows). Until then auto-compact keeps this session within 200k tokens (the context window it assumes); if the model accepts more, append [1m] to the model name for 1M, or set CLAUDE_CODE_MAX_CONTEXT_TOKENS to its real window; CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1 restores the previous wait-for-the-API behavior.
+2026-11-11T23:51:02.180Z [DEBUG] [STARTUP] Running showSetupScreens()...
+2026-11-11T23:51:02.180Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.182Z [ERROR] MCP config errors for C:\Users\djlov\.mcp.json: ["Missing \"mcpServers\" — found \"servers\" instead. Claude Code reads MCP servers from the \"mcpServers\" key."]
+2026-11-11T23:51:02.183Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.183Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.189Z [DEBUG] Cleared mTLS configuration cache
+2026-11-11T23:51:02.189Z [DEBUG] Cleared proxy agent cache
+2026-11-11T23:51:02.190Z [DEBUG] [STARTUP] showSetupScreens() completed in 10ms
+2026-11-11T23:51:02.191Z [DEBUG] [LSP MANAGER] initializeLspServerManager() called
+2026-11-11T23:51:02.191Z [DEBUG] [LSP MANAGER] Created manager instance, state=pending
+2026-11-11T23:51:02.191Z [DEBUG] [LSP MANAGER] Starting async initialization (generation 1)
+2026-11-11T23:51:02.191Z [DEBUG] Starting background startup prefetches
+2026-11-11T23:51:02.191Z [DEBUG] [Bootstrap] Skipped: Nonessential traffic disabled
+2026-11-11T23:51:02.191Z [DEBUG] [STARTUP] MCP configs resolved in 1ms (awaited at +52ms)
+2026-11-11T23:51:02.191Z [DEBUG] Artifacts MCP server not added: managed_or_strict_mcp_config (strict_mcp_config)
+2026-11-11T23:51:02.192Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.195Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.196Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-11T23:51:02.196Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.196Z [DEBUG] Initialized versioned plugins system with 0 plugins
+2026-11-11T23:51:02.210Z [DEBUG] Total LSP servers loaded: 0
+2026-11-11T23:51:02.210Z [DEBUG] [LSP SERVER MANAGER] getAllLspServers returned 0 server(s)
+2026-11-11T23:51:02.210Z [DEBUG] LSP manager initialized with 0 servers
+2026-11-11T23:51:02.210Z [DEBUG] LSP server manager initialized successfully
+2026-11-11T23:51:02.210Z [DEBUG] LSP notification handlers registered successfully for all 0 server(s)
+2026-11-11T23:51:02.212Z [DEBUG] [Perfetto] initializePerfettoTracing called, env value: undefined
+2026-11-11T23:51:02.212Z [DEBUG] [3P telemetry] isTelemetryEnabled=false (CLAUDE_CODE_ENABLE_TELEMETRY=undefined)
+2026-11-11T23:51:02.214Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.214Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.220Z [DEBUG] [sessionRegistry] sweep permitted (domain win32:sama)
+2026-11-11T23:51:02.220Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.221Z [DEBUG] [3P telemetry] Event dropped (no event logger initialized): plugin_loaded
+2026-11-11T23:51:02.229Z [DEBUG] plugin cc-plugin-agents-md: no pluginConfigs["agents-md@builtin" or "cc-plugin-agents-md@builtin"].options in user, --settings or managed settings (project settings are not read); every option is its default
+2026-11-11T23:51:02.230Z [DEBUG] hooks worker spawned (one for every plugin)
+2026-11-11T23:51:02.231Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T23:51:02.231Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.98a6295d1c01
+2026-11-11T23:51:02.232Z [DEBUG] Applied original permissions to temp file
+2026-11-11T23:51:02.233Z [DEBUG] Temp file written successfully, size: 786 bytes
+2026-11-11T23:51:02.233Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.98a6295d1c01 to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json
+2026-11-11T23:51:02.233Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json written atomically
+2026-11-11T23:51:02.239Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T23:51:02.239Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.377ae6a81dd6
+2026-11-11T23:51:02.239Z [DEBUG] Applied original permissions to temp file
+2026-11-11T23:51:02.240Z [DEBUG] Temp file written successfully, size: 806 bytes
+2026-11-11T23:51:02.240Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.377ae6a81dd6 to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json
+2026-11-11T23:51:02.240Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json written atomically
+2026-11-11T23:51:02.246Z [DEBUG] Git remote URL: null
+2026-11-11T23:51:02.246Z [DEBUG] No git remote URL found
+2026-11-11T23:51:02.246Z [DEBUG] Not in a GitHub repository, skipping path mapping update
+2026-11-11T23:51:02.246Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T23:51:02.246Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.213572a2b923
+2026-11-11T23:51:02.247Z [DEBUG] Applied original permissions to temp file
+2026-11-11T23:51:02.247Z [DEBUG] Temp file written successfully, size: 973 bytes
+2026-11-11T23:51:02.247Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.213572a2b923 to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json
+2026-11-11T23:51:02.248Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json written atomically
+2026-11-11T23:51:02.256Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.257Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.264Z [DEBUG] [keybindings] KeybindingSetup initialized with 227 bindings, 0 warnings
+2026-11-11T23:51:02.276Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-11T23:51:02.286Z [DEBUG] [engine] send set_max_thinking_tokens max=null
+2026-11-11T23:51:02.286Z [DEBUG] [engine] send set_model model=fixture
+2026-11-11T23:51:02.288Z [DEBUG] prompt.edit: unhooked; the composer relays nothing
+2026-11-11T23:51:02.292Z [DEBUG] performStartupChecks called
+2026-11-11T23:51:02.294Z [DEBUG] [jobStateNameSync] watch skipped: Error: ENOENT: no such file or directory, watch 'C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\jobs\2cd8276d'
+2026-11-11T23:51:02.295Z [DEBUG] [REPL:mount] REPL mounted, disabled=false
+2026-11-11T23:51:02.296Z [ERROR] MCP config errors for C:\Users\djlov\.mcp.json: ["Missing \"mcpServers\" — found \"servers\" instead. Claude Code reads MCP servers from the \"mcpServers\" key."]
+2026-11-11T23:51:02.297Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.297Z [INFO] 1 setup issue: settings (run `claude doctor` for details)
+2026-11-11T23:51:02.297Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.297Z [DEBUG] [Claude in Chrome] Disabled: OAuth token has no scope accepted by /api/oauth/validate (needs user:profile, user:office, or user:ccr_inference; env-var and setup-token sessions default to user:inference only)
+2026-11-11T23:51:02.299Z [DEBUG] [ScheduledTasks] scheduler start() — enabled=false, hasTasks=false
+2026-11-11T23:51:02.301Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\.claude\settings.json
+2026-11-11T23:51:02.301Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.301Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.301Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\.claude\settings.local.json
+2026-11-11T23:51:02.302Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Program Files\ClaudeCode\managed-settings.json
+2026-11-11T23:51:02.310Z [DEBUG] [servedCatalog] off (essential_traffic)
+2026-11-11T23:51:02.334Z [DEBUG] Starting background plugin installations
+2026-11-11T23:51:02.334Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.334Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.335Z [DEBUG] [auto-mode] verifyAutoModeGateAccess: enabledState=enabled disabledBySettings=false model=fixture modelSupported=true disableFastModeBreakerFires=false carouselAvailable=true canEnterAuto=true
+2026-11-11T23:51:02.335Z [DEBUG] performBackgroundPluginInstallations called
+2026-11-11T23:51:02.354Z [DEBUG] hooks module fifo-review-probe@inline loaded (worker, environment 1, tier user); events: session.start,turn.start,turn.complete
+2026-11-11T23:51:02.354Z [DEBUG] hooks native host made (for the plugins the binary carries)
+2026-11-11T23:51:02.355Z [DEBUG] hooks module cc-plugin-agents-md@builtin loaded (native, environment 2, tier builtin); events: session.start,prompt.context,command.run,session.compact,prompt.submit,turn.start,turn.complete,agent.spawn,tool.call,prompt.mention
+2026-11-11T23:51:02.355Z [DEBUG] hooks module cc-plugin-plugin-authoring@builtin loaded (native, environment 3, tier builtin); events: skill.prompt,tool.check,tool.call
+2026-11-11T23:51:02.356Z [DEBUG] hooks module cc-plugin-diff@builtin loaded (native, environment 4, tier builtin); events: session.start,ui.render,command.run,ui.close,ui.focus,ui.scroll,tool.call,prompt.submit
+2026-11-11T23:51:02.356Z [DEBUG] hooks module cc-plugin-privacy@builtin loaded (native, environment 5, tier builtin); events: tool.check
+2026-11-11T23:51:02.357Z [DEBUG] [keybindings] Watching for changes to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\keybindings.json
+2026-11-11T23:51:02.358Z [DEBUG] [sessionRegistry] sweep permitted (domain win32:sama)
+2026-11-11T23:51:02.358Z [DEBUG] [sessionRegistry] sweep permitted (domain win32:sama)
+2026-11-11T23:51:02.358Z [DEBUG] engine.create: no plugin-provided interfaces; $ built for fifo-review-probe,cc-plugin-agents-md,cc-plugin-plugin-authoring,cc-plugin-diff,cc-plugin-privacy
+2026-11-11T23:51:02.359Z [DEBUG] plugin.register: cc-plugin-agents-md (builtin, cc-plugin-agents-md@builtin), judged by core alone: admitted
+2026-11-11T23:51:02.359Z [DEBUG] plugin.register: cc-plugin-plugin-authoring (builtin, cc-plugin-plugin-authoring@builtin), judged by core alone: admitted
+2026-11-11T23:51:02.359Z [DEBUG] plugin.register: cc-plugin-diff (builtin, cc-plugin-diff@builtin), judged by core alone: admitted
+2026-11-11T23:51:02.359Z [DEBUG] plugin.register: cc-plugin-privacy (builtin, cc-plugin-privacy@builtin), judged by core alone: admitted
+2026-11-11T23:51:02.359Z [DEBUG] plugin.register: fifo-review-probe (user, fifo-review-probe@inline), judged by core alone: admitted
+2026-11-11T23:51:02.369Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.369Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.371Z [DEBUG] plugin-dir watch: watching fifo-review-probe; folders of plugins none
+2026-11-11T23:51:02.388Z [DEBUG] Artifact gates frozen: capabilities=true comments=false db=true files=false types=false type_create=false type_catalog=false room=false verify=false delete=false preview=false preview_browser=unread open=false endpoints=false pin=true share=false versions=false flag_source=disabled gb_fresh=false
+2026-11-11T23:51:02.388Z [DEBUG] Artifact publish edits offer frozen: edit_hook=false
+2026-11-11T23:51:02.389Z [DEBUG] Artifact input schema built: assets=false copy_from=false publish_edits=true assets_source=cold_no_identity
+2026-11-11T23:51:02.424Z [DEBUG] anchor: ntdll reached through Bun.ant.windowsFsAt
+2026-11-11T23:51:02.427Z [DEBUG] anchor (win32): identity bridge serial32 — bun dev=2862732396 ino=36591746981025470; nt serial32=2862732396 serial64=14747777971920163948 index=36591746981025470
+2026-11-11T23:51:02.427Z [DEBUG] anchor (win32): held-handle backend up
+2026-11-11T23:51:02.440Z [DEBUG] type root of fifo-review-probe at C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\plugin\.claude-plugin\types: entries claude-code, claude-code-tools, claude-code-mcp; wrote .claude-plugin/types/claude-code/index.d.ts, .claude-plugin/types/claude-code-tools/index.d.ts, .claude-plugin/types/claude-code-mcp/index.d.ts, .claude-plugin/types/tsconfig.json, .claude-plugin/types/.gitignore, tsconfig.json
+2026-11-11T23:51:02.440Z [DEBUG] Registered 0 hooks from 5 plugins
+2026-11-11T23:51:02.440Z [DEBUG] session.start: raised (surface terminal, interactive)
+2026-11-11T23:51:02.442Z [DEBUG] settings.read: the engine's merge was raised (the loaded plugins changed) in 1.9 ms; 0 keys answered otherwise than the files.
+2026-11-11T23:51:02.442Z [DEBUG] settings.read: the engine's merge is not raised again (the loaded plugins changed): neither the loaded plugins nor the settings changed.
+2026-11-11T23:51:02.452Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 2.6ms (native link, next() included)
+2026-11-11T23:51:02.453Z [DEBUG] [FileIndex] getProjectFiles called, respectGitignore=true
+2026-11-11T23:51:02.453Z [DEBUG] [FileIndex] getFilesUsingGit called
+2026-11-11T23:51:02.461Z [DEBUG] XTVERSION: no reply (terminal ignored query)
+2026-11-11T23:51:02.461Z [DEBUG] Terminal capabilities: extendedKeys=yes (env: terminal=windows-terminal); synchronizedOutput=yes (env: WT_SESSION, no answer); kittyKeyboard=no (probe: no reply to CSI ? u); kittyGraphics=no (env: terminal=windows-terminal, not asked yet, no answer); itermImages=no (yes only on an XTVERSION reply naming iTerm2 3.5 or later, no answer); mousePixels=no (env: terminal=windows-terminal, not asked yet, no answer); programStatus=no (probe: no reply to OSC 7501 ; ?); terminal said: no reply to CSI ? u; DECRQM 2026 not asked (no XTVERSION reply)
+2026-11-11T23:51:02.461Z [DEBUG] DECSTBM: gated (TMUX=unset ZELLIJ=unset TERM_PROGRAM=unset TERM=xterm-256color)
+2026-11-11T23:51:02.469Z [DEBUG] memory index backfill: ENOENT: no such file or directory, scandir 'C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\projects\C--\memory\'
+2026-11-11T23:51:02.470Z [DEBUG] "Loaded 1 CLAUDE.md/rules files:\n  [Project] C:\\Users\\djlov\\.claude\\CLAUDE.md (2190 chars)"
+2026-11-11T23:51:02.476Z [DEBUG] hooks module cc-plugin-agents-md@builtin prompt.context settled in 1.1ms (native link, next() included)
+2026-11-11T23:51:02.478Z [DEBUG] $.command.register (cc-plugin-diff): /diff listed
+2026-11-11T23:51:02.478Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.478Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:02.480Z [DEBUG] hooks module cc-plugin-diff@builtin session.start settled in 3.9ms (native link, next() included)
+2026-11-11T23:51:02.480Z [DEBUG] hooks module cc-plugin-agents-md@builtin session.start settled in 4.0ms (native link, next() included)
+2026-11-11T23:51:02.481Z [DEBUG] Loaded plugins - Enabled: 5, Disabled: 0, Commands: 0, Agents: 0, Errors: 0
+2026-11-11T23:51:02.482Z [DEBUG] Plugin autoupdate: command-source refresh disabled by tengu_plugin_command_source_refresh (still excluding command-sourced plugins from the regular pass)
+2026-11-11T23:51:02.484Z [DEBUG] Watching C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace for C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\.claude to appear
+2026-11-11T23:51:02.484Z [DEBUG] Watching for changes in setting files C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\settings.json...
+2026-11-11T23:51:02.484Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\output-styles: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\output-styles'
+2026-11-11T23:51:02.485Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\skills: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\skills'
+2026-11-11T23:51:02.485Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\output-styles: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\output-styles'
+2026-11-11T23:51:02.485Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\routines: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\routines'
+2026-11-11T23:51:02.485Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\workflows: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\workflows'
+2026-11-11T23:51:02.485Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\skills: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\skills'
+2026-11-11T23:51:02.485Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\routines: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\routines'
+2026-11-11T23:51:02.485Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\workflows: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\workflows'
+2026-11-11T23:51:02.486Z [DEBUG] [engine] send seed_read_state path=C:\Users\djlov\.claude\CLAUDE.md
+2026-11-11T23:51:02.486Z [DEBUG] Lock acquisition took longer than expected - another Claude instance may be running
+2026-11-11T23:51:02.496Z [DEBUG] [FileIndex] git ls-files (tracked) took 43ms
+2026-11-11T23:51:02.497Z [DEBUG] $.fs.read (fifo-review-probe): C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-A.jsonl failed: ENOENT: no such file or directory, open 'C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-A.jsonl'
+2026-11-11T23:51:02.498Z [DEBUG] [FileIndex] git ls-files: 0 tracked files in 45ms
+2026-11-11T23:51:02.502Z [DEBUG] [FileIndex] using git ls-files result (0 files)
+2026-11-11T23:51:02.503Z [DEBUG] [FileIndex] cache refresh completed in 50ms
+2026-11-11T23:51:02.504Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T23:51:02.504Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.f7f53df1e230
+2026-11-11T23:51:02.505Z [DEBUG] $.fs.write (fifo-review-probe): C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-A.jsonl (76 bytes)
+2026-11-11T23:51:02.513Z [DEBUG] Applied original permissions to temp file
+2026-11-11T23:51:02.516Z [DEBUG] Temp file written successfully, size: 1658 bytes
+2026-11-11T23:51:02.516Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.f7f53df1e230 to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json
+2026-11-11T23:51:02.517Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json written atomically
+2026-11-11T23:51:02.518Z [DEBUG] $.fs.write (fifo-review-probe): C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-A.jsonl (455 bytes)
+2026-11-11T23:51:02.519Z [DEBUG] hooks module fifo-review-probe@inline session.start settled in 78.8ms (worker hop, next() included)
+2026-11-11T23:51:02.523Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T23:51:02.523Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.c9b83e516a04
+2026-11-11T23:51:02.525Z [DEBUG] Applied original permissions to temp file
+2026-11-11T23:51:02.528Z [DEBUG] Temp file written successfully, size: 1699 bytes
+2026-11-11T23:51:02.528Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.c9b83e516a04 to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json
+2026-11-11T23:51:02.528Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json written atomically
+2026-11-11T23:51:02.533Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T23:51:02.533Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.84d38409d51d
+2026-11-11T23:51:02.535Z [DEBUG] Applied original permissions to temp file
+2026-11-11T23:51:02.536Z [DEBUG] Temp file written successfully, size: 1736 bytes
+2026-11-11T23:51:02.536Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.84d38409d51d to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json
+2026-11-11T23:51:02.536Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json written atomically
+2026-11-11T23:51:02.544Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T23:51:02.544Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.866ba5155b15
+2026-11-11T23:51:02.545Z [DEBUG] Applied original permissions to temp file
+2026-11-11T23:51:02.546Z [DEBUG] Temp file written successfully, size: 2124 bytes
+2026-11-11T23:51:02.546Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.866ba5155b15 to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json
+2026-11-11T23:51:02.547Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json written atomically
+2026-11-11T23:51:02.817Z [DEBUG] [fs.watch probe] verdict: delivers
+2026-11-11T23:51:02.916Z [DEBUG] Zip extraction completed: 632 files, 14549KB uncompressed
+2026-11-11T23:51:03.582Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T23:51:03.582Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.addb6046838c
+2026-11-11T23:51:03.585Z [DEBUG] Applied original permissions to temp file
+2026-11-11T23:51:03.587Z [DEBUG] Temp file written successfully, size: 2219 bytes
+2026-11-11T23:51:03.587Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.addb6046838c to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json
+2026-11-11T23:51:03.588Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json written atomically
+2026-11-11T23:51:04.523Z [DEBUG] $.fs.write (fifo-review-probe): C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-A.jsonl (529 bytes)
+2026-11-11T23:51:04.523Z [DEBUG] $.prompt.submit (fifo-review-probe): "FIFO-REVIEW-SEED-135e1028"
+2026-11-11T23:51:04.553Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:04.554Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 5.9ms (native link, next() included)
+2026-11-11T23:51:04.554Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 3.9ms (native link, next() included)
+2026-11-11T23:51:04.554Z [DEBUG] hooks module cc-plugin-agents-md@builtin (native): prompt.submit nested in fifo-review-probe
+2026-11-11T23:51:04.554Z [DEBUG] hooks module cc-plugin-diff@builtin (native): prompt.submit nested in fifo-review-probe
+2026-11-11T23:51:04.555Z [DEBUG] FileHistory: Added snapshot for b8563866-2b8d-4211-aafe-e4337989da23, tracking 0 files
+2026-11-11T23:51:04.560Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:04.560Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:04.561Z [DEBUG] Total plugin output styles loaded: 0
+2026-11-11T23:51:04.563Z [DEBUG] act_dont_rederive_arm_active source=growthbook
+2026-11-11T23:51:04.564Z [DEBUG] hooks module cc-plugin-diff@builtin prompt.submit settled in 10.3ms (native link, next() included)
+2026-11-11T23:51:04.564Z [DEBUG] hooks module cc-plugin-agents-md@builtin prompt.submit settled in 10.7ms (native link, next() included)
+2026-11-11T23:51:04.567Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:04.568Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:51:04.569Z [DEBUG] [engine] yield system/init (first)
+2026-11-11T23:51:04.569Z [DEBUG] [engine] turn 1 start
+2026-11-11T23:51:04.573Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=180000
+2026-11-11T23:51:04.582Z [WARN] [claude-code:unrecognized_model] {"model":"fixture","query_source":"repl_main_thread"}
+2026-11-11T23:51:04.589Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.322.f08; cc_entrypoint=cli;
+2026-11-11T23:51:04.590Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-11T23:51:04.594Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-11T23:51:04.597Z [DEBUG] [API:timing] dispatching to firstParty model=fixture
+2026-11-11T23:51:04.599Z [DEBUG] [API REQUEST] /v1/messages source=repl_main_thread
+2026-11-11T23:51:04.612Z [DEBUG] Stream started - received first chunk
+2026-11-11T23:51:04.612Z [DEBUG] [API:timing] first byte after 18ms
+2026-11-11T23:51:04.620Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T23:51:04.620Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.3ed41e973b36
+2026-11-11T23:51:04.620Z [DEBUG] $.fs.write (fifo-review-probe): C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-A.jsonl (602 bytes)
+2026-11-11T23:51:04.621Z [DEBUG] $.prompt.submit (fifo-review-probe): "FIFO-REVIEW-OLD-135e1028"
+2026-11-11T23:51:04.622Z [DEBUG] Applied original permissions to temp file
+2026-11-11T23:51:04.629Z [DEBUG] Temp file written successfully, size: 2247 bytes
+2026-11-11T23:51:04.629Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.3ed41e973b36 to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json
+2026-11-11T23:51:04.631Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json written atomically
+2026-11-11T23:51:04.632Z [DEBUG] $.fs.write (fifo-review-probe): C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-A.jsonl (856 bytes)
+2026-11-11T23:51:04.633Z [DEBUG] hooks module cc-plugin-agents-md@builtin turn.start settled in 0.1ms (native link, next() included)
+2026-11-11T23:51:04.634Z [DEBUG] hooks module fifo-review-probe@inline turn.start settled in 75.1ms (worker hop, next() included)
+2026-11-11T23:51:04.636Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T23:51:04.636Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.11b3c06110de
+2026-11-11T23:51:04.638Z [DEBUG] Applied original permissions to temp file
+2026-11-11T23:51:04.639Z [DEBUG] Temp file written successfully, size: 2247 bytes
+2026-11-11T23:51:04.639Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.11b3c06110de to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json
+2026-11-11T23:51:04.640Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json written atomically
+2026-11-11T23:51:04.641Z [DEBUG] $.fs.write (fifo-review-probe): C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-A.jsonl (1030 bytes)
+2026-11-11T23:51:04.647Z [DEBUG] $.fs.write (fifo-review-probe): C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-A.jsonl (1105 bytes)
+2026-11-11T23:51:11.890Z [DEBUG] AutoUpdaterWrapper: Installation type: native
+2026-11-11T23:51:12.299Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T23:51:12.299Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.bb664c7feeb1
+2026-11-11T23:51:12.301Z [DEBUG] Applied original permissions to temp file
+2026-11-11T23:51:12.309Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 0.7ms (native link, next() included)
+2026-11-11T23:51:12.311Z [DEBUG] Temp file written successfully, size: 2080 bytes
+2026-11-11T23:51:12.311Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.bb664c7feeb1 to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json
+2026-11-11T23:51:12.313Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json written atomically
+2026-11-11T23:51:12.313Z [DEBUG] fullscreen boot canary: healthy
+2026-11-11T23:51:19.612Z [WARN] [Stall] stream_idle_partial lastChunkAgeMs=15001 bytesTotal=490 idleDeadlineMs=300000
+2026-11-11T23:51:34.612Z [WARN] [Stall] stream_idle_partial lastChunkAgeMs=30001 bytesTotal=490 idleDeadlineMs=300000
+2026-11-11T23:52:02.377Z [DEBUG] plugin-dir watch on C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\plugin: idle, polling every 30000ms
+2026-11-11T23:52:04.611Z [WARN] [Stall] stream_idle_partial lastChunkAgeMs=60000 bytesTotal=490 idleDeadlineMs=300000
+2026-11-11T23:52:38.718Z [WARN] Streaming stall detected: 94.1s gap between events (stall #1)
+2026-11-11T23:52:38.725Z [WARN] Streaming completed with 1 stall(s), total stall time: 94.1s
+2026-11-11T23:52:38.733Z [DEBUG] [engine] turn 1 end (turns=1 usage in=50 out=5 cost=$0.0003 api=94135ms stop=end_turn resultLen=4)
+2026-11-11T23:52:38.740Z [DEBUG] [sessionRegistry] sweep permitted (domain win32:sama)
+2026-11-11T23:52:38.740Z [DEBUG] [sessionRegistry] sweep permitted (domain win32:sama)
+2026-11-11T23:52:38.774Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:52:38.774Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 18.0ms (native link, next() included)
+2026-11-11T23:52:38.774Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 6.2ms (native link, next() included)
+2026-11-11T23:52:38.774Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 4.3ms (native link, next() included)
+2026-11-11T23:52:38.775Z [DEBUG] hooks module cc-plugin-agents-md@builtin (native): prompt.submit nested in fifo-review-probe
+2026-11-11T23:52:38.775Z [DEBUG] hooks module cc-plugin-diff@builtin (native): prompt.submit nested in fifo-review-probe
+2026-11-11T23:52:38.776Z [DEBUG] FileHistory: Making snapshot for message 4b75d824-2292-459b-bc29-c9ef54ec3d97
+2026-11-11T23:52:38.778Z [DEBUG] FileHistory: Added snapshot for 4b75d824-2292-459b-bc29-c9ef54ec3d97, tracking 0 files
+2026-11-11T23:52:38.779Z [DEBUG] hooks module cc-plugin-diff@builtin prompt.submit settled in 4.4ms (native link, next() included)
+2026-11-11T23:52:38.779Z [DEBUG] hooks module cc-plugin-agents-md@builtin prompt.submit settled in 4.8ms (native link, next() included)
+2026-11-11T23:52:38.780Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:52:38.780Z [DEBUG] [engine] turn 2 start
+2026-11-11T23:52:38.782Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=180000
+2026-11-11T23:52:38.787Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.322.f08; cc_entrypoint=cli;
+2026-11-11T23:52:38.788Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-11T23:52:38.791Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-11T23:52:38.794Z [DEBUG] [API:timing] dispatching to firstParty model=fixture
+2026-11-11T23:52:38.795Z [DEBUG] [API REQUEST] /v1/messages source=repl_main_thread
+2026-11-11T23:52:38.803Z [DEBUG] Stream started - received first chunk
+2026-11-11T23:52:38.803Z [DEBUG] [API:timing] first byte after 12ms
+2026-11-11T23:52:38.809Z [DEBUG] [engine] turn 2 end (turns=1 usage in=100 out=10 cost=$0.0006 api=94154ms stop=end_turn resultLen=4)
+2026-11-11T23:52:38.831Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 4.0ms (native link, next() included)
+2026-11-11T23:52:38.831Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 2.2ms (native link, next() included)
+2026-11-11T23:52:38.836Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Program Files\ClaudeCode\managed-settings.json
+2026-11-11T23:52:38.839Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\.claude\settings.json
+2026-11-11T23:52:38.839Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:52:38.840Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:52:38.840Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\.claude\settings.local.json
+2026-11-11T23:52:38.841Z [DEBUG] $.fs.write (fifo-review-probe): C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-A.jsonl (1247 bytes)
+2026-11-11T23:52:38.843Z [DEBUG] hooks module cc-plugin-agents-md@builtin turn.complete settled in 0.2ms (native link, next() included)
+2026-11-11T23:52:38.845Z [DEBUG] hooks module fifo-review-probe@inline turn.complete settled in 108.5ms (worker hop, next() included)
+2026-11-11T23:52:38.855Z [DEBUG] plugin.register: fifo-review-probe (user, fifo-review-probe@inline), judged by core alone: admitted
+2026-11-11T23:52:38.856Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T23:52:38.856Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.ba27f4e3318f
+2026-11-11T23:52:38.859Z [DEBUG] Applied original permissions to temp file
+2026-11-11T23:52:38.861Z [DEBUG] engine.create: no plugin-provided interfaces; $ built for fifo-review-probe
+2026-11-11T23:52:38.862Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:52:38.862Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:52:38.863Z [DEBUG] session.start: raised for fifo-review-probe (loaded later)
+2026-11-11T23:52:38.864Z [DEBUG] hooks module fifo-review-probe@inline reloaded in 9.5ms; events: session.start,turn.start,turn.complete
+2026-11-11T23:52:38.864Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:52:38.864Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:52:38.889Z [DEBUG] settings.read: the engine's merge was raised (the loaded plugins changed) in 22.9 ms; 0 keys answered otherwise than the files.
+2026-11-11T23:52:38.897Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 0.6ms (native link, next() included)
+2026-11-11T23:52:38.898Z [DEBUG] Temp file written successfully, size: 2189 bytes
+2026-11-11T23:52:38.898Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.ba27f4e3318f to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json
+2026-11-11T23:52:38.900Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json written atomically
+2026-11-11T23:52:38.901Z [DEBUG] anchor (win32): identity bridge serial32 — bun dev=2862732396 ino=36591746981025470; nt serial32=2862732396 serial64=14747777971920163948 index=36591746981025470
+2026-11-11T23:52:38.901Z [DEBUG] anchor (win32): held-handle backend up
+2026-11-11T23:52:38.902Z [DEBUG] $.fs.write (fifo-review-probe): C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-A.jsonl (1419 bytes)
+2026-11-11T23:52:38.908Z [DEBUG] $.fs.read (fifo-review-probe): C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-B.jsonl failed: ENOENT: no such file or directory, open 'C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-B.jsonl'
+2026-11-11T23:52:38.914Z [DEBUG] $.fs.write (fifo-review-probe): C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-B.jsonl (76 bytes)
+2026-11-11T23:52:38.925Z [DEBUG] type root of fifo-review-probe at C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\plugin\.claude-plugin\types: entries claude-code, claude-code-tools, claude-code-mcp; wrote nothing
+2026-11-11T23:52:38.925Z [DEBUG] [fifo-review-probe] $.ui.log: reloaded (3 hooks: session.start, turn.start, turn.complete)
+2026-11-11T23:52:38.935Z [DEBUG] $.fs.write (fifo-review-probe): C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-A.jsonl (1673 bytes)
+2026-11-11T23:52:38.937Z [DEBUG] $.fs.write (fifo-review-probe): C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-B.jsonl (455 bytes)
+2026-11-11T23:52:38.938Z [DEBUG] hooks module cc-plugin-agents-md@builtin turn.start settled in 0.2ms (native link, next() included)
+2026-11-11T23:52:38.938Z [DEBUG] hooks module fifo-review-probe@inline turn.start settled in 92.7ms (worker hop, next() included)
+2026-11-11T23:52:38.943Z [DEBUG] $.fs.write (fifo-review-probe): C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-B.jsonl (528 bytes)
+2026-11-11T23:52:38.943Z [DEBUG] $.prompt.submit (fifo-review-probe): "FIFO-REVIEW-NEW-135e1028"
+2026-11-11T23:52:38.944Z [DEBUG] hooks module fifo-review-probe@inline session.start settled in 78.3ms (worker hop, next() included)
+2026-11-11T23:52:38.970Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:52:38.970Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 5.8ms (native link, next() included)
+2026-11-11T23:52:38.970Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 4.0ms (native link, next() included)
+2026-11-11T23:52:38.970Z [DEBUG] hooks module cc-plugin-agents-md@builtin (native): prompt.submit nested in fifo-review-probe#0
+2026-11-11T23:52:38.970Z [DEBUG] hooks module cc-plugin-diff@builtin (native): prompt.submit nested in fifo-review-probe#0
+2026-11-11T23:52:38.971Z [DEBUG] FileHistory: Making snapshot for message df0335e0-d2c1-40a1-9a93-deea8d6b24b0
+2026-11-11T23:52:38.974Z [DEBUG] FileHistory: Added snapshot for df0335e0-d2c1-40a1-9a93-deea8d6b24b0, tracking 0 files
+2026-11-11T23:52:38.976Z [DEBUG] act_dont_rederive_arm_active source=growthbook
+2026-11-11T23:52:38.977Z [DEBUG] hooks module cc-plugin-diff@builtin prompt.submit settled in 6.9ms (native link, next() included)
+2026-11-11T23:52:38.977Z [DEBUG] hooks module cc-plugin-agents-md@builtin prompt.context settled in 2.1ms (native link, next() included)
+2026-11-11T23:52:38.978Z [DEBUG] hooks module cc-plugin-agents-md@builtin prompt.submit settled in 7.4ms (native link, next() included)
+2026-11-11T23:52:38.979Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T23:52:38.979Z [DEBUG] [engine] turn 3 start
+2026-11-11T23:52:38.980Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=180000
+2026-11-11T23:52:38.985Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.322.f08; cc_entrypoint=cli;
+2026-11-11T23:52:38.985Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-11T23:52:38.987Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-11T23:52:38.990Z [DEBUG] [API:timing] dispatching to firstParty model=fixture
+2026-11-11T23:52:38.990Z [DEBUG] [API REQUEST] /v1/messages source=repl_main_thread
+2026-11-11T23:52:39.005Z [DEBUG] Stream started - received first chunk
+2026-11-11T23:52:39.005Z [DEBUG] [API:timing] first byte after 18ms
+2026-11-11T23:52:39.010Z [DEBUG] [engine] turn 3 end (turns=1 usage in=150 out=15 cost=$0.0009 api=94177ms stop=end_turn resultLen=4)
+2026-11-11T23:52:39.013Z [DEBUG] $.fs.write (fifo-review-probe): C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-B.jsonl (670 bytes)
+2026-11-11T23:52:39.014Z [DEBUG] hooks module cc-plugin-agents-md@builtin turn.complete settled in 0.2ms (native link, next() included)
+2026-11-11T23:52:39.014Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T23:52:39.014Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.45a401a8d6bd
+2026-11-11T23:52:39.029Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 4.8ms (native link, next() included)
+2026-11-11T23:52:39.030Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 2.7ms (native link, next() included)
+2026-11-11T23:52:39.032Z [DEBUG] hooks module fifo-review-probe@inline turn.complete settled in 92.8ms (worker hop, next() included)
+2026-11-11T23:52:39.033Z [DEBUG] Applied original permissions to temp file
+2026-11-11T23:52:39.058Z [DEBUG] Temp file written successfully, size: 2189 bytes
+2026-11-11T23:52:39.058Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json.tmp.34064.45a401a8d6bd to C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json
+2026-11-11T23:52:39.059Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\ccfg\.claude.json written atomically
+2026-11-11T23:52:39.060Z [DEBUG] $.fs.write (fifo-review-probe): C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-B.jsonl (842 bytes)
+2026-11-11T23:52:39.070Z [DEBUG] $.fs.write (fifo-review-probe): C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-B.jsonl (1096 bytes)
+2026-11-11T23:52:39.071Z [DEBUG] hooks module cc-plugin-agents-md@builtin turn.start settled in 0.2ms (native link, next() included)
+2026-11-11T23:52:39.071Z [DEBUG] hooks module fifo-review-probe@inline turn.start settled in 39.3ms (worker hop, next() included)
+2026-11-11T23:52:39.077Z [DEBUG] $.fs.write (fifo-review-probe): C:\Users\djlov\AppData\Local\Temp\ciel-fifo-review-reload-held-prompt-135e1028-xpwilo8m\workspace\events-B.jsonl (1238 bytes)
+2026-11-11T23:52:39.078Z [DEBUG] hooks module cc-plugin-agents-md@builtin turn.complete settled in 0.2ms (native link, next() included)
+2026-11-11T23:52:39.079Z [DEBUG] hooks module fifo-review-probe@inline turn.complete settled in 6.9ms (worker hop, next() included)

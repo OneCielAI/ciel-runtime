@@ -1,0 +1,19 @@
+{
+  "status": "diagnostic-stopped",
+  "freeze": "0d1b4afc (register.js 0d1b4afc / side-intake.js 194fa123 / work_parallel_mcp.py 35214869)",
+  "diagnostic": "freeze has known blockers: the prompt FIFO never settles a first submit, hiding later wakes, and the FIFO is per-instance across reload",
+  "release_evidence": false,
+  "reason": "deliberate stop on the team lead's do-not-relaunch message; the launch at 23:38:55Z had crossed that message",
+  "stop_utc": "2026-11-11T23:42:09Z",
+  "progress_before_stop": "trust, started, and fill/workers-running frames captured (00-trust, 01-started, 02-workers-running terminal + 1440/390 web, 02-workers-running-state.json); checkpoint A was not reached",
+  "owned_root": {"pid": 79912, "creation": "2026-11-11T23:38:55.6807330Z"},
+  "cleanup": {"tool": "stop_owned_run.py (creation-fenced exact identities, handles held, suspend, leaves-first taskkill /PID n /F, never /T)",
+              "pinned": 28, "killed": 28, "rc0": 28, "confirmed_dead": 28, "refused_protected": 0, "remaining": 0,
+              "runner_84092_alive_after": false, "port_9931_listeners_after": 0, "log": "stop-kills.jsonl"},
+  "protected_check": {"method": "creation-fenced tree from the protected root identities in live-before.json, recomputed after the stop",
+                      "core_identities_unchanged": true, "killed_identities": 102,
+                      "killed_overlap_with_protected_before": 0, "killed_overlap_with_protected_after": 0},
+  "live_profile": {"settings_json": "543860932ffbd84d (unchanged)", "statusline": "20e823e9 (unchanged)",
+                   "commands_and_bin": "match the pre-run baseline",
+                   "claude_json": "whole-file hash changed, 0 ciel-owned-main-review project entries, 86 projects"}
+}

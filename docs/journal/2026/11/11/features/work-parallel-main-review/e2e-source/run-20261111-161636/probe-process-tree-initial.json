@@ -1,0 +1,27 @@
+{
+  "at": 1794435411.1899524,
+  "root": 52284,
+  "processes": [
+    {
+      "ProcessId": 52284,
+      "ParentProcessId": 74276,
+      "Name": "python.exe",
+      "CreationDateUtc": "2026-11-11T22:16:36.1244880Z",
+      "CommandLine": "\"C:\\Program Files\\Python311\\python.exe\"  -u \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\work-parallel-main-review\\e2e-source\\owned_main_review_probe_v2.py\" "
+    },
+    {
+      "ProcessId": 72740,
+      "ParentProcessId": 52284,
+      "Name": "powershell.exe",
+      "CreationDateUtc": "2026-11-11T22:16:50.1192080Z",
+      "CommandLine": "powershell -NoProfile -NonInteractive -Command \"$all=Get-CimInstance Win32_Process; $ids=@(52284); do {$new=@($all | Where-Object {$_.ParentProcessId -in $ids -and $_.ProcessId -notin $ids} | Select-Object -ExpandProperty ProcessId); $ids += $new} while ($new.Count); $all | Where-Object {$_.ProcessId -in $ids} | Select-Object ProcessId,ParentProcessId,Name,@{n='CreationDateUtc';e={$_.CreationDate.ToUniversalTime().ToString('o')}},CommandLine | ConvertTo-Json -Depth 3\""
+    },
+    {
+      "ProcessId": 75600,
+      "ParentProcessId": 72740,
+      "Name": "conhost.exe",
+      "CreationDateUtc": "2026-11-11T22:16:50.1329210Z",
+      "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"
+    }
+  ]
+}

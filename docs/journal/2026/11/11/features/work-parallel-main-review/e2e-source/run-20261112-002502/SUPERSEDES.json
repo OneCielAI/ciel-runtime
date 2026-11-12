@@ -1,0 +1,13 @@
+{
+  "supersedes": "run-20261111-213818",
+  "reason": "213818 passed 30/30 on freeze eab3ad33 but showed a product display defect: after the replacement was finalized, the final terminal status and web Main review (1440/390) still listed the predecessor rework row \"Main review (1) - Rework - n4\" (07-finalized.txt, 07-finalized-desktop.png, 07-finalized-mobile.png). Since then the review-projection fix and the rework bind/launch_bound fix landed (register.js ea7768f5, work_parallel_mcp.py 704cb811, work_parallel_finalization.py 5c9afdc5), and runner 345a7ebe adds reworked_item_absent_from_final_main_review.",
+  "superseded_record": "run-20261111-213818/result.json (outcome passed; kept as evidence)",
+  "runner_sha256": "345a7ebe5e772e3f1ab31aa8e974efb5cc2bd4a780e3fe63b1171614c7d7eaf0",
+  "product_key_hashes": {
+    "register": "ea7768f5",
+    "side_intake": "9b955068",
+    "types": "542ff492",
+    "work_parallel_mcp": "704cb811",
+    "work_parallel_finalization": "5c9afdc5"
+  }
+}

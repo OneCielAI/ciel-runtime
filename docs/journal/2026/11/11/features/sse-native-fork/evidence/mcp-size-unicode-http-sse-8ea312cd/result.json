@@ -1,0 +1,359 @@
+{
+  "run": "mcp-size-unicode-http-sse-8ea312cd",
+  "mode": "mcp-size",
+  "variant": "unicode-http-sse",
+  "claude_code": "2.1.321",
+  "env_MAX_MCP_OUTPUT_TOKENS": null,
+  "server_meta": null,
+  "finished": true,
+  "hook_rows": [
+    {
+      "event": "connected",
+      "session_id": "78571bb0-48a6-4a67-9854-3610779b96e3",
+      "claude_config_dir": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\evidence\\mcp-size-unicode-http-sse-8ea312cd\\ccfg"
+    },
+    {
+      "event": "call",
+      "tool": "walkie_read_messages",
+      "size": 60000,
+      "saved_path": null,
+      "saved_read": null,
+      "stub_text": null,
+      "stub_count": null,
+      "received_code_points": 60685,
+      "keys": [
+        "content",
+        "isError"
+      ],
+      "isError": false,
+      "content_types": [
+        "text"
+      ],
+      "chars": 70525,
+      "sha256": "36e259f9df18a13468db86896fe4889d85bbdb177d8d3a51de5e77ed9b91b4bd",
+      "parsed": true,
+      "head": "{\"messages\": [{\"id\": \"1001\", \"conversation_id\": \"34886995-4a66-4527-a618-814e9cb0a5bf\", \"thread_root_id\": null, \"text\": \"\uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d",
+      "tail": "\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 41 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 41 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 41 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 41 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 41 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 41 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 41 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \"}]}",
+      "other_content": [],
+      "meta": null
+    },
+    {
+      "event": "call",
+      "tool": "walkie_read_messages",
+      "size": 200000,
+      "saved_path": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\evidence\\mcp-size-unicode-http-sse-8ea312cd\\ccfg\\projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-sse-8ea312cd-workspace\\78571bb0-48a6-4a67-9854-3610779b96e3\\tool-results\\mcp-walkie-walkie_read_messages-1794391110577.txt",
+      "saved_read": {
+        "chars": 233794,
+        "code_points": 201634,
+        "utf8_bytes": 474994,
+        "sha256": "3b32a1796da6ef0f2777d1cdda7be75bcb9d4b5ab1cecaa40d8d758a9bbe3b0a"
+      },
+      "stub_text": "Error: result (233,794 characters across 1 line) exceeds maximum allowed tokens. Output has been saved to C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\evidence\\mcp-size-unicode-http-sse-8ea312cd\\ccfg\\projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-sse-8ea312cd-workspace\\78571bb0-48a6-4a67-9854-3610779b96e3\\tool-results\\mcp-walkie-walkie_read_messages-1794391110577.txt.\nFormat: Plain text\nSearch within the file for specific content, and use jq if the content is JSON.\nREQUIREMENTS FOR SUMMARIZATION/ANALYSIS/REVIEW:\n- You MUST read the content from the file at C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\evidence\\mcp-size-unicode-http-sse-8ea312cd\\ccfg\\projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-sse-8ea312cd-workspace\\78571bb0-48a6-4a67-9854-3610779b96e3\\tool-results\\mcp-walkie-walkie_read_messages-1794391110577.txt in sequential chunks until 100% of the content has been read.\n- Note: this file's lines are too long for Read's offset/limit chunking. If a shell tool is available, slice by character range (e.g. python read()[A:B], dd, or cut -c) instead.\n- If you receive truncation warnings when reading the file, reduce the chunk size until you have read 100% of the content without truncation.\n- Before producing ANY summary or analysis, you MUST explicitly describe what portion of the content you have read. ***If you did not read the entire content, you MUST explicitly state this.***\n- If after a few attempts you cannot read the file (file not found, lines too long for Read's offset/limit, no shell access), STOP retrying. Summarize what you were able to read, explicitly state which portion you could not read and why, and proceed.\n",
+      "stub_count": 233794,
+      "received_code_points": 1958,
+      "keys": [
+        "content",
+        "isError"
+      ],
+      "isError": false,
+      "content_types": [
+        "text"
+      ],
+      "chars": 1958,
+      "sha256": "b2ec4f92ee955cecfe60294973783752e77412ca685d78b68856d48a4e1f8bd3",
+      "parsed": false,
+      "head": "Error: result (233,794 characters across 1 line) exceeds maximum allowed tokens. Output has been saved to C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\evidence\\mcp-size-unicode-http-sse-8ea312cd\\ccfg\\projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-s",
+      "tail": "(file not found, lines too long for Read's offset/limit, no shell access), STOP retrying. Summarize what you were able to read, explicitly state which portion you could not read and why, and proceed.\n",
+      "other_content": [],
+      "meta": null
+    },
+    {
+      "event": "call",
+      "tool": "walkie_read_messages",
+      "size": 600000,
+      "saved_path": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\evidence\\mcp-size-unicode-http-sse-8ea312cd\\ccfg\\projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-sse-8ea312cd-workspace\\78571bb0-48a6-4a67-9854-3610779b96e3\\tool-results\\mcp-walkie-walkie_read_messages-1794391110663.txt",
+      "saved_read": {
+        "chars": 694595,
+        "code_points": 600755,
+        "utf8_bytes": 1398395,
+        "sha256": "a194c59e504a8a499786535ca2c2acd42a25751ecf9002a76856908a1f27d069"
+      },
+      "stub_text": "Error: result (694,595 characters across 1 line) exceeds maximum allowed tokens. Output has been saved to C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\evidence\\mcp-size-unicode-http-sse-8ea312cd\\ccfg\\projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-sse-8ea312cd-workspace\\78571bb0-48a6-4a67-9854-3610779b96e3\\tool-results\\mcp-walkie-walkie_read_messages-1794391110663.txt.\nFormat: Plain text\nSearch within the file for specific content, and use jq if the content is JSON.\nREQUIREMENTS FOR SUMMARIZATION/ANALYSIS/REVIEW:\n- You MUST read the content from the file at C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\evidence\\mcp-size-unicode-http-sse-8ea312cd\\ccfg\\projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-sse-8ea312cd-workspace\\78571bb0-48a6-4a67-9854-3610779b96e3\\tool-results\\mcp-walkie-walkie_read_messages-1794391110663.txt in sequential chunks until 100% of the content has been read.\n- Note: this file's lines are too long for Read's offset/limit chunking. If a shell tool is available, slice by character range (e.g. python read()[A:B], dd, or cut -c) instead.\n- If you receive truncation warnings when reading the file, reduce the chunk size until you have read 100% of the content without truncation.\n- Before producing ANY summary or analysis, you MUST explicitly describe what portion of the content you have read. ***If you did not read the entire content, you MUST explicitly state this.***\n- If after a few attempts you cannot read the file (file not found, lines too long for Read's offset/limit, no shell access), STOP retrying. Summarize what you were able to read, explicitly state which portion you could not read and why, and proceed.\n",
+      "stub_count": 694595,
+      "received_code_points": 1958,
+      "keys": [
+        "content",
+        "isError"
+      ],
+      "isError": false,
+      "content_types": [
+        "text"
+      ],
+      "chars": 1958,
+      "sha256": "cafd794284dae46eaf83d0c7647155745591d49691416a04422a2320286604e1",
+      "parsed": false,
+      "head": "Error: result (694,595 characters across 1 line) exceeds maximum allowed tokens. Output has been saved to C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\evidence\\mcp-size-unicode-http-sse-8ea312cd\\ccfg\\projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-s",
+      "tail": "(file not found, lines too long for Read's offset/limit, no shell access), STOP retrying. Summarize what you were able to read, explicitly state which portion you could not read and why, and proceed.\n",
+      "other_content": [],
+      "meta": null
+    },
+    {
+      "event": "call",
+      "tool": "walkie_call_tool",
+      "size": 60000,
+      "saved_path": null,
+      "saved_read": null,
+      "stub_text": null,
+      "stub_count": null,
+      "received_code_points": 60671,
+      "keys": [
+        "content",
+        "isError"
+      ],
+      "isError": false,
+      "content_types": [
+        "text"
+      ],
+      "chars": 70511,
+      "sha256": "92aa9eaa27be5080e7e1339879eabe7fcc7dbf8703851be23293588548b703a1",
+      "parsed": true,
+      "head": "[{\"id\": \"1001\", \"conversation_id\": \"34886995-4a66-4527-a618-814e9cb0a5bf\", \"thread_root_id\": null, \"text\": \"\uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 1 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc",
+      "tail": "\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 41 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 41 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 41 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 41 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 41 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 41 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \uc6cc\ud0a4 \uc2a4\ub808\ub4dc 41 \ud589 \u2605\u2192\u20ac\u2713 \ud83d\ude00\ud83d\ude80\ud83d\udc69\u200d\ud83d\udcbb \"}]",
+      "other_content": [],
+      "meta": null
+    },
+    {
+      "event": "call",
+      "tool": "walkie_call_tool",
+      "size": 200000,
+      "saved_path": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\evidence\\mcp-size-unicode-http-sse-8ea312cd\\ccfg\\projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-sse-8ea312cd-workspace\\78571bb0-48a6-4a67-9854-3610779b96e3\\tool-results\\mcp-walkie-walkie_call_tool-1794391110890.txt",
+      "saved_read": {
+        "chars": 233780,
+        "code_points": 201620,
+        "utf8_bytes": 474980,
+        "sha256": "7764771d6e05b3c32f50b70c171f7a754667508193752176174256371d8c29e4"
+      },
+      "stub_text": "Error: result (233,780 characters across 1 line) exceeds maximum allowed tokens. Output has been saved to C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\evidence\\mcp-size-unicode-http-sse-8ea312cd\\ccfg\\projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-sse-8ea312cd-workspace\\78571bb0-48a6-4a67-9854-3610779b96e3\\tool-results\\mcp-walkie-walkie_call_tool-1794391110890.txt.\nFormat: Plain text\nSearch within the file for specific content, and use jq if the content is JSON.\nREQUIREMENTS FOR SUMMARIZATION/ANALYSIS/REVIEW:\n- You MUST read the content from the file at C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\evidence\\mcp-size-unicode-http-sse-8ea312cd\\ccfg\\projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-sse-8ea312cd-workspace\\78571bb0-48a6-4a67-9854-3610779b96e3\\tool-results\\mcp-walkie-walkie_call_tool-1794391110890.txt in sequential chunks until 100% of the content has been read.\n- Note: this file's lines are too long for Read's offset/limit chunking. If a shell tool is available, slice by character range (e.g. python read()[A:B], dd, or cut -c) instead.\n- If you receive truncation warnings when reading the file, reduce the chunk size until you have read 100% of the content without truncation.\n- Before producing ANY summary or analysis, you MUST explicitly describe what portion of the content you have read. ***If you did not read the entire content, you MUST explicitly state this.***\n- If after a few attempts you cannot read the file (file not found, lines too long for Read's offset/limit, no shell access), STOP retrying. Summarize what you were able to read, explicitly state which portion you could not read and why, and proceed.\n",
+      "stub_count": 233780,
+      "received_code_points": 1950,
+      "keys": [
+        "content",
+        "isError"
+      ],
+      "isError": false,
+      "content_types": [
+        "text"
+      ],
+      "chars": 1950,
+      "sha256": "e79b16fb39f057daa865d4d09cf4d8fa788d8a412237d9d145abe4b3dfa1234f",
+      "parsed": false,
+      "head": "Error: result (233,780 characters across 1 line) exceeds maximum allowed tokens. Output has been saved to C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\evidence\\mcp-size-unicode-http-sse-8ea312cd\\ccfg\\projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-s",
+      "tail": "(file not found, lines too long for Read's offset/limit, no shell access), STOP retrying. Summarize what you were able to read, explicitly state which portion you could not read and why, and proceed.\n",
+      "other_content": [],
+      "meta": null
+    },
+    {
+      "event": "call",
+      "tool": "walkie_call_tool",
+      "size": 600000,
+      "saved_path": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\evidence\\mcp-size-unicode-http-sse-8ea312cd\\ccfg\\projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-sse-8ea312cd-workspace\\78571bb0-48a6-4a67-9854-3610779b96e3\\tool-results\\mcp-walkie-walkie_call_tool-1794391110938.txt",
+      "saved_read": {
+        "chars": 694581,
+        "code_points": 600741,
+        "utf8_bytes": 1398381,
+        "sha256": "ff17403ff5b0a09179bbce176f603d59e163a283103d44b340038e0e507d6f7c"
+      },
+      "stub_text": "Error: result (694,581 characters across 1 line) exceeds maximum allowed tokens. Output has been saved to C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\evidence\\mcp-size-unicode-http-sse-8ea312cd\\ccfg\\projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-sse-8ea312cd-workspace\\78571bb0-48a6-4a67-9854-3610779b96e3\\tool-results\\mcp-walkie-walkie_call_tool-1794391110938.txt.\nFormat: Plain text\nSearch within the file for specific content, and use jq if the content is JSON.\nREQUIREMENTS FOR SUMMARIZATION/ANALYSIS/REVIEW:\n- You MUST read the content from the file at C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\evidence\\mcp-size-unicode-http-sse-8ea312cd\\ccfg\\projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-sse-8ea312cd-workspace\\78571bb0-48a6-4a67-9854-3610779b96e3\\tool-results\\mcp-walkie-walkie_call_tool-1794391110938.txt in sequential chunks until 100% of the content has been read.\n- Note: this file's lines are too long for Read's offset/limit chunking. If a shell tool is available, slice by character range (e.g. python read()[A:B], dd, or cut -c) instead.\n- If you receive truncation warnings when reading the file, reduce the chunk size until you have read 100% of the content without truncation.\n- Before producing ANY summary or analysis, you MUST explicitly describe what portion of the content you have read. ***If you did not read the entire content, you MUST explicitly state this.***\n- If after a few attempts you cannot read the file (file not found, lines too long for Read's offset/limit, no shell access), STOP retrying. Summarize what you were able to read, explicitly state which portion you could not read and why, and proceed.\n",
+      "stub_count": 694581,
+      "received_code_points": 1950,
+      "keys": [
+        "content",
+        "isError"
+      ],
+      "isError": false,
+      "content_types": [
+        "text"
+      ],
+      "chars": 1950,
+      "sha256": "cc052238fbdce0516e671c8e9333f8e43c524db94ef33ccf8eac2e1672a2148e",
+      "parsed": false,
+      "head": "Error: result (694,581 characters across 1 line) exceeds maximum allowed tokens. Output has been saved to C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\evidence\\mcp-size-unicode-http-sse-8ea312cd\\ccfg\\projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-s",
+      "tail": "(file not found, lines too long for Read's offset/limit, no shell access), STOP retrying. Summarize what you were able to read, explicitly state which portion you could not read and why, and proceed.\n",
+      "other_content": [],
+      "meta": null
+    },
+    {
+      "event": "done"
+    }
+  ],
+  "server_out": {
+    "server-out-walkie_read_messages-100": {
+      "chars": 1445,
+      "code_points": 1445,
+      "utf16_units": 1685,
+      "utf8_bytes": 3485,
+      "sha256": "8f1c39f9fec8791efccdb2e9775e94685c968213c75921f3cf256f276ab0b957"
+    },
+    "server-out-walkie_read_messages-60000": {
+      "chars": 60685,
+      "code_points": 60685,
+      "utf16_units": 70525,
+      "utf8_bytes": 144325,
+      "sha256": "36e259f9df18a13468db86896fe4889d85bbdb177d8d3a51de5e77ed9b91b4bd"
+    },
+    "server-out-walkie_read_messages-200000": {
+      "chars": 201634,
+      "code_points": 201634,
+      "utf16_units": 233794,
+      "utf8_bytes": 474994,
+      "sha256": "3b32a1796da6ef0f2777d1cdda7be75bcb9d4b5ab1cecaa40d8d758a9bbe3b0a"
+    },
+    "server-out-walkie_read_messages-600000": {
+      "chars": 600755,
+      "code_points": 600755,
+      "utf16_units": 694595,
+      "utf8_bytes": 1398395,
+      "sha256": "a194c59e504a8a499786535ca2c2acd42a25751ecf9002a76856908a1f27d069"
+    },
+    "server-out-walkie_call_tool-60000": {
+      "chars": 60671,
+      "code_points": 60671,
+      "utf16_units": 70511,
+      "utf8_bytes": 144311,
+      "sha256": "92aa9eaa27be5080e7e1339879eabe7fcc7dbf8703851be23293588548b703a1"
+    },
+    "server-out-walkie_call_tool-200000": {
+      "chars": 201620,
+      "code_points": 201620,
+      "utf16_units": 233780,
+      "utf8_bytes": 474980,
+      "sha256": "7764771d6e05b3c32f50b70c171f7a754667508193752176174256371d8c29e4"
+    },
+    "server-out-walkie_call_tool-600000": {
+      "chars": 600741,
+      "code_points": 600741,
+      "utf16_units": 694581,
+      "utf8_bytes": 1398381,
+      "sha256": "ff17403ff5b0a09179bbce176f603d59e163a283103d44b340038e0e507d6f7c"
+    }
+  },
+  "http_framing": [
+    {
+      "at": 1794391109.36119,
+      "id": "server-discover-probe-1",
+      "content_type": "text/event-stream",
+      "event": "message",
+      "frame_bytes": 125,
+      "chunks": 1,
+      "chunks_split_inside_utf8": 0,
+      "text_sha256": null
+    },
+    {
+      "at": 1794391109.966819,
+      "id": 0,
+      "content_type": "text/event-stream",
+      "event": "message",
+      "frame_bytes": 180,
+      "chunks": 1,
+      "chunks_split_inside_utf8": 0,
+      "text_sha256": null
+    },
+    {
+      "at": 1794391110.0238817,
+      "id": 1,
+      "content_type": "text/event-stream",
+      "event": "message",
+      "frame_bytes": 427,
+      "chunks": 1,
+      "chunks_split_inside_utf8": 0,
+      "text_sha256": null
+    },
+    {
+      "at": 1794391110.4163446,
+      "id": 2,
+      "content_type": "text/event-stream",
+      "event": "message",
+      "frame_bytes": 3606,
+      "chunks": 1,
+      "chunks_split_inside_utf8": 0,
+      "text_sha256": "8f1c39f9fec8791efccdb2e9775e94685c968213c75921f3cf256f276ab0b957"
+    },
+    {
+      "at": 1794391110.4415343,
+      "id": 3,
+      "content_type": "text/event-stream",
+      "event": "message",
+      "frame_bytes": 145086,
+      "chunks": 36,
+      "chunks_split_inside_utf8": 18,
+      "text_sha256": "36e259f9df18a13468db86896fe4889d85bbdb177d8d3a51de5e77ed9b91b4bd"
+    },
+    {
+      "at": 1794391110.563729,
+      "id": 4,
+      "content_type": "text/event-stream",
+      "event": "message",
+      "frame_bytes": 477243,
+      "chunks": 117,
+      "chunks_split_inside_utf8": 56,
+      "text_sha256": "3b32a1796da6ef0f2777d1cdda7be75bcb9d4b5ab1cecaa40d8d758a9bbe3b0a"
+    },
+    {
+      "at": 1794391110.661268,
+      "id": 5,
+      "content_type": "text/event-stream",
+      "event": "message",
+      "frame_bytes": 1404756,
+      "chunks": 344,
+      "chunks_split_inside_utf8": 182,
+      "text_sha256": "a194c59e504a8a499786535ca2c2acd42a25751ecf9002a76856908a1f27d069"
+    },
+    {
+      "at": 1794391110.8572059,
+      "id": 6,
+      "content_type": "text/event-stream",
+      "event": "message",
+      "frame_bytes": 145070,
+      "chunks": 36,
+      "chunks_split_inside_utf8": 20,
+      "text_sha256": "92aa9eaa27be5080e7e1339879eabe7fcc7dbf8703851be23293588548b703a1"
+    },
+    {
+      "at": 1794391110.8837938,
+      "id": 7,
+      "content_type": "text/event-stream",
+      "event": "message",
+      "frame_bytes": 477227,
+      "chunks": 117,
+      "chunks_split_inside_utf8": 64,
+      "text_sha256": "7764771d6e05b3c32f50b70c171f7a754667508193752176174256371d8c29e4"
+    },
+    {
+      "at": 1794391110.935548,
+      "id": 8,
+      "content_type": "text/event-stream",
+      "event": "message",
+      "frame_bytes": 1404740,
+      "chunks": 344,
+      "chunks_split_inside_utf8": 192,
+      "text_sha256": "ff17403ff5b0a09179bbce176f603d59e163a283103d44b340038e0e507d6f7c"
+    }
+  ],
+  "probe_done_at": 1794391111.0719054,
+  "persisted_tool_result_files": [
+    "projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-sse-8ea312cd-workspace\\78571bb0-48a6-4a67-9854-3610779b96e3\\tool-results\\mcp-walkie-walkie_call_tool-1794391110890.txt",
+    "projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-sse-8ea312cd-workspace\\78571bb0-48a6-4a67-9854-3610779b96e3\\tool-results\\mcp-walkie-walkie_call_tool-1794391110938.txt",
+    "projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-sse-8ea312cd-workspace\\78571bb0-48a6-4a67-9854-3610779b96e3\\tool-results\\mcp-walkie-walkie_read_messages-1794391110577.txt",
+    "projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-sse-8ea312cd-workspace\\78571bb0-48a6-4a67-9854-3610779b96e3\\tool-results\\mcp-walkie-walkie_read_messages-1794391110663.txt",
+    "projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-sse-8ea312cd-workspace\\78571bb0-48a6-4a67-9854-3610779b96e3\\tool-results\\toolu_plugin_864b0654408d40a2b545490e5a118a2e.json",
+    "projects\\C--Users-djlov-ciel-runtime--local-tmp-work-parallel-docs-journal-2026-11-11-features-sse-native-fork-evidence-mcp-size-unicode-http-sse-8ea312cd-workspace\\78571bb0-48a6-4a67-9854-3610779b96e3\\tool-results\\toolu_plugin_b5a7cd3beac94bbe9ca2982663629481.json"
+  ],
+  "exit": null,
+  "cli_close_at": 1794391111.0974717,
+  "http_errors": [
+    {
+      "at": 1794391111.1025176,
+      "error": "ConnectionResetError(10054, 'An existing connection was forcibly closed by the remote host', None, 10054, None)"
+    }
+  ]
+}

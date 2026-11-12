@@ -1,0 +1,137 @@
+{
+ "minimum_length": 24,
+ "allowed_fields": [
+  "review.reply",
+  "review.summary",
+  "wake.summary",
+  "wake.time_limit.evidence",
+  "wake.time_limit.text"
+ ],
+ "field_bounds": {
+  "wake.summary": 1000,
+  "wake.time_limit.text": 1000,
+  "wake.time_limit.evidence": 2000,
+  "review.summary": 300,
+  "review.reply": 1200
+ },
+ "source_ids": [
+  "1000",
+  "1001",
+  "1002",
+  "1003",
+  "1004",
+  "event:6a8e4f423fb5:text",
+  "event:9f4697abe4fd:text",
+  "event:bd8b8bae522c:text"
+ ],
+ "forbidden_payload_ids": [
+  "event:6a8e4f423fb5:raw",
+  "event:6a8e4f423fb5:data",
+  "event:9f4697abe4fd:raw",
+  "event:9f4697abe4fd:data",
+  "event:bd8b8bae522c:raw",
+  "event:bd8b8bae522c:data"
+ ],
+ "injected": [
+  {
+   "row": 61,
+   "kind": "wake",
+   "parse_error": null,
+   "fields": {
+    "minimum_length": 24,
+    "allowed_fields": [
+     "review.reply",
+     "review.summary",
+     "wake.summary",
+     "wake.time_limit.evidence",
+     "wake.time_limit.text"
+    ],
+    "field_bounds": {
+     "wake.summary": 1000,
+     "wake.time_limit.text": 1000,
+     "wake.time_limit.evidence": 2000,
+     "review.summary": 300,
+     "review.reply": 1200
+    },
+    "matches": [
+     {
+      "source_message_id": "event:9f4697abe4fd:text",
+      "source_offset": 34,
+      "destination_field": "wake.summary",
+      "destination_offset": 1,
+      "length": 25,
+      "sha256": "8e1eaceb74f353fa3914368e11a1801ddada1b90cfe7ef3aab6781951ff0074a",
+      "allowed": true
+     }
+    ],
+    "disallowed_matches": [],
+    "whole_source_messages": [],
+    "raw_event_fields": [],
+    "bounds_exceeded": [],
+    "passed": true
+   },
+   "block_whole_messages": [],
+   "block_raw_event": [],
+   "passed": true
+  },
+  {
+   "row": 70,
+   "kind": "review",
+   "parse_error": null,
+   "fields": {
+    "minimum_length": 24,
+    "allowed_fields": [
+     "review.reply",
+     "review.summary",
+     "wake.summary",
+     "wake.time_limit.evidence",
+     "wake.time_limit.text"
+    ],
+    "field_bounds": {
+     "wake.summary": 1000,
+     "wake.time_limit.text": 1000,
+     "wake.time_limit.evidence": 2000,
+     "review.summary": 300,
+     "review.reply": 1200
+    },
+    "matches": [
+     {
+      "source_message_id": "event:9f4697abe4fd:text",
+      "source_offset": 34,
+      "destination_field": "review.summary",
+      "destination_offset": 1,
+      "length": 25,
+      "sha256": "8e1eaceb74f353fa3914368e11a1801ddada1b90cfe7ef3aab6781951ff0074a",
+      "allowed": true
+     }
+    ],
+    "disallowed_matches": [],
+    "whole_source_messages": [],
+    "raw_event_fields": [],
+    "bounds_exceeded": [],
+    "passed": true
+   },
+   "block_whole_messages": [],
+   "block_raw_event": [],
+   "passed": true
+  }
+ ],
+ "non_side_host_rows": [],
+ "request_context": [],
+ "failures": [],
+ "passed": true,
+ "observations": {
+  "main_own_source_reads": [],
+  "main_tool_results_with_source_text": [
+   {
+    "row": 67,
+    "tool": "mcp__ciel-runtime-router__work_side_handoff",
+    "matches": 1,
+    "whole_source_messages": []
+   }
+  ],
+  "main_assistant_rows_with_source_text": [],
+  "attachment_rows_with_source_text": []
+ },
+ "inventory_sha256": "33b0d0bb66eb8087787f65ef91c795968ad579e2374c398959f15390dbbc6c94"
+}

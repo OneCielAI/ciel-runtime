@@ -1,0 +1,27 @@
+{
+  "at": 1794437365.0786393,
+  "root": 55348,
+  "processes": [
+    {
+      "ProcessId": 55348,
+      "ParentProcessId": 45672,
+      "Name": "python.exe",
+      "CreationDateUtc": "2026-11-11T22:49:09.1037740Z",
+      "CommandLine": "\"C:\\Program Files\\Python311\\python.exe\"  -u \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\work-parallel-main-review\\e2e-source\\owned_main_review_probe_v2.py\" "
+    },
+    {
+      "ProcessId": 13784,
+      "ParentProcessId": 55348,
+      "Name": "powershell.exe",
+      "CreationDateUtc": "2026-11-11T22:49:24.1398350Z",
+      "CommandLine": "powershell -NoProfile -NonInteractive -Command \"Get-CimInstance Win32_Process | Select-Object ProcessId,ParentProcessId,Name,@{n='CreationDateUtc';e={$_.CreationDate.ToUniversalTime().ToString('o')}},CommandLine | ConvertTo-Json -Depth 3\""
+    },
+    {
+      "ProcessId": 69636,
+      "ParentProcessId": 13784,
+      "Name": "conhost.exe",
+      "CreationDateUtc": "2026-11-11T22:49:24.1431730Z",
+      "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"
+    }
+  ]
+}

@@ -1,0 +1,191 @@
+{
+ "schema": 1,
+ "version": 4,
+ "phase": "planning",
+ "active_root": "n1",
+ "focus_ids": [],
+ "next_id": 3,
+ "nodes": [
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "Synthetic Walkie readiness review",
+   "status": "pending",
+   "note": "synthetic owned fixture\n\nSide request: Thread includes TARGET_1002_FULL_END, REPLY_1003_VERBATIM, and REPLY_1004_VERBATIM.",
+   "progress": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1794461028.0449564,
+   "created_at": 1794460981.0479326,
+   "phase": "planning",
+   "priority": "P4"
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "Review owned Walkie target thread",
+   "status": "pending",
+   "note": "sandbox-east only",
+   "progress": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1794460981.0479326,
+   "created_at": 1794460981.0479326
+  }
+ ],
+ "updated_at": 1794461060.0966246,
+ "side_decisions": {
+  "96779bc936f8f63beaf61d69cbfef71963d2649a3837b15626091faf81caab22": {
+   "decision_digest": "43ba8c81787a8717f8e97a1866eccefcc554073e154043c75171438a831290b6",
+   "applied_at": 1794461028.0449777,
+   "item_id": "n1",
+   "recap": "Synthetic readiness review for sandbox-east; no deployment.",
+   "result": {
+    "action": "update",
+    "item_id": "n1",
+    "summary": "Synthetic readiness review for sandbox-east; no deployment.",
+    "reply": "I reviewed the full thread: sandbox-east only, no deployment, change ticket CHG-58213, and the 30-minute limit is reported to main.",
+    "delivery": "pending",
+    "execution_approved": false,
+    "handoff": "acknowledged",
+    "based_on_version": 1,
+    "kind": "request",
+    "time_limit": {
+     "text": "Within 30 minutes",
+     "evidence": "TARGET_1002: Within 30 minutes"
+    },
+    "source_context": "thread",
+    "main_handoff": {
+     "kind": "time_limit",
+     "item_id": "n1",
+     "root_id": "n1",
+     "title": "Synthetic Walkie readiness review",
+     "summary": "Synthetic readiness review for sandbox-east; no deployment.",
+     "queue": {
+      "root_id": "n1",
+      "state": "active",
+      "position": 0,
+      "ahead": 0,
+      "total": 0,
+      "active_root": "n1",
+      "priority": "P4",
+      "phase": "planning"
+     },
+     "time_limit": {
+      "text": "Within 30 minutes",
+      "evidence": "TARGET_1002: Within 30 minutes"
+     },
+     "waits": [],
+     "question": ""
+    },
+    "title": "Synthetic Walkie readiness review",
+    "priority": "P4",
+    "queue": {
+     "root_id": "n1",
+     "state": "active",
+     "position": 0,
+     "ahead": 0,
+     "total": 0,
+     "active_root": "n1",
+     "priority": "P4",
+     "phase": "planning",
+     "version": 2
+    },
+    "final_text": "ACK — I reviewed the full thread: sandbox-east only, no deployment, change ticket CHG-58213, and the 30-minute limit is reported to main.\n\nn1 갱신 · P4 · 현재 진행 중인 항목입니다."
+   }
+  },
+  "958750010fd689dbada5b289039650d875fa2f080ba24f2507323da013efa07e": {
+   "decision_digest": "26394bc9d4678c9c88ba4795ccfb4a01cfeda5a00e719b5c85589d201dc6639f",
+   "applied_at": 1794461060.096614,
+   "item_id": null,
+   "recap": "Synthetic reminder only; Work readiness review unchanged.",
+   "result": {
+    "action": "answer",
+    "item_id": null,
+    "summary": "Synthetic reminder only; Work readiness review unchanged.",
+    "reply": "The readiness review remains queued; this reminder names no message.",
+    "delivery": "pending",
+    "execution_approved": false,
+    "handoff": "not_required",
+    "based_on_version": 3,
+    "kind": "status",
+    "source_context": "none_referenced",
+    "final_text": "The readiness review remains queued; this reminder names no message.\n\n큐에 등록하지 않았습니다."
+   }
+  }
+ },
+ "side_handoffs": {
+  "96779bc936f8f63beaf61d69cbfef71963d2649a3837b15626091faf81caab22": {
+   "item_id": "n1",
+   "root_id": "n1",
+   "title": "Synthetic Walkie readiness review",
+   "summary": "Synthetic readiness review for sandbox-east; no deployment.",
+   "question": "",
+   "kind": "time_limit",
+   "gates": [],
+   "time_limit": {
+    "text": "Within 30 minutes",
+    "evidence": "TARGET_1002: Within 30 minutes"
+   },
+   "queue": {
+    "root_id": "n1",
+    "state": "active",
+    "position": 0,
+    "ahead": 0,
+    "total": 0,
+    "active_root": "n1",
+    "priority": "P4",
+    "phase": "planning"
+   },
+   "waits": [],
+   "state": "acknowledged",
+   "requested_at": 1794461028.044958,
+   "wake": {
+    "state": "acknowledged",
+    "phase": "started",
+    "channel": "prompt",
+    "revision": 3,
+    "needs_ack_retry": false,
+    "requested_at": 1794461028.044958,
+    "intent_at": 1794461028.3288193,
+    "intent_until": 1794461033.3288193,
+    "started_at": 1794461028.6162255,
+    "updated_at": 1794461029.3420012,
+    "acknowledged_at": 1794461029.4595177,
+    "attempt_ref": "c2a7eb1b351a95d9",
+    "delivery_uncertain": false
+   },
+   "answer": "",
+   "activated": false,
+   "clear_wait": []
+  }
+ },
+ "side_reviews": {
+  "96779bc936f8f63beaf61d69cbfef71963d2649a3837b15626091faf81caab22": {
+   "state": "pending",
+   "kind": "request",
+   "action": "update",
+   "item_id": "n1",
+   "summary": "Synthetic readiness review for sandbox-east; no deployment.",
+   "reply": "ACK — I reviewed the full thread: sandbox-east only, no deployment, change ticket CHG-58213, and the 30-minute limit is reported to main.\n\nn1 갱신 · P4 · 현재 진행 중인 항목입니다.",
+   "source": "message:34886995-4a66-4527-a618-814e9cb0a5bf:1002",
+   "source_context": "thread",
+   "recorded_at": 1794461028.0449805
+  },
+  "958750010fd689dbada5b289039650d875fa2f080ba24f2507323da013efa07e": {
+   "state": "pending",
+   "kind": "status",
+   "action": "answer",
+   "item_id": null,
+   "summary": "Synthetic reminder only; Work readiness review unchanged.",
+   "reply": "The readiness review remains queued; this reminder names no message.\n\n큐에 등록하지 않았습니다.",
+   "source": null,
+   "source_context": "none_referenced",
+   "recorded_at": 1794461060.096618
+  }
+ }
+}

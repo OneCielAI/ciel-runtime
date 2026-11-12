@@ -1,0 +1,18 @@
+{
+  "at": 1794415662.3968744,
+  "root": 64540,
+  "processes": [
+    {
+      "ProcessId": 64540,
+      "ParentProcessId": 8200,
+      "Name": "python.exe",
+      "CommandLine": "\"C:\\Program Files\\Python311\\python.exe\"  -u \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\work-parallel-main-review\\e2e-source\\owned_main_review_probe.py\" "
+    },
+    {
+      "ProcessId": 57284,
+      "ParentProcessId": 64540,
+      "Name": "powershell.exe",
+      "CommandLine": "powershell -NoProfile -Command \"$all=Get-CimInstance Win32_Process; $ids=@(64540); do {$new=@($all | Where-Object {$_.ParentProcessId -in $ids -and $_.ProcessId -notin $ids} | Select-Object -ExpandProperty ProcessId); $ids += $new} while ($new.Count); $all | Where-Object {$_.ProcessId -in $ids} | Select-Object ProcessId,ParentProcessId,Name,CommandLine | ConvertTo-Json\""
+    }
+  ]
+}

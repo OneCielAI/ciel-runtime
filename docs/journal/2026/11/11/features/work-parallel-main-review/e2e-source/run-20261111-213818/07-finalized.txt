@@ -1,0 +1,29 @@
+  ⎿  ciel-work: Ciel Work parallel
+     FORKS: 0 confirmed by native agent list · main is coordinator, never a fork · side actors are separate
+     DEVICE: slots 0/6 · per priority P1 0/2 · P2 0/1 · P3 0/1 · P4 0/1 · P5 0/1
+     Policy: enabled · ledger v38 · launches/min 24 · max rework 2
+     MAIN REVIEW (1) · no reviewer fork; main decides with work_parallel_item_review
+       Rework · n4 Failing implementation then rework · P1 · lease 26c5461a1b9c4b1689b2010960ad437d · receipt
+     313e9f5b1aa0e1c…
+         workspace: work-parallel/211d5d2cfd420ef5717e03deb77c46c0d00b033dcec5d24caa98365b61ae6580 @ 7f230d0407a748f… ·
+     dirty
+         rework launch: bound · attempt 2
+     ENDED (5)
+       n4 → work-auto-mwd0255m-53jg6iat8xr · P1 worker · lease done · native idle · slot released
+       n2 → work-auto-mwd0237s-sgdhi8relb · P1 worker · lease done · native idle · slot released
+       n4 → work-rework-ab47409ea2c53f1b782a7eddae168025-a2 · P1 resume · lease done · native idle · slot released
+       n6 → work-auto-mwd026nq-3vmhdqxf7v7 · P2 worker · lease done · native idle · slot released
+       n8 → work-auto-mwd0290p-fl04srz3a5b · P3 worker · lease done · native idle · slot released
+     Pending native Agent dispatch: 0
+     Settings: ciel-runtime menu → LLM options → Work 병렬 실행. Policy changes do not terminate existing workers.
+
+✻ Crunched for 43s · done 9:45 PM
+w: Work 0/1 [ ] Failing implementation then rework [+]                                                              [-]
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [_Walkie_Opus55-Sol61-Fast (cielairouter)] workspace | SSE gate on: open | ctx 85,772/872,000 tok (9.8%) | cache 99…
+  [work] 1/1 complete
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+                                                                                                         work: run 0/1

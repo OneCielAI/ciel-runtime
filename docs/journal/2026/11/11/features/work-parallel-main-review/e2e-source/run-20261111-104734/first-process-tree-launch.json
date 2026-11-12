@@ -1,0 +1,30 @@
+{
+  "at": 1794415663.5489552,
+  "root": 75656,
+  "processes": [
+    {
+      "ProcessId": 75656,
+      "ParentProcessId": 64540,
+      "Name": "conhost.exe",
+      "CommandLine": "conhost.exe cmd /k C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-20261111-104734\\first.cmd"
+    },
+    {
+      "ProcessId": 62924,
+      "ParentProcessId": 75656,
+      "Name": "cmd.exe",
+      "CommandLine": "cmd /k C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-20261111-104734\\first.cmd"
+    },
+    {
+      "ProcessId": 77636,
+      "ParentProcessId": 62924,
+      "Name": "py.exe",
+      "CommandLine": "py  -3 \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-snapshot-20261111-104734\\ciel_runtime.py\" version"
+    },
+    {
+      "ProcessId": 74796,
+      "ParentProcessId": 77636,
+      "Name": "python.exe",
+      "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-snapshot-20261111-104734\\ciel_runtime.py\" version"
+    }
+  ]
+}

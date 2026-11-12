@@ -1,0 +1,2420 @@
+{
+ "run": "A",
+ "out": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\e2e-source\\run-a-20261111-223807",
+ "outcome": "harness_or_safety_check_failed",
+ "snapshot": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\snapshot-eab3ad33-a-20261111-223743",
+ "run_copy": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\run-copies\\run-a-20261111-223807",
+ "run_copy_digest_before_launch": "5741380f78638f86fd49285c9d162c07f95840092faae0e40d6d74186c0fce3c",
+ "snapshot_digest": "5741380f78638f86fd49285c9d162c07f95840092faae0e40d6d74186c0fce3c",
+ "port": 62328,
+ "session": "a1111111-1111-4111-8111-111111111111",
+ "owned_root_pid": 79908,
+ "related_work": "n1",
+ "seed_board_version": 1,
+ "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-hl8aa6bt",
+ "inherited_vars_left": [
+  "CIEL_RUNTIME_TEST_ISOLATED"
+ ],
+ "owned_vars_set": [
+  "CIEL_RUNTIME_CONFIG_DIR",
+  "CIEL_RUNTIME_HOME_OVERRIDE",
+  "CIEL_RUNTIME_LAUNCH_CWD",
+  "CIEL_RUNTIME_ROUTER_PORT",
+  "CIEL_RUNTIME_SKIP_MENU",
+  "CIEL_RUNTIME_SKIP_SELF_UPDATE",
+  "CIEL_RUNTIME_SKIP_UPDATE_CHECK",
+  "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
+  "CLAUDE_CONFIG_DIR"
+ ],
+ "model": "claude-opus-5-5 (recording gateway)",
+ "timeline": {
+  "console_ready": 1794458327.9378726,
+  "prompt_front": 1794458331.3513162,
+  "prompt_middle": 1794458334.6664615,
+  "prompt_end": 1794458342.0024743,
+  "event_thread_sent": 1794458346.7018437,
+  "thread_processed_seen": 1794458350.7295134,
+  "handoff_seen": 1794458350.7405517,
+  "wake_seen": 1794458351.750603,
+  "ack_seen": 1794458351.7526097,
+  "event_none_sent": 1794458380.2426465,
+  "none_processed_seen": 1794458382.2619164,
+  "event_fail_sent": 1794458397.2634726,
+  "fail_recorded_seen": 1794458399.2689233
+ },
+ "protected_gate": {
+  "gate_pids": [
+   2272,
+   8520,
+   9764,
+   11840,
+   12240,
+   20276,
+   20972,
+   21912,
+   23144,
+   23728,
+   25780,
+   29796,
+   30340,
+   31320,
+   35344,
+   35728,
+   36344,
+   39984,
+   40000,
+   40176,
+   40616,
+   41784,
+   42764,
+   42924,
+   45164,
+   45356,
+   45428,
+   45560,
+   45572,
+   45652,
+   45700,
+   46196,
+   46232,
+   46508,
+   47684,
+   47928,
+   48104,
+   48168,
+   48284,
+   48480,
+   48672,
+   61444,
+   64168
+  ],
+  "lead_listed_missing_at_start": []
+ },
+ "walkie_log_before": {
+  "path": "G:\\ciel-Walkie\\.local\\walkie-install\\mcp-diagnostic.log",
+  "lines": 3258,
+  "bytes": 260284,
+  "mtime": 1794458196.666038
+ },
+ "run_start": 1794458289.9076207,
+ "harness_sha256": {
+  "walkie_e2e_driver_v4.py": "577c624af7b98afc906b9a644dc27092e95b20c1fc932941dd4e1ac5d5c0f695",
+  "owned_process_control.py": "dd353492123f6d0c3c80b05e4fa78589f96e83c0ddd92b101b0829640711bf8b",
+  "test_owned_process_control.py": "cf3ecc1d968c140713a3d189c9996e8598d4f2a3c2b1bd6a989d882d9a87ca0d",
+  "raw_text_inventory.py": "33b0d0bb66eb8087787f65ef91c795968ad579e2374c398959f15390dbbc6c94",
+  "test_raw_text_inventory.py": "3993c33d0b48fc0f8b16cdafde21ae243362eb10804dc3fddf3d6cc63b3a31ce",
+  "console_driver.py": "67e94ec2064978fa6bbd6d63826f36b2fb3ff656345fbebcc477e1f7de834c49",
+  "shot_hwnd.ps1": "513c859a9d883cb0464a896c0193811d9097029eeac1052e0556201e1ccda64b",
+  "start_detached.py": "027b0cb59f0582e0a2a74071bb3985fdfaf8d3350022a09276bacad9186b6b5c",
+  "make_snapshot_v4.py": "6ba61427e71ed63dc0022a9bf0be7823b2526134d0d5511c7c7b4bec3c4c88de",
+  "check_freeze_injection.py": "b2832803b7c1f86e54f0731e7af431a56a559a10aca1829f3a428a2bf7458e5f"
+ },
+ "driver_sha256": "577c624af7b98afc906b9a644dc27092e95b20c1fc932941dd4e1ac5d5c0f695",
+ "harness_unit_gate": {
+  "returncode": 0,
+  "ran": 37,
+  "sha256": {
+   "owned_process_control.py": "dd353492123f6d0c3c80b05e4fa78589f96e83c0ddd92b101b0829640711bf8b",
+   "test_owned_process_control.py": "cf3ecc1d968c140713a3d189c9996e8598d4f2a3c2b1bd6a989d882d9a87ca0d",
+   "raw_text_inventory.py": "33b0d0bb66eb8087787f65ef91c795968ad579e2374c398959f15390dbbc6c94",
+   "test_raw_text_inventory.py": "3993c33d0b48fc0f8b16cdafde21ae243362eb10804dc3fddf3d6cc63b3a31ce"
+  }
+ },
+ "owned_root_identity": [
+  79908,
+  "/Date(1794458310159)/"
+ ],
+ "other_e2e_before": [],
+ "trust_flow": [
+  {
+   "dialog": [
+    "────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────",
+    "WARNING: Claude Code running in Bypass Permissions mode",
+    "In Bypass Permissions mode, Claude Code will not ask for your approval before running potentially dangerous",
+    "commands.",
+    "This mode should only be used in a sandboxed container/VM that has restricted internet access and can easily be",
+    "restored if damaged.",
+    "By proceeding, you accept all responsibility for actions taken while running in Bypass Permissions mode.",
+    "https://code.claude.com/docs/en/security",
+    "❯ No, exit",
+    "Yes, I accept",
+    "Enter to confirm · Esc to cancel"
+   ],
+   "selected": "❯ Yes, I accept",
+   "downs": 1
+  }
+ ],
+ "owned_ready_identities": [
+  [
+   5676,
+   "/Date(1794458322100)/",
+   "claude.exe"
+  ],
+  [
+   8764,
+   "/Date(1794458325839)/",
+   "mcp-server-fetch.exe"
+  ],
+  [
+   9280,
+   "/Date(1794458310172)/",
+   "cmd.exe"
+  ],
+  [
+   9712,
+   "/Date(1794458325709)/",
+   "node.exe"
+  ],
+  [
+   14228,
+   "/Date(1794458327874)/",
+   "node.exe"
+  ],
+  [
+   14244,
+   "/Date(1794458325879)/",
+   "python.exe"
+  ],
+  [
+   26768,
+   "/Date(1794458310299)/",
+   "python.exe"
+  ],
+  [
+   58172,
+   "/Date(1794458318725)/",
+   "python.exe"
+  ],
+  [
+   64240,
+   "/Date(1794458310281)/",
+   "py.exe"
+  ],
+  [
+   66204,
+   "/Date(1794458325459)/",
+   "cmd.exe"
+  ],
+  [
+   67476,
+   "/Date(1794458325559)/",
+   "uv.exe"
+  ],
+  [
+   69760,
+   "/Date(1794458325628)/",
+   "conhost.exe"
+  ],
+  [
+   72736,
+   "/Date(1794458325526)/",
+   "uvx.exe"
+  ],
+  [
+   77592,
+   "/Date(1794458325915)/",
+   "python.exe"
+  ],
+  [
+   79228,
+   "/Date(1794458325620)/",
+   "git.exe"
+  ],
+  [
+   79908,
+   "/Date(1794458310159)/",
+   "conhost.exe"
+  ],
+  [
+   80024,
+   "/Date(1794458322091)/",
+   "conhost.exe"
+  ],
+  [
+   80424,
+   "/Date(1794458322107)/",
+   "python.exe"
+  ],
+  [
+   80908,
+   "/Date(1794458327846)/",
+   "cmd.exe"
+  ],
+  [
+   81352,
+   "/Date(1794458325472)/",
+   "conhost.exe"
+  ],
+  [
+   85408,
+   "/Date(1794458325535)/",
+   "conhost.exe"
+  ]
+ ],
+ "owned_pids_at_ready": [
+  [
+   5676,
+   "claude.exe"
+  ],
+  [
+   8764,
+   "mcp-server-fetch.exe"
+  ],
+  [
+   9280,
+   "cmd.exe"
+  ],
+  [
+   9712,
+   "node.exe"
+  ],
+  [
+   14228,
+   "node.exe"
+  ],
+  [
+   14244,
+   "python.exe"
+  ],
+  [
+   26768,
+   "python.exe"
+  ],
+  [
+   58172,
+   "python.exe"
+  ],
+  [
+   64240,
+   "py.exe"
+  ],
+  [
+   66204,
+   "cmd.exe"
+  ],
+  [
+   67476,
+   "uv.exe"
+  ],
+  [
+   69760,
+   "conhost.exe"
+  ],
+  [
+   72736,
+   "uvx.exe"
+  ],
+  [
+   77592,
+   "python.exe"
+  ],
+  [
+   79228,
+   "git.exe"
+  ],
+  [
+   79908,
+   "conhost.exe"
+  ],
+  [
+   80024,
+   "conhost.exe"
+  ],
+  [
+   80424,
+   "python.exe"
+  ],
+  [
+   80908,
+   "cmd.exe"
+  ],
+  [
+   81352,
+   "conhost.exe"
+  ],
+  [
+   85408,
+   "conhost.exe"
+  ]
+ ],
+ "receiver": {
+  "ok": true,
+  "receiver": {
+   "id": "default",
+   "enabled": true,
+   "discovery_enabled": false,
+   "test_default_override": false,
+   "discovery_instruction": "",
+   "discovery_file_path": "",
+   "transport": "sse",
+   "url": "http://127.0.0.1:52110/events",
+   "event_types": [
+    "com.ciel.walkie.support.message"
+   ],
+   "cursor_json_pointer": "/data/stream_id",
+   "cursor_query_parameter": "after",
+   "input_transport": "auto",
+   "stored_webhook_secret": false,
+   "stored_authorization": false,
+   "environment_references": {},
+   "status": {
+    "state": "reconnecting",
+    "phase": "reconnect",
+    "attempt_count": 1,
+    "last_attempt_at": 1794458329.5513577,
+    "error": "",
+    "retry_seconds": null,
+    "next_retry_at": null,
+    "idle_timeout_seconds": null,
+    "effective_idle_timeout_seconds": null,
+    "heartbeat_observed": false,
+    "last_activity_at": null,
+    "worker_alive": true,
+    "last_failure_at": null,
+    "last_recovery_at": null,
+    "consecutive_failures": 0,
+    "diagnostic": null,
+    "recovery_count": 0,
+    "last_failure": null,
+    "delivery": {
+     "state": "not_blocked",
+     "reason": "",
+     "scope": "private_runtime_inputs",
+     "blocker_scope": null,
+     "admission_blocked": false,
+     "launcher_hold_observed": false,
+     "line_number": null,
+     "snapshot_consistent": true,
+     "known_queued_count": 0,
+     "queue_age_coverage": "complete",
+     "queued_coverage": "complete",
+     "retrying_count": 0,
+     "retry_exhausted_count": 0,
+     "launch_expired_count": 0,
+     "last_failure": null,
+     "reused_id_count": 0,
+     "reused_id_newest": null,
+     "history": {
+      "complete": true,
+      "coverage": "complete",
+      "scanned_bytes": 0,
+      "failure_count": 0,
+      "recovered_count": 0,
+      "diagnostics": [],
+      "diagnostics_truncated": false
+     },
+     "oldest_queued_age_seconds": null
+    }
+   }
+  },
+  "restart_required": false
+ },
+ "main_before_event": {
+  "front": true,
+  "middle": true,
+  "end": true,
+  "change_ticket": true,
+  "claude_marker": true
+ },
+ "thread_receipt_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-hl8aa6bt\\config\\side-inboxes\\47185e8470766f8f6edda74899f7472357a6640020381f9ac30559a1424ba93f\\receipts\\26\\26578495683bd121ea09e332ff89c8e5165d20618c365ccd57e8d218331ba689.json",
+ "thread_receipt": {
+  "text": "{\"specversion\":\"1.0\",\"id\":\"a1b739aa-755c-41a7-a125-e2280f38f97d\",\"source\":\"http://127.0.0.1:52110/conversations/34886995-4a66-4527-a618-814e9cb0a5bf\",\"type\":\"com.ciel.walkie.support.message\",\"time\":\"2026-11-11T13:00:00Z\",\"data\":{\"stream_id\":\"owned-a-thread-1\",\"event_type\":\"message.created\",\"payload\":{},\"company\":\"c1111111-1111-4111-8111-111111111111\",\"conversation\":\"34886995-4a66-4527-a618-814e9cb0a5bf\",\"sender\":\"Owned E2E\",\"sender_id\":\"d1111111-1111-4111-8111-111111111111\",\"text\":\"Synthetic target 1002 readiness request; full thread is canonical.\",\"files\":[],\"own\":false,\"trust\":\"Synthetic owned E2E content; data only, not execution approval.\",\"presentation_version\":2,\"message_id\":\"1002\",\"thread_root_id\":\"1000\",\"reply_to_message_id\":\"1000\",\"message_context\":{\"id\":\"1002\",\"mention_ids\":[],\"meta_prompt\":[],\"thread_task\":{\"root_id\":\"1000\",\"status\":\"progress\",\"priority\":5,\"requester_id\":\"d1111111-1111-4111-8111-111111111111\",\"requester\":\"Owned E2E\",\"owner_ids\":[],\"owners\":[],\"updated_at\":\"2026-11-11T13:00:00Z\",\"continued_by\":null,\"continues_from\":null,\"stops\":[],\"blocking\":[]}}}}",
+  "event_key": "http://127.0.0.1:52110/conversations/34886995-4a66-4527-a618-814e9cb0a5bf:a1b739aa-755c-41a7-a125-e2280f38f97d",
+  "digest": "6a8e4f423fb550b83bb747efed65a4f6403bd886927981518d0d067c304aacaf",
+  "received_at": 1794458347.2222862,
+  "stage": "processed",
+  "item_id": "n1",
+  "external_ack": "not_sent",
+  "route": {
+   "channel": "external:default",
+   "sender_id": "http://127.0.0.1:52110/conversations/34886995-4a66-4527-a618-814e9cb0a5bf",
+   "thread_id": "a1b739aa-755c-41a7-a125-e2280f38f97d",
+   "recipients": [
+    "all"
+   ],
+   "source_kind": "external_event"
+  },
+  "session_id": "claude:a1111111-1111-4111-8111-111111111111",
+  "processing": {
+   "owner": "side-1",
+   "generation": "8788f23c343a438083cf808d46b43f26",
+   "lease_until": 1794458467.5533638,
+   "started_at": 1794458347.5533638
+  },
+  "source_context": "thread",
+  "result": {
+   "action": "update",
+   "item_id": "n1",
+   "summary": "Synthetic readiness review for sandbox-east; no deployment.",
+   "reply": "I reviewed the full thread: sandbox-east only, no deployment, change ticket CHG-58213, and the 30-minute limit is reported to main.",
+   "delivery": "pending",
+   "execution_approved": false,
+   "handoff": "requested",
+   "based_on_version": 1,
+   "kind": "request",
+   "time_limit": {
+    "text": "Within 30 minutes",
+    "evidence": "TARGET_1002: Within 30 minutes"
+   },
+   "source_context": "thread",
+   "main_handoff": {
+    "kind": "time_limit",
+    "item_id": "n1",
+    "root_id": "n1",
+    "title": "Synthetic Walkie readiness review",
+    "summary": "Synthetic readiness review for sandbox-east; no deployment.",
+    "queue": {
+     "root_id": "n1",
+     "state": "active",
+     "position": 0,
+     "ahead": 0,
+     "total": 0,
+     "active_root": "n1",
+     "priority": "P4",
+     "phase": "planning"
+    },
+    "time_limit": {
+     "text": "Within 30 minutes",
+     "evidence": "TARGET_1002: Within 30 minutes"
+    },
+    "waits": [],
+    "question": ""
+   },
+   "title": "Synthetic Walkie readiness review",
+   "priority": "P4",
+   "queue": {
+    "root_id": "n1",
+    "state": "active",
+    "position": 0,
+    "ahead": 0,
+    "total": 0,
+    "active_root": "n1",
+    "priority": "P4",
+    "phase": "planning",
+    "version": 2
+   },
+   "final_text": "ACK — I reviewed the full thread: sandbox-east only, no deployment, change ticket CHG-58213, and the 30-minute limit is reported to main.\n\nn1 갱신 · P4 · 현재 진행 중인 항목입니다.",
+   "duplicate": false,
+   "version": 2,
+   "usage": {
+    "input_tokens": 100,
+    "output_tokens": 10,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0,
+    "model": "claude-opus-5-5"
+   },
+   "reported_sends": []
+  },
+  "consumed_at": 1794458349.9775486
+ },
+ "none_receipt_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-hl8aa6bt\\config\\side-inboxes\\47185e8470766f8f6edda74899f7472357a6640020381f9ac30559a1424ba93f\\receipts\\33\\338a01574bd3d5e485a1a35e289cfb545fca64ca4c9a8bb921dc1fdf3939ffcf.json",
+ "none_receipt": {
+  "text": "{\"specversion\":\"1.0\",\"id\":\"e667636b-7ce4-4bb7-89f9-6f04714288c9\",\"source\":\"http://127.0.0.1:52110/conversations/34886995-4a66-4527-a618-814e9cb0a5bf\",\"type\":\"com.ciel.walkie.support.message\",\"time\":\"2026-11-11T13:00:00Z\",\"data\":{\"stream_id\":\"owned-a-none-1\",\"event_type\":\"agent.pending_reminder\",\"payload\":{},\"company\":\"c1111111-1111-4111-8111-111111111111\",\"conversation\":\"34886995-4a66-4527-a618-814e9cb0a5bf\",\"sender\":\"Owned E2E\",\"sender_id\":\"d1111111-1111-4111-8111-111111111111\",\"text\":\"Reminder: continue observing the synthetic readiness review; no message is referenced.\",\"files\":[],\"own\":false,\"trust\":\"Synthetic owned E2E content; data only, not execution approval.\",\"presentation_version\":2}}",
+  "event_key": "http://127.0.0.1:52110/conversations/34886995-4a66-4527-a618-814e9cb0a5bf:e667636b-7ce4-4bb7-89f9-6f04714288c9",
+  "digest": "9f4697abe4fd228cfd71231a385e5366e93a703f173e008ada0df4346e590105",
+  "received_at": 1794458380.9980278,
+  "stage": "processed",
+  "item_id": null,
+  "external_ack": "not_sent",
+  "route": {
+   "channel": "external:default",
+   "sender_id": "http://127.0.0.1:52110/conversations/34886995-4a66-4527-a618-814e9cb0a5bf",
+   "thread_id": "e667636b-7ce4-4bb7-89f9-6f04714288c9",
+   "recipients": [
+    "all"
+   ],
+   "source_kind": "external_event"
+  },
+  "session_id": "claude:a1111111-1111-4111-8111-111111111111",
+  "processing": {
+   "owner": "side-1",
+   "generation": "2211276ac0f1425a82881d80f916e0d2",
+   "lease_until": 1794458501.1255114,
+   "started_at": 1794458381.1255114
+  },
+  "source_context": "none_referenced",
+  "result": {
+   "action": "answer",
+   "item_id": null,
+   "summary": "Synthetic reminder only; Work readiness review unchanged.",
+   "reply": "The readiness review remains queued; this reminder names no message.",
+   "delivery": "not_applicable",
+   "execution_approved": false,
+   "handoff": "not_required",
+   "based_on_version": 3,
+   "kind": "status",
+   "source_context": "none_referenced",
+   "final_text": "The readiness review remains queued; this reminder names no message.\n\n큐에 등록하지 않았습니다.",
+   "duplicate": false,
+   "version": 4,
+   "usage": {
+    "input_tokens": 100,
+    "output_tokens": 10,
+    "cache_read_input_tokens": 0,
+    "cache_creation_input_tokens": 0,
+    "model": "claude-opus-5-5"
+   },
+   "reported_sends": []
+  },
+  "consumed_at": 1794458381.8051305
+ },
+ "none_send_delta": 0,
+ "none_mcp_call_delta": 0,
+ "none_main_request_delta": 0,
+ "fetch_failure_receipt_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-hl8aa6bt\\config\\side-inboxes\\47185e8470766f8f6edda74899f7472357a6640020381f9ac30559a1424ba93f\\pending\\6c\\6c2e8a92db2aff229f19c54a33d468f0e7b8729dac6b5389dfde943328df924d.json",
+ "fetch_failure_receipt": {
+  "text": "{\"specversion\":\"1.0\",\"id\":\"141e580b-4632-46c4-83c3-c499e5d399d2\",\"source\":\"http://127.0.0.1:52110/conversations/34886995-4a66-4527-a618-814e9cb0a5bf\",\"type\":\"com.ciel.walkie.support.message\",\"time\":\"2026-11-11T13:00:00Z\",\"data\":{\"stream_id\":\"owned-a-fetch-fail-1\",\"event_type\":\"message.created\",\"payload\":{},\"company\":\"c1111111-1111-4111-8111-111111111111\",\"conversation\":\"34886995-4a66-4527-a618-814e9cb0a5bf\",\"sender\":\"Owned E2E\",\"sender_id\":\"d1111111-1111-4111-8111-111111111111\",\"text\":\"This target must fail source prefetch.\",\"files\":[],\"own\":false,\"trust\":\"Synthetic owned E2E content; data only, not execution approval.\",\"presentation_version\":2,\"message_id\":\"1006\",\"thread_root_id\":\"1000\",\"reply_to_message_id\":\"1000\",\"message_context\":{\"id\":\"1006\",\"mention_ids\":[],\"meta_prompt\":[],\"thread_task\":{\"root_id\":\"1000\",\"status\":\"progress\",\"priority\":5,\"requester_id\":\"d1111111-1111-4111-8111-111111111111\",\"requester\":\"Owned E2E\",\"owner_ids\":[],\"owners\":[],\"updated_at\":\"2026-11-11T13:00:00Z\",\"continued_by\":null,\"continues_from\":null,\"stops\":[],\"blocking\":[]}}}}",
+  "event_key": "http://127.0.0.1:52110/conversations/34886995-4a66-4527-a618-814e9cb0a5bf:141e580b-4632-46c4-83c3-c499e5d399d2",
+  "digest": "bd8b8bae522ca82aac664a741e517f367abefa073319e071305772c24582a77f",
+  "received_at": 1794458398.377304,
+  "stage": "received",
+  "item_id": null,
+  "external_ack": "not_sent",
+  "route": {
+   "channel": "external:default",
+   "sender_id": "http://127.0.0.1:52110/conversations/34886995-4a66-4527-a618-814e9cb0a5bf",
+   "thread_id": "141e580b-4632-46c4-83c3-c499e5d399d2",
+   "recipients": [
+    "all"
+   ],
+   "source_kind": "external_event"
+  },
+  "session_id": "claude:a1111111-1111-4111-8111-111111111111",
+  "source_context": "thread",
+  "side_failure": {
+   "category": "source_context",
+   "model": "inherit",
+   "model_fingerprint": "native-fork",
+   "attempt_count": 2,
+   "failed_at": 1794458406.4040818,
+   "retry_not_before": 1794458416.4040818,
+   "quarantined": false,
+   "typed": false,
+   "retryable": true,
+   "reason": "Source root read failed",
+   "use_parent_model": false,
+   "main_fallback_eligible": false,
+   "generation": "39b4459eb8cc44e19b3041f8d4f53134"
+  }
+ },
+ "fetch_failure_spawn_delta": 0,
+ "fetch_failure_send_delta": 0,
+ "fetch_failure_reads": [
+  {
+   "tool": "walkie_read_messages",
+   "arguments": {
+    "conversation_id": "34886995-4a66-4527-a618-814e9cb0a5bf",
+    "after": "999"
+   },
+   "at": 1794458398.8431
+  },
+  {
+   "tool": "walkie_read_messages",
+   "arguments": {
+    "conversation_id": "34886995-4a66-4527-a618-814e9cb0a5bf",
+    "after": "999"
+   },
+   "at": 1794458406.1748056
+  }
+ ],
+ "web": [
+  {
+   "label": "desktop",
+   "viewport": [
+    1440,
+    1000
+   ],
+   "url": "http://127.0.0.1:62328/ca/work/ui?session_id=claude%3Aa1111111-1111-4111-8111-111111111111",
+   "receipt_rows": 3,
+   "scroll_width": 1440,
+   "horizontal_overflow": false,
+   "page_errors": [],
+   "has_receipt": true
+  },
+  {
+   "label": "mobile",
+   "viewport": [
+    390,
+    844
+   ],
+   "url": "http://127.0.0.1:62328/ca/work/ui?session_id=claude%3Aa1111111-1111-4111-8111-111111111111",
+   "receipt_rows": 3,
+   "scroll_width": 390,
+   "horizontal_overflow": false,
+   "page_errors": [],
+   "has_receipt": true
+  }
+ ],
+ "main_transcript": {
+  "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-hl8aa6bt\\config\\.claude\\projects\\C--Users-djlov-AppData-Local-Temp-ciel-sse-true-fork-a-hl8aa6bt-workspace\\a1111111-1111-4111-8111-111111111111.jsonl",
+  "sha256": "04c5746674ee21a97fefa3a3ed97725e7f474b60dfc00d166f166d4d986908f2",
+  "rows": 76,
+  "sidechain_rows": 0,
+  "whole_message_diagnostic": {
+   "root": false,
+   "prior": false,
+   "target": false,
+   "reply1": false,
+   "reply2": false,
+   "side_prompt": false,
+   "event_preview": false,
+   "stream_marker": false
+  },
+  "main_own_source_read_rows": [],
+  "wake_prompt_rows": [
+   "The ciel-work plugin sent a message:\nCiel side event requires main action: {\"event_id\":\"26578495683bd121ea09e332ff89c8e5165d20618c365ccd57e8d218331ba689\",\"item_id\":\"n1\",\"root_id\":\"n1\",\"title\":\"Synthetic Walkie readiness review\",\"kind\":\"time_limit\",\"summary\":\"Synthetic readiness review for sandbox-east; no deployment.\",\"question\":\"\",\"waits\":[],\"queue\":{\"root_id\":\"n1\",\"state\":\"active\",\"position\":0,\"ahead\":0,\"total\":0,\"active_root\":\"n1\",\"priority\":\"P4\",\"phase\":\"planning\"},\"time_limit\":{\"text\":\"Within 30 minutes\",\"evidence\":\"TARGET_1002: Within 30 minutes\"}} Inspect related Work n1 and acknowledge",
+   "[{'type': 'text', 'text': '<system-reminder>\\nprompt.submit hook additional context: Ciel Work mode is hybrid per-item planning and execution, not native Plan Mode. Before edits or state-changing commands for an unapproved goal, use work_plan_set: goal -> phases -> tasks -> concrete verifiable steps. Triage every new user request first: an independent request becomes its own goal (root-level item), its title starting with its item number where possible (\"1. ...\", \"2. ...\"); a request that changes or extends an existing item goes under that item as a child (work_node_add with parent_id). A new "
+  ]
+ },
+ "side_actors": [
+  {
+   "meta_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-hl8aa6bt\\config\\.claude\\projects\\C--Users-djlov-AppData-Local-Temp-ciel-sse-true-fork-a-hl8aa6bt-workspace\\a1111111-1111-4111-8111-111111111111\\subagents\\agent-ab8da6d87436c3043.meta.json",
+   "body_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-hl8aa6bt\\config\\.claude\\projects\\C--Users-djlov-AppData-Local-Temp-ciel-sse-true-fork-a-hl8aa6bt-workspace\\a1111111-1111-4111-8111-111111111111\\subagents\\agent-ab8da6d87436c3043.jsonl",
+   "meta": {
+    "agentType": "fork",
+    "isFork": true,
+    "isBuiltIn": true,
+    "pluginSteered": true,
+    "description": "Side SSE 26578495683b",
+    "toolUseId": "toolu_plugin_f54a882b76f74969834363a7e73898d3",
+    "spawnDepth": 1,
+    "requestShape": "background",
+    "requestNonInteractive": false,
+    "model": "inherit",
+    "finished": true
+   },
+   "body_sha256": "dd6985fd34ac7de65b186f59df966a4b4e1e8ecee0799f4893fc63a0b7117bdf"
+  },
+  {
+   "meta_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-hl8aa6bt\\config\\.claude\\projects\\C--Users-djlov-AppData-Local-Temp-ciel-sse-true-fork-a-hl8aa6bt-workspace\\a1111111-1111-4111-8111-111111111111\\subagents\\agent-ae566cbb75e2f645f.meta.json",
+   "body_path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-hl8aa6bt\\config\\.claude\\projects\\C--Users-djlov-AppData-Local-Temp-ciel-sse-true-fork-a-hl8aa6bt-workspace\\a1111111-1111-4111-8111-111111111111\\subagents\\agent-ae566cbb75e2f645f.jsonl",
+   "meta": {
+    "agentType": "fork",
+    "isFork": true,
+    "isBuiltIn": true,
+    "pluginSteered": true,
+    "description": "Side SSE 338a01574bd3",
+    "toolUseId": "toolu_plugin_4e5f17b4ec9e4a259072caf8d9f3bf84",
+    "spawnDepth": 1,
+    "requestShape": "background",
+    "requestNonInteractive": false,
+    "model": "inherit",
+    "finished": true
+   },
+   "body_sha256": "f84579959cc61cc33e023a89eac4c7a77eae97939fcce6488c54b62ab3600f51"
+  }
+ ],
+ "time_limit_handoffs": {
+  "26578495683bd121ea09e332ff89c8e5165d20618c365ccd57e8d218331ba689": {
+   "item_id": "n1",
+   "root_id": "n1",
+   "title": "Synthetic Walkie readiness review",
+   "summary": "Synthetic readiness review for sandbox-east; no deployment.",
+   "question": "",
+   "kind": "time_limit",
+   "gates": [],
+   "time_limit": {
+    "text": "Within 30 minutes",
+    "evidence": "TARGET_1002: Within 30 minutes"
+   },
+   "queue": {
+    "root_id": "n1",
+    "state": "active",
+    "position": 0,
+    "ahead": 0,
+    "total": 0,
+    "active_root": "n1",
+    "priority": "P4",
+    "phase": "planning"
+   },
+   "waits": [],
+   "state": "acknowledged",
+   "requested_at": 1794458349.972057,
+   "wake": {
+    "state": "acknowledged",
+    "phase": "started",
+    "channel": "prompt",
+    "revision": 3,
+    "needs_ack_retry": false,
+    "requested_at": 1794458349.972057,
+    "intent_at": 1794458350.221844,
+    "intent_until": 1794458355.221844,
+    "started_at": 1794458350.4808002,
+    "updated_at": 1794458351.2488642,
+    "acknowledged_at": 1794458351.30108,
+    "attempt_ref": "a002895560d2662f",
+    "delivery_uncertain": false
+   },
+   "answer": "",
+   "activated": false,
+   "clear_wait": []
+  }
+ },
+ "answer": "I reviewed the full thread: sandbox-east only, no deployment, change ticket CHG-58213, and the 30-minute limit is reported to main.",
+ "actor_map": {
+  "spawned_receipts": [
+   "26578495683b",
+   "338a01574bd3"
+  ],
+  "fetch_failure_receipt": "6c2e8a92db2a",
+  "actor_descriptions": [
+   "Side SSE 26578495683b",
+   "Side SSE 338a01574bd3"
+  ]
+ },
+ "wake_count": {
+  "transcript_wake_rows": 1,
+  "transcript_stop_block_rows": 0,
+  "transcript_uncertain_rows": 0,
+  "debug_prompt_or_append": 1,
+  "debug_lines": [
+   "2026-11-12T04:39:10.606Z [DEBUG] $.prompt.submit (ciel-work): \"Ciel side event requires main action: {\\\"event_id\\\":\\\"26578495683bd121ea09e332ff89c8e5165d20618c365ccd57e8d218331ba689\\\",\\\"item_id\\\":\\\"n1\\\",\\\"root_id\\\":\\\"n1\\\",\\\"title\\\":\\\"Synthe"
+  ],
+  "debug_stop_block_lines": 0,
+  "work_side_wake_calls": [
+   "2026-11-12T04:39:10.095Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_side_wake (event_id, state, protocol, owner_nonce, channel, session_id, _host)",
+   "2026-11-12T04:39:10.335Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_side_wake (event_id, state, attempt_id, owner_nonce, channel, session_id, _host)",
+   "2026-11-12T04:39:11.072Z [DEBUG] $.mcp.call (ciel-work): mcp__ciel-runtime-router__work_side_wake (event_id, state, attempt_id, owner_nonce, session_id, _host)"
+  ],
+  "channel": "prompt",
+  "state": "acknowledged",
+  "phase": "started",
+  "revision": 3,
+  "gateway_max_wake_blocks": 1,
+  "gateway_max_stop_blocks": 0,
+  "gateway_first_wake_seq": 5,
+  "gateway_ack_tool_calls": [
+   {
+    "at": 1794458351.1355789,
+    "seq": 5,
+    "wake": {
+     "event_id": "26578495683bd121ea09e332ff89c8e5165d20618c365ccd57e8d218331ba689",
+     "item_id": "n1",
+     "root_id": "n1",
+     "title": "Synthetic Walkie readiness review",
+     "kind": "time_limit",
+     "summary": "Synthetic readiness review for sandbox-east; no deployment.",
+     "question": "",
+     "waits": [],
+     "queue": {
+      "root_id": "n1",
+      "state": "active",
+      "position": 0,
+      "ahead": 0,
+      "total": 0,
+      "active_root": "n1",
+      "priority": "P4",
+      "phase": "planning"
+     },
+     "time_limit": {
+      "text": "Within 30 minutes",
+      "evidence": "TARGET_1002: Within 30 minutes"
+     },
+     "via": "wake_text"
+    },
+    "has_tool_result": false
+   }
+  ],
+  "gateway_ack_results": {
+   "toolu_bd796ce7dd9f4e678ee6": {
+    "seq": 6,
+    "is_error": false,
+    "content": "\"{\\\"event_id\\\":\\\"26578495683bd121ea09e332ff89c8e5165d20618c365ccd57e8d218331ba689\\\",\\\"item_id\\\":\\\"n1\\\",\\\"root_id\\\":\\\"n1\\\",\\\"title\\\":\\\"Synthetic Walkie readiness review\\\",\\\"summary\\\":\\\"Synthetic readiness review for sandbox-east; no deployment.\\\",\\\"question\\\":\\\"\\\",\\\"kind\\\":\\\"time_limit\\\",\\\"gates\\\":[],\\\"time_limit\\\":{\\\"text\\\":\\\"Within 30 minutes\\\",\\\"evidence\\\":\\\"TARGET_1002: Within 30 minutes\\\"},\\\"queue\\\":{\\\"root_id\\\":\\\"n1\\\",\\\"state\\\":\\\"active\\\",\\\"position\\\":0,\\\"ahead\\\":0,\\\"total\\\":0,\\\"active_root\\\":\\\"n1\\\",\\\"priority\\\":\\\"P4\\\",\\\"phase\\\":\\\"planning\\\"},\\\"waits\\\":[],\\\"state\\\":\\\"acknowledged\\\",\\\"requ"
+   }
+  }
+ },
+ "design_assertions": {
+  "prompt_submits": 1,
+  "distinct_prompt_texts": 1,
+  "duplicate_prompt_texts": {},
+  "wake_prompt_submits_for_event": 1,
+  "first_wake_submit_at": 1794458350.606,
+  "wake_prompt_rows_at": [
+   1794458350.629
+  ],
+  "wake_timeline_for_event": [
+   {
+    "at": 1794458350.221364,
+    "event": "26578495683b",
+    "handoff_state": "requested",
+    "kind": "time_limit",
+    "wake_state": "pending",
+    "phase": null,
+    "channel": null,
+    "revision": null
+   },
+   {
+    "at": 1794458350.4806116,
+    "event": "26578495683b",
+    "handoff_state": "requested",
+    "kind": "time_limit",
+    "wake_state": "submitting",
+    "phase": "intent",
+    "channel": "prompt",
+    "revision": 1
+   },
+   {
+    "at": 1794458350.7405517,
+    "event": "26578495683b",
+    "handoff_state": "requested",
+    "kind": "time_limit",
+    "wake_state": "submitting",
+    "phase": "started",
+    "channel": "prompt",
+    "revision": 2
+   },
+   {
+    "at": 1794458351.5083072,
+    "event": "26578495683b",
+    "handoff_state": "acknowledged",
+    "kind": "time_limit",
+    "wake_state": "acknowledged",
+    "phase": "started",
+    "channel": "prompt",
+    "revision": 3
+   }
+  ],
+  "left_submitting": {
+   "at": 1794458351.5083072,
+   "event": "26578495683b",
+   "handoff_state": "acknowledged",
+   "kind": "time_limit",
+   "wake_state": "acknowledged",
+   "phase": "started",
+   "channel": "prompt",
+   "revision": 3
+  },
+  "returned_to_submitting_after": [],
+  "final_wake_state": "acknowledged",
+  "final_wake_phase": "started",
+  "prompt_hook_settles_after_submit": [
+   {
+    "at": 1794458351.056,
+    "line": "2026-11-12T04:39:11.056Z [DEBUG] hooks module ciel-work@inline prompt.submit settled in 426.8ms (worker hop, next() included)"
+   }
+  ],
+  "prompt_resolved_at": 1794458351.056,
+  "prompt_resolved_to_recorded_s": 0.45230722427368164,
+  "prompt_entered_to_recorded_s": 0.8793072700500488,
+  "stop_presentations_of_event": [],
+  "stop_presentations_while_pending": [],
+  "gateway_stop_requests_while_pending": []
+ },
+ "wake_timing": {
+  "handoff_requested_at": 1794458349.972057,
+  "wake_started_at": 1794458350.4808002,
+  "wake_updated_at": 1794458351.2488642,
+  "ack_at": 1794458351.30108,
+  "gateway_first_wake_request_at": 1794458351.1355789,
+  "commit_to_start_s": 0.5087430477142334,
+  "commit_to_main_request_s": 1.1635217666625977
+ },
+ "stop_path": {
+  "happened": false,
+  "state": "acknowledged",
+  "debug_turn_step_after_stop": null
+ },
+ "priority": {
+  "work_root_priority": "P4",
+  "event_thread_task_priority": 5,
+  "receipt_priority": null
+ },
+ "walkie": {
+  "calls": [
+   {
+    "tool": "walkie_read_messages",
+    "arguments": {
+     "conversation_id": "34886995-4a66-4527-a618-814e9cb0a5bf",
+     "after": "999"
+    },
+    "at": 1794458347.8685184
+   },
+   {
+    "tool": "walkie_call_tool",
+    "arguments": {
+     "operation_id": "threads.read",
+     "schema_version": 1,
+     "arguments": {
+      "conversation_id": "34886995-4a66-4527-a618-814e9cb0a5bf",
+      "root_id": "1000",
+      "after": "0"
+     }
+    },
+    "at": 1794458348.133892
+   },
+   {
+    "tool": "walkie_send_message",
+    "arguments": {
+     "conversation_id": "34886995-4a66-4527-a618-814e9cb0a5bf",
+     "client_id": "c6f3489b-deb7-b9f2-9551-318afbb75be4",
+     "reply_to_message_id": "1002",
+     "text": "ACK — I reviewed the full thread: sandbox-east only, no deployment, change ticket CHG-58213, and the 30-minute limit is reported to main.\n\nn1 갱신 · P4 · 현재 진행 중인 항목입니다."
+    },
+    "at": 1794458351.0430176
+   },
+   {
+    "tool": "walkie_read_messages",
+    "arguments": {
+     "conversation_id": "34886995-4a66-4527-a618-814e9cb0a5bf",
+     "after": "999"
+    },
+    "at": 1794458398.8431
+   },
+   {
+    "tool": "walkie_read_messages",
+    "arguments": {
+     "conversation_id": "34886995-4a66-4527-a618-814e9cb0a5bf",
+     "after": "999"
+    },
+    "at": 1794458406.1748056
+   }
+  ],
+  "sends": [
+   {
+    "arguments": {
+     "conversation_id": "34886995-4a66-4527-a618-814e9cb0a5bf",
+     "client_id": "c6f3489b-deb7-b9f2-9551-318afbb75be4",
+     "reply_to_message_id": "1002",
+     "text": "ACK — I reviewed the full thread: sandbox-east only, no deployment, change ticket CHG-58213, and the 30-minute limit is reported to main.\n\nn1 갱신 · P4 · 현재 진행 중인 항목입니다."
+    },
+    "at": 1794458351.0430176
+   }
+  ]
+ },
+ "gateway": {
+  "requests": 8,
+  "side_requests": 2,
+  "main_requests": 6,
+  "side_seqs": [
+   4,
+   8
+  ],
+  "side_agent_headers": [
+   "ab8da6d87436c3043",
+   "ae566cbb75e2f645f"
+  ],
+  "wakes": [
+   {
+    "at": 1794458351.1355789,
+    "seq": 5,
+    "wake": {
+     "event_id": "26578495683bd121ea09e332ff89c8e5165d20618c365ccd57e8d218331ba689",
+     "item_id": "n1",
+     "root_id": "n1",
+     "title": "Synthetic Walkie readiness review",
+     "kind": "time_limit",
+     "summary": "Synthetic readiness review for sandbox-east; no deployment.",
+     "question": "",
+     "waits": [],
+     "queue": {
+      "root_id": "n1",
+      "state": "active",
+      "position": 0,
+      "ahead": 0,
+      "total": 0,
+      "active_root": "n1",
+      "priority": "P4",
+      "phase": "planning"
+     },
+     "time_limit": {
+      "text": "Within 30 minutes",
+      "evidence": "TARGET_1002: Within 30 minutes"
+     },
+     "via": "wake_text"
+    },
+    "has_tool_result": false
+   }
+  ]
+ },
+ "fork_wire": {
+  "request_seq": 4,
+  "agent_header": "ab8da6d87436c3043",
+  "model": "claude-opus-5-5",
+  "has_front": true,
+  "has_middle": true,
+  "has_end": true,
+  "has_change_ticket": true,
+  "has_claude_marker": true,
+  "payload_found": true,
+  "payload_keys": [
+   "event_id",
+   "parent_session_id",
+   "external_event_preview",
+   "source_context",
+   "source_message",
+   "original",
+   "route",
+   "source_priority",
+   "workload",
+   "handoff_context",
+   "priority_policy",
+   "instruction"
+  ],
+  "payload_last_key": "instruction",
+  "source_context": "verified_thread",
+  "thread_messages_exact": {
+   "1000": true,
+   "1001": true,
+   "1002": true,
+   "1003": true,
+   "1004": true
+  },
+  "target_length": 650,
+  "target_in_payload_length": 650,
+  "instruction_ends_with_contract": true,
+  "instruction_has_prohibitions": true,
+  "final_message_role": "user",
+  "final_message_head": "<fork-boilerplate>\nYou are a worker fork. The transcript above is the parent's history — inherited reference, not your situation. You are NOT a continuation of ",
+  "text_after_payload_in_last_user_message": "",
+  "last_user_text_blocks": 1,
+  "last_user_message_tail": "turn one JSON object: {\\\"decision\\\":{...},\\\"expected_version\\\":N}.\\nDecision fields: action, kind, summary, reply, and when needed item_id, title,\\nnote, priority, queue_position, release_waits, time_limit. No other fields.\\nKinds/actions:\\n- status or info: answer\\n- clarify: clarify\\n- request: create, update or prioritize\\nLegacy advise is not used. The host validates and commits every field.\"}",
+  "tool_names_count": 75,
+  "main_tool_names_count": 75,
+  "same_model_as_main": true,
+  "system_equal_main": true
+ },
+ "facts": {
+  "host_committed": true,
+  "one_fork_per_spawned_event": true,
+  "fork_type": true,
+  "unnamed_not_registered": true,
+  "time_limit_handoff_related_work": true,
+  "time_limit_wake_delivered": true,
+  "main_acknowledged": true,
+  "exactly_one_main_wake": true,
+  "ack_succeeded_first_try": true,
+  "wake_immediate": true,
+  "low_priority_time_limit": true,
+  "stop_path_queued_if_used": true,
+  "host_injected_source_text_within_allowlist": true,
+  "outbox_reply_sent_once": true,
+  "web_desktop": true,
+  "web_mobile": true,
+  "no_same_identity_raw_prompt_submit_twice": true,
+  "no_side_wake_left_started_after_prompt_resolved": true,
+  "no_stop_presentation_while_identity_pending": true,
+  "prompt_wake_has_no_stop_presentation": true,
+  "all_main_canaries_in_fork": true,
+  "claude_marker_in_fork": true,
+  "full_thread_verbatim_in_fork": true,
+  "contract_is_last_instruction": true,
+  "none_not_applicable": true,
+  "none_no_send": true,
+  "none_no_main_instruction": true,
+  "fetch_no_spawn": true,
+  "fetch_no_reply": true,
+  "fetch_durable_reason": true
+ },
+ "board_after": {
+  "schema": 1,
+  "version": 4,
+  "phase": "planning",
+  "active_root": "n1",
+  "focus_ids": [],
+  "next_id": 3,
+  "nodes": [
+   {
+    "id": "n1",
+    "parent_id": null,
+    "title": "Synthetic Walkie readiness review",
+    "status": "pending",
+    "note": "synthetic owned fixture\n\nSide request: Thread includes TARGET_1002_FULL_END, REPLY_1003_VERBATIM, and REPLY_1004_VERBATIM.",
+    "progress": "",
+    "evidence": "",
+    "waiting_on": "",
+    "ref": "",
+    "urgent": false,
+    "updated_at": 1794458349.9720547,
+    "created_at": 1794458300.9718137,
+    "phase": "planning",
+    "priority": "P4"
+   },
+   {
+    "id": "n2",
+    "parent_id": "n1",
+    "title": "Review owned Walkie target thread",
+    "status": "pending",
+    "note": "sandbox-east only",
+    "progress": "",
+    "evidence": "",
+    "waiting_on": "",
+    "ref": "",
+    "urgent": false,
+    "updated_at": 1794458300.9718137,
+    "created_at": 1794458300.9718137
+   }
+  ],
+  "updated_at": 1794458381.800511,
+  "side_decisions": {
+   "26578495683bd121ea09e332ff89c8e5165d20618c365ccd57e8d218331ba689": {
+    "decision_digest": "43ba8c81787a8717f8e97a1866eccefcc554073e154043c75171438a831290b6",
+    "applied_at": 1794458349.9720888,
+    "item_id": "n1",
+    "recap": "Synthetic readiness review for sandbox-east; no deployment.",
+    "result": {
+     "action": "update",
+     "item_id": "n1",
+     "summary": "Synthetic readiness review for sandbox-east; no deployment.",
+     "reply": "I reviewed the full thread: sandbox-east only, no deployment, change ticket CHG-58213, and the 30-minute limit is reported to main.",
+     "delivery": "pending",
+     "execution_approved": false,
+     "handoff": "acknowledged",
+     "based_on_version": 1,
+     "kind": "request",
+     "time_limit": {
+      "text": "Within 30 minutes",
+      "evidence": "TARGET_1002: Within 30 minutes"
+     },
+     "source_context": "thread",
+     "main_handoff": {
+      "kind": "time_limit",
+      "item_id": "n1",
+      "root_id": "n1",
+      "title": "Synthetic Walkie readiness review",
+      "summary": "Synthetic readiness review for sandbox-east; no deployment.",
+      "queue": {
+       "root_id": "n1",
+       "state": "active",
+       "position": 0,
+       "ahead": 0,
+       "total": 0,
+       "active_root": "n1",
+       "priority": "P4",
+       "phase": "planning"
+      },
+      "time_limit": {
+       "text": "Within 30 minutes",
+       "evidence": "TARGET_1002: Within 30 minutes"
+      },
+      "waits": [],
+      "question": ""
+     },
+     "title": "Synthetic Walkie readiness review",
+     "priority": "P4",
+     "queue": {
+      "root_id": "n1",
+      "state": "active",
+      "position": 0,
+      "ahead": 0,
+      "total": 0,
+      "active_root": "n1",
+      "priority": "P4",
+      "phase": "planning",
+      "version": 2
+     },
+     "final_text": "ACK — I reviewed the full thread: sandbox-east only, no deployment, change ticket CHG-58213, and the 30-minute limit is reported to main.\n\nn1 갱신 · P4 · 현재 진행 중인 항목입니다."
+    }
+   },
+   "338a01574bd3d5e485a1a35e289cfb545fca64ca4c9a8bb921dc1fdf3939ffcf": {
+    "decision_digest": "26394bc9d4678c9c88ba4795ccfb4a01cfeda5a00e719b5c85589d201dc6639f",
+    "applied_at": 1794458381.8004968,
+    "item_id": null,
+    "recap": "Synthetic reminder only; Work readiness review unchanged.",
+    "result": {
+     "action": "answer",
+     "item_id": null,
+     "summary": "Synthetic reminder only; Work readiness review unchanged.",
+     "reply": "The readiness review remains queued; this reminder names no message.",
+     "delivery": "pending",
+     "execution_approved": false,
+     "handoff": "not_required",
+     "based_on_version": 3,
+     "kind": "status",
+     "source_context": "none_referenced",
+     "final_text": "The readiness review remains queued; this reminder names no message.\n\n큐에 등록하지 않았습니다."
+    }
+   }
+  },
+  "side_handoffs": {
+   "26578495683bd121ea09e332ff89c8e5165d20618c365ccd57e8d218331ba689": {
+    "item_id": "n1",
+    "root_id": "n1",
+    "title": "Synthetic Walkie readiness review",
+    "summary": "Synthetic readiness review for sandbox-east; no deployment.",
+    "question": "",
+    "kind": "time_limit",
+    "gates": [],
+    "time_limit": {
+     "text": "Within 30 minutes",
+     "evidence": "TARGET_1002: Within 30 minutes"
+    },
+    "queue": {
+     "root_id": "n1",
+     "state": "active",
+     "position": 0,
+     "ahead": 0,
+     "total": 0,
+     "active_root": "n1",
+     "priority": "P4",
+     "phase": "planning"
+    },
+    "waits": [],
+    "state": "acknowledged",
+    "requested_at": 1794458349.972057,
+    "wake": {
+     "state": "acknowledged",
+     "phase": "started",
+     "channel": "prompt",
+     "revision": 3,
+     "needs_ack_retry": false,
+     "requested_at": 1794458349.972057,
+     "intent_at": 1794458350.221844,
+     "intent_until": 1794458355.221844,
+     "started_at": 1794458350.4808002,
+     "updated_at": 1794458351.2488642,
+     "acknowledged_at": 1794458351.30108,
+     "attempt_ref": "a002895560d2662f",
+     "delivery_uncertain": false
+    },
+    "answer": "",
+    "activated": false,
+    "clear_wait": []
+   }
+  },
+  "side_reviews": {
+   "26578495683bd121ea09e332ff89c8e5165d20618c365ccd57e8d218331ba689": {
+    "state": "pending",
+    "kind": "request",
+    "action": "update",
+    "item_id": "n1",
+    "summary": "Synthetic readiness review for sandbox-east; no deployment.",
+    "reply": "ACK — I reviewed the full thread: sandbox-east only, no deployment, change ticket CHG-58213, and the 30-minute limit is reported to main.\n\nn1 갱신 · P4 · 현재 진행 중인 항목입니다.",
+    "source": "message:34886995-4a66-4527-a618-814e9cb0a5bf:1002",
+    "source_context": "thread",
+    "recorded_at": 1794458349.9720926
+   },
+   "338a01574bd3d5e485a1a35e289cfb545fca64ca4c9a8bb921dc1fdf3939ffcf": {
+    "state": "pending",
+    "kind": "status",
+    "action": "answer",
+    "item_id": null,
+    "summary": "Synthetic reminder only; Work readiness review unchanged.",
+    "reply": "The readiness review remains queued; this reminder names no message.\n\n큐에 등록하지 않았습니다.",
+    "source": null,
+    "source_context": "none_referenced",
+    "recorded_at": 1794458381.800502
+   }
+  }
+ },
+ "wake_timeline_path": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\e2e-source\\run-a-20261111-223807\\wake-timeline.jsonl",
+ "wake_timeline_rows": 4,
+ "tree_before_kill": [
+  {
+   "ProcessId": 5676,
+   "ParentProcessId": 26768,
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794458322100)/",
+   "CommandLine": "C:\\Users\\djlov\\.local\\bin\\claude.exe --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-claude-opus-5-5 --mcp-config C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-hl8aa6bt\\config\\web-tools-mcp.json C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-hl8aa6bt\\config\\mcp-launches\\70f9a8320ba34e2fa7b65613b766520c\\claude-mcp.json --messaging-socket-path \\\\.\\pipe\\LOCAL\\cc-msg-b947029a7253e66de7e470a9505543e4 --settings {\\\"crossSessionInbound\\\":\\\"accept\\\"} --plugin-dir C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\run-copies\\run-a-20261111-223807\\ciel_runtime_support\\claude_mods\\ciel-work --session-id a1111111-1111-4111-8111-111111111111 --debug-file C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\e2e-source\\run-a-20261111-223807\\claude-debug.txt",
+   "present": false
+  },
+  {
+   "ProcessId": 8764,
+   "ParentProcessId": 67476,
+   "Name": "mcp-server-fetch.exe",
+   "CreationDate": "/Date(1794458325839)/",
+   "CommandLine": "\"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\"",
+   "present": false
+  },
+  {
+   "ProcessId": 9280,
+   "ParentProcessId": 79908,
+   "Name": "cmd.exe",
+   "CreationDate": "/Date(1794458310172)/",
+   "CommandLine": "cmd /k C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\e2e-source\\run-a-20261111-223807\\launch.cmd",
+   "present": true
+  },
+  {
+   "ProcessId": 9712,
+   "ParentProcessId": 66204,
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794458325709)/",
+   "CommandLine": "\"C:\\Program Files\\nodejs\\\\node.exe\"  \"C:\\Program Files\\nodejs\\\\node_modules\\npm\\bin\\npx-cli.js\" \"-y\" \"ddg-mcp-search\"",
+   "present": false
+  },
+  {
+   "ProcessId": 14228,
+   "ParentProcessId": 80908,
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794458327874)/",
+   "CommandLine": "\"node\"   \"C:\\Users\\djlov\\AppData\\Local\\npm-cache\\_npx\\469264b19fe50db8\\node_modules\\.bin\\\\..\\ddg-mcp-search\\dist\\index.js\" ",
+   "present": false
+  },
+  {
+   "ProcessId": 14244,
+   "ParentProcessId": 8764,
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794458325879)/",
+   "CommandLine": "\"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\python.exe\" \"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\"",
+   "present": false
+  },
+  {
+   "ProcessId": 26768,
+   "ParentProcessId": 64240,
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794458310299)/",
+   "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\run-copies\\run-a-20261111-223807\\ciel_runtime.py\" cli -- --session-id a1111111-1111-4111-8111-111111111111 --debug-file \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\e2e-source\\run-a-20261111-223807\\claude-debug.txt\"",
+   "present": true
+  },
+  {
+   "ProcessId": 58172,
+   "ParentProcessId": 26768,
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794458318725)/",
+   "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\run-copies\\run-a-20261111-223807\\ciel_runtime.py serve",
+   "present": false
+  },
+  {
+   "ProcessId": 64240,
+   "ParentProcessId": 9280,
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794458310281)/",
+   "CommandLine": "py  -3 \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\run-copies\\run-a-20261111-223807\\ciel_runtime.py\" cli -- --session-id a1111111-1111-4111-8111-111111111111 --debug-file \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\e2e-source\\run-a-20261111-223807\\claude-debug.txt\"",
+   "present": true
+  },
+  {
+   "ProcessId": 66204,
+   "ParentProcessId": 5676,
+   "Name": "cmd.exe",
+   "CreationDate": "/Date(1794458325459)/",
+   "CommandLine": "C:\\WINDOWS\\system32\\cmd.exe /d /s /c \"C:\\Program^ Files\\nodejs\\npx.cmd ^\"-y^\" ^\"ddg-mcp-search^\"\"",
+   "present": false
+  },
+  {
+   "ProcessId": 67476,
+   "ParentProcessId": 72736,
+   "Name": "uv.exe",
+   "CreationDate": "/Date(1794458325559)/",
+   "CommandLine": "\"C:\\Program Files\\Python311\\Scripts\\uv.exe\" tool uvx --with mcp<2 mcp-server-fetch",
+   "present": false
+  },
+  {
+   "ProcessId": 69760,
+   "ParentProcessId": 79228,
+   "Name": "conhost.exe",
+   "CreationDate": "/Date(1794458325628)/",
+   "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+   "present": false
+  },
+  {
+   "ProcessId": 72736,
+   "ParentProcessId": 5676,
+   "Name": "uvx.exe",
+   "CreationDate": "/Date(1794458325526)/",
+   "CommandLine": "\"C:\\Program Files\\Python311\\Scripts\\uvx.exe\" --with mcp<2 mcp-server-fetch",
+   "present": false
+  },
+  {
+   "ProcessId": 77592,
+   "ParentProcessId": 14244,
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794458325915)/",
+   "CommandLine": "\"C:\\Program Files\\Python311\\python.exe\" \"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\"",
+   "present": false
+  },
+  {
+   "ProcessId": 79228,
+   "ParentProcessId": 5676,
+   "Name": "git.exe",
+   "CreationDate": "/Date(1794458325620)/",
+   "CommandLine": "\"C:\\Program Files\\Git\\mingw64\\bin\\git.exe\" -c core.fsmonitor= -c core.hooksPath=\\\\.\\NUL -c core.askPass= -c protocol.ext.allow=never -c \"core.alternateRefsCommand=f() { git --git-dir=\\\"$1\\\" for-each-ref --format='%(objectname)'; }; f\" -c submodule.recurse=false -c log.showSignature=false -c format.pretty=medium -c gc.auto=0 -c maintenance.auto=false -c diff.autoRefreshIndex=false -c hook.applypatch-msg.enabled=false -c hook.pre-applypatch.enabled=false -c hook.post-applypatch.enabled=false -c hook.pre-commit.enabled=false -c hook.pre-merge-commit.enabled=false -c hook.prepare-commit-msg.enabled=false -c hook.commit-msg.enabled=false -c hook.post-commit.enabled=false -c hook.pre-rebase.enabled=false -c hook.post-checkout.enabled=false -c hook.post-merge.enabled=false -c hook.pre-push.enabled=false -c hook.pre-receive.enabled=false -c hook.update.enabled=false -c hook.proc-receive.enabled=false -c hook.post-receive.enabled=false -c hook.post-update.enabled=false -c hook.reference-transaction.enabled=false -c hook.push-to-checkout.enabled=false -c hook.pre-auto-gc.enabled=false -c hook.post-rewrite.enabled=false -c hook.sendemail-validate.enabled=false -c hook.fsmonitor-watchman.enabled=false -c hook.p4-changelist.enabled=false -c hook.p4-prepare-changelist.enabled=false -c hook.p4-post-changelist.enabled=false -c hook.p4-pre-submit.enabled=false -c hook.post-index-change.enabled=false -c core.quotepath=false ls-files --others --exclude-standard",
+   "present": false
+  },
+  {
+   "ProcessId": 79908,
+   "ParentProcessId": 60116,
+   "Name": "conhost.exe",
+   "CreationDate": "/Date(1794458310159)/",
+   "CommandLine": "conhost.exe cmd /k C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\e2e-source\\run-a-20261111-223807\\launch.cmd",
+   "present": true
+  },
+  {
+   "ProcessId": 80024,
+   "ParentProcessId": 26768,
+   "Name": "conhost.exe",
+   "CreationDate": "/Date(1794458322091)/",
+   "CommandLine": "\\\\?\\C:\\WINDOWS\\system32\\conhost.exe --headless --width 120 --height 30 --signal 0x2f4 --server 0x2ec",
+   "present": false
+  },
+  {
+   "ProcessId": 80424,
+   "ParentProcessId": 26768,
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794458322107)/",
+   "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\run-copies\\run-a-20261111-223807\\ciel_runtime_support\\windows_console_guard.py 26768 487 3",
+   "present": false
+  },
+  {
+   "ProcessId": 80908,
+   "ParentProcessId": 9712,
+   "Name": "cmd.exe",
+   "CreationDate": "/Date(1794458327846)/",
+   "CommandLine": "C:\\WINDOWS\\system32\\cmd.exe /d /s /c ddg-mcp",
+   "present": false
+  },
+  {
+   "ProcessId": 81352,
+   "ParentProcessId": 66204,
+   "Name": "conhost.exe",
+   "CreationDate": "/Date(1794458325472)/",
+   "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+   "present": false
+  },
+  {
+   "ProcessId": 85408,
+   "ParentProcessId": 72736,
+   "Name": "conhost.exe",
+   "CreationDate": "/Date(1794458325535)/",
+   "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+   "present": false
+  }
+ ],
+ "cleanup": {
+  "owned_identities": [
+   [
+    9280,
+    "/Date(1794458310172)/"
+   ],
+   [
+    79908,
+    "/Date(1794458310159)/"
+   ]
+  ],
+  "dynamic_identities": [
+   [
+    9280,
+    "/Date(1794458310172)/"
+   ]
+  ],
+  "killed": [
+   {
+    "identity": [
+     9280,
+     "/Date(1794458310172)/"
+    ],
+    "name": "cmd.exe",
+    "parent_pid": 79908
+   },
+   {
+    "identity": [
+     79908,
+     "/Date(1794458310159)/"
+    ],
+    "name": "conhost.exe",
+    "parent_pid": 60116
+   }
+  ],
+  "rejected": [],
+  "protected_intersections": [],
+  "final_live": [],
+  "completed": true,
+  "duration_s": 11.935935974121094,
+  "log": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\e2e-source\\run-a-20261111-223807\\cleanup.jsonl"
+ },
+ "owned_intersection_check": {
+  "checked_identities": 21,
+  "intersections": []
+ },
+ "owned_tree_intersects_protected": false,
+ "owned_leftover_after_kill": [
+  {
+   "ProcessId": 60116,
+   "ParentProcessId": 29836,
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794458287007)/",
+   "CommandLine": "\"C:\\Program Files\\Python311\\python.exe\" -B C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\walkie_e2e_driver_v4.py A --output C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\e2e-source --snapshot C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\snapshot-eab3ad33-a-20261111-223743",
+   "protected_tree": false
+  }
+ ],
+ "leftover_not_killed": [
+  {
+   "pid": 60116,
+   "name": "python.exe",
+   "created": "/Date(1794458287007)/"
+  }
+ ],
+ "protected_processes_unchanged": false,
+ "protected_before": {
+  "23728": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794412171243)/"
+  },
+  "42764": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412171257)/"
+  },
+  "42924": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412182971)/"
+  },
+  "36344": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412189702)/"
+  },
+  "40616": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412189711)/"
+  },
+  "45560": {
+   "Name": "uvx.exe",
+   "CreationDate": "/Date(1794412196216)/"
+  },
+  "41784": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412196221)/"
+  },
+  "45356": {
+   "Name": "uv.exe",
+   "CreationDate": "/Date(1794412196234)/"
+  },
+  "45700": {
+   "Name": "mcp-server-fetch.exe",
+   "CreationDate": "/Date(1794412197052)/"
+  },
+  "45164": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412197062)/"
+  },
+  "45572": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412197080)/"
+  },
+  "40000": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412199502)/"
+  },
+  "39984": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794412199735)/"
+  },
+  "45652": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412199746)/"
+  },
+  "25780": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412204231)/"
+  },
+  "45428": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412207685)/"
+  },
+  "46232": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412210311)/"
+  },
+  "46508": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412210317)/"
+  },
+  "20972": {
+   "Name": "uvx.exe",
+   "CreationDate": "/Date(1794412212733)/"
+  },
+  "35728": {
+   "Name": "uv.exe",
+   "CreationDate": "/Date(1794412212753)/"
+  },
+  "46196": {
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794412212848)/"
+  },
+  "29796": {
+   "Name": "mcp-server-fetch.exe",
+   "CreationDate": "/Date(1794412212861)/"
+  },
+  "35344": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412212870)/"
+  },
+  "23144": {
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794412212874)/"
+  },
+  "11840": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412212877)/"
+  },
+  "31320": {
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794412217467)/"
+  },
+  "40176": {
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794412217480)/"
+  },
+  "21912": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794412247384)/"
+  },
+  "2272": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412247396)/"
+  },
+  "9764": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412254899)/"
+  },
+  "12240": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412257813)/"
+  },
+  "48104": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412257818)/"
+  },
+  "48480": {
+   "Name": "uvx.exe",
+   "CreationDate": "/Date(1794412259610)/"
+  },
+  "48672": {
+   "Name": "uv.exe",
+   "CreationDate": "/Date(1794412259643)/"
+  },
+  "8520": {
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794412259817)/"
+  },
+  "48168": {
+   "Name": "mcp-server-fetch.exe",
+   "CreationDate": "/Date(1794412259828)/"
+  },
+  "47928": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412259848)/"
+  },
+  "48284": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412259881)/"
+  },
+  "47684": {
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794412261709)/"
+  },
+  "64168": {
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794416294680)/"
+  },
+  "61444": {
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794458075262)/"
+  },
+  "30340": {
+   "Name": "uv.exe",
+   "CreationDate": "/Date(1794458163855)/"
+  },
+  "20276": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794458163901)/"
+  }
+ },
+ "protected_after": {
+  "23728": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794412171243)/"
+  },
+  "42764": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412171257)/"
+  },
+  "42924": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412182971)/"
+  },
+  "36344": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412189702)/"
+  },
+  "40616": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412189711)/"
+  },
+  "45560": {
+   "Name": "uvx.exe",
+   "CreationDate": "/Date(1794412196216)/"
+  },
+  "41784": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412196221)/"
+  },
+  "45356": {
+   "Name": "uv.exe",
+   "CreationDate": "/Date(1794412196234)/"
+  },
+  "45700": {
+   "Name": "mcp-server-fetch.exe",
+   "CreationDate": "/Date(1794412197052)/"
+  },
+  "45164": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412197062)/"
+  },
+  "45572": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412197080)/"
+  },
+  "40000": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412199502)/"
+  },
+  "39984": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794412199735)/"
+  },
+  "45652": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412199746)/"
+  },
+  "25780": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412204231)/"
+  },
+  "45428": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412207685)/"
+  },
+  "46232": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412210311)/"
+  },
+  "46508": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412210317)/"
+  },
+  "20972": {
+   "Name": "uvx.exe",
+   "CreationDate": "/Date(1794412212733)/"
+  },
+  "35728": {
+   "Name": "uv.exe",
+   "CreationDate": "/Date(1794412212753)/"
+  },
+  "46196": {
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794412212848)/"
+  },
+  "29796": {
+   "Name": "mcp-server-fetch.exe",
+   "CreationDate": "/Date(1794412212861)/"
+  },
+  "35344": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412212870)/"
+  },
+  "23144": {
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794412212874)/"
+  },
+  "11840": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412212877)/"
+  },
+  "31320": {
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794412217467)/"
+  },
+  "40176": {
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794412217480)/"
+  },
+  "21912": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794412247384)/"
+  },
+  "2272": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412247396)/"
+  },
+  "9764": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412254899)/"
+  },
+  "12240": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412257813)/"
+  },
+  "48104": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412257818)/"
+  },
+  "48480": {
+   "Name": "uvx.exe",
+   "CreationDate": "/Date(1794412259610)/"
+  },
+  "48672": {
+   "Name": "uv.exe",
+   "CreationDate": "/Date(1794412259643)/"
+  },
+  "8520": {
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794412259817)/"
+  },
+  "48168": {
+   "Name": "mcp-server-fetch.exe",
+   "CreationDate": "/Date(1794412259828)/"
+  },
+  "47928": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412259848)/"
+  },
+  "48284": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412259881)/"
+  },
+  "47684": {
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794412261709)/"
+  },
+  "64168": {
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794416294680)/"
+  },
+  "61444": {
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794458075262)/"
+  }
+ },
+ "run_copy_after": {
+  "extras": [],
+  "changed": [
+   "ciel_runtime_support/claude_mods/ciel-work/.claude-plugin/types/claude-code-tools/index.d.ts"
+  ],
+  "classified": {
+   "ciel_runtime_support/claude_mods/ciel-work/.claude-plugin/types/claude-code-tools/index.d.ts": "engine_written_types"
+  },
+  "unexpected": [],
+  "types_tool_keys": {
+   "ciel_runtime_support/claude_mods/ciel-work/.claude-plugin/types/claude-code-tools/index.d.ts": {
+    "keys_before": 79,
+    "keys_after": 78,
+    "removed": [
+     "ClaudeDesign"
+    ],
+    "added": [],
+    "mcp_server_tool_keys_after": []
+   }
+  }
+ },
+ "protected_tree": {
+  "before_count": 91,
+  "after_count": 89,
+  "persistent": 78,
+  "ended": [
+   [
+    3112,
+    "esbuild.exe",
+    "/Date(1794458266256)/"
+   ],
+   [
+    14144,
+    "node.exe",
+    "/Date(1794458290491)/"
+   ],
+   [
+    20276,
+    "python.exe",
+    "/Date(1794458163901)/"
+   ],
+   [
+    21056,
+    "bash.exe",
+    "/Date(1794458163841)/"
+   ],
+   [
+    25500,
+    "node.exe",
+    "/Date(1794458286792)/"
+   ],
+   [
+    30340,
+    "uv.exe",
+    "/Date(1794458163855)/"
+   ],
+   [
+    34392,
+    "esbuild.exe",
+    "/Date(1794458290582)/"
+   ],
+   [
+    49304,
+    "node.exe",
+    "/Date(1794458272303)/"
+   ],
+   [
+    58224,
+    "esbuild.exe",
+    "/Date(1794458287037)/"
+   ],
+   [
+    69660,
+    "esbuild.exe",
+    "/Date(1794458272409)/"
+   ],
+   [
+    71712,
+    "esbuild.exe",
+    "/Date(1794458271165)/"
+   ],
+   [
+    79264,
+    "node.exe",
+    "/Date(1794458271064)/"
+   ],
+   [
+    84948,
+    "node.exe",
+    "/Date(1794458266132)/"
+   ]
+  ],
+  "new": [
+   [
+    2332,
+    "bash.exe",
+    "/Date(1794458314415)/"
+   ],
+   [
+    3412,
+    "node.exe",
+    "/Date(1794458434748)/"
+   ],
+   [
+    13320,
+    "conhost.exe",
+    "/Date(1794458358505)/"
+   ],
+   [
+    16888,
+    "bash.exe",
+    "/Date(1794458358462)/"
+   ],
+   [
+    20100,
+    "python.exe",
+    "/Date(1794458434783)/"
+   ],
+   [
+    48928,
+    "bash.exe",
+    "/Date(1794458295824)/"
+   ],
+   [
+    76456,
+    "conhost.exe",
+    "/Date(1794458295830)/"
+   ],
+   [
+    78644,
+    "python.exe",
+    "/Date(1794458314496)/"
+   ],
+   [
+    80648,
+    "bash.exe",
+    "/Date(1794458295815)/"
+   ],
+   [
+    86204,
+    "bash.exe",
+    "/Date(1794458358447)/"
+   ],
+   [
+    86992,
+    "uv.exe",
+    "/Date(1794458314434)/"
+   ]
+  ],
+  "listed_pids_unchanged": false
+ },
+ "worktree_freeze_after": {
+  "rows": 22,
+  "mismatch": [],
+  "superseded": [
+   "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js",
+   "tests/test_work_mod_write_gate.py",
+   "tests/work_mod_harness.mjs",
+   "tests/work_mod_real_backend_harness.mjs"
+  ]
+ },
+ "snapshot_freeze_after": {
+  "rows": 22,
+  "mismatch": [],
+  "superseded": [
+   "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js",
+   "tests/test_work_mod_write_gate.py",
+   "tests/work_mod_harness.mjs",
+   "tests/work_mod_real_backend_harness.mjs"
+  ]
+ },
+ "other_e2e_after": [],
+ "exclusive_run": true,
+ "protected_respawn": [
+  {
+   "pid": 20276,
+   "name": "python.exe",
+   "before_created": "/Date(1794458163901)/",
+   "after": null,
+   "old_parent_chain": [
+    {
+     "pid": 20276,
+     "name": "python.exe",
+     "created": "/Date(1794458163901)/",
+     "cmd": "\"C:\\Program Files\\Python311\\python.exe\" -m pytest -q -p no:cacheprovider tests/test_work_parallel_finalization.py"
+    },
+    {
+     "pid": 30340,
+     "name": "uv.exe",
+     "created": "/Date(1794458163855)/",
+     "cmd": "\"C:\\Program Files\\Python311\\Scripts\\uv.exe\" run python -m pytest -q -p no:cacheprovider tests/test_work_parallel_finalization.py"
+    },
+    {
+     "pid": 21056,
+     "name": "bash.exe",
+     "created": "/Date(1794458163841)/",
+     "cmd": "\"C:\\Program Files\\Git\\bin\\..\\usr\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412277155-1g0kbk.sh 2>/dev/null || true && ex"
+    },
+    {
+     "pid": 66668,
+     "name": "bash.exe",
+     "created": "/Date(1794458163422)/",
+     "cmd": "\"C:\\Program Files\\Git\\bin\\..\\usr\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412277155-1g0kbk.sh 2>/dev/null || true && ex"
+    },
+    {
+     "pid": 16496,
+     "name": "bash.exe",
+     "created": "/Date(1794458163408)/",
+     "cmd": "\"C:\\Program Files\\Git\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412277155-1g0kbk.sh 2>/dev/null || true && export TEMP='"
+    },
+    {
+     "pid": 12240,
+     "name": "claude.exe",
+     "created": "/Date(1794412257813)/",
+     "cmd": "C:\\Users\\djlov\\.local\\bin\\claude.exe --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtim"
+    },
+    {
+     "pid": 2272,
+     "name": "python.exe",
+     "created": "/Date(1794412247396)/",
+     "cmd": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtim"
+    },
+    {
+     "pid": 21912,
+     "name": "py.exe",
+     "created": "/Date(1794412247384)/",
+     "cmd": "py  -3 \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py\" cli --continue"
+    },
+    {
+     "pid": 20744,
+     "name": "cmd.exe",
+     "created": "/Date(1794412236188)/",
+     "cmd": "C:\\WINDOWS\\System32\\cmd.exe"
+    }
+   ],
+   "replacements": []
+  },
+  {
+   "pid": 30340,
+   "name": "uv.exe",
+   "before_created": "/Date(1794458163855)/",
+   "after": null,
+   "old_parent_chain": [
+    {
+     "pid": 30340,
+     "name": "uv.exe",
+     "created": "/Date(1794458163855)/",
+     "cmd": "\"C:\\Program Files\\Python311\\Scripts\\uv.exe\" run python -m pytest -q -p no:cacheprovider tests/test_work_parallel_finalization.py"
+    },
+    {
+     "pid": 21056,
+     "name": "bash.exe",
+     "created": "/Date(1794458163841)/",
+     "cmd": "\"C:\\Program Files\\Git\\bin\\..\\usr\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412277155-1g0kbk.sh 2>/dev/null || true && ex"
+    },
+    {
+     "pid": 66668,
+     "name": "bash.exe",
+     "created": "/Date(1794458163422)/",
+     "cmd": "\"C:\\Program Files\\Git\\bin\\..\\usr\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412277155-1g0kbk.sh 2>/dev/null || true && ex"
+    },
+    {
+     "pid": 16496,
+     "name": "bash.exe",
+     "created": "/Date(1794458163408)/",
+     "cmd": "\"C:\\Program Files\\Git\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412277155-1g0kbk.sh 2>/dev/null || true && export TEMP='"
+    },
+    {
+     "pid": 12240,
+     "name": "claude.exe",
+     "created": "/Date(1794412257813)/",
+     "cmd": "C:\\Users\\djlov\\.local\\bin\\claude.exe --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtim"
+    },
+    {
+     "pid": 2272,
+     "name": "python.exe",
+     "created": "/Date(1794412247396)/",
+     "cmd": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtim"
+    },
+    {
+     "pid": 21912,
+     "name": "py.exe",
+     "created": "/Date(1794412247384)/",
+     "cmd": "py  -3 \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py\" cli --continue"
+    },
+    {
+     "pid": 20744,
+     "name": "cmd.exe",
+     "created": "/Date(1794412236188)/",
+     "cmd": "C:\\WINDOWS\\System32\\cmd.exe"
+    }
+   ],
+   "replacements": []
+  }
+ ],
+ "walkie_log_after": {
+  "path": "G:\\ciel-Walkie\\.local\\walkie-install\\mcp-diagnostic.log",
+  "lines": 3258,
+  "bytes": 260284,
+  "mtime": 1794458196.666038
+ },
+ "walkie_presence_events_in_window": [],
+ "run_end": 1794458439.0118678,
+ "live_ciel_before": {
+  "23728": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794412171243)/"
+  },
+  "42764": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412171257)/"
+  },
+  "42924": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412182971)/"
+  },
+  "36344": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412189702)/"
+  },
+  "40616": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412189711)/"
+  },
+  "39984": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794412199735)/"
+  },
+  "45652": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412199746)/"
+  },
+  "45428": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412207685)/"
+  },
+  "46232": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412210311)/"
+  },
+  "46508": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412210317)/"
+  },
+  "21912": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794412247384)/"
+  },
+  "2272": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412247396)/"
+  },
+  "9764": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412254899)/"
+  },
+  "12240": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412257813)/"
+  },
+  "48104": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412257818)/"
+  },
+  "78028": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794420054219)/"
+  },
+  "55348": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794450811220)/"
+  },
+  "16496": {
+   "Name": "bash.exe",
+   "CreationDate": "/Date(1794458163408)/"
+  },
+  "66668": {
+   "Name": "bash.exe",
+   "CreationDate": "/Date(1794458163422)/"
+  },
+  "21056": {
+   "Name": "bash.exe",
+   "CreationDate": "/Date(1794458163841)/"
+  }
+ },
+ "live_ciel_after": {
+  "23728": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794412171243)/"
+  },
+  "42764": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412171257)/"
+  },
+  "42924": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412182971)/"
+  },
+  "36344": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412189702)/"
+  },
+  "40616": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412189711)/"
+  },
+  "39984": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794412199735)/"
+  },
+  "45652": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412199746)/"
+  },
+  "45428": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412207685)/"
+  },
+  "46232": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412210311)/"
+  },
+  "46508": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412210317)/"
+  },
+  "21912": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794412247384)/"
+  },
+  "2272": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412247396)/"
+  },
+  "9764": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412254899)/"
+  },
+  "12240": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412257813)/"
+  },
+  "48104": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412257818)/"
+  },
+  "78028": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794420054219)/"
+  },
+  "55348": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794450811220)/"
+  },
+  "16496": {
+   "Name": "bash.exe",
+   "CreationDate": "/Date(1794458163408)/"
+  },
+  "66668": {
+   "Name": "bash.exe",
+   "CreationDate": "/Date(1794458163422)/"
+  },
+  "2332": {
+   "Name": "bash.exe",
+   "CreationDate": "/Date(1794458314415)/"
+  }
+ },
+ "live_ciel_unchanged": false,
+ "live_ciel_diff": {
+  "ended": {
+   "21056": [
+    {
+     "Name": "bash.exe",
+     "CreationDate": "/Date(1794458163841)/"
+    },
+    "\"C:\\Program Files\\Git\\bin\\..\\usr\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412277155-1g0kbk.sh 2>/dev/null || true && export TEMP='C:\\Users\\djlov\\AppData\\Local\\Temp' TMP='C:\\Users\\"
+   ]
+  },
+  "new": {
+   "2332": [
+    {
+     "Name": "bash.exe",
+     "CreationDate": "/Date(1794458314415)/"
+    },
+    "\"C:\\Program Files\\Git\\bin\\..\\usr\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412277155-1g0kbk.sh 2>/dev/null || true && export TEMP='C:\\Users\\djlov\\AppData\\Local\\Temp' TMP='C:\\Users\\"
+   ]
+  }
+ },
+ "live_profile_changed_during_run": null,
+ "live_profile_after_equal": true,
+ "live_profile_files_checked": 53,
+ "claude_json_before": {
+  "exists": true,
+  "sha256": "46a7d4d5fffddd6e6856176c3e6e1d96221b920e428d2f57a76de963c0562c58",
+  "markers_checked": [
+   "a1111111-1111-4111-8111-111111111111",
+   "c:/users/djlov/appdata/local/temp/ciel-sse-true-fork-a-hl8aa6bt",
+   "c:/users/djlov/ciel-runtime/.local/tmp/work-parallel/.local/sse-true-fork/e2e/run-copies/run-a-20261111-223807",
+   "c:/users/djlov/ciel-runtime/.local/tmp/work-parallel/docs/journal/2026/11/11/features/sse-native-fork/e2e-source/run-a-20261111-223807",
+   "c:\\\\users\\\\djlov\\\\appdata\\\\local\\\\temp\\\\ciel-sse-true-fork-a-hl8aa6bt",
+   "c:\\\\users\\\\djlov\\\\ciel-runtime\\\\.local\\\\tmp\\\\work-parallel\\\\.local\\\\sse-true-fork\\\\e2e\\\\run-copies\\\\run-a-20261111-223807",
+   "c:\\\\users\\\\djlov\\\\ciel-runtime\\\\.local\\\\tmp\\\\work-parallel\\\\docs\\\\journal\\\\2026\\\\11\\\\11\\\\features\\\\sse-native-fork\\\\e2e-source\\\\run-a-20261111-223807",
+   "c:\\users\\djlov\\appdata\\local\\temp\\ciel-sse-true-fork-a-hl8aa6bt",
+   "c:\\users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\run-copies\\run-a-20261111-223807",
+   "c:\\users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\e2e-source\\run-a-20261111-223807",
+   "ciel-sse-true-fork-a-hl8aa6bt",
+   "run-a-20261111-223807"
+  ],
+  "hits": []
+ },
+ "claude_json_after": {
+  "exists": true,
+  "sha256": "fe2d089b14b494f4b2e21be5faf7e4b9cca8dfae0e0fc7c5bf7a65ed98df1d63",
+  "markers_checked": [
+   "a1111111-1111-4111-8111-111111111111",
+   "c:/users/djlov/appdata/local/temp/ciel-sse-true-fork-a-hl8aa6bt",
+   "c:/users/djlov/ciel-runtime/.local/tmp/work-parallel/.local/sse-true-fork/e2e/run-copies/run-a-20261111-223807",
+   "c:/users/djlov/ciel-runtime/.local/tmp/work-parallel/docs/journal/2026/11/11/features/sse-native-fork/e2e-source/run-a-20261111-223807",
+   "c:\\\\users\\\\djlov\\\\appdata\\\\local\\\\temp\\\\ciel-sse-true-fork-a-hl8aa6bt",
+   "c:\\\\users\\\\djlov\\\\ciel-runtime\\\\.local\\\\tmp\\\\work-parallel\\\\.local\\\\sse-true-fork\\\\e2e\\\\run-copies\\\\run-a-20261111-223807",
+   "c:\\\\users\\\\djlov\\\\ciel-runtime\\\\.local\\\\tmp\\\\work-parallel\\\\docs\\\\journal\\\\2026\\\\11\\\\11\\\\features\\\\sse-native-fork\\\\e2e-source\\\\run-a-20261111-223807",
+   "c:\\users\\djlov\\appdata\\local\\temp\\ciel-sse-true-fork-a-hl8aa6bt",
+   "c:\\users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\run-copies\\run-a-20261111-223807",
+   "c:\\users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\e2e-source\\run-a-20261111-223807",
+   "ciel-sse-true-fork-a-hl8aa6bt",
+   "run-a-20261111-223807"
+  ],
+  "hits": []
+ },
+ "claude_json_no_owned_refs": true,
+ "snapshot_after": {
+  "files": 1076,
+  "extras": [],
+  "changed": [],
+  "digest": "5741380f78638f86fd49285c9d162c07f95840092faae0e40d6d74186c0fce3c",
+  "digest_ok": true
+ },
+ "config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-hl8aa6bt\\config",
+ "workspace": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-hl8aa6bt\\workspace",
+ "claude_config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-hl8aa6bt\\config\\.claude",
+ "secret_scan": {
+  "files_scanned": 94,
+  "hits": []
+ }
+}

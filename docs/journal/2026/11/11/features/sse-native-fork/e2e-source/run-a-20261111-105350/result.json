@@ -1,0 +1,736 @@
+{
+ "run": "A",
+ "out": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\e2e-source\\run-a-20261111-105350",
+ "outcome": "timeout",
+ "snapshot": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\snapshot-frozen",
+ "run_copy": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\run-copies\\run-a-20261111-105350",
+ "run_copy_digest_before_launch": "3426e4b6f17d18844e854e3c5e228ef01ea98f3ef8949bda40756c74598b9884",
+ "snapshot_digest": "3426e4b6f17d18844e854e3c5e228ef01ea98f3ef8949bda40756c74598b9884",
+ "port": 62041,
+ "session": "a1111111-1111-4111-8111-111111111111",
+ "owned_root_pid": 20664,
+ "related_work": "n1",
+ "seed_board_version": 1,
+ "scratch": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-dfy0onle",
+ "inherited_vars_left": [
+  "CIEL_RUNTIME_TEST_ISOLATED"
+ ],
+ "owned_vars_set": [
+  "CIEL_RUNTIME_CONFIG_DIR",
+  "CIEL_RUNTIME_HOME_OVERRIDE",
+  "CIEL_RUNTIME_LAUNCH_CWD",
+  "CIEL_RUNTIME_ROUTER_PORT",
+  "CIEL_RUNTIME_SKIP_MENU",
+  "CIEL_RUNTIME_SKIP_SELF_UPDATE",
+  "CIEL_RUNTIME_SKIP_UPDATE_CHECK",
+  "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
+  "CLAUDE_CONFIG_DIR"
+ ],
+ "model": "claude-opus-5-5 (recording gateway)",
+ "timeline": {
+  "console_ready": 1794416061.4333808,
+  "prompt_front": 1794416063.5916352,
+  "prompt_middle": 1794416068.0552628,
+  "prompt_end": 1794416071.4098828,
+  "event_thread_sent": 1794416073.9260395
+ },
+ "trust_flow": [
+  {
+   "dialog": [
+    "────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────",
+    "WARNING: Claude Code running in Bypass Permissions mode",
+    "In Bypass Permissions mode, Claude Code will not ask for your approval before running potentially dangerous",
+    "commands.",
+    "This mode should only be used in a sandboxed container/VM that has restricted internet access and can easily be",
+    "restored if damaged.",
+    "By proceeding, you accept all responsibility for actions taken while running in Bypass Permissions mode.",
+    "https://code.claude.com/docs/en/security",
+    "❯ No, exit",
+    "Yes, I accept",
+    "Enter to confirm · Esc to cancel"
+   ],
+   "selected": "❯ Yes, I accept",
+   "downs": 1
+  }
+ ],
+ "receiver": {
+  "ok": true,
+  "receiver": {
+   "id": "default",
+   "enabled": true,
+   "discovery_enabled": false,
+   "test_default_override": false,
+   "discovery_instruction": "",
+   "discovery_file_path": "",
+   "transport": "sse",
+   "url": "http://127.0.0.1:61831/events",
+   "event_types": [
+    "com.ciel.walkie.support.message"
+   ],
+   "cursor_json_pointer": "/data/stream_id",
+   "cursor_query_parameter": "after",
+   "input_transport": "auto",
+   "stored_webhook_secret": false,
+   "stored_authorization": false,
+   "environment_references": {},
+   "status": {
+    "state": "reconnecting",
+    "phase": "reconnect",
+    "attempt_count": 1,
+    "last_attempt_at": 1794416061.5295246,
+    "idle_timeout_seconds": null,
+    "effective_idle_timeout_seconds": null,
+    "heartbeat_observed": false,
+    "last_activity_at": null,
+    "error": "",
+    "retry_seconds": null,
+    "next_retry_at": null,
+    "worker_alive": true,
+    "last_failure_at": null,
+    "last_recovery_at": null,
+    "consecutive_failures": 0,
+    "diagnostic": null,
+    "recovery_count": 0,
+    "last_failure": null,
+    "delivery": {
+     "state": "not_blocked",
+     "reason": "",
+     "scope": "private_runtime_inputs",
+     "blocker_scope": null,
+     "admission_blocked": false,
+     "launcher_hold_observed": false,
+     "line_number": null,
+     "snapshot_consistent": true,
+     "known_queued_count": 0,
+     "queue_age_coverage": "complete",
+     "queued_coverage": "complete",
+     "retrying_count": 0,
+     "retry_exhausted_count": 0,
+     "launch_expired_count": 0,
+     "last_failure": null,
+     "reused_id_count": 0,
+     "reused_id_newest": null,
+     "history": {
+      "complete": true,
+      "coverage": "complete",
+      "scanned_bytes": 0,
+      "failure_count": 0,
+      "recovered_count": 0,
+      "diagnostics": [],
+      "diagnostics_truncated": false
+     },
+     "oldest_queued_age_seconds": null
+    }
+   }
+  },
+  "restart_required": false
+ },
+ "main_before_event": {
+  "front": true,
+  "middle": true,
+  "end": true,
+  "change_ticket": true,
+  "claude_marker": true
+ },
+ "thread_receipt_any": null,
+ "error": {
+  "type": "RuntimeError",
+  "message": "thread receipt not processed"
+ },
+ "tree_before_kill": [
+  {
+   "ProcessId": 20664,
+   "ParentProcessId": 75796,
+   "Name": "conhost.exe",
+   "CreationDate": "/Date(1794416042141)/",
+   "CommandLine": "conhost.exe cmd /k C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\e2e-source\\run-a-20261111-105350\\launch.cmd"
+  },
+  {
+   "ProcessId": 59284,
+   "ParentProcessId": 20664,
+   "Name": "cmd.exe",
+   "CreationDate": "/Date(1794416042153)/",
+   "CommandLine": "cmd /k C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\e2e-source\\run-a-20261111-105350\\launch.cmd"
+  },
+  {
+   "ProcessId": 79000,
+   "ParentProcessId": 59284,
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794416042261)/",
+   "CommandLine": "py  -3 \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\run-copies\\run-a-20261111-105350\\ciel_runtime.py\" cli -- --session-id a1111111-1111-4111-8111-111111111111 --debug-file \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\e2e-source\\run-a-20261111-105350\\claude-debug.txt\""
+  },
+  {
+   "ProcessId": 75420,
+   "ParentProcessId": 79000,
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794416042276)/",
+   "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\run-copies\\run-a-20261111-105350\\ciel_runtime.py\" cli -- --session-id a1111111-1111-4111-8111-111111111111 --debug-file \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\e2e-source\\run-a-20261111-105350\\claude-debug.txt\""
+  },
+  {
+   "ProcessId": 53456,
+   "ParentProcessId": 75420,
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794416050371)/",
+   "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\run-copies\\run-a-20261111-105350\\ciel_runtime.py serve"
+  },
+  {
+   "ProcessId": 23260,
+   "ParentProcessId": 75420,
+   "Name": "conhost.exe",
+   "CreationDate": "/Date(1794416054311)/",
+   "CommandLine": "\\\\?\\C:\\WINDOWS\\system32\\conhost.exe --headless --width 120 --height 30 --signal 0x2ec --server 0x2e4"
+  },
+  {
+   "ProcessId": 73024,
+   "ParentProcessId": 75420,
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794416054320)/",
+   "CommandLine": "C:\\Users\\djlov\\.local\\bin\\claude.exe --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-claude-opus-5-5 --mcp-config C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-dfy0onle\\config\\web-tools-mcp.json C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-dfy0onle\\config\\mcp-launches\\58a6249c7501435c808b9c20b237870f\\claude-mcp.json --messaging-socket-path \\\\.\\pipe\\LOCAL\\cc-msg-289331f9e7bf7851eab87f2514f2934b --settings {\\\"crossSessionInbound\\\":\\\"accept\\\"} --plugin-dir C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\run-copies\\run-a-20261111-105350\\ciel_runtime_support\\claude_mods\\ciel-work --session-id a1111111-1111-4111-8111-111111111111 --debug-file C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\e2e-source\\run-a-20261111-105350\\claude-debug.txt"
+  },
+  {
+   "ProcessId": 60432,
+   "ParentProcessId": 75420,
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794416054328)/",
+   "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\run-copies\\run-a-20261111-105350\\ciel_runtime_support\\windows_console_guard.py 75420 487 3"
+  },
+  {
+   "ProcessId": 50096,
+   "ParentProcessId": 73024,
+   "Name": "cmd.exe",
+   "CreationDate": "/Date(1794416059001)/",
+   "CommandLine": "C:\\WINDOWS\\system32\\cmd.exe /d /s /c \"C:\\Program^ Files\\nodejs\\npx.cmd ^\"-y^\" ^\"ddg-mcp-search^\"\""
+  },
+  {
+   "ProcessId": 70636,
+   "ParentProcessId": 73024,
+   "Name": "uvx.exe",
+   "CreationDate": "/Date(1794416059013)/",
+   "CommandLine": "\"C:\\Program Files\\Python311\\Scripts\\uvx.exe\" --with mcp<2 mcp-server-fetch"
+  },
+  {
+   "ProcessId": 79620,
+   "ParentProcessId": 50096,
+   "Name": "conhost.exe",
+   "CreationDate": "/Date(1794416059013)/",
+   "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"
+  },
+  {
+   "ProcessId": 5916,
+   "ParentProcessId": 70636,
+   "Name": "conhost.exe",
+   "CreationDate": "/Date(1794416059028)/",
+   "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"
+  },
+  {
+   "ProcessId": 79004,
+   "ParentProcessId": 70636,
+   "Name": "uv.exe",
+   "CreationDate": "/Date(1794416059064)/",
+   "CommandLine": "\"C:\\Program Files\\Python311\\Scripts\\uv.exe\" tool uvx --with mcp<2 mcp-server-fetch"
+  },
+  {
+   "ProcessId": 68284,
+   "ParentProcessId": 79004,
+   "Name": "mcp-server-fetch.exe",
+   "CreationDate": "/Date(1794416059243)/",
+   "CommandLine": "\"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\""
+  },
+  {
+   "ProcessId": 68220,
+   "ParentProcessId": 50096,
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794416059248)/",
+   "CommandLine": "\"C:\\Program Files\\nodejs\\\\node.exe\"  \"C:\\Program Files\\nodejs\\\\node_modules\\npm\\bin\\npx-cli.js\" \"-y\" \"ddg-mcp-search\""
+  },
+  {
+   "ProcessId": 75232,
+   "ParentProcessId": 68284,
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794416059290)/",
+   "CommandLine": "\"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\python.exe\" \"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\""
+  },
+  {
+   "ProcessId": 35576,
+   "ParentProcessId": 75232,
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794416059302)/",
+   "CommandLine": "\"C:\\Program Files\\Python311\\python.exe\" \"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\""
+  },
+  {
+   "ProcessId": 42904,
+   "ParentProcessId": 68220,
+   "Name": "cmd.exe",
+   "CreationDate": "/Date(1794416061550)/",
+   "CommandLine": "C:\\WINDOWS\\system32\\cmd.exe /d /s /c ddg-mcp"
+  },
+  {
+   "ProcessId": 76620,
+   "ParentProcessId": 42904,
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794416061579)/",
+   "CommandLine": "\"node\"   \"C:\\Users\\djlov\\AppData\\Local\\npm-cache\\_npx\\469264b19fe50db8\\node_modules\\.bin\\\\..\\ddg-mcp-search\\dist\\index.js\" "
+  }
+ ],
+ "owned_tree_intersects_protected": false,
+ "owned_leftover_after_kill": [],
+ "protected_processes_unchanged": false,
+ "protected_before": {
+  "23728": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794412171243)/"
+  },
+  "42764": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412171257)/"
+  },
+  "42924": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412182971)/"
+  },
+  "36344": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412189702)/"
+  },
+  "40616": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412189711)/"
+  },
+  "41784": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412196221)/"
+  },
+  "40000": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412199502)/"
+  },
+  "45652": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412199746)/"
+  },
+  "25780": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412204231)/"
+  },
+  "36104": {
+   "Name": "node.exe",
+   "CreationDate": "/Date(1794412204525)/"
+  },
+  "45428": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412207685)/"
+  },
+  "46232": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412210311)/"
+  },
+  "46508": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412210317)/"
+  },
+  "2272": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412247396)/"
+  },
+  "9764": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412254899)/"
+  },
+  "12240": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412257813)/"
+  },
+  "48104": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412257818)/"
+  }
+ },
+ "protected_after": {
+  "23728": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794412171243)/"
+  },
+  "42764": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412171257)/"
+  },
+  "42924": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412182971)/"
+  },
+  "36344": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412189702)/"
+  },
+  "40616": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412189711)/"
+  },
+  "41784": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412196221)/"
+  },
+  "40000": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412199502)/"
+  },
+  "45652": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412199746)/"
+  },
+  "25780": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412204231)/"
+  },
+  "45428": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412207685)/"
+  },
+  "46232": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412210311)/"
+  },
+  "46508": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412210317)/"
+  },
+  "2272": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412247396)/"
+  },
+  "9764": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412254899)/"
+  },
+  "12240": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412257813)/"
+  },
+  "48104": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412257818)/"
+  }
+ },
+ "run_copy_after": {
+  "extras": [],
+  "changed": [
+   "ciel_runtime_support/claude_mods/ciel-work/.claude-plugin/types/claude-code-tools/index.d.ts"
+  ],
+  "classified": {
+   "ciel_runtime_support/claude_mods/ciel-work/.claude-plugin/types/claude-code-tools/index.d.ts": "engine_written_types"
+  },
+  "unexpected": [],
+  "types_tool_keys": {
+   "ciel_runtime_support/claude_mods/ciel-work/.claude-plugin/types/claude-code-tools/index.d.ts": {
+    "keys_before": 79,
+    "keys_after": 78,
+    "removed": [
+     "ClaudeDesign"
+    ],
+    "added": [],
+    "mcp_server_tool_keys_after": []
+   }
+  }
+ },
+ "protected_tree": {
+  "before_count": 72,
+  "after_count": 65,
+  "persistent": 60,
+  "ended": [
+   [
+    9084,
+    "bash.exe",
+    "/Date(1794416031598)/"
+   ],
+   [
+    13816,
+    "bash.exe",
+    "/Date(1794416031621)/"
+   ],
+   [
+    30928,
+    "python.exe",
+    "/Date(1794416031571)/"
+   ],
+   [
+    36104,
+    "node.exe",
+    "/Date(1794412204525)/"
+   ],
+   [
+    45248,
+    "conhost.exe",
+    "/Date(1794412204529)/"
+   ],
+   [
+    53048,
+    "bash.exe",
+    "/Date(1794416031594)/"
+   ],
+   [
+    66532,
+    "bash.exe",
+    "/Date(1794416031617)/"
+   ],
+   [
+    73028,
+    "conhost.exe",
+    "/Date(1794416031601)/"
+   ],
+   [
+    75884,
+    "bash.exe",
+    "/Date(1794416031535)/"
+   ],
+   [
+    77408,
+    "bash.exe",
+    "/Date(1794416031554)/"
+   ],
+   [
+    78072,
+    "conhost.exe",
+    "/Date(1794416031538)/"
+   ],
+   [
+    79388,
+    "conhost.exe",
+    "/Date(1794416031598)/"
+   ]
+  ],
+  "new": [
+   [
+    56856,
+    "bash.exe",
+    "/Date(1794416036765)/"
+   ],
+   [
+    64168,
+    "node.exe",
+    "/Date(1794416294680)/"
+   ],
+   [
+    76016,
+    "conhost.exe",
+    "/Date(1794416294685)/"
+   ],
+   [
+    79788,
+    "conhost.exe",
+    "/Date(1794416036780)/"
+   ],
+   [
+    79840,
+    "bash.exe",
+    "/Date(1794416036775)/"
+   ]
+  ],
+  "listed_pids_unchanged": false
+ },
+ "worktree_freeze_after": {
+  "lines": 29,
+  "mismatch": []
+ },
+ "live_ciel_before": {
+  "5212": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794409576621)/"
+  },
+  "10300": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794409589339)/"
+  },
+  "23728": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794412171243)/"
+  },
+  "42764": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412171257)/"
+  },
+  "42924": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412182971)/"
+  },
+  "36344": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412189702)/"
+  },
+  "40616": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412189711)/"
+  },
+  "39984": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794412199735)/"
+  },
+  "45652": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412199746)/"
+  },
+  "45428": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412207685)/"
+  },
+  "46232": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412210311)/"
+  },
+  "46508": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412210317)/"
+  },
+  "21912": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794412247384)/"
+  },
+  "2272": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412247396)/"
+  },
+  "9764": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412254899)/"
+  },
+  "12240": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412257813)/"
+  },
+  "48104": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412257818)/"
+  },
+  "56920": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794415885232)/"
+  },
+  "58204": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794415885246)/"
+  },
+  "75676": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794415893570)/"
+  },
+  "79676": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794415897309)/"
+  },
+  "79204": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794415897343)/"
+  }
+ },
+ "live_ciel_after": {
+  "5212": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794409576621)/"
+  },
+  "10300": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794409589339)/"
+  },
+  "23728": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794412171243)/"
+  },
+  "42764": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412171257)/"
+  },
+  "42924": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412182971)/"
+  },
+  "36344": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412189702)/"
+  },
+  "40616": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412189711)/"
+  },
+  "39984": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794412199735)/"
+  },
+  "45652": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412199746)/"
+  },
+  "45428": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412207685)/"
+  },
+  "46232": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412210311)/"
+  },
+  "46508": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412210317)/"
+  },
+  "21912": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794412247384)/"
+  },
+  "2272": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412247396)/"
+  },
+  "9764": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412254899)/"
+  },
+  "12240": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794412257813)/"
+  },
+  "48104": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794412257818)/"
+  },
+  "56920": {
+   "Name": "py.exe",
+   "CreationDate": "/Date(1794415885232)/"
+  },
+  "58204": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794415885246)/"
+  },
+  "75676": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794415893570)/"
+  },
+  "79676": {
+   "Name": "claude.exe",
+   "CreationDate": "/Date(1794415897309)/"
+  },
+  "79204": {
+   "Name": "python.exe",
+   "CreationDate": "/Date(1794415897343)/"
+  }
+ },
+ "live_ciel_unchanged": true,
+ "live_ciel_diff": {
+  "ended": {},
+  "new": {}
+ },
+ "live_profile_changed_during_run": null,
+ "live_profile_after_equal": true,
+ "live_profile_files_checked": 53,
+ "snapshot_after": {
+  "files": 1081,
+  "extras": [],
+  "changed": [],
+  "digest": "3426e4b6f17d18844e854e3c5e228ef01ea98f3ef8949bda40756c74598b9884",
+  "digest_ok": true
+ },
+ "config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-dfy0onle\\config",
+ "workspace": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-dfy0onle\\workspace",
+ "claude_config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-dfy0onle\\config\\.claude",
+ "secret_scan": {
+  "files_scanned": 54,
+  "hits": []
+ }
+}

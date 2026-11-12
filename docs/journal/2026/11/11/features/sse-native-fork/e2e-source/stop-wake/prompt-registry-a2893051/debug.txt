@@ -1,0 +1,489 @@
+2026-11-12T02:41:42.010Z [DEBUG] MDM settings load completed in 1ms
+2026-11-12T02:41:42.026Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Program Files\ClaudeCode\managed-settings.json
+2026-11-12T02:41:42.027Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\.claude\settings.json
+2026-11-12T02:41:42.030Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.031Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\.claude\settings.local.json
+2026-11-12T02:41:42.031Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.031Z [DEBUG] CA certs: Config fallback - globalEnv keys: , settingsEnv keys: none
+2026-11-12T02:41:42.040Z [DEBUG] [init] configureGlobalMTLS starting
+2026-11-12T02:41:42.040Z [DEBUG] [init] configureGlobalMTLS complete
+2026-11-12T02:41:42.040Z [DEBUG] [init] configureGlobalAgents starting
+2026-11-12T02:41:42.040Z [DEBUG] CA certs: stores=bundled,system, extraCertsPath=undefined
+2026-11-12T02:41:42.041Z [DEBUG] CA certs: Loaded 118 bundled root certificates
+2026-11-12T02:41:42.051Z [DEBUG] CA certs: Dropped 20 expired certificate(s) from system store
+2026-11-12T02:41:42.051Z [DEBUG] CA certs: Loaded 135 system CA certificates
+2026-11-12T02:41:42.051Z [DEBUG] CA certs: Dropped blocked certificate 40f6af0346a99aa1cd1d555a4e9cce62c7f9634603ee406615833dc8c8d00367 from bundled
+2026-11-12T02:41:42.052Z [DEBUG] CA certs: Dropped blocked certificate 40f6af0346a99aa1cd1d555a4e9cce62c7f9634603ee406615833dc8c8d00367 from system
+2026-11-12T02:41:42.052Z [DEBUG] CA certs: Dropped blocked certificate 40f6af0346a99aa1cd1d555a4e9cce62c7f9634603ee406615833dc8c8d00367 from system
+2026-11-12T02:41:42.062Z [ERROR] CA certs: Dropped the certificate with SHA-256 fingerprint E7:68:56:34:EF:AC:F6:9A:CE:93:9A:6B:25:5B:7B:4F:AB:EF:42:93:5B:50:A2:65:AC:B5:CB:60:27:E4:4E:70 and subject "C=US\nO=VeriSign\\, Inc.\nOU=Class 3 Public Primary Certification Authority": it names itself as its issuer, but its own key did not sign it, or signed it in a form that Claude Code cannot check, and no CA that chains to a root in the CA list signed it. If another root certificate of the same CA signed it, this one stays once this list holds that root certificate too. Only the lists for Claude Code's own connections take certificates from the NODE_EXTRA_CA_CERTS file. If you add that root and connections still fail, take it out again: while this list holds it, the variable below changes nothing. CLAUDE_CODE_DISABLE_SELF_NAMED_CERT_DROP=1 keeps every such certificate, whoever signed it, and can break connections that work without it.
+2026-11-12T02:41:42.062Z [ERROR] CA certs: Dropped the certificate with SHA-256 fingerprint 8B:13:DB:B2:5E:B3:39:A6:30:C7:6C:81:0D:14:B4:4B:55:2E:68:DC:10:A9:3E:82:E7:54:DA:23:F8:58:77:4A and subject "CN=Root Agency": it names itself as its issuer, but whether its own key signed it could not be checked (Error: error:0b00007d:X.509 certificate routines:OPENSSL_internal:PUBLIC_KEY_DECODE_ERROR), most likely because the runtime cannot read that key, and then TLS can verify nothing under it either, and no CA that chains to a root in the CA list signed it. If another root certificate of the same CA signed it, this one stays once this list holds that root certificate too. Only the lists for Claude Code's own connections take certificates from the NODE_EXTRA_CA_CERTS file. If you add that root and connections still fail, take it out again: while this list holds it, the variable below changes nothing. CLAUDE_CODE_DISABLE_SELF_NAMED_CERT_DROP=1 keeps every such certificate, whoever signed it, and can break connections that work without it.
+2026-11-12T02:41:42.062Z [DEBUG] CA certs: Dropped 3 certificate(s) that do not chain to a root in the CA list
+2026-11-12T02:41:42.063Z [DEBUG] mTLS: Creating HTTPS agent with custom certificates
+2026-11-12T02:41:42.064Z [DEBUG] [init] configureGlobalAgents complete
+2026-11-12T02:41:42.065Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.065Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.065Z [DEBUG] Using bash path: "C:\Program Files\Git\bin\bash.exe"
+2026-11-12T02:41:42.066Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.067Z [DEBUG] Error log sink initialized
+2026-11-12T02:41:42.068Z [DEBUG] clearPluginCache: invalidating loadAllPlugins cache (preAction: --plugin-dir inline plugins)
+2026-11-12T02:41:42.097Z [DEBUG] Preserving file permissions: 100666
+2026-11-12T02:41:42.097Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.9a637f58e9f0
+2026-11-12T02:41:42.098Z [DEBUG] Applied original permissions to temp file
+2026-11-12T02:41:42.099Z [DEBUG] Temp file written successfully, size: 417 bytes
+2026-11-12T02:41:42.099Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.9a637f58e9f0 to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json
+2026-11-12T02:41:42.099Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json written atomically
+2026-11-12T02:41:42.104Z [DEBUG] Preserving file permissions: 100666
+2026-11-12T02:41:42.104Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.73dbf238bd67
+2026-11-12T02:41:42.105Z [DEBUG] Applied original permissions to temp file
+2026-11-12T02:41:42.106Z [DEBUG] Temp file written successfully, size: 500 bytes
+2026-11-12T02:41:42.106Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.73dbf238bd67 to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json
+2026-11-12T02:41:42.106Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json written atomically
+2026-11-12T02:41:42.114Z [DEBUG] Preserving file permissions: 100666
+2026-11-12T02:41:42.114Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.e1564c9ac188
+2026-11-12T02:41:42.114Z [DEBUG] Applied original permissions to temp file
+2026-11-12T02:41:42.115Z [DEBUG] Temp file written successfully, size: 536 bytes
+2026-11-12T02:41:42.115Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.e1564c9ac188 to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json
+2026-11-12T02:41:42.116Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json written atomically
+2026-11-12T02:41:42.121Z [DEBUG] Git remote URL: null
+2026-11-12T02:41:42.121Z [DEBUG] No git remote URL found
+2026-11-12T02:41:42.122Z [DEBUG] Preserving file permissions: 100666
+2026-11-12T02:41:42.122Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.40b249bf1119
+2026-11-12T02:41:42.123Z [DEBUG] Applied original permissions to temp file
+2026-11-12T02:41:42.124Z [DEBUG] Temp file written successfully, size: 575 bytes
+2026-11-12T02:41:42.124Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.40b249bf1119 to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json
+2026-11-12T02:41:42.125Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json written atomically
+2026-11-12T02:41:42.134Z [DEBUG] Preserving file permissions: 100666
+2026-11-12T02:41:42.134Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.09d9c8029193
+2026-11-12T02:41:42.134Z [DEBUG] Applied original permissions to temp file
+2026-11-12T02:41:42.135Z [DEBUG] Temp file written successfully, size: 602 bytes
+2026-11-12T02:41:42.135Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.09d9c8029193 to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json
+2026-11-12T02:41:42.136Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json written atomically
+2026-11-12T02:41:42.142Z [DEBUG] Preserving file permissions: 100666
+2026-11-12T02:41:42.142Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.db5b91dba21d
+2026-11-12T02:41:42.143Z [DEBUG] Applied original permissions to temp file
+2026-11-12T02:41:42.144Z [DEBUG] Temp file written successfully, size: 650 bytes
+2026-11-12T02:41:42.144Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.db5b91dba21d to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json
+2026-11-12T02:41:42.144Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json written atomically
+2026-11-12T02:41:42.152Z [DEBUG] Preserving file permissions: 100666
+2026-11-12T02:41:42.152Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.b09018100e77
+2026-11-12T02:41:42.153Z [DEBUG] Applied original permissions to temp file
+2026-11-12T02:41:42.153Z [DEBUG] Temp file written successfully, size: 676 bytes
+2026-11-12T02:41:42.153Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.b09018100e77 to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json
+2026-11-12T02:41:42.154Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json written atomically
+2026-11-12T02:41:42.169Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.172Z [DEBUG] [Claude in Chrome] Disabled: OAuth token has no scope accepted by /api/oauth/validate (needs user:profile, user:office, or user:ccr_inference; env-var and setup-token sessions default to user:inference only)
+2026-11-12T02:41:42.173Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.203Z [DEBUG] [ToolSearch:optimistic] mode=standard, ENABLE_TOOL_SEARCH=false, result=false
+2026-11-12T02:41:42.204Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.204Z [DEBUG] [STARTUP] Loading MCP configs...
+2026-11-12T02:41:42.205Z [DEBUG] [STARTUP] Running setup()...
+2026-11-12T02:41:42.216Z [DEBUG] Loading skills from: managed=C:\Program Files\ClaudeCode\.claude\skills, user=C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\skills, project=[]
+2026-11-12T02:41:42.217Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\agents: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\agents'
+2026-11-12T02:41:42.217Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\agents: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\agents'
+2026-11-12T02:41:42.217Z [DEBUG] installed_plugins.json doesn't exist, returning empty V2 object
+2026-11-12T02:41:42.217Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\commands: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\commands'
+2026-11-12T02:41:42.217Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\commands: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\commands'
+2026-11-12T02:41:42.217Z [DEBUG] Loaded 0 unique skills (0 unconditional, 0 conditional, managed: 0, user: 0, project: 0, additional: 0, legacy commands: 0)
+2026-11-12T02:41:42.219Z [INFO] [uds-messaging] Listening: \\.\pipe\LOCAL\cc-msg-1b9443a6d5316f2fcd720b008374f200
+2026-11-12T02:41:42.220Z [DEBUG] [uds-messaging] Inject messages (auth line REQUIRED here; a pipe is not reachable via socat/AF_UNIX): node -e "const c=require('net').connect(process.argv[1],()=>{c.write(JSON.stringify({type:'auth',token:[REDACTED]})+'\n'+JSON.stringify({type:'user',message:{role:'user',content:'hello'}})+'\n');c.end()})" "\\.\pipe\LOCAL\cc-msg-1b9443a6d5316f2fcd720b008374f200"
+2026-11-12T02:41:42.220Z [DEBUG] [uds-messaging] Connect when the data is ready (run the command first, then connect and write its output as ONE line, as in the node recipe above): a connection that sends no complete line within 30000 ms is closed
+2026-11-12T02:41:42.221Z [DEBUG] Error log sink initialized
+2026-11-12T02:41:42.223Z [DEBUG] [STARTUP] setup() completed in 18ms
+2026-11-12T02:41:42.223Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.223Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.224Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.224Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.224Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.224Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.224Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.224Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.224Z [DEBUG] [STARTUP] Loading commands and agents...
+2026-11-12T02:41:42.225Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.225Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.227Z [DEBUG] --plugin-dir C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\plugin is one plugin: .claude-plugin at its top marks it
+2026-11-12T02:41:42.237Z [DEBUG] Read hooks.json for plugin ciel-work (enabled=true): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\plugin\hooks\hooks.json
+2026-11-12T02:41:42.238Z [DEBUG] Loaded inline plugin from path: ciel-work
+2026-11-12T02:41:42.238Z [DEBUG] Loaded 1 directory-loaded plugins
+2026-11-12T02:41:42.239Z [DEBUG] Found 5 plugins (5 enabled, 0 disabled)
+2026-11-12T02:41:42.240Z [DEBUG] getPluginSkills: Processing 5 enabled plugins
+2026-11-12T02:41:42.240Z [DEBUG] Checking plugin ciel-work: skillsPath=none, skillsPaths=0 paths
+2026-11-12T02:41:42.240Z [DEBUG] Checking plugin cc-plugin-agents-md: skillsPath=none, skillsPaths=0 paths
+2026-11-12T02:41:42.240Z [DEBUG] Checking plugin cc-plugin-privacy: skillsPath=none, skillsPaths=0 paths
+2026-11-12T02:41:42.240Z [DEBUG] Checking plugin cc-plugin-plugin-authoring: skillsPath=none, skillsPaths=0 paths
+2026-11-12T02:41:42.240Z [DEBUG] Checking plugin cc-plugin-diff: skillsPath=none, skillsPaths=0 paths
+2026-11-12T02:41:42.240Z [DEBUG] Total plugin workflows loaded: 0
+2026-11-12T02:41:42.241Z [DEBUG] Total plugin commands loaded: 0
+2026-11-12T02:41:42.241Z [DEBUG] Total plugin skills loaded: 0 (0 duplicate/user-owned entries skipped)
+2026-11-12T02:41:42.241Z [DEBUG] Total plugin agents loaded: 0
+2026-11-12T02:41:42.243Z [DEBUG] cc-plugin-sec-default@builtin not seated: no managed settings and not a Team or Enterprise organization (none)
+2026-11-12T02:41:42.245Z [DEBUG] getSkills returning: 0 skill dir commands, 0 plugin skills, 30 bundled skills, 1 builtin plugin skills
+2026-11-12T02:41:42.247Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.247Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.249Z [DEBUG] [STARTUP] Commands and agents loaded in 25ms
+2026-11-12T02:41:42.250Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.252Z [WARN] [autocompact] "fixture" isn't described by this version's model catalog; update Claude Code, or map it with behavesAs on a modelPicker row (or modelOverrides, if it is a provider id of a model this version knows). Until then auto-compact keeps this session within 200k tokens (the context window it assumes); if the model accepts more, append [1m] to the model name for 1M, or set CLAUDE_CODE_MAX_CONTEXT_TOKENS to its real window; CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1 restores the previous wait-for-the-API behavior.
+2026-11-12T02:41:42.254Z [DEBUG] [STARTUP] Running showSetupScreens()...
+2026-11-12T02:41:42.255Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.258Z [ERROR] MCP config errors for C:\Users\djlov\.mcp.json: ["Missing \"mcpServers\" — found \"servers\" instead. Claude Code reads MCP servers from the \"mcpServers\" key."]
+2026-11-12T02:41:42.258Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.258Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.266Z [DEBUG] Cleared mTLS configuration cache
+2026-11-12T02:41:42.266Z [DEBUG] Cleared proxy agent cache
+2026-11-12T02:41:42.267Z [DEBUG] [STARTUP] showSetupScreens() completed in 12ms
+2026-11-12T02:41:42.267Z [DEBUG] [LSP MANAGER] initializeLspServerManager() called
+2026-11-12T02:41:42.267Z [DEBUG] [LSP MANAGER] Created manager instance, state=pending
+2026-11-12T02:41:42.267Z [DEBUG] [LSP MANAGER] Starting async initialization (generation 1)
+2026-11-12T02:41:42.267Z [DEBUG] Starting background startup prefetches
+2026-11-12T02:41:42.268Z [DEBUG] [Bootstrap] Skipped: Nonessential traffic disabled
+2026-11-12T02:41:42.268Z [DEBUG] [STARTUP] MCP configs resolved in 1ms (awaited at +64ms)
+2026-11-12T02:41:42.268Z [DEBUG] Artifacts MCP server not added: managed_or_strict_mcp_config (strict_mcp_config)
+2026-11-12T02:41:42.269Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.272Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.272Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-12T02:41:42.272Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.273Z [DEBUG] Initialized versioned plugins system with 0 plugins
+2026-11-12T02:41:42.290Z [DEBUG] Total LSP servers loaded: 0
+2026-11-12T02:41:42.291Z [DEBUG] [LSP SERVER MANAGER] getAllLspServers returned 0 server(s)
+2026-11-12T02:41:42.291Z [DEBUG] LSP manager initialized with 0 servers
+2026-11-12T02:41:42.291Z [DEBUG] LSP server manager initialized successfully
+2026-11-12T02:41:42.291Z [DEBUG] LSP notification handlers registered successfully for all 0 server(s)
+2026-11-12T02:41:42.293Z [DEBUG] [Perfetto] initializePerfettoTracing called, env value: undefined
+2026-11-12T02:41:42.293Z [DEBUG] [3P telemetry] isTelemetryEnabled=false (CLAUDE_CODE_ENABLE_TELEMETRY=undefined)
+2026-11-12T02:41:42.295Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.295Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.304Z [DEBUG] [sessionRegistry] sweep permitted (domain win32:sama)
+2026-11-12T02:41:42.304Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.305Z [DEBUG] [3P telemetry] Event dropped (no event logger initialized): plugin_loaded
+2026-11-12T02:41:42.318Z [DEBUG] Preserving file permissions: 100666
+2026-11-12T02:41:42.318Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.b87b57f600fd
+2026-11-12T02:41:42.318Z [DEBUG] Applied original permissions to temp file
+2026-11-12T02:41:42.320Z [DEBUG] Temp file written successfully, size: 756 bytes
+2026-11-12T02:41:42.320Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.b87b57f600fd to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json
+2026-11-12T02:41:42.320Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json written atomically
+2026-11-12T02:41:42.326Z [DEBUG] Preserving file permissions: 100666
+2026-11-12T02:41:42.326Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.4ba01a2000c7
+2026-11-12T02:41:42.327Z [DEBUG] Applied original permissions to temp file
+2026-11-12T02:41:42.328Z [DEBUG] Temp file written successfully, size: 776 bytes
+2026-11-12T02:41:42.328Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.4ba01a2000c7 to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json
+2026-11-12T02:41:42.328Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json written atomically
+2026-11-12T02:41:42.334Z [DEBUG] Git remote URL: null
+2026-11-12T02:41:42.334Z [DEBUG] No git remote URL found
+2026-11-12T02:41:42.335Z [DEBUG] Not in a GitHub repository, skipping path mapping update
+2026-11-12T02:41:42.337Z [DEBUG] Preserving file permissions: 100666
+2026-11-12T02:41:42.337Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.7c27cac0bf28
+2026-11-12T02:41:42.338Z [DEBUG] Applied original permissions to temp file
+2026-11-12T02:41:42.339Z [DEBUG] Temp file written successfully, size: 943 bytes
+2026-11-12T02:41:42.339Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.7c27cac0bf28 to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json
+2026-11-12T02:41:42.339Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json written atomically
+2026-11-12T02:41:42.350Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.350Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.360Z [DEBUG] [keybindings] KeybindingSetup initialized with 227 bindings, 0 warnings
+2026-11-12T02:41:42.375Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-12T02:41:42.388Z [DEBUG] [engine] send set_max_thinking_tokens max=null
+2026-11-12T02:41:42.388Z [DEBUG] [engine] send set_model model=fixture
+2026-11-12T02:41:42.391Z [DEBUG] prompt.edit: unhooked; the composer relays nothing
+2026-11-12T02:41:42.395Z [DEBUG] performStartupChecks called
+2026-11-12T02:41:42.397Z [DEBUG] [jobStateNameSync] watch skipped: Error: ENOENT: no such file or directory, watch 'C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\jobs\56ea0039'
+2026-11-12T02:41:42.399Z [DEBUG] [REPL:mount] REPL mounted, disabled=false
+2026-11-12T02:41:42.400Z [ERROR] MCP config errors for C:\Users\djlov\.mcp.json: ["Missing \"mcpServers\" — found \"servers\" instead. Claude Code reads MCP servers from the \"mcpServers\" key."]
+2026-11-12T02:41:42.401Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.401Z [INFO] 1 setup issue: settings (run `claude doctor` for details)
+2026-11-12T02:41:42.402Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.402Z [DEBUG] [Claude in Chrome] Disabled: OAuth token has no scope accepted by /api/oauth/validate (needs user:profile, user:office, or user:ccr_inference; env-var and setup-token sessions default to user:inference only)
+2026-11-12T02:41:42.403Z [DEBUG] [ScheduledTasks] scheduler start() — enabled=false, hasTasks=false
+2026-11-12T02:41:42.406Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\.claude\settings.json
+2026-11-12T02:41:42.406Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.406Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.406Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\.claude\settings.local.json
+2026-11-12T02:41:42.406Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Program Files\ClaudeCode\managed-settings.json
+2026-11-12T02:41:42.415Z [DEBUG] [servedCatalog] off (essential_traffic)
+2026-11-12T02:41:42.469Z [DEBUG] Starting background plugin installations
+2026-11-12T02:41:42.469Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.469Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.469Z [DEBUG] [auto-mode] verifyAutoModeGateAccess: enabledState=enabled disabledBySettings=false model=fixture modelSupported=true disableFastModeBreakerFires=false carouselAvailable=true canEnterAuto=true
+2026-11-12T02:41:42.470Z [DEBUG] performBackgroundPluginInstallations called
+2026-11-12T02:41:42.487Z [DEBUG] [keybindings] Watching for changes to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\keybindings.json
+2026-11-12T02:41:42.488Z [DEBUG] [sessionRegistry] sweep permitted (domain win32:sama)
+2026-11-12T02:41:42.488Z [DEBUG] [sessionRegistry] sweep permitted (domain win32:sama)
+2026-11-12T02:41:42.511Z [DEBUG] [FileIndex] getProjectFiles called, respectGitignore=true
+2026-11-12T02:41:42.511Z [DEBUG] [FileIndex] getFilesUsingGit called
+2026-11-12T02:41:42.517Z [DEBUG] XTVERSION: no reply (terminal ignored query)
+2026-11-12T02:41:42.518Z [DEBUG] Terminal capabilities: extendedKeys=yes (env: terminal=windows-terminal); synchronizedOutput=yes (env: WT_SESSION, no answer); kittyKeyboard=no (probe: no reply to CSI ? u); kittyGraphics=no (env: terminal=windows-terminal, not asked yet, no answer); itermImages=no (yes only on an XTVERSION reply naming iTerm2 3.5 or later, no answer); mousePixels=no (env: terminal=windows-terminal, not asked yet, no answer); programStatus=no (probe: no reply to OSC 7501 ; ?); terminal said: no reply to CSI ? u; DECRQM 2026 not asked (no XTVERSION reply)
+2026-11-12T02:41:42.518Z [DEBUG] DECSTBM: gated (TMUX=unset ZELLIJ=unset TERM_PROGRAM=unset TERM=xterm-256color)
+2026-11-12T02:41:42.526Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\output-styles: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\output-styles'
+2026-11-12T02:41:42.526Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\workflows: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\workflows'
+2026-11-12T02:41:42.526Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\output-styles: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\output-styles'
+2026-11-12T02:41:42.526Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\workflows: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\workflows'
+2026-11-12T02:41:42.526Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\routines: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\routines'
+2026-11-12T02:41:42.526Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\skills: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\skills'
+2026-11-12T02:41:42.526Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\skills: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\skills'
+2026-11-12T02:41:42.527Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\routines: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\routines'
+2026-11-12T02:41:42.527Z [DEBUG] Watching C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace for C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\.claude to appear
+2026-11-12T02:41:42.528Z [DEBUG] Watching for changes in setting files C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\settings.json...
+2026-11-12T02:41:42.528Z [DEBUG] memory index backfill: ENOENT: no such file or directory, scandir 'C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\projects\C--\memory\'
+2026-11-12T02:41:42.528Z [DEBUG] "Loaded 1 CLAUDE.md/rules files:\n  [Project] C:\\Users\\djlov\\.claude\\CLAUDE.md (2190 chars)"
+2026-11-12T02:41:42.536Z [DEBUG] [engine] send seed_read_state path=C:\Users\djlov\.claude\CLAUDE.md
+2026-11-12T02:41:42.573Z [DEBUG] Preserving file permissions: 100666
+2026-11-12T02:41:42.573Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.ad75ca97a503
+2026-11-12T02:41:42.573Z [DEBUG] plugin cc-plugin-agents-md: no pluginConfigs["agents-md@builtin" or "cc-plugin-agents-md@builtin"].options in user, --settings or managed settings (project settings are not read); every option is its default
+2026-11-12T02:41:42.574Z [DEBUG] hooks worker spawned (one for every plugin)
+2026-11-12T02:41:42.576Z [DEBUG] [FileIndex] git ls-files (tracked) took 65ms
+2026-11-12T02:41:42.579Z [DEBUG] [FileIndex] git ls-files: 0 tracked files in 68ms
+2026-11-12T02:41:42.584Z [DEBUG] [FileIndex] using git ls-files result (0 files)
+2026-11-12T02:41:42.584Z [DEBUG] [FileIndex] cache refresh completed in 73ms
+2026-11-12T02:41:42.584Z [DEBUG] Applied original permissions to temp file
+2026-11-12T02:41:42.589Z [DEBUG] Temp file written successfully, size: 1620 bytes
+2026-11-12T02:41:42.589Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.ad75ca97a503 to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json
+2026-11-12T02:41:42.594Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json written atomically
+2026-11-12T02:41:42.600Z [DEBUG] Preserving file permissions: 100666
+2026-11-12T02:41:42.600Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.4ea7f912eadd
+2026-11-12T02:41:42.602Z [DEBUG] Applied original permissions to temp file
+2026-11-12T02:41:42.605Z [DEBUG] Temp file written successfully, size: 1661 bytes
+2026-11-12T02:41:42.605Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.4ea7f912eadd to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json
+2026-11-12T02:41:42.605Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json written atomically
+2026-11-12T02:41:42.611Z [DEBUG] Preserving file permissions: 100666
+2026-11-12T02:41:42.611Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.40627f21b12a
+2026-11-12T02:41:42.613Z [DEBUG] Applied original permissions to temp file
+2026-11-12T02:41:42.614Z [DEBUG] Temp file written successfully, size: 1698 bytes
+2026-11-12T02:41:42.614Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.40627f21b12a to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json
+2026-11-12T02:41:42.615Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json written atomically
+2026-11-12T02:41:42.622Z [DEBUG] Preserving file permissions: 100666
+2026-11-12T02:41:42.622Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.e3dc0ea57848
+2026-11-12T02:41:42.624Z [DEBUG] Applied original permissions to temp file
+2026-11-12T02:41:42.625Z [DEBUG] Temp file written successfully, size: 2086 bytes
+2026-11-12T02:41:42.625Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.e3dc0ea57848 to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json
+2026-11-12T02:41:42.626Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json written atomically
+2026-11-12T02:41:42.633Z [DEBUG] hooks module ciel-work@inline loaded (worker, environment 1, tier user); events: session.start,prompt.submit,turn.start,turn.complete
+2026-11-12T02:41:42.633Z [DEBUG] hooks native host made (for the plugins the binary carries)
+2026-11-12T02:41:42.634Z [DEBUG] hooks module cc-plugin-agents-md@builtin loaded (native, environment 2, tier builtin); events: session.start,prompt.context,command.run,session.compact,prompt.submit,turn.start,turn.complete,agent.spawn,tool.call,prompt.mention
+2026-11-12T02:41:42.635Z [DEBUG] hooks module cc-plugin-plugin-authoring@builtin loaded (native, environment 3, tier builtin); events: skill.prompt,tool.check,tool.call
+2026-11-12T02:41:42.635Z [DEBUG] hooks module cc-plugin-diff@builtin loaded (native, environment 4, tier builtin); events: session.start,ui.render,command.run,ui.close,ui.focus,ui.scroll,tool.call,prompt.submit
+2026-11-12T02:41:42.636Z [DEBUG] hooks module cc-plugin-privacy@builtin loaded (native, environment 5, tier builtin); events: tool.check
+2026-11-12T02:41:42.637Z [DEBUG] engine.create: no plugin-provided interfaces; $ built for ciel-work,cc-plugin-agents-md,cc-plugin-plugin-authoring,cc-plugin-diff,cc-plugin-privacy
+2026-11-12T02:41:42.637Z [DEBUG] plugin.register: cc-plugin-agents-md (builtin, cc-plugin-agents-md@builtin), judged by core alone: admitted
+2026-11-12T02:41:42.637Z [DEBUG] plugin.register: cc-plugin-plugin-authoring (builtin, cc-plugin-plugin-authoring@builtin), judged by core alone: admitted
+2026-11-12T02:41:42.637Z [DEBUG] plugin.register: cc-plugin-diff (builtin, cc-plugin-diff@builtin), judged by core alone: admitted
+2026-11-12T02:41:42.637Z [DEBUG] plugin.register: cc-plugin-privacy (builtin, cc-plugin-privacy@builtin), judged by core alone: admitted
+2026-11-12T02:41:42.638Z [DEBUG] plugin.register: ciel-work (user, ciel-work@inline), judged by core alone: admitted
+2026-11-12T02:41:42.640Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.640Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.642Z [DEBUG] plugin-dir watch: watching ciel-work; folders of plugins none
+2026-11-12T02:41:42.662Z [DEBUG] Artifact gates frozen: capabilities=true comments=false db=true files=false types=false type_create=false type_catalog=false room=false verify=false delete=false preview=false preview_browser=unread open=false endpoints=false pin=true share=false versions=false flag_source=disabled gb_fresh=false
+2026-11-12T02:41:42.662Z [DEBUG] Artifact publish edits offer frozen: edit_hook=false
+2026-11-12T02:41:42.663Z [DEBUG] Artifact input schema built: assets=false copy_from=false publish_edits=true assets_source=cold_no_identity
+2026-11-12T02:41:42.692Z [DEBUG] anchor: ntdll reached through Bun.ant.windowsFsAt
+2026-11-12T02:41:42.701Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 2.3ms (native link, next() included)
+2026-11-12T02:41:42.703Z [DEBUG] anchor (win32): identity bridge serial32 — bun dev=2862732396 ino=29554872563362184; nt serial32=2862732396 serial64=14747777971920163948 index=29554872563362184
+2026-11-12T02:41:42.703Z [DEBUG] anchor (win32): held-handle backend up
+2026-11-12T02:41:42.735Z [DEBUG] type root of ciel-work at C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\plugin\.claude-plugin\types: entries claude-code, claude-code-tools, claude-code-mcp; wrote .claude-plugin/types/claude-code/index.d.ts, .claude-plugin/types/claude-code-tools/index.d.ts, .claude-plugin/types/claude-code-mcp/index.d.ts, .claude-plugin/types/tsconfig.json, .claude-plugin/types/.gitignore, tsconfig.json
+2026-11-12T02:41:42.735Z [DEBUG] Registered 0 hooks from 5 plugins
+2026-11-12T02:41:42.735Z [DEBUG] session.start: raised (surface terminal, interactive)
+2026-11-12T02:41:42.737Z [DEBUG] settings.read: the engine's merge was raised (the loaded plugins changed) in 1.9 ms; 0 keys answered otherwise than the files.
+2026-11-12T02:41:42.737Z [DEBUG] settings.read: the engine's merge is not raised again (the loaded plugins changed): neither the loaded plugins nor the settings changed.
+2026-11-12T02:41:42.741Z [DEBUG] $.command.register (cc-plugin-diff): /diff listed
+2026-11-12T02:41:42.742Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.742Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.744Z [DEBUG] hooks module cc-plugin-diff@builtin session.start settled in 4.7ms (native link, next() included)
+2026-11-12T02:41:42.744Z [DEBUG] hooks module cc-plugin-agents-md@builtin session.start settled in 4.9ms (native link, next() included)
+2026-11-12T02:41:42.745Z [DEBUG] Loaded plugins - Enabled: 5, Disabled: 0, Commands: 0, Agents: 0, Errors: 0
+2026-11-12T02:41:42.745Z [DEBUG] Plugin autoupdate: command-source refresh disabled by tengu_plugin_command_source_refresh (still excluding command-sourced plugins from the regular pass)
+2026-11-12T02:41:42.754Z [DEBUG] $.fs.read (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl failed: ENOENT: no such file or directory, open 'C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl'
+2026-11-12T02:41:42.755Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (207 bytes)
+2026-11-12T02:41:42.757Z [DEBUG] $.prompt.submit (ciel-work): "PROMPT-REGISTRY-A-a2893051"
+2026-11-12T02:41:42.781Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:42.782Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 4.9ms (native link, next() included)
+2026-11-12T02:41:42.782Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 3.5ms (native link, next() included)
+2026-11-12T02:41:42.782Z [DEBUG] hooks module ciel-work@inline: prompt.submit nested in ciel-work#0
+2026-11-12T02:41:42.784Z [DEBUG] $.prompt.submit (ciel-work): "PROMPT-REGISTRY-B-a2893051"
+2026-11-12T02:41:42.791Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (367 bytes)
+2026-11-12T02:41:42.792Z [DEBUG] hooks module ciel-work@inline session.start settled in 55.5ms (worker hop, next() included)
+2026-11-12T02:41:42.794Z [DEBUG] Preserving file permissions: 100666
+2026-11-12T02:41:42.794Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.aa2634272658
+2026-11-12T02:41:42.796Z [DEBUG] Applied original permissions to temp file
+2026-11-12T02:41:42.798Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (554 bytes)
+2026-11-12T02:41:42.800Z [DEBUG] Temp file written successfully, size: 2114 bytes
+2026-11-12T02:41:42.800Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.aa2634272658 to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json
+2026-11-12T02:41:42.800Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json written atomically
+2026-11-12T02:41:42.805Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (635 bytes)
+2026-11-12T02:41:42.806Z [DEBUG] Preserving file permissions: 100666
+2026-11-12T02:41:42.806Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.e34fe666498f
+2026-11-12T02:41:42.808Z [DEBUG] Applied original permissions to temp file
+2026-11-12T02:41:42.810Z [DEBUG] Temp file written successfully, size: 2114 bytes
+2026-11-12T02:41:42.810Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.e34fe666498f to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json
+2026-11-12T02:41:42.818Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json written atomically
+2026-11-12T02:41:42.836Z [DEBUG] High write ratio: blit=600, write=741 (55.3% writes), screen=30x120
+2026-11-12T02:41:42.904Z [DEBUG] [fs.watch probe] verdict: delivers
+2026-11-12T02:41:42.945Z [DEBUG] High write ratio: blit=600, write=741 (55.3% writes), screen=30x120
+2026-11-12T02:41:43.075Z [DEBUG] Zip extraction completed: 632 files, 14549KB uncompressed
+2026-11-12T02:41:43.078Z [DEBUG] High write ratio: blit=600, write=742 (55.3% writes), screen=30x120
+2026-11-12T02:41:43.094Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (801 bytes)
+2026-11-12T02:41:43.275Z [DEBUG] High write ratio: blit=600, write=741 (55.3% writes), screen=30x120
+2026-11-12T02:41:43.614Z [DEBUG] Preserving file permissions: 100666
+2026-11-12T02:41:43.614Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.af42db291046
+2026-11-12T02:41:43.615Z [DEBUG] Applied original permissions to temp file
+2026-11-12T02:41:43.617Z [DEBUG] Temp file written successfully, size: 2209 bytes
+2026-11-12T02:41:43.617Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.af42db291046 to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json
+2026-11-12T02:41:43.618Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json written atomically
+2026-11-12T02:41:44.259Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (886 bytes)
+2026-11-12T02:41:45.260Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (985 bytes)
+2026-11-12T02:41:47.264Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (1091 bytes)
+2026-11-12T02:41:47.763Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (1238 bytes)
+2026-11-12T02:41:47.770Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (1346 bytes)
+2026-11-12T02:41:47.789Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (1495 bytes)
+2026-11-12T02:41:48.396Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (1665 bytes)
+2026-11-12T02:41:50.810Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (1735 bytes)
+2026-11-12T02:41:50.811Z [DEBUG] hooks module cc-plugin-agents-md@builtin (native): prompt.submit nested in ciel-work#0
+2026-11-12T02:41:50.811Z [DEBUG] hooks module cc-plugin-diff@builtin (native): prompt.submit nested in ciel-work#0
+2026-11-12T02:41:50.813Z [DEBUG] FileHistory: Added snapshot for 2f69e6b1-f162-4cf3-808e-029f71b5bc9a, tracking 0 files
+2026-11-12T02:41:50.820Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:50.820Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:50.821Z [DEBUG] Total plugin output styles loaded: 0
+2026-11-12T02:41:50.823Z [DEBUG] act_dont_rederive_arm_active source=growthbook
+2026-11-12T02:41:50.825Z [DEBUG] hooks module cc-plugin-diff@builtin prompt.submit settled in 13.9ms (native link, next() included)
+2026-11-12T02:41:50.825Z [DEBUG] hooks module cc-plugin-agents-md@builtin prompt.context settled in 4.2ms (native link, next() included)
+2026-11-12T02:41:50.825Z [DEBUG] hooks module cc-plugin-agents-md@builtin prompt.submit settled in 14.5ms (native link, next() included)
+2026-11-12T02:41:50.827Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:50.828Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:50.829Z [DEBUG] [engine] yield system/init (first)
+2026-11-12T02:41:50.829Z [DEBUG] [engine] turn 1 start
+2026-11-12T02:41:50.835Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=180000
+2026-11-12T02:41:50.850Z [WARN] [claude-code:unrecognized_model] {"model":"fixture","query_source":"repl_main_thread"}
+2026-11-12T02:41:50.859Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.322.daa; cc_entrypoint=cli;
+2026-11-12T02:41:50.860Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-12T02:41:50.879Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-12T02:41:50.883Z [DEBUG] [API:timing] dispatching to firstParty model=fixture
+2026-11-12T02:41:50.886Z [DEBUG] [API REQUEST] /v1/messages source=repl_main_thread
+2026-11-12T02:41:50.896Z [DEBUG] Stream started - received first chunk
+2026-11-12T02:41:50.896Z [DEBUG] [API:timing] first byte after 18ms
+2026-11-12T02:41:50.907Z [DEBUG] [engine] turn 1 end (turns=1 usage in=50 out=5 cost=$0.0003 api=41ms stop=end_turn resultLen=2)
+2026-11-12T02:41:50.914Z [DEBUG] [sessionRegistry] sweep permitted (domain win32:sama)
+2026-11-12T02:41:50.914Z [DEBUG] [sessionRegistry] sweep permitted (domain win32:sama)
+2026-11-12T02:41:50.945Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:50.945Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 16.3ms (native link, next() included)
+2026-11-12T02:41:50.945Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 4.9ms (native link, next() included)
+2026-11-12T02:41:50.945Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 3.3ms (native link, next() included)
+2026-11-12T02:41:50.945Z [DEBUG] hooks module ciel-work@inline: prompt.submit nested in ciel-work#0
+2026-11-12T02:41:50.966Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (1855 bytes)
+2026-11-12T02:41:50.969Z [DEBUG] hooks module cc-plugin-agents-md@builtin turn.start settled in 0.4ms (native link, next() included)
+2026-11-12T02:41:50.970Z [DEBUG] hooks module ciel-work@inline turn.start settled in 151.7ms (worker hop, next() included)
+2026-11-12T02:41:50.972Z [DEBUG] hooks module cc-plugin-agents-md@builtin turn.complete settled in 0.2ms (native link, next() included)
+2026-11-12T02:41:50.973Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (1947 bytes)
+2026-11-12T02:41:50.974Z [DEBUG] hooks module ciel-work@inline prompt.submit settled in 8191.9ms (worker hop, next() included)
+2026-11-12T02:41:50.982Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (2134 bytes)
+2026-11-12T02:41:50.983Z [DEBUG] hooks module cc-plugin-agents-md@builtin (native): prompt.submit nested in ciel-work#0
+2026-11-12T02:41:50.983Z [DEBUG] hooks module cc-plugin-diff@builtin (native): prompt.submit nested in ciel-work#0
+2026-11-12T02:41:50.984Z [DEBUG] FileHistory: Making snapshot for message c78eae75-0085-4a0a-aed9-6e5e5f633783
+2026-11-12T02:41:50.986Z [DEBUG] FileHistory: Added snapshot for c78eae75-0085-4a0a-aed9-6e5e5f633783, tracking 0 files
+2026-11-12T02:41:50.988Z [DEBUG] hooks module cc-plugin-diff@builtin prompt.submit settled in 5.3ms (native link, next() included)
+2026-11-12T02:41:50.988Z [DEBUG] hooks module cc-plugin-agents-md@builtin prompt.submit settled in 5.7ms (native link, next() included)
+2026-11-12T02:41:50.989Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:50.989Z [DEBUG] [engine] turn 2 start
+2026-11-12T02:41:50.991Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=180000
+2026-11-12T02:41:50.996Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.322.daa; cc_entrypoint=cli;
+2026-11-12T02:41:50.996Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-12T02:41:50.999Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-12T02:41:51.002Z [DEBUG] [API:timing] dispatching to firstParty model=fixture
+2026-11-12T02:41:51.003Z [DEBUG] [API REQUEST] /v1/messages source=repl_main_thread
+2026-11-12T02:41:51.009Z [DEBUG] Stream started - received first chunk
+2026-11-12T02:41:51.009Z [DEBUG] [API:timing] first byte after 11ms
+2026-11-12T02:41:51.014Z [DEBUG] [engine] turn 2 end (turns=1 usage in=100 out=10 cost=$0.0006 api=57ms stop=end_turn resultLen=2)
+2026-11-12T02:41:51.035Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 4.0ms (native link, next() included)
+2026-11-12T02:41:51.036Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 2.1ms (native link, next() included)
+2026-11-12T02:41:51.044Z [DEBUG] Preserving file permissions: 100666
+2026-11-12T02:41:51.044Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.85977a9e3dba
+2026-11-12T02:41:51.045Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (2275 bytes)
+2026-11-12T02:41:51.048Z [DEBUG] Applied original permissions to temp file
+2026-11-12T02:41:51.048Z [DEBUG] $.prompt.submit (ciel-work): "PROMPT-REGISTRY-R-a2893051"
+2026-11-12T02:41:51.072Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:51.072Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 5.5ms (native link, next() included)
+2026-11-12T02:41:51.072Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 3.7ms (native link, next() included)
+2026-11-12T02:41:51.073Z [DEBUG] hooks module ciel-work@inline: prompt.submit nested in ciel-work#3
+2026-11-12T02:41:51.076Z [DEBUG] Temp file written successfully, size: 2318 bytes
+2026-11-12T02:41:51.076Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.85977a9e3dba to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json
+2026-11-12T02:41:51.077Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json written atomically
+2026-11-12T02:41:51.084Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (2367 bytes)
+2026-11-12T02:41:51.085Z [DEBUG] hooks module ciel-work@inline prompt.submit settled in 140.0ms (worker hop, next() included)
+2026-11-12T02:41:51.086Z [DEBUG] Preserving file permissions: 100666
+2026-11-12T02:41:51.086Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.3c296c46e1ae
+2026-11-12T02:41:51.088Z [DEBUG] Applied original permissions to temp file
+2026-11-12T02:41:51.091Z [DEBUG] Temp file written successfully, size: 2318 bytes
+2026-11-12T02:41:51.091Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.3c296c46e1ae to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json
+2026-11-12T02:41:51.092Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json written atomically
+2026-11-12T02:41:51.096Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (2491 bytes)
+2026-11-12T02:41:51.097Z [DEBUG] hooks module ciel-work@inline turn.complete settled in 126.7ms (worker hop, next() included)
+2026-11-12T02:41:51.100Z [DEBUG] High write ratio: blit=840, write=851 (50.3% writes), screen=30x120
+2026-11-12T02:41:51.103Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (2679 bytes)
+2026-11-12T02:41:51.110Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (2799 bytes)
+2026-11-12T02:41:51.111Z [DEBUG] hooks module cc-plugin-agents-md@builtin turn.start settled in 0.3ms (native link, next() included)
+2026-11-12T02:41:51.111Z [DEBUG] hooks module ciel-work@inline turn.start settled in 14.1ms (worker hop, next() included)
+2026-11-12T02:41:51.113Z [DEBUG] hooks module cc-plugin-agents-md@builtin turn.complete settled in 0.1ms (native link, next() included)
+2026-11-12T02:41:51.119Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (2881 bytes)
+2026-11-12T02:41:51.126Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (3022 bytes)
+2026-11-12T02:41:51.126Z [DEBUG] hooks module ciel-work@inline turn.complete settled in 14.5ms (worker hop, next() included)
+2026-11-12T02:41:51.501Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (3195 bytes)
+2026-11-12T02:41:51.920Z [DEBUG] AutoUpdaterWrapper: Installation type: native
+2026-11-12T02:41:52.356Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Program Files\ClaudeCode\managed-settings.json
+2026-11-12T02:41:52.358Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\.claude\settings.json
+2026-11-12T02:41:52.358Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:52.359Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:52.359Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\.claude\settings.local.json
+2026-11-12T02:41:52.400Z [DEBUG] plugin.register: ciel-work (user, ciel-work@inline), judged by core alone: admitted
+2026-11-12T02:41:52.403Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:52.403Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:52.413Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 0.5ms (native link, next() included)
+2026-11-12T02:41:52.414Z [DEBUG] engine.create: no plugin-provided interfaces; $ built for ciel-work
+2026-11-12T02:41:52.416Z [DEBUG] session.start: raised for ciel-work (loaded later)
+2026-11-12T02:41:52.416Z [DEBUG] hooks module ciel-work@inline reloaded in 15.9ms; events: session.start,prompt.submit,turn.start,turn.complete
+2026-11-12T02:41:52.416Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:52.416Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:41:52.438Z [DEBUG] settings.read: the engine's merge was raised (the loaded plugins changed) in 20.1 ms; 0 keys answered otherwise than the files.
+2026-11-12T02:41:52.445Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 1.0ms (native link, next() included)
+2026-11-12T02:41:52.446Z [DEBUG] anchor (win32): identity bridge serial32 — bun dev=2862732396 ino=29554872563362184; nt serial32=2862732396 serial64=14747777971920163948 index=29554872563362184
+2026-11-12T02:41:52.446Z [DEBUG] anchor (win32): held-handle backend up
+2026-11-12T02:41:52.453Z [DEBUG] $.fs.read (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-B.jsonl failed: ENOENT: no such file or directory, open 'C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-B.jsonl'
+2026-11-12T02:41:52.462Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-B.jsonl (240 bytes)
+2026-11-12T02:41:52.464Z [DEBUG] Preserving file permissions: 100666
+2026-11-12T02:41:52.464Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.7f214471c0a4
+2026-11-12T02:41:52.465Z [DEBUG] type root of ciel-work at C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\plugin\.claude-plugin\types: entries claude-code, claude-code-tools, claude-code-mcp; wrote nothing
+2026-11-12T02:41:52.465Z [DEBUG] [ciel-work] $.ui.log: reloaded (4 hooks: session.start, prompt.submit, turn.start, turn.complete)
+2026-11-12T02:41:52.468Z [DEBUG] Applied original permissions to temp file
+2026-11-12T02:41:52.473Z [DEBUG] Temp file written successfully, size: 2151 bytes
+2026-11-12T02:41:52.473Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json.tmp.26272.7f214471c0a4 to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json
+2026-11-12T02:41:52.474Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\ccfg\.claude.json written atomically
+2026-11-12T02:41:52.475Z [DEBUG] fullscreen boot canary: healthy
+2026-11-12T02:41:52.476Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-B.jsonl (340 bytes)
+2026-11-12T02:41:52.477Z [DEBUG] hooks module ciel-work@inline session.start settled in 59.3ms (worker hop, next() included)
+2026-11-12T02:41:52.648Z [DEBUG] High write ratio: blit=840, write=955 (53.2% writes), screen=30x120
+2026-11-12T02:41:52.781Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-B.jsonl (522 bytes)
+2026-11-12T02:41:56.118Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (3302 bytes)
+2026-11-12T02:41:57.451Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-B.jsonl (713 bytes)
+2026-11-12T02:42:00.122Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (3372 bytes)
+2026-11-12T02:42:00.123Z [DEBUG] hooks module cc-plugin-agents-md@builtin (native): prompt.submit nested in ciel-work#3
+2026-11-12T02:42:00.123Z [DEBUG] hooks module cc-plugin-diff@builtin (native): prompt.submit nested in ciel-work#3
+2026-11-12T02:42:00.125Z [DEBUG] FileHistory: Making snapshot for message 597492d8-3a9d-406e-9684-d8b13c3fcbd0
+2026-11-12T02:42:00.126Z [DEBUG] FileHistory: Added snapshot for 597492d8-3a9d-406e-9684-d8b13c3fcbd0, tracking 0 files
+2026-11-12T02:42:00.129Z [DEBUG] act_dont_rederive_arm_active source=growthbook
+2026-11-12T02:42:00.130Z [DEBUG] hooks module cc-plugin-diff@builtin prompt.submit settled in 6.5ms (native link, next() included)
+2026-11-12T02:42:00.130Z [DEBUG] hooks module cc-plugin-agents-md@builtin prompt.context settled in 1.9ms (native link, next() included)
+2026-11-12T02:42:00.130Z [DEBUG] hooks module cc-plugin-agents-md@builtin prompt.submit settled in 7.0ms (native link, next() included)
+2026-11-12T02:42:00.131Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-12T02:42:00.131Z [DEBUG] [engine] turn 3 start
+2026-11-12T02:42:00.132Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=180000
+2026-11-12T02:42:00.138Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.322.daa; cc_entrypoint=cli;
+2026-11-12T02:42:00.138Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-12T02:42:00.140Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-12T02:42:00.143Z [DEBUG] [API:timing] dispatching to firstParty model=fixture
+2026-11-12T02:42:00.144Z [DEBUG] [API REQUEST] /v1/messages source=repl_main_thread
+2026-11-12T02:42:00.151Z [DEBUG] Stream started - received first chunk
+2026-11-12T02:42:00.151Z [DEBUG] [API:timing] first byte after 11ms
+2026-11-12T02:42:00.156Z [DEBUG] [engine] turn 3 end (turns=1 usage in=150 out=15 cost=$0.0009 api=73ms stop=end_turn resultLen=2)
+2026-11-12T02:42:00.175Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 3.9ms (native link, next() included)
+2026-11-12T02:42:00.175Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 2.3ms (native link, next() included)
+2026-11-12T02:42:00.179Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-B.jsonl (832 bytes)
+2026-11-12T02:42:00.179Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-A.jsonl (3464 bytes)
+2026-11-12T02:42:00.181Z [DEBUG] hooks module cc-plugin-agents-md@builtin turn.start settled in 0.1ms (native link, next() included)
+2026-11-12T02:42:00.181Z [DEBUG] hooks module ciel-work@inline prompt.submit settled in 9108.7ms (worker hop, next() included)
+2026-11-12T02:42:00.182Z [DEBUG] hooks module ciel-work@inline turn.start settled in 54.3ms (worker hop, next() included)
+2026-11-12T02:42:00.184Z [DEBUG] hooks module cc-plugin-agents-md@builtin turn.complete settled in 0.3ms (native link, next() included)
+2026-11-12T02:42:00.187Z [DEBUG] $.fs.write (ciel-work): C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-a2893051-bp93ecko\workspace\events-B.jsonl (972 bytes)
+2026-11-12T02:42:00.187Z [DEBUG] hooks module ciel-work@inline turn.complete settled in 5.2ms (worker hop, next() included)

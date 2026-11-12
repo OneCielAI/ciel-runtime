@@ -1,0 +1,16 @@
+{"seq": 1, "at": 1794437817650, "event": "session.start"}
+{"seq": 2, "at": 1794437819701, "event": "p1.invoke"}
+{"seq": 3, "at": 1794437819703, "event": "p2.invoke"}
+{"seq": 4, "at": 1794437819734, "event": "turn.start", "turnId": "c33bdf9c-3cc2-4b66-b0a5-0ac5fd37dbff", "text": "The prompt-stop-probe plugin sent a message:\nPROMPT-STOP-P1-28f9d226\n\nThis is how Claude Code surfac"}
+{"seq": 5, "at": 1794437819736, "event": "p1.resolve", "value": {"text": "PROMPT-STOP-P1-28f9d226", "origin": {"kind": "plugin", "name": "prompt-stop-probe"}}}
+{"seq": 6, "at": 1794437819774, "event": "turn.step", "turnId": "c33bdf9c-3cc2-4b66-b0a5-0ac5fd37dbff", "index": 0, "messageCount": 6}
+{"seq": 7, "at": 1794437823837, "event": "stop.block", "stop_hook_active": false}
+{"seq": 8, "at": 1794437823853, "event": "turn.step", "turnId": "c33bdf9c-3cc2-4b66-b0a5-0ac5fd37dbff", "index": 1, "messageCount": 9}
+{"seq": 9, "at": 1794437823896, "event": "stop.pass", "stop_hook_active": true, "p2Resolved": false}
+{"seq": 10, "at": 1794437823903, "event": "turn.complete", "turnId": "c33bdf9c-3cc2-4b66-b0a5-0ac5fd37dbff", "reason": "answer"}
+{"seq": 11, "at": 1794437823930, "event": "p2.resolve", "value": {"text": "PROMPT-STOP-P2-28f9d226", "origin": {"kind": "plugin", "name": "prompt-stop-probe"}}}
+{"seq": 12, "at": 1794437823946, "event": "turn.start", "turnId": "00248349-176f-47d0-b5f8-bb56548eff13", "text": "The prompt-stop-probe plugin sent a message:\nPROMPT-STOP-P2-28f9d226\n\nThis is how Claude Code surfac"}
+{"seq": 13, "at": 1794437823950, "event": "all.settled"}
+{"seq": 14, "at": 1794437823958, "event": "turn.step", "turnId": "00248349-176f-47d0-b5f8-bb56548eff13", "index": 0, "messageCount": 12}
+{"seq": 15, "at": 1794437823999, "event": "stop.pass", "stop_hook_active": false, "p2Resolved": true}
+{"seq": 16, "at": 1794437824005, "event": "turn.complete", "turnId": "00248349-176f-47d0-b5f8-bb56548eff13", "reason": "answer"}

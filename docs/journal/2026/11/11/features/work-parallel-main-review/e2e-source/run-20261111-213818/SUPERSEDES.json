@@ -1,0 +1,12 @@
+{
+  "supersedes": "run-20261111-213536",
+  "reason": "213536 crashed in preflight (harness): Windows PowerShell 5.1 ConvertTo-Json left U+001A unescaped in two foreign bash.exe command lines (PIDs 56344, 64716) and strict json.loads rejected it before any owned launch. Fixed in runner 9be390ea (ps_rows json.loads strict=False); released by the team lead.",
+  "superseded_record": "run-20261111-213536/SUPERSEDED.json",
+  "runner_sha256": "9be390eacaec62cbdf2c7360df064b5576a4418f19643e42b92edf1fbc2fc868",
+  "product_key_hashes": {
+    "register": "eab3ad33",
+    "side_intake": "9b955068",
+    "types": "542ff492",
+    "work_parallel_mcp": "35214869"
+  }
+}

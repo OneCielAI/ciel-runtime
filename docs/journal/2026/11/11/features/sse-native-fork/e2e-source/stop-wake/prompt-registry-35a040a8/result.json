@@ -1,0 +1,738 @@
+{
+  "probe": "35a040a8",
+  "run_dir": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-prompt-registry-35a040a8-0dzse6gg",
+  "cli": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+  "markers": {
+    "A": "PROMPT-REGISTRY-A-35a040a8",
+    "A2": "PROMPT-REGISTRY-A2-35a040a8",
+    "B": "PROMPT-REGISTRY-B-35a040a8",
+    "R": "PROMPT-REGISTRY-R-35a040a8",
+    "R2": "PROMPT-REGISTRY-R2-35a040a8"
+  },
+  "hold_ms": 8000,
+  "reload_hold_ms": 9000,
+  "side_intake": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\tmp\\stop-wake-draft\\ciel_runtime_support\\claude_mods\\ciel-work\\hooks\\side-intake.js",
+  "side_intake_sha256": "fd2f2496242c9bb22703bf5334b788e4850ca5034ad84453ad67f224c9263f7d",
+  "driver_a_sha256": "13e54e8173acfd0d147e7cf0e02050aa387e40c5b10964b04dd5454a13199dc4",
+  "driver_b_sha256": "9062afbbc37f4b57eca229f5c75237fa730f0ff69ffa25b4d9546585545aab87",
+  "probe_script_sha256": "106e1d400e8c086370d7a504cf97dda11bf8ae8ca9b7f9231f7d239a8d5277d8",
+  "cli_version": "2.1.322 (Claude Code)",
+  "protected_count": 61,
+  "inherited_ciel_after_strip": [],
+  "pid": 5772,
+  "started": true,
+  "phase1_invoked": true,
+  "a_settled": true,
+  "phase2_ready": true,
+  "reload_written_at": 1794443759.136796,
+  "b_started": true,
+  "events": [
+    {
+      "gen": "A",
+      "seq": 1,
+      "at": 1794443749792,
+      "event": "session.start",
+      "pendingBeforeHydrate": {
+        "A": false,
+        "B": false,
+        "R": false
+      },
+      "pendingAfterHydrate": {
+        "A": false,
+        "B": false,
+        "R": false
+      },
+      "registry": {
+        "version": 0,
+        "keys": []
+      }
+    },
+    {
+      "gen": "A",
+      "seq": 2,
+      "at": 1794443751305,
+      "event": "fresh.d1.first",
+      "read": {
+        "version": 0
+      }
+    },
+    {
+      "gen": "A",
+      "seq": 3,
+      "at": 1794443752307,
+      "event": "fresh.d2.write",
+      "wrote": {
+        "isSet": true,
+        "version": 1
+      }
+    },
+    {
+      "gen": "A",
+      "seq": 4,
+      "at": 1794443754309,
+      "event": "fresh.d1.second",
+      "read": {
+        "value": [
+          "fresh-A"
+        ],
+        "version": 1
+      }
+    },
+    {
+      "gen": "A",
+      "seq": 5,
+      "at": 1794443756806,
+      "event": "a.invoke"
+    },
+    {
+      "gen": "A",
+      "seq": 6,
+      "at": 1794443756809,
+      "event": "b.invoke"
+    },
+    {
+      "gen": "A",
+      "seq": 7,
+      "at": 1794443756852,
+      "event": "turn.start",
+      "turnId": "6fc8bd18-b020-4e11-8324-11db3cd1508b",
+      "name": "A"
+    },
+    {
+      "gen": "A",
+      "seq": 8,
+      "at": 1794443756967,
+      "event": "a2.invoke"
+    },
+    {
+      "gen": "A",
+      "seq": 9,
+      "at": 1794443757054,
+      "event": "turn.complete",
+      "turnId": "6fc8bd18-b020-4e11-8324-11db3cd1508b",
+      "reason": "answer",
+      "name": "A"
+    },
+    {
+      "gen": "A",
+      "seq": 10,
+      "at": 1794443757058,
+      "event": "invoked",
+      "sameAPromise": false,
+      "pending": {
+        "A": true,
+        "B": false,
+        "R": false
+      }
+    },
+    {
+      "gen": "A",
+      "seq": 11,
+      "at": 1794443757150,
+      "event": "turn.start",
+      "turnId": "00aa018a-e457-4fe3-8e6b-5b929734c8c6",
+      "name": "B"
+    },
+    {
+      "gen": "A",
+      "seq": 12,
+      "at": 1794443757154,
+      "event": "a.resolve",
+      "value": "queued",
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": false
+      }
+    },
+    {
+      "gen": "A",
+      "seq": 13,
+      "at": 1794443757154,
+      "event": "a2.resolve",
+      "value": "queued"
+    },
+    {
+      "gen": "A",
+      "seq": 14,
+      "at": 1794443757154,
+      "event": "b.resolve",
+      "value": "queued",
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": false
+      }
+    },
+    {
+      "gen": "A",
+      "seq": 15,
+      "at": 1794443757165,
+      "event": "turn.complete",
+      "turnId": "00aa018a-e457-4fe3-8e6b-5b929734c8c6",
+      "reason": "answer",
+      "name": "B"
+    },
+    {
+      "gen": "A",
+      "seq": 16,
+      "at": 1794443757206,
+      "event": "turn.start",
+      "turnId": "f12fc44f-e1b5-4bee-8624-55fc414ba111",
+      "name": "A2"
+    },
+    {
+      "gen": "A",
+      "seq": 17,
+      "at": 1794443757217,
+      "event": "turn.complete",
+      "turnId": "f12fc44f-e1b5-4bee-8624-55fc414ba111",
+      "reason": "answer",
+      "name": "A2"
+    },
+    {
+      "gen": "A",
+      "seq": 18,
+      "at": 1794443757457,
+      "event": "registry.after-issue",
+      "registry": {
+        "version": 6,
+        "keys": []
+      },
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": false
+      }
+    },
+    {
+      "gen": "A",
+      "seq": 19,
+      "at": 1794443758652,
+      "event": "r.invoke",
+      "why": "a-turn-complete"
+    },
+    {
+      "gen": "A",
+      "seq": 20,
+      "at": 1794443758698,
+      "event": "turn.start",
+      "turnId": "0e65ad54-cbb9-4313-9d10-a831a0551b9b",
+      "name": "R"
+    },
+    {
+      "gen": "A",
+      "seq": 21,
+      "at": 1794443758706,
+      "event": "r.resolve",
+      "value": "queued"
+    },
+    {
+      "gen": "A",
+      "seq": 22,
+      "at": 1794443758749,
+      "event": "turn.complete",
+      "turnId": "0e65ad54-cbb9-4313-9d10-a831a0551b9b",
+      "reason": "answer",
+      "name": "R"
+    },
+    {
+      "gen": "A",
+      "seq": 23,
+      "at": 1794443759057,
+      "event": "phase2.ready",
+      "registry": {
+        "version": 8,
+        "keys": []
+      },
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": false
+      }
+    },
+    {
+      "gen": "B",
+      "seq": 1,
+      "at": 1794443759879,
+      "event": "session.start",
+      "pendingBeforeHydrate": {
+        "A": false,
+        "B": false,
+        "R": false
+      },
+      "pendingAfterHydrate": {
+        "A": false,
+        "B": false,
+        "R": false
+      },
+      "registry": {
+        "version": 8,
+        "keys": []
+      }
+    },
+    {
+      "gen": "B",
+      "seq": 2,
+      "at": 1794443759895,
+      "event": "r2.invoke",
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": true
+      }
+    },
+    {
+      "gen": "B",
+      "seq": 3,
+      "at": 1794443759922,
+      "event": "hook.prompt.submit",
+      "name": "R2",
+      "working": false
+    },
+    {
+      "gen": "B",
+      "seq": 4,
+      "at": 1794443759935,
+      "event": "turn.start",
+      "turnId": "988d2a96-ccbd-4696-ade1-2389a9eb170b",
+      "name": "R2"
+    },
+    {
+      "gen": "B",
+      "seq": 5,
+      "at": 1794443759937,
+      "event": "hook.prompt.result",
+      "name": "R2",
+      "drop": null
+    },
+    {
+      "gen": "B",
+      "seq": 6,
+      "at": 1794443759949,
+      "event": "r2.resolve",
+      "value": "queued",
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": false
+      },
+      "registry": {
+        "version": 10,
+        "keys": []
+      }
+    },
+    {
+      "gen": "B",
+      "seq": 7,
+      "at": 1794443759983,
+      "event": "turn.complete",
+      "turnId": "988d2a96-ccbd-4696-ade1-2389a9eb170b",
+      "reason": "answer",
+      "name": "R2"
+    },
+    {
+      "gen": "B",
+      "seq": 8,
+      "at": 1794443760246,
+      "event": "b.registry.after-start",
+      "registry": {
+        "version": 10,
+        "keys": []
+      },
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": false
+      }
+    }
+  ],
+  "requests": [
+    {
+      "at": 1794443756.904698,
+      "number": 1,
+      "message_count": 2,
+      "A": 1,
+      "A2": 0,
+      "B": 0,
+      "R": 0,
+      "R2": 0
+    },
+    {
+      "at": 1794443757.0130577,
+      "number": 2,
+      "message_count": 4,
+      "A": 1,
+      "A2": 0,
+      "B": 1,
+      "R": 0,
+      "R2": 0
+    },
+    {
+      "at": 1794443757.0983598,
+      "number": 3,
+      "message_count": 6,
+      "A": 1,
+      "A2": 1,
+      "B": 1,
+      "R": 0,
+      "R2": 0
+    },
+    {
+      "at": 1794443758.7116137,
+      "number": 4,
+      "message_count": 8,
+      "A": 1,
+      "A2": 1,
+      "B": 1,
+      "R": 1,
+      "R2": 0
+    },
+    {
+      "at": 1794443759.9503815,
+      "number": 5,
+      "message_count": 10,
+      "A": 1,
+      "A2": 1,
+      "B": 1,
+      "R": 1,
+      "R2": 1
+    }
+  ],
+  "analysis": {
+    "fresh_first": {
+      "version": 0
+    },
+    "fresh_write": {
+      "isSet": true,
+      "version": 1
+    },
+    "fresh_second": {
+      "value": [
+        "fresh-A"
+      ],
+      "version": 1
+    },
+    "invoked": {
+      "gen": "A",
+      "seq": 10,
+      "at": 1794443757058,
+      "event": "invoked",
+      "sameAPromise": false,
+      "pending": {
+        "A": true,
+        "B": false,
+        "R": false
+      }
+    },
+    "hook_arrivals_ms": [
+      {
+        "name": "R2",
+        "ms": 3116,
+        "working": false
+      }
+    ],
+    "holds": [],
+    "registry_after_issue": {
+      "gen": "A",
+      "seq": 18,
+      "at": 1794443757457,
+      "event": "registry.after-issue",
+      "registry": {
+        "version": 6,
+        "keys": []
+      },
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": false
+      }
+    },
+    "registry_after_window": null,
+    "a_resolve": {
+      "gen": "A",
+      "seq": 12,
+      "at": 1794443757154,
+      "event": "a.resolve",
+      "value": "queued",
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": false
+      }
+    },
+    "a_resolve_ms": 348,
+    "a2_resolve": {
+      "gen": "A",
+      "seq": 13,
+      "at": 1794443757154,
+      "event": "a2.resolve",
+      "value": "queued"
+    },
+    "b_resolve": {
+      "gen": "A",
+      "seq": 14,
+      "at": 1794443757154,
+      "event": "b.resolve",
+      "value": "queued",
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": false
+      }
+    },
+    "b_resolve_ms": 348,
+    "turns": [
+      {
+        "gen": "A",
+        "event": "turn.start",
+        "at": 1794443756852,
+        "turnId": "6fc8bd18-b020-4e11-8324-11db3cd1508b",
+        "name": "A",
+        "reason": null
+      },
+      {
+        "gen": "A",
+        "event": "turn.complete",
+        "at": 1794443757054,
+        "turnId": "6fc8bd18-b020-4e11-8324-11db3cd1508b",
+        "name": "A",
+        "reason": "answer"
+      },
+      {
+        "gen": "A",
+        "event": "turn.start",
+        "at": 1794443757150,
+        "turnId": "00aa018a-e457-4fe3-8e6b-5b929734c8c6",
+        "name": "B",
+        "reason": null
+      },
+      {
+        "gen": "A",
+        "event": "turn.complete",
+        "at": 1794443757165,
+        "turnId": "00aa018a-e457-4fe3-8e6b-5b929734c8c6",
+        "name": "B",
+        "reason": "answer"
+      },
+      {
+        "gen": "A",
+        "event": "turn.start",
+        "at": 1794443757206,
+        "turnId": "f12fc44f-e1b5-4bee-8624-55fc414ba111",
+        "name": "A2",
+        "reason": null
+      },
+      {
+        "gen": "A",
+        "event": "turn.complete",
+        "at": 1794443757217,
+        "turnId": "f12fc44f-e1b5-4bee-8624-55fc414ba111",
+        "name": "A2",
+        "reason": "answer"
+      },
+      {
+        "gen": "A",
+        "event": "turn.start",
+        "at": 1794443758698,
+        "turnId": "0e65ad54-cbb9-4313-9d10-a831a0551b9b",
+        "name": "R",
+        "reason": null
+      },
+      {
+        "gen": "A",
+        "event": "turn.complete",
+        "at": 1794443758749,
+        "turnId": "0e65ad54-cbb9-4313-9d10-a831a0551b9b",
+        "name": "R",
+        "reason": "answer"
+      },
+      {
+        "gen": "B",
+        "event": "turn.start",
+        "at": 1794443759935,
+        "turnId": "988d2a96-ccbd-4696-ade1-2389a9eb170b",
+        "name": "R2",
+        "reason": null
+      },
+      {
+        "gen": "B",
+        "event": "turn.complete",
+        "at": 1794443759983,
+        "turnId": "988d2a96-ccbd-4696-ade1-2389a9eb170b",
+        "name": "R2",
+        "reason": "answer"
+      }
+    ],
+    "prompt_results": [
+      {
+        "gen": "B",
+        "name": "R2",
+        "at": 1794443759937,
+        "drop": null
+      }
+    ],
+    "phase2_ready": {
+      "gen": "A",
+      "seq": 23,
+      "at": 1794443759057,
+      "event": "phase2.ready",
+      "registry": {
+        "version": 8,
+        "keys": []
+      },
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": false
+      }
+    },
+    "r_resolve": {
+      "gen": "A",
+      "seq": 21,
+      "at": 1794443758706,
+      "event": "r.resolve",
+      "value": "queued"
+    },
+    "b_session_start": {
+      "gen": "B",
+      "seq": 1,
+      "at": 1794443759879,
+      "event": "session.start",
+      "pendingBeforeHydrate": {
+        "A": false,
+        "B": false,
+        "R": false
+      },
+      "pendingAfterHydrate": {
+        "A": false,
+        "B": false,
+        "R": false
+      },
+      "registry": {
+        "version": 8,
+        "keys": []
+      }
+    },
+    "b_registry_after_start": {
+      "gen": "B",
+      "seq": 8,
+      "at": 1794443760246,
+      "event": "b.registry.after-start",
+      "registry": {
+        "version": 10,
+        "keys": []
+      },
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": false
+      }
+    },
+    "r2_invoke": {
+      "gen": "B",
+      "seq": 2,
+      "at": 1794443759895,
+      "event": "r2.invoke",
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": true
+      }
+    },
+    "r2_resolve": {
+      "gen": "B",
+      "seq": 6,
+      "at": 1794443759949,
+      "event": "r2.resolve",
+      "value": "queued",
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": false
+      },
+      "registry": {
+        "version": 10,
+        "keys": []
+      }
+    },
+    "old_activity_after_reload": [],
+    "requests_by_marker": {
+      "A": [
+        1,
+        2,
+        3,
+        4,
+        5
+      ],
+      "A2": [
+        3,
+        4,
+        5
+      ],
+      "B": [
+        2,
+        3,
+        4,
+        5
+      ],
+      "R": [
+        4,
+        5
+      ],
+      "R2": [
+        5
+      ]
+    },
+    "same_process_after_reload": true
+  },
+  "owned_tree": [
+    {
+      "pid": 5772,
+      "ppid": 58416,
+      "name": "claude.exe",
+      "created": "2026-11-12T00:35:49.0576740Z"
+    }
+  ],
+  "killed": [
+    {
+      "pid": 5772,
+      "name": "claude.exe",
+      "rc": 0
+    }
+  ],
+  "protected_missing_after": [
+    {
+      "pid": 83972,
+      "ppid": 72912,
+      "name": "python.exe",
+      "created": "2026-11-12T00:35:48.8741300Z"
+    }
+  ],
+  "live_before": {
+    "C:\\Users\\djlov\\.claude.json": "9bc74ea7d6c295995b720a723c7b136caadbd560bb34f900d40f1cdb160d66f1",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_after": {
+    "C:\\Users\\djlov\\.claude.json": "9bc74ea7d6c295995b720a723c7b136caadbd560bb34f900d40f1cdb160d66f1",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_hash_changed": [],
+  "owned_path_in_live_files": []
+}

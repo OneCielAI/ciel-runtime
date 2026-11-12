@@ -1,0 +1,1370 @@
+[
+ {
+  "ProcessId": 12372,
+  "ParentProcessId": 7524,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794409545761)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 12380,
+  "ParentProcessId": 12372,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794409545769)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 13232,
+  "ParentProcessId": 8732,
+  "Name": "node.exe",
+  "CreationDate": "/Date(1794409545954)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 13240,
+  "ParentProcessId": 13232,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794409545958)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 13732,
+  "ParentProcessId": 13700,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794409546189)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 14692,
+  "ParentProcessId": 7248,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794409546492)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 14700,
+  "ParentProcessId": 7248,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794409546492)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 15864,
+  "ParentProcessId": 14888,
+  "Name": "node.exe",
+  "CreationDate": "/Date(1794409547325)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 14556,
+  "ParentProcessId": 15864,
+  "Name": "py.exe",
+  "CreationDate": "/Date(1794409547692)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 14560,
+  "ParentProcessId": 14556,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794409547701)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 16988,
+  "ParentProcessId": 10008,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794409551579)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 19712,
+  "ParentProcessId": 7376,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794409559463)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 19744,
+  "ParentProcessId": 7444,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794409559557)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 10660,
+  "ParentProcessId": 14560,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794409570423)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 20212,
+  "ParentProcessId": 20160,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794409571706)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 3920,
+  "ParentProcessId": 14560,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794409576598)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 3928,
+  "ParentProcessId": 14560,
+  "Name": "cmd.exe",
+  "CreationDate": "/Date(1794409576602)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 4284,
+  "ParentProcessId": 14560,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794409576611)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 5212,
+  "ParentProcessId": 3928,
+  "Name": "claude.exe",
+  "CreationDate": "/Date(1794409576621)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 6100,
+  "ParentProcessId": 9284,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794409823378)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 7996,
+  "ParentProcessId": 5540,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412107824)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 26476,
+  "ParentProcessId": 26464,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412113406)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 26952,
+  "ParentProcessId": 26868,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412115553)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 27272,
+  "ParentProcessId": 27056,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412115574)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 27292,
+  "ParentProcessId": 27220,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412115581)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 27352,
+  "ParentProcessId": 27208,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412115582)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 34036,
+  "ParentProcessId": 34008,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412126539)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 9008,
+  "ParentProcessId": 22204,
+  "Name": "cmd.exe",
+  "CreationDate": "/Date(1794412151961)/",
+  "CommandLine": "\"C:\\WINDOWS\\system32\\cmd.exe\" ",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 9004,
+  "ParentProcessId": 9008,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412151977)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 23728,
+  "ParentProcessId": 9008,
+  "Name": "py.exe",
+  "CreationDate": "/Date(1794412171243)/",
+  "CommandLine": "py  -3 \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py\" cli --continue",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 42764,
+  "ParentProcessId": 23728,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412171257)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py\" cli --continue",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 44500,
+  "ParentProcessId": 37332,
+  "Name": "cmd.exe",
+  "CreationDate": "/Date(1794412181030)/",
+  "CommandLine": "C:\\WINDOWS\\System32\\cmd.exe",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 42924,
+  "ParentProcessId": 42764,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412182971)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py serve",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 39992,
+  "ParentProcessId": 42764,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412189696)/",
+  "CommandLine": "\\\\?\\C:\\WINDOWS\\system32\\conhost.exe --headless --width 135 --height 38 --signal 0x3e4 --server 0x3dc",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 36344,
+  "ParentProcessId": 42764,
+  "Name": "claude.exe",
+  "CreationDate": "/Date(1794412189702)/",
+  "CommandLine": "C:\\Users\\djlov\\.local\\bin\\claude.exe --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-_walkie_opus55-sol61-fast --mcp-config C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9505-aae7db361c7f\\web-tools-mcp.json C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\workspaces\\aae7db361c7f\\mcp-launches\\9892877993d64c6c8a2aed10aa7b9c93\\claude-mcp.json --append-system-prompt \"You are running inside Claude Code through the ciel-runtime router. Do not stop after announcing what you plan to do. When the user asks you to create, edit, or run code, immediately use the available Claude Code tools such as Write, Edit, Read, and Bash as appropriate, except while Claude Code is in Plan Mode. In Plan Mode, first explore/read as needed, write or update the plan file named by the plan_mode attachment, and only then call ExitPlanMode to leave Plan Mode; when bypass permissions is active, ciel-runtime auto-approves that plan exit, so do not ask the user separately and do not call EnterPlanMode again. then report the concrete result. If the task has several reasonable implementation parts, do all in-scope parts; do not ask the user which part to start or whether to do all unless the user explicitly requested a choice. If you decide not to use tools, provide the complete requested code or answer in the same turn. Use skills only when the user's request clearly matches that skill; never invoke keybindings-help unless the user asks about keybindings. Keep final answers concise and do not expose hidden chain-of-thought. When calling Claude Code tools, use exactly the tool schema and do not invent extra fields. Bash: command (string), description (string), timeout (integer), run_in_background (boolean). Read: file_path (string), offset (integer), limit (integer). Write: file_path (string), content (string). Edit: file_path (string), old_string (string), new_string (string), replace_all (boolean). TaskList: no input. TaskUpdate: taskId (string), optional status enum exactly one of pending, in_progress, completed, deleted. CronCreate: cron (standard 5-field local-time cron string), prompt (string), optional recurring (boolean), optional durable (boolean). CronDelete: id (string returned by CronCreate). CronList: no input. Do not call WaitForMcpServers; it is a Claude Code lifecycle tool that may exist but is often not enabled in the current routed context. If an MCP server appears disconnected, use only tools present in the current tool list, retry ordinary MCP tools when available, or report the concrete connection state. Never write pseudo tool calls, partial JSON, or markdown code fences when a real Claude Code tool call is required.\" --messaging-socket-path \\\\.\\pipe\\LOCAL\\cc-msg-e3df32154c003c97f70f367bf985606f --settings {\\\"crossSessionInbound\\\":\\\"accept\\\"} --plugin-dir C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime_support\\claude_mods\\ciel-work --continue",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 40616,
+  "ParentProcessId": 42764,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412189711)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime_support\\windows_console_guard.py 42764 487 7",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 34076,
+  "ParentProcessId": 40408,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412194565)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 45560,
+  "ParentProcessId": 36344,
+  "Name": "uvx.exe",
+  "CreationDate": "/Date(1794412196216)/",
+  "CommandLine": "\"C:\\Program Files\\Python311\\Scripts\\uvx.exe\" --with mcp<2 mcp-server-fetch",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 45860,
+  "ParentProcessId": 45560,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412196221)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 41784,
+  "ParentProcessId": 36344,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412196221)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe G:\\ciel-Walkie\\.local\\walkie-install\\mcp-stdio.py G:\\ciel-Walkie\\.local\\walkie-install\\mcp-credential.json",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 37468,
+  "ParentProcessId": 41784,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412196227)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 45356,
+  "ParentProcessId": 45560,
+  "Name": "uv.exe",
+  "CreationDate": "/Date(1794412196234)/",
+  "CommandLine": "\"C:\\Program Files\\Python311\\Scripts\\uv.exe\" tool uvx --with mcp<2 mcp-server-fetch",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 45700,
+  "ParentProcessId": 45356,
+  "Name": "mcp-server-fetch.exe",
+  "CreationDate": "/Date(1794412197052)/",
+  "CommandLine": "\"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 45164,
+  "ParentProcessId": 45700,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412197062)/",
+  "CommandLine": "\"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\python.exe\" \"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 45572,
+  "ParentProcessId": 45164,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412197080)/",
+  "CommandLine": "\"C:\\Program Files\\Python311\\python.exe\" \"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 40000,
+  "ParentProcessId": 36344,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412199502)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe G:\\ciel-Walkie\\.local\\walkie-install\\transcript-relay.py --stdio G:\\ciel-Walkie\\.local\\walkie-install\\mcp-credential.json",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 43680,
+  "ParentProcessId": 40000,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412199509)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 39984,
+  "ParentProcessId": 44500,
+  "Name": "py.exe",
+  "CreationDate": "/Date(1794412199735)/",
+  "CommandLine": "py  -3 \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py\" cli --continue",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 45652,
+  "ParentProcessId": 39984,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412199746)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py\" cli --continue",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 25780,
+  "ParentProcessId": 40000,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412204231)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe G:\\ciel-Walkie\\.local\\walkie-install\\transcript-relay.py G:\\ciel-Walkie\\.local\\walkie-install\\transcript-relay.json",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 37308,
+  "ParentProcessId": 25780,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412204236)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 45428,
+  "ParentProcessId": 45652,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412207685)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py serve",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 46564,
+  "ParentProcessId": 45652,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412210305)/",
+  "CommandLine": "\\\\?\\C:\\WINDOWS\\system32\\conhost.exe --headless --width 135 --height 38 --signal 0x310 --server 0x30c",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 46232,
+  "ParentProcessId": 45652,
+  "Name": "claude.exe",
+  "CreationDate": "/Date(1794412210311)/",
+  "CommandLine": "C:\\Users\\djlov\\.local\\bin\\claude.exe --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-_walkie_sol61-opus55-fast --mcp-config C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9489-b35f12ba1034\\web-tools-mcp.json C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\workspaces\\b35f12ba1034\\mcp-launches\\e25e3383eb5346bd9b3459427f227bb4\\claude-mcp.json --append-system-prompt \"You are running inside Claude Code through the ciel-runtime router. Do not stop after announcing what you plan to do. When the user asks you to create, edit, or run code, immediately use the available Claude Code tools such as Write, Edit, Read, and Bash as appropriate, except while Claude Code is in Plan Mode. In Plan Mode, first explore/read as needed, write or update the plan file named by the plan_mode attachment, and only then call ExitPlanMode to leave Plan Mode; when bypass permissions is active, ciel-runtime auto-approves that plan exit, so do not ask the user separately and do not call EnterPlanMode again. then report the concrete result. If the task has several reasonable implementation parts, do all in-scope parts; do not ask the user which part to start or whether to do all unless the user explicitly requested a choice. If you decide not to use tools, provide the complete requested code or answer in the same turn. Use skills only when the user's request clearly matches that skill; never invoke keybindings-help unless the user asks about keybindings. Keep final answers concise and do not expose hidden chain-of-thought. When calling Claude Code tools, use exactly the tool schema and do not invent extra fields. Bash: command (string), description (string), timeout (integer), run_in_background (boolean). Read: file_path (string), offset (integer), limit (integer). Write: file_path (string), content (string). Edit: file_path (string), old_string (string), new_string (string), replace_all (boolean). TaskList: no input. TaskUpdate: taskId (string), optional status enum exactly one of pending, in_progress, completed, deleted. CronCreate: cron (standard 5-field local-time cron string), prompt (string), optional recurring (boolean), optional durable (boolean). CronDelete: id (string returned by CronCreate). CronList: no input. Do not call WaitForMcpServers; it is a Claude Code lifecycle tool that may exist but is often not enabled in the current routed context. If an MCP server appears disconnected, use only tools present in the current tool list, retry ordinary MCP tools when available, or report the concrete connection state. Never write pseudo tool calls, partial JSON, or markdown code fences when a real Claude Code tool call is required.\" --messaging-socket-path \\\\.\\pipe\\LOCAL\\cc-msg-5aba0cfc38f1a59cf9ccdec2b53ebbab --settings {\\\"crossSessionInbound\\\":\\\"accept\\\"} --plugin-dir C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime_support\\claude_mods\\ciel-work --continue",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 46508,
+  "ParentProcessId": 45652,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412210317)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime_support\\windows_console_guard.py 45652 487 7",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 22076,
+  "ParentProcessId": 46232,
+  "Name": "cmd.exe",
+  "CreationDate": "/Date(1794412212698)/",
+  "CommandLine": "cmd.exe /d /c npx -y rea-agents@6.5.0 mcp",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 32980,
+  "ParentProcessId": 22076,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412212706)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 36044,
+  "ParentProcessId": 46232,
+  "Name": "cmd.exe",
+  "CreationDate": "/Date(1794412212726)/",
+  "CommandLine": "C:\\WINDOWS\\system32\\cmd.exe /d /s /c \"C:\\Program^ Files\\nodejs\\npx.cmd ^\"-y^\" ^\"ddg-mcp-search^\"\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 20972,
+  "ParentProcessId": 46232,
+  "Name": "uvx.exe",
+  "CreationDate": "/Date(1794412212733)/",
+  "CommandLine": "\"C:\\Program Files\\Python311\\Scripts\\uvx.exe\" --with mcp<2 mcp-server-fetch",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 47028,
+  "ParentProcessId": 36044,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412212733)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 47060,
+  "ParentProcessId": 20972,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412212737)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 35728,
+  "ParentProcessId": 20972,
+  "Name": "uv.exe",
+  "CreationDate": "/Date(1794412212753)/",
+  "CommandLine": "\"C:\\Program Files\\Python311\\Scripts\\uv.exe\" tool uvx --with mcp<2 mcp-server-fetch",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 46196,
+  "ParentProcessId": 22076,
+  "Name": "node.exe",
+  "CreationDate": "/Date(1794412212848)/",
+  "CommandLine": "\"C:\\Program Files\\nodejs\\\\node.exe\"  \"C:\\Program Files\\nodejs\\\\node_modules\\npm\\bin\\npx-cli.js\" -y rea-agents@6.5.0 mcp",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 29796,
+  "ParentProcessId": 35728,
+  "Name": "mcp-server-fetch.exe",
+  "CreationDate": "/Date(1794412212861)/",
+  "CommandLine": "\"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 35344,
+  "ParentProcessId": 29796,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412212870)/",
+  "CommandLine": "\"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\python.exe\" \"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 23144,
+  "ParentProcessId": 36044,
+  "Name": "node.exe",
+  "CreationDate": "/Date(1794412212874)/",
+  "CommandLine": "\"C:\\Program Files\\nodejs\\\\node.exe\"  \"C:\\Program Files\\nodejs\\\\node_modules\\npm\\bin\\npx-cli.js\" \"-y\" \"ddg-mcp-search\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 11840,
+  "ParentProcessId": 35344,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412212877)/",
+  "CommandLine": "\"C:\\Program Files\\Python311\\python.exe\" \"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 41236,
+  "ParentProcessId": 23144,
+  "Name": "cmd.exe",
+  "CreationDate": "/Date(1794412217431)/",
+  "CommandLine": "C:\\WINDOWS\\system32\\cmd.exe /d /s /c ddg-mcp",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 7148,
+  "ParentProcessId": 46196,
+  "Name": "cmd.exe",
+  "CreationDate": "/Date(1794412217446)/",
+  "CommandLine": "C:\\WINDOWS\\system32\\cmd.exe /d /s /c rea mcp",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 31320,
+  "ParentProcessId": 41236,
+  "Name": "node.exe",
+  "CreationDate": "/Date(1794412217467)/",
+  "CommandLine": "\"node\"   \"C:\\Users\\djlov\\AppData\\Local\\npm-cache\\_npx\\469264b19fe50db8\\node_modules\\.bin\\\\..\\ddg-mcp-search\\dist\\index.js\" ",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 40176,
+  "ParentProcessId": 7148,
+  "Name": "node.exe",
+  "CreationDate": "/Date(1794412217480)/",
+  "CommandLine": "\"node\"   \"C:\\Users\\djlov\\AppData\\Local\\npm-cache\\_npx\\ad9a3fdbcad992c6\\node_modules\\.bin\\\\..\\rea-agents\\scripts\\rea.mjs\" mcp",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 22744,
+  "ParentProcessId": 43832,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412232735)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 20744,
+  "ParentProcessId": 37332,
+  "Name": "cmd.exe",
+  "CreationDate": "/Date(1794412236188)/",
+  "CommandLine": "C:\\WINDOWS\\System32\\cmd.exe",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 21912,
+  "ParentProcessId": 20744,
+  "Name": "py.exe",
+  "CreationDate": "/Date(1794412247384)/",
+  "CommandLine": "py  -3 \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py\" cli --continue",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 2272,
+  "ParentProcessId": 21912,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412247396)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py\" cli --continue",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 9764,
+  "ParentProcessId": 2272,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412254899)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py serve",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 24624,
+  "ParentProcessId": 2272,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412257801)/",
+  "CommandLine": "\\\\?\\C:\\WINDOWS\\system32\\conhost.exe --headless --width 135 --height 38 --signal 0x380 --server 0x378",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 12240,
+  "ParentProcessId": 2272,
+  "Name": "claude.exe",
+  "CreationDate": "/Date(1794412257813)/",
+  "CommandLine": "C:\\Users\\djlov\\.local\\bin\\claude.exe --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-_walkie_opus55-sol61-fast --mcp-config C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9524-bd5f642b3583\\web-tools-mcp.json C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\workspaces\\bd5f642b3583\\mcp-launches\\5a00ad4e6fb6462a8ad8be68175218ee\\claude-mcp.json --append-system-prompt \"You are running inside Claude Code through the ciel-runtime router. Do not stop after announcing what you plan to do. When the user asks you to create, edit, or run code, immediately use the available Claude Code tools such as Write, Edit, Read, and Bash as appropriate, except while Claude Code is in Plan Mode. In Plan Mode, first explore/read as needed, write or update the plan file named by the plan_mode attachment, and only then call ExitPlanMode to leave Plan Mode; when bypass permissions is active, ciel-runtime auto-approves that plan exit, so do not ask the user separately and do not call EnterPlanMode again. then report the concrete result. If the task has several reasonable implementation parts, do all in-scope parts; do not ask the user which part to start or whether to do all unless the user explicitly requested a choice. If you decide not to use tools, provide the complete requested code or answer in the same turn. Use skills only when the user's request clearly matches that skill; never invoke keybindings-help unless the user asks about keybindings. Keep final answers concise and do not expose hidden chain-of-thought. When calling Claude Code tools, use exactly the tool schema and do not invent extra fields. Bash: command (string), description (string), timeout (integer), run_in_background (boolean). Read: file_path (string), offset (integer), limit (integer). Write: file_path (string), content (string). Edit: file_path (string), old_string (string), new_string (string), replace_all (boolean). TaskList: no input. TaskUpdate: taskId (string), optional status enum exactly one of pending, in_progress, completed, deleted. CronCreate: cron (standard 5-field local-time cron string), prompt (string), optional recurring (boolean), optional durable (boolean). CronDelete: id (string returned by CronCreate). CronList: no input. Do not call WaitForMcpServers; it is a Claude Code lifecycle tool that may exist but is often not enabled in the current routed context. If an MCP server appears disconnected, use only tools present in the current tool list, retry ordinary MCP tools when available, or report the concrete connection state. Never write pseudo tool calls, partial JSON, or markdown code fences when a real Claude Code tool call is required.\" --messaging-socket-path \\\\.\\pipe\\LOCAL\\cc-msg-52cac6d92833f1f65b5bfa517fc9bd1a --settings {\\\"crossSessionInbound\\\":\\\"accept\\\"} --continue",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 48104,
+  "ParentProcessId": 2272,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412257818)/",
+  "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime_support\\windows_console_guard.py 2272 487 7",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 48464,
+  "ParentProcessId": 12240,
+  "Name": "cmd.exe",
+  "CreationDate": "/Date(1794412259601)/",
+  "CommandLine": "C:\\WINDOWS\\system32\\cmd.exe /d /s /c \"C:\\Program^ Files\\nodejs\\npx.cmd ^\"-y^\" ^\"ddg-mcp-search^\"\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 48472,
+  "ParentProcessId": 48464,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412259609)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 48480,
+  "ParentProcessId": 12240,
+  "Name": "uvx.exe",
+  "CreationDate": "/Date(1794412259610)/",
+  "CommandLine": "\"C:\\Program Files\\Python311\\Scripts\\uvx.exe\" --with mcp<2 mcp-server-fetch",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 48608,
+  "ParentProcessId": 48480,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412259626)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 48672,
+  "ParentProcessId": 48480,
+  "Name": "uv.exe",
+  "CreationDate": "/Date(1794412259643)/",
+  "CommandLine": "\"C:\\Program Files\\Python311\\Scripts\\uv.exe\" tool uvx --with mcp<2 mcp-server-fetch",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 8520,
+  "ParentProcessId": 48464,
+  "Name": "node.exe",
+  "CreationDate": "/Date(1794412259817)/",
+  "CommandLine": "\"C:\\Program Files\\nodejs\\\\node.exe\"  \"C:\\Program Files\\nodejs\\\\node_modules\\npm\\bin\\npx-cli.js\" \"-y\" \"ddg-mcp-search\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 48168,
+  "ParentProcessId": 48672,
+  "Name": "mcp-server-fetch.exe",
+  "CreationDate": "/Date(1794412259828)/",
+  "CommandLine": "\"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 47928,
+  "ParentProcessId": 48168,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412259848)/",
+  "CommandLine": "\"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\python.exe\" \"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 48284,
+  "ParentProcessId": 47928,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794412259881)/",
+  "CommandLine": "\"C:\\Program Files\\Python311\\python.exe\" \"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 48816,
+  "ParentProcessId": 8520,
+  "Name": "cmd.exe",
+  "CreationDate": "/Date(1794412261685)/",
+  "CommandLine": "C:\\WINDOWS\\system32\\cmd.exe /d /s /c ddg-mcp",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 47684,
+  "ParentProcessId": 48816,
+  "Name": "node.exe",
+  "CreationDate": "/Date(1794412261709)/",
+  "CommandLine": "\"node\"   \"C:\\Users\\djlov\\AppData\\Local\\npm-cache\\_npx\\469264b19fe50db8\\node_modules\\.bin\\\\..\\ddg-mcp-search\\dist\\index.js\" ",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 52216,
+  "ParentProcessId": 57048,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412498277)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 63032,
+  "ParentProcessId": 63248,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412502458)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 63568,
+  "ParentProcessId": 62392,
+  "Name": "node.exe",
+  "CreationDate": "/Date(1794412505760)/",
+  "CommandLine": "C:\\Users\\djlov\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\bin\\node.exe C:\\Users\\djlov\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\node_modules\\@oai\\artifact-tool\\dist\\artifact-session\\host-daemon.mjs",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 64064,
+  "ParentProcessId": 63568,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412505770)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 65096,
+  "ParentProcessId": 65208,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412514288)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 50160,
+  "ParentProcessId": 53916,
+  "Name": "node.exe",
+  "CreationDate": "/Date(1794412525247)/",
+  "CommandLine": "\"C:\\Program Files\\Adobe\\Adobe Creative Cloud Experience\\libs\\node.exe\" \"C:\\Program Files\\Adobe\\Adobe Creative Cloud Experience\\js\\main.js\"",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 56820,
+  "ParentProcessId": 50160,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412525253)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 11444,
+  "ParentProcessId": 64516,
+  "Name": "node.exe",
+  "CreationDate": "/Date(1794412618865)/",
+  "CommandLine": "\"C:\\Program Files\\nodejs\\node.exe\"  \"F:\\omini-router\\_artifacts\\console-chrome\\console-session-refresh-loop.js\"",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 53072,
+  "ParentProcessId": 11444,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412618871)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 57320,
+  "ParentProcessId": 52952,
+  "Name": "cmd.exe",
+  "CreationDate": "/Date(1794412820115)/",
+  "CommandLine": "C:\\WINDOWS\\system32\\cmd.exe /d /s /c \"\"C:\\Users\\djlov\\AppData\\Local\\Packages\\Claude_pzs8sxrjxfjjc\\LocalCache\\Roaming\\Claude-NativeHost\\4.4212.0\\chrome-native-host.exe\" chrome-extension://fcoeoabgfenejglbffodgkkbkcdhcgfn/ --parent-window=0\" < \\\\.\\pipe\\chrome.nativeMessaging.in.99f28838a8ff29c4 > \\\\.\\pipe\\chrome.nativeMessaging.out.99f28838a8ff29c4",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 52408,
+  "ParentProcessId": 57320,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794412820124)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 79008,
+  "ParentProcessId": 5212,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794413670012)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 17160,
+  "ParentProcessId": 79008,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794413670016)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 76232,
+  "ParentProcessId": 79008,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794413681147)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 75824,
+  "ParentProcessId": 76232,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794413681151)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 78596,
+  "ParentProcessId": 79008,
+  "Name": "node.exe",
+  "CreationDate": "/Date(1794413682462)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 47440,
+  "ParentProcessId": 78596,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794413682466)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 77124,
+  "ParentProcessId": 5212,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794413682475)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 65416,
+  "ParentProcessId": 77124,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794413682479)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 64168,
+  "ParentProcessId": 41784,
+  "Name": "node.exe",
+  "CreationDate": "/Date(1794416294680)/",
+  "CommandLine": "\"C:\\Program Files\\nodejs\\node.EXE\" G:\\ciel-Walkie\\.local\\walkie-install\\walkie-presence-mcp.mjs G:\\ciel-Walkie\\.local\\walkie-install\\presence.json",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 76016,
+  "ParentProcessId": 64168,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794416294685)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 79412,
+  "ParentProcessId": 36344,
+  "Name": "bash.exe",
+  "CreationDate": "/Date(1794416436656)/",
+  "CommandLine": "\"C:\\Program Files\\Git\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412407706-7nxktj.sh 2>/dev/null || true && export TEMP='C:\\Users\\djlov\\AppData\\Local\\Temp' TMP='C:\\Users\\djlov\\AppData\\Local\\Temp' && shopt -u extglob 2>/dev/null || true && { \\builtin unalias -- 'which'; \\builtin unset -f -- 'which'; } >/dev/null 2>&1 || true && { \\builtin unalias -- 'unsetenv'; \\builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'until s=$(gh run view 43063857831 -R OneCiel/ciel-Walkie --json status,conclusion -q '\\\"'\\\"'.status+\\\"/\\\"+.conclusion'\\\"'\\\"' 2>/dev/null) && [ \\\"${s%%/*}\\\" = completed ]; do sleep 60; done; echo \\\"release 43063857831 $s $(date -u +%FT%TZ)\\\"; gh run view 43063857831 -R OneCiel/ciel-Walkie --json jobs -q '\\\"'\\\"'.jobs[] | .name+\\\" \\\"+.conclusion'\\\"'\\\"'' < /dev/null && pwd -P >| /c/Users/djlov/AppData/Local/Temp/claude-4ed7-cwd\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 78148,
+  "ParentProcessId": 79412,
+  "Name": "bash.exe",
+  "CreationDate": "/Date(1794416436664)/",
+  "CommandLine": "\"C:\\Program Files\\Git\\bin\\..\\usr\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412407706-7nxktj.sh 2>/dev/null || true && export TEMP='C:\\Users\\djlov\\AppData\\Local\\Temp' TMP='C:\\Users\\djlov\\AppData\\Local\\Temp' && shopt -u extglob 2>/dev/null || true && { \\builtin unalias -- 'which'; \\builtin unset -f -- 'which'; } >/dev/null 2>&1 || true && { \\builtin unalias -- 'unsetenv'; \\builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'until s=$(gh run view 43063857831 -R OneCiel/ciel-Walkie --json status,conclusion -q '\\\"'\\\"'.status+\\\"/\\\"+.conclusion'\\\"'\\\"' 2>/dev/null) && [ \\\"${s%%/*}\\\" = completed ]; do sleep 60; done; echo \\\"release 43063857831 $s $(date -u +%FT%TZ)\\\"; gh run view 43063857831 -R OneCiel/ciel-Walkie --json jobs -q '\\\"'\\\"'.jobs[] | .name+\\\" \\\"+.conclusion'\\\"'\\\"'' < /dev/null && pwd -P >| /c/Users/djlov/AppData/Local/Temp/claude-4ed7-cwd\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 76020,
+  "ParentProcessId": 78148,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794416436669)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 22212,
+  "ParentProcessId": 36344,
+  "Name": "bash.exe",
+  "CreationDate": "/Date(1794416690960)/",
+  "CommandLine": "\"C:\\Program Files\\Git\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412407706-7nxktj.sh 2>/dev/null || true && export TEMP='C:\\Users\\djlov\\AppData\\Local\\Temp' TMP='C:\\Users\\djlov\\AppData\\Local\\Temp' && shopt -u extglob 2>/dev/null || true && { \\builtin unalias -- 'which'; \\builtin unset -f -- 'which'; } >/dev/null 2>&1 || true && { \\builtin unalias -- 'unsetenv'; \\builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'until s=$(gh run view 43064552158 -R OneCiel/ciel-Walkie --json status,conclusion -q '\\\"'\\\"'.status+\\\"/\\\"+.conclusion'\\\"'\\\"' 2>/dev/null) && [ \\\"${s%%/*}\\\" = completed ]; do sleep 60; done; echo \\\"123199 CI 43064552158 $s $(date -u +%FT%TZ)\\\"; gh run view 43064552158 -R OneCiel/ciel-Walkie --json jobs -q '\\\"'\\\"'.jobs[] | select(.conclusion!=\\\"success\\\") | .name+\\\" \\\"+.conclusion'\\\"'\\\"'' < /dev/null && pwd -P >| /c/Users/djlov/AppData/Local/Temp/claude-ca5e-cwd\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 54520,
+  "ParentProcessId": 22212,
+  "Name": "bash.exe",
+  "CreationDate": "/Date(1794416690968)/",
+  "CommandLine": "\"C:\\Program Files\\Git\\bin\\..\\usr\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412407706-7nxktj.sh 2>/dev/null || true && export TEMP='C:\\Users\\djlov\\AppData\\Local\\Temp' TMP='C:\\Users\\djlov\\AppData\\Local\\Temp' && shopt -u extglob 2>/dev/null || true && { \\builtin unalias -- 'which'; \\builtin unset -f -- 'which'; } >/dev/null 2>&1 || true && { \\builtin unalias -- 'unsetenv'; \\builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'until s=$(gh run view 43064552158 -R OneCiel/ciel-Walkie --json status,conclusion -q '\\\"'\\\"'.status+\\\"/\\\"+.conclusion'\\\"'\\\"' 2>/dev/null) && [ \\\"${s%%/*}\\\" = completed ]; do sleep 60; done; echo \\\"123199 CI 43064552158 $s $(date -u +%FT%TZ)\\\"; gh run view 43064552158 -R OneCiel/ciel-Walkie --json jobs -q '\\\"'\\\"'.jobs[] | select(.conclusion!=\\\"success\\\") | .name+\\\" \\\"+.conclusion'\\\"'\\\"'' < /dev/null && pwd -P >| /c/Users/djlov/AppData/Local/Temp/claude-ca5e-cwd\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 24436,
+  "ParentProcessId": 54520,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794416690974)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 35392,
+  "ParentProcessId": 49616,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794419626775)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 70344,
+  "ParentProcessId": 35392,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794419626780)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 60660,
+  "ParentProcessId": 14860,
+  "Name": "node.exe",
+  "CreationDate": "/Date(1794420037347)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 58692,
+  "ParentProcessId": 60660,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794420037431)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 42456,
+  "ParentProcessId": 58692,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794420050800)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 55916,
+  "ParentProcessId": 58692,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794420054191)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 79704,
+  "ParentProcessId": 58692,
+  "Name": "cmd.exe",
+  "CreationDate": "/Date(1794420054195)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 59932,
+  "ParentProcessId": 58692,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794420054217)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 78028,
+  "ParentProcessId": 79704,
+  "Name": "claude.exe",
+  "CreationDate": "/Date(1794420054219)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 76248,
+  "ParentProcessId": 78028,
+  "Name": "cmd.exe",
+  "CreationDate": "/Date(1794420055735)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 24016,
+  "ParentProcessId": 76248,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794420055747)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 12780,
+  "ParentProcessId": 78028,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794420055751)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 75396,
+  "ParentProcessId": 12780,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794420055760)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 20548,
+  "ParentProcessId": 11712,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794420055768)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 78488,
+  "ParentProcessId": 6188,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794420055959)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 79620,
+  "ParentProcessId": 78488,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794420055973)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 59272,
+  "ParentProcessId": 76248,
+  "Name": "node.exe",
+  "CreationDate": "/Date(1794420055982)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 60140,
+  "ParentProcessId": 12780,
+  "Name": "node.exe",
+  "CreationDate": "/Date(1794420056284)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 67124,
+  "ParentProcessId": 60140,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794420056288)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 40940,
+  "ParentProcessId": 78028,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794420056573)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 67544,
+  "ParentProcessId": 40940,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794420056579)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 65280,
+  "ParentProcessId": 59272,
+  "Name": "cmd.exe",
+  "CreationDate": "/Date(1794420057071)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 65424,
+  "ParentProcessId": 65280,
+  "Name": "node.exe",
+  "CreationDate": "/Date(1794420057091)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 47352,
+  "ParentProcessId": 36344,
+  "Name": "bash.exe",
+  "CreationDate": "/Date(1794421791170)/",
+  "CommandLine": "\"C:\\Program Files\\Git\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412407706-7nxktj.sh 2>/dev/null || true && export TEMP='C:\\Users\\djlov\\AppData\\Local\\Temp' TMP='C:\\Users\\djlov\\AppData\\Local\\Temp' && shopt -u extglob 2>/dev/null || true && { \\builtin unalias -- 'which'; \\builtin unset -f -- 'which'; } >/dev/null 2>&1 || true && { \\builtin unalias -- 'unsetenv'; \\builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'cd /g/ciel-Walkie && until s=$(gh run view 43078275384 -R OneCiel/ciel-Walkie --json status,conclusion -q '\\\"'\\\"'.status+\\\"/\\\"+.conclusion'\\\"'\\\"' 2>/dev/null) && [ \\\"${s%%/*}\\\" = completed ]; do sleep 60; done; echo \\\"123230 CI 43078275384 $s $(date -u +%FT%TZ)\\\"; gh run view 43078275384 -R OneCiel/ciel-Walkie --json jobs -q '\\\"'\\\"'.jobs[] | select(.conclusion!=\\\"success\\\") | .name+\\\" \\\"+.conclusion'\\\"'\\\"'' < /dev/null && pwd -P >| /c/Users/djlov/AppData/Local/Temp/claude-486c-cwd\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 38808,
+  "ParentProcessId": 47352,
+  "Name": "bash.exe",
+  "CreationDate": "/Date(1794421791179)/",
+  "CommandLine": "\"C:\\Program Files\\Git\\bin\\..\\usr\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412407706-7nxktj.sh 2>/dev/null || true && export TEMP='C:\\Users\\djlov\\AppData\\Local\\Temp' TMP='C:\\Users\\djlov\\AppData\\Local\\Temp' && shopt -u extglob 2>/dev/null || true && { \\builtin unalias -- 'which'; \\builtin unset -f -- 'which'; } >/dev/null 2>&1 || true && { \\builtin unalias -- 'unsetenv'; \\builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'cd /g/ciel-Walkie && until s=$(gh run view 43078275384 -R OneCiel/ciel-Walkie --json status,conclusion -q '\\\"'\\\"'.status+\\\"/\\\"+.conclusion'\\\"'\\\"' 2>/dev/null) && [ \\\"${s%%/*}\\\" = completed ]; do sleep 60; done; echo \\\"123230 CI 43078275384 $s $(date -u +%FT%TZ)\\\"; gh run view 43078275384 -R OneCiel/ciel-Walkie --json jobs -q '\\\"'\\\"'.jobs[] | select(.conclusion!=\\\"success\\\") | .name+\\\" \\\"+.conclusion'\\\"'\\\"'' < /dev/null && pwd -P >| /c/Users/djlov/AppData/Local/Temp/claude-486c-cwd\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 76760,
+  "ParentProcessId": 38808,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794421791185)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 54956,
+  "ParentProcessId": 52952,
+  "Name": "cmd.exe",
+  "CreationDate": "/Date(1794425180585)/",
+  "CommandLine": "C:\\WINDOWS\\system32\\cmd.exe /d /s /c \"\"C:\\Users\\djlov\\AppData\\Local\\Microsoft\\WindowsApps\\OpenAI.Codex_2p2nqsd0c76g0\\codex-chrome-native-host.exe\" chrome-extension://hehggadaopoacecdllhhajmbjkdcmajg/ --parent-window=0\" < \\\\.\\pipe\\chrome.nativeMessaging.in.d617a8e1c79ae5af > \\\\.\\pipe\\chrome.nativeMessaging.out.d617a8e1c79ae5af",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 78732,
+  "ParentProcessId": 54956,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794425180599)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 19644,
+  "ParentProcessId": 52952,
+  "Name": "cmd.exe",
+  "CreationDate": "/Date(1794425405072)/",
+  "CommandLine": "C:\\WINDOWS\\system32\\cmd.exe /d /s /c \"\"C:\\Users\\djlov\\AppData\\Local\\Microsoft\\WindowsApps\\OpenAI.Codex_2p2nqsd0c76g0\\codex-chrome-native-host.exe\" chrome-extension://hehggadaopoacecdllhhajmbjkdcmajg/ --parent-window=0\" < \\\\.\\pipe\\chrome.nativeMessaging.in.5baf164f17445f39 > \\\\.\\pipe\\chrome.nativeMessaging.out.5baf164f17445f39",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 59360,
+  "ParentProcessId": 19644,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794425405084)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 69808,
+  "ParentProcessId": 52952,
+  "Name": "cmd.exe",
+  "CreationDate": "/Date(1794425450690)/",
+  "CommandLine": "C:\\WINDOWS\\system32\\cmd.exe /d /s /c \"\"C:\\Program Files\\WindowsApps\\AppleInc.iCloud_15.10.39.0_x64__nzyj5cx40ttqa\\iCloud\\iCloudPasswordsExtensionHelper.exe\" chrome-extension://pejdijmoenmkgeppbflobdenhhabjlaj/ --parent-window=0\" < \\\\.\\pipe\\chrome.nativeMessaging.in.70e26f610d739eb2 > \\\\.\\pipe\\chrome.nativeMessaging.out.70e26f610d739eb2",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 70008,
+  "ParentProcessId": 69808,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794425450704)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 49164,
+  "ParentProcessId": 36344,
+  "Name": "bash.exe",
+  "CreationDate": "/Date(1794426187386)/",
+  "CommandLine": "\"C:\\Program Files\\Git\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412407706-7nxktj.sh 2>/dev/null || true && export TEMP='C:\\Users\\djlov\\AppData\\Local\\Temp' TMP='C:\\Users\\djlov\\AppData\\Local\\Temp' && shopt -u extglob 2>/dev/null || true && { \\builtin unalias -- 'which'; \\builtin unset -f -- 'which'; } >/dev/null 2>&1 || true && { \\builtin unalias -- 'unsetenv'; \\builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'until s=$(gh run view 43064552158 -R OneCiel/ciel-Walkie --json status,conclusion -q '\\\"'\\\"'.status+\\\"/\\\"+.conclusion'\\\"'\\\"' 2>/dev/null) && [ \\\"${s%%/*}\\\" = completed ]; do sleep 90; done; echo \\\"123199 CI 43064552158 attempt2 $s $(date -u +%FT%TZ)\\\"; gh run view 43064552158 -R OneCiel/ciel-Walkie --json jobs -q '\\\"'\\\"'.jobs[] | select(.conclusion!=\\\"success\\\") | .name+\\\" \\\"+.conclusion'\\\"'\\\"'' < /dev/null && pwd -P >| /c/Users/djlov/AppData/Local/Temp/claude-3f2f-cwd\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 66288,
+  "ParentProcessId": 49164,
+  "Name": "bash.exe",
+  "CreationDate": "/Date(1794426187396)/",
+  "CommandLine": "\"C:\\Program Files\\Git\\bin\\..\\usr\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412407706-7nxktj.sh 2>/dev/null || true && export TEMP='C:\\Users\\djlov\\AppData\\Local\\Temp' TMP='C:\\Users\\djlov\\AppData\\Local\\Temp' && shopt -u extglob 2>/dev/null || true && { \\builtin unalias -- 'which'; \\builtin unset -f -- 'which'; } >/dev/null 2>&1 || true && { \\builtin unalias -- 'unsetenv'; \\builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'until s=$(gh run view 43064552158 -R OneCiel/ciel-Walkie --json status,conclusion -q '\\\"'\\\"'.status+\\\"/\\\"+.conclusion'\\\"'\\\"' 2>/dev/null) && [ \\\"${s%%/*}\\\" = completed ]; do sleep 90; done; echo \\\"123199 CI 43064552158 attempt2 $s $(date -u +%FT%TZ)\\\"; gh run view 43064552158 -R OneCiel/ciel-Walkie --json jobs -q '\\\"'\\\"'.jobs[] | select(.conclusion!=\\\"success\\\") | .name+\\\" \\\"+.conclusion'\\\"'\\\"'' < /dev/null && pwd -P >| /c/Users/djlov/AppData/Local/Temp/claude-3f2f-cwd\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 53804,
+  "ParentProcessId": 66288,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794426187401)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 48892,
+  "ParentProcessId": 36344,
+  "Name": "bash.exe",
+  "CreationDate": "/Date(1794431746835)/",
+  "CommandLine": "\"C:\\Program Files\\Git\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412407706-7nxktj.sh 2>/dev/null || true && export TEMP='C:\\Users\\djlov\\AppData\\Local\\Temp' TMP='C:\\Users\\djlov\\AppData\\Local\\Temp' && shopt -u extglob 2>/dev/null || true && { \\builtin unalias -- 'which'; \\builtin unset -f -- 'which'; } >/dev/null 2>&1 || true && { \\builtin unalias -- 'unsetenv'; \\builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'export MSYS_NO_PATHCONV=1; cd /g/ciel-Walkie; for i in $(seq 1 20); do r=$(gh run list -R OneCiel/ciel-Walkie --workflow release.yml --branch main --limit 1 --json databaseId,headSha,status -q '\\\"'\\\"'.[0] | select(.headSha|startswith(\\\"bc20829d\\\")) | .databaseId'\\\"'\\\"' 2>/dev/null); [ -n \\\"$r\\\" ] && break; sleep 15; done; echo \\\"release run $r\\\"; until s=$(gh run view $r -R OneCiel/ciel-Walkie --json status,conclusion -q '\\\"'\\\"'.status+\\\"/\\\"+.conclusion'\\\"'\\\"' 2>/dev/null) && [ \\\"${s%%/*}\\\" = completed ]; do sleep 45; done; echo \\\"release $r $s $(date -u +%FT%TZ)\\\"; gh run view $r -R OneCiel/ciel-Walkie --json jobs -q '\\\"'\\\"'.jobs[] | .name+\\\" \\\"+.conclusion+\\\" \\\"+(.startedAt//\\\"\\\")+\\\" \\\"+(.completedAt//\\\"\\\")'\\\"'\\\"'' < /dev/null && pwd -P >| /c/Users/djlov/AppData/Local/Temp/claude-e179-cwd\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 56900,
+  "ParentProcessId": 48892,
+  "Name": "bash.exe",
+  "CreationDate": "/Date(1794431746844)/",
+  "CommandLine": "\"C:\\Program Files\\Git\\bin\\..\\usr\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412407706-7nxktj.sh 2>/dev/null || true && export TEMP='C:\\Users\\djlov\\AppData\\Local\\Temp' TMP='C:\\Users\\djlov\\AppData\\Local\\Temp' && shopt -u extglob 2>/dev/null || true && { \\builtin unalias -- 'which'; \\builtin unset -f -- 'which'; } >/dev/null 2>&1 || true && { \\builtin unalias -- 'unsetenv'; \\builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'export MSYS_NO_PATHCONV=1; cd /g/ciel-Walkie; for i in $(seq 1 20); do r=$(gh run list -R OneCiel/ciel-Walkie --workflow release.yml --branch main --limit 1 --json databaseId,headSha,status -q '\\\"'\\\"'.[0] | select(.headSha|startswith(\\\"bc20829d\\\")) | .databaseId'\\\"'\\\"' 2>/dev/null); [ -n \\\"$r\\\" ] && break; sleep 15; done; echo \\\"release run $r\\\"; until s=$(gh run view $r -R OneCiel/ciel-Walkie --json status,conclusion -q '\\\"'\\\"'.status+\\\"/\\\"+.conclusion'\\\"'\\\"' 2>/dev/null) && [ \\\"${s%%/*}\\\" = completed ]; do sleep 45; done; echo \\\"release $r $s $(date -u +%FT%TZ)\\\"; gh run view $r -R OneCiel/ciel-Walkie --json jobs -q '\\\"'\\\"'.jobs[] | .name+\\\" \\\"+.conclusion+\\\" \\\"+(.startedAt//\\\"\\\")+\\\" \\\"+(.completedAt//\\\"\\\")'\\\"'\\\"'' < /dev/null && pwd -P >| /c/Users/djlov/AppData/Local/Temp/claude-e179-cwd\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 74172,
+  "ParentProcessId": 56900,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794431746850)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 3052,
+  "ParentProcessId": 12240,
+  "Name": "bash.exe",
+  "CreationDate": "/Date(1794433615002)/",
+  "CommandLine": "\"C:\\Program Files\\Git\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412277155-1g0kbk.sh 2>/dev/null || true && export TEMP='C:\\Users\\djlov\\AppData\\Local\\Temp' TMP='C:\\Users\\djlov\\AppData\\Local\\Temp' && shopt -u extglob 2>/dev/null || true && { \\builtin unalias -- 'which'; \\builtin unset -f -- 'which'; } >/dev/null 2>&1 || true && { \\builtin unalias -- 'unsetenv'; \\builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'bash /c/Users/djlov/ciel-runtime/.local/tmp/work-parallel/.local/tmp/groups-sse-378f6d73/run.sh' < /dev/null && pwd -P >| /c/Users/djlov/AppData/Local/Temp/claude-83a9-cwd\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 67712,
+  "ParentProcessId": 3052,
+  "Name": "bash.exe",
+  "CreationDate": "/Date(1794433615013)/",
+  "CommandLine": "\"C:\\Program Files\\Git\\bin\\..\\usr\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412277155-1g0kbk.sh 2>/dev/null || true && export TEMP='C:\\Users\\djlov\\AppData\\Local\\Temp' TMP='C:\\Users\\djlov\\AppData\\Local\\Temp' && shopt -u extglob 2>/dev/null || true && { \\builtin unalias -- 'which'; \\builtin unset -f -- 'which'; } >/dev/null 2>&1 || true && { \\builtin unalias -- 'unsetenv'; \\builtin unset -f -- 'unsetenv'; } >/dev/null 2>&1 || true && eval 'bash /c/Users/djlov/ciel-runtime/.local/tmp/work-parallel/.local/tmp/groups-sse-378f6d73/run.sh' < /dev/null && pwd -P >| /c/Users/djlov/AppData/Local/Temp/claude-83a9-cwd\"",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 74292,
+  "ParentProcessId": 67712,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794433615034)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 64848,
+  "ParentProcessId": 76956,
+  "Name": "bash.exe",
+  "CreationDate": "/Date(1794433615079)/",
+  "CommandLine": "\"C:\\Program Files\\Git\\usr\\bin\\bash.exe\" /c/Users/djlov/ciel-runtime/.local/tmp/work-parallel/.local/tmp/groups-sse-378f6d73/run.sh",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 69448,
+  "ParentProcessId": 73580,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794433843928)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 78612,
+  "ParentProcessId": 38792,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794433844471)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 75912,
+  "ParentProcessId": 64580,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794434351136)/",
+  "CommandLine": null,
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 53888,
+  "ParentProcessId": 64848,
+  "Name": "bash.exe",
+  "CreationDate": "/Date(1794434378729)/",
+  "CommandLine": "\"C:\\Program Files\\Git\\usr\\bin\\bash.exe\" /c/Users/djlov/ciel-runtime/.local/tmp/work-parallel/.local/tmp/groups-sse-378f6d73/run.sh",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 39728,
+  "ParentProcessId": 53888,
+  "Name": "py.exe",
+  "CreationDate": "/Date(1794434378738)/",
+  "CommandLine": "C:\\WINDOWS\\py.exe -3.11 -X utf8 scripts/run_test_group.py router",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 45488,
+  "ParentProcessId": 39728,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794434378751)/",
+  "CommandLine": "\"C:\\Program Files\\Python311\\python.exe\" -X utf8 scripts/run_test_group.py router",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 26888,
+  "ParentProcessId": 19444,
+  "Name": "python.exe",
+  "CreationDate": "/Date(1794434799107)/",
+  "CommandLine": "\"C:\\Program Files\\Python311\\python.exe\" -B C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\walkie_e2e_driver_v3.py A --output C:/Users/djlov/ciel-runtime/.local/tmp/work-parallel/docs/journal/2026/11/11/features/sse-native-fork/e2e-source",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 21816,
+  "ParentProcessId": 59104,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794434799368)/",
+  "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4",
+  "protected_tree": false
+ },
+ {
+  "ProcessId": 72084,
+  "ParentProcessId": 36344,
+  "Name": "bash.exe",
+  "CreationDate": "/Date(1794434800067)/",
+  "CommandLine": null,
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 68336,
+  "ParentProcessId": 36344,
+  "Name": "bash.exe",
+  "CreationDate": "/Date(1794434800071)/",
+  "CommandLine": null,
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 60200,
+  "ParentProcessId": 72084,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794434800071)/",
+  "CommandLine": null,
+  "protected_tree": true
+ },
+ {
+  "ProcessId": 35280,
+  "ParentProcessId": 68336,
+  "Name": "conhost.exe",
+  "CreationDate": "/Date(1794434800074)/",
+  "CommandLine": null,
+  "protected_tree": true
+ }
+]

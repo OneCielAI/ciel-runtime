@@ -1,0 +1,8 @@
+{
+ "attempt": 3,
+ "verdict": "harness_failure",
+ "driver": "walkie_e2e_driver_v2.py run via py.exe launcher as a child of the Bash tool",
+ "observed": "driver exited 130 at 10:17:14 (~97 s); no console capture, no result.json; owned temp config received no router state; no owned process left afterwards",
+ "cause": "not determined. Exit 130 = the py.exe launcher ended by a console control event; its job object then ended the python child before it logged. Fixed by starting the driver detached (start_detached.py), python.exe directly, with a console control handler.",
+ "product_defect": false
+}

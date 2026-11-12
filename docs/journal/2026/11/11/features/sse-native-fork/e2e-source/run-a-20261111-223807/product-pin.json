@@ -1,0 +1,18 @@
+{
+ "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js": {
+  "expected": "eab3ad333104d0914e7dee552f241c23eb873405c85330514b9c6a9d337db31b",
+  "run_copy": "eab3ad333104d0914e7dee552f241c23eb873405c85330514b9c6a9d337db31b"
+ },
+ "ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js": {
+  "expected": "9b9550685fa278f330f45b06a1a996ac6e52c7034c208f38518d8ebd1a47d1af",
+  "run_copy": "9b9550685fa278f330f45b06a1a996ac6e52c7034c208f38518d8ebd1a47d1af"
+ },
+ "ciel_runtime_support/claude_mods/ciel-work/types/index.d.ts": {
+  "expected": "542ff492abb1eb2f2363c45acc8eaa75002a71cbca4772aa6474537eece6030a",
+  "run_copy": "542ff492abb1eb2f2363c45acc8eaa75002a71cbca4772aa6474537eece6030a"
+ },
+ "ciel_runtime_support/work_parallel_mcp.py": {
+  "expected": "3521486981a1d99891094c56bf63e36cf4a958d5504cc2cef3c7a146ac17f717",
+  "run_copy": "3521486981a1d99891094c56bf63e36cf4a958d5504cc2cef3c7a146ac17f717"
+ }
+}

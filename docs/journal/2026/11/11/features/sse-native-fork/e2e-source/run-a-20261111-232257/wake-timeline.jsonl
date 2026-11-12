@@ -1,0 +1,5 @@
+{"at": 1794461028.1754563, "event": "96779bc936f8", "handoff_state": "requested", "kind": "time_limit", "wake_state": "pending", "phase": null, "channel": null, "revision": null}
+{"at": 1794461028.42945, "event": "96779bc936f8", "handoff_state": "requested", "kind": "time_limit", "wake_state": "submitting", "phase": "intent", "channel": "prompt", "revision": 1}
+{"at": 1794461028.6915374, "event": "96779bc936f8", "handoff_state": "requested", "kind": "time_limit", "wake_state": "submitting", "phase": "started", "channel": "prompt", "revision": 2}
+{"at": 1794461029.4536264, "event": "96779bc936f8", "handoff_state": "requested", "kind": "time_limit", "wake_state": "queued", "phase": "started", "channel": "prompt", "revision": 3}
+{"at": 1794461029.7077134, "event": "96779bc936f8", "handoff_state": "acknowledged", "kind": "time_limit", "wake_state": "acknowledged", "phase": "started", "channel": "prompt", "revision": 3}

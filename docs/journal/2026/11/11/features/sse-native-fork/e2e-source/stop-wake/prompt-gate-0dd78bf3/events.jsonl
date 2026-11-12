@@ -1,0 +1,14 @@
+{"seq": 1, "at": 1794437043168, "event": "session.start"}
+{"seq": 2, "at": 1794437045217, "event": "p1.invoke"}
+{"seq": 3, "at": 1794437045220, "event": "p2.invoke"}
+{"seq": 4, "at": 1794437045270, "event": "turn.start", "turnId": "ea2f88a0-7f38-4dfb-8ded-ae85a94a815e", "text": "The prompt-gate-probe plugin sent a message:\nPROMPT-GATE-P1-0dd78bf3\n\nThis is how Claude Code surfac"}
+{"seq": 5, "at": 1794437045272, "event": "p1.resolve", "value": {"text": "PROMPT-GATE-P1-0dd78bf3", "origin": {"kind": "plugin", "name": "prompt-gate-probe"}}}
+{"seq": 6, "at": 1794437045288, "event": "append.invoke"}
+{"seq": 7, "at": 1794437045332, "event": "turn.step", "turnId": "ea2f88a0-7f38-4dfb-8ded-ae85a94a815e", "index": 0, "messageCount": 6}
+{"seq": 8, "at": 1794437045351, "event": "append.resolve", "uuid": "a2579fb0-074a-4d0e-b486-ac2bae07f132", "deny": null}
+{"seq": 9, "at": 1794437049418, "event": "turn.complete", "turnId": "ea2f88a0-7f38-4dfb-8ded-ae85a94a815e", "reason": "answer"}
+{"seq": 10, "at": 1794437049460, "event": "p2.resolve", "value": {"text": "PROMPT-GATE-P2-0dd78bf3", "origin": {"kind": "plugin", "name": "prompt-gate-probe"}}}
+{"seq": 11, "at": 1794437049477, "event": "turn.start", "turnId": "510d6b20-5105-4f37-9b06-956fd0c50f6f", "text": "The prompt-gate-probe plugin sent a message:\nPROMPT-GATE-P2-0dd78bf3\n\nThis is how Claude Code surfac"}
+{"seq": 12, "at": 1794437049482, "event": "all.settled"}
+{"seq": 13, "at": 1794437049489, "event": "turn.step", "turnId": "510d6b20-5105-4f37-9b06-956fd0c50f6f", "index": 0, "messageCount": 11}
+{"seq": 14, "at": 1794437049547, "event": "turn.complete", "turnId": "510d6b20-5105-4f37-9b06-956fd0c50f6f", "reason": "answer"}

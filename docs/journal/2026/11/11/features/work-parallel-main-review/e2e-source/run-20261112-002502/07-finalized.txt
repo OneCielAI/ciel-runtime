@@ -1,0 +1,29 @@
+  changed it. I approved because the code as it stands now meets the requirement.
+
+  I didn't write a journal entry under docs/ (your CLAUDE.md asks for one per task) because that would be a change
+  outside the approved Work scope.
+
+> /work-mode
+  ⎿  ciel-work: Ciel Work parallel
+     FORKS: 0 confirmed by native agent list · main is coordinator, never a fork · side actors are separate
+     DEVICE: slots 0/6 · per priority P1 0/2 · P2 0/1 · P3 0/1 · P4 0/1 · P5 0/1
+     Policy: enabled · ledger v38 · launches/min 24 · max rework 2
+     ENDED (5)
+       n2 → work-auto-mwdafxpn-6cjofa41sbu · P1 worker · lease done · native idle · slot released
+       n4 → work-auto-mwdafzbn-pgyjyf3jo5s · P1 worker · lease done · native idle · slot released
+       n4 → work-rework-70318b411e443780678d90136d76e623-a2 · P1 resume · lease done · native idle · slot released
+       n6 → work-auto-mwdag0xh-bmyvue5arjw · P2 worker · lease done · native idle · slot released
+       n8 → work-auto-mwdag41m-f4motimdkc8 · P3 worker · lease done · native idle · slot released
+     Pending native Agent dispatch: 0
+     Settings: ciel-runtime menu → LLM options → Work 병렬 실행. Policy changes do not terminate existing workers.
+
+✻ Cooked for 32s · done 12:36 AM
+w: Work 0/1 [ ] Failing implementation then rework [+]                                                              [-]
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [_Walkie_Opus55-Sol61-Fast (cielairouter)] workspace | SSE gate on: open | ctx 93,511/872,000 tok (10.7%) | cache 9…
+  [work] 1/1 complete
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+                                                                                                         work: run 0/1

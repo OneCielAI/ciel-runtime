@@ -1,0 +1,61 @@
+{
+  "module_sha256": "797bba5ccb5e25bd2041b5366f238fb3b0d69f14536e4a5d4d4ec01221a91fb0",
+  "test_sha256": "e9eb56f955bbefc0f58948c0a82d714249c0b0cf3a6dba5b0562c1ab34f6ab2e",
+  "python": "3.11.6",
+  "mutants": {
+    "no_child_time_check": {
+      "applied": true,
+      "returncode": 1,
+      "failing": [
+        "test_child_older_than_parent_is_refused"
+      ]
+    },
+    "no_leaf_order": {
+      "applied": true,
+      "returncode": 1,
+      "failing": [
+        "test_child_spawned_during_cleanup_is_killed_before_parent",
+        "test_leaf_first_order_and_no_tree_flag"
+      ]
+    },
+    "taskkill_tree_flag": {
+      "applied": true,
+      "returncode": 1,
+      "failing": [
+        "test_child_older_than_parent_is_refused",
+        "test_child_spawned_during_cleanup_is_killed_before_parent",
+        "test_leaf_first_order_and_no_tree_flag",
+        "test_pid_reused_before_kill_is_not_killed",
+        "test_same_pid_with_other_creation_date_is_not_protected_match"
+      ]
+    },
+    "no_protected_check": {
+      "applied": true,
+      "returncode": 1,
+      "failing": [
+        "test_protected_identity_refuses_before_any_kill"
+      ]
+    },
+    "pid_only_identity": {
+      "applied": true,
+      "returncode": 1,
+      "failing": [
+        "test_pid_reused_before_kill_is_not_killed"
+      ]
+    }
+  },
+  "baseline": {
+    "returncode": 0,
+    "status": {
+      "test_absent_root_is_refused": "ok",
+      "test_child_older_than_parent_is_refused": "ok",
+      "test_child_spawned_during_cleanup_is_killed_before_parent": "ok",
+      "test_leaf_first_order_and_no_tree_flag": "ok",
+      "test_pid_reused_before_kill_is_not_killed": "ok",
+      "test_protected_identity_refuses_before_any_kill": "ok",
+      "test_same_pid_with_other_creation_date_is_not_protected_match": "ok"
+    }
+  },
+  "module_unchanged": true,
+  "all_mutants_detected": true
+}

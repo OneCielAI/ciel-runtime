@@ -1,0 +1,894 @@
+{
+  "probe": "df88e27b",
+  "run_dir": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-state-fence-df88e27b-ky9zuqv1",
+  "cli": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+  "session_id": "f17c4be5-6a0e-4841-9ef1-865ffdce29d7",
+  "cli_version": "2.1.322 (Claude Code)",
+  "protected_count": 63,
+  "inherited_ciel_after_strip": [],
+  "pid": 13676,
+  "gen_a_cross_read": true,
+  "gen_a_hold_arrived": true,
+  "root_created": "2026-11-11T21:01:17.0587810Z",
+  "token_found": true,
+  "prompt_sent_at": 1794430880.9419694,
+  "messages_event": true,
+  "reload_written_at": 1794430881.4441335,
+  "gen_b_after_reload": true,
+  "gen_b_hold_arrived": true,
+  "a_hold_open_before_release": true,
+  "released_at": 1794430883.447668,
+  "same_process_after_reload": true,
+  "transcripts": [
+    "projects\\C--Users-djlov-AppData-Local-Temp-ciel-state-fence-df88e27b-ky9zuqv1-workspace\\f17c4be5-6a0e-4841-9ef1-865ffdce29d7.jsonl"
+  ],
+  "events_a": [
+    {
+      "gen": "A",
+      "boot": "oeejd76otn",
+      "at": 1794430877728,
+      "event": "session.start"
+    },
+    {
+      "gen": "A",
+      "boot": "oeejd76otn",
+      "at": 1794430877813,
+      "event": "initial-reads",
+      "fence": {
+        "ok": true,
+        "value": {
+          "version": 0
+        }
+      },
+      "cross": {
+        "ok": true,
+        "value": {
+          "version": 0
+        }
+      }
+    },
+    {
+      "gen": "A",
+      "boot": "oeejd76otn",
+      "at": 1794430877824,
+      "event": "same-instance-race",
+      "ifVersion": 0,
+      "results": [
+        {
+          "ok": true,
+          "value": {
+            "isSet": true,
+            "version": 1
+          }
+        },
+        {
+          "ok": true,
+          "value": {
+            "isSet": false,
+            "version": 1
+          }
+        }
+      ],
+      "after": {
+        "ok": true,
+        "value": {
+          "value": {
+            "by": "A-1"
+          },
+          "version": 1
+        }
+      }
+    },
+    {
+      "gen": "A",
+      "boot": "oeejd76otn",
+      "at": 1794430877837,
+      "event": "fence-take",
+      "had": [],
+      "ifVersion": 0,
+      "take": {
+        "ok": true,
+        "value": {
+          "isSet": true,
+          "version": 1
+        }
+      },
+      "after": {
+        "ok": true,
+        "value": {
+          "value": [
+            "attempt-X"
+          ],
+          "version": 1
+        }
+      }
+    },
+    {
+      "gen": "A",
+      "boot": "oeejd76otn",
+      "at": 1794430877844,
+      "event": "cross-read",
+      "read": {
+        "ok": true,
+        "value": {
+          "version": 0
+        }
+      }
+    },
+    {
+      "gen": "A",
+      "boot": "oeejd76otn",
+      "at": 1794430881117,
+      "event": "session.append-hook",
+      "door": "note",
+      "uuid": "33ee3927-a9d4-4685-aefc-26302b8630be",
+      "resultUuid": "33ee3927-a9d4-4685-aefc-26302b8630be"
+    },
+    {
+      "gen": "A",
+      "boot": "oeejd76otn",
+      "at": 1794430881139,
+      "event": "append",
+      "index": 0,
+      "turnId": "445b79c5-1e74-45f6-8e40-6154e1342c66",
+      "result": {
+        "keys": [
+          "message",
+          "uuid"
+        ],
+        "uuid": "33ee3927-a9d4-4685-aefc-26302b8630be",
+        "deny": null,
+        "message": {
+          "type": "user",
+          "role": "user",
+          "isMeta": true,
+          "content": [
+            {
+              "type": "text",
+              "text": "APPEND-PROBE-MARK oeejd76otn"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "gen": "A",
+      "boot": "oeejd76otn",
+      "at": 1794430881250,
+      "event": "messages",
+      "uuid": "33ee3927-a9d4-4685-aefc-26302b8630be",
+      "plain": [
+        {
+          "keys": [
+            "role",
+            "text",
+            "toolUses"
+          ],
+          "role": "assistant",
+          "uuid": null,
+          "text": "OK"
+        }
+      ],
+      "empty": [
+        {
+          "keys": [
+            "role",
+            "text",
+            "toolUses"
+          ],
+          "role": "assistant",
+          "uuid": null,
+          "text": "OK"
+        }
+      ],
+      "api": [
+        {
+          "keys": [
+            "content",
+            "role"
+          ],
+          "role": "user",
+          "uuid": null,
+          "text": "[{\"type\":\"text\",\"text\":\"<system-reminder>\\nCodebase and user instructions are shown below. Be sure to adhere to these instructions. IMPORTANT: These instruction"
+        },
+        {
+          "keys": [
+            "content",
+            "role"
+          ],
+          "role": "assistant",
+          "uuid": null,
+          "text": "[{\"type\":\"text\",\"text\":\"OK\"}]"
+        }
+      ],
+      "uuidInPlain": false,
+      "uuidInEmpty": false,
+      "uuidInApi": false
+    }
+  ],
+  "events_b": [
+    {
+      "gen": "B",
+      "boot": "sud7lgto44j",
+      "at": 1794430882248,
+      "event": "session.start"
+    },
+    {
+      "gen": "B",
+      "boot": "sud7lgto44j",
+      "at": 1794430882291,
+      "event": "initial-reads",
+      "fence": {
+        "ok": true,
+        "value": {
+          "value": [
+            "attempt-X"
+          ],
+          "version": 1
+        }
+      },
+      "cross": {
+        "ok": true,
+        "value": {
+          "version": 0
+        }
+      }
+    },
+    {
+      "gen": "B",
+      "boot": "sud7lgto44j",
+      "at": 1794430882300,
+      "event": "same-instance-race",
+      "ifVersion": 0,
+      "results": [
+        {
+          "ok": true,
+          "value": {
+            "isSet": true,
+            "version": 1
+          }
+        },
+        {
+          "ok": true,
+          "value": {
+            "isSet": false,
+            "version": 1
+          }
+        }
+      ],
+      "after": {
+        "ok": true,
+        "value": {
+          "value": {
+            "by": "B-1"
+          },
+          "version": 1
+        }
+      }
+    },
+    {
+      "gen": "B",
+      "boot": "sud7lgto44j",
+      "at": 1794430882311,
+      "event": "fence-after-reload",
+      "seen": {
+        "ok": true,
+        "value": {
+          "value": [
+            "attempt-X"
+          ],
+          "version": 1
+        }
+      },
+      "stale": {
+        "ok": true,
+        "value": {
+          "isSet": false,
+          "version": 1
+        }
+      },
+      "after": {
+        "ok": true,
+        "value": {
+          "value": [
+            "attempt-X"
+          ],
+          "version": 1
+        }
+      }
+    },
+    {
+      "gen": "B",
+      "boot": "sud7lgto44j",
+      "at": 1794430882319,
+      "event": "cross-read",
+      "read": {
+        "ok": true,
+        "value": {
+          "version": 0
+        }
+      }
+    },
+    {
+      "gen": "B",
+      "boot": "sud7lgto44j",
+      "at": 1794430883452,
+      "event": "cross-write",
+      "held": {
+        "ok": true,
+        "status": 200
+      },
+      "ifVersion": 0,
+      "write": {
+        "ok": true,
+        "value": {
+          "isSet": true,
+          "version": 1
+        }
+      }
+    },
+    {
+      "gen": "B",
+      "boot": "sud7lgto44j",
+      "at": 1794430883468,
+      "event": "cross-final",
+      "final": {
+        "ok": true,
+        "value": {
+          "value": {
+            "by": "B",
+            "boot": "sud7lgto44j"
+          },
+          "version": 1
+        }
+      },
+      "fence": {
+        "ok": true,
+        "value": {
+          "value": [
+            "attempt-X"
+          ],
+          "version": 1
+        }
+      }
+    }
+  ],
+  "reports": [
+    {
+      "gen": "A",
+      "boot": "oeejd76otn",
+      "at": 1794430877798,
+      "event": "session.start",
+      "received_at": 1794430877.8054056
+    },
+    {
+      "gen": "A",
+      "boot": "oeejd76otn",
+      "at": 1794430877819,
+      "event": "initial-reads",
+      "fence": {
+        "ok": true,
+        "value": {
+          "version": 0
+        }
+      },
+      "cross": {
+        "ok": true,
+        "value": {
+          "version": 0
+        }
+      },
+      "received_at": 1794430877.8224666
+    },
+    {
+      "gen": "A",
+      "boot": "oeejd76otn",
+      "at": 1794430877827,
+      "event": "same-instance-race",
+      "ifVersion": 0,
+      "results": [
+        {
+          "ok": true,
+          "value": {
+            "isSet": true,
+            "version": 1
+          }
+        },
+        {
+          "ok": true,
+          "value": {
+            "isSet": false,
+            "version": 1
+          }
+        }
+      ],
+      "after": {
+        "ok": true,
+        "value": {
+          "value": {
+            "by": "A-1"
+          },
+          "version": 1
+        }
+      },
+      "received_at": 1794430877.8350313
+    },
+    {
+      "gen": "A",
+      "boot": "oeejd76otn",
+      "at": 1794430877839,
+      "event": "fence-take",
+      "had": [],
+      "ifVersion": 0,
+      "take": {
+        "ok": true,
+        "value": {
+          "isSet": true,
+          "version": 1
+        }
+      },
+      "after": {
+        "ok": true,
+        "value": {
+          "value": [
+            "attempt-X"
+          ],
+          "version": 1
+        }
+      },
+      "received_at": 1794430877.8420475
+    },
+    {
+      "gen": "A",
+      "boot": "oeejd76otn",
+      "at": 1794430877849,
+      "event": "cross-read",
+      "read": {
+        "ok": true,
+        "value": {
+          "version": 0
+        }
+      },
+      "received_at": 1794430877.8520713
+    },
+    {
+      "gen": "A",
+      "boot": "oeejd76otn",
+      "at": 1794430881134,
+      "event": "session.append-hook",
+      "door": "note",
+      "uuid": "33ee3927-a9d4-4685-aefc-26302b8630be",
+      "resultUuid": "33ee3927-a9d4-4685-aefc-26302b8630be",
+      "received_at": 1794430881.1375942
+    },
+    {
+      "gen": "A",
+      "boot": "oeejd76otn",
+      "at": 1794430881149,
+      "event": "append",
+      "index": 0,
+      "turnId": "445b79c5-1e74-45f6-8e40-6154e1342c66",
+      "result": {
+        "keys": [
+          "message",
+          "uuid"
+        ],
+        "uuid": "33ee3927-a9d4-4685-aefc-26302b8630be",
+        "deny": null,
+        "message": {
+          "type": "user",
+          "role": "user",
+          "isMeta": true,
+          "content": [
+            {
+              "type": "text",
+              "text": "APPEND-PROBE-MARK oeejd76otn"
+            }
+          ]
+        }
+      },
+      "received_at": 1794430881.1524343
+    },
+    {
+      "gen": "A",
+      "boot": "oeejd76otn",
+      "at": 1794430881279,
+      "event": "messages",
+      "uuid": "33ee3927-a9d4-4685-aefc-26302b8630be",
+      "plain": [
+        {
+          "keys": [
+            "role",
+            "text",
+            "toolUses"
+          ],
+          "role": "assistant",
+          "uuid": null,
+          "text": "OK"
+        }
+      ],
+      "empty": [
+        {
+          "keys": [
+            "role",
+            "text",
+            "toolUses"
+          ],
+          "role": "assistant",
+          "uuid": null,
+          "text": "OK"
+        }
+      ],
+      "api": [
+        {
+          "keys": [
+            "content",
+            "role"
+          ],
+          "role": "user",
+          "uuid": null,
+          "text": "[{\"type\":\"text\",\"text\":\"<system-reminder>\\nCodebase and user instructions are shown below. Be sure to adhere to these instructions. IMPORTANT: These instruction"
+        },
+        {
+          "keys": [
+            "content",
+            "role"
+          ],
+          "role": "assistant",
+          "uuid": null,
+          "text": "[{\"type\":\"text\",\"text\":\"OK\"}]"
+        }
+      ],
+      "uuidInPlain": false,
+      "uuidInEmpty": false,
+      "uuidInApi": false,
+      "received_at": 1794430881.2825613
+    },
+    {
+      "gen": "B",
+      "boot": "sud7lgto44j",
+      "at": 1794430882271,
+      "event": "session.start",
+      "received_at": 1794430882.277348
+    },
+    {
+      "gen": "B",
+      "boot": "sud7lgto44j",
+      "at": 1794430882294,
+      "event": "initial-reads",
+      "fence": {
+        "ok": true,
+        "value": {
+          "value": [
+            "attempt-X"
+          ],
+          "version": 1
+        }
+      },
+      "cross": {
+        "ok": true,
+        "value": {
+          "version": 0
+        }
+      },
+      "received_at": 1794430882.298101
+    },
+    {
+      "gen": "B",
+      "boot": "sud7lgto44j",
+      "at": 1794430882305,
+      "event": "same-instance-race",
+      "ifVersion": 0,
+      "results": [
+        {
+          "ok": true,
+          "value": {
+            "isSet": true,
+            "version": 1
+          }
+        },
+        {
+          "ok": true,
+          "value": {
+            "isSet": false,
+            "version": 1
+          }
+        }
+      ],
+      "after": {
+        "ok": true,
+        "value": {
+          "value": {
+            "by": "B-1"
+          },
+          "version": 1
+        }
+      },
+      "received_at": 1794430882.3076272
+    },
+    {
+      "gen": "B",
+      "boot": "sud7lgto44j",
+      "at": 1794430882315,
+      "event": "fence-after-reload",
+      "seen": {
+        "ok": true,
+        "value": {
+          "value": [
+            "attempt-X"
+          ],
+          "version": 1
+        }
+      },
+      "stale": {
+        "ok": true,
+        "value": {
+          "isSet": false,
+          "version": 1
+        }
+      },
+      "after": {
+        "ok": true,
+        "value": {
+          "value": [
+            "attempt-X"
+          ],
+          "version": 1
+        }
+      },
+      "received_at": 1794430882.3186443
+    },
+    {
+      "gen": "B",
+      "boot": "sud7lgto44j",
+      "at": 1794430882325,
+      "event": "cross-read",
+      "read": {
+        "ok": true,
+        "value": {
+          "version": 0
+        }
+      },
+      "received_at": 1794430882.3286836
+    },
+    {
+      "gen": "B",
+      "boot": "sud7lgto44j",
+      "at": 1794430883464,
+      "event": "cross-write",
+      "held": {
+        "ok": true,
+        "status": 200
+      },
+      "ifVersion": 0,
+      "write": {
+        "ok": true,
+        "value": {
+          "isSet": true,
+          "version": 1
+        }
+      },
+      "received_at": 1794430883.4666724
+    },
+    {
+      "gen": "B",
+      "boot": "sud7lgto44j",
+      "at": 1794430883472,
+      "event": "cross-final",
+      "final": {
+        "ok": true,
+        "value": {
+          "value": {
+            "by": "B",
+            "boot": "sud7lgto44j"
+          },
+          "version": 1
+        }
+      },
+      "fence": {
+        "ok": true,
+        "value": {
+          "value": [
+            "attempt-X"
+          ],
+          "version": 1
+        }
+      },
+      "received_at": 1794430883.4747143
+    }
+  ],
+  "holds": [
+    {
+      "gen": "A",
+      "boot": "oeejd76otn",
+      "at": 1794430877.8550794,
+      "released_at": 1794430883.447668,
+      "outcome": "connection closed: ConnectionResetError"
+    },
+    {
+      "gen": "B",
+      "boot": "sud7lgto44j",
+      "at": 1794430882.3318484,
+      "released_at": 1794430883.4481714,
+      "outcome": "answered"
+    }
+  ],
+  "model_requests": [
+    {
+      "at": 1794430881.1891031,
+      "carries_append_mark": false,
+      "message_count": 2
+    }
+  ],
+  "analysis": {
+    "same_instance_race": {
+      "A": [
+        true,
+        false
+      ],
+      "B": [
+        true,
+        false
+      ]
+    },
+    "fence_take_A": {
+      "ok": true,
+      "value": {
+        "isSet": true,
+        "version": 1
+      }
+    },
+    "fence_seen_by_B_after_reload": {
+      "ok": true,
+      "value": {
+        "value": [
+          "attempt-X"
+        ],
+        "version": 1
+      }
+    },
+    "stale_write_by_B": {
+      "ok": true,
+      "value": {
+        "isSet": false,
+        "version": 1
+      }
+    },
+    "cross_read_A": {
+      "ok": true,
+      "value": {
+        "version": 0
+      }
+    },
+    "cross_read_B": {
+      "ok": true,
+      "value": {
+        "version": 0
+      }
+    },
+    "cross_write_A": null,
+    "cross_write_B": {
+      "gen": "B",
+      "boot": "sud7lgto44j",
+      "at": 1794430883464,
+      "event": "cross-write",
+      "held": {
+        "ok": true,
+        "status": 200
+      },
+      "ifVersion": 0,
+      "write": {
+        "ok": true,
+        "value": {
+          "isSet": true,
+          "version": 1
+        }
+      },
+      "received_at": 1794430883.4666724
+    },
+    "cross_write_A_after_B_session_start": false,
+    "cross_isSet_true_count": 1,
+    "cross_final_B": {
+      "ok": true,
+      "value": {
+        "value": {
+          "by": "B",
+          "boot": "sud7lgto44j"
+        },
+        "version": 1
+      }
+    },
+    "append_result": {
+      "keys": [
+        "message",
+        "uuid"
+      ],
+      "uuid": "33ee3927-a9d4-4685-aefc-26302b8630be",
+      "deny": null,
+      "message": {
+        "type": "user",
+        "role": "user",
+        "isMeta": true,
+        "content": [
+          {
+            "type": "text",
+            "text": "APPEND-PROBE-MARK oeejd76otn"
+          }
+        ]
+      }
+    },
+    "append_hook": {
+      "gen": "A",
+      "boot": "oeejd76otn",
+      "at": 1794430881117,
+      "event": "session.append-hook",
+      "door": "note",
+      "uuid": "33ee3927-a9d4-4685-aefc-26302b8630be",
+      "resultUuid": "33ee3927-a9d4-4685-aefc-26302b8630be"
+    },
+    "messages_uuid_in_plain": false,
+    "messages_uuid_in_empty": false,
+    "messages_uuid_in_api": false,
+    "messages_row_keys": [
+      [
+        "role",
+        "text",
+        "toolUses"
+      ]
+    ],
+    "append_mark_rows_empty": [],
+    "append_uuid_in_transcript_files": [
+      "projects\\C--Users-djlov-AppData-Local-Temp-ciel-state-fence-df88e27b-ky9zuqv1-workspace\\f17c4be5-6a0e-4841-9ef1-865ffdce29d7.jsonl"
+    ],
+    "model_request_carried_append": false
+  },
+  "killed": [
+    {
+      "pid": 13676,
+      "name": "claude.exe",
+      "rc": 0
+    }
+  ],
+  "protected_missing_after": [
+    {
+      "pid": 67520,
+      "ppid": 20948,
+      "name": "node.exe",
+      "created": "2026-11-11T21:01:15.5050240Z"
+    },
+    {
+      "pid": 28284,
+      "ppid": 40244,
+      "name": "python.exe",
+      "created": "2026-11-11T21:01:16.1977550Z"
+    }
+  ],
+  "live_hash_changed": [
+    "C:\\Users\\djlov\\.claude.json"
+  ],
+  "owned_path_in_live_files": [],
+  "live_before": {
+    "C:\\Users\\djlov\\.claude.json": "b713d147ecd03fe335f21dbcea7764d2c24b2650aa53c29bc7ace1104cfffcf3",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_after": {
+    "C:\\Users\\djlov\\.claude.json": "c0fe76da07bb122a8c78c93edcd78907645b21a06c514745c5d2911de75c1550",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  }
+}

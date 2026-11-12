@@ -1,0 +1,246 @@
+{
+ "run-a-20261111-161820": {
+  "run_window": [
+   "16:18:20",
+   "16:20:17"
+  ],
+  "event_window": [
+   "16:18:59",
+   "16:19:02"
+  ],
+  "main_review_processes": [
+   {
+    "pid": 62692,
+    "name": "cmd.exe",
+    "created": "16:19:47",
+    "seen_in": [
+     "processes-after"
+    ],
+    "cmd": "cmd.exe /d /c \"set PYTHONDONTWRITEBYTECODE=1&& set PYTHONIOENCODING=utf-8&& \"C:\\Program Files\\Python311\\python.exe\" -u \"C:\\Users\\djlov\\ciel-runtime\\.l"
+   },
+   {
+    "pid": 64548,
+    "name": "python.exe",
+    "created": "16:19:47",
+    "seen_in": [
+     "processes-after"
+    ],
+    "cmd": "\"C:\\Program Files\\Python311\\python.exe\"  -u \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\work-parallel-main-"
+   },
+   {
+    "pid": 56644,
+    "name": "bash.exe",
+    "created": "16:20:08",
+    "seen_in": [
+     "processes-after"
+    ],
+    "cmd": "\"C:\\Program Files\\Git\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412277155-1g0kbk.sh 2>/dev/null || true && exp"
+   },
+   {
+    "pid": 3112,
+    "name": "bash.exe",
+    "created": "16:20:08",
+    "seen_in": [
+     "processes-after"
+    ],
+    "cmd": "\"C:\\Program Files\\Git\\bin\\..\\usr\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412277155-1g0kbk.sh 2>/dev/null || "
+   },
+   {
+    "pid": 60184,
+    "name": "conhost.exe",
+    "created": "16:20:10",
+    "seen_in": [
+     "processes-after"
+    ],
+    "cmd": "conhost.exe cmd /k C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-20261111-161947\\first.cmd"
+   },
+   {
+    "pid": 63896,
+    "name": "cmd.exe",
+    "created": "16:20:11",
+    "seen_in": [
+     "processes-after"
+    ],
+    "cmd": "cmd /k C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-20261111-161947\\first.cmd"
+   },
+   {
+    "pid": 79728,
+    "name": "py.exe",
+    "created": "16:20:13",
+    "seen_in": [
+     "processes-after"
+    ],
+    "cmd": "py  -3 \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-snapshot-20261111-161947\\ciel_runtime.py\" cli -- --session-id 99"
+   },
+   {
+    "pid": 64952,
+    "name": "python.exe",
+    "created": "16:20:13",
+    "seen_in": [
+     "processes-after"
+    ],
+    "cmd": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-snaps"
+   }
+  ]
+ },
+ "run-b-20261111-162135": {
+  "run_window": [
+   "16:21:35",
+   "16:23:56"
+  ],
+  "event_window": [
+   "16:22:35",
+   "16:23:09"
+  ],
+  "main_review_processes": [
+   {
+    "pid": 62692,
+    "name": "cmd.exe",
+    "created": "16:19:47",
+    "seen_in": [
+     "processes-before",
+     "processes-after"
+    ],
+    "cmd": "cmd.exe /d /c \"set PYTHONDONTWRITEBYTECODE=1&& set PYTHONIOENCODING=utf-8&& \"C:\\Program Files\\Python311\\python.exe\" -u \"C:\\Users\\djlov\\ciel-runtime\\.l"
+   },
+   {
+    "pid": 64548,
+    "name": "python.exe",
+    "created": "16:19:47",
+    "seen_in": [
+     "processes-before",
+     "processes-after"
+    ],
+    "cmd": "\"C:\\Program Files\\Python311\\python.exe\"  -u \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\work-parallel-main-"
+   },
+   {
+    "pid": 56644,
+    "name": "bash.exe",
+    "created": "16:20:08",
+    "seen_in": [
+     "processes-before",
+     "processes-after"
+    ],
+    "cmd": "\"C:\\Program Files\\Git\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412277155-1g0kbk.sh 2>/dev/null || true && exp"
+   },
+   {
+    "pid": 3112,
+    "name": "bash.exe",
+    "created": "16:20:08",
+    "seen_in": [
+     "processes-before",
+     "processes-after"
+    ],
+    "cmd": "\"C:\\Program Files\\Git\\bin\\..\\usr\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412277155-1g0kbk.sh 2>/dev/null || "
+   },
+   {
+    "pid": 60184,
+    "name": "conhost.exe",
+    "created": "16:20:10",
+    "seen_in": [
+     "processes-before"
+    ],
+    "cmd": "conhost.exe cmd /k C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-20261111-161947\\first.cmd"
+   },
+   {
+    "pid": 63896,
+    "name": "cmd.exe",
+    "created": "16:20:11",
+    "seen_in": [
+     "processes-before"
+    ],
+    "cmd": "cmd /k C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-20261111-161947\\first.cmd"
+   },
+   {
+    "pid": 79728,
+    "name": "py.exe",
+    "created": "16:20:13",
+    "seen_in": [
+     "processes-before"
+    ],
+    "cmd": "py  -3 \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-snapshot-20261111-161947\\ciel_runtime.py\" cli -- --session-id 99"
+   },
+   {
+    "pid": 64952,
+    "name": "python.exe",
+    "created": "16:20:13",
+    "seen_in": [
+     "processes-before"
+    ],
+    "cmd": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-snaps"
+   },
+   {
+    "pid": 59412,
+    "name": "python.exe",
+    "created": "16:20:21",
+    "seen_in": [
+     "processes-before"
+    ],
+    "cmd": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-snapsh"
+   },
+   {
+    "pid": 17700,
+    "name": "claude.exe",
+    "created": "16:20:25",
+    "seen_in": [
+     "processes-before"
+    ],
+    "cmd": "C:\\Users\\djlov\\.local\\bin\\claude.exe --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model c"
+   },
+   {
+    "pid": 74460,
+    "name": "python.exe",
+    "created": "16:20:25",
+    "seen_in": [
+     "processes-before"
+    ],
+    "cmd": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-snapsh"
+   },
+   {
+    "pid": 60216,
+    "name": "python.exe",
+    "created": "16:20:41",
+    "seen_in": [
+     "processes-before"
+    ],
+    "cmd": "\"C:\\Program Files\\Python311\\python.exe\" -c \"import time; p=r'C:/Users/djlov/AppData/Local/Temp/ciel-owned-main-review-m8b8n8sb/markers/p1-pass.txt'; ["
+   },
+   {
+    "pid": 71108,
+    "name": "python.exe",
+    "created": "16:20:42",
+    "seen_in": [
+     "processes-before"
+    ],
+    "cmd": "\"C:\\Program Files\\Python311\\python.exe\" -c \"import time; p=r'C:/Users/djlov/AppData/Local/Temp/ciel-owned-main-review-m8b8n8sb/markers/p2-pass.txt'; ["
+   },
+   {
+    "pid": 72312,
+    "name": "python.exe",
+    "created": "16:20:42",
+    "seen_in": [
+     "processes-before"
+    ],
+    "cmd": "\"C:\\Program Files\\Python311\\python.exe\" -c \"import time; p=r'C:/Users/djlov/AppData/Local/Temp/ciel-owned-main-review-m8b8n8sb/markers/p1-fail.txt'; ["
+   },
+   {
+    "pid": 75700,
+    "name": "python.exe",
+    "created": "16:20:46",
+    "seen_in": [
+     "processes-before"
+    ],
+    "cmd": "\"C:\\Program Files\\Python311\\python.exe\" -c \"import time; p=r'C:/Users/djlov/AppData/Local/Temp/ciel-owned-main-review-m8b8n8sb/markers/p3-pass.txt'; ["
+   },
+   {
+    "pid": 412,
+    "name": "bash.exe",
+    "created": "16:21:36",
+    "seen_in": [
+     "processes-before"
+    ],
+    "cmd": "\"C:\\Program Files\\Git\\bin\\..\\usr\\bin\\bash.exe\" -c \"source /c/Users/djlov/.claude/shell-snapshots/snapshot-bash-1794412277155-1g0kbk.sh 2>/dev/null || "
+   }
+  ]
+ }
+}

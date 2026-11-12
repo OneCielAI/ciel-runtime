@@ -1,0 +1,131 @@
+{
+  "probe": "9be02fd8",
+  "mode": "append-turn-start",
+  "run_dir": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-fifo-review-append-turn-start-9be02fd8-9r0d9ike",
+  "cli": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+  "markers": {
+    "a": "FIFO-REVIEW-A-9be02fd8",
+    "b": "FIFO-REVIEW-B-9be02fd8",
+    "seed": "FIFO-REVIEW-SEED-9be02fd8",
+    "old": "FIFO-REVIEW-OLD-9be02fd8",
+    "new": "FIFO-REVIEW-NEW-9be02fd8"
+  },
+  "script_sha256": "80e23708a684a538d19ec70092e3e708d3574ba7982dd64dff473bbe396cc746",
+  "cli_version": "2.1.322 (Claude Code)",
+  "protected_count": 65,
+  "inherited_ciel_after_strip": [],
+  "pid": 82108,
+  "started": false,
+  "settled": false,
+  "analysis": {
+    "append_resolved": [],
+    "request_1_has_a": true,
+    "request_1_has_b": true,
+    "b_occurrences_by_request": [
+      {
+        "number": 1,
+        "b": 1
+      }
+    ],
+    "turn_starts": [],
+    "b_prompt_resolve": [],
+    "submit_lines": [
+      {
+        "at": 1794440653647.0,
+        "line": "2026-11-11T23:44:13.647Z [DEBUG] $.prompt.submit (fifo-review-probe): \"FIFO-REVIEW-A-9be02fd8\""
+      },
+      {
+        "at": 1794440653648.0,
+        "line": "2026-11-11T23:44:13.648Z [DEBUG] $.prompt.submit (fifo-review-probe): \"FIFO-REVIEW-B-9be02fd8\""
+      }
+    ]
+  },
+  "reports": [],
+  "requests": [
+    {
+      "at": 1794440653.754175,
+      "number": 1,
+      "message_count": 2,
+      "a": 1,
+      "b": 1,
+      "seed": 0,
+      "old": 0,
+      "new": 0
+    }
+  ],
+  "owned_tree": [
+    {
+      "pid": 82108,
+      "ppid": 19396,
+      "name": "claude.exe",
+      "created": "2026-11-11T23:44:10.9727690Z"
+    }
+  ],
+  "killed": [
+    {
+      "pid": 82108,
+      "name": "claude.exe",
+      "rc": 0
+    }
+  ],
+  "protected_missing_after": [
+    {
+      "pid": 82972,
+      "ppid": 81172,
+      "name": "py.exe",
+      "created": "2026-11-11T23:33:52.9761790Z"
+    },
+    {
+      "pid": 72724,
+      "ppid": 82972,
+      "name": "python.exe",
+      "created": "2026-11-11T23:33:52.9936550Z"
+    },
+    {
+      "pid": 81064,
+      "ppid": 80296,
+      "name": "node.exe",
+      "created": "2026-11-11T23:44:05.6228060Z"
+    },
+    {
+      "pid": 83740,
+      "ppid": 63096,
+      "name": "python.exe",
+      "created": "2026-11-11T23:44:10.6995700Z"
+    },
+    {
+      "pid": 55016,
+      "ppid": 78868,
+      "name": "python.exe",
+      "created": "2026-11-11T23:44:10.7658830Z"
+    }
+  ],
+  "live_before": {
+    "C:\\Users\\djlov\\.claude.json": "de7667194f9553f60b44880b897dee7750bcee784dd43b9e6a5765f709c49a5c",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_after": {
+    "C:\\Users\\djlov\\.claude.json": "a626de41128e549e9cfc647cd0e74dbf314e0ce59e9ed74776318baf9711b39b",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_hash_changed": [
+    "C:\\Users\\djlov\\.claude.json"
+  ],
+  "owned_path_in_live_files": []
+}

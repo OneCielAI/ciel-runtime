@@ -1,0 +1,27 @@
+{
+ "freeze": "freeze-sse-378f6d73 + restart 09255642; snapshot ac9468eb58b2",
+ "verdict": "harness_lookup_error (not a product defect); stopped before facts/screenshots",
+ "stop_cause": "the fetch-failure row stays in side-inboxes/<id>/pending/ (stage received) with side_failure; the driver searched only receipts/. Fixed: all_receipts reads receipts/ and pending/.",
+ "fetch_failure_observed": {
+  "reason": "Source root read failed",
+  "category": "source_context",
+  "attempt_count": 6,
+  "quarantined": true,
+  "root_reads_after_send_s": [
+   0.6,
+   7.8,
+   19.4,
+   40.1,
+   80.6,
+   161.1
+  ],
+  "note": "six root reads, then quarantine; matches the designed 5 retries with 5/10/20/40/80 s backoff"
+ },
+ "safety": {
+  "protected_processes_unchanged": true,
+  "owned_tree_intersects_protected": false,
+  "live_profile_after_equal": true,
+  "live_profile_changed_during_run": null
+ },
+ "product_defect": false
+}

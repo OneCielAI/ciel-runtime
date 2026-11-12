@@ -1,0 +1,440 @@
+2026-11-11T20:45:14.021Z [DEBUG] MDM settings load completed in 2ms
+2026-11-11T20:45:14.046Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Program Files\ClaudeCode\managed-settings.json
+2026-11-11T20:45:14.048Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\.claude\settings.json
+2026-11-11T20:45:14.052Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.052Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\.claude\settings.local.json
+2026-11-11T20:45:14.053Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.053Z [DEBUG] CA certs: Config fallback - globalEnv keys: , settingsEnv keys: none
+2026-11-11T20:45:14.065Z [DEBUG] [init] configureGlobalMTLS starting
+2026-11-11T20:45:14.065Z [DEBUG] [init] configureGlobalMTLS complete
+2026-11-11T20:45:14.065Z [DEBUG] [init] configureGlobalAgents starting
+2026-11-11T20:45:14.065Z [DEBUG] CA certs: stores=bundled,system, extraCertsPath=undefined
+2026-11-11T20:45:14.066Z [DEBUG] CA certs: Loaded 118 bundled root certificates
+2026-11-11T20:45:14.080Z [DEBUG] CA certs: Dropped 20 expired certificate(s) from system store
+2026-11-11T20:45:14.080Z [DEBUG] CA certs: Loaded 135 system CA certificates
+2026-11-11T20:45:14.081Z [DEBUG] CA certs: Dropped blocked certificate 40f6af0346a99aa1cd1d555a4e9cce62c7f9634603ee406615833dc8c8d00367 from bundled
+2026-11-11T20:45:14.081Z [DEBUG] CA certs: Dropped blocked certificate 40f6af0346a99aa1cd1d555a4e9cce62c7f9634603ee406615833dc8c8d00367 from system
+2026-11-11T20:45:14.082Z [DEBUG] CA certs: Dropped blocked certificate 40f6af0346a99aa1cd1d555a4e9cce62c7f9634603ee406615833dc8c8d00367 from system
+2026-11-11T20:45:14.092Z [ERROR] CA certs: Dropped the certificate with SHA-256 fingerprint E7:68:56:34:EF:AC:F6:9A:CE:93:9A:6B:25:5B:7B:4F:AB:EF:42:93:5B:50:A2:65:AC:B5:CB:60:27:E4:4E:70 and subject "C=US\nO=VeriSign\\, Inc.\nOU=Class 3 Public Primary Certification Authority": it names itself as its issuer, but its own key did not sign it, or signed it in a form that Claude Code cannot check, and no CA that chains to a root in the CA list signed it. If another root certificate of the same CA signed it, this one stays once this list holds that root certificate too. Only the lists for Claude Code's own connections take certificates from the NODE_EXTRA_CA_CERTS file. If you add that root and connections still fail, take it out again: while this list holds it, the variable below changes nothing. CLAUDE_CODE_DISABLE_SELF_NAMED_CERT_DROP=1 keeps every such certificate, whoever signed it, and can break connections that work without it.
+2026-11-11T20:45:14.092Z [ERROR] CA certs: Dropped the certificate with SHA-256 fingerprint 8B:13:DB:B2:5E:B3:39:A6:30:C7:6C:81:0D:14:B4:4B:55:2E:68:DC:10:A9:3E:82:E7:54:DA:23:F8:58:77:4A and subject "CN=Root Agency": it names itself as its issuer, but whether its own key signed it could not be checked (Error: error:0b00007d:X.509 certificate routines:OPENSSL_internal:PUBLIC_KEY_DECODE_ERROR), most likely because the runtime cannot read that key, and then TLS can verify nothing under it either, and no CA that chains to a root in the CA list signed it. If another root certificate of the same CA signed it, this one stays once this list holds that root certificate too. Only the lists for Claude Code's own connections take certificates from the NODE_EXTRA_CA_CERTS file. If you add that root and connections still fail, take it out again: while this list holds it, the variable below changes nothing. CLAUDE_CODE_DISABLE_SELF_NAMED_CERT_DROP=1 keeps every such certificate, whoever signed it, and can break connections that work without it.
+2026-11-11T20:45:14.092Z [DEBUG] CA certs: Dropped 3 certificate(s) that do not chain to a root in the CA list
+2026-11-11T20:45:14.093Z [DEBUG] mTLS: Creating HTTPS agent with custom certificates
+2026-11-11T20:45:14.096Z [DEBUG] [init] configureGlobalAgents complete
+2026-11-11T20:45:14.096Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.096Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.097Z [DEBUG] Using bash path: "C:\Program Files\Git\bin\bash.exe"
+2026-11-11T20:45:14.098Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.102Z [DEBUG] Error log sink initialized
+2026-11-11T20:45:14.104Z [DEBUG] clearPluginCache: invalidating loadAllPlugins cache (preAction: --plugin-dir inline plugins)
+2026-11-11T20:45:14.117Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T20:45:14.117Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.49a3e80bd946
+2026-11-11T20:45:14.117Z [DEBUG] Applied original permissions to temp file
+2026-11-11T20:45:14.118Z [DEBUG] Temp file written successfully, size: 409 bytes
+2026-11-11T20:45:14.118Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.49a3e80bd946 to C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json
+2026-11-11T20:45:14.119Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json written atomically
+2026-11-11T20:45:14.127Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T20:45:14.127Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.b31919e23b21
+2026-11-11T20:45:14.127Z [DEBUG] Applied original permissions to temp file
+2026-11-11T20:45:14.128Z [DEBUG] Temp file written successfully, size: 492 bytes
+2026-11-11T20:45:14.128Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.b31919e23b21 to C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json
+2026-11-11T20:45:14.129Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json written atomically
+2026-11-11T20:45:14.136Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T20:45:14.136Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.719a9e2666de
+2026-11-11T20:45:14.136Z [DEBUG] Applied original permissions to temp file
+2026-11-11T20:45:14.137Z [DEBUG] Temp file written successfully, size: 528 bytes
+2026-11-11T20:45:14.137Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.719a9e2666de to C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json
+2026-11-11T20:45:14.138Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json written atomically
+2026-11-11T20:45:14.146Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T20:45:14.146Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.e57ff02a287d
+2026-11-11T20:45:14.147Z [DEBUG] Git remote URL: null
+2026-11-11T20:45:14.147Z [DEBUG] No git remote URL found
+2026-11-11T20:45:14.147Z [DEBUG] Applied original permissions to temp file
+2026-11-11T20:45:14.148Z [DEBUG] Temp file written successfully, size: 567 bytes
+2026-11-11T20:45:14.148Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.e57ff02a287d to C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json
+2026-11-11T20:45:14.148Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json written atomically
+2026-11-11T20:45:14.157Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T20:45:14.157Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.a48106251ffa
+2026-11-11T20:45:14.158Z [DEBUG] Applied original permissions to temp file
+2026-11-11T20:45:14.159Z [DEBUG] Temp file written successfully, size: 594 bytes
+2026-11-11T20:45:14.159Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.a48106251ffa to C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json
+2026-11-11T20:45:14.160Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json written atomically
+2026-11-11T20:45:14.169Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T20:45:14.169Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.cae85331334f
+2026-11-11T20:45:14.169Z [DEBUG] Applied original permissions to temp file
+2026-11-11T20:45:14.170Z [DEBUG] Temp file written successfully, size: 642 bytes
+2026-11-11T20:45:14.170Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.cae85331334f to C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json
+2026-11-11T20:45:14.171Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json written atomically
+2026-11-11T20:45:14.178Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T20:45:14.178Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.b1c8aa2b7107
+2026-11-11T20:45:14.180Z [DEBUG] Applied original permissions to temp file
+2026-11-11T20:45:14.180Z [DEBUG] Temp file written successfully, size: 668 bytes
+2026-11-11T20:45:14.180Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.b1c8aa2b7107 to C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json
+2026-11-11T20:45:14.181Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json written atomically
+2026-11-11T20:45:14.195Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.198Z [DEBUG] [Claude in Chrome] Disabled: OAuth token has no scope accepted by /api/oauth/validate (needs user:profile, user:office, or user:ccr_inference; env-var and setup-token sessions default to user:inference only)
+2026-11-11T20:45:14.200Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.237Z [DEBUG] [ToolSearch:optimistic] mode=standard, ENABLE_TOOL_SEARCH=false, result=false
+2026-11-11T20:45:14.238Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.238Z [DEBUG] [STARTUP] Loading MCP configs...
+2026-11-11T20:45:14.239Z [DEBUG] [STARTUP] Running setup()...
+2026-11-11T20:45:14.241Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.251Z [DEBUG] Loading skills from: managed=C:\Program Files\ClaudeCode\.claude\skills, user=C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\skills, project=[]
+2026-11-11T20:45:14.251Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\agents: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\agents'
+2026-11-11T20:45:14.251Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\agents: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\agents'
+2026-11-11T20:45:14.252Z [DEBUG] installed_plugins.json doesn't exist, returning empty V2 object
+2026-11-11T20:45:14.252Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\commands: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\commands'
+2026-11-11T20:45:14.252Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\commands: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\commands'
+2026-11-11T20:45:14.252Z [DEBUG] Loaded 0 unique skills (0 unconditional, 0 conditional, managed: 0, user: 0, project: 0, additional: 0, legacy commands: 0)
+2026-11-11T20:45:14.255Z [INFO] [uds-messaging] Listening: \\.\pipe\LOCAL\ciel-state-fence-bb44f2bb21764bcc
+2026-11-11T20:45:14.257Z [DEBUG] [uds-messaging] Inject messages (auth line REQUIRED here; a pipe is not reachable via socat/AF_UNIX): node -e "const c=require('net').connect(process.argv[1],()=>{c.write(JSON.stringify({type:'auth',token:[REDACTED]})+'\n'+JSON.stringify({type:'user',message:{role:'user',content:'hello'}})+'\n');c.end()})" "\\.\pipe\LOCAL\ciel-state-fence-bb44f2bb21764bcc"
+2026-11-11T20:45:14.257Z [DEBUG] [uds-messaging] Connect when the data is ready (run the command first, then connect and write its output as ONE line, as in the node recipe above): a connection that sends no complete line within 30000 ms is closed
+2026-11-11T20:45:14.259Z [DEBUG] Error log sink initialized
+2026-11-11T20:45:14.261Z [DEBUG] [STARTUP] setup() completed in 22ms
+2026-11-11T20:45:14.261Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.261Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.261Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.261Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.262Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.262Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.262Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.262Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.262Z [DEBUG] [STARTUP] Loading commands and agents...
+2026-11-11T20:45:14.264Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.264Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.265Z [DEBUG] --plugin-dir C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\plugin is one plugin: .claude-plugin at its top marks it
+2026-11-11T20:45:14.277Z [DEBUG] Read hooks.json for plugin fence-probe (enabled=true): C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\plugin\hooks\hooks.json
+2026-11-11T20:45:14.278Z [DEBUG] Loaded inline plugin from path: fence-probe
+2026-11-11T20:45:14.278Z [DEBUG] Loaded 1 directory-loaded plugins
+2026-11-11T20:45:14.279Z [DEBUG] Found 5 plugins (5 enabled, 0 disabled)
+2026-11-11T20:45:14.280Z [DEBUG] getPluginSkills: Processing 5 enabled plugins
+2026-11-11T20:45:14.280Z [DEBUG] Checking plugin fence-probe: skillsPath=none, skillsPaths=0 paths
+2026-11-11T20:45:14.280Z [DEBUG] Checking plugin cc-plugin-agents-md: skillsPath=none, skillsPaths=0 paths
+2026-11-11T20:45:14.280Z [DEBUG] Checking plugin cc-plugin-privacy: skillsPath=none, skillsPaths=0 paths
+2026-11-11T20:45:14.280Z [DEBUG] Checking plugin cc-plugin-plugin-authoring: skillsPath=none, skillsPaths=0 paths
+2026-11-11T20:45:14.280Z [DEBUG] Checking plugin cc-plugin-diff: skillsPath=none, skillsPaths=0 paths
+2026-11-11T20:45:14.280Z [DEBUG] Total plugin workflows loaded: 0
+2026-11-11T20:45:14.280Z [DEBUG] Total plugin commands loaded: 0
+2026-11-11T20:45:14.281Z [DEBUG] Total plugin skills loaded: 0 (0 duplicate/user-owned entries skipped)
+2026-11-11T20:45:14.281Z [DEBUG] Total plugin agents loaded: 0
+2026-11-11T20:45:14.282Z [DEBUG] cc-plugin-sec-default@builtin not seated: no managed settings and not a Team or Enterprise organization (none)
+2026-11-11T20:45:14.284Z [DEBUG] getSkills returning: 0 skill dir commands, 0 plugin skills, 30 bundled skills, 1 builtin plugin skills
+2026-11-11T20:45:14.286Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.287Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.290Z [DEBUG] [STARTUP] Commands and agents loaded in 28ms
+2026-11-11T20:45:14.291Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.294Z [WARN] [autocompact] "fixture" isn't described by this version's model catalog; update Claude Code, or map it with behavesAs on a modelPicker row (or modelOverrides, if it is a provider id of a model this version knows). Until then auto-compact keeps this session within 200k tokens (the context window it assumes); if the model accepts more, append [1m] to the model name for 1M, or set CLAUDE_CODE_MAX_CONTEXT_TOKENS to its real window; CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT=1 restores the previous wait-for-the-API behavior.
+2026-11-11T20:45:14.296Z [DEBUG] [STARTUP] Running showSetupScreens()...
+2026-11-11T20:45:14.298Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.300Z [ERROR] MCP config errors for C:\Users\djlov\.mcp.json: ["Missing \"mcpServers\" — found \"servers\" instead. Claude Code reads MCP servers from the \"mcpServers\" key."]
+2026-11-11T20:45:14.301Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.301Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.310Z [DEBUG] Cleared mTLS configuration cache
+2026-11-11T20:45:14.310Z [DEBUG] Cleared proxy agent cache
+2026-11-11T20:45:14.311Z [DEBUG] [STARTUP] showSetupScreens() completed in 15ms
+2026-11-11T20:45:14.312Z [DEBUG] [LSP MANAGER] initializeLspServerManager() called
+2026-11-11T20:45:14.312Z [DEBUG] [LSP MANAGER] Created manager instance, state=pending
+2026-11-11T20:45:14.312Z [DEBUG] [LSP MANAGER] Starting async initialization (generation 1)
+2026-11-11T20:45:14.312Z [DEBUG] Starting background startup prefetches
+2026-11-11T20:45:14.312Z [DEBUG] [Bootstrap] Skipped: Nonessential traffic disabled
+2026-11-11T20:45:14.313Z [DEBUG] [STARTUP] MCP configs resolved in 1ms (awaited at +75ms)
+2026-11-11T20:45:14.313Z [DEBUG] Artifacts MCP server not added: managed_or_strict_mcp_config (strict_mcp_config)
+2026-11-11T20:45:14.313Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.320Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.320Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-11T20:45:14.321Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.322Z [DEBUG] Initialized versioned plugins system with 0 plugins
+2026-11-11T20:45:14.349Z [DEBUG] Total LSP servers loaded: 0
+2026-11-11T20:45:14.349Z [DEBUG] [LSP SERVER MANAGER] getAllLspServers returned 0 server(s)
+2026-11-11T20:45:14.349Z [DEBUG] LSP manager initialized with 0 servers
+2026-11-11T20:45:14.349Z [DEBUG] LSP server manager initialized successfully
+2026-11-11T20:45:14.350Z [DEBUG] LSP notification handlers registered successfully for all 0 server(s)
+2026-11-11T20:45:14.354Z [DEBUG] [Perfetto] initializePerfettoTracing called, env value: undefined
+2026-11-11T20:45:14.354Z [DEBUG] [3P telemetry] isTelemetryEnabled=false (CLAUDE_CODE_ENABLE_TELEMETRY=undefined)
+2026-11-11T20:45:14.356Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.356Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.382Z [DEBUG] [sessionRegistry] sweep permitted (domain win32:sama)
+2026-11-11T20:45:14.383Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.383Z [DEBUG] [3P telemetry] Event dropped (no event logger initialized): plugin_loaded
+2026-11-11T20:45:14.399Z [DEBUG] plugin cc-plugin-agents-md: no pluginConfigs["agents-md@builtin" or "cc-plugin-agents-md@builtin"].options in user, --settings or managed settings (project settings are not read); every option is its default
+2026-11-11T20:45:14.401Z [DEBUG] hooks worker spawned (one for every plugin)
+2026-11-11T20:45:14.405Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T20:45:14.405Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.82a1ddee5a3e
+2026-11-11T20:45:14.406Z [DEBUG] Applied original permissions to temp file
+2026-11-11T20:45:14.407Z [DEBUG] Temp file written successfully, size: 748 bytes
+2026-11-11T20:45:14.407Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.82a1ddee5a3e to C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json
+2026-11-11T20:45:14.407Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json written atomically
+2026-11-11T20:45:14.426Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T20:45:14.426Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.0d8b30f151cf
+2026-11-11T20:45:14.428Z [DEBUG] Applied original permissions to temp file
+2026-11-11T20:45:14.429Z [DEBUG] Git remote URL: null
+2026-11-11T20:45:14.429Z [DEBUG] No git remote URL found
+2026-11-11T20:45:14.429Z [DEBUG] Not in a GitHub repository, skipping path mapping update
+2026-11-11T20:45:14.429Z [DEBUG] Temp file written successfully, size: 768 bytes
+2026-11-11T20:45:14.429Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.0d8b30f151cf to C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json
+2026-11-11T20:45:14.430Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json written atomically
+2026-11-11T20:45:14.441Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T20:45:14.441Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.fb816ca6990f
+2026-11-11T20:45:14.443Z [DEBUG] Applied original permissions to temp file
+2026-11-11T20:45:14.444Z [DEBUG] Temp file written successfully, size: 935 bytes
+2026-11-11T20:45:14.444Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.fb816ca6990f to C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json
+2026-11-11T20:45:14.445Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json written atomically
+2026-11-11T20:45:14.464Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.466Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.479Z [DEBUG] [keybindings] KeybindingSetup initialized with 227 bindings, 0 warnings
+2026-11-11T20:45:14.500Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-11T20:45:14.515Z [DEBUG] [engine] send set_max_thinking_tokens max=null
+2026-11-11T20:45:14.516Z [DEBUG] [engine] send set_model model=fixture
+2026-11-11T20:45:14.521Z [DEBUG] prompt.edit: unhooked; the composer relays nothing
+2026-11-11T20:45:14.529Z [DEBUG] performStartupChecks called
+2026-11-11T20:45:14.532Z [DEBUG] [jobStateNameSync] watch skipped: Error: ENOENT: no such file or directory, watch 'C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\jobs\e50263d2'
+2026-11-11T20:45:14.535Z [DEBUG] [REPL:mount] REPL mounted, disabled=false
+2026-11-11T20:45:14.536Z [ERROR] MCP config errors for C:\Users\djlov\.mcp.json: ["Missing \"mcpServers\" — found \"servers\" instead. Claude Code reads MCP servers from the \"mcpServers\" key."]
+2026-11-11T20:45:14.537Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.537Z [INFO] 1 setup issue: settings (run `claude doctor` for details)
+2026-11-11T20:45:14.539Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.539Z [DEBUG] [Claude in Chrome] Disabled: OAuth token has no scope accepted by /api/oauth/validate (needs user:profile, user:office, or user:ccr_inference; env-var and setup-token sessions default to user:inference only)
+2026-11-11T20:45:14.542Z [DEBUG] [ScheduledTasks] scheduler start() — enabled=false, hasTasks=false
+2026-11-11T20:45:14.545Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\.claude\settings.json
+2026-11-11T20:45:14.545Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.545Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.546Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\.claude\settings.local.json
+2026-11-11T20:45:14.547Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Program Files\ClaudeCode\managed-settings.json
+2026-11-11T20:45:14.564Z [DEBUG] [servedCatalog] off (essential_traffic)
+2026-11-11T20:45:14.602Z [DEBUG] Starting background plugin installations
+2026-11-11T20:45:14.602Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.602Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.603Z [DEBUG] [auto-mode] verifyAutoModeGateAccess: enabledState=enabled disabledBySettings=false model=fixture modelSupported=true disableFastModeBreakerFires=false carouselAvailable=true canEnterAuto=true
+2026-11-11T20:45:14.603Z [DEBUG] performBackgroundPluginInstallations called
+2026-11-11T20:45:14.621Z [DEBUG] hooks module fence-probe@inline loaded (worker, environment 1, tier user); events: session.start,turn.step,turn.complete,session.append
+2026-11-11T20:45:14.621Z [DEBUG] hooks native host made (for the plugins the binary carries)
+2026-11-11T20:45:14.622Z [DEBUG] hooks module cc-plugin-agents-md@builtin loaded (native, environment 2, tier builtin); events: session.start,prompt.context,command.run,session.compact,prompt.submit,turn.start,turn.complete,agent.spawn,tool.call,prompt.mention
+2026-11-11T20:45:14.623Z [DEBUG] hooks module cc-plugin-plugin-authoring@builtin loaded (native, environment 3, tier builtin); events: skill.prompt,tool.check,tool.call
+2026-11-11T20:45:14.623Z [DEBUG] hooks module cc-plugin-diff@builtin loaded (native, environment 4, tier builtin); events: session.start,ui.render,command.run,ui.close,ui.focus,ui.scroll,tool.call,prompt.submit
+2026-11-11T20:45:14.624Z [DEBUG] hooks module cc-plugin-privacy@builtin loaded (native, environment 5, tier builtin); events: tool.check
+2026-11-11T20:45:14.626Z [DEBUG] [keybindings] Watching for changes to C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\keybindings.json
+2026-11-11T20:45:14.627Z [DEBUG] [sessionRegistry] sweep permitted (domain win32:sama)
+2026-11-11T20:45:14.627Z [DEBUG] [sessionRegistry] sweep permitted (domain win32:sama)
+2026-11-11T20:45:14.628Z [DEBUG] engine.create: no plugin-provided interfaces; $ built for fence-probe,cc-plugin-agents-md,cc-plugin-plugin-authoring,cc-plugin-diff,cc-plugin-privacy
+2026-11-11T20:45:14.629Z [DEBUG] plugin.register: cc-plugin-agents-md (builtin, cc-plugin-agents-md@builtin), judged by core alone: admitted
+2026-11-11T20:45:14.629Z [DEBUG] plugin.register: cc-plugin-plugin-authoring (builtin, cc-plugin-plugin-authoring@builtin), judged by core alone: admitted
+2026-11-11T20:45:14.629Z [DEBUG] plugin.register: cc-plugin-diff (builtin, cc-plugin-diff@builtin), judged by core alone: admitted
+2026-11-11T20:45:14.629Z [DEBUG] plugin.register: cc-plugin-privacy (builtin, cc-plugin-privacy@builtin), judged by core alone: admitted
+2026-11-11T20:45:14.629Z [DEBUG] plugin.register: fence-probe (user, fence-probe@inline), judged by core alone: admitted
+2026-11-11T20:45:14.645Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.645Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.649Z [DEBUG] plugin-dir watch: watching fence-probe; folders of plugins none
+2026-11-11T20:45:14.677Z [DEBUG] Artifact gates frozen: capabilities=true comments=false db=true files=false types=false type_create=false type_catalog=false room=false verify=false delete=false preview=false preview_browser=unread open=false endpoints=false pin=true share=false versions=false flag_source=disabled gb_fresh=false
+2026-11-11T20:45:14.677Z [DEBUG] Artifact publish edits offer frozen: edit_hook=false
+2026-11-11T20:45:14.678Z [DEBUG] Artifact input schema built: assets=false copy_from=false publish_edits=true assets_source=cold_no_identity
+2026-11-11T20:45:14.735Z [DEBUG] anchor: ntdll reached through Bun.ant.windowsFsAt
+2026-11-11T20:45:14.737Z [DEBUG] anchor (win32): identity bridge serial32 — bun dev=2862732396 ino=1125899915503988; nt serial32=2862732396 serial64=14747777971920163948 index=1125899915503988
+2026-11-11T20:45:14.737Z [DEBUG] anchor (win32): held-handle backend up
+2026-11-11T20:45:14.755Z [DEBUG] type root of fence-probe at C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\plugin\.claude-plugin\types: entries claude-code, claude-code-tools, claude-code-mcp; wrote .claude-plugin/types/claude-code/index.d.ts, .claude-plugin/types/claude-code-tools/index.d.ts, .claude-plugin/types/claude-code-mcp/index.d.ts, .claude-plugin/types/tsconfig.json, .claude-plugin/types/.gitignore, tsconfig.json
+2026-11-11T20:45:14.756Z [DEBUG] Registered 0 hooks from 5 plugins
+2026-11-11T20:45:14.756Z [DEBUG] session.start: raised (surface terminal, interactive)
+2026-11-11T20:45:14.758Z [DEBUG] settings.read: the engine's merge was raised (the loaded plugins changed) in 2.7 ms; 0 keys answered otherwise than the files.
+2026-11-11T20:45:14.759Z [DEBUG] settings.read: the engine's merge is not raised again (the loaded plugins changed): neither the loaded plugins nor the settings changed.
+2026-11-11T20:45:14.775Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 5.8ms (native link, next() included)
+2026-11-11T20:45:14.777Z [DEBUG] [FileIndex] getProjectFiles called, respectGitignore=true
+2026-11-11T20:45:14.777Z [DEBUG] [FileIndex] getFilesUsingGit called
+2026-11-11T20:45:14.785Z [DEBUG] XTVERSION: no reply (terminal ignored query)
+2026-11-11T20:45:14.785Z [DEBUG] Terminal capabilities: extendedKeys=yes (env: terminal=windows-terminal); synchronizedOutput=yes (env: WT_SESSION, no answer); kittyKeyboard=no (probe: no reply to CSI ? u); kittyGraphics=no (env: terminal=windows-terminal, not asked yet, no answer); itermImages=no (yes only on an XTVERSION reply naming iTerm2 3.5 or later, no answer); mousePixels=no (env: terminal=windows-terminal, not asked yet, no answer); programStatus=no (probe: no reply to OSC 7501 ; ?); terminal said: no reply to CSI ? u; DECRQM 2026 not asked (no XTVERSION reply)
+2026-11-11T20:45:14.785Z [DEBUG] DECSTBM: gated (TMUX=unset ZELLIJ=unset TERM_PROGRAM=unset TERM=xterm-256color)
+2026-11-11T20:45:14.797Z [DEBUG] $.command.register (cc-plugin-diff): /diff listed
+2026-11-11T20:45:14.797Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.797Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:14.799Z [DEBUG] hooks module cc-plugin-diff@builtin session.start settled in 5.3ms (native link, next() included)
+2026-11-11T20:45:14.799Z [DEBUG] hooks module cc-plugin-agents-md@builtin session.start settled in 5.5ms (native link, next() included)
+2026-11-11T20:45:14.800Z [DEBUG] memory index backfill: ENOENT: no such file or directory, scandir 'C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\projects\C--\memory\'
+2026-11-11T20:45:14.801Z [DEBUG] "Loaded 1 CLAUDE.md/rules files:\n  [Project] C:\\Users\\djlov\\.claude\\CLAUDE.md (2190 chars)"
+2026-11-11T20:45:14.810Z [DEBUG] hooks module cc-plugin-agents-md@builtin prompt.context settled in 0.9ms (native link, next() included)
+2026-11-11T20:45:14.811Z [DEBUG] Loaded plugins - Enabled: 5, Disabled: 0, Commands: 0, Agents: 0, Errors: 0
+2026-11-11T20:45:14.812Z [DEBUG] Plugin autoupdate: command-source refresh disabled by tengu_plugin_command_source_refresh (still excluding command-sourced plugins from the regular pass)
+2026-11-11T20:45:14.813Z [DEBUG] Watching C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace for C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\.claude to appear
+2026-11-11T20:45:14.813Z [DEBUG] Watching for changes in setting files C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\settings.json...
+2026-11-11T20:45:14.813Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\output-styles: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\output-styles'
+2026-11-11T20:45:14.813Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\skills: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\skills'
+2026-11-11T20:45:14.813Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\output-styles: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\output-styles'
+2026-11-11T20:45:14.813Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\skills: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\skills'
+2026-11-11T20:45:14.813Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\routines: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\routines'
+2026-11-11T20:45:14.814Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\routines: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\routines'
+2026-11-11T20:45:14.814Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\workflows: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\workflows'
+2026-11-11T20:45:14.814Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\workflows: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\workflows'
+2026-11-11T20:45:14.816Z [DEBUG] [engine] send seed_read_state path=C:\Users\djlov\.claude\CLAUDE.md
+2026-11-11T20:45:14.816Z [DEBUG] Lock acquisition took longer than expected - another Claude instance may be running
+2026-11-11T20:45:14.826Z [DEBUG] [FileIndex] git ls-files (tracked) took 49ms
+2026-11-11T20:45:14.827Z [DEBUG] $.fs.read (fence-probe): C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\events-A.jsonl failed: ENOENT: no such file or directory, open 'C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\events-A.jsonl'
+2026-11-11T20:45:14.828Z [DEBUG] [FileIndex] git ls-files: 0 tracked files in 51ms
+2026-11-11T20:45:14.843Z [DEBUG] [FileIndex] using git ls-files result (0 files)
+2026-11-11T20:45:14.844Z [DEBUG] [FileIndex] cache refresh completed in 68ms
+2026-11-11T20:45:14.844Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T20:45:14.844Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.5ee54498feab
+2026-11-11T20:45:14.846Z [DEBUG] $.fs.write (fence-probe): C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\events-A.jsonl (75 bytes)
+2026-11-11T20:45:14.846Z [DEBUG] Applied original permissions to temp file
+2026-11-11T20:45:14.854Z [DEBUG] $.http.fetch (fence-probe): POST http://127.0.0.1:52454/report
+2026-11-11T20:45:14.856Z [DEBUG] Temp file written successfully, size: 1614 bytes
+2026-11-11T20:45:14.856Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.5ee54498feab to C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json
+2026-11-11T20:45:14.857Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json written atomically
+2026-11-11T20:45:14.860Z [DEBUG] $.http.fetch (fence-probe): 204 in 6ms, 0 chars
+2026-11-11T20:45:14.863Z [DEBUG] $.fs.write (fence-probe): C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\events-A.jsonl (234 bytes)
+2026-11-11T20:45:14.864Z [DEBUG] $.http.fetch (fence-probe): POST http://127.0.0.1:52454/report
+2026-11-11T20:45:14.868Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T20:45:14.868Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.d6ae7c2ef40a
+2026-11-11T20:45:14.869Z [DEBUG] Applied original permissions to temp file
+2026-11-11T20:45:14.870Z [DEBUG] $.http.fetch (fence-probe): 204 in 6ms, 0 chars
+2026-11-11T20:45:14.871Z [DEBUG] Temp file written successfully, size: 1655 bytes
+2026-11-11T20:45:14.871Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.d6ae7c2ef40a to C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json
+2026-11-11T20:45:14.872Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json written atomically
+2026-11-11T20:45:14.877Z [DEBUG] $.fs.write (fence-probe): C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\events-A.jsonl (498 bytes)
+2026-11-11T20:45:14.879Z [DEBUG] $.http.fetch (fence-probe): POST http://127.0.0.1:52454/report
+2026-11-11T20:45:14.887Z [DEBUG] $.http.fetch (fence-probe): 204 in 8ms, 0 chars
+2026-11-11T20:45:14.888Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T20:45:14.888Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.8f32dd30ae3a
+2026-11-11T20:45:14.890Z [DEBUG] Applied original permissions to temp file
+2026-11-11T20:45:14.892Z [DEBUG] Temp file written successfully, size: 1692 bytes
+2026-11-11T20:45:14.892Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.8f32dd30ae3a to C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json
+2026-11-11T20:45:14.893Z [DEBUG] $.fs.write (fence-probe): C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\events-A.jsonl (711 bytes)
+2026-11-11T20:45:14.893Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json written atomically
+2026-11-11T20:45:14.894Z [DEBUG] $.http.fetch (fence-probe): POST http://127.0.0.1:52454/report
+2026-11-11T20:45:14.909Z [DEBUG] $.http.fetch (fence-probe): 204 in 16ms, 0 chars
+2026-11-11T20:45:14.911Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T20:45:14.911Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.ded9d2f8d019
+2026-11-11T20:45:14.911Z [DEBUG] hooks module fence-probe@inline session.start settled in 154.1ms (worker hop, next() included)
+2026-11-11T20:45:14.915Z [DEBUG] Applied original permissions to temp file
+2026-11-11T20:45:14.919Z [DEBUG] Temp file written successfully, size: 2080 bytes
+2026-11-11T20:45:14.920Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.ded9d2f8d019 to C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json
+2026-11-11T20:45:14.921Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json written atomically
+2026-11-11T20:45:14.925Z [DEBUG] $.fs.write (fence-probe): C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\events-A.jsonl (824 bytes)
+2026-11-11T20:45:14.925Z [DEBUG] $.http.fetch (fence-probe): POST http://127.0.0.1:52454/report
+2026-11-11T20:45:14.952Z [DEBUG] $.http.fetch (fence-probe): 204 in 27ms, 0 chars
+2026-11-11T20:45:14.954Z [DEBUG] $.http.fetch (fence-probe): GET http://127.0.0.1:52454/hold?gen=A&boot=p6madodg56
+2026-11-11T20:45:15.159Z [DEBUG] [fs.watch probe] verdict: delivers
+2026-11-11T20:45:15.297Z [DEBUG] Zip extraction completed: 632 files, 14549KB uncompressed
+2026-11-11T20:45:15.968Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T20:45:15.968Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.d498e3d3061e
+2026-11-11T20:45:15.970Z [DEBUG] Applied original permissions to temp file
+2026-11-11T20:45:15.972Z [DEBUG] Temp file written successfully, size: 2175 bytes
+2026-11-11T20:45:15.972Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.d498e3d3061e to C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json
+2026-11-11T20:45:15.973Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json written atomically
+2026-11-11T20:45:18.138Z [DEBUG] [uds-messaging] Client connected
+2026-11-11T20:45:18.142Z [DEBUG] [uds-messaging] Routed user message to queue (priority=next): APPEND-PROBE say hi
+2026-11-11T20:45:18.146Z [DEBUG] [uds-messaging] Client disconnected
+2026-11-11T20:45:18.188Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:18.189Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 8.4ms (native link, next() included)
+2026-11-11T20:45:18.189Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 5.6ms (native link, next() included)
+2026-11-11T20:45:18.193Z [DEBUG] hooks module fence-probe@inline session.append settled in 48.2ms (worker hop, next() included)
+2026-11-11T20:45:18.208Z [DEBUG] High write ratio: blit=1440, write=1571 (52.2% writes), screen=30x120
+2026-11-11T20:45:18.210Z [DEBUG] hooks module fence-probe@inline session.append settled in 17.5ms (worker hop, next() included)
+2026-11-11T20:45:18.213Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:18.213Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:18.215Z [DEBUG] Total plugin output styles loaded: 0
+2026-11-11T20:45:18.217Z [DEBUG] act_dont_rederive_arm_active source=growthbook
+2026-11-11T20:45:18.219Z [DEBUG] hooks module cc-plugin-agents-md@builtin turn.start settled in 7.8ms (native link, next() included)
+2026-11-11T20:45:18.219Z [DEBUG] hooks module cc-plugin-diff@builtin prompt.submit settled in 30.3ms (native link, next() included)
+2026-11-11T20:45:18.220Z [DEBUG] hooks module cc-plugin-agents-md@builtin prompt.submit settled in 30.8ms (native link, next() included)
+2026-11-11T20:45:18.222Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:18.224Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:18.225Z [DEBUG] [engine] yield system/init (first)
+2026-11-11T20:45:18.226Z [DEBUG] [engine] turn 1 start
+2026-11-11T20:45:18.231Z [DEBUG] autocompact: tokens=[REDACTED] level=ok effectiveWindow=180000
+2026-11-11T20:45:18.236Z [DEBUG] hooks module fence-probe@inline session.append settled in 3.7ms (worker hop, next() included)
+2026-11-11T20:45:18.249Z [DEBUG] hooks module fence-probe@inline session.append settled in 11.3ms (worker hop, next() included)
+2026-11-11T20:45:18.254Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T20:45:18.254Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.318d4bab7894
+2026-11-11T20:45:18.260Z [DEBUG] hooks module fence-probe@inline session.append settled in 9.5ms (worker hop, next() included)
+2026-11-11T20:45:18.268Z [DEBUG] Applied original permissions to temp file
+2026-11-11T20:45:18.279Z [DEBUG] hooks module fence-probe@inline session.append settled in 14.0ms (worker hop, next() included)
+2026-11-11T20:45:18.289Z [DEBUG] Temp file written successfully, size: 2203 bytes
+2026-11-11T20:45:18.289Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.318d4bab7894 to C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json
+2026-11-11T20:45:18.293Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json written atomically
+2026-11-11T20:45:18.293Z [DEBUG] hooks module fence-probe@inline session.append settled in 10.8ms (worker hop, next() included)
+2026-11-11T20:45:18.306Z [DEBUG] hooks module fence-probe@inline: session.append nested in fence-probe#1
+2026-11-11T20:45:18.318Z [DEBUG] $.fs.write (fence-probe): C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\events-A.jsonl (1017 bytes)
+2026-11-11T20:45:18.319Z [DEBUG] $.http.fetch (fence-probe): POST http://127.0.0.1:52454/report
+2026-11-11T20:45:18.322Z [DEBUG] $.http.fetch (fence-probe): 204 in 3ms, 0 chars
+2026-11-11T20:45:18.324Z [DEBUG] hooks module fence-probe@inline session.append settled in 17.9ms (worker hop, next() included)
+2026-11-11T20:45:18.328Z [DEBUG] $.fs.write (fence-probe): C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\events-A.jsonl (1358 bytes)
+2026-11-11T20:45:18.329Z [DEBUG] $.http.fetch (fence-probe): POST http://127.0.0.1:52454/report
+2026-11-11T20:45:18.332Z [DEBUG] $.http.fetch (fence-probe): 204 in 3ms, 0 chars
+2026-11-11T20:45:18.335Z [WARN] [claude-code:unrecognized_model] {"model":"fixture","query_source":"repl_main_thread"}
+2026-11-11T20:45:18.345Z [DEBUG] attribution header x-anthropic-billing-header: cc_version=2.1.322.aaf; cc_entrypoint=cli;
+2026-11-11T20:45:18.346Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-11T20:45:18.351Z [DEBUG] Fast mode unavailable: Fast mode is currently unavailable
+2026-11-11T20:45:18.354Z [DEBUG] [API:timing] dispatching to firstParty model=fixture
+2026-11-11T20:45:18.359Z [DEBUG] [API REQUEST] /v1/messages source=repl_main_thread
+2026-11-11T20:45:18.364Z [DEBUG] Stream started - received first chunk
+2026-11-11T20:45:18.364Z [DEBUG] [API:timing] first byte after 14ms
+2026-11-11T20:45:18.375Z [DEBUG] hooks module fence-probe@inline session.append settled in 1.4ms (worker hop, next() included)
+2026-11-11T20:45:18.398Z [DEBUG] hooks module fence-probe@inline turn.step stream settled in 98.8ms (worker hop, next() included)
+2026-11-11T20:45:18.403Z [DEBUG] hooks module fence-probe@inline session.append settled in 3.3ms (worker hop, next() included)
+2026-11-11T20:45:18.407Z [DEBUG] [engine] turn 1 end (turns=1 usage in=50 out=5 cost=$0.0003 api=49ms stop=end_turn resultLen=2)
+2026-11-11T20:45:18.412Z [DEBUG] hooks module cc-plugin-agents-md@builtin turn.complete settled in 0.2ms (native link, next() included)
+2026-11-11T20:45:18.415Z [DEBUG] [sessionRegistry] sweep permitted (domain win32:sama)
+2026-11-11T20:45:18.416Z [DEBUG] [sessionRegistry] sweep permitted (domain win32:sama)
+2026-11-11T20:45:18.416Z [DEBUG] hooks module fence-probe@inline session.append settled in 5.4ms (worker hop, next() included)
+2026-11-11T20:45:18.436Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 4.7ms (native link, next() included)
+2026-11-11T20:45:18.436Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 2.2ms (native link, next() included)
+2026-11-11T20:45:18.450Z [DEBUG] $.fs.write (fence-probe): C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\events-A.jsonl (2056 bytes)
+2026-11-11T20:45:18.451Z [DEBUG] $.http.fetch (fence-probe): POST http://127.0.0.1:52454/report
+2026-11-11T20:45:18.452Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T20:45:18.452Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.77d29052faf5
+2026-11-11T20:45:18.454Z [DEBUG] $.http.fetch (fence-probe): 204 in 3ms, 0 chars
+2026-11-11T20:45:18.454Z [DEBUG] Applied original permissions to temp file
+2026-11-11T20:45:18.456Z [DEBUG] hooks module fence-probe@inline turn.complete settled in 46.1ms (worker hop, next() included)
+2026-11-11T20:45:18.457Z [DEBUG] Temp file written successfully, size: 2312 bytes
+2026-11-11T20:45:18.457Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.77d29052faf5 to C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json
+2026-11-11T20:45:18.458Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json written atomically
+2026-11-11T20:45:19.629Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Program Files\ClaudeCode\managed-settings.json
+2026-11-11T20:45:19.631Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\.claude\settings.json
+2026-11-11T20:45:19.631Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:19.631Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:19.632Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\.claude\settings.local.json
+2026-11-11T20:45:19.643Z [DEBUG] plugin.register: fence-probe (user, fence-probe@inline), judged by core alone: admitted
+2026-11-11T20:45:19.648Z [DEBUG] engine.create: no plugin-provided interfaces; $ built for fence-probe
+2026-11-11T20:45:19.650Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:19.650Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:19.652Z [DEBUG] session.start: raised for fence-probe (loaded later)
+2026-11-11T20:45:19.652Z [DEBUG] hooks module fence-probe@inline reloaded in 8.8ms; events: session.start,turn.step,turn.complete,session.append
+2026-11-11T20:45:19.652Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:19.652Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T20:45:19.678Z [DEBUG] settings.read: the engine's merge was raised (the loaded plugins changed) in 23.8 ms; 0 keys answered otherwise than the files.
+2026-11-11T20:45:19.685Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 0.9ms (native link, next() included)
+2026-11-11T20:45:19.685Z [DEBUG] anchor (win32): identity bridge serial32 — bun dev=2862732396 ino=1125899915503988; nt serial32=2862732396 serial64=14747777971920163948 index=1125899915503988
+2026-11-11T20:45:19.685Z [DEBUG] anchor (win32): held-handle backend up
+2026-11-11T20:45:19.691Z [DEBUG] $.fs.read (fence-probe): C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\events-B.jsonl failed: ENOENT: no such file or directory, open 'C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\events-B.jsonl'
+2026-11-11T20:45:19.700Z [DEBUG] $.fs.write (fence-probe): C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\events-B.jsonl (75 bytes)
+2026-11-11T20:45:19.703Z [DEBUG] $.http.fetch (fence-probe): POST http://127.0.0.1:52454/report
+2026-11-11T20:45:19.705Z [DEBUG] type root of fence-probe at C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\plugin\.claude-plugin\types: entries claude-code, claude-code-tools, claude-code-mcp; wrote nothing
+2026-11-11T20:45:19.705Z [DEBUG] [fence-probe] $.ui.log: reloaded (4 hooks: session.start, turn.step, turn.complete, session.append)
+2026-11-11T20:45:19.706Z [DEBUG] $.http.fetch (fence-probe): 204 in 3ms, 0 chars
+2026-11-11T20:45:19.714Z [DEBUG] hooks module fence-probe@inline session.append settled in 7.6ms (worker hop, next() included)
+2026-11-11T20:45:19.719Z [DEBUG] $.fs.write (fence-probe): C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\events-B.jsonl (256 bytes)
+2026-11-11T20:45:19.719Z [DEBUG] $.http.fetch (fence-probe): POST http://127.0.0.1:52454/report
+2026-11-11T20:45:19.722Z [DEBUG] $.http.fetch (fence-probe): 204 in 3ms, 0 chars
+2026-11-11T20:45:19.726Z [DEBUG] $.fs.write (fence-probe): C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\events-B.jsonl (520 bytes)
+2026-11-11T20:45:19.726Z [DEBUG] $.http.fetch (fence-probe): POST http://127.0.0.1:52454/report
+2026-11-11T20:45:19.729Z [DEBUG] $.http.fetch (fence-probe): 204 in 3ms, 0 chars
+2026-11-11T20:45:19.734Z [DEBUG] $.fs.write (fence-probe): C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\events-B.jsonl (783 bytes)
+2026-11-11T20:45:19.734Z [DEBUG] $.http.fetch (fence-probe): POST http://127.0.0.1:52454/report
+2026-11-11T20:45:19.737Z [DEBUG] $.http.fetch (fence-probe): 204 in 3ms, 0 chars
+2026-11-11T20:45:19.738Z [DEBUG] hooks module fence-probe@inline session.start settled in 84.0ms (worker hop, next() included)
+2026-11-11T20:45:19.741Z [DEBUG] $.fs.write (fence-probe): C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\events-B.jsonl (896 bytes)
+2026-11-11T20:45:19.741Z [DEBUG] $.http.fetch (fence-probe): POST http://127.0.0.1:52454/report
+2026-11-11T20:45:19.744Z [DEBUG] $.http.fetch (fence-probe): 204 in 3ms, 0 chars
+2026-11-11T20:45:19.745Z [DEBUG] $.http.fetch (fence-probe): GET http://127.0.0.1:52454/hold?gen=B&boot=3czlty92y7
+2026-11-11T20:45:20.896Z [DEBUG] $.http.fetch (fence-probe): 200 in 1151ms, 2 chars
+2026-11-11T20:45:20.957Z [DEBUG] $.fs.write (fence-probe): C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\events-B.jsonl (1070 bytes)
+2026-11-11T20:45:20.958Z [DEBUG] $.http.fetch (fence-probe): POST http://127.0.0.1:52454/report
+2026-11-11T20:45:20.960Z [DEBUG] $.http.fetch (fence-probe): 204 in 3ms, 0 chars
+2026-11-11T20:45:20.965Z [DEBUG] $.fs.write (fence-probe): C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\workspace\events-B.jsonl (1288 bytes)
+2026-11-11T20:45:20.966Z [DEBUG] $.http.fetch (fence-probe): POST http://127.0.0.1:52454/report
+2026-11-11T20:45:20.968Z [DEBUG] $.http.fetch (fence-probe): 204 in 2ms, 0 chars
+2026-11-11T20:45:23.908Z [DEBUG] AutoUpdaterWrapper: Installation type: native
+2026-11-11T20:45:24.537Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T20:45:24.537Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.b81e5eb159b3
+2026-11-11T20:45:24.538Z [DEBUG] Applied original permissions to temp file
+2026-11-11T20:45:24.542Z [DEBUG] Temp file written successfully, size: 2145 bytes
+2026-11-11T20:45:24.542Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json.tmp.78056.b81e5eb159b3 to C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json
+2026-11-11T20:45:24.543Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-state-fence-74f330ba-1pa2oa2y\ccfg\.claude.json written atomically
+2026-11-11T20:45:24.543Z [DEBUG] fullscreen boot canary: healthy
+2026-11-11T20:45:24.554Z [DEBUG] hooks module cc-plugin-diff@builtin ui.render settled in 1.2ms (native link, next() included)

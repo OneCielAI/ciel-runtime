@@ -1,0 +1,4 @@
+{"at": 1794461591.486047, "event": "6e5933367b5b", "handoff_state": "requested", "kind": "time_limit", "wake_state": "submitting", "phase": "intent", "channel": "prompt", "revision": 1}
+{"at": 1794461591.744217, "event": "6e5933367b5b", "handoff_state": "requested", "kind": "time_limit", "wake_state": "submitting", "phase": "started", "channel": "prompt", "revision": 2}
+{"at": 1794461592.2547753, "event": "6e5933367b5b", "handoff_state": "requested", "kind": "time_limit", "wake_state": "queued", "phase": "started", "channel": "prompt", "revision": 3}
+{"at": 1794461618.2854493, "event": "6e5933367b5b", "handoff_state": "answered", "kind": "time_limit", "wake_state": "acknowledged", "phase": "started", "channel": "prompt", "revision": 3}

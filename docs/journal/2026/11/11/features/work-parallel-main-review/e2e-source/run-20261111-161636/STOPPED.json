@@ -1,0 +1,23 @@
+{
+  "written_at": "2026-11-11T22:17:58.4149735Z",
+  "status": "stopped in harness preflight; no Claude, router or fork was launched",
+  "error": "OSError [WinError 6] The handle is invalid, raised in subprocess._make_inheritable(stdin) from ps() inside kill_tree during console_kill_drill (launch log owned-main-review-launch-20261111-161635.log)",
+  "cause_measured": "The detached runner inherited its console stdin handle from cmd.exe /c; Console() calls FreeConsole+AttachConsole, after which GetStdHandle(STD_INPUT_HANDLE) is invalid and every subprocess call without explicit stdin fails. The shell-launched preflight (run-20261111-161508) had a pipe stdin, so it passed.",
+  "leftover_owned_drill_tree_killed": [
+    {
+      "ProcessId": 73340,
+      "ParentProcessId": 52284,
+      "Name": "conhost.exe",
+      "CommandLine": "conhost.exe cmd /k \"echo owned-drill 20261111-161636\""
+    },
+    {
+      "ProcessId": 17580,
+      "ParentProcessId": 73340,
+      "Name": "cmd.exe",
+      "CommandLine": "cmd /k \"echo owned-drill 20261111-161636\""
+    }
+  ],
+  "left_after": 0,
+  "protected_overlap": 0,
+  "protected_descendants_now": 80
+}

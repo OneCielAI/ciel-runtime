@@ -1,0 +1,36 @@
+{
+ "recorded": "2026-11-11",
+ "by": "e2e-sse-fork per team-lead rulings A-D and the independent reviewer correction",
+ "invalid_gates": [
+  {
+   "file": "run-a-20261111-161820/result.json",
+   "fact": "main_no_raw_sse_or_thread",
+   "reason": "whole-message needles only; cannot prove absence of exact source substrings"
+  },
+  {
+   "file": "run-b-20261111-162135/result.before-ruling.json",
+   "fact": "main_no_raw_sse_or_thread",
+   "reason": "same"
+  },
+  {
+   "file": "run-b-20261111-162135/result.json",
+   "fact": "host_injected_no_raw_sse_or_thread",
+   "reason": "same; rows 61/81 contain exact source substrings of 29-86 characters (raw-text-inventory-recheck.json)"
+  },
+  {
+   "file": "run-b-20261111-162135/raw-text-analysis.json",
+   "fact": "raw_hits / host_texts_into_main",
+   "reason": "same"
+  }
+ ],
+ "provisional_runs": [
+  "run-a-20261111-161820",
+  "run-b-20261111-162135"
+ ],
+ "provisional_reasons": [
+  "product wake-delivery fix pending; rerun on the new freeze",
+  "run B overlapped the owned main-review E2E (overlap-main-review-161947.json)",
+  "cleanup used taskkill /T with discarded output; full ready identity ledger not retained"
+ ],
+ "files_unchanged": true
+}

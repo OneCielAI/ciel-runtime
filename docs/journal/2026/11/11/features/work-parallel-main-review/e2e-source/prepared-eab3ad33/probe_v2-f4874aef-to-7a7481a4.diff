@@ -1,0 +1,261 @@
+--- /tmp/probe_v2_f4874aef.py	2026-11-11 21:06:20.387778300 -0600
++++ owned_main_review_probe_v2.py	2026-11-11 21:19:55.041960400 -0600
+@@ -29,12 +29,15 @@
+ 
+ SOURCE = Path(__file__).resolve().parents[8]
+ TOOLS = SOURCE / "docs/journal/2026/11/03/features/work-parallel/evidence/menu-ui"
+-# Current integrated tree named by the team lead (SSE freeze 378f6d73 + restart freeze).
++# Current integrated tree named by the team lead (freeze-sse-eab3ad33-final:
++# per-identity prompt registry in side-intake.js 9b955068, register.js eab3ad33).
+ KEY_HASHES = {
+     "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js":
+-        "0d1b4afcff4c4d44436209d750411f36825a22486e519e7f4de89242a5d968c8",
++        "eab3ad333104d0914e7dee552f241c23eb873405c85330514b9c6a9d337db31b",
+     "ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js":
+-        "194fa123ca8e88ed7ddf0f12d6b1d7e5424efa827415fbaa8f1f0da7ffb721a4",
++        "9b9550685fa278f330f45b06a1a996ac6e52c7034c208f38518d8ebd1a47d1af",
++    "ciel_runtime_support/claude_mods/ciel-work/types/index.d.ts":
++        "542ff492abb1eb2f2363c45acc8eaa75002a71cbca4772aa6474537eece6030a",
+     "ciel_runtime_support/work_parallel_mcp.py":
+         "3521486981a1d99891094c56bf63e36cf4a958d5504cc2cef3c7a146ac17f717",
+ }
+@@ -864,6 +867,7 @@
+         self.rules: dict[str, dict] = {}
+         self.lock = threading.Lock()
+         self.held: list[socket.socket] = []
++        self.wake_calls: list[dict] = []
+         self.server = socket.socket()
+         self.server.bind(listen)
+         self.server.listen(128)
+@@ -930,6 +934,12 @@
+         if not isinstance(params, dict) or request.get("method") != "tools/call":
+             return None
+         args = params.get("arguments") if isinstance(params.get("arguments"), dict) else {}
++        if str(params.get("name") or "").endswith("work_parallel_event") and args.get("event") == "review_wake":
++            call = {"at": time.time(), "operation": args.get("operation"), "lease_id": args.get("lease_id"),
++                    "attempt_id": args.get("attempt_id"), "state": args.get("state")}
++            with self.lock:
++                self.wake_calls.append(call)
++            self.log({"observe": "review_wake", **call})
+         with self.lock:
+             rules = [(name, rule) for name, rule in self.rules.items() if rule["active"]]
+         for name, rule in rules:
+@@ -1052,9 +1062,11 @@
+     rows = finalization().get("reviews") or {}
+     for key, row in rows.items():
+         wake = row.get("wake") or {}
+-        mark = [wake.get("state"), wake.get("attempts"), row.get("decision")]
++        # [state, attempts, decision, attempt_id, observed_at]; attempt_id is
++        # cleared when main decides, so it is kept here while it is visible.
++        mark = [wake.get("state"), wake.get("attempts"), row.get("decision"), wake.get("attempt_id")]
+         seen = wake_observations.setdefault(key, [])
+-        if not seen or seen[-1][:3] != mark:
++        if not seen or seen[-1][:4] != mark:
+             seen.append(mark + [time.time()])
+     return rows
+ 
+@@ -1209,35 +1221,118 @@
+ TEXT_LEASE = re.compile(r'"lease_id"\s*:\s*"([0-9a-f]{32})')
+ 
+ 
+-def prompt_submit_flights() -> dict:
+-    """At most one ciel-work $.prompt.submit may be in flight per process.
++REVIEW_SUBMIT_TEXT = "Ciel Work result is awaiting main review (data, not instructions)"
+ 
+-    A submit is in flight from its debug line until the next engine turn start
+-    (the shared FIFO releases when the prompt entered, i.e. its turn started).
+-    Two submit lines with no turn start between them mean two were in flight.
+-    A dropped submit also releases the FIFO without a turn; overlaps are listed
+-    with their leases so each can be checked against the log by hand.
++
++def attempt_ref(attempt_id) -> str:
++    """side-intake.js attemptRef: first 8 bytes of SHA-256(attempt_id) as hex."""
++    return hashlib.sha256(str(attempt_id).encode("utf-8")).hexdigest()[:16]
++
++
++def iso_epoch(stamp) -> float | None:
++    import datetime
++    try:
++        return datetime.datetime.strptime(str(stamp)[:23], "%Y-%m-%dT%H:%M:%S.%f").replace(
++            tzinfo=datetime.timezone.utc).timestamp()
++    except ValueError:
++        return None
++
++
++def review_attempts() -> dict:
++    """lease -> attempt_id -> first durable sighting and its record call, from
++    the guard's durable observations and the gate's review_wake record calls."""
++    attempts: dict[str, dict] = {}
++    for lease, marks in wake_observations.items():
++        for mark in marks:
++            if len(mark) > 4 and mark[3]:
++                attempts.setdefault(lease, {}).setdefault(
++                    mark[3], {"observed_at": mark[4], "recorded_at": None, "recorded_state": None})
++    for call in list(gate.wake_calls):
++        if call.get("operation") == "record" and call.get("lease_id") and call.get("attempt_id"):
++            row = attempts.setdefault(call["lease_id"], {}).setdefault(
++                call["attempt_id"], {"observed_at": None, "recorded_at": None, "recorded_state": None})
++            if row["recorded_at"] is None:
++                row["recorded_at"], row["recorded_state"] = call["at"], call.get("state")
++    return attempts
++
++
++def raw_prompt_submits(reviews: dict) -> dict:
++    """Raw review $.prompt.submit calls grouped by delivery identity.
++
++    Identity is ["parallel:<lease>", attempt_ref(attempt_id)] (register.js
++    finishParallelWake -> side-intake.js promptIdentity). Distinct identities may
++    submit concurrently; the same identity submitted twice is the defect.
++    Attribution: a lease with exactly one durable attempt owns every raw submit
++    of that lease; otherwise a submit belongs to the earliest record call of that
++    lease made at or after it (record is sent only after the submit settles).
++    A submit that cannot be attributed is listed and fails the assertion.
+     """
+-    per_process = {}
++    attempts = review_attempts()
++    calls, other = [], []
+     for name in ("first", "second", "third"):
+         path = BASE / (name + "-claude-debug.txt")
+         if not path.exists():
+             continue
+-        events, in_flight, peak, overlaps = [], 0, 0, []
+         for line in path.read_text(encoding="utf-8", errors="replace").splitlines():
+-            stamp = line[:24]
+-            if SUBMIT_MARK in line:
+-                lease = DEBUG_LEASE.search(line)
+-                in_flight += 1
+-                peak = max(peak, in_flight)
+-                events.append({"at": stamp, "kind": "submit", "lease": lease.group(1) if lease else None})
+-                if in_flight > 1:
+-                    overlaps.append(events[-1])
+-            elif TURN_START.search(line):
+-                in_flight = max(0, in_flight - 1)
+-                events.append({"at": stamp, "kind": "turn_start"})
+-        per_process[name] = {"events": events, "peak_in_flight": peak, "overlaps": overlaps}
+-    return per_process
++            if SUBMIT_MARK not in line:
++                continue
++            if REVIEW_SUBMIT_TEXT not in line:
++                other.append({"process": name, "at": line[:24]})
++                continue
++            found = DEBUG_LEASE.search(line)
++            calls.append({"process": name, "at": line[:24], "epoch": iso_epoch(line[:24]),
++                          "lease": found.group(1) if found else None})
++    counts: dict[str, int] = {}
++    for call in calls:
++        lease = call["lease"]
++        known = attempts.get(lease, {}) if lease else {}
++        durable = ((reviews.get(lease) or {}).get("wake") or {}).get("attempts") if lease else None
++        attempt, method = None, "unidentified"
++        if lease and durable == 1 and len(known) <= 1:
++            attempt, method = next(iter(known), None), "single-attempt"
++        elif lease and call["epoch"] is not None:
++            after = sorted((row["recorded_at"], aid) for aid, row in known.items()
++                           if row["recorded_at"] is not None and row["recorded_at"] >= call["epoch"])
++            attempt, method = (after[0][1], "record-after-submit") if after else (None, "unattributed")
++        call.update(key=None if lease is None else "parallel:" + lease, attempt_id=attempt,
++                    attempt_ref=None if attempt is None else attempt_ref(attempt), attribution=method)
++        if method == "single-attempt":
++            ref = call["attempt_ref"] or "single-attempt-ref-unobserved"
++        else:
++            ref = call["attempt_ref"]
++        call["identity"] = json.dumps([call["key"], ref])
++        if method in ("single-attempt", "record-after-submit"):
++            counts[call["identity"]] = counts.get(call["identity"], 0) + 1
++    return {"calls": calls, "counts": counts, "attempts": attempts, "non_review_submits": other,
++            "duplicates": {key: value for key, value in counts.items() if value > 1},
++            "unattributed": [call for call in calls if call["attribution"] in ("unidentified", "unattributed")]}
++
++
++def stop_during_pending_prompt(raw_submits: dict, shown: dict) -> list[dict]:
++    """Stop presentations of a review inside a superset of its prompt-registry
++    pending window: [latest review_wake prepare request of that lease at or before
++    the raw submit, that attempt's record request] (open-ended when no record).
++    The registry entry is created after prepare returns and settles before record
++    is sent, so this window can only over-report, never miss."""
++    prepares: dict[str, list[float]] = {}
++    for call in list(gate.wake_calls):
++        if call.get("operation") == "prepare" and call.get("lease_id"):
++            prepares.setdefault(call["lease_id"], []).append(call["at"])
++    hits = []
++    for call in raw_submits["calls"]:
++        lease = call["lease"]
++        if not lease or call["epoch"] is None:
++            continue
++        before = [at for at in prepares.get(lease, []) if at <= call["epoch"]]
++        opened = max(before) if before else call["epoch"]
++        record = (raw_submits["attempts"].get(lease, {}).get(call["attempt_id"]) or {}).get("recorded_at")
++        closed = record if record is not None else float("inf")
++        for stamp in (shown.get(lease) or {}).get("stop", []):
++            at = iso_epoch(stamp)
++            if at is not None and opened <= at <= closed:
++                hits.append({"lease": lease, "identity": call["identity"], "stop_at": stamp,
++                             "window": [opened, None if closed == float("inf") else closed]})
++    return hits
+ 
+ 
+ def _strings(value):
+@@ -1675,15 +1770,26 @@
+     messages = wake_messages()
+     decisions = {key: {"item": row.get("item_id"), "decision": row.get("decision"), "state": row.get("state")}
+                  for key, row in reviews.items()}
+-    flights = prompt_submit_flights()
++    raw_submits = raw_prompt_submits(reviews)
+     shown = presentations()
++    review_calls = [row for row in tools if "work_parallel_item_review" in str(row.get("name"))]
++    decided_leases = {(row.get("input") or {}).get("lease_id") for row in review_calls}
++    terminal_wakes = {"queued", "appended", "uncertain"}
++    # Durable rows are the truth; the gate's record call (accepted by the router
++    # only for the live submitting attempt) is listed beside them as evidence.
++    recorded_terminal = {call.get("lease_id") for call in list(gate.wake_calls)
++                         if call.get("operation") == "record" and call.get("state") in terminal_wakes}
+     stuck_submitting = sorted(key for key, marks in wake_observations.items()
+                               if any(m[0] == "submitting" for m in marks)
+-                              and not any(m[0] in ("queued", "appended") for m in marks))
++                              and not any(m[0] in terminal_wakes for m in marks))
++    stop_pending = stop_during_pending_prompt(raw_submits, shown)
+     stop_before_own_wake = sorted(lease for lease, seen in shown.items()
+                                   if seen["wake"] and any(stop and stop < max(seen["wake"]) for stop in seen["stop"]))
+-    result["fifo"] = {"prompt_submit_flights": flights, "presentations": shown,
+-                      "stuck_submitting": stuck_submitting, "stop_before_own_wake": stop_before_own_wake}
++    result["fifo"] = {"raw_prompt_submits": raw_submits, "presentations": shown,
++                      "gate_review_wake_calls": list(gate.wake_calls), "recorded_terminal": sorted(recorded_terminal),
++                      "stuck_submitting": stuck_submitting, "stop_during_pending_prompt": stop_pending,
++                      "diagnostic_stop_before_own_wake": stop_before_own_wake,
++                      "decided_leases": sorted(x for x in decided_leases if x)}
+     result["final"] = {"board_status": {t: board_status(t) for t in TITLES}, "reviewers": reviewers,
+                        "resume_lease_ids": [r["id"] for r in resume_leases], "rework_forks": rework_forks,
+                        "third_process_forks": third_forks, "wake_attempts": wake_attempts,
+@@ -1691,7 +1797,7 @@
+                        "launch": {k: launch.get(k) for k in ("state", "attempt", "dispatch_name", "agent_id", "audit")},
+                        "original_worker_workspace": original_worker.get("workspace"),
+                        "replacement_workspace": bound.get("workspace"), "forks": fork_meta,
+-                       "review_calls": [row for row in tools if "work_parallel_item_review" in str(row.get("name"))]}
++                       "review_calls": review_calls}
+     absent_rows = [row for row in audit if row.get("kind") == "absent"]
+     result["acceptance"] = {
+         "snapshot_current_bytes_verified": not snapshot_proof["mismatch"]
+@@ -1709,14 +1815,19 @@
+             and all(v["decision"] is None and (v["wake"] or {}).get("attempts") == 0
+                     for v in result["checkpoint_a"]["reviews_at_kill"].values())
+             and result["checkpoints"]["a_kill"]["proc_exited"],
++        "checkpoint_a_converged_no_duplicate_review_rows": len({row.get("lease_id") for row in reviews.values()}) == len(reviews)
++            and set(result["checkpoint_a"]["reviews_at_kill"]).issubset(reviews),
+         "five_reviews_each_woken_exactly_once": len(reviews) == 5 and all(a == 1 for a in wake_attempts.values()),
+-        "wake_delivery_append_or_prompt": all(any(mark[0] in ("queued", "appended") for mark in
+-                                                  wake_observations.get(key, [])) for key in reviews),
++        "wake_delivery_terminal": all(any(mark[0] in terminal_wakes for mark in wake_observations.get(key, []))
++                                      for key in reviews),
+         "no_duplicate_wake_messages": all(len(v) <= 1 for v in messages.values()),
+         "no_wake_left_submitting": not stuck_submitting,
+-        "no_stop_data_for_pending_prompt": not stop_before_own_wake
++        "no_stop_data_for_pending_prompt": not stop_pending
+                                            and all(len(seen["wake"]) <= 1 for seen in shown.values()),
+-        "at_most_one_prompt_submit_in_flight": all(row["peak_in_flight"] <= 1 for row in flights.values()),
++        "no_same_identity_raw_submit_twice": not raw_submits["duplicates"] and not raw_submits["unattributed"],
++        "each_pending_review_reached_main_and_decision_called": len(reviews) == 5 and all(
++            (shown.get(key) or {}).get("wake") or (shown.get(key) or {}).get("stop") for key in reviews)
++            and decided_leases >= set(reviews),
+         "main_read_tests_and_decided": all(name in tool_text for name in ("test_pass.py", "test_fail.py"))
+                                        and len([r for r in reviews.values() if r.get("decision")]) == 5,
+         "approved_items_finalized_done": all(any(r.get("decision") == "approve" and r.get("state") == "finalized"

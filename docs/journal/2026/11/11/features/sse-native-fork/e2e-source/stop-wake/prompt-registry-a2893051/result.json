@@ -1,0 +1,873 @@
+{
+  "probe": "a2893051",
+  "run_dir": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-prompt-registry-a2893051-bp93ecko",
+  "cli": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+  "markers": {
+    "A": "PROMPT-REGISTRY-A-a2893051",
+    "A2": "PROMPT-REGISTRY-A2-a2893051",
+    "B": "PROMPT-REGISTRY-B-a2893051",
+    "R": "PROMPT-REGISTRY-R-a2893051",
+    "R2": "PROMPT-REGISTRY-R2-a2893051"
+  },
+  "hold_ms": 8000,
+  "reload_hold_ms": 9000,
+  "side_intake": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\tmp\\stop-wake-draft\\ciel_runtime_support\\claude_mods\\ciel-work\\hooks\\side-intake.js",
+  "side_intake_sha256": "c5c992ae7d19f8ec388711c9eafe70740d7168ffbfced7471f733cf7a4e35280",
+  "driver_a_sha256": "4816a28aba7c0f9a9715abaf6ee9556cd0585a8b2bdc4c7abdf41ff2df368c7c",
+  "driver_b_sha256": "ec29f3a35417c953f0006ba005956b0a0295eb418f8557b97132ff6aad0d25cb",
+  "probe_script_sha256": "0c6249d153f2e60b2797776965690a87a7c719bf981650bec5f3cf854557ce63",
+  "cli_version": "2.1.322 (Claude Code)",
+  "protected_count": 67,
+  "inherited_ciel_after_strip": [],
+  "pid": 26272,
+  "started": true,
+  "phase1_invoked": true,
+  "a_settled": true,
+  "phase2_ready": true,
+  "reload_written_at": 1794451311.5762308,
+  "b_started": true,
+  "events": [
+    {
+      "gen": "A",
+      "seq": 1,
+      "at": 1794451302747,
+      "event": "session.start",
+      "pendingBeforeHydrate": {
+        "A": false,
+        "B": false,
+        "R": false
+      },
+      "pendingAfterHydrate": {
+        "A": false,
+        "B": false,
+        "R": false
+      },
+      "registry": {
+        "version": 0,
+        "keys": []
+      }
+    },
+    {
+      "gen": "A",
+      "seq": 2,
+      "at": 1794451302756,
+      "event": "invoked",
+      "invokedAt": 1794451302756,
+      "sameAPromise": true,
+      "distinctB": true,
+      "pending": {
+        "A": true,
+        "B": true,
+        "R": false
+      }
+    },
+    {
+      "gen": "A",
+      "seq": 3,
+      "at": 1794451302783,
+      "event": "hook.prompt.submit",
+      "name": "A",
+      "working": false,
+      "head": "PROMPT-REGISTRY-A-a2893051",
+      "origin": "{\"kind\":\"plugin\",\"name\":\"ciel-work\"}"
+    },
+    {
+      "gen": "A",
+      "seq": 4,
+      "at": 1794451302798,
+      "event": "hold.begin",
+      "name": "A",
+      "ms": 8000
+    },
+    {
+      "gen": "A",
+      "seq": 5,
+      "at": 1794451303093,
+      "event": "registry.after-issue",
+      "registry": {
+        "version": 2,
+        "keys": [
+          "parallel:A",
+          "side:B"
+        ]
+      },
+      "pending": {
+        "A": true,
+        "B": true,
+        "R": false
+      }
+    },
+    {
+      "gen": "A",
+      "seq": 6,
+      "at": 1794451304258,
+      "event": "fresh.d1.first",
+      "read": {
+        "version": 0
+      }
+    },
+    {
+      "gen": "A",
+      "seq": 7,
+      "at": 1794451305258,
+      "event": "fresh.d2.write",
+      "wrote": {
+        "isSet": true,
+        "version": 1
+      }
+    },
+    {
+      "gen": "A",
+      "seq": 8,
+      "at": 1794451307262,
+      "event": "fresh.d1.second",
+      "read": {
+        "value": [
+          "fresh-A"
+        ],
+        "version": 1
+      }
+    },
+    {
+      "gen": "A",
+      "seq": 9,
+      "at": 1794451307760,
+      "event": "a.resolve",
+      "value": "uncertain",
+      "resolvedAt": 1794451307760,
+      "pending": {
+        "A": false,
+        "B": true,
+        "R": false
+      }
+    },
+    {
+      "gen": "A",
+      "seq": 10,
+      "at": 1794451307760,
+      "event": "a2.resolve",
+      "value": "uncertain",
+      "resolvedAt": 1794451307760
+    },
+    {
+      "gen": "A",
+      "seq": 11,
+      "at": 1794451307787,
+      "event": "b.resolve",
+      "value": "uncertain",
+      "resolvedAt": 1794451307787,
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": false
+      }
+    },
+    {
+      "gen": "A",
+      "seq": 12,
+      "at": 1794451308394,
+      "event": "registry.after-window",
+      "registry": {
+        "version": 4,
+        "keys": [
+          "parallel:A",
+          "side:B"
+        ]
+      },
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": false
+      }
+    },
+    {
+      "gen": "A",
+      "seq": 13,
+      "at": 1794451310807,
+      "event": "hold.end",
+      "name": "A"
+    },
+    {
+      "gen": "A",
+      "seq": 14,
+      "at": 1794451310819,
+      "event": "turn.start",
+      "turnId": "9ca6939a-7a51-4f29-92b5-649e14ec39e7",
+      "name": "A"
+    },
+    {
+      "gen": "A",
+      "seq": 15,
+      "at": 1794451310826,
+      "event": "hook.prompt.result",
+      "name": "A",
+      "drop": null
+    },
+    {
+      "gen": "A",
+      "seq": 16,
+      "at": 1794451310946,
+      "event": "hook.prompt.submit",
+      "name": "B",
+      "working": true,
+      "head": "PROMPT-REGISTRY-B-a2893051",
+      "origin": "{\"kind\":\"plugin\",\"name\":\"ciel-work\"}"
+    },
+    {
+      "gen": "A",
+      "seq": 17,
+      "at": 1794451310972,
+      "event": "turn.complete",
+      "turnId": "9ca6939a-7a51-4f29-92b5-649e14ec39e7",
+      "reason": "answer",
+      "name": "A"
+    },
+    {
+      "gen": "A",
+      "seq": 18,
+      "at": 1794451310988,
+      "event": "hook.prompt.result",
+      "name": "B",
+      "drop": null
+    },
+    {
+      "gen": "A",
+      "seq": 19,
+      "at": 1794451311046,
+      "event": "r.invoke",
+      "why": "a-turn-complete",
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": true
+      }
+    },
+    {
+      "gen": "A",
+      "seq": 20,
+      "at": 1794451311073,
+      "event": "hook.prompt.submit",
+      "name": "R",
+      "working": false,
+      "head": "PROMPT-REGISTRY-R-a2893051",
+      "origin": "{\"kind\":\"plugin\",\"name\":\"ciel-work\"}"
+    },
+    {
+      "gen": "A",
+      "seq": 21,
+      "at": 1794451311098,
+      "event": "turn.start",
+      "turnId": "f4637e0c-c1c2-4a6c-9d95-b5ff9b73da55",
+      "name": "B"
+    },
+    {
+      "gen": "A",
+      "seq": 22,
+      "at": 1794451311103,
+      "event": "hold.begin",
+      "name": "R",
+      "ms": 9000
+    },
+    {
+      "gen": "A",
+      "seq": 23,
+      "at": 1794451311113,
+      "event": "turn.complete",
+      "turnId": "f4637e0c-c1c2-4a6c-9d95-b5ff9b73da55",
+      "reason": "answer",
+      "name": "B"
+    },
+    {
+      "gen": "A",
+      "seq": 24,
+      "at": 1794451311499,
+      "event": "phase2.ready",
+      "registry": {
+        "version": 5,
+        "keys": [
+          "parallel:R",
+          "parallel:A",
+          "side:B"
+        ]
+      },
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": true
+      }
+    },
+    {
+      "gen": "B",
+      "seq": 1,
+      "at": 1794451312447,
+      "event": "session.start",
+      "pendingBeforeHydrate": {
+        "A": false,
+        "B": false,
+        "R": false
+      },
+      "pendingAfterHydrate": {
+        "A": false,
+        "B": false,
+        "R": true
+      },
+      "registry": {
+        "version": 5,
+        "keys": [
+          "parallel:R",
+          "parallel:A",
+          "side:B"
+        ]
+      }
+    },
+    {
+      "gen": "B",
+      "seq": 2,
+      "at": 1794451312462,
+      "event": "r2.invoke",
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": true
+      }
+    },
+    {
+      "gen": "B",
+      "seq": 3,
+      "at": 1794451312779,
+      "event": "b.registry.after-start",
+      "registry": {
+        "version": 5,
+        "keys": [
+          "parallel:R",
+          "parallel:A",
+          "side:B"
+        ]
+      },
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": true
+      }
+    },
+    {
+      "gen": "A",
+      "seq": 25,
+      "at": 1794451316115,
+      "event": "r.resolve",
+      "value": "uncertain",
+      "resolvedAt": 1794451316115
+    },
+    {
+      "gen": "B",
+      "seq": 4,
+      "at": 1794451317448,
+      "event": "r2.resolve",
+      "value": "uncertain",
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": false
+      },
+      "registry": {
+        "version": 6,
+        "keys": [
+          "parallel:A",
+          "side:B",
+          "parallel:R"
+        ]
+      }
+    },
+    {
+      "gen": "A",
+      "seq": 26,
+      "at": 1794451320120,
+      "event": "hold.end",
+      "name": "R"
+    },
+    {
+      "gen": "B",
+      "seq": 5,
+      "at": 1794451320128,
+      "event": "turn.start",
+      "turnId": "b991f778-9de9-4efa-b2c1-0fa072dd213c",
+      "name": "R"
+    },
+    {
+      "gen": "A",
+      "seq": 27,
+      "at": 1794451320130,
+      "event": "hook.prompt.result",
+      "name": "R",
+      "drop": null
+    },
+    {
+      "gen": "B",
+      "seq": 6,
+      "at": 1794451320184,
+      "event": "turn.complete",
+      "turnId": "b991f778-9de9-4efa-b2c1-0fa072dd213c",
+      "reason": "answer",
+      "name": "R"
+    }
+  ],
+  "requests": [
+    {
+      "at": 1794451310.889933,
+      "number": 1,
+      "message_count": 2,
+      "A": 1,
+      "A2": 0,
+      "B": 0,
+      "R": 0,
+      "R2": 0
+    },
+    {
+      "at": 1794451311.0059342,
+      "number": 2,
+      "message_count": 4,
+      "A": 1,
+      "A2": 0,
+      "B": 1,
+      "R": 0,
+      "R2": 0
+    },
+    {
+      "at": 1794451320.1472063,
+      "number": 3,
+      "message_count": 6,
+      "A": 1,
+      "A2": 0,
+      "B": 1,
+      "R": 1,
+      "R2": 0
+    }
+  ],
+  "analysis": {
+    "fresh_first": {
+      "version": 0
+    },
+    "fresh_write": {
+      "isSet": true,
+      "version": 1
+    },
+    "fresh_second": {
+      "value": [
+        "fresh-A"
+      ],
+      "version": 1
+    },
+    "invoked": {
+      "gen": "A",
+      "seq": 2,
+      "at": 1794451302756,
+      "event": "invoked",
+      "invokedAt": 1794451302756,
+      "sameAPromise": true,
+      "distinctB": true,
+      "pending": {
+        "A": true,
+        "B": true,
+        "R": false
+      }
+    },
+    "hook_arrivals_ms": [
+      {
+        "name": "A",
+        "ms": 27,
+        "working": false
+      },
+      {
+        "name": "B",
+        "ms": 8190,
+        "working": true
+      },
+      {
+        "name": "R",
+        "ms": 8317,
+        "working": false
+      }
+    ],
+    "holds": [
+      {
+        "gen": "A",
+        "event": "hold.begin",
+        "name": "A",
+        "at": 1794451302798,
+        "error": null
+      },
+      {
+        "gen": "A",
+        "event": "hold.end",
+        "name": "A",
+        "at": 1794451310807,
+        "error": null
+      },
+      {
+        "gen": "A",
+        "event": "hold.begin",
+        "name": "R",
+        "at": 1794451311103,
+        "error": null
+      },
+      {
+        "gen": "A",
+        "event": "hold.end",
+        "name": "R",
+        "at": 1794451320120,
+        "error": null
+      }
+    ],
+    "registry_after_issue": {
+      "gen": "A",
+      "seq": 5,
+      "at": 1794451303093,
+      "event": "registry.after-issue",
+      "registry": {
+        "version": 2,
+        "keys": [
+          "parallel:A",
+          "side:B"
+        ]
+      },
+      "pending": {
+        "A": true,
+        "B": true,
+        "R": false
+      }
+    },
+    "registry_after_window": {
+      "gen": "A",
+      "seq": 12,
+      "at": 1794451308394,
+      "event": "registry.after-window",
+      "registry": {
+        "version": 4,
+        "keys": [
+          "parallel:A",
+          "side:B"
+        ]
+      },
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": false
+      }
+    },
+    "a_resolve": {
+      "gen": "A",
+      "seq": 9,
+      "at": 1794451307760,
+      "event": "a.resolve",
+      "value": "uncertain",
+      "resolvedAt": 1794451307760,
+      "pending": {
+        "A": false,
+        "B": true,
+        "R": false
+      }
+    },
+    "a_resolve_ms": 5004,
+    "a2_resolve": {
+      "gen": "A",
+      "seq": 10,
+      "at": 1794451307760,
+      "event": "a2.resolve",
+      "value": "uncertain",
+      "resolvedAt": 1794451307760
+    },
+    "b_resolve": {
+      "gen": "A",
+      "seq": 11,
+      "at": 1794451307787,
+      "event": "b.resolve",
+      "value": "uncertain",
+      "resolvedAt": 1794451307787,
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": false
+      }
+    },
+    "b_resolve_ms": 5031,
+    "turn_start_ms": [
+      {
+        "name": "A",
+        "gen": "A",
+        "ms": 8063
+      },
+      {
+        "name": "B",
+        "gen": "A",
+        "ms": 8342
+      },
+      {
+        "name": "R",
+        "gen": "B",
+        "ms": 17372
+      }
+    ],
+    "turns": [
+      {
+        "gen": "A",
+        "event": "turn.start",
+        "at": 1794451310819,
+        "turnId": "9ca6939a-7a51-4f29-92b5-649e14ec39e7",
+        "name": "A",
+        "reason": null
+      },
+      {
+        "gen": "A",
+        "event": "turn.complete",
+        "at": 1794451310972,
+        "turnId": "9ca6939a-7a51-4f29-92b5-649e14ec39e7",
+        "name": "A",
+        "reason": "answer"
+      },
+      {
+        "gen": "A",
+        "event": "turn.start",
+        "at": 1794451311098,
+        "turnId": "f4637e0c-c1c2-4a6c-9d95-b5ff9b73da55",
+        "name": "B",
+        "reason": null
+      },
+      {
+        "gen": "A",
+        "event": "turn.complete",
+        "at": 1794451311113,
+        "turnId": "f4637e0c-c1c2-4a6c-9d95-b5ff9b73da55",
+        "name": "B",
+        "reason": "answer"
+      },
+      {
+        "gen": "B",
+        "event": "turn.start",
+        "at": 1794451320128,
+        "turnId": "b991f778-9de9-4efa-b2c1-0fa072dd213c",
+        "name": "R",
+        "reason": null
+      },
+      {
+        "gen": "B",
+        "event": "turn.complete",
+        "at": 1794451320184,
+        "turnId": "b991f778-9de9-4efa-b2c1-0fa072dd213c",
+        "name": "R",
+        "reason": "answer"
+      }
+    ],
+    "prompt_results": [
+      {
+        "gen": "A",
+        "name": "A",
+        "at": 1794451310826,
+        "drop": null
+      },
+      {
+        "gen": "A",
+        "name": "B",
+        "at": 1794451310988,
+        "drop": null
+      },
+      {
+        "gen": "A",
+        "name": "R",
+        "at": 1794451320130,
+        "drop": null
+      }
+    ],
+    "phase2_ready": {
+      "gen": "A",
+      "seq": 24,
+      "at": 1794451311499,
+      "event": "phase2.ready",
+      "registry": {
+        "version": 5,
+        "keys": [
+          "parallel:R",
+          "parallel:A",
+          "side:B"
+        ]
+      },
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": true
+      }
+    },
+    "r_resolve": {
+      "gen": "A",
+      "seq": 25,
+      "at": 1794451316115,
+      "event": "r.resolve",
+      "value": "uncertain",
+      "resolvedAt": 1794451316115
+    },
+    "b_session_start": {
+      "gen": "B",
+      "seq": 1,
+      "at": 1794451312447,
+      "event": "session.start",
+      "pendingBeforeHydrate": {
+        "A": false,
+        "B": false,
+        "R": false
+      },
+      "pendingAfterHydrate": {
+        "A": false,
+        "B": false,
+        "R": true
+      },
+      "registry": {
+        "version": 5,
+        "keys": [
+          "parallel:R",
+          "parallel:A",
+          "side:B"
+        ]
+      }
+    },
+    "b_registry_after_start": {
+      "gen": "B",
+      "seq": 3,
+      "at": 1794451312779,
+      "event": "b.registry.after-start",
+      "registry": {
+        "version": 5,
+        "keys": [
+          "parallel:R",
+          "parallel:A",
+          "side:B"
+        ]
+      },
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": true
+      }
+    },
+    "r2_invoke": {
+      "gen": "B",
+      "seq": 2,
+      "at": 1794451312462,
+      "event": "r2.invoke",
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": true
+      }
+    },
+    "r2_resolve": {
+      "gen": "B",
+      "seq": 4,
+      "at": 1794451317448,
+      "event": "r2.resolve",
+      "value": "uncertain",
+      "pending": {
+        "A": false,
+        "B": false,
+        "R": false
+      },
+      "registry": {
+        "version": 6,
+        "keys": [
+          "parallel:A",
+          "side:B",
+          "parallel:R"
+        ]
+      }
+    },
+    "old_activity_after_reload": [
+      {
+        "gen": "A",
+        "seq": 25,
+        "at": 1794451316115,
+        "event": "r.resolve",
+        "value": "uncertain",
+        "resolvedAt": 1794451316115
+      },
+      {
+        "gen": "A",
+        "seq": 26,
+        "at": 1794451320120,
+        "event": "hold.end",
+        "name": "R"
+      },
+      {
+        "gen": "A",
+        "seq": 27,
+        "at": 1794451320130,
+        "event": "hook.prompt.result",
+        "name": "R",
+        "drop": null
+      }
+    ],
+    "requests_by_marker": {
+      "A": [
+        1,
+        2,
+        3
+      ],
+      "A2": [],
+      "B": [
+        2,
+        3
+      ],
+      "R": [
+        3
+      ],
+      "R2": []
+    },
+    "same_process_after_reload": true
+  },
+  "owned_tree": [
+    {
+      "pid": 26272,
+      "ppid": 85512,
+      "name": "claude.exe",
+      "created": "2026-11-12T02:41:41.8906520Z"
+    }
+  ],
+  "killed": [
+    {
+      "pid": 26272,
+      "name": "claude.exe",
+      "rc": 0
+    }
+  ],
+  "protected_missing_after": [
+    {
+      "pid": 82624,
+      "ppid": 1188,
+      "name": "python.exe",
+      "created": "2026-11-12T02:41:41.6882710Z"
+    }
+  ],
+  "live_before": {
+    "C:\\Users\\djlov\\.claude.json": "d9e4508afec16a245f01f7a5da8d5b708e7d7012fd03ab53a1ae3249f1952d75",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_after": {
+    "C:\\Users\\djlov\\.claude.json": "d9e4508afec16a245f01f7a5da8d5b708e7d7012fd03ab53a1ae3249f1952d75",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_hash_changed": [],
+  "owned_path_in_live_files": []
+}

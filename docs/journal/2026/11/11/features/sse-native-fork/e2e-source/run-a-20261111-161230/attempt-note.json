@@ -1,0 +1,6 @@
+{
+ "freeze": "freeze-sse-378f6d73 + restart 09255642; snapshot ac9468eb58b2",
+ "verdict": "harness_rule_error: outcome \"defect\" came only from one_side_actor/fork_type/unnamed_not_registered, which required exactly one actor for the whole run; the run legitimately spawned two native forks (thread event 67d93c61fddd and none_referenced event a11dc6a6ecf2), and none for the failed prefetch ff82ef8b88bd. Both actor metas: agentType fork, isFork true, model inherit, unnamed. Rule corrected to one fork per spawned event; run repeated.",
+ "all_other_facts": "true (22/22)",
+ "product_defect": false
+}

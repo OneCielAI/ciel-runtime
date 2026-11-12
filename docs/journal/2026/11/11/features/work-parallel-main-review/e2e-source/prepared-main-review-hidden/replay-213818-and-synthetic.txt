@@ -1,0 +1,11 @@
+213818 item n4
+213818 terminal {"visible": true, "header_count": 1, "item_rows": ["Rework · n4 Failing implementation then rework · P1 · lease 26c5461a1b9c4b1689b2010960ad437d · receipt"]}
+213818 web {"desktop": {"visible": true, "header_count": 1, "item_rows": ["n4 · Failing implementation then rework"]}, "mobile": {"visible": true, "header_count": 1, "item_rows": ["n4 · Failing implementation then rework"]}}
+213818 reworked_item_absent_from_final_main_review: False
+{
+ "defect_213818_flagged": true,
+ "fixed_state_passes": true,
+ "ended_group_rows_not_counted": true,
+ "scrolled_off_status_not_visible": true,
+ "missing_web_section_not_visible": true
+}

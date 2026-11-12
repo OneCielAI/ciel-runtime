@@ -1,0 +1,132 @@
+[?9001h[?1004h[?25l[2J[m[H]0;claude[?25h[?2004h[?2031h[?1004h[<u[>5u[>4;2m]0;✳ Claude Code[?1049h[2J[<u[>5u[>4;2m[?1000h[?1002h[?1003h[?1006h[?2026h[?2026l[K[38;2;215;119;87m
+ ▐[48;2;0;0;0m▛███▛█[m   [1mClaude Code[22m [38;2;153;153;153mv2.1.322[K[38;2;215;119;87m
+▝▜[48;2;0;0;0m█████[49m█▀  [38;2;153;153;153mfixture · API Usage Billing[K[38;2;215;119;87m
+ ▝▝   ▝▝   [38;2;153;153;153m~\AppData\Local\Temp\ciel-prompt-registry-35a040a8-0dzse6gg\workspace[K[m
+[K[38;2;255;193;7m
+⚠ Model "fixture" isn't recognized [38;2;153;153;153m· context assumed to be 200k tokens · update Claude Code, or see ]8;id=u-6mdv8p%10319244302621100894;https://code.claude.com/docs/en/model-config#correct-the-window-for-a-gateway-or-custom-model-id\the docs[m]8;;\[K
+[K[2m
+▎[22m [38;2;153;153;153mDebug mode enabled · logging to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-35a040a8-0dzse6gg\debug.txt    [m
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[K
+[102X[38;2;153;153;153m[102C● high · /effort  [38;2;136;136;136m
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[m❯ [7m [27m[K[38;2;136;136;136m
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────[m  [38;2;153;153;153m⏸ manual mode on · ? for shortcuts · ← for agents[K[?25l[69C[>0q[m[?u]7501;?[?2026h[?2026l[38;2;0;0;0m[48;2;215;119;87m[2;7H▂[m[?2026h[?2026l[38;2;215;119;87m[48;2;0;0;0m▛[m]0;◐ Claude Code[?2026h[?2026l[38;2;153;153;153m[10;1H› Prompt from the ciel-work plugin[48;2;55;55;55m
+❯ PROMPT-REGISTRY-A-35a040a8                                                                                            [38;2;215;119;87m[49m[25;1H✻[1CBrewing… [38;2;153;153;153m[28;1H❯ [30;22Hesc to interrupt · ← for agents[?2026h[?2026l[m[38;2;215;119;87m[25;1H✶[m]0;✳ Claude Code[?2026h[?2026l[38;2;255;255;255m[48;2;55;55;55m[11;3HPROMPT-REGISTRY-A-35a040a8[49m[13;1H●[m[1COK[38;2;153;153;153m[15;1H✻[1CChurned for 0s · done 6:35 PM[m[25;1H[K[28;1H❯ [38;2;153;153;153m[30;22H? for shortcuts · ← for agents[K[69C[m]0;◐ Claude Code[?2026h[?2026l[38;2;153;153;153m[17;1H› Prompt from the ciel-work plugin[48;2;55;55;55m
+❯ PROMPT-REGISTRY-B-35a040a8                                                                                            [38;2;215;119;87m[49m[24;1H*[1CQuantumizing… [38;2;153;153;153m
+  ⎿  Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits[28;1H❯ [30;22Hesc to interrupt · ← for agents[m]0;✳ Claude Code[?2026h[?2026l[38;2;255;255;255m[48;2;55;55;55m[18;3HPROMPT-REGISTRY-B-35a040a8[49m[20;1H●[m[1COK[38;2;153;153;153m[22;1H✻[1CCooked for 0s · done 6:35 PM[m[24;1H[K
+[K[28;1H❯ [38;2;153;153;153m[30;22H? for shortcuts · ← for agents[K[69C[m]0;◐ Claude Code[?2026h[?2026l[38;2;215;119;87m[H ▝▝   ▝▝ [38;2;153;153;153m[2C~\AppData\Local\Temp\ciel-prompt-registry-35a040a8-0dzse6gg\workspace[m
+[K[38;2;255;193;7m
+⚠ Model "fixture" isn't recognized [38;2;153;153;153m· context assumed to be 200k tokens · update Claude Code, or see ]8;id=u-6mdv8p%10319244302621100894;https://code.claude.com/docs/en/model-config#correct-the-window-for-a-gateway-or-custom-model-id\the docs[m]8;;\
+[K[2m
+▎[38;2;153;153;153m[22m[1CDebug mode enabled · logging to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-35a040a8-0dzse6gg\debug.txt[m
+[K[38;2;153;153;153m
+› Prompt from the ciel-work plugin[48;2;55;55;55m
+❯ [38;2;255;255;255mPROMPT-REGISTRY-A-35a040a8                                                                                            [49m[10;1H● [mOK[K
+                                                                                                                        [38;2;153;153;153m✻[1CChurned for 0s · done 6:35 PM[m
+[K[38;2;153;153;153m
+› Prompt from the ciel-work plugin[48;2;55;55;55m
+❯ [38;2;255;255;255mPROMPT-REGISTRY-B-35a040a8                                                                                            [49m[17;1H● [mOK[K
+                                                                                                                        [38;2;153;153;153m✻[1CCooked for 0s · done 6:35 PM[m
+[K[38;2;153;153;153m
+› Prompt from the ciel-work plugin[48;2;55;55;55m
+❯ PROMPT-REGISTRY-A2-35a040a8                                                                                           [38;2;215;119;87m[49m[24;1H*[1CSprouting… [38;2;153;153;153m
+  ⎿  Tip: Start with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits[28;1H❯ [30;22Hesc to interrupt · ← for agents[m]0;✳ Claude Code[?2026h[?2026l[H[K[38;2;255;193;7m
+⚠[1CModel "fixture" isn't recognized [38;2;153;153;153m· context assumed to be 200k tokens · update Claude Code, or see ]8;id=u-6mdv8p%10319244302621100894;https://code.claude.com/docs/en/model-config#correct-the-window-for-a-gateway-or-custom-model-id\the docs[m]8;;\
+[K[2m
+▎[38;2;153;153;153m[22m[1CDebug mode enabled · logging to C:\Users\djlov\AppData\Local\Temp\ciel-prompt-registry-35a040a8-0dzse6gg\debug.txt[m
+[K[38;2;153;153;153m
+› Prompt from the ciel-work plugin[48;2;55;55;55m
+❯ [38;2;255;255;255mPROMPT-REGISTRY-A-35a040a8                                                                                            [m                                                                                                                        [38;2;255;255;255m●[m[1COK
+[K[38;2;153;153;153m
+✻[1CChurned for 0s · done 6:35 PM[m
+[K[38;2;153;153;153m
+› Prompt from the ciel-work plugin[48;2;55;55;55m
+❯ [38;2;255;255;255mPROMPT-REGISTRY-B-35a040a8                                                                                            [m                                                                                                                        [38;2;255;255;255m●[m[1COK
+[K[38;2;153;153;153m
+✻[1CCooked for 0s · done 6:35 PM[m
+[K[38;2;153;153;153m
+› Prompt from the ciel-work plugin[48;2;55;55;55m
+❯ [38;2;255;255;255mPROMPT-REGISTRY-A2-35a040a8                                                                                           [m                                                                                                                        [38;2;255;255;255m●[m[1COK
+[K[38;2;153;153;153m
+✻ Crunched fo[1C 0s · done 6:35 PM[K[m[28;1H❯ [38;2;153;153;153m[30;22H? for shortcuts · ← for agents[K[69C[m]0;◐ Claude Code[?2026h[?2026l[2;1H[K[38;2;255;255;255m
+●[m[1COK
+[K[38;2;153;153;153m
+✻[1CChurned for 0s · done 6:35 PM[m
+[K[38;2;153;153;153m
+› Prompt from the ciel-work plugin                                                                                      [48;2;55;55;55m❯ [38;2;255;255;255mPROMPT-REGISTRY-B-35a040a8                                                                                            [m
+[K[38;2;255;255;255m
+●[m[1COK
+                                                                                                                        [38;2;153;153;153m✻[1CCooked for 0s · done 6:35 PM[m
+[K[38;2;153;153;153m
+› Prompt from the ciel-work plugin                                                                                      [48;2;55;55;55m❯ [38;2;255;255;255mPROMPT-REGISTRY-A2-35a040a8                                                                                           [m
+[K[38;2;255;255;255m
+●[m[1COK
+                                                                                                                        [38;2;153;153;153m✻[1CCrunched for 0s · done 6:35 PM[m
+[K[38;2;153;153;153m
+› Prompt from the ciel-work plugin                                                                                      [48;2;55;55;55m❯ PROMPT-REGISTRY-R-35a040a8                                                                                            [m
+[K[38;2;215;119;87m
+✽[1CCrun[38;2;235;159;127mchi[38;2;215;119;87mng… [38;2;153;153;153m
+  ⎿  Tip: Sta[1Ct with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits[28;1H❯ [30;22Hesc to interrupt · ← for agents[m]0;✳ Claude Code[?2026h[?2026l[38;2;255;255;255m[2;1H●[m[1COK
+[K[38;2;153;153;153m
+✻[1CChurned for 0s · done 6:35 PM[m
+[K[38;2;153;153;153m
+› Prompt from the ciel-work plugin[48;2;55;55;55m
+❯ [38;2;255;255;255mPROMPT-REGISTRY-B-35a040a8                                                                                            [m                                                                                                                        [38;2;255;255;255m●[m[1COK
+[K[38;2;153;153;153m
+✻[1CCooked for 0s · done 6:35 PM[m
+[K[38;2;153;153;153m
+› Prompt from the ciel-work plugin[48;2;55;55;55m
+❯ [38;2;255;255;255mPROMPT-REGISTRY-A2-35a040a8                                                                                           [m                                                                                                                        [38;2;255;255;255m●[m[1COK
+[K[38;2;153;153;153m
+✻[1CCrunched for 0s · done 6:35 PM[m
+[K[38;2;153;153;153m
+› Prompt from the ciel-work plugin[48;2;55;55;55m
+❯ [38;2;255;255;255mPROMPT-REGISTRY-R-35a040a8                                                                                            [m                                                                                                                        [38;2;255;255;255m●[m[1COK
+[K[38;2;153;153;153m
+✻ Crunched fo[1C 0s · done 6:35 PM[K[m[28;1H❯ [38;2;153;153;153m[30;22H? for shortcuts · ← for agents[K[69C[?2026h[?2026l[m[26;103H[K[18C[?2026h[?2026l[30;37H[K[84C]0;◐ Claude Code[?2026h[?2026l[2;1H[K[38;2;153;153;153m
+✻[1CCooked for 0s · done 6:35 PM[m
+[K[38;2;153;153;153m
+› Prompt from the ciel-work plugin[48;2;55;55;55m
+❯ [38;2;255;255;255mPROMPT-REGISTRY-A2-35a040a8                                                                                           [m                                                                                                                        [38;2;255;255;255m●[m[1COK
+[K[38;2;153;153;153m
+✻[1CCrunched for 0s · done 6:35 PM[m
+                                                                                                                        [38;2;153;153;153m› Prompt from the ciel-work plugin[48;2;55;55;55m
+❯ [38;2;255;255;255mPROMPT-REGISTRY-R-35a040a8                                                                                            [m                                                                                                                        [38;2;255;255;255m●[m[1COK
+[K[38;2;153;153;153m
+✻[1CCrunched for 0s · done 6:35 PM[m
+                                                                                                                        [38;2;153;153;153m●[1Cciel-work: reloaded (4 hooks: session.start, prompt.submit, turn.start, turn.complete)[m
+[K[38;2;153;153;153m
+› Prompt from the ciel-work plugin                                                                                      [48;2;55;55;55m❯ PROMPT-REGISTRY-R2-35a040a8                                                                                           [m
+[K[38;2;215;119;87m
+*[1CM[38;2;235;159;127mani[38;2;215;119;87mfesting… [38;2;153;153;153m
+  ⎿  Tip: Sta[1Ct with small features or bug fixes, tell Claude to propose a plan, and verify its suggested edits[28;1H❯ [30;22Hesc to interrupt[m]0;✳ Claude Code[?2026h[?2026l[38;2;153;153;153m[2;1H✻[1CCooked for 0s · done 6:35 PM[m
+[K[38;2;153;153;153m
+› Prompt from the ciel-work plugin[48;2;55;55;55m
+❯ [38;2;255;255;255mPROMPT-REGISTRY-A2-35a040a8                                                                                           [m                                                                                                                        [38;2;255;255;255m●[m[1COK
+                                                                                                                        [38;2;153;153;153m✻[1CCrunched for 0s · done 6:35 PM[m
+[K[38;2;153;153;153m
+› Prompt from the ciel-work plugin[48;2;55;55;55m
+❯ [38;2;255;255;255mPROMPT-REGISTRY-R-35a040a8                                                                                            [m                                                                                                                        [38;2;255;255;255m●[m[1COK
+                                                                                                                        [38;2;153;153;153m✻[1CCrunched for 0s · done 6:35 PM[m
+[K[38;2;153;153;153m
+●[1Cciel-work: reloaded (4 hooks: session.start, prompt.submit, turn.start, turn.complete)[m
+[K[38;2;153;153;153m
+› Prompt from the ciel-work plugin[48;2;55;55;55m
+❯ [38;2;255;255;255mPROMPT-REGISTRY-R2-35a040a8                                                                                           [m                                                                                                                        [38;2;255;255;255m●[m[1COK
+[K[38;2;153;153;153m
+✻ Cogitated for[1C0s ·[1Cdone 6:35 PM[K[m[28;1H❯ [38;2;153;153;153m[30;22H? for shortcuts[K[84C

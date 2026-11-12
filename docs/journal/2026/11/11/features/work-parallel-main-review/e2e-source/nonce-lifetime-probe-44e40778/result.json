@@ -1,0 +1,1144 @@
+{
+  "probe": "44e40778",
+  "session_id": "d8ee6390-9b39-42a4-a4db-9b5b7154e760",
+  "cli": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+  "cli_version": "2.1.322 (Claude Code)",
+  "probe_pid": 60264,
+  "owned_before_snapshot": [
+    {
+      "pid": 74176,
+      "ppid": 60264,
+      "name": "powershell.exe",
+      "created": "2026-11-11T18:35:22.1157730Z",
+      "command": "powershell.exe Get-CimInstance"
+    }
+  ],
+  "protected_snapshot": [
+    {
+      "pid": 12372,
+      "ppid": 7524,
+      "name": "python.exe",
+      "created": "2026-11-11T15:05:45.7613660Z",
+      "command": null
+    },
+    {
+      "pid": 13232,
+      "ppid": 8732,
+      "name": "node.exe",
+      "created": "2026-11-11T15:05:45.9549270Z",
+      "command": null
+    },
+    {
+      "pid": 15864,
+      "ppid": 14888,
+      "name": "node.exe",
+      "created": "2026-11-11T15:05:47.3258900Z",
+      "command": null
+    },
+    {
+      "pid": 14556,
+      "ppid": 15864,
+      "name": "py.exe",
+      "created": "2026-11-11T15:05:47.6924030Z",
+      "command": null
+    },
+    {
+      "pid": 14560,
+      "ppid": 14556,
+      "name": "python.exe",
+      "created": "2026-11-11T15:05:47.7012950Z",
+      "command": null
+    },
+    {
+      "pid": 10660,
+      "ppid": 14560,
+      "name": "python.exe",
+      "created": "2026-11-11T15:06:10.4231470Z",
+      "command": null
+    },
+    {
+      "pid": 4284,
+      "ppid": 14560,
+      "name": "python.exe",
+      "created": "2026-11-11T15:06:16.6113700Z",
+      "command": null
+    },
+    {
+      "pid": 5212,
+      "ppid": 3928,
+      "name": "claude.exe",
+      "created": "2026-11-11T15:06:16.6212640Z",
+      "command": null
+    },
+    {
+      "pid": 23728,
+      "ppid": 9008,
+      "name": "py.exe",
+      "created": "2026-11-11T15:49:31.2438970Z",
+      "command": "py %USERPROFILE%\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py"
+    },
+    {
+      "pid": 42764,
+      "ppid": 23728,
+      "name": "python.exe",
+      "created": "2026-11-11T15:49:31.2572340Z",
+      "command": "%USERPROFILE%\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe %USERPROFILE%\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py"
+    },
+    {
+      "pid": 42924,
+      "ppid": 42764,
+      "name": "python.exe",
+      "created": "2026-11-11T15:49:42.9719160Z",
+      "command": "%USERPROFILE%\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe %USERPROFILE%\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py"
+    },
+    {
+      "pid": 36344,
+      "ppid": 42764,
+      "name": "claude.exe",
+      "created": "2026-11-11T15:49:49.7027510Z",
+      "command": "%USERPROFILE%\\.local\\bin\\claude.exe bypassPermissions"
+    },
+    {
+      "pid": 40616,
+      "ppid": 42764,
+      "name": "python.exe",
+      "created": "2026-11-11T15:49:49.7115240Z",
+      "command": "%USERPROFILE%\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe %USERPROFILE%\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime_support\\windows_console_guard.py"
+    },
+    {
+      "pid": 41784,
+      "ppid": 36344,
+      "name": "python.exe",
+      "created": "2026-11-11T15:49:56.2217360Z",
+      "command": "%USERPROFILE%\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe G:\\ciel-Walkie\\.local\\walkie-install\\mcp-stdio.py"
+    },
+    {
+      "pid": 45164,
+      "ppid": 45700,
+      "name": "python.exe",
+      "created": "2026-11-11T15:49:57.0622360Z",
+      "command": "%USERPROFILE%\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\python.exe %USERPROFILE%\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe"
+    },
+    {
+      "pid": 45572,
+      "ppid": 45164,
+      "name": "python.exe",
+      "created": "2026-11-11T15:49:57.0808500Z",
+      "command": "C:\\Program Files\\Python311\\python.exe"
+    },
+    {
+      "pid": 40000,
+      "ppid": 36344,
+      "name": "python.exe",
+      "created": "2026-11-11T15:49:59.5029580Z",
+      "command": "%USERPROFILE%\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe G:\\ciel-Walkie\\.local\\walkie-install\\transcript-relay.py"
+    },
+    {
+      "pid": 39984,
+      "ppid": 44500,
+      "name": "py.exe",
+      "created": "2026-11-11T15:49:59.7350270Z",
+      "command": "py %USERPROFILE%\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py"
+    },
+    {
+      "pid": 45652,
+      "ppid": 39984,
+      "name": "python.exe",
+      "created": "2026-11-11T15:49:59.7460130Z",
+      "command": "%USERPROFILE%\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe %USERPROFILE%\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py"
+    },
+    {
+      "pid": 25780,
+      "ppid": 40000,
+      "name": "python.exe",
+      "created": "2026-11-11T15:50:04.2317660Z",
+      "command": "%USERPROFILE%\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe G:\\ciel-Walkie\\.local\\walkie-install\\transcript-relay.py"
+    },
+    {
+      "pid": 45428,
+      "ppid": 45652,
+      "name": "python.exe",
+      "created": "2026-11-11T15:50:07.6855540Z",
+      "command": "%USERPROFILE%\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe %USERPROFILE%\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py"
+    },
+    {
+      "pid": 46232,
+      "ppid": 45652,
+      "name": "claude.exe",
+      "created": "2026-11-11T15:50:10.3111480Z",
+      "command": "%USERPROFILE%\\.local\\bin\\claude.exe bypassPermissions"
+    },
+    {
+      "pid": 46508,
+      "ppid": 45652,
+      "name": "python.exe",
+      "created": "2026-11-11T15:50:10.3174250Z",
+      "command": "%USERPROFILE%\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe %USERPROFILE%\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime_support\\windows_console_guard.py"
+    },
+    {
+      "pid": 46196,
+      "ppid": 22076,
+      "name": "node.exe",
+      "created": "2026-11-11T15:50:12.8488060Z",
+      "command": "C:\\Program Files\\nodejs\\\\node.exe"
+    },
+    {
+      "pid": 35344,
+      "ppid": 29796,
+      "name": "python.exe",
+      "created": "2026-11-11T15:50:12.8705160Z",
+      "command": "%USERPROFILE%\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\python.exe %USERPROFILE%\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe"
+    },
+    {
+      "pid": 23144,
+      "ppid": 36044,
+      "name": "node.exe",
+      "created": "2026-11-11T15:50:12.8746380Z",
+      "command": "C:\\Program Files\\nodejs\\\\node.exe"
+    },
+    {
+      "pid": 11840,
+      "ppid": 35344,
+      "name": "python.exe",
+      "created": "2026-11-11T15:50:12.8776780Z",
+      "command": "C:\\Program Files\\Python311\\python.exe"
+    },
+    {
+      "pid": 31320,
+      "ppid": 41236,
+      "name": "node.exe",
+      "created": "2026-11-11T15:50:17.4673290Z",
+      "command": "node %USERPROFILE%\\AppData\\Local\\npm-cache\\_npx\\469264b19fe50db8\\node_modules\\.bin\\\\..\\ddg-mcp-search\\dist\\index.js"
+    },
+    {
+      "pid": 40176,
+      "ppid": 7148,
+      "name": "node.exe",
+      "created": "2026-11-11T15:50:17.4805780Z",
+      "command": "node %USERPROFILE%\\AppData\\Local\\npm-cache\\_npx\\ad9a3fdbcad992c6\\node_modules\\.bin\\\\..\\rea-agents\\scripts\\rea.mjs"
+    },
+    {
+      "pid": 21912,
+      "ppid": 20744,
+      "name": "py.exe",
+      "created": "2026-11-11T15:50:47.3842160Z",
+      "command": "py %USERPROFILE%\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py"
+    },
+    {
+      "pid": 2272,
+      "ppid": 21912,
+      "name": "python.exe",
+      "created": "2026-11-11T15:50:47.3968980Z",
+      "command": "%USERPROFILE%\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe %USERPROFILE%\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py"
+    },
+    {
+      "pid": 9764,
+      "ppid": 2272,
+      "name": "python.exe",
+      "created": "2026-11-11T15:50:54.8996440Z",
+      "command": "%USERPROFILE%\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe %USERPROFILE%\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py"
+    },
+    {
+      "pid": 12240,
+      "ppid": 2272,
+      "name": "claude.exe",
+      "created": "2026-11-11T15:50:57.8131280Z",
+      "command": "%USERPROFILE%\\.local\\bin\\claude.exe bypassPermissions"
+    },
+    {
+      "pid": 48104,
+      "ppid": 2272,
+      "name": "python.exe",
+      "created": "2026-11-11T15:50:57.8189060Z",
+      "command": "%USERPROFILE%\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe %USERPROFILE%\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime_support\\windows_console_guard.py"
+    },
+    {
+      "pid": 8520,
+      "ppid": 48464,
+      "name": "node.exe",
+      "created": "2026-11-11T15:50:59.8178590Z",
+      "command": "C:\\Program Files\\nodejs\\\\node.exe"
+    },
+    {
+      "pid": 47928,
+      "ppid": 48168,
+      "name": "python.exe",
+      "created": "2026-11-11T15:50:59.8485840Z",
+      "command": "%USERPROFILE%\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\python.exe %USERPROFILE%\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe"
+    },
+    {
+      "pid": 48284,
+      "ppid": 47928,
+      "name": "python.exe",
+      "created": "2026-11-11T15:50:59.8816580Z",
+      "command": "C:\\Program Files\\Python311\\python.exe"
+    },
+    {
+      "pid": 47684,
+      "ppid": 48816,
+      "name": "node.exe",
+      "created": "2026-11-11T15:51:01.7095890Z",
+      "command": "node %USERPROFILE%\\AppData\\Local\\npm-cache\\_npx\\469264b19fe50db8\\node_modules\\.bin\\\\..\\ddg-mcp-search\\dist\\index.js"
+    },
+    {
+      "pid": 63568,
+      "ppid": 62392,
+      "name": "node.exe",
+      "created": "2026-11-11T15:55:05.7605590Z",
+      "command": "%USERPROFILE%\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\bin\\node.exe %USERPROFILE%\\.cache\\codex-runtimes\\codex-primary-runtime\\dependencies\\node\\node_modules\\@oai\\artifact-tool\\dist\\artifact-session\\host-daemon.mjs"
+    },
+    {
+      "pid": 50160,
+      "ppid": 53916,
+      "name": "node.exe",
+      "created": "2026-11-11T15:55:25.2474710Z",
+      "command": "C:\\Program Files\\Adobe\\Adobe"
+    },
+    {
+      "pid": 11444,
+      "ppid": 64516,
+      "name": "node.exe",
+      "created": "2026-11-11T15:56:58.8655460Z",
+      "command": "C:\\Program Files\\nodejs\\node.exe"
+    },
+    {
+      "pid": 79008,
+      "ppid": 5212,
+      "name": "python.exe",
+      "created": "2026-11-11T16:14:30.0122240Z",
+      "command": null
+    },
+    {
+      "pid": 76232,
+      "ppid": 79008,
+      "name": "python.exe",
+      "created": "2026-11-11T16:14:41.1470880Z",
+      "command": null
+    },
+    {
+      "pid": 78596,
+      "ppid": 79008,
+      "name": "node.exe",
+      "created": "2026-11-11T16:14:42.4624880Z",
+      "command": null
+    },
+    {
+      "pid": 77124,
+      "ppid": 5212,
+      "name": "python.exe",
+      "created": "2026-11-11T16:14:42.4751490Z",
+      "command": null
+    },
+    {
+      "pid": 64168,
+      "ppid": 41784,
+      "name": "node.exe",
+      "created": "2026-11-11T16:58:14.6803210Z",
+      "command": "C:\\Program Files\\nodejs\\node.EXE"
+    },
+    {
+      "pid": 35392,
+      "ppid": 49616,
+      "name": "python.exe",
+      "created": "2026-11-11T17:53:46.7753170Z",
+      "command": null
+    },
+    {
+      "pid": 60660,
+      "ppid": 14860,
+      "name": "node.exe",
+      "created": "2026-11-11T18:00:37.3471720Z",
+      "command": null
+    },
+    {
+      "pid": 58692,
+      "ppid": 60660,
+      "name": "python.exe",
+      "created": "2026-11-11T18:00:37.4316820Z",
+      "command": null
+    },
+    {
+      "pid": 42456,
+      "ppid": 58692,
+      "name": "python.exe",
+      "created": "2026-11-11T18:00:50.8005260Z",
+      "command": null
+    },
+    {
+      "pid": 59932,
+      "ppid": 58692,
+      "name": "python.exe",
+      "created": "2026-11-11T18:00:54.2171760Z",
+      "command": null
+    },
+    {
+      "pid": 78028,
+      "ppid": 79704,
+      "name": "claude.exe",
+      "created": "2026-11-11T18:00:54.2194040Z",
+      "command": null
+    },
+    {
+      "pid": 12780,
+      "ppid": 78028,
+      "name": "python.exe",
+      "created": "2026-11-11T18:00:55.7516380Z",
+      "command": null
+    },
+    {
+      "pid": 78488,
+      "ppid": 6188,
+      "name": "python.exe",
+      "created": "2026-11-11T18:00:55.9598490Z",
+      "command": null
+    },
+    {
+      "pid": 79620,
+      "ppid": 78488,
+      "name": "python.exe",
+      "created": "2026-11-11T18:00:55.9732300Z",
+      "command": null
+    },
+    {
+      "pid": 59272,
+      "ppid": 76248,
+      "name": "node.exe",
+      "created": "2026-11-11T18:00:55.9827740Z",
+      "command": null
+    },
+    {
+      "pid": 60140,
+      "ppid": 12780,
+      "name": "node.exe",
+      "created": "2026-11-11T18:00:56.2845020Z",
+      "command": null
+    },
+    {
+      "pid": 40940,
+      "ppid": 78028,
+      "name": "python.exe",
+      "created": "2026-11-11T18:00:56.5738410Z",
+      "command": null
+    },
+    {
+      "pid": 65424,
+      "ppid": 65280,
+      "name": "node.exe",
+      "created": "2026-11-11T18:00:57.0916500Z",
+      "command": null
+    },
+    {
+      "pid": 76412,
+      "ppid": 75868,
+      "name": "python.exe",
+      "created": "2026-11-11T18:35:22.7977860Z",
+      "command": null,
+      "in_owned_tree": false,
+      "parent_is_probe": false
+    }
+  ],
+  "inherited_ciel_after_strip": [],
+  "phase1_pid": 25996,
+  "spawn": {
+    "gen": "A",
+    "boot": "knu36169y",
+    "at": 1794422126874,
+    "event": "spawn",
+    "agentId": "a63e88317f79cce5d",
+    "deny": null
+  },
+  "initial": {
+    "gen": "A",
+    "boot": "knu36169y",
+    "at": 1794422123777,
+    "event": "session.start-after-next",
+    "state": {
+      "digest": "cb6036a4c41a556b0eb0dfa51c256c950a3ff9550de72c2d9f75c10015e95a32",
+      "version": 1
+    },
+    "env_set": {
+      "digest": "9d8722b67d9c8bb8cc0a9e57ad94d0a460ba0c0324162d954c6758bf7290f53d",
+      "present": true
+    },
+    "launcher": {
+      "digest": "ab10c87f27c206871dcf712762d4e0a04c7bca0716d7c06d4f837b6be9f9a0e6",
+      "present": true
+    },
+    "agents": []
+  },
+  "initial_live_agent_list": {
+    "gen": "A",
+    "boot": "knu36169y",
+    "at": 1794422128381,
+    "event": "after-spawn-0",
+    "state": {
+      "digest": "cb6036a4c41a556b0eb0dfa51c256c950a3ff9550de72c2d9f75c10015e95a32",
+      "version": 1
+    },
+    "env_set": {
+      "digest": "9d8722b67d9c8bb8cc0a9e57ad94d0a460ba0c0324162d954c6758bf7290f53d",
+      "present": true
+    },
+    "launcher": {
+      "digest": "ab10c87f27c206871dcf712762d4e0a04c7bca0716d7c06d4f837b6be9f9a0e6",
+      "present": true
+    },
+    "agents": [
+      {
+        "id": "a63e88317f79cce5d",
+        "status": "running",
+        "name": "nonce-probe-fork",
+        "type": "fork"
+      }
+    ]
+  },
+  "after_reload": {
+    "gen": "B",
+    "boot": "d47bko7lyc5",
+    "at": 1794422129024,
+    "event": "session.start-after-next",
+    "state": {
+      "digest": "cb6036a4c41a556b0eb0dfa51c256c950a3ff9550de72c2d9f75c10015e95a32",
+      "version": 1
+    },
+    "env_set": {
+      "digest": "9d8722b67d9c8bb8cc0a9e57ad94d0a460ba0c0324162d954c6758bf7290f53d",
+      "present": true
+    },
+    "launcher": {
+      "digest": "ab10c87f27c206871dcf712762d4e0a04c7bca0716d7c06d4f837b6be9f9a0e6",
+      "present": true
+    },
+    "agents": [
+      {
+        "id": "a63e88317f79cce5d",
+        "status": "running",
+        "name": "nonce-probe-fork",
+        "type": "fork"
+      }
+    ]
+  },
+  "reload_same_process": true,
+  "fork_held_after_reload": true,
+  "clear_typed": true,
+  "clear_before_reinit": {
+    "gen": "B",
+    "boot": "d47bko7lyc5",
+    "at": 1794422133201,
+    "event": "classic.SessionStart-before",
+    "state": {
+      "digest": null,
+      "version": 0
+    },
+    "env_set": {
+      "digest": "9d8722b67d9c8bb8cc0a9e57ad94d0a460ba0c0324162d954c6758bf7290f53d",
+      "present": true
+    },
+    "launcher": {
+      "digest": "ab10c87f27c206871dcf712762d4e0a04c7bca0716d7c06d4f837b6be9f9a0e6",
+      "present": true
+    },
+    "agents": [
+      {
+        "id": "a63e88317f79cce5d",
+        "status": "completed",
+        "name": null,
+        "type": "fork"
+      }
+    ],
+    "source": "clear"
+  },
+  "clear_after_reinit": {
+    "gen": "B",
+    "boot": "d47bko7lyc5",
+    "at": 1794422133208,
+    "event": "classic.SessionStart-after-reinit",
+    "state": {
+      "digest": "91040d00a509c7fabd771b9bcae82c47b300810426aa958ab3d8eec817c17de5",
+      "version": 2
+    },
+    "env_set": {
+      "digest": "9d8722b67d9c8bb8cc0a9e57ad94d0a460ba0c0324162d954c6758bf7290f53d",
+      "present": true
+    },
+    "launcher": {
+      "digest": "ab10c87f27c206871dcf712762d4e0a04c7bca0716d7c06d4f837b6be9f9a0e6",
+      "present": true
+    },
+    "agents": [
+      {
+        "id": "a63e88317f79cce5d",
+        "status": "completed",
+        "name": null,
+        "type": "fork"
+      }
+    ],
+    "source": "clear"
+  },
+  "worker_crash_entered": true,
+  "worker_respawn": null,
+  "phase1_tree_at_kill": [
+    {
+      "pid": 25996,
+      "ppid": 60264,
+      "name": "claude.exe",
+      "created": "2026-11-11T18:35:23.0798900Z"
+    }
+  ],
+  "phase1_tree": [
+    {
+      "pid": 25996,
+      "ppid": 60264,
+      "name": "claude.exe",
+      "created": "2026-11-11T18:35:23.0798900Z"
+    }
+  ],
+  "phase1_killed": [
+    {
+      "pid": 25996,
+      "name": "claude.exe",
+      "rc": 0
+    }
+  ],
+  "phase1_survivors": [],
+  "continue_pid": 54932,
+  "after_continue": {
+    "gen": "D",
+    "boot": "6cfydin2i43",
+    "at": 1794422300666,
+    "event": "session.start-after-next",
+    "state": {
+      "digest": null,
+      "version": 0
+    },
+    "env_set": {
+      "digest": null,
+      "present": false
+    },
+    "launcher": {
+      "digest": "6332aea3bf50ef8f91050aa6f5f20fd08c9d608b8cdf738999c381e1afbf2ae3",
+      "present": true
+    },
+    "agents": []
+  },
+  "continue_tree": [
+    {
+      "pid": 54932,
+      "ppid": 60264,
+      "name": "claude.exe",
+      "created": "2026-11-11T18:38:19.9155810Z"
+    },
+    {
+      "pid": 59384,
+      "ppid": 54932,
+      "name": "git.exe",
+      "created": "2026-11-11T18:38:20.6005650Z"
+    },
+    {
+      "pid": 75904,
+      "ppid": 59384,
+      "name": "conhost.exe",
+      "created": "2026-11-11T18:38:20.6056210Z"
+    }
+  ],
+  "continue_killed": [
+    {
+      "pid": 75904,
+      "name": "conhost.exe",
+      "rc": 0
+    },
+    {
+      "pid": 59384,
+      "name": "git.exe",
+      "rc": 0
+    },
+    {
+      "pid": 54932,
+      "name": "claude.exe",
+      "rc": 0
+    }
+  ],
+  "resume_pid": 31392,
+  "after_resume": {
+    "gen": "D",
+    "boot": "wctx3vsy8hd",
+    "at": 1794422307510,
+    "event": "session.start-after-next",
+    "state": {
+      "digest": null,
+      "version": 0
+    },
+    "env_set": {
+      "digest": null,
+      "present": false
+    },
+    "launcher": {
+      "digest": "c1e4bd0e81df281553c61023001ada926c2da0df02eb50bb14e16b8082181465",
+      "present": true
+    },
+    "agents": []
+  },
+  "final_tree": [
+    {
+      "pid": 31392,
+      "ppid": 60264,
+      "name": "claude.exe",
+      "created": "2026-11-11T18:38:26.7673910Z"
+    },
+    {
+      "pid": 61156,
+      "ppid": 31392,
+      "name": "git.exe",
+      "created": "2026-11-11T18:38:27.4304080Z"
+    },
+    {
+      "pid": 78252,
+      "ppid": 61156,
+      "name": "conhost.exe",
+      "created": "2026-11-11T18:38:27.4364300Z"
+    }
+  ],
+  "final_killed": [
+    {
+      "pid": 78252,
+      "name": "conhost.exe",
+      "rc": 0
+    },
+    {
+      "pid": 61156,
+      "name": "git.exe",
+      "rc": 0
+    },
+    {
+      "pid": 31392,
+      "name": "claude.exe",
+      "rc": 0
+    }
+  ],
+  "protected_missing_after": [
+    {
+      "pid": 76412,
+      "ppid": 75868,
+      "name": "python.exe",
+      "created": "2026-11-11T18:35:22.7977860Z",
+      "command": null,
+      "in_owned_tree": false,
+      "parent_is_probe": false
+    }
+  ],
+  "live_before": {
+    "C:\\Users\\djlov\\.claude.json": "e972d8473ff14f52aa292bace38d6536022451a1b8a7bedeb14e8a667012858e",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_after": {
+    "C:\\Users\\djlov\\.claude.json": "42fd196ebd01094499a297c4d1d326559d6c5c5d699baa8790d354ee0eef8315",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_hash_changed": [
+    "C:\\Users\\djlov\\.claude.json"
+  ],
+  "owned_path_in_live_files": [],
+  "events": [
+    {
+      "gen": "A",
+      "boot": "knu36169y",
+      "at": 1794422123754,
+      "event": "session.start-before-next",
+      "state": {
+        "digest": "cb6036a4c41a556b0eb0dfa51c256c950a3ff9550de72c2d9f75c10015e95a32",
+        "version": 1
+      },
+      "env_set": {
+        "digest": "9d8722b67d9c8bb8cc0a9e57ad94d0a460ba0c0324162d954c6758bf7290f53d",
+        "present": true
+      },
+      "launcher": {
+        "digest": "ab10c87f27c206871dcf712762d4e0a04c7bca0716d7c06d4f837b6be9f9a0e6",
+        "present": true
+      },
+      "agents": [],
+      "interactive": true
+    },
+    {
+      "gen": "A",
+      "boot": "knu36169y",
+      "at": 1794422123777,
+      "event": "session.start-after-next",
+      "state": {
+        "digest": "cb6036a4c41a556b0eb0dfa51c256c950a3ff9550de72c2d9f75c10015e95a32",
+        "version": 1
+      },
+      "env_set": {
+        "digest": "9d8722b67d9c8bb8cc0a9e57ad94d0a460ba0c0324162d954c6758bf7290f53d",
+        "present": true
+      },
+      "launcher": {
+        "digest": "ab10c87f27c206871dcf712762d4e0a04c7bca0716d7c06d4f837b6be9f9a0e6",
+        "present": true
+      },
+      "agents": []
+    },
+    {
+      "gen": "A",
+      "boot": "knu36169y",
+      "at": 1794422126874,
+      "event": "spawn",
+      "agentId": "a63e88317f79cce5d",
+      "deny": null
+    },
+    {
+      "gen": "A",
+      "boot": "knu36169y",
+      "at": 1794422128381,
+      "event": "after-spawn-0",
+      "state": {
+        "digest": "cb6036a4c41a556b0eb0dfa51c256c950a3ff9550de72c2d9f75c10015e95a32",
+        "version": 1
+      },
+      "env_set": {
+        "digest": "9d8722b67d9c8bb8cc0a9e57ad94d0a460ba0c0324162d954c6758bf7290f53d",
+        "present": true
+      },
+      "launcher": {
+        "digest": "ab10c87f27c206871dcf712762d4e0a04c7bca0716d7c06d4f837b6be9f9a0e6",
+        "present": true
+      },
+      "agents": [
+        {
+          "id": "a63e88317f79cce5d",
+          "status": "running",
+          "name": "nonce-probe-fork",
+          "type": "fork"
+        }
+      ]
+    },
+    {
+      "gen": "B",
+      "boot": "d47bko7lyc5",
+      "at": 1794422129013,
+      "event": "session.start-before-next",
+      "state": {
+        "digest": "cb6036a4c41a556b0eb0dfa51c256c950a3ff9550de72c2d9f75c10015e95a32",
+        "version": 1
+      },
+      "env_set": {
+        "digest": "9d8722b67d9c8bb8cc0a9e57ad94d0a460ba0c0324162d954c6758bf7290f53d",
+        "present": true
+      },
+      "launcher": {
+        "digest": "ab10c87f27c206871dcf712762d4e0a04c7bca0716d7c06d4f837b6be9f9a0e6",
+        "present": true
+      },
+      "agents": [
+        {
+          "id": "a63e88317f79cce5d",
+          "status": "running",
+          "name": "nonce-probe-fork",
+          "type": "fork"
+        }
+      ],
+      "interactive": true
+    },
+    {
+      "gen": "B",
+      "boot": "d47bko7lyc5",
+      "at": 1794422129024,
+      "event": "session.start-after-next",
+      "state": {
+        "digest": "cb6036a4c41a556b0eb0dfa51c256c950a3ff9550de72c2d9f75c10015e95a32",
+        "version": 1
+      },
+      "env_set": {
+        "digest": "9d8722b67d9c8bb8cc0a9e57ad94d0a460ba0c0324162d954c6758bf7290f53d",
+        "present": true
+      },
+      "launcher": {
+        "digest": "ab10c87f27c206871dcf712762d4e0a04c7bca0716d7c06d4f837b6be9f9a0e6",
+        "present": true
+      },
+      "agents": [
+        {
+          "id": "a63e88317f79cce5d",
+          "status": "running",
+          "name": "nonce-probe-fork",
+          "type": "fork"
+        }
+      ]
+    },
+    {
+      "gen": "B",
+      "boot": "d47bko7lyc5",
+      "at": 1794422129160,
+      "event": "turn.complete",
+      "agentId": "a63e88317f79cce5d",
+      "reason": "answer"
+    },
+    {
+      "gen": "B",
+      "boot": "d47bko7lyc5",
+      "at": 1794422133201,
+      "event": "classic.SessionStart-before",
+      "state": {
+        "digest": null,
+        "version": 0
+      },
+      "env_set": {
+        "digest": "9d8722b67d9c8bb8cc0a9e57ad94d0a460ba0c0324162d954c6758bf7290f53d",
+        "present": true
+      },
+      "launcher": {
+        "digest": "ab10c87f27c206871dcf712762d4e0a04c7bca0716d7c06d4f837b6be9f9a0e6",
+        "present": true
+      },
+      "agents": [
+        {
+          "id": "a63e88317f79cce5d",
+          "status": "completed",
+          "name": null,
+          "type": "fork"
+        }
+      ],
+      "source": "clear"
+    },
+    {
+      "gen": "B",
+      "boot": "d47bko7lyc5",
+      "at": 1794422133208,
+      "event": "classic.SessionStart-after-reinit",
+      "state": {
+        "digest": "91040d00a509c7fabd771b9bcae82c47b300810426aa958ab3d8eec817c17de5",
+        "version": 2
+      },
+      "env_set": {
+        "digest": "9d8722b67d9c8bb8cc0a9e57ad94d0a460ba0c0324162d954c6758bf7290f53d",
+        "present": true
+      },
+      "launcher": {
+        "digest": "ab10c87f27c206871dcf712762d4e0a04c7bca0716d7c06d4f837b6be9f9a0e6",
+        "present": true
+      },
+      "agents": [
+        {
+          "id": "a63e88317f79cce5d",
+          "status": "completed",
+          "name": null,
+          "type": "fork"
+        }
+      ],
+      "source": "clear"
+    },
+    {
+      "gen": "C",
+      "boot": "pzsbkzm6efj",
+      "at": 1794422141601,
+      "event": "session.start-before-next",
+      "state": {
+        "digest": "91040d00a509c7fabd771b9bcae82c47b300810426aa958ab3d8eec817c17de5",
+        "version": 2
+      },
+      "env_set": {
+        "digest": "9d8722b67d9c8bb8cc0a9e57ad94d0a460ba0c0324162d954c6758bf7290f53d",
+        "present": true
+      },
+      "launcher": {
+        "digest": "ab10c87f27c206871dcf712762d4e0a04c7bca0716d7c06d4f837b6be9f9a0e6",
+        "present": true
+      },
+      "agents": [
+        {
+          "id": "a63e88317f79cce5d",
+          "status": "completed",
+          "name": null,
+          "type": "fork"
+        }
+      ],
+      "interactive": true
+    },
+    {
+      "gen": "C",
+      "boot": "pzsbkzm6efj",
+      "at": 1794422141609,
+      "event": "session.start-after-next",
+      "state": {
+        "digest": "91040d00a509c7fabd771b9bcae82c47b300810426aa958ab3d8eec817c17de5",
+        "version": 2
+      },
+      "env_set": {
+        "digest": "9d8722b67d9c8bb8cc0a9e57ad94d0a460ba0c0324162d954c6758bf7290f53d",
+        "present": true
+      },
+      "launcher": {
+        "digest": "ab10c87f27c206871dcf712762d4e0a04c7bca0716d7c06d4f837b6be9f9a0e6",
+        "present": true
+      },
+      "agents": [
+        {
+          "id": "a63e88317f79cce5d",
+          "status": "completed",
+          "name": null,
+          "type": "fork"
+        }
+      ]
+    },
+    {
+      "gen": "C",
+      "boot": "pzsbkzm6efj",
+      "at": 1794422143115,
+      "event": "worker-crash-entered",
+      "state": {
+        "digest": "91040d00a509c7fabd771b9bcae82c47b300810426aa958ab3d8eec817c17de5",
+        "version": 2
+      },
+      "env_set": {
+        "digest": "9d8722b67d9c8bb8cc0a9e57ad94d0a460ba0c0324162d954c6758bf7290f53d",
+        "present": true
+      },
+      "launcher": {
+        "digest": "ab10c87f27c206871dcf712762d4e0a04c7bca0716d7c06d4f837b6be9f9a0e6",
+        "present": true
+      },
+      "agents": [
+        {
+          "id": "a63e88317f79cce5d",
+          "status": "completed",
+          "name": null,
+          "type": "fork"
+        }
+      ]
+    },
+    {
+      "gen": "D",
+      "boot": "6cfydin2i43",
+      "at": 1794422300646,
+      "event": "classic.SessionStart-before",
+      "state": {
+        "digest": null,
+        "version": 0
+      },
+      "env_set": {
+        "digest": null,
+        "present": false
+      },
+      "launcher": {
+        "digest": "6332aea3bf50ef8f91050aa6f5f20fd08c9d608b8cdf738999c381e1afbf2ae3",
+        "present": true
+      },
+      "agents": [],
+      "source": "resume"
+    },
+    {
+      "gen": "D",
+      "boot": "6cfydin2i43",
+      "at": 1794422300653,
+      "event": "session.start-before-next",
+      "state": {
+        "digest": null,
+        "version": 0
+      },
+      "env_set": {
+        "digest": null,
+        "present": false
+      },
+      "launcher": {
+        "digest": "6332aea3bf50ef8f91050aa6f5f20fd08c9d608b8cdf738999c381e1afbf2ae3",
+        "present": true
+      },
+      "agents": [],
+      "interactive": true
+    },
+    {
+      "gen": "D",
+      "boot": "6cfydin2i43",
+      "at": 1794422300666,
+      "event": "session.start-after-next",
+      "state": {
+        "digest": null,
+        "version": 0
+      },
+      "env_set": {
+        "digest": null,
+        "present": false
+      },
+      "launcher": {
+        "digest": "6332aea3bf50ef8f91050aa6f5f20fd08c9d608b8cdf738999c381e1afbf2ae3",
+        "present": true
+      },
+      "agents": []
+    },
+    {
+      "gen": "D",
+      "boot": "wctx3vsy8hd",
+      "at": 1794422307491,
+      "event": "classic.SessionStart-before",
+      "state": {
+        "digest": null,
+        "version": 0
+      },
+      "env_set": {
+        "digest": null,
+        "present": false
+      },
+      "launcher": {
+        "digest": "c1e4bd0e81df281553c61023001ada926c2da0df02eb50bb14e16b8082181465",
+        "present": true
+      },
+      "agents": [],
+      "source": "resume"
+    },
+    {
+      "gen": "D",
+      "boot": "wctx3vsy8hd",
+      "at": 1794422307499,
+      "event": "session.start-before-next",
+      "state": {
+        "digest": null,
+        "version": 0
+      },
+      "env_set": {
+        "digest": null,
+        "present": false
+      },
+      "launcher": {
+        "digest": "c1e4bd0e81df281553c61023001ada926c2da0df02eb50bb14e16b8082181465",
+        "present": true
+      },
+      "agents": [],
+      "interactive": true
+    },
+    {
+      "gen": "D",
+      "boot": "wctx3vsy8hd",
+      "at": 1794422307510,
+      "event": "session.start-after-next",
+      "state": {
+        "digest": null,
+        "version": 0
+      },
+      "env_set": {
+        "digest": null,
+        "present": false
+      },
+      "launcher": {
+        "digest": "c1e4bd0e81df281553c61023001ada926c2da0df02eb50bb14e16b8082181465",
+        "present": true
+      },
+      "agents": []
+    }
+  ]
+}

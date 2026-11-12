@@ -1,0 +1,320 @@
+{
+  "probe": "371c36de",
+  "run_dir": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-prompt-fifo-371c36de-pom4ck6d",
+  "cli": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+  "markers": {
+    "p1": "PROMPT-FIFO-P1-371c36de",
+    "p2": "PROMPT-FIFO-P2-371c36de"
+  },
+  "side_intake_sha256": "194fa123ca8e88ed7ddf0f12d6b1d7e5424efa827415fbaa8f1f0da7ffb721a4",
+  "cli_version": "2.1.322 (Claude Code)",
+  "protected_count": 63,
+  "inherited_ciel_after_strip": [],
+  "pid": 58324,
+  "started": true,
+  "all_settled": true,
+  "events": [
+    {
+      "seq": 1,
+      "at": 1794438676425,
+      "event": "session.start"
+    },
+    {
+      "seq": 2,
+      "at": 1794438678439,
+      "event": "p1.invoke"
+    },
+    {
+      "seq": 3,
+      "at": 1794438678441,
+      "event": "p2.invoke"
+    },
+    {
+      "seq": 4,
+      "at": 1794438678469,
+      "event": "turn.start",
+      "turnId": "698503ea-269f-4de2-9059-c32c74d47630",
+      "text": "The prompt-fifo-probe plugin sent a message:\nPROMPT-FIFO-P1-371c36de\n\nThis is how Claude Code surfac",
+      "pending": {
+        "a": true,
+        "b": false
+      }
+    },
+    {
+      "seq": 5,
+      "at": 1794438678471,
+      "event": "p1.resolve",
+      "value": "queued",
+      "pending": {
+        "a": false,
+        "b": false
+      }
+    },
+    {
+      "seq": 6,
+      "at": 1794438678499,
+      "event": "after.invoke",
+      "pending": {
+        "a": false,
+        "b": true
+      },
+      "duplicateShared": "distinct-promise"
+    },
+    {
+      "seq": 7,
+      "at": 1794438678511,
+      "event": "turn.step",
+      "turnId": "698503ea-269f-4de2-9059-c32c74d47630",
+      "index": 0,
+      "messageCount": 6
+    },
+    {
+      "seq": 8,
+      "at": 1794438682567,
+      "event": "stop",
+      "stop_hook_active": false,
+      "pending": {
+        "a": false,
+        "b": true
+      }
+    },
+    {
+      "seq": 9,
+      "at": 1794438682581,
+      "event": "turn.complete",
+      "turnId": "698503ea-269f-4de2-9059-c32c74d47630",
+      "reason": "answer",
+      "pending": {
+        "a": false,
+        "b": true
+      }
+    },
+    {
+      "seq": 10,
+      "at": 1794438682610,
+      "event": "p2.resolve",
+      "value": "queued",
+      "pending": {
+        "a": false,
+        "b": false
+      }
+    },
+    {
+      "seq": 11,
+      "at": 1794438682627,
+      "event": "turn.start",
+      "turnId": "c7b9b993-ace0-4534-a58e-874f5bf2b83c",
+      "text": "The prompt-fifo-probe plugin sent a message:\nPROMPT-FIFO-P2-371c36de\n\nThis is how Claude Code surfac",
+      "pending": {
+        "a": false,
+        "b": false
+      }
+    },
+    {
+      "seq": 12,
+      "at": 1794438682631,
+      "event": "all.settled",
+      "pending": {
+        "a": false,
+        "b": false
+      },
+      "duplicate": "queued"
+    },
+    {
+      "seq": 13,
+      "at": 1794438682638,
+      "event": "turn.step",
+      "turnId": "c7b9b993-ace0-4534-a58e-874f5bf2b83c",
+      "index": 0,
+      "messageCount": 10
+    },
+    {
+      "seq": 14,
+      "at": 1794438682679,
+      "event": "stop",
+      "stop_hook_active": false,
+      "pending": {
+        "a": false,
+        "b": false
+      }
+    },
+    {
+      "seq": 15,
+      "at": 1794438682684,
+      "event": "turn.complete",
+      "turnId": "c7b9b993-ace0-4534-a58e-874f5bf2b83c",
+      "reason": "answer",
+      "pending": {
+        "a": false,
+        "b": false
+      }
+    }
+  ],
+  "requests": [
+    {
+      "at": 1794438678.5431077,
+      "number": 1,
+      "message_count": 2,
+      "p1": true,
+      "p2": false,
+      "dup": false
+    },
+    {
+      "at": 1794438682.6579938,
+      "number": 2,
+      "message_count": 4,
+      "p1": true,
+      "p2": true,
+      "dup": false
+    }
+  ],
+  "submit_lines": [
+    "2026-11-11T23:11:18.442Z [DEBUG] $.prompt.submit (prompt-fifo-probe): \"PROMPT-FIFO-P1-371c36de\"",
+    "2026-11-11T23:11:18.499Z [DEBUG] $.prompt.submit (prompt-fifo-probe): \"PROMPT-FIFO-P2-371c36de\""
+  ],
+  "analysis": {
+    "engine_submit_calls": 2,
+    "second_submit_after_first_turn_start_ms": 30,
+    "p1_invoke_to_resolve_ms": 32,
+    "p2_invoke_to_resolve_ms": 4169,
+    "p2_resolved_after_first_complete": true,
+    "pending_after_invoke": {
+      "a": false,
+      "b": true
+    },
+    "pending_at_first_stop": {
+      "a": false,
+      "b": true
+    },
+    "pending_all_settled": {
+      "a": false,
+      "b": false
+    },
+    "duplicate_result": "queued",
+    "p1_request": {
+      "at": 1794438678.5431077,
+      "number": 1,
+      "message_count": 2,
+      "p1": true,
+      "p2": false,
+      "dup": false
+    },
+    "p2_request": {
+      "at": 1794438682.6579938,
+      "number": 2,
+      "message_count": 4,
+      "p1": true,
+      "p2": true,
+      "dup": false
+    },
+    "p2_in_p1_request": false,
+    "duplicate_text_in_any_request": false,
+    "turn_starts": [
+      {
+        "at": 1794438678469,
+        "turnId": "698503ea-269f-4de2-9059-c32c74d47630",
+        "text": "The prompt-fifo-probe plugin sent a message:\nPROMPT-FIFO-P1-371c36de\n\nThis is how Claude Code surfac"
+      },
+      {
+        "at": 1794438682627,
+        "turnId": "c7b9b993-ace0-4534-a58e-874f5bf2b83c",
+        "text": "The prompt-fifo-probe plugin sent a message:\nPROMPT-FIFO-P2-371c36de\n\nThis is how Claude Code surfac"
+      }
+    ],
+    "turn_completes": [
+      {
+        "at": 1794438682581,
+        "turnId": "698503ea-269f-4de2-9059-c32c74d47630",
+        "reason": "answer"
+      },
+      {
+        "at": 1794438682684,
+        "turnId": "c7b9b993-ace0-4534-a58e-874f5bf2b83c",
+        "reason": "answer"
+      }
+    ]
+  },
+  "owned_tree": [
+    {
+      "pid": 58324,
+      "ppid": 60328,
+      "name": "claude.exe",
+      "created": "2026-11-11T23:11:15.7406890Z"
+    },
+    {
+      "pid": 4796,
+      "ppid": 58324,
+      "name": "git.exe",
+      "created": "2026-11-11T23:11:16.2814960Z"
+    },
+    {
+      "pid": 67024,
+      "ppid": 4796,
+      "name": "conhost.exe",
+      "created": "2026-11-11T23:11:16.2861210Z"
+    }
+  ],
+  "killed": [
+    {
+      "pid": 67024,
+      "name": "conhost.exe",
+      "rc": 0
+    },
+    {
+      "pid": 4796,
+      "name": "git.exe",
+      "rc": 128
+    },
+    {
+      "pid": 58324,
+      "name": "claude.exe",
+      "rc": 0
+    }
+  ],
+  "protected_missing_after": [
+    {
+      "pid": 81932,
+      "ppid": 68172,
+      "name": "python.exe",
+      "created": "2026-11-11T23:11:08.7223020Z"
+    },
+    {
+      "pid": 74204,
+      "ppid": 81932,
+      "name": "python.exe",
+      "created": "2026-11-11T23:11:09.0095690Z"
+    },
+    {
+      "pid": 74756,
+      "ppid": 74204,
+      "name": "python.exe",
+      "created": "2026-11-11T23:11:09.0185540Z"
+    }
+  ],
+  "live_before": {
+    "C:\\Users\\djlov\\.claude.json": "ea731c6cc8cc99632cd45a9daadd320c73b2c4b96063b1ea61637666922599d2",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_after": {
+    "C:\\Users\\djlov\\.claude.json": "ea731c6cc8cc99632cd45a9daadd320c73b2c4b96063b1ea61637666922599d2",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_hash_changed": [],
+  "owned_path_in_live_files": []
+}

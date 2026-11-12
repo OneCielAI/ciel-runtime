@@ -1,0 +1,13 @@
+{
+ "at": "2026-11-12T04:20:42Z",
+ "sha256": "37af086584e2d59b33509a207d5e6d2459347de8aaf8125c6aff7a605c1f864d",
+ "length": 182046,
+ "contains_owned_needles": {
+  "20261111-213818": false,
+  "ciel-owned-main-review-": false,
+  "ciel-owned-main-review-kyn2q064": false,
+  "99999999-9999-4999-8999-999999999991": false,
+  "owned-main-review-20261111-213818": false
+ },
+ "note": "metadata only per team lead; pass check is absence of owned temp path/run id"
+}

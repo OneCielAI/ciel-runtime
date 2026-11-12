@@ -1,0 +1,7 @@
+{
+  "stopped_at": "2026-11-11T17:04:14.3537864Z",
+  "reason": "team lead ordered stop: frozen side-intake.js has a confirmed product defect; the 12:26 freeze and snapshot are no longer final",
+  "owned_root_pid": 79048,
+  "processes_before_kill": [],
+  "processes_left_after_kill": []
+}

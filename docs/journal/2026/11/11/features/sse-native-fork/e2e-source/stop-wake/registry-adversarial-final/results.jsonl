@@ -1,0 +1,12 @@
+{"mode":"dup-during-expiry-clear","first":"uncertain","dup":"uncertain","rawSubmits":["K"],"registry":["side:K"]}
+{"mode":"dup-after-expiry","state":{"first":"uncertain","rawSubmits":1,"afterValue":"uncertain"},"nostate":{"first":"uncertain","rawSubmits":0,"afterValue":"uncertain"}}
+{"mode":"clear-then-reload","before":["side:C"],"afterClearHydrate":{"registry":["side:C"],"localPending":true},"hydratedInSecond":true,"secondInstanceRawSubmits":0,"firstStill":null}
+{"mode":"stale-timer-after-turn","liveAfter":1,"valueAfterStaleFire":null,"pending":true}
+{"mode":"busy-expiry","duringBusy":{"value":null,"pending":true},"liveAfterBusyFire":0}
+{"mode":"late-raw-after-expiry","results":["uncertain"],"rawSubmits":1,"registry":["parallel:LR"],"pending":false}
+{"mode":"fail-closed","full":{"rawBeforeWindow":0,"rawAfterWindow":0,"value":"uncertain"},"contended":{"rawBeforeWindow":0,"rawAfterWindow":0,"value":"uncertain"},"unavailable":{"rawBeforeWindow":0,"rawAfterWindow":0,"value":"uncertain"},"nostate":{"rawBeforeWindow":0,"rawAfterWindow":0,"value":"uncertain"}}
+{"mode":"clock-failure","raw":0,"value":"uncertain","pending":false,"registry":["side:CF"]}
+{"mode":"retry-ref","first":"uncertain","rawAfterSameRef":1,"rawAfterNewRef":2,"sameValue":"uncertain","freshValue":null}
+{"mode":"reassert-registered","throwsThenRecover":{"afterSecondReassert":{"registry":["parallel:RC"],"sameGen":true},"value":"queued","registryAfterSettle":["parallel:RC"]},"otherGeneration":{"secondRaw":1,"registryAfterFirstSettle":["side:RE","side:RE"],"firstValue":"queued","firstPendingExactRef":true}}
+{"mode":"hydrated-blocks-new-ref","pendingOld":true,"pendingNewRef":false,"rawBeforeWindow":1,"retryValueBeforeWindow":null,"rawAfterWindow":1,"retryValueAfterWindow":"uncertain"}
+{"mode":"reassert-orphan","afterSettle":{"value":"queued","registry":["side:O"],"localPending":false},"rawBeforeWindow":2,"rawAfterWindow":2,"retryValue":"uncertain","registryAfter":["side:O","side:O"]}

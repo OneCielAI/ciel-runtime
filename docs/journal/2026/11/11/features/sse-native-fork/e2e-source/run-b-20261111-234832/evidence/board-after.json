@@ -1,0 +1,163 @@
+{
+ "schema": 1,
+ "version": 4,
+ "phase": "planning",
+ "active_root": "n1",
+ "focus_ids": [],
+ "next_id": 3,
+ "nodes": [
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "Synthetic Walkie readiness review",
+   "status": "pending",
+   "note": "synthetic owned fixture\n\nSide request: From Walkie message 1002 in thread 1000 (conversation 34886995-4a66-4527-a618-814e9cb0a5bf). Asked for: report within 30 minutes whether the thread can proceed. Constraints: sandbox-east only (reviewer confirms this in 1003); no deploying; no file edits; no commands. Record Work n1 with change ticket CHG-58213 from main's conversation. Message 1004 asks for the 30-minute limit to be acknowledged to main before any ordinary reply. This is a request, not approval to execute.",
+   "progress": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1794462580.931224,
+   "created_at": 1794462516.4318645,
+   "phase": "planning",
+   "priority": "P4"
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "Review owned Walkie target thread",
+   "status": "pending",
+   "note": "sandbox-east only",
+   "progress": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1794462516.4318645,
+   "created_at": 1794462516.4318645
+  }
+ ],
+ "updated_at": 1794462606.6215515,
+ "side_decisions": {
+  "c2d1666267df2302fdb040d48f7ae54ecbe2edd719319b43dd53ea15df2696d3": {
+   "decision_digest": "9719057060581292d48578d4e392835876c164d4fb39a548d76ff96b3998f8fa",
+   "applied_at": 1794462580.9312563,
+   "item_id": "n1",
+   "recap": "Walkie message 1002 (thread 1000) asks for a readiness review of the synthetic Walkie feature within 30 minutes. It goes on existing Work item n1, with change ticket CHG-58213.",
+   "result": {
+    "action": "update",
+    "item_id": "n1",
+    "summary": "Walkie message 1002 (thread 1000) asks for a readiness review of the synthetic Walkie feature within 30 minutes. It goes on existing Work item n1, with change ticket CHG-58213.",
+    "reply": "The release owner wants a readiness review of the synthetic Walkie feature within 30 minutes, reporting whether the thread can proceed. The review must use only the sandbox-east target environment, with no deploying, no file edits and no commands. It must record Work item n1 together with change ticket CHG-58213, which main recorded earlier.",
+    "delivery": "pending",
+    "execution_approved": false,
+    "handoff": "answered",
+    "based_on_version": 1,
+    "kind": "request",
+    "time_limit": {
+     "text": "Within 30 minutes, report whether the thread can proceed",
+     "evidence": "TARGET_1002: \"Within 30 minutes, report whether the thread can proceed and preserve every constraint\"; REPLY_1004: \"acknowledge the 30-minute time limit to main before any ordinary reply.\""
+    },
+    "source_context": "thread",
+    "main_handoff": {
+     "kind": "time_limit",
+     "item_id": "n1",
+     "root_id": "n1",
+     "title": "Synthetic Walkie readiness review",
+     "summary": "Walkie message 1002 (thread 1000) asks for a readiness review of the synthetic Walkie feature within 30 minutes. It goes on existing Work item n1, with change ticket CHG-58213.",
+     "queue": {
+      "root_id": "n1",
+      "state": "active",
+      "position": 0,
+      "ahead": 0,
+      "total": 0,
+      "active_root": "n1",
+      "priority": "P4",
+      "phase": "planning"
+     },
+     "time_limit": {
+      "text": "Within 30 minutes, report whether the thread can proceed",
+      "evidence": "TARGET_1002: \"Within 30 minutes, report whether the thread can proceed and preserve every constraint\"; REPLY_1004: \"acknowledge the 30-minute time limit to main before any ordinary reply.\""
+     },
+     "waits": [],
+     "question": ""
+    },
+    "title": "Synthetic Walkie readiness review",
+    "priority": "P4",
+    "queue": {
+     "root_id": "n1",
+     "state": "active",
+     "position": 0,
+     "ahead": 0,
+     "total": 0,
+     "active_root": "n1",
+     "priority": "P4",
+     "phase": "planning",
+     "version": 2
+    },
+    "final_text": "ACK — The release owner wants a readiness review of the synthetic Walkie feature within 30 minutes, reporting whether the thread can proceed. The review must use only the sandbox-east target environment, with no deploying, no file edits and no commands. It must record Work item n1 together with change ticket CHG-58213, which main recorded earlier.\n\nn1 갱신 · P4 · 현재 진행 중인 항목입니다."
+   }
+  }
+ },
+ "side_handoffs": {
+  "c2d1666267df2302fdb040d48f7ae54ecbe2edd719319b43dd53ea15df2696d3": {
+   "item_id": "n1",
+   "root_id": "n1",
+   "title": "Synthetic Walkie readiness review",
+   "summary": "Walkie message 1002 (thread 1000) asks for a readiness review of the synthetic Walkie feature within 30 minutes. It goes on existing Work item n1, with change ticket CHG-58213.",
+   "question": "",
+   "kind": "time_limit",
+   "gates": [],
+   "time_limit": {
+    "text": "Within 30 minutes, report whether the thread can proceed",
+    "evidence": "TARGET_1002: \"Within 30 minutes, report whether the thread can proceed and preserve every constraint\"; REPLY_1004: \"acknowledge the 30-minute time limit to main before any ordinary reply.\""
+   },
+   "queue": {
+    "root_id": "n1",
+    "state": "active",
+    "position": 0,
+    "ahead": 0,
+    "total": 0,
+    "active_root": "n1",
+    "priority": "P4",
+    "phase": "planning"
+   },
+   "waits": [],
+   "state": "answered",
+   "requested_at": 1794462580.931226,
+   "wake": {
+    "state": "acknowledged",
+    "phase": "started",
+    "channel": "prompt",
+    "revision": 4,
+    "needs_ack_retry": false,
+    "requested_at": 1794462580.931226,
+    "intent_at": 1794462581.2011049,
+    "intent_until": 1794462586.2011049,
+    "started_at": 1794462581.3992224,
+    "updated_at": 1794462582.10697,
+    "acknowledged_at": 1794462606.6215432,
+    "attempt_ref": "8d6e21fd2fff3cf2",
+    "delivery_uncertain": false
+   },
+   "answer": "Main acknowledges the 30-minute time limit for Walkie message 1002 (thread 1000) on Work n1, change ticket CHG-58213. Constraints noted: sandbox-east only, no deploy, no file edits, no commands. n1 is still in planning with no execution approval. This handoff does not activate it or clear any waits.",
+   "activated": false,
+   "clear_wait": []
+  }
+ },
+ "side_reviews": {
+  "c2d1666267df2302fdb040d48f7ae54ecbe2edd719319b43dd53ea15df2696d3": {
+   "state": "reviewed",
+   "kind": "request",
+   "action": "update",
+   "item_id": "n1",
+   "summary": "Walkie message 1002 (thread 1000) asks for a readiness review of the synthetic Walkie feature within 30 minutes. It goes on existing Work item n1, with change ticket CHG-58213.",
+   "reply": "ACK — The release owner wants a readiness review of the synthetic Walkie feature within 30 minutes, reporting whether the thread can proceed. The review must use only the sandbox-east target environment, with no deploying, no file edits and no commands. It must record Work item n1 together with change ticket CHG-58213, which main recorded earlier.\n\nn1 갱신 · P4 · 현재 진행 중인 항목입니다.",
+   "source": "message:34886995-4a66-4527-a618-814e9cb0a5bf:1002",
+   "source_context": "thread",
+   "recorded_at": 1794462580.9312603,
+   "reviewed_at": 1794462598.1700995,
+   "review_note": "Checked against Walkie message 1002: the constraints (sandbox-east only, no deploy, no file edits, no commands), the 30-minute limit, Work n1 and change ticket CHG-58213 (which the user recorded earlier in the main conversation) are all stated correctly."
+  }
+ }
+}

@@ -1,0 +1,289 @@
+{
+  "probe": "b3b4f855",
+  "session_id": "85f0d84b-f933-4b43-9c49-bcf1ed63a63c",
+  "cli": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+  "cli_version": "2.1.322 (Claude Code)",
+  "inherited_ciel_after_strip": [],
+  "phase1_pid": 76372,
+  "spawn": {
+    "gen": "A",
+    "boot": "m9divu3voe",
+    "at": 1794421553023,
+    "event": "spawn",
+    "agentId": "afa75de1fe44139c4",
+    "deny": null
+  },
+  "initial": {
+    "gen": "A",
+    "boot": "m9divu3voe",
+    "at": 1794421549938,
+    "event": "session.start-after-next",
+    "state": {
+      "digest": "a53b04924cfd5d72cb0cba935a9c5bfd535e16409132a876288f6ca0af9a598f",
+      "version": 1
+    },
+    "env_set": {
+      "digest": "bb1ecb88c49e9ed0dfc8f3736d335dcbb8580eead528947520f7084d1e78e36d",
+      "present": true
+    },
+    "launcher": {
+      "digest": "43dc42b6a1dc1e7230851a559d652a73fe636331e25fd7c6badf7f90e0288440",
+      "present": true
+    },
+    "agents": []
+  },
+  "initial_live_agent_list": {
+    "gen": "A",
+    "boot": "m9divu3voe",
+    "at": 1794421554530,
+    "event": "after-spawn-0",
+    "state": {
+      "digest": "a53b04924cfd5d72cb0cba935a9c5bfd535e16409132a876288f6ca0af9a598f",
+      "version": 1
+    },
+    "env_set": {
+      "digest": "bb1ecb88c49e9ed0dfc8f3736d335dcbb8580eead528947520f7084d1e78e36d",
+      "present": true
+    },
+    "launcher": {
+      "digest": "43dc42b6a1dc1e7230851a559d652a73fe636331e25fd7c6badf7f90e0288440",
+      "present": true
+    },
+    "agents": [
+      {
+        "id": "afa75de1fe44139c4",
+        "status": "running",
+        "name": "nonce-probe-fork",
+        "type": "fork"
+      }
+    ]
+  },
+  "after_reload": {
+    "gen": "B",
+    "boot": "iksziwvl04",
+    "at": 1794421555115,
+    "event": "session.start-after-next",
+    "state": {
+      "digest": "a53b04924cfd5d72cb0cba935a9c5bfd535e16409132a876288f6ca0af9a598f",
+      "version": 1
+    },
+    "env_set": {
+      "digest": "bb1ecb88c49e9ed0dfc8f3736d335dcbb8580eead528947520f7084d1e78e36d",
+      "present": true
+    },
+    "launcher": {
+      "digest": "43dc42b6a1dc1e7230851a559d652a73fe636331e25fd7c6badf7f90e0288440",
+      "present": true
+    },
+    "agents": [
+      {
+        "id": "afa75de1fe44139c4",
+        "status": "running",
+        "name": "nonce-probe-fork",
+        "type": "fork"
+      }
+    ]
+  },
+  "reload_same_process": true,
+  "fork_held_after_reload": true,
+  "final_tree": [
+    {
+      "pid": 76372,
+      "ppid": 78276,
+      "name": "claude.exe",
+      "created": "2026-11-11T18:25:49.1635240Z"
+    },
+    {
+      "pid": 57024,
+      "ppid": 76372,
+      "name": "git.exe",
+      "created": "2026-11-11T18:25:49.9162210Z"
+    },
+    {
+      "pid": 65984,
+      "ppid": 57024,
+      "name": "conhost.exe",
+      "created": "2026-11-11T18:25:49.9204920Z"
+    }
+  ],
+  "final_killed": [
+    {
+      "pid": 65984,
+      "name": "conhost.exe",
+      "rc": 0
+    },
+    {
+      "pid": 57024,
+      "name": "git.exe",
+      "rc": 0
+    },
+    {
+      "pid": 76372,
+      "name": "claude.exe",
+      "rc": 0
+    }
+  ],
+  "protected_missing_after": [],
+  "live_before": {
+    "C:\\Users\\djlov\\.claude.json": "cf2b044e8547e4f6f9cac869a8ce918c47759fb626291b947f5680d2d1cf1fa0",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_after": {
+    "C:\\Users\\djlov\\.claude.json": "cf2b044e8547e4f6f9cac869a8ce918c47759fb626291b947f5680d2d1cf1fa0",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_hash_changed": [],
+  "owned_path_in_live_files": [],
+  "events": [
+    {
+      "gen": "A",
+      "boot": "m9divu3voe",
+      "at": 1794421549909,
+      "event": "session.start-before-next",
+      "state": {
+        "digest": "a53b04924cfd5d72cb0cba935a9c5bfd535e16409132a876288f6ca0af9a598f",
+        "version": 1
+      },
+      "env_set": {
+        "digest": "bb1ecb88c49e9ed0dfc8f3736d335dcbb8580eead528947520f7084d1e78e36d",
+        "present": true
+      },
+      "launcher": {
+        "digest": "43dc42b6a1dc1e7230851a559d652a73fe636331e25fd7c6badf7f90e0288440",
+        "present": true
+      },
+      "agents": [],
+      "interactive": true
+    },
+    {
+      "gen": "A",
+      "boot": "m9divu3voe",
+      "at": 1794421549938,
+      "event": "session.start-after-next",
+      "state": {
+        "digest": "a53b04924cfd5d72cb0cba935a9c5bfd535e16409132a876288f6ca0af9a598f",
+        "version": 1
+      },
+      "env_set": {
+        "digest": "bb1ecb88c49e9ed0dfc8f3736d335dcbb8580eead528947520f7084d1e78e36d",
+        "present": true
+      },
+      "launcher": {
+        "digest": "43dc42b6a1dc1e7230851a559d652a73fe636331e25fd7c6badf7f90e0288440",
+        "present": true
+      },
+      "agents": []
+    },
+    {
+      "gen": "A",
+      "boot": "m9divu3voe",
+      "at": 1794421553023,
+      "event": "spawn",
+      "agentId": "afa75de1fe44139c4",
+      "deny": null
+    },
+    {
+      "gen": "A",
+      "boot": "m9divu3voe",
+      "at": 1794421554530,
+      "event": "after-spawn-0",
+      "state": {
+        "digest": "a53b04924cfd5d72cb0cba935a9c5bfd535e16409132a876288f6ca0af9a598f",
+        "version": 1
+      },
+      "env_set": {
+        "digest": "bb1ecb88c49e9ed0dfc8f3736d335dcbb8580eead528947520f7084d1e78e36d",
+        "present": true
+      },
+      "launcher": {
+        "digest": "43dc42b6a1dc1e7230851a559d652a73fe636331e25fd7c6badf7f90e0288440",
+        "present": true
+      },
+      "agents": [
+        {
+          "id": "afa75de1fe44139c4",
+          "status": "running",
+          "name": "nonce-probe-fork",
+          "type": "fork"
+        }
+      ]
+    },
+    {
+      "gen": "B",
+      "boot": "iksziwvl04",
+      "at": 1794421555107,
+      "event": "session.start-before-next",
+      "state": {
+        "digest": "a53b04924cfd5d72cb0cba935a9c5bfd535e16409132a876288f6ca0af9a598f",
+        "version": 1
+      },
+      "env_set": {
+        "digest": "bb1ecb88c49e9ed0dfc8f3736d335dcbb8580eead528947520f7084d1e78e36d",
+        "present": true
+      },
+      "launcher": {
+        "digest": "43dc42b6a1dc1e7230851a559d652a73fe636331e25fd7c6badf7f90e0288440",
+        "present": true
+      },
+      "agents": [
+        {
+          "id": "afa75de1fe44139c4",
+          "status": "running",
+          "name": "nonce-probe-fork",
+          "type": "fork"
+        }
+      ],
+      "interactive": true
+    },
+    {
+      "gen": "B",
+      "boot": "iksziwvl04",
+      "at": 1794421555115,
+      "event": "session.start-after-next",
+      "state": {
+        "digest": "a53b04924cfd5d72cb0cba935a9c5bfd535e16409132a876288f6ca0af9a598f",
+        "version": 1
+      },
+      "env_set": {
+        "digest": "bb1ecb88c49e9ed0dfc8f3736d335dcbb8580eead528947520f7084d1e78e36d",
+        "present": true
+      },
+      "launcher": {
+        "digest": "43dc42b6a1dc1e7230851a559d652a73fe636331e25fd7c6badf7f90e0288440",
+        "present": true
+      },
+      "agents": [
+        {
+          "id": "afa75de1fe44139c4",
+          "status": "running",
+          "name": "nonce-probe-fork",
+          "type": "fork"
+        }
+      ]
+    },
+    {
+      "gen": "B",
+      "boot": "iksziwvl04",
+      "at": 1794421555252,
+      "event": "turn.complete",
+      "agentId": "afa75de1fe44139c4",
+      "reason": "answer"
+    }
+  ]
+}

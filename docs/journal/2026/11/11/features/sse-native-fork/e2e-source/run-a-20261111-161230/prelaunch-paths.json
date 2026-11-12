@@ -1,0 +1,15 @@
+{
+ "paths": {
+  "CONFIG_DIR": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-gqtc6z0h\\config",
+  "WORKSPACE_STATE_DIR": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-gqtc6z0h\\config",
+  "WORKSPACE_CONFIG_PATH": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-gqtc6z0h\\config\\config.json",
+  "ROUTER_INSTANCE_DIR": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-gqtc6z0h\\config",
+  "LOG_PATH": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-gqtc6z0h\\config\\router.log",
+  "CLI_ASSET_HOME": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-gqtc6z0h\\config",
+  "CLAUDE_SETTINGS_PATH": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-gqtc6z0h\\config\\.claude\\settings.json",
+  "CLAUDE_COMMANDS_DIR": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-gqtc6z0h\\config\\.claude\\commands",
+  "CLAUDE_GATEWAY_CACHE": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-gqtc6z0h\\config\\.claude\\cache\\gateway-models.json",
+  "CIEL_RUNTIME_STATUSLINE_PATH": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-sse-true-fork-a-gqtc6z0h\\config\\ciel-runtime-statusline.py"
+ },
+ "outside_scratch": {}
+}

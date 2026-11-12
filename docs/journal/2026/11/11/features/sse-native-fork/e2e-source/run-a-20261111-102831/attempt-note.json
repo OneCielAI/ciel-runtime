@@ -1,0 +1,12 @@
+{
+ "attempt": 5,
+ "verdict": "harness_failure_with_live_profile_contamination",
+ "observed": [
+  "console stopped at Claude Code Bypass Permissions dialog with \"❯ No, exit\" selected; harness regex required numbered options so it never pressed anything; timed out after 180 s (error.txt / error.png)",
+  "the run (launched without CIEL_RUNTIME_TEST_ISOLATED) rewrote the LIVE C:/Users/djlov/.claude/settings.json hooks and C:/Users/djlov/AppData/Local/ciel-runtime/bin/ciel-runtime-statusline.py at 10:28:42 to point at .local/sse-true-fork/e2e/snapshot-frozen (runtime_paths.py:267-275: CLI_ASSET_HOME = CONFIG_DIR if isolated else HOME)",
+  "launching in place also wrote 12 cpython-314 pyc files and rewrote ciel-work/.claude-plugin/types/claude-code-tools/index.d.ts inside snapshot-frozen; snapshot restored and re-verified (snapshot/verify-after-attempt5-restore.json)",
+  "protected-process check flagged node.exe 36104 missing only because the process snapshot did not list node.exe (harness gap, fixed)"
+ ],
+ "reported_to_lead": "2026-11-11 ~10:45 CST",
+ "product_defect": false
+}

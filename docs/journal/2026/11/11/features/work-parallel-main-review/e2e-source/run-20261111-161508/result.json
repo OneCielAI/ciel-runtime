@@ -1,0 +1,204 @@
+{
+  "out": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\work-parallel-main-review\\e2e-source\\run-20261111-161508",
+  "base": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-20261111-161508",
+  "snapshot": {
+    "files": 1072,
+    "manifest_sha256": "ad1aee3ce0257725464fdb0be393b2f2f1d9ac9b1633e0ce5dd2893de616b539",
+    "key_hashes": {
+      "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js": "378f6d73698671ec5edb6170944e70be6267f5b85a9ba8753d673c83e6a3e2bb",
+      "ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js": "0aeb7d842e6b6e7169158054fd6ebd638e440a1ba58af94e935386c80da6c7a9",
+      "ciel_runtime_support/work_parallel_mcp.py": "3521486981a1d99891094c56bf63e36cf4a958d5504cc2cef3c7a146ac17f717"
+    },
+    "snapshot": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-snapshot-20261111-161508",
+    "mismatch": []
+  },
+  "session": "99999999-9999-4999-8999-999999999991",
+  "port": 9931,
+  "router_bind": "127.0.0.1",
+  "gate_host": "127.0.0.2",
+  "items": {
+    "Passing implementation": "n2",
+    "Failing implementation then rework": "n4",
+    "P2 passing multiply": "n6",
+    "P3 passing subtract": "n8"
+  },
+  "item_priority": {
+    "n2": "P1",
+    "n4": "P1",
+    "n6": "P2",
+    "n8": "P3"
+  },
+  "policy": {
+    "enabled": true,
+    "paused": false,
+    "priority_limits": {
+      "P1": 2,
+      "P2": 1,
+      "P3": 1,
+      "P4": 1,
+      "P5": 1
+    },
+    "thresholds": {
+      "P2": 1.0,
+      "P3": 1.0,
+      "P4": 1.0,
+      "P5": 1.0
+    },
+    "launches_per_minute": 24,
+    "max_rework": 2,
+    "discovery_text": "When approved Work has capacity, start the next runnable leaf.",
+    "test_override": true
+  },
+  "workspace_state_digest": "0462363b00fd",
+  "provider_config_proof": {
+    "top_level_keys": [
+      "claude_code",
+      "claude_stream_recovery",
+      "current_provider",
+      "language",
+      "providers",
+      "web_search",
+      "work_auto_continue",
+      "work_mode",
+      "work_plan_approval_ask",
+      "work_side_intake"
+    ],
+    "providers": [
+      "cielairouter"
+    ],
+    "provider_keys": [
+      "advisor_model",
+      "api_key",
+      "base_url",
+      "context_window",
+      "current_model",
+      "custom_models",
+      "max_model_len",
+      "native_compat",
+      "preflight_prompt_compaction",
+      "request_timeout_ms",
+      "stream_enabled",
+      "stream_word_chunking"
+    ]
+  },
+  "stripped_inherited_names": [
+    "ANTHROPIC_AUTH_TOKEN",
+    "ANTHROPIC_BASE_URL",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION",
+    "ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_SUPPORTS",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTED_CAPABILITIES",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_SUPPORTS",
+    "ANTHROPIC_MODEL",
+    "CIEL_RUNTIME_ADVISOR_MODEL",
+    "CIEL_RUNTIME_BYPASS_PERMISSIONS",
+    "CIEL_RUNTIME_CONFIG_DIR",
+    "CIEL_RUNTIME_DIRECT_EMPTY_STREAM_RETRIES",
+    "CIEL_RUNTIME_DIRECT_GATEWAY_ACTIVE",
+    "CIEL_RUNTIME_HOME",
+    "CIEL_RUNTIME_LAUNCH_CWD",
+    "CIEL_RUNTIME_MODEL_ALIAS",
+    "CIEL_RUNTIME_PROVIDER",
+    "CIEL_RUNTIME_REGISTERED_HOME",
+    "CIEL_RUNTIME_SCRIPT",
+    "CIEL_RUNTIME_SELECTED_HOME",
+    "CIEL_RUNTIME_STATE_DIR",
+    "CIEL_RUNTIME_WORKSPACE_STATE_DIR",
+    "CIEL_RUNTIME_WORK_PARALLEL_HOST_TOKEN",
+    "CLAUDECODE",
+    "CLAUDE_CHROME_CLASSIFIER_FLOOR",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS",
+    "CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK",
+    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE",
+    "CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY",
+    "CLAUDE_CODE_ENTRYPOINT",
+    "CLAUDE_CODE_EXECPATH",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+    "CLAUDE_CODE_GATEWAY_HINT_HEADERS",
+    "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS",
+    "CLAUDE_CODE_MAX_RETRIES",
+    "CLAUDE_CODE_MESSAGING_SOCKET",
+    "CLAUDE_CODE_MESSAGING_TOKEN",
+    "CLAUDE_CODE_NONSTREAMING_TIMEOUT_RETRIES",
+    "CLAUDE_CODE_RETRY_WATCHDOG",
+    "CLAUDE_CODE_SEND_FEEDBACK",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_CODE_SUBAGENT_MODEL",
+    "CLAUDE_CODE_SUBAGENT_MODEL_FORCE",
+    "CLAUDE_CODE_USE_POWERSHELL_TOOL",
+    "CLAUDE_EFFORT",
+    "CLAUDE_PID",
+    "CODEX_SPARKLE_ENABLED"
+  ],
+  "owned_prefix_names_after_strip": [
+    "CIEL_RUNTIME_CONFIG_DIR",
+    "CIEL_RUNTIME_HOME_OVERRIDE",
+    "CIEL_RUNTIME_LAUNCH_CWD",
+    "CIEL_RUNTIME_ROUTER_BIND_HOST",
+    "CIEL_RUNTIME_ROUTER_CLIENT_HOST",
+    "CIEL_RUNTIME_ROUTER_PORT",
+    "CIEL_RUNTIME_SKIP_MENU",
+    "CIEL_RUNTIME_SKIP_SELF_UPDATE",
+    "CIEL_RUNTIME_TEST_ISOLATED",
+    "CLAUDE_CONFIG_DIR"
+  ],
+  "unexpected_inherited_prefix_names_after_strip": [],
+  "owned_prefix_values_are_owned": true,
+  "outcome": "preflight_only",
+  "checkpoints": {},
+  "screenshots": {},
+  "preflight": {
+    "console_kill_drill": {
+      "screen_read": true,
+      "owned_tree": [
+        "conhost.exe",
+        "cmd.exe"
+      ],
+      "kill_rc": 0,
+      "self_visible_after_kill": true,
+      "drill_root_left": false
+    },
+    "gate_bound": [
+      "127.0.0.2",
+      9931
+    ],
+    "isolated_env": {
+      "CIEL_RUNTIME_TEST_ISOLATED": "1",
+      "CLAUDE_CONFIG_DIR": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-v2ytienp\\config\\.claude",
+      "CIEL_RUNTIME_CONFIG_DIR": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-v2ytienp\\config"
+    },
+    "protected_rows_before": 87,
+    "core_pids": [
+      23728,
+      39984,
+      21912,
+      42764,
+      42924,
+      36344,
+      40616,
+      45652,
+      45428,
+      46232,
+      46508,
+      2272,
+      9764,
+      12240,
+      48104,
+      9008,
+      44500,
+      20744
+    ]
+  },
+  "live_profile_after_preflight": true
+}

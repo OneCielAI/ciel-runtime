@@ -1,0 +1,542 @@
+{
+  "probe": "f63b94ea",
+  "run_dir": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-reload-probe-f63b94ea-k9_v1u66",
+  "cli": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+  "session_id": "9de45374-fb08-4ff7-be49-6a8b1b513858",
+  "cli_version": "2.1.322 (Claude Code)",
+  "protected_count": 61,
+  "inherited_ciel_after_strip": [],
+  "phase1_pid": 66124,
+  "gen_a_started": true,
+  "spawn": {
+    "gen": "A",
+    "boot": "6z0m177szkn",
+    "at": 1794420918106,
+    "event": "spawn",
+    "agentId": "a116d8b5b09ef2dca",
+    "deny": null
+  },
+  "fork_request_held": true,
+  "a_list_live_fork": {
+    "label": "after-spawn-0",
+    "at": 1794420920113,
+    "row": {
+      "id": "a116d8b5b09ef2dca",
+      "status": "running",
+      "name": "reload-probe-fork",
+      "type": "fork",
+      "spawnedBy": "reload-probe",
+      "parentId": null
+    }
+  },
+  "phase1_tree_before_reload": [
+    {
+      "pid": 66124,
+      "ppid": 15700,
+      "name": "claude.exe",
+      "created": "2026-11-11T18:15:13.1626280Z"
+    },
+    {
+      "pid": 5708,
+      "ppid": 66124,
+      "name": "git.exe",
+      "created": "2026-11-11T18:15:13.9300640Z"
+    },
+    {
+      "pid": 75916,
+      "ppid": 5708,
+      "name": "conhost.exe",
+      "created": "2026-11-11T18:15:13.9421410Z"
+    }
+  ],
+  "reload_written_at": 1794420921.199222,
+  "gen_b_started": true,
+  "same_process_after_reload": true,
+  "hold_open_after_reload": true,
+  "gen_b_lists": [
+    {
+      "label": "session.start-before-next",
+      "at": 1794420921942,
+      "fork": {
+        "id": "a116d8b5b09ef2dca",
+        "status": "running",
+        "name": "reload-probe-fork",
+        "type": "fork",
+        "spawnedBy": "reload-probe",
+        "parentId": null
+      },
+      "agents": [
+        {
+          "id": "a116d8b5b09ef2dca",
+          "status": "running",
+          "name": "reload-probe-fork",
+          "type": "fork",
+          "spawnedBy": "reload-probe",
+          "parentId": null
+        }
+      ]
+    },
+    {
+      "label": "session.start-after-next",
+      "at": 1794420921965,
+      "fork": {
+        "id": "a116d8b5b09ef2dca",
+        "status": "running",
+        "name": "reload-probe-fork",
+        "type": "fork",
+        "spawnedBy": "reload-probe",
+        "parentId": null
+      },
+      "agents": [
+        {
+          "id": "a116d8b5b09ef2dca",
+          "status": "running",
+          "name": "reload-probe-fork",
+          "type": "fork",
+          "spawnedBy": "reload-probe",
+          "parentId": null
+        }
+      ]
+    },
+    {
+      "label": "reloaded+3s",
+      "at": 1794420924979,
+      "fork": {
+        "id": "a116d8b5b09ef2dca",
+        "status": "running",
+        "name": "reload-probe-fork",
+        "type": "fork",
+        "spawnedBy": "reload-probe",
+        "parentId": null
+      },
+      "agents": [
+        {
+          "id": "a116d8b5b09ef2dca",
+          "status": "running",
+          "name": "reload-probe-fork",
+          "type": "fork",
+          "spawnedBy": "reload-probe",
+          "parentId": null
+        }
+      ]
+    },
+    {
+      "label": "reloaded+8s",
+      "at": 1794420929977,
+      "fork": {
+        "id": "a116d8b5b09ef2dca",
+        "status": "running",
+        "name": "reload-probe-fork",
+        "type": "fork",
+        "spawnedBy": "reload-probe",
+        "parentId": null
+      },
+      "agents": [
+        {
+          "id": "a116d8b5b09ef2dca",
+          "status": "running",
+          "name": "reload-probe-fork",
+          "type": "fork",
+          "spawnedBy": "reload-probe",
+          "parentId": null
+        }
+      ]
+    }
+  ],
+  "events_a": [
+    {
+      "gen": "A",
+      "boot": "6z0m177szkn",
+      "at": 1794420913909,
+      "event": "agent.list",
+      "label": "session.start-before-next",
+      "agents": []
+    },
+    {
+      "gen": "A",
+      "boot": "6z0m177szkn",
+      "at": 1794420913950,
+      "event": "agent.list",
+      "label": "session.start-after-next",
+      "agents": []
+    },
+    {
+      "gen": "A",
+      "boot": "6z0m177szkn",
+      "at": 1794420913958,
+      "event": "session.start",
+      "isInteractive": true
+    },
+    {
+      "gen": "A",
+      "boot": "6z0m177szkn",
+      "at": 1794420918106,
+      "event": "spawn",
+      "agentId": "a116d8b5b09ef2dca",
+      "deny": null
+    },
+    {
+      "gen": "A",
+      "boot": "6z0m177szkn",
+      "at": 1794420920113,
+      "event": "agent.list",
+      "label": "after-spawn-0",
+      "agents": [
+        {
+          "id": "a116d8b5b09ef2dca",
+          "status": "running",
+          "name": "reload-probe-fork",
+          "type": "fork",
+          "spawnedBy": "reload-probe",
+          "parentId": null
+        }
+      ]
+    }
+  ],
+  "events_b_phase1": [
+    {
+      "gen": "B",
+      "boot": "f8f2nnsyzgu",
+      "at": 1794420921942,
+      "event": "agent.list",
+      "label": "session.start-before-next",
+      "agents": [
+        {
+          "id": "a116d8b5b09ef2dca",
+          "status": "running",
+          "name": "reload-probe-fork",
+          "type": "fork",
+          "spawnedBy": "reload-probe",
+          "parentId": null
+        }
+      ]
+    },
+    {
+      "gen": "B",
+      "boot": "f8f2nnsyzgu",
+      "at": 1794420921965,
+      "event": "agent.list",
+      "label": "session.start-after-next",
+      "agents": [
+        {
+          "id": "a116d8b5b09ef2dca",
+          "status": "running",
+          "name": "reload-probe-fork",
+          "type": "fork",
+          "spawnedBy": "reload-probe",
+          "parentId": null
+        }
+      ]
+    },
+    {
+      "gen": "B",
+      "boot": "f8f2nnsyzgu",
+      "at": 1794420921972,
+      "event": "session.start",
+      "isInteractive": true
+    },
+    {
+      "gen": "B",
+      "boot": "f8f2nnsyzgu",
+      "at": 1794420924979,
+      "event": "agent.list",
+      "label": "reloaded+3s",
+      "agents": [
+        {
+          "id": "a116d8b5b09ef2dca",
+          "status": "running",
+          "name": "reload-probe-fork",
+          "type": "fork",
+          "spawnedBy": "reload-probe",
+          "parentId": null
+        }
+      ]
+    },
+    {
+      "gen": "B",
+      "boot": "f8f2nnsyzgu",
+      "at": 1794420929977,
+      "event": "agent.list",
+      "label": "reloaded+8s",
+      "agents": [
+        {
+          "id": "a116d8b5b09ef2dca",
+          "status": "running",
+          "name": "reload-probe-fork",
+          "type": "fork",
+          "spawnedBy": "reload-probe",
+          "parentId": null
+        }
+      ]
+    }
+  ],
+  "question_a": {
+    "live_fork_before_reload": {
+      "label": "after-spawn-0",
+      "at": 1794420920113,
+      "row": {
+        "id": "a116d8b5b09ef2dca",
+        "status": "running",
+        "name": "reload-probe-fork",
+        "type": "fork",
+        "spawnedBy": "reload-probe",
+        "parentId": null
+      }
+    },
+    "same_claude_process": true,
+    "fork_stream_still_held": true,
+    "listed_in_reloaded_session_start": [
+      {
+        "label": "session.start-before-next",
+        "status": "running"
+      },
+      {
+        "label": "session.start-after-next",
+        "status": "running"
+      },
+      {
+        "label": "reloaded+3s",
+        "status": "running"
+      },
+      {
+        "label": "reloaded+8s",
+        "status": "running"
+      }
+    ]
+  },
+  "phase1_tree_at_kill": [
+    {
+      "pid": 66124,
+      "ppid": 15700,
+      "name": "claude.exe",
+      "created": "2026-11-11T18:15:13.1626280Z"
+    }
+  ],
+  "killed": [
+    {
+      "pid": 66124,
+      "name": "claude.exe",
+      "rc": 0
+    }
+  ],
+  "phase1_survivors_after_kill": [],
+  "hold_after_kill": {
+    "at": 1794420918.2287998,
+    "closed_at": 1794420933.264465,
+    "outcome": "connection closed: ConnectionResetError"
+  },
+  "phase2_pid": 78592,
+  "phase2_lists": [
+    {
+      "label": "session.start-before-next",
+      "fork": null,
+      "agents": []
+    },
+    {
+      "label": "session.start-after-next",
+      "fork": null,
+      "agents": []
+    },
+    {
+      "label": "reloaded+3s",
+      "fork": null,
+      "agents": []
+    },
+    {
+      "label": "reloaded+8s",
+      "fork": null,
+      "agents": []
+    }
+  ],
+  "phase2_new_fork_requests": 0,
+  "phase2_tree": [
+    {
+      "pid": 78592,
+      "ppid": 15700,
+      "name": "claude.exe",
+      "created": "2026-11-11T18:15:37.0520370Z"
+    }
+  ],
+  "phase1_rows_alive_in_phase2": [],
+  "phase2_orphan_lines": [],
+  "question_b": {
+    "old_process_rows_alive": [],
+    "old_fork_listed_after_continue": [
+      {
+        "label": "session.start-before-next",
+        "status": null
+      },
+      {
+        "label": "session.start-after-next",
+        "status": null
+      },
+      {
+        "label": "reloaded+3s",
+        "status": null
+      },
+      {
+        "label": "reloaded+8s",
+        "status": null
+      }
+    ],
+    "fork_model_requests_after_continue": 0,
+    "engine_orphan_lines": []
+  },
+  "events_b_all": [
+    {
+      "gen": "B",
+      "boot": "f8f2nnsyzgu",
+      "at": 1794420921942,
+      "event": "agent.list",
+      "label": "session.start-before-next",
+      "agents": [
+        {
+          "id": "a116d8b5b09ef2dca",
+          "status": "running",
+          "name": "reload-probe-fork",
+          "type": "fork",
+          "spawnedBy": "reload-probe",
+          "parentId": null
+        }
+      ]
+    },
+    {
+      "gen": "B",
+      "boot": "f8f2nnsyzgu",
+      "at": 1794420921965,
+      "event": "agent.list",
+      "label": "session.start-after-next",
+      "agents": [
+        {
+          "id": "a116d8b5b09ef2dca",
+          "status": "running",
+          "name": "reload-probe-fork",
+          "type": "fork",
+          "spawnedBy": "reload-probe",
+          "parentId": null
+        }
+      ]
+    },
+    {
+      "gen": "B",
+      "boot": "f8f2nnsyzgu",
+      "at": 1794420921972,
+      "event": "session.start",
+      "isInteractive": true
+    },
+    {
+      "gen": "B",
+      "boot": "f8f2nnsyzgu",
+      "at": 1794420924979,
+      "event": "agent.list",
+      "label": "reloaded+3s",
+      "agents": [
+        {
+          "id": "a116d8b5b09ef2dca",
+          "status": "running",
+          "name": "reload-probe-fork",
+          "type": "fork",
+          "spawnedBy": "reload-probe",
+          "parentId": null
+        }
+      ]
+    },
+    {
+      "gen": "B",
+      "boot": "f8f2nnsyzgu",
+      "at": 1794420929977,
+      "event": "agent.list",
+      "label": "reloaded+8s",
+      "agents": [
+        {
+          "id": "a116d8b5b09ef2dca",
+          "status": "running",
+          "name": "reload-probe-fork",
+          "type": "fork",
+          "spawnedBy": "reload-probe",
+          "parentId": null
+        }
+      ]
+    },
+    {
+      "gen": "B",
+      "boot": "ujg7xhibzvk",
+      "at": 1794420937939,
+      "event": "agent.list",
+      "label": "session.start-before-next",
+      "agents": []
+    },
+    {
+      "gen": "B",
+      "boot": "ujg7xhibzvk",
+      "at": 1794420937956,
+      "event": "agent.list",
+      "label": "session.start-after-next",
+      "agents": []
+    },
+    {
+      "gen": "B",
+      "boot": "ujg7xhibzvk",
+      "at": 1794420937963,
+      "event": "session.start",
+      "isInteractive": true
+    },
+    {
+      "gen": "B",
+      "boot": "ujg7xhibzvk",
+      "at": 1794420940968,
+      "event": "agent.list",
+      "label": "reloaded+3s",
+      "agents": []
+    },
+    {
+      "gen": "B",
+      "boot": "ujg7xhibzvk",
+      "at": 1794420945969,
+      "event": "agent.list",
+      "label": "reloaded+8s",
+      "agents": []
+    }
+  ],
+  "final_killed": [
+    {
+      "pid": 78592,
+      "name": "claude.exe",
+      "rc": 0
+    }
+  ],
+  "protected_missing_after": [
+    {
+      "pid": 70224,
+      "ppid": 69228,
+      "name": "python.exe",
+      "created": "2026-11-11T18:15:12.9172800Z"
+    }
+  ],
+  "live_hash_changed": [],
+  "owned_path_in_live_files": [],
+  "live_before": {
+    "C:\\Users\\djlov\\.claude.json": "d8fd7683ccd5558e24eb60084d23af73247cfb9a070e9b2ef4919633ba016752",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_after": {
+    "C:\\Users\\djlov\\.claude.json": "d8fd7683ccd5558e24eb60084d23af73247cfb9a070e9b2ef4919633ba016752",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  }
+}

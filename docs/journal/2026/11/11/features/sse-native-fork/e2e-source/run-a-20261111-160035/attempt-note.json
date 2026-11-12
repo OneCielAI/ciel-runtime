@@ -1,0 +1,15 @@
+{
+ "freeze": "freeze-sse-378f6d73 (register.js 378f6d73, side-intake.js 0aeb7d84) + restart 09255642; snapshot ac9468eb58b2",
+ "verdict": "harness_fixture_error (not a product defect); stopped before facts/screenshots",
+ "observed_before_stop": {
+  "thread_event": "processed 1.9 s after send (receipt stage processed, outbox sent once)",
+  "time_limit_wake": "exactly one: one protocol-2 prepare (22:01:24.003Z), one start (.243Z), one $.prompt.submit (.516Z), one record (25.000Z) in claude-debug.txt; gateway-request-005 carries 1 wake block; main transcript 1 user wake row",
+  "ack": "main work_side_handoff succeeded on first try (gateway-request-006 tool_result is the acknowledged handoff, no error); board wake state acknowledged, needs_ack_retry false, channel prompt, revision 3",
+  "immediacy": "handoff requested_at 1794434483.889 -> wake started_at 1794434484.380 (0.49 s)",
+  "priority": "Work root n1 P4; Walkie thread_task priority 5",
+  "none_referenced": "processed, delivery not_applicable, 0 sends, 0 Walkie MCP calls, 0 extra main requests"
+ },
+ "stop_cause": "the fetch-failure fixture event named the same Walkie message 1002 as the thread event; the host source-identity dedupe (side_intake_inbox.source_identity) answered it as \"Same source message already handled by side receipt f0e614e9...\" without any source read, so no side_failure appeared within 180 s. Fixed in the driver: the fetch-failure event now names message 1006.",
+ "product_defect": false,
+ "safety": "protected 40/40 unchanged; owned tree did not intersect; live profile 53 hashes equal and no change during run; snapshot digest ac9468eb unchanged; 15 freeze rows match in snapshot and worktree; run copy changed only engine-written claude-code-tools/index.d.ts; 0 Walkie presence_* events in window; 0 secret hits"
+}

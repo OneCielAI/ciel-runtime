@@ -1,0 +1,179 @@
+2026-11-11T16:28:46.195Z [DEBUG] MDM settings load completed in 2ms
+2026-11-11T16:28:46.218Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Program Files\ClaudeCode\managed-settings.json
+2026-11-11T16:28:46.220Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\workspace\.claude\settings.json
+2026-11-11T16:28:46.224Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.225Z [DEBUG] Broken symlink or missing file encountered for settings.json at path: C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\workspace\.claude\settings.local.json
+2026-11-11T16:28:46.225Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.225Z [DEBUG] CA certs: Config fallback - globalEnv keys: , settingsEnv keys: none
+2026-11-11T16:28:46.236Z [DEBUG] [init] configureGlobalMTLS starting
+2026-11-11T16:28:46.236Z [DEBUG] [init] configureGlobalMTLS complete
+2026-11-11T16:28:46.236Z [DEBUG] [init] configureGlobalAgents starting
+2026-11-11T16:28:46.237Z [DEBUG] CA certs: stores=bundled,system, extraCertsPath=undefined
+2026-11-11T16:28:46.238Z [DEBUG] CA certs: Loaded 118 bundled root certificates
+2026-11-11T16:28:46.248Z [DEBUG] CA certs: Dropped 20 expired certificate(s) from system store
+2026-11-11T16:28:46.248Z [DEBUG] CA certs: Loaded 135 system CA certificates
+2026-11-11T16:28:46.249Z [DEBUG] CA certs: Dropped blocked certificate 40f6af0346a99aa1cd1d555a4e9cce62c7f9634603ee406615833dc8c8d00367 from bundled
+2026-11-11T16:28:46.249Z [DEBUG] CA certs: Dropped blocked certificate 40f6af0346a99aa1cd1d555a4e9cce62c7f9634603ee406615833dc8c8d00367 from system
+2026-11-11T16:28:46.250Z [DEBUG] CA certs: Dropped blocked certificate 40f6af0346a99aa1cd1d555a4e9cce62c7f9634603ee406615833dc8c8d00367 from system
+2026-11-11T16:28:46.259Z [ERROR] CA certs: Dropped the certificate with SHA-256 fingerprint E7:68:56:34:EF:AC:F6:9A:CE:93:9A:6B:25:5B:7B:4F:AB:EF:42:93:5B:50:A2:65:AC:B5:CB:60:27:E4:4E:70 and subject "C=US\nO=VeriSign\\, Inc.\nOU=Class 3 Public Primary Certification Authority": it names itself as its issuer, but its own key did not sign it, or signed it in a form that Claude Code cannot check, and no CA that chains to a root in the CA list signed it. If another root certificate of the same CA signed it, this one stays once this list holds that root certificate too. Only the lists for Claude Code's own connections take certificates from the NODE_EXTRA_CA_CERTS file. If you add that root and connections still fail, take it out again: while this list holds it, the variable below changes nothing. CLAUDE_CODE_DISABLE_SELF_NAMED_CERT_DROP=1 keeps every such certificate, whoever signed it, and can break connections that work without it.
+2026-11-11T16:28:46.259Z [ERROR] CA certs: Dropped the certificate with SHA-256 fingerprint 8B:13:DB:B2:5E:B3:39:A6:30:C7:6C:81:0D:14:B4:4B:55:2E:68:DC:10:A9:3E:82:E7:54:DA:23:F8:58:77:4A and subject "CN=Root Agency": it names itself as its issuer, but whether its own key signed it could not be checked (Error: error:0b00007d:X.509 certificate routines:OPENSSL_internal:PUBLIC_KEY_DECODE_ERROR), most likely because the runtime cannot read that key, and then TLS can verify nothing under it either, and no CA that chains to a root in the CA list signed it. If another root certificate of the same CA signed it, this one stays once this list holds that root certificate too. Only the lists for Claude Code's own connections take certificates from the NODE_EXTRA_CA_CERTS file. If you add that root and connections still fail, take it out again: while this list holds it, the variable below changes nothing. CLAUDE_CODE_DISABLE_SELF_NAMED_CERT_DROP=1 keeps every such certificate, whoever signed it, and can break connections that work without it.
+2026-11-11T16:28:46.259Z [DEBUG] CA certs: Dropped 3 certificate(s) that do not chain to a root in the CA list
+2026-11-11T16:28:46.259Z [DEBUG] mTLS: Creating HTTPS agent with custom certificates
+2026-11-11T16:28:46.261Z [DEBUG] [init] configureGlobalAgents complete
+2026-11-11T16:28:46.261Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.261Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.262Z [DEBUG] Using bash path: "C:\Program Files\Git\bin\bash.exe"
+2026-11-11T16:28:46.263Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.265Z [DEBUG] Error log sink initialized
+2026-11-11T16:28:46.266Z [DEBUG] clearPluginCache: invalidating loadAllPlugins cache (preAction: --plugin-dir inline plugins)
+2026-11-11T16:28:46.279Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T16:28:46.279Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json.tmp.75248.dffcc8f7b30a
+2026-11-11T16:28:46.279Z [DEBUG] Applied original permissions to temp file
+2026-11-11T16:28:46.280Z [DEBUG] Temp file written successfully, size: 399 bytes
+2026-11-11T16:28:46.280Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json.tmp.75248.dffcc8f7b30a to C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json
+2026-11-11T16:28:46.281Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json written atomically
+2026-11-11T16:28:46.289Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T16:28:46.289Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json.tmp.75248.86280e8d8577
+2026-11-11T16:28:46.289Z [DEBUG] Applied original permissions to temp file
+2026-11-11T16:28:46.290Z [DEBUG] Temp file written successfully, size: 482 bytes
+2026-11-11T16:28:46.290Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json.tmp.75248.86280e8d8577 to C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json
+2026-11-11T16:28:46.291Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json written atomically
+2026-11-11T16:28:46.297Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T16:28:46.297Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json.tmp.75248.26be11ae1582
+2026-11-11T16:28:46.297Z [DEBUG] Applied original permissions to temp file
+2026-11-11T16:28:46.299Z [DEBUG] Temp file written successfully, size: 518 bytes
+2026-11-11T16:28:46.299Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json.tmp.75248.26be11ae1582 to C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json
+2026-11-11T16:28:46.299Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json written atomically
+2026-11-11T16:28:46.305Z [DEBUG] Git remote URL: null
+2026-11-11T16:28:46.305Z [DEBUG] No git remote URL found
+2026-11-11T16:28:46.306Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T16:28:46.306Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json.tmp.75248.49c37606d208
+2026-11-11T16:28:46.306Z [DEBUG] Applied original permissions to temp file
+2026-11-11T16:28:46.307Z [DEBUG] Temp file written successfully, size: 557 bytes
+2026-11-11T16:28:46.307Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json.tmp.75248.49c37606d208 to C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json
+2026-11-11T16:28:46.307Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json written atomically
+2026-11-11T16:28:46.315Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T16:28:46.315Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json.tmp.75248.0d62e542bcf0
+2026-11-11T16:28:46.315Z [DEBUG] Applied original permissions to temp file
+2026-11-11T16:28:46.316Z [DEBUG] Temp file written successfully, size: 584 bytes
+2026-11-11T16:28:46.316Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json.tmp.75248.0d62e542bcf0 to C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json
+2026-11-11T16:28:46.317Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json written atomically
+2026-11-11T16:28:46.321Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T16:28:46.322Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json.tmp.75248.0eed0ce6ab95
+2026-11-11T16:28:46.322Z [DEBUG] Applied original permissions to temp file
+2026-11-11T16:28:46.322Z [DEBUG] Temp file written successfully, size: 632 bytes
+2026-11-11T16:28:46.322Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json.tmp.75248.0eed0ce6ab95 to C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json
+2026-11-11T16:28:46.323Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json written atomically
+2026-11-11T16:28:46.329Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T16:28:46.329Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json.tmp.75248.e2270686a58f
+2026-11-11T16:28:46.329Z [DEBUG] Applied original permissions to temp file
+2026-11-11T16:28:46.330Z [DEBUG] Temp file written successfully, size: 658 bytes
+2026-11-11T16:28:46.330Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json.tmp.75248.e2270686a58f to C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json
+2026-11-11T16:28:46.331Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json written atomically
+2026-11-11T16:28:46.343Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.348Z [DEBUG] installed_plugins.json doesn't exist, returning empty V2 object
+2026-11-11T16:28:46.349Z [DEBUG] --mcp-config provenance: undeclared
+2026-11-11T16:28:46.350Z [DEBUG] [Claude in Chrome] Disabled: OAuth token has no scope accepted by /api/oauth/validate (needs user:profile, user:office, or user:ccr_inference; env-var and setup-token sessions default to user:inference only)
+2026-11-11T16:28:46.352Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.380Z [DEBUG] Applying permission update: Adding 1 allow rule(s) to destination 'userSettings': ["mcp__ciel-runtime-router__work_side_handoff"]
+2026-11-11T16:28:46.382Z [DEBUG] [ToolSearch:optimistic] mode=standard, ENABLE_TOOL_SEARCH=false, result=false
+2026-11-11T16:28:46.383Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.383Z [DEBUG] [STARTUP] Loading MCP configs...
+2026-11-11T16:28:46.386Z [ERROR] MCP config errors for C:\Users\djlov\.mcp.json: ["Missing \"mcpServers\" — found \"servers\" instead. Claude Code reads MCP servers from the \"mcpServers\" key."]
+2026-11-11T16:28:46.386Z [DEBUG] [STARTUP] Running setup()...
+2026-11-11T16:28:46.388Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.395Z [DEBUG] Loading skills from: managed=C:\Program Files\ClaudeCode\.claude\skills, user=C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\skills, project=[]
+2026-11-11T16:28:46.395Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\agents: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\agents'
+2026-11-11T16:28:46.395Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\agents: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\agents'
+2026-11-11T16:28:46.395Z [DEBUG] Failed to stat directory C:\Program Files\ClaudeCode\.claude\commands: ENOENT: no such file or directory, stat 'C:\Program Files\ClaudeCode\.claude\commands'
+2026-11-11T16:28:46.395Z [DEBUG] Failed to stat directory C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\commands: ENOENT: no such file or directory, stat 'C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\commands'
+2026-11-11T16:28:46.395Z [DEBUG] Loaded 0 unique skills (0 unconditional, 0 conditional, managed: 0, user: 0, project: 0, additional: 0, legacy commands: 0)
+2026-11-11T16:28:46.396Z [DEBUG] --plugin-dir C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\.local\sse-true-fork\e2e\snapshot-frozen\ciel_runtime_support\claude_mods\ciel-work is one plugin: .claude-plugin at its top marks it
+2026-11-11T16:28:46.399Z [INFO] [uds-messaging] Listening: \\.\pipe\LOCAL\cc-msg-b704595b96f258be4b9f62be7677b442
+2026-11-11T16:28:46.400Z [DEBUG] [uds-messaging] Inject messages (auth line REQUIRED here; a pipe is not reachable via socat/AF_UNIX): node -e "const c=require('net').connect(process.argv[1],()=>{c.write(JSON.stringify({type:'auth',token:[REDACTED]})+'\n'+JSON.stringify({type:'user',message:{role:'user',content:'hello'}})+'\n');c.end()})" "\\.\pipe\LOCAL\cc-msg-b704595b96f258be4b9f62be7677b442"
+2026-11-11T16:28:46.400Z [DEBUG] [uds-messaging] Connect when the data is ready (run the command first, then connect and write its output as ONE line, as in the node recipe above): a connection that sends no complete line within 30000 ms is closed
+2026-11-11T16:28:46.401Z [DEBUG] Error log sink initialized
+2026-11-11T16:28:46.404Z [DEBUG] [STARTUP] setup() completed in 18ms
+2026-11-11T16:28:46.404Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.405Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.405Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.405Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.405Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.405Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.405Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.405Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.405Z [DEBUG] [STARTUP] Loading commands and agents...
+2026-11-11T16:28:46.409Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.409Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.409Z [DEBUG] Read hooks.json for plugin ciel-work (enabled=true): C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\.local\sse-true-fork\e2e\snapshot-frozen\ciel_runtime_support\claude_mods\ciel-work\hooks\hooks.json
+2026-11-11T16:28:46.410Z [DEBUG] Loaded inline plugin from path: ciel-work
+2026-11-11T16:28:46.410Z [DEBUG] Loaded 1 directory-loaded plugins
+2026-11-11T16:28:46.411Z [DEBUG] Found 5 plugins (5 enabled, 0 disabled)
+2026-11-11T16:28:46.412Z [DEBUG] getPluginSkills: Processing 5 enabled plugins
+2026-11-11T16:28:46.412Z [DEBUG] Checking plugin ciel-work: skillsPath=none, skillsPaths=0 paths
+2026-11-11T16:28:46.412Z [DEBUG] Checking plugin cc-plugin-agents-md: skillsPath=none, skillsPaths=0 paths
+2026-11-11T16:28:46.412Z [DEBUG] Checking plugin cc-plugin-privacy: skillsPath=none, skillsPaths=0 paths
+2026-11-11T16:28:46.412Z [DEBUG] Checking plugin cc-plugin-plugin-authoring: skillsPath=none, skillsPaths=0 paths
+2026-11-11T16:28:46.412Z [DEBUG] Checking plugin cc-plugin-diff: skillsPath=none, skillsPaths=0 paths
+2026-11-11T16:28:46.412Z [DEBUG] Total plugin workflows loaded: 0
+2026-11-11T16:28:46.413Z [DEBUG] Total plugin commands loaded: 0
+2026-11-11T16:28:46.413Z [DEBUG] Total plugin skills loaded: 0 (0 duplicate/user-owned entries skipped)
+2026-11-11T16:28:46.413Z [DEBUG] Total plugin agents loaded: 0
+2026-11-11T16:28:46.414Z [DEBUG] cc-plugin-sec-default@builtin not seated: no managed settings and not a Team or Enterprise organization (none)
+2026-11-11T16:28:46.416Z [DEBUG] getSkills returning: 0 skill dir commands, 0 plugin skills, 30 bundled skills, 1 builtin plugin skills
+2026-11-11T16:28:46.418Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.418Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.418Z [DEBUG] Auto mode classifier: ANTHROPIC_DEFAULT_SONNET_MODEL=ciel-runtime-cielairouter-claude-opus-5-5 cannot serve as the classifier; using the Sonnet 5 default instead
+2026-11-11T16:28:46.420Z [DEBUG] [STARTUP] Commands and agents loaded in 15ms
+2026-11-11T16:28:46.421Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.424Z [DEBUG] [STARTUP] Running showSetupScreens()...
+2026-11-11T16:28:46.425Z [ERROR] MCP config errors for C:\Users\djlov\.mcp.json: ["Missing \"mcpServers\" — found \"servers\" instead. Claude Code reads MCP servers from the \"mcpServers\" key."]
+2026-11-11T16:28:46.426Z [ERROR] MCP config errors for C:\Users\djlov\.mcp.json: ["Missing \"mcpServers\" — found \"servers\" instead. Claude Code reads MCP servers from the \"mcpServers\" key."]
+2026-11-11T16:28:46.426Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.426Z [ERROR] MCP config errors for C:\Users\djlov\.mcp.json: ["Missing \"mcpServers\" — found \"servers\" instead. Claude Code reads MCP servers from the \"mcpServers\" key."]
+2026-11-11T16:28:46.427Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.427Z [WARN] localSettings: not canonicalizing the consent store to C:\ — this platform has no uid semantics to verify directory ownership with, so the store stays at the session cwd (canonicalization is POSIX-only)
+2026-11-11T16:28:46.492Z [DEBUG] Cleared mTLS configuration cache
+2026-11-11T16:28:46.492Z [DEBUG] Cleared proxy agent cache
+2026-11-11T16:28:46.497Z [DEBUG] [keybindings] KeybindingSetup initialized with 227 bindings, 0 warnings
+2026-11-11T16:28:46.514Z [DEBUG] [keybindings] Watching for changes to C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\keybindings.json
+2026-11-11T16:28:46.516Z [DEBUG] [Perfetto] initializePerfettoTracing called, env value: undefined
+2026-11-11T16:28:46.516Z [DEBUG] [3P telemetry] isTelemetryEnabled=false (CLAUDE_CODE_ENABLE_TELEMETRY=undefined)
+2026-11-11T16:28:46.518Z [DEBUG] XTVERSION: no reply (terminal ignored query)
+2026-11-11T16:28:46.518Z [DEBUG] Terminal capabilities: extendedKeys=yes (env: terminal=windows-terminal); synchronizedOutput=yes (env: WT_SESSION, no answer); kittyKeyboard=no (probe: no reply to CSI ? u); kittyGraphics=no (env: terminal=windows-terminal, not asked yet, no answer); itermImages=no (yes only on an XTVERSION reply naming iTerm2 3.5 or later, no answer); mousePixels=no (env: terminal=windows-terminal, not asked yet, no answer); programStatus=no (env: CLAUDE_CODE_DISABLE_TERMINAL_TITLE); terminal said: no reply to CSI ? u; DECRQM 2026 not asked (no XTVERSION reply)
+2026-11-11T16:28:46.518Z [DEBUG] DECSTBM: gated (TMUX=unset ZELLIJ=unset TERM_PROGRAM=unset TERM=xterm-256color)
+2026-11-11T16:28:46.559Z [DEBUG] Git remote URL: null
+2026-11-11T16:28:46.559Z [DEBUG] No git remote URL found
+2026-11-11T16:28:46.559Z [DEBUG] Not in a GitHub repository, skipping path mapping update
+2026-11-11T16:28:46.569Z [DEBUG] plugin cc-plugin-agents-md: no pluginConfigs["agents-md@builtin" or "cc-plugin-agents-md@builtin"].options in user, --settings or managed settings (project settings are not read); every option is its default
+2026-11-11T16:28:46.570Z [DEBUG] hooks worker spawned (one for every plugin)
+2026-11-11T16:28:46.571Z [DEBUG] Preserving file permissions: 100666
+2026-11-11T16:28:46.571Z [DEBUG] Writing to temp file: C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json.tmp.75248.591e5b66b719
+2026-11-11T16:28:46.572Z [DEBUG] Applied original permissions to temp file
+2026-11-11T16:28:46.574Z [DEBUG] Temp file written successfully, size: 738 bytes
+2026-11-11T16:28:46.574Z [DEBUG] Renaming C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json.tmp.75248.591e5b66b719 to C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json
+2026-11-11T16:28:46.574Z [DEBUG] File C:\Users\djlov\AppData\Local\Temp\ciel-sse-true-fork-a-evvwyh9y\claude\.claude.json written atomically
+2026-11-11T16:28:46.651Z [DEBUG] hooks module ciel-work@inline loaded (worker, environment 1, tier user); events: agent.spawn,session.start,prompt.attachment,turn.start,turn.complete,session.compact,classic.Stop,session.receive,prompt.submit,command.run,tool.call,tool.check,session.end,ui.render,ui.message
+2026-11-11T16:28:46.651Z [DEBUG] hooks native host made (for the plugins the binary carries)
+2026-11-11T16:28:46.652Z [DEBUG] hooks module cc-plugin-agents-md@builtin loaded (native, environment 2, tier builtin); events: session.start,prompt.context,command.run,session.compact,prompt.submit,turn.start,turn.complete,agent.spawn,tool.call,prompt.mention
+2026-11-11T16:28:46.653Z [DEBUG] hooks module cc-plugin-plugin-authoring@builtin loaded (native, environment 3, tier builtin); events: skill.prompt,tool.check,tool.call
+2026-11-11T16:28:46.653Z [DEBUG] hooks module cc-plugin-diff@builtin loaded (native, environment 4, tier builtin); events: session.start,ui.render,command.run,ui.close,ui.focus,ui.scroll,tool.call,prompt.submit
+2026-11-11T16:28:46.653Z [DEBUG] hooks module cc-plugin-privacy@builtin loaded (native, environment 5, tier builtin); events: tool.check
+2026-11-11T16:28:46.654Z [DEBUG] engine.create: no plugin-provided interfaces; $ built for ciel-work,cc-plugin-agents-md,cc-plugin-plugin-authoring,cc-plugin-diff,cc-plugin-privacy
+2026-11-11T16:28:46.655Z [DEBUG] plugin.register: cc-plugin-agents-md (builtin, cc-plugin-agents-md@builtin), judged by core alone: admitted
+2026-11-11T16:28:46.655Z [DEBUG] plugin.register: cc-plugin-plugin-authoring (builtin, cc-plugin-plugin-authoring@builtin), judged by core alone: admitted
+2026-11-11T16:28:46.655Z [DEBUG] plugin.register: cc-plugin-diff (builtin, cc-plugin-diff@builtin), judged by core alone: admitted
+2026-11-11T16:28:46.655Z [DEBUG] plugin.register: cc-plugin-privacy (builtin, cc-plugin-privacy@builtin), judged by core alone: admitted
+2026-11-11T16:28:46.655Z [DEBUG] plugin.register: ciel-work (user, ciel-work@inline), judged by core alone: admitted
+2026-11-11T16:28:46.657Z [DEBUG] plugin-dir watch: watching ciel-work; folders of plugins none
+2026-11-11T16:28:46.676Z [DEBUG] Artifact gates frozen: capabilities=true comments=false db=true files=false types=false type_create=false type_catalog=false room=false verify=false delete=false preview=false preview_browser=unread open=false endpoints=false pin=true share=false versions=false flag_source=disabled gb_fresh=false
+2026-11-11T16:28:46.676Z [DEBUG] Artifact publish edits offer frozen: edit_hook=true
+2026-11-11T16:28:46.677Z [DEBUG] Artifact input schema built: assets=false copy_from=false publish_edits=false assets_source=cold_no_identity
+2026-11-11T16:28:46.713Z [DEBUG] anchor: ntdll reached through Bun.ant.windowsFsAt
+2026-11-11T16:28:46.714Z [DEBUG] anchor (win32): identity bridge serial32 — bun dev=2862732396 ino=9570149216608337; nt serial32=2862732396 serial64=14747777971920163948 index=9570149216608337
+2026-11-11T16:28:46.714Z [DEBUG] anchor (win32): held-handle backend up
+2026-11-11T16:28:46.741Z [DEBUG] type root of ciel-work at C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\.local\sse-true-fork\e2e\snapshot-frozen\ciel_runtime_support\claude_mods\ciel-work\.claude-plugin\types: entries claude-code, claude-code-tools, claude-code-mcp; wrote .claude-plugin/types/claude-code-tools/index.d.ts
+2026-11-11T16:28:46.741Z [DEBUG] Registered 0 hooks from 5 plugins
+2026-11-11T16:28:46.742Z [DEBUG] settings.read: the engine's merge was raised (the loaded plugins changed) in 0.3 ms; 0 keys answered otherwise than the files.
+2026-11-11T16:28:46.742Z [DEBUG] settings.read: the engine's merge is not raised again (the loaded plugins changed): neither the loaded plugins nor the settings changed.
+2026-11-11T16:29:46.668Z [DEBUG] plugin-dir watch on C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\.local\sse-true-fork\e2e\snapshot-frozen\ciel_runtime_support\claude_mods\ciel-work: idle, polling every 30000ms

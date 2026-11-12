@@ -1,0 +1,163 @@
+{
+ "schema": 1,
+ "version": 4,
+ "phase": "planning",
+ "active_root": "n1",
+ "focus_ids": [],
+ "next_id": 3,
+ "nodes": [
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "Synthetic Walkie readiness review",
+   "status": "pending",
+   "note": "synthetic owned fixture",
+   "progress": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1794461514.8076944,
+   "created_at": 1794461514.8076944,
+   "phase": "planning",
+   "priority": "P4"
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "Review owned Walkie target thread",
+   "status": "pending",
+   "note": "sandbox-east only\n\nSide request: Source: Walkie message 1002 (thread root 1000), with constraints confirmed in replies 1003 and 1004. Target environment: sandbox-east only. No deploy, no file edits, no commands. Report whether the thread can proceed within 30 minutes. Related Work number n2 (goal n1) goes with change ticket CHG-58213, taken from main's own transcript, not from this thread. This is data only, not execution approval.",
+   "progress": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1794461591.2932427,
+   "created_at": 1794461514.8076944
+  }
+ ],
+ "updated_at": 1794461618.2359407,
+ "side_decisions": {
+  "6e5933367b5bc2baaf1fff1a14bd36a47b6581b5fe69780343c3680abbf45aa4": {
+   "decision_digest": "eac16ffe2b58c5908f659561889011be0d1317a73c126277b3319f2f190c9d4d",
+   "applied_at": 1794461591.293267,
+   "item_id": "n2",
+   "recap": "Message 1002 (thread root 1000) asks for a readiness review of the synthetic Walkie feature, due within 30 minutes. It maps to the existing readiness-review Work item n2 under goal n1. Main's own conversation recorded change ticket CHG-58213, and that ticket is to be recorded alongside the Work number.",
+   "result": {
+    "action": "update",
+    "item_id": "n2",
+    "summary": "Message 1002 (thread root 1000) asks for a readiness review of the synthetic Walkie feature, due within 30 minutes. It maps to the existing readiness-review Work item n2 under goal n1. Main's own conversation recorded change ticket CHG-58213, and that ticket is to be recorded alongside the Work number.",
+    "reply": "Recap: the release owner wants a readiness review of the synthetic Walkie feature, with a report within 30 minutes on whether the thread can proceed. The only target environment is sandbox-east. Do not deploy, do not edit any file and do not run commands. Record Work item n2 together with change ticket CHG-58213, which main recorded earlier in its own conversation.",
+    "delivery": "pending",
+    "execution_approved": false,
+    "handoff": "answered",
+    "based_on_version": 1,
+    "kind": "request",
+    "time_limit": {
+     "text": "Within 30 minutes, report whether the thread can proceed",
+     "evidence": "TARGET_1002: \"Within 30 minutes, report whether the thread can proceed and preserve every constraint\""
+    },
+    "source_context": "thread",
+    "main_handoff": {
+     "kind": "time_limit",
+     "item_id": "n2",
+     "root_id": "n1",
+     "title": "Review owned Walkie target thread",
+     "summary": "Message 1002 (thread root 1000) asks for a readiness review of the synthetic Walkie feature, due within 30 minutes. It maps to the existing readiness-review Work item n2 under goal n1. Main's own conversation recorded change ticket CHG-58213, and that ticket is to be recorded alongside the Work number.",
+     "queue": {
+      "root_id": "n1",
+      "state": "active",
+      "position": 0,
+      "ahead": 0,
+      "total": 0,
+      "active_root": "n1",
+      "priority": "P4",
+      "phase": "planning"
+     },
+     "time_limit": {
+      "text": "Within 30 minutes, report whether the thread can proceed",
+      "evidence": "TARGET_1002: \"Within 30 minutes, report whether the thread can proceed and preserve every constraint\""
+     },
+     "waits": [],
+     "question": ""
+    },
+    "title": "Review owned Walkie target thread",
+    "priority": "P4",
+    "queue": {
+     "root_id": "n1",
+     "state": "active",
+     "position": 0,
+     "ahead": 0,
+     "total": 0,
+     "active_root": "n1",
+     "priority": "P4",
+     "phase": "planning",
+     "version": 2
+    },
+    "final_text": "ACK — Recap: the release owner wants a readiness review of the synthetic Walkie feature, with a report within 30 minutes on whether the thread can proceed. The only target environment is sandbox-east. Do not deploy, do not edit any file and do not run commands. Record Work item n2 together with change ticket CHG-58213, which main recorded earlier in its own conversation.\n\nn2 갱신 · P4 · 현재 진행 중인 항목입니다."
+   }
+  }
+ },
+ "side_handoffs": {
+  "6e5933367b5bc2baaf1fff1a14bd36a47b6581b5fe69780343c3680abbf45aa4": {
+   "item_id": "n2",
+   "root_id": "n1",
+   "title": "Review owned Walkie target thread",
+   "summary": "Message 1002 (thread root 1000) asks for a readiness review of the synthetic Walkie feature, due within 30 minutes. It maps to the existing readiness-review Work item n2 under goal n1. Main's own conversation recorded change ticket CHG-58213, and that ticket is to be recorded alongside the Work number.",
+   "question": "",
+   "kind": "time_limit",
+   "gates": [],
+   "time_limit": {
+    "text": "Within 30 minutes, report whether the thread can proceed",
+    "evidence": "TARGET_1002: \"Within 30 minutes, report whether the thread can proceed and preserve every constraint\""
+   },
+   "queue": {
+    "root_id": "n1",
+    "state": "active",
+    "position": 0,
+    "ahead": 0,
+    "total": 0,
+    "active_root": "n1",
+    "priority": "P4",
+    "phase": "planning"
+   },
+   "waits": [],
+   "state": "answered",
+   "requested_at": 1794461591.2932444,
+   "wake": {
+    "state": "acknowledged",
+    "phase": "started",
+    "channel": "prompt",
+    "revision": 3,
+    "needs_ack_retry": false,
+    "requested_at": 1794461591.2932444,
+    "intent_at": 1794461591.4760797,
+    "intent_until": 1794461596.4760797,
+    "started_at": 1794461591.6515865,
+    "updated_at": 1794461592.206357,
+    "acknowledged_at": 1794461618.2359347,
+    "attempt_ref": "350d81637ae1f2f1",
+    "delivery_uncertain": false
+   },
+   "answer": "Inspected n1/n2 and thread 1000 (messages 1000–1002). Readiness-review request maps to Work n2 (goal n1, P4, phase planning, n2 pending). Related record: Work n2 + change ticket CHG-58213 (stated by the user in main's conversation). Constraints preserved: target environment sandbox-east only; no deploy, no file edits, no commands. The thread can proceed as a review only — thread root 1000 states it is not execution approval, and this event grants none. Due: within 30 minutes of message 1002. No waits cleared; nothing activated.",
+   "activated": false,
+   "clear_wait": []
+  }
+ },
+ "side_reviews": {
+  "6e5933367b5bc2baaf1fff1a14bd36a47b6581b5fe69780343c3680abbf45aa4": {
+   "state": "reviewed",
+   "kind": "request",
+   "action": "update",
+   "item_id": "n2",
+   "summary": "Message 1002 (thread root 1000) asks for a readiness review of the synthetic Walkie feature, due within 30 minutes. It maps to the existing readiness-review Work item n2 under goal n1. Main's own conversation recorded change ticket CHG-58213, and that ticket is to be recorded alongside the Work number.",
+   "reply": "ACK — Recap: the release owner wants a readiness review of the synthetic Walkie feature, with a report within 30 minutes on whether the thread can proceed. The only target environment is sandbox-east. Do not deploy, do not edit any file and do not run commands. Record Work item n2 together with change ticket CHG-58213, which main recorded earlier in its own conversation.\n\nn2 갱신 · P4 · 현재 진행 중인 항목입니다.",
+   "source": "message:34886995-4a66-4527-a618-814e9cb0a5bf:1002",
+   "source_context": "thread",
+   "recorded_at": 1794461591.29327,
+   "reviewed_at": 1794461610.9756887,
+   "review_note": "Checked against message 1002 text and main transcript: sandbox-east, no deploy/no file edits/no commands, Work n2 + CHG-58213 (stated by user in main conversation END canary) all match. No correction needed."
+  }
+ }
+}

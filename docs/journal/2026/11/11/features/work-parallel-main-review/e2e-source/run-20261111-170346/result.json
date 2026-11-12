@@ -1,0 +1,365 @@
+{
+  "out": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\work-parallel-main-review\\e2e-source\\run-20261111-170346",
+  "base": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-20261111-170346",
+  "driver_hashes": {
+    "owned_main_review_probe_v2.py": "290eca199a85aad967a01a08fcf7d05ce7991dd9c83fe719dce97874244a902a",
+    "console_driver.py": "67e94ec2064978fa6bbd6d63826f36b2fb3ff656345fbebcc477e1f7de834c49",
+    "shot_hwnd.ps1": "513c859a9d883cb0464a896c0193811d9097029eeac1052e0556201e1ccda64b"
+  },
+  "snapshot": {
+    "files": 1072,
+    "manifest_sha256": "ad1aee3ce0257725464fdb0be393b2f2f1d9ac9b1633e0ce5dd2893de616b539",
+    "key_hashes": {
+      "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js": "378f6d73698671ec5edb6170944e70be6267f5b85a9ba8753d673c83e6a3e2bb",
+      "ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js": "0aeb7d842e6b6e7169158054fd6ebd638e440a1ba58af94e935386c80da6c7a9",
+      "ciel_runtime_support/work_parallel_mcp.py": "3521486981a1d99891094c56bf63e36cf4a958d5504cc2cef3c7a146ac17f717"
+    },
+    "snapshot": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-snapshot-20261111-170346",
+    "mismatch": []
+  },
+  "session": "99999999-9999-4999-8999-999999999991",
+  "port": 9931,
+  "router_bind": "127.0.0.1",
+  "gate_host": "127.0.0.2",
+  "items": {
+    "Passing implementation": "n2",
+    "Failing implementation then rework": "n4",
+    "P2 passing multiply": "n6",
+    "P3 passing subtract": "n8"
+  },
+  "item_priority": {
+    "n2": "P1",
+    "n4": "P1",
+    "n6": "P2",
+    "n8": "P3"
+  },
+  "policy": {
+    "enabled": true,
+    "paused": false,
+    "priority_limits": {
+      "P1": 2,
+      "P2": 1,
+      "P3": 1,
+      "P4": 1,
+      "P5": 1
+    },
+    "thresholds": {
+      "P2": 1.0,
+      "P3": 1.0,
+      "P4": 1.0,
+      "P5": 1.0
+    },
+    "launches_per_minute": 24,
+    "max_rework": 2,
+    "discovery_text": "When approved Work has capacity, start the next runnable leaf.",
+    "test_override": true
+  },
+  "workspace_state_digest": "70c57cc01e4b",
+  "provider_config_proof": {
+    "top_level_keys": [
+      "claude_code",
+      "claude_stream_recovery",
+      "current_provider",
+      "language",
+      "providers",
+      "web_search",
+      "work_auto_continue",
+      "work_mode",
+      "work_plan_approval_ask",
+      "work_side_intake"
+    ],
+    "providers": [
+      "cielairouter"
+    ],
+    "provider_keys": [
+      "advisor_model",
+      "api_key",
+      "base_url",
+      "context_window",
+      "current_model",
+      "custom_models",
+      "max_model_len",
+      "native_compat",
+      "preflight_prompt_compaction",
+      "request_timeout_ms",
+      "stream_enabled",
+      "stream_word_chunking"
+    ]
+  },
+  "stripped_inherited_names": [
+    "CIEL_RUNTIME_HOME",
+    "CODEX_SPARKLE_ENABLED"
+  ],
+  "owned_prefix_names_after_strip": [
+    "CIEL_RUNTIME_CONFIG_DIR",
+    "CIEL_RUNTIME_HOME_OVERRIDE",
+    "CIEL_RUNTIME_LAUNCH_CWD",
+    "CIEL_RUNTIME_ROUTER_BIND_HOST",
+    "CIEL_RUNTIME_ROUTER_CLIENT_HOST",
+    "CIEL_RUNTIME_ROUTER_PORT",
+    "CIEL_RUNTIME_SKIP_MENU",
+    "CIEL_RUNTIME_SKIP_SELF_UPDATE",
+    "CIEL_RUNTIME_TEST_ISOLATED",
+    "CLAUDE_CONFIG_DIR"
+  ],
+  "unexpected_inherited_prefix_names_after_strip": [],
+  "owned_prefix_values_are_owned": true,
+  "outcome": "preflight_only",
+  "checkpoints": {},
+  "screenshots": {},
+  "preflight": {
+    "reuse_adoption_check": {
+      "accepted": [
+        100,
+        101,
+        102
+      ],
+      "foreign_rejected": true,
+      "owned_accepted": true,
+      "stale_root_identity_rejected": true
+    },
+    "handle_identity_check": {
+      "pid": 74584,
+      "cim_creation": "2026-11-11T23:03:46.1287550Z",
+      "handle_matches": true
+    },
+    "console_kill_drill": {
+      "screen_read": true,
+      "root": [
+        25000,
+        "2026-11-11T23:04:01.2677780Z"
+      ],
+      "tree_before": [
+        [
+          25000,
+          "2026-11-11T23:04:01.2677780Z"
+        ],
+        [
+          81912,
+          "2026-11-11T23:04:01.2781790Z"
+        ],
+        [
+          79080,
+          "2026-11-11T23:04:01.3400120Z"
+        ],
+        [
+          83580,
+          "2026-11-11T23:04:01.3883020Z"
+        ],
+        [
+          81628,
+          "2026-11-11T23:04:01.4621370Z"
+        ],
+        [
+          83744,
+          "2026-11-11T23:04:01.5345380Z"
+        ],
+        [
+          60552,
+          "2026-11-11T23:04:01.6067820Z"
+        ],
+        [
+          80492,
+          "2026-11-11T23:04:01.6792670Z"
+        ],
+        [
+          85528,
+          "2026-11-11T23:04:01.7514920Z"
+        ],
+        [
+          69284,
+          "2026-11-11T23:04:01.8235900Z"
+        ],
+        [
+          76796,
+          "2026-11-11T23:04:01.8959410Z"
+        ],
+        [
+          59804,
+          "2026-11-11T23:04:01.9681450Z"
+        ],
+        [
+          55300,
+          "2026-11-11T23:04:02.0403310Z"
+        ],
+        [
+          55056,
+          "2026-11-11T23:04:02.1123770Z"
+        ],
+        [
+          81172,
+          "2026-11-11T23:04:02.1848830Z"
+        ],
+        [
+          86304,
+          "2026-11-11T23:04:02.2571410Z"
+        ],
+        [
+          85368,
+          "2026-11-11T23:04:02.3293740Z"
+        ],
+        [
+          60820,
+          "2026-11-11T23:04:02.4019230Z"
+        ],
+        [
+          41864,
+          "2026-11-11T23:04:02.4737560Z"
+        ],
+        [
+          74900,
+          "2026-11-11T23:04:02.5462640Z"
+        ],
+        [
+          70116,
+          "2026-11-11T23:04:02.6187550Z"
+        ],
+        [
+          29692,
+          "2026-11-11T23:04:02.6908920Z"
+        ],
+        [
+          67260,
+          "2026-11-11T23:04:02.7633310Z"
+        ],
+        [
+          84332,
+          "2026-11-11T23:04:02.8356240Z"
+        ],
+        [
+          73060,
+          "2026-11-11T23:04:02.9079540Z"
+        ],
+        [
+          75232,
+          "2026-11-11T23:04:02.9798800Z"
+        ],
+        [
+          59032,
+          "2026-11-11T23:04:03.0526340Z"
+        ],
+        [
+          82432,
+          "2026-11-11T23:04:03.1264330Z"
+        ],
+        [
+          71992,
+          "2026-11-11T23:04:03.1987290Z"
+        ],
+        [
+          83672,
+          "2026-11-11T23:04:03.2710600Z"
+        ],
+        [
+          9928,
+          "2026-11-11T23:04:03.3435080Z"
+        ],
+        [
+          77448,
+          "2026-11-11T23:04:03.4158050Z"
+        ],
+        [
+          68624,
+          "2026-11-11T23:04:03.4885000Z"
+        ],
+        [
+          57708,
+          "2026-11-11T23:04:03.5607720Z"
+        ],
+        [
+          78300,
+          "2026-11-11T23:04:03.6330270Z"
+        ],
+        [
+          72992,
+          "2026-11-11T23:04:03.7056050Z"
+        ],
+        [
+          72928,
+          "2026-11-11T23:04:03.7778000Z"
+        ],
+        [
+          83448,
+          "2026-11-11T23:04:03.8500740Z"
+        ],
+        [
+          83336,
+          "2026-11-11T23:04:03.9224020Z"
+        ],
+        [
+          79148,
+          "2026-11-11T23:04:03.9948350Z"
+        ],
+        [
+          77172,
+          "2026-11-11T23:04:04.0669470Z"
+        ],
+        [
+          21900,
+          "2026-11-11T23:04:04.1394730Z"
+        ],
+        [
+          69972,
+          "2026-11-11T23:04:04.2118800Z"
+        ],
+        [
+          81048,
+          "2026-11-11T23:04:04.2843330Z"
+        ],
+        [
+          19668,
+          "2026-11-11T23:04:04.3567090Z"
+        ],
+        [
+          11456,
+          "2026-11-11T23:04:04.4291700Z"
+        ]
+      ],
+      "initial_count": 61,
+      "killed_count": 61,
+      "rounds": 4,
+      "spawned_during_kill": 0,
+      "remaining": [],
+      "killed_still_alive": [],
+      "protected_killed": [],
+      "any_taskkill_with_tree_flag": false,
+      "taskkill_commands": [
+        "taskkill /PID <n> /F"
+      ],
+      "taskkill_rc_nonzero": [],
+      "refusals": [],
+      "self_visible_after_kill": true
+    },
+    "gate_bound": [
+      "127.0.0.2",
+      9931
+    ],
+    "isolated_env": {
+      "CIEL_RUNTIME_TEST_ISOLATED": "1",
+      "CLAUDE_CONFIG_DIR": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-_b654m1d\\config\\.claude",
+      "CIEL_RUNTIME_CONFIG_DIR": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-_b654m1d\\config"
+    },
+    "protected_rows_before": 85,
+    "core_pids": [
+      23728,
+      39984,
+      21912,
+      42764,
+      42924,
+      36344,
+      40616,
+      45652,
+      45428,
+      46232,
+      46508,
+      2272,
+      9764,
+      12240,
+      48104,
+      9008,
+      44500,
+      20744
+    ]
+  },
+  "live_profile_after_preflight": true
+}

@@ -1,0 +1,69 @@
+{
+ "recorded_at": "2026-11-12T00:05-06:00",
+ "rule": "team-lead 2026-11-11: ack_succeeded_first_try must reflect main's first work_side_handoff tool_result; final_ack_succeeded is the old final-state rule",
+ "corrected_driver_sha256": "0f8a977fb3f9e75542ce1dcf01e0900fca0857619c33b8ead338aafa9a3e9d7b",
+ "runs": {
+  "run-a-20261111-232257": {
+   "recorded_driver": "eccc01d4cfae1328be7f936acc6c4f54ec83a7dff524929784adece20501d3b4",
+   "recorded_ack_succeeded_first_try": true,
+   "recomputed_final_ack_succeeded": true,
+   "recomputed_ack_succeeded_first_try": true,
+   "ack_attempts": [
+    {
+     "call_row": 67,
+     "at": "2026-11-12T05:23:49.279Z",
+     "expected_version": 2,
+     "result_row": 68,
+     "is_error": false,
+     "result_head": "{\"event_id\":\"96779bc936f8f63beaf61d69cbfef71963d2649a3837b15626091faf81caab22\",\"item_id\":\"n1\",\"root_id\":\"n1\",\"title\":\"Synthetic Walkie readiness review\",\"summary\":\"Synthetic readiness review for sandb"
+    }
+   ],
+   "transcript": "run-a-20261111-232257\\evidence\\main-transcript.jsonl"
+  },
+  "run-b-20261111-234832": {
+   "recorded_driver": "1e5753774db25daa1f7b8e07ee9cb146b73beec8551d4efb9bb54650a0c76662",
+   "recorded_ack_succeeded_first_try": true,
+   "recomputed_final_ack_succeeded": true,
+   "recomputed_ack_succeeded_first_try": false,
+   "ack_attempts": [
+    {
+     "call_row": 84,
+     "at": "2026-11-12T05:50:00.066Z",
+     "expected_version": 2,
+     "result_row": 85,
+     "is_error": true,
+     "result_head": "<tool_use_error>work_side_handoff: the plan changed (stored version 3, expected 2); call work_status and retry</tool_use_error>"
+    },
+    {
+     "call_row": 89,
+     "at": "2026-11-12T05:50:06.474Z",
+     "expected_version": 3,
+     "result_row": 90,
+     "is_error": false,
+     "result_head": "{\"event_id\":\"c2d1666267df2302fdb040d48f7ae54ecbe2edd719319b43dd53ea15df2696d3\",\"item_id\":\"n1\",\"root_id\":\"n1\",\"title\":\"Synthetic Walkie readiness review\",\"summary\":\"Walkie message 1002 (thread 1000) as"
+    }
+   ],
+   "transcript": "run-b-20261111-234832\\evidence\\main-transcript.jsonl",
+   "observation": {
+    "sequence": [
+     "row 82 (05:49:58.056Z): main calls work_side_review(verdict ok, expected_version 2); row 83 result succeeds and carries Work version 3",
+     "row 84 (05:50:00.066Z): main calls work_side_handoff with expected_version 2 (stale after its own review)",
+     "claude-debug.txt line 2990 (05:50:00.182Z): MCP server ciel-runtime-router error \"the plan changed (stored version 3, expected 2); call work_status and retry\"",
+     "claude-debug.txt line 3000: the ciel-work tool.call hook relays that refusal as a deny; Claude Code renders it as \"1 action not run · permission denied\" (03-wake-and-ack.png)",
+     "row 85: tool_result is_error <tool_use_error>work_side_handoff: the plan changed (stored version 3, expected 2); call work_status and retry",
+     "row 89 (05:50:06.474Z): main retries work_side_handoff with expected_version 3; row 90 succeeds with Work version 4",
+     "board-after: handoff answered, wake acknowledged, needs_ack_retry false"
+    ],
+    "cause": "main's own work_side_review write moved Work from version 2 to 3 inside the same turn; main reused version 2 for the handoff. A router CAS refusal, recovered with one retry. Not a duplicate wake and not a delivery failure.",
+    "not_measured": "wake-timeline.jsonl shows the wake revision 3 -> 4 at 05:50:00.26Z but does not sample needs_ack_retry, so whether that bump was the needs_ack_retry flag is not measured.",
+    "evidence": [
+     "03-wake-and-ack.png",
+     "evidence/main-transcript.jsonl rows 82-90",
+     "claude-debug.txt lines 2978-3000",
+     "wake-timeline.jsonl",
+     "result.json ack fact (old final-state rule)"
+    ]
+   }
+  }
+ }
+}

@@ -1,0 +1,257 @@
+{
+  "probe": "0dd78bf3",
+  "run_dir": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-prompt-gate-0dd78bf3-3ao9_tio",
+  "cli": "C:\\Users\\djlov\\.local\\bin\\claude.exe",
+  "markers": {
+    "p1": "PROMPT-GATE-P1-0dd78bf3",
+    "p2": "PROMPT-GATE-P2-0dd78bf3",
+    "append": "PROMPT-GATE-APPEND-0dd78bf3"
+  },
+  "cli_version": "2.1.322 (Claude Code)",
+  "protected_count": 61,
+  "inherited_ciel_after_strip": [],
+  "pid": 13992,
+  "started": true,
+  "all_settled": true,
+  "events": [
+    {
+      "seq": 1,
+      "at": 1794437043168,
+      "event": "session.start"
+    },
+    {
+      "seq": 2,
+      "at": 1794437045217,
+      "event": "p1.invoke"
+    },
+    {
+      "seq": 3,
+      "at": 1794437045220,
+      "event": "p2.invoke"
+    },
+    {
+      "seq": 4,
+      "at": 1794437045270,
+      "event": "turn.start",
+      "turnId": "ea2f88a0-7f38-4dfb-8ded-ae85a94a815e",
+      "text": "The prompt-gate-probe plugin sent a message:\nPROMPT-GATE-P1-0dd78bf3\n\nThis is how Claude Code surfac"
+    },
+    {
+      "seq": 5,
+      "at": 1794437045272,
+      "event": "p1.resolve",
+      "value": {
+        "text": "PROMPT-GATE-P1-0dd78bf3",
+        "origin": {
+          "kind": "plugin",
+          "name": "prompt-gate-probe"
+        }
+      }
+    },
+    {
+      "seq": 6,
+      "at": 1794437045288,
+      "event": "append.invoke"
+    },
+    {
+      "seq": 7,
+      "at": 1794437045332,
+      "event": "turn.step",
+      "turnId": "ea2f88a0-7f38-4dfb-8ded-ae85a94a815e",
+      "index": 0,
+      "messageCount": 6
+    },
+    {
+      "seq": 8,
+      "at": 1794437045351,
+      "event": "append.resolve",
+      "uuid": "a2579fb0-074a-4d0e-b486-ac2bae07f132",
+      "deny": null
+    },
+    {
+      "seq": 9,
+      "at": 1794437049418,
+      "event": "turn.complete",
+      "turnId": "ea2f88a0-7f38-4dfb-8ded-ae85a94a815e",
+      "reason": "answer"
+    },
+    {
+      "seq": 10,
+      "at": 1794437049460,
+      "event": "p2.resolve",
+      "value": {
+        "text": "PROMPT-GATE-P2-0dd78bf3",
+        "origin": {
+          "kind": "plugin",
+          "name": "prompt-gate-probe"
+        }
+      }
+    },
+    {
+      "seq": 11,
+      "at": 1794437049477,
+      "event": "turn.start",
+      "turnId": "510d6b20-5105-4f37-9b06-956fd0c50f6f",
+      "text": "The prompt-gate-probe plugin sent a message:\nPROMPT-GATE-P2-0dd78bf3\n\nThis is how Claude Code surfac"
+    },
+    {
+      "seq": 12,
+      "at": 1794437049482,
+      "event": "all.settled"
+    },
+    {
+      "seq": 13,
+      "at": 1794437049489,
+      "event": "turn.step",
+      "turnId": "510d6b20-5105-4f37-9b06-956fd0c50f6f",
+      "index": 0,
+      "messageCount": 11
+    },
+    {
+      "seq": 14,
+      "at": 1794437049547,
+      "event": "turn.complete",
+      "turnId": "510d6b20-5105-4f37-9b06-956fd0c50f6f",
+      "reason": "answer"
+    }
+  ],
+  "requests": [
+    {
+      "at": 1794437045.3846936,
+      "number": 1,
+      "message_count": 2,
+      "p1": true,
+      "p2": false,
+      "append": false
+    },
+    {
+      "at": 1794437049.5150077,
+      "number": 2,
+      "message_count": 4,
+      "p1": true,
+      "p2": true,
+      "append": true
+    }
+  ],
+  "analysis": {
+    "p1_invoke_to_turn_start_ms": 53,
+    "p1_invoke_to_resolve_ms": 55,
+    "p2_invoke_to_resolve_ms": 4240,
+    "p2_resolved_before_first_complete": false,
+    "p1_request": {
+      "at": 1794437045.3846936,
+      "number": 1,
+      "message_count": 2,
+      "p1": true,
+      "p2": false,
+      "append": false
+    },
+    "p2_request": {
+      "at": 1794437049.5150077,
+      "number": 2,
+      "message_count": 4,
+      "p1": true,
+      "p2": true,
+      "append": true
+    },
+    "append_in_p1_request": false,
+    "append_in_p2_request": true,
+    "p2_in_p1_request": false,
+    "turn_starts": [
+      {
+        "at": 1794437045270,
+        "turnId": "ea2f88a0-7f38-4dfb-8ded-ae85a94a815e",
+        "text": "The prompt-gate-probe plugin sent a message:\nPROMPT-GATE-P1-0dd78bf3\n\nThis is how Claude Code surfac"
+      },
+      {
+        "at": 1794437049477,
+        "turnId": "510d6b20-5105-4f37-9b06-956fd0c50f6f",
+        "text": "The prompt-gate-probe plugin sent a message:\nPROMPT-GATE-P2-0dd78bf3\n\nThis is how Claude Code surfac"
+      }
+    ],
+    "turn_completes": [
+      {
+        "at": 1794437049418,
+        "turnId": "ea2f88a0-7f38-4dfb-8ded-ae85a94a815e",
+        "reason": "answer"
+      },
+      {
+        "at": 1794437049547,
+        "turnId": "510d6b20-5105-4f37-9b06-956fd0c50f6f",
+        "reason": "answer"
+      }
+    ],
+    "append_invoke_before_first_turn_start": false
+  },
+  "owned_tree": [
+    {
+      "pid": 13992,
+      "ppid": 73356,
+      "name": "claude.exe",
+      "created": "2026-11-11T22:44:02.5476990Z"
+    },
+    {
+      "pid": 67352,
+      "ppid": 13992,
+      "name": "git.exe",
+      "created": "2026-11-11T22:44:03.2236370Z"
+    },
+    {
+      "pid": 9468,
+      "ppid": 67352,
+      "name": "conhost.exe",
+      "created": "2026-11-11T22:44:03.2456760Z"
+    }
+  ],
+  "killed": [
+    {
+      "pid": 9468,
+      "name": "conhost.exe",
+      "rc": 0
+    },
+    {
+      "pid": 67352,
+      "name": "git.exe",
+      "rc": 128
+    },
+    {
+      "pid": 13992,
+      "name": "claude.exe",
+      "rc": 0
+    }
+  ],
+  "protected_missing_after": [
+    {
+      "pid": 45292,
+      "ppid": 69460,
+      "name": "python.exe",
+      "created": "2026-11-11T22:44:02.3225020Z"
+    }
+  ],
+  "live_before": {
+    "C:\\Users\\djlov\\.claude.json": "e9cc77dc16ce5897ebd9aea5629027da2a8492e5b45db10e840b21d5deb781c6",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_after": {
+    "C:\\Users\\djlov\\.claude.json": "e9cc77dc16ce5897ebd9aea5629027da2a8492e5b45db10e840b21d5deb781c6",
+    "C:\\Users\\djlov\\.claude\\settings.json": "543860932ffbd84d08df10d2dd80b99a7085ef7f6ec3b946a68f5ea83e3ebd12",
+    "C:\\Users\\djlov\\.claude\\settings.local.json": "b06b00d6dd0acea5ae05bb7ac342552b262e11bf9fdbce308f5e4ec243750db7",
+    "C:\\Users\\djlov\\.claude\\CLAUDE.md": "89800f4f89a8120dace4497bd93768562c8b548c41d2fb49d0958a952771ba62",
+    "C:\\Users\\djlov\\.claude\\keybindings.json": null,
+    "C:\\Users\\djlov\\.claude\\daemon.status.json": "7980cf2424208cacb4f1fc33dd832b241c370a78225cbc58aaeb263c37f61111",
+    "C:\\Users\\djlov\\.claude\\daemon.lock": "2f8b8f5d27a8255216bcb361170a003693be08f3841a9026e14a61e4776bd2a8",
+    "C:\\Users\\djlov\\.claude\\plugins\\installed_plugins.json": "cbe4cb545daaf908c759fb02dd43a0f6aa3059588908667523bc4d0f76c85f12",
+    "C:\\Users\\djlov\\.claude\\plugins\\known_marketplaces.json": "630fcaff722349b16ded2461c6a5b40aaee3c522e877ef9616c9724039152b38",
+    "C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\config.json": "7db68ae8990a2f69fea9d9495331b3a29c8251c2997ee6e622a9d986eea976f3"
+  },
+  "live_hash_changed": [],
+  "owned_path_in_live_files": []
+}

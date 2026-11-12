@@ -1,0 +1,161 @@
+{
+  "source": "transcript-e50263d2-d83f-4cd8-9f29-698920352861.jsonl",
+  "rows": [
+    {
+      "type": "mode",
+      "uuid": null,
+      "parentUuid": null,
+      "isMeta": null
+    },
+    {
+      "type": "permission-mode",
+      "uuid": null,
+      "parentUuid": null,
+      "isMeta": null
+    },
+    {
+      "type": "atis-latch",
+      "uuid": null,
+      "parentUuid": null,
+      "isMeta": null
+    },
+    {
+      "type": "tools-used",
+      "uuid": null,
+      "parentUuid": null,
+      "isMeta": null
+    },
+    {
+      "type": "queue-operation",
+      "uuid": null,
+      "parentUuid": null,
+      "isMeta": null
+    },
+    {
+      "type": "queue-operation",
+      "uuid": null,
+      "parentUuid": null,
+      "isMeta": null
+    },
+    {
+      "type": "user",
+      "uuid": "7d759740-914f-48d5-9497-0fb0740d0878",
+      "parentUuid": null,
+      "isMeta": true
+    },
+    {
+      "type": "attachment",
+      "uuid": "bf37b5e4-a9ba-4786-9368-d4e346c88473",
+      "parentUuid": "7d759740-914f-48d5-9497-0fb0740d0878",
+      "isMeta": null
+    },
+    {
+      "type": "attachment",
+      "uuid": "964062c4-45cb-4440-b73c-8396ac550bc2",
+      "parentUuid": "bf37b5e4-a9ba-4786-9368-d4e346c88473",
+      "isMeta": null
+    },
+    {
+      "type": "attachment",
+      "uuid": "1e4b0f0c-e15a-48cd-8ec2-c1b24fe71946",
+      "parentUuid": "964062c4-45cb-4440-b73c-8396ac550bc2",
+      "isMeta": null
+    },
+    {
+      "type": "attachment",
+      "uuid": "6e439d0f-3590-4efa-a548-a0edf64dd9fa",
+      "parentUuid": "1e4b0f0c-e15a-48cd-8ec2-c1b24fe71946",
+      "isMeta": null
+    },
+    {
+      "type": "attachment",
+      "uuid": "5f3ec55a-846a-44c8-b404-77dce1a4fda2",
+      "parentUuid": "6e439d0f-3590-4efa-a548-a0edf64dd9fa",
+      "isMeta": null
+    },
+    {
+      "type": "user",
+      "uuid": "1f5233b6-8c0d-45ed-b894-3380f732f2c4",
+      "parentUuid": "5f3ec55a-846a-44c8-b404-77dce1a4fda2",
+      "isMeta": true,
+      "content": [
+        {
+          "type": "text",
+          "text": "APPEND-PROBE-MARK p6madodg56"
+        }
+      ]
+    },
+    {
+      "type": "api-request-shape",
+      "uuid": null,
+      "parentUuid": null,
+      "isMeta": null
+    },
+    {
+      "type": "api-request-blob",
+      "uuid": null,
+      "parentUuid": null,
+      "isMeta": null
+    },
+    {
+      "type": "api-request-blob",
+      "uuid": null,
+      "parentUuid": null,
+      "isMeta": null
+    },
+    {
+      "type": "api-request",
+      "uuid": null,
+      "parentUuid": null,
+      "isMeta": null
+    },
+    {
+      "type": "assistant",
+      "uuid": "89628885-c77d-4025-b703-0f5eaeea11af",
+      "parentUuid": "1f5233b6-8c0d-45ed-b894-3380f732f2c4",
+      "isMeta": null
+    },
+    {
+      "type": "attachment",
+      "uuid": "3a5fdcca-5dd7-4e0f-a38f-111ad72eb548",
+      "parentUuid": "89628885-c77d-4025-b703-0f5eaeea11af",
+      "isMeta": null
+    },
+    {
+      "type": "system",
+      "uuid": "290571a2-90dd-48c1-8d37-c0efea23976f",
+      "parentUuid": "3a5fdcca-5dd7-4e0f-a38f-111ad72eb548",
+      "isMeta": false
+    },
+    {
+      "type": "last-prompt",
+      "uuid": null,
+      "parentUuid": null,
+      "isMeta": null
+    },
+    {
+      "type": "mode",
+      "uuid": null,
+      "parentUuid": null,
+      "isMeta": null
+    },
+    {
+      "type": "permission-mode",
+      "uuid": null,
+      "parentUuid": null,
+      "isMeta": null
+    },
+    {
+      "type": "atis-latch",
+      "uuid": null,
+      "parentUuid": null,
+      "isMeta": null
+    },
+    {
+      "type": "system",
+      "uuid": "b3e7d261-24dd-4b85-8ad0-d5a31c0b4952",
+      "parentUuid": "290571a2-90dd-48c1-8d37-c0efea23976f",
+      "isMeta": false
+    }
+  ]
+}

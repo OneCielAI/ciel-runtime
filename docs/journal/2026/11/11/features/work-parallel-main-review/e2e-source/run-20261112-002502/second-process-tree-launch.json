@@ -1,0 +1,34 @@
+{
+  "at": 1794472375.4323037,
+  "root": 66652,
+  "processes": [
+    {
+      "ProcessId": 66652,
+      "ParentProcessId": 79984,
+      "Name": "conhost.exe",
+      "CreationDateUtc": "2026-11-12T08:32:51.5999750Z",
+      "CommandLine": "conhost.exe cmd /k C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-20261112-002502\\second.cmd"
+    },
+    {
+      "ProcessId": 71040,
+      "ParentProcessId": 66652,
+      "Name": "cmd.exe",
+      "CreationDateUtc": "2026-11-12T08:32:51.6096000Z",
+      "CommandLine": "cmd /k C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-20261112-002502\\second.cmd"
+    },
+    {
+      "ProcessId": 66788,
+      "ParentProcessId": 71040,
+      "Name": "py.exe",
+      "CreationDateUtc": "2026-11-12T08:32:53.2542280Z",
+      "CommandLine": "py  -3 \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-snapshot-20261112-002502\\ciel_runtime.py\" cli -- --continue --debug-file \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-20261112-002502\\second-claude-debug.txt\""
+    },
+    {
+      "ProcessId": 69444,
+      "ParentProcessId": 66788,
+      "Name": "python.exe",
+      "CreationDateUtc": "2026-11-12T08:32:53.2664540Z",
+      "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-snapshot-20261112-002502\\ciel_runtime.py\" cli -- --continue --debug-file \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-20261112-002502\\second-claude-debug.txt\""
+    }
+  ]
+}

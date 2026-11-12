@@ -1,0 +1,244 @@
+{
+  "run": "named-fork-d48887c3",
+  "mode": "named-fork",
+  "variant": "",
+  "claude_code": "2.1.321",
+  "env_MAX_MCP_OUTPUT_TOKENS": null,
+  "server_meta": null,
+  "token_found": true,
+  "main_turn": true,
+  "finished": true,
+  "gateway_requests": [
+    {
+      "agent": null,
+      "has_main_history": true,
+      "fork_named": false,
+      "fork_unnamed": false,
+      "tools": 28,
+      "model": "fixture"
+    },
+    {
+      "agent": "a354952de556ee470",
+      "has_main_history": true,
+      "fork_named": true,
+      "fork_unnamed": false,
+      "tools": 28,
+      "model": "fixture"
+    },
+    {
+      "agent": "afb0e932d8ab945c6",
+      "has_main_history": true,
+      "fork_named": false,
+      "fork_unnamed": true,
+      "tools": 28,
+      "model": "fixture"
+    }
+  ],
+  "team_files": [],
+  "hook_rows": [
+    {
+      "event": "agent.spawn",
+      "name": "side-intake-0123456789abcdef",
+      "description": "Side SSE 0123456789ab",
+      "subagentType": "fork",
+      "fork": true,
+      "parentAgentId": null,
+      "origin": "side-probe",
+      "keys": [
+        "background",
+        "cwd",
+        "description",
+        "fork",
+        "model",
+        "name",
+        "parentModel",
+        "permissionMode",
+        "prompt",
+        "provider",
+        "subagentType",
+        "tool_use_id"
+      ]
+    },
+    {
+      "event": "spawned",
+      "label": "named",
+      "agentId": "a354952de556ee470",
+      "deny": null,
+      "keys": [
+        "agentId",
+        "model"
+      ]
+    },
+    {
+      "event": "complete",
+      "agentId": "a354952de556ee470",
+      "reason": "answer",
+      "answer": "FORK-DONE",
+      "before": [
+        {
+          "id": "a354952de556ee470",
+          "type": "fork",
+          "name": "side-intake-0123456789abcdef",
+          "status": "idle",
+          "spawnedBy": "side-probe",
+          "description": "Side SSE 0123456789ab",
+          "keys": [
+            "description",
+            "id",
+            "name",
+            "spawnedBy",
+            "status",
+            "type"
+          ]
+        }
+      ]
+    },
+    {
+      "event": "spawned",
+      "label": "unnamed",
+      "agentId": "afb0e932d8ab945c6",
+      "deny": null,
+      "keys": [
+        "agentId",
+        "model"
+      ]
+    },
+    {
+      "event": "complete",
+      "agentId": "afb0e932d8ab945c6",
+      "reason": "answer",
+      "answer": "FORK-DONE",
+      "before": [
+        {
+          "id": "afb0e932d8ab945c6",
+          "type": "fork",
+          "name": null,
+          "status": "completed",
+          "spawnedBy": "side-probe",
+          "description": "Side SSE abcdefabcdef",
+          "keys": [
+            "description",
+            "id",
+            "spawnedBy",
+            "status",
+            "type"
+          ]
+        }
+      ]
+    },
+    {
+      "event": "stopped",
+      "agentId": "a354952de556ee470",
+      "stop": "{\"result\":\"Error: Task a354952de556ee470 is not running (status: completed)\",\"text\":\"<tool_use_error>Task a354952de556ee470 is not running (status: completed)</tool_use_error>\",\"isError\":true}",
+      "after": [
+        {
+          "id": "a354952de556ee470",
+          "type": "fork",
+          "name": "side-intake-0123456789abcdef",
+          "status": "idle",
+          "spawnedBy": "side-probe",
+          "description": "Side SSE 0123456789ab",
+          "keys": [
+            "description",
+            "id",
+            "name",
+            "spawnedBy",
+            "status",
+            "type"
+          ]
+        }
+      ],
+      "all": [
+        {
+          "id": "a354952de556ee470",
+          "type": "fork",
+          "name": "side-intake-0123456789abcdef",
+          "status": "idle",
+          "spawnedBy": "side-probe",
+          "description": "Side SSE 0123456789ab",
+          "keys": [
+            "description",
+            "id",
+            "name",
+            "spawnedBy",
+            "status",
+            "type"
+          ]
+        },
+        {
+          "id": "afb0e932d8ab945c6",
+          "type": "fork",
+          "name": null,
+          "status": "completed",
+          "spawnedBy": "side-probe",
+          "description": "Side SSE abcdefabcdef",
+          "keys": [
+            "description",
+            "id",
+            "spawnedBy",
+            "status",
+            "type"
+          ]
+        }
+      ]
+    },
+    {
+      "event": "stopped",
+      "agentId": "afb0e932d8ab945c6",
+      "stop": "{\"result\":\"Error: Task afb0e932d8ab945c6 is not running (status: completed)\",\"text\":\"<tool_use_error>Task afb0e932d8ab945c6 is not running (status: completed)</tool_use_error>\",\"isError\":true}",
+      "after": [
+        {
+          "id": "afb0e932d8ab945c6",
+          "type": "fork",
+          "name": null,
+          "status": "completed",
+          "spawnedBy": "side-probe",
+          "description": "Side SSE abcdefabcdef",
+          "keys": [
+            "description",
+            "id",
+            "spawnedBy",
+            "status",
+            "type"
+          ]
+        }
+      ],
+      "all": [
+        {
+          "id": "a354952de556ee470",
+          "type": "fork",
+          "name": "side-intake-0123456789abcdef",
+          "status": "idle",
+          "spawnedBy": "side-probe",
+          "description": "Side SSE 0123456789ab",
+          "keys": [
+            "description",
+            "id",
+            "name",
+            "spawnedBy",
+            "status",
+            "type"
+          ]
+        },
+        {
+          "id": "afb0e932d8ab945c6",
+          "type": "fork",
+          "name": null,
+          "status": "completed",
+          "spawnedBy": "side-probe",
+          "description": "Side SSE abcdefabcdef",
+          "keys": [
+            "description",
+            "id",
+            "spawnedBy",
+            "status",
+            "type"
+          ]
+        }
+      ]
+    }
+  ],
+  "server_out": {},
+  "persisted_tool_result_files": [],
+  "exit": null
+}

@@ -1,0 +1,616 @@
+{
+ "started": "2026-11-11T23:31:26-0600",
+ "finished": "2026-11-11T23:31:37-0600",
+ "python": "3.11.6",
+ "source": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel",
+ "snapshot": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\snapshot-eab3ad33-b-20261111-233126",
+ "files": 1076,
+ "snapshot_digest": "5741380f78638f86fd49285c9d162c07f95840092faae0e40d6d74186c0fce3c",
+ "freezes": [
+  [
+   "sse",
+   "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\tmp\\freeze-sse-eab3ad33-journal-final",
+   "f3af075bfebf61e76e5aa7c387d899b42491947a337955a9b076f344bc777381"
+  ],
+  [
+   "restart",
+   "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\tmp\\freeze-09255642",
+   "ea5138cd81d3ab26b7fe9bf0450486b01b43069bd7cbb678ac5c94b0eb52a7a3"
+  ]
+ ],
+ "changed_during_copy": [],
+ "copy_mismatch": [],
+ "freeze_rows": [
+  {
+   "freeze": "sse",
+   "entry": "./hooks/register.js",
+   "path": "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js",
+   "expected": "eab3ad333104d0914e7dee552f241c23eb873405c85330514b9c6a9d337db31b",
+   "snapshot": "eab3ad333104d0914e7dee552f241c23eb873405c85330514b9c6a9d337db31b",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./hooks/side-intake.js",
+   "path": "ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js",
+   "expected": "9b9550685fa278f330f45b06a1a996ac6e52c7034c208f38518d8ebd1a47d1af",
+   "snapshot": "9b9550685fa278f330f45b06a1a996ac6e52c7034c208f38518d8ebd1a47d1af",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/duplicate-side-wake.md",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/fifo-review-append-clean-f006e2ae/debug.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/fifo-review-append-clean-f006e2ae/result.json",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/fifo-review-append-clean-f006e2ae/screen.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/fifo-review-append-turn-start-98c444cc/debug.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/fifo-review-append-turn-start-98c444cc/result.json",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/fifo-review-append-turn-start-98c444cc/screen.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/fifo-review-append-turn-start-9be02fd8/debug.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/fifo-review-append-turn-start-9be02fd8/result.json",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/fifo-review-append-turn-start-9be02fd8/screen.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/fifo-review-reload-held-prompt-135e1028/debug.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/fifo-review-reload-held-prompt-135e1028/result.json",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/fifo-review-reload-held-prompt-135e1028/screen.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/fifo-review-reload-turn-only-20268a9f/debug.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/fifo-review-reload-turn-only-20268a9f/result.json",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/fifo-review-reload-turn-only-20268a9f/screen.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-01148375/debug.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-01148375/driver-A.js",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-01148375/driver-B.js",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-01148375/result.json",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-01148375/screen.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-01148375/side-intake.js",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-35a040a8/debug.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-35a040a8/driver-A.js",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-35a040a8/driver-B.js",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-35a040a8/result.json",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-35a040a8/screen.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-35a040a8/side-intake.js",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-5fe2353d/debug.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-5fe2353d/driver-A.js",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-5fe2353d/driver-B.js",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-5fe2353d/result.json",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-5fe2353d/screen.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-5fe2353d/side-intake.js",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-a2893051/debug.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-a2893051/driver-A.js",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-a2893051/driver-B.js",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-a2893051/result.json",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-a2893051/screen.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-a2893051/side-intake.js",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-e2bed500/debug.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-e2bed500/driver-A.js",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-e2bed500/driver-B.js",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-e2bed500/result.json",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-e2bed500/screen.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt-registry-e2bed500/side-intake.js",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt_append_reload_probe.6c895172.py",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt_append_reload_probe.a082db8d.py",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt_append_reload_probe.d2e89a12.py",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/prompt_registry_engine_probe.0c6249d1.py",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/registry-adversarial-final-ruling/package.json",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/registry-adversarial-final-ruling/registry_adversarial.mjs",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/registry-adversarial-final-ruling/results.jsonl",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/registry-adversarial-final-ruling/side-intake.js",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/registry-adversarial-final/legacy-results.txt",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/registry-adversarial-final/legacy_fence_probe.mjs",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/registry-adversarial-final/registry_adversarial.mjs",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/e2e-source/stop-wake/registry-adversarial-final/results.jsonl",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./journal/log.md",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./tests/prompt_registry_harness.mjs",
+   "path": "tests/prompt_registry_harness.mjs",
+   "expected": "877c4d2bfedcf4fbb9c647bfe0ea5c35217cc3d2c49d06b749b4bf8d52f1a1b5",
+   "snapshot": "877c4d2bfedcf4fbb9c647bfe0ea5c35217cc3d2c49d06b749b4bf8d52f1a1b5",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./tests/side_intake_harness.mjs",
+   "path": "tests/side_intake_harness.mjs",
+   "expected": "152d692b4b0b24c71a5f53c9bff31d4519f145e4a89e6ff3065121e1e9fffbe8",
+   "snapshot": "152d692b4b0b24c71a5f53c9bff31d4519f145e4a89e6ff3065121e1e9fffbe8",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./tests/side_release_harness.mjs",
+   "path": "tests/side_release_harness.mjs",
+   "expected": "7f60db68683c14670ab2dc8185a2fe08de28cebf4bfbfcde45d03d5054479f84",
+   "snapshot": "7f60db68683c14670ab2dc8185a2fe08de28cebf4bfbfcde45d03d5054479f84",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./tests/side_secret_walk_harness.mjs",
+   "path": "tests/side_secret_walk_harness.mjs",
+   "expected": "05aaf656092e33db2e6c50d0042567063cd946db058a781a72ee921dbf2bc501",
+   "snapshot": "05aaf656092e33db2e6c50d0042567063cd946db058a781a72ee921dbf2bc501",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./tests/side_time_limit_harness.mjs",
+   "path": "tests/side_time_limit_harness.mjs",
+   "expected": "6d48a9e506dec8d077f928feb4937e59be122e8ea2dc4923224f9228ee1e5fcf",
+   "snapshot": "6d48a9e506dec8d077f928feb4937e59be122e8ea2dc4923224f9228ee1e5fcf",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./tests/side_urgency_harness.mjs",
+   "path": "tests/side_urgency_harness.mjs",
+   "expected": "c7b499dc1545daed05462ace3eeba7d22ef710bd32d93328d4db22cc5c16932e",
+   "snapshot": "c7b499dc1545daed05462ace3eeba7d22ef710bd32d93328d4db22cc5c16932e",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./tests/side_wake_harness.mjs",
+   "path": "tests/side_wake_harness.mjs",
+   "expected": "ccb055cb04982ed106f25d43371779f1123a725450b1b21ec5945f96771eb62d",
+   "snapshot": "ccb055cb04982ed106f25d43371779f1123a725450b1b21ec5945f96771eb62d",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./tests/test_side_intake_mod.py",
+   "path": "tests/test_side_intake_mod.py",
+   "expected": "d4b48ac05161dcdcc8c287819e8cecdf1125e2a018b492fea9733a86ce130a38",
+   "snapshot": "d4b48ac05161dcdcc8c287819e8cecdf1125e2a018b492fea9733a86ce130a38",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./tests/test_side_wake_protocol.py",
+   "path": "tests/test_side_wake_protocol.py",
+   "expected": "bb38dc68f0c8371e9c9049b00ccc9c44ac1aba010218dd18e6df842abb732e32",
+   "snapshot": "bb38dc68f0c8371e9c9049b00ccc9c44ac1aba010218dd18e6df842abb732e32",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./tests/test_work_mod_write_gate.py",
+   "path": "tests/test_work_mod_write_gate.py",
+   "expected": "5792340836ab57f389610fbfbe4193330f1955e79760e10eb85db697f1d70500",
+   "snapshot": "5792340836ab57f389610fbfbe4193330f1955e79760e10eb85db697f1d70500",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./tests/work_mod_harness.mjs",
+   "path": "tests/work_mod_harness.mjs",
+   "expected": "a71ecd9934ac34a0cc7236dc17343161d4395223fc4714e90abf0873aa7161e1",
+   "snapshot": "a71ecd9934ac34a0cc7236dc17343161d4395223fc4714e90abf0873aa7161e1",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./tests/work_mod_real_backend_harness.mjs",
+   "path": "tests/work_mod_real_backend_harness.mjs",
+   "expected": "0926845847d6041aefe4ffbba17909296ff79b6a2629b25d971d127641d45d1b",
+   "snapshot": "0926845847d6041aefe4ffbba17909296ff79b6a2629b25d971d127641d45d1b",
+   "status": "match"
+  },
+  {
+   "freeze": "sse",
+   "entry": "./types/index.d.ts",
+   "path": "ciel_runtime_support/claude_mods/ciel-work/types/index.d.ts",
+   "expected": "542ff492abb1eb2f2363c45acc8eaa75002a71cbca4772aa6474537eece6030a",
+   "snapshot": "542ff492abb1eb2f2363c45acc8eaa75002a71cbca4772aa6474537eece6030a",
+   "status": "match"
+  },
+  {
+   "freeze": "restart",
+   "entry": "hooks/register.js",
+   "path": "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js",
+   "expected": "0925564224644a2261ffd1a9fcdac185ec0b63bf7143080436af388f13cc92f1",
+   "snapshot": "eab3ad333104d0914e7dee552f241c23eb873405c85330514b9c6a9d337db31b",
+   "status": "superseded_by_sse_freeze"
+  },
+  {
+   "freeze": "restart",
+   "entry": "pkg/work_parallel_mcp.py",
+   "path": "ciel_runtime_support/work_parallel_mcp.py",
+   "expected": "3521486981a1d99891094c56bf63e36cf4a958d5504cc2cef3c7a146ac17f717",
+   "snapshot": "3521486981a1d99891094c56bf63e36cf4a958d5504cc2cef3c7a146ac17f717",
+   "status": "match"
+  },
+  {
+   "freeze": "restart",
+   "entry": "tests/test_work_mod_real_backend.py",
+   "path": "tests/test_work_mod_real_backend.py",
+   "expected": "7fc2238be3da316072710c3f3c7c85213b833b23df176695a608611e63c2421b",
+   "snapshot": "7fc2238be3da316072710c3f3c7c85213b833b23df176695a608611e63c2421b",
+   "status": "match"
+  },
+  {
+   "freeze": "restart",
+   "entry": "tests/test_work_mod_write_gate.py",
+   "path": "tests/test_work_mod_write_gate.py",
+   "expected": "ecf06a3a94ec523aefcfc5165cb2c5aa16b812c5b4e5268985e55f5d95386ff4",
+   "snapshot": "5792340836ab57f389610fbfbe4193330f1955e79760e10eb85db697f1d70500",
+   "status": "superseded_by_sse_freeze"
+  },
+  {
+   "freeze": "restart",
+   "entry": "tests/work_mod_harness.mjs",
+   "path": "tests/work_mod_harness.mjs",
+   "expected": "ad8e171d7a480bf552cb3a53f753d9d80adc28641936a0fbc2a058472d2da653",
+   "snapshot": "a71ecd9934ac34a0cc7236dc17343161d4395223fc4714e90abf0873aa7161e1",
+   "status": "superseded_by_sse_freeze"
+  },
+  {
+   "freeze": "restart",
+   "entry": "tests/work_mod_real_backend_harness.mjs",
+   "path": "tests/work_mod_real_backend_harness.mjs",
+   "expected": "bceb467f259116747170576794f2d7739f4bbf9951af05d33f485d13388ad9fc",
+   "snapshot": "0926845847d6041aefe4ffbba17909296ff79b6a2629b25d971d127641d45d1b",
+   "status": "superseded_by_sse_freeze"
+  },
+  {
+   "freeze": "restart",
+   "entry": "tests/work_mod_real_backend_server.py",
+   "path": "tests/work_mod_real_backend_server.py",
+   "expected": "33ac87462927187d6da369ce4537e43ecf806a4cea5bf4fabbdfbeed82255207",
+   "snapshot": "33ac87462927187d6da369ce4537e43ecf806a4cea5bf4fabbdfbeed82255207",
+   "status": "match"
+  },
+  {
+   "freeze": "restart",
+   "entry": "journal/restart-submitted-terminal.md",
+   "path": null,
+   "status": "not_runtime (journal)"
+  },
+  {
+   "freeze": "restart",
+   "entry": "journal/rework-launch-nonce.md",
+   "path": null,
+   "status": "not_runtime (journal)"
+  }
+ ],
+ "freeze_mismatch": [],
+ "product_bounds": {
+  "product_root": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\snapshot-eab3ad33-b-20261111-233126",
+  "missing": [],
+  "passed": true
+ },
+ "expected_files": [
+  {
+   "path": "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js",
+   "expected": "eab3ad333104d0914e7dee552f241c23eb873405c85330514b9c6a9d337db31b",
+   "snapshot": "eab3ad333104d0914e7dee552f241c23eb873405c85330514b9c6a9d337db31b",
+   "match": true
+  },
+  {
+   "path": "ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js",
+   "expected": "9b9550685fa278f330f45b06a1a996ac6e52c7034c208f38518d8ebd1a47d1af",
+   "snapshot": "9b9550685fa278f330f45b06a1a996ac6e52c7034c208f38518d8ebd1a47d1af",
+   "match": true
+  },
+  {
+   "path": "ciel_runtime_support/claude_mods/ciel-work/types/index.d.ts",
+   "expected": "542ff492abb1eb2f2363c45acc8eaa75002a71cbca4772aa6474537eece6030a",
+   "snapshot": "542ff492abb1eb2f2363c45acc8eaa75002a71cbca4772aa6474537eece6030a",
+   "match": true
+  },
+  {
+   "path": "ciel_runtime_support/work_parallel_mcp.py",
+   "expected": "3521486981a1d99891094c56bf63e36cf4a958d5504cc2cef3c7a146ac17f717",
+   "snapshot": "3521486981a1d99891094c56bf63e36cf4a958d5504cc2cef3c7a146ac17f717",
+   "match": true
+  }
+ ],
+ "expected_mismatch": [],
+ "backend_hashes": {
+  "side_wake.py": "a728a99eb2e4aaa7306512c293291555e2c5b166ae496fd52feed6352e5ceefe",
+  "side_handoff.py": "866a4c9ca8b87b6ddf5bd54a781711e2132ff55f363d3db25c68c2fbf6996698",
+  "work_plan_store.py": "4b29ff5f8fc068f599be8b464e5332d4da4207f8dd2818ab9076b2d0f8dcbdde",
+  "side_intake_mcp.py": "55e51b942c80a0a422ec86ee1514c44585df023cf8e2ad3c7798d0d18d17f8b1",
+  "side_intake_processing.py": "d88d5cade31e6c1b99db6fa8e378d25a3858d854bdb4c4da1efa99b19fc18a3d",
+  "side_work_decision.py": "59be46460802bc9f715694b9c82f04471cabd19a965b7a49db24386740c8f0b6",
+  "side_reply_outbox.py": "b14ea0b6b1421bbbf302bff307961c333449a54a5169de58f37d4df6a02ad0ad",
+  "side_reply_connector.py": "00a81a6dc25f4e97aa5d10cf31785d163706903e21b5a4d0e65d01fa1ddbef6a",
+  "work_mcp_tools.py": "719c85392311ddbd994ac40f3d77d9804eaa78f9d070149aa22cb0a379c9bcc4",
+  "work_http_controller.py": "b7cd27c111e367843844a76d1aa9389586c0baedf369d1f390dee5dab6aca497",
+  "work_web_ui.py": "2cade9acd076572c6dfaccc1b296897c72dc8a7827ab7e4fc160ab79ab613bdb",
+  "runtime_paths.py": "54fad9e8b78cc4c5ddbfc8bec642083c374a6112d8a19408273938d030d41234",
+  "work_parallel_mcp.py": "3521486981a1d99891094c56bf63e36cf4a958d5504cc2cef3c7a146ac17f717"
+ },
+ "head": "ba8b13c5f05385d12a9b983fcab8f8e5cfcb0320"
+}

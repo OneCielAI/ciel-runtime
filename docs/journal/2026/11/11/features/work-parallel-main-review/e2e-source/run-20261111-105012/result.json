@@ -1,0 +1,382 @@
+{
+  "out": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\work-parallel-main-review\\e2e-source\\run-20261111-105012",
+  "base": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-20261111-105012",
+  "snapshot": {
+    "entries": 29,
+    "source_mismatch": {},
+    "snapshot_mismatch": {},
+    "snapshot": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-snapshot-20261111-105012"
+  },
+  "session": "99999999-9999-4999-8999-999999999991",
+  "port": 9931,
+  "router_bind": "127.0.0.1",
+  "gate_host": "127.0.0.2",
+  "items": {
+    "Passing implementation": "n2",
+    "Failing implementation then rework": "n4"
+  },
+  "workspace_state_digest": "c525c80e5c3c",
+  "provider_config_proof": {
+    "top_level_keys": [
+      "claude_code",
+      "claude_stream_recovery",
+      "current_provider",
+      "language",
+      "providers",
+      "web_search",
+      "work_auto_continue",
+      "work_mode",
+      "work_plan_approval_ask",
+      "work_side_intake"
+    ],
+    "providers": [
+      "cielairouter"
+    ],
+    "provider_keys": [
+      "advisor_model",
+      "api_key",
+      "base_url",
+      "context_window",
+      "current_model",
+      "custom_models",
+      "max_model_len",
+      "native_compat",
+      "preflight_prompt_compaction",
+      "request_timeout_ms",
+      "stream_enabled",
+      "stream_word_chunking"
+    ]
+  },
+  "stripped_inherited_names": [
+    "CIEL_RUNTIME_HOME",
+    "CODEX_SPARKLE_ENABLED"
+  ],
+  "owned_prefix_names_after_strip": [
+    "CIEL_RUNTIME_CONFIG_DIR",
+    "CIEL_RUNTIME_HOME_OVERRIDE",
+    "CIEL_RUNTIME_LAUNCH_CWD",
+    "CIEL_RUNTIME_ROUTER_BIND_HOST",
+    "CIEL_RUNTIME_ROUTER_CLIENT_HOST",
+    "CIEL_RUNTIME_ROUTER_PORT",
+    "CIEL_RUNTIME_SKIP_MENU",
+    "CIEL_RUNTIME_SKIP_SELF_UPDATE",
+    "CIEL_RUNTIME_TEST_ISOLATED",
+    "CLAUDE_CONFIG_DIR"
+  ],
+  "unexpected_inherited_prefix_names_after_strip": [],
+  "owned_prefix_values_are_owned": true,
+  "live_before": [
+    {
+      "ProcessId": 9008,
+      "ParentProcessId": 22204,
+      "Name": "cmd.exe",
+      "CreationDateUtc": "2026-11-11T15:49:11.9618010Z",
+      "CommandLine": "\"C:\\WINDOWS\\system32\\cmd.exe\" "
+    },
+    {
+      "ProcessId": 23728,
+      "ParentProcessId": 9008,
+      "Name": "py.exe",
+      "CreationDateUtc": "2026-11-11T15:49:31.2438970Z",
+      "CommandLine": "py  -3 \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py\" cli --continue"
+    },
+    {
+      "ProcessId": 42764,
+      "ParentProcessId": 23728,
+      "Name": "python.exe",
+      "CreationDateUtc": "2026-11-11T15:49:31.2572340Z",
+      "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py\" cli --continue"
+    },
+    {
+      "ProcessId": 44500,
+      "ParentProcessId": 37332,
+      "Name": "cmd.exe",
+      "CreationDateUtc": "2026-11-11T15:49:41.0302600Z",
+      "CommandLine": "C:\\WINDOWS\\System32\\cmd.exe"
+    },
+    {
+      "ProcessId": 42924,
+      "ParentProcessId": 42764,
+      "Name": "python.exe",
+      "CreationDateUtc": "2026-11-11T15:49:42.9719160Z",
+      "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py serve"
+    },
+    {
+      "ProcessId": 36344,
+      "ParentProcessId": 42764,
+      "Name": "claude.exe",
+      "CreationDateUtc": "2026-11-11T15:49:49.7027510Z",
+      "CommandLine": "C:\\Users\\djlov\\.local\\bin\\claude.exe --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-_walkie_opus55-sol61-fast --mcp-config C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9505-aae7db361c7f\\web-tools-mcp.json C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\workspaces\\aae7db361c7f\\mcp-launches\\9892877993d64c6c8a2aed10aa7b9c93\\claude-mcp.json --append-system-prompt \"You are running inside Claude Code through the ciel-runtime router. Do not stop after announcing what you plan to do. When the user asks you to create, edit, or run code, immediately use the available Claude Code tools such as Write, Edit, Read, and Bash as appropriate, except while Claude Code is in Plan Mode. In Plan Mode, first explore/read as needed, write or update the plan file named by the plan_mode attachment, and only then call ExitPlanMode to leave Plan Mode; when bypass permissions is active, ciel-runtime auto-approves that plan exit, so do not ask the user separately and do not call EnterPlanMode again. then report the concrete result. If the task has several reasonable implementation parts, do all in-scope parts; do not ask the user which part to start or whether to do all unless the user explicitly requested a choice. If you decide not to use tools, provide the complete requested code or answer in the same turn. Use skills only when the user's request clearly matches that skill; never invoke keybindings-help unless the user asks about keybindings. Keep final answers concise and do not expose hidden chain-of-thought. When calling Claude Code tools, use exactly the tool schema and do not invent extra fields. Bash: command (string), description (string), timeout (integer), run_in_background (boolean). Read: file_path (string), offset (integer), limit (integer). Write: file_path (string), content (string). Edit: file_path (string), old_string (string), new_string (string), replace_all (boolean). TaskList: no input. TaskUpdate: taskId (string), optional status enum exactly one of pending, in_progress, completed, deleted. CronCreate: cron (standard 5-field local-time cron string), prompt (string), optional recurring (boolean), optional durable (boolean). CronDelete: id (string returned by CronCreate). CronList: no input. Do not call WaitForMcpServers; it is a Claude Code lifecycle tool that may exist but is often not enabled in the current routed context. If an MCP server appears disconnected, use only tools present in the current tool list, retry ordinary MCP tools when available, or report the concrete connection state. Never write pseudo tool calls, partial JSON, or markdown code fences when a real Claude Code tool call is required.\" --messaging-socket-path \\\\.\\pipe\\LOCAL\\cc-msg-e3df32154c003c97f70f367bf985606f --settings {\\\"crossSessionInbound\\\":\\\"accept\\\"} --plugin-dir C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime_support\\claude_mods\\ciel-work --continue"
+    },
+    {
+      "ProcessId": 40616,
+      "ParentProcessId": 42764,
+      "Name": "python.exe",
+      "CreationDateUtc": "2026-11-11T15:49:49.7115240Z",
+      "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime_support\\windows_console_guard.py 42764 487 7"
+    },
+    {
+      "ProcessId": 39984,
+      "ParentProcessId": 44500,
+      "Name": "py.exe",
+      "CreationDateUtc": "2026-11-11T15:49:59.7350270Z",
+      "CommandLine": "py  -3 \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py\" cli --continue"
+    },
+    {
+      "ProcessId": 45652,
+      "ParentProcessId": 39984,
+      "Name": "python.exe",
+      "CreationDateUtc": "2026-11-11T15:49:59.7460130Z",
+      "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py\" cli --continue"
+    },
+    {
+      "ProcessId": 45428,
+      "ParentProcessId": 45652,
+      "Name": "python.exe",
+      "CreationDateUtc": "2026-11-11T15:50:07.6855540Z",
+      "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py serve"
+    },
+    {
+      "ProcessId": 46232,
+      "ParentProcessId": 45652,
+      "Name": "claude.exe",
+      "CreationDateUtc": "2026-11-11T15:50:10.3111480Z",
+      "CommandLine": "C:\\Users\\djlov\\.local\\bin\\claude.exe --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-_walkie_sol61-opus55-fast --mcp-config C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9489-b35f12ba1034\\web-tools-mcp.json C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\workspaces\\b35f12ba1034\\mcp-launches\\e25e3383eb5346bd9b3459427f227bb4\\claude-mcp.json --append-system-prompt \"You are running inside Claude Code through the ciel-runtime router. Do not stop after announcing what you plan to do. When the user asks you to create, edit, or run code, immediately use the available Claude Code tools such as Write, Edit, Read, and Bash as appropriate, except while Claude Code is in Plan Mode. In Plan Mode, first explore/read as needed, write or update the plan file named by the plan_mode attachment, and only then call ExitPlanMode to leave Plan Mode; when bypass permissions is active, ciel-runtime auto-approves that plan exit, so do not ask the user separately and do not call EnterPlanMode again. then report the concrete result. If the task has several reasonable implementation parts, do all in-scope parts; do not ask the user which part to start or whether to do all unless the user explicitly requested a choice. If you decide not to use tools, provide the complete requested code or answer in the same turn. Use skills only when the user's request clearly matches that skill; never invoke keybindings-help unless the user asks about keybindings. Keep final answers concise and do not expose hidden chain-of-thought. When calling Claude Code tools, use exactly the tool schema and do not invent extra fields. Bash: command (string), description (string), timeout (integer), run_in_background (boolean). Read: file_path (string), offset (integer), limit (integer). Write: file_path (string), content (string). Edit: file_path (string), old_string (string), new_string (string), replace_all (boolean). TaskList: no input. TaskUpdate: taskId (string), optional status enum exactly one of pending, in_progress, completed, deleted. CronCreate: cron (standard 5-field local-time cron string), prompt (string), optional recurring (boolean), optional durable (boolean). CronDelete: id (string returned by CronCreate). CronList: no input. Do not call WaitForMcpServers; it is a Claude Code lifecycle tool that may exist but is often not enabled in the current routed context. If an MCP server appears disconnected, use only tools present in the current tool list, retry ordinary MCP tools when available, or report the concrete connection state. Never write pseudo tool calls, partial JSON, or markdown code fences when a real Claude Code tool call is required.\" --messaging-socket-path \\\\.\\pipe\\LOCAL\\cc-msg-5aba0cfc38f1a59cf9ccdec2b53ebbab --settings {\\\"crossSessionInbound\\\":\\\"accept\\\"} --plugin-dir C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime_support\\claude_mods\\ciel-work --continue"
+    },
+    {
+      "ProcessId": 46508,
+      "ParentProcessId": 45652,
+      "Name": "python.exe",
+      "CreationDateUtc": "2026-11-11T15:50:10.3174250Z",
+      "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime_support\\windows_console_guard.py 45652 487 7"
+    },
+    {
+      "ProcessId": 20744,
+      "ParentProcessId": 37332,
+      "Name": "cmd.exe",
+      "CreationDateUtc": "2026-11-11T15:50:36.1881050Z",
+      "CommandLine": "C:\\WINDOWS\\System32\\cmd.exe"
+    },
+    {
+      "ProcessId": 21912,
+      "ParentProcessId": 20744,
+      "Name": "py.exe",
+      "CreationDateUtc": "2026-11-11T15:50:47.3842160Z",
+      "CommandLine": "py  -3 \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py\" cli --continue"
+    },
+    {
+      "ProcessId": 2272,
+      "ParentProcessId": 21912,
+      "Name": "python.exe",
+      "CreationDateUtc": "2026-11-11T15:50:47.3968980Z",
+      "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe \"C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py\" cli --continue"
+    },
+    {
+      "ProcessId": 9764,
+      "ParentProcessId": 2272,
+      "Name": "python.exe",
+      "CreationDateUtc": "2026-11-11T15:50:54.8996440Z",
+      "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime.py serve"
+    },
+    {
+      "ProcessId": 12240,
+      "ParentProcessId": 2272,
+      "Name": "claude.exe",
+      "CreationDateUtc": "2026-11-11T15:50:57.8131280Z",
+      "CommandLine": "C:\\Users\\djlov\\.local\\bin\\claude.exe --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-_walkie_opus55-sol61-fast --mcp-config C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\router-instances\\9524-bd5f642b3583\\web-tools-mcp.json C:\\Users\\djlov\\AppData\\Roaming\\ciel-runtime\\workspaces\\bd5f642b3583\\mcp-launches\\5a00ad4e6fb6462a8ad8be68175218ee\\claude-mcp.json --append-system-prompt \"You are running inside Claude Code through the ciel-runtime router. Do not stop after announcing what you plan to do. When the user asks you to create, edit, or run code, immediately use the available Claude Code tools such as Write, Edit, Read, and Bash as appropriate, except while Claude Code is in Plan Mode. In Plan Mode, first explore/read as needed, write or update the plan file named by the plan_mode attachment, and only then call ExitPlanMode to leave Plan Mode; when bypass permissions is active, ciel-runtime auto-approves that plan exit, so do not ask the user separately and do not call EnterPlanMode again. then report the concrete result. If the task has several reasonable implementation parts, do all in-scope parts; do not ask the user which part to start or whether to do all unless the user explicitly requested a choice. If you decide not to use tools, provide the complete requested code or answer in the same turn. Use skills only when the user's request clearly matches that skill; never invoke keybindings-help unless the user asks about keybindings. Keep final answers concise and do not expose hidden chain-of-thought. When calling Claude Code tools, use exactly the tool schema and do not invent extra fields. Bash: command (string), description (string), timeout (integer), run_in_background (boolean). Read: file_path (string), offset (integer), limit (integer). Write: file_path (string), content (string). Edit: file_path (string), old_string (string), new_string (string), replace_all (boolean). TaskList: no input. TaskUpdate: taskId (string), optional status enum exactly one of pending, in_progress, completed, deleted. CronCreate: cron (standard 5-field local-time cron string), prompt (string), optional recurring (boolean), optional durable (boolean). CronDelete: id (string returned by CronCreate). CronList: no input. Do not call WaitForMcpServers; it is a Claude Code lifecycle tool that may exist but is often not enabled in the current routed context. If an MCP server appears disconnected, use only tools present in the current tool list, retry ordinary MCP tools when available, or report the concrete connection state. Never write pseudo tool calls, partial JSON, or markdown code fences when a real Claude Code tool call is required.\" --messaging-socket-path \\\\.\\pipe\\LOCAL\\cc-msg-52cac6d92833f1f65b5bfa517fc9bd1a --settings {\\\"crossSessionInbound\\\":\\\"accept\\\"} --continue"
+    },
+    {
+      "ProcessId": 48104,
+      "ParentProcessId": 2272,
+      "Name": "python.exe",
+      "CreationDateUtc": "2026-11-11T15:50:57.8189060Z",
+      "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\.local\\share\\ciel-runtime-8e08b97bf29878a9cf7302c5e945c0307675aa06\\ciel_runtime_support\\windows_console_guard.py 2272 487 7"
+    }
+  ],
+  "outcome": "error",
+  "checkpoints": {
+    "a_before_kill": {
+      "file": "03-completion-before-review.json",
+      "at": 1794415878.4220474
+    },
+    "a_kill": {
+      "process_names": [
+        "conhost.exe",
+        "cmd.exe",
+        "py.exe",
+        "python.exe",
+        "python.exe",
+        "conhost.exe",
+        "claude.exe",
+        "python.exe",
+        "cmd.exe",
+        "uvx.exe",
+        "conhost.exe",
+        "conhost.exe",
+        "uv.exe",
+        "mcp-server-fetch.exe",
+        "node.exe",
+        "python.exe",
+        "python.exe",
+        "cmd.exe",
+        "node.exe"
+      ],
+      "routers": [],
+      "killed_at": 1794415879.779237,
+      "proc_exited": true
+    }
+  },
+  "screenshots": {
+    "workers_web": {
+      "desktop": {
+        "ok": true,
+        "page_errors": [],
+        "text": "Main session is the coordinator, not a parallel fork. Side actors are on the Side tab.\nA fork counts as processing only when the native agent list showed it pending or running within the last 30 seconds. A reserved slot, a running lease state or a bound host id alone is not evidence. The main session is the coordinator and is never a fork; side actors are counted separately.\nMain review (0)\nA finished worker result waits here for an explicit decision. No reviewer fork is started.\nNo worker result is awaiting main review.\nProcessing now · confirmed native forks (2)\nP1\nn2 · Passing implementation\nsubmitted\nPassing implementation root → Passing implementation\nworker\nwork-auto-mwccv3ta-j3k7koah8fn · a7241ad6d4f9\nrunning\nfirst seen 4 s ago\nlast seen 4 s ago\nconfirmed by native agent list\nP1\nn4 · Failing implementation then rework\nsubmitted\nFailing implementation then rework root → Failing implementation then rework\nworker\nwork-auto-mwccv6sc-ijmkxshymm · aab1edb21bc2\nrunning\nfirst seen 4 s ago\nlast seen 4 s ago\nconfirmed by native agent list\nWaiting for input (0)\nNo fork is waiting for input.\nReservations · no native fork yet (0)\nNo unbound reservations.\nUncertain or stale (0)\nA slot may be held without a running fork.\nNo uncertain or stale fork evidence.\nFinalizing (0)\nNo accepted result is finalizing.\nEnded (0)\nDevice capacity · all sessions\nActive slots 0 / 6\nP1\nP1 · this session 0 · other sessions 0 · free 2 / 2\nP2\nP2 · this session 0 · other sessions 0 · free 1 / 1\nP3\nP3 · this session 0 · other sessions 0 · free 1 / 1\nP4\nP4 · this session 0 · other sessions 0 · free 1 / 1\nP5\nP5 · this session 0 · other sessions 0 · free 1 / 1\nDevice-wide lease slots across every session; a slot is not proof that a fork is running.\nPause dispatch on this device\nInspect orphan leases",
+        "path": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\work-parallel-main-review\\e2e-source\\run-20261111-105012\\02-workers-running-desktop.png",
+        "viewport": [
+          1440,
+          1000
+        ]
+      },
+      "mobile": {
+        "ok": true,
+        "page_errors": [],
+        "text": "Loading native fork evidence…",
+        "path": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\work-parallel-main-review\\e2e-source\\run-20261111-105012\\02-workers-running-mobile.png",
+        "viewport": [
+          390,
+          844
+        ]
+      }
+    },
+    "pending_web": {
+      "desktop": {
+        "ok": true,
+        "page_errors": [],
+        "text": "Main session is the coordinator, not a parallel fork. Side actors are on the Side tab.\nA fork counts as processing only when the native agent list showed it pending or running within the last 30 seconds. A reserved slot, a running lease state or a bound host id alone is not evidence. The main session is the coordinator and is never a fork; side actors are counted separately.\nMain review (1)\nA finished worker result waits here for an explicit decision. No reviewer fork is started.\nP1\nn2 · Passing implementation\nAwaiting main review\nPath\nPassing implementation root → Passing implementation\nSummary\npass_solution implements addition and the provided test passes\nCoverage\nn2 ✓ verified\nVerification\npython -m unittest -v test_pass.py: PASS\nArtifact\nba1a531f581d2e60…\nReceipt\nefa03f39bf9f87d5…\nWorkspace\nwork-parallel/d6f04cede66ecc4fb605e1f4887d5a8f99e0590967c1481d2a7eff577f4815ef @ cf8954f49e0c · dirty\nChanged files\npass_solution.py\ntest_pass.py\nApprove\nRework…\nProcessing now · confirmed native forks (0)\nNo fork is processing Work right now.\nLast observed 2 s ago\nWaiting for input (0)\nNo fork is waiting for input.\nReservations · no native fork yet (0)\nNo unbound reservations.\nUncertain or stale (0)\nA slot may be held without a running fork.\nNo uncertain or stale fork evidence.\nFinalizing (2)\nP1\nn2 · Passing implementation\nsubmitted\nnative idle · state changed unknown\nP1\nn4 · Failing implementation then rework\nsubmitted\nnative idle · state changed unknown\nEnded (0)\nDevice capacity · all sessions\nActive slots 0 / 6\nP1\nP1 · this session 0 · other sessions 0 · free 2 / 2\nP2\nP2 · this session 0 · other sessions 0 · free 1 / 1\nP3\nP3 · this session 0 · other sessions 0 · free 1 / 1\nP4\nP4 · this session 0 · other sessions 0 · free 1 / 1\nP5\nP5 · this session 0 · other sessions 0 · free 1 / 1\nDevice-wide lease slots across every session; a slot is not proof that a fork is running.\nPause dispatch on this device\nInspect orphan leases",
+        "path": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\work-parallel-main-review\\e2e-source\\run-20261111-105012\\03-awaiting-main-review-desktop.png",
+        "viewport": [
+          1440,
+          1000
+        ]
+      },
+      "mobile": {
+        "ok": true,
+        "page_errors": [],
+        "text": "Main session is the coordinator, not a parallel fork. Side actors are on the Side tab.\nA fork counts as processing only when the native agent list showed it pending or running within the last 30 seconds. A reserved slot, a running lease state or a bound host id alone is not evidence. The main session is the coordinator and is never a fork; side actors are counted separately.\nMain review (1)\nA finished worker result waits here for an explicit decision. No reviewer fork is started.\nP1\nn2 · Passing implementation\nAwaiting main review\nPath\nPassing implementation root → Passing implementation\nSummary\npass_solution implements addition and the provided test passes\nCoverage\nn2 ✓ verified\nVerification\npython -m unittest -v test_pass.py: PASS\nArtifact\nba1a531f581d2e60…\nReceipt\nefa03f39bf9f87d5…\nWorkspace\nwork-parallel/d6f04cede66ecc4fb605e1f4887d5a8f99e0590967c1481d2a7eff577f4815ef @ cf8954f49e0c · dirty\nChanged files\npass_solution.py\ntest_pass.py\nApprove\nRework…\nProcessing now · confirmed native forks (0)\nNo fork is processing Work right now.\nLast observed 3 s ago\nWaiting for input (0)\nNo fork is waiting for input.\nReservations · no native fork yet (0)\nNo unbound reservations.\nUncertain or stale (0)\nA slot may be held without a running fork.\nNo uncertain or stale fork evidence.\nFinalizing (2)\nP1\nn2 · Passing implementation\nsubmitted\nnative idle · state changed unknown\nP1\nn4 · Failing implementation then rework\nsubmitted\nnative idle · state changed unknown\nEnded (0)\nDevice capacity · all sessions\nActive slots 0 / 6\nP1\nP1 · this session 0 · other sessions 0 · free 2 / 2\nP2\nP2 · this session 0 · other sessions 0 · free 1 / 1\nP3\nP3 · this session 0 · other sessions 0 · free 1 / 1\nP4\nP4 · this session 0 · other sessions 0 · free 1 / 1\nP5\nP5 · this session 0 · other sessions 0 · free 1 / 1\nDevice-wide lease slots across every session; a slot is not proof that a fork is running.\nPause dispatch on this device\nInspect orphan leases",
+        "path": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\work-parallel-main-review\\e2e-source\\run-20261111-105012\\03-awaiting-main-review-mobile.png",
+        "viewport": [
+          390,
+          844
+        ]
+      }
+    }
+  },
+  "initial_workers": [
+    {
+      "lease_id": "21318a9db30b43ef9d0b686f15e9eefe",
+      "item_id": "n2",
+      "item_title": "Passing implementation",
+      "item_ref": "",
+      "goal_title": "Passing implementation root",
+      "item_path": [
+        "Passing implementation root",
+        "Passing implementation"
+      ],
+      "priority": "P1",
+      "role": "worker",
+      "state": "submitted",
+      "slot": false,
+      "agent_name": "work-auto-mwccv3ta-j3k7koah8fn",
+      "agent_id": "a7241ad6d4f967c5d",
+      "rework": 0,
+      "reserved_at": 1794415818.721169,
+      "bound_at": null,
+      "state_changed_at": null,
+      "native": {
+        "status": "running",
+        "first_seen_at": 1794415865.0019908,
+        "last_seen_at": 1794415865.0019908,
+        "status_changed_at": 1794415865.0019908,
+        "missing_since": null,
+        "terminal_at": null
+      },
+      "evidence": "confirmed"
+    },
+    {
+      "lease_id": "9b9c5c43994d48e1967932d3851f0219",
+      "item_id": "n4",
+      "item_title": "Failing implementation then rework",
+      "item_ref": "",
+      "goal_title": "Failing implementation then rework root",
+      "item_path": [
+        "Failing implementation then rework root",
+        "Failing implementation then rework"
+      ],
+      "priority": "P1",
+      "role": "worker",
+      "state": "running",
+      "slot": true,
+      "agent_name": "work-auto-mwccv6sc-ijmkxshymm",
+      "agent_id": "aab1edb21bc276194",
+      "rework": 0,
+      "reserved_at": 1794415818.721169,
+      "bound_at": null,
+      "state_changed_at": null,
+      "native": {
+        "status": "running",
+        "first_seen_at": 1794415865.0019908,
+        "last_seen_at": 1794415865.0019908,
+        "status_changed_at": 1794415865.0019908,
+        "missing_since": null,
+        "terminal_at": null
+      },
+      "evidence": "confirmed"
+    }
+  ],
+  "checkpoint_a": {
+    "recorded_at": 1794415875.358752,
+    "gate_hit": {
+      "at": 1794415875.358752,
+      "tool": "work_parallel_event",
+      "event": "review_wake",
+      "operation": "prepare",
+      "lease_id": "21318a9db30b43ef9d0b686f15e9eefe"
+    },
+    "review_lease": "21318a9db30b43ef9d0b686f15e9eefe",
+    "item_id": "n2",
+    "state": "pending",
+    "decision": null,
+    "wake": {
+      "attempt_id": null,
+      "attempts": 0,
+      "state": "pending",
+      "updated_at": 1794415870.8908718
+    },
+    "wake_at_kill": {
+      "attempt_id": null,
+      "attempts": 0,
+      "state": "pending",
+      "updated_at": 1794415870.8908718
+    },
+    "held_requests": [
+      {
+        "at": 1794415875.358752,
+        "tool": "work_parallel_event",
+        "event": "review_wake",
+        "operation": "prepare",
+        "lease_id": "21318a9db30b43ef9d0b686f15e9eefe"
+      }
+    ]
+  },
+  "error": "RuntimeError('owned console did not start')",
+  "error_type": "RuntimeError",
+  "final_owned_command_pids": [],
+  "final_owned_router_pids": [],
+  "live_after": [],
+  "protected_pids_unchanged": false,
+  "preserved_config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-k0ilobzo\\config",
+  "preserved_workspace": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-k0ilobzo\\workspace",
+  "preserved_claude_config": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-k0ilobzo\\config\\.claude",
+  "wake_observations": {}
+}

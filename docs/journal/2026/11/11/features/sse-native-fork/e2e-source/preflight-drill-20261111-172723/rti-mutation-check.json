@@ -1,0 +1,121 @@
+{
+  "module_sha256": "be80b286363d9f36e78ef9aa7181bf4caabc348d9fdd3691c23454657e6dfce6",
+  "test_sha256": "1e25bdf1f5fc5e3d4340f0d233df76a69ac3b7115e19f130e41ef7243585263e",
+  "python": "3.11.6",
+  "mutants": {
+    "previous_two_field_allow_list": {
+      "applied": true,
+      "returncode": 1,
+      "failing": [
+        "test_allowed_field_bounds",
+        "test_minimum_length_boundary",
+        "test_recorded_rows_are_allowed_under_the_ruling",
+        "test_request_context_payloads_follow_the_allow_list",
+        "test_run_a_passes_with_no_excerpts",
+        "test_run_b_main_own_read_is_an_observation_not_a_failure",
+        "test_run_b_passes_and_reproduces_recorded_excerpts",
+        "test_two_review_sections_are_both_inventoried"
+      ]
+    },
+    "no_bounds_check": {
+      "applied": true,
+      "returncode": 1,
+      "failing": [
+        "test_allowed_field_bounds",
+        "test_bounds_count_utf16_units_like_javascript"
+      ]
+    },
+    "bounds_in_code_points": {
+      "applied": true,
+      "returncode": 1,
+      "failing": [
+        "test_bounds_count_utf16_units_like_javascript"
+      ]
+    },
+    "no_whole_message_check": {
+      "applied": true,
+      "returncode": 1,
+      "failing": [
+        "test_whole_message_anywhere_in_the_block",
+        "test_whole_message_fails_even_in_allowed_fields"
+      ]
+    },
+    "no_raw_event_check": {
+      "applied": true,
+      "returncode": 1,
+      "failing": [
+        "test_raw_event_and_data_payload_fail"
+      ]
+    },
+    "prose_not_inventoried": {
+      "applied": true,
+      "returncode": 1,
+      "failing": [
+        "test_excerpt_outside_the_json_payload",
+        "test_request_context_text_outside_payloads_fails"
+      ]
+    },
+    "plugin_rows_not_host": {
+      "applied": true,
+      "returncode": 1,
+      "failing": [
+        "test_allowed_field_bounds",
+        "test_excerpt_in_disallowed_wake_fields",
+        "test_excerpt_outside_the_json_payload",
+        "test_minimum_length_boundary",
+        "test_raw_event_and_data_payload_fail",
+        "test_run_a_passes_with_no_excerpts",
+        "test_run_b_main_own_read_is_an_observation_not_a_failure",
+        "test_run_b_passes_and_reproduces_recorded_excerpts",
+        "test_unidentified_host_rows_fail",
+        "test_unparseable_wake_payload_fails",
+        "test_whole_message_anywhere_in_the_block",
+        "test_whole_message_fails_even_in_allowed_fields"
+      ]
+    },
+    "unidentified_not_host": {
+      "applied": true,
+      "returncode": 1,
+      "failing": [
+        "test_unidentified_host_rows_fail"
+      ]
+    },
+    "request_context_skipped": {
+      "applied": true,
+      "returncode": 1,
+      "failing": [
+        "test_request_context_payloads_follow_the_allow_list",
+        "test_request_context_text_outside_payloads_fails",
+        "test_run_a_passes_with_no_excerpts"
+      ]
+    },
+    "only_first_review_section": {
+      "applied": true,
+      "returncode": 1,
+      "failing": [
+        "test_two_review_sections_are_both_inventoried"
+      ]
+    },
+    "suffix_not_stripped": {
+      "applied": true,
+      "returncode": 1,
+      "failing": [
+        "test_two_review_sections_are_both_inventoried"
+      ]
+    }
+  },
+  "baseline": {
+    "returncode": 0,
+    "ran": 22,
+    "not_ok": []
+  },
+  "previous_module": {
+    "path": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\docs\\journal\\2026\\11\\11\\features\\sse-native-fork\\e2e-source\\preflight-drill-20261111-170652\\harness\\raw_text_inventory.py",
+    "sha256": "7412cc068febbfe558a8ef0d25f246f9ee322a0d84c72c01b5647a8dd4ee74ea",
+    "returncode": 1,
+    "not_ok_count": 22,
+    "run_b_positive": "ERROR"
+  },
+  "module_unchanged": true,
+  "all_mutants_detected": true
+}

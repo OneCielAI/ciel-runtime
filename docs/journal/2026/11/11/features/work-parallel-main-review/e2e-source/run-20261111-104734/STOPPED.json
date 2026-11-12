@@ -1,0 +1,10 @@
+{
+  "stopped_at": "2026-11-11T16:49:20.4547150Z",
+  "stopped_by": "agent: taskkill /T of owned detached root 8200",
+  "reason": "harness defect: seeded policy priority_limits P2-P5=0 violates work_parallel.validate_policy (each must be 1..16); owned router answered every Work call with \"corrupt parallel state; writes blocked\", so no worker could start",
+  "evidence": "first-claude-debug.txt 16:48:08.940Z Tool work_parallel_status failed: corrupt parallel state; writes blocked; snapshot validate() -> WorkParallelError priority limits",
+  "owned_left": [],
+  "port_9931_listeners": [
+    null
+  ]
+}
