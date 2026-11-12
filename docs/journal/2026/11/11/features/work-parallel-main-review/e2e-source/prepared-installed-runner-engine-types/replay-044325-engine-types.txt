@@ -1,0 +1,28 @@
+A. recorded 044325 changes re-classified: {
+ "engine_generated_excluded": [
+  "ciel_runtime_support/claude_mods/ciel-work/.claude-plugin/types/.gitignore",
+  "ciel_runtime_support/claude_mods/ciel-work/.claude-plugin/types/claude-code-mcp/index.d.ts",
+  "ciel_runtime_support/claude_mods/ciel-work/.claude-plugin/types/claude-code-tools/index.d.ts",
+  "ciel_runtime_support/claude_mods/ciel-work/.claude-plugin/types/claude-code/index.d.ts",
+  "ciel_runtime_support/claude_mods/ciel-work/.claude-plugin/types/tsconfig.json"
+ ],
+ "product": []
+}
+B. recomputed from the run's SNAP now: {
+ "changed": 5,
+ "engine": [
+  "ciel_runtime_support/claude_mods/ciel-work/.claude-plugin/types/.gitignore",
+  "ciel_runtime_support/claude_mods/ciel-work/.claude-plugin/types/claude-code-mcp/index.d.ts",
+  "ciel_runtime_support/claude_mods/ciel-work/.claude-plugin/types/claude-code-tools/index.d.ts",
+  "ciel_runtime_support/claude_mods/ciel-work/.claude-plugin/types/claude-code/index.d.ts",
+  "ciel_runtime_support/claude_mods/ciel-work/.claude-plugin/types/tsconfig.json"
+ ],
+ "product": []
+}
+C. synthetic: {
+ "present_in_installed_and_changed_is_product": true,
+ "absent_gitignore_is_engine": true,
+ "non_types_path_is_product": true,
+ "legacy_no_manifest_unchanged": true
+}
+all True

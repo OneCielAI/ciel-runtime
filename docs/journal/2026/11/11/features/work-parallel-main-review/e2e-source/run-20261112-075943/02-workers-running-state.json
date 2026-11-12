@@ -1,0 +1,581 @@
+{
+  "at": 1794492141.1902013,
+  "board": {
+    "schema": 1,
+    "version": 1,
+    "phase": "executing",
+    "active_root": "n1",
+    "focus_ids": [],
+    "next_id": 9,
+    "nodes": [
+      {
+        "id": "n1",
+        "parent_id": null,
+        "title": "Passing implementation root",
+        "status": "pending",
+        "note": "",
+        "progress": "",
+        "evidence": "",
+        "waiting_on": "",
+        "ref": "",
+        "urgent": false,
+        "updated_at": 1794491994.2962337,
+        "created_at": 1794491994.2962337,
+        "phase": "executing",
+        "priority": "P1"
+      },
+      {
+        "id": "n2",
+        "parent_id": "n1",
+        "title": "Passing implementation",
+        "status": "pending",
+        "note": "First run exactly one foreground Bash command and wait for it to exit: python -c \"import time; p=r'C:/Users/djlov/AppData/Local/Temp/ciel-owned-main-review-jj42o_sc/markers/p1-pass.txt'; [(open(p,'a').write(str(time.time())+chr(10)),time.sleep(2)) for _ in range(30)]\". Then create pass_solution.py with function add(a,b) returning a+b. Create test_pass.py using unittest and asserting add(2,3)==5. Run exactly `python -m unittest -v test_pass.py`. Do not change the test after running it. If it passes, compute SHA256 of pass_solution.py and immediately call work_parallel_report event=completion with the exact lease_id and worker_token, artifact=<that SHA256>, evidence='provided passing test passed', detail={summary:'pass_solution implements addition and the provided test passes',coverage:[{item_id:<assigned item id>,verified:true}],verification:'python -m unittest -v test_pass.py: PASS'}. Do not call Agent or message main.",
+        "progress": "",
+        "evidence": "",
+        "waiting_on": "",
+        "ref": "",
+        "urgent": false,
+        "updated_at": 1794491994.2962337,
+        "created_at": 1794491994.2962337
+      },
+      {
+        "id": "n3",
+        "parent_id": null,
+        "title": "Failing implementation then rework root",
+        "status": "pending",
+        "note": "",
+        "progress": "",
+        "evidence": "",
+        "waiting_on": "",
+        "ref": "",
+        "urgent": false,
+        "updated_at": 1794491994.2962337,
+        "created_at": 1794491994.2962337,
+        "phase": "executing",
+        "priority": "P1"
+      },
+      {
+        "id": "n4",
+        "parent_id": "n3",
+        "title": "Failing implementation then rework",
+        "status": "pending",
+        "note": "Use fail_solution.py and test_fail.py. If this assignment role is worker / generation 1: First run exactly one foreground Bash command and wait for it to exit: python -c \"import time; p=r'C:/Users/djlov/AppData/Local/Temp/ciel-owned-main-review-jj42o_sc/markers/p1-fail.txt'; [(open(p,'a').write(str(time.time())+chr(10)),time.sleep(2)) for _ in range(30)]\". Then create fail_solution.py with value() returning 1; create test_fail.py using unittest and asserting value()==2; run exactly `python -m unittest -v test_fail.py`; deliberately do not fix the implementation and do not alter the test. Then compute SHA256 of fail_solution.py and call work_parallel_report event=completion with the exact lease_id and worker_token, artifact=<that SHA256>, evidence='provided failing test failed', detail={summary:'the provided test fails because value returned 1 instead of 2',coverage:[{item_id:<assigned item id>,verified:false}],verification:'python -m unittest -v test_fail.py: FAIL expected 2 got 1'}. If this assignment role is resume / generation 2: do not run the timing command; retain test_fail.py unchanged, fix fail_solution.py so value() returns 2, run the same unittest until it passes, then report completion with the new SHA256, evidence='provided failing test fixed and passed', summary='rework fixed value and the unchanged provided test passes', verified:true, verification='python -m unittest -v test_fail.py: PASS'. Do not call Agent or message main.",
+        "progress": "",
+        "evidence": "",
+        "waiting_on": "",
+        "ref": "",
+        "urgent": false,
+        "updated_at": 1794491994.2962337,
+        "created_at": 1794491994.2962337
+      },
+      {
+        "id": "n5",
+        "parent_id": null,
+        "title": "P2 passing multiply root",
+        "status": "pending",
+        "note": "",
+        "progress": "",
+        "evidence": "",
+        "waiting_on": "",
+        "ref": "",
+        "urgent": false,
+        "updated_at": 1794491994.2962337,
+        "created_at": 1794491994.2962337,
+        "phase": "executing",
+        "priority": "P2"
+      },
+      {
+        "id": "n6",
+        "parent_id": "n5",
+        "title": "P2 passing multiply",
+        "status": "pending",
+        "note": "First run exactly one foreground Bash command and wait for it to exit: python -c \"import time; p=r'C:/Users/djlov/AppData/Local/Temp/ciel-owned-main-review-jj42o_sc/markers/p2-pass.txt'; [(open(p,'a').write(str(time.time())+chr(10)),time.sleep(2)) for _ in range(30)]\". Then create p2_solution.py with function mul(a,b) returning a*b. Create test_p2.py using unittest and asserting mul(2,3)==6. Run exactly `python -m unittest -v test_p2.py`. Do not change the test after running it. If it passes, compute SHA256 of p2_solution.py and immediately call work_parallel_report event=completion with the exact lease_id and worker_token, artifact=<that SHA256>, evidence='provided passing test passed', detail={summary:'p2_solution implements multiplication and the provided test passes',coverage:[{item_id:<assigned item id>,verified:true}],verification:'python -m unittest -v test_p2.py: PASS'}. Do not call Agent or message main.",
+        "progress": "",
+        "evidence": "",
+        "waiting_on": "",
+        "ref": "",
+        "urgent": false,
+        "updated_at": 1794491994.2962337,
+        "created_at": 1794491994.2962337
+      },
+      {
+        "id": "n7",
+        "parent_id": null,
+        "title": "P3 passing subtract root",
+        "status": "pending",
+        "note": "",
+        "progress": "",
+        "evidence": "",
+        "waiting_on": "",
+        "ref": "",
+        "urgent": false,
+        "updated_at": 1794491994.2967305,
+        "created_at": 1794491994.2967305,
+        "phase": "executing",
+        "priority": "P3"
+      },
+      {
+        "id": "n8",
+        "parent_id": "n7",
+        "title": "P3 passing subtract",
+        "status": "pending",
+        "note": "First run exactly one foreground Bash command and wait for it to exit: python -c \"import time; p=r'C:/Users/djlov/AppData/Local/Temp/ciel-owned-main-review-jj42o_sc/markers/p3-pass.txt'; [(open(p,'a').write(str(time.time())+chr(10)),time.sleep(2)) for _ in range(30)]\". Then create p3_solution.py with function sub(a,b) returning a-b. Create test_p3.py using unittest and asserting sub(5,3)==2. Run exactly `python -m unittest -v test_p3.py`. Do not change the test after running it. If it passes, compute SHA256 of p3_solution.py and immediately call work_parallel_report event=completion with the exact lease_id and worker_token, artifact=<that SHA256>, evidence='provided passing test passed', detail={summary:'p3_solution implements subtraction and the provided test passes',coverage:[{item_id:<assigned item id>,verified:true}],verification:'python -m unittest -v test_p3.py: PASS'}. Do not call Agent or message main.",
+        "progress": "",
+        "evidence": "",
+        "waiting_on": "",
+        "ref": "",
+        "urgent": false,
+        "updated_at": 1794491994.2967305,
+        "created_at": 1794491994.2967305
+      }
+    ],
+    "updated_at": 1794491994.2967305
+  },
+  "ledger": {
+    "schema": 1,
+    "version": 12,
+    "policy": {
+      "enabled": true,
+      "paused": false,
+      "priority_limits": {
+        "P1": 2,
+        "P2": 1,
+        "P3": 1,
+        "P4": 1,
+        "P5": 1
+      },
+      "thresholds": {
+        "P2": 1.0,
+        "P3": 1.0,
+        "P4": 1.0,
+        "P5": 1.0
+      },
+      "launches_per_minute": 24,
+      "max_rework": 2,
+      "discovery_text": "When approved Work has capacity, start the next runnable leaf.",
+      "test_override": true
+    },
+    "leases": {
+      "1aaa883da48e48748244a2a8c2afdc81": {
+        "id": "1aaa883da48e48748244a2a8c2afdc81",
+        "scope": "claude:99999999-9999-4999-8999-999999999991",
+        "item_id": "n2",
+        "priority": "P1",
+        "created_at": 1794491994.2962337,
+        "role": "worker",
+        "mode": "fork",
+        "plan_version": 1,
+        "state": "running",
+        "host_id": "acf720528f43ee28b",
+        "slot": true,
+        "usage": 0.05,
+        "artifact": null,
+        "rework": 0,
+        "evidence": null,
+        "idle_proof": null,
+        "cleanup_proof": null,
+        "dispatch_name": "work-auto-mwdm9z73-8i6shf9coas",
+        "owner": {
+          "session_pid": 87476,
+          "identity": "134389657021651006"
+        },
+        "report_hash": "0798c65c84b6e5f4ddbc3fa4f820934825e65ea7ff94a7969a7f21e1da069fb8",
+        "terminal": null,
+        "workspace": {
+          "schema": 1,
+          "repo": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-jj42o_sc\\workspace",
+          "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-jj42o_sc\\workspace\\.claude\\worktrees\\work-parallel-08df4a8ca729ebb1921259bb",
+          "head": "0a7ceb5ce7a85d542fffd6abc7440f0cd8934ec1",
+          "initial_head": "0a7ceb5ce7a85d542fffd6abc7440f0cd8934ec1",
+          "branch": "work-parallel/08df4a8ca729ebb1921259bbeb7bcc1045fa08634c49521d0e23cc8c4dd86e8f",
+          "lease_id": "1aaa883da48e48748244a2a8c2afdc81",
+          "status": "ready",
+          "common_dir": "C:/Users/djlov/AppData/Local/Temp/ciel-owned-main-review-jj42o_sc/workspace/.git",
+          "git_dir": "C:/Users/djlov/AppData/Local/Temp/ciel-owned-main-review-jj42o_sc/workspace/.git/worktrees/work-parallel-08df4a8ca729ebb1921259bb",
+          "host_id": null,
+          "idle": false,
+          "idle_proof": null
+        },
+        "agent_name": "work-auto-mwdm9z73-8i6shf9coas"
+      },
+      "05b499a6c759484886384c588aec2ea0": {
+        "id": "05b499a6c759484886384c588aec2ea0",
+        "scope": "claude:99999999-9999-4999-8999-999999999991",
+        "item_id": "n4",
+        "priority": "P1",
+        "created_at": 1794491994.2962337,
+        "role": "worker",
+        "mode": "fork",
+        "plan_version": 1,
+        "state": "running",
+        "host_id": "a96e39dd8e78b9038",
+        "slot": true,
+        "usage": 0.05,
+        "artifact": null,
+        "rework": 0,
+        "evidence": null,
+        "idle_proof": null,
+        "cleanup_proof": null,
+        "dispatch_name": "work-auto-mwdma1hi-dulef886qrk",
+        "owner": {
+          "session_pid": 87476,
+          "identity": "134389657021651006"
+        },
+        "report_hash": "2f32d19e28c0e815341cf01caf05c68f0443a3dc9ebdc4291129f40d0afbed32",
+        "terminal": null,
+        "workspace": {
+          "schema": 1,
+          "repo": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-jj42o_sc\\workspace",
+          "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-jj42o_sc\\workspace\\.claude\\worktrees\\work-parallel-8e5221b3d2aeb551a8af4cbe",
+          "head": "0a7ceb5ce7a85d542fffd6abc7440f0cd8934ec1",
+          "initial_head": "0a7ceb5ce7a85d542fffd6abc7440f0cd8934ec1",
+          "branch": "work-parallel/8e5221b3d2aeb551a8af4cbe8dc245e1ebe8545786950614ba9c26997920b125",
+          "lease_id": "05b499a6c759484886384c588aec2ea0",
+          "status": "ready",
+          "common_dir": "C:/Users/djlov/AppData/Local/Temp/ciel-owned-main-review-jj42o_sc/workspace/.git",
+          "git_dir": "C:/Users/djlov/AppData/Local/Temp/ciel-owned-main-review-jj42o_sc/workspace/.git/worktrees/work-parallel-8e5221b3d2aeb551a8af4cbe",
+          "host_id": null,
+          "idle": false,
+          "idle_proof": null
+        },
+        "agent_name": "work-auto-mwdma1hi-dulef886qrk"
+      },
+      "3ac5e2171bc74d1e9409581b52428341": {
+        "id": "3ac5e2171bc74d1e9409581b52428341",
+        "scope": "claude:99999999-9999-4999-8999-999999999991",
+        "item_id": "n6",
+        "priority": "P2",
+        "created_at": 1794491994.2962337,
+        "role": "worker",
+        "mode": "fork",
+        "plan_version": 1,
+        "state": "running",
+        "host_id": "a5a6ea6b320384bca",
+        "slot": true,
+        "usage": 0.05,
+        "artifact": null,
+        "rework": 0,
+        "evidence": null,
+        "idle_proof": null,
+        "cleanup_proof": null,
+        "dispatch_name": "work-auto-mwdma3gp-qfvkm6axegn",
+        "owner": {
+          "session_pid": 87476,
+          "identity": "134389657021651006"
+        },
+        "report_hash": "a226cc9d8068b6c315371684ecbde067ad85fe409e89ff177c9f3acc47abd0e7",
+        "terminal": null,
+        "workspace": {
+          "schema": 1,
+          "repo": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-jj42o_sc\\workspace",
+          "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-jj42o_sc\\workspace\\.claude\\worktrees\\work-parallel-4ad1890dc8fd35470841615c",
+          "head": "0a7ceb5ce7a85d542fffd6abc7440f0cd8934ec1",
+          "initial_head": "0a7ceb5ce7a85d542fffd6abc7440f0cd8934ec1",
+          "branch": "work-parallel/4ad1890dc8fd35470841615cbf5959d15021ef7e9546bb6ec4485f6bc3f98c1a",
+          "lease_id": "3ac5e2171bc74d1e9409581b52428341",
+          "status": "ready",
+          "common_dir": "C:/Users/djlov/AppData/Local/Temp/ciel-owned-main-review-jj42o_sc/workspace/.git",
+          "git_dir": "C:/Users/djlov/AppData/Local/Temp/ciel-owned-main-review-jj42o_sc/workspace/.git/worktrees/work-parallel-4ad1890dc8fd35470841615c",
+          "host_id": null,
+          "idle": false,
+          "idle_proof": null
+        },
+        "agent_name": "work-auto-mwdma3gp-qfvkm6axegn"
+      },
+      "2c5b2138321946ab825e611e318bd5f9": {
+        "id": "2c5b2138321946ab825e611e318bd5f9",
+        "scope": "claude:99999999-9999-4999-8999-999999999991",
+        "item_id": "n8",
+        "priority": "P3",
+        "created_at": 1794491994.2967305,
+        "role": "worker",
+        "mode": "fork",
+        "plan_version": 1,
+        "state": "running",
+        "host_id": "acce781dceb6f6f47",
+        "slot": true,
+        "usage": 0.05,
+        "artifact": null,
+        "rework": 0,
+        "evidence": null,
+        "idle_proof": null,
+        "cleanup_proof": null,
+        "dispatch_name": "work-auto-mwdma62v-a7g6prl53db",
+        "owner": {
+          "session_pid": 87476,
+          "identity": "134389657021651006"
+        },
+        "report_hash": "a7e94a044acf418ff2ede10fd1bd4e8d46c960552dd362c8533a17445c71a5b3",
+        "terminal": null,
+        "workspace": {
+          "schema": 1,
+          "repo": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-jj42o_sc\\workspace",
+          "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-jj42o_sc\\workspace\\.claude\\worktrees\\work-parallel-d86192c0e02c222c6c576a31",
+          "head": "0a7ceb5ce7a85d542fffd6abc7440f0cd8934ec1",
+          "initial_head": "0a7ceb5ce7a85d542fffd6abc7440f0cd8934ec1",
+          "branch": "work-parallel/d86192c0e02c222c6c576a31917efbb5deb9e43a927801bea1e036ca00b458f8",
+          "lease_id": "2c5b2138321946ab825e611e318bd5f9",
+          "status": "ready",
+          "common_dir": "C:/Users/djlov/AppData/Local/Temp/ciel-owned-main-review-jj42o_sc/workspace/.git",
+          "git_dir": "C:/Users/djlov/AppData/Local/Temp/ciel-owned-main-review-jj42o_sc/workspace/.git/worktrees/work-parallel-d86192c0e02c222c6c576a31",
+          "host_id": null,
+          "idle": false,
+          "idle_proof": null
+        },
+        "agent_name": "work-auto-mwdma62v-a7g6prl53db"
+      }
+    },
+    "launches": [
+      1794492122.7399023,
+      1794492125.7114434,
+      1794492128.069035,
+      1794492131.949599
+    ]
+  },
+  "finalization": {},
+  "coordination": {
+    "archive": [],
+    "archive_dropped": 0,
+    "details": {},
+    "receipts": {},
+    "root_generations": {
+      "claude:99999999-9999-4999-8999-999999999991\u0000n1": {
+        "approval_generation": 1,
+        "phase": "executing",
+        "root_id": "n1",
+        "scope": "claude:99999999-9999-4999-8999-999999999991",
+        "scope_digest": "601b88c891a06ab1eb8e1652b533a063fe16a23974f621762c8cc2e95eb36c29",
+        "updated_at": 1794492122.743718
+      },
+      "claude:99999999-9999-4999-8999-999999999991\u0000n3": {
+        "approval_generation": 1,
+        "phase": "executing",
+        "root_id": "n3",
+        "scope": "claude:99999999-9999-4999-8999-999999999991",
+        "scope_digest": "a12d69296aa805f99bda5d0c8070c063112ef51a34f08ac154574e257ac24b2e",
+        "updated_at": 1794492125.7170265
+      },
+      "claude:99999999-9999-4999-8999-999999999991\u0000n5": {
+        "approval_generation": 1,
+        "phase": "executing",
+        "root_id": "n5",
+        "scope": "claude:99999999-9999-4999-8999-999999999991",
+        "scope_digest": "fe2872b10af62d220e0c72a6f4aa28a029813cb466a29e52fec70dc4573dc06f",
+        "updated_at": 1794492128.0734227
+      },
+      "claude:99999999-9999-4999-8999-999999999991\u0000n7": {
+        "approval_generation": 1,
+        "phase": "executing",
+        "root_id": "n7",
+        "scope": "claude:99999999-9999-4999-8999-999999999991",
+        "scope_digest": "0ab4103f246d145eedf4ce2ecd0c63796d292090459fd7566c7f1f9e304e8d15",
+        "updated_at": 1794492131.954891
+      }
+    },
+    "runs": {
+      "05b499a6c759484886384c588aec2ea0": {
+        "agent_id": "a96e39dd8e78b9038",
+        "agent_name": "work-auto-mwdma1hi-dulef886qrk",
+        "approval_generation": 1,
+        "assigned_todos": [
+          "n4"
+        ],
+        "bound_at": 1794492127.3797665,
+        "exit": null,
+        "exit_attempts": 0,
+        "fingerprint": "a12d69296aa805f99bda5d0c8070c063112ef51a34f08ac154574e257ac24b2e",
+        "generation": 1,
+        "item_id": "n4",
+        "lease_id": "05b499a6c759484886384c588aec2ea0",
+        "native_seen_at": 1794492140.92448,
+        "native_status": "running",
+        "priority": "P1",
+        "recovery": {
+          "attempts": 0,
+          "error_code": null,
+          "state": "none"
+        },
+        "replaced_by": null,
+        "reserved_at": 1794492125.728309,
+        "role": "worker",
+        "root_id": "n3",
+        "scope": "claude:99999999-9999-4999-8999-999999999991",
+        "state": "active",
+        "state_changed_at": 1794492140.92448,
+        "workspace": {
+          "branch": "work-parallel/8e5221b3d2aeb551a8af4cbe8dc245e1ebe8545786950614ba9c26997920b125",
+          "head": "0a7ceb5ce7a85d542fffd6abc7440f0cd8934ec1",
+          "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-jj42o_sc\\workspace\\.claude\\worktrees\\work-parallel-8e5221b3d2aeb551a8af4cbe"
+        }
+      },
+      "1aaa883da48e48748244a2a8c2afdc81": {
+        "agent_id": "acf720528f43ee28b",
+        "agent_name": "work-auto-mwdm9z73-8i6shf9coas",
+        "approval_generation": 1,
+        "assigned_todos": [
+          "n2"
+        ],
+        "bound_at": 1794492124.64569,
+        "exit": null,
+        "exit_attempts": 0,
+        "fingerprint": "601b88c891a06ab1eb8e1652b533a063fe16a23974f621762c8cc2e95eb36c29",
+        "generation": 1,
+        "item_id": "n2",
+        "lease_id": "1aaa883da48e48748244a2a8c2afdc81",
+        "native_seen_at": 1794492140.936661,
+        "native_status": "running",
+        "priority": "P1",
+        "recovery": {
+          "attempts": 0,
+          "error_code": null,
+          "state": "none"
+        },
+        "replaced_by": null,
+        "reserved_at": 1794492122.7520792,
+        "role": "worker",
+        "root_id": "n1",
+        "scope": "claude:99999999-9999-4999-8999-999999999991",
+        "state": "active",
+        "state_changed_at": 1794492140.936661,
+        "workspace": {
+          "branch": "work-parallel/08df4a8ca729ebb1921259bbeb7bcc1045fa08634c49521d0e23cc8c4dd86e8f",
+          "head": "0a7ceb5ce7a85d542fffd6abc7440f0cd8934ec1",
+          "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-jj42o_sc\\workspace\\.claude\\worktrees\\work-parallel-08df4a8ca729ebb1921259bb"
+        }
+      },
+      "2c5b2138321946ab825e611e318bd5f9": {
+        "agent_id": "acce781dceb6f6f47",
+        "agent_name": "work-auto-mwdma62v-a7g6prl53db",
+        "approval_generation": 1,
+        "assigned_todos": [
+          "n8"
+        ],
+        "bound_at": 1794492134.540173,
+        "exit": null,
+        "exit_attempts": 0,
+        "fingerprint": "0ab4103f246d145eedf4ce2ecd0c63796d292090459fd7566c7f1f9e304e8d15",
+        "generation": 1,
+        "item_id": "n8",
+        "lease_id": "2c5b2138321946ab825e611e318bd5f9",
+        "native_seen_at": 1794492140.9611533,
+        "native_status": "running",
+        "priority": "P3",
+        "recovery": {
+          "attempts": 0,
+          "error_code": null,
+          "state": "none"
+        },
+        "replaced_by": null,
+        "reserved_at": 1794492131.965141,
+        "role": "worker",
+        "root_id": "n7",
+        "scope": "claude:99999999-9999-4999-8999-999999999991",
+        "state": "active",
+        "state_changed_at": 1794492140.9611533,
+        "workspace": {
+          "branch": "work-parallel/d86192c0e02c222c6c576a31917efbb5deb9e43a927801bea1e036ca00b458f8",
+          "head": "0a7ceb5ce7a85d542fffd6abc7440f0cd8934ec1",
+          "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-jj42o_sc\\workspace\\.claude\\worktrees\\work-parallel-d86192c0e02c222c6c576a31"
+        }
+      },
+      "3ac5e2171bc74d1e9409581b52428341": {
+        "agent_id": "a5a6ea6b320384bca",
+        "agent_name": "work-auto-mwdma3gp-qfvkm6axegn",
+        "approval_generation": 1,
+        "assigned_todos": [
+          "n6"
+        ],
+        "bound_at": 1794492130.3524752,
+        "exit": null,
+        "exit_attempts": 0,
+        "fingerprint": "fe2872b10af62d220e0c72a6f4aa28a029813cb466a29e52fec70dc4573dc06f",
+        "generation": 1,
+        "item_id": "n6",
+        "lease_id": "3ac5e2171bc74d1e9409581b52428341",
+        "native_seen_at": 1794492140.948712,
+        "native_status": "running",
+        "priority": "P2",
+        "recovery": {
+          "attempts": 0,
+          "error_code": null,
+          "state": "none"
+        },
+        "replaced_by": null,
+        "reserved_at": 1794492128.0837016,
+        "role": "worker",
+        "root_id": "n5",
+        "scope": "claude:99999999-9999-4999-8999-999999999991",
+        "state": "active",
+        "state_changed_at": 1794492140.948712,
+        "workspace": {
+          "branch": "work-parallel/4ad1890dc8fd35470841615cbf5959d15021ef7e9546bb6ec4485f6bc3f98c1a",
+          "head": "0a7ceb5ce7a85d542fffd6abc7440f0cd8934ec1",
+          "path": "C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-jj42o_sc\\workspace\\.claude\\worktrees\\work-parallel-4ad1890dc8fd35470841615c"
+        }
+      }
+    },
+    "scheduler": {
+      "cursors": {},
+      "diagnostics": []
+    },
+    "schema": 1,
+    "version": 20
+  },
+  "native": {
+    "schema": 1,
+    "version": 1,
+    "records": {
+      "05b499a6c759484886384c588aec2ea0": {
+        "scope": "claude:99999999-9999-4999-8999-999999999991",
+        "lease_id": "05b499a6c759484886384c588aec2ea0",
+        "agent_id": "a96e39dd8e78b9038",
+        "agent_name": "work-auto-mwdma1hi-dulef886qrk",
+        "status": "running",
+        "first_seen_at": 1794492140.9181135,
+        "last_seen_at": 1794492140.9181135,
+        "status_changed_at": 1794492140.9181135,
+        "missing_since": null,
+        "terminal_at": null
+      },
+      "1aaa883da48e48748244a2a8c2afdc81": {
+        "scope": "claude:99999999-9999-4999-8999-999999999991",
+        "lease_id": "1aaa883da48e48748244a2a8c2afdc81",
+        "agent_id": "acf720528f43ee28b",
+        "agent_name": "work-auto-mwdm9z73-8i6shf9coas",
+        "status": "running",
+        "first_seen_at": 1794492140.9181135,
+        "last_seen_at": 1794492140.9181135,
+        "status_changed_at": 1794492140.9181135,
+        "missing_since": null,
+        "terminal_at": null
+      },
+      "3ac5e2171bc74d1e9409581b52428341": {
+        "scope": "claude:99999999-9999-4999-8999-999999999991",
+        "lease_id": "3ac5e2171bc74d1e9409581b52428341",
+        "agent_id": "a5a6ea6b320384bca",
+        "agent_name": "work-auto-mwdma3gp-qfvkm6axegn",
+        "status": "running",
+        "first_seen_at": 1794492140.9181135,
+        "last_seen_at": 1794492140.9181135,
+        "status_changed_at": 1794492140.9181135,
+        "missing_since": null,
+        "terminal_at": null
+      },
+      "2c5b2138321946ab825e611e318bd5f9": {
+        "scope": "claude:99999999-9999-4999-8999-999999999991",
+        "lease_id": "2c5b2138321946ab825e611e318bd5f9",
+        "agent_id": "acce781dceb6f6f47",
+        "agent_name": "work-auto-mwdma62v-a7g6prl53db",
+        "status": "running",
+        "first_seen_at": 1794492140.9181135,
+        "last_seen_at": 1794492140.9181135,
+        "status_changed_at": 1794492140.9181135,
+        "missing_since": null,
+        "terminal_at": null
+      }
+    },
+    "scans": {
+      "claude:99999999-9999-4999-8999-999999999991": 1794492140.9181135
+    }
+  }
+}

@@ -129,6 +129,70 @@ Measured facts (all from `result.json` and the frames):
 - Display fix confirmed: `reworked_item_absent_from_final_main_review` is true. `07-finalized.txt` shows the status block with ENDED (5) and no Main review row. `07-finalized-desktop.png` (1440) and `07-finalized-mobile.png` (390) show `Main review (0)` and "No worker result is awaiting main review". Ended lists n2, n4, n4 (rework a2), n6 and n8.
 - Safety: `kills.jsonl` has 169 rows, and none contains `/T`. `protected_pids_unchanged` and `live_profile_unchanged` are true, and the snapshot is unchanged after the run. After the run the protected launchers 23728/39984/21912 kept the same creation times (15:49:31Z, 15:49:59Z and 15:50:47Z on 2026-11-11), and no owned run process remained.
 
+## Installed-build runner prepared (not launched)
+
+`e2e-source/owned_main_review_probe_installed.py` sha256 `a2faa191ba9afc49a9882e7a178fc780aebbdc4d32e9d7a00ddc67b4d3098dfb` is derived from v2 `345a7ebe`; v2 is byte-identical (re-hashed after generation). The diff and evidence are in `e2e-source/prepared-installed-runner/` with `SHA256SUMS`.
+
+- Source: the installed npm package root is the only argv. It may not be the worktree or inside it. `build_snapshot()` copies it into the per-run owned SNAP under the worktree `.local` and verifies the copy file by file against the installed manifest. It writes `installed-manifest.json` and fails if the installed tree changes during the copy. Harness tools (console driver, screenshot helper) and `.local` still come from the worktree.
+- `tests` is dropped from SNAP_DIRS only when the installed tree has no `tests/`. `result.json.installed_source` and `snapshot` record the path, snap_dirs, tests_dropped, installed file count and manifest digest.
+- The installed path is never owned. Any command line that names it, in any slash form or case, is skipped in final owned-command discovery and refused in owned-root registration, tree pinning and explicit kill. A startup check refuses BASE, SNAP or scratch overlapping it.
+- KEY_HASHES are the committed LF blob hashes the team lead named: finalization `79a573b6`, register `ea7768f5`, side-intake `dcf8fbbc`, types `4110db60`, mcp `ccf397c6`. The acceptance set is unchanged: 28 in the dict plus 3 set afterwards = 31, including `reworked_item_absent_from_final_main_review`. Protected-PID logic, env stripping and live-profile hashing are unchanged.
+- Offline gate (`offline-gate-aafbe1c.txt`, measured):
+  - Plain `git archive aafbe1c` extracted on this Windows checkout fails the gate on `types/index.d.ts`. That file came out with 22 CR bytes, sha `542ff492`. `* text=auto` has no eol rule for `.d.ts`, so the archive wrote CRLF.
+  - `git archive` with `-c core.autocrlf=false -c core.eol=lf` writes the blob bytes: `index.d.ts` 0 CR, sha `4110db60`. The gate, copy and file-by-file check pass with 1062 files and 0 mismatches.
+  - With `tests/` removed (the npm root shape) they pass with 560 files, `tests_dropped` true.
+- Installed-path guard checks: 6/6 (`installed-guard-checks.txt`).
+
+Target update: CI on aafbe1c failed only because a shallow checkout made `test_side_wake_protocol`'s `git show` return 128; nothing was published. Target commit/path is now `57dbfb3ac9c8d9f1a42e89a038d27e16f4fab409` / `C:/Users/djlov/.local/share/ciel-runtime-57dbfb3ac9c8d9f1a42e89a038d27e16f4fab409`. It changes only that test, so package bytes and the five KEY_HASHES are unchanged. Runner hash remains `a2faa191…`. Repeated offline gate on 57dbfb3 has the same result: plain Windows `git archive` fails only on CRLF `index.d.ts`; blob/LF archive passes (1062 files), and its tests-removed npm shape passes (560 files). New evidence is beside the old evidence: `offline-gate-57dbfb3.txt`, `installed-guard-checks-57dbfb3.txt`, `SHA256SUMS-57dbfb3`. No earlier evidence file was edited in this update.
+
 # Before any rerun on a new freeze
 
 FreeConsole before killing the attached console, and record each subprocess return code and stderr. Take a full pre-launch hash baseline that includes node.exe descendants. Root-cause the n2 `run is not terminal` block before treating it as a product defect.
+
+# Installed beta 57dbfb3
+
+The product came from the installed beta npm package `0.2.51-beta.20261112-102713.57dbfb3`, installed at `C:/Users/djlov/.local/share/ciel-runtime-57dbfb3ac9c8d9f1a42e89a038d27e16f4fab409` (INSTALLED). Each run copied INSTALLED into its own owned SNAP and verified the copy file by file against INSTALLED's manifest: 542 files, no `tests/` dir, `tests_dropped` true, manifest `35700ea7…`. The committed LF key hashes all matched: `79a573b6` / `ea7768f5` / `dcf8fbbc` / `4110db60` / `ccf397c6`.
+
+Relationship to 002502: these runs repeat the main-review E2E on the installed build. They do not replace `run-20261112-002502`, which stays the accepted source-tree run. Each run's `SUPERSEDES.json` points at the previous installed or source run and says why.
+
+`__pycache__` origin: INSTALLED held 1026 files before both runs, 573 package files plus 453 `__pycache__` files. The team lead's post-install smoke test created the `__pycache__` files (`py -3 <snapshot>/ciel_runtime.py version` and a module import). Before that smoke test, `evidence/beta-57dbfb3/snapshot.sha256` measured 573 package files. The runner's manifest excludes `__pycache__`.
+
+INSTALLED was unchanged by both runs (measured): a read-only full manifest of all 1026 files was taken before and after each run (`installed-tree-before.json` / `installed-tree-after.json` in each run folder). The digest stayed `e64484d3…`, with 0 files changed.
+
+## run-20261112-044325: failed 30/31, harness classification (product_defect false)
+
+- Runner `a2faa191`. The only false item was `snapshot_unchanged_after_run`.
+- `snapshot_changes.product` listed only `.claude-plugin/types/.gitignore` (content `*`) and `.claude-plugin/types/tsconfig.json`. Claude Code wrote both into the run's SNAP at plugin load, around 10:45Z, together with the three `claude-code*` type dirs. Neither file is in git or in the npm package, and no ciel_runtime_support code writes them. In the worktree both files already existed, which is why v2 treated them as product; in the installed copy they are new.
+- The run is kept as evidence and marked superseded by 075943 (`run-20261112-044325/SUPERSEDED.json`, `product_defect` false).
+
+## Runner fix a4de6539
+
+- `owned_main_review_probe_installed.py` changed `a2faa191` → `a4de65392b51b5ddac14b301f7fab9c1a4f7f97c8d9a10fb748afadb3e0cbb71`. The diff is `e2e-source/prepared-installed-runner-engine-types/installed-runner-a2faa191-to-a4de6539.diff`, 16 changed lines.
+- A path under `ENGINE_TYPES`, including `.gitignore` and `tsconfig.json`, is engine-generated only when it is absent from INSTALLED's manifest (`installed-manifest.json`). A path that exists in INSTALLED and changes is still a product change.
+- Offline replay (`replay-044325-engine-types.txt`): 044325's recorded changes, and its SNAP recomputed now, both give product [] with 5 engine-generated files. Synthetic cases pass 4/4.
+
+## run-20261112-075943: passed 31/31
+
+- Runner `a4de6539`. Outcome `passed`, 31/31 acceptance, `snapshot_changes.product` []. The 5 engine-written types files are listed as engine-generated.
+- Fill was P1=2, P2=1, P3=1, with 0 reviewer forks. Each of the 5 reviews was woken exactly once. There were 2 raw prompt submits, each with a distinct identity, no duplicates, and no Stop during a pending prompt.
+- Decisions: n2, n6 and n8 approve → finalized. n4 first review → `rework_ready`, and the replacement approve → finalized. Launch attempt 1 resolved `absent`, and attempt 2 bound.
+- `reworked_item_absent_from_final_main_review` is true: the terminal status and the web Main review at 1440 and 390 show 0 n4 rows (`Main review (0)`).
+- Safety: 147 kill rows, none using `/T`. `protected_pids_unchanged` true (`core_changed` [], no overlap, no refusals). `live_profile_unchanged` true. INSTALLED unchanged. The runner process exited and 0 owned processes remained (process table).
+- Decisive frames, all in `run-20261112-075943/`:
+  - pending review: `04-pending-review.png`
+  - decisions: `05-main-decisions.png`, `05-main-decisions-desktop.png` / `-mobile.png`
+  - rework: `05-rework-before-bind-terminal.png`, `06-rework-running.png`, `06-rework-running-desktop.png` / `-mobile.png`
+  - finalized: terminal `07-finalized.png`, 1440 `07-finalized-desktop.png`, 390 `07-finalized-mobile.png`
+
+## Observation from 044325 checkpoint B (not a defect)
+
+Rework attempt a1 (agent `a70ec164d860b5f7b`, `work-rework-0208d5bc…-a1`) was held at bind but was already running. Times are from a1's subagent transcript:
+- 10:49:11.2Z: a1 started. At 10:49:13.8Z the gate held its `bind`.
+- 10:49:14.8Z: a1 read `fail_solution.py`. 10:49:17.670Z: it edited the file. 10:49:26.9Z: it ran the tests.
+- 10:49:32.430Z: a1 called `work_parallel_report` with completion. The router answered at 10:49:32.713Z with `worker lease is not active`.
+- 10:49:38.7Z: last a1 row.
+- 10:49:42.85Z: the owned processes were killed (`checkpoints.b_kill.killed_at`). This measured time replaces an earlier rough 10:50:04Z, which was the time of a later capture's kill summary.
+
+a2 (agent `acb57b27f1e502bea`) then found the fix already in the retained worktree. It read the file and ran the tests, but made no edit. Main reviewed the worktree as it was and approved, noting in its evidence that what changed the file is not identified. 002502's final note shows the same kind of approval.
+
+Evidence: `run-20261112-044325/rework-a1-transcript/` holds the redacted transcript, the meta, a note and SHA256SUMS. The raw transcript was withheld from docs/ because it contains the dead owned router's worker_token. It is at `.local/tmp/work-parallel/.local/evidence-private/run-20261112-044325/rework-a1-transcript/`, relative to the ciel-runtime root.

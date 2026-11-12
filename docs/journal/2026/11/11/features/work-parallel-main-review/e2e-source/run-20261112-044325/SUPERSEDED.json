@@ -1,0 +1,9 @@
+{
+  "status": "superseded",
+  "release_evidence": false,
+  "superseded_by": "run-20261112-075943",
+  "at": "2026-11-12T13:59:47.6952220Z",
+  "reason": "outcome failed 30/31; the only false item, snapshot_unchanged_after_run, came from harness classification (engine-written .claude-plugin/types/.gitignore and tsconfig.json absent from INSTALLED were counted as product). Fixed in runner a4de6539; offline replay on this run gives product [] (prepared-installed-runner-engine-types/replay-044325-engine-types.txt).",
+  "product_defect": false,
+  "evidence_kept": true
+}

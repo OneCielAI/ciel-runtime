@@ -1,0 +1,19 @@
+{"at": 1794492100.4161727, "gate": "wake-prepare", "armed": true}
+{"at": 1794492225.9737, "observe": "review_wake", "operation": "prepare", "lease_id": "1aaa883da48e48748244a2a8c2afdc81", "attempt_id": null, "state": null}
+{"at": 1794492225.9737, "gate": "wake-prepare", "held": {"at": 1794492225.9737, "tool": "work_parallel_event", "event": "review_wake", "operation": "prepare", "lease_id": "1aaa883da48e48748244a2a8c2afdc81"}}
+{"at": 1794492230.1566994, "observe": "review_wake", "operation": "prepare", "lease_id": "3ac5e2171bc74d1e9409581b52428341", "attempt_id": null, "state": null}
+{"at": 1794492230.1582096, "gate": "wake-prepare", "held": {"at": 1794492230.1582096, "tool": "work_parallel_event", "event": "review_wake", "operation": "prepare", "lease_id": "3ac5e2171bc74d1e9409581b52428341"}}
+{"at": 1794492258.0982816, "gate": "wake-prepare", "disarmed": true}
+{"at": 1794492258.0997822, "gate": "rework-bind", "armed": true}
+{"at": 1794492282.4033957, "observe": "review_wake", "operation": "prepare", "lease_id": "2c5b2138321946ab825e611e318bd5f9", "attempt_id": null, "state": null}
+{"at": 1794492283.754932, "observe": "review_wake", "operation": "prepare", "lease_id": "05b499a6c759484886384c588aec2ea0", "attempt_id": null, "state": null}
+{"at": 1794492284.2320812, "observe": "review_wake", "operation": "record", "lease_id": "2c5b2138321946ab825e611e318bd5f9", "attempt_id": "320dcbea0f5c4c6ca8b43d566b3b82b5", "state": "queued"}
+{"at": 1794492285.0798311, "observe": "review_wake", "operation": "prepare", "lease_id": "3ac5e2171bc74d1e9409581b52428341", "attempt_id": null, "state": null}
+{"at": 1794492285.087247, "observe": "review_wake", "operation": "record", "lease_id": "05b499a6c759484886384c588aec2ea0", "attempt_id": "14aa49de643748069da29e04c81af176", "state": "appended"}
+{"at": 1794492286.350881, "observe": "review_wake", "operation": "prepare", "lease_id": "1aaa883da48e48748244a2a8c2afdc81", "attempt_id": null, "state": null}
+{"at": 1794492286.3739736, "observe": "review_wake", "operation": "record", "lease_id": "3ac5e2171bc74d1e9409581b52428341", "attempt_id": "e4a3e8e61ad74c9d920f829f522f8c62", "state": "appended"}
+{"at": 1794492287.5263398, "observe": "review_wake", "operation": "record", "lease_id": "1aaa883da48e48748244a2a8c2afdc81", "attempt_id": "cb1702f41eae4325a4498eba6db1dac8", "state": "appended"}
+{"at": 1794492332.0862982, "gate": "rework-bind", "held": {"at": 1794492332.0862982, "tool": "work_parallel_event", "event": "bind", "operation": null, "lease_id": "7f2c1712b973a0f1136823c94dff60d5"}}
+{"at": 1794492363.43884, "gate": "rework-bind", "disarmed": true}
+{"at": 1794492427.432398, "observe": "review_wake", "operation": "prepare", "lease_id": "7f2c1712b973a0f1136823c94dff60d5", "attempt_id": null, "state": null}
+{"at": 1794492428.8723676, "observe": "review_wake", "operation": "record", "lease_id": "7f2c1712b973a0f1136823c94dff60d5", "attempt_id": "0c0917ee936b499f80f11115757460c9", "state": "queued"}

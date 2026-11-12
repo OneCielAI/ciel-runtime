@@ -1,0 +1,139 @@
+{
+  "at": 1794492230.1038115,
+  "root": 100412,
+  "processes": [
+    {
+      "ProcessId": 100412,
+      "ParentProcessId": 97968,
+      "Name": "conhost.exe",
+      "CreationDateUtc": "2026-11-12T14:01:40.4197280Z",
+      "CommandLine": "conhost.exe cmd /k C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-20261112-075943\\first.cmd"
+    },
+    {
+      "ProcessId": 13800,
+      "ParentProcessId": 100412,
+      "Name": "cmd.exe",
+      "CreationDateUtc": "2026-11-12T14:01:40.4307540Z",
+      "CommandLine": "cmd /k C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-20261112-075943\\first.cmd"
+    },
+    {
+      "ProcessId": 90172,
+      "ParentProcessId": 13800,
+      "Name": "py.exe",
+      "CreationDateUtc": "2026-11-12T14:01:42.1537770Z",
+      "CommandLine": "py  -3 \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-snapshot-20261112-075943\\ciel_runtime.py\" cli -- --session-id 99999999-9999-4999-8999-999999999991 --debug-file \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-20261112-075943\\first-claude-debug.txt\""
+    },
+    {
+      "ProcessId": 87476,
+      "ParentProcessId": 90172,
+      "Name": "python.exe",
+      "CreationDateUtc": "2026-11-12T14:01:42.1651000Z",
+      "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-snapshot-20261112-075943\\ciel_runtime.py\" cli -- --session-id 99999999-9999-4999-8999-999999999991 --debug-file \"C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-20261112-075943\\first-claude-debug.txt\""
+    },
+    {
+      "ProcessId": 84456,
+      "ParentProcessId": 87476,
+      "Name": "python.exe",
+      "CreationDateUtc": "2026-11-12T14:01:52.5207900Z",
+      "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-snapshot-20261112-075943\\ciel_runtime.py serve"
+    },
+    {
+      "ProcessId": 2932,
+      "ParentProcessId": 87476,
+      "Name": "conhost.exe",
+      "CreationDateUtc": "2026-11-12T14:01:57.6838710Z",
+      "CommandLine": "\\\\?\\C:\\WINDOWS\\system32\\conhost.exe --headless --width 120 --height 30 --signal 0x360 --server 0x358"
+    },
+    {
+      "ProcessId": 10872,
+      "ParentProcessId": 87476,
+      "Name": "claude.exe",
+      "CreationDateUtc": "2026-11-12T14:01:57.6921440Z",
+      "CommandLine": "C:\\Users\\djlov\\.local\\bin\\claude.exe --dangerously-skip-permissions --permission-mode bypassPermissions --disallowedTools WebSearch,WebFetch --model ciel-runtime-cielairouter-_walkie_opus55-sol61-fast --mcp-config C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-jj42o_sc\\config\\web-tools-mcp.json C:\\Users\\djlov\\AppData\\Local\\Temp\\ciel-owned-main-review-jj42o_sc\\config\\mcp-launches\\07bc9fefa9e546d8ba7f0d844149a8c8\\claude-mcp.json --append-system-prompt \"You are running inside Claude Code through the ciel-runtime router. Do not stop after announcing what you plan to do. When the user asks you to create, edit, or run code, immediately use the available Claude Code tools such as Write, Edit, Read, and Bash as appropriate, except while Claude Code is in Plan Mode. In Plan Mode, first explore/read as needed, write or update the plan file named by the plan_mode attachment, and only then call ExitPlanMode to leave Plan Mode; when bypass permissions is active, ciel-runtime auto-approves that plan exit, so do not ask the user separately and do not call EnterPlanMode again. then report the concrete result. If the task has several reasonable implementation parts, do all in-scope parts; do not ask the user which part to start or whether to do all unless the user explicitly requested a choice. If you decide not to use tools, provide the complete requested code or answer in the same turn. Use skills only when the user's request clearly matches that skill; never invoke keybindings-help unless the user asks about keybindings. Keep final answers concise and do not expose hidden chain-of-thought. When calling Claude Code tools, use exactly the tool schema and do not invent extra fields. Bash: command (string), description (string), timeout (integer), run_in_background (boolean). Read: file_path (string), offset (integer), limit (integer). Write: file_path (string), content (string). Edit: file_path (string), old_string (string), new_string (string), replace_all (boolean). TaskList: no input. TaskUpdate: taskId (string), optional status enum exactly one of pending, in_progress, completed, deleted. CronCreate: cron (standard 5-field local-time cron string), prompt (string), optional recurring (boolean), optional durable (boolean). CronDelete: id (string returned by CronCreate). CronList: no input. Do not call WaitForMcpServers; it is a Claude Code lifecycle tool that may exist but is often not enabled in the current routed context. If an MCP server appears disconnected, use only tools present in the current tool list, retry ordinary MCP tools when available, or report the concrete connection state. Never write pseudo tool calls, partial JSON, or markdown code fences when a real Claude Code tool call is required.\" --messaging-socket-path \\\\.\\pipe\\LOCAL\\cc-msg-c6f8764196e87415cad3aabbcffa95ea --settings {\\\"crossSessionInbound\\\":\\\"accept\\\"} --plugin-dir C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-snapshot-20261112-075943\\ciel_runtime_support\\claude_mods\\ciel-work --session-id 99999999-9999-4999-8999-999999999991 --debug-file C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-20261112-075943\\first-claude-debug.txt"
+    },
+    {
+      "ProcessId": 20356,
+      "ParentProcessId": 87476,
+      "Name": "python.exe",
+      "CreationDateUtc": "2026-11-12T14:01:57.7011140Z",
+      "CommandLine": "C:\\Users\\djlov\\AppData\\Local\\Python\\pythoncore-3.14-64\\python.exe C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\owned-main-review-snapshot-20261112-075943\\ciel_runtime_support\\windows_console_guard.py 87476 487 3"
+    },
+    {
+      "ProcessId": 93064,
+      "ParentProcessId": 10872,
+      "Name": "cmd.exe",
+      "CreationDateUtc": "2026-11-12T14:02:01.3723870Z",
+      "CommandLine": "C:\\WINDOWS\\system32\\cmd.exe /d /s /c \"C:\\Program^ Files\\nodejs\\npx.cmd ^\"-y^\" ^\"ddg-mcp-search^\"\""
+    },
+    {
+      "ProcessId": 93820,
+      "ParentProcessId": 93064,
+      "Name": "conhost.exe",
+      "CreationDateUtc": "2026-11-12T14:02:01.3799520Z",
+      "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"
+    },
+    {
+      "ProcessId": 68548,
+      "ParentProcessId": 10872,
+      "Name": "uvx.exe",
+      "CreationDateUtc": "2026-11-12T14:02:01.3820040Z",
+      "CommandLine": "\"C:\\Program Files\\Python311\\Scripts\\uvx.exe\" --with mcp<2 mcp-server-fetch"
+    },
+    {
+      "ProcessId": 75864,
+      "ParentProcessId": 68548,
+      "Name": "conhost.exe",
+      "CreationDateUtc": "2026-11-12T14:02:01.3891500Z",
+      "CommandLine": "\\??\\C:\\WINDOWS\\system32\\conhost.exe 0x4"
+    },
+    {
+      "ProcessId": 83736,
+      "ParentProcessId": 68548,
+      "Name": "uv.exe",
+      "CreationDateUtc": "2026-11-12T14:02:01.4043750Z",
+      "CommandLine": "\"C:\\Program Files\\Python311\\Scripts\\uv.exe\" tool uvx --with mcp<2 mcp-server-fetch"
+    },
+    {
+      "ProcessId": 101456,
+      "ParentProcessId": 93064,
+      "Name": "node.exe",
+      "CreationDateUtc": "2026-11-12T14:02:01.5100600Z",
+      "CommandLine": "\"C:\\Program Files\\nodejs\\\\node.exe\"  \"C:\\Program Files\\nodejs\\\\node_modules\\npm\\bin\\npx-cli.js\" \"-y\" \"ddg-mcp-search\""
+    },
+    {
+      "ProcessId": 102428,
+      "ParentProcessId": 83736,
+      "Name": "mcp-server-fetch.exe",
+      "CreationDateUtc": "2026-11-12T14:02:02.1037650Z",
+      "CommandLine": "\"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\""
+    },
+    {
+      "ProcessId": 3408,
+      "ParentProcessId": 102428,
+      "Name": "python.exe",
+      "CreationDateUtc": "2026-11-12T14:02:02.1179890Z",
+      "CommandLine": "\"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\python.exe\" \"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\""
+    },
+    {
+      "ProcessId": 15968,
+      "ParentProcessId": 3408,
+      "Name": "python.exe",
+      "CreationDateUtc": "2026-11-12T14:02:02.1380120Z",
+      "CommandLine": "\"C:\\Program Files\\Python311\\python.exe\" \"C:\\Users\\djlov\\AppData\\Local\\uv\\cache\\archive-v0\\j5dwYgQZ9ZK3o9ns5SO0A\\Scripts\\mcp-server-fetch.exe\""
+    },
+    {
+      "ProcessId": 87432,
+      "ParentProcessId": 101456,
+      "Name": "cmd.exe",
+      "CreationDateUtc": "2026-11-12T14:02:05.9511620Z",
+      "CommandLine": "C:\\WINDOWS\\system32\\cmd.exe /d /s /c ddg-mcp"
+    },
+    {
+      "ProcessId": 72488,
+      "ParentProcessId": 87432,
+      "Name": "node.exe",
+      "CreationDateUtc": "2026-11-12T14:02:05.9874300Z",
+      "CommandLine": "\"node\"   \"C:\\Users\\djlov\\AppData\\Local\\npm-cache\\_npx\\469264b19fe50db8\\node_modules\\.bin\\\\..\\ddg-mcp-search\\dist\\index.js\" "
+    }
+  ]
+}

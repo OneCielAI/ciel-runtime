@@ -1,0 +1,213 @@
+--- owned_main_review_probe_v2.py	2026-11-12 01:57:11.891176600 -0600
++++ owned_main_review_probe_installed.py	2026-11-12 03:57:28.048382600 -0600
+@@ -1,5 +1,10 @@
+ """Owned real-console E2E for Work main review and rework recovery.
+ 
++Installed-build variant: the product source is an INSTALLED npm package root
++given as the only argument (never the worktree). It is copied into a per-run
++owned snapshot under .local and verified file by file against the installed
++manifest; the installed path itself is never an owned-kill marker.
++
+ Creates only owned state: an immutable snapshot of the frozen source, a temp
+ CIEL_RUNTIME_CONFIG_DIR, one git repository, one router port, fixed Claude
+ session, conhost process trees and evidence under this folder. It never touches
+@@ -27,23 +32,29 @@
+ import urllib.request
+ from pathlib import Path
+ 
++# Worktree: harness tools (console driver, screenshot helper) and owned .local only.
+ SOURCE = Path(__file__).resolve().parents[8]
++if len(sys.argv) != 2 or not Path(sys.argv[1]).is_dir():
++    raise SystemExit("usage: owned_main_review_probe_installed.py <installed ciel-runtime package root>")
++# Product source: the installed package root. It is read, never written, and never
++# used as an owned marker (a live session may later run from it).
++INSTALLED = Path(sys.argv[1]).resolve()
++if INSTALLED == SOURCE or SOURCE in INSTALLED.parents:
++    raise SystemExit("installed path must not be the worktree or inside it: " + str(INSTALLED))
+ TOOLS = SOURCE / "docs/journal/2026/11/03/features/work-parallel/evidence/menu-ui"
+-# Current integrated tree named by the team lead: freeze eab3ad33 prompt registry
+-# (side-intake.js 9b955068), review-projection fix and rework bind/launch_bound
+-# fix (register.js ea7768f5, work_parallel_mcp.py 704cb811,
+-# work_parallel_finalization.py 5c9afdc5).
++# Committed LF blob hashes of the published build (commit 34966b6 code, aafbe1c
++# docs), named by the team lead for the installed npm package root.
+ KEY_HASHES = {
+     "ciel_runtime_support/work_parallel_finalization.py":
+-        "5c9afdc540aff656e630fd334b93e25fc74d98f973127baadbe15c3cd989d342",
++        "79a573b67ac69a2649df9960841fbd026876ad7684d2584d6c9d63ba8000664d",
+     "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js":
+         "ea7768f5348e61883cfe6833420abf0e98e1e001576c5868fb1b4005d526271a",
+     "ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js":
+-        "9b9550685fa278f330f45b06a1a996ac6e52c7034c208f38518d8ebd1a47d1af",
++        "dcf8fbbcf33cfeadd9e87890f2c62b790400e4aaca6105138ed55db03f7cac32",
+     "ciel_runtime_support/claude_mods/ciel-work/types/index.d.ts":
+-        "542ff492abb1eb2f2363c45acc8eaa75002a71cbca4772aa6474537eece6030a",
++        "4110db606785f32159b68bf2e77fdfb0e35ee46533853caab5917e9ce048f314",
+     "ciel_runtime_support/work_parallel_mcp.py":
+-        "704cb81151f6553577516a98a2a3fce39e3b2966da6a42a8d220512a0913f6f0",
++        "ccf397c62c084241253723db5a9bbba09240bec09e2dba37ca14de83ebb7c03f",
+ }
+ # Live Ciel launchers and their cmd parents. Every current descendant of the
+ # launchers (python routers, claude.exe, node.exe/MCP children) is protected too.
+@@ -73,7 +84,7 @@
+ # Exact executed sources, preserved in the run folder before anything launches.
+ DRIVER_DIR = OUT / "driver-source"
+ DRIVER_DIR.mkdir()
+-DRIVER_SOURCES = {"owned_main_review_probe_v2.py": Path(__file__).resolve(),
++DRIVER_SOURCES = {Path(__file__).name: Path(__file__).resolve(),
+                   "console_driver.py": BASE / "console_driver.py",
+                   "shot_hwnd.ps1": BASE / "shot_hwnd.ps1"}
+ DRIVER_HASHES = {}
+@@ -100,7 +111,11 @@
+     return hashlib.sha256(path.read_bytes()).hexdigest()
+ 
+ 
+-SNAP_DIRS = ("ciel_runtime_support", "scripts", "tests", "npm-bin")
++SNAP_DIRS_FULL = ("ciel_runtime_support", "scripts", "tests", "npm-bin")
++# The npm package root has no tests/ dir. Only tests may be dropped, and only when
++# the installed tree lacks it; every other dir must exist or copytree fails.
++TESTS_DROPPED = not (INSTALLED / "tests").is_dir()
++SNAP_DIRS = tuple(name for name in SNAP_DIRS_FULL if not (TESTS_DROPPED and name == "tests"))
+ IGNORED = ("__pycache__", ".pytest_cache", ".ruff_cache")
+ 
+ 
+@@ -125,29 +140,32 @@
+ 
+ 
+ def build_snapshot() -> dict:
+-    """Per-run byte copy of the current worktree, verified file by file."""
++    """Per-run byte copy of the INSTALLED package root, verified file by file
++    against the installed manifest. The installed tree is only read."""
+     if SNAP.exists():
+         raise RuntimeError("snapshot already exists")
+-    source_before = tree_manifest(SOURCE)
++    source_before = tree_manifest(INSTALLED)
+     key_source = {rel: source_before.get(rel, "") for rel in KEY_HASHES}
+     if key_source != KEY_HASHES:
+-        raise RuntimeError(f"current worktree key hashes differ: {key_source}")
++        raise RuntimeError(f"installed tree key hashes differ: {key_source}")
+     SNAP.mkdir()
+     ignored = shutil.ignore_patterns(*IGNORED, "*.pyc")
+     for name in SNAP_DIRS:
+-        shutil.copytree(SOURCE / name, SNAP / name, ignore=ignored)
+-    for path in SOURCE.iterdir():
++        shutil.copytree(INSTALLED / name, SNAP / name, ignore=ignored)
++    for path in INSTALLED.iterdir():
+         if path.is_file() and path.suffix != ".pyc":
+             shutil.copy2(path, SNAP / path.name)
+     snap = tree_manifest(SNAP)
+-    source_after = tree_manifest(SOURCE)
++    source_after = tree_manifest(INSTALLED)
+     if source_after != source_before:
+         changed = sorted(k for k in set(source_before) | set(source_after)
+                          if source_before.get(k) != source_after.get(k))
+-        raise RuntimeError(f"worktree changed while snapshotting: {changed[:20]}")
++        raise RuntimeError(f"installed tree changed while snapshotting: {changed[:20]}")
+     mismatch = sorted(k for k in set(snap) | set(source_before) if snap.get(k) != source_before.get(k))
+     if mismatch:
+-        raise RuntimeError(f"snapshot differs from worktree: {mismatch[:20]}")
++        raise RuntimeError(f"snapshot differs from installed tree: {mismatch[:20]}")
++    (OUT / "installed-manifest.json").write_text(json.dumps(source_before, indent=1, sort_keys=True),
++                                                 encoding="utf-8")
+     (OUT / "snapshot-manifest.json").write_text(json.dumps(snap, indent=1, sort_keys=True), encoding="utf-8")
+     for path in SNAP.rglob("*"):
+         if path.is_file():
+@@ -156,8 +174,11 @@
+             except OSError:
+                 pass
+     digest = hashlib.sha256(json.dumps(snap, sort_keys=True).encode()).hexdigest()
++    installed_digest = hashlib.sha256(json.dumps(source_before, sort_keys=True).encode()).hexdigest()
+     return {"files": len(snap), "manifest_sha256": digest, "key_hashes": {k: snap[k] for k in KEY_HASHES},
+-            "snapshot": str(SNAP), "mismatch": mismatch}
++            "snapshot": str(SNAP), "mismatch": mismatch, "installed": str(INSTALLED),
++            "installed_files": len(source_before), "installed_manifest_sha256": installed_digest,
++            "snap_dirs": list(SNAP_DIRS), "tests_dropped": TESTS_DROPPED}
+ 
+ 
+ def clean_environment() -> tuple[dict[str, str], list[str]]:
+@@ -390,6 +411,10 @@
+         record.update(refused=True, reason="identity appears in protected snapshot")
+         write_kill(record)
+         raise RuntimeError(f"refused protected identity {(pinned.pid, pinned.created)}")
++    if references_installed(row.get("CommandLine")):
++        record.update(refused=True, reason="command line references the shared installed path")
++        write_kill(record)
++        raise RuntimeError(f"refused installed-path identity {(pinned.pid, pinned.created)}")
+     if not pinned.alive():
+         record.update(skipped="exited before kill")
+         write_kill(record)
+@@ -433,6 +458,11 @@
+                           "protected_chain": chain(protected_now, key)
+                                              or chain(live_before, key)})
+                     continue
++                if references_installed(row.get("CommandLine")):
++                    refused_pins.append(key)
++                    diag({"kill_refused_installed": label, "identity": key,
++                          "owned_chain": chain(owned_now, key)})
++                    continue
+                 pin = Pinned(*key)
+                 if not pin.handle:
+                     continue  # exited, or the PID now names a different process
+@@ -447,7 +477,7 @@
+                  "command_line": str(rows_by_id[k].get("CommandLine") or "")[:300]} for k in initial]},
+                 ensure_ascii=False) + "\n")
+         if refused_pins:
+-            raise RuntimeError(f"{label}: protected identity inside owned tree: {refused_pins}")
++            raise RuntimeError(f"{label}: protected or installed-path identity inside owned tree: {refused_pins}")
+         # Phase 2: frozen tree, leaves first.
+         killed, rounds = [], 0
+         while rounds < 2000:
+@@ -495,8 +525,23 @@
+             pin.close()
+ 
+ 
++def _path_text(value) -> str:
++    return str(value).replace("/", "\\").lower()
++
++
++INSTALLED_TEXT = _path_text(INSTALLED)
++
++
++def references_installed(command) -> bool:
++    """True when a command line names the shared installed package path (any
++    slash form, any case). Such a process may be a live session: never owned."""
++    return bool(command) and INSTALLED_TEXT in _path_text(command)
++
++
+ def register_discovered_owned(row: dict, label: str, markers: list[str]) -> None:
+     command = str(row.get("CommandLine") or "")
++    if references_installed(command):
++        raise RuntimeError(f"{label}: command line references the shared installed path; never owned")
+     if not any(marker in command for marker in markers):
+         raise RuntimeError(f"{label}: process command line has no owned marker")
+     pid = int(row["ProcessId"])
+@@ -518,6 +563,9 @@
+     roots = [row for row in rows if int(row["ParentProcessId"]) not in row_pids]
+     for row in roots:
+         pid = int(row["ProcessId"])
++        if references_installed(row.get("CommandLine")):
++            diag({"final_kill_skipped_installed": identity(row)})
++            continue
+         try:
+             register_discovered_owned(row, "final-owned-command", markers)
+             kill_tree(pid, "final-owned-command")
+@@ -578,6 +626,9 @@
+ 
+ port = free_port()
+ scratch = Path(tempfile.mkdtemp(prefix="ciel-owned-main-review-"))
++for _marker in (BASE, SNAP, scratch):
++    if _path_text(_marker) in INSTALLED_TEXT or INSTALLED_TEXT in _path_text(_marker):
++        raise RuntimeError(f"owned marker {_marker} overlaps the installed path {INSTALLED}")
+ workspace = scratch / "workspace"
+ config = scratch / "config"
+ # CIEL_RUNTIME_TEST_ISOLATED redirects the launcher's CLI assets (settings,
+@@ -1481,6 +1532,9 @@
+                  "CIEL_RUNTIME_TEST_ISOLATED", "CIEL_RUNTIME_ROUTER_BIND_HOST",
+                  "CIEL_RUNTIME_ROUTER_CLIENT_HOST", "CLAUDE_CONFIG_DIR"}
+ result = {"out": str(OUT), "base": str(BASE), "driver_hashes": DRIVER_HASHES, "snapshot": snapshot_proof, "session": SESSION,
++          "installed_source": {"path": str(INSTALLED), "snap_dirs": list(SNAP_DIRS), "tests_dropped": TESTS_DROPPED,
++                               "installed_files": snapshot_proof["installed_files"],
++                               "installed_manifest_sha256": snapshot_proof["installed_manifest_sha256"]},
+           "port": port, "router_bind": ROUTER_BIND, "gate_host": GATE_HOST, "items": items,
+           "item_priority": item_priority, "policy": policy,
+           "workspace_state_digest": workspace_state_digest, "provider_config_proof": config_proof,

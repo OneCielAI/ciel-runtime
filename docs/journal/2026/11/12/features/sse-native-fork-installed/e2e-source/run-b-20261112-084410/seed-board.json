@@ -1,0 +1,22 @@
+{
+ "seeded_goal": "n1",
+ "seeded_tree_ids": [
+  "n1",
+  "n2"
+ ],
+ "version": 1,
+ "nodes": [
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "Synthetic Walkie readiness review",
+   "priority": "P4"
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "Review owned Walkie target thread",
+   "priority": null
+  }
+ ]
+}

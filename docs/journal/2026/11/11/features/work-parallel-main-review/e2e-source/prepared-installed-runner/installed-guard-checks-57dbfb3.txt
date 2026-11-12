@@ -1,0 +1,10 @@
+installed C:\Users\djlov\.local\share\ciel-runtime-57dbfb3ac9c8d9f1a42e89a038d27e16f4fab409
+{
+ "live_session_backslash": true,
+ "live_session_forward_slash_upper": true,
+ "owned_snapshot_not_matched": true,
+ "other_install_not_matched": true,
+ "empty_not_matched": true,
+ "markers_do_not_overlap": true
+}
+all True

@@ -1,0 +1,12 @@
+{
+ "source": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-57dbfb3ac9c8d9f1a42e89a038d27e16f4fab409",
+ "dest": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\sse-true-fork\\e2e\\run-copies\\run-a-20261112-083717",
+ "files": 573,
+ "missing": [],
+ "extra": [],
+ "changed": [],
+ "installed_changed_since_preflight": [],
+ "digest": "22932603388589fa0f0d06b4219db2824622335b38d4ac724b20ac555bfac266",
+ "expected_digest": "22932603388589fa0f0d06b4219db2824622335b38d4ac724b20ac555bfac266",
+ "passed": true
+}

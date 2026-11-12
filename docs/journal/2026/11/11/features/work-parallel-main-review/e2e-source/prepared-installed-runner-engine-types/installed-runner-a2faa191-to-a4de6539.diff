@@ -1,0 +1,33 @@
+--- /tmp/probe_installed_a2faa191.py	2026-11-12 07:58:24.320801700 -0600
++++ owned_main_review_probe_installed.py	2026-11-12 07:58:24.393698900 -0600
+@@ -122,8 +122,16 @@
+ ENGINE_TYPES = "ciel_runtime_support/claude_mods/ciel-work/.claude-plugin/types/"
+ 
+ 
+-def engine_generated(rel: str) -> bool:
+-    """Claude Code writes these git-ignored plugin types at load (debug: wrote .claude-plugin/types/...)."""
++def engine_generated(rel: str, installed: dict | None = None) -> bool:
++    """Claude Code writes these git-ignored plugin types at load (debug: wrote .claude-plugin/types/...).
++
++    With the INSTALLED manifest: a path under ENGINE_TYPES (including .gitignore and
++    tsconfig.json, which the engine also writes) is engine-generated only when the
++    installed package does not contain it; a path that exists in INSTALLED and
++    changes is a product change (run-20261112-044325 classified the engine-written
++    .gitignore/tsconfig.json as product)."""
++    if installed is not None:
++        return rel.startswith(ENGINE_TYPES) and rel not in installed
+     return rel.startswith(ENGINE_TYPES) and rel not in (ENGINE_TYPES + ".gitignore", ENGINE_TYPES + "tsconfig.json")
+ 
+ 
+@@ -2032,8 +2040,9 @@
+     snapshot_after = tree_manifest(SNAP)
+     changed_snapshot = sorted(k for k in set(snapshot_before) | set(snapshot_after)
+                               if snapshot_before.get(k) != snapshot_after.get(k))
+-    engine_changes = [k for k in changed_snapshot if engine_generated(k)]
+-    product_changes = [k for k in changed_snapshot if not engine_generated(k)]
++    installed_manifest = json.loads((OUT / "installed-manifest.json").read_text(encoding="utf-8"))
++    engine_changes = [k for k in changed_snapshot if engine_generated(k, installed_manifest)]
++    product_changes = [k for k in changed_snapshot if not engine_generated(k, installed_manifest)]
+     result["snapshot_changes"] = {"engine_generated_excluded": engine_changes, "product": product_changes}
+     result["snapshot_unchanged_after_run"] = not product_changes
+     if result.get("acceptance") is not None:

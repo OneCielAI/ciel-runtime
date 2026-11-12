@@ -1,0 +1,31 @@
+Side receipts
+Newest durable intake receipts. Detail responses are redacted by the server.
+All
+P1
+All stages
+received
+processing
+processed
+failed
+quarantined
+duplicate
+Search
+received 0
+processing 0
+processed 1
+failed 0
+quarantined 0
+duplicate 0
+[com.ciel.walkie.support.message · message.created] Synthetic target 1002 readiness request; full thread is canonical.
+P5 · processed · submitted · n1 · 11/12/2026, 8:45:02 AM
+Details
+Side
+Board v3 · side answers waiting for main review and side advice waiting for main action.
+Pending reviews (1)
+Message 1002 in thread 1000 asks for the synthetic Walkie readiness review (Work n1, step n2) to report within 30 minutes whether the thread can proceed. Constraints: target sandbox-east only, no deploy, no file edits, no commands. Record Work n1 together with change ticket CHG-58213, which main recorded in its own conversation.
+request · sent to the source
+0df469de8e4a · n1
+Mark OK
+Corrected…
+Main handoffs (0)
+No side advice is waiting for main.

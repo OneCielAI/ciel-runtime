@@ -1,0 +1,8 @@
+{
+  "supersedes": "run-20261112-044325",
+  "reason": "044325 failed 30/31 only on snapshot_unchanged_after_run: the harness classified the engine-written .claude-plugin/types/.gitignore and tsconfig.json (absent from the INSTALLED package) as product changes. Runner a4de6539 classifies a path under ENGINE_TYPES as engine-generated only when it is absent from the INSTALLED manifest; offline replay on 044325 gives product [].",
+  "superseded_record": "run-20261112-044325 (kept as evidence; SUPERSEDED.json added there)",
+  "relation_to_002502": "installed-build repetition; run-20261112-002502 stays the accepted source-tree run",
+  "runner_sha256": "a4de65392b51b5ddac14b301f7fab9c1a4f7f97c8d9a10fb748afadb3e0cbb71",
+  "installed": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-57dbfb3ac9c8d9f1a42e89a038d27e16f4fab409"
+}

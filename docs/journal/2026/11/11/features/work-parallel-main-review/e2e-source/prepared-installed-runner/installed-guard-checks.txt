@@ -1,0 +1,9 @@
+{
+ "live_session_backslash": true,
+ "live_session_forward_slash_upper": true,
+ "owned_snapshot_not_matched": true,
+ "other_install_not_matched": true,
+ "empty_not_matched": true,
+ "markers_do_not_overlap": true
+}
+all True

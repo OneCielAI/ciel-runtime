@@ -1,0 +1,29 @@
+  - Not merged: the changes are still uncommitted files in their four worktree branches. Nothing has been merged into
+    master.
+  - No task journal: I didn't write the docs/ journal your CLAUDE.md asks for, because these review steps didn't include
+    creating files in the workspace.
+
+> /work-mode
+  ⎿  ciel-work: Ciel Work parallel
+     FORKS: 0 confirmed by native agent list · main is coordinator, never a fork · side actors are separate
+     DEVICE: slots 0/6 · per priority P1 0/2 · P2 0/1 · P3 0/1 · P4 0/1 · P5 0/1
+     Policy: enabled · ledger v38 · launches/min 24 · max rework 2
+     ENDED (5)
+       n4 → work-auto-mwdma1hi-dulef886qrk · P1 worker · lease done · native idle · slot released
+       n2 → work-auto-mwdm9z73-8i6shf9coas · P1 worker · lease done · native idle · slot released
+       n4 → work-rework-7f2c1712b973a0f1136823c94dff60d5-a2 · P1 resume · lease done · native idle · slot released
+       n6 → work-auto-mwdma3gp-qfvkm6axegn · P2 worker · lease done · native idle · slot released
+work: pn8n→1work-auto-mwdma62v-a7g6prl53db · P3 worker · lease done · native idle · slot released
+     Pending native Agent dispatch: 0
+     Settings: ciel-runtime menu → LLM options → Work 병렬 실행. Policy changes do not terminate existing workers.
+
+✻ Sautéed for 31s · done 8:07 AM
+w: Work 1/1 complete [+]                                                                                            [-]
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+>
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  [_Walkie_Opus55-Sol61-Fast (cielairouter)] workspace | SSE gate on: open | ctx 90,071/872,000 tok (10.3%) | cache 9…
+  [work] 1/1 complete
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+                                                                                                        work: plan 1/1

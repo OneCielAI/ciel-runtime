@@ -1,0 +1,8 @@
+{
+  "supersedes": "run-20261112-002502",
+  "scope": "installed-build variant of the main-review E2E",
+  "reason": "002502 (passed 31/31) ran from a per-run snapshot of the worktree. This run takes the product from the installed beta npm package 0.2.51-beta.20261112-102713.57dbfb3 at INSTALLED (runner a2faa191, committed LF key hashes 79a573b6/ea7768f5/dcf8fbbc/4110db60/ccf397c6). 002502 stays as worktree evidence.",
+  "superseded_record": "run-20261112-002502/result.json (kept)",
+  "runner_sha256": "a2faa191ba9afc49a9882e7a178fc780aebbdc4d32e9d7a00ddc67b4d3098dfb",
+  "installed": "C:\\Users\\djlov\\.local\\share\\ciel-runtime-57dbfb3ac9c8d9f1a42e89a038d27e16f4fab409"
+}

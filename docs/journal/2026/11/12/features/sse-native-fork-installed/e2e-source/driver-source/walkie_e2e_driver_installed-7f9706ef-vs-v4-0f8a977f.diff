@@ -1,0 +1,375 @@
+--- walkie_e2e_driver_v4.py (sha256 0f8a977fb3f9e75542ce1dcf01e0900fca0857619c33b8ead338aafa9a3e9d7b)
++++ walkie_e2e_driver_installed.py (sha256 7f9706efffa6b42cd3c945df1a4abf085e4b681050c9e686acbdf2ed37fe19cd)
+@@ -33,26 +33,35 @@
+ SCRIPT = Path(__file__).resolve()
+ E2E = SCRIPT.parent
+ ROOT = E2E.parents[2]
+-# Product under test (team-lead 2026-11-11 release: SSE prompt-delivery fix, per-key
+-# prompt registry). Each run passes its own fresh --snapshot; the run refuses any
+-# snapshot whose product files differ from the released hashes below.
+-SNAP = E2E / 'snapshot-eab3ad33'
+-SNAP_VERIFY = E2E / 'snapshot-eab3ad33-verify.json'
+-SNAP_MANIFEST = E2E / 'snapshot-eab3ad33-manifest.json'
+-FREEZES = [('sse', ROOT / '.local/tmp/freeze-sse-eab3ad33-journal-final'), ('restart', ROOT / '.local/tmp/freeze-09255642')]
+-# Released product hashes named by the team-lead (full SHA-256), by snapshot path.
++# INSTALLED-BUILD MODE (derived from walkie_e2e_driver_v4.py 0f8a977f; team-lead 2026-11-12).
++# The product source is the installed npm package root given with --installed (commit
++# 57dbfb3, LF-normalized, no tests/). It is a shared path a live session may later be
++# started from, so this driver:
++#   - never writes into it (read + hash only);
++#   - copies it per run into run-copies/<run> and verifies the copy file by file
++#     against the installed tree before any launch;
++#   - launches, imports and probes only from that per-run copy (SNAP is set to the copy);
++#   - never uses the installed path to match, own or kill processes; owned identities
++#     come only from the exact (PID, CreationDate) tree under its own conhost root.
++INSTALLED = None          # --installed, resolved; read-only
++INSTALLED_FILES = {}      # rel -> sha256 of the installed tree at preflight
++SNAP = None               # the per-run byte copy; set in run() before any product import
++SNAP_VERIFY = None
++SNAP_MANIFEST = None
++FREEZES = []              # no freeze folders in installed mode; the key-hash pin below replaces them
++COMMIT = '57dbfb3ac9c8d9f1a42e89a038d27e16f4fab409'
++# Committed LF blob hashes (team-lead 2026-11-12), by package path. Identical at aafbe1c and
++# 57dbfb3 (57dbfb3 changes only tests/test_side_wake_protocol.py, which is not in the package).
+ EXPECTED_PRODUCT = {
+-    'ciel_runtime_support/claude_mods/ciel-work/hooks/register.js': 'eab3ad333104d0914e7dee552f241c23eb873405c85330514b9c6a9d337db31b',
+-    'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js': '9b9550685fa278f330f45b06a1a996ac6e52c7034c208f38518d8ebd1a47d1af',
+-    'ciel_runtime_support/claude_mods/ciel-work/types/index.d.ts': '542ff492abb1eb2f2363c45acc8eaa75002a71cbca4772aa6474537eece6030a',
+-    'ciel_runtime_support/work_parallel_mcp.py': '3521486981a1d99891094c56bf63e36cf4a958d5504cc2cef3c7a146ac17f717',
++    'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js': 'dcf8fbbcf33cfeadd9e87890f2c62b790400e4aaca6105138ed55db03f7cac32',
++    'ciel_runtime_support/claude_mods/ciel-work/hooks/register.js': 'ea7768f5348e61883cfe6833420abf0e98e1e001576c5868fb1b4005d526271a',
++    'ciel_runtime_support/claude_mods/ciel-work/types/index.d.ts': '4110db606785f32159b68bf2e77fdfb0e35ee46533853caab5917e9ce048f314',
++    'ciel_runtime_support/work_parallel_mcp.py': 'ccf397c62c084241253723db5a9bbba09240bec09e2dba37ca14de83ebb7c03f',
++    'ciel_runtime_support/work_parallel_finalization.py': '79a573b67ac69a2649df9960841fbd026876ad7684d2584d6c9d63ba8000664d',
+ }
+-# The same released bytes as listed by the SSE freeze's SHA256SUMS.
+-EXPECTED_SSE_FREEZE = {
+-    'hooks/register.js': EXPECTED_PRODUCT['ciel_runtime_support/claude_mods/ciel-work/hooks/register.js'],
+-    'hooks/side-intake.js': EXPECTED_PRODUCT['ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js'],
+-    'types/index.d.ts': EXPECTED_PRODUCT['ciel_runtime_support/claude_mods/ciel-work/types/index.d.ts'],
+-}
++EXPECTED_SSE_FREEZE = {}
++# Directories present in the package that a run may not carry over from elsewhere.
++INSTALLED_FORBIDDEN_TOP = {'.git', '.local', 'tests'}
+ PROMPT_SUBMIT_LOG = '$.prompt.submit (ciel-work): '
+ FREEZE_MAP = {'./hooks/': 'ciel_runtime_support/claude_mods/ciel-work/hooks/', 'hooks/': 'ciel_runtime_support/claude_mods/ciel-work/hooks/',
+               './types/': 'ciel_runtime_support/claude_mods/ciel-work/types/', 'types/': 'ciel_runtime_support/claude_mods/ciel-work/types/',
+@@ -96,9 +105,9 @@
+ STRIP_PREFIXES = ('CIEL_RUNTIME_', 'CLAUDE', 'ANTHROPIC', 'CODEX', 'OPENAI', 'MAX_MCP')
+ CONTRACT_LAST = 'The host validates and commits every field.'
+ B_MODEL = '_Walkie_Opus55-Sol61-Fast'
+-HARNESS_FILES = ['walkie_e2e_driver_v4.py', 'owned_process_control.py', 'test_owned_process_control.py',
+-                 'raw_text_inventory.py', 'test_raw_text_inventory.py', 'test_driver_assertions.py', 'console_driver.py', 'shot_hwnd.ps1',
+-                 'start_detached.py', 'make_snapshot_v4.py', 'check_freeze_injection.py']
++HARNESS_FILES = ['walkie_e2e_driver_installed.py', 'walkie_e2e_driver_v4.py', 'owned_process_control.py', 'test_owned_process_control.py',
++                 'raw_text_inventory.py', 'test_raw_text_inventory.py', 'test_driver_assertions.py', 'test_installed_driver.py',
++                 'console_driver.py', 'shot_hwnd.ps1', 'start_detached_installed.py', 'check_freeze_injection.py']
+ OTHER_E2E_MARKERS = ('owned-main-review', 'owned_main_review', 'owned-scheduler', 'owned_side_probe', 'stop_block_probe',
+                      'state_fence_probe', 'owned-restart', 'ciel-owned-', 'ciel-sse-true-fork')
+ 
+@@ -258,7 +267,7 @@
+     return hashes
+ 
+ UNIT_GATE_FILES = ('owned_process_control.py', 'test_owned_process_control.py', 'raw_text_inventory.py', 'test_raw_text_inventory.py',
+-                   'test_driver_assertions.py', 'walkie_e2e_driver_v4.py')
++                   'test_driver_assertions.py', 'walkie_e2e_driver_installed.py', 'test_installed_driver.py')
+ 
+ def harness_unit_gate(out):
+     # Unit tests of the copied owned_process_control.py (fake process table) and
+@@ -267,7 +276,9 @@
+     folder = out / 'harness'
+     for name in UNIT_GATE_FILES:
+         if not (folder / name).exists(): raise SystemExit('unit gate: harness copy missing ' + name)
+-    done = subprocess.run([sys.executable, '-B', '-m', 'unittest', 'test_owned_process_control', 'test_raw_text_inventory', 'test_driver_assertions', '-v'], cwd=folder,
++    # test_driver_assertions runs against THIS driver (DRIVER_UNDER_TEST), not v4.
++    done = subprocess.run([sys.executable, '-B', '-m', 'unittest', 'test_owned_process_control', 'test_raw_text_inventory', 'test_driver_assertions',
++                           'test_installed_driver', '-v'], cwd=folder, env=dict(os.environ, DRIVER_UNDER_TEST=SCRIPT.name),
+                           stdin=subprocess.DEVNULL, capture_output=True, text=True, timeout=300, creationflags=0x08000000)
+     (out / 'harness-unittest.txt').write_text(f'returncode={done.returncode}\n{done.stdout}{done.stderr}', encoding='utf-8')
+     ran = re.search(r'Ran (\d+) tests?', done.stderr)
+@@ -785,10 +796,30 @@
+     outside = {k: v for k, v in paths.items() if not v.lower().startswith(root)}
+     return paths, outside
+ 
+-def classify_copy_path(rel):
++def classify_copy_path(rel, installed=None):
++    """Classify one run-copy path that differs from the INSTALLED manifest (team-lead 2026-11-12).
++
++    Claude Code writes ciel-work/.claude-plugin/types/ (.gitignore, tsconfig.json and the
++    claude-code*/ dirs) into the run copy when it loads the mod; none of it is in git or the
++    npm package. Such a path is engine-written only when it is ABSENT from INSTALLED. A
++    path that exists in INSTALLED and changed is 'other' (a failure), whatever its location.
++    With installed=None (v4 semantics) the path pattern alone decides.
++    """
+     if '/__pycache__/' in '/' + rel and rel.endswith('.pyc'): return 'bytecode'
+-    if '/.claude-plugin/types/' in '/' + rel: return 'engine_written_types'
++    if '/.claude-plugin/types/' in '/' + rel and (installed is None or rel not in installed): return 'engine_written_types'
+     return 'other'
++
++def run_copy_after_report(copy_now, manifest, home):
++    """Diff of the run copy after the run against the INSTALLED manifest, membership-classified."""
++    extras = sorted(set(copy_now) - set(manifest))
++    changed = sorted(r for r, d in manifest.items() if copy_now.get(r) != d)
++    diff_paths = extras + changed
++    classified = {r: classify_copy_path(r, manifest) for r in diff_paths}
++    return {'extras': extras, 'changed': changed, 'classified': classified,
++            'engine_written': sorted(r for r, c in classified.items() if c == 'engine_written_types'),
++            'unexpected': sorted(r for r, c in classified.items() if c == 'other'),
++            'types_tool_keys': {r: types_key_diff(Path('/nonexistent'), Path(home) / r) for r, c in classified.items()
++                                if c == 'engine_written_types' and r.endswith('index.d.ts')}}
+ 
+ def types_keys(path):
+     if not path.exists(): return []
+@@ -828,6 +859,17 @@
+         (out / 'other-e2e-before.json').write_text(json.dumps(other_before, indent=1), encoding='utf-8')
+         raise SystemExit('another owned E2E is running; refusing a non-exclusive run: ' + json.dumps(other_before)[:600])
+     step('protected gate %d long-lived pids; lead-listed missing %s; walkie log %s' % (len(EXPECTED_PROTECTED), gate_info['lead_listed_missing_at_start'], walkie_before.get('lines')))
++    # Per-run owned byte copy of the INSTALLED tree, verified file by file, made before any
++    # product import: seed_board, get_board, redact_wake and the launch all use this copy.
++    # Claude Code and statusline Python write into the launched home (attempt
++    # run-a-20261111-102831), so the shared installed tree itself is never launched.
++    home = E2E / 'run-copies' / out.name
++    copy_report = make_run_copy(INSTALLED, home, INSTALLED_FILES)
++    (out / 'installed-copy.json').write_text(json.dumps(copy_report, indent=1), encoding='utf-8')
++    if not copy_report['passed']: raise SystemExit('per-run copy of the installed tree failed verification: ' + json.dumps({k: copy_report[k] for k in ('missing', 'extra', 'changed', 'installed_changed_since_preflight')})[:600])
++    step('per-run copy of installed %s: %d files verified byte-for-byte' % (INSTALLED, copy_report['files']))
++    global SNAP
++    SNAP = home   # every product import, probe and launch below uses the owned copy
+     walkie = SyntheticWalkie(); gateway = RecordingGateway(out) if kind == 'A' else None
+     scratch = Path(tempfile.mkdtemp(prefix=f'ciel-sse-true-fork-{tag}-')); workspace = scratch / 'workspace'; config = scratch / 'config'; claude = config / '.claude'; workspace.mkdir()
+     state = setup(config, claude, workspace, walkie, gateway); identity = 'claude:' + session
+@@ -836,18 +878,16 @@
+     (out / 'seed-board.json').write_text(json.dumps({'seeded_goal': item, 'seeded_tree_ids': seeded_ids, 'version': seed.get('version'),
+         'nodes': [{k: n.get(k) for k in ('id', 'parent_id', 'title', 'priority')} for n in seed.get('nodes') or []]}, indent=1), encoding='utf-8')
+     if gateway: gateway.related_item = item; gateway.board_reader = lambda: get_board(state, identity)
+-    # Launch from a per-run copy; Claude Code and statusline Python write into the
+-    # launched home (attempt run-a-20261111-102831), so the snapshot itself stays immutable.
+-    home = E2E / 'run-copies' / out.name
+-    shutil.copytree(SNAP, home)
+-    # The inventory's allow-list bounds must still be the product's bounds in this freeze.
++    # The inventory's allow-list bounds must still be the product's bounds in this build.
+     bounds_check = rti.verify_product_bounds(home)
+     (out / 'product-bounds-check.json').write_text(json.dumps(bounds_check, indent=1), encoding='utf-8')
+     if not bounds_check['passed']: raise SystemExit('product bound expressions changed; inventory bounds need a ruling: ' + json.dumps(bounds_check['missing'])[:600])
+     step('product bounds match inventory')
+     home_files = {q.relative_to(home).as_posix(): sha(q) for q in home.rglob('*') if q.is_file()}
+     home_digest = hashlib.sha256(json.dumps(home_files, sort_keys=True).encode()).hexdigest()
+-    if home_digest != read_json(SNAP_VERIFY)['snapshot_digest']: raise SystemExit('run copy digest mismatch')
++    if home_files != INSTALLED_FILES: raise SystemExit('run copy digest mismatch against the installed tree')
++    seed_writes = sorted(r for r in home_files if r not in INSTALLED_FILES)
++    if seed_writes: raise SystemExit('the run copy changed before launch: ' + json.dumps(seed_writes)[:300])
+     product_pin = {rel: {'expected': digest, 'run_copy': home_files.get(rel)} for rel, digest in EXPECTED_PRODUCT.items()}
+     (out / 'product-pin.json').write_text(json.dumps(product_pin, indent=1), encoding='utf-8')
+     if any(v['expected'] != v['run_copy'] for v in product_pin.values()): raise SystemExit('run copy product hashes differ from the release: ' + json.dumps(product_pin)[:600])
+@@ -898,14 +938,16 @@
+                 wake_timeline.append({'at': time.time(), 'sample_error': repr(error)[:200]})
+             time.sleep(0.25)
+     threading.Thread(target=sample_wakes, daemon=True).start()
+-    result = {'run': kind, 'out': str(out), 'outcome': 'timeout', 'snapshot': str(SNAP), 'run_copy': str(home), 'run_copy_digest_before_launch': home_digest,
+-              'snapshot_digest': read_json(SNAP_VERIFY)['snapshot_digest'],
++    result = {'run': kind, 'out': str(out), 'outcome': 'timeout', 'mode': 'installed', 'installed': str(INSTALLED), 'commit': COMMIT,
++              'snapshot': str(INSTALLED), 'run_copy': str(home), 'run_copy_digest_before_launch': home_digest,
++              'snapshot_digest': tree_digest(INSTALLED_FILES), 'installed_files': len(INSTALLED_FILES),
+               'port': port, 'session': session, 'owned_root_pid': proc.pid, 'related_work': item,
+               'seed_board_version': seed.get('version'), 'scratch': str(scratch),
+               'inherited_vars_left': sorted(k for k in env if k.upper().startswith(STRIP_PREFIXES) and k not in owned_vars),
+               'owned_vars_set': sorted(owned_vars), 'model': 'claude-opus-5-5 (recording gateway)' if gateway else B_MODEL,
+               'timeline': {}, 'protected_gate': gate_info, 'walkie_log_before': walkie_before, 'run_start': run_start,
+-              'harness_sha256': harness_hashes, 'driver_sha256': harness_hashes.get('walkie_e2e_driver_v4.py'),
++              'harness_sha256': harness_hashes, 'driver_sha256': harness_hashes.get(SCRIPT.name),
++              'installed_preflight': INSTALLED_PREFLIGHT,
+               'harness_unit_gate': unit_gate,
+               'owned_root_identity': list(root_identity), 'other_e2e_before': other_before}
+     T = result['timeline']
+@@ -1189,7 +1231,13 @@
+             result['owned_intersection_check'] = {'checked_identities': len(checked), 'intersections': sorted([list(i) for i in checked & (protected_now | protected_identities(before))])}
+             result['owned_tree_intersects_protected'] = bool(result['owned_intersection_check']['intersections']) or bool(cleanup['protected_intersections'])
+             time.sleep(1)
+-            leftover = [r for r in ps_snapshot() if str(scratch) in str(r.get('CommandLine') or '') or str(home) in str(r.get('CommandLine') or '') or str(SNAP) in str(r.get('CommandLine') or '')]
++            # Owned markers only: the scratch dir and this run's own copy. The shared installed
++            # path is deliberately excluded: a live session may run from it.
++            leftover = [r for r in ps_snapshot() if str(scratch) in str(r.get('CommandLine') or '') or str(home) in str(r.get('CommandLine') or '')]
++            result['installed_path_processes_observed_not_owned'] = [
++                {'pid': int(r['ProcessId']), 'name': r.get('Name'), 'created': r.get('CreationDate')}
++                for r in ps_snapshot() if str(INSTALLED).lower() in str(r.get('CommandLine') or '').lower()
++                and str(home).lower() not in str(r.get('CommandLine') or '').lower()]
+             result['owned_leftover_after_kill'] = leftover
+             # The driver itself necessarily names the snapshot/output in argv and is alive
+             # while writing this result. It is expected and not part of the owned product tree.
+@@ -1220,17 +1268,19 @@
+         killed_history = {(int(k['identity'][0]), str(k['identity'][1])) for k in ((result.get('cleanup') or {}).get('killed') or [])}
+         result['protected_change_classification'] = opc.classify_protected_changes(
+             before, after, EXPECTED_PROTECTED, PROTECTED_ROOTS, owned_history, killed_history)
+-        current = {p.relative_to(SNAP).as_posix(): sha(p) for p in SNAP.rglob('*') if p.is_file()}
+-        manifest = read_json(SNAP_MANIFEST)
++        # Installed tree after the run (read-only; never written by this driver). Bytecode a
++        # live session may write there is reported, never gated; any source change fails.
++        installed_now, installed_bytecode = hash_installed_tree(INSTALLED)
++        manifest = INSTALLED_FILES
++        current = installed_now
+         copy_now = {p.relative_to(home).as_posix(): sha(p) for p in home.rglob('*') if p.is_file()}
+         diff_paths = sorted(set(copy_now) - set(manifest)) + [r for r, d in manifest.items() if copy_now.get(r) != d]
+-        result['run_copy_after'] = {'extras': sorted(set(copy_now) - set(manifest)), 'changed': [r for r, d in manifest.items() if copy_now.get(r) != d],
+-                                    'classified': {r: classify_copy_path(r) for r in diff_paths},
+-                                    'unexpected': [r for r in diff_paths if classify_copy_path(r) == 'other'],
+-                                    'types_tool_keys': {r: types_key_diff(SNAP / r, home / r) for r in diff_paths if classify_copy_path(r) == 'engine_written_types'}}
++        result['run_copy_after'] = run_copy_after_report(copy_now, manifest, home)
++        result['installed_bytecode_after'] = installed_bytecode
+         result['protected_tree'] = protected_tree_report(before, after)
+-        result['worktree_freeze_after'] = freeze_check(ROOT)
+-        result['snapshot_freeze_after'] = freeze_check(SNAP)
++        # Key pins after the run: in the installed tree and in this run's copy.
++        result['worktree_freeze_after'] = key_pin_check(INSTALLED)
++        result['snapshot_freeze_after'] = key_pin_check(home)
+         owned_pids = {int(r['ProcessId']) for r in result.get('tree_before_kill') or []}
+         result['other_e2e_after'] = other_e2e_processes(after, [str(out), str(scratch), str(home)])
+         result['exclusive_run'] = not result['other_e2e_before'] and not result['other_e2e_after']
+@@ -1253,14 +1303,14 @@
+         claude_json_after = claude_json_owned_refs([str(scratch), str(home), str(out), out.name, scratch.name, session])
+         result['claude_json_before'] = claude_json_before; result['claude_json_after'] = claude_json_after
+         result['claude_json_no_owned_refs'] = not claude_json_after['hits']
+-        result['snapshot_after'] = {'files': len(current), 'extras': sorted(set(current) - set(manifest)), 'changed': [r for r, d in manifest.items() if current.get(r) != d],
+-                                    'digest': hashlib.sha256(json.dumps(current, sort_keys=True).encode()).hexdigest()}
++        result['snapshot_after'] = {'path': str(INSTALLED), 'files': len(current), 'extras': sorted(set(current) - set(manifest)),
++                                    'changed': [r for r, d in manifest.items() if current.get(r) != d], 'digest': tree_digest(current)}
+         result['snapshot_after']['digest_ok'] = result['snapshot_after']['digest'] == result['snapshot_digest']
+         safety_gate = {
+             'core_launcher_roots_intact_and_no_protected_owned_or_killed': result['protected_change_classification']['passed'],
+-            'snapshot_digest': result['snapshot_after']['digest_ok'],
+-            'worktree_freeze': not result['worktree_freeze_after']['mismatch'],
+-            'snapshot_freeze': not result['snapshot_freeze_after']['mismatch'],
++            'installed_tree_unchanged': result['snapshot_after']['digest_ok'],
++            'installed_key_pins': not result['worktree_freeze_after']['mismatch'],
++            'run_copy_key_pins': not result['snapshot_freeze_after']['mismatch'],
+             'run_copy_expected_mutations_only': not result['run_copy_after']['unexpected'],
+             'exclusive_run': bool(result.get('exclusive_run')),
+             'owned_tree_disjoint_from_protected': not result.get('owned_tree_intersects_protected'),
+@@ -1364,43 +1414,97 @@
+     }
+     return report, facts
+ 
+-def verify_snapshot_freeze():
+-    """Snapshot, its verify report and the SSE freeze must all name the same bytes."""
+-    verify = read_json(SNAP_VERIFY) or {}
+-    sums = {}
+-    for line in (FREEZES[0][1] / 'SHA256SUMS').read_text(encoding='utf-8').splitlines():
+-        if line.strip(): digest, rel = line.split(' *', 1); sums[rel.removeprefix('./')] = digest
++# ---- installed-build source handling ------------------------------------------------
++INSTALLED_PREFLIGHT = {}
++
++def is_bytecode(rel):
++    return '/__pycache__/' in '/' + rel or rel.endswith(('.pyc', '.pyo'))
++
++def hash_installed_tree(root):
++    """(rel -> sha256 for every non-bytecode file, sorted bytecode paths). Read-only."""
++    files, bytecode = {}, []
++    for path in sorted(Path(root).rglob('*')):
++        if not path.is_file(): continue
++        rel = path.relative_to(root).as_posix()
++        if is_bytecode(rel): bytecode.append(rel); continue
++        files[rel] = sha(path)
++    return files, bytecode
++
++def tree_digest(files):
++    return hashlib.sha256(json.dumps(files, sort_keys=True).encode()).hexdigest()
++
++def key_pin_check(base):
++    """Exact raw-byte SHA-256 of every pinned key file (committed LF blob hashes; no normalization)."""
++    rows = []
++    for rel, digest in EXPECTED_PRODUCT.items():
++        path = Path(base) / rel
++        got = sha(path) if path.is_file() else None
++        rows.append({'path': rel, 'expected': digest, 'actual': got, 'match': got == digest})
++    return {'base': str(base), 'rows': rows, 'mismatch': [r for r in rows if not r['match']]}
++
++def installed_shape_check(root):
++    """The installed npm package root: ciel_runtime.py and the mod present, no repo-only dirs."""
++    root = Path(root)
+     problems = []
+-    for rel, digest in EXPECTED_SSE_FREEZE.items():
+-        if sums.get(rel) != digest: problems.append('freeze SHA256SUMS ' + rel + ' is ' + str(sums.get(rel)))
+-    for rel, digest in EXPECTED_PRODUCT.items():
+-        got = sha(SNAP / rel) if (SNAP / rel).exists() else None
+-        if got != digest: problems.append('snapshot ' + rel + ' is ' + str(got) + ', released ' + digest)
+-    recorded = {label: (Path(folder).resolve(), digest) for label, folder, digest in verify.get('freezes') or []}
+-    for label, folder in FREEZES:
+-        if label not in recorded or recorded[label][0] != folder.resolve() or recorded[label][1] != sha(folder / 'SHA256SUMS'):
+-            problems.append('snapshot was not verified against ' + label + ' freeze ' + str(folder))
+-    if verify.get('freeze_mismatch'): problems.append('snapshot verify report has freeze mismatches')
+-    if not (verify.get('product_bounds') or {}).get('passed'): problems.append('snapshot verify report lacks passed product bounds')
+-    live = freeze_check(SNAP)
+-    if live['mismatch']: problems.append('snapshot bytes differ from freeze: ' + json.dumps(live['mismatch'])[:300])
+-    bounds = rti.verify_product_bounds(SNAP)
++    for rel in ('ciel_runtime.py', 'ciel-runtime-tool-guard.py', 'package.json', 'ciel_runtime_support/runtime_paths.py',
++                'ciel_runtime_support/claude_mods/ciel-work/hooks/register.js'):
++        if not (root / rel).is_file(): problems.append('missing ' + rel)
++    for name in sorted(INSTALLED_FORBIDDEN_TOP):
++        if (root / name).exists(): problems.append('repo-only path present: ' + name)
++    return {'root': str(root), 'problems': problems, 'passed': not problems}
++
++def verify_installed(root):
++    """Preflight of the installed tree. Returns (report, problems); never writes."""
++    root = Path(root).resolve()
++    problems = []
++    if not root.is_dir(): return {'root': str(root)}, ['installed path is not a directory: ' + str(root)]
++    if root == ROOT or ROOT in root.parents:
++        # Fail before walking/hashing the worktree (large and mutable; never a valid installed root).
++        return {'root': str(root), 'commit': COMMIT}, ['installed path is inside the development worktree: ' + str(root)]
++    shape = installed_shape_check(root)
++    problems += shape['problems']
++    pins = key_pin_check(root)
++    problems += ['key pin ' + r['path'] + ' is ' + str(r['actual']) + ', committed ' + r['expected'] for r in pins['mismatch']]
++    bounds = rti.verify_product_bounds(root)
+     if not bounds['passed']: problems.append('product bound expressions missing: ' + json.dumps(bounds['missing'])[:300])
+-    return problems
++    files, bytecode = hash_installed_tree(root)
++    report = {'root': str(root), 'commit': COMMIT, 'files': len(files), 'digest': tree_digest(files), 'bytecode_present': bytecode[:50],
++              'bytecode_count': len(bytecode), 'shape': shape, 'key_pins': pins, 'product_bounds': bounds}
++    return report, problems
++
++def make_run_copy(source, dest, expected):
++    """Byte copy of the installed tree's non-bytecode files, verified file by file.
++
++    Each copied file is hashed at the destination and compared with the installed
++    file's hash taken at preflight. The installed tree is re-hashed afterwards: a
++    change since preflight fails the copy. The destination must not exist.
++    """
++    source, dest = Path(source), Path(dest)
++    if dest.exists(): raise SystemExit('run copy destination already exists: ' + str(dest))
++    for rel in sorted(expected):
++        target = dest / rel
++        target.parent.mkdir(parents=True, exist_ok=True)
++        shutil.copyfile(source / rel, target)
++    copied = {p.relative_to(dest).as_posix(): sha(p) for p in dest.rglob('*') if p.is_file()}
++    installed_now, _ = hash_installed_tree(source)
++    report = {'source': str(source), 'dest': str(dest), 'files': len(copied),
++              'missing': sorted(set(expected) - set(copied)), 'extra': sorted(set(copied) - set(expected)),
++              'changed': sorted(r for r in expected if r in copied and copied[r] != expected[r]),
++              'installed_changed_since_preflight': sorted(r for r in set(expected) | set(installed_now) if expected.get(r) != installed_now.get(r)),
++              'digest': tree_digest(copied), 'expected_digest': tree_digest(expected)}
++    report['passed'] = not (report['missing'] or report['extra'] or report['changed'] or report['installed_changed_since_preflight'])
++    return report
+ 
+ def main():
+     signal.signal(signal.SIGINT, signal.SIG_IGN); ctypes.windll.kernel32.SetConsoleCtrlHandler(_CTRL, True)
+-    global SNAP, SNAP_VERIFY, SNAP_MANIFEST, FREEZES
++    global INSTALLED, INSTALLED_FILES, INSTALLED_PREFLIGHT
+     p=argparse.ArgumentParser(); p.add_argument('run',choices=('A','B')); p.add_argument('--output',type=Path,required=True)
+-    p.add_argument('--snapshot',type=Path,default=SNAP); p.add_argument('--sse-freeze',type=Path,default=FREEZES[0][1])
++    p.add_argument('--installed',type=Path,required=True,help='installed npm package root (read-only)')
+     args=p.parse_args(); args.output.mkdir(parents=True,exist_ok=True)
+-    SNAP=args.snapshot.resolve(); SNAP_VERIFY=SNAP.parent/(SNAP.name+'-verify.json'); SNAP_MANIFEST=SNAP.parent/(SNAP.name+'-manifest.json')
+-    FREEZES=[('sse', args.sse_freeze.resolve()), FREEZES[1]]
+-    verify=read_json(SNAP_VERIFY); manifest=read_json(SNAP_MANIFEST); changed=[]; extras=[]
+-    current={p.relative_to(SNAP).as_posix():sha(p) for p in SNAP.rglob('*') if p.is_file()}
+-    changed=[r for r,d in manifest.items() if current.get(r)!=d]; extras=sorted(set(current)-set(manifest)); digest=hashlib.sha256(json.dumps(current,sort_keys=True).encode()).hexdigest()
+-    if changed or extras or digest!=verify['snapshot_digest']: raise SystemExit('snapshot verification failed')
+-    problems=verify_snapshot_freeze()
+-    if problems: raise SystemExit('snapshot/freeze verification failed: ' + '; '.join(problems))
++    INSTALLED=args.installed.resolve()
++    report, problems = verify_installed(INSTALLED)
++    if problems: raise SystemExit('installed preflight failed: ' + '; '.join(problems))
++    INSTALLED_FILES, _ = hash_installed_tree(INSTALLED)
++    INSTALLED_PREFLIGHT = report
+     result=run(args.run,args.output); raise SystemExit(0 if result.get('outcome')=='completed' else 1)
+ if __name__=='__main__': main()
