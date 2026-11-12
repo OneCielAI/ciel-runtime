@@ -430,8 +430,13 @@ class SideWakeProtocolTests(unittest.TestCase):
             seen.append(board.wake()['state'])
             self.assertLessEqual(set(seen), FAMILIAR)
             raw_doc = json.loads(board.store.path.read_text(encoding='utf-8'))
-            source = subprocess.run(['git', 'show', OLD + ':ciel_runtime_support/work_plan_tree.py'], cwd=ROOT,
-                                    capture_output=True, text=True, encoding='utf-8', check=True).stdout
+            try:
+                source = subprocess.run(['git', 'show', OLD + ':ciel_runtime_support/work_plan_tree.py'], cwd=ROOT,
+                                        capture_output=True, text=True, encoding='utf-8', check=True).stdout
+            except (OSError, subprocess.CalledProcessError) as error:
+                # Same rule as legacy_module() in test_work_parallel_finalization: a shallow
+                # checkout (CI) has no old commit to read the old reader from.
+                raise unittest.SkipTest('legacy source unavailable: ' + OLD) from error
             package = types.ModuleType('old_ciel_pkg')
             package.__path__ = []
             limits = types.ModuleType('old_ciel_pkg.side_intake_limits')
