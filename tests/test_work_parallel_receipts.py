@@ -111,6 +111,95 @@ class CoordinationStoreTests(unittest.TestCase):
                                                    expected_version=state["version"])
         self.assertEqual(1, recovery["attempts"])
 
+    def completion(self):
+        return {"summary": "done", "coverage": [{"item_id": "i1", "verified": True}],
+                "verification": "focused test passed"}
+
+    def test_late_native_observation_never_reopens_a_completed_run(self):
+        # run-20261111-105012: the completion receipt landed while the fork was
+        # still listed running; the first native observation came after it.
+        self.approve()
+        state = self.assign()
+        state, _ = self.store.bind_run("l1", "agent-1", "work-i1", expected_version=state["version"])
+        state, _ = self.store.persist_receipt("l1", "completion", self.completion(),
+                                              expected_version=state["version"])
+        self.assertEqual("terminal", state["runs"]["l1"]["state"])
+        for status in ("running", "idle", "waiting", "pending"):
+            state, run = self.store.update_native("l1", status, expected_version=state["version"])
+            self.assertEqual(("terminal", status), (run["state"], run["native_status"]))
+        state, _ = self.store.archive_terminal("l1", {"state": "done", "outcome": "main accepted"},
+                                               expected_version=state["version"])
+        self.assertNotIn("l1", state["runs"])
+
+    def test_receipt_terminal_survives_every_native_order(self):
+        import itertools
+        statuses = ("pending", "running", "waiting", "idle", "missing")
+        self.approve()
+        state = self.store.read()
+        cases = 0
+        for before in ((), ("running",), ("running", "idle")):
+            for after in itertools.permutations(statuses, 2):
+                lease = "p%d" % cases
+                cases += 1
+                state, _ = self.store.record_assignment(SCOPE, lease, manifest(), expected_version=state["version"])
+                state, _ = self.store.bind_run(lease, "agent-" + lease, "work-" + lease, expected_version=state["version"])
+                for status in before:
+                    state, _ = self.store.update_native(lease, status, expected_version=state["version"])
+                state, _ = self.store.persist_receipt(lease, "completion", dict(self.completion(), summary=lease),
+                                                      expected_version=state["version"])
+                for status in after:
+                    state, run = self.store.update_native(lease, status, expected_version=state["version"])
+                    self.assertEqual("terminal", run["state"], (before, after, status))
+                state, _ = self.store.archive_terminal(lease, {"state": "done", "outcome": "main accepted"},
+                                                       expected_version=state["version"])
+        self.assertEqual(60, cases)
+
+    def test_completion_receipt_is_final_against_later_receipts(self):
+        self.approve()
+        state = self.assign()
+        state, _ = self.store.bind_run("l1", "agent-1", "work-i1", expected_version=state["version"])
+        state, first = self.store.persist_receipt("l1", "completion", self.completion(),
+                                                  expected_version=state["version"])
+        for kind, body in (("host_salvage", handoff()), ("handoff", handoff()),
+                           ("question", {"question": "q", "blocking_todos": [], "decision_needed": "d"})):
+            with self.subTest(kind=kind), self.assertRaisesRegex(WorkParallelError, "exit receipt is final"):
+                self.store.persist_receipt("l1", kind, body, expected_version=state["version"])
+        # The identical completion replay stays idempotent.
+        state, same = self.store.persist_receipt("l1", "completion", self.completion(),
+                                                 expected_version=state["version"])
+        self.assertEqual((first, "terminal", {"kind": "completion", "digest": first}),
+                         (same, state["runs"]["l1"]["state"], state["runs"]["l1"]["exit"]))
+
+    def test_handoff_stays_handed_off_and_question_still_resumes(self):
+        self.approve()
+        state = self.assign("h1")
+        state = self.assign("q1", 2)
+        for lease in ("h1", "q1"):
+            state, _ = self.store.bind_run(lease, "agent-" + lease, "work-" + lease,
+                                           expected_version=state["version"])
+        state, _ = self.store.persist_receipt("h1", "handoff", handoff(), expected_version=state["version"])
+        state, run = self.store.update_native("h1", "running", expected_version=state["version"])
+        self.assertEqual("handed_off", run["state"])
+        question = {"question": "which API?", "blocking_todos": ["i1"], "decision_needed": "pick one"}
+        state, _ = self.store.persist_receipt("q1", "question", question, expected_version=state["version"])
+        self.assertEqual("waiting", state["runs"]["q1"]["state"])
+        # A question is not an exit: the same worker resumes after its answer.
+        state, run = self.store.update_native("q1", "running", expected_version=state["version"])
+        self.assertEqual("active", run["state"])
+
+    def test_run_reopened_by_an_older_build_is_restored_to_its_receipt_state(self):
+        self.approve()
+        state = self.assign()
+        state, _ = self.store.bind_run("l1", "agent-1", "work-i1", expected_version=state["version"])
+        state, _ = self.store.persist_receipt("l1", "completion", self.completion(),
+                                              expected_version=state["version"])
+        raw = json.loads(self.store.path.read_text(encoding="utf-8"))
+        raw["runs"]["l1"].update(state="active", native_status="idle")
+        self.store.path.write_text(json.dumps(raw), encoding="utf-8")
+        state = self.store.read()
+        state, run = self.store.update_native("l1", "missing", expected_version=state["version"])
+        self.assertEqual("terminal", run["state"])
+
     def test_structured_handoff_is_stored_fetchable_and_absent_from_projection(self):
         self.approve()
         state = self.assign()

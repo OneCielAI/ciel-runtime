@@ -243,7 +243,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
     schemas.extend(side_schemas())
     schemas.append(host_page_schema())
     if not enabled:
-        schemas = [schema for schema in schemas if schema["name"] in (WORK_MODE_SWITCH_TOOL, "work_live_settings", "work_side_settings", "work_side_intake", "work_side_drain", "work_side_status", "work_side_claim", "work_side_resolve", "work_side_fail", "work_side_fallback", "work_side_reply", "work_side_wake", "work_side_handoff", "work_side_renew", "work_side_retry_reply", "work_side_context", "work_side_code_read", "work_side_code_search", "work_host_page")]
+        schemas = [schema for schema in schemas if schema["name"] in (WORK_MODE_SWITCH_TOOL, "work_live_settings", "work_side_settings", "work_side_intake", "work_side_drain", "work_side_status", "work_side_claim", "work_side_resolve", "work_side_fail", "work_side_fallback", "work_side_reply", "work_side_wake", "work_side_handoff", "work_side_renew", "work_side_retry_reply", "work_side_code_read", "work_side_code_search", "work_host_page")]
     for schema in schemas:
         inputs = schema["inputSchema"]
         inputs.setdefault("properties", {})["session_id"] = {
@@ -326,7 +326,7 @@ def dispatch_work_tool(
         except (tree.WorkPlanError, ValueError, OSError) as error:
             return respond(request_id, str(error), True)
         return respond(request_id, json.dumps(value, ensure_ascii=False))
-    if not work_mode_enabled(config) and name not in ('work_side_settings','work_side_intake', 'work_side_drain', 'work_side_status', 'work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_code_read', 'work_side_code_search'):
+    if not work_mode_enabled(config) and name not in ('work_side_settings','work_side_intake', 'work_side_drain', 'work_side_status', 'work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_code_read', 'work_side_code_search'):
         if name == "work_status" and args.get("format") == "json":
             return respond(request_id, json.dumps(tree.snapshot(tree.empty_document(), enabled=False)))
         return respond(request_id, "Ciel Work mode is off (prelaunch menu: LLM options -> Work mode, "
@@ -355,7 +355,7 @@ def dispatch_work_tool(
         if name not in ('work_side_status', 'work_side_settings', 'work_side_intake', 'work_side_drain'):
             scoped = session_work_plan_store(state_dir, identity, log=log)
             store = store or scoped
-        if name in ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_code_read', 'work_side_code_search'):
+        if name in ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_code_read', 'work_side_code_search'):
             from .side_intake_mcp import run as side_run
             return respond(request_id, json.dumps(side_run(name, args, config, state_dir, identity, store), ensure_ascii=False))
         if name == "work_side_settings":
@@ -380,11 +380,19 @@ def dispatch_work_tool(
             import time
             board = (store or session_work_plan_store(state_dir, identity, log=log)).read_snapshot()
             now = time.time()
-            main_handoffs = [{'event_id': key, 'item_id': row.get('item_id'), 'kind': row.get('kind', ''),
-                              'summary': row.get('summary', ''), 'question': row.get('question', ''),
-                              'wake_state': (row.get('wake') or {}).get('state', 'pending'),
-                              'wake_age_seconds': max(0, int(now - float((row.get('wake') or {}).get('requested_at') or row.get('requested_at') or now)))}
-                             for key, row in board.get('side_handoffs', {}).items() if row.get('state') == 'requested']
+            from .side_wake import redact_wake
+            main_handoffs = []
+            for key, row in board.get('side_handoffs', {}).items():
+                if row.get('state') != 'requested':
+                    continue
+                wake = redact_wake(row.get('wake'))
+                main_handoffs.append({'event_id': key, 'item_id': row.get('item_id'), 'kind': row.get('kind', ''),
+                    'summary': row.get('summary', ''), 'question': row.get('question', ''),
+                    'wake_state': wake.get('state', 'pending'), 'wake_phase': wake.get('phase'),
+                    'wake_revision': wake.get('revision', 0), 'wake_attempt_ref': wake.get('attempt_ref'),
+                    'delivery_uncertain': wake['delivery_uncertain'],
+                    'needs_ack_retry': wake.get('needs_ack_retry') is True,
+                    'wake_age_seconds': max(0, int(now - float(wake.get('requested_at') or row.get('requested_at') or now)))})
             inbox = SideIntakeInbox(state_dir, identity)
             return respond(request_id, json.dumps({'enabled': config.get('work_side_intake', {}).get('enabled') is True,
                 'side_inbox_receipts': inbox.summaries(),
@@ -478,7 +486,9 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         if args.get("format") == "json":
             state = tree.snapshot(doc, approval_ask=approval_ask)
             state["auto_continue"] = auto_continue
-            state['side_handoffs'] = [{'event_id': key, **row} for key, row in doc.get('side_handoffs', {}).items()
+            # Model-visible: the nested wake goes through the shared redactor.
+            from .side_wake import redact_handoff
+            state['side_handoffs'] = [redact_handoff(key, row) for key, row in doc.get('side_handoffs', {}).items()
                                       if row.get('state') == 'requested']
             from .side_review import pending as pending_reviews
             state['side_reviews'] = [{key: row.get(key) for key in ('receipt_id', 'kind', 'action', 'item_id', 'summary', 'reply', 'source')}

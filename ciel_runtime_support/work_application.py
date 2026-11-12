@@ -216,7 +216,8 @@ def openapi_document() -> dict[str, Any]:
     commands = ("plan-set", "node-add", "node-update", "node-remove", "active-select",
                 "execute", "replan", "sibling-reorder", "queue-position", "focus", "urgent",
                 "settings-update", "parallel-configure", "parallel-orphans-preview",
-                "parallel-orphans-apply", "side-review", "side-handoff", "side-reply-retry")
+                "parallel-orphans-apply", "parallel-item-review", "parallel-launch-resolve", "side-review",
+                "side-handoff", "side-reply-retry", "side-wake-retry")
     paths: dict[str, Any] = {
         f"/ca/work/api/v1/{name}": {"get": {"summary": f"Read current-session Work {name}"}}
         for name in reads
@@ -225,7 +226,7 @@ def openapi_document() -> dict[str, Any]:
                  "and main-context previews are never returned. Text is redacted and limited to 16,000 characters.")
     stages = ["received", "processing", "processed", "failed", "quarantined", "duplicate"]
     paths["/ca/work/api/v1/parallel"]["get"]["description"] = (
-        "Current-session Work forks grouped by native agent-list evidence, plus aggregate device slot capacity. "
+        "Current-session Work forks grouped by native agent-list evidence, bounded main-review receipts, plus aggregate device slot capacity. "
         "Only a native pending/running row observed within 30 seconds is confirmed. The main session is the "
         "coordinator and is never a fork; side actors are excluded. Other sessions expose counts only, never item "
         "or agent metadata. Raw leases, workspace paths, process identities, worker capabilities and fork content "

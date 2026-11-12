@@ -15,6 +15,7 @@ from .work_application import WorkApplication, WorkOperationConflict, openapi_do
 from .work_retention import retention_status
 from .work_live_settings import settings as live_settings
 from .work_mode_launch import work_mode_enabled, work_plan_approval_ask, work_auto_continue_enabled
+from .work_parallel import WorkParallelConflict
 from .work_plan_store import WorkPlanConflict, session_work_plan_store, subscribe_work_plan_changes
 
 IDENTITY = re.compile(r"(?:claude|codex):[A-Za-z0-9_-]{1,200}\Z")
@@ -174,9 +175,14 @@ class WorkHttpController:
             "state", "kind", "action", "item_id", "summary", "recorded_at", "reviewed_at", "verdict")
             if row.get(field) is not None}}
             for key, row in document.get("side_reviews", {}).items()]
+        from .side_wake import redact_wake
         handoffs = [{"event_id": key, **{field: row.get(field) for field in (
-            "state", "kind", "action", "item_id", "summary", "question", "waits", "requested_at", "answered_at")
-            if row.get(field) is not None}}
+            "state", "kind", "action", "item_id", "summary", "question", "waits", "time_limit", "queue",
+            "requested_at", "answered_at") if row.get(field) is not None},
+            # Shared redactor: attempt_ref names the exact attempt; the raw
+            # attempt id, owner fence and receipt are never projected.
+            "wake": redact_wake(row.get("wake")),
+            "delivery_uncertain": row.get("state") == "requested" and redact_wake(row.get("wake"))["delivery_uncertain"]}
             for key, row in document.get("side_handoffs", {}).items()]
         return {"ok": True, "schema_version": 1, "session_id": identity,
                 "version": document["version"], "reviews": reviews[-100:], "handoffs": handoffs[-100:]}
@@ -207,7 +213,8 @@ class WorkHttpController:
             "sibling_reorder", "queue_position", "focus", "urgent")}
         operator_actions = {"/ca/work/api/v1/commands/" + name.replace("_", "-"): name for name in (
             "settings_update", "parallel_configure", "parallel_orphans_preview", "parallel_orphans_apply",
-            "side_review", "side_handoff", "side_reply_retry")}
+            "parallel_item_review", "parallel_launch_resolve", "side_review", "side_handoff", "side_reply_retry",
+            "side_wake_retry")}
         if path in operator_actions:
             return self._post_operator(handler, operator_actions[path], body)
         if path in commands:
@@ -345,6 +352,10 @@ class WorkHttpController:
                         observation=observation, expected_version=body.get("expected_version"))
                     result = {"lease_id": row["lease_id"], "version": state["version"],
                               "state": state["leases"][row["lease_id"]]["state"]}
+            elif action == "parallel_item_review":
+                result = self._parallel_item_review(identity, body)
+            elif action == "parallel_launch_resolve":
+                result = self._parallel_launch_resolve(identity, body)
             elif action == "side_review":
                 from .side_review import review
                 result = review(self._store(identity), body.get("receipt_ids"), verdict=body.get("verdict"),
@@ -371,12 +382,23 @@ class WorkHttpController:
                 _sync_handoff_receipt(inbox, event_id, result)
                 if answer:
                     _answer_followup(inbox, event_id, answer)
+                # Browser-visible: the nested wake goes through the shared redactor.
+                from .side_wake import redact_handoff
+                result = redact_handoff(event_id, result)
+            elif action == "side_wake_retry":
+                # Operator-confirmed release of an uncertain main wake for a
+                # possibly duplicate re-delivery through the normal election.
+                from .side_wake import retry as retry_wake
+                result = retry_wake(self._store(identity), body.get("event_id"), body.get("attempt_ref"),
+                                    body.get("revision"), confirmed=body.get("confirmed") is True)
             else:
                 from .side_reply_outbox import retry
                 result = retry(self.services.state_dir, identity, body.get("receipt_id"),
                                body.get("expected_state"), body.get("confirmed", False))
             self.services.write_json(handler, {"ok": True, "schema_version": 1,
                                                "session_id": identity, "result": result})
+        except WorkParallelConflict as exc:
+            self.services.write_json(handler, {"ok": False, "error": "version_conflict", "message": str(exc)}, 409)
         except (OSError, tree.WorkPlanError, ValueError) as exc:
             self._error(handler, exc)
         return True
@@ -392,14 +414,164 @@ class WorkHttpController:
                                                        "validating", "ended")}},
                     "device": {"active_slots": projected.get("active_device", 0)}}
         from .work_parallel_mcp import public_projection
-        return public_projection(projected, identity)
+        result = public_projection(projected, identity)
+        result.update(self._public_reviews(projected, self._public_launches(identity)))
+        return result
+
+    STUCK_LAUNCH_SECONDS = 30
+
+    def _public_launches(self, identity: str) -> dict[str, dict[str, Any]]:
+        """Browser-safe rework launch state keyed by the reviewed worker lease.
+
+        Exact launch name, agent id, nonce, proof text and audit details stay on
+        the host. The browser sees the state, attempt, how long it has been
+        unresolved, whether the host last refused a request as agent present, and
+        the opaque launch_ref of an unresolved launch, which only names the exact
+        attempt a confirmed resolution request is for.
+        """
+        if self.services.parallel_store is None:
+            return {}
+        try:
+            from .work_parallel_mcp import finalization
+            state = finalization(self.services.parallel_store()).read()
+        except (OSError, ValueError):
+            return {}
+        now = time.time()
+        rows: dict[str, dict[str, Any]] = {}
+        for row in state.get("reviews", {}).values():
+            launch = row.get("launch") or {}
+            if row.get("scope") != identity or row.get("decision") != "rework" or launch.get("state") in (None, "none"):
+                continue
+            audit = launch.get("audit") or []
+            last = audit[-1].get("kind") if audit and isinstance(audit[-1], dict) else None
+            public: dict[str, Any] = {"state": launch["state"], "attempt": launch.get("attempt")}
+            ref = launch.get("launch_ref")
+            if (launch["state"] in ("launch_intent", "spawn_observed", "manual_requested") and isinstance(ref, str)
+                    and re.fullmatch(r"[0-9a-f]{32}", ref)):
+                public["launch_ref"] = ref
+            if launch["state"] in ("launch_intent", "spawn_observed") and isinstance(launch.get("updated_at"), (int, float)):
+                age = max(0, int(now - launch["updated_at"]))
+                public["unresolved_seconds"] = age
+                public["stuck"] = age >= self.STUCK_LAUNCH_SECONDS
+            if last == "present" and launch["state"] in ("spawn_observed", "bound"):
+                public["agent_present"] = True
+            rows[row["lease_id"]] = public
+        return rows
+
+    def _parallel_launch_resolve(self, identity: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Record the operator's confirmed request to resolve one exact rework launch.
+
+        The browser names the reviewed lease and the opaque launch_ref it was
+        shown; the launch name is never read or derived here. This never asserts
+        the fork absent: the host mod checks its own native agent list at its
+        next event boundary, then resolves the launch or refuses it as agent present.
+        A retried request for the same ref is idempotent; a stale ref is refused.
+        """
+        if self.services.parallel_store is None:
+            raise tree.WorkPlanError("parallel review controls are unavailable")
+        lease_id, launch_ref = body.get("lease_id"), body.get("launch_ref")
+        if not isinstance(lease_id, str) or not lease_id or len(lease_id) > 200:
+            raise tree.WorkPlanError("lease_id must be a nonempty string")
+        if not isinstance(launch_ref, str) or re.fullmatch(r"[0-9a-f]{32}", launch_ref) is None:
+            raise tree.WorkPlanError("launch_ref must be the exact launch reference shown for this result")
+        if body.get("confirmed") is not True:
+            raise tree.WorkPlanError("resolving a rework launch requires explicit confirmation")
+        expected = body.get("expected_finalization_version")
+        if type(expected) is not int or expected < 0:
+            raise tree.WorkPlanError("expected_finalization_version must be a nonnegative integer")
+        from .work_parallel_mcp import request_rework_launch_manual
+        result = request_rework_launch_manual(self.services.parallel_store(), identity, lease_id, launch_ref,
+                                              confirmed=True, expected_version=expected)
+        return {key: result[key] for key in ("lease_id", "state", "attempt", "launch_ref", "finalization_version")}
+
+    REVIEW_ROW_FIELDS = ("lease_id", "item_id", "root_id", "priority", "item_title", "item_path", "artifact",
+                         "completion_receipt", "summary", "coverage", "verification", "state", "decision",
+                         "evidence")
+    REVIEW_WORKSPACE_FIELDS = ("branch", "head", "dirty", "changed_count", "changed_files", "diff_stat")
+
+    @classmethod
+    def _public_reviews(cls, projected: dict[str, Any], launches: dict[str, dict[str, Any]] | None = None) -> dict[str, Any]:
+        """Browser-safe main-review queue: bounded receipt facts and decision state.
+
+        Same exclusions as the rest of /parallel: no absolute workspace or repo
+        path, no fork content, agent/native identity, capability or saga internals.
+        """
+        review = projected.get("review")
+        if not isinstance(review, dict):
+            return {"parallel_reviews": [], "review_version": None}
+        launches = launches or {}
+        rows = []
+        for source in review.get("pending") or []:
+            if not isinstance(source, dict):
+                continue
+            row = {key: source[key] for key in cls.REVIEW_ROW_FIELDS if source.get(key) is not None}
+            for key in ("summary", "verification", "evidence"):
+                if isinstance(row.get(key), str):
+                    row[key] = row[key][:2000]
+            blocked = source.get("blocked")
+            if isinstance(blocked, dict) and isinstance(blocked.get("code"), str):
+                # Code only: a stage-failure message can carry host paths.
+                row["blocked"] = {"code": blocked["code"][:40]}
+            if isinstance(row.get("item_path"), list):
+                row["item_path"] = [str(value)[:120] for value in row["item_path"][:8]]
+            launch = launches.get(source.get("lease_id"))
+            if launch is not None:
+                row["launch"] = launch
+            workspace = source.get("workspace")
+            if isinstance(workspace, dict):
+                public = {key: workspace[key] for key in cls.REVIEW_WORKSPACE_FIELDS if workspace.get(key) is not None}
+                if isinstance(public.get("changed_files"), list):
+                    # The backend observes the whole workspace and sends the
+                    # true count separately. Keep it while clipping the public
+                    # file-name sample to twenty rows.
+                    total = workspace.get("changed_count")
+                    public["changed_count"] = total if type(total) is int and total >= len(public["changed_files"]) else len(public["changed_files"])
+                    public["changed_files"] = [str(value)[:200] for value in public["changed_files"][:20]]
+                if isinstance(public.get("diff_stat"), str):
+                    public["diff_stat"] = public["diff_stat"][:2000]
+                row["workspace"] = public
+            rows.append(row)
+        version = review.get("version")
+        return {"parallel_reviews": rows, "review_version": version if type(version) is int else None,
+                "reviews_truncated": review.get("truncated") is True}
+
+    def _parallel_item_review(self, identity: str, body: dict[str, Any]) -> dict[str, Any]:
+        """The authenticated web operator decides one pending result as main would.
+
+        The decision id is deterministic per result and decision, so a retried
+        click, or the same decision already made by main, is idempotent; a
+        different decision for the same result is refused by the journal.
+        """
+        if self.services.parallel_store is None:
+            raise tree.WorkPlanError("parallel review controls are unavailable")
+        lease_id, decision = body.get("lease_id"), body.get("decision")
+        if not isinstance(lease_id, str) or not lease_id or len(lease_id) > 200:
+            raise tree.WorkPlanError("lease_id must be a nonempty string")
+        if decision not in ("approve", "rework"):
+            raise tree.WorkPlanError("decision must be approve or rework")
+        evidence = body.get("evidence", "")
+        if not isinstance(evidence, str):
+            raise tree.WorkPlanError("evidence must be text")
+        evidence = evidence.strip()
+        if decision == "rework" and not evidence:
+            raise tree.WorkPlanError("rework requires the required change as evidence")
+        if not evidence:
+            evidence = "Approved by the authenticated operator in the Work web console after reviewing the bounded receipt."
+        expected = body.get("expected_finalization_version")
+        if type(expected) is not int or expected < 0:
+            raise tree.WorkPlanError("expected_finalization_version must be a nonnegative integer")
+        from .work_parallel_mcp import _main_review
+        return _main_review(self.services.parallel_store(), self._store(identity), identity, {}, {
+            "lease_id": lease_id, "decision": decision, "decision_id": "review:" + lease_id + ":" + decision,
+            "evidence": evidence[:2000], "expected_finalization_version": expected})
 
     def _parallel_paths(self) -> tuple[Path, ...]:
         if self.services.parallel_store is None:
             return ()
         path = Path(self.services.parallel_store().path)
         return (path, path.with_name("work-parallel-native.json"),
-                path.with_name("work-parallel-coordination.json"))
+                path.with_name("work-parallel-coordination.json"),
+                path.with_name("work-parallel-finalization.json"))
 
     @staticmethod
     def _stat(paths: tuple[Path, ...]) -> tuple[Any, ...]:
@@ -423,8 +595,16 @@ class WorkHttpController:
                 for group in ("confirmed", "waiting", "reservation", "uncertain", "validating", "ended")
                 for row in forks.get(group, [])]
         device = view.get("device", {})
-        return (json.dumps([rows, device.get("active_by_priority"), device.get("paused")], sort_keys=True),
-                bool(forks.get("confirmed_count")))
+        reviews = [(row.get("lease_id"), row.get("state"), row.get("decision"),
+                    [(row.get("launch") or {}).get(key) for key in ("state", "attempt", "launch_ref", "stuck",
+                                                                    "agent_present")])
+                   for row in view.get("parallel_reviews", [])]
+        # An unresolved launch is re-read on the 5 s cadence too, so the tab
+        # shows "Rework launch stuck" once it crosses the display threshold.
+        launching = any((row.get("launch") or {}).get("stuck") is False for row in view.get("parallel_reviews", []))
+        return (json.dumps([rows, device.get("active_by_priority"), device.get("paused"), reviews,
+                            view.get("review_version")], sort_keys=True),
+                bool(forks.get("confirmed_count")) or launching)
 
     def _stream(self, handler: Any, identity: str, query: dict[str, list[str]], *, v1: bool = False) -> None:
         if not self._streams.acquire(blocking=False):
@@ -455,6 +635,12 @@ class WorkHttpController:
             from .side_intake_inbox import SideIntakeInbox
             side_inbox = SideIntakeInbox(self.services.state_dir, identity)
             side_cursor = side_inbox.watermark()
+            # Wake-only ledger writes keep the Work version; their revisions
+            # still refresh the Side tab (e.g. "main delivery uncertain").
+            def wake_print(board: dict[str, Any]) -> str:
+                return json.dumps({key: [(row.get("wake") or {}).get(field) for field in ("state", "phase", "revision")]
+                                   for key, row in board.get("side_handoffs", {}).items()}, sort_keys=True)
+            wake_cursor = wake_print(doc)
             parallel_paths = self._parallel_paths()
             parallel_stat = self._stat(parallel_paths)
             parallel_print, parallel_live = self._parallel_fingerprint(identity, doc) if parallel_paths else ("", False)
@@ -486,6 +672,10 @@ class WorkHttpController:
                     handler.wfile.flush()
                     error_cursor = serialized_errors
                 latest_side = side_inbox.watermark()
+                latest_wake = wake_print(current)
+                if latest_wake != wake_cursor and latest_side is not None:
+                    wake_cursor = latest_wake
+                    side_cursor = None  # force one coalesced side.changed below
                 # None is a momentarily unreadable marker: keep the cursor. An
                 # unreadable initial marker yields at most one extra refetch.
                 if latest_side is not None and latest_side != side_cursor:

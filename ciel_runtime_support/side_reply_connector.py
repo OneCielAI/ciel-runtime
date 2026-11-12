@@ -12,7 +12,11 @@ import uuid
 _FIELDS = {'source', 'event_id', 'receiver_id', 'reply', 'kind', 'receipt_id'}
 _NAME = re.compile(r'[A-Za-z0-9_.:-]{1,150}')
 _UUID = re.compile(r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}')
-_MESSAGE_ID = re.compile(r'[0-9]{1,20}')
+# Walkie's own id contract (origin/main f59bbe11): positive, no leading zero,
+# at most 18 digits. Larger or zero-padded ids are rejected by Walkie itself.
+_MESSAGE_ID = re.compile(r'[1-9][0-9]{0,17}')
+# Marker Walkie appends to an SSE frame it cut at its size limit.
+WALKIE_TRUNCATION_MARKER = '[잘림]'
 PRESETS = ('walkie',)
 # Walkie support CloudEvents. With no operator route configured, these reply
 # through the session's own ``walkie`` MCP server (KOBE 2026-11-09: every side
@@ -82,27 +86,111 @@ def validate(value):
     return value
 
 
-def walkie_target(original):
-    """The Walkie conversation and message an event names, or None.
+def _walkie_id(value):
+    if isinstance(value, int) and not isinstance(value, bool):
+        value = str(value)
+    return value if isinstance(value, str) and _MESSAGE_ID.fullmatch(value) else None
 
-    Only ``data.conversation`` (UUID) and ``data.message_id`` (digits) are read;
-    nothing else in the event can steer the call.
-    """
+
+def _walkie_body(original):
     try:
-        data = json.loads(original).get('data')
-    except (ValueError, TypeError, AttributeError):
-        return None
+        body = json.loads(original)
+    except (ValueError, TypeError):
+        return None, None
+    data = body.get('data') if isinstance(body, dict) else None
+    return body, data if isinstance(data, dict) else None
+
+
+def walkie_target(original):
+    """Validated reply target, preserving explicit-null lineage sentinels."""
+    body, data = _walkie_body(original)
     if not isinstance(data, dict):
         return None
-    conversation, message = data.get('conversation'), data.get('message_id')
+    conversation = data.get('conversation')
     if not isinstance(conversation, str) or not _UUID.fullmatch(conversation):
         return None
-    if isinstance(message, int) and not isinstance(message, bool):
-        message = str(message)
-    if not isinstance(message, str) or not _MESSAGE_ID.fullmatch(message):
+    context = data.get('message_context') if isinstance(data.get('message_context'), dict) else {}
+    raw_target = context.get('id') if context.get('id') is not None else data.get('message_id')
+    message = _walkie_id(raw_target)
+    if message is None:
         return None
-    return {'conversation_id': conversation, 'message_id': message}
+    result = {'conversation_id': conversation, 'message_id': message}
+    for field in ('reply_to_message_id', 'thread_root_id'):
+        if field not in data:
+            continue
+        raw = data[field]
+        if raw is None:
+            result[field] = None
+        else:
+            value = _walkie_id(raw)
+            if value is None:
+                return None
+            result[field] = value
+    return result
 
+
+def walkie_source_context(original):
+    """Classify a Walkie event for canonical full-thread host prefetch.
+
+    ``thread``: a message or thread is referenced; the host must read and verify
+    the whole thread before any fork. ``none_referenced``: the event names no
+    message and no thread (reminders, notices). ``invalid``: an identifier is
+    malformed or candidate identities disagree; never guessed, never retried.
+    """
+    body, data = _walkie_body(original)
+    if not isinstance(body, dict) or not str(body.get('type') or '').startswith(WALKIE_EVENT_PREFIX):
+        return None
+    # JSON wire text may escape Korean; inspect the parsed body rendered as
+    # Unicode rather than relying on the literal wire spelling.
+    truncated = WALKIE_TRUNCATION_MARKER in json.dumps(body, ensure_ascii=False)
+    flag = {'event_truncated': True} if truncated else {}
+    if not isinstance(data, dict):
+        return {'classification': 'invalid', 'reason': 'Walkie event data malformed', **flag}
+    conversation = data.get('conversation')
+    if not isinstance(conversation, str) or not _UUID.fullmatch(conversation):
+        return {'classification': 'invalid', 'reason': 'Walkie conversation identity malformed', **flag}
+    context = data.get('message_context')
+    if context is not None and not isinstance(context, dict):
+        return {'classification': 'invalid', 'reason': 'Walkie message_context malformed', **flag}
+    context = context or {}
+    thread_task = context.get('thread_task')
+    if thread_task is not None and not isinstance(thread_task, dict):
+        return {'classification': 'invalid', 'reason': 'Walkie thread_task malformed', **flag}
+    thread_task = thread_task or {}
+    raw = {
+        'message_id': data.get('message_id'),
+        'context_id': context.get('id'),
+        'thread_root_id': data.get('thread_root_id'),
+        'context_root_id': thread_task.get('root_id'),
+        'reply_to_message_id': data.get('reply_to_message_id'),
+    }
+    ids = {}
+    for key, value in raw.items():
+        if value is None:
+            continue
+        parsed = _walkie_id(value)
+        if parsed is None:
+            return {'classification': 'invalid', 'reason': 'Walkie ' + key + ' malformed', **flag}
+        ids[key] = parsed
+    if not ids:
+        return {'classification': 'none_referenced', 'conversation_id': conversation, **flag}
+    # Every present candidate for one identity must agree (544/544 durable
+    # Walkie events agree); a disagreement is corruption, never a choice.
+    targets = {ids[key] for key in ('context_id', 'message_id') if key in ids}
+    roots = {ids[key] for key in ('thread_root_id', 'context_root_id') if key in ids}
+    if len(targets) > 1:
+        return {'classification': 'invalid', 'reason': 'Walkie target identities disagree', **flag}
+    if len(roots) > 1:
+        return {'classification': 'invalid', 'reason': 'Walkie thread root identities disagree', **flag}
+    target = next(iter(targets), None)
+    root = next(iter(roots), None) or target or ids.get('reply_to_message_id')
+    result = {'classification': 'thread', 'conversation_id': conversation,
+              'root_id': root, 'target_message_id': target or root, **flag}
+    # Presence is meaningful: explicit null proves a root event.
+    for field in ('reply_to_message_id', 'thread_root_id'):
+        if field in data:
+            result[field] = ids.get(field) if data[field] is not None else None
+    return result
 
 def _walkie_event(original):
     try:
@@ -123,7 +211,7 @@ def binding_for(config, route, original=''):
         # Operator-configured routes decide; nothing is added implicitly.
         return found
     if (route.get('source_kind') == 'external_event' and _NAME.fullmatch(receiver or '')
-            and _walkie_event(original) and walkie_target(original) is not None):
+            and _walkie_event(original)):
         return {'source': ANY_SOURCE, 'receiver_id': receiver, 'preset': 'walkie',
                 'server': DEFAULT_WALKIE_SERVER, 'implicit': True}
     return None
@@ -157,11 +245,14 @@ def prepare(config, route, receipt_id, reply, kind, *, original=''):
 
 
 def source_read(config, route, original):
-    """The host read of the message a Walkie event names, before the side actor runs."""
+    """Host-owned canonical Walkie thread context specification."""
     binding = binding_for(config, route, original)
-    target = walkie_target(original) if binding and binding.get('preset') == 'walkie' else None
-    if target is None:
+    context = walkie_source_context(original)
+    if context is None:
         return None
-    return {'server': binding['server'], 'tool': 'walkie_read_messages',
-            'arguments': {'conversation_id': target['conversation_id'], 'after': str(int(target['message_id']) - 1)},
-            'message_id': target['message_id']}
+    if not binding or binding.get('preset') != 'walkie':
+        # A Walkie event is still classified, even when no outbound route exists.
+        server = DEFAULT_WALKIE_SERVER
+    else:
+        server = binding['server']
+    return {'server': server, **context}

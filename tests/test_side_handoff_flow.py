@@ -52,6 +52,69 @@ class SideHandoffFlowTests(unittest.TestCase):
             self.assertEqual([],call('work_side_status',{})['main_handoffs'])
             self.assertEqual('',next(n for n in store.read()['nodes'] if n['id']==gate)['waiting_on'])
 
+    def test_concurrent_wake_prepares_authorize_exactly_one_attempt(self):
+        # E2E run-a-20261111-105350: two concurrent prepares both received the
+        # same submitting attempt and both submitted the wake prompt.
+        import threading
+        from ciel_runtime_support import side_wake
+        with tempfile.TemporaryDirectory() as raw:
+            root=Path(raw)
+            identity='claude:test'
+            config={'work_mode':True,'work_side_intake':{'enabled':True,'context_mode':'isolated'},'work_parallel_host':{'token':'x'*40}}
+            store=session_work_plan_store(root,identity)
+            _,item=store.transaction(lambda d:tree.add_node(d,None,'report'))
+            SideIntakeInbox(root,identity).receive('deadline within 4 hours','deadline')
+            def call(name,args,extra=None,error=False):
+                result=dispatch_work_tool(1,name,{**args,'session_id':identity,'_host':{'token':'x'*40,**(extra or {})}},
+                    load_config=lambda:config,state_dir=root,respond=lambda _id,text,error=False:{'text':text,'error':error})
+                self.assertEqual(error,result['error'],result)
+                return result['text'] if error else json.loads(result['text'])
+            claim=call('work_side_claim',{'owner':'actor'})['claim']
+            event=claim['receipt_id']
+            decision=call('work_side_resolve',{'decision':{'action':'advise','item_id':item,'summary':'Need input','reply':'Which?'},
+                'expected_version':store.read()['version']},{'receipt_id':claim['receipt_id'],'generation':claim['generation']})
+            self.assertEqual('requested',decision['result']['handoff'])
+            # Two independent stores (as two MCP calls build them) both pause
+            # just before the durable transaction, then race into it.
+            barrier=threading.Barrier(2,timeout=10)
+            class Paused:
+                def __init__(self):
+                    self.inner=session_work_plan_store(root,identity)
+                def transaction(self,mutate,**options):
+                    barrier.wait()
+                    return self.inner.transaction(mutate,**options)
+            results=[None,None]
+            def prepare(index):
+                results[index]=side_wake.prepare(Paused(),event,protocol=2,
+                    owner_nonce='owner-'+str(index),channel='prompt')
+            threads=[threading.Thread(target=prepare,args=(index,)) for index in range(2)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join(20)
+            # The first intent is leased: the other prepare gets already_intent
+            # with no attempt, so it can neither start nor record.
+            self.assertEqual(['already_intent','submitting'],sorted(result['state'] for result in results))
+            winner=next(result for result in results if result['state']=='submitting')
+            loser_index=results.index(next(result for result in results if result['state']=='already_intent'))
+            self.assertNotIn('attempt_id',results[loser_index])
+            with self.assertRaisesRegex(tree.WorkPlanError,'stale side wake intent'):
+                side_wake.start(store,event,winner['attempt_id'],'owner-'+str(loser_index),'prompt')
+            started=side_wake.start(store,event,winner['attempt_id'],winner['owner_nonce'],'prompt')
+            self.assertEqual('started',started['phase'])
+            # Only the owner of the started attempt records an outcome.
+            with self.assertRaisesRegex(tree.WorkPlanError,'stale side wake attempt'):
+                side_wake.record(store,event,'queued',winner['attempt_id'],owner_nonce='wrong')
+            side_wake.record(store,event,'failed',winner['attempt_id'],owner_nonce=winner['owner_nonce'])
+            # A failed wake is offered again and the next prepare gets a new intent.
+            self.assertEqual([event],[w['event_id'] for w in call('work_side_claim',{'owner':'actor'})['main_wakes']])
+            retry=side_wake.prepare(store,event,protocol=2,owner_nonce='retry-owner',channel='prompt')
+            self.assertEqual(('submitting','intent'),(retry['state'],retry['phase']))
+            self.assertNotEqual(winner['attempt_id'],retry['attempt_id'])
+            side_wake.start(store,event,retry['attempt_id'],'retry-owner','prompt')
+            side_wake.record(store,event,'queued',retry['attempt_id'],owner_nonce='retry-owner')
+            self.assertEqual('queued',store.read()['side_handoffs'][event]['wake']['state'])
+
     def test_settled_handoffs_do_not_inflate_every_claim(self):
         # Prody 2026-11-10: 30 answered handoffs were returned (with every
         # original text) on each poll; an empty claim became 361K characters in

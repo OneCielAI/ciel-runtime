@@ -10,14 +10,12 @@ const hook = (name, match) => hooks.find(h => h.name === name && Object.entries(
 const walkie = priority => JSON.stringify({ specversion: '1.0', type: 'com.ciel.walkie.message',
   data: { event_type: 'message.created', text: 'request ' + priority,
     message_context: { id: '1170' + priority, thread_task: { priority } } } })
-const models = ['inherit', ...Array.from({ length: 12 }, (_, i) => '_Combo_' + i)]
 let settings = [
   { key: 'work_mode', label: 'Work mode', value: true, kind: 'boolean' },
   { key: 'work_plan_approval_ask', label: 'Work plan approval', value: 'auto', kind: 'enum', choices: ['auto', 'ask'] },
   { key: 'work_parallel_p1_limit', label: 'Parallel P1', value: '5', kind: 'number' },
   { key: 'work_discovery_instruction', label: 'Discovery instruction', value: 'scan', kind: 'text' },
   { key: 'work_side_intake_reply_connectors', label: 'Reply connectors', value: [], kind: 'json' },
-  { key: 'work_side_intake_model', label: 'Side model', value: '_Combo_0', kind: 'model', choices: models },
   ...Array.from({ length: 8 }, (_, i) => ({ key: 'work_extra_' + i, label: 'Extra ' + i, value: 'v', kind: 'text' })),
 ]
 const snapshot = { enabled: true, phase: 'executing', approval: 'auto', version: 7, done: 1, total: 3,
@@ -90,7 +88,9 @@ await hook('session.start', {})($, { isInteractive: true }, async e => e)
 const view = await hook('command.run', { command: 'work-mode' })($, { args: 'view', origin: { kind: 'composer' } })
 const out = { view: view.text, opened: opens.find(o => o.id === 'work-details') }
 let tree = await render('terminal', 110)
-out.graphical = Boolean(walk(tree).find(n => n.props?.key === 'obs-graphic'))
+const client = walk(tree).find(n => n.props?.key === 'obs-graphic')
+out.graphical = Boolean(client)
+out.graphicProps = client?.props?.props || {}
 // The remaining portable assertions exercise the plain cross-surface fallback;
 // observatory.test.ts drives the terminal Client itself.
 tree = await render('desktop', 110)
@@ -110,13 +110,6 @@ await press(tree, 'setting-work_mode')
 asks = ['ask']; await press(tree, 'setting-work_plan_approval_ask')
 asks = ['3']; await press(tree, 'setting-work_parallel_p1_limit')
 out.writes = calls.slice(before).filter(c => c.tool === 'work_live_settings' && c.args.key).map(c => [c.args.key, c.args.value])
-await press(tree, 'setting-work_side_intake_model'); tree = await render('desktop', 110)
-out.picker = { texts: texts(tree).filter(t => /_Combo_|inherit/.test(t)), pages: texts(tree).find(t => t.startsWith('Models ')) }
-await press(tree, 'model-next'); tree = await render('desktop', 110)
-out.picker.second = texts(tree).filter(t => /_Combo_/.test(t))
-await press(tree, 'model-_Combo_11'); tree = await render('desktop', 110)
-out.picked = { write: calls.filter(c => c.tool === 'work_live_settings' && c.args.key === 'work_side_intake_model').map(c => c.args.value),
-  toast: toasts.at(-1), backToList: texts(tree).some(t => t.startsWith('Side model = _Combo_11')) }
 const mobile = await render('mobile', 40)
 out.mobile = { types: types(mobile), hint: texts(mobile).at(-1), settingsRows: texts(mobile).filter(t => t.includes(' = ')).length,
   headerDirection: walk(mobile).find(n => n.props?.key === 'obs-header').props.flexDirection, hovers: hovers(mobile) }

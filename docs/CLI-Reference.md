@@ -76,38 +76,38 @@ ciel-runtimectl work get work_mode
 ciel-runtimectl work set work_mode on
 ciel-runtimectl work set sse_injection_mode btw_with_mcp
 ciel-runtimectl work set work_side_intake_max_active 2
-ciel-runtimectl work set work_side_intake_model inherit
+ciel-runtimectl work set work_side_intake_priority_policy adaptive
 ```
 
 초기 메뉴 `Work & SSE settings`, 실행 중 `/work-mode settings`, ctl은 같은
 검증기와 설정 저장소를 사용한다. `list`는 승인·자동 계속·보존·병렬 실행·탐색·
-SSE·사이드 설정 전체를 열거한다. 사이드 판단에는 문맥 비율과 별개로 현재 Work
-보드 전체(활성 작업·큐 순서·계층·상태·우선순위·대기·메모·근거·버전)를 전달한다.
-최근30%는 대화 이력 비율이며 Work 보드를30%로 자르지 않는다.
+SSE·사이드 설정 전체를 열거한다.
 
-- `isolated`(기본): 부모 대화 없이 현재 Work 보드와 사이드 대화로 판단한다.
-- `full`: **라우터 경로에서 관측된** 부모 API 시스템·도구·대화 prefix를 사이드
-  요청 앞에 구조 그대로 투영한다. 메인·사이드의 native transcript 파일은 고치지 않는다.
-- `recent`: 공급자 `/v1/messages/count_tokens` 값으로 최근 대화 비율을 계산하고
-  완전한 user/tool 쌍 경계까지 확장한다. 시스템·도구·Work는 비율에서 제외한다.
-  정확한30%가 아닌 실제 선택 비율을 기록한다. 공급자 카운터가 없거나 거부하면
-  문자 수로 대체하지 않고 실패 상태로 원문을 보존한다.
-- recent 또는 모델 전환 시 이전 prefix에 묶인 부모 thinking 블록은 제외하고
-  제외 수를 표시한다. 동일 모델 full에서는 보존한다. 캐시 적중은 보장하지 않는다.
-- 부모 요청 버전이 같으면 사이드 agent를 재사용한다. 부모 이력이 진행·compact되어
-  달라지면 다음 이벤트에서 새 문맥 기준으로 전환하며 이전 이력을 끼워 고치지 않는다.
+SSE 이벤트 하나는 **네이티브 `fork` 하나**로 처리한다. 포크는 메인 세션의 모델·
+대화 문맥·도구·권한 모드를 그대로 상속한다. 별도 사이드 모델, 등록된 사이드 agent
+타입, 라우터 부모 문맥 투영(`isolated`/`full`/`recent`, 문맥 비율)은 2026-11-11에
+제거했다. 이전 빌드가 저장한 `model`·`context_mode`·`context_percent` 값은 디스크에
+남아도 무시되며 `work set`으로 다시 설정할 수 없다. 이벤트 프롬프트에는 현재 Work 보드
+전체(활성 작업·큐 순서·계층·상태·우선순위·대기·메모·근거·버전)를 전달한다.
 
-`router_capture_required` 설정은 routed 경로와 정확한 부모 관측이 필요하다.
-direct gateway 요청은 이 라우터를 지나지 않으므로 full/recent를
-적용했다고 표시하지 않는다. 부모 캡처는16MiB까지 지원하며 초과 시 생략하지 않고
-해당 side 요청을 보존한다. 실측 usage에 없는 캐시·비용 값은 unknown이다.
+사이드 포크의 제한은 **프롬프트 정책만**이다(운영자 결정, 기술적 도구 차단 없음).
+이벤트 프롬프트는 파일·코드·설정 쓰기, Bash/PowerShell, 빌드·테스트·배포, 런타임·
+설정 제어, Work 변경, Agent 호출, source로의 직접 ACK·응답·전송을 금지하고 결정 JSON
+하나만 반환하도록 요구한다. 도구 호출은 메인의 호출과 같은 경로(Work 게이트·네이티브
+권한)를 탄다. 결정은 host가 원자적으로 커밋하고 host outbox가 정확히 한 번 source
+reply를 보낸다. 중복 제거, P1 예약 슬롯, `work_side_intake_max_active`는 그대로다.
 
-주 사이드 처리자는 메인 세션에 연결된 MCP 중 **읽기 도구만** 상속한다.
-응답·ACK·Work 변경·승인·실행 도구는 주지 않으며, workspace 경계 안의 bounded 코드
-검색/읽기와 host의 `work_side_resolve`만 사용한다. 결정은 host가 원자적으로 커밋하고
-host outbox가 정확히 한 번 source reply를 보낸다. MCP 목록이 바뀌면 실행 중인
-처리자는 취소하지 않고 다음 이벤트에서 새 목록으로 등록한다. 비교(shadow) agent는
-도구가 없다.
+Walkie 이벤트는 포크를 띄우기 전에 host가 정규 thread root를 검증해 읽는다.
+root는 `data.thread_root_id`, `message_context.thread_task.root_id`, 대상 메시지 id 순으로
+결정한다. root는 `walkie_read_messages(after=root-1)`로 읽고, reply는
+`walkie_call_tool(operation_id:"threads.read")`로 200개씩 끝까지 페이지한다. 대상이
+root 또는 검증된 reply에 있어야 하며, reply id는 오름차순이고 `thread_root_id`가 root와
+같아야 한다. 명시적 null 계보는 root sentinel로 보존한다. 본문은 자르지 않고 인증정보
+형태의 키만 가린다. 로컬 531개 thread 실측 최대(113행·341,233바이트)를 근거로 최대
+8페이지·1,601행·384KiB이며 읽기 실패·대상 없음·형식/계보 오류·
+초과는 `source_context` 실패로 원문을 보존하고 포크/응답을 만들지 않는다. 메시지나
+thread 참조가 전혀 없는 Walkie 이벤트만 `source_context:none_referenced`로 이벤트 본문과
+메인 문맥을 사용해 포크한다.
 
 `work_side_intake_reply_connectors`(메뉴: External reply route / Walkie preset)는
 신뢰된 상관관계가 있는 웹 채팅을 원래 채널로 자동 전달하고, 일반 외부

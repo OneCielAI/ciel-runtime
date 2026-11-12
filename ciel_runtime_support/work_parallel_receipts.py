@@ -391,6 +391,16 @@ class WorkCoordinationStore:
             run["native_status"] = status
             run["native_seen_at"] = stamp
             run["state_changed_at"] = stamp
+            # A durable terminal exit receipt is authoritative. A fork is still
+            # listed as running while it finishes the turn in which it reported,
+            # so a native observation must never reopen that run: the main
+            # review's archive stage requires it terminal. A run an older build
+            # reopened is restored to its receipt's state. A question receipt is
+            # not an exit; the same worker resumes after its answer.
+            kind = (run["exit"] or {}).get("kind")
+            if kind is not None and kind != "question":
+                run["state"] = "handed_off" if kind in ("handoff", "host_salvage") else "terminal"
+                return run
             if status in ("pending", "running"):
                 run["state"] = "active"
             elif status == "waiting":
@@ -422,6 +432,9 @@ class WorkCoordinationStore:
             if prior is not None:
                 require(prior["lease_id"] == lease_id and prior["kind"] == kind, "receipt already belongs to another run")
                 return receipt_digest
+            # A completion is the run's final exit: no later receipt (for
+            # example a host salvage) may replace it and reopen review facts.
+            require((run["exit"] or {}).get("kind") != "completion", "completed run exit receipt is final")
             require(len(state["details"]) < MAX_DETAILS and len(state["receipts"]) < MAX_RECEIPTS, "receipt capacity reached")
             state["details"][receipt_digest] = detail_row
             state["receipts"][receipt_digest] = {"digest": receipt_digest, "lease_id": lease_id,
@@ -505,6 +518,30 @@ class WorkCoordinationStore:
                 rows.append({"scope": scope, "priority": priority, "code": code, "count": 1, "at": stamp})
                 state["scheduler"]["diagnostics"] = rows[-MAX_DIAGNOSTICS:]
             return state["scheduler"]["diagnostics"][-1]
+        return self._change(apply, expected_version)
+
+    def restore_completion_terminal(self, lease_id, receipt_digest, *, expected_version):
+        """Restore a completed run an older build reopened, by its exact receipt.
+
+        The digest is the completion receipt main reviewed. A different exit, a
+        different digest or a missing durable receipt stays refused, so the
+        archive stage remains blocked with an explicit reason.
+        """
+        require(text(lease_id, 200) and digest(receipt_digest), "completion restore identity")
+        stamp = time.time()
+        def apply(state):
+            run = state["runs"].get(lease_id)
+            require(run is not None, "run is not terminal: coordination run missing")
+            exit_row = run["exit"] or {}
+            receipt = state["receipts"].get(receipt_digest)
+            require(exit_row == {"kind": "completion", "digest": receipt_digest}
+                    and receipt is not None and receipt["lease_id"] == lease_id
+                    and receipt["kind"] == "completion",
+                    "run is not terminal: completion receipt does not match the reviewed receipt")
+            if run["state"] != "terminal":
+                run["state"] = "terminal"
+                run["state_changed_at"] = stamp
+            return run
         return self._change(apply, expected_version)
 
     def archive_terminal(self, lease_id, summary, *, expected_version):

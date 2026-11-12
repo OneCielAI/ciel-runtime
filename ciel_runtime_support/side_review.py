@@ -16,6 +16,9 @@ def pending(doc, limit=10):
 # The host only sent the reply in these states. Anything else is not "sent".
 SENT = ('submitted', 'side_mcp')
 UNSENT = ('route_unavailable', 'failed')
+# No source reply exists (the event referenced no message/thread): main only
+# reviews the board decision and is never asked to send anything.
+NOT_APPLICABLE = ('not_applicable',)
 
 
 def delivery_state(inbox, receipt_id):

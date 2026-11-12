@@ -94,7 +94,9 @@ class LiveSettingsTests(unittest.TestCase):
             self.assertEqual(['number']*5,[rows[f'work_parallel_p{n}_limit']['kind'] for n in range(1,6)])
             self.assertEqual('text',rows['work_discovery_instruction']['kind'])
             self.assertEqual('json',rows['work_side_intake_reply_connectors']['kind'])
-            self.assertEqual('model',rows['work_side_intake_model']['kind'])
-            self.assertEqual(['inherit','_One','anthropic/claude-opus-5-5'],
-                             rows['work_side_intake_model']['choices'])
+            # Side events are native forks of main: no side model/context row.
+            self.assertFalse({'work_side_intake_model','work_side_intake_context_mode',
+                              'work_side_intake_context_percent'} & set(rows))
+            self.assertFalse([row for row in rows.values() if row.get('kind') == 'model'])
+            self.assertIn('native fork inheriting the main model, context, tools and permissions',result['applies'])
             self.assertEqual('cielairouter',result['provider'])

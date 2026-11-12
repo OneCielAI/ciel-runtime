@@ -1,37 +1,22 @@
 """Canonical controls for independent side processing."""
-import hashlib
-import json
 
 FIELDS = {
     'max_active': (2, None),
     'aging_seconds': (60, None),
-    'context_mode': ('full', ('isolated', 'full', 'recent')),
-    'context_percent': (30, None),
-    'model': ('inherit', None),
     'reply_connectors': ([], None),
     'priority_policy': ('adaptive', ('adaptive', 'explicit')),
     'instruction': ('', None),
 }
-# Removed 2026-11-10 with the comparison experiment; ignored if still persisted.
-RETIRED = ('comparison_enabled', 'comparison_model')
+# Native forks always inherit main. Historical overrides remain harmless on disk
+# but are never projected to runtime or exposed by active settings UI.
+RETIRED = ('comparison_enabled', 'comparison_model', 'model', 'context_mode', 'context_percent')
 PREFIX = 'work_side_intake_'
 
 
 def runtime_settings(config):
-    """Project persisted catalog IDs to Claude-facing routed aliases."""
-    stored = {key: value for key, value in (config.get('work_side_intake') or {}).items() if key not in RETIRED}
-    provider = str(config.get('current_provider') or '')
-    from .provider_adapters import PROVIDER_ADAPTERS, PROVIDER_ALIASES, PROVIDER_LABELS
-    from .provider_model_identity import ProviderModelIdentityService
-    models = ProviderModelIdentityService(PROVIDER_ADAPTERS, PROVIDER_ALIASES, PROVIDER_LABELS)
-    raw = str(stored.get('model') or 'inherit')
-    stored['model_catalog'] = raw
-    stored['model'] = raw if raw == 'inherit' else models.alias_for(provider, models.normalize_model_id(provider, raw))
-    stored.setdefault('context_mode', 'full')
-    stored['model_fingerprint'] = hashlib.sha256(json.dumps({
-        'provider': provider, 'model': stored['model']
-    }, sort_keys=True).encode()).hexdigest()[:32]
-    return stored
+    """Return active controls; old model/context keys are intentionally ignored."""
+    return {key: value for key, value in (config.get('work_side_intake') or {}).items()
+            if key not in RETIRED}
 
 
 def values(config):
@@ -50,18 +35,14 @@ def set_value(config, key, value):
             parsed = validate(json.loads(value))
         except (ValueError, TypeError) as error:
             raise ValueError('invalid side reply connectors: ' + str(error)) from None
-    elif name in ('context_percent', 'max_active', 'aging_seconds'):
-        upper = {'max_active':16, 'context_percent':100, 'aging_seconds':3600}[name]
+    elif name in ('max_active', 'aging_seconds'):
+        upper = {'max_active':16, 'aging_seconds':3600}[name]
         try:
             parsed = int(value)
         except (ValueError, TypeError):
             raise ValueError(f'{name} must be an integer from 1 to {upper}') from None
         if not 1 <= parsed <= upper:
             raise ValueError(f'{name} must be an integer from 1 to {upper}')
-    elif name == 'model':
-        parsed = value.strip()
-        if not parsed or len(parsed) > 300 or any(ord(c) < 32 for c in parsed):
-            raise ValueError('use inherit or a catalog model id')
     elif name == 'instruction':
         parsed = value.strip()
         if len(parsed) > 16000 or '\x00' in parsed:

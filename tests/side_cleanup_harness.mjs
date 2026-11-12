@@ -5,7 +5,7 @@ const $={
  agent:{list:async()=>[
   {id:'failed-side',spawnedBy:'ciel-work',type:'ciel-work:side-intake',status:'failed',description:'old'},
   {id:'idle-side',spawnedBy:'ciel-work',type:'ciel-work:side-intake',status:'idle',description:'old'},
-  {id:'finished-fork',spawnedBy:'ciel-work',type:'fork',status:'completed',description:'Side SSE abcdef123456'},
+  {id:'finished-fork',spawnedBy:'ciel-work',type:'fork',status:'completed',name:'side-intake-abcdef1234567890',description:'Side SSE abcdef123456'},
   {id:'foreign',spawnedBy:'other',type:'fork',status:'idle',description:'Side SSE foreign'},
  ],register:async()=>{}},
  tool:{list:async()=>[],call:async args=>{stopped.push(args);return {text:'ok'}}},

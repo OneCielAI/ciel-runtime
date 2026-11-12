@@ -13,7 +13,7 @@ def pending(state_dir, identity, limit=10):
     def eligible():
         for path in directory.glob('*/*.json'):
             row=SideIntakeInbox._read_file(path)
-            if (row and row.get('stage')=='processed' and row.get('result',{}).get('delivery') not in ('route_unavailable','side_mcp','duplicate_source')
+            if (row and row.get('stage')=='processed' and row.get('result',{}).get('delivery') not in ('route_unavailable','side_mcp','duplicate_source','not_applicable')
                     and row.get('outbox',{}).get('state') not in ('submitted','uncertain','submitting','failed')):
                 yield {'receipt_id':path.stem,'state':row.get('outbox',{}).get('state','pending')}
     return heapq.nsmallest(limit,eligible(),key=lambda row:row['receipt_id'])
@@ -43,6 +43,14 @@ def prepare(state_dir, identity, receipt_id, *, config=None):
                 source = inbox._load(event_key[len('handoff:'):])
                 original = source.get('text', '') if source else ''
             connector = connector_prepare(config or {}, route, receipt_id, message, kind, original=original)
+        # An event that referenced no message or thread has no source to answer:
+        # not_applicable, never route_unavailable (which asks main to send it).
+        if connector is None and (row.get('source_context') == 'none_referenced'
+                                  or row['result'].get('source_context') == 'none_referenced'):
+            row['result']['delivery'] = 'not_applicable'
+            inbox._save_file(inbox._event_path('receipts', receipt_id), row)
+            return {'state': 'not_applicable', 'receipt_id': receipt_id,
+                    'receipt': inbox._receipt(receipt_id, row, duplicate=False)}
         # External receiver channel names alone are not outbound connectors.
         if connector is None and (route.get('source_kind') != 'web_chat' or not route.get('reply_token') or not route.get('channel')):
             # Legacy actors may have answered through the source MCP themselves

@@ -1,3 +1,4 @@
+import json
 import os
 import re
 import tempfile
@@ -127,6 +128,12 @@ class WorkWebUiTests(unittest.TestCase):
         # Unknown send outcomes and lease releases go through the confirmation dialog.
         self.assertRegex(self.html, r"Resend \(may duplicate\)',\(\)=>confirmDanger\(")
         self.assertRegex(self.html, r"'Release lease',\(\)=>confirmDanger\(")
+        # An uncertain main wake is visible and its retry needs confirmation
+        # with the exact event, attempt and revision.
+        self.assertIn('Main delivery uncertain', self.html)
+        self.assertRegex(self.html, r"'Retry main wake \(may duplicate\)',\(\)=>confirmDanger\(")
+        self.assertRegex(self.html, r"command\('side-wake-retry',\{event_id:row\.event_id,attempt_ref:row\.wake\.attempt_ref,"
+                                    r"revision:row\.wake\.revision,confirmed:true\}")
 
     def test_parallel_tab_uses_native_fork_evidence_not_raw_leases(self):
         for marker in (
@@ -134,7 +141,10 @@ class WorkWebUiTests(unittest.TestCase):
             "Native fork evidence unavailable", "Processing now · confirmed native forks",
             "No fork is processing Work right now.", "confirmed by native agent list",
             "Waiting for input", "Reservations · no native fork yet", "Uncertain or stale",
-            "A slot may be held without a running fork.", "Validating", "Device capacity · all sessions",
+            # Submitted results no longer validate in a reviewer fork: after
+            # main's decision they are Finalizing.
+            "A slot may be held without a running fork.", "Finalizing", "No accepted result is finalizing.",
+            "Device capacity · all sessions",
             "Pause dispatch on this device", "function confirmedFork(", "function compactFork(",
             "source.addEventListener('parallel.changed',refreshParallel)",
             "source.addEventListener('work.changed',refreshParallel)",
@@ -146,6 +156,114 @@ class WorkWebUiTests(unittest.TestCase):
         self.assertIn("data.forks", renderer)
         self.assertIn("deviceSection(data)", renderer)
         self.assertIn("const device=data.device||{}", self.html)
+
+    def test_parallel_tab_offers_main_review_controls_without_reviewer_forks(self):
+        for marker in ("function renderMainReviews(", "Main review (", "Awaiting main review", "'Rework'",
+                       "'Finalizing'", "No reviewer fork is started.", "'Approve'", "'Rework…'",
+                       "command('parallel-item-review',{lease_id:row.lease_id,decision,evidence,"
+                       "expected_finalization_version:data.review_version??0})",
+                       "panel.append(banner,renderMainReviews(data))"):
+            self.assertIn(marker, self.html)
+        # Approval finalizes the board item: it goes through the confirmation dialog.
+        self.assertRegex(self.html, r"action\('Approve',\(\)=>confirmDanger\(")
+        # Rework always carries the required change as evidence.
+        self.assertIn("inlineNote(item,'Required rework',note=>reviewDecision(data,row,'rework',note))", self.html)
+        self.assertNotIn("'reviewer'", self.html)
+
+    def test_review_states_include_waiting_for_slot_and_blocked_code(self):
+        for marker in ("awaiting_capacity:'Rework (waiting for slot)'", "if(value==='awaiting_capacity')return'awaiting_capacity'",
+                       "reviewField(details,'Blocked',", "not_applicable:'no source reply (event referenced no message)'"):
+            self.assertIn(marker, self.html)
+
+    def test_stuck_rework_launch_is_labelled_and_resolution_is_a_confirmed_request(self):
+        for marker in ("return'Rework launch stuck'", "return'Waiting for host check'",
+                       "return'Rework (agent present)'", "return'Rework launching'",
+                       "command('parallel-launch-resolve',{lease_id:row.lease_id,launch_ref:row.launch.launch_ref,"
+                       "confirmed:true,expected_finalization_version:data.review_version??0})",
+                       "row.launch.stuck&&row.launch.launch_ref&&",
+                       "action('Resolve stuck launch…',()=>resolveLaunch(data,row),'danger')"):
+            self.assertIn(marker, self.html)
+        self.assertNotIn("dispatch_name", self.html)
+        self.assertRegex(self.html, r"function resolveLaunch\(data,row\)\{return confirmDanger\(")
+
+    @unittest.skipUnless(os.environ.get("CIEL_TEST_BROWSER"), "opt-in browser verification")
+    def test_stuck_rework_launch_browser_resolution_request(self):
+        from playwright.sync_api import sync_playwright
+        html = self.html
+        empty = {name: [] for name in ("confirmed", "waiting", "reservation", "uncertain", "validating", "ended")}
+        def row(lease, item, title, launch):
+            return {"lease_id": lease, "item_id": item, "item_title": title, "priority": "P1", "state": "rework_ready",
+                    "decision": "rework", "evidence": "add the jitter test", "item_path": ["Checkout", title],
+                    "summary": "first attempt", "verification": "pytest: 1 failed", "launch": launch}
+        parallel = {"schema_version": 2, "version": 7, "review_version": 6, "policy": {"enabled": True, "paused": False},
+                    "forks": {"schema": "native-fork-evidence/1", "available": True, "confirmed_count": 0, **empty},
+                    "device": {"active_slots": 2, "capacity": 4, "priority_limits": {"P1": 4}},
+                    "parallel_reviews": [
+                        row("L1", "n240", "Retry backoff", {"state": "launch_intent", "attempt": 1, "launch_ref": "a" * 32,
+                                                             "unresolved_seconds": 95, "stuck": True}),
+                        row("L2", "n241", "Webhook", {"state": "launch_intent", "attempt": 1, "launch_ref": "b" * 32,
+                                                       "unresolved_seconds": 4, "stuck": False}),
+                        row("L3", "n242", "Receipt email", {"state": "manual_requested", "attempt": 1,
+                                                             "launch_ref": "c" * 32}),
+                        row("L4", "n243", "Refund", {"state": "bound", "attempt": 1, "agent_present": True})]}
+        board = {"session_id": "claude:fixture", "version": 1, "nodes": [], "phase": "executing"}
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(executable_path=os.environ["CIEL_TEST_BROWSER"], headless=True)
+            for label, viewport in (("mobile", {"width": 390, "height": 1400}),
+                                    ("desktop", {"width": 1440, "height": 1000})):
+                with self.subTest(viewport=label):
+                    posted = []
+                    page = browser.new_page(viewport=viewport)
+                    # One argument: Playwright passes (route, request) to a two-parameter handler.
+                    # Pages run one at a time, so the loop's current `posted` is the right list.
+                    def route(request):
+                        url = request.request.url
+                        if url.endswith("/ca/work/ui"):
+                            request.fulfill(content_type="text/html", body=html)
+                        elif "/events" in url:
+                            request.fulfill(content_type="text/event-stream", body=": ready\n\n")
+                        elif "/commands/parallel-launch-resolve" in url:
+                            posted.append(json.loads(request.request.post_data))
+                            request.fulfill(json={"ok": True, "result": {"state": "manual_requested"}})
+                        elif "/parallel" in url:
+                            request.fulfill(json=parallel)
+                        elif "/board" in url:
+                            request.fulfill(json=board)
+                        else:
+                            request.fulfill(json={})
+                    page.route("http://fixture.test/**", route)
+                    page.goto("http://fixture.test/ca/work/ui")
+                    page.get_by_role("tab", name="Parallel").click()
+                    section = page.locator('[data-group="main-review"]')
+                    section.locator(".review-card").first.wait_for()
+                    self.assertEqual(["Rework launch stuck", "Rework launching", "Waiting for host check",
+                                      "Rework (agent present)"],
+                                     section.locator(".review-card .state-chip").all_inner_texts())
+                    self.assertIn("agent present", section.locator(".review-card").nth(3).inner_text())
+                    # Only the stuck launch offers the request; nothing is posted before confirmation.
+                    self.assertEqual(1, section.get_by_role("button", name="Resolve stuck launch…").count())
+                    section.get_by_role("button", name="Resolve stuck launch…").click()
+                    self.assertIn("first checks its native agent list", page.locator("#confirm-dialog").inner_text())
+                    self.assertEqual([], posted)
+                    evidence_dir = os.environ.get("CIEL_TEST_EVIDENCE_DIR")
+                    if evidence_dir:
+                        page.screenshot(path=os.path.join(evidence_dir, "rework-launch-stuck-" + label + ".png"),
+                                        full_page=label == "mobile")
+                    page.get_by_role("button", name="Confirm").click()
+                    page.wait_for_timeout(300)
+                    self.assertEqual([("L1", "a" * 32, True, 6)],
+                                     [(p["lease_id"], p["launch_ref"], p["confirmed"],
+                                       p["expected_finalization_version"]) for p in posted])
+                    self.assertTrue(all("dispatch_name" not in p for p in posted))
+                    overflow = page.evaluate(
+                        "document.documentElement.scrollWidth - document.documentElement.clientWidth")
+                    self.assertLessEqual(overflow, 0)
+                    page.close()
+            browser.close()
+
+    def test_side_handoff_list_labels_bounded_time_limit(self):
+        for marker in ("row.kind==='time_limit'&&row.time_limit", "'Time limit: '", "' · due '", "'Evidence: '"):
+            self.assertIn(marker, self.html)
 
     def test_side_tab_is_receipt_first_paginated_and_draft_safe(self):
         for marker in (
@@ -289,6 +407,87 @@ class WorkWebUiTests(unittest.TestCase):
             overflow = page.evaluate("document.documentElement.scrollWidth - document.documentElement.clientWidth")
             self.assertLessEqual(overflow, 0)
             browser.close()
+
+    @unittest.skipUnless(os.environ.get("CIEL_TEST_BROWSER"), "opt-in browser verification")
+    def test_main_review_browser_approve_and_rework_controls(self):
+        from playwright.sync_api import sync_playwright
+        html = self.html
+        empty = {name: [] for name in ("confirmed", "waiting", "reservation", "uncertain", "validating", "ended")}
+        def row(lease, item, title, state, decision=None, **extra):
+            return {"lease_id": lease, "item_id": item, "item_title": title, "priority": "P1", "state": state,
+                    "decision": decision, "item_path": ["Checkout", title], "artifact": "a" * 64,
+                    "completion_receipt": "d" * 64, "summary": "Retry backoff implemented <b>safely</b>",
+                    "coverage": [{"item_id": item, "verified": True}], "verification": "pytest: 12 passed",
+                    "workspace": {"branch": "work/" + item, "head": "abc1234def", "dirty": False,
+                                  "changed_files": ["src/retry.py", "tests/test_retry.py"], "changed_count": 2,
+                                  "diff_stat": "2 files changed, 40 insertions(+)"}, **extra}
+        parallel = {"schema_version": 2, "version": 7, "review_version": 4, "policy": {"enabled": True, "paused": False},
+                    "forks": {"schema": "native-fork-evidence/1", "available": True, "confirmed_count": 0, **empty},
+                    "device": {"active_slots": 0, "capacity": 2, "priority_limits": {"P1": 2}},
+                    "parallel_reviews": [row("L1", "n229", "Add retry backoff", "pending"),
+                                         row("L2", "n230", "Payment webhook", "rework_ready", "rework",
+                                             evidence="missing idempotency test"),
+                                         row("L3", "n231", "Receipt email", "deciding", "approve",
+                                             evidence="verified")]}
+        board = {"session_id": "claude:fixture", "version": 1, "nodes": [], "phase": "executing"}
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(executable_path=os.environ["CIEL_TEST_BROWSER"], headless=True)
+            for label, viewport in (("mobile", {"width": 390, "height": 1100}),
+                                    ("desktop", {"width": 1440, "height": 1000})):
+                with self.subTest(viewport=label):
+                    posted = []
+                    page = browser.new_page(viewport=viewport)
+                    # One argument: Playwright passes (route, request) to a two-parameter handler.
+                    # Pages run one at a time, so the loop's current `posted` is the right list.
+                    def route(request):
+                        url = request.request.url
+                        if url.endswith("/ca/work/ui"):
+                            request.fulfill(content_type="text/html", body=html)
+                        elif "/events" in url:
+                            request.fulfill(content_type="text/event-stream", body=": ready\n\n")
+                        elif "/commands/parallel-item-review" in url:
+                            posted.append(json.loads(request.request.post_data))
+                            request.fulfill(json={"ok": True, "result": {"state": "finalized"}})
+                        elif "/parallel" in url:
+                            request.fulfill(json=parallel)
+                        elif "/board" in url:
+                            request.fulfill(json=board)
+                        else:
+                            request.fulfill(json={})
+                    page.route("http://fixture.test/**", route)
+                    page.goto("http://fixture.test/ca/work/ui")
+                    page.get_by_role("tab", name="Parallel").click()
+                    section = page.locator('[data-group="main-review"]')
+                    section.locator(".review-card").first.wait_for()
+                    self.assertIn("Main review (3)", section.locator("h3").inner_text())
+                    labels = section.locator(".review-card .state-chip").all_inner_texts()
+                    self.assertEqual(["Awaiting main review", "Rework", "Finalizing"], labels)
+                    self.assertEqual(0, section.locator(".review-card b").count())
+                    self.assertIn("<b>safely</b>", section.locator(".review-card").first.inner_text())
+                    # Only the undecided result offers decisions.
+                    self.assertEqual(1, section.get_by_role("button", name="Approve").count())
+                    self.assertEqual(1, section.get_by_role("button", name="Rework…").count())
+                    evidence_dir = os.environ.get("CIEL_TEST_EVIDENCE_DIR")
+                    if evidence_dir:
+                        page.screenshot(path=os.path.join(evidence_dir, "main-review-" + label + ".png"),
+                                        full_page=label == "mobile")
+                    section.get_by_role("button", name="Rework…").click()
+                    section.get_by_role("textbox", name="Required rework").fill("Add the jitter unit test")
+                    section.get_by_role("button", name="Save").click()
+                    page.wait_for_function("() => document.querySelectorAll('.toast').length > 0")
+                    section.get_by_role("button", name="Approve").click()
+                    page.get_by_role("button", name="Confirm").click()
+                    page.wait_for_timeout(300)
+                    self.assertEqual([("rework", "Add the jitter unit test", 4), ("approve", "", 4)],
+                                     [(p["decision"], p["evidence"], p["expected_finalization_version"])
+                                      for p in posted])
+                    self.assertTrue(all(p["lease_id"] == "L1" and p["operation_id"] for p in posted))
+                    overflow = page.evaluate(
+                        "document.documentElement.scrollWidth - document.documentElement.clientWidth")
+                    self.assertLessEqual(overflow, 0)
+                    page.close()
+            browser.close()
+
 
 class WorkHttpRoutesTests(unittest.TestCase):
     def test_console_shell_is_mounted_before_rest_and_post_stays_on_rest(self):

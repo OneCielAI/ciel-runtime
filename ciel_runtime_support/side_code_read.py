@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import re
 
-from .side_context_store import redact_text
+from .side_redaction import redact_text
 from .work_plan_tree import WorkPlanError
 
 MAX_FILE_BYTES = 2 * 1024 * 1024

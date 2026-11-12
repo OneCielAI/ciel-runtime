@@ -135,9 +135,15 @@ class WorkPlanStore:
         mutate: Callable[[dict[str, Any]], Any],
         *,
         expected_version: int | None = None,
+        semantic: bool = True,
         _deferred_notifications: list | None = None,
     ) -> tuple[dict[str, Any], Any]:
-        """Apply ``mutate`` to a copy and persist changed state with CAS semantics."""
+        """Apply ``mutate`` to a copy and persist it atomically.
+
+        ``semantic=False`` is reserved for the side-wake ledger. It may change
+        only nested ``side_handoffs[*].wake`` values and deliberately preserves
+        the Work CAS version and semantic ``updated_at`` timestamp.
+        """
 
         if expected_version is not None and type(expected_version) is not int:
             raise WorkPlanError("expected_version must be an integer")
@@ -159,9 +165,21 @@ class WorkPlanStore:
                 )
             working = copy.deepcopy(current)
             result = mutate(working)
+            if not semantic and working != current:
+                before_masked, after_masked = copy.deepcopy(current), copy.deepcopy(working)
+                for document in (before_masked, after_masked):
+                    for row in document.get("side_handoffs", {}).values():
+                        if isinstance(row, dict):
+                            row.pop("wake", None)
+                if before_masked != after_masked:
+                    raise WorkPlanError("non-semantic transaction may change only side handoff wake state")
             if working != current:
-                working["version"] = current["version"] + 1
-                working["updated_at"] = time.time()
+                if semantic:
+                    working["version"] = current["version"] + 1
+                    working["updated_at"] = time.time()
+                else:
+                    working["version"] = current["version"]
+                    working["updated_at"] = current["updated_at"]
                 removed_ids = {node['id'] for node in current['nodes']} - {node['id'] for node in working['nodes']}
                 if removed_ids:
                     # Commit recovery evidence first. A failed board replacement

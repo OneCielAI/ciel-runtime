@@ -120,17 +120,14 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
                 # build are indexed here the first time a window opens them.
                 inbox.mark_quarantined(key)
                 continue
-            if failure.get('quarantined') and failure.get('model_fingerprint') == model_fingerprint:
-                # Legacy generic model_error had no typed router outcome and may
-                # have quarantined a transient 5xx. Re-evaluate once under the
-                # new exact-main-fallback lifecycle.
-                if failure.get('category') == 'model_error' and not failure.get('typed'):
-                    failure['quarantined'] = False
-                    failure['retry_not_before'] = 0
-                    failure['legacy_recheck'] = True
-                    current['side_failure'] = failure
-                else:
-                    continue
+            if failure.get('quarantined'):
+                # A quarantine is terminal whatever its model fingerprint. Native
+                # side forks use one constant fingerprint, so lifting a quarantine
+                # on a fingerprint change would fork and reply to every legacy
+                # row days later (34 such rows on one workspace, 2026-11-11), some
+                # of them already answered once. Only an explicit operator retry
+                # may release one.
+                continue
             if not failure.get('quarantined') and failure.get('retry_not_before', 0) > stamp:
                 continue
             if _source_holder(inbox, key, current, stamp) != 'claim':

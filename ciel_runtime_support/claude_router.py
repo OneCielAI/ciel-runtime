@@ -283,32 +283,9 @@ def handle_claude_messages_post(
     self = handler
     local_request = not is_remote_bridge_request(handler)
     raw_body = copy.deepcopy(body) if local_request else body
-    side_projected = False
-    side_identity = None
-    side_agent_id = None
-    side_envelope = None
-    if local_request and (getattr(self, 'headers', None) or {}).get('x-claude-code-agent-id'):
-        from .side_context_router import request_context, project as project_side_context, upstream_counter
-        from .side_context_projection import SideContextUnavailable
-        envelope = request_context(body)
-        if envelope is not None:
-            from .runtime_paths import WORKSPACE_STATE_DIR
-            identity = 'claude:' + str(self.headers.get('x-claude-code-session-id') or '')
-            side_identity = identity
-            side_agent_id = str(self.headers.get('x-claude-code-agent-id') or '')
-            side_envelope = envelope
-            try:
-                def counter(request):
-                    return upstream_counter(services, self, provider, pcfg, body.get('model'))(request)
-                body = project_side_context(WORKSPACE_STATE_DIR, identity,
-                    self.headers.get('x-claude-code-agent-id'), body, cfg, provider, counter)
-                side_projected = True
-            except (SideContextUnavailable, ValueError, OSError) as error:
-                router_log('WARN', 'side_context_unavailable reason=' + type(error).__name__
-                           + ' detail=' + str(error)[:240])
-                write_json(self, {'type': 'error', 'error': {'type': 'invalid_request_error',
-                    'message': 'Side parent context unavailable; request retained. Verify routed capture, provider token counting and profile.'}}, 409)
-                return
+    # SSE side events are native forks: their requests already carry main's
+    # inherited history and pass through unchanged. A legacy side envelope that
+    # appears anywhere in that history never changes routing.
     if local_request:
         _update_tool_schema_registry(raw_body.get("tools"))
     request_id = f"{os.getpid()}-{time.time_ns()}"
@@ -327,50 +304,42 @@ def handle_claude_messages_post(
         },
     )
     dump_request_for_trace(provider, path, body)
-    if local_request and not side_projected and maybe_handle_plan_mode_tool_choice(self, provider, pcfg, body):
+    if local_request and maybe_handle_plan_mode_tool_choice(self, provider, pcfg, body):
         event_bus.publish(level="info", category="plan_mode.short_circuit", message="plan mode tool choice handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
     if local_request:
         body = filter_blocked_tools(provider, pcfg, body)
         body = normalize_tool_choice_for_provider(provider, pcfg, body)
         write_context_usage(provider, pcfg, body, "messages")
-    if local_request and not side_projected and maybe_handle_router_debug_request(self, body):
+    if local_request and maybe_handle_router_debug_request(self, body):
         event_bus.publish(level="info", category="router_debug.short_circuit", message="router debug request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    if local_request and not side_projected and maybe_handle_version_request(self, body):
+    if local_request and maybe_handle_version_request(self, body):
         event_bus.publish(level="info", category="version.short_circuit", message="version request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    if local_request and not side_projected and maybe_handle_channel_clear_request(self, body):
+    if local_request and maybe_handle_channel_clear_request(self, body):
         event_bus.publish(level="info", category="channel_clear.short_circuit", message="channel backlog clear request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    if local_request and not side_projected and maybe_handle_import_session_request(self, body, client_runtime="claude"):
+    if local_request and maybe_handle_import_session_request(self, body, client_runtime="claude"):
         event_bus.publish(level="info", category="import_session.short_circuit", message="ImportSession request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    if local_request and not side_projected and maybe_handle_live_llm_options_request(self, body):
+    if local_request and maybe_handle_live_llm_options_request(self, body):
         event_bus.publish(level="info", category="llm_options.short_circuit", message="live LLM options request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    if local_request and not side_projected and maybe_handle_live_api_keys_request(self, body):
+    if local_request and maybe_handle_live_api_keys_request(self, body):
         event_bus.publish(level="info", category="api_keys.short_circuit", message="live API key request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    if local_request and not side_projected and maybe_handle_advisor_request(self, provider, pcfg, body):
+    if local_request and maybe_handle_advisor_request(self, provider, pcfg, body):
         event_bus.publish(level="info", category="advisor.short_circuit", message="advisor request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
-    if local_request and not side_projected:
+    if local_request:
         body = strip_autonomous_advisor_server_tools(provider, body)
     stream_scope = None
     if local_request:
         context_recovery.observe_request(provider, pcfg, raw_body, "claude", getattr(self, "headers", None))
         stream_scope = context_recovery.stream_scope(getattr(self, "headers", None), raw_body)
-        if (not side_projected and stream_scope is not None
-                and cfg.get('work_side_intake', {}).get('enabled') is True
-                and cfg.get('work_side_intake', {}).get('context_mode', 'full') in ('full', 'recent')):
-            from .side_context_store import SideContextStore, main_turn_request
-            from .runtime_paths import WORKSPACE_STATE_DIR
-            try:
-                if main_turn_request(getattr(self, 'headers', None), raw_body):
-                    SideContextStore(WORKSPACE_STATE_DIR, 'claude:' + stream_scope.session_id).capture(raw_body, provider, stream_scope.epoch)
-            except (OSError, ValueError) as error:
-                router_log('WARN', 'side_parent_capture_unavailable reason=' + type(error).__name__)
+        # SSE side events run as native forks that inherit main's live context,
+        # so main requests are no longer captured to disk for side projection.
         # Decided on the unmodified request, before pending input or the
         # outbound guard could change it; Claude Code compacts natively and
         # retries this same turn.
@@ -379,10 +348,9 @@ def handle_claude_messages_post(
             event_bus.publish(level="warning", category="context_recovery.local_rejection", message="over-budget request rejected before upstream", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
             write_json(self, dict(rejection), 400)
             return
-        if not side_projected:
-            body = body_with_pending_channel_messages(body)
-            body = body_with_channel_tool_result_context(body)
-            begin_pending_channel_delivery(self, body)
+        body = body_with_pending_channel_messages(body)
+        body = body_with_channel_tool_result_context(body)
+        begin_pending_channel_delivery(self, body)
     responses_projection_body = body
     early_sse: SemanticCompactionSSE | None = None
     compact_config = pcfg
@@ -738,24 +706,6 @@ def handle_claude_messages_post(
                 err = e.read()
             if local_request:
                 context_recovery.observe_failure(provider, pcfg, raw_body, err, "claude", getattr(self, "headers", None))
-            if side_projected and side_identity and side_agent_id:
-                try:
-                    parsed = json.loads(err)
-                except (ValueError, TypeError, UnicodeDecodeError):
-                    parsed = {}
-                diagnostics = parsed.get('diagnostics', {}) if isinstance(parsed, dict) else {}
-                error = parsed.get('error', {}) if isinstance(parsed, dict) else {}
-                diagnostics = diagnostics if isinstance(diagnostics, dict) else {}
-                error = error if isinstance(error, dict) else {}
-                from .side_request_outcome import record as record_side_outcome
-                record_side_outcome(WORKSPACE_STATE_DIR, side_identity, side_agent_id,
-                    str((side_envelope or {}).get('event_id') or ''), {
-                    'status': e.code, 'code': error.get('type'),
-                    'terminal_reason': diagnostics.get('terminalReason'),
-                    'pool_size': diagnostics.get('poolSize'), 'attempted': diagnostics.get('attempted'),
-                    'requested_model': str(raw_body.get('model') or ''),
-                    'effective_model': upstream_model,
-                    'message': error.get('message') or str(parsed)[:300]})
             committed = early_sse is not None and early_sse.started
             if e.code == 429:
                 register_api_key_cooldown(provider, pcfg, key_from_request_headers(headers), e.headers)
@@ -821,14 +771,6 @@ def handle_claude_messages_post(
             )
             return
         event_bus.publish(level="error", category="router.error", message=str(exc), request_id=request_id, provider=provider, model=str(body.get("model") or ""), data={"error_type": type(exc).__name__})
-        if side_projected and side_identity and side_agent_id:
-            from .side_request_outcome import record as record_side_outcome
-            status = getattr(exc, 'code', None) or getattr(exc, 'status_code', None) or 500
-            record_side_outcome(WORKSPACE_STATE_DIR, side_identity, side_agent_id,
-                str((side_envelope or {}).get('event_id') or ''), {
-                'status': status, 'code': type(exc).__name__,
-                'requested_model': str(raw_body.get('model') or ''),
-                'effective_model': str(body.get('model') or ''), 'message': str(exc)})
         if early_committed and early_sse is not None:
             # The 200 event-stream is committed: one typed SSE error, never a
             # second status line and never a success.

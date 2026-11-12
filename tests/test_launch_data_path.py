@@ -365,15 +365,16 @@ class ClaudeEnvironmentTests(unittest.TestCase):
               mock.patch.object(ciel_runtime, "http_json", side_effect=AssertionError("network"))):
             return ciel_runtime.env_vars(cfg) if data_path is None else ciel_runtime.env_vars(cfg, data_path=data_path)
 
-    def test_explicit_side_model_does_not_force_all_children_back_to_parent(self):
-        env=self.env(side={'enabled':True,'model':'API KEYS - SSE'})
-        self.assertNotIn('CLAUDE_CODE_SUBAGENT_MODEL_FORCE',env)
-        self.assertEqual('inherit',env['CLAUDE_CODE_SUBAGENT_MODEL'])
-        # The removed comparison experiment no longer opts children out of the parent model.
-        retired=self.env(side={'enabled':True,'model':'inherit','comparison_enabled':True,'comparison_model':'API KEYS - SSE'})
-        self.assertEqual('1',retired['CLAUDE_CODE_SUBAGENT_MODEL_FORCE'])
-        inherited=self.env(side={'enabled':True,'model':'inherit'})
-        self.assertEqual('1',inherited['CLAUDE_CODE_SUBAGENT_MODEL_FORCE'])
+    def test_retired_side_model_never_opts_children_out_of_parent_model(self):
+        # SSE side events are native forks that inherit main. A stored side model
+        # from an older build is ignored and keeps every child on the parent model.
+        for side in ({'enabled':True,'model':'API KEYS - SSE'},
+                     {'enabled':True,'model':'inherit','comparison_enabled':True,'comparison_model':'API KEYS - SSE'},
+                     {'enabled':True,'model':'inherit'}):
+            with self.subTest(side=side):
+                env=self.env(side=side)
+                self.assertEqual('1',env['CLAUDE_CODE_SUBAGENT_MODEL_FORCE'])
+                self.assertEqual('inherit',env['CLAUDE_CODE_SUBAGENT_MODEL'])
 
     def test_router_mode_environment_is_unchanged(self):
         routed = self.env()

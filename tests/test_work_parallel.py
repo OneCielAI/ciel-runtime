@@ -129,7 +129,7 @@ class WorkParallelTests(unittest.TestCase):
         call(store, "configure", dict(priority_limits=dict(P1=1, P2=2), launches_per_minute=20), capability_ready=True)
         reserve(store, "worker")
         other = WorkParallelStore(store.path)
-        reserve(other, "review", role="reviewer")
+        reserve(other, "second", role="resume")
         with self.assertRaises(WorkParallelError):
             reserve(other, "resume", role="resume")
         with self.assertRaises(WorkParallelError):
@@ -139,14 +139,24 @@ class WorkParallelTests(unittest.TestCase):
             reserve(other, "urgent2", priority="P1")
         assert sum(r["slot"] for r in store.read()["leases"].values()) == 3
 
-    def test_reviewers_are_limited_only_by_priority_slots(self):
+    def test_new_reviewer_reservations_are_refused_and_legacy_rows_stay_readable(self):
         store = self.store
-        call(store, "configure", dict(priority_limits=dict(P2=3), launches_per_minute=20), capability_ready=True)
-        first = reserve(store, "review-one", role="reviewer")
-        second = reserve(store, "review-two", role="reviewer")
-        assert first != second
-        assert len([r for r in store.read()["leases"].values()
-                    if r["role"] == "reviewer" and r["slot"]]) == 2
+        before = store.read()["version"]
+        with self.assertRaisesRegex(WorkParallelError, "reviewer reservations are retired"):
+            reserve(store, "review-one", role="reviewer")
+        assert store.read()["version"] == before
+        # A reviewer row persisted by an older build keeps validating and counts
+        # against its priority slot until it drains.
+        import json
+        doc = store.read()
+        doc["leases"]["legacy-reviewer"] = dict(
+            id="legacy-reviewer", scope="scope", item_id="n1", priority="P2", created_at=1,
+            role="reviewer", mode="fork", plan_version=7, state="running", host_id="old-reviewer",
+            slot=True, usage=.05, artifact=None, rework=0, evidence=None, idle_proof=None,
+            cleanup_proof=None, report_hash="c" * 64)
+        store.path.write_text(json.dumps(doc), encoding="utf-8")
+        row = store.read()["leases"]["legacy-reviewer"]
+        assert row["role"] == "reviewer" and row["slot"]
 
 
     def test_pause_cas(self):
@@ -208,6 +218,18 @@ class WorkParallelTests(unittest.TestCase):
         call(store, "reconcile", ident, host_state="idle", proof="host idle observed")
         with self.assertRaises(WorkParallelError):
             transition(store, ident, "running")
+        # Worker and resume are one execution family: the parked worker can
+        # still reacquire, so a second execution lease is refused while it is open.
+        with self.assertRaisesRegex(WorkParallelError, "no eligible candidate"):
+            reserve(store, role="resume")
+        with self.assertRaisesRegex(WorkParallelError, "no eligible candidate"):
+            reserve(store, role="worker")
+        # Only a terminal predecessor admits a new resume lease.
+        doc = store.read()
+        doc["leases"][ident].update(state="unreported", report_hash=None,
+                                    terminal={"reason": "unreported", "observed_at": 1, "proof": "terminal"})
+        import json
+        store.path.write_text(json.dumps(doc), encoding="utf-8")
         assert reserve(store, role="resume") != ident
 
 

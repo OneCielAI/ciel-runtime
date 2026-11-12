@@ -32,16 +32,16 @@ class SideMcpTests(unittest.TestCase):
             respond=lambda _id,text,error=False:{'text':text,'error':error})
 
     def test_claim_prepares_operator_owned_walkie_prefetch(self):
-        event_text=json.dumps({'data':{'conversation':'34886995-4a66-4527-a618-814e9cb0a5bf','message_id':'118635'}})
+        event_text=json.dumps({'type':'com.ciel.walkie.support.message','data':{'conversation':'34886995-4a66-4527-a618-814e9cb0a5bf','message_id':'118635'}})
         self.inbox=SideIntakeInbox(self.root,self.identity)
         self.inbox.receive(event_text,'walkie',route={'source_kind':'external_event',
             'channel':'external:default','sender_id':'urn:walkie'})
         self.config['work_side_intake']['reply_connectors']=[{
             'source':'urn:walkie','receiver_id':'default','preset':'walkie','server':'walkie'}]
         event=self._claim()
-        self.assertEqual({'server':'walkie','tool':'walkie_read_messages',
-            'arguments':{'conversation_id':'34886995-4a66-4527-a618-814e9cb0a5bf','after':'118634'},
-            'message_id':'118635'},event['source_read'])
+        self.assertEqual({'server':'walkie','classification':'thread',
+            'conversation_id':'34886995-4a66-4527-a618-814e9cb0a5bf',
+            'root_id':'118635','target_message_id':'118635'},event['source_read'])
         self.assertRegex(event['work_digest'],r'^[0-9a-f]{64}$')
 
     def test_native_side_code_read_needs_no_host_identity_and_stays_bounded(self):
@@ -67,99 +67,36 @@ class SideMcpTests(unittest.TestCase):
             disabled=native('work_side_code_read',{'path':'proof.py'})
             self.assertEqual({'text':'side processing is disabled','error':True},disabled)
 
-    def test_claim_routes_selected_same_provider_model_without_mutating_config(self):
+    def test_claim_ignores_retired_model_and_context_settings(self):
+        # Every SSE event is a native fork that inherits main's model, context,
+        # tools and permissions. Values stored by older builds change nothing.
         self.config.update(current_provider='cielairouter', providers={'cielairouter': {'current_model':'main'}})
-        self.config['work_side_intake'].update(model='API KEYS - SSE', context_mode='full')
-        from ciel_runtime_support.side_context_store import SideContextStore
-        SideContextStore(self.root,self.identity).capture({'model':'main','system':[],'tools':[],
-            'messages':[{'role':'user','content':[{'type':'text','text':'main'}]}]},'cielairouter')
-        claimed=self.invoke('work_side_claim',{'owner':'actor'})
-        settings=json.loads(claimed['text'])['settings']
-        self.assertEqual('ciel-runtime-cielairouter-api-keys-sse',settings['model'])
-        self.assertEqual('API KEYS - SSE',settings['model_catalog'])
-        self.assertEqual('full',settings['context_mode'])
-        self.assertEqual('API KEYS - SSE',self.config['work_side_intake']['model'])
-
-    def test_inherit_fork_claims_in_fresh_session_without_parent_capture(self):
-        self.config['work_side_intake']['context_mode']='full'
+        self.config['work_side_intake'].update(model='API KEYS - SSE', context_mode='full', context_percent=30)
+        stored=json.loads(json.dumps(self.config['work_side_intake']))
         data=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])
+        # No router parent capture exists, and the claim still never waits for one.
         self.assertIsNone(data['waiting_reason'])
         self.assertIsNotNone(data['claim'])
-        self.assertEqual('inherit',data['settings']['model'])
+        settings=data['settings']
+        self.assertEqual('native_fork',settings['actor'])
+        for retired in ('model','model_catalog','model_fingerprint','context_mode','context_percent',
+                        'context_ready','parent_model_retry'):
+            self.assertNotIn(retired,settings)
+        self.assertEqual(stored,self.config['work_side_intake'])
 
-    def test_full_context_waits_without_lease_until_parent_capture(self):
-        self.config.update(current_provider='cielairouter', providers={'cielairouter': {'current_model':'main'}})
-        self.config['work_side_intake'].update(context_mode='full', model='API KEYS - SSE')
-        data=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])
-        self.assertIsNone(data['claim'])
-        self.assertEqual('parent_context',data['waiting_reason'])
-        row=self.inbox.pending()[0]
-        self.assertNotIn('processing',row)
-        from ciel_runtime_support.side_context_store import SideContextStore
-        SideContextStore(self.root,self.identity).capture({
-            'model':'main','system':[],'tools':[],
-            'messages':[{'role':'user','content':[{'type':'text','text':'main context'}]}]},'cielairouter')
-        data=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])
-        self.assertIsNotNone(data['claim'])
-
-    def test_resumed_session_reuses_bound_capture_from_earlier_launch_epoch(self):
-        # Walkie 2026-11-07 11:18: --continue kept session 67746a0a but started
-        # a new launch epoch before any main request; full-context claims waited
-        # forever while the exact conversation's capture sat on disk.
-        from unittest.mock import patch
-        from ciel_runtime_support.side_context_store import SideContextStore
-        # A selected model uses the router capture; inherit forks need none.
-        self.config.update(current_provider='cielairouter', providers={'cielairouter': {'current_model':'main'}})
-        self.config['work_side_intake'].update(context_mode='full', model='API KEYS - SSE')
-        SideContextStore(self.root,self.identity).capture({'model':'main','system':[],'tools':[],
-            'messages':[{'role':'user','content':[{'type':'text','text':'resumed history'}]}]},'cielairouter','old-launch')
-        scope=self.root/'compaction-scope.json'
-        with patch('ciel_runtime_support.runtime_paths.ROUTER_INSTANCE_DIR',self.root):
-            scope.write_text(json.dumps({'epoch':'new-launch','session_id':'other'}),encoding='utf8')
-            data=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])
-            self.assertIsNone(data['claim'])
-            self.assertEqual('parent_context',data['waiting_reason'])
-            scope.write_text(json.dumps({'epoch':'new-launch','session_id':'parent'}),encoding='utf8')
-            data=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])
-            self.assertIsNotNone(data['claim'])
-            host={'token':'x'*40,'receipt_id':data['claim']['receipt_id'],'generation':data['claim']['generation']}
-            prepared=self.invoke('work_side_context',{'model':'main'},host)
-            self.assertFalse(prepared['error'],prepared)
-            self.assertEqual('resumed history',json.loads(prepared['text'])['parent_transcript_preview'][0]['text'])
-
-    def test_context_prepare_persists_visible_parent_transcript_preview(self):
-        self.config['work_side_intake']['context_mode']='full'
-        from ciel_runtime_support.side_context_store import SideContextStore
-        SideContextStore(self.root,self.identity).capture({'model':'main','system':[],'tools':[],
-            'messages':[{'role':'user','content':[{'type':'text','text':'current main work'}]},
-                        {'role':'assistant','content':[{'type':'text','text':'working on verified task'}]}]},'cielairouter')
+    def test_legacy_model_unavailable_failure_is_retried_by_native_fork(self):
+        from ciel_runtime_support.side_intake_mcp import NATIVE_FORK_FINGERPRINT
         event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
         host={'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation']}
-        prepared=self.invoke('work_side_context',{'model':'main'},host)
-        self.assertFalse(prepared['error'],prepared)
-        row=self.inbox._load(event['receipt_id'])
-        self.assertEqual('full',row['context']['mode'])
-        self.assertEqual('current main work',row['context']['preview'][0]['text'])
-        status=json.loads(self.invoke('work_side_status',{})['text'])
-        receipt=next(r for r in status['side_inbox_receipts'] if r['receipt_id']==event['receipt_id'])
-        self.assertEqual('working on verified task',receipt['context']['preview'][-1]['text'])
-
-    def test_unavailable_legacy_model_retries_with_main_session_connection(self):
-        self.config.update(current_provider='cielairouter', providers={'cielairouter': {'current_model':'main'}})
-        self.config['work_side_intake']['model']='missing-model'
-        event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
-        host={'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation']}
-        from ciel_runtime_support.side_intake_settings import runtime_settings
         failed=self.invoke('work_side_fail',{'category':'model_not_found','model':'missing-model',
-            'model_fingerprint':runtime_settings(self.config)['model_fingerprint']},host)
+            'model_fingerprint':NATIVE_FORK_FINGERPRINT},host)
         self.assertFalse(failed['error'],failed)
         row=self.inbox._load(event['receipt_id'])
         self.assertFalse(row['side_failure']['quarantined'])
-        self.assertTrue(row['side_failure']['use_parent_model'])
         self.assertNotIn('processing',row)
         retry=json.loads(self.invoke('work_side_claim',{'owner':'actor2'})['text'])
         self.assertEqual(event['receipt_id'],retry['claim']['receipt_id'])
-        self.assertEqual('inherit',retry['settings']['model'])
+        self.assertNotIn('model',retry['settings'])
 
     def test_legacy_pending_main_fallback_is_reclaimed_by_side(self):
         event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
@@ -175,7 +112,7 @@ class SideMcpTests(unittest.TestCase):
         self.assertEqual('pending',self.inbox._load(event['receipt_id'])['main_fallback']['state'])
         reclaimed=json.loads(self.invoke('work_side_claim',{'owner':'other'})['text'])
         self.assertEqual(event['receipt_id'],reclaimed['claim']['receipt_id'])
-        self.assertEqual('inherit',reclaimed['settings']['model'])
+        self.assertEqual('native_fork',reclaimed['settings']['actor'])
         row=self.inbox._load(event['receipt_id'])
         self.assertNotIn('main_fallback',row)
         self.assertEqual('legacy_main_fallback_reclaimed',row['side_failure']['category'])
@@ -204,21 +141,74 @@ class SideMcpTests(unittest.TestCase):
             'category':'turn_error','outcome':{'status':404,'code':'route_not_found'}})
         self.assertFalse(receipt['side_failure']['main_fallback_eligible'])
 
-    def test_legacy_generic_model_error_is_rechecked_once(self):
-        event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
-        row=self.inbox._load(event['receipt_id'])
-        row.pop('processing',None)
-        row['side_failure']={'category':'model_error','model_fingerprint':'legacy','quarantined':True,
-                             'attempt_count':1,'retry_not_before':9999999999}
-        self.inbox._save_file(self.inbox._event_path('pending',event['receipt_id']),row)
-        self.config.update(current_provider='cielairouter',providers={'cielairouter':{'current_model':'main'}})
-        self.config['work_side_intake']['model']='legacy'
-        from ciel_runtime_support.side_intake_settings import runtime_settings
-        row['side_failure']['model_fingerprint']=runtime_settings(self.config)['model_fingerprint']
-        self.inbox._save_file(self.inbox._event_path('pending',event['receipt_id']),row)
-        claimed=json.loads(self.invoke('work_side_claim',{'owner':'actor2'})['text'])['claim']
-        self.assertEqual(event['receipt_id'],claimed['receipt_id'])
-        self.assertTrue(self.inbox._load(event['receipt_id'])['side_failure']['legacy_recheck'])
+    def test_quarantined_rows_stay_terminal_for_every_category_and_fingerprint(self):
+        # Release blocker 2026-11-11: the constant native-fork fingerprint made
+        # every non-invalid_answer quarantine claimable again (34 rows 3-4 days
+        # old on one workspace), so old Walkie messages would be re-answered.
+        from ciel_runtime_support.side_intake_mcp import NATIVE_FORK_FINGERPRINT
+        cases=[(category,fingerprint,typed)
+               for category in ('turn_error','model_error','answer','aborted','processing_error',
+                                'source_context','invalid_model','model_not_found')
+               for fingerprint in ('old-model','',NATIVE_FORK_FINGERPRINT)
+               for typed in (True,False)]
+        keys=[]
+        inbox=SideIntakeInbox(self.root,self.identity)
+        for index,(category,fingerprint,typed) in enumerate(cases):
+            key=inbox.receive('legacy '+str(index),'legacy:'+str(index))['receipt_id']
+            keys.append(key)
+            row=inbox._load(key)
+            row['side_failure']={'category':category,'model_fingerprint':fingerprint,'quarantined':True,
+                                 'typed':typed,'attempt_count':6,'retry_not_before':0}
+            inbox._save_file(inbox._event_path('pending',key),row)
+        claimed=[]
+        for owner in range(len(cases)+2):
+            event=json.loads(self.invoke('work_side_claim',{'owner':'native-'+str(owner)})['text'])['claim']
+            if event is None:
+                break
+            claimed.append(event['receipt_id'])
+        # Only setUp's fresh, never-failed event is claimed.
+        self.assertEqual(1,len(claimed))
+        self.assertFalse(set(claimed)&set(keys))
+        for key in keys:
+            self.assertTrue(SideIntakeInbox(self.root,self.identity)._load(key)['side_failure']['quarantined'])
+            self.assertNotIn('processing',SideIntakeInbox(self.root,self.identity)._load(key))
+
+    def test_message_less_walkie_reminder_is_not_applicable_end_to_end(self):
+        # sse-review B2: a reminder with message_id null went route_unavailable
+        # and main was then told to send the side reply itself.
+        reminder=json.dumps({'type':'com.ciel.walkie.support.message','data':{
+            'conversation':'34886995-4a66-4527-a618-814e9cb0a5bf','message_id':None,
+            'reply_to_message_id':None,'thread_root_id':None,'event_type':'agent.pending_reminder',
+            'text':'reminder'}})
+        inbox=SideIntakeInbox(self.root,self.identity)
+        key=inbox.receive(reminder,'walkie:reminder',route={'source_kind':'external_event',
+            'channel':'external:default','sender_id':'http://walkie.invalid/conversations/x'})['receipt_id']
+        claimed=[]
+        while True:
+            event=json.loads(self.invoke('work_side_claim',{'owner':'o'+str(len(claimed))})['text'])['claim']
+            if event is None or event['receipt_id']==key:
+                break
+            claimed.append(event['receipt_id'])
+        self.assertEqual(key,event['receipt_id'])
+        self.assertEqual('none_referenced',event['source_context'])
+        self.assertEqual('none_referenced',event['source_read']['classification'])
+        resolved=self.invoke('work_side_resolve',{'decision':{'action':'answer','kind':'status',
+            'summary':'reminder noted','reply':'noted'},'expected_version':event['workload']['version']},
+            {'token':'x'*40,'receipt_id':key,'generation':event['generation'],'work_digest':event['work_digest']})
+        self.assertFalse(resolved['error'],resolved)
+        self.assertEqual('none_referenced',json.loads(resolved['text'])['result']['source_context'])
+        prepared=json.loads(self.invoke('work_side_reply',{'receipt_id':key,'state':'prepare'})['text'])
+        self.assertEqual('not_applicable',prepared['state'])
+        self.assertNotIn('arguments',prepared)
+        self.assertEqual('not_applicable',inbox._load(key)['result']['delivery'])
+        from ciel_runtime_support.side_reply_outbox import pending
+        self.assertNotIn(key,[row['receipt_id'] for row in pending(self.root,self.identity)])
+        review=self.store.read()['side_reviews'][key]
+        self.assertEqual('none_referenced',review['source_context'])
+        from ciel_runtime_support.side_review import with_delivery
+        self.assertEqual('not_applicable',with_delivery([{'receipt_id':key}],self.root,self.identity)[0]['delivery'])
+        from ciel_runtime_support.side_review import SENT, UNSENT
+        self.assertNotIn('not_applicable',SENT+UNSENT)
 
     def test_new_contract_status_reply_says_no_queue_item(self):
         event=self._claim()
@@ -388,9 +378,7 @@ class SideMcpTests(unittest.TestCase):
         for index in range(25):
             store.transaction(lambda doc,index=index:tree.add_node(doc,None,'goal '+str(index),priority='P1' if index==24 else 'P3',note='deadline evidence '+str(index)))
         expected=store.read_snapshot()
-        from ciel_runtime_support.side_context_store import SideContextStore
-        SideContextStore(self.root,self.identity).capture({'model':'main','system':[],'tools':[],
-            'messages':[{'role':'user','content':[{'type':'text','text':'main'}]}]},'cielairouter')
+        # Retired context profile values do not change the complete Work payload.
         first=None
         for mode in ('full','recent'):
             self.config['work_side_intake']['context_mode']=mode

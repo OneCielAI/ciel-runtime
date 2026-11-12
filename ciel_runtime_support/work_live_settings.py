@@ -86,40 +86,19 @@ def settings(config, args, save):
                       'value': config.get('work_side_intake', {}).get('enabled') is True, 'kind': 'boolean'})
     from .side_intake_settings import values
     side_enums = {
-        'work_side_intake_context_mode': ['isolated', 'full', 'recent'],
         'work_side_intake_priority_policy': ['adaptive', 'explicit'],
     }
-    side_booleans = set()
-    side_numbers = {'work_side_intake_max_active', 'work_side_intake_aging_seconds',
-                    'work_side_intake_context_percent'}
+    side_numbers = {'work_side_intake_max_active', 'work_side_intake_aging_seconds'}
+    # Side events always run as native forks of main: model, context, tools and
+    # permissions are inherited, so no side model/context row is offered.
     projected += [{'key': k, 'label': menu_text(k, language), 'value': v,
-                   'kind': 'model' if k == 'work_side_intake_model'
-                       else 'enum' if k in side_enums else 'boolean' if k in side_booleans
+                   'kind': 'enum' if k in side_enums
                        else 'number' if k in side_numbers else 'json' if k == 'work_side_intake_reply_connectors'
                        else 'text',
                    **({'choices': side_enums[k]} if k in side_enums else {}),
-                   'status': 'router_capture_required' if k in ('work_side_intake_context_mode', 'work_side_intake_context_percent')
-                   else 'next_side_event'}
+                   'status': 'next_side_event'}
                   for k, v in values(config).items()]
     provider = str(config.get('current_provider') or '')
-    model_choices = ['inherit']
-    if provider:
-        try:
-            from .runtime_paths import CONFIG_DIR
-            import json
-            registry = json.loads((CONFIG_DIR / 'model-registry.json').read_text(encoding='utf8'))
-            provider_row = (registry.get('providers') or {}).get(provider) or {}
-            models = provider_row.get('models') or []
-            model_choices += [str(row if isinstance(row, str) else row.get('id') or '').strip()
-                              for row in models]
-        except (OSError, ValueError, TypeError):
-            model_choices += []
-    model_choices = list(dict.fromkeys(row for row in model_choices if row))
-    for row in projected:
-        if row.get('kind') == 'model':
-            current = str(row.get('value') or 'inherit')
-            row['choices'] = ([current] if current not in model_choices else []) + model_choices
-            row['catalog_count'] = len(row['choices'])
     ui = {
         'en': ('Work settings', 'Next', 'Back', 'Cancel', 'Enter a number or instruction using Other.'),
         'ko': ('Work 설정', '다음', '뒤로', '취소', '숫자 또는 지시는 기타에 입력하세요.'),
@@ -130,4 +109,5 @@ def settings(config, args, save):
         ui = ('Work settings', 'Next', 'Back', 'Cancel', 'Enter a number or instruction using Other.')
     return {'settings': projected, 'language': language, 'provider': provider,
             'ui': dict(zip(('title', 'next', 'back', 'cancel', 'input_hint'), ui)),
-            'applies': 'live; existing workers are not terminated; side model applies to the next side event'}
+            'applies': 'live; existing workers are not terminated; side settings apply to the next side event, '
+                       'which always runs as a native fork inheriting the main model, context, tools and permissions'}

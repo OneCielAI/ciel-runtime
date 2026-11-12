@@ -130,6 +130,31 @@ class WorkHttpSideReceiptTests(unittest.TestCase):
         self.assertEqual(404, self.request('/ca/work/api/v1/side/receipt?receipt_id=' + 'b' * 64)[0])
         self.assertFalse(self.state.exists())
 
+    def test_uncertain_main_wake_is_visible_and_retry_requires_confirmation(self):
+        from ciel_runtime_support import side_wake
+        store = session_work_plan_store(self.state, IDENTITY)
+        _, goal = store.transaction(lambda doc: tree.add_node(doc, None, 'goal'))
+        event = self.handoff_event('wake', goal, {'kind': 'advise', 'waits': [], 'question': 'go?'})
+        prepared = side_wake.prepare(store, event, protocol=2, owner_nonce='owner-secret', channel='prompt')
+        side_wake.start(store, event, prepared['attempt_id'], 'owner-secret', 'prompt')
+        status, side = self.request('/ca/work/api/v1/side')
+        self.assertEqual(200, status, side)
+        row = next(handoff for handoff in side['handoffs'] if handoff['event_id'] == event)
+        self.assertTrue(row['delivery_uncertain'])
+        self.assertEqual(('submitting', 'started'), (row['wake']['state'], row['wake']['phase']))
+        self.assertNotIn('owner-secret', json.dumps(side))
+        self.assertNotIn(prepared['attempt_id'], json.dumps(side))
+        body = {'event_id': event, 'attempt_ref': row['wake']['attempt_ref'], 'revision': row['wake']['revision']}
+        status, error = self.request('/ca/work/api/v1/commands/side-wake-retry', body)
+        self.assertEqual(422, status, error)
+        self.assertIn('explicit duplicate-delivery confirmation', error['message'])
+        status, done = self.request('/ca/work/api/v1/commands/side-wake-retry', {**body, 'confirmed': True})
+        self.assertEqual(200, status, done)
+        self.assertEqual('failed', store.read()['side_handoffs'][event]['wake']['state'])
+        # The exact revision is required: replaying the same confirmation fails.
+        status, _ = self.request('/ca/work/api/v1/commands/side-wake-retry', {**body, 'confirmed': True})
+        self.assertEqual(422, status)
+
     def test_handoff_rejects_non_text_answer_before_commit(self):
         status, error = self.request('/ca/work/api/v1/commands/side-handoff', {
             'event_id': 'c' * 64, 'answer': 7, 'expected_version': 0})

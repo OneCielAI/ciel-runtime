@@ -2,10 +2,23 @@
 import time
 
 from . import work_plan_tree as tree
+from .work_plan_store import WorkPlanConflict
 
 
 def acknowledge(store, event_id, *, answer='', activate=False, clear_wait=None, expected_version):
     clear_wait = [] if clear_wait is None else clear_wait
+    # An identical settled ACK is idempotent even when the caller still carries
+    # the pre-ACK Work version. A different payload remains an error.
+    snapshot = store.read_snapshot()
+    existing = snapshot.get('side_handoffs', {}).get(event_id)
+    if not existing:
+        raise tree.WorkPlanError('side handoff not found')
+    if existing.get('state') != 'requested':
+        if (existing.get('answer', '') != answer or existing.get('activated', False) != activate
+                or existing.get('clear_wait', []) != clear_wait):
+            raise tree.WorkPlanError('handoff already acknowledged with different result')
+        return {**existing, 'version': snapshot['version']}
+
     def mutate(doc):
         row = doc.get('side_handoffs', {}).get(event_id)
         if not row:
@@ -44,12 +57,26 @@ def acknowledge(store, event_id, *, answer='', activate=False, clear_wait=None, 
             tree.update_node(doc, node_id, waiting_on='')
         stamp = time.time()
         wake = dict(row.get('wake') or {})
-        wake.update(state='acknowledged', acknowledged_at=stamp)
+        wake.update(state='acknowledged', acknowledged_at=stamp, needs_ack_retry=False)
         row.update(state='answered' if answer else 'acknowledged', answer=answer,
                    activated=activate, clear_wait=list(clear_wait), wake=wake)
         receipt = doc.get('side_decisions', {}).get(event_id)
         if receipt:
             receipt['result']['handoff'] = row['state']
         return dict(row)
-    doc, result = store.transaction(mutate, expected_version=expected_version)
+    try:
+        doc, result = store.transaction(mutate, expected_version=expected_version)
+    except WorkPlanConflict:
+        latest = store.read_snapshot().get('side_handoffs', {}).get(event_id) or {}
+        if latest.get('state') != 'requested':
+            if (latest.get('answer', '') == answer and latest.get('activated', False) == activate
+                    and latest.get('clear_wait', []) == clear_wait):
+                return {**latest, 'version': store.read_snapshot()['version']}
+            raise tree.WorkPlanError('handoff already acknowledged with different result')
+        from .side_wake import mark_ack_retry
+        try:
+            mark_ack_retry(store, event_id)
+        except tree.WorkPlanError:
+            pass
+        raise
     return {**result, 'version': doc['version']}

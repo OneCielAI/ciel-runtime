@@ -6,7 +6,8 @@ from .side_work_decision import WorkChanged, apply
 from .work_plan_tree import WorkPlanError
 from .channel_message_repository import exclusive_file_lock
 
-NAMES = ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_context', 'work_side_code_read', 'work_side_code_search')
+NATIVE_FORK_FINGERPRINT = 'native-fork'
+NAMES = ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_code_read', 'work_side_code_search')
 
 
 def schemas():
@@ -19,8 +20,6 @@ def schemas():
         {'name': 'work_side_fallback', 'description': 'Host-only generation-fenced transition of a side-model failure to exact-once main-session delivery.',
          'inputSchema': {'type':'object','properties':{'state':{'type':'string','enum':['prepare','queued','failed']},
              'reason':{'type':'string','maxLength':160},'agent_id':{'type':'string','maxLength':200}},'required':['state']}},
-        {'name': 'work_side_context', 'description': 'Host-only bind a live side event to a captured parent request; full or provider-token-selected history.',
-         'inputSchema': {'type': 'object', 'properties': {'model': {'type': 'string'}, 'context_key': {'type': 'string'}}, 'required': ['model']}},
         {'name': 'work_side_retry_reply', 'description': 'Host UI only: explicitly retry failed or unknown side reply; unknown outcomes require person confirmation.',
          'inputSchema': {'type': 'object', 'properties': {'receipt_id': {'type': 'string'},
              'expected_state': {'type': 'string'}, 'confirmed': {'type': 'boolean'}},
@@ -41,8 +40,15 @@ def schemas():
              'state': {'type': 'string', 'enum': ['prepare', 'submitted', 'uncertain', 'failed']}}, 'required': ['receipt_id', 'state']}},
         {'name': 'work_side_wake', 'description': 'Host-only prepare or record one durable main wake attempt.',
          'inputSchema': {'type': 'object', 'properties': {'event_id': {'type': 'string'},
-             'state': {'type': 'string', 'enum': ['prepare', 'queued', 'appended', 'uncertain', 'failed']},
-             'attempt_id': {'type': 'string'}}, 'required': ['event_id', 'state']}},
+             'state': {'type': 'string', 'enum': ['prepare', 'start', 'reconcile', 'retry',
+                                                   'queued', 'appended', 'uncertain', 'failed']},
+             'attempt_id': {'type': 'string'}, 'protocol': {'type': 'integer', 'enum': [2]},
+             'owner_nonce': {'type': 'string', 'maxLength': 200},
+             'channel': {'type': 'string', 'enum': ['prompt', 'append', 'stop']},
+             'receipt': {'type': 'string', 'maxLength': 300}, 'seen_receipt': {'type': 'string', 'maxLength': 300},
+             'revision': {'type': 'integer', 'minimum': 0}, 'confirmed': {'type': 'boolean'},
+             'attempt_ref': {'type': 'string', 'maxLength': 16}},
+             'required': ['event_id', 'state']}},
         {'name': 'work_side_code_read', 'description': 'Side-only bounded read of one UTF-8 file inside the session workspace.',
          'inputSchema': {'type': 'object', 'properties': {'path': {'type': 'string', 'maxLength': 1000},
              'offset': {'type': 'integer', 'minimum': 1}, 'limit': {'type': 'integer', 'minimum': 1, 'maximum': 400}},
@@ -64,7 +70,12 @@ def schemas():
                  'queue_position': {'type': 'integer', 'minimum': 1},
                  'release_waits': {'type': 'array', 'maxItems': 16, 'items': {
                      'type': 'object', 'properties': {'id': {'type': 'string'}, 'waiting_on': {'type': 'string'}},
-                     'required': ['id', 'waiting_on'], 'additionalProperties': False}}},
+                     'required': ['id', 'waiting_on'], 'additionalProperties': False}},
+                 'time_limit': {'type': 'object', 'properties': {
+                     'text': {'type': 'string', 'maxLength': 1000},
+                     'due_at': {'type': 'string', 'maxLength': 100},
+                     'evidence': {'type': 'string', 'maxLength': 2000}},
+                     'required': ['text', 'evidence'], 'additionalProperties': False}},
                  'required': ['action', 'summary', 'reply'], 'additionalProperties': False},
              'expected_version': {'type': 'integer', 'minimum': 0}}, 'required': ['decision', 'expected_version']}}
     ]
@@ -138,23 +149,6 @@ def run(name, args, config, state_dir, identity, store):
         raise WorkPlanError('side coordinator bridge required')
     if config.get('work_side_intake', {}).get('enabled') is not True:
         raise WorkPlanError('side processing is disabled')
-    if name == 'work_side_context':
-        from .side_context_store import SideContextStore
-        key, generation = host.get('receipt_id'), host.get('generation')
-        inbox = SideIntakeInbox(state_dir, identity)
-        with exclusive_file_lock(inbox._event_path('locks', key)):
-            verify_claim(inbox, key, generation)
-        prepared = SideContextStore(state_dir, identity).prepare(
-            {'receipt_id': key, 'generation': generation}, runtime_side,
-            args.get('model'), key=args.get('context_key'))
-        with exclusive_file_lock(inbox._event_path('locks', key)):
-            row = verify_claim(inbox, key, generation)
-            row['context'] = {'mode': prepared['profile']['mode'],
-                              'captured_at': prepared['captured_at'],
-                              'parent_digest': prepared['parent_digest'],
-                              'preview': prepared.get('parent_transcript_preview', [])}
-            inbox._save_file(inbox._event_path('pending', key), row)
-        return prepared
     if name == 'work_side_fallback':
         from .side_request_outcome import take as take_side_outcome
         outcome = take_side_outcome(state_dir, identity, str(args.get('agent_id') or ''),
@@ -207,7 +201,11 @@ def run(name, args, config, state_dir, identity, store):
         _sync_handoff_receipt(inbox, args['event_id'], result)
         if args.get('answer'):
             _answer_followup(inbox, args['event_id'], args['answer'])
-        return result
+        # Model-visible: never the raw wake attempt, owner fence or receipt.
+        from .side_wake import redact_handoff
+        public = redact_handoff(args['event_id'], result)
+        public.pop('event_id', None)
+        return {'event_id': args['event_id'], **public}
     if name == 'work_side_review':
         from .side_review import review
         return review(store, args.get('receipt_ids'), verdict=args.get('verdict'),
@@ -218,20 +216,23 @@ def run(name, args, config, state_dir, identity, store):
             return prepare(state_dir, identity, args.get('receipt_id'), config=config)
         return {'receipt': record(state_dir, identity, args.get('receipt_id'), args.get('state'), attempt_id=host.get('attempt_id'))}
     if name == 'work_side_wake':
-        from .side_wake import prepare, record
-        if args.get('state') == 'prepare':
-            return prepare(store, args.get('event_id'))
-        return record(store, args.get('event_id'), args.get('state'), args.get('attempt_id'))
+        from .side_wake import prepare, reconcile, record, retry, start
+        state, event_id = args.get('state'), args.get('event_id')
+        if state == 'prepare':
+            return prepare(store, event_id, protocol=args.get('protocol'),
+                           owner_nonce=args.get('owner_nonce'), channel=args.get('channel'))
+        if state == 'start':
+            return start(store, event_id, args.get('attempt_id'), args.get('owner_nonce'), args.get('channel'))
+        if state == 'reconcile':
+            return reconcile(store, event_id, args.get('attempt_id'), receipt=args.get('receipt'),
+                             seen_receipt=args.get('seen_receipt'))
+        if state == 'retry':
+            return retry(store, event_id, args.get('attempt_ref'), args.get('revision'),
+                         confirmed=args.get('confirmed') is True)
+        return record(store, event_id, state, args.get('attempt_id'),
+                      owner_nonce=args.get('owner_nonce'), receipt=args.get('receipt'))
     if name == 'work_side_claim':
         waiting_reason = None
-        context_ready = False
-        if runtime_side.get('context_mode', 'full') in ('full', 'recent'):
-            from .side_context_store import SideContextStore
-            context_ready = SideContextStore(state_dir, identity).ready() is not None
-            # A selected model promised an explicit parent projection. Inherit
-            # may safely fall back to isolated triage before the first capture.
-            if runtime_side.get('model') != 'inherit' and not context_ready:
-                waiting_reason = 'parent_context'
         document = store.read_snapshot()
         # Acknowledged handoffs are durable history, not a per-poll payload.
         # Prody 2026-11-10: returning all 30 answered rows made every empty claim
@@ -252,7 +253,8 @@ def run(name, args, config, state_dir, identity, store):
                 followup_missing = inbox._load(followup_key) is None
             if not receipt_unsynced and not followup_missing:
                 continue
-            reply = {'event_id': key, **row}
+            from .side_wake import redact_handoff
+            reply = redact_handoff(key, row)
             reply['receipt'] = _sync_handoff_receipt(inbox, key, reply) if receipt_unsynced else None
             if followup_missing:
                 _answer_followup(inbox, key, row['answer'])
@@ -260,7 +262,7 @@ def run(name, args, config, state_dir, identity, store):
         active = None if waiting_reason else claim(
             state_dir, identity, args.get('owner'),
             aging_seconds=config.get('work_side_intake',{}).get('aging_seconds',60),
-            model_fingerprint=runtime_side.get('model_fingerprint'),
+            model_fingerprint=NATIVE_FORK_FINGERPRINT,
             urgent_only=args.get('urgent_only') is True)
         recovered = None
         if active:
@@ -280,17 +282,33 @@ def run(name, args, config, state_dir, identity, store):
                 active['work_digest'] = unfinished_digest(document)
                 from .side_reply_connector import source_read
                 active['source_read'] = source_read(config, active.get('route', {}), active['text'])
-                active['handoff_context'] = [{'event_id': key, **row} for key, row in document.get('side_handoffs', {}).items()
+                active['source_context'] = (active['source_read'] or {}).get('classification', 'not_walkie')
+                active['source_truncated'] = bool((active['source_read'] or {}).get('event_truncated'))
+                # Persist the classification for receipt and Side UI visibility.
+                with exclusive_file_lock(inbox._event_path('locks', active['receipt_id'])):
+                    source_row = verify_claim(inbox, active['receipt_id'], active['generation'])
+                    source_row['source_context'] = active['source_context']
+                    if active['source_truncated']:
+                        source_row['source_truncated'] = True
+                    inbox._save_file(inbox._event_path('pending', active['receipt_id']), source_row)
+                # Model-visible (side fork prompt): wake redacted.
+                from .side_wake import redact_handoff
+                active['handoff_context'] = [redact_handoff(key, row) for key, row in document.get('side_handoffs', {}).items()
                                              if active['event_key'] == 'handoff:' + key]
-        main_wakes = [{'event_id': key, **row} for key, row in document.get('side_handoffs', {}).items()
+        # Intent may be adopted (same owner) or superseded after its lease;
+        # started is offered only so its owner can settle an append receipt.
+        # The host claim keeps the raw attempt id it needs for that; the owner
+        # fence stays with its module instance and is never claim data.
+        main_wakes = [{'event_id': key, **row,
+                       'wake': {k: v for k, v in (row.get('wake') or {}).items() if k != 'owner_nonce'}}
+                      for key, row in document.get('side_handoffs', {}).items()
                       if row.get('state') == 'requested'
-                      and (row.get('wake') or {}).get('state') in ('pending', 'failed')]
+                      and ((row.get('wake') or {}).get('state') in ('pending', 'failed')
+                           or ((row.get('wake') or {}).get('state') == 'submitting'
+                               and (row.get('wake') or {}).get('phase') in ('intent', 'started')))]
         from .side_reply_outbox import pending
         settings = {k: v for k, v in runtime_side.items() if k != 'reply_connectors'}
-        settings['context_ready'] = context_ready
-        if active and active.get('use_parent_model'):
-            # Same provider connection; only this event moves to the main model.
-            settings.update(model='inherit', parent_model_retry=True)
+        settings['actor'] = 'native_fork'
         return {'claim': active, 'waiting_reason': waiting_reason, 'recovered_receipt': recovered,
                 'settings': settings, 'handoff_replies': replies, 'main_wakes': main_wakes,
                 'pending_replies': pending(state_dir, identity)}
@@ -306,15 +324,6 @@ def run(name, args, config, state_dir, identity, store):
             raise WorkPlanError('side decision object required')
         if config.get('work_mode', True) is not True and decision.get('action') not in ('answer', 'clarify'):
             raise WorkPlanError('Work is off; answering allowed, queue mutation denied')
-        context_info = None
-        if host.get('context_key'):
-            from .side_context_store import SideContextStore
-            contexts = SideContextStore(state_dir, identity)
-            context = contexts.read(contexts.path(host['context_key']))
-            if not context or context.get('receipt_id') != key or context.get('generation') != generation or not context.get('selection'):
-                raise WorkPlanError('side context projection not verified for this event')
-            context_info = {**context['selection'], 'parent_captured_at': context['captured_at'],
-                            'parent_digest': context['digest']}
         # A handoff follow-up carries main's own answer back to the source. Its
         # decision never asks main again (owned proof 2026-11-08: 4 cycles in 5 min).
         main_reply = str((row or {}).get('event_key') or '').startswith('handoff:')
@@ -325,12 +334,11 @@ def run(name, args, config, state_dir, identity, store):
             from .side_intake_inbox import source_identity
             result = apply(store, key, decision, args.get('expected_version'), main_reply=main_reply,
                            observed_digest=observed if isinstance(observed, str) else None,
-                           source=source_identity((row or {}).get('text')))
+                           source=source_identity((row or {}).get('text')),
+                           source_context=(row or {}).get('source_context'))
         except WorkChanged as error:
             changed = str(error)
         if changed is None:
-            if context_info is not None:
-                result['context'] = context_info
             result['usage'] = args.get('usage') if isinstance(args.get('usage'), dict) else None
             # Legacy decisions only: what the side AI says it sent itself. New
             # actors have no send tool; the host sends final_text.

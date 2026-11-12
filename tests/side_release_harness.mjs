@@ -15,7 +15,10 @@ const leases = {
 const released = [{id:'n3',waiting_on:'approval from Andy via Walkie'}]
 let claimed = false
 const timers = []
+// The engine's host-held $.state (version + ifVersion compare-and-set).
+const hostStore = new Map()
 const $ = {
+  state:{get:async ref=>{const held=hostStore.get(ref.plugin+'/'+ref.key);return {value:held?structuredClone(held.value):undefined,version:held?.version||0}},set:async (ref,value,options={})=>{const name=ref.plugin+'/'+ref.key,held=hostStore.get(name)||{version:0};if(options.ifVersion!==undefined&&options.ifVersion!==held.version)return {isSet:false,version:held.version};hostStore.set(name,{value:structuredClone(value),version:held.version+1});return {isSet:true,version:held.version+1}}},
   session:{model:async()=>'fixture-main',id:async()=>'parent',
     append:async args=>{appended.push(args.message.content[0].text); return {}},
     send:async args=>{sent.push({to:args.to,text:args.text}); return args.to.agentId === 'agent-gone' ? {isDelivered:false,reason:'gone'} : {isDelivered:true}}},

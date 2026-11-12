@@ -220,6 +220,34 @@ def salvage_observe(repo, lease_id, *, generation, terminal, slot, config_dir=No
                 "receipt_digest": _receipt_digest(snapshot, lease_id, generation)}
 
 
+def review_observe(repo, lease_id, *, generation, artifact, completion_receipt,
+                   host_id, idle_proof, config_dir=None):
+    """Fresh bounded snapshot proving a completed worker is idle and unchanged."""
+    if (not all(_text(value) for value in (generation, artifact, completion_receipt,
+                                           host_id, idle_proof))
+            or not _SHA256.fullmatch(artifact) or not _SHA256.fullmatch(completion_receipt)):
+        raise WorkspaceError("invalid completion review identity")
+    repo, key, manifest = _identity(repo, lease_id, config_dir)
+    with exclusive_file_lock(manifest):
+        record = _owned(_verify(_load(manifest, repo, lease_id, key)))
+        if (record["host_id"] != host_id or record["idle"] is not True
+                or record["idle_proof"] != idle_proof):
+            raise WorkspaceError("positive matching idle workspace proof required")
+        snapshot = _snapshot(record)
+        body = {"snapshot": snapshot, "lease_id": lease_id, "generation": generation,
+                "artifact": artifact, "completion_receipt": completion_receipt}
+        snapshot_digest = hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":"),
+                                                    ensure_ascii=False).encode("utf-8")).hexdigest()
+        return {"repo": str(repo), "path": snapshot["path"], "branch": snapshot["branch"],
+                "head": snapshot["head"], "dirty": snapshot["dirty"],
+                "changed_files": snapshot["changed_files"],
+                "changed_files_total": snapshot["changed_files_total"], "diff_stat": snapshot["diff_stat"],
+                "snapshot_digest": snapshot_digest,
+                # handoff_rebind authenticates the exact current workspace using
+                # its established lease/generation receipt digest.
+                "receipt_digest": _receipt_digest(snapshot, lease_id, generation)}
+
+
 def handoff_rebind(repo, prior_lease_id, replacement_lease_id, *,
                    prior_generation, replacement_generation, receipt_digest,
                    expected_path, expected_branch, expected_head, expected_dirty,

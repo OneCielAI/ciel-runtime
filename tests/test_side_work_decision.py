@@ -103,6 +103,39 @@ class SideDecisionTests(unittest.TestCase):
         self.assertEqual('Daniel approval 118269', next(n for n in doc['nodes'] if n['id'] == gate)['waiting_on'])
         self.assertIn('118269 approved', next(n for n in doc['nodes'] if n['id'] == gate)['note'])
 
+    def test_low_priority_deadline_answer_creates_durable_time_limit_handoff(self):
+        doc, item = self.store.transaction(lambda d: tree.add_node(d, None, 'low priority report', priority='P5'))
+        limit = {'text': 'respond within 4 hours', 'evidence': 'thread message 41 says within 4 hours'}
+        result = apply(self.store, self.key, {**self.base, 'kind': 'info', 'item_id': item,
+                       'time_limit': limit}, doc['version'])
+        self.assertEqual(item, result['item_id'])
+        self.assertEqual(limit, result['time_limit'])
+        self.assertEqual('time_limit', result['main_handoff']['kind'])
+        row = self.store.read()['side_handoffs'][self.key]
+        self.assertEqual(('time_limit', item, item, 'P5'),
+                         (row['kind'], row['item_id'], row['root_id'],
+                          next(n for n in self.store.read()['nodes'] if n['id']==item)['priority']))
+        self.assertEqual(limit, row['time_limit'])
+        self.assertNotIn('thread message body not selected', str(row))
+
+    def test_deadline_request_without_item_creates_item_and_handoff_uses_new_id(self):
+        limit = {'text': 'due 2026-11-12 09:00Z', 'due_at': '2026-11-12T09:00:00Z',
+                 'evidence': 'target message: due 2026-11-12 09:00Z'}
+        result = apply(self.store, self.key, {**self.base, 'kind': 'request', 'action': 'create',
+                       'title': 'deliver report', 'priority': 'P4', 'time_limit': limit}, 0)
+        self.assertTrue(result['item_id'])
+        self.assertEqual(result['item_id'], result['main_handoff']['item_id'])
+        self.assertEqual(result['item_id'], self.store.read()['side_handoffs'][self.key]['item_id'])
+        self.assertEqual('P4', result['queue']['priority'])
+
+    def test_time_limit_requires_existing_item_for_answer_and_never_infers_due_at(self):
+        with self.assertRaisesRegex(tree.WorkPlanError, 'related Work identity'):
+            apply(self.store, self.key, {**self.base, 'kind': 'info',
+                  'time_limit': {'text': 'within a day', 'evidence': 'within a day'}}, 0)
+        with self.assertRaisesRegex(tree.WorkPlanError, 'invalid side decision time_limit'):
+            apply(self.store, self.key, {**self.base, 'kind': 'request', 'action': 'create',
+                  'time_limit': {'text': 'within a day', 'evidence': 'within a day', 'due_at': ''}}, 0)
+
     def test_plain_answer_and_unrelated_update_do_not_wake_main(self):
         self.assertEqual('not_required', apply(self.store, self.key, self.base, 0)['handoff'])
         doc, item = self.store.transaction(lambda d: tree.add_node(d, None, 'idle goal'))

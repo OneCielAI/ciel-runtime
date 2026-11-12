@@ -12,9 +12,12 @@ from . import work_plan_tree as tree
 
 ACTIONS = ('answer', 'clarify', 'update', 'create', 'prioritize', 'advise')
 KINDS = ('status', 'info', 'request', 'clarify')
-FIELDS = {'action', 'kind', 'item_id', 'summary', 'reply', 'note', 'title', 'priority', 'queue_position', 'release_waits'}
+FIELDS = {'action', 'kind', 'item_id', 'summary', 'reply', 'note', 'title', 'priority', 'queue_position', 'release_waits', 'time_limit'}
 NO_QUEUE = '큐에 등록하지 않았습니다.'
 MAX_RELEASES = 16
+MAX_TIME_LIMIT_TEXT = 1000
+MAX_TIME_LIMIT_EVIDENCE = 2000
+MAX_TIME_LIMIT_DUE_AT = 100
 
 
 def unfinished_digest(document):
@@ -67,14 +70,29 @@ def validate(decision):
                        for row in releases)
                 or len({row['id'] for row in releases}) != len(releases)):
             raise tree.WorkPlanError('invalid side decision release_waits')
+    time_limit = decision.get('time_limit')
+    if time_limit is not None:
+        if (not isinstance(time_limit, dict) or set(time_limit) - {'text', 'due_at', 'evidence'}
+                or not isinstance(time_limit.get('text'), str) or not 0 < len(time_limit['text'].strip()) <= MAX_TIME_LIMIT_TEXT
+                or not isinstance(time_limit.get('evidence'), str) or not 0 < len(time_limit['evidence'].strip()) <= MAX_TIME_LIMIT_EVIDENCE
+                or ('due_at' in time_limit and (not isinstance(time_limit['due_at'], str)
+                    or not 0 < len(time_limit['due_at'].strip()) <= MAX_TIME_LIMIT_DUE_AT))):
+            raise tree.WorkPlanError('invalid side decision time_limit')
     action = decision['action']
     kind = decision.get('kind')
     # Models occasionally copy Work-identifying fields into a status/info answer.
     # They are presentation noise: answer/clarify never mutates Work, so discard
     # them instead of failing the entire external message (Walkie 2026-11-09).
     if action in ('answer', 'clarify'):
-        for key in ('item_id', 'note', 'title', 'priority', 'queue_position', 'release_waits'):
+        # A time-limited answer/clarification must name related Work so main can
+        # inspect and acknowledge the durable deadline handoff. Without a limit,
+        # copied Work-identifying fields remain presentation noise.
+        for key in ('note', 'title', 'priority', 'queue_position', 'release_waits'):
             decision.pop(key, None)
+        if time_limit is None:
+            decision.pop('item_id', None)
+        elif not decision.get('item_id'):
+            raise tree.WorkPlanError('time-limited event requires related Work identity')
         place = None
     if action != 'update':
         # Only an update of the waiting Work releases a wait. Elsewhere the
@@ -123,13 +141,16 @@ def _record_review(doc, receipt_id, result, source):
         'state': 'pending', 'kind': result.get('kind') or result['action'], 'action': result['action'],
         'item_id': result.get('item_id'), 'summary': result['summary'][:1000],
         'reply': str(result.get('final_text') or result['reply'])[:4000],
-        'source': source[:300] if isinstance(source, str) else None, 'recorded_at': time.time()}
+        'source': source[:300] if isinstance(source, str) else None,
+        **({'source_context': result['source_context']} if result.get('source_context') else {}),
+        'recorded_at': time.time()}
     finished = [key for key, row in reviews.items() if row.get('state') != 'pending']
     for key in sorted(finished, key=lambda k: reviews[k].get('recorded_at', 0))[:max(0, len(reviews) - MAX_SIDE_REVIEWS)]:
         reviews.pop(key, None)
 
 
-def apply(store, receipt_id, decision, expected_version, *, main_reply=False, observed_digest=None, source=None):
+def apply(store, receipt_id, decision, expected_version, *, main_reply=False, observed_digest=None, source=None,
+          source_context=None):
     validate(decision)
     if not isinstance(receipt_id, str) or len(receipt_id) != 64 or any(c not in '0123456789abcdef' for c in receipt_id):
         raise tree.WorkPlanError('invalid side receipt identity')
@@ -147,7 +168,8 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
         effective_kind = decision.get('kind')
         item = decision.get('item_id')
         by_id = {node['id']: node for node in doc['nodes']}
-        if action in ('update', 'prioritize', 'advise') and item not in by_id:
+        if (action in ('update', 'prioritize', 'advise') or decision.get('time_limit') is not None
+                and action in ('answer', 'clarify')) and item not in by_id:
             raise tree.WorkPlanError('side target Work item missing')
         if action in ('update','prioritize') and by_id[item]['status']=='done':
             # A delayed approval/status event may name Work main already finished.
@@ -254,21 +276,29 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
         # side actor's work; priority alone is not another action for main. Main
         # wakes only for an unresolved wait/block, explicit advice/priority, or
         # a newly-created P1 that still needs scheduling at a safe boundary.
-        needs_handoff = not main_reply and (action in ('prioritize', 'advise')
+        time_limit = decision.get('time_limit')
+        needs_handoff = not main_reply and (time_limit is not None
+                                            or action in ('prioritize', 'advise')
                                             or action == 'update' and bool(gates)
                                             or action == 'create' and (bool(gates) or priority == 'P1'))
-        if released and not gates and action == 'update':
+        if released and not gates and action == 'update' and time_limit is None:
             # The waiter is woken with the release itself (no acknowledgment);
-            # only a wait or block that is still recorded needs main's boundary.
+            # a time limit still needs main's immediate durable notice.
             needs_handoff = False
         if needs_handoff:
             stamp = time.time()
-            kind = ('advise' if action == 'advise' else 'resume' if gates
-                    else 'p1' if priority == 'P1' else 'priority')
+            kind = ('time_limit' if time_limit is not None else 'advise' if action == 'advise'
+                    else 'resume' if gates else 'p1' if priority == 'P1' else 'priority')
             handoffs = doc.setdefault('side_handoffs', {})
-            handoffs[receipt_id] = {'item_id': item, 'summary': decision['summary'],
-                                     'question': decision['reply'] if action == 'advise' else '',
+            item_node = by_id.get(item) or next(node for node in doc['nodes'] if node['id'] == item)
+            root_id = tree._root_of(by_id, item)
+            position = tree.queue_position(doc, item)
+            handoffs[receipt_id] = {'item_id': item, 'root_id': root_id,
+                                     'title': item_node.get('title', '')[:tree.MAX_TITLE_CHARS],
+                                     'summary': decision['summary'][:1000],
+                                     'question': decision['reply'][:2000] if action == 'advise' else '',
                                      'kind': kind, 'gates': gates,
+                                     **({'time_limit': dict(time_limit), 'queue': position} if time_limit is not None else {}),
                                      'waits': [{'id': gate['id'], 'waiting_on': gate['waiting_on']}
                                                for gate in gates if gate['waiting_on']],
                                      'state': 'requested', 'requested_at': stamp,
@@ -279,13 +309,25 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
                   'based_on_version': expected_version}
         if effective_kind:
             result['kind'] = effective_kind
+        if time_limit is not None:
+            result['time_limit'] = dict(time_limit)
+        if isinstance(source_context, str) and source_context:
+            # none_referenced: the event named no message/thread, so no source
+            # reply exists. Main reviews the board decision only.
+            result['source_context'] = source_context[:40]
         if released:
             result['released_waits'] = released
         if unreleased:
             result['unreleased_waits'] = unreleased
         if needs_handoff:
-            result['main_handoff'] = {'kind': kind, 'waits': handoffs[receipt_id]['waits'],
-                                      'question': handoffs[receipt_id]['question']}
+            handoff = handoffs[receipt_id]
+            result['main_handoff'] = ({'kind': kind, 'item_id': handoff['item_id'],
+                                       'root_id': handoff['root_id'], 'title': handoff['title'],
+                                       'summary': handoff['summary'], 'queue': handoff.get('queue'),
+                                       'time_limit': handoff['time_limit'],
+                                       'waits': handoff['waits'], 'question': handoff['question']}
+                                      if time_limit is not None else
+                                      {'kind': kind, 'waits': handoff['waits'], 'question': handoff['question']})
         if action in ('create', 'update', 'prioritize'):
             node = by_id[item]
             position = tree.queue_position(doc, item)

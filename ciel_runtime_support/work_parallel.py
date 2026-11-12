@@ -173,6 +173,43 @@ def validate(d):
     # Cap reductions drain existing leases; reserve enforces the new cap.
     require(type(d["launches"]) is list and len(d["launches"]) <= 60 and all(number(t, 1e15) for t in d["launches"]), "launch history")
 
+REWORK_HARD_REFUSALS = ("unknown", "not_reworkable", "rework_limit")
+
+
+def rework_admission(d, ident, *, now):
+    """(code, message) for a submitted result's next resume generation.
+
+    ``code`` is "" when admissible. unknown/not_reworkable/rework_limit can never
+    clear by waiting; paused/capacity/launch_rate/lease_bound clear as Work drains.
+    """
+    old = d["leases"].get(ident)
+    if old is None:
+        return "unknown", "unknown lease"
+    if old["role"] not in ("worker", "resume") or old["state"] != "submitted" or old["slot"]:
+        return "not_reworkable", "result is not reworkable"
+    p = d["policy"]
+    if old["rework"] >= p["max_rework"]:
+        return "rework_limit", (f"rework limit reached ({old['rework']}/{p['max_rework']}); "
+                                "result remains pending review")
+    if not p["enabled"] or p["paused"]:
+        return "paused", "disabled/paused; rework waits for admission"
+    counts = active_by_priority(d["leases"])
+    if counts[old["priority"]] >= p["priority_limits"][old["priority"]]:
+        return "capacity", (f"active slot capacity reached for {old['priority']} "
+                            f"({counts[old['priority']]}/{p['priority_limits'][old['priority']]}); "
+                            "rework waits for admission")
+    if len([value for value in d["launches"] if now - value < 60]) >= p["launches_per_minute"]:
+        return "launch_rate", "launch rate reached; rework waits for admission"
+    if sum(row["state"] in ACTIVE_STATES for row in d["leases"].values()) >= MAX_LEASES:
+        return "lease_bound", "lease bound reached; rework waits for admission"
+    return "", ""
+
+
+def rework_refusal(d, ident, *, now):
+    """Why a submitted result cannot get a fresh resume generation now, or ''."""
+    return rework_admission(d, ident, now=now)[1]
+
+
 def unique_object(pairs):
     d = {}
     for k, v in pairs:
@@ -275,6 +312,10 @@ class WorkParallelStore:
             require(all(type(r[k]) is bool for k in ("approved", "focused", "dependencies_done")), "candidate gates")
             require(r["role"] in ("worker", "reviewer", "resume") and r["mode"] in ("fork", "fresh"), "candidate mode")
         require(len({r["item_id"] for r in candidates}) == len(candidates), "duplicate candidates")
+        # Main reviews completed results itself. Reviewer rows minted by older
+        # builds stay valid and readable; no new reviewer execution is admitted.
+        require(all(r["role"] != "reviewer" for r in candidates),
+                "new reviewer reservations are retired; main reviews completed results")
         stamp = time.time() if now is None else now
         require(number(stamp, 1e15), "clock")
         def apply(d):
@@ -293,8 +334,12 @@ class WorkParallelStore:
                 # Focus only orders Work; it never blocks another approved item.
                 if not all(r[k] for k in ("approved", "dependencies_done")):
                     continue
-                if any(a["scope"] == scope and a["item_id"] == r["item_id"] and a["role"] == r["role"]
+                if any(a["scope"] == scope and a["item_id"] == r["item_id"]
+                       and ((a["role"] in ("worker", "resume") and r["role"] in ("worker", "resume"))
+                            or a["role"] == r["role"])
                        and a["state"] in ACTIVE_STATES for a in d["leases"].values()):
+                    # Worker and resume are one execution family. The submitted
+                    # predecessor stays the duplicate fence until rework commits.
                     continue
                 if r["priority"] == "P1" and r["mode"] != "fork":
                     continue
@@ -475,6 +520,126 @@ class WorkParallelStore:
             r.update(state="unreported", slot=False, usage=0, artifact=None,
                      evidence=evidence, idle_proof=evidence, report_hash=None,
                      terminal={"reason": "handoff", "observed_at": stamp, "proof": evidence})
+        return self._change(apply, expected_version)
+
+    def main_accept(self, ident, *, plan_version, artifact, evidence, expected_version):
+        """Main-session acceptance without minting a reviewer execution lease.
+
+        The submitted artifact and approval version are immutable inputs.  Replays
+        after the acceptance commit are idempotent only for the same artifact.
+        """
+        require(integer(plan_version), "plan version")
+        require(digest(artifact), "artifact SHA256 required")
+        require(text(evidence), "acceptance evidence required")
+        def apply(d):
+            worker = self._lease(d, ident)
+            if worker["plan_version"] != plan_version:
+                raise WorkParallelConflict("stale plan version")
+            if worker["state"] in ("accepted", "cleanup_pending", "done"):
+                require(worker["artifact"] == artifact, "stale artifact")
+                return worker
+            require(worker["role"] in ("worker", "resume") and worker["state"] == "submitted"
+                    and not worker["slot"] and worker["artifact"] == artifact,
+                    "worker result is not pending main acceptance")
+            worker.update(state="accepted", evidence=evidence)
+            return worker
+        return self._change(apply, expected_version)
+
+    def reserve_rework(self, ident, replacement_ident, *, owner,
+                       expected_version, now=None):
+        """Idempotently reserve a fresh resume generation for a submitted result.
+
+        The old submitted row is the duplicate fence until coordination supersedes
+        it.  A deterministic replacement id lets a lost response resume without
+        minting a second execution capability.
+        """
+        require(text(replacement_ident, 200), "rework identity")
+        require(owner is None or (fields(owner, "session_pid identity") and integer(owner["session_pid"], 1)
+                and (owner["identity"] is None or type(owner["identity"]) is str)), "owner identity")
+        stamp = time.time() if now is None else now
+        require(number(stamp, 1e15), "clock")
+        def apply(d):
+            old = self._lease(d, ident)
+            prior = d["leases"].get(replacement_ident)
+            if prior is not None:
+                require(prior["role"] == "resume" and prior["scope"] == old["scope"]
+                        and prior["item_id"] == old["item_id"] and prior["rework"] == old["rework"] + 1,
+                        "replacement id collision")
+                return replacement_ident
+            refusal = rework_refusal(d, ident, now=stamp)
+            require(not refusal, refusal)
+            history = [value for value in d["launches"] if stamp - value < 60]
+            d["leases"][replacement_ident] = dict(
+                id=replacement_ident, scope=old["scope"], item_id=old["item_id"],
+                priority=old["priority"], created_at=stamp, role="resume", mode="fork",
+                plan_version=old["plan_version"], state="reserved", host_id=None, slot=True,
+                usage=.05, artifact=None, rework=old["rework"] + 1, evidence=None,
+                idle_proof=None, cleanup_proof=None, dispatch_name=None, owner=copy.deepcopy(owner),
+                report_hash=None, terminal=None)
+            d["launches"] = history + [stamp]
+            return replacement_ident
+        return self._change(apply, expected_version)
+
+    def retire_reworked(self, ident, replacement_ident, *, proof, expected_version):
+        """Close the prior execution row after its owned workspace was rebound."""
+        require(text(replacement_ident, 200) and text(proof), "rework retirement proof")
+        def apply(d):
+            old = self._lease(d, ident)
+            replacement = self._lease(d, replacement_ident)
+            require(replacement["role"] == "resume" and replacement["scope"] == old["scope"]
+                    and replacement["item_id"] == old["item_id"], "invalid rework replacement")
+            if old["state"] == "done":
+                require(old["cleanup_proof"] == proof, "rework proof changed")
+                return old
+            require(old["state"] == "submitted" and not old["slot"], "old result is not submitted")
+            old.update(state="done", cleanup_proof=proof, evidence=proof, report_hash=None)
+            return old
+        return self._change(apply, expected_version)
+
+    def name_reserved_resume(self, ident, dispatch_name, *, expected_version):
+        """Persist the exact native launch name before spawn (existing optional field).
+
+        The finalization launch-intent ledger is the fence; this copy lets any
+        process reconcile an unknown spawn by exact durable name.
+        """
+        require(text(dispatch_name, 200), "dispatch name")
+        def apply(d):
+            row = self._lease(d, ident)
+            require(row["role"] == "resume" and row["state"] == "reserved"
+                    and row["host_id"] is None and row["slot"], "replacement is no longer dispatchable")
+            row["dispatch_name"] = dispatch_name
+            return row
+        return self._change(apply, expected_version)
+
+    def rotate_reserved_capability(self, ident, report_hash, *, expected_version):
+        """Host-only pre-spawn capability issuance for a reserved replacement."""
+        require(digest(report_hash), "worker capability hash")
+        def apply(d):
+            row = self._lease(d, ident)
+            require(row["role"] == "resume" and row["state"] == "reserved"
+                    and row["host_id"] is None and row["slot"],
+                    "replacement is no longer dispatchable")
+            row["report_hash"] = report_hash
+            return row
+        return self._change(apply, expected_version)
+
+    def finalize_accepted(self, ident, *, plan_version, artifact, evidence,
+                          cleanup_proof, expected_version):
+        """Retire a main-accepted slot-free row with explicit retention proof."""
+        require(integer(plan_version) and digest(artifact), "finalization identity")
+        require(text(evidence) and text(cleanup_proof), "finalization proof")
+        def apply(d):
+            row = self._lease(d, ident)
+            if row["state"] == "done":
+                require(row["artifact"] == artifact, "stale artifact")
+                return row
+            require(row["plan_version"] == plan_version and row["artifact"] == artifact,
+                    "stale accepted result")
+            require(row["state"] in ("accepted", "cleanup_pending") and not row["slot"]
+                    and row["idle_proof"] is not None, "accepted result is not idle")
+            row.update(state="done", evidence=evidence, cleanup_proof=cleanup_proof,
+                       report_hash=None)
+            return row
         return self._change(apply, expected_version)
 
     def accept_with_reviewer(self, ident, reviewer_ident, *, plan_version, artifact,

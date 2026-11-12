@@ -46,7 +46,7 @@ _SUMMARY_CACHE_LOCK = threading.Lock()
 
 def _bounded_text(value: Any, limit: int = PUBLIC_TEXT_LIMIT) -> tuple[str, bool]:
     """Credential-shaped text hidden, then bounded; returns (text, truncated)."""
-    from .side_context_store import redact_text
+    from .side_redaction import redact_text
     text = redact_text(value) if isinstance(value, str) else ''
     return (text, False) if len(text) <= limit else (text[:limit - 1] + '…', True)
 
@@ -547,6 +547,8 @@ class SideIntakeInbox:
             'action': result.get('action'), 'kind': result.get('kind'),
             'delivery': result.get('delivery') or (row.get('outbox') or {}).get('state'),
             'failure_category': failure.get('category'),
+            'source_context': row.get('source_context'),
+            'source_truncated': True if row.get('source_truncated') else None,
             'attempt_count': failure.get('attempt_count'),
             'quarantined': bool(failure.get('quarantined')),
             'handoff': result.get('handoff'),
@@ -683,5 +685,7 @@ class SideIntakeInbox:
                 'recap': ' '.join(row['text'].split())[:500], 'original': row['text'],
                 'execution_approved': False, 'external_ack': row.get('external_ack', 'not_sent'),
                 'processing': row.get('processing'), 'side_failure': row.get('side_failure'),
+                'source_context': row.get('source_context'),
+                'source_truncated': row.get('source_truncated') is True,
                 'main_fallback': row.get('main_fallback'), 'context': row.get('context'),
                 'result': row.get('result')}

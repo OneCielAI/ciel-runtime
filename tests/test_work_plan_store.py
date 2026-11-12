@@ -63,6 +63,24 @@ class WorkPlanStoreTests(unittest.TestCase):
         doc["nodes"][0]["title"] = "not persisted"
         self.assertEqual(self.store.read()["nodes"][0]["title"], "goal")
 
+    def test_non_semantic_transaction_preserves_version_and_refuses_other_changes(self):
+        def create(doc):
+            doc['side_handoffs'] = {'e'*64: {'state': 'requested', 'wake': {'state': 'pending', 'revision': 0}}}
+        semantic, _ = self.store.transaction(create)
+        before_version, before_updated = semantic['version'], semantic['updated_at']
+        def wake_only(doc):
+            doc['side_handoffs']['e'*64]['wake'].update(state='submitting', revision=1, unknown='kept')
+        saved, _ = self.store.transaction(wake_only, semantic=False)
+        self.assertEqual((before_version, before_updated), (saved['version'], saved['updated_at']))
+        self.assertEqual('kept', saved['side_handoffs']['e'*64]['wake']['unknown'])
+        before_bytes = self.path.read_bytes()
+        def invalid(doc):
+            doc['side_handoffs']['e'*64]['wake']['revision'] = 2
+            doc['phase'] = 'executing'
+        with self.assertRaisesRegex(t.WorkPlanError, 'only side handoff wake'):
+            self.store.transaction(invalid, semantic=False)
+        self.assertEqual(before_bytes, self.path.read_bytes())
+
     def test_stale_cas_does_not_call_mutator(self):
         self.store.transaction(lambda d: t.add_node(d, None, "goal"), expected_version=0)
         before = self.path.read_bytes()

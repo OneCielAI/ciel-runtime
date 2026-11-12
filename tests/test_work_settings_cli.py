@@ -57,22 +57,24 @@ class WorkSettingsCliTests(unittest.TestCase):
         self.assertFalse(config['work_side_intake']['enabled'])
 
     def test_new_side_flags_use_shared_menu_and_cli_store(self):
-        config = {}
-        for key, value in [('context_mode', 'full'), ('context_percent', '30'),
-                           ('model', 'inherit'), ('priority_policy', 'adaptive')]:
+        # Legacy values written by older builds stay on disk but are inert.
+        config = {'work_side_intake': {'model': 'API KEYS - SSE', 'context_mode': 'recent', 'context_percent': 30}}
+        for key, value in [('priority_policy', 'adaptive'), ('max_active', '3')]:
             self.invoke(config, 'set', 'work_side_intake_' + key, value)
-        self.assertEqual('full', config['work_side_intake']['context_mode'])
-        self.assertEqual(30, config['work_side_intake']['context_percent'])
+        self.assertEqual(3, config['work_side_intake']['max_active'])
         result, _ = self.invoke(config)
         rows = {r['key']:r for r in result['settings']}
-        # The comparison experiment was removed on 2026-11-10.
-        self.assertFalse({'work_side_intake_comparison_enabled', 'work_side_intake_comparison_model'} & set(rows))
-        for retired in ('comparison_enabled', 'comparison_model'):
+        # The comparison experiment was removed on 2026-11-10; side model and
+        # context were retired on 2026-11-11 (every SSE event is a native fork).
+        retired_keys = ('comparison_enabled', 'comparison_model', 'model', 'context_mode', 'context_percent')
+        self.assertFalse({'work_side_intake_' + key for key in retired_keys} & set(rows))
+        for retired, value in zip(retired_keys, ('on', 'x', 'inherit', 'full', '30')):
             with self.assertRaises(ValueError):
-                self.invoke(config, 'set', 'work_side_intake_' + retired, 'on')
-        self.assertEqual('router_capture_required', rows['work_side_intake_context_mode']['status'])
+                self.invoke(config, 'set', 'work_side_intake_' + retired, value)
+        self.assertEqual({'next_side_event'}, {rows[k]['status'] for k in rows if k.startswith('work_side_intake_')
+                                               and k not in ('work_side_intake_type', 'work_side_intake_enabled')})
         with self.assertRaises(ValueError):
-            self.invoke(config, 'set', 'work_side_intake_context_percent', '0')
+            self.invoke(config, 'set', 'work_side_intake_max_active', '0')
         with self.assertRaises(ValueError):
             self.invoke(config, 'set', 'work_side_intake_priority_policy', 'unrestricted')
 

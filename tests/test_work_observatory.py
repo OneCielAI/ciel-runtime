@@ -77,20 +77,18 @@ class WorkObservatoryTests(unittest.TestCase):
     def test_every_setting_is_listed_across_pages_and_edited_by_kind(self):
         s = self.result['settings']
         self.assertEqual(10, len(s['first']))
-        self.assertEqual(4, len(s['second']))
+        self.assertEqual(3, len(s['second']))
         self.assertEqual([['work_mode', 'off'], ['work_plan_approval_ask', 'ask'], ['work_parallel_p1_limit', '3']],
                          self.result['writes'])
 
-    def test_side_model_picker_pages_catalog_and_applies_live(self):
-        picker = self.result['picker']
-        self.assertIn('✓ _Combo_0', picker['texts'])
-        self.assertIn('  inherit — follow main model', picker['texts'])
-        self.assertEqual('Models 1/2', picker['pages'])
-        self.assertIn('  _Combo_11', picker['second'])
-        picked = self.result['picked']
-        self.assertEqual(['_Combo_11'], picked['write'])
-        self.assertIn('next SSE', picked['toast'])
-        self.assertTrue(picked['backToList'])
+    def test_side_actors_are_native_main_context_forks_without_model_picker(self):
+        raw = json.dumps(self.result)
+        for stale in ("work_side_intake_model", "Side model", "Custom id", "next SSE",
+                      "inherit — follow main model", "Models 1/2"):
+            self.assertNotIn(stale, raw)
+        props = self.result['graphicProps']
+        self.assertNotIn('model', props)
+        self.assertTrue(all('model' not in actor for actor in props.get('actors', [])))
 
     def test_mobile_and_narrow_get_single_column_touch_layout(self):
         mobile = self.result['mobile']

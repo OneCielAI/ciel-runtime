@@ -114,7 +114,7 @@ export default function Observatory(props, surface) {
     flexDirection: 'row', ...extra, children })
   const children = []
 
-  // Mockup-faithful status header: Work progress, parallel lanes and selected side model.
+  // Mockup-faithful status header: Work progress and parallel lanes.
   children.push(boxLine('top-labels', [
     Text({ color: props.tab === 'work' ? C.cyan : C.dim, weight: props.tab === 'work' ? 'bold' : undefined,
       children: clip('WORK / SESSION ' + (props.version ?? '?'), Math.max(12, Math.floor(width / 2))) }),
@@ -137,9 +137,10 @@ export default function Observatory(props, surface) {
   const forkText = props.parallel?.evidence === false ? 'FORKS ? ' : 'FORKS ' + forks + ' running '
   children.push(boxLine('lanes', [
     Text({ color: C.blue, children: forkText }),
-    Text({ color: C.dim, children: '· DEVICE ' + active + '/' + max + ' slots · SIDE ' + (props.parallel?.side || 0) }),
-    Text({ color: C.dim, children: clip('  M ' + (props.model || 'inherit'), Math.max(0, width - 48)) }),
+    Text({ color: C.dim, children: '· DEVICE ' + active + '/' + max + ' slots · REVIEW ' + (props.parallel?.reviews?.length || 0) + ' · SIDE ' + (props.parallel?.side || 0) }),
   ]))
+  for (const [index, review] of (props.parallel?.reviews || []).slice(0, 2).entries())
+    children.push(line('review-' + index, '  ◆ ' + [review.status, review.item, review.title].filter(Boolean).join(' · '), C.yellow))
   for (const [index, fork] of (props.parallel?.confirmed || []).entries()) {
     const age = typeof fork.seen === 'number' ? Math.max(0, Math.round(Date.now() / 1000 - fork.seen)) + 's ago' : ''
     children.push(line('fork-' + index, clip('  ▸ ' + [fork.item, fork.priority, fork.title, fork.agent, fork.status, age]
@@ -196,7 +197,7 @@ export default function Observatory(props, surface) {
     specs.push({ value: activeActors.length ? 'ACTIVE SSE FORKS ' + activeActors.length : 'No active side fork',
       color: activeActors.length ? C.pink : C.dim, weight: activeActors.length ? 'bold' : undefined })
     specs.push({ value: actor ? '▶ fork ' + actor.id : ' ', color: C.cyan })
-    specs.push({ value: actor ? '  model ' + (actor.model || 'inherit') : ' ', color: C.violet })
+    specs.push({ value: actor ? '  native fork · main model/context' : ' ', color: C.violet })
     for (const [index, receipt] of sideRows.slice(0, Math.max(1, innerRows - specs.length)).entries()) {
       const selectedRow = props.tab === 'side' && index === selected
       specs.push({ value: (selectedRow ? '▸' : ' ') + (receipt.priority || '--') + ' ' + stage(receipt) + ' ' + (receipt.summary || ''),
@@ -241,7 +242,7 @@ export default function Observatory(props, surface) {
     if (actors.length) {
       children.push(line('fork-title', 'ACTIVE FORKED SSE SESSIONS', C.pink, { weight: 'bold' }))
       for (const actor of actors) children.push(line('actor-' + actor.id,
-        '▶ ' + clip(actor.id, 10) + ' · ' + clip(actor.model || 'inherit', 18) + ' · ' + clip(actor.receipt, 12), C.cyan))
+        '▶ ' + clip(actor.id, 10) + ' · native fork (main model/context) · ' + clip(actor.receipt, 12), C.cyan))
     } else children.push(line('no-fork', 'No active side fork', C.dim))
     const visible = Math.max(3, height - 13 - actors.length)
     const page = sideRows.slice(scroll, scroll + visible)

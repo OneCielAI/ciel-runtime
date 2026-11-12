@@ -94,6 +94,24 @@ def _git(cwd, *args):
     ).stdout.strip()
 
 
+def _legacy_reviewer(store, item_id, host_id, *, plan_version=7, ident="legacy-reviewer"):
+    """A submitted reviewer row exactly as 4eebfdc/5c91ea8 builds persisted it.
+
+    New reviewer reservations are retired; legacy rows must still be readable
+    and consumable by acceptance.
+    """
+    doc = store.read()
+    doc["leases"][ident] = {
+        "id": ident, "scope": SCOPE, "item_id": item_id, "priority": "P1", "created_at": 1,
+        "role": "reviewer", "mode": "fork", "plan_version": plan_version, "state": "submitted",
+        "host_id": host_id, "slot": False, "usage": 0, "artifact": "b" * 64, "rework": 0,
+        "evidence": "independent findings", "idle_proof": "independent findings",
+        "cleanup_proof": None, "report_hash": None,
+    }
+    store.path.write_text(json.dumps(doc), encoding="utf-8")
+    return ident
+
+
 def _accepted_worker(env, tmp_path):
     s, b, c, run = env
     repo = tmp_path / "repo"
@@ -128,24 +146,7 @@ def _accepted_worker(env, tmp_path):
             artifact="a" * 64,
             evidence="checked",
         )
-    reviewer = run(
-        "event",
-        {"fork": True},
-        event="reserve",
-        item_id="n1",
-        priority="P1",
-        role="reviewer",
-    )["lease_id"]
-    run("event", {"host_id": "reviewer-1"}, event="bind", lease_id=reviewer)
-    run(
-        "event",
-        {"agent_id": "reviewer-1"},
-        event="result",
-        lease_id=reviewer,
-        plan_version=7,
-        artifact="b" * 64,
-        evidence="ok",
-    )
+    reviewer = _legacy_reviewer(s, "n1", "reviewer-1")
     run(
         "event",
         {},
@@ -605,10 +606,15 @@ class WorkParallelMCPTests(unittest.TestCase):
         run("event", {}, event="reconcile", lease_id=ident)
         assert s.read()["leases"][ident]["slot"]
         # Caller input cannot demote the root; the root's P1 priority is authoritative.
-        reserved = run("event", {"fork": True}, event="reserve", item_id="n1", priority="P2", role="reviewer")
+        reserved = run("event", {"fork": True}, event="reserve", item_id="n3", priority="P2")
         assert s.read()["leases"][reserved["lease_id"]]["priority"] == "P1"
-        with self.assertRaises(WorkParallelError):
-            run("event", {"fork": True}, event="reserve", item_id="n1", priority="P2", role="reviewer")
+        # Worker and resume share one execution family per item.
+        for role in ("worker", "resume"):
+            with self.assertRaises(WorkParallelError):
+                run("event", {"fork": True}, event="reserve", item_id="n1", priority="P2", role=role)
+        # Reviewer forks are retired: main reviews completed results itself.
+        with self.assertRaisesRegex(WorkParallelError, "reviewer reservations are retired"):
+            run("event", {"fork": True}, event="reserve", item_id="n3", priority="P1", role="reviewer")
 
 
     def test_review_cleanup_lifecycle(self):
@@ -654,24 +660,10 @@ class WorkParallelMCPTests(unittest.TestCase):
                 artifact="a" * 64,
                 evidence="unchecked",
             )
-        reviewer = run(
-            "event",
-            {"fork": True},
-            event="reserve",
-            item_id="n1",
-            priority="P1",
-            role="reviewer",
-        )["lease_id"]
-        run("event", {"host_id": "reviewer-1"}, event="bind", lease_id=reviewer)
-        run(
-            "event",
-            {"agent_id": "reviewer-1"},
-            event="result",
-            lease_id=reviewer,
-            plan_version=7,
-            artifact="b" * 64,
-            evidence="independent findings",
-        )
+        with self.assertRaisesRegex(WorkParallelError, "reviewer reservations are retired"):
+            run("event", {"fork": True}, event="reserve", item_id="n1", priority="P1", role="reviewer")
+        # Legacy reviewer rows written by 4eebfdc/5c91ea8 remain consumable.
+        reviewer = _legacy_reviewer(s, "n1", "reviewer-1")
         run(
             "event",
             {},

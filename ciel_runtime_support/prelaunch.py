@@ -1218,25 +1218,13 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     messages = [description(load_config(), value)]
                     settings_key = value
                     settings_parent = panel
-                    if value == 'work_side_intake_model':
-                        from .side_model_menu import rows as side_model_rows
-                        panel_rows, panel_values = side_model_rows(load_config(), model_panel_rows(provider, pcfg, fetch=False), field=value.removeprefix('work_side_intake_'))
-                    else:
-                        panel_rows, panel_values = choices(load_config(), value)
+                    panel_rows, panel_values = choices(load_config(), value)
                     panel = 'work-setting-choice'
                     panel_idx = 0
                 elif panel == 'work-setting-choice':
                     from .work_settings_menu import apply as apply_settings, apply_feedback
                     if value == 'back':
                         open_panel(settings_parent)
-                        continue
-                    if settings_key == 'work_side_intake_model' and value == '__refresh_models__':
-                        from .side_model_menu import rows as side_model_rows
-                        try:
-                            panel_rows, panel_values = side_model_rows(load_config(), model_panel_rows(provider, pcfg, fetch=True, force_refresh=True), field=settings_key.removeprefix('work_side_intake_'))
-                        except Exception as error:
-                            messages = ['Side model catalog unavailable: ' + type(error).__name__]
-                        panel_idx = 0
                         continue
                     entered = value
                     if value == '__edit__':

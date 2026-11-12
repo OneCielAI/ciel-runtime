@@ -29,16 +29,21 @@ class UnifiedSettingsTests(unittest.TestCase):
                                         description(config, 'work_mode'))
                 self.assertNotIn('work_mode', apply_feedback(config, 'work_mode', 'on'))
 
-    def test_plan_approval_and_side_model_wording_is_exact(self):
+    def test_plan_approval_and_native_fork_side_wording_is_exact(self):
         english = description({}, 'work_plan_approval_ask')
         self.assertIn('manual user approval', english)
         self.assertIn('approves plans automatically', english)
         self.assertIn('does not mean “no approval”', english)
-        side = description({}, 'work_side_intake_model')
-        self.assertIn('another model of the same provider', side)
-        self.assertIn('main session connection and authentication', side)
-        self.assertIn('retries that event on the main model', side)
-        self.assertIn('never enters the main transcript', side)
+        side = description({}, 'work_side_intake_instruction')
+        self.assertIn('inherits the main model, context, tools and permissions', side)
+        self.assertIn('no-write/no-run/no-send limits are prompt policy', side)
+        self.assertIn('네이티브 사이드 포크', description({'language': 'ko'}, 'work_side_intake_instruction'))
+        # The side model/context rows were retired with the native fork.
+        from ciel_runtime_support.work_settings_menu import DESCRIPTIONS, NUMBERS, choices
+        for key in ('work_side_intake_model', 'work_side_intake_context_mode', 'work_side_intake_context_percent'):
+            self.assertNotIn(key, DESCRIPTIONS)
+            self.assertNotIn(key, NUMBERS)
+        self.assertEqual(['__edit__', 'back'], choices({}, 'work_side_intake_context_mode')[1])
 
     def test_one_panel_one_side_option_and_explanations(self):
         with tempfile.TemporaryDirectory() as root:

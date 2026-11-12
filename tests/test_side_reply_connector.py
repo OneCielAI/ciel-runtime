@@ -40,13 +40,13 @@ class SideConnectorTests(unittest.TestCase):
                    'preset': 'walkie', 'server': 'walkie'}
         config = {'work_side_intake': {'reply_connectors': [binding]}}
         route = {'sender_id': 'urn:owned:events', 'channel': 'external:receiver'}
-        original = json.dumps({'data': {'conversation': '34886995-4a66-4527-a618-814e9cb0a5bf',
+        original = json.dumps({'type':'com.ciel.walkie.support.message','data': {'conversation': '34886995-4a66-4527-a618-814e9cb0a5bf',
                                               'message_id': '118635', 'server': 'attacker'}})
         read = source_read(config, route, original)
-        self.assertEqual({'conversation_id': '34886995-4a66-4527-a618-814e9cb0a5bf', 'after': '118634'},
-                         read['arguments'])
-        self.assertEqual(('walkie', 'walkie_read_messages', '118635'),
-                         (read['server'], read['tool'], read['message_id']))
+        self.assertEqual(('walkie', 'thread', '118635', '118635', '34886995-4a66-4527-a618-814e9cb0a5bf'),
+                         (read['server'], read['classification'], read['root_id'], read['target_message_id'], read['conversation_id']))
+        self.assertNotIn('reply_to_message_id', read)
+        self.assertNotIn('thread_root_id', read)
         sent = prepare(config, route, 'a' * 64, 'answer', 'reply', original=original)
         self.assertEqual(('walkie', 'walkie_send_message'), (sent['server'], sent['tool']))
         self.assertEqual('118635', sent['arguments']['reply_to_message_id'])
@@ -56,7 +56,67 @@ class SideConnectorTests(unittest.TestCase):
                      {'conversation': '34886995-4a66-4527-a618-814e9cb0a5bf', 'message_id': '../118635'}):
             with self.subTest(data=data):
                 self.assertIsNone(prepare(config, route, 'b' * 64, 'x', 'reply',
-                                          original=json.dumps({'data': data})))
+                                          original=json.dumps({'type':'com.ciel.walkie.support.message','data': data})))
+
+    def test_walkie_thread_lineage_is_carried_only_when_well_formed(self):
+        from ciel_runtime_support.side_reply_connector import prepare, source_read, walkie_target
+        config = {'work_side_intake': {'reply_connectors': [
+            {'source': '*', 'receiver_id': 'default', 'preset': 'walkie', 'server': 'walkie'}]}}
+        route = {'sender_id': 'urn:any', 'channel': 'external:default'}
+        conversation = '34886995-4a66-4527-a618-814e9cb0a5bf'
+        # Captured Walkie shape (Prody 2026-11-08): thread_root_id and
+        # reply_to_message_id are digit strings, or null outside a thread.
+        threaded = json.dumps({'type':'com.ciel.walkie.support.message','data': {'conversation': conversation, 'message_id': 120345,
+                                        'reply_to_message_id': '120278', 'thread_root_id': '93066'}})
+        read = source_read(config, route, threaded)
+        self.assertEqual(('120345', '120278', '93066'),
+                         (read['target_message_id'], read['reply_to_message_id'], read['thread_root_id']))
+        self.assertEqual((conversation,'93066'), (read['conversation_id'],read['root_id']))
+        unthreaded = json.dumps({'type':'com.ciel.walkie.support.message','data': {'conversation': conversation, 'message_id': '120345',
+                                          'reply_to_message_id': None, 'thread_root_id': None}})
+        self.assertEqual({'conversation_id': conversation, 'message_id': '120345',
+                          'reply_to_message_id': None, 'thread_root_id': None}, walkie_target(unthreaded))
+        for bad in ({'reply_to_message_id': '12a'}, {'thread_root_id': '../1'}, {'thread_root_id': True},
+                    {'reply_to_message_id': -1}, {'message_id': None}, {'message_id': 1.5}):
+            with self.subTest(bad=bad):
+                original = json.dumps({'type':'com.ciel.walkie.support.message','data': {'conversation': conversation, 'message_id': '120345', **bad}})
+                self.assertIsNone(walkie_target(original))
+                context = source_read(config, route, original)
+                # Malformed identifiers are carried to the host as an explicit
+                # invalid classification so it can fail closed before spawn.
+                self.assertIn(context['classification'], ('invalid', 'none_referenced'))
+                # A malformed identity never produces a reply target either.
+                self.assertIsNone(prepare(config, route, 'e' * 64, 'x', 'reply', original=original))
+
+    def test_walkie_id_precision_conflicts_and_truncation_classification(self):
+        from ciel_runtime_support.side_reply_connector import source_read
+        config={'work_side_intake':{'reply_connectors':[{'source':'*','receiver_id':'default','preset':'walkie','server':'walkie'}]}}
+        route={'sender_id':'urn:any','channel':'external:default'}
+        conversation='34886995-4a66-4527-a618-814e9cb0a5bf'
+        # 18-digit ids beyond JS Number precision remain exact strings.
+        big='900719925474099312'
+        event=json.dumps({'type':'com.ciel.walkie.support.message','data':{'conversation':conversation,
+            'message_id':big,'message_context':{'id':big,'thread_task':{'root_id':big}}}})
+        read=source_read(config,route,event)
+        self.assertEqual((big,big),(read['root_id'],read['target_message_id']))
+        # Every present target/root identity must agree.
+        conflicts=(
+            {'message_id':'41','message_context':{'id':'42'}},
+            {'message_id':'41','thread_root_id':'40','message_context':{'id':'41','thread_task':{'root_id':'39'}}},
+        )
+        for data in conflicts:
+            with self.subTest(data=data):
+                context=source_read(config,route,json.dumps({'type':'com.ciel.walkie.support.message','data':{'conversation':conversation,**data}}))
+                self.assertEqual('invalid',context['classification'])
+                self.assertIn('disagree',context['reason'])
+        # Exact Walkie id contract: positive, unpadded, <=18 digits.
+        for value in ('0','01','1234567890123456789','-1','1.0'):
+            context=source_read(config,route,json.dumps({'type':'com.ciel.walkie.support.message','data':{'conversation':conversation,'message_id':value}}))
+            self.assertEqual('invalid',context['classification'])
+        truncated=json.dumps({'type':'com.ciel.walkie.system.notice','data':{'conversation':conversation,
+            'message_id':None,'text':'partial [잘림]'}})
+        context=source_read(config,route,truncated)
+        self.assertEqual(('none_referenced',True),(context['classification'],context['event_truncated']))
 
     def test_walkie_preset_may_cover_every_source_of_one_receiver(self):
         from ciel_runtime_support.side_reply_connector import prepare, source_read
@@ -64,11 +124,11 @@ class SideConnectorTests(unittest.TestCase):
         # (http://.../conversations/<uuid>), so an exact source can never match all.
         config = {'work_side_intake': {'reply_connectors': [
             {'source': '*', 'receiver_id': 'default', 'preset': 'walkie', 'server': 'walkie'}]}}
-        original = json.dumps({'data': {'conversation': '3c720143-016f-4061-850e-4546bb8da35c', 'message_id': '118700'}})
+        original = json.dumps({'type':'com.ciel.walkie.support.message','data': {'conversation': '3c720143-016f-4061-850e-4546bb8da35c', 'message_id': '118700'}})
         for source in ('http://walkie.example/conversations/34886995-4a66-4527-a618-814e9cb0a5bf',
                        'http://walkie.example/conversations/3c720143-016f-4061-850e-4546bb8da35c'):
             route = {'sender_id': source, 'channel': 'external:default'}
-            self.assertEqual('walkie_read_messages', source_read(config, route, original)['tool'])
+            self.assertEqual('thread', source_read(config, route, original)['classification'])
             sent = prepare(config, route, 'c' * 64, 'answer', 'reply', original=original)
             # The target comes from the event's pattern-checked fields, never the source.
             self.assertEqual('3c720143-016f-4061-850e-4546bb8da35c', sent['arguments']['conversation_id'])
@@ -120,7 +180,7 @@ class ImplicitWalkieRouteTests(unittest.TestCase):
         self.assertEqual((self.CONVERSATION, '120354', 'answer'),
                          (sent['arguments']['conversation_id'], sent['arguments']['reply_to_message_id'],
                           sent['arguments']['text']))
-        self.assertEqual('walkie_read_messages', source_read({}, self.ROUTE, self.event())['tool'])
+        self.assertEqual('thread', source_read({}, self.ROUTE, self.event())['classification'])
 
     def test_implicit_route_needs_a_walkie_event_and_no_operator_routes(self):
         from ciel_runtime_support.side_reply_connector import prepare as route
