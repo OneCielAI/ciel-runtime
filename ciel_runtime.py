@@ -4609,7 +4609,7 @@ def channel_terminal_context() -> ChannelTerminalContext:
         windows=ChannelTerminalWindowsPorts(run_windows_channel_terminal_proxy, _reset_windows_terminal_input_modes,
                                             _WindowsConsoleMouseInputGuard, _WindowsConsoleInputWriter, _windows_channel_startup_grace_seconds,
                                             _terminal_input_mode_reset_interval_seconds, _channel_stdin_active_turn, time.sleep,
-                                            _open_windows_conpty),
+                                            _open_windows_conpty, lambda: channel_wake_context().main_output_since_launch()),
         dispatch_ports=ChannelTerminalDispatchPorts(os.name, sys.stdin.isatty, sys.stdout.isatty, subprocess.call,
                                                     lambda *args, **kwargs: subprocess_call_with_windows_console_wake_proxy(*args, **kwargs),
                                                     run_posix_channel_terminal_proxy, prepare_channel_llm_delivery_for_launch,

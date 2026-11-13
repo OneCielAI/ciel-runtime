@@ -522,6 +522,27 @@ def active_turn_from_text(
     return active
 
 
+def main_output_from_text(text: str, *, not_before: float) -> bool:
+    """Whether main produced model output at or after ``not_before``.
+
+    A main (non-sidechain) assistant record dated after this console launch
+    means main ran a model turn, so no startup dialog can still be holding its
+    composer. Undated and older records are never this evidence.
+    """
+
+    for record in _jsonl_records(text):
+        message = record.get("message")
+        role = str(message.get("role") or "") if isinstance(message, dict) else ""
+        if str(record.get("type") or "") != "assistant" and role != "assistant":
+            continue
+        if record.get("isSidechain") is True:
+            continue
+        timestamp = record_timestamp_seconds(record)
+        if timestamp is not None and timestamp >= not_before:
+            return True
+    return False
+
+
 def queued_age_seconds_from_text(
     message_id: int,
     text: str,
@@ -873,6 +894,7 @@ __all__ = [
     "ChannelWakeTranscriptServices",
     "content_text",
     "is_assistant_message",
+    "main_output_from_text",
     "message_content_blocks",
     "record_timestamp_seconds",
     "queued_age_seconds_from_text",

@@ -293,6 +293,8 @@ class ChannelTranscriptRepository:
         self.cache.clear()
         self.cache.update({"checked_at": 0.0, "path": None})
         self.scope["turn_active"] = False
+        # Launch-scoped: main's own model output since this console started.
+        self.scope["main_output_since_launch"] = False
         self.scope["turn_scan_path"] = None
         self.scope["turn_scan_offset"] = 0
         self.scope["turn_scan_skipping_record"] = False

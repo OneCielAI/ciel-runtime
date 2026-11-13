@@ -9,6 +9,7 @@ from ciel_runtime_support.channel_transcript import (
     active_tool_call_from_text,
     active_turn_from_text,
     content_text,
+    main_output_from_text,
     record_timestamp_seconds,
     queued_age_seconds_from_text,
     queued_command_ids_from_text,
@@ -223,6 +224,25 @@ class ChannelTranscriptTests(unittest.TestCase):
                 "\n".join((text, fresh, fresh_tool)), not_before=launched_at
             )
         )
+
+    def test_main_output_after_launch_proves_main_is_running(self):
+        """Startup-gate release evidence: main's own model output after this launch."""
+        launched_at = 1787128000.0
+
+        def record(kind, stamp, **extra):
+            return json.dumps({"type": kind, "timestamp": stamp,
+                               "message": {"role": kind, "content": "x"}, **extra})
+
+        old_answer = record("assistant", "2026-08-19T08:16:16Z")
+        user_only = record("user", "2026-08-19T09:00:00Z")
+        side_answer = record("assistant", "2026-08-19T09:00:01Z", isSidechain=True)
+        undated = json.dumps({"type": "assistant", "message": {"role": "assistant", "content": "x"}})
+        self.assertFalse(main_output_from_text(chr(10).join((old_answer, user_only, side_answer, undated)),
+                                               not_before=launched_at))
+        main_answer = record("assistant", "2026-08-19T09:00:02Z")
+        self.assertTrue(main_output_from_text(chr(10).join((old_answer, user_only, main_answer)),
+                                              not_before=launched_at))
+        self.assertFalse(main_output_from_text("", not_before=launched_at))
 
     def test_claude_turn_duration_closes_turn_without_end_turn_record(self):
         user = json.dumps({"type": "user", "message": {"role": "user", "content": "work"}})

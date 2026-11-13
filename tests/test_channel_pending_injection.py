@@ -273,6 +273,39 @@ class SideIntakeTransportTests(unittest.TestCase):
         self.assertEqual(39, cursor)
         self.assertEqual([], harness.written)
 
+    def test_side_intake_releases_when_socket_recovers_without_replay(self):
+        message = _message(40)
+        message["meta"] = {"input_transport": "session_socket", "side_intake_only": True,
+                           "btw_with_mcp": True, "btw": True, "_side_intake_admitted": True}
+        harness = _InjectionHarness([message])
+        available = [False]
+        accepted = []
+
+        def send(_prompt, messages):
+            accepted.append([row["id"] for row in messages])
+            return True
+
+        services = harness.services()
+        services = dataclasses.replace(services, io=dataclasses.replace(
+            services.io, write_session_socket=send,
+            session_socket_available=lambda: available[0]))
+
+        self.assertEqual(39, inject_pending_channel_messages(
+            99, 39, wake_for_llm_delivery=True, services=services,
+        ))
+        self.assertEqual([], accepted)
+        available[0] = True
+        self.assertEqual(40, inject_pending_channel_messages(
+            99, 39, wake_for_llm_delivery=True, services=services,
+        ))
+        self.assertEqual([[40]], accepted)
+        services = dataclasses.replace(services, io=dataclasses.replace(
+            services.io, write_session_socket=Mock(side_effect=AssertionError("must not replay"))))
+        self.assertEqual(40, inject_pending_channel_messages(
+            99, 40, wake_for_llm_delivery=True, services=services,
+        ))
+        self.assertEqual([40], harness.delivery.commits)
+
     def test_side_row_ending_a_socket_batch_is_not_skipped_by_the_cursor(self):
         # Review 2026-11-08: rows 40 (ordinary), 41 (side), 42 with a batch limit
         # above 1 sent [40] and committed cursor 41, so row 41 was never sent.
@@ -758,6 +791,33 @@ class SocketOnlyInjectionTests(unittest.TestCase):
         self.assertNotIn(40, harness.delivery.delivered)
         self.assertTrue(any("transcript_projection" in msg for _, msg in harness.logs))
 
+    def test_restart_notice_does_not_hold_socket_lane_while_terminal_gate_is_held(self):
+        notice = _message(40)
+        notice["meta"] = {"input_transport": "tty", "source_kind": "restart_notice"}
+        harness = _InjectionHarness([notice, self.socket_message(41), self.socket_message(42)])
+        services = self.services(harness)
+
+        returned = inject_pending_channel_messages(
+            99, 39, services=services, terminal_available=False,
+        )
+
+        self.assertEqual(39, returned)
+        self.assertEqual([], harness.written)
+        services.io.write_session_socket.assert_called_once()
+        self.assertEqual([41, 42], [r["id"] for r in services.io.write_session_socket.call_args.args[1]])
+        self.assertEqual([39], harness.delivery.commits)
+        self.assertNotIn(40, harness.delivery.delivered)
+
+        # The cursor remains before the notice, but durable replied ownership
+        # prevents the socket rows from being re-admitted on the next scan.
+        services.io.write_session_socket.reset_mock()
+        returned = inject_pending_channel_messages(
+            99, 39, services=services, terminal_available=False,
+        )
+        self.assertEqual(39, returned)
+        services.io.write_session_socket.assert_not_called()
+        self.assertEqual([39], harness.delivery.commits)
+
     def test_persistent_turn_projection_is_diagnostic_only(self):
         from types import SimpleNamespace
         from ciel_runtime_support.channel_wake_context import ChannelWakeContext
@@ -771,6 +831,45 @@ class SocketOnlyInjectionTests(unittest.TestCase):
         log.assert_called_once()
         self.assertIn("model_request_state=unknown", log.call_args.args[1])
         self.assertEqual(10.0, scope["turn_projection_since"])
+
+    def test_main_output_since_launch_latches_per_launch_from_turn_updates(self):
+        """A whole turn read in one chunk still counts; a new launch starts unproven."""
+        from types import SimpleNamespace
+        from ciel_runtime_support.channel_transcript import active_turn_from_text
+        from ciel_runtime_support.channel_transcript_repository import ChannelTranscriptRepository
+        from ciel_runtime_support.channel_wake_context import ChannelWakeContext
+        with tempfile.TemporaryDirectory() as raw:
+            transcript = pathlib.Path(raw) / "main.jsonl"
+            transcript.write_text("", encoding="utf-8")
+            scope, cache = {}, {}
+            repository = ChannelTranscriptRepository(pathlib.Path(raw), cache, scope, time.time)
+            repository.set_scope("claude", started_at=1787128000.0)
+            self.assertFalse(scope["main_output_since_launch"])
+            context = SimpleNamespace(
+                transcript=SimpleNamespace(scope=scope, active_turn_from_text=active_turn_from_text),
+                transcript_policy=SimpleNamespace(latest_transcript=lambda: transcript, log=lambda *_: None),
+                transcript_repository=lambda: repository,
+                console_started_at=lambda: ChannelWakeContext.console_started_at(context),
+            )
+            context._observe_turn_projection = lambda active, _updated: active
+            context.active_turn = lambda: ChannelWakeContext.active_turn(context)
+
+            def append(*records):
+                with transcript.open("a", encoding="utf-8") as stream:
+                    for record in records:
+                        stream.write(json.dumps(record) + "\n")
+
+            append({"type": "assistant", "timestamp": "2026-08-19T08:00:00Z",
+                    "message": {"role": "assistant", "content": "before launch"}})
+            self.assertFalse(ChannelWakeContext.main_output_since_launch(context))
+            append({"type": "user", "timestamp": "2026-08-19T09:00:00Z",
+                    "message": {"role": "user", "content": "work"}},
+                   {"type": "assistant", "timestamp": "2026-08-19T09:00:05Z",
+                    "message": {"role": "assistant", "stop_reason": "end_turn", "content": "done"}})
+            self.assertTrue(ChannelWakeContext.main_output_since_launch(context))
+            self.assertFalse(scope["turn_active"], "the whole turn ended inside one chunk")
+            repository.set_scope("claude", started_at=1787999999.0)
+            self.assertFalse(scope["main_output_since_launch"])
 
     def test_unattended_restart_notice_and_six_socket_events_deliver_once(self):
         from ciel_runtime_support.channel_transcript import active_turn_from_text

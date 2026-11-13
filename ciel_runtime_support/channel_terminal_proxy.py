@@ -111,6 +111,8 @@ class ChannelWindowsConsole:
     active_turn: Callable[[], bool]
     sleep: Callable[[float], None]
     open_conpty: Callable[[list[str], dict[str, str], Callable[[str, str], None]], Any | None]
+    # Main produced model output after this console launch (transcript, latched).
+    main_output_observed: Callable[[], bool] = lambda: False
 
 
 @dataclass(frozen=True)
@@ -524,6 +526,9 @@ def run_windows_channel_terminal_proxy(
                 startup_answers.screen_snapshot = startup_screen_reader.snapshot
             except OSError:
                 startup_answers.screen_snapshot = windows_startup_screen
+            # A reader that stops answering leaves the screen unknown for good;
+            # main's own model output then releases the startup hold (R-a).
+            startup_answers.main_output_observed = getattr(console, "main_output_observed", None)
         startup_output_cursor = 0
         recovery_modal_guard = TerminalModalGuard() if conpty is not None else None
         recovery_output_cursor = 0

@@ -389,6 +389,13 @@ def inject_pending_channel_messages(
                 last_id = previous_last_id
                 if pending:
                     break
+                # A restart notice is a terminal lane of its own. Holding that
+                # lane for startup/modal readiness must not also hold a verified
+                # whole-message socket behind it; the cursor stays before the
+                # notice and the socket candidate is delivered once only.
+                if metadata.get("source_kind") == "restart_notice":
+                    terminal_lane_deferred = True
+                    continue
                 return deferred.clamp(last_id)
             if not requested_session_socket and (active_tool_call or active_turn):
                 reason = "active_tool_call" if active_tool_call else "active_turn"

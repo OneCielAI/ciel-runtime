@@ -204,6 +204,42 @@ class StartupPromptResponderTests(unittest.TestCase):
         self.assertFalse(responder.input_ready())
         self.assertTrue(any("rendered_screen_unavailable" in line for line in logs))
 
+    def test_missing_screen_releases_only_on_main_output_after_launch(self):
+        """Prody 2026-11-13: a screen reader that stopped answering held TTY input for good.
+
+        Unknown rendering still never proves readiness on its own. Main's own
+        model output after this launch does: no startup dialog is open while
+        main runs a turn. A visible startup dialog still holds.
+        """
+        responder, clock, _logs = self.responder()
+        responder.screen_snapshot = lambda: None
+        observed = [False]
+        samples = []
+
+        def main_output():
+            samples.append(clock.now)
+            return observed[0]
+
+        responder.main_output_observed = main_output
+        clock.now += 181  # past the 180 s give-up window
+        self.assertEqual(b"", responder.due())
+        self.assertFalse(responder.input_ready())
+        observed[0] = True
+        clock.now += 1.1
+        self.assertTrue(responder.input_ready())
+        observed[0] = False  # latched for this launch
+        clock.now += 5
+        self.assertTrue(responder.input_ready())
+        before = len(samples)
+        self.assertTrue(responder.input_ready())
+        self.assertEqual(before, len(samples), "a latched release is not re-sampled")
+
+        dialog, clock2, _ = self.responder()
+        dialog.main_output_observed = lambda: True
+        dialog.observe_screen("Accessing workspace:\n❯ Yes, I trust this folder\nNo, exit")
+        clock2.now += 181
+        self.assertFalse(dialog.input_ready(), "a visible startup dialog still holds")
+
     def test_delayed_trust_enter_cancelled_when_goal_replaces_it(self):
         responder, clock, _ = self.responder()
         responder.feed(screen("Trust this folder? Codex", "› 1. Trust and continue", "2. Quit"))

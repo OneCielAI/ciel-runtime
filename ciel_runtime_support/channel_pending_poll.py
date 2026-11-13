@@ -232,7 +232,13 @@ def poll_pending_channel_messages(
         state.inflight_cursor = None
         state.inflight_started_at = now
         state.inflight_logged_at = now
-    if not input_ready or now - state.last_poll_at < policy.poll_interval_seconds:
+    # Terminal readiness owns only writes to that terminal. A verified whole-
+    # message socket is independent of its startup/modal gate and is the only
+    # path that may scan while the TTY is held. The injector still sees
+    # terminal_available=False below, so an earlier TTY/router row is retained;
+    # only its explicit independent socket-lane lookahead can pass it.
+    socket_only = not input_ready and services.session_socket_ready()
+    if (not input_ready and not socket_only) or now - state.last_poll_at < policy.poll_interval_seconds:
         return state
     state.last_poll_at = now
     marker = services.file_marker()
@@ -292,7 +298,7 @@ def poll_pending_channel_messages(
             bracketed_paste=options.bracketed_paste,
             submit_delay_seconds=options.submit_delay_seconds,
             skip_blocking_wake_states=state.inflight_message_id is not None,
-            terminal_available=options.terminal_available,
+            terminal_available=options.terminal_available and input_ready,
         )
     except WakeAttemptConflict as exc:
         # The injector releases only this scan's claims before exposing this

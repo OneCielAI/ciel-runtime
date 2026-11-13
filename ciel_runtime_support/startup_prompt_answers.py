@@ -108,6 +108,11 @@ class StartupPromptResponder:
     prompts: tuple[StartupPrompt, ...] = STARTUP_PROMPTS
     started_at: float = 0.0
     screen_snapshot: Callable[[], str | None] | None = None
+    # Whether main produced model output after this launch. Only consulted while
+    # the rendered screen is unavailable; see input_ready().
+    main_output_observed: Callable[[], bool] | None = None
+    _main_output_seen: bool = False
+    _main_output_checked_at: float | None = None
     _goal_unresolved: bool = False
     _screen: str | None = None
     _screen_changed_at: float = 0.0
@@ -369,7 +374,13 @@ class StartupPromptResponder:
 
         now = self.clock()
         if self.screen_snapshot is not None and self._screen is None:
-            return False
+            # An unknown screen never proves readiness by itself, and this check
+            # precedes the give-up window, so a screen reader that stopped
+            # answering held every TTY input of the launch for good (Prody
+            # 2026-11-13: main ran turns for hours, the restart notice waited).
+            # Main's own model output after this launch does prove no startup
+            # dialog holds its composer.
+            return self._main_output_after_launch(now)
         if self._goal_unresolved or "codex_paused_goal" in self._pending:
             return False
         if self._screen is not None and any(p.trigger in re.sub(r"\s+", "", self._screen).lower() for p in self.prompts):
@@ -383,6 +394,25 @@ class StartupPromptResponder:
         if self._last_ready > self._last_dialog:
             return True
         return bool(self._answered_at) and now - max(self._answered_at, self._output_at) >= QUIET_AFTER_ANSWER_SECONDS
+
+    def _main_output_after_launch(self, now: float) -> bool:
+        """Latched per launch; sampled at most once a second until seen."""
+
+        if self._main_output_seen:
+            return True
+        if self.main_output_observed is None:
+            return False
+        if self._main_output_checked_at is not None and now - self._main_output_checked_at < 1.0:
+            return False
+        self._main_output_checked_at = now
+        try:
+            seen = self.main_output_observed() is True
+        except Exception:  # noqa: BLE001 - unreadable evidence keeps the gate closed
+            return False
+        if seen:
+            self._main_output_seen = True
+            self.log("INFO", "startup_prompt_input_released reason=main_output_after_launch rendered_screen=unavailable")
+        return seen
 
 
 def startup_prompt_responder(

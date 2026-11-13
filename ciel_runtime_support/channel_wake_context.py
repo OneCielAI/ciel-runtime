@@ -33,6 +33,7 @@ from .channel_transcript import (
     ChannelWakeStateReaderPorts,
     ChannelWakeTranscriptServices,
     WakeStateEvidence,
+    main_output_from_text,
     queued_dropped_from_text as queued_dropped_evidence,
     wake_states_from_text,
 )
@@ -569,15 +570,28 @@ class ChannelWakeContext:
         )
         if not text:
             return self._observe_turn_projection(bool(self.transcript.scope.get("turn_active")), False)
+        started_at = self.console_started_at()
+        if started_at is not None and not self.transcript.scope.get("main_output_since_launch"):
+            # Each update chunk is read once, by whichever caller reads it first;
+            # latch here so a turn that starts and ends between polls still counts.
+            if main_output_from_text(text, not_before=started_at):
+                self.transcript.scope["main_output_since_launch"] = True
         active = bool(
             self.transcript.active_turn_from_text(
                 text,
-                not_before=self.console_started_at(),
+                not_before=started_at,
                 initial_active=bool(self.transcript.scope.get("turn_active")),
             )
         )
         self.transcript.scope["turn_active"] = active
         return self._observe_turn_projection(active, True)
+
+    def main_output_since_launch(self) -> bool:
+        """Main produced model output after this console launch (latched per launch)."""
+
+        if not self.transcript.scope.get("main_output_since_launch"):
+            self.active_turn()
+        return bool(self.transcript.scope.get("main_output_since_launch"))
 
     def _observe_turn_projection(self, active: bool, updated: bool) -> bool:
         scope = self.transcript.scope

@@ -508,6 +508,42 @@ class ExternalEventReceiverTests(unittest.TestCase):
                 server_thread.join(timeout=2)
             self.assertFalse(first_thread.is_alive())
 
+    def test_network_disconnect_retries_periodically_until_recovery(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            config = {"external_event_receivers": {"workspace": {
+                "default": {"enabled": True, "transport": "sse", "url": "https://events.example/stream"}
+            }}}
+            attempts = []
+            delivered = threading.Event()
+            event_text = '{"specversion":"1.0","id":"net-1","source":"/network","type":"demo"}'
+
+            def urlopen(_request, timeout):
+                attempts.append((time.monotonic(), timeout))
+                if len(attempts) < 3:
+                    raise OSError("network disconnected")
+                return _SseResponse([f"id: net-1\ndata: {event_text}\n\n".encode()])
+
+            service = ExternalEventReceiverService(
+                load_config=lambda: config,
+                save_config=lambda value: config.update(value),
+                write_json=lambda *_args: None,
+                submit_event=lambda *_args, **_meta: delivered.set() or {"id": 1},
+                vault=EventReceiverSecretVault(root / "events.vault.json"),
+                workspace_key="workspace",
+                log=lambda *_args: None,
+                cursor_path=root / "cursors.json",
+                urlopen=urlopen,
+            )
+            try:
+                service.start()
+                self.assertTrue(delivered.wait(8), attempts)
+                self.assertEqual(3, len(attempts))
+                self.assertGreaterEqual(attempts[1][0] - attempts[0][0], 0.9)
+                self.assertGreaterEqual(attempts[2][0] - attempts[1][0], 1.9)
+            finally:
+                service.stop()
+
     def test_stop_then_start_does_not_create_a_second_reader(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

@@ -660,6 +660,53 @@ class ChannelTerminalDispatchServiceTests(unittest.TestCase):
         self.assertEqual([mock.call(b"2"), mock.call(bytes([13]))], proc.write.call_args_list)
         restarts.assert_not_called()
 
+    def test_conpty_dead_screen_reader_releases_tty_lane_on_main_output(self):
+        """Prody 2026-11-13: after an unattended restart the screen reader was gone.
+
+        snapshot() then returns None for good, and the startup gate held every
+        TTY input of the launch while main kept running turns. Main's own model
+        output after this launch releases it; nothing is typed before that.
+        """
+        from ciel_runtime_support.startup_prompt_answers import StartupPromptResponder
+        clock, step, main_output, ready = [100.0], [0], [False], []
+        proc = mock.Mock(pid=43)
+        proc.poll.side_effect = lambda: None if step[0] < 8 else 0
+        proc.wait.return_value = 0
+        proc.output_since.side_effect = lambda cursor: (b"", cursor)
+        process = SimpleNamespace(write_child_record=mock.Mock(), terminate_child=mock.Mock(), release_child_record=mock.Mock())
+        policy = SimpleNamespace(initial_cursor=lambda: 0, enter_bytes=lambda _: bytes([13]), enter_label=lambda _: "enter",
+                                 unseen_retry_seconds=lambda: 1, inflight_is_stale=lambda *a: False, log=lambda *a: None)
+        polling = SimpleNamespace(inject_compact=mock.Mock(), file_marker=lambda: None, should_check=lambda *a: False,
+                                  active_tool_call=lambda: False, active_turn=lambda: False, input_busy=lambda: False,
+                                  inject_pending=mock.Mock(), wake_state=lambda _: None, inflight_effects=lambda: None,
+                                  runtime_interaction=lambda: None)
+
+        def advance(_seconds):
+            step[0] += 1
+            clock[0] += 60.0  # well past the 180 s startup give-up window
+            if step[0] == 5:
+                main_output[0] = True
+
+        def pending(*args, **kwargs):
+            ready.append(kwargs["input_ready"])
+            return args[3]
+
+        console = SimpleNamespace(open_conpty=lambda *a: proc, startup_grace_seconds=lambda: 0,
+                                  reset_interval_seconds=lambda x: x, sleep=advance,
+                                  main_output_observed=lambda: main_output[0])
+        responder = StartupPromptResponder(clock=lambda: clock[0])
+        with mock.patch(
+            "ciel_runtime_support.channel_terminal_proxy.startup_prompt_responder", return_value=responder,
+        ), mock.patch("ciel_runtime_support.channel_terminal_proxy.WindowsStartupScreenReader",
+                      return_value=SimpleNamespace(snapshot=lambda: None, close=lambda: None)), mock.patch(
+            "ciel_runtime_support.channel_terminal_proxy.poll_pending_compaction", side_effect=lambda *a, **k: a[5],
+        ), mock.patch("ciel_runtime_support.channel_terminal_proxy.poll_pending_channel_messages", side_effect=pending):
+            self.assertEqual(0, run_windows_channel_terminal_proxy(
+                ["claude", "--resume", "fixture"], {"CIEL_RUNTIME_STARTUP_AUTO_ANSWER": "1"},
+                SimpleNamespace(process=process, policy=policy, polling=polling, console=console)))
+        self.assertEqual([False] * 5 + [True] * 3, ready)
+        proc.write.assert_not_called()
+
     def test_console_fallback_holds_all_automatic_injection(self):
         proc = mock.Mock(pid=42)
         proc.poll.side_effect = [None, 0]

@@ -86,6 +86,7 @@ class ChannelTerminalWindowsPorts:
     active_turn: Callable[[], bool]
     sleep: Callable[[float], None]
     open_conpty: Callable[[list[str], dict[str, str], Callable[[str, str], None]], Any | None]
+    main_output_observed: Callable[[], bool] = lambda: False
 
 
 @dataclass(frozen=True, slots=True)
@@ -173,6 +174,7 @@ class ChannelTerminalContext:
                 active_turn=self.windows.active_turn,
                 sleep=self.windows.sleep,
                 open_conpty=self.windows.open_conpty,
+                main_output_observed=self.windows.main_output_observed,
             ),
         )
 
