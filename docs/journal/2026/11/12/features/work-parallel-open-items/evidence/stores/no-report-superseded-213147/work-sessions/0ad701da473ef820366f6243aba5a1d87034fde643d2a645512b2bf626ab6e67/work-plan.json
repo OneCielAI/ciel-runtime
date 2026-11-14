@@ -1,0 +1,41 @@
+{
+ "schema": 1,
+ "version": 2,
+ "phase": "executing",
+ "active_root": "n1",
+ "focus_ids": [],
+ "next_id": 3,
+ "nodes": [
+  {
+   "id": "n1",
+   "parent_id": null,
+   "title": "Stop gate probe goal",
+   "status": "pending",
+   "note": "",
+   "progress": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1794540710.3344986,
+   "created_at": 1794540710.3344986,
+   "phase": "executing",
+   "priority": "P1"
+  },
+  {
+   "id": "n2",
+   "parent_id": "n1",
+   "title": "Stranded item",
+   "status": "pending",
+   "note": "",
+   "progress": "",
+   "evidence": "",
+   "waiting_on": "",
+   "ref": "",
+   "urgent": false,
+   "updated_at": 1794540710.3344986,
+   "created_at": 1794540710.3344986
+  }
+ ],
+ "updated_at": 1794540710.3450508
+}

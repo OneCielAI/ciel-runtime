@@ -3,7 +3,6 @@ import importlib.util
 import json
 import os
 import subprocess
-import sys
 import threading
 import unittest
 from pathlib import Path
@@ -15,12 +14,10 @@ PACKAGE = "ciel_runtime_support"
 
 
 def load(name):
-    path = ROOT / (name + ".py")
-    spec = importlib.util.spec_from_file_location(PACKAGE + "." + name, path)
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
+    # Import the installed package module itself. Re-executing a file under
+    # the same sys.modules name gives later tests a second copy of the store
+    # and error classes than the modules that already imported it.
+    return importlib.import_module(PACKAGE + "." + name)
 
 
 parallel = load("work_parallel")

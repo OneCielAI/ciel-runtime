@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "workspaces": {
+    "b9b562ed730e": {
+      "launch_lease": {
+        "expires_at": 1794540806.8303745,
+        "identity": "134390143766654689",
+        "pid": 101308
+      },
+      "port": 9464,
+      "reservation": "auto",
+      "workspace": "c:\\users\\djlov\\appdata\\local\\temp\\ciel-stopgate-text-igxmqaf6\\workspace"
+    }
+  }
+}
