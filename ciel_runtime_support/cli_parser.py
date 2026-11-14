@@ -1,10 +1,21 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
 CliHandler = Callable[[argparse.Namespace], Any]
+
+SESSION_API_KEY_COMMAND = "session-api-key"
+SESSION_API_KEY_ACTIONS = ("list", "inspect", "inject", "replace", "clear", "reset-state")
+# Shown instead of argparse's own message for this command: that message would
+# echo the offending token ("unrecognized arguments: <token>"), and a key (or
+# the reset-state confirmation phrase) typed on the command line by mistake must
+# not be printed to a terminal or log.
+SESSION_API_KEY_ARGV_REFUSAL = (
+    "session-api-key: invalid or unrecognized argument (not shown). A key or the reset-state phrase is "
+    "never taken from the command line: use the hidden prompt or --stdin (a key also --key-file - or --fd N).")
 
 
 @dataclass(frozen=True)
@@ -75,10 +86,67 @@ class CliParserServices:
     provider: CliParserProvider
     models: CliParserModels
     work: CliHandler = lambda _args: None
+    session_api_key: CliHandler = lambda _args: 0
+
+
+class CielCtlArgumentParser(argparse.ArgumentParser):
+    """Root ctl parser: a session-api-key command line is never echoed in an error."""
+
+    _redact = False
+
+    def parse_known_args(self, args=None, namespace=None):  # type: ignore[override]
+        argv = list(sys.argv[1:] if args is None else args)
+        self._redact = bool(argv) and argv[0] == SESSION_API_KEY_COMMAND
+        return super().parse_known_args(argv, namespace)
+
+    def error(self, message: str):  # type: ignore[override]
+        if self._redact:
+            self.exit(2, SESSION_API_KEY_ARGV_REFUSAL + "\n")
+        super().error(message)
+
+
+def session_api_key_handler(handler: CliHandler) -> CliHandler:
+    """Adapt argv to the session-key CLI: `--key-file -` reads standard input,
+    and the handler's integer result becomes the process exit code."""
+
+    def run(args: argparse.Namespace) -> None:
+        if getattr(args, "key_file", None) == "-":
+            args.stdin = True
+        raise SystemExit(handler(args))
+
+    return run
+
+
+def _add_session_api_key_command(commands: Any, handler: CliHandler) -> None:
+    command = commands.add_parser(
+        SESSION_API_KEY_COMMAND, allow_abbrev=False,
+        help="Memory-only API key for one running session and provider",
+        description=("Memory only, this session and provider; never stored. Persistent keys: "
+                     "api-key / set-api-key / set-api-keys. The key is read from a hidden prompt, "
+                     "--stdin, --key-file - or --fd N, never from the command line. reset-state is "
+                     "router-wide; its confirmation phrase is typed at the hidden prompt or given on --stdin."))
+    # Errors raised inside this subparser (bad choice, bad integer) are refused
+    # without echoing the value either.
+    command.error = lambda _message: command.exit(2, SESSION_API_KEY_ARGV_REFUSAL + "\n")  # type: ignore[method-assign]
+    command.add_argument("action", nargs="?", choices=SESSION_API_KEY_ACTIONS, default="list")
+    command.add_argument("--session", help="exact claude:<uuid> or codex:<id> conversation identity")
+    command.add_argument("--provider", help="provider whose key this session uses")
+    command.add_argument("--ttl-seconds", type=int, dest="ttl_seconds")
+    command.add_argument("--expected-version", type=int, dest="expected_version",
+                         help="version shown by inspect; required for replace and clear")
+    command.add_argument("--operation-id", "--idempotency-key", dest="idempotency_key",
+                         help="idempotency key: a retry with the same id is not applied twice")
+    source = command.add_mutually_exclusive_group()
+    source.add_argument("--stdin", action="store_true", help="read the key from standard input")
+    source.add_argument("--key-file", choices=("-",), dest="key_file",
+                        help="'-' reads the key from standard input")
+    source.add_argument("--fd", type=int, help="read the key from an inherited file descriptor")
+    command.add_argument("--json", action="store_true", help="emit one JSON object (metadata only)")
+    command.set_defaults(func=session_api_key_handler(handler))
 
 
 def build_cli_parser(services: CliParserServices) -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="ciel-runtimectl")
+    parser = CielCtlArgumentParser(prog="ciel-runtimectl")
     commands = parser.add_subparsers(dest="cmd", required=True)
     _add_remainder_command(commands, "cli", services.launch.cli)
     _add_remainder_command(commands, "launch", services.launch.launch)
@@ -123,12 +191,28 @@ def build_cli_parser(services: CliParserServices) -> argparse.ArgumentParser:
     _add_values_command(commands, "usage-api-key", services.settings.usage_api_key)
     _add_values_command(commands, "remote-instructions", services.settings.remote_instructions)
     _add_values_command(commands, "remote-memory", services.settings.remote_memory)
-    work = commands.add_parser("work", help="Inspect or change every supported Work setting")
-    work.add_argument("action", nargs="?", choices=("status", "list", "get", "set"), default="status")
-    work.add_argument("key", nargs="?")
-    work.add_argument("value", nargs="?")
-    work.add_argument("--json", action="store_true")
+    work = commands.add_parser("work", help="Inspect and operate Work/SSE for an explicit conversation")
+    from .work_ctl import ACTIONS as work_actions
+    work.add_argument("action", nargs="?", choices=("status", "list", "get", "set", *work_actions),
+                      default="status")
+    work.add_argument("key", nargs="?", help="setting key or action target id")
+    work.add_argument("value", nargs="?", help="setting value, decision evidence, note or exact retry state")
+    work.add_argument("--session", help="exact claude:<uuid> or codex:<id> conversation identity")
+    work.add_argument("--json", action="store_true", help="emit one JSON object for reads and actions")
+    work.add_argument("--confirm", action="store_true", help="confirm a release or possibly duplicate retry")
+    work.add_argument("--expected-version", type=int)
+    work.add_argument("--expected-finalization-version", type=int)
+    work.add_argument("--expected-review-pin", help="review-approve/rework: the row's review_pin (rp1:<64 hex>)")
+    work.add_argument("--preview-digest")
+    work.add_argument("--attempt-ref")
+    work.add_argument("--revision", type=int)
+    work.add_argument("--clear-wait", action="append", default=[])
+    work.add_argument("--activate", action="store_true")
+    work.add_argument("--operation-id")
+    work.add_argument("--expected-settings-fingerprint",
+                      help="settings_fingerprint from `work status --json`; `work set` refuses if settings changed")
     work.set_defaults(func=services.work)
+    _add_session_api_key_command(commands, services.session_api_key)
     _add_values_command(commands, "remote-provision", services.runtime.remote_provision)
     _add_optional_value_command(commands, "ollama-native", services.provider.ollama_native)
     _add_values_command(commands, "ollama-options", services.provider.ollama_options)

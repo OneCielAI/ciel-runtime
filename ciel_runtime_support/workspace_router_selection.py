@@ -362,6 +362,85 @@ def select_workspace_router_port(
                     time.sleep(0.01)
 
 
+# ciel_runtime.py commands that neither launch nor serve a router. 2026-11-13:
+# `ciel-runtimectl work set`, run 8 s after a menu started in the same
+# workspace, died at import with "launch already reserved", because
+# runtime_paths selected the port through the launch path below. These commands
+# resolve the port read-only instead. Every other invocation, unknown ones
+# included, keeps select_workspace_router_port and its lease.
+LEASE_FREE_COMMANDS = frozenset(("work", "session-api-key", "status", "version", "env", "stop", "restart-session"))
+CLI_ENTRYPOINT = "ciel_runtime.py"
+
+
+def takes_launch_lease(argv: Any) -> bool:
+    """False only for ``ciel_runtime.py <lease-free command> ...``."""
+
+    arguments = [str(value) for value in (argv or [])]
+    if len(arguments) < 2 or Path(arguments[0]).name.lower() != CLI_ENTRYPOINT:
+        return True
+    return arguments[1] not in LEASE_FREE_COMMANDS
+
+
+def resolve_workspace_router_port(
+    base_port: int,
+    workspace: Path,
+    environ: Mapping[str, str],
+    *,
+    health: Callable[[int], dict[str, Any] | None] = probe_router_health,
+    available: Callable[[int], bool] = port_is_free,
+    scan_size: int = ROUTER_PORT_SCAN_SIZE,
+    registry_path: Path | None = None,
+) -> int:
+    """The port this workspace's router uses, read-only and lease-free.
+
+    For commands that neither launch nor serve a router: a live router of this
+    workspace (the same bounded /health scan) wins, then the workspace's
+    registry mapping (also the port a starting launch has reserved), then the
+    port a launch would pick now. The registry, its lock and the startup lease
+    are never checked or written, so a launch in progress is neither blocked
+    nor changed; the two-router protection stays on the launch path.
+    """
+
+    if str(environ.get("CIEL_RUNTIME_ROUTER_PORT") or "").strip():
+        return base_port
+    target = workspace_identity(environ.get("CIEL_RUNTIME_LAUNCH_CWD") or workspace)
+    records: dict[str, Any] = {}
+    if registry_path is not None:
+        for attempt in range(5):
+            # Writers replace the file atomically; on Windows a read that meets
+            # the replace is denied briefly, so it is retried, never locked.
+            try:
+                payload = json.loads(Path(registry_path).read_text(encoding="utf-8"))
+                records = payload.get("workspaces") if isinstance(payload, dict) else {}
+                records = records if isinstance(records, dict) else {}
+                break
+            except FileNotFoundError:
+                break
+            except (OSError, ValueError):
+                time.sleep(0.02 * (attempt + 1))
+    key = workspace_digest(target)
+    mapped_port = _record_port(records.get(key))
+    maximum = min(65535, base_port + max(1, scan_size) - 1)
+    observed: dict[int, dict[str, Any] | None] = {}
+    if mapped_port:
+        try:
+            observed[mapped_port] = health(mapped_port)
+        except Exception:
+            observed[mapped_port] = {}
+    observed.update(_probe_router_ports([port for port in range(base_port, maximum + 1) if port != mapped_port],
+                                        health))
+    for port, row in observed.items():
+        if isinstance(row, dict) and workspace_identity(row.get("workspace")) == target:
+            return port
+    if mapped_port:
+        return mapped_port
+    reserved = {_record_port(record) for record_key, record in records.items() if record_key != key}
+    try:
+        return _select_port(base_port, target, observed.get, available, scan_size, reserved)
+    except RuntimeError:
+        return base_port
+
+
 def release_workspace_router_launch_lease(
     workspace: Path,
     environ: Mapping[str, str],
@@ -626,11 +705,14 @@ def _save_registry(path: Path, payload: dict[str, Any]) -> None:
 
 
 __all__ = [
+    "LEASE_FREE_COMMANDS",
     "port_is_free",
     "probe_router_health",
     "release_own_launch_lease",
     "release_workspace_router_launch_lease",
+    "resolve_workspace_router_port",
     "select_workspace_router_port",
+    "takes_launch_lease",
     "workspace_digest",
     "workspace_identity",
 ]

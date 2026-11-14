@@ -43,7 +43,15 @@ class ApiKeyCooldownService:
     def request_scoped(config: dict[str, Any]) -> bool:
         return config.get(REQUEST_API_KEY_MARKER) is True
 
+    @staticmethod
+    def session_scoped(config: dict[str, Any]) -> str:
+        from .session_api_key_routing import session_scoped
+
+        return session_scoped(config)
+
     def state_key(self, provider: str, config: dict[str, Any], key: str) -> str:
+        if self.session_scoped(config):
+            return f"{self.ports.rotation_name(provider, config)}:__session_scoped__"
         if self.request_scoped(config):
             return f"{self.ports.rotation_name(provider, config)}:__request_scoped__"
         digest = hashlib.sha256(str(key).encode("utf-8")).hexdigest()[:12]
@@ -72,6 +80,19 @@ class ApiKeyCooldownService:
         if not self.ports.meaningful_key(key):
             return 0.0
         reset = self.reset_seconds(headers)
+        identity = self.session_scoped(config)
+        if identity:
+            # A session's own key rests in router memory only, apart from the
+            # stored keys' cooldown file.
+            from .session_api_key_vault import ROUTER_SESSION_API_KEYS
+
+            ROUTER_SESSION_API_KEYS.register_cooldown(identity, provider, reset)
+            self.ports.log(
+                "WARN",
+                f"api_key_cooldown provider={provider} rest={reset:.0f}s "
+                "session_scoped_no_persist=1",
+            )
+            return reset
         if self.request_scoped(config):
             self.ports.log(
                 "WARN",
@@ -91,6 +112,11 @@ class ApiKeyCooldownService:
     def cooldown_until(self, provider: str, config: dict[str, Any], key: str) -> float:
         if not self.ports.meaningful_key(key):
             return 0.0
+        identity = self.session_scoped(config)
+        if identity:
+            from .session_api_key_vault import ROUTER_SESSION_API_KEYS
+
+            return ROUTER_SESSION_API_KEYS.cooldown_until(identity, provider)
         if self.request_scoped(config):
             return 0.0
         return self.ports.repository.cooldown_until(self.state_key(provider, config, key))

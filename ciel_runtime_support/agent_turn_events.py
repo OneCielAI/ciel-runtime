@@ -65,6 +65,28 @@ def _text(content: Any) -> str:
     return ""
 
 
+def claude_record_closing_reason(record: dict[str, Any]) -> str | None:
+    """The turn-closing reason one Claude Code transcript record carries, else None.
+
+    The single definition shared by ``TranscriptTurnTracker._claude`` and the
+    router's fork-turn watch: an assistant API error closes as ``error`` before
+    any stop reason is read; a closing stop maps through ``_CLAUDE_CLOSING_STOPS``;
+    a user record whose joined text starts with the interrupt prefix closes as
+    ``interrupted``.  Every other record (tool use, tool result, prompt, system,
+    attachment) returns None.
+    """
+
+    kind = record.get("type")
+    message = record.get("message") if isinstance(record.get("message"), dict) else {}
+    if kind == "user":
+        return "interrupted" if _text(message.get("content")).lstrip().startswith(_CLAUDE_INTERRUPT_PREFIX) else None
+    if kind == "assistant":
+        if record.get("isApiErrorMessage") is True:
+            return "error"
+        return _CLAUDE_CLOSING_STOPS.get(str(message.get("stop_reason") or "").strip().lower())
+    return None
+
+
 def typed_by_person(text: str) -> bool:
     """Whether a turn's opening input reads as typed by a person."""
 
@@ -221,10 +243,11 @@ class TranscriptTurnTracker:
         kind = record.get("type")
         message = record.get("message") if isinstance(record.get("message"), dict) else {}
         ended_at = record.get("timestamp")
+        closing = claude_record_closing_reason(record)
         if kind == "user":
             content = message.get("content")
             text = _text(content).lstrip()
-            if text.startswith(_CLAUDE_INTERRUPT_PREFIX):
+            if closing == "interrupted":
                 self._ensure_open(record)
                 self._end("interrupted", ended_at)
                 return
@@ -250,13 +273,12 @@ class TranscriptTurnTracker:
                 # Another content block of the answer that just closed the turn.
                 return
             self._ensure_open(record)
-            if record.get("isApiErrorMessage") is True:
+            if closing == "error":
                 self._end("error", ended_at)
                 return
-            stop = str(message.get("stop_reason") or "").strip().lower()
-            if stop in _CLAUDE_CLOSING_STOPS:
+            if closing is not None:
                 self._closed_message = message_id
-                self._end(_CLAUDE_CLOSING_STOPS[stop], ended_at)
+                self._end(closing, ended_at)
             return
         if kind == "system" and record.get("subtype") == "turn_duration":
             self._end("end_turn", ended_at)

@@ -20,6 +20,8 @@ from ciel_runtime_support.work_plan_store import WorkPlanStore
 SECRET = "restart-host-secret-" * 3
 SCOPE = "claude:restart-terminal"
 HOST = {"internal": True}
+# R2 B2: this test process is the attached Work host (launcher pid + nonce).
+NONCE = "1" * 32
 
 
 def git(cwd, *args):
@@ -65,12 +67,17 @@ class RestartSubmittedTerminalTests(unittest.TestCase):
         runtime_patch = patch("ciel_runtime_support.runtime_paths.CONFIG_DIR", self.tmp / "config")
         runtime_patch.start()
         self.addCleanup(runtime_patch.stop)
+        # The routed main session: a rework has a proven live owner (owner_offline fix).
+        from work_owner_fixture import bind_router
+        bind_router(self, SCOPE)
+        import os
+        m.attachments(self.store).attach(SCOPE, os.getpid(), NONCE)
         self.leases = [self.bound(item, "worker-" + str(index)) for index, item in enumerate(self.board.items)]
 
     def call(self, name, host=None, **args):
         if name != "item_review":
             args.setdefault("expected_version", self.store.read()["version"])
-        args["_host"] = {"token": SECRET, **(host or {})}
+        args["_host"] = {"token": SECRET, "launch_nonce": NONCE, **(host or {})}
         with patch.object(m, "ledger", return_value=self.store):
             return json.loads(m.run("work_parallel_" + name, args, self.board, SCOPE, self.config, None))
 

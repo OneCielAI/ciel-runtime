@@ -20,9 +20,9 @@ from typing import Any, Callable, Iterable
 
 from ciel_runtime_support import anthropic_model_policy
 from ciel_runtime_support import channel_cursor_repository as channel_cursor_storage, hosted_formula_tools
-from ciel_runtime_support import agent_runtime_event_push, agent_turn_events, claude_stream_recovery_runtime, company_prompt_reload, event_delivery_ack, channel_llm_context, session_backup_service, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_config_effort, codex_launch_configuration, codex_turn_recovery, kimi_identity, launch_data_path, llm_option_config, llm_presets, native_context_recovery, remote_management_http, web_access_http
+from ciel_runtime_support import agent_runtime_event_push, agent_turn_events, fork_turn_watch, claude_stream_recovery_runtime, company_prompt_reload, event_delivery_ack, channel_llm_context, session_backup_service, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_config_effort, codex_launch_configuration, codex_turn_recovery, kimi_identity, launch_data_path, llm_option_config, llm_presets, native_context_recovery, remote_management_http, web_access_http
 from ciel_runtime_support import muse_catalog, muse_oauth, ollama_catalog as ollama_catalog_policy
-from ciel_runtime_support import openai_chat_compatibility_bridge, otlp_logs, prelaunch, runtime_input_retry, prelaunch_assembly, provider_catalog_sources, provider_models, provider_network, rate_limit_policy, router_request_assembly, router_server_runtime, runtime_asset_assembly, runtime_launch, runtime_primitives, terminal_platform_io, web_tls_composition, windows_console_mode
+from ciel_runtime_support import openai_chat_compatibility_bridge, otlp_logs, prelaunch, session_api_key_composition, runtime_input_retry, prelaunch_assembly, provider_catalog_sources, provider_models, provider_network, rate_limit_policy, router_request_assembly, router_server_runtime, runtime_asset_assembly, runtime_launch, runtime_primitives, terminal_platform_io, web_tls_composition, windows_console_mode
 from ciel_runtime_support.prelaunch_launch_panel import launch_panel_rows as project_launch_panel_rows
 from ciel_runtime_support.advisor_client import AdvisorClient, AdvisorClientIO, AdvisorClientPolicy, ProviderChatExecutor, ProviderChatIO, ProviderChatPolicy
 from ciel_runtime_support.advisor_policy import AdvisorDecisionServices, AdvisorServices, AdvisorShortcutController, AdvisorShortcutPorts, AdvisorTextServices
@@ -933,7 +933,7 @@ def provider_config_api_keys(provider: str, pcfg: dict[str, Any]) -> list[str]:
     if provider == "github-copilot-oauth":
         token = github_copilot_oauth_token()
         return [token] if token else []
-    supplemental = nvidia_api_key() if provider == "nvidia-hosted" and not pcfg.get("_ciel_remote_request_api_key") else ""
+    supplemental = nvidia_api_key() if provider == "nvidia-hosted" and not pcfg.get("_ciel_remote_request_api_key") and not pcfg.get("_ciel_session_key_scope") else ""
     return [
         key
         for key in project_provider_config_api_keys(pcfg, supplemental)
@@ -1946,8 +1946,8 @@ def external_event_panel_rows(_cfg: dict[str, Any]) -> tuple[list[str], list[str
 def set_external_event_config(key: str, value: Any) -> list[str]:
     return project_set_external_event_config(external_event_receiver_service(), key, value, control=ExternalEventControl(ROUTER_BASE, ROUTER_WORKSPACE, _ROUTER_ACCESS_POLICY.health_headers(ROUTER_BASE, load_config(), router_external_access_token)).call)
 
-def remote_instruction_synchronizer() -> RemoteInstructionSynchronizer: return RemoteInstructionSynchronizer(load_config=load_config, workspace=lambda: Path(ROUTER_WORKSPACE), state_dir=WORKSPACE_STATE_DIR, log=router_log)
-def remote_memory_synchronizer() -> RemoteMemorySynchronizer: return RemoteMemorySynchronizer(load_config=load_config, workspace=lambda: Path(ROUTER_WORKSPACE), state_dir=WORKSPACE_STATE_DIR, log=router_log)
+def remote_instruction_synchronizer() -> RemoteInstructionSynchronizer: return RemoteInstructionSynchronizer(load_config=load_config, workspace=lambda: Path(ROUTER_WORKSPACE), state_dir=WORKSPACE_STATE_DIR, log=router_log, session_keys=session_api_key_composition.STARTUP_SESSION_KEYS)
+def remote_memory_synchronizer() -> RemoteMemorySynchronizer: return RemoteMemorySynchronizer(load_config=load_config, workspace=lambda: Path(ROUTER_WORKSPACE), state_dir=WORKSPACE_STATE_DIR, log=router_log, session_keys=session_api_key_composition.STARTUP_SESSION_KEYS)
 def body_with_remote_memory_prompt(body: dict[str, Any], protocol: MessageProtocol) -> dict[str, Any]: return project_inject_current_memory_prompt(body, protocol, WORKSPACE_STATE_DIR, load_config(), Path(ROUTER_WORKSPACE))
 def finalized_anthropic_upstream_body(body: dict[str, Any], remote_bridge: bool = False) -> dict[str, Any]: return body_without_ciel_runtime_internal_metadata(body if remote_bridge else body_with_remote_memory_prompt(body, "anthropic_messages"))
 def sync_remote_instruction(runtime: str, *, reason: str) -> RemoteInstructionResult: return project_sync_instruction_with_memory_pointer(runtime, reason=reason, instruction_synchronizer=remote_instruction_synchronizer, memory_synchronizer=remote_memory_synchronizer, log=router_log)
@@ -2973,8 +2973,8 @@ def router_request_body_policy() -> RouterRequestBodyPolicy:
 def _router_server_context() -> RouterServerContext:
     usage_services = UsageRuntimeServices(USAGE_LEDGER, USAGE_API_KEYS, UsagePushDeliveryService(USAGE_LEDGER, load_config, os.environ, router_log), CONFIG_DIR, WORKSPACE_STATE_DIR, ROUTER_WORKSPACE_ID, USAGE_EVENTS_PATH, router_log)
     start_router_services, stop_router_services = WorkRetentionService(WORKSPACE_STATE_DIR, load_config, router_log).bind_lifecycle(
-        lambda: (external_event_receiver_service().start(), _TELEMETRY_LOG_RUNTIME.start(), usage_services.start(), session_backup_service.start_router_scheduler(CONFIG_DIR, os.environ, HOME, CLI_ASSET_HOME, router_log), company_prompt_reload.start_router_listener(load_config, WORKSPACE_STATE_DIR, Path(ROUTER_WORKSPACE), lambda reason: runtime_session_restart_service().queue(source=company_prompt_reload.COMPANY_PROMPT_RESTART_SOURCE, reason=reason, wait_turn=True), router_log), agent_runtime_event_push.start_router_pusher(ROUTER_WORKSPACE_ID, lambda: agent_runtime_event_push.runtime_event_endpoints(load_config(), external_event_receiver_service().receiver_configs(), external_event_receiver_service().vault.load), router_log)),  # Walkie 48926: turn ends pushed to Walkie
-        lambda: (company_prompt_reload.stop_router_listener(), agent_runtime_event_push.stop_router_pusher(), session_backup_service.stop_router_scheduler(), usage_services.stop(), _TELEMETRY_LOG_RUNTIME.stop(), external_event_receiver_service().stop()))
+        lambda: (external_event_receiver_service().start(), _TELEMETRY_LOG_RUNTIME.start(), usage_services.start(), session_backup_service.start_router_scheduler(CONFIG_DIR, os.environ, HOME, CLI_ASSET_HOME, router_log), company_prompt_reload.start_router_listener(load_config, WORKSPACE_STATE_DIR, Path(ROUTER_WORKSPACE), lambda reason: runtime_session_restart_service().queue(source=company_prompt_reload.COMPANY_PROMPT_RESTART_SOURCE, reason=reason, wait_turn=True), router_log), agent_runtime_event_push.start_router_pusher(ROUTER_WORKSPACE_ID, lambda: agent_runtime_event_push.runtime_event_endpoints(load_config(), external_event_receiver_service().receiver_configs(), external_event_receiver_service().vault.load), router_log), fork_turn_watch.start_router_watch(CONFIG_DIR, _RUNTIME_COMPACTION, runtime_input_gateway, router_log)),  # Walkie 48926: turn ends pushed to Walkie
+        lambda: (fork_turn_watch.stop_router_watch(), company_prompt_reload.stop_router_listener(), agent_runtime_event_push.stop_router_pusher(), session_backup_service.stop_router_scheduler(), usage_services.stop(), _TELEMETRY_LOG_RUNTIME.stop(), external_event_receiver_service().stop()))
     provider_files = ProviderFilesProxy(
         ProviderFilesProxyPorts(
             current_provider=get_current_provider,
@@ -2992,7 +2992,7 @@ def _router_server_context() -> RouterServerContext:
         )
     )
     http_services = RouterHttpServices(
-        core=RouterHttpCore(load_config, reject_external_router_request, get_current_provider, parse_json_body, is_client_disconnect_error, router_log, observe_tui_runtime_response, router_request_body_policy(), RouterHttpRemoteBridge(_REMOTE_BRIDGE.enabled, _REMOTE_BRIDGE.resolve, _REMOTE_BRIDGE.status_payload, lambda handler, cfg: _ROUTER_ACCESS_POLICY.remote_bridge_request(handler, cfg, remote_bridge_access_token))),
+        core=RouterHttpCore(load_config, reject_external_router_request, get_current_provider, parse_json_body, is_client_disconnect_error, router_log, observe_tui_runtime_response, router_request_body_policy(), RouterHttpRemoteBridge(_REMOTE_BRIDGE.enabled, _REMOTE_BRIDGE.resolve, _REMOTE_BRIDGE.status_payload, lambda handler, cfg: _ROUTER_ACCESS_POLICY.remote_bridge_request(handler, cfg, remote_bridge_access_token)), session_keys=_SESSION_API_KEYS.routing),
         get=RouterHttpGetEndpoints(handle_tui_observation_get, handle_observability_get, handle_llm_config_get, lambda _handler, _path: False, handle_web_get,
                                    lambda handler, path: speech_http_controller().get(handler, path), handle_chat_get, handle_plan_get, route_runtime_get,
                                    handle_external_event_get),
@@ -3000,7 +3000,7 @@ def _router_server_context() -> RouterServerContext:
                                      handle_plan_post, route_runtime_post, handle_external_event_raw_post, handle_external_event_config_post, handle_usage_post, telemetry_raw=_TELEMETRY_LOG_RUNTIME.http.post),
         presentation=RouterHttpPresentation(render_router_home_html, router_health_payload, write_text_response, write_json, list_model_objects_for_request, resolve_requested_model, model_object, _REMOTE_BRIDGE.model_objects, muse_catalog.muse_model_catalog),
         errors=RouterHttpErrors(write_openai_responses_error, try_write_json),
-        files=RouterHttpFileEndpoints(provider_files.get, provider_files.post, provider_files.delete), access=web_access_http.default_controller(write_json, write_text_response, _ROUTER_EXTERNAL_TOKEN_REPOSITORY, router_external_access_enabled, remote_management_http.RemoteManagementController(remote_management_http.ManagementPorts(load_config, save_config, get_current_provider, normalize_provider_choice, set_provider_choice_config, set_model_config, store_api_keys_config, clear_api_key_config, provider_config_api_keys, mask_secret, secret_fingerprint, lambda: WORKSPACE_STATE_DIR, write_json, clear_model_cache, VERSION))),
+        files=RouterHttpFileEndpoints(provider_files.get, provider_files.post, provider_files.delete), access=(access_controller := web_access_http.default_controller(write_json, write_text_response, _ROUTER_EXTERNAL_TOKEN_REPOSITORY, router_external_access_enabled, remote_management_http.RemoteManagementController(remote_management_http.ManagementPorts(load_config, save_config, get_current_provider, normalize_provider_choice, set_provider_choice_config, set_model_config, store_api_keys_config, clear_api_key_config, provider_config_api_keys, mask_secret, secret_fingerprint, lambda: WORKSPACE_STATE_DIR, write_json, clear_model_cache, VERSION)))), session_keys_http=_SESSION_API_KEYS.http_controller(write_json, access_controller.session_allowed, write_text_response, lambda: WORKSPACE_STATE_DIR, lambda: get_current_provider(load_config())[0]),
     )
     server_runtime = router_server_runtime.RouterServerRuntime(
         router_server_runtime.RouterServerConfig(ROUTER_INSTANCE_DIR, PID_PATH, ROUTER_PORT, ROUTER_BASE, LOG_LEVEL_PATH, LOG_LEVEL_NAMES, RouterHandler),
@@ -3008,7 +3008,7 @@ def _router_server_context() -> RouterServerContext:
         router_server_runtime.RouterServerEffects(os.chmod, sys.stderr, ThreadingHTTPServer, start_managed_router_lifetime_watchdog,
                                                   lambda bind_host: configure_requested_web_endpoints(ROUTER_PORT, ROUTER_HOST, bind_host,
                                                                                                        config=load_config()),
-                                                   configure_router_server_transport, start_router_services, stop_router_services),
+                                                   configure_router_server_transport, lambda: (_SESSION_API_KEYS.attach_markers(), start_router_services())[-1], stop_router_services),
     )
     return RouterServerContext(
         health=RouterHealthPresentationPorts(VERSION, SOURCE_FINGERPRINT, RouterHealthRuntimePorts(os.getpid, active_router_client_pids), getpass.getuser, HOME, ROUTER_INSTANCE_DIR, ROUTER_WORKSPACE, ROUTER_PORT, ROUTER_INSTANCE_ID, current_alias),
@@ -3722,9 +3722,9 @@ def env_vars(cfg: dict[str, Any] | None = None, data_path: Any = None) -> dict[s
     Anthropic, ciel-runtime MUST NOT inject anything that would alter Claude
     Code's default model selection, backend URL, advisor flow, output-token
     cap, auto-compact window, or any other Claude-Code-visible behavior.
-    The only overrides are an optional ``ANTHROPIC_API_KEY`` (Claude Code's
-    OAuth wins) and ``CLAUDE_CHROME_CLASSIFIER_FLOOR=0``, which stops the
-    Claude-in-Chrome classifier floor from overriding the bypass mode.
+    Its only overrides are an optional ``ANTHROPIC_API_KEY`` (OAuth wins),
+    ``CLAUDE_CHROME_CLASSIFIER_FLOOR=0``, ``CLAUDE_CODE_SEND_FEEDBACK`` (0/1) and
+    ``CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP=1`` (claude_environment.py).
     ``CIEL_RUNTIME_PROVIDER=anthropic`` marks ciel-runtime's own helpers only.
     """
     return claude_environment_projection().build(cfg, data_path)
@@ -4151,7 +4151,7 @@ def portable_prelaunch_menu(passthrough: list[str] | None = None) -> int:
             options=prelaunch.PrelaunchOptions(llm_option_current_bool, llm_option_prompt_default, timeout_profile_panel_rows, web_backend_panel_rows,
                                                set_web_backend_config, external_event_panel_rows, set_external_event_config,
                                                launch_panel_rows, remote_instruction_panel_rows, set_remote_instruction_config,
-                                               workspace_mcp_menu_service()),
+                                               workspace_mcp_menu_service(), session_api_key_client=_SESSION_API_KEYS.client),
         ).services(),
     )
 
@@ -4468,7 +4468,7 @@ _CHANNEL_TRANSCRIPT_SCOPE: dict[str, Any] = {
 _CHANNEL_STDIN_RECOVERY_CACHE: dict[str, Any] = {'checked_at': 0.0, 'last_id': None, 'marker': None, 'recovered_last_id': None}
 _TRANSCRIPT_DELIVERY_SERVICE = TranscriptDeltaDeliveryService(WORKSPACE_STATE_DIR / "transcript-event-cursors.json", ROUTER_WORKSPACE_ID, TranscriptDeliveryPorts(load_config, lambda: _latest_claude_transcript_path(ttl_seconds=0.5), lambda: dict(_CHANNEL_TRANSCRIPT_SCOPE), router_log, event_publish=EVENT_BUS.publish, event_recent=EVENT_BUS.recent, agent_turn_post=agent_turn_events.RouterTurnPoster(lambda: ROUTER_BASE, router_log), stream_recovery=lambda: _STREAM_RECOVERY.monitor))
 def channel_transcript_repository() -> ChannelTranscriptRepository: return channel_wake_context().transcript_repository()
-def _set_channel_transcript_scope(runtime: str, **options: Any) -> None: return (_RUNTIME_COMPACTION.bind(runtime, **options), channel_wake_context().set_transcript_scope(runtime, **{key: value for key, value in options.items() if key not in {"messaging_socket_path", "request_identity"}}), _TRANSCRIPT_DELIVERY_SERVICE.start())[-1]
+def _set_channel_transcript_scope(runtime: str, **options: Any) -> None: return (_RUNTIME_COMPACTION.bind(runtime, **options), channel_wake_context().set_transcript_scope(runtime, **{key: value for key, value in options.items() if key not in {"messaging_socket_path", "request_identity", "direct_empty_stream_retries"}}), _TRANSCRIPT_DELIVERY_SERVICE.start())[-1]
 def _channel_transcript_roots() -> tuple[tuple[Path, str], ...]: return channel_wake_context().transcript_roots()
 def _latest_claude_transcript_path(ttl_seconds: float = 2.0) -> Path | None: return channel_wake_context().latest_transcript_path(ttl_seconds)
 _read_file_tail_text = ChannelTranscriptRepository.read_tail_text
@@ -4515,7 +4515,7 @@ def _inject_pending_channel_messages(
     web_chat_only: bool = False,
     wake_for_llm_delivery: bool = False, display_llm_delivery_body: bool = False,
     commit_cursor: bool = True,
-    injected_message_ids: list[int] | None = None, injected_commit_cursors: list[int] | None = None,
+    injected_message_ids: list[int] | None = None, injected_commit_cursors: list[int] | None = None, side_intake_more_pending: list[bool] | None = None,
     submit_retry_count: int = 1,
     confirm_submit: bool = False,
     bracketed_paste: bool = False,
@@ -4530,7 +4530,7 @@ def _inject_pending_channel_messages(
         wake_for_llm_delivery=wake_for_llm_delivery,
         display_llm_delivery_body=display_llm_delivery_body,
         commit_cursor=commit_cursor,
-        injected_message_ids=injected_message_ids, injected_commit_cursors=injected_commit_cursors,
+        injected_message_ids=injected_message_ids, injected_commit_cursors=injected_commit_cursors, side_intake_more_pending=side_intake_more_pending,
         submit_retry_count=submit_retry_count,
         confirm_submit=confirm_submit,
         bracketed_paste=bracketed_paste,
@@ -4883,11 +4883,11 @@ def runtime_launch_context() -> RuntimeLaunchContext:
     )
 
 _RUNTIME_LAUNCH_API = RuntimeLaunchCompatibilityApi(runtime_launch_context)
-launch_claude = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_claude, sync_remote_launch_assets, "claude")
+launch_claude = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_claude, sync_remote_launch_assets, "claude", session_keys=session_api_key_composition.STARTUP_SESSION_KEYS)
 launch_codex = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_codex, sync_remote_launch_assets, "codex", lambda passthrough=None, **_kwargs: repair_codex_mcp_header_collisions(codex_config_paths_for_launch(list(passthrough or [])), report=lambda message: router_log("WARN", message)))
 launch_codex_app_server = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_codex_app_server, sync_remote_launch_assets, "codex-app-server")
 _RUNTIME_COMPACTION = RuntimeCompactionBinding(ROUTER_INSTANCE_DIR, HOME, channel_compact_request_repository(), provider_request_builder, estimate_tokens, lambda: get_current_provider(load_config()), router_log, gate_config=load_config)
-_RUNTIME_CONTEXT_REJECTION, _STREAM_RECOVERY = build_reactive_compaction_rejection(_RUNTIME_COMPACTION), claude_stream_recovery_runtime.ClaudeStreamRecovery(ROUTER_INSTANCE_DIR, router_log, load_config, _RUNTIME_COMPACTION, lambda body: primed_notice(_CHANNEL_DELIVERY_API.ensure_cursor_initialized, runtime_input_gateway().submit_notification)(body), _runtime_input_scan_max_id)
+_RUNTIME_CONTEXT_REJECTION, _STREAM_RECOVERY, _SESSION_API_KEYS = build_reactive_compaction_rejection(_RUNTIME_COMPACTION), claude_stream_recovery_runtime.ClaudeStreamRecovery(ROUTER_INSTANCE_DIR, router_log, load_config, _RUNTIME_COMPACTION, lambda body: primed_notice(_CHANNEL_DELIVERY_API.ensure_cursor_initialized, runtime_input_gateway().submit_notification)(body), _runtime_input_scan_max_id), session_api_key_composition.SessionApiKeyComposition(_RUNTIME_COMPACTION, ROUTER_INSTANCE_DIR, CONFIG_DIR, lambda: ROUTER_BASE, _ROUTER_EXTERNAL_TOKEN_REPOSITORY, ROUTER_WORKSPACE, workspace_identity, router_log)
 _CODEX_SESSIONS = CodexAppServerSessions(CodexDesktopPorts(CONFIG_DIR, ROUTER_WORKSPACE_ID, Path(os.environ.get("CODEX_HOME") or HOME / ".codex"), VERSION, router_log, lambda pid: terminate_pid_tree(pid, "codex-app-server", quiet=True), CodexDesktopChannelPorts(lambda last_id, limit: read_runtime_inputs(last_id, None, None, limit), ensure_channel_llm_delivery_cursor_initialized, _commit_channel_llm_cursor_if_newer, _RUNTIME_INPUT_STATUS_REPOSITORY, router_log, CodexSessionCommandPorts(_read_channel_compact_request, _clear_channel_compact_request), agent_turn_events.RouterTurnPoster(lambda: ROUTER_BASE, router_log), _RUNTIME_COMPACTION, lambda: runtime_input_retry.settings(load_config())), select_resume=select_codex_resume_session), CodexRemoteTuiPorts(lambda *args, **kwargs: subprocess_call_with_channel_wake_proxy(*args, **kwargs), lambda: runtime_session_restart_service().control(), _set_channel_transcript_scope, lambda: None if _channel_wake_enter_env_is_fixed() else b"\r", _codex_channel_wake_submit_retries, _codex_channel_wake_submit_delay_seconds, select_codex_resume_session))
 launch_codex_desktop, launch_codex_remote = (SynchronizedLaunch(lambda passthrough=None, _session=session, **kwargs: runtime_launch.run_codex_app_server(list(passthrough or []), **kwargs, services=codex_app_server_launch_services(), desktop=_session), sync_remote_launch_assets, "codex-app-server") for session in (_CODEX_SESSIONS.desktop, _CODEX_SESSIONS.remote_tui))
 launch_agy = SynchronizedLaunch(_RUNTIME_LAUNCH_API.launch_agy, sync_remote_launch_assets, "agy")
@@ -4951,7 +4951,7 @@ def cli_parser_services() -> cli_parser.CliParserServices:
             settings=cli_parser.CliParserSettings(cmd_language, cmd_web_search, cmd_web_fetch, cmd_log_level, *event_settings_cli.handlers(event_settings_cli.EventSettingsCliPorts(load_config, save_config, external_event_receiver_service, lambda: set_remote_instruction_config('sync', ''), sync_all_remote_memories, print, lambda: USAGE_API_KEYS))),
             provider=cli_parser.CliParserProvider(cmd_ollama_native, cmd_ollama_options, cmd_provider_options, cmd_ollama_catalog, cmd_provider,
                                                   cmd_api_key, cmd_set_api_key, cmd_set_api_keys, cmd_base_url, {"copilot": cmd_copilot_oauth, "zai": cmd_zai_oauth}),
-            models=cli_parser.CliParserModels(cmd_model, cmd_advisor_model, cmd_models), work=cli_assembly.work_settings_command(load_config, save_config),
+            models=cli_parser.CliParserModels(cmd_model, cmd_advisor_model, cmd_models), work=cli_assembly.work_settings_command(load_config, save_config), session_api_key=lambda args: _SESSION_API_KEYS.command(args),
     ).services()
 
 def cli_application_context() -> CliApplicationContext:

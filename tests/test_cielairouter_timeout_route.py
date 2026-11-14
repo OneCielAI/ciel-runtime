@@ -1,4 +1,5 @@
 """Loopback-only native Responses timeout route regressions; no runtime imports."""
+import contextlib
 import dataclasses
 import http.client
 import http.server
@@ -8,6 +9,7 @@ import os
 import socket
 import tempfile
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -56,7 +58,8 @@ class TimeoutRouteTests(unittest.TestCase):
         return server
 
     def fixture(self, script, retries=None, wrapped=False, open_timeout=0.15):
-        state = SimpleNamespace(hits=[], gates=[], errors=[], budgets=[], snapshots=[], logs=[])
+        state = SimpleNamespace(hits=[], gates=[], errors=[], budgets=[], snapshots=[], logs=[],
+                                opened_at=[])
         owner = self
         class Upstream(http.server.BaseHTTPRequestHandler):
             def do_POST(h):
@@ -97,7 +100,9 @@ class TimeoutRouteTests(unittest.TestCase):
             send_response=mock.Mock(), send_header=mock.Mock(), end_headers=mock.Mock())
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
         def dispatch(req, *, timeout, **_kw):
-            state.budgets.append(self.retry.budget_for(state.config, "cielairouter"))
+            budget = self.retry.budget_for(state.config, "cielairouter")
+            state.budgets.append(budget)
+            state.opened_at.append(budget.clock() if budget is not None else None)
             h = state.handler
             if isinstance(h.send_response, mock.Mock):
                 state.snapshots.append((h.send_response.call_count, h.end_headers.call_count, h.wfile.getvalue()))
@@ -156,11 +161,17 @@ class TimeoutRouteTests(unittest.TestCase):
         s.handler.send_response.assert_called_once_with(200)
 
     def test_timeout_default_cap_and_zero(self):
-        for retries, count in ((None, 4), (99, 11), (0, 1)):
+        # Unset gateway_retries uses the 420 s window (team-lead ruling 2026-11-13,
+        # 19:18Z, after evidence/claude-window-330): persistent header timeouts stop
+        # at the window's attempt ceiling, 1 + WINDOW_RETRY_CEILING opens, not the
+        # old default of 4. Explicit counts keep count mode (99 is capped at 10).
+        window_opens = self.retry.WINDOW_RETRY_CEILING + 1
+        for retries, count in ((None, window_opens), (99, 11), (0, 1)):
             with self.subTest(retries=retries):
                 self.waits.clear()
                 s = self.fixture(["timeout"], retries)
-                with self.assertRaises(TimeoutError):
+                clock = self.clock_with_waits() if retries is None else contextlib.nullcontext()
+                with clock, self.assertRaises(TimeoutError):
                     self.forward(s)
                 self.check(s, count)
                 self.assertEqual(count, len(s.errors))
@@ -168,6 +179,57 @@ class TimeoutRouteTests(unittest.TestCase):
                 s.handler.send_header.assert_not_called()
                 s.handler.end_headers.assert_not_called()
                 self.assertEqual(b"", s.handler.wfile.getvalue())
+                if retries is None:
+                    # The count alone is not enough: on the budget's clock, which
+                    # advances by every scheduled wait plus the real socket timeouts,
+                    # every open is admitted inside the 420 s window and the 540 s
+                    # router-arrival bound, and the stop is the attempt ceiling.
+                    budget = s.budgets[0]
+                    self.assertTrue(budget.window_mode)
+                    self.assertEqual("attempt_ceiling", budget.stop_reason)
+                    self.assertAlmostEqual(sum(self.waits), budget.waited_seconds, places=6)
+                    first, last = s.opened_at[0], s.opened_at[-1]
+                    self.assertGreaterEqual(last - first, sum(self.waits), "waits advanced the clock")
+                    self.assertLess(last - budget.started, self.retry.RETRY_WINDOW_SECONDS)
+                    self.assertLess(last - budget.arrival_started, self.retry.HARD_PREOUTPUT_SECONDS)
+
+    def clock_with_waits(self):
+        """Every default scope reads real time plus the waits it scheduled.
+
+        The waits are recorded instead of slept (setUp). Here each recorded wait
+        also advances the budget's clock, so the window and the arrival bound are
+        checked against the time the retries would really take. The jitter draw is
+        pinned to the shortest backoff, the one that admits the most opens.
+        """
+        offset = [0.0]
+        owner = self
+
+        class AdvancingWaits(list):
+            def append(self, seconds):
+                offset[0] += seconds
+                super().append(seconds)
+
+        def clock():
+            return time.monotonic() + offset[0]
+
+        real = self.retry._default_budget
+
+        def default_budget(config, provider, **kwargs):
+            budget = real(config, provider, **kwargs)
+            if budget is not None:
+                budget.clock, budget.rand = clock, (lambda: 1.0)
+                budget.started = clock()
+                if budget.window_mode and kwargs.get("arrival_started") is None:
+                    budget.arrival_started = budget.started
+            return budget
+
+        @contextlib.contextmanager
+        def scope():
+            owner.waits = AdvancingWaits()
+            with mock.patch.object(owner.retry, "_default_budget", default_budget):
+                yield
+
+        return scope()
 
     def test_exact_http504_sse_success_exhausted_and_zero(self):
         for retries, success, count in ((2, True, 2), (2, False, 3), (0, False, 1)):

@@ -1,6 +1,6 @@
 import {startSide,pollSide,completeSide} from './side-intake.js'
 let version=7
-const event=(ch,priority)=>({receipt_id:ch.repeat(64),generation:'g'+ch,text:'event '+ch,event_key:'source:'+ch,
+const event=(ch,priority)=>({receipt_id:ch.repeat(64),generation:('2'+ch).repeat(16),text:'event '+ch,event_key:'source:'+ch,
  lease_until:Date.now()/1000+120,route:{},...(priority ? {source_priority:priority} : {})})
 const queue=[event('a','P3'),event('b',null),event('c','P1'),event('d','P1')]
 const calls=[],spawns=[],timers=[]

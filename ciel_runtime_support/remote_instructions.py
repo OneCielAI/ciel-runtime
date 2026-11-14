@@ -184,6 +184,9 @@ class RemoteInstructionSynchronizer:
     log: Callable[[str, str], None]
     urlopen: Callable[..., Any] = urllib.request.urlopen
     now: Callable[[], float] = time.time
+    # startup_session_key.StartupSessionKeyHolder: during a launch, the
+    # dedicated response headers may carry this session's provider key.
+    session_keys: Any | None = None
 
     def sync(self, runtime: str, *, reason: str = "launch") -> RemoteInstructionResult:
         started = time.monotonic()
@@ -226,6 +229,20 @@ class RemoteInstructionSynchronizer:
             return self._failed(runtime, url, f"missing authorization environment variable: {', '.join(sorted(set(missing)))}")
         if authorization.strip():
             headers["Authorization"] = authorization.strip()
+        # Only a launch asks for (and may receive) a session key; the key is
+        # read from dedicated headers, never from the instruction text.
+        launch_keys = self.session_keys if reason == "launch" else None
+        binding = launch_keys.launch_binding() if launch_keys is not None else ""
+        if binding:
+            from .startup_session_key import LAUNCH_BINDING_HEADER
+
+            headers[LAUNCH_BINDING_HEADER] = binding
+
+        def offer_session_key(response_headers: Any, final_url: str) -> None:
+            if binding and launch_keys is not None:
+                launch_keys.accept_headers(response_headers, configured_url=url, final_url=final_url,
+                                           authorized=bool(authorization.strip()))
+
         # A state without a prompt-metadata check cannot establish what
         # company prompt the file carries.  Refresh it unconditionally once;
         # otherwise a legacy state can keep returning 304 forever while the
@@ -248,6 +265,7 @@ class RemoteInstructionSynchronizer:
                 text = raw.decode("utf-8")
                 if not text.strip():
                     raise ValueError("instruction response is empty")
+                offer_session_key(response.headers, str(response.geturl() or url))
                 digest = hashlib.sha256(raw).hexdigest()
                 changed = self._write_if_changed(path, text)
                 self._write_state(runtime, {
@@ -264,6 +282,7 @@ class RemoteInstructionSynchronizer:
                 })
         except urllib.error.HTTPError as exc:
             if exc.code == 304 and path.is_file():
+                offer_session_key(exc.headers, str(exc.geturl() or url))
                 self.log("INFO", f"remote_instructions_unchanged runtime={runtime} reason={reason}")
                 return RemoteInstructionResult(runtime, url, path, "unchanged")
             return self._failed(runtime, url, f"HTTP {exc.code}: {exc.reason}")
@@ -336,15 +355,23 @@ class SynchronizedLaunch:
     # Drops this launcher's own startup lease; the default touches nothing else.
     release: Callable[[], Any] = _release_current_launch_lease
     output: Callable[[str], Any] = lambda text: print(text, flush=True)
+    # startup_session_key.StartupSessionKeyHolder; only a routed Claude launch
+    # can bind a startup key to its session, so only that runtime asks for one.
+    session_keys: Any | None = None
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         started = time.monotonic()
+        keys = self.session_keys if self.runtime == "claude" else None
         try:
+            if keys is not None:
+                keys.begin_launch()
             if self.prepare is not None:
                 self.prepare(*args, **kwargs)
             self.synchronize(self.runtime, reason="launch")
         except BaseException:
             # Nothing was spawned yet; the delegate guards its own failures.
+            if keys is not None:
+                keys.discard("launch_failed")
             try:
                 self.release()
             except Exception:  # noqa: BLE001 - the launch failure is the error to report
@@ -353,7 +380,12 @@ class SynchronizedLaunch:
         elapsed = time.monotonic() - started
         if elapsed >= REMOTE_ASSETS_SLOW_SECONDS:
             self.output(f"Ciel Runtime startup: remote assets completed in {elapsed:.1f}s.")
-        return self.delegate(*args, **kwargs)
+        try:
+            return self.delegate(*args, **kwargs)
+        finally:
+            # A key the launch did not hand to its router dies with the launch.
+            if keys is not None:
+                keys.discard("launch_ended")
 
 
 def panel_rows(config: dict[str, Any], held: dict[str, Any] | None = None) -> tuple[list[str], list[str]]:

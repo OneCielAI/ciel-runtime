@@ -11,13 +11,13 @@ ROOT=Path(__file__).resolve().parents[1]
 
 @unittest.skipUnless(shutil.which('node'),'node required')
 class SideModTests(unittest.TestCase):
-    def run_harness(self, name):
+    def run_harness(self, name, *args):
         with tempfile.TemporaryDirectory() as raw:
             path=Path(raw)
             (path/'package.json').write_text('{"type":"module"}')
             shutil.copyfile(ROOT/'tests'/name,path/'test.mjs')
             shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
-            done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',
+            done=subprocess.run(['node',str(path/'test.mjs'),*args],capture_output=True,text=True,encoding='utf8',
                                 check=True,timeout=60)
         return json.loads(done.stdout)
 
@@ -44,11 +44,16 @@ class SideModTests(unittest.TestCase):
         self.assertEqual(row['spawns'][1]['keys'],row['spawns'][0]['keys'])
         self.assertEqual(['native-fork-inherited',0,0],
                          [row['parity']['digest'],row['parity']['toolCount'],row['parity']['serverCount']])
-        # A durable main wake is submitted once although later claims offer it again.
-        self.assertEqual(1,len(row['submits']))
-        self.assertIn('"kind":"resume"',row['submits'][0])
-        self.assertIn('clear_wait',row['submits'][0])
-        self.assertIn('no new execution approval',row['submits'][0])
+        # A durable main wake is appended once although later claims offer it
+        # again; the one prompt that wakes the idle main holds none of it.
+        self.assertEqual(1,len(row['appends']))
+        self.assertIn('"kind":"resume"',row['appends'][0])
+        self.assertIn('clear_wait',row['appends'][0])
+        self.assertIn('no new execution approval',row['appends'][0])
+        # This legacy scripted backend does not implement the protocol-2 prompt
+        # lease, so the current host fails closed instead of issuing an unfenced
+        # wake prompt. Real-backend coverage proves the one-prompt path.
+        self.assertEqual([],row['submits'])
         self.assertEqual(['actor1','actor2','actor3'],row['stopped'])
         # Prose + fenced JSON and prose + raw JSON both commit; no-decision is
         # recorded once as invalid_answer, never as a retryable failure.
@@ -63,6 +68,12 @@ class SideModTests(unittest.TestCase):
         self.assertIsNone(row['first']['current'])
         self.assertIsNone(row['second']['current'])
         prompt=row['spawns'][0]['prompt']
+        # Router model remapping authenticates the side claim by this exact
+        # non-secret generation together with event_id and parent_session_id.
+        self.assertEqual(('a'*64,'claude:parent','1'*32),
+                         (prompt['event_id'],prompt['parent_session_id'],prompt['claim_generation']))
+        self.assertEqual(['1'*32,'2'*32,'3'*32],
+                         [spawn['prompt']['claim_generation'] for spawn in row['spawns']])
         self.assertEqual(['n21'],prompt['workload']['queue_order'])
         self.assertFalse(prompt['workload']['truncated'])
         self.assertEqual('question',prompt['original'])
@@ -70,6 +81,48 @@ class SideModTests(unittest.TestCase):
         self.assertNotIn('parent_context',prompt)
         self.assertEqual('claude:parent',row['resolveCalls'][0]['session_id'])
         self.assertEqual({'input_tokens':3},row['resolveCalls'][0]['usage'])
+
+    def test_claim_generation_is_validated_before_native_spawn(self):
+        invalid = ('missing', 'undefined', 'null', 'number', 'object', 'short', 'long', 'uppercase', 'nonhex', 'suffix')
+        for kind in invalid:
+            with self.subTest(kind=kind):
+                row = self.run_harness('side_claim_generation_harness.mjs', kind)
+                self.assertTrue(row['claimed'], row)
+                self.assertEqual([], row['spawns'], row)
+                self.assertEqual(1, len(row['failures']), row)
+                self.assertEqual('processing_error', row['failures'][0]['category'])
+                self.assertEqual('invalid_claim_generation', row['failures'][0]['reason'])
+                self.assertEqual(1, len(row['receipts']), row)
+                self.assertEqual(('pending', 'processing_error', 'invalid_claim_generation', True),
+                                 (row['receipts'][0]['stage'], row['receipts'][0]['failure']['category'],
+                                  row['receipts'][0]['failure']['reason'], row['receipts'][0]['failure']['recoverable']))
+                self.assertEqual(0, row['mainCalls'])
+                self.assertNotIn('claim generation check', json.dumps(row['logs']))
+        exact = self.run_harness('side_claim_generation_harness.mjs', 'exact')
+        self.assertTrue(exact['claimed'], exact)
+        self.assertEqual(1, len(exact['spawns']), exact)
+        self.assertEqual('a' * 32, exact['spawns'][0]['claim_generation'])
+        self.assertEqual([], exact['failures'])
+        self.assertEqual(1, len(exact['receipts']))
+        self.assertEqual('processing', exact['receipts'][0]['stage'])
+        self.assertNotIn('failure', exact['receipts'][0])
+        self.assertEqual(0, exact['mainCalls'])
+
+    def test_main_read_proof_is_wired_and_has_no_dead_export(self):
+        side=(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js').read_text(encoding='utf8')
+        register=(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/register.js').read_text(encoding='utf8')
+        # Causal proof only: no messageCount or plain messages() comparison
+        # (owned probe append-views-54579a2e shows neither counts plugin rows).
+        for export in ('export async function sideMainTurnStart($,text)', 'export async function sideMainStep($)',
+                       'export async function sideMainFence($)'):
+            self.assertIn(export, side)
+        self.assertIn('await sideMainTurnStart($, e.text)', register)
+        self.assertIn('await sideMainStep($)', register)
+        self.assertIn('await sideMainFence($)', register)
+        self.assertNotIn('$,messageCount', side)
+        self.assertNotIn('sideMainStep($, e.messageCount)', register)
+        self.assertNotIn('await $.session.messages()', side)
+        self.assertNotIn('sideMainRequest',side+register)
 
     def test_walkie_prefetch_carries_full_bounded_conversation_exactly(self):
         row=self.run_harness('side_intake_harness.mjs')
@@ -182,31 +235,43 @@ class SideModTests(unittest.TestCase):
         return json.loads(done.stdout)
 
     def assert_one_safe_wake(self, row, busy, attempt='w1', record_calls=1):
-        delivered=row['appends']+row['submits']
+        # The payload is appended exactly once, busy or idle. No prompt holds
+        # it: an idle main gets one wake prompt, a busy main none.
+        delivered=row['appends']
         self.assertEqual(1,len(delivered))
-        self.assertEqual(1,len(row['appends'] if busy else row['submits']))
+        self.assertEqual(0,row['payload_submits'])
+        self.assertEqual(0 if busy else 1,row['wake_prompts'])
         self.assertIn('related Work n7',delivered[0])
         self.assertIn('work_side_handoff',delivered[0])
         self.assertIn('within 4 hours',delivered[0])
         self.assertNotIn('raw secret thread',delivered[0])
-        # No attempt id or marker reaches main; transcript text is not evidence.
-        self.assertNotIn('ciel-side-wake',delivered[0])
-        self.assertNotIn(row['durable']['attempt_id'],delivered[0].replace('"'+'e'*64+'"',''))
-        outcome='appended' if busy else 'queued'
-        self.assertEqual((outcome,'started',attempt),
+        for text in delivered+row['submits']:
+            # No attempt id or marker reaches main; transcript text is not evidence.
+            self.assertNotIn('ciel-side-wake',text)
+            self.assertNotIn(row['durable']['attempt_id'],text.replace('"'+'e'*64+'"','').replace('e'*12,''))
+            self.assertNotIn('raw secret thread',text)
+        for text in row['submits']:
+            self.assertNotIn('within 4 hours',text)
+        self.assertEqual(('appended','started',attempt),
                          (row['durable']['state'],row['durable']['phase'],row['durable']['attempt_id']))
-        self.assertEqual(record_calls,sum(w['state']==outcome for w in row['wakes']))
-        if busy:
-            # The append uuid is the durable receipt; message text is not stored.
-            self.assertEqual('append-1',row['durable']['receipt'])
+        self.assertEqual(record_calls,sum(w['state']=='appended' for w in row['wakes']))
+        # The append uuid is the durable receipt; message text is not stored.
+        self.assertEqual('append-1',row['durable']['receipt'])
+        # The idle wake prompt started main's turn, and that turn's first step's
+        # exact messageCount covered the row; a queued prompt alone never reads.
+        self.assertEqual(not busy,bool(row['durable'].get('read_at')))
 
     def test_time_limit_wakes_main_immediately_busy_or_idle_without_raw_thread(self):
         for mode in ('busy','idle'):
             with self.subTest(mode=mode):
                 row=self.run_time_limit(mode)
                 self.assert_one_safe_wake(row,mode=='busy')
-                self.assertEqual(['prepare','start','appended' if mode=='busy' else 'queued'],
-                                 [w['state'] for w in row['wakes']])
+                states=[w['state'] for w in row['wakes']]
+                # The prompt's turn steps (read) independently of its submit
+                # record (prompt_queued); either may land first.
+                self.assertEqual(['prepare','start','appended']+([] if mode=='busy' else ['prompt_prepare']),
+                                 states[:3 if mode=='busy' else 4])
+                self.assertEqual([] if mode=='busy' else ['prompt_queued','read'],sorted(states[4:]))
                 self.assertEqual(1,row['claims'])
 
     def test_concurrent_completion_and_poll_prepare_one_wake(self):
@@ -250,15 +315,17 @@ class SideModTests(unittest.TestCase):
         self.assert_one_safe_wake(row,False,'w1')
 
     def test_reload_loser_is_not_cached_and_reelects_after_owner_fails(self):
-        # Review blocker 1: B lost while A held started; A's prompt dropped
+        # Review blocker 1: B lost while A held started; A's append was denied
         # (definite failure); B must re-elect once instead of suppressing forever.
         for mode in ('reload-failed','stale-loser'):
             with self.subTest(mode=mode):
                 row=self.run_time_limit(mode)
-                self.assertEqual((2,0),(len(row['submits']),len(row['appends'])))
-                self.assertEqual(('queued','w2'),(row['durable']['state'],row['durable']['attempt_id']))
+                # Two append calls, the first denied; no prompt holds the payload.
+                self.assertEqual((2,0),(len(row['appends']),row['payload_submits']))
+                self.assertEqual(('appended','w2','append-2'),
+                                 (row['durable']['state'],row['durable']['attempt_id'],row['durable']['receipt']))
                 states=[w['state'] for w in row['wakes']]
-                self.assertEqual((1,1),(states.count('failed'),states.count('queued')))
+                self.assertEqual((1,1),(states.count('failed'),states.count('appended')))
 
     def test_started_row_without_outcome_is_never_auto_delivered(self):
         # Review blocker 2: started by a module that is gone. No delivery and
@@ -293,49 +360,63 @@ class SideModTests(unittest.TestCase):
                 self.assertEqual(1,sum(w['state']=='start' for w in row['wakes']))
                 self.assertEqual(0,sum(w['state']=='reconcile' for w in row['wakes']))
 
-    def test_prompt_drop_reelects_and_throw_is_uncertain(self):
-        row=self.run_time_limit('drop')
-        self.assertEqual(2,len(row['submits']))
-        self.assertEqual(('queued','w2'),(row['durable']['state'],row['durable']['attempt_id']))
-        row=self.run_time_limit('throw')
-        self.assertEqual(1,len(row['submits']))
-        self.assertEqual('uncertain',row['durable']['state'])
-        self.assertEqual(1,sum(w['state']=='prepare' for w in row['wakes']))
+    def test_wake_prompt_drop_or_throw_is_submitted_once_more_and_never_touches_the_wake(self):
+        # Item 4. A wake prompt holds no payload, so its drop or throw decides
+        # nothing about the event: the row is already appended under the one
+        # attempt. The prompt is submitted once more and the row is read.
+        for mode in ('drop','throw'):
+            with self.subTest(mode=mode):
+                row=self.run_time_limit(mode)
+                self.assertEqual((1,2,0),(len(row['appends']),row['wake_prompts'],row['payload_submits']))
+                self.assertEqual(('appended','w1','append-1',True),
+                                 (row['durable']['state'],row['durable']['attempt_id'],row['durable']['receipt'],
+                                  bool(row['durable'].get('read_at'))))
+                states=[w['state'] for w in row['wakes']]
+                self.assertEqual(['prepare','start','appended','prompt_prepare','prompt_'+('failed' if mode == 'drop' else 'uncertain'),
+                                  'prompt_prepare'],states[:6])
+                self.assertEqual(['prompt_queued','read'],sorted(states[6:]))
 
-    def test_transcript_rows_never_settle_an_uncertain_prompt(self):
+    def test_transcript_rows_never_settle_an_append_with_no_known_outcome(self):
         # Review: marker-substring reconciliation was spoofable. Unrelated
-        # assistant/user rows with the marker or event text never settle.
-        row=self.run_time_limit('spoof')
-        self.assertEqual(1,len(row['submits']))
-        self.assertEqual(('uncertain','started'),(row['durable']['state'],row['durable']['phase']))
-        self.assertNotIn('reconcile',[w['state'] for w in row['wakes']])
+        # assistant/user rows with the marker or event text never settle. The
+        # append threw, so its outcome is unknown: uncertain, never sent again.
+        for mode in ('spoof','append-throw'):
+            with self.subTest(mode=mode):
+                row=self.run_time_limit(mode)
+                self.assertEqual((1,0),(len(row['appends']),len(row['submits'])))
+                self.assertEqual(('uncertain','started'),(row['durable']['state'],row['durable']['phase']))
+                self.assertEqual(['prepare','start','uncertain'],[w['state'] for w in row['wakes']])
 
-    def test_append_deny_fails_and_reelects_and_idle_after_append_never_prompts(self):
+    def test_append_deny_fails_and_reelects_and_a_turn_that_ended_meanwhile_is_woken(self):
         row=self.run_time_limit('deny')
         self.assertEqual((2,0),(len(row['appends']),len(row['submits'])))
         self.assertEqual(('appended','w2','append-2'),
                          (row['durable']['state'],row['durable']['attempt_id'],row['durable']['receipt']))
         self.assertEqual(1,sum(w['state']=='failed' for w in row['wakes']))
+        # Item 7. Main was busy when the wake was elected and idle when the
+        # append answered: no request of that turn carried the row. It is
+        # appended once and main is woken by a prompt that holds none of it.
         row=self.run_time_limit('append-idle')
-        self.assert_one_safe_wake(row,True)
+        self.assert_one_safe_wake(row,False)
 
     def test_new_host_on_old_router_delivers_once_and_records_legacy_attempt(self):
         # A new host on an old/reused router (side_wake 4b85569d) lost the wake:
         # protocol fields were ignored, and the host required phase 'intent'.
         old_attempt='a'*31+'1'
         row=self.run_time_limit('old-router')
-        self.assertEqual((1,0),(len(row['submits']),len(row['appends'])))
-        self.assertEqual(['prepare','queued'],[w['state'] for w in row['wakes']])
-        self.assertEqual(('queued',old_attempt),(row['durable']['state'],row['durable']['attempt_id']))
+        self.assertEqual((1,0,1),(len(row['appends']),row['payload_submits'],row['wake_prompts']))
+        # No read is sent to an old router (it has no such state).
+        self.assertEqual(['prepare','appended'],[w['state'] for w in row['wakes']])
+        self.assertEqual(('appended',old_attempt),(row['durable']['state'],row['durable']['attempt_id']))
         # The old duplicate prepare returns the stored submitting row with its
         # attempt; the host must not deliver that same attempt twice.
         row=self.run_time_limit('old-router-dup')
         self.assertEqual({'state':'submitting','deliveries':1},row['after_record_failure'])
         # Repeated prepares return the same old attempt: no second delivery,
         # only the record is retried until it commits.
-        self.assertEqual(1,len(row['submits'])+len(row['appends']))
+        self.assertEqual((1,0),(len(row['appends']),row['payload_submits']))
         self.assertGreaterEqual(sum(w['state']=='prepare' for w in row['wakes']),2)
-        self.assertEqual(('queued',old_attempt),(row['durable']['state'],row['durable']['attempt_id']))
+        self.assertEqual(('appended',old_attempt),(row['durable']['state'],row['durable']['attempt_id']))
 
     def test_old_router_attempt_is_delivered_once_across_module_instances(self):
         # review-side-wake: with the old side_wake contract both instances got
@@ -344,15 +425,17 @@ class SideModTests(unittest.TestCase):
         old_attempt='a'*31+'1'
         row=self.run_time_limit('old-router-reload')
         self.assertEqual(2,sum(w['state']=='prepare' for w in row['wakes']))
-        self.assertEqual((1,0),(len(row['submits']),len(row['appends'])))
-        self.assertEqual(('queued',old_attempt),(row['durable']['state'],row['durable']['attempt_id']))
+        self.assertEqual((1,0),(len(row['appends']),row['payload_submits']))
+        self.assertEqual(('appended',old_attempt),(row['durable']['state'],row['durable']['attempt_id']))
         # The delivery's own identity was claimed, then replaced by its bounded
-        # terminal row (version 2): the same attempt is never sent again.
+        # terminal row: the same attempt is never sent again. The wake prompt
+        # (no payload) has its own identity beside it.
         self.assertEqual(['ciel-work/legacyWakes',{'value':[old_attempt],'version':1}],row['host_state'][0])
         name,held=row['host_state'][1]
-        self.assertEqual(('ciel-work/promptPending',2),(name,held['version']))
+        self.assertEqual('ciel-work/promptPending',name)
         self.assertEqual([('side:'+'e'*64,'terminal','queued',16)],
-                         [(r['key'],r['status'],r['outcome'],len(r['ref'])) for r in held['value']])
+                         [(r['key'],r['status'],r['outcome'],len(r['ref'])) for r in held['value'] if r['key'].startswith('side:')])
+        self.assertEqual(['wake:'+'e'*64],[r['key'] for r in held['value'] if not r['key'].startswith('side:')])
 
     def test_legacy_fence_exhaustion_still_delivers_once(self):
         # This harness contends only legacyWakes, so all 32 legacy claims miss
@@ -362,20 +445,20 @@ class SideModTests(unittest.TestCase):
         old_attempt='a'*31+'1'
         row=self.run_time_limit('old-router-exhaust')
         self.assertEqual(32,row['foreign_writes'])
-        self.assertEqual((1,0),(len(row['submits']),len(row['appends'])))
-        self.assertEqual(('queued',old_attempt),(row['durable']['state'],row['durable']['attempt_id']))
-        self.assertEqual(['prepare','queued'],[w['state'] for w in row['wakes']])
+        self.assertEqual((1,0),(len(row['appends']),row['payload_submits']))
+        self.assertEqual(('appended',old_attempt),(row['durable']['state'],row['durable']['attempt_id']))
+        self.assertEqual(['prepare','appended'],[w['state'] for w in row['wakes']])
 
     def test_legacy_fence_without_host_state_fails_closed_at_the_prompt_registry(self):
         # On an engine without $.state the legacy claim still falls back to the
-        # module Set (unchanged), but the per-key prompt registry cannot claim
-        # the delivery key, so neither instance raw-submits. Before the
-        # registry this delivered twice. The started row stays visible as
-        # delivery uncertain; this harness's clock never reaches the window.
+        # module Set (unchanged), but the host-held claim of the delivery key
+        # cannot land, so neither instance delivers. Before the registry this
+        # delivered twice. The attempt is recorded uncertain (as it was at the
+        # prompt's idle window): visible, never sent.
         row=self.run_time_limit('old-router-reload:nostate')
         self.assertEqual(0,len(row['submits'])+len(row['appends']))
         self.assertEqual([],row['host_state'])
-        self.assertEqual('submitting',row['durable']['state'])
+        self.assertEqual('uncertain',row['durable']['state'])
 
     def test_malformed_protocol2_prepare_fails_closed_with_bounded_log(self):
         row=self.run_time_limit('malformed')
@@ -395,15 +478,27 @@ class SideModTests(unittest.TestCase):
             done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',
                                 check=True,timeout=60)
         row=json.loads(done.stdout)
-        # The fresh wake was delivered and one fork prompt was built.
-        self.assertEqual(1,len(row['sinks']['prompts']))
+        # The fresh wake was appended and one fork prompt was built. This
+        # legacy scripted backend has no prompt-lease state, so no wake prompt
+        # is issued without the durable fence.
+        self.assertEqual(1,len(row['sinks']['appends']))
+        self.assertIn('Ciel side event requires main action',row['sinks']['appends'][0])
+        self.assertEqual([],row['sinks']['prompts'])
         self.assertEqual(1,len(row['sinks']['spawns']))
         for name,values in row['sinks'].items():
             text=json.dumps(values)
             with self.subTest(sink=name):
                 for secret in row['secrets']:
                     self.assertNotIn(secret,text)
-                self.assertEqual([],re.findall(r'(?<![0-9a-f])[0-9a-f]{32}(?![0-9a-f])',text))
+                if name == 'spawns':
+                    self.assertEqual(1,text.count(row['claim_generation']))
+                    self.assertIn('claim_generation',text)
+                else:
+                    self.assertNotIn(row['claim_generation'],text)
+                # No unrelated secret-shaped 32-hex value may leak. The one
+                # exact generation in the owned fork prompt is intentional.
+                shaped=re.findall(r'(?<![0-9a-f])[0-9a-f]{32}(?![0-9a-f])',text)
+                self.assertEqual([row['claim_generation']] if name == 'spawns' else [],shaped)
 
     def test_pending_main_wake_never_holds_side_claims(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -417,19 +512,24 @@ class SideModTests(unittest.TestCase):
         # Prody 2026-11-09: the wake prompt waited 63 minutes for main's turn to
         # end, and every claim waited with it. Polls now return while it waits.
         self.assertEqual(['returned','returned'],[row['firstPoll'],row['secondPoll']])
-        self.assertEqual(['Side SSE '+'a'*12],row['whileBusy']['spawns'])
+        self.assertEqual(['Side SSE '+'a'*12],row['whilePending']['spawns'])
         # Each event is elected and started once and duplicate offers are
-        # suppressed. Each started wake issues its own prompt at once under its
-        # own key, never holding claims; the engine, not the module, holds the
-        # second until main is idle (owned probes prompt-gate-0dd78bf3,
-        # prompt-registry-e2bed500). There is no module-wide prompt queue.
-        self.assertEqual(2,row['whileBusy']['submits'])
-        self.assertEqual(['w1','w2'],sorted(row['submits']))
-        self.assertEqual([{'event_id':'w1','state':'prepare','attempt_id':None},
-                          {'event_id':'w1','state':'start','attempt_id':'attempt-w1'},
-                          {'event_id':'w2','state':'prepare','attempt_id':None},
-                          {'event_id':'w2','state':'start','attempt_id':'attempt-w2'},
-                          {'event_id':'w1','state':'queued','attempt_id':'attempt-w1'}],row['wakeCalls'])
+        # suppressed. Each started wake appends its payload at once and submits
+        # its own wake prompt under its own key, never holding claims; the
+        # engine, not the module, holds a prompt until main is idle (owned
+        # probes prompt-gate-0dd78bf3, prompt-registry-e2bed500). There is no
+        # module-wide prompt queue, and no prompt holds a payload.
+        self.assertEqual((2,2),(row['whilePending']['appends'],row['whilePending']['submits']))
+        self.assertEqual((['w1','w2'],['w1','w2'],0),(sorted(row['appends']),sorted(row['wakePrompts']),row['payloadPrompts']))
+        calls=[(call['event_id'],call['state'],call['attempt_id']) for call in row['wakeCalls']]
+        self.assertEqual(sorted([('w1','prepare',None),('w1','start','attempt-w1'),('w1','appended','attempt-w1'),
+                                 ('w1','prompt_prepare',None),('w1','prompt_queued','prompt-w1'),
+                                 ('w2','prepare',None),('w2','start','attempt-w2'),('w2','appended','attempt-w2'),
+                                 ('w2','prompt_prepare',None),
+                                 # Only w1's wake prompt entered: its own token
+                                 # proves only w1 read in that turn's first
+                                 # request; w2 is fenced for the next request.
+                                 ('w1','read',None)],key=str),sorted(calls,key=str))
 
     # Per-key prompt registry (side-intake.js sidePromptSubmit). Owned real
     # engine run prompt-registry-e2bed500 (Claude Code 2.1.322) measured the
@@ -576,33 +676,181 @@ class SideModTests(unittest.TestCase):
                 self.assertEqual((1,1),(case['reloadRawSubmits'],case['firstRawSubmits']))
                 self.assertEqual(['uncertain','queued'],case['values'])
 
-    def test_notice_after_clear_and_reload_is_a_documented_state_loss_residual(self):
+    def test_registry_alone_forgets_a_terminal_identity_after_clear_and_reload(self):
         row=self.run_registry('notice-clear')
-        # A notice has no durable backend fence. /clear erases its terminal row;
+        # What the registry cannot do by itself: /clear erases a terminal row and
         # reassert handles unresolved entries only, so a reload followed by the
-        # reproduced notice issues it once more. This is the documented
-        # at-least-once state-loss residual, not a product regression.
+        # same key issues it once more. No payload rides on this any more: a
+        # released-wait notice is claimed in the backend first
+        # (test_release_notice_is_issued_at_most_once_across_state_loss) and a
+        # wake prompt holds no payload.
         self.assertEqual((['notice:clear:queued'],[],1,'queued'),
                          (row['beforeClear'],row['afterReassert'],row['reloadRaw'],row['reloadValue']))
         # The original module still has its bounded local tombstone.
         self.assertEqual(('queued',1),(row['sameInstanceValue'],row['firstInstanceRaw']))
 
-    def test_release_notice_liveness_table(self):
-        expected={'finite':'Side released n3 → main (queued)','anomaly':'Side released n3 → main (uncertain)'}
-        for condition,log in expected.items():
-            with self.subTest(condition=condition):
-                row=self.run_registry('notice',condition)
-                self.assertEqual({'calls':1,'registry':['notice:'],'live':1},row['issued'])
-                self.assertEqual([log],row['logs'])
-                self.assertEqual(([],1),(row['registry'],row['submits']))
-        # reload: the hydrated key is not issued again; its window ends it.
-        row=self.run_registry('notice','reload')
-        self.assertEqual((0,[]),(row['secondCalls'],row['registryAfter']))
-        self.assertEqual(['Side released n3 → main (uncertain)'],row['logs2'])
-        # restart: nothing carries over; a reproduced notice is issued again.
-        row=self.run_registry('notice','restart')
-        self.assertEqual(1,row['secondCalls'])
-        self.assertEqual(['Side released n3 → main (queued)'],row['logs2'])
+    # What main's conversation receives for one event (side_delivery_harness.mjs).
+    # The host is an engine model from owned probes delivery-4f4c90b8,
+    # prompt-gate-0dd78bf3 and prompt-registry-e2bed500; the backend is a fake
+    # that follows side_wake.py. No engine is run here.
+    def run_delivery(self, mode):
+        with tempfile.TemporaryDirectory() as raw:
+            path=Path(raw)
+            (path/'package.json').write_text('{"type":"module"}')
+            shutil.copyfile(ROOT/'tests/side_delivery_harness.mjs',path/'test.mjs')
+            shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
+            done=subprocess.run(['node',str(path/'test.mjs'),mode],capture_output=True,text=True,encoding='utf8',
+                                check=True,timeout=60)
+        return json.loads(done.stdout)
+
+    def test_idle_wake_appends_the_payload_once_and_wakes_main_with_a_prompt_that_holds_none(self):
+        row=self.run_delivery('wake-idle')
+        for name in ('before','after'):
+            with self.subTest(at=name):
+                view=row[name]
+                # One stored payload row, appended; the one prompt holds no payload.
+                self.assertEqual((1,1,0,1),(view['payloadRows'],view['payloadAppends'],view['payloadPrompts'],view['plainPrompts']))
+        self.assertEqual('appended',row['before']['wake']['state'])
+        # The turn that prompt started carried the payload exactly once.
+        self.assertEqual(([1],1),(row['after']['requests'],row['after']['turns']))
+        self.assertEqual({'state':'appended','phase':'started','read':True,'attempts':1},row['after']['wake'])
+
+    def test_time_limit_wake_reaches_a_busy_main_in_its_next_request_before_the_turn_ends(self):
+        # Item 7. The append is made while the turn runs and the next request of
+        # that same turn carries it (owned probe delivery-4f4c90b8: inside the
+        # tool-result message). No prompt is submitted and no turn end is awaited.
+        row=self.run_delivery('wake-busy-next-request')
+        running=row['whileTurnRuns']
+        self.assertEqual((1,0,0,0),(running['payloadAppends'],running['payloadPrompts'],running['plainPrompts'],running['turns']))
+        self.assertEqual('appended',running['wake']['state'])
+        self.assertEqual(1,row['carriedByNextRequest'])
+        self.assertEqual(([0,1,0],0,0),(row['after']['requests'],row['after']['plainPrompts'],row['after']['payloadPrompts']))
+
+    def test_a_step_after_the_fence_marks_the_busy_append_read(self):
+        # Causal proof (owned probe append-views-54579a2e, 2.1.323): the first
+        # main step after a busy append may have been built before it, so it only
+        # fences the row; the next request of the turn is built after that fence.
+        row=self.run_delivery('wake-busy-next-request')
+        self.assertFalse(row['whileTurnRuns']['wake']['read'])
+        self.assertFalse(row['afterFirstStep']['wake']['read'])
+        self.assertTrue(row['after']['wake']['read'])
+
+    def test_a_step_that_may_predate_the_append_never_marks_read_and_main_is_woken(self):
+        # The turn ended after the only step that may have been built before the
+        # append: nothing proves the read, so the idle wake later carries the row.
+        row=self.run_delivery('wake-busy-next-request:young')
+        self.assertFalse(row['afterFirstStep']['wake']['read'])
+        after=row['after']
+        self.assertEqual((1,1,0,1),(after['payloadRows'],after['payloadAppends'],after['payloadPrompts'],after['plainPrompts']))
+
+    def test_wake_appended_after_the_last_request_of_a_turn_still_wakes_main(self):
+        # Item 7. The turn ended with no further request, so the appended row was
+        # in no request of that turn. Main is woken; that turn carries it once.
+        row=self.run_delivery('wake-busy-turn-ends')
+        self.assertEqual((1,[0]),(row['afterTurnEnd']['payloadAppends'],row['afterTurnEnd']['requests']))
+        after=row['after']
+        self.assertEqual((1,1,0),(after['payloadRows'],after['plainPrompts'],after['payloadPrompts']))
+        self.assertEqual(([0,1],1),(after['requests'],after['turns']))
+        self.assertTrue(after['wake']['read'])
+
+    def test_a_prompt_that_throws_leaves_the_event_delivered_once_and_never_uncertain(self):
+        # Item 4. The prompt whose submit threw held no payload; the payload was
+        # appended once and a second wake prompt starts the turn. No person acts.
+        row=self.run_delivery('wake-prompt-throw')
+        self.assertEqual('appended',row['afterThrow']['wake']['state'])
+        after=row['after']
+        self.assertEqual((1,1,0,2),(after['payloadRows'],after['payloadAppends'],after['payloadPrompts'],after['plainPrompts']))
+        self.assertEqual(([1],1),(after['requests'],after['turns']))
+        self.assertEqual({'state':'appended','phase':'started','read':True,'attempts':1},after['wake'])
+
+    def test_a_prompt_held_past_its_idle_window_makes_nothing_uncertain_and_holds_no_payload(self):
+        # Item 2. The idle window releases a wake prompt, never the event.
+        row=self.run_delivery('wake-prompt-held')
+        self.assertEqual(('appended',1,0),(row['afterWindow']['wake']['state'],row['afterWindow']['payloadAppends'],
+                                           row['afterWindow']['payloadPrompts']))
+        after=row['after']
+        self.assertEqual((1,0,'appended',1),(after['payloadRows'],after['payloadPrompts'],after['wake']['state'],
+                                             after['wake']['attempts']))
+        self.assertEqual(1,sum(after['requests']))
+
+    def test_append_hook_reconciles_store_then_throw_by_pinned_uuid(self):
+        after=self.run_delivery('wake-append-throw:stored')['after']
+        self.assertEqual((1,1,0),(after['payloadRows'],after['payloadAppends'],after['payloadPrompts']))
+        self.assertEqual('appended',after['wake']['state'])
+
+    def test_timer_append_store_then_throw_settles_from_one_exact_api_ref_row(self):
+        # 2.1.323 (owned probe append-views-54579a2e L2): an append raised from a
+        # timer skips this plugin's own session.append hook, but messages({as:
+        # 'api'}) holds its user text. Exactly one row with the exact ref settles
+        # it with a non-uuid receipt; nothing is sent again.
+        row=self.run_delivery('wake-append-throw:timer')
+        after=row['after']
+        self.assertEqual((1,1,0),(after['payloadRows'],after['payloadAppends'],after['payloadPrompts']))
+        self.assertEqual('appended',after['wake']['state'])
+        self.assertRegex(row['receipt'],r'^ref:[0-9a-f]{16}$')
+        self.assertEqual(1,row['appendCalls'])
+        # The same ref in two user rows is an anomaly: it stays uncertain, is
+        # logged as such, and is never resent.
+        row=self.run_delivery('wake-append-throw:timer-twice')
+        self.assertEqual('uncertain',row['after']['wake']['state'])
+        self.assertEqual(1,row['appendCalls'])
+        self.assertTrue(any('anomaly' in line and 'remains uncertain' in line for line in row['logs']))
+        self.assertIsNone(row['receipt'])
+
+    def test_an_append_with_no_known_outcome_stays_uncertain_and_is_never_sent_again(self):
+        # Not solved (design.md): the row id cannot be chosen or looked up, so
+        # neither a resend nor a silent drop is safe. It stays visible.
+        for mode in ('wake-append-throw','wake-append-throw:busy'):
+            with self.subTest(mode=mode):
+                after=self.run_delivery(mode)['after']
+                self.assertEqual((0,0,0),(after['payloadRows'],after['payloadPrompts'],after['plainPrompts']))
+                self.assertEqual({'state':'uncertain','phase':'started','read':False,'attempts':1},after['wake'])
+
+    def test_release_notice_is_issued_at_most_once_across_state_loss(self):
+        # Item 1. The same event's completion is driven a second time after the
+        # notice identity was lost: a fresh process, /clear then a reload, and 200
+        # newer terminal rows. The backend claim on the event's receipt is what
+        # remains. (That the real backend hands the same claim out twice is not
+        # shown; test_side_notice_claim covers the real claim.) A same-process
+        # reload keeps $.state, so that variant held before the claim existed.
+        for variant in ('restart','reload','clear-reload','evict'):
+            with self.subTest(variant=variant):
+                row=self.run_delivery('notice:'+variant)
+                self.assertEqual(1,row['firstIssue']['payloadRows'])
+                after=row['after']
+                # The notice text is stored in main's conversation exactly once.
+                self.assertEqual(1,after['payloadRows'])
+                self.assertEqual(1,sum(after['requests']))
+
+    def test_release_notice_is_claimed_on_the_backend_each_time_and_appended_once(self):
+        # How the fence holds: each instance asks the backend for the claim (2
+        # asks), one is granted, and the one payload row is an append.
+        for variant in ('restart','reload','clear-reload','evict'):
+            with self.subTest(variant=variant):
+                row=self.run_delivery('notice:'+variant)
+                self.assertEqual((1,0),(row['after']['payloadAppends'],row['after']['payloadPrompts']))
+                self.assertEqual(2,row['noticeClaims'])
+
+    def test_release_notice_is_claimed_then_appended_for_an_idle_and_a_busy_main(self):
+        first=self.run_delivery('notice:once')['firstIssue']
+        self.assertEqual((1,1,0,1,'appended'),(first['payloadRows'],first['payloadAppends'],first['payloadPrompts'],
+                                               first['plainPrompts'],first['notice']))
+        self.assertEqual([1],first['requests'])
+        first=self.run_delivery('notice:busy')['firstIssue']
+        # Busy: the next step of the running turn carries the notice, but only
+        # fences it (its build may predate the append); the turn then ends, so
+        # one payload-free wake prompt follows.
+        self.assertEqual((1,1,0,1,'appended'),(first['payloadRows'],first['payloadAppends'],first['payloadPrompts'],
+                                               first['plainPrompts'],first['notice']))
+        self.assertEqual([0,1],first['requests'])
+
+    def test_release_notice_on_an_older_router_keeps_its_module_only_fence(self):
+        # An older router has no notice claim. The notice is still delivered,
+        # fenced by the module and $.state only, so a fresh process issues it
+        # again. This path exists only against an older router build.
+        row=self.run_delivery('notice:old-router')
+        self.assertEqual((1,0),(row['firstIssue']['payloadRows'],row['firstIssue']['payloadPrompts']))
+        self.assertEqual((2,0,None),(row['after']['payloadRows'],row['after']['payloadPrompts'],row['after']['notice']))
 
     def test_p1_uses_reserved_slot_and_is_shared_with_main(self):
         with tempfile.TemporaryDirectory() as raw:

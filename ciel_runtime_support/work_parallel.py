@@ -9,7 +9,6 @@ import copy
 import hashlib
 import hmac
 import json
-import math
 import os
 import threading
 import time
@@ -17,6 +16,9 @@ import uuid
 from pathlib import Path
 from .channel_message_repository import exclusive_file_lock
 from .work_parallel_defaults import DEFAULT_INSTRUCTION
+from .work_parallel_primitives import (  # noqa: F401 - re-exported
+    WorkParallelConflict, WorkParallelError, WorkParallelStateUnavailable,
+    integer, number, require, text, unique_object)
 
 MAX_BYTES = 2097152
 # New lease records stop at this backstop; a stored ledger above it (written
@@ -28,25 +30,6 @@ STORAGE_MAX_LEASES = 100_000
 DEFAULT_DISCOVERY_TEXT = DEFAULT_INSTRUCTION
 STATES = ("reserved", "running", "waiting_input", "submitted", "verifying", "reviewing", "accepted", "cleanup_pending", "done", "unreported", "orphaned")
 ACTIVE_STATES = frozenset(("reserved", "running", "waiting_input", "submitted", "verifying", "reviewing", "accepted", "cleanup_pending"))
-
-class WorkParallelError(ValueError):
-    pass
-
-class WorkParallelConflict(WorkParallelError):
-    pass
-
-def require(ok, message):
-    if not ok:
-        raise WorkParallelError(message)
-
-def integer(v, low=0, high=2**53-1):
-    return type(v) is int and low <= v <= high
-
-def number(v, high=1):
-    return type(v) in (int, float) and math.isfinite(v) and 0 <= v <= high
-
-def text(v, limit=2000):
-    return type(v) is str and 0 < len(v) <= limit and chr(0) not in v
 
 def digest(v):
     return type(v) is str and len(v) == 64 and all(c in "0123456789abcdef" for c in v)
@@ -101,12 +84,43 @@ def migrate_leases(leases):
                         del lease[key]
     return leases
 
-def active_by_priority(leases):
+def active_by_priority(leases, *, excluded_lease_ids=frozenset()):
+    """Active slots by legacy priority, excluding sidecar-pinned P0 leases.
+
+    Exclusion affects only per-priority capacity. Every active lease, including a
+    sidecar-pinned P0 lease, still counts toward the MAX_LEASES storage backstop.
+    """
+    require(type(excluded_lease_ids) in (set, frozenset), "excluded lease ids")
     counts = dict.fromkeys(PRIORITIES, 0)
-    for lease in leases.values():
-        if lease["slot"]:
+    for ident, lease in leases.items():
+        if lease["slot"] and ident not in excluded_lease_ids:
             counts[lease["priority"]] += 1
     return counts
+
+
+def _p0_authorization(ledger_path, candidate, *, scope, item_id, continuation,
+                      predecessor_lease_id=None):
+    """Re-read an exact launch intent while the caller holds the ledger lock."""
+    from .work_parallel_p0 import WorkParallelP0Store
+    require(type(candidate) is dict, "P0 bypass requires an exact launch intent")
+    row = WorkParallelP0Store.beside(ledger_path).exact_intent(candidate, states={"intent"})
+    require(row["lease_id"] is None and row["scope"] == scope
+            and row["item_id"] == item_id and row["continuation"] == continuation
+            and row["predecessor_lease_id"] == predecessor_lease_id,
+            "P0 bypass requires an exact launch intent")
+    if continuation != "reacquire":
+        require(row["dispatch_name"] == "work-p0-" + row["intent_id"],
+                "P0 bypass requires an exact launch intent")
+    return row
+
+
+def _p0_active_lease_ids(ledger_path):
+    """Conservative capacity exclusion; an unavailable sidecar excludes nothing."""
+    from .work_parallel_p0 import WorkParallelP0Store
+    try:
+        return WorkParallelP0Store.beside(ledger_path).active_lease_ids()
+    except WorkParallelStateUnavailable:
+        return set()
 
 def validate_policy(p):
     require(type(p) is dict and set(p) == set(default_policy()), "policy fields")
@@ -176,7 +190,7 @@ def validate(d):
 REWORK_HARD_REFUSALS = ("unknown", "not_reworkable", "rework_limit")
 
 
-def rework_admission(d, ident, *, now):
+def rework_admission(d, ident, *, now, excluded_lease_ids=frozenset()):
     """(code, message) for a submitted result's next resume generation.
 
     ``code`` is "" when admissible. unknown/not_reworkable/rework_limit can never
@@ -193,7 +207,7 @@ def rework_admission(d, ident, *, now):
                                 "result remains pending review")
     if not p["enabled"] or p["paused"]:
         return "paused", "disabled/paused; rework waits for admission"
-    counts = active_by_priority(d["leases"])
+    counts = active_by_priority(d["leases"], excluded_lease_ids=excluded_lease_ids)
     if counts[old["priority"]] >= p["priority_limits"][old["priority"]]:
         return "capacity", (f"active slot capacity reached for {old['priority']} "
                             f"({counts[old['priority']]}/{p['priority_limits'][old['priority']]}); "
@@ -205,17 +219,11 @@ def rework_admission(d, ident, *, now):
     return "", ""
 
 
-def rework_refusal(d, ident, *, now):
+def rework_refusal(d, ident, *, now, excluded_lease_ids=frozenset()):
     """Why a submitted result cannot get a fresh resume generation now, or ''."""
-    return rework_admission(d, ident, now=now)[1]
+    return rework_admission(d, ident, now=now,
+                            excluded_lease_ids=excluded_lease_ids)[1]
 
-
-def unique_object(pairs):
-    d = {}
-    for k, v in pairs:
-        require(k not in d, "duplicate JSON key")
-        d[k] = v
-    return d
 
 class WorkParallelStore:
     """Corruption stays in place and blocks writes. No-op observations preserve
@@ -231,7 +239,8 @@ class WorkParallelStore:
                 raw = f.read(MAX_BYTES + 1)
         except FileNotFoundError:
             return dict(schema=1, version=0, policy=default_policy(), leases={}, launches=[])
-        require(len(raw) <= MAX_BYTES, "byte limit")
+        if len(raw) > MAX_BYTES:
+            raise WorkParallelStateUnavailable("byte limit")
         try:
             d = json.loads(raw.decode("utf-8"), object_pairs_hook=unique_object)
             if type(d) is dict:
@@ -240,7 +249,7 @@ class WorkParallelStore:
             validate(d)
             return d
         except (ValueError, TypeError, KeyError, OverflowError, RecursionError) as e:
-            raise WorkParallelError("corrupt parallel state; writes blocked") from e
+            raise WorkParallelStateUnavailable("corrupt parallel state; writes blocked") from e
 
     def read(self):
         with self._lock, exclusive_file_lock(self.path):
@@ -292,7 +301,7 @@ class WorkParallelStore:
         return self._change(apply, expected_version)
 
     def reserve(self, candidates, *, scope, expected_version, now=None, dispatch_name=None,
-                report_hash=None, owner=None):
+                report_hash=None, owner=None, admission_bypass=None, p0_intent=None):
         """Candidates require exact fields validated below. Caller order is the
         authoritative tree projection (including focus ordering); ineligible rows
         and rows whose priority is full are skipped without re-sorting. Admission
@@ -318,21 +327,36 @@ class WorkParallelStore:
                 "new reviewer reservations are retired; main reviews completed results")
         stamp = time.time() if now is None else now
         require(number(stamp, 1e15), "clock")
+        require(admission_bypass in (None, "p0"), "admission bypass")
+        require((admission_bypass == "p0") == (p0_intent is not None),
+                "P0 bypass requires an exact launch intent")
         def apply(d):
             p = d["policy"]
-            require(p["enabled"] and not p["paused"], "disabled/paused")
-            counts, limits = active_by_priority(d["leases"]), p["priority_limits"]
-            full = sorted({r["priority"] for r in candidates if counts[r["priority"]] >= limits[r["priority"]]})
-            require(len(full) < len({r["priority"] for r in candidates}),
-                    "active slot capacity reached for " + ", ".join(
-                        f"{k} ({counts[k]}/{limits[k]})" for k in full))
+            bypass = None
+            if admission_bypass == "p0":
+                require(len(candidates) == 1, "P0 bypass requires one exact candidate")
+                bypass = _p0_authorization(
+                    self.path, p0_intent, scope=scope, item_id=candidates[0]["item_id"],
+                    continuation="initial", predecessor_lease_id=None)
+                require(dispatch_name == bypass["dispatch_name"],
+                        "P0 bypass dispatch name changed")
+            excluded = _p0_active_lease_ids(self.path)
+            counts, limits = active_by_priority(d["leases"], excluded_lease_ids=excluded), p["priority_limits"]
             history = [t for t in d["launches"] if stamp - t < 60]
-            require(len(history) < p["launches_per_minute"], "launch rate reached")
+            if bypass is None:
+                require(p["enabled"] and not p["paused"], "disabled/paused")
+                full = sorted({r["priority"] for r in candidates
+                               if counts[r["priority"]] >= limits[r["priority"]]})
+                require(len(full) < len({r["priority"] for r in candidates}),
+                        "active slot capacity reached for " + ", ".join(
+                            f"{k} ({counts[k]}/{limits[k]})" for k in full))
+                require(len(history) < p["launches_per_minute"], "launch rate reached")
             open_leases = sum(a["state"] in ACTIVE_STATES for a in d["leases"].values())
-            require(open_leases < MAX_LEASES, "lease bound")
+            require(open_leases < MAX_LEASES,
+                    "lease bound reached (100); P0 waits for a slot" if bypass is not None else "lease bound")
             for r in candidates:
                 # Focus only orders Work; it never blocks another approved item.
-                if not all(r[k] for k in ("approved", "dependencies_done")):
+                if not r["dependencies_done"] or (not r["approved"] and bypass is None):
                     continue
                 if any(a["scope"] == scope and a["item_id"] == r["item_id"]
                        and ((a["role"] in ("worker", "resume") and r["role"] in ("worker", "resume"))
@@ -343,8 +367,8 @@ class WorkParallelStore:
                     continue
                 if r["priority"] == "P1" and r["mode"] != "fork":
                     continue
-                # Each priority runs up to its own number of fork sessions.
-                if counts[r["priority"]] >= limits[r["priority"]]:
+                # Each priority runs to its own cap; exact P0 intent bypasses it.
+                if bypass is None and counts[r["priority"]] >= limits[r["priority"]]:
                     continue
                 ident = uuid.uuid4().hex
                 d["leases"][ident] = dict(id=ident, scope=scope, item_id=r["item_id"], priority=r["priority"],
@@ -352,7 +376,8 @@ class WorkParallelStore:
                     state="reserved", host_id=None, slot=True, usage=r["usage"], artifact=None,
                     rework=0, evidence=None, idle_proof=None, cleanup_proof=None,
                     dispatch_name=dispatch_name, owner=copy.deepcopy(owner), report_hash=report_hash, terminal=None)
-                d["launches"] = history + [stamp]
+                if bypass is None:
+                    d["launches"] = history + [stamp]
                 return ident
             raise WorkParallelError("no eligible candidate")
         return self._change(apply, expected_version)
@@ -545,8 +570,82 @@ class WorkParallelStore:
             return worker
         return self._change(apply, expected_version)
 
+    def reserve_stranded_recovery(self, ident, replacement_ident, *, owner,
+                                  expected_version, now=None, admission_bypass=None,
+                                  p0_intent=None):
+        """Fresh workspace recovery for an unavailable result; not a rework attempt.
+
+        It deliberately keeps the predecessor's rework counter, so recovery is
+        available at max_rework. Frozen lease fields/states are unchanged.
+        """
+        require(text(replacement_ident, 200), "recovery identity")
+        require(owner is None or (fields(owner, "session_pid identity") and integer(owner["session_pid"], 1)
+                and (owner["identity"] is None or type(owner["identity"]) is str)), "owner identity")
+        stamp = time.time() if now is None else now
+        require(number(stamp, 1e15), "clock")
+        require(admission_bypass in (None, "p0") and
+                ((admission_bypass == "p0") == (p0_intent is not None)),
+                "P0 bypass requires an exact launch intent")
+        def apply(d):
+            old = self._lease(d, ident)
+            bypass = (_p0_authorization(
+                self.path, p0_intent, scope=old["scope"], item_id=old["item_id"],
+                continuation="stranded_recovery", predecessor_lease_id=ident)
+                if admission_bypass == "p0" else None)
+            prior = d["leases"].get(replacement_ident)
+            if prior is not None:
+                require(prior["role"] == "resume" and prior["scope"] == old["scope"]
+                        and prior["item_id"] == old["item_id"] and prior["rework"] == old["rework"],
+                        "recovery id collision")
+                return replacement_ident
+            require(old["role"] in ("worker", "resume")
+                    and old["state"] in ("submitted", "unreported") and not old["slot"],
+                    "stranded result is not recoverable")
+            p = d["policy"]
+            excluded = _p0_active_lease_ids(self.path)
+            counts = active_by_priority(d["leases"], excluded_lease_ids=excluded)
+            if bypass is None:
+                require(p["enabled"] and not p["paused"],
+                        "disabled/paused; recovery waits for admission")
+                require(counts[old["priority"]] < p["priority_limits"][old["priority"]],
+                        "active slot capacity reached; recovery waits for admission")
+            require(sum(row["state"] in ACTIVE_STATES for row in d["leases"].values()) < MAX_LEASES,
+                    "lease bound reached (100); P0 waits for a slot" if bypass is not None
+                    else "lease bound reached; recovery waits for admission")
+            d["leases"][replacement_ident] = dict(
+                id=replacement_ident, scope=old["scope"], item_id=old["item_id"],
+                priority=old["priority"], created_at=stamp, role="resume", mode="fork",
+                plan_version=old["plan_version"], state="reserved", host_id=None, slot=True,
+                usage=.05, artifact=None, rework=old["rework"], evidence=None,
+                idle_proof=None, cleanup_proof=None,
+                dispatch_name=bypass["dispatch_name"] if bypass is not None else None,
+                owner=copy.deepcopy(owner), report_hash=None, terminal=None)
+            if bypass is None:
+                d["launches"] = [value for value in d["launches"] if stamp - value < 60] + [stamp]
+            return replacement_ident
+        return self._change(apply, expected_version)
+
+    def retire_stranded(self, ident, replacement_ident, *, proof, expected_version):
+        """Retire submitted stranded rows; terminal unreported rows stay audit rows."""
+        require(text(proof), "stranded retirement proof")
+        def apply(d):
+            old = self._lease(d, ident)
+            replacement = self._lease(d, replacement_ident)
+            require(replacement["scope"] == old["scope"] and replacement["item_id"] == old["item_id"],
+                    "invalid stranded replacement")
+            if old["state"] == "unreported":
+                return old
+            if old["state"] == "done":
+                return old
+            require(old["state"] == "submitted" and old["artifact"] is not None and not old["slot"],
+                    "stranded predecessor state")
+            old.update(state="done", cleanup_proof=proof, evidence=proof, report_hash=None)
+            return old
+        return self._change(apply, expected_version)
+
     def reserve_rework(self, ident, replacement_ident, *, owner,
-                       expected_version, now=None):
+                       expected_version, now=None, admission_bypass=None,
+                       p0_intent=None):
         """Idempotently reserve a fresh resume generation for a submitted result.
 
         The old submitted row is the duplicate fence until coordination supersedes
@@ -558,25 +657,40 @@ class WorkParallelStore:
                 and (owner["identity"] is None or type(owner["identity"]) is str)), "owner identity")
         stamp = time.time() if now is None else now
         require(number(stamp, 1e15), "clock")
+        require(admission_bypass in (None, "p0") and
+                ((admission_bypass == "p0") == (p0_intent is not None)),
+                "P0 bypass requires an exact launch intent")
         def apply(d):
             old = self._lease(d, ident)
+            bypass = (_p0_authorization(
+                self.path, p0_intent, scope=old["scope"], item_id=old["item_id"],
+                continuation="rework", predecessor_lease_id=ident)
+                if admission_bypass == "p0" else None)
             prior = d["leases"].get(replacement_ident)
             if prior is not None:
                 require(prior["role"] == "resume" and prior["scope"] == old["scope"]
                         and prior["item_id"] == old["item_id"] and prior["rework"] == old["rework"] + 1,
                         "replacement id collision")
                 return replacement_ident
-            refusal = rework_refusal(d, ident, now=stamp)
+            code, refusal = rework_admission(
+                d, ident, now=stamp, excluded_lease_ids=_p0_active_lease_ids(self.path))
+            if bypass is not None and code in ("paused", "capacity", "launch_rate"):
+                code, refusal = "", ""
             require(not refusal, refusal)
+            open_leases = sum(row["state"] in ACTIVE_STATES for row in d["leases"].values())
+            require(open_leases < MAX_LEASES,
+                    "lease bound reached (100); P0 waits for a slot" if bypass is not None else "lease bound")
             history = [value for value in d["launches"] if stamp - value < 60]
             d["leases"][replacement_ident] = dict(
                 id=replacement_ident, scope=old["scope"], item_id=old["item_id"],
                 priority=old["priority"], created_at=stamp, role="resume", mode="fork",
                 plan_version=old["plan_version"], state="reserved", host_id=None, slot=True,
                 usage=.05, artifact=None, rework=old["rework"] + 1, evidence=None,
-                idle_proof=None, cleanup_proof=None, dispatch_name=None, owner=copy.deepcopy(owner),
-                report_hash=None, terminal=None)
-            d["launches"] = history + [stamp]
+                idle_proof=None, cleanup_proof=None,
+                dispatch_name=bypass["dispatch_name"] if bypass is not None else None,
+                owner=copy.deepcopy(owner), report_hash=None, terminal=None)
+            if bypass is None:
+                d["launches"] = history + [stamp]
             return replacement_ident
         return self._change(apply, expected_version)
 
@@ -621,6 +735,30 @@ class WorkParallelStore:
                     "replacement is no longer dispatchable")
             row["report_hash"] = report_hash
             return row
+        return self._change(apply, expected_version)
+
+    def set_p0_reserved_capability(self, ident, report_hash, dispatch_name, *,
+                                   p0_intent, expected_version):
+        """Pin one deterministic capability under an exact sidecar intent fence."""
+        require(digest(report_hash) and type(dispatch_name) is str
+                and dispatch_name.startswith("work-p0-") and len(dispatch_name) == 40,
+                "P0 capability identity")
+        def apply(d):
+            row = self._lease(d, ident)
+            intent = WorkParallelP0Store.beside(self.path).exact_intent(
+                p0_intent, states={"reserved"})
+            require(intent["lease_id"] == ident and intent["scope"] == row["scope"]
+                    and intent["item_id"] == row["item_id"]
+                    and intent["dispatch_name"] == dispatch_name,
+                    "P0 capability intent mismatch")
+            require(row["state"] == "reserved" and row["host_id"] is None and row["slot"]
+                    and row.get("dispatch_name") == dispatch_name,
+                    "P0 reservation is no longer dispatchable")
+            require(row.get("report_hash") in (None, report_hash),
+                    "P0 capability is already pinned differently")
+            row["report_hash"] = report_hash
+            return row
+        from .work_parallel_p0 import WorkParallelP0Store
         return self._change(apply, expected_version)
 
     def finalize_accepted(self, ident, *, plan_version, artifact, evidence,
@@ -672,17 +810,55 @@ class WorkParallelStore:
                             cleanup_proof="reviewer workspace retained after read-only review")
         return self._change(apply, expected_version)
 
-    def reacquire(self, ident, *, expected_version):
+    def reacquire(self, ident, *, expected_version, admission_bypass=None,
+                  p0_send=None):
         """Reclaim a slot for the same waiting lease before resuming it."""
+        require(admission_bypass in (None, "p0") and
+                ((admission_bypass == "p0") == (p0_send is not None)),
+                "P0 bypass requires an exact reacquire send")
         def apply(d):
             p = d["policy"]
-            require(p["enabled"] and not p["paused"], "disabled/paused")
             r = self._lease(d, ident)
-            require(r["state"] == "waiting_input" and r["host_id"] is not None and not r["slot"], "not a slot-released wait")
-            counts = active_by_priority(d["leases"])
-            require(counts[r["priority"]] < p["priority_limits"][r["priority"]],
-                    f"active slot capacity reached for {r['priority']}; item remains waiting")
+            require(r["state"] == "waiting_input" and r["host_id"] is not None and not r["slot"],
+                    "not a slot-released wait")
+            if admission_bypass == "p0":
+                from .work_parallel_p0 import WorkParallelP0Store
+                bypass = WorkParallelP0Store.beside(self.path).exact_send(
+                    p0_send, states={"prepared"})
+                require(bypass["lease_id"] == ident and bypass["scope"] == r["scope"]
+                        and bypass["item_id"] == r["item_id"]
+                        and bypass["host_id"] == r["host_id"]
+                        and bypass["native_name"] == (r.get("agent_name") or r.get("dispatch_name"))
+                        and bypass["slot_before_version"] == expected_version,
+                        "P0 reacquire send identity changed")
+            else:
+                bypass = None
+            counts = active_by_priority(
+                d["leases"], excluded_lease_ids=_p0_active_lease_ids(self.path))
+            if bypass is None:
+                require(p["enabled"] and not p["paused"], "disabled/paused")
+                require(counts[r["priority"]] < p["priority_limits"][r["priority"]],
+                        f"active slot capacity reached for {r['priority']}; item remains waiting")
+            require(sum(row["state"] in ACTIVE_STATES for row in d["leases"].values()) < MAX_LEASES,
+                    "lease bound reached (100); P0 waits for a slot" if bypass is not None else "lease bound")
             r.update(slot=True, idle_proof=None)
+        return self._change(apply, expected_version)
+
+    def rollback_p0_reacquire(self, ident, *, p0_send, expected_version):
+        """Undo only the exact P0 slot acquisition represented by one send child."""
+        require(type(p0_send) is dict, "P0 rollback requires exact send")
+        def apply(d):
+            from .work_parallel_p0 import WorkParallelP0Store
+            send = WorkParallelP0Store.beside(self.path).exact_send(
+                p0_send, states={"slot_acquired", "uncertain"})
+            row = self._lease(d, ident)
+            require(send["lease_id"] == ident and send["slot_after_version"] == expected_version
+                    and row["state"] == "waiting_input" and row["slot"] is True
+                    and row["host_id"] == send["host_id"]
+                    and (row.get("agent_name") or row.get("dispatch_name")) == send["native_name"],
+                    "P0 reacquire rollback identity changed")
+            row.update(slot=False, idle_proof="waiting")
+            return row
         return self._change(apply, expected_version)
 
     def transition(self, ident, target, *, plan_version, expected_version, artifact=None, evidence=None, cleanup_proof=None, cleanup_action=None):

@@ -39,7 +39,7 @@ for (const [name,scenario] of Object.entries(scenarios)) {
    const text=v=>({content:[{type:'text',text:v}]})
    if(server==='walkie'&&tool==='walkie_read_messages') return text(JSON.stringify({messages:[root]}))
    if(server==='walkie'&&tool==='walkie_call_tool') return text(scenario.plain?page:scenario.stub)
-   if(tool==='work_side_claim'){const claim=claimed?null:{receipt_id:'e'.repeat(64),generation:'g',text:'event',event_key:name,
+   if(tool==='work_side_claim'){const claim=claimed?null:{receipt_id:'e'.repeat(64),generation:'10000000000000000000000000000002',text:'event',event_key:name,
     lease_until:Date.now()/1000+120,source_read:{server:'walkie',classification:'thread',conversation_id:C,root_id:'40',target_message_id:'45'},
     source_context:'thread',route:{},workload:{version:1,truncated:false,nodes:[],queue_order:[]}};
     claimed=true;return text(JSON.stringify({claim,settings:{max_active:2},handoff_replies:[],main_wakes:[]}))}

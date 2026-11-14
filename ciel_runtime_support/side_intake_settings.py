@@ -11,6 +11,8 @@ FIELDS = {
 # but are never projected to runtime or exposed by active settings UI.
 RETIRED = ('comparison_enabled', 'comparison_model', 'model', 'context_mode', 'context_percent')
 PREFIX = 'work_side_intake_'
+# Inclusive integer ranges; the menu, ctl and REST share this one definition.
+LIMITS = {'max_active': (1, 16), 'aging_seconds': (1, 3600)}
 
 
 def runtime_settings(config):
@@ -35,14 +37,10 @@ def set_value(config, key, value):
             parsed = validate(json.loads(value))
         except (ValueError, TypeError) as error:
             raise ValueError('invalid side reply connectors: ' + str(error)) from None
-    elif name in ('max_active', 'aging_seconds'):
-        upper = {'max_active':16, 'aging_seconds':3600}[name]
-        try:
-            parsed = int(value)
-        except (ValueError, TypeError):
-            raise ValueError(f'{name} must be an integer from 1 to {upper}') from None
-        if not 1 <= parsed <= upper:
-            raise ValueError(f'{name} must be an integer from 1 to {upper}')
+    elif name in LIMITS:
+        from .work_setting_values import integer_in
+        low, high = LIMITS[name]
+        parsed = integer_in(value, low, high, name)
     elif name == 'instruction':
         parsed = value.strip()
         if len(parsed) > 16000 or '\x00' in parsed:

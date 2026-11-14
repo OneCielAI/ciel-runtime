@@ -178,6 +178,7 @@ def inject_pending_channel_messages(
     commit_cursor: bool = True,
     injected_message_ids: list[int] | None = None,
     injected_commit_cursors: list[int] | None = None,
+    side_intake_more_pending: list[bool] | None = None,
     submit_retry_count: int = 1,
     confirm_submit: bool = False,
     bracketed_paste: bool = False,
@@ -216,6 +217,7 @@ def inject_pending_channel_messages(
         pending_uses_router = False
         pending_uses_session_socket = False
         seen_event_keys: set[tuple[str, ...]] = set()
+        side_more_candidates = False
         for message in candidates:
             previous_last_id = last_id
             message_id = _message_id(message)
@@ -498,6 +500,7 @@ def inject_pending_channel_messages(
             if side_intake:
                 # A side command is one atomic intake envelope, never a joined
                 # multi-message prompt that can leak back into the main turn.
+                side_more_candidates = message is not candidates[-1]
                 break
             if len(pending) >= (socket_batch_limit if requested_session_socket else batch_limit):
                 break
@@ -615,6 +618,11 @@ def inject_pending_channel_messages(
                 for message in pending:
                     wake_store.lifecycle.complete(_message_id(message))
                 wake_store.commit_cursor(deferred.clamp(last_id))
+                if side_more_candidates and side_intake_more_pending is not None:
+                    # One envelope per scan stays; this delivered envelope had a
+                    # later row in the bounded window, so the poller scans again
+                    # after its normal interval instead of the safety rescan.
+                    side_intake_more_pending.append(True)
             elif not web_chat_only:
                 if commit_cursor:
                     wake_store.commit_cursor(deferred.clamp(last_id))

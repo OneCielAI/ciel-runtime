@@ -326,7 +326,13 @@ def verify_standard_webhook(
 
 
 def parse_sse_frames(lines: Any) -> Any:
-    """Yield decoded SSE frames as (event_id, data), following data-line joining."""
+    """Yield decoded SSE frames as (event_id, data), following data-line joining.
+
+    Only a frame closed by its blank line is dispatched. A frame still pending
+    when the stream ends (EOF, a dropped connection or the idle interrupt) is
+    discarded, as WHATWG HTML 9.2.6 requires, so a cut frame is never admitted
+    and never becomes the cursor; the source resends it after the reconnect.
+    """
 
     event_id = ""
     data_lines: list[str] = []
@@ -347,8 +353,6 @@ def parse_sse_frames(lines: Any) -> Any:
             data_lines.append(value)
         elif field == "id" and "\x00" not in value:
             event_id = value
-    if data_lines:
-        yield event_id, "\n".join(data_lines)
 
 
 def json_pointer_value(value: Any, pointer: str) -> Any:

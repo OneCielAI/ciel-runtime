@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ciel_runtime_support.channel_message_repository import exclusive_file_lock
-from ciel_runtime_support.work_plan_tree import WorkPlanError, empty_document, normalize_document
+from ciel_runtime_support.work_plan_tree import WorkPlanError, WorkStateUnavailable, empty_document, normalize_document
 
 WORK_PLAN_FILE_NAME = "work-plan.json"
 MAX_WORK_PLAN_BYTES = 32 * 1024 * 1024
@@ -117,18 +117,18 @@ class WorkPlanStore:
                 return empty_document()
             except PermissionError as error:
                 if attempt == 19:
-                    raise WorkPlanError("work plan snapshot could not be read") from error
+                    raise WorkStateUnavailable("work plan snapshot could not be read") from error
                 time.sleep(0.002)
             except OSError as error:
-                raise WorkPlanError("work plan snapshot could not be read") from error
+                raise WorkStateUnavailable("work plan snapshot could not be read") from error
         if payload is None:
-            raise WorkPlanError("work plan snapshot could not be read")
+            raise WorkStateUnavailable("work plan snapshot could not be read")
         if len(payload) > MAX_WORK_PLAN_BYTES:
-            raise WorkPlanError("work plan snapshot exceeds the size limit")
+            raise WorkStateUnavailable("work plan snapshot exceeds the size limit")
         try:
             return normalize_document(json.loads(payload.decode("utf-8")))
         except (UnicodeDecodeError, ValueError, TypeError, KeyError, OverflowError, RecursionError) as error:
-            raise WorkPlanError("invalid Work plan snapshot") from error
+            raise WorkStateUnavailable("invalid Work plan snapshot") from error
 
     def transaction(
         self,
@@ -136,6 +136,7 @@ class WorkPlanStore:
         *,
         expected_version: int | None = None,
         semantic: bool = True,
+        audit_only: bool = False,
         _deferred_notifications: list | None = None,
     ) -> tuple[dict[str, Any], Any]:
         """Apply ``mutate`` to a copy and persist it atomically.
@@ -143,6 +144,10 @@ class WorkPlanStore:
         ``semantic=False`` is reserved for the side-wake ledger. It may change
         only nested ``side_handoffs[*].wake`` values and deliberately preserves
         the Work CAS version and semantic ``updated_at`` timestamp.
+        ``audit_only=True`` is reserved for operator audit receipts. It may change
+        only ``rest_operations`` and preserves the version and timestamp too: an
+        audit receipt is not a plan change, and a version bump would invalidate
+        leases whose approval is pinned to the board version.
         """
 
         if expected_version is not None and type(expected_version) is not int:
@@ -165,6 +170,12 @@ class WorkPlanStore:
                 )
             working = copy.deepcopy(current)
             result = mutate(working)
+            if audit_only and working != current:
+                before_masked, after_masked = copy.deepcopy(current), copy.deepcopy(working)
+                for document in (before_masked, after_masked):
+                    document.pop("rest_operations", None)
+                if before_masked != after_masked:
+                    raise WorkPlanError("audit transaction may change only REST operation receipts")
             if not semantic and working != current:
                 before_masked, after_masked = copy.deepcopy(current), copy.deepcopy(working)
                 for document in (before_masked, after_masked):
@@ -174,7 +185,7 @@ class WorkPlanStore:
                 if before_masked != after_masked:
                     raise WorkPlanError("non-semantic transaction may change only side handoff wake state")
             if working != current:
-                if semantic:
+                if semantic and not audit_only:
                     working["version"] = current["version"] + 1
                     working["updated_at"] = time.time()
                 else:
@@ -216,9 +227,9 @@ class WorkPlanStore:
         except FileNotFoundError:
             return empty_document()
         except OSError as error:
-            raise WorkPlanError("work plan could not be read") from error
+            raise WorkStateUnavailable("work plan could not be read") from error
         if len(payload) > MAX_WORK_PLAN_BYTES:
-            raise WorkPlanError("work plan exceeds the size limit")
+            raise WorkStateUnavailable("work plan exceeds the size limit")
         try:
             return normalize_document(json.loads(payload.decode("utf-8")))
         except (UnicodeDecodeError, ValueError, TypeError, KeyError, OverflowError, RecursionError) as error:
@@ -226,10 +237,10 @@ class WorkPlanStore:
             try:
                 os.replace(self.path, quarantine)
             except OSError as move_error:
-                raise WorkPlanError("invalid Work plan could not be quarantined; writes are blocked") from move_error
+                raise WorkStateUnavailable("invalid Work plan could not be quarantined; writes are blocked") from move_error
             if self._log is not None:
                 self._log("WARN", f"work_plan_quarantined path={quarantine} reason={type(error).__name__}")
-            raise WorkPlanError("invalid Work plan was quarantined; inspect the saved file before rebuilding") from error
+            raise WorkStateUnavailable("invalid Work plan was quarantined; inspect the saved file before rebuilding") from error
 
     def _write_unlocked(self, doc: dict[str, Any]) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)

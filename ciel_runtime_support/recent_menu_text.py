@@ -72,6 +72,7 @@ TEXT = {
     "main_limits": ("Request/file limits", "요청/파일 제한", "リクエスト/ファイル制限", "请求/文件限制"),
     "main_oauth": ("OAuth tokens", "OAuth 토큰", "OAuth トークン", "OAuth 令牌"),
     "main_web": ("Web access", "웹 접근", "Web アクセス", "Web 访问"),
+    "main_session_keys": ("Session API keys", "세션 API 키", "セッション API キー", "会话 API 密钥"),
     "main_recovery": ("Dangerous delete prompt · Stream recovery", "위험한 삭제 확인 · 스트림 복구", "危険な削除の確認・ストリーム復旧", "危险删除确认 · 流恢复"),
     "main_backup": ("Session backup", "세션 백업", "セッションバックアップ", "会话备份"),
     "main_fallback": ("Provider fallback", "프로바이더 대체", "プロバイダー切替", "提供商回退"),

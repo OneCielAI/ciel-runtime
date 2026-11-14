@@ -160,8 +160,9 @@ class WorkWebUiTests(unittest.TestCase):
     def test_parallel_tab_offers_main_review_controls_without_reviewer_forks(self):
         for marker in ("function renderMainReviews(", "Main review (", "Awaiting main review", "'Rework'",
                        "'Finalizing'", "No reviewer fork is started.", "'Approve'", "'Rework…'",
+                       "'Changed before bind'", "changedBeforeBindText(row.changed_before_bind)",
                        "command('parallel-item-review',{lease_id:row.lease_id,decision,evidence,"
-                       "expected_finalization_version:data.review_version??0})",
+                       "expected_finalization_version:data.review_version??0,...pin})",
                        "panel.append(banner,renderMainReviews(data))"):
             self.assertIn(marker, self.html)
         # Approval finalizes the board item: it goes through the confirmation dialog.
@@ -169,6 +170,751 @@ class WorkWebUiTests(unittest.TestCase):
         # Rework always carries the required change as evidence.
         self.assertIn("inlineNote(item,'Required rework',note=>reviewDecision(data,row,'rework',note))", self.html)
         self.assertNotIn("'reviewer'", self.html)
+
+    def test_stranded_review_card_refuses_approve_and_offers_fresh_workspace_rework(self):
+        for marker in ("function strandedText(s){", "' Approve is refused.'", "' Rework starts in a fresh workspace'",
+                       "' and does not count against the rework limit.'",
+                       "reviewField(details,'Stranded',strandedText(row.stranded))",
+                       "row.stranded?'Unavailable'+(ws.branch?' · recorded '+ws.branch",
+                       "if(status==='awaiting_main_review'&&row.stranded){",
+                       "el('span','state-chip refused','Approve refused')",
+                       "action('Rework in a fresh workspace…',()=>inlineNote(item,'Required rework',"
+                       "note=>reviewDecision(data,row,'rework',note)),'danger')",
+                       ".review-card.stranded{border-color:var(--danger)}",
+                       "s.phase==='deciding'?' Recovery is being dispatched.'",
+                       "s.phase==='recovered'?' Recovery was dispatched to a fresh workspace.'"):
+            self.assertIn(marker, self.html)
+        # A stranded card has no Approve control at all; only the normal branch builds one.
+        stranded_branch = self.html.split("if(status==='awaiting_main_review'&&row.stranded){", 1)[1].split("}else if(", 1)[0]
+        self.assertNotIn("action('Approve'", stranded_branch)
+
+    def test_superseded_stranded_rows_render_only_in_an_ended_area_without_controls(self):
+        # checkpoint3: an ended audit row, from parallel_reviews_ended only.
+        for marker in ("function supersededRow(row){", "function renderSupersededReviews(data){",
+                       "Array.isArray(data.parallel_reviews_ended)?data.parallel_reviews_ended:[]",
+                       "'Stranded result superseded by Work lease '+(by?by.slice(0,8):'(unknown)')",
+                       ".filter(row=>!supersededRow(row))", "details.dataset.group='superseded'"):
+            self.assertIn(marker, self.html)
+        ended = self.html.split("function renderSupersededReviews(data){", 1)[1].split(chr(10), 1)[0]
+        for absent in ("action(", "strandedText(", "Rework", "workspace", "artifact", "receipt", "reason"):
+            self.assertNotIn(absent, ended)
+
+    @unittest.skipUnless(os.environ.get("CIEL_TEST_BROWSER"), "opt-in browser verification")
+    def test_superseded_stranded_rows_browser_ended_area(self):
+        from playwright.sync_api import sync_playwright
+        html = self.html
+        empty = {name: [] for name in ("confirmed", "waiting", "reservation", "uncertain", "validating", "ended")}
+        live = {"lease_id": "L1", "item_id": "n240", "item_title": "Retry backoff", "priority": "P1", "state": "pending",
+                "decision": None, "item_path": ["Checkout", "Retry backoff"], "summary": "done", "verification": "ok",
+                "changed_before_bind": False}
+        # A superseded row sent inside parallel_reviews is still never a review card.
+        misplaced = {"lease_id": "L9", "item_id": "n249", "item_title": "Misplaced", "priority": "P2", "state": "superseded",
+                     "stranded": {"kind": "no_report", "phase": "superseded", "approve": "refused",
+                                  "rework": "fresh_workspace", "counts_against_rework_limit": False}}
+        parallel = {"schema_version": 2, "version": 7, "review_version": 6, "policy": {"enabled": True, "paused": False},
+                    "forks": {"schema": "native-fork-evidence/1", "available": True, "confirmed_count": 0, **empty},
+                    "device": {"active_slots": 1, "capacity": 4, "priority_limits": {"P1": 4}},
+                    "parallel_reviews": [live, misplaced],
+                    "parallel_reviews_ended": [
+                        {"lease_id": "S1", "item_id": "n241", "priority": "P1", "item_title": "Webhook signature",
+                         "kind": "no_report", "phase": "superseded", "superseding_lease_id": "beta1234" + "0" * 24,
+                         "superseding_state": "running", "observed_at": 1794529690.5},
+                        {"lease_id": "S2", "item_id": "n242", "priority": "P3", "item_title": "Receipt email",
+                         "kind": "workspace_unavailable", "phase": "superseded", "superseding_lease_id": "c0ffee99" + "1" * 24,
+                         "superseding_state": "absent"}]}
+        board = {"session_id": "claude:fixture", "version": 1, "nodes": [], "phase": "executing"}
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(executable_path=os.environ["CIEL_TEST_BROWSER"], headless=True)
+            for label, viewport in (("mobile", {"width": 390, "height": 1400}),
+                                    ("desktop", {"width": 1440, "height": 1000})):
+                with self.subTest(viewport=label):
+                    page = browser.new_page(viewport=viewport)
+                    def route(request):
+                        url = request.request.url
+                        if url.endswith("/ca/work/ui"):
+                            request.fulfill(content_type="text/html", body=html)
+                        elif "/events" in url:
+                            request.fulfill(content_type="text/event-stream", body=": ready" + chr(10) + chr(10))
+                        elif "/parallel" in url:
+                            request.fulfill(json=parallel)
+                        elif "/board" in url:
+                            request.fulfill(json=board)
+                        else:
+                            request.fulfill(json={})
+                    page.route("http://fixture.test/**", route)
+                    page.goto("http://fixture.test/ca/work/ui")
+                    page.get_by_role("tab", name="Parallel").click()
+                    review = page.locator('[data-group="main-review"]')
+                    review.locator(".review-card").first.wait_for()
+                    self.assertEqual(["L1"], review.locator(".review-card").evaluate_all(
+                        "cards => cards.map(card => card.dataset.review)"))
+                    self.assertIn("Main review (1)", review.inner_text())
+                    ended = page.locator('[data-group="superseded"]')
+                    ended.locator("summary").click()
+                    self.assertIn("Superseded stranded results (2)", ended.inner_text())
+                    texts = ended.locator(".item-body").all_inner_texts()
+                    self.assertEqual(["Stranded result superseded by Work lease beta1234 · superseding lease running"
+                                      " · observed 2026-11-13T00:28:10Z",
+                                      "Stranded result superseded by Work lease c0ffee99 · superseding lease absent"], texts)
+                    self.assertEqual(0, ended.get_by_role("button").count())
+                    self.assertNotIn("fresh workspace", ended.inner_text())
+                    evidence_dir = os.environ.get("CIEL_TEST_EVIDENCE_DIR")
+                    if evidence_dir:
+                        page.screenshot(path=os.path.join(evidence_dir, "superseded-ended-" + label + ".png"),
+                                        full_page=label == "mobile")
+                    overflow = page.evaluate(
+                        "document.documentElement.scrollWidth - document.documentElement.clientWidth")
+                    self.assertLessEqual(overflow, 0)
+                    page.close()
+            browser.close()
+
+    def test_json_setting_is_a_formatted_textarea_validated_before_apply(self):
+        # work_side_intake_reply_connectors (kind json) was shown as [object Object].
+        for marker in ("}else if(setting.kind==='json'){control=input('',JSON.stringify(setting.value??[],null,2),'textarea');",
+                       "function jsonSettingValue(text){", "if(!Array.isArray(value))return{error:'must be a JSON array.",
+                       "command('settings-update',{key:setting.key,value:JSON.stringify(parsed.value),expected_settings_fingerprint:data.settings_fingerprint})",
+                       ".settings-row.json textarea{"):
+            self.assertIn(marker, self.html)
+        # Every Apply is pinned to the fingerprint the tab showed; a stale pin is told once, the tab
+        # is refreshed with the person's edit kept, and nothing is resent (backend contract 2026-11-13).
+        for marker in ("command('settings-update',{key:setting.key,value:String(control.value),expected_settings_fingerprint:data.settings_fingerprint})",
+                       "if(response.status===409&&data.error==='settings_conflict'){if(state.tab==='settings')onSettingsChanged();",
+                       "nothing was applied. Apply again to send it."):
+            self.assertIn(marker, self.html)
+        self.assertEqual(2, self.html.count("expected_settings_fingerprint:data.settings_fingerprint"))
+        # An invalid value posts nothing: the error branch returns before command().
+        branch = self.html.split("const parsed=jsonSettingValue(control.value);", 1)[1].split("command(", 1)[0]
+        self.assertIn("if(parsed.error){toast(", branch)
+        self.assertIn(";return}", branch)
+
+    @unittest.skipUnless(os.environ.get("CIEL_TEST_BROWSER"), "opt-in browser verification")
+    def test_json_setting_browser_round_trip(self):
+        from playwright.sync_api import sync_playwright
+        html = self.html
+        connectors = [{"source": "*", "receiver_id": "walkie-1", "preset": "walkie", "server": "walkie"}]
+        settings = {"applies": "Next side event.", "settings_fingerprint": "fp-1", "settings": [
+            {"key": "work_side_intake_reply_connectors", "label": "External reply route / Walkie preset (JSON)",
+             "value": connectors, "kind": "json", "status": "next_side_event"},
+            {"key": "work_side_intake_max_active", "label": "Max active", "value": 2, "kind": "number"}]}
+        board = {"session_id": "claude:fixture", "version": 1, "nodes": [], "phase": "executing"}
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(executable_path=os.environ["CIEL_TEST_BROWSER"], headless=True)
+            for label, viewport in (("mobile", {"width": 390, "height": 1000}),
+                                    ("desktop", {"width": 1440, "height": 900})):
+                with self.subTest(viewport=label):
+                    posted = []
+                    server = json.loads(json.dumps(settings))
+                    page = browser.new_page(viewport=viewport)
+                    def route(request):
+                        url = request.request.url
+                        if url.endswith("/ca/work/ui"):
+                            request.fulfill(content_type="text/html", body=html)
+                        elif "/events" in url:
+                            request.fulfill(content_type="text/event-stream", body=": ready\n\n")
+                        elif "/commands/settings-update" in url:
+                            body = json.loads(request.request.post_data)
+                            posted.append(body)
+                            if body.get("expected_settings_fingerprint") != server["settings_fingerprint"]:
+                                request.fulfill(status=409, json={"ok": False, "error": "settings_conflict",
+                                                                  "message": "settings changed; reread",
+                                                                  "settings_fingerprint": server["settings_fingerprint"]})
+                                return
+                            for row in server["settings"]:
+                                if row["key"] == body["key"]:
+                                    row["value"] = json.loads(body["value"]) if row["kind"] == "json" else body["value"]
+                            server["settings_fingerprint"] = "fp-applied-" + str(len(posted))
+                            request.fulfill(json={"ok": True, "result": {}})
+                        elif "/settings" in url:
+                            request.fulfill(json=server)
+                        elif "/board" in url:
+                            request.fulfill(json=board)
+                        else:
+                            request.fulfill(json={})
+                    page.route("http://fixture.test/**", route)
+                    page.goto("http://fixture.test/ca/work/ui")
+                    page.get_by_role("tab", name="Settings").click()
+                    box = page.locator("#setting-work_side_intake_reply_connectors")
+                    box.wait_for()
+                    self.assertEqual("textarea", box.evaluate("node => node.tagName.toLowerCase()"))
+                    self.assertEqual(connectors, json.loads(box.input_value()))
+                    self.assertNotIn("[object Object]", page.locator("#panel-settings").inner_text())
+                    self.assertIn('\n  {\n    "source": "*"', box.input_value())
+                    evidence_dir = os.environ.get("CIEL_TEST_EVIDENCE_DIR")
+                    if evidence_dir:
+                        page.screenshot(path=os.path.join(evidence_dir, "settings-json-" + label + ".png"),
+                                        full_page=label == "mobile")
+                    row = page.locator(".settings-row.json")
+                    # Invalid JSON and a non-array are refused before any request.
+                    for bad in ('[{"source": "*",', '{"source": "*"}'):
+                        box.fill(bad)
+                        row.get_by_role("button", name="Apply").click()
+                        page.wait_for_timeout(150)
+                        self.assertEqual([], posted)
+                        self.assertEqual("true", box.get_attribute("aria-invalid"))
+                    if evidence_dir:
+                        page.screenshot(path=os.path.join(evidence_dir, "settings-json-invalid-" + label + ".png"),
+                                        full_page=label == "mobile")
+                    edited = connectors + [{"source": "slack:C1", "receiver_id": "walkie-2", "preset": "walkie",
+                                            "server": "walkie"}]
+                    box.fill(json.dumps(edited, indent=2))
+                    row.get_by_role("button", name="Apply").click()
+                    page.wait_for_timeout(300)
+                    self.assertEqual(1, len(posted), posted)
+                    self.assertEqual("work_side_intake_reply_connectors", posted[0]["key"])
+                    self.assertEqual(edited, json.loads(posted[0]["value"]))
+                    self.assertEqual("fp-1", posted[0]["expected_settings_fingerprint"])
+                    self.assertIsNone(box.get_attribute("aria-invalid"))
+                    # After the applied change the tab refetches: the next Apply carries the new fingerprint.
+                    page.wait_for_timeout(300)
+                    self.assertEqual(edited, json.loads(page.locator("#setting-work_side_intake_reply_connectors").input_value()))
+                    # Someone else changes a setting; this tab has not refetched yet.
+                    server["settings"][1]["value"] = 5
+                    server["settings_fingerprint"] = "fp-external"
+                    again = edited + [{"source": "slack:C2", "receiver_id": "walkie-3", "preset": "walkie", "server": "walkie"}]
+                    box = page.locator("#setting-work_side_intake_reply_connectors")
+                    box.fill(json.dumps(again, indent=2))
+                    page.locator(".settings-row.json").get_by_role("button", name="Apply").click()
+                    page.locator("#toasts .toast", has_text="Settings changed elsewhere").wait_for()
+                    self.assertEqual("fp-applied-1", posted[1]["expected_settings_fingerprint"])
+                    # One toast for it, no generic error toast, nothing resent.
+                    self.assertEqual(0, page.locator("#toasts .toast", has_text="settings changed; reread").count())
+                    page.wait_for_timeout(300)
+                    self.assertEqual(2, len(posted), posted)
+                    self.assertEqual("5", page.locator("#setting-work_side_intake_max_active").input_value())
+                    box = page.locator("#setting-work_side_intake_reply_connectors")
+                    self.assertEqual(again, json.loads(box.input_value()))
+                    self.assertIn("Unsent edit kept after the settings refreshed.", page.locator(".settings-row.json").inner_text())
+                    if evidence_dir:
+                        page.screenshot(path=os.path.join(evidence_dir, "settings-conflict-" + label + ".png"),
+                                        full_page=label == "mobile")
+                    page.locator(".settings-row.json").get_by_role("button", name="Apply").click()
+                    page.wait_for_timeout(400)
+                    self.assertEqual(3, len(posted), posted)
+                    self.assertEqual(("fp-external", again), (posted[2]["expected_settings_fingerprint"], json.loads(posted[2]["value"])))
+                    self.assertNotIn("Unsent edit kept", page.locator(".settings-row.json").inner_text())
+                    overflow = page.evaluate(
+                        "document.documentElement.scrollWidth - document.documentElement.clientWidth")
+                    self.assertLessEqual(overflow, 0)
+                    page.close()
+            browser.close()
+
+    def test_legacy_reviewed_results_offer_one_confirmed_accept_or_a_refusal(self):
+        for marker in ("function renderLegacyReviews(data){", "Array.isArray(data.parallel_legacy_reviews)",
+                       "if(row.reviewers==='multiple')item.append(el('div','warn','multiple legacy reviewer results; "
+                       "resolve in the web dashboard or menu'))",
+                       "command('parallel-legacy-accept',{lease_id:row.lease_id,confirmed:true,expected_version:data.version??0})",
+                       "const legacy=renderLegacyReviews(data);if(legacy)panel.append(legacy);"):
+            self.assertIn(marker, self.html)
+        # The accept command is posted only from the confirm dialog's callback.
+        self.assertIn("action('Accept legacy reviewed result…',()=>confirmDanger(", self.html)
+        # The draining legacy reviewer fork group, labelled by the backend, with state and slot only.
+        for marker in ("function legacyReviewerSection(forks){", "String((forks.group_labels||{}).legacy_reviewer||'Legacy reviewer')",
+                       "'slot '+(rows[index]&&rows[index].slot?'held':'released')",
+                       "const legacyReviewers=legacyReviewerSection(forks);if(legacyReviewers)panel.append(legacyReviewers);"):
+            self.assertIn(marker, self.html)
+
+    @unittest.skipUnless(os.environ.get("CIEL_TEST_BROWSER"), "opt-in browser verification")
+    def test_legacy_reviewed_results_browser_accept(self):
+        from playwright.sync_api import sync_playwright
+        html = self.html
+        empty = {name: [] for name in ("confirmed", "waiting", "reservation", "uncertain", "validating", "ended")}
+        parallel = {"schema_version": 2, "version": 7, "review_version": 6, "policy": {"enabled": True, "paused": False},
+                    "forks": {"schema": "native-fork-evidence/1", "available": True, "confirmed_count": 0, **empty,
+                              "legacy_reviewer": [{"item_id": "n302", "item_title": "Old review", "priority": "P2",
+                                                   "state": "reviewing", "slot": True, "agent_id": None, "agent_name": None}],
+                              "group_labels": {"legacy_reviewer": "Legacy reviewer (57dbfb3, read-only, draining)"}},
+                    "device": {"active_slots": 0, "capacity": 4, "priority_limits": {"P1": 4}},
+                    "parallel_reviews": [],
+                    "parallel_legacy_reviews": [
+                        {"lease_id": "LG1", "item_id": "n300", "priority": "P2", "item_title": "Old export", "reviewers": "one"},
+                        {"lease_id": "LG2", "item_id": "n301", "priority": "P1", "item_title": "Old import",
+                         "reviewers": "multiple"}]}
+        board = {"session_id": "claude:fixture", "version": 1, "nodes": [], "phase": "executing"}
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(executable_path=os.environ["CIEL_TEST_BROWSER"], headless=True)
+            for label, viewport in (("mobile", {"width": 390, "height": 1100}),
+                                    ("desktop", {"width": 1440, "height": 900})):
+                with self.subTest(viewport=label):
+                    posted = []
+                    page = browser.new_page(viewport=viewport)
+                    def route(request):
+                        url = request.request.url
+                        if url.endswith("/ca/work/ui"):
+                            request.fulfill(content_type="text/html", body=html)
+                        elif "/events" in url:
+                            request.fulfill(content_type="text/event-stream", body=": ready" + chr(10) + chr(10))
+                        elif "/commands/parallel-legacy-accept" in url:
+                            posted.append(json.loads(request.request.post_data))
+                            request.fulfill(json={"ok": True, "result": {"lease_id": "LG1", "state": "done"}})
+                        elif "/parallel" in url:
+                            request.fulfill(json=parallel)
+                        elif "/board" in url:
+                            request.fulfill(json=board)
+                        else:
+                            request.fulfill(json={})
+                    page.route("http://fixture.test/**", route)
+                    page.goto("http://fixture.test/ca/work/ui")
+                    page.get_by_role("tab", name="Parallel").click()
+                    section = page.locator('[data-group="legacy-review"]')
+                    section.wait_for()
+                    reviewers = page.locator('section[data-group="legacy_reviewer"]')
+                    self.assertIn("Legacy reviewer (57dbfb3, read-only, draining) (1)", reviewers.inner_text())
+                    self.assertIn("slot held", reviewers.inner_text())
+                    self.assertEqual(0, reviewers.get_by_role("button").count())
+                    self.assertIn("Legacy reviewed results (2)", section.inner_text())
+                    one = section.locator('[data-legacy="LG1"]')
+                    multiple = section.locator('[data-legacy="LG2"]')
+                    self.assertEqual(1, one.get_by_role("button", name="Accept legacy reviewed result…").count())
+                    self.assertEqual(0, multiple.get_by_role("button").count())
+                    self.assertIn("multiple legacy reviewer results; resolve in the web dashboard or menu",
+                                  multiple.inner_text())
+                    evidence_dir = os.environ.get("CIEL_TEST_EVIDENCE_DIR")
+                    if evidence_dir:
+                        page.screenshot(path=os.path.join(evidence_dir, "legacy-accept-" + label + ".png"),
+                                        full_page=label == "mobile")
+                    one.get_by_role("button", name="Accept legacy reviewed result…").click()
+                    self.assertIn("Old export", page.locator("#confirm-dialog").inner_text())
+                    self.assertEqual([], posted)
+                    page.get_by_role("button", name="Confirm").click()
+                    page.wait_for_timeout(300)
+                    self.assertEqual([{"lease_id": "LG1", "confirmed": True, "expected_version": 7}],
+                                     [{k: p[k] for k in ("lease_id", "confirmed", "expected_version")} for p in posted])
+                    overflow = page.evaluate(
+                        "document.documentElement.scrollWidth - document.documentElement.clientWidth")
+                    self.assertLessEqual(overflow, 0)
+                    page.close()
+            browser.close()
+
+    def test_parallel_failure_log_renders_fixed_codes_short_ids_and_times(self):
+        for marker in ("function renderParallelFailures(data){", "if(!Array.isArray(data.parallel_failures))return null;",
+                       "revival_refused:'Message to a Work fork refused", "decision_refused_stop:'Main decision refused",
+                       "fork_attribution_stop:'Late rework fork stopped", "if(data.failures_truncated)",
+                       "const failures=renderParallelFailures(data);if(failures)panel.append(failures);"):
+            self.assertIn(marker, self.html)
+        section = self.html.split("function renderParallelFailures(data){", 1)[1].split(chr(10), 1)[0]
+        self.assertNotIn("action(", section)
+
+    @unittest.skipUnless(os.environ.get("CIEL_TEST_BROWSER"), "opt-in browser verification")
+    def test_parallel_failures_and_stranded_launch_resolve_browser(self):
+        from playwright.sync_api import sync_playwright
+        html = self.html
+        empty = {name: [] for name in ("confirmed", "waiting", "reservation", "uncertain", "validating", "ended")}
+        stranded = {"lease_id": "S1", "item_id": "n250", "item_title": "Broken worktree", "priority": "P1",
+                    "state": "rework_ready", "decision": "rework", "review_journal": "stranded",
+                    "stranded": {"kind": "workspace_unavailable", "phase": "recovered", "approve": "refused",
+                                 "rework": "fresh_workspace", "counts_against_rework_limit": False},
+                    "launch": {"state": "launch_intent", "attempt": 1, "launch_ref": "d" * 32,
+                               "unresolved_seconds": 95, "stuck": True}}
+        normal = {"lease_id": "F1", "item_id": "n251", "item_title": "Retry", "priority": "P2", "state": "rework_ready",
+                  "decision": "rework", "review_journal": "finalization",
+                  "launch": {"state": "launch_intent", "attempt": 1, "launch_ref": "e" * 32,
+                             "unresolved_seconds": 95, "stuck": True}}
+        parallel = {"schema_version": 2, "version": 7, "review_version": 6, "stranded_version": 11,
+                    "policy": {"enabled": True, "paused": False},
+                    "forks": {"schema": "native-fork-evidence/1", "available": True, "confirmed_count": 0, **empty},
+                    "device": {"active_slots": 0, "capacity": 4, "priority_limits": {"P1": 4}},
+                    "parallel_reviews": [stranded, normal],
+                    "parallel_failures": [
+                        {"id": "a" * 16, "code": "revival_refused", "lease_id": "810050df231c4a98a45cb07bcf890852",
+                         "first_at": 1794529000.0, "at": 1794529690.0, "count": 3},
+                        {"id": "b" * 16, "code": "fork_attribution_stop", "lease_id": None,
+                         "first_at": 1794529500.0, "at": 1794529500.0, "count": 1}],
+                    "failures_version": 4, "failures_truncated": True}
+        board = {"session_id": "claude:fixture", "version": 1, "nodes": [], "phase": "executing"}
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(executable_path=os.environ["CIEL_TEST_BROWSER"], headless=True)
+            for label, viewport in (("mobile", {"width": 390, "height": 1600}),
+                                    ("desktop", {"width": 1440, "height": 1100})):
+                with self.subTest(viewport=label):
+                    posted = []
+                    page = browser.new_page(viewport=viewport)
+                    def route(request):
+                        url = request.request.url
+                        if url.endswith("/ca/work/ui"):
+                            request.fulfill(content_type="text/html", body=html)
+                        elif "/events" in url:
+                            request.fulfill(content_type="text/event-stream", body=": ready" + chr(10) + chr(10))
+                        elif "/commands/parallel-launch-resolve" in url:
+                            posted.append(json.loads(request.request.post_data))
+                            request.fulfill(json={"ok": True, "result": {"state": "manual_requested"}})
+                        elif "/parallel" in url:
+                            request.fulfill(json=parallel)
+                        elif "/board" in url:
+                            request.fulfill(json=board)
+                        else:
+                            request.fulfill(json={})
+                    page.route("http://fixture.test/**", route)
+                    page.goto("http://fixture.test/ca/work/ui")
+                    page.get_by_role("tab", name="Parallel").click()
+                    failures = page.locator('[data-group="failures"]')
+                    failures.wait_for()
+                    self.assertIn("Recent parallel failures (2)", failures.inner_text())
+                    first = failures.locator('[data-failure="' + "a" * 16 + '"]')
+                    self.assertIn("Message to a Work fork refused", first.inner_text())
+                    self.assertIn("×3", first.inner_text())
+                    self.assertIn("lease 810050df231c · last 2026-11-13T00:28:10Z · first 2026-11-13T00:16:40Z",
+                                  first.inner_text())
+                    second = failures.locator('[data-failure="' + "b" * 16 + '"]')
+                    self.assertIn("no lease · last 2026-11-13T00:25:00Z", second.inner_text())
+                    self.assertIn("Older failures are not shown.", failures.inner_text())
+                    self.assertEqual(0, failures.get_by_role("button").count())
+                    evidence_dir = os.environ.get("CIEL_TEST_EVIDENCE_DIR")
+                    if evidence_dir:
+                        page.screenshot(path=os.path.join(evidence_dir, "parallel-failures-" + label + ".png"),
+                                        full_page=label == "mobile")
+                    review = page.locator('[data-group="main-review"]')
+                    for lease in ("S1", "F1"):
+                        review.locator('[data-review="' + lease + '"]').get_by_role("button", name="Resolve stuck launch…").click()
+                        page.get_by_role("button", name="Confirm").click()
+                        page.wait_for_timeout(300)
+                    self.assertEqual([("S1", "d" * 32, 11, None), ("F1", "e" * 32, None, 6)],
+                                     [(p["lease_id"], p["launch_ref"], p.get("expected_stranded_version"),
+                                       p.get("expected_finalization_version")) for p in posted])
+                    overflow = page.evaluate(
+                        "document.documentElement.scrollWidth - document.documentElement.clientWidth")
+                    self.assertLessEqual(overflow, 0)
+                    page.close()
+            browser.close()
+
+    def test_legacy_orphan_release_is_a_separately_confirmed_single_lease_request(self):
+        for marker in ("if(row.owner_state==='legacy_no_owner')item.append(put(el('div','actions'),action('Release legacy lease…',",
+                       "command('parallel-orphans-apply',{preview_digest:preview.digest,lease_id:row.lease_id,"
+                       "expected_version:preview.version,legacy_confirmed:true})"):
+            self.assertIn(marker, self.html)
+        # The audit source is derived from auth on the server; the page sends no source header.
+        self.assertNotIn("X-Ciel-Operator-Source", self.html)
+        # The legacy release is posted only from the confirm dialog's callback.
+        legacy = self.html.split("action('Release legacy lease…',", 1)[1].split("list.append(item)", 1)[0]
+        self.assertTrue(legacy.startswith("()=>confirmDanger("), legacy[:80])
+
+    @unittest.skipUnless(os.environ.get("CIEL_TEST_BROWSER"), "opt-in browser verification")
+    def test_legacy_orphan_release_browser(self):
+        from playwright.sync_api import sync_playwright
+        html = self.html
+        empty = {name: [] for name in ("confirmed", "waiting", "reservation", "uncertain", "validating", "ended")}
+        parallel = {"schema_version": 2, "version": 7, "review_version": 6, "policy": {"enabled": True, "paused": False},
+                    "forks": {"schema": "native-fork-evidence/1", "available": True, "confirmed_count": 0, **empty},
+                    "device": {"active_slots": 3, "capacity": 4, "priority_limits": {"P1": 4}}, "parallel_reviews": []}
+        preview = {"version": 7, "digest": "f" * 64, "leases": [
+            {"lease_id": "dead00000001", "scope": "claude:a", "item_id": "n400", "priority": "P1", "state": "running",
+             "owner_state": "dead", "observed_identity": {"pid": 1}},
+            {"lease_id": "legacy000002", "scope": "claude:b", "item_id": "n401", "priority": "P2", "state": "running",
+             "owner_state": "legacy_no_owner", "observed_identity": None},
+            {"lease_id": "live00000003", "scope": "claude:c", "item_id": "n402", "priority": "P1", "state": "running",
+             "owner_state": "live", "observed_identity": {"pid": 2}}]}
+        board = {"session_id": "claude:fixture", "version": 1, "nodes": [], "phase": "executing"}
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(executable_path=os.environ["CIEL_TEST_BROWSER"], headless=True)
+            for label, viewport in (("mobile", {"width": 390, "height": 1400}),
+                                    ("desktop", {"width": 1440, "height": 1000})):
+                with self.subTest(viewport=label):
+                    posted = []
+                    page = browser.new_page(viewport=viewport)
+                    def route(request):
+                        url = request.request.url
+                        if url.endswith("/ca/work/ui"):
+                            request.fulfill(content_type="text/html", body=html)
+                        elif "/events" in url:
+                            request.fulfill(content_type="text/event-stream", body=": ready" + chr(10) + chr(10))
+                        elif "/commands/parallel-orphans-preview" in url:
+                            request.fulfill(json={"ok": True, "result": preview})
+                        elif "/commands/parallel-orphans-apply" in url:
+                            posted.append({"body": json.loads(request.request.post_data)})
+                            request.fulfill(json={"ok": True, "result": {"lease_id": "legacy000002", "state": "orphaned"}})
+                        elif "/parallel" in url:
+                            request.fulfill(json=parallel)
+                        elif "/board" in url:
+                            request.fulfill(json=board)
+                        else:
+                            request.fulfill(json={})
+                    page.route("http://fixture.test/**", route)
+                    page.goto("http://fixture.test/ca/work/ui")
+                    page.get_by_role("tab", name="Parallel").click()
+                    page.get_by_role("button", name="Inspect orphan leases").click()
+                    review = page.locator("#orphan-review")
+                    review.wait_for()
+                    items = review.locator("article.item")
+                    self.assertEqual(3, items.count())
+                    self.assertEqual(["Release lease"], items.nth(0).get_by_role("button").all_inner_texts())
+                    self.assertEqual(["Release legacy lease…"], items.nth(1).get_by_role("button").all_inner_texts())
+                    self.assertEqual(0, items.nth(2).get_by_role("button").count())
+                    items.nth(1).get_by_role("button", name="Release legacy lease…").click()
+                    self.assertIn("no owner record", page.locator("#confirm-dialog").inner_text())
+                    self.assertEqual([], posted)
+                    evidence_dir = os.environ.get("CIEL_TEST_EVIDENCE_DIR")
+                    if evidence_dir:
+                        page.screenshot(path=os.path.join(evidence_dir, "legacy-orphan-confirm-" + label + ".png"),
+                                        full_page=label == "mobile")
+                    page.get_by_role("button", name="Confirm").click()
+                    page.wait_for_timeout(300)
+                    self.assertEqual(1, len(posted), posted)
+                    body = posted[0]["body"]
+                    self.assertEqual(("legacy000002", "f" * 64, 7, True),
+                                     (body["lease_id"], body["preview_digest"], body["expected_version"],
+                                      body.get("legacy_confirmed")))
+                    overflow = page.evaluate(
+                        "document.documentElement.scrollWidth - document.documentElement.clientWidth")
+                    self.assertLessEqual(overflow, 0)
+                    page.close()
+            browser.close()
+
+    def test_settings_and_audit_tabs_refetch_on_their_change_events(self):
+        for marker in ("source.addEventListener('settings.changed',onSettingsChanged);",
+                       "source.addEventListener('audit.changed',onAuditChanged);",
+                       "function onAuditChanged(){if(state.tab==='audit')loadTab('audit')}",
+                       "async function onSettingsChanged(){if(state.tab!=='settings')return;",
+                       "control.dataset.original=String(control.value);",
+                       # The Audit tab names each command (the generic renderer showed "record" for every row).
+                       "if(name==='audit'){renderAudit(panel,data);return}", "function renderAudit(panel,data){",
+                       "el('strong','',String(row.command||'command'))"):
+            self.assertIn(marker, self.html)
+        # Stored audit text is rendered as text only, and only _audit_projection's fields are read.
+        self.assertNotIn("innerHTML", self.html)
+        # renderAudit is a single line of the page script.
+        audit = self.html.split("function renderAudit(panel,data){", 1)[1].split(chr(10), 1)[0]
+        self.assertEqual({"operation_id", "origin", "created_at", "version", "changed", "command", "source", "outcome",
+                          "last_reconcile", "receipt_version", "resolution", "request"}, set(re.findall(r"row\.([a-z_]+)", audit)))
+        # An outcome-unknown operation stays visible and is resolved only through confirmed controls.
+        for marker in ("if(row.outcome==='unknown'){item.classList.add('outcome-unknown');head.append(el('span','state-chip uncertain','Outcome unknown'))}",
+                       "action('Reconcile…',()=>confirmDanger(",
+                       "Nothing is re-run automatically. If the store cannot show it, the outcome stays unknown.",
+                       "command('operation-reconcile',{operation_id:row.operation_id,confirmed:true})",
+                       "if(row.last_reconcile&&row.last_reconcile.result==='not_observable'&&Number.isInteger(row.receipt_version))controls.append(",
+                       "action('Release unverified…',()=>confirmDanger(",
+                       "the effect may already have happened; retrying may duplicate it.",
+                       "command('operation-release',{operation_id:row.operation_id,confirmed:true,expected_receipt_version:row.receipt_version})",
+                       "released_unverified:'released unverified'"):
+            self.assertIn(marker, audit + self.html)
+        # The release button reads only /audit, never tab-local state.
+        self.assertNotIn("auditNotObservable", self.html)
+        # Person-facing 409s are told once and never resent.
+        for marker in ("if(response.status===409&&data.error==='receipt_changed'){if(state.tab==='audit')loadTab('audit');",
+                       "Nothing was resent.",
+                       "if(response.status===409&&data.error==='operator_receipts_full'){",
+                       "toastAction(data.message,'Open Audit tab',()=>showTab('audit'))",
+                       ".catch(error=>{if(!error.handled)toast(error.message,true)})}"):
+            self.assertIn(marker, self.html)
+        self.assertIn("['auth','os_user','pid'].forEach(key=>{if(origin[key]!=null)", audit)
+
+    @unittest.skipUnless(os.environ.get("CIEL_TEST_BROWSER"), "opt-in browser verification")
+    def test_external_changes_refresh_open_settings_and_audit_tabs_browser(self):
+        from playwright.sync_api import sync_playwright
+        html = self.html
+        board = {"session_id": "claude:fixture", "version": 1, "nodes": [], "phase": "executing"}
+        connectors = [{"source": "*", "receiver_id": "walkie-1", "preset": "walkie", "server": "walkie"}]
+        served = {"max": 2, "audit": [{"operation_id": "op-1", "command": "settings_update", "created_at": 1794529000.0,
+                                        "source": "web"}]}
+        def settings():
+            return {"applies": "Next side event.", "settings": [
+                {"key": "work_side_intake_max_active", "label": "Max active", "value": served["max"], "kind": "number"},
+                {"key": "work_side_intake_reply_connectors", "label": "Reply routes", "value": connectors, "kind": "json"}]}
+        # A controllable EventSource: the test fires a server event by name.
+        fake_events = """
+          window.__es = [];
+          window.EventSource = class { constructor(url) { this.url = url; this.listeners = {}; window.__es.push(this);
+            setTimeout(() => this.onopen && this.onopen(), 0) }
+            addEventListener(kind, fn) { (this.listeners[kind] ||= []).push(fn) } close() {} };
+          window.__fire = kind => window.__es.at(-1).listeners[kind]?.forEach(fn => fn({ data: '{}' }));
+        """
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(executable_path=os.environ["CIEL_TEST_BROWSER"], headless=True)
+            for label, viewport in (("mobile", {"width": 390, "height": 1100}),
+                                    ("desktop", {"width": 1440, "height": 900})):
+                with self.subTest(viewport=label):
+                    served["max"] = 2
+                    served["audit"] = served["audit"][:1]
+                    reconciles, releases = [], []
+                    page = browser.new_page(viewport=viewport)
+                    page.add_init_script(fake_events)
+                    def route(request):
+                        url = request.request.url
+                        if url.endswith("/ca/work/ui"):
+                            request.fulfill(content_type="text/html", body=html)
+                        elif "/commands/settings-update" in url:
+                            request.fulfill(status=409, json={"ok": False, "error": "operator_receipts_full",
+                                                              "message": "all 128 operation receipts are operations whose outcome is unknown; resolve outcome-unknown operations first"})
+                        elif "/settings" in url:
+                            request.fulfill(json=settings())
+                        elif "/commands/operation-reconcile" in url:
+                            reconciles.append(json.loads(request.request.post_data))
+                            served["audit"][2]["last_reconcile"] = {"result": "not_observable", "at": 1794529900.0}
+                            served["audit"][2]["receipt_version"] = 2
+                            request.fulfill(json={"ok": True, "result": {"operation_id": "op-4", "command": "parallel_item_review",
+                                                                         "outcome": "unknown", "observed": "no_stored_proof",
+                                                                         "receipt_version": 2}})
+                        elif "/commands/operation-release" in url:
+                            releases.append(json.loads(request.request.post_data))
+                            if len(releases) == 1:
+                                # Someone else touched the receipt first: version pin refused.
+                                served["audit"][2]["receipt_version"] = 3
+                                request.fulfill(status=409, json={"ok": False, "error": "receipt_changed",
+                                                                  "message": "receipt changed; reread"})
+                            else:
+                                served["audit"][2].update(outcome="released_unverified", last_reconcile=None, receipt_version=4,
+                                                          resolution={"command": "operation-release", "source": "web",
+                                                                      "at": 1794530000.0},
+                                                          request={"lease_id": "L4", "decision": "rework", "evidence_count": 1})
+                                request.fulfill(json={"ok": True, "result": {"operation_id": "op-4", "command": "parallel_item_review",
+                                                                             "outcome": "released_unverified", "receipt_version": 4}})
+                        elif "/audit" in url:
+                            request.fulfill(json={"ok": True, "schema_version": 1, "version": 3, "events": list(reversed(served["audit"]))})
+                        elif "/board" in url:
+                            request.fulfill(json=board)
+                        else:
+                            request.fulfill(json={})
+                    page.route("http://fixture.test/**", route)
+                    page.goto("http://fixture.test/ca/work/ui")
+                    page.get_by_role("tab", name="Settings").click()
+                    box = page.locator("#setting-work_side_intake_reply_connectors")
+                    box.wait_for()
+                    self.assertEqual("2", page.locator("#setting-work_side_intake_max_active").input_value())
+                    draft = json.dumps(connectors + [{"source": "slack:C9", "receiver_id": "walkie-9", "preset": "walkie",
+                                                      "server": "walkie"}], indent=2)
+                    box.fill(draft)
+                    # Another operator (REST or ctl) changes a setting; the server emits settings.changed.
+                    served["max"] = 5
+                    page.evaluate("window.__fire('settings.changed')")
+                    # The page CSP has no 'unsafe-eval', so poll from Python instead of wait_for_function.
+                    for _ in range(50):
+                        if page.locator("#setting-work_side_intake_max_active").input_value() == "5":
+                            break
+                        page.wait_for_timeout(100)
+                    self.assertEqual("5", page.locator("#setting-work_side_intake_max_active").input_value())
+                    self.assertEqual(draft, page.locator("#setting-work_side_intake_reply_connectors").input_value())
+                    self.assertIn("Unsent edit kept after the settings refreshed.", page.locator("#panel-settings").inner_text())
+                    evidence_dir = os.environ.get("CIEL_TEST_EVIDENCE_DIR")
+                    if evidence_dir:
+                        page.screenshot(path=os.path.join(evidence_dir, "settings-live-refresh-" + label + ".png"),
+                                        full_page=label == "mobile")
+                    page.locator(".settings-row").first.get_by_role("button", name="Apply").click()
+                    full = page.locator("#toasts .toast", has_text="resolve outcome-unknown operations first")
+                    full.wait_for()
+                    # R3 ruling bffac131: web displays the server text verbatim,
+                    # while retaining the Open Audit action.
+                    self.assertIn("all 128 operation receipts are operations whose outcome is unknown; resolve outcome-unknown operations first",
+                                  full.inner_text())
+                    # One toast for it, not a second generic one.
+                    self.assertEqual(0, page.locator("#toasts .toast", has_text="receipt store at its cap").count())
+                    if evidence_dir:
+                        page.screenshot(path=os.path.join(evidence_dir, "receipts-full-toast-" + label + ".png"),
+                                        full_page=label == "mobile")
+                    full.get_by_role("button", name="Open Audit tab").click()
+                    self.assertEqual("true", page.locator("#tab-audit").get_attribute("aria-selected"))
+                    page.locator("#panel-audit").get_by_text("settings_update").first.wait_for()
+                    self.assertNotIn("parallel_configure", page.locator("#panel-audit").inner_text())
+                    served["audit"].append({"operation_id": "op-2", "command": "parallel_configure",
+                                            "created_at": 1794529100.0, "source": "rest"})
+                    served["audit"].append({"operation_id": "op-4", "command": "parallel_item_review", "outcome": "unknown",
+                                            "created_at": 1794529300.0, "source": "web", "last_reconcile": None,
+                                            "receipt_version": 1})
+                    served["audit"].append({"operation_id": "op-3", "command": '<img src=x onerror="window.__xss=1">',
+                                            "created_at": 1794529200.0, "source": "ctl",
+                                            "origin": {"auth": "token", "pid": 4242}})
+                    page.evaluate("window.__fire('audit.changed')")
+                    page.locator("#panel-audit").get_by_text("parallel_configure").first.wait_for()
+                    rows = page.locator("#panel-audit .audit-row")
+                    self.assertEqual(["op-3", "op-4", "op-2", "op-1"], rows.evaluate_all("rows => rows.map(row => row.dataset.operation)"))
+                    unknown = page.locator('#panel-audit [data-operation="op-4"]')
+                    self.assertIn("Outcome unknown", unknown.inner_text())
+                    # Before any reconcile, only Reconcile is offered.
+                    self.assertEqual(["Reconcile…"], unknown.get_by_role("button").all_inner_texts())
+                    self.assertEqual(0, page.locator('#panel-audit [data-operation="op-2"]').get_by_role("button").count())
+                    unknown.get_by_role("button", name="Reconcile…").click()
+                    dialog = page.locator("#confirm-dialog").inner_text()
+                    self.assertIn("checks the actual store", dialog)
+                    self.assertIn("Nothing is re-run automatically", dialog)
+                    self.assertEqual([], reconciles)
+                    if evidence_dir:
+                        page.screenshot(path=os.path.join(evidence_dir, "audit-reconcile-confirm-" + label + ".png"),
+                                        full_page=label == "mobile")
+                    page.get_by_role("button", name="Confirm").click()
+                    page.wait_for_timeout(300)
+                    self.assertEqual([("op-4", True)], [(r["operation_id"], r["confirmed"]) for r in reconciles])
+                    # The store could not show it: /audit now records last_reconcile.result not_observable.
+                    unknown = page.locator('#panel-audit [data-operation="op-4"]')
+                    self.assertEqual(["Reconcile…", "Release unverified…"], unknown.get_by_role("button").all_inner_texts())
+                    # The button comes from /audit, not from this tab: it survives a full reload.
+                    page.reload()
+                    page.get_by_role("tab", name="Audit").click()
+                    unknown = page.locator('#panel-audit [data-operation="op-4"]')
+                    unknown.wait_for()
+                    self.assertEqual(["Reconcile…", "Release unverified…"], unknown.get_by_role("button").all_inner_texts())
+                    self.assertIn("last reconcile not observable at 2026-11-13T00:31:40Z", unknown.inner_text())
+                    unknown.get_by_role("button", name="Release unverified…").click()
+                    self.assertIn("the effect may already have happened; retrying may duplicate it",
+                                  page.locator("#confirm-dialog").inner_text())
+                    self.assertEqual([], releases)
+                    if evidence_dir:
+                        page.screenshot(path=os.path.join(evidence_dir, "audit-release-confirm-" + label + ".png"),
+                                        full_page=label == "mobile")
+                    page.get_by_role("button", name="Confirm").click()
+                    page.wait_for_timeout(300)
+                    # 409 receipt_changed: told once, the tab re-read, nothing resent.
+                    self.assertIn("This operation changed since the Audit tab showed it", page.locator("#toasts").inner_text())
+                    self.assertEqual(1, len(releases))
+                    unknown = page.locator('#panel-audit [data-operation="op-4"]')
+                    self.assertEqual(["Reconcile…", "Release unverified…"], unknown.get_by_role("button").all_inner_texts())
+                    unknown.get_by_role("button", name="Release unverified…").click()
+                    page.get_by_role("button", name="Confirm").click()
+                    page.wait_for_timeout(300)
+                    # Each attempt is pinned to the receipt version the row showed at that time.
+                    self.assertEqual([("op-4", True, 2), ("op-4", True, 3)],
+                                     [(r["operation_id"], r["confirmed"], r["expected_receipt_version"]) for r in releases])
+                    released = page.locator('#panel-audit [data-operation="op-4"]')
+                    self.assertIn("released unverified", released.inner_text())
+                    self.assertNotIn("Outcome unknown", released.inner_text())
+                    self.assertIn("resolved by web via operation-release at 2026-11-13T00:33:20Z", released.inner_text())
+                    self.assertIn("request lease_id=L4, decision=rework, evidence_count=1", released.inner_text())
+                    self.assertEqual(0, released.get_by_role("button").count())
+                    # A stored command holding markup renders as text and runs nothing.
+                    self.assertEqual(0, page.locator("#panel-audit img").count())
+                    self.assertIsNone(page.evaluate("window.__xss ?? null"))
+                    self.assertIn('<img src=x onerror="window.__xss=1">', rows.nth(0).inner_text())
+                    self.assertIn("auth token · pid 4242", rows.nth(0).inner_text())
+                    # op-4 (outcome unknown) sits between op-3 and op-2 by time, so address op-2 by id.
+                    rest_row = page.locator('#panel-audit [data-operation="op-2"]')
+                    self.assertIn("rest", rest_row.inner_text())
+                    self.assertIn("2026-11-13T00:18:20Z", rest_row.inner_text())
+                    if evidence_dir:
+                        page.screenshot(path=os.path.join(evidence_dir, "audit-live-refresh-" + label + ".png"),
+                                        full_page=label == "mobile")
+                    overflow = page.evaluate(
+                        "document.documentElement.scrollWidth - document.documentElement.clientWidth")
+                    self.assertLessEqual(overflow, 0)
+                    page.close()
+            browser.close()
+
+    def test_unknown_operation_outcome_rereads_before_any_retry(self):
+        # Backend 409 operation_outcome_unknown: re-read, tell the person, never resend the same key.
+        self.assertIn("if(response.status===409&&data.error==='operation_outcome_unknown'){await loadSnapshot();"
+                      "if(state.tab&&state.tab!=='node')loadTab(state.tab);", self.html)
+        self.assertNotIn("replayed", self.html)
+        # Every command call mints its own key; nothing reuses one.
+        self.assertIn("function command(name,body={}){const key=idempotencyKey();", self.html)
+
+    def test_review_decision_sends_the_pin_of_the_rendered_row(self):
+        # R1 (backend 170c6e63): the decision carries the review_pin of the row
+        # the person saw, in the router's exact format only; none when absent.
+        self.assertIn("const pin=typeof row.review_pin==='string'&&/^rp1:[0-9a-f]{64}$/.test(row.review_pin)"
+                      "?{expected_review_pin:row.review_pin}:{};", self.html)
+
+    def test_parallel_banner_shows_the_reported_fork_gate_state(self):
+        # G5 (backend 9a852b08): display only. The server's message is printed as
+        # is; a not_loaded state is a warning, loaded a quiet line.
+        for marker in ("function forkGateLine(gate){",
+                       "if(state==='loaded')return el('div','meta','Work fork gate '+String(gate.gate_version||'')+' loaded'",
+                       "el('span',state==='not_loaded'?'warn fork-gate-off':'meta',String(gate.message||'Work fork gate presence unknown'))",
+                       "const gate=forkGateLine(data.fork_gate);if(gate)banner.append(gate);"):
+            self.assertIn(marker, self.html)
+
+    def test_owner_offline_rework_is_shown_as_waiting_not_as_an_error(self):
+        # Backend owner_offline: the rework is queued until the conversation resumes.
+        for marker in ("function ownerOffline(row){return!!(row.blocked&&row.blocked.code==='owner_offline')}",
+                       "return'Rework (waiting for the conversation to resume)'",
+                       "if(ownerOffline(row))reviewField(details,'Waiting','Rework queued: waiting for the conversation"
+                       " to resume. It starts by itself when that conversation runs again; nothing failed.');"
+                       "else reviewField(details,'Blocked',"):
+            self.assertIn(marker, self.html)
 
     def test_review_states_include_waiting_for_slot_and_blocked_code(self):
         for marker in ("awaiting_capacity:'Rework (waiting for slot)'", "if(value==='awaiting_capacity')return'awaiting_capacity'",
@@ -178,8 +924,10 @@ class WorkWebUiTests(unittest.TestCase):
     def test_stuck_rework_launch_is_labelled_and_resolution_is_a_confirmed_request(self):
         for marker in ("return'Rework launch stuck'", "return'Waiting for host check'",
                        "return'Rework (agent present)'", "return'Rework launching'",
-                       "command('parallel-launch-resolve',{lease_id:row.lease_id,launch_ref:row.launch.launch_ref,"
-                       "confirmed:true,expected_finalization_version:data.review_version??0})",
+                       "command('parallel-launch-resolve',row.review_journal==='stranded'?{lease_id:row.lease_id,"
+                       "launch_ref:row.launch.launch_ref,confirmed:true,expected_stranded_version:data.stranded_version??0}"
+                       ":{lease_id:row.lease_id,launch_ref:row.launch.launch_ref,confirmed:true,"
+                       "expected_finalization_version:data.review_version??0})",
                        "row.launch.stuck&&row.launch.launch_ref&&",
                        "action('Resolve stuck launch…',()=>resolveLaunch(data,row),'danger')"):
             self.assertIn(marker, self.html)
@@ -424,11 +1172,12 @@ class WorkWebUiTests(unittest.TestCase):
         parallel = {"schema_version": 2, "version": 7, "review_version": 4, "policy": {"enabled": True, "paused": False},
                     "forks": {"schema": "native-fork-evidence/1", "available": True, "confirmed_count": 0, **empty},
                     "device": {"active_slots": 0, "capacity": 2, "priority_limits": {"P1": 2}},
-                    "parallel_reviews": [row("L1", "n229", "Add retry backoff", "pending"),
+                    "parallel_reviews": [row("L1", "n229", "Add retry backoff", "pending", changed_before_bind=False,
+                                             review_pin="rp1:" + "ab" * 32),
                                          row("L2", "n230", "Payment webhook", "rework_ready", "rework",
-                                             evidence="missing idempotency test"),
+                                             evidence="missing idempotency test", changed_before_bind="unknown"),
                                          row("L3", "n231", "Receipt email", "deciding", "approve",
-                                             evidence="verified")]}
+                                             evidence="verified", changed_before_bind=True)]}
         board = {"session_id": "claude:fixture", "version": 1, "nodes": [], "phase": "executing"}
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(executable_path=os.environ["CIEL_TEST_BROWSER"], headless=True)
@@ -464,6 +1213,10 @@ class WorkWebUiTests(unittest.TestCase):
                     self.assertEqual(["Awaiting main review", "Rework", "Finalizing"], labels)
                     self.assertEqual(0, section.locator(".review-card b").count())
                     self.assertIn("<b>safely</b>", section.locator(".review-card").first.inner_text())
+                    cards = section.locator(".review-card")
+                    self.assertIn("matched the recorded handoff baseline", cards.nth(0).inner_text())
+                    self.assertIn("interrupted-attempt changes cannot be excluded", cards.nth(1).inner_text())
+                    self.assertIn("retained content changed", cards.nth(2).inner_text())
                     # Only the undecided result offers decisions.
                     self.assertEqual(1, section.get_by_role("button", name="Approve").count())
                     self.assertEqual(1, section.get_by_role("button", name="Rework…").count())
@@ -478,9 +1231,10 @@ class WorkWebUiTests(unittest.TestCase):
                     section.get_by_role("button", name="Approve").click()
                     page.get_by_role("button", name="Confirm").click()
                     page.wait_for_timeout(300)
-                    self.assertEqual([("rework", "Add the jitter unit test", 4), ("approve", "", 4)],
-                                     [(p["decision"], p["evidence"], p["expected_finalization_version"])
-                                      for p in posted])
+                    pin = "rp1:" + "ab" * 32
+                    self.assertEqual([("rework", "Add the jitter unit test", 4, pin), ("approve", "", 4, pin)],
+                                     [(p["decision"], p["evidence"], p["expected_finalization_version"],
+                                       p.get("expected_review_pin")) for p in posted])
                     self.assertTrue(all(p["lease_id"] == "L1" and p["operation_id"] for p in posted))
                     overflow = page.evaluate(
                         "document.documentElement.scrollWidth - document.documentElement.clientWidth")

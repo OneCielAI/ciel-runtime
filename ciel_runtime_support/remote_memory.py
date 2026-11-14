@@ -634,6 +634,9 @@ class RemoteMemorySynchronizer:
     state_dir: Path
     log: Callable[[str, str], None]
     urlopen: Callable[..., Any] = urllib.request.urlopen
+    # startup_session_key.StartupSessionKeyHolder: during a launch, one
+    # dedicated manifest object may carry this session's provider key.
+    session_keys: Any | None = None
 
     def sync(self, runtime: str, *, reason: str = "launch") -> RemoteMemoryResult:
         started = time.monotonic()
@@ -706,7 +709,10 @@ class RemoteMemorySynchronizer:
             remote.get("max_files"), DEFAULT_MAX_FILES, 1, 2_048
         )
 
+        launch_keys = self.session_keys if reason == "launch" else None
+        binding = launch_keys.launch_binding() if launch_keys is not None else ""
         try:
+            final: list[str] = []
             manifest_raw = self._download(
                 manifest_url,
                 timeout=timeout,
@@ -714,9 +720,26 @@ class RemoteMemorySynchronizer:
                 authorization=authorization,
                 authorization_origin=_origin(manifest_url),
                 accept="application/json",
+                launch_binding=binding,
+                final=final,
             )
+            payload = json.loads(manifest_raw.decode("utf-8"))
+            manifest_raw = b""
+            # The key object never reaches the manifest parser, the tree or
+            # the state; it is honoured only during a launch.
+            from .startup_session_key import MANIFEST_FIELD
+
+            key_object = payload.pop(MANIFEST_FIELD, None) if isinstance(payload, dict) else None
+            if key_object is not None and binding and launch_keys is not None:
+                launch_keys.accept_manifest_field(
+                    key_object,
+                    configured_url=manifest_url,
+                    final_url=final[0] if final else manifest_url,
+                    authorized=bool(authorization.strip()),
+                )
+            key_object = None
             manifest = parse_manifest(
-                json.loads(manifest_raw.decode("utf-8")),
+                payload,
                 manifest_url=manifest_url,
                 max_files=max_files,
             )
@@ -857,14 +880,22 @@ class RemoteMemorySynchronizer:
         authorization: str,
         authorization_origin: tuple[str, str, int | None],
         accept: str,
+        launch_binding: str = "",
+        final: list[str] | None = None,
     ) -> bytes:
         headers = {"Accept": accept}
         if authorization.strip() and _origin(url) == authorization_origin:
             headers["Authorization"] = authorization.strip()
+        if launch_binding:
+            from .startup_session_key import LAUNCH_BINDING_HEADER
+
+            headers[LAUNCH_BINDING_HEADER] = launch_binding
         request = urllib.request.Request(url, headers=headers, method="GET")
         with self.urlopen(request, timeout=timeout) as response:
             final_url = str(response.geturl() or url)
             _http_url(final_url, base="", field="download redirect")
+            if final is not None:
+                final.append(final_url)
             raw = response.read(maximum + 1)
         if len(raw) > maximum:
             raise ValueError(f"download exceeds {maximum} bytes: {url}")

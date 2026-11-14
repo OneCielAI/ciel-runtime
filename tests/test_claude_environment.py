@@ -1,3 +1,4 @@
+import os
 import unittest
 from types import SimpleNamespace
 
@@ -143,6 +144,8 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
                 "CIEL_RUNTIME_PROVIDER": "anthropic",
                 "ANTHROPIC_API_KEY": "secret",
                 "CLAUDE_CHROME_CLASSIFIER_FLOOR": "0",
+                # docs/journal/2026/11/13/features/claude-bg-shell-reap-env/requirement.md
+                "CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP": "1",
                 "CLAUDE_CODE_SEND_FEEDBACK": "0",
             },
             projection.build({"provider": "anthropic"}),
@@ -159,6 +162,8 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
         self.assertEqual("1", env["CLAUDE_CODE_GATEWAY_HINT_HEADERS"])
         self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
         self.assertEqual("1", env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"])
+        # Shared R2 B2 value: the launcher process that built this env.
+        self.assertEqual(str(os.getpid()), env["CIEL_RUNTIME_WORK_LAUNCHER_PID"])
 
     def test_feedback_drafts_default_off_and_explicit_on_on_every_path(self):
         route = SimpleNamespace(direct=True, endpoint="http://gateway", api_key="fixture-key")
@@ -261,6 +266,23 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
                 env["CLAUDE_CHROME_CLASSIFIER_FLOOR"],
                 f"native={native}",
             )
+
+    def test_bg_shell_pressure_reap_is_disabled_for_every_claude_launch(self):
+        # docs/journal/2026/11/13/features/claude-bg-shell-reap-env/requirement.md:
+        # Claude Code reads this only from its start-up environment, so every
+        # projection carries it and the shell renderer exports it.
+        route = SimpleNamespace(direct=True, endpoint="http://gateway", api_key="fixture-key")
+        for name, native, provider, data_path in (
+            ("native", True, "anthropic", None),
+            ("routed test", False, "test", None),
+            ("routed cielairouter", False, "cielairouter", None),
+            ("direct cielairouter", False, "cielairouter", route),
+        ):
+            with self.subTest(name):
+                env = self._projection(native=native, key="").build({"provider": provider}, data_path=data_path)
+                self.assertEqual("1", env["CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP"])
+                self.assertIn('export CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP="1"',
+                              ClaudeEnvironmentShellRenderer.lines(env))
 
     def test_non_anthropic_ignores_old_subagent_override_and_forces_parent(self):
         for provider in ("test", "cielairouter", "ollama-cloud", "deepseek", "opencode", "meta"):

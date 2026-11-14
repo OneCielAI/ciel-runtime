@@ -395,6 +395,26 @@ class StartupPromptResponder:
             return True
         return bool(self._answered_at) and now - max(self._answered_at, self._output_at) >= QUIET_AFTER_ANSWER_SECONDS
 
+    def main_output_released(self) -> bool:
+        """Main's own model output after this launch, with no startup dialog in the way.
+
+        Latched per launch. With a known screen it is sampled only while no
+        prompt trigger is visible and no answer, Enter or paused goal is in
+        flight, so a visible dialog still holds; a screen without a ready
+        marker then no longer holds the RPC startup gate for good. With an
+        unknown screen it is the same latch input_ready() uses. No timeout or
+        silence sets it: only a True main-output observation does.
+        """
+
+        if self._main_output_seen:
+            return True
+        if self._screen is not None:
+            compact = re.sub(r"\s+", "", self._screen).lower()
+            if (any(prompt.trigger in compact for prompt in self.prompts)
+                    or self._pending or self._enter_at or self._goal_unresolved):
+                return False
+        return self._main_output_after_launch(self.clock())
+
     def _main_output_after_launch(self, now: float) -> bool:
         """Latched per launch; sampled at most once a second until seen."""
 
@@ -411,7 +431,11 @@ class StartupPromptResponder:
             return False
         if seen:
             self._main_output_seen = True
-            self.log("INFO", "startup_prompt_input_released reason=main_output_after_launch rendered_screen=unavailable")
+            self.log(
+                "INFO",
+                "startup_prompt_input_released reason=main_output_after_launch "
+                f"rendered_screen={'unavailable' if self._screen is None else 'known'}",
+            )
         return seen
 
 

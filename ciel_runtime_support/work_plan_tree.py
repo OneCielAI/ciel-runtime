@@ -57,6 +57,14 @@ class WorkPlanCapacityError(WorkPlanError):
     """No unfinished-node slot is available; existing records are preserved."""
 
 
+class WorkStateUnavailable(WorkPlanError):
+    """Stored Work state could not be read or is invalid; nothing was changed.
+
+    Callers that catch ``WorkPlanError`` keep their behavior. Operator surfaces
+    classify by this type: 503 with a fixed message, never the stored detail.
+    """
+
+
 def empty_document() -> dict[str, Any]:
     return {
         "schema": SCHEMA,

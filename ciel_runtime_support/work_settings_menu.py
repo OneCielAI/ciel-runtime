@@ -1,33 +1,85 @@
 """Independent first-screen Work and side-intake selection panels."""
-from .work_live_settings import settings
+from .work_live_settings import UNREADABLE, settings
+from .work_parallel_menu import RANGES as _PARALLEL_RANGES
+from .side_intake_settings import LIMITS as _SIDE_LIMITS, PREFIX as _SIDE_PREFIX
 from .recent_menu_text import menu_text
 
 
 BOOLEANS = {'work_mode', 'work_plan_approval_ask', 'work_auto_continue',
             'work_completed_auto_delete', 'work_parallel_enabled', 'work_parallel_paused',
             'work_discovery_enabled', 'work_discovery_test_default_override', 'work_side_intake_enabled'}
-NUMBERS = {
-    'work_parallel_p1_limit': (1, 2, 3, 4, 5, 8, 10, 16),
-    'work_parallel_p2_limit': (1, 2, 3, 4, 5, 8, 10, 16),
-    'work_parallel_p3_limit': (1, 2, 3, 4, 5, 8, 10, 16),
-    'work_parallel_p4_limit': (1, 2, 3, 4, 5, 8, 10, 16),
-    'work_parallel_p5_limit': (1, 2, 3, 4, 5, 8, 10, 16),
+# Numeric settings accept any integer in the shared validator range through
+# Other (Edit). A fixed list alone made valid values such as P1=6 and
+# aging_seconds=17 unreachable from the menu while ctl/REST accepted them.
+# The bounds come from the write authorities (work_parallel_menu.RANGES,
+# side_intake_settings.LIMITS) and only phrase the hint here.
+NUMBER_RANGES = {**_PARALLEL_RANGES, **{_SIDE_PREFIX + name: bounds for name, bounds in _SIDE_LIMITS.items()}}
+NUMBER_PRESETS = {
+    **{f'work_parallel_p{n}_limit': (1, 2, 3, 4, 5, 8, 10, 16) for n in range(1, 6)},
     'work_parallel_launches_per_minute': (1, 2, 4, 8, 16, 30, 60),
     'work_parallel_max_rework': (0, 1, 2, 3, 5, 10),
     'work_side_intake_max_active': (1, 2, 3, 4, 5, 8, 16),
     'work_side_intake_aging_seconds': (10, 30, 60, 120, 300, 600),
+}
+RANGE_HINT = {
+    'en': 'Other: any integer from {low} to {high}.',
+    'ko': '기타: {low}~{high} 사이의 정수를 입력할 수 있습니다.',
+    'ja': 'その他: {low}〜{high} の整数を入力できます。',
+    'zh': '其他：可输入 {low} 到 {high} 之间的整数。',
 }
 LANGUAGES = ('en', 'ko', 'ja', 'zh')
 
 
 def panel_rows(config, *, side=False):
     state = settings(config, {}, None)
+    # sse_injection_mode is projected by the shared settings path itself. Keep
+    # raw compatibility keys out of the first-screen menu, but do not duplicate
+    # or synthesize any row here.
     selected = [r for r in state['settings'] if r['key'] not in ('work_side_intake_enabled', 'work_side_intake_type')]
-    selected.insert(1, {'key': 'sse_injection_mode', 'label': menu_text('sse_injection_mode', config.get('language', 'en')),
-                        'value': 'btw_with_mcp' if config.get('work_side_intake', {}).get('enabled') is True
-                        and config.get('work_side_intake', {}).get('type', 'btw_with_mcp') == 'btw_with_mcp' else 'session'})
-    return ([r['label'] + ': ' + str(r['value']) for r in selected] + [menu_text('state_back', config.get('language', 'en'))],
-            [r['key'] for r in selected] + ['back'])
+    info = [] if side else fork_watch_rows(config)
+    return ([r['label'] + ': ' + shown_value(config, r) for r in selected] + info
+            + [menu_text('state_back', config.get('language', 'en'))],
+            [r['key'] for r in selected] + ['__info__'] * len(info) + ['back'])
+
+
+# Read-only router fork watch rows (no setting): per persisted session, the
+# counts, last notice time and its key; never transcript text or agent ids.
+FORK_WATCH_TEXT = {
+    'en': ('Fork watch', 'ended', 'active', 'unknown', 'orphaned', 'last notice', 'none', 'no observed session', 'more'),
+    'ko': ('포크 감시', '종료', '진행', '알 수 없음', '고아', '마지막 알림', '없음', '관측된 세션 없음', '더 있음'),
+    'ja': ('フォーク監視', '終了', '実行中', '不明', '孤立', '最終通知', 'なし', '観測済みセッションなし', '件以上'),
+    'zh': ('分支监视', '已结束', '进行中', '未知', '孤立', '最近通知', '无', '没有已观测的会话', '更多'),
+}
+
+
+def fork_watch_rows(config):
+    from pathlib import Path
+    from .fork_turn_watch import status_rows
+    from .runtime_paths import CONFIG_DIR
+    title, ended, active, unknown, orphaned, last, none, empty, more = FORK_WATCH_TEXT[_language(config)]
+    try:
+        listing = status_rows(Path(CONFIG_DIR))
+    except OSError:
+        listing = {'sessions': [], 'more': 0}
+    rows = []
+    for view in listing['sessions']:
+        counts = view['counts']
+        notice = (f"{view['last_notice_at']} ({view['last_notice_key']})" if view['last_notice_at'] else none)
+        rows.append(f"{title} {view['session'][:15]}…: {ended} {counts['ended']} · {active} {counts['active']} · "
+                    f"{unknown} {counts['unknown']} · {orphaned} {counts['orphaned']}; {last} {notice}")
+    if listing['more']:
+        rows.append(f"{title}: +{listing['more']} {more}")
+    return rows or [f'{title}: {empty}']
+
+
+def shown_value(config, row):
+    """Readable text for one typed settings row (menus and ctl text output)."""
+    if row.get('status') == UNREADABLE:
+        return UNREADABLE
+    value = row.get('value')
+    if isinstance(value, bool):
+        return menu_text('state_on' if value else 'state_off', _language(config))
+    return '' if value is None else str(value)
 
 
 # Each row is English, Korean, Japanese and Chinese. Descriptions explain the
@@ -53,7 +105,8 @@ DESCRIPTIONS = {
     'work_parallel_p4_limit': ('Maximum P4 Work items running at once, each in its own fork session; the device maximum is the sum of P1-P5. Queued items are not limited.', 'P4 Work 아이템을 동시에 실행할 최대 포크 세션 수입니다. 기기 전체 최대치는 P1~P5의 합입니다. 대기 아이템 수는 제한하지 않습니다.', 'P4 の Work 項目を同時実行する最大フォークセッション数です。端末全体の上限は P1〜P5 の合計です。キュー済み項目は制限しません。', '同时运行的 P4 Work 项目的最大分支会话数；设备总上限为 P1–P5 之和。不限制排队项目。'),
     'work_parallel_p5_limit': ('Maximum P5 Work items running at once, each in its own fork session; the device maximum is the sum of P1-P5. Queued items are not limited.', 'P5 Work 아이템을 동시에 실행할 최대 포크 세션 수입니다. 기기 전체 최대치는 P1~P5의 합입니다. 대기 아이템 수는 제한하지 않습니다.', 'P5 の Work 項目を同時実行する最大フォークセッション数です。端末全体の上限は P1〜P5 の合計です。キュー済み項目は制限しません。', '同时运行的 P5 Work 项目的最大分支会话数；设备总上限为 P1–P5 之和。不限制排队项目。'),
     'work_parallel_launches_per_minute': ('Worker launch rate per minute; queued requests remain stored.', '분당 작업자 시작 횟수입니다. 대기 요청은 저장된 상태를 유지합니다.', '1分あたりのワーカー起動数です。キュー済み要求は保存されたままです。', '每分钟启动工作器的速率；排队请求会继续保存。'),
-    'work_parallel_orphans': ('Slots held by leases whose owning session is gone. apply releases leases whose owner process is verified gone; a lease from an older build has no owner record, so after confirming that session is shut down type legacy <lease id>. Live or unknown owners are never released; the Work item stays queued.', '소유 세션이 사라진 lease가 잡고 있는 슬롯입니다. apply는 소유 프로세스 종료가 확인된 lease만 해제합니다. 이전 빌드의 lease는 소유 기록이 없으므로 그 세션이 종료된 것을 확인한 뒤 legacy <lease id>를 입력하세요. 살아 있거나 확인할 수 없는 소유자는 해제하지 않으며 Work 아이템은 큐에 남습니다.', '所有セッションが消えた lease が保持するスロットです。apply は所有プロセスの終了が確認された lease だけを解放します。旧ビルドの lease は所有記録がないため、そのセッションの終了を確認してから legacy <lease id> を入力してください。生存中または不明な所有者は解放せず、Work 項目はキューに残ります。', '所属会话已不存在的 lease 占用的槽位。apply 仅释放已确认所属进程结束的 lease；旧版本的 lease 没有所属记录，请确认该会话已关闭后输入 legacy <lease id>。存活或无法确认的所属者不会被释放，Work 项目仍在队列中。'),
+    'work_parallel_orphans': ('Slots held by leases whose owning session is gone. Each choice releases one lease from the preview shown now: Release for an owner process verified gone, Legacy for a lease from an older build without an owner record (choose it only after confirming that session is shut down). If anything changed since the preview, nothing is released. Live or unknown owners are never released; the Work item stays queued.', '소유 세션이 사라진 lease가 잡고 있는 슬롯입니다. 각 선택지는 지금 표시된 미리보기의 lease 하나만 해제합니다. Release는 소유 프로세스 종료가 확인된 lease, Legacy는 소유 기록이 없는 이전 빌드의 lease입니다(그 세션이 종료된 것을 확인한 뒤에만 선택). 미리보기 이후 바뀐 것이 있으면 아무것도 해제하지 않습니다. 살아 있거나 확인할 수 없는 소유자는 해제하지 않으며 Work 아이템은 큐에 남습니다.', '所有セッションが消えた lease が保持するスロットです。各選択肢は今表示しているプレビューの lease を一つだけ解放します。Release は所有プロセスの終了が確認された lease、Legacy は所有記録のない旧ビルドの lease です（そのセッションの終了を確認してから選択）。プレビュー後に変化があれば何も解放しません。生存中または不明な所有者は解放せず、Work 項目はキューに残ります。', '所属会话已不存在的 lease 占用的槽位。每个选项只释放当前预览中的一个 lease：Release 用于已确认所属进程结束的 lease，Legacy 用于没有所属记录的旧版本 lease（仅在确认该会话已关闭后选择）。若预览之后有任何变化，则不释放任何内容。存活或无法确认的所属者不会被释放，Work 项目仍在队列中。'),
+    '__info__': ('Read only. The router watches every native fork of each session and tells main once when all of their turns have ended. Counts per state, last notice time and its key; no fork content.', '읽기 전용입니다. 라우터가 각 세션의 모든 네이티브 포크를 감시하고, 모든 포크의 턴이 끝나면 메인에 한 번 알립니다. 상태별 개수, 마지막 알림 시각과 키만 표시하며 포크 내용은 없습니다.', '読み取り専用です。ルーターは各セッションの全ネイティブフォークを監視し、全ターンが終わるとメインに一度通知します。状態別の件数、最終通知時刻とキーのみで、フォーク内容は含みません。', '只读。路由器监视每个会话的所有原生分支，所有分支回合结束时通知主会话一次。仅显示各状态数量、最近通知时间及其键，不含分支内容。'),
     'work_parallel_max_rework': ('Automatic rework attempts before review is required.', '검토가 필요해지기 전 자동 재처리 시도 횟수입니다.', 'レビューが必要になるまでの自動再処理回数です。', '需要审核前允许的自动返工次数。'),
     'work_discovery_enabled': ('Look for outstanding work when execution slots are available.', '실행 슬롯에 여유가 생기면 미결 작업을 탐색합니다.', '実行枠が空いたとき未処理の作業を検索します。', '有可用执行名额时查找未完成任务。'),
     'work_discovery_test_default_override': ('Use the default discovery instruction instead of custom text.', '사용자 지정 문구 대신 기본 작업 탐색 지시를 사용합니다.', 'カスタム文ではなく既定の検索指示を使用します。', '使用默认查找指令而不是自定义文本。'),
@@ -95,6 +148,9 @@ def description(config, key, value=None):
             raw = 'on' if value else 'off'
         shown = menu_text('state_' + str(raw), language) if str(raw) in ('on', 'off', 'ask', 'auto') else str(raw)
         text += ' ' + VALUE_PREFIX[language].format(value=shown)
+    if key in NUMBER_RANGES:
+        low, high = NUMBER_RANGES[key]
+        text += ' ' + RANGE_HINT[language].format(low=low, high=high)
     return text
 
 
@@ -113,8 +169,24 @@ def choices(config, key):
         values = ('session', 'btw_with_mcp')
     elif key == 'work_side_intake_priority_policy':
         values = ('adaptive', 'explicit')
-    elif key in NUMBERS:
-        values = tuple(str(n) for n in NUMBERS[key])
+    elif key == 'work_parallel_orphans':
+        # Each value embeds the digest of the preview that produced it. Apply
+        # therefore releases only the exact lease the person selected, against
+        # the exact observations they saw; no bulk "apply" exists.
+        from .work_parallel_menu import orphan_choices
+        try:
+            pairs = orphan_choices()[1]
+        except (ValueError, OSError):
+            pairs = []
+        return ([label for label, _ in pairs] + [menu_text('state_back', language)],
+                [value for _, value in pairs] + ['back'])
+    elif key in NUMBER_RANGES:
+        # Common values for one keystroke, plus Other (Edit) that accepts every
+        # integer in the shared validator range.
+        low, high = NUMBER_RANGES[key]
+        values = tuple(str(n) for n in NUMBER_PRESETS[key] if low <= n <= high)
+        return (list(values) + [menu_text('settings_edit_text', language), menu_text('state_back', language)],
+                list(values) + ['__edit__', 'back'])
     else:
         # File paths and instructions are inherently text; enter only after
         # explicitly choosing Edit, never as a toggle/enum interaction.
@@ -124,12 +196,48 @@ def choices(config, key):
             + [menu_text('state_back', language)], list(values) + ['back'])
 
 
-def apply(config, key, value, save):
-    if key == 'sse_injection_mode':
-        if value not in ('session', 'btw_with_mcp'):
-            raise ValueError('use session or btw_with_mcp')
-        config['work_side_intake'] = {**config.get('work_side_intake', {}),
-                                     'enabled': value == 'btw_with_mcp', 'type': value}
-        save(config)
-        return settings(config, {}, None)
-    return settings(config, {'key': key, 'value': value}, save)
+def apply(config, key, value, save, *, expected_fingerprint=None, load=None):
+    """One shared write path for menu, ctl and REST (sse_injection_mode included).
+
+    With ``expected_fingerprint`` (the settings_fingerprint read before the
+    edit) and ``load``, the write is a compare-and-set: a change made elsewhere
+    in between is refused with SettingsConflict and nothing is saved.
+    """
+    from .work_live_settings import FINGERPRINT_FIELD
+    args = {'key': key, 'value': value}
+    if expected_fingerprint is not None:
+        args[FINGERPRINT_FIELD] = expected_fingerprint
+    return settings(config, args, save, load=load)
+
+
+CONFLICT_RELOADED = {
+    'en': 'settings changed elsewhere; reloaded',
+    'ko': '다른 곳에서 설정이 바뀌어 다시 불러왔습니다',
+    'ja': '別の場所で設定が変更されたため再読み込みしました',
+    'zh': '设置已在其他地方更改，已重新加载',
+}
+
+
+def menu_pin(config):
+    """The settings_fingerprint of the configuration a menu shows a person."""
+    from .work_live_settings import settings_fingerprint
+    return settings_fingerprint(config)
+
+
+def apply_choice(load, save, key, value, pin):
+    """The prelaunch menu's write: pinned to the settings the person saw.
+
+    Returns ``(feedback lines, retry value)``. On a change made elsewhere since
+    the menu read ``pin`` nothing is saved, the feedback says the settings were
+    reloaded, and the retry value is the entered value so the next prompt for
+    the same key can offer it again; it is None otherwise.
+    """
+    from .work_live_settings import SettingsConflict
+    config = load()
+    try:
+        apply(config, key, value, save, expected_fingerprint=pin, load=load)
+    except SettingsConflict:
+        return [CONFLICT_RELOADED[_language(config)]], value
+    except (ValueError, OSError, RuntimeError) as error:
+        return [str(error)], None
+    return [apply_feedback(config, key, value)], None

@@ -707,6 +707,201 @@ class ChannelTerminalDispatchServiceTests(unittest.TestCase):
         self.assertEqual([False] * 5 + [True] * 3, ready)
         proc.write.assert_not_called()
 
+    def test_codex_remote_gate_releases_on_main_output_with_no_screen(self):
+        """The RPC gate accepts the same positive post-launch proof as TTY input."""
+        from ciel_runtime_support.startup_prompt_answers import StartupPromptResponder
+        from ciel_runtime_support.terminal_startup_gate import TerminalStartupGate, terminal_startup_scope
+
+        clock, step = [100.0], [0]
+        gate = TerminalStartupGate(require_screen=True)
+        proc = mock.Mock(pid=44)
+        proc.poll.side_effect = lambda: None if step[0] < 3 else 0
+        proc.wait.return_value = 0
+        proc.output_since.side_effect = lambda cursor: (b"", cursor)
+        process = SimpleNamespace(write_child_record=mock.Mock(), terminate_child=mock.Mock(), release_child_record=mock.Mock())
+        policy = SimpleNamespace(initial_cursor=lambda: 0, enter_bytes=lambda _: bytes([13]), enter_label=lambda _: "enter",
+                                 unseen_retry_seconds=lambda: 1, inflight_is_stale=lambda *a: False, log=lambda *a: None)
+        polling = SimpleNamespace(inject_compact=mock.Mock(), file_marker=lambda: None, should_check=lambda *a: False,
+                                  active_tool_call=lambda: False, active_turn=lambda: False, input_busy=lambda: False,
+                                  inject_pending=mock.Mock(), wake_state=lambda _: None, inflight_effects=lambda: None,
+                                  runtime_interaction=lambda: None)
+
+        def advance(_seconds):
+            step[0] += 1
+            clock[0] += 1.1
+
+        console = SimpleNamespace(open_conpty=lambda *a: proc, startup_grace_seconds=lambda: 0,
+                                  reset_interval_seconds=lambda x: x, sleep=advance,
+                                  main_output_observed=lambda: True)
+        responder = StartupPromptResponder(clock=lambda: clock[0])
+        with terminal_startup_scope(gate), mock.patch(
+            "ciel_runtime_support.channel_terminal_proxy.startup_prompt_responder", return_value=responder,
+        ), mock.patch("ciel_runtime_support.channel_terminal_proxy.WindowsStartupScreenReader",
+                      return_value=SimpleNamespace(snapshot=lambda: None, close=lambda: None)), mock.patch(
+            "ciel_runtime_support.channel_terminal_proxy.poll_pending_compaction", side_effect=lambda *a, **k: a[5],
+        ), mock.patch("ciel_runtime_support.channel_terminal_proxy.poll_pending_channel_messages",
+                      side_effect=lambda *a, **k: a[3]):
+            self.assertEqual(0, run_windows_channel_terminal_proxy(
+                ["codex", "--remote", "ws://fixture"], {"CIEL_RUNTIME_STARTUP_AUTO_ANSWER": "1"},
+                SimpleNamespace(process=process, policy=policy, polling=polling, console=console)))
+        self.assertTrue(gate.ready())
+        proc.write.assert_not_called()
+
+    def test_codex_remote_gate_stays_closed_through_silence_until_main_output(self):
+        """No timeout opens the RPC gate; main output does, and only then is a restart polled."""
+        from ciel_runtime_support.startup_prompt_answers import StartupPromptResponder
+        from ciel_runtime_support.terminal_startup_gate import TerminalStartupGate, terminal_startup_scope
+
+        clock, step, main_output, states, polled = [100.0], [0], [False], [], []
+        gate = TerminalStartupGate(require_screen=True)
+        proc = mock.Mock(pid=45)
+        proc.poll.side_effect = lambda: None if step[0] < 8 else 0
+        proc.wait.return_value = 0
+        proc.output_since.side_effect = lambda cursor: (b"", cursor)
+        process = SimpleNamespace(write_child_record=mock.Mock(), terminate_child=mock.Mock(), release_child_record=mock.Mock())
+        policy = SimpleNamespace(initial_cursor=lambda: 0, enter_bytes=lambda _: bytes([13]), enter_label=lambda _: "enter",
+                                 unseen_retry_seconds=lambda: 1, inflight_is_stale=lambda *a: False, log=lambda *a: None)
+        polling = SimpleNamespace(inject_compact=mock.Mock(), file_marker=lambda: None, should_check=lambda *a: False,
+                                  active_tool_call=lambda: False, active_turn=lambda: False, input_busy=lambda: False,
+                                  inject_pending=mock.Mock(), wake_state=lambda _: None, inflight_effects=lambda: None,
+                                  runtime_interaction=lambda: None)
+
+        def advance(_seconds):
+            states.append(gate.ready())
+            step[0] += 1
+            clock[0] += 60.0  # well past the 180 s startup give-up window
+            if step[0] == 5:
+                main_output[0] = True
+
+        console = SimpleNamespace(open_conpty=lambda *a: proc, startup_grace_seconds=lambda: 0,
+                                  reset_interval_seconds=lambda x: x, sleep=advance,
+                                  main_output_observed=lambda: main_output[0])
+        responder = StartupPromptResponder(clock=lambda: clock[0])
+        restarts = mock.Mock(side_effect=lambda: polled.append(gate.ready()))
+        with terminal_startup_scope(gate), mock.patch(
+            "ciel_runtime_support.channel_terminal_proxy.startup_prompt_responder", return_value=responder,
+        ), mock.patch("ciel_runtime_support.channel_terminal_proxy.WindowsStartupScreenReader",
+                      return_value=SimpleNamespace(snapshot=lambda: None, close=lambda: None)), mock.patch(
+            "ciel_runtime_support.channel_terminal_proxy.poll_pending_compaction", side_effect=lambda *a, **k: a[5],
+        ), mock.patch("ciel_runtime_support.channel_terminal_proxy.poll_pending_channel_messages",
+                      side_effect=lambda *a, **k: a[3]):
+            self.assertEqual(0, run_windows_channel_terminal_proxy(
+                ["codex", "--remote", "ws://fixture"], {"CIEL_RUNTIME_STARTUP_AUTO_ANSWER": "1"},
+                SimpleNamespace(process=process, policy=policy, polling=polling, console=console),
+                restart_poll=restarts))
+        self.assertEqual([False] * 5 + [True] * 3, states)
+        self.assertTrue(polled)
+        self.assertTrue(all(polled), "no restart poll while the gate was closed")
+        proc.write.assert_not_called()
+
+    def test_codex_remote_gate_stays_closed_on_missing_unreadable_or_non_true_evidence(self):
+        from ciel_runtime_support.startup_prompt_answers import StartupPromptResponder
+        from ciel_runtime_support.terminal_startup_gate import TerminalStartupGate, terminal_startup_scope
+
+        def unreadable():
+            raise OSError("transcript unreadable")
+
+        for label, port in (("missing", None), ("unreadable", unreadable), ("truthy", lambda: 1),
+                            ("none", lambda: None), ("false", lambda: False)):
+            with self.subTest(port=label):
+                clock, step = [100.0], [0]
+                gate = TerminalStartupGate(require_screen=True)
+                proc = mock.Mock(pid=46)
+                proc.poll.side_effect = lambda: None if step[0] < 6 else 0
+                proc.wait.return_value = 0
+                proc.output_since.side_effect = lambda cursor: (b"", cursor)
+                process = SimpleNamespace(write_child_record=mock.Mock(), terminate_child=mock.Mock(),
+                                          release_child_record=mock.Mock())
+                policy = SimpleNamespace(initial_cursor=lambda: 0, enter_bytes=lambda _: bytes([13]),
+                                         enter_label=lambda _: "enter", unseen_retry_seconds=lambda: 1,
+                                         inflight_is_stale=lambda *a: False, log=lambda *a: None)
+                polling = SimpleNamespace(inject_compact=mock.Mock(), file_marker=lambda: None,
+                                          should_check=lambda *a: False, active_tool_call=lambda: False,
+                                          active_turn=lambda: False, input_busy=lambda: False,
+                                          inject_pending=mock.Mock(), wake_state=lambda _: None,
+                                          inflight_effects=lambda: None, runtime_interaction=lambda: None)
+
+                def advance(_seconds, step=step, clock=clock):
+                    step[0] += 1
+                    clock[0] += 120.0
+
+                console = SimpleNamespace(open_conpty=lambda *a, proc=proc: proc, startup_grace_seconds=lambda: 0,
+                                          reset_interval_seconds=lambda x: x, sleep=advance)
+                if port is not None:
+                    console.main_output_observed = port
+                responder = StartupPromptResponder(clock=lambda clock=clock: clock[0])
+                with terminal_startup_scope(gate), mock.patch(
+                    "ciel_runtime_support.channel_terminal_proxy.startup_prompt_responder", return_value=responder,
+                ), mock.patch("ciel_runtime_support.channel_terminal_proxy.WindowsStartupScreenReader",
+                              return_value=SimpleNamespace(snapshot=lambda: None, close=lambda: None)), mock.patch(
+                    "ciel_runtime_support.channel_terminal_proxy.poll_pending_compaction",
+                    side_effect=lambda *a, **k: a[5],
+                ), mock.patch("ciel_runtime_support.channel_terminal_proxy.poll_pending_channel_messages",
+                              side_effect=lambda *a, **k: a[3]):
+                    self.assertEqual(0, run_windows_channel_terminal_proxy(
+                        ["codex", "--remote", "ws://fixture"], {"CIEL_RUNTIME_STARTUP_AUTO_ANSWER": "1"},
+                        SimpleNamespace(process=process, policy=policy, polling=polling, console=console)))
+                self.assertFalse(gate.ready())
+                proc.write.assert_not_called()
+
+    def _known_screen_gate_states(self, frame, main_output_from_step):
+        """Run the Windows proxy on a readable, fixed screen; return gate.ready() per step."""
+        from ciel_runtime_support.startup_prompt_answers import StartupPromptResponder
+        from ciel_runtime_support.terminal_startup_gate import TerminalStartupGate, terminal_startup_scope
+
+        clock, step, states = [100.0], [0], []
+        gate = TerminalStartupGate(require_screen=True)
+        proc = mock.Mock(pid=47)
+        proc.poll.side_effect = lambda: None if step[0] < 8 else 0
+        proc.wait.return_value = 0
+        proc.output_since.side_effect = lambda cursor: (b"", cursor)
+        process = SimpleNamespace(write_child_record=mock.Mock(), terminate_child=mock.Mock(), release_child_record=mock.Mock())
+        policy = SimpleNamespace(initial_cursor=lambda: 0, enter_bytes=lambda _: bytes([13]), enter_label=lambda _: "enter",
+                                 unseen_retry_seconds=lambda: 1, inflight_is_stale=lambda *a: False, log=lambda *a: None)
+        polling = SimpleNamespace(inject_compact=mock.Mock(), file_marker=lambda: None, should_check=lambda *a: False,
+                                  active_tool_call=lambda: False, active_turn=lambda: False, input_busy=lambda: False,
+                                  inject_pending=mock.Mock(), wake_state=lambda _: None, inflight_effects=lambda: None,
+                                  runtime_interaction=lambda: None)
+
+        def advance(_seconds):
+            states.append(gate.ready())
+            step[0] += 1
+            clock[0] += 60.0  # past the 15 s hold and, from step 3, the 180 s give-up window
+
+        console = SimpleNamespace(
+            open_conpty=lambda *a: proc, startup_grace_seconds=lambda: 0, reset_interval_seconds=lambda x: x,
+            sleep=advance,
+            main_output_observed=lambda: main_output_from_step is not None and step[0] >= main_output_from_step,
+        )
+        responder = StartupPromptResponder(clock=lambda: clock[0])
+        with terminal_startup_scope(gate), mock.patch(
+            "ciel_runtime_support.channel_terminal_proxy.startup_prompt_responder", return_value=responder,
+        ), mock.patch("ciel_runtime_support.channel_terminal_proxy.WindowsStartupScreenReader",
+                      return_value=SimpleNamespace(snapshot=lambda: frame, close=lambda: None)), mock.patch(
+            "ciel_runtime_support.channel_terminal_proxy.poll_pending_compaction", side_effect=lambda *a, **k: a[5],
+        ), mock.patch("ciel_runtime_support.channel_terminal_proxy.poll_pending_channel_messages",
+                      side_effect=lambda *a, **k: a[3]):
+            self.assertEqual(0, run_windows_channel_terminal_proxy(
+                ["codex", "--remote", "ws://fixture"], {"CIEL_RUNTIME_STARTUP_AUTO_ANSWER": "1"},
+                SimpleNamespace(process=process, policy=policy, polling=polling, console=console)))
+        return states, gate.ready()
+
+    def test_codex_remote_known_screen_without_marker_or_dialog_releases_on_main_output(self):
+        states, ready = self._known_screen_gate_states("codex  working in ~/repo", main_output_from_step=5)
+        self.assertEqual([False] * 5 + [True] * 3, states)
+        self.assertTrue(ready)
+
+    def test_codex_remote_known_screen_dialog_holds_despite_main_output(self):
+        states, ready = self._known_screen_gate_states(
+            "Accessing workspace:\n❯ Yes, I trust this folder\nNo, exit", main_output_from_step=0)
+        self.assertEqual([False] * 8, states)
+        self.assertFalse(ready)
+
+    def test_codex_remote_known_screen_without_main_output_never_ages_open(self):
+        states, ready = self._known_screen_gate_states("codex  working in ~/repo", main_output_from_step=None)
+        self.assertEqual([False] * 8, states)  # 480 s of a readable screen and no proof
+        self.assertFalse(ready)
+
     def test_console_fallback_holds_all_automatic_injection(self):
         proc = mock.Mock(pid=42)
         proc.poll.side_effect = [None, 0]

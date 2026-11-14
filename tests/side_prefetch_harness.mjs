@@ -36,7 +36,7 @@ for (const [name,scenario] of Object.entries(scenarios)) {
    calls.push({server,tool,args})
    if(server==='walkie'&&tool==='walkie_read_messages'){if(scenario.root==='throw')throw Error('transport');return scenario.root}
    if(server==='walkie'&&tool==='walkie_call_tool')return scenario.pages?.[page++]||result([])
-   if(tool==='work_side_claim'){const claim=claimed?null:{receipt_id:'e'.repeat(64),generation:'g',text:'event',event_key:name,
+   if(tool==='work_side_claim'){const claim=claimed?null:{receipt_id:'e'.repeat(64),generation:'10000000000000000000000000000001',text:'event',event_key:name,
     lease_until:Date.now()/1000+120,source_read:scenario.spec,source_context:scenario.source_context,
     source_truncated:scenario.source_truncated===true,route:{},workload:{version:1,truncated:false,nodes:[],queue_order:[]}};
     claimed=true;return result({claim,settings:{max_active:2},handoff_replies:[],main_wakes:[]})}

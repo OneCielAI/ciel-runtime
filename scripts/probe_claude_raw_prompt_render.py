@@ -1,7 +1,6 @@
 """Compare installed/current detectors against an isolated Claude draft (no submit)."""
 import importlib.util
 import json
-import os
 from pathlib import Path
 import shutil
 import sys
@@ -9,6 +8,7 @@ import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from ciel_runtime_support.windows_conpty import WindowsConPtySession
+from claude_probe_environment import claude_probe_environment
 
 
 def main():
@@ -16,7 +16,7 @@ def main():
     spec = importlib.util.spec_from_file_location("ciel_runtime_support._installed_conpty_probe", path)
     installed = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(installed)
-    session = WindowsConPtySession([shutil.which("claude")], dict(os.environ), log=lambda *_: None, mirror_output=False, forward_stdin=False)
+    session = WindowsConPtySession([shutil.which("claude")], claude_probe_environment(), log=lambda *_: None, mirror_output=False, forward_stdin=False)
     try:
         time.sleep(8)
         checkpoint = session.prompt_readiness_checkpoint()

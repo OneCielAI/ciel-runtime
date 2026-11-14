@@ -221,7 +221,11 @@ class GatewayRetryBoundaryTests(unittest.TestCase):
                                 "An exhausted timeout must not fall back to legacy replay",
                             )
                             self.assertEqual(10, sleep.call_count)
-                            self.assertNotIn("retry", [call.args[0] for call in activity.call_args_list])
+                            # No legacy-loop replay; the transient owner's own
+                            # retries carry operation_id (design point d, 2026-11-13).
+                            calls = [call for call in activity.call_args_list if call.args[0] == "retry"]
+                            self.assertEqual([], [call for call in calls if "operation_id" not in call.kwargs])
+                            self.assertEqual(10, len(calls))
 
     def test_routed_auth_and_rate_limit_semantics_unchanged(self):
         for fn in ENTRYPOINTS:

@@ -20,7 +20,7 @@ import uuid
 from pathlib import Path
 
 from .channel_message_repository import exclusive_file_lock
-from .work_parallel import WorkParallelConflict, WorkParallelError, integer, number, require, text, unique_object
+from .work_parallel import WorkParallelConflict, WorkParallelStateUnavailable, integer, number, require, text, unique_object
 
 MAX_BYTES = 1048576
 MAX_RECORDS = 2000
@@ -77,13 +77,14 @@ class NativeForkEvidence:
                 raw = f.read(MAX_BYTES + 1)
         except FileNotFoundError:
             return empty_state()
-        require(len(raw) <= MAX_BYTES, "native evidence byte limit")
+        if len(raw) > MAX_BYTES:
+            raise WorkParallelStateUnavailable("native evidence byte limit")
         try:
             d = json.loads(raw.decode("utf-8"), object_pairs_hook=unique_object)
             validate(d)
             return d
         except (ValueError, TypeError, KeyError, OverflowError, RecursionError) as error:
-            raise WorkParallelError("corrupt native fork evidence; writes blocked") from error
+            raise WorkParallelStateUnavailable("corrupt native fork evidence; writes blocked") from error
 
     def read(self):
         if not self.path.exists():

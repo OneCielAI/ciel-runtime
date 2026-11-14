@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import { startSide, pollSide, sideSpawnInput, sideTool, completeSide, suppressSide, sideReceipts, sideActors, sideMcpParity, hostJson, eventView, sideMainBusy, sideStopWake, sideRecordStopWake, sideWakeKnown, sidePromptSubmit, sidePromptPending, sidePromptTurnStart, sidePromptTurnComplete, sidePromptReassert, sidePromptRef } from './side-intake.js'
+import { startSide, pollSide, sideSpawnInput, sideTool, completeSide, suppressSide, sideReceipts, sideActors, sideMcpParity, hostJson, eventView, sideMainBusy, sideStopWake, sideRecordStopWake, sideWakeKnown, sidePromptSubmit, sidePromptPending, sidePromptTurnStart, sidePromptTurnComplete, sidePromptReassert, sidePromptRef, sideMainTurnStart, sideMainStep, sideMainFence, sideAppendStored, sideStopNotPresented, sideWakeRead, sideWakeReminded, sideReviewAppended, sideReviewDelivery, sideReviewRecheck } from './side-intake.js'
 
 // Router is authoritative; this cache is display-only and never persisted.
 const detailView = atom({ plugin: 'ciel-work', key: 'detail' }, null)
@@ -50,6 +50,8 @@ let continuationSession = null
 const seenSideReceipts = new Set()
 let sidePanelReceipts = []
 let sidePanelSession = null
+// review_delivery rows of the host-only side status (bounded, no secrets).
+let sidePanelReviewDelivery = []
 // Display-only selection in the side pane; never persisted.
 let sidePaneView = { receipt: null, page: 0 }
 let observatorySettings = null
@@ -83,6 +85,9 @@ function ownSideWake(identity, handoff) {
 }
 function showSideReceipts($, identity, snapshot) {
   const previous = sidePanelSession === identity ? sidePanelReceipts : []
+  if (sidePanelSession !== identity) sidePanelReviewDelivery = []
+  // Only the host-only side status carries it; a model snapshot keeps the last.
+  if (Array.isArray(snapshot?.review_delivery?.rows)) sidePanelReviewDelivery = snapshot.review_delivery.rows.slice(0, 100)
   sidePanelSession = identity
   sidePanelReceipts = [...(snapshot.side_intake_receipts || []), ...(snapshot.side_inbox_receipts || [])].reverse()
     .filter((r, i, rows) => rows.findIndex(x => (x.receipt_id || x.item_id) === (r.receipt_id || r.item_id)) === i)
@@ -229,9 +234,20 @@ function scheduleIdleRefresh($, poll, attempt = poll.attempt) {
         if (cachedSession !== poll.identity || await sessionId($) !== poll.identity) { stopIdleRefresh(); return }
         const changed = s && s.version !== before
         poll.attempt = changed ? 0 : Math.min(poll.attempt + 1, IDLE_REFRESH_MS.length - 1)
-        // An idle board refresh can expose newly-approved runnable leaves. Wake
-        // the host scheduler directly; no scheduler detail enters main context.
-        if (changed) void parallelPump($, 'board-version').catch(() => {})
+        // Board version does not cover the execution ledger or its finalization,
+        // launch and attachment sidecars. Read the host projection too: operator
+        // decisions, capacity/policy changes and owner exits can happen while main
+        // is idle and no fork remains to produce an event boundary.
+        let parallelChanged = false, due = false
+        try {
+          const parallel = await hostStatus($)
+          const signature = parallelIdleSignature(parallel)
+          parallelChanged = poll.parallelSignature !== signature
+          poll.parallelSignature = signature
+          due = parallelIdleDue(parallel)
+        } catch { /* Unknown host state stays blocked until a later idle tick. */ }
+        if (changed || parallelChanged || due)
+          void parallelPump($, changed ? 'board-version' : due ? 'idle-due' : 'parallel-version').catch(() => {})
       } catch {
         poll.attempt = Math.min(poll.attempt + 1, IDLE_REFRESH_MS.length - 1)
       } finally {
@@ -321,8 +337,8 @@ function readFailure(stage) {
 async function readSnapshot($, identity) {
   let r
   // _host lets the router page a board snapshot above the native result limit.
-  const token = await $.env.get('CIEL_RUNTIME_WORK_PARALLEL_HOST_TOKEN')
-  try { r = await $.mcp.call('ciel-runtime-router', 'work_status', { format: 'json', session_id: identity, _host: { token } }) }
+  const credential = await hostCredential($)
+  try { r = await $.mcp.call('ciel-runtime-router', 'work_status', { format: 'json', session_id: identity, _host: credential }) }
   catch (error) {
     const message = String(error?.message || '')
     // Report fixed categories only; native errors can contain credentials.
@@ -336,7 +352,7 @@ async function readSnapshot($, identity) {
       try {
         const connection = await $.mcp.connect('ciel-runtime-router')
         if (connection?.isConnected && await sessionId($) === identity)
-          r = await $.mcp.call(connection.server, 'work_status', {format:'json',session_id:identity,_host:{token}})
+          r = await $.mcp.call(connection.server, 'work_status', {format:'json',session_id:identity,_host:credential})
         else throw readFailure(stage)
       } catch { throw readFailure(stage) }
     } else throw readFailure(stage)
@@ -345,7 +361,7 @@ async function readSnapshot($, identity) {
   let s
   try { s = JSON.parse(textOf(r)) } catch { throw readFailure('snapshot-parse') }
   if (s?.paged) {
-    try { s = await hostJson($, 'work_status', r, identity, token) } catch { throw readFailure('snapshot-paged') }
+    try { s = await hostJson($, 'work_status', r, identity, credential.token) } catch { throw readFailure('snapshot-paged') }
   }
   if (s?.enabled !== false && (s?.enabled !== true
     || !['planning', 'executing'].includes(s.phase) || !['auto', 'ask'].includes(s.approval)
@@ -551,6 +567,15 @@ async function focusItems($, ids, origin) {
     await openDetails($, null, origin)
   } catch { try { $.ui.toast('Work focus changed or is unavailable; refresh and try again.') } catch {} }
 }
+// A person-confirmed retry the router refused. Its host gate (a router newer
+// than this module expects) is answered with where else a person can retry.
+function retryRefused($, what, error) {
+  const gate = /requires the verified Ciel Work host/.test(String(error?.message || error))
+  try {
+    $.ui.toast(gate ? what + ' retry refused by the router: this pane is not accepted as the Ciel Work host. '
+      + 'Use the Work web dashboard Side tab or REST side-*-retry.' : what + ' retry not accepted; refresh and inspect.')
+  } catch {}
+}
 async function retrySideReply($, receipt, identity) {
   if (await sessionId($) !== identity) return
   const state = receipt.result?.delivery
@@ -562,10 +587,14 @@ async function retrySideReply($, receipt, identity) {
   if (choice !== (uncertain ? 'Send again (may duplicate)' : 'Retry reply')) return
   if (await sessionId($) !== identity) return
   try {
-    await parallelCall($,'work_side_retry_reply',{receipt_id:receipt.receipt_id,expected_state:state,confirmed:uncertain})
+    // internal: the router accepts a person-confirmed retry only from this host.
+    // The exact attempt this pane showed (retry pins): a late click cannot resend a newer one.
+    await parallelCall($,'work_side_retry_reply',{receipt_id:receipt.receipt_id,expected_state:state,confirmed:uncertain,
+      revision:receipt.reply_revision,attempt_ref:receipt.reply_attempt_ref},
+      {internal:true})
     showSideReceipts($,identity,await sideMailboxCall($,'work_side_status'))
     await runSidePump($,identity)
-  } catch { $.ui.toast('Reply retry not accepted; retained state preserved. Refresh and inspect.') }
+  } catch (error) { retryRefused($, 'Reply (retained state preserved)', error) }
 }
 async function retrySideWake($, handoff, identity) {
   if (await sessionId($) !== identity || !handoff?.wake?.delivery_uncertain || !handoff.wake.attempt_ref
@@ -576,10 +605,59 @@ async function retrySideWake($, handoff, identity) {
   if (choice !== label || await sessionId($) !== identity) return
   try {
     await parallelCall($, 'work_side_wake', {event_id:handoff.event_id, state:'retry',
-      attempt_ref:handoff.wake.attempt_ref, revision:handoff.wake.revision, confirmed:true})
+      attempt_ref:handoff.wake.attempt_ref, revision:handoff.wake.revision, confirmed:true}, {internal:true})
     await refresh($)
     await runSidePump($, identity)
-  } catch { $.ui.toast('Main wake retry not accepted; refresh and inspect.') }
+  } catch (error) { retryRefused($, 'Main wake', error) }
+}
+// A conversation re-append whose outcome nobody can know (recorded uncertain,
+// or its holder recorded nothing within 60 s). Only a person releases it, for
+// one possibly duplicate re-append by the next pump (side_wake.retry_reappend).
+async function retrySideReappend($, handoff, identity) {
+  if (await sessionId($) !== identity || handoff?.wake?.reappend_uncertain !== true || !handoff.wake.reappend_ref) return
+  const label = 'Retry re-append (may duplicate)'
+  const choice = await $.ui.ask('This conversation may already have this side event. Retrying can add it here twice.',
+    ['Cancel', label])
+  if (choice !== label || await sessionId($) !== identity) return
+  try {
+    await parallelCall($, 'work_side_wake', {event_id:handoff.event_id, state:'reappend_retry',
+      reappend_ref:handoff.wake.reappend_ref, revision:handoff.wake.revision, confirmed:true}, {internal:true})
+    await refresh($)
+    await runSidePump($, identity)
+  } catch (error) { retryRefused($, 'Re-append', error) }
+}
+// The same release for a parallel review's conversation re-append
+// (review_delivery.reappend_retry); the next review projection re-appends once.
+async function retryReviewReappend($, delivery, identity) {
+  if (await sessionId($) !== identity || delivery?.reappend_uncertain !== true || !delivery.reappend_ref) return
+  const label = 'Retry review re-append (may duplicate)'
+  const choice = await $.ui.ask('This conversation may already have this Work review. Retrying can add it here twice.',
+    ['Cancel', label])
+  if (choice !== label || await sessionId($) !== identity) return
+  try {
+    await parallelCall($, 'work_side_wake', {event_id:delivery.lease_id, state:'review_reappend_retry',
+      reappend_ref:delivery.reappend_ref, confirmed:true}, {internal:true})
+    // Released here: ask at once instead of after the re-check interval.
+    sideReviewRecheck(identity, delivery.lease_id)
+    showSideReceipts($, identity, await sideMailboxCall($, 'work_side_status'))
+    await runSidePump($, identity)
+  } catch (error) { retryRefused($, 'Review re-append', error) }
+}
+// A released-wait notice whose outcome nobody can know (its issuer vanished
+// while issuing, or its append was recorded uncertain). Only a person may
+// release it for one possibly duplicate re-issue (side_notice.retry).
+async function retrySideNotice($, receipt, identity) {
+  if (await sessionId($) !== identity || receipt?.notice_delivery_uncertain !== true || !receipt.receipt_id) return
+  const label = 'Retry release notice (may duplicate)'
+  const choice = await $.ui.ask('Main may already have this released-wait notice. Retrying can show it to main twice.',
+    ['Cancel', label])
+  if (choice !== label || await sessionId($) !== identity) return
+  try {
+    await parallelCall($, 'work_side_wake', {event_id:receipt.receipt_id, state:'notice_retry', confirmed:true,
+      attempt_ref:receipt.notice_attempt_ref, revision:receipt.notice_revision}, {internal:true})
+    showSideReceipts($, identity, await sideMailboxCall($, 'work_side_status'))
+    await runSidePump($, identity)
+  } catch (error) { retryRefused($, 'Release notice', error) }
 }
 function breakdownLabel(s) {
   return 'work: ' + (s.phase === 'planning' ? 'plan' : 'run') + ' ' + s.done + '/' + s.total
@@ -765,7 +843,7 @@ function graphicProps(identity, view, state) {
       confirmed: (observatoryParallel?.forks?.confirmed || []).slice(0, 3).map(r => ({
         item: r.item_id, title: r.item_title, priority: r.priority, agent: r.agent_name || r.agent_id,
         status: r.native?.status, seen: r.native?.last_seen_at })),
-      reviews: parallelReviews(observatoryParallel).slice(0, 8).map(r => ({ item:r.item_id, title:r.item_title || r.title || '',
+      reviews: parallelPresentedReviews(parallelReviews(observatoryParallel)).slice(0, 8).map(r => ({ item:r.item_id, title:r.item_title || r.title || '',
         status:parallelReviewLabel(r) })),
       side: sideActors(identity).length } }
 }
@@ -870,16 +948,35 @@ function notRunnable(s, c) {
     + '. Clear a wait, unblock or close an item, or send a message to continue. /work-mode tree lists every item.'
 }
 // On a mod's first load the engine can still be connecting the router when the session starts
-// ("no connected MCP tool"): read again shortly instead of staying unavailable until the next prompt.
-function retryStart($, ticket, attempt = 0) {
-  if (attempt >= RETRY_MS.length) return
+// ("no connected MCP tool"): read again instead of staying unavailable until the next prompt.
+// The backoff stops growing at its last step and never ends while this start's ticket is
+// current (X2: the router may connect at any time). Exactly one timer is armed per
+// start: each callback schedules at most one successor and only while work remains.
+function retryStart($, ticket, attempt = 0, hostPending = false) {
+  if (ticket !== starts) return
   try {
-    $.clock.after(RETRY_MS[attempt], async () => {
+    $.clock.after(RETRY_MS[Math.min(attempt, RETRY_MS.length - 1)], async () => {
       if (ticket !== starts) return
       const s = cached || await refresh($)
       if (ticket !== starts) return
-      if (!s) retryStart($, ticket, attempt + 1)
-      else if (s.enabled) { notice($, ticket); startIdleRefresh($, cachedSession) }
+      if (s && s.enabled === false) return
+      if (hostPending) {
+        // session.start's host phase failed while MCP was connecting: run it
+        // again until it completes. hostPending clears only after hydrate and
+        // recovery returned, and no later timer carries it. A lease an earlier
+        // attempt already tried to recover is skipped (parallelHostRetryAttempts).
+        try {
+          const parallel = await parallelHydrate($)
+          if (ticket !== starts) return
+          await parallelRecoverWorkers($, parallel)
+          hostPending = false
+          await parallelPump($, 'start-retry')
+          scheduleNativeObservation($)
+        } catch { /* Durable leases are kept; the next capped retry runs the host phase again. */ }
+      }
+      if (ticket !== starts) return
+      if (!s || hostPending) { retryStart($, ticket, attempt + 1, hostPending); return }
+      notice($, ticket); startIdleRefresh($, cachedSession)
     })
   } catch {}
 }
@@ -986,7 +1083,10 @@ async function workToolCall($, e, next) {
   }
   let input = e
   if (name) {
-    try { input = { ...e, session_id: await sessionId($) } }
+    // M4 (blocker 5): a host attestation is never the model's to send. A
+    // model-supplied _host is dropped from every Work call forwarded here.
+    const { _host, ...rest } = e
+    try { input = { ...rest, session_id: await sessionId($) } }
     catch { return { deny: unavailable({ stage: 'identity' }) } }
   }
   if (name === 'work_execute') {
@@ -996,10 +1096,12 @@ async function workToolCall($, e, next) {
     if (s?.enabled && s.approval === 'ask') {
       let answer
       const approvalSession = await sessionId($)
+      // M5: the person sees who asked: main, or which subagent.
+      const asker = e.agentId === undefined ? 'main' : 'subagent ' + clipped(e.agentId, 40)
       try {
         const plan = await planText($, s.active_root?.id)
         if (plan.length > 24000) return { deny: 'Plan too long for approval; keep planning.' }
-        answer = await $.ui.ask('Approve this Work plan?\n\n' + plan, ['Approve', 'Keep planning'])
+        answer = await $.ui.ask('Approve this Work plan?\n\nRequested by: ' + asker + '\n\n' + plan, ['Approve', 'Keep planning'])
       } catch { return { deny: 'Work approval was not obtained; keep planning.' } }
       if (answer !== 'Approve') return { deny: 'Work plan not approved; keep planning.' }
       const current = (await gateRead($)).s
@@ -1008,7 +1110,27 @@ async function workToolCall($, e, next) {
           || current.active_root?.id !== s.active_root?.id) {
         return { deny: 'Work plan changed or became unavailable during approval; review it again.' }
       }
-      input = { ...clean, user_confirmed: true, expected_version: current.version }
+      // M1: the host records the person's answer itself, attested under _host;
+      // the model's call does not go on. The top-level flag is what the router
+      // reads today (work_mcp_tools.py:642); its router half (R1-R6, held until
+      // B6) reads only the attestation. The credential stays out of the result.
+      let reply
+      try {
+        reply = await $.mcp.call('ciel-runtime-router', 'work_execute', { session_id: approvalSession,
+          expected_version: current.version, user_confirmed: true,
+          _host: { ...await hostCredential($), internal: true, user_confirmed: true } })
+      } catch (error) {
+        await refresh($)
+        return { deny: 'Work approval was given, but recording it failed: ' + clipped(String(error?.message || error), 300)
+          + '. Call work_status before trying again.' }
+      }
+      await refresh($)
+      const said = routerText(reply)
+      if (!reply || reply.isError) return { deny: 'work_execute: ' + (clipped(said, 600) || 'router unavailable') }
+      // A verified host may get a paged reply; its text is a short status line,
+      // so a page id here is not shown as if it were the answer.
+      if (/^\{"paged":/.test(said)) return { result: 'work_execute ran after your approval; call work_status for the current phase.' }
+      return { result: said }
     }
   }
   try { return await next(input) } finally { if (name) await refresh($) }
@@ -1100,6 +1222,65 @@ async function reworkLaunchNonce($) {
   void flight.finally(() => { if (reworkLaunchNonceInFlight === flight) reworkLaunchNonceInFlight = null })
   return await flight
 }
+// R2 B2 (backend mcp 9f830f40): the router maps a host call to its attached
+// claude.exe process by this nonce. Only the host paths the backend reads it on
+// call this (host_attach, the host status read, reserve/reserve_next,
+// restart_submitted_terminal, native_observation; the launch intent/status/
+// absent/manual paths already send the same value). A model-originated Work call
+// never gets it (lead ruling). Without a nonce the observed fields go unchanged
+// and the router treats the caller as unknown, which only refuses or downgrades.
+async function hostProcess($, observed = {}) {
+  const nonce = await reworkLaunchNonce($)
+  if (observed.launch_nonce !== undefined && observed.launch_nonce !== nonce)
+    throw new Error('Work host launch nonce mismatch; the call was not sent')
+  return nonce ? { ...observed, launch_nonce:nonce } : { ...observed }
+}
+// The once-per-process attachment that lets the router tell this process's
+// leases from another live claude.exe's on the same conversation. Repeating it
+// (a hot reload) is idempotent in the router. Display only on failure: the
+// router then reads this caller as unknown and refuses the absence paths.
+let hostAttachState = { ok:null, at:'', detail:'', attachments:null }
+async function parallelHostAttach($) {
+  let raw
+  try { raw = await $.env.get('CIEL_RUNTIME_WORK_LAUNCHER_PID') } catch { raw = undefined }
+  const pid = /^[1-9]\d{0,9}$/.test(String(raw ?? '')) ? Number(raw) : null
+  const nonce = await reworkLaunchNonce($)
+  const at = new Date().toISOString()
+  if (!pid || !nonce) {
+    hostAttachState = { ok:false, at, attachments:null,
+      detail:!pid ? 'launcher pid unavailable (CIEL_RUNTIME_WORK_LAUNCHER_PID)' : 'host process nonce unavailable' }
+    rememberParallelFailure('host-attach', hostAttachState.detail)
+    return null
+  }
+  try {
+    const reply = await parallelEvent($, { event:'host_attach' }, { internal:true, launcher_pid:pid, launch_nonce:nonce })
+    hostAttachState = { ok:true, at, detail:'', attachments:reply?.session_attachments || null }
+    return reply
+  } catch (error) {
+    hostAttachState = { ok:false, at, attachments:null, detail:clipped(String(error?.message || error), 300) }
+    rememberParallelFailure('host-attach', hostAttachState.detail)
+    return null
+  }
+}
+// Paths 2/4 (R2 rule): only a lease this process owns, or whose owner process
+// is gone, may be adopted, reconciled or resumed here. other_live and unknown
+// are display-only. A lease row with no owner_process comes from a router that
+// predates B2 ownership: lead ruling (1) keeps the pre-B2 behaviour (treated as
+// own), because that router enforces no cross-process protection anyway and
+// holding its workers would leave them unrecoverable until it restarts. The
+// HOSTS line says so.
+function ownLeaseProcess(lease) {
+  return lease?.owner_process === undefined || lease.owner_process === 'own' || lease.owner_process === 'gone'
+}
+// Path 3 (ruling D, mcp 9aeeb289): the router observes a submitted receipt
+// terminal for own, gone and unknown owners and refuses only other_live.
+function restartableLeaseProcess(lease) {
+  return lease?.owner_process !== 'other_live'
+}
+const HOSTS_PRE_B2 = 'router predates B2 ownership; cross-process protection inactive'
+// The router's fixed refusal texts (backend failures 05d448c1), shown verbatim.
+const OWNER_UNKNOWN_TEXT = 'Owner of this launch attempt is unknown; resolve it from the Work pane.'
+const OWNER_LIVE_TEXT = 'Another live Work host owns this launch attempt; waiting for that host.'
 const noticedParallelReviews = new Set()
 let pendingParallelReviews = []
 let pendingParallelReviewVersion = null
@@ -1107,12 +1288,72 @@ let pendingParallelReviewVersion = null
 let observatoryReviews = []
 // SendMessage returns before Claude's deferred agent.spawn on restart recovery.
 // Keep the exact durable lease/name authorization until that spawn consumes it;
-// a finally around next(e) cleared it too early (Prody 2026-11-09).
+// a finally around next(e) cleared it too early (Prody 2026-11-09). A listed
+// fork is revived in place with no agent.spawn at all (CC 2.1.323, owned run
+// p0-row3t-20261112-172101), so nothing would ever consume it: the authorization
+// is dropped when the fork is listed after the send, and expires otherwise.
 const parallelResuming = new Map()
+const RESUME_AUTHORIZATION_MS = 120000
+function authorizeResume(leaseId, name) {
+  parallelResuming.set(leaseId, { name, until: Date.now() + RESUME_AUTHORIZATION_MS })
+}
+// X2 criterion 6: retries inside one session.start ticket never repeat a
+// recovery or exit-contract attempt. Each key names the exact ticket and lease;
+// resetParallelHostState clears the map when starts advances. Both attempts are
+// recorded before their send, whether that send delivers, refuses or throws.
+// Normal turn.complete boundaries ignore exitAttempted.
+const parallelHostRetryAttempts = new Map()
+function hostRetryAttempt(leaseId) {
+  const key = starts + ':' + leaseId
+  let attempt = parallelHostRetryAttempts.get(key)
+  if (!attempt) { attempt = { recovery: false, exitAttempted: false }; parallelHostRetryAttempts.set(key, attempt) }
+  return attempt
+}
+function resumeAuthorization(leaseId) {
+  const held = parallelResuming.get(leaseId)
+  if (held && held.until > Date.now()) return held
+  parallelResuming.delete(leaseId)
+  return null
+}
 const parallelFailures = []
 function rememberParallelFailure(stage, detail) {
   parallelFailures.push({ at: new Date().toISOString(), stage, detail: clipped(detail, 500) })
   if (parallelFailures.length > 5) parallelFailures.shift()
+}
+// Durable failure log (work_parallel_failures.py): fixed codes, short lease
+// ids and times only. Only this main module's own code writes it, through the
+// host-internal failure_record event; nothing recorded here is ever put into a
+// model-facing payload. Best-effort: a failed write never blocks or changes
+// the send, decision, review or Stop path. Each dedup key is sent once per
+// process, and the backend's dedup keeps a restarted repeat to one row.
+const recordedParallelFailures = new Set()
+const FAILURE_LEASE = /^[A-Za-z0-9_.:-]{1,64}$/
+const FAILURE_KEY = /^[!-~]{1,64}$/
+async function recordParallelFailure($, code, leaseId, dedupKey) {
+  const lease = typeof leaseId === 'string' && FAILURE_LEASE.test(leaseId) ? leaseId : null
+  // A key over 64 characters (a long lease id) keeps its head plus a stable tag.
+  const key = typeof dedupKey !== 'string' ? null : FAILURE_KEY.test(dedupKey) ? dedupKey
+    : /^[!-~]+$/.test(dedupKey) ? dedupKey.slice(0, 40) + '#' + failureTag(dedupKey) : null
+  if (key) {
+    if (recordedParallelFailures.has(key)) return
+    recordedParallelFailures.add(key)
+    if (recordedParallelFailures.size > 500) recordedParallelFailures.delete(recordedParallelFailures.values().next().value)
+  }
+  try {
+    await parallelEvent($, { event:'failure_record', code, ...(lease ? { lease_id:lease } : {}),
+      ...(key ? { dedup_key:key } : {}) }, { internal:true })
+  } catch { /* Best-effort: the console ring above still holds it. */ }
+}
+// A short, stable, non-reversible tag for a recipient that has no lease, so
+// repeated refusals of one target collapse without storing the target.
+function failureTag(text) {
+  let a = 0x811c9dc5, b = 0x01000193
+  for (const ch of String(text)) {
+    const code = ch.codePointAt(0)
+    a = Math.imul(a ^ code, 0x01000193) >>> 0
+    b = Math.imul(b ^ code, 0x811c9dc5) >>> 0
+  }
+  return a.toString(16).padStart(8, '0') + b.toString(16).padStart(8, '0')
 }
 function parallelDeny(e, next, scope) {
   const reasons = []
@@ -1173,6 +1414,7 @@ function parallelReviewState(row) {
 // finalization saga (deciding, rework_ready); main never decides it twice.
 function parallelReviewPending(row) {
   return parallelReviewState(row) === 'pending' && (row?.decision === null || row?.decision === undefined)
+    && !parallelSuperseded(row)
 }
 function parallelReviewLabel(row) {
   const state = parallelReviewState(row)
@@ -1194,6 +1436,38 @@ function boundedCoverage(value) {
     ? { item_id:clipped(entry.item_id, 64), verified:entry.verified === true }
     : clipped(entry, 64))
 }
+function changedBeforeBind(value) {
+  return value === true || value === false || value === 'unknown' || value === 'not_applicable' ? value : 'unknown'
+}
+function changedBeforeBindReview(value) {
+  if (value === true) return 'Changed before replacement bind: yes; retained worktree includes changes made before this fork bound. Inspect and verify them before approval.'
+  if (value === false) return 'Changed before replacement bind: no; retained worktree content matched the recorded handoff baseline at bind.'
+  if (value === 'not_applicable') return 'Changed before bind: not applicable (first generation).'
+  return 'Changed before replacement bind: unknown; interrupted-attempt changes cannot be excluded. Inspect and verify retained worktree content before approval.'
+}
+function reworkHandoffWarning(request) {
+  if (request.role !== 'resume') return ''
+  const drift = changedBeforeBind(request.changed_before_bind)
+  const attempt = Number(request.launch_attempt) || 0
+  if (drift === true || drift === 'unknown' || attempt >= 2)
+    return 'Retained worktree warning: it may include changes from an interrupted rework attempt. Inspect and verify the existing worktree before trusting or continuing it. '
+  if (drift === false) return 'Retained worktree baseline matched the recorded handoff at bind; still verify the requested change before reporting. '
+  return 'This is the first replacement launch for the retained worktree; inspect and verify it before reporting. '
+}
+// R1 (backend work_parallel_mcp 170c6e63): every undecided review row carries a
+// read-time content pin, sha256 of the stored row minus wake/launch/updated_at.
+// The review wake's own prepare/record writes bump the finalization version but
+// never the pin, so a decision citing the pin it was shown is not refused as
+// stale (blocker 1). Only the router's exact format is passed on.
+const REVIEW_PIN = /^rp1:[0-9a-f]{64}$/
+function reviewPinOf(row) {
+  return typeof row?.review_pin === 'string' && REVIEW_PIN.test(row.review_pin) ? row.review_pin : undefined
+}
+// (lease, finalization version) -> the pin the host projected beside that
+// version. mainParallelReview attaches a pin only for exactly such a pair; a
+// restarted process has none and the plain version rule applies.
+const projectedReviewPins = new Map()
+function reviewPinKey(leaseId, version) { return String(leaseId) + '\n' + String(version) }
 // Main gets only an allow-listed bounded receipt: item, title/path, artifact,
 // completion receipt, summary, coverage, verification and workspace metadata.
 // A fork answer, transcript, agent/native row or any other backend field is
@@ -1208,7 +1482,11 @@ function parallelReviewView(row, version = null) {
     artifact:clipped(row?.artifact, 128), completion_receipt:clipped(row?.completion_receipt || row?.receipt_digest, 128),
     summary:clipped(row?.summary, 1200) || undefined, coverage:boundedCoverage(row?.coverage),
     verification:clipped(row?.verification, 1600) || undefined,
+    changed_before_bind:changedBeforeBind(row?.changed_before_bind),
+    changed_before_bind_disclosure:changedBeforeBindReview(changedBeforeBind(row?.changed_before_bind)),
+    stranded:parallelStranded(row),
     workspace:ws ? { path:clipped(ws.path, 500), branch:clipped(ws.branch, 200), head:clipped(ws.head, 80),
+      ...(ws.unavailable === true ? { unavailable:true, reason:clipped(ws.reason, 300) } : {}),
       ...(typeof ws.dirty === 'boolean' ? { dirty:ws.dirty } : {}),
       ...(Array.isArray(ws.changed_files) ? { changed_files:ws.changed_files.slice(0, 20).map(value => clipped(value, 200)),
         changed_count:ws.changed_files.length } : {}),
@@ -1216,26 +1494,90 @@ function parallelReviewView(row, version = null) {
     state:parallelReviewState(row),
     ...(Number.isInteger(version) ? { expected_finalization_version:version } : {}),
   }
+  const pin = Number.isInteger(version) ? reviewPinOf(row) : undefined
+  if (pin && view.lease_id) {
+    view.expected_review_pin = pin
+    const key = reviewPinKey(view.lease_id, version)
+    projectedReviewPins.delete(key); projectedReviewPins.set(key, pin)
+    while (projectedReviewPins.size > 400) projectedReviewPins.delete(projectedReviewPins.keys().next().value)
+  }
   for (const key of Object.keys(view)) if (view[key] === undefined || view[key] === '') delete view[key]
   return view
+}
+// Item 2: the backend derives `stranded` at read time for a result whose
+// retained workspace is gone or whose fork never reported. Only its fixed
+// words and the bounded reason are shown; the recorded workspace identity is a
+// record, not a fact about a usable worktree.
+const STRANDED_KINDS = new Set(['workspace_unavailable', 'no_report'])
+const STRANDED_PHASES = new Set(['pending', 'deciding', 'recovered'])
+function parallelStranded(row) {
+  const s = row?.stranded
+  if (!s || typeof s !== 'object' || !STRANDED_KINDS.has(s.kind)) return undefined
+  return { kind:s.kind, reason:clipped(s.reason, 300), approve:s.approve === 'refused' ? 'refused' : clipped(s.approve, 40),
+    rework:s.rework === 'fresh_workspace' ? 'fresh_workspace' : clipped(s.rework, 40),
+    counts_against_rework_limit:s.counts_against_rework_limit === true,
+    // stranded-v1 sidecar saga phase; an older backend sends none.
+    ...(STRANDED_PHASES.has(s.phase) ? { phase:s.phase } : {}) }
+}
+function parallelStrandedText(stranded) {
+  if (!stranded) return ''
+  const what = stranded.kind === 'no_report' ? 'no worker report: the native fork ended without a durable exit receipt'
+    : 'retained workspace unavailable'
+  return 'Stranded result (' + what + (stranded.reason ? '; ' + stranded.reason : '') + '): approve '
+    + (stranded.approve === 'refused' ? 'is refused' : stranded.approve)
+    + (stranded.rework === 'fresh_workspace' ? '; rework starts in a fresh workspace' : '; rework ' + stranded.rework)
+    + (stranded.counts_against_rework_limit ? ' and counts against the rework limit.' : ' and does not count against the rework limit.')
+}
+// checkpoint3: a superseded stranded result is an ended audit row (state and
+// stranded.phase "superseded", naming the superseding lease). It is never
+// pending: it never wakes main, never gates Stop and has no decision control.
+// It is shown only in an ended area, as the superseding lease and a time, and
+// never with a reason, workspace, artifact or receipt. The backend lists it only
+// while the superseding lease is active and unreviewed, so the rows stay bounded.
+function parallelSuperseded(row) {
+  const s = row?.stranded && typeof row.stranded === 'object' ? row.stranded : null
+  if (parallelReviewState(row) !== 'superseded' && s?.phase !== 'superseded') return undefined
+  const at = s?.observed_at
+  return { lease_id:clipped(parallelReviewId(row), 200), item_id:clipped(row?.item_id, 64),
+    ...(STRANDED_KINDS.has(s?.kind) ? { kind:s.kind } : {}),
+    superseding_lease_id:clipped(s?.superseding_lease_id, 64),
+    superseding_state:/^[a-z_]{1,24}$/.test(String(s?.superseding_state || '')) ? s.superseding_state : '',
+    // Epoch seconds (time.time()); anything else is not shown as a time.
+    observed_at:typeof at === 'number' && Number.isFinite(at) && at > 1e9 && at < 1e11
+      ? new Date(at * 1000).toISOString().replace(/\.\d+Z$/, 'Z') : '' }
+}
+function parallelSupersededText(sup) {
+  return 'Stranded result superseded by Work lease ' + (sup.superseding_lease_id ? sup.superseding_lease_id.slice(0, 8) : '(unknown)')
+    + (sup.superseding_state ? ' · superseding lease ' + sup.superseding_state : '')
+    + (sup.observed_at ? ' · observed ' + sup.observed_at : '')
+}
+// Review rows presented as reviews (pane list, observatory, the card's MAIN
+// REVIEW): never an ended superseded row. Those appear only in the console
+// card's ended section (and in the web/REST ended list).
+function parallelPresentedReviews(rows) {
+  return (Array.isArray(rows) ? rows : []).filter(r => r && typeof r === 'object' && !parallelSuperseded(r))
 }
 function parallelReviewKey(identity, row) {
   return identity + ':' + clipped(parallelReviewId(row) || row?.item_id, 200) + ':' + parallelReviewState(row)
 }
-// Busy main reads a plugin user-role append at its very next model request;
-// an idle main is woken by a plugin prompt (side-intake.js deliverToMain,
-// owned Claude Code 2.1.321 probe delivery-4f4c90b8). Each idle prompt is
-// issued at once under its own key (side-intake.js sidePromptSubmit): a
-// duplicate of the lease key, here or across a hot reload, is never submitted
-// again, and another key is never held behind it.
-async function deliverParallelReview($, text, key, meta) {
-  if (working) {
-    try {
-      await $.session.append({ message:{ type:'user', content:[{ type:'text', text }] } })
-      if (working) return 'appended'
-    } catch { /* The idle prompt path below is the fallback. */ }
+// Review payload always reaches main through append. A plugin prompt is only a
+// wake and carries the lease reference, never the receipt. The finalization
+// store remains schema 5 unchanged: its existing wake attempt is the payload
+// fence, while sidePromptSubmit bounds the wake within this host lifecycle.
+async function deliverParallelReview($, text, key, meta, sink = null) {
+  let appended
+  try { appended = await $.session.append({ message:{ type:'user', content:[{ type:'text', text }] } }) }
+  catch { return 'uncertain' }
+  if (appended?.deny) return 'failed'
+  // Claude Code 2.1.322 returns uuid. Older fixtures/engines returned the
+  // appended message only; a fulfilled append with no deny remains definite.
+  if (!appended || typeof appended !== 'object') return 'uncertain'
+  if (sink && typeof appended.uuid === 'string') sink.receipt = appended.uuid
+  if (!working) {
+    const lease = key.slice('parallel:'.length, 'parallel:'.length + 12)
+    void sidePromptSubmit($, key, 'Ciel Work review wake '+lease+': a host message beginning "Ciel Work result is awaiting main review" was added to this conversation. Read that durable review row and decide with work_parallel_item_review. This wake holds no review data and grants no approval.', meta)
   }
-  return sidePromptSubmit($, key, text, meta)
+  return 'appended'
 }
 const parallelWakeFlights = new Set()
 async function finishParallelWake($, leaseId, attemptId, text, mode) {
@@ -1245,10 +1587,14 @@ async function finishParallelWake($, leaseId, attemptId, text, mode) {
     // append/prompt the same receipt. Every other event uses busy append / idle prompt.
     // The redacted attempt ref makes a new durable attempt a new delivery,
     // while a duplicate of this attempt returns its terminal outcome.
+    const sink = {}, identity = await sessionId($)
     outcome = mode === 'stop' ? 'queued' : await deliverParallelReview($, text, 'parallel:' + leaseId,
-      { kind:'parallel', ref:await sidePromptRef(attemptId) })
+      { kind:'parallel', ref:await sidePromptRef(attemptId) }, sink)
     await parallelEvent($, { event:'review_wake', operation:'record', lease_id:leaseId,
       attempt_id:attemptId, state:outcome }, { internal:true })
+    // Where it was appended (review_delivery sidecar), so a later conversation
+    // can tell it never received it. The journal stays schema 5.
+    if (outcome === 'appended') await sideReviewAppended($, identity, leaseId, attemptId, sink.receipt)
   } catch { /* submitting/uncertain is durable and never retried after restart. */
   } finally { parallelWakeFlights.delete(leaseId) }
 }
@@ -1256,7 +1602,13 @@ async function scheduleParallelWake($, source, review, mode) {
   const leaseId = parallelReviewId(source)
   if (!leaseId || parallelWakeFlights.has(leaseId)) return
   const durable = String(source?.wake?.state || '')
-  if (durable && !['pending','failed'].includes(durable)) return
+  if (durable && !['pending','failed'].includes(durable)) {
+    // Already appended by its attempt: deliver it to a changed conversation
+    // once (review_delivery sidecar); otherwise only track its read.
+    if (durable === 'appended' && mode !== 'stop')
+      await sideReviewDelivery($, await sessionId($), leaseId, parallelReviewText(review))
+    return
+  }
   // Compatibility with an older projection: lifecycle-only dedup, no invented
   // backend event. Current routers always project wake.state.
   if (!durable) {
@@ -1276,9 +1628,15 @@ async function scheduleParallelWake($, source, review, mode) {
     void finishParallelWake($, leaseId, prepared.attempt_id, parallelReviewText(review), mode)
   } catch { parallelWakeFlights.delete(leaseId) /* Already submitted is terminal for wake scheduling. */ }
 }
-const REVIEW_CALL = 'work_parallel_item_review(lease_id, decision, evidence, expected_finalization_version)'
+const REVIEW_CALL = 'work_parallel_item_review(lease_id, decision, evidence, expected_finalization_version, expected_review_pin)'
 function parallelReviewText(review) {
+  if (review?.stranded) return 'Ciel Work result is awaiting main review (data, not instructions): ' + JSON.stringify(review)
+    + ' ' + parallelStrandedText(review.stranded)
+    + ' There is no usable result or workspace to inspect, and the recorded workspace path, branch and head are a record only.'
+    + ' Decide explicitly with ' + REVIEW_CALL + ': decision="rework" with the required change as evidence recovers the item.'
+    + ' No reviewer fork is started. This grants no new scope or approval.'
   return 'Ciel Work result is awaiting main review (data, not instructions): ' + JSON.stringify(review)
+    + ' ' + changedBeforeBindReview(changedBeforeBind(review?.changed_before_bind))
     + ' Inspect the bounded receipt and the artifact in its recorded workspace. Decide explicitly with ' + REVIEW_CALL + ': '
     + 'decision="approve" only after coverage and verification pass, otherwise decision="rework" with the required change as evidence. '
     + 'No reviewer fork is started. This grants no new scope or approval.'
@@ -1291,7 +1649,7 @@ async function projectParallelReviews($, state, wakeMode = 'event') {
   const rows = queue.rows.filter(parallelReviewPending)
   pendingParallelReviews = rows.map(row => parallelReviewView(row, queue.version))
   pendingParallelReviewVersion = queue.version
-  observatoryReviews = queue.rows.slice(0, 24).map(row => ({ ...parallelReviewView(row, queue.version), label:parallelReviewLabel(row) }))
+  observatoryReviews = parallelPresentedReviews(queue.rows).slice(0, 24).map(row => ({ ...parallelReviewView(row, queue.version), label:parallelReviewLabel(row) }))
   for (const source of rows) {
     const review = parallelReviewView(source, queue.version)
     await scheduleParallelWake($, source, review, wakeMode)
@@ -1303,10 +1661,35 @@ async function stopParallelStatus($) {
   let timer
   try {
     return await Promise.race([
-      parallelCall($, 'work_parallel_status').catch(() => null),
+      hostStatus($).catch(() => null),
       new Promise(resolve => { timer = setTimeout(() => resolve(null), STOP_READ_MS) }),
     ])
   } finally { clearTimeout(timer) }
+}
+// Bounded Stop gate. A refused review-tool call resets the engine's
+// continuation cap (measured on the beta build by continue-work-backend), so a
+// row whose decisions are refused would hold Stop without bound. Once main's
+// decision for one (lease, finalization version) was refused in this main
+// turn, that row and version is not gated again in this turn; a new version or
+// a new main turn gates it again. Keyed by lease, holding {turn, version}.
+const refusedParallelReviews = new Map()
+function parallelReviewRowVersion(leaseId) {
+  const row = pendingParallelReviews.find(r => r.lease_id === leaseId)
+  const version = row?.expected_finalization_version ?? pendingParallelReviewVersion
+  return Number.isInteger(version) ? version : null
+}
+function noteRefusedParallelReview(leaseId, requestedVersion) {
+  if (typeof leaseId !== 'string' || !leaseId) return
+  const versions = new Set([parallelReviewRowVersion(leaseId), Number.isInteger(requestedVersion) ? requestedVersion : null]
+    .filter(v => v !== null))
+  refusedParallelReviews.delete(leaseId)
+  refusedParallelReviews.set(leaseId, { turn:mainTurnEpoch, versions })
+  while (refusedParallelReviews.size > 200) refusedParallelReviews.delete(refusedParallelReviews.keys().next().value)
+}
+function parallelReviewRefusedNow(row) {
+  const held = refusedParallelReviews.get(row.lease_id)
+  const version = row.expected_finalization_version ?? pendingParallelReviewVersion
+  return !!held && held.turn === mainTurnEpoch && held.versions.has(version)
 }
 function parallelReviewGate(identity, fresh) {
   // A review whose prompt was issued and has not resolved (this module's, or
@@ -1314,8 +1697,14 @@ function parallelReviewGate(identity, fresh) {
   // Showing it here too presents it twice (owned probe prompt-stop-28f9d226),
   // and holding this turn delays the very turn end that lets it enter. Once it
   // resolved, or its idle window released it as uncertain, the gate applies.
-  const rows = pendingParallelReviews.filter(row => !sidePromptPending('parallel:' + row.lease_id))
-  if (!rows.length) return null
+  const waiting = pendingParallelReviews.filter(row => !sidePromptPending('parallel:' + row.lease_id))
+  const rows = waiting.filter(row => !parallelReviewRefusedNow(row))
+  if (!rows.length) {
+    if (!waiting.length) return null
+    return { notice: 'Ciel Work: ' + waiting.length + ' result' + (waiting.length === 1 ? '' : 's')
+      + ' still await main review, but this turn\'s decision was refused, so Stop is not held again for '
+      + (waiting.length === 1 ? 'it' : 'them') + ' until the review changes or a new turn starts. /work-mode parallel' }
+  }
   // A review wake is notification delivery, not a decision. Stop remains gated
   // for every undecided row until work_parallel_item_review commits.
   return { block: 'Work results are awaiting explicit main review' + (fresh ? '' : ' (last known review queue)') + '. '
@@ -1330,7 +1719,9 @@ function publicReviewDecision(result) {
   return { decision:result?.decision, lease_id:result?.lease_id, item_id:result?.item_id, state:result?.state,
     finalization_version:result?.finalization_version,
     ...(result?.decision === 'rework' && Number.isInteger(result?.dispatch?.generation)
-      ? { replacement_generation:result.dispatch.generation } : {}) }
+      ? { replacement_generation:result.dispatch.generation } : {}),
+    ...(result?.decision === 'rework' && STRANDED_KINDS.has(result?.dispatch?.recovery)
+      ? { recovery:result.dispatch.recovery, fresh_workspace:true } : {}) }
 }
 async function mainParallelReview($, args) {
   const request = { ...args }
@@ -1341,8 +1732,17 @@ async function mainParallelReview($, args) {
   if (typeof request.decision_id !== 'string' && typeof request.lease_id === 'string' && typeof request.decision === 'string')
     request.decision_id = 'review:' + request.lease_id + ':' + request.decision
   if (!Number.isInteger(request.expected_finalization_version)) {
-    const version = parallelReviewQueue(await parallelCall($, 'work_parallel_status')).version
+    const version = parallelReviewQueue(await hostStatus($)).version
     if (Number.isInteger(version)) request.expected_finalization_version = version
+  }
+  // R1: a pin main copied from the review it read is passed on as is (the
+  // router compares it with the stored row). Without one, the host attaches
+  // the pin it projected for exactly this lease and version, never another.
+  if (typeof request.expected_review_pin !== 'string' || !REVIEW_PIN.test(request.expected_review_pin)) {
+    delete request.expected_review_pin
+    const projected = projectedReviewPins.get(reviewPinKey(request.lease_id, request.expected_finalization_version))
+    if (typeof request.lease_id === 'string' && Number.isInteger(request.expected_finalization_version) && projected)
+      request.expected_review_pin = projected
   }
   delete request.expected_version
   const result = await parallelCall($, 'work_parallel_item_review', request)
@@ -1378,7 +1778,7 @@ function boardTitleMap(board) {
   return titles
 }
 async function parallelState($, identity) {
-  const state = await parallelCall($, 'work_parallel_status')
+  const state = await hostStatus($)
   const lacksTitles = Object.values(state.leases || {}).some(r => r.item_id && !r.item_title)
   if (!lacksTitles) return state
   try {
@@ -1403,7 +1803,24 @@ function parallelStatusText(state, scope) {
       + ' · ledger v' + String(state?.version ?? '?')
       + ' · launches/min ' + String(p.launches_per_minute ?? '?')
       + ' · max rework ' + String(p.max_rework ?? '?')]
-  const reviews = parallelReviews(state)
+  if (forkGateState.ok === false)
+    lines.push('FORK GATE: ' + FORK_GATE_MISSING + ' · ' + forkGateState.detail + ' · checked ' + forkGateState.at)
+  else if (forkGateState.ok === true) lines.push('FORK GATE: ' + FORK_GATE_PLUGIN + ' ' + FORK_GATE_VERSION + ' answered at ' + forkGateState.at)
+  // R2 B2: Work host processes attached to this conversation (counts only). A
+  // status without session_attachments comes from a router that predates B2.
+  const hosts = state?.session_attachments
+  const count = value => Number.isInteger(value) ? String(value) : '?'
+  if (!hosts || typeof hosts !== 'object') lines.push('HOSTS: ' + HOSTS_PRE_B2)
+  else lines.push('HOSTS: ' + (hosts.available === false ? 'attachment record unavailable'
+      : 'live ' + count(hosts.live) + ' · gone ' + count(hosts.gone) + ' · unknown ' + count(hosts.unknown))
+      + (hostAttachState.ok === false ? ' · this process is not attached: ' + hostAttachState.detail : '')
+      + ' · another live or unknown host\'s leases are shown only')
+  const reviews = parallelPresentedReviews(parallelReviews(state))
+  const endedRows = [...parallelReviews(state), ...(Array.isArray(state?.review?.ended) ? state.review.ended : [])]
+    .filter(r => r && typeof r === 'object' && parallelSuperseded(r))
+  const endedSeen = new Set()
+  const superseded = endedRows.filter(r => !endedSeen.has(parallelReviewId(r)) && endedSeen.add(parallelReviewId(r)))
+    .sort((a, b) => (Number(b?.stranded?.observed_at) || 0) - (Number(a?.stranded?.observed_at) || 0)).slice(0, 20)
   if (reviews.length) {
     lines.push('MAIN REVIEW (' + reviews.length + ') · no reviewer fork; main decides with work_parallel_item_review')
     for (const r of reviews) {
@@ -1411,8 +1828,16 @@ function parallelStatusText(state, scope) {
         + ' · lease ' + clipped(parallelReviewId(r), 40)
         + (r.completion_receipt ? ' · receipt ' + clipped(r.completion_receipt, 16) : '')
         + (r.blocked?.code ? ' · blocked ' + clipped(r.blocked.code, 40) + (r.blocked.message ? ': ' + clipped(r.blocked.message, 160) : '') : ''))
-      if (r.workspace?.branch) lines.push('    workspace: ' + clipped(r.workspace.branch, 120) + ' @ ' + clipped(r.workspace.head, 16)
+      const stranded = parallelStranded(r)
+      if (stranded) {
+        lines.push('    stranded: ' + stranded.kind + (stranded.phase && stranded.phase !== 'pending' ? ' (' + stranded.phase + ')' : '')
+          + ' · approve refused · rework starts in a fresh workspace'
+          + (stranded.counts_against_rework_limit ? ' · counts against the rework limit' : ' · does not count against the rework limit'))
+        lines.push('    workspace: unavailable' + (r.workspace?.branch ? ' · recorded ' + clipped(r.workspace.branch, 120)
+          + ' @ ' + clipped(r.workspace.head, 16) : ''))
+      } else if (r.workspace?.branch) lines.push('    workspace: ' + clipped(r.workspace.branch, 120) + ' @ ' + clipped(r.workspace.head, 16)
         + (r.workspace.dirty ? ' · dirty' : ''))
+      lines.push('    ' + changedBeforeBindReview(changedBeforeBind(r.changed_before_bind)))
       if (r.launch?.state && r.launch.state !== 'none') lines.push('    rework launch: ' + clipped(r.launch.state, 40)
         + ' · attempt ' + String(r.launch.attempt ?? '?'))
       const note = reworkLaunchNotes.get(String(r.replacement_lease_id || ''))
@@ -1420,20 +1845,29 @@ function parallelStatusText(state, scope) {
     }
   }
   const groups = forks ? [['confirmed', forks.confirmed], ['waiting', forks.waiting], ['reservation', forks.reservation],
-    ['uncertain', forks.uncertain], ['validating', forks.validating], ['ended', forks.ended]] : [['legacy leases', leases]]
+    ['uncertain', forks.uncertain], ['validating', forks.validating], ['legacy_reviewer', forks.legacy_reviewer],
+    ['ended', forks.ended]] : [['legacy leases', leases]]
   for (const [group, rows] of groups) {
     if (!rows?.length) continue
-    lines.push(group.toUpperCase() + ' (' + rows.length + ')')
+    lines.push((group === 'legacy_reviewer' ? clipped(forks?.group_labels?.legacy_reviewer || 'Legacy reviewer', 80)
+      : group.toUpperCase()) + ' (' + rows.length + ')')
     for (const r of rows) {
       const label = parallelItemLabel({ item_id:r.item_id || r.id, item_title:r.item_title, item_ref:r.item_ref })
       const native = r.native?.status || 'not observed'
       const agent = r.agent_name || r.agent_id || '(native fork not observed)'
+      const owner = (state?.leases?.[r.lease_id || r.id] || r).owner_process
       lines.push('  ' + label + ' → ' + clipped(agent, 120)
         + ' · ' + clipped(r.priority || '', 8) + ' ' + clipped(r.role || '', 16)
         + ' · lease ' + clipped(r.state || '', 32) + ' · native ' + native
-        + (r.slot ? ' · slot held' : ' · slot released'))
+        + (r.slot ? ' · slot held' : ' · slot released')
+        + (typeof owner === 'string' && owner !== 'own' ? ' · owner ' + clipped(owner, 16) : ''))
       if (r.item_path?.length > 1) lines.push('    path: ' + r.item_path.map(t => clipped(t, 100)).join(' → '))
     }
+  }
+  if (superseded.length) {
+    lines.push('ENDED · SUPERSEDED STRANDED RESULTS (' + superseded.length + ') · no decision; another execution owns the item')
+    for (const r of superseded) lines.push('  ' + parallelSupersededText(parallelSuperseded(r)) + ' · ' + parallelItemLabel(r)
+      + ' · lease ' + clipped(parallelReviewId(r), 40))
   }
   const pending = [...parallelPending.entries()].filter(([, r]) => !scope || r.scope === scope)
   lines.push('Pending native Agent dispatch: ' + pending.length)
@@ -1451,20 +1885,91 @@ function parallelStatusText(state, scope) {
   lines.push('Settings: ciel-runtime menu → LLM options → Work 병렬 실행. Policy changes do not terminate existing workers.')
   return lines.join('\n')
 }
-async function parallelCall($, name, args = {}, observed = {}, scope = null) {
+// The one router credential read in this module (lead ruling G1). The current
+// host token is inherited by tool children (measured 2026-11-13), so it is not
+// an attestation boundary; B6 replaces only this body. side-intake.js keeps its
+// own read until then (continue-sse).
+async function hostCredential($) {
   const token = await $.env.get('CIEL_RUNTIME_WORK_PARALLEL_HOST_TOKEN')
+  return typeof token === 'string' && token ? { token } : {}
+}
+async function parallelCall($, name, args = {}, observed = {}, scope = null) {
+  const credential = await hostCredential($)
   const identity = scope || await sessionId($)
   const r = await $.mcp.call('ciel-runtime-router', name, {
-    ...args, session_id: identity, _host: { ...observed, token },
+    ...args, session_id: identity, _host: { ...observed, ...credential },
   })
   if (!r) throw new Error('Parallel router unavailable')
   const value = parseJson(r, 'Parallel read')
   // Large host results arrive as verified pages (host_result_pages.py).
-  return value?.paged ? hostJson($, name, r, identity, token) : value
+  return value?.paged ? hostJson($, name, r, identity, credential.token) : value
+}
+// The host's own status read (never the model's, which workToolCall forwards
+// without _host). R2 B2: it carries this process's nonce, so each lease row's
+// owner_process can read own.
+async function hostStatus($) {
+  return parallelCall($, 'work_parallel_status', {}, await hostProcess($))
+}
+// Blocker 3: this module's own hooks never run inside forks it spawns, so the
+// separate ciel-work-gate plugin enforces the Work rules there. No Work fork
+// starts unless that gate answers a live probe now: a $.tool.check query whose
+// ask the engine pins to the answering plugin (ToolCheckResult.plugin), naming
+// the expected version and a fresh nonce. Env values or files a Bash child
+// could write never count (lead ruling G5). Not yet measured in the real loader.
+const FORK_GATE_PLUGIN = 'ciel-work-gate'
+const FORK_GATE_VERSION = '1'
+const FORK_GATE_MISSING = 'Work fork gate not loaded: parallel execution disabled'
+let forkGateState = { ok: null, at: '', detail: '' }
+// The (state, version) last reported to the router by this module instance;
+// a reload or a new process reports again (backend G5: once per process start
+// and on change). Display only: the router never authorizes a spawn with it.
+let forkGateReported = ''
+let forkGateNoticed = false
+const GATE_VERSION_WORD = /^[0-9A-Za-z][0-9A-Za-z._+-]{0,31}$/
+// atStart: the once-per-process report from session.start. It decides nothing
+// (every spawn probes again) and raises no notice, so a probe answered
+// differently there than at spawn time cannot alarm the person; whether the
+// gate's hook already answers during session.start is not yet measured.
+async function forkGatePresent($, { atStart = false } = {}) {
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  const nonce = Array.from(bytes, byte => byte.toString(16).padStart(2, '0')).join('')
+  let verdict = null, detail = ''
+  try {
+    verdict = await $.tool.check({ tool: 'Write', input: { file_path: '', content: '', ciel_work_gate_probe: nonce } })
+  } catch (error) { detail = 'probe failed: ' + clipped(String(error?.message || error), 160) }
+  // Only an ask the engine pinned to the gate plugin, for this nonce, counts.
+  const answered = verdict?.decision === 'ask' && verdict.plugin === FORK_GATE_PLUGIN
+    ? new RegExp('^' + FORK_GATE_PLUGIN + ' (\\S+) ' + nonce + '$').exec(String(verdict.reason || '')) : null
+  const seen = answered && GATE_VERSION_WORD.test(answered[1]) ? answered[1] : null
+  const ok = seen === FORK_GATE_VERSION
+  // An answer in an unknown shape is no compatible gate: reported as missing.
+  const state = ok ? 'loaded' : seen ? 'mismatch' : 'missing'
+  if (!ok && !detail) detail = seen ? 'gate answered version ' + seen + ', expected ' + FORK_GATE_VERSION
+    : 'no answer from ' + FORK_GATE_PLUGIN + ' ' + FORK_GATE_VERSION
+  const was = forkGateState.ok
+  forkGateState = { ok, at: new Date().toISOString(), detail: ok ? '' : detail }
+  // One notice per outage, raised by a spawn-time probe only.
+  if (ok) forkGateNoticed = false
+  else if (!atStart && !forkGateNoticed) {
+    forkGateNoticed = true
+    rememberParallelFailure('fork-gate', FORK_GATE_MISSING + ' (' + detail + ')')
+    try { $.ui.toast('Ciel Work: ' + FORK_GATE_MISSING + '.') } catch { /* Display only. */ }
+  }
+  if (was !== ok) $.ui.invalidate('ui.render')
+  const report = state + ' ' + (seen || '')
+  if (report !== forkGateReported) {
+    try {
+      await parallelEvent($, { event: 'gate_presence', state, ...(seen ? { gate_version: seen } : {}), probe_ref: nonce },
+        { internal: true })
+      forkGateReported = report
+    } catch { /* Display only; the next probe reports again. The spawn decision above stands. */ }
+  }
+  return ok
 }
 async function parallelEvent($, args, observed = {}) {
   for (let attempt = 0; attempt < 3; attempt++) {
-    const s = await parallelCall($, 'work_parallel_status')
+    const s = await hostStatus($)
     try { return await parallelCall($, 'work_parallel_event', { ...args, expected_version: s.version }, observed) }
     catch (error) { if (attempt === 2 || !/state changed; reread/.test(String(error.message))) throw error }
   }
@@ -1477,10 +1982,146 @@ async function parallelEvent($, args, observed = {}) {
 // send them could suppress or fake its own review wake.
 const REWORK_LAUNCH_EVENTS = new Set(['rework_launch_intent', 'rework_launch_denied', 'rework_spawn_observed',
   'rework_launch_absent', 'rework_launch_manual_resolve', 'rework_launch_present',
-  'rework_launch_status', 'rework_launch_manual_request', 'review_wake', 'review_roll_forward',
-  'restart_submitted_terminal'])
+  'rework_launch_status', 'rework_launch_manual_request', 'rework_fork_attribution', 'fork_identity',
+  'review_wake', 'review_roll_forward', 'restart_submitted_terminal', 'failure_record'])
 function reworkLaunchEvent($, args, observed = {}) {
   return parallelEvent($, args, { ...observed, internal:true })
+}
+// Revival fence. CC 2.1.323 delivers a SendMessage to a killed, completed or
+// idle listed fork by reviving it in place with its original prompt and
+// context, and raises no agent.spawn hook (owned preflight
+// run-p0-row3t-20261112-172101), so the spawn gate never sees a revival. Every
+// send that names a Work-owned fork is judged here. Only the coordinator's
+// SendMessage to a running or question-waiting lease takes the resume path.
+// A nested ciel-work $.session.send can reach a second module instance; its
+// engine-pinned origin name is admitted by parallelSessionSend below.
+const PARALLEL_RESUMABLE = new Set(['running', 'waiting_input'])
+// Native names this mod gives: 'work-' + base36 time + '-' + base36 random
+// (parallelDirectSpawn), work-rework-<lease>-a<N>, and the side namespace.
+const WORK_FORK_NAME = /^work-[0-9a-z]{6,}-[0-9a-z]{4,}$/
+function workForkName(name) {
+  const text = String(name || '')
+  // parallelPump's auto-fill key has an extra `auto` segment and does not match
+  // WORK_FORK_NAME (measured with node's regex engine, 2026-11-13).
+  return text.length <= 200 && (WORK_FORK_NAME.test(text) || /^work-auto-[0-9a-z]+-[0-9a-z]+$/.test(text)
+    || reworkForkLeaseId(text) !== null || /^side-intake-/.test(text))
+}
+// The recipient as this process lists it. listKnown is false when the list
+// itself failed: then nothing is known to be listed or not.
+async function parallelSendTarget($, to) {
+  const target = typeof to === 'string' ? to : ''
+  if (!target) return null
+  let rows = null
+  try { rows = await listNativeAgents($) } catch { rows = null }
+  const listed = rows ? rows.find(a => a.id === target) || rows.find(a => a.name === target) || null : null
+  return { target, listed, listKnown: rows !== null, ids: [...new Set([target, listed?.id].filter(Boolean))],
+    names: [...new Set([target, listed?.name].filter(Boolean))] }
+}
+// A listed agent that is not a fork and that nothing marks as ciel-work's
+// (a teammate, a background agent of another plugin) is never a Work fork.
+function parallelForeignAgent(t) {
+  return !!t.listed && !!t.listed.type && t.listed.type !== 'fork' && !sideOwned(t.listed)
+    && t.listed.spawnedBy !== 'ciel-work'
+}
+// The lease a send may resume: running or waiting, bound to exactly that fork.
+function parallelResumableLease(state, t) {
+  return Object.values(state?.leases || {}).find(r => r.host_id && PARALLEL_RESUMABLE.has(r.state)
+    && (t.ids.includes(r.host_id) || (!!(r.agent_name || r.dispatch_name) && t.names.includes(r.agent_name || r.dispatch_name)
+      && (!t.listed || t.listed.id === r.host_id)))) || null
+}
+// Why the durable Work store says this recipient is a Work fork, or null.
+function parallelStoreOwner(state, t) {
+  const named = (id, ...names) => (!!id && t.ids.includes(id)) || names.some(name => !!name && t.names.includes(name))
+  for (const r of Object.values(state?.leases || {}))
+    if (named(r.host_id, r.agent_name, r.dispatch_name)) return 'Work lease ' + r.id + ' (' + r.state + ')'
+  for (const rows of Object.values(state?.forks || {})) {
+    if (!Array.isArray(rows)) continue
+    for (const r of rows) if (named(r.agent_id, r.agent_name)) return 'Work lease ' + r.lease_id + ' (' + r.state + ')'
+  }
+  return null
+}
+// Why this process alone (no store read) knows the recipient is a Work fork.
+// The reserved-name rule covers a fork or an unlisted target only, never a
+// listed teammate or other agent that happens to carry such a name.
+function parallelLocalOwner(t, sideIds) {
+  for (const id of t.ids) {
+    if (sideIds.has(id)) return 'a side request'
+    if (parallelBound.has(id) || ownedParallelAgents.has(id) || rejectedLateReworkAgents.has(id))
+      return 'a Work fork this process started'
+  }
+  if (t.listed && sideOwned(t.listed)) return 'a side request'
+  if (t.listed?.spawnedBy === 'ciel-work') return 'a fork ciel-work started'
+  // A listed row with no type is not known to be anything but a fork.
+  if (!parallelForeignAgent(t) && t.names.some(workForkName)) return 'a Work fork (reserved name)'
+  return null
+}
+// { lease } on the resume path, { owner } for any other Work fork, {} otherwise.
+// Never throws. When the Work store cannot be read, only local evidence can
+// refuse a send: a message to anyone else (a peer session, a teammate) is not
+// Work's to block, and an unlisted fork of an earlier process can only come
+// back through a deferred agent.spawn, which parallelAgentSpawn denies when its
+// own read fails.
+async function parallelSendGate($, to) {
+  const t = await parallelSendTarget($, to)
+  if (!t || parallelForeignAgent(t)) return {}
+  let sideIds = new Set()
+  try { sideIds = new Set(sideActors(await sessionId($)).map(actor => actor.id)) } catch { /* No side evidence. */ }
+  const local = parallelLocalOwner(t, sideIds)
+  let state
+  try { state = await hostStatus($) }
+  catch (error) {
+    return local ? { owner: local + ' (the Work store could not be read: ' + clipped(String(error?.message || error), 160) + ')', t } : {}
+  }
+  const lease = parallelResumableLease(state, t)
+  if (lease) return { lease, state, t }
+  const owner = parallelStoreOwner(state, t) || local
+  if (owner) return { owner, t }
+  // The bounded status read no longer lists long-ended leases. The durable
+  // lookup (fork_identity) matches every lease of this conversation and every
+  // rework launch name; an unmatched query proves nothing either way.
+  const identity = await parallelForkIdentity($, t)
+  if (identity?.active) return { activeUnseen: identity.match, t }
+  return identity?.owner ? { owner: identity.owner, t } : {}
+}
+// Host-only, read-only. Sends both the id and the name: an earlier attempt's
+// agent id is durable only if it bound (continue-work-backend, mcp 1c95e61e).
+async function parallelForkIdentity($, t) {
+  const bounded = values => [...new Set(values.filter(v => typeof v === 'string' && v && v.length <= 200))].slice(0, 64)
+  const ids = bounded(t.ids), names = bounded(t.names)
+  if (!ids.length && !names.length) return null
+  let reply
+  try { reply = await parallelCall($, 'work_parallel_event', { event:'fork_identity', ids, names }, { internal:true }) }
+  catch { return null /* Unreadable: only the evidence above decides. */ }
+  const matches = (Array.isArray(reply?.matches) ? reply.matches : []).filter(m => m && typeof m === 'object'
+    && (ids.includes(m.query) || names.includes(m.query)) && typeof m.lease_id === 'string')
+  if (!matches.length) return null
+  // An active, current lease the bounded status read did not show: it is the
+  // coordinator's own worker, so it is not refused as a stale fork.
+  const active = matches.find(m => m.owner === 'lease' && m.active === true && m.current === true
+    && PARALLEL_RESUMABLE.has(String(m.lease_state)))
+  if (active) return { active:true, match:active }
+  const m = matches[0]
+  return { owner:(m.owner === 'launch' ? 'a rework launch of Work lease ' : 'Work lease ') + clipped(m.lease_id, 64)
+    + ' (' + clipped(m.lease_state ?? 'gone', 40) + (m.current === false ? ', an earlier fork' : '') + ')' }
+}
+function parallelRevivalDeny(target, owner, why, $) {
+  const detail = 'message to ' + clipped(target, 120) + ' refused: it is ' + owner + ', ' + why
+  rememberParallelFailure('revival-refused', detail)
+  const lease = /Work lease ([A-Za-z0-9_.:-]{1,64})/.exec(String(owner))?.[1] || null
+  void recordParallelFailure($, 'revival_refused', lease, lease ? 'rr:' + lease : 'rr:-:' + failureTag(target))
+  return 'Work ' + detail + '. A delivered message would revive that fork with its old prompt and workspace. Use the Work tools instead.'
+}
+// A plugin's $.session.send reaches this hook, including a nested send from a
+// second ciel-work module instance. The engine pins origin across next(e), so
+// only this mod's own origin name bypasses its revival fence.
+async function parallelSessionSend($, e, next) {
+  if (e.origin?.kind !== 'plugin' || e.origin?.name === 'ciel-work') return next(e)
+  const gate = await parallelSendGate($, e.to)
+  const resumable = gate.lease?.id || gate.activeUnseen?.lease_id
+  if (resumable) return { isDelivered:false, reason:parallelRevivalDeny(e.to, 'Work lease ' + clipped(resumable, 64),
+    'and only the Work coordinator resumes its workers', $) }
+  if (gate.owner) return { isDelivered:false, reason:parallelRevivalDeny(e.to, gate.owner, 'not an active Work lease', $) }
+  return next(e)
 }
 function parallelLeaseBlocksTarget(state, target) {
   const active = new Set(['reserved', 'running', 'waiting_input', 'submitted', 'verifying', 'reviewing', 'accepted', 'cleanup_pending'])
@@ -1496,8 +2137,15 @@ function parallelLeaseBlocksTarget(state, target) {
     return run?.item_id === target || run?.root_id === target || run?.assigned_todos?.includes(target)
   })
 }
+// Side tools only this module's own code calls (claims, outcomes, retries a
+// person confirmed in the Side pane). Main and worker calls are refused here.
+// The router also refuses them without the host token (model_side_tool_probe).
+const HOST_ONLY_SIDE_TOOLS = new Set(['work_side_wake', 'work_side_fail', 'work_side_fallback', 'work_side_renew',
+  'work_side_reply', 'work_side_claim', 'work_side_retry_reply'].map(tool => PREFIX + tool))
 async function parallelToolCall($, e, next) {
   if (next.origin?.plugin === 'ciel-work' && (e.tool === PREFIX+'send_message' || e.tool.startsWith(PREFIX+'work_side_'))) return next(e)
+  if (HOST_ONLY_SIDE_TOOLS.has(e.tool))
+    return {deny:e.tool.slice(PREFIX.length)+' is called only by the Ciel Work host itself. A person retries an uncertain delivery from the Side pane or the Work web UI; acknowledge side events with work_side_handoff.'}
   const mainSide = ['work_side_handoff','work_side_review','work_parallel_item_review'].find(tool => e.tool === PREFIX+tool)
   if (mainSide && e.agentId === undefined && next.origin?.plugin === 'engine') {
     const {tool,tool_use_id,agentId,session_id,_host,...args} = e
@@ -1508,14 +2156,37 @@ async function parallelToolCall($, e, next) {
       const value = mainSide === 'work_parallel_item_review' ? await mainParallelReview($, args) : await parallelCall($,mainSide,args)
       return {result:JSON.stringify(mainSide === 'work_parallel_item_review' ? publicReviewDecision(value) : value)}
     }
-    catch (error) { return {deny:String(error?.message || error).replace(/^Parallel read failed: /,mainSide+': ')} }
+    catch (error) {
+      // A refused decision bounds this turn's Stop gate for that row and version,
+      // and is logged once per (lease, finalization version).
+      if (mainSide === 'work_parallel_item_review') {
+        const refusedLease = args.lease_id ?? args.review_id
+        noteRefusedParallelReview(refusedLease, args.expected_finalization_version)
+        if (typeof refusedLease === 'string' && FAILURE_LEASE.test(refusedLease)) {
+          const version = Number.isInteger(args.expected_finalization_version) ? args.expected_finalization_version
+            : parallelReviewRowVersion(refusedLease)
+          void recordParallelFailure($, 'decision_refused_stop', refusedLease,
+            'drs:' + refusedLease + ':' + (Number.isInteger(version) ? version : 'x'))
+        }
+      }
+      return {deny:String(error?.message || error).replace(/^Parallel read failed: /,mainSide+': ')}
+    }
   }
   const side = await sideTool($, e, next)
   if (side) return side
   const name = e.tool.startsWith(PREFIX) ? e.tool.slice(PREFIX.length) : ''
-  if (e.tool === 'SendMessage' && e.agentId === undefined && next.origin?.plugin === 'engine') {
-    const state = await parallelCall($, 'work_parallel_status')
-    const lease = Object.values(state.leases).find(r => r.host_id === (e.to || e.recipient) && r.state !== 'done')
+  if (e.tool === 'SendMessage' && next.origin?.plugin !== 'ciel-work') {
+    const to = e.to ?? e.recipient
+    // Never throws: an unreadable store refuses only a locally known Work fork.
+    const gate = await parallelSendGate($, to)
+    const coordinator = e.agentId === undefined && next.origin?.plugin === 'engine'
+    if (gate.lease && !coordinator)
+      return { deny: parallelRevivalDeny(to, 'Work lease ' + gate.lease.id, 'and only the Work coordinator resumes its workers', $) }
+    if (gate.activeUnseen && !coordinator)
+      return { deny: parallelRevivalDeny(to, 'Work lease ' + clipped(gate.activeUnseen.lease_id, 64), 'and only the Work coordinator resumes its workers', $) }
+    if (gate.owner) return { deny: parallelRevivalDeny(to, gate.owner, 'not a running or waiting Work lease', $) }
+    const lease = gate.lease
+    const state = gate.state
     if (lease) {
       if (state.policy.paused) return { deny: 'Work parallel is paused; its workers cannot resume.' }
       const board = await readSnapshot($, await sessionId($))
@@ -1530,18 +2201,23 @@ async function parallelToolCall($, e, next) {
           return { deny: 'Work item ' + lease.item_id + ' remains queued as waiting: ' + String(error.message || error) }
         }
       }
-      parallelResuming.set(lease.id, lease.agent_name || lease.dispatch_name || '')
+      authorizeResume(lease.id, lease.agent_name || lease.dispatch_name || '')
       const resumed = await next(e)
-      // A synchronous resume can finish without a new spawn. Deferred native
-      // resumes consume this authorization in parallelAgentSpawn below.
-      if (resumed?.sent === false || resumed?.deny) parallelResuming.delete(lease.id)
+      // Deferred native resumes (a fork this process never listed) consume this
+      // authorization in parallelAgentSpawn below. A listed fork was revived in
+      // place and no spawn follows, so the authorization ends now.
+      if (resumed?.sent === false || resumed?.deny || resumed?.result?.success === false) parallelResuming.delete(lease.id)
+      else {
+        try { if ((await listNativeAgents($)).some(a => a.id === lease.host_id)) parallelResuming.delete(lease.id) }
+        catch { /* Unknown: the authorization expires on its own. */ }
+      }
       return resumed
     }
   }
   if (next.origin?.plugin === 'ciel-work' && (name.startsWith('work_parallel_') || name === 'work_side_intake' || name === 'work_side_settings' || name === 'work_live_settings' || name === 'work_discovery_pickup')) return next(e)
   if (name === 'work_node_update' && e.status === 'done') {
     try {
-      const s = await parallelCall($, 'work_parallel_status')
+      const s = await hostStatus($)
       // Completion is scoped to this item and its assigned descendant path. A
       // terminal unreported/orphaned run has already relinquished its slot and
       // cannot block unrelated completion forever.
@@ -1556,8 +2232,11 @@ async function parallelToolCall($, e, next) {
     return workToolCall($, e, next) // Preserve the existing Work gate and native permissions.
   }
   if (name === 'work_parallel_report') {
-    const reported = await next(e)
+    // M4: a worker authenticates with its worker_token only, never _host.
+    const { _host, ...report } = e
+    const reported = await next(report)
     if (!reported?.deny && reported?.isError !== true) void parallelPump($, 'worker-report').catch(() => {})
+    else void parallelReportRefused($, e.lease_id).catch(() => {})
     return reported
   }
   if (!['work_parallel_run', 'work_parallel_event', 'work_parallel_configure', 'work_discovery_pickup'].includes(name)) return workToolCall($, e, next)
@@ -1566,8 +2245,8 @@ async function parallelToolCall($, e, next) {
   try {
     if (name === 'work_parallel_run') {
       if (e.agentId !== undefined) return { deny: 'Workers cannot dispatch Work agents.' }
-      if (!await $.env.get('CIEL_RUNTIME_WORK_PARALLEL_HOST_TOKEN')) return { deny: 'Parallel host capability is not provisioned.' }
-      const current = await parallelCall($, 'work_parallel_status')
+      if (!(await hostCredential($)).token) return { deny: 'Parallel host capability is not provisioned.' }
+      const current = await hostStatus($)
       if (args.role && args.role !== 'worker') return { deny: 'Work parallel starts workers only; main reviews submitted results without a reviewer fork.' }
       const open = Object.values(current.leases).find(r => r.item_id === args.item_id
         && r.role === 'worker' && r.state !== 'done')
@@ -1637,16 +2316,27 @@ async function parallelDirectSpawn($, key, request) {
   // reservation and the Work item stays queued. A rework reservation already
   // exists: rework_dispatch rotates its capability for this exact native spawn.
   const { scope, ...args } = request
+  // Nothing durable happens before the gate answers: no reservation, no rework
+  // capability rotation, no launch intent. The item stays queued.
+  if (!await forkGatePresent($)) {
+    parallelPending.delete(key)
+    return { result: JSON.stringify({ dispatch: 'fork_gate_missing', item_id: request.item_id, item_kept: true,
+      detail: FORK_GATE_MISSING,
+      instruction: FORK_GATE_MISSING + '. No worker was started and nothing was reserved; the Work item stays queued.'
+        + ' Relaunch through Ciel Runtime so the ciel-work-gate plugin loads beside ciel-work.' }) }
+  }
   const repo = await $.session.repo()
   const event = request.role === 'resume' ? 'rework_dispatch' : request.auto ? 'reserve_next' : 'reserve'
-  const r = await parallelEvent($, { ...args, event }, { fork: true,
-    dispatch_name: key, workspace_repo: repo ? await $.session.root() : undefined })
+  const observed = { fork: true, dispatch_name: key, workspace_repo: repo ? await $.session.root() : undefined }
+  // R2 B2: a reservation's exact owner is this process's attachment.
+  const r = await parallelEvent($, { ...args, event }, event === 'rework_dispatch' ? observed : await hostProcess($, observed))
   Object.assign(request, r)
   const label = parallelItemLabel({ ...request, item_title: r.item_title || request.item_title,
     item_ref: r.item_ref ?? request.item_ref })
   if (request.role && !['worker','resume'].includes(request.role)) throw new Error('reviewer reservations are disabled; main reviews submitted results')
   const prompt = 'Execute exactly this approved Work assignment' + (request.role === 'resume' ? ' as required rework' : '')
     + '. Native fork context/model/permission are inherited. '
+    + reworkHandoffWarning(request)
     + (request.role === 'resume' && request.rework_evidence ? 'Main requested rework: ' + clipped(request.rework_evidence, 1600) + '. ' : '')
     + 'Report a question or result only through work_parallel_report using the exact worker_token. '
     + 'Do not configure policy or accept your result. Assignment JSON:\n' + parallelAssignment(request)
@@ -1764,20 +2454,20 @@ async function parallelAgentSpawn($, e, next) {
     || /^Side SSE /.test(String(e.description || ''))
   if (sideNamed) return { deny:'Side SSE native fork authorization did not match its pending host record.' }
   try {
-    const s = await parallelCall($, 'work_parallel_status')
+    const s = await hostStatus($)
     if (!s.policy.enabled) return next(e)
     const request = parallelPending.get(e.name)
     const resumed = request ? null : Object.values(s.leases).find(r => r.agent_name && r.agent_name === e.name
       && r.slot && r.host_id && r.state === 'running'
       && (!e.resume || e.resume.agentId === r.host_id))
-    if (resumed && e.resume?.agentId === resumed.host_id && !parallelResuming.has(resumed.id)
+    if (resumed && e.resume?.agentId === resumed.host_id && !resumeAuthorization(resumed.id)
         && next.origin?.plugin === 'ciel-work') {
       // `$.session.send({agentId})` raises its deferred resume spawn inside the
       // same plugin-origin frame. Bind this one exact persisted lease/id tuple;
       // a model/engine-origin spawn still needs the one-shot map below.
-      parallelResuming.set(resumed.id, e.name || resumed.agent_name || '')
+      authorizeResume(resumed.id, e.name || resumed.agent_name || '')
     }
-    if (resumed && parallelResuming.get(resumed.id) === e.name
+    if (resumed && resumeAuthorization(resumed.id)?.name === e.name
         && (!e.resume || e.resume.agentId === resumed.host_id)
         && !s.policy.paused && e.fork === true && e.subagentType === 'fork' && e.parentAgentId === undefined
         && ['engine','ciel-work'].includes(next.origin?.plugin)) {
@@ -1843,7 +2533,17 @@ async function parallelAgentSpawn($, e, next) {
   }
 }
 async function parallelToolCheck($, e, next) {
+  // This module's own fork-gate presence query (forkGatePresent) runs through
+  // this hook too: the engine's re-entry skip covers only the calling hook
+  // frame (measured on CC 2.1.323, run-w-L1r-router-20261113-094400). While
+  // Work is planning, the Write gate below answered it and the gate plugin
+  // beneath never saw it. The query is passed on unjudged; it runs nothing.
+  if (forkGateProbeQuery(e, next)) return next(e)
   return workToolCheck($, e, next)
+}
+function forkGateProbeQuery(e, next) {
+  return next?.origin?.plugin === 'ciel-work' && !e.tool_use_id && e.agentId === undefined
+    && typeof e.input?.ciel_work_gate_probe === 'string' && /^[0-9a-f]{32}$/.test(e.input.ciel_work_gate_probe)
 }
 // Native fork evidence. The host compares $.agent.list() with this session's
 // own bound Work leases and records only ids and the AgentStatus word: never a
@@ -1862,7 +2562,7 @@ async function parallelObserveNative($) {
   const flight = { lifecycle, identity }
   nativeObserving = flight
   try {
-    const state = await parallelCall($, 'work_parallel_status')
+    const state = await hostStatus($)
     if (lifecycle !== starts || await sessionId($) !== identity) return null
     const open = Object.values(state.leases || {}).filter(r => NATIVE_OPEN.has(r.state))
     const agents = await listNativeAgents($)
@@ -1876,8 +2576,11 @@ async function parallelObserveNative($) {
       rows.push({ lease_id: lease.id, agent_id: row.id, status: row.status,
         ...(row.name ? { agent_name: String(row.name).slice(0, 200) } : {}) })
     }
+    // R2 B2: the router downgrades complete:true while a bound lease belongs to
+    // another live or an unknown process, so another process's forks are never
+    // marked missing from this list.
     const result = await parallelCall($, 'work_parallel_event', { event: 'native_observation', rows, complete: true,
-      expected_evidence_version: Number(state?.forks?.evidence_version ?? 0) })
+      expected_evidence_version: Number(state?.forks?.evidence_version ?? 0) }, await hostProcess($))
     if (lifecycle !== starts || await sessionId($) !== identity) return null
     const confirmed = rows.filter(r => r.status === 'pending' || r.status === 'running').length
     if (confirmed !== lastNativeConfirmed) {
@@ -1904,10 +2607,17 @@ function sideOwned(row) {
 }
 async function parallelHydrate($) {
   const scope = await sessionId($)
-  const state = await parallelCall($, 'work_parallel_status')
+  // R2 B2: attach first, so this start's status read already classifies this
+  // process's own leases as own.
+  await parallelHostAttach($)
+  const state = await hostStatus($)
   for (const lease of Object.values(state.leases)) {
     if (lease.state === 'done' || !lease.host_id) continue
+    // Its notifications never reach main, whichever process runs it.
     ownParallelAgent(lease.host_id)
+    // Path 4: another live or an unknown process's lease is shown, never
+    // adopted, so this process's turn ends never reconcile its fork.
+    if (!ownLeaseProcess(lease)) continue
     parallelBound.set(lease.host_id, { lease_id: lease.id, scope, role: lease.role })
   }
   // Reconcile the crash window between native spawn and bind by durable name.
@@ -1935,6 +2645,9 @@ async function parallelHydrate($) {
     if (row) await parallelEvent($, { event:'bind', lease_id:lease.id },
       { host_id:row.id, agent_name:row.name })
   }
+  // G5: report the gate's presence once at process start. Awaited, so the
+  // report precedes this start's pump instead of racing its review wakes.
+  try { await forkGatePresent($, { atStart: true }) } catch { /* Display only. */ }
   return state
 }
 const parallelExitAttempts = new Map()
@@ -1948,13 +2661,13 @@ function cancelParallelTimers() {
 }
 function resetParallelHostState() {
   cancelParallelTimers()
-  parallelPending.clear(); parallelBound.clear(); parallelResuming.clear()
+  parallelPending.clear(); parallelBound.clear(); parallelResuming.clear(); parallelHostRetryAttempts.clear()
   // Native agent ids are unique: ownership tombstones survive a lifecycle reset
   // so a late notification from a fork of the previous lifecycle stays out of main.
   for (const id of retiredParallelAgents) ownParallelAgent(id)
   parallelExitAttempts.clear(); retiredParallelAgents.clear()
   noticedParallelReviews.clear(); parallelWakeFlights.clear(); pendingParallelReviews = []; pendingParallelReviewVersion = null; observatoryReviews = []
-  parallelFailures.length = 0; parallelPumpRunning = false; parallelPumpAgain = false
+  parallelFailures.length = 0; parallelPumpRunning = false; parallelPumpAgain = false; parallelPumpResendTried = null
   nativeObserving = null; lastNativeConfirmed = null
 }
 async function stopParallelAgent($, id) {
@@ -1968,8 +2681,10 @@ function parallelHasReceipt(state, lease) {
   const run = (state?.coordination?.runs || []).find(row => row.lease_id === lease.id)
   return Boolean(run?.exit || (state?.coordination?.receipts || []).some(row => row.lease_id === lease.id))
 }
-async function parallelEnsureExitContract($, state, lease, row, reason = 'native terminal') {
+async function parallelEnsureExitContract($, state, lease, row, reason = 'native terminal', hostRetry = false) {
   if (!lease?.host_id) return false
+  const retry = hostRetry ? hostRetryAttempt(lease.id) : null
+  if (retry?.exitAttempted) return false
   const key = (await sessionId($)) + ':' + lease.id
   if (lease.state !== 'running' || parallelHasReceipt(state, lease)) {
     parallelExitAttempts.delete(key)
@@ -1980,6 +2695,7 @@ async function parallelEnsureExitContract($, state, lease, row, reason = 'native
   if (prior.attempts < 2) {
     const current = { attempts: prior.attempts + 1, failures: prior.failures + 1 }
     parallelExitAttempts.set(key, current)
+    if (retry) retry.exitAttempted = true
     try {
       await $.session.send({ to: { agentId: lease.host_id },
         text: 'Your native turn ended without a durable Work exit receipt. Report completion through work_parallel_report with the exact lease_id and worker_token, or report a structured handoff with done, remaining, blockers, workspace and next_step. Lease: ' + lease.id + '; item: ' + lease.item_id + '.' })
@@ -2017,7 +2733,7 @@ async function bindReworkFork($, scope, leaseId, row, name) {
   try {
     await parallelEvent($, { event: 'bind', lease_id: leaseId }, { host_id: row.id, agent_name: name })
   } catch (error) {
-    const current = await parallelCall($, 'work_parallel_status').catch(() => null)
+    const current = await hostStatus($).catch(() => null)
     if (current?.leases?.[leaseId]?.host_id !== row.id) {
       rememberParallelFailure('rework-bind', String(error?.message || error))
       return false
@@ -2030,12 +2746,33 @@ async function bindReworkFork($, scope, leaseId, row, name) {
 }
 // Roll a durable decision forward from its journal alone: a rework waiting for
 // a slot, or a decided saga whose stage failed. Main never resends its body,
-// and the host never makes a new decision here. Called only at the pump's
-// event boundaries (worker report, turn.complete, session.start, Stop).
+// and the host never makes a new decision here. Called at pump boundaries,
+// including the periodic idle-host status boundary.
 function parallelRollForwardDue(row) {
   const state = parallelReviewState(row)
   return Boolean(parallelReviewId(row)) && row?.decision && (state === 'awaiting_capacity'
     || (state === 'deciding' && row?.blocked && typeof row.blocked === 'object'))
+}
+// Work the idle tick must start even when nothing in the projection changed:
+// a stored decision whose admission can clear without any event that changes
+// the projection (the owner's router scope becoming bound, measured).
+function parallelIdleDue(state) {
+  return parallelReviews(state).some(row => parallelRollForwardDue(row))
+}
+function parallelIdleSignature(state) {
+  return JSON.stringify({
+    version:state?.version ?? null, review:state?.review?.version ?? null,
+    stranded:state?.review?.stranded_version ?? null, attachment:state?.session_attachments?.attachment_version ?? null,
+    // Liveness is observed at read time: another host's launcher exiting changes
+    // these counts with no write anywhere (measured: other_live owner exit).
+    hosts:state?.session_attachments ? [state.session_attachments.live, state.session_attachments.gone,
+      state.session_attachments.unknown] : null,
+    policy:state?.policy ? [state.policy.enabled, state.policy.paused, state.policy.launches_per_minute,
+      state.policy.max_rework, state.policy.priority_limits] : null,
+    leases:Object.values(state?.leases || {}).map(row => [row.id, row.state, row.host_id, row.owner_process]),
+    reviews:parallelReviews(state).map(row => [parallelReviewId(row), parallelReviewState(row), row?.decision,
+      row?.blocked?.code, row?.wake?.state, row?.launch?.state, row?.replacement_lease_id]),
+  })
 }
 async function parallelRollForward($, state) {
   let advanced = 0
@@ -2090,6 +2827,105 @@ async function rejectLateReworkAgents($, leaseId, currentName, agents) {
       + ' belongs to a resolved launch attempt; it is never bound' + (['pending','running'].includes(agent.status) ? ' and was stopped' : ''))
     if (['pending','running'].includes(agent.status)) {
       try { await $.tool.call({ tool:'TaskStop', task_id:agent.id }) } catch {}
+      void recordParallelFailure($, 'fork_attribution_stop', leaseId,
+        'fas:' + leaseId + ':a' + (/-a([1-9]\d{0,2})$/.exec(name)?.[1] || 'x'))
+    }
+  }
+}
+// Once the ledger binds one attempt's fork to a replacement lease, no other
+// attempt of that lease is ever launched or bound. The status read names that
+// fork for every open lease and, in its fork evidence groups, for recently
+// ended ones, so a fork of another attempt is rejected from these rows alone:
+// it needs no projected rework_ready row, which the replacement's own review
+// hides. Stopping it is not a dispatch, so it does not wait for the policy.
+// The status read lists only the last few ended leases, while a fork of another
+// attempt can still be listed in this process later. A bound lease's fork name
+// never changes, so every name this loaded module has read stays true: like the
+// native ids above it survives session.start, and is lost only with the module.
+const FORK_EVIDENCE_GROUPS = ['confirmed', 'waiting', 'reservation', 'uncertain', 'validating', 'legacy_reviewer', 'ended']
+const seenBoundReworkForks = new Map()
+let reworkAttributionOffset = 0
+// Remembers every bound fork name of this status read. Returns how many bound
+// replacement leases are still open in it.
+function boundReworkForks(state) {
+  let open = 0
+  const note = (leaseId, role, hostId, name) => {
+    if (role !== 'resume' || !leaseId || !hostId || typeof name !== 'string' || !name) return false
+    seenBoundReworkForks.delete(leaseId); seenBoundReworkForks.set(leaseId, name)
+    return true
+  }
+  for (const [leaseId, lease] of Object.entries(state?.leases || {}))
+    if (note(leaseId, lease?.role, lease?.host_id, lease?.agent_name)) open++
+  for (const group of FORK_EVIDENCE_GROUPS)
+    for (const row of Array.isArray(state?.forks?.[group]) ? state.forks[group] : [])
+      note(String(row?.lease_id || ''), row?.role, row?.agent_id, row?.agent_name)
+  while (seenBoundReworkForks.size > 400) seenBoundReworkForks.delete(seenBoundReworkForks.keys().next().value)
+  return open
+}
+// The native agent list of one pump pass. turn.complete hands over the list it
+// fetched moments before; otherwise the pass fetches one, at most once, when a
+// step first needs it. A launch reconcile always takes a list fetched in the pass.
+function pumpAgentList($, handed = null) {
+  let rows = handed, fetched = false
+  return { held: () => rows,
+    fresh: async () => { if (!fetched) { rows = await listNativeAgents($); fetched = true } return rows } }
+}
+// Parse the lease segment from the right: lease ids may contain hyphens, while
+// the attempt suffix is the final `-a<N>` (the backend accepts 1-3 digits).
+function reworkForkLeaseId(name) {
+  const matched = /^work-rework-([\s\S]+)-a[1-9]\d{0,2}$/.exec(name)
+  return matched?.[1] || null
+}
+async function rejectStaleReworkForks($, state, listed) {
+  const open = boundReworkForks(state)
+  // Reuse a list this pass already holds. Without one, fetch only while a bound
+  // replacement is still open: an ended one is checked again at the next
+  // turn.complete, which brings its own list.
+  let agents = listed.held()
+  if (!agents) {
+    if (!open) return
+    try { agents = await listed.fresh() } catch { return }
+  }
+  for (const [leaseId, name] of seenBoundReworkForks) await rejectLateReworkAgents($, leaseId, name, agents)
+  // A hot reload loses the map above, and the status read eventually windows an
+  // ended replacement lease out. Ask the read-only backend only about native
+  // rework names that neither source can attribute. Unknown/current answers and
+  // a refused query are deliberately inert. Bound one call to 64 names; a later
+  // boundary handles any remainder without blocking this pump pass.
+  const unattributed = []
+  const currentNames = new Set(seenBoundReworkForks.values())
+  const knownLeaseIds = new Set(seenBoundReworkForks.keys())
+  for (const agent of agents) {
+    const name = String(agent?.name || '')
+    const leaseId = reworkForkLeaseId(name)
+    if (!agent?.id || !['pending','running'].includes(agent.status) || !leaseId
+        || name.length > 200 || sideOwned(agent) || rejectedLateReworkAgents.has(agent.id)
+        || currentNames.has(name) || knownLeaseIds.has(leaseId)) continue
+    unattributed.push({ agent, name })
+  }
+  if (!unattributed.length) { reworkAttributionOffset = 0; return }
+  const start = reworkAttributionOffset % unattributed.length
+  const candidates = [...unattributed.slice(start), ...unattributed.slice(0, start)].slice(0, 64)
+  reworkAttributionOffset = (start + candidates.length) % unattributed.length
+  let attribution
+  try { attribution = await reworkLaunchEvent($, { event:'rework_fork_attribution', names:candidates.map(row => row.name) }) }
+  catch { return }
+  const answers = Array.isArray(attribution?.forks) ? attribution.forks : []
+  for (let index = 0; index < candidates.length; index++) {
+    const { agent, name } = candidates[index]
+    const answer = answers[index]
+    if (answer?.name !== name || answer?.status !== 'stale') continue
+    ownParallelAgent(agent.id)
+    if (rejectedLateReworkAgents.has(agent.id)) continue
+    rejectedLateReworkAgents.add(agent.id)
+    rememberParallelFailure('rework-late-agent', 'fork ' + clipped(name, 90) + ' belongs to a stale launch'
+      + (answer.reason ? ' (' + clipped(answer.reason, 60) + ')' : '')
+      + '; it is never bound' + (['pending','running'].includes(agent.status) ? ' and was stopped' : ''))
+    if (['pending','running'].includes(agent.status)) {
+      try { await $.tool.call({ tool:'TaskStop', task_id:agent.id }) } catch {}
+      const stoppedLease = reworkForkLeaseId(name)
+      void recordParallelFailure($, 'fork_attribution_stop', stoppedLease,
+        stoppedLease ? 'fas:' + stoppedLease + ':a' + (/-a([1-9]\d{0,2})$/.exec(name)?.[1] || 'x') : 'fas:-:' + failureTag(name))
     }
   }
 }
@@ -2156,6 +2992,11 @@ async function reconcileReworkLaunch($, scope, leaseId, launch, agents) {
     if (/belongs to this host process/.test(detail))
       noteReworkLaunch(leaseId, 'Rework launch stuck', 'Native fork ' + name + ' is not listed, but this process recorded it: '
         + detail + '. Resolve it from the Work pane or the Work web console.', launch)
+    // R2 B2 refusals, shown with the router's exact text. An unknown owner is a
+    // stuck launch the person may resolve here (the router allows that manual
+    // resolution); another live host's attempt only waits for that host.
+    else if (detail.includes(OWNER_UNKNOWN_TEXT)) noteReworkLaunch(leaseId, 'Rework launch stuck', OWNER_UNKNOWN_TEXT, launch)
+    else if (detail.includes(OWNER_LIVE_TEXT)) noteReworkLaunch(leaseId, 'Rework launch waiting', OWNER_LIVE_TEXT, launch)
     else rememberParallelFailure('rework-launch-' + event.slice(14), detail)
     return null
   }
@@ -2193,7 +3034,58 @@ async function requestReworkLaunchResolution($, identity) {
   $.ui.invalidate('ui.render')
   void parallelPump($, 'launch-manual-request').catch(() => {})
 }
-async function parallelStartRework($, state) {
+// A rework fork whose bind was lost, or never sent, runs unbound, and the
+// backend refuses its report as not active. While that lease's launch is
+// unresolved, reconcile it now instead of at a later boundary, so the fork's
+// next report succeeds. Any other refused report still starts nothing.
+async function parallelReportRefused($, leaseId) {
+  if (typeof leaseId !== 'string' || !leaseId) return
+  if (!reworkLaunches.has(leaseId)) {
+    const launch = (await reworkLaunchStatus($)).get(leaseId)
+    if (!launch || !REWORK_UNRESOLVED.has(launch.state)) return
+  }
+  await parallelPump($, 'worker-report-refused')
+}
+// A replacement lease the ledger already bound to its fork. A bind that
+// committed but whose response was lost may still have missed launch_bound,
+// and with it the workspace bind. While the durable launch is unresolved,
+// re-send the idempotent bind at this boundary (it repairs both); only then
+// track the fork. This is the bind of a fork that already runs, not a dispatch,
+// so it runs while the policy is paused or disabled too. A fork of another
+// attempt is rejected by rejectStaleReworkForks, whether or not this resend succeeds.
+// Returns the leases whose resend failed; `tried` names those a caller already
+// tried at this same boundary, so each lease gets one resend per boundary.
+async function parallelSettleBoundRework($, state, tried = null) {
+  const scope = await sessionId($)
+  const failed = new Set()
+  for (const review of parallelReviews(state)) {
+    if (parallelReviewState(review) !== 'rework_ready' || review.decision !== 'rework') continue
+    const leaseId = review.replacement_lease_id
+    const lease = typeof leaseId === 'string' ? state.leases?.[leaseId] : null
+    if (!lease || lease.role !== 'resume' || !lease.host_id) continue
+    if (REWORK_UNRESOLVED.has(review.launch?.state)) {
+      if (tried?.has(leaseId)) continue
+      try {
+        await parallelEvent($, { event:'bind', lease_id:leaseId },
+          { host_id:lease.host_id, agent_name:lease.agent_name })
+      } catch (error) {
+        rememberParallelFailure('rework-bind', String(error?.message || error))
+        failed.add(leaseId)
+        continue
+      }
+    }
+    reworkLaunches.delete(leaseId)
+    if (reworkLaunchNotes.get(leaseId)?.label !== 'agent present') reworkLaunchNotes.delete(leaseId)
+    ownParallelAgent(lease.host_id)
+    if (!parallelBound.has(lease.host_id)) parallelBound.set(lease.host_id, { lease_id: leaseId, scope, role: 'resume' })
+  }
+  return failed
+}
+// Reserved replacement leases. Reconciling an unresolved launch (binding a fork
+// that is already listed, or recording that it is absent) is not a dispatch and
+// always runs, as it does at session.start. Starting a new attempt is a
+// dispatch: `dispatch` is false while the policy is paused or disabled.
+async function parallelStartRework($, state, dispatch = true, listed = pumpAgentList($)) {
   let started = 0
   const scope = await sessionId($)
   let agents = null
@@ -2202,34 +3094,11 @@ async function parallelStartRework($, state) {
     if (parallelReviewState(review) !== 'rework_ready' || review.decision !== 'rework') continue
     const leaseId = review.replacement_lease_id
     const lease = typeof leaseId === 'string' ? state.leases?.[leaseId] : null
-    if (!lease || lease.role !== 'resume') continue
-    // A bind that committed but whose response was lost may still have missed
-    // launch_bound, and with it the workspace bind. While the durable launch is
-    // unresolved, re-send the idempotent bind at this boundary (it repairs both);
-    // only then track the fork.
-    if (lease.host_id) {
-      if (REWORK_UNRESOLVED.has(review.launch?.state)) {
-        try {
-          await parallelEvent($, { event:'bind', lease_id:leaseId },
-            { host_id:lease.host_id, agent_name:lease.agent_name })
-        } catch (error) {
-          rememberParallelFailure('rework-bind', String(error?.message || error))
-          continue
-        }
-      }
-      reworkLaunches.delete(leaseId)
-      if (reworkLaunchNotes.get(leaseId)?.label !== 'agent present') reworkLaunchNotes.delete(leaseId)
-      ownParallelAgent(lease.host_id)
-      if (!parallelBound.has(lease.host_id)) parallelBound.set(lease.host_id, { lease_id: leaseId, scope, role: 'resume' })
-      // A fork of an earlier, resolved attempt may still appear after this bind.
-      try { agents ||= await listNativeAgents($) } catch { agents = null }
-      if (agents && lease.agent_name) await rejectLateReworkAgents($, leaseId, lease.agent_name, agents)
-      continue
-    }
+    if (!lease || lease.role !== 'resume' || lease.host_id) continue
     if (lease.state !== 'reserved') continue
     if ([...parallelPending.values()].some(request => request.lease_id === leaseId)) continue
     try {
-      agents ||= await listNativeAgents($)
+      agents ||= await listed.fresh()
       launches ||= await reworkLaunchStatus($)
     } catch (error) {
       rememberParallelFailure('rework-launch-status', String(error?.message || error))
@@ -2247,7 +3116,7 @@ async function parallelStartRework($, state) {
       launch = { ...launch, state:String(resolved.state), attempt:Number(resolved.attempt) || launch.attempt }
     } else reworkLaunches.delete(leaseId)
     if (reworkLaunchNotes.get(leaseId)?.label === 'Rework launch stuck') reworkLaunchNotes.delete(leaseId)
-    if (!['none', 'spawn_denied'].includes(launch.state)) continue
+    if (!dispatch || !['none', 'spawn_denied'].includes(launch.state)) continue
     const key = reworkDispatchName(leaseId, launch.attempt + 1)
     await rejectLateReworkAgents($, leaseId, key, agents)
     if (agents.some(agent => agent.name === key)) {
@@ -2258,7 +3127,9 @@ async function parallelStartRework($, state) {
     const request = { scope, lease_id:leaseId, item_id:review.item_id || lease.item_id,
       priority:review.priority || lease.priority, role:'resume', generation:review.replacement_generation,
       item_title:review.item_title || '', item_path:review.item_path || [], workspace:review.workspace || lease.workspace,
-      rework_evidence:review.evidence || '' }
+      rework_evidence:review.evidence || '', changed_before_bind:changedBeforeBind(review.changed_before_bind),
+      // This launch's own attempt number: the recorded count of earlier attempts plus one.
+      launch_attempt:(Number(launch.attempt) || 0) + 1 }
     parallelPending.set(key, request)
     try {
       const result = await parallelDirectSpawn($, key, request)
@@ -2272,7 +3143,15 @@ async function parallelStartRework($, state) {
   }
   return started
 }
-async function parallelPump($, trigger = 'host') {
+// `resendTried`: replacement leases whose bind resend the caller already tried
+// at this boundary (turn.complete). The next pass that starts takes them and
+// does not repeat that resend, also when this call is coalesced into a pump
+// that is already running: one resend per lease per boundary.
+// `agents`: the native list the caller fetched at this boundary. Only the first
+// pass of the pump this call starts reuses it; a coalesced call's list is dropped.
+let parallelPumpResendTried = null
+async function parallelPump($, trigger = 'host', resendTried = null, agents = null) {
+  if (resendTried?.size) parallelPumpResendTried = new Set([...(parallelPumpResendTried || []), ...resendTried])
   parallelPumpAgain = true
   if (parallelPumpRunning) return
   parallelPumpRunning = true
@@ -2280,22 +3159,34 @@ async function parallelPump($, trigger = 'host') {
   try {
     do {
       parallelPumpAgain = false
+      const tried = parallelPumpResendTried
+      parallelPumpResendTried = null
+      const listed = pumpAgentList($, agents)
+      agents = null
       if (lifecycle !== starts) return
-      let state = await parallelCall($, 'work_parallel_status')
+      let state = await hostStatus($)
       if (lifecycle !== starts) return
       // A decided saga is finished from its journal first: an approve whose
       // stage failed completes even while dispatch is paused. A rework that
       // reaches rework_ready is dispatched below from a fresh read.
       if (await parallelRollForward($, state) > 0) {
-        state = await parallelCall($, 'work_parallel_status')
+        state = await hostStatus($)
         if (lifecycle !== starts) return
       }
       // At classic.Stop the Stop block itself is the wake. Submitting another
       // idle prompt there would schedule the same review twice; worker reports,
       // ledger events and session/turn boundaries use append/prompt delivery.
       await projectParallelReviews($, state, trigger === 'classic.Stop' ? 'stop' : 'event')
-      if (!state.policy.enabled || state.policy.paused) return
-      await parallelStartRework($, state)
+      // Neither is a dispatch: a started fork's bind and a stale fork's stop do
+      // not wait for the policy.
+      await parallelSettleBoundRework($, state, tried)
+      await rejectStaleReworkForks($, state, listed)
+      if (lifecycle !== starts) return
+      // A stopped policy holds back every dispatch, not the reconcile of a
+      // replacement launch that was already started.
+      const stopped = !state.policy.enabled || state.policy.paused
+      await parallelStartRework($, state, !stopped, listed)
+      if (stopped || lifecycle !== starts) return
       for (let i = 0; i < 100; i++) {
         if (lifecycle !== starts) return
         const key = 'work-auto-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2)
@@ -2326,6 +3217,41 @@ async function parallelPump($, trigger = 'host') {
     if (parallelPumpAgain && lifecycle === starts) void parallelPump($, 'pending-again').catch(() => {})
   }
 }
+// One tracked fork at a turn end: park it, ask for its missing exit receipt, or
+// reconcile its native status. Throws what the backend refuses.
+async function parallelReconcileAtTurnEnd($, e, s, agents, id, binding) {
+  const lease = s.leases[binding.lease_id]
+  const row = agents.find(a => a.id === id)
+  const terminal = id === e.agentId || (row && parallelTerminal.has(row.status))
+  if (lease?.state === 'waiting_input' && lease.slot && terminal) {
+    await parallelEvent($, { event:'wait', lease_id:binding.lease_id },
+      { proof:'Native worker waiting/terminal: ' + (row?.status || e.reason || 'turn.complete') })
+    return
+  }
+  if (terminal && lease?.state === 'running') {
+    await parallelEnsureExitContract($, s, lease, row, e.reason || 'turn.complete')
+    return
+  }
+  const idle = terminal && ['submitted', 'verifying', 'reviewing', 'accepted', 'cleanup_pending'].includes(lease?.state)
+  if (lease) await parallelEvent($, { event:'reconcile', lease_id:binding.lease_id },
+    { state:idle ? 'idle' : row?.status === 'running' ? 'running' : 'unknown',
+      proof:row ? 'Native agent.list status: ' + row.status : 'Native agent.list row absent' })
+  if (idle) await stopParallelAgent($, id)
+}
+// A lease that is refused at every turn end is logged each time, as before, but
+// enters the short failure list once per distinct refusal and session start, so
+// it does not push every other entry out.
+const turnReconcileFailures = new Map()
+function noteTurnReconcileFailure($, leaseId, error) {
+  const detail = String(error?.message || error)
+  $.ui.log('Work reconciliation: ' + detail)
+  const seen = turnReconcileFailures.get(leaseId)
+  if (seen?.detail === detail && seen.lifecycle === starts) return
+  turnReconcileFailures.delete(leaseId)
+  turnReconcileFailures.set(leaseId, { detail, lifecycle:starts })
+  if (turnReconcileFailures.size > 100) turnReconcileFailures.delete(turnReconcileFailures.keys().next().value)
+  rememberParallelFailure('turn-reconcile', 'lease ' + clipped(leaseId, 40) + ': ' + detail)
+}
 async function parallelTurnComplete($, e, next) {
   const result = await workTurnComplete($, e, next)
   const board = await refresh($)
@@ -2334,33 +3260,27 @@ async function parallelTurnComplete($, e, next) {
   // waiting_input with a native waiting/idle row is parked, not processing.
   try {
     const scope = await sessionId($)
-    const s = await parallelCall($, 'work_parallel_status')
+    const s = await hostStatus($)
     await projectParallelReviews($, s)
+    // Replay an unresolved bind of a ledger-bound replacement before this
+    // boundary observes its fork. The restart observation and the idle
+    // reconcile below both need the workspace bind, so the fork's review is
+    // published at this boundary instead of one boundary later.
+    const resendTried = await parallelSettleBoundRework($, s)
     const agents = await listNativeAgents($)
     // A session.start attempt that failed is retried at the next boundary.
     await parallelRestartSubmitted($, s, agents)
     for (const [id, binding] of [...parallelBound]) {
       if (binding.scope !== scope) continue
-      const lease = s.leases[binding.lease_id]
-      const row = agents.find(a => a.id === id)
-      const terminal = id === e.agentId || (row && parallelTerminal.has(row.status))
-      if (lease?.state === 'waiting_input' && lease.slot && terminal) {
-        await parallelEvent($, { event:'wait', lease_id:binding.lease_id },
-          { proof:'Native worker waiting/terminal: ' + (row?.status || e.reason || 'turn.complete') })
-        continue
-      }
-      if (terminal && lease?.state === 'running') {
-        await parallelEnsureExitContract($, s, lease, row, e.reason || 'turn.complete')
-        continue
-      }
-      const idle = terminal && ['submitted', 'verifying', 'reviewing', 'accepted', 'cleanup_pending'].includes(lease?.state)
-      if (lease) await parallelEvent($, { event:'reconcile', lease_id:binding.lease_id },
-        { state:idle ? 'idle' : row?.status === 'running' ? 'running' : 'unknown',
-          proof:row ? 'Native agent.list status: ' + row.status : 'Native agent.list row absent' })
-      if (idle) await stopParallelAgent($, id)
+      // One lease's refusal (for example a retained worktree that is gone) must
+      // not keep this boundary from the other leases, or from its pump.
+      try {
+        await parallelReconcileAtTurnEnd($, e, s, agents, id, binding)
+        turnReconcileFailures.delete(binding.lease_id)
+      } catch (error) { noteTurnReconcileFailure($, binding.lease_id, error) }
     }
     try { await parallelObserveNative($) } catch {}
-    await parallelPump($, 'turn.complete')
+    await parallelPump($, 'turn.complete', resendTried, agents)
     scheduleNativeObservation($)
   } catch (error) { $.ui.log('Work reconciliation: ' + String(error.message || error)) }
   return result
@@ -2378,6 +3298,8 @@ async function parallelRestartSubmitted($, state, rows) {
   if (!Array.isArray(rows)) return changed
   for (const lease of Object.values(state?.leases || {})) {
     if (lease.state !== 'submitted' || lease.slot || !lease.host_id) continue
+    // Path 3: another live host's fork is never observed terminal from here.
+    if (!restartableLeaseProcess(lease)) continue
     if (processNativeAgents.has(lease.host_id) || rows.some(a => a.id === lease.host_id)) continue
     // Only an exact durable completion receipt of this generation qualifies;
     // an absent fork without one is never observed terminal here.
@@ -2387,9 +3309,11 @@ async function parallelRestartSubmitted($, state, rows) {
     const key = lease.id + ':' + run.generation + ':' + run.exit.digest
     if (restartSubmittedObserved.has(key)) continue
     try {
+      // R2 B2: refused by the router when the lease's owner is another live or
+      // an unknown process; the refusal text is kept verbatim below.
       await parallelEvent($, { event:'restart_submitted_terminal', lease_id:lease.id,
         generation:run.generation, receipt_digest:run.exit.digest },
-      { internal:true, absent_agent_id:lease.host_id, absent_from_complete_list:true })
+      await hostProcess($, { internal:true, absent_agent_id:lease.host_id, absent_from_complete_list:true }))
       restartSubmittedObserved.add(key)
       if (restartSubmittedObserved.size > 400) restartSubmittedObserved.delete(restartSubmittedObserved.values().next().value)
       changed++
@@ -2401,19 +3325,24 @@ async function parallelRestartSubmitted($, state, rows) {
 // scheduler context. Exact durable lease/name authorization is retained for the
 // deferred native resume spawn.
 async function parallelRecoverWorkers($, state = null) {
-  state ||= await parallelCall($, 'work_parallel_status')
+  state ||= await hostStatus($)
   const rows = await listNativeAgents($)
   await parallelRestartSubmitted($, state, rows)
   for (const lease of Object.values(state.leases || {})) {
     if (!lease.slot || !lease.host_id || lease.state !== 'running') continue
+    // Path 2: never resume a worker another live or an unknown process may run.
+    if (!ownLeaseProcess(lease)) continue
     const row = rows.find(a => a.id === lease.host_id)
     if (row && ['pending','running'].includes(row.status)) continue
     if (row && parallelTerminal.has(row.status)) {
-      await parallelEnsureExitContract($, state, lease, row, 'session.start terminal recovery')
+      await parallelEnsureExitContract($, state, lease, row, 'session.start terminal recovery', true)
       continue
     }
     const name = lease.agent_name || lease.dispatch_name || ''
-    parallelResuming.set(lease.id, name)
+    const attempt = hostRetryAttempt(lease.id)
+    if (attempt.recovery) continue
+    attempt.recovery = true
+    authorizeResume(lease.id, name)
     try {
       const sent = await $.session.send({ to:{agentId:lease.host_id},
         text:'Work recovery: continue approved Work item ' + lease.item_id + ' under lease ' + lease.id
@@ -2477,8 +3406,212 @@ async function sideIntake($, raw) {
     + '\nCurrent queue: ' + String(board.queue?.length || 0) + '; runnable: ' + String(board.continuation?.actionable || 0)
 }
 
+// The classic.Stop body. Top-level because Claude Code's module loader passes
+// $ only to functions declared at the top of the file or imported: 2.1.323
+// refused a register()-local const ("$ is passed to "workStop", which is not a
+// function declared at the top of this file"). All its state is module-level.
+async function workStop($, e, next) {
+  const lifecycle = starts
+  const turn = mainTurnEpoch
+  const epoch = compactEpoch
+  // classic.Stop names no turn (owned probes): bind to the main turn seen when
+  // this Stop began, or to e.turnId should an engine supply one.
+  const stopTurnId = e.turnId ?? mainTurnId
+  const stopStep = mainStepIndex
+  const result = await next(e)
+  if (result?.block || result?.preventContinuation || e.agent_id) return result
+  let identity, s, current
+  try {
+    identity = await sessionId($)
+    if (e.session_id && identity !== 'claude:' + e.session_id) return result
+    if (lifecycle !== starts || turn !== mainTurnEpoch || epoch !== compactEpoch || compacting(identity)) return result
+    s = await stopSnapshot($, identity)
+    current = await sessionId($)
+  } catch { return result }
+  // Idle/display reads do not invalidate Stop; compact entry AND settlement do.
+  if (lifecycle !== starts || turn !== mainTurnEpoch || epoch !== compactEpoch
+      || current !== identity || compacting(identity)) return result
+  // Fill only after every stale lifecycle/session guard has passed. A Stop from
+  // an ended or superseded turn must never start a native fork.
+  try { await parallelPump($, 'classic.Stop') } catch {}
+  if (lifecycle !== starts || turn !== mainTurnEpoch || epoch !== compactEpoch
+      || await sessionId($).catch(() => null) !== identity || compacting(identity)) return result
+  // The pump can reserve, release or record a review. Decide on reads taken
+  // after it, never on the pre-pump board or a stale review projection.
+  const [after, parallelAfter] = await Promise.all([stopSnapshot($, identity), stopParallelStatus($)])
+  if (lifecycle !== starts || turn !== mainTurnEpoch || epoch !== compactEpoch
+      || await sessionId($).catch(() => null) !== identity || compacting(identity)) return result
+  if (after) s = after
+  if (parallelAfter) await projectParallelReviews($, parallelAfter, 'stop')
+  if (continuationSession !== identity) {
+    continuationSession = identity; continuationVersion = null; unchangedContinuations = 0
+  }
+  if (s && s.enabled !== false) {
+    if (gateIdentity !== identity) { gateIdentity = identity; gateVersion = -1 }
+    if (s.version < gateVersion) return result
+    gateVersion = s.version
+  }
+  if (!s) { if (enabled) stopNotice($, identity, STOP_UNAVAILABLE); return result }
+  // Stop uses the same durable wake election as the pump. A queued/appended
+  // wake is not presented again, and Stop never independently presents a row.
+  // Only a presentation proven by its same-turn step may be recorded here
+  // (record retry). An unproven one stays started: delivery uncertain.
+  // Events whose record lands in this Stop: the snapshot above predates it.
+  const settledHere = new Set()
+  for (const [key, waiting] of [...stopWakeWaiting]) {
+    if (waiting.lifecycle !== starts || waiting.identity !== identity) stopWakeWaiting.delete(key)
+    else if (waiting.proven) {
+      if (await sideRecordStopWake($, identity, waiting.presentation)) {
+        stopWakeWaiting.delete(key); settledHere.add(waiting.presentation.event_id)
+      }
+    } else if (waiting.turn !== turn || waiting.turnId !== stopTurnId) stopWakeWaiting.delete(key)
+  }
+  // A Stop that is itself a Stop-block continuation (stop_hook_active) adds no
+  // uncertainty/ACK notice; those wait for the next ordinary Stop, so they
+  // cannot loop. A NEW pending event is still elected here (time-limit events
+  // need same-turn presentation): each event is elected at most once.
+  const continuing = e.stop_hook_active === true
+  for (const handoff of !stopTurnId ? [] : s.side_handoffs || []) {
+    const wake = handoff.wake || {state:'pending'}
+    // Only a new router's redacted wake carries delivery_uncertain. An old
+    // router has no Stop channel: Stop presents nothing; the pump owns it.
+    if (!['pending','failed'].includes(wake.state) || typeof wake.delivery_uncertain !== 'boolean') continue
+    const presentation = await sideStopWake($, identity, handoff)
+    if (!presentation?.block) continue
+    // The election awaited the router: re-run the stale guards. A Stop that a
+    // new turn, lifecycle, compact or conversation overtook presents nothing.
+    // No block is returned, so the started attempt was never presented: in
+    // the same conversation side-intake.js delivers that attempt once itself
+    // (append). Only a changed conversation leaves it delivery uncertain.
+    if (lifecycle !== starts || turn !== mainTurnEpoch || epoch !== compactEpoch || mainTurnId !== stopTurnId
+        || await sessionId($).catch(() => null) !== identity || compacting(identity)) {
+      if (!presentation.delivered && await sessionId($).catch(() => null) === identity) sideStopNotPresented($, identity, presentation)
+      return result
+    }
+    if (!presentation.delivered) {
+      const key = [identity, handoff.event_id, presentation.attempt_ref || 'new', presentation.revision].join(':')
+      stopWakeWaiting.set(key, {identity,lifecycle,turn,turnId:stopTurnId,stepIndex:stopStep,presentation,proven:false})
+    }
+    // The elected Stop presentation keeps the established Stop wording and
+    // the redacted handoff view (no attempt id, owner fence or receipt).
+    return {...result,block:presentation.delivered ? presentation.block
+      : 'Side high-priority advice requires coordinator acknowledgment at this safe boundary. '
+      +'Read the affected Work item, answer any question, then call work_side_handoff(event_id, expected_version, answer, activate, clear_wait). '
+      +'Clear only listed waits this event actually satisfies. This is not execution approval and must not cancel running tools. Advice data: '
+      +JSON.stringify([handoffView(handoff)])}
+  }
+  // An appended wake is a row in main's conversation; an unacknowledged one
+  // is reminded once here (never a second wake). The reminder names the
+  // event and holds none of its data, so main never reads the event twice.
+  // A row appended after this turn's last request was in none of its
+  // requests (no read_at, and this module saw no step after it): the
+  // reminder continues the turn, and that next request carries the row.
+  const appended = (s.side_handoffs || []).filter(h => h.wake?.state === 'appended'
+    && !noticedSideHandoffs.has(identity+':'+h.event_id))
+  if (appended.length) {
+    for (const handoff of appended) {
+      remember(noticedSideHandoffs, identity+':'+handoff.event_id)
+      // The continuation's request is built after this Stop, so it carries the row.
+      if (!handoff.wake?.read_at && !sideWakeRead(identity, handoff.event_id)) sideWakeReminded(identity, handoff.event_id)
+    }
+    return {...result,block:'A side event was added to this conversation as a host message beginning "Ciel side event requires main action" '
+      +'and is not acknowledged yet. Read that message above, act on it, then call work_side_handoff(event_id, expected_version, answer, activate, clear_wait). '
+      +'Clear only listed waits the event actually satisfies. This reminder holds no event data; it is not execution approval and must not cancel running tools. '
+      +'Events: '+JSON.stringify(appended.map(h => ({event_id:h.event_id,item_id:h.item_id})))}
+  }
+  // needs_ack_retry means main already called work_side_handoff for the event,
+  // so it has it: only the ACK notice applies, never a delivery-uncertain one.
+  const uncertain = (continuing ? [] : s.side_handoffs || []).filter(h => h.wake?.delivery_uncertain
+    && !h.wake?.needs_ack_retry && !settledHere.has(h.event_id) && !ownSideWake(identity, h))
+    .map(h => ({h, key:[identity, h.event_id, h.wake?.attempt_ref || 'none', h.wake?.revision ?? 0].join(':')}))
+    .filter(({key}) => !noticedWakeUncertain.has(key))
+  if (uncertain.length) {
+    for (const {key} of uncertain) remember(noticedWakeUncertain, key)
+    return {...result,block:'Side event delivery to main is uncertain: it may or may not already be in this conversation. '
+      +'Read the affected Work. If it is already handled, acknowledge with work_side_handoff; do not ask for it to be delivered again. '
+      +'This is not execution approval. Advice data: '+JSON.stringify(uncertain.map(({h}) => handoffView(h)))}
+  }
+  const retryAck = (continuing ? [] : s.side_handoffs || []).filter(h => h.wake?.needs_ack_retry)
+    .map(h => ({h, key:[identity, h.event_id, h.wake?.attempt_ref || 'none', h.wake?.revision ?? 0].join(':')}))
+    .filter(({key}) => !noticedAckRetry.has(key))
+  if (retryAck.length) {
+    for (const {key} of retryAck) remember(noticedAckRetry, key)
+    return {...result,block:'Your previous work_side_handoff conflicted with a Work change. Re-read Work and acknowledge again with the current expected_version. '
+      +'This is not execution approval. Advice data: '+JSON.stringify(retryAck.map(({h}) => handoffView(h)))}
+  }
+  // A side answer is reviewed once at a safe boundary; it is never re-sent.
+  // Keyed by delivery state: a reply that later fails to send is shown again.
+  const freshReviews = (s.side_reviews || []).filter(r => !noticedSideReviews.has(sideReviewKey(identity, r)))
+  if (freshReviews.length) {
+    for (const row of freshReviews) noticedSideReviews.add(sideReviewKey(identity, row))
+    if (noticedSideReviews.size > 200) noticedSideReviews.delete(noticedSideReviews.values().next().value)
+    return {...result,block:'Review side answers at this safe boundary, then continue your Work.'
+      + sideReviewText({side_reviews:freshReviews})}
+  }
+  // A submitted Work result holds main at this boundary until an explicit
+  // approve/rework decision commits through work_parallel_item_review. The
+  // same unchanged queue is held twice, then the person is told it waits.
+  const reviewGate = s.enabled !== false ? parallelReviewGate(identity, parallelAfter) : null
+  if (reviewGate?.notice) stopNotice($, identity, reviewGate.notice)
+  if (reviewGate?.block) return { ...result, block:reviewGate.block }
+  if (!s.enabled || s.auto_continue !== true) return result
+  // Every stop that leaves unfinished Work either continues with a runnable item or says why not.
+  if (s.approval === 'ask' && ((s.phase === 'planning' && s.ready)
+      || s.continuation?.next?.phase === 'planning')) {
+    if (openWork(s)) stopNotice($, identity, STOP_APPROVAL)
+    return discoveryNotice($, identity, s, STOP_APPROVAL) || result
+  }
+  if (!(s.continuation?.actionable > 0)) {
+    const reason = notRunnable(s, s.continuation || {})
+    if (openWork(s)) stopNotice($, identity, reason)
+    // Waiting and blocked records are not executable work. Explain locally,
+    // but never manufacture a model turn just to repeat their prerequisites.
+    // Only explicitly enabled, rate-limited discovery may request new work.
+    return discoveryNotice($, identity, s, reason) || result
+  }
+  if (continuationVersion !== s.version) { continuationVersion = s.version; unchangedContinuations = 0 }
+  else unchangedContinuations++
+  if (unchangedContinuations > 1) {
+    try { $.ui.toast('Work auto continue paused: no plan progress. Update the plan or send a message to resume.') } catch {}
+    const reason = 'Ciel Work auto continue paused: the plan did not change after the last continuation (next: '
+      + clipped(s.continuation.next?.id, 64) + ' ' + itemTitle(s.continuation.next || {}, 200)
+      + '). Update the plan or send a message to resume.'
+    stopNotice($, identity, reason)
+    // No planner progress is not permission to sit idle. Search for new
+    // independently approved work through whatever source this session has,
+    // without changing approvals, blocks, or deleting the current item.
+    return discoveryNotice($, identity, s, reason) || result
+  }
+  const c = s.continuation
+  return { ...result, block: 'Ciel Work has ' + c.actionable + ' actionable unfinished item(s). '
+    + 'The next item is ' + clipped(c.next?.id, 64) + ': ' + itemTitle(c.next || {}, 400) + '. '
+    + (c.next?.root_id && c.next.root_id !== s.active_root?.id
+      ? 'Every unfinished step of the active goal ' + clipped(s.active_root?.id, 64) + ' waits or is blocked, so continue with queued goal '
+        + clipped(c.next.root_id, 64) + ': call work_select with root_id ' + clipped(c.next.root_id, 64)
+        + (c.next.phase === 'planning' ? ', then plan it and call work_execute before changing files. ' : ', then execute it. ')
+        + 'The waiting goal stays queued and is picked up again when this goal finishes or has no runnable step. '
+      : '')
+    + 'Pending user requests belong in the Work tree without duplicates (independent goals, dependent children). '
+    + 'Continue within the approved scope only. Approved actionable items remain to be completed and verified; independent actions may run in parallel. '
+    + 'An external dependency belongs in waiting_on, including a person or approval that is needed; name the signal '
+    + 'and its source in one short line so the side actor can release it when that SSE event arrives; other '
+    + 'independent items can proceed while it waits. '
+    + (e.background_tasks?.length ? e.background_tasks.length + ' background task(s) still run; proceed only with independent Work. '
+      + 'Do not duplicate, poll, cancel or mark those tasks done; record their dependent items as waiting_on until their completion notification. ' : '')
+    + 'No new scope or approval boundary is authorized by this notice. '
+    + 'Waiting items: ' + clipped((c.waiting || []).map(n => n.id + ': ' + n.waiting_on).join('; ') || 'none', 700)
+    + ((c.blocked_items || []).length ? ' Blocked items (re-verify when nothing else can run): '
+      + clipped(c.blocked_items.map(n => n.id + (n.waiting_on ? ': ' + n.waiting_on : '')).join('; '), 500) : '')
+    + (unchangedContinuations === 1 ? '. This is the last continuation without a plan update.' : '') }
+}
+
 export function register(on) {
   on('agent.spawn', async ($, e, next) => parallelAgentSpawn($, e, next))
+  on('session.append', async ($, e, next) => {
+    const result = await next(e)
+    sideAppendStored(e,result)
+    return result
+  })
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'btw_with_mcp', description: 'Queue a side request via MCP without a main-thread model turn',
       argumentHint: 'on|off|status|{"event_key":"source:id","text":"request"}', immediate: true })
@@ -2492,14 +3625,17 @@ export function register(on) {
     const s = await refresh($)
     try { await startSide($) } catch { /* Side pane remains empty until the host is available. */ }
     pollBusySideReceipts($, await sessionId($))
+    let hostPending = false
     try {
       const parallel = await parallelHydrate($)
       await parallelRecoverWorkers($, parallel)
       if (e.isInteractive) await parallelPump($, 'session.start')
       scheduleNativeObservation($)
-    } catch { /* Preserve durable leases on unknown host state. */ }
-    if (e.isInteractive && s?.enabled) { notice($, ticket); startIdleRefresh($, cachedSession) }
-    else if (e.isInteractive && !s) retryStart($, ticket)
+    } catch { hostPending = true /* Preserve durable leases on unknown host state. */ }
+    // A failed host phase is retried even when the board read worked (X2): the
+    // idle refresh only pumps, and never hydrates or recovers.
+    if (e.isInteractive && (!s || (hostPending && s.enabled))) retryStart($, ticket, 0, hostPending)
+    else if (e.isInteractive && s?.enabled) { notice($, ticket); startIdleRefresh($, cachedSession) }
     return next(e)
   })
   // /clear keeps this module loaded but resets $.state (owned probe
@@ -2521,7 +3657,7 @@ export function register(on) {
     return next(e)
   })
   on('turn.start', async ($, e, next) => {
-    if (e.agentId === undefined) { mainTurnId = e.turnId ?? null; mainStepIndex = -1; sidePromptTurnStart() }
+    if (e.agentId === undefined) { mainTurnId = e.turnId ?? null; mainStepIndex = -1; sidePromptTurnStart(); await sideMainTurnStart($, e.text) }
     if (e.agentId === undefined) { working = true; stopIdleRefresh(); generation++; mainTurnEpoch++; if (cached?.side_intake_enabled || cached?.enabled === false) pollBusySideReceipts($, await sessionId($), mainTurnEpoch) }
     return next(e)
   })
@@ -2529,7 +3665,12 @@ export function register(on) {
     // The next main step of the same turn after a Stop block is the observed
     // proof that the block entered continuation. A step of another turn never
     // settles it. Record only; a failed record never re-presents.
-    if (e.agentId === undefined) {
+    const main = e.agentId === undefined
+    if (main) {
+      // Causal read/fence proof: rows fenced by an earlier main hook, or whose
+      // own wake prompt started this turn, are in this request. Other stored
+      // rows are fenced now for the next request (append-views-54579a2e).
+      await sideMainStep($)
       for (const [key, waiting] of [...stopWakeWaiting]) {
         if (waiting.proven || waiting.lifecycle !== starts || waiting.turn !== mainTurnEpoch
             || waiting.turnId !== e.turnId || !(e.index > waiting.stepIndex)) continue
@@ -2540,7 +3681,14 @@ export function register(on) {
       // seen after a reload mid-turn, binds nothing (Stop then leaves it to the pump).
       if (mainTurnId !== null && e.turnId === mainTurnId) mainStepIndex = e.index
     }
-    return yield* next(e)
+    try { return yield* next(e) }
+    finally {
+      // The request of this step was pinned before the dispatch. A row stored
+      // anywhere inside the dispatch is absent from this request but is before
+      // the next one, which the engine can build only after every hook returns
+      // (append-views-54579a2e row S). Fence it; never mark it read here.
+      if (main) await sideMainFence($)
+    }
   })
   on('turn.complete', async ($, e, next) => {
     // The proving step precedes the turn's end. A main turn.complete (an
@@ -2582,183 +3730,13 @@ export function register(on) {
       compacts.delete(compact)
     }
   })
+  // Every return of a main Stop, block or not, fences each row stored by then,
+  // including rows stored while this Stop ran (timer appends, the pump): the
+  // continuation request, or the next turn's first one, is built only after the
+  // Stop chain returned (append-views-54579a2e row B). The next main step reads.
   on('classic.Stop', async ($, e, next) => {
-    const lifecycle = starts
-    const turn = mainTurnEpoch
-    const epoch = compactEpoch
-    // classic.Stop names no turn (owned probes): bind to the main turn seen when
-    // this Stop began, or to e.turnId should an engine supply one.
-    const stopTurnId = e.turnId ?? mainTurnId
-    const stopStep = mainStepIndex
-    const result = await next(e)
-    if (result?.block || result?.preventContinuation || e.agent_id) return result
-    let identity, s, current
-    try {
-      identity = await sessionId($)
-      if (e.session_id && identity !== 'claude:' + e.session_id) return result
-      if (lifecycle !== starts || turn !== mainTurnEpoch || epoch !== compactEpoch || compacting(identity)) return result
-      s = await stopSnapshot($, identity)
-      current = await sessionId($)
-    } catch { return result }
-    // Idle/display reads do not invalidate Stop; compact entry AND settlement do.
-    if (lifecycle !== starts || turn !== mainTurnEpoch || epoch !== compactEpoch
-        || current !== identity || compacting(identity)) return result
-    // Fill only after every stale lifecycle/session guard has passed. A Stop from
-    // an ended or superseded turn must never start a native fork.
-    try { await parallelPump($, 'classic.Stop') } catch {}
-    if (lifecycle !== starts || turn !== mainTurnEpoch || epoch !== compactEpoch
-        || await sessionId($).catch(() => null) !== identity || compacting(identity)) return result
-    // The pump can reserve, release or record a review. Decide on reads taken
-    // after it, never on the pre-pump board or a stale review projection.
-    const [after, parallelAfter] = await Promise.all([stopSnapshot($, identity), stopParallelStatus($)])
-    if (lifecycle !== starts || turn !== mainTurnEpoch || epoch !== compactEpoch
-        || await sessionId($).catch(() => null) !== identity || compacting(identity)) return result
-    if (after) s = after
-    if (parallelAfter) await projectParallelReviews($, parallelAfter, 'stop')
-    if (continuationSession !== identity) {
-      continuationSession = identity; continuationVersion = null; unchangedContinuations = 0
-    }
-    if (s && s.enabled !== false) {
-      if (gateIdentity !== identity) { gateIdentity = identity; gateVersion = -1 }
-      if (s.version < gateVersion) return result
-      gateVersion = s.version
-    }
-    if (!s) { if (enabled) stopNotice($, identity, STOP_UNAVAILABLE); return result }
-    // Stop uses the same durable wake election as the pump. A queued/appended
-    // wake is not presented again, and Stop never independently presents a row.
-    // Only a presentation proven by its same-turn step may be recorded here
-    // (record retry). An unproven one stays started: delivery uncertain.
-    // Events whose record lands in this Stop: the snapshot above predates it.
-    const settledHere = new Set()
-    for (const [key, waiting] of [...stopWakeWaiting]) {
-      if (waiting.lifecycle !== starts || waiting.identity !== identity) stopWakeWaiting.delete(key)
-      else if (waiting.proven) {
-        if (await sideRecordStopWake($, identity, waiting.presentation)) {
-          stopWakeWaiting.delete(key); settledHere.add(waiting.presentation.event_id)
-        }
-      } else if (waiting.turn !== turn || waiting.turnId !== stopTurnId) stopWakeWaiting.delete(key)
-    }
-    // A Stop that is itself a Stop-block continuation (stop_hook_active) adds no
-    // uncertainty/ACK notice; those wait for the next ordinary Stop, so they
-    // cannot loop. A NEW pending event is still elected here (time-limit events
-    // need same-turn presentation): each event is elected at most once.
-    const continuing = e.stop_hook_active === true
-    for (const handoff of !stopTurnId ? [] : s.side_handoffs || []) {
-      const wake = handoff.wake || {state:'pending'}
-      // Only a new router's redacted wake carries delivery_uncertain. An old
-      // router has no Stop channel: Stop presents nothing; the pump owns it.
-      if (!['pending','failed'].includes(wake.state) || typeof wake.delivery_uncertain !== 'boolean') continue
-      const presentation = await sideStopWake($, identity, handoff)
-      if (!presentation?.block) continue
-      // The election awaited the router: re-run the stale guards. A Stop that a
-      // new turn, lifecycle, compact or conversation overtook presents nothing;
-      // its started row stays unsettled and shows as delivery uncertain.
-      if (lifecycle !== starts || turn !== mainTurnEpoch || epoch !== compactEpoch || mainTurnId !== stopTurnId
-          || await sessionId($).catch(() => null) !== identity || compacting(identity)) return result
-      const key = [identity, handoff.event_id, presentation.attempt_ref || 'new', presentation.revision].join(':')
-      stopWakeWaiting.set(key, {identity, lifecycle, turn, turnId:stopTurnId, stepIndex:stopStep, presentation, proven:false})
-      // The elected Stop presentation keeps the established Stop wording and
-      // the redacted handoff view (no attempt id, owner fence or receipt).
-      return {...result,block:'Side high-priority advice requires coordinator acknowledgment at this safe boundary. '
-        +'Read the affected Work item, answer any question, then call work_side_handoff(event_id, expected_version, answer, activate, clear_wait). '
-        +'Clear only listed waits this event actually satisfies. This is not execution approval and must not cancel running tools. Advice data: '
-        +JSON.stringify([handoffView(handoff)])}
-    }
-    // An appended wake reached main's running turn; no prompt follows it, so
-    // an unacknowledged one is reminded once here (never a second wake).
-    const appended = (s.side_handoffs || []).filter(h => h.wake?.state === 'appended'
-      && !noticedSideHandoffs.has(identity+':'+h.event_id))
-    if (appended.length) {
-      for (const handoff of appended) remember(noticedSideHandoffs, identity+':'+handoff.event_id)
-      return {...result,block:'Side high-priority advice requires coordinator acknowledgment at this safe boundary. '
-        +'Read the affected Work item, answer any question, then call work_side_handoff(event_id, expected_version, answer, activate, clear_wait). '
-        +'Clear only listed waits this event actually satisfies. This is not execution approval and must not cancel running tools. Advice data: '
-        +JSON.stringify(appended.map(handoffView))}
-    }
-    // needs_ack_retry means main already called work_side_handoff for the event,
-    // so it has it: only the ACK notice applies, never a delivery-uncertain one.
-    const uncertain = (continuing ? [] : s.side_handoffs || []).filter(h => h.wake?.delivery_uncertain
-      && !h.wake?.needs_ack_retry && !settledHere.has(h.event_id) && !ownSideWake(identity, h))
-      .map(h => ({h, key:[identity, h.event_id, h.wake?.attempt_ref || 'none', h.wake?.revision ?? 0].join(':')}))
-      .filter(({key}) => !noticedWakeUncertain.has(key))
-    if (uncertain.length) {
-      for (const {key} of uncertain) remember(noticedWakeUncertain, key)
-      return {...result,block:'Side event delivery to main is uncertain: it may or may not already be in this conversation. '
-        +'Read the affected Work. If it is already handled, acknowledge with work_side_handoff; do not ask for it to be delivered again. '
-        +'This is not execution approval. Advice data: '+JSON.stringify(uncertain.map(({h}) => handoffView(h)))}
-    }
-    const retryAck = (continuing ? [] : s.side_handoffs || []).filter(h => h.wake?.needs_ack_retry)
-      .map(h => ({h, key:[identity, h.event_id, h.wake?.attempt_ref || 'none', h.wake?.revision ?? 0].join(':')}))
-      .filter(({key}) => !noticedAckRetry.has(key))
-    if (retryAck.length) {
-      for (const {key} of retryAck) remember(noticedAckRetry, key)
-      return {...result,block:'Your previous work_side_handoff conflicted with a Work change. Re-read Work and acknowledge again with the current expected_version. '
-        +'This is not execution approval. Advice data: '+JSON.stringify(retryAck.map(({h}) => handoffView(h)))}
-    }
-    // A side answer is reviewed once at a safe boundary; it is never re-sent.
-    // Keyed by delivery state: a reply that later fails to send is shown again.
-    const freshReviews = (s.side_reviews || []).filter(r => !noticedSideReviews.has(sideReviewKey(identity, r)))
-    if (freshReviews.length) {
-      for (const row of freshReviews) noticedSideReviews.add(sideReviewKey(identity, row))
-      if (noticedSideReviews.size > 200) noticedSideReviews.delete(noticedSideReviews.values().next().value)
-      return {...result,block:'Review side answers at this safe boundary, then continue your Work.'
-        + sideReviewText({side_reviews:freshReviews})}
-    }
-    // A submitted Work result holds main at this boundary until an explicit
-    // approve/rework decision commits through work_parallel_item_review. The
-    // same unchanged queue is held twice, then the person is told it waits.
-    const reviewGate = s.enabled !== false ? parallelReviewGate(identity, parallelAfter) : null
-    if (reviewGate?.notice) stopNotice($, identity, reviewGate.notice)
-    if (reviewGate?.block) return { ...result, block:reviewGate.block }
-    if (!s.enabled || s.auto_continue !== true) return result
-    // Every stop that leaves unfinished Work either continues with a runnable item or says why not.
-    if (s.approval === 'ask' && ((s.phase === 'planning' && s.ready)
-        || s.continuation?.next?.phase === 'planning')) {
-      if (openWork(s)) stopNotice($, identity, STOP_APPROVAL)
-      return discoveryNotice($, identity, s, STOP_APPROVAL) || result
-    }
-    if (!(s.continuation?.actionable > 0)) {
-      const reason = notRunnable(s, s.continuation || {})
-      if (openWork(s)) stopNotice($, identity, reason)
-      // Waiting and blocked records are not executable work. Explain locally,
-      // but never manufacture a model turn just to repeat their prerequisites.
-      // Only explicitly enabled, rate-limited discovery may request new work.
-      return discoveryNotice($, identity, s, reason) || result
-    }
-    if (continuationVersion !== s.version) { continuationVersion = s.version; unchangedContinuations = 0 }
-    else unchangedContinuations++
-    if (unchangedContinuations > 1) {
-      try { $.ui.toast('Work auto continue paused: no plan progress. Update the plan or send a message to resume.') } catch {}
-      const reason = 'Ciel Work auto continue paused: the plan did not change after the last continuation (next: '
-        + clipped(s.continuation.next?.id, 64) + ' ' + itemTitle(s.continuation.next || {}, 200)
-        + '). Update the plan or send a message to resume.'
-      stopNotice($, identity, reason)
-      // No planner progress is not permission to sit idle. Search for new
-      // independently approved work through whatever source this session has,
-      // without changing approvals, blocks, or deleting the current item.
-      return discoveryNotice($, identity, s, reason) || result
-    }
-    const c = s.continuation
-    return { ...result, block: 'Ciel Work has ' + c.actionable + ' actionable unfinished item(s). '
-      + 'The next item is ' + clipped(c.next?.id, 64) + ': ' + itemTitle(c.next || {}, 400) + '. '
-      + (c.next?.root_id && c.next.root_id !== s.active_root?.id
-        ? 'Every unfinished step of the active goal ' + clipped(s.active_root?.id, 64) + ' waits or is blocked, so continue with queued goal '
-          + clipped(c.next.root_id, 64) + ': call work_select with root_id ' + clipped(c.next.root_id, 64)
-          + (c.next.phase === 'planning' ? ', then plan it and call work_execute before changing files. ' : ', then execute it. ')
-          + 'The waiting goal stays queued and is picked up again when this goal finishes or has no runnable step. '
-        : '')
-      + 'Pending user requests belong in the Work tree without duplicates (independent goals, dependent children). '
-      + 'Continue within the approved scope only. Approved actionable items remain to be completed and verified; independent actions may run in parallel. '
-      + 'An external dependency belongs in waiting_on, including a person or approval that is needed; name the signal '
-      + 'and its source in one short line so the side actor can release it when that SSE event arrives; other '
-      + 'independent items can proceed while it waits. '
-      + (e.background_tasks?.length ? e.background_tasks.length + ' background task(s) still run; proceed only with independent Work. '
-        + 'Do not duplicate, poll, cancel or mark those tasks done; record their dependent items as waiting_on until their completion notification. ' : '')
-      + 'No new scope or approval boundary is authorized by this notice. '
-      + 'Waiting items: ' + clipped((c.waiting || []).map(n => n.id + ': ' + n.waiting_on).join('; ') || 'none', 700)
-      + ((c.blocked_items || []).length ? ' Blocked items (re-verify when nothing else can run): '
-        + clipped(c.blocked_items.map(n => n.id + (n.waiting_on ? ': ' + n.waiting_on : '')).join('; '), 500) : '')
-      + (unchangedContinuations === 1 ? '. This is the last continuation without a plan update.' : '') }
+    try { return await workStop($, e, next) }
+    finally { if (!e.agent_id) await sideMainFence($) }
   })
   on('session.receive', async ($, e, next) => {
     if (e.agentId === undefined && await sideReceiptReady($, e)) {
@@ -2860,6 +3838,8 @@ export function register(on) {
     return { text: 'Ciel Work mode\n' + JSON.stringify(s, null, 2) }
   })
   on('tool.call', async ($, e, next) => parallelToolCall($, e, next))
+  // Another plugin's $.session.send to a Work fork (the revival fence above).
+  on('session.send', async ($, e, next) => parallelSessionSend($, e, next))
   // Shell authority stays with the native host, even when the Work board is offline.
   on('tool.check', async ($, e, next) => parallelToolCheck($, e, next))
   on('session.end', async ($, e, next) => {
@@ -2955,6 +3935,11 @@ export function register(on) {
     const parity = sideMcpParity()
     const uncertainWakes = (cached && cachedSession === identity ? cached.side_handoffs || [] : [])
       .filter(h => h.wake?.delivery_uncertain && h.wake?.attempt_ref && !h.wake?.needs_ack_retry && !ownSideWake(identity, h))
+    // A conversation re-append whose outcome nobody can know (side_wake.reappend_uncertain).
+    const uncertainReappends = (cached && cachedSession === identity ? cached.side_handoffs || [] : [])
+      .filter(h => h.wake?.reappend_uncertain === true && h.wake?.reappend_ref)
+    const uncertainReviewReappends = (sidePanelSession === identity ? sidePanelReviewDelivery : [])
+      .filter(r => r?.reappend_uncertain === true && r.reappend_ref && typeof r.lease_id === 'string')
     // One unwrapped row per element, cut to the body width: wrapped JSON lines
     // of ten full receipts overflowed the dock and left stale cells (walkie
     // 2026-11-07). The list shows one line per receipt; the selected receipt's
@@ -3022,6 +4007,22 @@ export function register(on) {
         row('wake-' + h.event_id, 'Main delivery uncertain · ' + clipped(h.event_id, 12) + ' · ' + clipped(h.summary, 160)),
         Button({ key: 'wake-retry-' + h.event_id, plain: true, label: 'Retry main wake…',
           onPress: () => retrySideWake($, h, identity) }),
+      ]),
+      ...uncertainReappends.slice(0, 5).flatMap(h => [
+        row('reappend-' + h.event_id, 'Re-append uncertain · ' + clipped(h.event_id, 12) + ' · ' + clipped(h.summary, 160)),
+        Button({ key: 'reappend-retry-' + h.event_id, plain: true, label: 'Retry re-append…',
+          onPress: () => retrySideReappend($, h, identity) }),
+      ]),
+      ...uncertainReviewReappends.slice(0, 5).flatMap(r => [
+        row('review-reappend-' + r.lease_id, 'Review re-append uncertain · ' + clipped(r.lease_id, 24)),
+        Button({ key: 'review-reappend-retry-' + r.lease_id, plain: true, label: 'Retry review re-append…',
+          onPress: () => retryReviewReappend($, r, identity) }),
+      ]),
+      ...receipts.filter(r => r.notice_delivery_uncertain === true && r.receipt_id).slice(-5).flatMap(r => [
+        row('notice-' + r.receipt_id, 'Release notice uncertain · ' + clipped(r.receipt_id, 12) + ' · '
+          + clipped(eventView(r.original || r.recap || '').summary, 160)),
+        Button({ key: 'notice-retry-' + r.receipt_id, plain: true, label: 'Retry release notice…',
+          onPress: () => retrySideNotice($, r, identity) }),
       ]),
       ...(!recent.length ? [row('empty', 'No side-intake receipts for this session.')] : [row('list', 'Receipts (newest first) · Enter selects:'), ...list,
         row('detail', '── ' + clipped(key, 12) + ' · ' + (page.current + 1) + '/' + page.pages + ' ──'),
@@ -3105,6 +4106,7 @@ export function register(on) {
         text('Queue ' + queueOf(cached).length + ' · Side ' + sidePanelReceipts.length
           + (observatoryParallel ? ' · Forks ' + (observatoryParallel.forks ? observatoryParallel.forks.confirmed_count : '?')
             + ' · Device ' + observatoryParallel.active_device + '/' + parallelCapacity(observatoryParallel.policy) : ''), { dimColor: true }),
+        ...(forkGateState.ok === false ? [text(FORK_GATE_MISSING, { color: 'error', weight: 'bold' })] : []),
       ] })
 
     const rows = []

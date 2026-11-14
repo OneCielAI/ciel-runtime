@@ -23,6 +23,13 @@ const readDetailAtom = $ => read($, detailAtom)
 const writeDetailAtom = async ($, v) => update($, detailAtom, () => v)
 
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+// The mods' clock, moved by a scenario with later(): side-intake.js lets a main
+// step prove an appended row was carried only once the row is older than its
+// hook-delay grace (1 s). Scenarios that never call later() keep real time.
+const realNow = Date.now.bind(Date)
+let clockSkew = 0
+Date.now = () => realNow() + clockSkew
+const later = (ms = 2000) => { clockSkew += ms }
 const snapshot = (phase = 'executing', version = 5) => ({ enabled: true, phase, approval: 'auto', version,
   done: 0, total: 1, active_root: { id: 'n1', title: 'goal', status: 'in_progress' }, auto_continue: true,
   continuation: { actionable: 0, waiting: [] }, queue: [] })
@@ -93,7 +100,8 @@ function host(respond) {
         if (state.envFault !== 'never') state.env.set(key, value)
         return {}
       } },
-    tool: { list: async () => [] },
+    // The fork gate plugin's presence answer (ciel-work-gate); forkGate:false models a missing gate.
+    tool: { list: async () => [], check: async q => typeof q?.input?.ciel_work_gate_probe === 'string' && state.forkGate !== false ? { decision: 'ask', plugin: 'ciel-work-gate', reason: 'ciel-work-gate 1 ' + q.input.ciel_work_gate_probe } : { decision: 'allow' } },
     agent: { list: async () => state.agents || [], register: async () => ({}),
       spawn: async args => { if (args.subagentType !== 'ciel-work:side-intake') return {deny:'fixture'}; state.sideSpawn = args; return {agentId:'side1'} } },
     command: { register: async () => {} },
@@ -114,7 +122,8 @@ const verdict = r => r?.decision === 'deny' ? 'deny: ' + r.reason : r?.deny ? 'd
 // turn.start T, turn.step T#0, Stop (block), turn.step T#1, Stop, turn.complete T.
 const engineStream = async function* () { yield { kind:'engine' } }
 const mainStep = async ($, turnId, index) => {
-  for await (const _ of handlers['turn.step']($, { turnId, index, messageCount:9 }, engineStream)) { void _ }
+  const rows = await $.session.messages()
+  for await (const _ of handlers['turn.step']($, { turnId, index, messageCount:rows.length }, engineStream)) { void _ }
 }
 const mainTurn = async ($, turnId) => {
   await handlers['turn.start']($, { turnId, text:'continue' }, next({}))
@@ -190,7 +199,7 @@ const scenarios = {
       if (tool === 'work_side_claim') {
         claims.push({ urgent_only: args.urgent_only === true })
         const id = queue.shift()
-        return text(id ? { claim: { receipt_id: id, generation: 'g-' + id.slice(0, 2), text: 'event ' + id.slice(0, 2), route: {},
+        return text(id ? { claim: { receipt_id: id, generation: ('4' + id.slice(1, 2)).repeat(16), text: 'event ' + id.slice(0, 2), route: {},
           lease_until: Date.now() / 1000 + 600, workload: { version: 5, truncated: false, nodes: [], queue_order: [] } },
           settings: { max_active: 2 } } : { claim: null, settings: { max_active: 2 } })
       }
@@ -367,6 +376,35 @@ const scenarios = {
     await button.onPress()
     return { label, afterCancel, retries:calls.filter(c => c.tool === 'work_side_wake').map(c => c.args) }
   },
+  // A released-wait notice whose outcome is unknown appears in the Side pane
+  // from the host-only receipt projection's bounded boolean; only a confirmed
+  // press releases it, by receipt id alone.
+  async 'side-notice-pane-retry'() {
+    const calls = []
+    const answers = ['Cancel', 'Retry release notice (may duplicate)']
+    const row = (id, uncertain) => ({ receipt_id:id.repeat(64), stage:'processed', item_id:'n2', recap:'approval 7 granted',
+      original:'approval 7 granted', notice_delivery_uncertain:uncertain,
+      notice_attempt_ref:id.repeat(16), notice_revision:2,
+      result:{ action:'update', summary:'released', reply:'ok', delivery:'route_unavailable', handoff:'none', version:3 } })
+    const { $ } = host(async (tool, args) => { calls.push({ tool, args })
+      if (tool === 'work_status') return text({ ...snapshot(), side_handoffs:[] })
+      if (tool === 'work_side_status') return text({ enabled:true, side_inbox_receipts:[row('s', false), row('u', true)] })
+      if (tool === 'work_side_claim') return text({ claim:null, settings:{}, handoff_replies:[], main_wakes:[], main_notices:[] })
+      if (tool === 'work_side_wake') return text({ protocol:2, state:'released', notice_delivery_uncertain:false })
+      return text({}) })
+    $.ui.ask = async () => answers.shift()
+    $.ui.resolve = () => ({ Box:props => props, Text:props => props, Button:props => props })
+    await sideHandlers['command.run']($, { args:'receipts' })
+    const pane = await sideHandlers['ui.render']($, { component:'Pane', requestId:'ciel-side-intake' }, next(null))
+    const rows = pane.children
+    const labels = rows.filter(r => typeof r.children === 'string' && r.children.startsWith('Release notice uncertain'))
+      .map(r => r.children)
+    const buttons = rows.filter(r => r.label === 'Retry release notice…')
+    await buttons[0]?.onPress()
+    const afterCancel = calls.filter(c => c.tool === 'work_side_wake').length
+    await buttons[0]?.onPress()
+    return { labels, buttons:buttons.length, afterCancel, retries:calls.filter(c => c.tool === 'work_side_wake').map(c => c.args) }
+  },
   // Shared fake of the protocol-2 wake ledger for the Stop/pump scenarios.
   async 'side-wake-stop-election'() {
     const event = 'e'.repeat(64), attempt = 'a'.repeat(32)
@@ -385,9 +423,9 @@ const scenarios = {
         wake = { state:'submitting', phase:'started', revision:2, attempt_ref:attemptRef(attempt), delivery_uncertain:true }
         return text({ protocol:2, state:'submitting', phase:'started', attempt_id:attempt, owner_nonce:args.owner_nonce, channel:'stop', revision:2 })
       }
-      if (tool === 'work_side_wake' && args.state === 'queued') {
-        wake = { state:'queued', phase:'started', revision:3, attempt_ref:attemptRef(attempt), delivery_uncertain:false }
-        return text({ protocol:2, state:'queued', revision:3 })
+      if (tool === 'work_side_wake' && ['queued','appended'].includes(args.state)) {
+        wake = { state:args.state, phase:'started', revision:3, attempt_ref:attemptRef(attempt), delivery_uncertain:false }
+        return text({ protocol:2, state:args.state, revision:3 })
       }
       if (tool === 'work_parallel_status') return text({ version:1, policy:{ enabled:false }, leases:{} })
       if (tool === 'work_side_claim') return text({ claim:null, settings:{}, handoff_replies:[], main_wakes:[] })
@@ -490,6 +528,8 @@ const scenarios = {
     let stop
     if (order === 'pump-first') {
       await sidePump($)
+      // The append and its record land before the turn reaches Stop.
+      await sleep(40)
       stop = await handlers['classic.Stop']($, { session_id:'S1' }, next({}))
     } else if (order === 'interleaved') {
       const stopping = handlers['classic.Stop']($, { session_id:'S1' }, next({}))
@@ -523,7 +563,7 @@ const scenarios = {
       if (tool === 'work_side_claim') {
         if (claimed) return text({ claim: null, settings: { max_active: 1 } })
         claimed = true
-        return text({ claim: { receipt_id: id, generation: 'g1', text: 'event', route: {}, lease_until: Date.now() / 1000 + 600,
+        return text({ claim: { receipt_id: id, generation: '10000000000000000000000000000007', text: 'event', route: {}, lease_until: Date.now() / 1000 + 600,
           workload: { version: 5, truncated: false, nodes: [], queue_order: [] } }, settings: { max_active: 1 } })
       }
       return text({})
@@ -571,7 +611,7 @@ const scenarios = {
       if(tool==='work_side_claim'){
         if(claimed) return text({claim:null,settings:{max_active:1}})
         claimed=true
-        return text({claim:{receipt_id:id,generation:'g1',text:'event',route:{},lease_until:Date.now()/1000+600,
+        return text({claim:{receipt_id:id,generation:'10000000000000000000000000000008',text:'event',route:{},lease_until:Date.now()/1000+600,
           workload:{version:5,truncated:false,nodes:[],queue_order:[]}},settings:{max_active:1}})
       }
       return text({})
@@ -687,7 +727,7 @@ const scenarios = {
       if (tool === 'work_side_claim') {
         if (claimed) return text({claim:null})
         claimed = true
-        return text({claim:{receipt_id:'mail1',generation:'g1',text:'original request',route:{},workload:{version:5,truncated:false,nodes:[],queue_order:[]}}})
+        return text({claim:{receipt_id:'mail1',generation:'10000000000000000000000000000009',text:'original request',route:{},workload:{version:5,truncated:false,nodes:[],queue_order:[]}}})
       }
       return text({})
     })
@@ -1537,6 +1577,74 @@ const scenarios = {
       prompt: 'duplicate', description: 'duplicate', background: true }, spawnNext)
     return { sent: Boolean(sent.sent), spawned: spawned.agentId || '', duplicate: verdict(duplicate) }
   },
+  // An external web/REST decision can add an awaiting-capacity review and then
+  // resume policy without changing the Work board version. With main idle and
+  // no fork running, the idle refresh is the only periodic host boundary.
+  async 'parallel-idle-roll-forward'() {
+    const timers = []
+    let reviews = []
+    const rolled = []
+    const { $ } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot('executing', 5))
+      if (tool === 'work_parallel_status') return text({ version:9, active_device:0,
+        policy:{enabled:true,paused:false,priority_limits:{P1:1}}, leases:{},
+        review:{version: reviews.length ? 2 : 1, pending:reviews} })
+      if (tool === 'work_parallel_event') {
+        if (args.event === 'review_roll_forward') { rolled.push(args.lease_id); return text({lease_id:args.lease_id,state:'rework_ready'}) }
+        if (args.event === 'reserve_next') return {isError:true,...text('no eligible candidate')}
+        return text({})
+      }
+      return text({})
+    })
+    $.session.repo=async()=>null; $.session.root=async()=>'/repo'
+    $.prompt={submit:async()=>({})}; $.session.append=async()=>({})
+    $.clock.after = (delay, callback) => {
+      const timer = { delay, callback, cancelled:false }
+      timers.push(timer)
+      return { cancel() { timer.cancelled = true } }
+    }
+    await handlers['session.start']($, { isInteractive:true }, next(undefined))
+    reviews = [{lease_id:'LA',item_id:'na',item_title:'Waiting',priority:'P1',state:'awaiting_capacity',
+      decision:'rework',blocked:{code:'paused',message:'dispatch paused'}}]
+    const idle = timers.find(timer => timer.delay === 1000 && !timer.cancelled)
+    if (!idle) throw new Error('idle refresh timer was not armed')
+    await idle.callback()
+    await sleep(0)
+    return { rolled, boardVersion:5, idleDelay:idle.delay }
+  },
+  // R2 B2 router model (added by continue-work-pump; the scenarios above model
+  // a pre-B2 router that sends no owner_process). One owner class per run:
+  // L1 running and unlisted (path 2 recovery, path 4 turn-end reconcile), L2
+  // submitted with an exact completion receipt and unlisted (path 3).
+  async 'parallel-owner-process-b2'() {
+    const owner = process.argv[3]
+    const leases = {
+      L1: { id:'L1', item_id:'n2', role:'worker', state:'running', host_id:'agent-run', agent_name:'work-auto-run',
+        dispatch_name:'work-auto-run', slot:true, plan_version:7, owner_process:owner },
+      L2: { id:'L2', item_id:'n3', role:'worker', state:'submitted', host_id:'agent-sub', slot:false, plan_version:7,
+        owner_process:owner } }
+    const events = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:9, active_device:1,
+        policy:{ enabled:true, paused:false, priority_limits:{ P1:5, P2:3, P3:1, P4:1, P5:1 } }, leases,
+        session_attachments:{ available:true, live:owner === 'other_live' ? 2 : 1, gone:owner === 'gone' ? 1 : 0,
+          unknown:0, attachment_version:3 },
+        coordination:{ runs:[{ lease_id:'L1', exit:null },
+          { lease_id:'L2', generation:1, agent_id:'agent-sub', exit:{ kind:'completion', digest:'d'.repeat(64) } }], receipts:[] } })
+      if (tool === 'work_parallel_event') { events.push(args.event); return text({}) }
+      return text({})
+    })
+    state.agents = []
+    await handlers['session.start']($, { isInteractive:false }, next(undefined))
+    const recovery = (state.sent || []).filter(s => s.to?.agentId === 'agent-run').length
+    const reconcileBefore = events.filter(e => e === 'reconcile').length
+    await handlers['turn.complete']($, {}, next(undefined))
+    const shown = (await handlers['command.run']($, { args:'parallel' })).text || ''
+    return { owner, recovery, restart:events.filter(e => e === 'restart_submitted_terminal').length,
+      turnReconciles:events.filter(e => e === 'reconcile').length - reconcileBefore,
+      hosts:shown.split('\n').filter(line => line.startsWith('HOSTS:')) }
+  },
   // A parent restart has no in-memory map; the durable lease alone restores worker identity.
   async 'parallel-restart-rebind'() {
     const lease = { id: 'L1', role: 'worker', state: 'running', host_id: 'agent-old', slot: true, plan_version: 7 }
@@ -1656,7 +1764,7 @@ const scenarios = {
   async 'side-uncertain-retry-cancel-and-confirm'() {
     const calls = []
     const answers = ['Cancel','Send again (may duplicate)']
-    const receipt = {receipt_id:'mail1',stage:'processed',original:'Q',
+    const receipt = {receipt_id:'mail1',stage:'processed',original:'Q',reply_attempt_ref:'b'.repeat(16),reply_revision:2,
       result:{action:'answer',summary:'S',reply:'R',delivery:'uncertain',handoff:'not_required',version:1}}
     const {$} = host(async(tool,args)=>{calls.push({tool,args});
       if (tool === 'work_status') return text({...snapshot(),side_inbox_receipts:[receipt]})
@@ -1672,6 +1780,99 @@ const scenarios = {
     const before = calls.filter(row=>row.tool === 'work_side_retry_reply').length
     await button.onPress()
     return {before,retries:calls.filter(row=>row.tool === 'work_side_retry_reply').map(row=>row.args)}
+  },
+  // A router that refuses the pane's person-confirmed retries with its host gate
+  // (side_intake_mcp._person_retry_host). Each pane retry must say where else
+  // a person can retry; any other refusal keeps the plain message.
+  async 'pane-retry-refused-by-host-gate'() {
+    const gate = 'person-confirmed retry requires the verified Ciel Work host'
+    const run = async (refusal) => {
+      const toasts = []
+      const handoff = { event_id:'r'.repeat(64), item_id:'n2', kind:'resume', summary:'Uncertain wake', question:'', waits:[],
+        wake:{ state:'uncertain', phase:'started', revision:4, attempt_ref:'ref-pane', delivery_uncertain:true } }
+      const receipt = { receipt_id:'u'.repeat(64), stage:'processed', item_id:'n2', recap:'approval 7 granted', original:'Q',
+        notice_delivery_uncertain:true,
+        result:{ action:'update', summary:'S', reply:'R', delivery:'uncertain', handoff:'none', version:1 } }
+      const { $ } = host(async (tool) => {
+        if (tool === 'work_status') return text({ ...snapshot(), side_handoffs:[handoff] })
+        if (tool === 'work_side_status') return text({ enabled:true, side_inbox_receipts:[receipt] })
+        if (tool === 'work_side_claim') return text({ claim:null, settings:{}, handoff_replies:[], main_wakes:[] })
+        if (tool === 'work_side_wake' || tool === 'work_side_retry_reply') return { isError:true, ...text(refusal) }
+        return text({}) })
+      $.ui.toast = message => toasts.push(String(message))
+      $.ui.ask = async (_question, options) => options[1]
+      $.ui.resolve = () => ({ Box:props => props, Text:props => props, Button:props => props })
+      await handlers['command.run']($, { args:'status' })
+      await sideHandlers['command.run']($, { args:'receipts' })
+      const pane = await sideHandlers['ui.render']($, { component:'Pane', requestId:'ciel-side-intake' }, next(null))
+      const flat = []
+      const walk = node => { if (!node || typeof node !== 'object') return; flat.push(node); for (const child of [].concat(node.children || [])) walk(child) }
+      walk(pane)
+      for (const label of ['Retry main wake…', 'Retry release notice…', 'Retry reply…']) {
+        const button = flat.find(node => node.label === label)
+        if (!button) { toasts.push('missing button ' + label); continue }
+        await button.onPress()
+      }
+      return toasts
+    }
+    return { gate:await run(gate), other:await run('side wake changed; refresh before retry') }
+  },
+  // A conversation re-append whose outcome is unknown (side_wake.redact_wake:
+  // reappend_uncertain). The pane offers a may-duplicate release; Cancel sends
+  // nothing; the confirmed press sends only the redacted ref and revision.
+  async 'side-reappend-pane-retry'() {
+    const calls = []
+    const answers = ['Cancel', 'Retry re-append (may duplicate)']
+    const handoff = (id, uncertain) => ({ event_id:id.repeat(64), item_id:'n2', kind:'resume', summary:'Moved event ' + id,
+      question:'', waits:[], wake:{ state:'appended', revision:7, attempt_ref:'a'.repeat(16), delivery_uncertain:false,
+        reappend_state:uncertain ? 'uncertain' : 'submitting', reappend_ref:'r'.repeat(16), reappend_uncertain:uncertain } })
+    const { $ } = host(async (tool, args) => { calls.push({ tool, args })
+      if (tool === 'work_status') return text({ ...snapshot(), side_handoffs:[handoff('q', true), handoff('w', false)] })
+      if (tool === 'work_side_status') return text({ enabled:true, side_inbox_receipts:[] })
+      if (tool === 'work_side_claim') return text({ claim:null, settings:{}, handoff_replies:[], main_wakes:[] })
+      if (tool === 'work_side_wake') return text({ protocol:2, state:'appended', revision:8 })
+      return text({}) })
+    $.ui.ask = async () => answers.shift()
+    $.ui.resolve = () => ({ Box:props => props, Text:props => props, Button:props => props })
+    await handlers['command.run']($, { args:'status' })
+    const pane = await sideHandlers['ui.render']($, { component:'Pane', requestId:'ciel-side-intake' }, next(null))
+    const rows = pane.children
+    const labels = rows.filter(r => typeof r.children === 'string' && r.children.startsWith('Re-append uncertain')).map(r => r.children)
+    const buttons = rows.filter(r => r.label === 'Retry re-append…')
+    await buttons[0]?.onPress()
+    const afterCancel = calls.filter(c => c.tool === 'work_side_wake').length
+    await buttons[0]?.onPress()
+    return { labels, buttons:buttons.length, afterCancel,
+      retries:calls.filter(c => c.tool === 'work_side_wake').map(c => ({ ...c.args, _host:{ internal:c.args._host?.internal === true } })) }
+  },
+  // The same release for a parallel review re-append: its row comes from the
+  // host-only side status's review_delivery view (review_delivery.public_view).
+  async 'review-reappend-pane-retry'() {
+    const calls = []
+    const answers = ['Cancel', 'Retry review re-append (may duplicate)']
+    const rows = [{ lease_id:'L-stuck', state:'appended', in_this_conversation:false, reappends:0, reappend_state:'uncertain',
+      reappend_ref:'s'.repeat(16), reappend_uncertain:true },
+      { lease_id:'L-live', state:'reappending', in_this_conversation:false, reappends:0, reappend_state:'submitting',
+        reappend_ref:'l'.repeat(16), reappend_uncertain:false }]
+    const { $ } = host(async (tool, args) => { calls.push({ tool, args })
+      if (tool === 'work_status') return text({ ...snapshot(), side_handoffs:[] })
+      if (tool === 'work_side_status') return text({ enabled:true, side_inbox_receipts:[],
+        review_delivery:{ available:true, truncated:false, rows } })
+      if (tool === 'work_side_claim') return text({ claim:null, settings:{}, handoff_replies:[], main_wakes:[] })
+      if (tool === 'work_side_wake') return text({ protocol:2, lease_id:args.event_id, state:'released' })
+      return text({}) })
+    $.ui.ask = async () => answers.shift()
+    $.ui.resolve = () => ({ Box:props => props, Text:props => props, Button:props => props })
+    await sideHandlers['command.run']($, { args:'receipts' })
+    const pane = await sideHandlers['ui.render']($, { component:'Pane', requestId:'ciel-side-intake' }, next(null))
+    const labels = pane.children.filter(r => typeof r.children === 'string' && r.children.startsWith('Review re-append uncertain'))
+      .map(r => r.children)
+    const buttons = pane.children.filter(r => r.label === 'Retry review re-append…')
+    await buttons[0]?.onPress()
+    const afterCancel = calls.filter(c => c.tool === 'work_side_wake').length
+    await buttons[0]?.onPress()
+    return { labels, buttons:buttons.length, afterCancel,
+      retries:calls.filter(c => c.tool === 'work_side_wake').map(c => ({ ...c.args, _host:{ internal:c.args._host?.internal === true } })) }
   },
   async 'side-receipt-visible'() {
     const board = { ...snapshot(), side_intake_receipts: [{ item_id: 'n77', recap: 'request recap' }] }
@@ -1975,9 +2176,27 @@ function advLedger(opts = {}) {
     if (tool === 'work_side_status') return text({ enabled:true, side_inbox_receipts:[] })
     if (tool === 'work_side_claim') {
       const offered = ['pending', 'failed'].includes(w.state) || (w.state === 'submitting' && ['intent', 'started'].includes(w.phase))
+        || (w.state === 'appended' && !w.read_at)
       return text({ claim:null, settings:{}, handoff_replies:[], main_wakes:offered ? [L.row(true)] : [] })
     }
     if (tool !== 'work_side_wake') return text({})
+    if (String(args.state).startsWith('prompt_')) {
+      if (args.state === 'prompt_prepare') {
+        if (w.prompt && ['submitting','queued'].includes(w.prompt.state))
+          return text({protocol:2,state:'already_'+w.prompt.state,revision:w.revision})
+        w.prompt = {state:'submitting',attempt_id:'prompt-'+ADV_EVENT.slice(0,12),owner:args.owner_nonce}
+        return text({protocol:2,state:'submitting',attempt_id:w.prompt.attempt_id,owner_nonce:args.owner_nonce,revision:w.revision})
+      }
+      if (!w.prompt || w.prompt.attempt_id !== args.attempt_id || w.prompt.owner !== args.owner_nonce)
+        return {isError:true,...text('stale side wake prompt attempt')}
+      w.prompt.state = args.state.slice(7)
+      return text(L.own())
+    }
+    if (args.state === 'read') {
+      if (w.state !== 'appended') return { isError:true, ...text('side wake is not appended') }
+      L.wake = { ...w, read_at:1 }
+      return text(L.own())
+    }
     L.wakeArgs.push({ state:args.state, attempt_id:args.attempt_id ?? null, owner_nonce:args.owner_nonce ?? null,
       channel:args.channel ?? null })
     if (args.state === 'prepare') {
@@ -2006,7 +2225,8 @@ function advLedger(opts = {}) {
       L.wake = { ...w, state:args.state, revision:w.revision + 1 }
       return text(L.own())
     }
-    if (args.state === 'retry') { L.retry = { ...args }; delete L.retry.session_id; delete L.retry._host; return text({ protocol:2, state:'failed' }) }
+    if (args.state === 'retry') { L.retry = { ...args }; L.retryInternal = args._host?.internal === true
+      delete L.retry.session_id; delete L.retry._host; return text({ protocol:2, state:'failed' }) }
     return text({})
   }
   return L
@@ -2023,7 +2243,7 @@ function advHost(L) {
     ui:{ invalidate(){}, toast(){}, log(t){ state.logs.push(String(t)) }, open:async () => {},
       ask:async (q, opts) => { state.asks.push(opts); return state.answer || 'Cancel' } },
     clock:{ after(){ return { cancel(){} } } }, env:{ get:async () => 'host-token', set:async () => ({}) },
-    tool:{ list:async () => [], call:async () => ({}) },
+    tool:{ list:async () => [], call:async () => ({}), check:async q => typeof q?.input?.ciel_work_gate_probe === 'string' && state.forkGate !== false ? { decision:'ask', plugin:'ciel-work-gate', reason:'ciel-work-gate 1 ' + q.input.ciel_work_gate_probe } : { decision:'allow' } },
     agent:{ list:async () => [], register:async () => ({}), spawn:async () => ({ deny:'fixture' }) },
     command:{ register:async () => {} },
   }
@@ -2215,7 +2435,7 @@ Object.assign(scenarios, {
         return text(own(w))
       }
       if (args.state === 'start') { Object.assign(w, { phase:'started', revision:w.revision + 1 }); return text(own(w)) }
-      if (args.state === 'queued') { Object.assign(w, { state:'queued', revision:w.revision + 1 }); return text(own(w)) }
+      if (['queued','appended'].includes(args.state)) { Object.assign(w, { state:args.state, revision:w.revision + 1 }); return text(own(w)) }
       return text({})
     } }
     const { $ } = advHost(L)
@@ -2265,7 +2485,7 @@ Object.assign(scenarios, {
     state.answer = 'Cancel'; await button.onPress()
     const afterCancel = L.retry || null
     state.answer = 'Retry main wake (may duplicate)'; await button.onPress()
-    return { button:true, afterCancel, retry:L.retry, ref:attemptRef('7'.repeat(32)) }
+    return { button:true, afterCancel, retry:L.retry, retryInternal:L.retryInternal === true, ref:attemptRef('7'.repeat(32)) }
   },
 })
 
@@ -2284,7 +2504,11 @@ Object.assign(scenarios, {
     const reverse = flags.includes('reverse')
     const leaseIds = mode === 'reviews' ? ['L1', 'L2'] : mode === 'sides' ? [] : ['L1']
     const eventIds = (mode === 'sides' ? ['E1', 'E2'] : mode === 'reviews' ? [] : ['E1']).map(id => id + '0'.repeat(62))
-    const label = value => (/"lease_id":"(L\d)"/.exec(value) || /"event_id":"(E\d)/.exec(value) || [])[1] || '?'
+    // L1: a review prompt (payload). E1: a side wake's appended payload.
+    // wake:E1: the prompt that wakes main for it, which holds none.
+    const label = value => (/"lease_id":"(L\d)"/.exec(value) || /"event_id":"(E\d)/.exec(value) || [])[1]
+      || (/^Ciel side wake (E\d)/.exec(value) ? 'wake:' + /^Ciel side wake (E\d)/.exec(value)[1] : undefined)
+      || (/^Ciel Work review wake (L\d)/.exec(value) ? /^Ciel Work review wake (L\d)/.exec(value)[1] : '?')
     const reviews = [], wakes = {}, records = [], submits = [], invocations = []
     let active = 0, maxActive = 0
     const reviewRow = id => ({ lease_id:id, item_id:'n' + id, item_title:'Result ' + id, state:'pending', decision:null,
@@ -2292,7 +2516,7 @@ Object.assign(scenarios, {
     const sideRows = []
     const sideOwn = w => ({ protocol:2, state:w.state, phase:w.phase, attempt_id:w.attempt_id, owner_nonce:w.owner,
       channel:w.channel, revision:w.revision })
-    const { $ } = host(async (tool, args) => {
+    const { $, state:hostState } = host(async (tool, args) => {
       if (tool === 'work_status') return text({ ...snapshot(), auto_continue:false })
       if (tool === 'work_parallel_status') return text({ version:9, active_device:0,
         policy:{ enabled:true, paused:false, priority_limits:{ P1:1, P2:0, P3:0, P4:0, P5:0 } }, leases:{},
@@ -2323,11 +2547,22 @@ Object.assign(scenarios, {
           return text(sideOwn(w))
         }
         if (args.state === 'start') { Object.assign(w, { phase:'started', revision:w.revision + 1 }); return text(sideOwn(w)) }
+        if (String(args.state).startsWith('prompt_')) {
+          if (args.state === 'prompt_prepare') {
+            if (w.prompt && ['submitting','queued'].includes(w.prompt.state))
+              return text({protocol:2,state:'already_'+w.prompt.state})
+            w.prompt = {state:'submitting',attempt_id:'prompt-'+label('"event_id":"'+args.event_id+'"'),owner:args.owner_nonce}
+            return text({protocol:2,state:'submitting',attempt_id:w.prompt.attempt_id,owner_nonce:args.owner_nonce})
+          }
+          w.prompt.state = args.state.slice(7)
+          return text(sideOwn(w))
+        }
         if (['queued', 'appended', 'uncertain', 'failed'].includes(args.state)) {
           Object.assign(w, { state:args.state, revision:w.revision + 1 })
           records.push(label('"event_id":"' + args.event_id + '"') + ':' + args.state)
           return text(sideOwn(w))
         }
+        if (args.state === 'read') { records.push(label('"event_id":"' + args.event_id + '"') + ':read'); return text(sideOwn(w)) }
         return text({})
       }
       return text({})
@@ -2362,19 +2597,30 @@ Object.assign(scenarios, {
     const order = mode === 'side-review' ? ['side', 'review'] : mode === 'review-side' ? ['review', 'side']
       : mode === 'sides' ? ['side'] : ['review']
     for (const kind of order) await trigger(kind)
-    const keys = [...leaseIds.map(id => 'parallel:' + id), ...eventIds.map(id => 'side:' + id)]
-    const whileBothPending = { invocations:[...invocations], maxActive, pending:keys.filter(key => sidePromptPending(key)).length }
+    const keys = [...leaseIds.map(id => 'parallel:' + id), ...eventIds.map(id => 'wake:' + id)]
+    // Each lease's delivery is a fire-and-forget chain (register.js
+    // finishParallelWake via `void`); its append record and prompt land when
+    // that chain does, in either order between keys. Wait for every key's own
+    // record and prompt instead of assuming they fit in trigger's 30 ms.
+    const producers = [...leaseIds, ...eventIds.map(id => id.slice(0, 2))]
+    await keyUntil(() => keys.every(key => sidePromptPending(key))
+      && producers.every(id => records.some(row => row.startsWith(id + ':'))))
+    const whileBothPending = { invocations:[...invocations], maxActive, pending:keys.filter(key => sidePromptPending(key)).length,
+      records:[...records], appended:(hostState.appended || []).map(row => label(row.message.content[0].text)) }
     const stopWhileBothPending = lines(await stop())
     // Release by producer order (first triggered key first), not by submit
     // index: independent keys may reach $.prompt.submit in either order.
-    const releaseOrder = order.flatMap(kind => kind === 'review' ? leaseIds : eventIds.map(id => id.slice(0, 2)))
+    const releaseOrder = order.flatMap(kind => kind === 'review' ? leaseIds : eventIds.map(id => 'wake:' + id.slice(0, 2)))
     const byLabel = id => submits.find(entry => entry.label === id)
     const [firstOut, secondOut] = reverse ? [byLabel(releaseOrder[1]), byLabel(releaseOrder[0])]
       : [byLabel(releaseOrder[0]), byLabel(releaseOrder[1])]
-    firstOut?.release(reverse ? 'ok' : fault || 'ok'); await sleep(30)
+    // Wait for the released key to settle in the prompt registry (async $.state
+    // CAS) rather than a fixed delay: under suite load 30 ms was not enough.
+    const settledTo = async count => { await keyUntil(() => keys.filter(key => sidePromptPending(key)).length <= count); await sleep(30) }
+    firstOut?.release(reverse ? 'ok' : fault || 'ok'); await settledTo(keys.length - 1)
     const afterFirst = { invocations:[...invocations], records:[...records], pending:keys.filter(key => sidePromptPending(key)) }
     const stopAfterFirst = lines(await stop())
-    secondOut?.release(reverse ? fault || 'ok' : 'ok'); await sleep(30)
+    secondOut?.release(reverse ? fault || 'ok' : 'ok'); await settledTo(keys.length - 2)
     const stopAfterBoth = lines(await stop())
     return { whileBothPending, stopWhileBothPending, afterFirst, stopAfterFirst, stopAfterBoth,
       invocations, maxActive, records, sideWakes:Object.fromEntries(Object.entries(wakes).map(([id, w]) => [id.slice(0, 2), w.state])) }
@@ -2423,8 +2669,10 @@ function keyBackend() {
     wake:hostView ? { ...B.pub(id), attempt_id:B.wakes[id].attempt_id } : B.pub(id) })
   B.own = id => { const w = B.wakes[id]; return { protocol:2, state:w.state, phase:w.phase, attempt_id:w.attempt_id,
     owner_nonce:w.owner, channel:w.channel, revision:w.revision } }
-  B.addReview = id => B.reviews.push({ lease_id:id, item_id:'n' + id, item_title:'Result ' + id, state:'pending',
-    decision:null, summary:'built ' + id, verification:'ok', wake:{ state:'pending', attempts:0 } })
+  // pin: the router's read-time review_pin (option 1, never persisted).
+  B.addReview = (id, pin) => B.reviews.push({ lease_id:id, item_id:'n' + id, item_title:'Result ' + id, state:'pending',
+    decision:null, summary:'built ' + id, verification:'ok', wake:{ state:'pending', attempts:0 },
+    ...(pin ? { review_pin:pin } : {}) })
   B.addSide = id => { B.wakes[id] = { state:'pending', revision:0 }
     B.sideRows.push({ event_id:id, item_id:'n7', root_id:'n7', title:'deadline', kind:'time_limit', summary:'report',
       question:'', waits:[], time_limit:{ text:'within 30 min', evidence:'m1' } }) }
@@ -2452,13 +2700,69 @@ function keyBackend() {
       if (args.event === 'reserve_next') return { isError:true, ...text('no eligible candidate') }
       return text({})
     }
+    // side_intake_mcp: an appended wake is offered until main has had a request after it.
     if (tool === 'work_side_claim') return text({ claim:null, settings:{}, handoff_replies:[],
       main_wakes:B.sideRows.filter(r => { const w = B.wakes[r.event_id]
-        return ['pending', 'failed'].includes(w.state) || (w.state === 'submitting' && ['intent', 'started'].includes(w.phase)) })
+        return ['pending', 'failed'].includes(w.state) || (w.state === 'submitting' && ['intent', 'started'].includes(w.phase))
+          || (w.state === 'appended' && !w.read_at) })
         .map(r => B.row(r.event_id, true)) })
     if (tool !== 'work_side_wake') return text({})
+    if (String(args.state).startsWith('review_')) {
+      // Mirrors review_delivery.py (covered on the real code by test_review_delivery).
+      const D = (B.reviewDelivery ||= {}), row = B.reviews.find(r => r.lease_id === args.event_id)
+      const d = D[args.event_id] && row && D[args.event_id].attempt === row.wake.attempt_id ? D[args.event_id] : null
+      B.calls.push(args.event_id + ':' + args.state)
+      const answer = value => text({ protocol:2, lease_id:args.event_id, ...value })
+      if (args.state === 'review_appended') {
+        if (!row || row.wake.state !== 'appended' || row.wake.attempt_id !== args.attempt_id)
+          return { isError:true, ...text('stale review wake attempt') }
+        if (!d) D[args.event_id] = { attempt:args.attempt_id, conversation:args.seen_receipt }
+        return answer({ state:'appended' })
+      }
+      if (args.state === 'review_status')
+        return answer({ state:!d ? 'unknown' : d.read ? 'read' : d.conversation === args.seen_receipt ? 'here' : 'elsewhere' })
+      if (args.state === 'review_read') { if (d) d.read = true; return answer({ state:d ? 'read' : 'unknown' }) }
+      if (args.state === 'review_reappend_prepare') {
+        if (!d) return answer({ state:'unknown' })
+        if (d.read) return answer({ state:'already_read' })
+        if (d.conversation === args.seen_receipt) return answer({ state:'already_appended' })
+        if (d.lease && d.lease.conversation === args.seen_receipt && d.lease.state !== 'failed')
+          return answer({ state:'already_' + d.lease.state })
+        d.lease = { state:'submitting', attempt:'reappend-' + (B.reappends = (B.reappends || 0) + 1), owner:args.owner_nonce,
+          conversation:args.seen_receipt }
+        return answer({ state:'submitting', attempt_id:d.lease.attempt, owner_nonce:args.owner_nonce })
+      }
+      if (args.state === 'review_reappend_retry') {
+        if (!d?.lease || d.lease.state !== 'uncertain') return { isError:true, ...text('review re-append changed; refresh before retry') }
+        d.lease = { ...d.lease, state:'failed', released:true, attempt:'released-' + d.lease.attempt }
+        return answer({ state:'released' })
+      }
+      const outcome = String(args.state).slice('review_reappend_'.length)
+      if (!d?.lease || d.lease.attempt !== args.attempt_id || d.lease.owner !== args.owner_nonce)
+        return { isError:true, ...text('stale review reappend attempt') }
+      d.lease.state = outcome
+      if (outcome === 'appended') { d.conversation = d.lease.conversation; delete d.lease }
+      return answer({ state:outcome })
+    }
     const w = B.wakes[args.event_id]
     B.calls.push(short(args.event_id) + ':' + args.state)
+    if (String(args.state).startsWith('prompt_')) {
+      if (args.state === 'prompt_prepare') {
+        if (w.prompt && ['submitting','queued'].includes(w.prompt.state))
+          return text({protocol:2,state:'already_'+w.prompt.state,revision:w.revision})
+        w.prompt = {state:'submitting',attempt_id:'prompt-'+short(args.event_id),owner:args.owner_nonce}
+        return text({protocol:2,state:'submitting',attempt_id:w.prompt.attempt_id,owner_nonce:args.owner_nonce,revision:w.revision})
+      }
+      if (!w.prompt || w.prompt.attempt_id !== args.attempt_id || w.prompt.owner !== args.owner_nonce)
+        return {isError:true,...text('stale side wake prompt attempt')}
+      w.prompt.state = args.state.slice(7)
+      return text(B.own(args.event_id))
+    }
+    if (args.state === 'read') {
+      if (w.state !== 'appended') return { isError:true, ...text('side wake is not appended') }
+      if (!w.read_at) Object.assign(w, { read_at:1, revision:w.revision + 1 })
+      return text(B.own(args.event_id))
+    }
     if (args.state === 'prepare') {
       if (['pending', 'failed'].includes(w.state)) {
         Object.assign(w, { state:'submitting', phase:'intent', attempt_id:String(++B.attempts).repeat(32).slice(0, 32),
@@ -2546,7 +2850,21 @@ function keyHost(B, store, clock, prompts) {
   $.session.repo = async () => null; $.session.root = async () => '/repo'
   $.state = store.api; $.clock = clock; $.prompt = { submit:prompts.submit }
   $.ui.ask = async (question, options) => { (state.asks ||= []).push(options); return state.answer || 'Cancel' }
+  // Claude Code 2.1.323 (append-views-54579a2e): plain messages() omits
+  // plugin-append rows. Only the API view merges their user text.
+  $.session.messages = async options => options?.as === 'api'
+    ? (state.appended || []).map(row => ({ role:'user', content:row.message?.content || [] }))
+    : []
   return { $, state }
+}
+// The turn an entered wake prompt starts on an idle main: its turn.start text
+// carries the unique Wake ref token. That token, never messageCount or the
+// prompt's queued outcome, proves its first request was built after the row.
+async function keyPromptTurn(inst, $, turnId, text = 'wake') {
+  await inst.handlers['turn.start']($, { turnId, text:'The ciel-work plugin sent a message:\n' + text }, next({}))
+  // Probe values are 7 then 12, neither the transcript nor request count.
+  for await (const _ of inst.handlers['turn.step']($, { turnId, index:0, messageCount:7 }, engineStream)) { void _ }
+  await inst.handlers['turn.complete']($, { turnId, reason:'answer', answer:'ok' }, next(undefined))
 }
 // review: Stop's decision gate shows L1. uncertain: Stop's delivery-uncertain
 // notice names E1 (shown once per attempt revision). retry: the pane offers the
@@ -2566,6 +2884,39 @@ async function keyView(inst, $) {
     retry:Boolean(await keyPane(inst, $)) }
 }
 Object.assign(scenarios, {
+  // Item 1, compat review. A pending review row without wake.state is an OLDER
+  // router's projection: the host has only its lifecycle Set and the prompt
+  // registry for it, so a fresh process (new module copy, empty $.state) issues
+  // the review prompt again. A row of the current backend carries wake.state;
+  // its durable attempt is refused there. argv[3]: old | current.
+  async 'compat-review-state-loss'() {
+    const old = process.argv[3] === 'old'
+    const B = keyBackend()
+    B.addReview('L1')
+    if (old) delete B.reviews[0].wake
+    const prepares = []
+    const call = async (tool, args) => {
+      if (tool === 'work_parallel_event' && args.event === 'review_wake' && args.operation === 'prepare') {
+        const answer = await B.call(tool, args)
+        prepares.push(answer.isError ? 'refused' : 'granted')
+        return answer
+      }
+      return B.call(tool, args)
+    }
+    const rawSubmits = []
+    for (const tag of ['compat-1', 'compat-2']) {
+      const inst = await keyInstance(tag), prompts = keyPrompts()
+      const { $ } = keyHost({ call }, keyState(), keyClock(), prompts)
+      await inst.handlers['session.start']($, { isInteractive:false }, next(undefined))
+      await inst.handlers['turn.complete']($, {}, next(undefined))
+      await sleep(30)
+      for (const prompt of prompts.calls) prompt.release('queued')
+      await sleep(30)
+      rawSubmits.push(prompts.calls.length)
+    }
+    return { projection:old ? 'old' : 'current', rawSubmits, prepares, records:B.records,
+      wake:old ? null : B.reviews[0].wake.state }
+  },
   async 'prompt-key-cell'() {
     const [path, condition] = String(process.argv[3] || 'review:finite').split(':')
     const B = keyBackend(), store = keyState()
@@ -2589,17 +2940,25 @@ Object.assign(scenarios, {
       } else await one.side.pollSide($1, 'claude:S1')
     }
     await keyUntil(() => p1.calls.length >= 1)
+    if (path !== 'review') await keyUntil(() => B.records.some(row => row.endsWith(':appended')))
     const issued = { submits:p1.calls.length, registry:store.keys(), live:c1.live(),
+      payloadPrompts:p1.calls.filter(call => call.text.includes('requires main action: {')).length,
+      appended:(s1.appended || []).filter(row => row.message.content[0].text.includes(KEY_E1)).length,
       attempt:path === 'review' ? B.reviews[0].wake.attempt_id : B.wakes[KEY_E1].attempt_id }
     const before = await keyView(one, $1)
     const settled = state => keyUntil(() => B.records.some(row => row.endsWith(':' + state)))
     let after = null, second = null
     if (condition === 'finite') {
-      p1.calls[0]?.release('ok'); await settled('queued')
+      // A review prompt records queued. A wake prompt that entered starts main's
+      // turn; that turn's first step, not the prompt outcome, records the read.
+      p1.calls[0]?.release('ok')
+      if (path === 'review') await settled('queued')
+      else { await keyUntil(() => B.calls.includes('E1:prompt_queued')); await keyPromptTurn(one, $1, 'P1', p1.calls[0]?.text)
+        await keyUntil(() => B.calls.includes('E1:read')) }
       after = await keyView(one, $1)
     } else if (condition === 'anomaly') {
       // No main turn runs: the idle window releases the key.
-      await c1.fire(); await settled('uncertain')
+      await c1.fire(); await (path === 'review' ? settled('uncertain') : sleep(60))
       after = await keyView(one, $1)
       // The engine prompt is never cancelled; its late resolution changes nothing.
       p1.calls[0]?.release('ok'); await sleep(100)
@@ -2612,7 +2971,7 @@ Object.assign(scenarios, {
       if (path !== 'review') await two.side.pollSide($2, 'claude:S1')
       if (path === 'review') await two.handlers['tool.call']($2, { tool:'mcp__ciel-runtime-router__work_parallel_report', agentId:'worker' }, next({ ok:true }))
       await sleep(100)
-      const key = path === 'review' ? 'parallel:L1' : 'side:' + KEY_E1
+      const key = path === 'review' ? 'parallel:L1' : 'wake:' + KEY_E1
       const hydrated = { pending:two.side.sidePromptPending(key), live:c2.live() }
       const secondBefore = await keyView(two, $2)
       await c2.fire()
@@ -2622,47 +2981,52 @@ Object.assign(scenarios, {
       // After a reload the first environment's prompt can still resolve late
       // (it outlived the reload while one of its hooks ran:
       // prompt-registry-e2bed500). A restarted process cannot.
-      if (condition === 'reload') { p1.calls[0]?.release('ok'); await settled('queued') }
+      if (condition === 'reload') { p1.calls[0]?.release('ok'); await (path === 'review' ? settled('queued') : sleep(60)) }
       second = { hydrated, before:secondBefore, after:secondAfter, submits:p2.calls.length, registryAfterWindow,
+        payloadPrompts:p2.calls.filter(call => call.text.includes('requires main action: {')).length,
         lateRecords:[...B.records] }
     }
     return { path, condition, issued, before, after, second, records:[...B.records], registry:store.keys(),
       sideCalls:B.calls, review:B.reviews[0]?.wake || null, side:B.wakes[KEY_E1] ? { ...B.pub(KEY_E1) } : null }
   },
-  // A never-settling A does not block B (another side wake) or L1 (a review);
-  // after A's idle window it is recorded uncertain and visible. No window runs
-  // during a main turn; turn.complete arms a full one.
+  // A never-settling review prompt L1 blocks neither a side wake (E1: payload
+  // appended at once, its wake prompt enters) nor another review (L2). After
+  // L1's idle window it is recorded uncertain and Stop's decision gate shows
+  // it. No window runs during a main turn; turn.complete arms a full one.
   async 'prompt-key-latent'() {
     const B = keyBackend(), store = keyState()
     const one = await keyInstance('1'), c1 = keyClock(), p1 = keyPrompts()
-    const { $ } = keyHost(B, store, c1, p1)
+    const { $, state } = keyHost(B, store, c1, p1)
+    const report = () => one.handlers['tool.call']($, { tool:'mcp__ciel-runtime-router__work_parallel_report', agentId:'worker' }, next({ ok:true }))
     await one.handlers['session.start']($, { isInteractive:false }, next(undefined))
-    B.addSide(KEY_E1)
-    await one.side.pollSide($, 'claude:S1')
+    B.addReview('L1')
+    await report()
     await keyUntil(() => p1.calls.length === 1)
-    B.addSide(KEY_E2); B.addReview('L1')
+    B.addSide(KEY_E1); B.addReview('L2')
     await one.side.pollSide($, 'claude:S1')
-    await one.handlers['tool.call']($, { tool:'mcp__ciel-runtime-router__work_parallel_report', agentId:'worker' }, next({ ok:true }))
+    await report()
     await keyUntil(() => p1.calls.length === 3)
-    const label = t => t.includes(KEY_E1) ? 'A' : t.includes(KEY_E2) ? 'B' : t.includes('"lease_id":"L1"') ? 'L1' : '?'
+    const label = t => t.includes('"lease_id":"L1"') || t.startsWith('Ciel Work review wake L1') ? 'L1'
+      : t.includes('"lease_id":"L2"') || t.startsWith('Ciel Work review wake L2') ? 'L2'
+      : t.startsWith('Ciel side wake') ? 'wake' : '?'
     const issued = p1.calls.map(call => label(call.text))
     const registryWhileAll = store.keys()
-    for (const call of p1.calls) if (label(call.text) !== 'A') call.release('ok')
-    await keyUntil(() => B.records.length === 2)
-    const whileALatent = { records:[...B.records], registry:store.keys(), pendingA:one.side.sidePromptPending('side:' + KEY_E1),
+    const appendedWhileAll = (state.appended || []).filter(row => row.message.content[0].text.includes(KEY_E1)).length
+    for (const call of p1.calls) if (label(call.text) !== 'L1') call.release('ok')
+    await keyUntil(() => B.records.includes('L2:queued') && B.calls.includes('E1:read'))
+    const whileLatent = { records:[...B.records], registry:store.keys(), pendingL1:one.side.sidePromptPending('parallel:L1'),
       view:await keyView(one, $) }
     await one.handlers['turn.start']($, { turnId:'T1', text:'' }, next(undefined))
     const liveInTurn = c1.live()
     await c1.fire()
-    const afterFireInTurn = { records:[...B.records], pendingA:one.side.sidePromptPending('side:' + KEY_E1) }
+    const afterFireInTurn = { records:[...B.records], pendingL1:one.side.sidePromptPending('parallel:L1') }
     await one.handlers['turn.complete']($, { turnId:'T1', reason:'answer', answer:'x' }, next(undefined))
     const liveAfterTurn = c1.live()
     await c1.fire()
-    await keyUntil(() => B.records.includes('E1:uncertain'))
-    const view = await keyView(one, $)
-    return { issued, registryWhileAll, whileALatent, liveInTurn, afterFireInTurn, liveAfterTurn,
-      afterWindow:{ records:[...B.records], registry:store.keys(), pendingA:one.side.sidePromptPending('side:' + KEY_E1),
-        view, viewAgain:await keyView(one, $) } }
+    await keyUntil(() => B.records.includes('L1:uncertain'))
+    return { issued, registryWhileAll, appendedWhileAll, whileLatent, liveInTurn, afterFireInTurn, liveAfterTurn,
+      afterWindow:{ records:[...B.records], registry:store.keys(), pendingL1:one.side.sidePromptPending('parallel:L1'),
+        view:await keyView(one, $) } }
   },
 })
 
@@ -2709,6 +3073,459 @@ Object.assign(scenarios, {
     await c2.fire()
     const afterWindow = await keyView(two, $2)
     return { path, variant, afterClear, reload, afterWindow, firstRawSubmits:p1.calls.length, records:[...B.records] }
+  },
+})
+
+// How many times one side event's payload is presented to main (real
+// register.js + side-intake.js). One conversation is shared by every module
+// instance of the process: a row is stored by $.session.append at once, and a
+// plugin prompt is stored when it enters; a held prompt enters later and is
+// never withdrawn (owned probes delivery-4f4c90b8, prompt-registry-e2bed500).
+// A presentation is a stored row holding the wake payload, or a Stop block that
+// holds the event's data ("Advice data"). A Stop reminder that only names the
+// event is listed apart. argv[3]: anomaly | retry | clear-skip | clear-fails.
+const SSE_WAKE = 'Ciel side event requires main action: {"event_id":"' + KEY_E1
+function sseConversation() {
+  const C = { rows:[], held:[], stopBlocks:[], stopReminders:0 }
+  C.append = async args => { C.rows.push({ kind:'append', text:args.message.content[0].text }); return { uuid:'u' + C.rows.length } }
+  C.submit = args => new Promise(resolve => C.held.push({ text:args.text, entered:false,
+    enter() { if (this.entered) return; this.entered = true; C.rows.push({ kind:'prompt', text:args.text }); resolve({ text:args.text }) } }))
+  C.wire = $ => { $.session.append = C.append; $.session.messages = async options => options?.as === 'api'
+    ? C.rows.filter(row => row.kind === 'append').map(row => ({role:'user',content:[{type:'text',text:row.text}]}))
+    : C.rows.filter(row => row.kind !== 'append').map(row => ({role:'user',text:row.text,toolUses:[]})); $.prompt = { submit:C.submit } }
+  C.enterAll = () => { for (const held of C.held) held.enter() }
+  C.view = () => ({ payloadRows:C.rows.filter(row => row.text.includes(SSE_WAKE)).map(row => row.kind),
+    plainPrompts:C.rows.filter(row => row.kind === 'prompt' && !row.text.includes(SSE_WAKE)).length,
+    heldPayloadPrompts:C.held.filter(held => !held.entered && held.text.includes(SSE_WAKE)).length,
+    stopBlocks:[...C.stopBlocks], stopReminders:C.stopReminders })
+  return C
+}
+async function sseTurn(inst, $, C, turnId, duringFirstStep = null) {
+  const stop = async extra => {
+    const block = String((await inst.handlers['classic.Stop']($, { session_id:'S1', ...extra }, next({})))?.block || '')
+    if (block.includes(KEY_E1) && block.includes('Advice data: '))
+      C.stopBlocks.push(block.includes('delivery to main is uncertain') ? 'uncertain' : 'advice')
+    else if (block.includes(KEY_E1)) C.stopReminders++
+    return block
+  }
+  const step = async index => { for await (const _ of inst.handlers['turn.step']($, { turnId, index, messageCount:index ? 12 : 7 }, engineStream)) { void _ } }
+  await inst.handlers['turn.start']($, { turnId, text:'go' }, next({}))
+  await step(0)
+  // What happens while the model streams the answer of this (last) request.
+  if (duringFirstStep) await duringFirstStep()
+  let block = await stop({})
+  for (let index = 1; block && index < 4; index++) { await step(index); block = await stop({ stop_hook_active:true }) }
+  await inst.handlers['turn.complete']($, { turnId, reason:'answer', answer:'x' }, next(undefined))
+  await sleep(30)
+}
+Object.assign(scenarios, {
+  async 'sse-reads'() {
+    const variant = process.argv[3] || 'anomaly'
+    const B = keyBackend(), store = keyState(), C = sseConversation()
+    const one = await keyInstance('1'), c1 = keyClock()
+    const { $:$1, state:s1 } = keyHost(B, store, c1, keyPrompts())
+    C.wire($1)
+    await one.handlers['session.start']($1, { isInteractive:false }, next(undefined))
+    B.addSide(KEY_E1)
+    await one.side.pollSide($1, 'claude:S1')
+    await keyUntil(() => C.held.length >= 1)
+    await sleep(40)
+    const issued = { ...C.view(), wake:B.wakes[KEY_E1].state }
+    let two = null, $2 = null, retryOffered = null
+    if (variant === 'anomaly' || variant === 'retry') {
+      // Main stays idle: the 5 s idle window of the held prompt elapses.
+      later(5000); await c1.fire(); await sleep(60)
+    } else {
+      // /clear resets $.state; the re-claim is missing (skip) or fails.
+      store.map.clear()
+      if (variant === 'clear-fails') {
+        store.failing = true
+        await one.handlers['classic.SessionStart']($1, { source:'clear', hook_event_name:'SessionStart' }, next({}))
+        store.failing = false
+      }
+      two = await keyInstance('2')
+      $2 = keyHost(B, store, keyClock(), keyPrompts()).$
+      C.wire($2)
+      await two.handlers['session.start']($2, { isInteractive:false }, next(undefined))
+      await two.side.pollSide($2, 'claude:S1'); await sleep(60)
+      // The person's own turn below starts some seconds after the reload.
+      later()
+    }
+    const afterRelease = { ...C.view(), wake:B.wakes[KEY_E1].state }
+    const inst = two || one, $ = $2 || $1
+    if (variant === 'retry') {
+      // A person confirms the may-duplicate retry, if the pane offers one.
+      const button = await keyPane(one, $1)
+      retryOffered = Boolean(button)
+      if (button) {
+        s1.answer = 'Retry main wake (may duplicate)'
+        const before = C.held.length
+        await button.onPress()
+        await keyUntil(() => C.held.length > before, 500)
+        // The retried attempt's prompt enters first, then the old held one.
+        for (const held of C.held.slice(before)) held.enter()
+        await sleep(40)
+      }
+    } else {
+      // A person's own turn runs before the held prompt enters.
+      await sseTurn(inst, $, C, 'T1')
+    }
+    C.enterAll(); await sleep(60)
+    await sseTurn(inst, $, C, 'T2')
+    const view = C.view()
+    return { variant, issued, afterRelease, retryOffered, final:{ ...view, wake:B.wakes[KEY_E1].state },
+      presentations:view.payloadRows.length + view.stopBlocks.length, records:[...B.records] }
+  },
+  // Item 7: main is in the last request of a turn when the wake is offered. The
+  // payload is appended into the running turn, but no request of the turn
+  // follows by itself. The Stop reminder continues the turn so its next
+  // request carries the row; the reminder itself holds no event data.
+  async 'sse-busy-final-step'() {
+    const B = keyBackend(), store = keyState(), C = sseConversation()
+    const one = await keyInstance('1')
+    const { $ } = keyHost(B, store, keyClock(), keyPrompts())
+    C.wire($)
+    await one.handlers['session.start']($, { isInteractive:false }, next(undefined))
+    let whileTurnRuns = null
+    await sseTurn(one, $, C, 'T1', async () => {
+      B.addSide(KEY_E1)
+      await one.side.pollSide($, 'claude:S1'); await sleep(60)
+      whileTurnRuns = { ...C.view(), held:C.held.length, wake:B.wakes[KEY_E1].state }
+    })
+    const view = C.view()
+    return { whileTurnRuns, final:{ ...view, held:C.held.length, wake:B.wakes[KEY_E1].state },
+      presentations:view.payloadRows.length + view.stopBlocks.length, sideCalls:[...B.calls] }
+  },
+  // Item 4: a Stop elected the wake, then a new main turn overtook it, so the
+  // Stop returned no block. Nobody acts; only the pump runs.
+  async 'sse-superseded-stop'() {
+    const L = advLedger(); const { $, state } = advHost(L)
+    let release; const gate = new Promise(r => { release = r })
+    const base = L.call
+    L.call = async (tool, args) => { if (tool === 'work_side_wake' && args.state === 'start') await gate; return base(tool, args) }
+    await advTurnStart($, 'T1')
+    const pending = advStop($)
+    await sleep(20)
+    await advTurnStart($, 'T2')
+    release()
+    const s1 = await pending
+    await advStep($, 'T2', 0)
+    for (let i = 0; i < 3; i++) { await sidePump($); await sleep(20) }
+    const delivered = () => state.prompts.filter(t => t.includes(ADV_EVENT)).length + state.appends.filter(t => t.includes(ADV_EVENT)).length
+    const whileT2Runs = { delivered:delivered(), appends:state.appends.length, wake:L.wake.state + '/' + L.wake.phase }
+    // T2's next request follows its tool call, seconds later: it carries the row.
+    later()
+    await advStep($, 'T2', 1)
+    const s2 = await advStop($)
+    await advTurnComplete($, 'T2'); await advTurnStart($, 'T3')
+    const s3 = await advStop($)
+    return { staleStopReturnedBlock:advEvidence(s1?.block), whileT2Runs, delivered:delivered(),
+      wake:L.wake.state + '/' + L.wake.phase, attempts:L.attempts,
+      laterUncertain:[s2, s3].some(s => String(s?.block || '').includes('delivery to main is uncertain')),
+      // Blocks that hold the event's data, and reminders that only name it
+      // (this fixture's main never acknowledges, so it is reminded once).
+      laterBlocks:[s2, s3].filter(s => advEvidence(s?.block) && String(s.block).includes('Advice data: ')).length,
+      laterReminders:[s2, s3].filter(s => advEvidence(s?.block) && String(s.block).includes('holds no event data')).length }
+  },
+})
+
+// Item G: a review payload appended in conversation S1 must reach S2 (/clear,
+// --continue) exactly once, via the review_delivery sidecar, never via the
+// frozen schema-5 journal. A second process in S2 adds nothing; S2's exact
+// messageCount step records the read.
+Object.assign(scenarios, {
+  async 'review-conversation-change'() {
+    const B = keyBackend(), payload = row => row.message.content[0].text.startsWith('Ciel Work result is awaiting main review')
+    const report = (inst, $) => inst.handlers['tool.call']($, { tool:'mcp__ciel-runtime-router__work_parallel_report', agentId:'worker' }, next({ ok:true }))
+    const one = await keyInstance('rc1'), p1 = keyPrompts()
+    const { $:$1, state:s1 } = keyHost(B, keyState(), keyClock(), p1)
+    await one.handlers['session.start']($1, { isInteractive:false }, next(undefined))
+    B.addReview('L1')
+    await report(one, $1)
+    await keyUntil(() => B.calls.includes('L1:review_appended'))
+    p1.calls[0]?.release('ok'); await sleep(40)
+    const inS1 = { appends:(s1.appended || []).filter(payload).length, prompts:p1.calls.length, wake:B.reviews[0].wake.state }
+    // The conversation changes: a new process (fresh $.state) in S2.
+    const two = await keyInstance('rc2'), p2 = keyPrompts()
+    const { $:$2, state:s2 } = keyHost(B, keyState(), keyClock(), p2)
+    s2.session = 'S2'
+    await two.handlers['session.start']($2, { isInteractive:false }, next(undefined))
+    await report(two, $2); await sleep(60)
+    await report(two, $2); await sleep(60)
+    const inS2 = { appends:(s2.appended || []).filter(payload).length, prompts:p2.calls.length,
+      promptHasPayload:p2.calls.some(call => call.text.includes('"lease_id"')) }
+    // Another process already in S2 after the re-append: nothing more.
+    const three = await keyInstance('rc3'), p3 = keyPrompts()
+    const { $:$3, state:s3 } = keyHost(B, keyState(), keyClock(), p3)
+    s3.session = 'S2'
+    await three.handlers['session.start']($3, { isInteractive:false }, next(undefined))
+    await report(three, $3); await sleep(60)
+    const thirdProcess = { appends:(s3.appended || []).filter(payload).length, prompts:p3.calls.length }
+    // S2's wake prompt enters; its turn's first step carries the re-appended row.
+    p2.calls[0]?.release('ok'); await sleep(20)
+    await keyPromptTurn(two, $2, 'R2', p2.calls[0]?.text)
+    await keyUntil(() => B.calls.includes('L1:review_read'))
+    return { inS1, inS2, thirdProcess, reviewCalls:B.calls.filter(call => call.startsWith('L1:')),
+      prepares:B.records.length, journal:B.reviews[0].wake }
+  },
+})
+
+// A review re-append into S2 whose append threw (no stored row, no observation:
+// uncertain). A person releases it elsewhere (web/REST/console), not through
+// this module. The running S2 host must ask again and re-append exactly once.
+Object.assign(scenarios, {
+  async 'review-reappend-released-elsewhere'() {
+    const B = keyBackend(), payload = row => row.message.content[0].text.startsWith('Ciel Work result is awaiting main review')
+    const report = (inst, $) => inst.handlers['tool.call']($, { tool:'mcp__ciel-runtime-router__work_parallel_report', agentId:'worker' }, next({ ok:true }))
+    const one = await keyInstance('rr1'), p1 = keyPrompts()
+    const { $:$1 } = keyHost(B, keyState(), keyClock(), p1)
+    await one.handlers['session.start']($1, { isInteractive:false }, next(undefined))
+    B.addReview('L1')
+    await report(one, $1)
+    await keyUntil(() => B.calls.includes('L1:review_appended'))
+    p1.calls[0]?.release('ok'); await sleep(40)
+    const two = await keyInstance('rr2'), p2 = keyPrompts()
+    const { $:$2, state:s2 } = keyHost(B, keyState(), keyClock(), p2)
+    s2.session = 'S2'
+    let throws = 1
+    const append = $2.session.append
+    $2.session.append = async args => { if (payload(args) && throws > 0) { throws--; throw new Error('transport lost') } return append(args) }
+    await two.handlers['session.start']($2, { isInteractive:false }, next(undefined))
+    await report(two, $2); await sleep(60)
+    const stuck = { appends:(s2.appended || []).filter(payload).length, lease:B.reviewDelivery?.L1?.lease?.state || null }
+    await report(two, $2); await sleep(60)
+    const prepares = () => B.calls.filter(call => call === 'L1:review_reappend_prepare').length
+    const beforeRelease = { prepares:prepares() }
+    // The person's release, outside this module (operator controller).
+    await B.call('work_side_wake', { event_id:'L1', state:'review_reappend_retry' })
+    await report(two, $2); await sleep(60)
+    const releasedBeforeRecheck = { appends:(s2.appended || []).filter(payload).length, prepares:prepares() }
+    later(31000)
+    await report(two, $2); await sleep(60)
+    await report(two, $2); await sleep(60)
+    return { stuck, beforeRelease, releasedBeforeRecheck,
+      after:{ appends:(s2.appended || []).filter(payload).length, prepares:prepares(),
+        reappended:B.calls.filter(call => call === 'L1:review_reappend_appended').length } }
+  },
+})
+
+// The causal read proof in the exact order of owned probe append-views-54579a2e
+// (Claude Code 2.1.323), through the real register.js + side-intake.js:
+//  T  appended from the pump while main is idle; its wake prompt starts the turn
+//     (L2-L5: request 1 carries T);
+//  S  appended while step 0's dispatch runs (L6/L7: absent from request 1,
+//     present in request 2);
+//  B  appended while a Stop dispatch runs, beneath this module's Stop hook
+//     (L9/L10: carried by the continuation request 2);
+//  then step 1, and the turn ends.
+// Plain messages() lists no append and messageCount is 7 then 12, matching no
+// count (L5, L11). argv[3]: probe (another plugin's Stop beneath this module's
+// one blocks, as the probe's did) | interrupted (step 1 is a tool-result
+// continuation with no Stop between the steps, and the person interrupts the
+// turn after it: no Stop runs before turn.complete). A Stop that returns a
+// block continues the turn with another step, as the engine does.
+const KEY_E3 = 'e3' + 'c'.repeat(62)
+Object.assign(scenarios, {
+  async 'causal-probe-order'() {
+    const variant = process.argv[3] || 'probe'
+    const B = keyBackend(), store = keyState(), clock = keyClock(), prompts = keyPrompts()
+    let afterStop = null
+    const inst = await keyInstance('po-' + variant)
+    const { $, state } = keyHost(B, store, clock, prompts)
+    await inst.handlers['session.start']($, { isInteractive:false }, next(undefined))
+    const label = id => id === KEY_E1 ? 'T' : id === KEY_E2 ? 'S' : id === KEY_E3 ? 'B' : '?'
+    // Events whose read_at was recorded, in first-record order (a re-offered
+    // appended row may record the same read again; it is idempotent).
+    const reads = () => [...new Set(B.calls.filter(call => call.endsWith(':read')).map(call => label(
+      call.startsWith('E1') ? KEY_E1 : call.startsWith('E2') ? KEY_E2 : call.slice(0, 64))))]
+    const wakePrompts = () => prompts.calls.filter(call => call.text.startsWith('Ciel side wake')).length
+    const appended = id => (state.appended || []).filter(row => row.message.content[0].text.includes(id)).length
+    // A side event decided while main is busy: the pump appends it at once.
+    const shortId = id => id === KEY_E1 ? 'E1' : id === KEY_E2 ? 'E2' : id
+    const busyEvent = async id => { B.addSide(id); await inst.side.pollSide($, 'claude:S1')
+      await keyUntil(() => B.records.includes(shortId(id) + ':appended')) }
+    // T: idle append, then one token-bearing wake prompt.
+    B.addSide(KEY_E1)
+    await inst.side.pollSide($, 'claude:S1')
+    await keyUntil(() => prompts.calls.length >= 1 && B.records.includes('E1:appended'))
+    prompts.calls[0].release('ok')
+    await keyUntil(() => B.calls.includes('E1:prompt_queued'))
+    const issued = { T:appended(KEY_E1), wakePrompts:wakePrompts() }
+    // The turn that prompt started.
+    await inst.handlers['turn.start']($, { turnId:'P', text:'The ciel-work plugin sent a message:\n' + prompts.calls[0].text }, next({}))
+    const step = async (index, during = null) => {
+      const stream = async function* () { if (during) await during(); yield { kind:'engine' } }
+      for await (const _ of inst.handlers['turn.step']($, { turnId:'P', index, messageCount:index ? 12 : 7 }, stream)) { void _ }
+    }
+    await step(0, () => busyEvent(KEY_E2))
+    const afterStep0 = { reads:reads(), S:appended(KEY_E2) }
+    if (variant === 'probe') {
+      // Another plugin's Stop hook beneath this module's runs (B is stored in
+      // its dispatch) and returns the continuation block.
+      const beneath = async () => { await busyEvent(KEY_E3); return { block:'APPEND-VIEWS-CONTINUE' } }
+      beneath.origin = { plugin:'append-views-probe' }
+      const stop = await inst.handlers['classic.Stop']($, { session_id:'S1' }, beneath)
+      afterStop = { block:Boolean(stop?.block), reads:reads(), B:appended(KEY_E3) }
+      await step(1)
+    } else {
+      // Tool-result continuation: no Stop between the two steps.
+      await step(1, () => busyEvent(KEY_E3))
+    }
+    const afterStep1 = { reads:reads() }
+    const stops = []
+    if (variant === 'interrupted') {
+      await inst.handlers['turn.complete']($, { turnId:'P', reason:'aborted', answer:'' }, next(undefined))
+    } else {
+      // This module's own Stop: each block continues the turn with one more step.
+      for (let index = 2; index < 6; index++) {
+        const stop = await inst.handlers['classic.Stop']($, { session_id:'S1', stop_hook_active:true }, next({}))
+        stops.push(String(stop?.block || '').slice(0, 60))
+        if (!stop?.block) break
+        await step(index)
+      }
+      await inst.handlers['turn.complete']($, { turnId:'P', reason:'answer', answer:'ok' }, next(undefined))
+    }
+    await sleep(80)
+    return { variant, issued, afterStep0, afterStop, afterStep1, stops,
+      afterTurn:{ reads:reads(), wakePromptsAfterTurn:wakePrompts() - issued.wakePrompts,
+        promptPrepares:B.calls.filter(call => call.endsWith(':prompt_prepare')).length } }
+  },
+})
+
+// Host-only side tools as a main model (engine next, no agentId) or a Work
+// worker would call them, with the arguments a model could write; the same
+// tool from this module's own code; and main's own acknowledgment tool.
+Object.assign(scenarios, {
+  async 'host-only-side-tools'() {
+    const routed = []
+    const { $ } = host(async (tool, args) => { routed.push(tool); return text({ ok:true, tool }) })
+    const tools = ['work_side_wake', 'work_side_fail', 'work_side_fallback', 'work_side_renew', 'work_side_reply',
+      'work_side_claim', 'work_side_retry_reply']
+    const args = { event_id:'e'.repeat(64), receipt_id:'e'.repeat(64), state:'notice_retry', confirmed:true,
+      expected_state:'uncertain', session_id:'claude:S1', _host:{ internal:true, token:'guess' } }
+    const run = async (tool, extra, origin) => {
+      let ran = false
+      const engine = async e => { ran = true; return { result:'engine-ran' } }
+      engine.origin = { plugin:origin }
+      const answer = await handlers['tool.call']($, { tool:'mcp__ciel-runtime-router__' + tool, ...args, ...extra }, engine)
+      return { tool, deny:typeof answer?.deny === 'string' ? answer.deny : null, engineRan:ran }
+    }
+    const main = [], worker = []
+    for (const tool of tools) main.push(await run(tool, {}, 'engine'))
+    for (const tool of tools) worker.push(await run(tool, { agentId:'worker-1' }, 'engine'))
+    const own = await run('work_side_wake', {}, 'ciel-work')
+    const before = routed.length
+    const handoff = await handlers['tool.call']($, { tool:'mcp__ciel-runtime-router__work_side_handoff',
+      event_id:'e'.repeat(64), expected_version:5 }, next({ result:'engine-ran' }))
+    return { main, worker, own, handoff:{ routed:routed.slice(before), deny:handoff?.deny || null } }
+  },
+})
+
+// Option 1 (team-lead): the router projects a read-time review_pin on each
+// pending row; main decides with expected_review_pin, which the wake's own
+// prepare/record writes do not stale. Every wake text main reads, the first
+// append and the changed-conversation re-append, must carry that pin.
+Object.assign(scenarios, {
+  async 'review-wake-text-carries-review-pin'() {
+    // Contract shape (backend R1, ^rp1:[0-9a-f]{64}$): the view passes only a valid pin.
+    const PIN = 'rp1:' + 'a1'.repeat(32)
+    const B = keyBackend(), payload = row => row.message.content[0].text.startsWith('Ciel Work result is awaiting main review')
+    const report = (inst, $) => inst.handlers['tool.call']($, { tool:'mcp__ciel-runtime-router__work_parallel_report', agentId:'worker' }, next({ ok:true }))
+    // The serialized review view: the first '{' to the shortest '}' that parses.
+    const views = texts => texts.map(text => {
+      const start = text.indexOf('{')
+      for (let end = text.indexOf('}', start); start >= 0 && end !== -1; end = text.indexOf('}', end + 1)) {
+        try { return JSON.parse(text.slice(start, end + 1)) } catch {}
+      }
+      return null
+    })
+    const one = await keyInstance('rp1'), p1 = keyPrompts()
+    const { $:$1, state:s1 } = keyHost(B, keyState(), keyClock(), p1)
+    await one.handlers['session.start']($1, { isInteractive:false }, next(undefined))
+    B.addReview('L1', PIN)
+    await report(one, $1)
+    await keyUntil(() => B.calls.includes('L1:review_appended'))
+    p1.calls[0]?.release('ok'); await sleep(40)
+    const first = (s1.appended || []).filter(payload).map(row => row.message.content[0].text)
+    const two = await keyInstance('rp2'), p2 = keyPrompts()
+    const { $:$2, state:s2 } = keyHost(B, keyState(), keyClock(), p2)
+    s2.session = 'S2'
+    await two.handlers['session.start']($2, { isInteractive:false }, next(undefined))
+    await report(two, $2); await sleep(60)
+    const moved = (s2.appended || []).filter(payload).map(row => row.message.content[0].text)
+    return { pin:PIN, first:views(first).map(view => view?.expected_review_pin ?? null),
+      moved:views(moved).map(view => view?.expected_review_pin ?? null),
+      wakeAfter:B.reviews[0].wake.state, pinAfter:B.reviews[0].review_pin }
+  },
+})
+
+// Blocker 5 mod half (lead ruling G6, M1-M5; continue-work-pump). After the
+// person approves, the host records it itself under _host and the model's call
+// does not go on. The token never reaches the model's result; a model-supplied
+// _host or user_confirmed is never forwarded. argv: [answer] [agentId].
+Object.assign(scenarios, {
+  async 'execute-approval-attested'() {
+    const answer = process.argv[3] || 'Approve', agentId = process.argv[4] || ''
+    const calls = []
+    const board = { ...snapshot('planning', 7), approval:'ask' }
+    const { $ } = host(async (tool, args) => { calls.push({ tool, args })
+      if (tool === 'work_status') return args.format === 'text' ? text('Goal plan text') : text(board)
+      if (tool === 'work_execute') return text('Plan approved; Work is in the executing phase.')
+      return text({}) })
+    const asked = []
+    $.ui.ask = async (question, options) => { asked.push({ question, options }); return answer }
+    const engine = []
+    const engineNext = async e => { engine.push(e); return { result:'engine-ran' } }
+    engineNext.origin = { plugin:'engine' }
+    const result = await handlers['tool.call']($, { tool:'mcp__ciel-runtime-router__work_execute', user_confirmed:true,
+      ...(agentId ? { agentId } : {}), _host:{ token:'forged', internal:true, user_confirmed:true } }, engineNext)
+    return { result, engine, asked:asked.map(a => a.question.split('\n').slice(0, 3)),
+      executes:calls.filter(c => c.tool === 'work_execute').map(c => c.args),
+      resultHasToken:JSON.stringify(result).includes('host-token') }
+  },
+  async 'execute-auto-forwards-clean'() {
+    const { $ } = host(async (tool, args) => tool === 'work_status' ? text(snapshot('planning', 3)) : text('ok'))
+    const engine = []
+    const engineNext = async e => { engine.push(e); return { result:'engine-ran' } }
+    engineNext.origin = { plugin:'engine' }
+    const result = await handlers['tool.call']($, { tool:'mcp__ciel-runtime-router__work_execute', user_confirmed:true,
+      _host:{ token:'forged' } }, engineNext)
+    return { result, engine }
+  },
+})
+
+// Real claude.exe 2.1.323 (run-w-L1r-router-20261113-094400, debug :380-403):
+// ciel-work's $.tool.check presence query runs through ciel-work's OWN
+// tool.check hook first (the re-entry skip covers only the calling hook frame),
+// then through the gate below it. This host models that chain: the query goes
+// to handlers['tool.check'] with next.origin ciel-work, and only a next() call
+// reaches the gate's answer. argv[3]: board phase (planning|executing).
+Object.assign(scenarios, {
+  async 'fork-gate-probe-through-own-check'() {
+    const phase = process.argv[3] || 'planning'
+    const calls = []
+    const { $, state } = host(async (tool, args) => { calls.push({ tool, event: args?.event })
+      if (tool === 'work_status') return text(snapshot(phase))
+      if (tool === 'work_parallel_status') return text({ version: 3, policy: { enabled: true, paused: false }, leases: {} })
+      if (tool === 'work_parallel_event') return text({ fork_gate: {}, gate_presence_version: 1 })
+      return text({}) })
+    const reachedGate = []
+    $.tool.check = async q => {
+      const gate = async e => {
+        reachedGate.push(e.tool)
+        return typeof e.input?.ciel_work_gate_probe === 'string'
+          ? { decision: 'ask', plugin: 'ciel-work-gate', reason: 'ciel-work-gate 1 ' + e.input.ciel_work_gate_probe }
+          : { decision: 'allow' }
+      }
+      gate.origin = { plugin: 'ciel-work' }
+      const answer = await handlers['tool.check']($, { tool: q.tool, input: q.input }, gate)
+      // The engine pins plugin to the hook that answered; ciel-work's own answer has none.
+      return reachedGate.length ? answer : { ...answer, plugin: 'ciel-work' }
+    }
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    const reports = calls.filter(c => c.event === 'gate_presence').length
+    const presence = state.logs.filter(l => /fork gate|FORK GATE/i.test(String(l)))
+    return { reachedGate, reports, phase, toasts: (state.toasts || []).length }
   },
 })
 

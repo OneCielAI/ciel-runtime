@@ -280,15 +280,103 @@ def _terminal_manual_input(writer: Any) -> bool | None:
     return value if isinstance(value, bool) else None
 
 
+# Linux fails the PTY master read with EIO once the child's last slave
+# descriptor is closed, which can be before a dying child can be reaped. After
+# that hangup the relay gives the child this long to finish exiting before it
+# reports the read error as its own failure.
+PTY_HANGUP_REAP_WAIT_SECONDS = 5.0
+# The measured waits for a dying child lasted milliseconds. A wait longer than
+# this leaves the terminal silent for seconds, so the user is told once.
+PTY_HANGUP_NOTICE_AFTER_SECONDS = 1.0
+PTY_HANGUP_WAIT_NOTICE = (
+    "Ciel Runtime: waiting for the CLI to finish exiting; press Ctrl-C to stop."
+)
+
+
+def _await_child_exit(
+    proc: Any, seconds: float, on_slow: Callable[[], None] | None = None
+) -> int | None:
+    """Poll ``proc`` until it is reaped; None once ``seconds`` have passed.
+
+    ``on_slow`` runs once if the wait reaches PTY_HANGUP_NOTICE_AFTER_SECONDS.
+    """
+
+    started = time.monotonic()
+    deadline = started + max(0.0, seconds)
+    delay = 0.0005
+    while True:
+        returncode = proc.poll()
+        if returncode is not None:
+            return returncode
+        now = time.monotonic()
+        if now >= deadline:
+            return None
+        sleep_for = min(delay, deadline - now)
+        if on_slow is not None:
+            notice_in = PTY_HANGUP_NOTICE_AFTER_SECONDS - (now - started)
+            if notice_in <= 0:
+                # The notice is defined as strictly after the threshold. Avoid
+                # spinning at exact equality on coarse or synthetic clocks.
+                sleep_for = min(sleep_for, 0.000001)
+            elif notice_in < sleep_for:
+                sleep_for = notice_in
+        time.sleep(sleep_for)
+        if (
+            on_slow is not None
+            and time.monotonic() - started > PTY_HANGUP_NOTICE_AFTER_SECONDS
+        ):
+            on_slow()
+            on_slow = None
+        delay = min(delay * 2, 0.05)
+
+
 def resolve_posix_child_exit_status(
     proc: Any,
     log: Callable[[str, str], None],
     *,
     io_failure: tuple[str, OSError] | None = None,
+    notify: Callable[[str], None] | None = None,
 ) -> int:
-    """Resolve a PTY child result without masking signals or proxy failures."""
+    """Resolve a PTY child result without masking signals or proxy failures.
+
+    After a PTY hangup (EIO on the master read) the child may be exiting but
+    not reaped yet, so that one failure waits a bounded time for the child's
+    own status. A child still running after the wait, and every other relay
+    failure with a running child, stays exit status 1.
+
+    The caller gives the terminal back before calling, so Ctrl-C ends the wait
+    like any foreground program; ``notify`` shows the user one line when the
+    wait is long enough to notice.
+    """
 
     returncode = proc.poll()
+    waited = ""
+    if (
+        returncode is None
+        and io_failure is not None
+        and io_failure[0] == "master_read"
+        and io_failure[1].errno == errno.EIO
+    ):
+        started = time.monotonic()
+
+        def tell_user() -> None:
+            if notify is None:
+                return
+            try:
+                notify(PTY_HANGUP_WAIT_NOTICE)
+            except Exception as exc:
+                log("WARN", f"channel_stdin_proxy_exit_wait_notice_failed error={type(exc).__name__}")
+
+        try:
+            returncode = _await_child_exit(proc, PTY_HANGUP_REAP_WAIT_SECONDS, tell_user)
+        except KeyboardInterrupt:
+            log(
+                "WARN",
+                "channel_stdin_proxy_exit_wait_interrupted stage=master_read "
+                f"waited_ms={int((time.monotonic() - started) * 1000)}",
+            )
+            raise
+        waited = f" waited_ms={int((time.monotonic() - started) * 1000)}"
     if returncode is None:
         if io_failure is None:
             log(
@@ -301,7 +389,7 @@ def resolve_posix_child_exit_status(
                 "ERROR",
                 "channel_stdin_proxy_io_failed "
                 f"stage={stage} errno={exc.errno if exc.errno is not None else '-'} "
-                f"error={type(exc).__name__} child_running=true exit_status=1",
+                f"error={type(exc).__name__} child_running=true exit_status=1{waited}",
             )
         return 1
 
@@ -319,7 +407,7 @@ def resolve_posix_child_exit_status(
             "channel_stdin_proxy_child_exit_after_io_error "
             f"stage={stage} errno={exc.errno if exc.errno is not None else '-'} "
             f"error={type(exc).__name__} returncode={returncode} "
-            f"exit_status={exit_status}",
+            f"exit_status={exit_status}{waited}",
         )
     return exit_status
 
@@ -641,9 +729,14 @@ def run_windows_channel_terminal_proxy(
             )
             gate = current_terminal_startup_gate()
             if gate is not None:
-                gate.observe(rendered_ready=bool(
-                    input_ready and startup_answers is not None and startup_answers.rendered_input_ready()
-                ))
+                gate.observe(
+                    rendered_ready=bool(
+                        input_ready and startup_answers is not None and startup_answers.rendered_input_ready()
+                    ),
+                    main_output_after_launch=bool(
+                        input_ready and startup_answers is not None and startup_answers.main_output_released()
+                    ),
+                )
                 input_ready = input_ready and gate.ready()
             recovery_modal_ready = None
             if recovery_modal_guard is not None:
@@ -840,6 +933,30 @@ def run_posix_channel_terminal_proxy(
     manual_input_epoch = 0
     manual_input_at = 0.0
     recovery_admission = TerminalRecoveryAdmissionReporter(polling, policy)
+    terminal_left = False
+
+    def leave_terminal() -> None:
+        """Withdraw admission and give the user's terminal back; runs once."""
+
+        nonlocal terminal_left
+        if terminal_left:
+            return
+        terminal_left = True
+        try:
+            recovery_admission.close(pending_poll_state)
+        except Exception as exc:
+            policy.log("WARN", f"channel_terminal_recovery_close_failed error={type(exc).__name__}")
+        if sigwinch_installed:
+            try:
+                signal.signal(signal.SIGWINCH, old_sigwinch)
+            except Exception as exc:
+                policy.log("WARN", f"channel_sigwinch_restore_failed error={type(exc).__name__}: {exc}")
+        try:
+            termios.tcsetattr(stdin_fd, termios.TCSADRAIN, old_attrs)
+        except Exception as exc:
+            policy.log("WARN", f"channel_terminal_restore_failed error={type(exc).__name__}: {exc}")
+        terminal.reset_input_mode()
+
     try:
         # Every input path writes through this so a full child input queue
         # never stops the child's output from being drained (robert PTY freeze).
@@ -984,26 +1101,18 @@ def run_posix_channel_terminal_proxy(
                 terminal.write_all(stdout_fd, data)
             except OSError:
                 break
+        # The relay is over. The terminal goes back to the user before the
+        # exit status is resolved: that can wait for the child, and during the
+        # wait Ctrl-C has to work.
+        leave_terminal()
         return resolve_posix_child_exit_status(
             proc,
             policy.log,
             io_failure=io_failure,
+            notify=lambda notice: terminal.write_all(stdout_fd, _runtime_interaction_bytes(notice)),
         )
     finally:
-        try:
-            recovery_admission.close(pending_poll_state)
-        except Exception as exc:
-            policy.log("WARN", f"channel_terminal_recovery_close_failed error={type(exc).__name__}")
-        if sigwinch_installed:
-            try:
-                signal.signal(signal.SIGWINCH, old_sigwinch)
-            except Exception as exc:
-                policy.log("WARN", f"channel_sigwinch_restore_failed error={type(exc).__name__}: {exc}")
-        try:
-            termios.tcsetattr(stdin_fd, termios.TCSADRAIN, old_attrs)
-        except Exception as exc:
-            policy.log("WARN", f"channel_terminal_restore_failed error={type(exc).__name__}: {exc}")
-        terminal.reset_input_mode()
+        leave_terminal()
         try:
             os.close(master_fd)
         except Exception as exc:

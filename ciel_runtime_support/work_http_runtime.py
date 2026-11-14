@@ -39,11 +39,15 @@ def build_work_http(state_dir, instance_dir, load_config, current_provider, curr
         scope = read_scope()
         if str(scope.get("runtime")) + ":" + str(scope.get("session_id")) != identity:
             scope = None
+        from .fork_turn_watch import status_view
+        from .runtime_paths import CONFIG_DIR
         return {"ciel_runtime": {"version": version, "source_fingerprint": fingerprint, "instance_id": instance_id},
                 "session_id": identity, "runtime": identity.split(":", 1)[0] if identity else None,
                 "configured": {"provider": provider, "model": str(pcfg.get("current_model") or "") or None,
                                "alias": current_alias(cfg), "source": "configuration"},
-                "epoch": scope.get("epoch") if scope else None, **observer.snapshot(scope)}
+                "epoch": scope.get("epoch") if scope else None, **observer.snapshot(scope),
+                # Read-only router fork watch: counts, last notice time and key only.
+                "fork_watch": status_view(Path(CONFIG_DIR), identity or "")}
 
     def recent_errors(identity):
         error = runtime_status(identity).get("last_error")
@@ -54,7 +58,9 @@ def build_work_http(state_dir, instance_dir, load_config, current_provider, curr
         return WorkParallelStore(Path(CONFIG_DIR) / "work-parallel.json")
 
     def parallel_status(identity, board):
-        return project_parallel(parallel_store(), identity, board)
+        # REST is an authenticated host/operator view. It includes bounded ended
+        # audit rows that a model's own work_parallel_status never receives.
+        return project_parallel(parallel_store(), identity, board, host_view=True)
 
     api = WorkHttpController(WorkHttpServices(state_dir, load_config, current_identity,
         runtime_status, write_json, instance_id, recent_errors, parallel_status,

@@ -277,6 +277,7 @@ def poll_pending_channel_messages(
 
     injected_ids: list[int] = []
     injected_commit_cursors: list[int] = []
+    side_intake_more_pending: list[bool] = []
     try:
         cursor = max(state.last_id, services.ensure_cursor())
         last_id = services.inject_pending(
@@ -293,6 +294,7 @@ def poll_pending_channel_messages(
             commit_cursor=not options.confirm_submit,
             injected_message_ids=injected_ids,
             injected_commit_cursors=injected_commit_cursors,
+            side_intake_more_pending=side_intake_more_pending,
             submit_retry_count=options.submit_retry_count,
             confirm_submit=options.confirm_submit,
             bracketed_paste=options.bracketed_paste,
@@ -321,8 +323,11 @@ def poll_pending_channel_messages(
         return state
     state.last_marker = marker
     # A scan during a turn may have left TTY inputs behind; look again once
-    # the turn ends.
-    state.pending_recheck = busy
+    # the turn ends. Side-intake envelopes stay one per scan, but when the
+    # bounded candidate window proves another row exists, the next scan runs
+    # after the normal poll interval rather than waiting for the 5 s safety
+    # rescan. With no later candidate the queue stays quiet.
+    state.pending_recheck = busy or bool(side_intake_more_pending)
     state.last_scan_at = now
     state.last_id = last_id
     if injected_ids and options.confirm_submit:

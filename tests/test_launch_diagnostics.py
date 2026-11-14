@@ -42,6 +42,12 @@ class LaunchCommandDiagnosticsTests(unittest.TestCase):
         self.assertIn('CLAUDE_CODE_MAX_RETRIES=3', messages)
         self.assertIn('CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK=1', messages)
 
+    def test_claude_launch_log_shows_bg_shell_pressure_reap(self):
+        # docs/journal/2026/11/13/features/claude-bg-shell-reap-env/requirement.md
+        self.diagnostics.claude(['claude'], {'CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP': '1'})
+        messages = '\n'.join(message for _, message in self.events)
+        self.assertIn('CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP=1', messages)
+
     def test_codex_counts_provider_overrides_and_masks_runtime_key(self):
         self.diagnostics.codex(
             ["codex", "model_provider=ciel", "model_providers.ciel.base_url=http://localhost"],

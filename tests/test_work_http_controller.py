@@ -216,9 +216,13 @@ class WorkHttpTests(unittest.TestCase):
         self.assertEqual(422, self.request("/ca/work/api/v1/side?session_id=codex:two")[0])
 
     def test_v1_operator_commands_update_settings_and_side_records(self):
-        status, result = self.request("/ca/work/api/v1/commands/settings-update", {
-            "key": "work_auto_continue", "value": "off"})
+        # The write is pinned to the fingerprint the operator read (GET /settings).
+        status, current = self.request("/ca/work/api/v1/settings")
         self.assertEqual(200, status)
+        status, result = self.request("/ca/work/api/v1/commands/settings-update", {
+            "key": "work_auto_continue", "value": "off",
+            "expected_settings_fingerprint": current["settings_fingerprint"]})
+        self.assertEqual(200, status, result)
         self.assertFalse(self.config["work_auto_continue"])
         self.assertTrue(self.saved_config)
 

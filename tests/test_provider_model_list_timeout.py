@@ -242,6 +242,75 @@ class ModelListTimeoutTests(unittest.TestCase):
             self.assertEqual("ASTRA", runtime.provider_config()["current_model"])
             self.assert_no_secret(runtime, messages)
 
+    def test_request_path_failure_cooldown_avoids_repeated_network_stalls(self):
+        timeout, backoff = short_timeouts(timeout=0.2, backoff=0.01)
+        with timeout, backoff, CatalogServer(("delay", 30.0)) as server, IsolatedRuntime(server.base_url) as runtime:
+            pcfg = runtime.provider_config()
+            provider_models._FAILURE_COOLDOWN.clear()
+            first = ciel_runtime.upstream_model_ids("cielairouter", pcfg)
+            self.assertEqual(["ASTRA"], first)
+            self.assertEqual(2, server.catalog_requests)
+            again = ciel_runtime.upstream_model_ids("cielairouter", pcfg)
+            self.assertEqual(["ASTRA"], again)
+            self.assertEqual(2, server.catalog_requests, "cooldown must avoid another 2-request catalog stall")
+            self.assertTrue(any("model_list_unavailable_cooldown" in line for line in runtime.log_lines))
+
+    def test_force_refresh_bypasses_failure_cooldown(self):
+        timeout, backoff = short_timeouts(timeout=0.2, backoff=0.01)
+        with timeout, backoff, CatalogServer(("delay", 30.0)) as server, IsolatedRuntime(server.base_url) as runtime:
+            pcfg = runtime.provider_config()
+            provider_models._FAILURE_COOLDOWN.clear()
+            ciel_runtime.upstream_model_ids("cielairouter", pcfg)
+            self.assertEqual(2, server.catalog_requests)
+            ciel_runtime.upstream_model_ids("cielairouter", pcfg, force_refresh=True)
+            self.assertEqual(4, server.catalog_requests)
+
+    def test_explicit_selection_ignores_failure_cooldown(self):
+        timeout, backoff = short_timeouts(timeout=0.2, backoff=0.01)
+        with timeout, backoff, CatalogServer(("delay", 30.0)) as server, IsolatedRuntime(server.base_url) as runtime:
+            provider_models._FAILURE_COOLDOWN.clear()
+            ciel_runtime.upstream_model_ids("cielairouter", runtime.provider_config())
+            self.assertEqual(2, server.catalog_requests)
+            messages = runtime.select(REQUESTED)
+            self.assertIn("could not fetch the model list", messages[0])
+            self.assertEqual(4, server.catalog_requests)
+
+    def test_failure_cooldown_is_keyed_by_catalog_identity_and_cleared_by_success(self):
+        base = {"base_url": "http://a", "api_key": "k1"}
+        provider_models._FAILURE_COOLDOWN.clear()
+        provider_models._remember_failure("cielairouter", base, "timeout after 20 s")
+        self.assertTrue(provider_models._cooldown_cause("cielairouter", dict(base)))
+        for other in ({**base, "api_key": "k2"}, {**base, "base_url": "http://b"},
+                      {**base, "account_id": "acct"}, {**base, "model_api_base_url": "http://m"}):
+            with self.subTest(other=sorted(other.items())):
+                self.assertEqual("", provider_models._cooldown_cause("cielairouter", other))
+        self.assertEqual("", provider_models._cooldown_cause("openrouter", dict(base)))
+        self.assertNotIn("k1", repr(provider_models._FAILURE_COOLDOWN))
+        provider_models._forget_failure("cielairouter", base)
+        self.assertEqual("", provider_models._cooldown_cause("cielairouter", dict(base)))
+
+    def test_require_catalog_never_gets_the_fallback_during_cooldown(self):
+        timeout, backoff = short_timeouts(timeout=0.2, backoff=0.01)
+        with timeout, backoff, CatalogServer(("delay", 30.0)) as server, IsolatedRuntime(server.base_url) as runtime:
+            pcfg = runtime.provider_config()
+            provider_models._FAILURE_COOLDOWN.clear()
+            ciel_runtime.upstream_model_ids("cielairouter", pcfg)
+            with self.assertRaises(provider_models.ModelListUnavailableError):
+                ciel_runtime.upstream_model_ids("cielairouter", pcfg, require_catalog=True)
+            self.assertEqual(4, server.catalog_requests)
+
+    def test_expired_failure_cooldown_fetches_again(self):
+        timeout, backoff = short_timeouts(timeout=0.2, backoff=0.01)
+        now = [1000.0]
+        with timeout, backoff, mock.patch.object(provider_models.time, "monotonic", side_effect=lambda: now[0]),                 CatalogServer(("delay", 30.0)) as server, IsolatedRuntime(server.base_url) as runtime:
+            pcfg = runtime.provider_config()
+            provider_models._FAILURE_COOLDOWN.clear()
+            ciel_runtime.upstream_model_ids("cielairouter", pcfg)
+            self.assertEqual(2, server.catalog_requests)
+            now[0] += provider_models.MODEL_LIST_FAILURE_COOLDOWN_SECONDS + 1
+            ciel_runtime.upstream_model_ids("cielairouter", pcfg)
+            self.assertEqual(4, server.catalog_requests)
+
 
 class TransientFetchErrorTests(unittest.TestCase):
     def test_timeouts_and_connection_errors_are_transient(self):

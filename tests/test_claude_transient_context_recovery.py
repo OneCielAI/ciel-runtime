@@ -53,7 +53,13 @@ def route_services(url, open_request):
 
 
 class ClaudeTransientContextRecoveryTests(unittest.TestCase):
-    def exercise(self, second_status, second_body):
+    # R1 amendment 2 (lead-rulings-independent-review-sse-retry-20261113.md): the
+    # recovery reopen runs under a child of the dispatch budget that shares the
+    # request's remaining attempts and window; it is no longer unbudgeted.
+    # Retries come only from the executor's classifiers, so a retryable 503 on
+    # the recovery is retried within what is left, and the child's retries are
+    # written back to the dispatch budget. The recovery stays one body change.
+    def exercise(self, second_status, second_body, recovery_hits=1):
         class Upstream(http.server.BaseHTTPRequestHandler):
             def do_POST(self):
                 raw = self.rfile.read(int(self.headers.get("content-length") or 0))
@@ -94,18 +100,23 @@ class ClaudeTransientContextRecoveryTests(unittest.TestCase):
             self.assertIs(budget, transient_retry.budget_for(config, "cielairouter"))
             self.assertTrue(budget.stopped)
             self.assertEqual(1, budget.opens)
-            self.assertTrue(all(call.args[0] <= 0.005 for call in sleep.call_args_list))
+            if recovery_hits == 1:
+                self.assertTrue(all(call.args[0] <= 0.005 for call in sleep.call_args_list))
         svc.core.try_write_json.assert_not_called()
-        self.assertEqual(2, len(server.bodies))
+        self.assertEqual(1 + recovery_hits, len(server.bodies))
         self.assertEqual(original, server.bodies[0])
-        self.assertEqual({**original, "max_tokens": 300}, server.bodies[1])
+        for recovered in server.bodies[1:]:  # one body change, reopened unchanged
+            self.assertEqual({**original, "max_tokens": 300}, recovered)
         self.assertEqual(3, config["gateway_retries"])
         self.assertIs(budget, observed[0][1])
         self.assertEqual(0, observed[1][0]["gateway_retries"])
-        self.assertIsNone(observed[1][1])
+        child = observed[1][1]
+        self.assertIs(budget, child.recovery_parent, "the recovery shares the dispatch allowance")
+        self.assertEqual(3, child.limit, "the dispatch's 3 retries, none spent before the 400")
+        self.assertEqual(recovery_hits - 1, budget.attempts, "child retries written back")
         handler.send_response.assert_called_once_with(second_status)
-        print(f"native Messages 400 -> {second_status}: upstream_hits=2 "
-              "max_tokens=400->300 recovery_retries=0 client_responses=1")
+        print(f"native Messages 400 -> {second_status}: upstream_hits={1 + recovery_hits} "
+              f"max_tokens=400->300 recovery_retries={recovery_hits - 1} client_responses=1")
         return handler.wfile.getvalue()
 
     def test_output_budget_recovery_succeeds_once_after_terminal_400(self):
@@ -113,8 +124,10 @@ class ClaudeTransientContextRecoveryTests(unittest.TestCase):
         self.assertEqual(SUCCESS, json.loads(raw))
         self.assertEqual(1, raw.count(b"single-answer"))
 
-    def test_recovery_503_is_original_error_without_third_upstream_hit(self):
-        self.assertEqual(UNAVAILABLE, self.exercise(503, UNAVAILABLE))
+    def test_recovery_503_retries_within_the_requests_remaining_allowance(self):
+        # gateway_retries 3, none spent by the dispatch: three retries, then the
+        # upstream error is relayed unchanged, as on the dispatch path.
+        self.assertEqual(UNAVAILABLE, self.exercise(503, UNAVAILABLE, recovery_hits=4))
 
     def test_recovery_second_400_does_not_recover_again(self):
         self.assertEqual(OVERFLOW, self.exercise(400, OVERFLOW))

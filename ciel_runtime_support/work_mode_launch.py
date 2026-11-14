@@ -18,6 +18,11 @@ WORK_PLAN_APPROVAL_ASK_KEY = "work_plan_approval_ask"
 WORK_AUTO_CONTINUE_KEY = "work_auto_continue"
 CLAUDE_MOD_NAME = "ciel-work"
 CLAUDE_MOD_DIR = Path(__file__).resolve().parent / "claude_mods" / CLAUDE_MOD_NAME
+# A plugin's own hooks never run for forks it spawned (measured on claude.exe
+# 2.1.323), so the fork-side Work rules live in this separate plugin. ciel-work
+# starts no Work fork unless this gate answers its live presence probe.
+CLAUDE_GATE_NAME = "ciel-work-gate"
+CLAUDE_GATE_DIR = Path(__file__).resolve().parent / "claude_mods" / CLAUDE_GATE_NAME
 # The agent's own Work mode switch; served and pre-approved even while Work mode is off.
 WORK_MODE_SWITCH_TOOL = "work_mode_set"
 # The router's Work tools; work_mcp_tools serves them, launch pre-approves them.
@@ -146,15 +151,20 @@ def work_mode_applies(config: dict[str, Any], *, native: bool, router_mcp_attach
 
 
 def claude_work_mode_args(config: dict[str, Any], *, native: bool, router_mcp_attached: bool,
-                          mod_dir: Path = CLAUDE_MOD_DIR) -> list[str]:
-    """``--plugin-dir`` for the bundled Work mod; the flag is repeatable, so user flags stay."""
+                          mod_dir: Path = CLAUDE_MOD_DIR, gate_dir: Path = CLAUDE_GATE_DIR) -> list[str]:
+    """``--plugin-dir`` pairs for the bundled Work mod and its fork gate; the flag
+    is repeatable, so user flags stay. Without the gate, ciel-work still loads and
+    shows parallel execution disabled instead of starting ungated forks."""
 
     side_enabled = config.get('work_side_intake', {}).get('enabled') is True
     if native or not router_mcp_attached or not (work_mode_enabled(config) or side_enabled):
         return []
     if not (mod_dir / ".claude-plugin" / "plugin.json").is_file():
         return []
-    return ["--plugin-dir", str(mod_dir)]
+    args = ["--plugin-dir", str(mod_dir)]
+    if (gate_dir / ".claude-plugin" / "plugin.json").is_file():
+        args += ["--plugin-dir", str(gate_dir)]
+    return args
 
 
 def codex_work_mode_args(config: dict[str, Any], *, native: bool, router_mcp_attached: bool,

@@ -57,6 +57,17 @@ class TerminalStartupGateTests(unittest.TestCase):
             self.assertIs(first, current_terminal_startup_gate())
         self.assertIsNone(current_terminal_startup_gate())
 
+    def test_main_output_after_launch_opens_and_latches_for_that_launch_only(self):
+        from ciel_runtime_support.terminal_startup_gate import TerminalStartupGate
+        gate = TerminalStartupGate(require_screen=True)
+        gate.observe(rendered_ready=False, main_output_after_launch=False)
+        self.assertFalse(gate.ready())
+        gate.observe(rendered_ready=False, main_output_after_launch=True)
+        self.assertTrue(gate.ready())
+        gate.observe(rendered_ready=False, main_output_after_launch=False)
+        self.assertTrue(gate.ready(), "latched for this launch")
+        self.assertFalse(TerminalStartupGate(require_screen=True).ready(), "a new launch starts closed")
+
     def test_closed_gate_does_not_even_poll_competing_restart(self):
         from ciel_runtime_support.channel_terminal_proxy import _runtime_session_restart_requested
         from ciel_runtime_support.terminal_startup_gate import TerminalStartupGate, terminal_startup_scope
@@ -239,6 +250,42 @@ class StartupPromptResponderTests(unittest.TestCase):
         dialog.observe_screen("Accessing workspace:\n❯ Yes, I trust this folder\nNo, exit")
         clock2.now += 181
         self.assertFalse(dialog.input_ready(), "a visible startup dialog still holds")
+
+    def test_known_screen_without_ready_marker_releases_rpc_gate_only_on_main_output(self):
+        """A readable screen with no ready marker and no dialog: main output is the proof."""
+        responder, clock, logs = self.responder()
+        observed = [False]
+        responder.main_output_observed = lambda: observed[0]
+        responder.observe_screen("codex  working in ~/repo")  # no READY_MARKERS, no dialog
+        clock.now += 600  # far past every startup window
+        self.assertFalse(responder.rendered_input_ready())
+        self.assertFalse(responder.main_output_released(), "no age or silence release")
+        observed[0] = True
+        clock.now += 1.1
+        self.assertTrue(responder.main_output_released())
+        self.assertTrue(any("rendered_screen=known" in line for line in logs))
+        observed[0] = False
+        clock.now += 5
+        self.assertTrue(responder.main_output_released(), "latched for this launch")
+
+    def test_known_screen_dialog_holds_main_output_release(self):
+        """A visible startup dialog, or an answer in flight, is never bypassed by main output."""
+        trust = "Accessing workspace:\n❯ Yes, I trust this folder\nNo, exit"
+        responder, clock, _ = self.responder()
+        responder.main_output_observed = lambda: True
+        responder.observe_screen(trust)
+        clock.now += 600
+        self.assertFalse(responder.main_output_released())
+        self.assertFalse(responder.input_ready())
+
+        goal, clock2, _ = self.responder()
+        goal.main_output_observed = lambda: True
+        goal.observe_screen(self.goal_frame())
+        clock2.now += 0.6
+        self.assertEqual(b"2", goal.due())
+        goal.observe_screen("codex  working in ~/repo")  # dialog gone, Enter still pending
+        self.assertTrue(goal._enter_at or goal._goal_unresolved)
+        self.assertFalse(goal.main_output_released())
 
     def test_delayed_trust_enter_cancelled_when_goal_replaces_it(self):
         responder, clock, _ = self.responder()

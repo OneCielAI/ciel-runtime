@@ -30,6 +30,15 @@ Control plane, runs before Claude Code and does not require LLM connectivity:
   ciel-runtime api-key PROVIDER clear  Clear stored API key(s)
   ciel-runtime set-api-key PROVIDER KEY
   ciel-runtime set-api-keys PROVIDER KEY1,KEY2
+                                      (api-key/set-api-key/set-api-keys store keys persistently)
+  ciel-runtimectl session-api-key list|inspect|inject|replace|clear [--session ID] [--provider P]
+                                      [--ttl-seconds N] [--expected-version N] [--operation-id ID]
+                                      [--stdin | --key-file - | --fd N] [--json]
+                                      Memory-only key for one running session and provider; the key
+                                      is read from a hidden prompt, stdin or an fd, never from argv
+  ciel-runtimectl session-api-key reset-state [--stdin] [--operation-id ID]
+                                      reset-state: router-wide; after reset, sessions previously
+                                      blocked use their stored key (phrase: hidden prompt or --stdin)
   ciel-runtime web-search [on|off]     Auto-attach DuckDuckGo MCP for non-native providers
   ciel-runtime web-fetch [on|off]      Auto-attach fetch MCP for web page content
   ciel-runtime log-level [LEVEL]       Show or set router log level
@@ -56,6 +65,35 @@ Control plane, runs before Claude Code and does not require LLM connectivity:
                                       CLI and relaunches it with --continue so the conversation resumes
   ciel-runtimectl bridge [status|enable|disable|token|serve] [--host HOST]
                                       Operate the network-facing LLM bridge
+  ciel-runtimectl work status [--session ID] [--json]
+                                      Every Work/SSE setting (typed in --json) plus device
+                                      capacity and, with --session, review/wake/notice/outbox counts
+                                      and the Work fork gate state (its warning line printed once)
+  ciel-runtimectl work list|get KEY|set KEY VALUE [--json]
+                                      Same settings and validators as the menu and web console
+  ciel-runtimectl work sessions [--json]  (run in the workspace whose conversations you operate)
+                                      Conversations with Work state: identity, last activity, counts
+  ciel-runtimectl work reviews|launches|capacity|receipts|receipt ID|handoffs|notices|review-delivery|audit|orphan-preview
+                                      --session ID [--json]   Web console read views
+  ciel-runtimectl work review-approve LEASE [EVIDENCE] --session ID --confirm [--expected-review-pin P]
+  ciel-runtimectl work review-rework LEASE EVIDENCE --session ID [--expected-review-pin P]
+  ciel-runtimectl work launch-resolve|legacy-accept LEASE --session ID --confirm
+  ciel-runtimectl work orphan-release LEASE --session ID --confirm [--preview-digest D]
+  ciel-runtimectl work wake-retry|reappend-retry EVENT --session ID --confirm
+  ciel-runtimectl work review-reappend-retry LEASE --session ID --confirm
+  ciel-runtimectl work notice-retry RECEIPT --session ID --confirm
+  ciel-runtimectl work reply-retry RECEIPT --session ID [--confirm]
+  ciel-runtimectl work side-review-ok RECEIPT | side-review-corrected RECEIPT NOTE --session ID
+  ciel-runtimectl work handoff-ack EVENT [ANSWER] --session ID [--activate] [--clear-wait WAIT]
+  ciel-runtimectl work side-drain [LIMIT] --session ID
+  ciel-runtimectl work operation-reconcile OPERATION --session ID --confirm
+  ciel-runtimectl work operation-release OPERATION --session ID --confirm [--expected-version N]
+  ciel-runtimectl work execute --session ID --confirm [--expected-version N]
+                                      Approve and start the active plan (the console's Execute;
+                                      shows root, title, phase and approval before --confirm)
+                                      Web console operator actions, run through the same REST
+                                      controller; --confirm where the console asks to confirm
+                                      (exit 3 without it, nothing changed); one-line errors
 
 Headless setup flags, namespaced to avoid Claude CLI collisions:
   ciel-runtime --ca-web-address HOST  Bind the web/router server to HOST for this launch

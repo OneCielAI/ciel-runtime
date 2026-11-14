@@ -30,6 +30,7 @@ _HISTORY_DIAGNOSTIC_LIMIT = 32
 # unreadable lines are deleted, never archived.
 _HISTORY_COMPACT_BYTES = 4 * 1024 * 1024
 _HISTORY_COMPACT_RETRY_SECONDS = 60.0
+_HISTORY_CACHE_TAIL_BYTES = 4096
 
 
 # Highest recorded request id per history file: (file identity, scanned bytes, id).
@@ -150,6 +151,11 @@ class RuntimeInputStatusRepository:
     _compact_after: float = field(default=0.0, init=False, repr=False)
     _compacted_size: int = field(default=0, init=False, repr=False)
     _damage_logged: tuple[int, int] = field(default=(0, 0), init=False, repr=False)
+    _read_cache_identity: tuple[int, int] | None = field(default=None, init=False, repr=False)
+    _read_cache_size: int = field(default=0, init=False, repr=False)
+    _read_cache_tail: bytes = field(default=b"", init=False, repr=False)
+    _read_cache_items: list[dict[str, Any]] = field(default_factory=list, init=False, repr=False)
+    _read_cache_health: dict[str, Any] | None = field(default=None, init=False, repr=False)
 
     def transition(
         self,
@@ -525,7 +531,42 @@ class RuntimeInputStatusRepository:
         line_number = 0
         offset = 0
         try:
+            # Open on every call: direct writers and a newly unreadable history
+            # must remain observable. Reuse parsed state only after proving this
+            # is the same file and its cached suffix still matches byte-for-byte.
             with self.path.open("rb") as stream:
+                stat = os.fstat(stream.fileno())
+                identity = (stat.st_dev, stat.st_ino)
+                cached = (
+                    self._read_cache_health is not None
+                    and identity == self._read_cache_identity
+                    and stat.st_size >= self._read_cache_size
+                    # A complete JSON tail without a newline is valid history,
+                    # but a later writer's separator newline changes that last
+                    # logical line. Rescan it instead of parsing from its end.
+                    and (self._read_cache_size == 0 or self._read_cache_tail.endswith(b"\n"))
+                )
+                if cached:
+                    tail_start = self._read_cache_size - len(self._read_cache_tail)
+                    stream.seek(tail_start)
+                    cached = stream.read(len(self._read_cache_tail)) == self._read_cache_tail
+                if cached:
+                    items = list(self._read_cache_items)
+                    previous = self._read_cache_health or {}
+                    health = {
+                        "complete": bool(previous.get("complete", True)),
+                        "coverage": str(previous.get("coverage") or "complete"),
+                        "scanned_bytes": int(previous.get("scanned_bytes") or 0),
+                        "failure_count": int(previous.get("failure_count") or 0),
+                        "recovered_count": int(previous.get("recovered_count") or 0),
+                        "diagnostics": list(previous.get("diagnostics") or []),
+                        "diagnostics_truncated": bool(previous.get("diagnostics_truncated", False)),
+                    }
+                    offset = self._read_cache_size
+                    line_number = len(items) + health["failure_count"]
+                    stream.seek(offset)
+                else:
+                    stream.seek(0)
                 while True:
                     raw = stream.readline(_HISTORY_LINE_BUDGET + 1)
                     if not raw:
@@ -561,7 +602,27 @@ class RuntimeInputStatusRepository:
                         continue
                     if prefixed:
                         health["recovered_count"] += 1
+                health["scanned_bytes"] = offset
+                # Cache only a fully consumed file. An unfinished append is read
+                # again after the writer completes it, rather than being treated
+                # as a verified append boundary.
+                if offset == stat.st_size:
+                    tail_size = min(offset, _HISTORY_CACHE_TAIL_BYTES)
+                    stream.seek(offset - tail_size)
+                    self._read_cache_identity = identity
+                    self._read_cache_size = offset
+                    self._read_cache_tail = stream.read(tail_size)
+                    self._read_cache_items = list(items)
+                    self._read_cache_health = {
+                        **health,
+                        "diagnostics": list(health["diagnostics"]),
+                    }
         except FileNotFoundError:
+            self._read_cache_identity = None
+            self._read_cache_size = 0
+            self._read_cache_tail = b""
+            self._read_cache_items = []
+            self._read_cache_health = None
             pass
         except OSError:
             failure(line_number, offset, "read_unavailable")

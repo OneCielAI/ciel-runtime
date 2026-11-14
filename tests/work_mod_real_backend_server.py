@@ -27,6 +27,94 @@ IDENTITY = "claude:S1"
 ROOT = Path(os.environ["WORK_REAL_ROOT"])
 ROOT.mkdir(parents=True, exist_ok=True)
 BOARD = WorkPlanStore(ROOT / "work-plan.json")
+BRIDGE_CALLS = []
+
+
+def bind_router():
+    """The routed main session this backend serves (backend mcp 30314c14 onward).
+
+    A rework or stranded recovery is reserved only for a proven live owner
+    (work_parallel_mcp._proven_owner). In a real session the conversation's own
+    router has a compaction-scope.json naming it and its live launcher; here the
+    scope names IDENTITY and this server process, as tests/work_owner_fixture.py
+    does for the backend suites. WORK_OWNER_OFFLINE=1 leaves the owner unproven.
+    """
+    if os.environ.get("WORK_OWNER_OFFLINE") == "1":
+        return None
+    from ciel_runtime_support import runtime_paths
+    instance = ROOT / "router-instance"
+    instance.mkdir(parents=True, exist_ok=True)
+    runtime, session = IDENTITY.split(":", 1)
+    (instance / "compaction-scope.json").write_text(json.dumps({
+        "runtime": runtime, "session_id": session, "launcher_pid": os.getpid(), "epoch": "fixture"}),
+        encoding="utf-8")
+    runtime_paths.ROUTER_INSTANCE_DIR = instance
+    return instance
+
+
+bind_router()
+
+
+def owner(bound):
+    """Wait-deadlock audit: make the routed owner unprovable, or bind it again later
+    (the OO case: the router becomes bound while main is idle, with no event)."""
+    if bound:
+        bind_router()
+    else:
+        from ciel_runtime_support import runtime_paths
+        (Path(runtime_paths.ROUTER_INSTANCE_DIR) / "compaction-scope.json").unlink(missing_ok=True)
+    return {"proven": parallel._proven_owner({}, IDENTITY) is not None}
+
+
+CLOCK = {"offset": 0.0}
+
+
+def advance_clock(seconds):
+    """Time passes for the backend only (no file is written): every
+    ``time.time()`` call in this process reads ``seconds`` later. The launch
+    window (work_parallel.py launch_rate, 60 s) is time-based only."""
+    import time as _time
+    if "real" not in CLOCK:
+        CLOCK["real"] = _time.time
+        _time.time = lambda: CLOCK["real"]() + CLOCK["offset"]
+    CLOCK["offset"] += float(seconds)
+    return {"offset": CLOCK["offset"]}
+
+
+def seed_leaf(title):
+    """One runnable approved leaf under its own executing goal, never reserved."""
+    doc = BOARD.read()
+    doc, root = BOARD.transaction(lambda d: tree.set_plan(d, {
+        "title": title, "note": "", "priority": "P1",
+        "children": [{"title": title + " item", "note": "", "ref": "", "waiting_on": "", "children": []}]},
+        None), expected_version=doc["version"])
+    item = next(n["id"] for n in doc["nodes"] if n["parent_id"] == root)
+    BOARD.transaction(lambda d: tree.set_phase(d, "executing", root), expected_version=doc["version"])
+    return {"item_id": item, "runnable": [row["item_id"] for row in tree.runnable_leaves(BOARD.read())]}
+
+
+def limits(p1):
+    """The P1 concurrent fork limit, through the real configure tool."""
+    current = parallel.ledger().read()["policy"]["priority_limits"]
+    run("work_parallel_configure", {"changes": {"priority_limits": {**current, "P1": int(p1)}},
+                                    "expected_version": parallel.ledger().read()["version"]})
+    return {"P1": parallel.ledger().read()["policy"]["priority_limits"]["P1"]}
+
+
+def fingerprint():
+    """sha256 of every file under the isolated config dir and the work root: a
+    write anywhere (ledger, journals, sidecars, board, worktrees) changes it."""
+    import hashlib
+    from ciel_runtime_support import runtime_paths
+    files = {}
+    for label, base in (("config", Path(runtime_paths.CONFIG_DIR)), ("work", ROOT)):
+        for path in sorted(base.rglob("*")):
+            if path.is_file():
+                try:
+                    files[label + "/" + path.relative_to(base).as_posix()] = hashlib.sha256(path.read_bytes()).hexdigest()
+                except OSError as error:
+                    files[label + "/" + path.relative_to(base).as_posix()] = "unreadable:" + type(error).__name__
+    return files
 
 
 def config():
@@ -63,6 +151,7 @@ def backend(tool, args):
         return {"settings": [], "provider": "fixture"}
     if tool.startswith("work_parallel_"):
         # The mod passes its own _host (token, fork, host_id, agent_name, proof).
+        BRIDGE_CALLS.append({"tool": tool, "args": dict(args)})
         return json.loads(parallel.run(tool, dict(args), BOARD, IDENTITY, config(), None))
     raise ValueError("unsupported bridge tool " + tool)
 
@@ -78,10 +167,59 @@ def init():
     git(repo, "commit", "-m", "base")
     run("work_parallel_configure", {"changes": {"enabled": True, "paused": False},
                                     "expected_version": parallel.ledger().read()["version"]})
-    return {"token": host_token(), "repo": str(repo)}
+    # R2 B2: in a real session the launcher that binds the router scope also sets
+    # CIEL_RUNTIME_WORK_LAUNCHER_PID (claude_environment). Here the scope names
+    # this server process (bind_router), so the mod's launcher is this pid too.
+    return {"token": host_token(), "repo": str(repo), "launcher_pid": os.getpid()}
 
 
-def seed(title):
+OWNER_CHILDREN = []
+
+
+def seed_running_owned(kind):
+    """A bound running worker whose lease owner is another process, for R2 B2.
+
+    other_live: a live separate launcher (a child process kept running);
+    gone: a launcher that was attached and then exited;
+    unknown: an owner with no recorded identity (a legacy-shaped owner).
+    """
+    nonce = None
+    if kind in ("other_live", "gone"):
+        # The stand-in launcher lives exactly as long as this server holds its
+        # stdin pipe: however this server ends, the pipe closes and it exits.
+        # Its cwd is outside the test tree so it never holds that directory.
+        import tempfile
+        child = subprocess.Popen([sys.executable, "-I", "-c", "import sys; sys.stdin.read()"],
+                                 stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                 cwd=tempfile.gettempdir())
+        OWNER_CHILDREN.append(child)
+        nonce = ("a" if kind == "other_live" else "b") * 32
+        run("work_parallel_event", {"event": "host_attach"},
+            {"internal": True, "launcher_pid": child.pid, "launch_nonce": nonce})
+    elif kind != "unknown":
+        raise ValueError("unknown owner kind " + str(kind))
+    doc = BOARD.read()
+    doc, root = BOARD.transaction(lambda d: tree.set_plan(d, {
+        "title": "Owner " + kind, "note": "", "priority": "P1",
+        "children": [{"title": "Owned by " + kind, "note": "", "ref": "", "waiting_on": "", "children": []}]},
+        None), expected_version=doc["version"])
+    item = next(n["id"] for n in doc["nodes"] if n["parent_id"] == root)
+    BOARD.transaction(lambda d: tree.set_phase(d, "executing", root), expected_version=doc["version"])
+    host = {"fork": True, "workspace_repo": str(ROOT / "repo")}
+    # unknown: a session_pid with no identity is not provable (lease_owner_class).
+    host.update({"launch_nonce": nonce} if nonce else {"session_pid": 1})
+    reserve = run("work_parallel_event", {"event": "reserve", "item_id": item, "priority": "P1"}, host)
+    agent = "owner-" + kind.replace("_", "-") + "-worker"
+    run("work_parallel_event", {"event": "bind", "lease_id": reserve["lease_id"]},
+        {"host_id": agent, "agent_name": agent})
+    if kind == "gone":
+        child.kill()
+        child.wait(timeout=30)
+    return {"lease_id": reserve["lease_id"], "item_id": item, "agent_id": agent,
+            "owner": parallel.ledger().read()["leases"][reserve["lease_id"]].get("owner") is not None}
+
+
+def seed(title, agent_name=None):
     """A goal whose single item has a durable completion and a positive idle."""
     doc = BOARD.read()
     doc, root = BOARD.transaction(lambda d: tree.set_plan(d, {
@@ -93,7 +231,8 @@ def seed(title):
     reserve = run("work_parallel_event", {"event": "reserve", "item_id": item, "priority": "P1"},
                   {"fork": True, "workspace_repo": str(ROOT / "repo")})
     run("work_parallel_event", {"event": "bind", "lease_id": reserve["lease_id"]},
-        {"host_id": "seed-worker-" + reserve["lease_id"][:8]})
+        {"host_id": "seed-worker-" + reserve["lease_id"][:8],
+         **({"agent_name": agent_name} if agent_name else {})})
     workspace = Path(reserve["workspace"]["path"])
     (workspace / "result.txt").write_text("result", encoding="utf-8")
     parallel.report({"lease_id": reserve["lease_id"], "worker_token": reserve["worker_token"],
@@ -161,7 +300,52 @@ def seed_restart_pair():
     return {"leases": leases, "checkpoint": inspect()}
 
 
-def seed_running():
+def seed_reported_pair():
+    """Two bound workers that both reported; neither has been reconciled idle yet."""
+    doc = BOARD.read()
+    doc, root = BOARD.transaction(lambda d: tree.set_plan(d, {
+        "title": "Reported pair", "note": "", "priority": "P1",
+        "children": [
+            {"title": "Stranded result", "note": "", "ref": "", "waiting_on": "", "children": []},
+            {"title": "Healthy result", "note": "", "ref": "", "waiting_on": "", "children": []},
+        ]}, None), expected_version=doc["version"])
+    items = [n["id"] for n in doc["nodes"] if n["parent_id"] == root]
+    BOARD.transaction(lambda d: tree.set_phase(d, "executing", root), expected_version=doc["version"])
+    leases = []
+    for index, item in enumerate(items):
+        reserve = run("work_parallel_event", {"event": "reserve", "item_id": item, "priority": "P1"},
+                      {"fork": True, "workspace_repo": str(ROOT / "repo")})
+        agent = "pair-worker-" + str(index + 1)
+        run("work_parallel_event", {"event": "bind", "lease_id": reserve["lease_id"]},
+            {"host_id": agent, "agent_name": agent})
+        workspace = Path(reserve["workspace"]["path"])
+        (workspace / ("result-" + str(index + 1) + ".txt")).write_text("result", encoding="utf-8")
+        parallel.report({"lease_id": reserve["lease_id"], "worker_token": reserve["worker_token"],
+                         "event": "completion", "plan_version": BOARD.read()["version"],
+                         "artifact": str(index + 1) * 64, "evidence": "tests pass",
+                         "detail": {"summary": "result " + str(index + 1),
+                                    "coverage": [{"item_id": item, "verified": True}],
+                                    "verification": "tests pass"}}, BOARD, config())
+        leases.append({"lease_id": reserve["lease_id"], "item_id": item, "agent_id": agent,
+                       "workspace": str(workspace)})
+    return {"leases": leases}
+
+
+def break_worktree(lease_id):
+    """Delete one lease's retained worktree directory, as a person or a tool could."""
+    import shutil
+    import stat
+    lease = parallel.ledger().read()["leases"][lease_id]
+    path = Path(lease["workspace"]["path"])
+
+    def writable(function, target, _info):
+        os.chmod(target, stat.S_IWRITE)
+        function(target)
+    shutil.rmtree(path, onerror=writable)
+    return {"path": str(path), "exists": path.exists()}
+
+
+def seed_running(agent_id="unreported-worker"):
     """A bound worker that never reported: no completion receipt exists."""
     doc = BOARD.read()
     doc, root = BOARD.transaction(lambda d: tree.set_plan(d, {
@@ -173,8 +357,9 @@ def seed_running():
     reserve = run("work_parallel_event", {"event": "reserve", "item_id": item, "priority": "P1"},
                   {"fork": True, "workspace_repo": str(ROOT / "repo")})
     run("work_parallel_event", {"event": "bind", "lease_id": reserve["lease_id"]},
-        {"host_id": "unreported-worker", "agent_name": "unreported-worker"})
-    return {"lease_id": reserve["lease_id"], "item_id": item, "agent_id": "unreported-worker"}
+        {"host_id": agent_id, "agent_name": agent_id})
+    return {"lease_id": reserve["lease_id"], "item_id": item, "agent_id": agent_id,
+            "worker_token": reserve["worker_token"], "workspace": reserve["workspace"]["path"]}
 
 
 def _workspace_proof(lease_id):
@@ -274,10 +459,10 @@ def _install_resume_assignment_fault():
     from ciel_runtime_support.work_parallel_receipts import WorkCoordinationStore
     original = WorkCoordinationStore.record_assignment
 
-    def record_assignment(self, scope, lease_id, manifest, *, expected_version):
+    def record_assignment(self, scope, lease_id, manifest, *, expected_version, **options):
         if RESUME_ASSIGNMENT_FAULT["message"] and manifest.get("role") == "resume":
             raise parallel.WorkParallelError(RESUME_ASSIGNMENT_FAULT["message"])
-        return original(self, scope, lease_id, manifest, expected_version=expected_version)
+        return original(self, scope, lease_id, manifest, expected_version=expected_version, **options)
     WorkCoordinationStore.record_assignment = record_assignment
 
 
@@ -289,6 +474,13 @@ def workspace_status(lease_id):
     lease = parallel.ledger().read()["leases"][lease_id]
     _, _, manifest = ws._identity(lease["workspace"]["repo"], lease_id, None)
     return json.loads(manifest.read_text(encoding="utf-8"))["status"]
+
+
+def lease_workspace(lease_id):
+    """The retained worktree path the ledger records for one lease, and whether it exists."""
+    lease = parallel.ledger().read()["leases"].get(lease_id)
+    path = (lease or {}).get("workspace", {}).get("path") if lease else None
+    return {"path": path, "exists": bool(path) and Path(path).exists()}
 
 
 def workspace_manifest(lease_id):
@@ -321,7 +513,8 @@ def _install_launch_bound_race():
     from ciel_runtime_support.work_parallel_finalization import WorkParallelFinalizationStore
     original = WorkParallelFinalizationStore.launch_bound
 
-    def launch_bound(self, replacement_lease_id, agent_id, agent_name=None, *, expected_version):
+    def launch_bound(self, replacement_lease_id, agent_id, agent_name=None, *, handoff_drift="unknown",
+                     expected_version):
         LAUNCH_BOUND_RACE["calls"].append({"lease_id": replacement_lease_id, "expected_version": expected_version})
         if LAUNCH_BOUND_RACE["remaining"]:
             LAUNCH_BOUND_RACE["remaining"] -= 1
@@ -335,7 +528,8 @@ def _install_launch_bound_race():
             LAUNCH_BOUND_RACE["fired"].append({"source": source["lease_id"],
                                                "read_version": expected_version,
                                                "after_version": self.read()["version"]})
-        return original(self, replacement_lease_id, agent_id, agent_name, expected_version=expected_version)
+        return original(self, replacement_lease_id, agent_id, agent_name,
+                        handoff_drift=handoff_drift, expected_version=expected_version)
     WorkParallelFinalizationStore.launch_bound = launch_bound
 
 
@@ -388,6 +582,29 @@ def pause(paused):
     return {"paused": bool(paused)}
 
 
+def policy(changes):
+    """Set enabled, paused, launches_per_minute and/or max_rework through the real configure tool."""
+    allowed = {key: bool(value) for key, value in dict(changes).items() if key in ("enabled", "paused")}
+    for key in ("launches_per_minute", "max_rework"):
+        if key in changes:
+            allowed[key] = int(changes[key])
+    if not allowed or len(allowed) != len(changes):
+        raise ValueError("policy changes must be enabled, paused, launches_per_minute and/or max_rework")
+    run("work_parallel_configure", {"changes": allowed,
+                                    "expected_version": parallel.ledger().read()["version"]})
+    current = parallel.ledger().read()["policy"]
+    return {"enabled": current["enabled"], "paused": current["paused"],
+            **({"launches_per_minute": current["launches_per_minute"]} if "launches_per_minute" in allowed else {})}
+
+
+def _host_project(identity, board):
+    """The projection production REST reads: the host view (review.ended) when the backend has one."""
+    import inspect
+    if "host_view" in inspect.signature(parallel.project).parameters:
+        return parallel.project(parallel.ledger(), identity, board, host_view=True)
+    return parallel.project(parallel.ledger(), identity, board)
+
+
 def web(op, body):
     """The real Work REST controller, as the browser console calls it."""
     from ciel_runtime_support.http_response import HttpResponseAdapter
@@ -395,7 +612,7 @@ def web(op, body):
     controller = WorkHttpController(WorkHttpServices(
         ROOT / "state", config, lambda: IDENTITY, lambda identity: {"session_id": identity, "last_observed": None},
         HttpResponseAdapter.write_json, "fixture",
-        parallel_status=lambda identity, board: parallel.project(parallel.ledger(), identity, board),
+        parallel_status=lambda identity, board: _host_project(identity, board),
         parallel_store=parallel.ledger))
     if op == "launches":
         return controller._public_launches(IDENTITY)
@@ -404,6 +621,17 @@ def web(op, body):
         return controller._public_parallel(IDENTITY, BOARD.read())
     if op == "resolve":
         return controller._parallel_launch_resolve(IDENTITY, body)
+    # The operator effects the web, REST, menu and ctl share: a policy change
+    # and a result decision, applied while main is idle (wait-deadlock audit).
+    if op == "configure":
+        return controller._operator_effect(IDENTITY, "parallel_configure", {
+            "changes": body["changes"], "expected_version": parallel.ledger().read()["version"]})
+    if op == "review":
+        final = parallel.finalization(parallel.ledger()).read()
+        # This fixture's BOARD is the session store used by every MCP call;
+        # patch the controller accessor so this web call reaches the same bytes.
+        with patch.object(controller, "_store", return_value=BOARD):
+            return controller._parallel_item_review(IDENTITY, {**body, "expected_finalization_version": final["version"]})
     raise ValueError("unknown web op " + str(op))
 
 
@@ -421,6 +649,37 @@ def _launch_view(launch):
     return view
 
 
+def set_intent_owner(lease_id, kind):
+    """Rewrite one review's launch intent owner for R2 B2 (as clear_intent_nonce does).
+
+    unknown: no owner record (a pre-nonce intent); other_live: the nonce of a
+    live separate launcher attached to this conversation.
+    """
+    if kind == "unknown":
+        return clear_intent_nonce(lease_id)
+    if kind != "other_live":
+        raise ValueError("unknown intent owner kind " + str(kind))
+    import tempfile
+    child = subprocess.Popen([sys.executable, "-I", "-c", "import sys; sys.stdin.read()"],
+                             stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                             cwd=tempfile.gettempdir())
+    OWNER_CHILDREN.append(child)
+    nonce = "c" * 32
+    run("work_parallel_event", {"event": "host_attach"},
+        {"internal": True, "launcher_pid": child.pid, "launch_nonce": nonce})
+    reviews = parallel.finalization(parallel.ledger())
+    path = reviews.path
+    state = json.loads(path.read_text(encoding="utf-8"))
+    launch = state["reviews"][lease_id]["launch"]
+    assert launch["state"] == "launch_intent", launch["state"]
+    launch["host_nonce"] = nonce
+    tmp = path.with_name(path.name + ".owner.tmp")
+    tmp.write_text(json.dumps(state), encoding="utf-8")
+    os.replace(tmp, path)
+    reviews.read()
+    return {"owner": kind}
+
+
 def clear_intent_nonce(lease_id):
     """Rewrite one review's launch intent as a legacy (pre-nonce) row."""
     reviews = parallel.finalization(parallel.ledger())
@@ -434,6 +693,66 @@ def clear_intent_nonce(lease_id):
     os.replace(tmp, path)
     reviews.read()
     return {"cleared": True}
+
+
+# A real 57dbfb3 process on these exact files (the same driver as
+# tests/test_work_parallel_rework_worktree.py). WORK_BETA_ROOT is a private
+# extract of that commit's ciel_runtime_support, prepared by the test.
+BETA_DRIVER = r"""
+import json, sys
+from pathlib import Path
+from unittest.mock import patch
+spec = json.loads(sys.argv[1])
+sys.path.insert(0, spec["root"])
+import ciel_runtime_support.runtime_paths as runtime_paths
+from ciel_runtime_support import work_parallel_mcp as m
+from ciel_runtime_support.work_parallel import WorkParallelStore
+from ciel_runtime_support.work_plan_store import WorkPlanStore
+assert Path(m.__file__).resolve().is_relative_to(Path(spec["root"]).resolve()), m.__file__
+out = []
+with patch.object(runtime_paths, "CONFIG_DIR", Path(spec["config"])):
+    store = WorkParallelStore(Path(spec["ledger"]))
+    board = WorkPlanStore(Path(spec["board"]))
+    for name, args in spec["calls"]:
+        args = dict(args)
+        args["_host"] = {"token": spec["token"], **args.pop("host", {})}
+        args.setdefault("expected_version", store.read()["version"])
+        try:
+            with patch.object(m, "ledger", return_value=store):
+                out.append({"ok": json.loads(m.run(name, args, board, spec["scope"], spec["config_obj"], None))})
+        except Exception as error:
+            out.append({"error": type(error).__name__, "message": str(error)})
+print(json.dumps(out))
+"""
+
+
+def beta(calls):
+    """Run work_parallel calls in a separate real 57dbfb3 process on these files."""
+    from ciel_runtime_support import runtime_paths
+    root = os.environ.get("WORK_BETA_ROOT")
+    if not root:
+        raise ValueError("WORK_BETA_ROOT is not set")
+    spec = {"root": root, "config": str(runtime_paths.CONFIG_DIR), "ledger": str(parallel.ledger().path),
+            "board": str(BOARD.path), "scope": IDENTITY, "token": host_token(), "config_obj": config(),
+            "calls": calls}
+    done = subprocess.run([sys.executable, "-I", "-B", "-c", BETA_DRIVER, json.dumps(spec)],
+                          capture_output=True, text=True, encoding="utf-8", timeout=300)
+    if done.returncode:
+        raise RuntimeError("beta process failed: " + done.stderr[-2000:])
+    return json.loads(done.stdout.strip().splitlines()[-1])
+
+
+def repo_path():
+    return str(ROOT / "repo")
+
+
+def failures():
+    """This conversation's durable failure log, or None on a backend without one."""
+    try:
+        from ciel_runtime_support.work_parallel_failures import WorkParallelFailureLog
+    except ImportError:
+        return None
+    return WorkParallelFailureLog.beside(parallel.ledger().path).public(IDENTITY)
 
 
 def inspect():
@@ -455,7 +774,26 @@ def inspect():
         "coordination_archive": [row["run"]["lease_id"]
                                  for row in parallel.coordination(store).read()["archive"]],
         "nodes": {node["id"]: node["status"] for node in BOARD.read()["nodes"]},
+        "stranded": _stranded_view(store),
     }
+
+
+def _stranded_view(store):
+    """The stranded-v1 sidecar's rows (no binding or launch nonce), or None on a pre-sidecar backend."""
+    try:
+        from ciel_runtime_support.work_parallel_stranded import stranded_store
+    except ImportError:
+        return None
+    state = stranded_store(store).read()
+    return {"version": state["version"],
+            "rows": {key: {k: row.get(k) for k in ("kind", "state", "generation", "replacement_lease_id",
+                                                   "replacement_generation", "stages", "artifact")}
+                     | {"wake": (row.get("wake") or {}).get("state"),
+                        "launch": (row.get("launch") or {}).get("state"),
+                        # checkpoint3 fields; absent (None) on an earlier sidecar.
+                        "superseded_by": (row.get("superseded") or {}).get("lease_id"),
+                        "legacy_review_removed": (row.get("legacy_review_removed") or {}).get("state")}
+                     for key, row in state["rows"].items()}}
 
 
 def dispatch(request):
@@ -463,11 +801,13 @@ def dispatch(request):
     if action == "init":
         return init()
     if action == "seed":
-        return seed(request["title"])
+        return seed(request["title"], request.get("agent_name"))
     if action == "seed_restart_pair":
         return seed_restart_pair()
     if action == "seed_running":
-        return seed_running()
+        return seed_running(request.get("agent_id", "unreported-worker"))
+    if action == "seed_running_owned":
+        return seed_running_owned(request["kind"])
     if action == "seed_proof_mismatch":
         return seed_proof_mismatch()
     if action == "proofs":
@@ -480,6 +820,8 @@ def dispatch(request):
         return fault_resume_assignment(request.get("message"))
     if action == "workspace_status":
         return workspace_status(request["lease_id"])
+    if action == "lease_workspace":
+        return lease_workspace(request["lease_id"])
     if action == "workspace_manifest":
         return workspace_manifest(request["lease_id"])
     if action == "arm_launch_bound_race":
@@ -491,24 +833,66 @@ def dispatch(request):
                 "calls": LAUNCH_BOUND_RACE["calls"]}
     if action == "clear_intent_nonce":
         return clear_intent_nonce(request["lease_id"])
+    if action == "set_intent_owner":
+        return set_intent_owner(request["lease_id"], request["kind"])
     if action == "pause":
         return pause(request["paused"])
+    if action == "policy":
+        return policy(request["changes"])
+    if action == "seed_reported_pair":
+        return seed_reported_pair()
+    if action == "break_worktree":
+        return break_worktree(request["lease_id"])
     if action == "report_completion":
         return report_completion(request["lease_id"], request["worker_token"], request.get("label", "resume"))
     if action == "tool":
         return backend(request["tool"], request["args"])
+    if action == "bridge_calls":
+        return list(BRIDGE_CALLS)
     if action == "inspect":
         return inspect()
+    if action == "beta":
+        return beta(request["calls"])
+    if action == "repo_path":
+        return repo_path()
+    if action == "failures":
+        return failures()
     if action == "web":
         return web(request["op"], request.get("body") or {})
+    if action == "owner":
+        return owner(request["bound"])
+    if action == "advance_clock":
+        return advance_clock(request["seconds"])
+    if action == "seed_leaf":
+        return seed_leaf(request["title"])
+    if action == "limits":
+        return limits(request["p1"])
+    if action == "end_owner_children":
+        # The other live Work host's launcher exits (wait-deadlock audit).
+        ended = 0
+        for child in OWNER_CHILDREN:
+            if child.poll() is None:
+                child.kill()
+                child.wait(timeout=30)
+                ended += 1
+        return {"ended": ended}
+    if action == "fingerprint":
+        return fingerprint()
     raise ValueError("unknown action " + str(action))
 
 
 # The ledger path comes from the temporary CIEL_RUNTIME_CONFIG_DIR at import.
-with patch.object(parallel, "ledger", wraps=parallel.ledger):
-    for line in sys.stdin:
-        try:
-            reply = {"ok": True, "value": dispatch(json.loads(line))}
-        except Exception as error:  # Reported to the harness, never swallowed.
-            reply = {"ok": False, "error": str(error), "trace": traceback.format_exc()}
-        print(json.dumps(reply, ensure_ascii=False), flush=True)
+try:
+    with patch.object(parallel, "ledger", wraps=parallel.ledger):
+        for line in sys.stdin:
+            try:
+                reply = {"ok": True, "value": dispatch(json.loads(line))}
+            except Exception as error:  # Reported to the harness, never swallowed.
+                reply = {"ok": False, "error": str(error), "trace": traceback.format_exc()}
+            print(json.dumps(reply, ensure_ascii=False), flush=True)
+finally:
+    # Only this server's own owner stand-ins (seed_running_owned).
+    for child in OWNER_CHILDREN:
+        if child.poll() is None:
+            child.kill()
+            child.wait(timeout=30)

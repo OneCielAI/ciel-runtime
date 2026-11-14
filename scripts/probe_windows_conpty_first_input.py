@@ -14,6 +14,7 @@ from ciel_runtime_support.channel_injection import (
 )
 from ciel_runtime_support.windows_conpty import WindowsConPtySession
 from ciel_runtime_support.windows_console_input import WindowsConsoleInputWriter
+from claude_probe_environment import claude_probe_environment
 
 
 PAYLOAD = b"XYZ"
@@ -119,7 +120,7 @@ def probe_claude_tui(*, after_local_command: bool = False) -> int:
         return 7
     session = WindowsConPtySession(
         [executable, "--dangerously-skip-permissions", "--permission-mode", "bypassPermissions"],
-        dict(os.environ),
+        claude_probe_environment(),
         log=lambda _level, _message: None,
         mirror_output=False,
         forward_stdin=False,

@@ -44,4 +44,6 @@ jobs:
         with:
           python-version: "3.10"
       - run: python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+      - name: Verify PTY exit status on Linux
+        run: python -m unittest -v tests/test_pty_exit_status_race.py
       - run: python scripts/run_test_group.py unit

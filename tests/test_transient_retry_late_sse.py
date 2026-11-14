@@ -1,3 +1,4 @@
+import json
 import threading
 import time
 import unittest
@@ -61,7 +62,14 @@ class LateSSETests(unittest.TestCase):
 
     def test_exhaustion_stays_bounded_and_relays_final_error(self):
         result,hits=self.serve([ERROR],{"gateway_retries":1})
-        self.assertEqual(result,ERROR)
+        # Since 2026-11-13 (design point e) the relayed final error keeps its
+        # type and original message and appends a bounded retry summary.
+        payload=json.loads(result.split(b"data: ",1)[1])
+        original=json.loads(ERROR.split(b"data: ",1)[1])
+        self.assertEqual(payload["error"]["type"],original["error"]["type"])
+        self.assertTrue(payload["error"]["message"].startswith(original["error"]["message"]+" (Ciel Runtime retried 1 time(s) over "))
+        self.assertTrue(payload["error"]["message"].endswith("before any output; giving up: retry limit reached)"))
+        self.assertTrue(result.startswith(b"event: error" + NL) and result.endswith(NL + NL))
         self.assertEqual(len(hits),2)
 
     def test_mixed_error_and_generation_never_replays(self):
@@ -202,7 +210,6 @@ class LateSSECommitDiagnosticsTests(unittest.TestCase):
     def test_unrecognized_error_shapes_are_observable_without_relaxing_replay(self):
         for raw in (
             ERROR.replace(b'"message":', b'"code":504,"message":'),
-            ERROR.replace(b'"type":"error",', b'"type":"error","status":504,'),
         ):
             with self.subTest(raw=raw):
                 logs = self.probe(raw)
@@ -212,6 +219,38 @@ class LateSSECommitDiagnosticsTests(unittest.TestCase):
                 if b'"code":504' in raw:
                     self.assertIn('"code":"number"', logs)
                 self.assertNotIn('"code":504', logs)
+
+    def test_unknown_top_level_sibling_on_error_only_frame_is_retried_before_output(self):
+        # Policy reversed 2026-11-13: live pre-output error frames with unknown
+        # siblings were committed with zero retries (main plus two teammates,
+        # 02:23:33Z); journal 2026-11-13 fixes/router-upstream-error-retry.
+        raw = ERROR.replace(b'"type":"error",', b'"type":"error","status":504,')
+        logs, opens = [], []
+        bodies = [raw, OUTPUT]
+
+        def open_once():
+            response = _Scripted([bodies[min(len(opens), len(bodies) - 1)]])
+            opens.append(response)
+            return response
+
+        with retry.request_scope({}, "cielairouter"):
+            response = retry.open_with_transient_retry(open_once, provider="cielairouter", config={},
+                log=lambda level, message: logs.append(message), sleep=lambda _: None)
+        with response:
+            self.assertEqual(response.read(), OUTPUT)
+        text = "\n".join(logs)
+        self.assertEqual(len(opens), 2)
+        self.assertIn("verdict=tolerant", text)
+        self.assertNotIn("Model timed out", text)
+        self.assertNotIn('"status":504', text)
+        exposed, opens = OUTPUT + raw, []
+        bodies = [exposed, OUTPUT]
+        with retry.request_scope({}, "cielairouter"):
+            response = retry.open_with_transient_retry(open_once, provider="cielairouter", config={},
+                log=lambda *_: None, sleep=lambda _: None)
+        with response:
+            self.assertEqual(response.read(), exposed)
+        self.assertEqual(len(opens), 1)
 
     def test_mixed_stream_and_terminal_error_diagnostics_do_not_log_payload(self):
         cases = (

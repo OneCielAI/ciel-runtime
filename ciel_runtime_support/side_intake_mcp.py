@@ -22,8 +22,11 @@ def schemas():
              'reason':{'type':'string','maxLength':160},'agent_id':{'type':'string','maxLength':200}},'required':['state']}},
         {'name': 'work_side_retry_reply', 'description': 'Host UI only: explicitly retry failed or unknown side reply; unknown outcomes require person confirmation.',
          'inputSchema': {'type': 'object', 'properties': {'receipt_id': {'type': 'string'},
-             'expected_state': {'type': 'string'}, 'confirmed': {'type': 'boolean'}},
-             'required': ['receipt_id', 'expected_state']}},
+             'expected_state': {'type': 'string'}, 'confirmed': {'type': 'boolean'},
+             'revision': {'type': 'integer', 'minimum': 0, 'description': "The receipt's reply_revision"},
+             'attempt_ref': {'type': 'string', 'maxLength': 16,
+                             'description': "The receipt's reply_attempt_ref, when it shows one"}},
+             'required': ['receipt_id', 'expected_state', 'revision']}},
         {'name': 'work_side_renew', 'description': 'Host-only heartbeat for one live side actor; never revives an expired generation.',
          'inputSchema': {'type': 'object', 'properties': {}}},
         {'name':'work_side_handoff','description':'Acknowledge side advice at a safe main execution boundary; selecting existing work or clearing a recorded wait never approves new execution.',
@@ -38,16 +41,27 @@ def schemas():
         {'name': 'work_side_reply', 'description': 'Host-only prepare or record a correlated side reply; submission is not proof of human delivery.',
          'inputSchema': {'type': 'object', 'properties': {'receipt_id': {'type': 'string'},
              'state': {'type': 'string', 'enum': ['prepare', 'submitted', 'uncertain', 'failed']}}, 'required': ['receipt_id', 'state']}},
-        {'name': 'work_side_wake', 'description': 'Host-only prepare or record one durable main wake attempt.',
+        {'name': 'work_side_wake', 'description': 'Host-only prepare or record one durable main wake attempt, '
+                                                  'or the at-most-once claim of one released-wait notice.',
          'inputSchema': {'type': 'object', 'properties': {'event_id': {'type': 'string'},
              'state': {'type': 'string', 'enum': ['prepare', 'start', 'reconcile', 'retry',
-                                                   'queued', 'appended', 'uncertain', 'failed']},
+                                                   'queued', 'appended', 'uncertain', 'failed', 'read',
+                                                   'prompt_prepare', 'prompt_queued', 'prompt_failed',
+                                                   'prompt_uncertain', 'reappend_prepare', 'reappend_appended',
+                                                   'reappend_failed', 'reappend_uncertain', 'reappend_retry',
+                                                   'notice_prepare', 'notice_appended',
+                                                   'notice_failed', 'notice_uncertain', 'notice_retry',
+                                                   'review_appended', 'review_read', 'review_status',
+                                                   'review_reappend_prepare', 'review_reappend_appended',
+                                                   'review_reappend_failed', 'review_reappend_uncertain',
+                                                   'review_reappend_retry']},
+             'text': {'type': 'string', 'maxLength': 8000},
              'attempt_id': {'type': 'string'}, 'protocol': {'type': 'integer', 'enum': [2]},
              'owner_nonce': {'type': 'string', 'maxLength': 200},
              'channel': {'type': 'string', 'enum': ['prompt', 'append', 'stop']},
              'receipt': {'type': 'string', 'maxLength': 300}, 'seen_receipt': {'type': 'string', 'maxLength': 300},
              'revision': {'type': 'integer', 'minimum': 0}, 'confirmed': {'type': 'boolean'},
-             'attempt_ref': {'type': 'string', 'maxLength': 16}},
+             'attempt_ref': {'type': 'string', 'maxLength': 16}, 'reappend_ref': {'type': 'string', 'maxLength': 16}},
              'required': ['event_id', 'state']}},
         {'name': 'work_side_code_read', 'description': 'Side-only bounded read of one UTF-8 file inside the session workspace.',
          'inputSchema': {'type': 'object', 'properties': {'path': {'type': 'string', 'maxLength': 1000},
@@ -140,6 +154,17 @@ def _sync_handoff_receipt(inbox, event_id, handoff):
         return inbox._receipt(event_id, row, duplicate=False)
 
 
+def _person_retry_host(host):
+    """A possibly duplicate re-issue that a person confirmed in the host UI.
+
+    Only the mod's own retry call carries ``_host.internal``; host_context has
+    already checked the host token, so the marker cannot arrive without it. The
+    mod never forwards a model's side-tool call (register.js refuses it).
+    """
+    if host.get('internal') is not True:
+        raise WorkPlanError('person-confirmed retry requires the verified Ciel Work host')
+
+
 def run(name, args, config, state_dir, identity, store):
     from .work_parallel_mcp import host_context
     from .side_intake_settings import runtime_settings
@@ -166,8 +191,10 @@ def run(name, args, config, state_dir, identity, store):
                                     args.get('state'), reason)}
     if name == 'work_side_retry_reply':
         from .side_reply_outbox import retry
+        _person_retry_host(host)
         return {'receipt': retry(state_dir, identity, args.get('receipt_id'),
-                                 args.get('expected_state'), args.get('confirmed', False))}
+                                 args.get('expected_state'), args.get('confirmed', False),
+                                 attempt_ref=args.get('attempt_ref'), revision=args.get('revision'))}
     if name == 'work_side_renew':
         from .side_intake_processing import renew
         return renew(state_dir, identity, host.get('receipt_id'), host.get('generation'))
@@ -216,8 +243,51 @@ def run(name, args, config, state_dir, identity, store):
             return prepare(state_dir, identity, args.get('receipt_id'), config=config)
         return {'receipt': record(state_dir, identity, args.get('receipt_id'), args.get('state'), attempt_id=host.get('attempt_id'))}
     if name == 'work_side_wake':
-        from .side_wake import prepare, reconcile, record, retry, start
+        from .side_wake import (mark_read, prepare, prepare_prompt, prepare_reappend, reconcile, record,
+                                record_prompt, record_reappend, retry, start)
         state, event_id = args.get('state'), args.get('event_id')
+        if isinstance(state, str) and state.startswith('notice_'):
+            # The released-wait notice of one event receipt: claimed once, on
+            # that receipt, before the host appends it (side_notice.py).
+            from . import side_notice
+            inbox = SideIntakeInbox(state_dir, identity)
+            if state == 'notice_prepare':
+                return side_notice.prepare(inbox, event_id, args.get('owner_nonce'), text=args.get('text'))
+            if state == 'notice_retry':
+                # Host UI only: a person confirmed a possibly duplicate re-issue.
+                _person_retry_host(host)
+                return side_notice.retry(inbox, event_id, attempt_ref=args.get('attempt_ref'),
+                                         revision=args.get('revision'),
+                                         confirmed=args.get('confirmed') is True)
+            return side_notice.record(inbox, event_id, state[len('notice_'):], args.get('attempt_id'),
+                                      owner_nonce=args.get('owner_nonce'), receipt=args.get('receipt'))
+        if isinstance(state, str) and state.startswith('review_'):
+            # Parallel-review delivery sidecar (review_delivery.py): where the
+            # review payload was appended and whether main read it. Never the
+            # frozen schema-5 finalization journal.
+            from .review_delivery import dispatch as review_delivery
+            if state == 'review_reappend_retry':
+                # Host UI only: a person confirmed a possibly duplicate re-append.
+                _person_retry_host(host)
+            return review_delivery(state, event_id, args)
+        if isinstance(state, str) and state.startswith('prompt_'):
+            if state == 'prompt_prepare':
+                return prepare_prompt(store, event_id, args.get('owner_nonce'), args.get('receipt'))
+            return record_prompt(store, event_id, args.get('attempt_id'), args.get('owner_nonce'),
+                                 state[len('prompt_'):])
+        if isinstance(state, str) and state.startswith('reappend_'):
+            if state == 'reappend_prepare':
+                return prepare_reappend(store, event_id, args.get('owner_nonce'), args.get('seen_receipt'))
+            if state == 'reappend_retry':
+                # Host UI only: a person confirmed a possibly duplicate re-append.
+                _person_retry_host(host)
+                from .side_wake import retry_reappend
+                return retry_reappend(store, event_id, args.get('reappend_ref'), args.get('revision'),
+                                      confirmed=args.get('confirmed') is True)
+            return record_reappend(store, event_id, args.get('attempt_id'), args.get('owner_nonce'),
+                                   state[len('reappend_'):], receipt=args.get('receipt'))
+        if state == 'read':
+            return mark_read(store, event_id)
         if state == 'prepare':
             return prepare(store, event_id, protocol=args.get('protocol'),
                            owner_nonce=args.get('owner_nonce'), channel=args.get('channel'))
@@ -227,10 +297,12 @@ def run(name, args, config, state_dir, identity, store):
             return reconcile(store, event_id, args.get('attempt_id'), receipt=args.get('receipt'),
                              seen_receipt=args.get('seen_receipt'))
         if state == 'retry':
+            _person_retry_host(host)
             return retry(store, event_id, args.get('attempt_ref'), args.get('revision'),
                          confirmed=args.get('confirmed') is True)
         return record(store, event_id, state, args.get('attempt_id'),
-                      owner_nonce=args.get('owner_nonce'), receipt=args.get('receipt'))
+                      owner_nonce=args.get('owner_nonce'), receipt=args.get('receipt'),
+                      conversation_id=args.get('seen_receipt'))
     if name == 'work_side_claim':
         waiting_reason = None
         document = store.read_snapshot()
@@ -299,19 +371,34 @@ def run(name, args, config, state_dir, identity, store):
         # started is offered only so its owner can settle an append receipt.
         # The host claim keeps the raw attempt id it needs for that; the owner
         # fence stays with its module instance and is never claim data.
+        # An appended wake is offered until main has had a request after it
+        # (wake.read_at): the row is in main's conversation but an append
+        # starts no turn, so a host may still have to start one. That prompt
+        # holds no event data.
+        # Nested prompt/reappend leases carry their own owner fences and are
+        # backend-only: a claim reader must not be able to record for them.
         main_wakes = [{'event_id': key, **row,
-                       'wake': {k: v for k, v in (row.get('wake') or {}).items() if k != 'owner_nonce'}}
+                       'wake': {k: v for k, v in (row.get('wake') or {}).items()
+                                if k not in ('owner_nonce', 'prompt', 'reappend')}}
                       for key, row in document.get('side_handoffs', {}).items()
                       if row.get('state') == 'requested'
                       and ((row.get('wake') or {}).get('state') in ('pending', 'failed')
                            or ((row.get('wake') or {}).get('state') == 'submitting'
-                               and (row.get('wake') or {}).get('phase') in ('intent', 'started')))]
+                               and (row.get('wake') or {}).get('phase') in ('intent', 'started'))
+                           or ((row.get('wake') or {}).get('state') == 'appended'
+                               and not (row.get('wake') or {}).get('read_at')))]
         from .side_reply_outbox import pending
         settings = {k: v for k, v in runtime_side.items() if k != 'reply_connectors'}
         settings['actor'] = 'native_fork'
+        # wake_protocol 2: main_wakes lists every appended row main has not read.
+        # main_notices: released-wait notices a host may issue once more (a
+        # definite failure, or a person-confirmed release); each is claimed
+        # again through notice_prepare, so at most one host re-issues it.
+        from . import side_notice
         return {'claim': active, 'waiting_reason': waiting_reason, 'recovered_receipt': recovered,
                 'settings': settings, 'handoff_replies': replies, 'main_wakes': main_wakes,
-                'pending_replies': pending(state_dir, identity)}
+                'main_notices': side_notice.offered(inbox),
+                'wake_protocol': 2, 'pending_replies': pending(state_dir, identity)}
     key, generation = host.get('receipt_id'), host.get('generation')
     inbox = SideIntakeInbox(state_dir, identity)
     with exclusive_file_lock(inbox._event_path('locks', key)):

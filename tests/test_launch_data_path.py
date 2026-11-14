@@ -677,10 +677,14 @@ class ClaudeLaunchTests(ResolverHarness):
         with mock.patch.dict(os.environ), redirect_stdout(io.StringIO()):
             self.assertEqual(0, runtime_launch.run_claude([], skip_menu=True, update_check=False,
                                                        self_update_check=False, services=services))
-        self.assertEqual([1, 0, 1, 1], [cmd.count("--plugin-dir") for cmd, _env in launches])
-        # A resumed child keeps --plugin-dir ahead of the --continue the relaunch added.
+        # Two pairs per Work launch: the Work mod and its fork gate, each once.
+        from ciel_runtime_support.work_mode_launch import CLAUDE_GATE_DIR, CLAUDE_MOD_DIR
+        self.assertEqual([2, 0, 2, 2], [cmd.count("--plugin-dir") for cmd, _env in launches])
+        self.assertEqual([1, 0, 1, 1], [cmd.count(str(CLAUDE_MOD_DIR)) for cmd, _env in launches])
+        self.assertEqual([1, 0, 1, 1], [cmd.count(str(CLAUDE_GATE_DIR)) for cmd, _env in launches])
+        # A resumed child keeps both pairs ahead of the --continue the relaunch added.
         last = launches[-1][0]
-        self.assertLess(last.index("--plugin-dir"), last.index("--continue"))
+        self.assertLess(last.index(str(CLAUDE_GATE_DIR)), last.index("--continue"))
 
     def test_restart_selects_again_and_falls_back_to_the_router(self):
         policy = FakeGatewayPolicy(_gateway(), _gateway(endpoint="https://gw2.example", node="n2"),

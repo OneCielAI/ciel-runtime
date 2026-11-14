@@ -21,9 +21,11 @@ class TerminalStartupGate:
     def ready(self) -> bool:
         return self._ready.is_set()
 
-    def observe(self, *, rendered_ready: bool) -> None:
+    def observe(self, *, rendered_ready: bool, main_output_after_launch: bool = False) -> None:
         # One startup boundary, never a timeout or a persisted previous launch.
-        if rendered_ready:
+        # Main's own model output after this launch is the positive proof that
+        # also releases the TTY lane when the rendered screen is unavailable.
+        if rendered_ready or main_output_after_launch:
             self._ready.set()
 
 

@@ -676,9 +676,14 @@ def main():
             event = str(activity.get("event") or "")
             if event == "retry":
                 activity_text = color(f"retry {activity.get('attempt')}/{activity.get('total')}")
+                # Pre-output CielAiRouter retries carry kind/code: show why and how long.
+                transient = bool(activity.get("kind"))
+                code = activity.get("code")
+                if transient and isinstance(code, (int, str)) and str(code).replace("_", "").isalnum():
+                    activity_text += " " + color(f"after upstream {str(code)[:24]}")
                 wait = activity.get("wait")
                 try:
-                    if rpm_status and wait is not None and float(wait) > 0:
+                    if (rpm_status or transient) and wait is not None and float(wait) > 0:
                         activity_text += " " + color(f"wait {float(wait):.0f}s")
                 except Exception:
                     pass
@@ -699,6 +704,10 @@ def main():
                         activity_text += " " + color(f"({int(chunks):,} chunks)")
                     except Exception:
                         activity_text += " " + color(f"({chunks} chunks)")
+            elif event == "error" and activity.get("reason") == "pre_output_retries_exhausted":
+                code = activity.get("code")
+                code_text = f" ({str(code)[:24]})" if isinstance(code, (int, str)) and str(code).replace("_", "").isalnum() else ""
+                activity_text = color(f"gave up after {activity.get('attempts')} retries{code_text} {age:.0f}s ago")
             elif event in ("success", "error"):
                 activity_text = color(f"{event} {age:.0f}s")
                 cache_read = max(0, _as_int(activity.get("cache_read_tokens")))

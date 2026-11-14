@@ -9,6 +9,10 @@ from ciel_runtime_support.work_settings_cli import command
 from ciel_runtime_support.work_settings_menu import panel_rows
 
 
+class Refused(ValueError):
+    """The CLI refused: exit code and its one JSON error object, nothing saved."""
+
+
 class WorkSettingsCliTests(unittest.TestCase):
     def invoke(self, config, action='list', key=None, value=None):
         output = []
@@ -18,7 +22,15 @@ class WorkSettingsCliTests(unittest.TestCase):
             ledger.return_value.read.return_value = {'policy': {
                 'enabled': True, 'paused': False, 'priority_limits': {'P1': 5, 'P2': 3, 'P3': 1, 'P4': 1, 'P5': 1},
                 'launches_per_minute': 4, 'max_rework': 2}}
-            result = command(lambda: config, lambda c: saved.append(dict(c)), output.append)(args)
+            try:
+                result = command(lambda: config, lambda c: saved.append(dict(c)), output.append)(args)
+            except SystemExit as stop:
+                # Errors are one JSON line and a non-zero exit, never a traceback.
+                body = json.loads(output[-1])
+                self.assertEqual(1, stop.code)
+                self.assertIs(False, body['ok'])
+                self.assertEqual([], saved)
+                raise Refused(body['message']) from None
         self.assertEqual(result, json.loads(output[0]))
         return result, saved
 

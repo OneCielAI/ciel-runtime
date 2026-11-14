@@ -53,6 +53,12 @@ def unattended_restart_summary() -> str:
         return "unavailable"
 
 
+def session_api_keys_summary() -> str:
+    """Static: the panel reads the router when opened, so a repaint never waits on HTTP."""
+
+    return "memory only · one session and provider"
+
+
 def provider_fallback_summary(config: Mapping[str, Any]) -> str:
     """Automatic fallback state and the active backup, if any."""
 
@@ -155,6 +161,7 @@ class MainMenuProjection:
             f"19. {menu_text('main_fallback', language)}  [{provider_fallback_summary(config)}]",
             f"20. {menu_text('main_restart', language)}  [{unattended_restart_summary()}]",
             f"21. {menu_text('work_settings_menu', language)}",
+            f"22. {menu_text('main_session_keys', language)}  [{session_api_keys_summary()}]",
             self.ports.ui_text("quit", language),
         ]
 

@@ -49,15 +49,28 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(done.returncode, 0, done.stderr)
         return json.loads(done.stdout)
 
+    def lifecycle(self, result):
+        """The scenario's Work lifecycle events, without the G5 gate_presence report.
+
+        ciel-work reports the fork gate's presence (display only) once per module
+        start and on change; the start-time report is asynchronous, so where it
+        lands among lifecycle events is not part of their order. It is asserted
+        in its own test (test_first_spawn_reports_the_gate_presence_once).
+        """
+        def keep(call):
+            return call != "gate_presence" and not (isinstance(call, dict) and call.get("event") == "gate_presence")
+        for holder in [result, *[value for value in result.values() if isinstance(value, dict)]]:
+            if isinstance(holder.get("calls"), list):
+                holder["calls"] = [call for call in holder["calls"] if keep(call)]
+        return result
+
     def test_high_priority_advice_prompts_main_at_safe_stop_even_without_auto_continue(self):
         result=self.run_scenario('side-advice-stop')
         self.assertIn('work_side_handoff',result['block'])
-        self.assertIn('n2',result['block'])
-        self.assertIn('not execution approval',result['block'])
-        # Andy 2026-11-08: main must see which recorded wait the event satisfied.
-        self.assertIn('clear_wait',result['block'])
-        self.assertIn('"kind":"resume"',result['block'])
-        self.assertIn('Daniel approval 118269',result['block'])
+        self.assertIn('holds no event data',result['block'])
+        self.assertIn('grants no approval',result['block'])
+        # Payload details are in the definite host append, never repeated in Stop.
+        self.assertNotIn('Daniel approval 118269',result['block'])
         self.assertNotIn('requested_at',result['block'])
         self.assertNotIn('block', result['second'])
 
@@ -79,16 +92,18 @@ class WorkModWriteGateTests(unittest.TestCase):
         # block continues the same main turn; its next turn.step precedes the
         # request carrying the block. That step is the proof that records queued.
         result = self.run_scenario('side-wake-stop-election')
-        self.assertIn('not execution approval', result['first']['block'])
+        self.assertIn('grants no approval', result['first']['block'])
         self.assertIn('work_side_handoff', result['first']['block'])
         for secret in ('a' * 32, 'owner_nonce', 'attempt_id', hashlib.sha256(b'a' * 32).hexdigest()[:16]):
             self.assertNotIn(secret, result['first']['block'])
-        self.assertEqual({'state': 'submitting', 'phase': 'started', 'records': 0}, result['beforeStep'])
-        self.assertEqual({'state': 'queued', 'records': 1}, result['afterStep'])
-        # The continuation's own Stop (stop_hook_active) and a later Stop add nothing.
-        self.assertNotIn('block', result['second'])
+        self.assertEqual({'state': 'appended', 'phase': 'started', 'records': 0}, result['beforeStep'])
+        self.assertEqual({'state': 'appended', 'records': 0}, result['afterStep'])
+        # The continuation Stop emits one wake-only reminder; later Stop adds nothing.
+        self.assertIn('holds no event data', result['second']['block'])
         self.assertEqual('', result['third'])
-        self.assertEqual(['prepare', 'start', 'queued'], result['calls'])
+        # The payload was stored inside that Stop, so the continuation request
+        # (next main step) carries it: read is recorded (append-views-54579a2e).
+        self.assertEqual(['prepare', 'start', 'appended', 'read'], result['calls'])
 
     def test_stop_proof_is_bound_to_the_blocked_turn_and_a_later_step(self):
         # classic.Stop has no turnId: the entry is bound to the last main turnId
@@ -99,18 +114,17 @@ class WorkModWriteGateTests(unittest.TestCase):
                 result = self.run_scenario('side-wake-stop-election', proof)
                 self.assertIn('block', result['first'])
                 self.assertEqual(0, result['early'])
-                self.assertEqual({'state': 'queued', 'records': 1}, result['afterStep'])
+                self.assertEqual({'state': 'appended', 'records': 0}, result['afterStep'])
 
-    def test_turn_end_before_the_proving_step_leaves_the_wake_uncertain(self):
-        # An interrupt (turn.complete aborted) before T#1: dropped unsettled, never
-        # recorded, never re-presented; the next ordinary Stop says it is uncertain.
+    def test_turn_end_before_another_step_keeps_definite_append(self):
         result = self.run_scenario('side-wake-stop-election', 'interrupt')
         self.assertIn('block', result['first'])
         self.assertEqual(0, result['early'])
-        self.assertEqual({'state': 'submitting', 'records': 0}, result['afterStep'])
-        self.assertNotIn('block', result['second'])
-        self.assertIn('delivery to main is uncertain', result['third'])
-        self.assertEqual(['prepare', 'start'], result['calls'])
+        self.assertEqual({'state': 'appended', 'records': 0}, result['afterStep'])
+        self.assertNotIn('delivery to main is uncertain', result['third'])
+        # The turn ended first: main is woken (wake-only lease ask), and a later
+        # main step (built after that Stop) proves the read.
+        self.assertEqual(['prepare', 'start', 'appended', 'prompt_prepare', 'read'], result['calls'])
 
     def test_uncertain_wake_and_ack_retry_are_each_noticed_once(self):
         result = self.run_scenario('side-wake-uncertain-and-ack-retry-once')
@@ -131,36 +145,44 @@ class WorkModWriteGateTests(unittest.TestCase):
 
     def test_stop_and_pump_in_one_process_present_a_wake_exactly_once(self):
         # Stop runs while main is still working, so a pump that wins appends
-        # into the running turn; Stop then shows its existing one-time reminder
-        # for an appended wake (unchanged), never a second election.
-        expected = {'stop-first': (True, 0, 'queued', ['prepare:stop', 'start:stop', 'queued:']),
-                    'pump-first': (False, 1, 'appended', ['prepare:append', 'start:append', 'appended:']),
-                    'interleaved': (True, 0, 'queued', ['prepare:stop', 'start:stop', 'queued:'])}
+        # into the running turn; Stop then shows its one-time reminder for the
+        # unacknowledged appended wake (no event data), never a second election.
+        # No request had carried the row yet: the reminder continues the turn,
+        # and that next step records the read.
+        expected = {'stop-first': (True, 1, 'appended', ['prepare:stop', 'start:stop', 'appended:', 'read:']),
+                    'pump-first': (False, 1, 'appended', ['prepare:append', 'start:append', 'appended:', 'read:']),
+                    'interleaved': (True, 1, 'appended', ['prepare:stop', 'start:stop', 'appended:', 'read:'])}
         for order, (elected, appended, state, calls) in expected.items():
             with self.subTest(order=order):
                 result = self.run_scenario('side-wake-stop-pump-same-owner', order)
                 self.assertEqual(elected, result['elected'])
                 self.assertEqual(0, result['submitted'])
                 self.assertEqual(appended, result['appended'])
-                self.assertEqual(1, int(result['elected']) + result['submitted'] + result['appended'])
+                self.assertEqual(1, result['submitted'] + result['appended'])
                 self.assertTrue(result['block'])
                 self.assertEqual(state, result['wake']['state'])
                 self.assertEqual(calls, result['calls'])
                 self.assertFalse(result['staleShown'])
 
     def test_lost_stop_start_is_never_stranded_or_called_uncertain(self):
-        for variant, calls in (('uncommitted', ['prepare:stop', 'start:stop', 'prepare:append', 'start:stop', 'queued:']),
-                               ('committed', ['prepare:stop', 'start:stop', 'queued:'])):
+        for variant, calls in (('uncommitted', ['prepare:stop', 'start:stop', 'prepare:append', 'start:stop', 'appended:']),
+                               ('committed', ['prepare:stop', 'start:stop', 'appended:'])):
             with self.subTest(variant=variant):
                 result = self.run_scenario('side-wake-stop-start-lost', variant)
                 self.assertFalse(result['stopBlock'])
                 self.assertEqual('', result['againBlock'])
                 self.assertFalse(result['paneUncertain'])
                 self.assertEqual(0, result['beforePump']['submitted'])
-                self.assertEqual(1, result['submitted'])
-                self.assertEqual(0, result['appended'])
-                self.assertEqual({'state': 'queued', 'phase': 'started', 'channel': 'stop'}, result['wake'])
-                self.assertEqual('', result['laterBlock'])
+                # The pump appends it once under the same started attempt; no
+                # prompt holds the payload.
+                self.assertEqual((1, 0), (result['appended'], result['submitted']))
+                self.assertEqual({'state': 'appended', 'phase': 'started', 'channel': 'stop'}, result['wake'])
+                # No main request followed the append yet: the next Stop reminds
+                # once, naming the event and holding none of its data.
+                self.assertIn('holds no event data', result['laterBlock'])
+                self.assertIn('"event_id":"' + 's' * 64 + '"', result['laterBlock'])
+                self.assertNotIn('Start lost', result['laterBlock'])
+                self.assertNotIn('Advice data', result['laterBlock'])
                 self.assertEqual(calls, result['calls'])
                 self.assertFalse(result['staleShown'])
 
@@ -173,36 +195,93 @@ class WorkModWriteGateTests(unittest.TestCase):
             with self.subTest(variant=variant):
                 result = self.run_scenario('adv-start-lost', variant)
                 self.assertFalse(result['stopBlock'])
-                self.assertEqual((1, 0), (result['prompts'], result['appends']))
+                self.assertEqual((0, 1), (result['prompts'], result['appends']))
                 # One router-side attempt; every start and the one record name it
                 # and its owner; no second attempt is ever started.
                 self.assertEqual(1, result['attempts'])
-                self.assertEqual('queued/stop', result['wake'])
+                self.assertEqual('appended/stop', result['wake'])
                 for row in result['starts'] + result['records']:
                     self.assertEqual((result['routerAttempt'], result['routerOwner']),
                                      (row['attempt_id'], row['owner_nonce']))
                 self.assertEqual(1, len(result['records']))
-                self.assertEqual(['queued'], [row['state'] for row in result['records']])
+                self.assertEqual(['appended'], [row['state'] for row in result['records']])
 
-    def test_superseded_stop_election_presents_nothing_and_records_nothing(self):
-        # Defect A: turn.start(T2) while the Stop's start was in flight.
+    def test_superseded_stop_presents_nothing_itself_and_its_attempt_is_never_left_uncertain(self):
+        # Defect A: turn.start(T2) while the Stop's start was in flight. The
+        # stale Stop returns no block and proves nothing (no queued record).
+        # Item 4: the started attempt it could not present is appended once by
+        # side-intake.js instead of staying delivery uncertain.
         result = self.run_scenario('adv-turn-start-during-election')
         self.assertFalse(result['staleStopReturnedBlock'])
         self.assertEqual(0, result['records'])
-        self.assertEqual('submitting/started', result['wake'])
-        self.assertTrue(result['laterUncertain'])
+        self.assertEqual('appended/started', result['wake'])
+        self.assertFalse(result['laterUncertain'])
+
+    def test_one_side_event_is_presented_to_main_once_after_a_release_a_retry_or_a_clear(self):
+        # Items 2 and 3. Real register.js and side-intake.js on one shared
+        # conversation. Before the payload moved out of the prompt each variant
+        # presented the event twice: the held payload prompt entered after an
+        # uncertainty notice at Stop (anomaly, /clear then reload), or after the
+        # retried attempt's prompt (retry). Owned probes prompt-registry-e2bed500
+        # and 5fe2353d measured such a released prompt entering 3 s later.
+        for variant in ('anomaly', 'retry', 'clear-skip', 'clear-fails'):
+            with self.subTest(variant=variant):
+                result = self.run_scenario('sse-reads', variant)
+                self.assertEqual(1, result['presentations'], result['final'])
+                # The payload is stored by the append, before any prompt enters.
+                self.assertEqual((['append'], 'appended'), (result['issued']['payloadRows'], result['issued']['wake']))
+                self.assertEqual(0, result['issued']['heldPayloadPrompts'])
+                self.assertEqual('appended', result['afterRelease']['wake'])
+                self.assertEqual((['append'], [], 'appended'), (result['final']['payloadRows'], result['final']['stopBlocks'],
+                                                               result['final']['wake']))
+                self.assertEqual(['E1:appended'], result['records'])
+                if variant == 'retry':
+                    # A delivered wake offers no may-duplicate retry.
+                    self.assertFalse(result['retryOffered'])
+
+    def test_wake_in_the_last_request_of_a_turn_is_read_in_that_turn_once(self):
+        # Item 7. Main is busy in the last request of a turn. The payload is
+        # appended at once (no prompt, no wait for the turn's end); the Stop
+        # reminder continues the turn so the next request carries the row. The
+        # reminder names the event and holds none of its data: before, it
+        # repeated the payload, so that request held the event twice.
+        result = self.run_scenario('sse-busy-final-step')
+        self.assertEqual(1, result['presentations'], result['final'])
+        running = result['whileTurnRuns']
+        self.assertEqual((['append'], 0, 'appended'), (running['payloadRows'], running['held'], running['wake']))
+        final = result['final']
+        self.assertEqual((['append'], [], 1, 0, 0), (final['payloadRows'], final['stopBlocks'], final['stopReminders'],
+                                                    final['plainPrompts'], final['held']))
+        # The continuation request's exact messageCount includes the appended
+        # host row, so its first carrying request records read with no prompt.
+        self.assertEqual(['E1:prepare', 'E1:start', 'E1:appended', 'E1:read'], result['sideCalls'])
+
+    def test_superseded_stop_election_is_delivered_once_by_the_pump_without_a_person(self):
+        # Item 4. The Stop returned no block, so this module knows the started
+        # attempt was never presented. The pump delivers that same attempt into
+        # the running turn; it is never called uncertain. The turn's next request
+        # carries the row (read); the unacknowledged event is still reminded once.
+        result = self.run_scenario('sse-superseded-stop')
+        self.assertFalse(result['staleStopReturnedBlock'])
+        self.assertEqual({'delivered': 1, 'appends': 1, 'wake': 'appended/started'}, result['whileT2Runs'])
+        self.assertEqual((1, 1, 'appended/started'), (result['delivered'], result['attempts'], result['wake']))
+        self.assertFalse(result['laterUncertain'])
+        # No later Stop holds the event's data. The fixture's main never
+        # acknowledges, so the one-time reminder (no event data) is shown once.
+        self.assertEqual((0, 1), (result['laterBlocks'], result['laterReminders']))
 
     def test_record_that_lands_late_never_calls_the_wake_uncertain(self):
         # Defect B: recordFaults=1 and recordFaults=2.
         result = self.run_scenario('adv-record-late-success')
-        self.assertTrue(result['first'])
-        self.assertEqual(('', '', 'queued'), (result['secondBlock'], result['thirdBlock'], result['wake']))
-        self.assertEqual(['work_side_wake:prepare:stop', 'work_side_wake:start:stop', 'work_side_wake:queued',
-                          'work_side_wake:queued'], result['calls'])
+        self.assertFalse(result['first'])
+        self.assertIn('holds no event data',result['secondBlock'])
+        self.assertEqual(('', 'appended'), (result['thirdBlock'], result['wake']))
+        self.assertEqual(2, result['calls'].count('work_side_wake:appended'))
         result = self.run_scenario('adv-record-fail-after-proof')
-        self.assertTrue(result['first'])
-        self.assertEqual(('', '', '', 'queued'), (result['second'], result['third'], result['fourth'], result['wake']))
-        self.assertEqual(3, result['calls'].count('work_side_wake:queued'))
+        self.assertFalse(result['first'])
+        self.assertIn('holds no event data',result['second'])
+        self.assertEqual(('', '', 'appended'), (result['third'], result['fourth'], result['wake']))
+        self.assertEqual(3, result['calls'].count('work_side_wake:appended'))
         self.assertEqual(1, result['calls'].count('work_side_wake:start:stop'))
 
     def test_stale_knowledge_of_another_attempt_never_hides_uncertainty(self):
@@ -219,12 +298,12 @@ class WorkModWriteGateTests(unittest.TestCase):
         for reason in ('aborted', 'answer'):
             with self.subTest(reason=reason):
                 result = self.run_scenario('adv-turn-end-before-step', reason)
-                self.assertTrue(result['presented'])
-                self.assertEqual(('submitting/started', 0), (result['wake'], result['records']))
+                self.assertFalse(result['presented'])
+                self.assertEqual(('appended/started', 0), (result['wake'], result['records']))
 
     def test_continuation_stop_gates_only_notices_and_elects_a_new_event_once(self):
         result = self.run_scenario('adv-stop-hook-active-loop')
-        self.assertEqual((True, False, False, 'queued'),
+        self.assertEqual((False, True, False, 'appended'),
                          (result['first'], result['second'], result['third'], result['wake']))
         result = self.run_scenario('adv-uncertain-stop-hook-active')
         self.assertEqual([True, False, False, False], result['blocks'])
@@ -232,9 +311,9 @@ class WorkModWriteGateTests(unittest.TestCase):
         # A new event at a stop_hook_active Stop is presented exactly once and
         # does not block again on the next Stops.
         result = self.run_scenario('adv-continuation-new-event')
-        self.assertEqual([True, True, False, False], result['blocks'])
+        self.assertEqual([True, True, True, False], result['blocks'])
         self.assertEqual([1, 1], result['presented'])
-        self.assertEqual(['queued', 'queued'], result['states'])
+        self.assertEqual(['appended', 'appended'], result['states'])
 
     def test_ack_conflict_gives_only_the_ack_notice(self):
         # Decision: needs_ack_retry means main called work_side_handoff, so it has
@@ -247,15 +326,17 @@ class WorkModWriteGateTests(unittest.TestCase):
 
     def test_pump_between_stop_and_step_and_second_handoff_are_not_presented_twice(self):
         result = self.run_scenario('adv-pump-between-stop-and-step')
-        self.assertEqual((True, 0, 0, 'queued'), (result['stop'], result['prompts'], result['appends'], result['wake']))
+        self.assertEqual((False, 0, 1, 'appended'), (result['stop'], result['prompts'], result['appends'], result['wake']))
         result = self.run_scenario('adv-two-handoffs')
-        self.assertTrue(result['first'])
+        self.assertFalse(result['first'])
         self.assertFalse(result['firstIncludesSecond'])
         result = self.run_scenario('adv-pane-retry')
         self.assertTrue(result['button'])
         self.assertIsNone(result['afterCancel'])
         self.assertEqual({'event_id': 'e' * 64, 'state': 'retry', 'attempt_ref': result['ref'], 'revision': 6,
                           'confirmed': True}, result['retry'])
+        # The router takes a person-confirmed retry only with this host's marker.
+        self.assertTrue(result['retryInternal'])
 
     # Per-key idle prompts. Main-review E2E run-20261111-161947: a second plugin
     # prompt was issued at 22:22:47.650 before the first (22:22:46.501) started
@@ -265,26 +346,45 @@ class WorkModWriteGateTests(unittest.TestCase):
     # prompt is issued and unresolved (prompt-stop-28f9d226).
 
     def test_both_idle_prompts_are_issued_at_once_and_each_records_its_own_outcome(self):
-        expected = {'reviews': (['L1', 'L2'], ['L1:queued', 'L2:queued']),
-                    'sides': (['E1', 'E2'], ['E1:queued', 'E2:queued']),
-                    'review-side': (['L1', 'E1'], ['L1:queued', 'E1:queued']),
-                    'side-review': (['E1', 'L1'], ['E1:queued', 'L1:queued'])}
-        for mode, (invocations, records) in expected.items():
+        result = self.run_scenario('prompt-keys', 'reviews')
+        # Both $.prompt.submit calls happen before either resolves.
+        self.assertEqual(['L1', 'L2'], sorted(result['whileBothPending']['invocations']))
+        self.assertEqual((2, 2), (result['whileBothPending']['pending'], result['maxActive']))
+        # Both review payloads were appended and durably recorded before either
+        # wake-only prompt resolves. Prompt outcome cannot change delivery state.
+        # The two leases' deliveries are concurrent chains (register.js
+        # finishParallelWake runs via `void`), so their record order is not
+        # part of the contract: a slow off-thread digest for L1 records L2 first.
+        self.assertEqual((['L1:appended', 'L2:appended'], ['parallel:L2']),
+                         (sorted(result['afterFirst']['records']), result['afterFirst']['pending']))
+        self.assertEqual(['L1:appended', 'L2:appended'], sorted(result['records']))
+        result = self.run_scenario('prompt-keys', 'reviews:reverse')
+        self.assertEqual((['L1:appended', 'L2:appended'], ['parallel:L1']),
+                         (sorted(result['afterFirst']['records']), result['afterFirst']['pending']))
+        self.assertEqual(['L1:appended', 'L2:appended'], sorted(result['records']))
+
+    def test_side_wake_payload_never_waits_behind_a_prompt_and_its_own_prompt_holds_none(self):
+        # Two side wakes: both payloads are appended and recorded while both
+        # wake prompts are still unresolved in the engine.
+        result = self.run_scenario('prompt-keys', 'sides')
+        pending = result['whileBothPending']
+        self.assertEqual((['wake:E1', 'wake:E2'], ['E1', 'E2'], ['E1:appended', 'E2:appended'], 2),
+                         (sorted(pending['invocations']), sorted(pending['appended']), sorted(pending['records']),
+                          pending['pending']))
+        # A wake prompt that resolves records nothing about either row: queued is
+        # not a read. Only a main step's exact messageCount records read_at.
+        self.assertEqual(['E1:appended', 'E2:appended'], sorted(result['afterFirst']['records']))
+        self.assertEqual({'E1': 'appended', 'E2': 'appended'}, result['sideWakes'])
+        # Review and side payloads are both appended before their wake-only
+        # prompts resolve, in either producer order.
+        for mode in ('review-side', 'side-review'):
             with self.subTest(mode=mode):
                 result = self.run_scenario('prompt-keys', mode)
-                # Both $.prompt.submit calls happen before either resolves.
-                self.assertEqual(invocations, result['whileBothPending']['invocations'])
-                self.assertEqual(2, result['whileBothPending']['pending'])
-                self.assertEqual(2, result['maxActive'])
-                # Releasing the first records the first only; the second key
-                # stays pending until its own promise resolves.
-                self.assertEqual(records[:1], result['afterFirst']['records'])
-                self.assertEqual(1, len(result['afterFirst']['pending']))
-                self.assertEqual(invocations, result['invocations'])
-                self.assertEqual(records, result['records'])
-        result = self.run_scenario('prompt-keys', 'reviews:reverse')
-        self.assertEqual((['L2:queued'], ['parallel:L1']), (result['afterFirst']['records'], result['afterFirst']['pending']))
-        self.assertEqual(['L2:queued', 'L1:queued'], result['records'])
+                pending = result['whileBothPending']
+                self.assertEqual((['L1', 'wake:E1'], sorted(['L1', 'E1']), sorted(['L1:appended', 'E1:appended']), 2),
+                                 (sorted(pending['invocations']), sorted(pending['appended']), sorted(pending['records']), result['maxActive']))
+                # No main turn ran in this scenario, so no row is read.
+                self.assertEqual(['E1:appended', 'L1:appended'], sorted(result['records']))
 
     def test_stop_gate_skips_only_reviews_whose_prompt_is_unresolved(self):
         result = self.run_scenario('prompt-keys', 'reviews')
@@ -300,17 +400,19 @@ class WorkModWriteGateTests(unittest.TestCase):
                          (result['stopWhileBothPending'], result['stopAfterFirst'], result['stopAfterBoth']))
 
     def test_prompt_drop_or_throw_records_that_key_and_leaves_the_other_pending(self):
-        for fault, outcome in (('drop', 'failed'), ('throw', 'uncertain')):
+        for fault in ('drop', 'throw'):
             with self.subTest(fault=fault):
                 result = self.run_scenario('prompt-keys', 'reviews:' + fault)
-                self.assertEqual(['L1:' + outcome], result['afterFirst']['records'])
+                # Record order between the two concurrent lease chains is not the contract.
+                self.assertEqual(['L1:appended', 'L2:appended'], sorted(result['afterFirst']['records']))
                 self.assertEqual(['parallel:L2'], result['afterFirst']['pending'])
-                self.assertIn('L2:queued', result['records'])
+                self.assertEqual(['L1:appended', 'L2:appended'], sorted(result['records']))
+        # A side wake's own prompt holds no payload, so its drop or throw
+        # records nothing about the wake (test_side_intake_mod:
+        # test_wake_prompt_drop_or_throw_is_submitted_once_more...).
         result = self.run_scenario('prompt-keys', 'side-review:throw')
-        self.assertEqual(['E1:uncertain', 'L1:queued'], result['records'])
-        self.assertEqual({'E1': 'uncertain'}, result['sideWakes'])
-        result = self.run_scenario('prompt-keys', 'sides:throw:reverse')
-        self.assertEqual(['E2:queued', 'E1:uncertain'], result['records'])
+        self.assertEqual(['E1:appended', 'L1:appended'], result['records'])
+        self.assertEqual({'E1': 'appended'}, result['sideWakes'])
 
     def test_an_issued_prompt_key_is_shared_and_submitted_once(self):
         result = self.run_scenario('prompt-key-dedup')
@@ -322,24 +424,26 @@ class WorkModWriteGateTests(unittest.TestCase):
     def test_latent_prompt_never_blocks_other_keys_and_is_exposed_after_its_idle_window(self):
         result = self.run_scenario('prompt-key-latent')
         # Issue order between independent keys is not part of the contract.
-        self.assertEqual(['A', 'B', 'L1'], sorted(result['issued']))
-        self.assertEqual(['parallel:L1', 'side:E1', 'side:E2'], sorted(result['registryWhileAll']))
-        # B and L1 resolve and record while A has not resolved.
-        latent = result['whileALatent']
-        self.assertEqual((['E2:queued', 'L1:queued'], ['side:E1'], True),
-                         (sorted(latent['records']), latent['registry'], latent['pendingA']))
-        # A is hidden from Stop's uncertainty notice and the pane retry.
-        self.assertEqual({'review': True, 'uncertain': False, 'retry': False}, latent['view'])
+        self.assertEqual(['L1', 'L2', 'wake'], sorted(result['issued']))
+        self.assertEqual(['parallel:L1', 'parallel:L2', 'wake:E1'], sorted(result['registryWhileAll']))
+        # The side wake's payload was appended while every prompt was pending.
+        self.assertEqual(1, result['appendedWhileAll'])
+        # The side wake and L2 settle while the review prompt L1 has not resolved.
+        latent = result['whileLatent']
+        self.assertEqual((['E1:appended', 'L1:appended', 'L2:appended'], ['parallel:L1'], True),
+                         (sorted(latent['records']), latent['registry'], latent['pendingL1']))
+        # L1 is held out of Stop's decision gate while its prompt is unresolved;
+        # the side wake is delivered, so nothing is uncertain and no retry is offered.
+        self.assertEqual({'review': False, 'uncertain': False, 'retry': False}, latent['view'])
         # No window during the main turn; turn.complete arms a full one.
         self.assertEqual((0, 1), (result['liveInTurn'], result['liveAfterTurn']))
-        self.assertEqual(['E2:queued', 'L1:queued'], sorted(result['afterFireInTurn']['records']))
-        self.assertTrue(result['afterFireInTurn']['pendingA'])
+        self.assertEqual(['E1:appended', 'L1:appended', 'L2:appended'], sorted(result['afterFireInTurn']['records']))
+        self.assertTrue(result['afterFireInTurn']['pendingL1'])
         after = result['afterWindow']
-        # A's uncertain record comes only after the window, after both others.
-        self.assertEqual((['E2:queued', 'L1:queued'], 'E1:uncertain', [], False),
-                         (sorted(after['records'][:2]), after['records'][2], after['registry'], after['pendingA']))
-        self.assertEqual({'review': False, 'uncertain': True, 'retry': True}, after['view'])
-        self.assertEqual({'review': True, 'uncertain': False, 'retry': True}, after['viewAgain'])
+        # L1's uncertain record comes only after the window, after both others.
+        self.assertEqual((['E1:appended', 'L1:appended', 'L2:appended'], [], False),
+                         (sorted(after['records']), after['registry'], after['pendingL1']))
+        self.assertEqual({'review': True, 'uncertain': False, 'retry': False}, after['view'])
 
     def test_compat_review_without_durable_wake_stays_terminal_across_session_start(self):
         result = self.run_scenario("parallel-submitted-wakes-main-without-reviewer", "session-restart")
@@ -348,84 +452,108 @@ class WorkModWriteGateTests(unittest.TestCase):
         # record for the same key stops a second raw submit.
         self.assertEqual(1, len(result["submitted"]), result)
 
+    def test_review_prompt_is_issued_again_after_state_loss_only_for_an_older_projection(self):
+        # A review row without wake.state is an older router's projection. Its
+        # only fences are module memory and $.state, so a fresh process (new
+        # module copy, empty $.state) issues the review prompt again. The current
+        # backend always projects wake.state (tests/test_side_compat_review.py);
+        # with it the second process issues nothing and asks for no new attempt.
+        old = self.run_scenario('compat-review-state-loss', 'old')
+        self.assertEqual(([1, 1], [], None), (old['rawSubmits'], old['prepares'], old['wake']))
+        current = self.run_scenario('compat-review-state-loss', 'current')
+        self.assertEqual(([1, 0], ['granted'], ['L1:appended'], 'appended'),
+                         (current['rawSubmits'], current['prepares'], current['records'], current['wake']))
+
     def test_clear_reasserts_the_prompt_fence_and_a_reload_never_submits_again(self):
         # /clear resets $.state and raises classic.SessionStart in the same
         # module instance (measured: nonce-lifetime-probe-44e40778). The
-        # re-claim there is harness-only evidence.
-        for path in ('review', 'side'):
-            with self.subTest(path=path):
-                key = 'parallel:L1' if path == 'review' else 'side:E1'
-                result = self.run_scenario('prompt-key-clear', path + ':reassert')
-                self.assertEqual({'registry': [key], 'sameGeneration': True, 'pendingInFirst': True}, result['afterClear'])
-                self.assertEqual((True, 0), (result['reload']['hydrated'], result['reload']['rawSubmits']))
-                # session.end before the boundary keeps the entry; re-claim still lands.
-                ended = self.run_scenario('prompt-key-clear', path + ':end')
-                self.assertEqual({'registry': [key], 'sameGeneration': True, 'pendingInFirst': True}, ended['afterClear'])
-                self.assertEqual((True, 0), (ended['reload']['hydrated'], ended['reload']['rawSubmits']))
-                self.assertEqual({'review': False, 'uncertain': False, 'retry': False}, result['reload']['view'])
-                visible = 'review' if path == 'review' else 'retry'
-                self.assertTrue(result['afterWindow'][visible])
-                self.assertEqual(1, result['firstRawSubmits'])
-                # No re-claim, or a failing $.state: the reload still raw-submits
-                # nothing, because the durable submitting/started row fences it;
-                # the key is presented at once instead (a possible duplicate
-                # presentation if the first prompt later enters).
-                for variant in ('skip', 'fails'):
-                    control = self.run_scenario('prompt-key-clear', path + ':' + variant)
-                    self.assertEqual({'registry': [], 'sameGeneration': False, 'pendingInFirst': True}, control['afterClear'])
-                    self.assertEqual((False, 0), (control['reload']['hydrated'], control['reload']['rawSubmits']))
-                    self.assertTrue(control['reload']['view'][visible])
+        # re-claim there is harness-only evidence. A review prompt is the one
+        # prompt that still holds a payload; a side wake's /clear cases are
+        # test_one_side_event_is_presented_to_main_once_after_a_release_a_retry_or_a_clear.
+        key = 'parallel:L1'
+        result = self.run_scenario('prompt-key-clear', 'review:reassert')
+        self.assertEqual({'registry': [key], 'sameGeneration': True, 'pendingInFirst': True}, result['afterClear'])
+        self.assertEqual((True, 0), (result['reload']['hydrated'], result['reload']['rawSubmits']))
+        # session.end before the boundary keeps the entry; re-claim still lands.
+        ended = self.run_scenario('prompt-key-clear', 'review:end')
+        self.assertEqual({'registry': [key], 'sameGeneration': True, 'pendingInFirst': True}, ended['afterClear'])
+        self.assertEqual((True, 0), (ended['reload']['hydrated'], ended['reload']['rawSubmits']))
+        self.assertEqual({'review': False, 'uncertain': False, 'retry': False}, result['reload']['view'])
+        self.assertTrue(result['afterWindow']['review'])
+        self.assertEqual(1, result['firstRawSubmits'])
+        # No re-claim, or a failing $.state: the reload still raw-submits
+        # nothing, because the durable submitting row fences it; the review is
+        # presented at once instead (a possible duplicate presentation if the
+        # first prompt later enters; the Work review path, not changed here).
+        for variant in ('skip', 'fails'):
+            control = self.run_scenario('prompt-key-clear', 'review:' + variant)
+            self.assertEqual({'registry': [], 'sameGeneration': False, 'pendingInFirst': True}, control['afterClear'])
+            self.assertEqual((False, 0), (control['reload']['hydrated'], control['reload']['rawSubmits']))
+            self.assertTrue(control['reload']['view']['review'])
 
     def test_prompt_liveness_table_for_review_side_wake_and_retry(self):
-        # visible: Stop gate (review) or pane retry (side wake, retry). The
-        # notice row of the table is test_side_intake_mod's
-        # test_release_notice_liveness_table.
+        # Review, side and retry payloads are appended and recorded before any
+        # prompt; each prompt is a wake that holds none. Prompt anomalies never
+        # change the durable delivery outcome.
         hidden = {'review': False, 'uncertain': False, 'retry': False}
-        for path in ('review', 'side', 'retry'):
-            visible = 'review' if path == 'review' else 'retry'
+        for condition in ('finite', 'anomaly', 'restart', 'reload'):
+            with self.subTest(path='review', condition=condition):
+                result = self.run_scenario('prompt-key-cell', 'review:' + condition)
+                self.assertEqual((1, ['parallel:L1'], 1), (result['issued']['submits'], result['issued']['registry'],
+                                                           result['issued']['live']))
+                # Issued and unresolved: hidden from Stop.
+                self.assertEqual(hidden, result['before'])
+                records = result['records']
+                self.assertEqual(['L1:appended'], records)
+                if condition in ('finite', 'anomaly'):
+                    self.assertEqual([], result['registry'])
+                    self.assertTrue(result['after']['review'])
+                    if condition == 'anomaly':
+                        self.assertEqual(['L1:appended'], result['second']['lateRecords'])
+                else:
+                    second = result['second']
+                    self.assertEqual(0, second['submits'])
+                    if condition == 'restart':
+                        self.assertEqual({'pending': False, 'live': 0}, second['hydrated'])
+                        self.assertTrue(second['before']['review'])
+                    else:
+                        self.assertEqual({'pending': True, 'live': 1}, second['hydrated'])
+                        self.assertEqual(hidden, second['before'])
+                        self.assertTrue(second['after']['review'])
+                        self.assertEqual([], second['registryAfterWindow'])
+        for path in ('side', 'retry'):
             for condition in ('finite', 'anomaly', 'restart', 'reload'):
                 with self.subTest(path=path, condition=condition):
                     result = self.run_scenario('prompt-key-cell', path + ':' + condition)
-                    key = 'parallel:L1' if path == 'review' else 'side:E1'
-                    label = 'L1' if path == 'review' else 'E1'
-                    self.assertEqual((1, [key], 1), (result['issued']['submits'], result['issued']['registry'],
-                                                     result['issued']['live']))
-                    # Issued and unresolved: hidden from Stop and the pane.
+                    issued = result['issued']
+                    # One append holds the payload; the one prompt holds none.
+                    self.assertEqual((1, 0, 1, ['wake:E1'], 1), (issued['appended'], issued['payloadPrompts'],
+                                                                 issued['submits'], issued['registry'], issued['live']))
                     self.assertEqual(hidden, result['before'])
-                    records = [r for r in result['records'] if not r.endswith(':retry')]
-                    if condition == 'finite':
-                        self.assertEqual([label + ':queued'], records)
-                        self.assertEqual([], result['registry'])
-                        self.assertEqual(path == 'review', result['after'][visible])
-                    elif condition == 'anomaly':
-                        # The idle window records uncertain and exposes it; the
-                        # late engine resolution records nothing more.
-                        outcome = label + ':uncertain'
-                        self.assertEqual([outcome], records)
-                        self.assertEqual([], result['registry'])
-                        self.assertTrue(result['after'][visible])
-                        if path != 'review':
-                            self.assertTrue(result['after']['uncertain'])
-                        self.assertEqual([r for r in result['second']['lateRecords'] if not r.endswith(':retry')], [outcome])
-                    else:
-                        second = result['second']
-                        self.assertEqual(0, second['submits'])
-                        if condition == 'restart':
-                            # Fresh process: no state, visible at once, nothing resolves later.
-                            self.assertEqual({'pending': False, 'live': 0}, second['hydrated'])
-                            self.assertTrue(second['before'][visible])
-                            self.assertEqual([], records)
-                        else:
-                            # Hot reload: hydrated and hidden until its idle window.
-                            self.assertEqual({'pending': True, 'live': 1}, second['hydrated'])
-                            self.assertEqual(hidden, second['before'])
-                            self.assertTrue(second['after'][visible])
-                            self.assertEqual([], second['registryAfterWindow'])
-                            # The old environment's late raw resolution reads the
-                            # terminal uncertain row the window wrote: never queued.
-                            self.assertEqual([label + ':uncertain'], records)
+                    # The wake is recorded appended once, whatever its prompt does.
+                    self.assertEqual(['E1:appended'], [r for r in result['records'] if not r.endswith(':retry')])
+                    self.assertEqual(('appended', False), (result['side']['state'], result['side']['delivery_uncertain']))
                     if path == 'retry':
                         self.assertEqual('E1:retry', result['records'][0])
+                    if condition == 'finite':
+                        # The prompt entered and started main's turn. Its queued
+                        # outcome is recorded first; the turn's first step then
+                        # records the read. The key is clear.
+                        calls = result['sideCalls']
+                        self.assertEqual('E1:read', calls[-1])
+                        self.assertLess(calls.index('E1:prompt_queued'), calls.index('E1:read'))
+                        self.assertEqual(([], hidden), (result['registry'], result['after']))
+                    elif condition == 'anomaly':
+                        # The idle window releases the wake prompt, not the wake.
+                        self.assertEqual(([], hidden), (result['registry'], result['after']))
+                        self.assertNotIn('E1:read', result['sideCalls'])
+                    else:
+                        second = result['second']
+                        self.assertEqual((hidden, hidden, 0), (second['before'], second['after'], second['payloadPrompts']))
+                        # The backend prompt lease survives both a new process
+                        # and a hot reload, so neither can add an outstanding
+                        # prompt while the first is unresolved.
+                        self.assertEqual(0, second['submits'])
 
     def test_pane_wake_retry_needs_confirmation_and_sends_redacted_fields(self):
         result = self.run_scenario('side-wake-pane-retry')
@@ -438,6 +566,137 @@ class WorkModWriteGateTests(unittest.TestCase):
                                                                     'revision', 'confirmed')})
         self.assertNotIn('attempt_id', retry)
         self.assertNotIn('owner_nonce', retry)
+        self.assertIs(True, retry['_host'].get('internal'))
+
+    def test_review_payload_reaches_a_changed_conversation_once_through_the_sidecar(self):
+        result = self.run_scenario('review-conversation-change')
+        # S1: appended once, one wake prompt, journal attempt recorded appended.
+        self.assertEqual({'appends': 1, 'prompts': 1, 'wake': 'appended'}, result['inS1'])
+        # S2 (conversation changed): the payload is re-appended exactly once and
+        # one wake-only prompt holds none of it, however often reviews project.
+        self.assertEqual({'appends': 1, 'prompts': 1, 'promptHasPayload': False}, result['inS2'])
+        # A second process already in S2 adds nothing.
+        self.assertEqual({'appends': 0, 'prompts': 0}, result['thirdProcess'])
+        calls = result['reviewCalls']
+        self.assertEqual(1, calls.count('L1:review_appended'))
+        self.assertEqual(1, calls.count('L1:review_reappend_appended'))
+        self.assertEqual(1, calls.count('L1:review_reappend_prepare'))
+        self.assertEqual('L1:review_read', calls[-1])
+        # The frozen journal saw one prepare/record only; its attempt is unchanged.
+        self.assertEqual((1, 'appended', 1), (result['prepares'], result['journal']['state'],
+                                              result['journal']['attempts']))
+
+    def test_every_review_wake_text_carries_the_projected_review_pin(self):
+        # Option 1 (team-lead): main decides with expected_review_pin, a
+        # read-time pin the router projects on each pending row and which the
+        # wake's own prepare/record writes do not stale. The first append and
+        # the changed-conversation re-append each carry exactly that pin.
+        result = self.run_scenario('review-wake-text-carries-review-pin')
+        self.assertEqual([result['pin']], result['first'])
+        self.assertEqual([result['pin']], result['moved'])
+        self.assertEqual(('appended', result['pin']), (result['wakeAfter'], result['pinAfter']))
+
+    def test_rows_stored_during_a_main_hook_are_fenced_when_it_returns_in_the_probe_order(self):
+        # Owned probe append-views-54579a2e (Claude Code 2.1.323): S, stored
+        # inside step 0's dispatch, was absent from request 1 and present in
+        # request 2 (L6/L7, result.json requests); B, stored inside a Stop
+        # dispatch, was in the continuation request (L9/L10). Plain messages()
+        # lists no append and messageCount (7, 12) matches no count (L5, L11),
+        # so the harness models both. A row stored before a main hook returns
+        # is in the next main request: read at the next main step, never later.
+        probe = self.run_scenario('causal-probe-order', 'probe')
+        self.assertEqual({'T': 1, 'wakePrompts': 1}, probe['issued'])
+        self.assertEqual((['T'], 1), (probe['afterStep0']['reads'], probe['afterStep0']['S']))
+        self.assertEqual((True, ['T'], 1), (probe['afterStop']['block'], probe['afterStop']['reads'],
+                                            probe['afterStop']['B']))
+        self.assertEqual(['T', 'S', 'B'], probe['afterStep1']['reads'])
+        self.assertEqual((0, 1), (probe['afterTurn']['wakePromptsAfterTurn'], probe['afterTurn']['promptPrepares']))
+        # Interrupted after step 1 (a tool-result continuation, no Stop between
+        # the steps or before the turn ends): S was stored before step 0
+        # returned, so step 1's request carried it and it needs no wake; B was
+        # stored during step 1's own dispatch, after its request was pinned, so
+        # no request carried it and exactly one wake prompt follows for it.
+        cut = self.run_scenario('causal-probe-order', 'interrupted')
+        self.assertEqual(['T', 'S'], cut['afterStep1']['reads'])
+        self.assertEqual((['T', 'S'], 1), (cut['afterTurn']['reads'], cut['afterTurn']['wakePromptsAfterTurn']))
+
+    def test_host_only_side_tools_are_refused_to_main_and_workers_and_reach_nothing(self):
+        # Measured before this gate (evidence/before/model-side-tool-probe.json):
+        # these calls reached the engine and the router, which refused them only
+        # for the missing host token. Now the mod refuses them before the engine.
+        result = self.run_scenario('host-only-side-tools')
+        for row in result['main'] + result['worker']:
+            with self.subTest(tool=row['tool']):
+                self.assertFalse(row['engineRan'])
+                self.assertIn('called only by the Ciel Work host itself', row['deny'])
+        # This module's own calls (pane retries, claims, records) still pass.
+        self.assertEqual({'tool': 'work_side_wake', 'deny': None, 'engineRan': True}, result['own'])
+        # Main's own acknowledgment is not a host-only tool.
+        self.assertEqual((['work_side_handoff'], None), (result['handoff']['routed'], result['handoff']['deny']))
+
+    def test_pane_reappend_retry_is_shown_only_for_an_uncertain_reappend_and_needs_confirmation(self):
+        result = self.run_scenario('side-reappend-pane-retry')
+        # Only the uncertain re-append is offered; a live submitting one is not.
+        self.assertEqual(1, result['buttons'])
+        self.assertEqual(1, len(result['labels']))
+        self.assertIn('q' * 11 + '…', result['labels'][0])
+        self.assertEqual(0, result['afterCancel'])
+        self.assertEqual(1, len(result['retries']))
+        retry = result['retries'][0]
+        self.assertEqual({'event_id': 'q' * 64, 'state': 'reappend_retry', 'reappend_ref': 'r' * 16, 'revision': 7,
+                          'confirmed': True},
+                         {key: retry[key] for key in ('event_id', 'state', 'reappend_ref', 'revision', 'confirmed')})
+        self.assertIs(True, retry['_host']['internal'])
+        self.assertFalse({'attempt_id', 'owner_nonce', 'conversation_id', 'receipt'} & set(retry))
+
+    def test_a_review_reappend_released_elsewhere_is_reappended_once_by_the_running_host(self):
+        result = self.run_scenario('review-reappend-released-elsewhere')
+        # The append threw: nothing stored, the lease is uncertain, nothing retried.
+        self.assertEqual({'appends': 0, 'lease': 'uncertain'}, result['stuck'])
+        self.assertEqual({'prepares': 1}, result['beforeRelease'])
+        # Released by a person elsewhere: the host asks again only after its
+        # bounded re-check, then re-appends exactly once.
+        self.assertEqual({'appends': 0, 'prepares': 1}, result['releasedBeforeRecheck'])
+        self.assertEqual({'appends': 1, 'prepares': 2, 'reappended': 1}, result['after'])
+
+    def test_pane_review_reappend_retry_is_shown_only_for_an_uncertain_one_and_needs_confirmation(self):
+        result = self.run_scenario('review-reappend-pane-retry')
+        self.assertEqual((1, ['Review re-append uncertain · L-stuck']), (result['buttons'], result['labels']))
+        self.assertEqual(0, result['afterCancel'])
+        self.assertEqual([{'event_id': 'L-stuck', 'state': 'review_reappend_retry', 'reappend_ref': 's' * 16,
+                           'confirmed': True, '_host': {'internal': True}}],
+                         [{key: retry[key] for key in ('event_id', 'state', 'reappend_ref', 'confirmed', '_host')}
+                          for retry in result['retries']])
+
+    def test_a_pane_retry_refused_by_the_host_gate_names_the_dashboard_and_rest(self):
+        # team-lead ruling (keep the router's internal-host gate): a refused pane
+        # retry must tell the person where else to retry.
+        result = self.run_scenario('pane-retry-refused-by-host-gate')
+        self.assertEqual(3, len(result['gate']), result)
+        for toast in result['gate']:
+            self.assertIn('Use the Work web dashboard Side tab or REST side-*-retry.', toast)
+        self.assertEqual(['Main wake', 'Release notice', 'Reply (retained state preserved)'],
+                         [toast.split(' retry refused')[0] for toast in result['gate']])
+        # Any other refusal keeps the plain message.
+        self.assertEqual(3, len(result['other']), result)
+        for toast in result['other']:
+            self.assertIn('retry not accepted; refresh and inspect.', toast)
+            self.assertNotIn('dashboard', toast)
+
+    def test_pane_notice_retry_is_shown_only_for_an_uncertain_notice_and_needs_confirmation(self):
+        result = self.run_scenario('side-notice-pane-retry')
+        self.assertEqual(1, result['buttons'])
+        self.assertEqual(1, len(result['labels']))
+        self.assertIn('u' * 11 + '…', result['labels'][0])
+        self.assertEqual(0, result['afterCancel'])
+        # With the exact attempt the pane showed (retry pins, team-lead defect 2).
+        self.assertEqual([{'event_id': 'u' * 64, 'state': 'notice_retry', 'confirmed': True,
+                           'attempt_ref': 'u' * 16, 'revision': 2}],
+                         [{k: retry.get(k) for k in ('event_id', 'state', 'confirmed', 'attempt_ref', 'revision')}
+                          for retry in result['retries']])
+        for retry in result['retries']:
+            self.assertFalse({'attempt_id', 'owner_nonce', 'receipt', 'text'} & set(retry))
+            self.assertIs(True, retry['_host'].get('internal'))
 
     def test_exact_side_fork_passes_work_spawn_gate_and_look_alike_is_denied(self):
         result = self.run_scenario('side-fork-authorized-before-work-gate')
@@ -490,14 +749,16 @@ class WorkModWriteGateTests(unittest.TestCase):
 
     def test_time_limit_handoff_keeps_bounded_deadline_and_evidence(self):
         result = self.run_scenario('side-time-limit-handoff-bounded')
-        for text in (result['context'], result['block']):
-            self.assertIn('"kind":"time_limit"', text)
-            self.assertIn('Complete before maintenance closes', text)
-            self.assertIn('2026-11-11T03:00:00Z', text)
-            self.assertIn('change ticket CHG-42', text)
-            self.assertIn('n9', text)
-            self.assertNotIn('SECRET-THREAD', text)
-            self.assertNotIn('SECRET-SSE', text)
+        text=result['context']
+        self.assertIn('"kind":"time_limit"', text)
+        self.assertIn('Complete before maintenance closes', text)
+        self.assertIn('2026-11-11T03:00:00Z', text)
+        self.assertIn('change ticket CHG-42', text)
+        self.assertIn('n9', text)
+        self.assertNotIn('SECRET-THREAD', text)
+        self.assertNotIn('SECRET-SSE', text)
+        self.assertIn('holds no event data',result['block'])
+        self.assertNotIn('change ticket CHG-42',result['block'])
 
     def test_owned_side_notification_is_consumed_before_main_queue(self):
         result = self.run_scenario('side-notification-isolation')
@@ -559,6 +820,9 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(1, len(result['retries']))
         self.assertTrue(result['retries'][0]['confirmed'])
         self.assertEqual('uncertain', result['retries'][0]['expected_state'])
+        # The exact attempt the pane showed (retry pins, team-lead defect 3).
+        self.assertEqual(('b' * 16, 2), (result['retries'][0].get('attempt_ref'), result['retries'][0].get('revision')))
+        self.assertIs(True, result['retries'][0]['_host'].get('internal'))
 
     def test_side_receipt_is_visible_in_mod_once(self):
         result = self.run_scenario('side-receipt-visible')
@@ -602,6 +866,37 @@ class WorkModWriteGateTests(unittest.TestCase):
         result = self.run_scenario("execute-during-edit")
         self.assertEqual(result["first"], "allow")
         self.assertTrue(result["second"].startswith(PLANNING), result)
+
+    # Blocker 5 mod half (lead ruling G6): M1 the host records the person's
+    # approval itself; M3 no credential in the result; M4 a model _host is never
+    # forwarded; M5 the dialog names who asked.
+    def test_approved_plan_is_recorded_by_the_host_with_an_attestation(self):
+        result = self.run_scenario("execute-approval-attested")
+        self.assertEqual([], result["engine"], "the model's own call must not go on")
+        self.assertEqual({"result": "Plan approved; Work is in the executing phase."}, result["result"])
+        self.assertEqual(1, len(result["executes"]))
+        sent = result["executes"][0]
+        self.assertEqual({"token": "host-token", "internal": True, "user_confirmed": True}, sent["_host"])
+        self.assertEqual((7, True, "claude:S1"), (sent["expected_version"], sent["user_confirmed"], sent["session_id"]))
+        self.assertFalse(result["resultHasToken"])
+        self.assertEqual(["Approve this Work plan?", "", "Requested by: main"], result["asked"][0])
+
+    def test_dialog_names_the_subagent_that_asked(self):
+        result = self.run_scenario("execute-approval-attested", "Approve", "a1b2c3")
+        self.assertEqual("Requested by: subagent a1b2c3", result["asked"][0][2])
+
+    def test_declined_approval_records_nothing(self):
+        result = self.run_scenario("execute-approval-attested", "Keep planning")
+        self.assertEqual(([], []), (result["engine"], result["executes"]))
+        self.assertEqual({"deny": "Work plan not approved; keep planning."}, result["result"])
+
+    def test_auto_approval_forwards_without_model_flags(self):
+        result = self.run_scenario("execute-auto-forwards-clean")
+        self.assertEqual(1, len(result["engine"]))
+        forwarded = result["engine"][0]
+        self.assertNotIn("_host", forwarded)
+        self.assertNotIn("user_confirmed", forwarded)
+        self.assertEqual("claude:S1", forwarded["session_id"])
 
     def test_planning_still_denies_every_concurrent_write(self):
         result = self.run_scenario("concurrent-planning")
@@ -697,6 +992,25 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn("Work 미결 아이템 탐색", result["text"])
         self.assertNotIn("focus only", result["text"])
 
+    def test_b2_router_owner_process_gates_recovery_adoption_and_restart(self):
+        # R2 B2 (backend mcp 9aeeb289; lead rulings: paths 2/4 act on own or gone
+        # only; ruling D: path 3 holds only other_live). The fake router models
+        # the B2 router; the restart-recovery tests above model a pre-B2 router.
+        # (recovery sends to L1, turn-end reconciles of adopted leases L1+L2, restart_submitted for L2)
+        expected = {"own": (1, 2, 1), "gone": (1, 2, 1), "unknown": (0, 0, 1), "other_live": (0, 0, 0)}
+        for owner, (recovery, reconciles, restart) in expected.items():
+            with self.subTest(owner=owner):
+                result = self.run_scenario("parallel-owner-process-b2", owner)
+                self.assertEqual((recovery, reconciles, restart),
+                                 (result["recovery"], result["turnReconciles"], result["restart"]), result)
+                self.assertEqual(1, len(result["hosts"]), result)
+                self.assertTrue(result["hosts"][0].startswith("HOSTS: live "), result)
+
+    def test_pre_b2_router_status_says_cross_process_protection_is_inactive(self):
+        # Lead ruling (1): a status without session_attachments is a pre-B2 router.
+        result = self.run_scenario("parallel-rework-launch", "same-no-row")
+        self.assertIn("HOSTS: router predates B2 ownership; cross-process protection inactive", result["shown"])
+
     def test_parent_restart_rebinds_durable_worker_without_marking_it_idle(self):
         result = self.run_scenario("parallel-restart-rebind")
         self.assertEqual(result["result"], "allow", result)
@@ -741,7 +1055,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn("Work forks confirmed by native agent list: 2", " ".join(result["logs"]))
 
     def test_work_parallel_run_starts_fork_without_model_agent_call(self):
-        result = self.run_scenario("parallel-direct-spawn-started")
+        result = self.lifecycle(self.run_scenario("parallel-direct-spawn-started"))
         self.assertEqual(result["run"]["dispatch"], "started")
         self.assertEqual(result["run"]["agent_id"], "host-9")
         self.assertEqual(result["run"]["lease_id"], "L9")
@@ -751,8 +1065,28 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn("work_parallel_report", result["spawned"]["prompt"])
         self.assertEqual([call["event"] for call in result["calls"]], ["reserve", "bind"])
 
+    def test_gate_presence_probe_reaches_the_gate_while_work_is_planning_or_executing(self):
+        # Real CC 2.1.323 runs this query through ciel-work's own tool.check
+        # before the separate gate. The board phase must not change presence.
+        for phase in ("planning", "executing"):
+            with self.subTest(phase=phase):
+                result = self.run_scenario("fork-gate-probe-through-own-check", phase)
+                self.assertGreaterEqual(len(result["reachedGate"]), 1, result)
+                self.assertGreaterEqual(result["reports"], 1, result)
+
+    def test_first_spawn_reports_the_gate_presence_once(self):
+        # G5 (backend 9a852b08): display only. The live probe answered, so the
+        # report says loaded, version 1, with the single-use probe nonce, as a
+        # host-internal event; one report per module, not one per probe.
+        calls = self.run_scenario("parallel-direct-spawn-started")["calls"]
+        reports = [call for call in calls if call.get("event") == "gate_presence"]
+        self.assertEqual(1, len(reports), calls)
+        self.assertEqual(("loaded", "1", True), (reports[0]["state"], reports[0]["gate_version"],
+                                                 reports[0]["_host"]["internal"]))
+        self.assertRegex(reports[0]["probe_ref"], r"^[0-9a-f]{32}$")
+
     def test_direct_spawn_through_own_hook_reserves_once_and_starts(self):
-        result = self.run_scenario("parallel-direct-spawn-through-own-hook")
+        result = self.lifecycle(self.run_scenario("parallel-direct-spawn-through-own-hook"))
         # Owned run 2026-11-09: the hook reserved the same item again, the router
         # refused it, and the fork never started at any cap.
         self.assertEqual(["reserve", "bind"], result["calls"])
@@ -761,7 +1095,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn('"lease_id":"L9"', result["spawned"]["prompt"])
 
     def test_work_parallel_run_spawn_denial_releases_and_keeps_item(self):
-        result = self.run_scenario("parallel-direct-spawn-denied-releases")
+        result = self.lifecycle(self.run_scenario("parallel-direct-spawn-denied-releases"))
         self.assertEqual(result["run"]["dispatch"], "spawn_denied")
         self.assertTrue(result["run"]["item_kept"])
         self.assertEqual([call["event"] for call in result["calls"]], ["reserve", "release"])
@@ -777,7 +1111,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         # "unknown conversation lease"), as Kobi's transcript shows.
 
     def test_session_start_retains_unknown_reserved_and_keeps_bound_worker(self):
-        result = self.run_scenario("parallel-session-start-releases-orphan-reserved")
+        result = self.lifecycle(self.run_scenario("parallel-session-start-releases-orphan-reserved"))
         self.assertEqual(result["calls"], [])
         self.assertIn("L1", result["leases"])
         self.assertIn("L2", result["leases"])
@@ -846,14 +1180,14 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual("running", result["lease"]["state"])
 
     def test_second_missing_exit_salvages_before_stop(self):
-        result = self.run_scenario("parallel-second-missing-exit-salvages-before-stop")
+        result = self.lifecycle(self.run_scenario("parallel-second-missing-exit-salvages-before-stop"))
         self.assertEqual(["host_salvage", "unreported"],
                          [event for event in result["calls"] if event != "native_observation"], result)
         self.assertEqual({"tool": "TaskStop", "task_id": "agent-old"}, result["tools"][0])
         self.assertEqual("unreported", result["lease"]["state"])
 
     def test_spawn_denial_releases_unbound_reservation(self):
-        result = self.run_scenario("parallel-spawn-denied-releases-unbound")
+        result = self.lifecycle(self.run_scenario("parallel-spawn-denied-releases-unbound"))
         events = [call["event"] for call in result["calls"]]
         self.assertEqual(events, ["reserve", "release"])
         self.assertEqual(result["calls"][1]["lease_id"], "L9")
@@ -872,7 +1206,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn("parallel ledger unavailable", self.run_scenario("parallel-error-text")["error"])
 
     def test_waiting_worker_releases_slot_and_resume_reacquires_it(self):
-        result = self.run_scenario("parallel-waiting-releases-slot-and-sendmessage-reacquires")
+        result = self.lifecycle(self.run_scenario("parallel-waiting-releases-slot-and-sendmessage-reacquires"))
         self.assertFalse(result["afterWait"]["slot"])
         self.assertEqual("wait", result["afterWait"]["calls"][0])
         self.assertIn("native_observation", result["afterWait"]["calls"])
@@ -908,10 +1242,12 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual([], result["spawned"], result)
         self.assertNotIn("reserve:reviewer", result["events"])
         self.assertNotIn("reserve", result["events"])
-        # Idle main: one durable prompt wake, never repeated for the same review.
-        self.assertEqual([], result["appended"])
+        # Idle main: payload appended once; the one prompt is wake-only and never
+        # repeated for the same review.
+        self.assertEqual(1, len(result["appended"]))
         self.assertEqual(1, len(result["submitted"]), result)
-        wake = result["submitted"][0]
+        wake = result["appended"][0]["message"]["content"][0]["text"]
+        self.assertNotIn('"lease_id"', result["submitted"][0])
         for expected in ('"lease_id":"L1"', "n2", "Fix retry", "Goal", "retry fixed", "unit tests 12 passed",
                          "C:/w/wt-n2", "work/n2", "abc123", "src/retry.py", "d" * 64, "a" * 64,
                          '"expected_finalization_version":4', "work_parallel_item_review"):
@@ -935,7 +1271,7 @@ class WorkModWriteGateTests(unittest.TestCase):
 
     def test_durable_review_wake_records_idle_and_busy_delivery(self):
         idle = self.run_scenario("parallel-review-durable-wake", "idle")
-        self.assertEqual((1, 0, "queued"), (len(idle["prompts"]), len(idle["appended"]), idle["wakeState"]))
+        self.assertEqual((1, 1, "appended"), (len(idle["prompts"]), len(idle["appended"]), idle["wakeState"]))
         self.assertEqual(["prepare", "record"], [row["operation"] for row in idle["calls"] if row.get("event") == "review_wake"])
         busy = self.run_scenario("parallel-review-durable-wake", "busy")
         self.assertEqual((0, 1, "appended"), (len(busy["prompts"]), len(busy["appended"]), busy["wakeState"]))
@@ -952,7 +1288,8 @@ class WorkModWriteGateTests(unittest.TestCase):
     def test_failed_review_wake_is_prepared_and_recorded_once(self):
         result = self.run_scenario("parallel-review-durable-wake", "failed")
         self.assertEqual(1, len(result["prompts"]), result)
-        self.assertEqual("queued", result["wakeState"])
+        self.assertEqual(1, len(result["appended"]), result)
+        self.assertEqual("appended", result["wakeState"])
         self.assertEqual(["prepare", "record"], [row["operation"] for row in result["calls"] if row.get("event") == "review_wake"])
 
     def test_pump_rolls_forward_only_stored_blocked_decisions(self):
@@ -962,6 +1299,12 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn("Rework (waiting for slot)", result["shown"])
         self.assertIn("blocked paused: dispatch paused", result["shown"])
         self.assertIn("blocked stage_failed", result["shown"])
+
+    def test_idle_refresh_rolls_forward_review_added_without_board_change(self):
+        result = self.run_scenario("parallel-idle-roll-forward")
+        self.assertEqual(1000, result["idleDelay"], result)
+        self.assertEqual(5, result["boardVersion"], result)
+        self.assertEqual(["LA"], result["rolled"], result)
 
     def test_stop_rereads_and_holds_pending_review_until_explicit_decision(self):
         result = self.run_scenario("parallel-review-stop-gate")
@@ -997,7 +1340,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual([], result["events"])
 
     def test_rework_decision_starts_resume_fork_from_retained_workspace(self):
-        result = self.run_scenario("parallel-rework-dispatch-started")
+        result = self.lifecycle(self.run_scenario("parallel-rework-dispatch-started"))
         # Hydration reads the host launch view for the unbound resume lease, then the pump does.
         self.assertEqual(["rework_launch_status", "rework_launch_status", "rework_dispatch", "rework_launch_intent",
                           "rework_spawn_observed", "bind", "reserve_next"],
@@ -1044,7 +1387,13 @@ class WorkModWriteGateTests(unittest.TestCase):
         # The established nonce reached the router on every launch fact that carries one.
         self.assertTrue(result["nonceSent"])
         self.assertEqual(["rework_launch_status", "rework_launch_absent", "rework_launch_status", "rework_launch_intent"],
-                         result["routerNonceEvents"])
+                         [event for event in result["routerNonceEvents"] if str(event).startswith("rework_")])
+        # R2 B2 contract (backend mcp 9aeeb289; lead ruling: targeted hostProcess
+        # on backend's list): the host status read (no event), reserve_next and
+        # native_observation carry the same nonce too.
+        self.assertIn(None, result["routerNonceEvents"])
+        self.assertIn("reserve_next", result["routerNonceEvents"])
+        self.assertIn("native_observation", result["routerNonceEvents"])
 
     def test_same_process_unlisted_launch_is_stuck_until_a_person_resolves_it(self):
         result = self.run_scenario("parallel-rework-launch", "same-no-row")

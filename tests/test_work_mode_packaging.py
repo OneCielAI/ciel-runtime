@@ -34,8 +34,21 @@ class WorkModePackagingTests(unittest.TestCase):
     def test_packaged_mod_dir_yields_plugin_dir_argument(self):
         self.assertEqual(
             w.claude_work_mode_args({}, native=False, router_mcp_attached=True),
-            ["--plugin-dir", str(w.CLAUDE_MOD_DIR)],
+            ["--plugin-dir", str(w.CLAUDE_MOD_DIR), "--plugin-dir", str(w.CLAUDE_GATE_DIR)],
         )
+
+    def test_fork_gate_is_packaged_beside_the_work_mod(self):
+        relative = w.CLAUDE_GATE_DIR.relative_to(ROOT).as_posix()
+        self.assertEqual(relative, MODS_ENTRY + w.CLAUDE_GATE_NAME)
+        manifest = w.CLAUDE_GATE_DIR / ".claude-plugin" / "plugin.json"
+        hooks = w.CLAUDE_GATE_DIR / "hooks" / "hooks.json"
+        register = w.CLAUDE_GATE_DIR / "hooks" / "register.js"
+        for path in (manifest, hooks, register):
+            self.assertTrue(path.is_file(), path)
+        self.assertEqual(json.loads(manifest.read_text(encoding="utf-8"))["name"], w.CLAUDE_GATE_NAME)
+        # The loader refuses a second hooks module in one plugin.
+        self.assertEqual(["./register.js"], json.loads(hooks.read_text(encoding="utf-8"))["modules"])
+        self.assertIn("export function register(", register.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

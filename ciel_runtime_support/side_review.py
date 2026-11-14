@@ -41,7 +41,17 @@ def delivery_state(inbox, receipt_id):
 def with_delivery(rows, state_dir, identity):
     from .side_intake_inbox import SideIntakeInbox
     inbox = SideIntakeInbox(state_dir, identity)
-    return [{**row, 'delivery': delivery_state(inbox, row.get('receipt_id'))} for row in rows]
+    return [{**row, 'delivery': delivery_state(inbox, row.get('receipt_id')), **reply_pins(inbox, row.get('receipt_id'))} for row in rows]
+
+
+def reply_pins(inbox, receipt_id):
+    """The reply retry pins of one review row (side_reply_outbox.retry_pin)."""
+    from .side_reply_outbox import retry_pin
+    try:
+        row = inbox._load(receipt_id) if isinstance(receipt_id, str) else None
+    except (tree.WorkPlanError, OSError, ValueError):
+        return {}
+    return retry_pin(row) if row and row.get('stage') == 'processed' else {}
 
 
 def review(store, receipt_ids, *, verdict, note, expected_version):

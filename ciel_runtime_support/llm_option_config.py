@@ -328,23 +328,22 @@ def set_llm_option_config(
     return [f"{PROVIDER_LABELS.get(provider, provider)} option updated.", f"{key}: {value}", *cap_lines, *timeout_lines]
 
 
-_WORK_MODE_BOOL_WORDS = ("on", "true", "yes", "1", "enable", "enabled", "off", "false", "no", "0", "disable", "disabled")
-
-
 def set_work_mode_option(cfg: dict[str, Any], key: str, value: str, parse_bool, save_config) -> list[str]:
+    # The accepted words are defined once in work_setting_values and shared by
+    # the menu, /work-mode settings, REST settings_update and ciel-runtimectl.
     from .recent_menu_text import menu_text, state_text
+    from .work_setting_values import SettingValueError, switch
     language = cfg.get("language", "en")
-    normalized = value.strip().lower()
-    if key == WORK_PLAN_APPROVAL_ASK_KEY:
-        normalized = {"ask": "true", "ask user": "true", "auto": "false"}.get(normalized, normalized)
-    if normalized in ("default", "unset", "none", "null"):
-        cfg.pop(key, None)
-    elif normalized in _WORK_MODE_BOOL_WORDS:
-        cfg[key] = parse_bool(normalized, default=key != WORK_PLAN_APPROVAL_ASK_KEY)
-    else:
+    try:
+        enabled = switch(value, approval=key == WORK_PLAN_APPROVAL_ASK_KEY)
+    except SettingValueError:
         separator = " or " if language == "en" else " / "
         choices = separator.join(("ask", "auto") if key == WORK_PLAN_APPROVAL_ASK_KEY else ("on", "off"))
         return [menu_text("enter_work_value", language, choices=choices)]
+    if enabled is None:
+        cfg.pop(key, None)
+    else:
+        cfg[key] = enabled
     save_config(cfg)
     if key == WORK_COMPLETED_AUTO_DELETE_KEY:
         label = "on" if retention_enabled(cfg) else "off"

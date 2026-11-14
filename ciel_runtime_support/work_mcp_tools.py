@@ -369,8 +369,11 @@ def dispatch_work_tool(
                     raise tree.WorkPlanError("boolean enabled and writable configuration required")
                 settings.update(enabled=args["enabled"], type="btw_with_mcp")
                 save_config({**config, "work_side_intake": settings})
+            from .work_setting_values import injection_mode
+            stored = settings.get("type")
             return respond(request_id, json.dumps({"enabled": settings.get("enabled") is True,
-                                                  "type": "btw_with_mcp"}))
+                                                  "type": stored if isinstance(stored, str) and stored else "btw_with_mcp",
+                                                  "sse_injection_mode": injection_mode({"work_side_intake": settings})}))
         if name == 'work_side_status':
             from .work_parallel_mcp import host_context
             from .side_intake_inbox import SideIntakeInbox
@@ -394,7 +397,19 @@ def dispatch_work_tool(
                     'needs_ack_retry': wake.get('needs_ack_retry') is True,
                     'wake_age_seconds': max(0, int(now - float(wake.get('requested_at') or row.get('requested_at') or now)))})
             inbox = SideIntakeInbox(state_dir, identity)
+            # Delivery state of this session's undecided parallel reviews, the
+            # same bounded view as REST /side (Side pane re-append release).
+            try:
+                from .review_delivery import ReviewDeliveryStore, public_view
+                from .work_parallel_mcp import finalization
+                journal = finalization()
+                leases = [key for key, row in (journal.read().get('reviews') or {}).items()
+                          if isinstance(row, dict) and row.get('scope') == identity and row.get('decision') is None]
+                review_delivery = public_view(ReviewDeliveryStore.beside(journal), leases, identity)
+            except (OSError, ValueError, tree.WorkPlanError):
+                review_delivery = {'available': False, 'rows': [], 'truncated': False}
             return respond(request_id, json.dumps({'enabled': config.get('work_side_intake', {}).get('enabled') is True,
+                'review_delivery': review_delivery,
                 'side_inbox_receipts': inbox.summaries(),
                 # Events whose completed side turn returned an invalid decision:
                 # never retried (a reply may already have been sent), so count them.

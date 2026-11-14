@@ -158,11 +158,11 @@ class WorkSessionStore:
         return self.store_factory(self._snapshot_path(), log=self.log).read_snapshot()
 
     def transaction(self, mutate: Any, *, expected_version: int | None = None,
-                    semantic: bool = True) -> Any:
+                    semantic: bool = True, audit_only: bool = False) -> Any:
         notifications = []
         with exclusive_file_lock(self.lock):
             result = self.store_factory(resolve_work_path(self.root, self.identity, self.store_factory), log=self.log).transaction(
-                mutate, expected_version=expected_version, semantic=semantic,
+                mutate, expected_version=expected_version, semantic=semantic, audit_only=audit_only,
                 _deferred_notifications=notifications)
         for notification in notifications:
             self.notify(*notification)

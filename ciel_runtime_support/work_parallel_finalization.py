@@ -18,7 +18,7 @@ import uuid
 from pathlib import Path
 
 from .channel_message_repository import exclusive_file_lock
-from .work_parallel import (WorkParallelConflict, WorkParallelError, digest,
+from .work_parallel import (WorkParallelConflict, WorkParallelError, WorkParallelStateUnavailable, digest,
                             integer, number, require, text, unique_object)
 
 MAX_BYTES = 2_097_152
@@ -45,6 +45,32 @@ def canonical_digest(value):
     raw = json.dumps(value, ensure_ascii=False, allow_nan=False, sort_keys=True,
                      separators=(",", ":")).encode("utf-8")
     return hashlib.sha256(raw).hexdigest()
+
+
+REVIEW_PIN_PREFIX = "rp1:"
+REVIEW_PIN = re.compile(r"rp1:[0-9a-f]{64}\Z")
+
+
+def review_pin(row):
+    """Per-review semantic pin, derived from canonical JSON and never persisted.
+
+    Exclusions are minimal and justified for an *undecided* row:
+    - wake: notification delivery bookkeeping; no reviewed result fact changes;
+    - launch: always state=none, attempt=0 and empty audit while decision is
+      None (the validator enforces that), so any write there would be rejected;
+      after a decision the expected pin no longer authorizes a first decision;
+    - updated_at: bookkeeping time moved by wake delivery alone.
+    Every scope/item/lease/generation/artifact/receipt, approval fingerprint,
+    workspace snapshot and decision/stage field remains in the digest.
+    """
+    require(type(row) is dict, "review pin row")
+    semantic = {key: copy.deepcopy(value) for key, value in row.items()
+                if key not in ("wake", "launch", "updated_at")}
+    return REVIEW_PIN_PREFIX + canonical_digest(semantic)
+
+
+def review_pin_valid(value):
+    return isinstance(value, str) and REVIEW_PIN.fullmatch(value) is not None
 
 
 def decision_digest(lease_id, decision, evidence, findings=None, rework_instructions=None):
@@ -75,6 +101,18 @@ def _workspace(value):
             "review diff stat")
     require(digest(value["snapshot_digest"]) and digest(value["receipt_digest"]),
             "review snapshot digest")
+
+
+def _same_snapshot(prior, current):
+    """Whether two review workspace values describe one observed snapshot.
+
+    The digests cover the changed names and their count. Builds up to beta
+    57dbfb3 listed the first name of an unstaged tracked change without its
+    first character, so a row they published differs from a fresh observation of
+    the same worktree in those two display values only.
+    """
+    return all(prior[key] == current[key] for key in prior
+               if key not in ("changed_files", "changed_files_total"))
 
 
 def _wake(value, *, decision):
@@ -296,13 +334,14 @@ class WorkParallelFinalizationStore:
                 raw = handle.read(MAX_BYTES + 1)
         except FileNotFoundError:
             return empty_state()
-        require(len(raw) <= MAX_BYTES, "finalization byte limit")
+        if len(raw) > MAX_BYTES:
+            raise WorkParallelStateUnavailable("finalization byte limit")
         try:
             state = _migrate(json.loads(raw.decode("utf-8"), object_pairs_hook=unique_object))
             validate(state)
             return state
         except (UnicodeDecodeError, ValueError, TypeError, KeyError, OverflowError, RecursionError) as error:
-            raise WorkParallelError("corrupt Work finalization state; writes blocked") from error
+            raise WorkParallelStateUnavailable("corrupt Work finalization state; writes blocked") from error
 
     def read(self):
         if not self.path.exists():
@@ -355,21 +394,48 @@ class WorkParallelFinalizationStore:
             if prior is not None:
                 immutable = ("scope", "item_id", "root_id", "priority", "plan_version", "generation",
                              "artifact", "completion_receipt", "fingerprint", "summary", "coverage",
-                             "verification", "workspace")
-                require(all(prior[key] == row[key] for key in immutable), "completion review facts changed")
+                             "verification")
+                require(all(prior[key] == row[key] for key in immutable),
+                        "completion review facts changed")
+                require(_same_snapshot(prior["workspace"], row["workspace"]),
+                        "completion review facts changed")
                 return prior
             require(len(state["reviews"]) < MAX_REVIEWS, "finalization review bound")
             state["reviews"][row["lease_id"]] = row
             return row
         return self._change(apply, expected_version)
 
+    def remove_undecided(self, lease_id, *, row_digest, expected_version):
+        """Remove one exact undecided row; the sidecar holds the authoritative audit.
+
+        Deleting an undecided row is a state every reader through 57dbfb3
+        already accepts; no field or state is added. The caller passes the
+        canonical digest of the exact row it captured. A changed row is a
+        conflict; an absent row is reported, never treated as this removal.
+        """
+        require(text(lease_id, 200) and digest(row_digest), "legacy review removal")
+        def apply(state):
+            row = state["reviews"].get(lease_id)
+            if row is None:
+                return "absent"
+            if canonical_digest(row) != row_digest:
+                raise WorkParallelConflict("legacy review changed since capture; reread")
+            require(row["decision"] is None and row["state"] == "pending",
+                    "only an undecided review may be removed")
+            del state["reviews"][lease_id]
+            return "removed"
+        return self._change(apply, expected_version)
+
     def decide(self, lease_id, decision, decision_id, evidence, *, decision_body_digest,
-               expected_version, replacement_lease_id=None):
+               expected_version, replacement_lease_id=None, expected_review_pin=None):
         require(decision in ("approve", "rework") and text(decision_id, 200)
                 and text(evidence, 2_000) and digest(decision_body_digest), "review decision")
         def apply(state):
             row = state["reviews"].get(lease_id)
             require(row is not None, "result is not pending main review")
+            if row["decision"] is None and expected_review_pin is not None:
+                require(review_pin_valid(expected_review_pin) and review_pin(row) == expected_review_pin,
+                        "review changed; reread")
             if row["decision"] is not None:
                 require(row["decision"] == decision and row["decision_id"] == decision_id
                         and row["decision_digest"] == decision_body_digest,
@@ -630,9 +696,12 @@ class WorkParallelFinalizationStore:
             return copy.deepcopy(launch)
         return self._change(apply, expected_version)
 
-    def launch_bound(self, replacement_lease_id, agent_id, agent_name=None, *, expected_version):
+    def launch_bound(self, replacement_lease_id, agent_id, agent_name=None, *,
+                     handoff_drift="unknown", expected_version):
         """Bind is itself a positive host observation of the exact named agent."""
         require(text(agent_id, 200), "bound agent")
+        require(handoff_drift in (True, False, "unknown", "not_applicable"),
+                "handoff drift result")
         def apply(state):
             row = next((value for value in state["reviews"].values()
                         if value.get("replacement_lease_id") == replacement_lease_id), None)
@@ -649,8 +718,12 @@ class WorkParallelFinalizationStore:
             named = (source == "launch_intent" and agent_name is not None
                      and launch["dispatch_name"] == agent_name)
             require(observed or named, "rework launch was not observed for this agent")
-            launch.update(state="bound", agent_id=agent_id, launch_ref=None, manual_from=None,
-                          updated_at=time.time())
+            token = "handoff_drift=" + (str(handoff_drift).lower()
+                                           if type(handoff_drift) is bool else handoff_drift)
+            prior = launch.get("proof") or ""
+            proof = (prior[:max(0, 500 - len(token) - 2)] + "; " if prior else "") + token
+            launch.update(state="bound", agent_id=agent_id, proof=proof,
+                          launch_ref=None, manual_from=None, updated_at=time.time())
             row["updated_at"] = time.time()
             return copy.deepcopy(launch)
         return self._change(apply, expected_version)

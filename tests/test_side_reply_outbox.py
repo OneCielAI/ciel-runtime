@@ -46,12 +46,17 @@ class SideReplyTests(unittest.TestCase):
             self.assertEqual('uncertain', result['result']['delivery'])
             self.assertNotIn('arguments', prepare(root, 'claude:test', key))
             from ciel_runtime_support.side_reply_outbox import retry
-            with self.assertRaises(Exception):
-                retry(root, 'claude:test', key, 'uncertain')
-            with self.assertRaises(Exception):
-                retry(root, 'claude:test', key, 'submitted', confirmed=True)
-            retried = retry(root, 'claude:test', key, 'uncertain', confirmed=True)
-            self.assertEqual('pending', retried['result']['delivery'])
+            from ciel_runtime_support.side_wake import attempt_ref
+            # The exact attempt (retry pins): a late replay cannot resend another one.
+            pins = {'attempt_ref': attempt_ref(first['attempt_id']), 'revision': 0}
+            with self.assertRaisesRegex(Exception, 'duplicate-send confirmation'):
+                retry(root, 'claude:test', key, 'uncertain', **pins)
+            with self.assertRaisesRegex(Exception, 'side delivery changed'):
+                retry(root, 'claude:test', key, 'submitted', confirmed=True, **pins)
+            retried = retry(root, 'claude:test', key, 'uncertain', confirmed=True, **pins)
+            # The public receipt row (as GET /side lists it), never the raw record.
+            self.assertEqual('pending', retried['delivery'])
+            self.assertNotIn('original', retried)
             self.assertEqual(key, pending(root, 'claude:test')[0]['receipt_id'])
             second = prepare(root, 'claude:test', key)
             self.assertIn('arguments', second)
@@ -147,7 +152,7 @@ class SideReplyTests(unittest.TestCase):
             finish(root,'claude:test',row['receipt_id'],leased['generation'],{'reply':'answer'})
             self.assertEqual('route_unavailable',prepare(root,'claude:test',row['receipt_id'])['state'])
             from ciel_runtime_support.side_reply_outbox import retry
-            self.assertEqual('pending', retry(root,'claude:test',row['receipt_id'],'route_unavailable')['result']['delivery'])
+            self.assertEqual('pending', retry(root,'claude:test',row['receipt_id'],'route_unavailable',revision=0)['delivery'])
             self.assertEqual('route_unavailable',prepare(root,'claude:test',row['receipt_id'])['state'])
 
     def test_external_event_answered_by_the_side_ai_through_mcp_is_side_mcp(self):
@@ -166,8 +171,8 @@ class SideReplyTests(unittest.TestCase):
                 if expected == 'side_mcp':
                     from ciel_runtime_support.side_reply_outbox import retry
                     from ciel_runtime_support.work_plan_tree import WorkPlanError
-                    with self.assertRaises(WorkPlanError):
-                        retry(root,'claude:test',row['receipt_id'],'side_mcp')
+                    with self.assertRaisesRegex(WorkPlanError, 'cannot be retried'):
+                        retry(root,'claude:test',row['receipt_id'],'side_mcp',revision=0)
 
     def test_resolve_keeps_only_reported_mcp_tool_names(self):
         from ciel_runtime_support.work_mcp_tools import dispatch_work_tool

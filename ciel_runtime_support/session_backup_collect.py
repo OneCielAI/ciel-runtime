@@ -493,7 +493,8 @@ class SessionCollector:
             return True
         if root in ("ciel", "ciel_ws") and name.endswith(CIEL_SECRET_SUFFIXES):
             return True
-        return root == "ciel_ws" and name in ("router-external-token", "remote-bridge-token")
+        return root == "ciel_ws" and name in (
+            "router-external-token", "remote-bridge-token", "work-p0-assignment.key")
 
     def add_tree(self, root: str, base: Path, *, skip_dirs: set[str] = frozenset(), excludes: tuple[str, ...] = (),
                  skip_top: set[str] = frozenset(), skip_worktrees: bool = False) -> None:

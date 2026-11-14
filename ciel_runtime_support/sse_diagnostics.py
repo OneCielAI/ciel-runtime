@@ -91,7 +91,8 @@ def response_shape(response: Any) -> dict:
     if isinstance(diagnostic, dict):
         states = {"armed", "committed", "reopened"}
         reasons = {"accepted", "read_failure_with_prefix", "eof", "multiple_frames", "trailing_bytes",
-                   "unrecognized_frame", "terminal_verdict", "budget_exhausted", "reopen_http_error", "byte_bound"}
+                   "unrecognized_frame", "non_error_frame", "terminal_verdict", "budget_exhausted",
+                   "reopen_http_error", "byte_bound"}
         state, reason = diagnostic.get("state"), diagnostic.get("reason")
         result["preoutput"] = {
             "state": state if isinstance(state, str) and state in states else "other",

@@ -17,8 +17,11 @@ from .sandbox_profile import apply_sandbox_profile
 from .test_isolation_guard import loose_test_entrypoint, path_within
 from .web_endpoints import apply_startup_web_options, load_saved_web_backend
 from .workspace_router_selection import (
+    CLI_ENTRYPOINT,
     release_workspace_router_launch_lease,
+    resolve_workspace_router_port,
     select_workspace_router_port,
+    takes_launch_lease,
     workspace_digest,
     workspace_identity,
 )
@@ -170,15 +173,27 @@ WORKSPACE_ROUTER_REGISTRY_PATH = CONFIG_DIR / "workspace-router-ports.json"
 # Selection runs at import, before any router log exists. Launches replay the
 # measured duration as one launch_phase_end line (there is no start line).
 _router_port_selection_started = time.monotonic()
-ROUTER_PORT = select_workspace_router_port(
-    _BASE_ROUTER_PORT,
-    Path.cwd(),
-    os.environ,
-    registry_path=WORKSPACE_ROUTER_REGISTRY_PATH,
-)
+# Only launch/serve paths take the startup lease; ctl commands that neither
+# launch nor serve resolve the same port read-only (workspace_router_selection).
+_TAKES_LAUNCH_LEASE = takes_launch_lease(sys.argv)
+try:
+    ROUTER_PORT = (select_workspace_router_port if _TAKES_LAUNCH_LEASE else resolve_workspace_router_port)(
+        _BASE_ROUTER_PORT,
+        Path.cwd(),
+        os.environ,
+        registry_path=WORKSPACE_ROUTER_REGISTRY_PATH,
+    )
+except RuntimeError as _selection_error:
+    # The ciel_runtime.py command line reports a refused launch on one line
+    # (exit 1), not as an import traceback. Library importers still get the error.
+    if sys.argv and Path(str(sys.argv[0])).name.lower() == CLI_ENTRYPOINT:
+        sys.stderr.write(f"ciel-runtime: {_selection_error}\n")
+        raise SystemExit(1) from None
+    raise
 ROUTER_PORT_SELECTION_ELAPSED_MS = int(max(0.0, time.monotonic() - _router_port_selection_started) * 1000)
 ROUTER_PORT_SELECTION_RESULT = (
-    "explicit" if str(os.environ.get("CIEL_RUNTIME_ROUTER_PORT") or "").strip() else "selected"
+    "explicit" if str(os.environ.get("CIEL_RUNTIME_ROUTER_PORT") or "").strip()
+    else "selected" if _TAKES_LAUNCH_LEASE else "resolved"
 )
 
 

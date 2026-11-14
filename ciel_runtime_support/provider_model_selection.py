@@ -359,11 +359,15 @@ class ProviderModelSelection:
         requested = self.identity.strip_context_suffix(requested)
         fallback = self.identity.normalize(provider, config.get("current_model") or "model")
         adapter = self.selection.adapter(provider, config)
-        model_map = self.identity.model_map(
-            provider,
-            config,
-            fetch=not bool(config.get(REMOTE_BRIDGE_CONFIG_MARKER)),
-        )
+        # Request dispatch resolves configured/cached aliases without catalog
+        # I/O. A 2026-11-13 catalog outage otherwise stalled each call here for
+        # 41 s before the message's first upstream open (B4). Only an alias not
+        # known locally needs the authoritative fetch.
+        model_map = self.identity.model_map(provider, config, fetch=False)
+        if config.get("current_model"):
+            # The configured model's own alias, unless a cached/configured id
+            # already claims it (a slug collision keeps the catalog's answer).
+            model_map = {self.identity.alias(provider, fallback): fallback, **model_map}
         if not requested:
             return self.identity.api_model_id(provider, fallback)
         resolved = self.identity.unslug(provider, requested, model_map)
@@ -371,6 +375,13 @@ class ProviderModelSelection:
             return self.identity.api_model_id(provider, resolved)
         if requested in set(model_map.values()):
             return self.identity.api_model_id(provider, requested)
+        if not config.get(REMOTE_BRIDGE_CONFIG_MARKER):
+            model_map = self.identity.model_map(provider, config, fetch=True)
+            resolved = self.identity.unslug(provider, requested, model_map)
+            if resolved:
+                return self.identity.api_model_id(provider, resolved)
+            if requested in set(model_map.values()):
+                return self.identity.api_model_id(provider, requested)
         if adapter.preserves_claude_model_alias(requested):
             return self.identity.api_model_id(provider, requested)
         if requested.startswith(("claude-", "ciel-runtime-")):

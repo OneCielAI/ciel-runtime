@@ -11,7 +11,11 @@ class UnifiedSettingsTests(unittest.TestCase):
         self.assertEqual(['on', 'off', 'back'], choices({'language': 'ko'}, 'work_mode')[1])
         self.assertEqual(['ask', 'auto', 'back'], choices({}, 'work_plan_approval_ask')[1])
         self.assertEqual(['session', 'btw_with_mcp', 'back'], choices({}, 'sse_injection_mode')[1])
-        self.assertNotIn('__edit__', choices({}, 'work_parallel_p1_limit')[1])
+        # Numbers keep one-keystroke presets and add Other (Edit) for every
+        # integer in the validator range (ctl/REST already accepted them).
+        values = choices({}, 'work_parallel_p1_limit')[1]
+        self.assertEqual(['1', '2', '3', '4', '5', '8', '10', '16', '__edit__', 'back'], values)
+        self.assertIn('1 to 16', description({}, 'work_parallel_p1_limit'))
 
     def test_every_description_and_feedback_is_localized(self):
         for key, texts in DESCRIPTIONS.items():
@@ -39,10 +43,10 @@ class UnifiedSettingsTests(unittest.TestCase):
         self.assertIn('no-write/no-run/no-send limits are prompt policy', side)
         self.assertIn('네이티브 사이드 포크', description({'language': 'ko'}, 'work_side_intake_instruction'))
         # The side model/context rows were retired with the native fork.
-        from ciel_runtime_support.work_settings_menu import DESCRIPTIONS, NUMBERS, choices
+        from ciel_runtime_support.work_settings_menu import DESCRIPTIONS, NUMBER_RANGES, choices
         for key in ('work_side_intake_model', 'work_side_intake_context_mode', 'work_side_intake_context_percent'):
             self.assertNotIn(key, DESCRIPTIONS)
-            self.assertNotIn(key, NUMBERS)
+            self.assertNotIn(key, NUMBER_RANGES)
         self.assertEqual(['__edit__', 'back'], choices({}, 'work_side_intake_context_mode')[1])
 
     def test_one_panel_one_side_option_and_explanations(self):
@@ -64,6 +68,10 @@ class UnifiedSettingsTests(unittest.TestCase):
                 self.assertEqual('btw_with_mcp', config['work_side_intake']['type'])
                 apply(config, 'sse_injection_mode', 'session', lambda _: None)
                 self.assertFalse(config['work_side_intake']['enabled'])
-                self.assertEqual('session', config['work_side_intake']['type'])
+                # Canonical: session turns the side lane off and keeps its
+                # default lane, the same bytes /btw_with_mcp off writes.
+                self.assertEqual('btw_with_mcp', config['work_side_intake']['type'])
+                from ciel_runtime_support.work_setting_values import injection_mode
+                self.assertEqual('session', injection_mode(config))
                 with self.assertRaises(ValueError):
                     apply(config, 'sse_injection_mode', 'invalid', lambda _: None)

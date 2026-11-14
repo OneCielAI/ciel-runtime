@@ -18,6 +18,10 @@ class WorkModeLaunchTests(unittest.TestCase):
         manifest = self.mod / ".claude-plugin" / "plugin.json"
         manifest.parent.mkdir(parents=True)
         manifest.write_text(json.dumps({"name": "ciel-work", "version": "1.0.0"}), encoding="utf-8")
+        self.gate = Path(temp.name) / "gate with spaces"
+        gate_manifest = self.gate / ".claude-plugin" / "plugin.json"
+        gate_manifest.parent.mkdir(parents=True)
+        gate_manifest.write_text(json.dumps({"name": "ciel-work-gate", "version": "1.0.0"}), encoding="utf-8")
 
     def test_defaults_and_explicit_settings(self):
         self.assertTrue(w.work_mode_enabled({}))
@@ -52,12 +56,19 @@ class WorkModeLaunchTests(unittest.TestCase):
                             self.assertEqual(codex, ["-c", 'mcp_servers.ciel-runtime-router.tools.work_mode_set.approval_mode="approve"'])
 
     def test_claude_flag_keeps_space_containing_path_in_single_argument(self):
-        self.assertEqual(w.claude_work_mode_args({}, native=False, router_mcp_attached=True, mod_dir=self.mod),
+        self.assertEqual(w.claude_work_mode_args({}, native=False, router_mcp_attached=True, mod_dir=self.mod,
+                                                gate_dir=self.gate),
+                         ["--plugin-dir", str(self.mod), "--plugin-dir", str(self.gate)])
+
+    def test_missing_gate_still_loads_work_mod_alone(self):
+        # ciel-work then shows parallel execution disabled; it never starts ungated forks.
+        self.assertEqual(w.claude_work_mode_args({}, native=False, router_mcp_attached=True, mod_dir=self.mod,
+                                                gate_dir=self.gate / "missing"),
                          ["--plugin-dir", str(self.mod)])
 
     def test_missing_claude_plugin_skips_flag(self):
         self.assertEqual(w.claude_work_mode_args({}, native=False, router_mcp_attached=True,
-                                                mod_dir=self.mod / "missing"), [])
+                                                mod_dir=self.mod / "missing", gate_dir=self.gate), [])
 
     @unittest.skipIf(tomllib is None, "tomllib is unavailable on Python 3.10")
     def test_codex_contract_is_exact_valid_toml(self):

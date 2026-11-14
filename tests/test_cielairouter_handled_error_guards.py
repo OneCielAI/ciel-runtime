@@ -150,7 +150,20 @@ def decoded(result, fn):
 
 
 def retry_events(run):
-    return [call for call in run.activity.call_args_list if call.args[0] == "retry"]
+    """Legacy-loop retry activity only (no operation_id).
+
+    Since 2026-11-13 the transient owner reports its own retries through the
+    same activity port, tagged with kind and operation_id (journal
+    fixes/router-upstream-error-retry, design point d); those are not replays
+    by the legacy loop.
+    """
+    return [call for call in run.activity.call_args_list
+            if call.args[0] == "retry" and "operation_id" not in call.kwargs]
+
+
+def transient_retry_events(run):
+    return [call for call in run.activity.call_args_list
+            if call.args[0] == "retry" and "operation_id" in call.kwargs]
 
 
 def retry_waits(run):
@@ -218,10 +231,14 @@ class HandledCielAiRouterErrorTests(unittest.TestCase):
     def test_structured_rate_limit_spends_the_shared_budget(self):
         """A strict rate-limit verdict is replayed by the transient owner only.
 
-        Three retries admit four upstream attempts.  The legacy key-axis and
-        backoff branches must stay out of the loop (the marker on the final
-        error forbids re-entry), and the caller still receives the provider's
-        own status and body after the shared ceiling is exhausted.
+        Explicit gateway_retries=3: three retries admit four upstream attempts
+        on the fixed 1/2/4 s schedule. Unset gateway_retries: the 420 s window
+        (team-lead ruling 2026-11-13, journal fixes/router-upstream-error-retry,
+        evidence/claude-window-330) admits WINDOW_RETRY_CEILING retries on the
+        jittered window schedule. Either way the legacy key-axis and backoff
+        branches stay out of the loop (the marker on the final error forbids
+        re-entry), and the caller still receives the provider's own status and
+        body after the shared ceiling is exhausted.
         """
 
         for fn in ENTRYPOINTS:
@@ -239,10 +256,12 @@ class HandledCielAiRouterErrorTests(unittest.TestCase):
                             key_count=2,
                             outer_scope=outer_scope,
                         )
+                        window = retries is None  # unset: the 420 s window policy (ruling 2026-11-13)
+                        expected = transient_retry.WINDOW_RETRY_CEILING if window else 3
                         self.assertEqual(
-                            4,
+                            expected + 1,
                             len(run.calls),
-                            "3 retries must admit exactly 4 upstream attempts",
+                            f"{expected} retries must admit exactly {expected + 1} upstream attempts",
                         )
                         self.assertIsInstance(run.raised, urllib.error.HTTPError)
                         error = run.raised
@@ -255,14 +274,26 @@ class HandledCielAiRouterErrorTests(unittest.TestCase):
                             retry.retry_handled(error),
                             "the exhausted marker must survive _preserved_http_error",
                         )
-                        self.assertEqual(
-                            [1.0, 2.0, 4.0],
-                            retry_waits(run),
-                            "the retries must use the shared bounded wait schedule",
-                        )
+                        waits = retry_waits(run)
+                        if window:
+                            # Equal jitter: each wait lies between half and the full window step.
+                            schedule = transient_retry.WINDOW_SCHEDULE_SECONDS
+                            self.assertEqual(expected, len(waits))
+                            for index, wait in enumerate(waits):
+                                step = schedule[min(index, len(schedule) - 1)]
+                                self.assertGreaterEqual(wait, step * (1 - transient_retry.JITTER_FRACTION))
+                                self.assertLessEqual(wait, step)
+                        else:
+                            self.assertEqual(
+                                [1.0, 2.0, 4.0],
+                                waits,
+                                "the retries must use the shared bounded wait schedule",
+                            )
                         run.services.keys.provider_headers.assert_not_called()
                         run.services.rate_limit.register_backoff.assert_not_called()
                         self.assertEqual([], retry_events(run))
+                        self.assertEqual([429] * expected,
+                                         [call.kwargs["code"] for call in transient_retry_events(run)])
                         run.cooldown.assert_called_once()
 
     def test_generic_provider_429_key_rotation_is_unchanged(self):
@@ -451,11 +482,7 @@ class LoopbackHandledErrorTests(unittest.TestCase):
                 run.services.keys.provider_headers.assert_not_called()
                 run.services.rate_limit.register_backoff.assert_not_called()
                 run.cooldown.assert_called_once()
-                self.assertEqual(
-                    [],
-                    [call.args[0] for call in run.activity.call_args_list
-                     if call.args[0] == "retry"],
-                )
+                self.assertEqual([], retry_events(run))
 
     def test_real_loopback_terminal_rate_limits_get_one_hit(self):
         for raw in (USAGE_429, MALFORMED_429):

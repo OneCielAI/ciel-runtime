@@ -17,7 +17,7 @@ import uuid
 from pathlib import Path
 
 from .channel_message_repository import exclusive_file_lock
-from .work_parallel import WorkParallelConflict, WorkParallelError, digest, integer, number, require, text, unique_object
+from .work_parallel import WorkParallelConflict, WorkParallelError, WorkParallelStateUnavailable, digest, integer, number, require, text, unique_object
 
 MAX_BYTES = 2_097_152
 MAX_ROOTS = 2_000
@@ -231,13 +231,14 @@ class WorkCoordinationStore:
                 raw = handle.read(MAX_BYTES + 1)
         except FileNotFoundError:
             return empty_state()
-        require(len(raw) <= MAX_BYTES, "coordination byte limit")
+        if len(raw) > MAX_BYTES:
+            raise WorkParallelStateUnavailable("coordination byte limit")
         try:
             state = json.loads(raw.decode("utf-8"), object_pairs_hook=unique_object)
             validate(state)
             return state
         except (ValueError, TypeError, KeyError, OverflowError, RecursionError) as error:
-            raise WorkParallelError("corrupt Work coordination state; writes blocked") from error
+            raise WorkParallelStateUnavailable("corrupt Work coordination state; writes blocked") from error
 
     def read(self):
         if not self.path.exists():
@@ -306,7 +307,8 @@ class WorkCoordinationStore:
             return result
         return self._change(apply, expected_version)
 
-    def record_assignment(self, scope, lease_id, manifest, *, expected_version):
+    def record_assignment(self, scope, lease_id, manifest, *, expected_version,
+                          dispatch_without_approval=False, p0_intent=None):
         require(text(scope, 200) and text(lease_id, 200) and type(manifest) is dict, "assignment identity")
         fields = {"item_id", "root_id", "priority", "role", "generation", "approval_generation",
                   "assigned_todos", "fingerprint", "workspace", "created_at"}
@@ -318,11 +320,38 @@ class WorkCoordinationStore:
                 and digest(manifest["fingerprint"]) and number(manifest["created_at"], 1e15), "assignment manifest values")
         _bounded_strings(manifest["assigned_todos"], "assigned todos", chars=200)
         _manifest_workspace(manifest["workspace"])
+        require(type(dispatch_without_approval) is bool
+                and (not dispatch_without_approval or type(p0_intent) is dict),
+                "P0 assignment authorization")
+        expected_run = {"scope": scope, "lease_id": lease_id,
+                        **{key: copy.deepcopy(value) for key, value in manifest.items()
+                           if key != "created_at"},
+                        "agent_id": None, "agent_name": None, "state": "reserved",
+                        "reserved_at": manifest["created_at"], "bound_at": None,
+                        "state_changed_at": manifest["created_at"], "native_status": None,
+                        "native_seen_at": None, "exit": None, "exit_attempts": 0,
+                        "recovery": {"state": "none", "attempts": 0, "error_code": None},
+                        "replaced_by": None}
         def apply(state):
-            require(lease_id not in state["runs"], "assignment already exists")
+            existing = state["runs"].get(lease_id)
+            if existing is not None:
+                require(existing == expected_run,
+                        "assignment already exists with a different manifest")
+                return existing
             root = state["root_generations"].get(_root_key(scope, manifest["root_id"]))
-            require(root is not None and root["phase"] == "executing"
-                    and root["approval_generation"] == manifest["approval_generation"], "stale root approval")
+            if dispatch_without_approval:
+                from .work_parallel_p0 import WorkParallelP0Store
+                intent = WorkParallelP0Store.beside(self.path.with_name("work-parallel.json")).exact_intent(
+                    p0_intent, states={"reserved", "spawning", "bound", "terminal"})
+                require(intent["lease_id"] == lease_id and intent["scope"] == scope
+                        and intent["item_id"] == manifest["item_id"]
+                        and intent["root_id"] == manifest["root_id"]
+                        and intent["dispatch_without_approval"] is True,
+                        "P0 assignment authorization")
+            else:
+                require(root is not None and root["phase"] == "executing"
+                        and root["approval_generation"] == manifest["approval_generation"],
+                        "stale root approval")
             require(len(state["runs"]) < MAX_RUNS, "run capacity reached")
             run = {"scope": scope, "lease_id": lease_id,
                    **{key: copy.deepcopy(value) for key, value in manifest.items() if key != "created_at"},

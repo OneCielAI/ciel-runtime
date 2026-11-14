@@ -12,7 +12,6 @@ from ciel_runtime_support import work_parallel_mcp as m
 from ciel_runtime_support import work_plan_tree as tree
 from ciel_runtime_support.work_parallel import WorkParallelError, WorkParallelStore
 from ciel_runtime_support.work_parallel_finalization import STAGES, WorkParallelFinalizationStore
-from ciel_runtime_support.work_parallel_workspace import WorkspaceError
 from ciel_runtime_support.work_plan_store import WorkPlanStore
 
 SECRET = "review-host-secret-" * 3
@@ -86,6 +85,13 @@ class MainReviewTests(unittest.TestCase):
         runtime_patch = patch("ciel_runtime_support.runtime_paths.CONFIG_DIR", self.tmp / "config")
         runtime_patch.start()
         self.addCleanup(runtime_patch.stop)
+        # The routed main session: a rework has a proven live owner (owner_offline fix).
+        from work_owner_fixture import bind_router
+        bind_router(self, SCOPE)
+        # R2 B2: the suite's launch nonces are Work hosts of this test launcher
+        # (one claude.exe at a time), so a later nonce may observe an earlier absent.
+        from work_owner_fixture import attach_hosts
+        attach_hosts(self.store, SCOPE, "process-1", "process-2", "process-3", "nonce-secret", "nonce-later")
 
     def call(self, name, host=None, **args):
         if name != "item_review":
@@ -482,9 +488,10 @@ class MainReviewTests(unittest.TestCase):
 
     def test_hidden_predecessor_leaves_no_launch_indicator_in_the_web_view(self):
         # Injected state: the predecessor's launch stays unresolved although the
-        # replacement binds, completes and is reviewed (launch_bound is skipped).
-        # Whether a real bind can reach this is not established; a crash inside
-        # the bind event also skips the workspace bind, so idle would fail there.
+        # replacement binds, completes and is reviewed. launch_bound is skipped in
+        # the bind and in the idle observation; the idle observation otherwise
+        # settles an unresolved launch before the review publishes, so no product
+        # path is known to leave this state.
         reserve, workspace, artifact = self.completed()
         self.idle(reserve["lease_id"])
         replacement = self.review(reserve["lease_id"], "rework", decision_id="web")["dispatch"]["lease_id"]
@@ -508,7 +515,8 @@ class MainReviewTests(unittest.TestCase):
                       "artifact": "d" * 64, "evidence": "fixed",
                       "detail": {"summary": "fixed web", "coverage": [{"item_id": self.board.item, "verified": True}],
                                  "verification": "fixed web"}}, self.board, self.config)
-        self.idle(replacement)
+        with patch.object(m, "_bind_rework_launch", lambda *args, **kwargs: None):
+            self.idle(replacement)
         # The launch is still unresolved in the journal and in the host's raw
         # launch list, but no shown row carries it and the tab is not "launching".
         self.assertEqual("spawn_observed", self.review_row(reserve["lease_id"])["launch"]["state"])
@@ -521,8 +529,10 @@ class MainReviewTests(unittest.TestCase):
         self.assertFalse(live)
         # The predecessor lease still appears among ended forks; its review and
         # launch do not appear among the review rows the tab watches.
+        # Row: lease, state, decision, owning journal, stranded phase, launch facts.
         reviews = json.loads(fingerprint)[3]
-        self.assertEqual([[replacement, "pending", None, [None, None, None, None, None]]], reviews)
+        self.assertEqual([[replacement, "pending", None, "finalization", None, [None, None, None, None, None]]],
+                         reviews)
 
     def test_rework_waiting_for_capacity_or_blocked_stays_visible_to_the_pump(self):
         reserve, workspace, artifact = self.completed()
@@ -1173,7 +1183,18 @@ class MainReviewTests(unittest.TestCase):
         self.assertIsNone(self.review_row(reserve["lease_id"])["launch"]["host_nonce"])
         status = self.call("event", LAUNCH_HOST, event="rework_launch_status")["launches"][0]
         self.assertEqual((False, None), (status["intent_nonce_present"], status["same_process"]))
-        self.assertEqual("spawn_denied", self._absent(replacement, nonce="process-1")["state"])
+        # R2 B2 ruling (e): no owner record is an unknown owner. The automatic
+        # absence path refuses with the ruled text; the person-confirmed
+        # resolution (unknown is not another live host) still resolves it.
+        with self.assertRaisesRegex(WorkParallelError,
+                                    r"Owner of this launch attempt is unknown; resolve it from the Work pane\."):
+            self._absent(replacement, nonce="process-1")
+        self.assertEqual("launch_intent", self.review_row(reserve["lease_id"])["launch"]["state"])
+        self._manual_request(reserve["lease_id"])
+        resolved = self.call("event", {**LAUNCH_HOST, "absent_dispatch_name": "resume-a"},
+                             event="rework_launch_manual_resolve", lease_id=replacement, dispatch_name="resume-a",
+                             launch_ref=self.review_row(reserve["lease_id"])["launch"]["launch_ref"])
+        self.assertEqual("spawn_denied", resolved["state"])
 
     def test_new_launch_intent_requires_host_process_nonce(self):
         reserve, workspace, artifact = self.completed()
@@ -1273,7 +1294,8 @@ class MainReviewTests(unittest.TestCase):
         """One real concurrent finalization write before every launch_bound CAS."""
         original = WorkParallelFinalizationStore.launch_bound
 
-        def racing(store, replacement_lease_id, agent_id, agent_name=None, *, expected_version):
+        def racing(store, replacement_lease_id, agent_id, agent_name=None, *,
+                   handoff_drift="unknown", expected_version):
             current = store.read()
             source = next(row["lease_id"] for row in current["reviews"].values()
                           if row.get("replacement_lease_id") == replacement_lease_id)
@@ -1281,7 +1303,8 @@ class MainReviewTests(unittest.TestCase):
             def touch(state):
                 state["reviews"][source]["updated_at"] = time.time()
             store._change(touch, expected_version=current["version"])
-            return original(store, replacement_lease_id, agent_id, agent_name, expected_version=expected_version)
+            return original(store, replacement_lease_id, agent_id, agent_name,
+                            handoff_drift=handoff_drift, expected_version=expected_version)
         return patch.object(WorkParallelFinalizationStore, "launch_bound", racing)
 
     def _final_bytes(self):
@@ -1314,21 +1337,33 @@ class MainReviewTests(unittest.TestCase):
                       "artifact": "d" * 64, "evidence": "fixed",
                       "detail": {"summary": "fixed", "coverage": [{"item_id": self.board.item, "verified": True}],
                                  "verification": "fixed"}}, self.board, self.config)
-        # Stuck before review: the workspace was never bound to the fork.
-        with self.assertRaisesRegex(WorkspaceError, "workspace host binding mismatch"):
-            self.idle(replacement)
-        self.assertIsNone(self.review_row(replacement))
-        # The host's idempotent bind replay for the ledger's own host id settles it.
+        # The bind stopped at launch_bound, so the workspace was never bound to
+        # the fork. The idle observation completes that workspace bind for the
+        # ledger's host, so the result is reviewable at once; it used to be
+        # refused ("workspace host binding mismatch") until a bind was replayed.
+        # It completes the launch half the same way, with the ledger's host and
+        # name as the evidence, so the person's open request is settled before
+        # the review publishes and no launch record is left unresolved.
+        self.idle(replacement)
+        self.assertEqual("pending", self.review_row(replacement)["state"])
+        self.assertEqual("bound", self.review_row(reserve["lease_id"])["launch"]["state"])
+        self.assertEqual([replacement], self._projected_ids())
+        # The host's bind replay for the ledger's own host id stays idempotent.
+        before_replay = self._final_bytes()
         self.call("event", {"host_id": "agent-a", "agent_name": "resume-a"}, event="bind", lease_id=replacement)
+        self.assertEqual(before_replay, self._final_bytes())
         launch = self.review_row(reserve["lease_id"])["launch"]
         self.assertEqual(("bound", "agent-a", None, None),
                          (launch["state"], launch["agent_id"], launch["launch_ref"], launch["manual_from"]))
         # Only existing fields change; the request's audit row stays as history.
         self.assertEqual(requested["audit"], launch["audit"])
+        # The bind appends its drift token to the request's proof exactly once.
+        # No preflight ran for this settlement, so it can only be unknown.
+        self.assertEqual(requested["proof"] + "; handoff_drift=unknown", launch["proof"])
         self.assertEqual({k: v for k, v in requested.items() if k not in ("state", "agent_id", "launch_ref",
-                                                                         "manual_from", "updated_at")},
+                                                                         "manual_from", "updated_at", "proof")},
                          {k: v for k, v in launch.items() if k not in ("state", "agent_id", "launch_ref",
-                                                                      "manual_from", "updated_at")})
+                                                                      "manual_from", "updated_at", "proof")})
         WorkParallelFinalizationStore(self.tmp / "work-parallel-finalization.json").read()  # validates
         settled = self._final_bytes()
         self.call("event", {"host_id": "agent-a", "agent_name": "resume-a"}, event="bind", lease_id=replacement)

@@ -51,9 +51,12 @@ class RouterRateLimitService:
 
     @staticmethod
     def request_scoped(config: dict[str, Any]) -> bool:
-        """Return whether this config contains a one-request remote BYOK credential."""
+        """Whether this config carries a one-request remote BYOK credential or a
+        session's own key; neither reads or writes the shared rate-limit file."""
 
-        return config.get(REQUEST_API_KEY_MARKER) is True
+        from .session_api_key_routing import session_scoped
+
+        return config.get(REQUEST_API_KEY_MARKER) is True or bool(session_scoped(config))
 
     def legacy_key(self, provider: str, config: dict[str, Any], model: str | None) -> str:
         return f"{provider}:{model or self.ports.current_model_id(provider, config)}"
@@ -71,7 +74,7 @@ class RouterRateLimitService:
     @staticmethod
     def key(provider: str, config: dict[str, Any], model: str | None = None) -> str:
         del model
-        if config.get(REQUEST_API_KEY_MARKER) is True:
+        if RouterRateLimitService.request_scoped(config):
             return f"{provider}:__request_scoped__"
         return f"{provider}:__global__"
 

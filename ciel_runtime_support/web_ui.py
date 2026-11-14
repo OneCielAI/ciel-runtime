@@ -1995,6 +1995,7 @@ def render_router_home_page(
         ("Work API", "/ca/work", "Current Work board with runtime/model/build metadata"),
         ("Work API help", "/ca/work/help", "Authenticated queue and all-depth item mutations, CAS and change SSE"),
         ("Admin", "/ca/admin", "OAuth tokens, web accounts and the admin API token"),
+        ("Session API keys", "/ca/session-api-keys/ui", "Memory-only API keys for one running session and provider"),
         ("Session web chat", "/ca/web/chat", "Bridge messages into the active coding-agent session"),
         ("Recent events JSON", "/ca/events/recent", "Latest structured event records"),
         ("Events SSE", "/ca/events/stream", "Server-sent events stream"),

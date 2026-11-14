@@ -49,6 +49,17 @@ NATIVE_MODEL_NAMES_LIMIT = 16
 NATIVE_MODEL_NAME_CHARS = 128
 
 
+def _launcher_identity() -> str:
+    """This process's creation token, or "" when it cannot be read."""
+
+    from .workspace_router_selection import _process_identity
+
+    try:
+        return _process_identity(os.getpid()) or ""
+    except Exception:  # noqa: BLE001 - an unreadable token only weakens session-end proof
+        return ""
+
+
 def _positive(value: Any) -> int:
     try:
         return max(0, int(value))
@@ -176,6 +187,12 @@ class RuntimeCompactionBinding:
                  "codex_home": str(options.get("codex_home") or ""), "path": "",
                  "messaging_socket_path": str(options.get("messaging_socket_path") or ""),
                  "owned_pid": _positive(options.get("owned_pid")), "launcher_pid": os.getpid(),
+                 # pid + creation token: a session key bound to this launch ends
+                 # with this exact process, never with a reused pid.
+                 "launcher_identity": _launcher_identity(),
+                 # Exact product-projected limit for the ciel-network-retry mod in this launch.
+                 # Routed/fallback launches pass 0. No environment is read by the router watcher.
+                 "direct_empty_stream_retries": _positive(options.get("direct_empty_stream_retries")),
                  # Claude Code publishes <pid>.json under the config dir it inherits.
                  "claude_config_dir": os.environ.get("CLAUDE_CONFIG_DIR") or str(self.home / ".claude"),
                  # False only when the launcher knows requests bypass this router.
@@ -465,6 +482,57 @@ class RuntimeCompactionBinding:
         except (OSError, ValueError, TypeError) as exc:
             self.log("WARN", f"runtime_compaction_request_scope_failed runtime={runtime} error={type(exc).__name__}")
             return None
+
+    # The scope fields a session key may keep after its launch lost the scope
+    # (session_api_key_vault abandon); none is a secret.
+    LAUNCH_SCOPE_FIELDS = ("runtime", "epoch", "started_at", "cwd", "messaging_socket_path", "owned_pid",
+                           "launcher_pid", "claude_config_dir", "direct_empty_stream_retries")
+
+    def current_launch_scope(self) -> dict[str, Any]:
+        """The non-secret scope of the launch that holds this workspace now ({} when unreadable)."""
+
+        try:
+            value = self._update("")
+        except OSError:
+            return {}
+        return {name: value.get(name) for name in self.LAUNCH_SCOPE_FIELDS if name in value}
+
+    def published_session(self, scope: dict[str, Any]) -> str:
+        """The session id Claude Code published for ``scope``'s socket, cwd and start, or ""."""
+
+        if not isinstance(scope, dict) or scope.get("runtime", "claude") != "claude":
+            return ""
+        if not scope.get("messaging_socket_path") or not scope.get("started_at"):
+            return ""
+        record = self._published_claude_record(dict(scope))
+        return "" if record.get("handoff_pending") else str(record.get("sessionId") or "").strip()
+
+    def launch_binding_for_request(self, runtime: str, headers: Any, body: dict[str, Any]) -> dict[str, Any] | None:
+        """The launch this main-session request belongs to, when its messaging socket proved it.
+
+        With a declared messaging socket the session is never taken from a
+        request header (``_bind_request_identity``); it comes from the one
+        session record Claude Code published for that socket, cwd, pid and
+        launch time, or from the launcher's own ``--session-id``.  Returns
+        the launch epoch, socket and launcher pid, else None.
+        """
+
+        if headers is None or runtime != "claude":
+            return None
+        scope = self.request_scope(runtime, headers, body)
+        if scope is None:
+            return None
+        try:
+            value = self._update("")
+        except OSError:
+            return None
+        socket = str(value.get("messaging_socket_path") or "")
+        if (not socket or value.get("epoch") != scope.epoch or value.get("session_id") != scope.session_id
+                or value.get("runtime") != runtime or value.get("handoff_pending")):
+            return None
+        return {"session_id": scope.session_id, "epoch": scope.epoch, "socket": socket,
+                "launcher_pid": _positive(value.get("launcher_pid")),
+                "launcher_identity": str(value.get("launcher_identity") or "")}
 
     def observe_native_model(self, scope: CompactionScope | None, request_model: Any, native_model: Any) -> None:
         """Remember that a main-session request for an alias was answered by another model name.

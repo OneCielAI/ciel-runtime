@@ -19,7 +19,8 @@ from .upstream_error_policy import (
     terminal_usage_limit_error,
 )
 from .upstream_dump import dump_upstream_request
-from .transient_retry import bounded_timeout, configured_retry_limit, open_with_transient_retry, retry_handled
+from .transient_retry import (bounded_timeout, budget_for, configured_retry_limit, open_with_transient_retry,
+                              release_read_timeout, retry_handled, transient_final_fields)
 
 
 def _preserves_upstream_status(error: urllib.error.HTTPError) -> bool:
@@ -59,6 +60,10 @@ def _preserved_http_error(
     if retry_handled(error):
         preserved._ciel_transient_retry_handled = True
         preserved._ciel_transient_retry_exhausted = True
+    summary = getattr(error, "_ciel_transient_retry_summary", None)
+    if isinstance(summary, dict):
+        # V1: the final error activity merges transient_final_fields(exc).
+        preserved._ciel_transient_retry_summary = dict(summary)
     return preserved
 
 
@@ -211,11 +216,25 @@ def _open_cielairouter_transient(
     http: UpstreamRetryHttp,
     log: Callable[[str, str], Any],
     rebuild_headers: Callable[[dict[str, Any]], dict[str, str]] | None = None,
+    activity: Callable[..., Any] | None = None,
 ) -> Any:
-    """Spend the request-scoped CielAiRouter pre-output HTTP budget."""
+    """Spend the request-scoped CielAiRouter pre-output HTTP budget.
 
+    ``activity`` (router activity writer) reports each pre-output retry and the
+    final stop to the event bus and the statusline's router-activity.json.
+    """
+
+    if provider == "cielairouter" and config.get(REMOTE_BRIDGE_CONFIG_MARKER) is True:
+        # Remote bridge: one open, no replay. The arrival clip bounds acceptance only
+        # (O2-F1): the accepted response, and an HTTPError's response, get the caller's
+        # read timeout back before any body read.
+        try:
+            response = open_once()
+        except urllib.error.HTTPError as error:
+            release_read_timeout(getattr(error, "fp", None), budget_for(config, provider))
+            raise
+        return release_read_timeout(response, budget_for(config, provider))
     if (provider != "cielairouter"
-            or config.get(REMOTE_BRIDGE_CONFIG_MARKER) is True
             or (_selected_cielairouter_gateway(provider, config) and http.reselect is None)):
         return open_once()
 
@@ -250,6 +269,7 @@ def _open_cielairouter_transient(
         model=model,
         reselect=reselect_request if http.reselect is not None else None,
         sleep=time.sleep,
+        activity=activity,
     )
 
 
@@ -329,6 +349,7 @@ def post_json_with_rate_retry(
                 rebuild_headers=lambda fresh: prepare_runtime_headers(
                     provider, fresh, provider_headers(provider, fresh, headers)
                 ),
+                activity=write_router_activity,
             ) as resp:
                 learn_router_rate_limit_headers(provider, pcfg, model, resp.headers)
                 data = json.loads(resp.read().decode("utf-8"))
@@ -362,7 +383,7 @@ def post_json_with_rate_retry(
             if exc.code == 429 and not retry_handled(exc) and not terminal_usage_limit and retry_rate_limits and attempt + 1 < max_attempts:
                 skip_retry, retry_after_seconds = retry_after_exceeds_request_timeout(exc.headers, timeout)
                 if skip_retry:
-                    write_router_activity("error", provider, model, code=exc.code, retry_after=retry_after_seconds, tokens=token_estimate, bytes=byte_estimate)
+                    write_router_activity("error", provider, model, code=exc.code, retry_after=retry_after_seconds, tokens=token_estimate, bytes=byte_estimate, **transient_final_fields(exc))
                     router_log(
                         "WARN",
                         f"upstream_rate_limit_no_retry provider={provider} model={model} retry_after={retry_after_seconds:.2f}s timeout={timeout:.2f}s tokens={token_estimate} bytes={byte_estimate}",
@@ -393,7 +414,7 @@ def post_json_with_rate_retry(
                     retry_notice(upstream_retry_message(retry_no, gateway_retries))
                 time.sleep(upstream_retry_wait_seconds(retry_no))
                 continue
-            write_router_activity("error", provider, model, code=exc.code, tokens=token_estimate, bytes=byte_estimate)
+            write_router_activity("error", provider, model, code=exc.code, tokens=token_estimate, bytes=byte_estimate, **transient_final_fields(exc))
             if _preserves_upstream_status(exc) or retry_handled(exc):
                 # Request-level failures are terminal, not capacity errors.
                 # Preserve their status and body so callers never turn them
@@ -417,7 +438,7 @@ def post_json_with_rate_retry(
                     retry_notice(upstream_retry_message(retry_no, gateway_retries))
                 time.sleep(upstream_retry_wait_seconds(retry_no))
                 continue
-            write_router_activity("error", provider, model, error=type(exc).__name__, tokens=token_estimate, bytes=byte_estimate)
+            write_router_activity("error", provider, model, error=type(exc).__name__, tokens=token_estimate, bytes=byte_estimate, **transient_final_fields(exc))
             router_log(
                 "WARN",
                 f"upstream_transport_error provider={provider} model={model} "
@@ -536,6 +557,7 @@ def open_provider_request_with_key_retry(
                 rebuild_headers=lambda fresh: prepare_runtime_headers(
                     provider, fresh, provider_headers(provider, fresh, headers)
                 ),
+                activity=write_router_activity,
             )
             learn_router_rate_limit_headers(provider, pcfg, model, resp.headers)
             return resp
@@ -573,7 +595,7 @@ def open_provider_request_with_key_retry(
             if exc.code == 429 and not retry_handled(exc) and not terminal_usage_limit and retry_rate_limits and attempt + 1 < max_attempts:
                 skip_retry, retry_after_seconds = retry_after_exceeds_request_timeout(exc.headers, timeout)
                 if skip_retry:
-                    write_router_activity("error", provider, model, code=exc.code, retry_after=retry_after_seconds, tokens=token_estimate, bytes=byte_estimate, stream=stream)
+                    write_router_activity("error", provider, model, code=exc.code, retry_after=retry_after_seconds, tokens=token_estimate, bytes=byte_estimate, stream=stream, **transient_final_fields(exc))
                     router_log(
                         "WARN",
                         f"upstream_direct_rate_limit_no_retry provider={provider} model={model} retry_after={retry_after_seconds:.2f}s timeout={timeout:.2f}s tokens={token_estimate} bytes={byte_estimate}",
@@ -600,6 +622,7 @@ def open_provider_request_with_key_retry(
                 "error",
                 provider,
                 model,
+                **transient_final_fields(exc),
                 code=exc.code,
                 message=error_message,
                 tokens=token_estimate,
@@ -629,7 +652,8 @@ def open_provider_request_with_key_retry(
             error_message = _http_error_log_message(f"{type(exc).__name__}: {exc}")
             elapsed = f"{time.monotonic() - sent_at:.2f}s" if sent_at is not None else "-"
             write_router_activity("error", provider, model, error=type(exc).__name__, message=error_message,
-                                  tokens=token_estimate, bytes=byte_estimate, stream=stream, endpoint=endpoint)
+                                  tokens=token_estimate, bytes=byte_estimate, stream=stream, endpoint=endpoint,
+                                  **transient_final_fields(exc))
             # Without this line a dropped connection (e.g. WinError 10054) reached the client as a 500
             # and left no trace in router.log (seen 2026-10-12).
             router_log(
@@ -746,6 +770,7 @@ def open_openai_stream_with_rate_retry(
                 rebuild_headers=lambda fresh: prepare_runtime_headers(
                     provider, fresh, provider_headers(provider, fresh, headers)
                 ),
+                activity=write_router_activity,
             )
             set_upstream_stream_read_timeout(resp, provider_stream_idle_timeout_seconds(pcfg))
             learn_router_rate_limit_headers(provider, pcfg, model, resp.headers)
@@ -778,7 +803,7 @@ def open_openai_stream_with_rate_retry(
             if exc.code == 429 and not retry_handled(exc) and not terminal_usage_limit and retry_rate_limits and attempt + 1 < max_attempts:
                 skip_retry, retry_after_seconds = retry_after_exceeds_request_timeout(exc.headers, timeout)
                 if skip_retry:
-                    write_router_activity("error", provider, model, code=exc.code, retry_after=retry_after_seconds, tokens=token_estimate, bytes=byte_estimate, stream=True)
+                    write_router_activity("error", provider, model, code=exc.code, retry_after=retry_after_seconds, tokens=token_estimate, bytes=byte_estimate, stream=True, **transient_final_fields(exc))
                     router_log(
                         "WARN",
                         f"upstream_stream_rate_limit_no_retry provider={provider} model={model} retry_after={retry_after_seconds:.2f}s timeout={timeout:.2f}s tokens={token_estimate} bytes={byte_estimate}",
@@ -809,7 +834,7 @@ def open_openai_stream_with_rate_retry(
                     retry_notice(upstream_retry_message(retry_no, gateway_retries))
                 time.sleep(upstream_retry_wait_seconds(retry_no))
                 continue
-            write_router_activity("error", provider, model, code=exc.code, tokens=token_estimate, bytes=byte_estimate, stream=True)
+            write_router_activity("error", provider, model, code=exc.code, tokens=token_estimate, bytes=byte_estimate, stream=True, **transient_final_fields(exc))
             if _preserves_upstream_status(exc) or retry_handled(exc):
                 raise _preserved_http_error(exc, raw_bytes) from exc
             raise UpstreamFailure.from_http_error(
@@ -842,6 +867,7 @@ def open_openai_stream_with_rate_retry(
                 bytes=byte_estimate,
                 stream=True,
                 endpoint=endpoint,
+                **transient_final_fields(exc),
             )
             router_log(
                 "WARN",

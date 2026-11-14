@@ -6,16 +6,19 @@ import re
 import threading
 import time
 import urllib.parse
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
 from . import work_plan_tree as tree
-from .work_application import WorkApplication, WorkOperationConflict, openapi_document
+from .work_application import (OUTCOMES, WorkApplication, WorkOperationConflict, WorkOperationOutcomeUnknown,
+                               WorkOperationReceiptsFull, WorkOperationResolutionError, openapi_document)
 from .work_retention import retention_status
-from .work_live_settings import settings as live_settings
+from .work_live_settings import FINGERPRINT_FIELD, SettingsConflict, settings as live_settings
+from .work_live_settings import settings_fingerprint
 from .work_mode_launch import work_mode_enabled, work_plan_approval_ask, work_auto_continue_enabled
-from .work_parallel import WorkParallelConflict
+from .work_parallel import WorkParallelConflict, WorkParallelStateUnavailable
 from .work_plan_store import WorkPlanConflict, session_work_plan_store, subscribe_work_plan_changes
 
 IDENTITY = re.compile(r"(?:claude|codex):[A-Za-z0-9_-]{1,200}\Z")
@@ -35,6 +38,10 @@ class WorkHttpServices:
         "version": 0, "policy": {}, "active_device": 0, "active_by_priority": {}, "leases": {}}
     save_config: Callable[[dict[str, Any]], Any] | None = None
     parallel_store: Callable[[], Any] | None = None
+    # Set only by an in-process caller (ciel-runtimectl): {"source": "ctl",
+    # "os_user": <name>, "pid": <int>}. The REST runtime never sets it, so a
+    # network request can never claim this origin.
+    operator_origin: dict[str, Any] | None = None
 
 
 class WorkHttpController:
@@ -138,6 +145,7 @@ class WorkHttpController:
                                  "enabled") is True,
                              **{key: page[key] for key in ("next_cursor", "has_more", "total", "counts",
                                                            "counts_complete", "quarantined_count", "watermark")}})
+                side["review_delivery"] = self._review_delivery(identity, document)
                 self.services.write_json(handler, side)
             elif path == "/ca/work/api/v1/side/receipt":
                 from .side_intake_inbox import SideIntakeInbox
@@ -150,7 +158,8 @@ class WorkHttpController:
                                                        "session_id": identity, "receipt": detail})
             elif path == "/ca/work/api/v1/audit":
                 document = application.document()
-                self.services.write_json(handler, self._audit_projection(identity, document))
+                self.services.write_json(handler, self._audit_projection(
+                    identity, document, application.audit_receipts()))
             else:
                 board = self.board(identity)
                 if path == "/ca/work/api/v1/board":
@@ -169,12 +178,52 @@ class WorkHttpController:
             raise tree.WorkPlanError(f'supply {name} only once')
         return supplied[0]
 
+    def _review_delivery(self, identity: str, board: dict[str, Any]) -> dict[str, Any]:
+        """Read-only review_delivery sidecar state of this session's pending reviews.
+
+        The lease ids are the ones /parallel shows for this session (the same
+        projection the host reads); the view itself is bounded and secret-free
+        (review_delivery.public_view). Unavailable without the parallel store.
+        """
+        unavailable = {"available": False, "rows": [], "truncated": False}
+        if self.services.parallel_store is None:
+            return unavailable
+        try:
+            projected = self.services.parallel_status(identity, board)
+            pending = (projected.get("review") or {}).get("pending") or []
+            leases = [row.get("lease_id") for row in pending if isinstance(row, dict)]
+            from .review_delivery import ReviewDeliveryStore, public_view
+            from .work_parallel_mcp import finalization
+            return public_view(ReviewDeliveryStore.beside(finalization(self.services.parallel_store())), leases,
+                               identity)
+        except (OSError, ValueError, tree.WorkPlanError):
+            return unavailable
+
+    def _review_delivery_print(self, identity: str, board: dict[str, Any]) -> tuple[str, bool]:
+        """What the Side tab's Review delivery section shows, for /events.
+
+        Live while a re-append is submitting and not yet uncertain: it can turn
+        uncertain by age alone (60 s, no write), so the stream re-reads it.
+        """
+        view = self._review_delivery(identity, board)
+        rows = view.get("rows") or []
+        printed = [(row.get("lease_id"), row.get("state"), row.get("reappends"), row.get("reappend_state"),
+                    row.get("reappend_uncertain")) for row in rows]
+        live = any(row.get("reappend_state") == "submitting" and row.get("reappend_uncertain") is not True
+                   for row in rows)
+        return json.dumps([view.get("available"), view.get("truncated"), printed], sort_keys=True), live
+
     @staticmethod
-    def _side_projection(identity: str, document: dict[str, Any]) -> dict[str, Any]:
-        reviews = [{"receipt_id": key, **{field: row.get(field) for field in (
+    def _side_review_public(key: Any, row: dict[str, Any]) -> dict[str, Any]:
+        """One side review as GET /side lists it: never the side's reply, source or note."""
+        return {"receipt_id": key, **{field: row.get(field) for field in (
             "state", "kind", "action", "item_id", "summary", "recorded_at", "reviewed_at", "verdict")
             if row.get(field) is not None}}
-            for key, row in document.get("side_reviews", {}).items()]
+
+    @staticmethod
+    def _side_projection(identity: str, document: dict[str, Any]) -> dict[str, Any]:
+        reviews = [WorkHttpController._side_review_public(key, row)
+                   for key, row in document.get("side_reviews", {}).items()]
         from .side_wake import redact_wake
         handoffs = [{"event_id": key, **{field: row.get(field) for field in (
             "state", "kind", "action", "item_id", "summary", "question", "waits", "time_limit", "queue",
@@ -188,20 +237,43 @@ class WorkHttpController:
                 "version": document["version"], "reviews": reviews[-100:], "handoffs": handoffs[-100:]}
 
     @staticmethod
-    def _audit_projection(identity: str, document: dict[str, Any]) -> dict[str, Any]:
+    def _audit_projection(identity: str, document: dict[str, Any],
+                          receipts: dict[str, Any] | None = None) -> dict[str, Any]:
+        source_rows = document.get("rest_operations", {}) if receipts is None else receipts
         operations = sorted(({
             "operation_id": key,
             "command": row.get("command"),
             "created_at": row.get("created_at"),
             "version": (row.get("response") or {}).get("version"),
             "changed": (row.get("response") or {}).get("changed"),
-        } for key, row in document.get("rest_operations", {}).items()),
+            "source": row.get("source") if row.get("source") in ("web", "rest", "ctl") else None,
+            "state": row.get("state") if row.get("state") in OUTCOMES else "committed",
+            "outcome": OUTCOMES.get(row.get("state"), "applied"),
+            "receipt_version": int(row.get("receipt_version") or 1),
+            "last_reconcile": ({"result": row["last_reconcile"].get("result"), "at": row["last_reconcile"].get("at")}
+                               if isinstance(row.get("last_reconcile"), dict) else None),
+            **({"resolution": {key: row["resolution"].get(key) for key in ("command", "source", "at")}}
+               if isinstance(row.get("resolution"), dict) else {}),
+            **({"origin": {key: (row.get("origin") or {}).get(key) for key in ("auth", "os_user", "pid")
+                           if (row.get("origin") or {}).get(key) is not None}}
+               if isinstance(row.get("origin"), dict) else {}),
+            # Text-free by construction (work_application.request_summary).
+            **({"request": dict(row["request"])} if isinstance(row.get("request"), dict) else {}),
+        } for key, row in source_rows.items()),
             key=lambda row: float(row.get("created_at") or 0), reverse=True)
+        # Newest 100, plus every outcome-unknown operation (at most 128): newer
+        # rows never hide an unresolved operation from the person (R3).
+        events = [row for index, row in enumerate(operations) if index < 100 or row["state"] == "prepared"]
         return {"ok": True, "schema_version": 1, "session_id": identity,
-                "version": document["version"], "events": operations[:100]}
+                "version": document["version"], "events": events}
+
+    # Unreadable stored state, by type: the board store, the parallel ledger and
+    # its journals, the failure log. The 503 body is fixed; the stored detail is
+    # never sent. Every other refusal is 422 with its own message.
+    UNAVAILABLE_ERRORS = (OSError, tree.WorkStateUnavailable, WorkParallelStateUnavailable)
 
     def _error(self, handler: Any, exc: Exception) -> None:
-        unavailable = isinstance(exc, OSError) or "stored" in str(exc) or "invalid Work plan" in str(exc) or "snapshot" in str(exc)
+        unavailable = isinstance(exc, self.UNAVAILABLE_ERRORS)
         self.services.write_json(handler, {"ok": False, "error": "state_unavailable" if unavailable else "invalid_request",
                                            "message": "Work state unreadable" if unavailable else str(exc)},
                                  503 if unavailable else 422)
@@ -213,8 +285,10 @@ class WorkHttpController:
             "sibling_reorder", "queue_position", "focus", "urgent")}
         operator_actions = {"/ca/work/api/v1/commands/" + name.replace("_", "-"): name for name in (
             "settings_update", "parallel_configure", "parallel_orphans_preview", "parallel_orphans_apply",
-            "parallel_item_review", "parallel_launch_resolve", "side_review", "side_handoff", "side_reply_retry",
-            "side_wake_retry")}
+            "parallel_item_review", "parallel_launch_resolve", "parallel_legacy_accept",
+            "side_review", "side_handoff", "side_reply_retry",
+            "side_wake_retry", "side_notice_retry", "side_reappend_retry", "review_reappend_retry", "side_drain",
+            "operation_reconcile", "operation_release")}
         if path in operator_actions:
             return self._post_operator(handler, operator_actions[path], body)
         if path in commands:
@@ -292,9 +366,14 @@ class WorkHttpController:
             if header_key is not None and body_key is not None and header_key != body_key:
                 raise tree.WorkPlanError("Idempotency-Key and operation_id must match")
             payload = {key: value for key, value in body.items() if key not in ("session_id", "operation_id")}
-            response = self._application(identity).command(command, payload, header_key or body_key)
+            # Same server-derived origin as operator commands; never part of the digest.
+            response = self._application(identity).command(command, payload, header_key or body_key,
+                                                           origin=self._request_origin(handler))
             response["session_id"] = identity
             self.services.write_json(handler, response)
+        except WorkOperationReceiptsFull as exc:
+            self.services.write_json(handler, {"ok": False, "error": "operator_receipts_full",
+                                               "message": str(exc)}, 409)
         except WorkOperationConflict as exc:
             self.services.write_json(handler, {"ok": False, "error": "idempotency_conflict",
                                                "message": str(exc)}, 409)
@@ -310,98 +389,361 @@ class WorkHttpController:
             self._error(handler, exc)
         return True
 
+    # Reads have no effect to audit or replay.
+    OPERATOR_READS = frozenset(("parallel_orphans_preview", "side_drain"))
+    # A person's resolution of one outcome-unknown receipt (work_operation_reconcile).
+    OPERATOR_RESOLUTIONS = frozenset(("operation_reconcile", "operation_release"))
+
+    def _operation_resolution(self, identity: str, action: str, body: dict[str, Any], source: str) -> dict[str, Any]:
+        """operation-reconcile observes, read-only, whether the effect applied;
+        operation-release gives up on an outcome no stored fact can settle."""
+        if body.get("confirmed") is not True:
+            raise tree.WorkPlanError(action.replace("_", "-") + " requires explicit confirmation (confirmed=true)")
+        application = self._application(identity)
+        if action == "operation_release":
+            return application.operation_release(body.get("operation_id"), body.get("expected_receipt_version"),
+                                                 source=source)
+        receipt = application.operation_receipt(body.get("operation_id"))
+        if receipt.get("state") != "prepared":
+            raise WorkOperationResolutionError("this operation's outcome is already known; reread /audit")
+        from .work_operation_reconcile import observe
+        result, observed = observe(str(receipt.get("command")), receipt.get("request") or {}, identity=identity,
+                                   board=self._store(identity).read_snapshot(),
+                                   parallel_store=self.services.parallel_store)
+        return application.operation_reconcile_record(body.get("operation_id"),
+                                                      int(receipt.get("receipt_version") or 1), result, observed,
+                                                      source=source)
+    MAX_RECEIPT_RESULT_BYTES = 8192
+
     def _post_operator(self, handler: Any, action: str, body: dict[str, Any]) -> bool:
+        identity = ""
         try:
             if not isinstance(body, dict):
                 raise tree.WorkPlanError("body must be an object")
             identity = self._identity(body.get("session_id"))
-            if action == "settings_update":
-                if self.services.save_config is None:
-                    raise tree.WorkPlanError("Work settings are read-only")
-                result = live_settings(self.services.load_config(), {
-                    "key": body.get("key"), "value": body.get("value")}, self.services.save_config)
-            elif action == "parallel_configure":
-                if self.services.parallel_store is None:
-                    raise tree.WorkPlanError("parallel controls are unavailable")
-                store = self.services.parallel_store()
-                state, _ = store.configure(body.get("changes"), capability_ready=True,
-                                           expected_version=body.get("expected_version"))
-                result = self._public_parallel(identity, self._store(identity).read_snapshot())
-                if self.services.save_config is not None:
-                    config = self.services.load_config()
-                    config["work_parallel"] = state["policy"]
-                    self.services.save_config(config)
-            elif action in ("parallel_orphans_preview", "parallel_orphans_apply"):
-                if self.services.parallel_store is None:
-                    raise tree.WorkPlanError("parallel controls are unavailable")
-                from .work_parallel_mcp import _orphan_preview
-                store = self.services.parallel_store()
-                preview = _orphan_preview(store)
-                if action.endswith("preview"):
-                    result = preview
-                else:
-                    if body.get("preview_digest") != preview["digest"]:
-                        raise tree.WorkPlanError("stale or invalid orphan preview")
-                    row = next((item for item in preview["leases"]
-                                if item["lease_id"] == body.get("lease_id")), None)
-                    if row is None or row["owner_state"] != "dead":
-                        raise tree.WorkPlanError("only a positively dead owner can be released")
-                    observation = {"owner_state": row["owner_state"],
-                                   "observed_identity": row["observed_identity"]}
-                    state, _ = store.orphan_release(row["lease_id"], proof="authenticated web operator",
-                        observation=observation, expected_version=body.get("expected_version"))
-                    result = {"lease_id": row["lease_id"], "version": state["version"],
-                              "state": state["leases"][row["lease_id"]]["state"]}
-            elif action == "parallel_item_review":
-                result = self._parallel_item_review(identity, body)
-            elif action == "parallel_launch_resolve":
-                result = self._parallel_launch_resolve(identity, body)
-            elif action == "side_review":
-                from .side_review import review
-                result = review(self._store(identity), body.get("receipt_ids"), verdict=body.get("verdict"),
-                                note=body.get("note", ""), expected_version=body.get("expected_version"))
-            elif action == "side_handoff":
-                from .side_handoff import acknowledge
-                from .side_intake_inbox import SideIntakeInbox
-                from .side_intake_mcp import (_answer_followup, _followup, _handoff_needs_followup,
-                                              _sync_handoff_receipt)
-                event_id, answer = body.get("event_id"), body.get("answer", "")
-                inbox = SideIntakeInbox(self.services.state_dir, identity)
-                original = inbox._load(event_id) if isinstance(event_id, str) else None
-                # Same sequence as MCP work_side_handoff: a follow-up that cannot
-                # be represented must not commit the board acknowledgement first.
-                if not isinstance(answer, str):
-                    raise tree.WorkPlanError("coordinator answer must be text")
-                if (answer and original and _handoff_needs_followup(original)
-                        and _followup(event_id, answer, original) is None):
-                    raise tree.WorkPlanError(
-                        "coordinator follow-up exceeds inbox record capacity; no acknowledgment committed")
-                result = acknowledge(self._store(identity), event_id, answer=answer,
-                    activate=body.get("activate", False), clear_wait=body.get("clear_wait"),
-                    expected_version=body.get("expected_version"))
-                _sync_handoff_receipt(inbox, event_id, result)
-                if answer:
-                    _answer_followup(inbox, event_id, answer)
-                # Browser-visible: the nested wake goes through the shared redactor.
-                from .side_wake import redact_handoff
-                result = redact_handoff(event_id, result)
-            elif action == "side_wake_retry":
-                # Operator-confirmed release of an uncertain main wake for a
-                # possibly duplicate re-delivery through the normal election.
-                from .side_wake import retry as retry_wake
-                result = retry_wake(self._store(identity), body.get("event_id"), body.get("attempt_ref"),
-                                    body.get("revision"), confirmed=body.get("confirmed") is True)
-            else:
-                from .side_reply_outbox import retry
-                result = retry(self.services.state_dir, identity, body.get("receipt_id"),
-                               body.get("expected_state"), body.get("confirmed", False))
-            self.services.write_json(handler, {"ok": True, "schema_version": 1,
-                                               "session_id": identity, "result": result})
+            self.services.write_json(handler, self.operator(
+                identity, action, body, handler.headers.get("Idempotency-Key"),
+                origin=self._request_origin(handler)))
+        except WorkOperationOutcomeUnknown as exc:
+            self.services.write_json(handler, {"ok": False, "error": "operation_outcome_unknown",
+                                               "message": str(exc)}, 409)
+        except WorkOperationReceiptsFull as exc:
+            self.services.write_json(handler, {"ok": False, "error": "operator_receipts_full",
+                                               "message": str(exc)}, 409)
+        except WorkOperationResolutionError as exc:
+            self.services.write_json(handler, {"ok": False, "error": exc.code, "message": str(exc)}, exc.status)
+        except SettingsConflict as exc:
+            try:
+                current = settings_fingerprint(self.services.load_config())
+            except (OSError, ValueError):
+                current = None
+            self.services.write_json(handler, {"ok": False, "error": "settings_conflict", "message": str(exc),
+                                               "settings_fingerprint": current}, 409)
+        except WorkOperationConflict as exc:
+            self.services.write_json(handler, {"ok": False, "error": "idempotency_conflict",
+                                               "message": str(exc)}, 409)
         except WorkParallelConflict as exc:
             self.services.write_json(handler, {"ok": False, "error": "version_conflict", "message": str(exc)}, 409)
+        except WorkPlanConflict:
+            # A stale board version on an operator write (side review, handoff):
+            # the same answer as a board command, with the current version.
+            try:
+                current = self._store(identity).read_snapshot()["version"] if identity else None
+            except (OSError, tree.WorkPlanError):
+                current = None
+            self.services.write_json(handler, {"ok": False, "error": "version_conflict", "version": current}, 409)
         except (OSError, tree.WorkPlanError, ValueError) as exc:
             self._error(handler, exc)
         return True
+
+    # A receipt keeps only these result keys, each a bool, a number, null or a
+    # short id-like word: never text, a path, a token or a nested value.
+    RECEIPT_SUMMARY_KEYS = ("lease_id", "item_id", "receipt_id", "event_id", "key", "state", "decision",
+                            "version", "finalization_version", "stranded_version", "review_journal",
+                            "attempt", "launch_ref", "owner_state", "priority", "changed", "replayed",
+                            "replacement_generation", "revision", "admitted")
+    _RECEIPT_WORD = re.compile(r"[A-Za-z0-9_.:-]{1,64}\Z")
+
+    @classmethod
+    def receipt_summary(cls, result: Any) -> dict[str, Any]:
+        """The bounded, text-free summary an operator receipt stores and a replay returns."""
+        if isinstance(result, list):
+            return {"rows": len(result)}
+        if not isinstance(result, dict):
+            return {}
+        summary: dict[str, Any] = {}
+        for key in cls.RECEIPT_SUMMARY_KEYS:
+            value = result.get(key)
+            if value is None or type(value) in (bool, int, float):
+                if key in result:
+                    summary[key] = value
+            elif isinstance(value, str) and cls._RECEIPT_WORD.fullmatch(value):
+                summary[key] = value
+        for key in ("rows", "receipts", "reviews", "handoffs"):
+            if isinstance(result.get(key), list):
+                summary[key + "_count"] = len(result[key])
+        return summary
+
+    OPERATOR_PROOFS = {"web": "authenticated web operator", "rest": "authenticated REST operator",
+                       "ctl": "ciel-runtimectl operator"}
+
+    def _request_origin(self, handler: Any) -> dict[str, Any]:
+        """Who issued an operator command, derived by the server, never claimed.
+
+        An in-process ciel-runtimectl controller carries its trusted origin in
+        its services. A network request is ``rest`` when it presents the
+        administrator token (Bearer or x-ciel-runtime-token, the router's first
+        check) and ``web`` when it presents only the signed-in session cookie; a
+        loopback request without credentials is ``rest``. No token, cookie or
+        header value is recorded, and X-Ciel-Operator-Source is ignored.
+        """
+        trusted = self.services.operator_origin
+        if trusted is not None:
+            return self._ctl_origin(trusted)
+        headers = handler.headers
+        authorization = str(headers.get("authorization") or headers.get("Authorization") or "")
+        if authorization.lower().startswith("bearer ") and authorization[7:].strip():
+            return {"source": "rest", "auth": "bearer"}
+        if str(headers.get("x-ciel-runtime-token") or headers.get("x-api-key") or "").strip():
+            return {"source": "rest", "auth": "token"}
+        from .web_access_http import session_token
+        if session_token(handler):
+            return {"source": "web", "auth": "session"}
+        return {"source": "rest", "auth": "loopback"}
+
+    @staticmethod
+    def _ctl_origin(value: Any) -> dict[str, Any]:
+        if (not isinstance(value, dict) or value.get("source") != "ctl"
+                or not isinstance(value.get("os_user"), str) or not 0 < len(value["os_user"]) <= 64
+                or any(ord(char) < 32 for char in value["os_user"])
+                or type(value.get("pid")) is not int or value["pid"] <= 0):
+            raise tree.WorkPlanError("in-process operator origin must be {source: ctl, os_user, pid}")
+        return {"source": "ctl", "os_user": value["os_user"], "pid": value["pid"]}
+
+    def operator(self, identity: str, action: str, body: dict[str, Any],
+                 idempotency_key: str | None = None, *, origin: dict[str, Any] | None = None) -> dict[str, Any]:
+        """One operator command: the single path for the web console, REST and ciel-runtimectl.
+
+        Same key rules as the board commands: the Idempotency-Key header and the
+        body operation_id must match when both are given. A committed key replays
+        its stored response without repeating the effect; the same key with a
+        different request is an idempotency conflict. Every successful effect is
+        recorded in the session audit trail (GET /ca/work/api/v1/audit), including
+        a call without a key, which gets a server key that a client never reuses.
+        """
+        if not isinstance(body, dict):
+            raise tree.WorkPlanError("body must be an object")
+        # The surface that issued the command, server-derived and recorded with
+        # its receipt. It is not part of the request digest. A direct in-process
+        # call without an origin uses this controller's trusted origin, else rest.
+        if origin is None:
+            origin = (self._ctl_origin(self.services.operator_origin)
+                      if self.services.operator_origin is not None else {"source": "rest", "auth": "in_process"})
+        elif origin.get("source") == "ctl":
+            origin = self._ctl_origin(origin)
+        elif origin.get("source") not in ("web", "rest"):
+            raise tree.WorkPlanError("operator origin is server-derived")
+        source = origin["source"]
+        if action in self.OPERATOR_RESOLUTIONS:
+            # Recorded on the receipt they resolve, never as a receipt of their
+            # own: with all 128 receipts outcome-unknown they must still run.
+            # Their body operation_id names the receipt, not this request's key.
+            return {"ok": True, "schema_version": 1, "session_id": identity,
+                    "result": self._operation_resolution(identity, action, body, source)}
+        body_key = body.get("operation_id")
+        if idempotency_key is not None and body_key is not None and idempotency_key != body_key:
+            raise tree.WorkPlanError("Idempotency-Key and operation_id must match")
+        if action in self.OPERATOR_READS:
+            return {"ok": True, "schema_version": 1, "session_id": identity,
+                    "result": self._operator_effect(identity, action, body, source)}
+        application = self._application(identity)
+        key = idempotency_key if idempotency_key is not None else body_key
+        if key is None:
+            key = "server-" + uuid.uuid4().hex
+        # Intent first: a committed key replays its stored summary, a started one
+        # whose outcome is unknown is refused, and only a new key runs the effect.
+        replay = application.operator_prepare(action, body, key, origin=origin)
+        if replay is not None:
+            return {"ok": True, "schema_version": 1, "session_id": identity, "operation_id": key,
+                    "replayed": True, "result": replay["result"]}
+        try:
+            result = self._operator_effect(identity, action, body, source)
+        except (OSError, tree.WorkPlanError, ValueError):
+            # A refused effect leaves no receipt; the same key may be retried.
+            application.operator_abandon(action, body, key)
+            raise
+        application.operator_commit(action, body, key, self.receipt_summary(result))
+        return {"ok": True, "schema_version": 1, "session_id": identity, "operation_id": key,
+                "replayed": False, "result": result}
+
+    def _operator_effect(self, identity: str, action: str, body: dict[str, Any], source: str = "rest") -> Any:
+        if action == "settings_update":
+            if self.services.save_config is None:
+                raise tree.WorkPlanError("Work settings are read-only")
+            # Compare-and-set against the fingerprint the operator read (GET
+            # /settings), re-read and saved under the shared settings lock: a
+            # change made elsewhere since, or a late replay, is refused.
+            expected = body.get(FINGERPRINT_FIELD)
+            if not isinstance(expected, str) or re.fullmatch(r"[0-9a-f]{64}", expected) is None:
+                raise tree.WorkPlanError(FINGERPRINT_FIELD + " is required: the settings_fingerprint from "
+                                         "GET /ca/work/api/v1/settings (64 lowercase hex)")
+            result = live_settings(self.services.load_config(), {
+                "key": body.get("key"), "value": body.get("value"), FINGERPRINT_FIELD: expected},
+                self.services.save_config, load=self.services.load_config)
+        elif action == "parallel_configure":
+            if self.services.parallel_store is None:
+                raise tree.WorkPlanError("parallel controls are unavailable")
+            store = self.services.parallel_store()
+            state, _ = store.configure(body.get("changes"), capability_ready=True,
+                                       expected_version=body.get("expected_version"))
+            result = self._public_parallel(identity, self._store(identity).read_snapshot())
+            if self.services.save_config is not None:
+                config = self.services.load_config()
+                config["work_parallel"] = state["policy"]
+                self.services.save_config(config)
+        elif action in ("parallel_orphans_preview", "parallel_orphans_apply"):
+            if self.services.parallel_store is None:
+                raise tree.WorkPlanError("parallel controls are unavailable")
+            store = self.services.parallel_store()
+            if action.endswith("preview"):
+                from .work_parallel_mcp import _orphan_preview
+                result = _orphan_preview(store)
+            else:
+                # One lease per action, pinned to the exact preview the operator
+                # saw: the menu and ciel-runtimectl call this same function.
+                expected = body.get("expected_version")
+                if type(expected) is not int or expected < 0:
+                    raise tree.WorkPlanError("expected_version must be the previewed ledger version")
+                if store.read()["version"] != expected:
+                    raise WorkParallelConflict("Work parallel state changed since the preview; preview again")
+                lease_id = body.get("lease_id")
+                if not isinstance(lease_id, str) or not lease_id or len(lease_id) > 200:
+                    raise tree.WorkPlanError("lease_id must be the exact previewed lease")
+                from .work_parallel_menu import release_previewed
+                result = release_previewed(store, body.get("preview_digest"), lease_id,
+                                           proof=self.OPERATOR_PROOFS[source],
+                                           legacy_confirmed=body.get("legacy_confirmed") is True)
+        elif action == "parallel_item_review":
+            result = self._parallel_item_review(identity, body)
+        elif action == "parallel_launch_resolve":
+            result = self._parallel_launch_resolve(identity, body)
+        elif action == "parallel_legacy_accept":
+            result = self._parallel_legacy_accept(identity, body)
+        elif action == "side_review":
+            from .side_review import review, with_delivery
+            result = review(self._store(identity), body.get("receipt_ids"), verdict=body.get("verdict"),
+                            note=body.get("note", ""), expected_version=body.get("expected_version"))
+            # Operator response: each review exactly as GET /side lists it
+            # (public fields, delivery and reply pins; never the reply or source).
+            rows = result.get("reviews") if isinstance(result, dict) else result
+            public = with_delivery([self._side_review_public(row.get("receipt_id"), row)
+                                    for row in rows or [] if isinstance(row, dict)], self.services.state_dir, identity)
+            result = {**result, "reviews": public} if isinstance(result, dict) else public
+        elif action == "side_handoff":
+            from .side_handoff import acknowledge
+            from .side_intake_inbox import SideIntakeInbox
+            from .side_intake_mcp import (_answer_followup, _followup, _handoff_needs_followup,
+                                          _sync_handoff_receipt)
+            event_id, answer = body.get("event_id"), body.get("answer", "")
+            inbox = SideIntakeInbox(self.services.state_dir, identity)
+            original = inbox._load(event_id) if isinstance(event_id, str) else None
+            # Same sequence as MCP work_side_handoff: a follow-up that cannot
+            # be represented must not commit the board acknowledgement first.
+            if not isinstance(answer, str):
+                raise tree.WorkPlanError("coordinator answer must be text")
+            if (answer and original and _handoff_needs_followup(original)
+                    and _followup(event_id, answer, original) is None):
+                raise tree.WorkPlanError(
+                    "coordinator follow-up exceeds inbox record capacity; no acknowledgment committed")
+            result = acknowledge(self._store(identity), event_id, answer=answer,
+                activate=body.get("activate", False), clear_wait=body.get("clear_wait"),
+                expected_version=body.get("expected_version"))
+            _sync_handoff_receipt(inbox, event_id, result)
+            if answer:
+                _answer_followup(inbox, event_id, answer)
+            # Browser-visible: the nested wake goes through the shared redactor.
+            from .side_wake import redact_handoff
+            result = redact_handoff(event_id, result)
+        elif action == "side_wake_retry":
+            # Operator-confirmed release of an uncertain main wake for a
+            # possibly duplicate re-delivery through the normal election.
+            from .side_wake import retry as retry_wake
+            result = retry_wake(self._store(identity), body.get("event_id"), body.get("attempt_ref"),
+                                body.get("revision"), confirmed=body.get("confirmed") is True)
+        elif action == "side_notice_retry":
+            # Operator-confirmed release of a released-wait notice whose
+            # outcome is unknown, for one possibly duplicate re-issue.
+            from .side_intake_inbox import SideIntakeInbox
+            from .side_notice import retry as retry_notice
+            result = retry_notice(SideIntakeInbox(self.services.state_dir, identity), body.get("receipt_id"),
+                                  attempt_ref=body.get("attempt_ref"), revision=body.get("revision"),
+                                  confirmed=body.get("confirmed") is True)
+        elif action == "side_drain":
+            result = self.side_drain(identity, body)
+        elif action == "side_reappend_retry":
+            result = self.side_reappend_retry(identity, body)
+        elif action == "review_reappend_retry":
+            result = self.review_reappend_retry(identity, body)
+        else:
+            from .side_reply_outbox import retry
+            result = retry(self.services.state_dir, identity, body.get("receipt_id"),
+                           body.get("expected_state"), body.get("confirmed", False),
+                           attempt_ref=body.get("attempt_ref"), revision=body.get("revision"))
+        return result
+
+    def side_drain(self, identity: str, body: dict[str, Any]) -> dict[str, Any]:
+        """The console side drain (admit=False) for REST and ctl: nothing is admitted.
+
+        Each row is the redacted receipt detail of GET /side/receipt; the raw
+        inbox record (original text, context, fallback) never leaves the host.
+        """
+        limit = body.get("limit", 10)
+        if type(limit) is not int or not 1 <= limit <= 100:
+            raise tree.WorkPlanError("side drain limit must be an integer from 1 to 100")
+        from .side_intake_inbox import RECEIPT_ID, SideIntakeInbox
+        from .side_intake_service import drain
+        inbox = SideIntakeInbox(self.services.state_dir, identity)
+        rows = []
+        for row in drain(self.services.state_dir, identity, admit=False, limit=limit)[:limit]:
+            receipt_id = row.get("receipt_id") if isinstance(row, dict) else None
+            if isinstance(receipt_id, str) and RECEIPT_ID.fullmatch(receipt_id):
+                detail = inbox.receipt_detail(receipt_id)
+                if detail is not None:
+                    rows.append(detail)
+        return {"rows": rows, "admitted": False}
+
+    def side_reappend_retry(self, identity: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Operator-confirmed release of a side-wake conversation re-append whose
+        outcome is unknown, for one possibly duplicate re-append.
+
+        Shared by REST and the console (ctl). ``body``: event_id, reappend_ref
+        (from GET /side handoffs[].wake), revision, confirmed=true. The answer is
+        the redacted wake result: no attempt, owner, conversation or receipt.
+        """
+        from .side_wake import retry_reappend
+        return retry_reappend(self._store(identity), body.get("event_id"), body.get("reappend_ref"),
+                              body.get("revision"), confirmed=body.get("confirmed") is True)
+
+    def review_reappend_retry(self, identity: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Operator-confirmed release of an unknown-outcome review re-append.
+
+        Shared by REST and the console (ctl). ``body``: lease_id, reappend_ref
+        (from GET /side review_delivery.rows[]), confirmed=true. Only a review of
+        this session is accepted.
+        """
+        if self.services.parallel_store is None:
+            raise tree.WorkPlanError("parallel review controls are unavailable")
+        lease_id = body.get("lease_id")
+        if not isinstance(lease_id, str) or not lease_id or len(lease_id) > 200:
+            raise tree.WorkPlanError("lease_id must be a nonempty string")
+        from .review_delivery import ReviewDeliveryStore
+        from .work_parallel_mcp import finalization
+        journal = finalization(self.services.parallel_store())
+        review = (journal.read().get("reviews") or {}).get(lease_id)
+        if not isinstance(review, dict) or review.get("scope") != identity:
+            raise tree.WorkPlanError("unknown review for this session")
+        return ReviewDeliveryStore.beside(journal).reappend_retry(lease_id, body.get("reappend_ref"),
+                                                                  confirmed=body.get("confirmed") is True)
 
     def _public_parallel(self, identity: str, board: dict[str, Any]) -> dict[str, Any]:
         """Browser-safe parallel view: evidence groups and device aggregates only."""
@@ -411,12 +753,60 @@ class WorkHttpController:
             return {"session_id": identity, "version": projected.get("version", 0), "policy": projected.get("policy", {}),
                     "forks": {"schema": "native-fork-evidence/1", "available": False, "confirmed_count": 0,
                               **{name: [] for name in ("confirmed", "waiting", "reservation", "uncertain",
-                                                       "validating", "ended")}},
-                    "device": {"active_slots": projected.get("active_device", 0)}}
+                                                       "validating", "ended", "legacy_reviewer")}},
+                    "device": {"active_slots": projected.get("active_device", 0)},
+                    **self._public_fork_gate(identity)}
         from .work_parallel_mcp import public_projection
         result = public_projection(projected, identity)
         result.update(self._public_reviews(projected, self._public_launches(identity)))
+        result["parallel_legacy_reviews"] = self._public_legacy_reviews(projected)
+        result.update(self._public_failures(identity))
+        result.update(self._public_fork_gate(identity))
         return result
+
+    def _public_fork_gate(self, identity: str) -> dict[str, Any]:
+        """G5, display only: the Work host's last live probe of the Work fork gate.
+
+        Read from its own sidecar, so the ctl controller (a model projection)
+        shows it too. Never the probe nonce.
+        """
+        from .work_parallel_gate_presence import NOT_REPORTED_TEXT, fork_gate_view
+        if self.services.parallel_store is None:
+            return {"fork_gate": {"state": "unknown", "reason": "not_reported", "gate_version": None,
+                                  "observed_at": None, "reported_at": None, "message": NOT_REPORTED_TEXT},
+                    "gate_presence_version": None}
+        return fork_gate_view(self.services.parallel_store().path, identity)
+
+    @staticmethod
+    def _public_legacy_reviews(projected: dict[str, Any]) -> list[dict[str, Any]]:
+        """Workers an older build left ``reviewing``; never a reviewer identity."""
+        rows = []
+        for source in projected.get("legacy_reviews") or []:
+            if not isinstance(source, dict) or source.get("reviewers") not in ("none", "one", "multiple"):
+                continue
+            row = {key: source[key] for key in ("lease_id", "item_id", "priority", "reviewers")
+                   if isinstance(source.get(key), str)}
+            if isinstance(source.get("item_title"), str) and source["item_title"]:
+                row["item_title"] = source["item_title"][:200]
+            rows.append(row)
+        return rows[:50]
+
+    def _public_failures(self, identity: str) -> dict[str, Any]:
+        """The durable host failure log of this session: fixed codes, short ids and times."""
+        unavailable = {"parallel_failures": [], "failures_version": None, "failures_truncated": False}
+        if self.services.parallel_store is None:
+            return unavailable
+        try:
+            from .work_parallel_failures import OWNER_LIVE_TEXT, OWNER_UNKNOWN_TEXT, WorkParallelFailureLog
+            view = WorkParallelFailureLog.beside(self.services.parallel_store().path).public(identity)
+        except (OSError, ValueError):
+            return unavailable
+        messages = {"owner_unknown": OWNER_UNKNOWN_TEXT, "owner_live": OWNER_LIVE_TEXT}
+        for row in view["failures"]:
+            if row["code"] in messages:
+                row["message"] = messages[row["code"]]
+        return {"parallel_failures": view["failures"], "failures_version": view["failures_version"],
+                "failures_truncated": view["failures_truncated"]}
 
     STUCK_LAUNCH_SECONDS = 30
 
@@ -432,16 +822,14 @@ class WorkHttpController:
         if self.services.parallel_store is None:
             return {}
         try:
-            from .work_parallel_mcp import finalization
-            state = finalization(self.services.parallel_store()).read()
+            # Both journals: schema-5 rework launches and stranded-v1 recovery launches.
+            from .work_parallel_mcp import review_launch_rows
+            launches = review_launch_rows(self.services.parallel_store(), identity)
         except (OSError, ValueError):
             return {}
         now = time.time()
         rows: dict[str, dict[str, Any]] = {}
-        for row in state.get("reviews", {}).values():
-            launch = row.get("launch") or {}
-            if row.get("scope") != identity or row.get("decision") != "rework" or launch.get("state") in (None, "none"):
-                continue
+        for _journal, lease_id, launch in launches:
             audit = launch.get("audit") or []
             last = audit[-1].get("kind") if audit and isinstance(audit[-1], dict) else None
             public: dict[str, Any] = {"state": launch["state"], "attempt": launch.get("attempt")}
@@ -455,8 +843,25 @@ class WorkHttpController:
                 public["stuck"] = age >= self.STUCK_LAUNCH_SECONDS
             if last == "present" and launch["state"] in ("spawn_observed", "bound"):
                 public["agent_present"] = True
-            rows[row["lease_id"]] = public
+            rows[lease_id] = public
         return rows
+
+    def _parallel_legacy_accept(self, identity: str, body: dict[str, Any]) -> dict[str, Any]:
+        """Consume the unique submitted legacy reviewer for one ``reviewing`` worker."""
+        if self.services.parallel_store is None:
+            raise tree.WorkPlanError("parallel review controls are unavailable")
+        lease_id = body.get("lease_id")
+        if not isinstance(lease_id, str) or not lease_id or len(lease_id) > 200:
+            raise tree.WorkPlanError("lease_id must be a nonempty string")
+        if body.get("confirmed") is not True:
+            raise tree.WorkPlanError("accepting a legacy reviewed result requires explicit confirmation")
+        expected = body.get("expected_version")
+        if type(expected) is not int or expected < 0:
+            raise tree.WorkPlanError("expected_version must be a nonnegative integer")
+        from .work_parallel_mcp import legacy_accept
+        return legacy_accept(self.services.parallel_store(), self._store(identity), identity, lease_id,
+                             expected_version=expected,
+                             evidence="Accepted by the authenticated operator after legacy independent review.")
 
     def _parallel_launch_resolve(self, identity: str, body: dict[str, Any]) -> dict[str, Any]:
         """Record the operator's confirmed request to resolve one exact rework launch.
@@ -476,17 +881,19 @@ class WorkHttpController:
             raise tree.WorkPlanError("launch_ref must be the exact launch reference shown for this result")
         if body.get("confirmed") is not True:
             raise tree.WorkPlanError("resolving a rework launch requires explicit confirmation")
-        expected = body.get("expected_finalization_version")
-        if type(expected) is not int or expected < 0:
-            raise tree.WorkPlanError("expected_finalization_version must be a nonnegative integer")
-        from .work_parallel_mcp import request_rework_launch_manual
-        result = request_rework_launch_manual(self.services.parallel_store(), identity, lease_id, launch_ref,
-                                              confirmed=True, expected_version=expected)
-        return {key: result[key] for key in ("lease_id", "state", "attempt", "launch_ref", "finalization_version")}
+        # The owning journal decides which version pins the request: schema-5
+        # finalization for a rework launch, stranded-v1 for a recovery launch.
+        from .work_parallel_mcp import request_review_launch_resolve
+        result = request_review_launch_resolve(
+            self.services.parallel_store(), identity, lease_id, launch_ref,
+            expected_finalization_version=body.get("expected_finalization_version"),
+            expected_stranded_version=body.get("expected_stranded_version"))
+        version = "stranded_version" if result["review_journal"] == "stranded" else "finalization_version"
+        return {key: result[key] for key in ("lease_id", "state", "attempt", "launch_ref", "review_journal", version)}
 
     REVIEW_ROW_FIELDS = ("lease_id", "item_id", "root_id", "priority", "item_title", "item_path", "artifact",
                          "completion_receipt", "summary", "coverage", "verification", "state", "decision",
-                         "evidence")
+                         "evidence", "changed_before_bind")
     REVIEW_WORKSPACE_FIELDS = ("branch", "head", "dirty", "changed_count", "changed_files", "diff_stat")
 
     @classmethod
@@ -498,20 +905,72 @@ class WorkHttpController:
         """
         review = projected.get("review")
         if not isinstance(review, dict):
-            return {"parallel_reviews": [], "review_version": None}
+            return {"parallel_reviews": [], "review_version": None, "stranded_version": None,
+                    "parallel_reviews_ended": []}
         launches = launches or {}
         rows = []
-        for source in review.get("pending") or []:
+        superseded = []
+        # Ended superseded rows come from the host-authenticated review.ended
+        # (lead ruling); a superseded row still inside review.pending (an older
+        # backend) is shown the same way, once per lease.
+        ended_sources = [row for row in review.get("ended") or [] if isinstance(row, dict)]
+        for from_ended, source in [*((False, row) for row in review.get("pending") or []),
+                                   *((True, row) for row in ended_sources)]:
             if not isinstance(source, dict):
+                continue
+            stranded = source.get("stranded")
+            is_superseded = source.get("state") == "superseded" or (isinstance(stranded, dict)
+                                                                     and stranded.get("phase") == "superseded")
+            if from_ended and not is_superseded:
+                continue  # review.ended carries ended audit rows only; nothing there is decidable.
+            if is_superseded:
+                # An ended audit row (checkpoint3), never a decidable review: the
+                # superseding lease and the time only. No reason, workspace,
+                # artifact, receipt, summary or verification is exported.
+                stranded = stranded if isinstance(stranded, dict) else {}
+                ended = {key: source[key] for key in ("lease_id", "item_id", "priority", "item_title") if source.get(key) is not None}
+                if stranded.get("kind") in ("workspace_unavailable", "no_report"):
+                    ended["kind"] = stranded["kind"]
+                ended["phase"] = "superseded"
+                if isinstance(stranded.get("superseding_lease_id"), str):
+                    ended["superseding_lease_id"] = stranded["superseding_lease_id"][:64]
+                # The superseding lease's current ledger state, or "absent": a fixed word only.
+                winner = stranded.get("superseding_state")
+                if isinstance(winner, str) and re.fullmatch(r"[a-z_]{1,24}", winner):
+                    ended["superseding_state"] = winner
+                observed = stranded.get("observed_at")
+                if type(observed) in (int, float) and 1e9 < observed < 1e11:
+                    ended["observed_at"] = observed
+                superseded.append(ended)
                 continue
             row = {key: source[key] for key in cls.REVIEW_ROW_FIELDS if source.get(key) is not None}
             for key in ("summary", "verification", "evidence"):
                 if isinstance(row.get(key), str):
                     row[key] = row[key][:2000]
+            # R1: the read-time content pin of an undecided row, in the router's
+            # exact format only. The browser sends back the pin of the row it
+            # rendered, so a decision is not refused by unrelated version bumps.
+            pin = source.get("review_pin")
+            if isinstance(pin, str) and re.fullmatch(r"rp1:[0-9a-f]{64}", pin):
+                row["review_pin"] = pin
             blocked = source.get("blocked")
             if isinstance(blocked, dict) and isinstance(blocked.get("code"), str):
                 # Code only: a stage-failure message can carry host paths.
                 row["blocked"] = {"code": blocked["code"][:40]}
+            stranded = source.get("stranded")
+            if isinstance(stranded, dict) and stranded.get("kind") in ("workspace_unavailable", "no_report"):
+                # Fixed words only. The reason is withheld: an ownership error can
+                # carry host paths, the same rule as blocked.message.
+                row["stranded"] = {"kind": stranded["kind"],
+                                   "approve": "refused" if stranded.get("approve") == "refused" else "unknown",
+                                   "rework": "fresh_workspace" if stranded.get("rework") == "fresh_workspace" else "unknown",
+                                   "counts_against_rework_limit": stranded.get("counts_against_rework_limit") is True}
+                # The sidecar's saga phase (stranded-v1), a fixed word.
+                if stranded.get("phase") in ("pending", "deciding", "recovered"):
+                    row["stranded"]["phase"] = stranded["phase"]
+            # The journal that owns this row, and so which version pins its
+            # launch resolution: stranded-v1 for a stranded row, else schema-5.
+            row["review_journal"] = "stranded" if "stranded" in row else "finalization"
             if isinstance(row.get("item_path"), list):
                 row["item_path"] = [str(value)[:120] for value in row["item_path"][:8]]
             launch = launches.get(source.get("lease_id"))
@@ -532,8 +991,16 @@ class WorkHttpController:
                 row["workspace"] = public
             rows.append(row)
         version = review.get("version")
+        # Ended audit rows: newest first, at most 20 (the backend lists one only
+        # while its superseding lease is active and unreviewed).
+        seen_ended = set()
+        superseded = [row for row in superseded
+                      if not (row.get("lease_id") in seen_ended or seen_ended.add(row.get("lease_id")))]
+        superseded.sort(key=lambda row: row.get("observed_at") or 0, reverse=True)
+        stranded_version = review.get("stranded_version")
         return {"parallel_reviews": rows, "review_version": version if type(version) is int else None,
-                "reviews_truncated": review.get("truncated") is True}
+                "stranded_version": stranded_version if type(stranded_version) is int else None,
+                "reviews_truncated": review.get("truncated") is True, "parallel_reviews_ended": superseded[:20]}
 
     def _parallel_item_review(self, identity: str, body: dict[str, Any]) -> dict[str, Any]:
         """The authenticated web operator decides one pending result as main would.
@@ -560,18 +1027,30 @@ class WorkHttpController:
         expected = body.get("expected_finalization_version")
         if type(expected) is not int or expected < 0:
             raise tree.WorkPlanError("expected_finalization_version must be a nonnegative integer")
+        pin = body.get("expected_review_pin")
+        if pin is not None and (not isinstance(pin, str) or re.fullmatch(r"rp1:[0-9a-f]{64}", pin) is None):
+            raise tree.WorkPlanError("expected_review_pin must be the review_pin shown for this row")
         from .work_parallel_mcp import _main_review
         return _main_review(self.services.parallel_store(), self._store(identity), identity, {}, {
             "lease_id": lease_id, "decision": decision, "decision_id": "review:" + lease_id + ":" + decision,
-            "evidence": evidence[:2000], "expected_finalization_version": expected})
+            "evidence": evidence[:2000], "expected_finalization_version": expected,
+            **({"expected_review_pin": pin} if pin is not None else {})})
 
     def _parallel_paths(self) -> tuple[Path, ...]:
         if self.services.parallel_store is None:
             return ()
         path = Path(self.services.parallel_store().path)
+        # Every file a /parallel field is read from: the frozen ledger,
+        # native evidence, coordination and finalization, plus the stranded-v1,
+        # review-delivery and failure-log sidecars.
         return (path, path.with_name("work-parallel-native.json"),
                 path.with_name("work-parallel-coordination.json"),
-                path.with_name("work-parallel-finalization.json"))
+                path.with_name("work-parallel-finalization.json"),
+                path.with_name("work-parallel-stranded-v1.json"),
+                path.with_name("work-parallel-review-delivery.json"),
+                path.with_name("work-parallel-failures-v1.json"),
+                path.with_name("work-parallel-gate-presence-v1.json"),
+                path.with_name("work-parallel-attachments-v1.json"))
 
     @staticmethod
     def _stat(paths: tuple[Path, ...]) -> tuple[Any, ...]:
@@ -592,19 +1071,65 @@ class WorkHttpController:
             return "", False
         forks = view["forks"]
         rows = [(group, row.get("lease_id"), row.get("state"), (row.get("native") or {}).get("status"))
-                for group in ("confirmed", "waiting", "reservation", "uncertain", "validating", "ended")
+                for group in ("confirmed", "waiting", "reservation", "uncertain", "validating", "ended",
+                              "legacy_reviewer")
                 for row in forks.get(group, [])]
         device = view.get("device", {})
-        reviews = [(row.get("lease_id"), row.get("state"), row.get("decision"),
+        reviews = [(row.get("lease_id"), row.get("state"), row.get("decision"), row.get("review_journal"),
+                    (row.get("stranded") or {}).get("phase"),
                     [(row.get("launch") or {}).get(key) for key in ("state", "attempt", "launch_ref", "stuck",
                                                                     "agent_present")])
                    for row in view.get("parallel_reviews", [])]
+        ended = [(row.get("lease_id"), row.get("superseding_lease_id"), row.get("observed_at"))
+                 for row in view.get("parallel_reviews_ended", [])]
+        legacy = [(row.get("lease_id"), row.get("reviewers")) for row in view.get("parallel_legacy_reviews", [])]
         # An unresolved launch is re-read on the 5 s cadence too, so the tab
         # shows "Rework launch stuck" once it crosses the display threshold.
         launching = any((row.get("launch") or {}).get("stuck") is False for row in view.get("parallel_reviews", []))
+        # The ledger version and every policy value the tab shows: a configure
+        # from another surface (menu, ctl, REST) refreshes it too.
         return (json.dumps([rows, device.get("active_by_priority"), device.get("paused"), reviews,
-                            view.get("review_version")], sort_keys=True),
+                            view.get("review_version"), view.get("stranded_version"), ended, legacy,
+                            view.get("failures_version"), view.get("version"), view.get("policy"),
+                            view.get("fork_gate"), view.get("gate_presence_version")],
+                           sort_keys=True),
                 bool(forks.get("confirmed_count")) or launching)
+
+    @staticmethod
+    def _audit_print(doc: dict[str, Any], receipts: dict[str, Any] | None = None) -> str:
+        """What the Audit tab shows changing: a receipt added, resolved or committed.
+
+        Audit-only writes keep the board version, so work.changed never fires
+        for them. Keys, states and receipt versions only; no request content.
+        """
+        receipts = (doc.get("rest_operations") or {}) if receipts is None else receipts
+        return json.dumps(sorted((key, str((row or {}).get("state")), (row or {}).get("receipt_version"))
+                                 for key, row in receipts.items()))
+
+    @staticmethod
+    def _stream_audit_receipts(application: WorkApplication) -> dict[str, Any] | None:
+        """Audit rows for the event stream, or None while a record is unreadable."""
+        try:
+            return application.audit_receipts()
+        except (OSError, tree.WorkPlanError):
+            return None
+
+    @staticmethod
+    def _audit_event(identity: str, doc: dict[str, Any],
+                     receipts: dict[str, Any] | None = None) -> dict[str, Any]:
+        receipts = (doc.get("rest_operations") or {}) if receipts is None else receipts
+        newest = max(receipts.items(), key=lambda item: float((item[1] or {}).get("created_at") or 0),
+                     default=(None, {}))
+        return {"session_id": identity, "count": len(receipts), "newest_operation_id": newest[0],
+                "newest_created_at": (newest[1] or {}).get("created_at"),
+                "refetch": "/ca/work/api/v1/audit", "coalesced": True}
+
+    def _settings_print(self) -> str | None:
+        """The settings fingerprint, or None while the configuration is unreadable."""
+        try:
+            return settings_fingerprint(self.services.load_config())
+        except (OSError, ValueError):
+            return None
 
     def _stream(self, handler: Any, identity: str, query: dict[str, list[str]], *, v1: bool = False) -> None:
         if not self._streams.acquire(blocking=False):
@@ -636,15 +1161,33 @@ class WorkHttpController:
             side_inbox = SideIntakeInbox(self.services.state_dir, identity)
             side_cursor = side_inbox.watermark()
             # Wake-only ledger writes keep the Work version; their revisions
-            # still refresh the Side tab (e.g. "main delivery uncertain").
+            # still refresh the Side tab (e.g. "main delivery uncertain"). A
+            # re-append turns uncertain by age alone (no write), so its derived
+            # flag is part of the print too.
+            from .side_wake import reappend_uncertain
+            from .side_notice import crossed_grace
             def wake_print(board: dict[str, Any]) -> str:
-                return json.dumps({key: [(row.get("wake") or {}).get(field) for field in ("state", "phase", "revision")]
+                return json.dumps({key: [*((row.get("wake") or {}).get(field) for field in ("state", "phase", "revision")),
+                                         reappend_uncertain(row.get("wake"))]
                                    for key, row in board.get("side_handoffs", {}).items()}, sort_keys=True)
             wake_cursor = wake_print(doc)
+            # A release-notice claim also turns uncertain by age alone (60 s).
+            notice_cursor = crossed_grace(side_inbox)
             parallel_paths = self._parallel_paths()
+            # The Side tab's Review delivery rows (review_delivery sidecar,
+            # written by any process) are re-read when a parallel file changes,
+            # and every 5 s while a re-append could turn uncertain by age.
+            review_stat = self._stat(parallel_paths)
+            review_print, review_live = self._review_delivery_print(identity, doc) if parallel_paths else ("", False)
+            review_due = time.monotonic() + 5
             parallel_stat = self._stat(parallel_paths)
             parallel_print, parallel_live = self._parallel_fingerprint(identity, doc) if parallel_paths else ("", False)
             parallel_due = time.monotonic() + 5
+            audit_application = self._application(identity)
+            audit_receipts = self._stream_audit_receipts(audit_application)
+            audit_cursor = self._audit_print(doc, audit_receipts) if audit_receipts is not None else None
+            settings_cursor = self._settings_print()
+            settings_due = time.monotonic() + 2
             refetch = "/ca/work/api/v1/board" if v1 else "/ca/work"
             self._event(handler, identity, doc, "work.snapshot" if not cursor else "work.resync_required", previous,
                         refetch=refetch)
@@ -662,6 +1205,30 @@ class WorkHttpController:
                     handler.wfile.write(b": heartbeat" + bytes([10, 10]))
                     handler.wfile.flush()
                     heartbeat = time.monotonic()
+                audit_receipts = self._stream_audit_receipts(audit_application)
+                latest_audit = self._audit_print(current, audit_receipts) if audit_receipts is not None else None
+                # An unreadable operator-intent record keeps the cursor (GET /audit answers 503).
+                if latest_audit is not None and latest_audit != audit_cursor:
+                    # Content-free: counts and the newest key only; no event id.
+                    frame = chr(10).join(("event: audit.changed", "data: " + json.dumps(
+                        self._audit_event(identity, current, audit_receipts)), "", ""))
+                    handler.wfile.write(frame.encode("utf-8"))
+                    handler.wfile.flush()
+                    audit_cursor = latest_audit
+                    heartbeat = time.monotonic()
+                if time.monotonic() >= settings_due:
+                    # Settings live in the configuration file, written by the
+                    # menu, ctl, REST or a session command: re-read every 2 s.
+                    settings_due = time.monotonic() + 2
+                    latest_settings = self._settings_print()
+                    if latest_settings is not None and latest_settings != settings_cursor:
+                        frame = chr(10).join(("event: settings.changed", "data: " + json.dumps({
+                            "session_id": identity, "settings_fingerprint": latest_settings,
+                            "refetch": "/ca/work/api/v1/settings", "coalesced": True}), "", ""))
+                        handler.wfile.write(frame.encode("utf-8"))
+                        handler.wfile.flush()
+                        settings_cursor = latest_settings
+                        heartbeat = time.monotonic()
                 latest_errors = self.services.recent_errors(identity)
                 serialized_errors = json.dumps(latest_errors, sort_keys=True)
                 if serialized_errors != error_cursor:
@@ -676,6 +1243,19 @@ class WorkHttpController:
                 if latest_wake != wake_cursor and latest_side is not None:
                     wake_cursor = latest_wake
                     side_cursor = None  # force one coalesced side.changed below
+                latest_notice = crossed_grace(side_inbox)
+                if latest_notice != notice_cursor and latest_side is not None:
+                    notice_cursor = latest_notice
+                    side_cursor = None
+                if parallel_paths and latest_side is not None:
+                    latest_review_stat = self._stat(parallel_paths)
+                    if latest_review_stat != review_stat or (review_live and time.monotonic() >= review_due):
+                        review_stat = latest_review_stat
+                        review_due = time.monotonic() + 5
+                        latest_review, review_live = self._review_delivery_print(identity, current)
+                        if latest_review != review_print:
+                            review_print = latest_review
+                            side_cursor = None
                 # None is a momentarily unreadable marker: keep the cursor. An
                 # unreadable initial marker yields at most one extra refetch.
                 if latest_side is not None and latest_side != side_cursor:

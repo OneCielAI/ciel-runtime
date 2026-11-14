@@ -244,6 +244,33 @@ class ChannelTranscriptTests(unittest.TestCase):
                                               not_before=launched_at))
         self.assertFalse(main_output_from_text("", not_before=launched_at))
 
+    def test_codex_response_item_after_launch_proves_main_is_running(self):
+        """A completed Codex assistant response_item after launch is proof; input is not."""
+        launched_at = 1787128000.0  # 2026-08-19T08:26:40Z
+
+        def record(stamp, **payload):
+            return json.dumps({"type": "response_item", "timestamp": stamp, "payload": payload})
+
+        answer = {"type": "message", "role": "assistant", "status": "completed",
+                  "content": [{"type": "output_text", "text": "done"}]}
+        not_output = {
+            "stale": record("2026-08-19T08:16:16Z", **answer),  # before this launch
+            "undated": json.dumps({"type": "response_item", "payload": answer}),
+            "user": record("2026-08-19T09:00:00Z", type="message", role="user", content=[]),
+            "reasoning": record("2026-08-19T09:00:01Z", type="reasoning", summary=[], encrypted_content="x"),
+            "function_call": record("2026-08-19T09:00:01Z", type="function_call", name="shell",
+                                    arguments="{}", call_id="c1"),
+            "function_call_output": record("2026-08-19T09:00:01Z", type="function_call_output",
+                                           call_id="c1", output="x"),
+            "in_progress": record("2026-08-19T09:00:01Z", **{**answer, "status": "in_progress"}),
+        }
+        for label, line in not_output.items():
+            with self.subTest(not_output=label):
+                self.assertFalse(main_output_from_text(line, not_before=launched_at))
+        fresh = record("2026-08-19T09:00:02Z", **answer)
+        self.assertTrue(main_output_from_text("\n".join((*not_output.values(), fresh)),
+                                              not_before=launched_at))
+
     def test_claude_turn_duration_closes_turn_without_end_turn_record(self):
         user = json.dumps({"type": "user", "message": {"role": "user", "content": "work"}})
         duration = json.dumps({"type": "system", "subtype": "turn_duration"})

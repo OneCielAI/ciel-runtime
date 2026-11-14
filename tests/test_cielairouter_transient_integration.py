@@ -118,8 +118,13 @@ class TransientIntegrationTests(unittest.TestCase):
         downstream.send_response.assert_called_once_with(200)
 
     def test_all_openers_have_one_capped_structured_budget(self):
+        # Unset gateway_retries uses the 420 s window, so immediate failures stop at its
+        # attempt ceiling (WINDOW_RETRY_CEILING retries) instead of the old default of 3
+        # (team-lead ruling 2026-11-13, evidence/claude-window-330). Explicit counts keep
+        # count mode.
+        unset = transient_retry.WINDOW_RETRY_CEILING + 1 if transient_retry.RETRY_WINDOW_SECONDS > 0 else 4
         for fn in ENTRYPOINTS:
-            for count, expected in ((None, 4), (0, 1), (2, 3), (99, 11)):
+            for count, expected in ((None, unset), (0, 1), (2, 3), (99, 11)):
                 with self.subTest(fn=fn.__name__, count=count):
                     config = {'base_url': 'http://a'}
                     if count is not None:

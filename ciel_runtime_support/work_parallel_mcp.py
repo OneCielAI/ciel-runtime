@@ -4,6 +4,7 @@ import copy
 import hashlib
 import json
 import hmac
+import re
 import secrets
 import time
 from pathlib import Path
@@ -22,14 +23,13 @@ def schemas():
     props = {
         "item_id": {"type": "string"}, "lease_id": {"type": "string"},
         "priority": {"type": "string", "enum": ["P1", "P2", "P3", "P4", "P5"]},
-        "role": {"type": "string", "enum": ["worker", "reviewer", "resume"]},
+        "role": {"type": "string", "enum": ["worker", "resume"]},
         "expected_version": {"type": "integer", "minimum": 0},
         "changes": {"type": "object"}, "event": {"type": "string"},
         "artifact": {"type": "string"}, "evidence": {"type": "string"},
         "plan_version": {"type": "integer", "minimum": 0},
         "cleanup_proof": {"type": "string"},
         "workspace": {"type": "string"}, "remote_ref": {"type": "string"},
-        "reviewer_lease_id": {"type": "string"},
         "detail_digest": {"type": "string"}, "detail": {"type": "object"},
         "related_lease_id": {"type": "string"},
         "worker_token": {"type": "string"}, "operation": {"type": "string"},
@@ -38,6 +38,7 @@ def schemas():
         "rows": {"type": "array", "items": {"type": "object"}}, "complete": {"type": "boolean"},
         "expected_evidence_version": {"type": "integer", "minimum": 0},
         "expected_finalization_version": {"type": "integer", "minimum": 0},
+        "expected_review_pin": {"type": "string", "pattern": "^rp1:[0-9a-f]{64}$"},
         "decision": {"type": "string", "enum": ["approve", "rework"]},
         "decision_id": {"type": "string"},
         "findings": {"type": "array", "items": {"type": "string"}},
@@ -45,15 +46,19 @@ def schemas():
         "attempt_id": {"type": "string"}, "dispatch_name": {"type": "string"},
         "generation": {"type": "integer", "minimum": 1}, "agent_id": {"type": "string"},
         "state": {"type": "string"}, "proof": {"type": "string"},
+        "names": {"type": "array", "maxItems": 64,
+                  "items": {"type": "string", "maxLength": 200}},
+        "ids": {"type": "array", "maxItems": 64,
+                "items": {"type": "string", "maxLength": 200}},
     }
     descriptions = {
         "work_discovery_pickup": "Register caller-verified external open search items by priority/latest, with durable dedup and cooldown; never approves execution. Requires source, scope, results. Each result: source,item_id,priority,created_at,title,link,status,scope.",
         "work_parallel_status": "Show Work 병렬 실행 settings, device capacity and this conversation's leases. Read before changing limits.",
-        "work_parallel_configure": "On the user's natural-language request, persist Work 병렬 실행 limits (concurrent executing fork sessions, reserved P1 slot, launch rate, rework limit) or pause. This never limits registering or queueing Work items. Pass changes and expected_version from work_parallel_status. Does not approve a plan.",
+        "work_parallel_configure": "On the user's natural-language request, persist Work 병렬 실행 limits (concurrent fork sessions per priority, launch rate, rework limit) or pause. This never limits registering or queueing Work items. Pass changes and expected_version from work_parallel_status. Does not approve a plan.",
         "work_parallel_run": "Dispatch an approved Work item: the packaged host starts the fork itself and returns the started lease/agent. You do not call the Agent tool or supply a name for this dispatch. Requires item_id, priority, role and expected_version. Codex is unsupported until its native adapter passes capability tests.",
         "work_parallel_event": "Coordinator lifecycle and authenticated host observations for Work forks. Workers report through work_parallel_report.",
-        "work_parallel_report": "Worker-only question/completion/handoff/review report. Requires the exact lease_id and one-use worker_token. Completion needs artifact+evidence; handoff needs a host-stored detail_digest. A successful report releases the fork slot; no session_id or host token.",
-        "work_parallel_item_review": "Main-session only decision for a bounded pending completed item. Requires lease_id, decision (approve|rework), decision_id, evidence and expected_finalization_version. The host authenticates main; workers and reviewer forks are denied. Rework returns a host dispatch intent and never exposes a worker token to main.",
+        "work_parallel_report": "Worker-only question/completion/handoff report. Requires the exact lease_id and one-use worker_token. Completion needs artifact+evidence; handoff needs a host-stored detail_digest. A successful report releases the fork slot; no session_id or host token.",
+        "work_parallel_item_review": "Main-session only decision for a bounded pending completed item. Requires lease_id, decision (approve|rework), decision_id, evidence and expected_finalization_version. The host authenticates main; workers and forks are denied. Rework returns a host dispatch intent and never exposes a worker token to main.",
     }
     schemas = []
     for name in TOOL_NAMES:
@@ -79,6 +84,12 @@ def native_evidence(store=None):
     return NativeForkEvidence(base.with_name("work-parallel-native.json"))
 
 
+def attachments(store=None):
+    """Cross-process Work host ownership, in a sidecar 57dbfb3 never names."""
+    from .work_parallel_attachments import WorkParallelAttachments
+    return WorkParallelAttachments.beside((store or ledger()).path)
+
+
 def coordination(store=None):
     """Host-owned assignment/receipt state kept out of the legacy lease schema."""
     from .work_parallel_receipts import coordination_store
@@ -89,6 +100,18 @@ def finalization(store=None):
     """Main-review journal kept outside the old-reader execution ledger."""
     from .work_parallel_finalization import finalization_store
     return finalization_store(store or ledger())
+
+
+def stranded(store=None):
+    """Stranded-result journal that builds through 57dbfb3 never read."""
+    from .work_parallel_stranded import stranded_store
+    return stranded_store(store or ledger())
+
+
+def p0_state(store=None):
+    """P0 root/launch state ignored by builds through 57dbfb3."""
+    from .work_parallel_p0 import p0_store
+    return p0_store(store or ledger())
 
 
 def _root_for(board, item_id):
@@ -133,6 +156,45 @@ def _reconcile_root(coord, board, root_id, identity):
                 raise
 
 
+def _p0_runnable_leaves(store, board, identity):
+    """Planning-safe runnable leaves of active exact P0 roots, oldest first."""
+    nodes = {node["id"]: node for node in board.get("nodes", [])}
+    children = {node_id: [] for node_id in nodes}
+    for node in nodes.values():
+        if node.get("parent_id") in children:
+            children[node["parent_id"]].append(node["id"])
+    try:
+        side = p0_state(store)
+        side_state = side.read()
+    except Exception:
+        # Corrupt P0 state is displayed by status and conservatively schedules P1.
+        return []
+    rows = []
+    for root in board.get("nodes", []):
+        if root.get("parent_id") is not None or root.get("status") == "done":
+            continue
+        if side.matching_active_marker(
+                side_state, identity, root["id"], root.get("created_at")) is None:
+            continue
+        stack = [root["id"]]
+        while stack:
+            node_id = stack.pop()
+            child_ids = children.get(node_id, [])
+            if child_ids:
+                stack.extend(reversed(child_ids))
+                continue
+            node = nodes[node_id]
+            ancestors = [node]
+            while ancestors[-1].get("parent_id") is not None:
+                ancestors.append(nodes[ancestors[-1]["parent_id"]])
+            if all(row.get("status") not in ("done", "blocked")
+                   and not row.get("waiting_on") for row in ancestors):
+                rows.append({"item_id": node_id, "root_id": root["id"],
+                             "created_at": node.get("created_at", node.get("updated_at", 0))})
+    rows.sort(key=lambda row: (-float(row["created_at"]), row["item_id"]))
+    return rows
+
+
 def _item_details(board):
     """Item display metadata from the board: id -> title/ref/goal/path.
 
@@ -172,10 +234,14 @@ def _clip(value, limit):
     return value if len(value) <= limit else value[:limit - 1] + "…"
 
 
-EVIDENCE_GROUPS = ("confirmed", "waiting", "reservation", "uncertain", "validating", "ended")
+EVIDENCE_GROUPS = ("confirmed", "waiting", "reservation", "uncertain", "validating", "ended", "legacy_reviewer")
+# A reviewer lease minted by 4eebfdc/5c91ea8 is never current work: it is shown
+# in its own group until a legacy accept consumes it (then it is ended).
+GROUP_LABELS = {"legacy_reviewer": "Legacy reviewer (57dbfb3, read-only, draining)"}
 MODEL_LEASE_LIMIT = 24
 MODEL_ENDED_LIMIT = 8
 MODEL_TEXT_LIMIT = 180
+MAX_ENDED_REVIEWS = 20
 
 EVIDENCE_RULE = ("A fork counts as processing only when the native agent list showed it pending or running "
                  "within the last 30 seconds. A reserved slot, a running lease state or a bound host id alone "
@@ -195,12 +261,21 @@ def _unbound_rework_replacements(store, identity):
             return frozenset()
         return frozenset(key for key, lease in leases.items()
                          if lease.get("scope") == identity and lease.get("role") == "resume")
-    return frozenset(row["replacement_lease_id"] for row in reviews
-                     if row["scope"] == identity and row["decision"] == "rework"
-                     and row["replacement_lease_id"] is not None and row["launch"]["state"] != "bound")
+    hidden = {row["replacement_lease_id"] for row in reviews
+              if row["scope"] == identity and row["decision"] == "rework"
+              and row["replacement_lease_id"] is not None and row["launch"]["state"] != "bound"}
+    try:
+        hidden |= {row["replacement_lease_id"] for row in stranded(store).read()["rows"].values()
+                   if row["scope"] == identity and row["replacement_lease_id"] is not None
+                   and row["launch"]["state"] != "bound"}
+    except Exception:
+        leases = store.read()["leases"]
+        hidden |= {key for key, lease in leases.items()
+                   if lease.get("scope") == identity and lease.get("role") == "resume"}
+    return frozenset(hidden)
 
 
-def _fork_projection(store, identity, leases, details, hidden=frozenset()):
+def _fork_projection(store, identity, leases, details, hidden=frozenset(), *, host_view=True):
     """Evidence-classified, allow-listed view of this conversation's leases.
 
     Only ids, titles, priorities, states, a fixed native status word and
@@ -220,6 +295,9 @@ def _fork_projection(store, identity, leases, details, hidden=frozenset()):
         if record is not None and record.get("scope") != identity:
             record = None
         group = classify(lease, record, evidence["scans"].get(identity), now=now)
+        legacy_reviewer = lease["role"] == "reviewer"
+        if legacy_reviewer and group != "ended":
+            group = "legacy_reviewer"
         item = details.get(lease["item_id"], {})
         row = {"lease_id": lease["id"], "item_id": lease["item_id"],
                "item_title": _clip(item.get("item_title"), 300), "item_ref": _clip(item.get("item_ref"), 100),
@@ -227,8 +305,11 @@ def _fork_projection(store, identity, leases, details, hidden=frozenset()):
                "item_path": [_clip(t, 120) for t in (item.get("item_path") or [])[:8]],
                "priority": lease["priority"], "role": lease["role"], "state": lease["state"],
                "slot": lease["slot"],
-               "agent_name": None if lease["id"] in hidden else (lease.get("agent_name") or lease.get("dispatch_name")),
-               "agent_id": lease.get("host_id"), "rework": lease["rework"],
+               "agent_name": None if lease["id"] in hidden or (legacy_reviewer and not host_view)
+               else (lease.get("agent_name") or lease.get("dispatch_name")),
+               # Main never uses a legacy reviewer's fork identity.
+               "agent_id": None if legacy_reviewer and not host_view else lease.get("host_id"),
+               "rework": lease["rework"],
                # Lifecycle timestamps live in the coordination sidecar so this
                # shared lease file stays readable by old live builds.
                "reserved_at": lease.get("created_at"), "bound_at": None,
@@ -243,6 +324,7 @@ def _fork_projection(store, identity, leases, details, hidden=frozenset()):
     for name in groups:
         groups[name] = groups[name][-(MODEL_ENDED_LIMIT if name == "ended" else MODEL_LEASE_LIMIT):]
     return {"schema": "native-fork-evidence/1", "rule": EVIDENCE_RULE, "available": available,
+            "group_labels": dict(GROUP_LABELS),
             "evidence_version": evidence["version"], "fresh_seconds": FRESH_SECONDS,
             "observed_at": evidence["scans"].get(identity),
             "confirmed_count": counts["confirmed"], "counts": counts, **groups}
@@ -260,7 +342,28 @@ def _device_projection(d, identity):
             "note": "Device-wide lease slots across every session; a slot is not proof that a fork is running."}
 
 
-def project(store, identity, board=None, *, host_view=False):
+# The gate's confinement read: a missing key is denied, None is unconfined.
+_NO_WORKSPACE_PATH = object()
+
+
+def _host_workspace_path(lease):
+    """A lease's absolute worktree path, None when it has no workspace binding.
+
+    The router admits a reservation without a workspace (no workspace_repo
+    from the host): such a lease is unconfined. A recorded binding whose path
+    is not an absolute path is no confinement fact; the row omits the key.
+    """
+    workspace = lease.get("workspace")
+    if workspace is None:
+        return None
+    path = workspace.get("path") if isinstance(workspace, dict) else None
+    if isinstance(path, str) and 0 < len(path) <= 2000 and chr(0) not in path and Path(path).is_absolute():
+        return path
+    return _NO_WORKSPACE_PATH
+
+
+def project(store, identity, board=None, *, host_view=False, caller_nonce=None):
+    from .work_parallel import MAX_LEASES
     d = store.read()
     all_mine = {k: v for k, v in d["leases"].items() if v["scope"] == identity}
     # An unbound rework launch name is a host recovery fact, not model context.
@@ -274,13 +377,55 @@ def project(store, identity, board=None, *, host_view=False):
     open_rows.sort(key=lambda pair: (pair[1]["priority"], pair[1]["created_at"], pair[0]))
     details = _item_details(board) if board is not None and open_rows else {}
     leases = {}
+    p0_doc = None
+    if host_view:
+        try:
+            p0_doc = p0_state(store).read()
+        except Exception:
+            p0_doc = None
     allow = ("id", "item_id", "priority", "role", "state", "slot", "host_id",
              "agent_name", "dispatch_name", "plan_version", "artifact", "rework")
-    for ident, source in open_rows[:MODEL_LEASE_LIMIT]:
+    # The host view lists every open lease (the device-wide active bound), so a
+    # bound fork beyond the model's cap is never read as unbound by the host.
+    lease_limit = MAX_LEASES if host_view else MODEL_LEASE_LIMIT
+    for ident, source in open_rows[:lease_limit]:
         row = {key: source.get(key) for key in allow if source.get(key) is not None}
+        if host_view:
+            # Host-only: the Work fork gate confines a bound fork's file writes
+            # to this path. The model's own status never carries it.
+            workspace_path = _host_workspace_path(source)
+            if workspace_path is not _NO_WORKSPACE_PATH:
+                row["workspace_path"] = workspace_path
+            if p0_doc is not None and board is not None:
+                intent_rows = [value for value in p0_doc["intents"].values()
+                               if value["lease_id"] == ident
+                               and value["state"] in ("reserved", "spawning", "bound")
+                               and value["scope"] == identity
+                               and value["item_id"] == source["item_id"]]
+                if len(intent_rows) == 1:
+                    intent = intent_rows[0]
+                    try:
+                        root = _root_for(board, source["item_id"])
+                        marker = p0_state(store).matching_active_marker(
+                            p0_doc, identity, root["id"], root.get("created_at"))
+                        new_fork_name = (intent["continuation"] == "reacquire"
+                                         or source.get("dispatch_name") == intent["dispatch_name"])
+                        if (marker is not None and intent["root_id"] == root["id"]
+                                and intent["root_created_at"] == root.get("created_at")
+                                and new_fork_name):
+                            row.update(effective_priority="P0",
+                                       p0_intent_id=intent["intent_id"],
+                                       p0_continuation=intent["continuation"],
+                                       planning_write_authorized=True,
+                                       authorization="p0_dispatch_without_approval")
+                    except WorkParallelError:
+                        pass
         if ident in hidden:
             row.pop("dispatch_name", None)
             row.pop("agent_name", None)
+        if source["role"] == "reviewer" and not host_view:
+            for key in ("host_id", "agent_name", "dispatch_name"):
+                row.pop(key, None)
         item = details.get(source["item_id"], {})
         row.update(item_title=_clip(item.get("item_title"), MODEL_TEXT_LIMIT),
                    item_ref=_clip(item.get("item_ref"), 100),
@@ -288,33 +433,115 @@ def project(store, identity, board=None, *, host_view=False):
                    goal_title=_clip(item.get("goal_title"), MODEL_TEXT_LIMIT),
                    item_path=[_clip(value, 100) for value in (item.get("item_path") or [])[:6]])
         leases[ident] = row
-    forks = _fork_projection(store, identity, all_mine, details, hidden)
+    forks = _fork_projection(store, identity, all_mine, details, hidden, host_view=host_view)
     state_counts = {}
     for row in all_mine.values():
         state_counts[row["state"]] = state_counts.get(row["state"], 0) + 1
     try:
         receipts = coordination(store).projection(identity, limit=MODEL_LEASE_LIMIT)
+        if not host_view:
+            reviewers = {key for key, row in all_mine.items() if row["role"] == "reviewer"}
+            for run in receipts["runs"]:
+                if run.get("lease_id") in reviewers:
+                    run["agent_id"] = None
+                    run["agent_name"] = None
         coordination_summary = {"version": receipts["version"],
             "runs": receipts["runs"], "receipts": receipts["receipts"],
             "truncated": receipts["truncated"]}
     except Exception:
         coordination_summary = {"version": None, "assignments": [], "runs": [], "receipts": [], "truncated": False}
     try:
-        review_summary = finalization(store).projection(identity, limit=MODEL_LEASE_LIMIT)
-        review_details = _item_details(board) if board is not None and review_summary["pending"] else {}
+        reviews_store = finalization(store)
+        review_summary = reviews_store.projection(identity, limit=MODEL_LEASE_LIMIT)
+        raw_reviews = reviews_store.read()["reviews"]
+        side_store = stranded(store)
+        try:
+            _observe_supersessions(store, identity)
+        except WorkParallelConflict:
+            pass  # read-time derivation below still applies
+        side_state = side_store.read()
+        side_rows = side_state["rows"]
+        # One row per item for main: an active stranded-v1 row hides the
+        # schema-5 row of the same lease, and a completed rework/recovery hides
+        # once its replacement generation has a row of its own in either journal.
+        ledger_now = store.read()
+        superseding = {key: _superseding_lease(ledger_now, row) for key, row in side_rows.items()
+                       if row["scope"] == identity and row["state"] in ("intent", "pending")}
+        active_side = {key for key, row in side_rows.items()
+                       if row["scope"] == identity and row["state"] not in ("done", "intent")}
+        merged = []
         for row in review_summary["pending"]:
+            side = side_rows.get(row["lease_id"])
+            if side is not None and side["scope"] == identity and (
+                    row["lease_id"] in active_side or side["decision_id"] is not None):
+                # A stranded row (active, or decided and recovered) owns this
+                # lease; the schema-5 row it was raised from is never decided.
+                continue
+            replacement = side_rows.get(row.get("replacement_lease_id") or "")
+            if (row["state"] == "rework_ready" and replacement is not None
+                    and replacement["generation"] == row.get("replacement_generation")):
+                continue
+            raw = raw_reviews[row["lease_id"]]
+            row["updated_at"] = raw["updated_at"]
+            if raw.get("decision") is None:
+                from .work_parallel_finalization import review_pin
+                row["review_pin"] = review_pin(raw)
+            merged.append(row)
+        ended = []
+        for key in active_side:
+            source = side_rows[key]
+            if source["state"] == "recovered" and (source["replacement_lease_id"] in raw_reviews
+                                                   or source["replacement_lease_id"] in side_rows):
+                continue
+            other = superseding.get(key)
+            if source["state"] == "pending" and other is not None:
+                source = {**source, "state": "superseded",
+                          "superseded": {"lease_id": other["id"], "generation": 1,
+                                         "observed_at": source["updated_at"],
+                                         "digest": _supersede_digest(source, other)}}
+            if source["state"] == "superseded":
+                # Ended audit row: always listed (newest MAX_ENDED_REVIEWS), with
+                # the superseding lease's current ledger state, whatever it is. It
+                # is never decidable, so it never displaces a decidable row.
+                winner = ledger_now["leases"].get(source["superseded"]["lease_id"])
+                view = _stranded_view(source)
+                view["stranded"]["superseding_state"] = winner["state"] if winner is not None else "absent"
+                ended.append(view)
+                continue
+            merged.append(_stranded_view(source))
+        merged.sort(key=lambda row: (row["updated_at"], row["lease_id"]), reverse=True)
+        ended.sort(key=lambda row: (row["stranded"]["observed_at"], row["lease_id"]), reverse=True)
+        review_summary = {"version": review_summary["version"], "stranded_version": side_state["version"],
+                          "pending": merged[:MODEL_LEASE_LIMIT],
+                          "truncated": review_summary["truncated"] or len(merged) > MODEL_LEASE_LIMIT,
+                          # Main sees only how many ended rows exist (never decidable).
+                          "ended_count": len(ended)}
+        if host_view:
+            # Ended/audit state is for the host/operator UI only. A model's own
+            # work_parallel_status never receives this key or its rows.
+            review_summary["ended"] = ended[:MAX_ENDED_REVIEWS]
+        all_reviews = review_summary["pending"] + review_summary.get("ended", [])
+        review_details = _item_details(board) if board is not None and all_reviews else {}
+        for row in all_reviews:
+            row.pop("updated_at", None)
             item = review_details.get(row["item_id"], {})
             row.update(item_title=_clip(item.get("item_title"), MODEL_TEXT_LIMIT),
                        item_ref=_clip(item.get("item_ref"), 100),
                        goal_title=_clip(item.get("goal_title"), MODEL_TEXT_LIMIT),
                        item_path=[_clip(value, 100) for value in (item.get("item_path") or [])[:6]])
+            if row["state"] == "superseded":
+                # Ended audit row: no workspace, wake, launch, controls or reason.
+                row["coverage_count"] = 0
+                row["changed_before_bind"] = "not_applicable"
+                continue
             # Saga identities and the repo root stay host-side; main inspects
             # the recorded worktree path, branch, HEAD and bounded diff only.
             ws = row["workspace"]
-            row["workspace"] = {"path": ws["path"], "branch": ws["branch"], "head": ws["head"],
-                                "dirty": ws["dirty"], "changed_count": ws["changed_files_total"],
-                                "changed_files": [_clip(value, 200) for value in ws["changed_files"][:20]],
-                                "diff_stat": _clip(ws["diff_stat"], 2000)}
+            if "stranded" not in row:
+                row["workspace"] = {"path": ws["path"], "branch": ws["branch"], "head": ws["head"],
+                                    "dirty": ws["dirty"], "changed_count": ws["changed_files_total"],
+                                    "changed_files": [_clip(value, 200) for value in ws["changed_files"][:20]],
+                                    "diff_stat": _clip(ws["diff_stat"], 2000)}
             row["coverage_count"] = len(row["coverage"])
             row["coverage"] = row["coverage"][:32]
             row["stages"] = None if row["decision"] is None else row["stages"]
@@ -327,21 +554,105 @@ def project(store, identity, board=None, *, host_view=False):
                 # needs the person's confirmation, and the host checks absence.
                 launch_view["launch_ref"] = row["launch"]["launch_ref"]
             row["launch"] = launch_view
+            own = raw_reviews.get(row["lease_id"]) or side_rows.get(row["lease_id"]) or {}
+            predecessor = next((candidate for candidate in raw_reviews.values()
+                                if candidate.get("replacement_lease_id") == row["lease_id"]), None)
+            side_predecessor = next((candidate for candidate in side_rows.values()
+                                     if candidate["replacement_lease_id"] == row["lease_id"]), None)
+            if own.get("generation") == 1 or side_predecessor is not None:
+                # First generation, or a recovery that starts in a fresh worktree:
+                # there is no retained handoff to compare.
+                row["changed_before_bind"] = "not_applicable"
+            else:
+                row["changed_before_bind"] = (_launch_handoff_drift(predecessor["launch"])
+                                              if predecessor is not None else "unknown")
             row["blocked"] = None if row["blocked"] is None else {
                 "code": row["blocked"]["code"], "message": _clip(row["blocked"]["message"], 300)}
     except Exception:
         review_summary = {"version": None, "pending": [], "truncated": False}
-    return {"version": d["version"], "policy": d["policy"],
+    view = {"version": d["version"], "policy": d["policy"],
             "active_device": sum(r["slot"] for r in d["leases"].values()),
             "active_by_priority": active_by_priority(d["leases"]),
             "leases": leases, "lease_counts": state_counts,
-            "leases_truncated": len(open_rows) > MODEL_LEASE_LIMIT,
+            "leases_truncated": len(open_rows) > lease_limit,
             "forks": forks, "coordination": coordination_summary, "review": review_summary,
+            "legacy_reviews": _legacy_reviews(d, identity, details),
             "device": _device_projection(d, identity),
             "runtime": "claude" if identity.startswith("claude:") else "codex",
             "codex_adapter": "unsupported",
             "limitations": ["dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations",
-                            "external discovery requires a configured authenticated source connector"]}
+                            "external discovery requires a configured authenticated source connector"],
+            "wait_boost": _wait_boost_status(store, identity)}
+    if host_view:
+        # G5, display only: the mod's last live probe of the Work fork gate.
+        from .work_parallel_gate_presence import fork_gate_view
+        view.update(fork_gate_view(store.path, identity))
+        # R2 B2: host-only process-attachment summary and per-lease owner
+        # classification. The model projection receives neither field.
+        view["session_attachments"] = attachments(store).summary(identity)
+        classes = _owner_classes(store, list(view["leases"]), caller_nonce)
+        for lease_id, lease_view in view["leases"].items():
+            # Same launcher (one claude.exe at a time) reads as own for display.
+            owner_class = classes[lease_id]
+            lease_view["owner_process"] = "own" if owner_class == "earlier_child" else owner_class
+    return view
+
+
+# A durable rework, or a stranded recovery, whose owner is not provable now:
+# nothing is reserved until that conversation's own host rolls it forward.
+OWNER_OFFLINE = "owner_offline"
+OWNER_OFFLINE_TEXT = "rework queued: waiting for the conversation to resume"
+STRANDED_WAIT_CODES = ("paused", "duplicate_assignment", "capacity", "lease_bound", OWNER_OFFLINE)
+
+
+def _stranded_view(source):
+    """The public review shape of a stranded-v1 row; no placeholder is a fact."""
+    pin = None
+    if source.get("decision_id") is None and source.get("state") != "superseded":
+        from .work_parallel_stranded import review_pin
+        pin = review_pin(source)
+    if source["state"] == "superseded":
+        outcome = source["superseded"]
+        return {"lease_id": source["lease_id"], "item_id": source["item_id"], "root_id": source["root_id"],
+                "priority": source["priority"], "artifact": None, "completion_receipt": None,
+                "summary": "Stranded result superseded by another execution of this Work item.",
+                "coverage": [], "verification": "Not decidable: another execution owns this item.",
+                "state": "superseded", "decision": None, "evidence": None, "blocked": None,
+                "updated_at": source["updated_at"],
+                "stranded": {"kind": source["kind"], "phase": "superseded", "approve": "refused",
+                             "rework": "fresh_workspace", "counts_against_rework_limit": False,
+                             "superseding_lease_id": outcome["lease_id"],
+                             "observed_at": outcome["observed_at"]}}
+    no_report = source["kind"] == "no_report"
+    blocked = source["blocked"]
+    if source["state"] == "pending":
+        state = "pending"
+        blocked = {"code": source["kind"], "message": source["reason"]}
+    elif source["state"] == "recovered":
+        state = "rework_ready"
+    elif blocked is not None and blocked["code"] in STRANDED_WAIT_CODES:
+        state = "awaiting_capacity"
+    else:
+        state = "deciding"
+    binding = source["binding"]
+    return {"lease_id": source["lease_id"], "item_id": source["item_id"], "root_id": source["root_id"],
+            "priority": source["priority"], **({"review_pin": pin} if pin is not None else {}),
+            "artifact": None if no_report else source["artifact"],
+            "completion_receipt": None if no_report else source["completion_receipt"],
+            "fingerprint": source["fingerprint"], "summary": source["summary"],
+            "coverage": copy.deepcopy(source["coverage"]), "verification": source["verification"],
+            "workspace": {"path": binding["path"], "branch": binding["branch"], "head": binding["head"],
+                          "unavailable": True, "reason": source["reason"]},
+            "state": state, "decision_id": source["decision_id"],
+            "decision": None if source["decision_id"] is None else "rework",
+            "evidence": source["evidence"], "replacement_lease_id": source["replacement_lease_id"],
+            "replacement_generation": source["replacement_generation"],
+            "stages": copy.deepcopy(source["stages"]), "wake": copy.deepcopy(source["wake"]),
+            "launch": copy.deepcopy(source["launch"]), "blocked": copy.deepcopy(blocked),
+            "updated_at": source["updated_at"],
+            "stranded": {"kind": source["kind"], "reason": source["reason"], "phase": source["state"],
+                         "approve": "refused", "rework": "fresh_workspace",
+                         "counts_against_rework_limit": False}}
 
 
 def public_projection(projected, identity):
@@ -350,11 +661,96 @@ def public_projection(projected, identity):
             "forks": projected["forks"], "device": projected["device"],
             "policy": {k: projected["policy"][k] for k in ("enabled", "paused", "priority_limits",
                                                           "launches_per_minute", "max_rework")},
-            "runtime": projected["runtime"], "limitations": projected["limitations"]}
+            "runtime": projected["runtime"], "limitations": projected["limitations"],
+            "wait_boost": projected.get("wait_boost")}
+
+
+def _wait_boost_status(store, identity):
+    """One allowlisted wait-boost summary shared by menu, web, REST and ctl."""
+    from .work_wait_surfaces import project_wait_status
+    try:
+        from .work_parallel_wait_boost import WaitBoostStore
+        document = WaitBoostStore(
+            Path(store.path).with_name("work-parallel-wait-boost-v1.json")).read()
+    except Exception:
+        return project_wait_status({"eligible": False, "reason": "unavailable"})
+    mine = [row for row in document["rows"].values() if row["scope"] == identity]
+    active = [row for row in mine if row["state"] in ("boosted", "consuming")]
+    if not active:
+        return project_wait_status({"eligible": False, "reason": "none"})
+    first = min(active, key=lambda row: (-row["release_at"], row["release_receipt"]))
+    return project_wait_status({
+        "eligible": True, "behavior": first["state"], "reason": None,
+        "item_id": first["item_id"], "root_id": first["root_id"],
+    })
+
+
+def _p0_key_required(state):
+    """Any nonterminal intent or open send depends on the existing key."""
+    from .work_parallel_p0 import OPEN_INTENT_STATES, SEND_OPEN_STATES
+    return (any(row["state"] in OPEN_INTENT_STATES for row in state["intents"].values())
+            or any(row["state"] in SEND_OPEN_STATES for row in state["sends"].values()))
+
+
+def _p0_key_ready(store, action):
+    """Read-only key validation; never creates or rotates."""
+    from .work_p0_assignment_key import P0AssignmentKeyStore, P0AssignmentKeyUnavailable
+    try:
+        return P0AssignmentKeyStore.beside_ledger(store.path).read()
+    except P0AssignmentKeyUnavailable as error:
+        raise WorkParallelError(
+            "P0 assignment key recovery required; " + action + " blocked (" + error.reason + ")") from error
+
+
+def _p0_key_for_admission(store, p0):
+    """Create only after a locked zero-dependent check; otherwise validate."""
+    if p0.has_key_dependency():
+        return _p0_key_ready(store, "admission")
+    from .work_p0_assignment_key import P0AssignmentKeyStore
+    # Key-store publication is also exclusive. A concurrent first admission may
+    # publish the same one-time file; it never replaces an existing value.
+    return P0AssignmentKeyStore.beside_ledger(store.path).ensure_before_first_intent()
+
+
+def _p0_continuation_intent(store, board_store, identity, item_id, continuation,
+                            predecessor_lease_id):
+    """Create/reuse a durable intent only while the exact root is effectively P0."""
+    board = board_store.read()
+    root = _root_for(board, item_id)
+    p0 = p0_state(store)
+    if p0.effective_priority(identity, root, root.get("priority", "")) != "P0":
+        return None
+    _p0_key_for_admission(store, p0)
+    state, intent = p0.create_intent({
+        "scope": identity, "root_id": root["id"],
+        "root_created_at": root["created_at"], "item_id": item_id,
+        "continuation": continuation,
+        "predecessor_lease_id": predecessor_lease_id,
+    }, expected_version=p0.read()["version"])
+    del state
+    return intent
+
+
+def _p0_approval_intent(store, board, lease):
+    """Exact sidecar authorization for an already-launched P0 generation."""
+    intent = p0_state(store).approval_intent(
+        lease["id"], scope=lease["scope"], item_id=lease["item_id"])
+    if intent is None:
+        return None
+    try:
+        root = _root_for(board, lease["item_id"])
+    except WorkParallelError:
+        return None
+    if (root["id"] != intent["root_id"]
+            or root.get("created_at") != intent["root_created_at"]):
+        return None
+    return intent
 
 
 def _approval_current(store, board, lease):
     """Validate only the assigned root generation, not unrelated board edits."""
+    if _p0_approval_intent(store, board, lease) is not None:
+        return True
     coord = coordination(store)
     assignment = coord.read().get("runs", {}).get(lease["id"])
     if assignment is None:
@@ -371,10 +767,10 @@ def _approval_current(store, board, lease):
 
 def _worker_event(store, board_store, lease, args):
     event = args.get("event")
-    if event not in ("question", "result", "completion", "handoff", "review"):
-        raise WorkParallelError("worker may only report question, completion, handoff or review")
     if event == "review" or lease["role"] == "reviewer":
         raise WorkParallelError("reviewer reports are retired; main reviews completed results")
+    if event not in ("question", "result", "completion", "handoff"):
+        raise WorkParallelError("worker may only report question, completion or handoff")
     if lease["state"] != "running" or not lease["slot"]:
         raise WorkParallelError("worker lease is not active")
     board = board_store.read()
@@ -424,6 +820,9 @@ def _worker_event(store, board_store, lease, args):
         d, _ = store.report_handoff(lease["id"], plan_version=lease["plan_version"],
                                     receipt_digest=receipt_digest, proof=evidence,
                                     expected_version=store.read()["version"])
+    if event == "handoff":
+        side = p0_state(store)
+        side.close_lease_intents(lease["id"], expected_version=side.read()["version"])
     return {"lease_id": lease["id"], "version": d["version"], "item_id": lease["item_id"],
             "state": d["leases"][lease["id"]]["state"], "slot_released": True}
 
@@ -474,11 +873,55 @@ def host_context(args, config):
     return host, private.get("capability_ready", True) is True
 
 
+def parked_wait_projection(store, board_store, scope, released_items, ledger_version=None):
+    """Bounded host pre-read for side-released waits; never an execution proof."""
+    require(text(scope, 200) and type(released_items) is list
+            and len(released_items) <= 16, "released wait projection")
+    clean = []
+    for value in released_items:
+        require(type(value) is dict and set(value) == {"item_id", "root_id"}
+                and text(value["item_id"], 200) and text(value["root_id"], 200),
+                "released wait projection row")
+        clean.append(value)
+    ledger_state = store.read()
+    if ledger_version is not None and ledger_version != ledger_state["version"]:
+        return None
+    board = board_store.read()
+    nodes = {row["id"]: row for row in board.get("nodes", [])}
+    rows = []
+    for value in clean:
+        node = nodes.get(value["item_id"])
+        if node is None:
+            continue
+        root = node
+        while root.get("parent_id") is not None:
+            root = nodes.get(root["parent_id"])
+            if root is None:
+                break
+        if root is None or root["id"] != value["root_id"]:
+            continue
+        matches = [lease for lease in ledger_state["leases"].values()
+                   if lease["scope"] == scope and lease["item_id"] == value["item_id"]
+                   and lease["role"] in ("worker", "resume")
+                   and lease["state"] == "waiting_input" and lease["slot"] is False]
+        if len(matches) != 1:
+            continue
+        lease = matches[0]
+        rows.append({"item_id": value["item_id"], "root_id": value["root_id"],
+                     "lease_id": lease["id"], "state": "waiting_input", "slot": False})
+    return {"ledger_version": ledger_state["version"], "rows": rows}
+
+
 def _board_or_none(board_store):
     try:
         return board_store.read()
     except Exception:
         return None
+
+
+def _caller_attachment_owner(store, host, conversation):
+    """This host's exactly attached launcher owner, or None (fallback stays below)."""
+    return attachments(store).caller_owner(conversation, host.get("launch_nonce"))
 
 
 def _owner_from_host(host, conversation):
@@ -505,14 +948,61 @@ def _owner_from_host(host, conversation):
     return {"session_pid": pid, "identity": identity if isinstance(identity, str) else None}
 
 
-def _reserve_assignment(store, board_store, identity, host, version, *, item_id=None, role="worker"):
+def _proven_owner(host, conversation):
+    """The live launcher that owns ``conversation``, proven exactly now, or None.
+
+    Either the authenticated host names its session process (session_pid, and
+    the birth identity it observed when it gives one), or the router's bound
+    scope names exactly this conversation and its launcher. In both cases the
+    process must be alive: its birth identity is observable now and, when the
+    host stated one, equal to it. A request for another conversation (ctl or
+    REST for a session this router is not bound to), an unbound router, or a
+    dead or unobservable launcher proves nothing.
+    """
+    pid = host.get("session_pid")
+    claimed = host.get("session_process_identity")
+    if type(pid) is not int or pid <= 0:
+        claimed = None
+        try:
+            from .runtime_paths import ROUTER_INSTANCE_DIR
+            scope = json.loads((Path(ROUTER_INSTANCE_DIR) / "compaction-scope.json").read_text(encoding="utf-8"))
+        except (OSError, ValueError, TypeError):
+            return None
+        if (not isinstance(scope, dict) or not scope.get("session_id")
+                or str(scope.get("runtime")) + ":" + str(scope.get("session_id")) != conversation):
+            return None
+        pid = scope.get("launcher_pid")
+        if type(pid) is not int or pid <= 0:
+            return None
+    observed = process_identity(pid)
+    if not isinstance(observed, str) or not observed:
+        return None
+    if claimed is not None and claimed != observed:
+        return None
+    return {"session_pid": pid, "identity": observed}
+
+
+def _reserve_assignment(store, board_store, identity, host, version, *, item_id=None,
+                        role="worker", p0_only=False):
+    _repair_no_report_rows(store, identity)
     board = board_store.read()
+    p0 = p0_state(store)
+    p0_intent = None
     if item_id is None:
-        rows = tree.runnable_leaves(board)
-        if not rows:
+        p0_rows = [row for row in _p0_runnable_leaves(store, board, identity)
+                   if not _stranded_item_pending(store, identity, row["item_id"])]
+        if p0_rows:
+            item_id = p0_rows[0]["item_id"]
+        elif p0_only:
             raise WorkParallelError("no eligible candidate")
-        candidates = [candidate(board, row["item_id"], row["priority"], role) for row in rows]
-    else:
+        else:
+            rows = [row for row in tree.runnable_leaves(board)
+                    if not _stranded_item_pending(store, identity, row["item_id"])]
+            if not rows:
+                raise WorkParallelError("no eligible candidate")
+            candidates = [candidate(board, row["item_id"], row["priority"], role)
+                          for row in rows]
+    if item_id is not None:
         details = _item_details(board).get(item_id)
         if details is None:
             raise WorkParallelError("unknown Work item")
@@ -521,39 +1011,104 @@ def _reserve_assignment(store, board_store, identity, host, version, *, item_id=
         while current["parent_id"] is not None:
             current = nodes[current["parent_id"]]
         priority = current.get("priority") if current.get("priority") in tree.PRIORITIES else "P5"
+        root = current
+        while root["parent_id"] is not None:
+            root = nodes[root["parent_id"]]
+        effective = p0.effective_priority(identity, root, priority)
+        if effective == "P0":
+            # Key creation precedes the first durable launch intent. While any
+            # dependent intent/send exists, a missing/unreadable key is
+            # recovery_required and is never recreated or rotated.
+            _p0_key_for_admission(store, p0)
+            _, p0_intent = p0.create_intent({
+                "scope": identity, "root_id": root["id"],
+                "root_created_at": root["created_at"], "item_id": item_id,
+                "continuation": "initial", "predecessor_lease_id": None,
+            }, expected_version=p0.read()["version"])
+            priority = "P1"
+        elif p0_only:
+            raise WorkParallelError("no eligible candidate")
         candidates = [candidate(board, item_id, priority, role)]
         refusal = dispatch_refusal(board, item_id)
-        if refusal:
+        if refusal and p0_intent is None:
             raise WorkParallelError(refusal)
-    token = secrets.token_hex(32)
-    d, ident = store.reserve(
-        candidates, scope=identity, expected_version=version,
-        dispatch_name=host.get("dispatch_name"), report_hash=hash_worker_token(token),
-        owner=_owner_from_host(host, identity),
-    )
+        if _stranded_item_pending(store, identity, item_id):
+            raise WorkParallelError("Work item " + item_id + " has a stranded result awaiting main's "
+                                    "decision; rework it from the review instead of dispatching again")
+    token = None if p0_intent is not None else secrets.token_hex(32)
+    dispatch = p0_intent["dispatch_name"] if p0_intent is not None else host.get("dispatch_name")
+    ident = None
+    if p0_intent is not None and p0_intent["lease_id"] is not None:
+        d = store.read()
+        existing = d["leases"].get(p0_intent["lease_id"])
+        require(existing is not None and existing["scope"] == identity
+                and existing["item_id"] == p0_intent["item_id"]
+                and existing.get("dispatch_name") == p0_intent["dispatch_name"]
+                and p0_intent["state"] in ("reserved", "spawning", "bound"),
+                "P0 intent lease identity")
+        ident = existing["id"]
+    elif p0_intent is not None:
+        # Crash recovery precedes a new reserve: adopt only the one exact legacy
+        # reservation carrying this durable intent's derived dispatch name.
+        _, adopted = p0.adopt_reserved(
+            p0_intent["intent_id"], store.read()["leases"],
+            expected_version=p0.read()["version"])
+        if adopted is not None:
+            p0_intent = adopted
+            ident = adopted["lease_id"]
+            d = store.read()
+    if ident is None:
+        d, ident = store.reserve(
+            candidates, scope=identity, expected_version=version,
+            dispatch_name=dispatch, report_hash=None if token is None else hash_worker_token(token),
+            owner=_caller_attachment_owner(store, host, identity) or _owner_from_host(host, identity),
+            admission_bypass="p0" if p0_intent is not None else None,
+            p0_intent=p0_intent,
+        )
+        if p0_intent is not None:
+            try:
+                _, p0_intent = p0.adopt_reserved(
+                    p0_intent["intent_id"], d["leases"],
+                    expected_version=p0.read()["version"])
+            except Exception as error:
+                # The ledger reservation is durable but sidecar adoption is
+                # ambiguous. Never guess native absence from host_id=None or
+                # release it here; exact-dispatch replay/absence recovery owns it.
+                raise WorkParallelError(
+                    "P0 intent persistence outcome unknown; recovery required") from error
     lease = d["leases"][ident]
     item = _item_details(board).get(lease["item_id"], {})
     # Pin semantic approval independently of the board's global CAS version.
-    # If sidecar persistence fails, release the still-unbound reservation: an
-    # execution must never start without a durable recovery/validation record.
+    # A known assignment write failure follows the accepted exact rollback:
+    # release the still-unbound lease and cancel its intent.
     coord = coordination(store)
     try:
         root = _root_for(board, lease["item_id"])
         approval = _reconcile_root(coord, board, root["id"], identity)
         cstate = coord.read()
         workspace_manifest = None
+        existing_run = cstate["runs"].get(ident)
+        created_at = (existing_run["reserved_at"] if existing_run is not None else time.time())
         coord.record_assignment(identity, ident, {
             "item_id": lease["item_id"], "root_id": root["id"],
             "priority": lease["priority"], "role": lease["role"], "generation": 1,
-            "approval_generation": approval["generation"], "assigned_todos": [lease["item_id"]],
+            "approval_generation": max(1, approval["generation"]),
+            "assigned_todos": [lease["item_id"]],
             "fingerprint": approval["fingerprint"], "workspace": workspace_manifest,
-            "created_at": time.time(),
-        }, expected_version=cstate["version"])
+            "created_at": created_at,
+        }, expected_version=cstate["version"],
+            dispatch_without_approval=p0_intent is not None, p0_intent=p0_intent)
     except Exception as error:
         current = store.read()
         if current["leases"].get(ident, {}).get("host_id") is None:
             store.release_unbound(ident, proof="coordination persistence failed: " + type(error).__name__,
                                   expected_version=current["version"])
+        if p0_intent is not None:
+            try:
+                p0.transition_intent(p0_intent["intent_id"], "cancelled",
+                                     expected_version=p0.read()["version"])
+            except WorkParallelError:
+                pass
         raise WorkParallelError("coordination persistence failed; reservation released") from error
     workspace = None
     if host.get("workspace_repo"):
@@ -565,16 +1120,92 @@ def _reserve_assignment(store, board_store, identity, host, version, *, item_id=
             coord.attach_workspace(ident, {key: workspace[key] for key in ("path", "branch", "head")},
                                    expected_version=cstate["version"])
         except Exception as error:
+            if p0_intent is not None:
+                raise WorkParallelError(
+                    "P0 workspace preparation outcome unknown; recovery required") from error
             current = store.read()
             if current["leases"].get(ident, {}).get("host_id", 0) is None:
                 store.release_unbound(ident, proof="workspace preparation failed: " + type(error).__name__,
                                       expected_version=current["version"])
             raise WorkParallelError("workspace preparation failed; reservation released: "
                                     + (str(error) or type(error).__name__)[:300]) from error
-    return {"lease_id": ident, "version": d["version"], "plan_version": board["version"],
-            "workspace": workspace, "worker_token": token, "priority": lease["priority"],
-            "item_id": lease["item_id"], **item}
+    result = {"lease_id": ident, "version": d["version"], "plan_version": board["version"],
+              "workspace": workspace, "priority": lease["priority"],
+              "role": lease["role"], "generation": 1,
+              "item_id": lease["item_id"], **item}
+    if token is not None:
+        result["worker_token"] = token
+    return result
 
+
+def _unavailable_review_facts(store, identity, lease, reason):
+    """Stranded-v1 facts for a completion whose workspace cannot be verified."""
+    coord = coordination(store)
+    run_row = coord.read().get("runs", {}).get(lease["id"])
+    if run_row is None or run_row.get("exit", {}).get("kind") != "completion":
+        raise WorkParallelError("durable completion receipt required before main review")
+    detail = coord.detail(run_row["exit"]["digest"])
+    binding = _stranded_binding(lease.get("workspace"))
+    d = store.read()
+    known = _known_execution_ids(d, d["leases"][lease["id"]])
+    return {"lease_id": lease["id"], "scope": identity, "item_id": lease["item_id"],
+            "known_lease_ids": known, "capture_ledger_version": d["version"],
+            "root_id": run_row["root_id"], "priority": lease["priority"],
+            "plan_version": lease["plan_version"], "generation": run_row["generation"],
+            "kind": "workspace_unavailable", "reason": _clip(reason, 300),
+            "artifact": lease["artifact"], "completion_receipt": run_row["exit"]["digest"],
+            "fingerprint": run_row["fingerprint"], "summary": detail["summary"],
+            "coverage": copy.deepcopy(detail["coverage"]), "verification": detail["verification"],
+            "binding": binding}
+
+
+NO_REPORT_SUMMARY = "No worker report: the native fork ended without a durable exit receipt."
+NO_REPORT_VERIFICATION = "Not verified: no worker report and the retained workspace is unavailable."
+
+
+def _known_execution_ids(d, lease):
+    """Every same-scope+item worker/resume lease id at one ledger version.
+
+    Captured while the stranded lease is still active: the active-lease fence
+    means no other execution of the item can be reserved after that version
+    without this lease first leaving ACTIVE_STATES. A later id therefore proves
+    a later reservation (lead ruling 2026-11-13; no timestamp or UUID order).
+    """
+    from .work_parallel import ACTIVE_STATES
+    from .work_parallel_stranded import MAX_KNOWN_LEASE_IDS
+    require(lease["state"] in ACTIVE_STATES, "stranded lease is no longer active; intent cannot be captured")
+    ids = sorted(key for key, row in d["leases"].items()
+                 if row["scope"] == lease["scope"] and row["item_id"] == lease["item_id"]
+                 and row["role"] in ("worker", "resume"))
+    if len(ids) > MAX_KNOWN_LEASE_IDS:
+        raise WorkParallelError("stranded known-lease bound exceeded: " + str(len(ids)) + "/"
+                                + str(MAX_KNOWN_LEASE_IDS) + "; lease kept active")
+    return ids
+
+
+def _stranded_binding(binding):
+    required = ("repo", "path", "branch", "head")
+    require(isinstance(binding, dict) and all(text(binding.get(key), 2_000) for key in required),
+            "recorded workspace identity unavailable")
+    return {key: binding[key] for key in required}
+
+
+def _no_report_review_facts(store, identity, lease, reason, d):
+    """Stranded-v1 intent facts for a still-active lease that ended without a report."""
+    run_row = coordination(store).read().get("runs", {}).get(lease["id"])
+    require(run_row is not None and (run_row.get("exit") or {}).get("kind") == "host_salvage",
+            "durable host salvage receipt required before a stranded review")
+    receipt = run_row["exit"]["digest"]
+    return {"lease_id": lease["id"], "scope": identity, "item_id": lease["item_id"],
+            "root_id": run_row["root_id"], "priority": lease["priority"],
+            "plan_version": lease["plan_version"], "generation": run_row["generation"],
+            "known_lease_ids": _known_execution_ids(d, d["leases"][lease["id"]]),
+            "capture_ledger_version": d["version"],
+            "kind": "no_report", "reason": _clip(reason, 300),
+            "artifact": None, "completion_receipt": receipt,
+            "fingerprint": run_row["fingerprint"], "summary": NO_REPORT_SUMMARY,
+            "coverage": [], "verification": NO_REPORT_VERIFICATION,
+            "binding": _stranded_binding(lease.get("workspace"))}
 
 def _review_facts(store, identity, lease):
     """Require durable completion plus a fresh positive idle workspace snapshot."""
@@ -607,7 +1238,7 @@ def _review_facts(store, identity, lease):
 
 
 def _revalidate_review(store, board_store, row):
-    """Artifact, approval fingerprint and workspace snapshot must be unchanged."""
+    """Ordinary schema-5 review facts must remain verifiable."""
     lease = store.read()["leases"].get(row["lease_id"])
     if (lease is None or lease["state"] != "submitted" or lease["slot"]
             or lease["artifact"] != row["artifact"] or lease["plan_version"] != row["plan_version"]):
@@ -618,20 +1249,369 @@ def _revalidate_review(store, board_store, row):
         raise WorkParallelError("stale completion receipt or approval fingerprint")
     if not _approval_current(store, board_store.read(), lease):
         raise WorkParallelError("stale approval fingerprint: Work approval scope changed")
-    from .work_parallel_workspace import review_observe
-    observed = review_observe(lease["workspace"]["repo"], lease["id"],
-                              generation=str(row["generation"]), artifact=row["artifact"],
-                              completion_receipt=row["completion_receipt"],
-                              host_id=lease["host_id"], idle_proof=lease["idle_proof"])
+    from .work_parallel_workspace import WorkspaceError, review_observe
+    try:
+        observed = review_observe(lease["workspace"]["repo"], lease["id"],
+                                  generation=str(row["generation"]), artifact=row["artifact"],
+                                  completion_receipt=row["completion_receipt"],
+                                  host_id=lease["host_id"], idle_proof=lease["idle_proof"])
+    except WorkspaceError:
+        reason = _workspace_unavailable_reason(lease)
+        if reason is None:
+            raise
+        _record_unavailable_review(store, row["scope"], lease, reason, legacy_row=row)
+        return "stranded"
     if observed["snapshot_digest"] != row["workspace"]["snapshot_digest"]:
         raise WorkParallelError("stale workspace: HEAD or tree changed since review projection")
 
 
+def _revalidate_stranded(store, board_store, row):
+    lease = store.read()["leases"].get(row["lease_id"])
+    run_row = coordination(store).read().get("runs", {}).get(row["lease_id"])
+    if row["kind"] == "no_report":
+        if (lease is None or lease["state"] != "unreported" or lease["slot"]
+                or lease.get("report_hash") is not None or run_row is None
+                or (run_row.get("exit") or {}).get("kind") != "host_salvage"
+                or (run_row.get("exit") or {}).get("digest") != row["completion_receipt"]
+                or run_row["fingerprint"] != row["fingerprint"]):
+            raise WorkParallelError("stale stranded result: terminal salvage receipt changed")
+    else:
+        if (lease is None or lease["state"] != "submitted" or lease["slot"]
+                or lease["artifact"] != row["artifact"] or lease["plan_version"] != row["plan_version"]
+                or run_row is None or (run_row.get("exit") or {}).get("kind") != "completion"
+                or (run_row.get("exit") or {}).get("digest") != row["completion_receipt"]
+                or run_row["fingerprint"] != row["fingerprint"]):
+            raise WorkParallelError("stale stranded completion receipt changed")
+    if not _approval_current(store, board_store.read(), lease):
+        raise WorkParallelError("stale approval fingerprint: Work approval scope changed")
+
+
+def _stranded_admission(d, identity, row):
+    """(code, message) for fresh-workspace recovery; never rework_limit."""
+    from .work_parallel import ACTIVE_STATES, MAX_LEASES
+    p = d["policy"]
+    if not p["enabled"] or p["paused"]:
+        return "paused", "disabled/paused; stranded recovery waits for admission"
+    others = [lease for lease in d["leases"].values()
+              if lease["scope"] == identity and lease["item_id"] == row["item_id"]
+              and lease["id"] != row["lease_id"] and lease["role"] in ("worker", "resume")
+              and lease["state"] in ACTIVE_STATES]
+    if others:
+        return "duplicate_assignment", "item already has an active execution; recovery waits for it"
+    counts = active_by_priority(d["leases"])
+    if counts[row["priority"]] >= p["priority_limits"][row["priority"]]:
+        return "capacity", "active slot capacity reached; stranded recovery waits for admission"
+    if sum(lease["state"] in ACTIVE_STATES for lease in d["leases"].values()) >= MAX_LEASES:
+        return "lease_bound", "lease bound reached; stranded recovery waits for admission"
+    return "", ""
+
+
+def _publish_stranded(store, facts):
+    rows = stranded(store)
+    for _ in range(COORDINATION_BIND_ATTEMPTS):
+        try:
+            rows.pending(facts, expected_version=rows.read()["version"])
+            return True
+        except WorkParallelConflict:
+            continue
+    raise WorkParallelConflict("Work stranded state changed; reread")
+
+
+def _salvage_unavailable_reason(store, lease_id):
+    cstate = coordination(store).read()
+    run_row = cstate.get("runs", {}).get(lease_id)
+    exit_row = (run_row or {}).get("exit") or {}
+    detail = cstate.get("details", {}).get(exit_row.get("digest"))
+    if exit_row.get("kind") != "host_salvage" or detail is None:
+        return None
+    diff = str(detail["body"]["workspace"]["diff_stat"])
+    prefix = "workspace unavailable: "
+    return diff[len(prefix):] if diff.startswith(prefix) else None
+
+
+def _terminate_unreported_with_intent(store, identity, ident, proof):
+    """Intent first, then the terminal ledger CAS at the captured version.
+
+    Only a broken-worktree salvage writes an intent. A healthy salvage keeps
+    today's behavior (no row; the item is dispatchable again).
+    """
+    rows = stranded(store)
+    for _ in range(COORDINATION_BIND_ATTEMPTS):
+        d = store.read()
+        lease = d["leases"][ident]
+        side = rows.read()["rows"].get(ident)
+        if lease["state"] == "unreported":
+            # Another writer already made it terminal. Keep an intent that was
+            # captured while active; never capture one now (no intent, no row).
+            if side is not None and side["state"] == "intent":
+                _finalization_write(rows, lambda version: rows.activate(ident, expected_version=version))
+            return d, side is not None
+        reason = _salvage_unavailable_reason(store, ident) if lease.get("workspace") else None
+        if reason is not None:
+            facts = _no_report_review_facts(store, identity, lease, reason, d)
+            if side is None:
+                _publish_stranded(store, facts)
+            elif side["state"] == "intent" and side["capture_ledger_version"] != d["version"]:
+                _finalization_write(rows, lambda version: rows.refresh_intent(
+                    ident, facts["known_lease_ids"], d["version"], expected_version=version))
+        try:
+            d, _ = store.terminate_unreported(ident, proof=proof, expected_version=d["version"])
+        except WorkParallelConflict:
+            continue
+        if reason is not None:
+            _finalization_write(rows, lambda version: rows.activate(ident, expected_version=version))
+        return d, reason is not None
+    raise WorkParallelConflict("Work parallel state changed; reread")
+
+
+def _stranded_item_pending(store, identity, item_id):
+    return any(row["scope"] == identity and row["item_id"] == item_id and row["decision_id"] is None
+               and row["state"] in ("intent", "pending") for row in stranded(store).read()["rows"].values())
+
+
+def _repair_no_report_rows(store, identity):
+    """Complete an intent whose terminal write landed; never capture after the fact."""
+    rows = stranded(store)
+    leases = store.read()["leases"]
+    for row in list(rows.read()["rows"].values()):
+        if row["scope"] == identity and row["state"] == "intent":
+            lease = leases.get(row["lease_id"])
+            if lease is not None and lease["state"] == "unreported":
+                _finalization_write(rows, lambda version, key=row["lease_id"]: rows.activate(
+                    key, expected_version=version))
+    _observe_supersessions(store, identity)
+
+
+def _superseding_lease(d, row):
+    own = {row["lease_id"], row["replacement_lease_id"]}
+    later = [lease for key, lease in d["leases"].items()
+             if lease["scope"] == row["scope"] and lease["item_id"] == row["item_id"]
+             and lease["role"] in ("worker", "resume") and key not in own
+             and key not in row["known_lease_ids"]]
+    return min(later, key=lambda lease: lease["id"]) if later else None
+
+
+def _supersede_digest(row, lease):
+    from .work_parallel_finalization import canonical_digest
+    return canonical_digest(["work-parallel-stranded-superseded-v1", row["lease_id"], lease["id"],
+                             lease["plan_version"]])
+
+
+def _cancel_unbound_recovery(store, row, superseding_lease_id):
+    """A decided recovery that never started is permanently cancelled before supersession."""
+    replacement_id = row["replacement_lease_id"]
+    if replacement_id is None:
+        return
+    current = store.read()
+    recovery = current["leases"].get(replacement_id)
+    if recovery is not None:
+        if recovery["state"] != "reserved" or recovery["host_id"] is not None:
+            # It already started: the existing active-lease fence makes this
+            # execution authoritative. Never cancel a bound worker.
+            return
+        store.release_unbound(replacement_id,
+                              proof="superseded before launch by lease " + superseding_lease_id,
+                              expected_version=current["version"])
+    coord = coordination(store)
+    cstate = coord.read()
+    run = cstate["runs"].get(replacement_id)
+    if run is not None:
+        require(run["state"] == "reserved" and run["agent_id"] is None,
+                "superseded recovery coordination run already started")
+        coord.cancel_reserved(replacement_id,
+                              outcome="superseded before launch by lease " + superseding_lease_id,
+                              expected_version=cstate["version"])
+
+
+def _observe_supersessions(store, identity):
+    """Persist read-time supersession by CAS; cancel an unbound recovery first."""
+    rows = stranded(store)
+    d = store.read()
+    for row in list(rows.read()["rows"].values()):
+        if row["scope"] != identity or row["state"] not in ("intent", "pending", "deciding"):
+            continue
+        other = _superseding_lease(d, row)
+        if other is None:
+            continue
+        if row["state"] == "deciding":
+            replacement = d["leases"].get(row["replacement_lease_id"])
+            if replacement is not None and (replacement["state"] != "reserved" or replacement["host_id"] is not None):
+                continue  # recovery already started and is authoritative
+            _cancel_unbound_recovery(store, row, other["id"])
+        _finalization_write(rows, lambda version, key=row["lease_id"], lease=other, source=row: rows.supersede(
+            key, lease["id"], 1, _supersede_digest(source, lease), expected_version=version))
+
+
+def _workspace_unavailable_reason(lease):
+    """The ownership-verification failure of a lease's workspace, or None if it verifies."""
+    from .work_parallel_workspace import WorkspaceError, observe
+    try:
+        observe(lease["workspace"]["repo"], lease["id"])
+    except WorkspaceError as error:
+        return str(error) or "workspace verification failed"
+    return None
+
+
 def _publish_pending_review(store, identity, lease):
-    facts = _review_facts(store, identity, lease)
+    """Publish an ordinary schema-5 review, or a stranded-v1 row if unverifiable.
+
+    A stranded row is never written to schema-5 finalization: builds through
+    57dbfb3 would show it as an undecidable pending review and hold Stop on it.
+    """
+    from .work_parallel_workspace import WorkspaceError
+    try:
+        facts = _review_facts(store, identity, lease)
+    except WorkspaceError:
+        # Only a failed ownership verification becomes a stranded row. Any other
+        # workspace refusal (an idle-proof race) is not a broken worktree.
+        reason = _workspace_unavailable_reason(lease)
+        if reason is None:
+            raise
+        _publish_stranded(store, _unavailable_review_facts(store, identity, lease, reason))
+        _converge_legacy_review(store, lease["id"])
+        _close_recovered_predecessor(store, lease["id"])
+        return
     reviews = finalization(store)
     state = reviews.read()
     reviews.pending(facts, expected_version=state["version"])
+    # A real, verifiable review replaces an undecided stranded row for this lease.
+    _close_stranded(store, lease["id"], undecided_only=True)
+    _close_recovered_predecessor(store, lease["id"])
+
+
+def _close_stranded(store, lease_id, *, undecided_only):
+    rows = stranded(store)
+    for _ in range(COORDINATION_BIND_ATTEMPTS):
+        row = rows.read()["rows"].get(lease_id)
+        if row is None or row["state"] == "done" or (undecided_only and row["decision_id"] is not None):
+            return
+        try:
+            rows.done(lease_id, expected_version=rows.read()["version"])
+            return
+        except WorkParallelConflict:
+            continue
+    raise WorkParallelConflict("Work stranded state changed; reread")
+
+
+def _close_recovered_predecessor(store, replacement_lease_id):
+    """The recovery generation published its own review: its stranded source is done."""
+    for row in list(stranded(store).read()["rows"].values()):
+        if row["replacement_lease_id"] == replacement_lease_id and row["state"] == "recovered":
+            _close_stranded(store, row["lease_id"], undecided_only=False)
+
+
+def _record_unavailable_review(store, identity, lease, reason, legacy_row=None):
+    _publish_stranded(store, _unavailable_review_facts(store, identity, lease, reason))
+    if legacy_row is not None:
+        _terminalize_legacy_review(store, lease, legacy_row)
+
+
+def _converge_legacy_review(store, lease_id):
+    """Replay an interrupted legacy-review move from durable state alone."""
+    side = stranded(store).read()["rows"].get(lease_id)
+    if side is None or side["kind"] != "workspace_unavailable" or side["state"] == "superseded":
+        return
+    legacy = finalization(store).read()["reviews"].get(lease_id)
+    tombstone = side["legacy_review_removed"]
+    if legacy is None:
+        if tombstone is not None and tombstone["state"] == "prepared":
+            rows = stranded(store)
+            # Exact absence plus the prepared tombstone: the delete committed.
+            _finalization_write(rows, lambda version: rows.legacy_review(
+                lease_id, "removed", row_digest=tombstone["row_digest"],
+                source_digest=tombstone["source_digest"], old_version=tombstone["old_version"],
+                expected_version=version))
+        return
+    if legacy["decision"] is not None:
+        return  # An ordinary decision saga owns it; never removed.
+    lease = store.read()["leases"].get(lease_id)
+    if lease is not None:
+        _terminalize_legacy_review(store, lease, legacy)
+
+
+def _terminalize_legacy_review(store, lease, captured):
+    """Move one exact broken ordinary review to the sidecar, crash-safe.
+
+    The sidecar row is durable first. Its prepared tombstone binds the exact
+    schema-5 row digest + immutable source digest + old finalization version.
+    The schema-5 row is then deleted by CAS. Replay accepts only that exact
+    absence+tombstone; any changed row conflicts and is never deleted.
+    """
+    require(lease["state"] == "submitted" and not lease["slot"] and lease.get("idle_proof") is not None,
+            "legacy review lease is not terminal and slot-free")
+    require(captured["decision"] is None and captured["state"] == "pending"
+            and not any(captured["stages"].values()), "ordinary decision saga is in flight")
+    from .work_parallel_finalization import canonical_digest
+    reviews = finalization(store)
+    rows = stranded(store)
+    row_digest = canonical_digest(captured)
+    side = rows.read()["rows"].get(lease["id"])
+    require(side is not None and side["kind"] == "workspace_unavailable", "stranded source row not durable")
+    # The sidecar row must describe exactly this schema-5 row: same completion,
+    # approval and recorded workspace identity. Anything else is not this row.
+    same = all(side[key] == captured[key] for key in (
+        "lease_id", "scope", "item_id", "root_id", "priority", "plan_version", "generation",
+        "artifact", "completion_receipt", "fingerprint", "summary", "coverage", "verification"))
+    same = same and all(side["binding"][key] == captured["workspace"][key]
+                        for key in ("repo", "path", "branch", "head"))
+    require(same, "stranded source facts do not match the legacy review")
+    source_digest = side["source_digest"]
+    prior = side["legacy_review_removed"]
+    old_version = reviews.read()["version"] if prior is None else prior["old_version"]
+    if prior is None:
+        _finalization_write(rows, lambda version: rows.legacy_review(
+            lease["id"], "prepared", row_digest=row_digest, source_digest=source_digest,
+            old_version=old_version, expected_version=version))
+    # Exact row or exact absence only. remove_undecided checks the row digest,
+    # its pending state and the finalization CAS version in one store call.
+    for _ in range(COORDINATION_BIND_ATTEMPTS):
+        state = reviews.read()
+        current = state["reviews"].get(lease["id"])
+        if current is None:
+            break
+        if canonical_digest(current) != row_digest:
+            raise WorkParallelConflict("legacy review changed since capture; reread")
+        try:
+            reviews.remove_undecided(lease["id"], row_digest=row_digest, expected_version=state["version"])
+            break
+        except WorkParallelConflict:
+            continue
+    else:
+        raise WorkParallelConflict("Work finalization state changed; reread")
+    _finalization_write(rows, lambda version: rows.legacy_review(
+        lease["id"], "removed", row_digest=row_digest, source_digest=source_digest,
+        old_version=old_version, expected_version=version))
+
+
+def _settle_idle_rework_launch(store, lease):
+    """Complete the launch half of a bind that never landed, before the review publishes.
+
+    A bind whose ``launch_bound`` write was lost leaves the ledger bound and the
+    predecessor's launch unresolved. Once the replacement's review row exists the
+    predecessor is no longer projected, so the mod's bind resend never sees that
+    launch again. The ledger's own host and name are the evidence, exactly as in
+    a replayed bind, and ``launch_bound`` applies the same exact-match rule.
+
+    A launch that does not match the ledger's agent is left as it is. A fresh
+    bind refuses such an agent before the ledger commits, so the product cannot
+    reach that state, and a completed result must stay reviewable either way.
+    """
+    from .work_parallel_finalization import UNRESOLVED_LAUNCH_STATES
+    row = _rework_review_for(store, lease)
+    if row is None or row["launch"]["state"] not in UNRESOLVED_LAUNCH_STATES:
+        return
+    try:
+        _bind_rework_launch(store, lease, {"host_id": lease["host_id"],
+                                           "agent_name": lease.get("agent_name")})
+    except WorkParallelConflict:
+        raise
+    except WorkParallelError:
+        # Review publication must not be blocked by a launch record that cannot
+        # be reconciled, but the refusal must not disappear either. The frozen
+        # coordination schema has a bounded diagnostic channel (code only, no
+        # free-text payload); use its existing native_uncertain code.
+        _native_diagnostic(coordination(store), lease["scope"], lease["priority"])
+        return
 
 
 def _observe_idle_and_publish_review(store, identity, lease, proof):
@@ -649,17 +1629,24 @@ def _observe_idle_and_publish_review(store, identity, lease, proof):
         d, _ = store.reconcile(lease["id"], host_state="idle", proof=proof,
                                expected_version=store.read()["version"])
         lease = d["leases"][lease["id"]]
-    from .work_parallel_workspace import set_activity
+    from .work_parallel_workspace import WorkspaceError, set_activity
     for _ in range(COORDINATION_BIND_ATTEMPTS):
         current = store.read()["leases"].get(lease["id"])
         require(current is not None and current["state"] == "submitted"
                 and current.get("workspace") is not None and text(current.get("idle_proof")),
                 "submitted idle review observation changed")
         observed_proof = current["idle_proof"]
-        set_activity(current["workspace"]["repo"], current["id"], current["host_id"],
-                     idle=True, proof=observed_proof)
+        try:
+            set_activity(current["workspace"]["repo"], current["id"], current["host_id"],
+                         idle=True, proof=observed_proof)
+        except WorkspaceError:
+            # A broken worktree cannot record idle, but the submitted result must
+            # not be stranded silently: publish the frozen-schema stranded row.
+            if _workspace_unavailable_reason(current) is None:
+                raise
         latest = store.read()["leases"].get(current["id"])
         if latest is not None and latest.get("idle_proof") == observed_proof:
+            _settle_idle_rework_launch(store, latest)
             _publish_pending_review(store, identity, latest)
             return latest
     raise WorkParallelConflict("parallel idle proof changed; reread")
@@ -713,7 +1700,8 @@ def _board_accept(board_store, item_id, artifact, evidence):
     raise WorkParallelConflict("Work plan changed; reread")
 
 
-def request_rework_launch_manual(store, identity, lease_id, launch_ref, *, confirmed, expected_version):
+def request_rework_launch_manual(store, identity, lease_id, launch_ref, *, confirmed, expected_version,
+                                 journal=None):
     """Record a user-confirmed request for one exact launch. It never asserts absence.
 
     ``lease_id`` is the reviewed worker lease (the review row key the person
@@ -730,14 +1718,61 @@ def request_rework_launch_manual(store, identity, lease_id, launch_ref, *, confi
         raise WorkParallelError("manual launch request requires the person's explicit confirmation")
     if type(expected_version) is not int or expected_version < 0:
         raise WorkParallelError("expected_finalization_version must be a nonnegative integer")
-    state, launch = finalization(store).launch_manual_request(identity, lease_id, launch_ref, confirmed=True,
-                                                              expected_version=expected_version)
+    journal = journal or finalization(store)
+    state, launch = journal.launch_manual_request(identity, lease_id, launch_ref, confirmed=True,
+                                                  expected_version=expected_version)
     return {"lease_id": lease_id, "state": launch["state"], "attempt": launch["attempt"],
             "launch_ref": launch["launch_ref"], "finalization_version": state["version"]}
 
 
+def review_launch_rows(store, identity):
+    """(journal, review lease, launch) of every rework/recovery launch of this conversation.
+
+    Schema-5 finalization owns ordinary rework launches; stranded-v1 owns
+    fresh-workspace recovery launches. Host use only: the caller redacts.
+    """
+    rows = []
+    for row in finalization(store).read()["reviews"].values():
+        if (row.get("scope") == identity and row.get("decision") == "rework"
+                and (row.get("launch") or {}).get("state") not in (None, "none")):
+            rows.append(("finalization", row["lease_id"], row["launch"]))
+    for row in stranded(store).read()["rows"].values():
+        if (row["scope"] == identity and row["decision_id"] is not None
+                and row["launch"]["state"] != "none"):
+            rows.append(("stranded", row["lease_id"], row["launch"]))
+    return rows
+
+
+def request_review_launch_resolve(store, identity, lease_id, launch_ref, *,
+                                  expected_finalization_version=None, expected_stranded_version=None):
+    """Operator request for one exact launch, in the journal that owns its review row.
+
+    The version the caller pins is that journal's own: a recovery launch of a
+    stranded row is pinned by the stranded-v1 version, never the schema-5 one.
+    """
+    if _active_stranded(store, identity, lease_id) is not None:
+        if type(expected_stranded_version) is not int or expected_stranded_version < 0:
+            raise WorkParallelError("expected_stranded_version must be a nonnegative integer for a stranded review")
+        result = request_rework_launch_manual(store, identity, lease_id, launch_ref, confirmed=True,
+                                              expected_version=expected_stranded_version,
+                                              journal=stranded(store))
+        version = result.pop("finalization_version")
+        return {**result, "review_journal": "stranded", "stranded_version": version}
+    if type(expected_finalization_version) is not int or expected_finalization_version < 0:
+        raise WorkParallelError("expected_finalization_version must be a nonnegative integer")
+    result = request_rework_launch_manual(store, identity, lease_id, launch_ref, confirmed=True,
+                                          expected_version=expected_finalization_version)
+    return {**result, "review_journal": "finalization"}
+
+
 def _main_review(store, board_store, identity, host, args):
-    """Run or resume the cross-store main review saga without a spanning lock."""
+    """Run or resume the cross-store main review saga without a spanning lock.
+
+    A matching expected_review_pin lets unrelated review/wake writes move the
+    file version without making this decision stale. On each CAS retry every
+    semantic fact and every cross-row admission/approval/workspace invariant is
+    re-read before decide; the durable write still pins the fresh file version.
+    """
     if host.get("agent_id") is not None:
         raise WorkParallelError("main-session item review required")
     reviews = finalization(store)
@@ -745,43 +1780,81 @@ def _main_review(store, board_store, identity, host, args):
     decision = args.get("decision")
     decision_id = args.get("decision_id")
     evidence = args.get("evidence")
-    fstate = reviews.read()
-    row = fstate["reviews"].get(lease_id)
-    if row is None:
-        lease = store.read()["leases"].get(lease_id)
-        if not lease or lease["scope"] != identity:
-            raise WorkParallelError("unknown conversation lease")
-        _publish_pending_review(store, identity, lease)
-        fstate = reviews.read()
-        row = fstate["reviews"][lease_id]
-    expected = args.get("expected_finalization_version")
-    if row["decision"] is None:
-        if expected != fstate["version"]:
-            raise WorkParallelConflict("Work finalization changed; reread")
-        if decision not in ("approve", "rework"):
-            raise WorkParallelError("decision must be approve or rework")
-        # Every fact main reviewed is re-proven before the decision is durable.
-        # A stale fact leaves the result pending; nothing is committed.
-        _revalidate_review(store, board_store, row)
-        if decision == "rework":
-            # A limit that can never clear is refused before the decision is
-            # durable. Paused/capacity/rate/bound commit the decision and wait.
-            from .work_parallel import REWORK_HARD_REFUSALS, rework_admission
-            code, refusal = rework_admission(store.read(), lease_id, now=time.time())
-            if code in REWORK_HARD_REFUSALS:
-                raise WorkParallelError(refusal)
+    expected_version = args.get("expected_finalization_version")
+    expected_pin = args.get("expected_review_pin")
+    if expected_pin is not None:
+        from .work_parallel_finalization import review_pin_valid
+        if not review_pin_valid(expected_pin):
+            raise WorkParallelError("expected_review_pin must be rp1: followed by 64 lowercase hex characters")
 
-    replacement_id = row.get("replacement_lease_id")
-    if decision == "rework" and replacement_id is None:
-        replacement_id = hashlib.sha256((lease_id + chr(0) + str(decision_id)).encode()).hexdigest()[:32]
-    from .work_parallel_finalization import decision_digest
-    body_digest = decision_digest(lease_id, decision, evidence,
-                                  args.get("findings"), args.get("rework_instructions"))
-    fstate, row = reviews.decide(lease_id, decision, decision_id, evidence,
-                                 decision_body_digest=body_digest,
-                                 expected_version=fstate["version"],
-                                 replacement_lease_id=replacement_id)
-    return _roll_forward(store, board_store, identity, host, lease_id)
+    # An existing stranded row owns the decision (including a schema-5 row a
+    # host moved after main rendered it). Tombstone old_version is the exact
+    # finalization version at which that captured row was removed.
+    if _active_stranded(store, identity, lease_id) is not None:
+        _converge_legacy_review(store, lease_id)
+        return _stranded_review(store, board_store, identity, host, args, reviews.read()["version"])
+
+    # With a semantic pin, retry only the finalization CAS. Each attempt reads
+    # and revalidates every fact again. Without one, the legacy version rule is
+    # one-shot and unchanged.
+    attempts = COORDINATION_BIND_ATTEMPTS if expected_pin is not None else 1
+    for attempt in range(attempts):
+        fstate = reviews.read()
+        row = fstate["reviews"].get(lease_id)
+        if row is None:
+            lease = store.read()["leases"].get(lease_id)
+            if not lease or lease["scope"] != identity:
+                raise WorkParallelError("unknown conversation lease")
+            _publish_pending_review(store, identity, lease)
+            fstate = reviews.read()
+            if _active_stranded(store, identity, lease_id) is not None:
+                return _stranded_review(store, board_store, identity, host, args, fstate["version"])
+            row = fstate["reviews"][lease_id]
+        if row["decision"] is None:
+            from .work_parallel_finalization import review_pin
+            if expected_pin is not None:
+                if review_pin(row) != expected_pin:
+                    raise WorkParallelConflict("review changed; reread")
+            elif expected_version != fstate["version"]:
+                raise WorkParallelConflict("Work finalization changed; reread")
+            if decision not in ("approve", "rework"):
+                raise WorkParallelError("decision must be approve or rework")
+            # Fresh on every CAS attempt: lease scope/item/generation/artifact and
+            # receipt, approval generation/root fingerprint, and workspace HEAD.
+            moved = _revalidate_review(store, board_store, row)
+            if moved == "stranded":
+                if decision == "approve":
+                    side = _active_stranded(store, identity, lease_id) or {}
+                    reason = str(side.get("reason") or "workspace unavailable")[:300]
+                    raise WorkParallelError("workspace unavailable: " + reason
+                                            + "; approve refused; rework creates a fresh workspace")
+                # The pin matched the exact ordinary row just moved. Revalidate
+                # the new stranded row fresh, then decide it under its own CAS.
+                return _stranded_review(store, board_store, identity, host, args, reviews.read()["version"],
+                                        pin_prevalidated=True)
+            if decision == "rework":
+                # Fresh max_rework and current cross-row capacity/admission.
+                from .work_parallel import REWORK_HARD_REFUSALS, rework_admission
+                code, refusal = rework_admission(store.read(), lease_id, now=time.time())
+                if code in REWORK_HARD_REFUSALS:
+                    raise WorkParallelError(refusal)
+
+        replacement_id = row.get("replacement_lease_id")
+        if decision == "rework" and replacement_id is None:
+            replacement_id = hashlib.sha256((lease_id + chr(0) + str(decision_id)).encode()).hexdigest()[:32]
+        from .work_parallel_finalization import decision_digest
+        body_digest = decision_digest(lease_id, decision, evidence,
+                                      args.get("findings"), args.get("rework_instructions"))
+        try:
+            fstate, row = reviews.decide(
+                lease_id, decision, decision_id, evidence, decision_body_digest=body_digest,
+                expected_version=fstate["version"], replacement_lease_id=replacement_id,
+                expected_review_pin=expected_pin if row["decision"] is None else None)
+            return _roll_forward(store, board_store, identity, host, lease_id)
+        except WorkParallelConflict:
+            if expected_pin is None or attempt + 1 == attempts:
+                raise
+    raise WorkParallelConflict("Work finalization state changed; reread")
 
 
 def _roll_forward(store, board_store, identity, host, lease_id):
@@ -857,8 +1930,22 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
     if not row["stages"]["accepted"]:
         from .work_parallel import rework_admission
         current = store.read()
+        owner = None
+        p0_intent = _p0_continuation_intent(
+            store, board_store, identity, row["item_id"], "rework", lease_id)
         if row["replacement_lease_id"] not in current["leases"]:
-            code, refusal = rework_admission(current, lease_id, now=time.time())
+            code, refusal = rework_admission(
+                current, lease_id, now=time.time(),
+                excluded_lease_ids=p0_state(store).active_lease_ids())
+            if p0_intent is not None and code in ("paused", "capacity", "launch_rate"):
+                code, refusal = "", ""
+            if not code:
+                # The replacement belongs to this conversation's launcher; with
+                # no exact live proof (ctl or REST for another conversation, an
+                # unbound router) it waits for that conversation's own host.
+                owner = _proven_owner(host, identity)
+                if owner is None:
+                    code, refusal = OWNER_OFFLINE, OWNER_OFFLINE_TEXT
             if code:
                 # Admission is not available after the durable decision. The
                 # submitted predecessor stays the duplicate fence; the host pump
@@ -868,8 +1955,27 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
                 return {"decision": "rework", "lease_id": lease_id, "item_id": row["item_id"],
                         "state": "awaiting_capacity", "finalization_version": fstate["version"],
                         "retry": "host_pump", "reason": refusal[:300]}
-        store.reserve_rework(lease_id, row["replacement_lease_id"],
-                             owner=_owner_from_host(host, identity), expected_version=current["version"])
+        try:
+            existing = current["leases"].get(row["replacement_lease_id"])
+            if p0_intent is not None and existing is not None and p0_intent["lease_id"] is None:
+                p0_state(store).adopt_reserved(
+                    p0_intent["intent_id"], current["leases"],
+                    expected_version=p0_state(store).read()["version"])
+                p0_intent = p0_state(store).read()["intents"][p0_intent["intent_id"]]
+            store.reserve_rework(
+                lease_id, row["replacement_lease_id"], owner=owner,
+                expected_version=current["version"],
+                admission_bypass="p0" if p0_intent is not None and existing is None else None,
+                p0_intent=p0_intent if existing is None else None)
+            if p0_intent is not None and existing is None:
+                p0_state(store).adopt_reserved(
+                    p0_intent["intent_id"], store.read()["leases"],
+                    expected_version=p0_state(store).read()["version"])
+        except WorkParallelConflict:
+            # Another host's roll-forward reserved first under the same CAS:
+            # the deterministic replacement id makes its lease this one.
+            if row["replacement_lease_id"] not in store.read()["leases"]:
+                raise
         fstate, row = reviews.mark(lease_id, "accepted", expected_version=reviews.read()["version"])
     if not row["stages"]["workspace"]:
         old = store.read()["leases"][lease_id]
@@ -882,7 +1988,9 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
                                  expected_branch=ws["branch"], expected_head=ws["head"],
                                  expected_dirty=ws["dirty"], prior_terminal=True, prior_slot=False)
         current = store.read()
-        store.attach_workspace(row["replacement_lease_id"], rebound, expected_version=current["version"])
+        replacement = current["leases"][row["replacement_lease_id"]]
+        if replacement.get("workspace", {}).get("path") != rebound["path"]:
+            store.attach_workspace(row["replacement_lease_id"], rebound, expected_version=current["version"])
         fstate, row = reviews.mark(lease_id, "workspace", expected_version=reviews.read()["version"])
     if not row["stages"]["board"]:
         current = coord.read()
@@ -913,8 +2021,8 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
                     "replacement coordination outcome unknown")
         current_ledger = store.read()
         old_lease = current_ledger["leases"].get(lease_id)
-        proof = "workspace rebound to resume lease " + row["replacement_lease_id"]
         if old_lease is not None and old_lease["state"] != "done":
+            proof = "workspace rebound to resume lease " + row["replacement_lease_id"]
             store.retire_reworked(lease_id, row["replacement_lease_id"], proof=proof,
                                   expected_version=current_ledger["version"])
         fstate, row = reviews.mark(lease_id, "lease", expected_version=reviews.read()["version"])
@@ -930,7 +2038,227 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
                          "workspace": row["workspace"]["path"]}}
 
 
+def _active_stranded(store, identity, lease_id):
+    row = stranded(store).read()["rows"].get(lease_id)
+    if row is None or row["scope"] != identity or row["state"] == "done":
+        return None
+    return row
+
+
+def _stranded_review(store, board_store, identity, host, args, finalization_version, *,
+                     pin_prevalidated=False):
+    """Main's decision on a stranded-v1 row: approve refused; rework recovers fresh.
+
+    A matching stranded pin replaces the finalization-version check. A decision
+    made on the exact earlier schema-5 projection is also valid when its version
+    equals the tombstone old_version. A host restart drops its pin mapping and
+    therefore uses this explicit version fallback.
+    """
+    rows = stranded(store)
+    lease_id = args.get("lease_id")
+    decision = args.get("decision")
+    decision_id = args.get("decision_id")
+    evidence = args.get("evidence")
+    expected_pin = args.get("expected_review_pin")
+    _observe_supersessions(store, identity)
+    state = rows.read()
+    row = state["rows"][lease_id]
+    if row["state"] == "superseded":
+        raise WorkParallelError("stranded result superseded by lease " + row["superseded"]["lease_id"]
+                                + "; reread")
+    if row["state"] == "intent":
+        raise WorkParallelError("stranded result is not yet published; reread")
+    pin_for_store = None
+    if row["decision_id"] is None:
+        if decision not in ("approve", "rework"):
+            raise WorkParallelError("decision must be approve or rework")
+        if decision == "approve":
+            if row["kind"] == "no_report":
+                raise WorkParallelError("no worker report: approve refused; rework creates a fresh workspace")
+            raise WorkParallelError("workspace unavailable: " + row["reason"]
+                                    + "; approve refused; rework creates a fresh workspace")
+        if not pin_prevalidated:
+            tombstone = row.get("legacy_review_removed") or {}
+            if expected_pin is not None:
+                from .work_parallel_finalization import review_pin_valid
+                from .work_parallel_stranded import review_pin
+                if not review_pin_valid(expected_pin):
+                    raise WorkParallelError("expected_review_pin must be rp1: followed by 64 lowercase hex characters")
+                if review_pin(row) == expected_pin:
+                    pin_for_store = expected_pin
+                elif args.get("expected_finalization_version") != tombstone.get("old_version"):
+                    # An exact earlier schema-5 projection is carried across the
+                    # frozen-schema tombstone by its old version. The pin itself
+                    # is never persisted (R1); every stranded fact is rechecked.
+                    raise WorkParallelConflict("review changed; reread")
+            elif args.get("expected_finalization_version") not in (
+                    finalization_version, tombstone.get("old_version")):
+                raise WorkParallelConflict("Work finalization changed; reread")
+        # Fresh terminal receipt, approval and supersession checks.
+        _revalidate_stranded(store, board_store, row)
+    elif decision != "rework":
+        raise WorkParallelError("stranded review already decided differently")
+    from .work_parallel_finalization import decision_digest
+    body_digest = decision_digest(lease_id, "rework", evidence,
+                                  args.get("findings"), args.get("rework_instructions"))
+    replacement_id = row["replacement_lease_id"] or hashlib.sha256(
+        (lease_id + chr(0) + str(decision_id)).encode()).hexdigest()[:32]
+    _finalization_write(rows, lambda version: rows.decide(
+        lease_id, decision_id, body_digest, evidence, replacement_id, expected_version=version,
+        expected_review_pin=pin_for_store))
+    return _stranded_roll_forward(store, board_store, identity, host, lease_id)
+
+
+def _stranded_roll_forward(store, board_store, identity, host, lease_id):
+    """Advance a durable stranded decision from the sidecar alone; never silently stuck."""
+    rows = stranded(store)
+    try:
+        return _stranded_roll_forward_stages(store, board_store, identity, host, lease_id)
+    except WorkParallelConflict:
+        raise
+    except ValueError as error:
+        row = rows.read()["rows"][lease_id]
+        if row["state"] in ("recovered", "done", "superseded"):
+            raise
+        message = str(error)[:300] or type(error).__name__
+        _finalization_write(rows, lambda version: rows.block(
+            lease_id, "stage_failed", message, expected_version=version))
+        return {"decision": "rework", "lease_id": lease_id, "item_id": row["item_id"],
+                "state": "deciding", "retry": "host_pump", "reason": message,
+                "stranded_version": rows.read()["version"]}
+
+
+def _stranded_roll_forward_stages(store, board_store, identity, host, lease_id):
+    rows = stranded(store)
+    # Supersession is checked before every replay: a recovery waiting for
+    # admission must never start once another execution of the item exists.
+    _observe_supersessions(store, identity)
+    row = rows.read()["rows"][lease_id]
+    if row["state"] == "superseded":
+        return {"decision": "rework", "lease_id": lease_id, "item_id": row["item_id"],
+                "state": "superseded", "superseding_lease_id": row["superseded"]["lease_id"],
+                "stranded_version": rows.read()["version"]}
+    require(row["scope"] == identity and row["decision_id"] is not None,
+            "no durable stranded decision to roll forward")
+    replacement_id = row["replacement_lease_id"]
+    coord = coordination(store)
+
+    def mark(stage, state_value=None):
+        _finalization_write(rows, lambda version: rows.mark(
+            lease_id, stage, state_value=state_value, expected_version=version))
+        return rows.read()["rows"][lease_id]
+
+    if not row["stages"]["reserved"]:
+        current = store.read()
+        p0_intent = _p0_continuation_intent(
+            store, board_store, identity, row["item_id"],
+            "stranded_recovery", lease_id)
+        if replacement_id not in current["leases"]:
+            code, refusal = _stranded_admission(current, identity, row)
+            if p0_intent is not None and code in ("paused", "capacity", "launch_rate"):
+                code, refusal = "", ""
+            owner = None
+            if not code:
+                owner = _proven_owner(host, identity)
+                if owner is None:
+                    code, refusal = OWNER_OFFLINE, OWNER_OFFLINE_TEXT
+            if code:
+                _finalization_write(rows, lambda version: rows.block(
+                    lease_id, code, refusal, expected_version=version))
+                return {"decision": "rework", "lease_id": lease_id, "item_id": row["item_id"],
+                        "state": "awaiting_capacity", "retry": "host_pump", "reason": refusal[:300],
+                        "stranded_version": rows.read()["version"]}
+            # Recovery, not a rework attempt: the predecessor's counter is kept.
+            try:
+                existing = current["leases"].get(replacement_id)
+                if p0_intent is not None and existing is not None and p0_intent["lease_id"] is None:
+                    p0_state(store).adopt_reserved(
+                        p0_intent["intent_id"], current["leases"],
+                        expected_version=p0_state(store).read()["version"])
+                    p0_intent = p0_state(store).read()["intents"][p0_intent["intent_id"]]
+                store.reserve_stranded_recovery(
+                    lease_id, replacement_id, owner=owner,
+                    expected_version=current["version"],
+                    admission_bypass="p0" if p0_intent is not None and existing is None else None,
+                    p0_intent=p0_intent if existing is None else None)
+                if p0_intent is not None and existing is None:
+                    p0_state(store).adopt_reserved(
+                        p0_intent["intent_id"], store.read()["leases"],
+                        expected_version=p0_state(store).read()["version"])
+            except WorkParallelConflict:
+                if replacement_id not in store.read()["leases"]:
+                    raise
+        row = mark("reserved")
+    if not row["stages"]["workspace"]:
+        # The retained worktree cannot be verified: a fresh owned worktree.
+        # The broken one stays retained, never reused or removed.
+        from .work_parallel_workspace import prepare
+        fresh = prepare(row["binding"]["repo"], replacement_id)
+        current = store.read()
+        if (current["leases"][replacement_id].get("workspace") or {}).get("path") != fresh["path"]:
+            store.attach_workspace(replacement_id, fresh, expected_version=current["version"])
+        row = mark("workspace")
+    if not row["stages"]["coordination"]:
+        cstate = coord.read()
+        replacement_ws = store.read()["leases"][replacement_id]["workspace"]
+        old_run = cstate["runs"].get(lease_id)
+        if old_run is None:
+            old_run = next((entry["run"] for entry in reversed(cstate["archive"])
+                            if entry["run"]["lease_id"] == lease_id), None)
+        require(old_run is not None and (old_run.get("exit") or {}).get("digest") == row["completion_receipt"],
+                "stranded coordination record unavailable")
+        if replacement_id not in cstate["runs"] and old_run.get("replaced_by") != replacement_id:
+            coord.record_assignment(identity, replacement_id, {
+                "item_id": row["item_id"], "root_id": row["root_id"], "priority": row["priority"],
+                "role": "resume", "generation": row["replacement_generation"],
+                "approval_generation": old_run["approval_generation"],
+                "assigned_todos": copy.deepcopy(old_run["assigned_todos"]), "fingerprint": row["fingerprint"],
+                "workspace": {key: replacement_ws[key] for key in ("path", "branch", "head")},
+                "created_at": time.time()}, expected_version=cstate["version"])
+        cstate = coord.read()
+        if lease_id in cstate["runs"]:
+            coord.supersede(lease_id, replacement_id, expected_version=cstate["version"])
+        else:
+            archived = next((entry for entry in reversed(cstate["archive"])
+                             if entry["run"]["lease_id"] == lease_id), None)
+            require(archived is not None and archived["run"].get("replaced_by") == replacement_id,
+                    "replacement coordination outcome unknown")
+        row = mark("coordination")
+    if not row["stages"]["retired"]:
+        current = store.read()
+        old = current["leases"].get(lease_id)
+        if old is not None and old["state"] == "submitted":
+            store.retire_stranded(lease_id, replacement_id,
+                                  proof="stranded result recovered in a fresh workspace by lease " + replacement_id,
+                                  expected_version=current["version"])
+        row = mark("retired", state_value="recovered")
+    workspace = (store.read()["leases"].get(replacement_id) or {}).get("workspace") or {}
+    return {"decision": "rework", "lease_id": lease_id, "item_id": row["item_id"], "state": "rework_ready",
+            "stranded_version": rows.read()["version"],
+            "dispatch": {"kind": "native_resume", "lease_id": replacement_id, "role": "resume",
+                         "generation": row["replacement_generation"], "workspace": workspace.get("path"),
+                         "recovery": row["kind"]}}
+
+
 COORDINATION_BIND_ATTEMPTS = 8
+
+
+def _finalization_write(reviews, write):
+    """Run one host-observed finalization write from a version read just before it.
+
+    Finalization is one device-wide CAS domain: an unrelated review, wake or
+    launch write can move its version between a handler's read and its write.
+    The handler supplies no version of its own and the store re-checks every
+    precondition on the state it then reads, so the write is repeated from a
+    fresh read. Only that version race is repeated; any other refusal is final.
+    When the race persists, the wording is the one parallelEvent retries.
+    """
+    for _ in range(COORDINATION_BIND_ATTEMPTS):
+        try:
+            return write(reviews.read()["version"])
+        except WorkParallelConflict:
+            continue
+    raise WorkParallelConflict("Work finalization state changed; reread")
 
 
 def _run_bind_refusal(cstate, ident, agent):
@@ -1065,7 +2393,7 @@ RESTART_TERMINAL_PROOF = "Submitted completion fork absent from agent.list after
 
 
 def _restart_submitted_terminal(store, identity, lease_id, generation, receipt_digest,
-                                absent_agent_id, absent_from_complete_list):
+                                absent_agent_id, absent_from_complete_list, *, caller_nonce=None):
     """Publish a review after the current host proves this exact fork absent."""
     lease = store.read()["leases"].get(lease_id)
     require(lease is not None and lease["scope"] == identity and lease["state"] == "submitted"
@@ -1094,9 +2422,23 @@ def _restart_submitted_terminal(store, identity, lease_id, generation, receipt_d
     # have rebound this workspace, which the old manifest then refuses. The
     # exact receipt is still checked; nothing is written.
     review = finalization(store).read()["reviews"].get(lease_id)
-    if review is not None and review["decision"] is not None:
+    side = stranded(store).read()["rows"].get(lease_id)
+    if ((review is not None and review["decision"] is not None)
+            or (side is not None and (side["decision_id"] is not None or side["state"] == "done"))):
         exact_run()
         return {**result, "review_pending": False}
+    # R2 B2: every exact fact above is checked first (each refusal writes
+    # nothing). A fork that another live Work host owns is never observed
+    # terminal from this list. An unknown owner (no attach record: a legacy,
+    # pre-deploy or unattached attempt; a new-build lease is always attached)
+    # keeps the pre-B2 behaviour (lead ruling D): refusing it left the
+    # submitted result with no resolving path.
+    exact_run()
+    from .work_parallel_attachments import OTHER_LIVE
+    if _restart_owner_class(store, lease_id, caller_nonce) == OTHER_LIVE:
+        _record_owner_wait(store, identity, lease_id, "owner_live", caller_nonce)
+        from .work_parallel_failures import OWNER_LIVE_TEXT
+        raise WorkParallelError(OWNER_LIVE_TEXT)
     for _ in range(COORDINATION_BIND_ATTEMPTS):
         if exact_run()["state"] == "terminal":
             break
@@ -1111,10 +2453,25 @@ def _restart_submitted_terminal(store, identity, lease_id, generation, receipt_d
     # workspace is converged to it: pending is idempotent, so a proof mismatch
     # is repaired without a second row or wake, and matched proofs write nothing.
     current = store.read()["leases"][lease_id]
-    reviewed = lease_id in finalization(store).read()["reviews"]
+    reviewed = _has_review_row(store, lease_id)
     _observe_idle_and_publish_review(store, identity, current,
                                      current["idle_proof"] if reviewed else RESTART_TERMINAL_PROOF)
-    return {**result, "review_pending": lease_id in finalization(store).read()["reviews"]}
+    return {**result, "review_pending": _has_review_row(store, lease_id)}
+
+
+def _has_review_row(store, lease_id):
+    return (lease_id in finalization(store).read()["reviews"]
+            or lease_id in stranded(store).read()["rows"])
+
+
+def _launch_handoff_drift(launch):
+    match = re.search(r"(?:^|; )handoff_drift=(true|false|unknown|not_applicable)(?:;|$)",
+                      str(launch.get("proof") or ""))
+    if match is None or match.group(1) == "unknown":
+        return "unknown"
+    if match.group(1) == "not_applicable":
+        return "not_applicable"
+    return match.group(1) == "true"
 
 
 def _launch_view(launch):
@@ -1129,8 +2486,74 @@ def _launch_view(launch):
 def _rework_review_for(store, lease):
     if lease["role"] != "resume":
         return None
-    return next((row for row in finalization(store).read()["reviews"].values()
-                 if row.get("replacement_lease_id") == lease["id"]), None)
+    row = next((row for row in finalization(store).read()["reviews"].values()
+                if row.get("replacement_lease_id") == lease["id"]), None)
+    if row is None:
+        row = next((row for row in stranded(store).read()["rows"].values()
+                    if row["replacement_lease_id"] == lease["id"]), None)
+    return row
+
+
+def _owner_classes(store, lease_ids, caller_nonce):
+    """{lease_id: owner class} relative to the caller, reading each store once.
+
+    A rework/recovery replacement names its exact spawning process: the launch
+    attempt's nonce, when that attempt is bound to the lease's fork. Any other
+    lease is owned by the launcher recorded at reservation.
+    """
+    leases = store.read()["leases"]
+    side = attachments(store)
+    try:
+        doc = side.read()
+    except Exception:
+        return {lease_id: "unknown" for lease_id in lease_ids}
+    launch_nonce = {}
+    try:
+        for journal, key in ((finalization(store), "reviews"), (stranded(store), "rows")):
+            for row in journal.read()[key].values():
+                launch = row.get("launch") or {}
+                if row.get("replacement_lease_id") and launch.get("host_nonce") and launch.get("agent_id"):
+                    launch_nonce[row["replacement_lease_id"]] = (launch["host_nonce"], launch["agent_id"])
+    except Exception:
+        # An unreadable launch journal hides which process spawned a
+        # replacement: nothing is proven, so every owner reads unknown.
+        return {lease_id: "unknown" for lease_id in lease_ids}
+    result = {}
+    for lease_id in lease_ids:
+        lease = leases.get(lease_id) or {}
+        nonce, agent = launch_nonce.get(lease_id, (None, None))
+        if nonce is not None and agent == lease.get("host_id"):
+            result[lease_id] = side.owner_class(nonce, caller_nonce, doc=doc)
+        else:
+            result[lease_id] = side.lease_owner_class(lease.get("owner"), caller_nonce, doc=doc)
+    return result
+
+
+def _restart_owner_class(store, lease_id, caller_nonce):
+    """The owner class of one lease's fork relative to the caller (see _owner_classes)."""
+    return _owner_classes(store, [lease_id], caller_nonce)[lease_id]
+
+
+def _owner_unknown_text():
+    from .work_parallel_failures import OWNER_UNKNOWN_TEXT
+    return OWNER_UNKNOWN_TEXT
+
+
+def _record_owner_wait(store, identity, lease_id, code, owner_nonce):
+    from .work_parallel_failures import WorkParallelFailureLog
+    # The failure sidecar hashes this bounded dedup key again; this digest keeps
+    # a full lease id + nonce below that API's 64-character input limit.
+    key = "r2:" + hashlib.sha256((str(lease_id or "-") + "\0" + str(owner_nonce or "unknown"))
+                                  .encode("utf-8")).hexdigest()[:32]
+    WorkParallelFailureLog.beside(store.path).record(identity, code, lease_id=lease_id, dedup_key=key)
+
+
+def _launch_journal(store, replacement_lease_id):
+    """The journal that owns a replacement's launch record: finalization unless stranded-v1."""
+    if any(row["replacement_lease_id"] == replacement_lease_id
+           for row in stranded(store).read()["rows"].values()):
+        return stranded(store)
+    return finalization(store)
 
 
 def _check_rework_launch(store, lease, host):
@@ -1146,7 +2569,18 @@ def _check_rework_launch(store, lease, host):
         raise WorkParallelError("rework launch intent was not observed for this agent")
 
 
-def _bind_rework_launch(store, lease, host):
+def _merge_handoff_drift(before, after):
+    first, second = before.get("changed_before_bind"), after.get("changed_before_bind")
+    if True in (first, second):
+        return True
+    if first is False and second is False and before.get("current_digest") == after.get("current_digest"):
+        return False
+    if first == "not_applicable" and second == "not_applicable":
+        return "not_applicable"
+    return "unknown"
+
+
+def _bind_rework_launch(store, lease, host, handoff_drift="unknown"):
     """Mark a main-review rework launch bound; legacy resume leases are untouched.
 
     Finalization is a separate CAS domain. Any unrelated review/wake write can
@@ -1155,15 +2589,15 @@ def _bind_rework_launch(store, lease, host):
     """
     if lease["role"] != "resume":
         return
-    reviews = finalization(store)
+    reviews = _launch_journal(store, lease["id"])
     for _ in range(COORDINATION_BIND_ATTEMPTS):
         fstate = reviews.read()
         if not any(row.get("replacement_lease_id") == lease["id"]
-                   for row in fstate["reviews"].values()):
+                   for row in (fstate.get("reviews") or fstate.get("rows") or {}).values()):
             return
         try:
             reviews.launch_bound(lease["id"], host.get("host_id"), host.get("agent_name"),
-                                 expected_version=fstate["version"])
+                                 handoff_drift=handoff_drift, expected_version=fstate["version"])
             return
         except WorkParallelConflict:
             continue
@@ -1171,6 +2605,147 @@ def _bind_rework_launch(store, lease, host):
     # wording is retried by parallelEvent; a later idempotent bind repairs the
     # finalization and workspace halves too.
     raise WorkParallelConflict("Work finalization state changed; reread")
+
+
+MAX_ATTRIBUTION_NAMES = 64
+_REWORK_FORK_NAME = re.compile(r"work-rework-(.{1,200})-a([1-9][0-9]{0,2})\Z", re.DOTALL)
+
+
+def _launch_rows(store, identity, reviews):
+    """Every rework launch record of this conversation: schema-5 and stranded-v1."""
+    rows = [row for row in reviews["reviews"].values()
+            if row["scope"] == identity and row["decision"] == "rework"
+            and row["replacement_lease_id"] is not None]
+    rows += [row for row in stranded(store).read()["rows"].values()
+             if row["scope"] == identity and row["replacement_lease_id"] is not None]
+    return rows
+
+
+def _fork_attribution(store, identity, names):
+    """Host-only read: which rework launch of this conversation a fork name belongs to.
+
+    The mod asks this for a native fork it cannot attribute from its own state
+    (a hot reload, or a lease that has left its status read). It reads the
+    finalization launch rows and the ledger and writes nothing.
+
+    - ``current``: the name is the dispatch name of a launch that is unresolved
+      or bound, and its replacement lease is still open.
+    - ``stale``: the name belongs to a known launch of this conversation, but to
+      an earlier attempt (``earlier_attempt``), to the latest attempt after it
+      was resolved (``attempt_resolved``), to a terminal replacement lease
+      (``lease_terminal``), or to a launch whose replacement lease is done or
+      gone (``lease_ended``).
+    - ``unknown``: no evidence. The caller must not stop a fork on this answer.
+
+    An earlier attempt is recognized by its audit row, or by the replacement
+    lease id and a lower attempt number in ``work-rework-<lease>-a<N>``: a new
+    attempt is recorded only after the one before it was resolved. A name that
+    matches more than one launch with different answers is ``unknown``.
+    """
+    from .work_parallel_finalization import UNRESOLVED_LAUNCH_STATES
+    require(type(names) is list and len(names) <= MAX_ATTRIBUTION_NAMES
+            and all(text(name, 200) for name in names), "bounded rework fork names required")
+    reviews = finalization(store).read()
+    leases = store.read()["leases"]
+    launches = _launch_rows(store, identity, reviews)
+
+    def judge(name, row):
+        launch = row["launch"]
+        lease = leases.get(row["replacement_lease_id"])
+        if name == launch["dispatch_name"]:
+            if launch["state"] == "spawn_denied":
+                return "stale", "attempt_resolved"
+            if launch["state"] not in UNRESOLVED_LAUNCH_STATES + ("bound",):
+                return None
+            if lease is None or lease["scope"] != identity or lease["state"] == "done":
+                return "stale", "lease_ended"
+            if lease["state"] in ("unreported", "orphaned"):
+                return "stale", "lease_terminal"
+            return "current", None
+        if any(entry["dispatch_name"] == name for entry in launch["audit"]):
+            return "stale", "earlier_attempt"
+        parsed = _REWORK_FORK_NAME.fullmatch(name)
+        if (parsed is not None and parsed.group(1) == row["replacement_lease_id"]
+                and int(parsed.group(2)) < launch["attempt"]):
+            return "stale", "earlier_attempt"
+        return None
+
+    forks = []
+    for name in names:
+        found = [(row, verdict) for row in launches for verdict in (judge(name, row),)
+                 if verdict is not None]
+        if not found or len({verdict for _, verdict in found}) != 1:
+            forks.append({"name": name, "status": "unknown"})
+            continue
+        row, (status, reason) = found[0]
+        answer = {"name": name, "status": status, "lease_id": row["replacement_lease_id"],
+                  "attempt": row["launch"]["attempt"]}
+        if reason is not None:
+            answer["reason"] = reason
+        forks.append(answer)
+    return {"forks": forks, "finalization_version": reviews["version"]}
+
+
+def _fork_identity(store, identity, ids, names):
+    """Host-only read for the SendMessage revival gate: is this agent a Work fork?
+
+    Matches every ledger lease of this conversation in any state (a lease is
+    deleted only while it is an unbound reservation) and every rework launch
+    row, including the dispatch names of earlier attempts in its bounded audit.
+    Writes nothing. An unreadable store raises, so the caller fails closed.
+    Only matched queries are returned; an unmatched one has no durable record,
+    which does not prove the agent is not a Work fork (the launch audit is
+    bounded and an earlier attempt's agent id is kept only once it bound).
+    """
+    def bounded(values):
+        return values is None or (type(values) is list and len(values) <= MAX_ATTRIBUTION_NAMES
+                                  and all(text(value, 200) for value in values))
+    require(bounded(ids) and bounded(names) and len(ids or []) + len(names or []) >= 1,
+            "bounded fork ids/names required")
+    from .work_parallel import ACTIVE_STATES
+    ledger_state = store.read()
+    reviews = finalization(store).read()
+    leases = {key: row for key, row in ledger_state["leases"].items() if row["scope"] == identity}
+    launches = _launch_rows(store, identity, reviews)
+    matches = []
+
+    def lease_match(query, by, lease):
+        if by == "id":
+            current = lease.get("host_id") == query
+            hit = current
+        else:
+            agent_name = lease.get("agent_name")
+            hit = agent_name == query or lease.get("dispatch_name") == query
+            current = agent_name == query or (agent_name is None and lease.get("dispatch_name") == query)
+        if hit:
+            matches.append({"query": query, "by": by, "owner": "lease", "lease_id": lease["id"],
+                            "lease_state": lease["state"],
+                            "active": lease["state"] in ACTIVE_STATES and lease.get("host_id") is not None,
+                            "current": current})
+
+    def launch_match(query, by, row):
+        launch = row["launch"]
+        if by == "id":
+            current = launch["agent_id"] == query
+            hit = current
+        else:
+            current = launch["dispatch_name"] == query
+            hit = current or any(entry["dispatch_name"] == query for entry in launch["audit"])
+        if hit:
+            replacement = leases.get(row["replacement_lease_id"])
+            matches.append({"query": query, "by": by, "owner": "launch",
+                            "lease_id": row["replacement_lease_id"],
+                            "lease_state": None if replacement is None else replacement["state"],
+                            "active": False, "current": current})
+
+    for by, values in (("id", ids or []), ("name", names or [])):
+        for query in values:
+            for lease in leases.values():
+                lease_match(query, by, lease)
+            for row in launches:
+                launch_match(query, by, row)
+    return {"matches": matches, "ledger_version": ledger_state["version"],
+            "finalization_version": reviews["version"]}
 
 
 def _orphan_preview(store):
@@ -1198,13 +2773,34 @@ def _orphan_preview(store):
     return body
 
 
+def _frame(*values):
+    pieces = []
+    for value in values:
+        raw = str(value).encode("utf-8")
+        pieces.append(len(raw).to_bytes(8, "big") + raw)
+    return b"".join(pieces)
+
+
+def _p0_assignment_token(key, intent, lease, run):
+    """Stable 256-bit capability from a dedicated private derivation key."""
+    require(type(key) is bytes and len(key) == 32, "P0 assignment key")
+    root = intent["root_id"] + "@" + str(intent["root_created_at"])
+    payload = _frame(
+        "ciel-runtime", "p0-assignment", "1", intent["scope"], root,
+        intent["item_id"], intent["intent_id"], lease["id"], run["generation"],
+        "worker-report-capability")
+    return hmac.new(key, payload, hashlib.sha256).hexdigest()
+
+
 def run(name, args, board_store, identity, config, save_config):
     store = ledger()
     if name == "work_parallel_status":
         # A model tool call carries no host token. Only the authenticated mod's
         # own read, with no worker identity, gets the host lease fields.
+        host_read = _authenticated_host_read(args, config)
+        caller = (args.get("_host") or {}).get("launch_nonce") if host_read else None
         return json.dumps(project(store, identity, _board_or_none(board_store),
-                                  host_view=_authenticated_host_read(args, config)), ensure_ascii=False)
+                                  host_view=host_read, caller_nonce=caller), ensure_ascii=False)
     host, ready = host_context(args, config)
     if not identity.startswith("claude:"):
         raise WorkParallelError("native adapter unsupported")
@@ -1242,38 +2838,220 @@ def run(name, args, board_store, identity, config, save_config):
     if name != "work_parallel_event":
         raise WorkParallelError("dispatch requires packaged host interception")
     event = args.get("event")
+    if isinstance(event, str) and event.startswith("wait_boost_"):
+        if actor is not None or host.get("internal") is not True:
+            raise WorkParallelError("verified mod-internal wait host required")
+        from .work_wait_product_adapter import dispatch_wait_event
+        return json.dumps(
+            dispatch_wait_event(store, board_store, identity, host, args),
+            ensure_ascii=False,
+        )
+    if event == "p0_launch_assignment":
+        if actor is not None or host.get("internal") is not True:
+            raise WorkParallelError("verified mod-internal P0 launch host required")
+        intent_id, lease_id = args.get("intent_id"), args.get("lease_id")
+        side = p0_state(store)
+        intent = side.read()["intents"].get(intent_id)
+        lease = store.read()["leases"].get(lease_id)
+        require(intent is not None and lease is not None and intent["lease_id"] == lease_id
+                and intent["state"] == "reserved" and lease["scope"] == identity
+                and lease["state"] == "reserved" and lease["host_id"] is None
+                and intent["dispatch_name"] == args.get("dispatch_name")
+                and lease.get("dispatch_name") == intent["dispatch_name"],
+                "unknown P0 assignment")
+        run_row = coordination(store).read()["runs"].get(lease_id)
+        require(run_row is not None and run_row["state"] == "reserved", "P0 coordination missing")
+        from .work_p0_assignment_key import P0AssignmentKeyStore, P0AssignmentKeyUnavailable
+        try:
+            key = P0AssignmentKeyStore.beside_ledger(store.path).read()
+        except P0AssignmentKeyUnavailable as error:
+            raise WorkParallelError(
+                "P0 assignment key recovery required; spawn blocked (" + error.reason + ")") from error
+        token = _p0_assignment_token(key, intent, lease, run_row)
+        token_hash = hash_worker_token(token)
+        for attempt in range(3):
+            current = store.read()
+            if current["leases"][lease_id].get("report_hash") == token_hash:
+                break
+            try:
+                store.set_p0_reserved_capability(
+                    lease_id, token_hash, intent["dispatch_name"], p0_intent=intent,
+                    expected_version=current["version"])
+                break
+            except WorkParallelConflict:
+                if attempt == 2:
+                    raise
+        return json.dumps({"intent_id": intent_id, "lease_id": lease_id,
+                           "dispatch_name": intent["dispatch_name"], "item_id": lease["item_id"],
+                           "priority": "P1", "effective_priority": "P0", "role": lease["role"],
+                           "generation": run_row["generation"], "plan_version": lease["plan_version"],
+                           "workspace": lease.get("workspace"), "worker_token": token,
+                           "dispatch_without_approval": True}, ensure_ascii=False)
+    if event == "p0_launch_spawning":
+        if actor is not None or host.get("internal") is not True:
+            raise WorkParallelError("verified mod-internal P0 launch host required")
+        # Spawn is key-dependent even after assignment issuance: recovery status
+        # and the actual state transition must share the same readiness fence.
+        _p0_key_ready(store, "spawn")
+        side = p0_state(store)
+        state = side.read()
+        intent = state["intents"].get(args.get("intent_id"))
+        require(intent is not None and intent["lease_id"] == args.get("lease_id")
+                and intent["dispatch_name"] == args.get("dispatch_name"),
+                "P0 launch identity")
+        state, intent = side.transition_intent(
+            intent["intent_id"], "spawning", expected_version=state["version"])
+        return json.dumps({"intent_id": intent["intent_id"], "lease_id": intent["lease_id"],
+                           "dispatch_name": intent["dispatch_name"], "state": intent["state"]},
+                          ensure_ascii=False)
+    if event in ("p0_launch_denied", "p0_launch_absent"):
+        if actor is not None or host.get("internal") is not True:
+            raise WorkParallelError("verified mod-internal P0 launch host required")
+        intent_id, lease_id, name = (args.get("intent_id"), args.get("lease_id"),
+                                     args.get("dispatch_name"))
+        side = p0_state(store)
+        side_doc = side.read()
+        intent = side_doc["intents"].get(intent_id)
+        lease = store.read()["leases"].get(lease_id)
+        if intent is not None and intent["state"] == "cancelled" and lease is None:
+            return json.dumps({"state": "cancelled", "released": True}, ensure_ascii=False)
+        require(intent is not None and lease is not None and intent["lease_id"] == lease_id
+                and intent["dispatch_name"] == name and lease.get("dispatch_name") == name
+                and intent["state"] == "spawning" and lease["state"] == "reserved"
+                and lease["host_id"] is None and lease["scope"] == identity,
+                "P0 launch cancellation identity")
+        if event == "p0_launch_denied":
+            require(text(host.get("proof"), 500), "P0 launch deny proof")
+        else:
+            require(host.get("absent_dispatch_name") == name
+                    and host.get("absent_from_complete_list") is True,
+                    "complete P0 absence proof required")
+            owner = lease.get("owner")
+            require(type(owner) is dict and type(owner.get("session_pid")) is int,
+                    "P0 launch owner unavailable")
+            observed = process_identity(owner["session_pid"])
+            same_host = (host.get("session_pid") == owner["session_pid"]
+                         and (host.get("session_process_identity") is None
+                              or host.get("session_process_identity") == owner.get("identity")))
+            require(not same_host, "same-process P0 launch absence is not terminal proof")
+            require(observed != owner.get("identity"),
+                    "another live Work host owns this P0 launch")
+        current = store.read()
+        store.release_unbound(lease_id, proof="P0 native launch absent",
+                              expected_version=current["version"])
+        coord = coordination(store)
+        if lease_id in coord.read()["runs"]:
+            coord.cancel_reserved(lease_id, outcome="P0 native launch absent",
+                                  expected_version=coord.read()["version"])
+        side.transition_intent(intent_id, "cancelled", expected_version=side_doc["version"])
+        return json.dumps({"state": "cancelled", "released": True}, ensure_ascii=False)
+    if event == "p0_launch_status":
+        if actor is not None or host.get("internal") is not True:
+            raise WorkParallelError("verified mod-internal P0 launch host required")
+        side = p0_state(store)
+        side_document = side.read()
+        open_rows = [intent for intent in side_document["intents"].values()
+                     if intent["scope"] == identity
+                     and intent["state"] in ("intent", "reserved", "spawning", "bound")]
+        from .work_p0_assignment_key import P0AssignmentKeyStore, P0AssignmentKeyUnavailable
+        dependent = _p0_key_required(side_document)
+        key_status, key_reason = "not_required", None
+        if dependent:
+            key_store = P0AssignmentKeyStore.beside_ledger(store.path)
+            try:
+                key_store.read()  # read-only: status never creates or rotates the key
+                key_status = "ready"
+            except P0AssignmentKeyUnavailable as error:
+                key_status = "recovery_required"
+                key_reason = error.reason
+        intents = [{key: intent[key] for key in (
+            "intent_id", "continuation", "state", "lease_id", "dispatch_name", "item_id",
+            "predecessor_lease_id")} for intent in open_rows]
+        return json.dumps({"intents": intents,
+                           "assignment_key": key_status,
+                           "assignment_key_reason": key_reason,
+                           "scheduling_blocked": key_status == "recovery_required",
+                           "spawn_allowed": key_status != "recovery_required"}, ensure_ascii=False)
     if event == "review_roll_forward":
         # Host pump retries a durable decision (awaiting_capacity or a blocked
         # stage) from the journal alone. Main never needs to resend its body.
         if actor is not None or host.get("internal") is not True:
             raise WorkParallelError("verified mod-internal review host required")
+        if _active_stranded(store, identity, args.get("lease_id")) is not None:
+            return json.dumps(_stranded_roll_forward(
+                store, board_store, identity, host, args.get("lease_id")), ensure_ascii=False)
         return json.dumps(_roll_forward(store, board_store, identity, host, args.get("lease_id")),
                           ensure_ascii=False)
     if event == "review_wake":
         if actor is not None or host.get("internal") is not True:
             raise WorkParallelError("verified mod-internal review host required")
-        reviews = finalization(store)
+        reviews = (stranded(store) if _active_stranded(store, identity, args.get("lease_id")) is not None
+                   else finalization(store))
         operation = args.get("operation")
-        current = reviews.read()
         if operation == "prepare":
-            state, wake = reviews.wake_prepare(args.get("lease_id"), expected_version=current["version"])
+            state, wake = _finalization_write(reviews, lambda version: reviews.wake_prepare(
+                args.get("lease_id"), expected_version=version))
         elif operation == "record":
-            state, wake = reviews.wake_record(args.get("lease_id"), args.get("attempt_id"),
-                                              args.get("state"), expected_version=current["version"])
+            state, wake = _finalization_write(reviews, lambda version: reviews.wake_record(
+                args.get("lease_id"), args.get("attempt_id"), args.get("state"),
+                expected_version=version))
         else:
             raise WorkParallelError("review wake operation must be prepare or record")
         return json.dumps({"lease_id": args.get("lease_id"), **wake,
                            "finalization_version": state["version"]}, ensure_ascii=False)
-    if event in ("rework_launch_status", "rework_launch_manual_request"):
+    if event == "failure_record":
+        # Host-only durable failure log: fixed codes, short ids and times only.
+        # The model's forwarded events never carry _host.internal.
+        if actor is not None or host.get("internal") is not True:
+            raise WorkParallelError("verified mod-internal failure host required")
+        from .work_parallel_failures import WorkParallelFailureLog
+        return json.dumps(WorkParallelFailureLog.beside(store.path).record(
+            identity, args.get("code"), lease_id=args.get("lease_id"), dedup_key=args.get("dedup_key")),
+            ensure_ascii=False)
+    if event == "gate_presence":
+        # G5: the mod's live probe result, reported on process start and on a
+        # change of (state, version). Display only: it never authorizes or
+        # refuses a reservation.
+        if actor is not None or host.get("internal") is not True:
+            raise WorkParallelError("verified mod-internal gate presence host required")
+        from .work_parallel_gate_presence import WorkParallelGatePresence
+        return json.dumps(WorkParallelGatePresence.beside(store.path).record(
+            identity, args.get("state"), gate_version=args.get("gate_version"), probe_ref=args.get("probe_ref")),
+            ensure_ascii=False)
+    if event == "host_attach":
+        if actor is not None or host.get("internal") is not True:
+            raise WorkParallelError("verified mod-internal Work host attach required")
+        result = attachments(store).attach(identity, host.get("launcher_pid"), host.get("launch_nonce"))
+        # Make this caller available to this response's host projection without
+        # changing the persisted ledger. A fresh status call sends launch_nonce.
+        return json.dumps({**result, "session_attachments": attachments(store).summary(identity)}, ensure_ascii=False)
+    if event in ("rework_launch_status", "rework_launch_manual_request", "rework_fork_attribution",
+                 "fork_identity"):
         if actor is not None or host.get("internal") is not True:
             raise WorkParallelError("verified mod-internal launch host required")
-        if event == "rework_launch_status":
-            return json.dumps(finalization(store).launch_status(identity, host.get("launch_nonce")),
+        if event == "rework_fork_attribution":
+            return json.dumps(_fork_attribution(store, identity, args.get("names")), ensure_ascii=False)
+        if event == "fork_identity":
+            return json.dumps(_fork_identity(store, identity, args.get("ids"), args.get("names")),
                               ensure_ascii=False)
-        return json.dumps(request_rework_launch_manual(
-            store, identity, args.get("lease_id"), args.get("launch_ref"),
-            confirmed=host.get("user_confirmed") is True,
-            expected_version=finalization(store).read()["version"]), ensure_ascii=False)
+        if event == "rework_launch_status":
+            status = finalization(store).launch_status(identity, host.get("launch_nonce"))
+            recovery = stranded(store).launch_status(identity, host.get("launch_nonce"))
+            merged = sorted(status["launches"] + recovery["launches"],
+                            key=lambda value: (value["updated_at"], value["lease_id"]))
+            return json.dumps({**status, "launches": merged[:64],
+                               "truncated": status["truncated"] or recovery["truncated"] or len(merged) > 64,
+                               "stranded_version": recovery["stranded_version"]}, ensure_ascii=False)
+        # The launch reference pins the exact attempt the person saw; the
+        # version here is only this handler's own read.
+        journal = (stranded(store) if _active_stranded(store, identity, args.get("lease_id")) is not None
+                   else finalization(store))
+        return json.dumps(_finalization_write(
+            journal, lambda version: request_rework_launch_manual(
+                store, identity, args.get("lease_id"), args.get("launch_ref"),
+                confirmed=host.get("user_confirmed") is True, expected_version=version,
+                journal=journal)),
+            ensure_ascii=False)
     if event in ("rework_launch_intent", "rework_launch_denied", "rework_spawn_observed",
                  "rework_launch_absent", "rework_launch_manual_resolve", "rework_launch_present"):
         # The mod forwards a main-model work_parallel_event with only
@@ -1282,54 +3060,73 @@ def run(name, args, board_store, identity, config, save_config):
         # only from the mod's own internal calls, which carry _host.internal.
         if actor is not None or host.get("internal") is not True:
             raise WorkParallelError("verified mod-internal launch host required")
-        reviews = finalization(store)
-        current = reviews.read()
+        reviews = _launch_journal(store, args.get("lease_id"))
         replacement = store.read()["leases"].get(args.get("lease_id"))
         if replacement is None or replacement["scope"] != identity:
             raise WorkParallelError("unknown rework replacement")
+        lease_id = args.get("lease_id")
         if event in ("rework_launch_absent", "rework_launch_manual_resolve"):
             asserted = host.get("absent_dispatch_name")
             if asserted is None or asserted != args.get("dispatch_name"):
                 raise WorkParallelError("host must assert this exact launch name absent from its agent list")
+            journal_state = reviews.read()
+            owner_nonce = next((row["launch"]["host_nonce"] for row in
+                                journal_state.get("reviews", journal_state.get("rows", {})).values()
+                                if row.get("replacement_lease_id") == lease_id), None)
+            from .work_parallel_attachments import OTHER_LIVE, UNKNOWN
+            owner_class = attachments(store).owner_class(owner_nonce, host.get("launch_nonce"))
+            if owner_class == OTHER_LIVE:
+                _record_owner_wait(store, identity, lease_id, "owner_live", owner_nonce)
+                raise WorkParallelError("Another live Work host owns this launch attempt; waiting for that host.")
             if event == "rework_launch_absent":
-                state, launch = reviews.launch_absent(args.get("lease_id"), asserted, host.get("launch_nonce"),
-                                                      absent_agent_id=host.get("absent_agent_id"),
-                                                      expected_version=current["version"])
+                if owner_class == UNKNOWN:
+                    _record_owner_wait(store, identity, lease_id, "owner_unknown", owner_nonce)
+                    raise WorkParallelError(_owner_unknown_text())
+                def write(version):
+                    return reviews.launch_absent(lease_id, asserted, host.get("launch_nonce"),
+                                                 absent_agent_id=host.get("absent_agent_id"),
+                                                 expected_version=version)
             else:
-                state, launch = reviews.launch_manual(args.get("lease_id"), asserted, host.get("launch_nonce"),
-                                                      absent_agent_id=host.get("absent_agent_id"),
-                                                      launch_ref=args.get("launch_ref"),
-                                                      expected_version=current["version"])
-            return json.dumps({"lease_id": args.get("lease_id"), **_launch_view(launch),
-                               "finalization_version": state["version"]}, ensure_ascii=False)
-        if event == "rework_launch_present":
+                # Lead ruling: a person-confirmed manual resolution is allowed
+                # for unknown owners; only a different live host refuses it.
+                def write(version):
+                    return reviews.launch_manual(lease_id, asserted, host.get("launch_nonce"),
+                                                 absent_agent_id=host.get("absent_agent_id"),
+                                                 launch_ref=args.get("launch_ref"),
+                                                 expected_version=version)
+        elif event == "rework_launch_present":
             asserted = host.get("present_dispatch_name")
             if asserted is None or asserted != args.get("dispatch_name"):
                 raise WorkParallelError("host must assert this exact launch name present in its agent list")
             if host.get("present_agent_id") is None:
                 raise WorkParallelError("present launch agent required")
-            state, launch = reviews.launch_present(args.get("lease_id"), asserted, host.get("present_agent_id"),
-                                                   launch_ref=args.get("launch_ref"),
-                                                   expected_version=current["version"])
-            return json.dumps({"lease_id": args.get("lease_id"), **_launch_view(launch),
-                               "finalization_version": state["version"]}, ensure_ascii=False)
+
+            def write(version):
+                return reviews.launch_present(lease_id, asserted, host.get("present_agent_id"),
+                                              launch_ref=args.get("launch_ref"), expected_version=version)
+        elif event == "rework_launch_intent":
+            def write(version):
+                return reviews.launch_intent(lease_id, args.get("dispatch_name"), args.get("generation"),
+                                             host_nonce=host.get("launch_nonce"), expected_version=version)
+        elif event == "rework_launch_denied":
+            def write(version):
+                return reviews.launch_denied(lease_id, args.get("dispatch_name"),
+                                             host.get("proof") or args.get("proof"),
+                                             expected_version=version)
+        else:
+            def write(version):
+                return reviews.spawn_observed(lease_id, args.get("dispatch_name"), args.get("agent_id"),
+                                              expected_version=version)
+        # Each of these reads the finalization version and writes with it. An
+        # unrelated write in between is not a refusal of this launch fact.
+        state, launch = _finalization_write(reviews, write)
         if event == "rework_launch_intent":
-            state, launch = reviews.launch_intent(args.get("lease_id"), args.get("dispatch_name"),
-                                                  args.get("generation"), host_nonce=host.get("launch_nonce"),
-                                                  expected_version=current["version"])
             # The exact name is durable on the reserved lease before any spawn.
             ledger_now = store.read()
-            if ledger_now["leases"][args.get("lease_id")].get("dispatch_name") != launch["dispatch_name"]:
-                store.name_reserved_resume(args.get("lease_id"), launch["dispatch_name"],
+            if ledger_now["leases"][lease_id].get("dispatch_name") != launch["dispatch_name"]:
+                store.name_reserved_resume(lease_id, launch["dispatch_name"],
                                            expected_version=ledger_now["version"])
-        elif event == "rework_launch_denied":
-            state, launch = reviews.launch_denied(args.get("lease_id"), args.get("dispatch_name"),
-                                                  host.get("proof") or args.get("proof"),
-                                                  expected_version=current["version"])
-        else:
-            state, launch = reviews.spawn_observed(args.get("lease_id"), args.get("dispatch_name"),
-                                                   args.get("agent_id"), expected_version=current["version"])
-        return json.dumps({"lease_id": args.get("lease_id"), **_launch_view(launch),
+        return json.dumps({"lease_id": lease_id, **_launch_view(launch),
                            "finalization_version": state["version"]}, ensure_ascii=False)
     if event == "rework_dispatch":
         # Host consumes a previously committed rework intent. Main never sees
@@ -1347,6 +3144,10 @@ def run(name, args, board_store, identity, config, save_config):
         source = next((row for row in review_state["reviews"].values()
                        if row.get("replacement_lease_id") == replacement_id
                        and row["state"] == "rework_ready"), None)
+        if source is None:
+            source = next((row for row in stranded(store).read()["rows"].values()
+                           if row["replacement_lease_id"] == replacement_id
+                           and row["state"] == "recovered"), None)
         require(source is not None, "rework finalization is not dispatch-ready")
         require(source["launch"]["state"] in ("none", "spawn_denied"),
                 "rework launch intent outcome is unresolved; reconcile its dispatch name first")
@@ -1358,14 +3159,28 @@ def run(name, args, board_store, identity, config, save_config):
                            "priority": replacement["priority"], "role": "resume",
                            "generation": source["replacement_generation"],
                            "workspace": replacement.get("workspace")}, ensure_ascii=False)
-    if event in ("reserve", "reserve_next"):
+    if event in ("reserve", "reserve_next", "p0_reserve", "p0_reserve_next"):
         if actor is not None or host.get("fork") is not True or not ready:
             raise WorkParallelError("verified coordinator fork capability required")
+        p0_only = event.startswith("p0_")
+        explicit = event in ("reserve", "p0_reserve")
         assignment = _reserve_assignment(
             store, board_store, identity, host, version,
-            item_id=args.get("item_id") if event == "reserve" else None,
-            role=args.get("role", "worker"),
+            item_id=args.get("item_id") if explicit else None,
+            role=args.get("role", "worker"), p0_only=p0_only,
         )
+        if p0_only:
+            lease = store.read()["leases"][assignment["lease_id"]]
+            intent = p0_state(store).approval_intent(
+                lease["id"], scope=identity, item_id=lease["item_id"])
+            require(intent is not None, "P0 assignment intent missing")
+            return json.dumps({"dispatch": "ready", "intent_id": intent["intent_id"],
+                               "continuation": "initial", "intent_state": intent["state"],
+                               "dispatch_name": intent["dispatch_name"],
+                               "effective_priority": "P0", "dispatch_without_approval": True,
+                               **{key: assignment.get(key) for key in (
+                                   "lease_id", "item_id", "priority", "role", "generation",
+                                   "plan_version", "workspace")}}, ensure_ascii=False)
         return json.dumps(assignment, ensure_ascii=False)
     if event == "restart_submitted_terminal":
         # Host-only. After a process restart, a submitted lease whose worker
@@ -1378,7 +3193,8 @@ def run(name, args, board_store, identity, config, save_config):
             raise WorkParallelError("verified mod-internal restart host required")
         return json.dumps(_restart_submitted_terminal(
             store, identity, args.get("lease_id"), args.get("generation"), args.get("receipt_digest"),
-            host.get("absent_agent_id"), host.get("absent_from_complete_list")), ensure_ascii=False)
+            host.get("absent_agent_id"), host.get("absent_from_complete_list"),
+            caller_nonce=host.get("launch_nonce")), ensure_ascii=False)
     if event == "native_observation":
         # Host-only: the mod reports what $.agent.list() showed, outside any
         # model turn. Rows are checked against this conversation's own bound
@@ -1402,8 +3218,17 @@ def run(name, args, board_store, identity, config, save_config):
             raise WorkParallelError("native observation names no bound fork of this conversation: "
                                     + skipped[0]["reason"])
         # A skipped row hides its lease from this list, so it is not complete.
-        state, changed = evidence.observe(identity, leases, valid,
-                                          complete=args.get("complete") is True and not skipped,
+        complete = args.get("complete") is True and not skipped
+        if complete:
+            from .work_parallel import ACTIVE_STATES
+            bound = [key for key, lease in leases.items() if lease["state"] in ACTIVE_STATES and lease.get("host_id")]
+            if any(value in ("other_live", "unknown")
+                   for value in _owner_classes(store, bound, host.get("launch_nonce")).values()):
+                # This list cannot prove another live/unknown process's forks
+                # absent. Healthy rows are still recorded, but completeness is
+                # downgraded and no other process's record gets missing_since.
+                complete = False
+        state, changed = evidence.observe(identity, leases, valid, complete=complete,
                                           expected_version=expected)
         observed_terminal = []
         for row in valid:
@@ -1430,20 +3255,46 @@ def run(name, args, board_store, identity, config, save_config):
             raise WorkParallelError("missing salvage coordination record")
         # Native terminal status is positive exit evidence; the lease may still
         # hold its slot until this salvage receipt is committed.
-        observed = salvage_observe(lease["workspace"]["repo"], lease["id"],
-                                   generation=str(run_row["generation"]), terminal=True,
-                                   slot=False, config_dir=None)
+        prior_exit = run_row.get("exit") or {}
+        if prior_exit.get("kind") == "host_salvage":
+            # Idempotent: a repeated boundary returns the same durable receipt.
+            detail = coord.detail(prior_exit["digest"])
+            return json.dumps({"lease_id": lease["id"], "receipt_digest": prior_exit["digest"],
+                               "salvaged": True,
+                               **({"workspace_unavailable": True}
+                                  if str(detail["workspace"]["diff_stat"]).startswith("workspace unavailable: ")
+                                  else {})}, ensure_ascii=False)
+        from .work_parallel_workspace import WorkspaceError
+        unavailable = None
+        try:
+            observed = salvage_observe(lease["workspace"]["repo"], lease["id"],
+                                       generation=str(run_row["generation"]), terminal=True,
+                                       slot=False, config_dir=None)
+        except WorkspaceError as error:
+            # A broken worktree must not hold the slot forever (the mod retries
+            # salvage at every boundary). Record what is known: the recorded
+            # binding, explicitly marked unavailable. No observed fact is invented.
+            unavailable = _workspace_unavailable_reason(lease)
+            if unavailable is None:
+                raise
+            binding = lease["workspace"]
+            observed = {"path": binding["path"], "branch": binding["branch"], "head": binding["head"],
+                        "dirty": False, "changed_files": [],
+                        "diff_stat": "workspace unavailable: " + unavailable[:300]}
+            del error
         workspace = {"path": observed["path"], "branch": observed["branch"],
                      "head": observed["head"], "dirty": observed["dirty"],
                      "changed_files": observed["changed_files"], "diff_stat": observed["diff_stat"] or "no tracked diff"}
         detail = {"done": [], "remaining": list(run_row.get("assigned_todos") or [lease["item_id"]]),
                   "blockers": [str(args.get("reason") or "native fork ended without report")[:2000]],
-                  "workspace": workspace, "next_step": "Resume the recorded assignment from this verified workspace."}
+                  "workspace": workspace,
+                  "next_step": ("Recover in a fresh workspace; the retained workspace is unavailable."
+                                if unavailable else "Resume the recorded assignment from this verified workspace.")}
         cstate = coord.read()
         _, receipt = coord.persist_receipt(lease["id"], "host_salvage", detail,
                                            expected_version=cstate["version"])
-        return json.dumps({"lease_id": lease["id"], "receipt_digest": receipt,
-                           "salvaged": True}, ensure_ascii=False)
+        return json.dumps({"lease_id": lease["id"], "receipt_digest": receipt, "salvaged": True,
+                           **({"workspace_unavailable": True} if unavailable else {})}, ensure_ascii=False)
     if event == "reconcile_orphans":
         if actor is not None:
             raise WorkParallelError("coordinator required")
@@ -1469,21 +3320,123 @@ def run(name, args, board_store, identity, config, save_config):
     if not lease or lease["scope"] != identity:
         raise WorkParallelError("unknown conversation lease")
     ident = lease["id"]
-    if event in ("bind", "reconcile", "release", "wait", "reacquire", "unreported"):
+    if event == "p0_reacquire_complete":
+        if actor is not None or host.get("internal") is not True:
+            raise WorkParallelError("verified mod-internal P0 reacquire host required")
+        side = p0_state(store)
+        side_doc = side.read()
+        send = side_doc["sends"].get(args.get("send_id"))
+        require(send is not None and send["parent_intent_id"] == args.get("parent_intent_id")
+                and send["lease_id"] == ident
+                and send["child_generation"] == args.get("child_generation")
+                and send["send_receipt"] == args.get("send_receipt")
+                and send["host_id"] == lease.get("host_id")
+                and send["native_name"] == (lease.get("agent_name") or lease.get("dispatch_name")),
+                "unknown P0 reacquire completion")
+        outcome = args.get("outcome")
+        terminal_requested = {"sent": "delivered", "failed": "rolled_back"}.get(outcome)
+        if send["state"] in ("delivered", "rolled_back"):
+            require(send["state"] == terminal_requested,
+                    "P0 reacquire completion outcome changed")
+            return json.dumps({"state": send["state"], "outcome": outcome, "terminal": True,
+                               "slot_rolled_back": send["state"] == "rolled_back",
+                               "recovery_required": False,
+                               **({"retry": "new_child"} if send["state"] == "rolled_back" else {})},
+                              ensure_ascii=False)
+        if outcome == "sent":
+            _, row = side.complete_reacquire_send(
+                send["send_id"], outcome="sent", expected_version=side_doc["version"])
+            return json.dumps({"state": row["state"], "outcome": "sent", "terminal": True,
+                               "recovery_required": False}, ensure_ascii=False)
+        if outcome == "uncertain":
+            _, row = side.complete_reacquire_send(
+                send["send_id"], outcome="uncertain", expected_version=side_doc["version"])
+            return json.dumps({"state": row["state"], "outcome": None, "terminal": False,
+                               "recovery_required": True, "retry": "same_child"}, ensure_ascii=False)
+        require(outcome == "failed", "invalid P0 reacquire completion outcome")
+        try:
+            d, _ = store.rollback_p0_reacquire(
+                ident, p0_send=send, expected_version=store.read()["version"])
+        except (WorkParallelError, WorkParallelConflict):
+            current = side.read()
+            _, row = side.complete_reacquire_send(
+                send["send_id"], outcome="uncertain", expected_version=current["version"])
+            return json.dumps({"state": row["state"], "outcome": None, "terminal": False,
+                               "slot_rolled_back": False, "recovery_required": True,
+                               "retry": "same_child"}, ensure_ascii=False)
+        receipt_digest = hashlib.sha256((send["send_receipt"] + "\0" + str(d["version"])).encode()).hexdigest()
+        operation_digest = hashlib.sha256((send["send_id"] + "\0" + receipt_digest).encode()).hexdigest()
+        current = side.read()
+        _, row = side.complete_reacquire_send(
+            send["send_id"], outcome="failed", rollback_receipt_digest=receipt_digest,
+            operation_digest=operation_digest, expected_version=current["version"])
+        return json.dumps({"state": row["state"], "outcome": "failed", "terminal": True,
+                           "slot_rolled_back": True, "recovery_required": False,
+                           "retry": "new_child"}, ensure_ascii=False)
+    if event in ("bind", "reconcile", "release", "wait", "reacquire", "p0_reacquire", "unreported"):
         if actor is not None:
             raise WorkParallelError("coordinator host observation required")
         if event == "unreported":
-            d, _ = store.terminate_unreported(ident, proof=host.get("proof"), expected_version=version)
+            if d["version"] != version:
+                raise WorkParallelConflict("Work parallel state changed; reread")
+            d, published = _terminate_unreported_with_intent(store, identity, ident, host.get("proof"))
             return json.dumps({"lease_id": ident, "version": d["version"], "state": "unreported",
-                               "slot_released": True, "item_kept": True}, ensure_ascii=False)
+                               "slot_released": True, "item_kept": True,
+                               **({"stranded_review": True} if published else {})}, ensure_ascii=False)
         if event == "wait":
             d, _ = store.wait(ident, proof=host.get("proof"), expected_version=version)
             return json.dumps({"lease_id": ident, "version": d["version"], "waiting": True,
                                "slot_released": True, "item_id": lease["item_id"], "item_kept": True}, ensure_ascii=False)
-        if event == "reacquire":
-            d, _ = store.reacquire(ident, expected_version=version)
-            return json.dumps({"lease_id": ident, "version": d["version"], "slot_reacquired": True,
-                               "item_id": lease["item_id"]}, ensure_ascii=False)
+        if event in ("reacquire", "p0_reacquire"):
+            side = p0_state(store)
+            if event == "p0_reacquire":
+                _p0_key_ready(store, "reacquire")
+            open_send = side.open_send_for_lease(ident)
+            if open_send is not None:
+                return json.dumps({"lease_id": ident,
+                                   "parent_intent_id": open_send["parent_intent_id"],
+                                   "send_id": open_send["send_id"],
+                                   "child_generation": open_send["child_generation"],
+                                   "state": open_send["state"],
+                                   "send_receipt": open_send["send_receipt"],
+                                   "ledger_before_version": open_send["slot_before_version"],
+                                   "ledger_after_version": open_send["slot_after_version"],
+                                   "host_id": open_send["host_id"],
+                                   "native_name": open_send["native_name"],
+                                   "recovery_required": open_send["state"] == "uncertain"},
+                                  ensure_ascii=False)
+            parent = side.approval_intent(
+                ident, scope=identity, item_id=lease["item_id"])
+            if event == "p0_reacquire":
+                require(parent is not None and parent["state"] == "bound",
+                        "lease is not effective bound P0")
+            send = None
+            if parent is not None and parent["state"] == "bound":
+                # Design 8a: key recovery_required blocks P0 reacquire
+                # continuations before any child or ledger write.
+                _p0_key_ready(store, "reacquire")
+                side = p0_state(store)
+                _, send = side.prepare_reacquire_send(
+                    parent["intent_id"], lease, ledger_before_version=version,
+                    expected_version=side.read()["version"])
+            d, _ = store.reacquire(
+                ident, expected_version=version,
+                admission_bypass="p0" if send is not None else None,
+                p0_send=send)
+            result = {"lease_id": ident, "version": d["version"], "slot_reacquired": True,
+                      "item_id": lease["item_id"]}
+            if send is not None:
+                side = p0_state(store)
+                _, send = side.mark_reacquire_slot(
+                    send["send_id"], d["version"], expected_version=side.read()["version"])
+                result.update(parent_intent_id=send["parent_intent_id"],
+                              send_id=send["send_id"], child_generation=send["child_generation"],
+                              state=send["state"], send_receipt=send["send_receipt"],
+                              ledger_before_version=send["slot_before_version"],
+                              ledger_after_version=send["slot_after_version"],
+                              host_id=send["host_id"], native_name=send["native_name"],
+                              recovery_required=False)
+            return json.dumps(result, ensure_ascii=False)
         if event == "release":
             d, _ = store.release_unbound(ident, proof=host.get("proof"), expected_version=version)
             coord = coordination(store)
@@ -1498,9 +3451,15 @@ def run(name, args, board_store, identity, config, save_config):
             # coordination run left reserved by an interrupted earlier bind.
             _bind_coordination_run(store, ident, lease["host_id"],
                                    host.get("agent_name") or lease.get("agent_name"))
+            # launch_bound is write-once for drift: a bound replay ignores this.
             _bind_rework_launch(store, lease, host)
         elif event == "bind":
             _check_rework_launch(store, lease, host)
+            from .work_parallel_workspace import WorkspaceError, handoff_drift
+            # Preflight before any ledger/coordination write: an incomplete
+            # new-build baseline refuses here and leaves every store untouched.
+            preflight = handoff_drift(lease["workspace"]["repo"], ident) if lease.get("workspace") else {
+                "changed_before_bind": "not_applicable"}
             agent = host.get("host_id")
             # Check the coordination run before the ledger commit, so a conflict
             # never leaves the ledger bound and the run unbound. A lease minted by
@@ -1510,7 +3469,26 @@ def run(name, args, board_store, identity, config, save_config):
             d, _ = store.bind(ident, agent, expected_version=version,
                               agent_name=host.get("agent_name"))
             _bind_coordination_run(store, ident, agent, host.get("agent_name"))
-            _bind_rework_launch(store, lease, host)
+            try:
+                after = handoff_drift(lease["workspace"]["repo"], ident) if lease.get("workspace") else {
+                    "changed_before_bind": "not_applicable"}
+            except WorkspaceError:
+                # Ledger and coordination are already committed: never leak the
+                # error into a split bind. Record unknown (never false) and leave
+                # the bounded diagnostic the frozen coordination schema allows.
+                _native_diagnostic(coordination(store), lease["scope"], lease["priority"])
+                after = {"changed_before_bind": "unknown"}
+            _bind_rework_launch(store, lease, host, _merge_handoff_drift(preflight, after))
+        if event == "bind":
+            side = p0_state(store)
+            intent = side.approval_intent(ident, scope=identity, item_id=lease["item_id"])
+            if (intent is not None and intent["continuation"] != "reacquire"
+                    and intent["state"] in ("reserved", "spawning")):
+                if intent["state"] == "reserved":
+                    _, intent = side.transition_intent(
+                        intent["intent_id"], "spawning", expected_version=side.read()["version"])
+                side.transition_intent(intent["intent_id"], "bound",
+                                       expected_version=side.read()["version"])
         else:
             d, _ = store.reconcile(ident, host_state=host.get("state", "unknown"),
                                    proof=host.get("proof"), expected_version=version)
@@ -1531,11 +3509,9 @@ def run(name, args, board_store, identity, config, save_config):
         if not _approval_current(store, board, lease):
             raise WorkParallelError("Work approval scope changed; reconcile before continuing")
         if event == "accept" and lease["role"] != "reviewer":
-            reviewer = d["leases"].get(args.get("reviewer_lease_id"))
-            if (not reviewer or reviewer["scope"] != identity or reviewer["role"] != "reviewer"
-                    or reviewer["host_id"] == lease["host_id"] or reviewer["item_id"] != lease["item_id"]
-                    or reviewer["plan_version"] != lease["plan_version"] or reviewer["state"] != "submitted"):
-                raise WorkParallelError("independent reviewer result required before acceptance")
+            # Retired reviewer contract: the host selects the one legacy
+            # reviewer result; a caller-named id must be exactly that row.
+            reviewer = select_legacy_reviewer(d, lease, identity, args.get("reviewer_lease_id"))
             d, _ = store.accept_with_reviewer(ident, reviewer["id"], plan_version=args.get("plan_version"),
                                                artifact=args.get("artifact"), evidence=args.get("evidence"),
                                                expected_version=version)
@@ -1557,13 +3533,23 @@ def run(name, args, board_store, identity, config, save_config):
                                  expected_version=version, artifact=args.get("artifact"),
                                  evidence=evidence, cleanup_proof=cleanup_proof, cleanup_action=cleanup_action)
     current = d["leases"].get(ident, {})
+    if current and current.get("state") in ("unreported", "orphaned", "done"):
+        side = p0_state(store)
+        side.close_lease_intents(ident, expected_version=side.read()["version"])
     workspace = current.get("workspace")
     if workspace and event in ("bind", "reconcile"):
-        from .work_parallel_workspace import bind, set_activity
+        from .work_parallel_workspace import WorkspaceError, bind, set_activity
         if event == "bind":
             bind(workspace["repo"], ident, current["host_id"])
         elif host.get("state") == "idle":
-            set_activity(workspace["repo"], ident, current["host_id"], idle=True, proof=current["idle_proof"])
+            try:
+                set_activity(workspace["repo"], ident, current["host_id"], idle=True,
+                             proof=current["idle_proof"])
+            except WorkspaceError:
+                # A submitted result in a broken worktree goes on to the stranded
+                # review below; anything else keeps the error.
+                if current.get("state") != "submitted" or _workspace_unavailable_reason(current) is None:
+                    raise
     projected = None
     if event == "reconcile" and host.get("state") == "idle" and current.get("state") == "submitted":
         # The idle workspace write above is the positive observation that the
@@ -1579,6 +3565,66 @@ def run(name, args, board_store, identity, config, save_config):
     if projected is None:
         projected = project(store, identity, _board_or_none(board_store), host_view=_internal_host(host))
     return json.dumps(projected, ensure_ascii=False)
+
+
+LEGACY_REVIEWER_NONE = "independent reviewer result required before acceptance"
+LEGACY_REVIEWER_MULTIPLE = "multiple legacy reviewer results; resolve in the web dashboard or menu"
+LEGACY_REVIEWER_MISMATCH = "reviewer_lease_id does not name the single eligible legacy reviewer result"
+
+
+def _legacy_reviewer_candidates(d, worker, identity):
+    """Submitted reviewer rows an older build minted for exactly this worker result."""
+    return [row for row in d["leases"].values()
+            if row["role"] == "reviewer" and row["scope"] == identity and worker["scope"] == identity
+            and row["item_id"] == worker["item_id"] and row["plan_version"] == worker["plan_version"]
+            and row["host_id"] != worker["host_id"] and row["state"] == "submitted"]
+
+
+def select_legacy_reviewer(d, worker, identity, named=None):
+    """Host selection of the legacy reviewer a ``reviewing`` worker consumes.
+
+    Reviewer forks are retired and no caller is told reviewer ids. Exactly one
+    eligible row is used; none or several are refused before any write.
+    """
+    candidates = _legacy_reviewer_candidates(d, worker, identity)
+    if not candidates:
+        raise WorkParallelError(LEGACY_REVIEWER_NONE)
+    if len(candidates) > 1:
+        raise WorkParallelError(LEGACY_REVIEWER_MULTIPLE)
+    if named is not None and named != candidates[0]["id"]:
+        raise WorkParallelError(LEGACY_REVIEWER_MISMATCH)
+    return candidates[0]
+
+
+def _legacy_reviews(d, identity, details):
+    """Workers an older build left in ``reviewing``: bounded, no reviewer identity."""
+    rows = []
+    for lease in sorted(d["leases"].values(), key=lambda row: (row["priority"], row["created_at"], row["id"])):
+        if lease["scope"] != identity or lease["role"] == "reviewer" or lease["state"] != "reviewing":
+            continue
+        count = len(_legacy_reviewer_candidates(d, lease, identity))
+        rows.append({"lease_id": lease["id"], "item_id": lease["item_id"], "priority": lease["priority"],
+                     "reviewers": "none" if count == 0 else "one" if count == 1 else "multiple",
+                     "item_title": _clip((details.get(lease["item_id"]) or {}).get("item_title"),
+                                         MODEL_TEXT_LIMIT)})
+    return rows[:MODEL_LEASE_LIMIT]
+
+
+def legacy_accept(store, board_store, identity, lease_id, *, expected_version, evidence):
+    """Operator drain of one legacy ``reviewing`` worker with the host-selected reviewer."""
+    d = store.read()
+    lease = d["leases"].get(lease_id)
+    if lease is None or lease["scope"] != identity or lease["role"] == "reviewer":
+        raise WorkParallelError("unknown conversation lease")
+    if lease["state"] != "reviewing":
+        raise WorkParallelError("lease is not a legacy reviewed result")
+    if not _approval_current(store, board_store.read(), lease):
+        raise WorkParallelError("Work approval scope changed; reconcile before continuing")
+    reviewer = select_legacy_reviewer(d, lease, identity)
+    d, _ = store.accept_with_reviewer(lease_id, reviewer["id"], plan_version=lease["plan_version"],
+                                       artifact=lease["artifact"], evidence=evidence,
+                                       expected_version=expected_version)
+    return {"lease_id": lease_id, "state": d["leases"][lease_id]["state"], "version": d["version"]}
 
 
 def dispatch_refusal(board, item_id):

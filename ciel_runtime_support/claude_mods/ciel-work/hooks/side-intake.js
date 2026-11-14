@@ -1,5 +1,6 @@
 // Independent actor state is host-owned, never accepted from model arguments.
 const PREFIX = 'mcp__ciel-runtime-router__'
+const CLAIM_GENERATION = /^[0-9a-f]{32}$/
 const actors = new Map()
 const ownedSideActors = new Set()
 const retiredSideActors = new Set()
@@ -22,7 +23,7 @@ const unrecordedWakes = new Map()
 // identity:event_id -> attempt_id of a Stop election this module started (or
 // may have started) but never returned as a block: its start call threw or
 // answered unexpectedly. This module knows it was not presented; only the
-// pump delivers it, once, as a prompt.
+// pump delivers it, once, by append.
 const unpresentedStopWakes = new Map()
 const replying = new Set()
 const displayedReceipts = new Map()
@@ -497,15 +498,20 @@ export async function startSide($) {
 // Whether main is inside a turn; register.js owns that state (turn.start/complete).
 let mainBusy = () => false
 export function sideMainBusy(fn) { mainBusy = fn }
-// Delivers one host notice to main as soon as main can read it. Owned Claude
-// Code probes measured two independent facts: a busy user-role append enters
-// the next request but starts no turn (delivery-4f4c90b8), while each prompt
-// submitted during idle is accepted immediately and the engine queues later
-// prompts until main is idle (prompt-gate-0dd78bf3). A held prompt must not also
-// be shown by Stop (prompt-stop-28f9d226), but it must not block another key.
+// Plugin prompts. Owned Claude Code probes measured two independent facts: a
+// user-role append enters the next request but starts no turn
+// (delivery-4f4c90b8), while each prompt submitted during idle is accepted
+// immediately and the engine queues later prompts until main is idle
+// (prompt-gate-0dd78bf3). A held prompt must not also be shown by Stop
+// (prompt-stop-28f9d226), but it must not block another key.
+//
+// Who submits one: a side wake or a released-wait notice appends its payload
+// and submits only a wake prompt that holds none (key wake:<event> or
+// wake:notice:<event>; see appendToMain and wakeMain). register.js still
+// submits a Work review with its payload (key parallel:<lease>).
 //
 // `promptPending` is the cross-reload, per-delivery fence. A delivery is key +
-// exact redacted ref (notice: its hashed key only). A hot reload hydrates
+// exact redacted ref. A hot reload hydrates
 // pending and terminal rows without resubmitting. Pending rows (200) and
 // terminal rows (newest 200) are capped separately; unresolved rows are never
 // evicted. A generation fences pending→terminal so an old finalizer never
@@ -517,9 +523,9 @@ const PROMPT_PENDING_CAP = 200
 const PROMPT_TERMINAL_CAP = 200
 const PROMPT_KEY_MAX = 300
 const PROMPT_IDLE_WINDOW_MS = 5000
-// One delivery identity is key + exact redacted ref. Notices have no ref, so
-// their hashed key is the whole identity. A new durable attempt has a new ref
-// and never shares an old attempt's live promise or terminal record.
+// One delivery identity is key + exact redacted ref. A key without a ref is
+// the whole identity. A new durable attempt has a new ref and never shares an
+// old attempt's live promise or terminal record.
 const promptEntries = new Map()
 const promptTerminals = new Map()
 function promptIdentity(key,ref) { return JSON.stringify([key,ref ?? null]) }
@@ -728,6 +734,9 @@ export function sidePromptTurnStart() {
 }
 export function sidePromptTurnComplete($) {
   for (const entry of promptEntries.values()) armPromptRelease($,entry)
+  // A row appended after this turn's last request was carried by none of its
+  // requests (owned probe prompt-gate-0dd78bf3). Main is idle now: wake it.
+  wakeUnread($)
 }
 async function noticePromptKey(text) {
   try {
@@ -735,36 +744,394 @@ async function noticePromptKey(text) {
     return 'notice:'+Array.from(bytes.slice(0,16),byte => byte.toString(16).padStart(2,'0')).join('')
   } catch { return 'notice:'+String(text).slice(0,260) }
 }
-// Non-durable notice (released waits need no acknowledgment): busy append,
-// otherwise its own per-key idle prompt. Durable wakes use deliverToMain below.
-async function noticeToMain($,text) {
-  if (mainBusy()) {
-    try {
-      await $.session.append({message:{type:'user',content:[{type:'text',text}]}})
-      if (mainBusy()) return 'appended'
-    } catch { /* Fall through to the prompt path. */ }
-  }
-  return sidePromptSubmit($,await noticePromptKey(text),text,{kind:'notice'})
+// The same host-held claim for a delivery that is an append, used only on
+// old-router paths that have no backend fence for it. Only a landed claim may
+// deliver; an identity already issued, or a claim that cannot land, delivers
+// nothing.
+async function claimDelivery($,key,ref) {
+  const identity = promptIdentity(key,ref)
+  if (promptEntries.has(identity) || promptTerminals.has(identity)) return null
+  const entry = promptEntry(key,crypto.randomUUID(),ref,false)
+  const claim = await claimPromptKey($,{key,generation:entry.generation,...(ref ? {ref} : {})})
+  if (claim.state !== 'claimed') return null
+  entry.registered = true
+  return entry
 }
-// Durable wake: exactly one channel is elected before any side effect. Owned
-// probe delivery-4f4c90b8 returned {message, uuid} from append; uuid is its receipt.
-// Transcript text is never delivery evidence (any row can contain it).
-async function deliverToMain($,text,channel,key,meta) {
-  if (channel === 'append') {
-    try {
-      const appended = await $.session.append({message:{type:'user',content:[{type:'text',text}]}})
-      if (appended?.deny) return {state:'failed'}
-      return typeof appended?.uuid === 'string' && appended.uuid
-        ? {state:'appended',receipt:appended.uuid.slice(0,300)} : {state:'uncertain'}
-    } catch { return {state:'uncertain'} }
+async function finishDelivery($,entry,state) {
+  const outcome = state === 'appended' ? 'queued' : state === 'failed' ? 'failed' : 'uncertain'
+  rememberPromptTerminal(entry.key,entry.ref,entry.generation,outcome)
+  await terminalizePromptKey($,entry,outcome)
+}
+// The payload of an event or notice reaches main only by $.session.append: it
+// answers at once with a uuid or a deny (owned probe delivery-4f4c90b8), so
+// its outcome is definite. A plugin prompt is not: once submitted it cannot be
+// withdrawn, and a released one still entered 3 s later (owned probes
+// prompt-registry-e2bed500, 5fe2353d). A prompt therefore never holds a
+// payload; see wakeMain. Transcript text is never delivery evidence.
+async function appendedRefCount($,marker) {
+  if (!/^[0-9a-f]{16}$/.test(String(marker || ''))) return 0
+  const exact = '[Ciel host append ref '+marker+']'
+  let rows
+  try { rows = await $.session.messages({as:'api'}) } catch { return 0 }
+  if (!Array.isArray(rows)) return 0
+  let matches = 0
+  for (const row of rows) {
+    if (row?.role !== 'user') continue
+    // 2.1.323 returns ApiMessage blocks for {as:'api'}; harnesses may expose
+    // their equivalent joined text. Only user text blocks count: assistant
+    // output and tool_result text cannot settle an append.
+    const texts = Array.isArray(row.content)
+      ? row.content.filter(block => block?.type === 'text').map(block => String(block.text || ''))
+      : typeof row.text === 'string' ? [row.text] : []
+    if (texts.some(value => value.includes(exact))) matches++
   }
-  // Until resolve/drop/throw or the idle anomaly window, the durable row stays
-  // started/submitting and this exact key is hidden from Stop/pane retry.
-  return {state:await sidePromptSubmit($,key,text,meta)}
+  return matches
+}
+async function appendToMain($,text,marker = null) {
+  const payload = marker ? text+'\n[Ciel host append ref '+marker+']' : text
+  let uncertain = false
+  try {
+    const appended = await $.session.append({message:{type:'user',content:[{type:'text',text:payload}]}})
+    if (appended?.deny) return {state:'failed'}
+    if (typeof appended?.uuid === 'string' && appended.uuid)
+      return {state:'appended',receipt:appended.uuid.slice(0,300)}
+    uncertain = true
+  } catch {
+    const observed = marker ? appendObservations.get(marker) : null
+    if (typeof observed === 'string') return {state:'appended',receipt:observed.slice(0,300),observed:true}
+    uncertain = true
+  }
+  // Timer callback appends skip this plugin's own session.append hook in 2.1.323,
+  // but the API transcript view contains the exact user text (append-views-
+  // 54579a2e L2). Exactly one matching user row settles it with a non-uuid
+  // receipt. Zero stays unknown. More than one is an anomaly and stays unknown.
+  if (uncertain && marker) {
+    const count = await appendedRefCount($,marker)
+    if (count === 1) return {state:'appended',receipt:'ref:'+marker,observed:'api-ref'}
+    if (count > 1) try { $.ui.log('Ciel host append anomaly: ref '+marker+' appears in '+count+' user rows; delivery remains uncertain.') } catch {}
+  }
+  return {state:'uncertain'}
+}
+// Called by register.js after the engine's session.append chain returns a stored
+// row. door/origin/agent are pinned by the engine; exact marker text binds the
+// observation to one host append attempt without exposing an attempt id.
+export function sideAppendStored(e,result) {
+  if (e?.agentId !== undefined || e?.door !== 'note' || e?.origin?.plugin !== 'ciel-work'
+      || typeof result?.uuid !== 'string') return false
+  const text = Array.isArray(e.message?.content) ? e.message.content
+    .filter(block => block?.type === 'text').map(block => String(block.text || '')).join('\n') : ''
+  const match = /\[Ciel host append ref ([0-9a-f]{16})\]/.exec(text)
+  if (!match) return false
+  appendObservations.set(match[1],result.uuid)
+  if (appendObservations.size > 200) appendObservations.delete(appendObservations.keys().next().value)
+  return true
+}
+// Appended rows that no main model request has carried yet, by
+// kind:identity:event. An append starts no turn; an idle main gets one prompt
+// that names the row and holds no payload (owned probe delivery-4f4c90b8: the
+// next prompt's request carries an idle-appended row). That prompt may be
+// late, repeated or released without main reading the event twice.
+const unreadAppends = new Map()
+// identity:event of appended wakes a main step has begun after.
+const readHandoffs = new Set()
+// identity:event whose read could not be recorded yet; only the record is retried.
+const unrecordedReads = new Map()
+// Non-secret append marker ref -> stored uuid observed by the session.append
+// hook after `next(e)` confirmed storage. This bridges a caller-side throw that
+// happens after the append hook completed. Raw attempt/owner stay module-local.
+const appendObservations = new Map()
+// A wake prompt is submitted at most this often per row and module instance.
+const WAKE_PROMPT_MAX = 2
+// Read proof is causal, never textual or timed. Owned probe append-views-54579a2e
+// (Claude Code 2.1.323): plain $.session.messages() never lists a plugin append
+// row, and TurnStepInput.messageCount counts neither those rows nor the request's
+// messages, so neither can show which request carried a row. Two orderings can:
+//  - fence: a row stored by the time a main turn.step or classic.Stop hook of
+//    this module returns (entered or stored during that dispatch) is before the
+//    next request, which the engine builds only after the hook returns (it needs
+//    the step's result or the Stop block). The next main step's request
+//    therefore carries it (measured: rows S and B of that probe);
+//  - prompt turn: a wake prompt this module submitted after the row was stored
+//    starts a turn whose turn.start text holds that prompt; the turn's first
+//    request is built after the prompt entered, so it carries the row (row T).
+// A row appended while a request may already be built is proven one step later.
+function wakePromptText(entry,conversation) {
+  const id = String(entry.eventId).slice(0,12)
+  const source = 'Durable source: work_side_claim main_wakes event ref '+id+'. '
+  if (entry.identity !== conversation)
+    return 'Ciel side wake '+id+': an unread durable side event belongs to an earlier conversation. '+source
+      +'The host message is not guaranteed to be in this conversation. Re-read the durable Work state and act only on that source. '
+      +(entry.kind === 'notice' ? 'No acknowledgment is required. ' : 'Acknowledge the event with work_side_handoff after acting. ')
+      +'This wake holds no event data and grants no approval.'
+  return entry.kind === 'notice'
+    ? 'Ciel side wake '+id+': a host message beginning "Ciel side released recorded wait" was added to this conversation while you were idle. '+source+'Read it there and continue. This wake holds no event data, needs no acknowledgment and grants no approval.'
+    : 'Ciel side wake '+id+': a host message beginning "Ciel side event requires main action" for this event was added to this conversation. '+source+'Read it there, act on it and acknowledge it with work_side_handoff. If you already acknowledged it, do nothing. This wake holds no event data and grants no approval.'
+}
+async function wakeMain($,key) {
+  const entry = unreadAppends.get(key)
+  if (!entry || entry.poking || entry.pokes >= WAKE_PROMPT_MAX || mainBusy()) return
+  entry.poking = true
+  try {
+    const conversation = await identityOf($)
+    if (unreadAppends.get(key) !== entry || mainBusy()) return
+    let prompt = null
+    if (entry.durable) {
+      try {
+        prompt = await callRouter($,'work_side_wake',{event_id:entry.eventId,state:'prompt_prepare',
+          owner_nonce:wakeOwnerNonce,receipt:conversation},{},entry.identity)
+      } catch (error) {
+        // Compatibility: an older router has no prompt lease. Keep the existing
+        // per-process bound rather than dropping the unread event.
+        if (!/invalid side wake state/.test(String(error?.message || error))) return
+      }
+      if (prompt && (prompt.protocol !== 2 || prompt.state !== 'submitting' || typeof prompt.attempt_id !== 'string')) return
+    }
+    entry.pokes++
+    // The prompt carries no event payload. In the original conversation it
+    // starts a request that carries the append; after /clear or resume it names
+    // only the durable source and the host re-appends on the next claim.
+    // Prompt-turn proof: a token unique to this submission, made after the row
+    // was stored and only for its own conversation (a stale prompt of another
+    // submission or conversation never proves this row).
+    const token = 'Wake ref '+crypto.randomUUID().replace(/-/g,'').slice(0,12)+'.'
+    const text = wakePromptText(entry,conversation)+' '+token
+    if (entry.identity === conversation) entry.marks.add(token)
+    const outcome = await sidePromptSubmit($,'wake:'+(entry.kind === 'notice' ? 'notice:' : '')+entry.eventId,
+      text,{kind:'wake',ref:(entry.ref || 'row')+'.'+entry.pokes})
+    if (prompt) {
+      try { await callRouter($,'work_side_wake',{event_id:entry.eventId,state:'prompt_'+outcome,
+        attempt_id:prompt.attempt_id,owner_nonce:wakeOwnerNonce},{},entry.identity) } catch {}
+    }
+    // A queued wake is not a read: /clear or --continue can change the
+    // conversation before its turn starts. Only a main step proof
+    // (sideMainStep) records read_at.
+  } catch { /* Missing identity: the row stays tracked for the next check. */
+  } finally { entry.poking = false }
+}
+function trackAppend($,identity,eventId,kind,ref,recordedAt = null,durable = true) {
+  const key = kind+':'+identity+':'+eventId
+  let entry = unreadAppends.get(key)
+  if (!entry) {
+    // durable: the router keeps read_at for this wake (not a notice, not an old router's).
+    entry = {identity,eventId,kind,ref,pokes:0,poking:false,recordedAt,at:Date.now(),
+      durable:kind === 'wake' && durable,fenced:false,promptTurn:false,marks:new Set()}
+    unreadAppends.set(key,entry)
+    if (unreadAppends.size > 200) unreadAppends.delete(unreadAppends.keys().next().value)
+  } else if (recordedAt && !entry.recordedAt) entry.recordedAt = recordedAt
+  if (!mainBusy()) void wakeMain($,key)
+}
+function markRead($,key,entry) {
+  unreadAppends.delete(key)
+  if (entry.kind === 'review') { void recordReviewRead($,entry.identity,entry.eventId); return }
+  if (entry.kind !== 'wake') return
+  readHandoffs.add(entry.identity+':'+entry.eventId)
+  if (readHandoffs.size > 200) readHandoffs.delete(readHandoffs.values().next().value)
+  if (entry.durable) void recordRead($,entry.identity,entry.eventId)
+}
+async function recordRead($,identity,eventId) {
+  const key = identity+':'+eventId
+  for (let tries = 0; tries < 3; tries++) {
+    try { await callRouter($,'work_side_wake',{event_id:eventId,state:'read'},{},identity); unrecordedReads.delete(key); return }
+    catch (error) {
+      // Acknowledged meanwhile, or an older router without this state: nothing to retry.
+      if (/requested side handoff required|not appended|invalid side wake state/.test(String(error?.message || error))) {
+        unrecordedReads.delete(key); return
+      }
+    }
+  }
+  unrecordedReads.set(key,{identity,eventId})
+  if (unrecordedReads.size > 200) unrecordedReads.delete(unrecordedReads.keys().next().value)
+}
+// register.js calls these from its main hooks only (agentId undefined), before
+// they return. Rows of another conversation are never fenced or read here.
+async function currentEntries($) {
+  if (!unreadAppends.size) return []
+  let identity
+  try { identity = await identityOf($) } catch { return [] }
+  return [...unreadAppends].filter(([, entry]) => entry.identity === identity)
+}
+// turn.start: a turn this module's wake prompt started (its text is in e.text).
+export async function sideMainTurnStart($,text) {
+  if (typeof text !== 'string' || !text) return
+  for (const [, entry] of await currentEntries($))
+    if ([...(entry.marks || [])].some(mark => mark && text.includes(mark))) entry.promptTurn = true
+}
+// turn.step: TurnStepInput pins the request's messages when the event is raised,
+// so a row stored just before this hook may still be missing from this request
+// (append-views-54579a2e: S, stored inside step 0's dispatch, was not in request
+// 1 although that request reached the provider later). Rows fenced by an
+// earlier main hook, or whose own wake prompt started this turn, were stored
+// before this request was built: read. Every other stored row is fenced now.
+export async function sideMainStep($) {
+  for (const [key,entry] of await currentEntries($)) {
+    if (entry.fenced || entry.promptTurn) markRead($,key,entry)
+    else entry.fenced = true
+  }
+}
+// The return of a main turn.step or classic.Stop hook: every row stored by now,
+// including rows stored during that dispatch, is before the next main request,
+// which the engine builds only after the hook returns. Fenced, never read here.
+export async function sideMainFence($) {
+  for (const [, entry] of await currentEntries($)) entry.fenced = true
+}
+// Parallel-review payload delivery across a conversation change, recorded in
+// the review_delivery sidecar (never the frozen schema-5 journal). The
+// review's own wake prompt is register.js's; these entries only carry the
+// causal fence/token read proof above (pokes at the cap: no extra wake prompt).
+const reviewChecked = new Map()
+function trackReview(identity,leaseId) {
+  const key = 'review:'+identity+':'+leaseId
+  if (!unreadAppends.has(key)) {
+    unreadAppends.set(key,{identity,eventId:leaseId,kind:'review',ref:null,pokes:WAKE_PROMPT_MAX,poking:false,
+      recordedAt:Date.now(),at:Date.now(),durable:true,fenced:false,promptTurn:false,marks:new Set()})
+    if (unreadAppends.size > 200) unreadAppends.delete(unreadAppends.keys().next().value)
+  }
+  reviewChecked.set(identity+':'+leaseId,'here')
+  if (reviewChecked.size > 200) reviewChecked.delete(reviewChecked.keys().next().value)
+  return unreadAppends.get(key)
+}
+async function recordReviewRead($,identity,leaseId) {
+  for (let tries = 0; tries < 3; tries++) {
+    try { await callRouter($,'work_side_wake',{event_id:leaseId,state:'review_read'},{},identity); return }
+    catch (error) { if (/invalid side wake state|review delivery/.test(String(error?.message || error))) return }
+  }
+}
+// register.js calls this after a definite review payload append and its
+// journal record: where it was appended, so a changed conversation can tell.
+export async function sideReviewAppended($,identity,leaseId,attemptId,receipt) {
+  try {
+    const recorded = await callRouter($,'work_side_wake',{event_id:leaseId,state:'review_appended',attempt_id:attemptId,
+      seen_receipt:identity,...(typeof receipt === 'string' && receipt ? {receipt:receipt.slice(0,300)} : {})},{},identity)
+    if (recorded?.protocol === 2) trackReview(identity,leaseId)
+  } catch { /* Older router: the Stop decision gate still presents the review. */ }
+}
+// register.js calls this for an undecided review whose journal wake is already
+// appended. Once per conversation: here -> track for read proof; elsewhere ->
+// one fenced re-append into this conversation plus one wake-only prompt.
+// An unknown-outcome re-append (uncertain, or another holder's live lease) is
+// asked again after this long: a person may release it from the web, REST, the
+// console or another process, and that release must reach this module too.
+const REVIEW_RECHECK_MS = 30000
+const reviewRecheck = new Map()
+export function sideReviewRecheck(identity,leaseId) {
+  reviewChecked.delete(identity+':'+leaseId); reviewRecheck.delete(identity+':'+leaseId)
+}
+export async function sideReviewDelivery($,identity,leaseId,text) {
+  const key = identity+':'+leaseId
+  if (reviewChecked.has(key)) {
+    const again = reviewRecheck.get(key)
+    if (!again || Date.now() < again) return reviewChecked.get(key)
+    sideReviewRecheck(identity,leaseId)
+  }
+  reviewChecked.set(key,'checking')
+  const settle = state => {
+    reviewChecked.set(key,state)
+    if (['uncertain','already_uncertain','already_submitting'].includes(state)) {
+      reviewRecheck.set(key,Date.now()+REVIEW_RECHECK_MS)
+      if (reviewRecheck.size > 200) reviewRecheck.delete(reviewRecheck.keys().next().value)
+    }
+    return state
+  }
+  let status
+  try { status = await callRouter($,'work_side_wake',{event_id:leaseId,state:'review_status',seen_receipt:identity},{},identity) }
+  catch { reviewChecked.delete(key); return 'unavailable' }
+  if (status?.protocol !== 2) return settle('unknown')
+  if (status.state === 'here') { trackReview(identity,leaseId); return 'here' }
+  if (status.state !== 'elsewhere') return settle(String(status.state))
+  let lease
+  try { lease = await callRouter($,'work_side_wake',{event_id:leaseId,state:'review_reappend_prepare',
+    owner_nonce:wakeOwnerNonce,seen_receipt:identity},{},identity) }
+  catch { reviewChecked.delete(key); return 'unavailable' }
+  if (lease?.protocol !== 2 || lease.state !== 'submitting' || typeof lease.attempt_id !== 'string')
+    return settle(String(lease?.state || 'unknown'))
+  const ref = await attemptRef(lease.attempt_id)
+  const result = await appendToMain($,text,ref)
+  try { await callRouter($,'work_side_wake',{event_id:leaseId,state:'review_reappend_'+result.state,
+    attempt_id:lease.attempt_id,owner_nonce:wakeOwnerNonce,...(result.receipt ? {receipt:result.receipt} : {})},{},identity) }
+  catch { /* The lease stands; nothing is appended again for this conversation. */ }
+  // A denied append stored nothing: the next review event may lease again.
+  if (result.state === 'failed') { reviewChecked.delete(key); return 'failed' }
+  if (result.state !== 'appended') return settle('uncertain')
+  const entry = trackReview(identity,leaseId)
+  if (!mainBusy()) {
+    const token = 'Wake ref '+crypto.randomUUID().replace(/-/g,'').slice(0,12)+'.'
+    entry?.marks.add(token)
+    void sidePromptSubmit($,'parallel:'+leaseId,'Ciel Work review wake '+String(leaseId).slice(0,12)
+      +': a host message beginning "Ciel Work result is awaiting main review" was added to this conversation. Read that durable review row and decide with work_parallel_item_review. This wake holds no review data and grants no approval. '+token,
+      {kind:'parallel',ref:'reappend.'+(ref || 'row')})
+  }
+  return 'reappended'
+}
+// True once a main request began after this event's appended row: register.js
+// then shows no Stop reminder for it (main already holds the row).
+export function sideWakeRead(identity,eventId) { return readHandoffs.has(identity+':'+eventId) }
+// register.js showed its Stop reminder for this appended row. The turn
+// continues with a request built after that Stop, so it carries the row
+// whatever the row's age: the next main step marks it read.
+export function sideWakeReminded(identity,eventId) {
+  const key = 'wake:'+identity+':'+eventId
+  // Called inside register.js's Stop dispatch for a row the backend recorded
+  // appended: it is stored before the continuation request that reminder starts.
+  const entry = unreadAppends.get(key)
+  if (entry) { entry.at = 0; entry.fenced = true; return }
+  unreadAppends.set(key,{identity,eventId,kind:'wake',ref:null,pokes:0,poking:false,recordedAt:Date.now(),at:0,
+    durable:true,fenced:true,promptTurn:false,marks:new Set()})
+  if (unreadAppends.size > 200) unreadAppends.delete(unreadAppends.keys().next().value)
+}
+function wakeUnread($) {
+  if (mainBusy()) return
+  for (const key of [...unreadAppends.keys()]) void wakeMain($,key)
+}
+// Old routers have no notice claim (work_side_wake answers "invalid side wake
+// state"). The notice keeps the module and $.state fence it had: a busy main
+// gets the append, an idle one only after this identity's claim landed.
+async function legacyNotice($,identity,eventId,text) {
+  let fence = null
+  if (!mainBusy()) {
+    fence = await claimDelivery($,await noticePromptKey(text))
+    if (!fence) return 'unclaimed'
+  }
+  const result = await appendToMain($,text)
+  if (fence) await finishDelivery($,fence,result.state)
+  if (result.state === 'appended') trackAppend($,identity,eventId,'notice',null)
+  return result.state
+}
+// Released-wait notice (no acknowledgment needed). Its identity is the event
+// receipt. The backend grants that receipt's notice once (side_notice.py), so
+// a new process, /clear plus a reload, or an evicted $.state row cannot issue
+// it again. Claimed first, appended once, then an idle main is woken.
+async function noticeToMain($,identity,eventId,text) {
+  let claim = null
+  for (let tries = 0; tries < 3 && !claim; tries++) {
+    try {
+      // The text is kept on the claim so a later host can re-issue it after a
+      // definite failure or a person-confirmed release (side_notice.py).
+      claim = await callRouter($,'work_side_wake',{event_id:eventId,state:'notice_prepare',owner_nonce:wakeOwnerNonce,
+        text:String(text).slice(0,8000)},{},identity)
+    } catch (error) {
+      if (/invalid side wake state/.test(String(error?.message || error))) return legacyNotice($,identity,eventId,text)
+    }
+  }
+  // No claim, no notice: at most once.
+  if (!claim) return 'unclaimed'
+  if (claim.protocol !== 2 || claim.state !== 'claimed' || typeof claim.attempt_id !== 'string' || !claim.attempt_id)
+    return 'already'
+  // Marked with the claim's ref: a store-then-throw the session.append hook saw
+  // settles appended instead of uncertain (appendToMain).
+  const result = await appendToMain($,text,await attemptRef(claim.attempt_id))
+  for (let tries = 0; tries < 3; tries++) {
+    try {
+      await callRouter($,'work_side_wake',{event_id:eventId,state:'notice_'+result.state,attempt_id:claim.attempt_id,
+        owner_nonce:wakeOwnerNonce,...(result.receipt ? {receipt:result.receipt} : {})},{},identity)
+      break
+    } catch { /* The claim already stands; only this record is retried. */ }
+  }
+  if (result.state === 'appended') trackAppend($,identity,eventId,'notice',null)
+  return result.state
 }
 async function recordWake($,identity,eventId,attempt,result) {
   const args = {event_id:eventId,state:result.state,attempt_id:attempt.attempt_id,owner_nonce:wakeOwnerNonce,
-    ...(result.receipt ? {receipt:result.receipt} : {})}
+    ...(result.receipt ? {receipt:result.receipt} : {}),...(result.state === 'appended' ? {seen_receipt:identity} : {})}
   // Recording is retried, delivery is not.
   for (let tries = 0; tries < 3; tries++) {
     try { return await callRouter($,'work_side_wake',args,{},identity) } catch {}
@@ -781,17 +1148,29 @@ async function attemptRef(attemptId) {
 }
 async function settleWake($,identity,key,eventId,attempt,result) {
   const recorded = await recordWake($,identity,eventId,attempt,result)
-  if (!recorded) { unrecordedWakes.set(key,{attempt,result,ref:await attemptRef(attempt.attempt_id)}); return }
+  if (!recorded) { unrecordedWakes.set(key,{attempt,result,ref:await attemptRef(attempt.attempt_id)}); return false }
   unrecordedWakes.delete(key)
   if (result.state === 'queued' || result.state === 'appended') wokenHandoffs.add(key)
+  return true
 }
-async function submitWake($,identity,key,eventId,attempt,text) {
+// One started attempt, one append. options.legacy: an old router's attempt has
+// no backend start fence, so an idle delivery first needs its host-held claim
+// (the cross-reload fence it had as a prompt); without one nothing is sent.
+async function submitWake($,identity,key,eventId,attempt,text,options = {}) {
   try {
-    // The redacted attempt_ref names this attempt in the prompt registry, so a
-    // reloaded module hides exactly this attempt; an append needs no entry.
-    const result = await deliverToMain($,text,attempt.channel,'side:'+eventId,
-      attempt.channel === 'append' ? undefined : {kind:'side',ref:await attemptRef(attempt.attempt_id)})
-    await settleWake($,identity,key,eventId,attempt,result)
+    const ref = await attemptRef(attempt.attempt_id)
+    let fence = null
+    if (options.legacy && !mainBusy()) {
+      fence = await claimDelivery($,'side:'+eventId,ref || undefined)
+      if (!fence) { await settleWake($,identity,key,eventId,attempt,{state:'uncertain'}); return }
+    }
+    const result = await appendToMain($,text,ref)
+    if (fence) await finishDelivery($,fence,result.state)
+    // The row is in main's conversation from here on, whatever the record does.
+    if (result.state === 'appended') trackAppend($,identity,eventId,'wake',ref,null,options.legacy !== true)
+    const recorded = await settleWake($,identity,key,eventId,attempt,result)
+    const entry = unreadAppends.get('wake:'+key)
+    if (recorded && entry && !entry.recordedAt) entry.recordedAt = Date.now()
   } finally { wakesInFlight.delete(key) }
 }
 async function reconcileStarted($,identity,key,wake) {
@@ -857,6 +1236,33 @@ function wakeText(wake) {
 }
 async function scheduleMainWake($,identity,wake) {
   const key = identity+':'+wake.event_id
+  if (wake.wake?.state === 'appended') {
+    // An unread row survives /clear, a new conversation and --continue. If the
+    // durable row was appended to another conversation, append the payload once
+    // to this conversation under the same delivery attempt, then record only
+    // its new conversation identity. The event text still never rides a prompt.
+    if (wake.wake.conversation_id && wake.wake.conversation_id !== identity) {
+      let lease
+      try { lease = await callRouter($,'work_side_wake',{event_id:wake.event_id,state:'reappend_prepare',
+        owner_nonce:wakeOwnerNonce,seen_receipt:identity},{},identity) } catch { return }
+      if (lease?.protocol !== 2 || lease.state !== 'submitting' || typeof lease.attempt_id !== 'string') return
+      // Marked with the reappend lease's own ref so a store-then-throw seen by
+      // the session.append hook settles appended (see appendToMain).
+      const result = await appendToMain($,wakeText(wake),await attemptRef(lease.attempt_id))
+      try { await callRouter($,'work_side_wake',{event_id:wake.event_id,state:'reappend_'+result.state,
+        attempt_id:lease.attempt_id,owner_nonce:wakeOwnerNonce,...(result.receipt ? {receipt:result.receipt} : {})},{},identity) }
+      catch { return }
+      if (result.state === 'appended')
+        trackAppend($,identity,wake.event_id,'wake',await attemptRef(wake.wake.attempt_id),Date.now())
+      return
+    }
+    // Already in this conversation, and the backend has no request of main
+    // after it. Track it so an idle main is woken; nothing is delivered here.
+    if (!readHandoffs.has(key))
+      trackAppend($,identity,wake.event_id,'wake',await attemptRef(wake.wake.attempt_id),Date.now())
+    else if (!unrecordedReads.has(key)) void recordRead($,identity,wake.event_id)
+    return
+  }
   if (wokenHandoffs.has(key) || wakesInFlight.has(key)) return
   // Reserve before the first await. The completion path and the poll path can
   // offer the same freshly committed handoff concurrently.
@@ -868,7 +1274,7 @@ async function scheduleMainWake($,identity,wake) {
       const unpresented = unpresentedStopWakes.get(key)
       if (unpresented && wake.wake.channel === 'stop' && wake.wake.attempt_id === unpresented.attempt_id) {
         // Started by this module's Stop, whose start answer was lost: no block
-        // was returned, so it was never presented. Deliver once by prompt under
+        // was returned, so it was never presented. Deliver once by append under
         // that same started attempt (its owner is this module); no new attempt.
         unpresentedStopWakes.delete(key)
         handedOff = true
@@ -880,7 +1286,9 @@ async function scheduleMainWake($,identity,wake) {
       await reconcileStarted($,identity,key,wake)
       return
     }
-    const channel = mainBusy() ? 'append' : 'prompt'
+    // Busy or idle, the payload is appended; an idle main is then woken by a
+    // prompt that holds none (wakeMain).
+    const channel = 'append'
     const attempt = await callRouter($,'work_side_wake',{event_id:wake.event_id,state:'prepare',protocol:2,
       owner_nonce:wakeOwnerNonce,channel},{},identity)
     const unpresented = unpresentedStopWakes.get(key)
@@ -905,13 +1313,13 @@ async function scheduleMainWake($,identity,wake) {
       // Only the instance whose host-held claim lands delivers.
       if (!await claimLegacyAttempt($,attempt.attempt_id)) return
       handedOff = true
-      void submitWake($,identity,key,wake.event_id,{attempt_id:attempt.attempt_id,channel},wakeText(wake))
+      void submitWake($,identity,key,wake.event_id,{attempt_id:attempt.attempt_id,channel},wakeText(wake),{legacy:true})
       return
     }
     // Same-owner adoption of a Stop intent. This call holds the key, so no Stop
     // election is in flight, and a presented Stop election is always started:
     // this own stop intent was never presented. It is started under its own
-    // channel and delivered once as a prompt (deliverToMain: non-append).
+    // channel and delivered once by append (submitWake).
     if (attempt.state === 'submitting' && (attempt.phase !== 'intent' || attempt.owner_nonce !== wakeOwnerNonce
         || typeof attempt.attempt_id !== 'string' || !attempt.attempt_id
         || !['prompt','append','stop'].includes(attempt.channel))) {
@@ -963,12 +1371,12 @@ export async function sideStopWake($,identity,wake) {
     if (attempt?.protocol !== 2) {
       // register.js elects at Stop only on new-router evidence. If an older
       // router still answered, its legacy authorization is not stranded: the
-      // pump's legacy path delivers it once as a queued prompt.
+      // pump's legacy path delivers it once by append.
       if (attempt?.state === 'submitting' && attempt.phase === undefined
           && typeof attempt.attempt_id === 'string' && /^[0-9a-f]{32}$/.test(attempt.attempt_id)
           && await claimLegacyAttempt($,attempt.attempt_id)) {
         handedOff = true
-        void submitWake($,identity,key,wake.event_id,{attempt_id:attempt.attempt_id,channel:'prompt'},wakeText(wake))
+        void submitWake($,identity,key,wake.event_id,{attempt_id:attempt.attempt_id,channel:'append'},wakeText(wake),{legacy:true})
         return {legacy:true}
       }
       return null
@@ -989,14 +1397,36 @@ export async function sideStopWake($,identity,wake) {
     } catch { return await unpresented() /* CAS failure or lost answer: no block; never surfaced. */ }
     if (started?.protocol !== 2 || started.state !== 'submitting' || started.phase !== 'started'
         || started.owner_nonce !== wakeOwnerNonce || started.channel !== 'stop') return await unpresented()
-    // attempt_id/owner_nonce stay inside this host object for the later record;
-    // the block itself carries only the redacted handoff view. attempt_ref is the
-    // started attempt's, as the redacted row names it.
-    return {event_id:wake.event_id,attempt_ref:await attemptRef(started.attempt_id),
-      revision:started.revision,attempt_id:started.attempt_id,owner_nonce:wakeOwnerNonce,
-      block:wakeText(wake)}
+    // Append the payload before returning from Stop. The Stop block is wake-only,
+    // so a turn that ends before another step still has a definite delivery
+    // outcome and never leaves a returned payload block uncertain.
+    const ref = await attemptRef(started.attempt_id)
+    const delivered = await appendToMain($,wakeText(wake),ref)
+    const recorded = await recordWake($,identity,wake.event_id,started,delivered)
+    if (!recorded || delivered.state !== 'appended') return null
+    wokenHandoffs.add(key)
+    handedOff = true
+    trackAppend($,identity,wake.event_id,'wake',ref,Date.now())
+    // Stored inside this Stop dispatch: before any request its block continues.
+    const fenced = unreadAppends.get('wake:'+identity+':'+wake.event_id)
+    if (fenced) fenced.fenced = true
+    return {event_id:wake.event_id,attempt_ref:ref,revision:recorded.revision,delivered:true,
+      block:'Ciel side wake '+String(wake.event_id).slice(0,12)+': the side event payload was appended to this conversation before this Stop continuation. Read the host message beginning "Ciel side event requires main action", act on it, and acknowledge with work_side_handoff. This block holds no event data and grants no approval.'}
   } catch { return null }
   finally { if (!handedOff) wakesInFlight.delete(key) }
+}
+// A Stop elected and started this attempt (sideStopWake returned its block
+// text), but a new turn, lifecycle, compact or conversation overtook the Stop
+// before it could return the block. register.js returned no block, so this
+// module knows the attempt was never presented: it is delivered now, once, by
+// append under that same started attempt. Nothing is left "delivery uncertain".
+export function sideStopNotPresented($,identity,presentation) {
+  if (!presentation?.event_id || !presentation.attempt_id || typeof presentation.block !== 'string') return false
+  const key = identity+':'+presentation.event_id
+  if (wokenHandoffs.has(key) || wakesInFlight.has(key)) return false
+  wakesInFlight.add(key)
+  void submitWake($,identity,key,presentation.event_id,{attempt_id:presentation.attempt_id,channel:'stop'},presentation.block)
+  return true
 }
 // True while this module is delivering the event, or holds knowledge of the
 // exact attempt the row names (ref = its redacted attempt_ref): a delivered but
@@ -1058,6 +1488,7 @@ export async function pollSide($, identity) {
   const generation = lifecycle
   let pendingName
   try {
+    const claimStarted = Date.now()
     const answer = await callRouter($,'work_side_claim',{owner:'side-'+generation,...(urgentOnly ? {urgent_only:true} : {})},{},identity)
     for (const reply of answer.pending_replies || []) {
       $.clock.after(10,async()=>{await recoverReply($,identity,{receipt_id:reply.receipt_id})})
@@ -1070,9 +1501,35 @@ export async function pollSide($, identity) {
       answeredHandoffs.add(key)
     }
     for (const wake of answer.main_wakes || []) await scheduleMainWake($,identity,wake)
+    // Released-wait notices the router offers again: a definite failure, or a
+    // person-confirmed release. noticeToMain claims each first; at most one host
+    // re-issues it, and the text is the router's retained copy.
+    for (const notice of (answer.main_notices || []).slice(0,8)) {
+      if (typeof notice?.receipt_id === 'string' && typeof notice.text === 'string' && notice.text)
+        await noticeToMain($,identity,notice.receipt_id,notice.text)
+    }
+    // A router that offers appended rows (wake_protocol 2) lists every one main
+    // has not had a request after. A recorded row it no longer lists was
+    // acknowledged or read elsewhere: it needs no wake.
+    if (answer.wake_protocol === 2) {
+      const offered = new Set((answer.main_wakes || []).filter(wake => wake.wake?.state === 'appended')
+        .map(wake => 'wake:'+identity+':'+wake.event_id))
+      for (const [name,entry] of [...unreadAppends])
+        if (entry.kind === 'wake' && entry.identity === identity && entry.recordedAt
+            && entry.recordedAt < claimStarted && !offered.has(name)) unreadAppends.delete(name)
+    }
+    for (const unrecorded of [...unrecordedReads.values()]) void recordRead($,unrecorded.identity,unrecorded.eventId)
+    // An idle main with an unread row is woken here too (a wake prompt that
+    // was dropped, threw or was released is submitted once more).
+    wakeUnread($)
     const event = answer.claim
     claimed = event
     if (!event || generation !== lifecycle || await identityOf($) !== identity) return false
+    // Router-side model remapping accepts this claim only with the exact inbox
+    // generation. Refuse malformed producer data before prefetch, pending state
+    // or native spawn; the claimed-error path below records processing_error.
+    if (typeof event.generation !== 'string' || !CLAIM_GENERATION.test(event.generation))
+      throw new Error('invalid_claim_generation')
     const settings = answer.settings || {}
     maxActive = Number.isInteger(settings.max_active) ? Math.max(1,Math.min(16,settings.max_active)) : 2
     // Host claim attaches one complete, versioned board projection. The native
@@ -1087,7 +1544,7 @@ export async function pollSide($, identity) {
     // Walkie requires an exact bounded verified thread before any spawn. An
     // event that references no message is explicitly marked none_referenced.
     const sourceMessage = await fetchSourceMessage($,event.source_read,event)
-    const text = JSON.stringify({event_id:event.receipt_id,parent_session_id:identity,
+    const text = JSON.stringify({event_id:event.receipt_id,parent_session_id:identity,claim_generation:event.generation,
       external_event_preview:eventView(event.text),source_context:sourceMessage.source_context,
       ...(sourceMessage.event_truncated ? {event_truncated:true} : {}),
       ...(sourceMessage.source_context === 'verified_thread' ? {source_message:sourceMessage} : {}),
@@ -1154,11 +1611,14 @@ export function sideSpawnInput(e,next) {
   if (next?.origin?.plugin !== 'ciel-work') reasons.push('not plugin ciel-work origin')
   return reasons.length ? {deny:'Side fork proof failed: '+reasons.join(', ')} : e
 }
-// Deliberately no side-specific tool fence (operator decision 2026-11-11): the
-// native fork inherits main's tools and permissions, so its calls take exactly
-// the path main's calls take (register.js Work gates + native permission). The
-// event prompt is the restriction; the host remains the only code path that
-// commits the side decision and sends the outbox reply.
+// Deliberately no side-specific tool fence (operator decision 2026-11-11). The
+// native fork inherits main's tools and permissions, but ciel-work's own
+// tool.call/tool.check never run for a fork ciel-work spawned: Claude Code
+// 2.1.323 logs "skipped: re-entry (the plugin's own code raised it; origin
+// ciel-work)" (run-p0-e1-20261112-222712). Only native permission applies to
+// the side actor's calls; its no-write contract is the event prompt alone, by
+// the user's choice, and no hook enforces it. The host remains the only code
+// path that commits the side decision and sends the outbox reply.
 export async function sideTool($,e,next) { return null }
 async function submitReply($,actor,event) {
   const prepared = await callRouter($,'work_side_reply',{receipt_id:event.receipt_id,state:'prepare'},{},actor.identity)
@@ -1199,7 +1659,8 @@ async function shareWithMain($,event,result) {
 // the key that unblocks whoever waits on it, at once:
 //  - a fork running on that item's lease: its inbox (read at its next request,
 //    owned probe delivery-4f4c90b8: delivered, no new spawn);
-//  - otherwise main: appended into a busy turn or prompted when idle. A worker
+//  - otherwise main: appended (busy or idle); an idle main is then woken by a
+//    prompt that holds none of it. A worker
 //    parked in waiting_input is named for main to resume through SendMessage,
 //    where the lease reacquire and resume authorization already live.
 // Nothing here grants execution approval or needs an acknowledgment.
@@ -1240,7 +1701,7 @@ async function notifyReleased($,identity,event,result) {
       +parked.map(({lease}) => lease.host_id+' (lease '+lease.id+', item '+lease.item_id+')').join(', ')
       +'; resume with SendMessage to that worker if this is what it waited for. ' : '')
     +'The wait is already cleared; no acknowledgment is needed. This is not new execution approval.'
-  const state = await noticeToMain($,text)
+  const state = await noticeToMain($,identity,event.receipt_id,text)
   $.ui.log('Side released '+toMain.map(({wait}) => wait.id).join(', ')+' → main ('+state+')')
 }
 const DECISION_FIELDS = new Set(['action','kind','item_id','summary','reply','note','title','priority','queue_position','release_waits','time_limit'])

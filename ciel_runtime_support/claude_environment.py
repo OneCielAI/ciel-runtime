@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import os
 import re
 import sys
 from typing import Any, Callable
@@ -87,6 +88,12 @@ def _feedback_drafts_env(config: dict[str, Any]) -> dict[str, str]:
 # feature flag.
 CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV = "CLAUDE_CHROME_CLASSIFIER_FLOOR"
 CLAUDE_CHROME_CLASSIFIER_FLOOR_OFF = "0"
+# Every Claude Code launch disables background-shell pressure reaping. Claude
+# Code reads this only from its start-up environment ("setting it from a shell
+# command has no effect"), so every projection carries it.
+# docs/journal/2026/11/13/features/claude-bg-shell-reap-env/requirement.md
+CLAUDE_BG_SHELL_PRESSURE_REAP_ENV = "CLAUDE_CODE_DISABLE_BG_SHELL_PRESSURE_REAP"
+CLAUDE_BG_SHELL_PRESSURE_REAP_OFF = "1"
 CLAUDE_POWERSHELL_TOOL_ENV = "CLAUDE_CODE_USE_POWERSHELL_TOOL"
 
 
@@ -521,6 +528,10 @@ class ClaudeEnvironmentProjection:
         env["CLAUDE_CODE_GATEWAY_HINT_HEADERS"] = "1"
         from .work_parallel_host import host_token
         env["CIEL_RUNTIME_WORK_PARALLEL_HOST_TOKEN"] = host_token()
+        # R2 B2: a shared (not secret) launcher identity. The ciel-work mod
+        # reports this pid with its per-claude.exe launch nonce; the router
+        # reads the process creation identity itself before accepting the attach.
+        env["CIEL_RUNTIME_WORK_LAUNCHER_PID"] = str(os.getpid())
         output_tokens = self._limits.output_token_limit(provider, config)
         if output_tokens:
             env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = str(output_tokens)
@@ -586,6 +597,7 @@ class ClaudeEnvironmentProjection:
             env = {
                 "CIEL_RUNTIME_PROVIDER": provider,
                 CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV: CLAUDE_CHROME_CLASSIFIER_FLOOR_OFF,
+                CLAUDE_BG_SHELL_PRESSURE_REAP_ENV: CLAUDE_BG_SHELL_PRESSURE_REAP_OFF,
                 **_feedback_drafts_env(config),
             }
             key = self._sources.primary_api_key(provider, provider_config)
@@ -637,6 +649,7 @@ class ClaudeEnvironmentProjection:
             "CIEL_RUNTIME_MODEL_ALIAS": claude_model,
             "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1",
             CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV: CLAUDE_CHROME_CLASSIFIER_FLOOR_OFF,
+            CLAUDE_BG_SHELL_PRESSURE_REAP_ENV: CLAUDE_BG_SHELL_PRESSURE_REAP_OFF,
             **_feedback_drafts_env(config),
         }
         if force_parent_model or configured_subagent:
@@ -713,7 +726,8 @@ class ClaudeRuntimeSettingsPolicy:
 
 class ClaudeEnvironmentShellRenderer:
     OPTIONAL_KEYS = ("ANTHROPIC_BASE_URL", "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN")
-    PROJECTED_KEYS = (*CLAUDE_PROJECTED_ENV_KEYS, CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV)
+    PROJECTED_KEYS = (*CLAUDE_PROJECTED_ENV_KEYS, CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV,
+                      CLAUDE_BG_SHELL_PRESSURE_REAP_ENV)
 
     @classmethod
     def lines(cls, env: dict[str, str]) -> list[str]:
@@ -727,6 +741,8 @@ __all__ = [
     "CLAUDE_AUTO_COMPACT_WINDOW_MAX",
     "CLAUDE_CHROME_CLASSIFIER_FLOOR_ENV",
     "CLAUDE_CHROME_CLASSIFIER_FLOOR_OFF",
+    "CLAUDE_BG_SHELL_PRESSURE_REAP_ENV",
+    "CLAUDE_BG_SHELL_PRESSURE_REAP_OFF",
     "CLAUDE_POWERSHELL_TOOL_ENV",
     "default_powershell_tool",
     "CLAUDE_DIRECT_MODEL_KEYS",

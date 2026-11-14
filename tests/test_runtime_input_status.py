@@ -198,6 +198,87 @@ class RuntimeInputStatusRepositoryTests(unittest.TestCase):
         self.assertEqual("line_budget_exceeded", health["diagnostics"][0]["failure_category"])
         self.assertEqual(before, repository.path.read_bytes())
 
+    def test_cached_read_parses_only_a_verified_append(self):
+        repository, _ = self.repository()
+        repository.transition(40, "queued")
+        self.assertEqual("queued", repository.get(40)["status"])
+        original = repository.path.read_bytes()
+        row = json.dumps({"request_id": 40, "status": "submitted"}).encode() + bytes([10])
+        with repository.path.open("ab") as stream:
+            stream.write(row)
+        with mock.patch("ciel_runtime_support.runtime_input_status._decode_history_row",
+                        wraps=runtime_input_status._decode_history_row) as decode:
+            self.assertEqual("submitted", repository.get(40)["status"])
+        self.assertEqual(1, decode.call_count)
+        self.assertGreater(repository.path.stat().st_size, len(original))
+
+    def test_cached_append_matches_a_fresh_scan_for_damaged_and_torn_rows(self):
+        repository, _ = self.repository()
+        repository.path.write_bytes(b'{"request_id":40,"status":"queued"}\n')
+        appends = [
+            b"not json\n",
+            bytes(5) + b'{"request_id":41,"status":"submitted"}\n',
+            b'{"request_id":40,"status":"replied"}\n',
+            b'{"request_id":42,',
+            b'"status":"queued"}\n',
+            b'{"request_id":42,"status":"submitted"}',
+            b'\n{"request_id":43,"status":"queued"}\n',
+        ]
+        for raw in appends:
+            with self.subTest(raw=raw):
+                with repository.path.open("ab") as stream:
+                    stream.write(raw)
+                cached = repository._scan_history()
+                fresh, _ = self.repository()
+                fresh.path = repository.path
+                self.assertEqual(fresh._scan_history(), cached)
+
+    def test_cached_read_rescans_a_same_size_rewrite(self):
+        repository, _ = self.repository()
+        repository.path.write_text('{"request_id":40,"status":"queued"}\n', encoding="utf-8")
+        self.assertEqual("queued", repository.get(40)["status"])
+        before = repository.path.read_bytes()
+        after = before.replace(b'"queued"', b'"failed"')
+        self.assertEqual(len(before), len(after))
+        repository.path.write_bytes(after)
+        self.assertEqual("failed", repository.get(40)["status"])
+
+    def test_cached_read_rescans_a_shrink(self):
+        repository, _ = self.repository()
+        rows = (b'{"request_id":40,"status":"queued"}\n'
+                b'{"request_id":41,"status":"submitted"}\n')
+        repository.path.write_bytes(rows)
+        self.assertEqual("submitted", repository.get(41)["status"])
+        repository.path.write_bytes(rows.splitlines(keepends=True)[0])
+        self.assertIsNone(repository.get(41))
+        self.assertEqual("queued", repository.get(40)["status"])
+
+    def test_cached_read_rescans_after_compaction_replace(self):
+        repository, _ = self.repository(request_floor=lambda: 40)
+        repository.transition(1, "queued")
+        repository.transition(40, "queued")
+        self.assertEqual("queued", repository.get(1)["status"])
+        with mock.patch("ciel_runtime_support.runtime_input_status._HISTORY_COMPACT_BYTES", 1):
+            repository.transition(40, "submitted")
+        # os.replace may preserve or recycle an opaque Windows file identity;
+        # the shrink/tail guards must still reject the pre-compaction cache.
+        self.assertIsNone(repository.get(1))
+        self.assertEqual("submitted", repository.get(40)["status"])
+
+    def test_cached_read_still_raises_when_history_becomes_unreadable(self):
+        repository, _ = self.repository()
+        repository.transition(1, "queued")
+        self.assertEqual("queued", repository.get(1)["status"])
+        original_open = Path.open
+
+        def unavailable(path, mode="r", *args, **kwargs):
+            if path == repository.path and mode == "rb":
+                raise PermissionError("fixture read failure")
+            return original_open(path, mode, *args, **kwargs)
+
+        with mock.patch.object(Path, "open", unavailable), self.assertRaises(StatusHistoryUnreadable):
+            repository.get(1)
+
     def test_history_larger_than_eight_mib_sees_latest_owner(self):
         repository, _ = self.repository()
         old = json.dumps({"request_id": 1, "status": "replied", "data": {"padding": "x" * 2000}}).encode() + bytes([10])

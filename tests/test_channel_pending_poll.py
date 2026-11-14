@@ -99,6 +99,47 @@ class ChannelPendingPollTests(unittest.TestCase):
         self.assertEqual(2, inject.call_count)
         self.assertEqual(21, state.last_id)
 
+    def test_side_intake_more_pending_rechecks_after_poll_interval_then_stops_at_empty_tail(self):
+        marker = Mock(return_value=(2.0, 100))
+        calls = []
+
+        def inject(*args, **kwargs):
+            calls.append(args[1])
+            if len(calls) == 1:
+                kwargs["side_intake_more_pending"].append(True)
+                return 13
+            return 14
+
+        services = dataclasses.replace(
+            self.services(inject=inject),
+            file_marker=marker,
+            should_check=lambda current, previous, recheck, _inflight: recheck or current != previous,
+        )
+        state = ChannelPendingPollState(last_id=12)
+
+        poll_pending_channel_messages(1.0, None, b"\r", state, self.options(), self.policy(), services)
+        self.assertEqual([12], calls)
+        self.assertTrue(state.pending_recheck)
+        self.assertEqual(13, state.last_id)
+
+        # No tight loop: even a forced recheck waits for the normal poll interval.
+        poll_pending_channel_messages(1.1, None, b"\r", state, self.options(), self.policy(), services)
+        self.assertEqual([12], calls)
+        self.assertTrue(state.pending_recheck)
+
+        poll_pending_channel_messages(1.5, None, b"\r", state, self.options(), self.policy(), services)
+        self.assertEqual([12, 13], calls)
+        self.assertFalse(state.pending_recheck)
+        self.assertEqual(14, state.last_id)
+
+        # The final scan saw no later candidate: an idle tail is not rescanned
+        # until the marker changes or the 5 s safety rescan is due.
+        for now in (2.0, 2.5, 3.0, 4.0, 6.0):
+            poll_pending_channel_messages(now, None, b"\r", state, self.options(), self.policy(), services)
+        self.assertEqual([12, 13], calls)
+        poll_pending_channel_messages(6.5, None, b"\r", state, self.options(), self.policy(), services)
+        self.assertEqual([12, 13, 14], calls)
+
     def test_injection_updates_cursor_and_inflight_state(self):
         observed = []
 
@@ -662,14 +703,14 @@ class ProdyRestartShapeTests(unittest.TestCase):
     PID = 4242
     PROC_START = "5555"
 
-    def _queue(self, root):
+    def _queue(self, root, last=5030, status_class=None):
         import threading
         from ciel_runtime_support.runtime_input_gateway import RuntimeInputGateway
         from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository
         from ciel_runtime_support.runtime_session_restart import restart_notice_body
 
-        status = RuntimeInputStatusRepository(root / "status.jsonl", publish_event=Mock(),
-                                              log=lambda *_args: None, lock=threading.Lock())
+        status = (status_class or RuntimeInputStatusRepository)(
+            root / "status.jsonl", publish_event=Mock(), log=lambda *_args: None, lock=threading.Lock())
         rows = []
 
         def append(payload):
@@ -686,13 +727,13 @@ class ProdyRestartShapeTests(unittest.TestCase):
 
         external(5006)
         gateway.submit_notification(restart_notice_body("claude", source="restart_session"))
-        for number in range(5008, 5031):
+        for number in range(5008, last + 1):
             external(number)
-        self.assertEqual(list(range(5006, 5031)), [row["id"] for row in rows])
+        self.assertEqual(list(range(5006, last + 1)), [row["id"] for row in rows])
         self.assertEqual("tty", rows[1]["meta"]["input_transport"])
         self.assertEqual("restart_notice", rows[1]["meta"]["source_kind"])
         self.assertTrue(all(row["meta"].get("_side_intake_admitted") for row in rows if row["id"] != 5007))
-        self.assertTrue(all(status.get(number)["status"] == "queued" for number in range(5006, 5031)))
+        self.assertTrue(all(status.get(number)["status"] == "queued" for number in range(5006, last + 1)))
         return rows, status
 
     def _socket_client(self, home, state_dir):
@@ -716,14 +757,19 @@ class ProdyRestartShapeTests(unittest.TestCase):
         client.configure(target)
         return client
 
-    def _poll_services(self, harness, client, *, busy=False):
+    def _poll_services(self, harness, client, *, busy=False, scan_limit=None):
         from ciel_runtime_support.channel_pending_injection import inject_pending_channel_messages
         base = harness.services()
+        state = dataclasses.replace(base.state, active_turn=lambda: busy)
+        io = dataclasses.replace(base.io, write_session_socket=client.send, session_socket_available=client.available)
+        if scan_limit is not None:
+            # The real queue read: the first ``limit`` rows after the cursor.
+            ordered = [harness.messages[key] for key in sorted(harness.messages)]
+            state = dataclasses.replace(state, pending_scan_limit=lambda: scan_limit)
+            io = dataclasses.replace(io, read_messages=lambda last_id, _channel, _recipient, limit: [
+                row for row in ordered if row["id"] > last_id][:limit])
         injection = dataclasses.replace(
-            base,
-            state=dataclasses.replace(base.state, active_turn=lambda: busy),
-            io=dataclasses.replace(base.io, write_session_socket=client.send,
-                                   session_socket_available=client.available),
+            base, state=state, io=io,
             policy=dataclasses.replace(base.policy, wake_batch_limit=lambda: 10),
         )
         return ChannelPendingPollServices(
@@ -792,6 +838,123 @@ class ProdyRestartShapeTests(unittest.TestCase):
                     self.assertEqual("submitted", status.get(5007)["status"])
                     self.assertEqual(len(socket_rows), len(inbox.pending(100)))
                     self.assertEqual(len(socket_rows), len([d for d in frames if b"[ciel-side-receipt-ready]" in d]))
+
+    def test_more_than_a_scan_window_behind_the_held_notice_drains_in_order_after_release(self):
+        """Lead condition 5: 600 socket rows behind the restart notice, scan window 500.
+
+        While the dead-reader hold lasts, the persisted cursor stays before the
+        notice, so rows past the window wait. Main's output after launch
+        releases the hold (real StartupPromptResponder); the notice is typed
+        once, its transcript completion moves the cursor, and every remaining
+        row drains in id order, each exactly once.
+        """
+        import os
+        import pathlib
+        import tempfile
+        from test_channel_pending_injection import _InjectionHarness
+        from ciel_runtime_support.channel_inflight import ChannelInflightEffects, ChannelInflightPolicy
+        from ciel_runtime_support.channel_pending_poll import observe_pending_channel_inflight
+        from ciel_runtime_support.runtime_input_status import RuntimeInputStatusRepository
+        from ciel_runtime_support.side_intake_inbox import SideIntakeInbox
+        from ciel_runtime_support.startup_prompt_answers import StartupPromptResponder
+
+        class IndexedStatus(RuntimeInputStatusRepository):
+            """The real repository with an indexed ``get``.
+
+            The shipped ``get`` rescans the whole file per call, which makes
+            this drain take hours (measured in the SSE gate journal). Here the
+            same latest-row-per-id selection is kept in an index that every
+            write (``_record``, the only writer, compaction included) drops.
+            """
+
+            _index = None
+
+            def _record(self, *args, **kwargs):
+                try:
+                    return super()._record(*args, **kwargs)
+                finally:
+                    self._index = None
+
+            def get(self, request_id, *, _locked=False):
+                if self._index is None:
+                    index = {}
+                    for item in self._items() if self.path.exists() else []:
+                        try:
+                            index[int(item.get("request_id") or 0)] = item
+                        except (TypeError, ValueError):
+                            continue
+                    self._index = index
+                return self._index.get(int(request_id))
+
+        last, window = 5607, 500
+        socket_rows = [number for number in range(5006, last + 1) if number != 5007]
+        self.assertGreater(last - 5007, window)
+        options = ChannelPendingInjectionOptions(True, False, True, True, 2, True, False, 0.1)
+        policy = ChannelPendingPollPolicy("channel_test", "active_turn")
+        with tempfile.TemporaryDirectory() as raw, patch.dict(os.environ, {}, clear=False), \
+                patch("ciel_runtime_support.claude_session_handoff._process_identity", return_value=self.PROC_START):
+            os.environ.pop("CLAUDE_CONFIG_DIR", None)
+            root = pathlib.Path(raw)
+            rows, status = self._queue(root, last=last, status_class=IndexedStatus)
+            harness = _InjectionHarness(rows)
+            harness.delivery.status = status
+            harness.delivery.bind_child_epoch("replacement-child")
+            client = self._socket_client(root / "home", root / "state")
+            sent = []
+            original_intake = client._side_intake
+
+            def intake(session_id, text, event_key, route):
+                sent.append(int(event_key.rsplit("-", 1)[1]))
+                return original_intake(session_id, text, event_key, route)
+
+            client._side_intake = intake
+            clock, main_output, notice_done = [100.0], [False], [False]
+            responder = StartupPromptResponder(clock=lambda: clock[0])
+            responder.screen_snapshot = lambda: None  # the screen reader is gone
+            responder.main_output_observed = lambda: main_output[0]
+            release = Mock()
+            effects = ChannelInflightEffects(
+                commit_cursor=harness.delivery.commit, complete_wake=harness.delivery.complete,
+                release_wake=release, ensure_cursor=lambda: max(harness.delivery.commits or [5005]),
+                log=lambda *_args: None)
+            inflight_policy = ChannelInflightPolicy(10_000.0, 30.0, lambda *_args: False, False, "fixture", "stale")
+            state = ChannelPendingPollState(last_id=5005)
+            services = self._poll_services(harness, client, scan_limit=window)
+
+            def step():
+                clock[0] += 6.0
+                observe_pending_channel_inflight(
+                    clock[0], state, inflight_policy,
+                    lambda message_id: "completed" if message_id == 5007 and notice_done[0] else "missing", effects)
+                poll_pending_channel_messages(clock[0], None, b"\r", state, options, policy, services,
+                                              input_ready=responder.input_ready())
+
+            with patch.object(client, "_write", side_effect=lambda _target, _data: None):
+                for _ in range(len(socket_rows) + 20):
+                    step()
+                # Held: only the rows inside the window after the notice went.
+                held = [number for number in socket_rows if number <= 5007 + window - 1]
+                self.assertEqual(held, sent)
+                self.assertEqual([], harness.written)
+                self.assertEqual("queued", status.get(5007)["status"])
+                self.assertLessEqual(max(harness.delivery.commits), 5006)
+                self.assertTrue(all(status.get(n)["status"] == "queued" for n in socket_rows if n not in held))
+
+                main_output[0] = True  # main ran a model turn after this launch
+                for _ in range(len(socket_rows) - len(held) + 20):
+                    step()
+                    if harness.written and not notice_done[0]:
+                        notice_done[0] = True  # the transcript shows the notice's turn
+
+            release.assert_not_called()
+            self.assertEqual([rows[1]["message"]], harness.written)
+            self.assertEqual("replied", status.get(5007)["status"])
+            self.assertEqual(socket_rows, sent, "every socket row once, in id order")
+            self.assertEqual({"replied"}, {status.get(n)["status"] for n in socket_rows})
+            inbox = SideIntakeInbox(root / "state", "claude:" + self.SESSION)
+            self.assertEqual(sorted(f"/fixture:evt-{n}" for n in socket_rows),
+                             sorted(row["event_key"] for row in inbox.pending(len(socket_rows) + 10)))
+            self.assertEqual(last, max(harness.delivery.commits))
 
 
 if __name__ == "__main__":

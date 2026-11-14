@@ -5,6 +5,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from ciel_runtime_support.session_backup_cli import BackupContext, run_backup_command
 from ciel_runtime_support.session_backup_collect import (
@@ -18,6 +19,7 @@ from ciel_runtime_support.session_backup_store import CHUNK_SIZE, ChunkWriter, L
 from ciel_runtime_support.session_backup_targets import S3Target, build_target
 
 KEY = b"backup-passphrase-for-tests"
+P0_KEY_BYTES = b"0123456789abcdef" * 4
 
 
 class Fixture:
@@ -71,6 +73,13 @@ class Fixture:
         (roots.ciel_ws / "chat-messages.jsonl").write_text('{"id":1}\n', encoding="utf-8")
         (roots.ciel_ws / "oauth-tokens.vault.json").write_text('{"tokens":"enc"}', encoding="utf-8")
         (roots.ciel_ws / "oauth-tokens.vault.key").write_bytes(b"k" * 32)
+        p0_key = roots.ciel_ws / "work-p0-assignment.key"
+        p0_key.write_bytes(P0_KEY_BYTES)
+        if __import__("os").name == "nt":
+            from ciel_runtime_support.work_p0_assignment_key import P0AssignmentKeyStore
+            P0AssignmentKeyStore._restrict_windows_acl(p0_key)
+        else:
+            p0_key.chmod(0o600)
 
     def roots(self):
         return default_roots(self.cwd, environ={}, home=self.home, asset_home=self.home, config_dir=self.config)
@@ -121,10 +130,22 @@ class SessionBackupTests(unittest.TestCase):
         self.assertNotIn(("cwd", "node_modules/big.js"), entries)
         self.assertNotIn(("claude", "shell-snapshots/x.sh"), entries)
         self.assertEqual("secret-file", entries[("claude", ".credentials.json")]["kind"])
+        self.assertEqual("secret-file", entries[("ciel_ws", "work-p0-assignment.key")]["kind"])
         self.assertEqual("json-public", entries[("ciel", "config.json")]["kind"])
         self.assertEqual({"latest": "t1", "threads": [{"id": "t1", "title": "mine", "updated_at": 2}]}, manifest["sessions"]["codex"])
         self.assertEqual("s1", manifest["sessions"]["claude"]["latest"])
         self.assertEqual("codex-remote-router", manifest["sessions"]["launch"]["mode"])
+
+    def test_assignment_key_secret_classification_is_exact_ciel_ws_basename(self):
+        from ciel_runtime_support.session_backup_collect import SessionCollector
+        classifier = object.__new__(SessionCollector)
+        name = Path("work-p0-assignment.key")
+        self.assertTrue(classifier._is_secret_file("ciel_ws", name))
+        for root in ("cwd", "home", "claude", "codex", "ciel"):
+            with self.subTest(root=root):
+                self.assertFalse(classifier._is_secret_file(root, name))
+        self.assertFalse(classifier._is_secret_file(
+            "ciel_ws", Path("unrelated/work-p0-assignment.key.copy")))
 
     def test_partial_last_line_is_not_captured(self):
         manifest = self.create().manifest
@@ -140,7 +161,8 @@ class SessionBackupTests(unittest.TestCase):
         for path in (self.fx.backups / "blobs").rglob("*"):
             if path.is_file():
                 plain += zlib.decompress(path.read_bytes())
-        for secret in (b"secret-claude", b"sk-ant-secret", b"sk-codex-secret", b"zai-secret", b"k" * 32):
+        for secret in (b"secret-claude", b"sk-ant-secret", b"sk-codex-secret", b"zai-secret",
+                       b"k" * 32, P0_KEY_BYTES):
             self.assertNotIn(secret, plain)
             self.assertNotIn(secret, stored)
         self.assertTrue(result.manifest["secrets"]["included"])
@@ -149,7 +171,255 @@ class SessionBackupTests(unittest.TestCase):
         manifest = self.create(key=None).manifest
         self.assertFalse(manifest["secrets"]["included"])
         self.assertIn("claude/.credentials.json", manifest["secrets"]["names"])
+        self.assertIn("ciel_ws/work-p0-assignment.key", manifest["secrets"]["names"])
         self.assertNotIn("chunks", manifest["secrets"])
+
+    def test_assignment_key_external_race_valid_restrictive_winner_reads_later(self):
+        from ciel_runtime_support import work_p0_assignment_key as key_module
+        path = self.fx.roots().ciel_ws / "race-valid.key"
+        store = key_module.P0AssignmentKeyStore(path)
+        original_link = key_module.os.link
+        def race(_source, destination):
+            Path(destination).write_bytes(P0_KEY_BYTES)
+            if key_module.os.name == "nt":
+                key_module.P0AssignmentKeyStore._restrict_windows_acl(Path(destination))
+            else:
+                Path(destination).chmod(0o600)
+            return original_link(_source, destination)
+        with patch.object(key_module.os, "link", side_effect=race):
+            with self.assertRaises(FileExistsError):
+                store.ensure_before_first_intent()
+        self.assertEqual(bytes.fromhex(P0_KEY_BYTES.decode("ascii")), store.read())
+        self.assertEqual([], list(path.parent.glob("*.tmp")))
+
+    def test_assignment_key_external_race_permissive_winner_refuses_read(self):
+        from ciel_runtime_support import work_p0_assignment_key as key_module
+        path = self.fx.roots().ciel_ws / "race-permissive.key"
+        store = key_module.P0AssignmentKeyStore(path)
+        original_link = key_module.os.link
+        def race(_source, destination):
+            Path(destination).write_bytes(P0_KEY_BYTES)
+            Path(destination).chmod(0o644)
+            return original_link(_source, destination)
+        with patch.object(key_module.os, "link", side_effect=race):
+            with self.assertRaises(FileExistsError):
+                store.ensure_before_first_intent()
+        with patch.object(key_module.os, "name", "posix"):
+            with self.assertRaisesRegex(Exception, "permissions are not private"):
+                store.read()
+        self.assertEqual([], list(path.parent.glob("*.tmp")))
+
+    def test_assignment_key_windows_acl_uses_injected_current_token_sid(self):
+        from types import SimpleNamespace
+        from ciel_runtime_support import work_p0_assignment_key as key_module
+        path = self.fx.roots().ciel_ws / "acl-probe.key"
+        path.write_bytes(P0_KEY_BYTES)
+        calls = []
+        with patch.object(key_module.os, "name", "nt"), \
+                patch.object(key_module.P0AssignmentKeyStore, "_current_windows_sid",
+                             return_value="S-1-5-21-100-200-300-400"), \
+                patch.object(key_module.subprocess, "run",
+                             side_effect=lambda command, **_kwargs: (
+                                 calls.append(command) or SimpleNamespace(returncode=0))), \
+                patch.object(key_module.P0AssignmentKeyStore, "_windows_acl_entries",
+                             return_value=((0, 0, 0x1F01FF, "S-1-5-18"),
+                                           (0, 0, 0x1F01FF, "S-1-5-32-544"),
+                                           (0, 0, 0x1F01FF, "S-1-5-21-100-200-300-400"))):
+            key_module.P0AssignmentKeyStore._restrict_windows_acl(path)
+        self.assertEqual(1, len(calls))
+        self.assertIn("*S-1-5-21-100-200-300-400:(F)", calls[0])
+        self.assertNotIn("SAMA\\djlov:(F)", calls[0])
+
+    def test_assignment_key_acl_failure_is_recovery_required(self):
+        from types import SimpleNamespace
+        from ciel_runtime_support import work_p0_assignment_key as key_module
+        path = self.fx.roots().ciel_ws / "acl-failure.key"
+        path.write_bytes(P0_KEY_BYTES)
+        with patch.object(key_module.os, "name", "nt"), \
+                patch.object(key_module.P0AssignmentKeyStore, "_current_windows_sid",
+                             return_value="S-1-5-21-100-200-300-400"), \
+                patch.object(key_module.subprocess, "run",
+                             return_value=SimpleNamespace(returncode=5)):
+            with self.assertRaisesRegex(Exception, "ACL unavailable; recovery required"):
+                key_module.P0AssignmentKeyStore._restrict_windows_acl(path)
+
+    def test_assignment_key_acl_exact_dacl_rejects_everyone_and_non_full_ace(self):
+        from types import SimpleNamespace
+        from ciel_runtime_support import work_p0_assignment_key as key_module
+        path = self.fx.roots().ciel_ws / "acl-exact.key"
+        path.write_bytes(P0_KEY_BYTES)
+        owner = "S-1-5-21-100-200-300-400"
+        exact = ((0, 0, 0x1F01FF, owner), (0, 0, 0x1F01FF, "S-1-5-18"),
+                 (0, 0, 0x1F01FF, "S-1-5-32-544"))
+        common = (patch.object(key_module.os, "name", "nt"),
+                  patch.object(key_module.P0AssignmentKeyStore, "_current_windows_sid",
+                               return_value=owner),
+                  patch.object(key_module.subprocess, "run",
+                               return_value=SimpleNamespace(returncode=0)))
+        with common[0], common[1], common[2], patch.object(
+                key_module.P0AssignmentKeyStore, "_windows_acl_entries", return_value=exact):
+            key_module.P0AssignmentKeyStore._restrict_windows_acl(path)
+        for bad in (exact + ((0, 0, 0x1F01FF, "S-1-1-0"),),
+                    exact[:-1] + ((0, 0, 0x120089, "S-1-5-32-544"),)):
+            with self.subTest(entries=bad), patch.object(key_module.os, "name", "nt"), \
+                    patch.object(key_module.P0AssignmentKeyStore, "_current_windows_sid",
+                                 return_value=owner), \
+                    patch.object(key_module.subprocess, "run",
+                                 return_value=SimpleNamespace(returncode=0)), \
+                    patch.object(key_module.P0AssignmentKeyStore, "_windows_acl_entries",
+                                 return_value=bad):
+                with self.assertRaisesRegex(Exception, "unexpected entries"):
+                    key_module.P0AssignmentKeyStore._restrict_windows_acl(path)
+
+    def test_assignment_key_windows_real_acl_rejects_explicit_everyone(self):
+        import os
+        from ciel_runtime_support import work_p0_assignment_key as key_module
+        if os.name != "nt":
+            self.skipTest("Windows DACL test")
+        path = self.fx.roots().ciel_ws / "acl-everyone.key"
+        path.write_bytes(P0_KEY_BYTES)
+        owner = key_module.P0AssignmentKeyStore._current_windows_sid()
+        subprocess.run(["icacls", str(path), "/inheritance:r", "/grant:r",
+                        "*S-1-5-18:(F)", "*S-1-5-32-544:(F)", f"*{owner}:(F)"],
+                       check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        subprocess.run(["icacls", str(path), "/grant", "*S-1-1-0:(R)"],
+                       check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        entries = key_module.P0AssignmentKeyStore._windows_acl_entries(path)
+        self.assertIn("S-1-1-0", {entry[3] for entry in entries})
+        # `/grant:r` for three named principals does not remove the unrelated Everyone ACE.
+        with self.assertRaisesRegex(Exception, "unexpected entries"):
+            key_module.P0AssignmentKeyStore._restrict_windows_acl(path)
+
+    def _fake_sid_libraries(self, *, second_ok=True, convert_ok=True,
+                            local_free_ok=True, close_ok=True):
+        import ctypes
+        from ctypes import wintypes
+
+        calls, sid_storage = [], ctypes.create_string_buffer(8)
+        text_storage = ctypes.create_unicode_buffer("S-1-5-21-100-200-300-400")
+
+        class Function:
+            def __init__(self, name, action):
+                self.name, self.action = name, action
+                self.argtypes = self.restype = None
+            def __call__(self, *args):
+                calls.append(self.name)
+                return self.action(*args)
+
+        def open_token(_process, _access, output):
+            ctypes.cast(output, ctypes.POINTER(wintypes.HANDLE))[0] = wintypes.HANDLE(456)
+            return 1
+        info_calls = [0]
+        def token_info(_token, _kind, buffer, _length, output_size):
+            info_calls[0] += 1
+            if info_calls[0] == 1:
+                ctypes.cast(output_size, ctypes.POINTER(wintypes.DWORD))[0] = 16
+                ctypes.set_last_error(122)
+                return 0
+            if not second_ok:
+                ctypes.set_last_error(5)
+                return 0
+            ctypes.cast(buffer, ctypes.POINTER(ctypes.c_void_p))[0] = ctypes.addressof(sid_storage)
+            return 1
+        def convert(_sid, output):
+            if not convert_ok:
+                ctypes.set_last_error(5)
+                return 0
+            ctypes.cast(output, ctypes.POINTER(wintypes.LPWSTR))[0] = ctypes.cast(
+                text_storage, wintypes.LPWSTR)
+            return 1
+        class Library:
+            pass
+        advapi, kernel = Library(), Library()
+        kernel.GetCurrentProcess = Function("GetCurrentProcess", lambda: 123)
+        advapi.OpenProcessToken = Function("OpenProcessToken", open_token)
+        advapi.GetTokenInformation = Function("GetTokenInformation", token_info)
+        advapi.ConvertSidToStringSidW = Function("ConvertSidToStringSidW", convert)
+        kernel.LocalFree = Function("LocalFree", lambda _value: 0 if local_free_ok else 1)
+        kernel.CloseHandle = Function("CloseHandle", lambda _value: 1 if close_ok else 0)
+        return (advapi, kernel), calls
+
+    def test_assignment_key_injected_winapi_sequence_and_cleanup(self):
+        from ciel_runtime_support import work_p0_assignment_key as key_module
+        libraries, calls = self._fake_sid_libraries()
+        with patch.object(key_module.os, "name", "nt"):
+            self.assertEqual("S-1-5-21-100-200-300-400",
+                             key_module.P0AssignmentKeyStore._current_windows_sid(
+                                 libraries=libraries))
+        self.assertEqual(["GetCurrentProcess", "OpenProcessToken", "GetTokenInformation",
+                          "GetTokenInformation", "ConvertSidToStringSidW", "LocalFree",
+                          "CloseHandle"], calls)
+
+    def test_assignment_key_injected_winapi_failures_cleanup_and_fail_closed(self):
+        from ciel_runtime_support import work_p0_assignment_key as key_module
+        for options, expected_cleanup in (
+                ({"second_ok": False}, ["CloseHandle"]),
+                ({"convert_ok": False}, ["CloseHandle"]),
+                ({"local_free_ok": False}, ["LocalFree", "CloseHandle"]),
+                ({"close_ok": False}, ["LocalFree", "CloseHandle"])):
+            libraries, calls = self._fake_sid_libraries(**options)
+            with self.subTest(options=options), patch.object(key_module.os, "name", "nt"):
+                with self.assertRaisesRegex(Exception, "recovery required"):
+                    key_module.P0AssignmentKeyStore._current_windows_sid(libraries=libraries)
+            self.assertEqual(expected_cleanup, [call for call in calls
+                                                if call in ("LocalFree", "CloseHandle")])
+
+    def test_assignment_key_windows_status_validation_is_read_only(self):
+        from ciel_runtime_support import work_p0_assignment_key as key_module
+        path = self.fx.roots().ciel_ws / "acl-read-only.key"
+        path.write_bytes(P0_KEY_BYTES)
+        store = key_module.P0AssignmentKeyStore(path)
+        with patch.object(key_module.os, "name", "nt"), \
+                patch.object(key_module.P0AssignmentKeyStore, "_validate_windows_acl"), \
+                patch.object(key_module.P0AssignmentKeyStore, "_restrict_windows_acl") as harden:
+            self.assertEqual(bytes.fromhex(P0_KEY_BYTES.decode("ascii")), store.read())
+        harden.assert_not_called()
+        self.assertEqual(P0_KEY_BYTES, path.read_bytes())
+
+    def test_assignment_key_windows_acl_validation_failure_closes_open_handle(self):
+        from ciel_runtime_support import work_p0_assignment_key as key_module
+        path = self.fx.roots().ciel_ws / "acl-validation-failure.key"
+        path.write_bytes(P0_KEY_BYTES)
+        store = key_module.P0AssignmentKeyStore(path)
+        with patch.object(key_module.os, "name", "nt"), \
+                patch.object(key_module.P0AssignmentKeyStore, "_validate_windows_acl",
+                             side_effect=key_module.P0AssignmentKeyUnavailable(
+                                 "ACL invalid", reason="acl_invalid")):
+            with self.assertRaisesRegex(Exception, "ACL invalid"):
+                store.read()
+        # The failed read closed its descriptor; replacing/deleting succeeds.
+        path.unlink()
+        self.assertFalse(path.exists())
+
+    def test_assignment_key_posix_permissive_existing_file_refuses(self):
+        from ciel_runtime_support import work_p0_assignment_key as key_module
+        path = self.fx.roots().ciel_ws / "permissive.key"
+        path.write_bytes(P0_KEY_BYTES)
+        path.chmod(0o644)
+        store = key_module.P0AssignmentKeyStore(path)
+        with patch.object(key_module.os, "name", "posix"):
+            with self.assertRaisesRegex(Exception, "permissions are not private"):
+                store.read()
+
+    def test_restore_assignment_key_refuses_different_existing_value(self):
+        manifest = self.create().manifest
+        path = self.fx.roots().ciel_ws / "work-p0-assignment.key"
+        path.write_bytes(b"f" * 64)
+        with self.assertRaisesRegex(Exception, "differs; recovery required"):
+            restore_snapshot(self.target, manifest, destination_roots(manifest, {}), key=KEY)
+        self.assertEqual(b"f" * 64, path.read_bytes())
+
+    def test_restore_assignment_key_acl_failure_cleans_temp(self):
+        manifest = self.create().manifest
+        path = self.fx.roots().ciel_ws / "work-p0-assignment.key"
+        path.unlink()
+        from ciel_runtime_support.work_p0_assignment_key import P0AssignmentKeyStore
+        with patch.object(P0AssignmentKeyStore, "_restrict_windows_acl",
+                          side_effect=ValueError("acl unavailable")):
+            with self.assertRaisesRegex(ValueError, "acl unavailable"):
+                restore_snapshot(self.target, manifest, destination_roots(manifest, {}), key=KEY)
+        self.assertFalse(path.exists())
+        self.assertEqual([], list(path.parent.glob("*.restore-*.tmp")))
 
     def test_second_snapshot_uploads_only_what_changed(self):
         first = self.create()
@@ -169,6 +439,7 @@ class SessionBackupTests(unittest.TestCase):
         self.assertEqual("plan v1\n", (self.fx.cwd / "notes.md").read_text(encoding="utf-8"))
         self.assertIn("secret-claude", (self.fx.claude / ".credentials.json").read_text(encoding="utf-8"))
         self.assertEqual("sk-ant-secret", json.loads((self.fx.home / ".claude.json").read_text(encoding="utf-8"))["primaryApiKey"])
+        self.assertEqual(P0_KEY_BYTES, (self.fx.roots().ciel_ws / "work-p0-assignment.key").read_bytes())
         config = json.loads((self.fx.config / "config.json").read_text(encoding="utf-8"))
         self.assertEqual("zai-secret", config["providers"]["zai"]["api_key"])
         db = sqlite3.connect(self.fx.codex / "state_5.sqlite")

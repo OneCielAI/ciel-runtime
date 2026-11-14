@@ -17,6 +17,7 @@ from .provider_failover import FailoverRequested, failover_service, maybe_fail_o
 from .oauth_routing import anthropic_request_run, open_with_oauth
 from .protocols.openai_responses import strip_openai_responses_reasoning_envelopes
 from .remote_bridge import is_remote_bridge_request
+from .secret_command_redaction import redact_api_key_command_turns
 from .transient_retry import owns_transient_retries, request_scope
 from .context_compaction import no_output_context_rejection
 from .upstream_error_policy import UpstreamFailure
@@ -152,6 +153,29 @@ class ClaudeRouterServices:
     transport: ClaudeRouterTransport
     response: ClaudeRouterResponse
     context_recovery: ClaudeRouterContextRecovery
+
+
+TRANSIENT_RETRY_MESSAGE_LIMIT = 2000
+
+
+def with_transient_retry_note(payload: dict[str, Any], exc: BaseException) -> dict[str, Any]:
+    """Append the open-time retry note (transient_retry) to a client error message.
+
+    The note holds only fixed words and numbers.  Type and status stay as
+    they are; without a note the payload is returned unchanged.
+    """
+
+    note = getattr(exc, "_ciel_transient_retry_note", "")
+    error = payload.get("error") if isinstance(payload, dict) else None
+    if not isinstance(note, str) or not note or not isinstance(error, dict):
+        return payload
+    suffix = f" ({note[:500]})"
+    base = str(error.get("message") or "")
+    room = TRANSIENT_RETRY_MESSAGE_LIMIT - len(suffix)
+    if len(base) > room:
+        # Shorten the upstream part, never the note, so the message still ends with it.
+        base = base[: max(0, room - 1)] + "…"
+    return {**payload, "error": {**error, "message": base + suffix}}
 
 
 def handle_claude_count_tokens_post(
@@ -334,6 +358,10 @@ def handle_claude_messages_post(
         return
     if local_request:
         body = strip_autonomous_advisor_server_tools(provider, body)
+        # The local shortcuts above have seen the raw turn; an earlier
+        # `/api-key KEY` turn replayed in history goes no further.
+        body = redact_api_key_command_turns(body)
+        raw_body = redact_api_key_command_turns(raw_body)
     stream_scope = None
     if local_request:
         context_recovery.observe_request(provider, pcfg, raw_body, "claude", getattr(self, "headers", None))
@@ -368,7 +396,7 @@ def handle_claude_messages_post(
             # like the existing confirmed-context recovery path (no replay).
             committed = early_sse is not None and early_sse.started
             final_config = {**config, "gateway_retries": 0} if committed else config
-            scope = request_scope(final_config, provider) if committed else nullcontext()
+            scope = request_scope(final_config, provider, inherit_arrival=False) if committed else nullcontext()
             with scope:
                 upstream_response = open_provider_request_with_key_retry(
                     url,
@@ -785,6 +813,7 @@ def handle_claude_messages_post(
                 ).anthropic_payload()
             else:
                 payload = {"type": "error", "error": {"type": "api_error", "message": str(exc)}}
+            payload = with_transient_retry_note(payload, exc)
             router_log(
                 "ERROR",
                 "anthropic_route_error_after_compaction_sse "
@@ -816,13 +845,13 @@ def handle_claude_messages_post(
                 f"status={failure.status_code} "
                 f"error={type(exc).__name__}: {str(exc)[:300]}",
             )
-            try_write_json(self, failure.anthropic_payload(), failure.status_code)
+            try_write_json(self, with_transient_retry_note(failure.anthropic_payload(), exc), failure.status_code)
             return
         router_log(
             "ERROR",
             f"anthropic_route_error provider={provider} model={body.get('model')} status=500 error={type(exc).__name__}: {str(exc)[:300]}",
         )
-        try_write_json(self, {"type": "error", "error": {"type": "api_error", "message": str(exc)}}, 500)
+        try_write_json(self, with_transient_retry_note({"type": "error", "error": {"type": "api_error", "message": str(exc)}}, exc), 500)
     finally:
         if early_sse is not None:
             early_sse.finish()

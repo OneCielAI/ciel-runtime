@@ -51,4 +51,4 @@ def drain(state_dir, session_id, *, admit=True, limit=10):
             except (OSError, ValueError) as error:
                 errors.append({'receipt_id': row['receipt_id'], 'stage': 'received',
                                'recap': row['text'][:500], 'error': type(error).__name__})
-    return inbox.summaries() + errors
+    return inbox.summaries(limit) + errors

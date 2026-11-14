@@ -28,6 +28,7 @@ def review_row(**extra):
            'artifact': 'a' * 64, 'completion_receipt': 'd' * 64, 'fingerprint': 'f' * 64,
            'item_title': 'Fix retry', 'item_path': ['Goal', 'Fix retry'], 'summary': 'retry fixed',
            'coverage': [{'item_id': 'n2', 'verified': True}], 'verification': 'unit tests 12 passed',
+           'changed_before_bind': False,
            'workspace': {'repo': 'C:/secret/repo', 'path': 'C:/secret/repo/.wt/n2', 'branch': 'work/n2',
                          'head': 'abc123', 'dirty': False, 'changed_files': ['src/retry.py'],
                          'diff_stat': '1 file changed', 'snapshot_digest': 'e' * 64, 'receipt_digest': 'c' * 64},
@@ -100,9 +101,9 @@ class WorkHttpParallelReviewTests(unittest.TestCase):
         self.assertEqual(200, status, body)
         self.assertEqual(4, body['review_version'])
         row = body['parallel_reviews'][0]
-        self.assertEqual(('L1', 'n2', 'pending', 'Fix retry', 'retry fixed', 'unit tests 12 passed'),
+        self.assertEqual(('L1', 'n2', 'pending', 'Fix retry', 'retry fixed', 'unit tests 12 passed', False),
                          (row['lease_id'], row['item_id'], row['state'], row['item_title'], row['summary'],
-                          row['verification']))
+                          row['verification'], row['changed_before_bind']))
         self.assertEqual({'branch': 'work/n2', 'head': 'abc123', 'dirty': False, 'changed_files': ['src/retry.py'],
                           'changed_count': 1, 'diff_stat': '1 file changed'}, row['workspace'])
         raw = json.dumps(body)
@@ -122,6 +123,26 @@ class WorkHttpParallelReviewTests(unittest.TestCase):
         self.assertEqual(37, workspace['changed_count'])
         self.assertEqual(changed[:20], workspace['changed_files'])
 
+    def test_parallel_passes_only_a_contract_shaped_review_pin(self):
+        # R1 (backend 170c6e63): the browser sends back the pin of the row it rendered.
+        pin = 'rp1:' + 'ab' * 32
+        self.reviews = {'version': 4, 'truncated': False, 'pending': [
+            review_row(lease_id='L1', review_pin=pin), review_row(lease_id='L2', review_pin='rp1:C:/secret'),
+            review_row(lease_id='L3', review_pin=7)]}
+        status, body = self.request('/ca/work/api/v1/parallel')
+        self.assertEqual(200, status, body)
+        self.assertEqual([('L1', pin), ('L2', None), ('L3', None)],
+                         [(row['lease_id'], row.get('review_pin')) for row in body['parallel_reviews']])
+        self.assertNotIn('C:/secret', json.dumps(body))
+
+    def test_parallel_projects_owner_offline_as_its_blocked_code(self):
+        self.reviews = {'version': 4, 'pending': [review_row(state='awaiting_capacity', decision='rework',
+            blocked={'code': 'owner_offline', 'message': 'rework queued: waiting for the conversation to resume'})],
+            'truncated': False}
+        status, body = self.request('/ca/work/api/v1/parallel')
+        self.assertEqual(200, status, body)
+        self.assertEqual({'code': 'owner_offline'}, body['parallel_reviews'][0]['blocked'])
+
     def test_parallel_projects_blocked_code_without_message(self):
         self.reviews = {'version': 4, 'pending': [review_row(state='awaiting_capacity', decision='rework',
             blocked={'code': 'paused', 'message': 'C:/secret/host/path failed'})], 'truncated': False}
@@ -129,6 +150,125 @@ class WorkHttpParallelReviewTests(unittest.TestCase):
         self.assertEqual(200, status, body)
         self.assertEqual({'code': 'paused'}, body['parallel_reviews'][0]['blocked'])
         self.assertNotIn('C:/secret', json.dumps(body))
+
+    def test_parallel_projects_stranded_fixed_words_without_reason_or_placeholder_facts(self):
+        reason = 'workspace ownership failed: C:/secret/repo/.wt/n2 is missing'
+        self.reviews = {'version': 4, 'truncated': False, 'pending': [review_row(
+            artifact=None, completion_receipt=None, coverage=[],
+            summary='No worker report: the native fork ended without a durable exit receipt.',
+            stranded={'kind': 'no_report', 'reason': reason, 'approve': 'refused', 'rework': 'fresh_workspace',
+                      'counts_against_rework_limit': False},
+            blocked={'code': 'no_report', 'message': reason},
+            workspace={'path': 'C:/secret/repo/.wt/n2', 'branch': 'work/n2', 'head': 'abc123',
+                       'unavailable': True, 'reason': reason})]}
+        status, body = self.request('/ca/work/api/v1/parallel')
+        self.assertEqual(200, status, body)
+        row = body['parallel_reviews'][0]
+        self.assertEqual({'kind': 'no_report', 'approve': 'refused', 'rework': 'fresh_workspace',
+                          'counts_against_rework_limit': False}, row['stranded'])
+        self.assertEqual({'code': 'no_report'}, row['blocked'])
+        self.assertEqual({'branch': 'work/n2', 'head': 'abc123'}, row['workspace'])
+        self.assertNotIn('artifact', row)
+        self.assertNotIn('C:/secret', json.dumps(body))
+        self.assertNotIn('ownership failed', json.dumps(body))
+
+    def test_parallel_exports_the_sidecar_phase_as_a_fixed_word_only(self):
+        rows = []
+        for lease, phase in (('L1', 'deciding'), ('L2', 'recovered'), ('L3', 'invented')):
+            rows.append(review_row(lease_id=lease, stranded={'kind': 'workspace_unavailable', 'reason': 'C:/secret/x',
+                                   'phase': phase, 'approve': 'refused', 'rework': 'fresh_workspace',
+                                   'counts_against_rework_limit': False}))
+        self.reviews = {'version': 4, 'truncated': False, 'pending': rows}
+        status, body = self.request('/ca/work/api/v1/parallel')
+        self.assertEqual(200, status, body)
+        phases = [row['stranded'].get('phase') for row in body['parallel_reviews']]
+        self.assertEqual(['deciding', 'recovered', None], phases)
+        self.assertNotIn('C:/secret', json.dumps(body))
+
+    def test_parallel_moves_superseded_rows_to_a_bounded_ended_list_without_controls_or_facts(self):
+        # checkpoint3: an ended audit row. It is never a decidable review.
+        rows = [review_row(lease_id='live')]
+        for index in range(23):
+            rows.append(review_row(lease_id='S' + str(index), state='superseded', artifact=None, completion_receipt=None,
+                                   summary='Stranded result superseded by another execution of this Work item.',
+                                   verification='Not decidable: another execution owns this item.',
+                                   stranded={'kind': 'no_report', 'phase': 'superseded', 'approve': 'refused',
+                                             'rework': 'fresh_workspace', 'counts_against_rework_limit': False,
+                                             'superseding_lease_id': 'beta' + str(index) + 'f' * 28,
+                                             'superseding_state': 'absent' if index % 2 else 'running',
+                                             'observed_at': 1794529000.0 + index, 'reason': 'C:/secret/x'},
+                                   workspace={'path': 'C:/secret/repo/.wt/n2', 'branch': 'work/n2', 'head': 'abc'}))
+        rows.append(review_row(lease_id='odd-time', state='superseded', stranded={
+            'kind': 'workspace_unavailable', 'phase': 'superseded', 'superseding_lease_id': 'b' * 80,
+            'observed_at': 'yesterday'}))
+        self.reviews = {'version': 4, 'truncated': False, 'pending': rows}
+        status, body = self.request('/ca/work/api/v1/parallel')
+        self.assertEqual(200, status, body)
+        self.assertEqual(['live'], [row['lease_id'] for row in body['parallel_reviews']])
+        ended = body['parallel_reviews_ended']
+        # Newest first, at most 20; a row without a valid time sorts last and is dropped.
+        self.assertEqual(['S' + str(index) for index in range(22, 2, -1)], [row['lease_id'] for row in ended])
+        self.assertEqual({'lease_id': 'S22', 'item_id': 'n2', 'priority': 'P1', 'item_title': 'Fix retry',
+                          'kind': 'no_report', 'phase': 'superseded', 'superseding_lease_id': 'beta22' + 'f' * 28,
+                          'superseding_state': 'running', 'observed_at': 1794529022.0}, ended[0])
+        self.assertEqual('absent', ended[1]['superseding_state'])
+        text = json.dumps(body)
+        self.assertNotIn('C:/secret', text)
+        self.assertNotIn('Not decidable', text)
+        self.assertNotIn('work/n2', json.dumps(ended))
+
+    def test_parallel_ended_row_keeps_only_a_bounded_superseding_id_and_a_numeric_time(self):
+        self.reviews = {'version': 4, 'truncated': False, 'pending': [review_row(lease_id='odd', state='superseded', stranded={
+            'kind': 'invented', 'phase': 'superseded', 'superseding_lease_id': 'b' * 80, 'observed_at': 'yesterday',
+            'superseding_state': 'C:/not a state word'})]}
+        status, body = self.request('/ca/work/api/v1/parallel')
+        self.assertEqual(200, status, body)
+        self.assertEqual([], body['parallel_reviews'])
+        self.assertEqual([{'lease_id': 'odd', 'item_id': 'n2', 'priority': 'P1', 'item_title': 'Fix retry',
+                           'phase': 'superseded', 'superseding_lease_id': 'b' * 64}], body['parallel_reviews_ended'])
+
+    def test_parallel_reads_ended_rows_from_the_host_only_review_ended(self):
+        # Lead ruling: review.pending holds decidable rows only; superseded rows
+        # arrive in the host-authenticated review.ended (final backend shape).
+        def ended_row(lease, winner, state, at):
+            return {'lease_id': lease, 'item_id': 'n9', 'root_id': 'n1', 'priority': 'P2', 'artifact': None,
+                    'completion_receipt': None, 'summary': 'Stranded result superseded by another execution.',
+                    'coverage': [], 'verification': 'Not decidable.', 'state': 'superseded', 'decision': None,
+                    'evidence': None, 'blocked': None, 'item_title': 'Webhook', 'item_ref': '', 'goal_title': 'Goal',
+                    'item_path': ['Goal', 'Webhook'], 'coverage_count': 0, 'changed_before_bind': 'not_applicable',
+                    'stranded': {'kind': 'no_report', 'phase': 'superseded', 'approve': 'refused',
+                                 'rework': 'fresh_workspace', 'counts_against_rework_limit': False,
+                                 'superseding_lease_id': winner, 'observed_at': at, 'superseding_state': state}}
+        self.reviews = {'version': 4, 'truncated': False, 'pending': [review_row(lease_id='live')],
+                        'ended': [ended_row('E1', 'w' * 32, 'absent', 1794529500.0),
+                                  ended_row('E2', 'v' * 32, 'done', 1794529600.0),
+                                  # Not an ended audit row: never decidable from here.
+                                  review_row(lease_id='stray')]}
+        status, body = self.request('/ca/work/api/v1/parallel')
+        self.assertEqual(200, status, body)
+        self.assertEqual(['live'], [row['lease_id'] for row in body['parallel_reviews']])
+        self.assertEqual([('E2', 'done'), ('E1', 'absent')],
+                         [(row['lease_id'], row['superseding_state']) for row in body['parallel_reviews_ended']])
+        self.assertEqual({'lease_id', 'item_id', 'priority', 'item_title', 'kind', 'phase', 'superseding_lease_id',
+                          'superseding_state', 'observed_at'}, set(body['parallel_reviews_ended'][0]))
+        self.assertNotIn('Not decidable', json.dumps(body))
+
+    def test_parallel_ended_row_in_both_lists_is_shown_once(self):
+        row = review_row(lease_id='D1', state='superseded', stranded={
+            'kind': 'no_report', 'phase': 'superseded', 'superseding_lease_id': 'w' * 32, 'superseding_state': 'running',
+            'observed_at': 1794529500.0})
+        self.reviews = {'version': 4, 'truncated': False, 'pending': [row], 'ended': [dict(row)]}
+        status, body = self.request('/ca/work/api/v1/parallel')
+        self.assertEqual(200, status, body)
+        self.assertEqual(['D1'], [entry['lease_id'] for entry in body['parallel_reviews_ended']])
+        self.assertEqual([], body['parallel_reviews'])
+
+    def test_parallel_omits_stranded_for_a_normal_or_unknown_kind_row(self):
+        self.reviews = {'version': 4, 'truncated': False, 'pending': [
+            review_row(), review_row(lease_id='L2', stranded={'kind': 'invented', 'approve': 'refused'})]}
+        status, body = self.request('/ca/work/api/v1/parallel')
+        self.assertEqual(200, status, body)
+        self.assertEqual([False, False], ['stranded' in row for row in body['parallel_reviews']])
 
     def test_parallel_without_review_projection_is_an_empty_queue(self):
         self.reviews = None
@@ -262,7 +402,7 @@ class WorkHttpParallelReviewTests(unittest.TestCase):
             status, body = self.request('/ca/work/api/v1/commands/parallel-launch-resolve', good)
             self.assertEqual(200, status, body)
             self.assertEqual({'lease_id': 'L1', 'state': 'manual_requested', 'attempt': 1, 'launch_ref': self.REF,
-                              'finalization_version': 7}, body['result'])
+                              'review_journal': 'finalization', 'finalization_version': 7}, body['result'])
             args, kwargs = request.call_args
             self.assertEqual((self.ledger, IDENTITY, 'L1', self.REF), args)
             self.assertEqual({'confirmed': True, 'expected_version': 6}, kwargs)

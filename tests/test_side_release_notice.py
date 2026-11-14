@@ -36,12 +36,20 @@ class SideReleaseNoticeTests(unittest.TestCase):
         self.assertEqual(1, len(row['appended']))
         self.assertIn('no acknowledgment is needed', row['appended'][0])
         self.assertEqual([], row['submitted'])
+        # Claimed on the event's receipt before the append, recorded after it.
+        self.assertEqual([('e' * 64, 'notice_prepare'), ('e' * 64, 'notice_appended')],
+                         [(call['event_id'], call['state']) for call in row['wakes']])
 
-    def test_idle_main_is_prompted_at_once(self):
+    def test_idle_main_gets_the_release_appended_and_a_wake_prompt_that_holds_none_of_it(self):
         row = self.run_case('main-idle')
-        self.assertEqual([], row['appended'])
+        # The notice text is appended once; the prompt only starts the turn.
+        self.assertEqual(1, len(row['appended']))
+        self.assertIn('Ciel side released recorded wait n3', row['appended'][0])
         self.assertEqual(1, len(row['submitted']))
-        self.assertIn('Ciel side released recorded wait n3', row['submitted'][0])
+        self.assertTrue(row['submitted'][0].startswith('Ciel side wake eeeeeeeeeeee:'))
+        self.assertNotIn('n3', row['submitted'][0])
+        self.assertNotIn('Andy', row['submitted'][0])
+        self.assertEqual(['notice_prepare', 'notice_appended'], [call['state'] for call in row['wakes']])
 
     def test_parked_worker_is_named_for_mains_gated_resume(self):
         row = self.run_case('fork-parked')

@@ -10,9 +10,9 @@ const replies=[
 ]
 let settings={max_active:2,priority_policy:'adaptive'}
 let wakes=[]
-const submits=[],wakeRows={}
+const submits=[],appends=[],wakeRows={}
 let events=[
- {receipt_id:'a'.repeat(64),generation:'g1',text:'question',event_key:'source:one',lease_until:Date.now()/1000+120,
+ {receipt_id:'a'.repeat(64),generation:'1'.repeat(32),text:'question',event_key:'source:one',lease_until:Date.now()/1000+120,
   source_read:{server:'walkie',classification:'thread',conversation_id:CONVERSATION,
    root_id:'40',target_message_id:'41',reply_to_message_id:'40',thread_root_id:'40'},
   route:{channel:'external:source',sender_id:'sender',source_kind:'external_event'}},
@@ -22,7 +22,7 @@ const calls=[],spawns=[],timers=[],rewrites=[]
 const hostStore=new Map()
 const $={
  state:{get:async ref=>{const held=hostStore.get(ref.plugin+'/'+ref.key);return {value:held?structuredClone(held.value):undefined,version:held?.version||0}},set:async (ref,value,options={})=>{const name=ref.plugin+'/'+ref.key,held=hostStore.get(name)||{version:0};if(options.ifVersion!==undefined&&options.ifVersion!==held.version)return {isSet:false,version:held.version};hostStore.set(name,{value:structuredClone(value),version:held.version+1});return {isSet:true,version:held.version+1}}},
- session:{model:async()=>'fixture-main',id:async()=>'parent',append:async args=>calls.push({append:args}),messages:async()=>[]},
+ session:{model:async()=>'fixture-main',id:async()=>'parent',append:async args=>{appends.push(args.message.content[0].text);calls.push({append:args});return {uuid:'append-'+appends.length}},messages:async()=>[]},
  prompt:{submit:async args=>{submits.push(args);return {text:args.text}}},
  mcp:{connect:async()=>({}),call:async(server,name,args)=>{
   calls.push({server,name,args}); let value={}
@@ -70,7 +70,7 @@ for (const tool of ['Bash','Edit','Agent','SendMessage','mcp__mail__read','mcp__
 // Observed live: prose, then a fenced decision. It must commit, not retry.
 await completeSide($,{agentId:'actor1',reason:'answer',answer:'Status answered.\n\n```json\n'+JSON.stringify({decision:{action:'answer',kind:'status',summary:'done',reply:'answer'},expected_version:1})+'\n```',usage:{input_tokens:3}})
 await drain()
-events.push({receipt_id:'b'.repeat(64),generation:'g2',text:'second',event_key:'source:two',lease_until:Date.now()/1000+120,route:{channel:'external:source',sender_id:'sender',source_kind:'external_event'}})
+events.push({receipt_id:'b'.repeat(64),generation:'2'.repeat(32),text:'second',event_key:'source:two',lease_until:Date.now()/1000+120,route:{channel:'external:source',sender_id:'sender',source_kind:'external_event'}})
 // A durable main wake is offered by every claim until main acknowledges it.
 wakes=[{event_id:'d'.repeat(64),item_id:'n21',kind:'resume',summary:'approval received',question:'',waits:[{id:'n22',waiting_on:'approval'}]}]
 // A stored model/context value from an older build is ignored.
@@ -82,7 +82,7 @@ await completeSide($,{agentId:'actor2',reason:'answer',answer:'Nothing new neede
 await drain()
 // A completed turn without any decision is recorded as invalid_answer (never
 // retried), and its actor still stops.
-events.push({receipt_id:'c'.repeat(64),generation:'g3',text:'third',event_key:'source:three',lease_until:Date.now()/1000+120,route:{channel:'external:source',sender_id:'sender',source_kind:'external_event'}})
+events.push({receipt_id:'c'.repeat(64),generation:'3'.repeat(32),text:'third',event_key:'source:three',lease_until:Date.now()/1000+120,route:{channel:'external:source',sender_id:'sender',source_kind:'external_event'}})
 await pollSide($,'claude:parent')
 await completeSide($,{agentId:'actor3',reason:'answer',answer:'I replied in the thread.',usage:null})
 await drain()
@@ -90,7 +90,7 @@ await settle()
 console.log(JSON.stringify({
  spawns:spawns.map(s=>({subagentType:s.subagentType,model:s.model===undefined?null:s.model,name:s.name||null,
   description:s.description,keys:Object.keys(s).sort(),prompt:JSON.parse(s.prompt)})),
- rewrites,submits:submits.map(s=>s.text),registrations:calls.filter(c=>c.registered).length,
+ rewrites,submits:submits.map(s=>s.text),appends,registrations:calls.filter(c=>c.registered).length,
  walkieReads:calls.filter(c=>c.server==='walkie').map(c=>c.args),
  first:{current:first.current,retired:first.retired,model:first.model},second:{current:second.current,retired:second.retired},
  stopped:calls.filter(c=>c.toolCall?.tool==='TaskStop').map(c=>c.toolCall.task_id),

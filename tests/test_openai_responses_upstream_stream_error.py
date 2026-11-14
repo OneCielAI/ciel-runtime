@@ -1,9 +1,11 @@
+import contextlib
 import io
 import json
 import re
 import socket
 import ssl
 import threading
+import time
 import unittest
 import urllib.error
 from http.server import ThreadingHTTPServer
@@ -506,28 +508,115 @@ class NativeResponsesRouterWireTests(unittest.TestCase):
                 )
                 self.delivery.mark_success.assert_not_called()
 
-    def test_tls_eof_before_upstream_response_is_a_single_502(self):
-        # urllib wraps an OSError raised while sending the request in URLError.
-        def urlopen(*_args, **_kwargs):
-            raise urllib.error.URLError(ssl.SSLEOFError(8, _TLS_EOF))
+    @contextlib.contextmanager
+    def fake_retry_time(self):
+        """The router's own retry executor on a clock that its waits advance.
 
-        with mock.patch(
-            "ciel_runtime_support.openai_responses_router.maybe_fail_over"
-        ) as fail_over:
-            statuses, raw = self.exchange(urlopen)
+        R3 (lead-rulings-independent-review-sse-retry-20261113.md) admits a typed
+        TLS EOF raised before any response as a transient failure, so the default
+        420 s window retries it. Waits are recorded and advance the budget's clock
+        instead of sleeping; the jitter draw is pinned to the shortest backoff.
+        """
+        from ciel_runtime_support import provider_responses_passthrough as passthrough_module
+        from ciel_runtime_support import transient_retry
 
-        fail_over.assert_called_once()
+        offset = [0.0]
+        waits = []
+
+        def clock():
+            return time.monotonic() + offset[0]
+
+        def sleep(seconds):
+            waits.append(seconds)
+            offset[0] += seconds
+
+        real_default = transient_retry._default_budget
+        budgets = []
+
+        def default_budget(config, provider, **kwargs):
+            budget = real_default(config, provider, **kwargs)
+            if budget is not None:
+                budget.clock, budget.rand = clock, (lambda: 1.0)
+                budget.started = clock()
+                if budget.window_mode and kwargs.get("arrival_started") is None:
+                    budget.arrival_started = budget.started
+                budgets.append(budget)
+            return budget
+
+        real_open = transient_retry.open_with_transient_retry
+        with mock.patch.object(transient_retry, "_default_budget", default_budget), \
+                mock.patch.object(passthrough_module, "open_with_transient_retry",
+                                  side_effect=lambda *a, **kw: real_open(*a, sleep=sleep, **kw)):
+            yield SimpleNamespace(clock=clock, waits=waits, budgets=budgets, retry=transient_retry)
+
+    def test_persistent_tls_eof_before_response_exhausts_retries_then_one_502(self):
+        # Before R3 a TLS EOF before the response was not retried and gave one
+        # 502 at once. Now it is retried within the window; when the bounded
+        # retries are spent the client still gets exactly one 502 SSE error.
+        # The Responses router relays the upstream text without a "retried N
+        # times" note (lead ruling "A10 spec correction", option b, about 22:37Z,
+        # lead-rulings-independent-review-sse-retry-20261113.md): only the
+        # message prefix is asserted.
+        opened = []
+
+        with self.fake_retry_time() as fake:
+            def urlopen(*_args, **_kwargs):
+                opened.append(fake.clock())
+                # urllib wraps an OSError raised while sending the request in URLError.
+                raise urllib.error.URLError(ssl.SSLEOFError(8, _TLS_EOF))
+
+            with mock.patch(
+                "ciel_runtime_support.openai_responses_router.maybe_fail_over"
+            ) as fail_over:
+                statuses, raw = self.exchange(urlopen)
+
+        budget = fake.budgets[0]
+        self.assertEqual(fake.retry.WINDOW_RETRY_CEILING + 1, len(opened))
+        self.assertEqual(fake.retry.WINDOW_RETRY_CEILING, budget.attempts)
+        self.assertEqual("attempt_ceiling", budget.stop_reason)
+        self.assertEqual(len(opened) - 1, len(fake.waits))
+        self.assertLess(opened[-1] - budget.started, fake.retry.RETRY_WINDOW_SECONDS)
+        self.assertLess(opened[-1] - budget.arrival_started, fake.retry.HARD_PREOUTPUT_SECONDS)
+        fail_over.assert_called_once()  # consulted once, at the end
         self.assertEqual([502], statuses)
         self.assertEqual([502], self.wire_statuses(raw))
         events = self.sse_events(raw)
         self.assertEqual(["error"], [name for name, _ in events])
-        self.assertEqual(
-            {"type": "api_error", "message": f"SSLEOFError: {_TLS_EOF}"},
-            events[0][1]["error"],
-        )
+        self.assertEqual("api_error", events[0][1]["error"]["type"])
+        self.assertTrue(events[0][1]["error"]["message"].startswith(f"SSLEOFError: {_TLS_EOF}"))
         self.delivery.mark_failed.assert_called_once_with(
             mock.ANY, "provider_responses:transport:URLError"
         )
+        self.delivery.mark_success.assert_not_called()
+
+    def test_tls_eof_on_first_open_then_success_is_one_200(self):
+        complete = _CREATED + (
+            b'event: response.completed\ndata: {"type":"response.completed",'
+            b'"response":{"id":"resp_wire"}}\n\n'
+        )
+        opened = []
+
+        with self.fake_retry_time() as fake:
+            def urlopen(*_args, **_kwargs):
+                opened.append(fake.clock())
+                if len(opened) == 1:
+                    raise urllib.error.URLError(ssl.SSLEOFError(8, _TLS_EOF))
+                return _ScriptedUpstream([complete])
+
+            with mock.patch(
+                "ciel_runtime_support.openai_responses_router.maybe_fail_over"
+            ) as fail_over:
+                statuses, raw = self.exchange(urlopen)
+
+        self.assertEqual(2, len(opened))
+        self.assertEqual(1, fake.budgets[0].attempts)
+        self.assertEqual(1, len(fake.waits))
+        fail_over.assert_not_called()
+        self.assertEqual([200], statuses)
+        self.assertEqual([200], self.wire_statuses(raw))
+        self.assertEqual(["response.created", "response.completed"],
+                         [name for name, _ in self.sse_events(raw)])
+        self.delivery.mark_failed.assert_not_called()
 
     def test_downstream_client_disconnect_stays_distinct_from_upstream_failure(self):
         complete = _CREATED + (

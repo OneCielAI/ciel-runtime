@@ -166,6 +166,50 @@ def plan_restore(manifest: Mapping[str, Any], dest: Mapping[str, Path], bundle: 
     return plan
 
 
+def _p0_key_write(path: Path, data: bytes) -> None:
+    """Restore one exact assignment key without overwriting a different key."""
+    from .work_p0_assignment_key import P0AssignmentKeyStore, P0AssignmentKeyUnavailable
+    store = P0AssignmentKeyStore(path)
+    try:
+        value = store._validate(data.decode("ascii"))
+    except (UnicodeError, P0AssignmentKeyUnavailable) as error:
+        raise P0AssignmentKeyUnavailable(
+            "restored P0 assignment derivation key is invalid; recovery required") from error
+    if path.exists() or path.is_symlink():
+        existing = store.read()
+        if existing != value:
+            raise P0AssignmentKeyUnavailable(
+                "existing P0 assignment derivation key differs; recovery required")
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(path.name + ".restore-" + random_source.token_hex(8) + ".tmp")
+    descriptor = None
+    try:
+        flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL | getattr(os, "O_BINARY", 0)
+        descriptor = os.open(temporary, flags, 0o600)
+        with os.fdopen(descriptor, "wb") as stream:
+            descriptor = None
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        if os.name == "nt":
+            store._restrict_windows_acl(temporary)
+        else:
+            temporary.chmod(0o600)
+        os.link(temporary, path)
+        if os.name != "nt":
+            directory = os.open(path.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory)
+            finally:
+                os.close(directory)
+        store.read()
+    finally:
+        if descriptor is not None:
+            os.close(descriptor)
+        temporary.unlink(missing_ok=True)
+
+
 def _atomic_write(path: Path, data: bytes, mtime: float | None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     handle, temporary = tempfile.mkstemp(prefix=".restore-", dir=str(path.parent))
@@ -233,7 +277,11 @@ def restore_snapshot(
     remapped: dict[str, Any] = {}
     if not dry_run:
         for entry, path in plan.writes:
-            _atomic_write(path, entry_bytes(target, entry, bundle), entry.get("mtime"))
+            data = entry_bytes(target, entry, bundle)
+            if entry.get("root") == "ciel_ws" and entry.get("path") == "work-p0-assignment.key":
+                _p0_key_write(path, data)
+            else:
+                _atomic_write(path, data, entry.get("mtime"))
             written += 1
         remapped = remap_after_restore(manifest, dest)
     return {

@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Mapping
 
 from .remote_bridge import REMOTE_BRIDGE_CONFIG_MARKER, is_remote_bridge_request
-from .transient_retry import bounded_timeout, open_with_transient_retry
+from .transient_retry import bounded_timeout, budget_for, open_with_transient_retry, release_read_timeout
 from .upstream_stream_io import client_connection_closed
 
 
@@ -29,6 +29,9 @@ class OpenAIChatPassthroughPorts:
     publish: Callable[..., Any] = lambda **_kwargs: None
     # Rebuild the provider config for one more attempt on a fresh gateway.
     reselect: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+    # Router activity writer (event, provider, model, **fields): pre-output
+    # retries and their final stop reach the event bus and the statusline.
+    activity: Callable[..., Any] | None = None
 
 
 class OpenAIChatPassthrough:
@@ -84,13 +87,25 @@ class OpenAIChatPassthrough:
         attempt["request"] = build_request(config)
 
         def open_once() -> Any:
-            return self._ports.urlopen(
-                attempt["request"],
-                timeout=bounded_timeout(attempt["config"], retry_provider,
-                                        self._ports.timeout_seconds(attempt["config"])),
-                provider=provider,
-                pcfg=attempt["config"],
-            )
+            try:
+                response = self._ports.urlopen(
+                    attempt["request"],
+                    timeout=bounded_timeout(attempt["config"], provider,
+                                            self._ports.timeout_seconds(attempt["config"])),
+                    provider=provider,
+                    pcfg=attempt["config"],
+                )
+            except urllib.error.HTTPError as exc:
+                if not retry_provider:
+                    # An error status with headers is a received response too: its
+                    # body is read under the caller's timeout. exc.fp holds the socket.
+                    release_read_timeout(getattr(exc, "fp", None), budget_for(attempt["config"], provider))
+                raise
+            if not retry_provider:
+                # Replay is off, so no retry loop gives the accepted response its
+                # read timeout back: the arrival clip covers acceptance only.
+                return release_read_timeout(response, budget_for(attempt["config"], provider))
+            return response
 
         def reselect() -> None:
             if self._ports.reselect is None:
@@ -112,6 +127,7 @@ class OpenAIChatPassthrough:
                 request=attempt["request"],
                 reselect=reselect if self._ports.reselect is not None else None,
                 model=str(upstream_body.get("model") or ""),
+                activity=self._ports.activity,
             ) as response:
                 handler.send_response(getattr(response, "status", 200))
                 self._ports.copy_response_headers(handler, response.headers)

@@ -7,6 +7,8 @@ const scenario = process.argv[2]
 let busy = scenario !== 'main-idle'
 sideMainBusy(() => busy)
 const sent = [], appended = [], submitted = [], wakes = [], logs = []
+// The backend grants the notice of one event receipt once (side_notice.py).
+let noticeClaimed = false
 const leases = {
   'fork-running': {L1:{id:'L1',item_id:'n2',host_id:'agent-run',state:'running',slot:true}},
   'fork-parked': {L2:{id:'L2',item_id:'n2',host_id:'agent-park',state:'waiting_input',slot:false}},
@@ -20,13 +22,13 @@ const hostStore = new Map()
 const $ = {
   state:{get:async ref=>{const held=hostStore.get(ref.plugin+'/'+ref.key);return {value:held?structuredClone(held.value):undefined,version:held?.version||0}},set:async (ref,value,options={})=>{const name=ref.plugin+'/'+ref.key,held=hostStore.get(name)||{version:0};if(options.ifVersion!==undefined&&options.ifVersion!==held.version)return {isSet:false,version:held.version};hostStore.set(name,{value:structuredClone(value),version:held.version+1});return {isSet:true,version:held.version+1}}},
   session:{model:async()=>'fixture-main',id:async()=>'parent',
-    append:async args=>{appended.push(args.message.content[0].text); return {}},
+    append:async args=>{appended.push(args.message.content[0].text); return {uuid:'append-'+appended.length}},
     send:async args=>{sent.push({to:args.to,text:args.text}); return args.to.agentId === 'agent-gone' ? {isDelivered:false,reason:'gone'} : {isDelivered:true}}},
   prompt:{submit:async args=>{submitted.push(args.text); return {}}},
   mcp:{connect:async()=>({}),call:async(server,name,args)=>{
     let value = {}
     if (name === 'work_side_claim') {
-      const claim = claimed ? null : {receipt_id:'e'.repeat(64),generation:'g1',text:'Andy: approved',event_key:'walkie:1',
+      const claim = claimed ? null : {receipt_id:'e'.repeat(64),generation:'10000000000000000000000000000005',text:'Andy: approved',event_key:'walkie:1',
         lease_until:Date.now()/1000+120,route:{},workload:{version:4,truncated:false,active_root:'n1',queue_order:[],
           nodes:[{id:'n1',parent_id:null,title:'goal'},{id:'n2',parent_id:'n1',title:'deploy'},{id:'n3',parent_id:'n2',title:'gate',waiting_on:released[0].waiting_on}]}}
       claimed = true
@@ -36,7 +38,13 @@ const $ = {
     if (name === 'work_side_resolve') value = {receipt:{receipt_id:args._host.receipt_id,stage:'processed'},
       result:{action:'update',item_id:'n3',summary:'Andy approved the deploy',duplicate:false,released_waits:released,handoff:'not_required'}}
     if (name === 'work_side_reply') value = {receipt:{receipt_id:args.receipt_id,stage:'processed'},arguments:null}
-    if (name === 'work_side_wake') wakes.push(args)
+    if (name === 'work_side_wake') {
+      wakes.push({event_id:args.event_id,state:args.state})
+      if (args.state === 'notice_prepare') {
+        value = noticeClaimed ? {protocol:2,state:'already_appended'} : {protocol:2,state:'claimed',attempt_id:'notice-1'}
+        noticeClaimed = true
+      } else value = {protocol:2,state:String(args.state).replace('notice_','')}
+    }
     return {content:[{type:'text',text:JSON.stringify(value)}]}
   }},
   tool:{list:async()=>[],call:async()=>({text:'stopped'})},

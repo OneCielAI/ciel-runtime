@@ -66,7 +66,7 @@ def render_admin_page() -> str:
 <meta name="viewport" content="width=device-width, initial-scale=1"><title>Ciel Runtime · Admin</title>
 <style>""" + _STYLE + """</style></head><body>
 <header><h1>Ciel Runtime Admin</h1><div class="row"><span id="who" class="muted"></span><a href="/">Router home</a><button id="logout">Sign out</button></div></header>
-<nav class="tabs"><button class="tab active" data-view="tokens">OAuth tokens</button><button class="tab" data-view="access">Access</button></nav>
+<nav class="tabs"><button class="tab active" data-view="tokens">OAuth tokens</button><button class="tab" data-view="sessionkeys">Session API keys</button><button class="tab" data-view="access">Access</button></nav>
 <main>
 <section id="view-tokens" class="view active">
   <div class="box"><h2>Stored OAuth tokens</h2>
@@ -89,6 +89,11 @@ def render_admin_page() -> str:
     <div class="row"><button id="imGo">Import</button></div>
   </div>
   <div id="tokMsg" class="msg"></div>
+</section>
+<section id="view-sessionkeys" class="view">
+  <div class="box"><h2>Session API keys (memory only)</h2>
+    <p class="muted">Session API keys have their own page: <a href="/ca/session-api-keys/ui">Session API keys</a>. Stored API keys (persistent: <code>api-key</code>, <code>set-api-key</code>, Management) are not changed there.</p>
+  </div>
 </section>
 <section id="view-access" class="view">
   <div class="box"><h2>Admin API token</h2>
@@ -114,6 +119,7 @@ function showView(name) {
 }
 document.querySelectorAll('.tab').forEach(tab => tab.onclick = () => showView(tab.dataset.view));
 if (location.hash === '#access') showView('access');
+if (location.hash === '#sessionkeys') showView('sessionkeys');
 async function call(path, payload) {
   const res = await fetch(path, payload ? {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(payload)} : {});
   if (res.status === 401) { location.href = '/ca/login?next=/ca/admin'; throw new Error('signed out'); }

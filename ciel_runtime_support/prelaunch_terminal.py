@@ -445,6 +445,7 @@ def render_prelaunch_screen(
             "workspace-mcp": menu_text("main_mcp", lang),
             "oauth-tokens": menu_text("main_oauth", lang),
             "web-access": menu_text("main_web", lang),
+            "session-api-keys": menu_text("main_session_keys", lang),
             "dangerous-rm": menu_text("main_recovery", lang),
             "session-backup": menu_text("main_backup", lang),
             "provider-fallback": menu_text("main_fallback", lang),

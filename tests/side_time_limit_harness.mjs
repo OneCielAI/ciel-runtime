@@ -12,6 +12,9 @@ const second = ['reload', 'reload-failed', 'stale-loser', 'reload-intent', 'live
 if (second) second.sideMainBusy(() => busyNow)
 const EVENT = 'e'.repeat(64)
 const appends = [], submits = [], calls = [], messages = [], logs = []
+// The payload reaches main by append only; a prompt is a wake that holds none.
+const isPayload = text => String(text).includes('Ciel side event requires main action: {"event_id":"' + EVENT)
+const deliveries = () => appends.length + submits.filter(isPayload).length
 const handoff = {kind:'time_limit', item_id:'n7', root_id:'n7', title:'report', summary:'deadline reported',
   queue:{state:'active'}, time_limit:{text:'within 4 hours', evidence:'message 41: within 4 hours'}, waits:[], question:''}
 let claimed = false, offerWake = false, attempts = 0
@@ -24,7 +27,7 @@ let prepareGate = null, openPrepare = () => {}
 const LEASE = 5000
 let clock = 0
 let startGate = null, openStart = () => {}
-let heldSubmit = null, releaseSubmit = () => {}
+let heldAppend = null, releaseAppend = () => {}
 let wake = mode === 'expired-intent'
   ? {state:'submitting', phase:'intent', attempt_id:'w0', owner_nonce:'crashed-module', channel:'prompt', intent_until:LEASE, revision:1}
   : mode === 'orphan-started'
@@ -36,9 +39,12 @@ const view = () => {
   return {event_id:EVENT, state:'requested', ...handoff, wake:visible}
 }
 // Old routers offered only pending/failed (no phase field exists there).
+const OLD_ROUTER = ['old-router', 'old-router-dup', 'old-router-reload', 'old-router-exhaust'].includes(mode)
 const offered = () => ['pending', 'failed'].includes(wake.state)
   || (wake.state === 'submitting' && ['intent', 'started'].includes(wake.phase))
   || (mode === 'old-router-dup' && wake.state === 'submitting') // stale claim snapshot
+  // side_intake_mcp: an appended wake is offered until main has had a request after it.
+  || (!OLD_ROUTER && wake.state === 'appended' && !wake.read_at)
 const reply = (value, error = false) => ({isError:error, content:[{type:'text', text:typeof value === 'string' ? value : JSON.stringify(value)}]})
 const own = () => ({protocol:2, state:wake.state, wake_state:wake.state, phase:wake.phase, attempt_id:wake.attempt_id,
   owner_nonce:wake.owner_nonce, channel:wake.channel, revision:wake.revision})
@@ -63,7 +69,17 @@ async function oldRouter(args) {
   return reply({event_id:args.event_id, ...wake, version:4})
 }
 async function wakeCall(args) {
-  if (['old-router', 'old-router-dup', 'old-router-reload', 'old-router-exhaust'].includes(mode)) return oldRouter(args)
+  if (OLD_ROUTER) return oldRouter(args)
+  if (String(args.state).startsWith('prompt_')) {
+    if (args.state === 'prompt_prepare') return reply({protocol:2,state:'submitting',attempt_id:'prompt-'+EVENT,
+      owner_nonce:args.owner_nonce})
+    return reply({protocol:2,state:wake.state})
+  }
+  if (args.state === 'read') {
+    if (wake.state !== 'appended') return reply('side wake is not appended', true)
+    wake = {...wake, read_at:wake.read_at || 1}
+    return reply(own())
+  }
   if (mode === 'malformed' && args.state === 'prepare')
     return reply({protocol:2, state:'submitting', phase:'started', attempt_id:'b'.repeat(32), channel:'prompt'})
   if (args.state === 'prepare') {
@@ -130,38 +146,52 @@ const hostStateApi = {
     return {isSet:true, version:held.version + 1}
   }}
 const $ = {
-  session:{id:async () => 'parent', messages:async () => messages,
+  session:{id:async () => 'parent', messages:async options => options?.as === 'api'
+      ? messages.map(row => ({role:row.role, content:row.toolResults
+        ? row.toolResults.map(result => ({type:'tool_result', tool_use_id:'t1', content:result.text}))
+        : [{type:'text', text:row.text}]}))
+      : messages.filter(row => !row.appended),
     append:async a => {
       const text = a.message.content[0].text
       appends.push(text)
+      if (heldAppend) { const held = heldAppend; heldAppend = null; return held }
       if (denyAppend > 0) { denyAppend--; return {deny:true} }
+      if (mode === 'append-throw' && appends.length === 1) throw new Error('append outcome unknown')
+      if (mode === 'spoof' && appends.length === 1) {
+        // Append outcome unknown; unrelated rows carry the event text.
+        messages.push(row('assistant', '[ciel-side-wake event='+EVENT+' attempt=w1] '+text))
+        // tool-result/assistant text is never append evidence; no user text row.
+        messages.push({role:'user',text:'tool result '+text,toolUses:[],toolResults:[{text,isError:false}]})
+        throw new Error('append outcome unknown')
+      }
       if (mode === 'append-idle') busyNow = false
-      messages.push(row('user', text))
+      messages.push({...row('user', text),appended:true})
       return {message:a.message, uuid:'append-'+appends.length}
     }},
   prompt:{submit:async a => {
     submits.push(a.text)
-    if (heldSubmit) { const held = heldSubmit; heldSubmit = null; return held }
+    // drop and throw hit the first wake prompt, which holds no payload.
     if (mode === 'drop' && submits.length === 1) return {drop:true}
     if (mode === 'throw' && submits.length === 1) throw new Error('submit outcome unknown')
-    if (mode === 'spoof' && submits.length === 1) {
-      // Prompt outcome unknown; an unrelated row carries the event text.
-      messages.push(row('assistant', '[ciel-side-wake event='+EVENT+' attempt=w1] '+a.text))
-      messages.push(row('user', a.text))
-      throw new Error('submit outcome unknown')
-    }
     messages.push(row('user', a.text))
+    // The prompt starts idle main's turn. Its first request is built after
+    // turn.start; the prompt-turn token is causal read proof. Plain messages()
+    // does not expose plugin appends and messageCount is not comparable.
+    setTimeout(() => { for (const instance of [first, second]) if (instance) {
+      void instance.sideMainTurnStart?.($, a.text).then(() => instance.sideMainStep?.($))
+    } }, 0)
     return {}
   }},
   ...(variant === 'nostate' ? {} : {state:hostStateApi}),
   mcp:{connect:async () => ({}), call:async (server, name, args) => {
     calls.push({name, args})
     if (name === 'work_side_claim') {
-      const claim = claimed ? null : {receipt_id:EVENT, generation:'g', text:'raw secret thread', event_key:'x',
+      const claim = claimed ? null : {receipt_id:EVENT, generation:'10000000000000000000000000000004', text:'raw secret thread', event_key:'x',
         lease_until:Date.now()/1000+120, source_read:null, route:{},
         workload:{version:1, truncated:false, nodes:[{id:'n7', parent_id:null, title:'report'}], queue_order:[]}}
       claimed = true
-      return reply({claim, settings:{}, handoff_replies:[], main_wakes:offerWake && offered() ? [view()] : []})
+      return reply({claim, settings:{}, handoff_replies:[], main_wakes:offerWake && offered() ? [view()] : [],
+        ...(OLD_ROUTER ? {} : {wake_protocol:2})})
     }
     if (name === 'work_side_resolve') return reply({receipt:{receipt_id:EVENT},
       result:{action:'answer', item_id:'n7', duplicate:false, main_handoff:handoff}})
@@ -226,23 +256,24 @@ if (['busy', 'idle'].includes(mode)) {
   await until(() => count('start') === 1, 'old start paused')
   // Inside the old module's lease the reloaded one does not supersede it.
   await poll(second)
-  extra.inside_lease = {prepares:count('prepare'), deliveries:appends.length + submits.length}
+  extra.inside_lease = {prepares:count('prepare'), deliveries:deliveries()}
   clock = LEASE
-  await poll(second); await until(() => appends.length + submits.length === 1, 'new delivery')
+  await poll(second); await until(() => deliveries() === 1, 'new delivery')
   openStart(); await old; await settle()
   extra.start_calls = count('start')
 } else if (mode === 'reload-failed' || mode === 'stale-loser') {
-  // A owns started and waits for idle main. B loses without caching it; A's
-  // prompt is dropped (definite failure); B must then re-elect exactly once.
+  // A owns started and its append has not answered yet. B loses without
+  // caching it; A's append is denied (definite failure); B must then re-elect
+  // exactly once.
   offerWake = true; claimed = true
-  heldSubmit = new Promise(resolve => { releaseSubmit = () => resolve({drop:true}) })
-  await poll(first); await until(() => submits.length === 1, 'A submit')
+  heldAppend = new Promise(resolve => { releaseAppend = () => resolve({deny:true}) })
+  await poll(first); await until(() => appends.length === 1, 'A append')
   // stale-loser: B's claim snapshot still shows pending, so B reaches prepare
   // and gets already_submitting, which must not be cached.
   staleOnce = mode === 'stale-loser'
   await poll(second)
   extra.loser_calls = calls.filter(c => c.name === 'work_side_wake').map(c => c.args.state)
-  releaseSubmit(); await until(() => wake.state === 'failed', 'A failed')
+  releaseAppend(); await until(() => wake.state === 'failed', 'A failed')
   for (let i = 0; i < 5; i++) await poll(second)
 } else if (mode === 'livelock') {
   // Reviewer's adversarial schedule: each instance prepares while the other
@@ -252,19 +283,19 @@ if (['busy', 'idle'].includes(mode)) {
   startGate = new Promise(resolve => { openStart = resolve })
   const a = poll(first)
   await until(() => count('start') === 1, 'A start paused')
-  for (let round = 0; round < 6 && !(appends.length + submits.length); round++) {
+  for (let round = 0; round < 6 && !deliveries(); round++) {
     clock += 1000
     await poll(second)
     if (round === 0) { openStart(); await a }
   }
-  await until(() => appends.length + submits.length === 1, 'bounded start')
+  await until(() => deliveries() === 1, 'bounded start')
   extra.rounds_clock = clock; extra.prepare_calls = count('prepare'); extra.start_calls = count('start')
 } else if (mode === 'expired-intent') {
   // Crashed owner left an intent. Inside the lease nobody supersedes it;
   // after the lease a live owner recovers it and delivers once.
   offerWake = true; claimed = true
   await poll(first)
-  extra.inside_lease = {deliveries:submits.length + appends.length, owner:wake.owner_nonce}
+  extra.inside_lease = {deliveries:deliveries(), owner:wake.owner_nonce}
   clock = LEASE
   await poll(first)
 } else if (mode === 'old-router' || mode === 'old-router-dup') {
@@ -274,8 +305,8 @@ if (['busy', 'idle'].includes(mode)) {
     // Delivered, then all record calls failed, so the old row stays
     // submitting. A stale offer makes the same module prepare again; the old
     // router returns the same submitting attempt (its duplicate answer).
-    await poll(first); await until(() => submits.length === 1, 'legacy submit'); await settle()
-    extra.after_record_failure = {state:wake.state, deliveries:submits.length + appends.length}
+    await poll(first); await until(() => appends.length === 1, 'legacy append'); await settle()
+    extra.after_record_failure = {state:wake.state, deliveries:deliveries()}
     for (let i = 0; i < 3; i++) { await poll(first); await settle() }
   } else for (let i = 0; i < 3; i++) { await poll(first); await settle() }
 } else if (mode === 'old-router-reload') {
@@ -287,7 +318,7 @@ if (['busy', 'idle'].includes(mode)) {
   await until(() => count('prepare') === 2, 'both prepares')
   prepareGate = null; openPrepare(); await a; await b
   // Without $.state the per-key prompt registry fails closed: nothing is sent.
-  if (variant !== 'nostate') await until(() => submits.length + appends.length >= 1, 'legacy delivery')
+  if (variant !== 'nostate') await until(() => deliveries() >= 1, 'legacy delivery')
   for (let i = 0; i < 20; i++) await tick()
   extra.host_state = [...hostState.entries()]
 } else if (mode === 'old-router-exhaust') {
@@ -308,20 +339,21 @@ if (['busy', 'idle'].includes(mode)) {
   // prepare committed an intent but its response was lost; same owner adopts.
   offerWake = true; claimed = true
   await poll(); await settle()
-  extra.after_loss = {deliveries:submits.length + appends.length, state:wake.state, phase:wake.phase}
+  extra.after_loss = {deliveries:deliveries(), state:wake.state, phase:wake.phase}
   await poll()
 } else if (mode === 'retry') {
   offerWake = true; claimed = true
   await poll(); await settle()
-  extra.after_failure = {prepares:count('prepare'), deliveries:submits.length + appends.length, state:wake.state}
+  extra.after_failure = {prepares:count('prepare'), deliveries:deliveries(), state:wake.state}
   await poll()
 } else {
-  // record-fail, drop, throw, spoof, deny, append-idle
+  // record-fail, drop, throw, spoof, deny, append-idle, append-throw
   offerWake = true; claimed = true
   await poll(); await settle()
   for (let i = 0; i < 3; i++) { await poll(); await settle() }
 }
 await settle()
-console.log(JSON.stringify({appends, submits, durable:wake,
+console.log(JSON.stringify({appends, submits, payload_submits:submits.filter(isPayload).length,
+  wake_prompts:submits.filter(text => !isPayload(text)).length, durable:wake,
   wakes:calls.filter(c => c.name === 'work_side_wake').map(c => ({state:c.args.state, attempt_id:c.args.attempt_id || null})),
   claims:calls.filter(c => c.name === 'work_side_claim').length, ...extra}))

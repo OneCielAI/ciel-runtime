@@ -328,6 +328,35 @@ class SideIntakeTransportTests(unittest.TestCase):
         self.assertEqual(sorted(harness.delivery.commits), harness.delivery.commits)
         self.assertNotIn(41, harness.delivery.commits[:1])
 
+    def test_delivered_side_envelope_reports_a_later_candidate_only(self):
+        side = {'_side_intake_admitted': True, 'side_intake_only': True, 'input_transport': 'session_socket',
+                'btw_with_mcp': True, 'btw': True}
+        rows = [{**_message(40), 'meta': dict(side)}, {**_message(41), 'meta': dict(side)}]
+        harness = _InjectionHarness(rows)
+        accept = [False]
+        sent = []
+        services = harness.services()
+        services = dataclasses.replace(services, io=dataclasses.replace(
+            services.io, session_socket_available=lambda: True,
+            write_session_socket=lambda _prompt, messages: sent.append([m['id'] for m in messages]) or accept[0]))
+
+        more = []
+        # A refused send delivered nothing: no faster rescan is requested.
+        self.assertEqual(39, inject_pending_channel_messages(99, 39, None, side_intake_more_pending=more,
+                                                             services=services))
+        self.assertEqual(([[40]], []), (sent, more))
+        accept[0] = True
+        self.assertEqual(40, inject_pending_channel_messages(99, 39, None, side_intake_more_pending=more,
+                                                             services=services))
+        self.assertEqual(([[40], [40]], [True]), (sent, more))
+        # Still one envelope per scan; the last candidate requests nothing.
+        more = []
+        self.assertEqual(41, inject_pending_channel_messages(99, 40, None, side_intake_more_pending=more,
+                                                             services=services))
+        self.assertEqual(([[40], [40], [41]], []), (sent, more))
+        self.assertEqual([40, 41], harness.delivery.commits)
+        self.assertEqual([], harness.written)
+
     def test_raw_side_fallback_row_is_never_typed_routed_or_batched(self):
         # Prody 2026-11-08: one oversized CloudEvent blocked the stream. Its
         # raw-text fallback row must reach the side inbox alone, unchanged.
@@ -870,6 +899,66 @@ class SocketOnlyInjectionTests(unittest.TestCase):
             self.assertFalse(scope["turn_active"], "the whole turn ended inside one chunk")
             repository.set_scope("claude", started_at=1787999999.0)
             self.assertFalse(scope["main_output_since_launch"])
+
+    def test_codex_remote_scope_reads_main_output_from_its_own_rollout(self):
+        """The codex --remote TUI scope finds its rollout and latches main's answer."""
+        from types import SimpleNamespace
+        from ciel_runtime_support.channel_transcript import active_turn_from_text
+        from ciel_runtime_support.channel_transcript_repository import ChannelTranscriptRepository
+        from ciel_runtime_support.channel_wake_context import ChannelWakeContext
+        with tempfile.TemporaryDirectory() as raw:
+            root = pathlib.Path(raw)
+            codex_home, workspace = root / "codex-home", root / "work"
+            rollout = codex_home / "sessions" / "2026" / "08" / "19" / "rollout-fixture.jsonl"
+            rollout.parent.mkdir(parents=True)
+            workspace.mkdir()
+            scope, cache = {}, {}
+            repository = ChannelTranscriptRepository(root, cache, scope, time.time)
+            # The same call codex_app_server_session._run_tui makes, at launch.
+            repository.set_scope("codex", started_at=1787130000.0, codex_home=codex_home, cwd=workspace)
+            context = SimpleNamespace(
+                transcript=SimpleNamespace(scope=scope, active_turn_from_text=active_turn_from_text),
+                transcript_policy=SimpleNamespace(latest_transcript=lambda: repository.latest(0.0), log=lambda *_: None),
+                transcript_repository=lambda: repository,
+                console_started_at=lambda: ChannelWakeContext.console_started_at(context),
+            )
+            context._observe_turn_projection = lambda active, _updated: active
+            context.active_turn = lambda: ChannelWakeContext.active_turn(context)
+
+            def append(*records):
+                with rollout.open("a", encoding="utf-8") as stream:
+                    for record in records:
+                        stream.write(json.dumps(record) + "\n")
+
+            append({"type": "session_meta", "timestamp": "2026-08-19T09:00:01Z",
+                    "payload": {"id": "thread-fixture", "timestamp": "2026-08-19T09:00:01Z", "cwd": str(workspace)}},
+                   {"type": "response_item", "timestamp": "2026-08-19T08:00:00Z",
+                    "payload": {"type": "message", "role": "assistant", "content": []}},
+                   {"type": "response_item", "timestamp": "2026-08-19T09:00:02Z",
+                    "payload": {"type": "message", "role": "user", "content": []}},
+                   {"type": "response_item", "timestamp": "2026-08-19T09:00:03Z",
+                    "payload": {"type": "reasoning", "summary": [], "encrypted_content": "x"}},
+                   {"type": "response_item", "timestamp": "2026-08-19T09:00:04Z",
+                    "payload": {"type": "function_call", "name": "shell", "arguments": "{}", "call_id": "c1"}},
+                   {"type": "response_item", "timestamp": "2026-08-19T09:00:04Z",
+                    "payload": {"type": "function_call_output", "call_id": "c1", "output": "x"}})
+            self.assertFalse(ChannelWakeContext.main_output_since_launch(context))
+            self.assertEqual(rollout, repository.latest(0.0))
+            append({"type": "response_item", "timestamp": "2026-08-19T09:00:05Z",
+                    "payload": {"type": "message", "role": "assistant", "status": "completed",
+                                "content": [{"type": "output_text", "text": "done"}]}})
+            self.assertTrue(ChannelWakeContext.main_output_since_launch(context))
+            # The next launch resumes this thread: unproven until its own output.
+            repository.set_scope("codex", started_at=1787130600.0, codex_home=codex_home,
+                                 cwd=workspace, session_id="thread-fixture")
+            self.assertFalse(ChannelWakeContext.main_output_since_launch(context))
+            append({"type": "response_item", "timestamp": "2026-08-19T09:10:01Z",
+                    "payload": {"type": "reasoning", "summary": [], "encrypted_content": "x"}})
+            self.assertFalse(ChannelWakeContext.main_output_since_launch(context))
+            append({"type": "response_item", "timestamp": "2026-08-19T09:10:02Z",
+                    "payload": {"type": "message", "role": "assistant", "status": "completed",
+                                "content": [{"type": "output_text", "text": "done"}]}})
+            self.assertTrue(ChannelWakeContext.main_output_since_launch(context))
 
     def test_unattended_restart_notice_and_six_socket_events_deliver_once(self):
         from ciel_runtime_support.channel_transcript import active_turn_from_text

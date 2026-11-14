@@ -60,14 +60,31 @@ class ParallelMenuTests(unittest.TestCase):
                 self.assertEqual(before, store.read())
                 self.assertIn("dead=1", shown)
                 self.assertIn("legacy_no_owner=1", shown)
-                message = apply({}, "work_parallel_orphans", "apply", lambda _: None)
-                self.assertIn("  released " + dead, message)
+                # Releases are pinned to one previewed digest, one lease at a time.
+                from ciel_runtime_support.work_parallel_menu import orphan_choices
+                preview, choices = orphan_choices()
+                values = [value for _, value in choices]
+                self.assertEqual({"release " + dead + " " + preview["digest"],
+                                  "legacy " + legacy + " " + preview["digest"]}, set(values))
+                for bulk in ("apply", "legacy " + legacy[:8]):
+                    with self.assertRaises(ValueError):
+                        apply({}, "work_parallel_orphans", bulk, lambda _: None)
+                self.assertEqual(before, store.read())
+                message = apply({}, "work_parallel_orphans", "release " + dead + " " + preview["digest"],
+                                lambda _: None)
+                self.assertIn("  released " + dead + " (orphaned)", message)
                 leases = store.read()["leases"]
                 self.assertEqual("orphaned", leases[dead]["state"])
                 self.assertTrue(leases[live]["slot"] and leases[legacy]["slot"])
+                # The old digest is stale after the first release: nothing changes.
+                stale = store.read()
                 with self.assertRaises(ValueError):
-                    apply({}, "work_parallel_orphans", "legacy " + live[:8], lambda _: None)
-                apply({}, "work_parallel_orphans", "legacy " + legacy[:8], lambda _: None)
+                    apply({}, "work_parallel_orphans", "legacy " + legacy + " " + preview["digest"], lambda _: None)
+                self.assertEqual(stale, store.read())
+                fresh, _ = orphan_choices()
+                with self.assertRaises(ValueError):
+                    apply({}, "work_parallel_orphans", "release " + live + " " + fresh["digest"], lambda _: None)
+                apply({}, "work_parallel_orphans", "legacy " + legacy + " " + fresh["digest"], lambda _: None)
                 self.assertEqual("orphaned", store.read()["leases"][legacy]["state"])
                 self.assertTrue(store.read()["leases"][live]["slot"])
 

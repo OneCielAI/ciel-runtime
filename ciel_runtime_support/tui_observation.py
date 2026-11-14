@@ -276,6 +276,8 @@ def publish_latest_input(
     content = latest.get("content", latest.get("input"))
     if latest.get("type") in {"tool_result", "function_call_output"}:
         content = [latest]
+    from .secret_command_redaction import redact_api_key_command_text
+
     for text in _text_from_content(content):
         bus.publish_text(
             kind="input.text",
@@ -283,7 +285,8 @@ def publish_latest_input(
             role=role,
             provider=provider,
             model=model,
-            text=text,
+            # A `/api-key KEY` turn is shown only as a placeholder.
+            text=redact_api_key_command_text(text),
         )
     blocks = content if isinstance(content, list) else []
     for block in blocks:

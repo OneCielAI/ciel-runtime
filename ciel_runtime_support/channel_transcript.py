@@ -527,13 +527,17 @@ def main_output_from_text(text: str, *, not_before: float) -> bool:
 
     A main (non-sidechain) assistant record dated after this console launch
     means main ran a model turn, so no startup dialog can still be holding its
-    composer. Undated and older records are never this evidence.
+    composer. A Codex rollout records that output as a completed assistant
+    ``response_item`` message (the shape is_assistant_message reads); its user
+    input, tool calls and reasoning are not output. Undated and older records
+    are never this evidence.
     """
 
     for record in _jsonl_records(text):
         message = record.get("message")
         role = str(message.get("role") or "") if isinstance(message, dict) else ""
-        if str(record.get("type") or "") != "assistant" and role != "assistant":
+        if (str(record.get("type") or "") != "assistant" and role != "assistant"
+                and not _codex_assistant_output(record)):
             continue
         if record.get("isSidechain") is True:
             continue
@@ -541,6 +545,19 @@ def main_output_from_text(text: str, *, not_before: float) -> bool:
         if timestamp is not None and timestamp >= not_before:
             return True
     return False
+
+
+def _codex_assistant_output(record: dict[str, Any]) -> bool:
+    """A Codex rollout ``response_item`` of completed assistant output."""
+
+    payload = record.get("payload")
+    return (
+        str(record.get("type") or "") == "response_item"
+        and isinstance(payload, dict)
+        and str(payload.get("type") or "") == "message"
+        and str(payload.get("role") or "") == "assistant"
+        and payload.get("status") in (None, "completed")
+    )
 
 
 def queued_age_seconds_from_text(

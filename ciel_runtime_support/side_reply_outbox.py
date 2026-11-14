@@ -3,7 +3,8 @@ import time
 import uuid
 
 from .channel_message_repository import exclusive_file_lock
-from .side_intake_inbox import SideIntakeInbox
+from .side_intake_inbox import SideIntakeInbox, reply_retry_pin as retry_pin
+from .side_notice import PIN_REF
 from .work_plan_tree import WorkPlanError
 import heapq
 
@@ -17,6 +18,14 @@ def pending(state_dir, identity, limit=10):
                     and row.get('outbox',{}).get('state') not in ('submitted','uncertain','submitting','failed')):
                 yield {'receipt_id':path.stem,'state':row.get('outbox',{}).get('state','pending')}
     return heapq.nsmallest(limit,eligible(),key=lambda row:row['receipt_id'])
+
+
+def _drop_pending_outbox(row):
+    # A retry left outbox {'state': 'pending'}. An outcome with no send attempt
+    # must not keep it: the receipt shows result.delivery, while the retry and
+    # review rows read outbox.state first, so it could never be retried again.
+    if (row.get('outbox') or {}).get('state') == 'pending':
+        row.pop('outbox', None)
 
 
 def prepare(state_dir, identity, receipt_id, *, config=None):
@@ -48,6 +57,7 @@ def prepare(state_dir, identity, receipt_id, *, config=None):
         if connector is None and (row.get('source_context') == 'none_referenced'
                                   or row['result'].get('source_context') == 'none_referenced'):
             row['result']['delivery'] = 'not_applicable'
+            _drop_pending_outbox(row)
             inbox._save_file(inbox._event_path('receipts', receipt_id), row)
             return {'state': 'not_applicable', 'receipt_id': receipt_id,
                     'receipt': inbox._receipt(receipt_id, row, duplicate=False)}
@@ -56,6 +66,7 @@ def prepare(state_dir, identity, receipt_id, *, config=None):
             # Legacy actors may have answered through the source MCP themselves
             # (reported by the side AI, not host-observed). New actors cannot send.
             row['result']['delivery'] = 'side_mcp' if row['result'].get('reported_sends') else 'route_unavailable'
+            _drop_pending_outbox(row)
             inbox._save_file(inbox._event_path('receipts', receipt_id), row)
             return {'state': row['result']['delivery'], 'receipt_id': receipt_id,
                     'receipt': inbox._receipt(receipt_id, row, duplicate=False)}
@@ -73,15 +84,28 @@ def prepare(state_dir, identity, receipt_id, *, config=None):
                               'kind': kind, 'delivery': ['web']}}
 
 
-def retry(state_dir, identity, receipt_id, expected_state, confirmed=False):
-    """Explicit operator retry; ambiguous outcomes require duplicate-send consent."""
+def retry(state_dir, identity, receipt_id, expected_state, confirmed=False, *, attempt_ref=None, revision=None):
+    """Explicit operator retry; ambiguous outcomes require duplicate-send consent.
+
+    Pinned to the exact attempt the person saw (reply_attempt_ref plus
+    reply_revision, from retry_pin): after a retry went pending and uncertain
+    again, a late replay of the first click cannot resend the newer attempt.
+    """
+    needs = ("side reply retry needs the receipt's reply_revision and reply_attempt_ref; "
+             'refresh before retry')
+    if (type(revision) is not int or revision < 0
+            or attempt_ref is not None and (not isinstance(attempt_ref, str) or PIN_REF.fullmatch(attempt_ref) is None)):
+        raise WorkPlanError(needs)
     inbox = SideIntakeInbox(state_dir, identity)
     with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
         row = inbox._load(receipt_id)
         if not row or row.get('stage') != 'processed':
             raise WorkPlanError('processed side decision required')
+        pin = retry_pin(row)
+        if attempt_ref is None and 'reply_attempt_ref' in pin:
+            raise WorkPlanError(needs)
         current = row.get('outbox', {}).get('state') or row.get('result', {}).get('delivery', 'pending')
-        if current != expected_state:
+        if current != expected_state or pin != {'reply_revision': revision, **({'reply_attempt_ref': attempt_ref} if attempt_ref else {})}:
             raise WorkPlanError('side delivery changed; refresh before retry')
         if current not in ('failed', 'route_unavailable', 'uncertain', 'submitting'):
             raise WorkPlanError('this delivery cannot be retried')
@@ -92,7 +116,9 @@ def retry(state_dir, identity, receipt_id, expected_state, confirmed=False):
         row['outbox'] = {'state': 'pending'}
         row['result']['delivery'] = 'pending'
         inbox._save_file(inbox._event_path('receipts', receipt_id), row)
-        return inbox._receipt(receipt_id, row, duplicate=False)
+        # Operator surfaces (REST, web, ctl, the pane): the bounded redacted row
+        # GET /side lists, with the new delivery and pins; never the raw record.
+        return SideIntakeInbox._public_summary(receipt_id, row, now=time.time())
 
 
 def record(state_dir, identity, receipt_id, state, *, attempt_id):

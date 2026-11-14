@@ -71,7 +71,7 @@ ciel-runtimectl <subcommand> [args]
 
 ```bash
 ciel-runtimectl work list --json
-ciel-runtimectl work status
+ciel-runtimectl work status [--session claude:<uuid>] [--json]
 ciel-runtimectl work get work_mode
 ciel-runtimectl work set work_mode on
 ciel-runtimectl work set sse_injection_mode btw_with_mcp
@@ -79,9 +79,127 @@ ciel-runtimectl work set work_side_intake_max_active 2
 ciel-runtimectl work set work_side_intake_priority_policy adaptive
 ```
 
-초기 메뉴 `Work & SSE settings`, 실행 중 `/work-mode settings`, ctl은 같은
-검증기와 설정 저장소를 사용한다. `list`는 승인·자동 계속·보존·병렬 실행·탐색·
-SSE·사이드 설정 전체를 열거한다.
+초기 메뉴 `Work & SSE settings`, 실행 중 `/work-mode settings`, 웹 콘솔 Settings 탭
+(REST `settings-update`), ctl은 같은 검증기(`work_setting_values`)와 설정 저장소를
+사용한다. 키는 저장 전에 검증한다. 스위치는 어디서나
+`on/off/true/false/yes/no/1/0/enable(d)/disable(d)`를 받고 `default`/`unset`은 저장값을
+지워 기본값으로 되돌린다(`work_plan_approval_ask`는 `ask/auto`도 받는다). 숫자는 검증기
+범위의 정수 전부를 받는다(메뉴는 기타/Edit로 입력). `list`는 승인·자동 계속·보존·병렬
+실행·탐색·SSE·사이드 설정 전체를 열거한다. 병렬 원장을 읽을 수 없어도 모든 키가 남고
+원장 값은 `status: unreadable`로 표시된다.
+
+`--json` 값은 타입을 유지한다(boolean·정수·문자열, reply connector는 배열).
+`status`에는 `operational.device`(원장 version, 기기 용량 = P1~P5 한도 합, 사용 중 슬롯,
+우선순위별 사용량)와, `--session`을 주면 `operational.session`(대기 리뷰·stranded·
+superseded·legacy 리뷰·멈춘 rework 시작·불확실한 wake/재추가/알림·응답 outbox 상태별
+개수·review delivery 상태·수신 건수)이 붙는다. 개수와 상태만 내보내며 본문은 내보내지 않는다.
+
+`sse_injection_mode`는 하나의 실효값이다. 사이드 레인이 켜져 있고 기본 레인이
+`btw_with_mcp`일 때만 `btw_with_mcp`, 그 밖에는 `session`이다. 설정하면
+`btw_with_mcp`는 `{enabled: true, type: btw_with_mcp}`, `session`은
+`{enabled: false, type: btw_with_mcp}`를 저장한다(콘솔 `/btw_with_mcp on|off`와 같은
+바이트). 메뉴·ctl·REST(`settings-update`)·`/work-mode settings` 모두 이 키를 받는다.
+`work_side_intake_type`은 호환용 원시 키다.
+
+#### 운영자 조회와 조치
+
+웹 콘솔의 운영자 조회·조치는 ctl에서도 같다. ctl은 라우터가 마운트하는 것과 같은
+`WorkHttpController`를 이 프로세스에서 만들어 같은 REST 경로
+(`/ca/work/api/v1/...`, `/ca/work/api/v1/commands/<명령>`)를 호출한다. 검증·버전 고정·
+멱등성·감사는 한 구현에서 나온다. 라우터는 자기 `compaction-scope.json`의 대화만
+제공하므로(다른 세션은 422) 닫힌 대화의 리뷰를 처리하려면 이 방식이어야 한다.
+조치는 대상 대화를 `--session claude:<uuid>`(또는 `codex:<id>`)로 정확히 지정해야 한다.
+작업공간은 ctl을 실행한 현재 디렉터리이며 다른 작업공간 옵션은 없다(그 작업공간 설정을 함께 읽으므로 대화는 자기 작업공간에서만 조작한다). 이 작업공간에 Work 보드나 사이드 접수함이 없는 `--session`은 어떤 쓰기보다 먼저 거부된다.
+
+```bash
+ciel-runtimectl work sessions [--json]                 # 신원·마지막 활동·개수만, 내용 없음
+ciel-runtimectl work reviews --session S               # 대기/stranded/superseded/legacy 리뷰, rework 시작, 실패
+ciel-runtimectl work launches --session S              # 리뷰별 rework/복구 시작 상태(launch_ref, 멈춤 여부)
+ciel-runtimectl work capacity --session S              # 기기 용량·사용 슬롯·정책·포크 그룹 수·fork gate
+ciel-runtimectl work receipts|handoffs|notices|review-delivery|audit --session S
+ciel-runtimectl work receipt RECEIPT --session S
+ciel-runtimectl work orphan-preview --session S
+ciel-runtimectl work review-approve LEASE [EVIDENCE] --session S --confirm
+ciel-runtimectl work review-rework LEASE "필요한 변경" --session S
+ciel-runtimectl work launch-resolve LEASE --session S --confirm
+ciel-runtimectl work legacy-accept LEASE --session S --confirm
+ciel-runtimectl work orphan-release LEASE --session S --confirm [--preview-digest D]
+ciel-runtimectl work wake-retry EVENT --session S --confirm
+ciel-runtimectl work reappend-retry EVENT --session S --confirm
+ciel-runtimectl work review-reappend-retry LEASE --session S --confirm
+ciel-runtimectl work notice-retry RECEIPT --session S --confirm
+ciel-runtimectl work reply-retry RECEIPT --session S [--confirm]
+ciel-runtimectl work side-review-ok RECEIPT --session S
+ciel-runtimectl work side-review-corrected RECEIPT "무엇이 틀렸고 어떤 정정을 보냈는지" --session S
+ciel-runtimectl work handoff-ack EVENT ["source로 보낼 답"] --session S [--activate] [--clear-wait WAIT]
+ciel-runtimectl work side-drain [LIMIT] --session S
+ciel-runtimectl work operation-reconcile OPERATION --session S --confirm
+ciel-runtimectl work operation-release OPERATION --session S --confirm [--expected-version N]
+ciel-runtimectl work execute --session S --confirm [--expected-version N]
+```
+
+| ctl 조치 | REST 명령 | 확인 |
+|---|---|---|
+| `review-approve` / `review-rework` | `parallel-item-review` | approve만 `--confirm` |
+| `launch-resolve` | `parallel-launch-resolve` | `--confirm` |
+| `legacy-accept` | `parallel-legacy-accept` | `--confirm` |
+| `orphan-preview` / `orphan-release` | `parallel-orphans-preview` / `parallel-orphans-apply` | release는 `--confirm` |
+| `wake-retry` / `reappend-retry` | `side-wake-retry` / `side-reappend-retry` | `--confirm`(중복 가능) |
+| `review-reappend-retry` | `review-reappend-retry` | `--confirm`(중복 가능) |
+| `notice-retry` | `side-notice-retry` | `--confirm`(중복 가능) |
+| `reply-retry` | `side-reply-retry` | `uncertain`/`submitting`만 `--confirm`(중복 가능) |
+| `side-review-ok` / `side-review-corrected` | `side-review` | 없음(corrected는 메모 필수) |
+| `handoff-ack` (시간 제한 handoff 포함) | `side-handoff` | 없음 |
+| `side-drain` | `side-drain` | 없음 |
+| `execute` | `execute` (보드 명령, 웹 Execute와 같음) | `--confirm`(확인 전에 활성 계획 root·제목·phase·approval 표시) |
+| `operation-reconcile` | `operation-reconcile` | `--confirm` |
+| `operation-release` | `operation-release` | `--confirm`(효과가 이미 일어났을 수 있음, 재시도는 중복 가능) |
+
+`operation-reconcile`·`operation-release`는 `work audit`에서 결과가 `unknown`인 운영자
+영수증 하나를 정리한다. 대상은 그 영수증의 `operation_id`다(전체 또는 8자 이상의 고유한 앞부분). reconcile은
+그 명령이 쓰는 저장소를 읽기만 해서 효과가 적용됐는지 확인하며 아무것도 다시 실행하지 않는다
+(`applied` → 적용됨, `not_applied` → 새 키로 재시도, `not_observable` → `unknown` 유지). release는
+reconcile이 `not_observable`을 기록한 뒤에만 되며, 방금 읽은 `receipt_version`에 고정된다(목록 밖
+영수증은 `--expected-version`으로 준다). 결과는 `released_unverified`이고 효과는 다시 실행되지 않는다.
+이 두 명령 자체는 영수증이 아니라서 `Idempotency-Key`와 `--operation-id`는 쓰이지 않고, 128개 영수증이 모두
+`prepared`여서 새 명령이 `operator_receipts_full`로 거부될 때도 실행된다. 거부 코드:
+`unknown_operation`, `operation_not_unknown`, `reconcile_required`, `receipt_changed`.
+
+`execute`는 웹 콘솔의 Execute 버튼과 같은 보드 명령(`execute`, `user_confirmed: true`)이다.
+`approval=ask`에서 Work 대화상자가 없는 대화(Codex 등)의 계획 실행을 사람이 승인하는 경로다.
+`--confirm` 없이 실행하면 활성 계획의 root id·제목·phase·approval과 보낼 요청을 보여 주고 종료
+코드 3으로 끝난다. 요청은 방금 읽은 보드 버전(`GET /state`의 `version`)에 고정되며 그사이 계획이
+바뀌면 `version_conflict`(종료 코드 1)이다. 준비되지 않은 계획은 REST 검증기의 이유와 함께 거부된다.
+
+`work status --session S`와 `work capacity --session S`는 `GET /parallel`의 `fork_gate`
+(`state`: `loaded`·`not_loaded`·`unknown`, `reason`, `gate_version`, `observed_at`, `reported_at`, `message`)와
+`gate_presence_version`을 그대로 보여 준다. `message`가 null이 아니면 그 문장을 그대로 `warning:` 한 줄로
+먼저 출력한다(`--json`이면 `warnings` 배열). 예: `Work fork gate not loaded: parallel execution disabled`,
+보고가 아직 없으면 `Work fork gate presence not reported by this conversation's Work host`. 표시만 하며
+ctl은 이 상태로 어떤 조치도 거부하지 않는다.
+
+`--confirm`은 웹 콘솔이 위험 확인 대화상자를 띄우는 조치에만 필요하다. 없으면 콘솔과 같은
+경고와 보낼 요청을 출력하고 아무것도 바꾸지 않은 채 종료 코드 3으로 끝난다. 거부·버전
+충돌·검증 오류는 Python traceback 없이 한 줄(`--json`이면 JSON 객체 하나)과 종료 코드 1이다.
+대상 id는 조회 화면의 전체 id 또는 8자 이상의 고유한 앞부분이다. 지금 목록에 없는 전체 id는
+ctl이 거르지 않고 그대로 보내 REST 검증기가 판단한다(이미 결정된 리뷰의 재시도 등). 버전·참조
+(`expected_version`, `expected_finalization_version`, `launch_ref`, `attempt_ref`,
+`revision`, `preview_digest`)는 웹 콘솔처럼 방금 읽은 조회에서 채우며, 이전 조회에 고정하려면
+`--expected-version`, `--expected-finalization-version`, `--attempt-ref`, `--revision`,
+`--preview-digest`로 지정한다. 바뀌었으면 거부된다(다시 조회 후 재실행).
+`review-approve`·`review-rework`는 조회한 행에 `review_pin`(`rp1:` + 64 hex)이 있으면 그것을
+`expected_review_pin`으로 함께 보낸다(`--expected-review-pin`으로 이전 조회의 값을 줄 수 있다).
+pin이 행과 같으면 다른 리뷰나 wake 기록 때문에 버전이 바뀌어도 결정이 거부되지 않고, pin이
+없으면 `expected_finalization_version` 규칙이 그대로 적용된다. 같은 조치를
+멱등하게 재시도하려면 `--operation-id`를 같은 값으로 주고, 응답 `request`에 기록된 고정값
+(예: `expected_finalization_version`)도 같은 값으로 준다. 서버는 요청 전체의 digest로 재실행을
+판정하므로 같은 키로 다른 요청을 보내면 `idempotency_conflict`(종료 코드 1)이다. 키를 주지 않으면
+`ctl-<uuid>` 키가 붙는다. 모든 성공한 조치는 세션 감사 기록(`work audit`)에 남는다.
+
+고아 lease 해제는 메뉴·ctl·웹 모두 고정된 미리보기 하나에 대해 lease 하나씩만 해제한다.
+미리보기 digest가 바뀌었으면(다른 lease·소유자 관측·원장 version 변경) 아무것도
+해제하지 않는다. 메뉴의 선택지는 각각 그 미리보기의 digest를 담고 있으며 일괄 `apply`는
+없다.
 
 SSE 이벤트 하나는 **네이티브 `fork` 하나**로 처리한다. 포크는 메인 세션의 모델·
 대화 문맥·도구·권한 모드를 그대로 상속한다. 별도 사이드 모델, 등록된 사이드 agent
@@ -95,7 +213,9 @@ SSE 이벤트 하나는 **네이티브 `fork` 하나**로 처리한다. 포크�
 설정 제어, Work 변경, Agent 호출, source로의 직접 ACK·응답·전송을 금지하고 결정 JSON
 하나만 반환하도록 요구한다. 도구 호출은 메인의 호출과 같은 경로(Work 게이트·네이티브
 권한)를 탄다. 결정은 host가 원자적으로 커밋하고 host outbox가 정확히 한 번 source
-reply를 보낸다. 중복 제거, P1 예약 슬롯, `work_side_intake_max_active`는 그대로다.
+reply를 보낸다. 중복 제거, `work_side_intake_max_active`, SSE 사이드 포크의 P1 예약
+슬롯(동시 사이드 포크가 `max_active`에 도달해도 P1 이벤트용으로 1개를 더 허용)은 그대로다.
+Work 병렬 실행 원장에는 P1 예약 슬롯이 없고 P1~P5별 동시 한도만 있다.
 
 Walkie 이벤트는 포크를 띄우기 전에 host가 정규 thread root를 검증해 읽는다.
 root는 `data.thread_root_id`, `message_context.thread_task.root_id`, 대상 메시지 id 순으로
@@ -227,6 +347,52 @@ ciel-runtimectl api-key deepseek sk-...
 ciel-runtimectl api-keys [PROVIDER] [KEY1] [KEY2] ...
 ```
 다중 API 키 설정 (로테이션용).
+
+`api-key`·`set-api-key`·`set-api-keys`는 **영구 저장** 키다. 실행 중인 한 세션에만
+메모리로 쓰는 키는 아래 `session-api-key`를 쓴다.
+
+#### `session-api-key`
+```bash
+ciel-runtimectl session-api-key list [--json]
+ciel-runtimectl session-api-key inspect --session claude:<uuid> [--provider PROVIDER] [--json]
+ciel-runtimectl session-api-key inject  --session claude:<uuid> --provider PROVIDER [--ttl-seconds N]
+                                        [--operation-id ID] [--stdin | --key-file - | --fd N] [--json]
+ciel-runtimectl session-api-key replace --session claude:<uuid> --provider PROVIDER --expected-version N
+                                        [--operation-id ID] [--stdin | --key-file - | --fd N] [--json]
+ciel-runtimectl session-api-key clear   --session claude:<uuid> --provider PROVIDER --expected-version N
+                                        [--operation-id ID] [--json]
+ciel-runtimectl session-api-key reset-state [--stdin] [--operation-id ID]
+```
+`reset-state`: router-wide; after reset, sessions previously blocked use their stored key.
+경고를 출력한 뒤 확인 문구를 받는다. 터미널이면 숨김 프롬프트에 정확히 입력하고, 아니면
+`--stdin`으로 표준 입력에 준다. 문구는 명령줄로 받지 않는다(명령줄에 적으면 되풀이하지 않는
+고정 문구로 거부하고 종료 코드 2). 문구가 다르면 "Not confirmed; nothing changed."와 종료 코드 1이다.
+한 세션과 한 provider에만 쓰는 **메모리 전용** 키다. 디스크에 저장하지 않으며 영구 키
+(`api-key`/`set-api-key`/`set-api-keys`)는 바뀌지 않는다. ctl은 이 작업공간의 loopback
+라우터에 관리자 토큰으로 요청하며, 출력은 메타데이터(session·provider·source·version·
+injected_at·expires_at·fingerprint)뿐이고 키 값은 출력하지 않는다.
+
+키는 **명령줄로 받지 않는다**(프로세스 목록에 남지 않도록). 키를 받는 위치 인자나 옵션은
+없고, 다음 중 하나로만 읽는다:
+- 터미널이면 숨김 입력 프롬프트(기본)
+- `--stdin` 또는 `--key-file -`: 표준 입력 (`--key-file`은 `-`만 받는다)
+- `--fd N`: 상속받은 파일 디스크립터
+
+키 출처는 하나만 지정할 수 있다. 이 명령의 인자 오류(알 수 없는 인자, 잘못된 값)는
+입력한 값을 되풀이하지 않는 고정 문구로 거부하고 종료 코드 2로 끝난다. 실수로 명령줄에
+적은 키가 터미널이나 로그에 다시 찍히지 않게 하기 위해서다. 옵션 축약(`--sess` 등)은
+받지 않는다. `replace`와 `clear`는 `inspect`가 보여 준 `--expected-version`이 필요하다.
+`--operation-id`(별칭 `--idempotency-key`)는 REST의 `Idempotency-Key`로 보내며, 같은
+id로 재시도하면 한 번만 적용된다. 라우터나 vault가 거부하면 `code: message`를 출력하고
+종료 코드 1로 끝난다.
+
+```bash
+# 숨김 프롬프트
+ciel-runtimectl session-api-key inject --session claude:<uuid> --provider anthropic
+# 파일에서 표준 입력으로 (bash / PowerShell)
+ciel-runtimectl session-api-key inject --session claude:<uuid> --provider anthropic --key-file - < key.txt
+Get-Content -Raw key.txt | ciel-runtimectl session-api-key inject --session claude:<uuid> --provider anthropic --key-file -
+```
 
 #### `tokens`
 ```bash

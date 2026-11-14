@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import socket
+import threading
 import time
 import urllib.error
 from dataclasses import dataclass
@@ -15,6 +17,45 @@ from .cielairouter_gateway_overlay import discovery_provider_config
 MODEL_LIST_TIMEOUT_SECONDS = 20.0
 # Pause before the single retry after a timeout or a dropped connection.
 MODEL_LIST_RETRY_BACKOFF_SECONDS = 1.0
+# After an authoritative catalog fetch fails, request-path lookups reuse the
+# failure for this long instead of stalling every concurrent message (B4).
+# It is not a catalog cache and never persists; force_refresh bypasses it.
+MODEL_LIST_FAILURE_COOLDOWN_SECONDS = 60.0
+_FAILURE_COOLDOWN: dict[tuple[str, ...], tuple[float, str]] = {}
+_FAILURE_COOLDOWN_LOCK = threading.Lock()
+
+
+def _failure_key(provider: str, pcfg: dict[str, Any]) -> tuple[str, ...]:
+    """The catalog request identity: provider, catalog endpoint, account and key.
+
+    The key is reduced to a short digest; only this process's memory holds it.
+    """
+    secret = str(pcfg.get("api_key") or "")
+    digest = hashlib.sha256(secret.encode("utf-8")).hexdigest()[:16] if secret else ""
+    return (provider, str(pcfg.get("base_url") or "").rstrip("/"),
+            str(pcfg.get("model_api_base_url") or "").rstrip("/"), str(pcfg.get("account_id") or ""), digest)
+
+
+def _cooldown_cause(provider: str, pcfg: dict[str, Any]) -> str:
+    with _FAILURE_COOLDOWN_LOCK:
+        item = _FAILURE_COOLDOWN.get(_failure_key(provider, pcfg))
+        if item is None:
+            return ""
+        expires_at, cause = item
+        if time.monotonic() >= expires_at:
+            _FAILURE_COOLDOWN.pop(_failure_key(provider, pcfg), None)
+            return ""
+        return cause
+
+
+def _remember_failure(provider: str, pcfg: dict[str, Any], cause: str) -> None:
+    with _FAILURE_COOLDOWN_LOCK:
+        _FAILURE_COOLDOWN[_failure_key(provider, pcfg)] = (time.monotonic() + MODEL_LIST_FAILURE_COOLDOWN_SECONDS, cause)
+
+
+def _forget_failure(provider: str, pcfg: dict[str, Any]) -> None:
+    with _FAILURE_COOLDOWN_LOCK:
+        _FAILURE_COOLDOWN.pop(_failure_key(provider, pcfg), None)
 
 _T = TypeVar("_T")
 
@@ -288,6 +329,17 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
         }
         write_model_list_cache(provider, pcfg, sorted_ids, metadata)
         return sorted_ids
+    # Only lookups that accept the configured fallback reuse a recent failure;
+    # an explicit selection (require_catalog) or refresh always asks again.
+    if catalog_policy.authoritative_upstream_catalog and not force_refresh and not require_catalog:
+        cause = _cooldown_cause(provider, pcfg)
+        if cause:
+            router_log("INFO", f"model_list_unavailable_cooldown provider={provider} cause={cause}")
+            return sorted_model_ids(unique_model_ids(provider, [
+                *catalog_policy.fallback_models,
+                *(pcfg.get("custom_models", []) or []),
+                pcfg.get("current_model") or "",
+            ]))
     if catalog_policy.kind == "nvidia":
         base = (pcfg.get("base_url") or nvidia_upstream_base_url()).rstrip("/")
     else:
@@ -339,6 +391,7 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
         failure = error
         ids = []
     if fetched and catalog_policy.authoritative_upstream_catalog:
+        _forget_failure(provider, pcfg)
         ids = supplement_model_aliases(ids, model_info)
         sorted_ids = sorted_model_ids(unique_model_ids(provider, ids))
         metadata = {"model_info": model_info} if model_info else None
@@ -350,6 +403,7 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
         # "not in the provider catalog" until a forced refresh (Walkie 49376).
         cause = model_list_failure_cause(failure, timeout)
         router_log("WARN", f"model_list_unavailable provider={provider} cause={cause}")
+        _remember_failure(provider, pcfg, cause)
         if require_catalog:
             raise ModelListUnavailableError(provider, cause)
         return sorted_model_ids(unique_model_ids(provider, [

@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
+from .secret_command_redaction import redact_api_key_command_text, redact_api_key_command_turns
 from .usage_events import UsageEvent
 
 
@@ -125,7 +126,7 @@ class RouterMessagePreviewPolicy:
         limit = self.configured_chars(config)
         if limit <= 0:
             return {}
-        text = self.latest_user_text(body).strip()
+        text = str(redact_api_key_command_text(self.latest_user_text(body)) or "").strip()
         if not text:
             return {
                 "message_preview_chars": limit,
@@ -237,6 +238,8 @@ def dump_request_for_trace(
     if not services.policy.enabled():
         return
     try:
+        # A `/api-key KEY` turn, current or in history, never reaches the file.
+        body = redact_api_key_command_turns(body)
         _rotate_if_oversized(
             services.policy.request_path,
             services.policy.request_max_bytes,

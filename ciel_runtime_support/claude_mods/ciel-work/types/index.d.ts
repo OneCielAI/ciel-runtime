@@ -6,10 +6,12 @@ export type ObservatoryView = { session: string; tab: 'work' | 'side' | 'setting
   workTab: 'progress' | 'queue' | 'completed'; page: number; detailPage: number; detailList?: boolean;
   sideReceipt?: string | null; sidePage?: number; sideP1?: boolean;
   settingsPage?: number; settingsKey?: string | null; settingsChoicePage?: number }
-// One idle-path plugin prompt delivery identity: key is parallel:<lease>,
-// side:<event> or notice:<digest> (at most 300 chars), plus an optional
-// redacted attempt_ref. Pending rows fence an unresolved raw prompt; terminal
-// rows keep the bounded terminal outcome so the same identity is not resent.
+// One host-held delivery identity (at most 300 chars), plus an optional ref.
+// parallel:<lease>: a Work review prompt. wake:<event> and wake:notice:<event>:
+// the prompt that wakes an idle main for an appended row; it holds no payload.
+// side:<event> and notice:<digest>: the claim an old router's wake or notice
+// needs before its idle append. Pending rows fence an unresolved identity;
+// terminal rows keep the bounded outcome so the same identity is not resent.
 export type PromptPending = { key: string; generation: string; ref?: string; status?: 'pending' | 'terminal';
   outcome?: 'queued' | 'failed' | 'uncertain'; settledAt?: number }
 declare module 'claude-code' {

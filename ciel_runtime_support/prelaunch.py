@@ -56,6 +56,7 @@ MAIN_MENU_ACTIONS: tuple[str, ...] = (
     "provider-fallback",
     "unattended-restart",
     "work-settings",
+    "session-api-keys",
     "quit",
 )
 
@@ -202,6 +203,9 @@ class PrelaunchOptions:
     remote_instruction_panel_rows: Callable[..., Any] = lambda _cfg: (["Back"], ["back"])
     set_remote_instruction_config: Callable[..., Any] = lambda _key, _value: []
     workspace_mcp: Any = None
+    # () -> session_api_key_client.SessionApiKeyClient for this workspace's router;
+    # None hides nothing but makes the panel say no router client is available.
+    session_api_key_client: Callable[[], Any] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -307,6 +311,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     remote_instruction_panel_rows = services.options.remote_instruction_panel_rows
     set_remote_instruction_config = services.options.set_remote_instruction_config
     workspace_mcp = services.options.workspace_mcp
+    session_api_key_client = services.options.session_api_key_client
     request_limit_panel_rows = services.mutations.request_limits.panel_rows
     request_limit_prompt_default = services.mutations.request_limits.prompt_default
     set_request_limit_config = services.mutations.request_limits.update
@@ -319,6 +324,10 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
     panel: str | None = None
     settings_key = ''
     settings_parent = 'work-settings'
+    # Work settings pin: the fingerprint of the configuration the choice panel
+    # showed, and a value refused by a concurrent change, offered again.
+    settings_pin: str | None = None
+    settings_retry: dict[str, str] = {}
     panel_idx = 0
     panel_rows: list[str] = []
     panel_values: list[str] = []
@@ -413,6 +422,11 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
         elif name in ('work-settings', 'side-settings'):
             from .work_settings_menu import panel_rows as settings_rows
             panel_rows, panel_values = settings_rows(cfg, side=name == 'side-settings')
+        elif name == "session-api-keys":
+            from ciel_runtime_support import session_api_key_menu
+
+            state, error = session_api_key_menu.load(session_api_key_client)
+            panel_rows, panel_values = session_api_key_menu.panel_rows(state, error)
         elif name == "unattended-restart":
             from ciel_runtime_support import unattended_restart_menu
 
@@ -1169,6 +1183,27 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     )
                     panel_rows, panel_values = web_access_menu.panel_rows(accounts, token_repository)
                     panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
+                elif panel == "session-api-keys":
+                    if value == "back":
+                        close_panel()
+                        continue
+                    if value == "__info__":
+                        continue
+                    from ciel_runtime_support import session_api_key_menu
+
+                    messages = session_api_key_menu.apply(
+                        value,
+                        session_api_key_client,
+                        lambda label, default: prompt_menu_value(
+                            label, default, restore_tty=restore_line_mode, raw_tty=restore_raw_mode,
+                        ),
+                        lambda label: prompt_menu_value(
+                            label, "", secret=True, restore_tty=restore_line_mode, raw_tty=restore_raw_mode,
+                        ),
+                    )
+                    state, error = session_api_key_menu.load(session_api_key_client)
+                    panel_rows, panel_values = session_api_key_menu.panel_rows(state, error)
+                    panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
                 elif panel == "dangerous-rm":
                     if value == "back":
                         close_panel()
@@ -1214,27 +1249,38 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     if value == 'back':
                         close_panel()
                         continue
-                    from .work_settings_menu import choices, description
-                    messages = [description(load_config(), value)]
+                    if value == '__info__':
+                        continue  # read-only fork watch rows
+                    from .work_settings_menu import choices, description, menu_pin
+                    shown_config = load_config()
+                    messages = [description(shown_config, value)]
                     settings_key = value
                     settings_parent = panel
-                    panel_rows, panel_values = choices(load_config(), value)
+                    settings_pin = menu_pin(shown_config)
+                    panel_rows, panel_values = choices(shown_config, value)
                     panel = 'work-setting-choice'
-                    panel_idx = 0
+                    # A value refused by a concurrent change is the default:
+                    # the cursor starts on it, or on Edit for a typed value.
+                    retry = settings_retry.get(value)
+                    panel_idx = (panel_values.index(retry) if retry in panel_values
+                                 else panel_values.index('__edit__') if retry is not None and '__edit__' in panel_values
+                                 else 0)
                 elif panel == 'work-setting-choice':
-                    from .work_settings_menu import apply as apply_settings, apply_feedback
+                    from .work_settings_menu import apply_choice
                     if value == 'back':
                         open_panel(settings_parent)
                         continue
                     entered = value
                     if value == '__edit__':
-                        entered = prompt_menu_value(settings_key, '', restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
-                    try:
-                        apply_config = load_config()
-                        apply_settings(apply_config, settings_key, entered, save_config)
-                        feedback = [apply_feedback(apply_config, settings_key, entered)]
-                    except (ValueError, OSError, RuntimeError) as error:
-                        feedback = [str(error)]
+                        entered = prompt_menu_value(settings_key, settings_retry.get(settings_key, ''),
+                                                    restore_tty=restore_line_mode, raw_tty=restore_raw_mode)
+                    # Pinned to what the choice panel showed: a change made
+                    # elsewhere meanwhile is refused and the panel reloads.
+                    feedback, retry = apply_choice(load_config, save_config, settings_key, entered, settings_pin)
+                    if retry is None:
+                        settings_retry.pop(settings_key, None)
+                    else:
+                        settings_retry[settings_key] = str(retry)
                     open_panel(settings_parent)
                     settings_feedback = feedback
                 elif panel == "unattended-restart":

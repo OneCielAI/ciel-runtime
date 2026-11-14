@@ -1,5 +1,6 @@
 """Backend side-wake protocol: election, fencing, crash windows, ACK, mixed versions."""
 import concurrent.futures
+from contextlib import contextmanager
 import json
 import re
 import subprocess
@@ -19,8 +20,67 @@ from ciel_runtime_support.work_mcp_tools import dispatch_work_tool
 from ciel_runtime_support.work_plan_store import WorkPlanConflict, session_work_plan_store
 
 ROOT = Path(__file__).resolve().parents[1]
-OLD = '8e08b97bf29878a9cf7302c5e945c0307675aa06'
+OLD_READERS = ('57dbfb3ac9c8d9f1a42e89a038d27e16f4fab409',
+               '8e08b97bf29878a9cf7302c5e945c0307675aa06')
 FAMILIAR = {'pending', 'failed', 'submitting', 'queued', 'appended', 'uncertain', 'acknowledged'}
+LEGACY_FILES = ('side_intake_limits.py', 'work_plan_tree.py', 'work_plan_store.py', 'side_wake.py')
+
+
+def _legacy_sources(commit, names=LEGACY_FILES):
+    sources = {}
+    for name in names:
+        done = subprocess.run(['git', 'show', f'{commit}:ciel_runtime_support/{name}'], cwd=ROOT,
+                              capture_output=True, text=True, encoding='utf-8', check=False)
+        if done.returncode:
+            return None
+        sources[name] = done.stdout
+    return sources
+
+
+@contextmanager
+def legacy_wake_modules(commit):
+    """Load one historical store/tree/wake set without replacing current modules."""
+    sources = _legacy_sources(commit)
+    if sources is None:
+        yield None
+        return
+    import ciel_runtime_support.channel_message_repository  # noqa: F401 - bound by the old absolute import
+    import ciel_runtime_support.durable_json_file as durable_json_file
+    import ciel_runtime_support.work_session_lineage as work_session_lineage
+    prefix = '_legacy_wake_' + commit[:7]
+    package = types.ModuleType(prefix)
+    package.__path__ = []
+    modules = {name[:-3]: types.ModuleType(prefix + '.' + name[:-3]) for name in LEGACY_FILES}
+    # The reader/normalizer, store and side_wake are exact old source. Their
+    # file-write and session-path helpers are bound to the current modules; the
+    # old store resolves them lazily through this isolated package name.
+    aliases = {prefix: package, **{module.__name__: module for module in modules.values()},
+               prefix + '.durable_json_file': durable_json_file,
+               prefix + '.work_session_lineage': work_session_lineage}
+    saved = {name: sys.modules.get(name) for name in aliases}
+    sys.modules.update(aliases)
+    try:
+        for name in ('side_intake_limits', 'work_plan_tree', 'work_plan_store', 'side_wake'):
+            module = modules[name]
+            module.__package__ = prefix
+            # The old store's absolute `from ciel_runtime_support.work_plan_tree`
+            # must bind the old generation, only while that source executes.
+            current_tree = sys.modules['ciel_runtime_support.work_plan_tree']
+            if name == 'work_plan_store':
+                sys.modules['ciel_runtime_support.work_plan_tree'] = modules['work_plan_tree']
+            try:
+                exec(compile(sources[name + '.py'], f'{commit}:{name}.py', 'exec'), module.__dict__)
+            finally:
+                sys.modules['ciel_runtime_support.work_plan_tree'] = current_tree
+            setattr(package, name, module)
+        assert modules['work_plan_store'].normalize_document is modules['work_plan_tree'].normalize_document
+        yield modules
+    finally:
+        for name, previous in saved.items():
+            if previous is None:
+                sys.modules.pop(name, None)
+            else:
+                sys.modules[name] = previous
 
 
 class Board:
@@ -277,11 +337,30 @@ class SideWakeProtocolTests(unittest.TestCase):
             nonce = 'owner-nonce-' + 'f' * 20
             prepared = board.elect(nonce, 'append')
             side_wake.start(board.store, board.event, prepared['attempt_id'], nonce, 'append')
-            side_wake.record(board.store, board.event, 'uncertain', prepared['attempt_id'],
-                             owner_nonce=nonce, receipt='receipt-uuid-7777')
-            secrets = (prepared['attempt_id'], nonce, 'receipt-uuid-7777', 'ciel-side-wake')
-            # Host-authenticated internal state keeps the raw values.
+            side_wake.record(board.store, board.event, 'appended', prepared['attempt_id'],
+                             owner_nonce=nonce, receipt='receipt-uuid-7777', conversation_id='claude:internal-route')
+            prompt = side_wake.prepare_prompt(board.store, board.event, 'prompt-owner-secret', 'claude:internal-route')
+            # A conversation change left a reappend lease with its own owner,
+            # attempt, conversation and an unknown-outcome receipt nested inside.
+            reappend = side_wake.prepare_reappend(board.store, board.event, 'reappend-owner-secret',
+                                                  'claude:other-route')
+            side_wake.record_reappend(board.store, board.event, reappend['attempt_id'], 'reappend-owner-secret',
+                                      'uncertain', receipt='reappend-receipt-4242')
+            secrets = (prepared['attempt_id'], nonce, 'receipt-uuid-7777', 'ciel-side-wake',
+                       'claude:internal-route', prompt['attempt_id'], 'prompt-owner-secret',
+                       'claude:other-route', reappend['attempt_id'], 'reappend-owner-secret', 'reappend-receipt-4242')
+            # Host-authenticated internal state keeps the raw nested values.
             self.assertEqual((prepared['attempt_id'], nonce), (board.wake()['attempt_id'], board.wake()['owner_nonce']))
+            self.assertEqual(('prompt-owner-secret', 'claude:internal-route'),
+                             (board.wake()['prompt']['owner_nonce'], board.wake()['prompt']['conversation_id']))
+            self.assertEqual(('uncertain', 'reappend-receipt-4242', 'claude:other-route'),
+                             tuple(board.wake()['reappend'][key] for key in ('state', 'receipt', 'conversation_id')))
+            # Even the host-authenticated claim never hands out an owner fence or
+            # a nested lease: a claim reader cannot record for another owner.
+            offered = json.dumps(board.call('work_side_claim', {'owner': 'claim-reader'})['main_wakes'])
+            for secret in (nonce, 'prompt-owner-secret', 'reappend-owner-secret', prompt['attempt_id'],
+                           reappend['attempt_id'], 'reappend-receipt-4242', 'claude:other-route'):
+                self.assertNotIn(secret, offered)
             outputs = {
                 'work_status_json': board.call('work_status', {'format': 'json'}),
                 'work_status_text': board.call('work_status', {}, text=True),
@@ -298,11 +377,24 @@ class SideWakeProtocolTests(unittest.TestCase):
             # work_side_status receipt summary carries them (outside this fix).
             generations = {(row.get('processing') or {}).get('generation')
                            for row in outputs['work_side_status']['side_inbox_receipts']}
+            refs = {side_wake.attempt_ref(attempt) for attempt in
+                    (prepared['attempt_id'], prompt['attempt_id'], reappend['attempt_id'])}
             for name, value in outputs.items():
                 text = value if isinstance(value, str) else json.dumps(value)
                 with self.subTest(output=name):
                     for secret in secrets:
                         self.assertNotIn(secret, text)
+                    # One exact exception: an operator command's top-level
+                    # operation_id is its server-minted idempotency key
+                    # ("server-" + uuid4().hex, work_http_controller.operator),
+                    # the caller's receipt for its own command. Only that key, only
+                    # that shape, and never equal to a wake secret or ref; it is
+                    # removed before the scan, so every other 32-hex token fails.
+                    if isinstance(value, dict) and 'operation_id' in value:
+                        operation = value['operation_id']
+                        self.assertRegex(operation, r'\Aserver-[0-9a-f]{32}\Z')
+                        self.assertNotIn(operation[len('server-'):], {*secrets, *refs})
+                        text = json.dumps({key: item for key, item in value.items() if key != 'operation_id'})
                     # Attempt ids are uuid4().hex: a standalone 32-hex token. Event
                     # and receipt ids are 64-hex and are allowed.
                     tokens = re.findall(r'(?<![0-9a-f])[0-9a-f]{32}(?![0-9a-f])', text)
@@ -312,7 +404,7 @@ class SideWakeProtocolTests(unittest.TestCase):
                     self.assertEqual([], [token for token in tokens if token not in allowed])
             self.assertTrue(generations and all(isinstance(g, str) and len(g) == 32 for g in generations))
             self.assertIsNotNone(outputs['fork_handoff_context'])
-            self.assertTrue(outputs['work_side_status']['main_handoffs'][0]['delivery_uncertain'])
+            self.assertFalse(outputs['work_side_status']['main_handoffs'][0]['delivery_uncertain'])
 
     def test_record_is_fenced_idempotent_and_keeps_receipt(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -418,41 +510,85 @@ class SideWakeProtocolTests(unittest.TestCase):
             result = other.call('work_side_wake', {'event_id': other.event, 'state': 'prepare'})
             self.assertNotEqual('submitting', result['state'])
 
-    def test_every_transition_keeps_old_reader_states_and_old_normalizer_round_trips(self):
-        with tempfile.TemporaryDirectory() as raw:
-            board = Board(raw)
-            seen = [board.wake()['state']]
-            prepared = board.elect('A')
-            seen.append(board.wake()['state'])
-            side_wake.start(board.store, board.event, prepared['attempt_id'], 'A', 'prompt')
-            seen.append(board.wake()['state'])
-            side_wake.record(board.store, board.event, 'uncertain', prepared['attempt_id'], owner_nonce='A')
-            seen.append(board.wake()['state'])
-            self.assertLessEqual(set(seen), FAMILIAR)
-            raw_doc = json.loads(board.store.path.read_text(encoding='utf-8'))
-            try:
-                source = subprocess.run(['git', 'show', OLD + ':ciel_runtime_support/work_plan_tree.py'], cwd=ROOT,
-                                        capture_output=True, text=True, encoding='utf-8', check=True).stdout
-            except (OSError, subprocess.CalledProcessError) as error:
-                # Same rule as legacy_module() in test_work_parallel_finalization: a shallow
-                # checkout (CI) has no old commit to read the old reader from.
-                raise unittest.SkipTest('legacy source unavailable: ' + OLD) from error
-            package = types.ModuleType('old_ciel_pkg')
-            package.__path__ = []
-            limits = types.ModuleType('old_ciel_pkg.side_intake_limits')
-            from ciel_runtime_support.side_intake_limits import SIDE_INTAKE_TEXT_MAX_CHARS
-            limits.SIDE_INTAKE_TEXT_MAX_CHARS = SIDE_INTAKE_TEXT_MAX_CHARS
-            old = types.ModuleType('old_ciel_pkg.work_plan_tree')
-            old.__package__ = 'old_ciel_pkg'
-            sys.modules.update({'old_ciel_pkg': package, 'old_ciel_pkg.side_intake_limits': limits})
-            try:
-                exec(compile(source, 'old_work_plan_tree.py', 'exec'), old.__dict__)
-                normalized = old.normalize_document(raw_doc)
-            finally:
-                sys.modules.pop('old_ciel_pkg', None)
-                sys.modules.pop('old_ciel_pkg.side_intake_limits', None)
-            self.assertEqual(raw_doc['side_handoffs'][board.event]['wake'],
-                             normalized['side_handoffs'][board.event]['wake'])
+    @staticmethod
+    def _new_wake_shape(board, shape):
+        """Build one current wake shape only through the current side_wake API."""
+        seen = [board.wake()['state']]
+        prepared = board.elect('A')
+        seen.append(board.wake()['state'])
+        side_wake.start(board.store, board.event, prepared['attempt_id'], 'A', 'prompt')
+        seen.append(board.wake()['state'])
+        # A timer-path append settled from one exact API-view ref row records a
+        # non-uuid receipt; side_wake's validator takes any bounded string.
+        side_wake.record(board.store, board.event, 'appended', prepared['attempt_id'], owner_nonce='A',
+                         receipt='ref:0123456789abcdef', conversation_id='claude:old-conversation')
+        seen.append(board.wake()['state'])
+        prompt = side_wake.prepare_prompt(board.store, board.event, 'prompt-owner', 'claude:old-conversation')
+        side_wake.record_prompt(board.store, board.event, prompt['attempt_id'], 'prompt-owner', 'queued')
+        if shape == 'unread':
+            # Active prompt and reappend leases: the conversation changed before read.
+            side_wake.prepare_reappend(board.store, board.event, 'reappend-owner', 'claude:new-conversation')
+            fields = ('receipt', 'conversation_id', 'prompt', 'reappend')
+        else:
+            side_wake.mark_read(board.store, board.event)
+            fields = ('receipt', 'conversation_id', 'read_at')
+        seen.append(board.wake()['state'])
+        return seen, fields
+
+    def test_old_store_and_side_wake_writers_keep_every_new_wake_field(self):
+        # Mixed version: an installed older router process runs its own
+        # WorkPlanStore semantic transaction and its own side_wake mutation on a
+        # document whose wake rows carry the new fields. Each generation's
+        # work_plan_tree, work_plan_store and side_wake run as exact historical
+        # source in an isolated module namespace; nothing is mutated by hand.
+        unavailable = []
+        for old_commit in OLD_READERS:
+            for shape in ('unread', 'read'):
+                with self.subTest(old_commit=old_commit[:7], shape=shape), tempfile.TemporaryDirectory() as raw:
+                    board = Board(raw)
+                    seen, fields = self._new_wake_shape(board, shape)
+                    self.assertLessEqual(set(seen), FAMILIAR)
+                    path = Path(board.store.path)
+                    before = json.loads(path.read_text(encoding='utf-8'))
+                    expected = before['side_handoffs'][board.event]['wake']
+                    for field in fields:
+                        self.assertIn(field, expected)
+                    self.assertEqual('ref:0123456789abcdef', expected['receipt'])
+                    with legacy_wake_modules(old_commit) as old:
+                        if old is None:
+                            # A shallow checkout (CI) lacks the historical commit.
+                            unavailable.append(old_commit)
+                            continue
+                        # The loaded code is the old generation, not today's.
+                        self.assertFalse(hasattr(old['side_wake'], 'prepare_prompt'))
+                        self.assertEqual(expected, old['work_plan_tree'].normalize_document(before)
+                                         ['side_handoffs'][board.event]['wake'])
+                        old_store = old['work_plan_store'].WorkPlanStore(path)
+                        old_store.transaction(lambda d: old['work_plan_tree'].add_node(d, None, 'old writer ' + old_commit[:7]))
+                        if hasattr(old['side_wake'], 'mark_ack_retry'):
+                            old['side_wake'].mark_ack_retry(old_store, board.event)
+                            changed = {'needs_ack_retry': True, 'revision': expected['revision'] + 1}
+                        else:
+                            # 8e08b97 knows only prepare/record. prepare on an
+                            # appended wake returns it without changing it.
+                            self.assertEqual('appended', old['side_wake'].prepare(old_store, board.event)['state'])
+                            changed = {}
+                    after = json.loads(path.read_text(encoding='utf-8'))
+                    self.assertEqual(before['version'] + 1, after['version'])
+                    self.assertIn('old writer ' + old_commit[:7], [node['title'] for node in after['nodes']])
+                    self.assertEqual({**expected, **changed}, after['side_handoffs'][board.event]['wake'])
+                    # The current host still sees the same fences after old writes.
+                    if shape == 'unread':
+                        self.assertEqual('already_queued', side_wake.prepare_prompt(
+                            board.store, board.event, 'later-owner', 'claude:old-conversation')['state'])
+                        self.assertEqual('already_submitting', side_wake.prepare_reappend(
+                            board.store, board.event, 'later-owner', 'claude:new-conversation')['state'])
+                    else:
+                        self.assertEqual('already_read', side_wake.prepare_prompt(
+                            board.store, board.event, 'later-owner', 'claude:new-conversation')['state'])
+        if len(set(unavailable)) == len(OLD_READERS):
+            self.skipTest('no historical commit in this checkout')
+        self.assertEqual([], unavailable, 'one historical commit is missing from this checkout')
 
     def test_concurrent_wake_and_work_writers_preserve_each_other(self):
         with tempfile.TemporaryDirectory() as raw:

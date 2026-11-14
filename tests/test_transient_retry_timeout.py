@@ -1,7 +1,6 @@
 """CielAiRouter typed open-timeouts spend the shared preacceptance allowance."""
 import socket
 import json
-import ssl
 import unittest
 import urllib.error
 from unittest import mock
@@ -50,11 +49,20 @@ class TimeoutRetryTests(unittest.TestCase):
             self.assertEqual(started, budget.started)
 
     def test_invalid_first_timeout_keeps_finite_default_and_cannot_expand_later(self):
+        # The timeout-sized allowance belongs to the count policy, which an
+        # explicit gateway_retries selects. Unset gateway_retries now uses the
+        # fixed 420 s window (team-lead ruling 2026-11-13, evidence/claude-window-330),
+        # which no opener timeout can resize either.
+        count = {"gateway_retries": 3}
         for timeout in (None, False, float("inf"), float("nan"), -1, "bad"):
-            with self.subTest(timeout=timeout), retry.request_scope({}) as budget:
+            with self.subTest(timeout=timeout, policy="count"), retry.request_scope(count) as budget:
+                retry.bounded_timeout(count, "cielairouter", timeout)
+                retry.bounded_timeout(count, "cielairouter", 300)
+                self.assertEqual(60, budget.deadline_seconds)
+            with self.subTest(timeout=timeout, policy="window"), retry.request_scope({}) as budget:
                 retry.bounded_timeout({}, "cielairouter", timeout)
                 retry.bounded_timeout({}, "cielairouter", 300)
-                self.assertEqual(60, budget.deadline_seconds)
+                self.assertEqual(retry.RETRY_WINDOW_SECONDS, budget.deadline_seconds)
 
     def test_full_duration_timeouts_retain_configured_attempt_count(self):
         for retries in (1, 3, 10):
@@ -101,15 +109,38 @@ class TimeoutRetryTests(unittest.TestCase):
                 self.invoke(opener)
             self.assertEqual(1, opener.call_count)
 
-    def test_expired_default_scope_cannot_revive_on_first_timeout_resolution(self):
+    def test_default_zero_open_scope_is_admissible_after_old_deadline(self):
+        # Approved B4 policy: lead-rulings-b4-catalog-stall.md (1). A default
+        # scope starts its allowance at the first upstream open, not at scope entry.
         clock = Clock()
         with retry.request_scope({}) as budget:
             budget.clock, budget.started = clock, clock()
             clock.now += 61
-            with self.assertRaises(TimeoutError):
+            self.assertEqual(300, retry.bounded_timeout({}, "cielairouter", 300))
+            self.assertEqual(clock.now, budget.started)
+            self.assertFalse(budget.stopped)
+
+    def test_explicit_budget_still_dies_at_its_own_deadline(self):
+        # The B4 re-base is only for a factory-created default scope.
+        clock = Clock()
+        budget = retry.TransientRetryBudget(3, 60, clock=clock)
+        clock.now += 61
+        with retry.request_scope({}, budget=budget):
+            with self.assertRaisesRegex(TimeoutError, "deadline reached before open"):
                 retry.bounded_timeout({}, "cielairouter", 300)
-            self.assertEqual(60, budget.deadline_seconds)
-            self.assertTrue(budget.stopped)
+        self.assertTrue(budget.stopped)
+
+    def test_already_opened_default_scope_cannot_be_revived_later(self):
+        # Preserve 879c96d's intent: only the first open can re-base a scope.
+        clock = Clock()
+        with retry.request_scope({}) as budget:
+            budget.clock, budget.started = clock, clock()
+            self.assertEqual(300, retry.bounded_timeout({}, "cielairouter", 300))
+            budget.opens = 1
+            clock.now += budget.deadline_seconds + 1
+            with self.assertRaisesRegex(TimeoutError, "deadline reached before open"):
+                retry.bounded_timeout({}, "cielairouter", 300)
+        self.assertTrue(budget.stopped)
 
     def test_typed_open_timeouts_retry_then_success(self):
         for error in (TimeoutError("The read operation timed out"), socket.timeout("timed out"),
@@ -164,7 +195,10 @@ class TimeoutRetryTests(unittest.TestCase):
                     self.assertEqual(expected, len(calls))
 
     def test_timeout_default_limit_and_cap(self):
-        for config, expected in (({}, 4), ({"gateway_retries": 1}, 2), ({"gateway_retries": 99}, 11)):
+        # Unset gateway_retries: the 420 s window's attempt ceiling, not the old
+        # default of 3 (team-lead ruling 2026-11-13, evidence/claude-window-330).
+        for config, expected in (({}, retry.WINDOW_RETRY_CEILING + 1), ({"gateway_retries": 1}, 2),
+                                 ({"gateway_retries": 99}, 11)):
             with self.subTest(config=config):
                 def timeout():
                     raise TimeoutError("The read operation timed out")
@@ -195,8 +229,12 @@ class TimeoutRetryTests(unittest.TestCase):
             self.assertEqual(1, opener.call_count)
 
     def test_other_transport_errors_still_do_not_replay(self):
-        for error in (urllib.error.URLError("timed out"), ssl.SSLEOFError("EOF"),
-                      BrokenPipeError("broken"),
+        # ssl.SSLEOFError and BrokenPipeError raised during open were removed from
+        # this list by R3 (lead-rulings-independent-review-sse-retry-20261113.md):
+        # they are typed pre-response disconnects and now retry like a reset; see
+        # test_transient_retry_pre_response_disconnects.py. String-only and untyped
+        # transport failures below stay terminal.
+        for error in (urllib.error.URLError("timed out"),
                       OSError("The read operation timed out")):
             opener = mock.Mock(side_effect=error)
             with self.subTest(error=error), self.assertRaises(type(error)) as caught:

@@ -36,6 +36,7 @@ class CliParserAssembly:
     provider: cli_parser.CliParserProvider
     models: cli_parser.CliParserModels
     work: cli_parser.CliHandler = lambda _args: None
+    session_api_key: cli_parser.CliHandler = lambda _args: 0
 
     def services(self) -> cli_parser.CliParserServices:
         return cli_parser.CliParserServices(
@@ -45,6 +46,7 @@ class CliParserAssembly:
             provider=self.provider,
             models=self.models,
             work=self.work,
+            session_api_key=self.session_api_key,
         )
 
 

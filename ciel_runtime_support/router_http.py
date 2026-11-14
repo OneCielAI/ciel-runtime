@@ -11,6 +11,7 @@ import http.client
 import json
 import sys
 import tempfile
+import time
 import traceback
 import urllib.error
 import urllib.parse
@@ -142,6 +143,9 @@ class RouterHttpCore:
     observe_runtime: Callable[..., Any]
     request_body_policy: RouterRequestBodyPolicy
     remote_bridge: RouterHttpRemoteBridge | None = None
+    # session_api_key_routing.SessionApiKeyRouting: a local request of a
+    # session that holds its own key uses that key for the serving provider.
+    session_keys: Any | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -219,6 +223,10 @@ class RouterHttpServices:
     # Web sign-in, admin page and the OAuth token / access REST API
     # (web_access_http.WebAccessHttpController).
     access: Any | None = None
+    # Session-scoped API keys (session_api_key_http.SessionApiKeyHttpController):
+    # dispatched first after the body is parsed, so the key reaches no other
+    # handler or trace.
+    session_keys_http: Any | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -1268,6 +1276,9 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
             return
         if services.access is not None and services.access.handle_get(self, path):
             return
+        session_keys_http = getattr(services, "session_keys_http", None)
+        if session_keys_http is not None and session_keys_http.handle_get(self, path):
+            return
         endpoints = services.get
         if endpoints.tui(self, path, query):
             return
@@ -1588,8 +1599,12 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
         pcfg: dict[str, Any],
         path: str,
         body: dict[str, Any],
+        request_arrived_at: float | None = None,
     ) -> bool:
         """Dispatch an LLM request; a rate-limited provider hands it to a stored backup.
+
+        ``request_arrived_at`` is ``time.monotonic()`` at the first line of
+        ``do_POST``; the dispatch's retry scope measures its hard bound from it.
 
         A 429 point that has not answered the client raises FailoverRequested after
         recording the failover; the same request (a pristine copy) then goes to the
@@ -1617,6 +1632,22 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
             if routed != provider:
                 services.core.log("INFO", f"provider_failover_route path={path} configured={provider} serving={routed} turn_start={turn_start}")
             provider = routed
+        session_keys = getattr(services.core, "session_keys", None) if llm else None
+        identity = ""
+        if session_keys is not None:
+            from ciel_runtime_support.session_api_key_routing import SessionApiKeyUnavailable
+
+            identity = session_keys.identity(path, getattr(self, "headers", None), body, provider)
+            try:
+                pcfg = session_keys.overlay(identity, provider, pcfg)
+            except SessionApiKeyUnavailable as exc:
+                # This session's key is gone and its policy is fail_closed: an
+                # explicit error in the client's protocol, nothing upstream.
+                services.core.log("WARN", f"session_api_key_blocked session={exc.session} provider={exc.provider} "
+                                          f"cause={exc.cause} path={path}")
+                self._write_request_error(path, services, status=exc.status, error_type=exc.error_type,
+                                          message=str(exc))
+                return True
         session = gateway_session(self, provider, body) if gateways is not None else ""
         if gateways is not None:
             pcfg = gateways.apply(provider, pcfg, path=path, session=session)
@@ -1629,7 +1660,8 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
                         # One allowance for the entire logical dispatch, including
                         # nested context recovery and legacy reopen loops. Never
                         # attach mutable retry state to a reusable provider config.
-                        retry_scope.enter_context(request_scope(pcfg, provider))
+                        retry_scope.enter_context(request_scope(pcfg, provider, **(
+                            {"arrival_started": request_arrived_at} if request_arrived_at is not None else {})))
                     scoped_provider = provider
                 model = str(body.get("model") or pcfg.get("current_model") or "")
                 try:
@@ -1640,6 +1672,19 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
                         raise
                     services.core.log("WARN", f"provider_failover_retry path={path} {request}")
                     provider, pcfg = failover.effective(cfg, request.from_provider, pcfg, turn_start=False)
+                    if session_keys is not None:
+                        # The backup provider gets this session's key for that
+                        # provider only, or its own stored keys; a blocked
+                        # session key for the backup ends the failover with
+                        # the explicit error.
+                        try:
+                            pcfg = session_keys.overlay(identity, provider, pcfg)
+                        except SessionApiKeyUnavailable as exc:
+                            services.core.log("WARN", f"session_api_key_blocked session={exc.session} "
+                                                      f"provider={exc.provider} cause={exc.cause} path={path} failover=1")
+                            self._write_request_error(path, services, status=exc.status,
+                                                      error_type=exc.error_type, message=str(exc))
+                            return True
                     if gateways is not None:
                         session = gateway_session(self, provider, pristine)
                         pcfg = gateways.apply(provider, pcfg, path=path, session=session)
@@ -1647,6 +1692,8 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
         return False
 
     def do_POST(self) -> None:
+        # Router arrival, before config or body work: the retry hard bound starts here.
+        request_arrived_at = time.monotonic()
         self._ciel_runtime_response_status = None
         services = self._services()
         path = urllib.parse.urlparse(self.path).path
@@ -1717,11 +1764,16 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
                     ):
                         return
                     body = services.core.parse_json_body(raw)
+                    raw = b""
                     services.core.request_body_policy.validate_parsed_body(
                         path,
                         length,
                         body,
                     )
+                    session_keys_http = getattr(services, "session_keys_http", None)
+                    if session_keys_http is not None and session_keys_http.handle_post(self, path, body):
+                        # Opted out of every later handler and trace.
+                        return
                     if services.access is not None and services.access.handle_post(self, path, body):
                         return
                     if endpoints.usage is not None and endpoints.usage(self, path, body):
@@ -1775,7 +1827,15 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
                         )
                     try:
                         if bridge_request:
-                            with request_tool_schema_scope(body.get("tools")):
+                            # The 540 s pre-output bound counts from router arrival
+                            # on every path (ruling R2): the same scope as
+                            # _dispatch_with_failover, under the same provider condition.
+                            bridge_scope = (
+                                request_scope(pcfg, provider, arrival_started=request_arrived_at)
+                                if provider == "cielairouter"
+                                else contextlib.nullcontext()
+                            )
+                            with bridge_scope, request_tool_schema_scope(body.get("tools")):
                                 with services.core.observe_runtime(
                                     self, path, provider, model, body
                                 ):
@@ -1785,7 +1845,7 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
                                         return
                         else:
                             if self._dispatch_with_failover(
-                                services, endpoints, cfg, provider, pcfg, path, body
+                                services, endpoints, cfg, provider, pcfg, path, body, request_arrived_at
                             ):
                                 return
                     except ValueError as exc:

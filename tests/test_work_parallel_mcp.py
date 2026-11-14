@@ -193,6 +193,12 @@ class WorkParallelMCPTests(unittest.TestCase):
         self.assertEqual(["lease_id", "worker_token", "event"], schema["required"])
         self.assertIn("detail", schema["properties"])
 
+    def test_event_schema_exposes_bounded_fork_attribution_names(self):
+        schema = next(row for row in m.schemas() if row["name"] == "work_parallel_event")["inputSchema"]
+        self.assertEqual({"type": "array", "maxItems": 64,
+                          "items": {"type": "string", "maxLength": 200}},
+                         schema["properties"]["names"])
+
     def setUp(self):
         temporary = TemporaryDirectory()
         self.addCleanup(temporary.cleanup)

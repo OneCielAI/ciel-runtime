@@ -13,6 +13,13 @@ import time
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from ciel_runtime_support.windows_conpty import WindowsConPtySession
+from claude_probe_environment import claude_probe_environment
+
+
+def probe_environment(name: str) -> dict[str, str]:
+    """Only Claude receives the startup-only pressure-reap policy."""
+
+    return claude_probe_environment() if name == "claude" else dict(os.environ)
 
 
 def probe(name: str) -> dict[str, object]:
@@ -22,7 +29,7 @@ def probe(name: str) -> dict[str, object]:
     logs: list[tuple[str, str]] = []
     session = WindowsConPtySession(
         [executable],
-        dict(os.environ),
+        probe_environment(name),
         log=lambda level, message: logs.append((level, message)),
         mirror_output=False,
         forward_stdin=False,

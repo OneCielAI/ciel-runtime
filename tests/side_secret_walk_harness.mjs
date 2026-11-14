@@ -1,11 +1,13 @@
 // Feeds the host raw wake secrets on the authenticated claim path (main_wakes,
 // handoff_replies) and checks that no prompt, append, pane log, status line or
-// side fork prompt the host writes contains them. The claim's handoff_context
+// side fork prompt the host writes contains them. Claim generation is a host-
+// validated non-secret fork input and is expected only in that fork prompt.
+// The claim's handoff_context
 // is router-redacted; a raw value there would come from a router bug, so this
 // harness supplies the redacted shape the router now returns.
 import {startSide,pollSide,completeSide} from './side-intake.js'
 const ATTEMPT = 'c'.repeat(31) + '7', NONCE = 'router-side-nonce-9f9f9f', RECEIPT = 'receipt-uuid-5151'
-// A real-shaped side inbox claim generation (32-hex); host-held, never model data.
+// A real-shaped side inbox claim generation (32-hex); non-secret fencing input.
 const GENERATION = '9'.repeat(31) + '3'
 const STARTED = 'd'.repeat(64), FRESH = 'f'.repeat(64), ANSWERED = 'a'.repeat(64)
 const sinks = {prompts:[], appends:[], logs:[], status:[], spawns:[]}
@@ -55,4 +57,5 @@ await pollSide($, 'claude:parent')
 await completeSide($, {agentId:'actor', reason:'answer',
   answer:JSON.stringify({decision:{action:'answer', kind:'info', summary:'s', reply:'r'}, expected_version:1})})
 await new Promise(resolve => setTimeout(resolve, 20))
-console.log(JSON.stringify({sinks, secrets:[ATTEMPT, NONCE, RECEIPT, GENERATION, 'b'.repeat(32), 'ciel-side-wake']}))
+console.log(JSON.stringify({sinks, claim_generation:GENERATION,
+  secrets:[ATTEMPT, NONCE, RECEIPT, 'b'.repeat(32), 'ciel-side-wake']}))

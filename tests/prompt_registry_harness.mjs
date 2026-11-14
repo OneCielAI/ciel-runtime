@@ -254,9 +254,11 @@ const cases = {
     await sleep(20)
     return { value:a.value, registry:keysOf(state), terminals:terminalsOf(state) }
   },
-  // A released-wait notice has no durable fence. /clear resets $.state and
-  // reassert handles unresolved entries only. After a hot reload, the same
-  // notice text issues once more: documented at-least-once state-loss residual.
+  // The registry alone forgets a terminal identity: /clear resets $.state and
+  // reassert handles unresolved entries only, so after a hot reload the same
+  // key issues once more. No payload depends on this any more: a released-wait
+  // notice is claimed in the backend (side_notice.py, side_delivery_harness.mjs
+  // notice cases) and a wake prompt holds no payload.
   async 'notice-clear'() {
     const state = hostState(), t1 = clock(), t2 = clock(), p1 = prompts(), p2 = prompts()
     const key = 'notice:clear'
@@ -386,76 +388,6 @@ const cases = {
     }
     return out
   },
-}
-
-// Notice path (released waits; non-durable). One completed side event whose
-// committed result released a wait, with main idle, through the real
-// startSide/pollSide/completeSide and noticeToMain. argv[3]: finite | anomaly |
-// restart | reload.
-async function releaseNotice(instance, $, logs) {
-  await instance.startSide($)
-  await instance.pollSide($, 'claude:parent')
-  await instance.completeSide($, { agentId:'actor1', reason:'answer', answer:JSON.stringify({ decision:{ action:'update', kind:'request',
-    item_id:'n3', summary:'approved', reply:'ok', note:'approved', release_waits:[{ id:'n3', waiting_on:'approval' }] }, expected_version:4 }) })
-  await until(() => logs.some(line => line.startsWith('Side released')), 300)
-}
-function noticeHost(state, timer, prompt, logs) {
-  let claimed = false
-  return { ...host(state, timer, prompt),
-    session:{ model:async () => 'fixture-main', id:async () => 'parent', append:async () => ({}), send:async () => ({ isDelivered:true }) },
-    mcp:{ connect:async () => ({}), call:async (server, name, args) => {
-      let value = {}
-      if (name === 'work_side_claim') {
-        const claim = claimed ? null : { receipt_id:'e'.repeat(64), generation:'g1', text:'approved', event_key:'walkie:1',
-          lease_until:Date.now() / 1000 + 120, route:{}, workload:{ version:4, truncated:false, active_root:'n1', queue_order:[],
-            nodes:[{ id:'n1', parent_id:null, title:'goal' }, { id:'n3', parent_id:'n1', title:'gate', waiting_on:'approval' }] } }
-        claimed = true
-        value = { claim, settings:{ model:'inherit', context_mode:'isolated' }, handoff_replies:[], main_wakes:[] }
-      }
-      if (name === 'work_parallel_status') value = { version:1, policy:{}, leases:{} }
-      if (name === 'work_side_resolve') value = { receipt:{ receipt_id:args._host.receipt_id, stage:'processed' },
-        result:{ action:'update', item_id:'n3', summary:'approved', duplicate:false, released_waits:[{ id:'n3', waiting_on:'approval' }],
-          handoff:'not_required' } }
-      if (name === 'work_side_reply') value = { receipt:{ receipt_id:args.receipt_id, stage:'processed' }, arguments:null }
-      return { content:[{ type:'text', text:JSON.stringify(value) }] }
-    } },
-    tool:{ list:async () => [], call:async () => ({ text:'stopped' }) },
-    agent:{ list:async () => [], register:async () => ({}), spawn:async () => ({ agentId:'actor1' }) },
-    env:{ get:async key => key === 'CIEL_RUNTIME_DIRECT_GATEWAY_ACTIVE' ? '0' : 'x'.repeat(40) },
-    ui:{ log:text => logs.push(String(text)), status:() => {}, invalidate:() => {} } }
-}
-cases.notice = async () => {
-  const condition = process.argv[3] || 'finite'
-  const state = hostState(), t1 = clock(), p1 = prompts(), logs1 = []
-  const $1 = noticeHost(state, t1, p1, logs1)
-  const done = releaseNotice(first, $1, logs1)
-  await until(() => p1.calls.length === 1)
-  const issued = { calls:p1.calls.length, registry:keysOf(state).map(key => key.slice(0, 7)), live:t1.live() }
-  let result = {}
-  if (condition === 'finite') {
-    p1.calls[0].release('ok'); await done
-    result = { logs:logs1 }
-  } else if (condition === 'anomaly') {
-    await t1.fire(); await done
-    p1.calls[0].release('ok'); await sleep(30)
-    result = { logs:logs1 }
-  } else {
-    // Second module instance: reload shares $.state, restart starts empty. The
-    // same release notice is produced again there (same text, same key).
-    const fresh = condition === 'reload' ? state : hostState()
-    const t2 = clock(), p2 = prompts(), logs2 = []
-    const $2 = noticeHost(fresh, t2, p2, logs2)
-    const again = releaseNotice(second, $2, logs2)
-    await sleep(60)
-    const secondCalls = p2.calls.length
-    // reload: nothing was issued here; the hydrated key's idle window ends it.
-    // restart: no registry carried over, so this process issued it again.
-    if (condition === 'reload') await t2.fire()
-    else p2.calls[0]?.release('ok')
-    await again
-    result = { secondCalls, logs2, registryAfter:keysOf(fresh) }
-  }
-  return { condition, issued, ...result, registry:keysOf(state), submits:p1.calls.length }
 }
 
 console.log(JSON.stringify({ mode, ...(await cases[mode]()) }))

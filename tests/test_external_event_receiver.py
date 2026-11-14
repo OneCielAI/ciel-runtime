@@ -169,6 +169,55 @@ class ExternalEventReceiverTests(unittest.TestCase):
         ]))
         self.assertEqual([("first", '{"a":1,\n"b":2}'), ("first", "second")], frames)
 
+    def test_sse_parser_discards_a_frame_pending_at_end_of_stream(self):
+        """WHATWG HTML 9.2.6: pending data at end of stream is discarded, not dispatched."""
+        self.assertEqual([], list(parse_sse_frames([b"id: p1\n", b'data: {"a":1}\n'])))
+
+    def test_sse_parser_discards_a_data_line_cut_by_the_drop(self):
+        self.assertEqual([], list(parse_sse_frames([b"id: p2\n", b'data: {"specversion":"1.0","i'])))
+
+    def test_sse_parser_dispatches_a_closed_frame_once_before_end_of_stream(self):
+        frames = list(parse_sse_frames([b"id: p3\n", b'data: {"a":1}\n', b"\n", b"id: p4\n", b"data: cut"]))
+        self.assertEqual([("p3", '{"a":1}')], frames)
+
+    def test_sse_drop_mid_frame_leaves_cursor_and_redelivers_the_event_once(self):
+        """Measured E1 (2026-11-13): a cut frame was admitted as side text and its id became the cursor."""
+        event = json.dumps({"specversion": "1.0", "id": "p2", "source": "/fixture", "type": "allowed",
+                            "data": {"n": 1}})
+        for label, cut in (("truncated-line", "id: p2\ndata: " + event[:len(event) // 2]),
+                           ("complete-line", "id: p2\ndata: " + event + "\n")):
+            with self.subTest(drop=label), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                config = {'external_event_receivers': {'workspace': {}}}
+                streams = [_SseResponse([cut.encode()]), _SseResponse([('id: p2\ndata: ' + event + '\n\n').encode()])]
+                requests, rows, logs = [], [], []
+
+                def urlopen(request, timeout, streams=streams, requests=requests):
+                    requests.append(request.get_header("Last-event-id") or "")
+                    return streams.pop(0)
+
+                def submit(raw, rows=rows, **meta):
+                    rows.append((raw, meta.get("event_id"), meta.get("side_intake_fallback", "")))
+                    service._stop.set()
+                    return {'id': len(rows)}
+
+                service = ExternalEventReceiverService(
+                    load_config=lambda config=config: config, save_config=lambda value, config=config: config.update(value),
+                    write_json=lambda *_: None, submit_event=submit,
+                    vault=EventReceiverSecretVault(root / 'vault.json'), workspace_key='workspace',
+                    cursor_path=root / 'cursor.json', urlopen=urlopen,
+                    log=lambda level, message, logs=logs: logs.append(message))
+                service.save_receiver('default', {'enabled': True, 'transport': 'sse',
+                                                  'url': 'https://events.example/stream'})
+                from ciel_runtime_support.event_receiver_connection import ReceiverWorker
+                worker = ReceiverWorker()
+                worker.reconnect.wait = lambda _seconds: False  # skip the 1 s backoff, keep its control flow
+                service._run_sse('default', worker)
+                self.assertEqual(["", ""], requests, "the cut frame never became Last-Event-ID")
+                self.assertEqual([(event, "p2", "")], rows)
+                self.assertFalse(any("invalid_frame_admitted_as_side_text" in line for line in logs))
+                self.assertEqual("p2", json.loads((root / 'cursor.json').read_text())['default'])
+
     def test_json_pointer_cursor_and_query_projection_are_provider_neutral(self):
         value = {"data": {"stream/id": "42-7", "items": [{"cursor": 9}]}}
         self.assertEqual("42-7", json_pointer_value(value, "/data/stream~1id"))
@@ -436,7 +485,9 @@ class ExternalEventReceiverTests(unittest.TestCase):
             self.assertTrue(keys[0].startswith('invalid:bad-1:'))
 
     def test_invalid_frame_without_transport_id_has_no_identity_for_fallback(self):
-        self.assertEqual([('', 'not-json')], list(parse_sse_frames([b'data: not-json\n\n'])))
+        # Fed as the transport delivers it, one line per item: the closing blank line
+        # dispatches the frame (lead rulings file, section "E1 test change approved").
+        self.assertEqual([('', 'not-json')], list(parse_sse_frames([b'data: not-json\n', b'\n'])))
         with self.assertRaisesRegex(ValueError, 'must be JSON'):
             validate_cloud_event('not-json')
 

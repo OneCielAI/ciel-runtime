@@ -9,13 +9,27 @@ from . import work_plan_tree as tree
 
 _CHANNELS = ('prompt', 'append', 'stop', 'legacy')
 _OUTCOMES = ('queued', 'appended', 'uncertain', 'failed')
+_PROMPT_OUTCOMES = ('queued', 'failed', 'uncertain')
 # A fresh intent belongs to its owner for this long. Another owner may
 # supersede it only after expiry, so two live instances cannot alternately
 # replace each other's intent forever; a crashed owner's intent recovers.
 INTENT_LEASE_SECONDS = 5.0
+# A wake-prompt lease whose holder recorded no outcome for this long is treated
+# as uncertain (one later lease). Measured: an idle main's $.prompt.submit
+# resolves in tens of milliseconds (owned probes prompt-gate-0dd78bf3 on
+# 2.1.322 and timer-append-323 on 2.1.323; see the SSE journal). A prompt held
+# behind a running turn resolves when that turn ends, which can exceed this;
+# then at most one extra wake turn follows, which holds no payload.
+PROMPT_LEASE_SECONDS = 60.0
+# A re-append holder prepares, appends and records within one host call. A
+# `submitting` re-append with no record after this long is shown to a person as
+# uncertain (it may have been appended); age alone never releases it, because a
+# re-append carries the payload. Same grace as an issuing release notice.
+REAPPEND_UNCERTAIN_SECONDS = 60.0
+REAPPEND_RETRIES_MAX = 16
 # The only wake fields any model, status, REST or browser projection may see.
 _PUBLIC_WAKE = ('state', 'phase', 'channel', 'revision', 'needs_ack_retry', 'requested_at',
-                'intent_at', 'intent_until', 'started_at', 'updated_at', 'acknowledged_at')
+                'intent_at', 'intent_until', 'started_at', 'updated_at', 'acknowledged_at', 'read_at')
 
 
 def _row(doc, event_id):
@@ -44,11 +58,12 @@ def _result(event_id, wake, *, state=None, attempt=False):
     return value
 
 
-def redact_wake(wake):
+def redact_wake(wake, now=None):
     """Shared projection of one nested wake for every non-host reader.
 
-    Never includes attempt_id, owner_nonce, a marker or a receipt uuid. The
-    exact attempt is named only by its one-way attempt_ref.
+    Never includes attempt_id, owner_nonce, a marker, a conversation id or a
+    receipt uuid. The exact attempt is named only by its one-way attempt_ref,
+    and a conversation re-append lease only by its state and reappend_ref.
     """
     wake = wake if isinstance(wake, dict) else {}
     public = {key: wake[key] for key in _PUBLIC_WAKE if wake.get(key) is not None}
@@ -56,7 +71,28 @@ def redact_wake(wake):
     if reference:
         public['attempt_ref'] = reference
     public['delivery_uncertain'] = delivery_uncertain(wake)
+    reappend = wake.get('reappend')
+    if isinstance(reappend, dict) and reappend.get('state') in ('submitting', 'uncertain', 'failed'):
+        public['reappend_state'] = reappend['state']
+        lease_ref = attempt_ref(reappend.get('attempt_id'))
+        if lease_ref:
+            public['reappend_ref'] = lease_ref
+        public['reappend_uncertain'] = reappend_uncertain(wake, now)
     return public
+
+
+def reappend_uncertain(wake, now=None):
+    """A re-append nobody can know the outcome of: recorded uncertain, or a
+    holder that recorded nothing within REAPPEND_UNCERTAIN_SECONDS."""
+    wake = wake if isinstance(wake, dict) else {}
+    reappend = wake.get('reappend')
+    if wake.get('state') != 'appended' or wake.get('read_at') or not isinstance(reappend, dict):
+        return False
+    if reappend.get('state') == 'uncertain':
+        return True
+    started = reappend.get('started_at')
+    return (reappend.get('state') == 'submitting' and isinstance(started, (int, float))
+            and (time.time() if now is None else now) - started >= REAPPEND_UNCERTAIN_SECONDS)
 
 
 def redact_handoff(event_id, row):
@@ -79,6 +115,8 @@ def prepare(store, event_id, *, protocol=None, owner_nonce=None, channel=None, n
         current, phase = wake.get('state'), wake.get('phase')
         if current in ('pending', 'failed'):
             attempt_id = uuid.uuid4().hex
+            # A new attempt has not been read by anyone.
+            wake.pop('read_at', None)
             wake.update(state='submitting', phase='intent' if modern else 'started',
                         attempt_id=attempt_id, owner_nonce=owner_nonce if modern else None,
                         channel=channel if modern else 'legacy', intent_at=stamp,
@@ -134,7 +172,7 @@ def start(store, event_id, attempt_id, owner_nonce, channel):
     return {**result, 'version': doc['version']}
 
 
-def record(store, event_id, state, attempt_id, *, owner_nonce=None, receipt=None):
+def record(store, event_id, state, attempt_id, *, owner_nonce=None, receipt=None, conversation_id=None):
     """Record one definite/uncertain outcome; an identical retry is idempotent."""
     if state not in _OUTCOMES:
         raise tree.WorkPlanError('invalid side wake state')
@@ -148,10 +186,17 @@ def record(store, event_id, state, attempt_id, *, owner_nonce=None, receipt=None
         if same_attempt and same_owner and wake.get('state') == state:
             if receipt is not None and wake.get('receipt') not in (None, receipt):
                 raise tree.WorkPlanError('side wake outcome already recorded differently')
+            changed = False
             if receipt is not None and wake.get('receipt') is None:
                 # Settled appended without a receipt; the owner's exact uuid is
                 # kept (wake-only write) so later evidence checks can use it.
                 wake.update(receipt=receipt, updated_at=time.time())
+                changed = True
+            if state == 'appended' and isinstance(conversation_id, str) and conversation_id \
+                    and not wake.get('conversation_id'):
+                wake['conversation_id'] = conversation_id[:300]
+                changed = True
+            if changed:
                 _bump(wake)
             return _result(event_id, wake)
         if (wake.get('state') != 'submitting' or wake.get('phase') != 'started'
@@ -160,7 +205,168 @@ def record(store, event_id, state, attempt_id, *, owner_nonce=None, receipt=None
         wake.update(state=state, updated_at=time.time())
         if receipt is not None:
             wake['receipt'] = receipt
+        if state == 'appended' and isinstance(conversation_id, str) and conversation_id:
+            wake['conversation_id'] = conversation_id[:300]
         _bump(wake)
+        return _result(event_id, wake)
+
+    doc, result = store.transaction(mutate, semantic=False)
+    return {**result, 'version': doc['version']}
+
+
+def record_prompt(store, event_id, attempt_id, owner_nonce, state):
+    """Record one wake-only prompt outcome without changing delivery state.
+
+    The append receipt is the durable payload fence.  A separate prompt lease
+    bounds turn-start requests across processes while the appended row remains
+    unread.  A failed or uncertain prompt may be retried; a queued one remains
+    terminal until the conversation changes.
+    """
+    if state not in _PROMPT_OUTCOMES:
+        raise tree.WorkPlanError('invalid side wake prompt state')
+
+    def mutate(doc):
+        wake = _row(doc, event_id)
+        if wake.get('state') != 'appended':
+            raise tree.WorkPlanError('side wake is not appended')
+        prompt = wake.get('prompt')
+        if prompt is None and wake.get('read_at'):
+            # The prompt's own turn can step (and record read_at, which ends the
+            # lease) before its submit call resolves. Nothing is left to record.
+            return _result(event_id, wake)
+        if (not isinstance(prompt, dict) or not attempt_id or prompt.get('attempt_id') != attempt_id
+                or not owner_nonce or prompt.get('owner_nonce') != owner_nonce):
+            raise tree.WorkPlanError('stale side wake prompt attempt')
+        if prompt.get('state') == state:
+            return _result(event_id, wake)
+        if prompt.get('state') != 'submitting':
+            raise tree.WorkPlanError('side wake prompt outcome already recorded differently')
+        prompt.update(state=state, updated_at=time.time())
+        _bump(wake)
+        return _result(event_id, wake)
+
+    doc, result = store.transaction(mutate, semantic=False)
+    return {**result, 'version': doc['version']}
+
+
+def prepare_prompt(store, event_id, owner_nonce, conversation_id):
+    """Lease at most one wake-only prompt for one unread event and conversation."""
+    if not isinstance(owner_nonce, str) or not owner_nonce or len(owner_nonce) > 200:
+        raise tree.WorkPlanError('side wake prompt owner required')
+    if not isinstance(conversation_id, str) or not conversation_id or len(conversation_id) > 300:
+        raise tree.WorkPlanError('side wake prompt conversation required')
+
+    def mutate(doc):
+        wake = _row(doc, event_id)
+        if wake.get('state') != 'appended' or wake.get('read_at'):
+            return _result(event_id, wake, state='already_read')
+        prompt = wake.get('prompt')
+        now = time.time()
+        expired = None
+        if isinstance(prompt, dict) and prompt.get('conversation_id') == conversation_id:
+            started = prompt.get('started_at')
+            if (prompt.get('state') == 'submitting' and isinstance(started, (int, float))
+                    and now - started >= PROMPT_LEASE_SECONDS):
+                # Its holder never recorded an outcome within the window (it
+                # died before or during submit). Treat it as uncertain, which
+                # permits exactly one later lease; that prompt holds no payload.
+                expired = {'state': 'uncertain', 'expired': True, 'attempt_ref': attempt_ref(prompt.get('attempt_id')),
+                           'at': now}
+            elif prompt.get('state') in ('submitting', 'queued'):
+                return _result(event_id, wake, state='already_' + str(prompt.get('state')))
+        attempt_id = uuid.uuid4().hex
+        wake['prompt'] = {'state': 'submitting', 'attempt_id': attempt_id,
+                          'owner_nonce': owner_nonce, 'conversation_id': conversation_id,
+                          'started_at': now, **({'replaced': expired} if expired else {})}
+        _bump(wake)
+        result = _result(event_id, wake, state='submitting')
+        result.update(attempt_id=attempt_id, owner_nonce=owner_nonce)
+        return result
+
+    doc, result = store.transaction(mutate, semantic=False)
+    return {**result, 'version': doc['version']}
+
+
+def prepare_reappend(store, event_id, owner_nonce, conversation_id):
+    """Fence one payload re-append after the main conversation identity changed."""
+    if not isinstance(owner_nonce, str) or not owner_nonce or len(owner_nonce) > 200:
+        raise tree.WorkPlanError('side wake reappend owner required')
+    if not isinstance(conversation_id, str) or not conversation_id or len(conversation_id) > 300:
+        raise tree.WorkPlanError('side wake reappend conversation required')
+
+    def mutate(doc):
+        wake = _row(doc, event_id)
+        if wake.get('state') != 'appended' or wake.get('read_at'):
+            return _result(event_id, wake, state='already_read')
+        if wake.get('conversation_id') == conversation_id:
+            return _result(event_id, wake, state='already_appended')
+        reappend = wake.get('reappend')
+        # A definite failure (denied append) stored nothing: one new lease.
+        if (isinstance(reappend, dict) and reappend.get('conversation_id') == conversation_id
+                and reappend.get('state') != 'failed'):
+            return _result(event_id, wake, state='already_' + str(reappend.get('state')))
+        attempt_id = uuid.uuid4().hex
+        wake['reappend'] = {'state': 'submitting', 'attempt_id': attempt_id,
+                            'owner_nonce': owner_nonce, 'conversation_id': conversation_id,
+                            'started_at': time.time()}
+        _bump(wake)
+        result = _result(event_id, wake, state='submitting')
+        result.update(attempt_id=attempt_id, owner_nonce=owner_nonce)
+        return result
+
+    doc, result = store.transaction(mutate, semantic=False)
+    return {**result, 'version': doc['version']}
+
+
+def record_reappend(store, event_id, attempt_id, owner_nonce, state, receipt=None):
+    """Record the definite or unknown outcome of a fenced conversation re-append."""
+    if state not in ('appended', 'failed', 'uncertain'):
+        raise tree.WorkPlanError('invalid side wake reappend state')
+
+    def mutate(doc):
+        wake = _row(doc, event_id)
+        reappend = wake.get('reappend')
+        if (wake.get('state') != 'appended' or not isinstance(reappend, dict)
+                or not attempt_id or reappend.get('attempt_id') != attempt_id
+                or not owner_nonce or reappend.get('owner_nonce') != owner_nonce):
+            raise tree.WorkPlanError('stale side wake reappend attempt')
+        if reappend.get('state') == state:
+            return _result(event_id, wake)
+        if reappend.get('state') != 'submitting':
+            raise tree.WorkPlanError('side wake reappend outcome already recorded differently')
+        reappend.update(state=state, updated_at=time.time())
+        if receipt is not None:
+            reappend['receipt'] = receipt
+        if state == 'appended':
+            wake['conversation_id'] = reappend['conversation_id']
+            if receipt is not None:
+                wake['receipt'] = receipt
+            wake.pop('prompt', None)
+            wake.pop('reappend', None)
+        _bump(wake)
+        return _result(event_id, wake)
+
+    doc, result = store.transaction(mutate, semantic=False)
+    return {**result, 'version': doc['version']}
+
+
+def mark_read(store, event_id):
+    """Record that main has had a model request after the appended row.
+
+    An append stores the event in main's conversation but starts no turn (owned
+    probe delivery-4f4c90b8). Until this is recorded, work_side_claim keeps
+    offering the appended row, so any host of the session can start a turn for
+    it. The prompt that starts that turn holds no event data, so offering the
+    row again can never deliver the event twice. Wake-only and idempotent.
+    """
+    def mutate(doc):
+        wake = _row(doc, event_id)
+        if wake.get('state') != 'appended':
+            raise tree.WorkPlanError('side wake is not appended')
+        if not wake.get('read_at'):
+            wake['read_at'] = time.time()
+            wake.pop('prompt', None)
+            _bump(wake)
         return _result(event_id, wake)
 
     doc, result = store.transaction(mutate, semantic=False)
@@ -224,6 +430,36 @@ def retry(store, event_id, reference, revision, *, confirmed=False):
                                                'previous_phase': wake.get('phase'),
                                                'duplicate_confirmed': True, 'at': time.time()})
         wake.update(state='failed', phase='retry', updated_at=time.time())
+        _bump(wake)
+        return _result(event_id, wake)
+
+    doc, result = store.transaction(mutate, semantic=False)
+    return {**result, 'version': doc['version']}
+
+
+def retry_reappend(store, event_id, reference, revision, *, confirmed=False):
+    """A person releases an unknown-outcome re-append for one possibly duplicate re-append.
+
+    ``reference`` is the reappend_ref shown in status/UI. The lease becomes a
+    released definite failure, which prepare_reappend already answers with
+    exactly one new lease; a late record of the old holder is refused.
+    """
+    if confirmed is not True:
+        raise tree.WorkPlanError('re-append retry requires explicit duplicate-delivery confirmation')
+
+    def mutate(doc):
+        wake = _row(doc, event_id)
+        now = time.time()
+        reappend = wake.get('reappend')
+        if (not reappend_uncertain(wake, now) or not reference
+                or attempt_ref(reappend.get('attempt_id')) != reference or wake.get('revision') != revision):
+            raise tree.WorkPlanError('side wake re-append changed; refresh before retry')
+        wake['reappend_retries'] = list(wake.get('reappend_retries') or [])[-(REAPPEND_RETRIES_MAX - 1):] + [{
+            'attempt_ref': reference, 'revision': revision, 'previous_state': reappend.get('state'),
+            'duplicate_confirmed': True, 'at': now}]
+        # A fresh attempt id: the vanished holder's late record no longer matches.
+        reappend.update(state='failed', released=True, attempt_id=uuid.uuid4().hex, updated_at=now)
+        reappend.pop('owner_nonce', None)
         _bump(wake)
         return _result(event_id, wake)
 

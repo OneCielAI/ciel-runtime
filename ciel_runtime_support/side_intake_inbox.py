@@ -13,7 +13,7 @@ from typing import Any
 
 from .channel_message_repository import exclusive_file_lock
 from .side_intake_limits import SIDE_INTAKE_PENDING_RECORD_MAX_BYTES, SIDE_INTAKE_TEXT_MAX_CHARS
-from .work_plan_tree import WorkPlanError
+from .work_plan_tree import WorkPlanError, WorkStateUnavailable
 
 MAX_DOCUMENT_BYTES = 32 * 1024 * 1024  # Legacy document parser, not a queue ceiling.
 # A pending record holds one original (up to 32,000 four-byte characters) plus
@@ -95,6 +95,41 @@ def _public_original(value: Any, limit: int = PUBLIC_TEXT_LIMIT) -> tuple[str, b
     if len(rendered) > limit:
         return rendered[:limit - 1] + '…', True
     return rendered, bool(lost)
+
+
+def _notice_uncertain(notice: Any) -> bool:
+    from .side_notice import delivery_uncertain
+    return delivery_uncertain(notice)
+
+
+def _notice_state(notice: Any) -> str:
+    from .side_notice import public_state
+    return public_state(notice)
+
+
+def reply_retry_pin(row: Any) -> dict[str, Any]:
+    """The exact reply attempt a person's retry must name: the one-way ref of
+    the outbox attempt (none for route_unavailable, which has no attempt) and
+    the count of earlier retries. Operator surfaces export these, never the id.
+    Lives here, beside the row shape, so side_reply_outbox (which imports this
+    module) adds no import cycle."""
+    from .side_notice import _ref
+    outbox = row.get('outbox') if isinstance(row, dict) and isinstance(row.get('outbox'), dict) else {}
+    retries = row.get('delivery_retries') if isinstance(row, dict) else None
+    pin: dict[str, Any] = {'reply_revision': len(retries) if isinstance(retries, list) else 0}
+    if outbox.get('attempt_id'):
+        pin['reply_attempt_ref'] = _ref(outbox['attempt_id'])
+    return pin
+
+
+def _retry_pins(row: dict[str, Any]) -> dict[str, Any]:
+    """The exact-attempt pins a person-confirmed notice or reply retry must send
+    back (one-way refs and counts, never an attempt id)."""
+    from .side_notice import retry_pin as notice_pin
+    pins = dict(notice_pin(row.get('release_notice')))
+    if row.get('stage') == 'processed' and isinstance(row.get('result'), dict):
+        pins.update(reply_retry_pin(row))
+    return pins
 
 
 def _event_recap(value: Any) -> str:
@@ -247,14 +282,16 @@ class SideIntakeInbox:
                 raw = stream.read(limit + 1)
         except FileNotFoundError:
             return None
+        # Stored state this build cannot read: WorkStateUnavailable (a
+        # WorkPlanError), so operator surfaces answer 503 "Work state unreadable".
         if len(raw) > limit:
-            raise WorkPlanError('side inbox record exceeds parser limit; original preserved')
+            raise WorkStateUnavailable('side inbox record exceeds parser limit; original preserved')
         try:
             row = json.loads(raw)
         except (ValueError, UnicodeDecodeError) as error:
-            raise WorkPlanError('side inbox is unreadable; original preserved') from error
+            raise WorkStateUnavailable('side inbox is unreadable; original preserved') from error
         if not isinstance(row, dict):
-            raise WorkPlanError('side inbox schema is invalid; original preserved')
+            raise WorkStateUnavailable('side inbox schema is invalid; original preserved')
         return row
 
     @staticmethod
@@ -269,7 +306,8 @@ class SideIntakeInbox:
                 or not isinstance(row.get('route', {}), dict)
                 or (row.get('stage') == 'processed' and not isinstance(row.get('result'), dict))
                 or not (row.get('item_id') is None or isinstance(row.get('item_id'), str))):
-            raise WorkPlanError('side inbox row is invalid; original preserved')
+            # Every caller validates a stored row: corrupt state, not a request error.
+            raise WorkStateUnavailable('side inbox row is invalid; original preserved')
 
     @staticmethod
     def _save_file(path: Path, row: dict[str, Any]) -> None:
@@ -293,10 +331,10 @@ class SideIntakeInbox:
             legacy = self._read_file(self.path, MAX_DOCUMENT_BYTES)
             if legacy is not None:
                 if type(legacy.get('version')) is not int or not isinstance(legacy.get('requests'), dict):
-                    raise WorkPlanError('side inbox schema is invalid; original preserved')
+                    raise WorkStateUnavailable('side inbox schema is invalid; original preserved')
                 for key, row in legacy['requests'].items():
                     if not isinstance(row, dict):
-                        raise WorkPlanError('side inbox row is invalid; original preserved')
+                        raise WorkStateUnavailable('side inbox row is invalid; original preserved')
                     self._validate(key, row)
                 for key, row in legacy['requests'].items():
                     target = self._event_path('receipts' if row['item_id'] else 'pending', key)
@@ -497,7 +535,10 @@ class SideIntakeInbox:
         processing = row.get('processing') if isinstance(row.get('processing'), dict) else {}
         fallback = row.get('main_fallback') if isinstance(row.get('main_fallback'), dict) else {}
         lease = processing.get('lease_until')
-        return {'duplicate': result.get('delivery') == 'duplicate_source' or bool(result.get('duplicate_of')),
+        notice = row.get('release_notice') if isinstance(row.get('release_notice'), dict) else None
+        return {'notice': ({'state': notice.get('state'), 'claimed_at': notice.get('claimed_at')}
+                           if notice is not None else None),
+                'duplicate': result.get('delivery') == 'duplicate_source' or bool(result.get('duplicate_of')),
                 # finish() keeps the claim's processing record on a processed
                 # receipt (its generation fences duplicate finishes), so the
                 # committed stage and board linkage outrank it.
@@ -527,6 +568,13 @@ class SideIntakeInbox:
     def _timed_summary(cls, summary: dict[str, Any], inputs: dict[str, Any], now: float) -> dict[str, Any]:
         timed = dict(summary)
         timed['stage'] = cls._stage(inputs, now)
+        if inputs.get('notice') is not None:
+            # Bounded operator signal for the released-wait notice claim: this
+            # boolean and the fixed state word, never its attempt, owner,
+            # receipt or text.
+            from .side_notice import delivery_uncertain, public_state
+            timed['notice_delivery_uncertain'] = delivery_uncertain(inputs['notice'], now)
+            timed['notice_state'] = public_state(inputs['notice'])
         received, consumed = timed.get('received_at'), timed.get('consumed_at')
         if isinstance(received, (int, float)):
             end = consumed if isinstance(consumed, (int, float)) else now
@@ -557,6 +605,7 @@ class SideIntakeInbox:
         }
         payload = {name: redact_public(value, string_limit=500) if isinstance(value, str) and name != 'recap'
                    else value for name, value in payload.items() if value is not None}
+        payload.update(_retry_pins(row))
         return payload, cls._stage_inputs(row)
 
     @classmethod
@@ -688,4 +737,8 @@ class SideIntakeInbox:
                 'source_context': row.get('source_context'),
                 'source_truncated': row.get('source_truncated') is True,
                 'main_fallback': row.get('main_fallback'), 'context': row.get('context'),
-                'result': row.get('result')}
+                'result': row.get('result'),
+                **({'notice_delivery_uncertain': _notice_uncertain(row.get('release_notice')),
+                    'notice_state': _notice_state(row.get('release_notice'))}
+                   if isinstance(row.get('release_notice'), dict) else {}),
+                **_retry_pins(row)}

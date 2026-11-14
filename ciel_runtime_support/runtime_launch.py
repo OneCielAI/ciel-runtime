@@ -7,7 +7,7 @@ import subprocess
 import time
 import uuid
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Mapping
 from dataclasses import dataclass
 
 from ciel_runtime_support import dangerous_rm_auto_allow, launch_data_path
@@ -435,6 +435,14 @@ def _work_mode_args_index(cmd: list[str]) -> int:
     return len(cmd)
 
 
+def _direct_empty_stream_retries(environment: Mapping[str, str]) -> int:
+    """The product-projected ciel-network-retry limit persisted in this launch's scope."""
+    try:
+        return max(0, min(10, int(environment.get("CIEL_RUNTIME_DIRECT_EMPTY_STREAM_RETRIES") or 0)))
+    except (ValueError, TypeError, OverflowError):
+        return 0
+
+
 @_launch_lease_guarded("claude")
 def run_claude(
     passthrough: list[str],
@@ -570,11 +578,19 @@ def run_claude(
         print("Use the matching Launch menu item or --ca-runtime agy|codex|codex-app-server.", flush=True)
         return 2
     blockers = launch_readiness_errors(cfg)
-    if blockers:
+    # A key the remote startup response returned for this session satisfies a
+    # missing-key blocker without being stored (startup_session_key).
+    from .startup_session_key import STARTUP_SESSION_KEYS, transient_key_satisfies
+
+    transient_session_key = transient_key_satisfies(blockers, provider)
+    if blockers and not transient_session_key:
         print("Ciel Runtime launch blocked:", flush=True)
         for line in blockers:
             print(f"- {line}", flush=True)
         return 2
+    if transient_session_key:
+        print(f"Ciel Runtime: using a session API key from the remote startup response for {provider} "
+              "(this session only, memory only, not stored).", flush=True)
     use_native_anthropic = direct_native_anthropic_enabled(provider, pcfg)
     use_router_mode = not use_native_anthropic
     launch_cwd_key = current_launch_cwd_key()
@@ -611,6 +627,12 @@ def run_claude(
         if stdin_channel_proxy
         else ""
     )
+    if transient_session_key and (use_native_anthropic or not session_socket_target):
+        STARTUP_SESSION_KEYS.discard("unbindable_launch")
+        print("Ciel Runtime launch blocked:", flush=True)
+        print("- The session API key from the remote startup response can be used only by a routed "
+              "Claude Code launch with its messaging socket; it was not stored or passed to the CLI.", flush=True)
+        return 2
     manage_router_lifetime = False
     if use_router_mode or llm_channel_delivery:
         manage_router_lifetime = bool(_launch_phase("claude", "router_start", start_router_if_needed, router_log))
@@ -796,7 +818,8 @@ def run_claude(
     )
     if work_mode_args:
         extra_args.extend(work_mode_args)
-        router_log("INFO", f"claude_work_mode plugin_dir={work_mode_args[-1]}")
+        # The Work mod and, when packaged, its fork gate: one --plugin-dir pair each.
+        router_log("INFO", "claude_work_mode plugin_dirs=" + ",".join(work_mode_args[1::2]))
     if fork_native_session:
         session_id = str(uuid.uuid4())
         extra_args.extend(["--session-id", session_id])
@@ -854,9 +877,13 @@ def run_claude(
     # Whether the last run_claude_process handed the restart control to its
     # transport; only such a launch can be restarted after its child ends.
     restart_supervised = False
+    # The startup key is handed over once, by the first run of this launch; a
+    # supervised restart finds the holder empty and keeps whatever the router
+    # already holds for the session (session_api_key_vault).
+    startup_key_staged = False
 
     def run_claude_process() -> int:
-        nonlocal restart_supervised
+        nonlocal restart_supervised, startup_key_staged
         restart_supervised = False
         rc = 1
         try:
@@ -867,6 +894,7 @@ def run_claude(
                 session_id=transcript_session_id or None,
                 messaging_socket_path=session_socket_target or None,
                 request_identity=use_router_mode and not launched_direct,
+                direct_empty_stream_retries=_direct_empty_stream_retries(env),
             )
             if use_router_mode and not ensure_managed_router_running_for_client():
                 print(
@@ -874,6 +902,22 @@ def run_claude(
                     flush=True,
                 )
                 print(f"  {router_health_summary()}", flush=True)
+            # The startup key goes to the router for this launch epoch and
+            # socket only; the CLI never sees it (no env, no argv).
+            handoff = STARTUP_SESSION_KEYS.stage(
+                provider, session_socket_target, bool(use_router_mode and not launched_direct)
+            )
+            if handoff.startswith("refused:") and not transient_session_key:
+                print(f"Ciel Runtime: the session API key from the remote startup response was not used "
+                      f"({handoff.partition(':')[2]}); nothing was stored.", flush=True)
+            if handoff == "staged":
+                startup_key_staged = True
+            elif transient_session_key and not startup_key_staged:
+                print("Ciel Runtime launch blocked:", flush=True)
+                print(f"- The session API key could not be handed to the local router ({handoff}); "
+                      "it was dropped and nothing was stored.", flush=True)
+                rc = 2
+                return rc
             if stdin_channel_proxy:
                 restart_supervised = True
                 rc = _child_session("claude", "channel_proxy", lambda: subprocess_call_with_channel_wake_proxy(
@@ -1003,9 +1047,12 @@ def run_claude(
             if direct_network_args:
                 cmd[_work_mode_args_index(cmd):_work_mode_args_index(cmd)] = direct_network_args
             if work_mode_args:
-                for index in range(len(cmd) - 1):
-                    if cmd[index:index + 2] == work_mode_args:
-                        del cmd[index:index + 2]
+                # The Work args are inserted as one contiguous run (the mod's
+                # pair, then the fork gate's), so they are removed as one.
+                width = len(work_mode_args)
+                for index in range(len(cmd) - width + 1):
+                    if cmd[index:index + width] == work_mode_args:
+                        del cmd[index:index + width]
                         break
             refreshed_work_args = claude_work_mode_args(
                 current_config, native=use_native_anthropic, router_mcp_attached=claude_router_mcp is not None,
