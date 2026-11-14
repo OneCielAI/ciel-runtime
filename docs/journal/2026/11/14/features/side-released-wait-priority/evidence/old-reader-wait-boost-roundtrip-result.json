@@ -1,0 +1,60 @@
+{
+  "beta": "57dbfb3",
+  "measured": {
+    "beta_root": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\mod-gates\\beta-57dbfb3",
+    "checks": {
+      "mixed_version_can_reserve_ordinary_first": true,
+      "old_dispatch_first_converges_consumed": true,
+      "old_dispatch_first_unique_match": true,
+      "old_duplicate_fence_no_second_lease": true,
+      "receipt_preserved_exactly": true,
+      "sidecar_byte_identical": true
+    },
+    "observations": {
+      "mixed_version_order": {
+        "boosted_item": "n2",
+        "old_reserved_ordinary_first": true,
+        "old_runnable_order": [
+          "n3",
+          "n2"
+        ],
+        "ordinary_item": "n3"
+      },
+      "old_dispatch_first": {
+        "exact_active_matches": 1,
+        "reconcile_outcome": "consumed",
+        "reserved_item_is_boost": true,
+        "second_outcome": "WorkParallelError: active slot capacity reached for P3 (1/1)"
+      },
+      "receipt": {
+        "after_old_writes_equal": true,
+        "keys": [
+          "item_id",
+          "parked_lease_id",
+          "release_at",
+          "release_receipt",
+          "root_created_at",
+          "root_id",
+          "wait_digest"
+        ],
+        "read_equal": true
+      }
+    },
+    "sidecar_hashes": {
+      "board_execute": "e618dd347bd0ea8515f8a78522d6edb450fc9908aec481758ef737ba46462641",
+      "board_priority": "e618dd347bd0ea8515f8a78522d6edb450fc9908aec481758ef737ba46462641",
+      "board_progress": "e618dd347bd0ea8515f8a78522d6edb450fc9908aec481758ef737ba46462641",
+      "initial": "e618dd347bd0ea8515f8a78522d6edb450fc9908aec481758ef737ba46462641",
+      "ledger_ordinary_release": "e618dd347bd0ea8515f8a78522d6edb450fc9908aec481758ef737ba46462641",
+      "ledger_ordinary_reserve": "e618dd347bd0ea8515f8a78522d6edb450fc9908aec481758ef737ba46462641",
+      "ledger_pause_false": "e618dd347bd0ea8515f8a78522d6edb450fc9908aec481758ef737ba46462641",
+      "ledger_pause_true": "e618dd347bd0ea8515f8a78522d6edb450fc9908aec481758ef737ba46462641",
+      "old_boost_reserve": "e618dd347bd0ea8515f8a78522d6edb450fc9908aec481758ef737ba46462641",
+      "old_duplicate_attempt": "e618dd347bd0ea8515f8a78522d6edb450fc9908aec481758ef737ba46462641",
+      "old_ordinary_first": "e618dd347bd0ea8515f8a78522d6edb450fc9908aec481758ef737ba46462641"
+    }
+  },
+  "returncode": 0,
+  "stderr_tail": "",
+  "temp_dir": "C:\\Users\\djlov\\ciel-runtime\\.local\\tmp\\work-parallel\\.local\\wait-boost-probe.3rX3eT\\wait-boost-old-roundtrip-3iwbk6aj"
+}

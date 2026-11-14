@@ -1,0 +1,40 @@
+# First full-suite run on the applied tree (before release-gate fixes), 2026-11-14 ~21:31Z
+## unit
+Ran 4766 tests in 1475.157s
+FAILED (failures=119, errors=48, skipped=76)
+EXIT=1
+## router
+Ran 1669 tests in 521.084s
+FAILED (errors=1)
+EXIT=1
+## channel
+Ran 626 tests in 48.386s
+OK (skipped=80)
+EXIT=0
+## runtime
+Ran 458 tests in 43.477s
+FAILED (errors=1, skipped=19)
+EXIT=1
+## unit failures by module
+    110 test_work_mod_real_backend
+     11 test_work_parallel_review_pin
+     11 test_work_parallel_restart_terminal
+     10 test_work_parallel_gate_presence
+      7 test_work_parallel_rework_worktree
+      4 test_work_state_unavailable
+      4 test_work_parallel_finalization
+      2 test_launch_data_path
+      1 test_work_wait_mcp_route
+      1 test_work_parallel
+      1 test_side_reappend_release
+      1 test_review_delivery
+      1 test_restart_unknown_orphan_pointer
+      1 test_model_compact_safeguard
+      1 test_compaction_launch_contracts
+      1 test_architecture_contracts
+## launch TypeError (runtime test_headless_update_checks, router test_deepseek_provider)
+TypeError: ChannelWakeContext.set_transcript_scope() got an unexpected keyword argument 'direct_empty_stream_retries'
+## real-backend harness
+TypeError: _install_resume_assignment_fault.<locals>.record_assignment() got an unexpected keyword argument 
+## architecture
+    self.fail("support import cycle: " + " -> ".join(cycle))
