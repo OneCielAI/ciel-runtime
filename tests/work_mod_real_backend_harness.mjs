@@ -2320,6 +2320,58 @@ try {
       .reduce((acc, name) => ({ ...acc, [name]: (acc[name] || 0) + 1 }), {})
   }
 
+  if (scenario === 'close-resolved-done' || scenario === 'close-resolved-removed' || scenario === 'close-resolved-open') {
+    // Main completes or removes the Work item itself while the fork's result
+    // waits in review (G:\\ciel-Walkie 2026-11-15). The next pump boundary ends
+    // that review unreviewed; an item still open is never closed.
+    const seeded = await rpc('seed', { title: 'Close' })
+    await start('process')
+    out.before = await rpc('inspect')
+    const how = scenario === 'close-resolved-done' ? 'done' : scenario === 'close-resolved-removed' ? 'remove' : null
+    if (how) out.board = await rpc('board_change', { item_id: seeded.item_id, how })
+    await turnComplete()
+    out.after = await rpc('inspect')
+    out.closeCalls = count('review_close_resolved')
+    out.reviewDecisions = calls.filter(c => c.tool === 'work_parallel_item_review').length
+    out.pane = (await hooks['command:work-mode']($, { args: 'parallel', origin: { kind: 'composer' } })).text
+    out.lease = seeded.lease_id; out.item = seeded.item_id
+  }
+
+  if (scenario === 'close-resolved-stranded') {
+    // A stranded no-report review (n1971 on G:\\ciel-Walkie) for an item main
+    // then completed itself ends at the next pump too.
+    const seeded = await rpc('seed_running')
+    await rpc('break_worktree', { lease_id: seeded.lease_id })
+    const lease_id = seeded.lease_id, agent = seeded.agent_id
+    native.agents.push({ id: agent, name: agent, status: 'running', type: 'fork' })
+    await start('process')
+    native.agents.find(row => row.id === agent).status = 'completed'
+    await hooks['turn.complete']($, { agentId: agent, reason: 'answer' }, async e => e); await quiet()
+    await hooks['turn.complete']($, { agentId: agent, reason: 'answer' }, async e => e); await quiet()
+    await turnComplete()
+    const status = () => rpc('tool', { tool:'work_parallel_status', args:{ session_id:'claude:S1', _host:{ token:init.token } } })
+    out.before = { stranded: (await rpc('inspect')).stranded?.rows?.[lease_id] ?? null,
+      pending: ((await status()).review?.pending || []).filter(row => row.lease_id === lease_id).length }
+    out.board = await rpc('board_change', { item_id: seeded.item_id, how: 'done' })
+    await turnComplete()
+    out.after = { stranded: (await rpc('inspect')).stranded?.rows?.[lease_id] ?? null,
+      pending: ((await status()).review?.pending || []).filter(row => row.lease_id === lease_id).length }
+    out.spawns = [...native.spawns]
+    out.pane = (await hooks['command:work-mode']($, { args: 'parallel', origin: { kind: 'composer' } })).text
+    out.lease = lease_id; out.item = seeded.item_id
+  }
+
+  if (scenario === 'blocked-label') {
+    // An approve whose board stage fails is shown with its reason, not "Finalizing".
+    const seeded = await rpc('seed', { title: 'Blocked' })
+    await start('process')
+    await rpc('fault_board_accept', { message: 'still has unfinished children; finish them first' })
+    out.decision = await reviewCall({ lease_id: seeded.lease_id, decision: 'approve', evidence: 'main verified the diff' })
+    out.after = await rpc('inspect')
+    out.pane = (await hooks['command:work-mode']($, { args: 'parallel', origin: { kind: 'composer' } })).text
+    out.lease = seeded.lease_id; out.item = seeded.item_id
+  }
+
   if (scenario === 'capacity') {
     const seeded = await rpc('seed', { title: 'Capacity' })
     await start('process')

@@ -205,6 +205,69 @@ class MainReviewTests(unittest.TestCase):
                            expected_finalization_version=0)
         self.assertEqual("finalized", replay["state"])
 
+    # Items resolved on the board (G:\ciel-Walkie 2026-11-15) ----------------
+
+    def close_resolved(self, host=None):
+        return self.call("event", {"internal": True, **(host or {})}, event="review_close_resolved")
+
+    def test_review_of_an_item_main_completed_on_the_board_closes_unreviewed(self):
+        reserve, workspace, artifact = self.completed()
+        self.idle(reserve["lease_id"])
+        self.board.transaction(lambda d: tree.update_node(d, self.board.item, status="done", evidence="main did it"),
+                               expected_version=self.board.read()["version"])
+        self.assertEqual(1, len(self.call("status", {})["review"]["pending"]))
+        closed = self.close_resolved()["closed"]
+        self.assertEqual([(reserve["lease_id"], self.board.item, "completed on the board", "finalized")],
+                         [(c["lease_id"], c["item_id"], c["reason"], c["state"]) for c in closed])
+        self.assertEqual([], self.call("status", {})["review"]["pending"])
+        row = self.review_row(reserve["lease_id"])
+        self.assertEqual(("close", "finalized"), (row["decision"], row["state"]))
+        self.assertIn("Closed unreviewed", row["evidence"])
+        self.assertEqual("done", self.store.read()["leases"][reserve["lease_id"]]["state"])
+        # The board keeps main's own completion; the workspace is retained.
+        self.assertEqual("main did it", self.node()["evidence"])
+        self.assertTrue(workspace.exists())
+        coord = m.coordination(self.store).read()
+        self.assertEqual("closed unreviewed: Work item resolved on the board", coord["archive"][-1]["summary"]["outcome"])
+        # Idempotent: nothing more to close.
+        self.assertEqual([], self.close_resolved()["closed"])
+
+    def test_review_of_an_item_removed_from_the_board_closes_unreviewed(self):
+        reserve, workspace, artifact = self.completed(item_id=self.board.item2)
+        self.idle(reserve["lease_id"])
+        self.board.transaction(lambda d: tree.remove_node(d, self.board.item2),
+                               expected_version=self.board.read()["version"])
+        closed = self.close_resolved()["closed"]
+        self.assertEqual([("removed from the board", "finalized")], [(c["reason"], c["state"]) for c in closed])
+        self.assertEqual([], self.call("status", {})["review"]["pending"])
+
+    def test_review_of_an_open_item_is_never_closed(self):
+        reserve, workspace, artifact = self.completed()
+        self.idle(reserve["lease_id"])
+        self.assertEqual([], self.close_resolved()["closed"])
+        self.assertEqual(1, len(self.call("status", {})["review"]["pending"]))
+        self.assertIsNone(self.review_row(reserve["lease_id"])["decision"])
+
+    def test_close_resolved_requires_the_verified_mod_host(self):
+        reserve, workspace, artifact = self.completed()
+        self.idle(reserve["lease_id"])
+        with self.assertRaises(m.WorkParallelError):
+            self.call("event", {}, event="review_close_resolved")
+
+    def test_approve_of_an_item_already_completed_elsewhere_finalizes_instead_of_blocking(self):
+        # n1909: "board item completed by another result" blocked the saga forever.
+        reserve, workspace, artifact = self.completed()
+        self.idle(reserve["lease_id"])
+        version = self.pending_version()
+        self.board.transaction(lambda d: tree.update_node(d, self.board.item, status="done", evidence="other result"),
+                               expected_version=self.board.read()["version"])
+        self.assertEqual("done", self.node()["status"])
+        result = self.call("item_review", {}, lease_id=reserve["lease_id"], decision="approve",
+                           decision_id="decision-1", evidence="main verified", expected_finalization_version=version)
+        self.assertEqual("finalized", result["state"])
+        self.assertIsNone(self.review_row(reserve["lease_id"])["blocked"])
+        self.assertEqual("other result", self.node()["evidence"])
+
     def test_self_accept_by_worker_or_fork_is_denied(self):
         reserve, workspace, artifact = self.completed()
         self.idle(reserve["lease_id"])

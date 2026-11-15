@@ -1760,15 +1760,18 @@ def _archive_retry(coord, lease_id, summary, *, completion_receipt=None):
 
 
 def _board_accept(board_store, item_id, artifact, evidence):
-    """Idempotent board completion, independently CAS-protected by its store."""
+    """Idempotent board completion, independently CAS-protected by its store.
+
+    A node already completed (by main or another result) or removed from the
+    board needs no change: the decision still finalizes. Refusing it blocked
+    the review forever (G:\\ciel-Walkie 2026-11-15, n1909 "board item completed
+    by another result").
+    """
     from . import work_plan_tree as plan_tree
     for _ in range(4):
         board = board_store.read()
         node = next((row for row in board["nodes"] if row["id"] == item_id), None)
-        if node is None:
-            raise WorkParallelError("review item no longer exists")
-        if node["status"] == "done":
-            require(artifact in str(node.get("evidence") or ""), "board item completed by another result")
+        if node is None or node["status"] == "done":
             return board
         try:
             updated, _ = board_store.transaction(
@@ -1939,6 +1942,70 @@ def _main_review(store, board_store, identity, host, args):
     raise WorkParallelConflict("Work finalization state changed; reread")
 
 
+CLOSE_RESOLVED_LIMIT = 24
+
+
+def close_resolved_reviews(store, board_store, identity, *, limit=CLOSE_RESOLVED_LIMIT):
+    """End undecided reviews whose Work item is already resolved on the board.
+
+    Main may complete an item itself, or remove it, while a fork result for it
+    still waits in review; no review path could then close it, and "Awaiting
+    main review" stayed forever (G:\\ciel-Walkie 2026-11-15: n1869/n1871/n1873
+    done, n1536-n1538 removed). The result was not reviewed: the decision is
+    ``close`` (never ``approve``), its evidence says so, the board is not
+    changed and the workspace is retained. A stranded no-report row for such an
+    item is closed too.
+    """
+    from .work_parallel_finalization import decision_digest
+    board = board_store.read()
+    nodes = {node["id"]: node for node in board["nodes"]}
+    closed = []
+    reviews = finalization(store)
+    for row in list(reviews.read()["reviews"].values()):
+        if len(closed) >= limit:
+            break
+        if row["scope"] != identity or row["state"] != "pending" or row["decision"] is not None:
+            continue
+        node = nodes.get(row["item_id"])
+        if node is not None and node.get("status") != "done":
+            continue
+        lease = store.read()["leases"].get(row["lease_id"])
+        if (lease is None or lease["state"] != "submitted" or lease["artifact"] != row["artifact"]):
+            continue
+        how = "removed from the board" if node is None else "completed on the board"
+        evidence = (f"Closed unreviewed: Work item {row['item_id']} was {how} before main reviewed this "
+                    f"result. The board was not changed; the workspace is retained at "
+                    f"{row['workspace']['path']} ({row['workspace']['head']}).")[:2000]
+        decision_id = "close-resolved:" + row["lease_id"]
+        try:
+            fstate = reviews.read()
+            reviews.decide(row["lease_id"], "close", decision_id, evidence,
+                           decision_body_digest=decision_digest(row["lease_id"], "close", evidence),
+                           expected_version=fstate["version"])
+            result = _roll_forward(store, board_store, identity, {"internal": True}, row["lease_id"])
+        except (WorkParallelConflict, WorkParallelError):
+            continue
+        closed.append({"lease_id": row["lease_id"], "item_id": row["item_id"], "reason": how,
+                       "state": result.get("state")})
+    for row in list(stranded(store).read()["rows"].values()):
+        if len(closed) >= limit:
+            break
+        if (row["scope"] != identity or row["state"] in ("done", "superseded", "recovered")
+                or row["decision_id"] is not None):
+            continue
+        node = nodes.get(row["item_id"])
+        if node is not None and node.get("status") != "done":
+            continue
+        try:
+            _close_stranded(store, row["lease_id"], undecided_only=True)
+        except WorkParallelConflict:
+            continue
+        closed.append({"lease_id": row["lease_id"], "item_id": row["item_id"],
+                       "reason": "removed from the board" if node is None else "completed on the board",
+                       "state": "done"})
+    return closed
+
+
 def _roll_forward(store, board_store, identity, host, lease_id):
     """Advance a durable decision from the journal alone.
 
@@ -1974,7 +2041,7 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
     evidence = row["evidence"]
     coord = coordination(store)
 
-    if decision == "approve":
+    if decision in ("approve", "close"):
         if not row["stages"]["accepted"]:
             current = store.read()
             store.main_accept(lease_id, plan_version=row["plan_version"], artifact=row["artifact"],
@@ -1988,7 +2055,8 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
         else:
             cleanup = "retained verified workspace " + row["workspace"]["path"] + " at " + row["workspace"]["head"]
         if not row["stages"]["board"]:
-            _board_accept(board_store, row["item_id"], row["artifact"], evidence)
+            if decision == "approve":
+                _board_accept(board_store, row["item_id"], row["artifact"], evidence)
             fstate, row = reviews.mark(lease_id, "board", expected_version=reviews.read()["version"])
         if not row["stages"]["lease"]:
             current = store.read()
@@ -1997,13 +2065,15 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
                                     expected_version=current["version"])
             fstate, row = reviews.mark(lease_id, "lease", expected_version=reviews.read()["version"])
         if not row["stages"]["archive"]:
-            _archive_retry(coord, lease_id, {"state": "done", "outcome": "main accepted",
+            _archive_retry(coord, lease_id, {"state": "done",
+                                             "outcome": ("main accepted" if decision == "approve" else
+                                                         "closed unreviewed: Work item resolved on the board"),
                                              "receipt_digest": row["completion_receipt"],
                                              "artifact_digest": row["artifact"], "published": False},
                            completion_receipt=row["completion_receipt"])
             fstate, row = reviews.mark(lease_id, "archive", state_value="finalized",
                                        expected_version=reviews.read()["version"])
-        return {"decision": "approve", "lease_id": lease_id, "item_id": row["item_id"],
+        return {"decision": decision, "lease_id": lease_id, "item_id": row["item_id"],
                 "state": "finalized", "version": store.read()["version"],
                 "finalization_version": fstate["version"]}
 
@@ -3055,6 +3125,12 @@ def run(name, args, board_store, identity, config, save_config):
                            "assignment_key_reason": key_reason,
                            "scheduling_blocked": key_status == "recovery_required",
                            "spawn_allowed": key_status != "recovery_required"}, ensure_ascii=False)
+    if event == "review_close_resolved":
+        # Host pump: end reviews whose Work item main already completed or
+        # removed on the board (user decision 2026-11-15).
+        if actor is not None or host.get("internal") is not True:
+            raise WorkParallelError("verified mod-internal review host required")
+        return json.dumps({"closed": close_resolved_reviews(store, board_store, identity)}, ensure_ascii=False)
     if event == "review_roll_forward":
         # Host pump retries a durable decision (awaiting_capacity or a blocked
         # stage) from the journal alone. Main never needs to resend its body.

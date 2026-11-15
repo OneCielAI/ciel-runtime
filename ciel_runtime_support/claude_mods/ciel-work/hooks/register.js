@@ -1470,6 +1470,8 @@ function parallelReviewPending(row) {
 function parallelReviewLabel(row) {
   const state = parallelReviewState(row)
   if (state === 'pending') return 'Awaiting main review'
+  // A decided saga whose stage failed names why, instead of "Finalizing" forever.
+  if (state === 'deciding' && row?.blocked?.message) return 'Blocked: ' + clipped(row.blocked.message, 120)
   if (state === 'awaiting_capacity') return 'Rework (waiting for slot)'
   if (state === 'rework_ready') {
     const note = reworkLaunchNotes.get(String(row?.replacement_lease_id || ''))
@@ -2044,7 +2046,7 @@ async function parallelEvent($, args, observed = {}) {
 const REWORK_LAUNCH_EVENTS = new Set(['rework_launch_intent', 'rework_launch_denied', 'rework_spawn_observed',
   'rework_launch_absent', 'rework_launch_manual_resolve', 'rework_launch_present',
   'rework_launch_status', 'rework_launch_manual_request', 'rework_fork_attribution', 'fork_identity',
-  'review_wake', 'review_roll_forward', 'restart_submitted_terminal', 'failure_record'])
+  'review_wake', 'review_roll_forward', 'review_close_resolved', 'restart_submitted_terminal', 'failure_record'])
 function reworkLaunchEvent($, args, observed = {}) {
   return parallelEvent($, args, { ...observed, internal:true })
 }
@@ -2945,6 +2947,19 @@ function parallelIdleSignature(state) {
 }
 async function parallelRollForward($, state) {
   let advanced = 0
+  // A review whose Work item main already completed or removed on the board
+  // ends unreviewed (router close_resolved_reviews); without this it waited
+  // forever as "Awaiting main review" (G:\ciel-Walkie 2026-11-15).
+  if (parallelReviews(state).some(parallelReviewPending)) {
+    try {
+      const result = await parallelCall($, 'work_parallel_event', { event:'review_close_resolved' }, { internal:true })
+      advanced += Array.isArray(result?.closed) ? result.closed.length : 0
+    } catch (error) {
+      const detail = String(error?.message || error)
+      // An older router refuses the event as "unsupported parallel event"; nothing else to do there.
+      if (!/unsupported parallel event/.test(detail)) rememberParallelFailure('review-close-resolved', detail)
+    }
+  }
   for (const row of parallelReviews(state).filter(parallelRollForwardDue)) {
     try {
       const result = await parallelCall($, 'work_parallel_event', { event:'review_roll_forward', lease_id:parallelReviewId(row) },

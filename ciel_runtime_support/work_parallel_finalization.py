@@ -27,7 +27,9 @@ MAX_PROJECTION = 24
 SCHEMA = 5
 STAGES = ("accepted", "workspace", "board", "lease", "archive")
 STATES = ("pending", "awaiting_capacity", "deciding", "rework_ready", "finalized")
-DECISIONS = (None, "approve", "rework")
+# close: the Work item was completed or removed on the board before main
+# reviewed the result; the review ends unreviewed and the workspace is retained.
+DECISIONS = (None, "approve", "rework", "close")
 WAKE_STATES = ("pending", "submitting", "appended", "queued", "uncertain", "failed", "acknowledged")
 LAUNCH_STATES = ("none", "launch_intent", "spawn_denied", "spawn_observed", "manual_requested", "bound")
 LAUNCH_AUDIT_KINDS = ("denied", "absent", "manual_requested", "manual", "present")
@@ -251,7 +253,7 @@ def _review(key, row):
                 and row["decision_digest"] is None and row["evidence"] is None and empty
                 and row["replacement_lease_id"] is None and row["replacement_generation"] is None,
                 "pending review invariant")
-    elif row["decision"] == "approve":
+    elif row["decision"] in ("approve", "close"):
         require(row["decision_id"] is not None and row["decision_digest"] is not None
                 and row["evidence"] is not None and row["replacement_lease_id"] is None
                 and row["replacement_generation"] is None, "approve decision invariant")
@@ -428,7 +430,7 @@ class WorkParallelFinalizationStore:
 
     def decide(self, lease_id, decision, decision_id, evidence, *, decision_body_digest,
                expected_version, replacement_lease_id=None, expected_review_pin=None):
-        require(decision in ("approve", "rework") and text(decision_id, 200)
+        require(decision in ("approve", "rework", "close") and text(decision_id, 200)
                 and text(evidence, 2_000) and digest(decision_body_digest), "review decision")
         def apply(state):
             row = state["reviews"].get(lease_id)

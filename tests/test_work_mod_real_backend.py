@@ -101,6 +101,54 @@ class WorkModRealBackendTests(unittest.TestCase):
         self.assertEqual("done", result["backend"]["nodes"][result["item"]])
         self.assertEqual("done", result["backend"]["leases"][result["lease"]]["state"])
 
+    def test_review_of_an_item_main_completed_closes_unreviewed_at_the_next_pump(self):
+        result = self.run_scenario("close-resolved-done")
+        lease = result["lease"]
+        self.assertEqual(("pending", None), (result["before"]["reviews"][lease]["state"],
+                                             result["before"]["reviews"][lease]["decision"]))
+        review = result["after"]["reviews"][lease]
+        self.assertEqual(("finalized", "close"), (review["state"], review["decision"]), result)
+        self.assertEqual("done", result["after"]["leases"][lease]["state"])
+        self.assertEqual("done", result["after"]["nodes"][result["item"]])
+        self.assertGreaterEqual(result["closeCalls"], 1)
+        # Main made no decision; the host closed it.
+        self.assertEqual(0, result["reviewDecisions"])
+        self.assertNotIn("Awaiting main review", result["pane"])
+
+    def test_review_of_an_item_main_removed_closes_unreviewed_at_the_next_pump(self):
+        result = self.run_scenario("close-resolved-removed")
+        lease = result["lease"]
+        review = result["after"]["reviews"][lease]
+        self.assertEqual(("finalized", "close"), (review["state"], review["decision"]), result)
+        self.assertNotIn(result["item"], result["after"]["nodes"])
+        self.assertNotIn("Awaiting main review", result["pane"])
+
+    def test_stranded_review_of_an_item_main_completed_closes_at_the_next_pump(self):
+        result = self.run_scenario("close-resolved-stranded")
+        self.assertEqual(1, result["before"]["pending"], result)
+        self.assertEqual("pending", result["before"]["stranded"]["state"], result)
+        self.assertEqual("done", result["board"][result["item"]])
+        self.assertEqual(0, result["after"]["pending"], result)
+        self.assertEqual("done", result["after"]["stranded"]["state"], result)
+        # Closing never starts a recovery fork.
+        self.assertEqual([], result["spawns"])
+        self.assertNotIn("Awaiting main review", result["pane"])
+
+    def test_review_of_an_open_item_still_awaits_main(self):
+        result = self.run_scenario("close-resolved-open")
+        lease = result["lease"]
+        review = result["after"]["reviews"][lease]
+        self.assertEqual(("pending", None), (review["state"], review["decision"]), result)
+        self.assertIn("Awaiting main review", result["pane"])
+
+    def test_blocked_approve_names_its_reason_in_the_pane(self):
+        result = self.run_scenario("blocked-label")
+        review = result["after"]["reviews"][result["lease"]]
+        self.assertEqual(("deciding", "approve", "stage_failed"),
+                         (review["state"], review["decision"], (review["blocked"] or {}).get("code")), result)
+        self.assertIn("Blocked: " + result["item"] + " still has unfinished children", result["pane"])
+        self.assertNotIn("Finalizing", result["pane"])
+
     def test_missing_fork_gate_starts_no_work_fork_and_changes_nothing_durable(self):
         result = self.run_scenario("fork-gate-missing")
         decided = json.loads(result["decision"]["result"])

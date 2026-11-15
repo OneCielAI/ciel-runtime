@@ -477,6 +477,32 @@ def _install_resume_assignment_fault():
 
 _install_resume_assignment_fault()
 
+BOARD_ACCEPT_FAULT = {"message": None}
+
+
+def fault_board_accept(message):
+    """Make an approve's board stage fail with the board's own refusal text.
+
+    Measured on G:\\ciel-Walkie 2026-11-15 (n1937): "still has unfinished
+    children; finish them first". Adding a child here instead would change the
+    approval fingerprint and refuse the decision itself. ``None`` clears it.
+    """
+    BOARD_ACCEPT_FAULT["message"] = message
+    return {"fault": message}
+
+
+def _install_board_accept_fault():
+    original = parallel._board_accept
+
+    def board_accept(board_store, item_id, artifact, evidence):
+        if BOARD_ACCEPT_FAULT["message"]:
+            raise tree.WorkPlanError(item_id + " " + BOARD_ACCEPT_FAULT["message"])
+        return original(board_store, item_id, artifact, evidence)
+    parallel._board_accept = board_accept
+
+
+_install_board_accept_fault()
+
 
 def workspace_status(lease_id):
     from ciel_runtime_support import work_parallel_workspace as ws
@@ -583,6 +609,22 @@ def report_completion(lease_id, worker_token, label):
         "plan_version": lease["plan_version"], "artifact": "c" * 64, "evidence": "fixed " + label,
         "detail": {"summary": "fixed " + label, "coverage": [{"item_id": lease["item_id"], "verified": True}],
                    "verification": "fixed " + label}}, BOARD, config()))
+
+
+def board_change(item_id, how):
+    """Main changes the board itself while a result for the item waits in review.
+
+    done: main completes the item; remove: main removes it.
+    """
+    doc = BOARD.read()
+    if how == "done":
+        BOARD.transaction(lambda d: tree.update_node(d, item_id, status="done", evidence="main did it"),
+                          expected_version=doc["version"])
+    elif how == "remove":
+        BOARD.transaction(lambda d: tree.remove_node(d, item_id), expected_version=doc["version"])
+    else:
+        raise ValueError("unknown board change " + str(how))
+    return {node["id"]: node["status"] for node in BOARD.read()["nodes"]}
 
 
 def pause(paused):
@@ -852,6 +894,10 @@ def dispatch(request):
         return clear_intent_nonce(request["lease_id"])
     if action == "set_intent_owner":
         return set_intent_owner(request["lease_id"], request["kind"])
+    if action == "fault_board_accept":
+        return fault_board_accept(request.get("message"))
+    if action == "board_change":
+        return board_change(request["item_id"], request["how"])
     if action == "pause":
         return pause(request["paused"])
     if action == "policy":
