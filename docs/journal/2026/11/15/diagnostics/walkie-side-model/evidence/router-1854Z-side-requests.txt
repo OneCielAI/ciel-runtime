@@ -1,0 +1,20 @@
+2026-11-15T12:54:22(CST) [DEBUG] cielairouter_gateway_route path=/v1/messages central=ciel-router-01.ezonebot.com endpoint=http://127.0.0.1:20128 node=6016dfc3-4689-4e8b-8479-45eeb49cc48b generation=3
+2026-11-15T12:54:22(CST) [DEBUG] cielairouter_gateway_route path=/v1/messages central=ciel-router-01.ezonebot.com endpoint=http://127.0.0.1:20128 node=6016dfc3-4689-4e8b-8479-45eeb49cc48b generation=3
+2026-11-15T12:54:24(CST) [DEBUG] POST /v1/messages provider=cielairouter model=ciel-runtime-cielairouter-_api_keys-sse-1 tools=98 msgs=5
+2026-11-15T12:54:24(CST) [INFO] upstream_direct_request provider=cielairouter model=_API_KEYS-SSE-1 endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=255295 bytes=953001 timeout=300.0
+2026-11-15T12:54:24(CST) [DEBUG] POST /v1/messages provider=cielairouter model=ciel-runtime-cielairouter-_api_keys-sse-1 tools=98 msgs=5
+2026-11-15T12:54:24(CST) [INFO] upstream_direct_request provider=cielairouter model=_API_KEYS-SSE-1 endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=254089 bytes=948235 timeout=300.0
+2026-11-15T12:54:30(CST) [DEBUG] cielairouter_gateway_route path=/v1/messages central=ciel-router-01.ezonebot.com endpoint=http://127.0.0.1:20128 node=6016dfc3-4689-4e8b-8479-45eeb49cc48b generation=3
+2026-11-15T12:54:31(CST) [DEBUG] cielairouter_gateway_route path=/v1/messages central=ciel-router-01.ezonebot.com endpoint=http://127.0.0.1:20128 node=6016dfc3-4689-4e8b-8479-45eeb49cc48b generation=3
+2026-11-15T12:54:31(CST) [DEBUG] POST /v1/messages provider=cielairouter model=ciel-runtime-cielairouter-_api_keys-sse-1 tools=98 msgs=5
+2026-11-15T12:54:31(CST) [INFO] upstream_direct_request provider=cielairouter model=_API_KEYS-SSE-1 endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=255350 bytes=953218 timeout=300.0
+2026-11-15T12:54:33(CST) [DEBUG] cielairouter_gateway_route path=/v1/messages central=ciel-router-01.ezonebot.com endpoint=http://127.0.0.1:20128 node=6016dfc3-4689-4e8b-8479-45eeb49cc48b generation=3
+2026-11-15T12:54:40(CST) [DEBUG] cielairouter_gateway_route path=/v1/messages central=ciel-router-01.ezonebot.com endpoint=http://127.0.0.1:20128 node=6016dfc3-4689-4e8b-8479-45eeb49cc48b generation=3
+2026-11-15T12:54:40(CST) [DEBUG] POST /v1/messages provider=cielairouter model=ciel-runtime-cielairouter-_api_keys-sse-1 tools=98 msgs=5
+2026-11-15T12:54:40(CST) [INFO] upstream_direct_request provider=cielairouter model=_API_KEYS-SSE-1 endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=255404 bytes=953435 timeout=300.0
+2026-11-15T12:54:43(CST) [DEBUG] cielairouter_gateway_route path=/v1/messages central=ciel-router-01.ezonebot.com endpoint=http://127.0.0.1:20128 node=6016dfc3-4689-4e8b-8479-45eeb49cc48b generation=3
+2026-11-15T12:54:44(CST) [DEBUG] cielairouter_gateway_route path=/v1/messages central=ciel-router-01.ezonebot.com endpoint=http://127.0.0.1:20128 node=6016dfc3-4689-4e8b-8479-45eeb49cc48b generation=3
+2026-11-15T12:54:47(CST) [DEBUG] cielairouter_gateway_route path=/v1/messages central=ciel-router-01.ezonebot.com endpoint=http://127.0.0.1:20128 node=6016dfc3-4689-4e8b-8479-45eeb49cc48b generation=3
+2026-11-15T12:54:47(CST) [DEBUG] POST /v1/messages provider=cielairouter model=ciel-runtime-cielairouter-_api_keys-sse-1 tools=98 msgs=5
+2026-11-15T12:54:47(CST) [INFO] upstream_direct_request provider=cielairouter model=_API_KEYS-SSE-1 endpoint=http://127.0.0.1:20128/v1/messages attempt=1/1 tokens=255459 bytes=953652 timeout=300.0
+2026-11-15T12:54:52(CST) [DEBUG] cielairouter_gateway_route path=/v1/messages central=ciel-router-01.ezonebot.com endpoint=http://127.0.0.1:20128 node=6016dfc3-4689-4e8b-8479-45eeb49cc48b generation=3

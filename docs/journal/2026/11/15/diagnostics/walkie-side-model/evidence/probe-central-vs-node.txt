@@ -1,0 +1,7 @@
+2026-11-15T18:58:40Z
+{"endpoint": "central", "base_host": "ciel-router-01.ezonebot.com", "model": "claude-haiku-5-5", "stop_reason": "end_turn", "text": "pong"}
+{"endpoint": "central", "base_host": "ciel-router-01.ezonebot.com", "model": "claude-haiku-5-5", "stop_reason": "end_turn", "text": "pong"}
+{"endpoint": "central", "base_host": "ciel-router-01.ezonebot.com", "model": "claude-haiku-5-5", "stop_reason": "end_turn", "text": "pong"}
+{"endpoint": "node", "base_host": "127.0.0.1:20128", "model": "gemini", "stop_reason": "max_tokens", "text": "This version of Antigravity is no longer supported. Please download and install the latest"}
+{"endpoint": "node", "base_host": "127.0.0.1:20128", "model": "gemini", "stop_reason": "max_tokens", "text": "This version of Antigravity is no longer supported. Please download and install the latest"}
+{"endpoint": "node", "base_host": "127.0.0.1:20128", "model": "gemini", "stop_reason": "max_tokens", "text": "This version of Antigravity is no longer supported. Please download and install the latest"}

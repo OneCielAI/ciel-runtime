@@ -1,0 +1,38 @@
+{
+  "provider": "cielairouter",
+  "main_launch_model": "_Walkie_Opus55-Sol61-Fast",
+  "work_parallel_models": {
+    "P0": "_Walkie_Fable5.2",
+    "P1": "_Walkie_Opus55-Sol61-Fast",
+    "P2": "_Walkie_Coding_Sonnet5.5_to_Sol6.1",
+    "P3": "_Walkie_Coding_Sonnet5.5_to_Sol6.1",
+    "P4": "_Walkie_Coding_Sonnet5.5_to_Sol6.1",
+    "P5": "_Walkie_Coding_Sonnet5.5_to_Sol6.1",
+    "side": "_API_KEYS-SSE-1"
+  },
+  "config_mtime_utc": "2026-11-15T17:57:08.652301+00:00",
+  "settings_update_receipts": [
+    {
+      "operation_id": "e90a86fa-9f8c-42fc-b7de-2756150d1f14",
+      "key": "work_side_intake_model",
+      "source": "rest",
+      "origin": {
+        "auth": "loopback"
+      },
+      "state": "committed",
+      "created_at_utc": "2026-11-15T16:42:33.168798+00:00",
+      "value_recorded": false
+    },
+    {
+      "operation_id": "3f931ba1-3360-4876-be4f-820d0c2e4e3d",
+      "key": "work_side_intake_model",
+      "source": "rest",
+      "origin": {
+        "auth": "loopback"
+      },
+      "state": "committed",
+      "created_at_utc": "2026-11-15T17:57:08.142078+00:00",
+      "value_recorded": false
+    }
+  ]
+}

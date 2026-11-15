@@ -1,0 +1,392 @@
+{
+  "router_log_first_line_utc": "2026-11-15T13:20:47Z",
+  "alias_counts_by_settings_period": {
+    "before 2026-11-15T16:42:33": {
+      "ciel-runtime-cielairouter-_walkie_opus55-sol61-fast": 393,
+      "ciel-runtime-cielairouter-_walkie_fable5.2": 8
+    },
+    "2026-11-15T16:42:33 .. 2026-11-15T17:57:08": {
+      "ciel-runtime-cielairouter-_walkie_opus55-sol61-fast": 264,
+      "ciel-runtime-cielairouter-opencode-go-deepseek-v4.1-flash-high": 12
+    },
+    "after 2026-11-15T17:57:08": {
+      "ciel-runtime-cielairouter-_walkie_opus55-sol61-fast": 106,
+      "ciel-runtime-cielairouter-_api_keys-sse-1": 61
+    }
+  },
+  "upstream_endpoints": {
+    "opencode-go/deepseek-v4.1-flash-high": [
+      "http://127.0.0.1:20128/v1/messages"
+    ],
+    "_API_KEYS-SSE-1": [
+      "http://127.0.0.1:20128/v1/messages"
+    ]
+  },
+  "side_alias_requests": [
+    {
+      "utc": "2026-11-15T17:02:37Z",
+      "alias": "ciel-runtime-cielairouter-opencode-go-deepseek-v4.1-flash-high",
+      "msgs": 113
+    },
+    {
+      "utc": "2026-11-15T17:06:49Z",
+      "alias": "ciel-runtime-cielairouter-opencode-go-deepseek-v4.1-flash-high",
+      "msgs": 161
+    },
+    {
+      "utc": "2026-11-15T17:09:17Z",
+      "alias": "ciel-runtime-cielairouter-opencode-go-deepseek-v4.1-flash-high",
+      "msgs": 181
+    },
+    {
+      "utc": "2026-11-15T17:10:25Z",
+      "alias": "ciel-runtime-cielairouter-opencode-go-deepseek-v4.1-flash-high",
+      "msgs": 191
+    },
+    {
+      "utc": "2026-11-15T17:11:24Z",
+      "alias": "ciel-runtime-cielairouter-opencode-go-deepseek-v4.1-flash-high",
+      "msgs": 196
+    },
+    {
+      "utc": "2026-11-15T17:14:17Z",
+      "alias": "ciel-runtime-cielairouter-opencode-go-deepseek-v4.1-flash-high",
+      "msgs": 203
+    },
+    {
+      "utc": "2026-11-15T17:27:19Z",
+      "alias": "ciel-runtime-cielairouter-opencode-go-deepseek-v4.1-flash-high",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T17:32:05Z",
+      "alias": "ciel-runtime-cielairouter-opencode-go-deepseek-v4.1-flash-high",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T17:32:27Z",
+      "alias": "ciel-runtime-cielairouter-opencode-go-deepseek-v4.1-flash-high",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T17:35:46Z",
+      "alias": "ciel-runtime-cielairouter-opencode-go-deepseek-v4.1-flash-high",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T17:36:01Z",
+      "alias": "ciel-runtime-cielairouter-opencode-go-deepseek-v4.1-flash-high",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T17:56:30Z",
+      "alias": "ciel-runtime-cielairouter-opencode-go-deepseek-v4.1-flash-high",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T17:58:22Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 2
+    },
+    {
+      "utc": "2026-11-15T17:58:30Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 2
+    },
+    {
+      "utc": "2026-11-15T17:58:37Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 2
+    },
+    {
+      "utc": "2026-11-15T17:58:42Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 2
+    },
+    {
+      "utc": "2026-11-15T18:00:48Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:00:54Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:01:00Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:01:05Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:16:02Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:16:11Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:16:16Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:16:22Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:17:48Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:17:57Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:18:02Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:18:09Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:18:51Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:18:57Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:19:04Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:19:10Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:20:16Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:20:24Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:20:32Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:20:47Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:21:08Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:21:13Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:21:20Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:21:27Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:22:40Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:22:46Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:22:51Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:22:58Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:23:14Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:23:19Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:23:24Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:23:29Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 16
+    },
+    {
+      "utc": "2026-11-15T18:23:29Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 5
+    },
+    {
+      "utc": "2026-11-15T18:24:02Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 18
+    },
+    {
+      "utc": "2026-11-15T18:24:11Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 18
+    },
+    {
+      "utc": "2026-11-15T18:24:19Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 18
+    },
+    {
+      "utc": "2026-11-15T18:24:27Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 18
+    },
+    {
+      "utc": "2026-11-15T18:25:05Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 25
+    },
+    {
+      "utc": "2026-11-15T18:25:16Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 25
+    },
+    {
+      "utc": "2026-11-15T18:25:27Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 25
+    },
+    {
+      "utc": "2026-11-15T18:25:40Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 25
+    },
+    {
+      "utc": "2026-11-15T18:25:54Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 27
+    },
+    {
+      "utc": "2026-11-15T18:26:01Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 27
+    },
+    {
+      "utc": "2026-11-15T18:26:10Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 27
+    },
+    {
+      "utc": "2026-11-15T18:26:11Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 27
+    },
+    {
+      "utc": "2026-11-15T18:26:20Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 27
+    },
+    {
+      "utc": "2026-11-15T18:26:27Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 27
+    },
+    {
+      "utc": "2026-11-15T18:26:36Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 27
+    },
+    {
+      "utc": "2026-11-15T18:27:22Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 32
+    },
+    {
+      "utc": "2026-11-15T18:27:22Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 32
+    },
+    {
+      "utc": "2026-11-15T18:27:31Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 32
+    },
+    {
+      "utc": "2026-11-15T18:27:40Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 32
+    },
+    {
+      "utc": "2026-11-15T18:28:54Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 42
+    },
+    {
+      "utc": "2026-11-15T18:29:08Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 42
+    },
+    {
+      "utc": "2026-11-15T18:29:24Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 42
+    },
+    {
+      "utc": "2026-11-15T18:29:34Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 42
+    },
+    {
+      "utc": "2026-11-15T18:31:27Z",
+      "alias": "ciel-runtime-cielairouter-_api_keys-sse-1",
+      "msgs": 76
+    }
+  ]
+}
