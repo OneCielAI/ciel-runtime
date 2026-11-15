@@ -241,7 +241,7 @@ from ciel_runtime_support.prelaunch_terminal import prompt_menu_multiline_value 
 from ciel_runtime_support.prelaunch_terminal import prompt_menu_value as read_menu_value
 from ciel_runtime_support.prelaunch_terminal import read_menu_key as read_terminal_menu_key
 from ciel_runtime_support.prelaunch_terminal import render_prelaunch_screen as render_prelaunch_terminal_screen
-from ciel_runtime_support.process_control import ProcessControlServices, ProcessInspectionServices, ProcessQueryServices, ProcessSignalServices, ProcessTreeController, linux_procfs_pids_on_port
+from ciel_runtime_support.process_control import ProcessControlServices, ProcessInspectionServices, ProcessQueryServices, ProcessSignalServices, ProcessTreeController, linux_procfs_pids_on_port, pid_file_process_alive
 from ciel_runtime_support.process_control import pid_is_running as inspect_pid_is_running
 from ciel_runtime_support.process_control import posix_pids_on_port as project_posix_pids_on_port
 from ciel_runtime_support.process_control import posix_process_rows
@@ -3008,8 +3008,7 @@ def _router_server_context() -> RouterServerContext:
         router_server_runtime.RouterServerEffects(os.chmod, sys.stderr, ThreadingHTTPServer, start_managed_router_lifetime_watchdog,
                                                   lambda bind_host: configure_requested_web_endpoints(ROUTER_PORT, ROUTER_HOST, bind_host,
                                                                                                        config=load_config()),
-                                                   configure_router_server_transport, lambda: (_SESSION_API_KEYS.attach_markers(), start_router_services())[-1], stop_router_services,
-                                                  lambda path: fault_log.enable(path, "router")),
+                                                   configure_router_server_transport, lambda: (_SESSION_API_KEYS.attach_markers(), start_router_services())[-1], stop_router_services, lambda path: fault_log.enable(path, "router")),
     )
     return RouterServerContext(
         health=RouterHealthPresentationPorts(VERSION, SOURCE_FINGERPRINT, RouterHealthRuntimePorts(os.getpid, active_router_client_pids), getpass.getuser, HOME, ROUTER_INSTANCE_DIR, ROUTER_WORKSPACE, ROUTER_PORT, ROUTER_INSTANCE_ID, current_alias),
@@ -3772,17 +3771,7 @@ def router_listener_reachable() -> bool:
     except (OSError, TypeError, ValueError):
         return False
     return managed_pid > 0 and managed_pid in router_port_listener_pids()
-def router_process_alive() -> bool | None:
-    """Whether the managed router's recorded pid is running; None without a record."""
-    try:
-        managed_pid = int(PID_PATH.read_text(encoding="utf-8").strip())
-    except (OSError, TypeError, ValueError):
-        return None
-    if managed_pid <= 0:
-        return None
-    from ciel_runtime_support.process_control import pid_is_running
-    return pid_is_running(managed_pid)
-def router_client_supervisor() -> RouterClientSupervisor: return RouterClientSupervisor(ROUTER_BASE, RouterClientSupervisorPorts(router_health=router_health, listener_reachable=router_listener_reachable, health_matches_current=router_health_matches_current, health_config_matches_current=router_health_config_matches_current, health_summary=router_health_summary, start_router=start_router_if_needed, log=router_log, process_alive=router_process_alive))
+def router_client_supervisor() -> RouterClientSupervisor: return RouterClientSupervisor(ROUTER_BASE, RouterClientSupervisorPorts(router_health=router_health, listener_reachable=router_listener_reachable, health_matches_current=router_health_matches_current, health_config_matches_current=router_health_config_matches_current, health_summary=router_health_summary, start_router=start_router_if_needed, log=router_log, process_alive=lambda: pid_file_process_alive(PID_PATH)))
 def ensure_managed_router_running_for_client() -> bool: return router_client_supervisor().ensure_running()
 def start_router_client_supervisor(stop_event: threading.Event) -> threading.Thread: return router_client_supervisor().start(stop_event)
 file_size_or_zero = RoutedLaunchDiagnostics.file_size

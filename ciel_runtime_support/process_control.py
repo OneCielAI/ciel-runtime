@@ -64,6 +64,16 @@ def pid_is_running(pid: int) -> bool:
         return False
 
 
+def pid_file_process_alive(path: Path) -> bool | None:
+    """Whether the process a pid file names is running; None without a usable record."""
+
+    try:
+        pid = int(path.read_text(encoding="utf-8").strip())
+    except (OSError, TypeError, ValueError):
+        return None
+    return pid_is_running(pid) if pid > 0 else None
+
+
 def _normalized_listener_host(host: str) -> str:
     value = str(host or "").strip().lower()
     if value.startswith("[") and value.endswith("]"):
