@@ -463,6 +463,26 @@ class SessionTests(unittest.TestCase):
         renewed.assert_not_called()
         self.assertTrue(any("codex_remote_cleanup_failed" in line for line in self.logs))
 
+    def test_interrupt_with_failed_cleanup_still_returns_failure(self):
+        # Cleanup left the finally block (Python 3.14 PEP 765 warns on return
+        # in finally); a failed cleanup still overrides an escaping interrupt.
+        self.listener_released = False
+        def interrupted(*_args, **_kwargs):
+            raise KeyboardInterrupt
+        tui = dataclasses.replace(self.tui_ports, run_terminal=interrupted)
+        rc = CodexRemoteTuiSession(self.ports, tui)(SERVER_CMD, {}, Path(self.tmp.name))
+        self.assertEqual(1, rc)
+        self.assertTrue(any("codex_remote_cleanup_failed" in line for line in self.logs))
+
+    def test_interrupt_with_clean_cleanup_propagates_after_release(self):
+        def interrupted(*_args, **_kwargs):
+            raise KeyboardInterrupt
+        tui = dataclasses.replace(self.tui_ports, run_terminal=interrupted)
+        with self.assertRaises(KeyboardInterrupt):
+            CodexRemoteTuiSession(self.ports, tui)(SERVER_CMD, {}, Path(self.tmp.name))
+        self.assertEqual([4242], self.terminated)
+        self.assertFalse(any("codex_remote_cleanup_failed" in line for line in self.logs))
+
     def test_authentication_is_required_without_channel(self):
         def refuse(_url: str, _token: str, _version: str) -> None:
             raise OSError("unauthorized")

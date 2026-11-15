@@ -128,6 +128,16 @@ def remote_tui_command(server_cmd: list[str], listen_url: str) -> list[str]:
     return [*values[:start], *config, *remote]
 
 
+class _OwnedLaunch:
+    """The app-server and channel injector one launch started (cleaned up by its owner)."""
+
+    __slots__ = ("server", "injector")
+
+    def __init__(self) -> None:
+        self.server: Any = None
+        self.injector: Any = None
+
+
 @dataclass(frozen=True, slots=True)
 class CodexRemoteTuiPorts:
     """What the TUI step needs from the launcher (all wired in ciel_runtime)."""
@@ -336,6 +346,34 @@ class CodexRemoteTuiSession:
             return _RemoteRun(1)
         token = secrets.token_urlsafe(32)
         token_file = logs / "ws-token"
+        owned = _OwnedLaunch()
+        try:
+            run = self._run_owned(cmd, env, launch_cwd, listen_url, thread_id, logs, token, token_file,
+                                  startup_gate, owned)
+        except BaseException:
+            if self._release_owned(owned, listen_url, token_file):
+                raise
+            return _RemoteRun(1)
+        if not self._release_owned(owned, listen_url, token_file):
+            # Override even a successful TUI / pending restart. Renewal
+            # must never run with unresolved launch ownership or cleanup.
+            return _RemoteRun(1)
+        return run
+
+    def _run_owned(
+        self,
+        cmd: list[str],
+        env: dict[str, str],
+        launch_cwd: Path,
+        listen_url: str,
+        thread_id: str,
+        logs: Path,
+        token: str,
+        token_file: Path,
+        startup_gate: TerminalStartupGate,
+        owned: "_OwnedLaunch",
+    ) -> _RemoteRun:
+        ports = self.ports
         server: OwnedServer | None = None
         injector: CodexAppServerChannelInjector | None = None
         try:
@@ -343,7 +381,7 @@ class CodexRemoteTuiSession:
             server_cmd = remote_server_command(cmd, token_file)
             launch = ports.owned_server or OwnedServer.launch
             with open(logs / "app-server.log", "ab") as server_log:
-                server = launch(
+                server = owned.server = launch(
                     server_cmd, popen=ports.popen, terminate_tree=ports.terminate_tree,
                     env=env, cwd=str(launch_cwd), stdout=server_log, stderr=subprocess.STDOUT,
                 )
@@ -354,7 +392,7 @@ class CodexRemoteTuiSession:
             if server.poll() is not None:
                 raise CodexAppServerError("launch owner exited during authenticated initialization")
             ports.log("INFO", f"codex_remote_app_server_ready pid={server.pid} listen={listen_url} resume={thread_id or '-'}")
-            injector = _channel_injector(
+            injector = owned.injector = _channel_injector(
                 ports,
                 listen_url,
                 launch_cwd,
@@ -389,32 +427,35 @@ class CodexRemoteTuiSession:
         except Exception as exc:
             ports.log("ERROR", f"codex_remote_launch_failed error={type(exc).__name__}: {exc}")
             return _RemoteRun(1)
-        finally:
-            failures: list[str] = []
-            if injector is not None:
-                try:
-                    injector.stop()
-                except Exception as exc:
-                    failures.append(f"channel stop failed: {exc}")
-            if server is not None:
-                try:
-                    server.cleanup()
-                except Exception as exc:
-                    failures.append(str(exc))
-                try:
-                    if not wait_listener_released(listen_url, is_bound=ports.listener_bound):
-                        failures.append(f"listener release unverified: {listen_url}")
-                except Exception as exc:
-                    failures.append(f"listener release probe failed: {exc}")
+
+    def _release_owned(self, owned: "_OwnedLaunch", listen_url: str, token_file: Path) -> bool:
+        """Stop what the launch owns; False (logged) when any cleanup failed."""
+
+        ports = self.ports
+        failures: list[str] = []
+        if owned.injector is not None:
             try:
-                token_file.unlink(missing_ok=True)
-            except OSError as exc:
-                failures.append(f"token cleanup failed: {exc}")
-            if failures:
-                ports.log("ERROR", "codex_remote_cleanup_failed " + "; ".join(failures))
-                # Override even a successful TUI / pending restart. Renewal
-                # must never run with unresolved launch ownership or cleanup.
-                return _RemoteRun(1)
+                owned.injector.stop()
+            except Exception as exc:
+                failures.append(f"channel stop failed: {exc}")
+        if owned.server is not None:
+            try:
+                owned.server.cleanup()
+            except Exception as exc:
+                failures.append(str(exc))
+            try:
+                if not wait_listener_released(listen_url, is_bound=ports.listener_bound):
+                    failures.append(f"listener release unverified: {listen_url}")
+            except Exception as exc:
+                failures.append(f"listener release probe failed: {exc}")
+        try:
+            token_file.unlink(missing_ok=True)
+        except OSError as exc:
+            failures.append(f"token cleanup failed: {exc}")
+        if failures:
+            ports.log("ERROR", "codex_remote_cleanup_failed " + "; ".join(failures))
+            return False
+        return True
 
     def _resume_thread_id(self, resume: AppServerResume, env: dict[str, str], launch_cwd: Path) -> str | None:
         return resolve_resume_thread(self.tui.select_resume or self.ports.select_resume, resume, env, launch_cwd)

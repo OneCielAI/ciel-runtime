@@ -100,3 +100,22 @@ Each sha256 was taken from the release's `SHA256SUMS` and matched the GitHub ass
 # Open
 
 - **Updating the pin:** a later release changes the version and every hash together.
+
+# Python 3.14 compile warning (found by the installed run)
+
+The first launch of the installed addb975 on the managed 3.14.10 printed:
+
+```
+codex_app_server_session.py:417: SyntaxWarning: 'return' in a 'finally' block
+```
+
+This is PEP 765, new in 3.14. Compiling every shipped module with `-W always::SyntaxWarning` on 3.14.10 showed this one occurrence only.
+
+**Fix:** `CodexRemoteTuiSession._run_once` now keeps the launch body in `_run_owned` and the cleanup in `_release_owned`, with what the launch owns recorded in `_OwnedLaunch`. The forced `_RemoteRun(1)` after a failed cleanup is decided outside any `finally`.
+
+**Behavior is unchanged.** A failed cleanup overrides a successful run, and an escaping exception still turns into `_RemoteRun(1)` when cleanup failed.
+
+**Tests:**
+- Two new interrupt tests pass against both the old and the new implementation.
+- `tests/test_codex_app_server_session.py`: 44 passed on 3.11, OK on 3.14.10 with `-W error::SyntaxWarning`.
+- Architecture budget and contracts pass.
