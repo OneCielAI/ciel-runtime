@@ -3287,7 +3287,11 @@ async function parallelPump($, trigger = 'host', resendTried = null, agents = nu
       // paused, approval, priority capacity and launch-rate gates. It never
       // preempts a running fork; it adds a fork up to the hard 100-lease bound.
       // Drain all immediately eligible P0 roots before the ordinary policy lane.
-      for (let i = 0; i < 100; i++) {
+      // The router's status names each root's effective priority (board read
+      // with the P0 marker); only an effective P0 root costs a reserve round trip.
+      const p0Roots = Array.isArray(state.root_priorities)
+        && state.root_priorities.some(row => row?.effective_priority === 'P0')
+      for (let i = 0; p0Roots && i < 100; i++) {
         if (lifecycle !== starts) return
         let result
         try { result = await parallelP0Spawn($) }
