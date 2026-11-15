@@ -99,6 +99,7 @@ ciel-runtime \
 | `--ca-auto-llm-options [MODEL_ID]` | 추천 LLM 옵션 적용 |
 | `--ca-no-launch` | 설정만 적용하고 종료 |
 | `--ca-menu` | 설정 적용 후 메뉴 열기 |
+| `--show_config` (`--show-config`) | `--continue`·`--resume`은 기본적으로 환경설정 메뉴를 건너뛰는데, 이 옵션을 함께 주면 메뉴를 먼저 보여 준 뒤 이어서 실행 (예: `ciel-runtime --continue --show_config`). runtime CLI로는 넘기지 않는다 |
 | `--ca-runtime claude|codex` | 실행 런타임 선택 |
 | `--ca-no-update-check` | Claude Code/Codex 업데이트 체크 생략 |
 | `--ca-no-self-update-check` | Ciel Runtime self-update 체크 생략 |

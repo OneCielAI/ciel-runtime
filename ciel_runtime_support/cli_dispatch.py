@@ -401,7 +401,9 @@ def dispatch_cli(argv: list[str], services: CliServices) -> int:
     i = 0
     while i < len(argv):
         arg = argv[i]
-        if arg in ("--ca-menu", "--ca-interactive"):
+        if arg in ("--ca-menu", "--ca-interactive", "--show_config", "--show-config"):
+            # --continue/--resume normally skip the settings menu; --show_config
+            # shows it anyway. Ciel consumes it; the runtime CLI never sees it.
             force_menu = True
             i += 1
         elif arg == "--ca-runtime" or arg.startswith("--ca-runtime="):

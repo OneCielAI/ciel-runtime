@@ -50,6 +50,27 @@ class PrelaunchWiringTests(unittest.TestCase):
         self.assertEqual(19, result)
         menu.assert_called_once_with(["--continue"])
 
+    def test_show_config_flag_opens_the_menu_with_continue_and_is_not_passed_on(self):
+        for flag in ("--show_config", "--show-config"):
+            with self.subTest(flag=flag), (
+                mock.patch.object(ciel_runtime, "apply_headless_env_config",
+                                  return_value=(False, None, None, None, False))
+            ), mock.patch.object(ciel_runtime, "launch_claude", return_value=0) as launch:
+                self.assertEqual(0, ciel_runtime.run_cli(["--continue", flag]))
+            launch.assert_called_once()
+            self.assertEqual(["--continue"], launch.call_args.args[0])
+            self.assertTrue(launch.call_args.kwargs["force_menu"])
+
+    def test_continue_without_show_config_still_skips_the_menu(self):
+        with (
+            mock.patch.object(ciel_runtime, "apply_headless_env_config",
+                              return_value=(False, None, None, None, False)),
+            mock.patch.object(ciel_runtime, "launch_claude", return_value=0) as launch,
+        ):
+            self.assertEqual(0, ciel_runtime.run_cli(["--continue"]))
+        self.assertEqual(["--continue"], launch.call_args.args[0])
+        self.assertFalse(launch.call_args.kwargs["force_menu"])
+
     def test_web_config_reload_runs_after_menu_returns_and_cancels_parent(self):
         with (
             mock.patch.object(ciel_runtime.sys.stdin, "isatty", return_value=True),

@@ -1,0 +1,12 @@
+Language set to ko (한국어).
+
+Ciel Runtime warning: multiple ciel-runtime npm installs are visible.
+
+  shell resolves ciel-runtime to: %APPDATA%\npm\ciel-runtime.cmd (0.2.51-beta.20261115-014314.5ddd4cc)
+
+  Fix by keeping one install prefix: update or uninstall the stale higher-priority install.
+
+Ciel Runtime launch blocked:
+
+- Launch blocked: NVIDIA hosted requires an NVIDIA API key.
+

@@ -105,6 +105,9 @@ Headless setup flags, namespaced to avoid Claude CLI collisions:
   ciel-runtime --ca-runtime claude|codex|codex-app-server|codex-desktop|codex-remote|agy|grok|zcode|muse
                                       Select Claude Code, Codex, Codex app-server, the Codex desktop app, the Codex --remote TUI, AGY, Grok Build, ZCode, or Muse Code
   ciel-runtime --ca-menu               Apply setup values, then open the menu
+  ciel-runtime --continue --show_config
+                                      Continue the last conversation but open the settings menu first
+                                      (--continue/--resume alone skip it; --show-config also works)
   ciel-runtime --ca-language en|ko|ja|zh
   ciel-runtime --ca-base-url URL       Set current provider base URL, then launch
   ciel-runtime --ca-model MODEL_ID     Set provider model, then launch

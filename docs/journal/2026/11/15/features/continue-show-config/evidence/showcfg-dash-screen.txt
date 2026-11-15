@@ -1,0 +1,84 @@
+Language set to ko (한국어).
+
+Ciel Runtime warning: multiple ciel-runtime npm installs are visible.
+
+  shell resolves ciel-runtime to: %APPDATA%\npm\ciel-runtime.cmd (0.2.51-beta.20261115-014314.5ddd4cc)
+
+  Fix by keeping one install prefix: update or uninstall the stale higher-priority install.
+
+Ciel Runtime v0.2.51
+
+Credits: One Ciel LLC                                                                                                   
+
+
+
+provider: nvidia-hosted    language: ko    mode: ciel-runtime-router
+
+base_url: https://integrate.api.nvidia.com/v1                                                                           
+
+model: z-ai/glm-5.3
+
+API key: missing (NVIDIA required)                                                                                      
+
+
+
+  0. 언어  [한국어]
+
+  1. 프로바이더  [nvidia-hosted]
+
+  2. API 키  [not set]
+
+  3. Base URL  [https://integrate.api.nvidia.com/v1]
+
+  4. 모델  [z-ai/glm-5.3]
+
+  5. Advisor Model  [off]
+
+  6. LLM 옵션  [context_window=65536, reserve=default, max_output_tokens=40...]
+
+  7. 로그 레벨  [ERROR (default)]
+
+  8. 호환성 테스트
+
+> 9. 실행  [Claude · Codex TUI · AGY · Kimi · Grok · Codex TUI + app-server · Codex app-server (no TUI) · Codex desk... 
+
+  10. 외부 이벤트 입력  [CloudEvents + Webhook/SSE · resend 10x/10s]
+
+  11. 원격 지침  [HTTP GET · off]
+
+  12. 워크스페이스 MCP 모듈  [실행별 적용]                                                                              
+
+  13. 요청/파일 제한  [워크스페이스별 적용]
+
+  14. 웹 백엔드  [off · 127.0.0.1:9464]
+
+  15. OAuth 토큰  [none · Codex/Claude rotation]
+
+  16. 웹 접근  [0 accounts · admin token]
+
+  17. 위험한 삭제 확인 · 스트림 복구  [Claude · auto-allow off · stream recovery on]
+
+  18. 세션 백업  [incremental · schedule off · to local · last never]
+
+  19. 프로바이더 대체  [auto off · 0/0 backups ready]
+
+  20. 무인 재시작  [no script]
+
+  21. Work · SSE 설정
+
+  22. 세션 API 키  [memory only · one session and provider]
+
+  종료
+
+
+
+----------------------------------------------------------------------------------------------------------------------- 
+
+  Base URL: NVIDIA hosted (https://integrate.api.nvidia.com/v1); local router http://127.0.0.1:9464 starts on launch    
+
+  API key: missing (NVIDIA required) 
+
+
+
+↑/↓ 이동 · PgUp/PgDn 페이지 · Home/End 처음/끝 · Enter 선택 · Esc/← 닫기 · q 종료 
+
