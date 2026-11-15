@@ -174,17 +174,25 @@ ciel-runtime-stop
 export CIEL_RUNTIME_PYTHON=/usr/local/bin/python3.12
 ```
 
-### Python 자동 설치 (Windows)
+### Python 자동 설치
 
-찾은 Python이 패키지가 고정한 버전(현재 3.14.10)보다 낮거나, 쓸 수 있는 Python이 없으면 npm 실행기(`npm-bin/run-ciel-runtime.js`)가 자동으로 설치해 그 Python으로 실행합니다. Windows x64/arm64가 대상입니다.
+찾은 Python이 패키지가 고정한 버전(현재 3.14.10)보다 낮거나, 쓸 수 있는 Python이 없으면 npm 실행기(`npm-bin/run-ciel-runtime.js`)가 자동으로 설치해 그 Python으로 실행합니다.
+
+| OS | 받는 런타임 | 설치 위치 |
+|---|---|---|
+| Windows x64/arm64 | python.org 공식 런타임 zip (Python install manager와 같은 파일) | `%LOCALAPPDATA%\ciel-runtime\python\<버전>-<arch>` |
+| Linux x64/arm64 (glibc, musl) | python-build-standalone(Astral, uv가 쓰는 재배치형 CPython 빌드) | `$XDG_DATA_HOME` 또는 `~/.local/share` 아래 `ciel-runtime/python/<버전>-linux-<arch>-<libc>` |
+| macOS x64/arm64 | python-build-standalone | `~/.local/share/ciel-runtime/python/<버전>-darwin-<arch>` |
+
+python.org는 Linux용 실행 파일을 배포하지 않고(소스 코드만 제공), macOS는 관리자 권한이 필요한 `.pkg` 설치 프로그램만 배포합니다. 그래서 Linux와 macOS는 python-build-standalone을 씁니다.
 
 동작:
-1. python.org 공식 런타임 zip을 내려받습니다. Python install manager가 쓰는 것과 같은 파일입니다.
+1. 런타임을 내려받습니다.
 2. 패키지에 고정된 sha256과 비교하고, 다르면 설치하지 않습니다.
-3. `%LOCALAPPDATA%\ciel-runtime\python\<버전>-<arch>`에 한 번만 설치합니다(약 30 MB, 관리자 권한 불필요). 이후 실행은 이 Python을 씁니다.
+3. 위치에 한 번만 설치합니다(약 30 MB, 관리자 권한 불필요). 이후 실행은 이 Python을 씁니다.
 4. 설치에 실패하면 경고를 출력하고, 찾은 Python(3.10 이상)으로 계속 실행합니다.
 
-`CIEL_RUNTIME_PYTHON`으로 지정한 Python이 고정 버전보다 낮아도 자동 설치본을 씁니다. `CIEL_RUNTIME_PYTHON_AUTO_INSTALL=0`이면 자동 설치를 끕니다. Linux와 macOS는 자동 설치하지 않고 안내만 출력합니다.
+`CIEL_RUNTIME_PYTHON`으로 지정한 Python이 고정 버전보다 낮아도 자동 설치본을 씁니다. `CIEL_RUNTIME_PYTHON_AUTO_INSTALL=0`이면 자동 설치를 끕니다.
 
 ---
 

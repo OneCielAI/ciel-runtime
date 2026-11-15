@@ -44,7 +44,7 @@ INSTALL = """
       extract: (zip, target) => fs.writeFileSync(path.join(target, "python.exe"), "stub"),
       probe: () => ({ version: [3, 14, 10], versionText: "3.14.10" }),
       log: (line) => logs.push(line) });
-    const dir = launcher.managedDirectory(base, "x64");
+    const dir = launcher.managedDirectory(base, "x64", "win32");
     const leftovers = fs.existsSync(path.dirname(dir)) ? fs.readdirSync(path.dirname(dir)) : [];
     console.log(JSON.stringify({ result, fetched, logs, dir, leftovers }));
 """
@@ -85,11 +85,32 @@ class NpmLauncherPythonTests(unittest.TestCase):
             self.assertTrue(any("does not match the pinned" in line for line in value["logs"]))
             self.assertEqual([], value["leftovers"])
 
-    def test_other_platforms_continue_with_a_notice(self):
+    def test_a_platform_without_a_pinned_runtime_continues_with_a_notice(self):
         with tempfile.TemporaryDirectory() as raw:
-            value = node(INSTALL % {"base": json.dumps(raw), "sha": "null", "platform": json.dumps("linux")})
+            value = node(INSTALL % {"base": json.dumps(raw), "sha": "null", "platform": json.dumps("freebsd")})
             self.assertIsNone(value["result"])
             self.assertEqual([], value["fetched"])
+            self.assertTrue(any("freebsd/x64" in line for line in value["logs"]))
+
+    def test_linux_and_macos_runtimes_are_pinned_per_libc_and_arch(self):
+        value = node('''
+            const keys = [["linux","x64","gnu"],["linux","arm64","gnu"],["linux","x64","musl"],["linux","arm64","musl"],
+              ["darwin","x64"],["darwin","arm64"],["win32","x64"],["win32","arm64"]]
+              .map(([p, a, l]) => { const e = launcher.managedEntry(p, a, l); return [p, a, l || "", e && e.key, e && e.url]; });
+            console.log(JSON.stringify({ keys,
+              posixExe: launcher.managedExecutable("/d", "linux"), dir: launcher.managedDirectory("/data", "x64-musl", "linux") }));
+        ''')
+        for platform, arch, libc, key, url in value["keys"]:
+            self.assertIsNotNone(key, (platform, arch, libc))
+            if platform == "win32":
+                self.assertTrue(url.startswith("https://www.python.org/ftp/python/3.14.10/"), url)
+            else:
+                self.assertTrue(url.startswith("https://github.com/astral-sh/python-build-standalone/releases/download/"
+                                               "20261110/cpython-3.14.10%2B20261110-"), url)
+                self.assertTrue(url.endswith("-install_only_stripped.tar.gz"), url)
+        self.assertEqual("x64-musl", value["keys"][2][3])
+        self.assertTrue(value["posixExe"].replace("\\", "/").endswith("python/bin/python3"))
+        self.assertIn("3.14.10-linux-x64-musl", value["dir"])
 
     def test_opt_out_variable_disables_the_install(self):
         with tempfile.TemporaryDirectory() as raw:

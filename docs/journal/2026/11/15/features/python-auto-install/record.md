@@ -69,7 +69,34 @@ The router is spawned with the launcher's `sys.executable`, so it runs on the ma
 | router | 1672 | OK |
 | fault-log tests | 3 | OK |
 
+# Linux and macOS (follow-up, same day)
+
+The package is public, so every platform needs the install. python.org's 3.14.10 folder offers:
+
+- Windows: runtime zips;
+- macOS: only `python-3.14.10-macos11.pkg`;
+- Linux: only `Python-3.14.10.tgz` and `.tar.xz` source, plus Android tarballs.
+
+So Linux and macOS use python-build-standalone release `20261110`, `install_only_stripped`, which extracts to `python/bin/python3`. Pinned archives:
+
+- Linux: x86_64 and aarch64, each for glibc and musl;
+- macOS: x86_64 and aarch64.
+
+The libc comes from `process.report` (`glibcVersionRuntime` is absent on musl).
+
+Each sha256 was taken from the release's `SHA256SUMS` and matched the GitHub asset `digest` field for all six archives.
+
+**Real runs**
+
+| Image | Starting Python | Installed to | Launched script ran on |
+| --- | --- | --- | --- |
+| `node:24-bookworm-slim` (glibc) | 3.11.2 | `3.14.10-linux-x64-gnu` | `/root/.local/share/ciel-runtime/python/3.14.10-linux-x64-gnu/python/bin/python3` 3.14.10 (OpenSSL 3.5.9) |
+| `node:24-alpine` (musl) | none ("no usable Python 3.10+ was found") | `3.14.10-linux-x64-musl` | the managed 3.14.10 |
+
+**Tests:** 14 passed on Windows and on Linux. They include libc/arch selection for every pinned platform and a notice for an unpinned platform (freebsd).
+
+**Not run:** macOS. No Mac is available here. Its code path is the same tar extraction as Linux.
+
 # Open
 
-- **Updating the pin:** a later release changes the version and both hashes together.
-- **Auto-install off Windows:** Linux and macOS would need another trusted source, which is not decided.
+- **Updating the pin:** a later release changes the version and every hash together.
