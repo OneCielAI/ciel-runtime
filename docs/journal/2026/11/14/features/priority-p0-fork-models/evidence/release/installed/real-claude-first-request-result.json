@@ -1,0 +1,1 @@
+{"passed": true, "checks": {"work": true, "p0": true, "side": true, "main_unchanged": true, "p0_while_disabled_paused_planning": true}, "first_requests": [{"kind": "work", "model": "fixture-p2", "order": 1}, {"kind": "p0", "model": "fixture-p0", "order": 2}, {"kind": "side", "model": "fixture-side", "order": 10}], "failure": null}

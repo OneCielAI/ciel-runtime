@@ -1,0 +1,27 @@
+Work · SSE 설정
+    ... 16 above
+    탐색 지시 (SSE에서도 주입): 기본 지시
+    Work 분당 시작 한도: 4
+  > Work 자동 재처리 한도: 2
+    정리: 소유 세션이 없는 lease: none
+    P0 Work 포크 모델: _Walkie_Fable5.2
+    ... 14 below
+  검토가 필요해지기 전 자동 재처리 시도 횟수입니다. 기타: 0~10 사이의 정수를 입력할 수 있습니다.
+-----------------------------------------------------------------------------------------------------------------------
+  Base URL: model list unreachable (model-list probe timeout (10s + 30s retry); before response headers)
+  API key: missing (CielAiRouter required)
+↑/↓ 이동 · PgUp/PgDn 페이지 · Home/End 처음/끝 · Enter 선택 · Esc/← 닫기 · q 종료
+=====
+Work · SSE 설정
+    ... 22 above
+    P2 Work 포크 모델: inherit
+    P3 Work 포크 모델: inherit
+  > P4 Work 포크 모델: inherit
+    P5 Work 포크 모델: inherit
+    SSE 사이드 포크 모델: _Walkie_Haiku_Terra
+    ... 8 below
+  P4 Work 포크가 쓸 모델입니다. 현재 프로바이더의 모델 중에서 고르며, inherit은 메인 모델을 그대로 씁니다. 각 포크의...
+-----------------------------------------------------------------------------------------------------------------------
+  Base URL: model list unreachable (model-list probe timeout (10s + 30s retry); before response headers)
+  API key: missing (CielAiRouter required)
+↑/↓ 이동 · PgUp/PgDn 페이지 · Home/End 처음/끝 · Enter 선택 · Esc/← 닫기 · q 종료

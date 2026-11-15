@@ -70,24 +70,26 @@ try:
     settle(0.8)
     session.write(b"\r")
     settle()
-    for _ in range(40):           # move down through the panel to the model rows
-        session.write(b"\x1b[B")
-        time.sleep(0.04)
-    settle()
-    screen = clean(session.output_tail())
-    # The panel frames that last drew the P0 row and the side row (the terminal redraws every frame).
-    frames = []
-    for row in ("P0 Work 포크 모델", "SSE 사이드 포크 모델"):
-        at = screen.rfind(row)
-        if at < 0:
-            continue
-        begin = screen.rfind("Work · SSE 설정", 0, at)
-        frames.append(screen[begin:screen.find("q 종료", at) + len("q 종료")])
-    kept = [line.rstrip() for line in (chr(10) + "=====" + chr(10)).join(frames).replace(chr(13), "").split(chr(10))
+    # Move down through the panel one row at a time. Each step's screen is read
+    # while it is still in the output tail (40 redraws overflow the tail), and
+    # the panel frame that first draws each model row is kept.
+    keys = ("P0 Work 포크 모델", "P5 Work 포크 모델", "SSE 사이드 포크 모델", "_Walkie_Fable5.2", "_Walkie_Haiku_Terra")
+    found = dict.fromkeys(keys, False)
+    frames = {}
+    for _ in range(40):
+        session.write(b"[B")
+        settle(0.3)
+        screen = clean(session.output_tail())
+        for key in keys:
+            found[key] = found[key] or key in screen
+        for row in ("P0 Work 포크 모델", "SSE 사이드 포크 모델"):
+            at = screen.rfind(row)
+            if row not in frames and at >= 0:
+                begin = screen.rfind("Work · SSE 설정", 0, at)
+                frames[row] = screen[begin:screen.find("q 종료", at) + len("q 종료")]
+    kept = [line.rstrip() for line in (chr(10) + "=====" + chr(10)).join(frames.values()).replace(chr(13), "").split(chr(10))
             if line.strip()]
     (OUT / "menu-work-settings-screen.txt").write_text(chr(10).join(kept) + chr(10), encoding="utf-8")
-    found = {key: (key in screen) for key in ("P0 Work 포크 모델", "P5 Work 포크 모델", "SSE 사이드 포크 모델",
-                                              "_Walkie_Fable5.2", "_Walkie_Haiku_Terra")}
     session.write(b"q")
     time.sleep(1.0)
     print(json.dumps({"found": found, "passed": all(found.values())}, ensure_ascii=False))

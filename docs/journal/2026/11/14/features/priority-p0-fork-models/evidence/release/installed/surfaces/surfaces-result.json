@@ -1,0 +1,184 @@
+{
+  "facts": [
+    {
+      "fact": "REST lists all seven model rows",
+      "ok": true,
+      "detail": []
+    },
+    {
+      "fact": "REST choices are inherit + current provider models",
+      "ok": true,
+      "detail": [
+        "inherit",
+        "_Walkie_Opus55",
+        "_Walkie_Fable5.2",
+        "_Walkie_Haiku_Terra"
+      ]
+    },
+    {
+      "fact": "REST sets work_parallel_model_p0",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "fact": "REST sets work_side_intake_model",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "fact": "REST refuses a model outside the provider list",
+      "ok": true,
+      "detail": "model is not in the current provider's model list: not-a-model"
+    },
+    {
+      "fact": "config stores per-provider table",
+      "ok": true,
+      "detail": {
+        "cielairouter": {
+          "P0": "_Walkie_Fable5.2",
+          "side": "_Walkie_Haiku_Terra"
+        }
+      }
+    },
+    {
+      "fact": "REST activates existing-root P0",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "schema_version": 1,
+        "operation": "node_update",
+        "operation_id": "p0-root",
+        "priority_operation_id": "p0-root",
+        "priority_operation_ref": "597071b80996dab4",
+        "version": 1,
+        "changed": true,
+        "replayed": false,
+        "result": {
+          "root_id": "n1",
+          "canonical_priority": "P1",
+          "effective_priority": "P0",
+          "priority_operation_ref": "597071b80996dab4"
+        },
+        "session_id": "claude:6ce49051-e051-40c9-bf16-ad38bd5945ed"
+      }
+    },
+    {
+      "fact": "REST parallel shows effective P0 and fork models",
+      "ok": true,
+      "detail": {
+        "roots": [
+          {
+            "root_id": "n1",
+            "title": "고객 결제 긴급 수정",
+            "canonical_priority": "P1",
+            "effective_priority": "P0"
+          }
+        ],
+        "ids": {
+          "P0": "_Walkie_Fable5.2",
+          "P1": null,
+          "P2": null,
+          "P3": null,
+          "P4": null,
+          "P5": null,
+          "side": "_Walkie_Haiku_Terra"
+        }
+      }
+    },
+    {
+      "fact": "ctl sets P2 model",
+      "ok": true,
+      "detail": [
+        "work_parallel_model_p2 = _Walkie_Opus55 [active]",
+        "  P2 Work 포크가 쓸 모델입니다. 현재 프로바이더의 모델 중에서 고르며, inherit은 메인 모델을 그대로 씁니다. 각 포크의 다음 모델 요청부터 적용됩니다. 선택 값: _Walkie_Opus55."
+      ]
+    },
+    {
+      "fact": "ctl lists the seven model rows",
+      "ok": true,
+      "detail": [
+        "work_parallel_model_p0 = _Walkie_Fable5.2 [active]",
+        "work_parallel_model_p1 = inherit [inherit]",
+        "work_parallel_model_p2 = _Walkie_Opus55 [active]",
+        "work_parallel_model_p3 = inherit [inherit]",
+        "work_parallel_model_p4 = inherit [inherit]",
+        "work_parallel_model_p5 = inherit [inherit]",
+        "work_side_intake_model = _Walkie_Haiku_Terra [active]"
+      ]
+    },
+    {
+      "fact": "menu offers inherit + provider models for P0",
+      "ok": true,
+      "detail": [
+        "inherit",
+        "_Walkie_Opus55",
+        "_Walkie_Fable5.2",
+        "_Walkie_Haiku_Terra",
+        "back"
+      ]
+    },
+    {
+      "fact": "menu describes the side model in Korean",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "fact": "web Settings shows the saved P0 model",
+      "ok": true,
+      "detail": "_Walkie_Fable5.2"
+    },
+    {
+      "fact": "web P0 choices are inherit + provider models",
+      "ok": true,
+      "detail": [
+        "inherit",
+        "_Walkie_Opus55",
+        "_Walkie_Fable5.2",
+        "_Walkie_Haiku_Terra"
+      ]
+    },
+    {
+      "fact": "web Parallel shows the P0 goal",
+      "ok": true,
+      "detail": "Goal priorities\n고객 결제 긴급 수정\nP0\nStored P1 · P0 launches immediately despite pause, disable, approval and soft limits"
+    },
+    {
+      "fact": "web 390px shows the P0 model row without horizontal scroll",
+      "ok": true,
+      "detail": {
+        "selected": "_Walkie_Fable5.2",
+        "overflow": false
+      }
+    },
+    {
+      "fact": "web creates a new goal at P0 (canonical P1, effective P0)",
+      "ok": true,
+      "detail": [
+        [
+          "n3",
+          "P1",
+          "P0"
+        ]
+      ]
+    },
+    {
+      "fact": "REST parallel lists the new goal as effective P0",
+      "ok": true,
+      "detail": [
+        {
+          "root_id": "n1",
+          "title": "고객 결제 긴급 수정",
+          "canonical_priority": "P1",
+          "effective_priority": "P0"
+        },
+        {
+          "root_id": "n3",
+          "title": "새 P0 목표",
+          "canonical_priority": "P1",
+          "effective_priority": "P0"
+        }
+      ]
+    }
+  ],
+  "passed": true
+}
