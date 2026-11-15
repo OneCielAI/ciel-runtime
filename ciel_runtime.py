@@ -21,7 +21,7 @@ from typing import Any, Callable, Iterable
 from ciel_runtime_support import anthropic_model_policy
 from ciel_runtime_support import channel_cursor_repository as channel_cursor_storage, hosted_formula_tools
 from ciel_runtime_support import agent_runtime_event_push, agent_turn_events, fork_turn_watch, claude_stream_recovery_runtime, company_prompt_reload, event_delivery_ack, channel_llm_context, session_backup_service, claude_launch_assembly, cli_assembly, cli_dispatch, cli_parser, codex_config_effort, codex_launch_configuration, codex_turn_recovery, kimi_identity, launch_data_path, llm_option_config, llm_presets, native_context_recovery, remote_management_http, web_access_http
-from ciel_runtime_support import muse_catalog, muse_oauth, ollama_catalog as ollama_catalog_policy
+from ciel_runtime_support import fault_log, muse_catalog, muse_oauth, ollama_catalog as ollama_catalog_policy
 from ciel_runtime_support import openai_chat_compatibility_bridge, otlp_logs, prelaunch, session_api_key_composition, runtime_input_retry, prelaunch_assembly, provider_catalog_sources, provider_models, provider_network, rate_limit_policy, router_request_assembly, router_server_runtime, runtime_asset_assembly, runtime_launch, runtime_primitives, terminal_platform_io, web_tls_composition, windows_console_mode
 from ciel_runtime_support.prelaunch_launch_panel import launch_panel_rows as project_launch_panel_rows
 from ciel_runtime_support.advisor_client import AdvisorClient, AdvisorClientIO, AdvisorClientPolicy, ProviderChatExecutor, ProviderChatIO, ProviderChatPolicy
@@ -3008,7 +3008,8 @@ def _router_server_context() -> RouterServerContext:
         router_server_runtime.RouterServerEffects(os.chmod, sys.stderr, ThreadingHTTPServer, start_managed_router_lifetime_watchdog,
                                                   lambda bind_host: configure_requested_web_endpoints(ROUTER_PORT, ROUTER_HOST, bind_host,
                                                                                                        config=load_config()),
-                                                   configure_router_server_transport, lambda: (_SESSION_API_KEYS.attach_markers(), start_router_services())[-1], stop_router_services),
+                                                   configure_router_server_transport, lambda: (_SESSION_API_KEYS.attach_markers(), start_router_services())[-1], stop_router_services,
+                                                  lambda path: fault_log.enable(path, "router")),
     )
     return RouterServerContext(
         health=RouterHealthPresentationPorts(VERSION, SOURCE_FINGERPRINT, RouterHealthRuntimePorts(os.getpid, active_router_client_pids), getpass.getuser, HOME, ROUTER_INSTANCE_DIR, ROUTER_WORKSPACE, ROUTER_PORT, ROUTER_INSTANCE_ID, current_alias),

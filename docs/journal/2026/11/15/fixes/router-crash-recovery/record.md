@@ -48,6 +48,36 @@ Claude Code docs, "Automatic reconnection": a dropped remote server is retried "
 
   The total gap stays under the ~31 s reconnect window: at most a 5 s interval, plus about 3 s, plus a 1.7 s spawn.
 
-# Not fixed
+# The crash itself (dump analysis)
 
-The `python314.dll` access violation itself (offsets `0x20885` twice on 2026-11-15, `0x26177` on 2026-11-10) is not diagnosed. No crash dump exists, so its cause is unknown.
+There were 5 `python314.dll` access violations in 14 days (Windows event 1000):
+
+- 11-15 07:20 and 00:22, both the Walkie router 9505 at offset `0x20885`;
+- 11-10 21:18 at `0x26177`;
+- 11-02 at `0xc19a4`, twice.
+
+WER kept a minidump of the 07:20 crash: `%LOCALAPPDATA%\CrashDumps\python.exe.85640.dmp`. It was analysed with cdb (Windows Kits 10) and the official Python 3.14.2 symbols (`python.org/ftp/python/3.14.2/amd64/core_pdb.msi`):
+
+- Crash site: `python314!_PyEval_EvalFrameDefault+0x17a5`, at `generated_cases.c.h:5861`.
+  - That line is `TARGET(FOR_ITER_LIST)` → `_ITER_CHECK_LIST`: `Py_TYPE(iter_o) != &PyListIter_Type`.
+  - Python's own source at tag v3.14.2 was checked.
+- The iterator stack slot was NULL: `cmp qword ptr [rdx+8],rcx` with `rdx=0`.
+  - Python code cannot put NULL there. Only a CPython defect or native memory corruption can.
+- Which Python function was running is not known: the frame (`0x1cb3ef34040`) lies in heap memory, which the minidump does not hold.
+- Every import outside tests is stdlib (AST scan: 0 third-party modules), so no third-party native extension runs in the router.
+- Installed: Python 3.14.2 (2025-12-05). Latest 3.14: 3.14.10. Searches of the CPython issues and the 3.14 changelog found no fix that matches; whether a later 3.14 release fixes this is not established.
+
+# Follow-up (user decisions 2026-11-15)
+
+**Fault record:** `ciel_runtime_support/fault_log.py`. The router enables `faulthandler` with all threads, writing to `router-fault.log` beside `router.pid`.
+
+- Each start appends a header line.
+- The next start prints `router_previous_fault <fault> (run started …); innermost: <3 frames>` into router.log.
+- Wired only in the production router composition. The `RouterServerEffects.enable_fault_log` default is a no-op, so tests never enable faulthandler.
+- Caveat: an SEH exception that native code later handles (for example inside a ctypes call) is also written, so a record is a lead rather than proof of death.
+- `tests/test_fault_log.py`: 3 passed on Python 3.11 and on 3.14.10. One test is a real `ctypes.string_at(0)` access violation in a child process: the record has the `poll_board` frame, and the next start reports it once.
+
+**Python upgrade:** this machine got 3.14.10 alongside 3.14.2, at `%LOCALAPPDATA%\Python\ciel-pythoncore-3.14.10-64` (pymanager 26.4, verified index signature, `--target`).
+
+- New Ciel launches use it through the user variable `CIEL_RUNTIME_PYTHON`, which `npm-bin/run-ciel-runtime.js` reads before `py -3`.
+- The in-place `py install --update 3.14` was not used, because every live router runs `pythoncore-3.14-64\python.exe` with `python314.dll` loaded.

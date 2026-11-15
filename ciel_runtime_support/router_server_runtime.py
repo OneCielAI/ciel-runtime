@@ -42,6 +42,9 @@ class RouterServerEffects:
     configure_server_transport: Callable[[Any, dict[str, Any]], Any] = lambda server, _config: server
     start_services: Callable[[], None] = lambda: None
     stop_services: Callable[[], None] = lambda: None
+    # Starts the process's fatal-fault record beside the pid file and returns
+    # the previous run's fault in one line (fault_log.enable); off by default.
+    enable_fault_log: Callable[[Path], str] = lambda _path: ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,6 +72,13 @@ class RouterServerRuntime:
             f"{self.config.log_level_names.get(level, level)}, source={source})\n"
         )
         self.effects.stderr.flush()
+        # Python stacks of every thread on a fatal fault (router crashes of
+        # 2026-11-15 died in CPython with no Python-level trace).
+        from .fault_log import FILE_NAME
+        earlier = self.effects.enable_fault_log(self.config.pid_path.with_name(FILE_NAME))
+        if earlier:
+            self.effects.stderr.write(f"router_previous_fault {earlier}\n")
+            self.effects.stderr.flush()
         server = self.effects.server_factory(
             (bind_host, self.config.port), self.config.handler
         )
