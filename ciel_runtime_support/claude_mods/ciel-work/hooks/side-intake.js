@@ -417,7 +417,10 @@ Classify exactly:
   order/priority change for it. A different problem, failure, incident or
   feature is a new item even in the same area or system (an outage in a module
   is not that module's refactoring). Create one root when no item has that
-  outcome; an urgent new problem is create with priority P1.
+  outcome; an urgent new problem is create with priority P1. When
+  source_priority is P0 (the source's emergency), use priority P0 on the create,
+  update or prioritize: the host registers it at once and opens a new fork for
+  it immediately.
   For an explicit or justified urgency/order change use prioritize, or include
   priority/queue_position with update. queue_position is 1-based among waiting
   goals after the active goal. Never move the active goal.
@@ -441,7 +444,7 @@ to acknowledge. Release only a wait this event clearly satisfies, never one it
 merely mentions, and never treat the event as execution approval.
 
 Never claim a queue position in reply; the host appends the committed one.
-Never claim implementation started. source_priority is the source's P1..P5 hint.
+Never claim implementation started. source_priority is the source's P0..P5 hint.
 Under adaptive policy infer priority from deadline, impact and blocking; under
 explicit policy follow stated priority and clarify conflicts.
 
@@ -1692,10 +1695,12 @@ async function recordFailure($, actor, event, category, reason = '', extra = {})
 // durable wake prompt (main_wakes), never also by a hidden user row: the owned
 // proof of 2026-11-08 delivered each handoff to main twice that way.
 async function shareWithMain($,event,result) {
-  const urgent = ['create','prioritize','update'].includes(result.action) && result.priority === 'P1'
+  const urgent = ['create','prioritize','update'].includes(result.action) && ['P0','P1'].includes(result.priority)
   if (!urgent) return
+  const p0 = result.priority === 'P0'
+  const note = p0 ? (result.p0?.error ? ' · P0 not activated: '+line(result.p0.error,160) : ' · fork starting') : ''
   try { await $.session.append({message:{type:'system',content:[{type:'text',
-    text:'Side P1 queued '+result.item_id+' · '+line(result.title || result.summary,160)}]}}) } catch {}
+    text:'Side '+result.priority+' queued '+result.item_id+' · '+line(result.title || result.summary,160)+note}]}}) } catch {}
 }
 // The side releases a recorded wait (host-validated, already committed) and is
 // the key that unblocks whoever waits on it, at once:

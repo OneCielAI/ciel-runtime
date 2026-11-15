@@ -67,7 +67,7 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
     # Priority markers are a rebuildable index, never authority for a request.
     # Do not open every pending event on each poll of a thousand-event inbox.
     def ranked():
-        for priority in ('P1','P2','P3','P4','P5'):
+        for priority in ('P0','P1','P2','P3','P4','P5'):
             paths=(inbox.directory/'priority'/priority).glob('*/*.json')
             for marker in heapq.nsmallest(100,(p for p in paths if p.stem not in skip),key=lambda p:p.stem):
                 row=inbox._load(marker.stem)
@@ -79,8 +79,8 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
                     continue
                 yield (int(priority[1]),row.get('received_at',0),marker.stem,{**row,'receipt_id':marker.stem})
     prioritized=heapq.nsmallest(100,ranked(),key=lambda entry:entry[:3])
-    urgent=[entry[3] for entry in prioritized if entry[0]==1]
-    ranked_rest=[entry[3] for entry in prioritized if entry[0]!=1]
+    urgent=[entry[3] for entry in prioritized if entry[0]<=1]
+    ranked_rest=[entry[3] for entry in prioritized if entry[0]>1]
     aged=sorted((row for row in rows if stamp-row.get('received_at',stamp)>=aging_seconds),key=lambda row:row.get('received_at',0))
     # P1 goes first, ahead of aged backlog: an urgent event waited behind
     # every aged one (observed 2026-11-07, #116793). Aging still keeps older

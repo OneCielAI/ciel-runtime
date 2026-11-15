@@ -320,6 +320,85 @@ class SideMcpTests(unittest.TestCase):
         reserved=json.loads(self.invoke('work_side_claim',{'owner':'actor','urgent_only':True})['text'])
         self.assertEqual('P1',reserved['claim']['source_priority'])
 
+    def test_walkie_emergency_is_p0_and_claimed_before_p1(self):
+        from ciel_runtime_support.side_intake_inbox import source_priority
+        # Observed 2026-11-15 on Walkie thread #131698: the person's P0 arrived
+        # as thread_task {priority: 1, emergency: true} and was indexed P1.
+        emergency = {'data': {'message_context': {'thread_task': {'priority': 1, 'emergency': True}}}}
+        self.assertEqual('P0', source_priority(json.dumps(emergency)))
+        self.assertEqual('P1', source_priority(json.dumps(
+            {'data': {'message_context': {'thread_task': {'priority': 1, 'emergency': False}}}})))
+        self.assertEqual('P0', source_priority(json.dumps({'data': {'priority': 'P0'}})))
+        self.assertEqual('P0', source_priority(json.dumps({'data': {'priority': 0}})))
+        self.assertEqual('P0', source_priority(json.dumps({'data': {'emergency': True, 'priority': 3}})))
+        self.inbox.receive(json.dumps({'data': {'message_context': {'thread_task': {'priority': 1}}}}), 'p1')
+        self.inbox.receive(json.dumps(emergency), 'p0')
+        # The urgent-only lane (a side slot reserved for urgent events) takes P0 too.
+        reserved = json.loads(self.invoke('work_side_claim', {'owner': 'actor', 'urgent_only': True})['text'])
+        self.assertEqual('P0', reserved['claim']['source_priority'])
+
+    def test_side_p0_decision_registers_and_activates_p0_without_main_handoff(self):
+        from unittest.mock import patch
+        from ciel_runtime_support import work_plan_tree as tree
+        from ciel_runtime_support.work_parallel import WorkParallelStore
+        from ciel_runtime_support.work_parallel_p0 import p0_store
+        ledger = WorkParallelStore(self.root / 'work-parallel.json')
+        store = session_work_plan_store(self.root, self.identity)
+        store.transaction(lambda doc: tree.add_node(doc, None, 'active', priority='P3'))
+        event = self._claim()
+        host = {'token': 'x'*40, 'receipt_id': event['receipt_id'], 'generation': event['generation']}
+        args = {'decision': {'action': 'create', 'kind': 'request', 'title': 'Production outage',
+                             'summary': 'P0 outage queued', 'reply': 'Outage reported', 'priority': 'P0'},
+                'expected_version': store.read()['version']}
+        with patch('ciel_runtime_support.work_parallel_mcp.ledger', return_value=ledger):
+            result = self.invoke('work_side_resolve', args, host)
+            self.assertFalse(result['error'], result)
+            data = json.loads(result['text'])['result']
+            replay = json.loads(self.invoke('work_side_resolve', args, host)['text'])['result']
+        root = next(node for node in store.read()['nodes'] if node['title'] == 'Production outage')
+        # Canonical P1 on the board (older writers stay correct), effective P0 in the sidecar.
+        self.assertEqual('P1', root['priority'])
+        self.assertEqual('P0', p0_store(ledger).effective_priority(self.identity, root))
+        self.assertEqual(('P0', root['id'], {'root_id': root['id'], 'effective_priority': 'P0'}),
+                         (data['priority'], data['p0_root_id'], data['p0']))
+        # The fork runs it; main is not also asked to schedule it.
+        self.assertEqual('not_required', data['handoff'])
+        self.assertNotIn('main_handoff', data)
+        self.assertEqual(data['item_id'], replay['item_id'])
+        self.assertEqual(1, sum(node['title'] == 'Production outage' for node in store.read()['nodes']))
+        # The pump's P0 lane (register.js after the side turn) reserves exactly this goal.
+        from ciel_runtime_support import work_parallel_mcp
+        self.config['work_parallel_host']['capability_ready'] = True
+        with patch('ciel_runtime_support.work_parallel_mcp.ledger', return_value=ledger):
+            reserved = json.loads(work_parallel_mcp.run('work_parallel_event', {
+                'event': 'p0_reserve_next', 'role': 'worker', 'expected_version': ledger.read()['version'],
+                '_host': {'token': 'x'*40, 'fork': True}}, store, self.identity, self.config, None))
+        self.assertEqual('ready', reserved['dispatch'])
+        self.assertEqual(root['id'], ledger.read()['leases'][reserved['lease_id']]['item_id'])
+
+    def test_side_p0_prioritize_activates_an_existing_goal(self):
+        from unittest.mock import patch
+        from ciel_runtime_support import work_plan_tree as tree
+        from ciel_runtime_support.work_parallel import WorkParallelStore
+        from ciel_runtime_support.work_parallel_p0 import p0_store
+        ledger = WorkParallelStore(self.root / 'work-parallel.json')
+        store = session_work_plan_store(self.root, self.identity)
+        store.transaction(lambda doc: tree.add_node(doc, None, 'active', priority='P3'))
+        store.transaction(lambda doc: tree.add_node(doc, None, 'queued fix', priority='P3'))
+        item = next(node['id'] for node in store.read()['nodes'] if node['title'] == 'queued fix')
+        event = self._claim()
+        host = {'token': 'x'*40, 'receipt_id': event['receipt_id'], 'generation': event['generation']}
+        args = {'decision': {'action': 'prioritize', 'kind': 'request', 'item_id': item,
+                             'summary': 'raised to P0', 'reply': 'Raised', 'priority': 'P0'},
+                'expected_version': store.read()['version']}
+        with patch('ciel_runtime_support.work_parallel_mcp.ledger', return_value=ledger):
+            result = self.invoke('work_side_resolve', args, host)
+        self.assertFalse(result['error'], result)
+        data = json.loads(result['text'])['result']
+        root = next(node for node in store.read()['nodes'] if node['id'] == item)
+        self.assertEqual(('P1', 'P0'), (root['priority'], p0_store(ledger).effective_priority(self.identity, root)))
+        self.assertEqual(('P0', 'not_required'), (data['priority'], data['handoff']))
+
     def test_refused_answer_keeps_its_reason_and_is_never_replayed(self):
         event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
         host={'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation']}

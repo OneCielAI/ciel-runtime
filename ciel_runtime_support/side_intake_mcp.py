@@ -81,7 +81,7 @@ def schemas():
                  'kind': {'type': 'string', 'enum': ['status', 'info', 'request', 'clarify']},
                  'item_id': {'type': 'string'}, 'summary': {'type': 'string'}, 'reply': {'type': 'string'},
                  'note': {'type': 'string'}, 'title': {'type': 'string'},
-                 'priority': {'type': 'string', 'enum': ['', 'P1', 'P2', 'P3', 'P4', 'P5']},
+                 'priority': {'type': 'string', 'enum': ['', 'P0', 'P1', 'P2', 'P3', 'P4', 'P5']},
                  'queue_position': {'type': 'integer', 'minimum': 1},
                  'release_waits': {'type': 'array', 'maxItems': 16, 'items': {
                      'type': 'object', 'properties': {'id': {'type': 'string'}, 'waiting_on': {'type': 'string'}},
@@ -182,6 +182,35 @@ def _record_wait_boost(ledger_path, identity, receipt_id, result):
                 'consuming': len(recorded['consuming']), 'invalid': recorded['invalid']}
     except Exception as error:
         return {'error': type(error).__name__}
+
+
+def _activate_side_p0(store, identity, receipt_id, root_id):
+    """Activate P0 on the goal a side decision stored as canonical P1.
+
+    The existing-root activation REST, web, ctl and the Work tools use. A
+    failure is reported in the result and never undoes the committed board.
+    """
+    try:
+        from .work_parallel_mcp import ledger
+        from .work_priority_service import mutate_existing_priority
+        parallel = ledger()
+        for _ in range(3):
+            try:
+                done = mutate_existing_priority(
+                    store, parallel, identity, root_id, 'P0',
+                    expected_board_version=store.read()['version'],
+                    external_operation_id='side-p0:' + receipt_id[:64],
+                    mutate=lambda document: None,
+                    satisfied=lambda document: any(node.get('id') == root_id and node.get('priority') == 'P1'
+                                                   for node in document.get('nodes', [])),
+                    set_by='side_decision')
+                return {'root_id': root_id, 'effective_priority': done['effective_priority']}
+            except Exception as error:
+                if 'plan changed' not in str(error):
+                    raise
+        return {'root_id': root_id, 'error': 'the plan kept changing; P0 not activated'}
+    except Exception as error:
+        return {'root_id': root_id, 'error': (type(error).__name__ + ': ' + str(error))[:300]}
 
 
 def _person_retry_host(host):
@@ -458,6 +487,10 @@ def run(name, args, config, state_dir, identity, store):
                            parked_projection=parked)
         except WorkChanged as error:
             changed = str(error)
+        if changed is None and result.get('p0_root_id'):
+            # After the board commit. The operation id comes from the receipt,
+            # so a duplicate replay rolls the same activation forward once.
+            result['p0'] = _activate_side_p0(store, identity, key, result['p0_root_id'])
         if changed is None and result.get('wait_boost') and ledger_path is not None:
             # After the board commit; a duplicate replay recreates a missing row.
             result['wait_boost_record'] = _record_wait_boost(ledger_path, identity, key, result)

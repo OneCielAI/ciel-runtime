@@ -888,6 +888,30 @@ class SideModTests(unittest.TestCase):
         self.assertEqual('Side P1 queued n9 · Fix outage',row['appends'][0]['text'])
         self.assertNotIn('customer down',row['appends'][0]['text'])
 
+    def run_p0(self, activation):
+        with tempfile.TemporaryDirectory() as raw:
+            path=Path(raw)
+            (path/'package.json').write_text('{"type":"module"}')
+            shutil.copyfile(ROOT/'tests/side_p0_harness.mjs',path/'test.mjs')
+            shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
+            done=subprocess.run(['node',str(path/'test.mjs'),activation],capture_output=True,text=True,encoding='utf8',check=True)
+        return json.loads(done.stdout)
+
+    def test_p0_event_is_decided_and_shown_as_p0(self):
+        # Walkie P0 (emergency) reached the side actor as P1 on 2026-11-15 and
+        # no fork opened. The fork pump after the side turn (register.js) takes
+        # the P0 the host activated; this covers what the side actor is given.
+        row=self.run_p0('ok')
+        self.assertEqual('P0',row['sourcePriority'])
+        self.assertTrue(row['instructsP0'])
+        self.assertEqual(['P0'],row['resolvedPriority'])
+        self.assertEqual(['Side P0 queued n9 · Production outage · fork starting'],row['appends'])
+
+    def test_p0_activation_failure_is_shown_to_the_person(self):
+        row=self.run_p0('fail')
+        self.assertEqual(['Side P0 queued n9 · Production outage · P0 not activated: WorkParallelError: device ledger unavailable'],
+                         row['appends'])
+
     def test_paged_host_results_reassemble_and_events_render_interpreted(self):
         with tempfile.TemporaryDirectory() as raw:
             path=Path(raw)

@@ -49,7 +49,7 @@ function statusGlyph(value, waiting) {
   return '·'
 }
 function priorityColor(value) {
-  return value === 'P1' ? C.red : value === 'P2' ? C.yellow : value === 'P3' ? C.violet : C.dim
+  return value === 'P0' || value === 'P1' ? C.red : value === 'P2' ? C.yellow : value === 'P3' ? C.violet : C.dim
 }
 
 export default function Observatory(props, surface) {
@@ -61,8 +61,9 @@ export default function Observatory(props, surface) {
   // Only the scroll offset is local.
   const state = surface.state || { scroll: 0 }
   const p1 = props.p1 === true
-  const workRows = (props.nodes || []).filter(row => !p1 || row.priority === 'P1')
-  const sideRows = (props.receipts || []).filter(row => !p1 || row.priority === 'P1')
+  // The urgent filter keeps P0 (a source emergency) with P1.
+  const workRows = (props.nodes || []).filter(row => !p1 || row.priority === 'P1' || row.priority === 'P0')
+  const sideRows = (props.receipts || []).filter(row => !p1 || row.priority === 'P1' || row.priority === 'P0')
   const rows = props.tab === 'side' ? sideRows : workRows
   const selected = Math.max(0, Math.min(Number(props.selected) || 0, Math.max(0, rows.length - 1)))
   const visible = Math.max(3, height - (props.tab === 'side' ? 13 : 12))

@@ -95,7 +95,7 @@ def validate(decision):
     for key, limit in (('note', tree.MAX_TEXT_CHARS), ('title', tree.MAX_TITLE_CHARS), ('item_id', 200)):
         if key in decision and (not isinstance(decision[key], str) or len(decision[key]) > limit):
             raise tree.WorkPlanError('invalid side decision ' + key)
-    if decision.get('priority', '') not in ('', *tree.PRIORITIES):
+    if decision.get('priority', '') not in ('', 'P0', *tree.PRIORITIES):
         raise tree.WorkPlanError('invalid side decision priority')
     place = decision.get('queue_position')
     if place is not None and (isinstance(place, bool) or not isinstance(place, int) or place < 1):
@@ -269,6 +269,10 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
                  for node in target_path
                  if node.get('waiting_on') or node.get('status') == 'blocked']
         place = decision.get('queue_position')
+        # P0 is stored as canonical P1 and activated as P0 right after this
+        # commit (side_intake_mcp), like every other P0 entry point.
+        wants_p0 = decision.get('priority') == 'P0'
+        board_priority = 'P1' if wants_p0 else decision.get('priority', '')
         if action == 'create':
             title = decision.get('title', '').strip()
             if not title:
@@ -279,7 +283,7 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             if not title:
                 raise tree.WorkPlanError('new Work title required')
             item = tree.add_node(doc, None, title, note=decision.get('note', ''),
-                                 priority=decision.get('priority', ''), ref='side:' + receipt_id[:40])
+                                 priority=board_priority, ref='side:' + receipt_id[:40])
             # add_node inserts priority-ordered roots behind the active goal. P1
             # therefore becomes the first pending root and is immediately visible
             # to the main parallel scheduler without stealing the active slot.
@@ -299,8 +303,8 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             # Priority is goal-scoped in the canonical tree. A request naming
             # a detail promotes its existing goal, never creates a replacement.
             item_root = tree._root_of(by_id, item)
-            tree.update_node(doc, item_root, priority=decision['priority'])
-            if (action == 'prioritize' and place is None and decision['priority'] == 'P1'
+            tree.update_node(doc, item_root, priority=board_priority)
+            if (action == 'prioritize' and place is None and board_priority == 'P1'
                     and item_root != doc.get('active_root')):
                 tree.reorder_root(doc, item_root, 2 if doc.get('active_root') else 1)
         if action == 'prioritize':
@@ -319,7 +323,7 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
         by_id = {node['id']: node for node in doc['nodes']}
         priority = ''
         if action == 'create':
-            priority = decision.get('priority', '')
+            priority = board_priority
         elif item in by_id:
             priority = by_id[tree._root_of(by_id, item)].get('priority', '')
         # Answer/clarify are source-facing only, even when they name a P1 or
@@ -329,10 +333,14 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
         # wakes only for an unresolved wait/block, explicit advice/priority, or
         # a newly-created P1 that still needs scheduling at a safe boundary.
         time_limit = decision.get('time_limit')
+        # A P0 goal runs in its own fork at once; main is not also asked to
+        # schedule it (a recorded wait or a time limit still reaches main).
+        direct_p0 = wants_p0 and action in ('create', 'update', 'prioritize')
         needs_handoff = not main_reply and (time_limit is not None
-                                            or action in ('prioritize', 'advise')
+                                            or action == 'advise'
+                                            or action == 'prioritize' and not direct_p0
                                             or action == 'update' and bool(gates)
-                                            or action == 'create' and (bool(gates) or priority == 'P1'))
+                                            or action == 'create' and (bool(gates) or priority == 'P1' and not direct_p0))
         if released and not gates and action == 'update' and time_limit is None:
             # The waiter is woken with the release itself (no acknowledgment);
             # a time limit still needs main's immediate durable notice.
@@ -391,6 +399,8 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             position['version'] = doc['version'] + 1
             result.update(title=node['title'], priority=by_id[tree._root_of(by_id, item)].get('priority', ''),
                           queue=position)
+            if direct_p0:
+                result.update(priority='P0', p0_root_id=tree._root_of(by_id, item))
         if effective_kind:
             # Requests carry an explicit ACK together with the model's transcript-
             # based restatement. Status/info answer directly without boilerplate.

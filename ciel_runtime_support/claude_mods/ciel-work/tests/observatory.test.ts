@@ -10,7 +10,7 @@ const SNAPSHOT = { enabled: true, phase: 'executing', approval: 'auto', version:
 const DETAIL = { version: 3, root_id: 'g1', nodes: [
   { id: 'g1', parent_id: null, title: 'Goal', status: 'in_progress', note: '', evidence: '' },
   { id: 'a', parent_id: 'g1', title: 'Cache', status: 'blocked', note: 'TTL', evidence: '' }] }
-let ACTIVE_ACTORS = false
+let ACTIVE_ACTORS: boolean | 'p0' = false
 const SETTINGS = [
   { key: 'work_mode', label: 'Work mode', value: true, kind: 'boolean' },
   { key: 'claude_left_arrow_opens_agents', label: 'Left arrow opens agents view', value: true, kind: 'boolean', status: 'next_claude_session' },
@@ -27,7 +27,10 @@ function host(on) {
     if (e.tool === 'work_status') value = e.args.detail ? DETAIL : SNAPSHOT
     if (e.tool === 'work_live_settings') { if (e.args.key) s.writes.push([e.args.key, e.args.value]); value = { settings: SETTINGS, provider: 'p' } }
     if (e.tool === 'work_parallel_status') value = { version: 1, active_device: 0, leases: {}, policy: { max_active: 5, p1_reserved: 1 } }
-    if (e.tool === 'work_side_status') value = { side_inbox_receipts: ACTIVE_ACTORS ? [
+    if (e.tool === 'work_side_status') value = { side_inbox_receipts: ACTIVE_ACTORS === 'p0' ? [
+      { receipt_id: 'receipt-p0', stage: 'processing', processing: { owner: 'side' },
+        original: '{"data":{"text":"Server down","message_context":{"thread_task":{"priority":1,"emergency":true}}}}' }]
+      : ACTIVE_ACTORS ? [
       { receipt_id: 'receipt-p1', stage: 'processing', processing: { owner: 'side' },
         original: '{"data":{"priority":1,"text":"Urgent side request"}}' }] : [] }
     if (e.tool === 'work_side_claim') value = { claim: null, settings: {}, handoff_replies: [] }
@@ -56,6 +59,24 @@ test('graphical SSE view labels processing receipts while side work is active', 
     expect(text).toContain('SSE FLOW 1')
     expect(text).toContain('processing')
     expect(text).toContain('Urgent side request')
+    await ui.unmount()
+  } finally { ACTIVE_ACTORS = false }
+})
+
+test('graphical SSE view shows a Walkie emergency as P0 and keeps it under the urgent filter', async ($, on) => {
+  ACTIVE_ACTORS = 'p0'
+  try {
+    host(on)
+    await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+    await $.command.run({ command: 'work-mode', args: 'view' })
+    const ui = await $.ui.mount(pane('terminal', 100) as any)
+    await ui.resize({ columns: 100, rows: 30, in: 'obs-graphic' })
+    await ui.key({ key: 's', in: 'obs-graphic' })
+    await ui.press({ key: 'obs-p1' })
+    const text = (await ui.findAll({ type: 'Text', in: 'obs-graphic' })).map(row => row.text).join('\n')
+    expect(text).toContain('SSE FLOW 1')
+    expect(text).toContain('P0')
+    expect(text).toContain('Server down')
     await ui.unmount()
   } finally { ACTIVE_ACTORS = false }
 })

@@ -788,14 +788,19 @@ async function editObservatorySetting($, row, identity) {
   if (value === null || value === 'Keep current') return
   await setObservatorySetting($, row, value === 'Clear' ? '' : value, identity)
 }
-// The source system's own urgency (Walkie: data.message_context.thread_task.priority, 1 = P1).
+// The source system's own urgency (Walkie: data.message_context.thread_task.priority,
+// 1 = P1; emergency: true is P0), as side_intake_inbox.source_priority reads it.
 function sourcePriority(original) {
   let body
   try { body = JSON.parse(String(original || '')) } catch { return '' }
   const data = body && typeof body === 'object' ? (body.data && typeof body.data === 'object' ? body.data : body) : null
-  const level = value => /^P[1-5]$/.test(String(value)) ? String(value)
-    : Number.isInteger(value) && value >= 1 && value <= 5 ? 'P' + value : ''
-  return data ? level(data.priority) || level(data.message_context?.thread_task?.priority) : ''
+  const level = value => /^P[0-5]$/.test(String(value)) ? String(value)
+    : Number.isInteger(value) && value >= 0 && value <= 5 ? 'P' + value : ''
+  const task = data?.message_context?.thread_task
+  if (data?.emergency === true) return 'P0'
+  const explicit = data ? level(data.priority) : ''
+  if (explicit) return explicit
+  return task?.emergency === true ? 'P0' : level(task?.priority)
 }
 function graphicNodes(view, snapshot) {
   if (!Array.isArray(view?.nodes)) return []
@@ -842,7 +847,7 @@ function graphicReceipts(identity) {
 function graphicRows(identity, view, state) {
   const p1 = state?.obsP1 === true
   const rows = state?.tab === 'side' ? graphicReceipts(identity) : graphicNodes(view, cached)
-  return rows.filter(row => !p1 || row.priority === 'P1')
+  return rows.filter(row => !p1 || row.priority === 'P1' || row.priority === 'P0')
 }
 function graphicSelected(state) {
   return Number((state?.tab === 'side' ? state?.obsSide : state?.obsWork) || 0)
@@ -3894,6 +3899,8 @@ export function register(on) {
       mainTurnId = null; mainStepIndex = -1
     }
     if (!await completeSide($, e)) return parallelTurnComplete($, e, next)
+    // completeSide has committed the decision; a P0 it activated (side_intake_mcp)
+    // takes the pump's P0 lane here, past pause, approval and capacity.
     try { await parallelObserveNative($); await parallelPump($, 'side-turn.complete') } catch {}
     sideStatusDirty = true
     // A side decision may have changed the board; redraw from it now rather than
