@@ -194,9 +194,23 @@ class SideModTests(unittest.TestCase):
             with self.subTest(case=name):
                 self.assertEqual(0,row[name]['spawns'])
                 self.assertEqual({'category':'source_context','reason':reason},row[name]['failure'])
-        self.assertEqual(0,row['context_budget']['spawns'])
-        self.assertIn('exceeds main context budget',row['context_budget']['failure']['reason'])
-        self.assertEqual(1,row['context_room']['spawns'])
+        # Main's remaining context is the limit: main is compacted first and the
+        # event waits (not a counted failure); idle main compacts at once.
+        budget=row['context_budget']
+        self.assertEqual((0,1),(budget['spawns'],budget['compacts_immediate']))
+        self.assertEqual('main_compaction_pending',budget['failure']['category'])
+        self.assertEqual(30,budget['failure']['retry_after_seconds'])
+        self.assertIn('exceeds main context budget',budget['failure']['reason'])
+        # Within the cooldown after that compaction, it is an ordinary failure.
+        again=row['context_budget_again']
+        self.assertEqual((0,0),(again['spawns'],again['compacts_immediate']))
+        self.assertEqual('source_context',again['failure']['category'])
+        self.assertNotIn('retry_after_seconds',again['failure'])
+        # A busy main is not compacted mid-turn; its turn's end compacts it.
+        busy=row['context_budget_busy']
+        self.assertEqual((0,0,1),(busy['spawns'],busy['compacts_immediate'],busy['compacts_after_turn']))
+        self.assertEqual(('main_compaction_pending',60),(busy['failure']['category'],busy['failure']['retry_after_seconds']))
+        self.assertEqual((1,0),(row['context_room']['spawns'],row['context_room']['compacts_after_turn']))
         proof={p['label']:p['result'] for p in row['persisted_ok']['proof']}
         self.assertEqual({'not_fork':'deny','named':'deny','subagent':'deny','wrong_type':'deny',
                           'other_plugin':'deny','unrelated':None,'exact':'authorized'},proof)

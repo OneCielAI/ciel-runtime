@@ -133,6 +133,28 @@ class SideMcpTests(unittest.TestCase):
         denied=self.invoke('work_side_fallback',{'state':'prepare','reason':'not model failure'},host)
         self.assertTrue(denied['error'])
 
+    def test_main_compaction_wait_is_not_a_counted_failure_and_is_bounded(self):
+        from ciel_runtime_support.side_intake_processing import MAIN_COMPACTION_WAITS, claim, fail
+        event=claim(self.root,self.identity,'actor')
+        receipt=fail(self.root,self.identity,event['receipt_id'],event['generation'],{
+            'category':'main_compaction_pending','reason':'Source thread exceeds main context budget',
+            'retry_after_seconds':60},now=1000)
+        self.assertEqual(event['receipt_id'],receipt['receipt_id'])
+        row=self.inbox._load(event['receipt_id'])['side_failure']
+        self.assertEqual((0,1,1060,False,'main_compaction_pending'),
+                         (row['attempt_count'],row['compaction_waits'],row['retry_not_before'],row['quarantined'],row['category']))
+        # Waits are bounded: past MAIN_COMPACTION_WAITS the overflow is an
+        # ordinary, counted source_context failure with its normal backoff.
+        stored=self.inbox._load(event['receipt_id'])
+        stored['side_failure']['compaction_waits']=MAIN_COMPACTION_WAITS
+        self.inbox._save_file(self.inbox._event_path('pending',event['receipt_id']),stored)
+        again=claim(self.root,self.identity,'actor2',now=2000)
+        fail(self.root,self.identity,again['receipt_id'],again['generation'],{
+            'category':'main_compaction_pending','retry_after_seconds':60},now=2000)
+        row=self.inbox._load(event['receipt_id'])['side_failure']
+        self.assertEqual((1,MAIN_COMPACTION_WAITS,2005,'source_context'),
+                         (row['attempt_count'],row['compaction_waits'],row['retry_not_before'],row['category']))
+
     def test_unrelated_404_is_not_model_unavailable(self):
         from ciel_runtime_support.side_intake_processing import fail
         from ciel_runtime_support.side_intake_processing import claim

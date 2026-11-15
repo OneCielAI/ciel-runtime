@@ -172,6 +172,9 @@ def renew(state_dir, session_id, receipt_id, generation, *, now=None, lease_seco
         return {'receipt_id': receipt_id, 'generation': generation, 'lease_until': stamp + lease_seconds}
 
 
+MAIN_COMPACTION_WAITS = 12
+
+
 def fail(state_dir, session_id, receipt_id, generation, failure, *, now=None):
     """Release an exact failed claim with durable backoff or quarantine."""
     stamp = time.time() if now is None else now
@@ -190,12 +193,23 @@ def fail(state_dir, session_id, receipt_id, generation, failure, *, now=None):
     # A completed model turn may already have sent an external MCP reply. If its
     # final decision is invalid, retrying can duplicate that side effect.
     permanent = category in ('invalid_request', 'invalid_answer')
+    # The source thread did not fit in the context main has left, and the host
+    # compacts main first (2026-11-15). Waiting for that compaction is not a
+    # failed attempt: it never counts toward quarantine and is retried after the
+    # host's delay, up to MAIN_COMPACTION_WAITS times; after that it is an
+    # ordinary source_context failure.
+    retry_after = failure.get('retry_after_seconds')
+    retry_after = retry_after if type(retry_after) is int and 5 <= retry_after <= 600 else 30
     inbox = SideIntakeInbox(state_dir, session_id)
     with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
         row = verify_claim(inbox, receipt_id, generation, now=stamp)
         prior = row.get('side_failure') or {}
-        attempts = int(prior.get('attempt_count') or 0) + 1
-        delay = min(300, 5 * (2 ** min(attempts - 1, 6)))
+        waits = int(prior.get('compaction_waits') or 0)
+        compaction = category == 'main_compaction_pending' and waits < MAIN_COMPACTION_WAITS
+        if category == 'main_compaction_pending' and not compaction:
+            category = 'source_context'
+        attempts = int(prior.get('attempt_count') or 0) + (0 if compaction else 1)
+        delay = retry_after if compaction else min(300, 5 * (2 ** min(attempts - 1, 6)))
         # The selected side model is unavailable: the same side actor retries the
         # event on the main session model (same provider connection). If that
         # retry is unavailable too, quarantine instead of looping.
@@ -218,6 +232,7 @@ def fail(state_dir, session_id, receipt_id, generation, failure, *, now=None):
             'use_parent_model': parent_retry,
             'main_fallback_eligible': False,
             'generation': generation,
+            'compaction_waits': waits + (1 if compaction else 0),
         }
         row.pop('processing', None)
         inbox._save_file(inbox._event_path('pending', receipt_id), row)

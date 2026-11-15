@@ -269,9 +269,10 @@ async function fetchSourceMessage($,spec,event = {}) {
   let after = '0'
   let previous = BigInt(rootId)
   const budget = await contextBudgetBytes($)
-  const overBudget = () => new SourcePrefetchError(budget.source === 'main_context' && budget.bytes < SOURCE_THREAD_MAX_BYTES
+  const mainLimited = budget.source === 'main_context' && budget.bytes < SOURCE_THREAD_MAX_BYTES
+  const overBudget = () => Object.assign(new SourcePrefetchError(mainLimited
     ? 'Source thread exceeds main context budget (' + budget.bytes + ' bytes left of window ' + budget.window
-      + ', used ' + budget.used + ')' : 'Source thread exceeds byte limit')
+      + ', used ' + budget.used + ')' : 'Source thread exceeds byte limit'), {mainContext:mainLimited})
   let bytes = BYTES.encode(JSON.stringify(root)).length
   if (bytes > budget.bytes) throw overBudget()
   for (let page = 0; ; page++) {
@@ -498,6 +499,37 @@ export async function startSide($) {
 // Whether main is inside a turn; register.js owns that state (turn.start/complete).
 let mainBusy = () => false
 export function sideMainBusy(fn) { mainBusy = fn }
+// Main compaction before a side actor (2026-11-15). A Walkie source thread that
+// does not fit in the context main has left is not a source failure: main is
+// compacted between turns ($.session.compact rejects while a turn runs; a
+// busy main is compacted when its turn completes) and the event is released
+// for a short retry that never counts toward quarantine. After one compaction
+// per conversation within COMPACT_COOLDOWN_MS, a thread that still does not
+// fit fails as an ordinary source_context error.
+const COMPACT_COOLDOWN_MS = 10 * 60 * 1000
+const compactions = new Map()
+function compactionRecent(identity) {
+  const at = compactions.get(identity)?.at || 0
+  return at > 0 && Date.now() - at < COMPACT_COOLDOWN_MS
+}
+async function compactMain($, identity) {
+  const state = compactions.get(identity) || {}
+  if (state.running) return false
+  if (mainBusy()) { compactions.set(identity, {...state, wanted:true}); return false }
+  compactions.set(identity, {...state, wanted:false, running:true})
+  try {
+    const result = await $.session.compact()
+    const skipped = result?.skip
+    compactions.set(identity, {at:skipped ? state.at || 0 : Date.now(), wanted:false, running:false})
+    try { $.ui.log('Ciel side: main compacted so a waiting side event fits its context'
+      + (skipped ? ' (skipped: ' + line(String(skipped), 120) + ')' : '')) } catch {}
+    return !skipped
+  } catch {
+    // A turn started meanwhile: compact when it completes.
+    compactions.set(identity, {...state, wanted:true, running:false})
+    return false
+  }
+}
 // Plugin prompts. Owned Claude Code probes measured two independent facts: a
 // user-role append enters the next request but starts no turn
 // (delivery-4f4c90b8), while each prompt submitted during idle is accepted
@@ -734,6 +766,9 @@ export function sidePromptTurnStart() {
 }
 export function sidePromptTurnComplete($) {
   for (const entry of promptEntries.values()) armPromptRelease($,entry)
+  // A side event waiting for room compacts main first, then main is woken.
+  const wanted = [...compactions].find(([, state]) => state.wanted)
+  if (wanted) { void compactMain($,wanted[0]).finally(() => wakeUnread($)); return }
   // A row appended after this turn's last request was carried by none of its
   // requests (owned probe prompt-gate-0dd78bf3). Main is idle now: wake it.
   wakeUnread($)
@@ -1585,6 +1620,13 @@ export async function pollSide($, identity) {
       // thread) keeps the receipt and is retried by side_intake_processing.fail
       // up to 5 times with 5/10/20/40/80 s backoff, then quarantined on the
       // 6th failure; a quarantine is terminal.
+      if (error instanceof SourcePrefetchError && error.mainContext && !compactionRecent(identity)) {
+        const waiting = mainBusy() || compactions.get(identity)?.running
+        await recordFailure($,actor,claimed,'main_compaction_pending',String(error.message),
+          {retry_after_seconds:waiting ? 60 : 30})
+        void compactMain($,identity)
+        return generation === lifecycle
+      }
       const category = error instanceof SourcePrefetchError ? error.category : 'processing_error'
       await recordFailure($,actor,claimed,category,String(error?.message || error))
       return generation === lifecycle
@@ -1636,11 +1678,11 @@ async function submitReply($,actor,event) {
   const update = await callRouter($,'work_side_reply',{receipt_id:event.receipt_id,state},{attempt_id:prepared.attempt_id},actor.identity)
   display($,actor.identity,{side_inbox_receipts:[update.receipt]})
 }
-async function recordFailure($, actor, event, category, reason = '') {
+async function recordFailure($, actor, event, category, reason = '', extra = {}) {
   try {
     const value = await callRouter($,'work_side_fail',{
       category, model:actor.model || '', model_fingerprint:actor.modelFingerprint || '', agent_id:actor.id || '',
-      ...(reason ? {reason:line(reason,300)} : {})
+      ...(reason ? {reason:line(reason,300)} : {}), ...extra
     },{receipt_id:event.receipt_id,generation:event.generation},actor.identity)
     if (value.receipt) display($,actor.identity,{side_inbox_receipts:[value.receipt]})
     return value

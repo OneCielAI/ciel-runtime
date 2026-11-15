@@ -2,7 +2,7 @@
 // using the exact stub template captured from Claude Code 2.1.321 (owned probe
 // mcp-size-none-ee41a3e2), plus the main-context budget and spawn proof.
 import {readFileSync} from 'node:fs'
-import {startSide,pollSide,sideSpawnInput} from './side-intake.js'
+import {startSide,pollSide,sideSpawnInput,sideMainBusy,sidePromptTurnComplete} from './side-intake.js'
 const fixture=JSON.parse(readFileSync(new URL('./persisted-stub-fixture.json',import.meta.url),'utf8'))
 const C='34886995-4a66-4527-a618-814e9cb0a5bf'
 const root={id:'40',conversation_id:C,text:'root',thread_root_id:null}
@@ -25,13 +25,22 @@ const scenarios={
  unreadable:{stub:stubFor(page.length,realPath),file:{}},
  per_call_limit:{stub:stubFor(5*1024*1024,realPath),file:{[realPath]:page}},
  context_budget:{plain:true,usage:{tokens:180000,window:200000},spawn:false},
+ // Main was compacted for the event above within the cooldown: an event that
+ // still does not fit fails as an ordinary source_context error.
+ context_budget_again:{plain:true,usage:{tokens:180000,window:200000},spawn:false},
+ // Another conversation whose main is in a turn: no compaction until it ends.
+ context_budget_busy:{plain:true,usage:{tokens:180000,window:200000},spawn:false,busy:true,
+  session:'0b6f6f5e-1c1d-4a52-9e8e-6a7d3f0c2b11'},
  context_room:{plain:true,usage:{tokens:20000,window:1000000},spawn:true},
 }
 const out={}
 for (const [name,scenario] of Object.entries(scenarios)) {
- let claimed=false; const calls=[],spawns=[],proof=[]
- const $={session:{id:async()=>fixture.session_id,append:async()=>{},
-   usage:async()=>({context:scenario.usage||{window:200000,tokens:1000}})},prompt:{submit:async()=>({})},
+ let claimed=false; const calls=[],spawns=[],proof=[],compacts=[]
+ sideMainBusy(()=>scenario.busy===true)
+ const session=scenario.session||fixture.session_id
+ const $={session:{id:async()=>session,append:async()=>{},
+   usage:async()=>({context:scenario.usage||{window:200000,tokens:1000}}),
+   compact:async()=>{compacts.push(name);return {}}},prompt:{submit:async()=>({})},
   env:{get:async key=>key==='CLAUDE_CONFIG_DIR'?fixture.claude_config_dir:'x'.repeat(40)},
   fs:{read:async path=>{ if(Object.prototype.hasOwnProperty.call(scenario.file||{},path)) return scenario.file[path]; throw Error('ENOENT') }},
   mcp:{connect:async()=>({}),call:async(server,tool,args)=>{
@@ -58,10 +67,13 @@ for (const [name,scenario] of Object.entries(scenarios)) {
    proof.push({label:'exact',result:sideSpawnInput(base,plugin)===base?'authorized':'other'})
    spawns.push(a);return {agentId:'actor'}}},
   ui:{invalidate:()=>{},log:()=>{}},clock:{after:()=>({cancel(){}})}}
- await startSide($); await pollSide($,'claude:'+fixture.session_id)
+ await startSide($); await pollSide($,'claude:'+session)
+ const immediate=compacts.length
+ if(scenario.busy){ sideMainBusy(()=>false); sidePromptTurnComplete($); await new Promise(r=>setTimeout(r,20)) }
  const failure=calls.find(c=>c.tool==='work_side_fail')
- out[name]={spawns:spawns.length,proof,
-  failure:failure?{category:failure.args.category,reason:failure.args.reason}:null,
+ out[name]={spawns:spawns.length,proof,compacts_immediate:immediate,compacts_after_turn:compacts.length,
+  failure:failure?{category:failure.args.category,reason:failure.args.reason,
+   ...(failure.args.retry_after_seconds?{retry_after_seconds:failure.args.retry_after_seconds}:{})}:null,
   messages:spawns[0]?JSON.parse(spawns[0].prompt).source_message?.messages?.length:null}
 }
 console.log(JSON.stringify(out))
