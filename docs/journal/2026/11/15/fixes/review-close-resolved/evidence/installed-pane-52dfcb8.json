@@ -1,0 +1,33 @@
+{
+  "close-resolved-open": {
+    "main_review_lines": [
+      "MAIN REVIEW (1) · no reviewer fork; main decides with work_parallel_item_review",
+      "  Awaiting main review · n2 Close item · P1 · lease 916fe404e6f74c86800a2f440c93aa1c · receipt 10231e49e9f6c86…"
+    ],
+    "review_state": "pending",
+    "review_decision": null
+  },
+  "close-resolved-done": {
+    "main_review_lines": [],
+    "review_state": "finalized",
+    "review_decision": "close"
+  },
+  "close-resolved-removed": {
+    "main_review_lines": [],
+    "review_state": "finalized",
+    "review_decision": "close"
+  },
+  "close-resolved-stranded": {
+    "main_review_lines": [],
+    "review_state": null,
+    "review_decision": null
+  },
+  "blocked-label": {
+    "main_review_lines": [
+      "MAIN REVIEW (1) · no reviewer fork; main decides with work_parallel_item_review",
+      "  Blocked: n2 still has unfinished children; finish them first · n2 Blocked item · P1 · lease c92bc2588983458284c896158e60d9d2 · receipt 10231e49e9f6c86… · blocked stage_failed: n2 still has unfinished children; finish them first"
+    ],
+    "review_state": "deciding",
+    "review_decision": "approve"
+  }
+}

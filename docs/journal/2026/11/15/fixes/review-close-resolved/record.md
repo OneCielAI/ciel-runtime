@@ -95,6 +95,22 @@ These ran together and gave 314 passed, 10 skipped, 245 subtests passed:
 
 `claude plugin test ciel_runtime_support/claude_mods/ciel-work`: 102 pass, 0 fail.
 
+# Deployment (52dfcb8)
+
+- **Beta publish:** `Publish to npm` completed successfully. The beta dist-tag is `0.2.51-beta.20261115-174225.52dfcb8`.
+- **Local install (`install_beta.sh 52dfcb8`):**
+  - gitHead `52dfcb8…` and integrity both checked ok;
+  - tarball against tree: 621 files equal, plus 2 build-stamped files (`package.json`, `runtime_constants.py`);
+  - `ciel-runtime version` prints `ciel-runtime 0.2.51-beta.20261115-174225.52dfcb8`.
+- **No SyntaxWarning on 3.14:** on the managed Python 3.14.10, `compileall` with `-W error::SyntaxWarning` over the installed tree exits 0 and prints nothing. This confirms the b71083b PEP 765 fix is in the installed build.
+- **Tests against the installed code** (a copy of the installed snapshot plus this repo's tests):
+  - finalization `close`/`already_completed_elsewhere` tests: 6 passed;
+  - real-backend review-close scenarios: 5 passed.
+- **Pane text from the installed code:** [evidence/installed-pane-52dfcb8.json](evidence/installed-pane-52dfcb8.json).
+  - An open item shows `Awaiting main review`.
+  - Done, removed and stranded items show no MAIN REVIEW line.
+  - The blocked approve shows `Blocked: n2 still has unfinished children; finish them first`.
+
 # What still shows after the update
 
 - **n1937** stays `Blocked: n1937 still has unfinished children…`. It finalizes by itself once its children are done.
