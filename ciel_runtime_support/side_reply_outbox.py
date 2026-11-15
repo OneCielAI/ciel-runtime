@@ -55,7 +55,8 @@ def prepare(state_dir, identity, receipt_id, *, config=None):
         # An event that referenced no message or thread has no source to answer:
         # not_applicable, never route_unavailable (which asks main to send it).
         if connector is None and (row.get('source_context') == 'none_referenced'
-                                  or row['result'].get('source_context') == 'none_referenced'):
+                                  or row['result'].get('source_context') == 'none_referenced'
+                                  or route.get('source_kind') == 'gate_check'):
             row['result']['delivery'] = 'not_applicable'
             _drop_pending_outbox(row)
             inbox._save_file(inbox._event_path('receipts', receipt_id), row)

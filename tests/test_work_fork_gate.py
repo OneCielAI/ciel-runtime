@@ -75,6 +75,23 @@ class WorkForkGateTests(unittest.TestCase):
         self.assertTrue(value["logged"])
         self.assertFalse(value["leaked"])
 
+    def test_main_model_applies_from_a_turns_first_step_and_holds_for_the_turn(self):
+        value = self.scenario("main_model_turn_pinned")
+        self.assertEqual(("ciel-runtime-p-chosen", "ciel-runtime-p-chosen"), (value["a0"], value["a1"]))
+        # The next turn reads again; with no main model configured it keeps the engine's.
+        self.assertEqual("ciel-runtime-p-main", value["b0"])
+        self.assertEqual("up-chosen", value["direct"])
+        self.assertEqual(3, value["statusReads"])
+
+    def test_main_model_never_switches_mid_turn_and_failure_keeps_the_engine_model(self):
+        value = self.scenario("main_model_midturn_and_failure")
+        main = "ciel-runtime-p-main"
+        self.assertEqual((main, main, 0), (value["mid"], value["mid2"], value["midReads"]))
+        self.assertEqual((main, main, 1), (value["failed"], value["failedNext"], value["failedReads"]))
+        self.assertTrue(value["logged"])
+        self.assertFalse(value["leaked"])
+        self.assertEqual("ciel-runtime-p-main", value["forkStep"])
+
     def test_package_has_exactly_one_hooks_module(self):
         manifest = json.loads((GATE_DIR / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))
         self.assertEqual("ciel-work-gate", manifest["name"])

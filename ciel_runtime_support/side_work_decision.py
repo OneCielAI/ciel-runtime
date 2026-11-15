@@ -12,7 +12,8 @@ from . import work_plan_tree as tree
 
 ACTIONS = ('answer', 'clarify', 'update', 'create', 'prioritize', 'advise')
 KINDS = ('status', 'info', 'request', 'clarify')
-FIELDS = {'action', 'kind', 'item_id', 'summary', 'reply', 'note', 'title', 'priority', 'queue_position', 'release_waits', 'time_limit'}
+FIELDS = {'action', 'kind', 'item_id', 'summary', 'reply', 'note', 'title', 'priority', 'queue_position', 'release_waits', 'time_limit',
+          'relay'}
 NO_QUEUE = '큐에 등록하지 않았습니다.'
 MAX_RELEASES = 16
 MAX_TIME_LIMIT_TEXT = 1000
@@ -111,6 +112,8 @@ def validate(decision):
                        for row in releases)
                 or len({row['id'] for row in releases}) != len(releases)):
             raise tree.WorkPlanError('invalid side decision release_waits')
+    if 'relay' in decision and type(decision['relay']) is not bool:
+        raise tree.WorkPlanError('invalid side decision relay')
     time_limit = decision.get('time_limit')
     if time_limit is not None:
         if (not isinstance(time_limit, dict) or set(time_limit) - {'text', 'due_at', 'evidence'}
@@ -140,6 +143,11 @@ def validate(decision):
         # field is dropped rather than failing (and losing) the whole event;
         # advise/prioritize still reach main, which may clear the wait itself.
         decision.pop('release_waits', None)
+        # Relay forwards a follow-up about one in-progress item to the sessions
+        # working on it (user requirement 2026-11-15); only an update names that item.
+        decision.pop('relay', None)
+    if decision.get('relay') is False:
+        decision.pop('relay', None)
     if kind in ('status', 'info') and action != 'answer' or kind == 'clarify' and action != 'clarify':
         raise tree.WorkPlanError('side decision kind does not match its action')
     if kind == 'request' and action not in ('create', 'update', 'prioritize'):
@@ -191,7 +199,7 @@ def _record_review(doc, receipt_id, result, source):
 
 
 def apply(store, receipt_id, decision, expected_version, *, main_reply=False, observed_digest=None, source=None,
-          source_context=None, parked_projection=None):
+          source_context=None, parked_projection=None, gate_check=False):
     validate(decision)
     if not isinstance(receipt_id, str) or len(receipt_id) != 64 or any(c not in '0123456789abcdef' for c in receipt_id):
         raise tree.WorkPlanError('invalid side receipt identity')
@@ -411,8 +419,14 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             result['final_text'] = text + '\n\n' + outcome_text(result)
         receipts[receipt_id] = {'decision_digest': digest, 'applied_at': time.time(),
                                 'item_id': item, 'recap': decision['summary'], 'result': result}
-        if not main_reply:
+        if decision.get('relay') and action == 'update':
+            # The host forwards the message to main and to the fork working on
+            # this item; each decides whether it matters to its current work.
+            result['relay'] = {'item_id': item}
+        if not main_reply and not gate_check:
             # Main's own handoff answers come back as follow-ups; main already knows them.
+            # A host gate re-check has no person behind it: a release or a
+            # handoff already reaches main, and "no change" is not news.
             _record_review(doc, receipt_id, result, source)
         return {**result, 'duplicate': False}
     # An already-committed event may be recovered after a version change.

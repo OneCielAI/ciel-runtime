@@ -6,7 +6,13 @@ only, and the settings appear on the menu, web, REST and ciel-runtimectl.
 
 Settings live in config.json per provider (never in the device ledger):
 ``work_parallel_models[provider] = {"P0".."P5": id, "side": id}``; a missing
-key or ``inherit`` keeps main's model. The ciel-work-gate plugin applies them in
+key or ``inherit`` keeps main's model.
+
+The main session model (user requirement 2026-11-15: change the model main
+runs on, remotely, per workspace, without touching the P0-P5/side choices) is
+stored apart, in ``work_main_models[provider] = id`` of the same workspace
+config.json; ``inherit`` keeps the model the session was launched with. The gate
+applies it to main's own requests from the next main turn. The ciel-work-gate plugin applies them in
 its ``turn.step`` hook, which sees every request of a ciel-work fork, the first
 one included, and names the request's model there.
 """
@@ -18,7 +24,9 @@ from typing import Any
 PRIORITIES = ("P0", "P1", "P2", "P3", "P4", "P5")
 PRIORITY_KEYS = tuple(f"work_parallel_model_{p.lower()}" for p in PRIORITIES)
 SIDE_KEY = "work_side_intake_model"
-KEYS = (*PRIORITY_KEYS, SIDE_KEY)
+MAIN_KEY = "work_main_model"
+MAIN_TABLE = "work_main_models"
+KEYS = (MAIN_KEY, *PRIORITY_KEYS, SIDE_KEY)
 INHERIT = "inherit"
 SLOT = {**{key: p for key, p in zip(PRIORITY_KEYS, PRIORITIES)}, SIDE_KEY: "side"}
 
@@ -94,7 +102,15 @@ def stored(config: dict[str, Any]) -> dict[str, str]:
     return {slot: str(row.get(slot) or INHERIT) for slot in (*PRIORITIES, "side")}
 
 
+def main_stored(config: dict[str, Any]) -> str:
+    provider, _ = _provider(config)
+    table = config.get(MAIN_TABLE) if isinstance(config.get(MAIN_TABLE), dict) else {}
+    return str(table.get(provider) or INHERIT)
+
+
 def value(config: dict[str, Any], key: str) -> str:
+    if key == MAIN_KEY:
+        return main_stored(config)
     return stored(config)[SLOT[key]]
 
 
@@ -115,7 +131,7 @@ def status(config: dict[str, Any], key: str, known: list[str] | None = None) -> 
 
 
 def set_value(config: dict[str, Any], key: str, raw: str) -> None:
-    if key not in SLOT:
+    if key not in SLOT and key != MAIN_KEY:
         raise ValueError("unknown model setting: " + key)
     chosen = str(raw or "").strip()
     if chosen in ("", "default", "reset", "off"):
@@ -125,6 +141,18 @@ def set_value(config: dict[str, Any], key: str, raw: str) -> None:
         raise ValueError("no current provider; choose a provider first")
     if chosen != INHERIT and chosen not in model_ids(config):
         raise ValueError("model is not in the current provider's model list: " + chosen[:200])
+    if key == MAIN_KEY:
+        # Its own table: the P0-P5 and side choices are never read or rewritten.
+        mains = dict(config.get(MAIN_TABLE) or {})
+        if chosen == INHERIT:
+            mains.pop(provider, None)
+        else:
+            mains[provider] = chosen
+        if mains:
+            config[MAIN_TABLE] = mains
+        else:
+            config.pop(MAIN_TABLE, None)
+        return
     table = dict(config.get("work_parallel_models") or {})
     row = dict(table.get(provider) or {})
     if chosen == INHERIT:
@@ -160,9 +188,18 @@ def projection(config: dict[str, Any]) -> dict[str, Any]:
             models[slot], upstream[slot] = request_names(provider, model_id) if model_id else (None, None)
         except Exception:  # an unknown provider adapter: send the id itself
             models[slot] = upstream[slot] = model_id
+    main_id = main_stored(config)
+    main_id = main_id if main_id != INHERIT and main_id in known else None
+    try:
+        main_alias, main_upstream = request_names(provider, main_id) if main_id else (None, None)
+    except Exception:  # an unknown provider adapter: send the id itself
+        main_alias = main_upstream = main_id
     return {"provider": provider, "models": models, "upstream": upstream, "ids": ids, "forced_model": forced(config),
+            # Main's own requests (gate turn.step, agentId absent); None keeps the launch model.
+            "main": {"model": main_alias, "upstream": main_upstream, "id": main_id},
             "status": {key: status(config, key, known) for key in KEYS}}
 
 
-__all__ = ["INHERIT", "KEYS", "PRIORITIES", "PRIORITY_KEYS", "SIDE_KEY", "forced", "model_ids", "projection",
+__all__ = ["INHERIT", "KEYS", "MAIN_KEY", "MAIN_TABLE", "PRIORITIES", "PRIORITY_KEYS", "SIDE_KEY", "forced",
+           "main_stored", "model_ids", "projection",
            "request_names", "set_value", "status", "stored", "value"]

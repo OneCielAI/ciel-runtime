@@ -443,6 +443,19 @@ The host releases it at once and wakes the waiting worker or main; nobody has
 to acknowledge. Release only a wait this event clearly satisfies, never one it
 merely mentions, and never treat the event as execution approval.
 
+Live item relay: when this event carries content the sessions working on an
+existing in-progress item should see now (a correction, a new constraint or
+detail, an answer to their question, a changed requirement for that same
+outcome), use action update on that item and add "relay": true. The host then
+forwards the message to main and to the Work fork running that item, at once.
+Each of them decides whether it matters to its current work and ignores it
+otherwise; relay never approves execution and never changes their scope.
+Do not relay a mere status question, a duplicate, or news about another item.
+
+Gate re-check events (event_key gate-check:..., route source_kind gate_check)
+come from the host timer, not a person. There is no source to reply to; keep
+reply to one short line. Decide only from verifiable evidence.
+
 Never claim a queue position in reply; the host appends the committed one.
 Never claim implementation started. source_priority is the source's P0..P5 hint.
 Under adaptive policy infer priority from deadline, impact and blocking; under
@@ -450,7 +463,7 @@ explicit policy follow stated priority and clarify conflicts.
 
 Return one JSON object: {"decision":{...},"expected_version":N}.
 Decision fields: action, kind, summary, reply, and when needed item_id, title,
-note, priority, queue_position, release_waits, time_limit. No other fields.
+note, priority, queue_position, release_waits, time_limit, relay. No other fields.
 Kinds/actions:
 - status or info: answer
 - clarify: clarify
@@ -901,8 +914,13 @@ function wakePromptText(entry,conversation) {
       +'The host message is not guaranteed to be in this conversation. Re-read the durable Work state and act only on that source. '
       +(entry.kind === 'notice' ? 'No acknowledgment is required. ' : 'Acknowledge the event with work_side_handoff after acting. ')
       +'This wake holds no event data and grants no approval.'
+  // A notice names its own first words: a released wait or (2026-11-15) a
+  // live-item relay, which main reads and judges for relevance.
+  const relay = entry.lead === RELAY_LEAD
   return entry.kind === 'notice'
-    ? 'Ciel side wake '+id+': a host message beginning "Ciel side released recorded wait" was added to this conversation while you were idle. '+source+'Read it there and continue. This wake holds no event data, needs no acknowledgment and grants no approval.'
+    ? 'Ciel side wake '+id+': a host message beginning "'+(relay ? RELAY_LEAD : RELEASE_LEAD)+'" was added to this conversation while you were idle. '+source
+      +(relay ? 'Read it there and decide whether it matters to your current work. ' : 'Read it there and continue. ')
+      +'This wake holds no event data, needs no acknowledgment and grants no approval.'
     : 'Ciel side wake '+id+': a host message beginning "Ciel side event requires main action" for this event was added to this conversation. '+source+'Read it there, act on it and acknowledge it with work_side_handoff. If you already acknowledged it, do nothing. This wake holds no event data and grants no approval.'
 }
 async function wakeMain($,key) {
@@ -946,12 +964,15 @@ async function wakeMain($,key) {
   } catch { /* Missing identity: the row stays tracked for the next check. */
   } finally { entry.poking = false }
 }
-function trackAppend($,identity,eventId,kind,ref,recordedAt = null,durable = true) {
+const RELEASE_LEAD = 'Ciel side released recorded wait'
+const RELAY_LEAD = 'Ciel side relay for Work item'
+function noticeLead(text) { return String(text).startsWith(RELAY_LEAD) ? RELAY_LEAD : RELEASE_LEAD }
+function trackAppend($,identity,eventId,kind,ref,recordedAt = null,durable = true,lead = null) {
   const key = kind+':'+identity+':'+eventId
   let entry = unreadAppends.get(key)
   if (!entry) {
     // durable: the router keeps read_at for this wake (not a notice, not an old router's).
-    entry = {identity,eventId,kind,ref,pokes:0,poking:false,recordedAt,at:Date.now(),
+    entry = {identity,eventId,kind,ref,pokes:0,poking:false,recordedAt,at:Date.now(),lead,
       durable:kind === 'wake' && durable,fenced:false,promptTurn:false,marks:new Set()}
     unreadAppends.set(key,entry)
     if (unreadAppends.size > 200) unreadAppends.delete(unreadAppends.keys().next().value)
@@ -1131,7 +1152,7 @@ async function legacyNotice($,identity,eventId,text) {
   }
   const result = await appendToMain($,text)
   if (fence) await finishDelivery($,fence,result.state)
-  if (result.state === 'appended') trackAppend($,identity,eventId,'notice',null)
+  if (result.state === 'appended') trackAppend($,identity,eventId,'notice',null,null,true,noticeLead(text))
   return result.state
 }
 // Released-wait notice (no acknowledgment needed). Its identity is the event
@@ -1164,7 +1185,7 @@ async function noticeToMain($,identity,eventId,text) {
       break
     } catch { /* The claim already stands; only this record is retried. */ }
   }
-  if (result.state === 'appended') trackAppend($,identity,eventId,'notice',null)
+  if (result.state === 'appended') trackAppend($,identity,eventId,'notice',null,null,true,noticeLead(text))
   return result.state
 }
 async function recordWake($,identity,eventId,attempt,result) {
@@ -1751,7 +1772,52 @@ async function notifyReleased($,identity,event,result) {
   const state = await noticeToMain($,identity,event.receipt_id,text)
   $.ui.log('Side released '+toMain.map(({wait}) => wait.id).join(', ')+' → main ('+state+')')
 }
-const DECISION_FIELDS = new Set(['action','kind','item_id','summary','reply','note','title','priority','queue_position','release_waits','time_limit'])
+// Live item relay (user requirement 2026-11-15): a follow-up about an item in
+// progress goes to main and to the fork working on it at the same time; each
+// decides whether it is needed. The fork gets it in its inbox (session.send,
+// read at its next request); main gets one at-most-once host notice. Neither
+// needs to acknowledge, and nothing here approves execution.
+async function relayToItem($,identity,event,result) {
+  let leases = {}
+  try { leases = (await callRouter($,'work_parallel_status',{},{},identity)).leases || {} } catch {}
+  const nodes = new Map((event.workload?.nodes || []).map(node => [node.id,node]))
+  const item = result.relay.item_id
+  // The fork working on the item or on any of its descendants.
+  const covers = id => {
+    for (let node = nodes.get(id), seen = 0; node && seen < 64; node = nodes.get(node.parent_id), seen++)
+      if (node.id === item) return true
+    return id === item
+  }
+  const forks = Object.values(leases).filter(row => row.host_id && covers(row.item_id)
+    && ['running','waiting_input'].includes(row.state))
+  const message = line(String(event.text || ''),3000)
+  const waits = result.released_waits || []
+  const released = waits.length ? ' Released wait'+(waits.length > 1 ? 's' : '')+': '
+    +waits.map(wait => wait.id+' ("'+line(wait.waiting_on,160)+'")').join(', ')+' (already cleared).' : ''
+  const header = 'Ciel side relay for Work item '+item+' ('+line(result.title || '',120)+'), event '
+    +event.receipt_id.slice(0,12)+': '+line(result.summary,400)+released
+  const ask = ' Decide whether this matters to your current work; if not, ignore it. No acknowledgment is needed. '
+    +'This is not new execution approval and does not change your approved scope.'
+  const delivered = []
+  // Only a running fork is messaged. A parked one (waiting_input) is never
+  // resumed from here: as with a released wait, its lease reacquire and resume
+  // stay on main's SendMessage path, so main is told who it is.
+  for (const lease of forks.filter(row => row.state === 'running')) {
+    let sent = null
+    try { sent = await $.session.send({to:{agentId:lease.host_id},
+      text:header+'\nOriginal message:\n'+message+'\n'+ask}) } catch {}
+    if (sent?.isDelivered) delivered.push(lease.host_id)
+  }
+  const parked = forks.filter(row => row.state === 'waiting_input')
+  const forkNote = (delivered.length ? ' Also delivered to the Work fork'+(delivered.length > 1 ? 's' : '')+' running it: '
+    +delivered.join(', ')+'.' : ' No Work fork received it.')
+    +(parked.length ? ' Parked worker'+(parked.length > 1 ? 's' : '')+' on it: '
+      +parked.map(row => row.host_id+' (lease '+row.id+', item '+row.item_id+')').join(', ')
+      +'; resume with SendMessage to that worker only if this matters to it.' : '')
+  const state = await noticeToMain($,identity,event.receipt_id,header+'\nOriginal message:\n'+message+'\n'+forkNote+ask)
+  $.ui.log('Side relay '+item+' → main ('+state+')'+(delivered.length ? ' + '+delivered.length+' fork(s)' : ''))
+}
+const DECISION_FIELDS = new Set(['action','kind','item_id','summary','reply','note','title','priority','queue_position','release_waits','time_limit','relay'])
 // The side turn ends with its decision, but models often wrap it in prose or a
 // ```json fence. Take the last parseable object that carries `decision`.
 export function decisionOf(answer) {
@@ -1816,7 +1882,10 @@ export async function completeSide($,e) {
         // without waiting for another claim/poll or for a side slot to free.
         if (value.result?.main_handoff?.kind === 'time_limit' && !value.result.duplicate)
           await scheduleMainWake($,actor.identity,{event_id:event.receipt_id,...value.result.main_handoff})
-        if (value.result?.released_waits?.length && !value.result.duplicate)
+        if (value.result?.relay?.item_id && !value.result.duplicate)
+          // One host notice per receipt: a relay also names any wait it released.
+          void relayToItem($,actor.identity,event,value.result).catch(() => {})
+        else if (value.result?.released_waits?.length && !value.result.duplicate)
           void notifyReleased($,actor.identity,event,value.result).catch(() => {})
         $.clock.after(10, async () => { await recoverReply($,actor.identity,event) })
       }

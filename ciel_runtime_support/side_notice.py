@@ -45,8 +45,10 @@ ISSUING_GRACE_SECONDS = 60.0
 def _released_row(inbox, receipt_id):
     row = inbox._load(receipt_id)
     result = row.get('result') if isinstance(row, dict) else None
+    # A released wait, or (2026-11-15) a live-item relay: both are one host
+    # notice to main per receipt, issued at most once.
     if (not row or row.get('stage') != 'processed' or not isinstance(result, dict)
-            or not result.get('released_waits')):
+            or not (result.get('released_waits') or result.get('relay'))):
         raise WorkPlanError('released-wait receipt required')
     return row
 

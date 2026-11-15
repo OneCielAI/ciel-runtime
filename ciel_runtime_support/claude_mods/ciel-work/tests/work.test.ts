@@ -6,6 +6,8 @@ const HOST_REPLIES = {
   work_side_status: { side_inbox_receipts: [] },
   // The fork-gate presence report is display-only; its reply is not read.
   work_parallel_event: { recorded: true },
+  // The idle gate re-check timer asks once a minute; nothing is due here.
+  work_side_gate_check: { interval_minutes: 5, queued: false, reason: 'no_gates' },
 }
 function setup(on, extra = {}) {
   const s = { snapshot: { enabled: true, phase: 'planning', approval: 'auto', version: 1,
@@ -45,8 +47,9 @@ function setup(on, extra = {}) {
   // Host values every snapshot read uses: the Work host token (env.get) and the
   // gate's correlation log (ui.log). hints() records ui.log itself.
   on('env.get', () => ({ value: 'fixture-host-token' }))
-  // No native agents run in these sessions (the host start phase lists them).
-  on('agent.list', () => ({ value: [] }))
+  // No native agents run in these sessions (the host start phase lists them),
+  // unless a test sets s.agents.
+  on('agent.list', () => ({ value: s.agents || [] }))
   on('ui.log', (_, e) => { if (s.logs) s.logs.push(e.text); return { value: undefined } })
   on('tool.call', ($, e) => {
     s.tools.push(e)
@@ -969,6 +972,44 @@ test('idle refresh pauses in a main turn but not a child turn, and stops at end 
   const ended = s.calls.length
   await clock.advance(120000)
   expect(s.calls.length).toBe(ended)
+})
+test('idle gate re-check asks once a minute only while main is idle and no Work fork runs', async ($, on) => {
+  const s = hints(on); const clock = mock.clock(on)
+  const gateCalls = () => s.hostCalls.filter(c => c.tool === 'work_side_gate_check')
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  await clock.advance(59000)
+  expect(gateCalls().length).toBe(0)
+  await clock.advance(1000)
+  expect(gateCalls().length).toBe(1)
+  expect(gateCalls()[0].args.idle).toBe(true)
+  expect(gateCalls()[0].args.forks_running).toBe(0)
+  expect(gateCalls()[0].args.session_id).toBe('claude:session-a')
+  // A main turn stops it; a child turn does not restart it.
+  await $.turn.start({ turnId: 'turn-1', text: 'run' })
+  await clock.advance(180000)
+  expect(gateCalls().length).toBe(1)
+  await $.turn.complete({ ...TURN_DONE, agentId: 'child' })
+  await clock.advance(120000)
+  expect(gateCalls().length).toBe(1)
+  await $.turn.complete(TURN_DONE)
+  await clock.advance(60000)
+  expect(gateCalls().length).toBe(2)
+  // A running Work fork holds it; a side-intake fork does not count.
+  s.agents = [{ agentId: 'w1', name: 'work-n1', type: 'fork', spawnedBy: 'ciel-work', status: 'running' }]
+  await clock.advance(120000)
+  expect(gateCalls().length).toBe(2)
+  s.agents = [{ agentId: 's1', name: 'side-intake-abc', type: 'fork', spawnedBy: 'ciel-work', status: 'running' }]
+  await clock.advance(60000)
+  expect(gateCalls().length).toBe(3)
+  // Work off stops it; session end stops it; -p never starts it.
+  s.agents = []
+  await $.session.end({ reason: 'clear' })
+  await clock.advance(180000)
+  expect(gateCalls().length).toBe(3)
+  await $.session.start({ surface: null, isInteractive: false, cwd: '/isolated' })
+  await clock.advance(180000)
+  expect(gateCalls().length).toBe(3)
+  expect(s.tools.length).toBe(0)
 })
 test('idle refresh never overlaps a slow poll and discards its late response after end', async ($, on) => {
   const s = hints(on); const clock = mock.clock(on)

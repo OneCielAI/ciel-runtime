@@ -307,6 +307,29 @@ async function forkModel($, agentId) {
   remember(forkModels, agentId, { names, until: Date.now() + 30000 }, 400)
   return names
 }
+// Main session model (user requirement 2026-11-15): one choice per workspace
+// and provider (work_main_model), applied to main's own requests, never to a
+// fork. It is read at the first step of each main turn and kept for every step
+// of that turn, so a remote change never switches the model inside a tool loop.
+// A turn first seen past its first step (gate loaded mid-turn) and a turn whose
+// read failed keep the engine's model.
+const mainTurns = new Map()
+function mainNames(state) {
+  const view = state?.fork_models?.main
+  if (!view || typeof view.model !== 'string' || !view.model) return null
+  return { alias: view.model, upstream: typeof view.upstream === 'string' && view.upstream ? view.upstream : view.model }
+}
+async function mainModel($, e) {
+  const turn = typeof e.turnId === 'string' && e.turnId ? e.turnId : null
+  if (turn && mainTurns.has(turn)) return mainTurns.get(turn)
+  let names = null
+  try {
+    if (e.index === 0) names = mainNames(await routerJson($, 'work_parallel_status'))
+  } finally {
+    if (turn) remember(mainTurns, turn, names, 50)
+  }
+  return names
+}
 function requestModel(names, current) {
   if (!names) return null
   // Router launches send the ciel-runtime-<provider>- alias; direct gateway and
@@ -330,7 +353,15 @@ export function register(on) {
     : workForks.has(e.parentAgentId) ? { deny: DENY + 'the spawn check failed; a Work fork cannot start agents.' } : next(e))
 
   on('turn.step', async function* ($, e, next) {
-    if (typeof e.agentId !== 'string' || !e.agentId) return yield* next(e)
+    if (typeof e.agentId !== 'string' || !e.agentId) {
+      let model = null
+      try { model = requestModel(await mainModel($, e), e.model) } catch (error) {
+        note($, 'main-model-unreadable ' + (error?.gateFault ? error.message : 'read failed'))
+      }
+      if (!model || model === e.model) return yield* next(e)
+      note($, 'main-model step=' + e.index + ' model=' + model)
+      return yield* next({ ...e, model })
+    }
     let model = null
     try { model = requestModel(await forkModel($, e.agentId), e.model) } catch (error) {
       note($, 'fork-model-unreadable agent=' + shortId(e.agentId) + ' ' + (error?.gateFault ? error.message : 'read failed'))

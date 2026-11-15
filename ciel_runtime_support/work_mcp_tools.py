@@ -69,6 +69,9 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
          "inputSchema": {"type": "object", "properties": {}}},
         {"name": "work_side_drain", "description": "Coordinator-only: retry pending durable side inbox admission without approving execution. Full board remains queued.",
          "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 100}}}},
+        {"name": "work_side_gate_check", "description": "Host-only: queue one side gate re-check of blocked/waiting Work when it is due (main idle, no Work fork running).",
+         "inputSchema": {"type": "object", "properties": {"idle": {"type": "boolean"}, "forks_running": {"type": "integer", "minimum": 0}},
+                         "required": ["idle", "forks_running"]}},
         {"name": "work_side_intake", "description": "Durably queue an untrusted side request without approving execution or changing the active goal. Stable event_key deduplicates retries; host coordinator only.",
          "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "maxLength": SIDE_INTAKE_TEXT_MAX_CHARS},
              "event_key": {"type": "string", "maxLength": 300}}, "required": ["text", "event_key"]}},
@@ -517,6 +520,40 @@ def dispatch_work_tool(
             # A drain recovers durable side mail for AI classification. It must
             # never turn status questions into blanket Work roots.
             return respond(request_id, json.dumps(drain(state_dir, identity, admit=False, limit=args.get('limit', 10)), ensure_ascii=False))
+        if name == "work_side_gate_check":
+            from .work_parallel_mcp import host_context
+            from .work_gate_check import due, gates, minutes
+            host, _ = host_context(args, config)
+            if host.get("agent_id") is not None:
+                raise tree.WorkPlanError("gate check requires coordinator host")
+            interval = minutes(config)
+            status = {"interval_minutes": interval, "queued": False}
+            if interval == 0:
+                return respond(request_id, json.dumps({**status, "reason": "off"}))
+            if (config.get("work_side_intake") or {}).get("enabled") is not True:
+                return respond(request_id, json.dumps({**status, "reason": "side_intake_off"}))
+            if args.get("idle") is not True or args.get("forks_running") != 0:
+                return respond(request_id, json.dumps({**status, "reason": "not_idle"}))
+            from .channel_message_repository import exclusive_file_lock
+            from .side_intake_service import receive
+            from hashlib import sha256
+            record = state_dir / "sessions" / sha256(identity.encode()).hexdigest()[:24] / "gate-check.json"
+            record.parent.mkdir(parents=True, exist_ok=True)
+            with exclusive_file_lock(record):
+                try:
+                    last = json.loads(record.read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    last = None
+                doc = (store or session_work_plan_store(state_dir, identity, log=log)).read()
+                event = due(config, doc, last)
+                if event is None:
+                    return respond(request_id, json.dumps({**status, "reason": "not_due" if gates(doc) else "no_gates"}))
+                receipt = receive(state_dir, identity, event["text"], event["event_key"], admit=False,
+                                  route={"source_kind": "gate_check"})
+                record.write_text(json.dumps({"at": event["at"], "digest": event["digest"],
+                                              "receipt_id": receipt.get("receipt_id")}), encoding="utf-8")
+            return respond(request_id, json.dumps({**status, "queued": True, "receipt_id": receipt.get("receipt_id"),
+                                                  "gates": event["gates"]}, ensure_ascii=False))
         if name == "work_side_intake":
             from .work_parallel_mcp import host_context
             from .side_intake_service import receive

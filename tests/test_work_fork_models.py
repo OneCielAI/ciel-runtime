@@ -61,6 +61,35 @@ class ForkModelStoreTests(unittest.TestCase):
             models.set_value(config, "work_parallel_model_p3", word)
             self.assertNotIn("work_parallel_models", config)
 
+    def test_main_model_is_its_own_table_and_never_touches_fork_choices(self):
+        config = config_for()
+        models.set_value(config, "work_parallel_model_p1", "_Walkie_Fable5.2")
+        models.set_value(config, "work_side_intake_model", "_Walkie_Opus55")
+        forks_before = json.loads(json.dumps(config["work_parallel_models"]))
+        self.assertEqual("inherit", models.value(config, models.MAIN_KEY))
+        models.set_value(config, models.MAIN_KEY, "_Walkie_Fable5.2")
+        self.assertEqual({"cielairouter": "_Walkie_Fable5.2"}, config["work_main_models"])
+        self.assertEqual(forks_before, config["work_parallel_models"])
+        view = models.projection(config)
+        self.assertEqual({"model": "ciel-runtime-cielairouter-_walkie_fable5.2", "upstream": "_Walkie_Fable5.2",
+                          "id": "_Walkie_Fable5.2"}, view["main"])
+        self.assertEqual("active", view["status"][models.MAIN_KEY])
+        self.assertEqual("_Walkie_Opus55", view["ids"]["side"])
+        with self.assertRaises(ValueError):
+            models.set_value(config, models.MAIN_KEY, "not-a-model")
+        models.set_value(config, models.MAIN_KEY, "inherit")
+        self.assertNotIn("work_main_models", config)
+        self.assertEqual(forks_before, config["work_parallel_models"])
+        self.assertEqual({"model": None, "upstream": None, "id": None}, models.projection(config)["main"])
+
+    def test_main_model_removed_from_provider_list_keeps_the_launch_model(self):
+        config = config_for()
+        models.set_value(config, models.MAIN_KEY, "_Walkie_Fable5.2")
+        config["providers"]["cielairouter"]["custom_models"] = []
+        view = models.projection(config)
+        self.assertIsNone(view["main"]["model"])
+        self.assertEqual("unavailable_inherits", view["status"][models.MAIN_KEY])
+
     def test_no_provider_is_refused(self):
         with self.assertRaises(ValueError):
             models.set_value({}, "work_parallel_model_p0", "inherit")
@@ -123,6 +152,24 @@ class ForkModelSurfaceTests(unittest.TestCase):
                 before = result["settings_fingerprint"]
                 after = settings(config, {"key": "work_parallel_model_p0", "value": "inherit"}, lambda c: None)
                 self.assertNotEqual(before, after["settings_fingerprint"])
+
+    def test_main_model_row_is_on_the_shared_settings_path(self):
+        with tempfile.TemporaryDirectory() as root:
+            ledger = WorkParallelStore(Path(root) / "ledger.json")
+            config = config_for()
+            saved = []
+            with patch("ciel_runtime_support.work_parallel_mcp.ledger", return_value=ledger), \
+                 patch("ciel_runtime_support.runtime_paths.CONFIG_DIR", Path(root)):
+                result = settings(config, {"key": "work_main_model", "value": "_Walkie_Fable5.2"},
+                                  lambda c: saved.append(json.loads(json.dumps(c))))
+            rows = {row["key"]: row for row in result["settings"]}
+            row = rows["work_main_model"]
+            self.assertEqual(("enum", "_Walkie_Fable5.2", "active"), (row["kind"], row["value"], row["status"]))
+            self.assertEqual(["inherit", "_Walkie_Opus55", "_Walkie_Fable5.2"], row["choices"])
+            self.assertEqual("Main session model", row["label"])
+            self.assertEqual({"cielairouter": "_Walkie_Fable5.2"}, saved[-1]["work_main_models"])
+            self.assertNotIn("work_parallel_models", saved[-1])
+            self.assertIn("main session model applies from the next main turn", result["applies"])
 
     def test_status_projection_carries_fork_models_for_the_gate(self):
         from ciel_runtime_support.work_parallel_mcp import project, public_projection

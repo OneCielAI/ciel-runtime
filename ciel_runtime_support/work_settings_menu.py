@@ -13,13 +13,15 @@ BOOLEANS = {'work_mode', 'work_plan_approval_ask', 'work_auto_continue',
 # aging_seconds=17 unreachable from the menu while ctl/REST accepted them.
 # The bounds come from the write authorities (work_parallel_menu.RANGES,
 # side_intake_settings.LIMITS) and only phrase the hint here.
-NUMBER_RANGES = {**_PARALLEL_RANGES, **{_SIDE_PREFIX + name: bounds for name, bounds in _SIDE_LIMITS.items()}}
+NUMBER_RANGES = {**_PARALLEL_RANGES, **{_SIDE_PREFIX + name: bounds for name, bounds in _SIDE_LIMITS.items()},
+                 'work_gate_check_minutes': (0, 1440)}
 NUMBER_PRESETS = {
     **{f'work_parallel_p{n}_limit': (1, 2, 3, 4, 5, 8, 10, 16) for n in range(1, 6)},
     'work_parallel_launches_per_minute': (1, 2, 4, 8, 16, 30, 60),
     'work_parallel_max_rework': (0, 1, 2, 3, 5, 10),
     'work_side_intake_max_active': (1, 2, 3, 4, 5, 8, 16),
     'work_side_intake_aging_seconds': (10, 30, 60, 120, 300, 600),
+    'work_gate_check_minutes': (0, 1, 2, 5, 10, 15, 30, 60),
 }
 RANGE_HINT = {
     'en': 'Other: any integer from {low} to {high}.',
@@ -99,6 +101,8 @@ DESCRIPTIONS = {
     'work_completed_auto_delete': ('Expire completed records after 24 hours; unfinished work is preserved.', '완료 기록을 24시간 후 만료시킵니다. 미완료 작업은 보존합니다.', '完了記録を24時間後に失効させます。未完了の作業は保持します。', '已完成记录在 24 小时后过期；未完成任务会保留。'),
     'work_parallel_enabled': ('Allow concurrent workers; this is not a queue registration limit.', '병렬 작업자 실행을 허용합니다. 큐 등록 개수 제한이 아닙니다.', '並行ワーカーを許可します。キュー登録数の制限ではありません。', '允许并发工作器；这不是队列登记数量限制。'),
     'work_parallel_paused': ('Pause new worker launches without terminating running workers.', '새 작업자 실행만 일시정지하며 실행 중 작업자는 종료하지 않습니다.', '新しいワーカーの起動を一時停止し、実行中のワーカーは終了しません。', '暂停启动新的工作器，但不会终止正在运行的工作器。'),
+    'work_gate_check_minutes': ('While main is idle and no Work fork runs, a side actor re-checks every blocked or waiting Work item this often and tells main (or the waiting worker) when a gate has cleared. 0 turns it off. Needs SSE side intake on.', '메인 턴이 끝나 있고 Work 포크가 하나도 없을 때, 블로커나 대기 조건이 있는 Work 아이템을 사이드 액터가 이 주기마다 다시 확인하고, 조건이 풀렸으면 메인(또는 기다리는 워커)에게 알립니다. 0이면 끕니다. SSE 사이드 접수가 켜져 있어야 합니다.', 'メインのターンが終わり Work フォークが動いていない間、ブロックや待機中の Work 項目をサイドアクターがこの間隔で再確認し、条件が解けたらメイン（または待っているワーカー）に知らせます。0 でオフ。SSE サイド受付がオンである必要があります。', '当主会话空闲且没有 Work 分支运行时，侧边执行者按此间隔复查被阻塞或等待中的 Work 项，条件解除时通知主会话（或等待的工作者）。0 表示关闭。需要开启 SSE 侧边接收。'),
+    'work_main_model': ('Model for the main session of this workspace, from the current provider. Applies from the next main turn and stays fixed for that whole turn; inherit keeps the model the session was launched with. The P0-P5 Work fork and SSE side fork models are separate settings and are not changed by this one.', '이 워크스페이스의 메인 세션이 쓸 모델입니다. 현재 프로바이더의 모델 중에서 고르며, 다음 메인 턴부터 적용되고 그 턴 동안은 바뀌지 않습니다. inherit은 세션을 시작한 모델을 그대로 씁니다. P0~P5 Work 포크와 SSE 사이드 포크 모델은 별도 설정이며 이 설정으로 바뀌지 않습니다.', 'このワークスペースのメインセッションが使うモデルです。現在のプロバイダーのモデルから選び、次のメインターンから適用され、そのターンの間は変わりません。inherit はセッション起動時のモデルを使います。P0〜P5 Work フォークと SSE サイドフォークのモデルは別の設定で、この設定では変わりません。', '此工作区主会话使用的模型，从当前提供方的模型中选择。从下一次主会话轮次起生效，并在该轮次内保持不变；inherit 沿用启动会话时的模型。P0-P5 Work 分支和 SSE 侧边分支模型是独立设置，不受此项影响。'),
     'work_parallel_model_p0': ('Model for P0 Work forks, from the current provider; inherit keeps the main model. Applies from the next model request of each fork.', 'P0 Work 포크가 쓸 모델입니다. 현재 프로바이더의 모델 중에서 고르며, inherit은 메인 모델을 그대로 씁니다. 각 포크의 다음 모델 요청부터 적용됩니다.', 'P0 Work フォークのモデルです。現在のプロバイダーのモデルから選び、inherit はメインのモデルを使います。各フォークの次のモデル要求から適用されます。', 'P0 Work 分支使用的模型，从当前提供方的模型中选择；inherit 沿用主会话模型。从每个分支的下一次模型请求起生效。'),
     'work_parallel_model_p1': ('Model for P1 Work forks, from the current provider; inherit keeps the main model. Applies from the next model request of each fork.', 'P1 Work 포크가 쓸 모델입니다. 현재 프로바이더의 모델 중에서 고르며, inherit은 메인 모델을 그대로 씁니다. 각 포크의 다음 모델 요청부터 적용됩니다.', 'P1 Work フォークのモデルです。現在のプロバイダーのモデルから選び、inherit はメインのモデルを使います。各フォークの次のモデル要求から適用されます。', 'P1 Work 分支使用的模型，从当前提供方的模型中选择；inherit 沿用主会话模型。从每个分支的下一次模型请求起生效。'),
     'work_parallel_model_p2': ('Model for P2 Work forks, from the current provider; inherit keeps the main model. Applies from the next model request of each fork.', 'P2 Work 포크가 쓸 모델입니다. 현재 프로바이더의 모델 중에서 고르며, inherit은 메인 모델을 그대로 씁니다. 각 포크의 다음 모델 요청부터 적용됩니다.', 'P2 Work フォークのモデルです。現在のプロバイダーのモデルから選び、inherit はメインのモデルを使います。各フォークの次のモデル要求から適用されます。', 'P2 Work 分支使用的模型，从当前提供方的模型中选择；inherit 沿用主会话模型。从每个分支的下一次模型请求起生效。'),
@@ -176,7 +180,7 @@ def choices(config, key):
         values = ('session', 'btw_with_mcp')
     elif key == 'work_side_intake_priority_policy':
         values = ('adaptive', 'explicit')
-    elif key.startswith('work_parallel_model_') or key == 'work_side_intake_model':
+    elif key.startswith('work_parallel_model_') or key in ('work_side_intake_model', 'work_main_model'):
         # The current provider's models only; inherit keeps the main model.
         from .work_fork_models import model_ids
         values = ('inherit', *model_ids(config))

@@ -86,6 +86,7 @@ def schemas():
                  'release_waits': {'type': 'array', 'maxItems': 16, 'items': {
                      'type': 'object', 'properties': {'id': {'type': 'string'}, 'waiting_on': {'type': 'string'}},
                      'required': ['id', 'waiting_on'], 'additionalProperties': False}},
+                 'relay': {'type': 'boolean'},
                  'time_limit': {'type': 'object', 'properties': {
                      'text': {'type': 'string', 'maxLength': 1000},
                      'due_at': {'type': 'string', 'maxLength': 100},
@@ -474,6 +475,8 @@ def run(name, args, config, state_dir, identity, store):
         # A handoff follow-up carries main's own answer back to the source. Its
         # decision never asks main again (owned proof 2026-11-08: 4 cycles in 5 min).
         main_reply = str((row or {}).get('event_key') or '').startswith('handoff:')
+        from .work_gate_check import EVENT_PREFIX as GATE_CHECK_PREFIX
+        gate_check = str((row or {}).get('event_key') or '').startswith(GATE_CHECK_PREFIX)
         # One recheck per event: a second board change commits on the current board.
         observed = host.get('work_digest') if not (row or {}).get('rechecks') else None
         changed = None
@@ -484,7 +487,7 @@ def run(name, args, config, state_dir, identity, store):
                            observed_digest=observed if isinstance(observed, str) else None,
                            source=source_identity((row or {}).get('text')),
                            source_context=(row or {}).get('source_context'),
-                           parked_projection=parked)
+                           parked_projection=parked, gate_check=gate_check)
         except WorkChanged as error:
             changed = str(error)
         if changed is None and result.get('p0_root_id'):

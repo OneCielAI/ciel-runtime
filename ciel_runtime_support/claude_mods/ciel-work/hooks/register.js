@@ -1020,8 +1020,55 @@ async function workTurnComplete($, e, next) {
     // Every unresolved idle-path prompt key gets a fresh idle window now.
     sidePromptTurnComplete($)
     if (interactive) startIdleRefresh($, await sessionId($))
+    scheduleGateCheck($, await sessionId($))
   }
   return result
+}
+// Idle gate re-check (user requirement 2026-11-15): while main's turn has ended
+// and no Work fork runs, blocked/waiting Work items are re-checked by a side
+// actor every N minutes (work_gate_check_minutes). The router decides whether a
+// check is due and queues it as one durable side event; this timer only asks,
+// once a minute, with the host-observed idle and fork facts. A main turn start
+// stops the timer; a main turn end starts it again.
+const GATE_CHECK_TICK_MS = 60000
+let gateCheck = null
+function stopGateCheck() {
+  if (gateCheck?.timer) { try { gateCheck.timer.cancel() } catch {} }
+  gateCheck = null
+}
+function scheduleGateCheck($, identity) {
+  if (!interactive || !enabled || !identity || working
+      || (gateCheck?.identity === identity && gateCheck.lifecycle === starts)) return
+  stopGateCheck()
+  const poll = { identity, lifecycle: starts, timer: null }
+  gateCheck = poll
+  const tick = async () => {
+    poll.timer = null
+    if (gateCheck !== poll || poll.lifecycle !== starts || working) return
+    // Work switched off: the next main turn end or session start asks again.
+    if (!enabled) { stopGateCheck(); return }
+    try {
+      if (await sessionId($) !== identity) { stopGateCheck(); return }
+      let forks = 0
+      try {
+        const rows = await listNativeAgents($)
+        forks = rows.filter(row => row?.spawnedBy === 'ciel-work' && row?.type === 'fork'
+          && !sideOwned(row) && ['pending', 'running'].includes(row?.status)).length
+      } catch { forks = -1 }
+      if (forks === 0 && !working) {
+        const value = await parallelCall($, 'work_side_gate_check', { idle: true, forks_running: 0 })
+        if (value?.queued) {
+          $.ui.log('Gate re-check queued for ' + (value.gates || []).length + ' blocked/waiting item(s)')
+          sideStatusDirty = true
+          void runSidePump($, identity).catch(() => {})
+        }
+      }
+    } catch { /* An unknown host state skips this tick only. */
+    } finally {
+      if (gateCheck === poll && poll.lifecycle === starts && !working) poll.timer = $.clock.after(GATE_CHECK_TICK_MS, tick)
+    }
+  }
+  poll.timer = $.clock.after(GATE_CHECK_TICK_MS, tick)
 }
 
 async function workPromptSubmit($, e, next) {
@@ -2204,7 +2251,7 @@ function parallelLeaseBlocksTarget(state, target) {
 // person confirmed in the Side pane). Main and worker calls are refused here.
 // The router also refuses them without the host token (model_side_tool_probe).
 const HOST_ONLY_SIDE_TOOLS = new Set(['work_side_wake', 'work_side_fail', 'work_side_fallback', 'work_side_renew',
-  'work_side_reply', 'work_side_claim', 'work_side_retry_reply'].map(tool => PREFIX + tool))
+  'work_side_reply', 'work_side_claim', 'work_side_retry_reply', 'work_side_gate_check'].map(tool => PREFIX + tool))
 async function parallelToolCall($, e, next) {
   if (next.origin?.plugin === 'ciel-work' && (e.tool === PREFIX+'send_message' || e.tool.startsWith(PREFIX+'work_side_'))) return next(e)
   if (HOST_ONLY_SIDE_TOOLS.has(e.tool))
@@ -3850,6 +3897,7 @@ export function register(on) {
     // idle refresh only pumps, and never hydrates or recovers.
     if (e.isInteractive && (!s || (hostPending && s.enabled))) retryStart($, ticket, 0, hostPending)
     else if (e.isInteractive && s?.enabled) { notice($, ticket); startIdleRefresh($, cachedSession) }
+    if (e.isInteractive) scheduleGateCheck($, await sessionId($))
     return next(e)
   })
   // /clear keeps this module loaded but resets $.state (owned probe
@@ -3872,7 +3920,7 @@ export function register(on) {
   })
   on('turn.start', async ($, e, next) => {
     if (e.agentId === undefined) { mainTurnId = e.turnId ?? null; mainStepIndex = -1; sidePromptTurnStart(); await sideMainTurnStart($, e.text) }
-    if (e.agentId === undefined) { working = true; stopIdleRefresh(); generation++; mainTurnEpoch++; if (cached?.side_intake_enabled || cached?.enabled === false) pollBusySideReceipts($, await sessionId($), mainTurnEpoch) }
+    if (e.agentId === undefined) { working = true; stopIdleRefresh(); stopGateCheck(); generation++; mainTurnEpoch++; if (cached?.side_intake_enabled || cached?.enabled === false) pollBusySideReceipts($, await sessionId($), mainTurnEpoch) }
     return next(e)
   })
   on('turn.step', async function* ($, e, next) {
@@ -4059,7 +4107,7 @@ export function register(on) {
   // Shell authority stays with the native host, even when the Work board is offline.
   on('tool.check', async ($, e, next) => parallelToolCheck($, e, next))
   on('session.end', async ($, e, next) => {
-    stopIdleRefresh(); interactive = false; working = false; clearNativePlanPaths(); starts++
+    stopIdleRefresh(); stopGateCheck(); interactive = false; working = false; clearNativePlanPaths(); starts++
     resetParallelHostState()
     generation++; cached = null; cachedSession = null; hinted = ''; continuationVersion = null; unchangedContinuations = 0
     stopNoticeKey = ''; compactEpoch++; compacts.clear(); continuationSession = null

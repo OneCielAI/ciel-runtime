@@ -281,7 +281,8 @@ class WorkWebUiTests(unittest.TestCase):
                        "if(response.status===409&&data.error==='settings_conflict'){if(state.tab==='settings')onSettingsChanged();",
                        "nothing was applied. Apply again to send it."):
             self.assertIn(marker, self.html)
-        self.assertEqual(2, self.html.count("expected_settings_fingerprint:data.settings_fingerprint"))
+        # Text/select, JSON and (2026-11-15) the side instruction Markdown editor.
+        self.assertEqual(3, self.html.count("expected_settings_fingerprint:data.settings_fingerprint"))
         # An invalid value posts nothing: the error branch returns before command().
         branch = self.html.split("const parsed=jsonSettingValue(control.value);", 1)[1].split("command(", 1)[0]
         self.assertIn("if(parsed.error){toast(", branch)

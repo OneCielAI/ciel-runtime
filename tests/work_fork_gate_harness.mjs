@@ -403,4 +403,37 @@ await scenario('fork_model_rework_name_before_bind', async () => {
   return { first: first?.model }
 })
 
+// Main session model: read at a turn's first step, kept for the whole turn.
+const MAIN_MODELS = { ...MODELS, main: { model: 'ciel-runtime-p-chosen', upstream: 'up-chosen', id: 'chosen' } }
+await scenario('main_model_turn_pinned', async () => {
+  const gate = await load()
+  const w = world({ forkModels: MAIN_MODELS })
+  const a0 = await step(gate, w, { turnId: 't1', index: 0, model: ALIAS_MAIN })
+  // A remote change during the turn: the next steps of t1 keep the turn's model.
+  delete MAIN_MODELS.main
+  const a1 = await step(gate, w, { turnId: 't1', index: 1, model: ALIAS_MAIN })
+  const b0 = await step(gate, w, { turnId: 't2', index: 0, model: ALIAS_MAIN })
+  MAIN_MODELS.main = { model: 'ciel-runtime-p-chosen', upstream: 'up-chosen', id: 'chosen' }
+  const direct = await step(gate, w, { turnId: 't3', index: 0, model: 'upstream-main' })
+  return { a0: a0?.model, a1: a1?.model, b0: b0?.model, direct: direct?.model,
+    statusReads: routerCalls(w).filter(t => t === 'work_parallel_status').length }
+})
+await scenario('main_model_midturn_and_failure', async () => {
+  const gate = await load()
+  const w = world({ forkModels: { ...MODELS, main: { model: 'ciel-runtime-p-chosen', upstream: 'up-chosen', id: 'chosen' } } })
+  const mid = await step(gate, w, { turnId: 'm1', index: 3, model: ALIAS_MAIN })
+  const mid2 = await step(gate, w, { turnId: 'm1', index: 4, model: ALIAS_MAIN })
+  const failing = world({ routerFails: true, forkModels: MODELS })
+  const failed = await step(gate, failing, { turnId: 'f1', index: 0, model: ALIAS_MAIN })
+  const failedNext = await step(gate, failing, { turnId: 'f1', index: 1, model: ALIAS_MAIN })
+  // A fork never takes the main model, even with no fork slot configured.
+  const fork = world({ rows: [workRow('f9')], leases: runningLease('f9', { priority: 'P3' }),
+    forkModels: { ...MODELS, main: { model: 'ciel-runtime-p-chosen', upstream: 'up-chosen', id: 'chosen' } } })
+  const forkStep = await step(gate, fork, { agentId: 'f9', index: 0, model: ALIAS_MAIN })
+  return { mid: mid?.model, mid2: mid2?.model, midReads: routerCalls(w).length, failed: failed?.model,
+    failedNext: failedNext?.model, failedReads: routerCalls(failing).length,
+    logged: failing.logs.some(l => l.text.includes('main-model-unreadable')),
+    leaked: failing.logs.some(l => l.text.includes('secret-ish')), forkStep: forkStep?.model }
+})
+
 console.log(JSON.stringify(out))

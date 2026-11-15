@@ -28,7 +28,8 @@ def known_keys():
     from .claude_user_settings import KEYS as CLAUDE_KEYS
     from .side_intake_settings import PREFIX, FIELDS
     from .work_fork_models import KEYS as MODEL_KEYS
-    return (*BASIC, INJECTION_KEY, *CLAUDE_KEYS, *KEYS, *MODEL_KEYS, DISCOVERY_FILE_KEY, *SIDE_KEYS,
+    from .work_gate_check import KEY as GATE_KEY
+    return (*BASIC, INJECTION_KEY, *CLAUDE_KEYS, *KEYS, *MODEL_KEYS, DISCOVERY_FILE_KEY, *SIDE_KEYS, GATE_KEY,
             *(PREFIX + name for name in FIELDS))
 
 
@@ -49,6 +50,13 @@ def _set(config, key, value, save):
         if key in MODEL_KEYS:
             try:
                 set_model(config, key, value)
+            except ValueError as error:
+                raise WorkPlanError(str(error)) from None
+            save(config)
+        elif key == 'work_gate_check_minutes':
+            from .work_gate_check import set_minutes
+            try:
+                set_minutes(config, value)
             except ValueError as error:
                 raise WorkPlanError(str(error)) from None
             save(config)
@@ -221,7 +229,11 @@ def settings(config, args, save, *, load=None):
                       'choices': list(INJECTION_MODES)})
     projected.append({'key': 'work_side_intake_enabled', 'label': menu_text('work_side_intake_enabled', language),
                       'value': config.get('work_side_intake', {}).get('enabled') is True, 'kind': 'boolean'})
-    from .side_intake_settings import values
+    from .work_gate_check import minutes as gate_minutes
+    projected.append({'key': 'work_gate_check_minutes', 'label': menu_text('work_gate_check_minutes', language),
+                      'value': gate_minutes(config), 'kind': 'number', 'status': 'next_idle_check'})
+    from .side_intake_settings import DEFAULT_SIDE_INSTRUCTION, instruction_view, values
+    instruction = instruction_view(config)
     side_enums = {
         'work_side_intake_priority_policy': ['adaptive', 'explicit'],
     }
@@ -233,7 +245,11 @@ def settings(config, args, save, *, load=None):
                        else 'number' if k in side_numbers else 'json' if k == 'work_side_intake_reply_connectors'
                        else 'text',
                    **({'choices': side_enums[k]} if k in side_enums else {}),
-                   'status': 'next_side_event'}
+                   'status': 'next_side_event',
+                   **({'editor': 'markdown', 'stored_value': instruction['stored'],
+                       'effective_value': instruction['effective'], 'default_value': DEFAULT_SIDE_INSTRUCTION,
+                       'using_default': instruction['using_default']}
+                      if k == 'work_side_intake_instruction' else {})}
                   for k, v in values(config).items()]
     provider = str(config.get('current_provider') or '')
     ui = {
@@ -249,7 +265,8 @@ def settings(config, args, save, *, load=None):
             'ui': dict(zip(('title', 'next', 'back', 'cancel', 'input_hint'), ui)),
             'applies': 'live; existing workers are not terminated; side settings apply to the next side event, '
                        'which runs as a native fork inheriting main context, tools and permissions; '
-                       'Work-fork and side-fork models apply from the next model request of each fork'}
+                       'Work-fork and side-fork models apply from the next model request of each fork; '
+                       'the main session model applies from the next main turn'}
 
 
 __all__ = ['BASIC', 'FINGERPRINT_FIELD', 'INJECTION_KEY', 'SettingsConflict', 'UNREADABLE', 'known_keys',

@@ -4,6 +4,9 @@ from .ui_text import UI_TEXT
 # Each row is English, Korean, Japanese, Chinese; keys are option identities.
 TEXT = {
     "sse_injection_mode": ("SSE injection", "SSE 주입 방식", "SSE 注入方式", "SSE 注入方式"),
+    "work_gate_check_minutes": ("Gate re-check interval (min, 0 = off)", "게이트 재확인 주기 (분, 0 = 끔)",
+                                "ゲート再確認の間隔（分、0 = オフ）", "门控复查间隔（分钟，0 = 关闭）"),
+    "work_main_model": ("Main session model", "메인 세션 모델", "メインセッションのモデル", "主会话模型"),
     "work_parallel_model_p0": ("P0 Work fork model", "P0 Work 포크 모델", "P0 Work フォークモデル", "P0 Work 分支模型"),
     "work_parallel_model_p1": ("P1 Work fork model", "P1 Work 포크 모델", "P1 Work フォークモデル", "P1 Work 分支模型"),
     "work_parallel_model_p2": ("P2 Work fork model", "P2 Work 포크 모델", "P2 Work フォークモデル", "P2 Work 分支模型"),
