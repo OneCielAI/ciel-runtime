@@ -59,6 +59,20 @@ All runs used isolated config: every `CIEL_RUNTIME_*` unset, a temporary `CIEL_R
   - The person sees "fork starting", or the activation error.
 - `claude plugin test` (ciel-work): 102 passed, 0 failed. This includes the new pane test, where a Walkie emergency shows as P0 under the urgent filter.
 - Side, priority, P0 and wait test files: 341 passed, 2 skipped.
+- Windows full groups, clean environment:
+
+  | Group | Tests | Result |
+  | --- | --- | --- |
+  | unit | 4814 | OK (76 skipped) |
+  | router | 1669 | OK |
+  | channel | 626 | OK (80 skipped) |
+  | runtime | 458 | OK (19 skipped) |
+
+- Linux (Docker, node 24 + Python 3.11): the changed side test files, 142 passed.
+- Release: beta `0.2.51-beta.20261115-092726.c23087e`.
+  - The registry gitHead and integrity were verified.
+  - Comparing the package with `git archive`: 619 of 621 files are identical; the two that differ are the version files.
+  - It is installed locally as a new snapshot. The owned check below was repeated against the installed snapshot and passed.
 - Owned check through the MCP boundary:
   - claim `source_priority` was P0;
   - resolve returned `{priority: P0, p0: {effective_priority: P0}, handoff: not_required}`;
