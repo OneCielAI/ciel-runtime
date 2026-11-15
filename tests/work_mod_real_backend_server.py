@@ -81,6 +81,23 @@ def advance_clock(seconds):
     return {"offset": CLOCK["offset"]}
 
 
+def freeze_clock():
+    """Backend time stops: every later ``time.time()`` call reads this instant.
+
+    The no-write scenarios assert that an idle pump writes nothing over many
+    timer rounds. Without this, the native evidence heartbeat (15 s of wall
+    clock, work_parallel_native.HEARTBEAT_SECONDS) rewrites its scan whenever
+    the run itself takes longer than that, which depends on how many timers
+    the mod arms and on machine load, not on the pump.
+    """
+    import time as _time
+    if "real" not in CLOCK:
+        CLOCK["real"] = _time.time
+    frozen = CLOCK["real"]() + CLOCK["offset"]
+    _time.time = lambda: frozen
+    return {"frozen": frozen}
+
+
 def seed_leaf(title):
     """One runnable approved leaf under its own executing goal, never reserved."""
     doc = BOARD.read()
@@ -154,7 +171,9 @@ def backend(tool, args):
         # The mod passes its own _host (token, fork, host_id, agent_name, proof).
         BRIDGE_CALLS.append({"tool": tool, "args": dict(args)})
         return json.loads(parallel.run(tool, dict(args), BOARD, IDENTITY, config(), None))
-    if tool == "work_priority_command":
+    if tool in ("work_priority_command", "work_side_gate_check"):
+        # The idle gate re-check timer's router call goes through the real
+        # dispatch too (side intake is off here, so it never queues).
         from ciel_runtime_support.work_mcp_tools import dispatch_work_tool
         BRIDGE_CALLS.append({"tool": tool, "args": dict(args)})
         answer = dispatch_work_tool(1, tool, dict(args), load_config=config, state_dir=ROOT,
@@ -928,6 +947,8 @@ def dispatch(request):
         return owner(request["bound"])
     if action == "advance_clock":
         return advance_clock(request["seconds"])
+    if action == "freeze_clock":
+        return freeze_clock()
     if action == "seed_leaf":
         return seed_leaf(request["title"])
     if action == "limits":

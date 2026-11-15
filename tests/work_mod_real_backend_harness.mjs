@@ -2107,6 +2107,8 @@ try {
       // The OO case with main idle: the rework waits owner_offline; the router
       // becomes bound later with no main turn, Stop, report or prompt.
       out.unbound = await rpc('owner', { bound: false })
+      // No-write: backend time stops, so only the mod's own calls can write.
+      if (variant === 'nowrite-offline') out.clock = await rpc('freeze_clock')
       await start('process')
       out.decision = await reviewCall({ lease_id: seeded.lease_id, decision: 'rework', evidence: 'owner offline' })
       await turnComplete()
@@ -2115,6 +2117,7 @@ try {
       else { out.change = { none: true }; out.filesBefore = await rpc('fingerprint') }
     } else if (variant === 'nowrite-paused') {
       await rpc('pause', { paused: true })
+      out.clock = await rpc('freeze_clock')
       await start('process')
       out.decision = await reviewCall({ lease_id: seeded.lease_id, decision: 'rework', evidence: 'paused' })
       await turnComplete()
