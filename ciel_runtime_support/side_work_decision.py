@@ -37,6 +37,47 @@ class WorkChanged(tree.WorkPlanError):
     """Unfinished Work changed after the actor read it; a create may now duplicate."""
 
 
+def wait_digest(waiting_on):
+    """SHA-256 of the exact released wait text; the text itself is never copied."""
+    return hashlib.sha256(waiting_on.encode('utf-8')).hexdigest()
+
+
+def _release_leaf(doc, node_id, line, now):
+    """Release one exact leaf wait without touching any other node.
+
+    ``update_node`` reopens ancestors, so it is not used: only this node is
+    copied and replaced. ``blocked`` becomes ``pending``; every other status is
+    kept. Ancestors and descendants stay byte-for-byte unchanged.
+    """
+    nodes = doc['nodes']
+    index = next(i for i, row in enumerate(nodes) if row['id'] == node_id)
+    node = dict(nodes[index])
+    unblocked = node.get('status') == 'blocked'
+    node['waiting_on'] = ''
+    if unblocked:
+        node['status'] = 'pending'
+    if len(node.get('note', '') + line) <= tree.MAX_TEXT_CHARS:
+        node['note'] = node.get('note', '') + line
+    node['updated_at'] = now
+    nodes[index] = node
+    return unblocked
+
+
+def _parked_lease(parked_projection, item_id, root_id):
+    """The exact parked lease for this released item, or None.
+
+    The projection is read by the host before the board transaction. A stale
+    or unreadable projection only loses parked preference; it never resumes.
+    """
+    if type(parked_projection) is not dict or type(parked_projection.get('rows')) is not list:
+        return None
+    matches = [row for row in parked_projection['rows']
+               if type(row) is dict and row.get('item_id') == item_id and row.get('root_id') == root_id
+               and row.get('state') == 'waiting_input' and row.get('slot') is False
+               and isinstance(row.get('lease_id'), str) and 0 < len(row['lease_id']) <= 200]
+    return matches[0]['lease_id'] if len(matches) == 1 else None
+
+
 def validate(decision):
     if not isinstance(decision, dict) or set(decision) - FIELDS:
         raise tree.WorkPlanError('invalid side decision fields')
@@ -150,7 +191,7 @@ def _record_review(doc, receipt_id, result, source):
 
 
 def apply(store, receipt_id, decision, expected_version, *, main_reply=False, observed_digest=None, source=None,
-          source_context=None):
+          source_context=None, parked_projection=None):
     validate(decision)
     if not isinstance(receipt_id, str) or len(receipt_id) != 64 or any(c not in '0123456789abcdef' for c in receipt_id):
         raise tree.WorkPlanError('invalid side receipt identity')
@@ -185,7 +226,7 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
         # waiting session needs no acknowledgment round trip. Only an unfinished
         # node of the same goal whose wait text is still exactly what the actor
         # saw; anything else stays for main. Execution approval is unchanged.
-        released, unreleased = [], []
+        released, unreleased, unblocked, wait_boosts = [], [], [], []
         if action == 'update':
             goal = tree._root_of(by_id, item)
             for wait in decision.get('release_waits') or []:
@@ -195,17 +236,28 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
                 elif node.get('waiting_on', '') != wait['waiting_on']:
                     unreleased.append({'id': wait['id'], 'reason': 'wait changed since side observation'
                                        if node.get('waiting_on') else 'no recorded wait'})
+                elif tree._children(doc, node['id']):
+                    # A goal or group wait is main's: releasing it would have to
+                    # reopen or skip descendants, so it stays recorded.
+                    unreleased.append({'id': wait['id'], 'reason': 'non_leaf_wait'})
                 else:
                     released.append({'id': node['id'], 'waiting_on': node['waiting_on']})
+            release_at = time.time()
             for wait in released:
-                tree.update_node(doc, wait['id'], waiting_on='')
-                # update_node may replace the node object; annotate the stored one.
-                node = next(row for row in doc['nodes'] if row['id'] == wait['id'])
                 line = ('\n\nSide released wait "' + wait['waiting_on'] + '" (event ' + receipt_id[:12] + '): '
                         + decision['summary'].strip().splitlines()[0][:300])
-                if len(node.get('note', '') + line) <= tree.MAX_TEXT_CHARS:
-                    node['note'] = node.get('note', '') + line
+                if _release_leaf(doc, wait['id'], line, release_at):
+                    unblocked.append(wait['id'])
             by_id = {node['id']: node for node in doc['nodes']}
+            for wait in released:
+                root = by_id[tree._root_of(by_id, wait['id'])]
+                wait_boosts.append({
+                    'item_id': wait['id'], 'root_id': root['id'],
+                    'root_created_at': root.get('created_at', 0),
+                    'release_receipt': receipt_id, 'release_at': release_at,
+                    'wait_digest': wait_digest(wait['waiting_on']),
+                    'parked_lease_id': _parked_lease(parked_projection, wait['id'], root['id']),
+                })
         target_path = []
         if item in by_id:
             current = by_id[item]
@@ -317,6 +369,11 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             result['source_context'] = source_context[:40]
         if released:
             result['released_waits'] = released
+            # Board-first recovery receipt for the scheduling sidecar (design:
+            # Board recovery receipt). It carries digests and ids only.
+            result['wait_boost'] = wait_boosts
+        if unblocked:
+            result['unblocked_waits'] = unblocked
         if unreleased:
             result['unreleased_waits'] = unreleased
         if needs_handoff:

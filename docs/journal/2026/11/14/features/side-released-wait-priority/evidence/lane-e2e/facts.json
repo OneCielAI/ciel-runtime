@@ -1,0 +1,136 @@
+{
+ "config_dir": "temporary",
+ "identity": "claude:<e2e uuid>",
+ "facts": [
+  {
+   "fact": "board root executing",
+   "ok": true,
+   "detail": "executing"
+  },
+  {
+   "fact": "B released and unblocked",
+   "ok": true,
+   "detail": {
+    "status": "pending",
+    "unblocked": [
+     "n3"
+    ]
+   }
+  },
+  {
+   "fact": "sidecar row boosted for B",
+   "ok": true,
+   "detail": {
+    "record": {
+     "created": 1,
+     "kept": 0,
+     "consuming": 0,
+     "invalid": 0
+    }
+   }
+  },
+  {
+   "fact": "no wait text in sidecar",
+   "ok": true,
+   "detail": null
+  },
+  {
+   "fact": "REST wait_boost launch_first_eligible B",
+   "ok": true,
+   "detail": {
+    "eligible": true,
+    "ordinary_allowed": true,
+    "behavior": "launch_first_eligible",
+    "reason": null,
+    "item_id": "n3",
+    "root_id": "n1",
+    "priority": null,
+    "mixed_version_best_effort": false,
+    "mixed_version_warning": null
+   }
+  },
+  {
+   "fact": "web shows released wait for B",
+   "ok": true,
+   "detail": "Released waits\nReleased waits run after P0 and before ordinary P1-P5 work at the next available slot on updated schedulers. They do not preempt running work, change stored priority, or grant execution"
+  },
+  {
+   "fact": "reserve_next picked boosted B",
+   "ok": true,
+   "detail": "n3"
+  },
+  {
+   "fact": "boost consumed by the reservation",
+   "ok": true,
+   "detail": null
+  },
+  {
+   "fact": "A boosted with its parked lease",
+   "ok": true,
+   "detail": {
+    "parked": true
+   }
+  },
+  {
+   "fact": "REST wait_boost parked_first_eligible A",
+   "ok": true,
+   "detail": {
+    "eligible": true,
+    "ordinary_allowed": false,
+    "behavior": "parked_first_eligible",
+    "reason": null,
+    "item_id": "n2",
+    "root_id": "n1",
+    "priority": "P1",
+    "mixed_version_best_effort": false,
+    "mixed_version_warning": null
+   }
+  },
+  {
+   "fact": "web shows parked worker first eligible",
+   "ok": true,
+   "detail": "Released waits\nReleased waits run after P0 and before ordinary P1-P5 work at the next available slot on updated schedulers. They do not preempt running work, change stored priority, or grant execution approval. Ordering is best-effort while"
+  },
+  {
+   "fact": "ordinary C refused while A's slot is held",
+   "ok": true,
+   "detail": "the next P1 slot is kept for a released parked worker; main resumes it with SendMessage"
+  },
+  {
+   "fact": "reacquire consumed A's boost",
+   "ok": true,
+   "detail": {
+    "lease_id": "7de630a58e5c4ac8b5ecaf950f6b92c7",
+    "version": 8,
+    "slot_reacquired": true,
+    "item_id": "n2",
+    "wait_boost": "reacquired"
+   }
+  },
+  {
+   "fact": "REST wait_boost none afterwards",
+   "ok": true,
+   "detail": {
+    "eligible": false,
+    "ordinary_allowed": false,
+    "behavior": null,
+    "reason": "none",
+    "item_id": null,
+    "root_id": null,
+    "priority": null,
+    "mixed_version_best_effort": false,
+    "mixed_version_warning": null
+   }
+  },
+  {
+   "fact": "web shows no released wait",
+   "ok": true,
+   "detail": "Released waits\nReleased waits run after P0 and before ordinary P1-P5 work at the next available slot on updated schedulers. They do not preempt running work, change stored priority, or grant execution"
+  },
+  {
+   "fact": "stored root priority unchanged",
+   "ok": true,
+   "detail": null
+  }
+ ]
+}

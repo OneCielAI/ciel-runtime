@@ -366,7 +366,7 @@ class WorkCtl:
                                      for row in parallel.get("parallel_reviews") or [] if row.get("launch")]}
             if action == "capacity":
                 return {key: parallel.get(key) for key in ("session_id", "version", "policy", "device", "runtime",
-                                                           "limitations", "fork_gate", "gate_presence_version")
+                                                           "limitations", "fork_gate", "gate_presence_version", "wait_boost")
                         if key in parallel} | {
                     "forks": {group: len(rows) for group, rows in (parallel.get("forks") or {}).items()
                               if isinstance(rows, list)},
@@ -374,7 +374,7 @@ class WorkCtl:
             return {key: parallel.get(key) for key in (
                 "session_id", "version", "review_version", "reviews_truncated", "parallel_reviews",
                 "stranded_version", "parallel_reviews_ended", "parallel_legacy_reviews", "parallel_failures",
-                "failures_version")
+                "failures_version", "wait_boost")
                 if key in parallel}
         if action == "receipt":
             if not target:

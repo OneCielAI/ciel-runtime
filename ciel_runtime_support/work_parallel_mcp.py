@@ -665,6 +665,35 @@ def public_projection(projected, identity):
             "wait_boost": projected.get("wait_boost")}
 
 
+def _wait_lane_order(store, board, identity, rows):
+    """Boosted launches first and parked slot holds; sidecar trouble falls back
+    to the ordinary order and never blocks scheduling."""
+    try:
+        from .work_parallel import _p0_active_lease_ids, active_by_priority
+        from .work_wait_schedule import WaitLane, held_out
+        lane = WaitLane(store.path)
+        ledger_document = store.read()
+        lane.reconcile(board, ledger_document, identity)
+        ordered, holds, _ = lane.order(rows, identity, ledger_document, board)
+        if not holds:
+            return ordered, []
+        counts = active_by_priority(ledger_document["leases"],
+                                    excluded_lease_ids=_p0_active_lease_ids(store.path))
+        return held_out(ordered, holds, counts, ledger_document["policy"]["priority_limits"])
+    except Exception:
+        return rows, []
+
+
+def _wait_lane_consume(store, identity, lease, *, kind, outcome, ledger_before, ledger_after):
+    """Consume the item's boost after the ledger commit that used it."""
+    try:
+        from .work_wait_schedule import WaitLane
+        return WaitLane(store.path).consume(identity, lease["item_id"], lease, kind=kind, outcome=outcome,
+                                            ledger_before=ledger_before, ledger_after=ledger_after)
+    except Exception:
+        return False
+
+
 def _wait_boost_status(store, identity):
     """One allowlisted wait-boost summary shared by menu, web, REST and ctl."""
     from .work_wait_surfaces import project_wait_status
@@ -678,10 +707,27 @@ def _wait_boost_status(store, identity):
     active = [row for row in mine if row["state"] in ("boosted", "consuming")]
     if not active:
         return project_wait_status({"eligible": False, "reason": "none"})
-    first = min(active, key=lambda row: (-row["release_at"], row["release_receipt"]))
+    try:
+        from .work_wait_schedule import parked_lease
+        ledger_document = store.read()
+        parked = [row for row in active if row["state"] == "boosted"
+                  and parked_lease(row, ledger_document) is not None]
+    except Exception:
+        ledger_document, parked = None, []
+    # Parked reacquire ranks before other released waits (design: Scheduling order).
+    pool = parked or active
+    first = min(pool, key=lambda row: (-row["release_at"], row["release_receipt"], row["item_id"]))
+    if first["state"] == "consuming":
+        behavior = "consuming"
+    elif parked:
+        behavior = "parked_first_eligible"
+    else:
+        behavior = "launch_first_eligible"
+    lease = parked_lease(first, ledger_document) if parked else None
     return project_wait_status({
-        "eligible": True, "behavior": first["state"], "reason": None,
-        "item_id": first["item_id"], "root_id": first["root_id"],
+        "eligible": True, "behavior": behavior, "reason": None,
+        "ordinary_allowed": not parked, "item_id": first["item_id"], "root_id": first["root_id"],
+        "priority": lease["priority"] if lease else None,
     })
 
 
@@ -1000,6 +1046,11 @@ def _reserve_assignment(store, board_store, identity, host, version, *, item_id=
                     if not _stranded_item_pending(store, identity, row["item_id"])]
             if not rows:
                 raise WorkParallelError("no eligible candidate")
+            rows, held = _wait_lane_order(store, board, identity, rows)
+            if not rows:
+                raise WorkParallelError(
+                    "the next " + "/".join(held) + " slot is kept for a released parked worker; "
+                    "main resumes it with SendMessage")
             candidates = [candidate(board, row["item_id"], row["priority"], role)
                           for row in rows]
     if item_id is not None:
@@ -1129,6 +1180,9 @@ def _reserve_assignment(store, board_store, identity, host, version, *, item_id=
                                       expected_version=current["version"])
             raise WorkParallelError("workspace preparation failed; reservation released: "
                                     + (str(error) or type(error).__name__)[:300]) from error
+    if p0_intent is None:
+        _wait_lane_consume(store, identity, d["leases"][ident], kind="reserve", outcome="native_bound",
+                           ledger_before=version, ledger_after=d["version"])
     result = {"lease_id": ident, "version": d["version"], "plan_version": board["version"],
               "workspace": workspace, "priority": lease["priority"],
               "role": lease["role"], "generation": 1,
@@ -3425,6 +3479,10 @@ def run(name, args, board_store, identity, config, save_config):
                 p0_send=send)
             result = {"lease_id": ident, "version": d["version"], "slot_reacquired": True,
                       "item_id": lease["item_id"]}
+            if send is None and _wait_lane_consume(
+                    store, identity, d["leases"][ident], kind="reacquire", outcome="reacquired",
+                    ledger_before=version, ledger_after=d["version"]):
+                result["wait_boost"] = "reacquired"
             if send is not None:
                 side = p0_state(store)
                 _, send = side.mark_reacquire_slot(

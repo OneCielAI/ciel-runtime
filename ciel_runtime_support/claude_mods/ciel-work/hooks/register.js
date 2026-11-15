@@ -1803,6 +1803,16 @@ function parallelStatusText(state, scope) {
       + ' · ledger v' + String(state?.version ?? '?')
       + ' · launches/min ' + String(p.launches_per_minute ?? '?')
       + ' · max rework ' + String(p.max_rework ?? '?')]
+  // One allowlisted block shared with web, REST and ctl (work_wait_surfaces).
+  const boost = state?.wait_boost
+  if (boost && typeof boost === 'object') lines.push('RELEASED WAITS: ' + (boost.eligible
+      ? (boost.behavior === 'parked_first_eligible'
+        ? 'parked worker on ' + clipped(boost.item_id || '', 40) + ' is first eligible; its ' + clipped(boost.priority || '', 4)
+          + ' slot stays free until main resumes it with SendMessage'
+        : boost.behavior === 'consuming' ? clipped(boost.item_id || '', 40) + ' is being consumed'
+        : clipped(boost.item_id || '', 40) + ' runs at the next free slot of its own priority')
+      : boost.reason === 'unavailable' ? 'state unreadable; ordinary order applies' : 'none')
+      + ' · after P0, before ordinary P1-P5 · never preempts running work, changes stored priority or grants approval')
   if (forkGateState.ok === false)
     lines.push('FORK GATE: ' + FORK_GATE_MISSING + ' · ' + forkGateState.detail + ' · checked ' + forkGateState.at)
   else if (forkGateState.ok === true) lines.push('FORK GATE: ' + FORK_GATE_PLUGIN + ' ' + FORK_GATE_VERSION + ' answered at ' + forkGateState.at)

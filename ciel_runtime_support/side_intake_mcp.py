@@ -154,6 +154,35 @@ def _sync_handoff_receipt(inbox, event_id, handoff):
         return inbox._receipt(event_id, row, duplicate=False)
 
 
+def _parked_projection(store, identity, decision):
+    """Ledger pre-read for a release decision; unreadable means no parked preference."""
+    if not (isinstance(decision, dict) and decision.get('action') == 'update' and decision.get('release_waits')):
+        return None, None
+    try:
+        from .work_parallel_mcp import ledger
+        from .work_wait_release import parked_projection
+        parallel = ledger()
+        return parked_projection(parallel.read(), store.read(), identity), parallel.path
+    except Exception:
+        try:
+            from .work_parallel_mcp import ledger
+            return None, ledger().path
+        except Exception:
+            return None, None
+
+
+def _record_wait_boost(ledger_path, identity, receipt_id, result):
+    """Sidecar write after the board commit. A failure keeps the board receipt
+    for recovery and never undoes the committed release."""
+    try:
+        from .work_wait_release import record_released
+        recorded = record_released(ledger_path, identity, receipt_id, result)
+        return {'created': len(recorded['created']), 'kept': len(recorded['kept']),
+                'consuming': len(recorded['consuming']), 'invalid': recorded['invalid']}
+    except Exception as error:
+        return {'error': type(error).__name__}
+
+
 def _person_retry_host(host):
     """A possibly duplicate re-issue that a person confirmed in the host UI.
 
@@ -417,14 +446,19 @@ def run(name, args, config, state_dir, identity, store):
         # One recheck per event: a second board change commits on the current board.
         observed = host.get('work_digest') if not (row or {}).get('rechecks') else None
         changed = None
+        parked, ledger_path = _parked_projection(store, identity, decision)
         try:
             from .side_intake_inbox import source_identity
             result = apply(store, key, decision, args.get('expected_version'), main_reply=main_reply,
                            observed_digest=observed if isinstance(observed, str) else None,
                            source=source_identity((row or {}).get('text')),
-                           source_context=(row or {}).get('source_context'))
+                           source_context=(row or {}).get('source_context'),
+                           parked_projection=parked)
         except WorkChanged as error:
             changed = str(error)
+        if changed is None and result.get('wait_boost') and ledger_path is not None:
+            # After the board commit; a duplicate replay recreates a missing row.
+            result['wait_boost_record'] = _record_wait_boost(ledger_path, identity, key, result)
         if changed is None:
             result['usage'] = args.get('usage') if isinstance(args.get('usage'), dict) else None
             # Legacy decisions only: what the side AI says it sent itself. New

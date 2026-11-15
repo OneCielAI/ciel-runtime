@@ -1,5 +1,9 @@
 # Change log
 
+## 2026-11-15
+
+- **Released-wait lane implemented end to end on existing paths** (2026-11-15T00:30Z): side release now unblocks only the exact leaf and writes a digest-only receipt plus a boosted sidecar row; `reserve_next` puts boosted launches first and keeps a parked worker's slot until main resumes it; reservation, reacquire or an observed active lease consumes the boost exactly once; stale rows are removed. Web Parallel tab, REST, ctl and `/work-mode parallel` show the shared block. Deviations from design v1 are listed in [lane v2](lane-v2.md). 12 lane tests, 650 focused regression tests (one web marker fixed, web 39/39 with browser), owned real-backend E2E 16/16 with desktop/390px screenshots.
+
 ## 2026-11-14
 
 - **P0 + Gate-5 L1–L4 applied to the product tree; release gate fixed** (2026-11-14T22:40Z): the person chose the current tree. P0 merged onto its exact base with 0 conflicts; Gate-5 L1–L4, the host-only `wait_boost_*` route and the shared status block were applied. The first four-group run found these failures: a launch `TypeError` (`direct_empty_stream_retries`), 110 real-backend harness failures, a `work_parallel`↔`work_parallel_p0` import cycle, and 179 CI ruff findings in pending files. All four were fixed. 55 other unit failures did not reproduce when their 15 modules ran alone (592 OK applied, 589 OK baseline); their cause in the combined run is unestablished. Code commit `d69ca83`. The feature itself is **not active** in this build: no release producer, no reserve-path ordering, no JS host caller, and no menu/web/ctl rendering. P0 is also unreachable. See [release record](release-20261114.md).
