@@ -1,0 +1,7 @@
+python-minimum: success
+test (runtime): success
+test (channel): success
+test (unit): success
+quality: success
+test (router): success
+publish: success

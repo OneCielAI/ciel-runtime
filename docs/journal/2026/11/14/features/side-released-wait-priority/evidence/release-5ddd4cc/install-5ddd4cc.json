@@ -1,0 +1,12 @@
+{
+ "version": "0.2.51-beta.20261115-014314.5ddd4cc",
+ "tarball_sha512": "ec6087c0e3c0a15d2cb3cb99191784a1cd7aeb0a46d3c7a32478569ecae3b3571dffc64b109fac4a8386f2dc8d10899b3efa9c9f84730c5160b7707a5d067a9a",
+ "files": 619,
+ "tree_equal": 617,
+ "tree_differ": [
+  "package.json",
+  "ciel_runtime_support/runtime_constants.py"
+ ],
+ "installed_equal": 619,
+ "installed_differ": []
+}

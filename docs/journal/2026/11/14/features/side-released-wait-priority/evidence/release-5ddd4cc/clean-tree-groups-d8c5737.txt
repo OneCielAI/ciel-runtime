@@ -1,0 +1,12 @@
+d8c5737 unit: Ran 4777 tests in 2742.794s
+d8c5737 unit: OK (skipped=76)
+d8c5737 unit: EXIT=0
+d8c5737 router: Ran 1669 tests in 513.984s
+d8c5737 router: OK (skipped=1)
+d8c5737 router: EXIT=0
+d8c5737 channel: Ran 626 tests in 49.249s
+d8c5737 channel: OK (skipped=80)
+d8c5737 channel: EXIT=0
+d8c5737 runtime: Ran 458 tests in 42.888s
+d8c5737 runtime: OK (skipped=19)
+d8c5737 runtime: EXIT=0

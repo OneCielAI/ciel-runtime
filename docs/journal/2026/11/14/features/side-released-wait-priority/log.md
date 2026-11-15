@@ -2,6 +2,7 @@
 
 ## 2026-11-15
 
+- **Beta 5ddd4cc published and installed locally** (2026-11-15T01:55Z): clean Windows groups all green; Linux CI all jobs green; registry beta `0.2.51-beta.20261115-014314.5ddd4cc` (gitHead 5ddd4cc, 619 files, latest/nightly unchanged); install identical to the tarball for all 619 files; installed-package lane E2E 16/16. See [release record](release-20261114.md).
 - **Beta 2e799ad not published: Linux CI failed; fixed in a228bf6** (2026-11-15T01:00Z): unit and python-minimum failed on Linux because of missing pytest, a fake-clock test that broke on a freshly booted runner, Windows-only ctypes tests, a POSIX key-permission expectation and a Linux socket error class. All were reproduced (Docker or a fixed 300 s monotonic clock) and fixed; see the [release record](release-20261114.md).
 - **Released-wait lane implemented end to end on existing paths** (2026-11-15T00:30Z): side release now unblocks only the exact leaf and writes a digest-only receipt plus a boosted sidecar row; `reserve_next` puts boosted launches first and keeps a parked worker's slot until main resumes it; reservation, reacquire or an observed active lease consumes the boost exactly once; stale rows are removed. Web Parallel tab, REST, ctl and `/work-mode parallel` show the shared block. Deviations from design v1 are listed in [lane v2](lane-v2.md). 12 lane tests, 650 focused regression tests (one web marker fixed, web 39/39 with browser), owned real-backend E2E 16/16 with desktop/390px screenshots.
 

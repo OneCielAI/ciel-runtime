@@ -1,0 +1,5 @@
+version = '0.2.51-beta.20261115-014314.5ddd4cc'
+gitHead = '5ddd4cc3bb9be1e5337199e3dafbaea48e3e7a57'
+dist.integrity = 'sha512-7GCHwOPAoV0ss8uZGReEoc166wpG08ejJHhWnsrjs1cd/8ZLEJ+sSoOG8tyNEImbPvqcn4RzDFFgt3B6XQZ6mg=='
+dist.fileCount = 619
+latest=0.2.51 nightly=0.2.51-nightly.20261106-020333.c00c8b6
