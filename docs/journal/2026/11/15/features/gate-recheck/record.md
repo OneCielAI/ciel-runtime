@@ -103,6 +103,34 @@ Broken down:
 - **Run 1, `evidence/run-20261115T211555Z`:** all 11 checks it had passed. Its console showed the relay wake prompt naming the released-wait notice. That defect was fixed, and run 2 added the two wake-name checks.
 - **Recorded but not explained:** each run has a fourth main request after the relay wake. It carries no wake prompt and contains both notices. Its origin was not identified from this evidence.
 
+## Real-backend suite regression and fix
+
+- **Failures:** the broad local run and Linux Docker both failed the same 2 tests in `tests/test_work_mod_real_backend.py`:
+  - `idle-nowrite-paused`;
+  - `idle-nowrite-offline`.
+- **Comparison:** on `e9ccab2` (before this work) both passed; with the timer both failed. The only changed file was `config/work-parallel-native.json`, whose `scans` heartbeat went from version 1 to 2.
+- **Cause, measured:**
+  - The harness fires every armed timer each round, and each fire waits for a quiet window of at least 400 ms. The gate timer added 8 fires.
+  - The native evidence rewrites its scan once 15 s of wall clock have passed (`HEARTBEAT_SECONDS`).
+  - Scenario process time went from 19.7 s to 22.2 s, which crossed that window.
+  - The tests passed before only because the run stayed under 15 s.
+- **Fix (`6f67437`):**
+  - Both scenarios freeze backend time (`freeze_clock`) before the process starts.
+  - The server routes `work_side_gate_check` through the real dispatch. Side intake is off there, so the call never queues.
+  - Both tests then passed (11 selected real-backend tests passed).
+
+## Other local failures (pre-existing, not from this work)
+
+- **What failed:** 4 tests:
+  - `test_router_debug::test_router_recognises_its_own_health_payload`
+  - `test_runtime_paths::test_production_entrypoint_keeps_its_configured_profile`
+  - `test_unisolated_test_guard::test_cli_asset_paths_follow_isolation`
+  - `test_workspace_state::test_router_port_changes_do_not_change_workspace_durable_state_path`
+- **Not from this work:** they fail the same way on `e9ccab2` and on the published `52dfcb8` when the `CIEL_RUNTIME_*` isolation variables are exported in the shell before Python starts. That happens with or without `-s`, and on Windows and Linux.
+- **Through the CI runner:** `scripts/run_test_group.py <group> --only <file>` sets those variables inside its own process, and all four pass (router: OK; unit ×3: OK).
+- **Capture-only failures:** 2 `test_codex_app_server_session` tests failed only under `-s`. They pass without `-s`, and Linux passes them too.
+- **Linux, CI environment:** `test_work_mod_real_backend.py` (whole file), `test_codex_app_server_session.py` and the four files above: 198 passed, 1 skipped. The 4 failures were these exported-variable cases.
+
 # Behaviour notes
 
 - A running Work fork holds the check, as the requirement says ("포크된 세션이 없는 조건").
