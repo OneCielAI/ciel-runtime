@@ -178,6 +178,14 @@ reconcile이 `not_observable`을 기록한 뒤에만 되며, 방금 읽은 `rece
 보고가 아직 없으면 `Work fork gate presence not reported by this conversation's Work host`. 표시만 하며
 ctl은 이 상태로 어떤 조치도 거부하지 않는다.
 
+`work capacity --session S`와 parallel 리뷰 조회는 `GET /parallel`의 `wait_boost` 블록도 보여 준다.
+SSE 사이드가 기록된 대기를 해제한 항목이 다음 슬롯을 기다리는 상태이며, 필드는 `eligible`,
+`behavior`(`launch_first_eligible`·`parked_first_eligible`·`consuming`), `reason`(`none`·`unavailable`),
+`ordinary_allowed`, `item_id`, `root_id`, `priority`뿐이다. lease·host·영수증·대기 문구는 포함하지 않는다.
+해제된 대기는 P0 다음, 일반 P1–P5보다 먼저 그 우선순위의 다음 빈 슬롯에서 실행된다. 실행 중인 작업을
+선점하지 않고, 저장된 우선순위를 바꾸지 않으며, 실행 승인도 아니다. `parked_first_eligible`이면 그
+우선순위의 슬롯 하나가 비워진 채로 유지되고, 메인이 SendMessage로 그 워커를 재개할 때 소비된다.
+
 `--confirm`은 웹 콘솔이 위험 확인 대화상자를 띄우는 조치에만 필요하다. 없으면 콘솔과 같은
 경고와 보낼 요청을 출력하고 아무것도 바꾸지 않은 채 종료 코드 3으로 끝난다. 거부·버전
 충돌·검증 오류는 Python traceback 없이 한 줄(`--json`이면 JSON 객체 하나)과 종료 코드 1이다.
