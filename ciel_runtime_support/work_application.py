@@ -211,7 +211,8 @@ class WorkApplication:
                 "focus_ids": list(doc.get("focus_ids", []))}
 
     def command(self, command: str, payload: dict[str, Any], operation_id: Any, *,
-                origin: dict[str, Any] | None = None) -> dict[str, Any]:
+                origin: dict[str, Any] | None = None, scope: str | None = None,
+                parallel_store: Any = None) -> dict[str, Any]:
         if not isinstance(payload, dict):
             raise tree.WorkPlanError("body must be an object")
         # The surface that issued the board command (server-derived), recorded
@@ -224,6 +225,14 @@ class WorkApplication:
             raise tree.WorkPlanError("expected_version must be a nonnegative integer")
         key = self._operation_id(operation_id)
         request = {k: v for k, v in payload.items() if k not in ("operation_id", "session_id")}
+        priority_command = (parallel_store is not None and (
+            (command == "node_update" and "priority" in request)
+            or (command == "plan_set" and "priority" in request
+                and (request.get("root_id") or request.get("priority") == "P0"))))
+        if priority_command:
+            if scope is None or parallel_store is None:
+                raise tree.WorkPlanError("priority command requires the authenticated Work application boundary")
+            return self._priority_command(command, request, key, scope, parallel_store, origin)
         digest = hashlib.sha256(json.dumps(
             {"command": command, "request": request}, sort_keys=True, ensure_ascii=False,
             separators=(",", ":"), allow_nan=False).encode("utf-8")).hexdigest()
@@ -482,6 +491,69 @@ class WorkApplication:
         if any(ord(char) < 33 or ord(char) > 126 for char in value):
             raise tree.WorkPlanError("operation_id must contain visible ASCII characters only")
         return value
+
+    def _priority_command(self, command: str, request: dict[str, Any], operation_id: str,
+                          scope: str, parallel_store: Any, origin: dict[str, Any]) -> dict[str, Any]:
+        """Existing-root priority mutation shared by REST, web and ctl.
+
+        Its P0 marker operation is the exact external command id. The board CAS
+        applies every other field with the canonical priority in one commit.
+        """
+        from .work_parallel import WorkParallelError
+        from .work_priority_service import create_p0_root, mutate_existing_priority
+        target = request.get("priority")
+        if target not in ("P0", "", *tree.PRIORITIES):
+            raise tree.WorkPlanError("priority must be one of P0, P1, P2, P3, P4, P5")
+        root_id = str((request.get("root_id") if command == "plan_set" else request.get("id")) or "")
+        if command == "plan_set" and target == "P0" and not root_id:
+            try:
+                create_p0_root()
+            except WorkParallelError as error:
+                raise tree.WorkPlanError(str(error)) from None
+        expected = request.get("expected_version")
+        if type(expected) is not int or expected < 0:
+            raise tree.WorkPlanError("expected_version must be a nonnegative integer")
+        clean = {key: value for key, value in request.items()
+                 if key not in ("priority", "expected_version")}
+        manifest = hashlib.sha256(json.dumps(
+            {"command": command, "payload": clean}, sort_keys=True, ensure_ascii=False,
+            separators=(",", ":"), allow_nan=False).encode("utf-8")).hexdigest()
+        if command == "plan_set":
+            spec = {"title": clean.get("goal"), "note": clean.get("note", ""),
+                    "children": clean.get("children") or []}
+            spec.update({key: clean[key] for key in ("ref", "waiting_on") if key in clean})
+            def mutate(document):
+                return tree.set_plan(document, spec, root_id)
+            def satisfied(document):
+                probe = copy.deepcopy(document)
+                before = copy.deepcopy(probe)
+                tree.set_plan(probe, spec, root_id)
+                tree.update_node(probe, root_id, priority="P1" if target == "P0" else target)
+                return probe == before
+        else:
+            mutable = {"status", "title", "note", "progress", "evidence", "ref", "waiting_on"}
+            supplied = {key: clean[key] for key in mutable if key in clean and clean[key] is not None}
+            def mutate(document):
+                return tree.update_node(document, root_id, **supplied)
+            def satisfied(document):
+                node = next((row for row in document.get("nodes", []) if row.get("id") == root_id), None)
+                return (node is not None and all(node.get(key, "") == value for key, value in supplied.items())
+                        and node.get("priority", "") == ("P1" if target == "P0" else target))
+        try:
+            result = mutate_existing_priority(
+                self.store, parallel_store, scope, root_id, target,
+                expected_board_version=expected, external_operation_id=operation_id,
+                manifest_digest=manifest, mutate=mutate, satisfied=satisfied, set_by="operator")
+        except WorkParallelError as error:
+            raise tree.WorkPlanError(str(error)) from None
+        ref = hashlib.sha256(("ciel.priority-ref.v1\0" + operation_id).encode()).hexdigest()[:16]
+        return {"ok": True, "schema_version": 1, "operation": command,
+                "operation_id": operation_id, "priority_operation_id": operation_id,
+                "priority_operation_ref": ref, "version": result["version"],
+                "changed": not result["replayed"], "replayed": result["replayed"],
+                "result": {"root_id": root_id, "canonical_priority": result["canonical_priority"],
+                           "effective_priority": result["effective_priority"],
+                           "priority_operation_ref": ref}}
 
     @staticmethod
     def _without_receipts(doc: dict[str, Any]) -> dict[str, Any]:

@@ -362,7 +362,7 @@ def _host_workspace_path(lease):
     return _NO_WORKSPACE_PATH
 
 
-def project(store, identity, board=None, *, host_view=False, caller_nonce=None):
+def project(store, identity, board=None, *, host_view=False, caller_nonce=None, config=None):
     from .work_parallel import MAX_LEASES
     d = store.read()
     all_mine = {k: v for k, v in d["leases"].items() if v["scope"] == identity}
@@ -582,7 +582,31 @@ def project(store, identity, board=None, *, host_view=False, caller_nonce=None):
             "codex_adapter": "unsupported",
             "limitations": ["dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations",
                             "external discovery requires a configured authenticated source connector"],
-            "wait_boost": _wait_boost_status(store, identity)}
+            "wait_boost": _wait_boost_status(store, identity, board)}
+    if board is not None:
+        try:
+            side = p0_state(store)
+            p0_view = side.read_view()
+            roots = []
+            for root in board.get("nodes", []):
+                if root.get("parent_id") is not None:
+                    continue
+                effective = p0_view.effective_root_priority(identity, root)
+                roots.append({"root_id": root["id"], "title": _clip(root.get("title", ""), 200),
+                              "canonical_priority": root.get("priority", ""),
+                              "effective_priority": effective})
+            view["root_priorities"] = roots
+        except Exception:
+            view["root_priorities"] = []
+    if config is not None:
+        try:
+            # Per-priority Work-fork and side-fork models (P0-P5, side), resolved
+            # against the current provider's list; ciel-work-gate applies them at
+            # each fork model request. Model ids only, no credentials.
+            from .work_fork_models import projection as fork_model_projection
+            view["fork_models"] = fork_model_projection(config)
+        except Exception:
+            view["fork_models"] = {"provider": "", "models": {}, "status": {}, "unavailable": True}
     if host_view:
         # G5, display only: the mod's last live probe of the Work fork gate.
         from .work_parallel_gate_presence import fork_gate_view
@@ -662,7 +686,9 @@ def public_projection(projected, identity):
             "policy": {k: projected["policy"][k] for k in ("enabled", "paused", "priority_limits",
                                                           "launches_per_minute", "max_rework")},
             "runtime": projected["runtime"], "limitations": projected["limitations"],
-            "wait_boost": projected.get("wait_boost")}
+            "wait_boost": projected.get("wait_boost"),
+            "fork_models": projected.get("fork_models"),
+            "root_priorities": projected.get("root_priorities", [])}
 
 
 def _wait_lane_order(store, board, identity, rows):
@@ -694,7 +720,7 @@ def _wait_lane_consume(store, identity, lease, *, kind, outcome, ledger_before, 
         return False
 
 
-def _wait_boost_status(store, identity):
+def _wait_boost_status(store, identity, board=None):
     """One allowlisted wait-boost summary shared by menu, web, REST and ctl."""
     from .work_wait_surfaces import project_wait_status
     try:
@@ -726,8 +752,10 @@ def _wait_boost_status(store, identity):
     lease = parked_lease(first, ledger_document) if parked else None
     return project_wait_status({
         "eligible": True, "behavior": behavior, "reason": None,
-        "ordinary_allowed": not parked, "item_id": first["item_id"], "root_id": first["root_id"],
-        "priority": lease["priority"] if lease else None,
+        "ordinary_allowed": not parked, "item_id": first["item_id"],
+        "title": next((node.get("title") for node in (board or {}).get("nodes", [])
+                       if node.get("id") == first["item_id"]), None),
+        "root_id": first["root_id"], "priority": lease["priority"] if lease else None,
     })
 
 
@@ -2854,7 +2882,8 @@ def run(name, args, board_store, identity, config, save_config):
         host_read = _authenticated_host_read(args, config)
         caller = (args.get("_host") or {}).get("launch_nonce") if host_read else None
         return json.dumps(project(store, identity, _board_or_none(board_store),
-                                  host_view=host_read, caller_nonce=caller), ensure_ascii=False)
+                                  host_view=host_read, caller_nonce=caller,
+                                  config=config if isinstance(config, dict) else None), ensure_ascii=False)
     host, ready = host_context(args, config)
     if not identity.startswith("claude:"):
         raise WorkParallelError("native adapter unsupported")

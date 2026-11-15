@@ -31,6 +31,7 @@ const SIDE_DESCRIPTION = /^Side SSE [0-9a-f]{12}$/
 // (parallelPump), and reworkForkLeaseId's 'work-rework-<lease>-a<N>'.
 const WORKER_NAME = /^work-[0-9a-z]{6,}-[0-9a-z]{4,}$/
 const AUTO_NAME = /^work-auto-[0-9a-z]+-[0-9a-z]+$/
+const P0_NAME = /^work-p0-[0-9a-f]{32}$/
 const REWORK_NAME = /^work-rework-[\s\S]+-a[1-9]\d{0,2}$/
 // Tool classes (design "Tool classes for Work forks", approved by G4).
 const READ_TOOLS = new Set(['Read', 'Glob', 'Grep', 'ListAgents', 'WebFetch', 'WebSearch', 'Skill', 'ReportFindings'])
@@ -38,6 +39,7 @@ const FILE_WRITES = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit', 'appl
 const SHELLS = new Set(['Bash', 'PowerShell', 'Monitor'])
 // The worker's report path and two reads; every other router tool is denied.
 const ROUTER_ALLOWED = new Set(['work_parallel_report', 'work_parallel_status', 'work_status'].map(tool => PREFIX + tool))
+const ROUTER_HOST_ONLY = new Set(['work_priority_command'].map(tool => PREFIX + tool))
 // A fork is bound while its lease is one of these (backend bind sets running).
 const BOUND_STATES = new Set(['running', 'waiting_input'])
 const PROBE_KEY = 'ciel_work_gate_probe'
@@ -97,7 +99,7 @@ async function classify($, agentId) {
   workForks.add(agentId)
   while (workForks.size > 400) workForks.delete(workForks.values().next().value)
   const recognized = shape.name !== null
-    && (WORKER_NAME.test(shape.name) || AUTO_NAME.test(shape.name) || REWORK_NAME.test(shape.name))
+    && (WORKER_NAME.test(shape.name) || AUTO_NAME.test(shape.name) || P0_NAME.test(shape.name) || REWORK_NAME.test(shape.name))
   return { kind: 'work', name: shape.name, recognized, cwd: shape.cwd }
 }
 
@@ -195,6 +197,7 @@ async function decide($, tool, input, agentId, fork) {
   const who = forkLabel(fork)
   if (READ_TOOLS.has(tool)) return allow('read')
   if (ROUTER_ALLOWED.has(tool)) return allow('router-worker')
+  if (ROUTER_HOST_ONLY.has(tool)) return deny('router-host', tool.slice(PREFIX.length) + ' is available only to the coordinator host.')
   if (tool.startsWith(PREFIX))
     return deny('router', tool.slice(PREFIX.length) + ' is not available to ' + who
       + '; a worker reports only through work_parallel_report with its worker_token.')
@@ -261,6 +264,49 @@ function argsOf(e) {
   return input
 }
 
+// Per-priority Work-fork and SSE side-fork models (user requirement
+// 2026-11-14: a model per P0-P5 and for the side actor). turn.step fires for
+// every model request of a ciel-work fork, the first one included, so the
+// model is named before the request leaves. A fork's lease is found by its
+// bound host id or, before the bind lands, by its spawn name (the dispatch
+// name ciel-work reserved before spawning). The status view carries each
+// slot's router alias (models) and direct-gateway id (upstream); the request
+// gets the form main's own request uses. null keeps the engine's model.
+const forkModels = new Map()
+function slotNames(state, slot) {
+  const alias = state?.fork_models?.models?.[slot]
+  if (typeof alias !== 'string' || !alias) return null
+  const upstream = state.fork_models.upstream?.[slot]
+  return { alias, upstream: typeof upstream === 'string' && upstream ? upstream : alias }
+}
+async function forkModel($, agentId) {
+  const fork = await classify($, agentId)
+  if (fork.kind !== 'work' && fork.kind !== 'side') return null
+  const cached = forkModels.get(agentId)
+  if (cached && cached.until > Date.now()) return cached.names
+  const state = await routerJson($, 'work_parallel_status')
+  if (!state?.fork_models || typeof state.fork_models.models !== 'object' || state.fork_models.models === null) return null
+  let names = null
+  if (fork.kind === 'side') names = slotNames(state, 'side')
+  else {
+    const leases = Object.values(state.leases || {})
+    const lease = leases.find(row => row?.host_id === agentId)
+      || (fork.name ? leases.find(row => row?.dispatch_name === fork.name || row?.agent_name === fork.name) : null)
+    const priority = lease ? (lease.effective_priority || lease.priority) : null
+    names = typeof priority === 'string' && /^P[0-5]$/.test(priority) ? slotNames(state, priority) : null
+    // Without a lease yet the answer is not cached, so the next step looks again.
+    if (!lease) return names
+  }
+  remember(forkModels, agentId, { names, until: Date.now() + 30000 }, 400)
+  return names
+}
+function requestModel(names, current) {
+  if (!names) return null
+  // Router launches send the ciel-runtime-<provider>- alias; direct gateway and
+  // plain-id launches send the upstream id.
+  return typeof current === 'string' && current.startsWith('ciel-runtime-') ? names.alias : names.upstream
+}
+
 export function register(on) {
   on('agent.spawn', async ($, e, next) => {
     // Parity row 10: a Work fork never starts agents.
@@ -275,6 +321,17 @@ export function register(on) {
     return result
   }).catch(($, e, next) => next.called ? next(e)
     : workForks.has(e.parentAgentId) ? { deny: DENY + 'the spawn check failed; a Work fork cannot start agents.' } : next(e))
+
+  on('turn.step', async function* ($, e, next) {
+    if (typeof e.agentId !== 'string' || !e.agentId) return yield* next(e)
+    let model = null
+    try { model = requestModel(await forkModel($, e.agentId), e.model) } catch (error) {
+      note($, 'fork-model-unreadable agent=' + shortId(e.agentId) + ' ' + (error?.gateFault ? error.message : 'read failed'))
+    }
+    if (!model || model === e.model) return yield* next(e)
+    note($, 'fork-model agent=' + shortId(e.agentId) + ' step=' + e.index + ' model=' + model)
+    return yield* next({ ...e, model })
+  }).catch(async function* ($, e, next) { return yield* next(e) })
 
   on('tool.call', async ($, e, next) => {
     if (typeof e.agentId !== 'string' || !e.agentId) return next(e)

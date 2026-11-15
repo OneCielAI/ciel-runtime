@@ -5,7 +5,7 @@ import copy
 from typing import Any, Mapping
 
 SAFE_FIELDS = (
-    "eligible", "ordinary_allowed", "behavior", "reason", "item_id",
+    "eligible", "ordinary_allowed", "behavior", "reason", "item_id", "title",
     "root_id", "priority", "mixed_version_best_effort",
     "mixed_version_warning",
 )
@@ -21,7 +21,7 @@ def project_wait_status(value: Mapping[str, Any]) -> dict[str, Any]:
         projected["ordinary_allowed"] = False
     if type(projected["mixed_version_best_effort"]) is not bool:
         projected["mixed_version_best_effort"] = False
-    for name in ("behavior", "reason", "item_id", "root_id", "priority", "mixed_version_warning"):
+    for name in ("behavior", "reason", "item_id", "title", "root_id", "priority", "mixed_version_warning"):
         value = projected[name]
         if value is not None and type(value) is not str:
             projected[name] = None

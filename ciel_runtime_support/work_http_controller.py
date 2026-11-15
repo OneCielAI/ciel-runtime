@@ -73,8 +73,17 @@ class WorkHttpController:
         cfg = self.services.load_config()
         doc = self._store(identity).read_snapshot() if doc is None else doc
         payload = tree.snapshot(doc, enabled=work_mode_enabled(cfg), approval_ask=work_plan_approval_ask(cfg))
+        nodes = doc["nodes"]
+        if self.services.parallel_store is not None:
+            try:
+                from .work_parallel_p0 import p0_store
+                side = p0_store(self.services.parallel_store())
+                nodes = [{**node, "effective_priority": side.effective_priority(identity, node, node.get("priority", ""))}
+                         if node.get("parent_id") is None else node for node in nodes]
+            except (OSError, ValueError):
+                pass
         payload.update(ok=True, schema_version=1, session_id=identity, updated_at=doc["updated_at"],
-                       nodes=doc["nodes"], active_root_id=doc["active_root"],
+                       nodes=nodes, active_root_id=doc["active_root"],
                        root_ids=[n["id"] for n in doc["nodes"] if n["parent_id"] is None],
                        queue_ids=[n["id"] for n in tree.queued_roots(doc)],
                        auto_continue=work_auto_continue_enabled(cfg), retention=retention_status(cfg),
@@ -367,8 +376,15 @@ class WorkHttpController:
                 raise tree.WorkPlanError("Idempotency-Key and operation_id must match")
             payload = {key: value for key, value in body.items() if key not in ("session_id", "operation_id")}
             # Same server-derived origin as operator commands; never part of the digest.
-            response = self._application(identity).command(command, payload, header_key or body_key,
-                                                           origin=self._request_origin(handler))
+            priority = payload.get("priority")
+            has_priority = ((command == "node_update" and "priority" in payload)
+                            or (command == "plan_set" and "priority" in payload
+                                and (payload.get("root_id") or priority == "P0")))
+            needs_service = has_priority and self.services.parallel_store is not None
+            response = self._application(identity).command(
+                command, payload, header_key or body_key, origin=self._request_origin(handler),
+                scope=identity if needs_service else None,
+                parallel_store=self.services.parallel_store() if needs_service and self.services.parallel_store else None)
             response["session_id"] = identity
             self.services.write_json(handler, response)
         except WorkOperationReceiptsFull as exc:

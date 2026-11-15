@@ -1434,6 +1434,21 @@ class WorkModRealBackendTests(unittest.TestCase):
         self.assertRegex(result["stale"]["error"], "stale rework launch reference|not unresolved")
         self.assertIn("Request resolution", result["asks"][1]["choices"])
 
+    def test_p0_existing_root_launches_immediately_while_disabled_and_paused(self):
+        result = self.run_scenario("p0-immediate-paused")
+        self.assertFalse(result["priority"].get("deny"), result)
+        self.assertIn("effective_priority", result["priority"].get("result", ""))
+        self.assertEqual((False, True),
+                         (result["p0"]["policy"]["enabled"], result["p0"]["policy"]["paused"]))
+        self.assertEqual(1, len(result["spawns"]), result)
+        self.assertRegex(result["spawns"][0], r"^work-p0-[0-9a-f]{32}$")
+        self.assertIn("p0_launch_assignment", result["events"])
+        self.assertIn("p0_launch_spawning", result["events"])
+        self.assertNotIn("reserve_next", result["events"])
+        lease = next(iter(result["backend"]["leases"].values()))
+        self.assertEqual(("running", result["spawns"][0]), (lease["state"], lease["dispatch_name"]))
+        self.assertIn("Execute exactly this P0 Work assignment immediately", result["prompt"])
+
     def test_requested_resolution_with_a_listed_fork_is_resolved_by_session_start_alone(self):
         result = self.run_scenario("manual-present-restart")
         replacement = result["replacement"]

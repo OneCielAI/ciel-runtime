@@ -90,7 +90,8 @@ def seed_leaf(title):
         None), expected_version=doc["version"])
     item = next(n["id"] for n in doc["nodes"] if n["parent_id"] == root)
     BOARD.transaction(lambda d: tree.set_phase(d, "executing", root), expected_version=doc["version"])
-    return {"item_id": item, "runnable": [row["item_id"] for row in tree.runnable_leaves(BOARD.read())]}
+    return {"root_id": root, "item_id": item,
+            "runnable": [row["item_id"] for row in tree.runnable_leaves(BOARD.read())]}
 
 
 def limits(p1):
@@ -153,6 +154,14 @@ def backend(tool, args):
         # The mod passes its own _host (token, fork, host_id, agent_name, proof).
         BRIDGE_CALLS.append({"tool": tool, "args": dict(args)})
         return json.loads(parallel.run(tool, dict(args), BOARD, IDENTITY, config(), None))
+    if tool == "work_priority_command":
+        from ciel_runtime_support.work_mcp_tools import dispatch_work_tool
+        BRIDGE_CALLS.append({"tool": tool, "args": dict(args)})
+        answer = dispatch_work_tool(1, tool, dict(args), load_config=config, state_dir=ROOT,
+                                    store=BOARD, respond=lambda _id, text, error=False: {"text": text, "error": error})
+        if answer["error"]:
+            raise ValueError(answer["text"])
+        return json.loads(answer["text"])
     raise ValueError("unsupported bridge tool " + tool)
 
 
@@ -755,6 +764,12 @@ def failures():
     return WorkParallelFailureLog.beside(parallel.ledger().path).public(IDENTITY)
 
 
+def p0_view():
+    side = parallel.p0_state(parallel.ledger()).read()
+    return {"roots": side["roots"], "intents": side["intents"],
+            "policy": parallel.ledger().read()["policy"], "board": BOARD.read()}
+
+
 def inspect():
     store = parallel.ledger()
     final = parallel.finalization(store).read()
@@ -802,6 +817,8 @@ def dispatch(request):
         return init()
     if action == "seed":
         return seed(request["title"], request.get("agent_name"))
+    if action == "seed_leaf":
+        return seed_leaf(request["title"])
     if action == "seed_restart_pair":
         return seed_restart_pair()
     if action == "seed_running":
@@ -851,6 +868,8 @@ def dispatch(request):
         return list(BRIDGE_CALLS)
     if action == "inspect":
         return inspect()
+    if action == "p0_view":
+        return p0_view()
     if action == "beta":
         return beta(request["calls"])
     if action == "repo_path":

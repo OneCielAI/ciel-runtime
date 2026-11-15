@@ -6,7 +6,7 @@ const detailView = atom({ plugin: 'ciel-work', key: 'detail' }, null)
 const panelView = atom({ plugin: 'ciel-work', key: 'panel' }, null)
 const PANE = 'work-details'
 const PREFIX = 'mcp__ciel-runtime-router__'
-const WORK = new Set(['work_discovery_pickup', 'work_parallel_status', 'work_parallel_configure', 'work_parallel_run', 'work_parallel_event', 'work_parallel_report', 'work_parallel_item_review', 'work_status', 'work_plan_set', 'work_node_add', 'work_node_update',
+const WORK = new Set(['work_discovery_pickup', 'work_parallel_status', 'work_parallel_configure', 'work_parallel_run', 'work_parallel_event', 'work_parallel_report', 'work_parallel_item_review', 'work_priority_command', 'work_status', 'work_plan_set', 'work_node_add', 'work_node_update',
   'work_node_remove', 'work_select', 'work_execute', 'work_replan', 'work_reorder', 'work_urgent', 'work_focus',
   'work_mode_set'])
 const WRITES = new Set(['Edit', 'Write', 'NotebookEdit', 'apply_patch'])
@@ -23,7 +23,7 @@ const HELP = [
   '• New requests: an independent request becomes its own numbered item ("2. …") and waits in the queue behind the active item; a change to an existing item is added under that item.',
   '• Executing: after work_execute (automatic, or your approval when set to ask) the model works step by step and marks each step done with evidence.',
   '• Above the prompt: compact by default (done/total + current step); [+] / w expands, [-] collapses. Progress / Queue / Completed are read-only button tabs; Prev / Next (p / n) page the list; w opens the Inspector. Ctrl+X Tab focuses · Tab/↑↓ select · Enter inspects · Esc returns. Tiny screens use Inspect Work. Rows of other plugins stay below the Work rows; the band scrolls to them.',
-  '• /work-mode view: Work & SSE pane — Work tree (w), SSE receipts with P1 filter (s), and every Work setting (g); side actors are native forks inheriting the main model and context. Mobile and narrow screens get a single-column touch layout.',
+  '• /work-mode view: Work & SSE pane — Work tree (w), SSE receipts with P1 filter (s), and every Work setting (g); side actors are native forks inheriting the main context; Work and side forks use the per-priority and side fork model settings (inherit keeps the main model). Mobile and narrow screens get a single-column touch layout.',
   '• /work-mode expand / compact: toggle the inline list · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode parallel: fork slots, leases and the next Agent name · /work-mode help: this help',
   '• Focus: inspect an item → Focus first. Focused items run before other Work; a focused item that waits or is blocked never holds unrelated approved Work or discovery. Clear focus releases it now; it also clears automatically once every focused item is done.',
   '• Priorities: All items → Move up / Move down orders root goals. Moving the active goal requires your request; a button press is that request.',
@@ -756,13 +756,27 @@ async function setObservatorySetting($, row, value, identity) {
     $.ui.invalidate('ui.render')
   } catch (error) { $.ui.toast('Setting not changed: ' + clipped(error?.message || error, 180)) }
 }
+// The ask dialog takes 2-4 options: a longer list (a provider's models) pages
+// three at a time with a fourth "More…" option; any choice can also be typed
+// under "Other", and the server validates it.
+const MORE_CHOICES = 'More…'
+async function pickChoice($, label, choices) {
+  const list = Array.isArray(choices) ? choices.map(String) : []
+  if (list.length <= 4) return $.ui.ask(label + '?', list)
+  for (let start = 0; ; start = start + 3 >= list.length ? 0 : start + 3) {
+    const page = list.slice(start, start + 3)
+    const answer = await $.ui.ask(label + '? (' + (start + 1) + '-' + (start + page.length) + ' of ' + list.length
+      + '; type any listed value under Other)', [...page, MORE_CHOICES])
+    if (answer !== MORE_CHOICES) return answer
+  }
+}
 // Booleans toggle in place; enums pick from their choices; free values are
 // typed under the dialog's "Other".
 async function editObservatorySetting($, row, identity) {
   let value = null
   try {
     if (row.kind === 'boolean') value = String(row.value) === 'true' ? 'off' : 'on'
-    else if (row.kind === 'enum') value = await $.ui.ask(row.label + '?', row.choices.slice(0, 4))
+    else if (row.kind === 'enum') value = await pickChoice($, row.label, row.choices)
     else value = await $.ui.ask(row.label + '? Type the new value under Other.\nCurrent: '
       + clipped(typeof row.value === 'string' ? row.value : JSON.stringify(row.value), 500), ['Keep current', 'Clear'])
   } catch { return }
@@ -835,7 +849,7 @@ function graphicProps(identity, view, state) {
     active: cached?.active_root?.title || '', done: cached?.done || 0, total: cached?.total || 0,
     nodes: graphicNodes(view, cached), receipts: graphicReceipts(identity),
     actors: sideActors(identity).map(actor => ({ id: actor.id, receipt: actor.receipt_id,
-      runtime: 'native fork (main model/context)', reserved: actor.reserved, lease_until: actor.lease_until })),
+      runtime: 'native fork (main context)', reserved: actor.reserved, lease_until: actor.lease_until })),
     parallel: { active: observatoryParallel?.active_device || 0, max: parallelCapacity(policy),
       // Only a fresh native observation counts as a running fork.
       forks: observatoryParallel?.forks?.confirmed_count || 0,
@@ -1132,6 +1146,24 @@ async function workToolCall($, e, next) {
       if (/^\{"paged":/.test(said)) return { result: 'work_execute ran after your approval; call work_status for the current phase.' }
       return { result: said }
     }
+  }
+  // P0 is host-applied: raw forwarding would hit the legacy P1-P5 tree enum
+  // and, in a mixed-version process, could bypass marker authority. The wrapper
+  // mints one exact replay id for this tool call and returns only its bounded ref.
+  if ((name === 'work_node_update' && input.priority !== undefined)
+      || (name === 'work_plan_set' && input.priority !== undefined && (input.root_id || input.priority === 'P0'))) {
+    const operationId = typeof input.operation_id === 'string' && /^[0-9a-f]{32}$/.test(input.operation_id)
+      ? input.operation_id : crypto.randomUUID().replaceAll('-', '')
+    let reply
+    try {
+      reply = await $.mcp.call('ciel-runtime-router', 'work_priority_command', {
+        session_id:await sessionId($), command:name, payload:{ ...input, operation_id:operationId },
+        _host:{ ...await hostCredential($), internal:true } })
+    } finally { await refresh($) }
+    const said = routerText(reply)
+    if (!reply || reply.isError) return { deny:name + ': ' + (clipped(said, 600) || 'priority host unavailable') }
+    void parallelPump($, 'p0-priority').catch(() => {})
+    return { result:said }
   }
   try { return await next(input) } finally { if (name) await refresh($) }
 }
@@ -1807,10 +1839,10 @@ function parallelStatusText(state, scope) {
   const boost = state?.wait_boost
   if (boost && typeof boost === 'object') lines.push('RELEASED WAITS: ' + (boost.eligible
       ? (boost.behavior === 'parked_first_eligible'
-        ? 'parked worker on ' + clipped(boost.item_id || '', 40) + ' is first eligible; its ' + clipped(boost.priority || '', 4)
+        ? 'parked worker on ' + clipped(boost.title || boost.item_id || '', 80) + ' is first eligible; its ' + clipped(boost.priority || '', 4)
           + ' slot stays free until main resumes it with SendMessage'
-        : boost.behavior === 'consuming' ? clipped(boost.item_id || '', 40) + ' is being consumed'
-        : clipped(boost.item_id || '', 40) + ' runs at the next free slot of its own priority')
+        : boost.behavior === 'consuming' ? clipped(boost.title || boost.item_id || '', 80) + ' is being consumed'
+        : clipped(boost.title || boost.item_id || '', 80) + ' runs at the next free slot of its own priority')
       : boost.reason === 'unavailable' ? 'state unreadable; ordinary order applies' : 'none')
       + ' · after P0, before ordinary P1-P5 · never preempts running work, changes stored priority or grants approval')
   if (forkGateState.ok === false)
@@ -2224,7 +2256,7 @@ async function parallelToolCall($, e, next) {
       return resumed
     }
   }
-  if (next.origin?.plugin === 'ciel-work' && (name.startsWith('work_parallel_') || name === 'work_side_intake' || name === 'work_side_settings' || name === 'work_live_settings' || name === 'work_discovery_pickup')) return next(e)
+  if (next.origin?.plugin === 'ciel-work' && (name.startsWith('work_parallel_') || name === 'work_priority_command' || name === 'work_side_intake' || name === 'work_side_settings' || name === 'work_live_settings' || name === 'work_discovery_pickup')) return next(e)
   if (name === 'work_node_update' && e.status === 'done') {
     try {
       const s = await hostStatus($)
@@ -2319,6 +2351,65 @@ async function parallelToolCall($, e, next) {
     return { result: JSON.stringify(state) }
   } catch (error) { return { deny: String(error.message || error) } }
 }
+async function parallelP0Spawn($) {
+  // P0 is a separate first lane. Its durable intent/assignment bypasses enabled,
+  // paused, approval, per-priority capacity and launch-rate gates in the backend;
+  // MAX_LEASES and duplicate-execution fences remain. The backend's deterministic
+  // dispatch_name is the native spawn name, so ciel-work-gate can choose P0's
+  // model before the fork's first request.
+  if (!await forkGatePresent($)) return { dispatch:'fork_gate_missing' }
+  const scope = await sessionId($)
+  const repo = await $.session.repo()
+  let reserved
+  try {
+    reserved = await parallelEvent($, { event:'p0_reserve_next', role:'worker' },
+      await hostProcess($, { fork:true, workspace_repo:repo ? await $.session.root() : undefined }))
+  } catch (error) {
+    if (/no eligible candidate|lease bound reached/.test(String(error?.message || error))) return null
+    throw error
+  }
+  const key = reserved.dispatch_name
+  if (typeof key !== 'string' || !key) throw new Error('P0 reservation omitted its dispatch name')
+  const assignment = await parallelEvent($, { event:'p0_launch_assignment', intent_id:reserved.intent_id,
+    lease_id:reserved.lease_id, dispatch_name:key }, { internal:true })
+  const request = { scope, role:'worker', auto:true, ...reserved, ...assignment }
+  parallelPending.set(key, request)
+  const label = parallelItemLabel(request)
+  const prompt = 'Execute exactly this P0 Work assignment immediately. Native fork context and permissions are inherited; '
+    + 'the configured P0 fork model is applied by the request gate. '
+    + 'Report a question or result only through work_parallel_report using the exact worker_token. '
+    + 'Do not configure policy or accept your result. Assignment JSON:\n' + parallelAssignment(request)
+  await parallelEvent($, { event:'p0_launch_spawning', intent_id:request.intent_id,
+    lease_id:request.lease_id, dispatch_name:key }, { internal:true })
+  let spawned
+  try {
+    spawned = await $.agent.spawn({ subagentType:'fork', name:key, description:'Work ' + label,
+      cwd:request.workspace?.path || undefined, prompt })
+  } catch (error) { spawned = { deny:String(error?.message || error) } }
+  if (spawned?.deny) {
+    try { await parallelEvent($, { event:'p0_launch_denied', intent_id:request.intent_id,
+      lease_id:request.lease_id, dispatch_name:key }, { internal:true,
+      proof:'native spawn denied before launch: ' + clipped(spawned.deny, 300) }) }
+    finally { parallelPending.delete(key) }
+    rememberParallelFailure('p0-native-spawn', spawned.deny)
+    return { dispatch:'spawn_denied', item_id:request.item_id }
+  }
+  // A missing id is an unknown launch outcome: keep the durable spawning intent;
+  // startup exact-name reconciliation owns it. Never release and retry blindly.
+  if (!spawned?.agentId) { parallelPending.delete(key); return { dispatch:'launch_unknown', item_id:request.item_id } }
+  ownParallelAgent(spawned.agentId)
+  noteProcessAgents([spawned.agentId])
+  try {
+    await parallelEvent($, { event:'bind', lease_id:request.lease_id },
+      { host_id:spawned.agentId, agent_name:key })
+  } finally { parallelPending.delete(key) }
+  request.host_id = spawned.agentId
+  parallelBound.set(spawned.agentId, { lease_id:request.lease_id, scope, role:'worker' })
+  scheduleNativeObservation($)
+  return { dispatch:'started', item_id:request.item_id, lease_id:request.lease_id,
+    agent_id:spawned.agentId, name:key }
+}
+
 async function parallelDirectSpawn($, key, request) {
   // The mod, not the model, performs the native spawn: the model never has to
   // copy the pending Agent name, so the omission failure cannot occur. The
@@ -3192,8 +3283,24 @@ async function parallelPump($, trigger = 'host', resendTried = null, agents = nu
       await parallelSettleBoundRework($, state, tried)
       await rejectStaleReworkForks($, state, listed)
       if (lifecycle !== starts) return
-      // A stopped policy holds back every dispatch, not the reconcile of a
-      // replacement launch that was already started.
+      // P0 runs first and its backend intent explicitly bypasses disabled,
+      // paused, approval, priority capacity and launch-rate gates. It never
+      // preempts a running fork; it adds a fork up to the hard 100-lease bound.
+      // Drain all immediately eligible P0 roots before the ordinary policy lane.
+      for (let i = 0; i < 100; i++) {
+        if (lifecycle !== starts) return
+        let result
+        try { result = await parallelP0Spawn($) }
+        catch (error) {
+          const detail = String(error?.message || error)
+          if (!/no eligible candidate|lease bound reached/.test(detail)) rememberParallelFailure('p0-fill:' + trigger, detail)
+          break
+        }
+        if (!result || result.dispatch !== 'started') break
+      }
+      // A stopped policy holds back ordinary/rework dispatch, not P0 and not
+      // reconcile of a replacement launch that was already started.
+      state = await hostStatus($)
       const stopped = !state.policy.enabled || state.policy.paused
       await parallelStartRework($, state, !stopped, listed)
       if (stopped || lifecycle !== starts) return

@@ -43,7 +43,7 @@ function world(options = {}) {
         let value
         if (tool === 'work_parallel_status') {
           const leases = w.leaseSequence ? (w.leaseSequence.shift() ?? w.leases) : w.leases
-          value = { version: 7, leases }
+          value = { version: 7, leases, ...(options.forkModels ? { fork_models: options.forkModels } : {}) }
         } else if (tool === 'work_status') value = w.board
         else return { isError: true, content: [{ type: 'text', text: 'unexpected tool ' + tool }] }
         if (w.paged) {
@@ -321,6 +321,76 @@ await scenario('catch_handlers', async () => {
   const checkMain = await gate.catches['tool.check'](w.$, { tool: 'Bash' }, n4)
   return { forFork: forFork?.deny ?? null, forOtherNext: n2.called, checkFork, checkMainNext: n4.called,
     spawnCatch: typeof gate.catches['agent.spawn'] === 'function' }
+})
+
+
+// Per-priority fork models (turn.step): the model is named on every request of
+// a ciel-work fork, the first one included; main and other agents are untouched.
+async function step(gate, w, e) {
+  const seen = []
+  const next = value => {
+    seen.push(value)
+    return (async function* () { return { ok: true } })()
+  }
+  const stream = gate.hooks['turn.step'](w.$, e, next)
+  for await (const _chunk of stream) { /* drain */ }
+  return seen[0] ?? null
+}
+const MODELS = { provider: 'p', models: { P0: 'model-p0', P1: null, P2: 'model-p2', P3: null, P4: null, P5: null, side: 'model-side' },
+  upstream: { P0: 'up-p0', P1: null, P2: 'up-p2', P3: null, P4: null, P5: null, side: 'up-side' }, status: {} }
+const ALIAS_MAIN = 'ciel-runtime-p-main'
+await scenario('fork_model_by_host_id', async () => {
+  const gate = await load()
+  const w = world({ rows: [workRow('f1')], leases: runningLease('f1', { priority: 'P2' }), forkModels: MODELS })
+  const first = await step(gate, w, { agentId: 'f1', index: 0, model: ALIAS_MAIN, messages: [] })
+  const second = await step(gate, w, { agentId: 'f1', index: 1, model: ALIAS_MAIN, messages: [] })
+  return { first: first?.model, second: second?.model, statusReads: routerCalls(w).filter(t => t === 'work_parallel_status').length }
+})
+await scenario('fork_model_pre_bind_by_dispatch_name', async () => {
+  const gate = await load()
+  const leases = { 'lease-9': { id: 'lease-9', state: 'assigned', host_id: null, dispatch_name: 'work-mb1q2r3s-abcd12', priority: 'P1', effective_priority: 'P0' } }
+  const w = world({ rows: [workRow('f2')], leases, forkModels: MODELS })
+  const first = await step(gate, w, { agentId: 'f2', index: 0, model: ALIAS_MAIN })
+  return { first: first?.model }
+})
+await scenario('fork_model_unknown_lease_not_cached', async () => {
+  const gate = await load()
+  const w = world({ rows: [workRow('f3', 'work-zzzzzz-yyyy')], leaseSequence: [{}], leases: runningLease('f3', { priority: 'P2' }), forkModels: MODELS })
+  const first = await step(gate, w, { agentId: 'f3', index: 0, model: ALIAS_MAIN })
+  const second = await step(gate, w, { agentId: 'f3', index: 1, model: ALIAS_MAIN })
+  return { first: first?.model, second: second?.model }
+})
+await scenario('fork_model_side', async () => {
+  const gate = await load()
+  const w = world({ rows: [{ id: 's9', type: 'fork', status: 'running', spawnedBy: 'ciel-work', description: 'Side SSE 0123456789ab' }], forkModels: MODELS })
+  const first = await step(gate, w, { agentId: 's9', index: 0, model: ALIAS_MAIN })
+  return { first: first?.model }
+})
+await scenario('fork_model_inherit_and_others', async () => {
+  const gate = await load()
+  const w = world({ rows: [workRow('f4'), { id: 'u1', type: 'general-purpose', status: 'running', description: 'mine' }],
+    leases: runningLease('f4', { priority: 'P3' }), forkModels: MODELS })
+  const inherit = await step(gate, w, { agentId: 'f4', index: 0, model: ALIAS_MAIN })
+  const main = await step(gate, w, { index: 0, model: ALIAS_MAIN })
+  const user = await step(gate, w, { agentId: 'u1', index: 0, model: ALIAS_MAIN })
+  const noModels = world({ rows: [workRow('f5')], leases: runningLease('f5', { priority: 'P2' }) })
+  const absent = await step(gate, noModels, { agentId: 'f5', index: 0, model: ALIAS_MAIN })
+  return { inherit: inherit?.model, main: main?.model, user: user?.model, absent: absent?.model,
+    mainRouterCalls: 0 }
+})
+await scenario('fork_model_router_failure_keeps_model', async () => {
+  const gate = await load()
+  const w = world({ rows: [workRow('f6')], routerFails: true, forkModels: MODELS })
+  const first = await step(gate, w, { agentId: 'f6', index: 0, model: ALIAS_MAIN })
+  return { first: first?.model, logged: w.logs.some(l => l.text.includes('fork-model-unreadable')),
+    leaked: w.logs.some(l => l.text.includes('secret-ish')) }
+})
+
+await scenario('fork_model_direct_path_uses_upstream_id', async () => {
+  const gate = await load()
+  const w = world({ rows: [workRow('f7')], leases: runningLease('f7', { priority: 'P2' }), forkModels: MODELS })
+  const first = await step(gate, w, { agentId: 'f7', index: 0, model: 'upstream-main' })
+  return { first: first?.model }
 })
 
 console.log(JSON.stringify(out))

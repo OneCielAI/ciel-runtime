@@ -81,9 +81,21 @@ def isolate_runtime_state() -> tempfile.TemporaryDirectory[str]:
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("group", choices=GROUPS)
+    parser.add_argument("--shard", help="deterministic one-based shard I/N (for example 2/3)")
+    parser.add_argument("--exclude", action="append", default=[], help="exclude an exact test filename")
     parser.add_argument("--list", action="store_true")
     args = parser.parse_args()
-    files = files_for(args.group)
+    files = [path for path in files_for(args.group) if path.name not in set(args.exclude)]
+    shard_label = ""
+    if args.shard:
+        try:
+            part, total = (int(value) for value in args.shard.split("/", 1))
+        except (ValueError, TypeError):
+            parser.error("--shard must be I/N")
+        if total < 1 or part < 1 or part > total:
+            parser.error("--shard requires 1 <= I <= N")
+        files = [path for index, path in enumerate(files) if index % total == part - 1]
+        shard_label = f" shard {part}/{total}"
     if args.list:
         print("\n".join(path.name for path in files))
         return 0
@@ -92,7 +104,7 @@ def main() -> int:
     loader = unittest.defaultTestLoader
     for path in files:
         suite.addTests(loader.discover(str(TEST_DIR), pattern=path.name))
-    print(f"Running {args.group} test group ({len(files)} files)", flush=True)
+    print(f"Running {args.group} test group{shard_label} ({len(files)} files)", flush=True)
     try:
         return 0 if unittest.TextTestRunner(verbosity=1).run(suite).wasSuccessful() else 1
     finally:

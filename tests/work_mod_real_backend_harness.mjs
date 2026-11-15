@@ -2349,6 +2349,25 @@ try {
     out.lease = seeded.lease_id
   }
 
+  if (scenario === 'p0-immediate-paused') {
+    // An existing canonical P1 root becomes effective P0 through the host-only
+    // priority command. The pump launches it while policy is disabled+paused,
+    // before any ordinary reserve_next attempt, under the backend dispatch name.
+    await start('process')
+    const seeded = await rpc('seed_leaf', { title:'P0 immediate' })
+    await rpc('policy', { changes:{ enabled:false, paused:true } })
+    const before = calls.length
+    const next = engine({ ok:true })
+    out.priority = await hooks['tool.call']($, { tool:'mcp__ciel-runtime-router__work_node_update',
+      tool_use_id:'p0-priority', id:seeded.root_id, priority:'P0', expected_version:(await rpc('p0_view')).board.version }, next)
+    await quiet()
+    out.p0 = await rpc('p0_view')
+    out.backend = await rpc('inspect')
+    out.events = calls.slice(before).map(c => c.event || c.tool)
+    out.spawns = [...native.spawns]
+    out.prompt = native.spawnPrompts.get(native.spawns[0]) || ''
+  }
+
   if (scenario === 'wake-busy') {
     // Main is mid-turn when the worker's completion lands.
     await start('process', { busy: true })

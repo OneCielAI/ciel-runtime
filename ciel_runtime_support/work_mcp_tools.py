@@ -35,6 +35,17 @@ _PRIORITY = {
     "enum": ["", *tree.PRIORITIES],
     "description": "Queue priority for a goal (root item only): P1 first, then P2..P5; empty keeps the existing unranked order. Does not change the active goal or running workers.",
 }
+_ROOT_PRIORITY = {
+    "type": "string",
+    "enum": ["P0", "", *tree.PRIORITIES],
+    "description": ("Effective root priority. P0 immediately adds a Work fork and bypasses enabled, paused, "
+                    "approval, per-priority capacity and launch-rate gates. In this mixed-version beta P0 can be "
+                    "set only on an existing root; create at P1-P5, then update that root to P0."),
+}
+_PRIORITY_OPERATION_ID = {
+    "type": "string", "pattern": "^[0-9a-f]{32}$",
+    "description": "Optional exact replay id for a root priority operation; omit to mint one for this call.",
+}
 _EXPECTED_VERSION = {
     "type": "integer",
     "minimum": 0,
@@ -48,6 +59,10 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
     schemas = [
         {"name": "work_live_settings", "description": "Host-only Work slash settings, applied live.",
          "inputSchema": {"type": "object", "properties": {"key": {"type": "string"}, "value": {"type": "string"}}}},
+        {"name": "work_priority_command", "description": "Host-only existing-root P0 priority mutation.",
+         "inputSchema": {"type": "object", "properties": {
+             "command": {"type": "string", "enum": ["work_plan_set", "work_node_update"]},
+             "payload": {"type": "object"}}, "required": ["command", "payload"]}},
         {"name": "work_side_settings", "description": "Host-only live side-intake settings; default disabled, selected type btw_with_mcp.",
          "inputSchema": {"type": "object", "properties": {"enabled": {"type": "boolean"}}}},
         {"name": "work_side_status", "description": "Coordinator-only read of durable side inbox receipts, independent of Work mode.",
@@ -88,7 +103,8 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
                     "note": {"type": "string"},
                     "ref": _NODE_SPEC["properties"]["ref"],
                     "waiting_on": _NODE_SPEC["properties"]["waiting_on"],
-                    "priority": _PRIORITY,
+                    "priority": _ROOT_PRIORITY,
+                    "operation_id": _PRIORITY_OPERATION_ID,
                     "children": {"type": "array", "items": _NODE_SPEC},
                     "root_id": {"type": "string", "description": "Replace the plan of this existing goal."},
                     "expected_version": _EXPECTED_VERSION,
@@ -145,7 +161,8 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
                     "progress": {"type": "string", "description": "Phase-preserving implementation, CI, review or cleanup progress; not approved scope."},
                     "ref": _NODE_SPEC["properties"]["ref"],
                     "waiting_on": _NODE_SPEC["properties"]["waiting_on"],
-                    "priority": _PRIORITY,
+                    "priority": _ROOT_PRIORITY,
+                    "operation_id": _PRIORITY_OPERATION_ID,
                     "evidence": {"type": "string"},
                     "expected_version": _EXPECTED_VERSION,
                 },
@@ -352,6 +369,70 @@ def dispatch_work_tool(
             identity = args.get("session_id")
             if not isinstance(identity, str) or not identity.startswith("claude:"):
                 raise tree.WorkPlanError("conversation identity is unavailable; no shared Work fallback is allowed")
+        if name == "work_priority_command":
+            from .work_parallel_mcp import host_context, ledger
+            from .work_priority_service import mutate_existing_priority
+            import hashlib
+            import secrets
+            host, _ = host_context(args, config)
+            if host.get("internal") is not True or host.get("agent_id") is not None:
+                raise tree.WorkPlanError("verified coordinator priority host required")
+            command = args.get("command")
+            payload = args.get("payload")
+            if command not in ("work_plan_set", "work_node_update") or not isinstance(payload, dict):
+                raise tree.WorkPlanError("invalid priority command")
+            target = payload.get("priority")
+            root_id = str(payload.get("root_id") if command == "work_plan_set" else payload.get("id") or "")
+            if target not in ("P0", "", *tree.PRIORITIES):
+                raise tree.WorkPlanError("priority must be one of P0, P1, P2, P3, P4, P5")
+            if command == "work_plan_set" and target == "P0" and not root_id:
+                from .work_priority_service import create_p0_root
+                create_p0_root()
+            operation_id = payload.get("operation_id") or secrets.token_hex(16)
+            if not isinstance(operation_id, str) or len(operation_id) != 32 or any(c not in "0123456789abcdef" for c in operation_id):
+                raise tree.WorkPlanError("operation_id must be lowercase hex32")
+            scoped = store or session_work_plan_store(state_dir, identity, log=log)
+            expected = _expected_version(payload)
+            if expected is None:
+                expected = scoped.read()["version"]
+            clean = {key: value for key, value in payload.items()
+                     if key not in ("priority", "operation_id", "expected_version")}
+            manifest = hashlib.sha256(json.dumps(
+                {"command": command, "payload": clean}, sort_keys=True, ensure_ascii=False,
+                separators=(",", ":")).encode("utf-8")).hexdigest()
+            if command == "work_plan_set":
+                spec = {"title": clean.get("goal"), "note": clean.get("note", ""),
+                        "children": clean.get("children") or []}
+                spec.update({key: clean[key] for key in ("ref", "waiting_on") if key in clean})
+                def mutate(document):
+                    return tree.set_plan(document, spec, root_id)
+                def satisfied(document):
+                    import copy
+                    probe = copy.deepcopy(document)
+                    before = copy.deepcopy(probe)
+                    tree.set_plan(probe, spec, root_id)
+                    tree.update_node(probe, root_id, priority="P1" if target == "P0" else target)
+                    return probe == before
+            else:
+                mutable = {"status", "title", "note", "progress", "evidence", "ref", "waiting_on"}
+                supplied = {key: clean[key] for key in mutable if key in clean and clean[key] is not None}
+                def mutate(document):
+                    return tree.update_node(document, root_id, **supplied)
+                def satisfied(document):
+                    node = next((row for row in document.get("nodes", []) if row.get("id") == root_id), None)
+                    return (node is not None and all(node.get(key, "") == value for key, value in supplied.items())
+                            and node.get("priority", "") == ("P1" if target == "P0" else target))
+            result = mutate_existing_priority(
+                scoped, ledger(), identity, root_id, target,
+                expected_board_version=expected, external_operation_id=operation_id,
+                manifest_digest=manifest, mutate=mutate, satisfied=satisfied, set_by="user")
+            ref = hashlib.sha256(("ciel.priority-ref.v1\0" + operation_id).encode()).hexdigest()[:16]
+            root = result["root"]
+            return respond(request_id, json.dumps({
+                "root_id": root["id"], "canonical_priority": result["canonical_priority"],
+                "effective_priority": result["effective_priority"], "version": result["version"],
+                "priority_operation_ref": ref, "replayed": result["replayed"],
+                "dispatch": "immediate"}, ensure_ascii=False))
         if name not in ('work_side_status', 'work_side_settings', 'work_side_intake', 'work_side_drain'):
             scoped = session_work_plan_store(state_dir, identity, log=log)
             store = store or scoped
@@ -434,7 +515,12 @@ def dispatch_work_tool(
         if name.startswith("work_parallel_") or name == "work_discovery_pickup":
             from .work_parallel_mcp import run
             return respond(request_id, run(name, args, store, identity, config, save_config))
-        output = _run(name, args, store, approval_ask, auto_continue=work_auto_continue_enabled(config), retention=retention_status(config), config=config, log=log)
+        try:
+            output = _run(name, args, store, approval_ask, auto_continue=work_auto_continue_enabled(config), retention=retention_status(config), config=config, log=log)
+        except ValueError as error:
+            # Priority/P0 services use the parallel domain's ValueError base;
+            # model-facing Work tools expose the same bounded error contract.
+            raise tree.WorkPlanError(str(error)) from None
         if name == 'work_status' and args.get('format') == 'json' and not args.get('root_id'):
             from .side_intake_inbox import SideIntakeInbox
             state = json.loads(output)
@@ -536,6 +622,11 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         spec = {"title": args.get("goal"), "note": args.get("note", ""), "children": args.get("children") or []}
         spec.update({key: args[key] for key in ("ref", "waiting_on", "priority") if key in args})
         root_id = args.get("root_id")
+        if args.get("priority") == "P0":
+            if not root_id:
+                from .work_priority_service import create_p0_root
+                create_p0_root()
+            raise tree.WorkPlanError("P0 existing-root priority is applied by the authenticated Work host")
         doc, root = store.transaction(
             lambda d: tree.set_plan(d, spec, str(root_id) if root_id else None), expected_version=expected
         )
@@ -575,6 +666,10 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         if existing is None:
             raise tree.WorkPlanError(f'unknown Work item: {node_id}')
         supplied = {key: args[key] for key in mutable if key in args and args[key] is not None}
+        if args.get("priority") == "P0":
+            if existing.get("parent_id") is not None:
+                raise tree.WorkPlanError("priority belongs to a goal, not a detail item")
+            raise tree.WorkPlanError("P0 existing-root priority is applied by the authenticated Work host")
         replayed = all(existing.get(key, '') == value for key, value in supplied.items())
         if replayed and expected != current['version']:
             doc, node, before, version_before = current, existing, current.get('active_root'), current['version']

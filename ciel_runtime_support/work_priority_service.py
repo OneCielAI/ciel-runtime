@@ -1,6 +1,7 @@
 """One production service for Work root priority across board and P0 sidecar."""
 from __future__ import annotations
 
+import copy
 import hashlib
 
 from . import work_plan_tree as tree
@@ -23,10 +24,14 @@ def _operation_id(external_id, scope):
         "ciel.p0.priority-operation-id.v1", scope, external_id)).hexdigest()
 
 
-def _operation_digest(external_id, scope, root_id, root_created_at, target, set_by):
-    return hashlib.sha256(_frame(
-        "ciel.p0.priority-operation.v1", external_id, scope, root_id,
-        repr(float(root_created_at)), target, set_by)).hexdigest()
+def _operation_digest(external_id, scope, root_id, root_created_at, target, set_by, manifest_digest=""):
+    values = ["ciel.p0.priority-operation.v1", external_id, scope, root_id,
+              repr(float(root_created_at)), target, set_by]
+    # Preserve the deployed digest byte-for-byte for the original priority-only
+    # API; combined commands append their full board-manifest digest.
+    if manifest_digest:
+        values.append(manifest_digest)
+    return hashlib.sha256(_frame(*values)).hexdigest()
 
 
 def _root(board, root_id):
@@ -98,8 +103,85 @@ def recover(board_store, ledger_store, scope):
     return operations
 
 
+def mutate_existing_priority(board_store, ledger_store, scope, root_id, target, *,
+                             expected_board_version, external_operation_id, mutate, satisfied,
+                             manifest_digest="", set_by="user"):
+    """Apply one existing-root command plus priority with a recoverable marker.
+
+    The marker/op is durable first. The board has not committed unless its one
+    CAS succeeds; that CAS applies all non-priority fields and canonical priority
+    together. Exact replay rolls a prepared operation forward, then returns the
+    current root without repeating the other fields.
+    """
+    require(target in ("P0", "", "P1", "P2", "P3", "P4", "P5"), "priority")
+    require(callable(mutate) and callable(satisfied), "priority mutation")
+    board = board_store.read()
+    root = _root(board, root_id)
+    side = p0_store(ledger_store)
+    op_id = _operation_id(external_operation_id, scope)
+    request_digest = _operation_digest(
+        external_operation_id, scope, root_id, root["created_at"], target, set_by,
+        manifest_digest)
+    expected_target = "P1" if target == "P0" else target
+    prior = side.read()["clears"].get(op_id)
+    if prior is not None:
+        require(prior["scope"] == scope and prior["root_id"] == root_id
+                and prior["root_created_at"] == root["created_at"]
+                and prior["target_priority"] == expected_target
+                and prior["set_by"] == set_by
+                and prior["operation_digest"] == request_digest,
+                "priority operation id was already used for a different request")
+        side.roll_forward_priority(op_id, board_store)
+        current = board_store.read()
+        result = _root(current, root_id)
+        require(satisfied(current), "priority operation board payload changed after an unknown outcome")
+        return {"root": result, "effective_priority": side.effective_priority(scope, result),
+                "canonical_priority": result.get("priority", ""),
+                "version": board_store.read()["version"], "operation_id": op_id,
+                "replayed": True}
+    require(board["version"] == expected_board_version, "the plan changed; refetch and retry")
+    effective = side.effective_priority(scope, root, root.get("priority", ""))
+    if target == "P0":
+        _, operation = side.prepare_set(
+            scope, root_id, root["created_at"], board["version"], set_by=set_by,
+            expected_version=side.read()["version"], operation_id=op_id,
+            operation_digest=request_digest)
+    elif effective == "P0":
+        _, operation = side.prepare_clear(
+            scope, root_id, root["created_at"], target, board["version"],
+            expected_version=side.read()["version"], clear_id=op_id, set_by=set_by,
+            operation_digest=request_digest)
+    else:
+        operation = None
+    def apply(document):
+        result = mutate(document)
+        tree.update_node(document, root_id, priority=expected_target)
+        return result
+    document, value = board_store.transaction(apply, expected_version=board["version"])
+    if operation is not None:
+        # Board CAS already committed the target. Mark the prepared operation
+        # forward without applying a second semantic board write.
+        state = side.read()
+        _, operation = side.mark_clear(operation["clear_id"], "board_committed",
+                                       expected_version=state["version"])
+        state = side.read()
+        side.mark_clear(operation["clear_id"], "done", expected_version=state["version"])
+        side.prune_done(expected_version=side.read()["version"])
+    result = _root(document, root_id)
+    return {"root": copy.deepcopy(result), "value": value,
+            "effective_priority": side.effective_priority(scope, result),
+            "canonical_priority": result.get("priority", ""),
+            "version": document["version"], "operation_id": op_id, "replayed": False}
+
+
 def create_p0_root(*_args, **_kwargs):
-    """Current MCP create APIs cannot premint root identity and operation id."""
+    """New-root P0 stays fail-closed in this mixed-version beta.
+
+    An existing root can be activated immediately through ``set_root_priority``
+    or ``mutate_existing_priority``. A caller creates a new goal canonically at
+    P1 first, then activates that returned identity as P0.
+    """
     raise WorkParallelError(
-        "P0 root creation requires a pre-minted root id/created_at and idempotency key; "
-        "the current Work create API cannot carry that identity")
+        "p0_new_root_unsupported_mixed_version: New P0 goal creation is unavailable in this beta because "
+        "concurrent older Work writers cannot be safely excluded. Create the goal at P1-P5, then use "
+        "supported existing-root P0 activation.")

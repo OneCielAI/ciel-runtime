@@ -285,6 +285,43 @@ class WorkHttpTests(unittest.TestCase):
         self.assertEqual(200, command("node-update", "progress-a", id=ids["a"], progress="tests passed")[0])
         self.assertEqual("tests passed", next(n for n in self.request()[1]["nodes"] if n["id"] == ids["a"])["progress"])
 
+    def test_v1_existing_root_p0_uses_sidecar_and_returns_exact_mutation_receipt(self):
+        from dataclasses import replace
+        from ciel_runtime_support.work_parallel import WorkParallelStore
+        parallel = WorkParallelStore(Path(self.temp.name) / "parallel.json")
+        self.controller.services = replace(self.controller.services, parallel_store=lambda: parallel)
+        status, created = self.request("/ca/work/api/v1/commands/plan-set", {
+            "expected_version": 0, "goal": "P0 goal", "children": [{"title": "step"}]},
+            {"Idempotency-Key": "create"})
+        self.assertEqual(200, status, created)
+        version = self.request()[1]["version"]
+        status, result = self.request("/ca/work/api/v1/commands/node-update", {
+            "expected_version": version, "id": "n1", "priority": "P0"},
+            {"Idempotency-Key": "priority-op"})
+        self.assertEqual(200, status, result)
+        self.assertEqual("priority-op", result["priority_operation_id"])
+        self.assertRegex(result["priority_operation_ref"], r"^[0-9a-f]{16}$")
+        self.assertEqual(("P1", "P0"),
+                         (result["result"]["canonical_priority"], result["result"]["effective_priority"]))
+        board = self.request()[1]
+        root = next(node for node in board["nodes"] if node["id"] == "n1")
+        self.assertEqual(("P1", "P0"), (root["priority"], root["effective_priority"]))
+        self.assertNotIn("priority_operation_id", json.dumps(board))
+
+    def test_v1_new_root_p0_is_refused_before_any_write(self):
+        from dataclasses import replace
+        from ciel_runtime_support.work_parallel import WorkParallelStore
+        parallel = WorkParallelStore(Path(self.temp.name) / "parallel.json")
+        self.controller.services = replace(self.controller.services, parallel_store=lambda: parallel)
+        before = parallel.read()
+        status, result = self.request("/ca/work/api/v1/commands/plan-set", {
+            "expected_version": 0, "goal": "unsupported", "priority": "P0"},
+            {"Idempotency-Key": "new-p0"})
+        self.assertEqual(422, status, result)
+        self.assertIn("p0_new_root_unsupported_mixed_version", result["message"])
+        self.assertEqual([], self.request()[1]["nodes"])
+        self.assertEqual(before, parallel.read())
+
     def test_v1_commands_match_mcp_tree_results(self):
         from ciel_runtime_support import work_mcp_tools
         mcp_state = Path(self.temp.name) / "mcp-state"

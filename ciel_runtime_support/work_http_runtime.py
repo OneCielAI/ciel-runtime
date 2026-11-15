@@ -60,7 +60,7 @@ def build_work_http(state_dir, instance_dir, load_config, current_provider, curr
     def parallel_status(identity, board):
         # REST is an authenticated host/operator view. It includes bounded ended
         # audit rows that a model's own work_parallel_status never receives.
-        return project_parallel(parallel_store(), identity, board, host_view=True)
+        return project_parallel(parallel_store(), identity, board, host_view=True, config=load_config())
 
     api = WorkHttpController(WorkHttpServices(state_dir, load_config, current_identity,
         runtime_status, write_json, instance_id, recent_errors, parallel_status,

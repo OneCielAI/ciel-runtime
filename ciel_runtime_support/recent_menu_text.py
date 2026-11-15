@@ -4,6 +4,13 @@ from .ui_text import UI_TEXT
 # Each row is English, Korean, Japanese, Chinese; keys are option identities.
 TEXT = {
     "sse_injection_mode": ("SSE injection", "SSE 주입 방식", "SSE 注入方式", "SSE 注入方式"),
+    "work_parallel_model_p0": ("P0 Work fork model", "P0 Work 포크 모델", "P0 Work フォークモデル", "P0 Work 分支模型"),
+    "work_parallel_model_p1": ("P1 Work fork model", "P1 Work 포크 모델", "P1 Work フォークモデル", "P1 Work 分支模型"),
+    "work_parallel_model_p2": ("P2 Work fork model", "P2 Work 포크 모델", "P2 Work フォークモデル", "P2 Work 分支模型"),
+    "work_parallel_model_p3": ("P3 Work fork model", "P3 Work 포크 모델", "P3 Work フォークモデル", "P3 Work 分支模型"),
+    "work_parallel_model_p4": ("P4 Work fork model", "P4 Work 포크 모델", "P4 Work フォークモデル", "P4 Work 分支模型"),
+    "work_parallel_model_p5": ("P5 Work fork model", "P5 Work 포크 모델", "P5 Work フォークモデル", "P5 Work 分支模型"),
+    "work_side_intake_model": ("SSE side fork model", "SSE 사이드 포크 모델", "SSE サイドフォークモデル", "SSE 侧边分支模型"),
     "settings_edit_text": ("Edit text…", "텍스트 편집…", "テキストを編集…", "编辑文本…"),
     "state_back": ("Back", "뒤로", "戻る", "返回"),
     "work_settings_menu": ("Work & SSE settings", "Work · SSE 설정", "Work・SSE 設定", "Work · SSE 设置"),

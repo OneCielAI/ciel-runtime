@@ -1,0 +1,35 @@
+---
+type: implementation-record
+title: Priority fork models and immediate P0 implementation
+description: Implemented per-priority fork models, side-fork model, existing-root P0 immediate launch, four surfaces and CI deduplication.
+timestamp: 2026-11-15T04:01:38Z
+tags: [work, p0, models, side, ci, beta]
+---
+
+# Requirement restored
+
+This implementation supersedes the earlier NO-GO and disabled-model conclusion in this bundle. The measured Claude Code mod API supports a streaming `turn.step` hook with `e.agentId`; a separate `ciel-work-gate` plugin sees ciel-work-owned forks and can rewrite each fork request's `model` before the first request leaves.
+
+# Implemented
+
+- `work_parallel_models[current_provider]` stores independent `P0` through `P5` and `side` model ids. Missing/unavailable values inherit main.
+- The shared Work settings projection exposes seven enum rows to the initial menu, web Settings, REST/MCP and `ciel-runtimectl work`.
+- The gate resolves router aliases and direct-gateway upstream ids, identifies Work forks by bound host or pre-bind `dispatch_name`, and applies the selected model from step zero. Main and user agents are untouched.
+- Existing-root `priority=P0` writes canonical P1 plus effective-P0 marker authority, then the pump drains P0 before ordinary work even when parallel execution is disabled/paused or plan approval is pending. The backend deterministic P0 dispatch name is used for native spawn.
+- New-root P0 remains the explicit mixed-version refusal: create at P1-P5, then activate the returned existing root as P0.
+- REST/web and `ciel-runtimectl work priority` route existing-root P0 through the same application boundary. Web board rows and parallel status show effective P0.
+- Released-wait projections now include the allowlisted item title and render it instead of only the id.
+- CI removes duplicated branch-push runs and publish-time `npm test`; release publication waits on sharded test, quality and Python-minimum jobs.
+
+# Evidence
+
+- `claude plugin validate ciel-work-gate`: passed after converting `turn.step` to the required async generator.
+- Gate harness: 28 passed.
+- Focused feature/settings/surface suite: 188 passed + 100 subtests in 46.52 s.
+- Immediate P0 real-backend mod scenario: 1 passed; spawn name `work-p0-<hex32>`, disabled+paused policy retained, assignment/spawning/bind observed.
+- Changed priority/model/wait paths: 21 passed in 6.11 s.
+- ciel-work plugin tests on local Claude Code 2.1.321: changed and HEAD baselines had identical pass/fail names (23 pass, 77 fail); this is an existing version/baseline failure set, not counted as a pass.
+
+# Verification still required before release
+
+Full isolated Windows groups, changed-module Linux container run, owned real Claude request capture (P2/P0/side from first request), menu/web screenshots, beta push, registry gitHead check and local installed-package rerun.

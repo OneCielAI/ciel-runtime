@@ -1,8 +1,9 @@
 name: CI
 
 on:
-  push:
-    branches: [main, nightly, beta]
+  # Main/nightly/beta are released by npm-publish.yml, whose own test matrix is
+  # the release gate. Keep this workflow for PRs and explicit diagnostics only;
+  # one branch push must never run the same four groups twice.
   pull_request:
   workflow_dispatch:
 
@@ -28,14 +29,38 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [unit, router, channel, runtime]
+        include:
+          - group: unit
+            shard: 1/3
+          - group: unit
+            shard: 2/3
+          - group: unit
+            shard: 3/3
+          - group: unit-real-backend
+            shard: ""
+          - group: router
+            shard: ""
+          - group: channel
+            shard: ""
+          - group: runtime
+            shard: ""
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - run: python -m pip install "pytest==9.1.1"
-      - run: python scripts/run_test_group.py ${{ matrix.group }}
+      - name: Run test group
+        shell: bash
+        run: |
+          if [[ "${{ matrix.group }}" == "unit-real-backend" ]]; then
+            python -m unittest -v tests/test_work_mod_real_backend.py
+          else
+            args=("${{ matrix.group }}")
+            if [[ -n "${{ matrix.shard }}" ]]; then args+=(--shard "${{ matrix.shard }}"); fi
+            if [[ "${{ matrix.group }}" == "unit" ]]; then args+=(--exclude test_work_mod_real_backend.py); fi
+            python scripts/run_test_group.py "${args[@]}"
+          fi
 
   python-minimum:
     runs-on: ubuntu-latest
@@ -46,6 +71,9 @@ jobs:
           python-version: "3.10"
       - run: python -m pip install "pytest==9.1.1"
       - run: python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
+      - name: Import smoke
+        run: python -c "import ciel_runtime; import ciel_runtime_support.work_mcp_tools; import ciel_runtime_support.work_parallel_mcp"
       - name: Verify PTY exit status on Linux
         run: python -m unittest -v tests/test_pty_exit_status_race.py
-      - run: python scripts/run_test_group.py unit
+      - name: Run one deterministic unit shard
+        run: python scripts/run_test_group.py unit --shard 1/3 --exclude test_work_mod_real_backend.py

@@ -39,14 +39,20 @@ class UnifiedSettingsTests(unittest.TestCase):
         self.assertIn('approves plans automatically', english)
         self.assertIn('does not mean “no approval”', english)
         side = description({}, 'work_side_intake_instruction')
-        self.assertIn('inherits the main model, context, tools and permissions', side)
+        self.assertIn('inherits the main context, tools and permissions and uses the SSE side fork model', side)
         self.assertIn('no-write/no-run/no-send limits are prompt policy', side)
         self.assertIn('네이티브 사이드 포크', description({'language': 'ko'}, 'work_side_intake_instruction'))
-        # The side model/context rows were retired with the native fork.
+        # The side context rows were retired with the native fork; the side
+        # model returned as its own setting (2026-11-14).
         from ciel_runtime_support.work_settings_menu import DESCRIPTIONS, NUMBER_RANGES, choices
-        for key in ('work_side_intake_model', 'work_side_intake_context_mode', 'work_side_intake_context_percent'):
+        for key in ('work_side_intake_context_mode', 'work_side_intake_context_percent'):
             self.assertNotIn(key, DESCRIPTIONS)
             self.assertNotIn(key, NUMBER_RANGES)
+        for key in (*(f'work_parallel_model_p{n}' for n in range(6)), 'work_side_intake_model'):
+            self.assertIn('inherit keeps the main model', DESCRIPTIONS[key][0])
+            self.assertEqual(4, len(DESCRIPTIONS[key]))
+        config = {'current_provider': 'p', 'providers': {'p': {'current_model': 'm-main', 'custom_models': ['m-two']}}}
+        self.assertEqual(('inherit', 'm-main', 'm-two'), tuple(choices(config, 'work_parallel_model_p0')[1][:3]))
         self.assertEqual(['__edit__', 'back'], choices({}, 'work_side_intake_context_mode')[1])
 
     def test_one_panel_one_side_option_and_explanations(self):

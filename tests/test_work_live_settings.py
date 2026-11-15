@@ -94,9 +94,15 @@ class LiveSettingsTests(unittest.TestCase):
             self.assertEqual(['number']*5,[rows[f'work_parallel_p{n}_limit']['kind'] for n in range(1,6)])
             self.assertEqual('text',rows['work_discovery_instruction']['kind'])
             self.assertEqual('json',rows['work_side_intake_reply_connectors']['kind'])
-            # Side events are native forks of main: no side model/context row.
-            self.assertFalse({'work_side_intake_model','work_side_intake_context_mode',
-                              'work_side_intake_context_percent'} & set(rows))
+            # Side events are native forks of main context; the retired side context rows stay gone.
+            self.assertFalse({'work_side_intake_context_mode','work_side_intake_context_percent'} & set(rows))
             self.assertFalse([row for row in rows.values() if row.get('kind') == 'model'])
-            self.assertIn('native fork inheriting the main model, context, tools and permissions',result['applies'])
+            # Per-priority and side fork models (2026-11-14): the current provider's cached models.
+            for key in (*(f'work_parallel_model_p{n}' for n in range(6)), 'work_side_intake_model'):
+                self.assertEqual(('enum', 'inherit', 'inherit'), (rows[key]['kind'], rows[key]['value'], rows[key]['status']))
+                self.assertEqual(['inherit', '_One', 'anthropic/claude-opus-5-5'], rows[key]['choices'])
+            # The retired work_side_intake.model never comes back as the side model.
+            self.assertEqual('inherit', rows['work_side_intake_model']['value'])
+            self.assertIn('native fork inheriting main context, tools and permissions',result['applies'])
+            self.assertIn('Work-fork and side-fork models apply from the next model request',result['applies'])
             self.assertEqual('cielairouter',result['provider'])

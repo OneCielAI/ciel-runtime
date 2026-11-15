@@ -34,7 +34,7 @@ READS = ("sessions", "reviews", "launches", "capacity", "receipts", "receipt", "
 WRITES = ("review-approve", "review-rework", "launch-resolve", "legacy-accept", "orphan-release",
           "wake-retry", "reappend-retry", "review-reappend-retry", "notice-retry", "reply-retry",
           "side-review-ok", "side-review-corrected", "handoff-ack", "side-drain",
-          "operation-reconcile", "operation-release", "execute")
+          "operation-reconcile", "operation-release", "execute", "priority")
 ACTIONS = READS + WRITES
 
 # The exact danger texts the web console shows before the same commands.
@@ -430,6 +430,16 @@ class WorkCtl:
                 raise CtlError(CONFIRM_TEXT[kind].format(**fields) + " Re-run with --confirm.",
                                code="confirmation_required", exit_code=EXIT_CONFIRM, payload={"would": preview})
 
+        if action == "priority":
+            if not target or value not in ("P0", "", "P1", "P2", "P3", "P4", "P5"):
+                raise CtlError("work priority ROOT P0|P1|P2|P3|P4|P5 --session S --expected-version N")
+            if args.expected_version is None:
+                raise CtlError("priority requires --expected-version from work board --json")
+            body = {"id": target, "priority": value, "expected_version": args.expected_version,
+                    "operation_id": op or uuid.uuid4().hex}
+            # The same REST application command used by web; the exact operation
+            # id is retained only in this authenticated mutation receipt.
+            return self.post(session, "node-update", body, body["operation_id"])
         if action in ("review-approve", "review-rework", "launch-resolve"):
             view = self.get(session, "/ca/work/api/v1/parallel")
             row = self._one(view.get("parallel_reviews") or [], "lease_id", target, "pending review")

@@ -16,6 +16,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 GATE_DIR = ROOT / "ciel_runtime_support" / "claude_mods" / "ciel-work-gate"
 HARNESS = Path(__file__).resolve().parent / "work_fork_gate_harness.mjs"
+ALIAS_MAIN = "ciel-runtime-p-main"
 
 
 @unittest.skipUnless(shutil.which("node"), "node required")
@@ -36,6 +37,40 @@ class WorkForkGateTests(unittest.TestCase):
         value = self.out[name]
         self.assertNotIn("error", value, value.get("error"))
         return value
+
+    def test_fork_model_follows_lease_priority_from_the_first_request(self):
+        value = self.scenario("fork_model_by_host_id")
+        self.assertEqual("model-p2", value["first"])
+        self.assertEqual("model-p2", value["second"])
+        # Cached per agent: one status read for two steps.
+        self.assertEqual(1, value["statusReads"])
+
+    def test_fork_model_before_bind_uses_dispatch_name_and_effective_p0(self):
+        self.assertEqual("model-p0", self.scenario("fork_model_pre_bind_by_dispatch_name")["first"])
+
+    def test_fork_model_without_lease_is_retried_next_step(self):
+        value = self.scenario("fork_model_unknown_lease_not_cached")
+        self.assertEqual(ALIAS_MAIN, value["first"])
+        self.assertEqual("model-p2", value["second"])
+
+    def test_side_fork_uses_side_model(self):
+        self.assertEqual("model-side", self.scenario("fork_model_side")["first"])
+
+    def test_inherit_main_and_user_agents_keep_their_model(self):
+        value = self.scenario("fork_model_inherit_and_others")
+        self.assertEqual(ALIAS_MAIN, value["inherit"])
+        self.assertEqual(ALIAS_MAIN, value["main"])
+        self.assertEqual(ALIAS_MAIN, value["user"])
+        self.assertEqual(ALIAS_MAIN, value["absent"])
+
+    def test_direct_gateway_requests_get_the_upstream_id(self):
+        self.assertEqual("up-p2", self.scenario("fork_model_direct_path_uses_upstream_id")["first"])
+
+    def test_router_failure_keeps_engine_model_and_logs_no_text(self):
+        value = self.scenario("fork_model_router_failure_keeps_model")
+        self.assertEqual(ALIAS_MAIN, value["first"])
+        self.assertTrue(value["logged"])
+        self.assertFalse(value["leaked"])
 
     def test_package_has_exactly_one_hooks_module(self):
         manifest = json.loads((GATE_DIR / ".claude-plugin" / "plugin.json").read_text(encoding="utf-8"))

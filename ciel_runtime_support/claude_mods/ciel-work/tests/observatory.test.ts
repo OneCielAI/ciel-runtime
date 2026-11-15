@@ -14,7 +14,9 @@ let ACTIVE_ACTORS = false
 const SETTINGS = [
   { key: 'work_mode', label: 'Work mode', value: true, kind: 'boolean' },
   { key: 'claude_left_arrow_opens_agents', label: 'Left arrow opens agents view', value: true, kind: 'boolean', status: 'next_claude_session' },
-  { key: 'claude_background_agents_enabled', label: 'Background agents', value: null, kind: 'boolean', status: 'unreadable' }]
+  { key: 'claude_background_agents_enabled', label: 'Background agents', value: null, kind: 'boolean', status: 'unreadable' },
+  { key: 'work_parallel_model_p0', label: 'P0 Work fork model', value: 'inherit', kind: 'enum', status: 'inherit',
+    choices: ['inherit', 'm-a', 'm-b', 'm-c', 'm-d', 'm-e'] }]
 function host(on) {
   const s = { writes: [] }
   on('session.id', () => ({ value: 'session-a' }))
@@ -125,7 +127,8 @@ for (const [surface, columns] of [['terminal', 100], ['mobile', 40]] as const) {
     expect((await ui.find({ key: 'setting-work_mode' }))?.text).toContain('Work mode = true')
     expect((await ui.find({ key: 'setting-claude_background_agents_enabled' }))?.text).toContain('= unreadable')
     await ui.press({ key: 'setting-claude_left_arrow_opens_agents' })
-    expect((await ui.find({ key: 'setting-work_side_intake_model' }))).toBeUndefined()
+    // Per-priority fork models (2026-11-14) are ordinary enum rows.
+    expect((await ui.find({ key: 'setting-work_parallel_model_p0' }))?.text).toContain('P0 Work fork model = inherit')
     expect((await ui.find({ key: 'model-_B' }))).toBeUndefined()
     expect(s.writes).toEqual([['claude_left_arrow_opens_agents', 'off']])
     if (surface !== 'terminal') {

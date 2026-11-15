@@ -27,7 +27,8 @@ def known_keys():
     """Every settable key, independent of whether the ledger is readable now."""
     from .claude_user_settings import KEYS as CLAUDE_KEYS
     from .side_intake_settings import PREFIX, FIELDS
-    return (*BASIC, INJECTION_KEY, *CLAUDE_KEYS, *KEYS, DISCOVERY_FILE_KEY, *SIDE_KEYS,
+    from .work_fork_models import KEYS as MODEL_KEYS
+    return (*BASIC, INJECTION_KEY, *CLAUDE_KEYS, *KEYS, *MODEL_KEYS, DISCOVERY_FILE_KEY, *SIDE_KEYS,
             *(PREFIX + name for name in FIELDS))
 
 
@@ -43,8 +44,15 @@ def _set(config, key, value, save):
     from .side_intake_settings import values as side_values, set_value
     if key not in known_keys():
         raise WorkPlanError('unknown Work setting: ' + key)
+    from .work_fork_models import KEYS as MODEL_KEYS, set_value as set_model
     try:
-        if key in side_values(config):
+        if key in MODEL_KEYS:
+            try:
+                set_model(config, key, value)
+            except ValueError as error:
+                raise WorkPlanError(str(error)) from None
+            save(config)
+        elif key in side_values(config):
             set_value(config, key, value)
             save(config)
         elif key == INJECTION_KEY:
@@ -197,6 +205,14 @@ def settings(config, args, save, *, load=None):
                    'kind': PARALLEL_KINDS.get(k, 'text'),
                    **({'status': entry['status']} if entry.get('status') else {})}
                   for k, entry in parallel_values(config, language).items()]
+    # Per-priority Work-fork models and the side-fork model (user requirement
+    # 2026-11-14): current provider's models only, inherit by default.
+    from .work_fork_models import KEYS as MODEL_KEYS, model_ids, status as model_status, value as model_value
+    known_models = model_ids(config)
+    model_choices = ['inherit', *known_models]
+    projected += [{'key': k, 'label': menu_text(k, language), 'value': model_value(config, k),
+                   'kind': 'enum', 'choices': model_choices,
+                   'status': model_status(config, k, known_models)} for k in MODEL_KEYS]
     projected.append({'key': DISCOVERY_FILE_KEY,
                       'label': menu_text(DISCOVERY_FILE_KEY, language),
                       'value': config.get('work_discovery', {}).get('file_path', ''), 'kind': 'text'})
@@ -210,8 +226,8 @@ def settings(config, args, save, *, load=None):
         'work_side_intake_priority_policy': ['adaptive', 'explicit'],
     }
     side_numbers = {'work_side_intake_max_active', 'work_side_intake_aging_seconds'}
-    # Side events always run as native forks of main: model, context, tools and
-    # permissions are inherited, so no side model/context row is offered.
+    # Side events run as native forks of main (context, tools, permissions);
+    # their model is work_side_intake_model above, applied by ciel-work-gate.
     projected += [{'key': k, 'label': menu_text(k, language), 'value': v,
                    'kind': 'enum' if k in side_enums
                        else 'number' if k in side_numbers else 'json' if k == 'work_side_intake_reply_connectors'
@@ -232,7 +248,8 @@ def settings(config, args, save, *, load=None):
             'language': language, 'provider': provider,
             'ui': dict(zip(('title', 'next', 'back', 'cancel', 'input_hint'), ui)),
             'applies': 'live; existing workers are not terminated; side settings apply to the next side event, '
-                       'which always runs as a native fork inheriting the main model, context, tools and permissions'}
+                       'which runs as a native fork inheriting main context, tools and permissions; '
+                       'Work-fork and side-fork models apply from the next model request of each fork'}
 
 
 __all__ = ['BASIC', 'FINGERPRINT_FIELD', 'INJECTION_KEY', 'SettingsConflict', 'UNREADABLE', 'known_keys',

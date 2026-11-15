@@ -79,6 +79,24 @@ class Isolated(unittest.TestCase):
         return store
 
 
+class PriorityCtl(Isolated):
+    def test_priority_action_uses_the_shared_rest_application_and_returns_exact_json_receipt(self):
+        board = self.board(A)
+        root = board.read()["active_root"]
+        code, output, error = self.cli(ns("priority", root, "P0", session=A,
+                                          expected_version=board.read()["version"],
+                                          operation_id="a" * 32))
+        self.assertEqual((0, ""), (code, error))
+        result = json.loads(output[-1])
+        self.assertEqual("a" * 32, result["priority_operation_id"])
+        self.assertRegex(result["priority_operation_ref"], r"^[0-9a-f]{16}$")
+        current = board.read()
+        root_row = next(node for node in current["nodes"] if node["id"] == root)
+        self.assertEqual("P1", root_row["priority"])
+        from ciel_runtime_support.work_parallel_p0 import p0_store
+        self.assertEqual("P0", p0_store(self.store).effective_priority(A, root_row))
+
+
 class Gap3UnreadableLedger(Isolated):
     def unreadable(self):
         broken = patch.object(self.store, "read", side_effect=OSError("ledger unreadable"))
