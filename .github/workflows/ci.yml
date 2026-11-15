@@ -34,6 +34,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - run: python -m pip install "pytest==9.1.1"
       - run: python scripts/run_test_group.py ${{ matrix.group }}
 
   python-minimum:
@@ -43,6 +44,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+      - run: python -m pip install "pytest==9.1.1"
       - run: python -m compileall -q ciel_runtime.py ciel_runtime_support ciel-runtime-menu.py ciel-runtime-tool-guard.py scripts
       - name: Verify PTY exit status on Linux
         run: python -m unittest -v tests/test_pty_exit_status_race.py

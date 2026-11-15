@@ -1,4 +1,8 @@
-import pytest
+try:
+    import pytest
+except ImportError:  # unittest group runner without pytest installed
+    import unittest
+    raise unittest.SkipTest("pytest is not installed")
 
 from ciel_runtime_support.work_parallel import WorkParallelError, WorkParallelStore
 from ciel_runtime_support.work_wait_orchestrator import WaitOrchestrator

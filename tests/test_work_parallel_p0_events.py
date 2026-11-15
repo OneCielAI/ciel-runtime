@@ -515,7 +515,10 @@ class P0EventTests(unittest.TestCase):
             with self.assertRaisesRegex(Exception, "ACL has unexpected entries"):
                 key_store.read()
         else:
-            self.assertEqual(bytes.fromhex(external.decode("ascii")), key_store.read())
+            # The racing writer used the default umask, so the key is not private
+            # (0644): the store refuses it instead of trusting the external bytes.
+            with self.assertRaisesRegex(Exception, "not private"):
+                key_store.read()
         self.assertEqual([], list(self.tmp.glob("*.tmp")))
 
     def test_assignment_replay_refuses_after_capability_consumed(self):

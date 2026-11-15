@@ -187,7 +187,10 @@ class LoopbackAbortBeforeHeadersTests(unittest.TestCase):
             with result:
                 self.assertEqual(b'{"id":"ok"}', result.read())
         self.assertEqual([0, 1], hits)
-        self.assertEqual(["ConnectionAbortedError"], failures)
+        # Windows reports the peer's shutdown as ConnectionAbortedError; Linux
+        # reports the request body write into it as BrokenPipeError (CI 2e799ad).
+        self.assertEqual(1, len(failures))
+        self.assertIn(failures[0], ("ConnectionAbortedError", "BrokenPipeError", "ConnectionResetError"))
         print("loopback first-open failure class:", failures[0])
 
 

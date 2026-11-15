@@ -43,6 +43,12 @@ def default_scopes_use(clock):
         if budget is not None:
             budget.clock = clock
             budget.started = clock()
+            if kwargs.get("arrival_started") is None and budget.arrival_started is not None:
+                # The arrival bound was stamped with the real monotonic clock at
+                # construction. Re-stamp it on the injected clock too: on a freshly
+                # booted runner the real value is below this fake clock and the
+                # 540 s hard cap read as already spent (CI 2e799ad, Linux).
+                budget.arrival_started = budget.started
         return budget
     return mock.patch.object(retry, "_default_budget", make)
 

@@ -3,7 +3,11 @@ from __future__ import annotations
 import copy
 import json
 
-import pytest
+try:
+    import pytest
+except ImportError:  # unittest group runner without pytest installed
+    import unittest
+    raise unittest.SkipTest("pytest is not installed")
 
 from ciel_runtime_support.work_parallel import WorkParallelStore
 from ciel_runtime_support.work_parallel_wait_boost import (

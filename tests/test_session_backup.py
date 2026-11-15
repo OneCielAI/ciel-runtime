@@ -1,4 +1,5 @@
 import json
+import os
 import sqlite3
 import subprocess
 import sys
@@ -339,6 +340,7 @@ class SessionBackupTests(unittest.TestCase):
         kernel.CloseHandle = Function("CloseHandle", lambda _value: 1 if close_ok else 0)
         return (advapi, kernel), calls
 
+    @unittest.skipUnless(os.name == "nt", "Windows token/ACL API; ctypes.get_last_error and WinError exist only on Windows")
     def test_assignment_key_injected_winapi_sequence_and_cleanup(self):
         from ciel_runtime_support import work_p0_assignment_key as key_module
         libraries, calls = self._fake_sid_libraries()
@@ -350,6 +352,7 @@ class SessionBackupTests(unittest.TestCase):
                           "GetTokenInformation", "ConvertSidToStringSidW", "LocalFree",
                           "CloseHandle"], calls)
 
+    @unittest.skipUnless(os.name == "nt", "Windows token/ACL API; ctypes.get_last_error and WinError exist only on Windows")
     def test_assignment_key_injected_winapi_failures_cleanup_and_fail_closed(self):
         from ciel_runtime_support import work_p0_assignment_key as key_module
         for options, expected_cleanup in (
@@ -409,6 +412,7 @@ class SessionBackupTests(unittest.TestCase):
             restore_snapshot(self.target, manifest, destination_roots(manifest, {}), key=KEY)
         self.assertEqual(b"f" * 64, path.read_bytes())
 
+    @unittest.skipUnless(os.name == "nt", "restore applies the Windows ACL only on Windows; POSIX uses mode 0600")
     def test_restore_assignment_key_acl_failure_cleans_temp(self):
         manifest = self.create().manifest
         path = self.fx.roots().ciel_ws / "work-p0-assignment.key"

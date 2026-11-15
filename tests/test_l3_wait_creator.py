@@ -2,7 +2,11 @@ from __future__ import annotations
 
 import copy
 
-import pytest
+try:
+    import pytest
+except ImportError:  # unittest group runner without pytest installed
+    import unittest
+    raise unittest.SkipTest("pytest is not installed")
 
 from ciel_runtime_support.work_assignment_key_coordinator import (
     AssignmentKeyCoordinator,

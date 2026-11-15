@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-import pytest
+try:
+    import pytest
+except ImportError:  # unittest group runner without pytest installed
+    import unittest
+    raise unittest.SkipTest("pytest is not installed")
 
 from ciel_runtime_support.work_parallel_wait_boost import WaitBoostError, WaitBoostStore, validate
 from ciel_runtime_support.work_wait_phase_service import WaitPhaseService
