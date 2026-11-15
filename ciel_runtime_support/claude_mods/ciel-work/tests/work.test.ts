@@ -1,12 +1,26 @@
 import { expect, mock, test } from 'claude-code/testing'
 const T = 'mcp__ciel-runtime-router__'
+const HOST_REPLIES = {
+  work_parallel_status: { version: 1, active_device: 0, leases: {}, policy: { max_active: 5, p1_reserved: 1 } },
+  work_side_claim: { claim: null, settings: {}, handoff_replies: [] },
+  work_side_status: { side_inbox_receipts: [] },
+  // The fork-gate presence report is display-only; its reply is not read.
+  work_parallel_event: { recorded: true },
+}
 function setup(on, extra = {}) {
   const s = { snapshot: { enabled: true, phase: 'planning', approval: 'auto', version: 1,
     active_root: { id: 'g1', title: 'Goal' }, done: 0, total: 2, ...extra },
     sessionId: 'session-a', calls: [], tools: [], registered: null, offline: false, answer: 'Approve', change: false, rendered: null, failText: false,
-    waitStatus: null, activeReads: 0, maxReads: 0, nativeVerdict: { decision: 'allow' }, nativeChecks: [] }
+    waitStatus: null, activeReads: 0, maxReads: 0, nativeVerdict: { decision: 'allow' }, nativeChecks: [], hostCalls: [] }
   on('session.id', () => ({ value: s.sessionId }))
   on('mcp.call', async ($, e) => {
+    // Host-phase reads (parallel leases, side inbox) answer an idle host and are
+    // kept out of s.calls, which counts board reads; offline refuses them too.
+    if (Object.hasOwn(HOST_REPLIES, e.tool)) {
+      s.hostCalls.push(e)
+      if (s.offline) return { deny: 'offline' }
+      return { value: { isError: false, content: [{ type: 'text', text: JSON.stringify(HOST_REPLIES[e.tool]) }] } }
+    }
     s.calls.push(e)
     s.activeReads++; s.maxReads = Math.max(s.maxReads, s.activeReads)
     const snapshot = JSON.stringify(s.snapshot)
@@ -28,6 +42,12 @@ function setup(on, extra = {}) {
   on('prompt.submit', ($, e) => { s.prompts = (s.prompts || 0) + 1; return { text: e.text, context: e.context } })
   on('tool.check', (_, e) => { s.nativeChecks.push(e); return s.nativeVerdict })
   on('ui.render', ($, e) => { s.rendered = e; return s.nativeTree || { type: 'Text', props: {}, children: e.props.modes } })
+  // Host values every snapshot read uses: the Work host token (env.get) and the
+  // gate's correlation log (ui.log). hints() records ui.log itself.
+  on('env.get', () => ({ value: 'fixture-host-token' }))
+  // No native agents run in these sessions (the host start phase lists them).
+  on('agent.list', () => ({ value: [] }))
+  on('ui.log', (_, e) => { if (s.logs) s.logs.push(e.text); return { value: undefined } })
   on('tool.call', ($, e) => {
     s.tools.push(e)
     if (e.tool === 'AskUserQuestion') {
@@ -44,7 +64,6 @@ function setup(on, extra = {}) {
 test('live Work settings command works while board is off without model prompt', async ($, on) => {
   const s = setup(on, { enabled: false })
   s.liveSettings = [{ key: 'work_mode', label: 'Work mode', value: true }]
-  on('env.get', () => ({ value: 'fixture-host-token' }))
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
   const result = await $.command.run({ command: 'work-mode', args: 'settings work_mode=on' })
   expect(result.text).toContain('Work mode')
@@ -54,7 +73,6 @@ test('live Work settings command works while board is off without model prompt',
 test('side intake command calls MCP and keeps main prompt untouched', async ($, on) => {
   const s = setup(on, { enabled: true, phase: 'executing', continuation: { actionable: 1 }, queue: [] })
   s.sideReceipt = { accepted: true, item_id: 'n50', recap: 'request' }
-  on('env.get', () => ({ value: 'fixture-host-token' }))
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
   const before = s.prompts || 0
   const result = await $.command.run({ command: 'btw_with_mcp', args: '{"event_key":"source:1","text":"request"}' })
@@ -208,10 +226,18 @@ for (const answer of ['Approve', 'Keep planning', 'Other']) {
   test('ask: ' + answer, async ($, on) => {
     const s = setup(on, { approval: 'ask' }); s.answer = answer
     const r = await $.tool.call({ tool: T + 'work_execute', user_confirmed: true })
-    const executed = s.tools.filter(t => t.tool === T + 'work_execute')
-    expect(executed.length).toBe(answer === 'Approve' ? 1 : 0)
-    if (answer === 'Approve') expect(executed[0].user_confirmed).toBe(true)
-    else expect(r.deny).toContain('not approved')
+    // M1: the model's call never goes on; the host records the person's answer
+    // itself, attested under _host (register.js work_execute approval branch).
+    expect(s.tools.filter(t => t.tool === T + 'work_execute').length).toBe(0)
+    const recorded = s.calls.filter(c => c.tool === 'work_execute')
+    expect(recorded.length).toBe(answer === 'Approve' ? 1 : 0)
+    if (answer === 'Approve') {
+      expect(recorded[0].args.user_confirmed).toBe(true)
+      expect(recorded[0].args._host.internal).toBe(true)
+      expect(recorded[0].args._host.user_confirmed).toBe(true)
+      expect(recorded[0].args.expected_version).toBe(1)
+      expect(r.deny).toBeUndefined()
+    } else expect(r.deny).toContain('not approved')
   })
 }
 test('approval rejects changed plan', async ($, on) => {
@@ -768,7 +794,11 @@ test('focus intent reaches model and exhausted focus explains held unrelated Wor
   expect(r.context[0]).toContain('call work_focus')
   expect(r.context[0]).toContain('"focus":{"node_ids":["a","b"],"exhausted":true}')
   expect((await $.classic.Stop(STOP)).block).toBeUndefined()
-  expect(s.logs.at(-1)).toContain('other Work stays held until you clear focus')
+  // Focus orders work first and never holds unrelated items (register.js
+  // focus guidance); the stop names the focus and the urgent hold instead.
+  expect(s.logs.at(-1)).toContain('focus first: a, b')
+  expect(s.logs.at(-1)).toContain('2 goal(s) held behind the urgent goal')
+  expect(s.logs.at(-1)).not.toContain('until you clear focus')
 })
 test('compact footer and vertical branch buttons', async ($, on) => {
   inspection(on)
@@ -827,7 +857,6 @@ test('detail state is hidden after version or conversation changes and offline',
 })
 function hints(on, extra = {}) {
   const s = setup(on, extra); s.logs = []; s.toasts = []
-  on('ui.log', (_, e) => { s.logs.push(e.text); return { value: undefined } })
   on('ui.toast', (_, e) => { s.toasts.push(e.text); return { value: undefined } })
   return s
 }
@@ -870,7 +899,9 @@ test('start retries stop after a bounded window, on a new session start and when
   await clock.advance(16000)
   const reads = s.calls.length
   await clock.advance(60000)
-  expect(s.calls.length).toBe(reads)
+  // X2 (d69ca83): the backoff stops growing at 8 s and never ends while this
+  // start is current; one read per capped step, never more.
+  expect(s.calls.length - reads).toBe(7)
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
   s.offline = false; s.sessionId = 'session-b'
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
@@ -1006,6 +1037,8 @@ test('silent identity changes stop the idle poll before any cross-session router
 })
 test('planning denial explains itself and toasts once per plan version', async ($, on) => {
   const s = hints(on)
+  // Toasts are scoped to the started conversation (hintPlanning needs cachedSession).
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
   const first = await $.tool.call({ tool: 'Edit', file_path: '/x' })
   expect(first.deny).toContain('work_execute')
   expect(first.deny).toContain('/work-mode help')

@@ -410,7 +410,12 @@ async function gateRead($) {
   const lifecycle = starts
   let identity
   try { identity = await sessionId($) } catch { return fail('identity') }
-  if (gateIdentity !== identity) { gateIdentity = identity; gateVersion = -1 }
+  // A conversation change seen first by a gate clears the previous one's native
+  // plan exemption, as refresh() does, so a return never reuses it.
+  if (gateIdentity !== identity) {
+    if (gateIdentity) clearNativePlanPaths(gateIdentity)
+    gateIdentity = identity; gateVersion = -1
+  }
   const ticket = generation
   try {
     const s = await readSnapshot($, identity)
@@ -2730,9 +2735,12 @@ async function parallelObserveNative($) {
       expected_evidence_version: Number(state?.forks?.evidence_version ?? 0) }, await hostProcess($))
     if (lifecycle !== starts || await sessionId($) !== identity) return null
     const confirmed = rows.filter(r => r.status === 'pending' || r.status === 'running').length
+    // The first observation of a start logs only running forks: the start
+    // notice stays the one person-facing line when none run.
     if (confirmed !== lastNativeConfirmed) {
+      const first = lastNativeConfirmed === null
       lastNativeConfirmed = confirmed
-      $.ui.log('Work forks confirmed by native agent list: ' + confirmed)
+      if (!first || confirmed > 0) $.ui.log('Work forks confirmed by native agent list: ' + confirmed)
     }
     return { open: open.length, confirmed, result }
   } finally { if (nativeObserving === flight) nativeObserving = null }
@@ -3598,6 +3606,16 @@ async function workStop($, e, next) {
   // Idle/display reads do not invalidate Stop; compact entry AND settlement do.
   if (lifecycle !== starts || turn !== mainTurnEpoch || epoch !== compactEpoch
       || current !== identity || compacting(identity)) return result
+  // A read that missed its wall-clock deadline ends Stop here: the pump and a
+  // second bounded read would only double the deadline before the same
+  // unavailable result.
+  if (!s) {
+    if (continuationSession !== identity) {
+      continuationSession = identity; continuationVersion = null; unchangedContinuations = 0
+    }
+    if (enabled) stopNotice($, identity, STOP_UNAVAILABLE)
+    return result
+  }
   // Fill only after every stale lifecycle/session guard has passed. A Stop from
   // an ended or superseded turn must never start a native fork.
   try { await parallelPump($, 'classic.Stop') } catch {}
