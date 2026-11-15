@@ -225,6 +225,9 @@ class WorkApplication:
             raise tree.WorkPlanError("expected_version must be a nonnegative integer")
         key = self._operation_id(operation_id)
         request = {k: v for k, v in payload.items() if k not in ("operation_id", "session_id")}
+        if (parallel_store is not None and command == "plan_set" and request.get("priority") == "P0"
+                and not request.get("root_id")):
+            return self._new_root_p0(payload, key, scope, parallel_store, {**origin, "source": source})
         priority_command = (parallel_store is not None and (
             (command == "node_update" and "priority" in request)
             or (command == "plan_set" and "priority" in request
@@ -491,6 +494,27 @@ class WorkApplication:
         if any(ord(char) < 33 or ord(char) > 126 for char in value):
             raise tree.WorkPlanError("operation_id must contain visible ASCII characters only")
         return value
+
+    def _new_root_p0(self, payload: dict[str, Any], key: str, scope: str | None, parallel_store: Any,
+                     origin: dict[str, Any]) -> dict[str, Any]:
+        """A new P0 goal, as the supported sequence create_p0_root documents.
+
+        An ordinary P1 create, receipt-keyed by this operation id so a retry
+        replays the same root, then existing-root P0 activation under a key
+        derived from it, so a retry rolls the same marker forward. Each step is
+        one an older writer already accepts; no new-root P0 row is written.
+        """
+        if scope is None:
+            raise tree.WorkPlanError("priority command requires the authenticated Work application boundary")
+        created = self.command("plan_set", {**payload, "priority": "P1"}, key, origin=dict(origin))
+        root_id = created["result"]["root_id"]
+        activation_key = hashlib.sha256(("ciel.new-root-p0.v1\0" + key).encode("utf-8")).hexdigest()[:32]
+        activated = self._priority_command(
+            "node_update", {"id": root_id, "priority": "P0", "expected_version": self.store.read()["version"]},
+            activation_key, scope, parallel_store, {k: v for k, v in origin.items() if k != "source"})
+        return {**activated, "operation": "plan_set", "operation_id": key,
+                "changed": bool(created["changed"] or activated["changed"]),
+                "result": {**activated["result"], "active_root_id": created["result"].get("active_root_id")}}
 
     def _priority_command(self, command: str, request: dict[str, Any], operation_id: str,
                           scope: str, parallel_store: Any, origin: dict[str, Any]) -> dict[str, Any]:

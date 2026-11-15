@@ -239,6 +239,34 @@ selected, options, overflow, priorities = shoot("web-390", 390)
 fact("web 390px shows the P0 model row without horizontal scroll", selected == "_Walkie_Fable5.2" and not overflow,
      {"selected": selected, "overflow": overflow})
 
+
+# --- 6. a new goal created at P0 from the web form (create, then activate) -----
+def add_p0_goal(title):
+    from playwright.sync_api import sync_playwright
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=True, executable_path=r"C:\Program Files\Google\Chrome\Application\chrome.exe")
+        page = browser.new_page(viewport={"width": 1280, "height": 1000})
+        page.goto(BASE + "/ca/work/ui" + Q)
+        page.locator("#add-root").click()
+        page.locator("#new-title").fill(title)
+        page.locator("#new-priority").select_option("P0")
+        page.screenshot(path=str(OUT / "web-new-p0-goal-form.png"), full_page=False)
+        page.get_by_role("button", name="Add", exact=True).click()
+        page.get_by_text("plan-set applied").wait_for(timeout=15000)
+        browser.close()
+
+
+add_p0_goal("새 P0 목표")
+board = rest("board")[1]
+created = [n for n in board["nodes"] if n["parent_id"] is None and n["title"] == "새 P0 목표"]
+fact("web creates a new goal at P0 (canonical P1, effective P0)",
+     [(n["priority"], n.get("effective_priority")) for n in created] == [("P1", "P0")],
+     [(n["id"], n["priority"], n.get("effective_priority")) for n in created])
+status, parallel = rest("parallel")
+fact("REST parallel lists the new goal as effective P0",
+     any(r["root_id"] == (created or [{}])[0].get("id") and r["effective_priority"] == "P0"
+         for r in parallel.get("root_priorities", [])), parallel.get("root_priorities"))
+
 server.shutdown()
 (OUT / "surfaces-result.json").write_text(json.dumps({"facts": facts, "passed": all(f["ok"] for f in facts)},
                                                      ensure_ascii=False, indent=2), encoding="utf-8")

@@ -39,8 +39,8 @@ _ROOT_PRIORITY = {
     "type": "string",
     "enum": ["P0", "", *tree.PRIORITIES],
     "description": ("Effective root priority. P0 immediately adds a Work fork and bypasses enabled, paused, "
-                    "approval, per-priority capacity and launch-rate gates. In this mixed-version beta P0 can be "
-                    "set only on an existing root; create at P1-P5, then update that root to P0."),
+                    "approval, per-priority capacity and launch-rate gates. On a new goal (work_plan_set without "
+                    "root_id) it creates the goal and activates it as P0 in the same call."),
 }
 _PRIORITY_OPERATION_ID = {
     "type": "string", "pattern": "^[0-9a-f]{32}$",
@@ -59,7 +59,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
     schemas = [
         {"name": "work_live_settings", "description": "Host-only Work slash settings, applied live.",
          "inputSchema": {"type": "object", "properties": {"key": {"type": "string"}, "value": {"type": "string"}}}},
-        {"name": "work_priority_command", "description": "Host-only existing-root P0 priority mutation.",
+        {"name": "work_priority_command", "description": "Host-only root priority command: a new P0 goal or an existing goal's priority.",
          "inputSchema": {"type": "object", "properties": {
              "command": {"type": "string", "enum": ["work_plan_set", "work_node_update"]},
              "payload": {"type": "object"}}, "required": ["command", "payload"]}},
@@ -382,12 +382,10 @@ def dispatch_work_tool(
             if command not in ("work_plan_set", "work_node_update") or not isinstance(payload, dict):
                 raise tree.WorkPlanError("invalid priority command")
             target = payload.get("priority")
-            root_id = str(payload.get("root_id") if command == "work_plan_set" else payload.get("id") or "")
+            root_id = str((payload.get("root_id") if command == "work_plan_set" else payload.get("id")) or "")
             if target not in ("P0", "", *tree.PRIORITIES):
                 raise tree.WorkPlanError("priority must be one of P0, P1, P2, P3, P4, P5")
-            if command == "work_plan_set" and target == "P0" and not root_id:
-                from .work_priority_service import create_p0_root
-                create_p0_root()
+            new_root_p0 = command == "work_plan_set" and target == "P0" and not root_id
             operation_id = payload.get("operation_id") or secrets.token_hex(16)
             if not isinstance(operation_id, str) or len(operation_id) != 32 or any(c not in "0123456789abcdef" for c in operation_id):
                 raise tree.WorkPlanError("operation_id must be lowercase hex32")
@@ -395,6 +393,20 @@ def dispatch_work_tool(
             expected = _expected_version(payload)
             if expected is None:
                 expected = scoped.read()["version"]
+            if new_root_p0:
+                # A new P0 goal: an ordinary P1 create, then existing-root P0
+                # activation, through the one application path REST, web and ctl use.
+                from .work_application import WorkApplication
+                fields = {key: payload[key] for key in ("goal", "note", "children", "ref", "waiting_on")
+                          if key in payload}
+                done = WorkApplication(scoped).command(
+                    "plan_set", {**fields, "priority": "P0", "expected_version": expected}, operation_id,
+                    origin={"source": "mcp", "auth": "host"}, scope=identity, parallel_store=ledger())
+                return respond(request_id, json.dumps({
+                    "root_id": done["result"]["root_id"], "canonical_priority": done["result"]["canonical_priority"],
+                    "effective_priority": done["result"]["effective_priority"], "version": done["version"],
+                    "priority_operation_ref": done["priority_operation_ref"], "replayed": done["replayed"],
+                    "created": True, "dispatch": "immediate"}, ensure_ascii=False))
             clean = {key: value for key, value in payload.items()
                      if key not in ("priority", "operation_id", "expected_version")}
             manifest = hashlib.sha256(json.dumps(
@@ -623,10 +635,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         spec.update({key: args[key] for key in ("ref", "waiting_on", "priority") if key in args})
         root_id = args.get("root_id")
         if args.get("priority") == "P0":
-            if not root_id:
-                from .work_priority_service import create_p0_root
-                create_p0_root()
-            raise tree.WorkPlanError("P0 existing-root priority is applied by the authenticated Work host")
+            raise tree.WorkPlanError("P0 priority is applied by the authenticated Work host")
         doc, root = store.transaction(
             lambda d: tree.set_plan(d, spec, str(root_id) if root_id else None), expected_version=expected
         )

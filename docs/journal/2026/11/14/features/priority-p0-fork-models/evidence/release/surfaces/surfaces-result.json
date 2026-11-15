@@ -59,7 +59,7 @@
           "effective_priority": "P0",
           "priority_operation_ref": "597071b80996dab4"
         },
-        "session_id": "claude:5c76917e-4d3d-4244-a7a6-949923cea9c6"
+        "session_id": "claude:0ec840a3-4eb2-43d9-97dd-cc14864e9368"
       }
     },
     {
@@ -149,6 +149,35 @@
         "selected": "_Walkie_Fable5.2",
         "overflow": false
       }
+    },
+    {
+      "fact": "web creates a new goal at P0 (canonical P1, effective P0)",
+      "ok": true,
+      "detail": [
+        [
+          "n3",
+          "P1",
+          "P0"
+        ]
+      ]
+    },
+    {
+      "fact": "REST parallel lists the new goal as effective P0",
+      "ok": true,
+      "detail": [
+        {
+          "root_id": "n1",
+          "title": "고객 결제 긴급 수정",
+          "canonical_priority": "P1",
+          "effective_priority": "P0"
+        },
+        {
+          "root_id": "n3",
+          "title": "새 P0 목표",
+          "canonical_priority": "P1",
+          "effective_priority": "P0"
+        }
+      ]
     }
   ],
   "passed": true

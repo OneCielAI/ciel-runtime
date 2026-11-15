@@ -308,19 +308,54 @@ class WorkHttpTests(unittest.TestCase):
         self.assertEqual(("P1", "P0"), (root["priority"], root["effective_priority"]))
         self.assertNotIn("priority_operation_id", json.dumps(board))
 
-    def test_v1_new_root_p0_is_refused_before_any_write(self):
+    def test_v1_new_root_p0_creates_then_activates_and_a_retry_replays_one_root(self):
         from dataclasses import replace
         from ciel_runtime_support.work_parallel import WorkParallelStore
+        from ciel_runtime_support.work_parallel_p0 import p0_store
         parallel = WorkParallelStore(Path(self.temp.name) / "parallel.json")
         self.controller.services = replace(self.controller.services, parallel_store=lambda: parallel)
-        before = parallel.read()
-        status, result = self.request("/ca/work/api/v1/commands/plan-set", {
-            "expected_version": 0, "goal": "unsupported", "priority": "P0"},
-            {"Idempotency-Key": "new-p0"})
-        self.assertEqual(422, status, result)
-        self.assertIn("p0_new_root_unsupported_mixed_version", result["message"])
-        self.assertEqual([], self.request()[1]["nodes"])
-        self.assertEqual(before, parallel.read())
+        body = {"expected_version": 0, "goal": "Payment hotfix", "priority": "P0", "children": [{"title": "fix"}]}
+        status, result = self.request("/ca/work/api/v1/commands/plan-set", body, {"Idempotency-Key": "new-p0"})
+        self.assertEqual(200, status, result)
+        root_id = result["result"]["root_id"]
+        self.assertEqual(("P1", "P0"),
+                         (result["result"]["canonical_priority"], result["result"]["effective_priority"]))
+        roots = [node for node in self.request()[1]["nodes"] if node["parent_id"] is None]
+        self.assertEqual([(root_id, "P1", "P0")], [(n["id"], n["priority"], n["effective_priority"]) for n in roots])
+        self.assertEqual("P0", p0_store(parallel).effective_priority("claude:one", roots[0]))
+        # A lost response retried with the same key replays: one goal, one marker.
+        status, again = self.request("/ca/work/api/v1/commands/plan-set", body, {"Idempotency-Key": "new-p0"})
+        self.assertEqual(200, status, again)
+        self.assertEqual((root_id, "P0", True),
+                         (again["result"]["root_id"], again["result"]["effective_priority"], again["replayed"]))
+        self.assertEqual(1, len([n for n in self.request()[1]["nodes"] if n["parent_id"] is None]))
+
+    def test_mcp_host_new_root_p0_goal_is_created_and_effective_p0(self):
+        from unittest import mock
+        from ciel_runtime_support import work_mcp_tools, work_parallel_mcp
+        from ciel_runtime_support.work_parallel import WorkParallelStore
+        parallel = WorkParallelStore(Path(self.temp.name) / "mcp-parallel.json")
+        token = "t" * 40
+        with mock.patch.object(work_parallel_mcp, "ledger", lambda: parallel):
+            answer = work_mcp_tools.dispatch_work_tool(
+                1, "work_priority_command", {
+                    "session_id": "claude:p0", "command": "work_plan_set",
+                    "payload": {"goal": "Payment hotfix", "priority": "P0", "children": [{"title": "fix"}],
+                                "operation_id": "a" * 32},
+                    "_host": {"token": token, "internal": True}},
+                load_config=lambda: {"work_parallel_host": {"token": token}}, state_dir=self.state / "mcp",
+                respond=lambda _id, text, error=False: {"text": text, "error": error})
+            self.assertFalse(answer["error"], answer["text"])
+            value = json.loads(answer["text"])
+            self.assertEqual(("P1", "P0", True, "immediate"),
+                             (value["canonical_priority"], value["effective_priority"], value["created"],
+                              value["dispatch"]))
+            refused = work_mcp_tools.dispatch_work_tool(
+                2, "work_plan_set", {"session_id": "claude:p0", "goal": "raw", "priority": "P0"},
+                load_config=lambda: {}, state_dir=self.state / "mcp",
+                respond=lambda _id, text, error=False: {"text": text, "error": error})
+            self.assertTrue(refused["error"])
+            self.assertIn("authenticated Work host", refused["text"])
 
     def test_v1_commands_match_mcp_tree_results(self):
         from ciel_runtime_support import work_mcp_tools
