@@ -640,6 +640,12 @@ def run_claude(
         manage_router_lifetime = bool(_launch_phase(
             "claude", "router_start", lambda: start_router_if_needed(replace_active_clients=True), router_log,
         ))
+    # Orphaned Work fork leases (a crashed, closed or relaunched session's)
+    # hold device slots until released; free the provable ones before the CLI
+    # starts, so a new session's forks are not stuck on capacity.
+    from .work_parallel_orphan_sweep import sweep_at_launch
+    _launch_phase("claude", "work_orphan_sweep", lambda: sweep_at_launch(router_log), router_log,
+                  result=lambda r: f"released={r['released']} kept={r['kept']} failed={r['failed']}")
     if not use_native_anthropic:
         _launch_phase("claude", "model_cache", lambda: ensure_model_cache_for_launch(provider, pcfg), router_log)
         selected, selection_lines = ensure_current_model_from_provider_list(provider, pcfg)
