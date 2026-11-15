@@ -1,0 +1,25 @@
+d69ca83 unit: FAILED tests/test_wait_boost_sidecar.py::test_manifest_hash_is_stable_and_source_contains_no_l2_file
+d69ca83 unit: Ran 4765 tests in 2646.324s
+d69ca83 unit: FAILED (failures=2, errors=7, skipped=76)
+d69ca83 unit: EXIT=1
+d69ca83 router: Ran 1669 tests in 513.001s
+d69ca83 router: OK (skipped=1)
+d69ca83 router: EXIT=0
+d69ca83 channel: Ran 626 tests in 47.917s
+d69ca83 channel: OK (skipped=80)
+d69ca83 channel: EXIT=0
+d69ca83 runtime: Ran 458 tests in 42.361s
+d69ca83 runtime: OK (skipped=19)
+d69ca83 runtime: EXIT=0
+d69ca83 unit: ERROR: test_unknown_owner_restart_publishes_a_review_ctl_lists_and_decides (test_restart_unknown_orphan_pointer.RestartUnknownResolves.test_unknown_owner_restart_publishes_a_review_ctl_lists_and_decides)
+d69ca83 unit: ERROR: test_host_operations_go_through_work_side_wake_with_protocol_two (test_review_delivery.ReviewDeliveryTests.test_host_operations_go_through_work_side_wake_with_protocol_two)
+d69ca83 unit: ERROR: test_an_uncertain_review_reappend_is_released_once_and_admits_one_lease (test_side_reappend_release.ReviewReappendReleaseTests.test_an_uncertain_review_reappend_is_released_once_and_admits_one_lease)
+d69ca83 unit: ERROR: test_ended_list_shows_the_row_after_the_superseding_lease_ended (test_work_parallel_superseded_visibility.SupersededVisibilityTests.test_ended_list_shows_the_row_after_the_superseding_lease_ended)
+d69ca83 unit: ERROR: test_ended_rows_are_bounded_to_the_newest_twenty (test_work_parallel_superseded_visibility.SupersededVisibilityTests.test_ended_rows_are_bounded_to_the_newest_twenty)
+d69ca83 unit: ERROR: test_host_projection_lists_it_as_ended_and_model_projection_has_no_ended_key (test_work_parallel_superseded_visibility.SupersededVisibilityTests.test_host_projection_lists_it_as_ended_and_model_projection_has_no_ended_key)
+d69ca83 unit: ERROR: test_saved_store_is_the_measured_end_state (test_work_parallel_superseded_visibility.SupersededVisibilityTests.test_saved_store_is_the_measured_end_state)
+d69ca83 unit: FAIL: test_wait_boost_suites_pass (test_wait_boost_pytest_bridge.WaitBoostPytestBridge.test_wait_boost_suites_pass)
+d69ca83 unit: FAIL: test_atomic_bounds (test_work_parallel.WorkParallelTests.test_atomic_bounds)
+4037de0 unit: Ran 4765 tests in 2733.234s
+4037de0 unit: OK (skipped=76)
+4037de0 unit: EXIT=0
