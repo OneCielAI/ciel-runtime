@@ -23,7 +23,7 @@ const HELP = [
   '• New requests: an independent request becomes its own numbered item ("2. …") and waits in the queue behind the active item; a change to an existing item is added under that item.',
   '• Executing: after work_execute (automatic, or your approval when set to ask) the model works step by step and marks each step done with evidence.',
   '• Above the prompt: compact by default (done/total + current step); [+] / w expands, [-] collapses. Progress / Queue / Completed are read-only button tabs; Prev / Next (p / n) page the list; w opens the Inspector. Ctrl+X Tab focuses · Tab/↑↓ select · Enter inspects · Esc returns. Tiny screens use Inspect Work. Rows of other plugins stay below the Work rows; the band scrolls to them.',
-  '• /work-mode view: Work & SSE pane — Work tree (w), SSE receipts with P1 filter (s), and every Work setting (g); side actors are native forks inheriting the main context; Work and side forks use the per-priority and side fork model settings (inherit keeps the main model). Mobile and narrow screens get a single-column touch layout.',
+  '• /work-mode view: Work & SSE pane — Work tree (w), SSE receipts with P1 filter (s), and every Work setting (g); in the Work tree, f focuses the selected item, a appends it to the focus, b opens its parent, u/d move a queued goal up or down; side actors are native forks inheriting the main context; Work and side forks use the per-priority and side fork model settings (inherit keeps the main model). Mobile and narrow screens get a single-column touch layout.',
   '• /work-mode expand / compact: toggle the inline list · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode parallel: fork slots, leases and the next Agent name · /work-mode help: this help',
   '• Focus: inspect an item → Focus first. Focused items run before other Work; a focused item that waits or is blocked never holds unrelated approved Work or discovery. Clear focus releases it now; it also clears automatically once every focused item is done.',
   '• Priorities: All items → Move up / Move down orders root goals. Moving the active goal requires your request; a button press is that request.',
@@ -889,6 +889,15 @@ async function graphicAction($, identity, data) {
   else if (action === 'receipt' && id)
     await displayState($, identity, old => ({ ...old, tab: 'side', sideReceipt: id, detailPage: 0 }))
   else if (action === 'focus' && id && state?.tab !== 'side') await focusItems($, [id], identity)
+  else if (action === 'focus-add' && id && state?.tab !== 'side') {
+    const current = cached?.focus?.node_ids || []
+    if (!current.includes(id)) await focusItems($, [...current, id], identity)
+  } else if (action === 'parent' && chosen?.parent_id && state?.tab !== 'side') {
+    const parent = rows.findIndex(row => row.id === chosen.parent_id)
+    await openDetails($, chosen.parent_id, identity)
+    if (parent >= 0) await displayState($, identity, old => ({ ...old, [cursor]: parent }))
+  } else if (action === 'root-move' && Number.isInteger(data.by) && chosen && !chosen.parent_id && state?.tab !== 'side')
+    await moveRoot($, chosen.id, data.by, identity)
   else if (action === 'resolve-launch') await requestReworkLaunchResolution($, identity)
 }
 // Resolves 'opened', 'off' or 'unavailable'.
@@ -4274,7 +4283,11 @@ export function register(on) {
         control('obs-down', 'j', '▼Next', { action: 'move', by: 1 }, 'suggestion'),
         control('obs-inspect', 'i', 'Inspect', { action: 'inspect' }, 'suggestion'),
         control('obs-p1', 'p', state?.obsP1 ? '[P1]' : 'P1', { action: 'p1' }, 'error'),
-        ...(section === 'work' ? [control('obs-focus', 'f', 'Focus', { action: 'focus' }, 'autoAccept')] : []),
+        ...(section === 'work' ? [control('obs-focus', 'f', 'Focus', { action: 'focus' }, 'autoAccept'),
+          control('obs-focus-add', 'a', '+Focus', { action: 'focus-add' }, 'autoAccept'),
+          control('obs-parent', 'b', 'Parent', { action: 'parent' }, 'suggestion'),
+          control('obs-goal-up', 'u', 'Goal▲', { action: 'root-move', by: -1 }, 'suggestion'),
+          control('obs-goal-down', 'd', 'Goal▼', { action: 'root-move', by: 1 }, 'suggestion')] : []),
         ...(section === 'work' && stuckLaunch ? [control('obs-resolve-launch', 'x', 'Resolve stuck launch…', { action: 'resolve-launch' }, 'error')] : []),
         ...common,
       ] })
@@ -4322,6 +4335,16 @@ export function register(on) {
           for (const child of view.nodes.filter(n => n.parent_id === node.id)) visit(child, depth + 1)
         }
         visit(selected, 0)
+        if (!selected.parent_id) {
+          const roots = [cached.active_root, ...queueOf(cached)].filter(n => n && n.status !== 'done')
+          for (const [i, root] of roots.entries()) {
+            rows.push(text('Priority ' + (i + 1) + ': ' + itemTitle(root, width) + (root.held ? ' [held]' : '')))
+            if (i > 0) rows.push(Button({ key: 'up-' + root.id, plain: true, label: 'Move up',
+              onPress: () => moveRoot($, root.id, -1, origin) }))
+            if (i + 1 < roots.length) rows.push(Button({ key: 'down-' + root.id, plain: true, label: 'Move down',
+              onPress: () => moveRoot($, root.id, 1, origin) }))
+          }
+        }
       }
       const stuckLaunch = [...reworkLaunchNotes.values()].some(note => note.label === 'Rework launch stuck' && note.name)
       if (stuckLaunch) rows.unshift(Text({ color:'error', children:'Rework launch stuck · no second fork is started until the host resolves it.' }))
@@ -4330,7 +4353,12 @@ export function register(on) {
         ...(stuckLaunch ? [Button({ key:'detail-resolve-launch', plain:true, label:'Resolve stuck launch…',
           onPress:()=>requestReworkLaunchResolution($,origin) })] : []),
         ...(fresh && selected && selected.status !== 'done' ? [Button({ key: 'detail-focus', plain: true, hotkey: 'f', label: 'Focus first', onPress: () => focusItems($,[selected.id],origin) })] : []),
-        ...(cached.focus?.node_ids?.length ? [Button({ key: 'detail-unfocus', plain: true, hotkey: 'c', label: 'Clear focus', onPress: () => focusItems($,[],origin) })] : []))
+        ...(fresh && selected && selected.status !== 'done' && cached.focus?.node_ids?.length && !cached.focus.node_ids.includes(selected.id)
+          ? [Button({ key: 'detail-focus-add', plain: true, hotkey: 'a', label: 'Append to focus',
+            onPress: () => focusItems($,[...cached.focus.node_ids, selected.id],origin) })] : []),
+        ...(cached.focus?.node_ids?.length ? [Button({ key: 'detail-unfocus', plain: true, hotkey: 'c', label: 'Clear focus', onPress: () => focusItems($,[],origin) })] : []),
+        ...(fresh && selected?.parent_id ? [Button({ key: 'detail-parent', plain: true, hotkey: 'b', label: 'Parent',
+          onPress: () => openDetails($, selected.parent_id, origin) })] : []))
     } else if (section === 'side') {
       const receipts = [...sidePanelReceipts]
       for (const current of sideReceipts(identity)) {

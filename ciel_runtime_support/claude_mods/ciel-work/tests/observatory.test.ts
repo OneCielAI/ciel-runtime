@@ -18,10 +18,11 @@ const SETTINGS = [
   { key: 'work_parallel_model_p0', label: 'P0 Work fork model', value: 'inherit', kind: 'enum', status: 'inherit',
     choices: ['inherit', 'm-a', 'm-b', 'm-c', 'm-d', 'm-e'] }]
 function host(on) {
-  const s = { writes: [] }
+  const s = { writes: [], calls: [] }
   on('session.id', () => ({ value: 'session-a' }))
   on('env.get', (_, e) => ({ value: e.key === 'CLAUDE_CODE_SUBAGENT_MODEL_FORCE' ? '0' : 'fixture-host-token' }))
   on('mcp.call', async ($, e) => {
+    s.calls.push(e)
     let value = {}
     if (e.tool === 'work_status') value = e.args.detail ? DETAIL : SNAPSHOT
     if (e.tool === 'work_live_settings') { if (e.args.key) s.writes.push([e.args.key, e.args.value]); value = { settings: SETTINGS, provider: 'p' } }
@@ -88,6 +89,35 @@ test('terminal control strip drives the graphical view without a Client click', 
   expect((await ui.find({ key: 'obs-p1' }))?.text).toContain('[P1]')
   expect(await graphic()).toContain('INSPECTOR WORK none')
   await ui.unmount()
+})
+
+test('terminal strip appends to focus, opens the parent and moves a queued goal', async ($, on) => {
+  const saved = { focus: SNAPSHOT.focus, queue: SNAPSHOT.queue, root_index: SNAPSHOT.root_index }
+  SNAPSHOT.focus = { node_ids: ['x'] }
+  SNAPSHOT.queue = [{ id: 'q2', title: 'Queued goal', status: 'pending' }]
+  SNAPSHOT.root_index = [...saved.root_index, { id: 'q2', title: 'Queued goal', status: 'pending' }]
+  try {
+    const s = host(on)
+    await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+    await $.command.run({ command: 'work-mode', args: 'view' })
+    const ui = await $.ui.mount(pane('terminal', 100) as any)
+    await ui.resize({ columns: 100, rows: 30, in: 'obs-graphic' })
+    const graphic = async () => (await ui.findAll({ type: 'Text', in: 'obs-graphic' })).map(x => x.text).join('\n')
+    for (const [key, hotkey] of [['obs-focus-add', 'a'], ['obs-parent', 'b'], ['obs-goal-up', 'u'], ['obs-goal-down', 'd']])
+      expect((await ui.find({ key }))?.props.hotkey).toBe(hotkey)
+    await ui.press({ key: 'obs-down' })
+    expect(await graphic()).toContain('INSPECTOR WORK a')
+    await ui.press({ key: 'obs-focus-add' })
+    expect(s.calls.filter(c => c.tool === 'work_focus').at(-1)?.args.node_ids).toEqual(['x', 'a'])
+    await ui.press({ key: 'obs-parent' })
+    expect(await graphic()).toContain('INSPECTOR WORK g1')
+    await ui.press({ key: 'obs-down' }); await ui.press({ key: 'obs-down' })
+    expect(await graphic()).toContain('INSPECTOR WORK q2')
+    await ui.press({ key: 'obs-goal-up' })
+    const move = s.calls.filter(c => c.tool === 'work_reorder').at(-1)?.args
+    expect([move?.root_id, move?.position, move?.user_requested, move?.expected_version]).toEqual(['q2', 1, true, 3])
+    await ui.unmount()
+  } finally { Object.assign(SNAPSHOT, saved) }
 })
 
 test('/work-mode settings opens the pane on its Settings tab', async ($, on) => {

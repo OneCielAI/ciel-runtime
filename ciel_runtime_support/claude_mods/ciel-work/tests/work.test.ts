@@ -836,7 +836,8 @@ test('branch press opens read-only details with notes and evidence, nested node 
   expect(await pane.find({ key: 'node-a' })).toBeUndefined()
   await pane.press({ key: 'detail-parent' })
   expect((await pane.find({ key: 'node-a' }))?.text).toContain('Cache')
-  expect(s.calls.every(c => c.tool === 'work_status')).toBe(true)
+  // Reads only: board status and the observatory's live settings view (no key, no write).
+  expect(s.calls.every(c => c.tool === 'work_status' || (c.tool === 'work_live_settings' && !c.args.key))).toBe(true)
   expect(s.tools.length).toBe(0)
   await pane.unmount(); await band.unmount()
 })
