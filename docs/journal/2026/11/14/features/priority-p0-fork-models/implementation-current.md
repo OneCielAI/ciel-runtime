@@ -33,3 +33,7 @@ This implementation supersedes the earlier NO-GO and disabled-model conclusion i
 # Verification still required before release
 
 Full isolated Windows groups, changed-module Linux container run, owned real Claude request capture (P2/P0/side from first request), menu/web screenshots, beta push, registry gitHead check and local installed-package rerun.
+
+# Real Claude acceptance (2026-11-15T04:43Z)
+
+Owned Claude Code 2.1.325 with the packaged `ciel-work` and `ciel-work-gate`, an isolated config, local MCP backend, and local Messages stand-in passed all request-level checks. The first P2 request carried `fixture-p2`, the first P0 request carried `fixture-p0`, and the first side request carried `fixture-side`; main requests stayed on `fixture-main`. P0 was activated and launched while parallel was `enabled=false`, `paused=true`, and its root remained `planning`. The owned process tree had zero survivors and zero overlap with protected sessions/routers. Structural evidence: [real Claude first-request result](evidence/release/real-claude-first-request-result.json).

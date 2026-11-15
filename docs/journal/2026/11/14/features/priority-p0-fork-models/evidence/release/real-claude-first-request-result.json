@@ -1,0 +1,76 @@
+{
+  "kind": "fork models first-request E2E",
+  "claude_version": "2.1.325 (Claude Code)",
+  "configured": {
+    "P2": "fixture-p2",
+    "P0": "fixture-p0",
+    "side": "fixture-side"
+  },
+  "main_model": "fixture-main",
+  "steps": {
+    "p2_fork_seen": true,
+    "p0_priority": {
+      "error": false,
+      "canonical_priority": "P1",
+      "effective_priority": "P0"
+    },
+    "policy_when_p0_set": {
+      "enabled": false,
+      "paused": true
+    },
+    "p0_root_phase": "planning",
+    "p0_fork_seen": true,
+    "side_fork_seen": true
+  },
+  "first_requests": [
+    {
+      "kind": "work",
+      "model": "fixture-p2",
+      "order": 1
+    },
+    {
+      "kind": "p0",
+      "model": "fixture-p0",
+      "order": 4
+    },
+    {
+      "kind": "side",
+      "model": "fixture-side",
+      "order": 6
+    }
+  ],
+  "request_count": 9,
+  "main_models": [
+    "fixture-main"
+  ],
+  "fork_models_seen": {
+    "work": [
+      "fixture-p2"
+    ],
+    "p0": [
+      "fixture-p0"
+    ],
+    "side": [
+      "fixture-side"
+    ],
+    "other": [
+      "fixture-p0",
+      "fixture-p2"
+    ]
+  },
+  "checks": {
+    "work": true,
+    "p0": true,
+    "side": true,
+    "main_unchanged": true,
+    "p0_while_disabled_paused_planning": true
+  },
+  "passed": true,
+  "kills": 1,
+  "owned_survivors": 0,
+  "killed_protected_overlap": 0,
+  "protected_roots_absent_at_end": 0,
+  "evidence_secret_hits": {
+    "host_token": 0
+  }
+}
