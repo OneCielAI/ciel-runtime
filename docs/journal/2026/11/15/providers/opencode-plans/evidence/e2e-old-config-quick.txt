@@ -1,0 +1,34 @@
+## provider list
+Unknown provider: list
+Known: agy, alicode, alicode-intl, alims-intl, alitoken, alitoken-individual, anthropic, azure, blackbox, byteplus, cerebras, chutes, cielairouter, cline, clinepass, cloudflare-ai, codebuddy-cn, codex, cohere, deepseek, featherless, fireworks, gemini, github, github-copilot-oauth, gitlab, glm-cn, groq, huggingface, hyperbolic, iflow, kilocode, kimchi, kimi, lm-studio, meta, mimo-free, minimax, minimax-cn, mistral, mmf, nebius, nvidia-hosted, ollama, ollama-cloud, openai, opencode, opencode-go, openrouter, perplexity, qwen, self-hosted-nim, siliconflow, tabitoken, together, venice, vercel-ai-gateway, vertex, vertex-partner, vllm, volcengine-ark, xai, xiaomi-mimo, xiaomi-tokenplan, zai, zai-api, zai-coding-plan, zai-start-plan
+
+## migrated config
+Traceback (most recent call last):
+  File "<string>", line 5, in <module>
+KeyError: 'migrations'
+opencode https://opencode.ai/zen muse-spark-1.3-contributor-free 0 False None
+opencode-go https://opencode.ai/zen/go qwen3.6-plus 3 True {'ox-alpha-free': 'openai-chat'}
+
+## ciel-runtime test 90 quick
+Testing provider: opencode-go
+Test mode: quick
+Mode: ciel-runtime-router
+Claude API URL: http://127.0.0.1:19781/v1/messages
+Upstream base URL: https://opencode.ai/inference/go
+IP family: ipv6-preferred
+IPv4 connectivity: OK (connect:ok)
+IPv6 connectivity: OK (connect:ok)
+Model: ciel-runtime-opencode-go-kimi-k3
+Endpoint probes:
+- Anthropic Messages (/v1/messages): available (https://opencode.ai/inference/go/v1/messages)
+- OpenAI Chat (/v1/chat/completions): available (https://opencode.ai/inference/go/v1/chat/completions)
+Text response: running
+Text response: OK
+Stop reason: max_tokens
+Content blocks: text
+Tokens: in=350, out=16
+Compatibility: OK
+Note: quick mode checked text only; run `ciel-runtime test 120 smoke` for tool_use or `ciel-runtime test 180 full` for tool_result.
+
+## stop isolated router
+ciel-runtime managed services stopped

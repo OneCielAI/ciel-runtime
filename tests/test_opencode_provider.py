@@ -325,32 +325,39 @@ class OpenCodeProviderTests(unittest.TestCase):
         self.assertEqual("opencode", ciel_runtime.PROVIDER_ALIASES["zen"])
         self.assertEqual("opencode-go", ciel_runtime.PROVIDER_ALIASES["opencode-go"])
         self.assertEqual("opencode-go", ciel_runtime.PROVIDER_ALIASES["opencode.go"])
-        self.assertEqual("OpenCode Zen", ciel_runtime.PROVIDER_LABELS["opencode"])
+        self.assertEqual("opencode", ciel_runtime.PROVIDER_ALIASES["opencode-console"])
+        # OpenCode renamed Zen to OpenCode Console and moved both plans under
+        # /inference (docs/zen and docs/go, 2026-11-15).
+        self.assertEqual("OpenCode Console", ciel_runtime.PROVIDER_LABELS["opencode"])
         self.assertEqual("OpenCode Go", ciel_runtime.PROVIDER_LABELS["opencode-go"])
-        self.assertEqual("https://opencode.ai/zen", ciel_runtime.default_base_url("opencode"))
-        self.assertEqual("https://opencode.ai/zen/go", ciel_runtime.default_base_url("opencode-go"))
+        self.assertEqual("https://opencode.ai/inference", ciel_runtime.default_base_url("opencode"))
+        self.assertEqual("https://opencode.ai/inference/go", ciel_runtime.default_base_url("opencode-go"))
 
     def test_default_config_matches_zen_docs(self):
         pcfg = ciel_runtime.DEFAULT_CONFIG["providers"]["opencode"]
-        self.assertEqual("https://opencode.ai/zen", pcfg["base_url"])
+        self.assertEqual("https://opencode.ai/inference", pcfg["base_url"])
         self.assertEqual("claude-sonnet-4-6", pcfg["current_model"])
         self.assertEqual("claude-haiku-4-5", pcfg["haiku_model"])
         self.assertEqual("claude-sonnet-4-6", pcfg["subagent_model"])
         self.assertNotIn("qwen3.6-plus-free", pcfg["custom_models"])
-        self.assertIn("x-preview-f-free", pcfg["custom_models"])
-        self.assertEqual("openai-chat", pcfg["model_endpoints"]["x-preview-f-free"])
+        # x-preview-f-free left the Console catalog.
+        self.assertNotIn("x-preview-f-free", pcfg["custom_models"])
+        self.assertNotIn("x-preview-f-free", pcfg.get("model_endpoints") or {})
+        self.assertIn("claude-opus-5-5", pcfg["custom_models"])
         self.assertEqual("ipv6-preferred", pcfg["ip_family"])
         self.assertTrue(pcfg["native_compat"])
 
     def test_go_default_config_matches_go_docs(self):
         pcfg = ciel_runtime.DEFAULT_CONFIG["providers"]["opencode-go"]
-        self.assertEqual("https://opencode.ai/zen/go", pcfg["base_url"])
-        self.assertEqual("qwen3.6-plus", pcfg["current_model"])
-        self.assertEqual("qwen3.5-plus", pcfg["haiku_model"])
-        self.assertEqual("qwen3.6-plus", pcfg["subagent_model"])
+        self.assertEqual("https://opencode.ai/inference/go", pcfg["base_url"])
+        # qwen3.6-plus left Go (400 "isn't included in OpenCode Go"); kimi-k3
+        # is the user's chosen default (2026-11-15).
+        self.assertEqual("kimi-k3", pcfg["current_model"])
         self.assertEqual(1048576, pcfg["context_window"])
-        self.assertIn("ox-alpha-free", pcfg["custom_models"])
-        self.assertEqual("openai-chat", pcfg["model_endpoints"]["ox-alpha-free"])
+        self.assertNotIn("qwen3.6-plus", pcfg["custom_models"])
+        self.assertNotIn("ox-alpha-free", pcfg["custom_models"])
+        self.assertNotIn("ox-alpha-free", pcfg.get("model_endpoints") or {})
+        self.assertIn("kimi-k3.1-pro", pcfg["custom_models"])
         self.assertEqual("ipv6-preferred", pcfg["ip_family"])
         self.assertTrue(pcfg["native_compat"])
 
@@ -673,7 +680,7 @@ class OpenCodeProviderTests(unittest.TestCase):
 
     def test_launch_requires_opencode_api_key(self):
         errors = ciel_runtime.launch_readiness_errors(self.opencode_cfg(api_key=""))
-        self.assertTrue(any("OpenCode Zen requires" in err for err in errors))
+        self.assertTrue(any("OpenCode Console requires" in err for err in errors))
         self.assertTrue(ciel_runtime.launch_blockers_require_api_key(errors))
 
     def test_launch_requires_opencode_go_api_key(self):
@@ -700,7 +707,7 @@ class OpenCodeProviderTests(unittest.TestCase):
             models = ciel_runtime.upstream_model_ids("opencode", pcfg)
         http_json.assert_called_once()
         url = http_json.call_args.args[0]
-        self.assertEqual("https://opencode.ai/zen/v1/models", url)
+        self.assertEqual("https://opencode.ai/inference/v1/models", url)
         headers = http_json.call_args.kwargs["headers"]
         self.assertEqual("Bearer sk-opencode-test", headers["authorization"])
         self.assertEqual("claude-cli", headers["user-agent"])
@@ -764,7 +771,7 @@ class OpenCodeProviderTests(unittest.TestCase):
             models = ciel_runtime.upstream_model_ids("opencode-go", pcfg)
         http_json.assert_called_once()
         url = http_json.call_args.args[0]
-        self.assertEqual("https://opencode.ai/zen/go/v1/models", url)
+        self.assertEqual("https://opencode.ai/inference/go/v1/models", url)
         headers = http_json.call_args.kwargs["headers"]
         self.assertEqual("Bearer sk-opencode-test", headers["authorization"])
         self.assertEqual("claude-cli", headers["user-agent"])
@@ -909,12 +916,15 @@ class OpenCodeProviderTests(unittest.TestCase):
         zen = cfg["providers"]["opencode"]
         go = cfg["providers"]["opencode-go"]
         self.assertIn("private-zen-model", zen["custom_models"])
-        self.assertIn("x-preview-f-free", zen["custom_models"])
-        self.assertEqual("responses", zen["model_endpoints"]["x-preview-f-free"])
         self.assertIn("private-go-model", go["custom_models"])
-        self.assertIn("ox-alpha-free", go["custom_models"])
-        self.assertEqual("openai-chat", go["model_endpoints"]["ox-alpha-free"])
+        # Both ox-alpha free models later left the catalogs: the 2026-11-15
+        # migration removes them and their routes, never the user's own models.
+        self.assertNotIn("x-preview-f-free", zen["custom_models"])
+        self.assertNotIn("x-preview-f-free", zen["model_endpoints"])
+        self.assertNotIn("ox-alpha-free", go["custom_models"])
+        self.assertNotIn("ox-alpha-free", go["model_endpoints"])
         self.assertTrue(cfg["migrations"]["ox_alpha_provider_catalogs_20260823"])
+        self.assertTrue(cfg["migrations"]["opencode_console_go_inference_20261115"])
 
     def test_migration_removes_retired_managed_zen_free_model_only(self):
         cfg = {
@@ -933,10 +943,53 @@ class OpenCodeProviderTests(unittest.TestCase):
         models = cfg["providers"]["opencode"]["custom_models"]
         self.assertNotIn("qwen3.6-plus-free", models)
         self.assertIn("private-zen-model", models)
-        self.assertIn("x-preview-f-free", models)
+        self.assertNotIn("x-preview-f-free", models)
         self.assertTrue(
             cfg["migrations"]["opencode_catalog_protocol_refresh_20260823"]
         )
+
+    def test_migration_moves_zen_defaults_to_console_and_go_inference(self):
+        cfg = {
+            "migrations": {},
+            "providers": {
+                "opencode": {
+                    "base_url": "https://opencode.ai/zen/",
+                    "current_model": "muse-spark-1.3-contributor-free",
+                    "custom_models": ["claude-sonnet-4-6", "union-alpha", "private-zen-model"],
+                    "model_endpoints": {"union-alpha": "messages", "private-zen-model": "chat"},
+                },
+                "opencode-go": {
+                    "base_url": "https://opencode.ai/zen/go",
+                    "current_model": "qwen3.6-plus[1m]",
+                    "custom_models": ["qwen3.6-plus", "glm-5.3"],
+                },
+            },
+        }
+        ciel_runtime.apply_config_migrations(cfg)
+        console = cfg["providers"]["opencode"]
+        go = cfg["providers"]["opencode-go"]
+        self.assertEqual("https://opencode.ai/inference", console["base_url"])
+        self.assertEqual("https://opencode.ai/inference/go", go["base_url"])
+        # A current model the catalog no longer lists falls back to the plan default.
+        self.assertEqual("claude-sonnet-4-6", console["current_model"])
+        self.assertEqual("kimi-k3", go["current_model"])
+        self.assertEqual(["claude-sonnet-4-6", "private-zen-model"], console["custom_models"][:2])
+        self.assertNotIn("union-alpha", console["custom_models"])
+        self.assertEqual({"private-zen-model": "chat"}, console["model_endpoints"])
+        self.assertIn("claude-fable-5-2", console["custom_models"])
+        self.assertEqual("glm-5.3", go["custom_models"][0])
+        self.assertNotIn("qwen3.6-plus", go["custom_models"])
+        self.assertIn("kimi-k3", go["custom_models"])
+
+    def test_migration_keeps_a_custom_opencode_base_url(self):
+        cfg = {"migrations": {}, "providers": {
+            "opencode": {"base_url": "https://gateway.example/zen", "current_model": "claude-sonnet-4-6"},
+            "opencode-go": {"base_url": "https://gateway.example/go", "current_model": "glm-5.3"},
+        }}
+        ciel_runtime.apply_config_migrations(cfg)
+        self.assertEqual("https://gateway.example/zen", cfg["providers"]["opencode"]["base_url"])
+        self.assertEqual("https://gateway.example/go", cfg["providers"]["opencode-go"]["base_url"])
+        self.assertEqual("glm-5.3", cfg["providers"]["opencode-go"]["current_model"])
 
     def test_native_compat_depends_on_zen_endpoint_family(self):
         claude_cfg = self.opencode_cfg(current_model="claude-sonnet-4-6")["providers"]["opencode"]

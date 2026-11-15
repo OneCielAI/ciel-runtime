@@ -12,8 +12,8 @@
 | `ollama` | Ollama | Ollama Chat | `http://localhost:11434` |
 | `ollama-cloud` | Ollama Cloud | Ollama Chat | 원격 Ollama |
 | `deepseek` | DeepSeek.com | OpenAI Chat | `https://api.deepseek.com` |
-| `opencode` | OpenCode Zen | Anthropic Messages / OpenAI Chat | `https://opencode.ai/zen` |
-| `opencode-go` | OpenCode Go | Anthropic Messages / OpenAI Chat | `https://opencode.ai/zen/go` |
+| `opencode` | OpenCode Console | Anthropic Messages / OpenAI Chat / OpenAI Responses | `https://opencode.ai/inference` |
+| `opencode-go` | OpenCode Go | Anthropic Messages / OpenAI Chat / OpenAI Responses | `https://opencode.ai/inference/go` |
 | `kimi` | Kimi.com | Anthropic Messages / OpenAI Chat | `https://api.kimi.com/coding` |
 | `zai` | Z.AI GLM | Anthropic Messages | `https://api.z.ai/api/anthropic` |
 | `zai-api` | Z.AI Model API (API Key) | OpenAI Chat | `https://api.z.ai/api/paas/v4` |
@@ -192,9 +192,31 @@ Anthropic thinking 객체나 문서로 확인되지 않은 GLM-5.2 effort 문자
 
 ---
 
-## OpenCode (Zen / Go)
+## OpenCode (Console / Go)
 
-- Anthropic Messages 및 OpenAI Chat 엔드포인트 모두 지원.
+OpenCode의 유료 서비스는 두 가지이고, ciel-runtime은 각각을 별도 provider로 둔다
+(공식 문서 https://opencode.ai/docs/zen/ , https://opencode.ai/docs/go/ , 2026-11-15 확인).
+
+| provider | 서비스 | 과금 | 기본 URL | 기본 모델 |
+|----------|--------|------|----------|-----------|
+| `opencode` | OpenCode Console (구 OpenCode Zen) | 종량제: 크레딧 충전 후 요청마다 차감 | `https://opencode.ai/inference` | `claude-sonnet-4-6` |
+| `opencode-go` | OpenCode Go | 구독: Go $10/월, Go Plus $40/월, Go Teams 인당 $20/월 | `https://opencode.ai/inference/go` | `kimi-k3` |
+
+- 예전 Zen 주소(`https://opencode.ai/zen`, `https://opencode.ai/zen/go`)를 기본값으로
+  저장한 설정은 마이그레이션 `opencode_console_go_inference_20261115`가 새 주소로 옮긴다.
+  직접 지정한 주소는 바꾸지 않는다.
+- 모델 목록과 모델별 프로토콜은 공식 live catalog(`/inference/v1/models`,
+  `/inference/go/v1/models`)의 `api` 항목을 따른다(`providers/opencode_catalog.py`).
+  문서와 catalog가 다르면 catalog를 따른다. 예: Go 문서에 남아 있는 `mimo-v2.5`,
+  `mimo-v2.5-pro`는 요청하면 410 ModelDeprecated를 돌려준다.
+- 같은 마이그레이션이 catalog에서 빠진 모델(Go의 `qwen3.6-plus` 등)을 오프라인 선택
+  목록에서 지우고 새 모델을 추가한다. 현재 모델이 빠진 모델이면 plan 기본 모델로 바꾼다.
+- Console 문서 기준으로 무료 모델은 OpenCode 클라이언트 전용이며, 다른 클라이언트는
+  유료 모델이나 Go를 쓰도록 안내한다. Go는 클라이언트 고유 User-Agent와 대화별 고정
+  세션 ID(`x-opencode-session`, Claude Code·Codex는 자체 세션 헤더 인식)를 요구한다.
+- Gemini 계열(`google-generative`)은 router가 중계하지 않는 프로토콜이라 "unsupported"로
+  표시된다.
+- Anthropic Messages, OpenAI Chat, OpenAI Responses 엔드포인트를 지원.
 - IPv6 preferred 기본값 (`default_provider_ip_family()` 반환 `"ipv6-preferred"`).
 - 엔드포인트 별칭:
   - `messages` / `anthropic` → `anthropic-messages`

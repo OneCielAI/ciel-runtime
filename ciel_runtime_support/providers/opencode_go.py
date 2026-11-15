@@ -7,7 +7,7 @@ from ..architecture import MessageProtocol
 
 from .base import provider_configuration
 from .constants import DEFAULT_REQUEST_TIMEOUT_MS, PROVIDER_DEFAULT_BASE_URLS
-from .opencode import OPENCODE_GO_OX_ALPHA_FREE_MODEL, OpenCodeProviderAdapter
+from .opencode import OpenCodeProviderAdapter
 from .opencode_catalog import OPENCODE_GO_MODEL_PROTOCOLS
 
 
@@ -17,9 +17,9 @@ class OpenCodeGoProviderAdapter(OpenCodeProviderAdapter):
     base_url: str = PROVIDER_DEFAULT_BASE_URLS["opencode-go"]
     configuration_defaults_value: dict = field(
         default_factory=lambda: provider_configuration(
-            "qwen3.6-plus",
-            custom_models=("qwen3.6-plus", OPENCODE_GO_OX_ALPHA_FREE_MODEL,
-                           *(model for model in OPENCODE_GO_MODEL_PROTOCOLS if model != "qwen3.6-plus")),
+            # Default chosen by the user on 2026-11-15, when qwen3.6-plus left Go.
+            "kimi-k3",
+            custom_models=("kimi-k3", *(model for model in OPENCODE_GO_MODEL_PROTOCOLS if model != "kimi-k3")),
             native_compat=True,
             # The zen Responses family answers "custom tools are not supported
             # on this endpoint" (live 2026-09-18); see the Zen adapter.
@@ -33,7 +33,6 @@ class OpenCodeGoProviderAdapter(OpenCodeProviderAdapter):
             ip_family="ipv6-preferred",
             haiku_model="qwen3.5-plus",
             subagent_model="qwen3.6-plus",
-            model_endpoints={OPENCODE_GO_OX_ALPHA_FREE_MODEL: "openai-chat"},
         )
     )
     api_key_display_name_value: str = "OpenCode Go"

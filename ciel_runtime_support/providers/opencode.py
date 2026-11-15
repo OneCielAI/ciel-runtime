@@ -1,4 +1,4 @@
-"""OpenCode Zen provider adapter."""
+"""OpenCode Console provider adapter (pay-as-you-go; formerly OpenCode Zen)."""
 
 import secrets
 import threading
@@ -103,7 +103,6 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
             "claude-sonnet-4-6",
             custom_models=(
                 "claude-sonnet-4-6",
-                OPENCODE_ZEN_OX_ALPHA_FREE_MODEL,
                 *(model for model in OPENCODE_ZEN_MODEL_PROTOCOLS if model != "claude-sonnet-4-6"),
             ),
             native_compat=True,
@@ -121,13 +120,12 @@ class OpenCodeProviderAdapter(HttpBearerProviderAdapter):
             ip_family="ipv6-preferred",
             haiku_model="claude-haiku-4-5",
             subagent_model="claude-sonnet-4-6",
-            model_endpoints={OPENCODE_ZEN_OX_ALPHA_FREE_MODEL: "openai-chat"},
         )
     )
     send_placeholder_key: bool = True
-    api_key_display_name_value: str = "OpenCode Zen"
+    api_key_display_name_value: str = "OpenCode Console"
     api_key_launch_error_value: str = (
-        "Launch blocked: OpenCode Zen requires a OpenCode Zen API key."
+        "Launch blocked: OpenCode Console requires an OpenCode Console API key."
     )
     capabilities_value: ProviderCapabilities = field(
         default_factory=lambda: ProviderCapabilities(

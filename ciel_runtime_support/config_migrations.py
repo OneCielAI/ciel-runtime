@@ -887,4 +887,51 @@ def apply_config_migrations(cfg: dict[str, Any], *, policy: ConfigMigrationPolic
                 pcfg["effort_level"] = "max"
         migrations[marker] = True
 
+    marker = "opencode_console_go_inference_20261115"
+    if not migrations.get(marker):
+        # OpenCode renamed Zen to OpenCode Console and moved both plans under
+        # https://opencode.ai/inference (docs/zen and docs/go, 2026-11-15). The
+        # stored default base URL moves with it; a custom URL is kept. Models
+        # the live catalogs no longer list leave the offline choices, the new
+        # ones join them, and a removed current model falls back to the plan
+        # default (Go: kimi-k3, the user's choice; qwen3.6-plus answers 400).
+        from .providers.opencode_catalog import OPENCODE_GO_MODEL_PROTOCOLS, OPENCODE_ZEN_MODEL_PROTOCOLS
+        providers = cfg.get("providers") if isinstance(cfg.get("providers"), dict) else {}
+        plans = {
+            "opencode": ("https://opencode.ai/zen", "https://opencode.ai/inference", "claude-sonnet-4-6",
+                         OPENCODE_ZEN_MODEL_PROTOCOLS,
+                         ("deepseek-v4-flash", "deepseek-v4-flash-vision-exp", "gemini-3-flash", "gemini-3.1-pro",
+                          "ling-3.0-flash-fin-free", "mimo-v2.5-free", "muse-spark-1.3-contributor-free",
+                          "nemotron-3-ultra-free", "qwen3.7-max", "qwen3.7-plus", "union-alpha",
+                          "x-preview-f-free")),
+            "opencode-go": ("https://opencode.ai/zen/go", "https://opencode.ai/inference/go", "kimi-k3",
+                            OPENCODE_GO_MODEL_PROTOCOLS,
+                            ("deepseek-v4-flash", "deepseek-v4-flash-vision-exp", "glm-5.1", "grok-4.6",
+                             "kimi-k2.6", "mimo-v2.5", "mimo-v2.5-pro", "minimax-m2.5", "minimax-m2.7",
+                             "qwen3.6-plus", "qwen3.7-max", "union-alpha", "ox-alpha-free")),
+        }
+        for provider_name, (old_base, new_base, default_model, catalog, removed) in plans.items():
+            pcfg = providers.get(provider_name)
+            if not isinstance(pcfg, dict):
+                continue
+            if str(pcfg.get("base_url") or "").strip().rstrip("/") == old_base:
+                pcfg["base_url"] = new_base
+            gone = {normalize_model_id(provider_name, model) for model in removed}
+            custom = pcfg.get("custom_models")
+            if isinstance(custom, list):
+                kept = [model for model in custom
+                        if normalize_model_id(provider_name, str(model)) not in gone]
+                known = {normalize_model_id(provider_name, str(model)) for model in kept}
+                kept += [model for model in catalog if normalize_model_id(provider_name, model) not in known]
+                pcfg["custom_models"] = kept
+            endpoints = pcfg.get("model_endpoints")
+            if isinstance(endpoints, dict):
+                for model in list(endpoints):
+                    if normalize_model_id(provider_name, str(model)) in gone:
+                        endpoints.pop(model, None)
+            current = strip_claude_context_suffix(str(pcfg.get("current_model") or ""))
+            if current and normalize_model_id(provider_name, current) in gone:
+                pcfg["current_model"] = default_model
+        migrations[marker] = True
+
 __all__ = ["ConfigMigrationPolicy", "apply_config_migrations"]

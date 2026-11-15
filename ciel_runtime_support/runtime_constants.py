@@ -41,8 +41,8 @@ ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS: tuple[str, ...] = (
 )
 ANTHROPIC_PUBLIC_MODEL_DEFAULT_IDS = ANTHROPIC_PUBLIC_MODEL_FALLBACK_IDS
 ANTHROPIC_LIMITED_ACCESS_MODEL_IDS = ("claude-mythos-5", "claude-mythos-preview")
-OPENCODE_ZEN_BASE_URL = "https://opencode.ai/zen"
-OPENCODE_GO_BASE_URL = "https://opencode.ai/zen/go"
+OPENCODE_ZEN_BASE_URL = "https://opencode.ai/inference"
+OPENCODE_GO_BASE_URL = "https://opencode.ai/inference/go"
 KIMI_CODING_BASE_URL = "https://api.kimi.com/coding"
 KIMI_DEFAULT_MODEL = "kimi-for-coding"
 KIMI_K3_MODEL = "k3"
@@ -80,7 +80,7 @@ PROVIDER_ALIASES = {
     "ollama-cloud": "ollama-cloud", "cloud-ollama": "ollama-cloud",
     "deepseek": "deepseek", "deepseek.com": "deepseek", "deepseek-com": "deepseek",
     "deepseek-api": "deepseek", "ds": "deepseek", "opencode": "opencode",
-    "opencode.ai": "opencode", "opencode-ai": "opencode", "opencode-zen": "opencode",
+    "opencode.ai": "opencode", "opencode-ai": "opencode", "opencode-zen": "opencode", "opencode-console": "opencode",
     "zen": "opencode", "opencode-go": "opencode-go", "opencode.go": "opencode-go",
     "opencode_go": "opencode-go", "opencodego": "opencode-go", "kimi": "kimi",
     "kimi.com": "kimi", "kimi-code": "kimi", "kimi-coding": "kimi",

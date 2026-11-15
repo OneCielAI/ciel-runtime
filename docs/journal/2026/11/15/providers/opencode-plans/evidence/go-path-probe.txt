@@ -1,0 +1,14 @@
+2026-11-15T19:17:58Z
+{"case": "old  /zen/go/v1/messages", "model_requested": "qwen3.8-flash", "status": 200, "model": "qwen3.8-flash", "text": "pong"}
+{"case": "new  /inference/go/v1/messages", "model_requested": "qwen3.8-flash", "status": 200, "model": "qwen3.8-flash", "text": "pong"}
+{"case": "new  /inference/go/anthropic/v1/messages", "model_requested": "qwen3.8-flash", "status": 200, "model": "qwen3.8-flash", "text": "pong"}
+{"case": "old  /zen/go/v1/chat/completions", "model_requested": "deepseek-v4.1-flash", "status": 200, "model": "deepseek-v4.1-flash", "text": "pong"}
+{"case": "new  /inference/go/v1/chat/completions", "model_requested": "deepseek-v4.1-flash", "status": 200, "model": "deepseek-v4.1-flash", "text": "pong"}
+{"case": "new  /inference/go/openai/v1/chat/completions", "model_requested": "deepseek-v4.1-flash", "status": 200, "model": "deepseek-v4.1-flash", "text": "pong"}
+{"case": "new  /inference/go/openai/v1/responses", "model_requested": "gpt-6-luna", "status": 200, "model": "gpt-6-luna", "text": "pong"}
+{"case": "new  /inference/go/v1/responses", "model_requested": "gpt-6-luna", "status": 200, "model": "gpt-6-luna", "text": "pong"}
+{"case": "old  /zen/go/v1/messages qwen3.6-plus", "model_requested": "qwen3.6-plus", "status": 400, "error": "{\"type\":\"error\",\"error\":{\"type\":\"api_error\",\"message\":\"Model qwen3.6-plus isn't included in OpenCode Go. See the models it includes at https://opencode.ai/conso"}
+2026-11-15T19:36:31+00:00
+{"case": "new /inference/go/v1/chat/completions", "model_requested": "mimo-v2.5", "status": 410, "error": "{\"type\":\"error\",\"error\":{\"type\":\"ModelDeprecated\",\"message\":\"Model mimo-v2.5 has been deprecated. Use mimo-v2.6-flash instead.\"},\"metadata\":{\"model\":\"mimo-v2.5\""}
+{"case": "new /inference/go/v1/chat/completions", "model_requested": "mimo-v2.5-pro", "status": 410, "error": "{\"type\":\"error\",\"error\":{\"type\":\"ModelDeprecated\",\"message\":\"Model mimo-v2.5-pro has been deprecated. Use mimo-v2.6-pro instead.\"},\"metadata\":{\"model\":\"mimo-v2."}
+{"case": "new /inference/go/v1/chat/completions", "model_requested": "kimi-k3", "status": 200, "model": "kimi-k3", "text": ""}

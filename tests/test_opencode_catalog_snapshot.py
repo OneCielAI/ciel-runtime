@@ -36,17 +36,24 @@ class OpenCodeCatalogTests(unittest.TestCase):
                 other = ProviderConfig(adapter.name, adapter.base_url, 'minimax-m3')
                 self.assertEqual(({}, None), adapter.model_configuration_profile(other))
 
-    def test_union_alpha_is_available_and_uses_messages_in_both_plans(self):
+    def test_union_alpha_left_both_live_catalogs(self):
+        # Neither /inference/v1/models nor /inference/go/v1/models lists it (2026-11-15).
         for adapter in (OpenCodeProviderAdapter(), OpenCodeGoProviderAdapter()):
             with self.subTest(provider=adapter.name):
-                config = ProviderConfig(adapter.name, adapter.base_url, 'union-alpha')
-                self.assertIn('union-alpha', adapter.configuration_defaults_value['custom_models'])
-                self.assertEqual('anthropic_messages', adapter.documented_model_protocols()['union-alpha'])
-                for operation in ('anthropic_messages', 'openai_chat', 'openai_responses'):
-                    self.assertEqual('anthropic_messages', adapter.select_protocol(operation, config))
-                self.assertTrue(adapter.router_native_anthropic_enabled(config))
-                alias = f'ciel-runtime-{adapter.name}-union-alpha'
-                self.assertEqual('anthropic_messages', adapter.select_protocol('openai_responses', config, alias))
+                self.assertNotIn('union-alpha', adapter.configuration_defaults_value['custom_models'])
+                self.assertNotIn('union-alpha', adapter.documented_model_protocols())
+
+    def test_snapshot_matches_the_live_catalogs_of_2026_11_15(self):
+        self.assertEqual(86, len(OPENCODE_ZEN_MODEL_PROTOCOLS))
+        self.assertEqual(30, len(OPENCODE_GO_MODEL_PROTOCOLS))
+        for model in ('qwen3.6-plus', 'mimo-v2.5', 'mimo-v2.5-pro', 'glm-5.1', 'grok-4.6', 'kimi-k2.6'):
+            self.assertNotIn(model, OPENCODE_GO_MODEL_PROTOCOLS)
+        self.assertEqual('openai_chat', OPENCODE_GO_MODEL_PROTOCOLS['kimi-k3'])
+        self.assertEqual('anthropic_messages', OPENCODE_GO_MODEL_PROTOCOLS['claude-haiku-5-5'])
+        self.assertEqual('google_generative', OPENCODE_GO_MODEL_PROTOCOLS['gemini-4-argon'])
+        self.assertEqual('openai_responses', OPENCODE_ZEN_MODEL_PROTOCOLS['gpt-6.1-sol'])
+        self.assertEqual('openai_chat', OPENCODE_ZEN_MODEL_PROTOCOLS['qwen3.8-max'])
+        self.assertEqual('anthropic_messages', OPENCODE_GO_MODEL_PROTOCOLS['qwen3.8-max'])
 
     def test_all_documented_routes_and_fallback_choices(self):
         for adapter, catalog in [(OpenCodeProviderAdapter(), OPENCODE_ZEN_MODEL_PROTOCOLS),

@@ -676,7 +676,7 @@ class ProviderContractMatrixTests(unittest.TestCase):
             "codex": "native Codex",
             "deepseek": "DeepSeek required",
             "ollama": "not required for Ollama",
-            "opencode": "OpenCode Zen required",
+            "opencode": "OpenCode Console required",
         }
         for provider, expected in cases.items():
             adapter = PROVIDER_ADAPTERS.create(provider)

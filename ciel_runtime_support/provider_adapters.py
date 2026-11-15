@@ -62,7 +62,7 @@ PROVIDER_DESCRIPTORS = ProviderDescriptorRegistry(
         ProviderDescriptor("ollama", "Ollama", OllamaProviderAdapter),
         ProviderDescriptor("ollama-cloud", "Ollama Cloud", OllamaCloudProviderAdapter),
         ProviderDescriptor("deepseek", "DeepSeek.com", DeepSeekProviderAdapter),
-        ProviderDescriptor("opencode", "OpenCode Zen", OpenCodeProviderAdapter),
+        ProviderDescriptor("opencode", "OpenCode Console", OpenCodeProviderAdapter),
         ProviderDescriptor("opencode-go", "OpenCode Go", OpenCodeGoProviderAdapter),
         ProviderDescriptor("kimi", "Kimi.com", KimiProviderAdapter),
         ProviderDescriptor("zai", "Z.AI GLM", ZaiProviderAdapter),

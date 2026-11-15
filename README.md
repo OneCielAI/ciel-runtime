@@ -122,7 +122,7 @@ bridge  -> Ciel Router and the agent CLI run on separate networked machines
 ```
 
 Dedicated adapters cover Anthropic, Ollama and Ollama Cloud, DeepSeek, OpenCode
-Zen/Go, Kimi, Z.AI, Alibaba Model Studio, xAI, OpenRouter, TaBiAI, Fireworks,
+Console/Go, Kimi, Z.AI, Alibaba Model Studio, xAI, OpenRouter, TaBiAI, Fireworks,
 NVIDIA NIM, vLLM, and LM Studio. A declarative catalog adds other
 OpenAI-compatible services and private gateways. The authoritative list,
 endpoint rules, and model constraints are in [Providers](docs/Providers.md).

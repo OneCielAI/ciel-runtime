@@ -1,0 +1,54 @@
+2026-11-15T19:46:21Z
+## stored config before (pre-change shape)
+  opencode https://opencode.ai/zen muse-spark-1.3-contributor-free custom=0 has qwen3.6-plus=False endpoints=None
+  opencode-go https://opencode.ai/zen/go qwen3.6-plus custom=3 has qwen3.6-plus=True endpoints={'ox-alpha-free': 'openai-chat'}
+  marker None
+## Go: ciel-runtime test 180 smoke
+Mode: ciel-runtime-router
+Claude API URL: http://127.0.0.1:19781/v1/messages
+Upstream base URL: https://opencode.ai/inference/go
+IP family: ipv6-preferred
+IPv4 connectivity: OK (connect:ok)
+IPv6 connectivity: OK (connect:ok)
+Model: ciel-runtime-opencode-go-kimi-k3
+Endpoint probes:
+- Anthropic Messages (/v1/messages): available (https://opencode.ai/inference/go/v1/messages)
+- OpenAI Chat (/v1/chat/completions): available (https://opencode.ai/inference/go/v1/chat/completions)
+Text response: running
+Text response: OK
+Stop reason: max_tokens
+Content blocks: text
+Tokens: in=30, out=16
+Tool use: running
+Tool use: OK
+Stop reason: tool_use
+Content blocks: tool_use
+Tokens: in=405, out=81
+Compatibility: OK
+Note: smoke mode checked text and tool_use only; run `ciel-runtime test 180 full` for tool_result round trip.
+## stored config after
+  opencode https://opencode.ai/inference claude-sonnet-4-6 custom=86 has qwen3.6-plus=True endpoints={}
+  opencode-go https://opencode.ai/inference/go kimi-k3 custom=30 has qwen3.6-plus=False endpoints={}
+  marker True
+## Console (no key), free model big-pickle: ciel-runtime test 90 quick
+Provider set to opencode (OpenCode Console).
+Gateway model cache cleared. Run /model to refresh the model picker.
+stream_idle_timeout_ms: 300000
+Gateway model cache cleared. Run /model to refresh if needed.
+Testing provider: opencode
+Test mode: quick
+Mode: ciel-runtime-router
+Claude API URL: http://127.0.0.1:19781/v1/messages
+Upstream base URL: https://opencode.ai/inference
+IP family: ipv6-preferred
+IPv4 connectivity: OK (connect:ok)
+IPv6 connectivity: OK (connect:ok)
+Model: ciel-runtime-opencode-big-pickle
+Endpoint probes:
+- Anthropic Messages (/v1/messages): available (https://opencode.ai/inference/v1/messages)
+- OpenAI Chat (/v1/chat/completions): available (https://opencode.ai/inference/v1/chat/completions)
+Text response: running
+Compatibility: FAIL
+HTTP: 401
+Reason: Text response: authentication_error: Invalid credential
+ciel-runtime managed services stopped
