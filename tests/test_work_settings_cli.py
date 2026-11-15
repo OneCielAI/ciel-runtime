@@ -76,15 +76,19 @@ class WorkSettingsCliTests(unittest.TestCase):
         self.assertEqual(3, config['work_side_intake']['max_active'])
         result, _ = self.invoke(config)
         rows = {r['key']:r for r in result['settings']}
-        # The comparison experiment was removed on 2026-11-10; side model and
-        # context were retired on 2026-11-11 (every SSE event is a native fork).
-        retired_keys = ('comparison_enabled', 'comparison_model', 'model', 'context_mode', 'context_percent')
+        # The comparison experiment was removed on 2026-11-10; side context was
+        # retired on 2026-11-11 (every SSE event is a native fork).
+        retired_keys = ('comparison_enabled', 'comparison_model', 'context_mode', 'context_percent')
         self.assertFalse({'work_side_intake_' + key for key in retired_keys} & set(rows))
-        for retired, value in zip(retired_keys, ('on', 'x', 'inherit', 'full', '30')):
+        for retired, value in zip(retired_keys, ('on', 'x', 'full', '30')):
             with self.assertRaises(ValueError):
                 self.invoke(config, 'set', 'work_side_intake_' + retired, value)
+        # The side-fork model returned on 2026-11-14 as its own per-provider
+        # setting; the legacy work_side_intake.model value never resurfaces.
+        self.assertEqual('inherit', rows['work_side_intake_model']['value'])
         self.assertEqual({'next_side_event'}, {rows[k]['status'] for k in rows if k.startswith('work_side_intake_')
-                                               and k not in ('work_side_intake_type', 'work_side_intake_enabled')})
+                                               and k not in ('work_side_intake_type', 'work_side_intake_enabled',
+                                                             'work_side_intake_model')})
         with self.assertRaises(ValueError):
             self.invoke(config, 'set', 'work_side_intake_max_active', '0')
         with self.assertRaises(ValueError):

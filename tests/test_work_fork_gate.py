@@ -53,6 +53,9 @@ class WorkForkGateTests(unittest.TestCase):
         self.assertEqual(ALIAS_MAIN, value["first"])
         self.assertEqual("model-p2", value["second"])
 
+    def test_rework_fork_before_bind_uses_its_replacement_lease_priority(self):
+        self.assertEqual("model-p2", self.scenario("fork_model_rework_name_before_bind")["first"])
+
     def test_side_fork_uses_side_model(self):
         self.assertEqual("model-side", self.scenario("fork_model_side")["first"])
 

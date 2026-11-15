@@ -292,10 +292,15 @@ async function forkModel($, agentId) {
   if (fork.kind === 'side') names = slotNames(state, 'side')
   else {
     const leases = Object.values(state.leases || {})
+    // A rework launch name embeds its replacement lease id (reworkForkLeaseId).
+    const rework = fork.name ? /^work-rework-([\s\S]+)-a[1-9]\d{0,2}$/.exec(fork.name)?.[1] : null
     const lease = leases.find(row => row?.host_id === agentId)
       || (fork.name ? leases.find(row => row?.dispatch_name === fork.name || row?.agent_name === fork.name) : null)
+      || (rework ? leases.find(row => row?.id === rework) || null : null)
     const priority = lease ? (lease.effective_priority || lease.priority) : null
     names = typeof priority === 'string' && /^P[0-5]$/.test(priority) ? slotNames(state, priority) : null
+    if (!names) note($, 'fork-model-inherit agent=' + shortId(agentId) + ' lease=' + (lease ? 'found' : 'missing')
+      + ' priority=' + (typeof priority === 'string' ? priority.slice(0, 2) : '-'))
     // Without a lease yet the answer is not cached, so the next step looks again.
     if (!lease) return names
   }

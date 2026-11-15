@@ -9,7 +9,11 @@ class BetaPublishTests(unittest.TestCase):
         publish = (ROOT/'.github/workflows/npm-publish.yml').read_text(encoding='utf8')
         ci = (ROOT/'.github/workflows/ci.yml').read_text(encoding='utf8')
         self.assertIn('branches: [main, nightly, beta]', publish)
-        self.assertIn('branches: [main, nightly, beta]', ci)
+        # Branch pushes are gated once, inside the publish workflow; CI covers PRs.
+        self.assertNotIn('branches: [main, nightly, beta]', ci)
+        self.assertIn('pull_request:', ci)
+        self.assertIn('needs: [quality, test, python-minimum]', publish)
+        self.assertNotIn('run: npm test', publish)
         self.assertIn('nightly|beta)', publish)
         self.assertIn('main)', publish)
         self.assertIn('Unsupported publish ref', publish)

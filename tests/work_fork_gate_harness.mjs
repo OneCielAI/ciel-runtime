@@ -395,4 +395,12 @@ await scenario('fork_model_direct_path_uses_upstream_id', async () => {
   return { first: first?.model }
 })
 
+await scenario('fork_model_rework_name_before_bind', async () => {
+  const gate = await load()
+  const leases = { 'rep-77': { id: 'rep-77', state: 'reserved', host_id: null, priority: 'P2', role: 'resume' } }
+  const w = world({ rows: [workRow('f8', 'work-rework-rep-77-a1')], leases, forkModels: MODELS })
+  const first = await step(gate, w, { agentId: 'f8', index: 0, model: ALIAS_MAIN })
+  return { first: first?.model }
+})
+
 console.log(JSON.stringify(out))

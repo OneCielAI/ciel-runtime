@@ -83,9 +83,11 @@ def main() -> int:
     parser.add_argument("group", choices=GROUPS)
     parser.add_argument("--shard", help="deterministic one-based shard I/N (for example 2/3)")
     parser.add_argument("--exclude", action="append", default=[], help="exclude an exact test filename")
+    parser.add_argument("--only", action="append", default=[], help="run only these exact test filenames")
     parser.add_argument("--list", action="store_true")
     args = parser.parse_args()
-    files = [path for path in files_for(args.group) if path.name not in set(args.exclude)]
+    files = [path for path in files_for(args.group) if path.name not in set(args.exclude)
+             and (not args.only or path.name in set(args.only))]
     shard_label = ""
     if args.shard:
         try:

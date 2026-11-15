@@ -53,7 +53,7 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ matrix.group }}" == "unit-real-backend" ]]; then
-            python -m unittest -v tests/test_work_mod_real_backend.py
+            python scripts/run_test_group.py unit --only test_work_mod_real_backend.py
           else
             args=("${{ matrix.group }}")
             if [[ -n "${{ matrix.shard }}" ]]; then args+=(--shard "${{ matrix.shard }}"); fi

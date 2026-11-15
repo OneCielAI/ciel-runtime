@@ -2257,6 +2257,11 @@ async function parallelToolCall($, e, next) {
     }
   }
   if (next.origin?.plugin === 'ciel-work' && (name.startsWith('work_parallel_') || name === 'work_priority_command' || name === 'work_side_intake' || name === 'work_side_settings' || name === 'work_live_settings' || name === 'work_discovery_pickup')) return next(e)
+  // The packaged ciel-work-gate plugin reads the host view with its own host
+  // attestation (lease worktree, effective P0, fork models). The engine pins
+  // next.origin, so neither the model nor a fork can claim this origin; only
+  // these read-only tools pass with their _host intact.
+  if (next.origin?.plugin === 'ciel-work-gate' && (name === 'work_parallel_status' || name === 'work_status')) return next(e)
   if (name === 'work_node_update' && e.status === 'done') {
     try {
       const s = await hostStatus($)
