@@ -50,7 +50,9 @@ The package installs three commands:
 
 Requirements: Node.js 18 or newer, Python 3.10 or newer, and at least one
 supported coding-agent CLI or provider credential. Set `CIEL_RUNTIME_PYTHON` to
-select a specific Python executable. See the [installation guide](docs/Installation.md)
+select a specific Python executable. On Windows, a Python older than the pinned
+3.14.10 (or none at all) is replaced automatically by the official python.org
+runtime, sha256-checked against the package. See the [installation guide](docs/Installation.md)
 for shell installers, unattended setup, and diagnostics.
 
 ## Quickstart
