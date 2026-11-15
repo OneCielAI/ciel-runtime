@@ -711,7 +711,9 @@ test('Stop read failure preserves native result and does not consume no-progress
 
 const BAND = { plugin: 'ciel-work', component: 'AbovePrompt', surface: 'terminal', viewport: { columns: 80, rows: 40 }, props: {
   hasSurvey: false, isWorking: false, maxRows: 16, bodyColumns: 80, scroll: { offset: 0, bodyRows: 15 }, view: {} } } as const
-const PANE = { plugin: 'ciel-work', component: 'Pane', requestId: 'work-details', surface: 'terminal', props: {
+// The Work & SSE observatory (5266982) draws its Work tab as a graphic Client on
+// the terminal; the Button rows these tests press are the mobile/narrow render.
+const PANE = { plugin: 'ciel-work', component: 'Pane', requestId: 'work-details', surface: 'mobile', props: {
   title: 'Work details', isFocused: true, bodyColumns: 64, placement: 'inline', scroll: { offset: 0, bodyRows: 18 }, view: {} } } as const
 function inspection(on) {
   const s = setup(on, { phase: 'executing', breakdown: [
@@ -1237,10 +1239,11 @@ test('bounded root index pages every queued/history root; details only read the 
   // The exact-goal detail mock returns only this root; no queued nodes are fetched.
   s.snapshot.nodes = [{ id: 'h23', parent_id: null, title: 'Finished 23', status: 'done', evidence: 'archived proof' }]
   await band.press({ key: 'finished-h23' })
-  expect(s.calls.at(-1).args).toEqual({ format: 'json', detail: true, root_id: 'h23', session_id: 'claude:session-a' })
+  expect(s.calls.filter(c => c.args.detail).at(-1).args).toEqual({ format: 'json', detail: true, root_id: 'h23', session_id: 'claude:session-a' })
   const pane = await $.ui.mount(PANE)
   expect(await pane.find({ text: /archived proof/ })).toBeDefined()
-  expect(s.calls.every(c => c.tool === 'work_status')).toBe(true)
+  // Reads only: board status and the observatory's live settings view (no key, no write).
+  expect(s.calls.every(c => c.tool === 'work_status' || (c.tool === 'work_live_settings' && !c.args.key))).toBe(true)
   await pane.unmount(); await band.unmount()
 })
 // Claude Code 2.1.311 refuses an engine node under a Box with display, overflow, position, a size
@@ -1332,10 +1335,10 @@ test('tiny band opens inspector with all tab lists and exact details on demand',
   const reads = s.calls.length
   await pane.press({ key: 'detail-tab-queue' })
   expect(await pane.find({ key: 'detail-queue-q0' })).toBeDefined()
-  await pane.press({ key: 'detail-next' })
+  await pane.press({ key: 'obs-next' })
   expect(await pane.find({ key: 'detail-queue-q12' })).toBeDefined()
   expect(s.calls.length).toBe(reads)
-  await pane.press({ key: 'detail-prev' })
+  await pane.press({ key: 'obs-prev' })
   expect(await pane.find({ key: 'detail-queue-q0' })).toBeDefined()
   await pane.unmount(); await band.unmount()
 })
@@ -1375,8 +1378,8 @@ test('inspector bounds long notes and trees with paging; every note chunk stays 
     if (await pane.find({ key: 'node-leaf39' })) last = true
     expect((await pane.findAll({ type: 'Button' })).length <= 18).toBe(true)
     pages++
-    if (!await pane.find({ key: 'detail-next' })) break
-    await pane.press({ key: 'detail-next' })
+    if (!await pane.find({ key: 'obs-next' })) break
+    await pane.press({ key: 'obs-next' })
   } while (pages < 20)
   expect(end).toBe(true); expect(last).toBe(true)
   expect(pages < 20).toBe(true)
@@ -1402,8 +1405,8 @@ test('exact wide-character detail is paged without losing text and snapshot shri
     for (const row of await pane.findAll({ type: 'Text' })) {
       if (row.text.startsWith('Note:') || /한|글|마지막/.test(row.text)) captured += row.text
     }
-    if (!await pane.find({ key: 'detail-next' })) break
-    await pane.press({ key: 'detail-next' })
+    if (!await pane.find({ key: 'obs-next' })) break
+    await pane.press({ key: 'obs-next' })
   }
   expect(captured).toBe('Note: ' + note.replace('\n', ''))
   await pane.unmount(); await band.unmount()
