@@ -2437,6 +2437,47 @@ async function parallelDirectSpawn($, key, request) {
   // R2 B2: a reservation's exact owner is this process's attachment.
   const r = await parallelEvent($, { ...args, event }, event === 'rework_dispatch' ? observed : await hostProcess($, observed))
   Object.assign(request, r)
+  // reserve/reserve_next may return the P0 launch shape when its candidate is
+  // effectively P0. Run the exact assignment/spawning protocol and use the
+  // backend's deterministic dispatch name instead of the ordinary auto key.
+  if (r.dispatch === 'ready' && r.effective_priority === 'P0') {
+    parallelPending.delete(key)
+    const p0Key = r.dispatch_name
+    if (typeof p0Key !== 'string' || !p0Key) throw new Error('P0 reservation omitted its dispatch name')
+    const assignment = await parallelEvent($, { event:'p0_launch_assignment', intent_id:r.intent_id,
+      lease_id:r.lease_id, dispatch_name:p0Key }, { internal:true })
+    Object.assign(request, assignment, { scope, auto:true })
+    parallelPending.set(p0Key, request)
+    const p0Label = parallelItemLabel(request)
+    const p0Prompt = 'Execute exactly this P0 Work assignment immediately. Native fork context and permissions are inherited; '
+      + 'the configured P0 fork model is applied by the request gate. '
+      + 'Report a question or result only through work_parallel_report using the exact worker_token. '
+      + 'Do not configure policy or accept your result. Assignment JSON:\n' + parallelAssignment(request)
+    await parallelEvent($, { event:'p0_launch_spawning', intent_id:request.intent_id,
+      lease_id:request.lease_id, dispatch_name:p0Key }, { internal:true })
+    let p0Spawn
+    try { p0Spawn = await $.agent.spawn({ subagentType:'fork', name:p0Key, description:'Work ' + p0Label,
+      cwd:request.workspace?.path || undefined, prompt:p0Prompt }) }
+    catch (error) { p0Spawn = { deny:String(error?.message || error) } }
+    if (p0Spawn?.deny) {
+      try { await parallelEvent($, { event:'p0_launch_denied', intent_id:request.intent_id,
+        lease_id:request.lease_id, dispatch_name:p0Key }, { internal:true,
+        proof:'native spawn denied before launch: ' + clipped(p0Spawn.deny, 300) }) }
+      finally { parallelPending.delete(p0Key) }
+      rememberParallelFailure('p0-native-spawn', p0Spawn.deny)
+      return { result:JSON.stringify({ dispatch:'spawn_denied', item_id:request.item_id, item_kept:true }) }
+    }
+    if (!p0Spawn?.agentId) { parallelPending.delete(p0Key); return null }
+    ownParallelAgent(p0Spawn.agentId); noteProcessAgents([p0Spawn.agentId])
+    try { await parallelEvent($, { event:'bind', lease_id:request.lease_id },
+      { host_id:p0Spawn.agentId, agent_name:p0Key }) }
+    finally { parallelPending.delete(p0Key) }
+    request.host_id = p0Spawn.agentId
+    parallelBound.set(p0Spawn.agentId, { lease_id:request.lease_id, scope, role:'worker' })
+    scheduleNativeObservation($)
+    return { result:JSON.stringify({ dispatch:'started', item_id:request.item_id,
+      lease_id:request.lease_id, agent_id:p0Spawn.agentId, name:p0Key }) }
+  }
   const label = parallelItemLabel({ ...request, item_title: r.item_title || request.item_title,
     item_ref: r.item_ref ?? request.item_ref })
   if (request.role && !['worker','resume'].includes(request.role)) throw new Error('reviewer reservations are disabled; main reviews submitted results')

@@ -3252,11 +3252,15 @@ def run(name, args, board_store, identity, config, save_config):
             item_id=args.get("item_id") if explicit else None,
             role=args.get("role", "worker"), p0_only=p0_only,
         )
+        lease = store.read()["leases"][assignment["lease_id"]]
+        intent = p0_state(store).approval_intent(
+            lease["id"], scope=identity, item_id=lease["item_id"])
         if p0_only:
-            lease = store.read()["leases"][assignment["lease_id"]]
-            intent = p0_state(store).approval_intent(
-                lease["id"], scope=identity, item_id=lease["item_id"])
             require(intent is not None, "P0 assignment intent missing")
+        if intent is not None:
+            # An ordinary reserve that picked an effective-P0 root returns the
+            # same P0 launch shape, so the host launches it under the exact
+            # deterministic dispatch name with its P0 assignment capability.
             return json.dumps({"dispatch": "ready", "intent_id": intent["intent_id"],
                                "continuation": "initial", "intent_state": intent["state"],
                                "dispatch_name": intent["dispatch_name"],
