@@ -228,7 +228,9 @@ async function decide($, tool, input, agentId, fork) {
   if (board?.enabled !== false) {
     if (board?.enabled !== true || !['planning', 'executing'].includes(board.phase))
       return deny('board-unreadable', 'the Work board snapshot is not valid; ' + tool + ' is refused.')
-    if (board.phase === 'planning') return deny('planning', 'Work is planning; ' + tool + ' waits for approval.')
+    // P0 is dispatched without plan approval; the host marks its exact lease.
+    if (board.phase === 'planning' && lease.planning_write_authorized !== true)
+      return deny('planning', 'Work is planning; ' + tool + ' waits for approval.')
   }
   // Parity row 13 (G3): the host projection names the lease worktree.
   if (!Object.prototype.hasOwnProperty.call(lease, 'workspace_path'))

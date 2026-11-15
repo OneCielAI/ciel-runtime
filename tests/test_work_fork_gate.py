@@ -166,6 +166,8 @@ class WorkForkGateTests(unittest.TestCase):
         value = self.scenario("board_phase")
         self.assertIn("Work is planning", value["planningWrite"])
         self.assertEqual("allowed", value["planningBash"])
+        # P0 is dispatched without approval; its host-marked lease may write in planning.
+        self.assertEqual("allowed", value["p0PlanningWrite"])
         self.assertEqual("allowed", value["disabledWrite"])
         self.assertIn("not valid", value["invalidWrite"])
 

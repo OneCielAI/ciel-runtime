@@ -207,8 +207,8 @@ await scenario('spawn_cwd_cross_check', async () => {
   return { deny: r.result?.deny ?? null }
 })
 await scenario('board_phase', async () => {
-  const run = async (board, tool, e) => {
-    const gate = await load(); const w = world({ rows: [workRow('f1')], leases: runningLease('f1'), board })
+  const run = async (board, tool, e, lease = {}) => {
+    const gate = await load(); const w = world({ rows: [workRow('f1')], leases: runningLease('f1', lease), board })
     const r = await call(gate, w, { tool, tool_use_id: 'b', agentId: 'f1', ...e })
     return r.result?.deny ?? 'allowed'
   }
@@ -216,6 +216,8 @@ await scenario('board_phase', async () => {
   return {
     planningWrite: await run({ enabled: true, phase: 'planning' }, 'Write', write),
     planningBash: await run({ enabled: true, phase: 'planning' }, 'Bash', { command: 'echo' }),
+    p0PlanningWrite: await run({ enabled: true, phase: 'planning' }, 'Write', write,
+      { effective_priority: 'P0', planning_write_authorized: true }),
     disabledWrite: await run({ enabled: false }, 'Write', write),
     invalidWrite: await run({ enabled: true, phase: 'weird' }, 'Write', write),
   }
