@@ -197,6 +197,59 @@ class RouterClientLifecycleTests(unittest.TestCase):
         self.assertEqual(runner.run(native, True), 3)
         self.assertEqual(calls, ["restart-begin", "restart-end", "release", "stop"])
 
+    def _supervisor(self, *, health, alive, calls, logs):
+        return RouterClientSupervisor("fixture", RouterClientSupervisorPorts(
+            router_health=health, listener_reachable=lambda: False,
+            health_matches_current=lambda _h: False, health_config_matches_current=lambda _h: False,
+            health_summary=str, start_router=lambda **_kw: calls.append("spawn") or True,
+            log=lambda level, text: logs.append(text), process_alive=alive))
+
+    def test_exited_router_process_restarts_without_the_confirmation_window(self):
+        # G:\ciel-Walkie 2026-11-15 07:20:20: python314.dll access violation;
+        # the restart came 84 s later and Claude Code had already marked the
+        # router MCP failed (five reconnects, 1 s doubling, ~31 s).
+        import time
+        calls, logs, probes = [], [], []
+        supervisor = self._supervisor(health=lambda: probes.append(1), alive=lambda: False, calls=calls, logs=logs)
+        started = time.monotonic()
+        with mock.patch.dict(os.environ, {"CIEL_RUNTIME_ROUTER_DOWN_CONFIRM_SECONDS": "60"}):
+            self.assertTrue(supervisor.ensure_running(threading.Event()))
+        self.assertLess(time.monotonic() - started, 1.0)
+        self.assertEqual(["spawn"], calls)
+        self.assertEqual(1, len(probes))
+        self.assertTrue(any("reason=router_process_exited" in line for line in logs))
+
+    def test_down_confirmation_is_wall_clock_time_not_a_probe_count(self):
+        # A refused loopback connect takes ~2 s on Windows; 30 counted probes
+        # turned the 15 s window into ~78 s.
+        import time
+        calls, logs = [], []
+        def slow_refused():
+            time.sleep(0.4)
+            return None
+        supervisor = self._supervisor(health=slow_refused, alive=lambda: True, calls=calls, logs=logs)
+        started = time.monotonic()
+        with mock.patch.dict(os.environ, {"CIEL_RUNTIME_ROUTER_DOWN_CONFIRM_SECONDS": "3"}):
+            self.assertTrue(supervisor.ensure_running(threading.Event()))
+        elapsed = time.monotonic() - started
+        # Counted probes: ceil(3 / 0.5) = 6 probes x 0.9 s = 5.4 s plus the first probe.
+        self.assertLess(elapsed, 4.9)
+        self.assertGreaterEqual(elapsed, 3.0)
+        self.assertEqual(["spawn"], calls)
+        self.assertTrue(any("reason=router_down_active_client" in line for line in logs))
+
+    def test_unknown_process_state_keeps_the_confirmation_window(self):
+        calls, logs = [], []
+        answers = iter([None, {"ok": True}])
+        supervisor = RouterClientSupervisor("fixture", RouterClientSupervisorPorts(
+            router_health=lambda: next(answers), listener_reachable=lambda: False,
+            health_matches_current=lambda h: h is not None, health_config_matches_current=lambda _h: True,
+            health_summary=str, start_router=lambda **_kw: calls.append("spawn") or True,
+            log=lambda level, text: logs.append(text), process_alive=lambda: None))
+        self.assertTrue(supervisor.ensure_running(threading.Event()))
+        self.assertEqual([], calls)
+        self.assertTrue(any("transient_health_miss" in line for line in logs))
+
     def test_release_failure_still_requests_idle_stop(self):
         stopped = []
         runner = RouterLifetimeRunner(RouterLifetimeRunnerPorts(

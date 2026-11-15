@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
-import math
 import os
 from pathlib import Path
 import threading
@@ -199,6 +198,9 @@ class RouterClientSupervisorPorts:
     health_summary: Callable[[Any], str]
     start_router: Callable[..., bool]
     log: Log
+    # True/False when the managed router's recorded process is known alive or
+    # gone; None when there is no record to judge by.
+    process_alive: Callable[[], bool | None] = lambda: None
 
 
 class RouterClientSupervisor:
@@ -260,13 +262,29 @@ class RouterClientSupervisor:
                 f"base={self._router_base}",
             )
             return True
-        probe_interval = 0.5
-        probe_count = max(2, int(math.ceil(self.down_confirmation_seconds() / probe_interval)))
-        for attempt in range(probe_count):
+        # The confirmation window is wall-clock time, not a probe count. On
+        # Windows a refused loopback connect takes ~2 s, so 30 counted probes
+        # held a crashed router down for ~78 s (G:\ciel-Walkie 2026-11-15
+        # 00:22 and 07:20: restart after 84-85 s). Claude Code reconnects a
+        # dropped remote MCP server only five times, 1 s doubling (~31 s), then
+        # marks it failed, so a slower restart loses the router's MCP tools.
+        deadline = time.monotonic() + self.down_confirmation_seconds()
+        attempt = 0
+        while True:
+            if self._process_exited():
+                # The recorded router process is gone: no busy worker can be
+                # holding the listener, so waiting proves nothing more.
+                if stop_event is not None and stop_event.is_set():
+                    return False
+                self._ports.log("WARN", f"router_lifetime_restart reason=router_process_exited base={self._router_base}")
+                return self._restart()
+            if attempt >= 2 and time.monotonic() >= deadline:
+                break
             if stop_event is None:
                 time.sleep(0.5)
             elif stop_event.wait(0.5):
                 return False
+            attempt += 1
             health = self._ports.router_health()
             if stop_event is not None and stop_event.is_set():
                 return False
@@ -278,7 +296,7 @@ class RouterClientSupervisor:
                 )
                 self._ports.log(
                     "INFO",
-                    f"router_lifetime_keep_alive reason={reason} retry={attempt + 1} "
+                    f"router_lifetime_keep_alive reason={reason} retry={attempt} "
                     f"{self._ports.health_summary(health)}",
                 )
                 return True
@@ -286,13 +304,19 @@ class RouterClientSupervisor:
                 self._ports.log(
                     "INFO",
                     "router_lifetime_keep_alive reason=listener_reachable_health_busy "
-                    f"retry={attempt + 1} base={self._router_base}",
+                    f"retry={attempt} base={self._router_base}",
                 )
                 return True
         if stop_event is not None and stop_event.is_set():
             return False
         self._ports.log("WARN", f"router_lifetime_restart reason=router_down_active_client base={self._router_base}")
         return self._restart()
+
+    def _process_exited(self) -> bool:
+        try:
+            return self._ports.process_alive() is False
+        except Exception:
+            return False
 
     def _restart(self) -> bool:
         try:

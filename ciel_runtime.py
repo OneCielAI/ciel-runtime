@@ -3771,7 +3771,17 @@ def router_listener_reachable() -> bool:
     except (OSError, TypeError, ValueError):
         return False
     return managed_pid > 0 and managed_pid in router_port_listener_pids()
-def router_client_supervisor() -> RouterClientSupervisor: return RouterClientSupervisor(ROUTER_BASE, RouterClientSupervisorPorts(router_health=router_health, listener_reachable=router_listener_reachable, health_matches_current=router_health_matches_current, health_config_matches_current=router_health_config_matches_current, health_summary=router_health_summary, start_router=start_router_if_needed, log=router_log))
+def router_process_alive() -> bool | None:
+    """Whether the managed router's recorded pid is running; None without a record."""
+    try:
+        managed_pid = int(PID_PATH.read_text(encoding="utf-8").strip())
+    except (OSError, TypeError, ValueError):
+        return None
+    if managed_pid <= 0:
+        return None
+    from ciel_runtime_support.process_control import pid_is_running
+    return pid_is_running(managed_pid)
+def router_client_supervisor() -> RouterClientSupervisor: return RouterClientSupervisor(ROUTER_BASE, RouterClientSupervisorPorts(router_health=router_health, listener_reachable=router_listener_reachable, health_matches_current=router_health_matches_current, health_config_matches_current=router_health_config_matches_current, health_summary=router_health_summary, start_router=start_router_if_needed, log=router_log, process_alive=router_process_alive))
 def ensure_managed_router_running_for_client() -> bool: return router_client_supervisor().ensure_running()
 def start_router_client_supervisor(stop_event: threading.Event) -> threading.Thread: return router_client_supervisor().start(stop_event)
 file_size_or_zero = RoutedLaunchDiagnostics.file_size

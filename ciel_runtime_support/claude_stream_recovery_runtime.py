@@ -27,6 +27,7 @@ from typing import Any, Callable
 
 from . import claude_stream_recovery_settings
 from .claude_compact_continuation import COMPACT_MARKER, CompactContinuationEvidence
+from .claude_typed_turn_resend import TypedTurnResend
 from .channel_message_repository import exclusive_file_lock
 from .channel_wake_claim_repository import prompt_message_ids
 from .runtime_compaction_control import CompactionScope
@@ -364,6 +365,10 @@ class ClaudeStreamRecoveryMonitor:
         # The terminal proxy's last report: ready/manual_input/busy/compaction/
         # pending flags plus its time.  None until one arrives.
         self._terminal: dict[str, Any] | None = None
+        # Person-typed turns that end on a transient API error (2026-11-15):
+        # the same records, the same terminal gate and the same input gateway.
+        self.resend = TypedTurnResend(scope=scope, submit=submit, log=log, terminal_blocked=self._terminal_blocked,
+                                      bound_epoch=bound_epoch, now=now)
         self.reset()
 
     def set_terminal_admission(self, snapshot: dict[str, Any]) -> None:
@@ -375,6 +380,9 @@ class ClaudeStreamRecoveryMonitor:
             self._cancel("compact_operator_input")
 
     def reset(self) -> None:
+        resend = getattr(self, "resend", None)
+        if resend is not None:
+            resend.reset()
         self._compact = CompactContinuationEvidence()
         self._compact_bookkeeping: list[dict[str, Any]] = []
         self._assistant_ids: OrderedDict[str, str] = OrderedDict()
@@ -467,6 +475,7 @@ class ClaudeStreamRecoveryMonitor:
         return True
 
     def observe(self, record: dict[str, Any]) -> None:
+        self.resend.observe(record)
         if record.get("isSidechain") is True:
             return
         if self._compact_bookkeeping and not self._drain_compact_bookkeeping():
@@ -582,6 +591,10 @@ class ClaudeStreamRecoveryMonitor:
         }
 
     def tick(self) -> dict[str, Any] | None:
+        try:
+            self.resend.tick()
+        except Exception as exc:  # The resend never stops stream recovery.
+            self.log("WARN", f"claude_typed_resend_tick_failed error={type(exc).__name__}")
         if not self._drain_compact_bookkeeping():
             return None
         pending = self._pending
