@@ -1,0 +1,47 @@
+{
+  "facts": [
+    {
+      "fact": "row shows the built-in default when nothing is set",
+      "ok": true,
+      "detail": "Built-in default in use (no operator instruction)"
+    },
+    {
+      "fact": "editor preview renders default + operator Markdown",
+      "ok": true,
+      "detail": {
+        "h3": 1,
+        "li": 16,
+        "strong": 1,
+        "code": 1,
+        "sep": 1
+      }
+    },
+    {
+      "fact": "apply stores only the operator instruction",
+      "ok": true,
+      "detail": "## 답변 규칙\n\n- 한국어로 답한다\n- **긴급**이면 P0로 올린다\n"
+    },
+    {
+      "fact": "row then says default + operator instruction",
+      "ok": true,
+      "detail": "Built-in default + operator instruction"
+    },
+    {
+      "fact": "REST row carries default, stored and effective values",
+      "ok": true,
+      "detail": {
+        "editor": "markdown",
+        "stored_value": "## 답변 규칙\n\n- 한국어로 답한다\n- **긴급**이면 P0로 올린다\n",
+        "using_default": "False"
+      }
+    },
+    {
+      "fact": "390px: editor opens and nothing scrolls sideways",
+      "ok": true,
+      "detail": {
+        "overflow": false
+      }
+    }
+  ],
+  "passed": true
+}

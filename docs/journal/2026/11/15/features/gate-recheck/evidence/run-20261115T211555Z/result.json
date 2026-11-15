@@ -1,0 +1,209 @@
+{
+  "kind": "gate re-check + relay E2E",
+  "claude_version": "2.1.325 (Claude Code)",
+  "snapshot_manifest": {
+    "label": "release-candidate",
+    "digests": {
+      "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js": "dfa2b99c41a49dedc2aebfe726a107abf6d8078d4557a96d8708c66d77f50190",
+      "ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js": "326bd53b1065e1d1bfc883dbd43b54c391114281ef4b6ed9f54dbde8d73e8d43",
+      "ciel_runtime_support/claude_mods/ciel-work-gate/hooks/register.js": "2c1188fbb9ead2a352cec39c82c0e9a5e03859843094889e49842188752cb733",
+      "ciel_runtime_support/work_parallel_gate_presence.py": "c324032cb9ca219dee79619b34d951aacb8b5f3dd328f1d9b58d0897a006e3e5",
+      "ciel_runtime_support/work_parallel_mcp.py": "fc2825ab3ddf11568feb2fa8b57e6b7b00cc74fc8024b3da6ede9a04e65acd66",
+      "ciel_runtime_support/work_parallel_finalization.py": "1b270b256067463ed860a5cccf36fcceff5a0e55301f9963571df175dc75d649",
+      "ciel_runtime_support/work_http_controller.py": "60902f3c4ab369978cf0d7542e6e5b4d0849c47004e1aa14def6325c5d361b51",
+      "ciel_runtime_support/work_web_ui.py": "a48d6437c68e5cabdceb97d3ced42f9208d1b83e5282d5733dd5d38b7c15dbe6",
+      "ciel_runtime_support/windows_conpty.py": "c039c01718478861ea43989c34311fece5c42aece6b95f059fe9e1c765f400e9",
+      "ciel_runtime_support/work_parallel.py": "18ce18fd990c713d6ce9f3e576ee9eee8704c515b854ba218cc805384ae18713",
+      "ciel_runtime_support/work_parallel_workspace.py": "a09caf5972f6f9f59c92255b5388efde99248bc7870a7deb57ce8940941c3164",
+      "ciel_runtime_support/work_parallel_stranded.py": "2a019037757dbed958a33ba9404c3e60127387aced6deed5c8ad2ca6c767c7a1",
+      "ciel_runtime_support/work_parallel_failures.py": "05d448c18de2ac8bcdbbc03787e729f268c3b4db16ff4387ab3891e065b89ab3",
+      "ciel_runtime_support/work_mcp_tools.py": "2d5bb24daeeee67130214e8c863bba8e833510e85d2e01f25caf3d563f67ad8c",
+      "ciel_runtime_support/channel_mcp_http_controller.py": "6ec79581088a6d9f95dbc890258733ef45387721a6564d364592a260fa0b97ff"
+    },
+    "missing": [],
+    "matches_source_at_copy": true
+  },
+  "steps": {
+    "turn1": true,
+    "gate_side_fork": true,
+    "gate_side_after_s": 60.6,
+    "gate_main_notice": true,
+    "deploy_wait_after": "",
+    "relay_receipt_stage": "received",
+    "relay_side_fork": true,
+    "relay_main_notice": true,
+    "relay_result": {
+      "action": "update",
+      "item_id": "n2",
+      "relay": {
+        "item_id": "n2"
+      },
+      "delivery": "submitted"
+    },
+    "side_reviews": [
+      "415312faf6cf7c0b25ce8c8198c71325c91f4bda2b8660f271395829bbc85e19"
+    ]
+  },
+  "mod_load": {
+    "loaded": true,
+    "failed": [],
+    "hooks_ran": [
+      "classic.SessionStart",
+      "ui.render"
+    ],
+    "ok": true
+  },
+  "gate_load": {
+    "plugin": "ciel-work-gate",
+    "loaded": true,
+    "failed": [],
+    "hooks_ran": [
+      "tool.check"
+    ]
+  },
+  "gate_calls": [
+    {
+      "after_s": 64.1,
+      "result": {
+        "interval_minutes": 1,
+        "queued": true,
+        "receipt_id": "0db76800060424d904b5b226e831c834a635c725282e2953c64eed095b6897ea",
+        "gates": [
+          "n3"
+        ]
+      }
+    }
+  ],
+  "main_requests": [
+    {
+      "turn_one": true,
+      "wake": false,
+      "release_notice": false,
+      "relay_notice": false,
+      "relay_original": false,
+      "relay_ask": false
+    },
+    {
+      "turn_one": false,
+      "wake": true,
+      "release_notice": true,
+      "relay_notice": false,
+      "relay_original": false,
+      "relay_ask": false
+    },
+    {
+      "turn_one": false,
+      "wake": true,
+      "release_notice": true,
+      "relay_notice": true,
+      "relay_original": true,
+      "relay_ask": true
+    },
+    {
+      "turn_one": false,
+      "wake": false,
+      "release_notice": true,
+      "relay_notice": true,
+      "relay_original": true,
+      "relay_ask": true
+    }
+  ],
+  "side_requests": [
+    {
+      "kind": "gate",
+      "agent": true
+    },
+    {
+      "kind": "relay",
+      "agent": true
+    }
+  ],
+  "sent_replies": [
+    {
+      "channel": "web",
+      "reply_token": "fixture-reply"
+    }
+  ],
+  "mcp_tail": [
+    {
+      "at": 1794777423.0,
+      "name": "work_side_gate_check",
+      "result": {
+        "interval_minutes": 1,
+        "queued": true,
+        "receipt_id": "0db76800060424d904b5b226e831c834a635c725282e2953c64eed095b6897ea",
+        "gates": [
+          "n3"
+        ]
+      }
+    },
+    {
+      "at": 1794777423.5,
+      "name": "work_side_resolve",
+      "state": null,
+      "action": "update"
+    },
+    {
+      "at": 1794777423.6,
+      "name": "work_side_reply"
+    },
+    {
+      "at": 1794777424.6,
+      "name": "work_side_wake",
+      "state": "notice_prepare",
+      "action": null
+    },
+    {
+      "at": 1794777424.7,
+      "name": "work_side_wake",
+      "state": "notice_appended",
+      "action": null
+    },
+    {
+      "at": 1794777428.7,
+      "name": "work_side_resolve",
+      "state": null,
+      "action": "update"
+    },
+    {
+      "at": 1794777428.7,
+      "name": "work_side_reply"
+    },
+    {
+      "at": 1794777428.7,
+      "name": "work_side_wake",
+      "state": "notice_prepare",
+      "action": null
+    },
+    {
+      "at": 1794777428.8,
+      "name": "work_side_reply"
+    },
+    {
+      "at": 1794777428.8,
+      "name": "work_side_wake",
+      "state": "notice_appended",
+      "action": null
+    }
+  ],
+  "checks": {
+    "mod_loaded": true,
+    "timer_called_router_after_idle_turn": true,
+    "router_queued_one_gate_event": true,
+    "side_fork_received_gate_event": true,
+    "wait_released_on_board": true,
+    "main_told_of_release": true,
+    "side_fork_received_relay": true,
+    "relay_committed": true,
+    "main_got_original_and_ask": true,
+    "web_reply_sent_once": true,
+    "gate_event_left_no_review_row": true
+  },
+  "passed": true,
+  "kills": 1,
+  "owned_survivors": 0,
+  "killed_protected_overlap": 0,
+  "evidence_secret_hits": {
+    "host_token": 0
+  }
+}

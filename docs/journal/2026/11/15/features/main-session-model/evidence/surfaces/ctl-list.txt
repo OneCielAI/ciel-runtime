@@ -1,0 +1,73 @@
+work_mode = 켜짐
+  이 작업공간의 작업 계획·실행을 관리합니다. 꺼도 기존 기록은 보존합니다. 선택 값: 켜짐.
+sse_injection_mode = session
+  session은 일반 대화 입력으로 주입합니다. btw_with_mcp는 메인 응답을 끊지 않고 내구성 디스크 접수함을 사용합니다. 실행 승인은 아닙니다. 선택 값: session.
+work_plan_approval_ask = auto
+  ask는 새 계획 실행 전에 사용자의 수동 승인을 요구합니다. auto는 계획을 자동 승인하며 “승인 없음”이라는 뜻이 아닙니다. 선택 값: 자동.
+work_auto_continue = 켜짐
+  승인된 실행 가능 작업을 자동으로 이어갑니다. 명시적 대기는 유지합니다. 선택 값: 켜짐.
+work_completed_auto_delete = 켜짐
+  완료 기록을 24시간 후 만료시킵니다. 미완료 작업은 보존합니다. 선택 값: 켜짐.
+claude_left_arrow_opens_agents = 꺼짐 [next_claude_session]
+  값을 선택하면 해당 설정에만 반영됩니다. 선택 값: 꺼짐.
+claude_background_agents_enabled = 켜짐 [next_claude_session]
+  값을 선택하면 해당 설정에만 반영됩니다. 선택 값: 켜짐.
+work_parallel_enabled = 켜짐
+  병렬 작업자 실행을 허용합니다. 큐 등록 개수 제한이 아닙니다. 선택 값: 켜짐.
+work_parallel_paused = 꺼짐
+  새 작업자 실행만 일시정지하며 실행 중 작업자는 종료하지 않습니다. 선택 값: 꺼짐.
+work_parallel_p1_limit = 5
+  P1 Work 아이템을 동시에 실행할 최대 포크 세션 수입니다. 기기 전체 최대치는 P1~P5의 합입니다. 대기 아이템 수는 제한하지 않습니다. 선택 값: 5. 기타: 1~16 사이의 정수를 입력할 수 있습니다.
+work_parallel_p2_limit = 3
+  P2 Work 아이템을 동시에 실행할 최대 포크 세션 수입니다. 기기 전체 최대치는 P1~P5의 합입니다. 대기 아이템 수는 제한하지 않습니다. 선택 값: 3. 기타: 1~16 사이의 정수를 입력할 수 있습니다.
+work_parallel_p3_limit = 1
+  P3 Work 아이템을 동시에 실행할 최대 포크 세션 수입니다. 기기 전체 최대치는 P1~P5의 합입니다. 대기 아이템 수는 제한하지 않습니다. 선택 값: 1. 기타: 1~16 사이의 정수를 입력할 수 있습니다.
+work_parallel_p4_limit = 1
+  P4 Work 아이템을 동시에 실행할 최대 포크 세션 수입니다. 기기 전체 최대치는 P1~P5의 합입니다. 대기 아이템 수는 제한하지 않습니다. 선택 값: 1. 기타: 1~16 사이의 정수를 입력할 수 있습니다.
+work_parallel_p5_limit = 1
+  P5 Work 아이템을 동시에 실행할 최대 포크 세션 수입니다. 기기 전체 최대치는 P1~P5의 합입니다. 대기 아이템 수는 제한하지 않습니다. 선택 값: 1. 기타: 1~16 사이의 정수를 입력할 수 있습니다.
+work_discovery_enabled = 켜짐
+  실행 슬롯에 여유가 생기면 미결 작업을 탐색합니다. 선택 값: 켜짐.
+work_discovery_test_default_override = 켜짐
+  사용자 지정 문구 대신 기본 작업 탐색 지시를 사용합니다. 선택 값: 켜짐.
+work_discovery_instruction = 기본 지시
+  미결 요청 탐색에 사용할 지시입니다. 실행 승인이 아닙니다. 선택 값: 기본 지시.
+work_parallel_launches_per_minute = 4
+  분당 작업자 시작 횟수입니다. 대기 요청은 저장된 상태를 유지합니다. 선택 값: 4. 기타: 1~60 사이의 정수를 입력할 수 있습니다.
+work_parallel_max_rework = 2
+  검토가 필요해지기 전 자동 재처리 시도 횟수입니다. 선택 값: 2. 기타: 0~10 사이의 정수를 입력할 수 있습니다.
+work_parallel_orphans = none
+  소유 세션이 사라진 lease가 잡고 있는 슬롯입니다. 각 선택지는 지금 표시된 미리보기의 lease 하나만 해제합니다. Release는 소유 프로세스 종료가 확인된 lease, Legacy는 소유 기록이 없는 이전 빌드의 lease입니다(그 세션이 종료된 것을 확인한 뒤에만 선택). 미리보기 이후 바뀐 것이 있으면 아무것도 해제하지 않습니다. 살아 있거나 확인할 수 없는 소유자는 해제하지 않으며 Work 아이템은 큐에 남습니다. 선택 값: none.
+work_main_model = _Walkie_Fable5.2 [active]
+  이 워크스페이스의 메인 세션이 쓸 모델입니다. 현재 프로바이더의 모델 중에서 고르며, 다음 메인 턴부터 적용되고 그 턴 동안은 바뀌지 않습니다. inherit은 세션을 시작한 모델을 그대로 씁니다. P0~P5 Work 포크와 SSE 사이드 포크 모델은 별도 설정이며 이 설정으로 바뀌지 않습니다. 선택 값: _Walkie_Fable5.2.
+work_parallel_model_p0 = inherit [inherit]
+  P0 Work 포크가 쓸 모델입니다. 현재 프로바이더의 모델 중에서 고르며, inherit은 메인 모델을 그대로 씁니다. 각 포크의 다음 모델 요청부터 적용됩니다. 선택 값: inherit.
+work_parallel_model_p1 = _Walkie_Haiku_Terra [active]
+  P1 Work 포크가 쓸 모델입니다. 현재 프로바이더의 모델 중에서 고르며, inherit은 메인 모델을 그대로 씁니다. 각 포크의 다음 모델 요청부터 적용됩니다. 선택 값: _Walkie_Haiku_Terra.
+work_parallel_model_p2 = inherit [inherit]
+  P2 Work 포크가 쓸 모델입니다. 현재 프로바이더의 모델 중에서 고르며, inherit은 메인 모델을 그대로 씁니다. 각 포크의 다음 모델 요청부터 적용됩니다. 선택 값: inherit.
+work_parallel_model_p3 = inherit [inherit]
+  P3 Work 포크가 쓸 모델입니다. 현재 프로바이더의 모델 중에서 고르며, inherit은 메인 모델을 그대로 씁니다. 각 포크의 다음 모델 요청부터 적용됩니다. 선택 값: inherit.
+work_parallel_model_p4 = inherit [inherit]
+  P4 Work 포크가 쓸 모델입니다. 현재 프로바이더의 모델 중에서 고르며, inherit은 메인 모델을 그대로 씁니다. 각 포크의 다음 모델 요청부터 적용됩니다. 선택 값: inherit.
+work_parallel_model_p5 = inherit [inherit]
+  P5 Work 포크가 쓸 모델입니다. 현재 프로바이더의 모델 중에서 고르며, inherit은 메인 모델을 그대로 씁니다. 각 포크의 다음 모델 요청부터 적용됩니다. 선택 값: inherit.
+work_side_intake_model = _Walkie_Fable5.2 [active]
+  SSE 사이드 포크가 쓸 모델입니다. 현재 프로바이더의 모델 중에서 고르며, inherit은 메인 모델을 그대로 씁니다. 컨텍스트·도구·권한은 메인과 같습니다. 선택 값: _Walkie_Fable5.2.
+work_discovery_file_path = 
+  이 파일에서 탐색 지시를 읽습니다. 빈 값으로 경로를 해제합니다. 선택 값: .
+work_side_intake_type = btw_with_mcp
+  session은 메인 대화에 주입하고 btw_with_mcp는 이벤트를 내구성 사이드 접수함에 등록합니다. 선택 값: btw_with_mcp.
+work_side_intake_enabled = 꺼짐
+  외부 SSE 이벤트의 내구성 사이드 접수를 켭니다. 선택 값: 꺼짐.
+work_side_intake_max_active = 2 [next_side_event]
+  동시 사이드 처리자 수만 제한합니다. 수신 요청의 내구성 등록 개수 제한이 아닙니다. 선택 값: 2. 기타: 1~16 사이의 정수를 입력할 수 있습니다.
+work_side_intake_aging_seconds = 60 [next_side_event]
+  이 시간 대기한 일반 메시지의 접수 처리 순위를 높여 기아를 방지합니다. Work 실행 우선순위 승격은 아닙니다. 선택 값: 60. 기타: 1~3600 사이의 정수를 입력할 수 있습니다.
+work_side_intake_reply_connectors = [] [next_side_event]
+  호스트가 소유하는 원문 응답 경로입니다. Walkie 프리셋: {source, receiver_id, preset:"walkie", server}; source "*"는 그 수신기의 모든 대화에 적용됩니다; 다른 소스는 server/tool/arguments를 사용합니다. 사이드 모델은 전송하지 않습니다. 선택 값: [].
+work_side_intake_priority_policy = adaptive [next_side_event]
+  adaptive는 P1~P5·긴급성·작업량을 함께 판단하며 explicit는 명시된 우선순위를 따릅니다. 선택 값: adaptive.
+work_side_intake_instruction =  [next_side_event]
+  모든 네이티브 사이드 포크에 추가되는 선택 지침입니다. 각 SSE 포크는 메인 컨텍스트·도구·권한을 그대로 상속하고 모델은 SSE 사이드 포크 모델 설정을 따르며(inherit은 메인 모델), 쓰기·실행·전송 금지는 프롬프트 정책입니다. 이 지침은 응답·우선순위 정책을 구체화할 수 있지만 실행 승인이나 그 금지를 덮어쓸 수 없습니다. 선택 값: .
+live; existing workers are not terminated; side settings apply to the next side event, which runs as a native fork inheriting main context, tools and permissions; Work-fork and side-fork models apply from the next model request of each fork; the main session model applies from the next main turn

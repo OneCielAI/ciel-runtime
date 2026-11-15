@@ -1,0 +1,153 @@
+{
+  "facts": [
+    {
+      "fact": "REST lists the gate re-check row (default 5, number)",
+      "ok": true,
+      "detail": {
+        "label": "게이트 재확인 주기 (분, 0 = 끔)",
+        "value": 5,
+        "kind": "number",
+        "status": "next_idle_check"
+      }
+    },
+    {
+      "fact": "REST label is Korean",
+      "ok": true,
+      "detail": "게이트 재확인 주기 (분, 0 = 끔)"
+    },
+    {
+      "fact": "REST sets 10 minutes",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "stored": {
+          "minutes": 10
+        }
+      }
+    },
+    {
+      "fact": "REST refuses 2000 and keeps 10",
+      "ok": true,
+      "detail": {
+        "status": 422,
+        "error": "invalid_request",
+        "stored": {
+          "minutes": 10
+        }
+      }
+    },
+    {
+      "fact": "ctl lists the gate re-check row",
+      "ok": true,
+      "detail": [
+        "work_gate_check_minutes = 10 [next_idle_check]"
+      ]
+    },
+    {
+      "fact": "ctl sets 15 minutes",
+      "ok": true,
+      "detail": {
+        "code": 0,
+        "lines": [
+          "work_gate_check_minutes = 15 [next_idle_check]",
+          "  메인 턴이 끝나 있고 Work 포크가 하나도 없을 때, 블로커나 대기 조건이 있는 Work 아이템을 사이드 액터가 이 주기마다 다시 확인하고, 조건이 풀렸으면 메인(또는 기다리는 워커)에게 알립니다. 0이면 끕니다. SSE 사이드 접수가 켜져 있어야 합니다. 선택 값: 15. 기타: 0~1440 사이의 정수를 입력할 수 있습니다.",
+          "게이트 재확인 주기 (분, 0 = 끔)을(를) 15(으)로 설정했습니다."
+        ],
+        "stored": {
+          "minutes": 15
+        }
+      }
+    },
+    {
+      "fact": "menu offers 0(off)/1/2/5/10/15/30/60 plus Edit",
+      "ok": true,
+      "detail": [
+        "0",
+        "1",
+        "2",
+        "5",
+        "10",
+        "15",
+        "30",
+        "60",
+        "__edit__",
+        "back"
+      ]
+    },
+    {
+      "fact": "menu range is 0-1440",
+      "ok": true,
+      "detail": [
+        0,
+        1440
+      ]
+    },
+    {
+      "fact": "menu describes the check in Korean",
+      "ok": true,
+      "detail": "메인 턴이 끝나 있고 Work 포크가 하나도 없을 때, 블로커나 대기 조건이 있는 Work 아이템을 사이드 액터가 이 주기마다 다시 확인하고, 조건이 풀렸으면 메인(또는 기다리는 워커)에게 알립니다. 0이면 끕니다. SSE 사이드 접수가 켜져 있어야 합니다. 기타: 0~1440 사이의 "
+    },
+    {
+      "fact": "web Settings shows the stored 15 minutes",
+      "ok": true,
+      "detail": "15"
+    },
+    {
+      "fact": "web Apply 5 stores the default (no override)",
+      "ok": true,
+      "detail": {
+        "after": "5",
+        "stored": null
+      }
+    },
+    {
+      "fact": "web 390px shows the row without horizontal scroll",
+      "ok": true,
+      "detail": {
+        "shown": "5",
+        "overflow": false
+      }
+    },
+    {
+      "fact": "a running Work fork holds the check",
+      "ok": true,
+      "detail": {
+        "interval_minutes": 5,
+        "queued": false,
+        "reason": "not_idle"
+      }
+    },
+    {
+      "fact": "idle main + no fork queues one side event for the waiting item",
+      "ok": true,
+      "detail": {
+        "interval_minutes": 5,
+        "queued": true,
+        "receipt_id": "b5d267655525a12a75d0894991c216223b873d266bd6a59b3c1237a78d2f37c3",
+        "gates": [
+          "n2"
+        ]
+      }
+    },
+    {
+      "fact": "the event is a durable gate-check receipt with no source to reply to",
+      "ok": true,
+      "detail": {
+        "event_key": "gate-check:25136d6ff93d7273:5982590:2c29284d",
+        "route": {
+          "source_kind": "gate_check"
+        }
+      }
+    },
+    {
+      "fact": "a second tick inside the interval queues nothing",
+      "ok": true,
+      "detail": {
+        "interval_minutes": 5,
+        "queued": false,
+        "reason": "not_due"
+      }
+    }
+  ],
+  "passed": true
+}

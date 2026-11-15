@@ -1,0 +1,185 @@
+{
+  "kind": "main session model E2E",
+  "claude_version": "2.1.325 (Claude Code)",
+  "launch_model": "fixture-main",
+  "chosen": "fixture-main-chosen",
+  "snapshot_manifest": {
+    "label": "release-candidate",
+    "digests": {
+      "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js": "9b374ae8503d35c96fc597674be0b24050bb0e49f142cb1fb26714ba5766b59f",
+      "ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js": "f656a9f39f42fda056aa0ed736c08660b7ce0593826b2c04d596e67ad7b5b2b8",
+      "ciel_runtime_support/claude_mods/ciel-work-gate/hooks/register.js": "2c1188fbb9ead2a352cec39c82c0e9a5e03859843094889e49842188752cb733",
+      "ciel_runtime_support/work_parallel_gate_presence.py": "c324032cb9ca219dee79619b34d951aacb8b5f3dd328f1d9b58d0897a006e3e5",
+      "ciel_runtime_support/work_parallel_mcp.py": "fc2825ab3ddf11568feb2fa8b57e6b7b00cc74fc8024b3da6ede9a04e65acd66",
+      "ciel_runtime_support/work_parallel_finalization.py": "1b270b256067463ed860a5cccf36fcceff5a0e55301f9963571df175dc75d649",
+      "ciel_runtime_support/work_http_controller.py": "60902f3c4ab369978cf0d7542e6e5b4d0849c47004e1aa14def6325c5d361b51",
+      "ciel_runtime_support/work_web_ui.py": "144fc95e6b778cf5d6a6c1419761ed1be38c42fd908efa88ee74d5cdc982608f",
+      "ciel_runtime_support/windows_conpty.py": "c039c01718478861ea43989c34311fece5c42aece6b95f059fe9e1c765f400e9",
+      "ciel_runtime_support/work_parallel.py": "18ce18fd990c713d6ce9f3e576ee9eee8704c515b854ba218cc805384ae18713",
+      "ciel_runtime_support/work_parallel_workspace.py": "a09caf5972f6f9f59c92255b5388efde99248bc7870a7deb57ce8940941c3164",
+      "ciel_runtime_support/work_parallel_stranded.py": "2a019037757dbed958a33ba9404c3e60127387aced6deed5c8ad2ca6c767c7a1",
+      "ciel_runtime_support/work_parallel_failures.py": "05d448c18de2ac8bcdbbc03787e729f268c3b4db16ff4387ab3891e065b89ab3",
+      "ciel_runtime_support/work_mcp_tools.py": "c2f22f1f72e38e87d9703d829b0c80a7f50828006c5ba6052c7391b78a32af74",
+      "ciel_runtime_support/channel_mcp_http_controller.py": "6ec79581088a6d9f95dbc890258733ef45387721a6564d364592a260fa0b97ff"
+    },
+    "missing": [],
+    "matches_source_at_copy": true
+  },
+  "steps": {
+    "turn1": true,
+    "set_main": {
+      "value": "fixture-main-chosen",
+      "status": "active"
+    },
+    "turn2_step0": true,
+    "turn2_step1": true,
+    "reset_during_turn2": {
+      "value": "inherit",
+      "status": "inherit"
+    },
+    "turn3": true
+  },
+  "mod_load": {
+    "loaded": true,
+    "failed": [],
+    "hooks_ran": [
+      "classic.SessionStart",
+      "ui.render"
+    ],
+    "ok": true
+  },
+  "gate_load": {
+    "plugin": "ciel-work-gate",
+    "loaded": true,
+    "failed": [],
+    "hooks_ran": [
+      "tool.check"
+    ]
+  },
+  "main_requests": [
+    {
+      "marker": "TURN-ONE",
+      "tool_result": false,
+      "model": "fixture-main"
+    },
+    {
+      "marker": "TURN-TWO",
+      "tool_result": false,
+      "model": "fixture-main-chosen"
+    },
+    {
+      "marker": null,
+      "tool_result": true,
+      "model": "fixture-main-chosen"
+    },
+    {
+      "marker": "TURN-THREE",
+      "tool_result": false,
+      "model": "fixture-main"
+    }
+  ],
+  "fork_table_after": {
+    "anthropic": {
+      "P2": "fixture-p2",
+      "side": "fixture-side"
+    }
+  },
+  "main_table_after": null,
+  "checks": {
+    "turn1_launch_model": true,
+    "turn2_first_step_chosen": true,
+    "turn2_tool_step_still_chosen_after_reset": true,
+    "turn3_back_to_launch_model": true,
+    "fork_table_untouched": true,
+    "set_status_active": true
+  },
+  "passed": true,
+  "kills": 1,
+  "owned_survivors": 0,
+  "killed_protected_overlap": 0,
+  "mcp_tail": [
+    {
+      "name": "work_status",
+      "event": null
+    },
+    {
+      "name": "work_parallel_status",
+      "event": null
+    },
+    {
+      "name": "work_status",
+      "event": null
+    },
+    {
+      "name": "work_parallel_status",
+      "event": null
+    },
+    {
+      "name": "work_parallel_status",
+      "event": null
+    },
+    {
+      "name": "work_parallel_event",
+      "event": "native_observation"
+    },
+    {
+      "name": "work_parallel_status",
+      "event": null
+    },
+    {
+      "name": "work_parallel_status",
+      "event": null
+    },
+    {
+      "name": "work_parallel_status",
+      "event": null
+    },
+    {
+      "name": "work_parallel_event",
+      "event": "reserve_next"
+    },
+    {
+      "name": "work_side_claim",
+      "event": null
+    },
+    {
+      "name": "work_status",
+      "event": null
+    },
+    {
+      "name": "work_parallel_status",
+      "event": null
+    },
+    {
+      "name": "work_parallel_status",
+      "event": null
+    },
+    {
+      "name": "work_parallel_status",
+      "event": null
+    },
+    {
+      "name": "work_parallel_status",
+      "event": null
+    },
+    {
+      "name": "work_parallel_event",
+      "event": "reserve_next"
+    },
+    {
+      "name": "work_side_claim",
+      "event": null
+    },
+    {
+      "name": "work_status",
+      "event": null
+    },
+    {
+      "name": "work_parallel_status",
+      "event": null
+    }
+  ],
+  "evidence_secret_hits": {
+    "host_token": 0
+  }
+}

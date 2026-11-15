@@ -1,0 +1,106 @@
+{
+  "facts": [
+    {
+      "fact": "REST lists the main session model row",
+      "ok": true,
+      "detail": [
+        "work_main_model",
+        "work_parallel_model_p0",
+        "work_parallel_model_p1",
+        "work_parallel_model_p2",
+        "work_parallel_model_p3",
+        "work_parallel_model_p4",
+        "work_parallel_model_p5",
+        "work_side_intake_model"
+      ]
+    },
+    {
+      "fact": "REST main row choices are inherit + current provider models",
+      "ok": true,
+      "detail": [
+        "inherit",
+        "_Walkie_Opus55",
+        "_Walkie_Fable5.2",
+        "_Walkie_Haiku_Terra"
+      ]
+    },
+    {
+      "fact": "REST sets the main model",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "fact": "config stores the main model in its own table",
+      "ok": true,
+      "detail": {
+        "cielairouter": "_Walkie_Fable5.2"
+      }
+    },
+    {
+      "fact": "P0-P5/side table unchanged",
+      "ok": true,
+      "detail": {
+        "cielairouter": {
+          "P1": "_Walkie_Haiku_Terra",
+          "side": "_Walkie_Fable5.2"
+        }
+      }
+    },
+    {
+      "fact": "REST parallel projects the main model for the gate",
+      "ok": true,
+      "detail": {
+        "model": "ciel-runtime-cielairouter-_walkie_fable5.2",
+        "upstream": "_Walkie_Fable5.2",
+        "id": "_Walkie_Fable5.2"
+      }
+    },
+    {
+      "fact": "ctl lists the main model row",
+      "ok": true,
+      "detail": [
+        "work_main_model = _Walkie_Fable5.2 [active]"
+      ]
+    },
+    {
+      "fact": "menu offers inherit + provider models for the main model",
+      "ok": true,
+      "detail": [
+        "inherit",
+        "_Walkie_Opus55",
+        "_Walkie_Fable5.2",
+        "_Walkie_Haiku_Terra",
+        "back"
+      ]
+    },
+    {
+      "fact": "menu describes the main model in Korean",
+      "ok": true,
+      "detail": "이 워크스페이스의 메인 세션이 쓸 모델입니다. 현재 프로바이더의 모델 중에서 고르며, 다음 메인 턴부터 적용되고 그 턴 동안은 바뀌지 않습니다. inherit은 세션을 시작한 모델을 그대로 씁니다. P0~P5 Wor"
+    },
+    {
+      "fact": "web Settings shows the saved main model",
+      "ok": true,
+      "detail": "_Walkie_Fable5.2"
+    },
+    {
+      "fact": "web main choices are inherit + provider models",
+      "ok": true,
+      "detail": [
+        "inherit",
+        "_Walkie_Opus55",
+        "_Walkie_Fable5.2",
+        "_Walkie_Haiku_Terra"
+      ]
+    },
+    {
+      "fact": "web 390px shows the main model row without horizontal scroll",
+      "ok": true,
+      "detail": {
+        "selected": "_Walkie_Fable5.2",
+        "overflow": false
+      }
+    }
+  ],
+  "passed": true
+}

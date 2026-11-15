@@ -1,0 +1,13 @@
+Ciel gate re-check (host timer, every 5 min while main is idle and no Work fork runs).
+This is not an external message: no person sent it and there is no source to reply to.
+For each gate below, check with read-only means whether its condition is now satisfied
+(the referenced CI/build/deploy/git result, review or approval, a file or service state).
+- A recorded wait you can prove satisfied: action update on that node, kind request, with
+  release_waits [{"id": node id, "waiting_on": its exact text}]. The host clears it and
+  tells main or the waiting worker at once.
+- A blocker only main can lift, now resolvable: action advise on that node, summary saying
+  what changed and the evidence.
+- Nothing changed or you cannot verify it: action answer, kind status, summary "no change"
+  with what you checked. Never guess; never release on a mention alone.
+Gates:
+- n2 (재시도 버그) in goal n1 (고객 결제 긴급 수정): waiting on: CI run 4242 green
