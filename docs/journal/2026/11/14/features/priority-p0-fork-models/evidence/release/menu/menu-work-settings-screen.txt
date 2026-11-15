@@ -1,0 +1,27 @@
+Work · SSE 설정
+    ... 20 above
+    P0 Work 포크 모델: _Walkie_Fable5.2
+    P1 Work 포크 모델: inherit
+  > P2 Work 포크 모델: inherit
+    P3 Work 포크 모델: inherit
+    P4 Work 포크 모델: inherit
+    ... 10 below
+  P2 Work 포크가 쓸 모델입니다. 현재 프로바이더의 모델 중에서 고르며, inherit은 메인 모델을 그대로 씁니다. 각 포크의...
+-----------------------------------------------------------------------------------------------------------------------
+  Base URL: model list reachable, auth rejected (401)
+  API key: missing (CielAiRouter required)
+↑/↓ 이동 · PgUp/PgDn 페이지 · Home/End 처음/끝 · Enter 선택 · Esc/← 닫기 · q 종료
+=====
+Work · SSE 설정
+    ... 26 above
+    SSE 사이드 포크 모델: _Walkie_Haiku_Terra
+    탐색 지시 파일 (빈 값으로 해제):
+  > 동시 사이드 처리자: 2
+    사이드 접수 대기 보정 (초): 60
+    외부 응답 경로 / Walkie 프리셋 (JSON): []
+    ... 4 below
+  동시 사이드 처리자 수만 제한합니다. 수신 요청의 내구성 등록 개수 제한이 아닙니다. 기타: 1~16 사이의 정수를 입력할 ...
+-----------------------------------------------------------------------------------------------------------------------
+  Base URL: model list reachable, auth rejected (401)
+  API key: missing (CielAiRouter required)
+↑/↓ 이동 · PgUp/PgDn 페이지 · Home/End 처음/끝 · Enter 선택 · Esc/← 닫기 · q 종료

@@ -1,0 +1,50 @@
+{
+  "root_priorities": [
+    {
+      "root_id": "n1",
+      "title": "고객 결제 긴급 수정",
+      "canonical_priority": "P1",
+      "effective_priority": "P0"
+    }
+  ],
+  "fork_models": {
+    "provider": "cielairouter",
+    "models": {
+      "P0": "ciel-runtime-cielairouter-_walkie_fable5.2",
+      "P1": null,
+      "P2": null,
+      "P3": null,
+      "P4": null,
+      "P5": null,
+      "side": "ciel-runtime-cielairouter-_walkie_haiku_terra"
+    },
+    "upstream": {
+      "P0": "_Walkie_Fable5.2",
+      "P1": null,
+      "P2": null,
+      "P3": null,
+      "P4": null,
+      "P5": null,
+      "side": "_Walkie_Haiku_Terra"
+    },
+    "ids": {
+      "P0": "_Walkie_Fable5.2",
+      "P1": null,
+      "P2": null,
+      "P3": null,
+      "P4": null,
+      "P5": null,
+      "side": "_Walkie_Haiku_Terra"
+    },
+    "forced_model": false,
+    "status": {
+      "work_parallel_model_p0": "active",
+      "work_parallel_model_p1": "inherit",
+      "work_parallel_model_p2": "inherit",
+      "work_parallel_model_p3": "inherit",
+      "work_parallel_model_p4": "inherit",
+      "work_parallel_model_p5": "inherit",
+      "work_side_intake_model": "active"
+    }
+  }
+}
