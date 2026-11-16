@@ -1,0 +1,1 @@
+board version 5928 gates 270 events 12 per event [24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 24, 6] max text bytes 18015

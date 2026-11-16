@@ -53,6 +53,38 @@ tags: [work, parallel, fork, slots, orphan, pump, walkie]
   - with the fix: `true, throttled, true`, and a fork step does not pump.
 - **`claude plugin test ciel-work`:** 103/103.
 
+# Release (F1–F5)
+
+- **Commits:** `306d1ab` + `e37272d` (ruff F401) on `beta` and `feature/priority-models`.
+- **Publish run 43802033942:** success, every job (quality, python-minimum, unit 1–3/3, unit-real-backend, runtime, router, channel, publish).
+- **npm `beta`:** `0.2.51-beta.20261116-042320.e37272d`, gitHead `e37272d200bf…`. The installed tree equals the commit except the version stamp in `package.json` and `runtime_constants.py`.
+- **Installed-code check:** the slot-stall tests and the busy-turn pump scenario, run from a copy of the installed package, passed 8/8 ([evidence/installed-e37272d.txt](evidence/installed-e37272d.txt)).
+
+# Second cause: no runnable leaf, and most gates never re-checked
+
+After the slots were freed, the pump still had nothing to start.
+
+- **Measured (read-only):**
+  - At 04:09:51Z (board version 5926), `runnable_leaves` was 0. 269 leaves were excluded by `waiting_on` and 2 because their goal was still planning. Every executing root had no runnable leaf ([evidence/walkie-candidates-0410Z.txt](evidence/walkie-candidates-0410Z.txt)).
+  - At board version 5928, `work_gate_check.gates()` returned 270 gates (waiting or blocked items).
+- **Gate re-check covered 24 of them:** `work_gate_check.gates()` returned `rows[:MAX_GATES]` with `MAX_GATES = 24`, and one check queued one side event. The other 246 gates were never shown to the side actor, so their waits could not be released.
+
+## Fix
+
+- **F6 (`work_gate_check`):** every gate is checked each interval. `due()` splits them into events of 24 (`BATCH_GATES`), up to 20 events (`MAX_BATCHES`, 480 gates). Each event says which part it is ("gates 25-48 of 60 (event 2 of 3)") and has its own event key. `work_side_gate_check` queues one durable side receipt per event and records all receipt ids.
+- **F7 (one round at a time):** a new round is not queued while any receipt of the last round is still received, claimed or backed off for retry. Processed, duplicate and quarantined receipts are finished. The response reason is `previous_round_pending`. This keeps a slow side queue from piling up rounds.
+
+## Verification
+
+- **Walkie's live board (read-only, version 5928):** 270 gates → 12 events of `[24, …, 6]`, largest event text 18015 bytes ([evidence/gate-batches-walkie-board.txt](evidence/gate-batches-walkie-board.txt)).
+- **`tests/test_work_gate_check.py` (15):**
+  - 60 gates → 3 events covering every gate in order, distinct keys, part label;
+  - the MCP check queues 3 receipts;
+  - the next round waits for the last round, then for the interval;
+  - a retrying receipt holds the round; a quarantined one does not.
+- **Side, MCP, gate and parallel suites (56 files, Windows):** 725 passed, 2 skipped, 1 failed. The failure was `test_work_parallel_rework_worktree.py::IdleSettlesLaunchTests` (a launch-binding subtest, not on the gate-check path). The same class passed 3/3 when rerun alone. CI passed the same file on `e37272d`.
+- **Linux (python:3.11-slim):** gate, MCP tools, side MCP, side real-backend and mod real-backend modules: 195 passed, 1 skipped.
+
 # Not yet effective in the running Walkie
 
 The running Walkie router and mod are the previous build. With the slots now free, the next pump trigger (main's turn end, Stop, or the next side fork's turn end) starts forks. F2 and F5 take effect after Walkie restarts on the new build. No session was restarted.

@@ -537,6 +537,7 @@ def dispatch_work_tool(
             from .channel_message_repository import exclusive_file_lock
             from .side_intake_service import receive
             from hashlib import sha256
+            import time
             record = state_dir / "sessions" / sha256(identity.encode()).hexdigest()[:24] / "gate-check.json"
             record.parent.mkdir(parents=True, exist_ok=True)
             with exclusive_file_lock(record):
@@ -545,14 +546,33 @@ def dispatch_work_tool(
                 except (OSError, ValueError):
                     last = None
                 doc = (store or session_work_plan_store(state_dir, identity, log=log)).read()
+                # One round at a time: a new round waits until every event of the
+                # last one has finished, so a slow side queue never piles up.
+                from .side_intake_inbox import SideIntakeInbox
+                inbox = SideIntakeInbox(state_dir, identity)
+                previous = [rid for rid in ((last or {}).get("receipt_ids") or [(last or {}).get("receipt_id")])
+                            if isinstance(rid, str) and len(rid) == 64]
+                # The public stage: processed, duplicate and quarantined rows are
+                # finished; received, claimed (processing) and backed-off (failed)
+                # rows are still in this round.
+                checked_at = time.time()
+                open_rows = [rid for rid in previous
+                             if (row := inbox._load(rid)) is not None
+                             and SideIntakeInbox._stage(SideIntakeInbox._stage_inputs(row), checked_at)
+                             in ("received", "processing", "failed")]
+                if open_rows:
+                    return respond(request_id, json.dumps({**status, "reason": "previous_round_pending",
+                                                           "pending": len(open_rows)}))
                 event = due(config, doc, last)
                 if event is None:
                     return respond(request_id, json.dumps({**status, "reason": "not_due" if gates(doc) else "no_gates"}))
-                receipt = receive(state_dir, identity, event["text"], event["event_key"], admit=False,
-                                  route={"source_kind": "gate_check"})
+                receipts = [receive(state_dir, identity, part["text"], part["event_key"], admit=False,
+                                    route={"source_kind": "gate_check"}).get("receipt_id")
+                            for part in event["events"]]
                 record.write_text(json.dumps({"at": event["at"], "digest": event["digest"],
-                                              "receipt_id": receipt.get("receipt_id")}), encoding="utf-8")
-            return respond(request_id, json.dumps({**status, "queued": True, "receipt_id": receipt.get("receipt_id"),
+                                              "receipt_ids": receipts}), encoding="utf-8")
+            return respond(request_id, json.dumps({**status, "queued": True, "receipt_id": receipts[0],
+                                                  "receipt_ids": receipts, "events": len(receipts),
                                                   "gates": event["gates"]}, ensure_ascii=False))
         if name == "work_side_intake":
             from .work_parallel_mcp import host_context

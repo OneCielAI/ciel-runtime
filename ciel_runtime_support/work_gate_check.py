@@ -25,7 +25,11 @@ DEFAULT_MINUTES = 5
 RANGE = (1, 1440)
 KEY = "work_gate_check_minutes"
 EVENT_PREFIX = "gate-check:"
-MAX_GATES = 24
+# Gates per side event. Every gate is checked each interval: a board with more
+# gates gets several events (Walkie 2026-11-16, board version 5928: 270 gates;
+# one event of 24 left 246 never checked).
+BATCH_GATES = 24
+MAX_BATCHES = 20
 
 
 def minutes(config: Mapping[str, Any]) -> int:
@@ -85,7 +89,7 @@ def gates(doc: Mapping[str, Any]) -> list[dict[str, Any]]:
                      "evidence": str(node.get("evidence") or "")[-400:], "note": str(node.get("note") or "")[-400:]})
     active = doc.get("active_root")
     rows.sort(key=lambda row: (row["root_id"] != active, order.get(row["root_id"], 0), order.get(row["id"], 0)))
-    return rows[:MAX_GATES]
+    return rows[:BATCH_GATES * MAX_BATCHES]
 
 
 def digest(rows: list[dict[str, Any]]) -> str:
@@ -93,9 +97,10 @@ def digest(rows: list[dict[str, Any]]) -> str:
     return hashlib.sha256(json.dumps(material, separators=(",", ":")).encode()).hexdigest()[:16]
 
 
-def event_text(rows: list[dict[str, Any]], interval: int) -> str:
+def event_text(rows: list[dict[str, Any]], interval: int, part: str = "") -> str:
     lines = [
-        "Ciel gate re-check (host timer, every %d min while main is idle and no Work fork runs)." % interval,
+        "Ciel gate re-check (host timer, every %d min while main is idle and no Work fork runs)%s." % (
+            interval, (" — " + part) if part else ""),
         "This is not an external message: no person sent it and there is no source to reply to.",
         "For each gate below, check with read-only means whether its condition is now satisfied",
         "(the referenced CI/build/deploy/git result, review or approval, a file or service state).",
@@ -136,11 +141,19 @@ def due(config: Mapping[str, Any], doc: Mapping[str, Any], state: Mapping[str, A
     if previous.get("digest") == current and stamp - float(previous.get("at") or 0) < interval * 60:
         return None
     slot = int(stamp // (interval * 60))
-    text = event_text(rows, interval)
-    # The text digest keeps one key per exact content: a retry of the same check
-    # deduplicates, and a same-slot check with newer evidence is its own event.
-    body = hashlib.sha256(text.encode()).hexdigest()[:8]
-    return {"event_key": f"{EVENT_PREFIX}{current}:{slot}:{body}", "text": text,
+    batches = [rows[index:index + BATCH_GATES] for index in range(0, len(rows), BATCH_GATES)]
+    events = []
+    for number, batch in enumerate(batches, 1):
+        part = ("gates %d-%d of %d (event %d of %d)" % ((number - 1) * BATCH_GATES + 1,
+                (number - 1) * BATCH_GATES + len(batch), len(rows), number, len(batches))
+                if len(batches) > 1 else "")
+        text = event_text(batch, interval, part)
+        # The text digest keeps one key per exact content: a retry of the same check
+        # deduplicates, and a same-slot check with newer evidence is its own event.
+        body = hashlib.sha256(text.encode()).hexdigest()[:8]
+        events.append({"event_key": f"{EVENT_PREFIX}{current}:{slot}:{number}:{body}", "text": text,
+                       "gates": [row["id"] for row in batch]})
+    return {"event_key": events[0]["event_key"], "text": events[0]["text"], "events": events,
             "digest": current, "at": stamp, "gates": [row["id"] for row in rows], "interval_minutes": interval}
 
 

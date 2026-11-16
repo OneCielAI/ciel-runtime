@@ -1,0 +1,12 @@
+Installed package: @one-ciel-ai/ciel-runtime 0.2.51-beta.20261116-042320.e37272d (npm beta, gitHead e37272d200bf201ed72ebf51e626a3f77612a1c4, integrity ok, 622/624 files equal to the tree; package.json and runtime_constants.py are the build-stamped files)
+Publish run 43802033942: success (quality, python-minimum, unit 1-3/3, unit-real-backend, runtime, router, channel, publish)
+Tests run from a copy of the installed package with the repo tests:
+tests/test_work_parallel_slot_stall.py::SlotStallTests::test_dead_owners_unbound_reservation_is_released PASSED [ 12%]
+tests/test_work_parallel_slot_stall.py::SlotStallTests::test_running_router_sweeps_at_most_once_a_minute PASSED [ 25%]
+tests/test_work_parallel_slot_stall.py::SlotStallTests::test_submitted_result_holding_a_slot_frees_it_and_stays_reviewable PASSED [ 37%]
+tests/test_work_parallel_slot_stall.py::SlotStallTests::test_sweep_frees_every_walkie_slot_and_capacity_returns PASSED [ 50%]
+tests/test_work_parallel_slot_stall.py::SlotStallTests::test_the_host_status_read_runs_the_sweep PASSED [ 62%]
+tests/test_work_mod_write_gate.py::WorkModWriteGateTests::test_main_steps_wake_the_pump_during_a_long_turn PASSED [ 75%]
+tests/test_work_mod_write_gate.py::WorkModWriteGateTests::test_one_tick_drains_a_burst_into_every_free_side_slot PASSED [ 87%]
+tests/test_work_mod_write_gate.py::WorkModWriteGateTests::test_waiting_worker_releases_slot_and_resume_reacquires_it PASSED [100%]
+====================== 8 passed, 130 deselected in 1.86s ======================

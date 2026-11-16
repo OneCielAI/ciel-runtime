@@ -82,6 +82,45 @@ class GateCheckUnitTests(unittest.TestCase):
         self.assertIsNone(gate.due(config, {'nodes': []}, None, now=1.0))
 
 
+class GateBatchTests(unittest.TestCase):
+    """Every gate is checked each interval (Walkie 2026-11-16: 270 gates, 24 checked)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.store = WorkPlanStore(Path(self.tmp.name) / 'board.json')
+        doc, self.goal = self.store.transaction(lambda d: tree.add_node(d, None, 'goal'))
+        self.ids = []
+        for i in range(60):
+            doc, node = self.store.transaction(lambda d, i=i: tree.add_node(d, self.goal, 'step %d' % i,
+                                                                            waiting_on='signal %d' % i))
+            self.ids.append(node)
+
+    def test_sixty_gates_become_three_events_covering_all(self):
+        event = gate.due({}, self.store.read(), None, now=1000.0)
+        parts = event['events']
+        self.assertEqual([24, 24, 12], [len(part['gates']) for part in parts])
+        self.assertEqual(self.ids, [g for part in parts for g in part['gates']])
+        self.assertEqual(3, len({part['event_key'] for part in parts}))
+        self.assertIn('gates 25-48 of 60 (event 2 of 3)', parts[1]['text'])
+        self.assertEqual(self.ids, event['gates'])
+
+    def test_mcp_queues_one_receipt_per_batch(self):
+        root = Path(self.tmp.name) / 'state'
+        identity = 'claude:batch'
+        store = session_work_plan_store(root, identity)
+        store.transaction(lambda d: d.update(self.store.read()) or None)
+        config = {'work_mode': True, 'work_side_intake': {'enabled': True}, 'work_parallel_host': {'token': 'x' * 40}}
+        result = dispatch_work_tool(1, 'work_side_gate_check', {'idle': True, 'forks_running': 0,
+                                    'session_id': identity, '_host': HOST},
+                                    load_config=lambda: config, state_dir=root,
+                                    respond=lambda _id, text, error=False: {'text': text, 'error': error})
+        self.assertFalse(result['error'], result)
+        body = json.loads(result['text'])
+        self.assertEqual(3, body['events'])
+        self.assertEqual(3, len(SideIntakeInbox(root, identity).pending()))
+
+
 class GateCheckMcpTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -138,7 +177,7 @@ class GateCheckMcpTests(unittest.TestCase):
         self.assertTrue(row['event_key'].startswith('gate-check:'))
         self.assertEqual({'source_kind': 'gate_check'}, row['route'])
         self.assertIsNone(row['item_id'])
-        self.assertEqual('not_due', self.check()['reason'])
+        self.assertEqual('previous_round_pending', self.check()['reason'])
         self.assertEqual(1, len(inbox.pending()))
 
         claimed = json.loads(self.invoke('work_side_claim', {'owner': 'actor'})['text'])['claim']
@@ -167,6 +206,51 @@ class GateCheckMcpTests(unittest.TestCase):
         self.assertEqual('claimed', notice['state'])
         self.assertTrue(self.notice(claimed['receipt_id'])['state'].startswith('already_'))
         self.assertEqual('no_gates', self.check()['reason'])
+
+    def test_next_round_waits_for_the_last_and_then_the_interval(self):
+        import time as clock
+        self._waiting()
+        first = self.check()
+        self.assertTrue(first['queued'])
+        self.assertEqual('previous_round_pending', self.check()['reason'])
+        claimed = json.loads(self.invoke('work_side_claim', {'owner': 'actor'})['text'])['claim']
+        host = {**HOST, 'receipt_id': claimed['receipt_id'], 'generation': claimed['generation'],
+                'work_digest': claimed['work_digest']}
+        self.invoke('work_side_resolve', {'decision': {'action': 'answer', 'kind': 'status', 'summary': 'no change',
+                    'reply': 'checked'}, 'expected_version': claimed['workload']['version']}, host)
+        self.assertEqual('not_due', self.check()['reason'])
+        record = next(Path(self.root, 'sessions').glob('*/gate-check.json'))
+        row = json.loads(record.read_text(encoding='utf-8'))
+        row['at'] = clock.time() - 301
+        record.write_text(json.dumps(row), encoding='utf-8')
+        self.assertTrue(self.check()['queued'])
+
+    def test_quarantined_or_retrying_rows_end_or_hold_the_round(self):
+        import time as clock
+        self._waiting()
+        first = self.check()
+        claimed = json.loads(self.invoke('work_side_claim', {'owner': 'actor'})['text'])['claim']
+        host = {**HOST, 'receipt_id': claimed['receipt_id'], 'generation': claimed['generation']}
+        # A retryable failure keeps the round open (the side retries it).
+        retry = json.loads(self.invoke('work_side_fail', {'category': 'turn_error', 'model': 'valid'}, host)['text'])
+        self.assertFalse(retry['receipt']['side_failure']['quarantined'])
+        self.assertEqual('previous_round_pending', self.check()['reason'])
+        # A quarantined row is finished: it never blocks later rounds. (The
+        # backoff is skipped so the retry is claimable now.)
+        inbox = SideIntakeInbox(self.root, self.identity)
+        stored = inbox._load(first['receipt_id'])
+        stored['side_failure']['retry_not_before'] = 0
+        inbox._save_file(inbox._event_path('pending', first['receipt_id']), stored)
+        again = json.loads(self.invoke('work_side_claim', {'owner': 'actor2'})['text'])['claim']
+        self.assertEqual(first['receipt_id'], again['receipt_id'])
+        host = {**HOST, 'receipt_id': again['receipt_id'], 'generation': again['generation']}
+        failed = json.loads(self.invoke('work_side_fail', {'category': 'invalid_answer', 'model': 'main'}, host)['text'])
+        self.assertTrue(failed['receipt']['side_failure']['quarantined'])
+        record = next(Path(self.root, 'sessions').glob('*/gate-check.json'))
+        row = json.loads(record.read_text(encoding='utf-8'))
+        row['at'] = clock.time() - 301
+        record.write_text(json.dumps(row), encoding='utf-8')
+        self.assertTrue(self.check()['queued'])
 
     def test_no_change_answer_wakes_nobody(self):
         self._waiting()
