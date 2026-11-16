@@ -4,7 +4,6 @@ User requirement: the web dashboard showed an empty box while the built-in
 policy was in use; the default must be visible, and editing opens a Markdown
 editor with a preview.
 """
-import json
 import re
 import tempfile
 import unittest
