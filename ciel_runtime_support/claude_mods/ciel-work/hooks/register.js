@@ -193,7 +193,13 @@ function pollBusySideReceipts($, identity) {
 }
 let discoveryLast = 0
 let discoveryIdentity = null
-const STOP_READ_MS = 2000
+// Stop's board read deadline. With 2 s, 20 of Walkie's 41 Stops from
+// 2026-11-15 06:07Z ended with "could not read the Work status" (a floor: the
+// notice repeats only after the person writes); 19 of them came 2.16-2.36 s
+// after end_turn, i.e. at the deadline. The same read against that router
+// (578-node board, work_status plus 5 host pages) took 0.43-4.48 s alone and
+// 1.46-4.43 s with four other reads running at once, as they do at a turn end.
+const STOP_READ_MS = 10000
 const RETRY_MS = [250, 500, 1000, 2000, 4000, 8000]
 const IDLE_REFRESH_MS = [1000, 2000, 4000, 8000, 16000, 30000]
 const nativePlanPaths = new Map()

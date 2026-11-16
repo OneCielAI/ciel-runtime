@@ -633,6 +633,8 @@ test('child and precompute entry during a Stop read do not invalidate it', async
   const precompute = $.session.compact({ ...COMPACT, trigger: 'precompute' })
   await clock.settle()
   fixture.release(); await child; await precompute
+  // The post-pump read answers at once; only the first read was held.
+  s.waitStatus = null
   release()
   expect((await stop).block).toContain('Verify next')
 })
@@ -676,7 +678,8 @@ test('overlapping main compacts wait for every settlement and preserve native St
   await second
   expect(await $.classic.Stop(STOP)).toEqual({ block: 'Native veto', preventContinuation: true })
 })
-test('Stop status wall-clock deadline returns native result; late read cannot change Work state', async ($, on) => {
+// The Stop read deadline is 10 s (register.js STOP_READ_MS): this test waits it out.
+test('Stop status wall-clock deadline returns native result; late read cannot change Work state', { timeoutMs: 20000 }, async ($, on) => {
   const s = continuing(on); const clock = mock.clock(on)
   const prior = { stopReason: 'Native metadata stays intact' }
   s.stopResult = prior
@@ -691,7 +694,7 @@ test('Stop status wall-clock deadline returns native result; late read cannot ch
   expect(settled).toBe(false)
   const started = Date.now()
   expect(await stop).toEqual(prior)
-  expect(Date.now() - started < 3000).toBe(true)
+  expect(Date.now() - started < 11000).toBe(true)
   const before = s.logs.length
   s.waitStatus = null; s.snapshot.version = 1
   release(); await clock.settle()

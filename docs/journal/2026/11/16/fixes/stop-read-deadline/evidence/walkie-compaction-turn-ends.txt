@@ -1,0 +1,43 @@
+# Walkie main transcript (read-only), the last 40 compactions: how the turn after each one ended.
+# "next person prompt" is the gap from that turn end to the next prompt a person typed.
+compactions 101
+11-12T15:21:11 auto   mid-turn=True  after:   28 assistant msgs; turn end 15:25:36 (API error: Gateway response stream was interrupted); next person prompt +165s
+11-12T18:24:15 auto   mid-turn=True  after:  506 assistant msgs; turn end 20:19:37 (API error: 500 transient retry deadline or attempt limit rea); next person prompt +275s
+11-12T23:13:34 auto   mid-turn=True  after:  238 assistant msgs; turn end 00:01:08 (end_turn; Stop could not read the Work status); next person prompt +5724s
+11-13T04:13:00 auto   mid-turn=False after:   30 assistant msgs; turn end 04:17:33 (end_turn); next person prompt +3267s
+11-13T06:10:58 auto   mid-turn=True  after: 1227 assistant msgs; turn end 09:07:08 (end_turn; Stop could not read the Work status); next person prompt +21308s
+11-13T07:27:30 auto   mid-turn=True  after:  679 assistant msgs; turn end 09:07:08 (end_turn; Stop could not read the Work status); next person prompt +21308s
+11-13T08:57:15 auto   mid-turn=False after:   89 assistant msgs; turn end 09:07:08 (end_turn; Stop could not read the Work status); next person prompt +21308s
+11-13T15:53:30 auto   mid-turn=True  after:  509 assistant msgs; turn end 17:19:13 (API error: 500 transient retry deadline or attempt limit rea); next person prompt +92s
+11-13T17:17:02 auto   mid-turn=True  after:    9 assistant msgs; turn end 17:19:13 (API error: 500 transient retry deadline or attempt limit rea); next person prompt +92s
+11-13T18:42:15 auto   mid-turn=True  after:  500 assistant msgs; turn end 20:00:07 (API error: 500 transient retry deadline or attempt limit rea); next person prompt +2665s
+11-13T19:49:08 auto   mid-turn=True  after:   87 assistant msgs; turn end 20:00:07 (API error: 500 transient retry deadline or attempt limit rea); next person prompt +2665s
+11-13T21:49:46 auto   mid-turn=True  after:  193 assistant msgs; turn end 22:19:16 (API error: 500 transient retry deadline or attempt limit rea); next person prompt +1327s
+11-14T01:40:10 auto   mid-turn=True  after:  206 assistant msgs; turn end 02:06:34 (API error: terminated); next person prompt +33s
+11-14T02:38:44 auto   mid-turn=True  after: 1181 assistant msgs; turn end 07:33:35 (API error: 502 ConnectionResetError: [WinError 10054] An exi); a person prompt was queued during the turn
+11-14T06:09:28 auto   mid-turn=True  after:  346 assistant msgs; turn end 07:33:35 (API error: 502 ConnectionResetError: [WinError 10054] An exi); next person prompt +134s
+11-14T10:46:50 auto   mid-turn=True  after: 1705 assistant msgs; turn end 15:59:52 (API error: Gateway response stream was interrupted); next person prompt +1294s
+11-14T12:56:07 auto   mid-turn=True  after: 1052 assistant msgs; turn end 15:59:52 (API error: Gateway response stream was interrupted); next person prompt +1294s
+11-14T14:02:31 auto   mid-turn=True  after:  675 assistant msgs; turn end 15:59:52 (API error: Gateway response stream was interrupted); next person prompt +1294s
+11-14T15:16:40 auto   mid-turn=True  after:  217 assistant msgs; turn end 15:59:52 (API error: Gateway response stream was interrupted); next person prompt +1294s
+11-14T17:57:02 auto   mid-turn=True  after: 1058 assistant msgs; turn end 21:10:00 (API error: 500 transient retry deadline or attempt limit rea); next person prompt +1009s
+11-14T20:02:54 auto   mid-turn=True  after:  222 assistant msgs; turn end 21:10:00 (API error: 500 transient retry deadline or attempt limit rea); next person prompt +1009s
+11-14T22:40:40 auto   mid-turn=True  after:   34 assistant msgs; turn end 22:43:19 (API error: Upstream Anthropic stream failed before message_s); next person prompt +2950s
+11-15T00:36:50 auto   mid-turn=True  after:  257 assistant msgs; turn end 01:12:55 (end_turn); next person prompt +3584s
+11-15T01:41:59 auto   mid-turn=True  after:  216 assistant msgs; turn end 02:08:20 (end_turn; Stop could not read the Work status); next person prompt +259s
+11-15T06:12:51 auto   mid-turn=True  after:   56 assistant msgs; turn end 06:22:54 (API error: Connection refused - a firewall or proxy may be b); next person prompt +0s
+11-15T07:17:08 auto   mid-turn=True  after:  149 assistant msgs; turn end 07:43:54 (end_turn; Stop could not read the Work status); next person prompt +209s
+11-15T08:14:35 manual mid-turn=False after:  346 assistant msgs; turn end 09:43:07 (end_turn; Stop could not read the Work status); a person prompt was queued during the turn
+11-15T10:12:42 auto   mid-turn=True  after:  311 assistant msgs; turn end 11:04:19 (end_turn; Stop could not read the Work status); next person prompt +12674s
+11-15T11:45:55 auto   mid-turn=True  after:  357 assistant msgs; turn end 13:20:45 (API error: Connection refused - a firewall or proxy may be b); next person prompt +4487s
+11-15T15:05:53 auto   mid-turn=True  after:  345 assistant msgs; turn end 16:08:32 (end_turn; Stop could not read the Work status); next person prompt +209s
+11-15T16:53:18 auto   mid-turn=True  after:  262 assistant msgs; turn end 17:26:34 (end_turn; Stop could not read the Work status); next person prompt +434s
+11-15T18:22:30 auto   mid-turn=True  after: 1325 assistant msgs; turn end 21:48:04 (end_turn; Stop could not read the Work status); next person prompt +247s
+11-15T19:38:15 auto   mid-turn=True  after:  865 assistant msgs; turn end 21:48:04 (end_turn; Stop could not read the Work status); next person prompt +247s
+11-15T20:56:40 auto   mid-turn=True  after:  415 assistant msgs; turn end 21:48:04 (end_turn; Stop could not read the Work status); next person prompt +247s
+11-15T21:51:37 manual mid-turn=False after:  377 assistant msgs; turn end 22:53:10 (end_turn); a person prompt was queued during the turn
+11-15T23:09:09 manual mid-turn=False after:  144 assistant msgs; turn end 23:28:14 (end_turn; Stop could not read the Work status); a person prompt was queued during the turn
+11-16T01:58:53 manual mid-turn=False after:  179 assistant msgs; turn end 02:23:48 (end_turn; Stop could not read the Work status); a person prompt was queued during the turn
+11-16T02:25:10 manual mid-turn=False after:  222 assistant msgs; turn end 02:55:19 (end_turn; Stop could not read the Work status); next person prompt +2850s
+11-16T02:26:11 manual mid-turn=False after:  222 assistant msgs; turn end 02:55:19 (end_turn; Stop could not read the Work status); next person prompt +2850s
+11-16T03:52:58 manual mid-turn=False after:  234 assistant msgs; turn end 05:07:43 (end_turn; Stop could not read the Work status); a person prompt was queued during the turn

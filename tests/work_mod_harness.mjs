@@ -3529,6 +3529,30 @@ Object.assign(scenarios, {
   },
 })
 
+// Walkie 2026-11-16: a turn end's board read took longer than 2 s under the
+// end-of-turn load (1.46-3.69 s measured), so Stop logged "could not read the
+// Work status" and the turn ended with runnable work. A 3.5 s read must still
+// continue the turn.
+Object.assign(scenarios, {
+  async 'slow-board-read-still-continues-the-turn'() {
+    const board = { ...snapshot('executing', 9), done: 0, total: 2,
+      continuation: { actionable: 1, next: { id: 'n2', title: 'Runnable step' }, waiting: [] },
+      queue: [{ id: 'n1', title: 'goal', status: 'in_progress', done: 0, total: 2 }] }
+    let reads = 0
+    const { $, state } = host(async tool => {
+      if (tool === 'work_status') { reads++; await sleep(3500); return text(board) }
+      if (tool === 'work_parallel_status') return text({ version: 1, policy: { enabled: false }, leases: {} })
+      if (tool === 'work_side_claim') return text({ claim: null, settings: {}, handoff_replies: [], main_wakes: [] })
+      if (tool === 'work_side_status') return text({ side_inbox_receipts: [] })
+      return text({})
+    })
+    const started = Date.now()
+    const stop = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
+    return { block: stop?.block || '', reads, seconds: Math.round((Date.now() - started) / 1000),
+      unreadable: state.logs.some(line => line.includes('could not read the Work status')) }
+  },
+})
+
 // Walkie 2026-11-16: slots were free but no fork started while main worked
 // inline through a long turn: nothing woke the pump until the turn ended.
 Object.assign(scenarios, {

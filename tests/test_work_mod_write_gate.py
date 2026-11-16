@@ -43,6 +43,11 @@ class WorkModWriteGateTests(unittest.TestCase):
         shutil.copyfile(w.CLAUDE_MOD_DIR / "hooks" / "side-intake.js", cls.root / "side-intake.js")
         shutil.copyfile(HARNESS, cls.root / HARNESS.name)
 
+    def test_slow_board_read_still_continues_the_turn(self):
+        row = self.run_scenario('slow-board-read-still-continues-the-turn')
+        self.assertFalse(row['unreadable'], row)
+        self.assertIn('n2', row['block'], row)
+
     def test_main_steps_wake_the_pump_during_a_long_turn(self):
         row = self.run_scenario('main-steps-wake-the-pump-during-a-long-turn')
         self.assertTrue(row['firstStepPumped'], row)

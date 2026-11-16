@@ -1,0 +1,18 @@
+# Walkie router 9505, the exact Stop board read (work_status format=json with the host credential, then every work_host_page), measured 2026-11-16T06:04:25Z. Pure reads.
+## alone
+run 0: work_status 770 ms error=False chars=113 pages=[34, 40, 26, 34, 36] total 942 ms
+run 1: work_status 3259 ms error=False chars=113 pages=[61, 32, 32, 28, 1064] total 4476 ms
+run 2: work_status 2188 ms error=False chars=113 pages=[49, 61, 32, 29, 26] total 2384 ms
+run 3: work_status 493 ms error=False chars=113 pages=[214, 166, 96, 81, 50] total 1101 ms
+run 4: work_status 1156 ms error=False chars=113 pages=[64, 35, 24, 28, 49] total 1356 ms
+run 5: work_status 707 ms error=False chars=113 pages=[29, 31, 15, 38, 28] total 849 ms
+## with 4 other reads at the same moment (work_status x2, work_parallel_status, work_side_status), as at a turn end
+run 0: stop read 2554 ms with 4 concurrent reads {'work_parallel_status#1': 1276, 'work_side_status#2': 1753, 'work_status#0': 1822, 'work_status#3': 1958}
+run 1: stop read 2663 ms with 4 concurrent reads {'work_parallel_status#1': 1027, 'work_status#0': 1404, 'work_side_status#2': 2239, 'work_status#3': 2575}
+run 2: stop read 2716 ms with 4 concurrent reads {'work_parallel_status#1': 1421, 'work_side_status#2': 1997, 'work_status#3': 1995, 'work_status#0': 2016}
+run 3: stop read 4426 ms with 4 concurrent reads {'work_status#3': 2093, 'work_status#0': 2409, 'work_side_status#2': 3123, 'work_parallel_status#1': 4083}
+run 4: stop read 4346 ms with 4 concurrent reads {'work_parallel_status#1': 2140, 'work_status#3': 3812, 'work_side_status#2': 4050, 'work_status#0': 4562}
+## earlier runs of the same two scripts (2026-11-16, about 05:2xZ, quieter router)
+alone: totals 664, 436, 483, 1433, 432, 470 ms (work_status 281-483 ms; pages 13-43 ms, one 1049 ms)
+with 4 other reads: stop read 1456, 2892, 3160, 3692, 1978 ms
+## per-call baseline (same router): tools/list 13-44 ms; a refused work_host_page 12-13 ms; work_status without host 284-475 ms
