@@ -53,6 +53,9 @@ CLAUDE_PROJECTED_ENV_KEYS = (
     "CIEL_RUNTIME_DIRECT_GATEWAY_ACTIVE",
     "CIEL_RUNTIME_DIRECT_EMPTY_STREAM_RETRIES",
 )
+# Claude Code's request and stream watchdogs in routed cielairouter mode: above
+# the router's 1800 s compaction pre-output bound plus the summary generation.
+COMPACTION_CLIENT_TIMEOUT_MS = 2_100_000
 # Model values a gateway receives verbatim in direct data-path mode (no router
 # translates a ciel-runtime-* alias there).
 CLAUDE_DIRECT_MODEL_KEYS = (
@@ -660,6 +663,20 @@ class ClaudeEnvironmentProjection:
         direct = data_path is not None and bool(getattr(data_path, "direct", False))
         if direct:
             self._apply_direct_data_path(provider, provider_config, env, data_path)
+        if provider == "cielairouter" and not direct:
+            # Routed mode: native compaction may spend most of the router's 30
+            # minute compaction bound (transient_retry.COMPACTION_*) before its
+            # first model frame. Keep Claude Code's own watchdogs outside that
+            # bound; ordinary requests still end at the router's 540 s bound.
+            # Without these, Claude Code aborted a held stream 600-750 s after
+            # dispatch (journal 2026/11/13 router-upstream-error-retry, T2-T4).
+            compaction_client_timeout_ms = COMPACTION_CLIENT_TIMEOUT_MS
+            env.update({
+                "API_TIMEOUT_MS": str(compaction_client_timeout_ms),
+                "CLAUDE_STREAM_FIRST_BYTE_TIMEOUT_MS": str(compaction_client_timeout_ms),
+                "CLAUDE_STREAM_IDLE_TIMEOUT_MS": str(compaction_client_timeout_ms),
+                "CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS": str(compaction_client_timeout_ms),
+            })
         if provider == "cielairouter":
             # One retry owner: the router in routed mode, the CLI in direct mode.
             # Timeout resend and stream fallback are separate replay paths.

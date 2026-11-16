@@ -31,6 +31,15 @@ A chain ends on:
 
 State is in memory only: a restarted launcher never resends an input it did
 not see fail.
+
+Failed auto-compaction (user requirement 2026-11-16, "compact 뒤에 턴이 멈춤"):
+a main turn that ends with Claude Code's "Prompt is too long · automatic
+compaction failed: ..." record resumes on the same schedule whoever opened
+the turn (a person, a channel, a Work continuation). The resend asks to
+continue; delivering it makes Claude Code compact again before the request.
+A typed opener's own text is resent; otherwise a continuation line is sent.
+That chain is not cancelled by a compaction boundary (its own resend causes
+one) and ends when the model answers.
 """
 
 from __future__ import annotations
@@ -54,6 +63,10 @@ NOTICE_TTL_SECONDS = 180.0
 # admitted again rather than counted.
 UNDELIVERED_AFTER_SECONDS = NOTICE_TTL_SECONDS + 30.0
 SUBMIT_RETRY_SECONDS = 30.0
+# Claude Code's terminal auto-compaction failure (runtime_compaction_control
+# _compact_terminal_failure reads the same record shape).
+AUTO_COMPACT_FAILED_PREFIX = "Prompt is too long · automatic compaction failed: "
+COMPACT_RESUME_TEXT = "직전 턴이 자동 컴팩트 실패로 멈췄습니다. 컴팩트를 다시 진행한 뒤 하던 작업을 이어서 진행하세요."
 _INTERRUPT_PREFIX = "[Request interrupted by user"
 _COMMAND_PREFIXES = ("<command-name>", "<local-command-stdout>", "<local-command-caveat>", "<bash-input>",
                      "<bash-stdout>", "<bash-stderr>")
@@ -67,16 +80,31 @@ def delay_before(attempt: int) -> float | None:
     return FIRST_INTERVAL_SECONDS if attempt <= FIRST_COUNT else SECOND_INTERVAL_SECONDS
 
 
-def resend_body(attempt: int, *, error_uuid: str, text: str, scope: Any, created_at: float) -> dict[str, Any]:
+def auto_compact_failed(record: dict[str, Any]) -> bool:
+    """Claude Code's own record for a failed automatic compaction that ended the turn."""
+
+    if record.get("type") != "assistant" or record.get("isApiErrorMessage") is not True:
+        return False
+    message = record.get("message")
+    content = message.get("content") if isinstance(message, dict) else None
+    return (isinstance(content, list) and len(content) == 1 and isinstance(content[0], dict)
+            and content[0].get("type") == "text" and isinstance(content[0].get("text"), str)
+            and content[0]["text"].startswith(AUTO_COMPACT_FAILED_PREFIX))
+
+
+def resend_body(attempt: int, *, error_uuid: str, text: str, scope: Any, created_at: float,
+                compaction: bool = False) -> dict[str, Any]:
     """One resend admitted like a stream-recovery continuation (exact text, exact scope)."""
 
+    lead = ("직전 턴이 자동 컴팩트 실패로 멈춰 다시 보냅니다." if compaction
+            else "직전 입력이 일시적인 API 오류로 처리되지 못해 같은 입력을 다시 보냅니다.")
     return {
         "channel": "typed-turn-resend",
         "sender_id": "ciel-runtime",
         "kind": "typed_turn_resend",
         "message": (
-            f"{RESEND_MARKER} {attempt}/{MAX_RESENDS} · {error_uuid[:8]}] 직전 입력이 일시적인 API 오류로 처리되지 "
-            "못해 같은 입력을 다시 보냅니다. 이미 마친 작업은 반복하지 말고 이어서 진행하세요.\n\n" + text
+            f"{RESEND_MARKER} {attempt}/{MAX_RESENDS} · {error_uuid[:8]}] {lead} "
+            "이미 마친 작업은 반복하지 말고 이어서 진행하세요.\n\n" + text
         ),
         "meta": {
             "raw_injection": True,
@@ -173,7 +201,9 @@ class TypedTurnResend:
             if self._chain is not None:
                 self._end("cancelled", "queued_input")
         elif kind == "system" and record.get("subtype") == "compact_boundary":
-            if self._chain is not None:
+            # A failed-compaction chain's own resend makes Claude Code compact
+            # again; that boundary is the recovery path, not a reason to stop.
+            if self._chain is not None and not self._chain.get("compaction"):
                 self._end("cancelled", "compaction")
 
     def _observe_user(self, record: dict[str, Any], message: dict[str, Any]) -> None:
@@ -207,7 +237,41 @@ class TypedTurnResend:
         self._opener = {"typed": True, "ours": False, "uuid": str(record.get("uuid") or ""),
                         "text": text, "non_text": non_text}
 
+    def _observe_compaction_failure(self, record: dict[str, Any]) -> None:
+        error_uuid = str(record.get("uuid") or "")
+        chain = self._chain
+        if chain is not None:
+            delay = delay_before(chain["attempts"] + 1)
+            if delay is None:
+                self._end("exhausted", "last_error=auto_compact_failed")
+                return
+            chain.update(due=self.now() + delay, error_uuid=error_uuid, submitted_at=None, delivered=False,
+                         compaction=True)
+            self.log("INFO", f"claude_typed_resend_scheduled attempt={chain['attempts'] + 1}/{MAX_RESENDS} "
+                             f"in={delay:.0f}s error=auto_compact_failed origin={chain['origin'][:8]}")
+            return
+        opener = self._opener or {}
+        typed_text = str(opener.get("text") or "") if opener.get("typed") and not opener.get("non_text") else ""
+        delay = delay_before(1)
+        self._chain = {
+            "origin": str(opener.get("uuid") or error_uuid),
+            "text": typed_text if typed_text.strip() else COMPACT_RESUME_TEXT,
+            "session_id": str(record.get("sessionId") or ""),
+            "attempts": 0,
+            "due": self.now() + float(delay or FIRST_INTERVAL_SECONDS),
+            "error_uuid": error_uuid,
+            "submitted_at": None,
+            "delivered": False,
+            "input_id": 0,
+            "compaction": True,
+        }
+        self.log("INFO", f"claude_typed_resend_scheduled attempt=1/{MAX_RESENDS} in={delay:.0f}s "
+                         f"origin={self._chain['origin'][:8]} error=auto_compact_failed")
+
     def _observe_error(self, record: dict[str, Any]) -> None:
+        if auto_compact_failed(record):
+            self._observe_compaction_failure(record)
+            return
         opener = self._opener
         if opener is None:
             return
@@ -279,7 +343,8 @@ class TypedTurnResend:
                 self.log("INFO", f"claude_typed_resend_waiting reason={blocked} attempt={chain['attempts'] + 1}/{MAX_RESENDS}")
             return None
         attempt = chain["attempts"] + 1
-        body = resend_body(attempt, error_uuid=chain["error_uuid"], text=chain["text"], scope=scope, created_at=now)
+        body = resend_body(attempt, error_uuid=chain["error_uuid"], text=chain["text"], scope=scope, created_at=now,
+                           compaction=bool(chain.get("compaction")))
         try:
             admitted = self.submit(body)
         except Exception as exc:

@@ -35,6 +35,13 @@ def api_error(uuid, *, error="server_error", status=500, **extra):
             **extra}
 
 
+def compact_failed(uuid, cause="API Error: Stream idle timeout - no chunks received"):
+    # The record runtime_compaction_control._compact_terminal_failure recognizes.
+    return {"type": "assistant", "uuid": uuid, "sessionId": SESSION, "isApiErrorMessage": True,
+            "error": "invalid_request", "message": {"role": "assistant", "content": [
+                {"type": "text", "text": "Prompt is too long · automatic compaction failed: " + cause}]}}
+
+
 def answer(uuid):
     return {"type": "assistant", "uuid": uuid, "sessionId": SESSION,
             "message": {"id": "msg_" + uuid, "role": "assistant", "content": [{"type": "text", "text": "done"}]}}
@@ -178,6 +185,66 @@ class TypedTurnResendTests(unittest.TestCase):
         h.advance(60)
         self.assertEqual([], h.submitted)
         self.assertIsNone(h.resend.status())
+
+    def test_failed_auto_compaction_resumes_any_turn(self):
+        # Work continuations, channel wakes and peer prompts are not typed; a
+        # failed auto-compaction still resumes them (2026-11-16).
+        for opener in ({"type": "user", "uuid": "p", "isMeta": True, "origin": {"kind": "peer"},
+                        "message": {"content": "[ciel-side-wake] continue the Work item"}},
+                       typed("c1", "[ciel-runtime external channel message] from walkie"),
+                       None):
+            with self.subTest(opener=opener):
+                h = Harness()
+                if opener is not None:
+                    h.feed(opener)
+                h.feed(tool_result("r1"), compact_failed("e1"))
+                self.assertIsNone(h.advance(59))
+                self.assertEqual(1, h.advance(1)["attempt"])
+                body = h.submitted[0]["message"]
+                self.assertIn("자동 컴팩트 실패", body)
+                self.assertIn("이어서 진행", body.split("\n\n", 1)[1])
+
+    def test_failed_auto_compaction_resends_a_typed_turn_with_its_text(self):
+        h = Harness()
+        h.feed(typed("u1"), compact_failed("e1"))
+        h.advance(60)
+        self.assertTrue(h.submitted[0]["message"].endswith("\n\nFix the analytics boundary and run the tests"))
+
+    def test_the_resends_own_compaction_does_not_cancel_and_an_answer_recovers(self):
+        h = Harness()
+        h.feed(typed("u1"), compact_failed("e1"))
+        h.advance(60)
+        h.feed(resent("s1", 1), {"type": "system", "subtype": "compact_boundary"})
+        self.assertIsNotNone(h.resend.status())
+        h.feed(answer("a1"))
+        self.assertIsNone(h.resend.status())
+        self.assertTrue(any("claude_typed_resend_recovered" in line for line in h.logs))
+
+    def test_compaction_failing_again_reschedules_up_to_twenty(self):
+        h = Harness()
+        h.feed(compact_failed("e0"))
+        for attempt in range(1, 21):
+            due = h.resend.status()["due"] - h.clock.value
+            self.assertEqual(attempt, h.advance(due)["attempt"])
+            h.feed(resent(f"s{attempt}", attempt), compact_failed(f"e{attempt}"))
+        self.assertIsNone(h.resend.status())
+        self.assertEqual(20, len(h.submitted))
+        self.assertTrue(any("claude_typed_resend_exhausted reason=last_error=auto_compact_failed" in line
+                            for line in h.logs))
+
+    def test_a_typed_chain_hitting_a_failed_compaction_continues(self):
+        h = Harness()
+        h.feed(typed("u1"), api_error("e1"))
+        h.advance(60)
+        h.feed(resent("s1", 1), compact_failed("e2"), {"type": "system", "subtype": "compact_boundary"})
+        self.assertEqual(2, h.advance(60)["attempt"])
+
+    def test_other_api_errors_from_untyped_turns_still_are_not_resent(self):
+        h = Harness()
+        h.feed({"type": "user", "uuid": "p", "isMeta": True, "origin": {"kind": "peer"},
+                "message": {"content": "peer input"}}, api_error("e1"))
+        h.advance(600)
+        self.assertEqual([], h.submitted)
 
     def test_stream_recovery_monitor_drives_the_resend(self):
         import tempfile

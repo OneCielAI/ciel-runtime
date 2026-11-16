@@ -1,0 +1,9 @@
+{"t": 0.0, "event": "claude_start", "run": "seed"}
+{"t": 0.5, "path": "/v1/messages?beta=true", "kind": "normal", "stream": true, "messages": 2, "model": "claude-sonnet-5-5", "timeout_header": "3600"}
+{"t": 0.5, "event": "responded", "kind": "normal"}
+{"t": 0.6, "event": "claude_end", "run": "seed", "exit": 0, "seconds": 0.6}
+{"t": 0.6, "event": "claude_start", "run": "compact"}
+{"t": 1.0, "path": "/v1/messages?beta=true", "kind": "compact", "stream": true, "messages": 4, "model": "claude-sonnet-5-5", "timeout_header": "3600"}
+{"t": 1201.1, "event": "compact_hold_done", "held": 1200.1}
+{"t": 1201.1, "event": "responded", "kind": "compact"}
+{"t": 1201.2, "event": "claude_end", "run": "compact", "exit": 0, "seconds": 1200.6}

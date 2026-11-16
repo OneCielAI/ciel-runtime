@@ -1,0 +1,10 @@
+7 failed, 14 passed in 0.25s
+E               TypeError: 'NoneType' object is not subscriptable
+E           TypeError: 'NoneType' object is not subscriptable
+E       AssertionError: unexpectedly None
+E       IndexError: list index out of range
+E       TypeError: 'NoneType' object is not subscriptable
+FAILED tests/test_claude_typed_turn_resend.py::TypedTurnResendTests::test_a_typed_chain_hitting_a_failed_compaction_continues
+FAILED tests/test_claude_typed_turn_resend.py::TypedTurnResendTests::test_compaction_failing_again_reschedules_up_to_twenty
+FAILED tests/test_claude_typed_turn_resend.py::TypedTurnResendTests::test_failed_auto_compaction_resends_a_typed_turn_with_its_text
+FAILED tests/test_claude_typed_turn_resend.py::TypedTurnResendTests::test_the_resends_own_compaction_does_not_cancel_and_an_answer_recovers

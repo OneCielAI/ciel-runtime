@@ -100,6 +100,22 @@ RETRY_WINDOW_SECONDS = 420.0
 # window may start at the first upstream open (B4 catalog work does not spend
 # it), but pre-output work can never continue beyond this request-age cap.
 HARD_PREOUTPUT_SECONDS = 540.0
+# A native compaction request (Claude Code's /compact or auto-compact) gets a
+# longer pre-output allowance: its prompt is the whole conversation, and users
+# saw compactions run past 10 minutes with errors and retries in between. The
+# launch env raises Claude Code's own stream timeouts above this bound
+# (claude_environment, COMPACTION_CLIENT_TIMEOUT_MS), so the client keeps
+# waiting while the router retries.
+COMPACTION_RETRY_WINDOW_SECONDS = 1680.0
+COMPACTION_HARD_PREOUTPUT_SECONDS = 1800.0
+# Immediate failures spend about 13 minutes of backoff over 30 attempts; 60
+# lets retries continue through the compaction window instead of the count.
+COMPACTION_RETRY_CEILING = 60
+# One compaction attempt may wait this long for its first upstream byte (the
+# whole conversation is prefilled). 300 s per read ended a compaction on
+# 2026-11-06 ("Error during compaction: API Error: TimeoutError: The read
+# operation timed out"); the arrival bound above still caps every attempt.
+COMPACTION_ATTEMPT_READ_SECONDS = 900.0
 WINDOW_RETRY_CEILING = 20
 MAX_WINDOW_RETRIES = 30
 WINDOW_SCHEDULE_SECONDS = (1.0, 2.0, 4.0, 8.0, 15.0, 30.0)
@@ -141,6 +157,8 @@ class TransientRetryBudget:
     # window scopes use it; fixed-count/explicit budgets keep their old contract.
     arrival_started: float | None = field(default=None, repr=False)
     hard_preoutput_seconds: float | None = field(default=None, repr=False)
+    # A native compaction request's scope (COMPACTION_* bounds above).
+    compaction: bool = field(default=False, repr=False)
     # A semantic recovery (gateway_retries=0) under an active dispatch budget
     # is a child of it (R1 amendment 2, lead-rulings-independent-review-sse-
     # retry-20261113.md): the parent's window end, arrival bound and only its
@@ -162,7 +180,8 @@ class TransientRetryBudget:
     activity: Any = field(default=None, repr=False)
 
     def __post_init__(self) -> None:
-        ceiling = MAX_WINDOW_RETRIES if self.window_mode else MAX_RETRIES
+        ceiling = ((COMPACTION_RETRY_CEILING if self.compaction else MAX_WINDOW_RETRIES)
+                   if self.window_mode else MAX_RETRIES)
         self.limit = max(0, min(ceiling, int(self.limit)))
         if self.started is None:
             self.started = self.clock()
@@ -439,15 +458,20 @@ def _explicit_retry_limit(config: Any) -> int | None:
 
 
 def _default_budget(config: Any, provider: str, *,
-                    arrival_started: float | None = None) -> TransientRetryBudget | None:
+                    arrival_started: float | None = None,
+                    compaction: bool = False) -> TransientRetryBudget | None:
     limit = _limit(config, provider)
     if not limit:
         return None
-    window = RETRY_WINDOW_SECONDS
+    window = COMPACTION_RETRY_WINDOW_SECONDS if compaction else RETRY_WINDOW_SECONDS
     if (isinstance(window, (int, float)) and not isinstance(window, bool) and math.isfinite(window)
             and window > 0 and _explicit_retry_limit(config) is None):
-        return TransientRetryBudget(WINDOW_RETRY_CEILING, float(window), window_mode=True,
-                                    start_on_first_open=True, arrival_started=arrival_started)
+        return TransientRetryBudget(COMPACTION_RETRY_CEILING if compaction else WINDOW_RETRY_CEILING,
+                                    float(window), window_mode=True,
+                                    start_on_first_open=True, arrival_started=arrival_started,
+                                    hard_preoutput_seconds=(COMPACTION_HARD_PREOUTPUT_SECONDS
+                                                            if compaction else None),
+                                    compaction=compaction)
     return TransientRetryBudget(limit, DEFAULT_SECONDS, start_on_first_open=True, timeout_pending=True)
 
 
@@ -455,7 +479,8 @@ def _default_budget(config: Any, provider: str, *,
 def request_scope(config: Any = None, provider: str = PROVIDER, *,
                   budget: TransientRetryBudget | None = None,
                   arrival_started: float | None = None,
-                  inherit_arrival: bool = True):
+                  inherit_arrival: bool = True,
+                  compaction: bool = False):
     """Start an independent operation; nested transports use budget_for.
 
     ``arrival_started`` is the router's monotonic request-arrival timestamp. It
@@ -477,7 +502,7 @@ def request_scope(config: Any = None, provider: str = PROVIDER, *,
         # to the same client request, so it keeps the request's arrival time.
         arrival_started = active.arrival_started
     current = budget if budget is not None else _default_budget(
-        config, provider, arrival_started=arrival_started)
+        config, provider, arrival_started=arrival_started, **({"compaction": True} if compaction else {}))
     if (budget is None and current is None and inherit_arrival and active is not None
             and owns_transient_retries(provider)):
         current = _recovery_child(active)
@@ -506,6 +531,7 @@ def _recovery_child(parent: TransientRetryBudget) -> TransientRetryBudget:
             left, parent.deadline_seconds, clock=parent.clock, started=parent.started,
             window_mode=parent.window_mode, arrival_started=parent.arrival_started,
             hard_preoutput_seconds=parent.hard_preoutput_seconds, rand=parent.rand,
+            compaction=parent.compaction,
             activity=parent.activity, requested_timeout=parent.requested_timeout,
             recovery_parent=parent, prior_attempts=parent.request_attempts(),
             prior_waited_seconds=parent.prior_waited_seconds + parent.waited_seconds)
@@ -597,6 +623,8 @@ def bounded_timeout(config: Any, provider: str, timeout: Any) -> Any:
             budget.stopped = True
             budget.stop_reason = budget.deadline_reason()
             raise _mark(TimeoutError("transient retry deadline reached before open"), budget)
+        if budget.compaction and math.isfinite(seconds) and seconds > 0:
+            seconds = max(seconds, COMPACTION_ATTEMPT_READ_SECONDS)
         # remaining() includes a window scope's router-arrival hard bound, so the
         # returned socket timeout can never carry an attempt past that bound.
         return min(seconds, remaining) if math.isfinite(seconds) and seconds > 0 else remaining
@@ -1048,6 +1076,8 @@ class _PreOutputSSE(_ReplayResponse):
             limit = math.inf
         if not math.isfinite(limit) or limit <= 0:
             limit = math.inf
+        if self._budget.compaction:
+            limit = max(limit, COMPACTION_ATTEMPT_READ_SECONDS)
         if sock is not None and hasattr(sock, "settimeout"):
             try:
                 sock.settimeout(min(limit, left))

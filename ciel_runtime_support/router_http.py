@@ -56,6 +56,7 @@ from ciel_runtime_support.remote_bridge import (
 from ciel_runtime_support.model_override import with_forced_model
 from ciel_runtime_support.oauth_routing import codex_request_run
 from ciel_runtime_support.tool_schema import request_tool_schema_scope
+from ciel_runtime_support.context_summary_policy import native_claude_compact_request
 from ciel_runtime_support.transient_retry import request_scope, retry_handled
 from ciel_runtime_support.upstream_dump import dump_upstream_request
 from ciel_runtime_support.upstream_stream_io import (
@@ -1661,7 +1662,8 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
                         # nested context recovery and legacy reopen loops. Never
                         # attach mutable retry state to a reusable provider config.
                         retry_scope.enter_context(request_scope(pcfg, provider, **(
-                            {"arrival_started": request_arrived_at} if request_arrived_at is not None else {})))
+                            {"arrival_started": request_arrived_at} if request_arrived_at is not None else {}),
+                            **({"compaction": True} if native_claude_compact_request(body) else {})))
                     scoped_provider = provider
                 model = str(body.get("model") or pcfg.get("current_model") or "")
                 try:
@@ -1831,7 +1833,9 @@ class RouterHttpHandler(BaseHTTPRequestHandler):
                             # on every path (ruling R2): the same scope as
                             # _dispatch_with_failover, under the same provider condition.
                             bridge_scope = (
-                                request_scope(pcfg, provider, arrival_started=request_arrived_at)
+                                request_scope(pcfg, provider, arrival_started=request_arrived_at,
+                                              **({"compaction": True}
+                                                 if native_claude_compact_request(body) else {}))
                                 if provider == "cielairouter"
                                 else contextlib.nullcontext()
                             )

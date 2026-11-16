@@ -1,0 +1,25 @@
+{
+ "seed": {
+  "exit": 0,
+  "seconds": 0.7,
+  "result": {
+   "subtype": "success",
+   "is_error": false,
+   "result": "pong",
+   "duration_ms": 202,
+   "num_turns": 1
+  }
+ },
+ "compact": {
+  "exit": 0,
+  "seconds": 750.7,
+  "result": {
+   "subtype": "success",
+   "is_error": false,
+   "result": "Error during compaction: API Error: Stream idle timeout - no chunks received",
+   "duration_ms": 750189,
+   "num_turns": 0
+  }
+ },
+ "compact_boundaries_in_transcript": 0
+}

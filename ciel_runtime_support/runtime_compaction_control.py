@@ -60,8 +60,11 @@ class NativeCompactionFailure:
 
 @dataclass(frozen=True, slots=True)
 class RuntimeCompactionPolicy:
-    # Semantic work is bounded at 900s plus the final native-wire generation.
-    confirmation_timeout_seconds: float = 1200.0
+    # A native compaction may wait up to the router's 1800 s pre-output bound
+    # (transient_retry.COMPACTION_HARD_PREOUTPUT_SECONDS) before its summary
+    # streams. Holding input admission past that keeps an injected message from
+    # landing mid-compaction (1200 s released one early, Walkie 2026-11-16).
+    confirmation_timeout_seconds: float = 2400.0
     retry_cooldown_seconds: float = 30.0
     max_attempts: int = 2
 

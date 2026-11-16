@@ -1,0 +1,25 @@
+{
+ "seed": {
+  "exit": 0,
+  "seconds": 0.6,
+  "result": {
+   "subtype": "success",
+   "is_error": false,
+   "result": "pong",
+   "duration_ms": 177,
+   "num_turns": 1
+  }
+ },
+ "compact": {
+  "exit": 0,
+  "seconds": 1200.6,
+  "result": {
+   "subtype": "success",
+   "is_error": false,
+   "result": "",
+   "duration_ms": 1200175,
+   "num_turns": 0
+  }
+ },
+ "compact_boundaries_in_transcript": 1
+}

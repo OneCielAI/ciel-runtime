@@ -64,6 +64,24 @@ def native_compact_text(content: Any) -> str:
     return ""
 
 
+def native_claude_compact_request(body: Any) -> bool:
+    """Claude Code's own compaction request (ContextSummaryPolicy.compact_request_kind
+    for Anthropic messages bodies): the newest user message with text carries the
+    native compact instruction."""
+    messages = body.get("messages") if isinstance(body, dict) else None
+    if not isinstance(messages, list):
+        return False
+    for message in reversed(messages):
+        if not isinstance(message, dict) or str(message.get("role") or "") != "user":
+            continue
+        content = message.get("content")
+        if (isinstance(content, str) and content.strip()) or (isinstance(content, list) and any(
+                isinstance(block, dict) and block.get("type") in {"text", "input_text"}
+                and str(block.get("text") or "").strip() for block in content)):
+            return compact_instruction_kind(native_compact_text(content)) == "claude"
+    return False
+
+
 def compact_instruction_kind(text: Any) -> str | None:
     """Recognize native leading instructions, not quoted markers in user prose."""
     normalized = str(text or "").replace("\r\n", "\n").replace("\r", "\n").strip()

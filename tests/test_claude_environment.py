@@ -214,6 +214,23 @@ class ClaudeEnvironmentPolicyTests(unittest.TestCase):
                 self.assertEqual("1", env["CLAUDE_CODE_DISABLE_NONSTREAMING_FALLBACK"])
                 self.assertEqual("http://gateway", env["ANTHROPIC_BASE_URL"])
 
+    def test_routed_cielairouter_keeps_claude_watchdogs_outside_the_compaction_bound(self):
+        from ciel_runtime_support import transient_retry
+        from ciel_runtime_support.claude_environment import COMPACTION_CLIENT_TIMEOUT_MS
+        projection = self._projection(native=False, key="")
+        keys = ("API_TIMEOUT_MS", "CLAUDE_STREAM_FIRST_BYTE_TIMEOUT_MS", "CLAUDE_STREAM_IDLE_TIMEOUT_MS",
+                "CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS")
+        routed = projection.build({"provider": "cielairouter"})
+        for key in keys:
+            self.assertEqual(str(COMPACTION_CLIENT_TIMEOUT_MS), routed[key], key)
+        self.assertGreater(COMPACTION_CLIENT_TIMEOUT_MS / 1000, transient_retry.COMPACTION_HARD_PREOUTPUT_SECONDS)
+        # Direct mode has no router to own the wait; other providers are unchanged.
+        route = SimpleNamespace(direct=True, endpoint="http://gateway", api_key="fixture-key")
+        for env in (projection.build({"provider": "cielairouter"}, data_path=route),
+                    projection.build({"provider": "test"})):
+            for key in keys:
+                self.assertNotIn(key, env)
+
     def test_retry_projection_cleans_inherited_and_restarted_environment(self):
         projection = self._projection(native=False, key="")
         route = SimpleNamespace(direct=True, endpoint="http://gateway", api_key="fixture-key")
