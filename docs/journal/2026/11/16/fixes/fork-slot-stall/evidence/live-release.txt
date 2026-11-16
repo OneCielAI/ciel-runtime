@@ -1,0 +1,8 @@
+at 2026-11-16T03:31:10Z ledger version 603
+before slots {'P1': 3, 'P2': 1, 'P3': 1, 'P4': 0, 'P5': 0}
+released 334e3089 c2fbc0add1fa P3 reserved legacy_no_owner
+released cbf3f2df c2fbc0add1fa P2 reserved legacy_no_owner
+released 3913bafb a3dd7b678c20 P1 submitted dead
+released ee229513 a3dd7b678c20 P1 reserved dead
+released af627dd6 a3dd7b678c20 P1 waiting_input dead
+after slots {'P1': 0, 'P2': 0, 'P3': 0, 'P4': 0, 'P5': 0} ledger version 608

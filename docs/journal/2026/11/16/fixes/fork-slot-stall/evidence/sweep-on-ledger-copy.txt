@@ -1,0 +1,9 @@
+copied live ledger at 2026-11-16T03:16:04Z version 603
+before slots by priority {'P1': 3, 'P2': 1, 'P3': 1, 'P4': 0, 'P5': 0}
+released 334e3089 P3 reserved legacy_no_owner
+released cbf3f2df P2 reserved legacy_no_owner
+released 3913bafb P1 submitted dead
+released ee229513 P1 reserved dead
+released af627dd6 P1 waiting_input dead
+after slots by priority {'P1': 0, 'P2': 0, 'P3': 0, 'P4': 0, 'P5': 0}
+free slots {'P1': 3, 'P2': 2, 'P3': 1, 'P4': 1, 'P5': 1}

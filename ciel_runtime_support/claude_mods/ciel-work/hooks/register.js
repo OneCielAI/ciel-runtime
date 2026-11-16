@@ -3381,6 +3381,21 @@ async function parallelStartRework($, state, dispatch = true, listed = pumpAgent
 // `agents`: the native list the caller fetched at this boundary. Only the first
 // pass of the pump this call starts reuses it; a coalesced call's list is dropped.
 let parallelPumpResendTried = null
+// The pump runs on events: turn ends, Stop, worker reports, ledger events,
+// session start and the idle refresh. While main works inline through a long
+// turn and no fork runs, none of them fires, so free slots stayed unused until
+// that turn ended (Walkie 2026-11-16: 5 slots freed at 03:31Z, 0 forks started
+// while main kept editing). Main's own steps now also wake it, at most once
+// per BUSY_PUMP_MS. Dispatch during a main turn is the same path worker reports
+// already take.
+const BUSY_PUMP_MS = 30000
+let busyPumpAt = 0
+function busyTurnPump($) {
+  const now = Date.now()
+  if (!enabled || now - busyPumpAt < BUSY_PUMP_MS) return
+  busyPumpAt = now
+  void parallelPump($, 'main-step').catch(() => {})
+}
 async function parallelPump($, trigger = 'host', resendTried = null, agents = null) {
   if (resendTried?.size) parallelPumpResendTried = new Set([...(parallelPumpResendTried || []), ...resendTried])
   parallelPumpAgain = true
@@ -3942,6 +3957,7 @@ export function register(on) {
       // Only turn.start binds a turn; a stray step after turn.complete, or one
       // seen after a reload mid-turn, binds nothing (Stop then leaves it to the pump).
       if (mainTurnId !== null && e.turnId === mainTurnId) mainStepIndex = e.index
+      busyTurnPump($)
     }
     try { return yield* next(e) }
     finally {

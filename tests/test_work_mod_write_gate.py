@@ -43,6 +43,13 @@ class WorkModWriteGateTests(unittest.TestCase):
         shutil.copyfile(w.CLAUDE_MOD_DIR / "hooks" / "side-intake.js", cls.root / "side-intake.js")
         shutil.copyfile(HARNESS, cls.root / HARNESS.name)
 
+    def test_main_steps_wake_the_pump_during_a_long_turn(self):
+        row = self.run_scenario('main-steps-wake-the-pump-during-a-long-turn')
+        self.assertTrue(row['firstStepPumped'], row)
+        self.assertTrue(row['throttled'], row)
+        self.assertTrue(row['nextWindowPumped'], row)
+        self.assertFalse(row['childStepPumped'], row)
+
     def run_scenario(self, name, *args):
         done = subprocess.run([NODE, HARNESS.name, name, *args], cwd=self.root, capture_output=True, text=True,
                               encoding="utf-8", timeout=60, check=False)

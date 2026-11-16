@@ -20,6 +20,7 @@ the launch; it is only counted.
 from __future__ import annotations
 
 import json
+import time
 from pathlib import Path
 from typing import Any, Callable
 
@@ -27,6 +28,18 @@ from .work_parallel import WorkParallelError
 
 PROOF_DEAD = "startup orphan sweep: owner process identity absent"
 PROOF_LEGACY = "startup orphan sweep: no running router serves this conversation"
+PROOF_STALE = "orphan sweep: reservation from a build before dispatch names never bound a worker"
+# Reservations record an owner since 34966b6 (2026-11-12) and a dispatch name
+# since 4eebfdc (2026-11-09). An unbound reservation with neither was written by
+# an older build, so no running launch can still bind it; it only blocks a
+# device slot, even when its conversation is live again (Walkie 2026-11-16:
+# n176 P3 and n212 P2 held the only P3 slot and one of two P2 slots). A lease's
+# created_at is its item's creation time, not the reservation time, so age is
+# not used.
+# While a router runs, the sweep repeats at most this often (it was launch-only:
+# a lease whose owner died after the launch held its slot until the next one).
+SWEEP_INTERVAL_SECONDS = 60
+_last_sweep = {"at": 0.0}
 LEGACY_OBSERVATION = {"owner_state": "legacy_no_owner", "host_dead": True,
                       "scope_board_missing": True, "pid_absent": True}
 
@@ -69,24 +82,43 @@ def sweep(store: Any, live_scopes: set[str], preview: Callable[[Any], dict[str, 
     tried: set[str] = set()
     for _ in range(256):
         current = preview(store)
+        leases = store.read().get("leases", {})
+
+        def stale(item):
+            lease = leases.get(item["lease_id"]) or {}
+            return (item["owner_state"] == "legacy_no_owner" and lease.get("state") == "reserved"
+                    and lease.get("host_id") is None and not lease.get("dispatch_name"))
         row = next((item for item in current["leases"] if item["lease_id"] not in tried and (
             item["owner_state"] == "dead"
-            or (item["owner_state"] == "legacy_no_owner" and item["scope"] not in live_scopes))), None)
+            or (item["owner_state"] == "legacy_no_owner" and (item["scope"] not in live_scopes or stale(item))))),
+            None)
         if row is None:
             break
         tried.add(row["lease_id"])
         dead = row["owner_state"] == "dead"
         try:
-            store.orphan_release(
-                row["lease_id"], proof=PROOF_DEAD if dead else PROOF_LEGACY,
-                observation={"owner_state": "dead", "observed_identity": ""} if dead else LEGACY_OBSERVATION,
-                expected_version=current["version"])
+            if not dead and row["scope"] in live_scopes:
+                store.release_unbound(row["lease_id"], proof=PROOF_STALE, expected_version=current["version"])
+            else:
+                store.orphan_release(
+                    row["lease_id"], proof=PROOF_DEAD if dead else PROOF_LEGACY,
+                    observation={"owner_state": "dead", "observed_identity": ""} if dead else LEGACY_OBSERVATION,
+                    expected_version=current["version"])
         except WorkParallelError as error:
             kept.append({"lease_id": row["lease_id"], "owner_state": row["owner_state"], "reason": str(error)[:200]})
             continue
         released.append({"lease_id": row["lease_id"], "scope": row["scope"], "priority": row["priority"],
                          "state": row["state"], "owner_state": row["owner_state"]})
     return {"released": released, "kept": kept}
+
+
+def sweep_while_running(log: Callable[[str, str], Any], *, now: float | None = None) -> dict[str, int] | None:
+    """The same sweep from a running router, at most once per SWEEP_INTERVAL_SECONDS."""
+    stamp = time.time() if now is None else now
+    if stamp - _last_sweep["at"] < SWEEP_INTERVAL_SECONDS:
+        return None
+    _last_sweep["at"] = stamp
+    return sweep_at_launch(log)
 
 
 def sweep_at_launch(log: Callable[[str, str], Any]) -> dict[str, int]:

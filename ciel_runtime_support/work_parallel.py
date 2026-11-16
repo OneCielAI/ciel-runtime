@@ -473,12 +473,21 @@ class WorkParallelStore:
                 require(r.get("owner") is not None, "owner identity unavailable")
             else:
                 require(r.get("owner") is None, "legacy observation does not match lease")
-                # A legacy reservation that never bound a host is only provisional.
-                # It cannot form a valid orphaned audit row (terminal states require
-                # host_id), so release it exactly like an observed failed launch.
-                if r["state"] == "reserved" and r["host_id"] is None:
-                    del d["leases"][ident]
-                    return
+            # A reservation that never bound a host is only provisional. It
+            # cannot form a valid orphaned audit row (terminal states require
+            # host_id), so release it exactly like an observed failed launch.
+            # Walkie 2026-11-16: a dead owner's unbound rework reservation was
+            # refused here ("unbound worker") and held a P1 slot for 19 hours.
+            if r["state"] == "reserved" and r["host_id"] is None:
+                del d["leases"][ident]
+                return
+            # A submitted result keeps its artifact and stays reviewable; only the
+            # execution slot it should no longer hold is released (an orphaned
+            # row may not carry an artifact: "unexpected artifact", held a P1
+            # slot since 2026-11-11).
+            if r["artifact"] is not None:
+                r.update(slot=False, usage=0, idle_proof=proof)
+                return
             r.update(state="orphaned", slot=False, usage=0, report_hash=None,
                      idle_proof=proof, evidence=proof,
                      terminal={"reason": "orphaned", "observed_at": stamp, "proof": proof})

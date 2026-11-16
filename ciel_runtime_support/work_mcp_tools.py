@@ -563,6 +563,14 @@ def dispatch_work_tool(
             return respond(request_id, json.dumps(receive(state_dir, identity, args.get("text"), args.get("event_key"), admit=False), ensure_ascii=False))
         if name.startswith("work_parallel_") or name == "work_discovery_pickup":
             from .work_parallel_mcp import run
+            if name == "work_parallel_status" and _host_verified(args, config):
+                # Free slots held by leases whose owner process is gone before
+                # this host read reports capacity (throttled; never fails it).
+                from .work_parallel_orphan_sweep import sweep_while_running
+                try:
+                    sweep_while_running(log or (lambda *_: None))
+                except Exception:  # noqa: BLE001 - the sweep is advisory to a status read
+                    pass
             return respond(request_id, run(name, args, store, identity, config, save_config))
         try:
             output = _run(name, args, store, approval_ask, auto_continue=work_auto_continue_enabled(config), retention=retention_status(config), config=config, log=log)

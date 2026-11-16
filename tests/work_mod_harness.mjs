@@ -3529,5 +3529,42 @@ Object.assign(scenarios, {
   },
 })
 
+// Walkie 2026-11-16: slots were free but no fork started while main worked
+// inline through a long turn: nothing woke the pump until the turn ended.
+Object.assign(scenarios, {
+  async 'main-steps-wake-the-pump-during-a-long-turn'() {
+    const pumps = []
+    const { $ } = host(async (tool) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') { pumps.push(Date.now()); return text({ version:1, policy:{enabled:true}, leases:{} }) }
+      if (tool === 'work_side_claim') return text({ claim:null, settings:{}, handoff_replies:[], main_wakes:[] })
+      if (tool === 'work_side_status') return text({ side_inbox_receipts:[] })
+      return text({})
+    })
+    await handlers['session.start']($, { isInteractive:false }, next({cwd:'C:/w'}))
+    await sleep(50)
+    await handlers['turn.start']($, { turnId:'T', text:'long inline work' }, next({}))
+    await sleep(50)
+    const started = pumps.length
+    await mainStep($, 'T', 0)
+    await sleep(50)
+    const afterFirst = pumps.length
+    await mainStep($, 'T', 1)
+    await mainStep($, 'T', 2)
+    await sleep(50)
+    const withinWindow = pumps.length
+    later(31000)
+    await mainStep($, 'T', 3)
+    await sleep(50)
+    const afterWindow = pumps.length
+    // A child (fork) step never wakes it.
+    later(31000)
+    for await (const _ of handlers['turn.step']($, { turnId:'C', index:0, agentId:'fork1', messageCount:0 }, engineStream)) { void _ }
+    await sleep(50)
+    return { firstStepPumped: afterFirst > started, throttled: withinWindow === afterFirst,
+             nextWindowPumped: afterWindow > withinWindow, childStepPumped: pumps.length > afterWindow }
+  },
+})
+
 const name = process.argv[2]
 process.stdout.write(JSON.stringify({ scenario: name, ...(await scenarios[name]()) }) + '\n')
