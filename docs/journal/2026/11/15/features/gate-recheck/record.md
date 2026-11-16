@@ -131,6 +131,27 @@ Broken down:
 - **Capture-only failures:** 2 `test_codex_app_server_session` tests failed only under `-s`. They pass without `-s`, and Linux passes them too.
 - **Linux, CI environment:** `test_work_mod_real_backend.py` (whole file), `test_codex_app_server_session.py` and the four files above: 198 passed, 1 skipped. The 4 failures were these exported-variable cases.
 
+# Beta release and local install
+
+- **First push (`e0f51cd`):** Publish run 43779735714. All 8 test jobs passed, but `quality` failed on ruff F401 (an unused `import json` in `tests/test_side_instruction_view.py`), so `publish` was skipped.
+- **Second push:**
+  - `da29cfa` removed the import. Ruff 0.15.22 with `--force-exclude` over every tracked `.py` passes, as do compileall, `check:docs` and `npm pack --dry-run`.
+  - Publish run for `da29cfa`: quality, python-minimum and all test shards (unit 1-3, unit-real-backend, router, runtime, channel) passed, and publish succeeded.
+- **npm:**
+  - `dist-tags.beta` = `0.2.51-beta.20261116-005000.da29cfa`, with gitHead `da29cfac9caaf68611b55ab5ac340c2d847daff8`;
+  - `latest` and `nightly` are unchanged.
+- **Local install (`install_beta.sh da29cfa`):**
+  - integrity ok;
+  - tarball against the tree: 624 files; 622 equal and 2 build-stamped (`package.json`, `runtime_constants.py`);
+  - new snapshot `~/.local/share/ciel-runtime-da29cfa…`;
+  - `npm install -g`;
+  - `ciel-runtime version` prints `0.2.51-beta.20261116-005000.da29cfa`.
+- **Installed-code checks:**
+  - **Tests:** a copy of the installed snapshot with this repo's tests (gate check, relay notice, release notice, side instruction, fork models, fork gate, live settings, web UI, MCP tools): 133 passed, 10 skipped.
+  - **Four surfaces** against the installed tree: 16/16 PASS (`evidence/installed-da29cfa/surfaces/`).
+  - **Real claude.exe gate re-check and relay E2E** against the installed tree: 13/13 PASS (`evidence/installed-da29cfa/run-*/result.json`). The gate call came at 62.3 s and was queued for `n3`. The guard killed 1 owned tree, left 0 survivors and had 0 overlap with protected pids. The host token appears 0 times in the evidence.
+- **Live sessions:** no live session or router was restarted. Each session picks up the new mod and router on its next restart.
+
 # Behaviour notes
 
 - A running Work fork holds the check, as the requirement says ("포크된 세션이 없는 조건").
