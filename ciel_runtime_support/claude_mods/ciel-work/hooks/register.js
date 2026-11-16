@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import { startSide, pollSide, sideSpawnInput, sideTool, completeSide, suppressSide, sideReceipts, sideActors, sideMcpParity, hostJson, eventView, sideMainBusy, sideStopWake, sideRecordStopWake, sideWakeKnown, sidePromptSubmit, sidePromptPending, sidePromptTurnStart, sidePromptTurnComplete, sidePromptReassert, sidePromptRef, sideMainTurnStart, sideMainStep, sideMainFence, sideAppendStored, sideStopNotPresented, sideWakeRead, sideWakeReminded, sideReviewAppended, sideReviewDelivery, sideReviewRecheck } from './side-intake.js'
+import { startSide, pollSide, sideSpawnInput, sideTool, completeSide, suppressSide, sideReceipts, sideActors, sideMcpParity, hostJson, eventView, sideMainBusy, sideStopWake, sideRecordStopWake, sideWakeKnown, sidePromptSubmit, sidePromptPending, sidePromptTurnStart, sidePromptTurnComplete, sidePromptReassert, sidePromptRef, sideMainTurnStart, sideMainStep, sideMainFence, sideAppendStored, sideStopNotPresented, sideWakeRead, sideWakeReminded, sideReviewAppended, sideReviewDelivery, sideReviewRecheck, noticeToMain } from './side-intake.js'
 
 // Router is authoritative; this cache is display-only and never persisted.
 const detailView = atom({ plugin: 'ciel-work', key: 'detail' }, null)
@@ -146,6 +146,13 @@ function refreshSideStatus($, identity, poll) {
     try {
       const snapshot = await parallelCall($, 'work_side_status')
       if (sidePoll !== poll || poll.lifecycle !== starts || await sessionId($) !== identity) return
+      // Failed-event originals are also projected by status so they reach main
+      // while all side actor slots are occupied. The same notice claim fences
+      // this against claim/failure paths issuing it concurrently.
+      for (const forward of (snapshot.main_forwards || []).slice(0,4)) {
+        if (typeof forward?.receipt_id === 'string' && typeof forward.text === 'string' && forward.text)
+          await noticeToMain($, identity, forward.receipt_id, forward.text)
+      }
       showSideReceipts($, identity, snapshot)
     } catch { /* Durable inbox and pane state remain authoritative. */
     } finally { sideStatusAt = Date.now(); sideStatusFlight = null }

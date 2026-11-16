@@ -813,6 +813,19 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(3, len(result['spawned']))
         self.assertEqual(1, result['left'])
 
+    def test_side_status_delivers_failed_original_without_a_free_actor_slot(self):
+        row = self.run_scenario('side-status-delivers-failed-original-without-free-actor-slot')
+        self.assertEqual(1, row['appended'], row)
+        self.assertTrue(row['carriesOriginal'], row)
+        self.assertIn('work_side_wake:notice_appended', row['calls'])
+
+    def test_failed_side_event_original_is_appended_to_main_once(self):
+        row = self.run_scenario('side-failed-event-original-reaches-main')
+        self.assertEqual(1, row['appended'], row)
+        self.assertTrue(row['carriesOriginal'], row)
+        self.assertTrue(row['recorded'], row)
+        self.assertEqual(1, row['calls'].count('work_side_wake:notice_prepare'), row)
+
     def test_side_sends_immediate_ack_before_source_prefetch_and_fork(self):
         row = self.run_scenario('side-immediate-ack-before-prefetch-and-fork')
         self.assertTrue(row['ackBeforePrefetch'], row)

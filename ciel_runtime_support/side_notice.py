@@ -44,6 +44,11 @@ ISSUING_GRACE_SECONDS = 60.0
 
 def _released_row(inbox, receipt_id):
     row = inbox._load(receipt_id)
+    from .side_forward import is_forward
+    if is_forward(row):
+        # (2026-11-16) A quarantined event's original forwarded to main. It
+        # never had a decision, so it still lives in pending/.
+        return row
     result = row.get('result') if isinstance(row, dict) else None
     # A released wait, or (2026-11-15) a live-item relay: both are one host
     # notice to main per receipt, issued at most once.
@@ -51,6 +56,12 @@ def _released_row(inbox, receipt_id):
             or not (result.get('released_waits') or result.get('relay'))):
         raise WorkPlanError('released-wait receipt required')
     return row
+
+
+def _save(inbox, receipt_id, row):
+    """Write the notice to the record where the event lives."""
+    area = 'receipts' if row.get('stage') in ('processed', 'board_queued') else 'pending'
+    inbox._save_file(inbox._event_path(area, receipt_id), row)
 
 
 def _text(value):
@@ -158,7 +169,7 @@ def prepare(inbox, receipt_id, owner_nonce, text=None):
             if notice.get('history'):
                 claim['history'] = notice['history']
         row[FIELD] = claim
-        inbox._save_file(inbox._event_path('receipts', receipt_id), row)
+        _save(inbox, receipt_id, row)
         _index(inbox, receipt_id, False)
         _issuing(inbox, receipt_id, claim['claimed_at'])
         return {'receipt_id': receipt_id, 'protocol': 2, 'state': 'claimed', 'attempt_id': attempt_id}
@@ -179,16 +190,19 @@ def record(inbox, receipt_id, state, attempt_id, *, owner_nonce=None, receipt=No
         if notice.get('state') == state and notice.get('receipt') in (None, receipt):
             if receipt is not None and notice.get('receipt') is None:
                 notice.update(receipt=receipt, updated_at=time.time())
-                inbox._save_file(inbox._event_path('receipts', receipt_id), row)
+                _save(inbox, receipt_id, row)
             return {'receipt_id': receipt_id, 'protocol': 2, 'state': state}
         if notice.get('state') != 'issuing':
             raise WorkPlanError('side notice outcome already recorded differently')
         notice.update(state=state, updated_at=time.time())
         if receipt is not None:
             notice['receipt'] = receipt
-        inbox._save_file(inbox._event_path('receipts', receipt_id), row)
+        _save(inbox, receipt_id, row)
         _issuing(inbox, receipt_id, None)
-        if state == 'failed' and notice.get('text'):
+        from .side_forward import is_forward
+        # A failed forward stays in its own index (side_forward.offered), which
+        # rebuilds the full original; the 8,000-character copy is not re-offered.
+        if state == 'failed' and notice.get('text') and not is_forward(row):
             _index(inbox, receipt_id, True)
         return {'receipt_id': receipt_id, 'protocol': 2, 'state': state}
 
@@ -214,16 +228,23 @@ def retry(inbox, receipt_id, *, attempt_ref=None, revision=None, confirmed=False
             raise WorkPlanError('side notice delivery is not uncertain; refresh before retry')
         if retry_pin(notice) != {'notice_attempt_ref': attempt_ref, 'notice_revision': revision}:
             raise WorkPlanError('side notice changed; refresh before retry')
-        if not notice.get('text'):
+        from .side_forward import is_forward, readd
+        forward = is_forward(row)
+        if not notice.get('text') and not forward:
             raise WorkPlanError('side notice text was not kept by its issuer; it cannot be re-issued')
         history = list(notice.get('history') or [])[-(HISTORY_MAX - 1):] + [{
             'previous_state': notice.get('state'), 'previous_attempt_ref': _ref(notice.get('attempt_id')),
             'previous_revision': revision, 'duplicate_confirmed': True, 'at': now}]
-        row[FIELD] = {'state': 'released', 'text': notice['text'], 'released_at': now,
-                      'retries': int(notice.get('retries') or 0), 'history': history}
-        inbox._save_file(inbox._event_path('receipts', receipt_id), row)
+        row[FIELD] = {'state': 'released', 'released_at': now,
+                      'retries': int(notice.get('retries') or 0), 'history': history,
+                      **({'text': notice['text']} if notice.get('text') else {})}
+        _save(inbox, receipt_id, row)
         _issuing(inbox, receipt_id, None)
-        _index(inbox, receipt_id, True)
+        if forward:
+            # A forward's text is rebuilt from the original when offered.
+            readd(inbox, receipt_id)
+        else:
+            _index(inbox, receipt_id, True)
         return {'receipt_id': receipt_id, 'protocol': 2, 'state': 'released', 'notice_delivery_uncertain': False}
 
 

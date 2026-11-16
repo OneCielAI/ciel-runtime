@@ -1,0 +1,319 @@
+2026-11-16T11:14:36 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=980307 bytes=3863764
+2026-11-16T11:14:43 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=975374 bytes=3846886
+2026-11-16T11:15:46 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:15:48 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:16:04 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=975374 bytes=3846886
+2026-11-16T11:16:11 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=980307 bytes=3863764
+2026-11-16T11:17:00 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:17:01 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:17:22 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=976288 bytes=3849559
+2026-11-16T11:17:33 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=976014 bytes=3849443
+2026-11-16T11:18:54 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:18:55 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:19:04 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=980946 bytes=3866321
+2026-11-16T11:19:33 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=978091 bytes=3857084
+2026-11-16T11:21:51 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:21:51 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:22:06 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=978650 bytes=3858339
+2026-11-16T11:22:44 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=986869 bytes=3887887
+2026-11-16T11:24:43 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:24:43 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:25:17 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=983162 bytes=3875549
+2026-11-16T11:26:15 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=983805 bytes=3877139
+2026-11-16T11:27:59 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:28:01 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:28:12 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=988179 bytes=3892763
+2026-11-16T11:29:20 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:29:30 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=983246 bytes=3875885
+2026-11-16T11:30:16 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:30:30 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=983133 bytes=3875451
+2026-11-16T11:31:21 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:31:37 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=983133 bytes=3875450
+2026-11-16T11:32:25 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:32:47 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=983133 bytes=3875451
+2026-11-16T11:33:29 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:34:06 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=983133 bytes=3875451
+2026-11-16T11:34:14 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=983376 bytes=3875889
+2026-11-16T11:35:41 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:35:44 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:36:03 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=985134 bytes=3882729
+2026-11-16T11:36:31 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=985042 bytes=3882893
+2026-11-16T11:37:04 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:37:05 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:37:35 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=985422 bytes=3883878
+2026-11-16T11:38:04 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:38:37 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=985798 bytes=3885382
+2026-11-16T11:38:40 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=985555 bytes=3884943
+2026-11-16T11:39:32 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:39:36 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:40:20 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1044741 bytes=4121120
+2026-11-16T11:40:26 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1044647 bytes=4121238
+2026-11-16T11:41:18 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:41:18 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:42:01 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:42:20 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1045852 bytes=4125997
+2026-11-16T11:42:46 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1045945 bytes=4125878
+2026-11-16T11:43:19 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:43:21 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:43:51 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1046963 bytes=4130442
+2026-11-16T11:44:00 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1046354 bytes=4127993
+2026-11-16T11:45:12 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:45:18 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:45:26 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1052422 bytes=4152258
+2026-11-16T11:46:05 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:46:10 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1053187 bytes=4155331
+2026-11-16T11:46:25 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1053023 bytes=4154583
+2026-11-16T11:47:50 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:47:52 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:48:19 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1054310 bytes=4159725
+2026-11-16T11:49:04 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:49:26 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1056830 bytes=4169445
+2026-11-16T11:49:51 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1056069 bytes=4166391
+2026-11-16T11:51:14 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:51:16 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:51:28 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1057005 bytes=4170375
+2026-11-16T11:52:30 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:52:47 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1059798 bytes=4181112
+2026-11-16T11:52:52 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1059434 bytes=4179899
+2026-11-16T11:54:50 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:54:51 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:55:05 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1060422 bytes=4183401
+2026-11-16T11:55:13 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1060047 bytes=4182196
+2026-11-16T11:55:59 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:56:05 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:56:16 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1060572 bytes=4184003
+2026-11-16T11:56:35 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1060335 bytes=4183348
+2026-11-16T11:56:39 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:56:57 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1060710 bytes=4184553
+2026-11-16T11:57:01 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:57:28 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:57:50 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1060335 bytes=4183347
+2026-11-16T11:57:56 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1060710 bytes=4184552
+2026-11-16T11:58:32 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:58:32 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T11:59:23 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1061070 bytes=4185992
+2026-11-16T11:59:42 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:00:03 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1118915 bytes=4417665
+2026-11-16T12:00:30 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:01:09 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1120590 bytes=4424050
+2026-11-16T12:01:33 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:05:05 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1126147 bytes=4446545
+2026-11-16T12:05:47 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:06:03 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1126270 bytes=4447039
+2026-11-16T12:06:27 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:06:47 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1126631 bytes=4448480
+2026-11-16T12:07:20 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:07:51 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1127229 bytes=4450874
+2026-11-16T12:08:21 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:11:04 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1127641 bytes=4452523
+2026-11-16T12:11:34 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1130247 bytes=4461659
+2026-11-16T12:11:39 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:12:00 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:12:32 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1130504 bytes=4462685
+2026-11-16T12:12:59 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:13:11 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1129899 bytes=4461513
+2026-11-16T12:13:20 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1132028 bytes=4468741
+2026-11-16T12:13:30 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:14:01 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:14:34 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1132746 bytes=4471614
+2026-11-16T12:15:20 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:16:11 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1133037 bytes=4472777
+2026-11-16T12:16:46 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:18:43 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1189910 bytes=4700267
+2026-11-16T12:19:14 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:28:53 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1257567 bytes=4962126
+2026-11-16T12:30:31 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1259427 bytes=4969161
+2026-11-16T12:33:07 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:33:07 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:33:29 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1262808 bytes=4982667
+2026-11-16T12:33:40 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1262855 bytes=4982855
+2026-11-16T12:38:21 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1270005 bytes=5009538
+2026-11-16T12:40:07 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:40:18 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:40:20 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:40:39 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1262808 bytes=4982667
+2026-11-16T12:40:46 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1262855 bytes=4982857
+2026-11-16T12:40:57 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1270005 bytes=5009538
+2026-11-16T12:45:44 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:45:47 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:45:49 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:46:12 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1270005 bytes=5009538
+2026-11-16T12:46:22 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1264253 bytes=4988218
+2026-11-16T12:46:31 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1265046 bytes=4991297
+2026-11-16T12:51:28 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:51:31 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:51:31 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:51:49 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1213500 bytes=4793660
+2026-11-16T12:51:56 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1213734 bytes=4794455
+2026-11-16T12:52:09 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1270005 bytes=5009538
+2026-11-16T12:56:54 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:56:57 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:56:57 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T12:57:17 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1266392 bytes=4996615
+2026-11-16T12:57:23 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1266438 bytes=4996805
+2026-11-16T12:58:04 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1271347 bytes=5014865
+2026-11-16T13:03:18 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1214843 bytes=4798988
+2026-11-16T13:04:41 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1267092 bytes=4999254
+2026-11-16T13:06:16 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:10:13 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:10:14 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:10:28 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1268832 bytes=5006206
+2026-11-16T13:10:38 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1273134 bytes=5022008
+2026-11-16T13:11:29 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:11:31 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:11:42 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1216872 bytes=4807101
+2026-11-16T13:11:50 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1217106 bytes=4807896
+2026-11-16T13:12:08 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:12:23 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1212901 bytes=4792576
+2026-11-16T13:12:36 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:12:48 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1274551 bytes=5037817
+2026-11-16T13:13:04 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:13:17 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1274785 bytes=5038611
+2026-11-16T13:13:29 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:13:44 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1270884 bytes=5024510
+2026-11-16T13:13:57 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:14:09 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1271485 bytes=5026683
+2026-11-16T13:14:17 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:14:33 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1274987 bytes=5039562
+2026-11-16T13:14:47 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:14:59 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1275221 bytes=5040355
+2026-11-16T13:15:33 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:15:47 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1271016 bytes=5025036
+2026-11-16T13:16:15 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:16:30 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1328171 bytes=5243434
+2026-11-16T13:17:02 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:17:18 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1275221 bytes=5040355
+2026-11-16T13:17:27 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1328171 bytes=5243434
+2026-11-16T13:17:48 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:18:19 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:18:35 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1271016 bytes=5025036
+2026-11-16T13:18:44 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1328817 bytes=5245869
+2026-11-16T13:19:01 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:19:29 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:19:42 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1275221 bytes=5040356
+2026-11-16T13:20:04 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1328859 bytes=5246023
+2026-11-16T13:20:06 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:20:23 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1271016 bytes=5025036
+2026-11-16T13:23:09 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:23:13 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:23:23 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1274987 bytes=5039562
+2026-11-16T13:23:31 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1271617 bytes=5027209
+2026-11-16T13:24:01 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1328859 bytes=5246024
+2026-11-16T13:28:09 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:28:13 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:28:14 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:28:26 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1271016 bytes=5025036
+2026-11-16T13:28:34 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1271235 bytes=5025929
+2026-11-16T13:29:45 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1328859 bytes=5246023
+2026-11-16T13:32:15 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:32:16 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:32:20 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:32:29 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1271617 bytes=5027209
+2026-11-16T13:32:39 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1271235 bytes=5025929
+2026-11-16T13:34:44 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:34:46 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:34:57 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1271502 bytes=5026872
+2026-11-16T13:35:07 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1271916 bytes=5028161
+2026-11-16T13:36:59 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:37:00 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:37:10 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1271617 bytes=5027209
+2026-11-16T13:37:18 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1271235 bytes=5025928
+2026-11-16T13:39:05 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:39:08 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:39:19 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1271502 bytes=5026872
+2026-11-16T13:39:27 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1271916 bytes=5028161
+2026-11-16T13:41:20 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:41:21 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:41:33 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1271617 bytes=5027209
+2026-11-16T13:41:38 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1271235 bytes=5025929
+2026-11-16T13:43:39 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:43:40 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:43:54 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1274163 bytes=5037472
+2026-11-16T13:43:59 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1274576 bytes=5038761
+2026-11-16T13:45:34 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:45:36 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:45:48 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=1274560 bytes=5038942
+2026-11-16T13:47:13 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T13:50:30 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=170986 bytes=641043
+2026-11-16T13:51:17 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=171842 bytes=644284
+2026-11-16T13:51:44 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=172962 bytes=648748
+2026-11-16T13:51:49 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=173164 bytes=649555
+2026-11-16T13:51:58 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=173511 bytes=650944
+2026-11-16T13:52:04 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=174306 bytes=654122
+2026-11-16T13:52:09 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=174614 bytes=655355
+2026-11-16T13:52:14 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=174821 bytes=656181
+2026-11-16T13:52:19 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=175053 bytes=657109
+2026-11-16T13:52:27 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=175188 bytes=657649
+2026-11-16T13:52:32 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=175402 bytes=658507
+2026-11-16T13:52:37 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=175578 bytes=659208
+2026-11-16T13:52:44 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=175823 bytes=660191
+2026-11-16T13:53:40 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=176814 bytes=664136
+2026-11-16T13:53:45 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=177599 bytes=667274
+2026-11-16T13:53:59 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=181997 bytes=683605
+2026-11-16T13:54:11 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=166344 bytes=621475
+2026-11-16T13:57:14 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=166452 bytes=621559
+2026-11-16T13:58:03 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=172670 bytes=646368
+2026-11-16T13:58:11 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=172860 bytes=647127
+2026-11-16T13:58:18 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=173014 bytes=647743
+2026-11-16T13:58:25 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=173283 bytes=648233
+2026-11-16T13:58:26 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=173186 bytes=648432
+2026-11-16T13:58:33 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=175841 bytes=659047
+2026-11-16T13:58:42 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=176120 bytes=660164
+2026-11-16T13:58:48 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=197156 bytes=743209
+2026-11-16T13:59:35 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=200812 bytes=757665
+2026-11-16T14:00:25 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=204490 bytes=772140
+2026-11-16T14:03:27 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=168127 bytes=629214
+2026-11-16T14:03:59 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=169440 bytes=634027
+2026-11-16T14:04:23 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=170938 bytes=640005
+2026-11-16T14:04:37 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=171352 bytes=641662
+2026-11-16T14:04:43 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=171592 bytes=642619
+2026-11-16T14:04:46 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=169239 bytes=633617
+2026-11-16T14:04:53 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=171844 bytes=643627
+2026-11-16T14:04:54 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=169449 bytes=634430
+2026-11-16T14:05:01 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=172019 bytes=644328
+2026-11-16T14:05:12 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=172361 bytes=645696
+2026-11-16T14:05:16 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=172578 bytes=646562
+2026-11-16T14:05:26 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=172946 bytes=648036
+2026-11-16T14:05:33 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=290561 bytes=1100743
+2026-11-16T14:05:35 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=173145 bytes=648832
+2026-11-16T14:05:56 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=204562 bytes=770133
+2026-11-16T14:06:23 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=190705 bytes=712477
+2026-11-16T14:21:41 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=338452 bytes=1294276
+2026-11-16T14:23:38 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=422919 bytes=1622537
+2026-11-16T14:32:33 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=401451 bytes=1545488
+2026-11-16T14:42:06 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=432697 bytes=1665089
+2026-11-16T14:54:18 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=472422 bytes=1817950
+2026-11-16T14:55:26 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=472915 bytes=1819908
+2026-11-16T14:57:57 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=226914 bytes=852831
+2026-11-16T15:00:11 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=485326 bytes=1865893
+2026-11-16T15:05:00 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=509102 bytes=1962160
+2026-11-16T15:05:32 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=522317 bytes=2012504
+2026-11-16T15:07:33 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T15:07:36 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T15:07:52 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=524584 bytes=2021458
+2026-11-16T15:08:01 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=519778 bytes=2002778
+2026-11-16T15:11:02 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T15:11:03 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T15:11:17 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=534422 bytes=2058419
+2026-11-16T15:11:24 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=520665 bytes=2005935
+2026-11-16T15:11:57 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=580252 bytes=2234011
+2026-11-16T15:14:22 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T15:14:22 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T15:14:24 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T15:14:40 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=535334 bytes=2061805
+2026-11-16T15:14:57 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=521577 bytes=2009321
+2026-11-16T15:17:54 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=582851 bytes=2243490
+2026-11-16T15:19:18 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T15:19:18 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T15:19:28 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T15:19:32 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=582798 bytes=2243227
+2026-11-16T15:19:42 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=585145 bytes=2252214
+2026-11-16T15:23:58 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=585373 bytes=2253483
+2026-11-16T15:24:08 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=585316 bytes=2253203
+2026-11-16T15:24:19 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=586024 bytes=2255704
+2026-11-16T15:27:11 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T15:27:12 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T15:27:12 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T15:27:26 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=585227 bytes=2253468
+2026-11-16T15:27:38 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=597196 bytes=2298784
+2026-11-16T15:27:45 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=597138 bytes=2298502

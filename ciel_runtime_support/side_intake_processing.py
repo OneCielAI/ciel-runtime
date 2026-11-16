@@ -235,6 +235,11 @@ def fail(state_dir, session_id, receipt_id, generation, failure, *, now=None):
             'compaction_waits': waits + (1 if compaction else 0),
         }
         row.pop('processing', None)
+        if row['side_failure']['quarantined']:
+            # Terminal: the original goes to main once instead of being
+            # dropped (user requirement 2026-11-16, side_forward.py).
+            from .side_forward import mark
+            mark(inbox, receipt_id, row)
         inbox._save_file(inbox._event_path('pending', receipt_id), row)
         if row['side_failure']['quarantined'] and category == 'invalid_answer':
             inbox.mark_quarantined(receipt_id)

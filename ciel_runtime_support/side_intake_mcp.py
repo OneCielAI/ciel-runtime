@@ -289,7 +289,15 @@ def run(name, args, config, state_dir, identity, store):
             'category': args.get('category'), 'model': args.get('model'),
             'model_fingerprint': args.get('model_fingerprint'), 'reason': args.get('reason'), 'outcome': outcome,
             'retry_after_seconds': args.get('retry_after_seconds')})
-        return {'receipt': receipt, 'main_fallback_eligible': bool((receipt.get('side_failure') or {}).get('main_fallback_eligible'))}
+        response = {'receipt': receipt, 'main_fallback_eligible': bool((receipt.get('side_failure') or {}).get('main_fallback_eligible'))}
+        if (receipt.get('side_failure') or {}).get('quarantined'):
+            # Immediate host delivery; claim/status also offer it for crash recovery.
+            from .side_forward import text as forward_text
+            row = SideIntakeInbox(state_dir, identity)._load(receipt['receipt_id'])
+            if row and row.get('main_forward'):
+                response['main_forward'] = {'receipt_id': receipt['receipt_id'],
+                                            'text': forward_text(receipt['receipt_id'], row)}
+        return response
     if name == 'work_side_handoff':
         from .side_handoff import acknowledge
         if config.get('work_mode', True) is not True:
@@ -485,9 +493,13 @@ def run(name, args, config, state_dir, identity, store):
         # definite failure, or a person-confirmed release); each is claimed
         # again through notice_prepare, so at most one host re-issues it.
         from . import side_notice
+        from .side_forward import offered as forwards_offered
+        # main_forwards: originals of events the side could not process; each is
+        # claimed through notice_prepare, so one host appends it to main once.
         return {'claim': active, 'waiting_reason': waiting_reason, 'recovered_receipt': recovered,
                 'settings': settings, 'handoff_replies': replies, 'main_wakes': main_wakes,
                 'main_notices': side_notice.offered(inbox),
+                'main_forwards': forwards_offered(inbox),
                 'wake_protocol': 2, 'pending_replies': pending(state_dir, identity)}
     key, generation = host.get('receipt_id'), host.get('generation')
     inbox = SideIntakeInbox(state_dir, identity)

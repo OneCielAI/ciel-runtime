@@ -1,0 +1,7 @@
+  File "<frozen importlib._bootstrap>", line 241, in _call_with_frames_removed
+  File "<tmp>\tests\test_side_forward.py", line 8, in <module>
+    from ciel_runtime_support.side_forward import offered
+ModuleNotFoundError: No module named 'ciel_runtime_support.side_forward'
+FAIL: test_failed_side_event_original_is_appended_to_main_once (test_work_mod_write_gate.WorkModWriteGateTests.test_failed_side_event_original_is_appended_to_main_once)
+FAIL: test_side_status_delivers_failed_original_without_a_free_actor_slot (test_work_mod_write_gate.WorkModWriteGateTests.test_side_status_delivers_failed_original_without_a_free_actor_slot)
+RAN 138 failures=2 errors=0 skipped=0

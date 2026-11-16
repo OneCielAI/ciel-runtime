@@ -1188,7 +1188,7 @@ async function legacyNotice($,identity,eventId,text) {
 // receipt. The backend grants that receipt's notice once (side_notice.py), so
 // a new process, /clear plus a reload, or an evicted $.state row cannot issue
 // it again. Claimed first, appended once, then an idle main is woken.
-async function noticeToMain($,identity,eventId,text) {
+export async function noticeToMain($,identity,eventId,text) {
   let claim = null
   for (let tries = 0; tries < 3 && !claim; tries++) {
     try {
@@ -1596,6 +1596,14 @@ export async function pollSide($, identity) {
       if (typeof notice?.receipt_id === 'string' && typeof notice.text === 'string' && notice.text)
         await noticeToMain($,identity,notice.receipt_id,notice.text)
     }
+    // Events the side could not process (quarantined): their original goes to
+    // main once, never dropped (user requirement 2026-11-16). Claimed on the
+    // event record first, so one host appends it.
+    for (const forward of (answer.main_forwards || []).slice(0,4)) {
+      if (typeof forward?.receipt_id !== 'string' || typeof forward.text !== 'string' || !forward.text) continue
+      const state = await noticeToMain($,identity,forward.receipt_id,forward.text)
+      try { $.ui.log('Ciel side: original of failed event '+forward.receipt_id.slice(0,12)+' → main ('+state+')') } catch {}
+    }
     // A router that offers appended rows (wake_protocol 2) lists every one main
     // has not had a request after. A recorded row it no longer lists was
     // acknowledged or read elsewhere: it needs no wake.
@@ -1776,6 +1784,12 @@ async function recordFailure($, actor, event, category, reason = '', extra = {})
       ...(reason ? {reason:line(reason,300)} : {}), ...extra
     },{receipt_id:event.receipt_id,generation:event.generation},actor.identity)
     if (value.receipt) display($,actor.identity,{side_inbox_receipts:[value.receipt]})
+    // The sixth/terminal failure carries the original-forward offer in this
+    // same host dispatch. Claim/status recovery also offers it after a crash.
+    if (value.main_forward?.receipt_id && typeof value.main_forward.text === 'string') {
+      const state = await noticeToMain($,actor.identity,value.main_forward.receipt_id,value.main_forward.text)
+      try { $.ui.log('Ciel side: original of failed event '+value.main_forward.receipt_id.slice(0,12)+' → main ('+state+')') } catch {}
+    }
     return value
   } catch { return null }
 }

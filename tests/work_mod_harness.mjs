@@ -160,6 +160,29 @@ const scenarios = {
       text:'[ciel-side-receipt-ready] '+'d'.repeat(64), context:[] }, next({text:'typed-passes'}))
     return { before, after:afterReceive, afterSubmit:claims, ready, malformed, agentTarget, submitted, typed }
   },
+  async 'side-status-delivers-failed-original-without-free-actor-slot'() {
+    const id = 'c'.repeat(64)
+    const original = 'failed original from status ' + 'q'.repeat(9000)
+    const forwardText = '[Ciel side 처리 실패 · 원문 전달]\n\n' + original
+    const timers = [], calls = []
+    let status = 0
+    const { $, state } = host(async (tool,args) => {
+      calls.push(tool + (args?.state ? ':' + args.state : ''))
+      if (tool === 'work_status') return text({ ...snapshot(), side_intake_enabled:true })
+      if (tool === 'work_side_claim') return text({ claim:null, settings:{}, main_forwards:[] })
+      if (tool === 'work_side_status') return text({ enabled:true, side_inbox_receipts:[],
+        main_forwards: status++ === 0 ? [{ receipt_id:id, text:forwardText }] : [] })
+      if (tool === 'work_side_wake' && args.state === 'notice_prepare')
+        return text({ receipt_id:id, protocol:2, state:'claimed', attempt_id:'e'.repeat(32) })
+      if (tool === 'work_side_wake') return text({ receipt_id:id, protocol:2, state:args.state.slice(7) })
+      return text({})
+    })
+    $.clock.after=(delay,callback)=>{timers.push({delay,callback});return{cancel(){}}}
+    await handlers['session.start']($,{isInteractive:false},next(undefined))
+    const tick=timers.find(t=>t.delay===2000); await tick.callback(); await sleep(10)
+    const appended=(state.appended||[]).map(row=>row.message.content[0].text)
+    return {appended:appended.length,carriesOriginal:appended.length===1&&appended[0].includes(original),calls}
+  },
   async 'side-status-single-flight-and-throttled'() {
     let statusCalls = 0
     let release
@@ -631,6 +654,32 @@ const scenarios = {
     const prefetch = order.findIndex(row => row.startsWith('walkie_') && row !== 'walkie_send_message')
     return { order, ackBeforePrefetch:ack >= 0 && sent > ack && recorded > sent && (prefetch < 0 || recorded < prefetch),
       spawned:order.includes('spawn') }
+  },
+  // User requirement 2026-11-16: an event the side could not process is not
+  // dropped; its original is appended to main once, after a claim.
+  async 'side-failed-event-original-reaches-main'() {
+    const id = 'b'.repeat(64)
+    const original = 'Celly 원문 메시지 ' + 'z'.repeat(9000)
+    const forwardText = '[Ciel side 처리 실패 · 원문 전달 · event bbbbbbbbbbbb · turn_error]\n...\n\n' + original
+    const text_ = text
+    const calls = []
+    let offers = 1
+    const { $, state } = host(async (tool, args) => {
+      calls.push(tool + (args?.state ? ':' + args.state : ''))
+      if (tool === 'work_side_claim') {
+        const main_forwards = offers-- > 0 ? [{ receipt_id:id, text:forwardText }] : []
+        return text_({ claim:null, settings:{}, handoff_replies:[], main_wakes:[], main_notices:[], main_forwards })
+      }
+      if (tool === 'work_side_wake' && args.state === 'notice_prepare')
+        return text_({ receipt_id:id, protocol:2, state:'claimed', attempt_id:'f'.repeat(32) })
+      if (tool === 'work_side_wake') return text_({ receipt_id:id, protocol:2, state:args.state.slice(7) })
+      return text_({})
+    })
+    await sidePump($)
+    await sidePump($)
+    const appended = (state.appended || []).map(row => row.message.content[0].text)
+    return { calls, appended:appended.length, carriesOriginal:appended.length === 1 && appended[0].includes(original),
+      recorded:calls.includes('work_side_wake:notice_appended') }
   },
   // A spawn claiming the pending side identity but failing the fork proof is
   // denied before any Work policy read: parallel on, off or unavailable.

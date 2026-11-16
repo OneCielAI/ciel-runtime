@@ -504,9 +504,13 @@ def dispatch_work_tool(
                 review_delivery = public_view(ReviewDeliveryStore.beside(journal), leases, identity)
             except (OSError, ValueError, tree.WorkPlanError):
                 review_delivery = {'available': False, 'rows': [], 'truncated': False}
+            from .side_forward import offered as forwards_offered
             return respond(request_id, json.dumps({'enabled': config.get('work_side_intake', {}).get('enabled') is True,
                 'review_delivery': review_delivery,
                 'side_inbox_receipts': inbox.summaries(),
+                # Also offered through claim. Status keeps failure delivery moving
+                # while every side actor slot is occupied.
+                'main_forwards': forwards_offered(inbox),
                 # Events whose completed side turn returned an invalid decision:
                 # never retried (a reply may already have been sent), so count them.
                 'quarantined_count': len(inbox.quarantined_keys()),
