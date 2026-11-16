@@ -11,7 +11,6 @@ Two owner-less reservations from 2026-11-05 in a live conversation also held
 the only P3 slot and one of two P2 slots.
 """
 import hashlib
-import json
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
