@@ -5,6 +5,9 @@ const reply=(id,extra={})=>({id:String(id),conversation_id:C,text:'reply '+id,th
 const spec=(extra={})=>({server:'walkie',classification:'thread',conversation_id:C,root_id:'40',target_message_id:'41',...extra})
 const result=(value)=>({content:[{type:'text',text:typeof value==='string'?value:JSON.stringify(value)}]})
 const twoPage=[Array.from({length:200},(_,i)=>reply(41+i)),Array.from({length:5},(_,i)=>reply(241+i))]
+// 300 replies of about 2 KiB: past the 384 KiB static limit; the target is the newest.
+const bigReply=(id)=>reply(id,{text:'r'+id+' '+'x'.repeat(2000)})
+const bigThread=[Array.from({length:200},(_,i)=>bigReply(41+i)),Array.from({length:100},(_,i)=>bigReply(241+i))]
 const scenarios={
  ok_paged:{spec:spec(),root:result({messages:[root]}),pages:twoPage.map(result),spawn:true},
  none_referenced:{spec:{server:'walkie',classification:'none_referenced',conversation_id:C},spawn:true},
@@ -27,6 +30,10 @@ const scenarios={
  invalid_classification:{spec:{server:'walkie',classification:'invalid',reason:'Walkie message_id malformed'}},
  oversize:{spec:spec(),root:result({messages:[root]}),pages:[result([reply(41,{text:'x'.repeat(4*1024*1024)})])]},
  page_error:{spec:spec(),root:result({messages:[root]}),pages:[{isError:true,content:[]}]},
+ oversized_thread:{spec:spec({target_message_id:'340'}),root:result({messages:[root]}),pages:bigThread.map(result),spawn:true},
+ oversized_middle_target:{spec:spec({target_message_id:'100'}),root:result({messages:[root]}),pages:bigThread.map(result),spawn:true},
+ oversized_target_alone:{spec:spec({target_message_id:'41'}),root:result({messages:[root]}),
+  pages:[result([reply(41,{text:'y'.repeat(400*1024)})])]},
 }
 const out={}
 for (const [name,scenario] of Object.entries(scenarios)) {
@@ -48,6 +55,10 @@ for (const [name,scenario] of Object.entries(scenarios)) {
  out[name]={spawns:spawns.length,source:prompt?.source_context||null,truncated:prompt?.event_truncated===true,
   instruction:prompt?.instruction||'',roots:calls.filter(c=>c.tool==='walkie_read_messages').map(c=>c.args),
   pages:calls.filter(c=>c.tool==='walkie_call_tool').map(c=>c.args.arguments.after),
-  failures:calls.filter(c=>c.tool==='work_side_fail').map(c=>({category:c.args.category,reason:c.args.reason}))}
+  failures:calls.filter(c=>c.tool==='work_side_fail').map(c=>({category:c.args.category,reason:c.args.reason})),
+  thread:prompt?.source_message?{truncated:prompt.source_message.thread_truncated===true,
+   omitted:prompt.source_message.omitted_replies??null,
+   ids:prompt.source_message.messages.map(m=>m.id),
+   bytes:new TextEncoder().encode(JSON.stringify(prompt.source_message)).length}:null}
 }
 console.log(JSON.stringify(out))

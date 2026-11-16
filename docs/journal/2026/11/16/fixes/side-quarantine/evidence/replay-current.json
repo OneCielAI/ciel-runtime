@@ -1,0 +1,113 @@
+{
+  "board_nodes": 564,
+  "rows": [
+    {
+      "event": "9ff9a7009139",
+      "cause": "note capacity",
+      "decision": {
+        "action": "update",
+        "kind": "request",
+        "item_id": "n1861"
+      },
+      "committed": true,
+      "result_action": "update",
+      "result_kind": "request",
+      "note_len_before": 1481,
+      "note_len_after": 1841,
+      "note_compacted": null,
+      "released": [],
+      "relay": null
+    },
+    {
+      "event": "dc4994d7c1a3",
+      "cause": "note capacity",
+      "decision": {
+        "action": "update",
+        "kind": "request",
+        "item_id": "n1849"
+      },
+      "committed": true,
+      "result_action": "update",
+      "result_kind": "request",
+      "note_len_before": 1966,
+      "note_len_after": 1561,
+      "note_compacted": {
+        "trimmed": 2
+      },
+      "released": [],
+      "relay": {
+        "item_id": "n1849"
+      }
+    },
+    {
+      "event": "1fbb619506b5",
+      "cause": "note capacity",
+      "decision": {
+        "action": "update",
+        "kind": "request",
+        "item_id": "n2018"
+      },
+      "committed": true,
+      "result_action": "update",
+      "result_kind": "request",
+      "note_len_before": 1739,
+      "note_len_after": 1284,
+      "note_compacted": {
+        "trimmed": 2
+      },
+      "released": [],
+      "relay": null
+    },
+    {
+      "event": "fee58b4d802b",
+      "cause": "swapped action/kind",
+      "decision": {
+        "action": "status",
+        "kind": "answer",
+        "item_id": null
+      },
+      "committed": true,
+      "result_action": "answer",
+      "result_kind": "status",
+      "note_len_before": null,
+      "note_len_after": null,
+      "note_compacted": null,
+      "released": [],
+      "relay": null
+    },
+    {
+      "event": "20f3b309cd76",
+      "cause": "swapped action/kind",
+      "decision": {
+        "action": "status",
+        "kind": "answer",
+        "item_id": null
+      },
+      "committed": true,
+      "result_action": "answer",
+      "result_kind": "status",
+      "note_len_before": null,
+      "note_len_after": null,
+      "note_compacted": null,
+      "released": [],
+      "relay": null
+    },
+    {
+      "event": "b15b92421b62",
+      "cause": "swapped action/kind",
+      "decision": {
+        "action": "info",
+        "kind": "answer",
+        "item_id": null
+      },
+      "committed": true,
+      "result_action": "answer",
+      "result_kind": "info",
+      "note_len_before": null,
+      "note_len_after": null,
+      "note_compacted": null,
+      "released": [],
+      "relay": null
+    }
+  ]
+}

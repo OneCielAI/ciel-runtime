@@ -1,0 +1,77 @@
+{
+  "board_nodes": 564,
+  "rows": [
+    {
+      "event": "9ff9a7009139",
+      "cause": "note capacity",
+      "decision": {
+        "action": "update",
+        "kind": "request",
+        "item_id": "n1861"
+      },
+      "committed": true,
+      "result_action": "update",
+      "result_kind": "request",
+      "note_len_before": 1481,
+      "note_len_after": 1841,
+      "note_compacted": null,
+      "released": [],
+      "relay": null
+    },
+    {
+      "event": "dc4994d7c1a3",
+      "cause": "note capacity",
+      "decision": {
+        "action": "update",
+        "kind": "request",
+        "item_id": "n1849"
+      },
+      "committed": false,
+      "error": "side update exceeds note capacity; original preserved"
+    },
+    {
+      "event": "1fbb619506b5",
+      "cause": "note capacity",
+      "decision": {
+        "action": "update",
+        "kind": "request",
+        "item_id": "n2018"
+      },
+      "committed": false,
+      "error": "side update exceeds note capacity; original preserved"
+    },
+    {
+      "event": "fee58b4d802b",
+      "cause": "swapped action/kind",
+      "decision": {
+        "action": "status",
+        "kind": "answer",
+        "item_id": null
+      },
+      "committed": false,
+      "error": "invalid side decision action"
+    },
+    {
+      "event": "20f3b309cd76",
+      "cause": "swapped action/kind",
+      "decision": {
+        "action": "status",
+        "kind": "answer",
+        "item_id": null
+      },
+      "committed": false,
+      "error": "invalid side decision action"
+    },
+    {
+      "event": "b15b92421b62",
+      "cause": "swapped action/kind",
+      "decision": {
+        "action": "info",
+        "kind": "answer",
+        "item_id": null
+      },
+      "committed": false,
+      "error": "invalid side decision action"
+    }
+  ]
+}

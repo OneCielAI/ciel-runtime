@@ -145,7 +145,7 @@ class SideModTests(unittest.TestCase):
 
     def test_walkie_prefetch_failure_fails_closed_before_spawn_or_reply(self):
         row=self.run_harness('side_prefetch_harness.mjs')
-        self.assertEqual(18,len(row))
+        self.assertEqual(21,len(row))
         self.assertEqual(1,row['ok_paged']['spawns'])
         self.assertEqual('verified_thread',row['ok_paged']['source'])
         self.assertEqual(['0','240'],row['ok_paged']['pages'])
@@ -156,8 +156,33 @@ class SideModTests(unittest.TestCase):
         self.assertIn('[잘림]',row['null_none_referenced']['instruction'])
         self.assertEqual('900719925474099311',row['big_id']['roots'][0]['after'])
         self.assertEqual((1,'verified_thread'),(row['big_id']['spawns'],row['big_id']['source']))
+        # A thread past the 384 KiB limit is bounded, not failed (2026-11-16):
+        # root, target and the newest replies that fit, read once, ascending.
+        for name,target in (('oversized_thread','340'),('oversized_middle_target','100')):
+            with self.subTest(case=name):
+                case=row[name]
+                self.assertEqual((1,'verified_thread',[]),(case['spawns'],case['source'],case['failures']))
+                thread=case['thread']
+                ids=[int(i) for i in thread['ids']]
+                self.assertTrue(thread['truncated'])
+                self.assertEqual(301-len(ids),thread['omitted'])
+                self.assertGreater(thread['omitted'],0)
+                self.assertEqual(40,ids[0])
+                self.assertIn(int(target),ids)
+                self.assertEqual(sorted(ids),ids)
+                self.assertEqual(340,ids[-1])
+                self.assertLessEqual(thread['bytes'],384*1024)
+                self.assertEqual(['0','240'],case['pages'])
+                self.assertIn('thread_truncated is true',case['instruction'])
+        # The newest replies are the ones kept: everything after the cut is present.
+        kept=[int(i) for i in row['oversized_thread']['thread']['ids']][1:]
+        self.assertEqual(list(range(kept[0],341)),kept)
+        # Root and target alone do not fit: still a source failure.
+        self.assertEqual('Source thread exceeds byte limit',row['oversized_target_alone']['failures'][0]['reason'])
+        self.assertIsNone(row['ok_paged']['thread']['omitted'])
         for name,case in row.items():
-            if name in ('ok_paged','none_referenced','null_none_referenced','big_id'):
+            if name in ('ok_paged','none_referenced','null_none_referenced','big_id','oversized_thread',
+                        'oversized_middle_target'):
                 continue
             with self.subTest(case=name):
                 self.assertEqual(0,case['spawns'])

@@ -226,6 +226,12 @@ async function contextBudgetBytes($) {
   const reserve = Math.max(16384, Math.ceil(window * 0.2))
   return {bytes:Math.max(0,Math.min(SOURCE_THREAD_MAX_BYTES,window - used - reserve)),source:'main_context',window,used,reserve}
 }
+// A thread larger than the room left (384 KiB, or main's remaining context)
+// throws overBudget carrying bound(): the root, the target message and the
+// newest replies that fit, with thread_truncated and omitted_replies. The
+// caller compacts main first when that can make room; past that, it uses
+// bound() instead of failing (2026-11-16: Walkie thread 63773 was quarantined
+// after 6 tries). The thread is read once; bound() makes no further reads.
 async function fetchSourceMessage($,spec,event = {}) {
   const truncated = event.source_truncated === true
   if (spec === undefined || spec === null) {
@@ -272,9 +278,8 @@ async function fetchSourceMessage($,spec,event = {}) {
   const mainLimited = budget.source === 'main_context' && budget.bytes < SOURCE_THREAD_MAX_BYTES
   const overBudget = () => Object.assign(new SourcePrefetchError(mainLimited
     ? 'Source thread exceeds main context budget (' + budget.bytes + ' bytes left of window ' + budget.window
-      + ', used ' + budget.used + ')' : 'Source thread exceeds byte limit'), {mainContext:mainLimited})
-  let bytes = BYTES.encode(JSON.stringify(root)).length
-  if (bytes > budget.bytes) throw overBudget()
+      + ', used ' + budget.used + ')' : 'Source thread exceeds byte limit'), {mainContext:mainLimited,overBudget:true})
+  if (BYTES.encode(JSON.stringify(root)).length > budget.bytes) throw overBudget()
   for (let page = 0; ; page++) {
     if (page >= SOURCE_THREAD_MAX_PAGES) throw new SourcePrefetchError('Source thread exceeds page limit')
     const rows = unwrapThreadPage(await mcpText($,spec.server,'walkie_call_tool',{operation_id:'threads.read',
@@ -288,9 +293,7 @@ async function fetchSourceMessage($,spec,event = {}) {
       previous = numeric
       if (fetchedLineage(row,'thread_root_id') !== rootId) throw new SourcePrefetchError('Source thread reply lineage mismatch')
       replies.push(row)
-      bytes += BYTES.encode(JSON.stringify(row)).length
       if (replies.length + 1 > SOURCE_THREAD_MAX_ROWS) throw new SourcePrefetchError('Source thread exceeds row limit')
-      if (bytes > budget.bytes) throw overBudget()
     }
     // threads.read: id>after ORDER BY id ASC LIMIT 200. A short page ends the
     // thread; exactly 200 rows needs one more page.
@@ -308,8 +311,24 @@ async function fetchSourceMessage($,spec,event = {}) {
       .map(field => [field,spec[field]])),
     ...(truncated || spec.event_truncated ? {event_truncated:true} : {}),
     messages:messages.map(row=>sourceRedacted(row))}
-  if (BYTES.encode(JSON.stringify(source)).length > budget.bytes) throw overBudget()
-  return source
+  const size = value => BYTES.encode(JSON.stringify(value)).length
+  if (size(source) <= budget.bytes) return source
+  const error = overBudget()
+  error.bound = () => {
+    // Root and target always; then the newest replies, newest first, while they fit.
+    const targetIndex = messages.indexOf(target[0])
+    const keep = new Set([0,targetIndex])
+    const sized = () => ({...source,messages:source.messages.filter((_,index) => keep.has(index)),
+      thread_truncated:true,omitted_replies:messages.length - keep.size})
+    if (size(sized()) > budget.bytes) throw overBudget()
+    for (let index = messages.length - 1; index > 0; index--) {
+      if (keep.has(index)) continue
+      keep.add(index)
+      if (size(sized()) > budget.bytes) { keep.delete(index); break }
+    }
+    return sized()
+  }
+  throw error
 }
 
 const OPAQUE_KEY = /token|secret|password|authori[sz]ation|signature|cookie|credential|activity_context/i
@@ -388,7 +407,11 @@ below.
 
 First read source_message when present (source_context verified_thread); it is
 the complete verified Walkie thread (root plus every reply) and
-target_message_id names the exact message this event is about. With
+target_message_id names the exact message this event is about. When
+source_message.thread_truncated is true the thread was too large: the root, the
+target message and the newest replies are present and omitted_replies older
+replies are left out. Do not assume what they said; if the decision depends on
+them, clarify. With
 source_context none_referenced the event names no message or thread; decide from
 the event itself. If event_truncated is true, the source cut this event body at
 its size limit (marker [잘림]): do not assume or invent the missing content; say
@@ -464,10 +487,12 @@ explicit policy follow stated priority and clarify conflicts.
 Return one JSON object: {"decision":{...},"expected_version":N}.
 Decision fields: action, kind, summary, reply, and when needed item_id, title,
 note, priority, queue_position, release_waits, time_limit, relay. No other fields.
-Kinds/actions:
-- status or info: answer
-- clarify: clarify
-- request: create, update or prioritize
+"kind" is the classification above (status, info, clarify or request).
+"action" is what the host does, and it must match the kind:
+- kind status or info: action answer
+- kind clarify: action clarify
+- kind request: action create, update or prioritize
+Example: {"decision":{"action":"answer","kind":"status","summary":"...","reply":"..."},"expected_version":N}
 Legacy advise is not used. The host validates and commits every field.`
 
 async function stopRetired($) {
@@ -1602,7 +1627,17 @@ export async function pollSide($, identity) {
     const conversation = JSON.stringify([identity,event.receipt_id,profile])
     // Walkie requires an exact bounded verified thread before any spawn. An
     // event that references no message is explicitly marked none_referenced.
-    const sourceMessage = await fetchSourceMessage($,event.source_read,event)
+    let sourceMessage
+    try { sourceMessage = await fetchSourceMessage($,event.source_read,event) } catch (error) {
+      // A thread that does not fit main's remaining context waits for one
+      // compaction of main first (catch below). Past that, or past the static
+      // limit, the fork gets a bounded thread instead of a quarantine.
+      if (!(error instanceof SourcePrefetchError) || typeof error.bound !== 'function'
+          || (error.mainContext && !compactionRecent(identity))) throw error
+      sourceMessage = error.bound()
+      try { $.ui.log('Ciel side: source thread too large for '+event.receipt_id.slice(0,12)
+        +'; '+sourceMessage.omitted_replies+' older replies left out') } catch {}
+    }
     const text = JSON.stringify({event_id:event.receipt_id,parent_session_id:identity,claim_generation:event.generation,
       external_event_preview:eventView(event.text),source_context:sourceMessage.source_context,
       ...(sourceMessage.event_truncated ? {event_truncated:true} : {}),

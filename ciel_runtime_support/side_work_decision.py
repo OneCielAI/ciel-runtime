@@ -6,6 +6,7 @@ the outcome: whether anything was queued and where the goal now stands.
 """
 import hashlib
 import json
+import re
 import time
 
 from . import work_plan_tree as tree
@@ -79,6 +80,53 @@ def _parked_lease(parked_projection, item_id, root_id):
     return matches[0]['lease_id'] if len(matches) == 1 else None
 
 
+SIDE_NOTE_MARKER = '\n\nSide request: '
+_TRIMMED = re.compile(r'\n\n\[(\d+) earlier side requests? trimmed for space; their messages stay in the side inbox\]$')
+
+
+def _trimmed_line(count):
+    return '\n\n[%d earlier side request%s trimmed for space; their messages stay in the side inbox]' % (
+        count, '' if count == 1 else 's')
+
+
+def side_note(previous, note):
+    """The item note with one more side request, always within MAX_TEXT_CHARS.
+
+    Walkie 2026-11-16: items that kept receiving follow-ups reached the 2000
+    character note limit, and every later update about them was refused at
+    commit and quarantined (23 events in 12 h): the person's message was lost.
+    The note text written by main or the plan stays exactly as it is. To make
+    room, the oldest side requests appended here are dropped first (each one's
+    original message stays in the side inbox receipt) and counted on one line;
+    if the remaining room is still short, the new request is cut to fit.
+    Returns (note, compaction) where compaction is None or what was done.
+    """
+    limit = tree.MAX_TEXT_CHARS
+    addition = SIDE_NOTE_MARKER + note
+    if len(previous) + len(addition) <= limit:
+        return previous + addition, None
+    base, *blocks = previous.split(SIDE_NOTE_MARKER)
+    earlier = 0
+    found = _TRIMMED.search(base)
+    if found:
+        earlier = int(found.group(1))
+        base = base[:found.start()]
+    dropped = 0
+    while blocks:
+        blocks.pop(0)
+        dropped += 1
+        head = base + _trimmed_line(earlier + dropped) + ''.join(SIDE_NOTE_MARKER + block for block in blocks)
+        if len(head) + len(addition) <= limit:
+            return head + addition, {'trimmed': dropped}
+    head = base + (_trimmed_line(earlier + dropped) if earlier + dropped else '')
+    room = limit - len(head) - len(SIDE_NOTE_MARKER) - 1
+    if room >= 1:
+        return head + SIDE_NOTE_MARKER + note[:room] + '…', {'trimmed': dropped, 'truncated': True}
+    # Main's own note fills the item: the decision still commits; the note is
+    # unchanged and the request stays in the receipt and the review row.
+    return previous, {'trimmed': 0, 'skipped': True}
+
+
 def validate(decision):
     if not isinstance(decision, dict) or set(decision) - FIELDS:
         raise tree.WorkPlanError('invalid side decision fields')
@@ -86,6 +134,13 @@ def validate(decision):
     # (action="status"/"info") instead of mapping it to action="answer".
     if decision.get('action') in ('status', 'info') and decision.get('kind') == decision['action']:
         decision['action'] = 'answer'
+    # ... or swap the two fields: the classification in action and the action in
+    # kind (Walkie 2026-11-16: action "status"/"info" with kind "answer", 4
+    # events quarantined). Each value is valid only in the other field, so the
+    # pair is unambiguous; the kind/action consistency check below still holds.
+    if (decision.get('action') in KINDS and decision.get('action') not in ACTIONS
+            and decision.get('kind') in ACTIONS and decision.get('kind') not in KINDS):
+        decision['action'], decision['kind'] = decision['kind'], decision['action']
     if decision.get('action') not in ACTIONS:
         raise tree.WorkPlanError('invalid side decision action')
     if decision.get('kind', 'request') not in KINDS:
@@ -281,6 +336,7 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
         # commit (side_intake_mcp), like every other P0 entry point.
         wants_p0 = decision.get('priority') == 'P0'
         board_priority = 'P1' if wants_p0 else decision.get('priority', '')
+        compacted = None
         if action == 'create':
             title = decision.get('title', '').strip()
             if not title:
@@ -299,13 +355,9 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             note = decision.get('note', '').strip() or decision['summary'].strip()
             if not note:
                 raise tree.WorkPlanError('Work update note required')
-            previous = by_id[item].get('note', '')
-            addition = '\n\nSide request: ' + note
-            if len(previous + addition) > tree.MAX_TEXT_CHARS:
-                raise tree.WorkPlanError('side update exceeds note capacity; original preserved')
             # Side observations are input for main to review, not a scope change
             # approved by main. Preserve the existing execution phase.
-            by_id[item]['note'] = previous + addition
+            by_id[item]['note'], compacted = side_note(by_id[item].get('note', ''), note)
             by_id[item]['updated_at'] = time.time()
         if action in ('update', 'prioritize') and decision.get('priority'):
             # Priority is goal-scoped in the canonical tree. A request naming
@@ -377,6 +429,8 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
                   'based_on_version': expected_version}
         if effective_kind:
             result['kind'] = effective_kind
+        if compacted:
+            result['note_compacted'] = compacted
         if time_limit is not None:
             result['time_limit'] = dict(time_limit)
         if isinstance(source_context, str) and source_context:
