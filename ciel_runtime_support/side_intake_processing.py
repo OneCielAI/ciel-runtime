@@ -210,10 +210,18 @@ def fail(state_dir, session_id, receipt_id, generation, failure, *, now=None):
             category = 'source_context'
         attempts = int(prior.get('attempt_count') or 0) + (0 if compaction else 1)
         delay = retry_after if compaction else min(300, 5 * (2 ** min(attempts - 1, 6)))
-        # The selected side model is unavailable: the same side actor retries the
-        # event on the main session model (same provider connection). If that
-        # retry is unavailable too, quarantine instead of looping.
-        parent_retry = unavailable and not prior.get('use_parent_model')
+        on_parent = bool(prior.get('use_parent_model'))
+        # The side model failed the request (an API error ended the side fork's
+        # turn, or the model is unavailable): the next attempt runs at once on
+        # main's own model, and stays on it (user requirement 2026-11-16, "모델
+        # 문제로 실패하면 메인과 동일한 모델로 재처리"). Walkie: 154 failures in 3
+        # days, 0 retried on main's model — the switch was never wired after the
+        # side model moved to the ciel-work-gate turn.step. With no side model
+        # configured the fork already runs on main's model; nothing switches.
+        side_model = failure.get('side_model') is True
+        parent_retry = not on_parent and (unavailable or category == 'turn_error' and side_model)
+        # Main's model unavailable too: quarantine instead of looping.
+        hopeless = unavailable and on_parent
         row['side_failure'] = {
             'category': category,
             'model': model,
@@ -221,7 +229,7 @@ def fail(state_dir, session_id, receipt_id, generation, failure, *, now=None):
             'attempt_count': attempts,
             'failed_at': stamp,
             'retry_not_before': stamp if parent_retry else stamp + delay,
-            'quarantined': permanent or (unavailable and not parent_retry) or attempts >= 6,
+            'quarantined': permanent or hopeless or attempts >= 6,
             'typed': bool(outcome),
             'retryable': not permanent,
             # Why the host refused a completed turn (observed 2026-11-07: a
@@ -229,7 +237,10 @@ def fail(state_dir, session_id, receipt_id, generation, failure, *, now=None):
             **({'reason': reason} if reason else {}),
             **({k: outcome[k] for k in ('status','code','terminal_reason','pool_size','attempted',
                                         'requested_model','effective_model','message') if k in outcome}),
-            'use_parent_model': parent_retry,
+            # Sticky: once on main's model, later retries of this event stay there.
+            'use_parent_model': parent_retry or on_parent,
+            **({'parent_model_since': stamp} if parent_retry else
+               {'parent_model_since': prior['parent_model_since']} if on_parent and prior.get('parent_model_since') else {}),
             'main_fallback_eligible': False,
             'generation': generation,
             'compaction_waits': waits + (1 if compaction else 0),

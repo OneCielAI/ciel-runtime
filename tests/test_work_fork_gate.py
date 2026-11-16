@@ -59,6 +59,14 @@ class WorkForkGateTests(unittest.TestCase):
     def test_side_fork_uses_side_model(self):
         self.assertEqual("model-side", self.scenario("fork_model_side")["first"])
 
+    def test_side_retry_after_side_model_failure_uses_main_model(self):
+        value = self.scenario("fork_model_side_retry_uses_main_model")
+        self.assertEqual("ciel-runtime-p-chosen", value["withMain"])
+        # No main model chosen: the inherited engine model, main's own, not model-side.
+        self.assertEqual(ALIAS_MAIN, value["inherit"])
+        # Still a side fork for every other gate rule.
+        self.assertTrue(value["sideBashNext"])
+
     def test_inherit_main_and_user_agents_keep_their_model(self):
         value = self.scenario("fork_model_inherit_and_others")
         self.assertEqual(ALIAS_MAIN, value["inherit"])

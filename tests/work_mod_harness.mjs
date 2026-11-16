@@ -681,6 +681,29 @@ const scenarios = {
     return { calls, appended:appended.length, carriesOriginal:appended.length === 1 && appended[0].includes(original),
       recorded:calls.includes('work_side_wake:notice_appended') }
   },
+  // After the side model failed, the router marks the claim use_parent_model;
+  // the host spawns the retry with the " main-model" description the gate reads.
+  async 'side-parent-model-retry-is-marked-for-the-gate'() {
+    const spawned = []
+    for (const parent of [false, true]) {
+      const id = (parent ? 'd' : 'e').repeat(64)
+      let claimed = false
+      const { $ } = host(async (tool, args) => {
+        if (tool === 'work_side_claim') {
+          if (claimed) return text({ claim:null, settings:{ max_active:1 } })
+          claimed = true
+          return text({ claim:{ receipt_id:id, generation:'1000000000000000000000000000000'+(parent ? 'a' : 'b'), text:'event', route:{},
+            lease_until:Date.now() / 1000 + 600, use_parent_model:parent,
+            workload:{ version:5, truncated:false, nodes:[], queue_order:[] } }, settings:{ max_active:1 } })
+        }
+        if (tool === 'work_side_ack') return text({ state:'not_applicable' })
+        return text({})
+      })
+      $.agent.spawn = async args => { spawned.push(args.description); return { agentId:'side-' + spawned.length } }
+      await sidePump($)
+    }
+    return { spawned }
+  },
   // A spawn claiming the pending side identity but failing the fork proof is
   // denied before any Work policy read: parallel on, off or unavailable.
   async 'side-failed-proof-denied'() {
@@ -2736,7 +2759,10 @@ Object.assign(scenarios, {
       clock:{ after(){ return { cancel(){} } } }, state:keyState().api }
     const a = sidePromptSubmit($, 'side:X', 'first')
     const b = sidePromptSubmit($, 'side:X', 'second')
-    await sleep(5)
+    // The submit follows a $.state CAS round trip (four event-loop turns here).
+    // A fixed 5 ms was too short on a loaded Linux container (2026-11-16:
+    // "release is not a function" once in a full Docker run, 0 of 8 reruns).
+    await keyUntil(() => typeof release === 'function')
     const pendingBefore = sidePromptPending('side:X')
     release({ text:'first' })
     const results = await Promise.all([a, b])

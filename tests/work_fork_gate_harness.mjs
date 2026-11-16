@@ -368,6 +368,19 @@ await scenario('fork_model_side', async () => {
   const first = await step(gate, w, { agentId: 's9', index: 0, model: ALIAS_MAIN })
   return { first: first?.model }
 })
+// A side retry after the side model failed (ciel-work marks it " main-model"):
+// main's chosen model, or the inherited engine model (main's) when none is set.
+await scenario('fork_model_side_retry_uses_main_model', async () => {
+  const gate = await load()
+  const row = { id: 's10', type: 'fork', status: 'running', spawnedBy: 'ciel-work', description: 'Side SSE 0123456789ab main-model' }
+  const chosen = world({ rows: [row], forkModels: { ...MODELS, main: { model: 'ciel-runtime-p-chosen', upstream: 'up-chosen', id: 'chosen' } } })
+  const withMain = await step(gate, chosen, { agentId: 's10', index: 0, model: ALIAS_MAIN })
+  const gate2 = await load()
+  const plain = world({ rows: [row], forkModels: MODELS })
+  const inherit = await step(gate2, plain, { agentId: 's10', index: 0, model: ALIAS_MAIN })
+  const bash = await call(gate2, plain, { tool: 'Bash', tool_use_id: 't1', agentId: 's10', command: 'echo' })
+  return { withMain: withMain?.model, inherit: inherit?.model, sideBashNext: bash.nextCalled }
+})
 await scenario('fork_model_inherit_and_others', async () => {
   const gate = await load()
   const w = world({ rows: [workRow('f4'), { id: 'u1', type: 'general-purpose', status: 'running', description: 'mine' }],

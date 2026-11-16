@@ -1,0 +1,4 @@
+Windows, worktree at the fix (uncommitted), 2026-11-16
+side MCP, fork gate, Work mod harness, side forward, side mod: RAN 274 failures=0 errors=0 skipped=0
+fork turn watch, claim latency, event capacity, receipt projection, gate check, MCP tools, real backend, observatory: RAN 267 failures=0 errors=0 skipped=1
+claude plugin test ciel-work: 103 pass, 0 fail

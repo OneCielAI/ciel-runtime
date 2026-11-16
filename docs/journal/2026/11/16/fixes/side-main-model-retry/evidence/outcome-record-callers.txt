@@ -1,0 +1,3 @@
+callers of side_request_outcome (record is never called; only take):
+  ciel_runtime_support/side_intake_mcp.py:272:        from .side_request_outcome import take as take_side_outcome
+  ciel_runtime_support/side_intake_mcp.py:296:        from .side_request_outcome import take as take_side_outcome

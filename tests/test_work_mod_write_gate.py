@@ -813,6 +813,10 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(3, len(result['spawned']))
         self.assertEqual(1, result['left'])
 
+    def test_side_retry_after_side_model_failure_is_spawned_for_main_model(self):
+        row = self.run_scenario('side-parent-model-retry-is-marked-for-the-gate')
+        self.assertEqual(['Side SSE ' + 'e' * 12, 'Side SSE ' + 'd' * 12 + ' main-model'], row['spawned'])
+
     def test_side_status_delivers_failed_original_without_a_free_actor_slot(self):
         row = self.run_scenario('side-status-delivers-failed-original-without-free-actor-slot')
         self.assertEqual(1, row['appended'], row)

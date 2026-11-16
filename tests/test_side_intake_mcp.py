@@ -117,6 +117,49 @@ class SideMcpTests(unittest.TestCase):
         self.assertNotIn('main_fallback',row)
         self.assertEqual('legacy_main_fallback_reclaimed',row['side_failure']['category'])
 
+    def test_side_model_api_error_retries_at_once_on_main_model_and_stays_there(self):
+        # User requirement 2026-11-16: a side model failure is re-processed on
+        # main's model. Walkie had 154 failures in 3 days and 0 such retries;
+        # Celly's side model failed 152 times with the gateway pre-dispatch 503.
+        from unittest.mock import patch
+        with patch('ciel_runtime_support.side_intake_mcp._side_model_configured', return_value=True):
+            event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
+            self.assertFalse(event['use_parent_model'])
+            host={'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation']}
+            failed=json.loads(self.invoke('work_side_fail',{'category':'turn_error','model':'inherit',
+                'model_fingerprint':'native-fork'},host)['text'])
+            failure=failed['receipt']['side_failure']
+            self.assertEqual((True,False,1),(failure['use_parent_model'],failure['quarantined'],failure['attempt_count']))
+            # Claimable at once (no backoff) and marked for main's model.
+            again=json.loads(self.invoke('work_side_claim',{'owner':'actor2'})['text'])['claim']
+            self.assertEqual((event['receipt_id'],True),(again['receipt_id'],again['use_parent_model']))
+            # A failure on main's model keeps main's model, with normal backoff.
+            host={'token':'x'*40,'receipt_id':again['receipt_id'],'generation':again['generation']}
+            failed=json.loads(self.invoke('work_side_fail',{'category':'turn_error','model':'inherit',
+                'model_fingerprint':'native-fork'},host)['text'])['receipt']['side_failure']
+            self.assertTrue(failed['use_parent_model'])
+            self.assertGreater(failed['retry_not_before'],failed['failed_at'])
+
+    def test_without_a_side_model_an_api_error_does_not_switch(self):
+        from unittest.mock import patch
+        with patch('ciel_runtime_support.side_intake_mcp._side_model_configured', return_value=False):
+            event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
+            host={'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation']}
+            failure=json.loads(self.invoke('work_side_fail',{'category':'turn_error'},host)['text'])['receipt']['side_failure']
+            self.assertFalse(failure['use_parent_model'])
+
+    def test_main_model_unavailable_after_the_switch_is_quarantined(self):
+        from unittest.mock import patch
+        with patch('ciel_runtime_support.side_intake_mcp._side_model_configured', return_value=True):
+            event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
+            host={'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation']}
+            self.invoke('work_side_fail',{'category':'model_not_found','model_fingerprint':'native-fork'},host)
+            again=json.loads(self.invoke('work_side_claim',{'owner':'actor2'})['text'])['claim']
+            host={'token':'x'*40,'receipt_id':again['receipt_id'],'generation':again['generation']}
+            failure=json.loads(self.invoke('work_side_fail',{'category':'model_not_found',
+                'model_fingerprint':'native-fork'},host)['text'])['receipt']['side_failure']
+            self.assertTrue(failure['quarantined'])
+
     def test_completed_turn_without_decision_is_never_replayed(self):
         event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
         host={'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation']}

@@ -25,7 +25,9 @@ const GATE = 'ciel-work-gate'
 const GATE_VERSION = '1'
 const OWNER = 'ciel-work'
 const PREFIX = 'mcp__ciel-runtime-router__'
-const SIDE_DESCRIPTION = /^Side SSE [0-9a-f]{12}$/
+// " main-model": ciel-work's retry of an event after the side model failed; it
+// runs on main's own model (forkModel), never the side slot's.
+const SIDE_DESCRIPTION = /^Side SSE [0-9a-f]{12}( main-model)?$/
 // The names ciel-work gives Work forks: work_parallel_run's key (register.js
 // WORK_FORK_NAME), the pump's auto-fill key 'work-auto-<time>-<random>'
 // (parallelPump), and reworkForkLeaseId's 'work-rework-<lease>-a<N>'.
@@ -95,7 +97,7 @@ async function classify($, agentId) {
   if (!owned) return { kind: 'other' }
   const shape = spawn || { name: typeof row.name === 'string' && row.name ? row.name : null,
     subagentType: row.type, description: typeof row.description === 'string' ? row.description : '', cwd: null }
-  if (sideShape(shape)) return { kind: 'side' }
+  if (sideShape(shape)) return { kind: 'side', mainModel: shape.description.endsWith(' main-model') }
   workForks.add(agentId)
   while (workForks.size > 400) workForks.delete(workForks.values().next().value)
   const recognized = shape.name !== null
@@ -289,7 +291,13 @@ async function forkModel($, agentId) {
   const state = await routerJson($, 'work_parallel_status')
   if (!state?.fork_models || typeof state.fork_models.models !== 'object' || state.fork_models.models === null) return null
   let names = null
-  if (fork.kind === 'side') names = slotNames(state, 'side')
+  // A side retry after the side model failed: main's model (the main model
+  // setting when one is chosen; otherwise null keeps the inherited engine
+  // model, which is main's own).
+  if (fork.kind === 'side' && fork.mainModel) {
+    names = mainNames(state)
+    note($, 'fork-model-side-main agent=' + shortId(agentId))
+  } else if (fork.kind === 'side') names = slotNames(state, 'side')
   else {
     const leases = Object.values(state.leases || {})
     // A rework launch name embeds its replacement lease id (reworkForkLeaseId).

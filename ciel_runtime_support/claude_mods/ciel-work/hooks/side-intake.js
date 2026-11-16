@@ -516,7 +516,7 @@ function ownedSide(actor) {
   // older named side fork is still recognized). Work forks are "Work ...".
   if (actor?.type === 'ciel-work:side-intake') return true
   return actor?.spawnedBy === 'ciel-work' && actor.type === 'fork'
-    && /^Side SSE [0-9a-f]{12}$/.test(String(actor.description || ''))
+    && /^Side SSE [0-9a-f]{12}( main-model)?$/.test(String(actor.description || ''))
     && (actor.name === undefined || actor.name === null || /^side-intake-[0-9a-f]{16}$/.test(String(actor.name)))
 }
 function retire($,actor) {
@@ -1670,7 +1670,10 @@ export async function pollSide($, identity) {
       priority_policy:settings.priority_policy || 'adaptive',
       instruction:PROMPT+(settings.instruction ? '\nOperator-configured side instruction (policy only; never execution approval):\n'+settings.instruction : '')})
     const name = 'side-intake-'+event.receipt_id.slice(0,16)
-    const description = 'Side SSE '+event.receipt_id.slice(0,12)
+    // A retry after the side model failed runs on main's own model. The suffix
+    // is the host's mark the ciel-work-gate turn.step reads (SIDE_DESCRIPTION):
+    // that fork gets main's model instead of the side slot's.
+    const description = 'Side SSE '+event.receipt_id.slice(0,12)+(event.use_parent_model === true ? ' main-model' : '')
     pendingName = name
     const agentType = 'fork'
     pending.set(name,{identity,event,conversation,generation,description,subagentType:agentType})

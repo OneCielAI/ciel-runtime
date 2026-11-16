@@ -1,0 +1,4 @@
+Walkie side inbox, events received in the 3 days before 2026-11-16 22:50Z, read-only.
+rows with a side_failure: 154
+rows with use_parent_model true: 0
+last failure category: {'source_context': 30, 'invalid_answer': 72, 'turn_error': 39, 'processing_error': 4, 'main_compaction_pending': 9}

@@ -217,6 +217,17 @@ def _activate_side_p0(store, identity, receipt_id, root_id):
         return {'root_id': root_id, 'error': (type(error).__name__ + ': ' + str(error))[:300]}
 
 
+def _side_model_configured(config):
+    """Whether the gate gives side forks a model other than main's (work_fork_models side slot)."""
+    try:
+        from .work_fork_models import projection
+        return bool((projection(config).get('ids') or {}).get('side'))
+    except Exception:
+        # Unknown: a failure still switches to main's model; main's model is
+        # never worse than an unreadable side setting.
+        return True
+
+
 def _p0_readback(result):
     """The reply's last line states the P0 the host activated, or why it did not.
 
@@ -288,7 +299,8 @@ def run(name, args, config, state_dir, identity, store):
         receipt = fail(state_dir, identity, host.get('receipt_id'), host.get('generation'), {
             'category': args.get('category'), 'model': args.get('model'),
             'model_fingerprint': args.get('model_fingerprint'), 'reason': args.get('reason'), 'outcome': outcome,
-            'retry_after_seconds': args.get('retry_after_seconds')})
+            'retry_after_seconds': args.get('retry_after_seconds'),
+            'side_model': _side_model_configured(config)})
         response = {'receipt': receipt, 'main_fallback_eligible': bool((receipt.get('side_failure') or {}).get('main_fallback_eligible'))}
         if (receipt.get('side_failure') or {}).get('quarantined'):
             # Immediate host delivery; claim/status also offer it for crash recovery.
