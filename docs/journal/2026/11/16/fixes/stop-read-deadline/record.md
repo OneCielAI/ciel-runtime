@@ -52,3 +52,13 @@ tags: [work, stop, auto-continue, compaction, deadline, walkie]
 - **The 19 turns ended by API errors.** In Walkie's transcript, 57 turns ended with a synthetic "API Error: …" message. None of them was followed by a Stop hook run (no Stop attachment and no `stop_hook_summary` in the next rows), so the Work continuation never ran for them. That is a separate cause.
 - **kobe.** Its transcript (329 MB, on 100.64.0.14) was being read when the SSH session was cut: "Device SSH authorization revoked or expired". No kobe result exists yet.
 - **Linux (python:3.11-slim):** `tests/test_work_mod_write_gate.py` and `tests/test_work_gate_check.py` passed, 149 tests.
+
+# Release
+
+- **Commit:** `a5193cb` on `beta` and `feature/priority-models`.
+- **Publish run 43818134629:** success, every job.
+- **npm `beta`:** `0.2.51-beta.20261116-065613.a5193cb`, gitHead `a5193cbbe743…`. Integrity ok, and 622/624 files equal the tree; the 2 that differ carry the version stamp.
+- **Installed locally.** The installed `register.js` has `STOP_READ_MS = 10000`. From a copy of the installed package:
+  - `slow-board-read-still-continues-the-turn` and the busy-turn pump scenario: 2 passed.
+  - The gate and slot-stall tests: 20 passed.
+- **Running sessions:** Walkie (and kobe) still run the build they were launched with. The fix takes effect when they restart on this build. No session was restarted.
