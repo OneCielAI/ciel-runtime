@@ -40,6 +40,18 @@ continue; delivering it makes Claude Code compact again before the request.
 A typed opener's own text is resent; otherwise a continuation line is sent.
 That chain is not cancelled by a compaction boundary (its own resend causes
 one) and ends when the model answers.
+
+Every main turn (user requirement 2026-11-16, "지속되는 api 에러에 스스로
+재시도를 못함, ciel runtime이 재시도를 해줘야함"): a transient API error resumes
+the turn whoever opened it. A typed text opener is resent as before; any other
+opener (a task notification, a Work continuation, a peer or side wake, an
+image) gets the continuation line. A channel message that failed before any
+answer stays with its own resend (runtime_input_retry); once that turn has
+answered, a later failure is resumed here. After a resend has made progress
+(an answer), a later failure in the same turn starts a new chain. A stream cut
+after output that stream recovery declines (a tool block, nothing shown, busy
+terminal) is handed here by the monitor (``adopt_cut``). The resend's own
+queue entry (enqueue then dequeue) is not new input.
 """
 
 from __future__ import annotations
@@ -67,6 +79,17 @@ SUBMIT_RETRY_SECONDS = 30.0
 # _compact_terminal_failure reads the same record shape).
 AUTO_COMPACT_FAILED_PREFIX = "Prompt is too long · automatic compaction failed: "
 COMPACT_RESUME_TEXT = "직전 턴이 자동 컴팩트 실패로 멈췄습니다. 컴팩트를 다시 진행한 뒤 하던 작업을 이어서 진행하세요."
+API_RESUME_TEXT = "직전 턴이 일시적인 API 오류로 멈췄습니다. 하던 작업을 끊긴 지점부터 이어서 진행하세요."
+# Channel deliveries: runtime_input_retry resends the message itself when its
+# turn fails before an answer (channel_transcript failed state).
+_CHANNEL_PREFIXES = ("[ciel-runtime external channel message]", "[ciel-wake]")
+# Stream recovery reasons after which nobody else continues a cut stream; the
+# resend takes it. Plan mode, a person typing, newer or queued input, a
+# disabled setting or another scope are deliberate stops and stay stops.
+ADOPTABLE_CUT_REASONS = frozenset({
+    "tool_use_seen", "nothing_shown", "reason", "upstream_error_type", "no_router_failure",
+    "terminal_busy", "terminal_stale", "terminal_unknown", "terminal_not_ready", "compaction",
+})
 _INTERRUPT_PREFIX = "[Request interrupted by user"
 _COMMAND_PREFIXES = ("<command-name>", "<local-command-stdout>", "<local-command-caveat>", "<bash-input>",
                      "<bash-stdout>", "<bash-stderr>")
@@ -97,6 +120,7 @@ def resend_body(attempt: int, *, error_uuid: str, text: str, scope: Any, created
     """One resend admitted like a stream-recovery continuation (exact text, exact scope)."""
 
     lead = ("직전 턴이 자동 컴팩트 실패로 멈춰 다시 보냅니다." if compaction
+            else "직전 턴이 일시적인 API 오류로 멈춰 이어서 진행을 요청합니다." if text == API_RESUME_TEXT
             else "직전 입력이 일시적인 API 오류로 처리되지 못해 같은 입력을 다시 보냅니다.")
     return {
         "channel": "typed-turn-resend",
@@ -159,10 +183,14 @@ class TypedTurnResend:
         self.reset()
 
     def reset(self) -> None:
-        # Who opened the turn now running: {"typed": bool, "ours": bool, ...}.
+        # Who opened the turn now running: {"typed": bool, "ours": bool,
+        # "channel": bool, "answered": bool, "text": str, ...}.
         self._opener: dict[str, Any] | None = None
         self._chain: dict[str, Any] | None = None
         self._waiting_logged = ""
+        # The last stream cut after output this turn saw; stream recovery may
+        # hand it over (adopt_cut) when it does not continue it itself.
+        self._cut: dict[str, Any] | None = None
 
     def status(self) -> dict[str, Any] | None:
         """The active chain without the prompt text, for status surfaces and tests."""
@@ -195,10 +223,21 @@ class TypedTurnResend:
         elif kind == "assistant":
             if record.get("isApiErrorMessage") is True:
                 self._observe_error(record)
-            elif self._chain is not None and (self._opener or {}).get("ours"):
+                return
+            self._cut = None
+            if self._opener is not None:
+                self._opener["answered"] = True
+            if self._chain is not None and (self._opener or {}).get("ours"):
                 self._end("recovered", "answered")
         elif kind == "queue-operation" and record.get("operation") == "enqueue":
-            if self._chain is not None:
+            self._cut = None
+            chain = self._chain
+            if chain is not None and chain.get("submitted_at") is not None and not chain.get("delivered"):
+                # Claude Code queues an admitted resend before it runs it
+                # (enqueue, dequeue 11 ms later; 2026-11-16 17:43:11Z). That is
+                # this chain's own input, not a person's: the chain stays.
+                return
+            if chain is not None:
                 self._end("cancelled", "queued_input")
         elif kind == "system" and record.get("subtype") == "compact_boundary":
             # A failed-compaction chain's own resend makes Claude Code compact
@@ -215,6 +254,7 @@ class TypedTurnResend:
         stripped = text.lstrip()
         if stripped.startswith(_INTERRUPT_PREFIX):
             self._opener = None
+            self._cut = None
             if self._chain is not None:
                 self._end("cancelled", "interrupted")
             return
@@ -223,14 +263,19 @@ class TypedTurnResend:
         origin = record.get("origin")
         peer = isinstance(origin, dict) and origin.get("kind") == "peer"
         if self._ours(text):
-            self._opener = {"typed": False, "ours": True}
+            # The text a later failure in this resumed turn sends again.
+            previous = str((self._chain or {}).get("text") or (self._opener or {}).get("text") or API_RESUME_TEXT)
+            self._opener = {"typed": False, "ours": True, "uuid": str(record.get("uuid") or ""), "text": previous}
+            self._cut = None
             if self._chain is not None:
                 self._chain["delivered"] = True
             return
         if record.get("isMeta") is True and not peer:
             return  # Reminders and caveats are not input.
+        self._cut = None
         if peer or not typed_by_person(text):
-            self._opener = {"typed": False, "ours": False}
+            self._opener = {"typed": False, "ours": False, "uuid": str(record.get("uuid") or ""),
+                            "channel": stripped.startswith(_CHANNEL_PREFIXES)}
             return
         if self._chain is not None:
             self._end("cancelled", "new_input")
@@ -268,6 +313,44 @@ class TypedTurnResend:
         self.log("INFO", f"claude_typed_resend_scheduled attempt=1/{MAX_RESENDS} in={delay:.0f}s "
                          f"origin={self._chain['origin'][:8]} error=auto_compact_failed")
 
+    def _resume_text(self, opener: dict[str, Any]) -> str:
+        """What a new chain sends: a typed text opener itself, else the continuation line."""
+
+        text = str(opener.get("text") or "")
+        if opener.get("ours"):
+            return text if text.strip() else API_RESUME_TEXT
+        if opener.get("typed") and not opener.get("non_text") and text.strip():
+            return text
+        return API_RESUME_TEXT
+
+    def _start(self, record: dict[str, Any], opener: dict[str, Any], label: str) -> None:
+        error_uuid = str(record.get("uuid") or "")
+        delay = delay_before(1)
+        self._chain = {
+            "origin": str(opener.get("uuid") or error_uuid),
+            "text": self._resume_text(opener),
+            "session_id": str(record.get("sessionId") or ""),
+            "attempts": 0,
+            "due": self.now() + float(delay or FIRST_INTERVAL_SECONDS),
+            "error_uuid": error_uuid,
+            "submitted_at": None,
+            "delivered": False,
+            "input_id": 0,
+        }
+        self.log("INFO", f"claude_typed_resend_scheduled attempt=1/{MAX_RESENDS} in={delay:.0f}s "
+                         f"origin={self._chain['origin'][:8]} error={label}")
+
+    def adopt_cut(self, error_uuid: str, reason: str) -> bool:
+        """Take a stream cut after output that stream recovery will not continue."""
+
+        cut = self._cut
+        if (reason not in ADOPTABLE_CUT_REASONS or cut is None or cut["record"].get("uuid") != error_uuid
+                or self._chain is not None):
+            return False
+        self._cut = None
+        self._start(cut["record"], cut["opener"], f"stream_cut_after_output:{reason}")
+        return True
+
     def _observe_error(self, record: dict[str, Any]) -> None:
         if auto_compact_failed(record):
             self._observe_compaction_failure(record)
@@ -277,43 +360,39 @@ class TypedTurnResend:
             return
         failure = classify_claude_api_error(record)
         error_uuid = str(record.get("uuid") or "")
+        label = failure.label.replace(' ', '_')
         chain = self._chain
         if opener.get("ours") and chain is not None:
+            if failure.kind == "stream_cut_after_output":
+                # Stream recovery decides first; it hands the cut over when it
+                # will not continue it (adopt_cut).
+                self._cut = {"record": record, "opener": dict(opener)}
+                self._end("stopped", "stream_cut_after_output")
+                return
             if not failure.transient:
-                self._end("stopped", f"not_transient:{failure.label.replace(' ', '_')}")
+                self._end("stopped", f"not_transient:{label}")
                 return
             delay = delay_before(chain["attempts"] + 1)
             if delay is None:
-                self._end("exhausted", f"last_error={failure.label.replace(' ', '_')}")
+                self._end("exhausted", f"last_error={label}")
                 return
             chain.update(due=self.now() + delay, error_uuid=error_uuid, submitted_at=None, delivered=False)
             self.log("INFO", f"claude_typed_resend_scheduled attempt={chain['attempts'] + 1}/{MAX_RESENDS} "
-                             f"in={delay:.0f}s error={failure.label.replace(' ', '_')} origin={chain['origin'][:8]}")
+                             f"in={delay:.0f}s error={label} origin={chain['origin'][:8]}")
             return
-        if not opener.get("typed"):
+        subject = f"origin={str(opener.get('uuid') or '-')[:8]} error={label}"
+        if failure.kind == "stream_cut_after_output":
+            self._cut = {"record": record, "opener": dict(opener)}
+            self.log("INFO", f"claude_typed_resend_deferred reason=stream_recovery_first {subject}")
             return
-        subject = f"origin={str(opener.get('uuid') or '-')[:8]} error={failure.label.replace(' ', '_')}"
         if not failure.transient:
             self.log("INFO", f"claude_typed_resend_skipped reason=not_transient {subject}")
             return
-        if opener.get("non_text"):
-            self.log("INFO", f"claude_typed_resend_skipped reason=non_text_input {subject}")
+        if opener.get("channel") and not opener.get("answered"):
+            # The channel message's own resend owns a turn that never answered.
+            self.log("INFO", f"claude_typed_resend_skipped reason=channel_input_retry {subject}")
             return
-        if not str(opener.get("text") or "").strip():
-            return
-        delay = delay_before(1)
-        self._chain = {
-            "origin": str(opener.get("uuid") or error_uuid),
-            "text": opener["text"],
-            "session_id": str(record.get("sessionId") or ""),
-            "attempts": 0,
-            "due": self.now() + float(delay or FIRST_INTERVAL_SECONDS),
-            "error_uuid": error_uuid,
-            "submitted_at": None,
-            "delivered": False,
-            "input_id": 0,
-        }
-        self.log("INFO", f"claude_typed_resend_scheduled attempt=1/{MAX_RESENDS} in={delay:.0f}s {subject}")
+        self._start(record, opener, label)
 
     def tick(self) -> dict[str, Any] | None:
         chain = self._chain

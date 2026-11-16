@@ -1,0 +1,17 @@
+Side forks spawned for receipt 7420f4f72440 (Walkie message 134499), read from the
+fork transcripts' .meta.json and records (main session feeac3ad, 2026-11-16).
+Every fork's meta: agentType fork, isFork true, model "inherit".
+
+fork a820db67  18:41:48Z -> 18:56:40Z  no model output; last record:
+  "API Error: opencode-go/deepseek-v4.1-flash-high: provider — ... [503]: Request exceeded
+   queue budget maxWaitMs"  -> work_side_fail turn_error (attempt 1)
+fork a9d5a724  19:04:05Z -> 19:08:02Z  fork prompt 474,071 characters; then
+  19:07:24Z, 19:07:35Z, 19:07:45Z "Output token limit hit. Resume directly ..." (x3)
+  19:08:02Z "API Error: Claude's response exceeded the 128000 output token maximum"
+  -> work_side_fail turn_error (attempt 2)
+fork a89ba11b  19:10:56Z -> 19:15:28Z  model deepseek-v4.1-flash, end_turn; decision
+  {action update, kind request, item_id n1953, priority P0}; usage input 183,702 /
+  output 3,634 tokens; committed 19:15:29Z, reply submitted 19:15:31Z.
+
+Before the first fork: 3 x main_compaction_pending (side_failure.compaction_waits 3),
+each retried after 30-60 s while main compacted. Received 18:33:37Z, first fork 18:41:48Z.

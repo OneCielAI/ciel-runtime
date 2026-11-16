@@ -32,6 +32,13 @@ const scenarios={
  context_budget_busy:{plain:true,usage:{tokens:180000,window:200000},spawn:false,busy:true,
   session:'0b6f6f5e-1c1d-4a52-9e8e-6a7d3f0c2b11'},
  context_room:{plain:true,usage:{tokens:20000,window:1000000},spawn:true},
+ // Room for the root, the target and the newest replies, not the whole thread.
+ // An ordinary event waits for main's compaction; P0/P1 gets the bounded
+ // thread at once (Walkie P0 134499 waited 3 compaction rounds, 2026-11-16).
+ context_partial_ordinary:{plain:true,usage:{tokens:140000,window:200000},spawn:false,
+  session:'1c2d3e4f-5a6b-4c7d-8e9f-0a1b2c3d4e5f'},
+ context_partial_p0:{plain:true,usage:{tokens:140000,window:200000},spawn:true,priority:'P0',
+  session:'2d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f6a'},
 }
 const out={}
 for (const [name,scenario] of Object.entries(scenarios)) {
@@ -50,7 +57,8 @@ for (const [name,scenario] of Object.entries(scenarios)) {
    if(server==='walkie'&&tool==='walkie_call_tool') return text(scenario.plain?page:scenario.stub)
    if(tool==='work_side_claim'){const claim=claimed?null:{receipt_id:'e'.repeat(64),generation:'10000000000000000000000000000002',text:'event',event_key:name,
     lease_until:Date.now()/1000+120,source_read:{server:'walkie',classification:'thread',conversation_id:C,root_id:'40',target_message_id:'45'},
-    source_context:'thread',route:{},workload:{version:1,truncated:false,nodes:[],queue_order:[]}};
+    source_context:'thread',route:{},workload:{version:1,truncated:false,nodes:[],queue_order:[]},
+    ...(scenario.priority?{source_priority:scenario.priority}:{})};
     claimed=true;return text(JSON.stringify({claim,settings:{max_active:2},handoff_replies:[],main_wakes:[]}))}
    if(tool==='work_side_fail')return text(JSON.stringify({receipt:{receipt_id:'e'.repeat(64)},_category:args.category,_reason:args.reason}))
    return text('{}')}},
@@ -74,6 +82,7 @@ for (const [name,scenario] of Object.entries(scenarios)) {
  out[name]={spawns:spawns.length,proof,compacts_immediate:immediate,compacts_after_turn:compacts.length,
   failure:failure?{category:failure.args.category,reason:failure.args.reason,
    ...(failure.args.retry_after_seconds?{retry_after_seconds:failure.args.retry_after_seconds}:{})}:null,
-  messages:spawns[0]?JSON.parse(spawns[0].prompt).source_message?.messages?.length:null}
+  messages:spawns[0]?JSON.parse(spawns[0].prompt).source_message?.messages?.length:null,
+  truncated:spawns[0]?JSON.parse(spawns[0].prompt).source_message?.thread_truncated===true:null}
 }
 console.log(JSON.stringify(out))

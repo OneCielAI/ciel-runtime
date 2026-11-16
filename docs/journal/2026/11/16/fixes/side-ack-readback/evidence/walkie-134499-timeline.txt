@@ -1,0 +1,24 @@
+Walkie side inbox, 2026-11-16 18:15-19:30Z, read-only. Receipt ids are 12-char prefixes; message text is not included.
+columns: received  receipt  event_type  message_id  stage  consumed  latency_s  action  delivery  failure_category  attempts  compaction_waits  external_ack
+18:17:29Z 2dc796a762e1 message.created 134453 processed 18:21:01Z 212 update submitted None None None not_sent
+18:18:26Z 70529b154ed3 agent.pending_reminder None processed 18:23:18Z 292 answer not_applicable None None None not_sent
+18:22:39Z 436ca6f6412d message.created 134464 processed 19:17:45Z 3306 answer submitted turn_error 3 0 not_sent
+18:25:45Z 387d05e0a716 message.created 134478 processed 19:17:43Z 3119 update submitting turn_error 5 2 not_sent
+18:26:12Z 4d8b2f88e1c8 message.created 134481 processed 18:38:59Z 767 answer submitted turn_error 4 0 not_sent
+18:26:29Z 202df8b51cc4 message.created 134483 processed 18:40:03Z 814 update submitted turn_error 2 0 not_sent
+18:29:44Z 30e95db24dd8 message.created 134493 processed 19:14:49Z 2705 update submitted turn_error 3 1 not_sent
+18:30:40Z 8617ac541ea5 message.approved 134494 processed 19:15:07Z 2667 answer submitted turn_error 1 0 not_sent
+18:33:37Z 7420f4f72440 message.created 134499 processed 19:15:29Z 2512 update submitted turn_error 2 3 not_sent
+18:35:48Z 8cf2857007ed message.edited 134499 processed 19:15:31Z 2382 answer duplicate_source None None None not_sent
+18:44:16Z febce78cb226 message.created 134521 processed 19:03:12Z 1137 update submitted None None None not_sent
+19:17:48Z 39bd4d39878a task.status_changed 125709 processed 19:21:31Z 223 answer submitted None None None not_sent
+19:18:36Z ae5b8c55efc3 message.approved 134592 processed 19:27:41Z 545 update submitted None None None not_sent
+19:18:38Z 81c5c48013c9 message.created 134598 processed 19:27:40Z 541 update submitted None None None not_sent
+19:21:31Z ba785d8d9196 agent.pending_reminder None processed 19:30:39Z 549 answer not_applicable None None None not_sent
+
+P0 receipt 7420f4f72440 (message 134499, thread_task priority 1 emergency true):
+ result: {'action': 'update', 'kind': 'request', 'item_id': 'n1953', 'priority': 'P0', 'p0_root_id': 'n1953', 'delivery': 'submitted', 'handoff': 'not_required'}
+ queue: {'root_id': 'n1953', 'state': 'active', 'position': 0, 'ahead': 0, 'total': 50, 'active_root': 'n1953', 'priority': 'P1', 'phase': 'executing', 'version': 6423}
+ p0: {'root_id': 'n1953', 'effective_priority': 'P0'}
+ final_text last line: n1953 갱신 · P1 · 현재 진행 중인 항목입니다.
+ side_failure before success: {'category': 'turn_error', 'attempt_count': 2, 'compaction_waits': 3}

@@ -217,7 +217,9 @@ def binding_for(config, route, original=''):
     return None
 
 
-def prepare(config, route, receipt_id, reply, kind, *, original=''):
+def prepare(config, route, receipt_id, reply, kind, *, original='', phase='final'):
+    if phase not in ('ack', 'final'):
+        raise ValueError('invalid connector reply phase')
     binding = binding_for(config, route, original)
     if binding is None:
         return None
@@ -225,8 +227,9 @@ def prepare(config, route, receipt_id, reply, kind, *, original=''):
         target = walkie_target(original)
         if target is None:
             return None
-        # A fixed client_id per receipt lets Walkie recognize a repeated send.
-        client = str(uuid.UUID(hashlib.sha256((receipt_id + ':final').encode()).hexdigest()[:32]))
+        # One fixed client_id for each phase: Walkie deduplicates a repeated ACK
+        # independently from the later processing-result reply.
+        client = str(uuid.UUID(hashlib.sha256((receipt_id + ':' + phase).encode()).hexdigest()[:32]))
         return {'server': binding['server'], 'tool': 'walkie_send_message',
                 'arguments': {'conversation_id': target['conversation_id'], 'client_id': client,
                               'reply_to_message_id': target['message_id'], 'text': reply}}

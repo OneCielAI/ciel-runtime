@@ -607,6 +607,7 @@ class SideIntakeInbox:
             'attempt_count': failure.get('attempt_count'),
             'quarantined': bool(failure.get('quarantined')),
             'handoff': result.get('handoff'),
+            'external_ack': row.get('external_ack', 'not_sent'),
             'released_waits': redact_public(result.get('released_waits') or [], string_limit=500),
             'recap': _event_recap(row.get('text')),
         }

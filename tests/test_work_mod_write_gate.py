@@ -813,6 +813,23 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(3, len(result['spawned']))
         self.assertEqual(1, result['left'])
 
+    def test_side_sends_immediate_ack_before_source_prefetch_and_fork(self):
+        row = self.run_scenario('side-immediate-ack-before-prefetch-and-fork')
+        self.assertTrue(row['ackBeforePrefetch'], row)
+        self.assertIn('work_side_ack:prepare', row['order'])
+        self.assertIn('walkie_send_message', row['order'])
+        self.assertIn('work_side_ack:submitted', row['order'])
+
+    def test_side_receipt_list_shows_message_then_metadata_on_two_lines(self):
+        row = self.run_scenario('side-receipt-list-uses-message-then-metadata-two-lines')
+        self.assertTrue(row['rows'], row)
+        self.assertIn('GitHub', row['button'])
+        self.assertIn('PR #94', row['button'])
+        self.assertNotIn('com.ciel', row['button'])
+        self.assertNotIn('message.created', row['button'])
+        self.assertIn('com.ciel.walkie.support.message', row['meta'])
+        self.assertIn('message.created', row['meta'])
+
     def test_redacted_main_status_does_not_erase_host_side_pane(self):
         result = self.run_scenario('side-receipt-redacted-refresh')
         pane = json.dumps(result['pane'])

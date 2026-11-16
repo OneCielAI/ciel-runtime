@@ -31,5 +31,6 @@ const plain = eventView('plain question\nsecond line')
 console.log(JSON.stringify({
   nodes: value.claim.workload.nodes.length, pageCalls: calls.filter(c => c.tool === 'work_host_page').length,
   tokenSent: calls.every(c => c.hasToken), notJson, mismatch,
-  summary: view.summary, lines: view.lines, plainSummary: plain.summary, plainLines: plain.lines,
+  summary: view.summary, meta: view.meta, message: view.message, lines: view.lines,
+  plainSummary: plain.summary, plainMeta: plain.meta, plainMessage: plain.message, plainLines: plain.lines,
 }))

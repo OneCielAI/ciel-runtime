@@ -7,7 +7,7 @@ from .work_plan_tree import WorkPlanError
 from .channel_message_repository import exclusive_file_lock
 
 NATIVE_FORK_FINGERPRINT = 'native-fork'
-NAMES = ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_code_read', 'work_side_code_search')
+NAMES = ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_ack', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_code_read', 'work_side_code_search')
 
 
 def schemas():
@@ -39,7 +39,10 @@ def schemas():
          'inputSchema':{'type':'object','properties':{'receipt_ids':{'type':'array','items':{'type':'string'},'uniqueItems':True,
              'minItems':1,'maxItems':50},'verdict':{'type':'string','enum':['ok','corrected']},'note':{'type':'string','maxLength':2000},
              'expected_version':{'type':'integer','minimum':0}},'required':['receipt_ids','verdict','expected_version']}},
-        {'name': 'work_side_reply', 'description': 'Host-only prepare or record a correlated side reply; submission is not proof of human delivery.',
+        {'name': 'work_side_ack', 'description': 'Host-only prepare or record the immediate ACK/readback sent before side processing.',
+         'inputSchema': {'type': 'object', 'properties': {'receipt_id': {'type': 'string'},
+             'state': {'type': 'string', 'enum': ['prepare', 'submitted', 'uncertain', 'failed']}}, 'required': ['receipt_id', 'state']}},
+        {'name': 'work_side_reply', 'description': 'Host-only prepare or record a correlated side processing-result reply; submission is not proof of human delivery.',
          'inputSchema': {'type': 'object', 'properties': {'receipt_id': {'type': 'string'},
              'state': {'type': 'string', 'enum': ['prepare', 'submitted', 'uncertain', 'failed']}}, 'required': ['receipt_id', 'state']}},
         {'name': 'work_side_wake', 'description': 'Host-only prepare or record one durable main wake attempt, '
@@ -214,6 +217,26 @@ def _activate_side_p0(store, identity, receipt_id, root_id):
         return {'root_id': root_id, 'error': (type(error).__name__ + ': ' + str(error))[:300]}
 
 
+def _p0_readback(result):
+    """The reply's last line states the P0 the host activated, or why it did not.
+
+    The board stores P0 as canonical P1, so the committed outcome line read
+    "P1" (Walkie 134499, 2026-11-16) even though P0 was active.
+    """
+    from .side_work_decision import outcome_text
+    text = result.get('final_text')
+    if not isinstance(text, str):
+        return
+    line = outcome_text(result)
+    if not text.endswith(line):
+        return
+    p0 = result.get('p0') or {}
+    if p0.get('effective_priority') == 'P0':
+        result['final_text'] = text[:-len(line)] + outcome_text(result, priority='P0')
+    elif p0.get('error'):
+        result['final_text'] = text + '\nP0 적용 실패: ' + str(p0['error'])[:200]
+
+
 def _person_retry_host(host):
     """A possibly duplicate re-issue that a person confirmed in the host UI.
 
@@ -298,6 +321,12 @@ def run(name, args, config, state_dir, identity, store):
         from .side_review import review
         return review(store, args.get('receipt_ids'), verdict=args.get('verdict'),
                       note=args.get('note', ''), expected_version=args.get('expected_version'))
+    if name == 'work_side_ack':
+        from .side_ack_outbox import prepare, record
+        if args.get('state') == 'prepare':
+            return prepare(state_dir, identity, args.get('receipt_id'), config=config)
+        return {'receipt': record(state_dir, identity, args.get('receipt_id'), args.get('state'),
+                                  attempt_id=host.get('attempt_id'))}
     if name == 'work_side_reply':
         from .side_reply_outbox import prepare, record
         if args.get('state') == 'prepare':
@@ -494,6 +523,7 @@ def run(name, args, config, state_dir, identity, store):
             # After the board commit. The operation id comes from the receipt,
             # so a duplicate replay rolls the same activation forward once.
             result['p0'] = _activate_side_p0(store, identity, key, result['p0_root_id'])
+            _p0_readback(result)
         if changed is None and result.get('wait_boost') and ledger_path is not None:
             # After the board commit; a duplicate replay recreates a missing row.
             result['wait_boost_record'] = _record_wait_boost(ledger_path, identity, key, result)

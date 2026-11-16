@@ -58,6 +58,20 @@ CODEX_TOOL_ITEM_TYPES = frozenset({
     "imageGeneration",
 })
 CLAUDE_TRANSIENT_ERRORS = frozenset({"server_error", "overloaded_error", "api_error", "timeout_error"})
+# Transport failures Claude Code records as error "unknown" with no HTTP status
+# (main-thread census 2026-11-08..16; each ended a turn a person then had to
+# continue by typing "계속"). Only these exact openings: "terminated" is the
+# fetch abort of a closed connection; the others are written by this router
+# (streaming_anthropic.report_incomplete_stream, transient_retry
+# _preoutput_bound_reached) or relayed from a gateway error frame
+# (test_transient_retry_tolerant_frames).
+CLAUDE_TRANSPORT_FAILURE_TEXTS = (
+    "API Error: terminated",
+    "API Error: Upstream Anthropic stream failed before message_stop (",
+    "API Error: Ciel Runtime failed to relay the Anthropic stream (",
+    "API Error: Ciel Runtime stopped waiting for the first upstream output",
+    "API Error: Gateway response stream was interrupted",
+)
 _UNEXPECTED_STATUS = re.compile(r"^unexpected status (\d{3})\b")
 
 
@@ -159,7 +173,20 @@ def classify_claude_api_error(record: dict[str, Any]) -> TurnFailure:
         return TurnFailure(error, http_status, record.get("apiErrorIsTransient") is True)
     if error in CLAUDE_TRANSIENT_ERRORS:
         return TurnFailure(error, http_status, http_status is None or http_status in TRANSIENT_HTTP_STATUSES)
+    if http_status is None and error == "unknown" and _record_text(record).startswith(CLAUDE_TRANSPORT_FAILURE_TEXTS):
+        return TurnFailure("transport_interrupted", None, True)
     return TurnFailure(error, http_status, http_status in TRANSIENT_HTTP_STATUSES)
+
+
+def _record_text(record: dict[str, Any]) -> str:
+    message = record.get("message")
+    content = message.get("content") if isinstance(message, dict) else None
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list) and len(content) == 1 and isinstance(content[0], dict):
+        text = content[0].get("text")
+        return text if content[0].get("type") == "text" and isinstance(text, str) else ""
+    return ""
 
 
 def encode_failed_state(failure: TurnFailure, at_epoch: float | None = None) -> str:

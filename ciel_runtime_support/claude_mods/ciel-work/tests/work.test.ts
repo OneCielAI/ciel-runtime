@@ -3,6 +3,7 @@ const T = 'mcp__ciel-runtime-router__'
 const HOST_REPLIES = {
   work_parallel_status: { version: 1, active_device: 0, leases: {}, policy: { max_active: 5, p1_reserved: 1 } },
   work_side_claim: { claim: null, settings: {}, handoff_replies: [] },
+  work_side_ack: { state: 'not_applicable' },
   work_side_status: { side_inbox_receipts: [] },
   // The fork-gate presence report is display-only; its reply is not read.
   work_parallel_event: { recorded: true },

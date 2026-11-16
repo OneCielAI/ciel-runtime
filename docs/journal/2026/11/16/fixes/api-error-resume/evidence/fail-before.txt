@@ -1,0 +1,25 @@
+ERROR: test_a_later_failure_after_progress_starts_a_new_chain (test_claude_typed_turn_resend.TypedTurnResendTests.test_a_later_failure_after_progress_starts_a_new_chain)
+ERROR: test_channel_turn_that_already_answered_is_resumed_here (test_claude_typed_turn_resend.TypedTurnResendTests.test_channel_turn_that_already_answered_is_resumed_here)
+ERROR: test_image_input_resumes_with_the_continuation_line_not_text_only (test_claude_typed_turn_resend.TypedTurnResendTests.test_image_input_resumes_with_the_continuation_line_not_text_only)
+ERROR: test_router_and_fetch_transport_failures_are_transient (test_claude_typed_turn_resend.TypedTurnResendTests.test_router_and_fetch_transport_failures_are_transient) (text='API Error: terminated')
+ERROR: test_router_and_fetch_transport_failures_are_transient (test_claude_typed_turn_resend.TypedTurnResendTests.test_router_and_fetch_transport_failures_are_transient) (text='API Error: Upstream Anthropic stream failed before message_stop (TimeoutError).')
+ERROR: test_router_and_fetch_transport_failures_are_transient (test_claude_typed_turn_resend.TypedTurnResendTests.test_router_and_fetch_transport_failures_are_transient) (text='API Error: Upstream Anthropic stream failed before message_stop (IncompleteRead).')
+ERROR: test_router_and_fetch_transport_failures_are_transient (test_claude_typed_turn_resend.TypedTurnResendTests.test_router_and_fetch_transport_failures_are_transient) (text='API Error: Ciel Runtime stopped waiting for the first upstream output: the router pre-output time limit (540s since the request arrived) was reached (0 retries).')
+ERROR: test_router_and_fetch_transport_failures_are_transient (test_claude_typed_turn_resend.TypedTurnResendTests.test_router_and_fetch_transport_failures_are_transient) (text='API Error: Gateway response stream was interrupted')
+ERROR: test_stream_cut_is_adopted_only_when_handed_over (test_claude_typed_turn_resend.TypedTurnResendTests.test_stream_cut_is_adopted_only_when_handed_over)
+ERROR: test_the_resends_own_queue_entry_does_not_cancel_the_chain (test_claude_typed_turn_resend.TypedTurnResendTests.test_the_resends_own_queue_entry_does_not_cancel_the_chain)
+ERROR: test_untyped_turns_resume_with_the_continuation_line (test_claude_typed_turn_resend.TypedTurnResendTests.test_untyped_turns_resume_with_the_continuation_line) (opener={'type': 'user', 'uuid': 'p', 'isMeta': True, 'origin': {'kind': 'peer'}, 'message': {'content': 'peer input'}})
+ERROR: test_untyped_turns_resume_with_the_continuation_line (test_claude_typed_turn_resend.TypedTurnResendTests.test_untyped_turns_resume_with_the_continuation_line) (opener={'type': 'user', 'uuid': 't', 'sessionId': 'b43eb527-ba34-40d8-9ee5-c2fbc0add1fa', 'message': {'role': 'user', 'content': '<task-notification> <task-id>b1</task-id>'}})
+ERROR: test_untyped_turns_resume_with_the_continuation_line (test_claude_typed_turn_resend.TypedTurnResendTests.test_untyped_turns_resume_with_the_continuation_line) (opener={'type': 'user', 'uuid': 's', 'sessionId': 'b43eb527-ba34-40d8-9ee5-c2fbc0add1fa', 'message': {'role': 'user', 'content': 'This session is being continued from a previous conversation'}})
+FAIL: test_a_cut_with_a_tool_block_is_handed_to_the_api_error_resend (test_claude_stream_recovery_runtime.StreamRecoveryRuntimeTests.test_a_cut_with_a_tool_block_is_handed_to_the_api_error_resend)
+RAN 49 failures=1 errors=13 skipped=0
+  File "<tmp>\tests\test_side_ack_outbox.py", line 7, in <module>
+    from ciel_runtime_support.side_ack_outbox import prepare, record
+ModuleNotFoundError: No module named 'ciel_runtime_support.side_ack_outbox'
+ERROR: test_paged_host_results_reassemble_and_events_render_interpreted (test_side_intake_mod.SideModTests.test_paged_host_results_reassemble_and_events_render_interpreted)
+FAIL: test_persisted_mcp_result_context_budget_and_spawn_proof (test_side_intake_mod.SideModTests.test_persisted_mcp_result_context_budget_and_spawn_proof)
+FAIL: test_host_only_side_tools_are_refused_to_main_and_workers_and_reach_nothing (test_work_mod_write_gate.WorkModWriteGateTests.test_host_only_side_tools_are_refused_to_main_and_workers_and_reach_nothing) (tool='work_side_ack')
+FAIL: test_host_only_side_tools_are_refused_to_main_and_workers_and_reach_nothing (test_work_mod_write_gate.WorkModWriteGateTests.test_host_only_side_tools_are_refused_to_main_and_workers_and_reach_nothing) (tool='work_side_ack')
+FAIL: test_side_receipt_list_shows_message_then_metadata_on_two_lines (test_work_mod_write_gate.WorkModWriteGateTests.test_side_receipt_list_shows_message_then_metadata_on_two_lines)
+FAIL: test_side_sends_immediate_ack_before_source_prefetch_and_fork (test_work_mod_write_gate.WorkModWriteGateTests.test_side_sends_immediate_ack_before_source_prefetch_and_fork)
+RAN 201 failures=5 errors=1 skipped=0

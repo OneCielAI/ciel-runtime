@@ -1,0 +1,25 @@
+2026-11-16T00:07:24 [INFO] claude_stream_recovery_failure_recorded session=<id> message=<id> reason=anthropic_stream_upstream_error:TimeoutError eligible=False excluded=tool_use_seen
+2026-11-16T00:07:25 [INFO] claude_typed_resend_skipped reason=not_transient origin=b4a86789 error=stream_cut_after_output
+2026-11-16T00:07:30 [INFO] claude_stream_recovery_skipped reason=tool_use_seen message=<id>
+2026-11-16T00:16:14 [INFO] claude_typed_resend_skipped reason=not_transient origin=885a07ab error=unknown
+2026-11-16T00:16:15 [INFO] claude_typed_resend_skipped reason=not_transient origin=c8487e36 error=unknown
+2026-11-16T01:58:06 [INFO] claude_stream_recovery_failure_recorded session=<id> message=<id> reason=anthropic_stream_upstream_error_event eligible=False excluded=tool_use_seen
+2026-11-16T01:58:07 [INFO] claude_typed_resend_skipped reason=not_transient origin=4bade5df error=stream_cut_after_output
+2026-11-16T01:58:12 [INFO] claude_stream_recovery_skipped reason=manual_input error=<id>
+2026-11-16T02:12:27 [INFO] claude_stream_recovery_failure_recorded session=<id> message=<id> reason=anthropic_stream_upstream_error_event eligible=False excluded=tool_use_seen
+2026-11-16T02:12:28 [INFO] claude_typed_resend_skipped reason=not_transient origin=a287bf16 error=unknown
+2026-11-16T02:15:02 [INFO] claude_typed_resend_skipped reason=not_transient origin=c9bb1316 error=unknown
+2026-11-16T11:38:39 [INFO] claude_typed_resend_skipped reason=non_text_input origin=f20529eb error=server_error_503
+2026-11-16T11:42:10 [INFO] claude_typed_resend_scheduled attempt=1/20 in=60s origin=8ec7728a error=server_error_503
+2026-11-16T11:43:10 [INFO] claude_typed_resend_admitted session=<id> attempt=1/20 origin=8ec7728a error=5c76728d input_id=1
+2026-11-16T11:43:12 [INFO] claude_typed_resend_cancelled reason=queued_input attempts=1/20 origin=8ec7728a error=5c76728d
+2026-11-16T11:53:57 [INFO] claude_stream_recovery_skipped reason=compact_no_observed_task checkpoint=09a0f993-773c-4ccc-bcbc-31bcc949ec8d
+2026-11-16T12:48:18 [INFO] claude_stream_recovery_skipped reason=compact_no_observed_task checkpoint=4a496308-5df9-43c8-9034-e2f279daffdf
+2026-11-16T13:02:25 [INFO] claude_stream_recovery_failure_recorded session=<id> message=<id> reason=anthropic_stream_upstream_error_event eligible=False excluded=nothing_shown
+2026-11-16T13:02:25 [INFO] claude_typed_resend_skipped reason=not_transient origin=ca1afa8b error=unknown
+2026-11-16T13:02:57 [INFO] claude_stream_recovery_failure_recorded session=<id> message=<id> reason=anthropic_stream_upstream_error_event eligible=False excluded=tool_use_seen
+2026-11-16T13:06:15 [INFO] claude_stream_recovery_skipped reason=compact_not_auto checkpoint=87877018-ac6e-4ff5-9682-14488bde6eac
+2026-11-16T13:06:15 [INFO] claude_typed_resend_skipped reason=not_transient origin=d79ae1d3 error=unknown
+2026-11-16T13:20:03 [INFO] claude_typed_resend_scheduled attempt=1/20 in=60s origin=a8ab1b51 error=server_error
+2026-11-16T13:20:21 [INFO] claude_typed_resend_cancelled reason=new_input attempts=0/20 origin=a8ab1b51 error=62a128ca
+2026-11-16T13:25:27 [INFO] claude_stream_recovery_skipped reason=compact_no_observed_task checkpoint=0474c336-e525-4848-a902-9dba54898a51

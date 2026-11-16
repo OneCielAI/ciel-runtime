@@ -216,14 +216,20 @@ def validate(decision):
     return decision
 
 
-def outcome_text(result):
-    """The host-owned last line of the source reply, from committed state only."""
+def outcome_text(result, priority=None):
+    """The host-owned last line of the source reply, from committed state only.
+
+    ``priority`` is the effective priority when it differs from the canonical
+    board value: an activated P0 is stored as P1 (Walkie 134499, 2026-11-16:
+    the reply read "P1" for a P0 the host had just activated).
+    """
 
     if result['action'] in ('answer', 'clarify'):
         return NO_QUEUE
     queue = result.get('queue') or {}
     verb = '등록' if result['action'] == 'create' else '갱신'
-    head = f"{result['item_id']} {verb}" + (f" · {queue['priority']}" if queue.get('priority') else '')
+    shown = priority or queue.get('priority')
+    head = f"{result['item_id']} {verb}" + (f" · {shown}" if shown else '')
     if queue.get('state') == 'active':
         return head + ' · 현재 진행 중인 항목입니다.'
     if queue.get('state') == 'queued':

@@ -163,7 +163,29 @@ class StreamRecoveryRuntimeTests(unittest.TestCase):
             with self.subTest(index=index):
                 self.assertIsNone(self.h.fail_and_report(failure=failure, message_id=f"t{index}", error_uuid=f"te{index}"))
         self.assertEqual([], self.h.submitted)
-        self.assertEqual(5, sum("reason=tool_use_seen" in line for line in self.h.logs))
+        self.assertEqual(5, sum("claude_stream_recovery_skipped reason=tool_use_seen" in line for line in self.h.logs))
+
+    def test_a_cut_with_a_tool_block_is_handed_to_the_api_error_resend(self):
+        # id400 2026-11-16 06:07Z: "Server error mid-response" after a tool
+        # block; stream recovery skipped tool_use_seen and a person typed "계속".
+        h = self.h
+        self.assertIsNone(h.fail_and_report(failure=metadata(saw_tool_use=True, tool_uncertain=True), prompt="계속"))
+        self.assertTrue(any("claude_stream_recovery_handed_to_resend reason=tool_use_seen" in line for line in h.logs))
+        self.assertEqual([], h.submitted)
+        h.clock.value += 60
+        h.monitor.tick()
+        self.assertEqual(1, len(h.submitted))
+        self.assertTrue(h.submitted[0]["message"].endswith("\n\n계속"))
+
+    def test_plan_mode_or_a_person_typing_is_not_handed_over(self):
+        h = self.h
+        h.terminal = {**h.terminal, "manual_input": True}
+        self.assertIsNone(h.fail_and_report(failure=metadata(saw_tool_use=True, tool_uncertain=True)))
+        h.terminal = {**h.terminal, "manual_input": False}
+        h.clock.value += 120
+        h.monitor.tick()
+        self.assertEqual([], h.submitted)
+        self.assertFalse(any("handed_to_resend" in line for line in h.logs))
 
     def test_nothing_shown_relay_or_client_failures_are_not_continued(self):
         cases = [

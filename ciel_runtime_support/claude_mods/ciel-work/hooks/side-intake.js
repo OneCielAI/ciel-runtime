@@ -358,8 +358,10 @@ export function eventView(original) {
   const raw = String(original || '')
   let value = null
   try { value = JSON.parse(raw) } catch {}
-  if (!value || typeof value !== 'object' || Array.isArray(value))
-    return {summary: line(raw), lines: raw.split('\n').slice(0, 40)}
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    const message = line(raw)
+    return {summary: message, meta: '', message, lines: raw.split('\n').slice(0, 40)}
+  }
   const data = value.data && typeof value.data === 'object' && !Array.isArray(value.data) ? value.data : null
   const body = data || value
   const text = [body.text, body.message, body.payload?.text, value.text, value.message]
@@ -378,7 +380,9 @@ export function eventView(original) {
   const pretty = JSON.stringify(redacted(fields), null, 2).split('\n')
   lines.push('Fields:', ...pretty.slice(0, 24).map(row => '  ' + row),
     ...(pretty.length > 24 ? ['  … ' + (pretty.length - 24) + ' more lines'] : []))
-  return {summary: (kind ? '[' + kind + '] ' : '') + (text ? line(text, 260) : line(raw, 200)), lines}
+  const message = text ? line(text, 260) : line(raw, 200)
+  return {summary: (kind ? '[' + kind + '] ' : '') + message,
+    meta: kind ? '[' + kind + ']' : '', message, lines}
 }
 function display($,identity,snapshot) {
   for (const row of snapshot.side_inbox_receipts || []) {
@@ -1614,6 +1618,11 @@ export async function pollSide($, identity) {
     // or native spawn; the claimed-error path below records processing_error.
     if (typeof event.generation !== 'string' || !CLAIM_GENERATION.test(event.generation))
       throw new Error('invalid_claim_generation')
+    // ACK/readback does not wait for priority, context, compaction or AI. A
+    // failure keeps the processing path alive; the receipt shows its state.
+    try { await submitAck($,identity,event) } catch (error) {
+      try { $.ui.log('Ciel side: immediate ACK failed for '+event.receipt_id.slice(0,12)+' · '+line(error?.message || error,160)) } catch {}
+    }
     const settings = answer.settings || {}
     maxActive = Number.isInteger(settings.max_active) ? Math.max(1,Math.min(16,settings.max_active)) : 2
     // Host claim attaches one complete, versioned board projection. The native
@@ -1628,12 +1637,16 @@ export async function pollSide($, identity) {
     // Walkie requires an exact bounded verified thread before any spawn. An
     // event that references no message is explicitly marked none_referenced.
     let sourceMessage
+    // P0/P1 (the urgent claim lane) never wait for main's compaction when the
+    // newest thread fits: Walkie P0 134499 (2026-11-16) waited 3 compaction
+    // rounds, about 30 of its 42 minutes, before any fork started.
+    const urgent = event.source_priority === 'P0' || event.source_priority === 'P1'
     try { sourceMessage = await fetchSourceMessage($,event.source_read,event) } catch (error) {
       // A thread that does not fit main's remaining context waits for one
       // compaction of main first (catch below). Past that, or past the static
-      // limit, the fork gets a bounded thread instead of a quarantine.
+      // limit, or for an urgent event, the fork gets a bounded thread instead.
       if (!(error instanceof SourcePrefetchError) || typeof error.bound !== 'function'
-          || (error.mainContext && !compactionRecent(identity))) throw error
+          || (error.mainContext && !urgent && !compactionRecent(identity))) throw error
       sourceMessage = error.bound()
       try { $.ui.log('Ciel side: source thread too large for '+event.receipt_id.slice(0,12)
         +'; '+sourceMessage.omitted_replies+' older replies left out') } catch {}
@@ -1721,6 +1734,25 @@ export function sideSpawnInput(e,next) {
 // the user's choice, and no hook enforces it. The host remains the only code
 // path that commits the side decision and sends the outbox reply.
 export async function sideTool($,e,next) { return null }
+// Immediate ACK/readback is the host's first durable action for an external
+// event: before source prefetch, main compaction, model choice or a fork.
+// It has its own outbox and Walkie client_id, so the later processing reply
+// still sends exactly once and an uncertain ACK is never blindly resent.
+async function submitAck($,identity,event) {
+  const prepared = await callRouter($,'work_side_ack',{receipt_id:event.receipt_id,state:'prepare'},{},identity)
+  if (!prepared.arguments) {
+    if (prepared.receipt) display($,identity,{side_inbox_receipts:[prepared.receipt]})
+    return prepared.state
+  }
+  let state = 'uncertain'
+  try {
+    const sent = await $.mcp.call(prepared.server,prepared.tool,prepared.arguments)
+    state = sent && !sent.isError ? 'submitted' : 'failed'
+  } catch { /* A remote send may have happened; record uncertain, never resend. */ }
+  const update = await callRouter($,'work_side_ack',{receipt_id:event.receipt_id,state},{attempt_id:prepared.attempt_id},identity)
+  if (update.receipt) display($,identity,{side_inbox_receipts:[update.receipt]})
+  return state
+}
 async function submitReply($,actor,event) {
   const prepared = await callRouter($,'work_side_reply',{receipt_id:event.receipt_id,state:'prepare'},{},actor.identity)
   if (!prepared.arguments) {

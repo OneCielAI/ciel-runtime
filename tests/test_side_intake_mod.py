@@ -236,6 +236,13 @@ class SideModTests(unittest.TestCase):
         self.assertEqual((0,0,1),(busy['spawns'],busy['compacts_immediate'],busy['compacts_after_turn']))
         self.assertEqual(('main_compaction_pending',60),(busy['failure']['category'],busy['failure']['retry_after_seconds']))
         self.assertEqual((1,0),(row['context_room']['spawns'],row['context_room']['compacts_after_turn']))
+        # Partial room: an ordinary event waits for main's compaction; a P0
+        # event starts its fork at once with the newest replies that fit.
+        ordinary=row['context_partial_ordinary']
+        self.assertEqual((0,'main_compaction_pending'),(ordinary['spawns'],ordinary['failure']['category']))
+        urgent=row['context_partial_p0']
+        self.assertEqual((1,None,True),(urgent['spawns'],urgent['failure'],urgent['truncated']))
+        self.assertEqual(0,urgent['compacts_after_turn'])
         proof={p['label']:p['result'] for p in row['persisted_ok']['proof']}
         self.assertEqual({'not_fork':'deny','named':'deny','subagent':'deny','wrong_type':'deny',
                           'other_plugin':'deny','unrelated':None,'exact':'authorized'},proof)
@@ -952,6 +959,10 @@ class SideModTests(unittest.TestCase):
         self.assertIn('work_side_claim: router did not return JSON: Error: result',row['notJson'])
         self.assertIn('digest mismatch',row['mismatch'])
         self.assertEqual('[com.ciel.walkie.support.message · agent.pending_reminder] 첫 줄 둘째 줄',row['summary'])
+        self.assertEqual('[com.ciel.walkie.support.message · agent.pending_reminder]', row['meta'])
+        self.assertEqual('첫 줄 둘째 줄', row['message'])
+        self.assertEqual('', row['plainMeta'])
+        self.assertEqual('plain question second line', row['plainMessage'])
         rendered='\n'.join(row['lines'])
         self.assertIn('Text:\n  첫 줄\n  둘째 줄',rendered)
         self.assertIn('"activity_context": "‹hidden 344 chars›"',rendered)

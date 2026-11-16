@@ -2257,7 +2257,7 @@ function parallelLeaseBlocksTarget(state, target) {
 // person confirmed in the Side pane). Main and worker calls are refused here.
 // The router also refuses them without the host token (model_side_tool_probe).
 const HOST_ONLY_SIDE_TOOLS = new Set(['work_side_wake', 'work_side_fail', 'work_side_fallback', 'work_side_renew',
-  'work_side_reply', 'work_side_claim', 'work_side_retry_reply', 'work_side_gate_check'].map(tool => PREFIX + tool))
+  'work_side_ack', 'work_side_reply', 'work_side_claim', 'work_side_retry_reply', 'work_side_gate_check'].map(tool => PREFIX + tool))
 async function parallelToolCall($, e, next) {
   if (next.origin?.plugin === 'ciel-work' && (e.tool === PREFIX+'send_message' || e.tool.startsWith(PREFIX+'work_side_'))) return next(e)
   if (HOST_ONLY_SIDE_TOOLS.has(e.tool))
@@ -4236,11 +4236,22 @@ export function register(on) {
     const selected = recent.find(r => (r.receipt_id || r.item_id) === sidePaneView.receipt) || recent[0]
     const key = selected ? (selected.receipt_id || selected.item_id) : null
     const stageOf = r => r.result ? (r.result.delivery || 'decided') : r.processing ? 'processing' : (r.stage || 'received')
-    const list = recent.map(r => {
+    const list = recent.flatMap(r => {
       const id = r.receipt_id || r.item_id
-      return Button({ key: 'side-row-' + id, plain: true, label: cellClipped((id === key ? '▸ ' : '  ') + stageOf(r).padEnd(17)
-        + eventView(r.original || r.recap || '').summary, width - 4),
-      onPress: () => { sidePaneView = { receipt: id, page: 0 }; $.ui.invalidate('ui.render') } })
+      const view = eventView(r.original || r.recap || '')
+      // Keep CloudEvent metadata off the message row. On a 100-column pane the
+      // old "[com.ciel… · message.created] message" used the whole line before
+      // the person's text. Two fixed-height rows keep both metadata and message
+      // visible; plain events keep the established one-row layout.
+      const select = () => { sidePaneView = { receipt: id, page: 0 }; $.ui.invalidate('ui.render') }
+      if (!view.meta) return [Button({ key: 'side-row-' + id, plain: true,
+        label: cellClipped((id === key ? '▸ ' : '  ') + stageOf(r).padEnd(17) + view.message, width - 4),
+        onPress: select })]
+      return [Button({ key: 'side-row-' + id, plain: true,
+        label: cellClipped((id === key ? '▸ ' : '  ') + stageOf(r).padEnd(17) + view.message, width - 4),
+        onPress: select }),
+      Text({ key: 'side-meta-' + id, wrap: 'truncate-end', color: 'secondary',
+        children: cellClipped('    ' + view.meta, width - 4) })]
     })
     const detail = []
     if (selected) {

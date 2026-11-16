@@ -398,6 +398,27 @@ class SideMcpTests(unittest.TestCase):
         root = next(node for node in store.read()['nodes'] if node['id'] == item)
         self.assertEqual(('P1', 'P0'), (root['priority'], p0_store(ledger).effective_priority(self.identity, root)))
         self.assertEqual(('P0', 'not_required'), (data['priority'], data['handoff']))
+        # Walkie 134499 (2026-11-16): the reply's last line read "P1" for the
+        # P0 just activated. The readback states the effective priority.
+        self.assertIn(item + ' 갱신 · P0 ·', data['final_text'])
+        self.assertNotIn(' · P1 ', data['final_text'])
+
+    def test_side_p0_activation_failure_is_stated_in_the_reply(self):
+        from unittest.mock import patch
+        from ciel_runtime_support import work_plan_tree as tree
+        store = session_work_plan_store(self.root, self.identity)
+        store.transaction(lambda doc: tree.add_node(doc, None, 'active', priority='P3'))
+        store.transaction(lambda doc: tree.add_node(doc, None, 'queued fix', priority='P3'))
+        item = next(node['id'] for node in store.read()['nodes'] if node['title'] == 'queued fix')
+        event = self._claim()
+        host = {'token': 'x'*40, 'receipt_id': event['receipt_id'], 'generation': event['generation']}
+        args = {'decision': {'action': 'prioritize', 'kind': 'request', 'item_id': item,
+                             'summary': 'raised to P0', 'reply': 'Raised', 'priority': 'P0'},
+                'expected_version': store.read()['version']}
+        with patch('ciel_runtime_support.side_intake_mcp._activate_side_p0',
+                   return_value={'root_id': item, 'error': 'ledger unavailable'}):
+            data = json.loads(self.invoke('work_side_resolve', args, host)['text'])['result']
+        self.assertTrue(data['final_text'].endswith('\nP0 적용 실패: ledger unavailable'), data['final_text'])
 
     def test_refused_answer_keeps_its_reason_and_is_never_replayed(self):
         event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']

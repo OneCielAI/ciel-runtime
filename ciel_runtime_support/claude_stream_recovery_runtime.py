@@ -440,6 +440,12 @@ class ClaudeStreamRecoveryMonitor:
     def _skip(self, pending: dict[str, Any], reason: str, subject: str) -> None:
         self.log("INFO", f"claude_stream_recovery_skipped reason={reason} {subject}")
         self.ledger.note(pending["error_uuid"], "skipped", reason)
+        # A cut this recovery will not continue (a tool block, nothing shown, a
+        # busy terminal) is resumed by the API-error resend instead; deliberate
+        # stops (plan mode, a person typing, newer input, disabled) stay stops.
+        if pending.get("kind") != "compact_resume" and pending.get("message_id") is not None:
+            if self.resend.adopt_cut(pending["error_uuid"], reason):
+                self.log("INFO", f"claude_stream_recovery_handed_to_resend reason={reason} {subject}")
 
     def _runtime_compact_owned(self, record: dict[str, Any], *, pending: bool = False) -> bool:
         """Only confirmed automatic dispatch, never a transported manual command."""
@@ -573,6 +579,11 @@ class ClaudeStreamRecoveryMonitor:
         self._cancel("superseded_error")
         error_uuid = str(record.get("uuid") or "")
         message_id = self._assistant_ids.get(str(record.get("parentUuid") or ""), "")
+        if record.get("truncatedAfterOutput") is True and error_uuid and not message_id and self._plan_mode is False:
+            # No upstream message to match: this recovery cannot continue it.
+            if self.resend.adopt_cut(error_uuid, "no_router_failure"):
+                self.log("INFO", f"claude_stream_recovery_handed_to_resend reason=no_router_failure error={error_uuid}")
+            return
         if record.get("truncatedAfterOutput") is not True or not error_uuid or not message_id:
             return
         if self._plan_mode is not False:

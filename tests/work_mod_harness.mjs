@@ -595,6 +595,43 @@ const scenarios = {
     await timers.find(t => t.delay === 2000).callback()
     return { routed, observed }
   },
+  // User requirement 2026-11-16: every external event gets ACK/readback first,
+  // then processing and a separate processing-result reply. The ACK must not
+  // wait for source prefetch, main compaction or a side fork.
+  async 'side-immediate-ack-before-prefetch-and-fork'() {
+    const id = 'a'.repeat(64)
+    const order = []
+    let claimed = false
+    const { $ } = host(async (tool, args) => {
+      order.push(tool + (args?.state ? ':' + args.state : ''))
+      if (tool === 'work_status') return text({ ...snapshot(), side_intake_enabled:true })
+      if (tool === 'work_side_status') return text({ enabled:true, side_inbox_receipts:[] })
+      if (tool === 'work_side_claim') {
+        if (claimed) return text({ claim:null, settings:{ max_active:1 } })
+        claimed = true
+        return text({ claim:{ receipt_id:id, generation:'10000000000000000000000000000009', text:'{"type":"com.ciel.walkie.support.message"}',
+          route:{ source_kind:'external_event' }, lease_until:Date.now() / 1000 + 600,
+          source_read:{ server:'walkie', classification:'thread', conversation_id:'34886995-4a66-4527-a618-814e9cb0a5bf', root_id:'1', target_message_id:'1' },
+          workload:{ version:5, truncated:false, nodes:[], queue_order:[] } }, settings:{ max_active:1 } })
+      }
+      if (tool === 'work_side_ack' && args.state === 'prepare')
+        return text({ state:'submitting', receipt_id:id, attempt_id:'ack-attempt', server:'walkie', tool:'walkie_send_message',
+          arguments:{ conversation_id:'c', client_id:'ack-client', reply_to_message_id:'1', text:'ACK — 요청을 받았습니다.\n\n복기: priority' } })
+      if (tool === 'work_side_ack') return text({ receipt:{ receipt_id:id, stage:'received', external_ack:args.state } })
+      if (tool === 'walkie_send_message') return text({ ok:true })
+      if (tool === 'walkie_get_thread' || tool === 'walkie_read_thread' || String(tool).startsWith('walkie_'))
+        throw new Error('source prefetch reached after ACK')
+      return text({})
+    })
+    $.agent.spawn = async () => { order.push('spawn'); return { agentId:'side-ack-fork' } }
+    await sidePump($)
+    const ack = order.indexOf('work_side_ack:prepare')
+    const sent = order.indexOf('walkie_send_message')
+    const recorded = order.indexOf('work_side_ack:submitted')
+    const prefetch = order.findIndex(row => row.startsWith('walkie_') && row !== 'walkie_send_message')
+    return { order, ackBeforePrefetch:ack >= 0 && sent > ack && recorded > sent && (prefetch < 0 || recorded < prefetch),
+      spawned:order.includes('spawn') }
+  },
   // A spawn claiming the pending side identity but failing the fork proof is
   // denied before any Work policy read: parallel on, off or unavailable.
   async 'side-failed-proof-denied'() {
@@ -1747,6 +1784,24 @@ const scenarios = {
     const { $ } = host(async () => text(ready))
     const result = await handlers['classic.Stop']($, { session_id: 'S1' }, next({}))
     return { text: result?.block || '' }
+  },
+  async 'side-receipt-list-uses-message-then-metadata-two-lines'() {
+    const original = JSON.stringify({ specversion:'1.0', type:'com.ciel.walkie.support.message',
+      data:{ event_type:'message.created', text:'GitHub · PR #94 validator 수정 결과를 검토해 주세요' } })
+    const receipt = { receipt_id:'two-lines', stage:'received', original, recap:original }
+    const { $ } = host(async tool => {
+      if (tool === 'work_status') return text({ ...snapshot(), side_inbox_receipts:[receipt] })
+      if (tool === 'work_side_status') return text({ enabled:true, side_inbox_receipts:[receipt] })
+      if (tool === 'work_side_claim') return text({ claim:null, settings:{}, handoff_replies:[], main_wakes:[] })
+      return text({})
+    })
+    $.ui.resolve = () => ({ Box:props => props, Text:props => props, Button:props => props })
+    await sideHandlers['command.run']($, { args:'receipts' })
+    const pane = await sideHandlers['ui.render']($, { component:'Pane', requestId:'ciel-side-intake',
+      props:{ bodyColumns:64, scroll:{bodyRows:30} } }, next(null))
+    const button = pane.children.find(row => row.key === 'side-row-two-lines')
+    const meta = pane.children.find(row => row.key === 'side-meta-two-lines')
+    return { button:button?.label || '', meta:meta?.children || '', rows:Boolean(button && meta) }
   },
   async 'side-receipt-redacted-refresh'() {
     let hostOnly = true
@@ -3399,7 +3454,7 @@ Object.assign(scenarios, {
   async 'host-only-side-tools'() {
     const routed = []
     const { $ } = host(async (tool, args) => { routed.push(tool); return text({ ok:true, tool }) })
-    const tools = ['work_side_wake', 'work_side_fail', 'work_side_fallback', 'work_side_renew', 'work_side_reply',
+    const tools = ['work_side_wake', 'work_side_fail', 'work_side_fallback', 'work_side_renew', 'work_side_ack', 'work_side_reply',
       'work_side_claim', 'work_side_retry_reply']
     const args = { event_id:'e'.repeat(64), receipt_id:'e'.repeat(64), state:'notice_retry', confirmed:true,
       expected_state:'uncertain', session_id:'claude:S1', _host:{ internal:true, token:'guess' } }
