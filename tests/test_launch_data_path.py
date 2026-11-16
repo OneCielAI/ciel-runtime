@@ -417,7 +417,13 @@ class ClaudeEnvironmentTests(unittest.TestCase):
                           "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL",
                           "CIEL_RUNTIME_MODEL_ALIAS",
                           "CLAUDE_CODE_AUTO_COMPACT_WINDOW", "CLAUDE_CODE_MAX_RETRIES",
-                          "CIEL_RUNTIME_DIRECT_GATEWAY_ACTIVE", "CIEL_RUNTIME_DIRECT_EMPTY_STREAM_RETRIES"}, changed)
+                          "CIEL_RUNTIME_DIRECT_GATEWAY_ACTIVE", "CIEL_RUNTIME_DIRECT_EMPTY_STREAM_RETRIES",
+                          # Only a routed launch waits through the router's long
+                          # compaction bound (journal 2026/11/16 fixes/compaction-time).
+                          "API_TIMEOUT_MS", "CLAUDE_STREAM_FIRST_BYTE_TIMEOUT_MS",
+                          "CLAUDE_STREAM_IDLE_TIMEOUT_MS", "CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS"}, changed)
+        self.assertEqual("2100000", routed["CLAUDE_STREAM_IDLE_TIMEOUT_MS"])
+        self.assertNotIn("CLAUDE_STREAM_IDLE_TIMEOUT_MS", direct)
         for env in (routed, direct):
             self.assertEqual("inherit", env["CLAUDE_CODE_SUBAGENT_MODEL"])
             self.assertEqual("1", env["CLAUDE_CODE_SUBAGENT_MODEL_FORCE"])
