@@ -13,15 +13,35 @@ MESSAGE = 'Andy: the CSV delimiter must be a semicolon, not a comma'
 class SideRelayNoticeTests(unittest.TestCase):
     """A follow-up about an item in progress reaches main and that item's fork at once."""
 
-    def run_case(self, name):
+    def run_case(self, name, *extra):
         with tempfile.TemporaryDirectory() as raw:
             path = Path(raw)
             (path / 'package.json').write_text('{"type":"module"}')
             shutil.copyfile(ROOT / 'tests/side_relay_harness.mjs', path / 'test.mjs')
             shutil.copyfile(ROOT / 'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js', path / 'side-intake.js')
-            done = subprocess.run(['node', str(path / 'test.mjs'), name], capture_output=True, text=True,
+            done = subprocess.run(['node', str(path / 'test.mjs'), name, *extra], capture_output=True, text=True,
                                   encoding='utf8', check=True, timeout=60)
         return json.loads(done.stdout)
+
+    def test_idle_main_is_woken_for_a_failed_event_original_as_its_own_to_answer(self):
+        # KOBE 2026-11-17: the wake for a forwarded original said "released
+        # recorded wait ... Read it there and continue ... needs no acknowledgment".
+        from ciel_runtime_support import side_forward
+        text = side_forward.text('f' * 64, {'text': MESSAGE,
+                                            'side_failure': {'category': 'source_context', 'attempt_count': 6}})
+        row = self.run_case('forward-idle', text)
+        self.assertEqual(1, len(row['appended']))
+        self.assertTrue(row['appended'][0].startswith(text))
+        self.assertEqual(1, len(row['submitted']))
+        wake = row['submitted'][0]
+        self.assertNotIn('semicolon', wake)
+        self.assertIn('a host message beginning "[Ciel side 처리 실패 · 원문 전달"', wake)
+        self.assertIn('work_side_claim main_forwards event ref ffffffffffff', wake)
+        self.assertIn('decide yourself what reply or work it needs', wake)
+        self.assertNotIn('released recorded wait', wake)
+        self.assertNotIn('Read it there and continue', wake)
+        self.assertNotIn('needs no acknowledgment', wake)
+        self.assertIn('Ciel side: original of failed event ffffffffffff → main (appended)', row['logs'])
 
     def test_fork_on_the_item_and_main_both_get_the_original_message(self):
         row = self.run_case('relay-running')

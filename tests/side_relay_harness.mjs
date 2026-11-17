@@ -5,7 +5,10 @@
 import {startSide,pollSide,completeSide,sideMainBusy} from './side-intake.js'
 
 const scenario = process.argv[2]
-let busy = scenario !== 'relay-idle'
+// forward-idle: the router offers the original of a quarantined event
+// (side_forward.text, passed by the test) to an idle main; no claim.
+const FORWARD_TEXT = process.argv[3] || ''
+let busy = scenario !== 'relay-idle' && scenario !== 'forward-idle'
 sideMainBusy(() => busy)
 const sent = [], appended = [], submitted = [], wakes = [], logs = [], resolved = []
 let noticeClaimed = false
@@ -33,7 +36,10 @@ const $ = {
         lease_until:Date.now()/1000+120,route:{},workload:{version:4,truncated:false,active_root:'n1',queue_order:[],
           nodes:[{id:'n1',parent_id:null,title:'export'},{id:'n2',parent_id:'n1',title:'csv writer'},{id:'n3',parent_id:'n2',title:'delimiter'},{id:'n8',parent_id:null,title:'other goal'},{id:'n9',parent_id:'n8',title:'other step'}]}}
       claimed = true
-      value = {claim,settings:{model:'inherit',context_mode:'isolated'},handoff_replies:[],main_wakes:[]}
+      value = scenario === 'forward-idle'
+        ? {claim:null,settings:{model:'inherit',context_mode:'isolated'},handoff_replies:[],main_wakes:[],
+          main_forwards:[{receipt_id:'f'.repeat(64),text:FORWARD_TEXT}]}
+        : {claim,settings:{model:'inherit',context_mode:'isolated'},handoff_replies:[],main_wakes:[]}
     }
     if (name === 'work_parallel_status') value = {version:1,policy:{},leases}
     if (name === 'work_side_resolve') {
@@ -60,7 +66,8 @@ const $ = {
 }
 await startSide($)
 await pollSide($,'claude:parent')
-await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({decision:{action:'update',kind:'request',item_id:'n2',
-  summary:'Delimiter is a semicolon',reply:'forwarded',note:'CSV delimiter must be ;',relay:scenario !== 'no-relay'},expected_version:4})})
+if (scenario !== 'forward-idle')
+  await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({decision:{action:'update',kind:'request',item_id:'n2',
+    summary:'Delimiter is a semicolon',reply:'forwarded',note:'CSV delimiter must be ;',relay:scenario !== 'no-relay'},expected_version:4})})
 await new Promise(resolve => setTimeout(resolve, 20))
 console.log(JSON.stringify({sent,appended,submitted,wakes,logs,resolved}))

@@ -15,8 +15,31 @@ const stubFor=(chars,path)=>fixture.stub_text
 const realPath=fixture.saved_path
 const otherSession=realPath.replace(fixture.session_id,'00000000-0000-4000-8000-000000000000')
 const otherTool=realPath.replace('mcp-walkie-walkie_call_tool-','mcp-walkie-walkie_send_message-')
+// Claude Code 2.1.326 names the saved file <ms>-<Math.random().toString(36).slice(2,8)>
+// (KOBE 2026-11-17: ...-1794899124005-la554o.txt). The fixture's 2.1.321 name
+// ends -<ms>.txt; each case below swaps only that ending.
+const stamp=/-(\d+)\.txt$/.exec(realPath)[1]
+const named=(path,tail)=>path.replace(/-\d+\.txt$/,'-'+stamp+tail+'.txt')
+const suffixed=named(realPath,'-la554o')
+const projectsAt=realPath.toLowerCase().indexOf('\\projects\\')+'\\projects\\'.length
+const projectAs=segment=>realPath.slice(0,projectsAt)+segment+realPath.slice(realPath.indexOf('\\',projectsAt))
+const persisted=path=>({stub:stubFor(page.length,path),file:{[path]:page}})
 const scenarios={
  persisted_ok:{stub:stubFor(page.length,realPath),file:{[realPath]:page},spawn:true},
+ persisted_suffix_ok:{...persisted(suffixed),spawn:true},
+ persisted_suffix_digits_ok:{...persisted(named(realPath,'-123456')),spawn:true},
+ persisted_suffix_short_ok:{...persisted(named(realPath,'-a')),spawn:true},
+ suffix_upper:persisted(named(realPath,'-LA554O')),
+ suffix_long:persisted(named(realPath,'-la554oo')),
+ suffix_empty:persisted(named(realPath,'-')),
+ suffix_double:persisted(named(realPath,'-la554o-b2')),
+ suffix_dot:persisted(named(realPath,'-la5.4o')),
+ suffix_underscore:persisted(named(realPath,'-la_54o')),
+ suffix_other_session:persisted(named(otherSession,'-la554o')),
+ suffix_other_tool:persisted(named(otherTool,'-la554o')),
+ suffix_outside_config:persisted('C:\\Windows\\Temp\\mcp-walkie-walkie_call_tool-1794899124005-la554o.txt'),
+ project_dot:persisted(projectAs('.')),
+ project_dotdot:persisted(projectAs('..')),
  other_session:{stub:stubFor(page.length,otherSession),file:{[otherSession]:page}},
  other_tool:{stub:stubFor(page.length,otherTool),file:{[otherTool]:page}},
  outside_config:{stub:stubFor(page.length,'C:\\Windows\\Temp\\mcp-walkie-walkie_call_tool-1.txt'),
@@ -80,6 +103,7 @@ for (const [name,scenario] of Object.entries(scenarios)) {
  if(scenario.busy){ sideMainBusy(()=>false); sidePromptTurnComplete($); await new Promise(r=>setTimeout(r,20)) }
  const failure=calls.find(c=>c.tool==='work_side_fail')
  out[name]={spawns:spawns.length,proof,compacts_immediate:immediate,compacts_after_turn:compacts.length,
+  saved:scenario.stub?(/saved to (.+?\.txt)/.exec(scenario.stub)||[])[1]?.split('\\').pop():null,
   failure:failure?{category:failure.args.category,reason:failure.args.reason,
    ...(failure.args.retry_after_seconds?{retry_after_seconds:failure.args.retry_after_seconds}:{})}:null,
   messages:spawns[0]?JSON.parse(spawns[0].prompt).source_message?.messages?.length:null,

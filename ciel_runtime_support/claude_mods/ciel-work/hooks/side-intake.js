@@ -128,7 +128,14 @@ const SOURCE_MCP_RESULT_MAX_CHARS = 4 * 1024 * 1024
 // the session's tool-results directory. Owned probe 2026-11-11 (evidence
 // mcp-size-summary.json): $.mcp.call returned the stub for 200K/600K
 // characters, and $.fs.read of the named file returned the server's exact text.
+// The saved file's name: mcp-<server>-<tool>-<Date.now()>.txt through 2.1.325;
+// 2.1.326 appends -<Math.random().toString(36).slice(2,8)> (official CHANGELOG
+// 2.1.326, anthropics/claude-code#105138: two long results in the same
+// millisecond shared one file). Both are accepted: the suffix is 1-6 lowercase
+// base-36 characters. KOBE 2026-11-17: every 2.1.326 name was refused, so 18
+// P3 events were quarantined before any fork (journal side-persisted-result-name).
 const PERSISTED_RESULT = /^Error: result \(([\d,]+) characters across \d+ lines?\) exceeds maximum allowed tokens\. Output has been saved to (.+?\.txt)(?=[.\s]|$)/
+const PERSISTED_NAME_TAIL = '-\\d{1,20}(?:-[0-9a-z]{1,6})?\\.txt$'
 function resultText(result,message) {
   if (!result || result.isError) throw new SourcePrefetchError(message)
   return (result.content || []).filter(c=>c.type==='text').map(c=>c.text).join('\n')
@@ -162,8 +169,11 @@ async function mcpText($,server,tool,args,failure) {
   const fold = value => value.toLowerCase()
   const parts = fold(saved).startsWith(fold(root)) ? saved.slice(root.length).split('/') : []
   const file = new RegExp('^mcp-' + server.replace(/[^A-Za-z0-9_-]/g,'\\$&') + '-'
-    + tool.replace(/[^A-Za-z0-9_-]/g,'\\$&') + '-\\d{1,20}\\.txt$')
-  if (!configDir || parts.length !== 4 || !parts[0] || fold(parts[1]) !== fold(String(sessionId || ''))
+    + tool.replace(/[^A-Za-z0-9_-]/g,'\\$&') + PERSISTED_NAME_TAIL)
+  // The project segment must name a directory under projects/: '.' or '..'
+  // would resolve the path outside it.
+  if (!configDir || parts.length !== 4 || !parts[0] || parts[0] === '.' || parts[0] === '..'
+      || fold(parts[1]) !== fold(String(sessionId || ''))
       || parts[2] !== 'tool-results' || !file.test(parts[3]))
     throw new SourcePrefetchError('Source persisted result is not this session\'s exact file')
   let full
@@ -945,6 +955,14 @@ function wakePromptText(entry,conversation) {
       +'This wake holds no event data and grants no approval.'
   // A notice names its own first words: a released wait or (2026-11-15) a
   // live-item relay, which main reads and judges for relevance.
+  // The original of an event the side could not process (2026-11-16 forward)
+  // is main's to answer: its wake must not call it a released wait (KOBE
+  // 2026-11-17: 11 forward wakes said "Read it there and continue").
+  if (entry.kind === 'notice' && entry.lead === FORWARD_LEAD)
+    return 'Ciel side wake '+id+': a host message beginning "'+FORWARD_LEAD+'" was added to this conversation while you were idle. '
+      +'Durable source: work_side_claim main_forwards event ref '+id+'. '
+      +'The side actor could not process that external event, so its original is in that message. '
+      +'Read it there and decide yourself what reply or work it needs. This wake holds no event data and grants no approval.'
   const relay = entry.lead === RELAY_LEAD
   return entry.kind === 'notice'
     ? 'Ciel side wake '+id+': a host message beginning "'+(relay ? RELAY_LEAD : RELEASE_LEAD)+'" was added to this conversation while you were idle. '+source
@@ -995,7 +1013,12 @@ async function wakeMain($,key) {
 }
 const RELEASE_LEAD = 'Ciel side released recorded wait'
 const RELAY_LEAD = 'Ciel side relay for Work item'
-function noticeLead(text) { return String(text).startsWith(RELAY_LEAD) ? RELAY_LEAD : RELEASE_LEAD }
+// side_forward.text's first words.
+const FORWARD_LEAD = '[Ciel side 처리 실패 · 원문 전달'
+function noticeLead(text) {
+  const value = String(text)
+  return value.startsWith(RELAY_LEAD) ? RELAY_LEAD : value.startsWith(FORWARD_LEAD) ? FORWARD_LEAD : RELEASE_LEAD
+}
 function trackAppend($,identity,eventId,kind,ref,recordedAt = null,durable = true,lead = null) {
   const key = kind+':'+identity+':'+eventId
   let entry = unreadAppends.get(key)

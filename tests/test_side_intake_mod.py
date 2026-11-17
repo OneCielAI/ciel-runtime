@@ -209,9 +209,24 @@ class SideModTests(unittest.TestCase):
             done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',check=True,timeout=60)
         row=json.loads(done.stdout)
         self.assertEqual((1,61,None),(row['persisted_ok']['spawns'],row['persisted_ok']['messages'],row['persisted_ok']['failure']))
-        refusals={'other_session':"Source persisted result is not this session's exact file",
-                  'other_tool':"Source persisted result is not this session's exact file",
-                  'outside_config':"Source persisted result is not this session's exact file",
+        # Claude Code 2.1.326 adds -<1-6 lowercase base-36> after the ms (official
+        # CHANGELOG 2.1.326, #105138). KOBE 2026-11-17 quarantined 18 P3 events
+        # because this name was refused; both forms must be read.
+        for name,saved in (('persisted_suffix_ok','-la554o.txt'),('persisted_suffix_digits_ok','-123456.txt'),
+                           ('persisted_suffix_short_ok','-a.txt')):
+            with self.subTest(case=name):
+                self.assertTrue(row[name]['saved'].endswith(saved))
+                self.assertEqual((1,61,None),(row[name]['spawns'],row[name]['messages'],row[name]['failure']))
+        exact="Source persisted result is not this session's exact file"
+        refusals={'other_session':exact,
+                  'other_tool':exact,
+                  'outside_config':exact,
+                  # The suffix is 1-6 of [0-9a-z]: nothing else, and only one.
+                  'suffix_upper':exact,'suffix_long':exact,'suffix_empty':exact,'suffix_double':exact,
+                  'suffix_dot':exact,'suffix_underscore':exact,
+                  'suffix_other_session':exact,'suffix_other_tool':exact,'suffix_outside_config':exact,
+                  # projects/./ or projects/../ would resolve outside projects/.
+                  'project_dot':exact,'project_dotdot':exact,
                   'size_mismatch':'Source persisted result size mismatch',
                   'unreadable':'Source persisted result unreadable',
                   'per_call_limit':'Source read exceeds per-call limit'}
