@@ -70,8 +70,21 @@ In English: Codex already updates and deletes goals itself. The goal feature in 
   | Queue `goal_clear` | accepted | refused |
   | `compact_session` | works | works |
 
-- **Linux** (python:3.11-slim Docker, the same modules): [evidence/linux-tests.txt](evidence/linux-tests.txt).
-- **Installed copy:** [evidence/installed-tests.txt](evidence/installed-tests.txt).
+- **Linux** ([evidence/linux-tests.txt](evidence/linux-tests.txt)). python:3.11-slim Docker, 15 modules: 736 passed, 128 skipped.
+- **Windows, all four CI groups** ([evidence/windows-groups.txt](evidence/windows-groups.txt)). Run on a clean `git archive` of `5d65674`:
+  - unit 4937 OK;
+  - router 1675 OK;
+  - channel 626 OK;
+  - runtime 460 OK.
+- **Deployment** ([evidence/deploy.txt](evidence/deploy.txt)).
+  - Commit `5d65674` was pushed to `beta`.
+  - Publish workflow 44025947302 succeeded: CI matrix, `quality`, `python-minimum`, `publish`.
+  - npm beta is `0.2.51-beta.20261117-055915.5d65674`; its `gitHead` equals the commit.
+  - Tarball integrity was verified, and it matches the git tree apart from the two version-stamped files.
+  - It was installed globally on this machine.
+- **Installed copy** ([evidence/installed-tests.txt](evidence/installed-tests.txt)).
+  - The six goal-related modules: 191/191.
+  - The isolated-router E2E, run from the installed package, gives the same "After" results as above.
 
 # Not yet in effect for running sessions
 

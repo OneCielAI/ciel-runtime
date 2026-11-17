@@ -1,0 +1,36 @@
+# Deployment of 5d65674 (goal_clear removal), 2026-11-17 UTC
+
+## push
+git push origin HEAD:beta HEAD:feature/priority-models
+   cadd1a5..5d65674  HEAD -> beta
+   dc5da07..5d65674  HEAD -> feature/priority-models
+
+## ruff (CI command, clean tree)
+python -m ruff check . --extend-exclude .local   -> All checks passed!
+
+## Publish to npm, run 44025947302 (gh run watch --exit-status -> exit=0)
+success
+python-minimum success
+test (unit, 1/3) success
+test (unit, 3/3) success
+test (unit, 2/3) success
+test (unit-real-backend) success
+test (runtime) success
+test (channel) success
+quality success
+test (router) success
+publish success
+
+## registry
+npm view @one-ciel-ai/ciel-runtime dist-tags.beta -> 0.2.51-beta.20261117-055915.5d65674
+gitHead -> 5d656740cb6fffdd91f905a28d58fbfeabbdbc0a (== git rev-parse HEAD)
+
+## local install (.local/tmp/install_beta.sh 5d65674)
+integrity ok (sha512 of npm pack == dist.integrity)
+{"files": 626, "tree_equal": 624, "tree_differ": ["package.json", "ciel_runtime_support/runtime_constants.py"], "not_in_tree": []}
+  (the two differing files are the publish-time version stamp)
+npm ls -g: @one-ciel-ai/ciel-runtime@0.2.51-beta.20261117-055915.5d65674
+installed channel_mcp_tools.py: 1 "goal_clear" occurrence (the removal comment), schema absent
+installed channel_compact_request_repository.py:28 RETIRED_SESSION_ACTIONS = frozenset({"goal_clear"})
+
+Live sessions and routers were not restarted.

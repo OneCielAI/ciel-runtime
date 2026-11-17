@@ -1,0 +1,15 @@
+# installed copy: npm -g @one-ciel-ai/ciel-runtime@0.2.51-beta.20261117-055915.5d65674 (gitHead 5d65674), source copied with repo tests, 2026-11-17T06:11:14Z
+RAN 191 failures=0 errors=0 skipped=0
+## E2E isolated router from the installed copy
+tree=installed version_file=True port=52249 profile=<temp>
+health ok 200
+tools/list count 51
+tools/list has goal_clear: False
+tools/list has compact_session/new_session: True True
+tools/call goal_clear isError: True | Unknown ciel-runtime-router tool: goal_clear
+tools/call compact_session queued: True action: compact command: /compact
+same slot as the router (its compact_session request): compact ciel-runtime-router-tool
+planted goal_clear slot: True
+consumer read -> None
+slot file after read exists: False
+queue goal_clear: refused: session command goal_clear was removed

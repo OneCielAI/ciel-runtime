@@ -1,0 +1,5 @@
+# Windows: the four CI groups (scripts/run_test_group.py) on a clean git archive of 5d65674, CIEL_RUNTIME_TEST_ISOLATED=1, temp CIEL_RUNTIME_CONFIG_DIR per group, finished 2026-11-17T06:45:59Z
+unit exit=0 Ran 4937 tests in 3029.192s OK (skipped=78) 
+router exit=0 Ran 1675 tests in 555.433s OK (skipped=1) 
+channel exit=0 Ran 626 tests in 50.951s OK (skipped=80) 
+runtime exit=0 Ran 460 tests in 46.580s OK (skipped=19) 
