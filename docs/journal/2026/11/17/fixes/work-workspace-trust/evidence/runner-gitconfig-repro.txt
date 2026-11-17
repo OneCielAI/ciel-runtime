@@ -1,0 +1,16 @@
+# GitHub runner gitconfig reproduction (2026-11-17T22:32:15Z); python:3.11-slim + Debian git, /etc/gitconfig [safe] directory = *
+# CI run 44189662051 (0dc0014), job test (unit, 2/3): the same 4 failures on git 2.56.1
+### before: test file at 0dc0014
+git version 2.47.3
+*
+FAIL: test_launch_folder_owned_by_another_account_gets_a_worktree (tests.test_work_parallel_workspace_trust.ForeignOwnerTests.test_launch_folder_owned_by_another_account_gets_a_worktree)
+FAIL: test_other_folder_owned_by_another_account_stays_refused_and_clean (tests.test_work_parallel_workspace_trust.ForeignOwnerTests.test_other_folder_owned_by_another_account_stays_refused_and_clean)
+FAIL: test_untrusted_failure_releases_lease_and_run_and_is_recorded (tests.test_work_parallel_workspace_trust.OrdinaryLaneTests.test_untrusted_failure_releases_lease_and_run_and_is_recorded)
+FAIL: test_clean_failure_returns_the_intent_and_frees_the_slot (tests.test_work_parallel_workspace_trust.P0LaneTests.test_clean_failure_returns_the_intent_and_frees_the_slot)
+Ran 15 tests in 0.727s
+FAILED (failures=4)
+### after: GIT_CONFIG_NOSYSTEM=1 and an empty GIT_CONFIG_GLOBAL in the test's foreign-owner env
+git version 2.47.3
+*
+Ran 15 tests in 0.697s
+OK

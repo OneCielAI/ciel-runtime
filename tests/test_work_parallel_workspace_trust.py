@@ -24,7 +24,14 @@ from ciel_runtime_support.work_parallel_p0 import p0_store
 
 SECRET = "trust-host-secret-" * 3
 SCOPE = "claude:trust"
-FOREIGN = {"GIT_TEST_ASSUME_DIFFERENT_OWNER": "1"}
+# GitHub's Ubuntu runner images write "[safe] directory = *" to /etc/gitconfig
+# (actions/runner-images images/ubuntu/scripts/build/install-git.sh), so on CI
+# git never refused (run 44189662051). Only command-scope trust may count here:
+# the system file is skipped and the global file is an empty one.
+_EMPTY_GLOBAL = TemporaryDirectory(prefix="ciel-trust-gitconfig-")
+(Path(_EMPTY_GLOBAL.name) / "gitconfig").write_text("", encoding="utf-8")
+FOREIGN = {"GIT_TEST_ASSUME_DIFFERENT_OWNER": "1", "GIT_CONFIG_NOSYSTEM": "1",
+           "GIT_CONFIG_GLOBAL": str(Path(_EMPTY_GLOBAL.name) / "gitconfig")}
 
 
 def git(cwd, *args):
