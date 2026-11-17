@@ -3025,7 +3025,8 @@ def _orphan_preview(store):
     try:
         from .work_parallel_reconcile import preview, public
         body["reconcile"] = public(preview(store))
-    except (OSError, ValueError):
+    except (OSError, ValueError, KeyError, TypeError):
+        # Unreadable sidecars never hide the lease preview itself.
         body["reconcile"] = None
     return body
 
