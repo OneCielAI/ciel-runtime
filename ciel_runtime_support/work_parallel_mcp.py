@@ -583,6 +583,14 @@ def project(store, identity, board=None, *, host_view=False, caller_nonce=None, 
             "limitations": ["dispatch is limited by concurrent fork slots and the launch rate, not by provider usage observations",
                             "external discovery requires a configured authenticated source connector"],
             "wait_boost": _wait_boost_status(store, identity, board)}
+    if host_view:
+        # The Work pane and /work-mode parallel show the same durable rows and
+        # server texts as web, REST and ctl. Never in a model's own status.
+        try:
+            from .work_parallel_failures import public_failures
+            view["parallel_failures"] = public_failures(store.path, identity, limit=10)["failures"]
+        except (OSError, ValueError):
+            view["parallel_failures"] = None
     if board is not None:
         try:
             side = p0_state(store)
@@ -1056,8 +1064,75 @@ def _proven_owner(host, conversation):
     return {"session_pid": pid, "identity": observed}
 
 
+def _workspace_failure(store, identity, code, item_id, log, detail):
+    """Durable fixed code (workspace failure log) and Git's own text in the router log."""
+    try:
+        from .work_parallel_failures import WorkParallelFailureLog
+        key = "ws:" + hashlib.sha256((code + "\0" + str(item_id or "-")).encode("utf-8")).hexdigest()[:32]
+        WorkParallelFailureLog.workspace_beside(store.path).record(identity, code, dedup_key=key)
+    except Exception:  # noqa: BLE001 - the record is advisory; the refusal below still happens
+        pass
+    if log is not None:
+        try:
+            log("WARN", "work_workspace_failed code=" + code + " item=" + str(item_id or "-")[:40]
+                + " detail=" + json.dumps(str(detail)[:600], ensure_ascii=False))
+        except Exception:  # noqa: BLE001
+            pass
+
+
+def _retry_conflict(write, attempts=3):
+    for attempt in range(attempts):
+        try:
+            return write()
+        except WorkParallelConflict:
+            if attempt == attempts - 1:
+                raise
+
+
+def _release_failed_reservation(store, ident, p0_intent):
+    """Undo one reservation that never launched: lease, coordination run, P0 intent.
+
+    Each half is checked first and skipped when it is already gone (the orphan
+    reconciliation may have taken it). Returns what could not be undone.
+    """
+    left = []
+    try:
+        def release():
+            current = store.read()
+            lease = current["leases"].get(ident)
+            if lease is not None and lease["state"] == "reserved" and lease["host_id"] is None:
+                store.release_unbound(ident, proof="workspace preparation failed before launch",
+                                      expected_version=current["version"])
+        _retry_conflict(release)
+    except Exception:  # noqa: BLE001
+        left.append("lease")
+    coord = coordination(store)
+    try:
+        def cancel():
+            current = coord.read()
+            run_row = current["runs"].get(ident)
+            if run_row is not None and run_row["state"] == "reserved" and run_row["agent_id"] is None:
+                coord.cancel_reserved(ident, outcome="workspace preparation failed before launch",
+                                      expected_version=current["version"])
+        _retry_conflict(cancel)
+    except Exception:  # noqa: BLE001
+        left.append("coordination")
+    if p0_intent is not None:
+        side = p0_state(store)
+        try:
+            def unreserve():
+                current = side.read()
+                row = current["intents"].get(p0_intent["intent_id"])
+                if row is not None and row["state"] == "reserved" and row["lease_id"] == ident:
+                    side.release_reservation(row["intent_id"], ident, expected_version=current["version"])
+            _retry_conflict(unreserve)
+        except Exception:  # noqa: BLE001
+            left.append("p0_intent")
+    return left
+
+
 def _reserve_assignment(store, board_store, identity, host, version, *, item_id=None,
-                        role="worker", p0_only=False):
+                        role="worker", p0_only=False, log=None):
     _repair_no_report_rows(store, identity)
     board = board_store.read()
     p0 = p0_state(store)
@@ -1191,23 +1266,45 @@ def _reserve_assignment(store, board_store, identity, host, version, *, item_id=
         raise WorkParallelError("coordination persistence failed; reservation released") from error
     workspace = None
     if host.get("workspace_repo"):
-        from .work_parallel_workspace import prepare
+        from .work_parallel_workspace import DUBIOUS_OWNERSHIP, WorkspaceError, prepare
+        prepared = False
         try:
             workspace = prepare(host["workspace_repo"], ident)
-            d, _ = store.attach_workspace(ident, workspace, expected_version=d["version"])
-            cstate = coord.read()
-            coord.attach_workspace(ident, {key: workspace[key] for key in ("path", "branch", "head")},
-                                   expected_version=cstate["version"])
+            prepared = True
+            # Device-wide files: an unrelated write may move either version
+            # between the reads; a conflict is retried, never a failure.
+            def attach_lease():
+                return store.attach_workspace(ident, workspace, expected_version=store.read()["version"])
+            d, _ = _retry_conflict(attach_lease)
+            binding = {key: workspace[key] for key in ("path", "branch", "head")}
+            _retry_conflict(lambda: coord.attach_workspace(ident, binding,
+                                                           expected_version=coord.read()["version"]))
         except Exception as error:
-            if p0_intent is not None:
+            detail = str(error) or type(error).__name__
+            clean = isinstance(error, WorkspaceError) and error.clean and not prepared
+            code = ("workspace_prepare_retained" if not clean
+                    else "workspace_git_untrusted" if DUBIOUS_OWNERSHIP in detail
+                    else "workspace_prepare_failed")
+            if p0_intent is not None and prepared:
+                # The worktree is complete and verified; only attaching it
+                # failed. The next P0 pump replays this exact lease, and prepare
+                # returns the same worktree from its manifest.
+                _workspace_failure(store, identity, code, lease["item_id"], log, detail)
                 raise WorkParallelError(
                     "P0 workspace preparation outcome unknown; recovery required") from error
-            current = store.read()
-            if current["leases"].get(ident, {}).get("host_id", 0) is None:
-                store.release_unbound(ident, proof="workspace preparation failed: " + type(error).__name__,
-                                      expected_version=current["version"])
-            raise WorkParallelError("workspace preparation failed; reservation released: "
-                                    + (str(error) or type(error).__name__)[:300]) from error
+            # Nothing has launched: the native spawn starts only after this
+            # returns (P0: after p0_launch_spawning). The lease, its coordination
+            # run and a P0 intent are released, so no slot stays held and the
+            # item stays queued. A worktree written before the failure is kept
+            # on disk, never reused or removed. Celly 2026-11-17: these halves
+            # stayed reserved, and P0 retried the same failing lease forever.
+            left = _release_failed_reservation(store, ident, p0_intent)
+            _workspace_failure(store, identity, code, lease["item_id"], log,
+                               detail + (" · not undone: " + ", ".join(left) if left else ""))
+            raise WorkParallelError(
+                code + ": workspace preparation failed; reservation released"
+                + (" except " + ", ".join(left) + " (orphan reconciliation retries it)" if left else "")
+                + ", item stays queued: " + detail[:300]) from error
     if p0_intent is None:
         _wait_lane_consume(store, identity, d["leases"][ident], kind="reserve", outcome="native_bound",
                            ledger_before=version, ledger_after=d["version"])
@@ -2922,6 +3019,14 @@ def _orphan_preview(store):
                      "owner_state": state, "observed_identity": observed})
     body = {"version": d.get("version", 0), "leases": rows}
     body["digest"] = hashlib.sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    # Never-launched coordination runs and P0 intents. Outside the lease digest:
+    # those device-wide files change on every Work write, and a lease release
+    # pinned to this preview must not be refused for that.
+    try:
+        from .work_parallel_reconcile import preview, public
+        body["reconcile"] = public(preview(store))
+    except (OSError, ValueError):
+        body["reconcile"] = None
     return body
 
 
@@ -2944,7 +3049,8 @@ def _p0_assignment_token(key, intent, lease, run):
     return hmac.new(key, payload, hashlib.sha256).hexdigest()
 
 
-def run(name, args, board_store, identity, config, save_config):
+def run(name, args, board_store, identity, config, save_config, log=None):
+    """``log(level, message)`` is the router log, when the caller has one."""
     store = ledger()
     if name == "work_parallel_status":
         # A model tool call carries no host token. Only the authenticated mod's
@@ -3326,7 +3432,7 @@ def run(name, args, board_store, identity, config, save_config):
         assignment = _reserve_assignment(
             store, board_store, identity, host, version,
             item_id=args.get("item_id") if explicit else None,
-            role=args.get("role", "worker"), p0_only=p0_only,
+            role=args.get("role", "worker"), p0_only=p0_only, log=log,
         )
         lease = store.read()["leases"][assignment["lease_id"]]
         intent = p0_state(store).approval_intent(

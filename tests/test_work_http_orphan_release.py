@@ -182,6 +182,43 @@ class OrphanReleaseRestTests(unittest.TestCase):
         self.assertEqual("authenticated web operator",
                          self.store.read()["leases"]["dead-lease-00001"]["terminal"]["proof"])
 
+    def leak_run(self, lease_id):
+        """A coordination run whose lease was released unbound (Celly's leak)."""
+        coord = m.coordination(self.store)
+        state = coord.read()
+        state["runs"][lease_id] = {
+            "scope": SCOPE, "lease_id": lease_id, "item_id": "item", "root_id": "root", "priority": "P1",
+            "role": "worker", "generation": 1, "approval_generation": 1, "assigned_todos": ["item"],
+            "fingerprint": "f" * 64, "workspace": None, "agent_id": None, "agent_name": None,
+            "state": "reserved", "reserved_at": 1.0, "bound_at": None, "state_changed_at": 1.0,
+            "native_status": None, "native_seen_at": None, "exit": None, "exit_attempts": 0,
+            "recovery": {"state": "none", "attempts": 0, "error_code": None}, "replaced_by": None}
+        state["version"] += 1
+        Path(coord.path).parent.mkdir(parents=True, exist_ok=True)
+        Path(coord.path).write_text(json.dumps(state), encoding="utf-8")
+
+    def test_never_launched_runs_are_previewed_and_retired_with_confirmation(self):
+        self.leak_run("leaked-run-0001")
+        self.leak_run("leaked-run-0002")
+        preview = self.preview()
+        view = preview["reconcile"]
+        self.assertEqual(2, view["orphan_run_count"])
+        self.assertNotIn("_all", view)
+        url = "/ca/work/api/v1/commands/parallel-orphans-reconcile"
+        status, refused = self.request(url, {"preview_digest": view["digest"]})
+        self.assertEqual(422, status, refused)
+        self.assertIn("confirmation", refused["message"])
+        status, refused = self.request(url, {"preview_digest": "0" * 64, "confirmed": True})
+        self.assertIn(status, (409, 422), refused)
+        self.assertEqual(2, len(m.coordination(self.store).read()["runs"]))
+        status, done = self.request(url, {"preview_digest": view["digest"], "confirmed": True},
+                                    {"Idempotency-Key": "reconcile-1"})
+        self.assertEqual(200, status, done)
+        self.assertEqual(2, done["result"]["cancelled_runs"])
+        self.assertTrue(Path(done["result"]["backup"]).is_dir())
+        self.assertEqual({}, m.coordination(self.store).read()["runs"])
+        self.assertEqual(0, self.preview()["reconcile"]["orphan_run_count"])
+
 
 if __name__ == "__main__":
     unittest.main()

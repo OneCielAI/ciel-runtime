@@ -802,6 +802,27 @@ class WorkParallelP0Store:
         return self.reserve_intent(intent_id, matches[0]["id"],
                                    expected_version=expected_version, now=now)
 
+    def release_reservation(self, intent_id, lease_id, *, expected_version, now=None):
+        """Return a reserved intent to ``intent`` once its lease was released unbound.
+
+        Only from ``reserved``: the ``spawning`` transition precedes every native
+        spawn, so a reserved intent has started no fork and its exact dispatch
+        name is still unused. The next attempt reuses this same intent, so a
+        repeated failure before launch never adds rows to this bounded file.
+        """
+        stamp = time.time() if now is None else now
+        require(text(lease_id, 200) and number(stamp, 1e15), "P0 intent release")
+        def apply(state):
+            row = state["intents"].get(intent_id)
+            require(row is not None, "unknown P0 launch intent")
+            if row["state"] == "intent" and row["lease_id"] is None:
+                return row
+            require(row["state"] == "reserved" and row["lease_id"] == lease_id,
+                    "P0 launch intent is not an unbound reservation")
+            row.update(state="intent", lease_id=None, updated_at=stamp)
+            return row
+        return self._change(apply, expected_version)
+
     def close_lease_intents(self, lease_id, *, expected_version, now=None):
         stamp = time.time() if now is None else now
         require(text(lease_id, 200) and number(stamp, 1e15), "P0 terminal lease")

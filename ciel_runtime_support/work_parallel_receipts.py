@@ -394,6 +394,29 @@ class WorkCoordinationStore:
             return run
         return self._change(apply, expected_version)
 
+    def cancel_unbound_runs(self, lease_ids, *, outcome, expected_version):
+        """Retire many never-launched generations in one write (reconciliation).
+
+        The same rule as ``cancel_reserved``, applied to each id; an id that is
+        no longer an unbound reservation is skipped, never forced.
+        """
+        require(text(outcome, 500) and type(lease_ids) in (list, tuple, set, frozenset)
+                and all(text(value, 200) for value in lease_ids), "cancel batch")
+        stamp = time.time()
+        def apply(state):
+            done = []
+            for lease_id in sorted(set(lease_ids)):
+                run = state["runs"].get(lease_id)
+                if run is None or run["state"] != "reserved" or run["agent_id"] is not None:
+                    continue
+                run["state"] = "terminal"
+                run["state_changed_at"] = stamp
+                self._archive(state, run, {"state": "terminal", "outcome": outcome}, stamp)
+                state["runs"].pop(lease_id)
+                done.append(lease_id)
+            return done
+        return self._change(apply, expected_version)
+
     def bind_run(self, lease_id, agent_id, agent_name, *, expected_version):
         require(text(lease_id, 200) and text(agent_id, 200) and text(agent_name, 200), "run binding")
         stamp = time.time()

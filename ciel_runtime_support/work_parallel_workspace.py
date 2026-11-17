@@ -17,7 +17,67 @@ from .channel_message_repository import exclusive_file_lock
 from .worktree_cleanup import cleanup_worktree
 
 class WorkspaceError(ValueError):
-    pass
+    """``clean`` is True only when the failing call changed nothing on disk.
+
+    ``prepare`` sets it: a failure before its ownership manifest is first saved
+    leaves no file, branch or worktree, so the caller may release the
+    reservation. Any later failure keeps whatever was written (retained).
+    """
+
+    def __init__(self, *args, clean=False):
+        super().__init__(*args)
+        self.clean = clean
+
+
+# Git's own refusal when a repository is owned by another account; the router
+# runs Work git commands as its own account (a sandbox account on Celly).
+DUBIOUS_OWNERSHIP = "detected dubious ownership"
+
+
+def trust_arguments(trust):
+    """Command-scope ``safe.directory`` entries for exact repository roots.
+
+    Git honors ``safe.directory`` only from protected configuration, which
+    includes the command scope (``git -c``); each value must name the exact
+    worktree root git discovers, so a parent folder or subdirectory matches
+    nothing. A wildcard is refused: it would trust every repository.
+    """
+    arguments = []
+    for path in trust:
+        value = str(path)
+        if not value or "*" in value or chr(0) in value or not Path(value).is_absolute():
+            raise WorkspaceError("Work git trust names exact absolute repository roots only")
+        arguments += ["-c", "safe.directory=" + value]
+    return arguments
+
+
+_OWNED_WORKTREE = re.compile(r"work-parallel-[0-9a-f]{24}\Z")
+
+
+def trusted_roots(path):
+    """``(path,)`` when git may trust it for Work, else ``()``.
+
+    Trusted are exactly the folder this router was launched in, which the
+    person chose to run Ciel Runtime in, and a Work worktree directly under its
+    ``.claude/worktrees`` (``work-parallel-<24 hex>``, created by this code).
+    Any other folder gets git's own ownership check, as before. A sandbox
+    account runs the router in a repository another account owns (Celly,
+    2026-11-17: "detected dubious ownership"), so without this every Work
+    worktree preparation failed there.
+    """
+    from . import runtime_paths
+    from .workspace_router_selection import workspace_identity
+    launch = workspace_identity(runtime_paths.ROUTER_WORKSPACE)
+    if not launch or not str(path):
+        return ()
+    candidate = Path(path)
+    if workspace_identity(candidate) == launch:
+        return (candidate,)
+    if (_OWNED_WORKTREE.fullmatch(candidate.name) is not None
+            and workspace_identity(candidate.parent) == workspace_identity(Path(launch) / ".claude" / "worktrees")):
+        return (candidate,)
+    return ()
+
 
 _MAX_CHANGED_FILES = 100
 _MAX_PATH_LENGTH = 2000
@@ -32,10 +92,12 @@ _CONTENT_CHUNK = 1_048_576
 _CONTENT_SUFFIX = ".content-baseline-v1.json"
 _CONTENT_INTENT_SUFFIX = ".content-baseline-v1.intent"
 
-def _git(repo, *args, strip=True):
+def _git(repo, *args, strip=True, trust=None):
+    """One Work git command run in ``repo``; ``trust`` defaults to trusted_roots(repo)."""
     started = time.monotonic()
+    trust = trusted_roots(repo) if trust is None else trust
     try:
-        r = subprocess.run(["git", "-C", str(repo), *args], capture_output=True,
+        r = subprocess.run(["git", *trust_arguments(trust), "-C", str(repo), *args], capture_output=True,
                            text=True, encoding="utf-8", timeout=30, check=False, stdin=subprocess.DEVNULL)
     except subprocess.TimeoutExpired as exc:
         # Seen only inside the router (owned run 2026-11-09: worktree add, 30 s);
@@ -188,19 +250,27 @@ def prepare(repo, lease_id, *, config_dir=None):
     Incomplete creation stays retained and blocks retries. config_dir is a test
     override for CONFIG_DIR. Preparation starts non-idle, including after crash.
     """
-    repo, key, manifest = _identity(repo, lease_id, config_dir)
+    try:
+        repo, key, manifest = _identity(repo, lease_id, config_dir)
+    except WorkspaceError as error:
+        raise WorkspaceError(*error.args, clean=True) from error
     with exclusive_file_lock(manifest):
         if manifest.exists():
             return _verify(_load(manifest, repo, lease_id, key))
         target = repo / ".claude" / "worktrees" / ("work-parallel-" + key[:24])
-        _plain(target)
-        if target.exists():
-            raise WorkspaceError("existing path has no ownership manifest; retained")
-        head = _git(repo, "rev-parse", "HEAD")
+        try:
+            # Nothing below writes until the manifest is saved: a failure here
+            # leaves no file, branch or worktree behind.
+            _plain(target)
+            if target.exists():
+                raise WorkspaceError("existing path has no ownership manifest; retained")
+            head = _git(repo, "rev-parse", "HEAD")
+            common_dir = _git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir")
+        except WorkspaceError as error:
+            raise WorkspaceError(*error.args, clean=True) from error
         r = dict(schema=1, repo=str(repo), path=str(target), head=head, initial_head=head,
                  branch="work-parallel/" + key, lease_id=lease_id, status="preparing",
-                 common_dir=_git(repo, "rev-parse", "--path-format=absolute", "--git-common-dir"),
-                 git_dir=None, host_id=None, idle=False, idle_proof=None)
+                 common_dir=common_dir, git_dir=None, host_id=None, idle=False, idle_proof=None)
         _save(manifest, r)
         _git(repo, "worktree", "add", "-b", r["branch"], str(target), head)
         r.update(git_dir=_git(target, "rev-parse", "--absolute-git-dir"), status="ready")
@@ -248,11 +318,12 @@ def _deadline(started):
                              + str(CONTENT_CAPTURE_DEADLINE_SECONDS) + "s")
 
 
-def _git_binary(repo, *args, started):
+def _git_binary(repo, *args, started, trust=None):
     _deadline(started)
     remaining = max(.001, CONTENT_CAPTURE_DEADLINE_SECONDS - (time.monotonic() - started))
+    trust = trusted_roots(repo) if trust is None else trust
     try:
-        result = subprocess.run(["git", "-C", str(repo), *args], capture_output=True,
+        result = subprocess.run(["git", *trust_arguments(trust), "-C", str(repo), *args], capture_output=True,
                                 timeout=remaining, check=False, stdin=subprocess.DEVNULL)
     except subprocess.TimeoutExpired as exc:
         raise WorkspaceError("content baseline deadline exceeded: "
@@ -282,7 +353,8 @@ def _enumerate_content_paths(target, started):
         remaining = max(.001, CONTENT_CAPTURE_DEADLINE_SECONDS - (time.monotonic() - started))
         # stderr is never read (the error text names no Git output), so it is
         # not piped: an unread pipe could fill and stall the child.
-        process = subprocess.Popen(["git", "-C", str(target), *args], stdout=subprocess.PIPE,
+        process = subprocess.Popen(["git", *trust_arguments(trusted_roots(target)), "-C", str(target), *args],
+                                   stdout=subprocess.PIPE,
                                    stderr=subprocess.DEVNULL, stdin=subprocess.DEVNULL)
         # read() blocks while the child writes nothing, so the between-chunk
         # check alone cannot end a silent child. The watchdog kills this exact
@@ -369,9 +441,10 @@ def _content_fingerprint(record):
             if not path.exists():
                 payload = b"absent"
             else:
-                sub_head = _git_binary(path, "rev-parse", "HEAD", started=started).strip()
+                # A submodule is neither the launch folder nor a Work worktree.
+                sub_head = _git_binary(path, "rev-parse", "HEAD", started=started, trust=()).strip()
                 sub_dirty = _git_binary(path, "status", "--porcelain=v1", "-z",
-                                        "--untracked-files=all", started=started)
+                                        "--untracked-files=all", started=started, trust=())
                 payload = b"head\0" + sub_head + b"\0dirty\0" + sub_dirty
             rows.append((raw_path, b"S", payload, None))
             total += len(payload)
@@ -792,7 +865,8 @@ def remove(repo, lease_id, *, host_id, active, idle_proof, expected_head,
         try:
             result = cleanup_worktree(repo, Path(r["path"]), owned_root=repo / ".claude" / "worktrees",
                                       expected_head=expected_head, active=False,
-                                      approved_target=approved_target, remote=remote, remote_ref=remote_ref)
+                                      approved_target=approved_target, remote=remote, remote_ref=remote_ref,
+                                      trust=trusted_roots(repo) + trusted_roots(Path(r["path"])))
         except ValueError as exc:
             raise WorkspaceError(str(exc)) from exc
         r.update(status="removed", removal=result)

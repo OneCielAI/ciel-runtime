@@ -124,6 +124,7 @@ ciel-runtimectl work review-rework LEASE "필요한 변경" --session S
 ciel-runtimectl work launch-resolve LEASE --session S --confirm
 ciel-runtimectl work legacy-accept LEASE --session S --confirm
 ciel-runtimectl work orphan-release LEASE --session S --confirm [--preview-digest D]
+ciel-runtimectl work orphan-reconcile --session S --confirm [--preview-digest D]  # 시작하지 못한 예약 기록 정리(백업 후)
 ciel-runtimectl work wake-retry EVENT --session S --confirm
 ciel-runtimectl work reappend-retry EVENT --session S --confirm
 ciel-runtimectl work review-reappend-retry LEASE --session S --confirm
@@ -144,6 +145,7 @@ ciel-runtimectl work execute --session S --confirm [--expected-version N]
 | `launch-resolve` | `parallel-launch-resolve` | `--confirm` |
 | `legacy-accept` | `parallel-legacy-accept` | `--confirm` |
 | `orphan-preview` / `orphan-release` | `parallel-orphans-preview` / `parallel-orphans-apply` | release는 `--confirm` |
+| `orphan-reconcile` | `parallel-orphans-reconcile` | `--confirm`(preview의 `reconcile.digest`에 고정, 먼저 백업) |
 | `wake-retry` / `reappend-retry` | `side-wake-retry` / `side-reappend-retry` | `--confirm`(중복 가능) |
 | `review-reappend-retry` | `review-reappend-retry` | `--confirm`(중복 가능) |
 | `notice-retry` | `side-notice-retry` | `--confirm`(중복 가능) |

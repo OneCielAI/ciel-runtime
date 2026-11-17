@@ -294,6 +294,7 @@ class WorkHttpController:
             "sibling_reorder", "queue_position", "focus", "urgent")}
         operator_actions = {"/ca/work/api/v1/commands/" + name.replace("_", "-"): name for name in (
             "settings_update", "parallel_configure", "parallel_orphans_preview", "parallel_orphans_apply",
+            "parallel_orphans_reconcile",
             "parallel_item_review", "parallel_launch_resolve", "parallel_legacy_accept",
             "side_review", "side_handoff", "side_reply_retry",
             "side_wake_retry", "side_notice_retry", "side_reappend_retry", "review_reappend_retry", "side_drain",
@@ -639,6 +640,16 @@ class WorkHttpController:
                 result = release_previewed(store, body.get("preview_digest"), lease_id,
                                            proof=self.OPERATOR_PROOFS[source],
                                            legacy_confirmed=body.get("legacy_confirmed") is True)
+        elif action == "parallel_orphans_reconcile":
+            # Never-launched coordination runs and P0 intents of the exact
+            # preview the operator saw (orphan preview "reconcile"); the router's
+            # sweep runs the same function. A backup is written first.
+            if self.services.parallel_store is None:
+                raise tree.WorkPlanError("parallel controls are unavailable")
+            if body.get("confirmed") is not True:
+                raise tree.WorkPlanError("parallel-orphans-reconcile requires explicit confirmation (confirmed=true)")
+            from .work_parallel_menu import reconcile_previewed
+            result = reconcile_previewed(self.services.parallel_store(), body.get("preview_digest"))
         elif action == "parallel_item_review":
             result = self._parallel_item_review(identity, body)
         elif action == "parallel_launch_resolve":
@@ -813,14 +824,12 @@ class WorkHttpController:
         if self.services.parallel_store is None:
             return unavailable
         try:
-            from .work_parallel_failures import OWNER_LIVE_TEXT, OWNER_UNKNOWN_TEXT, WorkParallelFailureLog
-            view = WorkParallelFailureLog.beside(self.services.parallel_store().path).public(identity)
+            # Both logs (host refusals, workspace preparation), each row with
+            # its one server text.
+            from .work_parallel_failures import public_failures
+            view = public_failures(self.services.parallel_store().path, identity)
         except (OSError, ValueError):
             return unavailable
-        messages = {"owner_unknown": OWNER_UNKNOWN_TEXT, "owner_live": OWNER_LIVE_TEXT}
-        for row in view["failures"]:
-            if row["code"] in messages:
-                row["message"] = messages[row["code"]]
         return {"parallel_failures": view["failures"], "failures_version": view["failures_version"],
                 "failures_truncated": view["failures_truncated"]}
 
@@ -1102,12 +1111,15 @@ class WorkHttpController:
         # An unresolved launch is re-read on the 5 s cadence too, so the tab
         # shows "Rework launch stuck" once it crosses the display threshold.
         launching = any((row.get("launch") or {}).get("stuck") is False for row in view.get("parallel_reviews", []))
+        # failures_version is the first log's; a workspace failure row changes
+        # only its own id, count or time.
+        failures = [(row.get("id"), row.get("count"), row.get("at")) for row in view.get("parallel_failures", [])]
         # The ledger version and every policy value the tab shows: a configure
         # from another surface (menu, ctl, REST) refreshes it too.
         return (json.dumps([rows, device.get("active_by_priority"), device.get("paused"), reviews,
                             view.get("review_version"), view.get("stranded_version"), ended, legacy,
                             view.get("failures_version"), view.get("version"), view.get("policy"),
-                            view.get("fork_gate"), view.get("gate_presence_version")],
+                            view.get("fork_gate"), view.get("gate_presence_version"), failures],
                            sort_keys=True),
                 bool(forks.get("confirmed_count")) or launching)
 

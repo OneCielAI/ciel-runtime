@@ -20,13 +20,41 @@ RANGES = {**{key: (1, MAX_PRIORITY_LIMIT) for key in PRIORITY_KEYS},
 UNREADABLE = "unreadable"
 
 
+def reconcile_text(view):
+    """One line for never-launched reservation records (work_parallel_reconcile)."""
+    if not view:
+        return ""
+    parts = []
+    if view["orphan_run_count"]:
+        parts.append(f"never-launched runs={view['orphan_run_count']}")
+    if view["orphan_p0_intent_count"]:
+        parts.append(f"never-launched P0 intents={view['orphan_p0_intent_count']}")
+    if view["ambiguous_p0_intent_count"]:
+        parts.append(f"P0 intents left for review={view['ambiguous_p0_intent_count']}")
+    return " ".join(parts)
+
+
 def orphan_summary(preview):
     counts = {}
     for row in preview["leases"]:
         counts[row["owner_state"]] = counts.get(row["owner_state"], 0) + 1
     rows = ", ".join(f"{row['lease_id'][:8]} {row['item_id']} {row['priority']} {row['owner_state']}"
                      for row in preview["leases"] if row["owner_state"] != "live")
-    return " ".join(f"{k}={v}" for k, v in sorted(counts.items())) + (f" [{rows}]" if rows else "") or "none"
+    text = " ".join(f"{k}={v}" for k, v in sorted(counts.items())) + (f" [{rows}]" if rows else "")
+    extra = reconcile_text(preview.get("reconcile"))
+    return " ".join(part for part in (text, extra) if part) or "none"
+
+
+def reconcile_previewed(store, digest):
+    """Retire never-launched runs and P0 intents of the exact preview the operator saw."""
+    from .work_parallel import WorkParallelConflict
+    from .work_parallel_reconcile import apply as reconcile
+    if not isinstance(digest, str) or len(digest) != 64:
+        raise WorkParallelError("reconcile needs the digest of the preview you saw")
+    try:
+        return reconcile(store, expected_digest=digest)
+    except WorkParallelConflict as error:
+        raise WorkParallelError(str(error)) from None
 
 
 def orphan_preview(store=None):
@@ -74,6 +102,8 @@ def release_orphans(store, value, *, proof):
     from, so the release is pinned exactly like the web operator's.
     """
     parts = str(value).split()
+    if len(parts) == 2 and parts[0] == "reconcile":
+        return [{"reconcile": reconcile_previewed(store, parts[1])}]
     if len(parts) != 3 or parts[0] not in ("release", "legacy"):
         raise WorkParallelError("choose a lease from the orphan list (it pins the preview you saw)")
     return [release_previewed(store, parts[2], parts[1], proof=proof, legacy_confirmed=parts[0] == "legacy")]
@@ -83,6 +113,10 @@ def orphan_choices(store=None):
     """(label, value) per releasable lease of one fresh preview."""
     preview = orphan_preview(store)
     choices = []
+    view = preview.get("reconcile")
+    if view and (view["orphan_run_count"] or view["orphan_p0_intent_count"]):
+        choices.append((f"Retire never-launched records ({reconcile_text(view)}); a backup is written first",
+                        f"reconcile {view['digest']}"))
     for row in preview["leases"]:
         if row["owner_state"] == "dead":
             choices.append((f"Release {row['lease_id'][:8]} {row['item_id']} {row['priority']} (owner gone)",
@@ -143,8 +177,15 @@ def apply(config, key, value, save_config):
     token = str(value).strip()
     if key == ORPHANS_KEY:
         released = release_orphans(ledger(), token, proof="menu cleanup: " + token.split()[0][:20])
-        return [f"{menu_text(key, language)}: {len(released)}",
-                *(f"  released {row['lease_id']} ({row['state']})" for row in released),
+        lines = []
+        for row in released:
+            if "reconcile" in row:
+                done = row["reconcile"]
+                lines.append(f"  retired runs={done['cancelled_runs']} P0 intents={done['cancelled_p0_intents']}"
+                             f" · backup {done['backup'] or 'none (nothing to retire)'}")
+            else:
+                lines.append(f"  released {row['lease_id']} ({row['state']})")
+        return [f"{menu_text(key, language)}: {len(released)}", *lines,
                 menu_text("work_parallel_saved", language)]
 
     def boolean(default):

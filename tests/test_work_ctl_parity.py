@@ -409,6 +409,50 @@ class Gap4PinnedOrphanRelease(Isolated):
         self.assertEqual(dead, json.loads(output[0])["result"]["lease_id"])
         self.assertEqual("orphaned", self.store.read()["leases"][dead]["state"])
 
+    def leaked_run(self):
+        """A coordination run left reserved after its lease was released (Celly)."""
+        from ciel_runtime_support import work_parallel_mcp as m
+        ident = self.lease("leaked", None)
+        coord = m.coordination(self.store)
+        state = coord.read()
+        state["runs"][ident] = {
+            "scope": A, "lease_id": ident, "item_id": "leaked", "root_id": "leaked", "priority": "P1",
+            "role": "worker", "generation": 1, "approval_generation": 1, "assigned_todos": ["leaked"],
+            "fingerprint": "f" * 64, "workspace": None, "agent_id": None, "agent_name": None, "state": "reserved",
+            "reserved_at": 1.0, "bound_at": None, "state_changed_at": 1.0, "native_status": None,
+            "native_seen_at": None, "exit": None, "exit_attempts": 0,
+            "recovery": {"state": "none", "attempts": 0, "error_code": None}, "replaced_by": None}
+        state["version"] += 1
+        Path(coord.path).write_text(json.dumps(state), encoding="utf-8")
+        doc = self.store.read()
+        del doc["leases"][ident]
+        doc["version"] += 1
+        self.store.path.write_text(json.dumps(doc), encoding="utf-8")
+        return ident
+
+    def test_menu_and_ctl_retire_never_launched_runs_of_the_shown_preview(self):
+        from ciel_runtime_support import work_parallel_mcp as m
+        from ciel_runtime_support.work_parallel_menu import apply, orphan_choices, rows
+        self.board(A)
+        self.leaked_run()
+        shown = {key: value for _, key, value in rows({})}["work_parallel_orphans"]
+        self.assertIn("never-launched runs=1", shown)
+        _, choices = orphan_choices()
+        label, value = choices[0]
+        self.assertTrue(value.startswith("reconcile "), choices)
+        message = apply({}, "work_parallel_orphans", value, lambda _: None)
+        self.assertTrue(any("retired runs=1" in line for line in message), message)
+        self.assertEqual({}, m.coordination(self.store).read()["runs"])
+        # ctl: the same function through REST, gated by --confirm.
+        self.leaked_run()
+        code, output, _ = self.cli(ns("orphan-reconcile", session=A))
+        self.assertEqual(3, code)
+        self.assertEqual(1, len(m.coordination(self.store).read()["runs"]))
+        code, output, _ = self.cli(ns("orphan-reconcile", session=A, confirm=True))
+        self.assertEqual(0, code, output)
+        self.assertEqual(1, json.loads(output[0])["result"]["cancelled_runs"])
+        self.assertEqual({}, m.coordination(self.store).read()["runs"])
+
 
 class Gap8NumericInput(Isolated):
     def test_numeric_settings_offer_other_and_accept_any_valid_integer(self):

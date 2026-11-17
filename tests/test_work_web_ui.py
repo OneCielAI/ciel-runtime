@@ -588,6 +588,16 @@ class WorkWebUiTests(unittest.TestCase):
         legacy = self.html.split("action('Release legacy lease…',", 1)[1].split("list.append(item)", 1)[0]
         self.assertTrue(legacy.startswith("()=>confirmDanger("), legacy[:80])
 
+    def test_never_launched_records_are_retired_only_from_a_confirmed_preview(self):
+        self.assertIn("Never-launched reservation records", self.html)
+        retire = self.html.split("action('Retire records…',", 1)[1].split("'danger')", 1)[0]
+        self.assertTrue(retire.startswith("()=>confirmDanger("), retire[:80])
+        self.assertIn("command('parallel-orphans-reconcile',{preview_digest:rec.digest,confirmed:true})", retire)
+
+    def test_recorded_failures_show_the_server_text(self):
+        # Workspace failure rows carry their message; the page prefers it over its own labels.
+        self.assertIn("String(row.message||FAILURE_LABELS[row.code]||row.code||'unknown')", self.html)
+
     @unittest.skipUnless(os.environ.get("CIEL_TEST_BROWSER"), "opt-in browser verification")
     def test_legacy_orphan_release_browser(self):
         from playwright.sync_api import sync_playwright

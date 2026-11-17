@@ -882,6 +882,7 @@ function graphicProps(identity, view, state) {
         status: r.native?.status, seen: r.native?.last_seen_at })),
       reviews: parallelPresentedReviews(parallelReviews(observatoryParallel)).slice(0, 8).map(r => ({ item:r.item_id, title:r.item_title || r.title || '',
         status:parallelReviewLabel(r) })),
+      failure: parallelPaneFailure(observatoryParallel),
       side: sideActors(identity).length } }
 }
 // One action set for the pane's native control strip (Tab/arrows/Enter and
@@ -1901,6 +1902,16 @@ async function parallelState($, identity) {
   } catch { /* Older routers and offline boards keep id-only rows. */ }
   return state
 }
+function failureTime(at) {
+  return typeof at === 'number' && at > 1e9 && at < 1e11 ? new Date(at * 1000).toISOString().replace(/\.\d+Z$/, 'Z') : '?'
+}
+// The newest recorded workspace failure of the last hour, for the pane's one line.
+const WORKSPACE_FAILURE_CODES = new Set(['workspace_git_untrusted', 'workspace_prepare_failed', 'workspace_prepare_retained'])
+function parallelPaneFailure(state) {
+  const rows = Array.isArray(state?.parallel_failures) ? state.parallel_failures : []
+  const row = rows.find(r => WORKSPACE_FAILURE_CODES.has(r?.code) && typeof r.at === 'number' && Date.now() / 1000 - r.at < 3600)
+  return row ? { code: row.code, count: Number(row.count) || 1, message: row.message || row.code, at: row.at } : null
+}
 function parallelStatusText(state, scope) {
   const p = state?.policy || {}
   const leases = Object.values(state?.leases || {})
@@ -2004,6 +2015,14 @@ function parallelStatusText(state, scope) {
   if (parallelFailures.length) {
     lines.push('Recent parallel failures in this session:')
     for (const f of parallelFailures) lines.push('  ' + f.at + ' · ' + clipped(f.stage, 60) + ' · ' + f.detail)
+  }
+  // The durable failure log, the same rows and server texts web, REST and ctl show.
+  const recorded = Array.isArray(state?.parallel_failures) ? state.parallel_failures : []
+  if (recorded.length) {
+    lines.push('RECORDED FAILURES (' + recorded.length + ')')
+    for (const row of recorded) lines.push('  ' + failureTime(row.at) + ' · ' + clipped(row.code || '', 40)
+      + (Number(row.count) > 1 ? ' ×' + row.count : '') + (row.lease_id ? ' · lease ' + clipped(row.lease_id, 12) : '')
+      + (row.message ? ' · ' + clipped(row.message, 240) : ''))
   }
   lines.push('Settings: ciel-runtime menu → LLM options → Work 병렬 실행. Policy changes do not terminate existing workers.')
   return lines.join('\n')

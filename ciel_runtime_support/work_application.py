@@ -697,7 +697,8 @@ def openapi_document() -> dict[str, Any]:
     commands = ("plan-set", "node-add", "node-update", "node-remove", "active-select",
                 "execute", "replan", "sibling-reorder", "queue-position", "focus", "urgent",
                 "settings-update", "parallel-configure", "parallel-orphans-preview",
-                "parallel-orphans-apply", "parallel-item-review", "parallel-launch-resolve",
+                "parallel-orphans-apply", "parallel-orphans-reconcile", "parallel-item-review",
+                "parallel-launch-resolve",
                 "parallel-legacy-accept", "side-review", "side-handoff", "side-reply-retry", "side-wake-retry",
                 "side-notice-retry", "side-reappend-retry", "review-reappend-retry", "side-drain",
                 "operation-reconcile", "operation-release")
@@ -841,6 +842,12 @@ OPERATOR_BODIES: dict[str, Any] = {
                                  "session is shut down"}),
         "description": "Releases exactly one lease of the preview named by preview_digest: a dead owner, or a "
                        "legacy_no_owner lease with legacy_confirmed. Live or unknown owners are never released."},
+    "parallel-orphans-reconcile": {
+        **_obj(("preview_digest", "confirmed"), preview_digest=_HEX64, confirmed=_CONFIRMED),
+        "description": "Retires the never-launched coordination runs and P0 intents listed by the orphan "
+                       "preview's reconcile.digest (their ledger lease is gone, so they can never launch). "
+                       "A backup of the ledger, coordination and P0 files is written first. A changed set "
+                       "is refused; preview again."},
     "parallel-item-review": _obj(
         ("lease_id", "decision", "expected_finalization_version"), lease_id=_LEASE,
         decision={"type": "string", "enum": ["approve", "rework"]},

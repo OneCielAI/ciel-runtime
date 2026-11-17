@@ -79,6 +79,7 @@ Control plane, runs before Claude Code and does not require LLM connectivity:
   ciel-runtimectl work review-rework LEASE EVIDENCE --session ID [--expected-review-pin P]
   ciel-runtimectl work launch-resolve|legacy-accept LEASE --session ID --confirm
   ciel-runtimectl work orphan-release LEASE --session ID --confirm [--preview-digest D]
+  ciel-runtimectl work orphan-reconcile --session ID --confirm [--preview-digest D]
   ciel-runtimectl work wake-retry|reappend-retry EVENT --session ID --confirm
   ciel-runtimectl work review-reappend-retry LEASE --session ID --confirm
   ciel-runtimectl work notice-retry RECEIPT --session ID --confirm

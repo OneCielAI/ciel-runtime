@@ -140,6 +140,11 @@ export default function Observatory(props, surface) {
     Text({ color: C.blue, children: forkText }),
     Text({ color: C.dim, children: '· DEVICE ' + active + '/' + max + ' slots · REVIEW ' + (props.parallel?.reviews?.length || 0) + ' · SIDE ' + (props.parallel?.side || 0) }),
   ]))
+  // A Work fork could not start (workspace preparation, last hour): the
+  // router's own text, the same one web, REST and ctl show.
+  const failure = props.parallel?.failure
+  if (failure) children.push(line('fork-failure', '  ✗ ' + (failure.count > 1 ? '×' + failure.count + ' ' : '')
+    + failure.message, C.red))
   for (const [index, review] of (props.parallel?.reviews || []).slice(0, 2).entries())
     children.push(line('review-' + index, '  ◆ ' + [review.status, review.item, review.title].filter(Boolean).join(' · '), C.yellow))
   for (const [index, fork] of (props.parallel?.confirmed || []).entries()) {

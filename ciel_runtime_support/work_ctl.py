@@ -31,7 +31,7 @@ EXIT_REFUSED, EXIT_CONFIRM = 1, 3
 
 READS = ("sessions", "reviews", "launches", "capacity", "receipts", "receipt", "handoffs", "notices",
          "review-delivery", "audit", "orphan-preview")
-WRITES = ("review-approve", "review-rework", "launch-resolve", "legacy-accept", "orphan-release",
+WRITES = ("review-approve", "review-rework", "launch-resolve", "legacy-accept", "orphan-release", "orphan-reconcile",
           "wake-retry", "reappend-retry", "review-reappend-retry", "notice-retry", "reply-retry",
           "side-review-ok", "side-review-corrected", "handoff-ack", "side-drain",
           "operation-reconcile", "operation-release", "execute", "priority")
@@ -47,6 +47,8 @@ CONFIRM_TEXT = {
     "legacy-accept": ("Accept the legacy reviewed result for {title}? The board item is finalized with the result "
                       "its earlier reviewer fork accepted."),
     "orphan-release": "Release lease {lease} for {title}? Its owner process is gone.",
+    "orphan-reconcile": ("Retire {runs} never-launched coordination runs and {intents} P0 intents? A backup of "
+                         "the three Work files is written first."),
     "orphan-release-legacy": ("Release lease {lease} for {title}? It has no owner record (older build); release "
                               "it only after confirming that session is shut down."),
     "wake-retry": ("Main may already have received this side event. Retrying may deliver it to main twice. "
@@ -490,6 +492,17 @@ class WorkCtl:
             gate("orphan-release-legacy" if legacy else action, {**body, "owner_state": row.get("owner_state")},
                  lease=row["lease_id"][:10], title=str(row.get("item_id") or "an unlisted item"))
             return self.post(session, "parallel-orphans-apply", body, op)
+        if action == "orphan-reconcile":
+            # The web console's "Retire records…": the preview's reconcile digest
+            # pins the exact set; a backup of the three Work files comes first.
+            preview = self.post(session, "parallel-orphans-preview", {}, None)["result"]
+            view = preview.get("reconcile") or {}
+            digest = args.preview_digest or view.get("digest")
+            body = {"preview_digest": digest, "confirmed": True}
+            gate(action, {**body, "orphan_run_count": view.get("orphan_run_count"),
+                          "orphan_p0_intent_count": view.get("orphan_p0_intent_count")},
+                 runs=view.get("orphan_run_count", 0), intents=view.get("orphan_p0_intent_count", 0))
+            return self.post(session, "parallel-orphans-reconcile", body, op)
         if action in ("wake-retry", "reappend-retry", "handoff-ack"):
             view = self.get(session, "/ca/work/api/v1/side", limit="1")
             row = self._one(view.get("handoffs") or [], "event_id", target, "side handoff")

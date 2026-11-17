@@ -595,7 +595,7 @@ def dispatch_work_tool(
                     sweep_while_running(log or (lambda *_: None))
                 except Exception:  # noqa: BLE001 - the sweep is advisory to a status read
                     pass
-            return respond(request_id, run(name, args, store, identity, config, save_config))
+            return respond(request_id, run(name, args, store, identity, config, save_config, log=log))
         try:
             output = _run(name, args, store, approval_ask, auto_continue=work_auto_continue_enabled(config), retention=retention_status(config), config=config, log=log)
         except ValueError as error:

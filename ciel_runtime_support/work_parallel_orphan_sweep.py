@@ -122,14 +122,25 @@ def sweep_while_running(log: Callable[[str, str], Any], *, now: float | None = N
 
 
 def sweep_at_launch(log: Callable[[str, str], Any]) -> dict[str, int]:
-    """The launch phase: never raises, logs one bounded line per release."""
+    """The launch phase: never raises, logs one bounded line per release.
+
+    After the lease sweep, the coordination runs and P0 intents of reservations
+    that never launched are retired (work_parallel_reconcile): an unbound lease
+    released here leaves exactly such halves behind.
+    """
     try:
         from .runtime_paths import CONFIG_DIR
         from .work_parallel_mcp import _orphan_preview, ledger, process_identity
-        result = sweep(ledger(), live_router_scopes(Path(CONFIG_DIR), process_identity), _orphan_preview)
+        store = ledger()
+        result = sweep(store, live_router_scopes(Path(CONFIG_DIR), process_identity), _orphan_preview)
     except Exception as error:  # noqa: BLE001 - a sweep failure must not block the launch
         log("WARN", f"work_orphan_sweep_failed error={type(error).__name__}")
         return {"released": 0, "kept": 0, "failed": 1}
+    try:
+        from .work_parallel_reconcile import reconcile_quietly
+        reconcile_quietly(store, log)
+    except Exception as error:  # noqa: BLE001 - never blocks the launch or the status read
+        log("WARN", f"work_reservation_reconcile_failed error={type(error).__name__}")
     for row in result["released"]:
         log("INFO", f"work_orphan_released lease={row['lease_id'][:12]} priority={row['priority']} "
                     f"state={row['state']} owner={row['owner_state']}")
