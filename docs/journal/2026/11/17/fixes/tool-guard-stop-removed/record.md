@@ -46,6 +46,15 @@ The research that preceded this is [../../research/stop-hooks-vs-side-idle/recor
   - Fix: `hookCount 1`, holding only the other hook.
   - That run did not reproduce the plan-mode block itself, because no `plan_mode` attachment was written. The block is shown by the unit fail-before.
 
+- **Windows, all four CI groups** ([evidence/windows-groups.txt](evidence/windows-groups.txt)). Run on a clean `5c4b85a`: unit 4940 OK, router 1675 OK, channel 626 OK, runtime 460 OK.
+- **Deployment** ([evidence/deploy.txt](evidence/deploy.txt)).
+  - The publish run for `5c4b85a` failed on an unrelated flaky test and skipped publish ([../release-harness-flake/record.md](../release-harness-flake/record.md)).
+  - `6cf8805` fixed that test and published: npm beta `0.2.51-beta.20261117-153354.6cf8805`, `gitHead` equal to the commit.
+  - It is installed on this machine.
+- **Installed copy** ([evidence/installed-tests.txt](evidence/installed-tests.txt)).
+  - Tool guard, release notice and architecture contracts: 288 run, 0 failures.
+  - The Claude Code 2.1.326 E2E from the installed package: the installer leaves only the other `Stop` hook, and the Stop summary is `hookCount 1`.
+
 # Takes effect
 
 - The installer rewrites `~/.claude/settings.json` at the next Ciel Runtime launch, so the change takes effect then.

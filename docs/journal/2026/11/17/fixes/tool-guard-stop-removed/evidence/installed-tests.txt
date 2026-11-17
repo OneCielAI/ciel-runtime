@@ -1,0 +1,6 @@
+# installed copy: npm -g @one-ciel-ai/ciel-runtime@0.2.51-beta.20261117-153354.6cf8805 (gitHead 6cf8805), package files + repo tests, 2026-11-17T15:46:14Z
+RAN 288 failures=0 errors=0 skipped=42
+## real Claude Code 2.1.326 E2E from the installed package
+stop_hooks_after_install: ['other']
+stop_hook_summaries: [{'hookCount': 1, 'preventedContinuation': False, 'hooks': ['other']}]
+main_requests: 1

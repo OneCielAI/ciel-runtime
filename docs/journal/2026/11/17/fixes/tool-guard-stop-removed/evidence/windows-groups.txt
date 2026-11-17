@@ -1,0 +1,6 @@
+# Windows: the four CI groups (scripts/run_test_group.py) on a clean git archive of 5c4b85a, CIEL_RUNTIME_TEST_ISOLATED=1, temp CIEL_RUNTIME_CONFIG_DIR per group, finished 2026-11-17T16:00:35Z
+# 6cf8805 adds only tests/side_release_harness.mjs on top (Windows 5/5, Linux 0/100 under load; see ../../release-harness-flake)
+unit exit=0 Ran 4940 tests in 3139.665s OK (skipped=78) 
+router exit=0 Ran 1675 tests in 520.503s OK (skipped=1) 
+channel exit=0 Ran 626 tests in 46.620s OK (skipped=80) 
+runtime exit=0 Ran 460 tests in 44.184s OK (skipped=19) 

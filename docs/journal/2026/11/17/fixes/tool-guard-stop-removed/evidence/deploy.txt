@@ -1,0 +1,21 @@
+# Deployment of the tool-guard Stop removal, 2026-11-17 UTC
+
+## 5c4b85a (Stop removal) — publish run 44108671990: publish SKIPPED
+test (unit, 3/3) failure: test_busy_main_reads_the_release_in_its_running_turn (AssertionError: 1 != 0)
+all other jobs success. Cause and fix: ../../release-harness-flake/record.md
+
+## 6cf8805 (release-harness fix on top of 5c4b85a) — publish run 44112447290: success
+python-minimum, quality, test (unit 1/3, 2/3, 3/3), test (unit-real-backend), test (router),
+test (channel), test (runtime): success; publish: success
+
+## registry
+npm view @one-ciel-ai/ciel-runtime dist-tags.beta -> 0.2.51-beta.20261117-153354.6cf8805
+gitHead -> 6cf88054f3fa14cc0c01624b0ab858b43a862cdb (== git rev-parse HEAD)
+
+## local install (.local/tmp/install_beta.sh 6cf8805)
+integrity ok (sha512 of npm pack == dist.integrity)
+{"files": 626, "tree_equal": 624, "tree_differ": ["package.json", "ciel_runtime_support/runtime_constants.py"], "not_in_tree": []}
+npm ls -g: @one-ciel-ai/ciel-runtime@0.2.51-beta.20261117-153354.6cf8805
+installed tool_guard_hooks.py: the only "Stop" entry is TOOL_GUARD_RETIRED_EVENTS = ("Stop",)
+
+Live sessions and routers were not restarted.
