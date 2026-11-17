@@ -1,0 +1,3 @@
+# Linux: docker python:3.11-slim + Debian nodejs (node v20.19.2), working tree, 2026-11-17T08:46:23Z
+modules: test_side_intake_mod test_side_relay_notice test_side_forward test_side_intake_mcp test_side_release_notice test_work_fork_gate test_work_gate_check test_side_real_backend test_work_side_intake
+176 passed, 88 subtests passed in 39.67s

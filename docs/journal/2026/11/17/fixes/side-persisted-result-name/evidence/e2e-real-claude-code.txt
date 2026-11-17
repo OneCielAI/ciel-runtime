@@ -1,0 +1,27 @@
+# Owned real-Claude-Code E2E: side-intake persisted MCP result reader
+# temp CLAUDE_CONFIG_DIR/workspace, stdio fixture Walkie + router stand-in, loopback model gateway;
+# no ciel-runtime router, no live session or config touched. Paths reduced to file names.
+
+## before: HEAD 334f4c1 side-intake.js on Claude Code 2.1.326 (run before-dcc20e93)
+side-intake.js sha256: 298de38c1aa6edfcd56c39009666d8e414c143d2827587bd118179b1f2ae28f4
+saved files: mcp-walkie-walkie_read_messages-1794904912098-k8eakd.txt
+router calls: work_side_claim -> work_side_ack -> work_side_fail
+work_side_fail: category=source_context reason=Source persisted result is not this session's exact file
+model requests: main=0 side-fork=0 (side event in fork request: False)
+events: [{"event": "poll", "claimed": true}]
+
+## after: fixed side-intake.js on Claude Code 2.1.326 (run after-28deae60)
+side-intake.js sha256: 0cecf46a2a33b9d060caa076ec46fc60c145069becddf09e94eac392a67b2492
+saved files: mcp-walkie-walkie_call_tool-1794905032517-rjylyu.txt, mcp-walkie-walkie_read_messages-1794905032467-7s1bzq.txt
+router calls: work_side_claim -> work_side_ack -> work_side_resolve -> work_side_reply
+work_side_resolve decision: {"action": "answer", "kind": "request", "summary": "Synthetic source verified", "reply": "Synthetic E2E answer"}
+model requests: main=0 side-fork=1 (side event in fork request: True)
+events: [{"event": "poll", "claimed": true}, {"event": "complete", "agentId": "a998675a86d92a96c", "reason": "answer"}]
+
+## old: fixed side-intake.js on Claude Code 2.1.321 (run old-a5353540)
+side-intake.js sha256: 0cecf46a2a33b9d060caa076ec46fc60c145069becddf09e94eac392a67b2492
+saved files: mcp-walkie-walkie_call_tool-1794905035414.txt, mcp-walkie-walkie_read_messages-1794905035387.txt
+router calls: work_side_claim -> work_side_ack -> work_side_resolve -> work_side_reply
+work_side_resolve decision: {"action": "answer", "kind": "request", "summary": "Synthetic source verified", "reply": "Synthetic E2E answer"}
+model requests: main=0 side-fork=1 (side event in fork request: True)
+events: [{"event": "poll", "claimed": true}, {"event": "complete", "agentId": "a5a5bc0857af0bfe9", "reason": "answer"}]

@@ -1,0 +1,9 @@
+# pass-after: working tree, Windows Python 3.11.6, node v24.15.0, 2026-11-17T08:45:12Z
+## new and changed modules
+RAN 72 failures=0 errors=0 skipped=0
+## side intake, forward, release, gate, real backend
+RAN 104 failures=0 errors=0 skipped=0
+## claude plugin test ciel_runtime_support/claude_mods/ciel-work
+ 103 pass
+ 0 fail
+Ran 103 tests across 2 files. [29.01s]

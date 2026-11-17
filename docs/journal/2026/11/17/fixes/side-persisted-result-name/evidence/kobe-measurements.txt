@@ -1,0 +1,42 @@
+# KOBE (managed host, sandbox u24) read-only measurements, 2026-11-17 UTC
+# Source: the local Work REST /ca/work/api/v1/side (+ /receipt) of KOBE's own router, the Claude Code
+# session transcript and tool-results directory. Nothing was written or restarted on KOBE.
+# Identifiers and counts only; no message text.
+
+runtime package: 0.2.51-beta.20261117-055915.5d65674 (router spawn 2026-11-16T22:57:18 local, UTC-8)
+claude-code package installed: 2.1.326 at 2026-11-17T02:03:27Z; first transcript row with version 2.1.326: 2026-11-17T02:25:43Z
+tool-results mcp-* names: 1616 without suffix (last 2026-11-17T02:15:08Z), 116 with -<ms>-<6 chars> (first 2026-11-17T03:19:04Z)
+sample new name: mcp-walkie-walkie_read_messages-1794899124005-la554o.txt
+
+side inbox totals at read time: total=1256 processed=1056 quarantined=177 duplicate=23 failed=0
+
+## quarantined P3 receipts by UTC date and reason class
+11-10 {"invalid_answer: Side router operation failed: work_side_resolve: invalid sid": 2}
+11-11 {"invalid_answer: Side router operation failed: work_side_resolve: side update": 5, "invalid_answer: Side router operation failed: work_side_resolve: side decisi": 1, "turn_error: ": 6, "invalid_answer: Side router operation failed: work_side_resolve: invalid sid": 1}
+11-12 {"source_context: main context budget": 10, "invalid_answer: Side router operation failed: work_side_resolve: side update": 7, "invalid_answer: Side router operation failed: work_side_resolve: explicit pr": 1}
+11-13 {"invalid_answer: Side router operation failed: work_side_resolve: side update": 3, "source_context: main context budget": 7}
+11-14 {"source_context: main context budget": 21}
+11-15 {"source_context: main context budget": 12}
+11-16 {"source_context: thread byte limit": 16, "source_context: main context budget": 1}
+11-17 {"source_context: persisted file name": 18}
+
+## the 18 receipts with reason "Source persisted result is not this session's exact file"
+receipt(12) | received | priority | attempts | use_parent_model | notice_state | main transcript: notes / model requests carrying it
+6203a3df5fb7 | 2026-11-17T03:18:28Z | P3 | 6 | false | appended | notes=3 first=2026-11-17T03:28:37.140Z requests=1
+480d279d323d | 2026-11-17T03:19:51Z | P3 | 6 | false | appended | notes=2 first=2026-11-17T03:33:42.869Z requests=1
+c1e541feaf4c | 2026-11-17T03:21:45Z | P3 | 6 | false | appended | notes=3 first=2026-11-17T03:35:56.841Z requests=1
+95a4954adf58 | 2026-11-17T03:25:02Z | P3 | 6 | false | appended | notes=2 first=2026-11-17T03:40:09.218Z requests=1
+204f27df9d3c | 2026-11-17T03:49:42Z | P3 | 6 | false | appended | notes=3 first=2026-11-17T03:54:50.058Z requests=1
+beada6e88380 | 2026-11-17T03:49:44Z | P3 | 6 | false | appended | notes=2 first=2026-11-17T03:56:49.481Z requests=1
+dda1fa54f9f9 | 2026-11-17T04:25:03Z | P3 | 6 | false | appended | notes=3 first=2026-11-17T04:29:30.585Z requests=1
+088dd2d6ee77 | 2026-11-17T04:43:54Z | P3 | 6 | false | appended | notes=3 first=2026-11-17T04:48:35.648Z requests=1
+ad8b912e3680 | 2026-11-17T04:44:11Z | P3 | 6 | false | appended | notes=3 first=2026-11-17T04:49:58.617Z requests=1
+97008d484af1 | 2026-11-17T04:49:16Z | P3 | 6 | false | appended | notes=3 first=2026-11-17T04:55:42.054Z requests=1
+5824dd0dfc50 | 2026-11-17T04:49:18Z | P3 | 6 | false | appended | notes=3 first=2026-11-17T04:55:42.054Z requests=1
+f89e5fa2cffa | 2026-11-17T05:36:45Z | P3 | 6 | false | appended | notes=2 first=2026-11-17T05:41:54.853Z requests=1
+8ada7fa986a8 | 2026-11-17T05:36:47Z | P3 | 6 | false | appended | notes=2 first=2026-11-17T05:41:54.853Z requests=1
+afd995b46f6e | 2026-11-17T05:47:27Z | P3 | 6 | false | appended | notes=3 first=2026-11-17T05:54:20.112Z requests=1
+b876998ac61d | 2026-11-17T05:47:33Z | P3 | 6 | false | appended | notes=3 first=2026-11-17T05:56:36.105Z requests=1
+8069450fd169 | 2026-11-17T05:48:01Z | P3 | 6 | false | appended | notes=2 first=2026-11-17T05:57:07.520Z requests=1
+b9e6bccde58b | 2026-11-17T05:48:03Z | P3 | 6 | false | appended | notes=3 first=2026-11-17T06:00:19.165Z requests=1
+a142dc88926d | 2026-11-17T06:59:55Z | P3 | 6 | false | appended | notes=2 first=2026-11-17T07:09:58.260Z requests=1

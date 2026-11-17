@@ -1,0 +1,14 @@
+# fail-before: new tests against HEAD 334f4c1 side-intake.js (git archive HEAD + new tests), 2026-11-17T08:44:28Z
+FAIL: test_persisted_mcp_result_context_budget_and_spawn_proof (test_side_intake_mod.SideModTests.test_persisted_mcp_result_context_budget_and_spawn_proof) (case='persisted_suffix_ok')
+AssertionError: Tuples differ: (1, 61, None) != (0, None, {'category': 'source_context', '[64 chars]le"})
+FAIL: test_persisted_mcp_result_context_budget_and_spawn_proof (test_side_intake_mod.SideModTests.test_persisted_mcp_result_context_budget_and_spawn_proof) (case='persisted_suffix_digits_ok')
+AssertionError: Tuples differ: (1, 61, None) != (0, None, {'category': 'source_context', '[64 chars]le"})
+FAIL: test_persisted_mcp_result_context_budget_and_spawn_proof (test_side_intake_mod.SideModTests.test_persisted_mcp_result_context_budget_and_spawn_proof) (case='persisted_suffix_short_ok')
+AssertionError: Tuples differ: (1, 61, None) != (0, None, {'category': 'source_context', '[64 chars]le"})
+FAIL: test_persisted_mcp_result_context_budget_and_spawn_proof (test_side_intake_mod.SideModTests.test_persisted_mcp_result_context_budget_and_spawn_proof) (case='project_dot')
+AssertionError: 0 != 1
+FAIL: test_persisted_mcp_result_context_budget_and_spawn_proof (test_side_intake_mod.SideModTests.test_persisted_mcp_result_context_budget_and_spawn_proof) (case='project_dotdot')
+AssertionError: 0 != 1
+FAIL: test_idle_main_is_woken_for_a_failed_event_original_as_its_own_to_answer (test_side_relay_notice.SideRelayNoticeTests.test_idle_main_is_woken_for_a_failed_event_original_as_its_own_to_answer)
+AssertionError: 'a host message beginning "[Ciel side 처리 실패 · 원문 전달"' not found in 'Ciel side wake ffffffffffff: a host message beginning "Ciel side released recorded wait" was added to this conversation while you were idle. Durable source: work_side_claim main_wakes event ref ffffffffffff. Read it there and continue. This wake holds no event data, needs no acknowledgment and grants no approval. Wake ref <random>.'
+RAN 72 failures=6 errors=0 skipped=0
