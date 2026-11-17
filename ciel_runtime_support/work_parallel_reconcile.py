@@ -1,4 +1,4 @@
-"""Retire the halves of reservations that never launched (Celly, 2026-11-17).
+"""Retire the halves of Work reservations that never launched (Celly, 2026-11-17).
 
 A reservation has three durable halves: the ledger lease, its coordination run
 and, for P0, a launch intent. A lease is deleted only while it is an unbound
@@ -21,6 +21,9 @@ fork; it is listed as ambiguous and left unchanged.
 Before any write the three files are copied to a backup directory beside the
 ledger; the newest ``BACKUP_KEEP`` backups are kept. Restoring one means
 copying its files back while no router runs.
+
+This module does not import ``work_parallel_mcp``: that module imports the
+preview for its operator surface, and the import graph must stay acyclic.
 """
 from __future__ import annotations
 
@@ -33,6 +36,8 @@ from pathlib import Path
 from typing import Any
 
 from .work_parallel import WorkParallelConflict, WorkParallelError
+from .work_parallel_p0 import p0_store
+from .work_parallel_receipts import coordination_store
 
 RUN_OUTCOME = "reconciled: ledger lease absent, never launched"
 SAMPLE = 20
@@ -41,8 +46,7 @@ BACKUP_KEEP = 10
 
 
 def _stores(store):
-    from .work_parallel_mcp import coordination, p0_state
-    return coordination(store), p0_state(store)
+    return coordination_store(store), p0_store(store)
 
 
 def preview(store) -> dict[str, Any]:
@@ -79,7 +83,6 @@ def _backup(store) -> str:
     target.mkdir(parents=True, exist_ok=False)
     for path in (Path(store.path), Path(coord.path), Path(side.path)):
         if path.exists():
-            # Each store replaces its file atomically, so a copy is one whole version.
             shutil.copy2(path, target / path.name)
     backups = sorted((row for row in base.iterdir() if row.is_dir()), key=lambda row: row.name)
     for old in backups[:-BACKUP_KEEP]:
@@ -88,7 +91,6 @@ def _backup(store) -> str:
 
 
 def apply(store, *, expected_digest: str | None = None) -> dict[str, Any]:
-    """Retire the previewed orphans. ``expected_digest`` pins an operator's preview."""
     view = preview(store)
     if expected_digest is not None and view["digest"] != expected_digest:
         raise WorkParallelConflict("Work reservations changed since the preview; preview again")
@@ -126,15 +128,12 @@ def apply(store, *, expected_digest: str | None = None) -> dict[str, Any]:
 
 
 def reconcile_quietly(store, log=None) -> dict[str, Any] | None:
-    """The sweep's call: never raises; logs one line when it retired anything."""
     try:
         result = apply(store)
     except (OSError, ValueError, WorkParallelError) as error:
         if log is not None:
             log("WARN", f"work_reservation_reconcile_failed error={type(error).__name__}")
         return None
-    # Ambiguous rows are left as they are and shown by the orphan preview; they
-    # are named here only beside a write, so a repeat sweep logs nothing.
     if log is not None and (result["cancelled_runs"] or result["cancelled_p0_intents"]):
         log("INFO", f"work_reservation_reconciled runs={result['cancelled_runs']} "
                     f"p0_intents={result['cancelled_p0_intents']} "
