@@ -1,0 +1,37 @@
+2026-11-16T19:00:08 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2578550 bytes=10269891
+2026-11-16T19:00:25 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2578779 bytes=10270804
+2026-11-16T19:00:46 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2580252 bytes=10276696
+2026-11-16T19:00:55 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2581634 bytes=10282191
+2026-11-16T19:01:05 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2581971 bytes=10283539
+2026-11-16T19:01:26 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2583566 bytes=10289508
+2026-11-16T19:01:40 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=2560468 bytes=10184460
+2026-11-16T19:01:42 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2583779 bytes=10290359
+2026-11-16T19:03:20 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T19:03:24 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2704283 bytes=10772037
+2026-11-16T19:03:35 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=2681143 bytes=10666820
+2026-11-16T19:03:40 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2705582 bytes=10777199
+2026-11-16T19:05:30 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2705938 bytes=10778623
+2026-11-16T19:05:45 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2706313 bytes=10780120
+2026-11-16T19:05:51 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T19:05:56 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2706586 bytes=10781212
+2026-11-16T19:06:10 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=2683485 bytes=10676154
+2026-11-16T19:07:23 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2709919 bytes=10793934
+2026-11-16T19:07:36 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2710249 bytes=10795256
+2026-11-16T19:07:41 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T19:07:51 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2712156 bytes=10802848
+2026-11-16T19:08:03 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2713475 bytes=10808123
+2026-11-16T19:08:14 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=2689234 bytes=10698504
+2026-11-16T19:08:17 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T19:08:17 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2714844 bytes=10813589
+2026-11-16T19:08:33 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2718070 bytes=10826425
+2026-11-16T19:09:03 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2719106 bytes=10830569
+2026-11-16T19:09:09 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=2693131 bytes=10714013
+2026-11-16T19:09:13 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T19:09:15 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2719502 bytes=10832152
+2026-11-16T19:09:30 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=2693233 bytes=10715122
+2026-11-16T19:09:33 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T19:09:35 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2721358 bytes=10839543
+2026-11-16T19:09:47 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2722732 bytes=10845002
+2026-11-16T19:09:51 [INFO] upstream_direct_request model=_API_KEYS-SSE-1 tokens=2696073 bytes=10726409
+2026-11-16T19:09:54 [WARN] anthropic_sse_upstream_error_event model=_API_KEYS-SSE-1 text_len=0 
+2026-11-16T19:09:57 [INFO] upstream_direct_request model=_Walkie_Opus55-Sol61-Fast tokens=2843302 bytes=11327246
