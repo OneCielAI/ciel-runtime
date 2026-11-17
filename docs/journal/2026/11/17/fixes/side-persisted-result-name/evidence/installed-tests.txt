@@ -1,0 +1,6 @@
+# installed copy: npm -g @one-ciel-ai/ciel-runtime@0.2.51-beta.20261117-135400.42b1ff8 (gitHead 42b1ff8), package files + repo tests, 2026-11-17T14:06:17Z
+RAN 115 failures=0 errors=0 skipped=0
+## claude plugin test (installed ciel-work mod)
+ 103 pass
+ 0 fail
+Ran 103 tests across 2 files. [40.33s]

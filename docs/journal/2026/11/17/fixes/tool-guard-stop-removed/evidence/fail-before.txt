@@ -1,0 +1,13 @@
+# fail-before: new tests/test_tool_guard.py against HEAD 42b1ff8 (git archive HEAD), 2026-11-17T14:54:30Z
+ERROR: test_install_tool_guard_hooks_migrates_legacy_claude_any_hooks (test_tool_guard.ToolGuardTests.test_install_tool_guard_hooks_migrates_legacy_claude_any_hooks)
+FAIL: test_default_hook_policy_owns_supported_event_sets (test_tool_guard.ToolGuardTests.test_default_hook_policy_owns_supported_event_sets)
+AssertionError: 'Stop' unexpectedly found in ('PostToolBatch', 'SessionStart', 'SessionEnd', 'Setup', 'UserPromptSubmit', 'UserPromptExpansion', 'Stop', 'StopFailure', 'InstructionsLoaded', 'ConfigChange', 'CwdChanged', 'Notification', 'SubagentStart', 'Subage
+FAIL: test_install_drops_a_stop_event_that_only_held_the_guard (test_tool_guard.ToolGuardTests.test_install_drops_a_stop_event_that_only_held_the_guard)
+AssertionError: 'Stop' unexpectedly found in {'Stop': [{'hooks': [{'type': 'command', 'command': '/usr/bin/python3 /new/ciel-runtime-tool-guard.py'}]}], 'PreToolUse': [{'hooks': [{'type': 'command', 'command': '/usr/bin/python3 /new/ciel-runtime-tool-guard.py'
+FAIL: test_install_removes_the_guard_from_stop_and_keeps_other_stop_hooks (test_tool_guard.ToolGuardTests.test_install_removes_the_guard_from_stop_and_keeps_other_stop_hooks)
+AssertionError: Lists differ: ['other-app-hook claude', 'echo keep'] != ['/usr/bin/python3 /new/ciel-runtime-tool-g[42 chars]eep']
+FAIL: test_stop_never_continues_the_turn_even_in_plan_mode (test_tool_guard.ToolGuardTests.test_stop_never_continues_the_turn_even_in_plan_mode) (provider='ollama-cloud')
+AssertionError: '' != '{"decision":"block","reason":"[ciel-runti[556 chars]rue}'
+FAIL: test_stop_never_continues_the_turn_even_in_plan_mode (test_tool_guard.ToolGuardTests.test_stop_never_continues_the_turn_even_in_plan_mode) (provider='anthropic')
+AssertionError: '' != '{"decision":"block","reason":"[ciel-runti[556 chars]rue}'
+RAN 22 failures=5 errors=1 skipped=0

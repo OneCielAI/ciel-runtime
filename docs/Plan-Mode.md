@@ -33,13 +33,21 @@ PLAN_MODE_SELF_TOOLS = ("EnterPlanMode", "ExitPlanMode")
 
 ---
 
-## Plan Guard 마커
+## Plan Guard 마커 (Stop 가드 제거됨)
 
 ```python
 PLAN_GUARD_MARKER = "[ciel-runtime-plan-guard]"
 ```
 
-시스템 프롬프트에 삽입하여 Plan Mode 가드 상태 추적.
+예전 tool-guard `Stop` 훅은 Plan Mode에서 짧은 답만 하고 멈춘 턴을 막고, 이 마커가 붙은
+"Ciel Runtime plan guard" 지시를 메인 컨텍스트에 넣어 턴을 이어 갔다. 이 훅은 2026-11-17에
+제거됐다. 이유는 두 가지다. 집중해야 할 일과 무관한 지시가 메인 컨텍스트에 들어갔고,
+메인의 유휴 상태는 Work 사이드 액터가 살핀다.
+- 실행 시 tool-guard를 `Stop`에 등록하지 않는다. 기존 `settings.json`에 남은 tool-guard `Stop`
+  항목은 다음 실행 때 지워지고, 다른 `Stop` 훅은 그대로 남는다.
+- 이전 빌드의 설정이 아직 `Stop`에서 이 스크립트를 부르더라도 아무 결정도 내놓지 않는다.
+- 마커는 이전 대화에 남은 지시를 사용자 의도에서 걸러 내는 데만 쓴다(`conversation_turn_policy`).
+- ExitPlanMode 자동 승인(bypass 시 `PermissionRequest`·`PreToolUse`)은 그대로다.
 
 ---
 

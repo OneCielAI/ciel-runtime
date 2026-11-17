@@ -1,0 +1,2 @@
+# pass-after: working tree on 42b1ff8, Windows Python 3.11, 2026-11-17T14:54:32Z
+RAN 315 failures=0 errors=0 skipped=42

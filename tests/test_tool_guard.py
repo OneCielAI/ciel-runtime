@@ -14,6 +14,8 @@ from ciel_runtime_support.tool_guard_hooks import (
     TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER,
 )
 
+GUARD_COMMAND = "/usr/bin/python3 /new/ciel-runtime-tool-guard.py"
+
 ROOT = Path(__file__).resolve().parents[1]
 GUARD = ROOT / "ciel-runtime-tool-guard.py"
 
@@ -30,6 +32,39 @@ class ToolGuardTests(unittest.TestCase):
         )
         self.assertIn("PreToolUse", TOOL_GUARD_EVENTS_WITH_TOOL_MATCHER)
         self.assertIn("SessionStart", TOOL_GUARD_EVENTS_WITHOUT_MATCHER)
+        # The Stop hook was removed 2026-11-17; SubagentStop stays log-only.
+        self.assertNotIn("Stop", TOOL_GUARD_EVENTS_WITHOUT_MATCHER)
+        self.assertIn("SubagentStop", TOOL_GUARD_EVENTS_WITHOUT_MATCHER)
+        self.assertEqual(("Stop",), DEFAULT_TOOL_GUARD_HOOK_POLICY.retired_events)
+
+    def install_into(self, hooks: dict) -> dict:
+        with tempfile.TemporaryDirectory() as tmp:
+            settings_path = Path(tmp) / "settings.json"
+            settings_path.write_text(json.dumps({"hooks": hooks}), encoding="utf-8")
+            with (
+                mock.patch.object(ciel_runtime, "CLAUDE_SETTINGS_PATH", settings_path),
+                mock.patch.object(ciel_runtime, "ciel_runtime_tool_guard_command", return_value=GUARD_COMMAND),
+            ):
+                ciel_runtime.install_tool_guard_hooks()
+            return json.loads(settings_path.read_text(encoding="utf-8"))
+
+    def test_install_removes_the_guard_from_stop_and_keeps_other_stop_hooks(self):
+        guard = {"type": "command", "command": "/usr/bin/python3 /old/ciel-runtime-tool-guard.py"}
+        other = {"type": "command", "command": "other-app-hook claude"}
+        data = self.install_into({
+            "Stop": [{"hooks": [guard]}, {"hooks": [other]}, {"hooks": [dict(guard), {"type": "command", "command": "echo keep"}]}],
+            "SubagentStop": [{"hooks": [guard]}],
+        })
+        stop = [hook["command"] for group in data["hooks"]["Stop"] for hook in group["hooks"]]
+        self.assertEqual(["other-app-hook claude", "echo keep"], stop)
+        self.assertEqual([GUARD_COMMAND], [hook["command"] for group in data["hooks"]["SubagentStop"] for hook in group["hooks"]])
+
+    def test_install_drops_a_stop_event_that_only_held_the_guard(self):
+        data = self.install_into({"Stop": [{"hooks": [{"type": "command", "command": "py /old/ciel-runtime-tool-guard.py"}]}]})
+        self.assertNotIn("Stop", data["hooks"])
+        self.assertIn("SessionStart", data["hooks"])
+        # A fresh settings file never gets a Stop entry.
+        self.assertNotIn("Stop", self.install_into({})["hooks"])
 
     def test_legacy_tool_guard_compat_shim_is_created_for_packaged_install(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -116,6 +151,8 @@ class ToolGuardTests(unittest.TestCase):
             data = json.loads(settings_path.read_text(encoding="utf-8"))
 
         for event, groups in data["hooks"].items():
+            if event in DEFAULT_TOOL_GUARD_HOOK_POLICY.retired_events:
+                continue
             commands = [
                 hook.get("command", "")
                 for group in groups
@@ -136,12 +173,13 @@ class ToolGuardTests(unittest.TestCase):
             )
         ]
         self.assertEqual("*", pretool_current_groups[0].get("matcher"))
-        self.assertIn("echo keep", [
+        stop_commands = [
             hook.get("command", "")
             for group in data["hooks"]["Stop"]
             for hook in group.get("hooks", [])
             if isinstance(hook, dict)
-        ])
+        ]
+        self.assertEqual(["echo keep"], stop_commands)
 
     def run_guard(
         self,
@@ -381,38 +419,30 @@ class ToolGuardTests(unittest.TestCase):
         self.assertEqual("", proc.stdout.strip())
         self.assertEqual("", proc.stderr.strip())
 
-    def test_stop_hook_handles_large_transcript_without_full_read(self):
+    def test_stop_never_continues_the_turn_even_in_plan_mode(self):
+        # Removed 2026-11-17: this exact plan-mode short acknowledgement after a
+        # short resume prompt was blocked with a "Ciel Runtime plan guard"
+        # continuation. A settings file from an older build may still call the
+        # guard on Stop; it must add nothing to main's context.
+        rows = [
+            {"type": "attachment", "attachment": {"type": "plan_mode"}},
+            {"type": "user", "message": {"role": "user", "content": "continue"}},
+            {"type": "assistant", "message": {"role": "assistant", "content": "Understood."}},
+        ]
         with tempfile.TemporaryDirectory() as tmp:
-            transcript = Path(tmp) / "large-session.jsonl"
-            with transcript.open("wb") as f:
-                f.seek(230 * 1024 * 1024)
-                f.write(
-                    (
-                        "\n"
-                        + json.dumps(
-                            {
-                                "type": "assistant",
-                                "message": {"role": "assistant", "content": "Done."},
-                            }
-                        )
-                        + "\n"
-                    ).encode("utf-8")
-                )
-            proc = self.run_guard(
-                {
-                    "hook_event_name": "Stop",
-                    "session_id": "large-session",
-                    "transcript_path": str(transcript),
-                },
-                {
-                    "CIEL_RUNTIME_PROVIDER": "ollama-cloud",
-                    "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1",
-                },
-                timeout=5,
-            )
-
-        self.assertEqual("", proc.stdout.strip())
-        self.assertEqual("", proc.stderr.strip())
+            transcript = Path(tmp) / "plan-session.jsonl"
+            transcript.write_text("".join(json.dumps(row) + "\n" for row in rows), encoding="utf-8")
+            for env in (
+                {"CIEL_RUNTIME_PROVIDER": "ollama-cloud", "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1"},
+                {"CIEL_RUNTIME_PROVIDER": "anthropic", "CIEL_RUNTIME_BYPASS_PERMISSIONS": "1"},
+            ):
+                with self.subTest(provider=env["CIEL_RUNTIME_PROVIDER"]):
+                    proc = self.run_guard(
+                        {"hook_event_name": "Stop", "session_id": "plan-session", "transcript_path": str(transcript)},
+                        env,
+                    )
+                    self.assertEqual("", proc.stdout.strip())
+                    self.assertEqual("", proc.stderr.strip())
 
     def test_native_session_without_bypass_stays_silent(self):
         # No bypass, native provider not in NON_NATIVE_PROVIDERS -> fully silent.

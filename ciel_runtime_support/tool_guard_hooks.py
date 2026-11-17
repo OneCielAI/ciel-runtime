@@ -23,7 +23,6 @@ TOOL_GUARD_EVENTS_WITHOUT_MATCHER: tuple[str, ...] = (
     "Setup",
     "UserPromptSubmit",
     "UserPromptExpansion",
-    "Stop",
     "StopFailure",
     "InstructionsLoaded",
     "ConfigChange",
@@ -42,6 +41,12 @@ TOOL_GUARD_EVENTS_WITHOUT_MATCHER: tuple[str, ...] = (
     "ElicitationResult",
 )
 
+# Removed 2026-11-17 (user decision): the tool-guard Stop hook's plan-mode
+# continuation put unrelated instructions into main's context, and the Work side
+# actor watches main's idle state. The installer takes the tool-guard handler out
+# of these events in an existing settings file; other hooks there are kept.
+TOOL_GUARD_RETIRED_EVENTS: tuple[str, ...] = ("Stop",)
+
 
 @dataclass(frozen=True)
 class ToolGuardHookPolicy:
@@ -53,6 +58,7 @@ class ToolGuardHookPolicy:
         "/claude-any/",
         "\\claude-any\\",
     )
+    retired_events: tuple[str, ...] = TOOL_GUARD_RETIRED_EVENTS
 
 
 DEFAULT_TOOL_GUARD_HOOK_POLICY = ToolGuardHookPolicy(
@@ -165,8 +171,45 @@ def install_tool_guard_hook_settings(
             groups.append(group)
             changed = True
 
+    for event in policy.retired_events:
+        groups = hooks.get(event)
+        if not isinstance(groups, list):
+            continue
+        if _remove_guard_handlers(groups, policy.legacy_markers):
+            changed = True
+        if not groups:
+            del hooks[event]
+            changed = True
+
     if changed:
         services.repository.save(settings, "tool_guard")
+
+
+def _is_guard_handler(handler: Any, legacy_markers: tuple[str, ...]) -> bool:
+    if not isinstance(handler, dict):
+        return False
+    command = str(handler.get("command", ""))
+    return "ciel-runtime-tool-guard" in command or any(marker in command for marker in legacy_markers)
+
+
+def _remove_guard_handlers(groups: list[Any], legacy_markers: tuple[str, ...]) -> bool:
+    """Drop this guard's handlers from a retired event; keep every other hook."""
+    changed = False
+    kept: list[Any] = []
+    for group in groups:
+        if not isinstance(group, dict) or not isinstance(group.get("hooks"), list):
+            kept.append(group)
+            continue
+        handlers = [h for h in group["hooks"] if not _is_guard_handler(h, legacy_markers)]
+        if len(handlers) != len(group["hooks"]):
+            changed = True
+            if not handlers:
+                continue
+            group["hooks"] = handlers
+        kept.append(group)
+    if changed:
+        groups[:] = kept
+    return changed
 
 
 def _normalize_event_groups(

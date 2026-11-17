@@ -103,7 +103,6 @@ TOOL_HINTS = {
     "Grep": "Use Grep with pattern, path, glob, type, output_mode, context, head_limit, or multiline only.",
     "TaskUpdate": "Use TaskUpdate with taskId and optional status pending, in_progress, completed, or deleted.",
 }
-PLAN_GUARD_MARKER = "[ciel-runtime-plan-guard]"
 TRUE_ENV_VALUES = {"1", "true", "yes", "on"}
 
 
@@ -419,137 +418,15 @@ def transcript_plan_mode_active(transcript_path: str | None) -> bool:
     return active
 
 
-def message_text(message: dict[str, Any]) -> str:
-    content = message.get("content")
-    if isinstance(content, str):
-        return content.strip()
-    if not isinstance(content, list):
-        return ""
-    parts: list[str] = []
-    for block in content:
-        if isinstance(block, str):
-            parts.append(block)
-        elif isinstance(block, dict) and block.get("type") == "text":
-            parts.append(str(block.get("text") or ""))
-    return "\n".join(part for part in parts if part).strip()
-
-
-def message_has_tool_use(message: dict[str, Any]) -> bool:
-    content = message.get("content")
-    if not isinstance(content, list):
-        return False
-    return any(isinstance(block, dict) and block.get("type") == "tool_use" for block in content)
-
-
-def transcript_latest_turn(transcript_path: str | None) -> dict[str, Any]:
-    lines = transcript_tail_lines(transcript_path, 160)
-
-    latest_assistant: dict[str, Any] | None = None
-    latest_assistant_index = -1
-    parsed: list[dict[str, Any]] = []
-    for line in lines:
-        try:
-            data = json.loads(line)
-        except Exception:
-            continue
-        parsed.append(data)
-        message = data.get("message")
-        if isinstance(message, dict) and message.get("role") == "assistant":
-            latest_assistant = message
-            latest_assistant_index = len(parsed) - 1
-
-    if not latest_assistant:
-        return {}
-
-    latest_user_text = ""
-    for data in reversed(parsed[:latest_assistant_index]):
-        if data.get("type") != "user":
-            continue
-        message = data.get("message")
-        if not isinstance(message, dict):
-            continue
-        if message.get("isMeta") is True:
-            continue
-        text = message_text(message)
-        if not text:
-            continue
-        if text.startswith("Stop hook feedback:") or PLAN_GUARD_MARKER in text:
-            continue
-        if text.startswith("Ciel Runtime plan guard:"):
-            continue
-        latest_user_text = text
-        break
-
-    return {
-        "assistant_text": message_text(latest_assistant),
-        "assistant_has_tool_use": message_has_tool_use(latest_assistant),
-        "user_text": latest_user_text,
-    }
-
-
-def short_resume_prompt(text: str) -> bool:
-    normalized = re.sub(r"\s+", " ", text or "").strip()
-    if not normalized or len(normalized) > 32:
-        return False
-    return not re.search(r"[?？`{};/\\\\]|https?://", normalized)
-
-
-def non_actionable_stop_text(text: str) -> bool:
-    stripped = (text or "").strip()
-    normalized = re.sub(r"\s+", " ", stripped).strip()
-    if not normalized or len(normalized) > 220:
-        return False
-    if "\n" in stripped:
-        return False
-    if re.search(r"[`{};/\\\\]|https?://", normalized):
-        return False
-    return True
-
-
-def should_block_plan_stop(transcript_path: str | None) -> tuple[bool, str]:
-    if not transcript_plan_mode_active(transcript_path):
-        return False, ""
-    turn = transcript_latest_turn(transcript_path)
-    assistant_text = str(turn.get("assistant_text") or "")
-    user_text = str(turn.get("user_text") or "")
-    if turn.get("assistant_has_tool_use"):
-        return False, ""
-    if not non_actionable_stop_text(assistant_text):
-        return False, ""
-    if re.search(r"[?？]", assistant_text):
-        return False, ""
-    if not short_resume_prompt(user_text):
-        return False, ""
-    reason = (
-        f"{PLAN_GUARD_MARKER} Ciel Runtime plan guard: Claude Code is still in plan mode, "
-        "but the latest response ended as a short "
-        "acknowledgement without any concrete tool call. Continue now by calling the next required Claude Code "
-        "plan-mode-safe tool, such as Read, Glob, Grep, or ExitPlanMode. Use TaskUpdate only when an existing "
-        "task is being updated. If mutation is required, call ExitPlanMode with the plan first. Do not put the "
-        "next step into the user input box and do not wait for the user unless you are asking a real "
-        "clarification question."
-    )
-    return True, reason
-
-
 def handle_stop(event: dict[str, Any]) -> int:
-    log_json_event(event)
+    # The Stop plan guard was removed on 2026-11-17 (user decision): its
+    # continuation put plan-mode instructions into main's context, and the
+    # Work side actor watches main's idle state. The launch no longer registers
+    # this script for Stop; a settings file written by an older build may still
+    # call it until the next launch rewrites it, so Stop returns no decision.
     if str(event.get("hook_event_name") or "") == "SubagentStop":
+        log_json_event(event)
         log_event(f"SubagentStop guard observed session={event.get('session_id') or ''}")
-        return 0
-    session_id = str(event.get("session_id") or "")
-    transcript_path = str(event.get("transcript_path") or "")
-    # Also run the plan-idle block for bypass-only (anthropic-routed) sessions:
-    # the plan auto-exit guarantee must hold regardless of provider.
-    if active() or bypass_permissions_enabled():
-        should_block, reason = should_block_plan_stop(transcript_path)
-        if should_block:
-            out = {"decision": "block", "reason": reason, "suppressOutput": True}
-            log_json_event(event, out)
-            log_event(f"Stop guard blocked plan idle session={session_id} transcript={transcript_path}")
-            emit(out)
-            return 0
-    log_event(f"Stop guard observed session={session_id}")
     return 0
 
 

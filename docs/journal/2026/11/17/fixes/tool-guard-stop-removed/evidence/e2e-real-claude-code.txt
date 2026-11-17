@@ -1,0 +1,21 @@
+# Owned real-Claude-Code E2E (.local/tmp/e2e_stop_hook_removed.py), Claude Code 2.1.326, 2026-11-17
+# Temp CLAUDE_CONFIG_DIR/HOME/workspace, loopback model gateway, ConPTY. No live router, session or settings.
+# Starting settings.json (an older build's): Stop = [tool-guard, other hook]. Each tree's own
+# install_tool_guard_hooks() then rewrote it. Env as a Ciel launch: provider ollama-cloud + bypass.
+
+## before: HEAD 42b1ff8
+stop_hooks_after_install: [tool-guard, other]
+subagentstop_has_guard: true
+stop_hook_summary: hookCount 2, hooks [tool-guard, other], preventedContinuation false
+main_requests: 1
+
+## after: working tree (Stop retired)
+stop_hooks_after_install: [other]
+subagentstop_has_guard: true
+stop_hook_summary: hookCount 1, hooks [other], preventedContinuation false
+main_requests: 1
+
+# Not reproduced here: the old guard's plan-mode block itself. With --permission-mode plan the
+# transcript held no plan_mode attachment (plan_mode_in_transcript false in both runs), so the old
+# guard's plan detection did not fire. The block is shown by the unit test fail-before
+# (evidence/fail-before.txt: HEAD emits {"decision":"block","reason":"[ciel-runtime-plan-guard] ..."}).

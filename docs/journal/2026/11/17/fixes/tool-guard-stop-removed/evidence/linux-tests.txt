@@ -1,0 +1,3 @@
+# Linux: docker python:3.11-slim, working tree, 2026-11-17T14:55:48Z
+modules: test_tool_guard test_architecture_contracts test_compaction_launch_contracts test_deepseek_provider
+273 passed, 42 skipped, 751 subtests passed in 51.38s

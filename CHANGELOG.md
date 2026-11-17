@@ -5,6 +5,20 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+### Beta: the tool-guard Stop hook is removed
+
+- Launches no longer register `ciel-runtime-tool-guard` for Claude Code's `Stop`
+  event. A `Stop` entry for it left in `settings.json` by an older build is
+  removed on the next launch; other `Stop` hooks are kept.
+- Its only action was the plan-mode stall guard. When a plan-mode turn ended on
+  a short acknowledgement, it blocked the stop and added a "Ciel Runtime plan
+  guard" instruction to main's context. It is removed because that instruction
+  pulled main away from the work in focus, and the Work side actor watches
+  main's idle state.
+- If an older settings file still calls the script on `Stop`, the script makes
+  no decision. `SubagentStop` stays log-only, and ExitPlanMode auto-approval
+  under bypass permissions is unchanged.
+
 ### Beta: the runtime's goal command is removed
 
 - The `goal_clear` router MCP tool is gone. Goals are now set, updated and
