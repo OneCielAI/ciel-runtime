@@ -1,0 +1,25 @@
+# fail-before: new tests run against HEAD dc5da07 source (git archive HEAD), 2026-11-17T05:32:59Z
+# command: python .local/tmp/run_tests.py <HEAD tree> tests/test_channel_compact_injection.py tests/test_channel_mcp_tools.py tests/test_codex_desktop_injection.py tests/test_runtime_compaction_control.py
+FAIL: test_retired_goal_clear_is_never_typed (test_channel_compact_injection.ChannelCompactInjectionServiceTests.test_retired_goal_clear_is_never_typed) (runtime='claude', busy=False)
+AssertionError: 'none' != 'injected'
+FAIL: test_retired_goal_clear_is_never_typed (test_channel_compact_injection.ChannelCompactInjectionServiceTests.test_retired_goal_clear_is_never_typed) (runtime='claude', busy=True)
+AssertionError: 'none' != 'injected'
+FAIL: test_retired_goal_clear_is_never_typed (test_channel_compact_injection.ChannelCompactInjectionServiceTests.test_retired_goal_clear_is_never_typed) (runtime='codex', busy=False)
+AssertionError: 'none' != 'injected'
+FAIL: test_retired_goal_clear_is_never_typed (test_channel_compact_injection.ChannelCompactInjectionServiceTests.test_retired_goal_clear_is_never_typed) (runtime='codex', busy=True)
+AssertionError: 'none' != 'injected'
+FAIL: test_retired_goal_clear_is_never_typed (test_channel_compact_injection.ChannelCompactInjectionServiceTests.test_retired_goal_clear_is_never_typed) (runtime='muse', busy=False)
+AssertionError: 'none' != 'injected'
+FAIL: test_retired_goal_clear_is_never_typed (test_channel_compact_injection.ChannelCompactInjectionServiceTests.test_retired_goal_clear_is_never_typed) (runtime='muse', busy=True)
+AssertionError: 'none' != 'injected'
+FAIL: test_catalog_exposes_only_supported_tools (test_channel_mcp_tools.ChannelMcpToolsTests.test_catalog_exposes_only_supported_tools)
+AssertionError: Items in the second set but not the first:
+FAIL: test_goal_clear_is_removed (test_channel_mcp_tools.ChannelMcpToolsTests.test_goal_clear_is_removed)
+AssertionError: 'goal_clear' unexpectedly found in {'send_file', 'new_session', 'llm_options', 'provider_fallback', 'send_message', 'compact_session', 'recover_sse_delivery', 'telemetry_logs', 'session_backup', 'goal_clear', 'submit_input', 'restart_session'}
+FAIL: test_retired_goal_clear_sends_nothing (test_codex_desktop_injection.CodexAppServerSessionTests.test_retired_goal_clear_sends_nothing) (running=True)
+AssertionError: True is not false
+FAIL: test_retired_goal_clear_sends_nothing (test_codex_desktop_injection.CodexAppServerSessionTests.test_retired_goal_clear_sends_nothing) (running=False)
+AssertionError: True is not false
+FAIL: test_retired_goal_clear_cannot_be_queued_and_a_leftover_is_discarded (test_runtime_compaction_control.RuntimeCompactionControlTests.test_retired_goal_clear_cannot_be_queued_and_a_leftover_is_discarded)
+AssertionError: ValueError not raised
+RAN 103 failures=11 errors=0 skipped=0

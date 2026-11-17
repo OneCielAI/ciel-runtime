@@ -1,0 +1,28 @@
+# E2E isolated router (temp profile, own port; live routers untouched), 2026-11-17T05:39:59Z
+## BEFORE: HEAD dc5da07 (git archive HEAD)
+tree=goal-head version_file=True port=62235 profile=<temp>
+health ok 200
+tools/list count 52
+tools/list has goal_clear: True
+tools/list has compact_session/new_session: True True
+tools/call goal_clear isError: False | {"ok":true,"queued":true,"action":"goal_clear","command":"/goal clear","request_id":"2a70ca177c674c2d8cc0f5a360ed8fcc","expires_at":1794894607.0000412}
+tools/call compact_session queued: True action: compact command: /compact
+same slot as the router (its compact_session request): compact ciel-runtime-router-tool
+planted goal_clear slot: True
+consumer read -> {'id': 'leftover-goal', 'action': 'goal_clear', 'command': '/goal clear', 'source': 'ciel-runtime-router-tool', 'requested_at': 1794894010.188913, 'expires_at': 1794894610.188913}
+slot file after read exists: True
+queue goal_clear: accepted
+
+## AFTER: working tree (goal_clear removed)
+tree=work-parallel version_file=True port=51137 profile=<temp>
+health ok 200
+tools/list count 51
+tools/list has goal_clear: False
+tools/list has compact_session/new_session: True True
+tools/call goal_clear isError: True | Unknown ciel-runtime-router tool: goal_clear
+tools/call compact_session queued: True action: compact command: /compact
+same slot as the router (its compact_session request): compact ciel-runtime-router-tool
+planted goal_clear slot: True
+consumer read -> None
+slot file after read exists: False
+queue goal_clear: refused: session command goal_clear was removed

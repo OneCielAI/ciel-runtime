@@ -2,6 +2,7 @@ import copy
 import json
 import tempfile
 import threading
+import time
 import unittest
 from dataclasses import fields
 from datetime import datetime, timezone
@@ -315,8 +316,26 @@ class RuntimeCompactionControlTests(_ControllerHarness):
                                      scope=CompactionScope("claude", "session-a", "launch-a"))
         self.assertFalse(self.control.external_admission_paused())
 
-    def test_manual_new_or_goal_is_never_overwritten(self):
-        for action in ("new_session", "goal_clear"):
+    def test_retired_goal_clear_cannot_be_queued_and_a_leftover_is_discarded(self):
+        # goal_clear was removed 2026-11-16. An older build's request left in
+        # the slot is dropped on read, never reinterpreted as /compact.
+        with self.assertRaises(ValueError):
+            self.repository.queue("mcp", "manual", "goal_clear")
+        self.assertIsNone(self.repository.read())
+        now = time.time()
+        self.repository.path.write_text(json.dumps({
+            "id": "old-goal", "action": "goal_clear", "command": "/goal clear",
+            "source": "ciel-runtime-router-tool", "requested_at": now, "expires_at": now + 60,
+        }), encoding="utf-8")
+        self.assertIsNone(self.repository.read())
+        self.assertFalse(self.repository.path.exists())
+        self.assertTrue(any("channel_compact_request_discarded id=old-goal action=goal_clear reason=retired" in str(row)
+                            for row in self.logs))
+        self.request()
+        self.assertTrue(self.repository.read()["automatic"])
+
+    def test_manual_new_session_is_never_overwritten(self):
+        for action in ("new_session",):
             with self.subTest(action=action):
                 manual = self.repository.queue("mcp", "manual", action)
                 self.request()

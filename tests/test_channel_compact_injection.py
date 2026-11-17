@@ -78,24 +78,30 @@ class ChannelCompactInjectionServiceTests(unittest.TestCase):
         self.assertEqual([], writes)
         self.assertEqual([], clears)
 
-    def test_goal_clear_is_typed_while_a_turn_runs(self):
-        # An active goal keeps starting turns; waiting for idle would never type it.
+    def test_retired_goal_clear_is_never_typed(self):
+        # goal_clear was removed 2026-11-16: neither /goal clear nor a
+        # reinterpreted /compact may reach the terminal, idle or busy.
         for runtime in ("claude", "codex", "muse"):
-            writes, clears = [], []
-            service = self._service(
-                {"id": f"g-{runtime}", "action": "goal_clear", "command": "/goal clear"},
-                active_tool_call=True,
-                active_turn=True,
-                writes=writes,
-                clears=clears,
-            )
-            self.assertEqual("injected", service.inject(7, runtime=runtime))
-            self.assertEqual("/goal clear", writes[0][0][1])
-            self.assertEqual([f"g-{runtime}"], clears)
-        writes = []
-        service = self._service({"id": "g-unknown", "action": "goal_clear"}, writes=writes)
-        self.assertEqual("deferred", service.inject(7, runtime="unknown-cli"))
-        self.assertEqual([], writes)
+            for busy in (False, True):
+                with self.subTest(runtime=runtime, busy=busy):
+                    writes, clears = [], []
+                    service = self._service(
+                        {"id": f"g-{runtime}", "action": "goal_clear", "command": "/goal clear"},
+                        active_tool_call=busy,
+                        active_turn=busy,
+                        writes=writes,
+                        clears=clears,
+                    )
+                    self.assertEqual("none", service.inject(7, runtime=runtime))
+                    self.assertEqual([], writes)
+                    self.assertEqual([], clears)
+                    # Even a consumer still listing the old action types nothing.
+                    self.assertNotEqual(
+                        "injected",
+                        service.inject(7, runtime=runtime, actions=frozenset({"compact", "new_session", "goal_clear"})),
+                    )
+                    self.assertEqual([], writes)
+                    self.assertEqual([], clears)
 
     def test_missing_request_is_a_noop(self):
         self.assertEqual("none", self._service(None).inject(7))

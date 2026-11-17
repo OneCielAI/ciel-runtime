@@ -33,6 +33,9 @@ import time
 import uuid
 from typing import Any, Callable
 
+from ciel_runtime_support.channel_compact_request_repository import (
+    session_command_action as _queued_action,
+)
 from ciel_runtime_support.channel_message_policy import (
     message_input_transport,
     message_is_web_chat_request,
@@ -60,7 +63,7 @@ DEFAULT_SCAN_LIMIT = 50
 # A message that keeps failing to submit is recorded failed and passed, so it
 # cannot hold every later message at the cursor forever.
 MAX_SUBMIT_ATTEMPTS = 3
-SESSION_ACTIONS = frozenset({"compact", "new_session", "goal_clear"})
+SESSION_ACTIONS = frozenset({"compact", "new_session"})
 # A thread without turns cannot be resumed yet; subscribing is retried.
 SUBSCRIBE_RETRY_SECONDS = 3.0
 # A resend claimed this long ago without a recorded send may have reached
@@ -133,8 +136,9 @@ class _Threads:
 
 
 def session_command_action(request: dict[str, Any]) -> str:
-    action = str(request.get("action") or "").strip().lower()
-    return action if action in SESSION_ACTIONS else "compact"
+    # The shared rule: a retired action (goal_clear, removed 2026-11-16) keeps
+    # its name, so it matches no consumer and is never sent as thread/compact.
+    return _queued_action(request.get("action"))
 
 
 def is_user_thread(thread: Any) -> bool:
@@ -552,8 +556,6 @@ class CodexAppServerChannelInjector:
         request_id = str(request.get("id") or "")
         if action == "compact":
             self._compact(client, commands, request)
-        elif action == "goal_clear":
-            self._goal_clear(client, commands, request_id)
         else:
             self._new_session(client, commands, request_id)
 
@@ -593,29 +595,6 @@ class CodexAppServerChannelInjector:
             "INFO",
             f"codex_app_server_session_command_submitted id={request_id or '-'} action=compact "
             f"thread={thread_id} via=thread/compact/start",
-        )
-
-    def _goal_clear(self, client: CodexAppServerClient, commands: CodexSessionCommandPorts, request_id: str) -> None:
-        # Not deferred while a turn runs: an active goal keeps the thread busy.
-        thread_id = self.thread_id
-        if not thread_id:
-            return
-        try:
-            result = client.request("thread/goal/clear", {"threadId": thread_id})
-        except CodexAppServerError as exc:
-            commands.clear(request_id or None)
-            self._ports.log(
-                "WARN",
-                f"codex_app_server_session_command_failed id={request_id or '-'} action=goal_clear "
-                f"thread={thread_id} error={str(exc)[:300]}",
-            )
-            return
-        commands.clear(request_id or None)
-        cleared = bool(result.get("cleared")) if isinstance(result, dict) else False
-        self._ports.log(
-            "INFO",
-            f"codex_app_server_session_command_done id={request_id or '-'} action=goal_clear "
-            f"thread={thread_id} cleared={str(cleared).lower()} via=thread/goal/clear",
         )
 
     def _new_session(self, client: CodexAppServerClient, commands: CodexSessionCommandPorts, request_id: str) -> None:

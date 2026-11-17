@@ -797,9 +797,9 @@ class MuseRuntimeContext:
                 channel_wake_submit_retries=1,
                 channel_wake_confirm_submit=False,
                 channel_wake_bracketed_paste=True,
-                # Muse Code's own command set (docs 2026-10-19): /compact,
-                # /new, /goal clear.  Without the runtime the session-command
-                # consumer cannot type a queued command into this terminal.
+                # Muse Code's own command set (docs 2026-10-19): /compact and
+                # /new.  Without the runtime the session-command consumer
+                # cannot type a queued command into this terminal.
                 session_command_runtime="muse",
             )
 

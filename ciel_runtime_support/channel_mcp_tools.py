@@ -29,7 +29,7 @@ class ChannelMcpRuntimeServices:
 
 @dataclass(frozen=True, slots=True)
 class ChannelMcpToolServices:
-    # (source, reason, action) - action is "compact", "new_session" or "goal_clear".
+    # (source, reason, action) - action is "compact" or "new_session".
     queue_compact: Callable[..., dict[str, Any]]
     append_message: Callable[[dict[str, Any]], dict[str, Any]]
     read_messages: Callable[..., list[dict[str, Any]]]
@@ -40,7 +40,8 @@ class ChannelMcpToolServices:
     runtime: ChannelMcpRuntimeServices
 
 
-SESSION_COMMAND_TOOLS = {"compact_session": "compact", "new_session": "new_session", "goal_clear": "goal_clear"}
+# goal_clear was removed 2026-11-16: each runtime's own /goal manages goals.
+SESSION_COMMAND_TOOLS = {"compact_session": "compact", "new_session": "new_session"}
 
 
 def channel_mcp_tool_schemas(load_config: Callable[[], dict[str, Any]] | None = None) -> list[dict[str, Any]]:
@@ -118,24 +119,6 @@ def _session_tool_schemas() -> list[dict[str, Any]]:
                 "current turn ends. Claude Code gets /clear typed, the Codex TUI gets /new, and "
                 "Codex app-server sessions (desktop, bare app-server) get a new thread via thread/start. "
                 "The previous conversation stays on disk and can be resumed."
-            ),
-            "inputSchema": {
-                "type": "object",
-                "properties": {
-                    "reason": {
-                        "type": "string",
-                        "description": "Optional short reason shown in Ciel Runtime logs.",
-                    },
-                },
-            },
-        },
-        {
-            "name": "goal_clear",
-            "description": (
-                "Clear the active goal of the Ciel Runtime-launched session (set with /goal in Claude Code "
-                "or Codex), so it stops continuing on its own. Terminal sessions get /goal clear typed, "
-                "even while a turn runs; Codex app-server sessions (desktop, --remote TUI, bare app-server) "
-                "get thread/goal/clear. Setting a goal stays with the runtime's own /goal command."
             ),
             "inputSchema": {
                 "type": "object",

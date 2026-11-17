@@ -66,7 +66,7 @@ from ciel_runtime_support.terminal_startup_gate import TerminalStartupGate, term
 
 REMOTE_TUI_LAUNCH_MODE = "codex-remote-router"
 REMOTE_TUI_SESSION_ACTIONS = frozenset({"new_session"})
-REMOTE_TUI_CHANNEL_ACTIONS = frozenset({"compact", "goal_clear"})
+REMOTE_TUI_CHANNEL_ACTIONS = frozenset({"compact"})
 REMOTE_TOKEN_ENV = "CIEL_RUNTIME_CODEX_REMOTE_TOKEN"
 # Permissions are the server's: the TUI may not send them when it resumes.
 SERVER_ONLY_CONFIG_KEYS = ("approval_policy", "sandbox_mode")

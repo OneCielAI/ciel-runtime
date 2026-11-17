@@ -1,8 +1,13 @@
 """Persistent single-slot repository for channel-triggered session commands.
 
-The slot holds one queued command from the ``compact_session``,
-``new_session`` or ``goal_clear`` MCP tools; ``action`` says which.  A request
-written before ``action`` existed is a compaction.
+The slot holds one queued command from the ``compact_session`` or
+``new_session`` MCP tools; ``action`` says which.  A request written before
+``action`` existed is a compaction.
+
+``goal_clear`` was removed on 2026-11-16 (user decision: Codex and Claude Code
+manage their own goals; the runtime's goal command had too many side effects).
+A request of a retired action left in the slot by an older build is discarded
+when read. It is never reinterpreted, so it cannot turn into ``/compact``.
 """
 
 from __future__ import annotations
@@ -18,12 +23,16 @@ from typing import Any
 
 from .channel_message_repository import exclusive_file_lock
 
-SESSION_COMMAND_ACTIONS = ("compact", "new_session", "goal_clear")
-SESSION_COMMANDS = {"compact": "/compact", "new_session": "/new", "goal_clear": "/goal clear"}
+SESSION_COMMAND_ACTIONS = ("compact", "new_session")
+SESSION_COMMANDS = {"compact": "/compact", "new_session": "/new"}
+RETIRED_SESSION_ACTIONS = frozenset({"goal_clear"})
 
 
 def session_command_action(value: Any) -> str:
+    """The queued action; a retired one keeps its name so no consumer runs it."""
     action = str(value or "").strip().lower()
+    if action in RETIRED_SESSION_ACTIONS:
+        return action
     return action if action in SESSION_COMMAND_ACTIONS else "compact"
 
 
@@ -54,6 +63,8 @@ class ChannelCompactRequestRepository:
     def payload(self, source: str, reason: str, action: str = "compact") -> dict[str, Any]:
         now = time.time()
         action = session_command_action(action)
+        if action in RETIRED_SESSION_ACTIONS:
+            raise ValueError(f"session command {action} was removed")
         return {
             "id": uuid.uuid4().hex,
             "action": action,
@@ -129,6 +140,14 @@ class ChannelCompactRequestRepository:
             self._unlink(str(data.get("id") or "-"))
             self.log(
                 "INFO", f"channel_compact_request_expired id={data.get('id') or '-'}"
+            )
+            return None
+        action = str(data.get("action") or "").strip().lower()
+        if action in RETIRED_SESSION_ACTIONS:
+            self._unlink(str(data.get("id") or "-"))
+            self.log(
+                "INFO",
+                f"channel_compact_request_discarded id={data.get('id') or '-'} action={action} reason=retired",
             )
             return None
         return data

@@ -3,10 +3,10 @@
 ``compact`` is ``/compact`` in every runtime.  ``new_session`` is the
 runtime's own new-conversation command: ``/clear`` in Claude Code (it starts
 a new session id), ``/new`` in Codex, and ``/new`` in Muse Code (its docs
-pair ``/new`` with ``/clear``; ``/new`` keeps the scrollback).  ``goal_clear``
-is ``/goal clear`` in each; it is typed while a turn runs, because an active goal keeps starting
-turns and the session would never look idle.  Runtimes without a known
-command leave the request for its TTL rather than typing a guess.
+pair ``/new`` with ``/clear``; ``/new`` keeps the scrollback).  Runtimes
+without a known command leave the request for its TTL rather than typing a
+guess.  The runtime no longer types ``/goal clear`` (removed 2026-11-16): goals
+belong to each runtime's own ``/goal`` command.
 """
 
 from __future__ import annotations
@@ -20,19 +20,16 @@ from .channel_message_repository import ChannelFileLockBusy
 from .runtime_compaction_control import RuntimeCompactionControl
 
 NEW_SESSION_COMMANDS = {"claude": "/clear", "codex": "/new", "muse": "/new"}
-GOAL_RUNTIMES = frozenset({"claude", "codex", "muse"})
-DEFAULT_TERMINAL_ACTIONS = frozenset({"compact", "new_session", "goal_clear"})
-# Typed without waiting for the turn to end.
-MID_TURN_ACTIONS = frozenset({"goal_clear"})
+DEFAULT_TERMINAL_ACTIONS = frozenset({"compact", "new_session"})
 
 
 def terminal_session_command(action: str, runtime: str) -> str:
     runtime = str(runtime or "").strip().lower()
     if action == "compact":
         return "/compact"
-    if action == "goal_clear":
-        return "/goal clear" if runtime in GOAL_RUNTIMES else ""
-    return NEW_SESSION_COMMANDS.get(runtime, "")
+    if action == "new_session":
+        return NEW_SESSION_COMMANDS.get(runtime, "")
+    return ""
 
 
 class CompactSubmissionUncertain(RuntimeError):
@@ -86,10 +83,10 @@ class ChannelCompactInjectionService:
         if not command:
             self._log_deferred(request_id, f"unsupported_runtime action={action} runtime={runtime or '-'}", log_defer)
             return "deferred"
-        if action not in MID_TURN_ACTIONS and self.runtime.active_tool_call():
+        if self.runtime.active_tool_call():
             self._log_deferred(request_id, "active_tool_call", log_defer)
             return "deferred"
-        if action not in MID_TURN_ACTIONS and self.runtime.active_turn():
+        if self.runtime.active_turn():
             self._log_deferred(request_id, "active_turn", log_defer)
             return "deferred"
 

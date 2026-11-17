@@ -5,6 +5,19 @@ capability, followed by the complete commit ledger merged into each release.
 
 ## Unreleased
 
+### Beta: the runtime's goal command is removed
+
+- The `goal_clear` router MCP tool is gone. Goals are now set, updated and
+  cleared only by each runtime's own `/goal` command (Codex, Claude Code).
+  Ciel Runtime no longer types `/goal clear` into a terminal or sends
+  `thread/goal/clear` to a Codex app-server.
+- A `goal_clear` request that an older build left in the session-command slot is
+  discarded when read (`channel_compact_request_discarded ... reason=retired`).
+  It is never reinterpreted as `/compact`. A call to `goal_clear` now returns
+  `Unknown ciel-runtime-router tool`.
+- Unchanged: on an unattended restart, Codex's "Resume paused goal?" startup
+  prompt is still answered "Leave paused", so a restart never resumes a goal.
+
 ### Beta: Work parallel shows native forks, not just reserved slots
 
 - `FORKS` now counts only Work fork agents that the native agent list observed as

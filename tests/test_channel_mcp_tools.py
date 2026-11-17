@@ -51,7 +51,6 @@ class ChannelMcpToolsTests(unittest.TestCase):
                 "submit_input",
                 "compact_session",
                 "new_session",
-                "goal_clear",
                 "send_message",
                 "send_file",
                 "llm_options",
@@ -315,15 +314,18 @@ class ChannelMcpToolsTests(unittest.TestCase):
         self.assertTrue(payload["queued"])
         self.assertEqual("new_session", payload["action"])
 
-    def test_goal_clear_queues_the_goal_clear_action(self):
+    def test_goal_clear_is_removed(self):
+        # Removed 2026-11-16: goals belong to each runtime's own /goal command.
+        self.assertNotIn("goal_clear", {tool["name"] for tool in channel_mcp_tool_schemas()})
         result = dispatch_channel_mcp_tool(
             12,
             {"name": "goal_clear", "arguments": {"reason": "goal finished elsewhere"}},
             self.services,
         )
 
-        self.assertEqual([("ciel-runtime-router-tool", "goal finished elsewhere", "goal_clear")], self.compactions)
-        self.assertTrue(json.loads(result["result"]["content"][0]["text"])["queued"])
+        self.assertEqual([], self.compactions)
+        self.assertTrue(result["result"]["isError"])
+        self.assertIn("Unknown ciel-runtime-router tool: goal_clear", result["result"]["content"][0]["text"])
 
     def test_telemetry_logs_read_dispatches_cursor_and_delete_requires_confirmation(self):
         read = dispatch_channel_mcp_tool(

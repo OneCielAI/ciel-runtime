@@ -1,0 +1,6 @@
+# Linux: docker python:3.11-slim (Debian nodejs), working tree on top of dc5da07, 2026-11-17T05:41:01Z
+# script: tar of the tree without .git/.local/node_modules; CIEL_RUNTIME_TEST_ISOLATED=1, temp CIEL_RUNTIME_CONFIG_DIR; pytest -q
+TESTS="tests/test_channel_compact_injection.py tests/test_channel_mcp_tools.py tests/test_codex_desktop_injection.py tests/test_runtime_compaction_control.py tests/test_codex_app_server_session.py tests/test_channel_terminal_dispatch.py tests/test_unattended_restart.py tests/test_channel_compact_poll.py tests/test_codex_app_server.py tests/test_muse_runtime.py tests/test_work_mcp_tools.py tests/test_architecture_contracts.py tests/test_channel_bridge.py tests/test_runtime_session_restart.py tests/test_session_import_regression.py"
+modules: 15
+736 passed, 128 skipped, 898 subtests passed in 60.00s (0:01:00)
+

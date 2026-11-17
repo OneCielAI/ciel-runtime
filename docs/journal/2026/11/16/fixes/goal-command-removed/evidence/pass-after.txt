@@ -1,0 +1,7 @@
+# pass-after: working tree on top of dc5da07, Windows, Python 3.11.6, 2026-11-17T05:33:01Z
+# changed modules
+RAN 103 failures=0 errors=0 skipped=0
+# adjacent: codex app-server session, terminal dispatch, unattended restart (codex_paused_goal kept), compact poll, codex app-server, muse runtime
+RAN 177 failures=0 errors=0 skipped=0
+# modules that read the tool catalog: architecture contracts, channel bridge, session restart, session import, work mcp tools
+RAN 584 failures=0 errors=0 skipped=122
