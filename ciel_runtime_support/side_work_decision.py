@@ -240,6 +240,43 @@ def outcome_text(result, priority=None):
 MAX_SIDE_REVIEWS = 50
 
 
+def needs_main_review(result, decision):
+    """Whether main must look at this side answer (user requirement 2026-11-17).
+
+    Main is interrupted only for P0/P1, a time limit, a released wait, a relay
+    to running work, a clarification question or anything that already needs a
+    handoff. A routine status/info answer or a P2-P5 queue entry stays in the
+    side history (receipts, Side pane, web, REST, ctl) and does not hold main.
+    A reply the host then cannot send is recorded for main by
+    ``record_unsent_review`` (the reply outbox), independent of this rule.
+    """
+    priority = str(result.get('priority') or decision.get('priority') or '')
+    return bool(priority in ('P0', 'P1')
+                or result.get('time_limit') or result.get('released_waits')
+                or result.get('relay') or decision.get('relay')
+                or result['action'] in ('clarify', 'advise')
+                or result.get('handoff') == 'requested')
+
+
+def record_unsent_review(store, receipt_id, result, source=None):
+    """A side reply the host could not send reaches main once (failure path).
+
+    A routine answer has no review row (needs_main_review); when its send is
+    refused or has no route, the person never saw it, so main gets the row.
+    Idempotent: an existing row is left as it is.
+    """
+    def mutate(doc):
+        if receipt_id in (doc.get('side_reviews') or {}):
+            return False
+        _record_review(doc, receipt_id, result, source)
+        return True
+    try:
+        _, added = store.transaction(mutate)
+        return added
+    except (tree.WorkPlanError, OSError, ValueError):
+        return False
+
+
 def _record_review(doc, receipt_id, result, source):
     """Leave main a review note for what the side already handled and sent.
 
@@ -470,12 +507,11 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             if direct_p0:
                 result.update(priority='P0', p0_root_id=tree._root_of(by_id, item))
         if effective_kind:
-            # Requests carry an explicit ACK together with the model's transcript-
-            # based restatement. Status/info answer directly without boilerplate.
+            # The receipt ACK and the understanding were already sent (user
+            # requirement 2026-11-17); the final reply is the result alone, with
+            # no second "ACK —". The committed outcome, never the model's guess,
+            # closes it.
             text = decision['reply'].rstrip()
-            if effective_kind == 'request':
-                text = 'ACK — ' + text
-            # The committed outcome, never the model's guess, closes the reply.
             result['final_text'] = text + '\n\n' + outcome_text(result)
         receipts[receipt_id] = {'decision_digest': digest, 'applied_at': time.time(),
                                 'item_id': item, 'recap': decision['summary'], 'result': result}
@@ -483,7 +519,7 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             # The host forwards the message to main and to the fork working on
             # this item; each decides whether it matters to its current work.
             result['relay'] = {'item_id': item}
-        if not main_reply and not gate_check:
+        if not main_reply and not gate_check and needs_main_review(result, decision):
             # Main's own handoff answers come back as follow-ups; main already knows them.
             # A host gate re-check has no person behind it: a release or a
             # handoff already reaches main, and "no change" is not news.

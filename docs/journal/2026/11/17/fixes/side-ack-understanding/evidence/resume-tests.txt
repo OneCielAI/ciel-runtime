@@ -1,0 +1,13 @@
+# Restart resume, fail-before / pass-after (2026-11-17T21:59:15Z)
+# before: the Stage 2 draft without the resume path (claim did not offer the saved proposal; recheck kept it; pollSide forked)
+ERROR: test_a_restart_resumes_the_saved_proposal_without_the_model (test_side_understanding_flow.UnderstandingFlowTests.test_a_restart_resumes_the_saved_proposal_without_the_model)
+KeyError: 'proposal'
+FAIL: test_a_recheck_decides_again_without_a_second_understanding (test_side_understanding_flow.UnderstandingFlowTests.test_a_recheck_decides_again_without_a_second_understanding)
+AssertionError: <saved proposal> is not None
+FAIL: test_a_claim_with_a_saved_proposal_commits_it_without_a_fork (test_side_intake_mod.SideModTests.test_a_claim_with_a_saved_proposal_commits_it_without_a_fork)
+AssertionError: Lists differ: [] != ['processing_error']
+FAIL: test_a_malformed_saved_proposal_is_a_retryable_failure_not_a_fork (test_side_intake_mod.SideModTests.test_a_malformed_saved_proposal_is_a_retryable_failure_not_a_fork)
+AssertionError: Lists differ: ['resume_error'] != ['processing_error']
+RAN 75 failures=3 errors=1 skipped=0
+# after: working tree
+RAN 75 failures=0 errors=0 skipped=0

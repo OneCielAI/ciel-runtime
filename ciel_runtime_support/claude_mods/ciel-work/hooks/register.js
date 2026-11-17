@@ -2283,7 +2283,8 @@ function parallelLeaseBlocksTarget(state, target) {
 // person confirmed in the Side pane). Main and worker calls are refused here.
 // The router also refuses them without the host token (model_side_tool_probe).
 const HOST_ONLY_SIDE_TOOLS = new Set(['work_side_wake', 'work_side_fail', 'work_side_fallback', 'work_side_renew',
-  'work_side_ack', 'work_side_reply', 'work_side_claim', 'work_side_retry_reply', 'work_side_gate_check'].map(tool => PREFIX + tool))
+  'work_side_ack', 'work_side_understanding', 'work_side_reply', 'work_side_claim', 'work_side_retry_reply',
+  'work_side_gate_check'].map(tool => PREFIX + tool))
 async function parallelToolCall($, e, next) {
   if (next.origin?.plugin === 'ciel-work' && (e.tool === PREFIX+'send_message' || e.tool.startsWith(PREFIX+'work_side_'))) return next(e)
   if (HOST_ONLY_SIDE_TOOLS.has(e.tool))

@@ -3529,8 +3529,8 @@ Object.assign(scenarios, {
   async 'host-only-side-tools'() {
     const routed = []
     const { $ } = host(async (tool, args) => { routed.push(tool); return text({ ok:true, tool }) })
-    const tools = ['work_side_wake', 'work_side_fail', 'work_side_fallback', 'work_side_renew', 'work_side_ack', 'work_side_reply',
-      'work_side_claim', 'work_side_retry_reply']
+    const tools = ['work_side_wake', 'work_side_fail', 'work_side_fallback', 'work_side_renew', 'work_side_ack',
+      'work_side_understanding', 'work_side_reply', 'work_side_claim', 'work_side_retry_reply']
     const args = { event_id:'e'.repeat(64), receipt_id:'e'.repeat(64), state:'notice_retry', confirmed:true,
       expected_state:'uncertain', session_id:'claude:S1', _host:{ internal:true, token:'guess' } }
     const run = async (tool, extra, origin) => {

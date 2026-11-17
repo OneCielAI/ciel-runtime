@@ -1,0 +1,26 @@
+# inbound_walkie_probe.py 2026-11-17T22:01:50Z · this machine's Walkie session (G:\ciel-Walkie), read-only
+{
+ "walkie_events": 1599,
+ "events_with_client_id_key": 0,
+ "events_mentioning_client_id_in_text_only": 35,
+ "own": {
+  "False": 1599
+ },
+ "legacy_receipt_ack_inbound": 177,
+ "legacy_by_sender": {
+  "KOBE Ai": 154,
+  "Celly Ai": 23
+ },
+ "legacy_external_ack_state": {
+  "not_sent": 59,
+  "submitted": 118
+ },
+ "legacy_stage": {
+  "received": 81,
+  "processed": 96
+ },
+ "legacy_received_span_utc": [
+  "2026-11-17T07:49Z",
+  "2026-11-17T22:00Z"
+ ]
+}

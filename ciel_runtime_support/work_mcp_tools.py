@@ -263,7 +263,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
     schemas.extend(side_schemas())
     schemas.append(host_page_schema())
     if not enabled:
-        schemas = [schema for schema in schemas if schema["name"] in (WORK_MODE_SWITCH_TOOL, "work_live_settings", "work_side_settings", "work_side_intake", "work_side_drain", "work_side_status", "work_side_claim", "work_side_resolve", "work_side_fail", "work_side_fallback", "work_side_ack", "work_side_reply", "work_side_wake", "work_side_handoff", "work_side_renew", "work_side_retry_reply", "work_side_code_read", "work_side_code_search", "work_host_page")]
+        schemas = [schema for schema in schemas if schema["name"] in (WORK_MODE_SWITCH_TOOL, "work_live_settings", "work_side_settings", "work_side_intake", "work_side_drain", "work_side_status", "work_side_claim", "work_side_understanding", "work_side_resolve", "work_side_fail", "work_side_fallback", "work_side_ack", "work_side_reply", "work_side_wake", "work_side_handoff", "work_side_renew", "work_side_retry_reply", "work_side_code_read", "work_side_code_search", "work_host_page")]
     for schema in schemas:
         inputs = schema["inputSchema"]
         inputs.setdefault("properties", {})["session_id"] = {
@@ -346,7 +346,7 @@ def dispatch_work_tool(
         except (tree.WorkPlanError, ValueError, OSError) as error:
             return respond(request_id, str(error), True)
         return respond(request_id, json.dumps(value, ensure_ascii=False))
-    if not work_mode_enabled(config) and name not in ('work_side_settings','work_side_intake', 'work_side_drain', 'work_side_status', 'work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_ack', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_code_read', 'work_side_code_search'):
+    if not work_mode_enabled(config) and name not in ('work_side_settings','work_side_intake', 'work_side_drain', 'work_side_status', 'work_side_claim', 'work_side_understanding', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_ack', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_code_read', 'work_side_code_search'):
         if name == "work_status" and args.get("format") == "json":
             return respond(request_id, json.dumps(tree.snapshot(tree.empty_document(), enabled=False)))
         return respond(request_id, "Ciel Work mode is off (prelaunch menu: LLM options -> Work mode, "
@@ -451,7 +451,7 @@ def dispatch_work_tool(
         if name not in ('work_side_status', 'work_side_settings', 'work_side_intake', 'work_side_drain'):
             scoped = session_work_plan_store(state_dir, identity, log=log)
             store = store or scoped
-        if name in ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_ack', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_code_read', 'work_side_code_search'):
+        if name in ('work_side_claim', 'work_side_understanding', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_ack', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_code_read', 'work_side_code_search'):
             from .side_intake_mcp import run as side_run
             return respond(request_id, json.dumps(side_run(name, args, config, state_dir, identity, store), ensure_ascii=False))
         if name == "work_side_settings":
@@ -505,8 +505,12 @@ def dispatch_work_tool(
             except (OSError, ValueError, tree.WorkPlanError):
                 review_delivery = {'available': False, 'rows': [], 'truncated': False}
             from .side_forward import offered as forwards_offered
+            from .side_ack_outbox import pending as acks_owed
             return respond(request_id, json.dumps({'enabled': config.get('work_side_intake', {}).get('enabled') is True,
                 'review_delivery': review_delivery,
+                # Receipt ACKs still owed; status keeps them moving while every
+                # side actor slot is busy.
+                'pending_acks': acks_owed(state_dir, identity),
                 'side_inbox_receipts': inbox.summaries(),
                 # Also offered through claim. Status keeps failure delivery moving
                 # while every side actor slot is occupied.

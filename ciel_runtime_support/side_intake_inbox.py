@@ -392,15 +392,64 @@ class SideIntakeInbox:
                     raise WorkPlanError('event key reused with different content or reply route')
                 if existing['stage'] in ('board_queued', 'processed'):
                     self._event_path('pending', key).unlink(missing_ok=True)
+                if existing['stage'] == 'received' and self.is_inbound_receipt_ack(existing):
+                    # An older build kept it as a request; a drain must not queue it.
+                    self.settle_receipt_ack(key, existing, time.time())
+                    return self._receipt(key, existing, duplicate=True)
                 if existing['stage']=='received':
                     self._index_priority(key,existing)
                 return self._receipt(key, existing, duplicate=True)
             row = {'text': text, 'event_key': event_key, 'digest': digest,
                    'received_at': time.time(), 'stage': 'received', 'item_id': None,
                    'external_ack': 'not_sent', 'route': dict(route or {}), 'session_id': self.session_id}
+            if self.is_inbound_receipt_ack(row):
+                self.settle_receipt_ack(key, row, row['received_at'])
+                return self._receipt(key, row, duplicate=False)
             self._save_file(self._event_path('pending', key), row)
             self._index_priority(key,row)
+            # The receipt ACK has its own pump. It is sent before this event can
+            # wait for a side actor slot, and a restart can recover this marker.
+            self.mark_ack_owed(key)
             return self._receipt(key, row, duplicate=False)
+
+    @staticmethod
+    def is_inbound_receipt_ack(row: dict[str, Any]) -> bool:
+        """Another Ciel session's receipt ACK: a notice, never a request.
+
+        Answering it, or starting a side actor for it, keeps two agents
+        acknowledging each other (user requirement 2026-11-17: no new actor for
+        an ACK). Walkie returns no sender client_id, so only the exact host ACK
+        templates are recognized (side_reply_connector.is_receipt_ack).
+        """
+        from .side_reply_connector import is_receipt_ack
+        route = row.get('route') if isinstance(row.get('route'), dict) else {}
+        return route.get('source_kind') == 'external_event' and is_receipt_ack(row.get('text'))
+
+    def settle_receipt_ack(self, key: str, row: dict[str, Any], stamp: float) -> None:
+        """Record an inbound receipt ACK as processed: no ACK, no actor, no reply.
+
+        The caller holds the receipt lock.
+        """
+        row.pop('processing', None)
+        row.update(stage='processed', item_id=None, consumed_at=stamp, external_ack='not_applicable',
+                   ack_outbox={'state': 'not_applicable', 'updated_at': stamp, 'reason': 'receipt_ack_inbound'},
+                   result={'action': 'answer', 'kind': 'status', 'item_id': None,
+                           'summary': 'Receipt ACK from another Ciel session; no reply and no side actor',
+                           'reply': '', 'delivery': 'not_applicable', 'notice': 'receipt_ack_inbound',
+                           'execution_approved': False, 'handoff': 'not_required'})
+        self._save_file(self._event_path('receipts', key), row)
+        self._event_path('pending', key).unlink(missing_ok=True)
+        self.ack_marker(key).unlink(missing_ok=True)
+        self._clear_priority(key)
+
+    def ack_marker(self, key: str) -> Path:
+        """side_ack_outbox's index of events still owed a receipt ACK."""
+        return self.directory / 'ack-pending' / key[:2] / (key + '.json')
+
+    def mark_ack_owed(self, key: str) -> None:
+        marker = self.ack_marker(key)
+        if not marker.exists():
+            self._save_file(marker, {'receipt_id': key})
 
     def _clear_priority(self, key: str) -> None:
         for priority in ('P0','P1','P2','P3','P4','P5'):

@@ -21,6 +21,28 @@ class SideModTests(unittest.TestCase):
                                 check=True,timeout=60)
         return json.loads(done.stdout)
 
+    def test_a_claim_with_a_saved_proposal_commits_it_without_a_fork(self):
+        # Plan 2026-11-17: after a restart the model does not run again and the
+        # understanding already sent is not sent again.
+        row=self.run_harness('side_resume_harness.mjs')
+        self.assertEqual(0,row['spawns'])
+        self.assertEqual([],row['failures'])
+        order=row['order']
+        self.assertLess(order.index('work_side_understanding:prepare'),order.index('work_side_resolve'))
+        self.assertLess(order.index('work_side_resolve'),order.index('work_side_reply:prepare'))
+        saved={'action':'create','kind':'request','title':'retry fix','summary':'retry fix','reply':'queued','priority':'P3'}
+        self.assertEqual([{'understanding':'understood in my own words','decision':saved,'expected_version':4}],
+                         row['understanding'])
+        self.assertEqual([{'decision':saved,'expected_version':4,'generation':'5'*32}],row['resolve'])
+        # Only the final reply is sent; the understanding prepare offered no send.
+        self.assertEqual(['final'],row['walkieSends'])
+
+    def test_a_malformed_saved_proposal_is_a_retryable_failure_not_a_fork(self):
+        row=self.run_harness('side_resume_harness.mjs','malformed')
+        self.assertEqual(0,row['spawns'])
+        self.assertEqual(['resume_error'],row['failures'])
+        self.assertEqual([],row['resolve'])
+
     def test_each_external_event_uses_one_native_fork_then_stops_it(self):
         row=self.run_harness('side_intake_harness.mjs')
         self.assertEqual(3,len(row['spawns']))
@@ -58,6 +80,12 @@ class SideModTests(unittest.TestCase):
         # Prose + fenced JSON and prose + raw JSON both commit; no-decision is
         # recorded once as invalid_answer, never as a retryable failure.
         self.assertEqual(['a'*64,'b'*64],[call['_host']['receipt_id'] for call in row['resolveCalls']])
+        self.assertEqual(['understood in my own words']*2,
+                         [call['understanding'] for call in row['understandingCalls'] if call['state']=='prepare'])
+        # prepare/record for understanding finish before the board commit.
+        self.assertEqual(['work_side_understanding:a','work_side_understanding:a','work_side_resolve:a',
+                          'work_side_understanding:b','work_side_understanding:b','work_side_resolve:b'],
+                         row['sideOrder'])
         self.assertEqual([],row['resolveCalls'][0]['_host']['reported_sends'])
         self.assertNotIn('context_key',row['resolveCalls'][0]['_host'])
         self.assertEqual({'action':'answer','kind':'info','summary':'done2','reply':'answer2'},row['resolveCalls'][1]['decision'])
@@ -1012,7 +1040,10 @@ class SideModTests(unittest.TestCase):
         source=(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js').read_text(encoding='utf8')
         self.assertIn('status: report the current Work state directly. No request recap and no Work',source)
         self.assertIn('info: gather only what is needed, organize it, and answer. No Work',source)
-        self.assertIn('request: restate what the person asks using source_message plus the transcript',source)
+        self.assertIn('request: understand what the person asks using source_message plus the',source)
+        # 2026-11-17: the restatement is understanding, sent before the board commit.
+        self.assertIn('understanding: what you understood this message to ask or say, in your own',source)
+        self.assertIn('never start with "ACK"',source)
         # ciel-walkie 2026-11-10: Celly 121710 and Daniel 121677 were both
         # replaced by a stale Grant 121686 decision copied from main context.
         self.assertIn("The decision MUST describe this event's source_message", source)
@@ -1020,7 +1051,7 @@ class SideModTests(unittest.TestCase):
         self.assertIn('verify every person, message id, approval, result and', source)
         # Owned run 2026-11-09: the recap dropped "mobile browsers", and a new
         # payment outage was merged into the active payment refactoring item.
-        self.assertIn('every\n  concrete requirement, constraint, target, environment and deadline',source)
+        self.assertIn('understanding carries every concrete requirement,\n  constraint, target, environment and deadline',source)
         self.assertIn("Update an existing item only when the event is\n  about that item's own requested outcome",source)
         self.assertIn('A different problem, failure, incident or\n  feature is a new item even in the same area or system',source)
         self.assertIn('an urgent new problem is create with priority P1',source)
@@ -1043,9 +1074,9 @@ class SideModTests(unittest.TestCase):
                          '- call Agent, start, resume or message any agent/subagent/fork;',
                          '- ACK, reply, SendMessage or send anything to the source or any channel.'):
                 self.assertIn(rule,instruction)
-            self.assertIn('The host alone commits one decision and sends the one\noutbox reply.',instruction)
+            self.assertIn('The host alone commits one decision and sends every\nmessage to the source.',instruction)
             self.assertIn('Your final answer MUST be exactly the decision JSON',instruction)
-            self.assertIn('Return one JSON object: {"decision":{...},"expected_version":N}.',instruction)
+            self.assertIn('{"understanding":"...","decision":{...},"expected_version":N}.',instruction)
             self.assertIn('target_message_id',instruction)
 
     def test_reply_route_override_is_not_mcp_inheritance(self):

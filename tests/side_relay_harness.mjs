@@ -67,7 +67,7 @@ const $ = {
 await startSide($)
 await pollSide($,'claude:parent')
 if (scenario !== 'forward-idle')
-  await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({decision:{action:'update',kind:'request',item_id:'n2',
+  await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({understanding:'understood in my own words',decision:{action:'update',kind:'request',item_id:'n2',
     summary:'Delimiter is a semicolon',reply:'forwarded',note:'CSV delimiter must be ;',relay:scenario !== 'no-relay'},expected_version:4})})
 await new Promise(resolve => setTimeout(resolve, 20))
 console.log(JSON.stringify({sent,appended,submitted,wakes,logs,resolved}))

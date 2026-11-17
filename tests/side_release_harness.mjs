@@ -55,7 +55,7 @@ const $ = {
 }
 await startSide($)
 await pollSide($,'claude:parent')
-await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({decision:{action:'update',kind:'request',item_id:'n3',
+await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({understanding:'understood in my own words',decision:{action:'update',kind:'request',item_id:'n3',
   summary:'Andy approved the deploy',reply:'ok',note:'approved',release_waits:released},expected_version:4})})
 // The release notice is delivered after completeSide returns. Wait until it has
 // settled instead of a fixed delay: Linux CI under load read an empty list after

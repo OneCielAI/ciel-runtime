@@ -130,13 +130,22 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
                 continue
             if not failure.get('quarantined') and failure.get('retry_not_before', 0) > stamp:
                 continue
+            if inbox.is_inbound_receipt_ack(current):
+                # Rows an older build received are settled here, before any fork.
+                inbox.settle_receipt_ack(key, current, stamp)
+                continue
             if _source_holder(inbox, key, current, stamp) != 'claim':
                 continue
             generation = uuid.uuid4().hex
             current['processing'] = {'owner': owner, 'generation': generation,
                                      'lease_until': stamp + lease_seconds, 'started_at': stamp}
             inbox._save_file(inbox._event_path('pending', key), current)
-            return {'receipt_id': key, 'text': current['text'], 'event_key': current['event_key'],
+            saved = current.get('proposal')
+            return {**({'proposal': {name: saved.get(name) for name in ('understanding', 'decision', 'expected_version')}}
+                       # A proposal saved before a restart is committed as is: the
+                       # host resumes it without running the model again.
+                       if isinstance(saved, dict) else {}),
+                    'receipt_id': key, 'text': current['text'], 'event_key': current['event_key'],
                     'generation': generation, 'lease_until': stamp + lease_seconds,
                     'source_priority': source_priority(current['text']),
                     'use_parent_model': bool(failure.get('use_parent_model')
@@ -323,11 +332,14 @@ def release_for_recheck(state_dir, session_id, receipt_id, generation, reason):
 
     Used when the board changed under a create: the event is decided again
     against the current board. A second change commits rather than looping.
+    The saved proposal goes, so the next actor's decision is accepted; the
+    understanding already sent stays recorded and is not sent again.
     """
     inbox = SideIntakeInbox(state_dir, session_id)
     with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
         row = verify_claim(inbox, receipt_id, generation)
         row.pop('processing', None)
+        row.pop('proposal', None)
         row['rechecks'] = int(row.get('rechecks') or 0) + 1
         row['recheck_reason'] = str(reason)[:200]
         inbox._save_file(inbox._event_path('pending', receipt_id), row)

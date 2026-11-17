@@ -27,6 +27,10 @@ DEFAULT_WALKIE_SERVER = 'walkie'
 # (".../conversations/<uuid>", Prody 2026-11-09), so a preset may cover every
 # source of one receiver. The preset still reads only pattern-checked fields.
 ANY_SOURCE = '*'
+# Host-minted receipt ACKs. Kept in this lower-level connector module so both
+# the ACK outbox and inbound-loop recognizer share them without an import cycle.
+RECEIPT_ACK_TEXT = '메시지를 받았습니다. 내용을 확인한 뒤 이해한 내용과 처리 결과를 이어서 알려 드리겠습니다.'
+LEGACY_ACK_PREFIX = 'ACK — 요청을 받았습니다.\n\n복기: '
 
 
 def _check_source(row, sources):
@@ -217,8 +221,30 @@ def binding_for(config, route, original=''):
     return None
 
 
+def phase_client_id(receipt_id, phase):
+    if phase not in ('ack', 'understanding', 'final'):
+        raise ValueError('invalid connector reply phase')
+    return str(uuid.UUID(hashlib.sha256((receipt_id + ':' + phase).encode()).hexdigest()[:32]))
+
+
+def is_receipt_ack(original):
+    """Whether a Walkie event is a Ciel receipt ACK, not a new request.
+
+    Walkie's SSE event does not carry the sender's ``client_id`` back, and its
+    ``own`` flag was False on every event (measured on 1,599 inbound events,
+    2026-11-17), so the fallback recognizes only the two
+    host-minted templates. It is deliberately exact/narrow: an ordinary person
+    saying "ACK" is not suppressed.
+    """
+    _, data = _walkie_body(original)
+    text = data.get('text') if isinstance(data, dict) else None
+    if not isinstance(text, str):
+        return False
+    return text == RECEIPT_ACK_TEXT or text.startswith(LEGACY_ACK_PREFIX)
+
+
 def prepare(config, route, receipt_id, reply, kind, *, original='', phase='final'):
-    if phase not in ('ack', 'final'):
+    if phase not in ('ack', 'understanding', 'final'):
         raise ValueError('invalid connector reply phase')
     binding = binding_for(config, route, original)
     if binding is None:
@@ -227,9 +253,9 @@ def prepare(config, route, receipt_id, reply, kind, *, original='', phase='final
         target = walkie_target(original)
         if target is None:
             return None
-        # One fixed client_id for each phase: Walkie deduplicates a repeated ACK
-        # independently from the later processing-result reply.
-        client = str(uuid.UUID(hashlib.sha256((receipt_id + ':' + phase).encode()).hexdigest()[:32]))
+        # One fixed client_id for each phase (ack, understanding, final): Walkie
+        # deduplicates a repeat of one phase independently of the others.
+        client = phase_client_id(receipt_id, phase)
         return {'server': binding['server'], 'tool': 'walkie_send_message',
                 'arguments': {'conversation_id': target['conversation_id'], 'client_id': client,
                               'reply_to_message_id': target['message_id'], 'text': reply}}

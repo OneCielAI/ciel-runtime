@@ -198,7 +198,7 @@ function instance(mod, B, C, state, timer) {
     tool:{list:async () => [], call:async () => ({})}, agent:{list:async () => [], spawn:async () => ({agentId:'actor'})},
     env:{get:async () => 'x'.repeat(40)}, ui:{invalidate:() => {}, log:text => I.logs.push(String(text)), status:() => {}}}
   I.poll = () => mod.pollSide(I.$, 'claude:parent')
-  I.complete = () => mod.completeSide(I.$, {agentId:'actor', reason:'answer', answer:JSON.stringify({decision:{action:'update',
+  I.complete = () => mod.completeSide(I.$, {agentId:'actor', reason:'answer', answer:JSON.stringify({understanding:'understood in my own words',decision:{action:'update',
     kind:'request', item_id:'n7', summary:'deadline reported', reply:'noted', note:'n',
     ...(B.released ? {release_waits:[{id:'n3', waiting_on:'approval'}]} : {}),
     ...(B.handoff === 'time_limit' ? {time_limit:{text:'within 4 hours', evidence:'message 41: within 4 hours'}} : {})},

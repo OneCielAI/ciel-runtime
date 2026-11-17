@@ -268,8 +268,8 @@ class SideMcpTests(unittest.TestCase):
         self.assertEqual('not_applicable',inbox._load(key)['result']['delivery'])
         from ciel_runtime_support.side_reply_outbox import pending
         self.assertNotIn(key,[row['receipt_id'] for row in pending(self.root,self.identity)])
-        review=self.store.read()['side_reviews'][key]
-        self.assertEqual('none_referenced',review['source_context'])
+        # A routine answer to a reminder holds no main review (2026-11-17).
+        self.assertNotIn(key,self.store.read().get('side_reviews') or {})
         from ciel_runtime_support.side_review import with_delivery
         self.assertEqual('not_applicable',with_delivery([{'receipt_id':key}],self.root,self.identity)[0]['delivery'])
         from ciel_runtime_support.side_review import SENT, UNSENT
@@ -588,8 +588,9 @@ class SideReviewDeliveryStatusTests(unittest.TestCase):
             for event in ('plain mail question', 'second question'):
                 key = inbox.receive(event, event, route=route)['receipt_id']
                 leased = claim(root, identity, 'side-1')
-                result = apply(store, key, {'action': 'answer', 'kind': 'info', 'summary': event, 'reply': 'answer'},
-                               store.read()['version'])
+                # A clarifying question always reaches main (2026-11-17 rule).
+                result = apply(store, key, {'action': 'clarify', 'kind': 'clarify', 'summary': event,
+                                            'reply': 'which one?'}, store.read()['version'])
                 finish(root, identity, key, leased['generation'], result)
                 keys.append(key)
             self.assertEqual('route_unavailable', prepare(root, identity, keys[0], config=config)['state'])

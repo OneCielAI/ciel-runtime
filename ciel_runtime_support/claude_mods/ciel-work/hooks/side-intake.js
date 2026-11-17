@@ -415,9 +415,9 @@ even though the tools are present. For this event you MUST NOT:
 - mutate Work (work_* create/update/execute/report/handoff/resolve or similar);
 - call Agent, start, resume or message any agent/subagent/fork;
 - ACK, reply, SendMessage or send anything to the source or any channel.
-Only read and reason. The host alone commits one decision and sends the one
-outbox reply. Your final answer MUST be exactly the decision JSON described
-below.
+Only read and reason. The host alone commits one decision and sends every
+message to the source. Your final answer MUST be exactly the decision JSON
+described below.
 
 First read source_message when present (source_context verified_thread); it is
 the complete verified Walkie thread (root plus every reply) and
@@ -445,10 +445,10 @@ Classify exactly:
 - status: report the current Work state directly. No request recap and no Work.
 - info: gather only what is needed, organize it, and answer. No Work.
 - clarify: required facts are missing; ask one precise question. No Work.
-- request: restate what the person asks using source_message plus the transcript,
-  then queue it. The reply is that recap, in the person's language: every
-  concrete requirement, constraint, target, environment and deadline they gave,
-  in one to three sentences. "Registered" alone is not a recap.
+- request: understand what the person asks using source_message plus the
+  transcript, then queue it. understanding carries every concrete requirement,
+  constraint, target, environment and deadline they gave, in one to three
+  sentences of your own; "Registered" alone is not understanding.
   Search every Work node first. Update an existing item only when the event is
   about that item's own requested outcome: a follow-up, correction, addition or
   order/priority change for it. A different problem, failure, incident or
@@ -498,7 +498,20 @@ Never claim implementation started. source_priority is the source's P0..P5 hint.
 Under adaptive policy infer priority from deadline, impact and blocking; under
 explicit policy follow stated priority and clarify conflicts.
 
-Return one JSON object: {"decision":{...},"expected_version":N}.
+The source has already received the host's receipt ACK. The host then sends
+two messages from your answer, in this order:
+1. understanding: what you understood this message to ask or say, in your own
+   words and in the person's language. Name the concrete outcome, targets,
+   constraints and deadline you took from it, and say how you will handle it
+   (answer now, ask, queue as new Work, add to an existing item). Never copy
+   the message, never start with "ACK", never say only that it was received.
+2. reply: the result for the person after the queue was adjusted: the answer
+   itself, the one question, or what was queued. Do not repeat understanding.
+   The host appends the committed Work number, priority and queue place.
+For a gate re-check (no person, no source) keep understanding to one line.
+
+Return one JSON object:
+{"understanding":"...","decision":{...},"expected_version":N}.
 Decision fields: action, kind, summary, reply, and when needed item_id, title,
 note, priority, queue_position, release_waits, time_limit, relay. No other fields.
 "kind" is the classification above (status, info, clarify or request).
@@ -506,7 +519,7 @@ note, priority, queue_position, release_waits, time_limit, relay. No other field
 - kind status or info: action answer
 - kind clarify: action clarify
 - kind request: action create, update or prioritize
-Example: {"decision":{"action":"answer","kind":"status","summary":"...","reply":"..."},"expected_version":N}
+Example: {"understanding":"...","decision":{"action":"answer","kind":"status","summary":"...","reply":"..."},"expected_version":N}
 Legacy advise is not used. The host validates and commits every field.`
 
 async function stopRetired($) {
@@ -1593,7 +1606,17 @@ export async function pollSide($, identity) {
   // Ordinary events use max_active slots. One more slot is reserved for a P1
   // event, so an urgent message never waits for two long ordinary forks.
   const running = [...actors.values()].filter(a => a.current)
-  if (busy || running.length > maxActive || (running.length === maxActive && running.some(a => a.reserved))) return false
+  if (busy || running.length > maxActive || (running.length === maxActive && running.some(a => a.reserved))) {
+    // Every slot is busy: the receipt ACK still goes out at once (status lists
+    // the events owed one). Claiming waits for a slot; the ACK does not.
+    if (!busy && !ackSweep) {
+      ackSweep = (async () => {
+        try { await sendOwedAcks($,identity,(await callRouter($,'work_side_status',{},{},identity)).pending_acks) }
+        catch {} finally { ackSweep = null }
+      })()
+    }
+    return false
+  }
   const urgentOnly = running.length === maxActive
   busy = true
   const generation = lifecycle
@@ -1601,6 +1624,8 @@ export async function pollSide($, identity) {
   try {
     const claimStarted = Date.now()
     const answer = await callRouter($,'work_side_claim',{owner:'side-'+generation,...(urgentOnly ? {urgent_only:true} : {})},{},identity)
+    // Receipt ACKs first: every event that arrived, claimed or still waiting.
+    await sendOwedAcks($,identity,answer.pending_acks)
     for (const reply of answer.pending_replies || []) {
       $.clock.after(10,async()=>{await recoverReply($,identity,{receipt_id:reply.receipt_id})})
     }
@@ -1649,13 +1674,17 @@ export async function pollSide($, identity) {
     // or native spawn; the claimed-error path below records processing_error.
     if (typeof event.generation !== 'string' || !CLAIM_GENERATION.test(event.generation))
       throw new Error('invalid_claim_generation')
-    // ACK/readback does not wait for priority, context, compaction or AI. A
-    // failure keeps the processing path alive; the receipt shows its state.
-    try { await submitAck($,identity,event) } catch (error) {
-      try { $.ui.log('Ciel side: immediate ACK failed for '+event.receipt_id.slice(0,12)+' · '+line(error?.message || error,160)) } catch {}
-    }
+    // The receipt ACK does not wait for priority, context, compaction or AI.
+    // It was normally sent above; this covers an event received meanwhile.
+    await sendOwedAcks($,identity,[event.receipt_id])
     const settings = answer.settings || {}
     maxActive = Number.isInteger(settings.max_active) ? Math.max(1,Math.min(16,settings.max_active)) : 2
+    if (event.proposal) {
+      // Its model answer survived a restart: commit it, never ask the model again.
+      claimed = null
+      await resumeSide($,identity,event)
+      return generation === lifecycle
+    }
     // Host claim attaches one complete, versioned board projection. The native
     // fork itself inherits main's complete conversation and execution surface.
     const workload = event.workload
@@ -1772,6 +1801,21 @@ export async function sideTool($,e,next) { return null }
 // event: before source prefetch, main compaction, model choice or a fork.
 // It has its own outbox and Walkie client_id, so the later processing reply
 // still sends exactly once and an uncertain ACK is never blindly resent.
+// Receipt ACKs owed to events that arrived (pending_acks from claim/status):
+// sent here before any slot check, so an event waiting for a side actor slot
+// is still acknowledged at once. One send at a time per receipt; the router's
+// outbox makes a repeat a no-op and never resends an uncertain one.
+const ackInFlight = new Set()
+let ackSweep = null
+export async function sendOwedAcks($,identity,receiptIds) {
+  for (const receiptId of (Array.isArray(receiptIds) ? receiptIds : []).slice(0,20)) {
+    if (typeof receiptId !== 'string' || !/^[0-9a-f]{64}$/.test(receiptId) || ackInFlight.has(receiptId)) continue
+    ackInFlight.add(receiptId)
+    try { await submitAck($,identity,{receipt_id:receiptId}) } catch (error) {
+      try { $.ui.log('Ciel side: receipt ACK failed for '+receiptId.slice(0,12)+' · '+line(error?.message || error,160)) } catch {}
+    } finally { ackInFlight.delete(receiptId) }
+  }
+}
 async function submitAck($,identity,event) {
   const prepared = await callRouter($,'work_side_ack',{receipt_id:event.receipt_id,state:'prepare'},{},identity)
   if (!prepared.arguments) {
@@ -1785,6 +1829,25 @@ async function submitAck($,identity,event) {
   } catch { /* A remote send may have happened; record uncertain, never resend. */ }
   const update = await callRouter($,'work_side_ack',{receipt_id:event.receipt_id,state},{attempt_id:prepared.attempt_id},identity)
   if (update.receipt) display($,identity,{side_inbox_receipts:[update.receipt]})
+  return state
+}
+// The understanding message: its own outbox phase and Walkie client_id. An
+// uncertain send is recorded and never repeated; the decision still commits.
+async function submitUnderstanding($,actor,event,proposal) {
+  const prepared = await callRouter($,'work_side_understanding',{...proposal,state:'prepare'},
+    {receipt_id:event.receipt_id,generation:event.generation},actor.identity)
+  if (!prepared.arguments) {
+    if (prepared.receipt) display($,actor.identity,{side_inbox_receipts:[prepared.receipt]})
+    return prepared.state
+  }
+  let state = 'uncertain'
+  try {
+    const sent = await $.mcp.call(prepared.server,prepared.tool,prepared.arguments)
+    state = sent && !sent.isError ? 'submitted' : 'failed'
+  } catch { /* A remote send may have happened; record uncertain, never resend. */ }
+  const update = await callRouter($,'work_side_understanding',{state},
+    {receipt_id:event.receipt_id,generation:event.generation,attempt_id:prepared.attempt_id},actor.identity)
+  if (update.receipt) display($,actor.identity,{side_inbox_receipts:[update.receipt]})
   return state
 }
 async function submitReply($,actor,event) {
@@ -1951,11 +2014,60 @@ export function decisionOf(answer) {
         // absent; a present value is still validated by the host.
         const decision = Object.fromEntries(Object.entries(proposed)
           .filter(([key, value]) => DECISION_FIELDS.has(key) && value !== null))
-        return {...value, decision, sent_via: value.sent_via || sent_via}
+        // The actor's own restatement (top level). The router refuses a
+        // missing one, an echo of the source, or one starting with "ACK".
+        const understanding = typeof value.understanding === 'string' ? value.understanding
+          : typeof value.decision.understanding === 'string' ? value.decision.understanding : undefined
+        return {...value, decision, understanding, sent_via: value.sent_via || sent_via}
       }
     } catch {}
   }
   throw new Error('side answer carries no decision JSON')
+}
+// Steps 2-4 of an event (user requirement 2026-11-17): the actor's own
+// restatement goes to the source before the board changes, then the decision
+// commits, then the final reply. The router persists the whole proposal at the
+// understanding step, so a claim after a restart offers it back (resumeSide).
+async function commitProposal($,actor,event,proposal,sentVia,usage) {
+  await submitUnderstanding($,actor,event,proposal)
+  const value = await callRouter($,'work_side_resolve',{decision:proposal.decision,
+    expected_version:proposal.expected_version,usage:usage || null},
+    {receipt_id:event.receipt_id,generation:event.generation,
+      work_digest:event.work_digest,
+      reported_sends:Array.isArray(sentVia) ? sentVia : []},actor.identity)
+  display($,actor.identity,{side_inbox_receipts:[value.receipt]})
+  // A create whose candidate set changed is returned to pending once. This
+  // actor is done, but the receipt is not failed and sends no stale reply.
+  actor.resolved = true; actor.lastReceipt = event.receipt_id
+  if (value.recheck !== 'work_changed') {
+    if (value.result && !value.result.duplicate) await shareWithMain($,event,value.result)
+    // Time limits reach main immediately after the durable decision commit,
+    // without waiting for another claim/poll or for a side slot to free.
+    if (value.result?.main_handoff?.kind === 'time_limit' && !value.result.duplicate)
+      await scheduleMainWake($,actor.identity,{event_id:event.receipt_id,...value.result.main_handoff})
+    if (value.result?.relay?.item_id && !value.result.duplicate)
+      // One host notice per receipt: a relay also names any wait it released.
+      void relayToItem($,actor.identity,event,value.result).catch(() => {})
+    else if (value.result?.released_waits?.length && !value.result.duplicate)
+      void notifyReleased($,actor.identity,event,value.result).catch(() => {})
+    $.clock.after(10, async () => { await recoverReply($,actor.identity,event) })
+  }
+}
+// A claim that carries a saved proposal: the model already answered before a
+// restart or lost lease. No fork; the saved proposal is committed as is, and an
+// understanding already sent (or uncertain) is never sent again.
+async function resumeSide($,identity,event) {
+  const actor = {identity,id:'',model:'inherit',modelFingerprint:'native-fork',resolved:false}
+  try {
+    const proposal = event.proposal
+    if (!proposal || typeof proposal !== 'object' || !proposal.decision || typeof proposal.decision !== 'object')
+      throw new Error('saved side proposal malformed')
+    await commitProposal($,actor,event,{understanding:proposal.understanding,decision:proposal.decision,
+      expected_version:Number.isInteger(proposal.expected_version) ? proposal.expected_version : null},[],null)
+    try { $.ui.log('Ciel side: resumed saved decision for '+event.receipt_id.slice(0,12)+' without a new actor') } catch {}
+  } catch (error) {
+    await recordFailure($,actor,event,'resume_error',String(error?.message || error))
+  }
 }
 export async function completeSide($,e) {
   const actor = actors.get(e.agentId)
@@ -1971,31 +2083,12 @@ export async function completeSide($,e) {
       // A plugin's own hooks do not see the tool calls of an agent it spawned
       // (turn.step/tool.call, probed 2026-11-07 on Claude Code 2.1.310), so the
       // side AI's own report of what it sent is carried, labelled as reported.
-      const {sent_via, ...proposal} = decisionOf(e.answer)
+      const {sent_via, understanding, ...proposal} = decisionOf(e.answer)
       // The version only records which snapshot the decision saw; the host
       // re-validates against the current board, so a missing one is not fatal.
       if (!Number.isInteger(proposal.expected_version)) proposal.expected_version = event.workload?.version ?? null
-      const value = await callRouter($,'work_side_resolve',{...proposal,usage:e.usage || null},
-        {receipt_id:event.receipt_id,generation:event.generation,
-          work_digest:event.work_digest,
-          reported_sends:Array.isArray(sent_via) ? sent_via : []},actor.identity)
-      display($,actor.identity,{side_inbox_receipts:[value.receipt]})
-      // A create whose candidate set changed is returned to pending once. This
-      // actor is done, but the receipt is not failed and sends no stale reply.
-      actor.resolved = true; actor.lastReceipt = event.receipt_id
-      if (value.recheck !== 'work_changed') {
-        if (value.result && !value.result.duplicate) await shareWithMain($,event,value.result)
-        // Time limits reach main immediately after the durable decision commit,
-        // without waiting for another claim/poll or for a side slot to free.
-        if (value.result?.main_handoff?.kind === 'time_limit' && !value.result.duplicate)
-          await scheduleMainWake($,actor.identity,{event_id:event.receipt_id,...value.result.main_handoff})
-        if (value.result?.relay?.item_id && !value.result.duplicate)
-          // One host notice per receipt: a relay also names any wait it released.
-          void relayToItem($,actor.identity,event,value.result).catch(() => {})
-        else if (value.result?.released_waits?.length && !value.result.duplicate)
-          void notifyReleased($,actor.identity,event,value.result).catch(() => {})
-        $.clock.after(10, async () => { await recoverReply($,actor.identity,event) })
-      }
+      await commitProposal($,actor,event,{understanding,decision:proposal.decision,
+        expected_version:proposal.expected_version},sent_via,e.usage)
     }
   } catch (error) { reason = String(error?.message || error) /* Recorded below, never in the main transcript. */ }
   if (event && !actor.resolved) {
