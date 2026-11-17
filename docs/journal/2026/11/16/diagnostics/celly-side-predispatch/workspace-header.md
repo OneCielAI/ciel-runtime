@@ -46,6 +46,12 @@ The checkout is on branch `fix/gateway-usage-provider-mismatch` at `d38b2be3a8`;
 - Which connection the `_API_KEYS-SSE-1` combo used for `anthropic/claude-sonnet-5-5-high`, and whether that connection's stored key is the unscoped kind. Gateway connection records are on the central gateway and were not read.
 - Whether the same key succeeds with the header. That needs a request against Anthropic with that key, which was not made.
 
-**What resolves it (not applied).** Either of the following:
+**Owner (user, 2026-11-17: "그건 ciel ai router가 알아서해야하는거").** Supplying the upstream provider's required headers is the CielAiRouter gateway's job. ciel-runtime does not add `anthropic-workspace-id`.
+
+On ciel-runtime's side, from `cadd1a5`:
+- the next attempt after such a side failure runs on main's model;
+- an event that still fails has its original forwarded to main.
+
+**What resolves it in the gateway (not applied here).** Either of the following:
 - The gateway sends `anthropic-workspace-id` for an `anthropic` connection that stores a workspace id. That is a gateway change, outside this repository.
 - That connection's key is replaced by a key created for a single workspace, which runs in that workspace without the header (per the docs above).
