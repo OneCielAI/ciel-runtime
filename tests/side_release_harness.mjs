@@ -57,5 +57,18 @@ await startSide($)
 await pollSide($,'claude:parent')
 await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({decision:{action:'update',kind:'request',item_id:'n3',
   summary:'Andy approved the deploy',reply:'ok',note:'approved',release_waits:released},expected_version:4})})
-await new Promise(resolve => setTimeout(resolve, 20))
+// The release notice is delivered after completeSide returns. Wait until it has
+// settled instead of a fixed delay: Linux CI under load read an empty list after
+// 20 ms (5c4b85a, test_busy_main_reads_the_release_in_its_running_turn).
+// Settled means a fork message was sent with no fallback, or the notice was
+// recorded appended; the idle case also waits for its wake prompt.
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+const recorded = () => wakes.some(call => call.state === 'notice_appended')
+const settled = () => scenario === 'fork-running' ? sent.length > 0
+  : scenario === 'main-idle' ? recorded() && submitted.length > 0
+  : recorded()
+for (const end = Date.now() + 5000; Date.now() < end && !settled();) await sleep(5)
+// Anything that would arrive after settling (a duplicate notice or prompt) is
+// still given the old window to show up.
+await sleep(20)
 console.log(JSON.stringify({sent,appended,submitted,wakes,logs}))

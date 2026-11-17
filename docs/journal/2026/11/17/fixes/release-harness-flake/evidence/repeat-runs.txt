@@ -1,0 +1,7 @@
+# main-busy case repeated (node test.mjs main-busy; appended must hold 1 row)
+## before (harness: fixed 20 ms wait)
+Windows, node v24: 0/60 failed
+Linux docker python:3.11-slim --cpus=1, node v20.19.2: idle 0/100, with 4 busy-loop processes 16/100 failed
+## after (harness waits until the notice is recorded, 5 s cap, then 20 ms)
+Linux same setup: idle 0/100, with 4 busy-loop processes 0/100 failed
+Windows tests/test_side_release_notice.py: RAN 5 failures=0

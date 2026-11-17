@@ -1,0 +1,12 @@
+# CI publish run 44108671990 (5c4b85a): test (unit, 3/3) failed, publish skipped
+FAIL: test_busy_main_reads_the_release_in_its_running_turn (test_side_release_notice.SideReleaseNoticeTests.test_busy_main_reads_the_release_in_its_running_turn)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/runner/work/ciel-runtime/ciel-runtime/tests/test_side_release_notice.py", line 36, in test_busy_main_reads_the_release_in_its_running_turn
+    self.assertEqual(1, len(row['appended']))
+AssertionError: 1 != 0
+
+----------------------------------------------------------------------
+Ran 1671 tests in 251.510s
+
+FAILED (failures=1, skipped=107)
