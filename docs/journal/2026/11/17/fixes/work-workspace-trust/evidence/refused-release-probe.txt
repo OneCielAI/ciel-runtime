@@ -1,0 +1,63 @@
+# foreign_owner_probe.py launched-elsewhere: Git's refusal stands; what stays reserved, 2026-11-17T20:03:07Z
+### before: HEAD 6622029
+{
+ "lane": "ordinary",
+ "attempts": 3,
+ "outcomes": [
+  "workspace preparation failed; reservation released: Git verification failed: fatal: detected dubious ownership in repository at '<tmp>/repo'\nTo add an exception",
+  "workspace preparation failed; reservation released: Git verification failed: fatal: detected dubious ownership in repository at '<tmp>/repo'\nTo add an exception",
+  "workspace preparation failed; reservation released: Git verification failed: fatal: detected dubious ownership in repository at '<tmp>/repo'\nTo add an exception"
+ ],
+ "leases": [],
+ "coordination_runs": [
+  "reserved",
+  "reserved",
+  "reserved"
+ ],
+ "p0_intents": []
+}
+{
+ "lane": "p0",
+ "attempts": 3,
+ "outcomes": [
+  "P0 workspace preparation outcome unknown; recovery required",
+  "P0 workspace preparation outcome unknown; recovery required",
+  "P0 workspace preparation outcome unknown; recovery required"
+ ],
+ "leases": [
+  "reserved"
+ ],
+ "coordination_runs": [
+  "reserved"
+ ],
+ "p0_intents": [
+  "reserved"
+ ]
+}
+### after: working tree on 6622029
+{
+ "lane": "ordinary",
+ "attempts": 3,
+ "outcomes": [
+  "workspace_git_untrusted: workspace preparation failed; reservation released, item stays queued: Git verification failed: fatal: detected dubious ownership in re",
+  "workspace_git_untrusted: workspace preparation failed; reservation released, item stays queued: Git verification failed: fatal: detected dubious ownership in re",
+  "workspace_git_untrusted: workspace preparation failed; reservation released, item stays queued: Git verification failed: fatal: detected dubious ownership in re"
+ ],
+ "leases": [],
+ "coordination_runs": [],
+ "p0_intents": []
+}
+{
+ "lane": "p0",
+ "attempts": 3,
+ "outcomes": [
+  "workspace_git_untrusted: workspace preparation failed; reservation released, item stays queued: Git verification failed: fatal: detected dubious ownership in re",
+  "workspace_git_untrusted: workspace preparation failed; reservation released, item stays queued: Git verification failed: fatal: detected dubious ownership in re",
+  "workspace_git_untrusted: workspace preparation failed; reservation released, item stays queued: Git verification failed: fatal: detected dubious ownership in re"
+ ],
+ "leases": [],
+ "coordination_runs": [],
+ "p0_intents": [
+  "intent"
+ ]
+}

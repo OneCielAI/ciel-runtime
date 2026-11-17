@@ -1,0 +1,67 @@
+# foreign_owner_probe.py, git 2.50.0.windows.1, GIT_TEST_ASSUME_DIFFERENT_OWNER=1, 2026-11-17T20:02:33Z
+### before: HEAD 6622029
+{
+ "lane": "ordinary",
+ "attempts": 3,
+ "outcomes": [
+  "workspace preparation failed; reservation released: Git verification failed: fatal: detected dubious ownership in repository at '<tmp>/repo'\nTo add an exception",
+  "workspace preparation failed; reservation released: Git verification failed: fatal: detected dubious ownership in repository at '<tmp>/repo'\nTo add an exception",
+  "workspace preparation failed; reservation released: Git verification failed: fatal: detected dubious ownership in repository at '<tmp>/repo'\nTo add an exception"
+ ],
+ "leases": [],
+ "coordination_runs": [
+  "reserved",
+  "reserved",
+  "reserved"
+ ],
+ "p0_intents": []
+}
+{
+ "lane": "p0",
+ "attempts": 3,
+ "outcomes": [
+  "P0 workspace preparation outcome unknown; recovery required",
+  "P0 workspace preparation outcome unknown; recovery required",
+  "P0 workspace preparation outcome unknown; recovery required"
+ ],
+ "leases": [
+  "reserved"
+ ],
+ "coordination_runs": [
+  "reserved"
+ ],
+ "p0_intents": [
+  "reserved"
+ ]
+}
+### after: working tree on 6622029
+{
+ "lane": "ordinary",
+ "attempts": 1,
+ "outcomes": [
+  "reserved with workspace present"
+ ],
+ "leases": [
+  "reserved"
+ ],
+ "coordination_runs": [
+  "reserved"
+ ],
+ "p0_intents": []
+}
+{
+ "lane": "p0",
+ "attempts": 1,
+ "outcomes": [
+  "reserved with workspace present"
+ ],
+ "leases": [
+  "reserved"
+ ],
+ "coordination_runs": [
+  "reserved"
+ ],
+ "p0_intents": [
+  "reserved"
+ ]
+}

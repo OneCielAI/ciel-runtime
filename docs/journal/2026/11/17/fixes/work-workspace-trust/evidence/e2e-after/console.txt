@@ -1,0 +1,43 @@
+Claude Code v2.1.326
+fixture-main · API Usage Billing
+~\AppData\Local\Temp\ciel-foreign-owner-e2e-ywa2s48b\workspace
+⚠ Model "fixture-main" isn't recognized · context assumed to be 1m tokens · update Claude Code, or see 8;id=u-6mdv8p%10319244302621100894;https://code.claude.com/docs/en/model-config#correct-the-window-for-a-gateway-or-custom-model-idthe docs8;;
+▎ Debug mode enabled · logging to <owned>\claude-debug.txt
+● high · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  ⏸ manual mode on · ? for shortcuts · ← for agents█▟
+██▀
+▝▝ work: unavailablew:Workunavailable[+][-]
+   0/1 [ ] Captureitem[+]    work: run 0/1❯ Start the approved Work item now.                                                                                     ✽Sock-hopping… ██▟
+███▀
+ ▝▝ ✻█▛█▄███▘  ▝▝ ✶
+*▗▟▛██▛█▄
+ ▜████▘▝▝  ▝▝ ✢▐▛▛█
+·▜██████·
+~~ ▐▛███▛█
+▝▜███▀
+ ▝▝   ▝▝ ·…·Sock-hopping…
+w:Work0/1[]Captureitem[+][-]● high · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  ⏸ manual mode on · ? for shortcuts · ← for agents · ↓ to manage                                        work: run 0/1
+  ● main                                                                                                                ◯work-auto-mwl51ovf-wdqpsggl…  Workn2 Capture item0s✢g0s · ↑ 2 token0s · ↑ 27*n
+* Sock-hopping…                                                                                                         w: Work0/1[]Captureitem[+][-]
+                                                                                                      ● high · /effort  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────⏸manual mode on · /tasks to see subagents · ← for agents   work: run 0/1✶
+✻i…● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing             approved Work. Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode, or the agent (work_mode_set)❯ Start the approved Work item now.                                                                                     ❯ esc to interrupt · ← for agents✽pg✽Sock-hopping…
+w:Work0/1[]Captureitem[+][-]● high · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  ⏸ manual mode on · esc to interrupt · ← for agents · ↓ to manage                                       work: run 0/1
+  ● main                                                                                                                ◯work-auto-mwl51ovf-wdqpsggl…  Work n2 Capture iem0s · ↑ 27 tokens
+✽ Sock-hopping…                                                                                                         w: Work0/1[]Captureitem[+][-]
+                                                                                                      ● high · /effort  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────⏸manual mode on · /tasks to see subagents · esc o interrupt · ← for agents   work: run 0/1✻oi
+✶hp
+*
+✢-p
+·koch●okSock-hopping…
+✢Sock-hopping…(1s · ↓2 tokens)✢Sock-hopping… (1s · ↓2 tokens)
+w:Work0/1[]Captureitem[+][-]● high · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  ⏸ manual mode on · esc to interrupt · ← for agents · ↓ to manage                                       work: run 0/1
+  ● main                                                                                                                ◯work-auto-mwl51ovf-wdqpsggl…  Work n2 Capture iem0s · ↑ 27 tokens

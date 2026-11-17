@@ -1,0 +1,1 @@
+{"at": 1794947102.1773882, "root": [76192, "2026-11-17T20:22:34.6553060Z"], "identity": [76192, "2026-11-17T20:22:34.6553060Z"], "name": "claude.exe", "present": true, "protected": false, "owned_chain": "ok", "command": ["taskkill", "/PID", "76192", "/F"], "rc": 0}

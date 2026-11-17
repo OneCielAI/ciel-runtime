@@ -1,0 +1,25 @@
+Claude Code v2.1.326
+fixture-main · API Usage Billing
+~\AppData\Local\Temp\ciel-foreign-owner-e2e-qr0_7aue\workspace
+⚠ Model "fixture-main" isn't recognized · context assumed to be 1m tokens · update Claude Code, or see 8;id=u-6mdv8p%10319244302621100894;https://code.claude.com/docs/en/model-config#correct-the-window-for-a-gateway-or-custom-model-idthe docs8;;
+▎ Debug mode enabled · logging to <owned>\claude-debug.txt
+● high · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────❯
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────  ⏸ manual mode on · ? for shortcuts · ← for agents▛█▄
+██▘
+▝▝ w:Workunavailable[+][-]work: unavailable ▀
+▛█
+██▀███▛█▄
+████▘
+   ▝▝ ❯ Start the approved Work item now.                                                                                     *Metamorphosing…  ▀✢    work: run 0/10/1 [ ] Captureitem[+]     ▛█
+█████▀▗▟▛███▛█▄
+ ▜████▘
+ ▝▝   ▝▝ ·▐▛▛█
+·▜██████·…~~ ▐▛███▛█
+▝▜███▀
+ ▝▝   ▝▝ ✢g● ciel-work: Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing             approved Work. Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode, or the agent (work_mode_set)❯ Start the approved Work item now.                                                                                     ❯ esc to interrupt · ← for agents*n
+✻i…
+✽sgon
+✻hi●ok(0s · ↓1 tokens)hos
+✶13
+*5✻Cogitated for 1s · done 2:22 PM❯ ? for shortcuts · ← for agents

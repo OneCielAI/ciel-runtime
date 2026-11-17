@@ -1,0 +1,234 @@
+{
+  "kind": "foreign-owner Work fork E2E",
+  "claude_version": "2.1.326 (Claude Code)",
+  "fixture": {
+    "git_refuses_without_trust": true,
+    "router_workspace_is_repo": true
+  },
+  "snapshot_manifest": {
+    "label": "stage1",
+    "digests": {
+      "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js": "3af4ad821e18d24d976f3039ac37652cea325087942429afe2b553deaed5e286",
+      "ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js": "0cecf46a2a33b9d060caa076ec46fc60c145069becddf09e94eac392a67b2492",
+      "ciel_runtime_support/claude_mods/ciel-work-gate/hooks/register.js": "40132ff3f5d6758d87824146d9d8fda0dec202c6e8f40e04a559906f3dd7253a",
+      "ciel_runtime_support/work_parallel_gate_presence.py": "c324032cb9ca219dee79619b34d951aacb8b5f3dd328f1d9b58d0897a006e3e5",
+      "ciel_runtime_support/work_parallel_mcp.py": "bcfbe0370c78be43458d0f2d8b09a680317e5ce2dc9671858baa5db8cd5dd08d",
+      "ciel_runtime_support/work_parallel_finalization.py": "99227b1972d8197f87d4b23197d51186381c7e06ffac7c731a77288d9be4684d",
+      "ciel_runtime_support/work_http_controller.py": "5df3ce7c8183a2655df6c5bc15f30b6974e973d3e3d3c6c25671f53f36c1091e",
+      "ciel_runtime_support/work_web_ui.py": "7035a469dca61fccd652b592ff010ae13a2c63366bf8053305388f56784e3bd1",
+      "ciel_runtime_support/windows_conpty.py": "c039c01718478861ea43989c34311fece5c42aece6b95f059fe9e1c765f400e9",
+      "ciel_runtime_support/work_parallel.py": "134d188abaf64837d987da53896b90fce11ded36e77fcacec99c6c97ded1c540",
+      "ciel_runtime_support/work_parallel_workspace.py": "649edac499421f772cc3c7bf011f9180ba3a7c6ba89881fd1aadbbada8b61c6b",
+      "ciel_runtime_support/work_parallel_stranded.py": "2a019037757dbed958a33ba9404c3e60127387aced6deed5c8ad2ca6c767c7a1",
+      "ciel_runtime_support/work_parallel_failures.py": "c14d13e89b3ca004452faff0cc88476909501c1e7358736bbec16b784b7793e1",
+      "ciel_runtime_support/work_mcp_tools.py": "a4ce49deb3479e051fc19cbcc597b30bb2be942fef6a070755f619c96b37825d",
+      "ciel_runtime_support/channel_mcp_http_controller.py": "6ec79581088a6d9f95dbc890258733ef45387721a6564d364592a260fa0b97ff"
+    },
+    "missing": [],
+    "matches_source_at_copy": true
+  },
+  "guard": {
+    "owner": [
+      74444,
+      "2026-11-17T20:21:46.2018870Z"
+    ],
+    "static_present": 50
+  },
+  "steps": {
+    "work_fork_seen": true
+  },
+  "mod_load": {
+    "loaded": true,
+    "failed": [],
+    "hooks_ran": [
+      "classic.SessionStart",
+      "ui.render"
+    ],
+    "ok": true
+  },
+  "gate_load": {
+    "plugin": "ciel-work-gate",
+    "loaded": true,
+    "failed": [],
+    "hooks_ran": [
+      "tool.call",
+      "tool.check"
+    ]
+  },
+  "leases": [
+    {
+      "state": "unreported",
+      "priority": "P2",
+      "bound": true,
+      "bound_agent_seen": true,
+      "workspace": {
+        "under_owned_worktrees": true,
+        "exists": true
+      }
+    },
+    {
+      "state": "running",
+      "priority": "P2",
+      "bound": true,
+      "bound_agent_seen": true,
+      "workspace": {
+        "under_owned_worktrees": true,
+        "exists": true
+      }
+    }
+  ],
+  "coordination_runs": [
+    "bound",
+    "handed_off"
+  ],
+  "failures": [],
+  "router_log": [
+    "work_status_decision version=2 auto_continue=False actionable=1 next=n2 excluded_leaves=0",
+    "work_status_decision version=2 auto_continue=False actionable=1 next=n2 excluded_leaves=0",
+    "work_status_decision version=2 auto_continue=False actionable=1 next=n2 excluded_leaves=0",
+    "work_status_decision version=2 auto_continue=False actionable=1 next=n2 excluded_leaves=0",
+    "work_status_decision version=2 auto_continue=False actionable=1 next=n2 excluded_leaves=0",
+    "work_status_decision version=2 auto_continue=False actionable=1 next=n2 excluded_leaves=0",
+    "work_status_decision version=2 auto_continue=False actionable=1 next=n2 excluded_leaves=0",
+    "work_status_decision version=2 auto_continue=False actionable=1 next=n2 excluded_leaves=0"
+  ],
+  "work_first_requests": 2,
+  "mcp_tail": [
+    {
+      "name": "work_parallel_event",
+      "event": "reserve_next",
+      "error": "no eligible candidate"
+    },
+    {
+      "name": "work_status",
+      "event": "None"
+    },
+    {
+      "name": "work_parallel_status",
+      "event": "None"
+    },
+    {
+      "name": "work_parallel_status",
+      "event": "None"
+    },
+    {
+      "name": "work_parallel_status",
+      "event": "None"
+    },
+    {
+      "name": "work_parallel_status",
+      "event": "None"
+    },
+    {
+      "name": "work_parallel_event",
+      "event": "host_salvage"
+    },
+    {
+      "name": "work_parallel_status",
+      "event": "None"
+    },
+    {
+      "name": "work_status",
+      "event": "None"
+    },
+    {
+      "name": "work_parallel_event",
+      "event": "reserve_next",
+      "error": "no eligible candidate"
+    },
+    {
+      "name": "work_parallel_status",
+      "event": "None"
+    },
+    {
+      "name": "work_status",
+      "event": "None"
+    },
+    {
+      "name": "work_parallel_status",
+      "event": "None"
+    },
+    {
+      "name": "work_parallel_status",
+      "event": "None"
+    },
+    {
+      "name": "work_parallel_event",
+      "event": "host_salvage"
+    },
+    {
+      "name": "work_parallel_status",
+      "event": "None"
+    },
+    {
+      "name": "work_parallel_event",
+      "event": "unreported"
+    },
+    {
+      "name": "work_parallel_status",
+      "event": "None"
+    },
+    {
+      "name": "work_parallel_event",
+      "event": "native_observation"
+    },
+    {
+      "name": "work_parallel_status",
+      "event": "None"
+    },
+    {
+      "name": "work_parallel_status",
+      "event": "None"
+    },
+    {
+      "name": "work_parallel_status",
+      "event": "None"
+    },
+    {
+      "name": "work_parallel_event",
+      "event": "reserve_next"
+    },
+    {
+      "name": "work_side_claim",
+      "event": "None",
+      "error": "side processing is disabled"
+    },
+    {
+      "name": "work_parallel_status",
+      "event": "None"
+    },
+    {
+      "name": "work_parallel_status",
+      "event": "None"
+    },
+    {
+      "name": "work_parallel_status",
+      "event": "None"
+    },
+    {
+      "name": "work_parallel_event",
+      "event": "bind"
+    },
+    {
+      "name": "work_status",
+      "event": "None"
+    },
+    {
+      "name": "work_parallel_status",
+      "event": "None"
+    }
+  ],
+  "checks": {
+    "fixture_refused_without_trust": true,
+    "work_fork_first_request": true,
+    "lease_bound_with_worktree": true,
+    "no_reserved_run_left": true
+  },
+  "passed": true,
+  "kills": 1,
+  "owned_survivors": 0,
+  "killed_protected_overlap": 0,
+  "evidence_secret_hits": {
+    "host_token": 0
+  }
+}
