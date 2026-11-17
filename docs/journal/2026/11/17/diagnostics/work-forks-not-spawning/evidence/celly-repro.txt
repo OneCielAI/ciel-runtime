@@ -1,0 +1,31 @@
+# Celly: workspace-preparation failure reproduced with the dubious-ownership git error (.local/tmp/celly/repro_workspace_dubious.py), tree 6cf8805, 2026-11-17T18:11:19Z
+{
+ "lane": "p0",
+ "attempts": 3,
+ "errors": [
+  "P0 workspace preparation outcome unknown; recovery required",
+  "P0 workspace preparation outcome unknown; recovery required",
+  "P0 workspace preparation outcome unknown; recovery required"
+ ],
+ "leases": {
+  "7ab82bfd": "reserved"
+ },
+ "coordination_runs": {
+  "7ab82bfd": "reserved"
+ }
+}
+{
+ "lane": "ordinary",
+ "attempts": 3,
+ "errors": [
+  "workspace preparation failed; reservation released: Git verification failed: fatal: detected dubious ownership in repository at 'G:/ciel-bridge-service'",
+  "workspace preparation failed; reservation released: Git verification failed: fatal: detected dubious ownership in repository at 'G:/ciel-bridge-service'",
+  "workspace preparation failed; reservation released: Git verification failed: fatal: detected dubious ownership in repository at 'G:/ciel-bridge-service'"
+ ],
+ "leases": {},
+ "coordination_runs": {
+  "6f3c2a80": "reserved",
+  "b557ca67": "reserved",
+  "ca617c22": "reserved"
+ }
+}

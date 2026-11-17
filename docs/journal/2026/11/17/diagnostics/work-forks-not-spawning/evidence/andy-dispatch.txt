@@ -1,0 +1,18 @@
+# Andy (G:\ciel-Walkie), session feeac3ad, router 9505 on 6cf8805. The dispatcher's own functions
+# (work_plan_tree.runnable_leaves, work_parallel_mcp.candidate, ACTIVE_STATES fence) on read-only copies of its board and ledger.
+board version 7034 nodes 663
+runnable_leaves 7
+   P2 n2291 open lease: running
+   P2 n2203 open lease: submitted
+   P3 n2306 open lease: waiting_input
+   P3 n2305 open lease: waiting_input
+   P3 n2304 open lease: waiting_input
+   P3 n2303 open lease: submitted
+   P3 n2222 open lease: submitted
+unfinished leaves by priority:
+   P1 {'waiting_on (leaf)': 85, 'waiting_on (ancestor)': 32, 'waiting_on (root)': 5}
+   P2 {'root not approved (planning)': 1, 'waiting_on (leaf)': 15, 'runnable': 2}
+   P3 {'root not approved (planning)': 10, 'waiting_on (root)': 17, 'waiting_on (ancestor)': 8, 'waiting_on (leaf)': 55, 'runnable': 5}
+   P5 {'waiting_on (leaf)': 51, 'waiting_on (ancestor)': 14}
+open leases by priority/state: {('P1', 'waiting_input'): 18, ('P1', 'submitted'): 24, ('P3', 'waiting_input'): 12, ('P2', 'waiting_input'): 5, ('P3', 'submitted'): 5, ('P5', 'submitted'): 3, ('P5', 'waiting_input'): 2, ('P2', 'submitted'): 1, ('P2', 'running'): 1}
+device slots in use: 0 of 8 (REST /ca/work/api/v1/parallel)

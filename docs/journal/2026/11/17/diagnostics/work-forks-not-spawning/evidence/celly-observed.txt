@@ -1,0 +1,12 @@
+# Celly (G:\ciel-bridge-service), read-only, 2026-11-17
+router 9385 build: 6cf8805 since 11:39:05 local (42b1ff8 08:57 and 11:34)
+forks in session 0aefa936: 233, all "Side SSE"; session 2bb4dbb6: 31, all "Side SSE"; Work forks: 0
+coordination runs (Celly's work_parallel_status at 17:46:20Z): 24, all state=reserved, agent_id/bound_at null
+  n959 P3 x2 (13:50Z), n964 P1 x13 (13:51-14:00Z), n954 P1 x6 (16:03-16:40Z), n971 P1 (16:55Z), n969 P1 (17:31Z), n970 P1 (17:32Z)
+  n969/n970/n971 had dispatch_name work-p0-* (root n916 effective P0); no fork with those names exists in the transcript
+router log: work_orphan_released x3 at 11:34:59 local (the three P0 reservations, owner=dead); no other parallel event logged
+repo G:\ciel-bridge-service: owner <machine owner>; 0 work-parallel/* branches; no .claude\worktrees directory
+Celly tool result 2026-11-17T03:09:27Z: "fatal: detected dubious ownership in repository at 'G:/ciel-bridge-service'
+  '.git' is owned by <machine owner> ... but the current user is <sandbox account>"
+Celly then used `git -c safe.directory='*'` for its own commands; system git config has no safe.directory
+Not read: the router process and its workspace state directory (owner is the sandbox account; access denied)
