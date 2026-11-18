@@ -1,0 +1,400 @@
+2026-11-18T20:59:01.621Z [DEBUG] hooks module ciel-work@inline classic.SessionStart settled in 13.5ms (worker hop, next() included)
+2026-11-18T20:59:01.675Z [DEBUG] hooks module ciel-work@inline session.start settled in 69.8ms (worker hop, next() included)
+2026-11-18T20:59:01.681Z [DEBUG] hooks module ciel-work@inline ui.render settled in 42.0ms (worker hop, next() included) key=session-mode
+2026-11-18T20:59:01.681Z [DEBUG] hooks module ciel-work@inline ui.render settled in 43.0ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:01.709Z [DEBUG] hooks module ciel-work@inline ui.render settled in 6.8ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:01.861Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 2.9ms (worker hop, next() included)
+2026-11-18T20:59:02.070Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 221.7ms (worker hop, next() included)
+2026-11-18T20:59:02.079Z [DEBUG] hooks module ciel-work@inline ui.render settled in 3.2ms (worker hop, next() included) key=session-mode
+2026-11-18T20:59:02.142Z [DEBUG] hooks module ciel-work@inline ui.render settled in 66.7ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:02.152Z [DEBUG] hooks module ciel-work@inline ui.render settled in 6.3ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:02.161Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.0ms (worker hop, next() included)
+2026-11-18T20:59:02.170Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 2.3ms (worker hop, next() included)
+2026-11-18T20:59:02.179Z [DEBUG] hooks module ciel-work@inline ui.render settled in 2.3ms (worker hop, next() included) key=session-mode
+2026-11-18T20:59:02.180Z [DEBUG] hooks module ciel-work@inline ui.render settled in 4.2ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:02.185Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 19.6ms (worker hop, next() included)
+2026-11-18T20:59:02.193Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 2.0ms (worker hop, next() included)
+2026-11-18T20:59:02.271Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 81.6ms (worker hop, next() included)
+2026-11-18T20:59:02.281Z [DEBUG] hooks module ciel-work@inline ui.render settled in 1.7ms (worker hop, next() included) key=session-mode
+2026-11-18T20:59:02.283Z [DEBUG] hooks module ciel-work@inline ui.render settled in 3.8ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:02.284Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 0.9ms (worker hop, next() included)
+2026-11-18T20:59:02.294Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.5ms (worker hop, next() included)
+2026-11-18T20:59:02.301Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 9.5ms (worker hop, next() included)
+2026-11-18T20:59:02.308Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.6ms (worker hop, next() included)
+2026-11-18T20:59:02.320Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 15.8ms (worker hop, next() included)
+2026-11-18T20:59:02.332Z [DEBUG] hooks module ciel-work@inline session.append settled in 8.1ms (worker hop, next() included)
+2026-11-18T20:59:03.358Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.7ms (worker hop, next() included)
+2026-11-18T20:59:03.371Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 36.0ms (worker hop, next() included)
+2026-11-18T20:59:03.378Z [DEBUG] hooks module ciel-work@inline ui.render settled in 3.2ms (worker hop, next() included) key=session-mode
+2026-11-18T20:59:03.380Z [DEBUG] hooks module ciel-work@inline ui.render settled in 5.0ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:03.388Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.9ms (worker hop, next() included)
+2026-11-18T20:59:03.409Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 25.7ms (worker hop, next() included)
+2026-11-18T20:59:03.415Z [DEBUG] hooks module ciel-work@inline ui.render settled in 3.7ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:03.419Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 2.4ms (worker hop, next() included)
+2026-11-18T20:59:03.435Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 20.0ms (worker hop, next() included)
+2026-11-18T20:59:03.438Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 0.6ms (worker hop, next() included)
+2026-11-18T20:59:03.450Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.9ms (worker hop, next() included)
+2026-11-18T20:59:03.453Z [DEBUG] hooks module ciel-work@inline ui.render settled in 6.2ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:03.460Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 15.9ms (worker hop, next() included)
+2026-11-18T20:59:03.466Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.2ms (worker hop, next() included)
+2026-11-18T20:59:03.478Z [DEBUG] hooks module ciel-work@inline ui.render settled in 1.6ms (worker hop, next() included) key=session-mode
+2026-11-18T20:59:03.480Z [DEBUG] hooks module ciel-work@inline ui.render settled in 4.3ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:03.481Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 17.4ms (worker hop, next() included)
+2026-11-18T20:59:04.159Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.9ms (worker hop, next() included)
+2026-11-18T20:59:04.225Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 69.7ms (worker hop, next() included)
+2026-11-18T20:59:04.233Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.7ms (worker hop, next() included)
+2026-11-18T20:59:04.257Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 27.2ms (worker hop, next() included)
+2026-11-18T20:59:04.262Z [DEBUG] hooks module ciel-work@inline ui.render settled in 1.5ms (worker hop, next() included) key=session-mode
+2026-11-18T20:59:04.263Z [DEBUG] hooks module ciel-work@inline ui.render settled in 3.0ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:05.118Z [DEBUG] hooks module ciel-work@inline ui.render settled in 32.7ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:05.127Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 2.2ms (worker hop, next() included)
+2026-11-18T20:59:05.141Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 20.0ms (worker hop, next() included)
+2026-11-18T20:59:05.148Z [DEBUG] hooks module ciel-work@inline ui.render settled in 3.5ms (worker hop, next() included) key=session-mode
+2026-11-18T20:59:05.150Z [DEBUG] hooks module ciel-work@inline ui.render settled in 6.0ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:05.153Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 2.9ms (worker hop, next() included)
+2026-11-18T20:59:05.166Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 18.3ms (worker hop, next() included)
+2026-11-18T20:59:05.174Z [DEBUG] ciel-work (user) answered command.run without next() in 67.7ms; nothing beneath it ran for this dispatch
+2026-11-18T20:59:05.174Z [DEBUG] hooks module ciel-work@inline command.run settled in 68.1ms (worker hop, next() included)
+2026-11-18T20:59:05.195Z [DEBUG] hooks module ciel-work@inline ui.render settled in 24.2ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:05.196Z [DEBUG] hooks module ciel-work@inline session.append settled in 19.8ms (worker hop, next() included)
+2026-11-18T20:59:05.200Z [DEBUG] hooks module ciel-work@inline session.append settled in 3.8ms (worker hop, next() included)
+2026-11-18T20:59:05.205Z [DEBUG] hooks module ciel-work@inline ui.render settled in 19.9ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:05.207Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 2.2ms (worker hop, next() included)
+2026-11-18T20:59:05.228Z [DEBUG] hooks module ciel-work@inline ui.render settled in 39.1ms (worker hop, next() included) key=work-details
+2026-11-18T20:59:05.234Z [DEBUG] hooks module ciel-work@inline ui.render settled in 12.0ms (worker hop, next() included) key=session-mode
+2026-11-18T20:59:05.234Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 34.7ms (worker hop, next() included)
+2026-11-18T20:59:05.265Z [DEBUG] hooks module ciel-work@inline ui.render settled in 42.9ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:05.280Z [DEBUG] hooks module ciel-work@inline ui.render settled in 26.5ms (worker hop, next() included) key=work-details
+2026-11-18T20:59:05.285Z [DEBUG] hooks module ciel-work@inline ui.render settled in 12.0ms (worker hop, next() included) key=session-mode
+2026-11-18T20:59:05.287Z [DEBUG] hooks module ciel-work@inline ui.render settled in 13.6ms (worker hop, next() included) key=work-details
+2026-11-18T20:59:05.288Z [DEBUG] hooks module ciel-work@inline ui.render settled in 15.1ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:05.294Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 7.3ms (worker hop, next() included)
+2026-11-18T20:59:05.306Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 21.7ms (worker hop, next() included)
+2026-11-18T20:59:05.316Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 3.6ms (worker hop, next() included)
+2026-11-18T20:59:05.319Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 3.4ms (worker hop, next() included)
+2026-11-18T20:59:05.346Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 32.2ms (worker hop, next() included)
+2026-11-18T20:59:05.383Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 72.2ms (worker hop, next() included)
+2026-11-18T20:59:05.389Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.9ms (worker hop, next() included)
+2026-11-18T20:59:05.401Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 15.7ms (worker hop, next() included)
+2026-11-18T20:59:05.408Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.8ms (worker hop, next() included)
+2026-11-18T20:59:05.413Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 9.1ms (worker hop, next() included)
+2026-11-18T20:59:05.420Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 2.8ms (worker hop, next() included)
+2026-11-18T20:59:05.424Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.6ms (worker hop, next() included)
+2026-11-18T20:59:05.428Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 12.1ms (worker hop, next() included)
+2026-11-18T20:59:05.435Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.6ms (worker hop, next() included)
+2026-11-18T20:59:05.439Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 19.5ms (worker hop, next() included)
+2026-11-18T20:59:05.447Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 15.0ms (worker hop, next() included)
+2026-11-18T20:59:05.447Z [DEBUG] hooks module ciel-work@inline ui.render settled in 2.8ms (worker hop, next() included) key=session-mode
+2026-11-18T20:59:05.450Z [DEBUG] hooks module ciel-work@inline ui.render settled in 5.9ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:05.451Z [DEBUG] hooks module ciel-work@inline ui.render settled in 6.5ms (worker hop, next() included) key=work-details
+2026-11-18T20:59:05.463Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 10.0ms (worker hop, next() included)
+2026-11-18T20:59:05.478Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 28.7ms (worker hop, next() included)
+2026-11-18T20:59:05.548Z [DEBUG] hooks module ciel-work@inline ui.render settled in 1.9ms (worker hop, next() included) key=session-mode
+2026-11-18T20:59:05.549Z [DEBUG] hooks module ciel-work@inline ui.render settled in 3.4ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:05.551Z [DEBUG] hooks module ciel-work@inline ui.render settled in 4.9ms (worker hop, next() included) key=work-details
+2026-11-18T20:59:06.235Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.7ms (worker hop, next() included)
+2026-11-18T20:59:06.244Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 12.1ms (worker hop, next() included)
+2026-11-18T20:59:07.635Z [DEBUG] hooks module ciel-work@inline ui.render settled in 6.8ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:07.734Z [DEBUG] hooks module ciel-work@inline ui.render settled in 2.3ms (worker hop, next() included) key=session-mode
+2026-11-18T20:59:08.253Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.7ms (worker hop, next() included)
+2026-11-18T20:59:08.264Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 13.8ms (worker hop, next() included)
+2026-11-18T20:59:08.611Z [DEBUG] hooks module ciel-work@inline ui.render settled in 23.3ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:08.618Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 2.0ms (worker hop, next() included)
+2026-11-18T20:59:08.632Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 18.1ms (worker hop, next() included)
+2026-11-18T20:59:08.641Z [DEBUG] hooks module ciel-work@inline ui.render settled in 5.7ms (worker hop, next() included) key=session-mode
+2026-11-18T20:59:08.641Z [DEBUG] hooks module ciel-work@inline session.append settled in 2.1ms (worker hop, next() included)
+2026-11-18T20:59:08.650Z [DEBUG] hooks module ciel-work@inline session.append settled in 8.3ms (worker hop, next() included)
+2026-11-18T20:59:08.651Z [DEBUG] hooks module ciel-work@inline ui.render settled in 15.8ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:08.653Z [DEBUG] hooks module ciel-work@inline session.append settled in 2.6ms (worker hop, next() included)
+2026-11-18T20:59:08.676Z [DEBUG] hooks module ciel-work@inline session.append settled in 22.9ms (worker hop, next() included)
+2026-11-18T20:59:08.687Z [DEBUG] hooks module ciel-work@inline session.append settled in 10.5ms (worker hop, next() included)
+2026-11-18T20:59:08.695Z [DEBUG] hooks module ciel-work@inline session.append settled in 7.6ms (worker hop, next() included)
+2026-11-18T20:59:08.701Z [DEBUG] hooks module ciel-work@inline session.append settled in 5.4ms (worker hop, next() included)
+2026-11-18T20:59:08.709Z [DEBUG] hooks module ciel-work@inline ui.render settled in 16.6ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:08.710Z [DEBUG] hooks module ciel-work@inline prompt.submit settled in 101.0ms (worker hop, next() included)
+2026-11-18T20:59:08.713Z [DEBUG] hooks module ciel-work@inline turn.start settled in 10.1ms (worker hop, next() included)
+2026-11-18T20:59:08.744Z [DEBUG] hooks module ciel-work@inline session.append settled in 4.4ms (worker hop, next() included)
+2026-11-18T20:59:08.747Z [DEBUG] hooks module ciel-work@inline ui.render settled in 3.2ms (worker hop, next() included) key=session-mode
+2026-11-18T20:59:08.747Z [DEBUG] hooks module ciel-work@inline session.append settled in 1.2ms (worker hop, next() included)
+2026-11-18T20:59:08.756Z [DEBUG] hooks module ciel-work@inline session.append settled in 6.1ms (worker hop, next() included)
+2026-11-18T20:59:08.759Z [DEBUG] hooks module ciel-work@inline ui.render settled in 15.3ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:08.764Z [DEBUG] hooks module ciel-work@inline session.append settled in 5.1ms (worker hop, next() included)
+2026-11-18T20:59:08.784Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 3.2ms (worker hop, next() included)
+2026-11-18T20:59:08.786Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 4.6ms (worker hop, next() included)
+2026-11-18T20:59:08.805Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 25.1ms (worker hop, next() included)
+2026-11-18T20:59:08.811Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 0.9ms (worker hop, next() included)
+2026-11-18T20:59:08.811Z [DEBUG] hooks module ciel-work@inline ui.render settled in 3.6ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:08.821Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 1.8ms (worker hop, next() included)
+2026-11-18T20:59:08.827Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 9.7ms (worker hop, next() included)
+2026-11-18T20:59:08.833Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 1.7ms (worker hop, next() included)
+2026-11-18T20:59:08.844Z [DEBUG] hooks module ciel-work@inline ui.render settled in 1.7ms (worker hop, next() included) key=session-mode
+2026-11-18T20:59:08.847Z [DEBUG] hooks module ciel-work@inline ui.render settled in 4.6ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:08.847Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 17.5ms (worker hop, next() included)
+2026-11-18T20:59:09.821Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 1043.1ms (worker hop, next() included)
+2026-11-18T20:59:10.273Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.9ms (worker hop, next() included)
+2026-11-18T20:59:10.284Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 14.6ms (worker hop, next() included)
+2026-11-18T20:59:12.294Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.8ms (worker hop, next() included)
+2026-11-18T20:59:12.305Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 15.4ms (worker hop, next() included)
+2026-11-18T20:59:14.314Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.8ms (worker hop, next() included)
+2026-11-18T20:59:14.324Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 14.7ms (worker hop, next() included)
+2026-11-18T20:59:16.333Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.9ms (worker hop, next() included)
+2026-11-18T20:59:16.343Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 13.7ms (worker hop, next() included)
+2026-11-18T20:59:17.330Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.8ms (worker hop, next() included)
+2026-11-18T20:59:17.347Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 19.9ms (worker hop, next() included)
+2026-11-18T20:59:17.354Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.5ms (worker hop, next() included)
+2026-11-18T20:59:17.363Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 11.4ms (worker hop, next() included)
+2026-11-18T20:59:18.352Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.8ms (worker hop, next() included)
+2026-11-18T20:59:18.362Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 12.9ms (worker hop, next() included)
+2026-11-18T20:59:20.371Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.6ms (worker hop, next() included)
+2026-11-18T20:59:20.380Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 12.9ms (worker hop, next() included)
+2026-11-18T20:59:20.387Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.6ms (worker hop, next() included)
+2026-11-18T20:59:20.398Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 14.0ms (worker hop, next() included)
+2026-11-18T20:59:20.404Z [DEBUG] hooks module ciel-work@inline ui.render settled in 1.9ms (worker hop, next() included) key=session-mode
+2026-11-18T20:59:20.405Z [DEBUG] hooks module ciel-work@inline ui.render settled in 3.2ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:22.392Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 2.2ms (worker hop, next() included)
+2026-11-18T20:59:22.403Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 15.7ms (worker hop, next() included)
+2026-11-18T20:59:24.412Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.7ms (worker hop, next() included)
+2026-11-18T20:59:24.421Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 13.0ms (worker hop, next() included)
+2026-11-18T20:59:26.431Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.7ms (worker hop, next() included)
+2026-11-18T20:59:26.440Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 13.0ms (worker hop, next() included)
+2026-11-18T20:59:28.449Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 2.4ms (worker hop, next() included)
+2026-11-18T20:59:28.461Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 15.2ms (worker hop, next() included)
+2026-11-18T20:59:30.470Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 2.3ms (worker hop, next() included)
+2026-11-18T20:59:30.480Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 13.1ms (worker hop, next() included)
+2026-11-18T20:59:32.488Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.5ms (worker hop, next() included)
+2026-11-18T20:59:32.498Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 13.1ms (worker hop, next() included)
+2026-11-18T20:59:34.508Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.8ms (worker hop, next() included)
+2026-11-18T20:59:34.519Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 14.9ms (worker hop, next() included)
+2026-11-18T20:59:36.529Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.7ms (worker hop, next() included)
+2026-11-18T20:59:36.539Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 14.3ms (worker hop, next() included)
+2026-11-18T20:59:36.545Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.6ms (worker hop, next() included)
+2026-11-18T20:59:36.555Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 12.7ms (worker hop, next() included)
+2026-11-18T20:59:36.560Z [DEBUG] hooks module ciel-work@inline ui.render settled in 1.7ms (worker hop, next() included) key=session-mode
+2026-11-18T20:59:36.561Z [DEBUG] hooks module ciel-work@inline ui.render settled in 3.1ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:38.547Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.7ms (worker hop, next() included)
+2026-11-18T20:59:38.557Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 13.0ms (worker hop, next() included)
+2026-11-18T20:59:40.567Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.7ms (worker hop, next() included)
+2026-11-18T20:59:40.576Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 13.2ms (worker hop, next() included)
+2026-11-18T20:59:42.584Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.6ms (worker hop, next() included)
+2026-11-18T20:59:42.593Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 12.4ms (worker hop, next() included)
+2026-11-18T20:59:44.603Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.7ms (worker hop, next() included)
+2026-11-18T20:59:44.612Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 12.5ms (worker hop, next() included)
+2026-11-18T20:59:46.620Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.6ms (worker hop, next() included)
+2026-11-18T20:59:46.630Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 12.5ms (worker hop, next() included)
+2026-11-18T20:59:48.637Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.6ms (worker hop, next() included)
+2026-11-18T20:59:48.646Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 12.0ms (worker hop, next() included)
+2026-11-18T20:59:50.653Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.2ms (worker hop, next() included)
+2026-11-18T20:59:50.663Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 12.0ms (worker hop, next() included)
+2026-11-18T20:59:52.674Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 2.2ms (worker hop, next() included)
+2026-11-18T20:59:52.685Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 15.8ms (worker hop, next() included)
+2026-11-18T20:59:52.692Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 2.2ms (worker hop, next() included)
+2026-11-18T20:59:52.702Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 13.9ms (worker hop, next() included)
+2026-11-18T20:59:52.708Z [DEBUG] hooks module ciel-work@inline ui.render settled in 1.7ms (worker hop, next() included) key=session-mode
+2026-11-18T20:59:52.710Z [DEBUG] hooks module ciel-work@inline ui.render settled in 3.5ms (worker hop, next() included) key=above-prompt
+2026-11-18T20:59:54.692Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.6ms (worker hop, next() included)
+2026-11-18T20:59:54.701Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 12.0ms (worker hop, next() included)
+2026-11-18T20:59:56.709Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.6ms (worker hop, next() included)
+2026-11-18T20:59:56.719Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 12.9ms (worker hop, next() included)
+2026-11-18T20:59:58.727Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.5ms (worker hop, next() included)
+2026-11-18T20:59:58.736Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 12.1ms (worker hop, next() included)
+2026-11-18T21:00:00.743Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.3ms (worker hop, next() included)
+2026-11-18T21:00:00.752Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 11.2ms (worker hop, next() included)
+2026-11-18T21:00:01.659Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.2ms (worker hop, next() included)
+2026-11-18T21:00:01.684Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 27.3ms (worker hop, next() included)
+2026-11-18T21:00:01.685Z [DEBUG] [ciel-work] $.ui.log: Gate re-check queued for 2 blocked/waiting item(s)
+2026-11-18T21:00:01.689Z [DEBUG] hooks module ciel-work@inline session.append settled in 3.8ms (worker hop, next() included)
+2026-11-18T21:00:01.698Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 4.7ms (worker hop, next() included)
+2026-11-18T21:00:01.702Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.5ms (worker hop, next() included)
+2026-11-18T21:00:01.719Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 21.0ms (worker hop, next() included)
+2026-11-18T21:00:01.723Z [DEBUG] hooks module ciel-work@inline ui.render settled in 1.6ms (worker hop, next() included) key=session-mode
+2026-11-18T21:00:01.725Z [DEBUG] hooks module ciel-work@inline ui.render settled in 3.2ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:01.725Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 0.9ms (worker hop, next() included)
+2026-11-18T21:00:01.734Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.4ms (worker hop, next() included)
+2026-11-18T21:00:01.741Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 9.5ms (worker hop, next() included)
+2026-11-18T21:00:01.744Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 54.7ms (worker hop, next() included)
+2026-11-18T21:00:01.751Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.6ms (worker hop, next() included)
+2026-11-18T21:00:01.752Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 2.3ms (worker hop, next() included)
+2026-11-18T21:00:01.761Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 12.9ms (worker hop, next() included)
+2026-11-18T21:00:01.766Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 19.6ms (worker hop, next() included)
+2026-11-18T21:00:01.770Z [DEBUG] hooks module ciel-work@inline ui.render settled in 6.5ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:01.771Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.8ms (worker hop, next() included)
+2026-11-18T21:00:01.778Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.4ms (worker hop, next() included)
+2026-11-18T21:00:01.782Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 14.6ms (worker hop, next() included)
+2026-11-18T21:00:01.791Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.8ms (worker hop, next() included)
+2026-11-18T21:00:01.810Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 35.3ms (worker hop, next() included)
+2026-11-18T21:00:01.811Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 24.2ms (worker hop, next() included)
+2026-11-18T21:00:01.812Z [DEBUG] hooks module ciel-work-gate@inline agent.spawn settled in 18.9ms (worker hop, next() included)
+2026-11-18T21:00:01.813Z [DEBUG] hooks module ciel-work@inline turn.start settled in 8.2ms (worker hop, next() included)
+2026-11-18T21:00:01.813Z [DEBUG] hooks module ciel-work@inline session.append settled in 3.6ms (worker hop, next() included)
+2026-11-18T21:00:01.820Z [DEBUG] hooks module ciel-work@inline session.append settled in 6.4ms (worker hop, next() included)
+2026-11-18T21:00:01.827Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 8.0ms (worker hop, next() included)
+2026-11-18T21:00:01.828Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 8.4ms (worker hop, next() included)
+2026-11-18T21:00:01.856Z [DEBUG] hooks module ciel-work@inline ui.render settled in 20.9ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:01.858Z [DEBUG] hooks module ciel-work@inline ui.render settled in 4.6ms (worker hop, next() included) key=session-mode
+2026-11-18T21:00:01.859Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 2.6ms (worker hop, next() included)
+2026-11-18T21:00:01.863Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 45.3ms (worker hop, next() included)
+2026-11-18T21:00:01.864Z [DEBUG] hooks module ciel-work@inline ui.render settled in 10.4ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:01.871Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.6ms (worker hop, next() included)
+2026-11-18T21:00:01.875Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 59.5ms (worker hop, next() included)
+2026-11-18T21:00:01.877Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 27.6ms (worker hop, next() included)
+2026-11-18T21:00:01.888Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 19.7ms (worker hop, next() included)
+2026-11-18T21:00:01.900Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 3.4ms (worker hop, next() included)
+2026-11-18T21:00:01.914Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 18.9ms (worker hop, next() included)
+2026-11-18T21:00:01.916Z [DEBUG] hooks module ciel-work@inline session.append settled in 2.1ms (worker hop, next() included)
+2026-11-18T21:00:01.929Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.8ms (worker hop, next() included)
+2026-11-18T21:00:01.934Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline turn.step stream settled in 109.1ms (worker hop, next() included)
+2026-11-18T21:00:01.936Z [DEBUG] hooks module ciel-work@inline session.append settled in 1.0ms (worker hop, next() included)
+2026-11-18T21:00:01.971Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 47.3ms (worker hop, next() included)
+2026-11-18T21:00:01.973Z [DEBUG] [ciel-work] $.ui.log: Work gate check (host round): re-pumped · attention P1,P5 · main notified · discovery asked
+2026-11-18T21:00:01.979Z [DEBUG] hooks module ciel-work@inline session.append settled in 5.4ms (worker hop, next() included)
+2026-11-18T21:00:01.980Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 4.5ms (worker hop, next() included)
+2026-11-18T21:00:02.016Z [DEBUG] hooks module ciel-work@inline ui.render settled in 6.5ms (worker hop, next() included) key=session-mode
+2026-11-18T21:00:02.017Z [DEBUG] hooks module ciel-work@inline ui.render settled in 8.2ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:02.030Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 56.8ms (worker hop, next() included)
+2026-11-18T21:00:02.036Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 1.6ms (worker hop, next() included)
+2026-11-18T21:00:02.063Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 30.0ms (worker hop, next() included)
+2026-11-18T21:00:02.069Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 1.4ms (worker hop, next() included)
+2026-11-18T21:00:02.082Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 3.9ms (worker hop, next() included)
+2026-11-18T21:00:02.083Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 1.5ms (worker hop, next() included)
+2026-11-18T21:00:02.093Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 27.0ms (worker hop, next() included)
+2026-11-18T21:00:02.097Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 17.3ms (worker hop, next() included)
+2026-11-18T21:00:02.103Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 1.9ms (worker hop, next() included)
+2026-11-18T21:00:02.108Z [DEBUG] hooks module ciel-work@inline ui.render settled in 1.8ms (worker hop, next() included) key=session-mode
+2026-11-18T21:00:02.109Z [DEBUG] hooks module ciel-work@inline ui.render settled in 3.0ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:02.116Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 16.2ms (worker hop, next() included)
+2026-11-18T21:00:02.122Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 1.7ms (worker hop, next() included)
+2026-11-18T21:00:02.142Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 23.3ms (worker hop, next() included)
+2026-11-18T21:00:02.145Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 0.7ms (worker hop, next() included)
+2026-11-18T21:00:02.153Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 1.6ms (worker hop, next() included)
+2026-11-18T21:00:02.159Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 8.8ms (worker hop, next() included)
+2026-11-18T21:00:02.164Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 2.0ms (worker hop, next() included)
+2026-11-18T21:00:02.176Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 15.5ms (worker hop, next() included)
+2026-11-18T21:00:02.184Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 2.1ms (worker hop, next() included)
+2026-11-18T21:00:02.204Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 24.1ms (worker hop, next() included)
+2026-11-18T21:00:02.208Z [DEBUG] hooks module ciel-work@inline ui.render settled in 2.2ms (worker hop, next() included) key=session-mode
+2026-11-18T21:00:02.209Z [DEBUG] hooks module ciel-work@inline ui.render settled in 2.7ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:02.209Z [DEBUG] hooks module ciel-work@inline turn.complete settled in 269.9ms (worker hop, next() included)
+2026-11-18T21:00:02.310Z [DEBUG] hooks module ciel-work@inline ui.render settled in 3.9ms (worker hop, next() included) key=session-mode
+2026-11-18T21:00:02.327Z [DEBUG] hooks module ciel-work@inline ui.render settled in 21.3ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:02.335Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.3ms (worker hop, next() included)
+2026-11-18T21:00:02.352Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 19.9ms (worker hop, next() included)
+2026-11-18T21:00:02.355Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 0.5ms (worker hop, next() included)
+2026-11-18T21:00:02.361Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.3ms (worker hop, next() included)
+2026-11-18T21:00:02.367Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 8.5ms (worker hop, next() included)
+2026-11-18T21:00:02.382Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 9.9ms (worker hop, next() included)
+2026-11-18T21:00:02.395Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 24.6ms (worker hop, next() included)
+2026-11-18T21:00:02.409Z [DEBUG] hooks module ciel-work@inline ui.render settled in 1.5ms (worker hop, next() included) key=session-mode
+2026-11-18T21:00:02.409Z [DEBUG] hooks module ciel-work@inline ui.render settled in 2.7ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:02.759Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.2ms (worker hop, next() included)
+2026-11-18T21:00:02.770Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 13.9ms (worker hop, next() included)
+2026-11-18T21:00:02.775Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.4ms (worker hop, next() included)
+2026-11-18T21:00:02.785Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 12.6ms (worker hop, next() included)
+2026-11-18T21:00:02.790Z [DEBUG] hooks module ciel-work@inline ui.render settled in 1.5ms (worker hop, next() included) key=session-mode
+2026-11-18T21:00:02.790Z [DEBUG] hooks module ciel-work@inline ui.render settled in 2.7ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:04.778Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.4ms (worker hop, next() included)
+2026-11-18T21:00:04.789Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 14.1ms (worker hop, next() included)
+2026-11-18T21:00:06.796Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.3ms (worker hop, next() included)
+2026-11-18T21:00:06.807Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 13.8ms (worker hop, next() included)
+2026-11-18T21:00:08.816Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.8ms (worker hop, next() included)
+2026-11-18T21:00:08.827Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 14.3ms (worker hop, next() included)
+2026-11-18T21:00:10.835Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.2ms (worker hop, next() included)
+2026-11-18T21:00:10.845Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 13.0ms (worker hop, next() included)
+2026-11-18T21:00:12.858Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.5ms (worker hop, next() included)
+2026-11-18T21:00:12.869Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 16.0ms (worker hop, next() included)
+2026-11-18T21:00:14.877Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.3ms (worker hop, next() included)
+2026-11-18T21:00:14.891Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 16.7ms (worker hop, next() included)
+2026-11-18T21:00:16.898Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.3ms (worker hop, next() included)
+2026-11-18T21:00:16.911Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 15.2ms (worker hop, next() included)
+2026-11-18T21:00:18.918Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.2ms (worker hop, next() included)
+2026-11-18T21:00:18.929Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 13.5ms (worker hop, next() included)
+2026-11-18T21:00:18.934Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.4ms (worker hop, next() included)
+2026-11-18T21:00:18.945Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 13.8ms (worker hop, next() included)
+2026-11-18T21:00:18.950Z [DEBUG] hooks module ciel-work@inline ui.render settled in 1.4ms (worker hop, next() included) key=session-mode
+2026-11-18T21:00:18.951Z [DEBUG] hooks module ciel-work@inline ui.render settled in 2.6ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:20.936Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.5ms (worker hop, next() included)
+2026-11-18T21:00:20.947Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 14.2ms (worker hop, next() included)
+2026-11-18T21:00:22.955Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.8ms (worker hop, next() included)
+2026-11-18T21:00:22.966Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 14.2ms (worker hop, next() included)
+2026-11-18T21:00:24.974Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.3ms (worker hop, next() included)
+2026-11-18T21:00:24.990Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 18.8ms (worker hop, next() included)
+2026-11-18T21:00:26.998Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.5ms (worker hop, next() included)
+2026-11-18T21:00:27.010Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 14.5ms (worker hop, next() included)
+2026-11-18T21:00:29.022Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 2.2ms (worker hop, next() included)
+2026-11-18T21:00:29.037Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 19.7ms (worker hop, next() included)
+2026-11-18T21:00:31.045Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.4ms (worker hop, next() included)
+2026-11-18T21:00:31.055Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 13.2ms (worker hop, next() included)
+2026-11-18T21:00:33.063Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.4ms (worker hop, next() included)
+2026-11-18T21:00:33.074Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 14.1ms (worker hop, next() included)
+2026-11-18T21:00:35.083Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.3ms (worker hop, next() included)
+2026-11-18T21:00:35.093Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 13.2ms (worker hop, next() included)
+2026-11-18T21:00:35.099Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.2ms (worker hop, next() included)
+2026-11-18T21:00:35.109Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 12.5ms (worker hop, next() included)
+2026-11-18T21:00:35.113Z [DEBUG] hooks module ciel-work@inline ui.render settled in 1.4ms (worker hop, next() included) key=session-mode
+2026-11-18T21:00:35.114Z [DEBUG] hooks module ciel-work@inline ui.render settled in 2.5ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:37.102Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.4ms (worker hop, next() included)
+2026-11-18T21:00:37.113Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 14.4ms (worker hop, next() included)
+2026-11-18T21:00:39.120Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.4ms (worker hop, next() included)
+2026-11-18T21:00:39.132Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 14.4ms (worker hop, next() included)
+2026-11-18T21:00:41.139Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.3ms (worker hop, next() included)
+2026-11-18T21:00:41.151Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 15.1ms (worker hop, next() included)
+2026-11-18T21:00:43.159Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.6ms (worker hop, next() included)
+2026-11-18T21:00:43.171Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 14.8ms (worker hop, next() included)
+2026-11-18T21:00:45.179Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.7ms (worker hop, next() included)
+2026-11-18T21:00:45.191Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 15.1ms (worker hop, next() included)
+2026-11-18T21:00:47.198Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.5ms (worker hop, next() included)
+2026-11-18T21:00:47.210Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 15.1ms (worker hop, next() included)
+2026-11-18T21:00:49.217Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.2ms (worker hop, next() included)
+2026-11-18T21:00:49.228Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 13.2ms (worker hop, next() included)
+2026-11-18T21:00:49.853Z [DEBUG] hooks module ciel-work@inline session.append settled in 1.1ms (worker hop, next() included)
+2026-11-18T21:00:49.872Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline turn.step stream settled in 101101.9ms (worker hop, next() included)
+2026-11-18T21:00:49.873Z [DEBUG] hooks module ciel-work@inline session.append settled in 0.9ms (worker hop, next() included)
+2026-11-18T21:00:49.893Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 1.5ms (worker hop, next() included)
+2026-11-18T21:00:49.907Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 16.5ms (worker hop, next() included)
+2026-11-18T21:00:49.911Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 1.1ms (worker hop, next() included)
+2026-11-18T21:00:49.926Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 17.0ms (worker hop, next() included)
+2026-11-18T21:00:49.930Z [DEBUG] hooks module ciel-work@inline ui.render settled in 1.3ms (worker hop, next() included) key=session-mode
+2026-11-18T21:00:49.932Z [DEBUG] hooks module ciel-work@inline ui.render settled in 2.8ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:49.932Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 0.8ms (worker hop, next() included)
+2026-11-18T21:00:49.940Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 1.3ms (worker hop, next() included)
+2026-11-18T21:00:49.946Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 8.7ms (worker hop, next() included)
+2026-11-18T21:00:49.953Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 1.3ms (worker hop, next() included)
+2026-11-18T21:00:49.965Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 15.1ms (worker hop, next() included)
+2026-11-18T21:00:49.971Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 2.5ms (worker hop, next() included)
+2026-11-18T21:00:49.974Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 1.2ms (worker hop, next() included)
+2026-11-18T21:00:49.991Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 23.4ms (worker hop, next() included)
+2026-11-18T21:00:49.995Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 24.3ms (worker hop, next() included)
+2026-11-18T21:00:49.997Z [DEBUG] hooks module ciel-work@inline classic.Stop settled in 119.6ms (worker hop, next() included)
+2026-11-18T21:00:50.010Z [DEBUG] hooks module ciel-work@inline session.append settled in 4.6ms (worker hop, next() included)
+2026-11-18T21:00:50.035Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 3.5ms (worker hop, next() included)
+2026-11-18T21:00:50.036Z [DEBUG] hooks module ciel-work@inline ui.render settled in 14.1ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:50.043Z [DEBUG] hooks module ciel-work@inline ui.render settled in 2.7ms (worker hop, next() included) key=session-mode
+2026-11-18T21:00:50.044Z [DEBUG] hooks module ciel-work@inline ui.render settled in 4.4ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:50.050Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 22.2ms (worker hop, next() included)
+2026-11-18T21:00:50.058Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 1.6ms (worker hop, next() included)
+2026-11-18T21:00:50.073Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 18.1ms (worker hop, next() included)
+2026-11-18T21:00:50.073Z [DEBUG] hooks module ciel-work@inline ui.render settled in 3.6ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:50.080Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 1.4ms (worker hop, next() included)
+2026-11-18T21:00:50.094Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 17.3ms (worker hop, next() included)
+2026-11-18T21:00:50.101Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.check settled in 1.4ms (worker hop, next() included)
+2026-11-18T21:00:50.107Z [DEBUG] hooks module ciel-work@inline ui.render settled in 1.7ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:50.117Z [DEBUG] hooks module ciel-work@inline, ciel-work-gate@inline tool.call settled in 18.9ms (worker hop, next() included)
+2026-11-18T21:00:50.118Z [DEBUG] hooks module ciel-work@inline turn.complete settled in 115.5ms (worker hop, next() included)
+2026-11-18T21:00:50.122Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.0ms (worker hop, next() included)
+2026-11-18T21:00:50.139Z [DEBUG] hooks module ciel-work@inline ui.render settled in 3.0ms (worker hop, next() included) key=session-mode
+2026-11-18T21:00:50.139Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 19.5ms (worker hop, next() included)
+2026-11-18T21:00:50.140Z [DEBUG] hooks module ciel-work@inline ui.render settled in 4.5ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:50.143Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 0.5ms (worker hop, next() included)
+2026-11-18T21:00:50.151Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.3ms (worker hop, next() included)
+2026-11-18T21:00:50.157Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 8.5ms (worker hop, next() included)
+2026-11-18T21:00:50.162Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.1ms (worker hop, next() included)
+2026-11-18T21:00:50.171Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 11.7ms (worker hop, next() included)
+2026-11-18T21:00:50.173Z [DEBUG] hooks module ciel-work@inline ui.render settled in 2.1ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:50.238Z [DEBUG] hooks module ciel-work@inline ui.render settled in 1.5ms (worker hop, next() included) key=session-mode
+2026-11-18T21:00:50.239Z [DEBUG] hooks module ciel-work@inline ui.render settled in 2.6ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:51.017Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.3ms (worker hop, next() included)
+2026-11-18T21:00:51.032Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 17.1ms (worker hop, next() included)
+2026-11-18T21:00:51.037Z [DEBUG] hooks module ciel-work@inline ui.render settled in 1.9ms (worker hop, next() included) key=session-mode
+2026-11-18T21:00:51.039Z [DEBUG] hooks module ciel-work@inline ui.render settled in 4.2ms (worker hop, next() included) key=above-prompt
+2026-11-18T21:00:51.043Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 2.1ms (worker hop, next() included)
+2026-11-18T21:00:51.056Z [DEBUG] hooks module ciel-work-gate@inline tool.call settled in 17.6ms (worker hop, next() included)
+2026-11-18T21:00:51.062Z [DEBUG] hooks module ciel-work-gate@inline tool.check settled in 1.3ms (worker hop, next() included)

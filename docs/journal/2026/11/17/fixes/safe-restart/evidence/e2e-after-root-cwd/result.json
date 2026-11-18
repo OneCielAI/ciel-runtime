@@ -1,0 +1,119 @@
+{
+ "source": "<home>\\ciel-runtime\\.local\\tmp\\work-parallel",
+ "slash_asset_installed": true,
+ "before": {
+  "transcripts": [
+   "cf452805-4fbf-4b62-81b8-509500fafad2.jsonl"
+  ],
+  "worktree_files": [
+   "README.md",
+   "new.txt"
+  ]
+ },
+ "claude_version": "2.1.327 (Claude Code)",
+ "restart_line": "2026-11-17T19:09:22 [INFO] claude_session_restart exit_code=1 source=ciel-runtime-router-tool reason=e2e safe restart resumed=true request_id=2d7dd96e21ab430cbd2573ecae6d2b75 claim=transport",
+ "restart2_line": "2026-11-17T19:09:47 [INFO] claude_session_restart exit_code=1 source=slash reason=e2e slash resumed=true request_id=eaea83ed37c648bf9e2eb7879a590cfb claim=transport",
+ "trust_dialogs": [
+  {
+   "at": 1794964086.5244155,
+   "answered": true
+  }
+ ],
+ "notice_text": "계속-세션재시작됨 · 재시작 전 작업 위치: <temp>\\ciel-e2e-safe-restart-9a2z4px6\\home-repo (branch main, HEAD dd82a3128a, no uncommitted changes) — 그 위치에서 이어서 작업 · 변경이 남은 워크트리: <temp>/ciel-e2e-safe-restart-9a2z4px6/home-repo/.claude/worktrees/feat (branch feat, HEAD dd82a3128a, snapshot refs/ciel/restart/2d7dd96e21ab430cbd2573ecae6d2b75/feat-f14197d8) — 각 워크트리에서 이어서 작업 · 목록: restart-takeover.json · 재시작 요청 이후 들어온 입력은 보관했다가 이 안내 앞에 순서대로 전달",
+ "held_sent_at": {
+  "E2E-HELD-1": 1794964120.8614469,
+  "E2E-HELD-2": 1794964122.8696153,
+  "E2E-HELD-3": 1794964124.8867276
+ },
+ "held_first_delivery_at": {
+  "E2E-HELD-1": 1794964165.589919,
+  "E2E-HELD-2": 1794964165.589919,
+  "E2E-HELD-3": 1794964165.589919
+ },
+ "held_first_request": {
+  "E2E-HELD-1": 8,
+  "E2E-HELD-2": 8,
+  "E2E-HELD-3": 8
+ },
+ "held_user_message_counts_in_final_request": {
+  "E2E-HELD-1": 1,
+  "E2E-HELD-2": 1,
+  "E2E-HELD-3": 1
+ },
+ "slow_started_at": 1794964115.5408955,
+ "slow_replied_at": 1794964160.5414948,
+ "restart_requested_at": 1794964117.8553755,
+ "old_child_exit_logged_at": 1794964162.0,
+ "manifest": {
+  "session_cwd": "<temp>\\ciel-e2e-safe-restart-9a2z4px6\\home-repo",
+  "session_worktree": "<temp>/ciel-e2e-safe-restart-9a2z4px6/home-repo",
+  "repository": "<temp>\\ciel-e2e-safe-restart-9a2z4px6\\home-repo"
+ },
+ "manifest_rows": [
+  {
+   "path": "<temp>/ciel-e2e-safe-restart-9a2z4px6/home-repo",
+   "branch": "main",
+   "modified": 0,
+   "untracked": 0,
+   "snapshot_ref": null,
+   "error": null,
+   "skipped": null
+  },
+  {
+   "path": "<temp>/ciel-e2e-safe-restart-9a2z4px6/home-repo/.claude/worktrees/feat",
+   "branch": "feat",
+   "modified": 1,
+   "untracked": 1,
+   "snapshot_ref": "refs/ciel/restart/2d7dd96e21ab430cbd2573ecae6d2b75/feat-f14197d8",
+   "error": null,
+   "skipped": null
+  }
+ ],
+ "snapshot_files": {
+  "README.md": "safe restart e2e\nfork edit",
+  "new.txt": "untracked work"
+ },
+ "transcripts_before": [
+  "cf452805-4fbf-4b62-81b8-509500fafad2.jsonl"
+ ],
+ "transcripts_after": [
+  "cf452805-4fbf-4b62-81b8-509500fafad2.jsonl"
+ ],
+ "turn3_history": [
+  "E2E-TURN-1",
+  "E2E-WT-SETUP",
+  "E2E-SLOW-2",
+  "E2E-TURN-3",
+  "계속-세션재시작됨",
+  "E2E-HELD-1",
+  "E2E-HELD-2",
+  "E2E-HELD-3"
+ ],
+ "hold_log": [
+  "2026-11-17T19:08:37 [INFO] runtime_session_restart_hold_started request_id=2d7dd96e21ab430cbd2573ecae6d2b75",
+  "2026-11-17T19:09:22 [INFO] claude_restart_folder_trusted key=<temp>/ciel-e2e-safe-restart-9a2z4px6/home-repo changed=true",
+  "2026-11-17T19:09:22 [INFO] restart_takeover_snapshot worktrees=2 snapshots=1 errors=0 session_worktree=<temp>/ciel-e2e-safe-restart-9a2z4px6/home-repo",
+  "2026-11-17T19:09:22 [INFO] channel_llm_cursor_fast_forward_on_launch last_id=3 previous_cursor=3 recent_seconds=600 restart_hold_since=1794964117.919",
+  "2026-11-17T19:09:45 [INFO] runtime_session_restart_hold_started request_id=eaea83ed37c648bf9e2eb7879a590cfb",
+  "2026-11-17T19:09:46 [INFO] claude_restart_folder_trusted key=<temp>/ciel-e2e-safe-restart-9a2z4px6/home-repo changed=false",
+  "2026-11-17T19:09:47 [INFO] restart_takeover_snapshot worktrees=2 snapshots=1 errors=0 session_worktree=<temp>/ciel-e2e-safe-restart-9a2z4px6/home-repo",
+  "2026-11-17T19:09:47 [INFO] channel_llm_cursor_fast_forward_on_launch last_id=8 previous_cursor=8 recent_seconds=600 restart_hold_since=1794964185.025"
+ ],
+ "session_id_kept": true,
+ "checks": {
+  "trust_dialog_only_on_first_launch": true,
+  "restart_1_performed": true,
+  "restart_waited_for_the_turn": true,
+  "held_inputs_sent_during_the_wait": true,
+  "held_inputs_delivered_after_relaunch_once_in_order": true,
+  "held_inputs_not_given_to_the_old_session": true,
+  "notice_names_the_worktree": true,
+  "snapshot_holds_the_work": true,
+  "worktree_index_branches_unchanged": true,
+  "same_conversation": true,
+  "slash_restart_performed": true
+ },
+ "passed": true,
+ "owned_killed_at_end": 0,
+ "owned_survivors": 0
+}

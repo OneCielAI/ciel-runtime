@@ -1,0 +1,26 @@
+{"pending": {"quarantined": 517, "fresh": 402, "retrying": 9}, "newest_claim_utc": "2026-11-18T22:59:05.676941+00:00"}
+160 turn_error | turn_error | {'11-09': 2, '11-11': 1, '11-12': 1, '11-13': 3, '11-14': 5, '11-15': 11, '11-16': 23, '11-17': 46, '11-18': 68}
+141 source_context | Source thread exceeds page limit | {'11-18': 141}
+76 invalid_answer | side answer carries no decision JSON | {'11-08': 27, '11-09': 35, '11-10': 2, '11-11': 5, '11-14': 1, '11-16': 1, '11-17': 1, '11-18': 4}
+62 invalid_answer | Side router operation failed: work_side_resolve: side decision needs b | {'11-08': 2, '11-09': 3, '11-10': 4, '11-11': 5, '11-12': 7, '11-15': 1, '11-18': 40}
+59 invalid_answer | Side router operation failed: work_side_resolve: side update exceeds n | {'11-09': 2, '11-12': 2, '11-13': 4, '11-14': 6, '11-15': 29, '11-16': 16}
+24 invalid_answer | Side router operation failed: work_side_resolve: invalid side decision | {'11-09': 2, '11-10': 5, '11-12': 2, '11-15': 4, '11-16': 11}
+17 invalid_answer | Side router operation failed: work_side_resolve: Work update note requ | {'11-08': 13, '11-09': 4}
+14 source_context | Source persisted result is not this session's exact file | {'11-17': 14}
+11 invalid_answer | Side router operation failed: work_side_resolve: side decision kind do | {'11-10': 4, '11-11': 4, '11-16': 1, '11-17': 2}
+9 invalid_answer | Side router operation failed: work_side_resolve: new Work cannot overw | {'11-09': 2, '11-10': 3, '11-11': 4}
+9 invalid_answer | Side router operation failed: work_side_resolve: completed Work cannot | {'11-08': 4, '11-09': 5}
+7 invalid_answer | Side router operation failed: work_side_resolve: existing Work identit | {'11-08': 2, '11-09': 5}
+5 processing_error | the session was stopped and nobody has sent input since | {'11-16': 4, '11-18': 1}
+5 aborted | aborted | {'11-18': 5}
+5 main_compaction_pending | Source thread exceeds main context budget (261904 bytes left of window | {'11-17': 5}
+4 source_context | Source thread exceeds byte limit | {'11-14': 2, '11-15': 1, '11-16': 1}
+4 main_compaction_pending | Source thread exceeds main context budget (17726 bytes left of window  | {'11-17': 4}
+4 main_compaction_pending | Source thread exceeds main context budget (353328 bytes left of window | {'11-17': 4}
+4 main_compaction_pending | Source thread exceeds main context budget (16560 bytes left of window  | {'11-17': 4}
+4 main_compaction_pending | Source thread exceeds main context budget (26802 bytes left of window  | {'11-18': 4}
+4 main_compaction_pending | Source thread exceeds main context budget (16710 bytes left of window  | {'11-17': 4}
+3 source_context | Source thread exceeds main context budget (17142 bytes left of window  | {'11-18': 3}
+3 source_context | Source thread exceeds main context budget (144074 bytes left of window | {'11-18': 3}
+3 invalid_answer | Side router operation failed: work_side_resolve: side target Work item | {'11-09': 2, '11-16': 1}
+3 invalid_answer | Side router operation failed: work_side_understanding: side decision n | {'11-18': 3}

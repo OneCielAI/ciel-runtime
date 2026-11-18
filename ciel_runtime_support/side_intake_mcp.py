@@ -1,4 +1,6 @@
 """Host-scoped claim and decision tools for the independent side actor."""
+import json
+
 from .side_intake_inbox import SideIntakeInbox
 from .side_intake_limits import SIDE_INTAKE_TEXT_MAX_CHARS, side_text_fits_pending_record
 from .side_intake_processing import claim, fail, fallback, finish, verify_claim
@@ -7,7 +9,7 @@ from .work_plan_tree import WorkPlanError
 from .channel_message_repository import exclusive_file_lock
 
 NATIVE_FORK_FINGERPRINT = 'native-fork'
-NAMES = ('work_side_claim', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_ack', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_code_read', 'work_side_code_search')
+NAMES = ('work_side_claim', 'work_side_understanding', 'work_side_resolve', 'work_side_fail', 'work_side_fallback', 'work_side_ack', 'work_side_reply', 'work_side_wake', 'work_side_handoff', 'work_side_review', 'work_side_renew', 'work_side_retry_reply', 'work_side_code_read', 'work_side_code_search')
 
 
 def schemas():
@@ -28,8 +30,10 @@ def schemas():
              'attempt_ref': {'type': 'string', 'maxLength': 16,
                              'description': "The receipt's reply_attempt_ref, when it shows one"}},
              'required': ['receipt_id', 'expected_state', 'revision']}},
-        {'name': 'work_side_renew', 'description': 'Host-only heartbeat for one live side actor; never revives an expired generation.',
-         'inputSchema': {'type': 'object', 'properties': {}}},
+        {'name': 'work_side_renew', 'description': 'Host-only heartbeat for one live side actor; never revives an expired generation. '
+                                                   'source_bounded records that the fork got a bounded source thread (older replies left out).',
+         'inputSchema': {'type': 'object', 'properties': {'source_bounded': {'type': 'object', 'properties': {
+             'omitted_replies': {'type': 'integer', 'minimum': 1}}, 'required': ['omitted_replies']}}}},
         {'name':'work_side_handoff','description':'Acknowledge side advice at a safe main execution boundary; selecting existing work or clearing a recorded wait never approves new execution.',
          'inputSchema':{'type':'object','properties':{'event_id':{'type':'string'},'answer':{'type':'string'},
              'activate':{'type':'boolean'},'clear_wait':{'type':'array','items':{'type':'string'},'uniqueItems':True},
@@ -42,6 +46,12 @@ def schemas():
         {'name': 'work_side_ack', 'description': 'Host-only prepare or record the immediate ACK/readback sent before side processing.',
          'inputSchema': {'type': 'object', 'properties': {'receipt_id': {'type': 'string'},
              'state': {'type': 'string', 'enum': ['prepare', 'submitted', 'uncertain', 'failed']}}, 'required': ['receipt_id', 'state']}},
+        {'name': 'work_side_understanding', 'description': 'Host-only: persist the actor proposal and send its own-word understanding before the board commit.',
+         'inputSchema': {'type': 'object', 'properties': {
+             'understanding': {'type': 'string', 'maxLength': 4000}, 'decision': {'type': 'object'},
+             'expected_version': {'type': 'integer', 'minimum': 0},
+             'state': {'type': 'string', 'enum': ['prepare', 'submitted', 'uncertain', 'failed']}},
+             'required': ['state']}},
         {'name': 'work_side_reply', 'description': 'Host-only prepare or record a correlated side processing-result reply; submission is not proof of human delivery.',
          'inputSchema': {'type': 'object', 'properties': {'receipt_id': {'type': 'string'},
              'state': {'type': 'string', 'enum': ['prepare', 'submitted', 'uncertain', 'failed']}}, 'required': ['receipt_id', 'state']}},
@@ -77,7 +87,7 @@ def schemas():
         {'name': 'work_side_claim', 'description': 'Host-only: claim one durable request for immediate independent AI processing, without creating Work.',
          'inputSchema': {'type': 'object', 'properties': {'owner': {'type': 'string', 'maxLength': 200},
              'urgent_only': {'type': 'boolean'}}, 'required': ['owner']}},
-        {'name': 'work_side_resolve', 'description': 'Resolve one host-claimed external event: answer status/info, clarify, or queue a request (create, update or reprioritize Work). Never execution approval.',
+        {'name': 'work_side_resolve', 'description': 'Commit the persisted proposal of one host-claimed event after its understanding send; never execution approval.',
          'inputSchema': {'type': 'object', 'properties': {
              'decision': {'type': 'object', 'properties': {
                  'action': {'type': 'string', 'enum': ['answer', 'clarify', 'update', 'create', 'prioritize', 'advise']},
@@ -248,6 +258,17 @@ def _p0_readback(result):
         result['final_text'] = text + '\nP0 적용 실패: ' + str(p0['error'])[:200]
 
 
+def _unsent_to_main(store, state_dir, identity, receipt_id):
+    """The person never saw this side reply: main reviews it (and may send it)."""
+    from .side_work_decision import record_unsent_review
+    from .side_intake_inbox import source_identity
+    row = SideIntakeInbox(state_dir, identity)._load(receipt_id) if isinstance(receipt_id, str) else None
+    result = (row or {}).get('result')
+    if store is None or not isinstance(result, dict) or not result.get('summary'):
+        return False
+    return record_unsent_review(store, receipt_id, result, source_identity(row.get('text')))
+
+
 def _person_retry_host(host):
     """A possibly duplicate re-issue that a person confirmed in the host UI.
 
@@ -291,7 +312,8 @@ def run(name, args, config, state_dir, identity, store):
                                  attempt_ref=args.get('attempt_ref'), revision=args.get('revision'))}
     if name == 'work_side_renew':
         from .side_intake_processing import renew
-        return renew(state_dir, identity, host.get('receipt_id'), host.get('generation'))
+        return renew(state_dir, identity, host.get('receipt_id'), host.get('generation'),
+                     source_bounded=args.get('source_bounded'))
     if name == 'work_side_fail':
         from .side_request_outcome import take as take_side_outcome
         outcome = take_side_outcome(state_dir, identity, str(args.get('agent_id') or ''),
@@ -350,8 +372,14 @@ def run(name, args, config, state_dir, identity, store):
     if name == 'work_side_reply':
         from .side_reply_outbox import prepare, record
         if args.get('state') == 'prepare':
-            return prepare(state_dir, identity, args.get('receipt_id'), config=config)
-        return {'receipt': record(state_dir, identity, args.get('receipt_id'), args.get('state'), attempt_id=host.get('attempt_id'))}
+            prepared = prepare(state_dir, identity, args.get('receipt_id'), config=config)
+            if prepared.get('state') == 'route_unavailable':
+                _unsent_to_main(store, state_dir, identity, args.get('receipt_id'))
+            return prepared
+        receipt = record(state_dir, identity, args.get('receipt_id'), args.get('state'), attempt_id=host.get('attempt_id'))
+        if args.get('state') == 'failed':
+            _unsent_to_main(store, state_dir, identity, args.get('receipt_id'))
+        return {'receipt': receipt}
     if name == 'work_side_wake':
         from .side_wake import (mark_read, prepare, prepare_prompt, prepare_reappend, reconcile, record,
                                 record_prompt, record_reappend, retry, start)
@@ -508,18 +536,42 @@ def run(name, args, config, state_dir, identity, store):
         from .side_forward import offered as forwards_offered
         # main_forwards: originals of events the side could not process; each is
         # claimed through notice_prepare, so one host appends it to main once.
+        from .side_ack_outbox import pending as acks_owed
         return {'claim': active, 'waiting_reason': waiting_reason, 'recovered_receipt': recovered,
                 'settings': settings, 'handoff_replies': replies, 'main_wakes': main_wakes,
                 'main_notices': side_notice.offered(inbox),
                 'main_forwards': forwards_offered(inbox),
+                # Receipt ACKs still owed, including events that wait for a
+                # slot; the host sends them before and apart from any claim.
+                'pending_acks': acks_owed(state_dir, identity),
                 'wake_protocol': 2, 'pending_replies': pending(state_dir, identity)}
     key, generation = host.get('receipt_id'), host.get('generation')
+    if name == 'work_side_understanding':
+        # Step 2 of an event: persist the actor's proposal (understanding +
+        # decision), then send the understanding before the decision commits.
+        from .side_understanding_outbox import prepare as understanding_prepare, record as understanding_record
+        from .side_understanding_outbox import save_proposal
+        if args.get('state') == 'prepare':
+            save_proposal(state_dir, identity, key, generation, {
+                'understanding': args.get('understanding'), 'decision': args.get('decision'),
+                'expected_version': args.get('expected_version')})
+            return understanding_prepare(state_dir, identity, key, config=config)
+        return {'receipt': understanding_record(state_dir, identity, key, args.get('state'),
+                                                attempt_id=host.get('attempt_id'))}
     inbox = SideIntakeInbox(state_dir, identity)
     with exclusive_file_lock(inbox._event_path('locks', key)):
         row = inbox._load(key)
         if row and row.get('stage') == 'processed' and row.get('processing', {}).get('generation') == generation:
             return {'receipt': inbox._receipt(key, row, duplicate=True), 'result': row.get('result')}
         verify_claim(inbox, key, generation)
+        saved = (row or {}).get('proposal')
+        if isinstance(saved, dict):
+            # The understanding step ran: commit exactly the saved proposal,
+            # whatever this call carries (a resumed claim sends none).
+            if not isinstance((row or {}).get('understanding_outbox'), dict):
+                raise WorkPlanError('side understanding must be prepared before the decision commits')
+            decision = json.loads(json.dumps(saved['decision']))
+            args = {**args, 'decision': decision, 'expected_version': saved.get('expected_version')}
         decision = args.get('decision')
         if not isinstance(decision, dict):
             raise WorkPlanError('side decision object required')
@@ -564,4 +616,16 @@ def run(name, args, config, state_dir, identity, store):
     # The board records the decision before pending mail is removed. A retry
     # recovers the same application if this receipt write was interrupted.
     receipt = finish(state_dir, identity, key, generation, result)
+    # Gate re-check thread cursors (Andy 2026-11-18): every committed event of a
+    # Walkie thread advances that thread's cursor, and a node the decision
+    # created or updated is bound to the thread. The thread is the host's own
+    # classification of the event, never the model's. Advisory: a failed write
+    # only makes the next gate check read like a gate without a thread.
+    try:
+        from .side_reply_connector import source_read as event_source
+        from .work_gate_threads import record_event
+        record_event(state_dir, identity, event_source(config, (row or {}).get('route', {}) or {}, (row or {}).get('text')),
+                     result)
+    except Exception:  # noqa: BLE001
+        pass
     return {'receipt': receipt, 'result': result}

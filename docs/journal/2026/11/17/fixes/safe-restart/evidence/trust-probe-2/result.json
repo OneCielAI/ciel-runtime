@@ -1,0 +1,30 @@
+{
+ "claude_version": "2.1.327 (Claude Code)",
+ "cases": [
+  {
+   "case": "sub-accept-yes",
+   "cwd_is_home": false,
+   "pre_trusted": false,
+   "dialog_shown": true,
+   "answered": true,
+   "persisted_after": {
+    "<temp>\\ciel-trust-probe-2azl5nu5\\sub-accept-yes\\work": null,
+    "<temp>/ciel-trust-probe-2azl5nu5/sub-accept-yes/work": null
+   },
+   "kills": 1
+  },
+  {
+   "case": "home-accept-yes",
+   "cwd_is_home": true,
+   "pre_trusted": false,
+   "dialog_shown": true,
+   "answered": true,
+   "persisted_after": {
+    "<temp>\\ciel-trust-probe-2azl5nu5\\home-accept-yes": null,
+    "<temp>/ciel-trust-probe-2azl5nu5/home-accept-yes": null
+   },
+   "kills": 1
+  }
+ ],
+ "owned_survivors": 0
+}

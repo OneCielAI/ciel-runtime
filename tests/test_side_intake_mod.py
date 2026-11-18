@@ -21,6 +21,28 @@ class SideModTests(unittest.TestCase):
                                 check=True,timeout=60)
         return json.loads(done.stdout)
 
+    def test_a_claim_with_a_saved_proposal_commits_it_without_a_fork(self):
+        # Plan 2026-11-17: after a restart the model does not run again and the
+        # understanding already sent is not sent again.
+        row=self.run_harness('side_resume_harness.mjs')
+        self.assertEqual(0,row['spawns'])
+        self.assertEqual([],row['failures'])
+        order=row['order']
+        self.assertLess(order.index('work_side_understanding:prepare'),order.index('work_side_resolve'))
+        self.assertLess(order.index('work_side_resolve'),order.index('work_side_reply:prepare'))
+        saved={'action':'create','kind':'request','title':'retry fix','summary':'retry fix','reply':'queued','priority':'P3'}
+        self.assertEqual([{'understanding':'understood in my own words','decision':saved,'expected_version':4}],
+                         row['understanding'])
+        self.assertEqual([{'decision':saved,'expected_version':4,'generation':'5'*32}],row['resolve'])
+        # Only the final reply is sent; the understanding prepare offered no send.
+        self.assertEqual(['final'],row['walkieSends'])
+
+    def test_a_malformed_saved_proposal_is_a_retryable_failure_not_a_fork(self):
+        row=self.run_harness('side_resume_harness.mjs','malformed')
+        self.assertEqual(0,row['spawns'])
+        self.assertEqual(['resume_error'],row['failures'])
+        self.assertEqual([],row['resolve'])
+
     def test_each_external_event_uses_one_native_fork_then_stops_it(self):
         row=self.run_harness('side_intake_harness.mjs')
         self.assertEqual(3,len(row['spawns']))
@@ -58,6 +80,12 @@ class SideModTests(unittest.TestCase):
         # Prose + fenced JSON and prose + raw JSON both commit; no-decision is
         # recorded once as invalid_answer, never as a retryable failure.
         self.assertEqual(['a'*64,'b'*64],[call['_host']['receipt_id'] for call in row['resolveCalls']])
+        self.assertEqual(['understood in my own words']*2,
+                         [call['understanding'] for call in row['understandingCalls'] if call['state']=='prepare'])
+        # prepare/record for understanding finish before the board commit.
+        self.assertEqual(['work_side_understanding:a','work_side_understanding:a','work_side_resolve:a',
+                          'work_side_understanding:b','work_side_understanding:b','work_side_resolve:b'],
+                         row['sideOrder'])
         self.assertEqual([],row['resolveCalls'][0]['_host']['reported_sends'])
         self.assertNotIn('context_key',row['resolveCalls'][0]['_host'])
         self.assertEqual({'action':'answer','kind':'info','summary':'done2','reply':'answer2'},row['resolveCalls'][1]['decision'])
@@ -124,82 +152,65 @@ class SideModTests(unittest.TestCase):
         self.assertNotIn('await $.session.messages()', side)
         self.assertNotIn('sideMainRequest',side+register)
 
-    def test_walkie_prefetch_carries_full_bounded_conversation_exactly(self):
+    def test_an_event_with_its_own_text_needs_no_walkie_read(self):
+        # Andy 2026-11-18 (user design): no host thread read before a decision;
+        # the fork decides from the event and main's inherited transcript.
         row=self.run_harness('side_intake_harness.mjs')
-        # One host read of the whole conversation from the start.
-        self.assertEqual({'conversation_id':'34886995-4a66-4527-a618-814e9cb0a5bf','after':'39'},row['walkieReads'][0])
-        self.assertEqual(('threads.read','40','0'),(row['walkieReads'][1]['operation_id'],row['walkieReads'][1]['arguments']['root_id'],row['walkieReads'][1]['arguments']['after']))
-        source=row['spawns'][0]['prompt']['source_message']
-        self.assertEqual('41',source['target_message_id'])
-        self.assertEqual(('40','40'),(source['reply_to_message_id'],source['thread_root_id']))
-        self.assertEqual(['40','41','42'],[m['id'] for m in source['messages']])
-        target=source['messages'][1]
-        # Exact text; the old 300-character display clip no longer applies.
-        expected='move the existing work to queue position 2 '+'and keep every detail '*30
-        self.assertEqual(expected,target['text'])
-        self.assertGreater(len(target['text']),300)
-        self.assertEqual('a later unrelated message',source['messages'][2]['text'])
-        # Credential-shaped fields are still hidden.
-        self.assertEqual('\u2039hidden 12 chars\u203a',target['sender_token'])
-        self.assertNotIn('secret-value',json.dumps(row['spawns'][0]['prompt']))
+        # Only the host's own sends (the understanding) reach Walkie; no read.
+        self.assertEqual([],[args for args in row['walkieReads'] if 'after' in args or 'operation_id' in args])
+        self.assertEqual([{'text':'understood in my own words'}]*2,row['walkieReads'])
+        prompt=row['spawns'][0]['prompt']
+        self.assertNotIn('source_message',prompt)
+        self.assertEqual({'conversation_id':'34886995-4a66-4527-a618-814e9cb0a5bf','root_id':'40','target_message_id':'41'},
+                         prompt['source_ref'])
+        self.assertEqual('event_only',prompt['source_context'])
+        self.assertIn('The host does not read the source thread for you',prompt['instruction'])
+        self.assertIn('never the whole thread',prompt['instruction'])
 
-    def test_walkie_prefetch_failure_fails_closed_before_spawn_or_reply(self):
+    def test_walkie_source_reads_only_a_cut_events_target_and_fails_closed(self):
         row=self.run_harness('side_prefetch_harness.mjs')
-        self.assertEqual(21,len(row))
-        self.assertEqual(1,row['ok_paged']['spawns'])
-        self.assertEqual('verified_thread',row['ok_paged']['source'])
-        self.assertEqual(['0','240'],row['ok_paged']['pages'])
-        self.assertEqual(1,row['none_referenced']['spawns'])
-        self.assertEqual('none_referenced',row['none_referenced']['source'])
+        self.assertEqual(20,len(row))
+        # An event on a 2,400-reply thread: decided with 0 Walkie reads.
+        self.assertEqual((1,'event_only',[]),(row['long_thread']['spawns'],row['long_thread']['source'],row['long_thread']['walkieReads']))
+        self.assertEqual('2440',row['long_thread']['sourceRef']['target_message_id'])
+        self.assertFalse(row['long_thread']['hasThread'])
+        for name in ('plain_text','none_referenced','null_none_referenced'):
+            with self.subTest(case=name):
+                self.assertEqual((1,[]),(row[name]['spawns'],row[name]['walkieReads']))
         self.assertEqual((1,'none_referenced',True),(row['null_none_referenced']['spawns'],row['null_none_referenced']['source'],row['null_none_referenced']['truncated']))
         self.assertIn('do not assume or invent the missing content',row['null_none_referenced']['instruction'])
         self.assertIn('[잘림]',row['null_none_referenced']['instruction'])
-        self.assertEqual('900719925474099311',row['big_id']['roots'][0]['after'])
-        self.assertEqual((1,'verified_thread'),(row['big_id']['spawns'],row['big_id']['source']))
-        # A thread past the 384 KiB limit is bounded, not failed (2026-11-16):
-        # root, target and the newest replies that fit, read once, ascending.
-        for name,target in (('oversized_thread','340'),('oversized_middle_target','100')):
+        # A cut or textless event: exactly one read, of its target (after target-1).
+        for name,after,target in (('truncated_ok','40','41'),('textless_ok','40','41'),('root_target_ok','39','40'),
+                                  ('big_id','900719925474099312','900719925474099313')):
             with self.subTest(case=name):
                 case=row[name]
-                self.assertEqual((1,'verified_thread',[]),(case['spawns'],case['source'],case['failures']))
-                thread=case['thread']
-                ids=[int(i) for i in thread['ids']]
-                self.assertTrue(thread['truncated'])
-                self.assertEqual(301-len(ids),thread['omitted'])
-                self.assertGreater(thread['omitted'],0)
-                self.assertEqual(40,ids[0])
-                self.assertIn(int(target),ids)
-                self.assertEqual(sorted(ids),ids)
-                self.assertEqual(340,ids[-1])
-                self.assertLessEqual(thread['bytes'],384*1024)
-                self.assertEqual(['0','240'],case['pages'])
-                self.assertIn('thread_truncated is true',case['instruction'])
-        # The newest replies are the ones kept: everything after the cut is present.
-        kept=[int(i) for i in row['oversized_thread']['thread']['ids']][1:]
-        self.assertEqual(list(range(kept[0],341)),kept)
-        # Root and target alone do not fit: still a source failure.
-        self.assertEqual('Source thread exceeds byte limit',row['oversized_target_alone']['failures'][0]['reason'])
-        self.assertIsNone(row['ok_paged']['thread']['omitted'])
-        for name,case in row.items():
-            if name in ('ok_paged','none_referenced','null_none_referenced','big_id','oversized_thread',
-                        'oversized_middle_target'):
-                continue
+                self.assertEqual((1,'verified_target',[{'tool':'walkie_read_messages','after':after}],target),
+                                 (case['spawns'],case['source'],case['walkieReads'],case['target']['id']))
+        self.assertEqual('the whole message',row['truncated_ok']['target']['text'])
+        # Credential-shaped fields of the read message stay hidden.
+        self.assertFalse(row['truncated_ok']['secretLeak'])
+        self.assertEqual('\u2039hidden 12 chars\u203a',row['truncated_ok']['hiddenToken'])
+        refusals={'null_thread_reference':('invalid_request','Walkie source classification missing'),
+                  'malformed_spec':('invalid_request','Source context specification malformed'),
+                  'invalid_classification':('invalid_request','Walkie message_id malformed'),
+                  # A forged target outside the event's thread is still refused.
+                  'forged_target':('source_context','Source target is not in the event thread'),
+                  'forged_root_target':('source_context','Source target is not in the event thread'),
+                  'wrong_lineage':('source_context','Source thread target lineage mismatch'),
+                  'other_conversation':('source_context','Source thread message identity malformed'),
+                  'target_missing':('source_context','Source target message missing'),
+                  'read_error':('source_context','Source target read failed'),
+                  'read_throws':('source_context','Source target read failed'),
+                  'malformed_response':('source_context','Source target response malformed'),
+                  'oversize':('source_context','Source read exceeds per-call limit')}
+        for name,(category,reason) in refusals.items():
             with self.subTest(case=name):
-                self.assertEqual(0,case['spawns'])
-                self.assertEqual(1,len(case['failures']))
-                self.assertEqual('invalid_request' if name in ('malformed_spec','invalid_classification','null_thread_reference') else 'source_context',
-                                 case['failures'][0]['category'])
-                self.assertTrue(case['failures'][0]['reason'].startswith(('Source ', 'Walkie ')))
-        self.assertEqual('Source thread root missing',row['missing_root']['failures'][0]['reason'])
-        self.assertEqual('Source thread target missing',row['target_missing']['failures'][0]['reason'])
-        self.assertEqual('Source thread reply lineage mismatch',row['wrong_lineage']['failures'][0]['reason'])
-        self.assertEqual('Source thread root lineage malformed',row['null_lineage_mismatch']['failures'][0]['reason'])
-        # A single 4 MiB+ page is refused at the per-call cap before parsing.
-        self.assertEqual('Source read exceeds per-call limit',row['oversize']['failures'][0]['reason'])
+                self.assertEqual(0,row[name]['spawns'])
+                self.assertEqual([{'category':category,'reason':reason}],row[name]['failures'])
+                self.assertLessEqual(len(row[name]['walkieReads']),1)
 
-    def test_persisted_mcp_result_context_budget_and_spawn_proof(self):
-        # Owned probe mcp-size-none-ee41a3e2 (Claude Code 2.1.321): a >25K-token
-        # MCP text result reaches $.mcp.call as a stub naming the saved file.
+    def run_persisted_harness(self):
         with tempfile.TemporaryDirectory() as raw:
             path=Path(raw)
             (path/'package.json').write_text('{"type":"module"}')
@@ -207,8 +218,15 @@ class SideModTests(unittest.TestCase):
             shutil.copyfile(ROOT/'tests/side_persisted_stub_fixture.json',path/'persisted-stub-fixture.json')
             shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
             done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',check=True,timeout=60)
-        row=json.loads(done.stdout)
-        self.assertEqual((1,61,None),(row['persisted_ok']['spawns'],row['persisted_ok']['messages'],row['persisted_ok']['failure']))
+        return json.loads(done.stdout)
+
+    def test_a_cut_events_persisted_target_read_and_spawn_proof(self):
+        # Owned probe mcp-size-none-ee41a3e2 (Claude Code 2.1.321): a >25K-token
+        # MCP text result reaches $.mcp.call as a stub naming the saved file. The
+        # one host read left (a cut event's target) still follows it exactly.
+        row=self.run_persisted_harness()
+        self.assertEqual((1,1,None),(row['persisted_ok']['spawns'],row['persisted_ok']['reads'],row['persisted_ok']['failure']))
+        self.assertEqual('45',row['persisted_ok']['target']['id'])
         # Claude Code 2.1.326 adds -<1-6 lowercase base-36> after the ms (official
         # CHANGELOG 2.1.326, #105138). KOBE 2026-11-17 quarantined 18 P3 events
         # because this name was refused; both forms must be read.
@@ -216,7 +234,7 @@ class SideModTests(unittest.TestCase):
                            ('persisted_suffix_short_ok','-a.txt')):
             with self.subTest(case=name):
                 self.assertTrue(row[name]['saved'].endswith(saved))
-                self.assertEqual((1,61,None),(row[name]['spawns'],row[name]['messages'],row[name]['failure']))
+                self.assertEqual((1,None),(row[name]['spawns'],row[name]['failure']))
         exact="Source persisted result is not this session's exact file"
         refusals={'other_session':exact,
                   'other_tool':exact,
@@ -234,30 +252,6 @@ class SideModTests(unittest.TestCase):
             with self.subTest(case=name):
                 self.assertEqual(0,row[name]['spawns'])
                 self.assertEqual({'category':'source_context','reason':reason},row[name]['failure'])
-        # Main's remaining context is the limit: main is compacted first and the
-        # event waits (not a counted failure); idle main compacts at once.
-        budget=row['context_budget']
-        self.assertEqual((0,1),(budget['spawns'],budget['compacts_immediate']))
-        self.assertEqual('main_compaction_pending',budget['failure']['category'])
-        self.assertEqual(30,budget['failure']['retry_after_seconds'])
-        self.assertIn('exceeds main context budget',budget['failure']['reason'])
-        # Within the cooldown after that compaction, it is an ordinary failure.
-        again=row['context_budget_again']
-        self.assertEqual((0,0),(again['spawns'],again['compacts_immediate']))
-        self.assertEqual('source_context',again['failure']['category'])
-        self.assertNotIn('retry_after_seconds',again['failure'])
-        # A busy main is not compacted mid-turn; its turn's end compacts it.
-        busy=row['context_budget_busy']
-        self.assertEqual((0,0,1),(busy['spawns'],busy['compacts_immediate'],busy['compacts_after_turn']))
-        self.assertEqual(('main_compaction_pending',60),(busy['failure']['category'],busy['failure']['retry_after_seconds']))
-        self.assertEqual((1,0),(row['context_room']['spawns'],row['context_room']['compacts_after_turn']))
-        # Partial room: an ordinary event waits for main's compaction; a P0
-        # event starts its fork at once with the newest replies that fit.
-        ordinary=row['context_partial_ordinary']
-        self.assertEqual((0,'main_compaction_pending'),(ordinary['spawns'],ordinary['failure']['category']))
-        urgent=row['context_partial_p0']
-        self.assertEqual((1,None,True),(urgent['spawns'],urgent['failure'],urgent['truncated']))
-        self.assertEqual(0,urgent['compacts_after_turn'])
         proof={p['label']:p['result'] for p in row['persisted_ok']['proof']}
         self.assertEqual({'not_fork':'deny','named':'deny','subagent':'deny','wrong_type':'deny',
                           'other_plugin':'deny','unrelated':None,'exact':'authorized'},proof)
@@ -952,7 +946,7 @@ class SideModTests(unittest.TestCase):
         self.assertEqual('P0',row['sourcePriority'])
         self.assertTrue(row['instructsP0'])
         self.assertEqual(['P0'],row['resolvedPriority'])
-        self.assertEqual(['Side P0 queued n9 · Production outage · fork starting'],row['appends'])
+        self.assertEqual(['Side P0 queued n9 · Production outage · P0 registered; fork launch pending (the outcome follows in a separate notice)'],row['appends'])
 
     def test_p0_activation_failure_is_shown_to_the_person(self):
         row=self.run_p0('fail')
@@ -1012,15 +1006,18 @@ class SideModTests(unittest.TestCase):
         source=(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js').read_text(encoding='utf8')
         self.assertIn('status: report the current Work state directly. No request recap and no Work',source)
         self.assertIn('info: gather only what is needed, organize it, and answer. No Work',source)
-        self.assertIn('request: restate what the person asks using source_message plus the transcript',source)
+        self.assertIn('request: understand what the person asks using this event plus the',source)
+        # 2026-11-17: the restatement is understanding, sent before the board commit.
+        self.assertIn('understanding: what you understood this message to ask or say, in your own',source)
+        self.assertIn('never start with "ACK"',source)
         # ciel-walkie 2026-11-10: Celly 121710 and Daniel 121677 were both
         # replaced by a stale Grant 121686 decision copied from main context.
-        self.assertIn("The decision MUST describe this event's source_message", source)
+        self.assertIn("The decision MUST describe this event's target_message_id", source)
         self.assertIn('never substitute a stale prior event', source)
         self.assertIn('verify every person, message id, approval, result and', source)
         # Owned run 2026-11-09: the recap dropped "mobile browsers", and a new
         # payment outage was merged into the active payment refactoring item.
-        self.assertIn('every\n  concrete requirement, constraint, target, environment and deadline',source)
+        self.assertIn('understanding carries every concrete requirement,\n  constraint, target, environment and deadline',source)
         self.assertIn("Update an existing item only when the event is\n  about that item's own requested outcome",source)
         self.assertIn('A different problem, failure, incident or\n  feature is a new item even in the same area or system',source)
         self.assertIn('an urgent new problem is create with priority P1',source)
@@ -1043,9 +1040,9 @@ class SideModTests(unittest.TestCase):
                          '- call Agent, start, resume or message any agent/subagent/fork;',
                          '- ACK, reply, SendMessage or send anything to the source or any channel.'):
                 self.assertIn(rule,instruction)
-            self.assertIn('The host alone commits one decision and sends the one\noutbox reply.',instruction)
+            self.assertIn('The host alone commits one decision and sends every\nmessage to the source.',instruction)
             self.assertIn('Your final answer MUST be exactly the decision JSON',instruction)
-            self.assertIn('Return one JSON object: {"decision":{...},"expected_version":N}.',instruction)
+            self.assertIn('{"understanding":"...","decision":{...},"expected_version":N}.',instruction)
             self.assertIn('target_message_id',instruction)
 
     def test_reply_route_override_is_not_mcp_inheritance(self):

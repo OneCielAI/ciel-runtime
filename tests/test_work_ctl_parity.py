@@ -786,6 +786,16 @@ class ForkGateDisplay(Isolated):
         self.assertEqual(["warning: " + self.NOT_LOADED], [line for line in output if line.startswith("warning:")])
         self.assertEqual("warning: " + self.NOT_LOADED, output[0])
 
+    def test_capacity_shows_the_per_priority_diagnosis(self):
+        # Stage 3, 2026-11-17: per priority limit, use, candidates and blockers in ctl too.
+        code, output, _ = self.cli(ns("capacity", session=A))
+        self.assertEqual(0, code, output)
+        diagnosis = json.loads(output[-1])["priority_diagnosis"]
+        self.assertEqual(["P0", "P1", "P2", "P3", "P4", "P5"], [row["priority"] for row in diagnosis["rows"]])
+        self.assertTrue(all({"limit", "active", "free", "candidates", "blocked", "state", "reason"} <= set(row)
+                            for row in diagnosis["rows"]))
+        self.assertIsInstance(diagnosis["summary"], str)
+
     def test_unknown_has_its_own_text_and_loaded_has_none(self):
         operational = self.status()
         self.assertEqual(("unknown", "not_reported", [self.NOT_REPORTED]),

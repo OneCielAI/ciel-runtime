@@ -1,0 +1,34 @@
+# Change log
+
+## 2026-11-17
+- Measured this machine's Walkie side inbox, read-only, at 22:01Z:
+  - 1,599 unique events, none with a `client_id` key, `own` False on all;
+  - 177 inbound legacy receipt ACKs (KOBE 154, Celly 23), 118 of them ACKed back.
+- Stage 2 implemented:
+  - fixed receipt ACK, owed at receive;
+  - own-word understanding persisted and sent before the board commit;
+  - final reply without `ACK —`;
+  - truthful failure reply;
+  - main review only when needed;
+  - a `client_id` per phase.
+- Found in my own draft before commit, then fixed:
+  - an inbound receipt ACK still started a side actor; it is now settled at admission, at claim and when received again (drain);
+  - a restart would have run the model again; a claim now offers the saved proposal and the host commits it without a fork.
+- Behavior probes before (35ba17e) and after: [ack-probe.txt](evidence/ack-probe.txt), [ack-loop-probe.txt](evidence/ack-loop-probe.txt).
+- Restart resume fail-before / pass-after: [resume-tests.txt](evidence/resume-tests.txt).
+- Real Claude Code 2.1.326 E2E:
+  - before: 0 of 8 checks;
+  - after: 9 of 9.
+- `claude plugin test` ciel-work: 103 pass.
+- Windows test files (side, Work MCP, session socket, gate check, fork gate, mod real backend, observatory, architecture):
+  - 439 + 597 run;
+  - first run: 8 failures in `test_side_real_backend`, because its harness answered without `understanding`;
+  - harness fixed; 8 of 8 pass.
+- Linux Docker (python:3.11-slim), same files: 963 passed, 47 skipped, 0 failed.
+- Windows four groups on a clean 71f5243: 4,977 / 1,675 / 626 / 460, all OK.
+- Deployed 71f5243:
+  - beta push; publish run 44203390951 (9 test jobs and publish) succeeded;
+  - npm beta `0.2.51-beta.20261118-001121.71f5243`, gitHead 71f5243, integrity ok;
+  - installed locally: 626 of 628 package files equal the tree (`package.json` and `runtime_constants.py` carry the release stamp);
+  - side test files against the installed copy: 440 run, 0 failures.
+- Live sessions and routers were not restarted. Andy, Celly and KOBE run the new code only after a restart.

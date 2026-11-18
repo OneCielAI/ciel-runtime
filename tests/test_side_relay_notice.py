@@ -61,11 +61,27 @@ class SideRelayNoticeTests(unittest.TestCase):
         self.assertEqual([('e' * 64, 'notice_prepare'), ('e' * 64, 'notice_appended')],
                          [(call['event_id'], call['state']) for call in row['wakes']])
 
-    def test_parked_worker_is_named_for_main_and_never_resumed_here(self):
+    def test_parked_worker_is_named_for_main_when_no_host_resume_is_registered(self):
         row = self.run_case('relay-parked')
         self.assertEqual([], row['sent'])
         self.assertIn('Parked worker on it: agent-park (lease L2, item n2)', row['appended'][0])
         self.assertIn('resume with SendMessage to that worker only if this matters to it', row['appended'][0])
+
+    def test_a_parked_worker_resumed_by_the_host_gets_the_relay_and_main_no_resume_ask(self):
+        # Stage 3 (2026-11-17): main's SendMessage notice stays only for a failed automatic resume.
+        row = self.run_case('relay-parked-resumed')
+        self.assertEqual([['L2']], row['resumeCalls'])
+        self.assertEqual([{'agentId': 'agent-park'}], [item['to'] for item in row['sent']])
+        main = row['appended'][0]
+        self.assertIn('The Work host resumed the parked worker on it: agent-park (lease L2, item n2).', main)
+        self.assertNotIn('resume with SendMessage', main)
+
+    def test_a_parked_worker_still_waiting_is_named_with_the_reason(self):
+        row = self.run_case('relay-parked-waiting')
+        self.assertEqual([], row['sent'])
+        main = row['appended'][0]
+        self.assertIn('agent-park (lease L2, item n2) was not resumed automatically: its wait is still recorded', main)
+        self.assertIn('resume with SendMessage to that worker only if this matters to it', main)
 
     def test_no_fork_on_the_item_reaches_main_only(self):
         row = self.run_case('relay-other')

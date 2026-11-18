@@ -25,6 +25,8 @@ def schemas():
         "priority": {"type": "string", "enum": ["P1", "P2", "P3", "P4", "P5"]},
         "role": {"type": "string", "enum": ["worker", "resume"]},
         "expected_version": {"type": "integer", "minimum": 0},
+        "projection": {"type": "string", "enum": ["version"],
+                       "description": "Host only: version returns the ledger version alone."},
         "changes": {"type": "object"}, "event": {"type": "string"},
         "artifact": {"type": "string"}, "evidence": {"type": "string"},
         "plan_version": {"type": "integer", "minimum": 0},
@@ -124,6 +126,105 @@ def _root_for(board, item_id):
     return current
 
 
+def parked_wait_cleared(board, item_id):
+    """True when nothing on the board holds a parked worker's item now (Stage 3).
+
+    Clear: the item is unfinished, its goal's phase is executing, and neither
+    the item nor any ancestor has waiting_on or the blocked status. Anything
+    unknown is not clear, so the host never resumes on a guess. This alone is
+    not "the wait was cleared": a worker question parks the lease without
+    recording waiting_on (``_worker_event``), so see ``_parked_wait_marks``.
+    """
+    nodes = {node["id"]: node for node in (board or {}).get("nodes", [])}
+    current = nodes.get(item_id)
+    if current is None or current.get("status") == "done":
+        return False
+    for _ in range(tree.MAX_DEPTH + 1):
+        if str(current.get("waiting_on") or "").strip() or current.get("status") == "blocked":
+            return False
+        parent = current.get("parent_id")
+        if parent is None:
+            return current.get("status") != "done" and tree.root_phase(board, current["id"]) == "executing"
+        current = nodes.get(parent)
+        if current is None:
+            return False
+    return False
+
+
+PARKED_WAITS_NAME = "work-parallel-parked-waits.json"
+
+
+def _parked_chain_wait(board, item_id):
+    """The first recorded wait or block on a parked item's chain, or None."""
+    nodes = {node["id"]: node for node in (board or {}).get("nodes", [])}
+    current = nodes.get(item_id)
+    for _ in range(tree.MAX_DEPTH + 1):
+        if current is None:
+            return None
+        if str(current.get("waiting_on") or "").strip() or current.get("status") == "blocked":
+            return {"node": current["id"], "waiting_on": str(current.get("waiting_on") or "blocked")[:200]}
+        current = nodes.get(current.get("parent_id")) if current.get("parent_id") is not None else None
+    return None
+
+
+def _parked_wait_marks(store, board, parked):
+    """Lease ids whose chain was seen with a recorded wait while parked.
+
+    A worker that asked a question parks with no waiting_on on the board, and
+    it waits for main's answer, not for the board. Only a wait the host has
+    seen recorded on the item's chain while the lease was parked, and that is
+    now gone, lets the host resume it on its own (Stage 3, 2026-11-17). The
+    marks live beside the ledger and are pruned to the leases parked now.
+    ``parked`` maps lease id -> item id. Any failure marks nothing.
+    """
+    from .durable_file_lock import exclusive_file_lock
+    path = Path(store.path).with_name(PARKED_WAITS_NAME)
+    with exclusive_file_lock(path):
+        try:
+            marks = json.loads(path.read_text(encoding="utf-8")).get("leases", {})
+        except (OSError, ValueError, AttributeError):
+            marks = {}
+        marks = {key: value for key, value in marks.items() if key in parked and isinstance(value, dict)}
+        changed = False
+        for lease_id, item_id in parked.items():
+            wait = _parked_chain_wait(board, item_id)
+            if wait is not None and lease_id not in marks:
+                marks[lease_id] = {**wait, "item_id": item_id, "seen_at": time.time()}
+                changed = True
+        try:
+            stored = json.loads(path.read_text(encoding="utf-8")).get("leases", {})
+        except (OSError, ValueError, AttributeError):
+            stored = None
+        if changed or stored != marks:
+            temporary = path.with_name(path.name + ".tmp")
+            temporary.write_text(json.dumps({"leases": marks}, ensure_ascii=False), encoding="utf-8")
+            temporary.replace(path)
+    return set(marks)
+
+
+def _parked_notice_claim(store, lease_id, *, release=False):
+    """True for the one caller that may tell main this parked worker needs SendMessage."""
+    from .durable_file_lock import exclusive_file_lock
+    path = Path(store.path).with_name(PARKED_WAITS_NAME)
+    with exclusive_file_lock(path):
+        try:
+            doc = json.loads(path.read_text(encoding="utf-8"))
+            marks = doc.get("leases", {})
+        except (OSError, ValueError, AttributeError):
+            return False
+        mark = marks.get(lease_id)
+        if not isinstance(mark, dict) or (not release and mark.get("notified_at")):
+            return False
+        if release:
+            mark.pop("notified_at", None)
+        else:
+            mark["notified_at"] = time.time()
+        temporary = path.with_name(path.name + ".tmp")
+        temporary.write_text(json.dumps({"leases": marks}, ensure_ascii=False), encoding="utf-8")
+        temporary.replace(path)
+    return True
+
+
 def _root_scope_digest(board, root_id):
     nodes = {node["id"]: node for node in board.get("nodes", [])}
     rows = []
@@ -193,6 +294,73 @@ def _p0_runnable_leaves(store, board, identity):
                              "created_at": node.get("created_at", node.get("updated_at", 0))})
     rows.sort(key=lambda row: (-float(row["created_at"]), row["item_id"]))
     return rows
+
+
+def _p0_next_rows(store, board, identity, *, include_refused=True):
+    """P0 leaves a reservation may take now, in dispatch order.
+
+    A leaf that already holds an open lease is not a candidate, except the one
+    launch a crash left unbound (reserved or spawning intent, no fork yet), which
+    the next reserve replays. Before 2026-11-18 the newest P0 leaf stayed first
+    while its fork ran or its result awaited review, so every later reserve of
+    both lanes was refused and no other fork started. Goals whose last launch was
+    refused go last, so one failing goal does not hold the others back, and the
+    ordinary lane skips them (``include_refused=False``): its dispatch goes on.
+    """
+    from .work_parallel import ACTIVE_STATES
+    from .work_parallel_p0_outcomes import P0Outcomes, outcome_key
+    rows = [row for row in _p0_runnable_leaves(store, board, identity)
+            if not _stranded_item_pending(store, identity, row["item_id"])]
+    if not rows:
+        return rows
+    side_doc = p0_state(store).read()
+    replayable = {row["dispatch_name"] for row in side_doc["intents"].values()
+                  if row["scope"] == identity and row["state"] in ("intent", "reserved", "spawning")}
+    fenced = {lease["item_id"] for lease in store.read()["leases"].values()
+              if lease["scope"] == identity and lease["role"] in ("worker", "resume")
+              and lease["state"] in ACTIVE_STATES
+              and not (lease.get("dispatch_name") in replayable and lease.get("host_id") is None)}
+    rows = [row for row in rows if row["item_id"] not in fenced]
+    saved = P0Outcomes(store.path).read()["roots"]
+    nodes = {node["id"]: node for node in board.get("nodes", [])}
+    side = p0_state(store)
+
+    def refused(row):
+        root = nodes[row["root_id"]]
+        marker = side.matching_active_marker(side_doc, identity, row["root_id"], root.get("created_at")) or {}
+        key = outcome_key(identity, row["root_id"], marker.get("set_at") or 0)
+        return (saved.get(key) or {}).get("refusal") is not None
+    return sorted(rows, key=refused) if include_refused else [row for row in rows if not refused(row)]
+
+
+def _p0_outcome_key(store, board, identity, item_or_root):
+    """(outcome key, root id) of the active P0 marker over this item, or None."""
+    from .work_parallel_p0_outcomes import outcome_key
+    root = _root_for(board, item_or_root)
+    side = p0_state(store)
+    marker = side.matching_active_marker(side.read(), identity, root["id"], root.get("created_at"))
+    return None if marker is None else (outcome_key(identity, root["id"], marker["set_at"]), root["id"])
+
+
+def _p0_note_refusal(store, board, identity, item_id, code, detail):
+    """Advisory: the exact reason a P0 launch did not happen. Never blocks the refusal."""
+    from .work_parallel_p0_outcomes import P0Outcomes
+    try:
+        found = _p0_outcome_key(store, board, identity, item_id)
+        if found is not None:
+            P0Outcomes(store.path).note_refusal(found[0], item_id, code, detail)
+    except Exception:  # noqa: BLE001 - the launch refusal itself still reaches the caller
+        pass
+
+
+def _p0_clear_refusal(store, board, identity, item_id):
+    from .work_parallel_p0_outcomes import P0Outcomes
+    try:
+        found = _p0_outcome_key(store, board, identity, item_id)
+        if found is not None:
+            P0Outcomes(store.path).clear_refusal(found[0])
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def _item_details(board):
@@ -290,6 +458,10 @@ def _fork_projection(store, identity, leases, details, hidden=frozenset(), *, ho
         evidence, available = {"version": None, "records": {}, "scans": {}}, False
     now = time.time()
     groups = {name: [] for name in EVIDENCE_GROUPS}
+    # A P0 lease keeps the goal's canonical priority (P1); P0 lives in the P0
+    # sidecar. Rows say which one runs as P0 (Celly 2026-11-17 saw P0 as P1).
+    from .work_parallel import _p0_active_lease_ids
+    p0_leases = _p0_active_lease_ids(store.path)
     for lease in sorted(leases.values(), key=lambda r: (r["priority"], r.get("created_at") or 0, r["id"])):
         record = evidence["records"].get(lease["id"])
         if record is not None and record.get("scope") != identity:
@@ -304,6 +476,7 @@ def _fork_projection(store, identity, leases, details, hidden=frozenset(), *, ho
                "goal_title": _clip(item.get("goal_title"), 300),
                "item_path": [_clip(t, 120) for t in (item.get("item_path") or [])[:8]],
                "priority": lease["priority"], "role": lease["role"], "state": lease["state"],
+               "effective_priority": "P0" if lease["id"] in p0_leases else lease["priority"],
                "slot": lease["slot"],
                "agent_name": None if lease["id"] in hidden or (legacy_reviewer and not host_view)
                else (lease.get("agent_name") or lease.get("dispatch_name")),
@@ -385,9 +558,11 @@ def project(store, identity, board=None, *, host_view=False, caller_nonce=None, 
             p0_doc = None
     allow = ("id", "item_id", "priority", "role", "state", "slot", "host_id",
              "agent_name", "dispatch_name", "plan_version", "artifact", "rework")
-    # The host view lists every open lease (the device-wide active bound), so a
-    # bound fork beyond the model's cap is never read as unbound by the host.
-    lease_limit = MAX_LEASES if host_view else MODEL_LEASE_LIMIT
+    # The host view lists every open lease, so a bound fork beyond the model's
+    # cap is never read as unbound by the host. Parked leases (waiting for an
+    # answer or for review) are outside MAX_LEASES (Stage 3, 2026-11-17), so the
+    # host list is not cut at MAX_LEASES either; the ledger's byte bound limits it.
+    lease_limit = max(MAX_LEASES, len(open_rows)) if host_view else MODEL_LEASE_LIMIT
     for ident, source in open_rows[:lease_limit]:
         row = {key: source.get(key) for key in allow if source.get(key) is not None}
         if host_view:
@@ -396,6 +571,13 @@ def project(store, identity, board=None, *, host_view=False, caller_nonce=None, 
             workspace_path = _host_workspace_path(source)
             if workspace_path is not _NO_WORKSPACE_PATH:
                 row["workspace_path"] = workspace_path
+            # Host-only: a parked worker the mod may resume on its own lease
+            # (wait_cleared below, once every row is projected).
+            if source["state"] == "waiting_input" and not source.get("slot") and board is not None:
+                try:
+                    row["wait_clear_now"] = parked_wait_cleared(board, source["item_id"])
+                except Exception:
+                    row["wait_clear_now"] = False
             if p0_doc is not None and board is not None:
                 intent_rows = [value for value in p0_doc["intents"].values()
                                if value["lease_id"] == ident
@@ -433,6 +615,15 @@ def project(store, identity, board=None, *, host_view=False, caller_nonce=None, 
                    goal_title=_clip(item.get("goal_title"), MODEL_TEXT_LIMIT),
                    item_path=[_clip(value, 100) for value in (item.get("item_path") or [])[:6]])
         leases[ident] = row
+    if host_view and board is not None:
+        parked = {ident: row["item_id"] for ident, row in leases.items() if "wait_clear_now" in row}
+        try:
+            seen = _parked_wait_marks(store, board, parked) if parked else set()
+        except Exception:
+            seen = set()
+        for ident in parked:
+            leases[ident]["wait_seen"] = ident in seen
+            leases[ident]["wait_cleared"] = leases[ident]["wait_clear_now"] and ident in seen
     forks = _fork_projection(store, identity, all_mine, details, hidden, host_view=host_view)
     state_counts = {}
     for row in all_mine.values():
@@ -606,6 +797,14 @@ def project(store, identity, board=None, *, host_view=False, caller_nonce=None, 
             view["root_priorities"] = roots
         except Exception:
             view["root_priorities"] = []
+    try:
+        p0_goals = []
+        view["priority_diagnosis"] = priority_diagnosis(store, identity, board, ledger_document=d,
+                                                        caller_nonce=caller_nonce, goals_out=p0_goals)
+        if host_view:
+            view["p0_goals"] = p0_goals
+    except Exception:
+        view["priority_diagnosis"] = None
     if config is not None:
         try:
             # Per-priority Work-fork and side-fork models (P0-P5, side), resolved
@@ -696,7 +895,8 @@ def public_projection(projected, identity):
             "runtime": projected["runtime"], "limitations": projected["limitations"],
             "wait_boost": projected.get("wait_boost"),
             "fork_models": projected.get("fork_models"),
-            "root_priorities": projected.get("root_priorities", [])}
+            "root_priorities": projected.get("root_priorities", []),
+            "priority_diagnosis": projected.get("priority_diagnosis")}
 
 
 def _wait_lane_order(store, board, identity, rows):
@@ -726,6 +926,63 @@ def _wait_lane_consume(store, identity, lease, *, kind, outcome, ledger_before, 
                                             ledger_before=ledger_before, ledger_after=ledger_after)
     except Exception:
         return False
+
+
+def priority_diagnosis(store, identity, board, *, ledger_document=None, now=None, caller_nonce=None,
+                       goals_out=None):
+    """Per-priority dispatch diagnosis shared by status, menu, web, REST and ctl.
+
+    Read-only: the wait-lane holds are read without reconciling the sidecar.
+    Any unreadable sidecar degrades to "no hold / no P0", never to a failure.
+    ``goals_out`` receives the host-only P0 goal rows (titles, refusal detail).
+    """
+    from .work_parallel import (MAX_LEASES, _p0_active_lease_ids, bounded_open_leases, lease_bound_reached)
+    from .work_parallel_diagnosis import diagnose
+    from .work_parallel_p0_outcomes import P0Outcomes, goal_rows, public_row
+    d = ledger_document if ledger_document is not None else store.read()
+    p0_roots, p0_runnable, p0_markers = set(), set(), {}
+    if board is not None:
+        try:
+            side = p0_state(store)
+            side_state = side.read()
+            for root in board.get("nodes", []):
+                if root.get("parent_id") is None and root.get("status") != "done":
+                    marker = side.matching_active_marker(side_state, identity, root["id"], root.get("created_at"))
+                    if marker is not None:
+                        p0_markers[root["id"]] = marker
+            p0_roots = set(p0_markers)
+            p0_runnable = {row["item_id"] for row in _p0_runnable_leaves(store, board, identity)}
+        except Exception:
+            p0_roots, p0_runnable, p0_markers = set(), set(), {}
+    holds = {}
+    if board is not None:
+        try:
+            from .work_wait_schedule import WaitLane
+            _, holds, _ = WaitLane(store.path).order([], identity, d, board)
+        except Exception:
+            holds = {}
+    try:
+        stranded_items = {row["item_id"] for row in stranded(store).read()["rows"].values()
+                          if row["scope"] == identity and row["decision_id"] is None
+                          and row["state"] in ("intent", "pending")}
+    except Exception:
+        stranded_items = set()
+    goals = []
+    if p0_markers:
+        try:
+            mine = [key for key, row in d["leases"].items() if row.get("scope") == identity]
+            goals = goal_rows(board, identity, p0_markers, d["leases"], runnable=p0_runnable,
+                              stranded_items=stranded_items, outcomes=P0Outcomes(store.path).read(),
+                              owner_classes=_owner_classes(store, mine, caller_nonce),
+                              bound=lease_bound_reached(d["leases"]))
+        except Exception:
+            goals = []
+    if goals_out is not None:
+        goals_out.extend(goals)
+    return diagnose(d, board, identity, p0_roots=p0_roots, p0_runnable=p0_runnable,
+                    p0_active_ids=_p0_active_lease_ids(store.path), stranded_items=stranded_items,
+                    holds=holds, now=time.time() if now is None else now, max_leases=MAX_LEASES,
+                    bounded_open=bounded_open_leases(d["leases"]), p0_goals=[public_row(row) for row in goals])
 
 
 def _wait_boost_status(store, identity, board=None):
@@ -1138,8 +1395,7 @@ def _reserve_assignment(store, board_store, identity, host, version, *, item_id=
     p0 = p0_state(store)
     p0_intent = None
     if item_id is None:
-        p0_rows = [row for row in _p0_runnable_leaves(store, board, identity)
-                   if not _stranded_item_pending(store, identity, row["item_id"])]
+        p0_rows = _p0_next_rows(store, board, identity, include_refused=p0_only)
         if p0_rows:
             item_id = p0_rows[0]["item_id"]
         elif p0_only:
@@ -1467,7 +1723,7 @@ def _revalidate_stranded(store, board_store, row):
 
 def _stranded_admission(d, identity, row):
     """(code, message) for fresh-workspace recovery; never rework_limit."""
-    from .work_parallel import ACTIVE_STATES, MAX_LEASES
+    from .work_parallel import ACTIVE_STATES, lease_bound_reached
     p = d["policy"]
     if not p["enabled"] or p["paused"]:
         return "paused", "disabled/paused; stranded recovery waits for admission"
@@ -1480,7 +1736,7 @@ def _stranded_admission(d, identity, row):
     counts = active_by_priority(d["leases"])
     if counts[row["priority"]] >= p["priority_limits"][row["priority"]]:
         return "capacity", "active slot capacity reached; stranded recovery waits for admission"
-    if sum(lease["state"] in ACTIVE_STATES for lease in d["leases"].values()) >= MAX_LEASES:
+    if lease_bound_reached(d["leases"]):
         return "lease_bound", "lease bound reached; stranded recovery waits for admission"
     return "", ""
 
@@ -3057,6 +3313,10 @@ def run(name, args, board_store, identity, config, save_config, log=None):
         # A model tool call carries no host token. Only the authenticated mod's
         # own read, with no worker identity, gets the host lease fields.
         host_read = _authenticated_host_read(args, config)
+        if host_read and args.get("projection") == "version":
+            # KOBE hotfix 2026-11-18: an event's expected_version needs the
+            # ledger version alone, not the whole (paged) host projection.
+            return json.dumps({"version": store.read()["version"], "projection": "version"})
         caller = (args.get("_host") or {}).get("launch_nonce") if host_read else None
         return json.dumps(project(store, identity, _board_or_none(board_store),
                                   host_view=host_read, caller_nonce=caller,
@@ -3182,6 +3442,7 @@ def run(name, args, board_store, identity, config, save_config, log=None):
                 "P0 launch cancellation identity")
         if event == "p0_launch_denied":
             require(text(host.get("proof"), 500), "P0 launch deny proof")
+            _p0_note_refusal(store, board_store.read(), identity, lease["item_id"], "spawn_denied", host["proof"])
         else:
             require(host.get("absent_dispatch_name") == name
                     and host.get("absent_from_complete_list") is True,
@@ -3265,6 +3526,23 @@ def run(name, args, board_store, identity, config, save_config, log=None):
             raise WorkParallelError("review wake operation must be prepare or record")
         return json.dumps({"lease_id": args.get("lease_id"), **wake,
                            "finalization_version": state["version"]}, ensure_ascii=False)
+    if event == "parked_notice_claim":
+        # Host-only: main is told once that a cleared parked worker needs its resume.
+        if actor is not None or host.get("internal") is not True:
+            raise WorkParallelError("verified mod-internal parked notice host required")
+        return json.dumps({"claimed": _parked_notice_claim(store, args.get("lease_id"),
+                                                           release=args.get("release") is True)})
+    if event == "p0_outcome_claim":
+        # Host-only: the one notice to main per outcome of one P0 activation.
+        if actor is not None or host.get("internal") is not True:
+            raise WorkParallelError("verified mod-internal P0 outcome host required")
+        from .work_parallel_p0_outcomes import P0Outcomes
+        require(text(args.get("root_id"), 200) and text(args.get("outcome"), 80), "P0 outcome")
+        found = _p0_outcome_key(store, board_store.read(), identity, args["root_id"])
+        if found is None:
+            return json.dumps({"claimed": False, "reason": "not_effective_p0"})
+        claimed = P0Outcomes(store.path).claim(found[0], args["outcome"], release=args.get("release") is True)
+        return json.dumps({"claimed": claimed})
     if event == "failure_record":
         # Host-only durable failure log: fixed codes, short ids and times only.
         # The model's forwarded events never carry _host.internal.
@@ -3430,17 +3708,29 @@ def run(name, args, board_store, identity, config, save_config, log=None):
             raise WorkParallelError("verified coordinator fork capability required")
         p0_only = event.startswith("p0_")
         explicit = event in ("reserve", "p0_reserve")
-        assignment = _reserve_assignment(
-            store, board_store, identity, host, version,
-            item_id=args.get("item_id") if explicit else None,
-            role=args.get("role", "worker"), p0_only=p0_only, log=log,
-        )
+        p0_board = board_store.read()
+        p0_next = (args.get("item_id") if explicit else
+                   next((row["item_id"] for row in _p0_next_rows(store, p0_board, identity,
+                                                                 include_refused=p0_only)), None))
+        try:
+            assignment = _reserve_assignment(
+                store, board_store, identity, host, version,
+                item_id=args.get("item_id") if explicit else None,
+                role=args.get("role", "worker"), p0_only=p0_only, log=log,
+            )
+        except WorkParallelError as error:
+            message = str(error)
+            if p0_next is not None and not re.search(r"no eligible candidate|lease bound|state changed", message):
+                from .work_parallel_p0_outcomes import refusal_code
+                _p0_note_refusal(store, p0_board, identity, p0_next, refusal_code(message), message)
+            raise
         lease = store.read()["leases"][assignment["lease_id"]]
         intent = p0_state(store).approval_intent(
             lease["id"], scope=identity, item_id=lease["item_id"])
         if p0_only:
             require(intent is not None, "P0 assignment intent missing")
         if intent is not None:
+            _p0_clear_refusal(store, p0_board, identity, lease["item_id"])
             # An ordinary reserve that picked an effective-P0 root returns the
             # same P0 launch shape, so the host launches it under the exact
             # deterministic dispatch name with its P0 assignment capability.

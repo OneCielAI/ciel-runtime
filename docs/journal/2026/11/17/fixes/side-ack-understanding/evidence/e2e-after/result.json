@@ -1,0 +1,163 @@
+{
+  "kind": "side ACK/understanding/final order E2E",
+  "claude_version": "2.1.326 (Claude Code)",
+  "snapshot_manifest": {
+    "label": "stage2",
+    "digests": {
+      "ciel_runtime_support/claude_mods/ciel-work/hooks/register.js": "a1d26d5cb884289c00a2e723fc19f07e63203954827e68e9c4434c43951858df",
+      "ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js": "4a730cc53ec3056e8577dd4c8e3845acef00e6ae0ebf935215dfd763209dd702",
+      "ciel_runtime_support/claude_mods/ciel-work-gate/hooks/register.js": "4a878832d456b2114878811dee5f68948f9ed9dd6def486fe71a6422c90bf056",
+      "ciel_runtime_support/work_parallel_gate_presence.py": "c324032cb9ca219dee79619b34d951aacb8b5f3dd328f1d9b58d0897a006e3e5",
+      "ciel_runtime_support/work_parallel_mcp.py": "a7afb3c70d5d58f22cbb58f32077e14db092de0a9f5f3862d67d5b120042e0b0",
+      "ciel_runtime_support/work_parallel_finalization.py": "1b270b256067463ed860a5cccf36fcceff5a0e55301f9963571df175dc75d649",
+      "ciel_runtime_support/work_http_controller.py": "5df3ce7c8183a2655df6c5bc15f30b6974e973d3e3d3c6c25671f53f36c1091e",
+      "ciel_runtime_support/work_web_ui.py": "d6e093c4ffa85ac2e97af1fbb50e25813f8d3c1b1f07e5f6d1d8f967b42908d9",
+      "ciel_runtime_support/windows_conpty.py": "c039c01718478861ea43989c34311fece5c42aece6b95f059fe9e1c765f400e9",
+      "ciel_runtime_support/work_parallel.py": "172f5873174309699bbf08c4476d4ae9766a08e98ea816cefa98e32b6a92020c",
+      "ciel_runtime_support/work_parallel_workspace.py": "649edac499421f772cc3c7bf011f9180ba3a7c6ba89881fd1aadbbada8b61c6b",
+      "ciel_runtime_support/work_parallel_stranded.py": "2a019037757dbed958a33ba9404c3e60127387aced6deed5c8ad2ca6c767c7a1",
+      "ciel_runtime_support/work_parallel_failures.py": "c14d13e89b3ca004452faff0cc88476909501c1e7358736bbec16b784b7793e1",
+      "ciel_runtime_support/work_mcp_tools.py": "9549e072cd10fba88389da781e65e25434dffc6c45f3315525bab4d5efd1cdce",
+      "ciel_runtime_support/channel_mcp_http_controller.py": "6ec79581088a6d9f95dbc890258733ef45387721a6564d364592a260fa0b97ff"
+    },
+    "missing": [],
+    "matches_source_at_copy": true
+  },
+  "steps": {
+    "ok_event_sends": 3
+  },
+  "mod_load": {
+    "loaded": true,
+    "failed": [],
+    "hooks_ran": [
+      "classic.SessionStart",
+      "ui.render"
+    ],
+    "ok": true
+  },
+  "sends_ok_event": [
+    {
+      "client_id": "035cbc61-4988-ed05-359a-e98a08031d9b",
+      "text": "메시지를 받았습니다. 내용을 확인한 뒤 이해한 내용과 처리 결과를 이어서 알려 드리겠습니다.",
+      "board_nodes_at_send": 0
+    },
+    {
+      "client_id": "f143aa9b-bade-96dc-f7b5-3b24e0b7e248",
+      "text": "결제 재시도 버그 수정 요청으로 이해했습니다. 오늘 안에 스테이징에서 확인해야 하며, 새 작업으로 대기열에 넣겠습니다.",
+      "board_nodes_at_send": 0
+    },
+    {
+      "client_id": "bdbe429b-901e-fd4a-3406-91492f4707ac",
+      "text": "결제 재시도 버그 수정을 새 작업으로 등록했습니다.\n\nn1 등록 · P3 · 현재 진행 중인 항목입니다.",
+      "board_nodes_at_send": 1
+    }
+  ],
+  "sends_failed_event": [
+    {
+      "client_id": "a7608347-e6a4-631a-f996-3ba71852bd65",
+      "text": "메시지를 받았습니다. 내용을 확인한 뒤 이해한 내용과 처리 결과를 이어서 알려 드리겠습니다."
+    },
+    {
+      "client_id": "61ca5f37-af25-7a2c-8a12-ac0ec7ef1ee5",
+      "text": "이 메시지는 사이드 처리에서 자동으로 처리하지 못했습니다. 원문을 메인 세션에 그대로 전달했고, 메인 세션이 직접 확인한 뒤 답변드리겠습니다."
+    }
+  ],
+  "sends_inbound_ack_event": [],
+  "side_turns": {
+    "ok": 1,
+    "fail": 1,
+    "inbound_ack": 0
+  },
+  "host_events": [
+    {
+      "tool": "work_side_ack",
+      "state": "prepare",
+      "at": 1794952904.9789438
+    },
+    {
+      "tool": "work_side_ack",
+      "state": "submitted",
+      "at": 1794952905.022301
+    },
+    {
+      "tool": "work_side_ack",
+      "state": "prepare",
+      "at": 1794952905.059719
+    },
+    {
+      "tool": "work_side_understanding",
+      "state": "prepare",
+      "at": 1794952905.3835094
+    },
+    {
+      "tool": "work_side_understanding",
+      "state": "submitted",
+      "at": 1794952905.4337687
+    },
+    {
+      "tool": "work_side_resolve",
+      "state": null,
+      "at": 1794952905.471783
+    },
+    {
+      "tool": "work_side_reply",
+      "state": "prepare",
+      "at": 1794952905.528807
+    },
+    {
+      "tool": "work_side_reply",
+      "state": "submitted",
+      "at": 1794952905.5874357
+    },
+    {
+      "tool": "work_side_ack",
+      "state": "prepare",
+      "at": 1794952907.3040147
+    },
+    {
+      "tool": "work_side_ack",
+      "state": "submitted",
+      "at": 1794952907.3424206
+    },
+    {
+      "tool": "work_side_ack",
+      "state": "prepare",
+      "at": 1794952907.373968
+    },
+    {
+      "tool": "work_side_reply",
+      "state": "prepare",
+      "at": 1794952909.5802078
+    },
+    {
+      "tool": "work_side_reply",
+      "state": "submitted",
+      "at": 1794952909.6156876
+    }
+  ],
+  "side_reviews": [],
+  "nodes": [
+    {
+      "title": "결제 재시도 버그 수정",
+      "priority": "P3"
+    }
+  ],
+  "checks": {
+    "three_sends_for_ok_event": true,
+    "order_ack_understanding_final": true,
+    "distinct_client_ids": true,
+    "no_send_echoes_the_message": true,
+    "later_sends_have_no_ack_prefix": true,
+    "board_committed_after_understanding": true,
+    "p3_left_no_main_review": true,
+    "failed_event_ack_then_one_truthful_reply": true,
+    "inbound_receipt_ack_no_send_no_actor": true
+  },
+  "passed": true,
+  "kills": 1,
+  "owned_survivors": 0,
+  "killed_protected_overlap": 0,
+  "evidence_secret_hits": {
+    "host_token": 0
+  }
+}

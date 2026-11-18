@@ -1,0 +1,126 @@
+{
+ "source": "<home>\\ciel-runtime\\.local\\tmp\\work-parallel",
+ "slash_asset_installed": true,
+ "before": {
+  "transcripts": [
+   "91e7ceb0-7a71-403d-9632-0bab5acadb73.jsonl"
+  ],
+  "worktree_files": [
+   "README.md",
+   "new.txt"
+  ]
+ },
+ "claude_version": "2.1.327 (Claude Code)",
+ "restart_line": "2026-11-17T19:23:44 [INFO] claude_session_restart exit_code=1 source=ciel-runtime-router-tool reason=e2e safe restart resumed=true request_id=3fc09f4fe16f4b70991b1bfa5b31a882 claim=transport",
+ "restart2_line": "2026-11-17T19:24:11 [INFO] claude_session_restart exit_code=1 source=slash reason=e2e slash resumed=true request_id=857a08454ea7423eb1ccb17d1f0fff68 claim=transport",
+ "trust_dialogs": [
+  {
+   "at": 1794964952.2447903,
+   "answered": true
+  }
+ ],
+ "notice_text": "계속-세션재시작됨 · 재시작 전 작업 위치: D:\\temp\\ciel-e2e-safe-restart-pyuyzurg\\home-repo\\.claude\\worktrees\\feat (branch feat, HEAD 222b1136d1, snapshot refs/ciel/restart/3fc09f4fe16f4b70991b1bfa5b31a882/feat-ea7943f7) — 그 위치에서 이어서 작업 · 목록: restart-takeover.json · 재시작 요청 이후 들어온 입력은 보관했다가 이 안내 앞에 순서대로 전달",
+ "held_sent_at": {
+  "E2E-HELD-1": 1794964982.940765,
+  "E2E-HELD-2": 1794964984.948526,
+  "E2E-HELD-3": 1794964986.963607
+ },
+ "held_first_delivery_at": {
+  "E2E-HELD-1": 1794965029.7096756,
+  "E2E-HELD-2": 1794965029.7096756,
+  "E2E-HELD-3": 1794965029.7096756
+ },
+ "held_first_request": {
+  "E2E-HELD-1": 8,
+  "E2E-HELD-2": 8,
+  "E2E-HELD-3": 8
+ },
+ "held_order": [
+  "E2E-HELD-1",
+  "E2E-HELD-2",
+  "E2E-HELD-3"
+ ],
+ "notice_request": 10,
+ "held_user_message_counts_in_final_request": {
+  "E2E-HELD-1": 1,
+  "E2E-HELD-2": 1,
+  "E2E-HELD-3": 1
+ },
+ "slow_started_at": 1794964977.527872,
+ "slow_replied_at": 1794965022.5293388,
+ "restart_requested_at": 1794964979.9350564,
+ "old_child_exit_logged_at": 1794965024.0,
+ "manifest": {
+  "session_cwd": "D:\\temp\\ciel-e2e-safe-restart-pyuyzurg\\home-repo\\.claude\\worktrees\\feat",
+  "session_worktree": "D:/temp/ciel-e2e-safe-restart-pyuyzurg/home-repo/.claude/worktrees/feat",
+  "repository": "D:\\temp\\ciel-e2e-safe-restart-pyuyzurg\\home-repo"
+ },
+ "manifest_rows": [
+  {
+   "path": "D:/temp/ciel-e2e-safe-restart-pyuyzurg/home-repo",
+   "branch": "main",
+   "modified": 0,
+   "untracked": 0,
+   "snapshot_ref": null,
+   "error": null,
+   "skipped": null
+  },
+  {
+   "path": "D:/temp/ciel-e2e-safe-restart-pyuyzurg/home-repo/.claude/worktrees/feat",
+   "branch": "feat",
+   "modified": 1,
+   "untracked": 1,
+   "snapshot_ref": "refs/ciel/restart/3fc09f4fe16f4b70991b1bfa5b31a882/feat-ea7943f7",
+   "error": null,
+   "skipped": null
+  }
+ ],
+ "snapshot_files": {
+  "README.md": "safe restart e2e\nfork edit",
+  "new.txt": "untracked work"
+ },
+ "transcripts_before": [
+  "91e7ceb0-7a71-403d-9632-0bab5acadb73.jsonl"
+ ],
+ "transcripts_after": [
+  "91e7ceb0-7a71-403d-9632-0bab5acadb73.jsonl"
+ ],
+ "turn3_history": [
+  "E2E-TURN-1",
+  "E2E-WT-SETUP",
+  "E2E-SLOW-2",
+  "E2E-TURN-3",
+  "계속-세션재시작됨",
+  "E2E-HELD-1",
+  "E2E-HELD-2",
+  "E2E-HELD-3"
+ ],
+ "hold_log": [
+  "2026-11-17T19:23:00 [INFO] runtime_session_restart_hold_started request_id=3fc09f4fe16f4b70991b1bfa5b31a882",
+  "2026-11-17T19:23:44 [INFO] claude_restart_folder_trusted key=D:/temp/ciel-e2e-safe-restart-pyuyzurg/home-repo changed=false",
+  "2026-11-17T19:23:44 [INFO] restart_takeover_snapshot worktrees=2 snapshots=1 errors=0 session_worktree=D:/temp/ciel-e2e-safe-restart-pyuyzurg/home-repo/.claude/worktrees/feat",
+  "2026-11-17T19:23:44 [INFO] channel_llm_cursor_fast_forward_on_launch last_id=3 previous_cursor=3 recent_seconds=600 restart_hold_since=1794964980.000",
+  "2026-11-17T19:24:08 [INFO] runtime_session_restart_hold_started request_id=857a08454ea7423eb1ccb17d1f0fff68",
+  "2026-11-17T19:24:11 [INFO] claude_restart_folder_trusted key=D:/temp/ciel-e2e-safe-restart-pyuyzurg/home-repo changed=false",
+  "2026-11-17T19:24:11 [INFO] restart_takeover_snapshot worktrees=2 snapshots=1 errors=0 session_worktree=D:/temp/ciel-e2e-safe-restart-pyuyzurg/home-repo",
+  "2026-11-17T19:24:11 [INFO] channel_llm_cursor_fast_forward_on_launch last_id=8 previous_cursor=8 recent_seconds=600 restart_hold_since=1794965048.811"
+ ],
+ "session_id_kept": true,
+ "checks": {
+  "trust_dialog_only_on_first_launch": true,
+  "restart_1_performed": true,
+  "restart_waited_for_the_turn": true,
+  "held_inputs_sent_during_the_wait": true,
+  "held_inputs_delivered_after_relaunch_once_in_order": true,
+  "held_inputs_precede_the_notice": true,
+  "held_inputs_not_given_to_the_old_session": true,
+  "notice_names_the_worktree": true,
+  "snapshot_holds_the_work": true,
+  "worktree_index_branches_unchanged": true,
+  "same_conversation": true,
+  "slash_restart_performed": true
+ },
+ "passed": true,
+ "owned_killed_at_end": 0,
+ "owned_survivors": 0
+}

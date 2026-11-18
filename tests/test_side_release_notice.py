@@ -53,11 +53,26 @@ class SideReleaseNoticeTests(unittest.TestCase):
 
     def test_parked_worker_is_named_for_mains_gated_resume(self):
         row = self.run_case('fork-parked')
-        # A parked worker is never resumed from here: the lease reacquire and
-        # resume authorization stay on main's SendMessage path.
+        # No Work host resume callback is registered here, so the automatic
+        # resume cannot run and main is named with SendMessage and the reason.
         self.assertEqual([], row['sent'])
         self.assertIn('Parked worker waiting on it: agent-park (lease L2, item n2)', row['appended'][0])
         self.assertIn('resume with SendMessage', row['appended'][0])
+
+    def test_parked_worker_is_resumed_by_the_host_and_main_is_not_asked(self):
+        # Stage 3 (2026-11-17): the host resumes it on its own lease first; main's
+        # SendMessage notice stays only for a failed automatic resume.
+        row = self.run_case('fork-parked-resumed')
+        self.assertEqual([['L2']], row['resumeCalls'])
+        notice = row['appended'][0]
+        self.assertIn('The Work host resumed the parked worker on its own lease: agent-park (lease L2, item n2).', notice)
+        self.assertNotIn('resume with SendMessage', notice)
+
+    def test_a_failed_automatic_resume_is_named_for_main_with_the_reason(self):
+        row = self.run_case('fork-parked-refused')
+        notice = row['appended'][0]
+        self.assertIn('agent-park (lease L2, item n2) was not resumed automatically: the resume was not delivered', notice)
+        self.assertIn('resume with SendMessage', notice)
 
     def test_undeliverable_fork_message_falls_back_to_main(self):
         row = self.run_case('fork-refuses')

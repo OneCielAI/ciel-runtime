@@ -32,11 +32,14 @@ const detail = { version: 7, root_id: 'n1', nodes: [
   { id: 'n3', parent_id: 'n2', title: 'Mobile layout', status: 'blocked', note: '', evidence: '' },
   { id: 'n4', parent_id: 'n1', title: 'Review', status: 'pending', waiting_on: 'Daniel', note: '', evidence: '' }] }
 const receipts = [
-  { receipt_id: 'a'.repeat(64), stage: 'processed', original: walkie(1),
+  { receipt_id: 'a'.repeat(64), stage: 'processed', original: walkie(1), source_bounded: { omitted_replies: 7 },
     result: { action: 'create', item_id: 'n9', summary: 'urgent queued', delivery: 'side_mcp', reported_sends: ['mcp__walkie__send'] } },
   { receipt_id: 'b'.repeat(64), stage: 'received', original: walkie(3),
     side_failure: { category: 'invalid_answer', model: 'm', quarantined: true, reason: 'Side router operation failed: X' } },
 ]
+let rootPriorities = []
+let forks = null
+let diagnosis = null
 const calls = [], toasts = [], opens = []
 let asks = []
 const el = type => props => ({ type, props })
@@ -52,7 +55,8 @@ const $ = {
       value = { settings, provider: 'cielairouter', ui: {} }
     }
     if (tool === 'work_parallel_status') value = { version: 1, active_device: 1, leases: {},
-      policy: { enabled: true, paused: false, priority_limits: { P1: 5, P2: 3, P3: 1, P4: 1, P5: 1 }, launches_per_minute: 4, max_rework: 2 } }
+      policy: { enabled: true, paused: false, priority_limits: { P1: 5, P2: 3, P3: 1, P4: 1, P5: 1 }, launches_per_minute: 4, max_rework: 2 },
+      root_priorities: rootPriorities, ...(forks ? { forks } : {}), ...(diagnosis ? { priority_diagnosis: diagnosis } : {}) }
     if (tool === 'work_side_status') value = { side_inbox_receipts: receipts }
     if (tool === 'work_side_claim') value = { claim: null, settings: {}, handoff_replies: [] }
     return { content: [{ type: 'text', text: JSON.stringify(value) }] }
@@ -84,8 +88,13 @@ const colors = tree => [...new Set(walk(tree).filter(n => n.type === 'Text' && n
 const types = tree => [...new Set(walk(tree).map(n => n.type))]
 const hovers = tree => walk(tree).filter(n => n.props?.hover).length
 
+// KOBE hotfix 2026-11-18: session.start's reads and the view's observatory
+// projections land after their hooks return; let them land before observing.
+const landed = () => new Promise(resolve => setTimeout(resolve, 20))
 await hook('session.start', {})($, { isInteractive: true }, async e => e)
+await landed()
 const view = await hook('command.run', { command: 'work-mode' })($, { args: 'view', origin: { kind: 'composer' } })
+await landed()
 const out = { view: view.text, opened: opens.find(o => o.id === 'work-details') }
 let tree = await render('terminal', 110)
 const client = walk(tree).find(n => n.props?.key === 'obs-graphic')
@@ -132,4 +141,32 @@ await hook('turn.start', {})($, {}, async e => e)
 release()
 out.race = { text: (await racing).text, opened: opens.some(o => o.id === 'work-details') }
 $.mcp.call = call
+// P0 lives in the P0 store; the goal's stored field keeps P1/P3 (Celly 2026-11-17
+// saw its P0 goals as P1). After a refresh both panes label the goal P0.
+tree = await render('desktop', 110)
+await press(tree, 'obs-work'); tree = await render('desktop', 110)
+const graphicBefore = walk(await render('terminal', 110)).find(n => n.props?.key === 'obs-graphic')?.props?.props
+out.effective = { before: (graphicBefore?.nodes || []).filter(n => n.id === 'n5' || n.id === 'n1').map(n => n.id + ':' + n.priority) }
+rootPriorities = [{ root_id: 'n5', title: 'Queued goal', canonical_priority: 'P3', effective_priority: 'P0' },
+  { root_id: 'n1', title: 'Ship observatory', canonical_priority: 'P1', effective_priority: 'P1' }]
+forks = { available: true, confirmed_count: 1, confirmed: [{ lease_id: 'l1', item_id: 'n5', item_title: 'Queued goal',
+  priority: 'P1', effective_priority: 'P0', agent_name: 'work-p0-x', native: { status: 'running', last_seen_at: 1 } }] }
+await press(tree, 'detail-refresh')
+const graphicAfter = walk(await render('terminal', 110)).find(n => n.props?.key === 'obs-graphic')?.props?.props
+out.effective.after = (graphicAfter?.nodes || []).filter(n => n.id === 'n5' || n.id === 'n1').map(n => n.id + ':' + n.priority)
+out.effective.forks = (graphicAfter?.parallel?.confirmed || []).map(f => f.item + ':' + f.priority)
+tree = await render('desktop', 110)
+out.effective.desktop = texts(tree).filter(t => t.includes('Queued goal'))
+// Stage 3: the router's per-priority diagnosis reaches the pane and /work-mode parallel.
+diagnosis = { summary: 'P1 1/3 can fill · P2 0/2 no candidates (free slot but no runnable item (goal in planning 1))',
+  attention: ['P2'], rows: [
+    { priority: 'P0', limit: null, active: 0, free: null, candidates: 0, state: 'no_work', reason: 'no unfinished item' },
+    { priority: 'P1', limit: 3, active: 1, free: 2, candidates: 2, state: 'can_fill', reason: '2 runnable; the next pump fills free slots' },
+    { priority: 'P2', limit: 2, active: 0, free: 2, candidates: 0, state: 'no_candidates',
+      reason: 'free slot but no runnable item (goal in planning 1)' }] }
+tree = await render('desktop', 110)
+await press(tree, 'detail-refresh')
+const graphicDiag = walk(await render('terminal', 110)).find(n => n.props?.key === 'obs-graphic')?.props?.props
+out.dispatch = { pane: graphicDiag?.parallel?.dispatch || null,
+  text: (await hook('command.run', { command: 'work-mode' })($, { args: 'parallel', origin: { kind: 'composer' } })).text }
 console.log(JSON.stringify(out))

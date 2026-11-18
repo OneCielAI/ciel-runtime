@@ -1,0 +1,33 @@
+# before: git archive 66da4e2 + the new test file (constant inlined, since the old module has none)
+F...........F....F...
+======================================================================
+FAIL: test_a_catalog_above_one_mib_is_reachable (test_provider_status_retry.ProviderStatusRetryTests.test_a_catalog_above_one_mib_is_reachable)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+    self.assertIn("model list reachable", status)
+AssertionError: 'model list reachable' not found in 'Base URL: unreachable (ValueError)'
+
+======================================================================
+FAIL: test_large_catalog_is_fully_read (test_provider_status_retry.ProviderStatusRetryTests.test_large_catalog_is_fully_read)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+    response.read.assert_called_once_with(CATALOG_PROBE_MAX_BYTES + 1)
+    return self.assert_called_with(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    raise AssertionError(_error_message()) from cause
+AssertionError: expected call not found.
+Expected: read(16777217)
+Actual: read(1048577)
+
+======================================================================
+FAIL: test_oversized_catalog_fails_closed_without_retry (test_provider_status_retry.ProviderStatusRetryTests.test_oversized_catalog_fails_closed_without_retry)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+    self.assertIn("model list unreachable", status)
+AssertionError: 'model list unreachable' not found in 'Base URL: unreachable (ValueError)'
+
+----------------------------------------------------------------------
+Ran 21 tests in 0.049s
+
+FAILED (failures=3)
+RAN 21 failures=3 errors=0 skipped=0

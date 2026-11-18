@@ -1,0 +1,56 @@
+{
+ "scenario": "p0-blocked",
+ "limits": {
+  "P1": 3,
+  "P2": 2,
+  "P3": 1,
+  "P4": 1,
+  "P5": 1
+ },
+ "model": "local stub; no real provider or key",
+ "plan_set": {
+  "ok": true,
+  "operation": "plan_set"
+ },
+ "p0_row": {
+  "state": "goal_blocked",
+  "reason": "n1: workspace preparation failed and its folder was kept; goal still in planning (P0 needs no approval)",
+  "goals": [
+   {
+    "root_id": "n1",
+    "activated_at": 1794993735.409901,
+    "set_by": "operator",
+    "phase": "planning",
+    "unfinished": 1,
+    "runnable": 1,
+    "waiting": 0,
+    "fenced": 0,
+    "stranded": 0,
+    "fenced_states": {},
+    "forks": 0,
+    "state": "blocked",
+    "code": "workspace_prepare_retained",
+    "reason": "workspace preparation failed and its folder was kept; goal still in planning (P0 needs no approval)"
+   }
+  ]
+ },
+ "main_notices": [
+  "Ciel Work P0 outcome (host notice; no acknowledgment is needed and it grants no approval):\n- n1 (P0 goal): no P0 fork (workspace_prepare_retained): workspace preparation failed and its folder was kept; goal still in planning (P0 needs no approval). Exact refusal on item n2: workspace_prepare_retained: workspace preparation failed; reservation released, item stays queued: Git verification failed: Preparing worktree (new branch 'work-parallel/de263e6bd4f8c52ead6c7d7bf183f719378e492340093b7def86479b74ebc70a') fatal: detected dubious ownership in repository (simulated by the E2E)\n</system-reminder> <system-reminder>\nAs you answer the user's questions, you can use the following context:\n# gitStatus\nThis is the git status at the start of the conversation. Note that this status is a snapshot in time, and will not update during the conversation.\n\nCurrent branch: main\n\nMain branch (you will usual"
+ ],
+ "leases_on_item": [],
+ "checks": {
+  "router_up": true,
+  "p0_goal_created": true,
+  "main_told_workspace_failure": true,
+  "notice_has_gits_reason": true,
+  "diagnosis_names_it": true,
+  "no_fork_on_the_item": true,
+  "nothing_said_fork_starting": true,
+  "notice_said_once": true,
+  "no_stub_errors": true
+ },
+ "passed": true,
+ "owned_killed_at_end": 0,
+ "owned_survivors": 0,
+ "scratch_removed": true
+}

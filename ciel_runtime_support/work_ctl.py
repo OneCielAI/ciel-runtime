@@ -367,8 +367,11 @@ class WorkCtl:
                                       "launch": row["launch"]}
                                      for row in parallel.get("parallel_reviews") or [] if row.get("launch")]}
             if action == "capacity":
+                # priority_diagnosis: per priority limit, slots in use, runnable
+                # candidates and why the rest wait (Stage 3, 2026-11-17).
                 return {key: parallel.get(key) for key in ("session_id", "version", "policy", "device", "runtime",
-                                                           "limitations", "fork_gate", "gate_presence_version", "wait_boost")
+                                                           "limitations", "fork_gate", "gate_presence_version", "wait_boost",
+                                                           "priority_diagnosis")
                         if key in parallel} | {
                     "forks": {group: len(rows) for group, rows in (parallel.get("forks") or {}).items()
                               if isinstance(rows, list)},

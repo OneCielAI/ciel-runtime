@@ -219,7 +219,7 @@ const until = async (test, label) => {
   throw new Error('timeout '+label)
 }
 const count = state => calls.filter(c => c.name === 'work_side_wake' && c.args.state === state).length
-const answer = {agentId:'actor', reason:'answer', answer:JSON.stringify({decision:{action:'answer', kind:'info',
+const answer = {agentId:'actor', reason:'answer', answer:JSON.stringify({understanding:'understood in my own words',decision:{action:'answer', kind:'info',
   item_id:'n7', summary:'deadline reported', reply:'noted',
   time_limit:{text:'within 4 hours', evidence:'message 41: within 4 hours'}}, expected_version:1})}
 const poll = (instance = first) => instance.pollSide($, 'claude:parent')

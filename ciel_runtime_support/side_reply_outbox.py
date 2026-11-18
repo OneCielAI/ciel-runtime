@@ -9,6 +9,10 @@ from .work_plan_tree import WorkPlanError
 import heapq
 
 
+FAILURE_TEXT = ('이 메시지는 사이드 처리에서 자동으로 처리하지 못했습니다. 원문을 메인 세션에 그대로 전달했고, '
+                '메인 세션이 직접 확인한 뒤 답변드리겠습니다.')
+
+
 def pending(state_dir, identity, limit=10):
     directory=SideIntakeInbox(state_dir, identity).directory / 'receipts'
     def eligible():
@@ -17,7 +21,36 @@ def pending(state_dir, identity, limit=10):
             if (row and row.get('stage')=='processed' and row.get('result',{}).get('delivery') not in ('route_unavailable','side_mcp','duplicate_source','not_applicable')
                     and row.get('outbox',{}).get('state') not in ('submitted','uncertain','submitting','failed')):
                 yield {'receipt_id':path.stem,'state':row.get('outbox',{}).get('state','pending')}
-    return heapq.nsmallest(limit,eligible(),key=lambda row:row['receipt_id'])
+    rows = heapq.nsmallest(limit,eligible(),key=lambda row:row['receipt_id'])
+    # A quarantined event never reaches 'processed'; its truthful failure reply
+    # is owed from the moment its original was handed to main.
+    from .side_forward import FIELD as FORWARD
+    pending_dir = SideIntakeInbox(state_dir, identity).directory / 'pending'
+    for path in pending_dir.glob('*/*.json') if len(rows) < limit else ():
+        row = SideIntakeInbox._read_file(path)
+        if (row and (row.get('side_failure') or {}).get('quarantined') and row.get(FORWARD)
+                and (row.get('route') or {}).get('source_kind') == 'external_event'
+                and (row.get('outbox') or {}).get('state') not in ('submitted','uncertain','submitting','failed','not_applicable')):
+            rows.append({'receipt_id': path.stem, 'state': 'failure_reply'})
+            if len(rows) >= limit:
+                break
+    return rows
+
+
+def _prepare_failure(inbox, receipt_id, row, config):
+    """The source learns the truth: not processed, handed to main (no ACK prefix)."""
+    from .side_reply_connector import prepare as connector_prepare
+    connector = connector_prepare(config or {}, row.get('route') or {}, receipt_id, FAILURE_TEXT, 'status',
+                                  original=row.get('text', ''))
+    if connector is None:
+        row['outbox'] = {'state': 'not_applicable', 'updated_at': time.time(), 'failure_reply': True}
+        inbox._save_file(inbox._event_path('pending', receipt_id), row)
+        return {'state': 'not_applicable', 'receipt_id': receipt_id}
+    attempt_id = uuid.uuid4().hex
+    row['outbox'] = {'state': 'submitting', 'started_at': time.time(), 'attempt_id': attempt_id,
+                     'failure_reply': True}
+    inbox._save_file(inbox._event_path('pending', receipt_id), row)
+    return {'state': 'submitting', 'receipt_id': receipt_id, 'attempt_id': attempt_id, **connector}
 
 
 def _drop_pending_outbox(row):
@@ -32,10 +65,14 @@ def prepare(state_dir, identity, receipt_id, *, config=None):
     inbox = SideIntakeInbox(state_dir, identity)
     with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
         row = inbox._load(receipt_id)
+        previous = (row or {}).get('outbox', {})
+        if row and row.get('stage') != 'processed' and (row.get('side_failure') or {}).get('quarantined'):
+            if previous.get('state') in ('submitting', 'uncertain', 'submitted', 'failed', 'not_applicable'):
+                return {'state': previous['state'], 'receipt_id': receipt_id}
+            return _prepare_failure(inbox, receipt_id, row, config)
         if not row or row.get('stage') != 'processed':
             raise WorkPlanError('processed side decision required')
         route = row.get('route', {})
-        previous = row.get('outbox', {})
         if previous.get('state') in ('submitting', 'uncertain', 'submitted'):
             return {'state': previous['state'], 'receipt_id': receipt_id}
         kind = 'status' if row['result'].get('action') == 'advise' else 'reply'
@@ -132,7 +169,12 @@ def record(state_dir, identity, receipt_id, state, *, attempt_id):
             raise WorkPlanError('side send was not prepared')
         if not attempt_id or row['outbox'].get('attempt_id') != attempt_id:
             raise WorkPlanError('stale side reply attempt')
-        row['outbox'] = {'state': state, 'updated_at': time.time(), 'attempt_id': attempt_id}
+        failure_reply = row['outbox'].get('failure_reply') is True
+        row['outbox'] = {'state': state, 'updated_at': time.time(), 'attempt_id': attempt_id,
+                         **({'failure_reply': True} if failure_reply else {})}
+        if failure_reply:
+            inbox._save_file(inbox._event_path('pending', receipt_id), row)
+            return inbox._receipt(receipt_id, row, duplicate=False)
         row['result']['delivery'] = state
         inbox._save_file(inbox._event_path('receipts', receipt_id), row)
         return inbox._receipt(receipt_id, row, duplicate=False)

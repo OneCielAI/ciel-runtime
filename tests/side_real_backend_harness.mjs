@@ -105,7 +105,7 @@ function instance(label, mod, sid = 'parent') {
     ui:{ invalidate:() => {}, log:text => I.logs.push(String(text)), status:() => {} } }
   I.poll = () => mod.pollSide(I.$, 'claude:' + sid)
   I.complete = decision => mod.completeSide(I.$, { agentId:'actor-' + label, reason:'answer',
-    answer:JSON.stringify({ decision, expected_version:I.claim.workload.version }) })
+    answer:JSON.stringify({ understanding:'understood in my own words', decision, expected_version:I.claim.workload.version }) })
   I.hold = state => { const gate = { state }; gate.reached = new Promise(done => { gate.arrived = done })
     gate.release = new Promise(done => { gate.open = done }); I.gate = gate; return gate }
   // turn.start carries the entered prompt's text; the step's request is pinned

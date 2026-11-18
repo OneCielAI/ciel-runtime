@@ -50,6 +50,27 @@ class GateCheckUnitTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
 
+    def test_the_blocker_instruction_matches_the_side_contract_and_reaches_main(self):
+        # Stage 3, 2026-11-17: the event text asked for "action advise" while the
+        # side instruction says "Legacy advise is not used" and a request must
+        # create/update/prioritize; advise with kind request is refused.
+        from ciel_runtime_support.side_intake_settings import DEFAULT_SIDE_INSTRUCTION
+        store, ids = self._doc()
+        text = gate.event_text(gate.gates(store.read()), 5)
+        self.assertNotIn("action advise", text)
+        self.assertIn("Legacy advise is not used", DEFAULT_SIDE_INSTRUCTION)
+        self.assertIn("action update on that node, kind request,", text)
+        with self.assertRaisesRegex(tree.WorkPlanError, "a request must create, update or prioritize Work"):
+            validate({"action": "advise", "kind": "request", "item_id": ids["blocked"], "summary": "s", "reply": "r"})
+        key = hashlib.sha256(b"gate-blocker").hexdigest()
+        result = apply(store, key, {"action": "update", "kind": "request", "item_id": ids["blocked"],
+                                    "note": "key now issued (ticket 9)", "summary": "key issued",
+                                    "reply": "Key issued; main can resume."}, store.read()["version"],
+                       gate_check=True)
+        self.assertEqual("requested", result["handoff"])
+        self.assertEqual("resume", result["main_handoff"]["kind"])
+        self.assertEqual("blocked", next(n for n in store.read()["nodes"] if n["id"] == ids["blocked"])["status"])
+
     def test_gates_list_waits_and_blocks_active_goal_first(self):
         store, ids = self._doc()
         rows = gate.gates(store.read())
@@ -61,6 +82,38 @@ class GateCheckUnitTests(unittest.TestCase):
         store.transaction(lambda d: tree.update_node(d, ids['blocked'], status='done', evidence='checked'))
         store.transaction(lambda d: tree.update_node(d, ids['other'], status='done', evidence='checked'))
         self.assertEqual([ids['wait']], [row['id'] for row in gate.gates(store.read())])
+
+    def test_gates_are_ordered_p0_then_p1_then_the_rest(self):
+        # KOBE hotfix 2026-11-18: the active goal used to come first whatever its
+        # priority. Effective priority now orders the gates; within a rank the
+        # active goal leads, then board order.
+        store = WorkPlanStore(Path(self.tmp.name) / 'prio.json')
+        doc, active = store.transaction(lambda d: tree.add_node(d, None, 'active ordinary goal'))
+        doc, a_wait = store.transaction(lambda d: tree.add_node(d, active, 'a', waiting_on='x'))
+        doc, p1 = store.transaction(lambda d: tree.add_node(d, None, 'urgent goal', priority='P1'))
+        doc, p1_wait = store.transaction(lambda d: tree.add_node(d, p1, 'b', waiting_on='approval from Kim'))
+        doc, p0 = store.transaction(lambda d: tree.add_node(d, None, 'emergency goal'))
+        doc, p0_wait = store.transaction(lambda d: tree.add_node(d, p0, 'c', waiting_on='approval from Lee'))
+        self.assertEqual(active, store.read()['active_root'])
+        canonical = gate.gates(store.read())
+        self.assertEqual([p1_wait, a_wait, p0_wait], [row['id'] for row in canonical])
+        # The P0 marker lives beside the ledger; the router passes its effective view.
+        effective = gate.gates(store.read(), lambda goal: 'P0' if goal['id'] == p0 else str(goal.get('priority') or ''))
+        self.assertEqual([p0_wait, p1_wait, a_wait], [row['id'] for row in effective])
+        self.assertEqual(['P0', 'P1', ''], [row['priority'] for row in effective])
+        event = gate.due({}, store.read(), None, now=1000.0,
+                         priority=lambda goal: 'P0' if goal['id'] == p0 else str(goal.get('priority') or ''))
+        self.assertEqual([p0_wait, p1_wait, a_wait], event['gates'])
+        text = event['text']
+        self.assertLess(text.index('[P0] ' + p0_wait), text.index('[P1] ' + p1_wait))
+        self.assertLess(text.index('[P1] ' + p1_wait), text.index('- ' + a_wait))
+        self.assertIn('also while main is busy', text)
+        self.assertNotIn('while main is idle', text)
+        self.assertIn('approval or answer that may have been lost on the network', text)
+        # A priority reader that fails keeps the canonical order.
+        def broken(goal):
+            raise OSError('ledger unreadable')
+        self.assertEqual([p1_wait, a_wait, p0_wait], [row['id'] for row in gate.gates(store.read(), broken)])
 
     def test_due_now_then_after_interval_or_change_only(self):
         store, ids = self._doc()
@@ -96,16 +149,18 @@ class GateBatchTests(unittest.TestCase):
                                                                             waiting_on='signal %d' % i))
             self.ids.append(node)
 
-    def test_sixty_gates_become_three_events_covering_all(self):
+    def test_sixty_gates_are_one_batch_covering_all(self):
+        # Andy 2026-11-18 (user design): one tick is one batch for one fork; the
+        # 24-gate split of 2026-11-16 gave one fork per 24 gates.
         event = gate.due({}, self.store.read(), None, now=1000.0)
         parts = event['events']
-        self.assertEqual([24, 24, 12], [len(part['gates']) for part in parts])
-        self.assertEqual(self.ids, [g for part in parts for g in part['gates']])
-        self.assertEqual(3, len({part['event_key'] for part in parts}))
-        self.assertIn('gates 25-48 of 60 (event 2 of 3)', parts[1]['text'])
+        self.assertEqual([60], [len(part['gates']) for part in parts])
+        self.assertEqual(self.ids, parts[0]['gates'])
+        self.assertIn('60 gate(s)', parts[0]['text'])
+        self.assertEqual(60, parts[0]['text'].count('waiting on: signal '))
         self.assertEqual(self.ids, event['gates'])
 
-    def test_mcp_queues_one_receipt_per_batch(self):
+    def test_mcp_queues_one_receipt_per_tick(self):
         root = Path(self.tmp.name) / 'state'
         identity = 'claude:batch'
         store = session_work_plan_store(root, identity)
@@ -117,8 +172,8 @@ class GateBatchTests(unittest.TestCase):
                                     respond=lambda _id, text, error=False: {'text': text, 'error': error})
         self.assertFalse(result['error'], result)
         body = json.loads(result['text'])
-        self.assertEqual(3, body['events'])
-        self.assertEqual(3, len(SideIntakeInbox(root, identity).pending()))
+        self.assertEqual(1, body['events'])
+        self.assertEqual(1, len(SideIntakeInbox(root, identity).pending()))
 
 
 class GateCheckMcpTests(unittest.TestCase):
@@ -154,17 +209,98 @@ class GateCheckMcpTests(unittest.TestCase):
 
     def test_conditions_gate_the_check(self):
         self.assertEqual('no_gates', self.check()['reason'])
-        self._waiting()
-        self.assertEqual('not_idle', self.check(forks_running=1)['reason'])
-        self.assertEqual('not_idle', self.check(idle=False)['reason'])
+        _, wait = self._waiting()
+        # KOBE hotfix 2026-11-18 (lead requirement A): main's busy turn no longer
+        # defers it (HEAD answered not_idle here); see test_main_busy_no_longer_defers_the_check.
+        # Stage 3 (2026-11-17): side intake off is a host-only round, not a refusal.
         self.config['work_side_intake']['enabled'] = False
-        self.assertEqual('side_intake_off', self.check()['reason'])
+        off = self.check()
+        self.assertEqual(('side_intake_off', True, True, [wait]),
+                         (off['reason'], off['host_only'], off['host_due'], off['gates']))
+        self.assertEqual([], SideIntakeInbox(self.root, self.identity).pending())
         self.config['work_side_intake']['enabled'] = True
         self.config['work_gate_check'] = {'minutes': 0}
-        self.assertEqual({'interval_minutes': 0, 'queued': False, 'reason': 'off'}, self.check())
+        self.assertEqual({'interval_minutes': 0, 'queued': False, 'side_intake': True, 'reason': 'off'}, self.check())
         fork = self.invoke('work_side_gate_check', {'idle': True, 'forks_running': 0}, {**HOST, 'agent_id': 'a1'})
         self.assertTrue(fork['error'])
         self.assertEqual([], SideIntakeInbox(self.root, self.identity).pending())
+
+    def test_the_router_orders_by_effective_priority(self):
+        # P1 by the board's own priority; P0 by the P0 marker the router reads
+        # beside the ledger (work_parallel_p0.effective_priority).
+        doc, plain = self.store.transaction(lambda d: tree.add_node(d, None, 'plain goal'))
+        doc, plain_wait = self.store.transaction(lambda d: tree.add_node(d, plain, 'p', waiting_on='x'))
+        doc, urgent = self.store.transaction(lambda d: tree.add_node(d, None, 'urgent', priority='P1'))
+        doc, urgent_wait = self.store.transaction(lambda d: tree.add_node(d, urgent, 'u', waiting_on='y'))
+        doc, emergency = self.store.transaction(lambda d: tree.add_node(d, None, 'emergency'))
+        doc, emergency_wait = self.store.transaction(lambda d: tree.add_node(d, emergency, 'e', waiting_on='z'))
+        from unittest import mock
+        from ciel_runtime_support.work_parallel_p0 import WorkParallelP0Store
+        def effective(store, scope, root, canonical_priority=None):
+            self.assertEqual(self.identity, scope)
+            return 'P0' if root['id'] == emergency else (canonical_priority or '')
+        with mock.patch.object(WorkParallelP0Store, 'effective_priority', effective):
+            queued = self.check(idle=False)
+        self.assertEqual([emergency_wait, urgent_wait, plain_wait], queued['gates'])
+        row = SideIntakeInbox(self.root, self.identity)._load(queued['receipt_ids'][0])
+        self.assertLess(row['text'].index('[P0] ' + emergency_wait), row['text'].index('[P1] ' + urgent_wait))
+
+    def test_the_contract_and_the_menu_say_it_runs_while_main_is_busy(self):
+        from ciel_runtime_support.work_mcp_tools import work_tool_schemas
+        from ciel_runtime_support.work_settings_menu import DESCRIPTIONS
+        schema = next(row for row in work_tool_schemas(enabled=True) if row['name'] == 'work_side_gate_check')
+        self.assertIn('also while main is busy', schema['description'])
+        self.assertIn('P0 first, then P1', schema['description'])
+        self.assertNotIn('main idle', schema['description'])
+        english, korean = DESCRIPTIONS['work_gate_check_minutes'][:2]
+        self.assertIn('also while main is busy', english)
+        self.assertIn('P0 first, then P1', english)
+        self.assertNotIn('While main is idle', english)
+        self.assertIn('메인이 작업 중', korean)
+
+    def test_main_busy_no_longer_defers_the_check(self):
+        # KOBE 2026-11-18: main stayed busy and no check ran for over an hour. The
+        # check backs up an approval lost on the network, so it runs while main is
+        # busy, one round at a time.
+        _, wait = self._waiting()
+        busy = self.check(idle=False)
+        self.assertEqual((True, False, [wait]), (busy['queued'], busy['main_idle'], busy['gates']))
+        self.assertEqual(1, len(SideIntakeInbox(self.root, self.identity).pending()))
+        held = self.check(idle=False)
+        self.assertEqual(('previous_round_pending', False), (held['reason'], held['queued']))
+        self.assertEqual(1, len(SideIntakeInbox(self.root, self.identity).pending()))
+
+    def test_running_forks_no_longer_defer_the_check(self):
+        # Stage 3 (2026-11-17): HEAD answered not_idle while any Work fork ran.
+        _, wait = self._waiting()
+        queued = self.check(forks_running=3)
+        self.assertTrue(queued['queued'], queued)
+        self.assertEqual([wait], queued['gates'])
+
+    def test_host_round_claims_one_notice_per_changed_diagnosis_and_is_recorded(self):
+        self._waiting()
+        digest = 'a' * 16
+        claim = {'claim': 'diagnosis', 'digest': digest}
+        self.assertTrue(self.check(host_report=claim)['claimed'])
+        self.assertFalse(self.check(host_report=claim)['claimed'])
+        self.assertTrue(self.check(host_report={'claim': 'diagnosis', 'digest': 'b' * 16})['claimed'])
+        self.assertTrue(self.check(host_report={'claim': 'discovery'})['claimed'])
+        self.assertFalse(self.check(host_report={'claim': 'discovery'})['claimed'])
+        recorded = self.check(forks_running=2, host_report={'round': {
+            'repumped': True, 'attention': ['P2'], 'notified': True, 'summary': 'P2 0/2 no candidates'}})
+        self.assertEqual((True, 2, ['P2'], True), (recorded['recorded'], recorded['host_round']['forks_running'],
+                                                   recorded['host_round']['attention'],
+                                                   recorded['host_round']['repumped']))
+        # The side round queued next keeps the host record (no host round due yet).
+        queued = self.check()
+        self.assertEqual((True, False), (queued['queued'], queued['host_due']))
+        self.assertFalse(self.check(host_report={'claim': 'diagnosis', 'digest': 'b' * 16})['claimed'])
+        # An empty attention ends the notified diagnosis: the same state later is new again.
+        self.check(host_report={'round': {'repumped': True, 'attention': []}})
+        self.assertTrue(self.check(host_report={'claim': 'diagnosis', 'digest': 'b' * 16})['claimed'])
+        bad = self.invoke('work_side_gate_check', {'idle': True, 'forks_running': 0,
+                                                   'host_report': {'claim': 'diagnosis', 'digest': 'XYZ'}})
+        self.assertTrue(bad['error'])
 
     def test_due_check_is_one_durable_side_event_without_source_reply(self):
         goal, wait = self._waiting()

@@ -1,0 +1,78 @@
+{
+ "claude_version": "2.1.326 (Claude Code)",
+ "cases": [
+  {
+   "case": "home-untrusted",
+   "cwd_is_home": true,
+   "pre_trusted": false,
+   "dialog_shown": true,
+   "answered": false,
+   "persisted_after": {
+    "<temp>\\ciel-trust-probe-fdd3npnb\\home-untrusted": null,
+    "<temp>/ciel-trust-probe-fdd3npnb/home-untrusted": null
+   },
+   "kills": 1
+  },
+  {
+   "case": "home-pretrusted",
+   "cwd_is_home": true,
+   "pre_trusted": true,
+   "dialog_shown": false,
+   "answered": false,
+   "persisted_after": {
+    "<temp>\\ciel-trust-probe-fdd3npnb\\home-pretrusted": true,
+    "<temp>/ciel-trust-probe-fdd3npnb/home-pretrusted": true
+   },
+   "kills": 1
+  },
+  {
+   "case": "sub-untrusted",
+   "cwd_is_home": false,
+   "pre_trusted": false,
+   "dialog_shown": true,
+   "answered": false,
+   "persisted_after": {
+    "<temp>\\ciel-trust-probe-fdd3npnb\\sub-untrusted\\work": null,
+    "<temp>/ciel-trust-probe-fdd3npnb/sub-untrusted/work": null
+   },
+   "kills": 1
+  },
+  {
+   "case": "sub-pretrusted",
+   "cwd_is_home": false,
+   "pre_trusted": true,
+   "dialog_shown": false,
+   "answered": false,
+   "persisted_after": {
+    "<temp>\\ciel-trust-probe-fdd3npnb\\sub-pretrusted\\work": true,
+    "<temp>/ciel-trust-probe-fdd3npnb/sub-pretrusted/work": true
+   },
+   "kills": 1
+  },
+  {
+   "case": "sub-accept",
+   "cwd_is_home": false,
+   "pre_trusted": false,
+   "dialog_shown": true,
+   "answered": true,
+   "persisted_after": {
+    "<temp>\\ciel-trust-probe-fdd3npnb\\sub-accept\\work": null,
+    "<temp>/ciel-trust-probe-fdd3npnb/sub-accept/work": null
+   },
+   "kills": 0
+  },
+  {
+   "case": "home-accept",
+   "cwd_is_home": true,
+   "pre_trusted": false,
+   "dialog_shown": true,
+   "answered": true,
+   "persisted_after": {
+    "<temp>\\ciel-trust-probe-fdd3npnb\\home-accept": null,
+    "<temp>/ciel-trust-probe-fdd3npnb/home-accept": null
+   },
+   "kills": 0
+  }
+ ],
+ "owned_survivors": 0
+}

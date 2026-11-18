@@ -1,0 +1,12 @@
+# 'Side P0 queued <item>' notices (side-intake.js shareWithMain) in Celly's main transcript, titles omitted
+      1 Side P0 queued n1000
+      2 Side P0 queued n1006
+      4 Side P0 queued n916
+      4 Side P0 queued n964
+      1 Side P0 queued n970
+      2 Side P0 queued n973
+      3 Side P0 queued n995
+      7 Side P0 queued n997
+      1 Side P0 queued n999
+notices ending "· fork starting": 19
+"P0 not activated" occurrences: 0

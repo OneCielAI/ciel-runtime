@@ -29,6 +29,8 @@ class ModelSelectionPorts:
     unique_ids: Callable[[str, list[str]], list[str]]
     apply_specs: Callable[[str, dict[str, Any]], list[str]]
     apply_timeout: Callable[..., list[str]]
+    # Listed rows the adapter left out, with the reason (model id -> reason).
+    exclusions: Callable[[str, dict[str, Any]], dict[str, str]] = lambda _provider, _config: {}
 
 
 @dataclass(frozen=True, slots=True)
@@ -298,6 +300,19 @@ class ProviderModelSelection:
         if current and current in ids:
             return True, []
         if current and current not in placeholders and catalog_policy.authoritative_upstream_catalog:
+            try:
+                reason = self.selection.exclusions(provider, config).get(current)
+            except Exception:
+                reason = None
+            if reason:
+                # The gateway listed it; ciel-runtime's own agent filter left it
+                # out. The gateway owns its capability flags (KOBE 2026-11-18).
+                return False, [
+                    f"Configured model {current!r} for {provider} is not in the provider catalog: "
+                    f"the gateway lists it, but ciel-runtime filtered it out ({reason}). "
+                    "The gateway owns its capability flags; choose another model or have the gateway "
+                    "report the missing capability, then refresh the model list."
+                ]
             return False, [
                 f"Configured model {current!r} for {provider} is not in the provider catalog. "
                 "Refresh the model list and reselect before launch/test."

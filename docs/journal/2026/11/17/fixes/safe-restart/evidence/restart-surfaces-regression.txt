@@ -1,0 +1,7 @@
+# related regression suites (24 files: Work HTTP x9, web UI, prelaunch x7, unattended restart, dangerous-rm menu order, cli parser, ctl parity, runtime session restart, architecture budget/contracts), working tree, isolated config
+ERROR: test_mcp_host_new_root_p0_goal_is_created_and_effective_p0 (test_work_http_controller.WorkRouterAuthTests.test_mcp_host_new_root_p0_goal_is_created_and_effective_p0)
+FAIL: test_no_file_exceeds_its_current_budget (test_architecture_budget.ArchitectureBudgetTests.test_no_file_exceeds_its_current_budget)
+FAILED (failures=1, errors=1, skipped=52)
+RAN 644 failures=1 errors=1 skipped=52
+# ERROR above: temp-folder cleanup PermissionError on work-parallel-p0.json.lock (WinError 32); it did not recur on rerun (35/35 test_work_http_controller pass).
+# FAIL above: ciel_runtime.py ratchet 4980; after making the build_work_http wiring line-neutral it is 4988 = HEAD 4980 + 8 lines of the slash/hold wiring outside this change.

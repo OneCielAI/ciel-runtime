@@ -82,12 +82,24 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
     urgent=[entry[3] for entry in prioritized if entry[0]<=1]
     ranked_rest=[entry[3] for entry in prioritized if entry[0]>1]
     aged=sorted((row for row in rows if stamp-row.get('received_at',stamp)>=aging_seconds),key=lambda row:row.get('received_at',0))
-    # P1 goes first, ahead of aged backlog: an urgent event waited behind
+    # P0, then P1, go first, ahead of aged backlog: an urgent event waited behind
     # every aged one (observed 2026-11-07, #116793). Aging still keeps older
     # ordinary events ahead of fresh P2..P5. urgent_only is the host's
     # reserved slot while ordinary capacity is full.
-    order=urgent if urgent_only else [*urgent,*aged,*ranked_rest,*rows]
+    # Andy 2026-11-18: rows retrying a failure are old, so by age they always
+    # won: after a restart the only claim was a 2-day-old page-limit failure
+    # while 408 new events waited. Retries take their own lane, alternated one
+    # for one with new events (claim-lane.json), so neither starves the other.
+    ordinary={row['receipt_id']:row for row in (*aged,*ranked_rest,*rows)}
+    fresh=[row for row in ordinary.values() if not row.get('side_failure')]
+    retrying=sorted((row for row in ordinary.values() if row.get('side_failure')),
+                    key=lambda row:(row.get('received_at',0),row['receipt_id']))
+    lane_path=inbox.directory/'claim-lane.json'
+    retry_first=(inbox._read_file(lane_path) or {}).get('next')=='retry'
+    lanes=[*retrying,*fresh] if retry_first else [*fresh,*retrying]
+    order=urgent if urgent_only else [*urgent,*lanes]
     unique={row['receipt_id']:row for row in order}
+    urgent_keys={row['receipt_id'] for row in urgent}
     for row in unique.values():
         key = row['receipt_id']
         with exclusive_file_lock(inbox._event_path('locks', key)):
@@ -130,13 +142,27 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
                 continue
             if not failure.get('quarantined') and failure.get('retry_not_before', 0) > stamp:
                 continue
+            if inbox.is_inbound_receipt_ack(current):
+                # Rows an older build received are settled here, before any fork.
+                inbox.settle_receipt_ack(key, current, stamp)
+                continue
             if _source_holder(inbox, key, current, stamp) != 'claim':
                 continue
             generation = uuid.uuid4().hex
             current['processing'] = {'owner': owner, 'generation': generation,
                                      'lease_until': stamp + lease_seconds, 'started_at': stamp}
             inbox._save_file(inbox._event_path('pending', key), current)
-            return {'receipt_id': key, 'text': current['text'], 'event_key': current['event_key'],
+            if key not in urgent_keys:
+                # The next ordinary claim prefers the other lane. A preference
+                # only (atomic replace, no lock): taking the cursor lock while
+                # this event's lock is held would invert the lock order above.
+                inbox._save_file(lane_path, {'next': 'fresh' if current.get('side_failure') else 'retry'})
+            saved = current.get('proposal')
+            return {**({'proposal': {name: saved.get(name) for name in ('understanding', 'decision', 'expected_version')}}
+                       # A proposal saved before a restart is committed as is: the
+                       # host resumes it without running the model again.
+                       if isinstance(saved, dict) else {}),
+                    'receipt_id': key, 'text': current['text'], 'event_key': current['event_key'],
                     'generation': generation, 'lease_until': stamp + lease_seconds,
                     'source_priority': source_priority(current['text']),
                     'use_parent_model': bool(failure.get('use_parent_model')
@@ -158,18 +184,30 @@ def verify_claim(inbox, receipt_id, generation, *, now=None):
     return row
 
 
-def renew(state_dir, session_id, receipt_id, generation, *, now=None, lease_seconds=120):
+def renew(state_dir, session_id, receipt_id, generation, *, now=None, lease_seconds=120, source_bounded=None):
+    """Extend a live claim. ``source_bounded`` ({"omitted_replies": n}) also
+    records on the receipt that its fork got a bounded source thread, so the
+    side receipt and the SSE pane show it (KOBE hotfix 2026-11-18)."""
     if type(lease_seconds) is not int or not 1 <= lease_seconds <= 3600:
         raise WorkPlanError('invalid side lease duration')
+    if source_bounded is not None:
+        omitted = source_bounded.get('omitted_replies') if isinstance(source_bounded, dict) else None
+        if type(omitted) is not int or omitted < 1:
+            raise WorkPlanError('source_bounded needs a positive omitted_replies')
     stamp = time.time() if now is None else now
     inbox = SideIntakeInbox(state_dir, session_id)
     with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
         row = verify_claim(inbox, receipt_id, generation, now=stamp)
         if row.get('stage') != 'received':
             raise WorkPlanError('side claim already settled')
-        row['processing']['lease_until'] = stamp + lease_seconds
+        until = stamp + lease_seconds
+        if source_bounded is not None:
+            # A record, not a heartbeat: never shortens the claim's lease.
+            until = max(until, float(row['processing'].get('lease_until') or 0))
+            row['source_bounded'] = {'omitted_replies': source_bounded['omitted_replies'], 'at': stamp}
+        row['processing']['lease_until'] = until
         inbox._save_file(inbox._event_path('pending', receipt_id), row)
-        return {'receipt_id': receipt_id, 'generation': generation, 'lease_until': stamp + lease_seconds}
+        return {'receipt_id': receipt_id, 'generation': generation, 'lease_until': until}
 
 
 MAIN_COMPACTION_WAITS = 12
@@ -323,11 +361,14 @@ def release_for_recheck(state_dir, session_id, receipt_id, generation, reason):
 
     Used when the board changed under a create: the event is decided again
     against the current board. A second change commits rather than looping.
+    The saved proposal goes, so the next actor's decision is accepted; the
+    understanding already sent stays recorded and is not sent again.
     """
     inbox = SideIntakeInbox(state_dir, session_id)
     with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
         row = verify_claim(inbox, receipt_id, generation)
         row.pop('processing', None)
+        row.pop('proposal', None)
         row['rechecks'] = int(row.get('rechecks') or 0) + 1
         row['recheck_reason'] = str(reason)[:200]
         inbox._save_file(inbox._event_path('pending', receipt_id), row)

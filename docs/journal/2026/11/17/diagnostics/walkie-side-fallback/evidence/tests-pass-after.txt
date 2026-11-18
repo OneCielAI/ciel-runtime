@@ -1,0 +1,8 @@
+# pass-after: claude plugin test ciel_runtime_support/claude_mods/ciel-work (work tree)
+(pass) graphical SSE view calls only a quarantined row failed; retries and compaction waits keep their state [378.57ms]
+ 104 pass
+ 0 fail
+Ran 104 tests across 2 files. [35.03s]
+
+# pass-after: every Python test file that loads the Work mod (18 files incl. test_side_understanding_flow), isolated config
+RAN 610 failures=0 errors=0 skipped=0

@@ -1,0 +1,22 @@
+# fail-before: tree = git archive HEAD (71f5243) with the new tests copied in; run_tests.py, isolated config
+FAIL: test_only_a_quarantined_row_is_failed_at_every_width (test_observatory_stage.ObservatoryStageTests.test_only_a_quarantined_row_is_failed_at_every_width) (width='100')
+AssertionError: 'P3 retrying' not found in '\u25b8P3 received Retry row'
+FAIL: test_only_a_quarantined_row_is_failed_at_every_width (test_observatory_stage.ObservatoryStageTests.test_only_a_quarantined_row_is_failed_at_every_width) (width='40')
+AssertionError: 'P3 retrying' not found in '\u25b8 P3 received Retry row'
+FAIL: test_spent_compaction_waits_start_the_fork_on_the_bounded_thread (test_side_intake_mod.SideModTests.test_spent_compaction_waits_start_the_fork_on_the_bounded_thread)
+AssertionError: Lists differ: ['main_compaction_pending'] != ['main_compaction_pending', 'source_context']
+FAIL: test_the_mod_wait_limit_matches_the_router (test_side_intake_mod.SideModTests.test_the_mod_wait_limit_matches_the_router)
+AssertionError: 'const MAIN_COMPACTION_WAITS = 12\n' not found in '// Independent actor state is host-owned, never accepted from model arguments.\nconst PREFIX = \'mcp__ciel-runtime-router__\'\nconst
+FAILED (failures=4)
+RAN 104 failures=4 errors=0 skipped=0
+
+# fail-before: claude plugin test on the same tree with the new observatory.test.ts
+(fail) graphical SSE view calls only a quarantined row failed; retries and compaction waits keep their state [449.18ms]
+  Expected: containing "P3 retrying"
+  Received: "▸P3 failed Retry row                    "
+(fail) the host accepts the band around an engine-drawn native element and a companion tree [307.77ms]
+  Expected: { type: "engine", ref: 0 }
+  Received: { type: "engine", ref: 2 }
+ 102 pass
+ 2 fail
+(the band test failure is HEAD's engine ref:0 expectation; the 2.1.327 fix is in the work tree, not part of this change)

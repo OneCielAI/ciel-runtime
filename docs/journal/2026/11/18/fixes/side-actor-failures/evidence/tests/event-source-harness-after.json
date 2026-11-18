@@ -1,0 +1,227 @@
+{
+ "long_thread": {
+  "spawns": 1,
+  "walkieReads": [],
+  "failures": []
+ },
+ "plain_text": {
+  "spawns": 1,
+  "walkieReads": [],
+  "failures": []
+ },
+ "none_referenced": {
+  "spawns": 1,
+  "walkieReads": [],
+  "failures": []
+ },
+ "null_none_referenced": {
+  "spawns": 1,
+  "walkieReads": [],
+  "failures": []
+ },
+ "null_thread_reference": {
+  "spawns": 0,
+  "walkieReads": [],
+  "failures": [
+   {
+    "category": "invalid_request",
+    "reason": "Walkie source classification missing"
+   }
+  ]
+ },
+ "malformed_spec": {
+  "spawns": 0,
+  "walkieReads": [],
+  "failures": [
+   {
+    "category": "invalid_request",
+    "reason": "Source context specification malformed"
+   }
+  ]
+ },
+ "invalid_classification": {
+  "spawns": 0,
+  "walkieReads": [],
+  "failures": [
+   {
+    "category": "invalid_request",
+    "reason": "Walkie message_id malformed"
+   }
+  ]
+ },
+ "truncated_ok": {
+  "spawns": 1,
+  "walkieReads": [
+   {
+    "tool": "walkie_read_messages",
+    "after": "40"
+   }
+  ],
+  "failures": []
+ },
+ "textless_ok": {
+  "spawns": 1,
+  "walkieReads": [
+   {
+    "tool": "walkie_read_messages",
+    "after": "40"
+   }
+  ],
+  "failures": []
+ },
+ "root_target_ok": {
+  "spawns": 1,
+  "walkieReads": [
+   {
+    "tool": "walkie_read_messages",
+    "after": "39"
+   }
+  ],
+  "failures": []
+ },
+ "big_id": {
+  "spawns": 1,
+  "walkieReads": [
+   {
+    "tool": "walkie_read_messages",
+    "after": "900719925474099312"
+   }
+  ],
+  "failures": []
+ },
+ "forged_target": {
+  "spawns": 0,
+  "walkieReads": [
+   {
+    "tool": "walkie_read_messages",
+    "after": "40"
+   }
+  ],
+  "failures": [
+   {
+    "category": "source_context",
+    "reason": "Source target is not in the event thread"
+   }
+  ]
+ },
+ "forged_root_target": {
+  "spawns": 0,
+  "walkieReads": [
+   {
+    "tool": "walkie_read_messages",
+    "after": "39"
+   }
+  ],
+  "failures": [
+   {
+    "category": "source_context",
+    "reason": "Source target is not in the event thread"
+   }
+  ]
+ },
+ "wrong_lineage": {
+  "spawns": 0,
+  "walkieReads": [
+   {
+    "tool": "walkie_read_messages",
+    "after": "40"
+   }
+  ],
+  "failures": [
+   {
+    "category": "source_context",
+    "reason": "Source thread target lineage mismatch"
+   }
+  ]
+ },
+ "other_conversation": {
+  "spawns": 0,
+  "walkieReads": [
+   {
+    "tool": "walkie_read_messages",
+    "after": "40"
+   }
+  ],
+  "failures": [
+   {
+    "category": "source_context",
+    "reason": "Source thread message identity malformed"
+   }
+  ]
+ },
+ "target_missing": {
+  "spawns": 0,
+  "walkieReads": [
+   {
+    "tool": "walkie_read_messages",
+    "after": "40"
+   }
+  ],
+  "failures": [
+   {
+    "category": "source_context",
+    "reason": "Source target message missing"
+   }
+  ]
+ },
+ "read_error": {
+  "spawns": 0,
+  "walkieReads": [
+   {
+    "tool": "walkie_read_messages",
+    "after": "40"
+   }
+  ],
+  "failures": [
+   {
+    "category": "source_context",
+    "reason": "Source target read failed"
+   }
+  ]
+ },
+ "read_throws": {
+  "spawns": 0,
+  "walkieReads": [
+   {
+    "tool": "walkie_read_messages",
+    "after": "40"
+   }
+  ],
+  "failures": [
+   {
+    "category": "source_context",
+    "reason": "Source target read failed"
+   }
+  ]
+ },
+ "malformed_response": {
+  "spawns": 0,
+  "walkieReads": [
+   {
+    "tool": "walkie_read_messages",
+    "after": "40"
+   }
+  ],
+  "failures": [
+   {
+    "category": "source_context",
+    "reason": "Source target response malformed"
+   }
+  ]
+ },
+ "oversize": {
+  "spawns": 0,
+  "walkieReads": [
+   {
+    "tool": "walkie_read_messages",
+    "after": "40"
+   }
+  ],
+  "failures": [
+   {
+    "category": "source_context",
+    "reason": "Source read exceeds per-call limit"
+   }
+  ]
+ }
+}

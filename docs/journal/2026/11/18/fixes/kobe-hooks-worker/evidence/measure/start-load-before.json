@@ -1,0 +1,33 @@
+{
+ "board": {
+  "nodes": 292
+ },
+ "start": {
+  "hookMs": 5664.5846,
+  "callsAtReturn": 201,
+  "settledMs": 6068.018099999999,
+  "total": 201,
+  "byTool": {
+   "work_status": 1,
+   "work_host_page": 148,
+   "work_parallel_status": 24,
+   "work_parallel_event": 22,
+   "work_side_wake": 6
+  }
+ },
+ "view": {
+  "ms": 202.25600000000122,
+  "callsAtReturn": 23,
+  "text": "Work & SSE pane: W Work \u00b7 S SSE \u00b7 G Settings \u00b7 J/K move \u00b7 I inspect \u00b7 Tab/arrows",
+  "total": 23,
+  "byTool": {
+   "work_status": 2,
+   "work_host_page": 16,
+   "work_parallel_status": 2,
+   "work_parallel_event": 1,
+   "work_live_settings": 1,
+   "work_side_status": 1
+  }
+ },
+ "leases": 6
+}

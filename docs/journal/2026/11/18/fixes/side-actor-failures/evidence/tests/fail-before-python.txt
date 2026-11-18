@@ -1,0 +1,122 @@
+F.FF.FEE.E..F.......................................................................F.....................................
+======================================================================
+ERROR: test_over_long_summary_reply_note_title_are_cut_with_a_marker (test_side_actor_failures_hotfix.LengthClampTests.test_over_long_summary_reply_note_title_are_cut_with_a_marker)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_side_actor_failures_hotfix.py", line 120, in test_over_long_summary_reply_note_title_are_cut_with_a_marker
+    decision = validate({'action': 'create', 'kind': 'request', 'title': 't' * 500,
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<tmp>\ciel_runtime_support\side_work_decision.py", line 150, in validate
+    raise tree.WorkPlanError('side decision needs bounded summary and reply')
+ciel_runtime_support.work_plan_tree.WorkPlanError: side decision needs bounded summary and reply
+
+======================================================================
+ERROR: test_understanding_is_cut_and_every_other_check_stays (test_side_actor_failures_hotfix.LengthClampTests.test_understanding_is_cut_and_every_other_check_stays)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_side_actor_failures_hotfix.py", line 129, in test_understanding_is_cut_and_every_other_check_stays
+    text = validate_understanding('I understand you want ' + 'z' * (MAX_UNDERSTANDING * 2), 'original')
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<tmp>\ciel_runtime_support\side_understanding_outbox.py", line 31, in validate_understanding
+    raise WorkPlanError('side proposal needs bounded understanding')
+ciel_runtime_support.work_plan_tree.WorkPlanError: side proposal needs bounded understanding
+
+======================================================================
+ERROR: test_on_an_executing_goal_a_side_update_keeps_the_approval_digest (test_side_actor_failures_hotfix.SideNoteFieldTests.test_on_an_executing_goal_a_side_update_keeps_the_approval_digest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_side_actor_failures_hotfix.py", line 99, in test_on_an_executing_goal_a_side_update_keeps_the_approval_digest
+    self.assertEqual('progress', result['side_note_field'])
+                                 ~~~~~~^^^^^^^^^^^^^^^^^^^
+KeyError: 'side_note_field'
+
+======================================================================
+FAIL: test_new_events_interleave_with_old_retries_after_p0_and_p1 (test_side_actor_failures_hotfix.ClaimOrderTests.test_new_events_interleave_with_old_retries_after_p0_and_p1)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_side_actor_failures_hotfix.py", line 63, in test_new_events_interleave_with_old_retries_after_p0_and_p1
+    self.assertEqual(['fresh', 'retry'] * 6, lanes)
+AssertionError: Lists differ: ['fresh', 'retry', 'fresh', 'retry', 'fresh[60 chars]try'] != ['retry', 'retry', 'retry', 'retry', 'retry[60 chars]try']
+
+First differing element 0:
+'fresh'
+'retry'
+
+- ['fresh',
++ ['retry',
+   'retry',
+-  'fresh',
+   'retry',
+-  'fresh',
+   'retry',
+-  'fresh',
+   'retry',
+-  'fresh',
+   'retry',
+-  'fresh',
++  'retry',
++  'retry',
++  'retry',
++  'retry',
++  'retry',
+   'retry']
+
+======================================================================
+FAIL: test_a_prepare_refusal_is_corrected_and_the_understanding_goes_out_once (test_side_actor_failures_hotfix.CorrectiveTurnTests.test_a_prepare_refusal_is_corrected_and_the_understanding_goes_out_once)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_side_actor_failures_hotfix.py", line 169, in test_a_prepare_refusal_is_corrected_and_the_understanding_goes_out_once
+    self.assertEqual(1, len(row['sends']))
+AssertionError: 1 != 0
+
+======================================================================
+FAIL: test_a_second_refusal_counts (test_side_actor_failures_hotfix.CorrectiveTurnTests.test_a_second_refusal_counts)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_side_actor_failures_hotfix.py", line 162, in test_a_second_refusal_counts
+    self.assertEqual(1, len(row['sends']))
+AssertionError: 1 != 0
+
+======================================================================
+FAIL: test_no_decision_json_gets_one_correction_then_commits (test_side_actor_failures_hotfix.CorrectiveTurnTests.test_no_decision_json_gets_one_correction_then_commits)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_side_actor_failures_hotfix.py", line 157, in test_no_decision_json_gets_one_correction_then_commits
+    self.assertEqual([{'to': 'actor-no_json_then_valid', 'mentionsError': True}], row['sends'])
+AssertionError: Lists differ: [{'to': 'actor-no_json_then_valid', 'mentionsError': True}] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+{'to': 'actor-no_json_then_valid', 'mentionsError': True}
+
+- [{'mentionsError': True, 'to': 'actor-no_json_then_valid'}]
++ []
+
+======================================================================
+FAIL: test_a_long_thread_never_fails_on_its_page_count (test_side_intake_mod.SideModTests.test_a_long_thread_never_fails_on_its_page_count)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_side_intake_mod.py", line 297, in test_a_long_thread_never_fails_on_its_page_count
+    self.assertEqual((1,None,13),(long['spawns'],long['failure'],long['pageReads']))
+AssertionError: Tuples differ: (1, None, 13) != (0, 'Source thread exceeds page limit', 8)
+
+First differing element 0:
+1
+0
+
+- (1, None, 13)
++ (0, 'Source thread exceeds page limit', 8)
+
+======================================================================
+FAIL: test_approval_for_waiting_item_requests_main_without_demoting_goal (test_side_work_decision.SideDecisionTests.test_approval_for_waiting_item_requests_main_without_demoting_goal)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_side_work_decision.py", line 110, in test_approval_for_waiting_item_requests_main_without_demoting_goal
+    self.assertIn('118269 approved', node['progress'])
+AssertionError: '118269 approved' not found in ''
+
+----------------------------------------------------------------------
+Ran 122 tests in 45.953s
+
+FAILED (failures=6, errors=3)
+RAN 122 failures=6 errors=3 skipped=0

@@ -163,6 +163,29 @@ class ModelRegistryRepository:
         info = self._normalize_info(provider, data.get("metadata"))
         return info or self.read_registry_info(provider, config, 0)
 
+    def read_exclusions(self, provider: str, config: dict[str, Any]) -> dict[str, str]:
+        """Listed catalog rows the provider adapter left out, with the reason,
+        from the same catalog read as the cached ids (list cache, else registry)."""
+        key = self.policy.cache_key(provider, config)
+        sources = []
+        for path in (self.paths.list_cache, self.paths.registry):
+            try:
+                sources.append(json.loads(path.read_text(encoding="utf-8")))
+            except Exception:
+                sources.append(None)
+        cache, registry = sources
+        rows = [cache]
+        if isinstance(registry, dict) and isinstance(registry.get("providers"), dict):
+            rows.append(registry["providers"].get(provider))
+        for row in rows:
+            if not isinstance(row, dict) or row.get("key") != key:
+                continue
+            metadata = row.get("metadata")
+            excluded = metadata.get("excluded_models") if isinstance(metadata, dict) else None
+            if isinstance(excluded, dict):
+                return {self.policy.normalize_id(provider, str(k)): str(v) for k, v in excluded.items()}
+        return {}
+
     def _normalize_info(self, provider: str, metadata: Any) -> dict[str, dict[str, Any]]:
         raw_info = metadata.get("model_info") if isinstance(metadata, dict) else None
         if not isinstance(raw_info, dict):
@@ -229,3 +252,6 @@ class ModelRegistryApi:
 
     def write_list_cache(self, provider: str, pcfg: dict[str, Any], models: list[str], metadata: dict[str, Any] | None = None) -> None:
         self.repository_factory().write_list_cache(provider, pcfg, models, metadata)
+
+    def read_exclusions(self, provider: str, pcfg: dict[str, Any]) -> dict[str, str]:
+        return self.repository_factory().read_exclusions(provider, pcfg)

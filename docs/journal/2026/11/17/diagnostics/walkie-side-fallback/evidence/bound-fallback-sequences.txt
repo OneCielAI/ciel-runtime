@@ -1,0 +1,19 @@
+# tests/side_persisted_harness.mjs sequences (scripted router keeps compaction_waits like side_intake_processing.fail)
+## side-intake.js = HEAD
+waits_spent {"warm_compacts": 1, "compacts": 0, "sent": ["main_compaction_pending", "main_compaction_pending"], "recorded": ["main_compaction_pending", "source_context"], "waits": 12, "attempts": 1, "spawns": 0, "truncated": null, "omitted": null, "messages": null}
+waits_spent_reloaded {"warm_compacts": 1, "compacts": 0, "sent": ["main_compaction_pending", "main_compaction_pending"], "recorded": ["source_context", "source_context"], "waits": 12, "attempts": 2, "spawns": 0, "truncated": null, "omitted": null, "messages": null}
+fresh_event {"warm_compacts": 1, "compacts": 0, "sent": ["main_compaction_pending", "main_compaction_pending"], "recorded": ["main_compaction_pending", "main_compaction_pending"], "waits": 2, "attempts": 0, "spawns": 0, "truncated": null, "omitted": null, "messages": null}
+fits_after_waits {"warm_compacts": 1, "compacts": 0, "sent": [], "recorded": [], "waits": 12, "attempts": 0, "spawns": 1, "truncated": false, "omitted": null, "messages": 61}
+urgent_no_wait {"warm_compacts": 1, "compacts": 0, "sent": [], "recorded": [], "waits": 0, "attempts": 0, "spawns": 1, "truncated": true, "omitted": 53, "messages": 8}
+context_budget main_compaction_pending compacts_immediate 1
+context_partial_p0 spawns 1 truncated True
+context_room spawns 1
+## side-intake.js = work
+waits_spent {"warm_compacts": 1, "compacts": 0, "sent": ["main_compaction_pending"], "recorded": ["main_compaction_pending"], "waits": 12, "attempts": 0, "spawns": 1, "truncated": true, "omitted": 53, "messages": 8}
+waits_spent_reloaded {"warm_compacts": 1, "compacts": 0, "sent": ["main_compaction_pending"], "recorded": ["source_context"], "waits": 12, "attempts": 1, "spawns": 1, "truncated": true, "omitted": 53, "messages": 8}
+fresh_event {"warm_compacts": 1, "compacts": 0, "sent": ["main_compaction_pending", "main_compaction_pending"], "recorded": ["main_compaction_pending", "main_compaction_pending"], "waits": 2, "attempts": 0, "spawns": 0, "truncated": null, "omitted": null, "messages": null}
+fits_after_waits {"warm_compacts": 1, "compacts": 0, "sent": [], "recorded": [], "waits": 12, "attempts": 0, "spawns": 1, "truncated": false, "omitted": null, "messages": 61}
+urgent_no_wait {"warm_compacts": 1, "compacts": 0, "sent": [], "recorded": [], "waits": 0, "attempts": 0, "spawns": 1, "truncated": true, "omitted": 53, "messages": 8}
+context_budget main_compaction_pending compacts_immediate 1
+context_partial_p0 spawns 1 truncated True
+context_room spawns 1

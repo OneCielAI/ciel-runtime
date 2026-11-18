@@ -210,9 +210,12 @@ class ClaudeSessionSocketClient:
                 # content-free engine event for the exact live session. It wakes
                 # only the side claim pump; external text remains in the inbox.
                 receipt_id = str((receipt or {}).get("receipt_id") or "")
+                # A receipt already processed at admission (another session's
+                # receipt ACK) has nothing for the pump: no wake.
                 if (
                     receipt
                     and receipt.get("accepted") is True
+                    and receipt.get("stage") != "processed"
                     and len(receipt_id) == 64
                     and all(character in "0123456789abcdef" for character in receipt_id)
                 ):

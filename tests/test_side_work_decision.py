@@ -40,7 +40,10 @@ class SideDecisionTests(unittest.TestCase):
                          'note': 'restated request', 'priority': 'P2'}, doc['version'])
         self.assertEqual(active, self.store.read()['active_root'])
         self.assertEqual(('queued', 1, 0), (created['queue']['state'], created['queue']['position'], created['queue']['ahead']))
-        self.assertTrue(created['final_text'].startswith('ACK — The answer'))
+        # The receipt ACK and the understanding went out earlier: the final reply
+        # is the result alone, never a second "ACK —" (user requirement 2026-11-17).
+        self.assertTrue(created['final_text'].startswith('The answer'))
+        self.assertNotIn('ACK', created['final_text'])
         self.assertIn(created['item_id'] + ' 등록 · P2 · 대기 1번째 (앞 0건).', created['final_text'])
 
     def test_existing_request_can_update_priority_and_queue_place_atomically(self):
@@ -101,7 +104,11 @@ class SideDecisionTests(unittest.TestCase):
         row = doc['side_handoffs'][self.key]
         self.assertEqual(('resume', 'pending'), (row['kind'], row['wake']['state']))
         self.assertEqual('Daniel approval 118269', next(n for n in doc['nodes'] if n['id'] == gate)['waiting_on'])
-        self.assertIn('118269 approved', next(n for n in doc['nodes'] if n['id'] == gate)['note'])
+        # Andy 2026-11-18: on an executing goal the observation goes to progress,
+        # outside the approval scope digest running forks report against.
+        node = next(n for n in doc['nodes'] if n['id'] == gate)
+        self.assertIn('118269 approved', node['progress'])
+        self.assertNotIn('118269 approved', node['note'])
 
     def test_low_priority_deadline_answer_creates_durable_time_limit_handoff(self):
         doc, item = self.store.transaction(lambda d: tree.add_node(d, None, 'low priority report', priority='P5'))
@@ -400,12 +407,42 @@ class SideDecisionTests(unittest.TestCase):
                          (duplicate['stage'], duplicate['result']['delivery'], duplicate['result']['duplicate_of']))
         self.assertEqual([handled], [row['receipt_id'] for row in pending(self.root, 'claude:test')])
 
+    def test_routine_side_answer_does_not_hold_main(self):
+        # User requirement 2026-11-17: main is told only when it must act.
+        apply(self.store, self.key, {**self.base, 'kind': 'status'}, 0, source='walkie:3c720143:119649')
+        self.assertNotIn(self.key, self.store.read().get('side_reviews') or {})
+        doc, _ = self.store.transaction(lambda d: tree.add_node(d, None, 'active'))
+        queued = apply(self.store, hashlib.sha256(b'p3').hexdigest(),
+                       {**self.base, 'kind': 'request', 'action': 'create', 'title': 'later', 'priority': 'P3'},
+                       doc['version'])
+        self.assertNotIn(queued['item_id'], [row.get('item_id') for row in
+                                             (self.store.read().get('side_reviews') or {}).values()])
+
+    def test_urgent_or_questioning_side_answers_reach_main(self):
+        doc, _ = self.store.transaction(lambda d: tree.add_node(d, None, 'active'))
+        urgent = hashlib.sha256(b'p1').hexdigest()
+        apply(self.store, urgent, {**self.base, 'kind': 'request', 'action': 'create', 'title': 'now',
+                                   'priority': 'P1'}, doc['version'])
+        asked = hashlib.sha256(b'clarify').hexdigest()
+        apply(self.store, asked, {**self.base, 'kind': 'clarify', 'action': 'clarify'}, self.store.read()['version'])
+        reviews = self.store.read()['side_reviews']
+        self.assertIn(urgent, reviews)
+        self.assertIn(asked, reviews)
+
+    def test_unsent_routine_answer_reaches_main_once(self):
+        from ciel_runtime_support.side_work_decision import record_unsent_review
+        result = apply(self.store, self.key, {**self.base, 'kind': 'status'}, 0, source='walkie:x:1')
+        self.assertNotIn(self.key, self.store.read().get('side_reviews') or {})
+        self.assertTrue(record_unsent_review(self.store, self.key, result, 'walkie:x:1'))
+        self.assertFalse(record_unsent_review(self.store, self.key, result, 'walkie:x:1'))
+        self.assertEqual('pending', self.store.read()['side_reviews'][self.key]['state'])
+
     def test_side_answer_leaves_a_main_review_note_until_reviewed(self):
         from ciel_runtime_support.side_review import review
-        result = apply(self.store, self.key, {**self.base, 'kind': 'status'}, 0,
+        result = apply(self.store, self.key, {**self.base, 'kind': 'clarify', 'action': 'clarify'}, 0,
                        source='walkie:3c720143:119649')
         row = self.store.read()['side_reviews'][self.key]
-        self.assertEqual(('pending', 'walkie:3c720143:119649', 'status'),
+        self.assertEqual(('pending', 'walkie:3c720143:119649', 'clarify'),
                          (row['state'], row['source'], row['kind']))
         self.assertEqual(result['final_text'], row['reply'])
         reviewed = review(self.store, [self.key], verdict='ok', note='', expected_version=self.store.read()['version'])

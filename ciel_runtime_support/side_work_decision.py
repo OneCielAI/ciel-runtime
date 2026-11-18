@@ -127,9 +127,31 @@ def side_note(previous, note):
     return previous, {'trimmed': 0, 'skipped': True}
 
 
+MAX_SIDE_SUMMARY = 16000
+
+
+def clamp_text(value, limit):
+    """``value`` cut to ``limit`` characters with a visible host marker.
+
+    Andy 2026-11-18: over-long model text was refused and the event retried to
+    quarantine. Length is presentation, not safety: the host keeps the head and
+    says how much it cut; every other check still applies.
+    """
+    if not isinstance(value, str) or len(value) <= limit:
+        return value
+    marker = ' … [host cut %d characters]' % (len(value) - limit)
+    keep = max(0, limit - len(marker))
+    marker = ' … [host cut %d characters]' % (len(value) - keep)
+    return (value[:keep] + marker)[:limit]
+
+
 def validate(decision):
     if not isinstance(decision, dict) or set(decision) - FIELDS:
         raise tree.WorkPlanError('invalid side decision fields')
+    for key, limit in (('summary', MAX_SIDE_SUMMARY), ('reply', MAX_SIDE_SUMMARY), ('note', tree.MAX_TEXT_CHARS),
+                       ('title', tree.MAX_TITLE_CHARS)):
+        if isinstance(decision.get(key), str) and len(decision[key]) > limit:
+            decision[key] = clamp_text(decision[key], limit)
     # Live side models sometimes put the classification in both fields
     # (action="status"/"info") instead of mapping it to action="answer".
     if decision.get('action') in ('status', 'info') and decision.get('kind') == decision['action']:
@@ -146,7 +168,7 @@ def validate(decision):
     if decision.get('kind', 'request') not in KINDS:
         raise tree.WorkPlanError('invalid side decision kind')
     for key in ('summary', 'reply'):
-        if not isinstance(decision.get(key), str) or not decision[key].strip() or len(decision[key]) > 16000:
+        if not isinstance(decision.get(key), str) or not decision[key].strip() or len(decision[key]) > MAX_SIDE_SUMMARY:
             raise tree.WorkPlanError('side decision needs bounded summary and reply')
     for key, limit in (('note', tree.MAX_TEXT_CHARS), ('title', tree.MAX_TITLE_CHARS), ('item_id', 200)):
         if key in decision and (not isinstance(decision[key], str) or len(decision[key]) > limit):
@@ -238,6 +260,43 @@ def outcome_text(result, priority=None):
 
 
 MAX_SIDE_REVIEWS = 50
+
+
+def needs_main_review(result, decision):
+    """Whether main must look at this side answer (user requirement 2026-11-17).
+
+    Main is interrupted only for P0/P1, a time limit, a released wait, a relay
+    to running work, a clarification question or anything that already needs a
+    handoff. A routine status/info answer or a P2-P5 queue entry stays in the
+    side history (receipts, Side pane, web, REST, ctl) and does not hold main.
+    A reply the host then cannot send is recorded for main by
+    ``record_unsent_review`` (the reply outbox), independent of this rule.
+    """
+    priority = str(result.get('priority') or decision.get('priority') or '')
+    return bool(priority in ('P0', 'P1')
+                or result.get('time_limit') or result.get('released_waits')
+                or result.get('relay') or decision.get('relay')
+                or result['action'] in ('clarify', 'advise')
+                or result.get('handoff') == 'requested')
+
+
+def record_unsent_review(store, receipt_id, result, source=None):
+    """A side reply the host could not send reaches main once (failure path).
+
+    A routine answer has no review row (needs_main_review); when its send is
+    refused or has no route, the person never saw it, so main gets the row.
+    Idempotent: an existing row is left as it is.
+    """
+    def mutate(doc):
+        if receipt_id in (doc.get('side_reviews') or {}):
+            return False
+        _record_review(doc, receipt_id, result, source)
+        return True
+    try:
+        _, added = store.transaction(mutate)
+        return added
+    except (tree.WorkPlanError, OSError, ValueError):
+        return False
 
 
 def _record_review(doc, receipt_id, result, source):
@@ -343,6 +402,7 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
         wants_p0 = decision.get('priority') == 'P0'
         board_priority = 'P1' if wants_p0 else decision.get('priority', '')
         compacted = None
+        side_note_field = None
         if action == 'create':
             title = decision.get('title', '').strip()
             if not title:
@@ -363,7 +423,18 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
                 raise tree.WorkPlanError('Work update note required')
             # Side observations are input for main to review, not a scope change
             # approved by main. Preserve the existing execution phase.
-            by_id[item]['note'], compacted = side_note(by_id[item].get('note', ''), note)
+            # Andy 2026-11-18: an approved (executing) goal's notes are part of its
+            # approval scope digest (work_parallel_mcp._root_scope_digest), so a
+            # side note there would change the fingerprint running forks report
+            # against. On an executing goal the observation goes to ``progress``
+            # (runtime narrative, outside the digest), with the same bounded
+            # compaction; a planning goal keeps it in ``note``.
+            item_root = tree._root_of(by_id, item)
+            field = 'progress' if tree.root_phase(doc, item_root) == tree.PHASE_EXECUTING else 'note'
+            by_id[item][field], compacted = side_note(by_id[item].get(field, ''), note)
+            if compacted is not None and field == 'progress':
+                compacted = {**compacted, 'field': field}
+            side_note_field = field
             by_id[item]['updated_at'] = time.time()
         if action in ('update', 'prioritize') and decision.get('priority'):
             # Priority is goal-scoped in the canonical tree. A request naming
@@ -437,6 +508,8 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             result['kind'] = effective_kind
         if compacted:
             result['note_compacted'] = compacted
+        if side_note_field == 'progress':
+            result['side_note_field'] = 'progress'
         if time_limit is not None:
             result['time_limit'] = dict(time_limit)
         if isinstance(source_context, str) and source_context:
@@ -470,12 +543,11 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             if direct_p0:
                 result.update(priority='P0', p0_root_id=tree._root_of(by_id, item))
         if effective_kind:
-            # Requests carry an explicit ACK together with the model's transcript-
-            # based restatement. Status/info answer directly without boilerplate.
+            # The receipt ACK and the understanding were already sent (user
+            # requirement 2026-11-17); the final reply is the result alone, with
+            # no second "ACK —". The committed outcome, never the model's guess,
+            # closes it.
             text = decision['reply'].rstrip()
-            if effective_kind == 'request':
-                text = 'ACK — ' + text
-            # The committed outcome, never the model's guess, closes the reply.
             result['final_text'] = text + '\n\n' + outcome_text(result)
         receipts[receipt_id] = {'decision_digest': digest, 'applied_at': time.time(),
                                 'item_id': item, 'recap': decision['summary'], 'result': result}
@@ -483,7 +555,7 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             # The host forwards the message to main and to the fork working on
             # this item; each decides whether it matters to its current work.
             result['relay'] = {'item_id': item}
-        if not main_reply and not gate_check:
+        if not main_reply and not gate_check and needs_main_review(result, decision):
             # Main's own handoff answers come back as follow-ups; main already knows them.
             # A host gate re-check has no person behind it: a release or a
             # handoff already reaches main, and "no change" is not news.
