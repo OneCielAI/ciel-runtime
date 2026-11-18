@@ -1,0 +1,73 @@
+{
+    "no_json_then_valid": {
+        "label": "no_json_then_valid",
+        "sends": [],
+        "prepares": 0,
+        "understandingSent": 0,
+        "resolves": 0,
+        "failures": [
+            {
+                "category": "invalid_answer",
+                "reason": "side answer carries no decision JSON"
+            }
+        ],
+        "stopped": 0,
+        "handled": [
+            true,
+            true
+        ]
+    },
+    "no_json_twice": {
+        "label": "no_json_twice",
+        "sends": [],
+        "prepares": 0,
+        "understandingSent": 0,
+        "resolves": 0,
+        "failures": [
+            {
+                "category": "invalid_answer",
+                "reason": "side answer carries no decision JSON"
+            }
+        ],
+        "stopped": 1,
+        "handled": [
+            true,
+            true
+        ]
+    },
+    "prepare_refused_then_valid": {
+        "label": "prepare_refused_then_valid",
+        "sends": [],
+        "prepares": 1,
+        "understandingSent": 0,
+        "resolves": 0,
+        "failures": [
+            {
+                "category": "invalid_answer",
+                "reason": "Side router operation failed: work_side_understanding: side decision kind does not match its action"
+            }
+        ],
+        "stopped": 1,
+        "handled": [
+            true,
+            true
+        ]
+    },
+    "resolve_refused": {
+        "label": "resolve_refused",
+        "sends": [],
+        "prepares": 1,
+        "understandingSent": 1,
+        "resolves": 1,
+        "failures": [
+            {
+                "category": "invalid_answer",
+                "reason": "Side router operation failed: work_side_resolve: existing Work identity required"
+            }
+        ],
+        "stopped": 1,
+        "handled": [
+            true
+        ]
+    }
+}

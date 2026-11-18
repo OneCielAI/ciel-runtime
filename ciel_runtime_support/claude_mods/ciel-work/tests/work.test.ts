@@ -22,7 +22,14 @@ function setup(on, extra = {}) {
     if (Object.hasOwn(HOST_REPLIES, e.tool)) {
       s.hostCalls.push(e)
       if (s.offline) return { deny: 'offline' }
-      return { value: { isError: false, content: [{ type: 'text', text: JSON.stringify(HOST_REPLIES[e.tool]) }] } }
+      // A test may answer the gate check itself (the batched tick, 2026-11-18).
+      const reply = e.tool === 'work_side_gate_check' && s.gateReply ? s.gateReply(e.args) : HOST_REPLIES[e.tool]
+      return { value: { isError: false, content: [{ type: 'text', text: JSON.stringify(reply) }] } }
+    }
+    // A stand-in Walkie server for the gate tick's thread reads.
+    if (e.server === 'walkie' && s.walkie) {
+      s.walkieCalls = [...(s.walkieCalls || []), e.args]
+      return { value: { isError: false, content: [{ type: 'text', text: JSON.stringify(s.walkie(e.args)) }] } }
     }
     s.calls.push(e)
     s.activeReads++; s.maxReads = Math.max(s.maxReads, s.activeReads)
@@ -1043,6 +1050,65 @@ test('KOBE: the gate check is armed before the start phase and fires while that 
   expect(gateCalls()[0].args.idle).toBe(false)
   s.waitStatus = null; release?.()
   await clock.settle()
+})
+// Andy 2026-11-18 (user design): one batch per tick, latest state only. The
+// router names each gate thread once with its cursor; the host reads only the
+// messages after it (at most 2 pages), never the thread's history, and hands
+// the reads back in the same tick.
+const C = '34886995-4a66-4527-a618-814e9cb0a5bf'
+const thread = (count, root = '40') => args => {
+  const from = Number(args.arguments.after) + 1
+  const rows = []
+  for (let id = Math.max(from, Number(root) + 1); id <= Number(root) + count && rows.length < 200; id++)
+    rows.push({ id: String(id), conversation_id: C, thread_root_id: root, text: 'msg ' + id })
+  return rows
+}
+test('gate tick: 20 gates on 3 threads make 3 reads after each cursor and one batch', async ($, on) => {
+  const s = hints(on); const clock = mock.clock(on)
+  const threads = [
+    { key: C + '|40', server: 'walkie', conversation_id: C, root_id: '40', after: '2035', gates: Array.from({ length: 8 }, (_, i) => 'a' + i) },
+    { key: C + '|5000', server: 'walkie', conversation_id: C, root_id: '5000', after: '5003', gates: Array.from({ length: 7 }, (_, i) => 'b' + i) },
+    { key: C + '|7000', server: 'walkie', conversation_id: C, root_id: '7000', after: '7001', gates: Array.from({ length: 5 }, (_, i) => 'c' + i) }]
+  // Thread 40 has 2,000 replies (41..2040): only the 5 after its cursor are read.
+  const sizes = { '40': 2000, '5000': 3, '7000': 1 }
+  s.walkie = args => thread(sizes[args.arguments.root_id], args.arguments.root_id)(args)
+  s.gateReply = args => args.threads_read
+    ? { interval_minutes: 5, queued: true, receipt_id: 'r'.repeat(64), receipt_ids: ['r'.repeat(64)], events: 1, gates: ['a0'] }
+    : { interval_minutes: 5, queued: false, reason: 'read_threads', read_threads: threads }
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  await clock.advance(60000)
+  const gate = s.hostCalls.filter(c => c.tool === 'work_side_gate_check')
+  expect(gate.length).toBe(2)
+  expect(gate[0].args.thread_reads).toBe(true)
+  expect(s.walkieCalls.length).toBe(3)
+  expect(s.walkieCalls.map(a => a.arguments.after)).toEqual(['2035', '5003', '7001'])
+  const reads = gate[1].args.threads_read
+  expect(reads.map(r => [r.key, r.messages.map(m => m.id), r.more])).toEqual([
+    [C + '|40', ['2036', '2037', '2038', '2039', '2040'], false], [C + '|5000', [], false], [C + '|7000', [], false]])
+})
+test('gate tick: a cursor far behind reads at most two pages, never the history', async ($, on) => {
+  const s = hints(on); const clock = mock.clock(on)
+  s.walkie = thread(2000)
+  s.gateReply = args => args.threads_read ? { interval_minutes: 5, queued: false, reason: 'nothing_new' }
+    : { interval_minutes: 5, queued: false, reason: 'read_threads', read_threads: [
+      { key: C + '|40', server: 'walkie', conversation_id: C, root_id: '40', after: '40', gates: ['g1'] }] }
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  await clock.advance(60000)
+  expect(s.walkieCalls.map(a => a.arguments.after)).toEqual(['40', '240'])
+  const read = s.hostCalls.filter(c => c.tool === 'work_side_gate_check')[1].args.threads_read[0]
+  expect([read.messages.length, read.more]).toEqual([400, true])
+})
+test('gate tick: a malformed or foreign thread row is returned as a failed read, not used', async ($, on) => {
+  const s = hints(on); const clock = mock.clock(on)
+  s.walkie = () => [{ id: '42', conversation_id: C, thread_root_id: '39', text: 'other thread' }]
+  s.gateReply = args => args.threads_read ? { interval_minutes: 5, queued: false, reason: 'not_due' }
+    : { interval_minutes: 5, queued: false, reason: 'read_threads', read_threads: [
+      { key: C + '|40', server: 'walkie', conversation_id: C, root_id: '40', after: '41', gates: ['g1'] }] }
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  await clock.advance(60000)
+  const read = s.hostCalls.filter(c => c.tool === 'work_side_gate_check')[1].args.threads_read[0]
+  expect(read.error).toContain('lineage')
+  expect(read.messages).toBeUndefined()
 })
 test('idle refresh never overlaps a slow poll and discards its late response after end', async ($, on) => {
   const s = hints(on); const clock = mock.clock(on)

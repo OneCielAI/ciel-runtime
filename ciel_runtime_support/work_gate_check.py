@@ -37,11 +37,13 @@ DEFAULT_MINUTES = 5
 RANGE = (1, 1440)
 KEY = "work_gate_check_minutes"
 EVENT_PREFIX = "gate-check:"
-# Gates per side event. Every gate is checked each interval: a board with more
-# gates gets several events (Walkie 2026-11-16, board version 5928: 270 gates;
-# one event of 24 left 246 never checked).
+# Every gate is checked each interval (Walkie 2026-11-16, board version 5928:
+# 270 gates; one event of 24 left 246 never checked). Andy 2026-11-18 (user
+# design): one tick is one batch, so all gates go into one side event, decided
+# by one fork; the event text is bounded by the side inbox text limit.
 BATCH_GATES = 24
 MAX_BATCHES = 20
+EVENT_TEXT_CHARS = 30_000
 
 
 def minutes(config: Mapping[str, Any]) -> int:
@@ -127,7 +129,11 @@ def digest(rows: list[dict[str, Any]]) -> str:
     return hashlib.sha256(json.dumps(material, separators=(",", ":")).encode()).hexdigest()[:16]
 
 
-def event_text(rows: list[dict[str, Any]], interval: int, part: str = "") -> str:
+def event_text(rows: list[dict[str, Any]], interval: int, part: str = "",
+               threads: Mapping[str, Mapping[str, Any]] | None = None) -> str:
+    """The tick's one event. ``threads`` maps a gate id to its thread's new
+    messages (gate-check thread reads): they are listed under the first gate of
+    that thread, and the later gates of the thread point to it."""
     lines = [
         "Ciel gate re-check (host timer, every %d min, also while main is busy; Work forks may be running)%s." % (
             interval, (" — " + part) if part else ""),
@@ -144,15 +150,73 @@ def event_text(rows: list[dict[str, Any]], interval: int, part: str = "") -> str
         "  gated, so the host hands it to main to resume (a resume handoff); nothing is cleared.",
         "- Nothing changed or you cannot verify it: action answer, kind status, summary \"no change\"",
         "  with what you checked. Never guess; never release on a mention alone.",
+        "Decide every gate below in this one answer (one decision; the gate that changed most, or",
+        "a status answer that lists what you checked). Messages listed under a gate are the only new",
+        "messages of its source thread since the last check; older ones are in your context. For a",
+        "gate without listed messages, read only what is needed to check its current state",
+        "(the CI run, the approval message, the file), never a whole thread or its history.",
         "Gates:",
     ]
+    shown: dict[str, str] = {}
     for row in rows:
         what = ("waiting on: " + row["waiting_on"]) if row["waiting_on"] else "status blocked"
         rank = ("[" + row["priority"] + "] ") if row.get("priority") else ""
         lines.append(f"- {rank}{row['id']} ({row['title']}) in goal {row['root_id']} ({row['root_title']}): {what}")
         if row["evidence"]:
             lines.append("  last evidence: " + row["evidence"].replace("\n", " ")[:300])
-    return "\n".join(lines)
+        thread = (threads or {}).get(row["id"])
+        if thread:
+            key = thread["key"]
+            if key in shown:
+                lines.append("  new thread messages: see " + shown[key] + " above (same thread)")
+                continue
+            shown[key] = row["id"]
+            messages = thread["messages"]
+            from .work_gate_threads import MESSAGES_PER_THREAD
+            kept = messages[-MESSAGES_PER_THREAD:]
+            lines.append("  new messages in its source thread (root %s) since %s: %d%s" % (
+                thread["root_id"], thread["after"], len(messages),
+                (", newest %d shown" % len(kept)) if len(kept) < len(messages) else ""))
+            for message in kept:
+                lines.append("    #%s %s: %s" % (message["id"], message["sender"] or "?", message["text"]))
+            if thread.get("more"):
+                lines.append("    (more new messages exist; read only those you need)")
+    text = "\n".join(lines)
+    if len(text) > EVENT_TEXT_CHARS:
+        text = text[:EVENT_TEXT_CHARS - 80] + "\n[gate list cut at the event size limit; check the rest next tick]"
+    return text
+
+
+def tick_rows(config: Mapping[str, Any], doc: Mapping[str, Any], state: Mapping[str, Any] | None,
+              *, now: float | None = None,
+              priority: Callable[[Mapping[str, Any]], str] | None = None) -> tuple[list[dict[str, Any]], str, float] | None:
+    """(gates, digest, stamp) when a tick is due now, else None."""
+    interval = minutes(config)
+    if interval == 0:
+        return None
+    rows = gates(doc, priority)
+    if not rows:
+        return None
+    stamp = time.time() if now is None else now
+    current = digest(rows)
+    previous = state or {}
+    if previous.get("digest") == current and stamp - float(previous.get("at") or 0) < interval * 60:
+        return None
+    return rows, current, stamp
+
+
+def tick_event(config: Mapping[str, Any], rows: list[dict[str, Any]], current: str, stamp: float,
+               threads: Mapping[str, Mapping[str, Any]] | None = None) -> dict[str, Any]:
+    """The one side event of a tick for ``rows``."""
+    interval = minutes(config)
+    slot = int(stamp // (interval * 60))
+    text = event_text(rows, interval, "%d gate(s)" % len(rows) if len(rows) > 1 else "", threads)
+    # The text digest keeps one key per exact content: a retry of the same check
+    # deduplicates, and a same-slot check with newer evidence is its own event.
+    body = hashlib.sha256(text.encode()).hexdigest()[:8]
+    event = {"event_key": f"{EVENT_PREFIX}{current}:{slot}:1:{body}", "text": text, "gates": [row["id"] for row in rows]}
+    return {"event_key": event["event_key"], "text": text, "events": [event], "digest": current, "at": stamp,
+            "gates": event["gates"], "interval_minutes": interval}
 
 
 def due(config: Mapping[str, Any], doc: Mapping[str, Any], state: Mapping[str, Any] | None,
@@ -165,32 +229,11 @@ def due(config: Mapping[str, Any], doc: Mapping[str, Any], state: Mapping[str, A
     busy turn (KOBE hotfix 2026-11-18) nor running Work forks (Stage 3,
     2026-11-17) defer it; the router keeps one round at a time.
     """
-    interval = minutes(config)
-    if interval == 0:
+    tick = tick_rows(config, doc, state, now=now, priority=priority)
+    if tick is None:
         return None
-    rows = gates(doc, priority)
-    if not rows:
-        return None
-    stamp = time.time() if now is None else now
-    current = digest(rows)
-    previous = state or {}
-    if previous.get("digest") == current and stamp - float(previous.get("at") or 0) < interval * 60:
-        return None
-    slot = int(stamp // (interval * 60))
-    batches = [rows[index:index + BATCH_GATES] for index in range(0, len(rows), BATCH_GATES)]
-    events = []
-    for number, batch in enumerate(batches, 1):
-        part = ("gates %d-%d of %d (event %d of %d)" % ((number - 1) * BATCH_GATES + 1,
-                (number - 1) * BATCH_GATES + len(batch), len(rows), number, len(batches))
-                if len(batches) > 1 else "")
-        text = event_text(batch, interval, part)
-        # The text digest keeps one key per exact content: a retry of the same check
-        # deduplicates, and a same-slot check with newer evidence is its own event.
-        body = hashlib.sha256(text.encode()).hexdigest()[:8]
-        events.append({"event_key": f"{EVENT_PREFIX}{current}:{slot}:{number}:{body}", "text": text,
-                       "gates": [row["id"] for row in batch]})
-    return {"event_key": events[0]["event_key"], "text": events[0]["text"], "events": events,
-            "digest": current, "at": stamp, "gates": [row["id"] for row in rows], "interval_minutes": interval}
+    rows, current, stamp = tick
+    return tick_event(config, rows, current, stamp)
 
 
 def effective_priority_for(identity: str) -> Callable[[Mapping[str, Any]], str]:
@@ -257,4 +300,4 @@ def host_report(config: Mapping[str, Any], last: Mapping[str, Any] | None, repor
 
 
 __all__ = ["DEFAULT_MINUTES", "EVENT_PREFIX", "KEY", "RANGE", "digest", "due", "effective_priority_for", "event_text",
-           "gates", "host_report", "minutes", "set_minutes"]
+           "gates", "host_report", "minutes", "set_minutes", "tick_event", "tick_rows"]

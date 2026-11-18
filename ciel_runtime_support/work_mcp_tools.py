@@ -71,7 +71,9 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
          "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 100}}}},
         {"name": "work_side_gate_check", "description": "Host-only: queue one side gate re-check of blocked/waiting Work (P0 first, then P1, then the rest) when it is due, also while main is busy and Work forks run; one round at a time. Or claim/record the host's own round (host_report). idle reports whether main's turn has ended; it no longer defers the check.",
          "inputSchema": {"type": "object", "properties": {"idle": {"type": "boolean"}, "forks_running": {"type": "integer", "minimum": 0},
-                                                          "host_report": {"type": "object"}},
+                                                          "host_report": {"type": "object"},
+                                                          "thread_reads": {"type": "boolean", "description": "The host reads each gate thread after its cursor (two calls per tick)."},
+                                                          "threads_read": {"type": "array", "items": {"type": "object"}}},
                          "required": ["idle", "forks_running"]}},
         {"name": "work_side_intake", "description": "Durably queue an untrusted side request without approving execution or changing the active goal. Stable event_key deduplicates retries; host coordinator only.",
          "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "maxLength": SIDE_INTAKE_TEXT_MAX_CHARS},
@@ -531,7 +533,7 @@ def dispatch_work_tool(
             return respond(request_id, json.dumps(drain(state_dir, identity, admit=False, limit=args.get('limit', 10)), ensure_ascii=False))
         if name == "work_side_gate_check":
             from .work_parallel_mcp import host_context
-            from .work_gate_check import due, gates, minutes
+            from .work_gate_check import gates, minutes
             host, _ = host_context(args, config)
             if host.get("agent_id") is not None:
                 raise tree.WorkPlanError("gate check requires coordinator host")
@@ -595,17 +597,59 @@ def dispatch_work_tool(
                 if open_rows:
                     return respond(request_id, json.dumps({**status, "reason": "previous_round_pending",
                                                            "pending": len(open_rows)}))
-                event = due(config, doc, last, priority=priority)
-                if event is None:
+                from .work_gate_check import tick_event, tick_rows
+                tick = tick_rows(config, doc, last, priority=priority)
+                if tick is None:
                     return respond(request_id, json.dumps({**status, "reason": "not_due" if gates(doc, priority) else "no_gates"}))
+                rows, current, stamp = tick
+                # Andy 2026-11-18 (user design): one batch per tick, latest state
+                # only. Gates bound to a Walkie thread are checked against the
+                # messages after that thread's cursor, read once per thread by
+                # the host (thread_reads); a thread with nothing new drops its
+                # gates from this tick, and no gate left means no side event.
+                threads_by_gate, newest, reads_count = None, {}, 0
+                if args.get("thread_reads") is True:
+                    from .work_gate_threads import advance as advance_threads, clean_reads, threads_for
+                    planned = threads_for(state_dir, identity, rows)
+                    if planned and args.get("threads_read") is None:
+                        return respond(request_id, json.dumps({**status, "reason": "read_threads", "read_threads": [
+                            {key: plan[key] for key in ("key", "server", "conversation_id", "root_id", "after", "gates")}
+                            for plan in planned.values()]}, ensure_ascii=False))
+                    if planned:
+                        reads = clean_reads(args.get("threads_read"), planned)
+                        reads_count = len(reads)
+                        threads_by_gate, quiet = {}, set()
+                        for key, plan in planned.items():
+                            read = reads.get(key)
+                            if read is None or read.get("error"):
+                                continue  # Unread: checked as a gate without a thread.
+                            if not read["messages"]:
+                                quiet.update(plan["gates"])
+                                continue
+                            for gate in plan["gates"]:
+                                threads_by_gate[gate] = {"key": key, "root_id": plan["root_id"], "after": plan["after"],
+                                                         "messages": read["messages"], "more": read["more"]}
+                        newest = {key: read["newest"] for key, read in reads.items() if read.get("newest")}
+                        rows = [row for row in rows if row["id"] not in quiet]
+                        if not rows:
+                            advance_threads(state_dir, identity, newest)
+                            record.write_text(json.dumps({**(last or {}), "at": stamp, "digest": current, "receipt_ids": []},
+                                                         ensure_ascii=False), encoding="utf-8")
+                            return respond(request_id, json.dumps({**status, "reason": "nothing_new",
+                                                                   "threads_read": reads_count}))
+                event = tick_event(config, rows, current, stamp, threads_by_gate)
                 receipts = [receive(state_dir, identity, part["text"], part["event_key"], admit=False,
                                     route={"source_kind": "gate_check"}).get("receipt_id")
                             for part in event["events"]]
                 record.write_text(json.dumps({**(last or {}), "at": event["at"], "digest": event["digest"],
                                               "receipt_ids": receipts}, ensure_ascii=False), encoding="utf-8")
+                if newest:
+                    from .work_gate_threads import advance as advance_threads
+                    advance_threads(state_dir, identity, newest)
             return respond(request_id, json.dumps({**status, "queued": True, "receipt_id": receipts[0],
                                                   "receipt_ids": receipts, "events": len(receipts),
-                                                  "gates": event["gates"]}, ensure_ascii=False))
+                                                  "gates": event["gates"], "threads_read": reads_count},
+                                                 ensure_ascii=False))
         if name == "work_side_intake":
             from .work_parallel_mcp import host_context
             from .side_intake_service import receive

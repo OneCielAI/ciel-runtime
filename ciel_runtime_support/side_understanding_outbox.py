@@ -27,6 +27,11 @@ def digest(understanding, decision, expected_version):
 
 
 def validate_understanding(value, original=''):
+    if isinstance(value, str) and len(value) > MAX_UNDERSTANDING:
+        # An over-long restatement is cut with a marker, not refused (Andy
+        # 2026-11-18); a missing, blank, ACK or echoed one is still refused.
+        from .side_work_decision import clamp_text
+        value = clamp_text(value, MAX_UNDERSTANDING)
     if not isinstance(value, str) or not value.strip() or len(value) > MAX_UNDERSTANDING:
         raise WorkPlanError('side proposal needs bounded understanding')
     text = value.strip()

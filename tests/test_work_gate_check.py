@@ -149,16 +149,18 @@ class GateBatchTests(unittest.TestCase):
                                                                             waiting_on='signal %d' % i))
             self.ids.append(node)
 
-    def test_sixty_gates_become_three_events_covering_all(self):
+    def test_sixty_gates_are_one_batch_covering_all(self):
+        # Andy 2026-11-18 (user design): one tick is one batch for one fork; the
+        # 24-gate split of 2026-11-16 gave one fork per 24 gates.
         event = gate.due({}, self.store.read(), None, now=1000.0)
         parts = event['events']
-        self.assertEqual([24, 24, 12], [len(part['gates']) for part in parts])
-        self.assertEqual(self.ids, [g for part in parts for g in part['gates']])
-        self.assertEqual(3, len({part['event_key'] for part in parts}))
-        self.assertIn('gates 25-48 of 60 (event 2 of 3)', parts[1]['text'])
+        self.assertEqual([60], [len(part['gates']) for part in parts])
+        self.assertEqual(self.ids, parts[0]['gates'])
+        self.assertIn('60 gate(s)', parts[0]['text'])
+        self.assertEqual(60, parts[0]['text'].count('waiting on: signal '))
         self.assertEqual(self.ids, event['gates'])
 
-    def test_mcp_queues_one_receipt_per_batch(self):
+    def test_mcp_queues_one_receipt_per_tick(self):
         root = Path(self.tmp.name) / 'state'
         identity = 'claude:batch'
         store = session_work_plan_store(root, identity)
@@ -170,8 +172,8 @@ class GateBatchTests(unittest.TestCase):
                                     respond=lambda _id, text, error=False: {'text': text, 'error': error})
         self.assertFalse(result['error'], result)
         body = json.loads(result['text'])
-        self.assertEqual(3, body['events'])
-        self.assertEqual(3, len(SideIntakeInbox(root, identity).pending()))
+        self.assertEqual(1, body['events'])
+        self.assertEqual(1, len(SideIntakeInbox(root, identity).pending()))
 
 
 class GateCheckMcpTests(unittest.TestCase):

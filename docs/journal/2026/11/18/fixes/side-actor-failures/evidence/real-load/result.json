@@ -1,0 +1,80 @@
+{
+  "kind": "side-actor failures hotfix real load",
+  "claude_version": "2.1.327 (Claude Code)",
+  "mod_sha256": {
+    "register.js": "233f6ef693e6c930b6229daf3f0f28f5404fc0782c23ed25f25765dda945c582",
+    "side-intake.js": "98f94ad33bb7a152cad2785f4be7a42147504109cbf7a2d036b883cf048c9752"
+  },
+  "source_matches_snapshot": true,
+  "steps": {
+    "mod_load_line": "hooks module ciel-work@inline loaded (worker, environment 1, tier user); events: agent.spawn,session.append,session.start,classic.SessionStart,prompt.attachment,turn.start,turn.step,turn.complete,sess",
+    "first_side_request": true,
+    "corrected_side_request": true,
+    "receipt": {
+      "stage": "processed",
+      "source_bounded": null,
+      "action": "answer",
+      "failure": null
+    }
+  },
+  "kill": "SUCCESS: The process with PID 82704 (child process of PID 90212) has been terminated.",
+  "side_requests": [
+    {
+      "after_s": 4.7,
+      "kind": "spawn",
+      "parsed": true,
+      "event_id": "852a9e24a0fb5d3d2d00cd38bf9dc18e740e80dbc8a9fcd17e325ecc11966151",
+      "source_context": "event_only",
+      "source_ref": {
+        "conversation_id": "34886995-4a66-4527-a618-814e9cb0a5bf",
+        "root_id": "40",
+        "target_message_id": "45"
+      },
+      "has_thread": false,
+      "has_target_message": false
+    },
+    {
+      "after_s": 6.5,
+      "kind": "correction",
+      "names_error": true
+    }
+  ],
+  "walkie_calls": {
+    "read_messages": 0,
+    "threads_read": 0,
+    "sends": 0
+  },
+  "router": [
+    {
+      "name": "work_side_understanding",
+      "state": "prepare",
+      "error": false
+    },
+    {
+      "name": "work_side_resolve",
+      "error": false
+    }
+  ],
+  "unloaded_or_failed": [],
+  "debug_side_lines": [
+    "2026-11-18T23:27:19.639Z [DEBUG] $.session.send (ciel-work): to a99f79aad4546123a: \"Ciel side host: your answer was refused, so nothing was committed or sent. Exact error: side answer carries no decision JSON\\nAnswer again with only the one JSON object the event prompt describes: {\\\"un\"",
+    "2026-11-18T23:27:19.708Z [DEBUG] $.session.send (ciel-work): not delivered: a plugin declined the resume: Side SSE native fork authorization did not match its pending host record.",
+    "2026-11-18T23:27:19.709Z [DEBUG] [ciel-work] $.ui.log (to debug): Ciel side: correction for 852a9e24a0fb not delivered at turn end (a plugin declined the resume: Side SSE native fork authorization did not match its pending host record.); retrying after the hook",
+    "2026-11-18T23:27:21.211Z [DEBUG] $.session.send (ciel-work): to a99f79aad4546123a: \"Ciel side host: your answer was refused, so nothing was committed or sent. Exact error: side answer carries no decision JSON\\nAnswer again with only the one JSON object the event prompt describes: {\\\"un\"",
+    "2026-11-18T23:27:21.242Z [DEBUG] $.session.send (ciel-work): delivered",
+    "2026-11-18T23:27:21.251Z [DEBUG] [ciel-work] $.ui.log (to debug): Ciel side: asked the side actor for 852a9e24a0fb to correct its answer (side answer carries no decision JSON)"
+  ],
+  "checks": {
+    "mod_loaded": true,
+    "no_unload_or_load_failure": true,
+    "no_walkie_read_before_decision": true,
+    "fork_got_event_and_source_ref": true,
+    "fork_corrected_once": true,
+    "decision_committed": true,
+    "no_failure_counted": true
+  },
+  "live_claude_json_mentions_run": false,
+  "profile_unchanged": true,
+  "passed": true,
+  "scratch_removed": false
+}

@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import { startSide, pollSide, sideSpawnInput, sideTool, completeSide, suppressSide, sideReceipts, sideActors, sideMcpParity, hostJson, eventView, sideMainBusy, sideStopWake, sideRecordStopWake, sideWakeKnown, sidePromptSubmit, sidePromptPending, sidePromptTurnStart, sidePromptTurnComplete, sidePromptReassert, sidePromptRef, sideMainTurnStart, sideMainStep, sideMainFence, sideAppendStored, sideStopNotPresented, sideWakeRead, sideWakeReminded, sideReviewAppended, sideReviewDelivery, sideReviewRecheck, noticeToMain, sideParkedResume } from './side-intake.js'
+import { startSide, pollSide, sideSpawnInput, sideTool, completeSide, suppressSide, sideReceipts, sideActors, sideMcpParity, hostJson, eventView, sideMainBusy, sideStopWake, sideRecordStopWake, sideWakeKnown, sidePromptSubmit, sidePromptPending, sidePromptTurnStart, sidePromptTurnComplete, sidePromptReassert, sidePromptRef, sideMainTurnStart, sideMainStep, sideMainFence, sideAppendStored, sideStopNotPresented, sideWakeRead, sideWakeReminded, sideReviewAppended, sideReviewDelivery, sideReviewRecheck, noticeToMain, sideParkedResume, sideThreadReadAfter } from './side-intake.js'
 
 // Router is authoritative; this cache is display-only and never persisted.
 const detailView = atom({ plugin: 'ciel-work', key: 'detail' }, null)
@@ -1140,7 +1140,16 @@ function scheduleGateCheck($, identity) {
         forks = rows.filter(row => row?.spawnedBy === 'ciel-work' && row?.type === 'fork'
           && !sideOwned(row) && ['pending', 'running'].includes(row?.status)).length
       } catch { forks = 0 /* Only recorded; running forks no longer defer the check. */ }
-      const value = await parallelCall($, 'work_side_gate_check', { idle: !working, forks_running: forks })
+      // One batch per tick (Andy 2026-11-18): the router names the gate threads
+      // to read; the host reads each once, after its cursor, and hands the reads
+      // back in the same tick. Nothing new on any gate: no side event, no fork.
+      let value = await parallelCall($, 'work_side_gate_check', { idle: !working, forks_running: forks, thread_reads: true })
+      if (value?.reason === 'read_threads' && Array.isArray(value.read_threads)) {
+        const reads = []
+        for (const thread of value.read_threads.slice(0, 200)) reads.push(await sideThreadReadAfter($, thread))
+        value = await parallelCall($, 'work_side_gate_check', { idle: !working, forks_running: forks, thread_reads: true,
+          threads_read: reads })
+      }
       if (value?.queued) {
         $.ui.log('Gate re-check queued for ' + (value.gates || []).length + ' blocked/waiting item(s)')
         sideStatusDirty = true

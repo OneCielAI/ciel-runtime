@@ -616,4 +616,16 @@ def run(name, args, config, state_dir, identity, store):
     # The board records the decision before pending mail is removed. A retry
     # recovers the same application if this receipt write was interrupted.
     receipt = finish(state_dir, identity, key, generation, result)
+    # Gate re-check thread cursors (Andy 2026-11-18): every committed event of a
+    # Walkie thread advances that thread's cursor, and a node the decision
+    # created or updated is bound to the thread. The thread is the host's own
+    # classification of the event, never the model's. Advisory: a failed write
+    # only makes the next gate check read like a gate without a thread.
+    try:
+        from .side_reply_connector import source_read as event_source
+        from .work_gate_threads import record_event
+        record_event(state_dir, identity, event_source(config, (row or {}).get('route', {}) or {}, (row or {}).get('text')),
+                     result)
+    except Exception:  # noqa: BLE001
+        pass
     return {'receipt': receipt, 'result': result}

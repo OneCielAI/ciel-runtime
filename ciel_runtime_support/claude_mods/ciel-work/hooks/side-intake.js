@@ -90,15 +90,14 @@ function line(value, limit = 300) {
   const text = String(value || '').replace(/[\x00-\x1f\x7f-\x9f]/g, ' ').replace(/\s+/g, ' ').trim()
   return text.length <= limit ? text : text.slice(0, limit - 1) + '…'
 }
-// Bounds from the 2026-11-11 aggregate measurement of 531 Walkie threads on
-// this machine (no text copied): rows p99 40 / max 113, bytes p99 111,564 /
-// max 341,233. 384 KiB covers every observed thread and stays well inside a
-// forked context; 8 pages of 200 replies covers 14x the largest thread seen.
-// Anything larger fails closed and stays visible in the Side receipt.
-const SOURCE_THREAD_MAX_BYTES = 384 * 1024
-const SOURCE_THREAD_MAX_PAGES = 8
-const SOURCE_THREAD_PAGE_ROWS = 200
-const SOURCE_THREAD_MAX_ROWS = SOURCE_THREAD_MAX_PAGES * SOURCE_THREAD_PAGE_ROWS + 1
+// Andy 2026-11-18 (user design): the side actor is a native fork of main, so
+// main's transcript, where every earlier event of a thread arrived, is already
+// in its context. The host no longer reads the source thread before a
+// decision; thread length can never fail or delay an event (134 events failed
+// "Source thread exceeds page limit" in one day). Only an event whose body was
+// cut by the source ([잘림]) or carries no message text gets one host read of
+// its target message. The fork keeps its read-only Walkie tools for anything
+// more its decision genuinely needs.
 const WALKIE_UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/
 // Walkie's own contract (origin/main f59bbe11): ids are positive, unpadded and
 // at most 18 digits; the threads.read cursor is 1-18 digits. 18-digit ids pass
@@ -106,7 +105,6 @@ const WALKIE_UUID = /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4
 const WALKIE_MESSAGE_ID = /^[1-9]\d{0,17}$/
 const WALKIE_AFTER = /^\d{1,18}$/
 const LINEAGE_FIELDS = ['reply_to_message_id','thread_root_id']
-const BYTES = new TextEncoder()
 class SourcePrefetchError extends Error {
   // invalid_request: a malformed identifier, never retried (quarantined).
   // source_context: an unreadable/incomplete/oversized thread; the receipt is
@@ -185,18 +183,6 @@ function parseJsonText(text,message) {
   if (typeof text !== 'string') throw new SourcePrefetchError(message)
   try { return JSON.parse(text) } catch { throw new SourcePrefetchError(message) }
 }
-function unwrapThreadPage(text) {
-  let value = parseJsonText(text,'Source thread page malformed')
-  // walkie_call_tool may return the operation result itself, or an MCP-shaped
-  // result whose content text holds it.
-  if (!Array.isArray(value) && Array.isArray(value?.content)) {
-    const text = value.content.filter(c=>c?.type==='text').map(c=>c.text).join('\n')
-    value = parseJsonText(text,'Source thread page content malformed')
-  }
-  const rows = Array.isArray(value) ? value : value?.messages ?? value?.rows
-  if (!Array.isArray(rows)) throw new SourcePrefetchError('Source thread page rows malformed')
-  return rows
-}
 function validateMessage(row,conversation) {
   if (!row || typeof row !== 'object' || Array.isArray(row)) throw new SourcePrefetchError('Source thread message malformed')
   const id = messageId(row.id ?? row.message_id)
@@ -219,39 +205,65 @@ function exactLineage(row,spec) {
     if (fetchedLineage(row,field) !== spec[field]) throw new SourcePrefetchError('Source thread target lineage mismatch')
   }
 }
-// Host read of Walkie's canonical complete thread, before any fork is spawned.
-// The fork never makes these reads; it receives the verified thread.
-// The fork inherits main's whole context, then receives the verified thread.
-// UTF-8 bytes are a strict upper bound on the tokens a text can take (every
-// token encodes at least one byte), so the thread must fit, in bytes, inside
-// the window main has left after a reserve for the event prompt, Work
-// projection and the fork's answer (20% of the window, at least 16K tokens).
-// $.session.usage().context: tokens = main's last input, window = its model's.
-async function contextBudgetBytes($) {
-  let context = null
-  try { context = (await $.session.usage())?.context } catch {}
-  const window = Number(context?.window)
-  if (!Number.isFinite(window) || window <= 0) return {bytes:SOURCE_THREAD_MAX_BYTES,source:'static'}
-  const used = Number.isFinite(Number(context.tokens)) ? Number(context.tokens) : 0
-  const reserve = Math.max(16384, Math.ceil(window * 0.2))
-  return {bytes:Math.max(0,Math.min(SOURCE_THREAD_MAX_BYTES,window - used - reserve)),source:'main_context',window,used,reserve}
+// Gate re-check (Andy 2026-11-18, user design): the host reads one gate thread
+// only after its cursor, at most GATE_THREAD_PAGES pages of 200, never its
+// history. Each row must be in that conversation and thread, ascending past the
+// cursor. Called by register.js's gate tick; a failure is returned, not thrown,
+// so the router checks that thread's gates like gates without a thread.
+const GATE_THREAD_PAGES = 2
+function threadRows(text) {
+  let value = parseJsonText(text,'Source thread page malformed')
+  if (!Array.isArray(value) && Array.isArray(value?.content)) {
+    value = parseJsonText(value.content.filter(c=>c?.type==='text').map(c=>c.text).join('\n'),'Source thread page content malformed')
+  }
+  const rows = Array.isArray(value) ? value : value?.messages ?? value?.rows
+  if (!Array.isArray(rows)) throw new SourcePrefetchError('Source thread page rows malformed')
+  return rows
 }
-// A thread larger than the room left (384 KiB, or main's remaining context)
-// throws overBudget carrying bound(): the root, the target message and the
-// newest replies that fit, with thread_truncated and omitted_replies. The
-// caller compacts main first when that can make room; past that, it uses
-// bound() instead of failing (2026-11-16: Walkie thread 63773 was quarantined
-// after 6 tries). "Past that" is either a compaction this module ran within
-// COMPACT_COOLDOWN_MS or the event's durable compaction waits used up
-// (compactionWaitsSpent). The thread is read once; bound() makes no further reads.
-async function fetchSourceMessage($,spec,event = {}) {
+export async function sideThreadReadAfter($,thread) {
+  const key = thread?.key
+  try {
+    if (!WALKIE_UUID.test(String(thread?.conversation_id || '')) || !messageId(thread?.root_id) || !WALKIE_AFTER.test(String(thread?.after || '')))
+      throw malformed('gate thread reference malformed')
+    const messages = []
+    let after = String(thread.after), previous = BigInt(after), more = false
+    for (let page = 0; page < GATE_THREAD_PAGES; page++) {
+      const rows = threadRows(await mcpText($,String(thread.server || 'walkie'),'walkie_call_tool',{operation_id:'threads.read',
+        schema_version:1,arguments:{conversation_id:thread.conversation_id,root_id:thread.root_id,after}},'Source thread read failed'))
+      for (const row of rows.slice(0,200)) {
+        const id = validateMessage(row,thread.conversation_id)
+        if (BigInt(id) <= previous) throw new SourcePrefetchError('Source thread ids are not strictly increasing')
+        if (fetchedLineage(row,'thread_root_id') !== thread.root_id) throw new SourcePrefetchError('Source thread reply lineage mismatch')
+        previous = BigInt(id)
+        messages.push({id,sender:line(row.sender_name ?? row.sender ?? row.user_name ?? row.author ?? '',80),
+          text:line(row.text ?? row.content ?? '',400)})
+      }
+      if (rows.length < 200) { more = false; break }
+      more = true
+      after = String(previous)
+    }
+    return {key,messages,more}
+  } catch (error) { return {key,error:line(String(error?.message || error),200)} }
+}
+// The event's own message text: data.text of a Walkie CloudEvent, else the
+// event body itself (a plain-text event is its own message).
+function walkieEventText(original) {
+  let body
+  try { body = JSON.parse(original) } catch { return String(original || '') }
+  if (!body || typeof body !== 'object' || !body.data || typeof body.data !== 'object') return String(original || '')
+  const text = body.data.text ?? body.data.payload?.text
+  return typeof text === 'string' ? text : ''
+}
+// The source context the fork gets. Every identifier check that needs no read
+// stays: a malformed or conflicting identity is refused before any spawn.
+async function eventSource($,spec,event = {}) {
   const truncated = event.source_truncated === true
   if (spec === undefined || spec === null) {
     // A host-classified message-less Walkie event has no read to perform. Any
     // other Walkie classification missing its read spec fails closed; preview-
     // only processing is never inferred from null.
     if (event.source_context === 'none_referenced')
-      return {source_context:'none_referenced',...(event.source_truncated ? {event_truncated:true} : {})}
+      return {source_context:'none_referenced',...(truncated ? {event_truncated:true} : {})}
     if (event.source_context && event.source_context !== 'not_walkie')
       throw malformed('Walkie source classification missing')
     return {source_context:'not_walkie'}
@@ -268,79 +280,31 @@ async function fetchSourceMessage($,spec,event = {}) {
   for (const field of LINEAGE_FIELDS)
     if (Object.prototype.hasOwnProperty.call(spec,field) && spec[field] !== null && !messageId(spec[field]))
       throw malformed('Source context lineage malformed')
-  const conversation = spec.conversation_id
-  const rootId = spec.root_id
-  const rootAfter = String(BigInt(rootId) - 1n)
-  if (!WALKIE_AFTER.test(rootAfter)) throw malformed('Source root cursor malformed')
-  const rootText = await mcpText($,spec.server,'walkie_read_messages',{conversation_id:conversation,after:rootAfter},
-    'Source root read failed')
-  const rootValue = parseJsonText(rootText,'Source root response malformed')
-  const rootRows = rootValue?.messages ?? rootValue?.result?.messages ?? rootValue?.data?.messages
-  if (!Array.isArray(rootRows)) throw new SourcePrefetchError('Source root rows malformed')
-  // walkie_read_messages(after=root-1) is ascending by id: its first row must be
-  // the root itself, and a root has no thread_root_id.
-  const root = rootRows[0]
-  if (!root || messageId(root?.id ?? root?.message_id) !== rootId) throw new SourcePrefetchError('Source thread root missing')
-  validateMessage(root,conversation)
-  if (fetchedLineage(root,'thread_root_id') !== null) throw new SourcePrefetchError('Source thread root lineage malformed')
-  const replies = []
-  let after = '0'
-  let previous = BigInt(rootId)
-  const budget = await contextBudgetBytes($)
-  const mainLimited = budget.source === 'main_context' && budget.bytes < SOURCE_THREAD_MAX_BYTES
-  const overBudget = () => Object.assign(new SourcePrefetchError(mainLimited
-    ? 'Source thread exceeds main context budget (' + budget.bytes + ' bytes left of window ' + budget.window
-      + ', used ' + budget.used + ')' : 'Source thread exceeds byte limit'), {mainContext:mainLimited,overBudget:true})
-  if (BYTES.encode(JSON.stringify(root)).length > budget.bytes) throw overBudget()
-  for (let page = 0; ; page++) {
-    if (page >= SOURCE_THREAD_MAX_PAGES) throw new SourcePrefetchError('Source thread exceeds page limit')
-    const rows = unwrapThreadPage(await mcpText($,spec.server,'walkie_call_tool',{operation_id:'threads.read',
-      schema_version:1,arguments:{conversation_id:conversation,root_id:rootId,after}},'Source thread read failed'))
-    if (rows.length > SOURCE_THREAD_PAGE_ROWS) throw new SourcePrefetchError('Source thread page exceeds Walkie page size')
-    for (const row of rows) {
-      const id = validateMessage(row,conversation)
-      const numeric = BigInt(id)
-      // Replies are strictly ascending and all after the root.
-      if (numeric <= previous) throw new SourcePrefetchError('Source thread ids are not strictly increasing')
-      previous = numeric
-      if (fetchedLineage(row,'thread_root_id') !== rootId) throw new SourcePrefetchError('Source thread reply lineage mismatch')
-      replies.push(row)
-      if (replies.length + 1 > SOURCE_THREAD_MAX_ROWS) throw new SourcePrefetchError('Source thread exceeds row limit')
-    }
-    // threads.read: id>after ORDER BY id ASC LIMIT 200. A short page ends the
-    // thread; exactly 200 rows needs one more page.
-    if (rows.length < SOURCE_THREAD_PAGE_ROWS) break
-    after = String(previous)
-    if (!WALKIE_AFTER.test(after)) throw new SourcePrefetchError('Source thread continuation malformed')
-  }
-  const messages = [root,...replies]
-  const target = messages.filter(row=>messageId(row.id ?? row.message_id)===spec.target_message_id)
-  if (target.length !== 1) throw new SourcePrefetchError('Source thread target missing')
-  exactLineage(target[0],spec)
-  const source = {source_context:'verified_thread',conversation_id:conversation,root_id:rootId,
+  const cut = truncated || spec.event_truncated === true
+  const source = {source_context:'event_only',conversation_id:spec.conversation_id,root_id:spec.root_id,
     target_message_id:spec.target_message_id,
     ...Object.fromEntries(LINEAGE_FIELDS.filter(field => Object.prototype.hasOwnProperty.call(spec,field))
       .map(field => [field,spec[field]])),
-    ...(truncated || spec.event_truncated ? {event_truncated:true} : {}),
-    messages:messages.map(row=>sourceRedacted(row))}
-  const size = value => BYTES.encode(JSON.stringify(value)).length
-  if (size(source) <= budget.bytes) return source
-  const error = overBudget()
-  error.bound = () => {
-    // Root and target always; then the newest replies, newest first, while they fit.
-    const targetIndex = messages.indexOf(target[0])
-    const keep = new Set([0,targetIndex])
-    const sized = () => ({...source,messages:source.messages.filter((_,index) => keep.has(index)),
-      thread_truncated:true,omitted_replies:messages.length - keep.size})
-    if (size(sized()) > budget.bytes) throw overBudget()
-    for (let index = messages.length - 1; index > 0; index--) {
-      if (keep.has(index)) continue
-      keep.add(index)
-      if (size(sized()) > budget.bytes) { keep.delete(index); break }
-    }
-    return sized()
-  }
-  throw error
+    ...(cut ? {event_truncated:true} : {})}
+  if (!cut && walkieEventText(event.text).trim()) return source
+  // One read: walkie_read_messages(after=target-1) is ascending by id, so its
+  // first row is the target itself. It must be that message, in this
+  // conversation and this thread, with the lineage the event claims.
+  const after = String(BigInt(spec.target_message_id) - 1n)
+  if (!WALKIE_AFTER.test(after)) throw malformed('Source target cursor malformed')
+  const value = parseJsonText(await mcpText($,spec.server,'walkie_read_messages',
+    {conversation_id:spec.conversation_id,after},'Source target read failed'),'Source target response malformed')
+  const rows = value?.messages ?? value?.result?.messages ?? value?.data?.messages
+  if (!Array.isArray(rows)) throw new SourcePrefetchError('Source target rows malformed')
+  const target = rows[0]
+  if (!target || messageId(target?.id ?? target?.message_id) !== spec.target_message_id)
+    throw new SourcePrefetchError('Source target message missing')
+  validateMessage(target,spec.conversation_id)
+  const thread = fetchedLineage(target,'thread_root_id')
+  if (spec.target_message_id === spec.root_id ? thread !== null : thread !== spec.root_id)
+    throw new SourcePrefetchError('Source target is not in the event thread')
+  exactLineage(target,spec)
+  return {...source,source_context:'verified_target',target_message:sourceRedacted(target)}
 }
 
 const OPAQUE_KEY = /token|secret|password|authori[sz]ation|signature|cookie|credential|activity_context/i
@@ -421,20 +385,23 @@ Only read and reason. The host alone commits one decision and sends every
 message to the source. Your final answer MUST be exactly the decision JSON
 described below.
 
-First read source_message when present (source_context verified_thread); it is
-the complete verified Walkie thread (root plus every reply) and
-target_message_id names the exact message this event is about. When
-source_message.thread_truncated is true the thread was too large: the root, the
-target message and the newest replies are present and omitted_replies older
-replies are left out. Do not assume what they said; if the decision depends on
-them, clarify. With
-source_context none_referenced the event names no message or thread; decide from
-the event itself. If event_truncated is true, the source cut this event body at
-its size limit (marker [잘림]): do not assume or invent the missing content; say
-what is missing and clarify instead of guessing. The complete current Work projection and full main transcript
-are already inherited. Do not call a tool for facts already there.
-The decision MUST describe this event's source_message target_message_id (or,
-when source_message is absent, this external_event_preview), not an earlier
+Decide from this event (original, external_event_preview) and the context you
+inherited. The host does not read the source thread for you: earlier messages of
+this thread reached main as events, so they are in the inherited main
+transcript. source_ref names the conversation, the thread root and
+target_message_id, the exact message this event is about. When target_message is
+present, the event body was cut or empty and target_message is that message,
+read and verified by the host. With source_context none_referenced the event
+names no message or thread; decide from the event itself. If event_truncated is
+true and no target_message is present, the source cut this event body at its
+size limit (marker [잘림]): do not assume or invent the missing content; say what
+is missing and clarify instead of guessing. Do not assume what any message you
+have not seen said. You keep read-only Walkie tools: read more only when your
+decision genuinely needs it, only the messages it needs, never the whole thread.
+The complete current Work projection and full main transcript are already
+inherited. Do not call a tool for facts already there.
+The decision MUST describe this event's target_message_id (or, when there is no
+source_ref, this external_event_preview), not an earlier
 message in that conversation, a prior event, prior handoff, or similar
 transcript content. Earlier conversation messages and the transcript only give
 context and identify the matching Work item and current state.
@@ -447,7 +414,7 @@ Classify exactly:
 - status: report the current Work state directly. No request recap and no Work.
 - info: gather only what is needed, organize it, and answer. No Work.
 - clarify: required facts are missing; ask one precise question. No Work.
-- request: understand what the person asks using source_message plus the
+- request: understand what the person asks using this event plus the
   transcript, then queue it. understanding carries every concrete requirement,
   constraint, target, environment and deadline they gave, in one to three
   sentences of your own; "Registered" alone is not understanding.
@@ -584,59 +551,6 @@ async function resumeParked(leases) {
 function parkedNote(lease,outcomes) {
   return lease.host_id+' (lease '+lease.id+', item '+lease.item_id+')'
     +(outcomes.get(lease.id) === true ? '' : ' was not resumed automatically: '+line(String(outcomes.get(lease.id) || 'unknown'),160))
-}
-// Main compaction before a side actor (2026-11-15). A Walkie source thread that
-// does not fit in the context main has left is not a source failure: main is
-// compacted between turns ($.session.compact rejects while a turn runs; a
-// busy main is compacted when its turn completes) and the event is released
-// for a short retry that never counts toward quarantine. After one compaction
-// per conversation within COMPACT_COOLDOWN_MS, a thread that still does not
-// fit fails as an ordinary source_context error.
-const COMPACT_COOLDOWN_MS = 10 * 60 * 1000
-const compactions = new Map()
-function compactionRecent(identity) {
-  const at = compactions.get(identity)?.at || 0
-  return at > 0 && Date.now() - at < COMPACT_COOLDOWN_MS
-}
-// The waits an over-budget event may spend for main's compaction; mirrors
-// side_intake_processing.MAIN_COMPACTION_WAITS (a test compares the two).
-// The router counts them durably and returns the count in every work_side_fail
-// receipt. A main that stays busy is never compacted by this module (it
-// compacts only between turns), so the cooldown above alone never opened the
-// bounded thread: Walkie 2026-11-17, thread 137008, 22 events spent all 12
-// waits and then 6 counted failures before the original reached main.
-const MAIN_COMPACTION_WAITS = 12
-const COMPACTION_WAITS_CAP = 1000
-// identity\0receipt_id -> the durable compaction_waits the router last returned.
-const compactionWaitCounts = new Map()
-function noteCompactionWaits(identity, receipt) {
-  const waits = receipt?.side_failure?.compaction_waits
-  if (typeof receipt?.receipt_id !== 'string' || !Number.isInteger(waits)) return
-  const key = identity + '\0' + receipt.receipt_id
-  compactionWaitCounts.delete(key)
-  compactionWaitCounts.set(key, waits)
-  if (compactionWaitCounts.size > COMPACTION_WAITS_CAP) compactionWaitCounts.delete(compactionWaitCounts.keys().next().value)
-}
-function compactionWaitsSpent(identity, receiptId) {
-  return (compactionWaitCounts.get(identity + '\0' + receiptId) || 0) >= MAIN_COMPACTION_WAITS
-}
-async function compactMain($, identity) {
-  const state = compactions.get(identity) || {}
-  if (state.running) return false
-  if (mainBusy()) { compactions.set(identity, {...state, wanted:true}); return false }
-  compactions.set(identity, {...state, wanted:false, running:true})
-  try {
-    const result = await $.session.compact()
-    const skipped = result?.skip
-    compactions.set(identity, {at:skipped ? state.at || 0 : Date.now(), wanted:false, running:false})
-    try { $.ui.log('Ciel side: main compacted so a waiting side event fits its context'
-      + (skipped ? ' (skipped: ' + line(String(skipped), 120) + ')' : '')) } catch {}
-    return !skipped
-  } catch {
-    // A turn started meanwhile: compact when it completes.
-    compactions.set(identity, {...state, wanted:true, running:false})
-    return false
-  }
 }
 // Plugin prompts. Owned Claude Code probes measured two independent facts: a
 // user-role append enters the next request but starts no turn
@@ -874,9 +788,6 @@ export function sidePromptTurnStart() {
 }
 export function sidePromptTurnComplete($) {
   for (const entry of promptEntries.values()) armPromptRelease($,entry)
-  // A side event waiting for room compacts main first, then main is woken.
-  const wanted = [...compactions].find(([, state]) => state.wanted)
-  if (wanted) { void compactMain($,wanted[0]).finally(() => wakeUnread($)); return }
   // A row appended after this turn's last request was carried by none of its
   // requests (owned probe prompt-gate-0dd78bf3). Main is idle now: wake it.
   wakeUnread($)
@@ -1621,31 +1532,6 @@ export async function sideRecordStopWake($,identity,presentation) {
     return result?.state === 'queued'
   } catch { return false /* Retry the record only; never re-present. */ }
 }
-// A bounded source thread (KOBE 2026-11-18): every event of a large thread used
-// to log a main-visible line, which flooded main's view. Each event's line now
-// goes to the debug log; the person sees one line per source thread per session.
-// The bounded fact and its left-out count stay on the receipt (work_side_renew
-// source_bounded), which the side receipt pane and the SSE pane show.
-const boundedThreadNotices = new Set()
-async function noteBoundedThread($,identity,event,source) {
-  const omitted = source.omitted_replies
-  try { $.ui.log('Ciel side: source thread too large for '+event.receipt_id.slice(0,12)
-    +'; '+omitted+' older replies left out',{to:'debug'}) } catch {}
-  const thread = identity+'|'+String(source.conversation_id || '')+'|'+String(source.root_id || '')
-  if (!boundedThreadNotices.has(thread)) {
-    boundedThreadNotices.add(thread)
-    if (boundedThreadNotices.size > 200) boundedThreadNotices.delete(boundedThreadNotices.values().next().value)
-    try { $.ui.log('Ciel side: source thread '+line(source.root_id,24)+' is larger than main has room for; its side forks get the root, '
-      +'the target message and the newest replies ('+omitted+' older replies left out for '+event.receipt_id.slice(0,12)
-      +'). Later events of this thread show it in their receipt and the SSE pane only.') } catch {}
-  }
-  const previous = displayedReceipts.get(identity)?.get(event.receipt_id)
-  if (previous) display($,identity,{side_inbox_receipts:[{...previous,source_bounded:{omitted_replies:omitted}}]})
-  try {
-    await callRouter($,'work_side_renew',{source_bounded:{omitted_replies:omitted}},
-      {receipt_id:event.receipt_id,generation:event.generation},identity)
-  } catch { /* The fork still gets the bounded thread; only the receipt note is missing. */ }
-}
 // Resolves true when this call took an event from the durable inbox (started,
 // or failed and recorded), so the caller claims again at once instead of
 // leaving the rest of a burst for the next periodic tick.
@@ -1759,29 +1645,17 @@ export async function pollSide($, identity) {
     // One event owns one actor and is terminated at turn.complete below.
     let actor = null
     const conversation = JSON.stringify([identity,event.receipt_id,profile])
-    // Walkie requires an exact bounded verified thread before any spawn. An
-    // event that references no message is explicitly marked none_referenced.
-    let sourceMessage
-    // P0/P1 (the urgent claim lane) never wait for main's compaction when the
-    // newest thread fits: Walkie P0 134499 (2026-11-16) waited 3 compaction
-    // rounds, about 30 of its 42 minutes, before any fork started.
-    const urgent = event.source_priority === 'P0' || event.source_priority === 'P1'
-    try { sourceMessage = await fetchSourceMessage($,event.source_read,event) } catch (error) {
-      // A thread that does not fit main's remaining context waits for one
-      // compaction of main first (catch below). Past that (this module
-      // compacted main within the cooldown, or the event's durable waits are
-      // used up), or past the static limit, or for an urgent event, the fork
-      // gets a bounded thread instead.
-      if (!(error instanceof SourcePrefetchError) || typeof error.bound !== 'function'
-          || (error.mainContext && !urgent && !compactionRecent(identity)
-              && !compactionWaitsSpent(identity,event.receipt_id))) throw error
-      sourceMessage = error.bound()
-      await noteBoundedThread($,identity,event,sourceMessage)
-    }
+    // No thread read before the decision (Andy 2026-11-18): the event plus
+    // main's inherited transcript are the basis; a cut or textless event gets
+    // its target message read once. Identity checks still refuse a malformed
+    // or out-of-thread target before any spawn.
+    const sourceMessage = await eventSource($,event.source_read,event)
     const text = JSON.stringify({event_id:event.receipt_id,parent_session_id:identity,claim_generation:event.generation,
       external_event_preview:eventView(event.text),source_context:sourceMessage.source_context,
       ...(sourceMessage.event_truncated ? {event_truncated:true} : {}),
-      ...(sourceMessage.source_context === 'verified_thread' ? {source_message:sourceMessage} : {}),
+      ...(sourceMessage.conversation_id ? {source_ref:{conversation_id:sourceMessage.conversation_id,
+        root_id:sourceMessage.root_id,target_message_id:sourceMessage.target_message_id}} : {}),
+      ...(sourceMessage.target_message ? {target_message:sourceMessage.target_message} : {}),
       original:event.text,route:redacted(event.route || {}),
       ...(event.source_priority ? {source_priority:event.source_priority} : {}),
       workload,
@@ -1818,17 +1692,10 @@ export async function pollSide($, identity) {
       const actor = claimedActor || {identity,model:'inherit',modelFingerprint:'native-fork',id:''}
       // No spawn and no outbox reply happen on a failed source precondition.
       // invalid_request (malformed/conflicting identifiers) is quarantined at
-      // once. source_context (unreadable, incomplete, mismatched or oversized
-      // thread) keeps the receipt and is retried by side_intake_processing.fail
-      // up to 5 times with 5/10/20/40/80 s backoff, then quarantined on the
-      // 6th failure; a quarantine is terminal.
-      if (error instanceof SourcePrefetchError && error.mainContext && !compactionRecent(identity)) {
-        const waiting = mainBusy() || compactions.get(identity)?.running
-        await recordFailure($,actor,claimed,'main_compaction_pending',String(error.message),
-          {retry_after_seconds:waiting ? 60 : 30})
-        void compactMain($,identity)
-        return generation === lifecycle
-      }
+      // once. source_context (an unreadable or out-of-thread target message)
+      // keeps the receipt and is retried by side_intake_processing.fail up to
+      // 5 times with 5/10/20/40/80 s backoff, then quarantined on the 6th
+      // failure; a quarantine is terminal.
       const category = error instanceof SourcePrefetchError ? error.category : 'processing_error'
       await recordFailure($,actor,claimed,category,String(error?.message || error))
       return generation === lifecycle
@@ -1903,6 +1770,9 @@ async function submitAck($,identity,event) {
 async function submitUnderstanding($,actor,event,proposal) {
   const prepared = await callRouter($,'work_side_understanding',{...proposal,state:'prepare'},
     {receipt_id:event.receipt_id,generation:event.generation},actor.identity)
+  // The router accepted and saved this proposal: from here a correction would
+  // be a second proposal, which it refuses, so none is asked for.
+  actor.understood = true
   if (!prepared.arguments) {
     if (prepared.receipt) display($,actor.identity,{side_inbox_receipts:[prepared.receipt]})
     return prepared.state
@@ -1939,10 +1809,7 @@ async function recordFailure($, actor, event, category, reason = '', extra = {})
       category, model:actor.model || '', model_fingerprint:actor.modelFingerprint || '', agent_id:actor.id || '',
       ...(reason ? {reason:line(reason,300)} : {}), ...extra
     },{receipt_id:event.receipt_id,generation:event.generation},actor.identity)
-    if (value.receipt) {
-      noteCompactionWaits(actor.identity,value.receipt)
-      display($,actor.identity,{side_inbox_receipts:[value.receipt]})
-    }
+    if (value.receipt) display($,actor.identity,{side_inbox_receipts:[value.receipt]})
     // The sixth/terminal failure carries the original-forward offer in this
     // same host dispatch. Claim/status recovery also offers it after a crash.
     if (value.main_forward?.receipt_id && typeof value.main_forward.text === 'string') {
@@ -2117,7 +1984,16 @@ export function decisionOf(answer) {
 // restatement goes to the source before the board changes, then the decision
 // commits, then the final reply. The router persists the whole proposal at the
 // understanding step, so a claim after a restart offers it back (resumeSide).
+// The router's understanding field allows MAX_UNDERSTANDING characters; the
+// host cuts a longer one with a marker instead of refusing it (Andy 2026-11-18).
+const MAX_UNDERSTANDING = 4000
+function clampText(value,limit) {
+  if (typeof value !== 'string' || value.length <= limit) return value
+  const keep = Math.max(0,limit - (' … [host cut '+value.length+' characters]').length)
+  return (value.slice(0,keep)+' … [host cut '+(value.length - keep)+' characters]').slice(0,limit)
+}
 async function commitProposal($,actor,event,proposal,sentVia,usage) {
+  proposal = {...proposal,understanding:clampText(proposal.understanding,MAX_UNDERSTANDING)}
   await submitUnderstanding($,actor,event,proposal)
   const value = await callRouter($,'work_side_resolve',{decision:proposal.decision,
     expected_version:proposal.expected_version,usage:usage || null},
@@ -2158,6 +2034,49 @@ async function resumeSide($,identity,event) {
     await recordFailure($,actor,event,'resume_error',String(error?.message || error))
   }
 }
+// Andy 2026-11-18: 64 events failed on the shape of the side model's answer
+// (no decision JSON, an invalid action, kind/action mismatch, blank summary or
+// reply) and were retried to quarantine. Before such a failure counts, the
+// same fork is told the exact error once and answers again. Only errors raised
+// before the router saved the proposal qualify (nothing was sent yet); every
+// check still applies to the second answer, and a second refusal is recorded.
+const CORRECTABLE = /side answer carries no decision JSON|invalid side decision (action|kind|fields)|side decision kind does not match its action|side decision needs bounded summary and reply|a request must create, update or prioritize Work|existing Work identity required|new Work cannot overwrite an existing identity|side proposal needs bounded understanding|side understanding must/
+function correctionText(reason) {
+  return 'Ciel side host: your answer was refused, so nothing was committed or sent. Exact error: '
+    + line(reason,400) + '\nAnswer again with only the one JSON object the event prompt describes: '
+    + '{"understanding":"...","decision":{...},"expected_version":N}. The decision kind must match its action '
+    + '(status or info -> answer, clarify -> clarify, request -> create, update or prioritize); summary and reply '
+    + 'must be non-empty text; update and prioritize name an existing item_id; create names none. '
+    + 'Do not call tools or send anything.'
+}
+async function sendCorrection($,actor,reason) {
+  try { return await $.session.send({to:{agentId:actor.id},text:correctionText(reason)}) }
+  catch (error) { return {isDelivered:false,reason:String(error?.message || error)} }
+}
+async function correctSide($,actor,event,reason) {
+  if (actor.corrected || actor.understood || !actor.id || !CORRECTABLE.test(String(reason || ''))) return false
+  actor.corrected = true
+  const asked = () => { try { $.ui.log('Ciel side: asked the side actor for '+event.receipt_id.slice(0,12)
+    +' to correct its answer ('+line(reason,160)+')',{to:'debug'}) } catch {} }
+  const sent = await sendCorrection($,actor,reason)
+  if (sent?.isDelivered) { asked(); return true }
+  // Inside the fork's own turn end the engine may not take a message for it
+  // yet; ask once more after this hook returned. Not delivered then: the
+  // original refusal counts, as before.
+  try { $.ui.log('Ciel side: correction for '+event.receipt_id.slice(0,12)+' not delivered at turn end ('
+    +line(sent?.reason || 'no reason',160)+'); retrying after the hook',{to:'debug'}) } catch {}
+  $.clock.after(1500,async()=>{ await correctLater($,actor,event,reason,asked) })
+  return true
+}
+async function correctLater($,actor,event,reason,asked) {
+  if (actor.retired || actor.resolved || actor.current !== event) return
+  const sent = await sendCorrection($,actor,reason)
+  if (sent?.isDelivered) { asked(); return }
+  try { $.ui.log('Ciel side: correction for '+event.receipt_id.slice(0,12)+' not delivered ('
+    +line(sent?.reason || 'no reason',160)+'); the refusal counts',{to:'debug'}) } catch {}
+  await recordFailure($,actor,event,'invalid_answer',reason)
+  retire($,actor)
+}
 export async function completeSide($,e) {
   const actor = actors.get(e.agentId)
   if (!actor) return false
@@ -2180,6 +2099,8 @@ export async function completeSide($,e) {
         expected_version:proposal.expected_version},sent_via,e.usage)
     }
   } catch (error) { reason = String(error?.message || error) /* Recorded below, never in the main transcript. */ }
+  // One corrective turn before a failure counts (Andy 2026-11-18).
+  if (event && !actor.resolved && e.reason === 'answer' && await correctSide($,actor,event,reason)) return true
   if (event && !actor.resolved) {
     // A turn that completed may already have ACKed or replied through MCP;
     // replaying it duplicates those posts (observed 2026-11-07: three extra

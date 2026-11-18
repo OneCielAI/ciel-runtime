@@ -104,7 +104,11 @@ class SideDecisionTests(unittest.TestCase):
         row = doc['side_handoffs'][self.key]
         self.assertEqual(('resume', 'pending'), (row['kind'], row['wake']['state']))
         self.assertEqual('Daniel approval 118269', next(n for n in doc['nodes'] if n['id'] == gate)['waiting_on'])
-        self.assertIn('118269 approved', next(n for n in doc['nodes'] if n['id'] == gate)['note'])
+        # Andy 2026-11-18: on an executing goal the observation goes to progress,
+        # outside the approval scope digest running forks report against.
+        node = next(n for n in doc['nodes'] if n['id'] == gate)
+        self.assertIn('118269 approved', node['progress'])
+        self.assertNotIn('118269 approved', node['note'])
 
     def test_low_priority_deadline_answer_creates_durable_time_limit_handoff(self):
         doc, item = self.store.transaction(lambda d: tree.add_node(d, None, 'low priority report', priority='P5'))
