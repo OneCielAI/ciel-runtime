@@ -242,6 +242,17 @@ async function contextBudgetBytes($) {
 // caller compacts main first when that can make room; past that, it uses
 // bound() instead of failing (2026-11-16: Walkie thread 63773 was quarantined
 // after 6 tries). The thread is read once; bound() makes no further reads.
+// Andy 2026-11-18: 193 side events failed on thread length (page limit, main
+// context budget). The side fork is a native fork of main, which already holds
+// every earlier message of the thread; it decides from the event itself. Invalid
+// and message-less events keep the checks of fetchSourceMessage.
+async function eventSource($,spec,event = {}) {
+  if (spec && typeof spec === 'object' && spec.classification !== 'invalid'
+      && spec.classification !== 'none_referenced')
+    return {source_context:'event_only',
+      ...(event.source_truncated === true || spec.event_truncated === true ? {event_truncated:true} : {})}
+  return fetchSourceMessage($,spec,event)
+}
 async function fetchSourceMessage($,spec,event = {}) {
   const truncated = event.source_truncated === true
   if (spec === undefined || spec === null) {
@@ -419,13 +430,12 @@ Only read and reason. The host alone commits one decision and sends the one
 outbox reply. Your final answer MUST be exactly the decision JSON described
 below.
 
-First read source_message when present (source_context verified_thread); it is
-the complete verified Walkie thread (root plus every reply) and
-target_message_id names the exact message this event is about. When
-source_message.thread_truncated is true the thread was too large: the root, the
-target message and the newest replies are present and omitted_replies older
-replies are left out. Do not assume what they said; if the decision depends on
-them, clarify. With
+Decide from this event (original, external_event_preview) and the inherited main
+transcript: earlier messages of this conversation already reached main as SSE
+events. The host does not prefetch the Walkie thread (source_context event_only).
+Never read the whole thread. Only if the decision genuinely needs one message that
+is in neither the event nor the transcript, read just that message with a
+read-only Walkie tool; otherwise clarify. Do not assume content you do not have. With
 source_context none_referenced the event names no message or thread; decide from
 the event itself. If event_truncated is true, the source cut this event body at
 its size limit (marker [잘림]): do not assume or invent the missing content; say
@@ -1672,7 +1682,7 @@ export async function pollSide($, identity) {
     // newest thread fits: Walkie P0 134499 (2026-11-16) waited 3 compaction
     // rounds, about 30 of its 42 minutes, before any fork started.
     const urgent = event.source_priority === 'P0' || event.source_priority === 'P1'
-    try { sourceMessage = await fetchSourceMessage($,event.source_read,event) } catch (error) {
+    try { sourceMessage = await eventSource($,event.source_read,event) } catch (error) {
       // A thread that does not fit main's remaining context waits for one
       // compaction of main first (catch below). Past that, or past the static
       // limit, or for an urgent event, the fork gets a bounded thread instead.
