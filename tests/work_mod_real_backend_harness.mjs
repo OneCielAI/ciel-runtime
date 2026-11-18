@@ -75,6 +75,7 @@ const digest = value => value ? createHash('sha256').update(String(value)).diges
 // $.clock.after timers, kept only while native.captureTimers is set (the
 // wait-deadlock scenarios); every other scenario keeps the inert clock.
 const timers = []
+const isDispatchNotice = text => /^Ciel Work dispatch (wake|check)/.test(String(text))
 // Time passing with main idle: each round fires every timer armed so far.
 // releasedBy: the delay of the first timer after which a watched call appeared.
 const passTime = async (rounds, watch = null) => {
@@ -280,7 +281,7 @@ async function start(kind, { busy = false, interactive = true } = {}) {
       } },
     prompt: { submit: async args => {
       // The engine refuses a prompt submission (wait-deadlock audit).
-      if (native.failSubmit > 0) { native.failSubmit--; (native.submitFailures ||= []).push(String(args.text).slice(0, 60)); throw new Error('prompt submit refused (fixture)') }
+      if (native.failSubmit > 0 && !isDispatchNotice(args.text)) { native.failSubmit--; (native.submitFailures ||= []).push(String(args.text).slice(0, 60)); throw new Error('prompt submit refused (fixture)') }
       native.prompts.push(args.text); return {} } },
     state: {get:async ref=>{const held=hostStore.get(ref.plugin+'/'+ref.key);return {value:held?structuredClone(held.value):undefined,version:held?.version||0}},set:async (ref,value,options={})=>{const name=ref.plugin+'/'+ref.key,held=hostStore.get(name)||{version:0};if(options.ifVersion!==undefined&&options.ifVersion!==held.version)return {isSet:false,version:held.version};hostStore.set(name,{value:structuredClone(value),version:held.version+1});return {isSet:true,version:held.version+1}}},
     command: { register: async () => {} },
@@ -2085,8 +2086,13 @@ try {
       const inspected = await rpc('inspect')
       const row = inspected.reviews[seeded.lease_id]
       return { state: row?.state ?? null, blocked: row?.blocked?.code ?? null, wake: row?.wake?.state ?? null,
-        replacement: row?.replacement_lease_id ?? null, spawns: native.spawns.length, prompts: native.prompts.length,
-        appended: native.appended.length, prepares: count('review_wake', 'prepare'), rollForwards: count('review_roll_forward'),
+        replacement: row?.replacement_lease_id ?? null, spawns: native.spawns.length,
+        // Review and recovery delivery. The gate round's own dispatch notice is
+        // counted apart: it is a separate, once-per-diagnosis message.
+        prompts: native.prompts.filter(text => !isDispatchNotice(text)).length,
+        appended: native.appended.filter(text => !isDispatchNotice(text)).length,
+        dispatchPrompts: native.prompts.filter(isDispatchNotice).length,
+        dispatchAppended: native.appended.filter(isDispatchNotice).length, prepares: count('review_wake', 'prepare'), rollForwards: count('review_roll_forward'),
         recoverySends: native.sends.filter(s => String(s.text || '').startsWith('Work recovery:')).length,
         exitSends: native.sends.filter(s => String(s.text || '').startsWith('Your native turn ended')).length,
         salvages: count('host_salvage') }
@@ -2316,7 +2322,8 @@ try {
     if (out.launchBefore) out.launchAfter = (await rpc('inspect')).reviews[seeded.lease_id].launch
     if (out.filesBefore) {
       out.filesAfter = await rpc('fingerprint')
-      out.filesChanged = writes(out.filesBefore, out.filesAfter)
+      // The gate round records itself; the claim is about what the pump writes.
+      out.filesChanged = writes(out.filesBefore, out.filesAfter).filter(name => !/\/gate-check\.json(\.lock)?$/.test(name))
     }
     out.afterCalls = calls.slice(callsBefore).map(c => c.event || c.tool)
       .filter(name => ['review_roll_forward', 'rework_dispatch', 'review_wake', 'host_attach', 'work_parallel_status'].includes(name))

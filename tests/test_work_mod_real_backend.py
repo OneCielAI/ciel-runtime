@@ -1835,6 +1835,9 @@ class WorkModRealBackendTests(unittest.TestCase):
                 self.assertEqual(before, result["before"]["wake"], result)
                 self.assertEqual("appended", result["after"]["wake"], result)
                 self.assertEqual((1, 1), (result["after"]["prompts"], result["after"]["appended"]), result)
+                # The minute gate round may add its own notice, once per diagnosis.
+                self.assertLessEqual(result["after"]["dispatchPrompts"], 1, result)
+                self.assertLessEqual(result["after"]["dispatchAppended"], 1, result)
 
     def test_idle_main_recovers_an_unlisted_worker_after_late_router_connect(self):
         result = self.run_scenario("idle-start-unconnected-running")

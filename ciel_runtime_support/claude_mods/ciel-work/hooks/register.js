@@ -1917,6 +1917,7 @@ async function scheduleParallelWake($, source, review, mode) {
       await sideReviewDelivery($, await sessionId($), leaseId, parallelReviewText(review))
     return
   }
+  if (mode === 'paced' && durable === 'failed') return
   // Compatibility with an older projection: lifecycle-only dedup, no invented
   // backend event. Current routers always project wake.state.
   if (!durable) {
@@ -3671,7 +3672,10 @@ async function parallelPump($, trigger = 'host', resendTried = null, agents = nu
       // At classic.Stop the Stop block itself is the wake. Submitting another
       // idle prompt there would schedule the same review twice; worker reports,
       // ledger events and session/turn boundaries use append/prompt delivery.
-      await projectParallelReviews($, state, trigger === 'classic.Stop' ? 'stop' : 'event')
+      // The minute timers must not speed up a refused review wake: its retries
+      // stay paced by the events and idle ticks that always drove them.
+      await projectParallelReviews($, state, trigger === 'classic.Stop' ? 'stop'
+        : trigger === 'periodic' || trigger === 'gate-check' ? 'paced' : 'event')
       // Neither is a dispatch: a started fork's bind and a stale fork's stop do
       // not wait for the policy.
       await parallelSettleBoundRework($, state, tried)
