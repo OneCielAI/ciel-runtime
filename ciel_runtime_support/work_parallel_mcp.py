@@ -290,6 +290,10 @@ def _fork_projection(store, identity, leases, details, hidden=frozenset(), *, ho
         evidence, available = {"version": None, "records": {}, "scans": {}}, False
     now = time.time()
     groups = {name: [] for name in EVIDENCE_GROUPS}
+    # A P0 lease keeps the goal's canonical priority (P1); P0 lives in the P0
+    # sidecar. Rows say which one runs as P0 (Celly 2026-11-17 saw P0 as P1).
+    from .work_parallel import _p0_active_lease_ids
+    p0_leases = _p0_active_lease_ids(store.path)
     for lease in sorted(leases.values(), key=lambda r: (r["priority"], r.get("created_at") or 0, r["id"])):
         record = evidence["records"].get(lease["id"])
         if record is not None and record.get("scope") != identity:
@@ -304,6 +308,7 @@ def _fork_projection(store, identity, leases, details, hidden=frozenset(), *, ho
                "goal_title": _clip(item.get("goal_title"), 300),
                "item_path": [_clip(t, 120) for t in (item.get("item_path") or [])[:8]],
                "priority": lease["priority"], "role": lease["role"], "state": lease["state"],
+               "effective_priority": "P0" if lease["id"] in p0_leases else lease["priority"],
                "slot": lease["slot"],
                "agent_name": None if lease["id"] in hidden or (legacy_reviewer and not host_view)
                else (lease.get("agent_name") or lease.get("dispatch_name")),

@@ -63,6 +63,15 @@ class WorkObservatoryTests(unittest.TestCase):
         self.assertEqual(0, r['work']['hovers'])
         self.assertEqual('row', r['work']['headerDirection'])
 
+    def test_work_tree_labels_a_goal_with_its_effective_p0(self):
+        # 2026-11-17 Celly: P0 is stored as canonical P1 (or keeps P3) and activated
+        # in the P0 store; the tree showed the stored value only.
+        effective = self.result['effective']
+        self.assertEqual(['n1:P1', 'n5:P3'], effective['before'])
+        self.assertEqual(['n1:P1', 'n5:P0'], effective['after'])
+        # The running fork line shows the lease's effective P0, not its canonical P1.
+        self.assertEqual(['n5:P0'], effective['forks'])
+
     def test_sse_tab_shows_source_priority_state_and_p1_filter(self):
         side = '\n'.join(self.result['side']['texts'])
         self.assertIn('P1 side_mcp', side)

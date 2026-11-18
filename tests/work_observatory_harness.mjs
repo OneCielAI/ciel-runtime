@@ -37,6 +37,8 @@ const receipts = [
   { receipt_id: 'b'.repeat(64), stage: 'received', original: walkie(3),
     side_failure: { category: 'invalid_answer', model: 'm', quarantined: true, reason: 'Side router operation failed: X' } },
 ]
+let rootPriorities = []
+let forks = null
 const calls = [], toasts = [], opens = []
 let asks = []
 const el = type => props => ({ type, props })
@@ -52,7 +54,8 @@ const $ = {
       value = { settings, provider: 'cielairouter', ui: {} }
     }
     if (tool === 'work_parallel_status') value = { version: 1, active_device: 1, leases: {},
-      policy: { enabled: true, paused: false, priority_limits: { P1: 5, P2: 3, P3: 1, P4: 1, P5: 1 }, launches_per_minute: 4, max_rework: 2 } }
+      policy: { enabled: true, paused: false, priority_limits: { P1: 5, P2: 3, P3: 1, P4: 1, P5: 1 }, launches_per_minute: 4, max_rework: 2 },
+      root_priorities: rootPriorities, ...(forks ? { forks } : {}) }
     if (tool === 'work_side_status') value = { side_inbox_receipts: receipts }
     if (tool === 'work_side_claim') value = { claim: null, settings: {}, handoff_replies: [] }
     return { content: [{ type: 'text', text: JSON.stringify(value) }] }
@@ -132,4 +135,20 @@ await hook('turn.start', {})($, {}, async e => e)
 release()
 out.race = { text: (await racing).text, opened: opens.some(o => o.id === 'work-details') }
 $.mcp.call = call
+// P0 lives in the P0 store; the goal's stored field keeps P1/P3 (Celly 2026-11-17
+// saw its P0 goals as P1). After a refresh both panes label the goal P0.
+tree = await render('desktop', 110)
+await press(tree, 'obs-work'); tree = await render('desktop', 110)
+const graphicBefore = walk(await render('terminal', 110)).find(n => n.props?.key === 'obs-graphic')?.props?.props
+out.effective = { before: (graphicBefore?.nodes || []).filter(n => n.id === 'n5' || n.id === 'n1').map(n => n.id + ':' + n.priority) }
+rootPriorities = [{ root_id: 'n5', title: 'Queued goal', canonical_priority: 'P3', effective_priority: 'P0' },
+  { root_id: 'n1', title: 'Ship observatory', canonical_priority: 'P1', effective_priority: 'P1' }]
+forks = { available: true, confirmed_count: 1, confirmed: [{ lease_id: 'l1', item_id: 'n5', item_title: 'Queued goal',
+  priority: 'P1', effective_priority: 'P0', agent_name: 'work-p0-x', native: { status: 'running', last_seen_at: 1 } }] }
+await press(tree, 'detail-refresh')
+const graphicAfter = walk(await render('terminal', 110)).find(n => n.props?.key === 'obs-graphic')?.props?.props
+out.effective.after = (graphicAfter?.nodes || []).filter(n => n.id === 'n5' || n.id === 'n1').map(n => n.id + ':' + n.priority)
+out.effective.forks = (graphicAfter?.parallel?.confirmed || []).map(f => f.item + ':' + f.priority)
+tree = await render('desktop', 110)
+out.effective.desktop = texts(tree).filter(t => t.includes('Queued goal'))
 console.log(JSON.stringify(out))

@@ -815,6 +815,16 @@ function sourcePriority(original) {
   if (explicit) return explicit
   return task?.emergency === true ? 'P0' : level(task?.priority)
 }
+// The priority a pane shows for a goal is its effective priority: P0 is stored
+// as canonical P1 and activated in the P0 store (side_work_decision), so the
+// stored field alone showed Celly's P0 goals as P1 (2026-11-17). Web, REST and
+// ctl read the same root_priorities rows.
+function shownPriority(node) {
+  const rows = Array.isArray(observatoryParallel?.root_priorities) ? observatoryParallel.root_priorities : []
+  const row = node?.id ? rows.find(entry => entry?.root_id === node.id) : null
+  const effective = row && /^P[0-5]$/.test(String(row.effective_priority)) ? row.effective_priority : ''
+  return effective || node?.priority || ''
+}
 function graphicNodes(view, snapshot) {
   if (!Array.isArray(view?.nodes)) return []
   const children = new Map()
@@ -827,14 +837,14 @@ function graphicNodes(view, snapshot) {
   const visit = (node, depth) => {
     const descendants = children.get(node.id) || []
     rows.push({ id: node.id, parent_id: node.parent_id, depth, title: node.title || node.id,
-      status: node.status || 'pending', priority: node.priority || '', waiting_on: node.waiting_on || '',
+      status: node.status || 'pending', priority: shownPriority(node), waiting_on: node.waiting_on || '',
       done: descendants.filter(child => child.status === 'done').length, total: descendants.length })
     for (const child of descendants) visit(child, depth + 1)
   }
   for (const root of children.get('') || []) visit(root, 0)
   for (const root of rootsOf(snapshot || {}).filter(root => !rows.some(row => row.id === root.id)))
     rows.push({ id: root.id, parent_id: null, depth: 0, title: root.title || root.id,
-      status: root.status || 'pending', priority: root.priority || '', waiting_on: root.waiting_on || '',
+      status: root.status || 'pending', priority: shownPriority(root), waiting_on: root.waiting_on || '',
       done: Number(root.done || 0), total: Number(root.total || 0) })
   return rows.slice(0, 500)
 }
@@ -878,7 +888,7 @@ function graphicProps(identity, view, state) {
       forks: observatoryParallel?.forks?.confirmed_count || 0,
       evidence: observatoryParallel?.forks?.available !== false && !!observatoryParallel?.forks,
       confirmed: (observatoryParallel?.forks?.confirmed || []).slice(0, 3).map(r => ({
-        item: r.item_id, title: r.item_title, priority: r.priority, agent: r.agent_name || r.agent_id,
+        item: r.item_id, title: r.item_title, priority: r.effective_priority || r.priority, agent: r.agent_name || r.agent_id,
         status: r.native?.status, seen: r.native?.last_seen_at })),
       reviews: parallelPresentedReviews(parallelReviews(observatoryParallel)).slice(0, 8).map(r => ({ item:r.item_id, title:r.item_title || r.title || '',
         status:parallelReviewLabel(r) })),
@@ -4449,7 +4459,7 @@ export function register(on) {
       if (listing) {
         for (const row of panelRows(cached, workTab)) rows.push(statusButton(Box, Button, Text, row.node, {
           key: 'detail-' + row.key, plain: true,
-          label: (row.node.priority ? row.node.priority + ' ' : '') + rowLabel(row.prefix, row.node, width - 4, row.suffix),
+          label: (shownPriority(row.node) ? shownPriority(row.node) + ' ' : '') + rowLabel(row.prefix, row.node, width - 4, row.suffix),
           onPress: () => openDetails($, row.node.id, origin) }))
         if (!rows.length) rows.push(text('No ' + workTab + ' items', { dimColor: true }))
       } else if (!fresh || view.error || !selected) rows.push(text(!fresh ? 'Plan changed — refresh.' : view.error || 'No active goal.', { color: 'warning' }))
@@ -4458,7 +4468,7 @@ export function register(on) {
           if (selected.status !== 'done' && node.status === 'done') return
           const color = node.status === 'blocked' ? 'error' : node.waiting_on ? 'warning' : node.status === 'done' ? 'success' : node.id === selected.id ? 'suggestion' : ''
           rows.push(row('node-' + node.id,
-            '  '.repeat(Math.min(depth, 5)) + (node.priority ? node.priority + ' ' : '') + rowLabel('', node, width - depth * 2),
+            '  '.repeat(Math.min(depth, 5)) + (shownPriority(node) ? shownPriority(node) + ' ' : '') + rowLabel('', node, width - depth * 2),
             color, () => openDetails($, node.id, origin)))
           if (node.id === selected.id) for (const [label, value] of [['Title',node.title],['Waiting',node.waiting_on],['Note',node.note],['Evidence',node.evidence]])
             if (value) for (const line of detailLines(label + ': ' + value, width)) rows.push(Text({ color: label === 'Evidence' ? 'success' : 'subtle', children: line }))
