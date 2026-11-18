@@ -1,0 +1,42 @@
+{
+ "claude_version": "2.1.327 (Claude Code)",
+ "cases": [
+  {
+   "case": "home-untrusted",
+   "cwd_is_home": true,
+   "pre_trusted": false,
+   "dialog_shown": true,
+   "answered": false,
+   "persisted_after": {
+    "<temp>\\ciel-trust-probe-258gj5ml\\home-untrusted": null,
+    "<temp>/ciel-trust-probe-258gj5ml/home-untrusted": null
+   },
+   "kills": 1
+  },
+  {
+   "case": "home-product-trust",
+   "cwd_is_home": true,
+   "pre_trusted": "product",
+   "dialog_shown": false,
+   "answered": false,
+   "persisted_after": {
+    "<temp>\\ciel-trust-probe-258gj5ml\\home-product-trust": null,
+    "<temp>/ciel-trust-probe-258gj5ml/home-product-trust": true
+   },
+   "kills": 1
+  },
+  {
+   "case": "sub-product-trust",
+   "cwd_is_home": false,
+   "pre_trusted": "product",
+   "dialog_shown": false,
+   "answered": false,
+   "persisted_after": {
+    "<temp>\\ciel-trust-probe-258gj5ml\\sub-product-trust\\work": null,
+    "<temp>/ciel-trust-probe-258gj5ml/sub-product-trust/work": true
+   },
+   "kills": 1
+  }
+ ],
+ "owned_survivors": 0
+}

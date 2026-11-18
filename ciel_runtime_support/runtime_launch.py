@@ -237,6 +237,84 @@ def _session_backup_after_exit(*, restarting: bool, log: Callable[[str, str], An
             log("WARN", f"session_backup_after_exit_failed error={type(error).__name__}: {error}")
 
 
+def _trust_restart_folder(log: Callable[[str, str], Any] | None) -> None:
+    """Claude Code relaunches without its folder-trust dialog (it stopped Celly's restarts)."""
+
+    folder = Path.cwd()
+    try:
+        from ciel_runtime_support.claude_user_settings import trust_key, trust_restart_folder
+
+        changed = trust_restart_folder(folder)
+        if log is not None:
+            log("INFO", f"claude_restart_folder_trusted key={trust_key(folder)} changed={str(changed).lower()}")
+    except Exception as error:  # noqa: BLE001 - the restart goes ahead; the dialog may then appear
+        if log is not None:
+            log("WARN", f"claude_restart_folder_trust_failed error={type(error).__name__}: {error}")
+
+
+def _restart_hold_active() -> bool:
+    try:
+        from ciel_runtime_support.restart_hold import current
+
+        return current(ROUTER_INSTANCE_DIR, os.getpid()) is not None
+    except Exception:  # noqa: BLE001 - only the notice wording depends on it
+        return False
+
+
+def _restart_takeover(request: Any, env: Mapping[str, str], log: Callable[[str, str], Any] | None) -> str:
+    """Snapshot every worktree (non-destructive refs) and return the notice's takeover line."""
+
+    try:
+        from ciel_runtime_support.restart_takeover import notice_suffix, snapshot_all
+
+        claude_config = Path(env.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
+        # The CLIs' own state is never project work, even inside the repository
+        # (Celly's home folder is its repository).
+        # Claude Code's native install also lives in the home folder
+        # (~/.local/bin/claude.exe, ~/.local/share/claude: 759 MB in the
+        # 2026-11-17 E2E, which made the home repository too large to snapshot).
+        home = Path.home()
+        state = [claude_config, home / ".claude", home / ".claude.json", home / ".codex", Path(CONFIG_DIR),
+                 home / ".local" / "bin" / "claude", home / ".local" / "bin" / "claude.exe",
+                 home / ".local" / "share" / "claude",
+                 *(Path(env[key]) for key in ("CODEX_HOME",) if env.get(key))]
+        manifest = snapshot_all(Path.cwd(), str(getattr(request, "id", "") or "restart"),
+                                claude_config=claude_config, state_dir=ROUTER_INSTANCE_DIR, exclude=state)
+        rows = manifest.get("worktrees") or []
+        if log is not None:
+            log("INFO", "restart_takeover_snapshot "
+                f"worktrees={len(rows)} snapshots={sum(1 for row in rows if row.get('snapshot_ref'))} "
+                f"errors={sum(1 for row in rows if row.get('error'))} "
+                f"session_worktree={manifest.get('session_worktree') or '-'}")
+        return notice_suffix(manifest)
+    except Exception as error:  # noqa: BLE001 - a snapshot never blocks the restart
+        if log is not None:
+            log("WARN", f"restart_takeover_snapshot_failed error={type(error).__name__}: {error}")
+        return ""
+
+
+RESTART_HOLD_NOTE = "재시작 요청 이후 들어온 입력은 보관했다가 이 안내 앞에 순서대로 전달"
+
+
+def claude_restart_takeover(request: Any, env: Mapping[str, str], log: Callable[[str, str], Any] | None) -> str:
+    """Before a Claude relaunch: skip the trust dialog, snapshot the worktrees, word the takeover line."""
+
+    _trust_restart_folder(log)
+    takeover = _restart_takeover(request, env, log)
+    if _restart_hold_active():
+        takeover = " · ".join(part for part in (takeover, RESTART_HOLD_NOTE) if part)
+    return takeover
+
+
+def restart_relaunch_detail(restart: SessionRestartPorts, request: Any, env: Mapping[str, str],
+                            log: Callable[[str, str], Any]) -> str:
+    try:
+        return str(restart.relaunch(request, env, log) or "")
+    except Exception as exc:  # noqa: BLE001 - the restart goes ahead without the takeover line
+        log("WARN", f"session_restart_relaunch_prepare_failed error={type(exc).__name__}: {exc}")
+        return ""
+
+
 def prepare_restart(restart: SessionRestartPorts, runtime: str, log: Callable[[str, str], None]) -> None:
     """Refresh what a relaunch reads (instruction files); a failure never blocks the restart."""
 
@@ -251,6 +329,7 @@ def queue_restart_notice(
     runtime: str,
     request: Any,
     log: Callable[[str, str], None],
+    detail: str = "",
 ) -> int:
     """Queue the restart-complete notice the resumed session will receive.
 
@@ -266,6 +345,7 @@ def queue_restart_notice(
                 source=str(getattr(request, "source", "") or ""),
                 reason=str(getattr(request, "reason", "") or ""),
                 resumed=bool(getattr(request, "resume", True)),
+                detail=detail,
             )
         )
     except Exception as exc:
@@ -1088,15 +1168,19 @@ def run_claude(
                 return rc
             handled.add(request.id)
             _session_backup_after_exit(restarting=True, log=router_log)
-            # Nobody is at the keyboard: answer the startup dialogs.
+            # Nobody is at the keyboard: answer the startup dialogs, and keep
+            # the folder-trust dialog from appearing at all.
             os.environ[STARTUP_AUTO_ANSWER_ENV] = "1"
+            # Folder trust, non-destructive worktree snapshot refs and the
+            # takeover line for the resumed session (user decision 2026-11-17).
+            takeover = restart_relaunch_detail(services.restart, request, env, router_log)
             if request.resume:
                 cmd[:] = runtime_resume_command(cmd, "claude")
             fresh_session_socket()
             renew_claude_mcp()
             reselect_claude_data_path()
             prepare_restart(services.restart, "claude", router_log)
-            queue_restart_notice(services.restart, "claude", request, router_log)
+            queue_restart_notice(services.restart, "claude", request, router_log, takeover)
             print(
                 "Ciel Runtime: restarting Claude Code "
                 f"source={request.source or '-'} reason={request.reason or '-'}",

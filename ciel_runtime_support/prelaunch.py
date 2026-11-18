@@ -67,6 +67,19 @@ def _workspace_state_dir():
     return WORKSPACE_STATE_DIR
 
 
+def _restart_panel_rows() -> tuple[list[str], list[str]]:
+    """The restart panel: the reboot script (unattended restart), then the live
+    sessions a safe restart can be queued for, with their input holds."""
+
+    from ciel_runtime_support import runtime_session_restart_menu, unattended_restart_menu
+
+    script_rows, script_values = unattended_restart_menu.panel_rows(_workspace_state_dir(), Path.cwd())
+    live_rows, live_values = runtime_session_restart_menu.panel_rows(runtime_session_restart_menu.menu_service())
+    # One Back row, at the end.
+    rows, values = script_rows[:-1], script_values[:-1]
+    return rows + ["Safe restart of a live session"] + live_rows, values + ["__info__"] + live_values
+
+
 def _stream_recovery_recent() -> list[dict[str, Any]]:
     """This router instance's last stream recovery decisions, read-only."""
 
@@ -428,9 +441,7 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
             state, error = session_api_key_menu.load(session_api_key_client)
             panel_rows, panel_values = session_api_key_menu.panel_rows(state, error)
         elif name == "unattended-restart":
-            from ciel_runtime_support import unattended_restart_menu
-
-            panel_rows, panel_values = unattended_restart_menu.panel_rows(_workspace_state_dir(), Path.cwd())
+            panel_rows, panel_values = _restart_panel_rows()
         if panel_rows:
             panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
 
@@ -1289,10 +1300,23 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         continue
                     if value == "__info__":
                         continue
-                    from ciel_runtime_support import unattended_restart_menu
+                    if value.startswith("restart:"):
+                        from ciel_runtime_support import runtime_session_restart_menu
 
-                    messages = unattended_restart_menu.apply(_workspace_state_dir(), Path.cwd(), value)
-                    panel_rows, panel_values = unattended_restart_menu.panel_rows(_workspace_state_dir(), Path.cwd())
+                        restore_line_mode()
+                        try:
+                            messages = runtime_session_restart_menu.apply(
+                                runtime_session_restart_menu.menu_service(), value,
+                                lambda label, default: prompt_menu_value(
+                                    label, default, restore_tty=restore_line_mode, raw_tty=restore_raw_mode),
+                            )
+                        finally:
+                            restore_raw_mode()
+                    else:
+                        from ciel_runtime_support import unattended_restart_menu
+
+                        messages = unattended_restart_menu.apply(_workspace_state_dir(), Path.cwd(), value)
+                    panel_rows, panel_values = _restart_panel_rows()
                     panel_idx = max(0, min(panel_idx, len(panel_rows) - 1))
                 elif panel == "provider-fallback":
                     if value == "back":

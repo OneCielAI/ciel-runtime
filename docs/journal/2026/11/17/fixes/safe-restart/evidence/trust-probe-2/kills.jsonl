@@ -1,0 +1,2 @@
+{"at": 1794958223.6715007, "root": [79048, "2026-11-17T23:30:09.2204950Z"], "identity": [79048, "2026-11-17T23:30:09.2204950Z"], "name": "claude.exe", "present": true, "protected": false, "owned_chain": "ok", "command": ["taskkill", "/PID", "79048", "/F"], "rc": 0}
+{"at": 1794958239.819205, "root": [80692, "2026-11-17T23:30:25.5912330Z"], "identity": [80692, "2026-11-17T23:30:25.5912330Z"], "name": "claude.exe", "present": true, "protected": false, "owned_chain": "ok", "command": ["taskkill", "/PID", "80692", "/F"], "rc": 0}

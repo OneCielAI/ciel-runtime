@@ -25,3 +25,10 @@
   - first run: 8 failures in `test_side_real_backend`, because its harness answered without `understanding`;
   - harness fixed; 8 of 8 pass.
 - Linux Docker (python:3.11-slim), same files: 963 passed, 47 skipped, 0 failed.
+- Windows four groups on a clean 71f5243: 4,977 / 1,675 / 626 / 460, all OK.
+- Deployed 71f5243:
+  - beta push; publish run 44203390951 (9 test jobs and publish) succeeded;
+  - npm beta `0.2.51-beta.20261118-001121.71f5243`, gitHead 71f5243, integrity ok;
+  - installed locally: 626 of 628 package files equal the tree (`package.json` and `runtime_constants.py` carry the release stamp);
+  - side test files against the installed copy: 440 run, 0 failures.
+- Live sessions and routers were not restarted. Andy, Celly and KOBE run the new code only after a restart.

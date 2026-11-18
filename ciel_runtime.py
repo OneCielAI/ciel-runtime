@@ -56,7 +56,7 @@ from ciel_runtime_support.architecture import MessageProtocol, ProviderConfig
 from ciel_runtime_support.channel_backlog import ChannelBacklogCursors, ChannelBacklogRuntime, ChannelBacklogService
 from ciel_runtime_support.channel_compact_request_repository import ChannelCompactRequestRepository, compact_request_ttl
 from ciel_runtime_support.channel_cursor_recovery import ChannelCursorRecoveryService
-from ciel_runtime_support.channel_delivery_context import ChannelDeliveryCommitPorts, ChannelDeliveryCompatibilityApi, ChannelDeliveryContext, ChannelLaunchCursorPorts, ChannelLlmCursorPorts, ChannelToolContextFactoryPorts
+from ciel_runtime_support.channel_delivery_context import ChannelDeliveryCommitPorts, ChannelDeliveryCompatibilityApi, ChannelDeliveryContext, ChannelLaunchCursorPorts, ChannelLlmCursorPorts, ChannelToolContextFactoryPorts, restart_hold_release
 from ciel_runtime_support.channel_event_identity import fallback_dedupe_key as _chat_message_fallback_dedupe_key
 from ciel_runtime_support.channel_event_identity import message_event_identity_key as _channel_message_event_identity_key
 from ciel_runtime_support.channel_event_identity import message_time_seconds as _chat_message_time_seconds
@@ -401,7 +401,7 @@ from ciel_runtime_support.workspace_mcp import (
 from ciel_runtime_support.router_rate_limit_service import RouterRateLimitApi, RouterRateLimitPaths, RouterRateLimitPorts, RouterRateLimitService
 from ciel_runtime_support.router_request_context import RouterRequestCompatibilityApi, RouterRequestContext
 from ciel_runtime_support.router_server_context import RouterHealthPresentationPorts, RouterHealthRuntimePorts, RouterServerCompatibilityApi, RouterServerContext
-from ciel_runtime_support.router_shortcuts import ChannelShortcutPorts, LiveConfigShortcutPorts, RouterDebugShortcutPorts, RouterShortcutController, ShortcutPredicates, ShortcutResponsePorts
+from ciel_runtime_support.router_shortcuts import ChannelShortcutPorts, LiveConfigShortcutPorts, RestartSessionShortcut, RouterDebugShortcutPorts, RouterShortcutController, ShortcutPredicates, ShortcutResponsePorts
 from ciel_runtime_support.runtime_activity_repository import RuntimeActivityClock, RuntimeActivityEffects, RuntimeActivityPaths, RuntimeActivityRepository
 from ciel_runtime_support.runtime_adapters import RUNTIME_ADAPTERS
 from ciel_runtime_support.runtime_asset_context import RuntimeAssetCompatibilityApi, RuntimeAssetCompatibilityPorts, RuntimeAssetContext
@@ -2151,7 +2151,7 @@ def handle_chat_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return 
 def handle_chat_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool: return chat_http_controller().post(handler, path, body)
 def plan_artifact_controller() -> PlanArtifactController: return PlanArtifactController(PlanArtifactServices(PLAN_ARTIFACTS_DIR, ROUTER_BASE, _safe_segment, write_json, write_text_response, append_chat_message))
 _WORK_HTTP = build_work_http(WORKSPACE_STATE_DIR, ROUTER_INSTANCE_DIR, load_config, get_current_provider, current_alias,
-                            write_json, VERSION, SOURCE_FINGERPRINT, ROUTER_INSTANCE_ID, _WORK_RUNTIME_OBSERVER, save_config, write_text_response)
+                            write_json, VERSION, SOURCE_FINGERPRINT, ROUTER_INSTANCE_ID, _WORK_RUNTIME_OBSERVER, save_config, write_text_response, restart_service=lambda: runtime_session_restart_service(), inputs_since=lambda epoch: _runtime_input_scan_max_id() - _runtime_input_scan_max_id_before_epoch(epoch))
 def handle_plan_get(handler: BaseHTTPRequestHandler, path: str) -> bool: return _WORK_HTTP.get(handler, path) or plan_artifact_controller().get(handler, path)
 def handle_plan_post(handler: BaseHTTPRequestHandler, path: str, body: dict[str, Any]) -> bool: return _WORK_HTTP.post(handler, path, body) or plan_artifact_controller().post(handler, path, body)
 COMPACT_TEXT_ONLY_SYSTEM_PROMPT = (
@@ -2930,7 +2930,7 @@ def _router_request_context() -> RouterRequestContext:
         assembly.ClaudeRouterPipelinePorts(_update_tool_schema_registry, router_event_message_preview, dump_request_for_trace, filter_blocked_tools, normalize_tool_choice_for_provider,
                                            write_context_usage, strip_autonomous_advisor_server_tools, body_with_pending_channel_messages, body_with_channel_tool_result_context),
         assembly.ClaudeRouterShortcutPorts(maybe_handle_plan_mode_tool_choice, maybe_handle_router_debug_request, maybe_handle_version_request, maybe_handle_channel_clear_request,
-                                           maybe_handle_import_session_request, maybe_handle_live_llm_options_request, maybe_handle_live_api_keys_request, maybe_handle_advisor_request),
+                                           maybe_handle_import_session_request, maybe_handle_live_llm_options_request, maybe_handle_live_api_keys_request, maybe_handle_advisor_request, lambda handler, body: RestartSessionShortcut.for_slash(router_shortcut_controller().response, latest_user_text_has_marker, project_single_shortcut_value, shortcut_text_services, lambda **request: runtime_session_restart_service().queue(**request)).handle(handler, body)),
         assembly.ClaudeRouterDeliveryPorts(begin_pending_channel_delivery, commit_pending_channel_delivery_cursors, mark_pending_channel_delivery_failed,
                                            mark_pending_channel_delivery_success, is_client_disconnect_error, write_router_activity),
         assembly.ClaudeRouterRoutingPorts(forward_ollama_api_chat, forward_openai_compatible_chat, forward_anthropic_via_responses, select_provider_protocol, provider_request_policy, resolve_requested_model, PROVIDER_LABELS, write_json),
@@ -4369,7 +4369,7 @@ def channel_delivery_context() -> ChannelDeliveryContext:
                                              anthropic_content_to_text, truncate_for_prompt, time.time, router_log),
         cursor=ChannelLlmCursorPorts(channel_cursor_repository, CHANNEL_LLM_CURSOR_PATH, CHANNEL_LLM_CLEAR_FLOOR_PATH, _CHANNEL_LLM_CURSOR_LOCK,
                                      _channel_llm_cursor_cache, _set_channel_llm_cursor_cache, _runtime_input_scan_max_id, time.time, router_log),
-        launch=ChannelLaunchCursorPorts(_channel_launch_recent_seconds, _runtime_input_scan_max_id_before_epoch, _write_channel_llm_launch_guard, _RUNTIME_INPUT_STATUS_REPOSITORY.expire_launch_backlog),
+        launch=ChannelLaunchCursorPorts(_channel_launch_recent_seconds, _runtime_input_scan_max_id_before_epoch, _write_channel_llm_launch_guard, _RUNTIME_INPUT_STATUS_REPOSITORY.expire_launch_backlog, restart_hold_release(lambda: ROUTER_INSTANCE_DIR)),
         commit=ChannelDeliveryCommitPorts(_handler_response_status, _channel_delivery_metadata, pending_channel_delivery_confirmed,
                                           lambda: _channel_llm_read_cursor_locked(), lambda last_id: _channel_llm_write_cursor_locked(last_id)),
     )

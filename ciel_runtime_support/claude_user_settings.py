@@ -124,6 +124,44 @@ def values(env: Mapping[str, str] | None = None, home: Path | None = None) -> di
     return result
 
 
+def trust_key(folder: Path) -> str:
+    """The project key Claude Code writes for a folder ("G:/ciel-bridge-service")."""
+    return str(Path(folder).resolve()).replace('\\', '/')
+
+
+def trust_restart_folder(folder: Path, *, env: Mapping[str, str] | None = None,
+                         home: Path | None = None) -> bool:
+    """Mark the folder a restarted session resumes in as trusted; True when written.
+
+    A restart continues a session the person already trusted. Claude Code
+    2.1.326 still asks again at every relaunch in the home folder ("This is your
+    home folder, so Yes lasts for this session only"), its default answer is
+    "No, exit", and ``--continue`` does not skip it (Celly 2026-11-17). With
+    ``hasTrustDialogAccepted`` set on the folder's project key the dialog is
+    not shown, home folder included (owned probe 2026-11-17). Only that one
+    key is written, under Claude Code's own lock; a busy lock or an unreadable
+    file leaves everything unchanged and the dialog may appear.
+    """
+    target = global_config_path(env, home)
+    key = trust_key(folder)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with _claude_lock(target):
+        current = _read(target)
+        projects = current.get('projects')
+        if projects is not None and not isinstance(projects, dict):
+            raise WorkPlanError(f'{target.name} projects is not an object; nothing changed')
+        projects = projects if isinstance(projects, dict) else {}
+        row = projects.get(key)
+        if row is not None and not isinstance(row, dict):
+            raise WorkPlanError(f'{target.name} project entry is not an object; nothing changed')
+        if isinstance(row, dict) and row.get('hasTrustDialogAccepted') is True:
+            return False
+        projects[key] = {**(row or {}), 'hasTrustDialogAccepted': True}
+        current['projects'] = projects
+        _write(target, current)
+    return True
+
+
 def set_value(key: str, value: str, *, env: Mapping[str, str] | None = None,
               home: Path | None = None) -> dict[str, bool | None]:
     if key not in KEYS:

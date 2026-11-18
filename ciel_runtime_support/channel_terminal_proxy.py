@@ -123,6 +123,15 @@ class ChannelWindowsServices:
     console: ChannelWindowsConsole
 
 
+
+def _restart_or_compaction_hold(policy: Any, restart_state: Any) -> Callable[[], bool]:
+    """Pending delivery pauses for main's compaction and for a claimed restart (restart_hold)."""
+    from ciel_runtime_support.restart_hold import holds
+
+    compaction = getattr(policy, "compaction", None)
+    paused = compaction.external_admission_paused if compaction else (lambda: False)
+    return lambda: holds(restart_state) or paused()
+
 def terminal_recovery_admission_snapshot(
     now: float,
     *,
@@ -662,7 +671,8 @@ def run_windows_channel_terminal_proxy(
             inject_pending=polling.inject_pending,
             log=policy.log,
             session_socket_ready=getattr(polling, "session_socket_ready", lambda: False),
-            external_admission_paused=(policy.compaction.external_admission_paused if getattr(policy, "compaction", None) else lambda: False),
+            # A claimed restart holds every new input for the relaunched session.
+            external_admission_paused=_restart_or_compaction_hold(policy, restart_state),
         )
         pending_poll_policy = ChannelPendingPollPolicy(
             "channel_windows_console",
@@ -888,7 +898,7 @@ def run_posix_channel_terminal_proxy(
         inject_pending=polling.inject_pending,
         log=policy.log,
         session_socket_ready=getattr(polling, "session_socket_ready", lambda: False),
-        external_admission_paused=(policy.compaction.external_admission_paused if getattr(policy, "compaction", None) else lambda: False),
+        external_admission_paused=_restart_or_compaction_hold(policy, restart_state),
     )
     pending_poll_policy = ChannelPendingPollPolicy("channel_stdin_proxy", "active_turn")
     policy.log(

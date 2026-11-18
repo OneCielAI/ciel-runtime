@@ -528,6 +528,12 @@ class SessionRestartPorts:
     # the next launch scope or restart notice, so the reconciliation is bound
     # to the child that actually ended.
     child_exited: Callable[[bool], Any] = lambda _verified: None
+    # Runs after the child exited and before the restart relaunch: the folder
+    # is trusted, the worktrees are snapshotted and the notice's takeover line
+    # is returned (safe restart, 2026-11-17). The Claude launch assembly wires
+    # runtime_launch.claude_restart_takeover; the default does nothing, so a
+    # harness driving the loop never writes ~/.claude.json or repository refs.
+    relaunch: Callable[[Any, Any, Any], str] = lambda _request, _env, _log: ""
 
     def new_control(self) -> RuntimeSessionRestartControl:
         return self.control()
@@ -557,17 +563,24 @@ def restart_notice_body(
     source: str = "",
     reason: str = "",
     resumed: bool = True,
+    detail: str = "",
 ) -> dict[str, Any]:
-    """Payload for one restart-complete notice injected into the session."""
+    """Payload for one restart-complete notice injected into the session.
+
+    ``detail`` is one line (worktree takeover, messages held during the
+    restart) appended after the fixed words; the notice is typed into the
+    prompt, so it never carries a line break.
+    """
 
     mode = str(runtime or "").strip().lower() or "runtime"
+    extra = " ".join(str(detail or "").split())
     return {
         "channel": "restart",
         "sender_id": "ciel-runtime",
         "kind": "restart_notice",
         # The exact words the session receives after every unattended restart
         # (restart_session or a reboot script), resumed or not.
-        "message": RESTART_CONTINUE_MESSAGE,
+        "message": RESTART_CONTINUE_MESSAGE + (" · " + extra if extra else ""),
         "meta": {
             "raw_injection": True,
             # Typed into the prompt like a person would: Claude Code's session
@@ -753,7 +766,21 @@ class RuntimeSessionRestartService:
         return self._control
 
     def claim(self) -> RuntimeSessionRestartRequest | None:
-        return self.repository().claim(os.getpid())
+        request = self.repository().claim(os.getpid())
+        if request is not None:
+            self._hold(request)
+        return request
+
+    def _hold(self, request: RuntimeSessionRestartRequest) -> None:
+        """Inputs from now on wait for the relaunched session (restart_hold, 2026-11-17)."""
+
+        try:
+            from ciel_runtime_support.restart_hold import begin
+
+            begin(self._ports.instance_dir, os.getpid(), request.id)
+            self._ports.log("INFO", f"runtime_session_restart_hold_started request_id={request.id}")
+        except OSError as exc:
+            self._ports.log("WARN", f"runtime_session_restart_hold_record_failed error={type(exc).__name__}: {exc}")
 
     def claim_after_exit(self) -> RuntimeSessionRestartRequest | None:
         """The final claim once the CLI child has ended.
@@ -765,7 +792,10 @@ class RuntimeSessionRestartService:
         the router lifetime), so it does not depend on any other process.
         """
 
-        return self.repository().claim(os.getpid(), exact=True)
+        request = self.repository().claim(os.getpid(), exact=True)
+        if request is not None:
+            self._hold(request)
+        return request
 
     def clients(self, instance_dir: Path | None = None) -> list[dict[str, Any]]:
         clients_dir = self.instance_paths(instance_dir or self._ports.instance_dir)[0]

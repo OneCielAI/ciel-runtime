@@ -219,6 +219,80 @@ class ClaudeSessionRestartLoopTests(unittest.TestCase):
         self.assertEqual("restart_notice", notice["meta"]["source_kind"])
         self.assertTrue(notice["meta"]["resumed"])
 
+    def _restart_with_relaunch(self, relaunch, logs):
+        import dataclasses
+
+        notices: list[dict] = []
+        request = RuntimeSessionRestartRequest(
+            id="restart-takeover", source="slash", reason="deploy", runtime="claude", target_pid=os.getpid(),
+            resume=True, requested_at=time.time(), expires_at=time.time() + 60,
+        )
+        services = self.claude_services([], RuntimeSessionRestartControl(poll=lambda: request), [],
+                                        notice=lambda body: notices.append(body) or {"id": 1},
+                                        router_log=lambda level, message: logs.append(f"{level} {message}"))
+        services = dataclasses.replace(services, restart=dataclasses.replace(services.restart, relaunch=relaunch))
+        runtime_launch.run_claude([], skip_menu=True, update_check=False, self_update_check=False, services=services)
+        return request, notices
+
+    def test_the_relaunch_port_runs_once_before_the_notice_and_its_line_follows_the_words(self):
+        # Safe restart 2026-11-17: trust, worktree snapshots and the takeover line come from one port.
+        calls: list[tuple] = []
+        request, notices = self._restart_with_relaunch(
+            lambda req, env, log: calls.append((req, env)) or "재시작 전 작업 위치: G:/repo (branch feat)", [])
+        self.assertEqual([request], [call[0] for call in calls])
+        self.assertIsInstance(calls[0][1], dict)
+        self.assertEqual(["계속-세션재시작됨 · 재시작 전 작업 위치: G:/repo (branch feat)"],
+                         [notice["message"] for notice in notices])
+
+    def test_a_failing_relaunch_port_never_blocks_the_restart(self):
+        def broken(*_args):
+            raise RuntimeError("snapshot exploded")
+
+        logs: list[str] = []
+        _request, notices = self._restart_with_relaunch(broken, logs)
+        self.assertEqual(["계속-세션재시작됨"], [notice["message"] for notice in notices])
+        self.assertTrue(any("session_restart_relaunch_prepare_failed" in line and "snapshot exploded" in line
+                            for line in logs))
+
+    def test_claude_restart_takeover_trusts_snapshots_and_names_the_hold(self):
+        order: list[str] = []
+        with mock.patch.object(runtime_launch, "_trust_restart_folder", lambda _log: order.append("trust")), \
+                mock.patch.object(runtime_launch, "_restart_takeover",
+                                  lambda *_a: order.append("snapshot") or "재시작 전 작업 위치: X"), \
+                mock.patch.object(runtime_launch, "_restart_hold_active", lambda: True):
+            line = runtime_launch.claude_restart_takeover(object(), {}, None)
+        self.assertEqual(["trust", "snapshot"], order)
+        self.assertEqual("재시작 전 작업 위치: X · " + runtime_launch.RESTART_HOLD_NOTE, line)
+        with mock.patch.object(runtime_launch, "_trust_restart_folder", lambda _log: None), \
+                mock.patch.object(runtime_launch, "_restart_takeover", lambda *_a: ""), \
+                mock.patch.object(runtime_launch, "_restart_hold_active", lambda: False):
+            self.assertEqual("", runtime_launch.claude_restart_takeover(object(), {}, None))
+
+    def test_restart_takeover_never_snapshots_the_clis_own_state_in_the_home_folder(self):
+        # E2E 2026-11-17: Claude Code's native install (~/.local/bin/claude.exe and
+        # ~/.local/share/claude, 759 MB) made a home-folder repository too large to snapshot.
+        from ciel_runtime_support import restart_takeover
+
+        seen: dict = {}
+        with tempfile.TemporaryDirectory() as home, \
+                mock.patch.object(Path, "home", classmethod(lambda _cls: Path(home))), \
+                mock.patch.object(restart_takeover, "snapshot_all",
+                                  lambda *args, **kwargs: seen.update(kwargs) or {"worktrees": []}):
+            runtime_launch._restart_takeover(mock.Mock(id="r1"), {"CODEX_HOME": str(Path(home) / "ch")}, None)
+            excluded = {str(path) for path in seen["exclude"]}
+            for relative in (".claude", ".claude.json", ".codex", str(Path(".local") / "bin" / "claude.exe"),
+                             str(Path(".local") / "bin" / "claude"), str(Path(".local") / "share" / "claude"), "ch"):
+                self.assertIn(str(Path(home) / relative), excluded)
+
+    def test_the_claude_launch_assembly_wires_the_takeover_port(self):
+        from ciel_runtime_support import claude_launch_assembly as assembly
+
+        groups = {name: mock.MagicMock() for name in (
+            "process", "installation", "dispatch", "config", "routing", "policy", "delivery", "mcp_config")}
+        for restart in (None, assembly.ClaudeLaunchRestartPorts(control=lambda: None)):
+            services = assembly.ClaudeLaunchAssembly(**groups, restart=restart).services()
+            self.assertIs(runtime_launch.claude_restart_takeover, services.restart.relaunch)
+
     def test_restart_renews_the_workspace_mcp_launch(self):
         import dataclasses
 
@@ -285,6 +359,11 @@ class RestartNoticeBodyTests(unittest.TestCase):
         self.assertEqual("deploy", body["meta"]["restart_reason"])
         self.assertEqual("ciel-runtime-restart", body["meta"]["source"])
         self.assertFalse(body["meta"]["resumed"])
+
+    def test_takeover_detail_follows_the_fixed_words_on_one_line(self):
+        # 2026-11-17: the resumed session learns where it was working.
+        body = restart_notice_body("claude", detail="재시작 전 작업 위치: G:/repo\n(branch x)")
+        self.assertEqual("계속-세션재시작됨 · 재시작 전 작업 위치: G:/repo (branch x)", body["message"])
 
 
 def _codex_services(launched, control, transport=None):
@@ -782,6 +861,15 @@ class RouterQueueTests(unittest.TestCase):
         self.assertEqual(os.getpid(), payload["target_pid"])
         self.assertEqual("cli", payload["source"])
         self.assertTrue(any("runtime_session_restart_queued" in line for line in self.logs))
+
+    def test_a_claimed_request_starts_the_input_hold(self):
+        # User requirement 2026-11-17: inputs from the request on wait for the relaunch.
+        self.service.queue(source="slash", reason="deploy")
+        request = self.service.claim()
+        self.assertIsNotNone(request)
+        marker = json.loads((self.instance / f"restart-hold-{os.getpid()}.json").read_text(encoding="utf-8"))
+        self.assertEqual(request.id, marker["request_id"])
+        self.assertTrue(any("runtime_session_restart_hold_started" in line for line in self.logs))
 
     def test_queue_rejects_unknown_client_pid(self):
         result = self.service.queue(source="cli", client_pid=999)

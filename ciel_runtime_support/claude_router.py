@@ -62,6 +62,8 @@ class ClaudeRouterShortcuts:
     llm_options: Callable[..., Any]
     api_keys: Callable[..., Any]
     advisor: Callable[..., Any]
+    # Optional: an older composition without /restart-session never matches it.
+    restart_session: Callable[..., Any] = staticmethod(lambda *_args, **_kwargs: False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -272,6 +274,7 @@ def handle_claude_messages_post(
     maybe_handle_plan_mode_tool_choice = shortcuts.plan_mode
     maybe_handle_router_debug_request = shortcuts.router_debug
     maybe_handle_version_request = shortcuts.version
+    maybe_handle_restart_session_request = shortcuts.restart_session
     ncp_model_id_for_nvidia_hosted = normalization.ncp_model_id
     normalize_anthropic_model_request_options = normalization.normalize_model_options
     normalize_anthropic_system_role_messages = normalization.normalize_system_roles
@@ -340,6 +343,9 @@ def handle_claude_messages_post(
         return
     if local_request and maybe_handle_version_request(self, body):
         event_bus.publish(level="info", category="version.short_circuit", message="version request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
+        return
+    if local_request and maybe_handle_restart_session_request(self, body):
+        event_bus.publish(level="info", category="restart_session.short_circuit", message="session restart request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))
         return
     if local_request and maybe_handle_channel_clear_request(self, body):
         event_bus.publish(level="info", category="channel_clear.short_circuit", message="channel backlog clear request handled locally", request_id=request_id, provider=provider, model=str(body.get("model") or ""))

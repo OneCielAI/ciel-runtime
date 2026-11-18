@@ -42,6 +42,10 @@ class WorkHttpServices:
     # "os_user": <name>, "pid": <int>}. The REST runtime never sets it, so a
     # network request can never claim this origin.
     operator_origin: dict[str, Any] | None = None
+    # Safe session restart is runtime control, not a Work mutation. The live
+    # router wires these ports; offline/ctl controllers keep it unavailable.
+    restart_status: Callable[[], dict[str, Any]] | None = None
+    restart_queue: Callable[..., dict[str, Any]] | None = None
 
 
 class WorkHttpController:
@@ -120,6 +124,7 @@ class WorkHttpController:
             elif path in ("/ca/work/runtime", "/ca/work/api/v1/runtime"):
                 runtime = self.services.runtime_status(identity)
                 runtime["errors"] = self.services.recent_errors(identity)
+                runtime["restart"] = self._restart_status()
                 self.services.write_json(handler, {"ok": True, "schema_version": 1, "session_id": identity,
                                                    "runtime": runtime})
             elif path == "/ca/work/api/v1/state":
@@ -287,7 +292,73 @@ class WorkHttpController:
                                            "message": "Work state unreadable" if unavailable else str(exc)},
                                  503 if unavailable else 422)
 
+    RESTART_PATH = "/ca/work/api/v1/runtime/restart"
+    RESTART_FIELDS = frozenset(("session_id", "reason", "runtime", "resume", "client_pid", "confirmed"))
+
+    def _restart_status(self) -> dict[str, Any]:
+        """Read-only safe-restart view: live clients, the queued request and input holds."""
+        if self.services.restart_status is None:
+            return {"available": False}
+        try:
+            return {"available": True, **self.services.restart_status()}
+        except (OSError, ValueError) as exc:
+            return {"available": False, "error": type(exc).__name__}
+
+    def restart(self, identity: str, body: dict[str, Any], origin: dict[str, Any]) -> dict[str, Any]:
+        """Queue a safe restart of this router instance's live CLI client.
+
+        The same RuntimeSessionRestartService.queue the MCP tool, the slash
+        command and ``ciel-runtimectl restart-session`` use. Only this live
+        instance's active clients are targets; a pid of another instance is
+        refused by the service. The person confirms first (confirmed=true).
+        """
+        if self.services.restart_queue is None:
+            raise tree.WorkPlanError("session restart is unavailable in this process")
+        if set(body) - self.RESTART_FIELDS:
+            raise tree.WorkPlanError("unsupported restart fields")
+        if body.get("confirmed") is not True:
+            raise tree.WorkPlanError("a session restart requires explicit confirmation (confirmed=true)")
+        reason = body.get("reason", "")
+        runtime = body.get("runtime", "")
+        if not isinstance(reason, str) or len(reason) > 200 or any(ord(char) < 32 for char in reason):
+            raise tree.WorkPlanError("reason must be a single-line string of at most 200 characters")
+        if runtime not in ("", "claude", "codex"):
+            raise tree.WorkPlanError("runtime must be claude, codex or empty")
+        resume = body.get("resume", True)
+        if type(resume) is not bool:
+            raise tree.WorkPlanError("resume must be boolean")
+        client_pid = body.get("client_pid", 0)
+        if type(client_pid) is not int or client_pid < 0:
+            raise tree.WorkPlanError("client_pid must be a nonnegative integer")
+        source = "web" if origin.get("source") == "web" else "rest"
+        result = self.services.restart_queue(source=source, reason=reason.strip(), runtime=runtime,
+                                             client_pid=client_pid, resume=resume)
+        request = result.get("request") or {}
+        target = result.get("target") or {}
+        refusal = {} if result.get("ok") else {"error": "restart_not_queued",
+                                               "message": str(result.get("detail") or "restart was not queued")}
+        return {**refusal, "ok": bool(result.get("ok")), "schema_version": 1, "session_id": identity,
+                "queued": bool(result.get("queued")), "source": source,
+                "request": {key: request.get(key) for key in (
+                    "id", "source", "reason", "runtime", "target_pid", "resume", "requested_at", "expires_at")
+                    if key in request} or None,
+                "target_pid": target.get("pid"), "detail": result.get("detail"),
+                "restart": self._restart_status()}
+
+    def _post_restart(self, handler: Any, body: dict[str, Any]) -> bool:
+        try:
+            if not isinstance(body, dict):
+                raise tree.WorkPlanError("body must be an object")
+            identity = self._identity(body.get("session_id"))
+            result = self.restart(identity, body, self._request_origin(handler))
+            self.services.write_json(handler, result, 200 if result["ok"] else 409)
+        except (OSError, tree.WorkPlanError) as exc:
+            self._error(handler, exc)
+        return True
+
     def post(self, handler: Any, path: str, body: dict[str, Any]) -> bool:
+        if path == self.RESTART_PATH:
+            return self._post_restart(handler, body)
         actions = {"/ca/work/nodes/" + n: n for n in ("add", "update", "remove", "reorder")}
         commands = {"/ca/work/api/v1/commands/" + name.replace("_", "-"): name for name in (
             "plan_set", "node_add", "node_update", "node_remove", "active_select", "execute", "replan",
@@ -1351,7 +1422,8 @@ class WorkHttpController:
                        "events": "GET /ca/work/api/v1/events", "openapi": "GET /ca/work/api/v1/openapi",
                        "side": "GET /ca/work/api/v1/side?limit=1-100&cursor=<next_cursor>&stage=<stage>&priority=P1..P5&q=<text>",
                        "side_receipt": "GET /ca/work/api/v1/side/receipt?receipt_id=<64 lowercase hex>",
-                       "commands": "POST /ca/work/api/v1/commands/<command> with Idempotency-Key or operation_id"},
+                       "commands": "POST /ca/work/api/v1/commands/<command> with Idempotency-Key or operation_id",
+                       "restart": "POST /ca/work/api/v1/runtime/restart {confirmed: true, reason, runtime: claude|codex|'', resume, client_pid}; GET /ca/work/api/v1/runtime returns runtime.restart (clients, queued request, input holds)"},
                 "side_receipts": "Current-session receipts only, newest activity first. Stages: received, processing, processed, failed, quarantined, duplicate. Filters and search use bounded public fields. Credentials, reply routes, claim/fallback generations, outbox attempts and main-context previews are never returned; originals and replies are redacted and limited to 16,000 characters.",
                 "runtime": "GET /ca/work/runtime", "events": "GET /ca/work/events",
                 "mutations": ["POST /ca/work/nodes/" + n for n in ("add", "update", "remove", "reorder")],

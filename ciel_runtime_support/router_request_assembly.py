@@ -168,6 +168,7 @@ class ClaudeRouterShortcutPorts:
     llm_options: Callback
     api_keys: Callback
     advisor: Callback
+    restart_session: Callback = staticmethod(lambda *_args, **_kwargs: False)
 
 
 @dataclass(frozen=True, slots=True)
@@ -287,6 +288,7 @@ class ClaudeRouterAssembly:
                 llm_options=self.shortcuts.llm_options,
                 api_keys=self.shortcuts.api_keys,
                 advisor=self.shortcuts.advisor,
+                restart_session=self.shortcuts.restart_session,
             ),
             delivery=claude_router.ClaudeRouterDelivery(
                 begin=self.delivery.begin,

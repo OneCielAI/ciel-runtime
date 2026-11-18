@@ -1445,7 +1445,8 @@ class LaunchScopeRetryLimitTests(unittest.TestCase):
         self.assertEqual(3, binding.current_launch_scope()["direct_empty_stream_retries"])
         binding.bind("claude", session_id=SESSION, cwd="C:/w", direct_empty_stream_retries=0)
         self.assertEqual(0, binding.current_launch_scope()["direct_empty_stream_retries"])
-        source = (Path(__file__).resolve().parents[1] / "ciel_runtime_support" / "runtime_launch.py").read_text()
+        source = (Path(__file__).resolve().parents[1] / "ciel_runtime_support" / "runtime_launch.py").read_text(
+            encoding="utf-8")
         self.assertIn('direct_empty_stream_retries=_direct_empty_stream_retries(env)', source)
 
 

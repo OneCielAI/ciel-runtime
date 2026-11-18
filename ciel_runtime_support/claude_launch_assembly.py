@@ -213,9 +213,10 @@ class ClaudeLaunchAssembly:
                 workspace_mcp=self.mcp_config.workspace,
             ),
             restart=(
-                runtime_launch.SessionRestartPorts(self.restart.control, self.restart.notice, self.restart.prepare, self.restart.child_exited)
+                runtime_launch.SessionRestartPorts(self.restart.control, self.restart.notice, self.restart.prepare,
+                                                   self.restart.child_exited, runtime_launch.claude_restart_takeover)
                 if self.restart is not None
-                else runtime_launch.SessionRestartPorts()
+                else runtime_launch.SessionRestartPorts(relaunch=runtime_launch.claude_restart_takeover)
             ),
         )
 
