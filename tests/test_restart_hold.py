@@ -111,10 +111,14 @@ class RestartHoldLaunchTests(unittest.TestCase):
     def test_restart_hold_release_uses_its_bound_state_dir_and_ends_once(self):
         from ciel_runtime_support.channel_delivery_context import restart_hold_release
 
-        restart_hold.begin(self.root, os.getpid(), "d" * 32, now=123.0)
-        release = restart_hold_release(lambda: self.root)
-        self.assertEqual(123.0, release())
-        self.assertIsNone(release())
+        with tempfile.TemporaryDirectory(prefix="ciel-hold-release-") as td:
+            root = Path(td)
+            restart_hold.begin(root, os.getpid(), "d" * 32, now=time.time() - 5)
+            started = restart_hold.current(root, os.getpid())["started_at"]
+            release = restart_hold_release(lambda: root)
+            self.assertEqual(started, release())
+            self.assertIsNone(release())
+            self.assertFalse((root / f"restart-hold-{os.getpid()}.json").exists())
 
 
 if __name__ == "__main__":
