@@ -1600,6 +1600,7 @@ const scenarios = {
         calls.push(args)
         if (args.event === 'wait') lease.slot = false
         if (args.event === 'reacquire') lease.slot = true
+        if (args.event === 'resume') lease.state = 'running'
         return text({ version: 10, leases: { L1: lease } })
       }
       return text({})
@@ -1610,7 +1611,65 @@ const scenarios = {
     const afterWait = { slot: lease.slot, calls: calls.map(c => c.event) }
     calls.length = 0
     const resumed = await handlers['tool.call']($, { tool: 'SendMessage', to: 'agent-wait', message: 'continue' }, next({ sent: true }))
-    return { afterWait, resumed: Boolean(resumed?.sent), slot: lease.slot, calls: calls.map(c => c.event) }
+    return { afterWait, resumed: Boolean(resumed?.sent), slot: lease.slot, state: lease.state, calls: calls.map(c => c.event),
+      resume: calls.find(c => c.event === 'resume') || null }
+  },
+  // Stage 3 (2026-11-17): the pump resumes a parked worker whose board wait is
+  // cleared (reacquire -> resume -> session.send to the same agent), leaves one
+  // still waiting alone, and records a refused delivery.
+  async 'parallel-pump-resumes-cleared-parked-worker'() {
+    const mode = process.argv[3] || 'delivered'
+    // wait_clear_now / wait_cleared are the router's host-view verdicts
+    // (parked_wait_cleared, _parked_wait_marks). L3 asked a question: nothing
+    // is recorded on its item, so it waits for main and is never resumed here.
+    const leases = {
+      L1: { id:'L1', item_id:'n2', role:'worker', state:'waiting_input', host_id:'agent-a', agent_name:'work-auto-a',
+        slot:false, plan_version:7, priority:'P2', wait_clear_now:true, wait_seen:true, wait_cleared:true },
+      L2: { id:'L2', item_id:'n3', role:'worker', state:'waiting_input', host_id:'agent-b', agent_name:'work-auto-b',
+        slot:false, plan_version:7, priority:'P2', wait_clear_now:false, wait_seen:true, wait_cleared:false },
+      L3: { id:'L3', item_id:'n4', role:'worker', state:'waiting_input', host_id:'agent-c', agent_name:'work-auto-c',
+        slot:false, plan_version:7, priority:'P2', wait_clear_now:true, wait_seen:false, wait_cleared:false } }
+    const calls = [], noticeClaims = new Set()
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:9, active_device:0,
+        policy:{ enabled:true, paused:false, priority_limits:{P1:3,P2:2,P3:1,P4:1,P5:1}, launches_per_minute:4 }, leases })
+      if (tool === 'work_parallel_event') {
+        calls.push(args)
+        if (args.event === 'reacquire') leases[args.lease_id].slot = true
+        if (args.event === 'wait') leases[args.lease_id].slot = false
+        if (args.event === 'resume') leases[args.lease_id].state = 'running'
+        if (args.event === 'parked_notice_claim') { if (args.release) { noticeClaims.delete(args.lease_id); return text({ claimed:true }) }
+          const fresh = !noticeClaims.has(args.lease_id); noticeClaims.add(args.lease_id); return text({ claimed:fresh }) }
+        if (args.event === 'reserve' || args.event === 'reserve_next') throw new Error('no eligible candidate')
+        return text({ version:10 })
+      }
+      return text({})
+    })
+    // The native list drops a parked fork after a while (E2E stub-3): agent-a is absent in 'unlisted'.
+    state.agents = [{ id:'agent-a', status:'idle', type:'fork', spawnedBy:'ciel-work' },
+      { id:'agent-b', status:'idle', type:'fork', spawnedBy:'ciel-work' },
+      { id:'agent-c', status:'idle', type:'fork', spawnedBy:'ciel-work' }].filter(row => mode !== 'unlisted' || row.id !== 'agent-a')
+    // As measured on 2.1.327: a send to an idle fork raises agent.spawn with
+    // resume.agentId inside the plugin-origin frame; a denied spawn is undelivered.
+    $.session.send = async args => { (state.sent ||= []).push(args)
+      if (mode === 'refused') return { isDelivered:false, reason:'a plugin declined the resume' }
+      const row = Object.values(leases).find(l => l.host_id === args.to?.agentId)
+      const resumeNext = () => { const fn = async () => ({ agentId:args.to.agentId }); fn.origin = { plugin:'ciel-work' }; return fn }
+      const started = await handlers['agent.spawn']($, { fork:true, subagentType:'fork', name:row.agent_name,
+        description:'resume', prompt:'', resume:{ agentId:args.to.agentId } }, resumeNext())
+      if (started?.deny) return { isDelivered:false, reason:'a plugin declined the resume: ' + started.deny }
+      const listed = state.agents.find(agent => agent.id === args.to.agentId)
+      if (listed) listed.status = 'running'
+      return { isDelivered:true } }
+    await handlers['session.start']($, { isInteractive:true }, next(undefined))
+    await handlers['turn.complete']($, {}, next(undefined))
+    await sleep(20)
+    return { notices:(state.appended || []).map(row => row.message?.content?.[0]?.text || '').filter(t => t.startsWith('Ciel Work parked worker')),
+      events:calls.map(c => c.event + ':' + (c.lease_id || '')), sent:(state.sent || []).map(s => s.to?.agentId),
+      text:(state.sent || [])[0]?.text || '', l1:{ state:leases.L1.state, slot:leases.L1.slot },
+      l2:{ state:leases.L2.state, slot:leases.L2.slot }, l3:{ state:leases.L3.state, slot:leases.L3.slot },
+      logs:state.logs.filter(l => /parked|resumed parked/.test(l)) }
   },
   async 'parallel-missing-exit-report-requests-contract'() {
     const leases = { L1: { id:'L1', item_id:'n2', role:'worker', state:'running', host_id:'agent-old', slot:true, plan_version:7 } }
@@ -3686,6 +3745,97 @@ Object.assign(scenarios, {
 // Walkie 2026-11-16: slots were free but no fork started while main worked
 // inline through a long turn: nothing woke the pump until the turn ended.
 Object.assign(scenarios, {
+  // Stage 3 (2026-11-17): a periodic pump runs while a Work fork runs, and the
+  // gate check runs with a fork running and side intake off: the host round
+  // re-pumps, reads the diagnosis, claims one notice and records what it did.
+  async 'stage3-periodic-pump-and-gate-host-round'() {
+    const timers = [], gate = [], statusAt = []
+    const diagnosis = { rows:[{ priority:'P1', limit:3, active:1, free:2, candidates:2, state:'can_fill', reason:'2 runnable' },
+      { priority:'P2', limit:2, active:0, free:2, candidates:0, state:'no_candidates', reason:'free slot but no runnable item (goal in planning 1)' }],
+      summary:'P1 1/3 can fill · P2 0/2 no candidates', attention:['P2'], attention_digest:'ab'.repeat(8) }
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') { statusAt.push(tool); return text({ version:1, policy:{ enabled:true, paused:false,
+        priority_limits:{P1:3,P2:2,P3:1,P4:1,P5:1}, launches_per_minute:4 },
+        leases:{ L1:{ id:'L1', item_id:'n2', role:'worker', state:'running', slot:true, host_id:'agent-run', agent_name:'work-auto-r', plan_version:7, priority:'P1' } },
+        priority_diagnosis:diagnosis }) }
+      if (tool === 'work_parallel_event') throw new Error('no eligible candidate')
+      if (tool === 'work_side_gate_check') {
+        gate.push(args)
+        const report = args.host_report
+        if (!report) return text({ interval_minutes:5, queued:false, side_intake:false, host_only:true, host_due:true,
+          reason:'side_intake_off', gates:['n3'] })
+        if (report.claim === 'diagnosis') return text({ claimed: gate.filter(g => g.host_report?.claim === 'diagnosis').length === 1 })
+        if (report.claim === 'discovery') return text({ claimed:false })
+        return text({ recorded:true, host_round:report.round })
+      }
+      if (tool === 'work_side_claim') return text({ claim:null, settings:{}, handoff_replies:[], main_wakes:[] })
+      if (tool === 'work_side_status') return text({ side_inbox_receipts:[] })
+      return text({})
+    })
+    $.clock.after = (delay, fn) => { const t = { delay, fn, cancelled:false }; timers.push(t); return { cancel() { t.cancelled = true } } }
+    state.agents = [{ id:'agent-run', status:'running', type:'fork', spawnedBy:'ciel-work' }]
+    await handlers['session.start']($, { isInteractive:true }, next({ cwd:'C:/w' }))
+    await sleep(30)
+    const periodicArmed = timers.filter(t => t.delay === 60000 && !t.cancelled).length
+    const fire = async () => { for (const t of timers.splice(0).filter(t => t.delay === 60000 && !t.cancelled)) { await t.fn(); await sleep(10) } }
+    const beforePeriodic = statusAt.length
+    await fire()
+    const periodicPumped = statusAt.length > beforePeriodic
+    const rearmed = timers.filter(t => t.delay === 60000 && !t.cancelled).length
+    // Main's turn ends with a fork still running: the gate check is scheduled and runs.
+    await handlers['turn.complete']($, {}, next(undefined))
+    await sleep(30)
+    await fire(); await sleep(30)
+    const first = gate.find(g => !g.host_report)
+    const rounds = gate.filter(g => g.host_report?.round).map(g => g.host_report.round)
+    const appended = (state.appended || []).map(a => a.message?.content?.[0]?.text || '')
+    // A second interval with the same diagnosis: the router refuses the claim, no second notice.
+    await fire(); await sleep(30)
+    const appendedAfter = (state.appended || []).map(a => a.message?.content?.[0]?.text || '').filter(t => t.startsWith('Ciel Work dispatch check')).length
+    return { periodicArmed, periodicPumped, rearmed, firstGate:first ? { idle:first.idle, forks_running:first.forks_running } : null,
+      claims:gate.filter(g => g.host_report?.claim).map(g => g.host_report.claim), round:rounds[0] || null, rounds:rounds.length,
+      notice:appended.find(t => t.startsWith('Ciel Work dispatch check')) || '', notices:appendedAfter,
+      wake:(state.submitted || []).map(s => s.text).find(t => /dispatch wake/.test(t)) || '',
+      logs:state.logs.filter(l => /gate check \(host round\)/.test(l)) }
+  },
+  // 2026-11-18: each P0 goal's outcome reaches main once: fork started, or the
+  // exact refusal. A pending launch says nothing; a failed delivery can retry.
+  async 'parallel-p0-outcome-notices'() {
+    const mode = process.argv[3] || 'mixed'
+    const started = { root_id:'n1', title:'runs', forks:1, runnable:0, state:'running', code:'', reason:'1 fork(s) running',
+      fork_agents:[{ agent_id:'agent-1', item_id:'n2' }], notified:{} }
+    const blocked = { root_id:'n3', title:'refused', forks:0, runnable:1, state:'blocked', code:'workspace_git_untrusted',
+      reason:'git refuses the repository (dubious ownership)', notified:{},
+      refusal:{ code:'workspace_git_untrusted', item_id:'n4', detail:'detected dubious ownership in repository' } }
+    const pending = { root_id:'n5', title:'pending', forks:0, runnable:1, state:'pending', code:'', reason:'launch pending; no refusal seen', notified:{} }
+    const done = { root_id:'n6', title:'ran earlier', forks:0, runnable:0, state:'blocked', code:'open_lease', reason:'its leaves already hold open leases', notified:{ started:1 } }
+    const goals = mode === 'started-only' ? [started] : [started, blocked, pending, done]
+    const claimed = new Set(), claims = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:1, leases:{}, p0_goals:goals,
+        policy:{ enabled:true, paused:false, priority_limits:{P1:3,P2:2,P3:1,P4:1,P5:1}, launches_per_minute:4 } })
+      if (tool === 'work_parallel_event') {
+        if (args.event !== 'p0_outcome_claim') throw new Error('no eligible candidate')
+        claims.push({ root:args.root_id, outcome:args.outcome, release:args.release === true, internal:args._host?.internal === true })
+        const key = args.root_id + ':' + args.outcome
+        if (args.release) { claimed.delete(key); return text({ claimed:true }) }
+        const fresh = !claimed.has(key); claimed.add(key)
+        return text({ claimed:fresh })
+      }
+      if (tool === 'work_side_claim') return text({ claim:null, settings:{}, handoff_replies:[], main_wakes:[] })
+      if (tool === 'work_side_status') return text({ side_inbox_receipts:[] })
+      return text({})
+    })
+    if (mode === 'append-denied') $.session.append = async () => ({ deny:'no' })
+    await handlers['session.start']($, { isInteractive:true }, next({ cwd:'C:/w' }))
+    await sleep(30)
+    await handlers['turn.complete']($, {}, next(undefined))
+    await sleep(30)
+    return { claims, notices:(state.appended || []).map(row => row.message?.content?.[0]?.text || '').filter(t => t.startsWith('Ciel Work P0 outcome')),
+      wakes:(state.submitted || []).map(row => row.text).filter(t => /P0 wake/.test(t)) }
+  },
   async 'main-steps-wake-the-pump-during-a-long-turn'() {
     const pumps = []
     const { $ } = host(async (tool) => {

@@ -69,8 +69,9 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
          "inputSchema": {"type": "object", "properties": {}}},
         {"name": "work_side_drain", "description": "Coordinator-only: retry pending durable side inbox admission without approving execution. Full board remains queued.",
          "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 100}}}},
-        {"name": "work_side_gate_check", "description": "Host-only: queue one side gate re-check of blocked/waiting Work when it is due (main idle, no Work fork running).",
-         "inputSchema": {"type": "object", "properties": {"idle": {"type": "boolean"}, "forks_running": {"type": "integer", "minimum": 0}},
+        {"name": "work_side_gate_check", "description": "Host-only: queue one side gate re-check of blocked/waiting Work when it is due (main idle; Work forks may run), or claim/record the host's own round (host_report).",
+         "inputSchema": {"type": "object", "properties": {"idle": {"type": "boolean"}, "forks_running": {"type": "integer", "minimum": 0},
+                                                          "host_report": {"type": "object"}},
                          "required": ["idle", "forks_running"]}},
         {"name": "work_side_intake", "description": "Durably queue an untrusted side request without approving execution or changing the active goal. Stable event_key deduplicates retries; host coordinator only.",
          "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "maxLength": SIDE_INTAKE_TEXT_MAX_CHARS},
@@ -535,15 +536,17 @@ def dispatch_work_tool(
             if host.get("agent_id") is not None:
                 raise tree.WorkPlanError("gate check requires coordinator host")
             interval = minutes(config)
-            status = {"interval_minutes": interval, "queued": False}
+            side_on = (config.get("work_side_intake") or {}).get("enabled") is True
+            status = {"interval_minutes": interval, "queued": False, "side_intake": side_on}
             if interval == 0:
                 return respond(request_id, json.dumps({**status, "reason": "off"}))
-            if (config.get("work_side_intake") or {}).get("enabled") is not True:
-                return respond(request_id, json.dumps({**status, "reason": "side_intake_off"}))
-            if args.get("idle") is not True or args.get("forks_running") != 0:
+            # Stage 3 (2026-11-17): the check also runs while Work forks run and
+            # with side intake off; only main's own turn still defers it.
+            if args.get("idle") is not True:
                 return respond(request_id, json.dumps({**status, "reason": "not_idle"}))
             from .channel_message_repository import exclusive_file_lock
             from .side_intake_service import receive
+            from .work_gate_check import host_report
             from hashlib import sha256
             import time
             record = state_dir / "sessions" / sha256(identity.encode()).hexdigest()[:24] / "gate-check.json"
@@ -553,7 +556,26 @@ def dispatch_work_tool(
                     last = json.loads(record.read_text(encoding="utf-8"))
                 except (OSError, ValueError):
                     last = None
+                last = last if isinstance(last, dict) else None
+                if args.get("host_report") is not None:
+                    # The host's own round (re-pump, diagnosis, notice): a claim
+                    # of the one notice per changed diagnosis, or its record.
+                    try:
+                        updated, answer = host_report(config, last, args.get("host_report"), side_on=side_on,
+                                                      forks_running=args.get("forks_running"))
+                    except ValueError as error:
+                        raise tree.WorkPlanError(str(error)) from None
+                    if updated is not None:
+                        record.write_text(json.dumps(updated, ensure_ascii=False), encoding="utf-8")
+                    return respond(request_id, json.dumps({**status, **answer}, ensure_ascii=False))
+                round_at = float(((last or {}).get("host_round") or {}).get("at") or 0)
+                status["host_due"] = time.time() - round_at >= interval * 60
                 doc = (store or session_work_plan_store(state_dir, identity, log=log)).read()
+                if not side_on:
+                    # No side actor checks the gates; the host does what it can
+                    # itself (re-pump, diagnosis, notice) and records it.
+                    return respond(request_id, json.dumps({**status, "reason": "side_intake_off", "host_only": True,
+                                                           "gates": [row["id"] for row in gates(doc)]}))
                 # One round at a time: a new round waits until every event of the
                 # last one has finished, so a slow side queue never piles up.
                 from .side_intake_inbox import SideIntakeInbox
@@ -577,8 +599,8 @@ def dispatch_work_tool(
                 receipts = [receive(state_dir, identity, part["text"], part["event_key"], admit=False,
                                     route={"source_kind": "gate_check"}).get("receipt_id")
                             for part in event["events"]]
-                record.write_text(json.dumps({"at": event["at"], "digest": event["digest"],
-                                              "receipt_ids": receipts}), encoding="utf-8")
+                record.write_text(json.dumps({**(last or {}), "at": event["at"], "digest": event["digest"],
+                                              "receipt_ids": receipts}, ensure_ascii=False), encoding="utf-8")
             return respond(request_id, json.dumps({**status, "queued": True, "receipt_id": receipts[0],
                                                   "receipt_ids": receipts, "events": len(receipts),
                                                   "gates": event["gates"]}, ensure_ascii=False))

@@ -29,4 +29,12 @@
 - Moved the slash binding and the hold release into support modules, so `ciel_runtime.py` stays at its 4980-line budget.
 - Ruff passes. `claude plugin test ciel-work`: 104 pass.
 
+- Deployed 66da4e2:
+  - the first publish run, 44247936187 on f64dec5, failed in `python-minimum`: `TestCase.enterContext` needs Python 3.11, and new test files moved that test file into the only shard run on 3.10;
+  - fixed in 66da4e2; all three unit shards pass on Python 3.10 (4,914 tests);
+  - publish run 44251151073 succeeded; npm beta `0.2.51-beta.20261118-064156.66da4e2`;
+  - installed locally: 629 of 631 package files equal the tree (`package.json` and `runtime_constants.py` carry the release stamp);
+  - against the installed copy: 619 tests, 0 failures, 43 skipped; `claude plugin test ciel-work`: 104 pass.
+- Live sessions were not restarted by this deploy.
+
 See [record.md](record.md) and [evidence/e2e-after/result.json](evidence/e2e-after/result.json).

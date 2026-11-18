@@ -1,0 +1,520 @@
+{
+ "scenario": "fill",
+ "limits": {
+  "P1": 3,
+  "P2": 2,
+  "P3": 1,
+  "P4": 1,
+  "P5": 1
+ },
+ "model": "local stub; no real provider or key",
+ "running_at_limit": {
+  "P1": 3,
+  "P2": 2,
+  "P3": 1,
+  "P4": 1,
+  "P5": 1
+ },
+ "live_markers_at_peak": 8,
+ "p0_plan_set": {
+  "ok": true,
+  "operation": "plan_set"
+ },
+ "p0_fork_seconds": 3.1,
+ "p0_with_full_slots": {
+  "P1": 3,
+  "P2": 2,
+  "P3": 1,
+  "P4": 1,
+  "P5": 1
+ },
+ "p0_row_running": {
+  "state": "goals_running",
+  "reason": "1 P0 goal(s) running or launching",
+  "goals": [
+   {
+    "root_id": "n16",
+    "activated_at": 1794994173.3074148,
+    "set_by": "operator",
+    "phase": "planning",
+    "unfinished": 1,
+    "runnable": 0,
+    "waiting": 0,
+    "fenced": 1,
+    "stranded": 0,
+    "fenced_states": {
+     "running": 1
+    },
+    "forks": 1,
+    "state": "running",
+    "code": "",
+    "reason": "1 fork(s) running"
+   }
+  ]
+ },
+ "gate_record": {
+  "host_round": {
+   "at": 1794994226.8566504,
+   "side_intake": false,
+   "forks_running": 9,
+   "repumped": true,
+   "attention": [],
+   "notified": false,
+   "discovery_requested": false,
+   "summary": "P0 1 goals running · P1 3/3 full · P2 2/2 full · P3 1/1 full · P4 1/1 full · P5 1/1 full"
+  },
+  "notified_digest": null
+ },
+ "refill_waited": true,
+ "park_lease": {
+  "id": "0d93bb7365d949b58eb5ba0201d79033",
+  "state": "waiting_input",
+  "slot": false,
+  "host_id": "aecd628d1b263acf0",
+  "agent_name": "work-auto-mwlx6alz-hwmipjt7lki"
+ },
+ "wait_set": {
+  "ok": true,
+  "schema_version": 1,
+  "operation": "node_update",
+  "operation_id": "259c3090ddbd06392affb93ce1d616bf",
+  "version": 3,
+  "changed": true,
+  "result": {
+   "id": "n4",
+   "status": "pending",
+   "active_root_id": "n1"
+  },
+  "session_id": "claude:88888888-8888-4888-8888-f468dc4f2c22"
+ },
+ "wait_cleared_request": {
+  "ok": true,
+  "schema_version": 1,
+  "operation": "node_update",
+  "operation_id": "afe5100f1d5602e2bc555788d8b6d6b2",
+  "version": 4,
+  "changed": true,
+  "result": {
+   "id": "n4",
+   "status": "pending",
+   "active_root_id": "n1"
+  },
+  "session_id": "claude:88888888-8888-4888-8888-f468dc4f2c22"
+ },
+ "resume_latency_seconds": 3.0,
+ "main_still_in_tool_at_resume": true,
+ "park_after": {
+  "id": "0d93bb7365d949b58eb5ba0201d79033",
+  "state": "submitted",
+  "slot": false,
+  "host_id": "aecd628d1b263acf0",
+  "agent_name": "work-auto-mwlx6alz-hwmipjt7lki"
+ },
+ "resumed_requests": [
+  {
+   "tag": "shell",
+   "history_kept": true,
+   "lease": "0d93bb7365d949b58eb5ba0201d79033"
+  },
+  {
+   "tag": "completion",
+   "history_kept": true,
+   "lease": "0d93bb7365d949b58eb5ba0201d79033"
+  },
+  {
+   "tag": "fork-end",
+   "history_kept": true,
+   "lease": "0d93bb7365d949b58eb5ba0201d79033"
+  }
+ ],
+ "shell_retries": [],
+ "parked_notice_to_main": [],
+ "rest_priority_diagnosis": {
+  "rows": [
+   {
+    "priority": "P0",
+    "limit": null,
+    "active": 0,
+    "held_for_parked": 0,
+    "unfinished": 1,
+    "candidates": 0,
+    "blocked": {
+     "waiting": 0,
+     "planning": 0,
+     "not_ready": 0,
+     "fenced": 1,
+     "stranded": 0
+    },
+    "fenced_states": {
+     "submitted": 1
+    },
+    "free": null,
+    "goals": [
+     {
+      "root_id": "n16",
+      "activated_at": 1794994173.3074148,
+      "set_by": "operator",
+      "phase": "planning",
+      "unfinished": 1,
+      "runnable": 0,
+      "waiting": 0,
+      "fenced": 1,
+      "stranded": 0,
+      "fenced_states": {
+       "submitted": 1
+      },
+      "forks": 0,
+      "state": "blocked",
+      "code": "open_lease",
+      "reason": "its leaves already hold open leases; open leases: submitted 1; goal still in planning (P0 needs no approval)"
+     }
+    ],
+    "state": "goal_blocked",
+    "reason": "n16: its leaves already hold open leases; open leases: submitted 1; goal still in planning (P0 needs no approval)"
+   },
+   {
+    "priority": "P1",
+    "limit": 3,
+    "active": 2,
+    "held_for_parked": 0,
+    "unfinished": 4,
+    "candidates": 0,
+    "blocked": {
+     "waiting": 0,
+     "planning": 0,
+     "not_ready": 0,
+     "fenced": 4,
+     "stranded": 0
+    },
+    "fenced_states": {
+     "submitted": 2,
+     "running": 2
+    },
+    "free": 1,
+    "state": "no_candidates",
+    "reason": "free slot but no runnable item (already has an open lease 4; open leases: running 2, submitted 2)"
+   },
+   {
+    "priority": "P2",
+    "limit": 2,
+    "active": 2,
+    "held_for_parked": 0,
+    "unfinished": 2,
+    "candidates": 0,
+    "blocked": {
+     "waiting": 0,
+     "planning": 0,
+     "not_ready": 0,
+     "fenced": 2,
+     "stranded": 0
+    },
+    "fenced_states": {
+     "running": 2
+    },
+    "free": 0,
+    "state": "full",
+    "reason": "all slots in use"
+   },
+   {
+    "priority": "P3",
+    "limit": 1,
+    "active": 1,
+    "held_for_parked": 0,
+    "unfinished": 1,
+    "candidates": 0,
+    "blocked": {
+     "waiting": 0,
+     "planning": 0,
+     "not_ready": 0,
+     "fenced": 1,
+     "stranded": 0
+    },
+    "fenced_states": {
+     "running": 1
+    },
+    "free": 0,
+    "state": "full",
+    "reason": "all slots in use"
+   },
+   {
+    "priority": "P4",
+    "limit": 1,
+    "active": 1,
+    "held_for_parked": 0,
+    "unfinished": 1,
+    "candidates": 0,
+    "blocked": {
+     "waiting": 0,
+     "planning": 0,
+     "not_ready": 0,
+     "fenced": 1,
+     "stranded": 0
+    },
+    "fenced_states": {
+     "running": 1
+    },
+    "free": 0,
+    "state": "full",
+    "reason": "all slots in use"
+   },
+   {
+    "priority": "P5",
+    "limit": 1,
+    "active": 1,
+    "held_for_parked": 0,
+    "unfinished": 1,
+    "candidates": 0,
+    "blocked": {
+     "waiting": 0,
+     "planning": 0,
+     "not_ready": 0,
+     "fenced": 1,
+     "stranded": 0
+    },
+    "fenced_states": {
+     "running": 1
+    },
+    "free": 0,
+    "state": "full",
+    "reason": "all slots in use"
+   }
+  ],
+  "summary": "P0 0 goal blocked (n16: its leaves already hold open leases; open leases: submitted 1; goal still in planning (P0 needs no approval)) · P1 2/3 no candidates (free slot but no runnable item (already has an open lease 4; open leases: running 2, submitted 2)) · P2 2/2 full · P3 1/1 full · P4 1/1 full · P5 1/1 full",
+  "attention": [
+   "P0",
+   "P1"
+  ],
+  "attention_digest": "8324d2dff42447cc",
+  "policy": {
+   "enabled": true,
+   "paused": false
+  },
+  "launch_rate_reached": false,
+  "lease_bound": {
+   "open": 7,
+   "max": 100
+  }
+ },
+ "ctl_priority_diagnosis": {
+  "rows": [
+   {
+    "priority": "P0",
+    "limit": null,
+    "active": 0,
+    "held_for_parked": 0,
+    "unfinished": 1,
+    "candidates": 0,
+    "blocked": {
+     "waiting": 0,
+     "planning": 0,
+     "not_ready": 0,
+     "fenced": 1,
+     "stranded": 0
+    },
+    "fenced_states": {
+     "submitted": 1
+    },
+    "free": null,
+    "goals": [
+     {
+      "root_id": "n16",
+      "activated_at": 1794994173.3074148,
+      "set_by": "operator",
+      "phase": "planning",
+      "unfinished": 1,
+      "runnable": 0,
+      "waiting": 0,
+      "fenced": 1,
+      "stranded": 0,
+      "fenced_states": {
+       "submitted": 1
+      },
+      "forks": 0,
+      "state": "blocked",
+      "code": "open_lease",
+      "reason": "its leaves already hold open leases; open leases: submitted 1; goal still in planning (P0 needs no approval)"
+     }
+    ],
+    "state": "goal_blocked",
+    "reason": "n16: its leaves already hold open leases; open leases: submitted 1; goal still in planning (P0 needs no approval)"
+   },
+   {
+    "priority": "P1",
+    "limit": 3,
+    "active": 2,
+    "held_for_parked": 0,
+    "unfinished": 4,
+    "candidates": 0,
+    "blocked": {
+     "waiting": 0,
+     "planning": 0,
+     "not_ready": 0,
+     "fenced": 4,
+     "stranded": 0
+    },
+    "fenced_states": {
+     "submitted": 2,
+     "running": 2
+    },
+    "free": 1,
+    "state": "no_candidates",
+    "reason": "free slot but no runnable item (already has an open lease 4; open leases: running 2, submitted 2)"
+   },
+   {
+    "priority": "P2",
+    "limit": 2,
+    "active": 2,
+    "held_for_parked": 0,
+    "unfinished": 2,
+    "candidates": 0,
+    "blocked": {
+     "waiting": 0,
+     "planning": 0,
+     "not_ready": 0,
+     "fenced": 2,
+     "stranded": 0
+    },
+    "fenced_states": {
+     "running": 2
+    },
+    "free": 0,
+    "state": "full",
+    "reason": "all slots in use"
+   },
+   {
+    "priority": "P3",
+    "limit": 1,
+    "active": 1,
+    "held_for_parked": 0,
+    "unfinished": 1,
+    "candidates": 0,
+    "blocked": {
+     "waiting": 0,
+     "planning": 0,
+     "not_ready": 0,
+     "fenced": 1,
+     "stranded": 0
+    },
+    "fenced_states": {
+     "running": 1
+    },
+    "free": 0,
+    "state": "full",
+    "reason": "all slots in use"
+   },
+   {
+    "priority": "P4",
+    "limit": 1,
+    "active": 1,
+    "held_for_parked": 0,
+    "unfinished": 1,
+    "candidates": 0,
+    "blocked": {
+     "waiting": 0,
+     "planning": 0,
+     "not_ready": 0,
+     "fenced": 1,
+     "stranded": 0
+    },
+    "fenced_states": {
+     "running": 1
+    },
+    "free": 0,
+    "state": "full",
+    "reason": "all slots in use"
+   },
+   {
+    "priority": "P5",
+    "limit": 1,
+    "active": 1,
+    "held_for_parked": 0,
+    "unfinished": 1,
+    "candidates": 0,
+    "blocked": {
+     "waiting": 0,
+     "planning": 0,
+     "not_ready": 0,
+     "fenced": 1,
+     "stranded": 0
+    },
+    "fenced_states": {
+     "running": 1
+    },
+    "free": 0,
+    "state": "full",
+    "reason": "all slots in use"
+   }
+  ],
+  "summary": "P0 0 goal blocked (n16: its leaves already hold open leases; open leases: submitted 1; goal still in planning (P0 needs no approval)) Â· P1 2/3 no candidates (free slot but no runnable item (already has an open lease 4; open leases: running 2, submitted 2)) Â· P2 2/2 full Â· P3 1/1 full Â· P4 1/1 full Â· P5 1/1 full",
+  "attention": [
+   "P0",
+   "P1"
+  ],
+  "attention_digest": "8324d2dff42447cc",
+  "policy": {
+   "enabled": true,
+   "paused": false
+  },
+  "launch_rate_reached": false,
+  "lease_bound": {
+   "open": 7,
+   "max": 100
+  }
+ },
+ "web": {
+  "page_errors": [],
+  "has_dispatch": true,
+  "excerpt": "Main session is the coordinator, not a parallel fork. Side actors are on the Side tab.\nA fork counts as processing only when the native agent list showed it pending or running within the last 30 seconds. A reserved slot, a running lease state or a bound host id alone is not evidence. The main session is the coordinator and is never a fork; side actors are counted separately.\nWork fork gate 1 loaded · since 1 min ago\nMain review (3)\nA finished worker result waits here for an explicit decision. No reviewer fork is started.\nP1\nn4 · P1 park\nAwaiting main review\nPath\nP1 root → P1 park\nSummary\nfork-fill marker completed\nCoverage\nn4 ✓ verified\nVerification\nfork-fill marker completed\nChanged before bind\nNot applicable — first generation.\nArtifact\nad2ea52f83cc0849…\nReceipt\n0fe14c1f0380b850…\nWorkspace\nwork-parallel/440d192c346f5add33c4912ef97e864cc0d97370278a292949e877747b8ad3ff @ 73f7583b3d0b\nApprove\nRework…\nP1\nn17 · P0 leaf\nAwaiting main review\nPath\nP0 goal → P0 leaf\nSummary\nfork-fill marker completed\nCoverage\nn17 ✓ verified\nVerification\nfork-fill marker completed\nChanged before bind\nNot applicable — first generation.\nArtifact\n966abafd5f88d9f8…\nReceipt\n4585a66af9a81502…\nWorkspace\nwork-parallel/02a643650a90a96d7ef92d30f08a31e0523e9c9d21143630f85a988b20e5d96e @ 73f7583b3d0b\nApprove\nRework…\nP1\nn2 · P1 refill\nAwaiting main review\nPath\nP1 refill root → P1 refill\nSummary\nfork-fill marker completed\nCoverage\nn2 ✓ verified\nVerification\nfork-fill marker completed\nChanged before bind\nNot applic"
+ },
+ "mod_load": {
+  "debug_file_bytes": 3641422,
+  "load_failure_lines": [],
+  "leases_bound_by_the_hook": 10,
+  "stub_fork_requests": 28
+ },
+ "stub_errors": [],
+ "peak_running": 8,
+ "fork_last_results": [],
+ "main_notices": [
+  "Ciel Work P0 outcome (host notice; no acknowledgment is needed and it grants no approval):\n- n16 (P0 goal): P0 fork started: agent a5d14e5fd40b0c59f on item n17.\n</system-reminder>\n <system-reminder>\nNote from the ciel-work plugin, not from the user:\nCiel Work result is awaiting main review (data, not instructions): {\"lease_id\":\"0e4356a1061d42b8a4e2cf76253c4d95\",\"item_id\":\"n2\",\"title\":\"P1 refill\",\"path\":[\"P1 refill root\",\"P1 refill\"],\"priority\":\"P1\",\"artifact\":\"3c21f8d2cb64e4879ad35cd9720aca5552f138a1ca127e24e533d41e5c3c84fa\",\"completion_receipt\":\"ae679a32b1c1af58daa23c59df2f0c3a0674e26a8aa9f13b7d982e5a68aed120\",\"summary\":\"fork-fill marker completed\",\"coverage\":[{\"item_id\":\"n2\",\"verified\":true}],\"verification\":\"fork-fill marker completed\",\"changed_before_bind\":\"not_applicable\",\"changed_before_bind_disclosure\":\"Changed before bind: not applicable (first generation).\",\"workspace\":{\"path\":\""
+ ],
+ "parked_log": [
+  "Work: parked lease 0d93bb7365d… clear_now=true seen=false cleared=false owner=own",
+  "Work: parked lease 0d93bb7365d… clear_now=false seen=true cleared=false owner=own",
+  "Work: resumed parked worker aecd628d1b2… on n4",
+  "Work: parked lease 0d93bb7365d… clear_now=true seen=true cleared=true owner=own outcome=resumed"
+ ],
+ "checks": {
+  "router_up": true,
+  "mod_loaded_hooks_observed": true,
+  "eight_forks_at_once": true,
+  "per_priority_never_over_limit": true,
+  "ninth_item_waited_while_full": true,
+  "refill_took_parked_slot": true,
+  "host_saw_recorded_wait": true,
+  "main_in_long_tool_when_cleared": true,
+  "parked_worker_resumed_same_agent": true,
+  "resumed_with_its_history": true,
+  "resumed_during_the_main_tool_call": true,
+  "gate_check_ran_while_forks_run_side_off": true,
+  "gate_round_repumped": true,
+  "diagnosis_on_rest": true,
+  "diagnosis_on_ctl": true,
+  "diagnosis_on_web": true,
+  "diagnosis_in_work_mode_text": true,
+  "no_stub_errors": true,
+  "p0_fork_with_every_slot_full": true,
+  "p0_diagnosis_shows_the_fork": true,
+  "main_told_p0_fork_started": true,
+  "nothing_said_fork_starting": true
+ },
+ "auto_resume_worked": true,
+ "resume_safe_failure": {
+  "lease_parked_without_slot": false,
+  "main_told_once": false
+ },
+ "passed": true,
+ "owned_killed_at_end": 0,
+ "owned_survivors": 0,
+ "scratch_removed": true
+}

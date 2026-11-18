@@ -1020,7 +1020,7 @@ class SideModTests(unittest.TestCase):
         self.assertEqual('P0',row['sourcePriority'])
         self.assertTrue(row['instructsP0'])
         self.assertEqual(['P0'],row['resolvedPriority'])
-        self.assertEqual(['Side P0 queued n9 · Production outage · fork starting'],row['appends'])
+        self.assertEqual(['Side P0 queued n9 · Production outage · P0 registered; fork launch pending (the outcome follows in a separate notice)'],row['appends'])
 
     def test_p0_activation_failure_is_shown_to_the_person(self):
         row=self.run_p0('fail')

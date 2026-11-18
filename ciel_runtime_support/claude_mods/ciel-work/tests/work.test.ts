@@ -977,7 +977,7 @@ test('idle refresh pauses in a main turn but not a child turn, and stops at end 
   await clock.advance(120000)
   expect(s.calls.length).toBe(ended)
 })
-test('idle gate re-check asks once a minute only while main is idle and no Work fork runs', async ($, on) => {
+test('idle gate re-check asks once a minute while main is idle, also while Work forks run', async ($, on) => {
   const s = hints(on); const clock = mock.clock(on)
   const gateCalls = () => s.hostCalls.filter(c => c.tool === 'work_side_gate_check')
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
@@ -998,21 +998,24 @@ test('idle gate re-check asks once a minute only while main is idle and no Work 
   await $.turn.complete(TURN_DONE)
   await clock.advance(60000)
   expect(gateCalls().length).toBe(2)
-  // A running Work fork holds it; a side-intake fork does not count.
+  // Stage 3 (user decision 2026-11-17): a running Work fork no longer holds it;
+  // the count is reported. A side-intake fork is not counted as a Work fork.
   s.agents = [{ agentId: 'w1', name: 'work-n1', type: 'fork', spawnedBy: 'ciel-work', status: 'running' }]
   await clock.advance(120000)
-  expect(gateCalls().length).toBe(2)
+  expect(gateCalls().length).toBe(4)
+  expect(gateCalls().at(-1).args.forks_running).toBe(1)
   s.agents = [{ agentId: 's1', name: 'side-intake-abc', type: 'fork', spawnedBy: 'ciel-work', status: 'running' }]
   await clock.advance(60000)
-  expect(gateCalls().length).toBe(3)
+  expect(gateCalls().length).toBe(5)
+  expect(gateCalls().at(-1).args.forks_running).toBe(0)
   // Work off stops it; session end stops it; -p never starts it.
   s.agents = []
   await $.session.end({ reason: 'clear' })
   await clock.advance(180000)
-  expect(gateCalls().length).toBe(3)
+  expect(gateCalls().length).toBe(5)
   await $.session.start({ surface: null, isInteractive: false, cwd: '/isolated' })
   await clock.advance(180000)
-  expect(gateCalls().length).toBe(3)
+  expect(gateCalls().length).toBe(5)
   expect(s.tools.length).toBe(0)
 })
 test('idle refresh never overlaps a slow poll and discards its late response after end', async ($, on) => {

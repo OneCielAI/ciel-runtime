@@ -569,6 +569,22 @@ export async function startSide($) {
 // Whether main is inside a turn; register.js owns that state (turn.start/complete).
 let mainBusy = () => false
 export function sideMainBusy(fn) { mainBusy = fn }
+// register.js resumes a parked worker on its own lease when its wait is cleared
+// (Stage 3, 2026-11-17): (leaseIds) -> Map(lease id -> true | reason). It hands
+// over a closure bound to its session at session.start; the Claude Code mod
+// loader refuses $ passed to a function held in a variable, so none is passed.
+let parkedResume = null
+export function sideParkedResume(fn) { parkedResume = fn }
+async function resumeParked(leases) {
+  if (!leases.length) return new Map()
+  if (!parkedResume) return new Map(leases.map(lease => [lease.id,'the Work host cannot resume workers here']))
+  try { return await parkedResume(leases.map(lease => lease.id)) || new Map() }
+  catch (error) { return new Map(leases.map(lease => [lease.id,'the automatic resume failed: '+line(String(error?.message || error),120)])) }
+}
+function parkedNote(lease,outcomes) {
+  return lease.host_id+' (lease '+lease.id+', item '+lease.item_id+')'
+    +(outcomes.get(lease.id) === true ? '' : ' was not resumed automatically: '+line(String(outcomes.get(lease.id) || 'unknown'),160))
+}
 // Main compaction before a side actor (2026-11-15). A Walkie source thread that
 // does not fit in the context main has left is not a source failure: main is
 // compacted between turns ($.session.compact rejects while a turn runs; a
@@ -1919,7 +1935,11 @@ async function shareWithMain($,event,result) {
   const urgent = ['create','prioritize','update'].includes(result.action) && ['P0','P1'].includes(result.priority)
   if (!urgent) return
   const p0 = result.priority === 'P0'
-  const note = p0 ? (result.p0?.error ? ' · P0 not activated: '+line(result.p0.error,160) : ' · fork starting') : ''
+  // Activation only registers the goal (Celly 2026-11-17: "fork starting" was
+  // printed for 9 of 10 goals before any fork existed). The Work host reports
+  // the launch outcome separately (register.js parallelP0Outcomes).
+  const note = p0 ? (result.p0?.error ? ' · P0 not activated: '+line(result.p0.error,160)
+    : ' · P0 registered; fork launch pending (the outcome follows in a separate notice)') : ''
   try { await $.session.append({message:{type:'system',content:[{type:'text',
     text:'Side '+result.priority+' queued '+result.item_id+' · '+line(result.title || result.summary,160)+note}]}}) } catch {}
 }
@@ -1928,9 +1948,11 @@ async function shareWithMain($,event,result) {
 //  - a fork running on that item's lease: its inbox (read at its next request,
 //    owned probe delivery-4f4c90b8: delivered, no new spawn);
 //  - otherwise main: appended (busy or idle); an idle main is then woken by a
-//    prompt that holds none of it. A worker
-//    parked in waiting_input is named for main to resume through SendMessage,
-//    where the lease reacquire and resume authorization already live.
+//    prompt that holds none of it. A worker parked in waiting_input is resumed
+//    by the Work host first, on its own lease and fork (register.js
+//    parallelResumeReleased: reacquire, resume authorization, session.send).
+//    Main is told to resume through SendMessage only for a parked worker that
+//    did not resume, with the reason (Stage 3, 2026-11-17).
 // Nothing here grants execution approval or needs an acknowledgment.
 async function notifyReleased($,identity,event,result) {
   let leases = {}
@@ -1962,11 +1984,18 @@ async function notifyReleased($,identity,event,result) {
     else toMain.push(...rows)
   }
   if (!toMain.length) return
-  const parked = toMain.filter(({lease}) => lease?.state === 'waiting_input')
+  const parked = [...new Map(toMain.filter(({lease}) => lease?.state === 'waiting_input')
+    .map(({lease}) => [lease.id,lease])).values()]
+  const outcomes = await resumeParked(parked)
+  const resumed = parked.filter(lease => outcomes.get(lease.id) === true)
+  const stuck = parked.filter(lease => outcomes.get(lease.id) !== true)
+  for (const lease of resumed) $.ui.log('Side released wait → parked worker '+lease.host_id.slice(0,12)+' resumed by the Work host')
   const text = 'Ciel side released recorded wait'+(toMain.length > 1 ? 's' : '')+' '
     +toMain.map(({wait}) => wait.id+' ("'+line(wait.waiting_on,160)+'")').join(', ')+' — '+source+'. '
-    +(parked.length ? 'Parked worker'+(parked.length > 1 ? 's' : '')+' waiting on '+(parked.length > 1 ? 'them' : 'it')+': '
-      +parked.map(({lease}) => lease.host_id+' (lease '+lease.id+', item '+lease.item_id+')').join(', ')
+    +(resumed.length ? 'The Work host resumed the parked worker'+(resumed.length > 1 ? 's' : '')+' on '
+      +(resumed.length > 1 ? 'their' : 'its')+' own lease: '+resumed.map(lease => parkedNote(lease,outcomes)).join(', ')+'. ' : '')
+    +(stuck.length ? 'Parked worker'+(stuck.length > 1 ? 's' : '')+' waiting on '+(stuck.length > 1 ? 'them' : 'it')+': '
+      +stuck.map(lease => parkedNote(lease,outcomes)).join(', ')
       +'; resume with SendMessage to that worker if this is what it waited for. ' : '')
     +'The wait is already cleared; no acknowledgment is needed. This is not new execution approval.'
   const state = await noticeToMain($,identity,event.receipt_id,text)
@@ -1999,20 +2028,26 @@ async function relayToItem($,identity,event,result) {
   const ask = ' Decide whether this matters to your current work; if not, ignore it. No acknowledgment is needed. '
     +'This is not new execution approval and does not change your approved scope.'
   const delivered = []
-  // Only a running fork is messaged. A parked one (waiting_input) is never
-  // resumed from here: as with a released wait, its lease reacquire and resume
-  // stay on main's SendMessage path, so main is told who it is.
-  for (const lease of forks.filter(row => row.state === 'running')) {
+  // A parked fork (waiting_input) is resumed by the Work host first when its
+  // wait is cleared on the board (Stage 3, 2026-11-17); it then gets the relay
+  // in its inbox like a running fork. One the host could not resume is named
+  // for main's SendMessage, with the reason.
+  const parked = forks.filter(row => row.state === 'waiting_input')
+  const outcomes = await resumeParked(parked)
+  const resumed = parked.filter(row => outcomes.get(row.id) === true)
+  const stuck = parked.filter(row => outcomes.get(row.id) !== true)
+  for (const lease of [...forks.filter(row => row.state === 'running'), ...resumed]) {
     let sent = null
     try { sent = await $.session.send({to:{agentId:lease.host_id},
       text:header+'\nOriginal message:\n'+message+'\n'+ask}) } catch {}
     if (sent?.isDelivered) delivered.push(lease.host_id)
   }
-  const parked = forks.filter(row => row.state === 'waiting_input')
   const forkNote = (delivered.length ? ' Also delivered to the Work fork'+(delivered.length > 1 ? 's' : '')+' running it: '
     +delivered.join(', ')+'.' : ' No Work fork received it.')
-    +(parked.length ? ' Parked worker'+(parked.length > 1 ? 's' : '')+' on it: '
-      +parked.map(row => row.host_id+' (lease '+row.id+', item '+row.item_id+')').join(', ')
+    +(resumed.length ? ' The Work host resumed the parked worker'+(resumed.length > 1 ? 's' : '')+' on it: '
+      +resumed.map(row => parkedNote(row,outcomes)).join(', ')+'.' : '')
+    +(stuck.length ? ' Parked worker'+(stuck.length > 1 ? 's' : '')+' on it: '
+      +stuck.map(row => parkedNote(row,outcomes)).join(', ')
       +'; resume with SendMessage to that worker only if this matters to it.' : '')
   const state = await noticeToMain($,identity,event.receipt_id,header+'\nOriginal message:\n'+message+'\n'+forkNote+ask)
   $.ui.log('Side relay '+item+' → main ('+state+')'+(delivered.length ? ' + '+delivered.length+' fork(s)' : ''))

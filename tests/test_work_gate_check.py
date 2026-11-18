@@ -50,6 +50,27 @@ class GateCheckUnitTests(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
 
+    def test_the_blocker_instruction_matches_the_side_contract_and_reaches_main(self):
+        # Stage 3, 2026-11-17: the event text asked for "action advise" while the
+        # side instruction says "Legacy advise is not used" and a request must
+        # create/update/prioritize; advise with kind request is refused.
+        from ciel_runtime_support.side_intake_settings import DEFAULT_SIDE_INSTRUCTION
+        store, ids = self._doc()
+        text = gate.event_text(gate.gates(store.read()), 5)
+        self.assertNotIn("action advise", text)
+        self.assertIn("Legacy advise is not used", DEFAULT_SIDE_INSTRUCTION)
+        self.assertIn("action update on that node, kind request,", text)
+        with self.assertRaisesRegex(tree.WorkPlanError, "a request must create, update or prioritize Work"):
+            validate({"action": "advise", "kind": "request", "item_id": ids["blocked"], "summary": "s", "reply": "r"})
+        key = hashlib.sha256(b"gate-blocker").hexdigest()
+        result = apply(store, key, {"action": "update", "kind": "request", "item_id": ids["blocked"],
+                                    "note": "key now issued (ticket 9)", "summary": "key issued",
+                                    "reply": "Key issued; main can resume."}, store.read()["version"],
+                       gate_check=True)
+        self.assertEqual("requested", result["handoff"])
+        self.assertEqual("resume", result["main_handoff"]["kind"])
+        self.assertEqual("blocked", next(n for n in store.read()["nodes"] if n["id"] == ids["blocked"])["status"])
+
     def test_gates_list_waits_and_blocks_active_goal_first(self):
         store, ids = self._doc()
         rows = gate.gates(store.read())
@@ -154,17 +175,52 @@ class GateCheckMcpTests(unittest.TestCase):
 
     def test_conditions_gate_the_check(self):
         self.assertEqual('no_gates', self.check()['reason'])
-        self._waiting()
-        self.assertEqual('not_idle', self.check(forks_running=1)['reason'])
+        _, wait = self._waiting()
         self.assertEqual('not_idle', self.check(idle=False)['reason'])
+        # Stage 3 (2026-11-17): side intake off is a host-only round, not a refusal.
         self.config['work_side_intake']['enabled'] = False
-        self.assertEqual('side_intake_off', self.check()['reason'])
+        off = self.check()
+        self.assertEqual(('side_intake_off', True, True, [wait]),
+                         (off['reason'], off['host_only'], off['host_due'], off['gates']))
+        self.assertEqual([], SideIntakeInbox(self.root, self.identity).pending())
         self.config['work_side_intake']['enabled'] = True
         self.config['work_gate_check'] = {'minutes': 0}
-        self.assertEqual({'interval_minutes': 0, 'queued': False, 'reason': 'off'}, self.check())
+        self.assertEqual({'interval_minutes': 0, 'queued': False, 'side_intake': True, 'reason': 'off'}, self.check())
         fork = self.invoke('work_side_gate_check', {'idle': True, 'forks_running': 0}, {**HOST, 'agent_id': 'a1'})
         self.assertTrue(fork['error'])
         self.assertEqual([], SideIntakeInbox(self.root, self.identity).pending())
+
+    def test_running_forks_no_longer_defer_the_check(self):
+        # Stage 3 (2026-11-17): HEAD answered not_idle while any Work fork ran.
+        _, wait = self._waiting()
+        queued = self.check(forks_running=3)
+        self.assertTrue(queued['queued'], queued)
+        self.assertEqual([wait], queued['gates'])
+
+    def test_host_round_claims_one_notice_per_changed_diagnosis_and_is_recorded(self):
+        self._waiting()
+        digest = 'a' * 16
+        claim = {'claim': 'diagnosis', 'digest': digest}
+        self.assertTrue(self.check(host_report=claim)['claimed'])
+        self.assertFalse(self.check(host_report=claim)['claimed'])
+        self.assertTrue(self.check(host_report={'claim': 'diagnosis', 'digest': 'b' * 16})['claimed'])
+        self.assertTrue(self.check(host_report={'claim': 'discovery'})['claimed'])
+        self.assertFalse(self.check(host_report={'claim': 'discovery'})['claimed'])
+        recorded = self.check(forks_running=2, host_report={'round': {
+            'repumped': True, 'attention': ['P2'], 'notified': True, 'summary': 'P2 0/2 no candidates'}})
+        self.assertEqual((True, 2, ['P2'], True), (recorded['recorded'], recorded['host_round']['forks_running'],
+                                                   recorded['host_round']['attention'],
+                                                   recorded['host_round']['repumped']))
+        # The side round queued next keeps the host record (no host round due yet).
+        queued = self.check()
+        self.assertEqual((True, False), (queued['queued'], queued['host_due']))
+        self.assertFalse(self.check(host_report={'claim': 'diagnosis', 'digest': 'b' * 16})['claimed'])
+        # An empty attention ends the notified diagnosis: the same state later is new again.
+        self.check(host_report={'round': {'repumped': True, 'attention': []}})
+        self.assertTrue(self.check(host_report={'claim': 'diagnosis', 'digest': 'b' * 16})['claimed'])
+        bad = self.invoke('work_side_gate_check', {'idle': True, 'forks_running': 0,
+                                                   'host_report': {'claim': 'diagnosis', 'digest': 'XYZ'}})
+        self.assertTrue(bad['error'])
 
     def test_due_check_is_one_durable_side_event_without_source_reply(self):
         goal, wait = self._waiting()

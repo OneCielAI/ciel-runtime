@@ -12,6 +12,18 @@ tags: [work, p0, observatory, register.js, side-intake, celly, priority]
 
 In English: "There should be several P0 items, so why does Celly's mod classify them as P1, with no P0?" The screenshot showed WORK TREE roots labelled P1/P2/P3 while the SSE FLOW listed many P0 events.
 
+# Correction (2026-11-18)
+
+F1 below is misleading, and so was the conclusion drawn from it ("the P0 activations happened, only the label was wrong"). `fork starting` is printed whenever activation returns no error. It does not show that a fork started.
+
+Measured in the same transcript ([evidence/celly-p0-notice-vs-forks.txt](evidence/celly-p0-notice-vs-forks.txt)):
+- 9 of the 10 goals with a `fork starting` notice got that notice before any Work fork existed in the session. The first Work fork started at 2026-11-17T23:31:25Z, 36 s after build 71db761 (the repository-owner fix) first appears in the transcript.
+- Since then the session has 17 Work forks (11 P0, 6 ordinary), all of which called `work_parallel_report`.
+- n999 was noticed at 21:44:47Z and its P0 fork started at 04:19:59Z the next day, almost 5 h after forks began working. The reason is not established.
+- For 7 goals no P0 fork names that item. A fork may have worked on a child item; the parent links could not be read.
+
+So P0 had two problems: the pane label fixed here, and P0 goals that did not get a fork while the notice said one was starting.
+
 # Findings
 
 ## F1 — P0 activations did happen ✅

@@ -72,6 +72,17 @@ class WorkObservatoryTests(unittest.TestCase):
         # The running fork line shows the lease's effective P0, not its canonical P1.
         self.assertEqual(['n5:P0'], effective['forks'])
 
+    def test_pane_and_parallel_text_show_the_per_priority_dispatch(self):
+        # Stage 3, 2026-11-17: each priority's use/limit and why a free slot stays empty.
+        dispatch = self.result['dispatch']
+        self.assertEqual({'line': 'P1 1/3 P2 0/2 · P2: free slot but no runnable item (goal in planning 1)',
+                          'attention': True}, dispatch['pane'])
+        text = dispatch['text']
+        self.assertIn('DISPATCH: P1 1/3 can fill', text)
+        self.assertIn('  P1 1/3 · runnable 2 · can fill · 2 runnable; the next pump fills free slots', text)
+        self.assertIn('  P2 0/2 · runnable 0 · no candidates · free slot but no runnable item (goal in planning 1)', text)
+        self.assertNotIn('  P0 0', text)
+
     def test_sse_tab_shows_source_priority_state_and_p1_filter(self):
         side = '\n'.join(self.result['side']['texts'])
         self.assertIn('P1 side_mcp', side)

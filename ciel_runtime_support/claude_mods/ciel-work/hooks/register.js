@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import { startSide, pollSide, sideSpawnInput, sideTool, completeSide, suppressSide, sideReceipts, sideActors, sideMcpParity, hostJson, eventView, sideMainBusy, sideStopWake, sideRecordStopWake, sideWakeKnown, sidePromptSubmit, sidePromptPending, sidePromptTurnStart, sidePromptTurnComplete, sidePromptReassert, sidePromptRef, sideMainTurnStart, sideMainStep, sideMainFence, sideAppendStored, sideStopNotPresented, sideWakeRead, sideWakeReminded, sideReviewAppended, sideReviewDelivery, sideReviewRecheck, noticeToMain } from './side-intake.js'
+import { startSide, pollSide, sideSpawnInput, sideTool, completeSide, suppressSide, sideReceipts, sideActors, sideMcpParity, hostJson, eventView, sideMainBusy, sideStopWake, sideRecordStopWake, sideWakeKnown, sidePromptSubmit, sidePromptPending, sidePromptTurnStart, sidePromptTurnComplete, sidePromptReassert, sidePromptRef, sideMainTurnStart, sideMainStep, sideMainFence, sideAppendStored, sideStopNotPresented, sideWakeRead, sideWakeReminded, sideReviewAppended, sideReviewDelivery, sideReviewRecheck, noticeToMain, sideParkedResume } from './side-intake.js'
 
 // Router is authoritative; this cache is display-only and never persisted.
 const detailView = atom({ plugin: 'ciel-work', key: 'detail' }, null)
@@ -902,6 +902,7 @@ function graphicProps(identity, view, state) {
       reviews: parallelPresentedReviews(parallelReviews(observatoryParallel)).slice(0, 8).map(r => ({ item:r.item_id, title:r.item_title || r.title || '',
         status:parallelReviewLabel(r) })),
       failure: parallelPaneFailure(observatoryParallel),
+      dispatch: paneDispatch(observatoryParallel),
       side: sideActors(identity).length } }
 }
 // One action set for the pane's native control strip (Tab/arrows/Enter and
@@ -1054,15 +1055,20 @@ async function workTurnComplete($, e, next) {
     sidePromptTurnComplete($)
     if (interactive) startIdleRefresh($, await sessionId($))
     scheduleGateCheck($, await sessionId($))
+    startPeriodicPump($)
   }
   return result
 }
-// Idle gate re-check (user requirement 2026-11-15): while main's turn has ended
-// and no Work fork runs, blocked/waiting Work items are re-checked by a side
-// actor every N minutes (work_gate_check_minutes). The router decides whether a
-// check is due and queues it as one durable side event; this timer only asks,
-// once a minute, with the host-observed idle and fork facts. A main turn start
-// stops the timer; a main turn end starts it again.
+// Idle gate re-check (user requirement 2026-11-15): while main's turn has ended,
+// blocked/waiting Work items are re-checked by a side actor every N minutes
+// (work_gate_check_minutes). The router decides whether a check is due and
+// queues it as one durable side event; this timer only asks, once a minute,
+// with the host-observed idle and fork facts. A main turn start stops the
+// timer; a main turn end starts it again. Stage 3 (2026-11-17): running Work
+// forks no longer defer it, and every interval the host runs its own round as
+// well (gateHostRound: re-pump, per-priority diagnosis, at most one notice to
+// main per changed diagnosis, discovery for slots nothing can fill). With side
+// intake off that host round is what runs, and the router records it.
 const GATE_CHECK_TICK_MS = 60000
 let gateCheck = null
 function stopGateCheck() {
@@ -1087,14 +1093,16 @@ function scheduleGateCheck($, identity) {
         const rows = await listNativeAgents($)
         forks = rows.filter(row => row?.spawnedBy === 'ciel-work' && row?.type === 'fork'
           && !sideOwned(row) && ['pending', 'running'].includes(row?.status)).length
-      } catch { forks = -1 }
-      if (forks === 0 && !working) {
-        const value = await parallelCall($, 'work_side_gate_check', { idle: true, forks_running: 0 })
+      } catch { forks = 0 /* Only recorded; running forks no longer defer the check. */ }
+      if (!working) {
+        const value = await parallelCall($, 'work_side_gate_check', { idle: true, forks_running: forks })
         if (value?.queued) {
           $.ui.log('Gate re-check queued for ' + (value.gates || []).length + ' blocked/waiting item(s)')
           sideStatusDirty = true
           void runSidePump($, identity).catch(() => {})
         }
+        if (value?.host_due && gateCheck === poll && poll.lifecycle === starts && !working)
+          await gateHostRound($, identity, value, forks)
       }
     } catch { /* An unknown host state skips this tick only. */
     } finally {
@@ -1102,6 +1110,148 @@ function scheduleGateCheck($, identity) {
     }
   }
   poll.timer = $.clock.after(GATE_CHECK_TICK_MS, tick)
+}
+
+// The host's own gate-check round (Stage 3, 2026-11-17). Re-pump first, so a
+// parked worker whose wait is cleared resumes and free slots fill; then read
+// the per-priority diagnosis. Main is told at most once per changed attention
+// digest (router claim), and asked for discovery when free slots exist that no
+// approved item can fill (one claim per interval, the shared 5-minute
+// discovery cooldown). What ran is recorded on the router either way.
+function gateNoticeText(check, diagnosis, round, discovery) {
+  const rows = (diagnosis?.rows || []).filter(row => (diagnosis.attention || []).includes(row.priority))
+  return 'Ciel Work dispatch check (host gate check, every ' + (check.interval_minutes || '?') + ' min'
+    + (round.forks_running ? '; ' + round.forks_running + ' Work fork(s) running' : '') + '): '
+    + clipped(diagnosis?.summary || 'no diagnosis', 600) + '.'
+    + (rows.length ? ' Needs main: ' + rows.map(row => row.priority + ' ' + clipped(row.reason || row.state, 200)).join('; ') + '.' : '')
+    + (check.host_only ? ' Side intake is off, so ' + (check.gates || []).length + ' blocked/waiting item(s) were not re-checked by a side actor.' : '')
+    + (discovery ? '\nWork 미결 아이템 탐색: ' + discovery
+      + '\n검색은 한 번, 픽업은 최대 1개. 미결 없음/접근 불가면 그 결과를 알리고 멈춘다. 사용자 정지·기존 승인을 우회하지 않는다.' : '')
+    + '\nThis is a host notice: no acknowledgment is needed and it grants no execution approval.'
+}
+// A host notice main reads in its conversation. `wake` (optional) also starts an
+// idle main with a prompt that holds none of the notice.
+async function hostNoticeToMain($, text, wakeKey, wake) {
+  let appended = null
+  try { appended = await $.session.append({ message: { type: 'user', content: [{ type: 'text', text }] } }) } catch {}
+  if (!appended || appended.deny) return false
+  if (wake && !working) void sidePromptSubmit($, wakeKey, wake)
+  return true
+}
+// What actually happened to each effective-P0 goal (user requirement 2026-11-18).
+// Activation says only "registered"; this says, once per outcome of one
+// activation (router claim), that a fork started (agent bound) or why none could.
+// A goal whose launch is simply pending is not mentioned, and no timeout turns
+// waiting into a claim. After "started" a later block is not news.
+function parallelP0Outcome(row, gateMissing) {
+  if (row.forks > 0) return 'started'
+  if (row.notified?.started) return null
+  if (row.state === 'blocked') return 'blocked:' + row.code
+  return gateMissing && row.runnable > 0 ? 'blocked:fork_gate_missing' : null
+}
+function parallelP0OutcomeLine(row, outcome) {
+  const goal = row.root_id + ' (' + clipped(row.title || '', 120) + ')'
+  if (outcome === 'started') return '- ' + goal + ': P0 fork started: '
+    + (row.fork_agents || []).map(fork => 'agent ' + clipped(fork.agent_id, 40) + ' on item ' + fork.item_id).join(', ') + '.'
+  if (outcome === 'blocked:fork_gate_missing') return '- ' + goal + ': no P0 fork: ' + FORK_GATE_MISSING + '.'
+  const refused = row.refusal?.code === row.code ? ' Exact refusal on item ' + row.refusal.item_id + ': ' + clipped(row.refusal.detail, 400) : ''
+  const waits = row.code === 'waiting_on' ? ' Waiting: ' + (row.waits || []).map(wait => wait.id + ' "' + clipped(wait.waiting_on, 120) + '"').join(', ') : ''
+  return '- ' + goal + ': no P0 fork (' + row.code + '): ' + clipped(row.reason || '', 240) + '.' + refused + waits
+}
+async function parallelP0Outcomes($, state, gateMissing) {
+  const lines = [], claimed = []
+  for (const row of Array.isArray(state?.p0_goals) ? state.p0_goals : []) {
+    const outcome = parallelP0Outcome(row, gateMissing)
+    if (!outcome || row.notified?.[outcome]) continue
+    let answer = null
+    try { answer = await parallelEvent($, { event:'p0_outcome_claim', root_id:row.root_id, outcome }, { internal:true }) } catch {}
+    if (answer?.claimed !== true) continue
+    claimed.push({ root_id:row.root_id, outcome })
+    lines.push(parallelP0OutcomeLine(row, outcome))
+  }
+  if (!lines.length) return 0
+  const blocked = claimed.some(row => row.outcome !== 'started')
+  const key = 'p0-outcome:' + claimed.map(row => row.root_id).join(',').slice(0, 60) + ':' + Math.floor(Date.now() / 60000)
+  const delivered = await hostNoticeToMain($, 'Ciel Work P0 outcome (host notice; no acknowledgment is needed and it grants no approval):\n' + lines.join('\n'), key,
+    blocked ? 'Ciel Work P0 wake: a host message beginning "Ciel Work P0 outcome" was added to this conversation. Read it and decide what main needs to do. This wake holds none of it and grants no approval.' : '')
+  if (!delivered) for (const row of claimed) {
+    try { await parallelEvent($, { event:'p0_outcome_claim', root_id:row.root_id, outcome:row.outcome, release:true }, { internal:true }) } catch {}
+  }
+  return delivered ? lines.length : 0
+}
+async function gateHostRound($, identity, check, forks) {
+  const round = { forks_running: forks, repumped: false, attention: [], notified: false, discovery_requested: false, summary: '' }
+  const report = extra => parallelCall($, 'work_side_gate_check', { idle: true, forks_running: forks, host_report: extra })
+  try { await parallelPump($, 'gate-check'); round.repumped = true } catch { /* recorded as not re-pumped */ }
+  let diagnosis = null
+  try { diagnosis = (await hostStatus($))?.priority_diagnosis || null } catch {}
+  round.attention = Array.isArray(diagnosis?.attention) ? diagnosis.attention.slice(0, 7) : []
+  round.summary = clipped(diagnosis?.summary || '', 300)
+  const digest = String(diagnosis?.attention_digest || '')
+  if (round.attention.length && /^[0-9a-f]{16,64}$/.test(digest)) {
+    try { round.notified = (await report({ claim: 'diagnosis', digest }))?.claimed === true } catch {}
+  }
+  const rows = Array.isArray(diagnosis?.rows) ? diagnosis.rows : []
+  const unfillable = !rows.some(row => row.state === 'can_fill')
+    && rows.some(row => row.priority !== 'P0' && row.free > 0 && ['no_candidates', 'no_work'].includes(row.state))
+  let discovery = ''
+  if (unfillable && !(discoveryIdentity === identity && Date.now() - discoveryLast < 300000)) {
+    let board = null
+    try { board = await refresh($) } catch {}
+    const instruction = board?.discovery?.enabled ? clipped(board.discovery.instruction, 1500) : ''
+    if (instruction) {
+      try {
+        if ((await report({ claim: 'discovery' }))?.claimed === true) {
+          discovery = instruction; round.discovery_requested = true
+          discoveryIdentity = identity; discoveryLast = Date.now()
+        }
+      } catch {}
+    }
+  }
+  if (round.notified || round.discovery_requested) {
+    const delivered = await hostNoticeToMain($, gateNoticeText(check, diagnosis, round, discovery),
+      'dispatch:' + (digest || 'discovery') + ':' + Math.floor(Date.now() / 60000),
+      'Ciel Work dispatch wake: a host message beginning "Ciel Work dispatch check" was added to this conversation. '
+      + 'Read it and decide what main needs to do. This wake holds none of it and grants no approval.')
+    if (!delivered) { round.notified = false; round.discovery_requested = false }
+  }
+  try { await report({ round }) } catch { /* the next interval records again */ }
+  $.ui.log('Work gate check (host round): ' + (round.repumped ? 're-pumped' : 'pump failed')
+    + (round.attention.length ? ' · attention ' + round.attention.join(',') : '')
+    + (round.notified ? ' · main notified' : '') + (round.discovery_requested ? ' · discovery asked' : '')
+    + (check.host_only ? ' · side intake off' : ''))
+  return round
+}
+// Stage 3 (user requirement 2026-11-17): a periodic pump that also runs while
+// Work forks run. The event pumps (turn ends, reports, ledger events, the idle
+// refresh) can all stay quiet for minutes while forks work and main waits or
+// runs one long tool call, so a slot that a parked or finished lease freed
+// stayed empty. Once a minute the host pumps, with or without forks; a pass
+// already running is never stacked (parallelPumpRunning).
+const PERIODIC_PUMP_MS = 60000
+let periodicPump = null
+function stopPeriodicPump() {
+  if (periodicPump?.timer) { try { periodicPump.timer.cancel() } catch {} }
+  periodicPump = null
+}
+function startPeriodicPump($) {
+  if (!interactive || !enabled || (periodicPump && periodicPump.lifecycle === starts)) return
+  stopPeriodicPump()
+  const poll = { lifecycle: starts, timer: null }
+  periodicPump = poll
+  const tick = async () => {
+    poll.timer = null
+    if (periodicPump !== poll || poll.lifecycle !== starts) return
+    if (!enabled) { stopPeriodicPump(); return }
+    try { if (!parallelPumpRunning) await parallelPump($, 'periodic') }
+    catch { /* an unknown host state skips this tick only */ }
+    finally {
+      if (periodicPump === poll && poll.lifecycle === starts) {
+        try { poll.timer = $.clock.after(PERIODIC_PUMP_MS, tick) } catch {}
+      }
+    }
+  }
+  try { poll.timer = $.clock.after(PERIODIC_PUMP_MS, tick) } catch {}
 }
 
 async function workPromptSubmit($, e, next) {
@@ -1510,6 +1660,31 @@ function parallelCapacity(policy) {
 function parallelPriorityUse(state) {
   const limits = state?.policy?.priority_limits || {}
   return PRIORITY_ORDER.map(key => key + ' ' + String(state?.active_by_priority?.[key] ?? 0) + '/' + String(limits[key] ?? '?')).join(' · ')
+}
+// The router's per-priority diagnosis (work_parallel_diagnosis) as text lines:
+// one summary line, then each priority that has work or a running fork.
+function priorityDiagnosisLines(state) {
+  const d = state?.priority_diagnosis
+  if (!d || !Array.isArray(d.rows)) return []
+  const lines = ['DISPATCH: ' + clipped(d.summary || '', 400)]
+  for (const row of d.rows) {
+    if (!row || (row.state === 'no_work' && !row.active)) continue
+    const used = row.limit === null ? String(row.active) : String(row.active) + '/' + String(row.limit)
+    lines.push('  ' + clipped(row.priority, 4) + ' ' + used + ' · runnable ' + String(row.candidates ?? 0)
+      + ' · ' + clipped(String(row.state || '').replace(/_/g, ' '), 20) + ' · ' + clipped(row.reason || '', 240))
+  }
+  return lines
+}
+// One pane line: each priority's use/limit, then the first priority that has
+// a free slot it cannot fill and why (attention), or nothing when all is normal.
+function paneDispatch(state) {
+  const d = state?.priority_diagnosis
+  if (!d || !Array.isArray(d.rows)) return null
+  const rows = d.rows.filter(row => row && !(row.state === 'no_work' && !row.active))
+  const use = rows.map(row => row.priority + ' ' + (row.limit === null ? String(row.active) : row.active + '/' + row.limit)).join(' ')
+  const first = rows.find(row => (d.attention || []).includes(row.priority))
+  return { line: (use || 'no Work to dispatch') + (first ? ' · ' + first.priority + ': ' + clipped(first.reason || '', 160) : ''),
+    attention: Boolean(first) }
 }
 function parallelItemLabel(r) {
   const ref = r.item_ref ? '[ ' + clipped(r.item_ref, 64) + ' ] ' : ''
@@ -1946,6 +2121,9 @@ function parallelStatusText(state, scope) {
       + ' · ledger v' + String(state?.version ?? '?')
       + ' · launches/min ' + String(p.launches_per_minute ?? '?')
       + ' · max rework ' + String(p.max_rework ?? '?')]
+  // Per priority: limit, use, runnable items and why the rest wait (Stage 3,
+  // 2026-11-17). The same router rows as web, REST and ctl.
+  for (const line of priorityDiagnosisLines(state)) lines.push(line)
   // One allowlisted block shared with web, REST and ctl (work_wait_surfaces).
   const boost = state?.wait_boost
   if (boost && typeof boost === 'object') lines.push('RELEASED WAITS: ' + (boost.eligible
@@ -2144,7 +2322,8 @@ async function parallelEvent($, args, observed = {}) {
 const REWORK_LAUNCH_EVENTS = new Set(['rework_launch_intent', 'rework_launch_denied', 'rework_spawn_observed',
   'rework_launch_absent', 'rework_launch_manual_resolve', 'rework_launch_present',
   'rework_launch_status', 'rework_launch_manual_request', 'rework_fork_attribution', 'fork_identity',
-  'review_wake', 'review_roll_forward', 'review_close_resolved', 'restart_submitted_terminal', 'failure_record'])
+  'review_wake', 'review_roll_forward', 'review_close_resolved', 'restart_submitted_terminal', 'failure_record',
+  'p0_outcome_claim', 'parked_notice_claim'])
 function reworkLaunchEvent($, args, observed = {}) {
   return parallelEvent($, args, { ...observed, internal:true })
 }
@@ -2361,6 +2540,13 @@ async function parallelToolCall($, e, next) {
           await parallelEvent($, { event: 'reacquire', lease_id: lease.id })
         } catch (error) {
           return { deny: 'Work item ' + lease.item_id + ' remains queued as waiting: ' + String(error.message || error) }
+        }
+      }
+      // A waiting worker reports again only from running (Stage 3 finding).
+      if (lease.state === 'waiting_input') {
+        try { await parallelResumeTransition($, lease) }
+        catch (error) {
+          return { deny: 'Work item ' + lease.item_id + ' could not return to running: ' + String(error.message || error) }
         }
       }
       authorizeResume(lease.id, lease.agent_name || lease.dispatch_name || '')
@@ -2724,8 +2910,12 @@ async function parallelAgentSpawn($, e, next) {
     const s = await hostStatus($)
     if (!s.policy.enabled) return next(e)
     const request = parallelPending.get(e.name)
+    // A worker parked in waiting_input resumes after reacquire gave it its slot
+    // back (slot true, same lease, host id and name). Measured on 2.1.327
+    // (parked-resume probe): $.session.send to an idle fork raises this
+    // deferred spawn with resume.agentId; refusing it leaves the fork parked.
     const resumed = request ? null : Object.values(s.leases).find(r => r.agent_name && r.agent_name === e.name
-      && r.slot && r.host_id && r.state === 'running'
+      && r.slot && r.host_id && (r.state === 'running' || r.state === 'waiting_input')
       && (!e.resume || e.resume.agentId === r.host_id))
     if (resumed && e.resume?.agentId === resumed.host_id && !resumeAuthorization(resumed.id)
         && next.origin?.plugin === 'ciel-work') {
@@ -2741,6 +2931,13 @@ async function parallelAgentSpawn($, e, next) {
       // Same durable lease and exact stored agent name: no new reservation, so
       // the item cannot run twice. Consume the one-shot recovery authorization.
       parallelResuming.delete(resumed.id)
+      // A reacquired waiting worker returns to running here, where the engine
+      // actually resumes it, so it can report again. Refusing the spawn leaves
+      // the fork parked and the send undelivered (measured, 2.1.327).
+      if (resumed.state === 'waiting_input') {
+        try { await parallelResumeTransition($, resumed) }
+        catch (error) { return { deny:'Work item ' + resumed.item_id + ' could not return to running: ' + String(error?.message || error) } }
+      }
       const started = await next(e)
       if (started?.agentId) {
         ownParallelAgent(started.agentId)
@@ -3488,6 +3685,7 @@ async function parallelPump($, trigger = 'host', resendTried = null, agents = nu
       // with the P0 marker); only an effective P0 root costs a reserve round trip.
       const p0Roots = Array.isArray(state.root_priorities)
         && state.root_priorities.some(row => row?.effective_priority === 'P0')
+      let p0GateMissing = false
       for (let i = 0; p0Roots && i < 100; i++) {
         if (lifecycle !== starts) return
         let result
@@ -3497,14 +3695,27 @@ async function parallelPump($, trigger = 'host', resendTried = null, agents = nu
           if (!/no eligible candidate|lease bound reached/.test(detail)) rememberParallelFailure('p0-fill:' + trigger, detail)
           break
         }
+        if (result?.dispatch === 'fork_gate_missing') p0GateMissing = true
         if (!result || result.dispatch !== 'started') break
       }
       // A stopped policy holds back ordinary/rework dispatch, not P0 and not
       // reconcile of a replacement launch that was already started.
       state = await hostStatus($)
+      if (lifecycle !== starts) return
+      try { await parallelP0Outcomes($, state, p0GateMissing) }
+      catch (error) { rememberParallelFailure('p0-outcome', String(error?.message || error)) }
       const stopped = !state.policy.enabled || state.policy.paused
       await parallelStartRework($, state, !stopped, listed)
       if (stopped || lifecycle !== starts) return
+      // A parked worker whose wait is now cleared resumes on its own lease and
+      // fork before new forks take the slot it needs (Stage 3, 2026-11-17).
+      const parkedOutcomes = await parallelResumeParked($, state, listed)
+      logParkedState($, state, parkedOutcomes)
+      await parallelParkedNotices($, state, parkedOutcomes)
+      if (resumedCount(parkedOutcomes) > 0) {
+        state = await hostStatus($)
+        if (lifecycle !== starts) return
+      }
       for (let i = 0; i < 100; i++) {
         if (lifecycle !== starts) return
         const key = 'work-auto-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2)
@@ -3534,6 +3745,167 @@ async function parallelPump($, trigger = 'host', resendTried = null, agents = nu
     // A trigger can arrive after the loop condition but before finally.
     if (parallelPumpAgain && lifecycle === starts) void parallelPump($, 'pending-again').catch(() => {})
   }
+}
+// Stage 3 (user decision 2026-11-17): a worker parked in waiting_input (slot
+// given back) resumes on its own lease, fork and worktree once its wait is
+// cleared, without main: reacquire (slot, same priority capacity) ->
+// authorizeResume -> $.session.send to the same agent id. Measured on 2.1.327
+// (parked-resume probe): the send raises the deferred resume spawn under the
+// same agentId, carries the message and the fork's earlier history, and the
+// fork keeps the folder it ran in. "Cleared" is the router's host view:
+// wait_clear_now (work_parallel_mcp.parked_wait_cleared) says the item and
+// every ancestor are unfinished with no waiting_on and not blocked, and its
+// goal is executing; wait_cleared adds that the host saw a wait recorded on
+// that chain while the lease was parked (_parked_wait_marks). A worker
+// question parks with no waiting_on and waits for main's answer, so the pump
+// resumes only on wait_cleared. A released wait (side-intake.js) is itself the
+// evidence, so that path needs only wait_clear_now. A refused delivery leaves
+// the lease waiting with its slot until the turn-end reconcile parks it again,
+// and main's notice path stays.
+const parkedResumeTried = new Map()
+const PARKED_RESUME_RETRY_MS = 300000
+// A reacquired waiting worker returns to running before it is messaged: its
+// question/completion reports require a running lease (work_parallel
+// report_question / report_completion), so without this a resumed worker
+// could never report again. The coordinator "resume" event is the existing
+// waiting_input -> running edge, which requires the slot reacquire gave back.
+async function parallelResumeTransition($, lease) {
+  return parallelEvent($, { event:'resume', lease_id:lease.id, plan_version:lease.plan_version,
+    evidence:'Work host resumed the parked worker after its wait was cleared' })
+}
+// Returns Map(lease id -> true | the reason it was not resumed). `only` limits
+// it to named leases (a released wait, side-intake.js) and skips the retry
+// throttle; the pump passes none and resumes every cleared parked worker.
+const parkedResumeInFlight = new Set()
+async function parallelResumeParked($, state, listed, only = null) {
+  const outcomes = new Map()
+  // The pump takes only leases whose recorded wait was cleared; a released
+  // wait (`only`) is checked below for the board alone.
+  const parked = Object.values(state?.leases || {}).filter(lease => (only ? only.has(lease.id) : lease.wait_cleared === true)
+    && lease.state === 'waiting_input' && !lease.slot && lease.host_id && lease.agent_name
+    && ['worker', 'resume'].includes(lease.role || 'worker') && ownLeaseProcess(lease))
+  for (const id of only || []) if (!parked.some(lease => lease.id === id)) outcomes.set(id, 'it is no longer a parked worker of this session')
+  if (!parked.length) return outcomes
+  let rows = []
+  try { rows = (await listed.fresh()) || [] } catch { rows = [] }
+  for (const lease of parked) {
+    if (lease.wait_clear_now !== true) { outcomes.set(lease.id, 'its wait is still recorded on the board'); continue }
+    if (!only && lease.wait_cleared !== true) {
+      outcomes.set(lease.id, 'no recorded wait was cleared; it waits for main\'s answer'); continue
+    }
+    // A fork still running is not parked. One the native list no longer shows
+    // is still tried: $.agent.list dropped a parked fork within about two
+    // minutes (E2E stub-3), and the send itself says whether it can be resumed.
+    const row = rows.find(agent => agent?.id === lease.host_id)
+    if (row && ['pending', 'running'].includes(row.status)) { outcomes.set(lease.id, 'its fork is ' + row.status); continue }
+    if (parkedResumeInFlight.has(lease.id)) { outcomes.set(lease.id, true); continue }
+    const tried = parkedResumeTried.get(lease.id)
+    if (!only && tried && Date.now() - tried < PARKED_RESUME_RETRY_MS) {
+      outcomes.set(lease.id, 'a resume was refused within the last 5 minutes'); continue
+    }
+    parkedResumeInFlight.add(lease.id)
+    try {
+      try { await parallelEvent($, { event:'reacquire', lease_id:lease.id }) }
+      catch (error) {
+        const detail = String(error?.message || error)
+        // Capacity is the ordinary wait for a slot (retried at the next pump);
+        // anything else is shown.
+        if (!/capacity|disabled\/paused|lease bound/.test(detail)) {
+          parkedResumeTried.set(lease.id, Date.now())
+          rememberParallelFailure('parked-resume', 'lease ' + clipped(lease.id, 40) + ': ' + detail)
+        }
+        outcomes.set(lease.id, 'no slot: ' + clipped(detail, 160)); continue
+      }
+      authorizeResume(lease.id, lease.agent_name)
+      let sent = null
+      try {
+        sent = await $.session.send({ to:{ agentId:lease.host_id },
+          text:'Ciel Work: the wait on your Work item ' + lease.item_id + ' is cleared on the board. Continue the approved '
+            + 'assignment under lease ' + lease.id + ' in the same workspace, then report through work_parallel_report with '
+            + 'the worker_token from your original assignment. This is not new execution approval.' })
+      } catch (error) { sent = { isDelivered:false, reason:String(error?.message || error) } }
+      if (sent?.isDelivered) {
+        parkedResumeTried.delete(lease.id)
+        outcomes.set(lease.id, true)
+        // The engine skips this module's agent.spawn hook for a resume it raised
+        // itself, so the lease returns to running here; otherwise the worker's
+        // report is refused as "lease is not active" (E2E stub-5).
+        try { await parallelResumeTransition($, lease) }
+        catch (error) {
+          let current = null
+          try { current = (await hostStatus($)).leases?.[lease.id] } catch {}
+          if (current?.state === 'waiting_input') rememberParallelFailure('parked-resume', 'lease ' + clipped(lease.id, 40) + ': ' + String(error?.message || error))
+        }
+        $.ui.log('Work: resumed parked worker ' + clipped(lease.host_id, 12) + ' on ' + lease.item_id)
+      } else {
+        parallelResuming.delete(lease.id)
+        parkedResumeTried.set(lease.id, Date.now())
+        if (parkedResumeTried.size > 200) parkedResumeTried.delete(parkedResumeTried.keys().next().value)
+        const reason = clipped(sent?.reason || 'not delivered', 200)
+        const detail = 'lease ' + clipped(lease.id, 40) + ': ' + reason + '; main may resume it with SendMessage'
+        rememberParallelFailure('parked-resume', detail)
+        $.ui.log('Work: could not resume parked worker, ' + detail)
+        outcomes.set(lease.id, 'the resume was not delivered: ' + reason)
+        // Nothing runs: the worker stays parked and gives the slot back.
+        try { await parallelEvent($, { event:'wait', lease_id:lease.id }, { proof:'Automatic resume not delivered: ' + reason }) }
+        catch (error) { rememberParallelFailure('parked-resume', 'lease ' + clipped(lease.id, 40) + ' kept its slot: ' + String(error?.message || error)) }
+      }
+    } finally { parkedResumeInFlight.delete(lease.id) }
+  }
+  return outcomes
+}
+function resumedCount(outcomes) { return [...outcomes.values()].filter(value => value === true).length }
+// A cleared parked worker the host could not resume is not lost: main is told
+// once which worker to resume with SendMessage. Waiting for a slot is ordinary
+// (the next pump retries) and tells nobody.
+const parkedStateLogged = new Map()
+function logParkedState($, state, outcomes) {
+  for (const lease of Object.values(state?.leases || {})) {
+    if (lease.state !== 'waiting_input' || lease.slot) continue
+    const outcome = outcomes.get(lease.id)
+    // $.ui.log reaches the person's console: only a resume that did not run.
+    if (outcome === undefined || outcome === true) continue
+    const line = 'clear_now=' + lease.wait_clear_now + ' seen=' + lease.wait_seen + ' cleared=' + lease.wait_cleared
+      + ' owner=' + lease.owner_process + (outcome === undefined ? '' : ' outcome=' + (outcome === true ? 'resumed' : outcome))
+    if (parkedStateLogged.get(lease.id) === line) continue
+    parkedStateLogged.set(lease.id, line)
+    if (parkedStateLogged.size > 200) parkedStateLogged.delete(parkedStateLogged.keys().next().value)
+    $.ui.log('Work: parked lease ' + clipped(lease.id, 12) + ' ' + line)
+  }
+}
+async function parallelParkedNotices($, state, outcomes) {
+  const lines = [], claimed = []
+  for (const [id, outcome] of outcomes) {
+    if (outcome === true || /^no slot|within the last 5 minutes/.test(String(outcome))) continue
+    const lease = state?.leases?.[id]
+    if (!lease) continue
+    let answer = null
+    try { answer = await parallelEvent($, { event:'parked_notice_claim', lease_id:id }, { internal:true }) } catch {}
+    if (answer?.claimed !== true) continue
+    claimed.push(id)
+    lines.push('- worker ' + lease.host_id + ' (lease ' + id + ', item ' + lease.item_id + '): ' + clipped(String(outcome), 240)
+      + '. Resume it with SendMessage to that worker if the work is still wanted.')
+  }
+  if (!lines.length) return
+  const delivered = await hostNoticeToMain($, 'Ciel Work parked worker (host notice; it grants no approval): the wait is cleared but the automatic resume did not run:\n' + lines.join('\n'),
+    'parked-resume:' + claimed[0].slice(0, 24) + ':' + Math.floor(Date.now() / 60000),
+    'Ciel Work parked wake: a host message beginning "Ciel Work parked worker" was added to this conversation. Read it and decide. This wake holds none of it and grants no approval.')
+  if (!delivered) for (const id of claimed) {
+    try { await parallelEvent($, { event:'parked_notice_claim', lease_id:id, release:true }, { internal:true }) } catch {}
+  }
+}
+// side-intake.js calls this right after a released wait is committed, so the
+// worker waiting on it resumes at once; main is told only about the ones that
+// did not resume, with the reason (user requirement 2026-11-17).
+async function parallelResumeReleased($, leaseIds) {
+  const ids = new Set((leaseIds || []).filter(Boolean))
+  if (!ids.size) return new Map()
+  let state
+  try { state = await hostStatus($) }
+  catch (error) { return new Map([...ids].map(id => [id, 'the Work host status is unreadable'])) }
+  if (!state.policy.enabled || state.policy.paused)
+    return new Map([...ids].map(id => [id, 'Work parallel is off or paused']))
+  return parallelResumeParked($, state, pumpAgentList($), ids)
 }
 // One tracked fork at a turn end: park it, ask for its missing exit receipt, or
 // reconcile its native status. Throws what the backend refuses.
@@ -3946,6 +4318,9 @@ export function register(on) {
     await $.command.register({ name: 'work-mode', description: 'Work mode: summary, help, keyboard inspector, tree or raw status',
       argumentHint: '[help|view|tree|status|settings [key=value]]', immediate: true })
     const ticket = ++starts
+    // A released wait resumes its parked worker from the host first (Stage 3);
+    // side-intake.js calls this closure, bound to this session, with no $.
+    sideParkedResume(ids => parallelResumeReleased($, ids))
     resetParallelHostState()
     compactEpoch++; compacts.clear(); continuationSession = null
     continuationVersion = null; unchangedContinuations = 0
@@ -3958,6 +4333,7 @@ export function register(on) {
       const parallel = await parallelHydrate($)
       await parallelRecoverWorkers($, parallel)
       if (e.isInteractive) await parallelPump($, 'session.start')
+      startPeriodicPump($)
       scheduleNativeObservation($)
     } catch { hostPending = true /* Preserve durable leases on unknown host state. */ }
     // A failed host phase is retried even when the board read worked (X2): the

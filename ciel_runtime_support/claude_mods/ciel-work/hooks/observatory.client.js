@@ -144,6 +144,11 @@ export default function Observatory(props, surface) {
     Text({ color: C.blue, children: forkText }),
     Text({ color: C.dim, children: '· DEVICE ' + active + '/' + max + ' slots · REVIEW ' + (props.parallel?.reviews?.length || 0) + ' · SIDE ' + (props.parallel?.side || 0) }),
   ]))
+  // Per priority use/limit and the first priority that needs attention (the
+  // router's diagnosis, the same rows web, REST and ctl show; Stage 3).
+  const dispatch = props.parallel?.dispatch
+  if (dispatch?.line) children.push(line('dispatch', clip('  ⚙ ' + dispatch.line, width),
+    dispatch.attention ? C.yellow : C.dim))
   // A Work fork could not start (workspace preparation, last hour): the
   // router's own text, the same one web, REST and ctl show.
   const failure = props.parallel?.failure

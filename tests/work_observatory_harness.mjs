@@ -39,6 +39,7 @@ const receipts = [
 ]
 let rootPriorities = []
 let forks = null
+let diagnosis = null
 const calls = [], toasts = [], opens = []
 let asks = []
 const el = type => props => ({ type, props })
@@ -55,7 +56,7 @@ const $ = {
     }
     if (tool === 'work_parallel_status') value = { version: 1, active_device: 1, leases: {},
       policy: { enabled: true, paused: false, priority_limits: { P1: 5, P2: 3, P3: 1, P4: 1, P5: 1 }, launches_per_minute: 4, max_rework: 2 },
-      root_priorities: rootPriorities, ...(forks ? { forks } : {}) }
+      root_priorities: rootPriorities, ...(forks ? { forks } : {}), ...(diagnosis ? { priority_diagnosis: diagnosis } : {}) }
     if (tool === 'work_side_status') value = { side_inbox_receipts: receipts }
     if (tool === 'work_side_claim') value = { claim: null, settings: {}, handoff_replies: [] }
     return { content: [{ type: 'text', text: JSON.stringify(value) }] }
@@ -151,4 +152,16 @@ out.effective.after = (graphicAfter?.nodes || []).filter(n => n.id === 'n5' || n
 out.effective.forks = (graphicAfter?.parallel?.confirmed || []).map(f => f.item + ':' + f.priority)
 tree = await render('desktop', 110)
 out.effective.desktop = texts(tree).filter(t => t.includes('Queued goal'))
+// Stage 3: the router's per-priority diagnosis reaches the pane and /work-mode parallel.
+diagnosis = { summary: 'P1 1/3 can fill · P2 0/2 no candidates (free slot but no runnable item (goal in planning 1))',
+  attention: ['P2'], rows: [
+    { priority: 'P0', limit: null, active: 0, free: null, candidates: 0, state: 'no_work', reason: 'no unfinished item' },
+    { priority: 'P1', limit: 3, active: 1, free: 2, candidates: 2, state: 'can_fill', reason: '2 runnable; the next pump fills free slots' },
+    { priority: 'P2', limit: 2, active: 0, free: 2, candidates: 0, state: 'no_candidates',
+      reason: 'free slot but no runnable item (goal in planning 1)' }] }
+tree = await render('desktop', 110)
+await press(tree, 'detail-refresh')
+const graphicDiag = walk(await render('terminal', 110)).find(n => n.props?.key === 'obs-graphic')?.props?.props
+out.dispatch = { pane: graphicDiag?.parallel?.dispatch || null,
+  text: (await hook('command.run', { command: 'work-mode' })($, { args: 'parallel', origin: { kind: 'composer' } })).text }
 console.log(JSON.stringify(out))
