@@ -872,7 +872,7 @@ function graphicReceipts(identity) {
         : receipt.side_failure?.quarantined ? 'quarantined' : receipt.stage || 'received',
       delivery: receipt.result?.delivery || '', action: receipt.result?.action || '',
       item_id: receipt.result?.item_id || receipt.item_id || '', failure: sideFailureState(receipt.side_failure),
-      actor: actor?.id || '' }
+      actor: actor?.id || '', bounded: Number(receipt.source_bounded?.omitted_replies) || 0 }
   })
 }
 // The rows the graphical tab's cursor walks, as the Client filters them.
@@ -973,7 +973,9 @@ async function openDetails($, id = null, origin = null) {
       error: clipped(error.message || 'Work details unavailable.', 200) }))
   }
   if (await sessionId($) !== identity) return 'unavailable'
-  await observatoryRefresh($, identity)
+  // The parallel, settings and side projections redraw the pane when they land;
+  // the command does not wait for them (KOBE: /work-mode view waited 38 s).
+  void observatoryRefresh($, identity).catch(() => {})
   await $.ui.open({ id: PANE, title: 'Work & SSE Observatory',
     focus: true, closeOnEscape: true, backgroundColor: '#0b1118', rows: 32, columns: 90 })
   return 'opened'
@@ -1037,6 +1039,7 @@ function retryStart($, ticket, attempt = 0, hostPending = false) {
           if (ticket !== starts) return
           await parallelRecoverWorkers($, parallel)
           hostPending = false
+          hostPhaseReady = true
           await parallelPump($, 'start-retry')
           scheduleNativeObservation($)
         } catch { /* Durable leases are kept; the next capped retry runs the host phase again. */ }
@@ -1046,6 +1049,40 @@ function retryStart($, ticket, attempt = 0, hostPending = false) {
       notice($, ticket); startIdleRefresh($, cachedSession)
     })
   } catch {}
+}
+// session.start's slow phase, after the hook returned (KOBE hotfix 2026-11-18).
+// Each step stops once a newer start or a session end took over (ticket), or the
+// conversation changed silently since the hook ran (no cross-session reads).
+async function sessionStartHostCurrent($, ticket, identity) {
+  if (ticket !== starts) return false
+  if (!identity) return true
+  try { return await sessionId($) === identity } catch { return false }
+}
+async function sessionStartHost($, ticket, isInteractive, identity) {
+  if (!await sessionStartHostCurrent($, ticket, identity)) return
+  const s = await refresh($)
+  if (!await sessionStartHostCurrent($, ticket, identity)) return
+  try { await startSide($) } catch { /* Side pane remains empty until the host is available. */ }
+  if (!await sessionStartHostCurrent($, ticket, identity)) return
+  pollBusySideReceipts($, await sessionId($))
+  let hostPending = false
+  try {
+    const parallel = await parallelHydrate($)
+    if (!await sessionStartHostCurrent($, ticket, identity)) return
+    await parallelRecoverWorkers($, parallel)
+    if (!await sessionStartHostCurrent($, ticket, identity)) return
+    hostPhaseReady = true
+    // The pump reuses hydrate's status read when nothing was written since.
+    if (isInteractive) await parallelPump($, 'session.start', null, null, parallel)
+    startPeriodicPump($)
+    scheduleNativeObservation($)
+  } catch { hostPending = true /* Preserve durable leases on unknown host state. */ }
+  if (ticket !== starts) return
+  // A failed host phase is retried even when the board read worked (X2): the
+  // idle refresh only pumps, and never hydrates or recovers.
+  if (isInteractive && (!s || (hostPending && s.enabled))) retryStart($, ticket, 0, hostPending)
+  else if (isInteractive && s?.enabled) { notice($, ticket); startIdleRefresh($, cachedSession) }
+  if (isInteractive) scheduleGateCheck($, await sessionId($))
 }
 async function workTurnComplete($, e, next) {
   const result = await next(e)
@@ -1059,31 +1096,40 @@ async function workTurnComplete($, e, next) {
   }
   return result
 }
-// Idle gate re-check (user requirement 2026-11-15): while main's turn has ended,
-// blocked/waiting Work items are re-checked by a side actor every N minutes
-// (work_gate_check_minutes). The router decides whether a check is due and
-// queues it as one durable side event; this timer only asks, once a minute,
-// with the host-observed idle and fork facts. A main turn start stops the
-// timer; a main turn end starts it again. Stage 3 (2026-11-17): running Work
+// Gate re-check (user requirement 2026-11-15): blocked/waiting Work items are
+// re-checked by a side actor every N minutes (work_gate_check_minutes). The
+// router decides whether a check is due and queues it as one durable side event
+// (P0 gates first, then P1, then the rest); this timer only asks, once a
+// minute, with the host-observed main-idle and fork facts. KOBE hotfix
+// 2026-11-18: it backs up approvals lost on the network, so it runs while main
+// is busy too (KOBE: main stayed busy and no check ran for over an hour); it is
+// armed first thing in session.start and a main turn start no longer stops it.
+// One round at a time: the next tick is armed only after this one settled, and
+// the router holds a new round while the last one's events are open. Stage 3 (2026-11-17): running Work
 // forks no longer defer it, and every interval the host runs its own round as
 // well (gateHostRound: re-pump, per-priority diagnosis, at most one notice to
 // main per changed diagnosis, discovery for slots nothing can fill). With side
 // intake off that host round is what runs, and the router records it.
 const GATE_CHECK_TICK_MS = 60000
 let gateCheck = null
+// True once this start's host phase (hydrate and recovery) has run. The gate
+// timer is armed before it (KOBE hotfix 2026-11-18): the side re-check runs from
+// the first tick, while the host's own round (re-pump, diagnosis, notice) waits
+// for that phase, so it never pumps an unhydrated host (the X2 retry owns that).
+let hostPhaseReady = false
 function stopGateCheck() {
   if (gateCheck?.timer) { try { gateCheck.timer.cancel() } catch {} }
   gateCheck = null
 }
 function scheduleGateCheck($, identity) {
-  if (!interactive || !enabled || !identity || working
+  if (!interactive || !enabled || !identity
       || (gateCheck?.identity === identity && gateCheck.lifecycle === starts)) return
   stopGateCheck()
   const poll = { identity, lifecycle: starts, timer: null }
   gateCheck = poll
   const tick = async () => {
     poll.timer = null
-    if (gateCheck !== poll || poll.lifecycle !== starts || working) return
+    if (gateCheck !== poll || poll.lifecycle !== starts) return
     // Work switched off: the next main turn end or session start asks again.
     if (!enabled) { stopGateCheck(); return }
     try {
@@ -1094,19 +1140,17 @@ function scheduleGateCheck($, identity) {
         forks = rows.filter(row => row?.spawnedBy === 'ciel-work' && row?.type === 'fork'
           && !sideOwned(row) && ['pending', 'running'].includes(row?.status)).length
       } catch { forks = 0 /* Only recorded; running forks no longer defer the check. */ }
-      if (!working) {
-        const value = await parallelCall($, 'work_side_gate_check', { idle: true, forks_running: forks })
-        if (value?.queued) {
-          $.ui.log('Gate re-check queued for ' + (value.gates || []).length + ' blocked/waiting item(s)')
-          sideStatusDirty = true
-          void runSidePump($, identity).catch(() => {})
-        }
-        if (value?.host_due && gateCheck === poll && poll.lifecycle === starts && !working)
-          await gateHostRound($, identity, value, forks)
+      const value = await parallelCall($, 'work_side_gate_check', { idle: !working, forks_running: forks })
+      if (value?.queued) {
+        $.ui.log('Gate re-check queued for ' + (value.gates || []).length + ' blocked/waiting item(s)')
+        sideStatusDirty = true
+        void runSidePump($, identity).catch(() => {})
       }
+      if (value?.host_due && hostPhaseReady && gateCheck === poll && poll.lifecycle === starts)
+        await gateHostRound($, identity, value, forks)
     } catch { /* An unknown host state skips this tick only. */
     } finally {
-      if (gateCheck === poll && poll.lifecycle === starts && !working) poll.timer = $.clock.after(GATE_CHECK_TICK_MS, tick)
+      if (gateCheck === poll && poll.lifecycle === starts) poll.timer = $.clock.after(GATE_CHECK_TICK_MS, tick)
     }
   }
   poll.timer = $.clock.after(GATE_CHECK_TICK_MS, tick)
@@ -1181,7 +1225,7 @@ async function parallelP0Outcomes($, state, gateMissing) {
 }
 async function gateHostRound($, identity, check, forks) {
   const round = { forks_running: forks, repumped: false, attention: [], notified: false, discovery_requested: false, summary: '' }
-  const report = extra => parallelCall($, 'work_side_gate_check', { idle: true, forks_running: forks, host_report: extra })
+  const report = extra => parallelCall($, 'work_side_gate_check', { idle: !working, forks_running: forks, host_report: extra })
   try { await parallelPump($, 'gate-check'); round.repumped = true } catch { /* recorded as not re-pumped */ }
   let diagnosis = null
   try { diagnosis = (await hostStatus($))?.priority_diagnosis || null } catch {}
@@ -2233,7 +2277,19 @@ async function hostCredential($) {
   const token = await $.env.get('CIEL_RUNTIME_WORK_PARALLEL_HOST_TOKEN')
   return typeof token === 'string' && token ? { token } : {}
 }
+// KOBE hotfix 2026-11-18: a host status read is a paged result (work_host_page
+// calls), so the host reuses one it holds when nothing this module sent could
+// have changed it. Every router call other than the two status reads counts as
+// a possible write, counted before it is sent; a status read is stamped with the
+// count from before it started, so a write in flight makes it stale.
+let hostWrites = 0
+const HOST_READS = new Set(['work_parallel_status', 'work_side_status'])
+const hostReadStamp = new WeakMap()
+function hostStateCurrent(state) {
+  return Boolean(state) && typeof state === 'object' && hostReadStamp.get(state) === hostWrites
+}
 async function parallelCall($, name, args = {}, observed = {}, scope = null) {
+  if (!HOST_READS.has(name)) hostWrites++
   const credential = await hostCredential($)
   const identity = scope || await sessionId($)
   const r = await $.mcp.call('ciel-runtime-router', name, {
@@ -2248,7 +2304,16 @@ async function parallelCall($, name, args = {}, observed = {}, scope = null) {
 // without _host). R2 B2: it carries this process's nonce, so each lease row's
 // owner_process can read own.
 async function hostStatus($) {
-  return parallelCall($, 'work_parallel_status', {}, await hostProcess($))
+  const writes = hostWrites
+  const state = await parallelCall($, 'work_parallel_status', {}, await hostProcess($))
+  if (state && typeof state === 'object') hostReadStamp.set(state, writes)
+  return state
+}
+// The ledger version alone, for an event's expected_version: one small reply
+// instead of the whole paged host status (router: projection "version"). A
+// router without it answers the full status, which carries the same version.
+async function hostVersion($) {
+  return (await parallelCall($, 'work_parallel_status', { projection: 'version' }, await hostProcess($)))?.version
 }
 // Blocker 3: this module's own hooks never run inside forks it spawns, so the
 // separate ciel-work-gate plugin enforces the Work rules there. No Work fork
@@ -2307,10 +2372,21 @@ async function forkGatePresent($, { atStart = false } = {}) {
   }
   return ok
 }
+// Events whose router branch (work_parallel_mcp.run, the branches before
+// rework_dispatch) never reads expected_version: each reads and writes its own
+// journal's version. Their status read before the call was a full paged host
+// status that nothing used (KOBE hotfix 2026-11-18).
+const SELF_VERSIONED_EVENTS = new Set(['p0_launch_assignment', 'p0_launch_spawning', 'p0_launch_denied',
+  'p0_launch_status', 'review_close_resolved', 'review_roll_forward', 'review_wake', 'parked_notice_claim',
+  'p0_outcome_claim', 'failure_record', 'gate_presence', 'host_attach', 'rework_launch_status',
+  'rework_launch_manual_request', 'rework_fork_attribution', 'fork_identity', 'rework_launch_intent',
+  'rework_launch_denied', 'rework_spawn_observed', 'rework_launch_absent', 'rework_launch_manual_resolve',
+  'rework_launch_present'])
 async function parallelEvent($, args, observed = {}) {
+  if (SELF_VERSIONED_EVENTS.has(args?.event)) return parallelCall($, 'work_parallel_event', { ...args }, observed)
   for (let attempt = 0; attempt < 3; attempt++) {
-    const s = await hostStatus($)
-    try { return await parallelCall($, 'work_parallel_event', { ...args, expected_version: s.version }, observed) }
+    const version = await hostVersion($)
+    try { return await parallelCall($, 'work_parallel_event', { ...args, expected_version: version }, observed) }
     catch (error) { if (attempt === 2 || !/state changed; reread/.test(String(error.message))) throw error }
   }
 }
@@ -3078,6 +3154,10 @@ async function parallelHydrate($) {
   // R2 B2: attach first, so this start's status read already classifies this
   // process's own leases as own.
   await parallelHostAttach($)
+  // G5: report the gate's presence once at process start. Awaited, so the
+  // report precedes this start's pump instead of racing its review wakes; sent
+  // before the status read, so that read stays current for the pump.
+  try { await forkGatePresent($, { atStart: true }) } catch { /* Display only. */ }
   const state = await hostStatus($)
   for (const lease of Object.values(state.leases)) {
     if (lease.state === 'done' || !lease.host_id) continue
@@ -3113,9 +3193,6 @@ async function parallelHydrate($) {
     if (row) await parallelEvent($, { event:'bind', lease_id:lease.id },
       { host_id:row.id, agent_name:row.name })
   }
-  // G5: report the gate's presence once at process start. Awaited, so the
-  // report precedes this start's pump instead of racing its review wakes.
-  try { await forkGatePresent($, { atStart: true }) } catch { /* Display only. */ }
   return state
 }
 const parallelExitAttempts = new Map()
@@ -3646,7 +3723,7 @@ function busyTurnPump($) {
   busyPumpAt = now
   void parallelPump($, 'main-step').catch(() => {})
 }
-async function parallelPump($, trigger = 'host', resendTried = null, agents = null) {
+async function parallelPump($, trigger = 'host', resendTried = null, agents = null, initial = null) {
   if (resendTried?.size) parallelPumpResendTried = new Set([...(parallelPumpResendTried || []), ...resendTried])
   parallelPumpAgain = true
   if (parallelPumpRunning) return
@@ -3660,7 +3737,10 @@ async function parallelPump($, trigger = 'host', resendTried = null, agents = nu
       const listed = pumpAgentList($, agents)
       agents = null
       if (lifecycle !== starts) return
-      let state = await hostStatus($)
+      // A status read nothing has written since (session.start's hydrate read)
+      // stands for this first read (KOBE hotfix 2026-11-18).
+      let state = hostStateCurrent(initial) ? initial : await hostStatus($)
+      initial = null
       if (lifecycle !== starts) return
       // A decided saga is finished from its journal first: an approve whose
       // stage failed completes even while dispatch is paused. A rework that
@@ -3703,8 +3783,9 @@ async function parallelPump($, trigger = 'host', resendTried = null, agents = nu
         if (!result || result.dispatch !== 'started') break
       }
       // A stopped policy holds back ordinary/rework dispatch, not P0 and not
-      // reconcile of a replacement launch that was already started.
-      state = await hostStatus($)
+      // reconcile of a replacement launch that was already started. Read again
+      // only when this module wrote since the read above (KOBE hotfix 2026-11-18).
+      if (!hostStateCurrent(state)) state = await hostStatus($)
       if (lifecycle !== starts) return
       try { await parallelP0Outcomes($, state, p0GateMissing) }
       catch (error) { rememberParallelFailure('p0-outcome', String(error?.message || error)) }
@@ -3974,7 +4055,9 @@ async function parallelTurnComplete($, e, next) {
       } catch (error) { noteTurnReconcileFailure($, binding.lease_id, error) }
     }
     try { await parallelObserveNative($) } catch {}
-    await parallelPump($, 'turn.complete', resendTried, agents)
+    // The pump can chain many router calls (spawns): it runs after this hook
+    // returns, so other hooks never wait behind it (KOBE hotfix 2026-11-18).
+    void parallelPump($, 'turn.complete', resendTried, agents).catch(() => {})
     scheduleNativeObservation($)
   } catch (error) { $.ui.log('Work reconciliation: ' + String(error.message || error)) }
   return result
@@ -4316,6 +4399,11 @@ export function register(on) {
     sideAppendStored(e,result)
     return result
   })
+  // KOBE hotfix 2026-11-18: session.start held the hooks worker for 172 s (about
+  // 360 router calls) and the engine unloaded the mod three times. It now only
+  // registers the commands, resets this module's state and arms the gate check,
+  // then returns; the board read, side start, busy poll, hydrate, recovery and
+  // pump run after it (sessionStartHost), as the X2 retry already ran them.
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'btw_with_mcp', description: 'Queue a side request via MCP without a main-thread model turn',
       argumentHint: 'on|off|status|{"event_key":"source:id","text":"request"}', immediate: true })
@@ -4329,22 +4417,12 @@ export function register(on) {
     compactEpoch++; compacts.clear(); continuationSession = null
     continuationVersion = null; unchangedContinuations = 0
     stopIdleRefresh(); clearNativePlanPaths(); interactive = e.isInteractive
-    const s = await refresh($)
-    try { await startSide($) } catch { /* Side pane remains empty until the host is available. */ }
-    pollBusySideReceipts($, await sessionId($))
-    let hostPending = false
-    try {
-      const parallel = await parallelHydrate($)
-      await parallelRecoverWorkers($, parallel)
-      if (e.isInteractive) await parallelPump($, 'session.start')
-      startPeriodicPump($)
-      scheduleNativeObservation($)
-    } catch { hostPending = true /* Preserve durable leases on unknown host state. */ }
-    // A failed host phase is retried even when the board read worked (X2): the
-    // idle refresh only pumps, and never hydrates or recovers.
-    if (e.isInteractive && (!s || (hostPending && s.enabled))) retryStart($, ticket, 0, hostPending)
-    else if (e.isInteractive && s?.enabled) { notice($, ticket); startIdleRefresh($, cachedSession) }
-    if (e.isInteractive) scheduleGateCheck($, await sessionId($))
+    hostPhaseReady = false
+    let identity = null
+    try { identity = await sessionId($) } catch { /* Unknown identity: the slow phase reads it again. */ }
+    // The gate check is armed before any slow work, so a long start never delays it.
+    if (e.isInteractive && identity) scheduleGateCheck($, identity)
+    void sessionStartHost($, ticket, e.isInteractive === true, identity).catch(() => {})
     return next(e)
   })
   // /clear keeps this module loaded but resets $.state (owned probe
@@ -4367,7 +4445,8 @@ export function register(on) {
   })
   on('turn.start', async ($, e, next) => {
     if (e.agentId === undefined) { mainTurnId = e.turnId ?? null; mainStepIndex = -1; sidePromptTurnStart(); await sideMainTurnStart($, e.text) }
-    if (e.agentId === undefined) { working = true; stopIdleRefresh(); stopGateCheck(); generation++; mainTurnEpoch++; if (cached?.side_intake_enabled || cached?.enabled === false) pollBusySideReceipts($, await sessionId($), mainTurnEpoch) }
+    // The gate check keeps running through main's turn (KOBE hotfix 2026-11-18).
+    if (e.agentId === undefined) { working = true; stopIdleRefresh(); generation++; mainTurnEpoch++; if (cached?.side_intake_enabled || cached?.enabled === false) pollBusySideReceipts($, await sessionId($), mainTurnEpoch) }
     return next(e)
   })
   on('turn.step', async function* ($, e, next) {
@@ -4556,6 +4635,7 @@ export function register(on) {
   on('tool.check', async ($, e, next) => parallelToolCheck($, e, next))
   on('session.end', async ($, e, next) => {
     stopIdleRefresh(); stopGateCheck(); interactive = false; working = false; clearNativePlanPaths(); starts++
+    hostPhaseReady = false
     resetParallelHostState()
     generation++; cached = null; cachedSession = null; hinted = ''; continuationVersion = null; unchangedContinuations = 0
     stopNoticeKey = ''; compactEpoch++; compacts.clear(); continuationSession = null
@@ -4686,6 +4766,9 @@ export function register(on) {
         // The source reply's state is the Delivery line below; external_ack is
         // never updated after intake and read "not_sent" beside a sent reply.
         'Stage: ' + (r.stage || 'board_queued') + (r.error ? ' · retained for retry: ' + r.error : ''))
+      // KOBE 2026-11-18: the bounded-thread fact lives on the receipt, not in main's log.
+      if (r.source_bounded?.omitted_replies) detail.push('Source thread: bounded · ' + r.source_bounded.omitted_replies
+        + ' older replies left out (the fork got the root, the target and the newest replies)')
       if (r.side_failure) detail.push('Failure: ' + r.side_failure.category + ' · model ' + (r.side_failure.model || r.side_failure.effective_model || 'unknown')
         + ' · attempt ' + r.side_failure.attempt_count
         + (r.side_failure.quarantined ? ' · quarantined; original forwarded to main'
@@ -4918,6 +5001,9 @@ export function register(on) {
         else if (chosen.side_failure) rows.push(text('Failure: '+chosen.side_failure.category+' · '+(chosen.side_failure.model||'unknown'),{color:'error'}),
           ...(chosen.side_failure.reason?detailLines(chosen.side_failure.reason,width).map(line=>Text({color:'error',children:line})):[]))
         else rows.push(text(chosen.processing?'AI processing':'Received; not processed yet',{color:chosen.processing?'suggestion':'warning'}))
+        // KOBE 2026-11-18: the bounded-thread fact, kept out of main's log.
+        if (chosen.source_bounded?.omitted_replies) rows.push(text('Source thread bounded: '+chosen.source_bounded.omitted_replies
+          +' older replies left out',{color:'warning'}))
       }
     } else {
       const settings = observatorySettings?.settings || []

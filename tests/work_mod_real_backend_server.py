@@ -28,6 +28,29 @@ ROOT = Path(os.environ["WORK_REAL_ROOT"])
 ROOT.mkdir(parents=True, exist_ok=True)
 BOARD = WorkPlanStore(ROOT / "work-plan.json")
 BRIDGE_CALLS = []
+# KOBE hotfix 2026-11-18: page large host results as the real router does
+# (host_result_pages), so a start's router call count includes its page reads.
+PAGING = {"on": False}
+
+
+def paged(value):
+    if not PAGING["on"]:
+        return value
+    from ciel_runtime_support import host_result_pages
+    return json.loads(host_result_pages.bound(ROOT, IDENTITY, json.dumps(value, ensure_ascii=False)))
+
+
+def seed_board(goals, items):
+    """A large board: goals in planning, each with items that carry a recorded
+    wait and a long note (the KOBE-sized Work status the start path reads)."""
+    for number in range(goals):
+        doc = BOARD.read()
+        BOARD.transaction(lambda d: tree.set_plan(d, {
+            "title": "Load goal %d %s" % (number, "g" * 120), "note": "n" * 400, "children": [
+                {"title": "Load item %d.%d %s" % (number, index, "i" * 100), "note": "m" * 300, "ref": "",
+                 "waiting_on": "approval from reviewer %d" % index, "children": []}
+                for index in range(items)]}, None), expected_version=doc["version"])
+    return {"nodes": len(BOARD.read()["nodes"])}
 
 
 def bind_router():
@@ -160,7 +183,10 @@ def backend(tool, args):
         value["auto_continue"] = False
         if args.get("detail"):
             value.update(nodes=doc["nodes"], root_id=doc.get("active_root"))
-        return value
+        return paged(value)
+    if tool == "work_host_page":
+        from ciel_runtime_support import host_result_pages
+        return host_result_pages.page(ROOT, IDENTITY, args.get("id"), args.get("part"))
     if tool == "work_side_status":
         return {"enabled": False, "side_inbox_receipts": []}
     if tool == "work_side_claim":
@@ -170,7 +196,7 @@ def backend(tool, args):
     if tool.startswith("work_parallel_"):
         # The mod passes its own _host (token, fork, host_id, agent_name, proof).
         BRIDGE_CALLS.append({"tool": tool, "args": dict(args)})
-        return json.loads(parallel.run(tool, dict(args), BOARD, IDENTITY, config(), None))
+        return paged(json.loads(parallel.run(tool, dict(args), BOARD, IDENTITY, config(), None)))
     if tool in ("work_priority_command", "work_side_gate_check"):
         # The idle gate re-check timer's router call goes through the real
         # dispatch too (side intake is off here, so it never queues).
@@ -964,6 +990,11 @@ def dispatch(request):
         return {"ended": ended}
     if action == "fingerprint":
         return fingerprint()
+    if action == "paging":
+        PAGING["on"] = request["on"] is True
+        return dict(PAGING)
+    if action == "seed_board":
+        return seed_board(request["goals"], request["items"])
     raise ValueError("unknown action " + str(action))
 
 

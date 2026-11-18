@@ -167,18 +167,30 @@ def verify_claim(inbox, receipt_id, generation, *, now=None):
     return row
 
 
-def renew(state_dir, session_id, receipt_id, generation, *, now=None, lease_seconds=120):
+def renew(state_dir, session_id, receipt_id, generation, *, now=None, lease_seconds=120, source_bounded=None):
+    """Extend a live claim. ``source_bounded`` ({"omitted_replies": n}) also
+    records on the receipt that its fork got a bounded source thread, so the
+    side receipt and the SSE pane show it (KOBE hotfix 2026-11-18)."""
     if type(lease_seconds) is not int or not 1 <= lease_seconds <= 3600:
         raise WorkPlanError('invalid side lease duration')
+    if source_bounded is not None:
+        omitted = source_bounded.get('omitted_replies') if isinstance(source_bounded, dict) else None
+        if type(omitted) is not int or omitted < 1:
+            raise WorkPlanError('source_bounded needs a positive omitted_replies')
     stamp = time.time() if now is None else now
     inbox = SideIntakeInbox(state_dir, session_id)
     with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
         row = verify_claim(inbox, receipt_id, generation, now=stamp)
         if row.get('stage') != 'received':
             raise WorkPlanError('side claim already settled')
-        row['processing']['lease_until'] = stamp + lease_seconds
+        until = stamp + lease_seconds
+        if source_bounded is not None:
+            # A record, not a heartbeat: never shortens the claim's lease.
+            until = max(until, float(row['processing'].get('lease_until') or 0))
+            row['source_bounded'] = {'omitted_replies': source_bounded['omitted_replies'], 'at': stamp}
+        row['processing']['lease_until'] = until
         inbox._save_file(inbox._event_path('pending', receipt_id), row)
-        return {'receipt_id': receipt_id, 'generation': generation, 'lease_until': stamp + lease_seconds}
+        return {'receipt_id': receipt_id, 'generation': generation, 'lease_until': until}
 
 
 MAIN_COMPACTION_WAITS = 12

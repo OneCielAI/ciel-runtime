@@ -122,6 +122,13 @@ def reply_retry_pin(row: Any) -> dict[str, Any]:
     return pin
 
 
+def _source_bounded(row: dict[str, Any]) -> dict[str, int] | None:
+    """The bounded-thread fact the host recorded (work_side_renew), or None."""
+    value = row.get('source_bounded')
+    omitted = value.get('omitted_replies') if isinstance(value, dict) else None
+    return {'omitted_replies': omitted} if type(omitted) is int and omitted > 0 else None
+
+
 def _retry_pins(row: dict[str, Any]) -> dict[str, Any]:
     """The exact-attempt pins a person-confirmed notice or reply retry must send
     back (one-way refs and counts, never an attempt id)."""
@@ -653,6 +660,7 @@ class SideIntakeInbox:
             'failure_category': failure.get('category'),
             'source_context': row.get('source_context'),
             'source_truncated': True if row.get('source_truncated') else None,
+            'source_bounded': _source_bounded(row),
             'attempt_count': failure.get('attempt_count'),
             'quarantined': bool(failure.get('quarantined')),
             'handoff': result.get('handoff'),
@@ -793,6 +801,7 @@ class SideIntakeInbox:
                 'processing': row.get('processing'), 'side_failure': row.get('side_failure'),
                 'source_context': row.get('source_context'),
                 'source_truncated': row.get('source_truncated') is True,
+                **({'source_bounded': _source_bounded(row)} if _source_bounded(row) else {}),
                 'main_fallback': row.get('main_fallback'), 'context': row.get('context'),
                 'result': row.get('result'),
                 **({'notice_delivery_uncertain': _notice_uncertain(row.get('release_notice')),

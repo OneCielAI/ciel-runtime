@@ -15,7 +15,28 @@ const sideHandlers = {}
 register((name, filter, handler) => {
   if (filter?.command === 'btw_with_mcp' || filter?.requestId === 'ciel-side-intake') sideHandlers[name] = handler
   else handlers[name] = typeof filter === 'function' ? filter : handler
+  // KOBE hotfix 2026-11-18: session.start returns before its board read, side
+  // start, hydrate and pump, and turn.complete before its pump. Scenarios
+  // observe after that work, as they did when the hooks themselves awaited it.
+  if (name === 'session.start' || name === 'turn.complete') {
+    const hook = handlers[name]
+    handlers[name] = async ($, e, nextFn) => {
+      const result = await hook($, e, nextFn)
+      await startSettled($)
+      return result
+    }
+  }
 })
+// Settled: no router call in flight and none started for three 5 ms ticks
+// (bounded at 2 s, so a scenario that holds a router call goes on).
+async function startSettled($) {
+  const state = $?.__harnessState
+  let seen = -1, still = 0
+  for (let i = 0; i < 400 && still < 3; i++) {
+    await new Promise(resolve => setTimeout(resolve, 5))
+    if (state && (state.inflight > 0 || state.calls !== seen)) { seen = state.calls; still = 0 } else still++
+  }
+}
 // The engine's claude-code helpers are stubbed by the pytest fixture: atoms
 // live in a shared map keyed by plugin+key. Probe the detail pane state there.
 const detailAtom = atom({ plugin: 'ciel-work', key: 'detail' }, null)
@@ -46,7 +67,7 @@ function nonceRace(callers) {
 }
 function host(respond) {
   // A fresh host is a fresh claude.exe process: its env Map starts empty.
-  const state = { session: 'S1', calls: 0, logs: [], env: new Map(), envFault: null, nonceRace: null, routerNonces: [] }
+  const state = { session: 'S1', calls: 0, inflight: 0, logs: [], env: new Map(), envFault: null, nonceRace: null, routerNonces: [] }
   // The engine's host-held $.state, one per fresh host (process).
   const hostStore = new Map()
   const NONCE = 'CIEL_WORK_HOST_PROCESS_NONCE'
@@ -75,7 +96,8 @@ function host(respond) {
       state.calls++
       // What the router receives, never what the fake env holds.
       if (args?._host && 'launch_nonce' in args._host) state.routerNonces.push({ event: args.event, nonce: args._host.launch_nonce })
-      return respond(tool, args, state)
+      state.inflight++
+      try { return await respond(tool, args, state) } finally { state.inflight-- }
     } },
     ui: { invalidate() {}, toast() {}, log(t) { state.logs.push(t) }, open: async () => {}, ask: async () => 'Approve' },
     clock: { after() { return { cancel() {} } } },
@@ -106,6 +128,7 @@ function host(respond) {
       spawn: async args => { if (args.subagentType !== 'ciel-work:side-intake') return {deny:'fixture'}; state.sideSpawn = args; return {agentId:'side1'} } },
     command: { register: async () => {} },
   }
+  Object.defineProperty($, '__harnessState', { value: state })
   return { $, state }
 }
 function next(value) {

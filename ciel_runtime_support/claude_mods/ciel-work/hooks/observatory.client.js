@@ -234,6 +234,7 @@ export default function Observatory(props, surface) {
     if (chosen) children.push(line('wide-inspector-title', chosen.title || chosen.summary || '', C.text, { weight: 'bold' }))
     if (chosen) children.push(line('wide-inspector-meta', props.tab === 'side'
       ? stage(chosen) + (chosen.actor ? ' · fork ' + chosen.actor : '') + (chosen.item_id ? ' → ' + chosen.item_id : '')
+        + (chosen.bounded ? ' · thread bounded: ' + chosen.bounded + ' older replies left out' : '')
       : (chosen.priority || '--') + ' · ' + chosen.status + (chosen.waiting_on ? ' · waiting ' + chosen.waiting_on : ''),
       props.tab === 'side' ? stageColor(stage(chosen)) : statusColor(chosen.status)))
     children.push(line('footer', FOOTER, C.dim))
@@ -259,7 +260,7 @@ export default function Observatory(props, surface) {
       for (const actor of actors) children.push(line('actor-' + actor.id,
         '▶ ' + clip(actor.id, 10) + ' · native fork (main context) · ' + clip(actor.receipt, 12), C.cyan))
     } else children.push(line('no-fork', 'No active side fork', C.dim))
-    const visible = Math.max(3, height - 13 - actors.length)
+    const visible = Math.max(3, height - 13 - actors.length - (sideRows[selected]?.bounded ? 1 : 0))
     const page = sideRows.slice(scroll, scroll + visible)
     children.push(line('receipt-head', 'RECEIPTS · ↑↓ MOVE · ENTER INSPECT', C.dim))
     for (const [offset, receipt] of page.entries()) {
@@ -276,6 +277,8 @@ export default function Observatory(props, surface) {
       children.push(line('inspect-summary', receipt.summary, C.text))
       children.push(line('inspect-meta', (receipt.actor ? 'fork ' + receipt.actor : stage(receipt))
         + (receipt.action ? ' · ' + receipt.action : '') + (receipt.item_id ? ' → ' + receipt.item_id : ''), stageColor(stage(receipt))))
+      if (receipt.bounded) children.push(line('inspect-bounded', 'Source thread bounded: ' + receipt.bounded
+        + ' older replies left out', C.yellow))
     }
   } else {
     children.push(boxLine('work-head', [

@@ -1621,6 +1621,31 @@ export async function sideRecordStopWake($,identity,presentation) {
     return result?.state === 'queued'
   } catch { return false /* Retry the record only; never re-present. */ }
 }
+// A bounded source thread (KOBE 2026-11-18): every event of a large thread used
+// to log a main-visible line, which flooded main's view. Each event's line now
+// goes to the debug log; the person sees one line per source thread per session.
+// The bounded fact and its left-out count stay on the receipt (work_side_renew
+// source_bounded), which the side receipt pane and the SSE pane show.
+const boundedThreadNotices = new Set()
+async function noteBoundedThread($,identity,event,source) {
+  const omitted = source.omitted_replies
+  try { $.ui.log('Ciel side: source thread too large for '+event.receipt_id.slice(0,12)
+    +'; '+omitted+' older replies left out',{to:'debug'}) } catch {}
+  const thread = identity+'|'+String(source.conversation_id || '')+'|'+String(source.root_id || '')
+  if (!boundedThreadNotices.has(thread)) {
+    boundedThreadNotices.add(thread)
+    if (boundedThreadNotices.size > 200) boundedThreadNotices.delete(boundedThreadNotices.values().next().value)
+    try { $.ui.log('Ciel side: source thread '+line(source.root_id,24)+' is larger than main has room for; its side forks get the root, '
+      +'the target message and the newest replies ('+omitted+' older replies left out for '+event.receipt_id.slice(0,12)
+      +'). Later events of this thread show it in their receipt and the SSE pane only.') } catch {}
+  }
+  const previous = displayedReceipts.get(identity)?.get(event.receipt_id)
+  if (previous) display($,identity,{side_inbox_receipts:[{...previous,source_bounded:{omitted_replies:omitted}}]})
+  try {
+    await callRouter($,'work_side_renew',{source_bounded:{omitted_replies:omitted}},
+      {receipt_id:event.receipt_id,generation:event.generation},identity)
+  } catch { /* The fork still gets the bounded thread; only the receipt note is missing. */ }
+}
 // Resolves true when this call took an event from the durable inbox (started,
 // or failed and recorded), so the caller claims again at once instead of
 // leaving the rest of a burst for the next periodic tick.
@@ -1751,8 +1776,7 @@ export async function pollSide($, identity) {
           || (error.mainContext && !urgent && !compactionRecent(identity)
               && !compactionWaitsSpent(identity,event.receipt_id))) throw error
       sourceMessage = error.bound()
-      try { $.ui.log('Ciel side: source thread too large for '+event.receipt_id.slice(0,12)
-        +'; '+sourceMessage.omitted_replies+' older replies left out') } catch {}
+      await noteBoundedThread($,identity,event,sourceMessage)
     }
     const text = JSON.stringify({event_id:event.receipt_id,parent_session_id:identity,claim_generation:event.generation,
       external_event_preview:eventView(event.text),source_context:sourceMessage.source_context,

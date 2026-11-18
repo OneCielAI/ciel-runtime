@@ -94,26 +94,61 @@ def is_chat_model(entry: Mapping[str, Any]) -> bool:
     return True
 
 
+# The catalog key that carries, beside the kept rows, why each listed row was
+# left out (select_model_catalog_entries); the model list cache keeps it.
+EXCLUDED_MODELS_KEY = "excluded_models"
+
+
+def agent_model_exclusion(entry: Mapping[str, Any], listed: set[Any]) -> str | None:
+    """Why a listed gateway row is not an agent model, or None when it is kept.
+
+    The gateway owns its capability flags; this names the one(s) it lacks.
+    """
+
+    if not is_chat_model(entry):
+        return "not a chat model"
+    parent = entry.get("parent")
+    if parent and parent != entry.get("id") and parent in listed:
+        return f"a mirror of {parent}"
+    capabilities = _capabilities(entry)
+    missing = []
+    if capabilities.get("tool_calling") is not True:
+        missing.append("tool_calling")
+    if not _supports_thinking(capabilities):
+        missing.append("thinking")
+    if missing:
+        return "missing capability " + ", ".join(missing)
+    return None
+
+
+def excluded_agent_models(entries: list[Any]) -> dict[str, str]:
+    """Each listed row select_agent_models leaves out, with the reason."""
+
+    listed = {
+        entry.get("id") for entry in entries if isinstance(entry, Mapping) and entry.get("id")
+    }
+    excluded: dict[str, str] = {}
+    for entry in entries:
+        if not isinstance(entry, Mapping) or not entry.get("id"):
+            continue
+        reason = agent_model_exclusion(entry, listed)
+        if reason is not None:
+            excluded[str(entry["id"])] = reason
+    return excluded
+
+
 def select_agent_models(entries: list[Any]) -> list[Any]:
     """Keep chat models with tools and thinking; drop duplicate-prefix mirrors."""
 
     listed = {
         entry.get("id") for entry in entries if isinstance(entry, Mapping) and entry.get("id")
     }
-    selected: list[Any] = []
-    for entry in entries:
-        if not isinstance(entry, Mapping) or not entry.get("id"):
-            continue
-        if not is_chat_model(entry):
-            continue
-        parent = entry.get("parent")
-        if parent and parent != entry.get("id") and parent in listed:
-            continue
-        capabilities = _capabilities(entry)
-        if capabilities.get("tool_calling") is not True or not _supports_thinking(capabilities):
-            continue
-        selected.append(entry)
-    return selected
+    return [
+        entry
+        for entry in entries
+        if isinstance(entry, Mapping) and entry.get("id")
+        and agent_model_exclusion(entry, listed) is None
+    ]
 
 
 def lower_to_supported_effort(value: str, tiers: list[str]) -> str:
@@ -267,7 +302,11 @@ class CielAiRouterProviderAdapter(OpenAICompatibleProviderAdapter):
         del config
         if not isinstance(data, Mapping) or not isinstance(data.get("data"), list):
             return data
-        return {**data, "data": select_agent_models(data["data"])}
+        return {
+            **data,
+            "data": select_agent_models(data["data"]),
+            EXCLUDED_MODELS_KEY: excluded_agent_models(data["data"]),
+        }
 
     def project_model_metadata(self, raw: Mapping[str, Any]) -> Mapping[str, Any]:
         metadata = dict(super().project_model_metadata(raw))
@@ -401,4 +440,7 @@ __all__ = [
     "is_chat_model",
     "lower_to_supported_effort",
     "select_agent_models",
+    "agent_model_exclusion",
+    "excluded_agent_models",
+    "EXCLUDED_MODELS_KEY",
 ]

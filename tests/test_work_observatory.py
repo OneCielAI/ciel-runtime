@@ -88,6 +88,10 @@ class WorkObservatoryTests(unittest.TestCase):
         self.assertIn('P1 side_mcp', side)
         self.assertIn('P3 quarantined', side)
         self.assertIn('Action: create → n9', side)
+        # KOBE 2026-11-18: the bounded-thread fact shows on the receipt, not in main's log.
+        self.assertIn('Source thread bounded: 7 older replies left out', side)
+        bounded = {row['id'][:1]: row['bounded'] for row in self.result['graphicProps']['receipts']}
+        self.assertEqual({'a': 7, 'b': 0}, bounded)
         self.assertIn('success', self.result['side']['colors'])
         self.assertIn('error', self.result['side']['colors'])
         p1 = '\n'.join(self.result['sideP1'])

@@ -1,11 +1,15 @@
-"""Idle gate re-check: the side actor looks at blocked/waiting Work items on a timer.
+"""Gate re-check: the side actor looks at blocked/waiting Work items on a timer.
 
-User requirement 2026-11-15: when main's turn has ended and no forked session is
-running, and Work items carry a blocker or a recorded wait, a side actor checks
-every N minutes (default 5) whether each gate has cleared and tells main. N is
-managed in the settings (menu, web dashboard, REST, ctl).
+User requirement 2026-11-15: when Work items carry a blocker or a recorded wait,
+a side actor checks every N minutes (default 5) whether each gate has cleared and
+tells main. N is managed in the settings (menu, web dashboard, REST, ctl).
 
-The host (ciel-work) owns the timer and the main-idle condition. Stage 3
+KOBE hotfix 2026-11-18: the check is the backup for a person's approval message
+lost to a network problem, so it also runs while main's turn is busy (KOBE: main
+stayed busy and no check ran for over an hour). Gates are ordered by their goal's
+effective priority: P0 first, then P1, then the rest.
+
+The host (ciel-work) owns the timer. Stage 3
 (2026-11-17): the check also runs while Work forks run and with side intake
 off. Each round the host also re-pumps dispatch (a parked worker whose wait is
 cleared resumes there), reads the per-priority diagnosis and tells main at most
@@ -27,7 +31,7 @@ from __future__ import annotations
 import hashlib
 import json
 import time
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 DEFAULT_MINUTES = 5
 RANGE = (1, 1440)
@@ -70,8 +74,19 @@ def set_minutes(config: dict[str, Any], raw: str) -> None:
         config.pop("work_gate_check", None)
 
 
-def gates(doc: Mapping[str, Any]) -> list[dict[str, Any]]:
-    """Unfinished nodes with a recorded wait or a blocked status, active goal first."""
+def _rank(priority: Any) -> int:
+    return {"P0": 0, "P1": 1}.get(str(priority or ""), 2)
+
+
+def gates(doc: Mapping[str, Any], priority: Callable[[Mapping[str, Any]], str] | None = None) -> list[dict[str, Any]]:
+    """Unfinished nodes with a recorded wait or a blocked status.
+
+    Ordered by the goal's effective priority (``priority(goal)``, default its
+    canonical ``priority``): P0 first, then P1, then the rest; within a rank the
+    active goal first, then board order.
+    """
+    priority_of = priority or (lambda goal: str(goal.get("priority") or ""))
+    ranks: dict[str, str] = {}
     by_id = {node["id"]: node for node in doc.get("nodes", [])}
     order = {node["id"]: index for index, node in enumerate(doc.get("nodes", []))}
 
@@ -91,12 +106,19 @@ def gates(doc: Mapping[str, Any]) -> list[dict[str, Any]]:
         goal = root(node)
         if goal.get("status") == "done":
             continue
+        if goal["id"] not in ranks:
+            try:
+                ranks[goal["id"]] = str(priority_of(goal) or "")
+            except Exception:  # noqa: BLE001 - an unreadable P0 marker keeps the canonical priority
+                ranks[goal["id"]] = str(goal.get("priority") or "")
         rows.append({"id": node["id"], "title": str(node.get("title") or "")[:200],
+                     "priority": ranks[goal["id"]],
                      "waiting_on": str(node.get("waiting_on") or ""), "blocked": node.get("status") == "blocked",
                      "root_id": goal["id"], "root_title": str(goal.get("title") or "")[:200],
                      "evidence": str(node.get("evidence") or "")[-400:], "note": str(node.get("note") or "")[-400:]})
     active = doc.get("active_root")
-    rows.sort(key=lambda row: (row["root_id"] != active, order.get(row["root_id"], 0), order.get(row["id"], 0)))
+    rows.sort(key=lambda row: (_rank(row["priority"]), row["root_id"] != active, order.get(row["root_id"], 0),
+                               order.get(row["id"], 0)))
     return rows[:BATCH_GATES * MAX_BATCHES]
 
 
@@ -107,8 +129,10 @@ def digest(rows: list[dict[str, Any]]) -> str:
 
 def event_text(rows: list[dict[str, Any]], interval: int, part: str = "") -> str:
     lines = [
-        "Ciel gate re-check (host timer, every %d min while main is idle; Work forks may be running)%s." % (
+        "Ciel gate re-check (host timer, every %d min, also while main is busy; Work forks may be running)%s." % (
             interval, (" — " + part) if part else ""),
+        "It backs up a person's approval or answer that may have been lost on the network.",
+        "Gates are listed by priority: P0 first, then P1, then the rest.",
         "This is not an external message: no person sent it and there is no source to reply to.",
         "For each gate below, check with read-only means whether its condition is now satisfied",
         "(the referenced CI/build/deploy/git result, review or approval, a file or service state).",
@@ -124,25 +148,27 @@ def event_text(rows: list[dict[str, Any]], interval: int, part: str = "") -> str
     ]
     for row in rows:
         what = ("waiting on: " + row["waiting_on"]) if row["waiting_on"] else "status blocked"
-        lines.append(f"- {row['id']} ({row['title']}) in goal {row['root_id']} ({row['root_title']}): {what}")
+        rank = ("[" + row["priority"] + "] ") if row.get("priority") else ""
+        lines.append(f"- {rank}{row['id']} ({row['title']}) in goal {row['root_id']} ({row['root_title']}): {what}")
         if row["evidence"]:
             lines.append("  last evidence: " + row["evidence"].replace("\n", " ")[:300])
     return "\n".join(lines)
 
 
 def due(config: Mapping[str, Any], doc: Mapping[str, Any], state: Mapping[str, Any] | None,
-        *, now: float | None = None) -> dict[str, Any] | None:
+        *, now: float | None = None,
+        priority: Callable[[Mapping[str, Any]], str] | None = None) -> dict[str, Any] | None:
     """The gate-check event to queue now, or None.
 
     ``state`` is the last record ({"at", "digest"}). A changed gate set is due at
-    once; an unchanged one is due when the interval has passed. The host checks
-    the main-idle condition before it calls this; running Work forks do not
-    defer it (Stage 3, 2026-11-17).
+    once; an unchanged one is due when the interval has passed. Neither main's
+    busy turn (KOBE hotfix 2026-11-18) nor running Work forks (Stage 3,
+    2026-11-17) defer it; the router keeps one round at a time.
     """
     interval = minutes(config)
     if interval == 0:
         return None
-    rows = gates(doc)
+    rows = gates(doc, priority)
     if not rows:
         return None
     stamp = time.time() if now is None else now
@@ -165,6 +191,19 @@ def due(config: Mapping[str, Any], doc: Mapping[str, Any], state: Mapping[str, A
                        "gates": [row["id"] for row in batch]})
     return {"event_key": events[0]["event_key"], "text": events[0]["text"], "events": events,
             "digest": current, "at": stamp, "gates": [row["id"] for row in rows], "interval_minutes": interval}
+
+
+def effective_priority_for(identity: str) -> Callable[[Mapping[str, Any]], str]:
+    """A goal's effective priority in this conversation: P0 while its P0 marker is
+    active (work_parallel_p0), otherwise its canonical priority."""
+    def priority(goal: Mapping[str, Any]) -> str:
+        canonical = str(goal.get("priority") or "")
+        try:
+            from .work_parallel_mcp import p0_state
+            return p0_state().effective_priority(identity, dict(goal), canonical)
+        except Exception:  # noqa: BLE001 - an unreadable ledger keeps the canonical order
+            return canonical
+    return priority
 
 
 _HEX = frozenset("0123456789abcdef")
@@ -217,5 +256,5 @@ def host_report(config: Mapping[str, Any], last: Mapping[str, Any] | None, repor
     return record, {"recorded": True, "host_round": entry}
 
 
-__all__ = ["DEFAULT_MINUTES", "EVENT_PREFIX", "KEY", "RANGE", "digest", "due", "event_text", "gates", "host_report",
-           "minutes", "set_minutes"]
+__all__ = ["DEFAULT_MINUTES", "EVENT_PREFIX", "KEY", "RANGE", "digest", "due", "effective_priority_for", "event_text",
+           "gates", "host_report", "minutes", "set_minutes"]

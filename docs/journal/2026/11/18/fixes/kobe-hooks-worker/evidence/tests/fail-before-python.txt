@@ -1,0 +1,149 @@
+F.E..FFFFFFE.....E......FE.F......F..........................................................................F...
+======================================================================
+ERROR: test_the_agent_filter_and_its_reasons_agree (test_kobe_hooks_worker_hotfix.FilteredGatewayModelTests.test_the_agent_filter_and_its_reasons_agree)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_kobe_hooks_worker_hotfix.py", line 148, in test_the_agent_filter_and_its_reasons_agree
+    from ciel_runtime_support.providers.cielairouter import excluded_agent_models, select_agent_models
+ImportError: cannot import name 'excluded_agent_models' from 'ciel_runtime_support.providers.cielairouter' (<tmp>\ciel_runtime_support\providers\cielairouter.py)
+
+======================================================================
+ERROR: test_the_renew_schema_names_the_fact (test_kobe_hooks_worker_hotfix.SideReceiptBoundedThreadTests.test_the_renew_schema_names_the_fact)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_kobe_hooks_worker_hotfix.py", line 80, in test_the_renew_schema_names_the_fact
+    self.assertEqual(['omitted_replies'], renew['inputSchema']['properties']['source_bounded']['required'])
+                                          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+KeyError: 'source_bounded'
+
+======================================================================
+ERROR: test_main_busy_no_longer_defers_the_check (test_work_gate_check.GateCheckMcpTests.test_main_busy_no_longer_defers_the_check)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_work_gate_check.py", line 265, in test_main_busy_no_longer_defers_the_check
+    self.assertEqual((True, False, [wait]), (busy['queued'], busy['main_idle'], busy['gates']))
+                                                             ~~~~^^^^^^^^^^^^^
+KeyError: 'main_idle'
+
+======================================================================
+ERROR: test_the_router_orders_by_effective_priority (test_work_gate_check.GateCheckMcpTests.test_the_router_orders_by_effective_priority)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_work_gate_check.py", line 242, in test_the_router_orders_by_effective_priority
+    self.assertEqual([emergency_wait, urgent_wait, plain_wait], queued['gates'])
+                                                                ~~~~~~^^^^^^^^^
+KeyError: 'gates'
+
+======================================================================
+FAIL: test_a_filtered_model_is_named_with_the_missing_capability_from_the_cached_catalog (test_kobe_hooks_worker_hotfix.FilteredGatewayModelTests.test_a_filtered_model_is_named_with_the_missing_capability_from_the_cached_catalog)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_kobe_hooks_worker_hotfix.py", line 161, in test_a_filtered_model_is_named_with_the_missing_capability_from_the_cached_catalog
+    self.assertIn("the gateway lists it, but ciel-runtime filtered it out", message)
+AssertionError: 'the gateway lists it, but ciel-runtime filtered it out' not found in "Configured model '_Walkie_Sol61-Opus55-Fast' for cielairouter is not in the provider catalog. Refresh the model list and reselect before launch/test."
+
+======================================================================
+FAIL: test_the_host_reads_the_ledger_version_alone (test_kobe_hooks_worker_hotfix.HostVersionProjectionTests.test_the_host_reads_the_ledger_version_alone)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_kobe_hooks_worker_hotfix.py", line 109, in test_the_host_reads_the_ledger_version_alone
+    self.assertEqual({'version': full['version'], 'projection': 'version'}, version)
+AssertionError: {'version': 0, 'projection': 'version'} != {'version': 0, 'policy': {'enabled': True, 'paused': False[5426 chars]: 0}}
+Diff is 11827 characters long. Set self.maxDiff to None to see it.
+
+======================================================================
+FAIL: test_a_plain_heartbeat_records_nothing_and_a_bad_fact_is_refused (test_kobe_hooks_worker_hotfix.SideReceiptBoundedThreadTests.test_a_plain_heartbeat_records_nothing_and_a_bad_fact_is_refused) (bad={'omitted_replies': 0})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_kobe_hooks_worker_hotfix.py", line 70, in test_a_plain_heartbeat_records_nothing_and_a_bad_fact_is_refused
+    self.assertTrue(self.invoke('work_side_renew', {'source_bounded': bad}, host)['error'])
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_a_plain_heartbeat_records_nothing_and_a_bad_fact_is_refused (test_kobe_hooks_worker_hotfix.SideReceiptBoundedThreadTests.test_a_plain_heartbeat_records_nothing_and_a_bad_fact_is_refused) (bad={'omitted_replies': '5'})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_kobe_hooks_worker_hotfix.py", line 70, in test_a_plain_heartbeat_records_nothing_and_a_bad_fact_is_refused
+    self.assertTrue(self.invoke('work_side_renew', {'source_bounded': bad}, host)['error'])
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_a_plain_heartbeat_records_nothing_and_a_bad_fact_is_refused (test_kobe_hooks_worker_hotfix.SideReceiptBoundedThreadTests.test_a_plain_heartbeat_records_nothing_and_a_bad_fact_is_refused) (bad={})
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_kobe_hooks_worker_hotfix.py", line 70, in test_a_plain_heartbeat_records_nothing_and_a_bad_fact_is_refused
+    self.assertTrue(self.invoke('work_side_renew', {'source_bounded': bad}, host)['error'])
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_a_plain_heartbeat_records_nothing_and_a_bad_fact_is_refused (test_kobe_hooks_worker_hotfix.SideReceiptBoundedThreadTests.test_a_plain_heartbeat_records_nothing_and_a_bad_fact_is_refused) (bad='many')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_kobe_hooks_worker_hotfix.py", line 70, in test_a_plain_heartbeat_records_nothing_and_a_bad_fact_is_refused
+    self.assertTrue(self.invoke('work_side_renew', {'source_bounded': bad}, host)['error'])
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_renew_records_the_bounded_thread_on_the_receipt_without_shortening_the_lease (test_kobe_hooks_worker_hotfix.SideReceiptBoundedThreadTests.test_renew_records_the_bounded_thread_on_the_receipt_without_shortening_the_lease)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_kobe_hooks_worker_hotfix.py", line 55, in test_renew_records_the_bounded_thread_on_the_receipt_without_shortening_the_lease
+    self.assertEqual(long_lease, json.loads(result['text'])['lease_until'])
+AssertionError: 1795037915.304063 != 1795034915.3607833
+
+======================================================================
+FAIL: test_the_contract_and_the_menu_say_it_runs_while_main_is_busy (test_work_gate_check.GateCheckMcpTests.test_the_contract_and_the_menu_say_it_runs_while_main_is_busy)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_work_gate_check.py", line 250, in test_the_contract_and_the_menu_say_it_runs_while_main_is_busy
+    self.assertIn('also while main is busy', schema['description'])
+AssertionError: 'also while main is busy' not found in "Host-only: queue one side gate re-check of blocked/waiting Work when it is due (main idle; Work forks may run), or claim/record the host's own round (host_report)."
+
+======================================================================
+FAIL: test_gates_are_ordered_p0_then_p1_then_the_rest (test_work_gate_check.GateCheckUnitTests.test_gates_are_ordered_p0_then_p1_then_the_rest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_work_gate_check.py", line 99, in test_gates_are_ordered_p0_then_p1_then_the_rest
+    self.assertEqual([p1_wait, a_wait, p0_wait], [row['id'] for row in canonical])
+AssertionError: Lists differ: ['n4', 'n2', 'n6'] != ['n2', 'n4', 'n6']
+
+First differing element 0:
+'n4'
+'n2'
+
+- ['n4', 'n2', 'n6']
++ ['n2', 'n4', 'n6']
+
+======================================================================
+FAIL: test_a_bounded_thread_logs_to_debug_once_per_thread_and_marks_each_receipt (test_side_intake_mod.SideModTests.test_a_bounded_thread_logs_to_debug_once_per_thread_and_marks_each_receipt)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_side_intake_mod.py", line 280, in test_a_bounded_thread_logs_to_debug_once_per_thread_and_marks_each_receipt
+    self.assertEqual(['Ciel side: source thread too large for eeeeeeeeeeee; %d older replies left out'%omitted]*3,
+AssertionError: Lists differ: ['Ciel side: source thread too large for e[199 chars]out'] != []
+
+First list contains 3 additional elements.
+First extra element 0:
+'Ciel side: source thread too large for eeeeeeeeeeee; 53 older replies left out'
+
++ []
+- ['Ciel side: source thread too large for eeeeeeeeeeee; 53 older replies left '
+-  'out',
+-  'Ciel side: source thread too large for eeeeeeeeeeee; 53 older replies left '
+-  'out',
+-  'Ciel side: source thread too large for eeeeeeeeeeee; 53 older replies left '
+-  'out']
+
+======================================================================
+FAIL: test_sse_tab_shows_source_priority_state_and_p1_filter (test_work_observatory.WorkObservatoryTests.test_sse_tab_shows_source_priority_state_and_p1_filter)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<tmp>\tests\test_work_observatory.py", line 92, in test_sse_tab_shows_source_priority_state_and_p1_filter
+    self.assertIn('Source thread bounded: 7 older replies left out', side)
+AssertionError: 'Source thread bounded: 7 older replies left out' not found in 'WORK 7 · executing · 1/3\nQueue 1 · Side 2 · Forks ? · Device 1/11\nWork fork gate not loaded: parallel execution disabled\nWork\n[SSE]\nSettings\n[All]\nP1\nMCP 0 tools\nP1 side_mcp     [com.ciel.walkie.message · message.created] request 1\nP3 quarantined  [com.ciel.walkie.message · message.created] request 3\n── aaaaaaaaaaaa ──\nAction: create → n9\nSummary: urgent queued\nDelivery: side_mcp · mcp__walkie__send\nRefresh\nClose\n1/1\nCtrl+X Tab focus · Tab/↑↓ · Enter · W/S/G tabs · Esc'
+
+----------------------------------------------------------------------
+Ran 110 tests in 51.181s
+
+FAILED (failures=11, errors=4)
+RAN 110 failures=11 errors=4 skipped=0

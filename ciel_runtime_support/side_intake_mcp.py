@@ -30,8 +30,10 @@ def schemas():
              'attempt_ref': {'type': 'string', 'maxLength': 16,
                              'description': "The receipt's reply_attempt_ref, when it shows one"}},
              'required': ['receipt_id', 'expected_state', 'revision']}},
-        {'name': 'work_side_renew', 'description': 'Host-only heartbeat for one live side actor; never revives an expired generation.',
-         'inputSchema': {'type': 'object', 'properties': {}}},
+        {'name': 'work_side_renew', 'description': 'Host-only heartbeat for one live side actor; never revives an expired generation. '
+                                                   'source_bounded records that the fork got a bounded source thread (older replies left out).',
+         'inputSchema': {'type': 'object', 'properties': {'source_bounded': {'type': 'object', 'properties': {
+             'omitted_replies': {'type': 'integer', 'minimum': 1}}, 'required': ['omitted_replies']}}}},
         {'name':'work_side_handoff','description':'Acknowledge side advice at a safe main execution boundary; selecting existing work or clearing a recorded wait never approves new execution.',
          'inputSchema':{'type':'object','properties':{'event_id':{'type':'string'},'answer':{'type':'string'},
              'activate':{'type':'boolean'},'clear_wait':{'type':'array','items':{'type':'string'},'uniqueItems':True},
@@ -310,7 +312,8 @@ def run(name, args, config, state_dir, identity, store):
                                  attempt_ref=args.get('attempt_ref'), revision=args.get('revision'))}
     if name == 'work_side_renew':
         from .side_intake_processing import renew
-        return renew(state_dir, identity, host.get('receipt_id'), host.get('generation'))
+        return renew(state_dir, identity, host.get('receipt_id'), host.get('generation'),
+                     source_bounded=args.get('source_bounded'))
     if name == 'work_side_fail':
         from .side_request_outcome import take as take_side_outcome
         outcome = take_side_outcome(state_dir, identity, str(args.get('agent_id') or ''),

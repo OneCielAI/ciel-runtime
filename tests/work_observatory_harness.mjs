@@ -32,7 +32,7 @@ const detail = { version: 7, root_id: 'n1', nodes: [
   { id: 'n3', parent_id: 'n2', title: 'Mobile layout', status: 'blocked', note: '', evidence: '' },
   { id: 'n4', parent_id: 'n1', title: 'Review', status: 'pending', waiting_on: 'Daniel', note: '', evidence: '' }] }
 const receipts = [
-  { receipt_id: 'a'.repeat(64), stage: 'processed', original: walkie(1),
+  { receipt_id: 'a'.repeat(64), stage: 'processed', original: walkie(1), source_bounded: { omitted_replies: 7 },
     result: { action: 'create', item_id: 'n9', summary: 'urgent queued', delivery: 'side_mcp', reported_sends: ['mcp__walkie__send'] } },
   { receipt_id: 'b'.repeat(64), stage: 'received', original: walkie(3),
     side_failure: { category: 'invalid_answer', model: 'm', quarantined: true, reason: 'Side router operation failed: X' } },
@@ -88,8 +88,13 @@ const colors = tree => [...new Set(walk(tree).filter(n => n.type === 'Text' && n
 const types = tree => [...new Set(walk(tree).map(n => n.type))]
 const hovers = tree => walk(tree).filter(n => n.props?.hover).length
 
+// KOBE hotfix 2026-11-18: session.start's reads and the view's observatory
+// projections land after their hooks return; let them land before observing.
+const landed = () => new Promise(resolve => setTimeout(resolve, 20))
 await hook('session.start', {})($, { isInteractive: true }, async e => e)
+await landed()
 const view = await hook('command.run', { command: 'work-mode' })($, { args: 'view', origin: { kind: 'composer' } })
+await landed()
 const out = { view: view.text, opened: opens.find(o => o.id === 'work-details') }
 let tree = await render('terminal', 110)
 const client = walk(tree).find(n => n.props?.key === 'obs-graphic')

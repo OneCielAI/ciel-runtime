@@ -1569,7 +1569,7 @@ def provider_model_selection() -> ProviderModelSelection:
         ModelIdentityPorts(normalize_model_id, model_map_for, unslug_provider_alias, upstream_api_model_id, strip_claude_context_suffix, alias_for),
         ModelSelectionPorts(configured_provider_adapter, provider_contract_config,
                             lambda provider: set(PROVIDER_ADAPTERS.create(provider).placeholder_model_ids()), upstream_model_ids, unique_model_ids,
-                            apply_current_model_specs_to_provider, apply_recommended_timeout_for_model_context),
+                            apply_current_model_specs_to_provider, apply_recommended_timeout_for_model_context, _MODEL_REGISTRY_API.read_exclusions),
         ModelCatalogPorts(model_object, provider_headers, fetch_anthropic_api_model_ids, sorted_model_ids, anthropic_routed_enabled, router_log),
     )
 

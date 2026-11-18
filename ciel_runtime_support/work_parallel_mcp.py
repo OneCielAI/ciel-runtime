@@ -25,6 +25,8 @@ def schemas():
         "priority": {"type": "string", "enum": ["P1", "P2", "P3", "P4", "P5"]},
         "role": {"type": "string", "enum": ["worker", "resume"]},
         "expected_version": {"type": "integer", "minimum": 0},
+        "projection": {"type": "string", "enum": ["version"],
+                       "description": "Host only: version returns the ledger version alone."},
         "changes": {"type": "object"}, "event": {"type": "string"},
         "artifact": {"type": "string"}, "evidence": {"type": "string"},
         "plan_version": {"type": "integer", "minimum": 0},
@@ -3311,6 +3313,10 @@ def run(name, args, board_store, identity, config, save_config, log=None):
         # A model tool call carries no host token. Only the authenticated mod's
         # own read, with no worker identity, gets the host lease fields.
         host_read = _authenticated_host_read(args, config)
+        if host_read and args.get("projection") == "version":
+            # KOBE hotfix 2026-11-18: an event's expected_version needs the
+            # ledger version alone, not the whole (paged) host projection.
+            return json.dumps({"version": store.read()["version"], "projection": "version"})
         caller = (args.get("_host") or {}).get("launch_nonce") if host_read else None
         return json.dumps(project(store, identity, _board_or_none(board_store),
                                   host_view=host_read, caller_nonce=caller,

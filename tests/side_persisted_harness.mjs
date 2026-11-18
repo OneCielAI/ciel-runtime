@@ -114,10 +114,11 @@ function makeHost(name,scenario,rec){
    }
    rec.proof.push({label:'exact',result:sideSpawnInput(base,plugin)===base?'authorized':'other'})
    rec.spawns.push(a);return {agentId:'actor-'+name+'-'+rec.spawns.length}}},
-  ui:{invalidate:()=>{},log:()=>{}},clock:{after:()=>({cancel(){}})}}
+  ui:{invalidate:()=>{},log:(text,options)=>{rec.logs.push({text:String(text),to:options?.to||'transcript'})}},
+  clock:{after:()=>({cancel(){}})}}
  return {session,$}
 }
-const record=(waits=0,claimLimit=1)=>({calls:[],spawns:[],proof:[],compacts:[],
+const record=(waits=0,claimLimit=1)=>({calls:[],spawns:[],proof:[],compacts:[],logs:[],
  backend:{waits,attempts:0,claims:0,claimLimit,recorded:[]}})
 const spawned=rec=>rec.spawns[0]?JSON.parse(rec.spawns[0].prompt).source_message:null
 const out={}
@@ -144,7 +145,7 @@ for (const [name,scenario] of Object.entries(scenarios)) {
 // of failing (a counted source_context failure) until quarantine.
 const SEQUENCE_SESSIONS={waits_spent:'3e4f5a6b-7c8d-4e9f-8a1b-2c3d4e5f6a7b',fresh:'4f5a6b7c-8d9e-4f0a-9b2c-3d4e5f6a7b8c',
  fits:'5a6b7c8d-9e0f-4a1b-8c3d-4e5f6a7b8c9d',urgent:'6b7c8d9e-0f1a-4b2c-9d4e-5f6a7b8c9d0e',
- reloaded:'7c8d9e0f-1a2b-4c3d-8e5f-6a7b8c9d0e1f'}
+ reloaded:'7c8d9e0f-1a2b-4c3d-8e5f-6a7b8c9d0e1f',bounded_many:'8d9e0f1a-2b3c-4d4e-9f6a-7b8c9d0e1f2a'}
 async function sequence(label,{priority='P3',usage={tokens:140000,window:200000},waits=0,claims=3,busy=true}={}){
  const session=SEQUENCE_SESSIONS[label]
  const scenario={plain:true,usage,priority,session}
@@ -165,7 +166,10 @@ async function sequence(label,{priority='P3',usage={tokens:140000,window:200000}
   sent:rec.calls.filter(c=>c.tool==='work_side_fail').map(c=>c.args.category),
   recorded:rec.backend.recorded,claims:rec.backend.claims,waits:rec.backend.waits,attempts:rec.backend.attempts,
   compacts:rec.compacts.length,spawns:rec.spawns.length,truncated:spawned(rec)?spawned(rec).thread_truncated===true:null,
-  omitted:spawned(rec)?.omitted_replies??null,messages:spawned(rec)?.messages?.length??null}
+  omitted:spawned(rec)?.omitted_replies??null,messages:spawned(rec)?.messages?.length??null,
+  logs:rec.logs.filter(l=>/source thread/.test(l.text)),
+  renews:rec.calls.filter(c=>c.tool==='work_side_renew').map(c=>({bounded:c.args.source_bounded||null,
+   receipt:c.args._host?.receipt_id||null,generation:c.args._host?.generation||null}))}
 }
 // 11 waits already spent: one more wait (the 12th), then the bounded thread.
 out.waits_spent=await sequence('waits_spent',{waits:11,claims:2})
@@ -178,4 +182,8 @@ out.fresh_event=await sequence('fresh',{waits:0,claims:2})
 out.fits_after_waits=await sequence('fits',{waits:12,claims:1,usage:{tokens:20000,window:1000000}})
 // P0/P1 keeps its immediate bounded thread, with no wait.
 out.urgent_no_wait=await sequence('urgent',{priority:'P1',waits:0,claims:1})
+// KOBE 2026-11-18: three P1 events of one oversized thread. Each event's line
+// goes to the debug log; the person sees one line for the thread; each receipt
+// records the bounded fact (work_side_renew source_bounded).
+out.bounded_many=await sequence('bounded_many',{priority:'P1',waits:0,claims:3})
 console.log(JSON.stringify(out))

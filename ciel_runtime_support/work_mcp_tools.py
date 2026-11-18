@@ -69,7 +69,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
          "inputSchema": {"type": "object", "properties": {}}},
         {"name": "work_side_drain", "description": "Coordinator-only: retry pending durable side inbox admission without approving execution. Full board remains queued.",
          "inputSchema": {"type": "object", "properties": {"limit": {"type": "integer", "minimum": 1, "maximum": 100}}}},
-        {"name": "work_side_gate_check", "description": "Host-only: queue one side gate re-check of blocked/waiting Work when it is due (main idle; Work forks may run), or claim/record the host's own round (host_report).",
+        {"name": "work_side_gate_check", "description": "Host-only: queue one side gate re-check of blocked/waiting Work (P0 first, then P1, then the rest) when it is due, also while main is busy and Work forks run; one round at a time. Or claim/record the host's own round (host_report). idle reports whether main's turn has ended; it no longer defers the check.",
          "inputSchema": {"type": "object", "properties": {"idle": {"type": "boolean"}, "forks_running": {"type": "integer", "minimum": 0},
                                                           "host_report": {"type": "object"}},
                          "required": ["idle", "forks_running"]}},
@@ -541,9 +541,11 @@ def dispatch_work_tool(
             if interval == 0:
                 return respond(request_id, json.dumps({**status, "reason": "off"}))
             # Stage 3 (2026-11-17): the check also runs while Work forks run and
-            # with side intake off; only main's own turn still defers it.
-            if args.get("idle") is not True:
-                return respond(request_id, json.dumps({**status, "reason": "not_idle"}))
+            # with side intake off. KOBE hotfix (2026-11-18): main's busy turn no
+            # longer defers it either; it backs up approvals lost on the network.
+            status["main_idle"] = args.get("idle") is True
+            from .work_gate_check import effective_priority_for
+            priority = effective_priority_for(identity)
             from .channel_message_repository import exclusive_file_lock
             from .side_intake_service import receive
             from .work_gate_check import host_report
@@ -575,7 +577,7 @@ def dispatch_work_tool(
                     # No side actor checks the gates; the host does what it can
                     # itself (re-pump, diagnosis, notice) and records it.
                     return respond(request_id, json.dumps({**status, "reason": "side_intake_off", "host_only": True,
-                                                           "gates": [row["id"] for row in gates(doc)]}))
+                                                           "gates": [row["id"] for row in gates(doc, priority)]}))
                 # One round at a time: a new round waits until every event of the
                 # last one has finished, so a slow side queue never piles up.
                 from .side_intake_inbox import SideIntakeInbox
@@ -593,9 +595,9 @@ def dispatch_work_tool(
                 if open_rows:
                     return respond(request_id, json.dumps({**status, "reason": "previous_round_pending",
                                                            "pending": len(open_rows)}))
-                event = due(config, doc, last)
+                event = due(config, doc, last, priority=priority)
                 if event is None:
-                    return respond(request_id, json.dumps({**status, "reason": "not_due" if gates(doc) else "no_gates"}))
+                    return respond(request_id, json.dumps({**status, "reason": "not_due" if gates(doc, priority) else "no_gates"}))
                 receipts = [receive(state_dir, identity, part["text"], part["event_key"], admit=False,
                                     route={"source_kind": "gate_check"}).get("receipt_id")
                             for part in event["events"]]

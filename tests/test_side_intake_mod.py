@@ -267,6 +267,26 @@ class SideModTests(unittest.TestCase):
         urgent=row['urgent_no_wait']
         self.assertEqual(([],1,True),(urgent['recorded'],urgent['spawns'],urgent['truncated']))
 
+    def test_a_bounded_thread_logs_to_debug_once_per_thread_and_marks_each_receipt(self):
+        # KOBE 2026-11-18: every event of an oversized thread logged a main-visible
+        # line, which flooded main's view. Three events of one thread now give three
+        # debug lines, one person-facing line, and the fact on each receipt.
+        row=self.run_persisted_harness()['bounded_many']
+        self.assertEqual((3,True),(row['spawns'],row['truncated']))
+        omitted=row['omitted']
+        self.assertGreater(omitted,0)
+        debug=[log for log in row['logs'] if log['to']=='debug']
+        shown=[log for log in row['logs'] if log['to']=='transcript']
+        self.assertEqual(['Ciel side: source thread too large for eeeeeeeeeeee; %d older replies left out'%omitted]*3,
+                         [log['text'] for log in debug])
+        self.assertEqual(1,len(shown))
+        self.assertIn('%d older replies left out'%omitted,shown[0]['text'])
+        self.assertIn('receipt and the SSE pane',shown[0]['text'])
+        self.assertEqual([{'omitted_replies':omitted}]*3,[renew['bounded'] for renew in row['renews']])
+        self.assertEqual(['e'*64]*3,[renew['receipt'] for renew in row['renews']])
+        # Every claim generation records its own receipt fact.
+        self.assertEqual(3,len({renew['generation'] for renew in row['renews']}))
+
     def test_the_mod_wait_limit_matches_the_router(self):
         from ciel_runtime_support.side_intake_processing import MAIN_COMPACTION_WAITS
         source=(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js').read_text(encoding='utf-8')
