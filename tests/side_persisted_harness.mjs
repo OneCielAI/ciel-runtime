@@ -63,44 +63,27 @@ const scenarios={
  context_partial_p0:{plain:true,usage:{tokens:140000,window:200000},spawn:true,priority:'P0',
   session:'2d3e4f5a-6b7c-4d8e-9f0a-1b2c3d4e5f6a'},
 }
-// The module's clock (COMPACT_COOLDOWN_MS) moves with this skew; nothing else does.
-const realNow=Date.now.bind(Date)
-let clockSkew=0
-Date.now=()=>realNow()+clockSkew
-// One scripted router per scenario. work_side_fail keeps the durable count the
-// real side_intake_processing.fail keeps: a compaction wait counts in
-// compaction_waits while fewer than MAIN_COMPACTION_WAITS (12) were spent;
-// after that it is an ordinary, counted source_context failure. The receipt it
-// returns carries that side_failure, as the real router's does.
-function makeHost(name,scenario,rec){
+const out={}
+for (const [name,scenario] of Object.entries(scenarios)) {
+ let claimed=false; const calls=[],spawns=[],proof=[],compacts=[]
+ sideMainBusy(()=>scenario.busy===true)
  const session=scenario.session||fixture.session_id
- const backend=rec.backend
  const $={session:{id:async()=>session,append:async()=>{},
    usage:async()=>({context:scenario.usage||{window:200000,tokens:1000}}),
-   compact:async()=>{rec.compacts.push(name);return {}}},prompt:{submit:async()=>({})},
+   compact:async()=>{compacts.push(name);return {}}},prompt:{submit:async()=>({})},
   env:{get:async key=>key==='CLAUDE_CONFIG_DIR'?fixture.claude_config_dir:'x'.repeat(40)},
   fs:{read:async path=>{ if(Object.prototype.hasOwnProperty.call(scenario.file||{},path)) return scenario.file[path]; throw Error('ENOENT') }},
   mcp:{connect:async()=>({}),call:async(server,tool,args)=>{
-   rec.calls.push({server,tool,args})
+   calls.push({server,tool,args})
    const text=v=>({content:[{type:'text',text:v}]})
    if(server==='walkie'&&tool==='walkie_read_messages') return text(JSON.stringify({messages:[root]}))
    if(server==='walkie'&&tool==='walkie_call_tool') return text(scenario.plain?page:scenario.stub)
-   if(tool==='work_side_claim'){
-    const claim=backend.claims>=backend.claimLimit?null:{receipt_id:'e'.repeat(64),
-     generation:'1000000000000000000000000000000'+String(2+backend.claims%8),text:'event',event_key:name,
-     lease_until:Date.now()/1000+120,source_read:{server:'walkie',classification:'thread',conversation_id:C,root_id:'40',target_message_id:'45'},
-     source_context:'thread',route:{},workload:{version:1,truncated:false,nodes:[],queue_order:[]},
-     ...(scenario.priority?{source_priority:scenario.priority}:{})}
-    if(claim) backend.claims++
-    return text(JSON.stringify({claim,settings:{max_active:2},handoff_replies:[],main_wakes:[]}))}
-   if(tool==='work_side_fail'){
-    let category=args.category
-    if(category==='main_compaction_pending'&&backend.waits<12) backend.waits++
-    else { if(category==='main_compaction_pending') category='source_context'; backend.attempts++ }
-    backend.recorded.push(category)
-    return text(JSON.stringify({receipt:{receipt_id:'e'.repeat(64),stage:'received',side_failure:{category,
-     compaction_waits:backend.waits,attempt_count:backend.attempts,quarantined:backend.attempts>=6}},
-     _category:args.category,_reason:args.reason}))}
+   if(tool==='work_side_claim'){const claim=claimed?null:{receipt_id:'e'.repeat(64),generation:'10000000000000000000000000000002',text:'event',event_key:name,
+    lease_until:Date.now()/1000+120,source_read:{server:'walkie',classification:'thread',conversation_id:C,root_id:'40',target_message_id:'45'},
+    source_context:'thread',route:{},workload:{version:1,truncated:false,nodes:[],queue_order:[]},
+    ...(scenario.priority?{source_priority:scenario.priority}:{})};
+    claimed=true;return text(JSON.stringify({claim,settings:{max_active:2},handoff_replies:[],main_wakes:[]}))}
+   if(tool==='work_side_fail')return text(JSON.stringify({receipt:{receipt_id:'e'.repeat(64)},_category:args.category,_reason:args.reason}))
    return text('{}')}},
   tool:{call:async()=>({})},
   agent:{list:async()=>[],spawn:async a=>{
@@ -110,80 +93,20 @@ function makeHost(name,scenario,rec){
    for (const [label,input,next] of [['not_fork',{...base,fork:false},plugin],['named',{...base,name:'side-intake-0123456789abcdef'},plugin],
      ['subagent',{...base,parentAgentId:'x'},plugin],['wrong_type',{...base,subagentType:'general-purpose'},plugin],
      ['other_plugin',base,{origin:{plugin:'engine'}}],['unrelated',{...base,description:'Work n1'},plugin]]) {
-    const r=sideSpawnInput(input,next); rec.proof.push({label,result:r===null?null:r===input?'authorized':r.deny?'deny':'other'})
+    const r=sideSpawnInput(input,next); proof.push({label,result:r===null?null:r===input?'authorized':r.deny?'deny':'other'})
    }
-   rec.proof.push({label:'exact',result:sideSpawnInput(base,plugin)===base?'authorized':'other'})
-   rec.spawns.push(a);return {agentId:'actor-'+name+'-'+rec.spawns.length}}},
-  ui:{invalidate:()=>{},log:(text,options)=>{rec.logs.push({text:String(text),to:options?.to||'transcript'})}},
-  clock:{after:()=>({cancel(){}})}}
- return {session,$}
-}
-const record=(waits=0,claimLimit=1)=>({calls:[],spawns:[],proof:[],compacts:[],logs:[],
- backend:{waits,attempts:0,claims:0,claimLimit,recorded:[]}})
-const spawned=rec=>rec.spawns[0]?JSON.parse(rec.spawns[0].prompt).source_message:null
-const out={}
-for (const [name,scenario] of Object.entries(scenarios)) {
- const rec=record()
- sideMainBusy(()=>scenario.busy===true)
- const {session,$}=makeHost(name,scenario,rec)
+   proof.push({label:'exact',result:sideSpawnInput(base,plugin)===base?'authorized':'other'})
+   spawns.push(a);return {agentId:'actor'}}},
+  ui:{invalidate:()=>{},log:()=>{}},clock:{after:()=>({cancel(){}})}}
  await startSide($); await pollSide($,'claude:'+session)
- const immediate=rec.compacts.length
+ const immediate=compacts.length
  if(scenario.busy){ sideMainBusy(()=>false); sidePromptTurnComplete($); await new Promise(r=>setTimeout(r,20)) }
- const failure=rec.calls.find(c=>c.tool==='work_side_fail')
- out[name]={spawns:rec.spawns.length,proof:rec.proof,compacts_immediate:immediate,compacts_after_turn:rec.compacts.length,
+ const failure=calls.find(c=>c.tool==='work_side_fail')
+ out[name]={spawns:spawns.length,proof,compacts_immediate:immediate,compacts_after_turn:compacts.length,
   saved:scenario.stub?(/saved to (.+?\.txt)/.exec(scenario.stub)||[])[1]?.split('\\').pop():null,
   failure:failure?{category:failure.args.category,reason:failure.args.reason,
    ...(failure.args.retry_after_seconds?{retry_after_seconds:failure.args.retry_after_seconds}:{})}:null,
-  messages:spawned(rec)?.messages?.length??null,
-  truncated:spawned(rec)?spawned(rec).thread_truncated===true:null}
+  messages:spawns[0]?JSON.parse(spawns[0].prompt).source_message?.messages?.length:null,
+  truncated:spawns[0]?JSON.parse(spawns[0].prompt).source_message?.thread_truncated===true:null}
 }
-// Walkie 2026-11-17 (thread 137008): one P3 event whose thread exceeds main's
-// remaining context while main stays busy turn after turn. This module last
-// compacted main more than COMPACT_COOLDOWN_MS ago and cannot compact it again
-// mid-turn. The event spends its compaction waits; once the router reports all
-// 12 spent, the next claim must start the fork on the bounded thread instead
-// of failing (a counted source_context failure) until quarantine.
-const SEQUENCE_SESSIONS={waits_spent:'3e4f5a6b-7c8d-4e9f-8a1b-2c3d4e5f6a7b',fresh:'4f5a6b7c-8d9e-4f0a-9b2c-3d4e5f6a7b8c',
- fits:'5a6b7c8d-9e0f-4a1b-8c3d-4e5f6a7b8c9d',urgent:'6b7c8d9e-0f1a-4b2c-9d4e-5f6a7b8c9d0e',
- reloaded:'7c8d9e0f-1a2b-4c3d-8e5f-6a7b8c9d0e1f',bounded_many:'8d9e0f1a-2b3c-4d4e-9f6a-7b8c9d0e1f2a'}
-async function sequence(label,{priority='P3',usage={tokens:140000,window:200000},waits=0,claims=3,busy=true}={}){
- const session=SEQUENCE_SESSIONS[label]
- const scenario={plain:true,usage,priority,session}
- // An old compaction by this module: main was idle once (the thread did not
- // fit, so it compacted), then the clock moves past the cooldown.
- const warm=record(0,1)
- sideMainBusy(()=>false)
- const first=makeHost(label+'-warm',{plain:true,usage:{tokens:180000,window:200000},priority:'P3',session},warm)
- await startSide(first.$); await pollSide(first.$,'claude:'+session)
- clockSkew+=11*60*1000
- const rec=record(waits,claims)
- sideMainBusy(()=>busy)
- const {$}=makeHost(label,scenario,rec)
- await startSide($)
- for (let i=0;i<claims;i++) await pollSide($,'claude:'+session)
- sideMainBusy(()=>false)
- return {warm_compacts:warm.compacts.length,warm_recorded:warm.backend.recorded,
-  sent:rec.calls.filter(c=>c.tool==='work_side_fail').map(c=>c.args.category),
-  recorded:rec.backend.recorded,claims:rec.backend.claims,waits:rec.backend.waits,attempts:rec.backend.attempts,
-  compacts:rec.compacts.length,spawns:rec.spawns.length,truncated:spawned(rec)?spawned(rec).thread_truncated===true:null,
-  omitted:spawned(rec)?.omitted_replies??null,messages:spawned(rec)?.messages?.length??null,
-  logs:rec.logs.filter(l=>/source thread/.test(l.text)),
-  renews:rec.calls.filter(c=>c.tool==='work_side_renew').map(c=>({bounded:c.args.source_bounded||null,
-   receipt:c.args._host?.receipt_id||null,generation:c.args._host?.generation||null}))}
-}
-// 11 waits already spent: one more wait (the 12th), then the bounded thread.
-out.waits_spent=await sequence('waits_spent',{waits:11,claims:2})
-// A reloaded module has not seen this event's count: its first claim is one
-// counted failure (the router reports waits=12 in that receipt), then bound.
-out.waits_spent_reloaded=await sequence('reloaded',{waits:12,claims:2})
-// A new event (no waits yet) still waits for main's compaction first.
-out.fresh_event=await sequence('fresh',{waits:0,claims:2})
-// A thread that fits needs no wait and no bound, whatever the waits.
-out.fits_after_waits=await sequence('fits',{waits:12,claims:1,usage:{tokens:20000,window:1000000}})
-// P0/P1 keeps its immediate bounded thread, with no wait.
-out.urgent_no_wait=await sequence('urgent',{priority:'P1',waits:0,claims:1})
-// KOBE 2026-11-18: three P1 events of one oversized thread. Each event's line
-// goes to the debug log; the person sees one line for the thread; each receipt
-// records the bounded fact (work_side_renew source_bounded).
-out.bounded_many=await sequence('bounded_many',{priority:'P1',waits:0,claims:3})
 console.log(JSON.stringify(out))

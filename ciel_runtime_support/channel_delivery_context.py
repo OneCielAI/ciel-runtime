@@ -67,22 +67,6 @@ class ChannelLaunchCursorPorts:
     write_launch_guard: Callable[[int], None]
     # (clear floor, cutoff epoch): records queued inputs the floor strands.
     expire_backlog: Callable[[int, float], Any] | None = None
-    # The restart hold this relaunch ends: its start time, or None (restart_hold).
-    end_restart_hold: Callable[[], float | None] = lambda: None
-
-
-def restart_hold_release(state_dir: Callable[[], Path]) -> Callable[[], float | None]:
-    """``end_restart_hold`` for this launcher process: ends its hold, returns when it began."""
-
-    def release() -> float | None:
-        import os
-
-        from .restart_hold import end
-
-        row = end(state_dir(), os.getpid())
-        return row["started_at"] if row else None
-
-    return release
 
 
 @dataclass(frozen=True, slots=True)
@@ -223,16 +207,7 @@ class ChannelDeliveryContext:
         current = self.ensure_cursor_initialized()
         recent_seconds = self.launch.recent_seconds()
         cutoff = self.cursor.now() - recent_seconds
-        try:
-            held_since = self.launch.end_restart_hold()
-        except Exception as exc:  # noqa: BLE001 - a broken marker never blocks a launch
-            held_since = None
-            self.cursor.log("WARN", f"channel_llm_restart_hold_read_failed error={type(exc).__name__}")
-        if held_since is not None:
-            # Inputs held while the restart was pending are picked up now, however
-            # long the turn wait took (user requirement 2026-11-17).
-            cutoff = min(cutoff, float(held_since))
-        if recent_seconds <= 0 and held_since is None:
+        if recent_seconds <= 0:
             target = self.cursor.scan_max_id()
         else:
             target = self.launch.scan_max_before_epoch(cutoff)
@@ -256,8 +231,7 @@ class ChannelDeliveryContext:
             "INFO",
             "channel_llm_cursor_fast_forward_on_launch "
             f"last_id={last_id} previous_cursor={current} "
-            f"recent_seconds={recent_seconds:g}"
-            + (f" restart_hold_since={float(held_since):.3f}" if held_since is not None else ""),
+            f"recent_seconds={recent_seconds:g}",
         )
         return last_id
 
@@ -374,5 +348,4 @@ __all__ = [
     "ChannelLlmCursorPorts",
     "ChannelToolContextFactoryPorts",
     "LockPort",
-    "restart_hold_release",
 ]

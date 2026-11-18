@@ -13,7 +13,7 @@ from ciel_runtime_support.provider_readiness import (
     ProviderReadinessMode, ProviderReadinessServices, launch_readiness_errors,
 )
 from ciel_runtime_support.provider_status import (
-    CATALOG_PROBE_MAX_BYTES, ProviderStatusCatalog, ProviderStatusGeneric, ProviderStatusRouting,
+    ProviderStatusCatalog, ProviderStatusGeneric, ProviderStatusRouting,
     ProviderStatusServices, base_url_status_line,
 )
 
@@ -178,20 +178,7 @@ class ProviderStatusRetryTests(unittest.TestCase):
         self.assertGreater(len(response.read.return_value), 131072)
         self.urlopen.return_value = response
         self.assertIn("150 models", self.status())
-        response.read.assert_called_once_with(CATALOG_PROBE_MAX_BYTES + 1)
-
-    def test_a_catalog_above_one_mib_is_reachable(self):
-        # KOBE sandbox 2026-11-18: the CielAiRouter catalog grew to 1,292,256 bytes
-        # (2,319 models) and the 1 MiB cap blocked every launch as
-        # "Base URL: unreachable (ValueError)".
-        data = {"data": [{"id": f"model-{index:04d}", "description": "x" * 530} for index in range(2319)]}
-        response = self.response(data)
-        self.assertGreater(len(response.read.return_value), 1_048_576)
-        self.urlopen.return_value = response
-        status = self.status()
-        self.assertIn("model list reachable", status)
-        self.assertIn("2319 models", status)
-        self.assertNotIn("unreachable", status)
+        response.read.assert_called_once_with(1048577)
 
     def test_incomplete_catalog_fails_closed_without_retry(self):
         for data in ({}, {"data": None}, {"data": {}}, [], "not an object"):
@@ -212,12 +199,10 @@ class ProviderStatusRetryTests(unittest.TestCase):
 
     def test_oversized_catalog_fails_closed_without_retry(self):
         response = self.response()
-        response.read.return_value = b" " * (CATALOG_PROBE_MAX_BYTES + 1)
+        response.read.return_value = b" " * 1048577
         self.urlopen.return_value = response
-        status = self.status()
-        self.assertIn("model list unreachable", status)
-        self.assertIn("exceeds the 16 MiB probe limit", status)
-        response.read.assert_called_once_with(CATALOG_PROBE_MAX_BYTES + 1)
+        self.assertIn("unreachable (ValueError)", self.status())
+        response.read.assert_called_once_with(1048577)
         self.assert_timeouts(self.urlopen, [10.0])
         self.context.assert_not_called()
 

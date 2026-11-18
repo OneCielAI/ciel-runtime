@@ -30,28 +30,6 @@ STORAGE_MAX_LEASES = 100_000
 DEFAULT_DISCOVERY_TEXT = DEFAULT_INSTRUCTION
 STATES = ("reserved", "running", "waiting_input", "submitted", "verifying", "reviewing", "accepted", "cleanup_pending", "done", "unreported", "orphaned")
 ACTIVE_STATES = frozenset(("reserved", "running", "waiting_input", "submitted", "verifying", "reviewing", "accepted", "cleanup_pending"))
-# Parked leases (user decision 2026-11-17): a worker waiting for an answer
-# (waiting_input) or a result waiting for main's review (submitted) has given
-# its execution slot back. A parked lease counts toward no priority slot and
-# not toward MAX_LEASES; only the storage bound (STORAGE_MAX_LEASES records,
-# MAX_BYTES) limits it. It still fences its Work item against a second
-# execution (the duplicate checks read ACTIVE_STATES).
-PARKED_STATES = frozenset(("waiting_input", "submitted"))
-
-
-def parked(lease):
-    """A slot-free lease waiting for an answer or for review."""
-    return lease["state"] in PARKED_STATES and not lease.get("slot")
-
-
-def bounded_open_leases(leases):
-    """The open leases MAX_LEASES counts: every active lease except a parked one."""
-    return sum(row["state"] in ACTIVE_STATES and not parked(row) for row in leases.values())
-
-
-def lease_bound_reached(leases):
-    """MAX_LEASES over the bounded open leases, or the storage record bound."""
-    return bounded_open_leases(leases) >= MAX_LEASES or len(leases) >= STORAGE_MAX_LEASES
 
 def digest(v):
     return type(v) is str and len(v) == 64 and all(c in "0123456789abcdef" for c in v)
@@ -236,7 +214,7 @@ def rework_admission(d, ident, *, now, excluded_lease_ids=frozenset()):
                             "rework waits for admission")
     if len([value for value in d["launches"] if now - value < 60]) >= p["launches_per_minute"]:
         return "launch_rate", "launch rate reached; rework waits for admission"
-    if lease_bound_reached(d["leases"]):
+    if sum(row["state"] in ACTIVE_STATES for row in d["leases"].values()) >= MAX_LEASES:
         return "lease_bound", "lease bound reached; rework waits for admission"
     return "", ""
 
@@ -373,7 +351,8 @@ class WorkParallelStore:
                         "active slot capacity reached for " + ", ".join(
                             f"{k} ({counts[k]}/{limits[k]})" for k in full))
                 require(len(history) < p["launches_per_minute"], "launch rate reached")
-            require(not lease_bound_reached(d["leases"]),
+            open_leases = sum(a["state"] in ACTIVE_STATES for a in d["leases"].values())
+            require(open_leases < MAX_LEASES,
                     "lease bound reached (100); P0 waits for a slot" if bypass is not None else "lease bound")
             for r in candidates:
                 # Focus only orders Work; it never blocks another approved item.
@@ -639,7 +618,7 @@ class WorkParallelStore:
                         "disabled/paused; recovery waits for admission")
                 require(counts[old["priority"]] < p["priority_limits"][old["priority"]],
                         "active slot capacity reached; recovery waits for admission")
-            require(not lease_bound_reached(d["leases"]),
+            require(sum(row["state"] in ACTIVE_STATES for row in d["leases"].values()) < MAX_LEASES,
                     "lease bound reached (100); P0 waits for a slot" if bypass is not None
                     else "lease bound reached; recovery waits for admission")
             d["leases"][replacement_ident] = dict(
@@ -707,7 +686,8 @@ class WorkParallelStore:
             if bypass is not None and code in ("paused", "capacity", "launch_rate"):
                 code, refusal = "", ""
             require(not refusal, refusal)
-            require(not lease_bound_reached(d["leases"]),
+            open_leases = sum(row["state"] in ACTIVE_STATES for row in d["leases"].values())
+            require(open_leases < MAX_LEASES,
                     "lease bound reached (100); P0 waits for a slot" if bypass is not None else "lease bound")
             history = [value for value in d["launches"] if stamp - value < 60]
             d["leases"][replacement_ident] = dict(
@@ -868,7 +848,7 @@ class WorkParallelStore:
                 require(p["enabled"] and not p["paused"], "disabled/paused")
                 require(counts[r["priority"]] < p["priority_limits"][r["priority"]],
                         f"active slot capacity reached for {r['priority']}; item remains waiting")
-            require(not lease_bound_reached(d["leases"]),
+            require(sum(row["state"] in ACTIVE_STATES for row in d["leases"].values()) < MAX_LEASES,
                     "lease bound reached (100); P0 waits for a slot" if bypass is not None else "lease bound")
             r.update(slot=True, idle_proof=None)
         return self._change(apply, expected_version)

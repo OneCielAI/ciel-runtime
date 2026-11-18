@@ -71,18 +71,13 @@ class Base(unittest.TestCase):
         self.tmp = Path(temporary.name).resolve()
         self.repo = make_repo(self.tmp / "repo")
         self.config_dir = self.tmp / "cfg"
-        self._patch(patch.object(runtime_paths, "CONFIG_DIR", self.config_dir))
+        self.enterContext(patch.object(runtime_paths, "CONFIG_DIR", self.config_dir))
         self.store = WorkParallelStore(self.tmp / "work-parallel.json")
         self.config = {"work_parallel_host": {"token": SECRET, "capability_ready": True}}
         self.lines = []
 
-    def _patch(self, patcher):
-        # TestCase.enterContext is Python 3.11+; CI also runs a unit shard on 3.10.
-        patcher.start()
-        self.addCleanup(patcher.stop)
-
     def launch_folder(self, path):
-        self._patch(patch.object(runtime_paths, "ROUTER_WORKSPACE", str(path)))
+        self.enterContext(patch.object(runtime_paths, "ROUTER_WORKSPACE", str(path)))
 
     def call(self, board, event, host=None, **args):
         args.setdefault("expected_version", self.store.read()["version"])

@@ -75,7 +75,6 @@ const digest = value => value ? createHash('sha256').update(String(value)).diges
 // $.clock.after timers, kept only while native.captureTimers is set (the
 // wait-deadlock scenarios); every other scenario keeps the inert clock.
 const timers = []
-const isDispatchNotice = text => /^Ciel Work dispatch (wake|check)/.test(String(text))
 // Time passing with main idle: each round fires every timer armed so far.
 // releasedBy: the delay of the first timer after which a watched call appeared.
 const passTime = async (rounds, watch = null) => {
@@ -159,8 +158,6 @@ async function start(kind, { busy = false, interactive = true } = {}) {
     mcp: { connect: async () => ({ isConnected: true, server: 'ciel-runtime-router' }),
       call: tracked(async (_server, tool, args) => {
         traffic++
-        // Every router call, by tool name (KOBE start-load measurement).
-        native.toolLog?.push(tool === 'work_parallel_status' && args?.projection ? tool + ':' + args.projection : tool)
         // The engine has not connected the router yet (register.js retryStart).
         if (native.mcpDown) throw new Error('no connected MCP tool')
         // Only the board read times out (register.js readSnapshot: router-timeout takes
@@ -283,20 +280,14 @@ async function start(kind, { busy = false, interactive = true } = {}) {
       } },
     prompt: { submit: async args => {
       // The engine refuses a prompt submission (wait-deadlock audit).
-      if (native.failSubmit > 0 && !isDispatchNotice(args.text)) { native.failSubmit--; (native.submitFailures ||= []).push(String(args.text).slice(0, 60)); throw new Error('prompt submit refused (fixture)') }
+      if (native.failSubmit > 0) { native.failSubmit--; (native.submitFailures ||= []).push(String(args.text).slice(0, 60)); throw new Error('prompt submit refused (fixture)') }
       native.prompts.push(args.text); return {} } },
     state: {get:async ref=>{const held=hostStore.get(ref.plugin+'/'+ref.key);return {value:held?structuredClone(held.value):undefined,version:held?.version||0}},set:async (ref,value,options={})=>{const name=ref.plugin+'/'+ref.key,held=hostStore.get(name)||{version:0};if(options.ifVersion!==undefined&&options.ifVersion!==held.version)return {isSet:false,version:held.version};hostStore.set(name,{value:structuredClone(value),version:held.version+1});return {isSet:true,version:held.version+1}}},
     command: { register: async () => {} },
   }
-  // KOBE hotfix 2026-11-18: how long the hook itself held, and how many router
-  // calls it waited on before it returned (a stand-in for the hooks worker hold).
-  const hookStarted = performance.now()
   await hooks['session.start']($, { isInteractive: interactive }, async e => e)
-  native.startHookMs = performance.now() - hookStarted
-  native.startCallsAtReturn = native.toolLog ? native.toolLog.length : null
   if (busy) await hooks['turn.start']($, {}, async e => e)
   await quiet()
-  native.startSettledMs = performance.now() - hookStarted
 }
 const reviewCall = async (args) => {
   const result = await hooks['tool.call']($, { tool: 'mcp__ciel-runtime-router__work_parallel_item_review',
@@ -2094,13 +2085,8 @@ try {
       const inspected = await rpc('inspect')
       const row = inspected.reviews[seeded.lease_id]
       return { state: row?.state ?? null, blocked: row?.blocked?.code ?? null, wake: row?.wake?.state ?? null,
-        replacement: row?.replacement_lease_id ?? null, spawns: native.spawns.length,
-        // Review and recovery delivery. The gate round's own dispatch notice is
-        // counted apart: it is a separate, once-per-diagnosis message.
-        prompts: native.prompts.filter(text => !isDispatchNotice(text)).length,
-        appended: native.appended.filter(text => !isDispatchNotice(text)).length,
-        dispatchPrompts: native.prompts.filter(isDispatchNotice).length,
-        dispatchAppended: native.appended.filter(isDispatchNotice).length, prepares: count('review_wake', 'prepare'), rollForwards: count('review_roll_forward'),
+        replacement: row?.replacement_lease_id ?? null, spawns: native.spawns.length, prompts: native.prompts.length,
+        appended: native.appended.length, prepares: count('review_wake', 'prepare'), rollForwards: count('review_roll_forward'),
         recoverySends: native.sends.filter(s => String(s.text || '').startsWith('Work recovery:')).length,
         exitSends: native.sends.filter(s => String(s.text || '').startsWith('Your native turn ended')).length,
         salvages: count('host_salvage') }
@@ -2330,8 +2316,7 @@ try {
     if (out.launchBefore) out.launchAfter = (await rpc('inspect')).reviews[seeded.lease_id].launch
     if (out.filesBefore) {
       out.filesAfter = await rpc('fingerprint')
-      // The gate round records itself; the claim is about what the pump writes.
-      out.filesChanged = writes(out.filesBefore, out.filesAfter).filter(name => !/\/gate-check\.json(\.lock)?$/.test(name))
+      out.filesChanged = writes(out.filesBefore, out.filesAfter)
     }
     out.afterCalls = calls.slice(callsBefore).map(c => c.event || c.tool)
       .filter(name => ['review_roll_forward', 'rework_dispatch', 'review_wake', 'host_attach', 'work_parallel_status'].includes(name))
@@ -2436,30 +2421,6 @@ try {
     out.events = calls.slice(before).map(c => c.event || c.tool)
     out.spawns = [...native.spawns]
     out.prompt = native.spawnPrompts.get(native.spawns[0]) || ''
-  }
-
-  if (scenario === 'start-load') {
-    // KOBE 2026-11-18: session.start held the hooks worker 172 s with about 360
-    // router calls (mostly work_host_page). A large board and ledger, with the
-    // router paging large host results as it does for real.
-    await rpc('paging', { on: true })
-    await rpc('policy', { changes: { launches_per_minute: 20 } })
-    for (let i = 0; i < 6; i++) await rpc('seed', { title: 'Load ' + i + ' ' + 'x'.repeat(150) })
-    out.board = await rpc('seed_board', { goals: 40, items: 6 })
-    const tally = log => log.reduce((all, tool) => ({ ...all, [tool]: (all[tool] || 0) + 1 }), {})
-    native.toolLog = []
-    await start('process')
-    out.start = { hookMs: native.startHookMs, callsAtReturn: native.startCallsAtReturn,
-      settledMs: native.startSettledMs, total: native.toolLog.length, byTool: tally(native.toolLog) }
-    native.toolLog = []
-    const viewStarted = performance.now()
-    const view = await hooks['command:work-mode']($, { args: 'view', origin: { kind: 'composer' } })
-    out.view = { ms: performance.now() - viewStarted, callsAtReturn: native.toolLog.length,
-      text: String(view?.text || '').slice(0, 80) }
-    await quiet()
-    out.view.total = native.toolLog.length
-    out.view.byTool = tally(native.toolLog)
-    out.leases = Object.keys((await rpc('inspect')).leases || {}).length
   }
 
   if (scenario === 'wake-busy') {

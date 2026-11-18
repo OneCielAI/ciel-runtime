@@ -1,11 +1,8 @@
 import json
 import os
 import re
-import shutil
-import subprocess
 import tempfile
 import unittest
-from pathlib import Path
 from unittest import mock
 
 from ciel_runtime_support.work_web_controller import WorkWebController
@@ -159,43 +156,6 @@ class WorkWebUiTests(unittest.TestCase):
         self.assertIn("data.forks", renderer)
         self.assertIn("deviceSection(data)", renderer)
         self.assertIn("const device=data.device||{}", self.html)
-
-    def test_parallel_tab_shows_the_per_priority_dispatch_diagnosis(self):
-        # Stage 3, 2026-11-17: each priority's limit, use, runnable items and blockers.
-        self.assertIn("const dispatch=renderPriorityDiagnosis(data);if(dispatch)panel.append(dispatch);", self.html)
-        renderer = self.html.split("function renderPriorityDiagnosis(data){", 1)[1].split("function renderParallel(", 1)[0]
-        self.assertIn("'Per-priority dispatch'", renderer)
-        node = shutil.which("node")
-        if not node:
-            self.skipTest("node is required to run the renderer")
-        script = self.html.split("<script>", 1)[1].split("</script>", 1)[0]
-        start = script.index("const el=(")
-        el_fn = script[start:script.index("\n", start)]
-        put_start = script.index("const put=(")
-        put_fn = script[put_start:script.index("\n", put_start)]
-        harness = (
-            "const made=[];const document={createElement:t=>{const n={tag:t,children:[],className:'',textContent:'',"
-            "append(...c){this.children.push(...c)}};made.push(n);return n},createTextNode:t=>({textContent:String(t)})};\n"
-            + el_fn + "\n" + put_fn + "\n" + "function renderPriorityDiagnosis(data){" + renderer.rstrip() + "\n"
-            "const text=n=>n?((n.textContent||'')+(n.children||[]).map(text).join(' ')):'';\n"
-            "const out=renderPriorityDiagnosis({priority_diagnosis:{summary:'P1 1/3 can fill',rows:["
-            "{priority:'P0',limit:null,active:0,free:null,candidates:0,held_for_parked:0,state:'no_work',reason:'x'},"
-            "{priority:'P1',limit:3,active:1,free:2,candidates:2,held_for_parked:0,state:'can_fill',reason:'2 runnable'},"
-            "{priority:'P2',limit:2,active:0,free:2,candidates:0,held_for_parked:0,state:'no_candidates',"
-            "reason:'free slot but no runnable item (goal in planning 1)'}]}});\n"
-            "console.log(JSON.stringify({text:text(out),none:renderPriorityDiagnosis({})===null}))")
-        with tempfile.TemporaryDirectory() as td:
-            path = Path(td) / "render.js"
-            path.write_text(harness, encoding="utf-8")
-            done = subprocess.run([node, str(path)], capture_output=True, text=True, encoding="utf-8", timeout=60)
-        self.assertEqual(0, done.returncode, done.stderr)
-        result = json.loads(done.stdout)
-        self.assertTrue(result["none"])
-        self.assertIn("P1 1/3", result["text"])
-        self.assertIn("Runnable 2 · free 2", result["text"])
-        self.assertIn("no candidates", result["text"])
-        self.assertIn("goal in planning 1", result["text"])
-        self.assertNotIn("P0 0", result["text"])
 
     def test_parallel_tab_offers_main_review_controls_without_reviewer_forks(self):
         for marker in ("function renderMainReviews(", "Main review (", "Awaiting main review", "'Rework'",

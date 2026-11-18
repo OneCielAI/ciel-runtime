@@ -93,20 +93,6 @@ class P0EventTests(unittest.TestCase):
         intent = p0_store(self.store).read()["intents"][reserved["intent_id"]]
         self.assertEqual("bound", intent["state"])
 
-    def test_a_p0_fork_row_says_it_runs_as_p0(self):
-        # Celly 2026-11-17: the lease keeps the goal's canonical P1 and the panes
-        # labelled the running P0 fork P1. The row carries the effective priority.
-        reserved = self.reserve()
-        args = {key: reserved[key] for key in ("intent_id", "lease_id", "dispatch_name")}
-        self.call("p0_launch_assignment", {"internal": True}, **args)
-        self.call("p0_launch_spawning", {"internal": True}, **args)
-        self.call("bind", {"host_id": "agent", "agent_name": reserved["dispatch_name"]},
-                  lease_id=reserved["lease_id"])
-        view = m.project(self.store, SCOPE, self.board.doc, host_view=True)
-        rows = [row for group in view["forks"].values() if isinstance(group, list) for row in group
-                if isinstance(row, dict) and row.get("lease_id") == reserved["lease_id"]]
-        self.assertEqual([("P1", "P0")], [(row["priority"], row["effective_priority"]) for row in rows])
-
     def test_explicit_deny_cancels_unknown_spawn_does_not(self):
         reserved = self.reserve()
         args = {key: reserved[key] for key in ("intent_id", "lease_id", "dispatch_name")}

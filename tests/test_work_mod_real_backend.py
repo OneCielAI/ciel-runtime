@@ -89,30 +89,6 @@ class WorkModRealBackendTests(unittest.TestCase):
         self.assertNotIn("error", result, result.get("trace") or result)
         return result
 
-    def test_start_returns_before_its_router_reads_and_pages_far_less(self):
-        # KOBE 2026-11-18: session.start held the hooks worker 172 s with about 360
-        # router calls (mostly work_host_page) and the engine unloaded the mod.
-        # Six reviewed leases and a 292-node board, with the router paging large
-        # host results as it does for real. HEAD measured on this fixture: the
-        # hook returned after 201 router calls (148 pages, 24 full status reads);
-        # /work-mode view returned after 23.
-        result = self.run_scenario("start-load")
-        start, view = result["start"], result["view"]
-        self.assertEqual(292, result["board"]["nodes"])
-        self.assertEqual(6, result["leases"])
-        # The hook returns before any router call; the phase runs after it.
-        self.assertEqual(0, start["callsAtReturn"], start)
-        self.assertLess(start["hookMs"], 1000, start)
-        tools = start["byTool"]
-        self.assertLessEqual(tools.get("work_parallel_status", 0), 4, start)
-        self.assertLessEqual(tools.get("work_host_page", 0), 40, start)
-        self.assertLessEqual(start["total"], 90, start)
-        # The view command returns once its board reads are done; the parallel,
-        # settings and side projections land after it.
-        self.assertLessEqual(view["callsAtReturn"], 8, view)
-        self.assertTrue(view["text"].startswith("Work & SSE pane"), view)
-        self.assertEqual([], result["failureLog"]["failures"])
-
     def test_approve_runs_the_real_saga_to_finalized(self):
         result = self.run_scenario("approve")
         self.assertEqual(1, result["woken"])
@@ -1859,9 +1835,6 @@ class WorkModRealBackendTests(unittest.TestCase):
                 self.assertEqual(before, result["before"]["wake"], result)
                 self.assertEqual("appended", result["after"]["wake"], result)
                 self.assertEqual((1, 1), (result["after"]["prompts"], result["after"]["appended"]), result)
-                # The minute gate round may add its own notice, once per diagnosis.
-                self.assertLessEqual(result["after"]["dispatchPrompts"], 1, result)
-                self.assertLessEqual(result["after"]["dispatchAppended"], 1, result)
 
     def test_idle_main_recovers_an_unlisted_worker_after_late_router_connect(self):
         result = self.run_scenario("idle-start-unconnected-running")

@@ -22,7 +22,6 @@ from ciel_runtime_support.channel_pending_poll import (
 )
 from ciel_runtime_support.channel_terminal_proxy import terminal_proxy_error_context
 from ciel_runtime_support.startup_prompt_answers import STARTUP_AUTO_ANSWER_ENV, startup_auto_answer_enabled
-from ciel_runtime_support.restart_hold import holds
 
 if TYPE_CHECKING:
     from ciel_runtime_support.channel_terminal_proxy import ChannelTerminalPolicy, ChannelTerminalPolling
@@ -236,8 +235,7 @@ class ChannelTerminalDispatchService:
                 )
                 self.direct.terminate(proc, "cli session restart")
                 return proc.wait()
-            # A claimed restart holds every new input for the relaunched session.
-            if poller is not None and not holds(restart_state):
+            if poller is not None:
                 try:
                     poller.poll(time.time())
                 except ChannelFileLockBusy as exc:

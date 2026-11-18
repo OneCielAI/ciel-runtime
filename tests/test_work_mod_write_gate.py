@@ -48,51 +48,6 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertFalse(row['unreadable'], row)
         self.assertIn('n2', row['block'], row)
 
-    def test_periodic_pump_and_gate_host_round_run_while_a_fork_runs(self):
-        # Stage 3 (2026-11-17): HEAD had no periodic pump and skipped the gate
-        # check while any Work fork ran (and the router refused side intake off).
-        row = self.run_scenario('stage3-periodic-pump-and-gate-host-round')
-        self.assertGreaterEqual(row['periodicArmed'], 1, row)
-        self.assertTrue(row['periodicPumped'], row)
-        self.assertGreaterEqual(row['rearmed'], 1, row)
-        self.assertEqual({'idle': True, 'forks_running': 1}, row['firstGate'])
-        self.assertIn('diagnosis', row['claims'])
-        self.assertTrue(row['round']['repumped'], row)
-        self.assertTrue(row['round']['notified'], row)
-        self.assertEqual(['P2'], row['round']['attention'])
-        self.assertIn('Ciel Work dispatch check (host gate check, every 5 min; 1 Work fork(s) running)', row['notice'])
-        self.assertIn('P2 free slot but no runnable item (goal in planning 1)', row['notice'])
-        self.assertIn('Side intake is off, so 1 blocked/waiting item(s) were not re-checked', row['notice'])
-        self.assertIn('grants no execution approval', row['notice'])
-        self.assertIn('Ciel Work dispatch wake', row['wake'])
-        # Same diagnosis next interval: one notice only, but the round is recorded again.
-        self.assertEqual(1, row['notices'])
-        self.assertGreaterEqual(row['rounds'], 2)
-        self.assertTrue(any('side intake off' in line for line in row['logs']), row['logs'])
-
-    def test_p0_outcomes_reach_main_once_with_the_exact_reason(self):
-        row = self.run_scenario("parallel-p0-outcome-notices")
-        self.assertEqual(1, len(row["notices"]), row)
-        notice = row["notices"][0]
-        self.assertIn("n1 (runs): P0 fork started: agent agent-1 on item n2.", notice)
-        self.assertIn("n3 (refused): no P0 fork (workspace_git_untrusted)", notice)
-        self.assertIn("detected dubious ownership", notice)
-        self.assertNotIn("n5 (pending)", notice)      # a pending launch claims nothing
-        self.assertNotIn("n6 (ran earlier)", notice)  # after "started" a block is not news
-        self.assertTrue(all(call["internal"] for call in row["claims"]), row)
-        self.assertEqual(1, len(row["wakes"]), row)   # a refusal wakes an idle main
-
-    def test_a_started_p0_fork_is_told_without_waking_main(self):
-        row = self.run_scenario("parallel-p0-outcome-notices", "started-only")
-        self.assertEqual(1, len(row["notices"]), row)
-        self.assertEqual([], row["wakes"])
-
-    def test_an_undelivered_p0_outcome_is_released_for_the_next_pump(self):
-        row = self.run_scenario("parallel-p0-outcome-notices", "append-denied")
-        self.assertEqual([], row["notices"])
-        self.assertIn({"root": "n3", "outcome": "blocked:workspace_git_untrusted", "release": True, "internal": True},
-                      row["claims"])
-
     def test_main_steps_wake_the_pump_during_a_long_turn(self):
         row = self.run_scenario('main-steps-wake-the-pump-during-a-long-turn')
         self.assertTrue(row['firstStepPumped'], row)
@@ -1303,43 +1258,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn("native_observation", result["afterWait"]["calls"])
         self.assertTrue(result["resumed"])
         self.assertTrue(result["slot"])
-        # Stage 3: a waiting worker reports only from running, so the coordinator
-        # resume (waiting_input -> running) follows the reacquire before the send.
-        self.assertEqual(result["calls"], ["reacquire", "resume"])
-        self.assertEqual("running", result["state"])
-        self.assertEqual(7, result["resume"]["plan_version"])
-
-    def test_pump_resumes_a_parked_worker_whose_wait_cleared(self):
-        result = self.run_scenario("parallel-pump-resumes-cleared-parked-worker")
-        self.assertIn("reacquire:L1", result["events"])
-        self.assertIn("resume:L1", result["events"])
-        self.assertLess(result["events"].index("reacquire:L1"), result["events"].index("resume:L1"))
-        self.assertNotIn("reacquire:L2", result["events"])
-        # A question-parked worker (no recorded wait was cleared) waits for main.
-        self.assertNotIn("reacquire:L3", result["events"])
-        self.assertEqual({"state": "waiting_input", "slot": False}, result["l3"])
-        self.assertEqual(["agent-a"], result["sent"])
-        self.assertIn("lease L1", result["text"])
-        self.assertIn("not new execution approval", result["text"])
-        self.assertEqual({"state": "running", "slot": True}, result["l1"])
-        self.assertEqual({"state": "waiting_input", "slot": False}, result["l2"])
-
-    def test_a_refused_parked_resume_is_recorded_for_main(self):
-        result = self.run_scenario("parallel-pump-resumes-cleared-parked-worker", "refused")
-        self.assertEqual(["agent-a"], result["sent"])
-        self.assertTrue(any("main may resume it with SendMessage" in line for line in result["logs"]), result["logs"])
-        # Not lost: parked again without a slot, and main is told once which worker to resume.
-        self.assertEqual({"state": "waiting_input", "slot": False}, result["l1"])
-        self.assertIn("wait:L1", result["events"])
-        self.assertEqual(1, len(result["notices"]), result["notices"])
-        self.assertIn("worker agent-a (lease L1, item n2)", result["notices"][0])
-        self.assertIn("Resume it with SendMessage", result["notices"][0])
-
-    def test_a_parked_worker_the_native_list_dropped_is_still_resumed(self):
-        result = self.run_scenario("parallel-pump-resumes-cleared-parked-worker", "unlisted")
-        self.assertEqual(["agent-a"], result["sent"])
-        self.assertEqual({"state": "running", "slot": True}, result["l1"])
-        self.assertEqual([], result["notices"])
+        self.assertEqual(result["calls"], ["reacquire"])
 
     def test_pause_after_no_progress_still_instructs_discovery(self):
         result = self.run_scenario("stop-pause-discovery")

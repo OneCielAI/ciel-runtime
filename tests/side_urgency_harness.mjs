@@ -41,12 +41,12 @@ await pollSide($,'claude:parent')   // slots full: reserved claim takes P1 c
 await pollSide($,'claude:parent')   // reserved slot busy: no claim at all
 const whileFull=claims()
 // The fork omits expected_version; it defaults to the snapshot it was given.
-await completeSide($,{agentId:'actor3',reason:'answer',answer:JSON.stringify({understanding:'understood in my own words',decision:{action:'create',
+await completeSide($,{agentId:'actor3',reason:'answer',answer:JSON.stringify({decision:{action:'create',
  title:'Fix outage',note:'customer down',summary:'ACK sent; outage queued P1',reply:'ACK',priority:'P1'},sent_via:['mcp__mail__reply']})})
 await drain()
 await pollSide($,'claude:parent')   // reserved slot free again: P1 d
 const ordinary=calls.filter(c=>c.append).length
-await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({understanding:'understood in my own words',decision:{action:'answer',summary:'answered',reply:'ok'},expected_version:7})})
+await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({decision:{action:'answer',summary:'answered',reply:'ok'},expected_version:7})})
 await drain()
 console.log(JSON.stringify({
  whileFull,claims:claims(),spawned:spawns.map(s=>JSON.parse(s.prompt).event_id[0]),

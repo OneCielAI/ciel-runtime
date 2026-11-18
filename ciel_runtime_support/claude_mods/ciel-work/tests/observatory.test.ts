@@ -10,16 +10,7 @@ const SNAPSHOT = { enabled: true, phase: 'executing', approval: 'auto', version:
 const DETAIL = { version: 3, root_id: 'g1', nodes: [
   { id: 'g1', parent_id: null, title: 'Goal', status: 'in_progress', note: '', evidence: '' },
   { id: 'a', parent_id: 'g1', title: 'Cache', status: 'blocked', note: 'TTL', evidence: '' }] }
-let ACTIVE_ACTORS: boolean | 'p0' | 'failures' = false
-// Walkie 2026-11-17: rows the router still retries, or that wait for main's
-// compaction, were labelled "failed" like a quarantined (terminal) row.
-const FAILURE_RECEIPTS = [
-  { receipt_id: 'receipt-retry', stage: 'received', original: '{"data":{"priority":3,"text":"Retry row"}}',
-    side_failure: { category: 'turn_error', attempt_count: 2, quarantined: false, retryable: true } },
-  { receipt_id: 'receipt-wait', stage: 'received', original: '{"data":{"priority":3,"text":"Waiting row"}}',
-    side_failure: { category: 'main_compaction_pending', attempt_count: 0, compaction_waits: 4, quarantined: false } },
-  { receipt_id: 'receipt-dead', stage: 'received', original: '{"data":{"priority":3,"text":"Terminal row"}}',
-    side_failure: { category: 'source_context', attempt_count: 6, compaction_waits: 12, quarantined: true } }]
+let ACTIVE_ACTORS: boolean | 'p0' = false
 const SETTINGS = [
   { key: 'work_mode', label: 'Work mode', value: true, kind: 'boolean' },
   { key: 'claude_left_arrow_opens_agents', label: 'Left arrow opens agents view', value: true, kind: 'boolean', status: 'next_claude_session' },
@@ -36,8 +27,7 @@ function host(on) {
     if (e.tool === 'work_status') value = e.args.detail ? DETAIL : SNAPSHOT
     if (e.tool === 'work_live_settings') { if (e.args.key) s.writes.push([e.args.key, e.args.value]); value = { settings: SETTINGS, provider: 'p' } }
     if (e.tool === 'work_parallel_status') value = { version: 1, active_device: 0, leases: {}, policy: { max_active: 5, p1_reserved: 1 } }
-    if (e.tool === 'work_side_status') value = { side_inbox_receipts: ACTIVE_ACTORS === 'failures' ? FAILURE_RECEIPTS
-      : ACTIVE_ACTORS === 'p0' ? [
+    if (e.tool === 'work_side_status') value = { side_inbox_receipts: ACTIVE_ACTORS === 'p0' ? [
       { receipt_id: 'receipt-p0', stage: 'processing', processing: { owner: 'side' },
         original: '{"data":{"text":"Server down","message_context":{"thread_task":{"priority":1,"emergency":true}}}}' }]
       : ACTIVE_ACTORS ? [
@@ -69,27 +59,6 @@ test('graphical SSE view labels processing receipts while side work is active', 
     expect(text).toContain('SSE FLOW 1')
     expect(text).toContain('processing')
     expect(text).toContain('Urgent side request')
-    await ui.unmount()
-  } finally { ACTIVE_ACTORS = false }
-})
-
-test('graphical SSE view calls only a quarantined row failed; retries and compaction waits keep their state', async ($, on) => {
-  ACTIVE_ACTORS = 'failures'
-  try {
-    host(on)
-    await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
-    await $.command.run({ command: 'work-mode', args: 'view' })
-    const ui = await $.ui.mount(pane('terminal', 100) as any)
-    await ui.resize({ columns: 100, rows: 30, in: 'obs-graphic' })
-    await ui.key({ key: 's', in: 'obs-graphic' })
-    const rows = (await ui.findAll({ type: 'Text', in: 'obs-graphic' })).map(row => row.text)
-    const row = (summary: string) => rows.find(text => text.includes(summary)) || ''
-    expect(rows.join('\n')).toContain('SSE FLOW 3')
-    expect(row('Retry row')).toContain('P3 retrying')
-    expect(row('Waiting row')).toContain('P3 waiting')
-    expect(row('Terminal row')).toContain('P3 failed')
-    expect(row('Retry row')).not.toContain('failed')
-    expect(row('Waiting row')).not.toContain('failed')
     await ui.unmount()
   } finally { ACTIVE_ACTORS = false }
 })

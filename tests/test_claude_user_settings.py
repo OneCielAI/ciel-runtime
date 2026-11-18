@@ -34,51 +34,6 @@ class ClaudeUserSettingsTests(unittest.TestCase):
         cus.set_value(cus.LEFT_ARROW, 'on', env=self.env, home=self.root)
         self.assertIs(True, json.loads(target.read_text(encoding='utf8'))['leftArrowOpensAgents'])
 
-    def test_restart_folder_trust_writes_one_claude_key_and_keeps_the_rest(self):
-        # Celly 2026-11-17: the home-folder trust dialog stopped every restart.
-        target = self.root / '.claude.json'
-        folder = self.root / 'work'
-        folder.mkdir()
-        key = str(folder.resolve()).replace('\\', '/')
-        target.write_text(json.dumps({'projects': {key: {'allowedTools': ['x'], 'hasTrustDialogAccepted': False},
-                                                   'C:/other': {'keep': 1}}, 'theme': 'dark'}), encoding='utf8')
-        self.assertTrue(cus.trust_restart_folder(folder, env=self.env, home=self.root))
-        stored = json.loads(target.read_text(encoding='utf8'))
-        self.assertEqual({'allowedTools': ['x'], 'hasTrustDialogAccepted': True}, stored['projects'][key])
-        self.assertEqual({'keep': 1}, stored['projects']['C:/other'])
-        self.assertEqual('dark', stored['theme'])
-        self.assertNotIn('\\', key)
-        self.assertEqual(['.claude.json', 'work'], sorted(p.name for p in self.root.iterdir()))
-        # Already trusted: nothing written.
-        before = target.stat().st_mtime_ns
-        self.assertFalse(cus.trust_restart_folder(folder, env=self.env, home=self.root))
-        self.assertEqual(before, target.stat().st_mtime_ns)
-
-    def test_restart_folder_trust_creates_the_entry_and_follows_claude_config_dir(self):
-        config = self.root / 'cfg'
-        folder = self.root / 'repo'
-        folder.mkdir()
-        self.assertTrue(cus.trust_restart_folder(folder, env={'CLAUDE_CONFIG_DIR': str(config)}, home=self.root))
-        stored = json.loads((config / '.claude.json').read_text(encoding='utf8'))
-        self.assertEqual({'hasTrustDialogAccepted': True}, stored['projects'][cus.trust_key(folder)])
-        self.assertFalse((self.root / '.claude.json').exists())
-
-    def test_restart_folder_trust_never_overwrites_a_busy_or_broken_config(self):
-        target = self.root / '.claude.json'
-        target.write_text('{broken', encoding='utf8')
-        with self.assertRaises(WorkPlanError):
-            cus.trust_restart_folder(self.root, env=self.env, home=self.root)
-        self.assertEqual('{broken', target.read_text(encoding='utf8'))
-        target.write_text('{"projects": []}', encoding='utf8')
-        with self.assertRaises(WorkPlanError):
-            cus.trust_restart_folder(self.root, env=self.env, home=self.root)
-        self.assertEqual('{"projects": []}', target.read_text(encoding='utf8'))
-        target.write_text('{"a":1}', encoding='utf8')
-        (self.root / '.claude.json.lock').mkdir()
-        with patch.object(cus, 'LOCK_WAIT_SECONDS', 0.1), self.assertRaises(WorkPlanError):
-            cus.trust_restart_folder(self.root, env=self.env, home=self.root)
-        self.assertEqual('{"a":1}', target.read_text(encoding='utf8'))
-
     def test_busy_claude_lock_is_never_taken_over(self):
         target = self.root / '.claude.json'
         target.write_text('{"a":1}', encoding='utf8')

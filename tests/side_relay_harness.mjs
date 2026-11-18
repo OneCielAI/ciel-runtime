@@ -2,7 +2,7 @@
 // scripted host. The side decides an update with relay: true; the host forwards
 // the message to main and to the Work fork running that item, each of which
 // decides whether it matters. Prints who was told, and how.
-import {startSide,pollSide,completeSide,sideMainBusy,sideParkedResume} from './side-intake.js'
+import {startSide,pollSide,completeSide,sideMainBusy} from './side-intake.js'
 
 const scenario = process.argv[2]
 // forward-idle: the router offers the original of a quarantined event
@@ -10,19 +10,12 @@ const scenario = process.argv[2]
 const FORWARD_TEXT = process.argv[3] || ''
 let busy = scenario !== 'relay-idle' && scenario !== 'forward-idle'
 sideMainBusy(() => busy)
-// Stage 3: register.js resumes a parked worker on its own lease first.
-const resumeCalls = []
-if (scenario === 'relay-parked-resumed' || scenario === 'relay-parked-waiting')
-  sideParkedResume(async ids => { resumeCalls.push(ids)
-    return new Map(ids.map(id => [id, scenario === 'relay-parked-resumed' ? true : 'its wait is still recorded on the board'])) })
 const sent = [], appended = [], submitted = [], wakes = [], logs = [], resolved = []
 let noticeClaimed = false
 const leases = {
   'relay-running': {L1:{id:'L1',item_id:'n3',host_id:'agent-run',state:'running',slot:true},
                     L9:{id:'L9',item_id:'n9',host_id:'agent-other',state:'running',slot:true}},
   'relay-parked': {L2:{id:'L2',item_id:'n2',host_id:'agent-park',state:'waiting_input',slot:false}},
-  'relay-parked-resumed': {L2:{id:'L2',item_id:'n2',host_id:'agent-park',state:'waiting_input',slot:false}},
-  'relay-parked-waiting': {L2:{id:'L2',item_id:'n2',host_id:'agent-park',state:'waiting_input',slot:false}},
   'relay-other': {L9:{id:'L9',item_id:'n9',host_id:'agent-other',state:'running',slot:true}},
   'relay-refuses': {L1:{id:'L1',item_id:'n2',host_id:'agent-gone',state:'running',slot:true}},
 }[scenario] || {}
@@ -74,7 +67,7 @@ const $ = {
 await startSide($)
 await pollSide($,'claude:parent')
 if (scenario !== 'forward-idle')
-  await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({understanding:'understood in my own words',decision:{action:'update',kind:'request',item_id:'n2',
+  await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({decision:{action:'update',kind:'request',item_id:'n2',
     summary:'Delimiter is a semicolon',reply:'forwarded',note:'CSV delimiter must be ;',relay:scenario !== 'no-relay'},expected_version:4})})
 await new Promise(resolve => setTimeout(resolve, 20))
-console.log(JSON.stringify({sent,appended,submitted,wakes,logs,resolved,resumeCalls}))
+console.log(JSON.stringify({sent,appended,submitted,wakes,logs,resolved}))

@@ -1,24 +1,17 @@
 // Drives side-intake.js release notifications with a scripted host. Each case
 // resolves one side event whose committed result released recorded waits and
 // prints who was told, and how.
-import {startSide,pollSide,completeSide,sideMainBusy,sideParkedResume} from './side-intake.js'
+import {startSide,pollSide,completeSide,sideMainBusy} from './side-intake.js'
 
 const scenario = process.argv[2]
 let busy = scenario !== 'main-idle'
 sideMainBusy(() => busy)
-// Stage 3: register.js resumes a parked worker on its own lease first.
-const resumeCalls = []
-if (scenario === 'fork-parked-resumed' || scenario === 'fork-parked-refused')
-  sideParkedResume(async ids => { resumeCalls.push(ids)
-    return new Map(ids.map(id => [id, scenario === 'fork-parked-resumed' ? true : 'the resume was not delivered: declined'])) })
 const sent = [], appended = [], submitted = [], wakes = [], logs = []
 // The backend grants the notice of one event receipt once (side_notice.py).
 let noticeClaimed = false
 const leases = {
   'fork-running': {L1:{id:'L1',item_id:'n2',host_id:'agent-run',state:'running',slot:true}},
   'fork-parked': {L2:{id:'L2',item_id:'n2',host_id:'agent-park',state:'waiting_input',slot:false}},
-  'fork-parked-resumed': {L2:{id:'L2',item_id:'n2',host_id:'agent-park',state:'waiting_input',slot:false}},
-  'fork-parked-refused': {L2:{id:'L2',item_id:'n2',host_id:'agent-park',state:'waiting_input',slot:false}},
   'fork-refuses': {L1:{id:'L1',item_id:'n2',host_id:'agent-gone',state:'running',slot:true}},
 }[scenario] || {}
 const released = [{id:'n3',waiting_on:'approval from Andy via Walkie'}]
@@ -62,7 +55,7 @@ const $ = {
 }
 await startSide($)
 await pollSide($,'claude:parent')
-await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({understanding:'understood in my own words',decision:{action:'update',kind:'request',item_id:'n3',
+await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({decision:{action:'update',kind:'request',item_id:'n3',
   summary:'Andy approved the deploy',reply:'ok',note:'approved',release_waits:released},expected_version:4})})
 // The release notice is delivered after completeSide returns. Wait until it has
 // settled instead of a fixed delay: Linux CI under load read an empty list after
@@ -78,4 +71,4 @@ for (const end = Date.now() + 5000; Date.now() < end && !settled();) await sleep
 // Anything that would arrive after settling (a duplicate notice or prompt) is
 // still given the old window to show up.
 await sleep(20)
-console.log(JSON.stringify({sent,appended,submitted,wakes,logs,resumeCalls}))
+console.log(JSON.stringify({sent,appended,submitted,wakes,logs}))

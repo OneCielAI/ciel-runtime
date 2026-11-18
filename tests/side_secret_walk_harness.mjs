@@ -55,7 +55,7 @@ const $ = {
 await startSide($)
 await pollSide($, 'claude:parent')
 await completeSide($, {agentId:'actor', reason:'answer',
-  answer:JSON.stringify({understanding:'understood in my own words',decision:{action:'answer', kind:'info', summary:'s', reply:'r'}, expected_version:1})})
+  answer:JSON.stringify({decision:{action:'answer', kind:'info', summary:'s', reply:'r'}, expected_version:1})})
 await new Promise(resolve => setTimeout(resolve, 20))
 console.log(JSON.stringify({sinks, claim_generation:GENERATION,
   secrets:[ATTEMPT, NONCE, RECEIPT, 'b'.repeat(32), 'ciel-side-wake']}))

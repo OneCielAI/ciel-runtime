@@ -41,8 +41,6 @@ const $={
    else if(args.state==='start') value=Object.assign(w,{phase:'started'})&&{...w}
    else value=Object.assign(w,{state:args.state})&&{...w}
    value={protocol:2,...value}}
-  if(name==='work_side_understanding' && args.state==='prepare') value={state:'submitting',attempt_id:'u-'+args._host.receipt_id.slice(0,1),server:'walkie',tool:'walkie_send_message',arguments:{text:args.understanding}}
-  if(name==='work_side_understanding' && args.state!=='prepare') value={receipt:{receipt_id:args._host.receipt_id,stage:'received'}}
   if(name==='work_side_resolve') value={receipt:{receipt_id:args._host.receipt_id,stage:'processed',result:{action:args.decision.action}},result:{action:args.decision.action,duplicate:false,version:++snapshotVersion}}
   if(name==='work_side_reply') value={receipt:{receipt_id:args.receipt_id,stage:'processed'},arguments:null}
   return {content:[{type:'text',text:JSON.stringify(value)}]}
@@ -70,7 +68,7 @@ for (const tool of ['Bash','Edit','Agent','SendMessage','mcp__mail__read','mcp__
                     'mcp__ciel-runtime-router__work_plan_update','mcp__ciel-runtime-router__restart_session'])
  passThrough.push(await sideTool($,{agentId:'actor1',tool,tool_use_id:'t-'+tool},async()=>({result:'next'})))
 // Observed live: prose, then a fenced decision. It must commit, not retry.
-await completeSide($,{agentId:'actor1',reason:'answer',answer:'Status answered.\n\n```json\n'+JSON.stringify({understanding:'understood in my own words',decision:{action:'answer',kind:'status',summary:'done',reply:'answer'},expected_version:1})+'\n```',usage:{input_tokens:3}})
+await completeSide($,{agentId:'actor1',reason:'answer',answer:'Status answered.\n\n```json\n'+JSON.stringify({decision:{action:'answer',kind:'status',summary:'done',reply:'answer'},expected_version:1})+'\n```',usage:{input_tokens:3}})
 await drain()
 events.push({receipt_id:'b'.repeat(64),generation:'2'.repeat(32),text:'second',event_key:'source:two',lease_until:Date.now()/1000+120,route:{channel:'external:source',sender_id:'sender',source_kind:'external_event'}})
 // A durable main wake is offered by every claim until main acknowledges it.
@@ -80,7 +78,7 @@ settings={...settings,model:'ciel-runtime-fixture-_selected_b',context_mode:'iso
 await pollSide($,'claude:parent')
 const second=sideOwns('actor2')
 // Observed live: sent_via nested in decision and public_summary for summary.
-await completeSide($,{agentId:'actor2',reason:'answer',answer:'Nothing new needed.\n\n'+JSON.stringify({understanding:'understood in my own words',decision:{action:'answer',kind:'info',public_summary:'done2',reply:'answer2',reason_for_advise:'extra',item_id:null},expected_version:snapshotVersion}),usage:null})
+await completeSide($,{agentId:'actor2',reason:'answer',answer:'Nothing new needed.\n\n'+JSON.stringify({decision:{action:'answer',kind:'info',public_summary:'done2',reply:'answer2',reason_for_advise:'extra',item_id:null},expected_version:snapshotVersion}),usage:null})
 await drain()
 // A completed turn without any decision is recorded as invalid_answer (never
 // retried), and its actor still stops.
@@ -99,9 +97,5 @@ console.log(JSON.stringify({
  passThrough,parity:sideMcpParity(),
  contextCalls:calls.filter(c=>c.name==='work_side_context').length,
  resolveCalls:calls.filter(c=>c.name==='work_side_resolve').map(c=>c.args),
- // 2026-11-17: understanding is persisted and sent before the decision commits.
- understandingCalls:calls.filter(c=>c.name==='work_side_understanding').map(c=>c.args),
- sideOrder:calls.filter(c=>['work_side_understanding','work_side_resolve'].includes(c.name))
-   .map(c=>c.name+':'+c.args._host.receipt_id.slice(0,1)),
  failures:calls.filter(c=>c.name==='work_side_fail').map(c=>({category:c.args.category,receipt:c.args._host.receipt_id,reason:c.args.reason}))
 }))

@@ -10,18 +10,6 @@ CIEL_RUNTIME_VERSION_STATUS
 Show the running ciel-runtime version for this session. This command is handled locally by the ciel-runtime router and must not be forwarded upstream.
 """
 
-RESTART_SESSION_SLASH_COMMAND = """---
-description: Safely restart this ciel-runtime CLI session and resume it
-argument-hint: [reason]
----
-
-CIEL_RUNTIME_RESTART_SESSION
-
-Value: $ARGUMENTS
-
-Restart this session through ciel-runtime, the same request as the restart_session tool and `ciel-runtime restart-session`. This command is handled locally by the ciel-runtime router and must not be forwarded upstream.
-"""
-
 ADVISOR_SLASH_COMMAND = """---
 description: Run the selected ciel-runtime Advisor Model
 argument-hint: [question or focus]
@@ -183,7 +171,6 @@ ROUTER_DEBUG_REQUEST_MARKERS = (
     LEGACY_ROUTER_DEBUG_ACCESS_MARKER,
 )
 VERSION_REQUEST_MARKERS = ("CIEL_RUNTIME_VERSION_STATUS",)
-RESTART_SESSION_REQUEST_MARKERS = ("CIEL_RUNTIME_RESTART_SESSION",)
 LIVE_LLM_OPTIONS_REQUEST_MARKERS = (
     "CIEL_RUNTIME_LIVE_LLM_OPTIONS",
     LEGACY_LIVE_LLM_OPTIONS_MARKER,
@@ -213,10 +200,6 @@ CIEL_RUNTIME_ROUTER_DEBUG_COMMAND_MARKERS = (
 CIEL_RUNTIME_VERSION_COMMAND_MARKERS = (
     "CIEL_RUNTIME_VERSION_STATUS",
     "Show ciel-runtime version",
-)
-CIEL_RUNTIME_RESTART_SESSION_COMMAND_MARKERS = (
-    "CIEL_RUNTIME_RESTART_SESSION",
-    "Safely restart this ciel-runtime CLI session",
 )
 CIEL_RUNTIME_LLM_OPTIONS_COMMAND_MARKERS = (
     "CIEL_RUNTIME_LIVE_LLM_OPTIONS",

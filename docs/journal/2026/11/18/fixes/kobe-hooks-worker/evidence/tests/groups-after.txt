@@ -1,7 +1,0 @@
-windows unit: Ran 5091 tests in 3024.932s OK (skipped=146)
-windows router: Ran 1676 tests in 525.877s OK (skipped=1)
-windows channel: Ran 626 tests in 49.033s OK (skipped=80)
-windows runtime: Ran 460 tests in 41.232s OK (skipped=19)
-py310 unit 1/3 exit=0 Ran 1498 tests in 134.445s OK (skipped=55)
-py310 unit 2/3 exit=0 Ran 1671 tests in 184.197s OK (skipped=30)
-py310 unit 3/3 exit=0 Ran 1805 tests in 184.535s OK (skipped=66)

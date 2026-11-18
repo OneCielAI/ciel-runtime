@@ -61,35 +61,14 @@ These figures come from the dispatcher's own functions (`runnable_leaves`, `cand
 
 # Answer
 
-Corrected 2026-11-18; the first version misread the requirement ([log.md](log.md)).
-
 | Session | Why no Work fork | Defect |
 |---|---|---|
 | Celly | Items are reserved, but the fork is never spawned; workspace preparation likely fails (unconfirmed) | A, B, C |
 | Andy | The dispatcher finds no eligible item | None found; the board's waits and open leases leave nothing to dispatch |
 
-**What the requirement means.** The user wants each priority filled to its own existing limit at the same time: P1 3, P2 2, P3 1, P4 1 and P5 1, so 8 forks at once. It does not mean "at least 3 forks per priority". The first version of this record read it that way, which was a misunderstanding.
-
-**Andy's board against that intent.** 0 of the 8 slots were in use. Figures are from the Andy section above.
-
-| Priority | Limit | Why no fork could start |
-|---|---|---|
-| P1 | 3 | Nothing runnable: all 122 unfinished leaves wait. |
-| P2 | 2 | Both runnable leaves already held an open lease (1 `running`, 1 `submitted`). |
-| P3 | 1 | All 5 runnable leaves already held an open lease (3 `waiting_input`, 2 `submitted`). |
-| P4 | 1 | Not covered by the Andy evidence. |
-| P5 | 1 | Nothing runnable: all 65 unfinished leaves wait. |
-
-**The dispatch rules exclude** (unchanged):
+The requirement "at least 3 forks per priority" cannot be met on Andy's board under the current dispatch rules. Those rules exclude:
 - a leaf under `waiting_on`;
 - a root still in planning;
-- an item that already holds an open lease, which is the duplicate-execution fence.
+- an item already holding an open lease.
 
-**This record changed nothing.** The follow-up work is in [fork-fill-per-priority](../../features/fork-fill-per-priority/record.md):
-- the per-priority diagnosis, which shows each of these reasons for every priority;
-- parked leases no longer count toward the bound;
-- a periodic pump;
-- automatic resume of a parked worker once its wait is cleared;
-- the gate check also runs while forks run.
-
-None of these makes a waiting or fenced leaf runnable. The slots fill as waits clear and parked workers resume.
+Nothing was changed.

@@ -10,16 +10,6 @@ import urllib.request
 
 from .architecture import ProviderStatusPolicy
 
-# A full catalog body the readiness probe reads. The CielAiRouter catalog was
-# 1,292,256 bytes (2,319 models) on 2026-11-18 and the former 1 MiB cap blocked
-# every launch with "Base URL: unreachable (ValueError)" (KOBE sandbox). The
-# probe still reads at most this much; it only counts the models.
-CATALOG_PROBE_MAX_BYTES = 16 * 1024 * 1024
-
-
-class CatalogTooLarge(ValueError):
-    pass
-
 
 @dataclass(frozen=True, slots=True)
 class ProviderStatusRouting:
@@ -171,10 +161,10 @@ def _generic_status(
         with generic.provider_urlopen(request, timeout=timeout, provider=provider, pcfg=pcfg) as response:
             reading_body = True
             # The filtered catalog can exceed the legacy generic preview limit.
-            limit = CATALOG_PROBE_MAX_BYTES if policy.probe_retry_timeout_seconds > 0 else 131072
+            limit = 1048576 if policy.probe_retry_timeout_seconds > 0 else 131072
             body = response.read(limit + 1) if policy.probe_retry_timeout_seconds > 0 else response.read(limit)
             if policy.probe_retry_timeout_seconds > 0 and len(body) > limit:
-                raise CatalogTooLarge(f"model catalog exceeds the {limit // 1048576} MiB probe limit")
+                raise ValueError("model catalog exceeds probe limit")
             return body.decode("utf-8", errors="ignore")
 
     try:
@@ -192,8 +182,6 @@ def _generic_status(
         if exc.code in (401, 403):
             return f"Base URL: model list reachable, auth rejected ({exc.code})"
         return f"Base URL: HTTP {exc.code}"
-    except CatalogTooLarge as exc:
-        return f"Base URL: model list unreachable ({path}; {exc})"
     except Exception as exc:
         if _is_probe_timeout(exc):
             phase = "HTTP response headers received; model-list body read timed out" if reading_body else "before response headers"

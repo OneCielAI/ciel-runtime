@@ -35,7 +35,7 @@ const drain=async()=>{while(timers.length) await timers.shift()()}
 await startSide($)
 await pollSide($,'claude:parent')
 const prompt=JSON.parse(spawns[0].prompt)
-await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({understanding:'understood in my own words',decision:{action:'create',kind:'request',
+await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({decision:{action:'create',kind:'request',
  title:'Production outage',summary:'P0 outage queued',reply:'Outage reported',priority:'P0'}})})
 await drain()
 console.log(JSON.stringify({

@@ -346,9 +346,6 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
         base = provider_upstream_request_base(provider, pcfg)
     ids: list[str] = []
     model_info: dict[str, dict[str, Any]] = {}
-    # Listed rows the provider adapter left out, with why (CielAiRouter: a
-    # missing capability flag); kept beside the ids so a refusal can say so.
-    excluded: dict[str, str] = {}
     fetched = False
     failure: BaseException | None = None
     timeout = MODEL_LIST_TIMEOUT_SECONDS
@@ -369,8 +366,6 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
                         lambda: http_json(url, headers=headers, timeout=timeout, provider=provider, pcfg=pcfg)
                     )
                     data = services.response_codec.select_entries(provider, pcfg, data)
-                    left_out = data.get("excluded_models") if isinstance(data, dict) else None
-                    excluded = {str(k): str(v) for k, v in left_out.items()} if isinstance(left_out, dict) else {}
                     ids = [normalize_model_id(provider, mid) for mid in model_ids_from_response(data)]
                     model_info.update(model_info_from_response(provider, data))
                     fetched = True
@@ -399,8 +394,7 @@ def fetch_upstream_model_ids(provider: str, pcfg: dict[str, Any], force_refresh:
         _forget_failure(provider, pcfg)
         ids = supplement_model_aliases(ids, model_info)
         sorted_ids = sorted_model_ids(unique_model_ids(provider, ids))
-        metadata = {**({"model_info": model_info} if model_info else {}),
-                    **({"excluded_models": excluded} if excluded else {})} or None
+        metadata = {"model_info": model_info} if model_info else None
         write_model_list_cache(provider, pcfg, sorted_ids, metadata)
         return sorted_ids
     if not fetched and catalog_policy.authoritative_upstream_catalog:

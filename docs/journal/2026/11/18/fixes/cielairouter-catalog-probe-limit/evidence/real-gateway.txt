@@ -1,6 +1,0 @@
-# Real gateway, isolated config holding only this machine's cielairouter provider entry (key never printed)
-catalog GET /v1/models: status 200, 1292256 bytes, 2319 models, 13.28 s
-installed 0.2.51-beta.20261118-064156.66da4e2 base_url_status_line -> Base URL: unreachable (ValueError)
-patched tree base_url_status_line -> Base URL: model list reachable (/v1/models?prefix=alias&configuredOnly=true&availableOnly=true, 1917 models)
-installed launch_readiness_errors -> ['Launch blocked: Base URL: unreachable (ValueError)', 'Set a reachable Base URL before launching Claude Code.']
-patched launch_readiness_errors -> none (launch allowed)

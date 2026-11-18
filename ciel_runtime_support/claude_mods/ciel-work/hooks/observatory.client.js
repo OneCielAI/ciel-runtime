@@ -25,10 +25,7 @@ function stage(receipt) {
   if (receipt.actor) return 'processing'
   if (receipt.delivery && !['pending', 'not_sent'].includes(receipt.delivery)) return 'answered'
   if (receipt.action === 'create' || receipt.action === 'update' || receipt.item_id) return 'work'
-  // Only a terminal (quarantined) failure is "failed". A failure the router
-  // retries is "retrying"; a wait for main's compaction is "waiting".
-  if (receipt.failure === 'quarantined' || receipt.stage === 'quarantined') return 'failed'
-  if (receipt.failure === 'waiting' || receipt.failure === 'retrying') return receipt.failure
+  if (receipt.failed) return 'failed'
   return receipt.stage || 'received'
 }
 function stageColor(value) {
@@ -36,7 +33,6 @@ function stageColor(value) {
   if (value === 'answered') return C.green
   if (value === 'work') return C.violet
   if (value === 'failed' || value === 'quarantined') return C.red
-  if (value === 'waiting') return C.blue
   return C.yellow
 }
 function statusColor(value) {
@@ -144,11 +140,6 @@ export default function Observatory(props, surface) {
     Text({ color: C.blue, children: forkText }),
     Text({ color: C.dim, children: '· DEVICE ' + active + '/' + max + ' slots · REVIEW ' + (props.parallel?.reviews?.length || 0) + ' · SIDE ' + (props.parallel?.side || 0) }),
   ]))
-  // Per priority use/limit and the first priority that needs attention (the
-  // router's diagnosis, the same rows web, REST and ctl show; Stage 3).
-  const dispatch = props.parallel?.dispatch
-  if (dispatch?.line) children.push(line('dispatch', clip('  ⚙ ' + dispatch.line, width),
-    dispatch.attention ? C.yellow : C.dim))
   // A Work fork could not start (workspace preparation, last hour): the
   // router's own text, the same one web, REST and ctl show.
   const failure = props.parallel?.failure
@@ -234,7 +225,6 @@ export default function Observatory(props, surface) {
     if (chosen) children.push(line('wide-inspector-title', chosen.title || chosen.summary || '', C.text, { weight: 'bold' }))
     if (chosen) children.push(line('wide-inspector-meta', props.tab === 'side'
       ? stage(chosen) + (chosen.actor ? ' · fork ' + chosen.actor : '') + (chosen.item_id ? ' → ' + chosen.item_id : '')
-        + (chosen.bounded ? ' · thread bounded: ' + chosen.bounded + ' older replies left out' : '')
       : (chosen.priority || '--') + ' · ' + chosen.status + (chosen.waiting_on ? ' · waiting ' + chosen.waiting_on : ''),
       props.tab === 'side' ? stageColor(stage(chosen)) : statusColor(chosen.status)))
     children.push(line('footer', FOOTER, C.dim))
@@ -260,7 +250,7 @@ export default function Observatory(props, surface) {
       for (const actor of actors) children.push(line('actor-' + actor.id,
         '▶ ' + clip(actor.id, 10) + ' · native fork (main context) · ' + clip(actor.receipt, 12), C.cyan))
     } else children.push(line('no-fork', 'No active side fork', C.dim))
-    const visible = Math.max(3, height - 13 - actors.length - (sideRows[selected]?.bounded ? 1 : 0))
+    const visible = Math.max(3, height - 13 - actors.length)
     const page = sideRows.slice(scroll, scroll + visible)
     children.push(line('receipt-head', 'RECEIPTS · ↑↓ MOVE · ENTER INSPECT', C.dim))
     for (const [offset, receipt] of page.entries()) {
@@ -277,8 +267,6 @@ export default function Observatory(props, surface) {
       children.push(line('inspect-summary', receipt.summary, C.text))
       children.push(line('inspect-meta', (receipt.actor ? 'fork ' + receipt.actor : stage(receipt))
         + (receipt.action ? ' · ' + receipt.action : '') + (receipt.item_id ? ' → ' + receipt.item_id : ''), stageColor(stage(receipt))))
-      if (receipt.bounded) children.push(line('inspect-bounded', 'Source thread bounded: ' + receipt.bounded
-        + ' older replies left out', C.yellow))
     }
   } else {
     children.push(boxLine('work-head', [

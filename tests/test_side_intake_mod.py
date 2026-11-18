@@ -21,28 +21,6 @@ class SideModTests(unittest.TestCase):
                                 check=True,timeout=60)
         return json.loads(done.stdout)
 
-    def test_a_claim_with_a_saved_proposal_commits_it_without_a_fork(self):
-        # Plan 2026-11-17: after a restart the model does not run again and the
-        # understanding already sent is not sent again.
-        row=self.run_harness('side_resume_harness.mjs')
-        self.assertEqual(0,row['spawns'])
-        self.assertEqual([],row['failures'])
-        order=row['order']
-        self.assertLess(order.index('work_side_understanding:prepare'),order.index('work_side_resolve'))
-        self.assertLess(order.index('work_side_resolve'),order.index('work_side_reply:prepare'))
-        saved={'action':'create','kind':'request','title':'retry fix','summary':'retry fix','reply':'queued','priority':'P3'}
-        self.assertEqual([{'understanding':'understood in my own words','decision':saved,'expected_version':4}],
-                         row['understanding'])
-        self.assertEqual([{'decision':saved,'expected_version':4,'generation':'5'*32}],row['resolve'])
-        # Only the final reply is sent; the understanding prepare offered no send.
-        self.assertEqual(['final'],row['walkieSends'])
-
-    def test_a_malformed_saved_proposal_is_a_retryable_failure_not_a_fork(self):
-        row=self.run_harness('side_resume_harness.mjs','malformed')
-        self.assertEqual(0,row['spawns'])
-        self.assertEqual(['resume_error'],row['failures'])
-        self.assertEqual([],row['resolve'])
-
     def test_each_external_event_uses_one_native_fork_then_stops_it(self):
         row=self.run_harness('side_intake_harness.mjs')
         self.assertEqual(3,len(row['spawns']))
@@ -80,12 +58,6 @@ class SideModTests(unittest.TestCase):
         # Prose + fenced JSON and prose + raw JSON both commit; no-decision is
         # recorded once as invalid_answer, never as a retryable failure.
         self.assertEqual(['a'*64,'b'*64],[call['_host']['receipt_id'] for call in row['resolveCalls']])
-        self.assertEqual(['understood in my own words']*2,
-                         [call['understanding'] for call in row['understandingCalls'] if call['state']=='prepare'])
-        # prepare/record for understanding finish before the board commit.
-        self.assertEqual(['work_side_understanding:a','work_side_understanding:a','work_side_resolve:a',
-                          'work_side_understanding:b','work_side_understanding:b','work_side_resolve:b'],
-                         row['sideOrder'])
         self.assertEqual([],row['resolveCalls'][0]['_host']['reported_sends'])
         self.assertNotIn('context_key',row['resolveCalls'][0]['_host'])
         self.assertEqual({'action':'answer','kind':'info','summary':'done2','reply':'answer2'},row['resolveCalls'][1]['decision'])
@@ -225,7 +197,9 @@ class SideModTests(unittest.TestCase):
         # A single 4 MiB+ page is refused at the per-call cap before parsing.
         self.assertEqual('Source read exceeds per-call limit',row['oversize']['failures'][0]['reason'])
 
-    def run_persisted_harness(self):
+    def test_persisted_mcp_result_context_budget_and_spawn_proof(self):
+        # Owned probe mcp-size-none-ee41a3e2 (Claude Code 2.1.321): a >25K-token
+        # MCP text result reaches $.mcp.call as a stub naming the saved file.
         with tempfile.TemporaryDirectory() as raw:
             path=Path(raw)
             (path/'package.json').write_text('{"type":"module"}')
@@ -233,69 +207,7 @@ class SideModTests(unittest.TestCase):
             shutil.copyfile(ROOT/'tests/side_persisted_stub_fixture.json',path/'persisted-stub-fixture.json')
             shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
             done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',check=True,timeout=60)
-        return json.loads(done.stdout)
-
-    def test_spent_compaction_waits_start_the_fork_on_the_bounded_thread(self):
-        # Walkie 2026-11-17, thread 137008: P3 events whose thread exceeded main's
-        # remaining context while main stayed busy. The mod had compacted main
-        # more than 10 minutes earlier, so the bounded thread never opened: each
-        # event spent 12 waits, then 6 counted failures, then quarantine.
-        row=self.run_persisted_harness()
-        spent=row['waits_spent']
-        # The fixed conditions: this module compacted main once, the clock then
-        # moved past the cooldown, and main stayed busy (no compaction mid-turn).
-        self.assertEqual((1,0),(spent['warm_compacts'],spent['compacts']))
-        # The 12th wait is still a wait; the next claim starts the fork on the
-        # root, the target and the newest replies that fit. No counted failure.
-        self.assertEqual(['main_compaction_pending'],spent['recorded'])
-        self.assertEqual((12,0),(spent['waits'],spent['attempts']))
-        self.assertEqual((1,True),(spent['spawns'],spent['truncated']))
-        self.assertGreater(spent['omitted'],0)
-        self.assertLess(spent['messages'],61)
-        # A module reloaded meanwhile learns the spent count from the first
-        # failure receipt: one counted failure, then the bounded thread.
-        reloaded=row['waits_spent_reloaded']
-        self.assertEqual((['source_context'],1,1,True),
-                         (reloaded['recorded'],reloaded['attempts'],reloaded['spawns'],reloaded['truncated']))
-        # A new event still waits for main's compaction first (waits count, no fork).
-        fresh=row['fresh_event']
-        self.assertEqual((['main_compaction_pending']*2,2,0,0),
-                         (fresh['recorded'],fresh['waits'],fresh['attempts'],fresh['spawns']))
-        # A thread that fits is read whole; P1 keeps its immediate bounded thread.
-        self.assertEqual(([],1,False,61),(row['fits_after_waits']['recorded'],row['fits_after_waits']['spawns'],
-                                          row['fits_after_waits']['truncated'],row['fits_after_waits']['messages']))
-        urgent=row['urgent_no_wait']
-        self.assertEqual(([],1,True),(urgent['recorded'],urgent['spawns'],urgent['truncated']))
-
-    def test_a_bounded_thread_logs_to_debug_once_per_thread_and_marks_each_receipt(self):
-        # KOBE 2026-11-18: every event of an oversized thread logged a main-visible
-        # line, which flooded main's view. Three events of one thread now give three
-        # debug lines, one person-facing line, and the fact on each receipt.
-        row=self.run_persisted_harness()['bounded_many']
-        self.assertEqual((3,True),(row['spawns'],row['truncated']))
-        omitted=row['omitted']
-        self.assertGreater(omitted,0)
-        debug=[log for log in row['logs'] if log['to']=='debug']
-        shown=[log for log in row['logs'] if log['to']=='transcript']
-        self.assertEqual(['Ciel side: source thread too large for eeeeeeeeeeee; %d older replies left out'%omitted]*3,
-                         [log['text'] for log in debug])
-        self.assertEqual(1,len(shown))
-        self.assertIn('%d older replies left out'%omitted,shown[0]['text'])
-        self.assertIn('receipt and the SSE pane',shown[0]['text'])
-        self.assertEqual([{'omitted_replies':omitted}]*3,[renew['bounded'] for renew in row['renews']])
-        self.assertEqual(['e'*64]*3,[renew['receipt'] for renew in row['renews']])
-        # Every claim generation records its own receipt fact.
-        self.assertEqual(3,len({renew['generation'] for renew in row['renews']}))
-
-    def test_the_mod_wait_limit_matches_the_router(self):
-        from ciel_runtime_support.side_intake_processing import MAIN_COMPACTION_WAITS
-        source=(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js').read_text(encoding='utf-8')
-        self.assertIn('const MAIN_COMPACTION_WAITS = '+str(MAIN_COMPACTION_WAITS)+'\n',source)
-
-    def test_persisted_mcp_result_context_budget_and_spawn_proof(self):
-        # Owned probe mcp-size-none-ee41a3e2 (Claude Code 2.1.321): a >25K-token
-        # MCP text result reaches $.mcp.call as a stub naming the saved file.
-        row=self.run_persisted_harness()
+        row=json.loads(done.stdout)
         self.assertEqual((1,61,None),(row['persisted_ok']['spawns'],row['persisted_ok']['messages'],row['persisted_ok']['failure']))
         # Claude Code 2.1.326 adds -<1-6 lowercase base-36> after the ms (official
         # CHANGELOG 2.1.326, #105138). KOBE 2026-11-17 quarantined 18 P3 events
@@ -1040,7 +952,7 @@ class SideModTests(unittest.TestCase):
         self.assertEqual('P0',row['sourcePriority'])
         self.assertTrue(row['instructsP0'])
         self.assertEqual(['P0'],row['resolvedPriority'])
-        self.assertEqual(['Side P0 queued n9 · Production outage · P0 registered; fork launch pending (the outcome follows in a separate notice)'],row['appends'])
+        self.assertEqual(['Side P0 queued n9 · Production outage · fork starting'],row['appends'])
 
     def test_p0_activation_failure_is_shown_to_the_person(self):
         row=self.run_p0('fail')
@@ -1100,10 +1012,7 @@ class SideModTests(unittest.TestCase):
         source=(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js').read_text(encoding='utf8')
         self.assertIn('status: report the current Work state directly. No request recap and no Work',source)
         self.assertIn('info: gather only what is needed, organize it, and answer. No Work',source)
-        self.assertIn('request: understand what the person asks using source_message plus the',source)
-        # 2026-11-17: the restatement is understanding, sent before the board commit.
-        self.assertIn('understanding: what you understood this message to ask or say, in your own',source)
-        self.assertIn('never start with "ACK"',source)
+        self.assertIn('request: restate what the person asks using source_message plus the transcript',source)
         # ciel-walkie 2026-11-10: Celly 121710 and Daniel 121677 were both
         # replaced by a stale Grant 121686 decision copied from main context.
         self.assertIn("The decision MUST describe this event's source_message", source)
@@ -1111,7 +1020,7 @@ class SideModTests(unittest.TestCase):
         self.assertIn('verify every person, message id, approval, result and', source)
         # Owned run 2026-11-09: the recap dropped "mobile browsers", and a new
         # payment outage was merged into the active payment refactoring item.
-        self.assertIn('understanding carries every concrete requirement,\n  constraint, target, environment and deadline',source)
+        self.assertIn('every\n  concrete requirement, constraint, target, environment and deadline',source)
         self.assertIn("Update an existing item only when the event is\n  about that item's own requested outcome",source)
         self.assertIn('A different problem, failure, incident or\n  feature is a new item even in the same area or system',source)
         self.assertIn('an urgent new problem is create with priority P1',source)
@@ -1134,9 +1043,9 @@ class SideModTests(unittest.TestCase):
                          '- call Agent, start, resume or message any agent/subagent/fork;',
                          '- ACK, reply, SendMessage or send anything to the source or any channel.'):
                 self.assertIn(rule,instruction)
-            self.assertIn('The host alone commits one decision and sends every\nmessage to the source.',instruction)
+            self.assertIn('The host alone commits one decision and sends the one\noutbox reply.',instruction)
             self.assertIn('Your final answer MUST be exactly the decision JSON',instruction)
-            self.assertIn('{"understanding":"...","decision":{...},"expected_version":N}.',instruction)
+            self.assertIn('Return one JSON object: {"decision":{...},"expected_version":N}.',instruction)
             self.assertIn('target_message_id',instruction)
 
     def test_reply_route_override_is_not_mcp_inheritance(self):

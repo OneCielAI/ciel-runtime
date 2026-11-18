@@ -241,9 +241,7 @@ async function contextBudgetBytes($) {
 // newest replies that fit, with thread_truncated and omitted_replies. The
 // caller compacts main first when that can make room; past that, it uses
 // bound() instead of failing (2026-11-16: Walkie thread 63773 was quarantined
-// after 6 tries). "Past that" is either a compaction this module ran within
-// COMPACT_COOLDOWN_MS or the event's durable compaction waits used up
-// (compactionWaitsSpent). The thread is read once; bound() makes no further reads.
+// after 6 tries). The thread is read once; bound() makes no further reads.
 async function fetchSourceMessage($,spec,event = {}) {
   const truncated = event.source_truncated === true
   if (spec === undefined || spec === null) {
@@ -417,9 +415,9 @@ even though the tools are present. For this event you MUST NOT:
 - mutate Work (work_* create/update/execute/report/handoff/resolve or similar);
 - call Agent, start, resume or message any agent/subagent/fork;
 - ACK, reply, SendMessage or send anything to the source or any channel.
-Only read and reason. The host alone commits one decision and sends every
-message to the source. Your final answer MUST be exactly the decision JSON
-described below.
+Only read and reason. The host alone commits one decision and sends the one
+outbox reply. Your final answer MUST be exactly the decision JSON described
+below.
 
 First read source_message when present (source_context verified_thread); it is
 the complete verified Walkie thread (root plus every reply) and
@@ -447,10 +445,10 @@ Classify exactly:
 - status: report the current Work state directly. No request recap and no Work.
 - info: gather only what is needed, organize it, and answer. No Work.
 - clarify: required facts are missing; ask one precise question. No Work.
-- request: understand what the person asks using source_message plus the
-  transcript, then queue it. understanding carries every concrete requirement,
-  constraint, target, environment and deadline they gave, in one to three
-  sentences of your own; "Registered" alone is not understanding.
+- request: restate what the person asks using source_message plus the transcript,
+  then queue it. The reply is that recap, in the person's language: every
+  concrete requirement, constraint, target, environment and deadline they gave,
+  in one to three sentences. "Registered" alone is not a recap.
   Search every Work node first. Update an existing item only when the event is
   about that item's own requested outcome: a follow-up, correction, addition or
   order/priority change for it. A different problem, failure, incident or
@@ -500,20 +498,7 @@ Never claim implementation started. source_priority is the source's P0..P5 hint.
 Under adaptive policy infer priority from deadline, impact and blocking; under
 explicit policy follow stated priority and clarify conflicts.
 
-The source has already received the host's receipt ACK. The host then sends
-two messages from your answer, in this order:
-1. understanding: what you understood this message to ask or say, in your own
-   words and in the person's language. Name the concrete outcome, targets,
-   constraints and deadline you took from it, and say how you will handle it
-   (answer now, ask, queue as new Work, add to an existing item). Never copy
-   the message, never start with "ACK", never say only that it was received.
-2. reply: the result for the person after the queue was adjusted: the answer
-   itself, the one question, or what was queued. Do not repeat understanding.
-   The host appends the committed Work number, priority and queue place.
-For a gate re-check (no person, no source) keep understanding to one line.
-
-Return one JSON object:
-{"understanding":"...","decision":{...},"expected_version":N}.
+Return one JSON object: {"decision":{...},"expected_version":N}.
 Decision fields: action, kind, summary, reply, and when needed item_id, title,
 note, priority, queue_position, release_waits, time_limit, relay. No other fields.
 "kind" is the classification above (status, info, clarify or request).
@@ -521,7 +506,7 @@ note, priority, queue_position, release_waits, time_limit, relay. No other field
 - kind status or info: action answer
 - kind clarify: action clarify
 - kind request: action create, update or prioritize
-Example: {"understanding":"...","decision":{"action":"answer","kind":"status","summary":"...","reply":"..."},"expected_version":N}
+Example: {"decision":{"action":"answer","kind":"status","summary":"...","reply":"..."},"expected_version":N}
 Legacy advise is not used. The host validates and commits every field.`
 
 async function stopRetired($) {
@@ -569,22 +554,6 @@ export async function startSide($) {
 // Whether main is inside a turn; register.js owns that state (turn.start/complete).
 let mainBusy = () => false
 export function sideMainBusy(fn) { mainBusy = fn }
-// register.js resumes a parked worker on its own lease when its wait is cleared
-// (Stage 3, 2026-11-17): (leaseIds) -> Map(lease id -> true | reason). It hands
-// over a closure bound to its session at session.start; the Claude Code mod
-// loader refuses $ passed to a function held in a variable, so none is passed.
-let parkedResume = null
-export function sideParkedResume(fn) { parkedResume = fn }
-async function resumeParked(leases) {
-  if (!leases.length) return new Map()
-  if (!parkedResume) return new Map(leases.map(lease => [lease.id,'the Work host cannot resume workers here']))
-  try { return await parkedResume(leases.map(lease => lease.id)) || new Map() }
-  catch (error) { return new Map(leases.map(lease => [lease.id,'the automatic resume failed: '+line(String(error?.message || error),120)])) }
-}
-function parkedNote(lease,outcomes) {
-  return lease.host_id+' (lease '+lease.id+', item '+lease.item_id+')'
-    +(outcomes.get(lease.id) === true ? '' : ' was not resumed automatically: '+line(String(outcomes.get(lease.id) || 'unknown'),160))
-}
 // Main compaction before a side actor (2026-11-15). A Walkie source thread that
 // does not fit in the context main has left is not a source failure: main is
 // compacted between turns ($.session.compact rejects while a turn runs; a
@@ -597,28 +566,6 @@ const compactions = new Map()
 function compactionRecent(identity) {
   const at = compactions.get(identity)?.at || 0
   return at > 0 && Date.now() - at < COMPACT_COOLDOWN_MS
-}
-// The waits an over-budget event may spend for main's compaction; mirrors
-// side_intake_processing.MAIN_COMPACTION_WAITS (a test compares the two).
-// The router counts them durably and returns the count in every work_side_fail
-// receipt. A main that stays busy is never compacted by this module (it
-// compacts only between turns), so the cooldown above alone never opened the
-// bounded thread: Walkie 2026-11-17, thread 137008, 22 events spent all 12
-// waits and then 6 counted failures before the original reached main.
-const MAIN_COMPACTION_WAITS = 12
-const COMPACTION_WAITS_CAP = 1000
-// identity\0receipt_id -> the durable compaction_waits the router last returned.
-const compactionWaitCounts = new Map()
-function noteCompactionWaits(identity, receipt) {
-  const waits = receipt?.side_failure?.compaction_waits
-  if (typeof receipt?.receipt_id !== 'string' || !Number.isInteger(waits)) return
-  const key = identity + '\0' + receipt.receipt_id
-  compactionWaitCounts.delete(key)
-  compactionWaitCounts.set(key, waits)
-  if (compactionWaitCounts.size > COMPACTION_WAITS_CAP) compactionWaitCounts.delete(compactionWaitCounts.keys().next().value)
-}
-function compactionWaitsSpent(identity, receiptId) {
-  return (compactionWaitCounts.get(identity + '\0' + receiptId) || 0) >= MAIN_COMPACTION_WAITS
 }
 async function compactMain($, identity) {
   const state = compactions.get(identity) || {}
@@ -1621,31 +1568,6 @@ export async function sideRecordStopWake($,identity,presentation) {
     return result?.state === 'queued'
   } catch { return false /* Retry the record only; never re-present. */ }
 }
-// A bounded source thread (KOBE 2026-11-18): every event of a large thread used
-// to log a main-visible line, which flooded main's view. Each event's line now
-// goes to the debug log; the person sees one line per source thread per session.
-// The bounded fact and its left-out count stay on the receipt (work_side_renew
-// source_bounded), which the side receipt pane and the SSE pane show.
-const boundedThreadNotices = new Set()
-async function noteBoundedThread($,identity,event,source) {
-  const omitted = source.omitted_replies
-  try { $.ui.log('Ciel side: source thread too large for '+event.receipt_id.slice(0,12)
-    +'; '+omitted+' older replies left out',{to:'debug'}) } catch {}
-  const thread = identity+'|'+String(source.conversation_id || '')+'|'+String(source.root_id || '')
-  if (!boundedThreadNotices.has(thread)) {
-    boundedThreadNotices.add(thread)
-    if (boundedThreadNotices.size > 200) boundedThreadNotices.delete(boundedThreadNotices.values().next().value)
-    try { $.ui.log('Ciel side: source thread '+line(source.root_id,24)+' is larger than main has room for; its side forks get the root, '
-      +'the target message and the newest replies ('+omitted+' older replies left out for '+event.receipt_id.slice(0,12)
-      +'). Later events of this thread show it in their receipt and the SSE pane only.') } catch {}
-  }
-  const previous = displayedReceipts.get(identity)?.get(event.receipt_id)
-  if (previous) display($,identity,{side_inbox_receipts:[{...previous,source_bounded:{omitted_replies:omitted}}]})
-  try {
-    await callRouter($,'work_side_renew',{source_bounded:{omitted_replies:omitted}},
-      {receipt_id:event.receipt_id,generation:event.generation},identity)
-  } catch { /* The fork still gets the bounded thread; only the receipt note is missing. */ }
-}
 // Resolves true when this call took an event from the durable inbox (started,
 // or failed and recorded), so the caller claims again at once instead of
 // leaving the rest of a burst for the next periodic tick.
@@ -1671,17 +1593,7 @@ export async function pollSide($, identity) {
   // Ordinary events use max_active slots. One more slot is reserved for a P1
   // event, so an urgent message never waits for two long ordinary forks.
   const running = [...actors.values()].filter(a => a.current)
-  if (busy || running.length > maxActive || (running.length === maxActive && running.some(a => a.reserved))) {
-    // Every slot is busy: the receipt ACK still goes out at once (status lists
-    // the events owed one). Claiming waits for a slot; the ACK does not.
-    if (!busy && !ackSweep) {
-      ackSweep = (async () => {
-        try { await sendOwedAcks($,identity,(await callRouter($,'work_side_status',{},{},identity)).pending_acks) }
-        catch {} finally { ackSweep = null }
-      })()
-    }
-    return false
-  }
+  if (busy || running.length > maxActive || (running.length === maxActive && running.some(a => a.reserved))) return false
   const urgentOnly = running.length === maxActive
   busy = true
   const generation = lifecycle
@@ -1689,8 +1601,6 @@ export async function pollSide($, identity) {
   try {
     const claimStarted = Date.now()
     const answer = await callRouter($,'work_side_claim',{owner:'side-'+generation,...(urgentOnly ? {urgent_only:true} : {})},{},identity)
-    // Receipt ACKs first: every event that arrived, claimed or still waiting.
-    await sendOwedAcks($,identity,answer.pending_acks)
     for (const reply of answer.pending_replies || []) {
       $.clock.after(10,async()=>{await recoverReply($,identity,{receipt_id:reply.receipt_id})})
     }
@@ -1739,17 +1649,13 @@ export async function pollSide($, identity) {
     // or native spawn; the claimed-error path below records processing_error.
     if (typeof event.generation !== 'string' || !CLAIM_GENERATION.test(event.generation))
       throw new Error('invalid_claim_generation')
-    // The receipt ACK does not wait for priority, context, compaction or AI.
-    // It was normally sent above; this covers an event received meanwhile.
-    await sendOwedAcks($,identity,[event.receipt_id])
+    // ACK/readback does not wait for priority, context, compaction or AI. A
+    // failure keeps the processing path alive; the receipt shows its state.
+    try { await submitAck($,identity,event) } catch (error) {
+      try { $.ui.log('Ciel side: immediate ACK failed for '+event.receipt_id.slice(0,12)+' · '+line(error?.message || error,160)) } catch {}
+    }
     const settings = answer.settings || {}
     maxActive = Number.isInteger(settings.max_active) ? Math.max(1,Math.min(16,settings.max_active)) : 2
-    if (event.proposal) {
-      // Its model answer survived a restart: commit it, never ask the model again.
-      claimed = null
-      await resumeSide($,identity,event)
-      return generation === lifecycle
-    }
     // Host claim attaches one complete, versioned board projection. The native
     // fork itself inherits main's complete conversation and execution surface.
     const workload = event.workload
@@ -1768,15 +1674,13 @@ export async function pollSide($, identity) {
     const urgent = event.source_priority === 'P0' || event.source_priority === 'P1'
     try { sourceMessage = await fetchSourceMessage($,event.source_read,event) } catch (error) {
       // A thread that does not fit main's remaining context waits for one
-      // compaction of main first (catch below). Past that (this module
-      // compacted main within the cooldown, or the event's durable waits are
-      // used up), or past the static limit, or for an urgent event, the fork
-      // gets a bounded thread instead.
+      // compaction of main first (catch below). Past that, or past the static
+      // limit, or for an urgent event, the fork gets a bounded thread instead.
       if (!(error instanceof SourcePrefetchError) || typeof error.bound !== 'function'
-          || (error.mainContext && !urgent && !compactionRecent(identity)
-              && !compactionWaitsSpent(identity,event.receipt_id))) throw error
+          || (error.mainContext && !urgent && !compactionRecent(identity))) throw error
       sourceMessage = error.bound()
-      await noteBoundedThread($,identity,event,sourceMessage)
+      try { $.ui.log('Ciel side: source thread too large for '+event.receipt_id.slice(0,12)
+        +'; '+sourceMessage.omitted_replies+' older replies left out') } catch {}
     }
     const text = JSON.stringify({event_id:event.receipt_id,parent_session_id:identity,claim_generation:event.generation,
       external_event_preview:eventView(event.text),source_context:sourceMessage.source_context,
@@ -1868,21 +1772,6 @@ export async function sideTool($,e,next) { return null }
 // event: before source prefetch, main compaction, model choice or a fork.
 // It has its own outbox and Walkie client_id, so the later processing reply
 // still sends exactly once and an uncertain ACK is never blindly resent.
-// Receipt ACKs owed to events that arrived (pending_acks from claim/status):
-// sent here before any slot check, so an event waiting for a side actor slot
-// is still acknowledged at once. One send at a time per receipt; the router's
-// outbox makes a repeat a no-op and never resends an uncertain one.
-const ackInFlight = new Set()
-let ackSweep = null
-export async function sendOwedAcks($,identity,receiptIds) {
-  for (const receiptId of (Array.isArray(receiptIds) ? receiptIds : []).slice(0,20)) {
-    if (typeof receiptId !== 'string' || !/^[0-9a-f]{64}$/.test(receiptId) || ackInFlight.has(receiptId)) continue
-    ackInFlight.add(receiptId)
-    try { await submitAck($,identity,{receipt_id:receiptId}) } catch (error) {
-      try { $.ui.log('Ciel side: receipt ACK failed for '+receiptId.slice(0,12)+' · '+line(error?.message || error,160)) } catch {}
-    } finally { ackInFlight.delete(receiptId) }
-  }
-}
 async function submitAck($,identity,event) {
   const prepared = await callRouter($,'work_side_ack',{receipt_id:event.receipt_id,state:'prepare'},{},identity)
   if (!prepared.arguments) {
@@ -1896,25 +1785,6 @@ async function submitAck($,identity,event) {
   } catch { /* A remote send may have happened; record uncertain, never resend. */ }
   const update = await callRouter($,'work_side_ack',{receipt_id:event.receipt_id,state},{attempt_id:prepared.attempt_id},identity)
   if (update.receipt) display($,identity,{side_inbox_receipts:[update.receipt]})
-  return state
-}
-// The understanding message: its own outbox phase and Walkie client_id. An
-// uncertain send is recorded and never repeated; the decision still commits.
-async function submitUnderstanding($,actor,event,proposal) {
-  const prepared = await callRouter($,'work_side_understanding',{...proposal,state:'prepare'},
-    {receipt_id:event.receipt_id,generation:event.generation},actor.identity)
-  if (!prepared.arguments) {
-    if (prepared.receipt) display($,actor.identity,{side_inbox_receipts:[prepared.receipt]})
-    return prepared.state
-  }
-  let state = 'uncertain'
-  try {
-    const sent = await $.mcp.call(prepared.server,prepared.tool,prepared.arguments)
-    state = sent && !sent.isError ? 'submitted' : 'failed'
-  } catch { /* A remote send may have happened; record uncertain, never resend. */ }
-  const update = await callRouter($,'work_side_understanding',{state},
-    {receipt_id:event.receipt_id,generation:event.generation,attempt_id:prepared.attempt_id},actor.identity)
-  if (update.receipt) display($,actor.identity,{side_inbox_receipts:[update.receipt]})
   return state
 }
 async function submitReply($,actor,event) {
@@ -1939,10 +1809,7 @@ async function recordFailure($, actor, event, category, reason = '', extra = {})
       category, model:actor.model || '', model_fingerprint:actor.modelFingerprint || '', agent_id:actor.id || '',
       ...(reason ? {reason:line(reason,300)} : {}), ...extra
     },{receipt_id:event.receipt_id,generation:event.generation},actor.identity)
-    if (value.receipt) {
-      noteCompactionWaits(actor.identity,value.receipt)
-      display($,actor.identity,{side_inbox_receipts:[value.receipt]})
-    }
+    if (value.receipt) display($,actor.identity,{side_inbox_receipts:[value.receipt]})
     // The sixth/terminal failure carries the original-forward offer in this
     // same host dispatch. Claim/status recovery also offers it after a crash.
     if (value.main_forward?.receipt_id && typeof value.main_forward.text === 'string') {
@@ -1959,11 +1826,7 @@ async function shareWithMain($,event,result) {
   const urgent = ['create','prioritize','update'].includes(result.action) && ['P0','P1'].includes(result.priority)
   if (!urgent) return
   const p0 = result.priority === 'P0'
-  // Activation only registers the goal (Celly 2026-11-17: "fork starting" was
-  // printed for 9 of 10 goals before any fork existed). The Work host reports
-  // the launch outcome separately (register.js parallelP0Outcomes).
-  const note = p0 ? (result.p0?.error ? ' · P0 not activated: '+line(result.p0.error,160)
-    : ' · P0 registered; fork launch pending (the outcome follows in a separate notice)') : ''
+  const note = p0 ? (result.p0?.error ? ' · P0 not activated: '+line(result.p0.error,160) : ' · fork starting') : ''
   try { await $.session.append({message:{type:'system',content:[{type:'text',
     text:'Side '+result.priority+' queued '+result.item_id+' · '+line(result.title || result.summary,160)+note}]}}) } catch {}
 }
@@ -1972,11 +1835,9 @@ async function shareWithMain($,event,result) {
 //  - a fork running on that item's lease: its inbox (read at its next request,
 //    owned probe delivery-4f4c90b8: delivered, no new spawn);
 //  - otherwise main: appended (busy or idle); an idle main is then woken by a
-//    prompt that holds none of it. A worker parked in waiting_input is resumed
-//    by the Work host first, on its own lease and fork (register.js
-//    parallelResumeReleased: reacquire, resume authorization, session.send).
-//    Main is told to resume through SendMessage only for a parked worker that
-//    did not resume, with the reason (Stage 3, 2026-11-17).
+//    prompt that holds none of it. A worker
+//    parked in waiting_input is named for main to resume through SendMessage,
+//    where the lease reacquire and resume authorization already live.
 // Nothing here grants execution approval or needs an acknowledgment.
 async function notifyReleased($,identity,event,result) {
   let leases = {}
@@ -2008,18 +1869,11 @@ async function notifyReleased($,identity,event,result) {
     else toMain.push(...rows)
   }
   if (!toMain.length) return
-  const parked = [...new Map(toMain.filter(({lease}) => lease?.state === 'waiting_input')
-    .map(({lease}) => [lease.id,lease])).values()]
-  const outcomes = await resumeParked(parked)
-  const resumed = parked.filter(lease => outcomes.get(lease.id) === true)
-  const stuck = parked.filter(lease => outcomes.get(lease.id) !== true)
-  for (const lease of resumed) $.ui.log('Side released wait → parked worker '+lease.host_id.slice(0,12)+' resumed by the Work host')
+  const parked = toMain.filter(({lease}) => lease?.state === 'waiting_input')
   const text = 'Ciel side released recorded wait'+(toMain.length > 1 ? 's' : '')+' '
     +toMain.map(({wait}) => wait.id+' ("'+line(wait.waiting_on,160)+'")').join(', ')+' — '+source+'. '
-    +(resumed.length ? 'The Work host resumed the parked worker'+(resumed.length > 1 ? 's' : '')+' on '
-      +(resumed.length > 1 ? 'their' : 'its')+' own lease: '+resumed.map(lease => parkedNote(lease,outcomes)).join(', ')+'. ' : '')
-    +(stuck.length ? 'Parked worker'+(stuck.length > 1 ? 's' : '')+' waiting on '+(stuck.length > 1 ? 'them' : 'it')+': '
-      +stuck.map(lease => parkedNote(lease,outcomes)).join(', ')
+    +(parked.length ? 'Parked worker'+(parked.length > 1 ? 's' : '')+' waiting on '+(parked.length > 1 ? 'them' : 'it')+': '
+      +parked.map(({lease}) => lease.host_id+' (lease '+lease.id+', item '+lease.item_id+')').join(', ')
       +'; resume with SendMessage to that worker if this is what it waited for. ' : '')
     +'The wait is already cleared; no acknowledgment is needed. This is not new execution approval.'
   const state = await noticeToMain($,identity,event.receipt_id,text)
@@ -2052,26 +1906,20 @@ async function relayToItem($,identity,event,result) {
   const ask = ' Decide whether this matters to your current work; if not, ignore it. No acknowledgment is needed. '
     +'This is not new execution approval and does not change your approved scope.'
   const delivered = []
-  // A parked fork (waiting_input) is resumed by the Work host first when its
-  // wait is cleared on the board (Stage 3, 2026-11-17); it then gets the relay
-  // in its inbox like a running fork. One the host could not resume is named
-  // for main's SendMessage, with the reason.
-  const parked = forks.filter(row => row.state === 'waiting_input')
-  const outcomes = await resumeParked(parked)
-  const resumed = parked.filter(row => outcomes.get(row.id) === true)
-  const stuck = parked.filter(row => outcomes.get(row.id) !== true)
-  for (const lease of [...forks.filter(row => row.state === 'running'), ...resumed]) {
+  // Only a running fork is messaged. A parked one (waiting_input) is never
+  // resumed from here: as with a released wait, its lease reacquire and resume
+  // stay on main's SendMessage path, so main is told who it is.
+  for (const lease of forks.filter(row => row.state === 'running')) {
     let sent = null
     try { sent = await $.session.send({to:{agentId:lease.host_id},
       text:header+'\nOriginal message:\n'+message+'\n'+ask}) } catch {}
     if (sent?.isDelivered) delivered.push(lease.host_id)
   }
+  const parked = forks.filter(row => row.state === 'waiting_input')
   const forkNote = (delivered.length ? ' Also delivered to the Work fork'+(delivered.length > 1 ? 's' : '')+' running it: '
     +delivered.join(', ')+'.' : ' No Work fork received it.')
-    +(resumed.length ? ' The Work host resumed the parked worker'+(resumed.length > 1 ? 's' : '')+' on it: '
-      +resumed.map(row => parkedNote(row,outcomes)).join(', ')+'.' : '')
-    +(stuck.length ? ' Parked worker'+(stuck.length > 1 ? 's' : '')+' on it: '
-      +stuck.map(row => parkedNote(row,outcomes)).join(', ')
+    +(parked.length ? ' Parked worker'+(parked.length > 1 ? 's' : '')+' on it: '
+      +parked.map(row => row.host_id+' (lease '+row.id+', item '+row.item_id+')').join(', ')
       +'; resume with SendMessage to that worker only if this matters to it.' : '')
   const state = await noticeToMain($,identity,event.receipt_id,header+'\nOriginal message:\n'+message+'\n'+forkNote+ask)
   $.ui.log('Side relay '+item+' → main ('+state+')'+(delivered.length ? ' + '+delivered.length+' fork(s)' : ''))
@@ -2103,60 +1951,11 @@ export function decisionOf(answer) {
         // absent; a present value is still validated by the host.
         const decision = Object.fromEntries(Object.entries(proposed)
           .filter(([key, value]) => DECISION_FIELDS.has(key) && value !== null))
-        // The actor's own restatement (top level). The router refuses a
-        // missing one, an echo of the source, or one starting with "ACK".
-        const understanding = typeof value.understanding === 'string' ? value.understanding
-          : typeof value.decision.understanding === 'string' ? value.decision.understanding : undefined
-        return {...value, decision, understanding, sent_via: value.sent_via || sent_via}
+        return {...value, decision, sent_via: value.sent_via || sent_via}
       }
     } catch {}
   }
   throw new Error('side answer carries no decision JSON')
-}
-// Steps 2-4 of an event (user requirement 2026-11-17): the actor's own
-// restatement goes to the source before the board changes, then the decision
-// commits, then the final reply. The router persists the whole proposal at the
-// understanding step, so a claim after a restart offers it back (resumeSide).
-async function commitProposal($,actor,event,proposal,sentVia,usage) {
-  await submitUnderstanding($,actor,event,proposal)
-  const value = await callRouter($,'work_side_resolve',{decision:proposal.decision,
-    expected_version:proposal.expected_version,usage:usage || null},
-    {receipt_id:event.receipt_id,generation:event.generation,
-      work_digest:event.work_digest,
-      reported_sends:Array.isArray(sentVia) ? sentVia : []},actor.identity)
-  display($,actor.identity,{side_inbox_receipts:[value.receipt]})
-  // A create whose candidate set changed is returned to pending once. This
-  // actor is done, but the receipt is not failed and sends no stale reply.
-  actor.resolved = true; actor.lastReceipt = event.receipt_id
-  if (value.recheck !== 'work_changed') {
-    if (value.result && !value.result.duplicate) await shareWithMain($,event,value.result)
-    // Time limits reach main immediately after the durable decision commit,
-    // without waiting for another claim/poll or for a side slot to free.
-    if (value.result?.main_handoff?.kind === 'time_limit' && !value.result.duplicate)
-      await scheduleMainWake($,actor.identity,{event_id:event.receipt_id,...value.result.main_handoff})
-    if (value.result?.relay?.item_id && !value.result.duplicate)
-      // One host notice per receipt: a relay also names any wait it released.
-      void relayToItem($,actor.identity,event,value.result).catch(() => {})
-    else if (value.result?.released_waits?.length && !value.result.duplicate)
-      void notifyReleased($,actor.identity,event,value.result).catch(() => {})
-    $.clock.after(10, async () => { await recoverReply($,actor.identity,event) })
-  }
-}
-// A claim that carries a saved proposal: the model already answered before a
-// restart or lost lease. No fork; the saved proposal is committed as is, and an
-// understanding already sent (or uncertain) is never sent again.
-async function resumeSide($,identity,event) {
-  const actor = {identity,id:'',model:'inherit',modelFingerprint:'native-fork',resolved:false}
-  try {
-    const proposal = event.proposal
-    if (!proposal || typeof proposal !== 'object' || !proposal.decision || typeof proposal.decision !== 'object')
-      throw new Error('saved side proposal malformed')
-    await commitProposal($,actor,event,{understanding:proposal.understanding,decision:proposal.decision,
-      expected_version:Number.isInteger(proposal.expected_version) ? proposal.expected_version : null},[],null)
-    try { $.ui.log('Ciel side: resumed saved decision for '+event.receipt_id.slice(0,12)+' without a new actor') } catch {}
-  } catch (error) {
-    await recordFailure($,actor,event,'resume_error',String(error?.message || error))
-  }
 }
 export async function completeSide($,e) {
   const actor = actors.get(e.agentId)
@@ -2172,12 +1971,31 @@ export async function completeSide($,e) {
       // A plugin's own hooks do not see the tool calls of an agent it spawned
       // (turn.step/tool.call, probed 2026-11-07 on Claude Code 2.1.310), so the
       // side AI's own report of what it sent is carried, labelled as reported.
-      const {sent_via, understanding, ...proposal} = decisionOf(e.answer)
+      const {sent_via, ...proposal} = decisionOf(e.answer)
       // The version only records which snapshot the decision saw; the host
       // re-validates against the current board, so a missing one is not fatal.
       if (!Number.isInteger(proposal.expected_version)) proposal.expected_version = event.workload?.version ?? null
-      await commitProposal($,actor,event,{understanding,decision:proposal.decision,
-        expected_version:proposal.expected_version},sent_via,e.usage)
+      const value = await callRouter($,'work_side_resolve',{...proposal,usage:e.usage || null},
+        {receipt_id:event.receipt_id,generation:event.generation,
+          work_digest:event.work_digest,
+          reported_sends:Array.isArray(sent_via) ? sent_via : []},actor.identity)
+      display($,actor.identity,{side_inbox_receipts:[value.receipt]})
+      // A create whose candidate set changed is returned to pending once. This
+      // actor is done, but the receipt is not failed and sends no stale reply.
+      actor.resolved = true; actor.lastReceipt = event.receipt_id
+      if (value.recheck !== 'work_changed') {
+        if (value.result && !value.result.duplicate) await shareWithMain($,event,value.result)
+        // Time limits reach main immediately after the durable decision commit,
+        // without waiting for another claim/poll or for a side slot to free.
+        if (value.result?.main_handoff?.kind === 'time_limit' && !value.result.duplicate)
+          await scheduleMainWake($,actor.identity,{event_id:event.receipt_id,...value.result.main_handoff})
+        if (value.result?.relay?.item_id && !value.result.duplicate)
+          // One host notice per receipt: a relay also names any wait it released.
+          void relayToItem($,actor.identity,event,value.result).catch(() => {})
+        else if (value.result?.released_waits?.length && !value.result.duplicate)
+          void notifyReleased($,actor.identity,event,value.result).catch(() => {})
+        $.clock.after(10, async () => { await recoverReply($,actor.identity,event) })
+      }
     }
   } catch (error) { reason = String(error?.message || error) /* Recorded below, never in the main transcript. */ }
   if (event && !actor.resolved) {

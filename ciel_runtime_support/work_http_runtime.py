@@ -21,11 +21,7 @@ class WorkHttpRoutes:
 
 
 def build_work_http(state_dir, instance_dir, load_config, current_provider, current_alias,
-                    write_json, version, fingerprint, instance_id, observer, save_config=None, write_text=None,
-                    restart_service=None, inputs_since=None):
-    """``restart_service`` returns the router's RuntimeSessionRestartService; with it,
-    runtime GET shows safe-restart status and POST /runtime/restart queues one.
-    ``inputs_since(epoch)`` counts runtime inputs that arrived after an epoch."""
+                    write_json, version, fingerprint, instance_id, observer, save_config=None, write_text=None):
     def read_scope():
         try:
             value = json.loads((Path(instance_dir) / "compaction-scope.json").read_text(encoding="utf-8"))
@@ -66,18 +62,7 @@ def build_work_http(state_dir, instance_dir, load_config, current_provider, curr
         # audit rows that a model's own work_parallel_status never receives.
         return project_parallel(parallel_store(), identity, board, host_view=True, config=load_config())
 
-    restart_status = restart_queue = None
-    if restart_service is not None:
-        from .runtime_session_restart_menu import instance_status
-
-        def restart_status():
-            return instance_status(restart_service(), Path(instance_dir), inputs_since)
-
-        def restart_queue(**kwargs):
-            # This router instance only: its own active clients are the targets.
-            return restart_service().queue(**kwargs, instance_dir=Path(instance_dir))
-
     api = WorkHttpController(WorkHttpServices(state_dir, load_config, current_identity,
         runtime_status, write_json, instance_id, recent_errors, parallel_status,
-        save_config, parallel_store, restart_status=restart_status, restart_queue=restart_queue))
+        save_config, parallel_store))
     return WorkHttpRoutes(api, WorkWebController(write_text) if write_text is not None else None)
