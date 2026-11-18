@@ -241,7 +241,9 @@ async function contextBudgetBytes($) {
 // newest replies that fit, with thread_truncated and omitted_replies. The
 // caller compacts main first when that can make room; past that, it uses
 // bound() instead of failing (2026-11-16: Walkie thread 63773 was quarantined
-// after 6 tries). The thread is read once; bound() makes no further reads.
+// after 6 tries). "Past that" is either a compaction this module ran within
+// COMPACT_COOLDOWN_MS or the event's durable compaction waits used up
+// (compactionWaitsSpent). The thread is read once; bound() makes no further reads.
 async function fetchSourceMessage($,spec,event = {}) {
   const truncated = event.source_truncated === true
   if (spec === undefined || spec === null) {
@@ -579,6 +581,28 @@ const compactions = new Map()
 function compactionRecent(identity) {
   const at = compactions.get(identity)?.at || 0
   return at > 0 && Date.now() - at < COMPACT_COOLDOWN_MS
+}
+// The waits an over-budget event may spend for main's compaction; mirrors
+// side_intake_processing.MAIN_COMPACTION_WAITS (a test compares the two).
+// The router counts them durably and returns the count in every work_side_fail
+// receipt. A main that stays busy is never compacted by this module (it
+// compacts only between turns), so the cooldown above alone never opened the
+// bounded thread: Walkie 2026-11-17, thread 137008, 22 events spent all 12
+// waits and then 6 counted failures before the original reached main.
+const MAIN_COMPACTION_WAITS = 12
+const COMPACTION_WAITS_CAP = 1000
+// identity\0receipt_id -> the durable compaction_waits the router last returned.
+const compactionWaitCounts = new Map()
+function noteCompactionWaits(identity, receipt) {
+  const waits = receipt?.side_failure?.compaction_waits
+  if (typeof receipt?.receipt_id !== 'string' || !Number.isInteger(waits)) return
+  const key = identity + '\0' + receipt.receipt_id
+  compactionWaitCounts.delete(key)
+  compactionWaitCounts.set(key, waits)
+  if (compactionWaitCounts.size > COMPACTION_WAITS_CAP) compactionWaitCounts.delete(compactionWaitCounts.keys().next().value)
+}
+function compactionWaitsSpent(identity, receiptId) {
+  return (compactionWaitCounts.get(identity + '\0' + receiptId) || 0) >= MAIN_COMPACTION_WAITS
 }
 async function compactMain($, identity) {
   const state = compactions.get(identity) || {}
@@ -1703,10 +1727,13 @@ export async function pollSide($, identity) {
     const urgent = event.source_priority === 'P0' || event.source_priority === 'P1'
     try { sourceMessage = await fetchSourceMessage($,event.source_read,event) } catch (error) {
       // A thread that does not fit main's remaining context waits for one
-      // compaction of main first (catch below). Past that, or past the static
-      // limit, or for an urgent event, the fork gets a bounded thread instead.
+      // compaction of main first (catch below). Past that (this module
+      // compacted main within the cooldown, or the event's durable waits are
+      // used up), or past the static limit, or for an urgent event, the fork
+      // gets a bounded thread instead.
       if (!(error instanceof SourcePrefetchError) || typeof error.bound !== 'function'
-          || (error.mainContext && !urgent && !compactionRecent(identity))) throw error
+          || (error.mainContext && !urgent && !compactionRecent(identity)
+              && !compactionWaitsSpent(identity,event.receipt_id))) throw error
       sourceMessage = error.bound()
       try { $.ui.log('Ciel side: source thread too large for '+event.receipt_id.slice(0,12)
         +'; '+sourceMessage.omitted_replies+' older replies left out') } catch {}
@@ -1872,7 +1899,10 @@ async function recordFailure($, actor, event, category, reason = '', extra = {})
       category, model:actor.model || '', model_fingerprint:actor.modelFingerprint || '', agent_id:actor.id || '',
       ...(reason ? {reason:line(reason,300)} : {}), ...extra
     },{receipt_id:event.receipt_id,generation:event.generation},actor.identity)
-    if (value.receipt) display($,actor.identity,{side_inbox_receipts:[value.receipt]})
+    if (value.receipt) {
+      noteCompactionWaits(actor.identity,value.receipt)
+      display($,actor.identity,{side_inbox_receipts:[value.receipt]})
+    }
     // The sixth/terminal failure carries the original-forward offer in this
     // same host dispatch. Claim/status recovery also offers it after a crash.
     if (value.main_forward?.receipt_id && typeof value.main_forward.text === 'string') {

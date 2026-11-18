@@ -176,6 +176,25 @@ class SideMcpTests(unittest.TestCase):
         denied=self.invoke('work_side_fallback',{'state':'prepare','reason':'not model failure'},host)
         self.assertTrue(denied['error'])
 
+    def test_the_failure_receipt_reports_the_spent_compaction_waits(self):
+        # side-intake.js opens the bounded thread for an event whose waits are
+        # used up; it learns the count only from this receipt (2026-11-17).
+        from ciel_runtime_support.side_intake_processing import MAIN_COMPACTION_WAITS, claim, fail
+        event=claim(self.root,self.identity,'actor')
+        stored=self.inbox._load(event['receipt_id'])
+        stored['side_failure']={'category':'main_compaction_pending','compaction_waits':MAIN_COMPACTION_WAITS-1,
+                                'attempt_count':0,'failed_at':0,'retry_not_before':0,'quarantined':False}
+        self.inbox._save_file(self.inbox._event_path('pending',event['receipt_id']),stored)
+        receipt=fail(self.root,self.identity,event['receipt_id'],event['generation'],{
+            'category':'main_compaction_pending','retry_after_seconds':30},now=1000)
+        self.assertEqual(('main_compaction_pending',MAIN_COMPACTION_WAITS,0,False),
+                         tuple(receipt['side_failure'][key] for key in ('category','compaction_waits','attempt_count','quarantined')))
+        again=claim(self.root,self.identity,'actor2',now=1031)
+        receipt=fail(self.root,self.identity,again['receipt_id'],again['generation'],{
+            'category':'main_compaction_pending','retry_after_seconds':30},now=1031)
+        self.assertEqual(('source_context',MAIN_COMPACTION_WAITS,1),
+                         tuple(receipt['side_failure'][key] for key in ('category','compaction_waits','attempt_count')))
+
     def test_main_compaction_wait_is_not_a_counted_failure_and_is_bounded(self):
         from ciel_runtime_support.side_intake_processing import MAIN_COMPACTION_WAITS, claim, fail
         event=claim(self.root,self.identity,'actor')

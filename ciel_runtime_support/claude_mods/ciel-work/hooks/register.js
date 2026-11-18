@@ -848,6 +848,15 @@ function graphicNodes(view, snapshot) {
       done: Number(root.done || 0), total: Number(root.total || 0) })
   return rows.slice(0, 500)
 }
+// What a recorded side failure means now. Only a quarantine is terminal (no
+// more retries; the original goes to main). A row the router will retry is
+// "retrying", one waiting for main's compaction is "waiting": Walkie
+// 2026-11-17 showed every such row as "failed" and it read as given up.
+function sideFailureState(failure) {
+  if (!failure || typeof failure !== 'object') return ''
+  if (failure.quarantined === true) return 'quarantined'
+  return failure.category === 'main_compaction_pending' ? 'waiting' : 'retrying'
+}
 function graphicReceipts(identity) {
   const merged = [...sidePanelReceipts]
   for (const current of sideReceipts(identity)) {
@@ -862,7 +871,7 @@ function graphicReceipts(identity) {
       stage: receipt.result ? receipt.result.delivery || 'decided' : receipt.processing ? 'processing'
         : receipt.side_failure?.quarantined ? 'quarantined' : receipt.stage || 'received',
       delivery: receipt.result?.delivery || '', action: receipt.result?.action || '',
-      item_id: receipt.result?.item_id || receipt.item_id || '', failed: Boolean(receipt.side_failure),
+      item_id: receipt.result?.item_id || receipt.item_id || '', failure: sideFailureState(receipt.side_failure),
       actor: actor?.id || '' }
   })
 }

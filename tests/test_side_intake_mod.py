@@ -225,9 +225,7 @@ class SideModTests(unittest.TestCase):
         # A single 4 MiB+ page is refused at the per-call cap before parsing.
         self.assertEqual('Source read exceeds per-call limit',row['oversize']['failures'][0]['reason'])
 
-    def test_persisted_mcp_result_context_budget_and_spawn_proof(self):
-        # Owned probe mcp-size-none-ee41a3e2 (Claude Code 2.1.321): a >25K-token
-        # MCP text result reaches $.mcp.call as a stub naming the saved file.
+    def run_persisted_harness(self):
         with tempfile.TemporaryDirectory() as raw:
             path=Path(raw)
             (path/'package.json').write_text('{"type":"module"}')
@@ -235,7 +233,49 @@ class SideModTests(unittest.TestCase):
             shutil.copyfile(ROOT/'tests/side_persisted_stub_fixture.json',path/'persisted-stub-fixture.json')
             shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
             done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',check=True,timeout=60)
-        row=json.loads(done.stdout)
+        return json.loads(done.stdout)
+
+    def test_spent_compaction_waits_start_the_fork_on_the_bounded_thread(self):
+        # Walkie 2026-11-17, thread 137008: P3 events whose thread exceeded main's
+        # remaining context while main stayed busy. The mod had compacted main
+        # more than 10 minutes earlier, so the bounded thread never opened: each
+        # event spent 12 waits, then 6 counted failures, then quarantine.
+        row=self.run_persisted_harness()
+        spent=row['waits_spent']
+        # The fixed conditions: this module compacted main once, the clock then
+        # moved past the cooldown, and main stayed busy (no compaction mid-turn).
+        self.assertEqual((1,0),(spent['warm_compacts'],spent['compacts']))
+        # The 12th wait is still a wait; the next claim starts the fork on the
+        # root, the target and the newest replies that fit. No counted failure.
+        self.assertEqual(['main_compaction_pending'],spent['recorded'])
+        self.assertEqual((12,0),(spent['waits'],spent['attempts']))
+        self.assertEqual((1,True),(spent['spawns'],spent['truncated']))
+        self.assertGreater(spent['omitted'],0)
+        self.assertLess(spent['messages'],61)
+        # A module reloaded meanwhile learns the spent count from the first
+        # failure receipt: one counted failure, then the bounded thread.
+        reloaded=row['waits_spent_reloaded']
+        self.assertEqual((['source_context'],1,1,True),
+                         (reloaded['recorded'],reloaded['attempts'],reloaded['spawns'],reloaded['truncated']))
+        # A new event still waits for main's compaction first (waits count, no fork).
+        fresh=row['fresh_event']
+        self.assertEqual((['main_compaction_pending']*2,2,0,0),
+                         (fresh['recorded'],fresh['waits'],fresh['attempts'],fresh['spawns']))
+        # A thread that fits is read whole; P1 keeps its immediate bounded thread.
+        self.assertEqual(([],1,False,61),(row['fits_after_waits']['recorded'],row['fits_after_waits']['spawns'],
+                                          row['fits_after_waits']['truncated'],row['fits_after_waits']['messages']))
+        urgent=row['urgent_no_wait']
+        self.assertEqual(([],1,True),(urgent['recorded'],urgent['spawns'],urgent['truncated']))
+
+    def test_the_mod_wait_limit_matches_the_router(self):
+        from ciel_runtime_support.side_intake_processing import MAIN_COMPACTION_WAITS
+        source=(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js').read_text(encoding='utf-8')
+        self.assertIn('const MAIN_COMPACTION_WAITS = '+str(MAIN_COMPACTION_WAITS)+'\n',source)
+
+    def test_persisted_mcp_result_context_budget_and_spawn_proof(self):
+        # Owned probe mcp-size-none-ee41a3e2 (Claude Code 2.1.321): a >25K-token
+        # MCP text result reaches $.mcp.call as a stub naming the saved file.
+        row=self.run_persisted_harness()
         self.assertEqual((1,61,None),(row['persisted_ok']['spawns'],row['persisted_ok']['messages'],row['persisted_ok']['failure']))
         # Claude Code 2.1.326 adds -<1-6 lowercase base-36> after the ms (official
         # CHANGELOG 2.1.326, #105138). KOBE 2026-11-17 quarantined 18 P3 events

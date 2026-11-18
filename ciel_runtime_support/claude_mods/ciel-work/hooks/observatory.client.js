@@ -25,7 +25,10 @@ function stage(receipt) {
   if (receipt.actor) return 'processing'
   if (receipt.delivery && !['pending', 'not_sent'].includes(receipt.delivery)) return 'answered'
   if (receipt.action === 'create' || receipt.action === 'update' || receipt.item_id) return 'work'
-  if (receipt.failed) return 'failed'
+  // Only a terminal (quarantined) failure is "failed". A failure the router
+  // retries is "retrying"; a wait for main's compaction is "waiting".
+  if (receipt.failure === 'quarantined' || receipt.stage === 'quarantined') return 'failed'
+  if (receipt.failure === 'waiting' || receipt.failure === 'retrying') return receipt.failure
   return receipt.stage || 'received'
 }
 function stageColor(value) {
@@ -33,6 +36,7 @@ function stageColor(value) {
   if (value === 'answered') return C.green
   if (value === 'work') return C.violet
   if (value === 'failed' || value === 'quarantined') return C.red
+  if (value === 'waiting') return C.blue
   return C.yellow
 }
 function statusColor(value) {

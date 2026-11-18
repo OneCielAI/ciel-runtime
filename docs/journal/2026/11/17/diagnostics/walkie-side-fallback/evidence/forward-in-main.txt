@@ -1,0 +1,9 @@
+forward notices ('Ciel side 처리 실패 · 원문 전달') found in the main transcript; first main occurrence per event (UTC)
+82cbf10a713a main-occurrences 3 first ('2026-11-18T00:43:42.924Z', 'attachment', 'plugin_note', None, 383915)
+70a9b74da346 main-occurrences 3 first ('2026-11-18T00:44:35.773Z', 'attachment', 'plugin_note', None, 383931)
+61d8859d1991 main-occurrences 3 first ('2026-11-18T00:46:23.246Z', 'attachment', 'plugin_note', None, 383952)
+f2ce45ede9f9 main-occurrences 3 first ('2026-11-18T00:48:40.773Z', 'attachment', 'plugin_note', None, 383993)
+f8cfcafd548d main-occurrences 3 first ('2026-11-18T00:35:58.346Z', 'attachment', 'plugin_note', None, 383722)
+24b6867d28e5 main-occurrences 3 first ('2026-11-17T22:58:01.693Z', 'attachment', 'plugin_note', None, 379948)
+2dd1ef113326 main-occurrences 3 first ('2026-11-17T22:33:11.250Z', 'attachment', 'plugin_note', None, 379046)
+distinct events forwarded in transcript: 315
