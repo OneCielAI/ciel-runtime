@@ -21,10 +21,13 @@ HOST = {'token': 'x' * 40}
 
 class GateCheckUnitTests(unittest.TestCase):
     def test_interval_default_off_and_bounds(self):
+        # User 2026-11-19: the default is 10 minutes (was 5).
         config = {}
-        self.assertEqual(5, gate.minutes(config))
+        self.assertEqual(10, gate.minutes(config))
+        gate.set_minutes(config, '5')
+        self.assertEqual({'work_gate_check': {'minutes': 5}}, config)
         gate.set_minutes(config, '10')
-        self.assertEqual({'work_gate_check': {'minutes': 10}}, config)
+        self.assertEqual({}, config)
         gate.set_minutes(config, 'off')
         self.assertEqual(0, gate.minutes(config))
         gate.set_minutes(config, 'reset')
@@ -32,8 +35,22 @@ class GateCheckUnitTests(unittest.TestCase):
         for bad in ('1441', '-1', 'soon'):
             with self.assertRaises(ValueError):
                 gate.set_minutes(config, bad)
-        self.assertEqual(5, gate.minutes({'work_gate_check': {'minutes': 99999}}))
-        self.assertEqual(5, gate.minutes({'work_gate_check': {'minutes': True}}))
+        self.assertEqual(10, gate.minutes({'work_gate_check': {'minutes': 99999}}))
+        self.assertEqual(10, gate.minutes({'work_gate_check': {'minutes': True}}))
+
+    def test_default_interval_is_ten_minutes_and_no_gates_queue_nothing(self):
+        # User 2026-11-19: no blocked or waiting item, no side check; 10 minutes apart.
+        store, ids = self._doc()
+        first = gate.due({}, store.read(), None, now=1000.0)
+        state = {'at': first['at'], 'digest': first['digest']}
+        self.assertEqual(10, first['interval_minutes'])
+        self.assertIsNone(gate.due({}, store.read(), state, now=1000.0 + 599))
+        self.assertIsNotNone(gate.due({}, store.read(), state, now=1000.0 + 600))
+        for node_id in (ids['wait'], ids['blocked']):
+            store.transaction(lambda d, n=node_id: tree.update_node(d, n, status='done', evidence='cleared'))
+        self.assertEqual([], gate.gates(store.read()))
+        for later in (1000.0 + 600, 1000.0 + 6000, 1000.0 + 86400):
+            self.assertIsNone(gate.due({}, store.read(), state, now=later))
 
     def _doc(self):
         store = WorkPlanStore(Path(self.tmp.name) / 'board.json')
@@ -306,7 +323,7 @@ class GateCheckMcpTests(unittest.TestCase):
         goal, wait = self._waiting()
         queued = self.check()
         self.assertTrue(queued['queued'])
-        self.assertEqual(5, queued['interval_minutes'])
+        self.assertEqual(10, queued['interval_minutes'])
         self.assertEqual([wait], queued['gates'])
         inbox = SideIntakeInbox(self.root, self.identity)
         row = inbox._load(queued['receipt_id'])
@@ -357,7 +374,7 @@ class GateCheckMcpTests(unittest.TestCase):
         self.assertEqual('not_due', self.check()['reason'])
         record = next(Path(self.root, 'sessions').glob('*/gate-check.json'))
         row = json.loads(record.read_text(encoding='utf-8'))
-        row['at'] = clock.time() - 301
+        row['at'] = clock.time() - gate.DEFAULT_MINUTES * 60 - 1
         record.write_text(json.dumps(row), encoding='utf-8')
         self.assertTrue(self.check()['queued'])
 
@@ -384,7 +401,7 @@ class GateCheckMcpTests(unittest.TestCase):
         self.assertTrue(failed['receipt']['side_failure']['quarantined'])
         record = next(Path(self.root, 'sessions').glob('*/gate-check.json'))
         row = json.loads(record.read_text(encoding='utf-8'))
-        row['at'] = clock.time() - 301
+        row['at'] = clock.time() - gate.DEFAULT_MINUTES * 60 - 1
         record.write_text(json.dumps(row), encoding='utf-8')
         self.assertTrue(self.check()['queued'])
 
@@ -409,7 +426,7 @@ class GateCheckMcpTests(unittest.TestCase):
         from ciel_runtime_support.work_live_settings import known_keys, settings
         self.assertIn('work_gate_check_minutes', known_keys())
         row = next(r for r in settings(self.config, {}, None)['settings'] if r['key'] == 'work_gate_check_minutes')
-        self.assertEqual((5, 'number'), (row['value'], row['kind']))
+        self.assertEqual((10, 'number'), (row['value'], row['kind']))
         saved = []
         written = settings(self.config, {'key': 'work_gate_check_minutes', 'value': '15'}, saved.append)
         row = next(r for r in written['settings'] if r['key'] == 'work_gate_check_minutes')

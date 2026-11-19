@@ -1,7 +1,7 @@
 """Gate re-check: the side actor looks at blocked/waiting Work items on a timer.
 
 User requirement 2026-11-15: when Work items carry a blocker or a recorded wait,
-a side actor checks every N minutes (default 5) whether each gate has cleared and
+a side actor checks every N minutes (default 10 since 2026-11-19, was 5) whether each gate has cleared and
 tells main. N is managed in the settings (menu, web dashboard, REST, ctl).
 
 KOBE hotfix 2026-11-18: the check is the backup for a person's approval message
@@ -34,7 +34,9 @@ import re
 import time
 from typing import Any, Callable, Mapping
 
-DEFAULT_MINUTES = 5
+# User 2026-11-19: every 10 minutes (was 5). A board with no blocked or waiting
+# item queues no side event at all (tick_rows: no gates, no event).
+DEFAULT_MINUTES = 10
 RANGE = (1, 1440)
 KEY = "work_gate_check_minutes"
 EVENT_PREFIX = "gate-check:"
