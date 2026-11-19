@@ -391,11 +391,15 @@ export function register(on) {
     // model-supplied identity or host field. A list read shows every goal.
     if (e.tool === PREFIX + 'work_status') {
       const fork = await classify($, e.agentId)
-      if (fork.kind === 'side') {
+      // A Work fork reads its own item the same way (Andy 2026-11-19: every P0
+      // fork's work_status answered "conversation identity is unavailable").
+      // Only a side fork's list read is widened to every goal.
+      if (fork.kind === 'side' || fork.kind === 'work') {
         const id = await $.session.id()
         if (typeof id === 'string' && /^[A-Za-z0-9_-]{1,200}$/.test(id)) {
           const { session_id, _host, ...rest } = e
-          return next({ ...rest, session_id: 'claude:' + id, ...(rest.root_id ? {} : { all_goals: true }) })
+          return next({ ...rest, session_id: 'claude:' + id,
+            ...(fork.kind === 'side' && !rest.root_id ? { all_goals: true } : {}) })
         }
       }
     }
