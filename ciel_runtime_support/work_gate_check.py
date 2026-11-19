@@ -199,7 +199,8 @@ def tick_rows(config: Mapping[str, Any], doc: Mapping[str, Any], state: Mapping[
     if interval == 0:
         return None
     rows = gates(doc, priority)
-    if not rows:
+    # At main's turn end the side also looks for other work, gates or not.
+    if not rows and not turn_end:
         return None
     stamp = time.time() if now is None else now
     current = digest(rows)
@@ -212,12 +213,22 @@ def tick_rows(config: Mapping[str, Any], doc: Mapping[str, Any], state: Mapping[
     return rows, current, stamp
 
 
+TURN_END_TEXT = (
+    "Main's turn just ended. Besides the gates below (if any), check whether there is other "
+    "work to do now: items whose block was released, approvals that arrived, and the next "
+    "runnable Work item (read the board with work_status only as needed). Tidy the queue. "
+    "Your reply is delivered to main: one to three lines saying what main should do next, "
+    "or exactly \"nothing to do\" when there is nothing.")
+
+
 def tick_event(config: Mapping[str, Any], rows: list[dict[str, Any]], current: str, stamp: float,
-               threads: Mapping[str, Mapping[str, Any]] | None = None) -> dict[str, Any]:
+               threads: Mapping[str, Mapping[str, Any]] | None = None, turn_end: bool = False) -> dict[str, Any]:
     """The one side event of a tick for ``rows``."""
     interval = minutes(config)
     slot = int(stamp // (interval * 60))
     text = event_text(rows, interval, "%d gate(s)" % len(rows) if len(rows) > 1 else "", threads)
+    if turn_end:
+        text = TURN_END_TEXT + "\n" + text
     # The text digest keeps one key per exact content: a retry of the same check
     # deduplicates, and a same-slot check with newer evidence is its own event.
     body = hashlib.sha256(text.encode()).hexdigest()[:8]

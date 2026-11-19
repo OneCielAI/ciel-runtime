@@ -2224,6 +2224,13 @@ async function commitProposal($,actor,event,proposal,sentVia,usage) {
       void relayToItem($,actor.identity,event,value.result).catch(() => {})
     else if (value.result?.released_waits?.length && !value.result.duplicate)
       void notifyReleased($,actor.identity,event,value.result).catch(() => {})
+    // Main's turn-end check (user 2026-11-18): the side delivers its result to
+    // main. A release already told main through notifyReleased.
+    else if (event.route?.turn_end === true && value.result && !value.result.duplicate) {
+      const said = line(value.result.reply || value.result.summary,600)
+      if (said && !/^nothing to do\.?$/i.test(said))
+        void noticeToMain($,actor.identity,event.receipt_id,'Ciel side (after your turn): '+said).catch(() => {})
+    }
     $.clock.after(10, async () => { await recoverReply($,actor.identity,event) })
   }
 }

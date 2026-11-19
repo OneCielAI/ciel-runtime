@@ -690,9 +690,11 @@ def dispatch_work_tool(
                                                          ensure_ascii=False), encoding="utf-8")
                             return respond(request_id, json.dumps({**status, "reason": "nothing_new",
                                                                    "threads_read": reads_count}))
-                event = tick_event(config, rows, current, stamp, threads_by_gate)
+                turn_end = args.get("turn_end") is True
+                event = tick_event(config, rows, current, stamp, threads_by_gate, turn_end=turn_end)
                 receipts = [receive(state_dir, identity, part["text"], part["event_key"], admit=False,
-                                    route={"source_kind": "gate_check"}).get("receipt_id")
+                                    route={"source_kind": "gate_check", **({"turn_end": True} if turn_end else {})}
+                                    ).get("receipt_id")
                             for part in event["events"]]
                 record.write_text(json.dumps({**(last or {}), "at": event["at"], "digest": event["digest"],
                                               "receipt_ids": receipts}, ensure_ascii=False), encoding="utf-8")

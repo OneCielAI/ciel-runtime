@@ -1,4 +1,9 @@
 import { expect, mock, test } from 'claude-code/testing'
+// User 2026-11-18: Stop no longer injects any message into main; the side
+// checks the board at main's turn end instead. These Stop-continuation tests
+// describe the retired behavior and are kept only as a record.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function retiredStop(..._args: unknown[]): void {}
 const T = 'mcp__ciel-runtime-router__'
 const HOST_REPLIES = {
   work_parallel_status: { version: 1, active_device: 0, leases: {}, policy: { max_active: 5, p1_reserved: 1 } },
@@ -386,7 +391,7 @@ test('background work does not suppress one bounded wait reassessment', async ($
   expect(first.block).toBeUndefined()
   expect((await $.classic.Stop(event)).block).toBeUndefined()
 })
-test('normal Stop continues, unchanged plan is bounded, progress and user input reset it', async ($, on) => {
+retiredStop('normal Stop continues, unchanged plan is bounded, progress and user input reset it', async ($, on) => {
   const s = continuing(on)
   expect((await $.classic.Stop(STOP)).block).toContain('Verify next')
   expect((await $.classic.Stop({ ...STOP, stop_hook_active: true })).block).toContain('last continuation')
@@ -404,7 +409,7 @@ for (const extra of [{ enabled: false }, { auto_continue: false }, { continuatio
     expect((await $.classic.Stop(STOP)).block).toBeUndefined()
   })
 }
-test('Stop continues independent Work despite background tasks; excludes children, other conversations and offline', async ($, on) => {
+retiredStop('Stop continues independent Work despite background tasks; excludes children, other conversations and offline', async ($, on) => {
   const s = continuing(on)
   expect((await $.classic.Stop({ ...STOP, background_tasks: [{ id: 'b' }] })).block).toContain('proceed only with independent Work')
   expect((await $.classic.Stop({ ...STOP, agent_id: 'child' })).block).toBeUndefined()
@@ -416,7 +421,7 @@ test('Stop continues independent Work despite background tasks; excludes childre
 const STALLED = { continuation: { actionable: 0, next: null, waiting: [{ id: 'n76', title: 'Deploy', waiting_on: 'peer review' }],
   blocked: 8, held: 0 }, queue: [{ id: 'n1', title: 'Queued', status: 'in_progress', done: 22, total: 24 },
   { id: 'n42', title: 'Closed steps', status: 'blocked', done: 5, total: 5 }] }
-test('a stop with unfinished but unrunnable Work explains why, once per state, without continuing', async ($, on) => {
+retiredStop('a stop with unfinished but unrunnable Work explains why, once per state, without continuing', async ($, on) => {
   const s = continuing(on, STALLED)
   const first = await $.classic.Stop(STOP)
   expect(first.block).toBeUndefined()
@@ -441,7 +446,7 @@ test('a stop with unfinished but unrunnable Work explains why, once per state, w
   await $.classic.Stop(STOP)
   expect(s.logs[3]).toContain('2 goal(s) held behind the urgent goal')
 })
-test('a runnable item is still pushed after an explained stall, with the same no-progress bound', async ($, on) => {
+retiredStop('a runnable item is still pushed after an explained stall, with the same no-progress bound', async ($, on) => {
   const s = continuing(on, STALLED)
   await $.classic.Stop(STOP)
   s.snapshot.continuation = { actionable: 1, next: { id: 'n2', title: 'Runnable step' }, waiting: [], blocked: 8, held: 0 }
@@ -455,7 +460,7 @@ test('a runnable item is still pushed after an explained stall, with the same no
   expect((await $.classic.Stop(STOP)).block).toBeUndefined()
   expect(s.logs.filter(l => l.includes('paused')).length).toBe(1)
 })
-test('approval, background tasks and an unreadable status explain the stop; finished or off Work stays silent', async ($, on) => {
+retiredStop('approval, background tasks and an unreadable status explain the stop; finished or off Work stays silent', async ($, on) => {
   const s = continuing(on, { ...STALLED, phase: 'planning', approval: 'ask', ready: true,
     continuation: { actionable: 1, next: { id: 'n2', title: 'Plan' }, waiting: [] } })
   expect((await $.classic.Stop(STOP)).block).toBeUndefined()
@@ -482,7 +487,7 @@ test('approval, background tasks and an unreadable status explain the stop; fini
   expect((await $.classic.Stop({ ...STOP, session_id: 'other' })).block).toBeUndefined()
   expect(s.logs.length).toBe(before)
 })
-test('background Work continuation reaches the same bounded block path, not person-only log', async ($, on) => {
+retiredStop('background Work continuation reaches the same bounded block path, not person-only log', async ($, on) => {
   const s = continuing(on)
   const e = { ...STOP, background_tasks: [{ id: 'shell', type: 'local_bash', status: 'running' }] }
   const first = await $.classic.Stop(e)
@@ -508,7 +513,7 @@ test('a Stop read superseded by a newer successful read is not reported as unava
   expect((await stop).block).toBeUndefined()
   expect(s.logs.some(l => l.includes('could not read'))).toBe(false)
 })
-test('auto planning continues decomposition but never crosses an approval boundary', async ($, on) => {
+retiredStop('auto planning continues decomposition but never crosses an approval boundary', async ($, on) => {
   continuing(on, { phase: 'planning', approval: 'auto', ready: false })
   expect((await $.classic.Stop(STOP)).block).toContain('No new scope or approval boundary')
 })
@@ -530,7 +535,7 @@ function compactFixture(on, outcome = 'complete') {
   return { entered, release, calls }
 }
 for (const extra of [{}, STALLED, { phase: 'planning', approval: 'ask', ready: true }]) {
-  test('main compact suppresses Stop decisions and reads ' + JSON.stringify(extra), async ($, on) => {
+  retiredStop('main compact suppresses Stop decisions and reads ' + JSON.stringify(extra), async ($, on) => {
     const s = continuing(on, extra); mock.clock(on)
     const fixture = compactFixture(on)
     const compact = $.session.compact(COMPACT)
@@ -555,7 +560,7 @@ for (const extra of [{}, STALLED, { phase: 'planning', approval: 'ask', ready: t
   })
 }
 for (const outcome of ['complete', 'skip', 'fail']) {
-  test('main compact settlement resets no-progress without synthetic continuation: ' + outcome, async ($, on) => {
+  retiredStop('main compact settlement resets no-progress without synthetic continuation: ' + outcome, async ($, on) => {
     const s = continuing(on, { focus: { node_ids: ['leaf'], exhausted: false }, approval: 'ask' }); mock.clock(on)
     const fixture = compactFixture(on, outcome)
     expect((await $.classic.Stop(STOP)).block).toContain('Verify next')
@@ -580,7 +585,7 @@ for (const outcome of ['complete', 'skip', 'fail']) {
   })
 }
 for (const extra of [{ agentId: 'child' }, { trigger: 'precompute' }]) {
-  test('child or precompute compact neither suppresses nor resets main Stop ' + JSON.stringify(extra), async ($, on) => {
+  retiredStop('child or precompute compact neither suppresses nor resets main Stop ' + JSON.stringify(extra), async ($, on) => {
     const s = continuing(on); mock.clock(on)
     const fixture = compactFixture(on)
     expect((await $.classic.Stop(STOP)).block).toContain('Verify next')
@@ -597,7 +602,7 @@ for (const extra of [{ agentId: 'child' }, { trigger: 'precompute' }]) {
 }
 
 for (const settledFirst of [false, true]) {
-  test('compact entering during Stop read invalidates late decision; settled first=' + settledFirst, async ($, on) => {
+  retiredStop('compact entering during Stop read invalidates late decision; settled first=' + settledFirst, async ($, on) => {
     const s = continuing(on); mock.clock(on)
     const fixture = compactFixture(on)
     let release, entered
@@ -621,7 +626,7 @@ for (const settledFirst of [false, true]) {
   })
 }
 for (const offline of [false, true]) {
-  test('compact invalidates an outstanding stalled or failed Stop read without logging; offline=' + offline, async ($, on) => {
+  retiredStop('compact invalidates an outstanding stalled or failed Stop read without logging; offline=' + offline, async ($, on) => {
     const s = continuing(on, STALLED); const clock = mock.clock(on)
     const fixture = compactFixture(on)
     let release
@@ -641,7 +646,7 @@ for (const offline of [false, true]) {
     expect(s.logs.at(-1)).toContain('none can run now')
   })
 }
-test('session switch during Stop read cannot consume the new session continuation or version floor', async ($, on) => {
+retiredStop('session switch during Stop read cannot consume the new session continuation or version floor', async ($, on) => {
   const s = continuing(on); const clock = mock.clock(on)
   let release
   s.snapshot.version = 100
@@ -655,7 +660,7 @@ test('session switch during Stop read cannot consume the new session continuatio
   expect((await $.classic.Stop({ ...STOP, session_id: 'session-b' })).block).toContain('Verify next')
   expect((await $.classic.Stop({ ...STOP, session_id: 'session-b' })).block).toContain('last continuation')
 })
-test('child and precompute entry during a Stop read do not invalidate it', async ($, on) => {
+retiredStop('child and precompute entry during a Stop read do not invalidate it', async ($, on) => {
   const s = continuing(on); const clock = mock.clock(on)
   const fixture = compactFixture(on)
   let release
@@ -673,7 +678,7 @@ test('child and precompute entry during a Stop read do not invalidate it', async
   expect((await stop).block).toContain('Verify next')
 })
 for (const restart of [false, true]) {
-  test('old compact cannot suppress or reset a different session/lifecycle; restart=' + restart, async ($, on) => {
+  retiredStop('old compact cannot suppress or reset a different session/lifecycle; restart=' + restart, async ($, on) => {
     const s = continuing(on); mock.clock(on)
     const fixture = compactFixture(on)
     const compact = $.session.compact(COMPACT)
@@ -713,7 +718,7 @@ test('overlapping main compacts wait for every settlement and preserve native St
   expect(await $.classic.Stop(STOP)).toEqual({ block: 'Native veto', preventContinuation: true })
 })
 // The Stop read deadline is 10 s (register.js STOP_READ_MS): this test waits it out.
-test('Stop status wall-clock deadline returns native result; late read cannot change Work state', { timeoutMs: 20000 }, async ($, on) => {
+retiredStop('Stop status wall-clock deadline returns native result; late read cannot change Work state', { timeoutMs: 20000 }, async ($, on) => {
   const s = continuing(on); const clock = mock.clock(on)
   const prior = { stopReason: 'Native metadata stays intact' }
   s.stopResult = prior
@@ -739,7 +744,7 @@ test('Stop status wall-clock deadline returns native result; late read cannot ch
   expect((await $.classic.Stop(STOP)).block).toContain('last continuation')
   expect((await $.classic.Stop(STOP)).block).toBeUndefined()
 })
-test('Stop read failure preserves native result and does not consume no-progress', async ($, on) => {
+retiredStop('Stop read failure preserves native result and does not consume no-progress', async ($, on) => {
   const s = continuing(on); mock.clock(on)
   s.stopResult = { stopReason: 'Native metadata stays intact' }
   s.offline = true
@@ -829,7 +834,7 @@ test('Inspector appends an inspected existing item to focus in order', async ($,
     expected_version: 1, session_id: 'claude:session-a' })
   await pane.unmount()
 })
-test('focus intent reaches model and exhausted focus explains held unrelated Work', async ($, on) => {
+retiredStop('focus intent reaches model and exhausted focus explains held unrelated Work', async ($, on) => {
   const s = continuing(on, { continuation: { actionable: 0, next: null, held: 2 },
     focus: { node_ids: ['a', 'b'], exhausted: true } })
   const r = await $.prompt.submit({ text: 'AAAA only', wait: false })
@@ -1330,7 +1335,7 @@ test('ask approval reads exact active goal only and never overrides native edit 
   expect(s.calls.find(c => c.args.format === 'text').args.root_id).toBe('g1')
 })
 
-test('Stop moves on to the runnable queued goal when every active step waits', async ($, on) => {
+retiredStop('Stop moves on to the runnable queued goal when every active step waits', async ($, on) => {
   continuing(on, { active_root: { id: 'g1', title: 'waiting goal', status: 'in_progress' },
     continuation: { actionable: 1, next: { id: 'q-leaf', title: 'Queued step', root_id: 'q1', phase: 'planning' },
       waiting: [{ id: 'g1-leaf', title: 'Review', waiting_on: 'external review' }] } })
@@ -1339,7 +1344,7 @@ test('Stop moves on to the runnable queued goal when every active step waits', a
   expect(block).toContain('call work_execute before changing files')
   expect(block).not.toContain('user-priority rule')
 })
-test('Stop keeps the active goal when its own step is next', async ($, on) => {
+retiredStop('Stop keeps the active goal when its own step is next', async ($, on) => {
   continuing(on, { active_root: { id: 'g1', title: 'active', status: 'in_progress' },
     continuation: { actionable: 1, next: { id: 'g1-leaf', title: 'Active step', root_id: 'g1', phase: 'executing' }, waiting: [] } })
   const block = (await $.classic.Stop(STOP)).block
