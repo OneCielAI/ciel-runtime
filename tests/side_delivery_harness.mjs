@@ -12,7 +12,7 @@ const second = await import('./side-intake.js?second')
 const [mode, variant] = String(process.argv[2] || '').split(':')
 const EVENT = 'e'.repeat(64)
 const WAKE = 'Ciel side event requires main action: {"event_id":"' + EVENT
-const NOTICE = 'Ciel side released recorded wait n3'
+const NOTICE = 'Ciel side: released n3'
 const tick = () => new Promise(resolve => setTimeout(resolve, 5))
 // The module's clock, moved by the scenario: a main step proves a row was
 // carried only once the row is older than the module's hook-delay grace.

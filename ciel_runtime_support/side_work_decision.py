@@ -195,7 +195,7 @@ def validate(decision):
     # to main at once. Only an answer carries it; elsewhere it is dropped.
     if 'ask_main' in decision and type(decision['ask_main']) is not bool:
         raise tree.WorkPlanError('invalid side decision ask_main')
-    if decision.get('action') != 'answer' or decision.get('ask_main') is False:
+    if decision.get('ask_main') is False:
         decision.pop('ask_main', None)
     time_limit = decision.get('time_limit')
     if time_limit is not None:
@@ -331,8 +331,9 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
     ``progress`` (outside the approved scope digest, technical review P2).
     """
     validate(decision)
-    if workflow is None:
-        decision.pop('ask_main', None)
+    # User 2026-11-18: ask_main is the side's one way to reach main (truly
+    # urgent, or the person wants main's accountable answer), workflow or not.
+    asks_main = decision.get('ask_main') is True
     if not isinstance(receipt_id, str) or len(receipt_id) != 64 or any(c not in '0123456789abcdef' for c in receipt_id):
         raise tree.WorkPlanError('invalid side receipt identity')
     if expected_version is not None and type(expected_version) is not int:
@@ -498,16 +499,16 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             # Main hears of a workflow goal through its to-do queue (proposal
             # due), not a P1 scheduling handoff (spec 6).
             needs_handoff = False
-        asked = workflow is not None and decision.get('ask_main') is True and not main_reply
-        if asked:
-            needs_handoff = True
+        # ask_main reaches main as one host notice (side-intake.js), with or
+        # without the workflow: a handoff was never presented once Stop stopped
+        # messaging main (real E2E on 96f5b3f).
         if released and not gates and action == 'update' and time_limit is None:
             # The waiter is woken with the release itself (no acknowledgment);
             # a time limit still needs main's immediate durable notice.
             needs_handoff = False
         if needs_handoff:
             stamp = time.time()
-            kind = ('question' if asked and time_limit is None else
+            kind = (
                     'time_limit' if time_limit is not None else 'advise' if action == 'advise'
                     else 'resume' if gates else 'p1' if priority == 'P1' else 'priority')
             handoffs = doc.setdefault('side_handoffs', {})
@@ -577,6 +578,8 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             # closes it.
             text = decision['reply'].rstrip()
             result['final_text'] = text + '\n\n' + outcome_text(result)
+        if asks_main and not main_reply:
+            result['ask_main'] = True
         receipts[receipt_id] = {'decision_digest': digest, 'applied_at': time.time(),
                                 'item_id': item, 'recap': decision['summary'], 'result': result}
         if decision.get('relay') and action == 'update':

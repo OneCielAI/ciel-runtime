@@ -40,7 +40,7 @@ await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({un
 await drain()
 console.log(JSON.stringify({
  sourcePriority:prompt.source_priority||null,
- instructsP0:/source_priority is P0/.test(prompt.instruction) && /P0\.\.P5 hint/.test(prompt.instruction),
+ instructsP0:/source_priority가\s+P0/.test(prompt.instruction) && /P0~P5 힌트/.test(prompt.instruction),
  resolvedPriority:calls.filter(c=>c.name==='work_side_resolve').map(c=>c.args.decision.priority),
  appends:calls.filter(c=>c.append).map(c=>c.append.content[0].text),
 }))

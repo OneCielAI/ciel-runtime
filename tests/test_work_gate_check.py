@@ -58,7 +58,7 @@ class GateCheckUnitTests(unittest.TestCase):
         store, ids = self._doc()
         text = gate.event_text(gate.gates(store.read()), 5)
         self.assertNotIn("action advise", text)
-        self.assertIn("Legacy advise is not used", DEFAULT_SIDE_INSTRUCTION)
+        self.assertIn("예전의 advise는 쓰지 않습니다", DEFAULT_SIDE_INSTRUCTION)
         self.assertIn("action update on that node, kind request,", text)
         with self.assertRaisesRegex(tree.WorkPlanError, "a request must create, update or prioritize Work"):
             validate({"action": "advise", "kind": "request", "item_id": ids["blocked"], "summary": "s", "reply": "r"})

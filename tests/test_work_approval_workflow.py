@@ -503,10 +503,9 @@ class SideIntakeFixTests(WorkflowCase):
                                                             'ask_main': True},
                                                'expected_version': self.store.read()['version']},
                          host={**HOST, 'receipt_id': receipt, 'generation': row['generation']})
-        self.assertEqual('requested', done['result']['handoff'])
-        handoff = self.store.read()['side_handoffs'][receipt]
-        self.assertEqual(('question', 'when is the deploy window', None), (handoff['kind'], handoff['question'],
-                                                                           handoff['item_id']))
+        # 2026-11-18: ask_main is one host notice to main, never a handoff main must acknowledge.
+        self.assertTrue(done['result']['ask_main'])
+        self.assertNotIn(receipt, self.store.read().get('side_handoffs') or {})
         self.assertEqual([], [n for n in self.store.read()['nodes']])
 
 

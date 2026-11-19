@@ -53,7 +53,11 @@ def _released_row(inbox, receipt_id):
     # A released wait, or (2026-11-15) a live-item relay: both are one host
     # notice to main per receipt, issued at most once.
     if (not row or row.get('stage') != 'processed' or not isinstance(result, dict)
-            or not (result.get('released_waits') or result.get('relay'))):
+            or not (result.get('released_waits') or result.get('relay')
+                    # 2026-11-18: the side's own escalation, and its check at
+                    # main's turn end, are one host notice to main too.
+                    or result.get('ask_main') is True
+                    or (row.get('route') or {}).get('turn_end') is True)):
         raise WorkPlanError('released-wait receipt required')
     return row
 

@@ -88,6 +88,7 @@ class SideDecisionTests(unittest.TestCase):
         self.assertEqual('P1', self.store.read()['nodes'][0]['priority'])
         self.assertEqual('planning', self.store.read()['phase'])
 
+    @unittest.skip('retired 2026-11-18 (user): the side no longer hands off to main or leaves review rows; only ask_main reaches main')
     def test_approval_for_waiting_item_requests_main_without_demoting_goal(self):
         # Andy 2026-11-08: a side update on an executing goal cleared its approval
         # and left the n993 wait in place while main stayed idle.
@@ -110,6 +111,7 @@ class SideDecisionTests(unittest.TestCase):
         self.assertIn('118269 approved', node['progress'])
         self.assertNotIn('118269 approved', node['note'])
 
+    @unittest.skip('retired 2026-11-18 (user): the side no longer hands off to main or leaves review rows; only ask_main reaches main')
     def test_low_priority_deadline_answer_creates_durable_time_limit_handoff(self):
         doc, item = self.store.transaction(lambda d: tree.add_node(d, None, 'low priority report', priority='P5'))
         limit = {'text': 'respond within 4 hours', 'evidence': 'thread message 41 says within 4 hours'}
@@ -125,6 +127,7 @@ class SideDecisionTests(unittest.TestCase):
         self.assertEqual(limit, row['time_limit'])
         self.assertNotIn('thread message body not selected', str(row))
 
+    @unittest.skip('retired 2026-11-18 (user): the side no longer hands off to main or leaves review rows; only ask_main reaches main')
     def test_deadline_request_without_item_creates_item_and_handoff_uses_new_id(self):
         limit = {'text': 'due 2026-11-12 09:00Z', 'due_at': '2026-11-12T09:00:00Z',
                  'evidence': 'target message: due 2026-11-12 09:00Z'}
@@ -151,6 +154,7 @@ class SideDecisionTests(unittest.TestCase):
         self.assertEqual('not_required', result['handoff'])
         self.assertEqual({}, self.store.read().get('side_handoffs', {}))
 
+    @unittest.skip('retired 2026-11-18 (user): the side no longer hands off to main or leaves review rows; only ask_main reaches main')
     def test_p1_create_requests_durable_main_wake(self):
         result = apply(self.store, self.key, {**self.base, 'action': 'create', 'title': 'urgent',
                        'note': 'impact', 'priority': 'P1'}, 0)
@@ -167,6 +171,7 @@ class SideDecisionTests(unittest.TestCase):
         self.assertEqual({}, self.store.read().get('side_handoffs', {}))
         self.assertIn('new fact already committed', self.store.read()['nodes'][0]['note'])
 
+    @unittest.skip('retired 2026-11-18 (user): the side no longer hands off to main or leaves review rows; only ask_main reaches main')
     def test_handoff_clears_only_recorded_unchanged_waits(self):
         from ciel_runtime_support.side_handoff import acknowledge
         doc, goal = self.store.transaction(lambda d: tree.add_node(d, None, 'goal'))
@@ -208,12 +213,14 @@ class SideDecisionTests(unittest.TestCase):
         self.assertEqual('not_required', result['handoff'])
         self.assertEqual({}, self.store.read().get('side_handoffs', {}))
 
+    @unittest.skip('retired 2026-11-18 (user): the side no longer hands off to main or leaves review rows; only ask_main reaches main')
     def test_wait_gate_kind_takes_precedence_over_p1(self):
         doc, goal = self.store.transaction(lambda d: tree.add_node(d, None, 'P1 goal', priority='P1'))
         doc, gate = self.store.transaction(lambda d: tree.add_node(d, goal, 'gate', waiting_on='approval'))
         result = apply(self.store, self.key, {**self.base, 'action': 'update', 'item_id': gate, 'note': 'ok'}, doc['version'])
         self.assertEqual('resume', result['main_handoff']['kind'])
 
+    @unittest.skip('retired 2026-11-18 (user): the side no longer hands off to main or leaves review rows; only ask_main reaches main')
     def test_priority_handoff_selects_existing_goal_without_approving(self):
         from ciel_runtime_support.side_handoff import acknowledge
         doc, first = self.store.transaction(lambda d: tree.add_node(d, None, 'main'))
@@ -228,6 +235,7 @@ class SideDecisionTests(unittest.TestCase):
         self.assertTrue(ack['activated'])
         self.assertEqual(2, len(self.store.read()['nodes']))
 
+    @unittest.skip('retired 2026-11-18 (user): the side no longer hands off to main or leaves review rows; only ask_main reaches main')
     def test_gate_handoff_activation_selects_owning_goal_and_clears_recorded_wait(self):
         # ciel-walkie 2026-11-10: the P1 handoff for gate n1235 failed
         # "handoff target is not an unfinished goal" and stayed requested.
@@ -267,6 +275,7 @@ class SideDecisionTests(unittest.TestCase):
                         'note': 'Andy approved', 'release_waits': [{'id': gate, 'waiting_on': 'approval from Andy via Walkie'}]},
                         doc['version'])['duplicate'])
 
+    @unittest.skip('retired 2026-11-18 (user): the side no longer hands off to main or leaves review rows; only ask_main reaches main')
     def test_changed_or_foreign_wait_is_not_released_and_still_reaches_main(self):
         doc, goal = self.store.transaction(lambda d: tree.add_node(d, None, 'goal'))
         doc, gate = self.store.transaction(lambda d: tree.add_node(d, goal, 'gate', waiting_on='CI build 41 result'))
@@ -293,6 +302,7 @@ class SideDecisionTests(unittest.TestCase):
         with self.assertRaises(tree.WorkPlanError):
             validate({**self.base, 'action': 'update', 'item_id': 'n1', 'release_waits': [{'id': 'n1'}]})
 
+    @unittest.skip('retired 2026-11-18 (user): the side no longer hands off to main or leaves review rows; only ask_main reaches main')
     def test_gate_handoff_activation_refuses_finished_goal_without_mutation(self):
         from ciel_runtime_support.side_handoff import acknowledge
         doc, goal = self.store.transaction(lambda d: tree.add_node(d, None, 'P1 goal', priority='P1'))
@@ -418,6 +428,7 @@ class SideDecisionTests(unittest.TestCase):
         self.assertNotIn(queued['item_id'], [row.get('item_id') for row in
                                              (self.store.read().get('side_reviews') or {}).values()])
 
+    @unittest.skip('retired 2026-11-18 (user): the side no longer hands off to main or leaves review rows; only ask_main reaches main')
     def test_urgent_or_questioning_side_answers_reach_main(self):
         doc, _ = self.store.transaction(lambda d: tree.add_node(d, None, 'active'))
         urgent = hashlib.sha256(b'p1').hexdigest()
@@ -437,6 +448,16 @@ class SideDecisionTests(unittest.TestCase):
         self.assertFalse(record_unsent_review(self.store, self.key, result, 'walkie:x:1'))
         self.assertEqual('pending', self.store.read()['side_reviews'][self.key]['state'])
 
+    def test_ask_main_is_the_only_flag_that_reaches_main(self):
+        plain = apply(self.store, 'a' * 64, {'action': 'answer', 'kind': 'status', 'summary': 's', 'reply': 'r'},
+                      self.store.read()['version'])
+        self.assertNotIn('ask_main', plain)
+        self.assertNotIn('a' * 64, self.store.read().get('side_reviews') or {})
+        asked = apply(self.store, 'b' * 64, {'action': 'answer', 'kind': 'status', 'summary': 'urgent', 'reply': 'r',
+                                             'ask_main': True}, self.store.read()['version'])
+        self.assertTrue(asked['ask_main'])
+
+    @unittest.skip('retired 2026-11-18 (user): the side no longer hands off to main or leaves review rows; only ask_main reaches main')
     def test_side_answer_leaves_a_main_review_note_until_reviewed(self):
         from ciel_runtime_support.side_review import review
         result = apply(self.store, self.key, {**self.base, 'kind': 'clarify', 'action': 'clarify'}, 0,
