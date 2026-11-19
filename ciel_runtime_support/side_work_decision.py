@@ -195,7 +195,7 @@ def validate(decision):
     # to main at once. Only an answer carries it; elsewhere it is dropped.
     if 'ask_main' in decision and type(decision['ask_main']) is not bool:
         raise tree.WorkPlanError('invalid side decision ask_main')
-    if decision.get('action') != 'answer' or decision.get('ask_main') is False:
+    if decision.get('ask_main') is False:
         decision.pop('ask_main', None)
     time_limit = decision.get('time_limit')
     if time_limit is not None:
@@ -331,8 +331,9 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
     ``progress`` (outside the approved scope digest, technical review P2).
     """
     validate(decision)
-    if workflow is None:
-        decision.pop('ask_main', None)
+    # User 2026-11-18: ask_main is the side's one way to reach main (truly
+    # urgent, or the person wants main's accountable answer), workflow or not.
+    asks_main = decision.get('ask_main') is True
     if not isinstance(receipt_id, str) or len(receipt_id) != 64 or any(c not in '0123456789abcdef' for c in receipt_id):
         raise tree.WorkPlanError('invalid side receipt identity')
     if expected_version is not None and type(expected_version) is not int:
@@ -577,6 +578,8 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             # closes it.
             text = decision['reply'].rstrip()
             result['final_text'] = text + '\n\n' + outcome_text(result)
+        if asks_main and not main_reply:
+            result['ask_main'] = True
         receipts[receipt_id] = {'decision_digest': digest, 'applied_at': time.time(),
                                 'item_id': item, 'recap': decision['summary'], 'result': result}
         if decision.get('relay') and action == 'update':

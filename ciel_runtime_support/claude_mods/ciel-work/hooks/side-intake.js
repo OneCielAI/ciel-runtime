@@ -410,6 +410,20 @@ Only read and reason. The host alone commits one decision and sends every
 message to the source. Your final answer MUST be exactly the decision JSON
 described below.
 
+TALKING TO MAIN (mandatory): main must keep working; anything you send it costs
+its context and pulls it into a conversation with you.
+- Routine events never reach main. Record what you did on the Work item (note)
+  and adjust the queue; that is the whole job.
+- A status question: check that item's state and answer the person yourself.
+- An approval for a blocked or waiting item: release the wait (release_waits)
+  and move the item as high in the queue as its priority allows
+  (queue_position). The queue then runs it on its own.
+- Set "ask_main": true ONLY when the matter is truly urgent, or the person
+  explicitly wants main's accountable answer or decision. summary and reply
+  then say exactly what main must know, in one to three lines.
+- At main's turn end the host asks you to check for released blocks, arrived
+  approvals and the next runnable item; that reply is delivered to main.
+
 READ DISCIPLINE (mandatory; every byte you read costs tokens on every event):
 1. Start from what you already have: this event payload and the inherited main
    transcript. Most events (a request, an approval, a status question, a GitHub
@@ -528,7 +542,7 @@ For a gate re-check (no person, no source) keep understanding to one line.
 Return one JSON object:
 {"understanding":"...","decision":{...},"expected_version":N}.
 Decision fields: action, kind, summary, reply, and when needed item_id, title,
-note, priority, queue_position, release_waits, time_limit, relay. No other fields.
+note, priority, queue_position, release_waits, time_limit, relay, ask_main. No other fields.
 "kind" is the classification above (status, info, clarify or request).
 "action" is what the host does, and it must match the kind:
 - kind status or info: action answer
@@ -2231,6 +2245,12 @@ async function commitProposal($,actor,event,proposal,sentVia,usage) {
       if (said && !/^nothing to do\.?$/i.test(said))
         void noticeToMain($,actor.identity,event.receipt_id,'Ciel side (after your turn): '+said).catch(() => {})
     }
+    // The side's own escalation (ask_main): one notice to main, nothing to
+    // acknowledge. A workflow handoff already carries it when one was made.
+    if (value.result?.ask_main === true && !value.result.duplicate && !value.result.main_handoff)
+      void noticeToMain($,actor.identity,event.receipt_id,'Ciel side asks main ('
+        +(value.result.item_id ? value.result.item_id+', ' : '')+'event '+event.receipt_id.slice(0,12)+'): '
+        +line(value.result.summary,300)+' — '+line(value.result.reply,600)).catch(() => {})
     $.clock.after(10, async () => { await recoverReply($,actor.identity,event) })
   }
 }
