@@ -1240,15 +1240,16 @@ test('help, readable bare command and raw status', async ($, on) => {
   expect(help).toContain('added under that item')
   expect(help).toContain('Ctrl+X Tab')
   expect(help).toContain('LLM options')
-  const bare = (await $.command.run({ command: 'work-mode', args: '' })).text
+  // 2026-11-19: /work-mode alone opens the pane; the one-line summary is /work-mode summary.
+  const bare = (await $.command.run({ command: 'work-mode', args: 'summary' })).text
   expect(bare).toContain('planning · 0/2 steps')
   expect(bare).toContain('[ ] 1. Parser 0/2')
   expect(bare).toContain('Next: Write tokenizer')
   expect(bare.includes('{')).toBe(false)
   expect((await $.command.run({ command: 'work-mode', args: 'status' })).text).toContain('"version": 1')
-  expect((await $.command.run({ command: 'work-mode', args: 'bogus' })).text).toContain('help|view|tree|status')
+  expect((await $.command.run({ command: 'work-mode', args: 'bogus' })).text).toContain('view|summary|expand|compact|help|tree|status')
   s.snapshot.enabled = false
-  expect((await $.command.run({ command: 'work-mode', args: '' })).text).toContain('LLM options → Work mode')
+  expect((await $.command.run({ command: 'work-mode', args: 'summary' })).text).toContain('LLM options → Work mode')
   expect(s.tools.length).toBe(0)
 })
 test('band shows a hint while no plan exists and the phase once one does', async ($, on) => {
@@ -1281,7 +1282,7 @@ test('triage guidance reaches the model; queue tab is read-only and summary keep
   expect(s.calls.length).toBe(reads)
   expect(s.tools.length).toBe(0)
   await band.unmount()
-  const summary = (await $.command.run({ command: 'work-mode', args: '' })).text
+  const summary = (await $.command.run({ command: 'work-mode', args: 'summary' })).text
   expect(summary).toContain('Queue (next first):')
   expect(summary).toContain('[ ] 6. Queued 4 0/2')
 })

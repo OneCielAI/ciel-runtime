@@ -20,7 +20,7 @@ const HELP = [
   '• New requests: an independent request becomes its own numbered item ("2. …") and waits in the queue behind the active item; a change to an existing item is added under that item.',
   '• Executing: after work_execute (automatic, or your approval when set to ask) the model works step by step and marks each step done with evidence.',
   '• Above the prompt: compact by default (done/total + current step); [+] / w expands, [-] collapses. Progress / Queue / Completed are read-only button tabs; Prev / Next (p / n) page the list; w opens the Inspector. Ctrl+X Tab focuses · Tab/↑↓ select · Enter inspects · Esc returns. Tiny screens use Inspect Work. Rows of other plugins stay below the Work rows; the band scrolls to them.',
-  '• /work-mode view: Work & SSE pane — Work tree (w), SSE receipts with P1 filter (s), and every Work setting (g); in the Work tree, f focuses the selected item, a appends it to the focus, b opens its parent, u/d move a queued goal up or down; side actors are native forks inheriting the main context; Work and side forks use the per-priority and side fork model settings (inherit keeps the main model). Mobile and narrow screens get a single-column touch layout.',
+  '• /work-mode (or /work-mode view): Work & SSE pane — Work tree (w), SSE receipts with P1 filter (s), and every Work setting (g); in the Work tree, f focuses the selected item, a appends it to the focus, b opens its parent, u/d move a queued goal up or down; side actors are native forks inheriting the main context; Work and side forks use the per-priority and side fork model settings (inherit keeps the main model). Mobile and narrow screens get a single-column touch layout.',
   '• /work-mode expand / compact: toggle the inline list · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode parallel: fork slots, leases and the next Agent name · /work-mode help: this help',
   '• /work-mode discard-failed [category]: discard every failed side receipt (or one category, e.g. source_context): never retried, not forwarded to main, kept for audit; a receipt a side actor holds right now is skipped. Also: menu, web Side view, REST, ciel-runtimectl.',
   '• Focus: inspect an item → Focus first. Focused items run before other Work; a focused item that waits or is blocked never holds unrelated approved Work or discovery. Clear focus releases it now; it also clears automatically once every focused item is done.',
@@ -4808,7 +4808,7 @@ export function register(on) {
           + done.other_category + ')' : '') + '. Not retried, not forwarded to main; kept for audit.' }
       } catch (error) { return { text: 'Side discard failed: ' + clipped(String(error.message || error), 300) } }
     }
-    if (!['', 'help', 'view', 'status', 'tree', 'expand', 'compact', 'parallel'].includes(arg)) return { text: 'Usage: /work-mode [expand|compact|help|view|tree|status|parallel|workflow|discard-failed [category]]' }
+    if (!['', 'help', 'view', 'summary', 'status', 'tree', 'expand', 'compact', 'parallel'].includes(arg)) return { text: 'Usage: /work-mode [view|summary|expand|compact|help|tree|status|parallel|workflow|discard-failed [category]]' }
     if (arg === 'expand' || arg === 'compact') {
       await refresh($)
       const origin = await sessionId($)
@@ -4829,7 +4829,9 @@ export function register(on) {
           + (parallelFailures.map(f => '  ' + f.at + ' · ' + clipped(f.stage, 60) + ' · ' + f.detail).join('\n') || '  none recorded') }
       }
     }
-    if (arg === 'view') {
+    // /work-mode alone opens the pane too (user 2026-11-19); the one-line
+    // summary it used to print is /work-mode summary.
+    if (arg === 'view' || arg === '') {
       const opened = await openDetails($)
       return { text: opened === 'opened' ? 'Work & SSE pane: W Work · S SSE · G Settings · J/K move · I inspect · Tab/arrows + Enter on the controls · click the dashboard for ↑↓/PgUp · Esc returns.'
         : opened === 'off' ? 'Ciel Work mode is off. Turn it on: ciel-runtime menu → LLM options → Work mode, or ask the agent (work_mode_set).'
@@ -4842,7 +4844,7 @@ export function register(on) {
       try { return { text: await planText($) } }
       catch { return { text: 'Work tree unavailable.' } }
     }
-    if (arg === '') return { text: summary(s) }
+    if (arg === 'summary') return { text: summary(s) }
     return { text: 'Ciel Work mode\n' + JSON.stringify(s, null, 2) }
   })
   on('tool.call', async ($, e, next) => parallelToolCall($, e, next))
