@@ -457,7 +457,8 @@ class SideIntakeFixTests(WorkflowCase):
         receipt = self.receive(approval_event('9100', event_id='evt-ack'), 'walkie:ack')
         state = prepare(self.root, self.identity, receipt, config=self.config)
         self.assertEqual('not_applicable', state['state'])
-        self.assertEqual('workflow_event', self.inbox._load(receipt)['ack_outbox']['reason'])
+        # No receipt ACK is sent for any event (user 2026-11-19: one message per event).
+        self.assertNotIn('arguments', state)
         approved = self.approve(root, event_id='evt-ack2')
         result = self.stored(approved['receipt']['receipt_id'])['result']
         self.assertIn('승인을 확인했습니다', result['final_text'])

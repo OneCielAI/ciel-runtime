@@ -53,6 +53,25 @@ def _prepare_failure(inbox, receipt_id, row, config):
     return {'state': 'submitting', 'receipt_id': receipt_id, 'attempt_id': attempt_id, **connector}
 
 
+def outbound_text(row):
+    """The one message an event's source gets: the understanding, then the result.
+
+    User 2026-11-19: the source got a receipt ACK, the understanding and the
+    result as three messages; it now gets this one. A row with no saved
+    understanding (a coordinator follow-up, an older build) sends the result alone.
+    """
+    result = row['result'].get('final_text') or row['result']['reply']
+    proposal = row.get('proposal') if isinstance(row.get('proposal'), dict) else {}
+    understanding = proposal.get('understanding')
+    already = (row.get('understanding_outbox') or {}).get('state') in ('submitting', 'uncertain', 'submitted')
+    if not isinstance(understanding, str) or not understanding.strip() or already:
+        return result
+    understanding = understanding.strip()
+    if understanding in result:
+        return result
+    return understanding + '\n\n' + result
+
+
 def _drop_pending_outbox(row):
     # A retry left outbox {'state': 'pending'}. An outcome with no send attempt
     # must not keep it: the receipt shows result.delivery, while the retry and
@@ -90,8 +109,9 @@ def prepare(state_dir, identity, receipt_id, *, config=None):
             return {'state': 'not_applicable', 'receipt_id': receipt_id,
                     'receipt': inbox._receipt(receipt_id, row, duplicate=False)}
         kind = 'status' if row['result'].get('action') == 'advise' else 'reply'
-        # final_text closes the model's reply with the committed queue outcome.
-        message = row['result'].get('final_text') or row['result']['reply']
+        # final_text closes the model's reply with the committed queue outcome;
+        # the understanding leads it in the same message.
+        message = outbound_text(row)
         connector = None
         if route.get('source_kind') == 'external_event':
             from .side_reply_connector import prepare as connector_prepare

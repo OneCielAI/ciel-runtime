@@ -153,7 +153,7 @@ class ContextBeforeAckTests(unittest.TestCase):
                                                         'thread_task': {'status': 'complete', 'requester_id': requester,
                                                                         'priority': 3}}}}, ensure_ascii=False)
 
-    def test_only_an_addressed_message_is_acknowledged_before_it_is_read(self):
+    def test_no_message_is_owed_a_receipt_ack(self):
         from ciel_runtime_support.side_intake_inbox import unaddressed_reply
         with tempfile.TemporaryDirectory() as raw:
             inbox = SideIntakeInbox(Path(raw), IDENTITY)
@@ -161,7 +161,8 @@ class ContextBeforeAckTests(unittest.TestCase):
                      'requester': self.event('202', sender='person-1'), 'root': self.event('203', reply=None)}
             owed = {name: inbox.ack_marker(inbox.receive(text, 'm:' + name, route=self.ROUTE)['receipt_id']).exists()
                     for name, text in cases.items()}
-        self.assertEqual({'echo': False, 'mention': True, 'requester': True, 'root': True}, owed)
+        # User 2026-11-19: one message per event, after it is read; no receipt ACK.
+        self.assertEqual({'echo': False, 'mention': False, 'requester': False, 'root': False}, owed)
         self.assertTrue(unaddressed_reply(cases['echo']))
         self.assertFalse(unaddressed_reply('Ciel 게이트 재확인'))
 
