@@ -6,7 +6,7 @@ import heapq
 from pathlib import Path
 
 from .channel_message_repository import exclusive_file_lock
-from .side_intake_inbox import SideIntakeInbox, source_identity, source_priority
+from .side_intake_inbox import SideIntakeInbox, source_identity, source_priority, unaddressed_reply
 from .work_plan_tree import WorkPlanError
 
 
@@ -155,6 +155,9 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
                 # Rows an older build received are settled here, before any fork.
                 inbox.settle_receipt_ack(key, current, stamp)
                 continue
+            if unaddressed_reply(current.get('text')):
+                # An ACK an older build still owed this reply is dropped too.
+                inbox.ack_marker(key).unlink(missing_ok=True)
             if _source_holder(inbox, key, current, stamp, by_event=workflow_events) != 'claim':
                 continue
             generation = uuid.uuid4().hex

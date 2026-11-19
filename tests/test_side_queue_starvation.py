@@ -132,3 +132,64 @@ class BlockerCheckActorTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ContextBeforeAckTests(unittest.TestCase):
+    """An ACK needs the context first (user 2026-11-19: Andy and Celly acknowledged each other without end)."""
+
+    ROUTE = {'source_kind': 'external_event', 'channel': 'external:default', 'receiver_id': 'default'}
+    CONFIG = {'work_side_intake': {'enabled': True, 'reply_connectors': [{
+        'preset': 'walkie', 'receiver_id': 'default', 'server': 'walkie', 'source': '*'}]}}
+
+    def event(self, message, *, sender='agent-b', mentions=(), reply='100', requester='person-1'):
+        return json.dumps({'data': {'event_type': 'message.created', 'conversation': 'c1', 'message_id': message,
+                                    'sender': 'B', 'sender_id': sender, 'text': 'recorded as status',
+                                    'reply_to_message_id': reply, 'thread_root_id': '90',
+                                    'message_context': {'id': message, 'mention_ids': list(mentions),
+                                                        'thread_task': {'status': 'complete', 'requester_id': requester,
+                                                                        'priority': 3}}}}, ensure_ascii=False)
+
+    def test_only_an_addressed_message_is_acknowledged_before_it_is_read(self):
+        from ciel_runtime_support.side_intake_inbox import unaddressed_reply
+        with tempfile.TemporaryDirectory() as raw:
+            inbox = SideIntakeInbox(Path(raw), IDENTITY)
+            cases = {'echo': self.event('200'), 'mention': self.event('201', mentions=('me',)),
+                     'requester': self.event('202', sender='person-1'), 'root': self.event('203', reply=None)}
+            owed = {name: inbox.ack_marker(inbox.receive(text, 'm:' + name, route=self.ROUTE)['receipt_id']).exists()
+                    for name, text in cases.items()}
+        self.assertEqual({'echo': False, 'mention': True, 'requester': True, 'root': True}, owed)
+        self.assertTrue(unaddressed_reply(cases['echo']))
+        self.assertFalse(unaddressed_reply('Ciel 게이트 재확인'))
+
+    def flow(self, root, text, decision):
+        from ciel_runtime_support.side_understanding_outbox import prepare as understanding, save_proposal
+        inbox = SideIntakeInbox(root, IDENTITY)
+        store = session_work_plan_store(root, IDENTITY)
+        key = inbox.receive(text, 'm:' + text[:40], route=self.ROUTE)['receipt_id']
+        leased = claim(root, IDENTITY, 'side-1')
+        save_proposal(root, IDENTITY, key, leased['generation'],
+                      {'understanding': 'B recorded my note as status and asks nothing.', 'decision': dict(decision),
+                       'expected_version': store.read()['version']})
+        said = understanding(root, IDENTITY, key, config=self.CONFIG)['state']
+        result = apply(store, key, dict(decision), store.read()['version'])
+        finish(root, IDENTITY, key, leased['generation'], result)
+        return said, prepare(root, IDENTITY, key, config=self.CONFIG)['state']
+
+    def test_a_status_answer_to_an_unaddressed_reply_posts_nothing(self):
+        with tempfile.TemporaryDirectory() as raw:
+            states = self.flow(Path(raw), self.event('300'),
+                               {'action': 'answer', 'kind': 'status', 'summary': 'echo', 'reply': 'recorded'})
+        self.assertEqual(('not_applicable', 'not_applicable'), states)
+
+    def test_a_question_in_an_unaddressed_reply_is_still_answered(self):
+        with tempfile.TemporaryDirectory() as raw:
+            states = self.flow(Path(raw), self.event('301'),
+                               {'action': 'answer', 'kind': 'info', 'summary': 'asked for the version', 'reply': '0.2.51'})
+        # Not withheld: the host goes on to send it (no reply route exists in this fixture).
+        self.assertNotEqual('not_applicable', states[1])
+
+    def test_a_requesters_status_message_is_answered_as_before(self):
+        with tempfile.TemporaryDirectory() as raw:
+            states = self.flow(Path(raw), self.event('302', sender='person-1'),
+                               {'action': 'answer', 'kind': 'status', 'summary': 'state asked', 'reply': 'it is running'})
+        self.assertNotEqual('not_applicable', states[1])

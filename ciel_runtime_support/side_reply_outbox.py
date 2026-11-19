@@ -75,6 +75,13 @@ def prepare(state_dir, identity, receipt_id, *, config=None):
         route = row.get('route', {})
         if previous.get('state') in ('submitting', 'uncertain', 'submitted'):
             return {'state': previous['state'], 'receipt_id': receipt_id}
+        from .side_intake_inbox import unaddressed_reply
+        if (row['result'].get('action') == 'answer' and row['result'].get('kind') == 'status'
+                and route.get('source_kind') == 'external_event' and unaddressed_reply(row.get('text'))):
+            # The side read it and found nothing to answer: a status answer to an
+            # unaddressed reply is recorded, not posted. Posting it was the
+            # other agent's next event (Andy and Celly, 2026-11-19).
+            row['result']['no_reply'] = True
         if row['result'].get('no_reply') is True:
             # The side judged its answer a repeat of the thread: recorded, not posted.
             row['result']['delivery'] = 'not_applicable'
