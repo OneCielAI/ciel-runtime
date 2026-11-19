@@ -374,7 +374,9 @@ class SideIntakeInbox:
         return row
 
     def _index_priority(self, key: str, row: dict[str, Any]) -> None:
-        priority=source_priority(row['text'])
+        # A host gate re-check goes first (user 2026-11-19): it sat unclaimed for
+        # 9.6 h behind 2,700 ordinary events on Andy, so no later round ran.
+        priority='P0' if (row.get('route') or {}).get('source_kind')=='gate_check' else source_priority(row['text'])
         if priority:
             marker=self.directory/'priority'/priority/key[:2]/(key+'.json')
             if not marker.exists():

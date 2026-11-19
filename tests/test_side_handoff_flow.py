@@ -10,6 +10,7 @@ from ciel_runtime_support.side_intake_inbox import SideIntakeInbox
 
 
 class SideHandoffFlowTests(unittest.TestCase):
+    @unittest.skip('retired 2026-11-18 (user): the side no longer hands off to main; only ask_main reaches main')
     def test_waiting_item_wake_is_reoffered_until_main_acknowledges(self):
         with tempfile.TemporaryDirectory() as raw:
             root=Path(raw)

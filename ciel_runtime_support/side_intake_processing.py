@@ -183,6 +183,39 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
 DISCARD_REASON = 'discarded by operator'
 
 
+def supersede_unclaimed(state_dir, session_id, keys, *, now=None, reason='superseded by a newer gate re-check'):
+    """Close host events nobody claimed, so the next round can replace them.
+
+    A gate re-check carries a snapshot of the gates; one still unclaimed when
+    the next interval comes is stale, and holding the new round for it stopped
+    the re-check altogether (Andy 2026-11-19: 12 events unclaimed for 9.6 h).
+    A row with a live lease is being worked on and stays. Nothing is deleted:
+    the row is quarantined like an operator discard and kept for audit.
+    Returns the keys that are still open (leased), which the caller waits for.
+    """
+    stamp = time.time() if now is None else now
+    inbox = SideIntakeInbox(state_dir, session_id)
+    still_open = []
+    for key in keys:
+        with exclusive_file_lock(inbox._event_path('locks', key)):
+            row = inbox._load(key)
+            if row is None or row.get('stage') != 'received':
+                continue
+            failure = row.get('side_failure') or {}
+            if failure.get('quarantined'):
+                continue
+            if float((row.get('processing') or {}).get('lease_until') or 0) > stamp:
+                still_open.append(key)
+                continue
+            row['side_failure'] = {**failure, 'category': failure.get('category') or 'superseded', 'quarantined': True,
+                                   'retryable': False, 'superseded': True, 'superseded_at': stamp, 'reason': reason}
+            row.pop('processing', None)
+            inbox._save_file(inbox._event_path('pending', key), row)
+        inbox.mark_quarantined(key)
+        inbox._clear_priority(key)
+    return still_open
+
+
 def discard_failed(state_dir, session_id, *, category=None, now=None):
     """Discard every failed side receipt (user request 2026-11-18).
 

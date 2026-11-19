@@ -75,6 +75,13 @@ def prepare(state_dir, identity, receipt_id, *, config=None):
         route = row.get('route', {})
         if previous.get('state') in ('submitting', 'uncertain', 'submitted'):
             return {'state': previous['state'], 'receipt_id': receipt_id}
+        if row['result'].get('no_reply') is True:
+            # The side judged its answer a repeat of the thread: recorded, not posted.
+            row['result']['delivery'] = 'not_applicable'
+            _drop_pending_outbox(row)
+            inbox._save_file(inbox._event_path('receipts', receipt_id), row)
+            return {'state': 'not_applicable', 'receipt_id': receipt_id,
+                    'receipt': inbox._receipt(receipt_id, row, duplicate=False)}
         kind = 'status' if row['result'].get('action') == 'advise' else 'reply'
         # final_text closes the model's reply with the committed queue outcome.
         message = row['result'].get('final_text') or row['result']['reply']

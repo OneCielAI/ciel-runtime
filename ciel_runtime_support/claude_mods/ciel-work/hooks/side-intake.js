@@ -469,6 +469,15 @@ handoff, 비슷한 대화 기록 내용을 설명해서는 안 됩니다. 이전
 모두 이 이벤트로 뒷받침되는지 확인하십시오. 뒷받침되지 않으면 지우십시오. 같은
 Work에 관한 것이라는 이유만으로 오래된 이전 이벤트를 대신 쓰지 마십시오.
 
+중복 답글 금지 (필수 규칙).
+- 답글은 그 스레드에 아직 없는 내용을 더할 때만 올립니다: 요청받은 답, 새 사실,
+  결정, 질문. 다른 에이전트의 글이라도 해당 사항이 있으면 답합니다.
+- 이벤트에 새 요청·질문·승인·기한이 없고 당신의 답이 "확인했습니다", "상태로만
+  기록합니다", "회신은 필요 없습니다"처럼 받았다는 말뿐이면 글을 올리지 않습니다.
+  decision에 "no_reply": true를 넣으십시오. 호스트는 기록만 하고 스레드에는
+  아무것도 쓰지 않습니다. reply에는 기록용으로 한 줄만 적습니다.
+- 이미 한 말을 다시 하지 마십시오. 상대의 확인 글에 다시 확인 글을 달지 마십시오.
+
 정확히 분류하십시오.
 - status: 현재 Work 상태를 직접 보고합니다. 요청 복기도 Work도 없습니다.
 - info: 필요한 것만 모아 정리해서 답합니다. Work는 없습니다.
@@ -537,8 +546,8 @@ adaptive 정책에서는 기한, 영향, 막힘으로 우선순위를 판단하�
 JSON 객체 하나를 반환하십시오.
 {"understanding":"...","decision":{...},"expected_version":N}.
 decision 필드: action, kind, summary, reply, 그리고 필요할 때 item_id, title,
-note, priority, queue_position, release_waits, time_limit, relay, ask_main. 다른
-필드는 없습니다.
+note, priority, queue_position, release_waits, time_limit, relay, ask_main,
+no_reply. 다른 필드는 없습니다.
 "kind"는 위의 분류(status, info, clarify, request)입니다.
 "action"은 호스트가 하는 일이고 kind와 맞아야 합니다.
 - kind status 또는 info: action answer
@@ -2162,7 +2171,7 @@ async function relayToItem($,identity,event,result) {
   const state = await noticeToMain($,identity,event.receipt_id,header+'\nOriginal message:\n'+message+'\n'+forkNote+ask)
   $.ui.log('Side relay '+item+' → main ('+state+')'+(delivered.length ? ' + '+delivered.length+' fork(s)' : ''))
 }
-const DECISION_FIELDS = new Set(['action','kind','item_id','summary','reply','note','title','priority','queue_position','release_waits','time_limit','relay'])
+const DECISION_FIELDS = new Set(['action','kind','item_id','summary','reply','note','title','priority','queue_position','release_waits','time_limit','relay','ask_main','no_reply'])
 // The side turn ends with its decision, but models often wrap it in prose or a
 // ```json fence. Take the last parseable object that carries `decision`.
 export function decisionOf(answer) {
