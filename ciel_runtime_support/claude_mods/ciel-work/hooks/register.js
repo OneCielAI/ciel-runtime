@@ -4400,6 +4400,9 @@ async function workStop($, e, next) {
   // Main's turn ended: the side checks for released blocks, approvals and
   // missed work and tidies the queue. It never holds or messages main.
   if (gateCheck?.identity === identity && typeof gateCheck.run === 'function') void gateCheck.run(true).catch(() => {})
+  // User 2026-11-18: Stop never injects a message into main any more. The side
+  // check above handles released blocks, approvals and other work instead.
+  return result
   if (lifecycle !== starts || turn !== mainTurnEpoch || epoch !== compactEpoch
       || await sessionId($).catch(() => null) !== identity || compacting(identity)) return result
   // The pump can reserve, release or record a review. Decide on reads taken

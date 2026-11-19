@@ -67,8 +67,8 @@ class GateCheckUnitTests(unittest.TestCase):
                                     "note": "key now issued (ticket 9)", "summary": "key issued",
                                     "reply": "Key issued; main can resume."}, store.read()["version"],
                        gate_check=True)
-        self.assertEqual("requested", result["handoff"])
-        self.assertEqual("resume", result["main_handoff"]["kind"])
+        # User 2026-11-18: a gated update no longer hands off to main.
+        self.assertEqual("not_required", result["handoff"])
         self.assertEqual("blocked", next(n for n in store.read()["nodes"] if n["id"] == ids["blocked"])["status"])
 
     def test_gates_list_waits_and_blocks_active_goal_first(self):
