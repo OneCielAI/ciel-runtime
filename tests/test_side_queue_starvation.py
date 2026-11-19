@@ -193,3 +193,21 @@ class ContextBeforeAckTests(unittest.TestCase):
             states = self.flow(Path(raw), self.event('302', sender='person-1'),
                                {'action': 'answer', 'kind': 'status', 'summary': 'state asked', 'reply': 'it is running'})
         self.assertNotEqual('not_applicable', states[1])
+
+
+class RoundSizeTests(unittest.TestCase):
+    """A round carries few gates so the actor looks each one up (user 2026-11-19)."""
+
+    def test_p0_gates_lead_every_round_and_the_others_take_turns(self):
+        from ciel_runtime_support.work_gate_check import round_gates, round_rows
+        rows = [{'id': 'p%d' % i, 'priority': 'P0'} for i in range(4)] + [{'id': 'n%d' % i, 'priority': 'P1'} for i in range(25)]
+        seen, offsets = [], None
+        for _ in range(5):
+            picked, offsets = round_rows(rows, 10, offsets)
+            self.assertEqual(['p0', 'p1', 'p2', 'p3'], [row['id'] for row in picked[:4]])
+            self.assertEqual(10, len(picked))
+            seen += [row['id'] for row in picked[4:]]
+        # Five rounds of six cover all 25 other gates and start over.
+        self.assertEqual({'n%d' % i for i in range(25)}, set(seen))
+        self.assertEqual((10, 25, 10), (round_gates({}), round_gates({'work_gate_check': {'round_gates': 25}}),
+                                        round_gates({'work_gate_check': {'round_gates': 0}})))

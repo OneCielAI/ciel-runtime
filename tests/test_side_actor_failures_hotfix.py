@@ -154,7 +154,9 @@ class GateThreadTests(unittest.TestCase):
         self.root = Path(self.tmp.name)
         self.identity = 'claude:parent'
         self.config = {'work_mode': True, 'work_side_intake': {'enabled': True},
-                       'work_parallel_host': {'token': 'x' * 40}, 'work_gate_check': {'minutes': 5}}
+                       'work_parallel_host': {'token': 'x' * 40},
+                       # These cases cover one whole tick; the round size has its own tests.
+                       'work_gate_check': {'minutes': 5, 'round_gates': 100}}
         self.store = session_work_plan_store(self.root, self.identity)
 
     def invoke(self, name, args, host=None):

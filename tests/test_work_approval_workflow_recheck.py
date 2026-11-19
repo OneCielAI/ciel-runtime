@@ -118,7 +118,7 @@ class RouterRecheckTests(WorkflowCase):
         self.submit(second_root)
         self.main('work_approval_requested', {'root_id': second_root, 'conversation_id': other, 'message_id': '9200',
                                               'thread_root_id': '9002', 'approvers': [REQUESTER], 'proposal_version': 1})
-        self.config['work_gate_check'] = {'minutes': 5}
+        self.config['work_gate_check'] = {'minutes': 5, 'round_gates': 100}
         gates = []
         for title, count, root, cursor in (('alpha', 8, '40', '2035'), ('beta', 7, '5000', '5003'),
                                            ('gamma', 5, '7000', '7001')):
