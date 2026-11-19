@@ -107,7 +107,7 @@ DEFAULTS: dict[str, str] = {
         '  지금 작업 상태는 tasks.search {message_id: 스레드 루트}, 대기를 건 뒤에 온 글은 threads.read\n'
         '  {conversation_id, root_id, after}, 글 한 건과 그 주변은 messages.context {message_id}, 승인은\n'
         '  approvals 계열. 응답이 너무 크면 after를 최근 글로 좁혀 다시 조회합니다.\n'
-        '- 사람의 승인·결정·답·검수를 기다리는 게이트(이름이 Daniel, 승인, 결정, 선택, 검수, 재개 지시 등)는\n'
+        '- 사람의 승인·결정·선택·답·검수·재개 지시를 기다리는 게이트는\n'
         '  매 점검의 첫 단계로 approvals.my_open_requests를 한 번 호출합니다. 이 목록은 내가 연 요청 중\n'
         '  아직 답이 없는 것만 보여 줍니다. 게이트가 가리키는 요청 id나 스레드가 이 목록에 없으면 그\n'
         '  요청은 이미 답을 받았거나 닫힌 것입니다. 그다음 그 요청 메시지를 messages.context로 읽어\n'

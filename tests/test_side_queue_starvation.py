@@ -126,6 +126,10 @@ class BlockerCheckActorTests(unittest.TestCase):
             text = prompts.effective(Path(raw), 'gate_actor')
         for phrase in ('블로커 확인 사이드 액터', '현재 상태를 직접', 'ask_main은 메인 검수 대기를 알릴 때만 씁니다', 'release_waits'):
             self.assertIn(phrase, text)
+        # Default instructions are workspace-neutral: no agent or person names.
+        for name in ('Daniel', 'Andy', 'Celly', 'Bob', 'KOBE', 'Sarah', 'Eric', 'Grant', 'JUNNY', 'Prody'):
+            self.assertNotIn(name, text)
+            self.assertNotIn(name, prompts.effective(Path(raw), 'gate_recheck'))
         source = SIDE_JS.read_text(encoding='utf-8')
         self.assertIn("event.route?.source_kind === 'gate_check' && typeof settings.gate_instruction === 'string'", source)
 
