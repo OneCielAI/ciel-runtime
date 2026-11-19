@@ -124,7 +124,7 @@ class BlockerCheckActorTests(unittest.TestCase):
         from ciel_runtime_support import work_workflow_prompts as prompts
         with tempfile.TemporaryDirectory() as raw:
             text = prompts.effective(Path(raw), 'gate_actor')
-        for phrase in ('블로커 확인 사이드 액터', '현재 상태를 직접', 'ask_main을 쓰지 않습니다', 'release_waits'):
+        for phrase in ('블로커 확인 사이드 액터', '현재 상태를 직접', 'ask_main은 메인 검수 대기를 알릴 때만 씁니다', 'release_waits'):
             self.assertIn(phrase, text)
         source = SIDE_JS.read_text(encoding='utf-8')
         self.assertIn("event.route?.source_kind === 'gate_check' && typeof settings.gate_instruction === 'string'", source)
@@ -211,3 +211,20 @@ class RoundSizeTests(unittest.TestCase):
         self.assertEqual({'n%d' % i for i in range(25)}, set(seen))
         self.assertEqual((10, 25, 10), (round_gates({}), round_gates({'work_gate_check': {'round_gates': 25}}),
                                         round_gates({'work_gate_check': {'round_gates': 0}})))
+
+
+class ReviewPendingTests(unittest.TestCase):
+    """The blocker-check actor tells main about results awaiting its review (user 2026-11-19)."""
+
+    def test_the_event_names_the_results_awaiting_main_and_the_actor_may_ask_main(self):
+        import time
+        from ciel_runtime_support import work_gate_check as gate
+        from ciel_runtime_support.work_workflow_prompts import DEFAULTS
+        rows = [{'id': 'n1098', 'priority': 'P0', 'title': 't', 'root_id': 'n1006', 'root_title': 'g', 'status': 'pending',
+                 'waiting_on': 'n1097 reviewed by main', 'evidence': '', 'note': ''}]
+        told = gate.tick_event({}, rows, 'd', time.time(), review_pending=['n1097', 'n1074'])['text']
+        self.assertIn('메인 검수 대기: 포크 결과 2건', told)
+        self.assertIn('n1097, n1074', told)
+        self.assertNotIn('메인 검수 대기', gate.tick_event({}, rows, 'd', time.time())['text'])
+        self.assertIn('"ask_main": true', DEFAULTS['gate_actor'])
+        self.assertIn('submitted이면 포크는 일을 끝냈고 메인의 검수만 남은', DEFAULTS['gate_actor'])

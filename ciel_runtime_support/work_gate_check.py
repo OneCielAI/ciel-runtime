@@ -257,12 +257,17 @@ TURN_END_TEXT = None  # The default lives in work_workflow_prompts ("turn_end").
 def tick_event(config: Mapping[str, Any], rows: list[dict[str, Any]], current: str, stamp: float,
                threads: Mapping[str, Mapping[str, Any]] | None = None, turn_end: bool = False,
                review_pending: list[str] | None = None, rules: str | None = None,
-               turn_text: str | None = None) -> dict[str, Any]:
+               turn_text: str | None = None, review_text: str | None = None) -> dict[str, Any]:
     """The one side event of a tick for ``rows``."""
     interval = minutes(config)
     slot = int(stamp // (interval * 60))
     fit: list[str] = []
     text = event_text(rows, interval, "%d gate(s)" % len(rows) if len(rows) > 1 else "", threads, included=fit, rules=rules)
+    if review_pending:
+        # Results that wait for main's review (user 2026-11-19: the side tells main).
+        template = review_text if isinstance(review_text, str) and review_text.strip() else prompt_default("gate_review")
+        text += "\n" + template.replace("{count}", str(len(review_pending))).replace(
+            "{items}", ", ".join(review_pending[:40]))
     if turn_end:
         text = (turn_text if isinstance(turn_text, str) and turn_text.strip() else prompt_default("turn_end")) + "\n" + text
     # The text digest keeps one key per exact content: a retry of the same check
