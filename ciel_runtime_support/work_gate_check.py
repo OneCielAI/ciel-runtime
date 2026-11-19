@@ -47,6 +47,46 @@ MAX_BATCHES = 20
 EVENT_TEXT_CHARS = 30_000
 
 
+# Gates one round carries (user 2026-11-19). The blocker-check actor looks each
+# gate up outside; with 70 to 90 gates in one round it looked up none and
+# answered "no change" for all of them. P0 gates lead every round.
+DEFAULT_ROUND_GATES = 10
+ROUND_GATES_RANGE = (1, 100)
+
+
+def round_gates(config: Mapping[str, Any]) -> int:
+    """How many gates one round carries (work_gate_check.round_gates in the config)."""
+    value = (config.get("work_gate_check") or {}).get("round_gates", DEFAULT_ROUND_GATES)
+    return value if type(value) is int and ROUND_GATES_RANGE[0] <= value <= ROUND_GATES_RANGE[1] else DEFAULT_ROUND_GATES
+
+
+def round_rows(rows: list[dict[str, Any]], size: int, offsets: Mapping[str, Any] | None
+               ) -> tuple[list[dict[str, Any]], dict[str, int]]:
+    """This round's gates and the offsets the next round starts from.
+
+    P0 gates come first every round (all of them while they fit, leaving room
+    for at least three others; more than that rotate among themselves). The
+    other gates follow in their order, continuing after the last round's.
+    """
+    offsets = offsets or {}
+    urgent = [row for row in rows if row.get("priority") == "P0"]
+    others = [row for row in rows if row.get("priority") != "P0"]
+
+    def take(group, key, room):
+        if not group or room <= 0:
+            return [], 0
+        start = offsets.get(key) if type(offsets.get(key)) is int else 0
+        start %= len(group)
+        if len(group) <= room:
+            return list(group), 0
+        picked = (group[start:] + group[:start])[:room]
+        return picked, (start + room) % len(group)
+
+    first, next_urgent = take(urgent, "p0", size if not others else max(1, size - min(3, size - 1)))
+    second, next_other = take(others, "rest", size - len(first))
+    return first + second, {"p0": next_urgent, "rest": next_other}
+
+
 def minutes(config: Mapping[str, Any]) -> int:
     """The stored interval; 0 turns the check off."""
     value = (config.get("work_gate_check") or {}).get("minutes", DEFAULT_MINUTES)
