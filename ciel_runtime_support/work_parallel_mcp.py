@@ -225,6 +225,11 @@ def _parked_notice_claim(store, lease_id, *, release=False):
     return True
 
 
+def workflow_gate(board, root_id):
+    from .work_workflow import gate
+    return gate(board, root_id)
+
+
 def _root_scope_digest(board, root_id):
     nodes = {node["id"]: node for node in board.get("nodes", [])}
     rows = []
@@ -276,6 +281,10 @@ def _p0_runnable_leaves(store, board, identity):
             continue
         if side.matching_active_marker(
                 side_state, identity, root["id"], root.get("created_at")) is None:
+            continue
+        if board.get("workflows") and workflow_gate(board, root["id"]):
+            # Approval workflow: a side-registered P0 also waits for the
+            # proposal and the verified approval (spec 2, 5.1).
             continue
         stack = [root["id"]]
         while stack:
@@ -814,6 +823,21 @@ def project(store, identity, board=None, *, host_view=False, caller_nonce=None, 
             view["fork_models"] = fork_model_projection(config)
         except Exception:
             view["fork_models"] = {"provider": "", "models": {}, "status": {}, "unavailable": True}
+        if isinstance(board, dict) and board.get("workflows"):
+            try:
+                # Approval workflow escalation: a step main moved to another model.
+                from .work_workflow_parallel import model_overrides
+                view["fork_models"]["overrides"] = model_overrides(board, view["leases"], config)
+            except Exception:
+                pass
+    if isinstance(board, dict) and board.get("workflows"):
+        try:
+            from .work_workflow import projection as workflow_projection
+            summary = workflow_projection(board)
+            view["workflow"] = {"counts": summary["counts"], "todo": summary["todo"][:10],
+                                "awaiting_approval": summary["awaiting_approval"][:20]}
+        except Exception:
+            view["workflow"] = None
     if host_view:
         # G5, display only: the mod's last live probe of the Work fork gate.
         from .work_parallel_gate_presence import fork_gate_view
@@ -1123,12 +1147,21 @@ def _worker_event(store, board_store, lease, args):
     # moves the run past "reserved", where it could never be bound again.
     _repair_lost_coordination_bind(store, lease)
     assignment = coord.read().get("runs", {}).get(lease["id"])
+    workflow_report = None
     if event in ("result", "completion", "review"):
         if event != "review" and not digest(artifact):
             raise WorkParallelError("completion artifact SHA256 required")
+        if event != "review":
+            # Approval workflow (spec 4.6): a missing linked QA, a missing
+            # evidence file or a wrong hash refuses the report before any write.
+            from .work_workflow_parallel import report_check
+            try:
+                workflow_report = report_check(board_store, lease, args)
+            except tree.WorkPlanError as error:
+                raise WorkParallelError(str(error)) from None
         kind = "review" if event == "review" else "completion"
         if assignment is not None:
-            detail = args.get("detail")
+            detail = args.get("detail") if workflow_report is None else workflow_report["receipt_detail"]
             if not isinstance(detail, dict):
                 detail = ({"summary": evidence, "coverage": [{"item_id": lease["item_id"], "verified": True}],
                            "verification": evidence, "workspace": None} if kind == "completion" else
@@ -1139,6 +1172,12 @@ def _worker_event(store, board_store, lease, args):
         d, _ = store.report_completion(lease["id"], plan_version=lease["plan_version"],
                                        artifact=artifact, evidence=evidence,
                                        expected_version=store.read()["version"])
+        if workflow_report is not None:
+            from .work_workflow_parallel import report_record
+            usage = args.get("usage") if isinstance(args.get("usage"), dict) else {}
+            report_record(board_store, workflow_report, lease,
+                          {key: usage[key] for key in ("model", "main_model", "tokens", "seconds")
+                           if type(usage.get(key)) in (str, int, float)})
     elif event == "question":
         if assignment is not None:
             detail = args.get("detail") if isinstance(args.get("detail"), dict) else {
@@ -1424,6 +1463,10 @@ def _reserve_assignment(store, board_store, identity, host, version, *, item_id=
         root = current
         while root["parent_id"] is not None:
             root = nodes[root["parent_id"]]
+        if board.get("workflows") and workflow_gate(board, root["id"]):
+            from .work_workflow import gate_text
+            raise WorkParallelError(f"Work item {item_id} cannot dispatch: "
+                                    + gate_text(root["id"], workflow_gate(board, root["id"])))
         effective = p0.effective_priority(identity, root, priority)
         if effective == "P0":
             # Key creation precedes the first durable launch intent. While any
@@ -2211,8 +2254,14 @@ def _main_review(store, board_store, identity, host, args):
     semantic fact and every cross-row admission/approval/workspace invariant is
     re-read before decide; the durable write still pins the fresh file version.
     """
-    if host.get("agent_id") is not None:
+    if host.get("agent_id") is not None and not _workflow_review_fork(store, board_store, host, args):
         raise WorkParallelError("main-session item review required")
+    if isinstance(args.get("workflow_review_fork"), str) and host.get("agent_id") is None:
+        # The host submits a delegated review fork's decision (spec 6.1); the
+        # fork must be the goal's review fork and not the step's implementer.
+        if not _workflow_review_fork(store, board_store, {"agent_id": args["workflow_review_fork"]}, args):
+            raise WorkParallelError("review fork is not this goal's reviewer or implemented the step")
+        host = {**host, "workflow_review_fork": args["workflow_review_fork"]}
     reviews = finalization(store)
     lease_id = args.get("lease_id")
     decision = args.get("decision")
@@ -2248,6 +2297,7 @@ def _main_review(store, board_store, identity, host, args):
             if _active_stranded(store, identity, lease_id) is not None:
                 return _stranded_review(store, board_store, identity, host, args, fstate["version"])
             row = fstate["reviews"][lease_id]
+        workflow_root = None
         if row["decision"] is None:
             from .work_parallel_finalization import review_pin
             if expected_pin is not None:
@@ -2270,10 +2320,33 @@ def _main_review(store, board_store, identity, host, args):
                 # the new stranded row fresh, then decide it under its own CAS.
                 return _stranded_review(store, board_store, identity, host, args, reviews.read()["version"],
                                         pin_prevalidated=True)
+            if decision in ("approve", "rework"):
+                # Approval workflow (spec 4.7): per-QA verdicts, a structured
+                # rework, and escalation past the rework limit.
+                from .work_workflow_parallel import review_apply, review_target
+                lease_row = store.read()["leases"].get(lease_id)
+                workflow_root = review_target(board_store, lease_row) if lease_row else None
+                if workflow_root is not None:
+                    try:
+                        entry = review_apply(board_store, workflow_root, lease_row, decision, args,
+                                             max_rework=store.read()["policy"]["max_rework"],
+                                             reviewer=_workflow_reviewer(host, board_store, workflow_root),
+                                             dry_run=True)
+                    except tree.WorkPlanError as error:
+                        raise WorkParallelError(str(error)) from None
+                    if entry["decision"] == "escalated":
+                        review_apply(board_store, workflow_root, lease_row, decision, args,
+                                     max_rework=store.read()["policy"]["max_rework"],
+                                     reviewer=_workflow_reviewer(host, board_store, workflow_root))
+                        return {"lease_id": lease_id, "decision": "escalated", "root_id": workflow_root,
+                                "state": "escalated", "detail": "rework limit reached; resolve the escalation "
+                                "with work_workflow_resolve (escalate_model, escalate_main or cancel)"}
             if decision == "rework":
                 # Fresh max_rework and current cross-row capacity/admission.
                 from .work_parallel import REWORK_HARD_REFUSALS, rework_admission
-                code, refusal = rework_admission(store.read(), lease_id, now=time.time())
+                current = store.read()
+                code, refusal = rework_admission(current, lease_id, now=time.time(),
+                                                 grant=_rework_grant(store, current, lease_id))
                 if code in REWORK_HARD_REFUSALS:
                     raise WorkParallelError(refusal)
 
@@ -2288,11 +2361,61 @@ def _main_review(store, board_store, identity, host, args):
                 lease_id, decision, decision_id, evidence, decision_body_digest=body_digest,
                 expected_version=fstate["version"], replacement_lease_id=replacement_id,
                 expected_review_pin=expected_pin if row["decision"] is None else None)
-            return _roll_forward(store, board_store, identity, host, lease_id)
+            if workflow_root is not None:
+                from .work_workflow_parallel import review_apply
+                review_apply(board_store, workflow_root, store.read()["leases"][lease_id], decision, args,
+                             max_rework=store.read()["policy"]["max_rework"],
+                             reviewer=_workflow_reviewer(host, board_store, workflow_root))
+            rolled = _roll_forward(store, board_store, identity, host, lease_id)
+            if workflow_root is not None:
+                from .work_workflow_parallel import step_approved_after_board
+                step_approved_after_board(board_store, workflow_root)
+            return rolled
         except WorkParallelConflict:
             if expected_pin is None or attempt + 1 == attempts:
                 raise
     raise WorkParallelConflict("Work finalization state changed; reread")
+
+
+def _board_snapshot(board_store):
+    from .work_workflow_parallel import snapshot
+    return snapshot(board_store)
+
+
+def _rework_grant(store, ledger_document, lease_id):
+    lease = ledger_document["leases"].get(lease_id) or {}
+    from .work_rework_grants import grant
+    return grant(store.path, lease.get("scope", ""), lease.get("item_id", "")) if lease else 0
+
+
+def _workflow_review_fork(store, board_store, host, args):
+    """A delegated review fork (spec 6.1) reviews only its goal's step, never one it implemented."""
+    lease = store.read()["leases"].get(args.get("lease_id"))
+    if not lease:
+        return False
+    from .work_workflow_parallel import review_target
+    from .work_workflow import record
+    root_id = review_target(board_store, lease)
+    if root_id is None:
+        return False
+    delegation = (record(_board_snapshot(board_store), root_id) or {}).get("delegation") or {}
+    agent = host.get("agent_id")
+    implementers = {row.get("host_id") for row in store.read()["leases"].values()
+                    if row.get("item_id") == lease["item_id"] and row.get("host_id")}
+    return (delegation.get("role") == "review" and delegation.get("state") == "running"
+            and delegation.get("agent_id") == agent and agent not in implementers)
+
+
+def _workflow_reviewer(host, board_store, root_id):
+    """Who decided a workflow review: main, or the goal's review fork (never its implementer)."""
+    agent = (host or {}).get("agent_id") or (host or {}).get("workflow_review_fork")
+    if agent is None:
+        return {"kind": "main", "id": "main"}
+    from .work_workflow import record
+    delegation = (record(_board_snapshot(board_store), root_id) or {}).get("delegation") or {}
+    if delegation.get("role") != "review" or delegation.get("agent_id") != agent:
+        raise WorkParallelError("only main or this goal's review fork reviews it")
+    return {"kind": "review_fork", "id": str(agent), "model": str(delegation.get("model") or "main")}
 
 
 CLOSE_RESOLVED_LIMIT = 24
@@ -2441,7 +2564,7 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
         if row["replacement_lease_id"] not in current["leases"]:
             code, refusal = rework_admission(
                 current, lease_id, now=time.time(),
-                excluded_lease_ids=p0_state(store).active_lease_ids())
+                excluded_lease_ids=p0_state(store).active_lease_ids(), grant=_rework_grant(store, current, lease_id))
             if p0_intent is not None and code in ("paused", "capacity", "launch_rate"):
                 code, refusal = "", ""
             if not code:
@@ -4203,6 +4326,9 @@ def dispatch_refusal(board, item_id):
                     f"{current['waiting_on']}. Clear a resolved wait explicitly; keep restrictions "
                     "in notes or on the specific waiting child, not on a runnable branch.")
         if current["parent_id"] is None:
+            if board.get("workflows") and workflow_gate(board, current["id"]):
+                from .work_workflow import gate_text
+                return f"Work item {item_id} cannot dispatch: " + gate_text(current["id"], workflow_gate(board, current["id"]))
             if tree.root_phase(board, current["id"]) != "executing":
                 return f"Work item {item_id} cannot dispatch: goal {current['id']} is not approved for execution"
             return ""

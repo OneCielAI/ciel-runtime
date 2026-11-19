@@ -14,7 +14,7 @@ from . import work_plan_tree as tree
 ACTIONS = ('answer', 'clarify', 'update', 'create', 'prioritize', 'advise')
 KINDS = ('status', 'info', 'request', 'clarify')
 FIELDS = {'action', 'kind', 'item_id', 'summary', 'reply', 'note', 'title', 'priority', 'queue_position', 'release_waits', 'time_limit',
-          'relay'}
+          'relay', 'ask_main'}
 NO_QUEUE = '큐에 등록하지 않았습니다.'
 MAX_RELEASES = 16
 MAX_TIME_LIMIT_TEXT = 1000
@@ -191,6 +191,12 @@ def validate(decision):
             raise tree.WorkPlanError('invalid side decision release_waits')
     if 'relay' in decision and type(decision['relay']) is not bool:
         raise tree.WorkPlanError('invalid side decision relay')
+    # Approval workflow (spec 4.9): a simple question only main can answer goes
+    # to main at once. Only an answer carries it; elsewhere it is dropped.
+    if 'ask_main' in decision and type(decision['ask_main']) is not bool:
+        raise tree.WorkPlanError('invalid side decision ask_main')
+    if decision.get('action') != 'answer' or decision.get('ask_main') is False:
+        decision.pop('ask_main', None)
     time_limit = decision.get('time_limit')
     if time_limit is not None:
         if (not isinstance(time_limit, dict) or set(time_limit) - {'text', 'due_at', 'evidence'}
@@ -319,8 +325,16 @@ def _record_review(doc, receipt_id, result, source):
 
 
 def apply(store, receipt_id, decision, expected_version, *, main_reply=False, observed_digest=None, source=None,
-          source_context=None, parked_projection=None, gate_check=False):
+          source_context=None, parked_projection=None, gate_check=False, workflow=None):
+    """``workflow`` (approval workflow on): {'source': {...}, 'prompt': digest}.
+
+    A create then opens the goal's workflow record (intake -> proposal_due) and
+    ``ask_main`` reaches main. A side update on an executing goal goes to
+    ``progress`` (outside the approved scope digest, technical review P2).
+    """
     validate(decision)
+    if workflow is None:
+        decision.pop('ask_main', None)
     if not isinstance(receipt_id, str) or len(receipt_id) != 64 or any(c not in '0123456789abcdef' for c in receipt_id):
         raise tree.WorkPlanError('invalid side receipt identity')
     if expected_version is not None and type(expected_version) is not int:
@@ -414,6 +428,11 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
                 raise tree.WorkPlanError('new Work title required')
             item = tree.add_node(doc, None, title, note=decision.get('note', ''),
                                  priority=board_priority, ref='side:' + receipt_id[:40])
+            if workflow is not None and not main_reply and not gate_check:
+                from .work_workflow import start as workflow_start
+                workflow_start(doc, item, receipt_id=receipt_id, source=workflow.get('source'),
+                               priority='P0' if wants_p0 else board_priority,
+                               understanding=decision['summary'], prompt=workflow.get('prompt'))
             # add_node inserts priority-ordered roots behind the active goal. P1
             # therefore becomes the first pending root and is immediately visible
             # to the main parallel scheduler without stealing the active slot.
@@ -478,22 +497,36 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
                                             or action == 'prioritize' and not direct_p0
                                             or action == 'update' and bool(gates)
                                             or action == 'create' and (bool(gates) or priority == 'P1' and not direct_p0))
+        workflow_goal = (workflow is not None and action == 'create'
+                         and item in (doc.get('workflows') or {}))
+        if workflow_goal and not gates and time_limit is None:
+            # Main hears of a workflow goal through its to-do queue (proposal
+            # due), not a P1 scheduling handoff (spec 6).
+            needs_handoff = False
+        asked = workflow is not None and decision.get('ask_main') is True and not main_reply
+        if asked:
+            needs_handoff = True
         if released and not gates and action == 'update' and time_limit is None:
             # The waiter is woken with the release itself (no acknowledgment);
             # a time limit still needs main's immediate durable notice.
             needs_handoff = False
         if needs_handoff:
             stamp = time.time()
-            kind = ('time_limit' if time_limit is not None else 'advise' if action == 'advise'
+            kind = ('question' if asked and time_limit is None else
+                    'time_limit' if time_limit is not None else 'advise' if action == 'advise'
                     else 'resume' if gates else 'p1' if priority == 'P1' else 'priority')
             handoffs = doc.setdefault('side_handoffs', {})
-            item_node = by_id.get(item) or next(node for node in doc['nodes'] if node['id'] == item)
-            root_id = tree._root_of(by_id, item)
-            position = tree.queue_position(doc, item)
+            if kind == 'question' and item not in by_id:
+                item_node, root_id, position = {'title': ''}, None, None
+            else:
+                item_node = by_id.get(item) or next(node for node in doc['nodes'] if node['id'] == item)
+                root_id = tree._root_of(by_id, item)
+                position = tree.queue_position(doc, item)
             handoffs[receipt_id] = {'item_id': item, 'root_id': root_id,
                                      'title': item_node.get('title', '')[:tree.MAX_TITLE_CHARS],
                                      'summary': decision['summary'][:1000],
-                                     'question': decision['reply'][:2000] if action == 'advise' else '',
+                                     'question': (decision['reply'][:2000] if action == 'advise' else
+                                                  decision['summary'][:2000] if kind == 'question' else ''),
                                      'kind': kind, 'gates': gates,
                                      **({'time_limit': dict(time_limit), 'queue': position} if time_limit is not None else {}),
                                      'waits': [{'id': gate['id'], 'waiting_on': gate['waiting_on']}

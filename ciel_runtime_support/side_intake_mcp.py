@@ -198,6 +198,11 @@ def _record_wait_boost(ledger_path, identity, receipt_id, result):
         return {'error': type(error).__name__}
 
 
+def _workflow_on(config):
+    from .work_workflow import enabled
+    return enabled(config)
+
+
 def _activate_side_p0(store, identity, receipt_id, root_id):
     """Activate P0 on the goal a side decision stored as canonical P1.
 
@@ -473,7 +478,8 @@ def run(name, args, config, state_dir, identity, store):
             state_dir, identity, args.get('owner'),
             aging_seconds=config.get('work_side_intake',{}).get('aging_seconds',60),
             model_fingerprint=NATIVE_FORK_FINGERPRINT,
-            urgent_only=args.get('urgent_only') is True)
+            urgent_only=args.get('urgent_only') is True,
+            workflow_events=_workflow_on(config))
         recovered = None
         if active:
             # A board commit can survive a later receipt-write failure. Recover
@@ -505,6 +511,13 @@ def run(name, args, config, state_dir, identity, store):
                 from .side_wake import redact_handoff
                 active['handoff_context'] = [redact_handoff(key, row) for key, row in document.get('side_handoffs', {}).items()
                                              if active['event_key'] == 'handoff:' + key]
+                # Approval workflow: an approval/rejection of a registered
+                # request is settled by host code (work_side_workflow_event),
+                # never by a side model (spec 4.4).
+                from .work_workflow_tools import claim_workflow_event
+                marked = claim_workflow_event(config, document, active.get('text'), store)
+                if marked:
+                    active['workflow_event'] = marked
         # Intent may be adopted (same owner) or superseded after its lease;
         # started is offered only so its owner can settle an append receipt.
         # The host claim keeps the raw attempt id it needs for that; the owner
@@ -528,6 +541,8 @@ def run(name, args, config, state_dir, identity, store):
         from .side_reply_outbox import pending
         settings = {k: v for k, v in runtime_side.items() if k != 'reply_connectors'}
         settings['actor'] = 'native_fork'
+        from .work_workflow_tools import side_instruction
+        settings['instruction'] = side_instruction(config, state_dir, settings.get('instruction'))
         # wake_protocol 2: main_wakes lists every appended row main has not read.
         # main_notices: released-wait notices a host may issue once more (a
         # definite failure, or a person-confirmed release); each is claimed
@@ -588,11 +603,13 @@ def run(name, args, config, state_dir, identity, store):
         parked, ledger_path = _parked_projection(store, identity, decision)
         try:
             from .side_intake_inbox import source_identity
+            from .work_workflow_tools import side_workflow_context
             result = apply(store, key, decision, args.get('expected_version'), main_reply=main_reply,
                            observed_digest=observed if isinstance(observed, str) else None,
                            source=source_identity((row or {}).get('text')),
                            source_context=(row or {}).get('source_context'),
-                           parked_projection=parked, gate_check=gate_check)
+                           parked_projection=parked, gate_check=gate_check,
+                           workflow=side_workflow_context(config, state_dir, row))
         except WorkChanged as error:
             changed = str(error)
         if changed is None and result.get('p0_root_id'):

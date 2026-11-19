@@ -122,6 +122,14 @@ def normalize_document(raw: Any) -> dict[str, Any]:
                 for key, row in reviews.items()):
             raise WorkPlanError('invalid side review records')
         doc['side_reviews'] = copy.deepcopy(reviews)
+    workflows = raw.get('workflows')
+    if workflows is not None:
+        # Approval workflow records (work_workflow), one per side-created goal.
+        from .work_workflow import WorkflowError, normalize as normalize_workflows
+        try:
+            doc['workflows'] = normalize_workflows(workflows)
+        except WorkflowError as error:
+            raise WorkPlanError(str(error)) from None
     operations = raw.get('rest_operations')
     if operations is not None:
         if not isinstance(operations, dict) or len(operations) > 128 or any(
@@ -213,10 +221,17 @@ def root_phase(doc: dict[str, Any], root_id: str) -> str:
     return _index(doc)[root_id].get("phase", PHASE_PLANNING)
 
 
-def set_phase(doc: dict[str, Any], phase: str, root_id: str | None = None) -> None:
+def set_phase(doc: dict[str, Any], phase: str, root_id: str | None = None, *, workflow_approved: bool = False) -> None:
     if phase not in PHASES:
         raise WorkPlanError("invalid Work phase")
     root_id = root_id or doc.get("active_root")
+    if phase == PHASE_EXECUTING and root_id and not workflow_approved:
+        # Shared execution gate (approval workflow spec 5): no path, main's
+        # work_execute included, starts a goal the requester has not approved.
+        from .work_workflow import gate, gate_text
+        reason = gate(doc, root_id)
+        if reason:
+            raise WorkPlanError("Work cannot execute: " + gate_text(root_id, reason))
     if root_id:
         _index(doc)[root_id]["phase"] = phase
     if root_id == doc.get("active_root"):
@@ -676,6 +691,10 @@ def runnable_leaves(doc: dict[str, Any]) -> list[dict[str, Any]]:
     for root, candidates in zip(roots, available):
         if root_phase(doc, root["id"]) != PHASE_EXECUTING:
             continue
+        if doc.get("workflows"):
+            from .work_workflow import gate
+            if gate(doc, root["id"]):
+                continue
         for leaf in candidates:
             rows.append({
                 "item_id": leaf["id"],

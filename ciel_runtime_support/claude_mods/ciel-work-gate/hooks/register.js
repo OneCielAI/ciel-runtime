@@ -40,7 +40,7 @@ const READ_TOOLS = new Set(['Read', 'Glob', 'Grep', 'ListAgents', 'WebFetch', 'W
 const FILE_WRITES = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit', 'apply_patch'])
 const SHELLS = new Set(['Bash', 'PowerShell', 'Monitor'])
 // The worker's report path and two reads; every other router tool is denied.
-const ROUTER_ALLOWED = new Set(['work_parallel_report', 'work_parallel_status', 'work_status'].map(tool => PREFIX + tool))
+const ROUTER_ALLOWED = new Set(['work_parallel_report', 'work_parallel_status', 'work_status', 'work_proposal_status'].map(tool => PREFIX + tool))
 const ROUTER_HOST_ONLY = new Set(['work_priority_command'].map(tool => PREFIX + tool))
 // A fork is bound while its lease is one of these (backend bind sets running).
 const BOUND_STATES = new Set(['running', 'waiting_input'])
@@ -307,6 +307,10 @@ async function forkModel($, agentId) {
       || (rework ? leases.find(row => row?.id === rework) || null : null)
     const priority = lease ? (lease.effective_priority || lease.priority) : null
     names = typeof priority === 'string' && /^P[0-5]$/.test(priority) ? slotNames(state, priority) : null
+    // Approval workflow escalation: main moved this step to another model.
+    const override = lease ? state.fork_models.overrides?.[lease.id] : null
+    if (override && typeof override.alias === 'string' && override.alias)
+      names = { alias: override.alias, upstream: typeof override.upstream === 'string' && override.upstream ? override.upstream : override.alias }
     if (!names) note($, 'fork-model-inherit agent=' + shortId(agentId) + ' lease=' + (lease ? 'found' : 'missing')
       + ' priority=' + (typeof priority === 'string' ? priority.slice(0, 2) : '-'))
     // Without a lease yet the answer is not cached, so the next step looks again.

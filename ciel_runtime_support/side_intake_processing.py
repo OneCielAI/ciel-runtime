@@ -9,13 +9,21 @@ from .side_intake_inbox import SideIntakeInbox, source_identity, source_priority
 from .work_plan_tree import WorkPlanError
 
 
-def _source_holder(inbox, key, row, stamp):
+def _source_holder(inbox, key, row, stamp, *, by_event=False):
     """Bind one source message to one side actor; settle later events for it.
 
     Returns 'claim' when this event may start an actor, 'wait' while the first
     event for the same source is still being handled, or 'settled' when this
     event was recorded as a duplicate of an already handled source.
     """
+    if by_event:
+        # Approval workflow (technical review P1): an approval or rejection is
+        # its own event, identified by its event id, never a duplicate of an
+        # earlier event about the same message (the request message, or a
+        # second approver's decision).
+        from .work_workflow_approval import event_kind, parse_event
+        if event_kind(parse_event(row.get('text'))):
+            return 'claim'
     source = source_identity(row['text'])
     if not source:
         return 'claim'
@@ -42,7 +50,7 @@ def _source_holder(inbox, key, row, stamp):
 
 
 def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_seconds=60,
-          model_fingerprint=None, urgent_only=False):
+          model_fingerprint=None, urgent_only=False, workflow_events=False):
     if not isinstance(owner, str) or not owner or len(owner) > 200:
         raise WorkPlanError('side claim owner required')
     if type(lease_seconds) is not int or not 1 <= lease_seconds <= 3600:
@@ -146,7 +154,7 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
                 # Rows an older build received are settled here, before any fork.
                 inbox.settle_receipt_ack(key, current, stamp)
                 continue
-            if _source_holder(inbox, key, current, stamp) != 'claim':
+            if _source_holder(inbox, key, current, stamp, by_event=workflow_events) != 'claim':
                 continue
             generation = uuid.uuid4().hex
             current['processing'] = {'owner': owner, 'generation': generation,

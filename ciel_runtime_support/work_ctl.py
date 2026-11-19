@@ -30,11 +30,12 @@ COMMANDS = "/ca/work/api/v1/commands/"
 EXIT_REFUSED, EXIT_CONFIRM = 1, 3
 
 READS = ("sessions", "reviews", "launches", "capacity", "receipts", "receipt", "handoffs", "notices",
-         "review-delivery", "audit", "orphan-preview")
+         "review-delivery", "audit", "orphan-preview", "workflow", "workflow-prompts", "workflow-metrics")
 WRITES = ("review-approve", "review-rework", "launch-resolve", "legacy-accept", "orphan-release", "orphan-reconcile",
           "wake-retry", "reappend-retry", "review-reappend-retry", "notice-retry", "reply-retry",
           "side-review-ok", "side-review-corrected", "handoff-ack", "side-drain",
-          "operation-reconcile", "operation-release", "execute", "priority")
+          "operation-reconcile", "operation-release", "execute", "priority",
+          "workflow-resolve", "workflow-delegate", "prompt-set", "prompt-reset")
 ACTIONS = READS + WRITES
 
 # The exact danger texts the web console shows before the same commands.
@@ -66,6 +67,7 @@ CONFIRM_TEXT = {
     "operation-reconcile": ("Reconcile “{command}” ({op})? This checks the actual store to see whether the command "
                             "took effect. Nothing is re-run automatically. If the store cannot show it, the outcome "
                             "stays unknown."),
+    "workflow-resolve": "Apply {action} to the approval workflow of goal {root} “{title}” (now {state})?",
     "operation-release": ("Release “{command}” ({op}) as unverified? The store could not show whether it took "
                           "effect: the effect may already have happened; retrying may duplicate it. Releasing only "
                           "frees the key so a new attempt can be made; nothing is re-run automatically."),
@@ -387,6 +389,13 @@ class WorkCtl:
             return self.get(session, "/ca/work/api/v1/side/receipt", receipt_id=self.receipt_id(session, target))
         if action == "audit":
             return self.get(session, "/ca/work/api/v1/audit")
+        if action == "workflow":
+            # Approval workflow (spec 9): the web Workflow tab's view, optionally one goal.
+            return self.get(session, "/ca/work/api/v1/workflow", **({"root_id": target} if target else {}))
+        if action == "workflow-prompts":
+            return self.get(session, "/ca/work/api/v1/workflow/prompts")
+        if action == "workflow-metrics":
+            return self.get(session, "/ca/work/api/v1/workflow/metrics")
         if action == "orphan-preview":
             return self.post(session, "parallel-orphans-preview", {}, None)
         side = self.get(session, "/ca/work/api/v1/side", limit="100")
@@ -578,6 +587,30 @@ class WorkCtl:
                  root=root.get("id") or "(none)", title=root.get("title") or "no active plan",
                  phase=state.get("phase"), approval=state.get("approval"))
             return self.post(session, "execute", body, op)
+        if action == "workflow-resolve":
+            # The web Workflow tab's buttons: cancel, resend, escalate_main, escalate_model=MODEL.
+            choice, _, model = (value or "").partition("=")
+            if not target or choice not in ("cancel", "resend", "escalate_main", "escalate_model"):
+                raise CtlError("work workflow-resolve ROOT cancel|resend|escalate_main|escalate_model=MODEL --session S")
+            goal = self.get(session, "/ca/work/api/v1/workflow", root_id=target).get("goal") or {}
+            body = {"root_id": target, "action": choice, **({"model": model} if model else {})}
+            if choice in ("cancel", "escalate_model", "escalate_main"):
+                gate(action, body, action=choice, root=target, title=goal.get("title") or "", state=goal.get("state"))
+            return self.post(session, "workflow-resolve", body, op)
+        if action == "workflow-delegate":
+            if not target or value not in ("proposal", "review"):
+                raise CtlError("work workflow-delegate ROOT proposal|review --session S")
+            return self.post(session, "workflow-delegate", {"root_id": target, "role": value}, op)
+        if action in ("prompt-set", "prompt-reset"):
+            # The web prompt editor: compare-and-set against the fingerprint just read.
+            rows = self.get(session, "/ca/work/api/v1/workflow/prompts").get("prompts") or []
+            row = self._one(rows, "name", target or "", "workflow prompt")
+            if action == "prompt-set" and not value:
+                raise CtlError("work prompt-set NAME TEXT --session S")
+            body = {"name": row["name"], "expected_fingerprint": row["fingerprint"],
+                    **({"value": value} if action == "prompt-set" else {})}
+            return self.post(session, "workflow-prompt-set" if action == "prompt-set" else "workflow-prompt-reset",
+                             body, op)
         if action in ("operation-reconcile", "operation-release"):
             # The web audit tab's two controls on an outcome-unknown receipt.
             # The positional id names that receipt; the command itself is not a

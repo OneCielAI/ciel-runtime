@@ -212,7 +212,7 @@ def validate(d):
 REWORK_HARD_REFUSALS = ("unknown", "not_reworkable", "rework_limit")
 
 
-def rework_admission(d, ident, *, now, excluded_lease_ids=frozenset()):
+def rework_admission(d, ident, *, now, excluded_lease_ids=frozenset(), grant=0):
     """(code, message) for a submitted result's next resume generation.
 
     ``code`` is "" when admissible. unknown/not_reworkable/rework_limit can never
@@ -224,7 +224,9 @@ def rework_admission(d, ident, *, now, excluded_lease_ids=frozenset()):
     if old["role"] not in ("worker", "resume") or old["state"] != "submitted" or old["slot"]:
         return "not_reworkable", "result is not reworkable"
     p = d["policy"]
-    if old["rework"] >= p["max_rework"]:
+    # grant: reworks an approval-workflow escalation granted past the limit
+    # (main chose another model; work_rework_grants sidecar, 0 otherwise).
+    if old["rework"] >= p["max_rework"] + grant:
         return "rework_limit", (f"rework limit reached ({old['rework']}/{p['max_rework']}); "
                                 "result remains pending review")
     if not p["enabled"] or p["paused"]:
@@ -702,8 +704,10 @@ class WorkParallelStore:
                         and prior["item_id"] == old["item_id"] and prior["rework"] == old["rework"] + 1,
                         "replacement id collision")
                 return replacement_ident
+            from .work_rework_grants import grant as rework_grant
             code, refusal = rework_admission(
-                d, ident, now=stamp, excluded_lease_ids=_p0_active_lease_ids(self.path))
+                d, ident, now=stamp, excluded_lease_ids=_p0_active_lease_ids(self.path),
+                grant=rework_grant(self.path, old["scope"], old["item_id"]))
             if bypass is not None and code in ("paused", "capacity", "launch_rate"):
                 code, refusal = "", ""
             require(not refusal, refusal)
@@ -921,7 +925,9 @@ class WorkParallelStore:
             elif r["artifact"] is not None and artifact != r["artifact"]:
                 raise WorkParallelConflict("stale artifact")
             if target == "running" and r["state"] in ("verifying", "reviewing"):
-                require(r["rework"] < d["policy"]["max_rework"], "rework limit")
+                from .work_rework_grants import grant as rework_grant
+                require(r["rework"] < d["policy"]["max_rework"] + rework_grant(self.path, r["scope"], r["item_id"]),
+                        "rework limit")
                 r.update(rework=r["rework"] + 1, artifact=None)
             if target == "done":
                 require(not r["slot"] and r["idle_proof"] is not None and text(cleanup_proof), "cleanup/idle proofs required")

@@ -9,6 +9,9 @@ const HOST_REPLIES = {
   work_parallel_event: { recorded: true },
   // The idle gate re-check timer asks once a minute; nothing is due here.
   work_side_gate_check: { interval_minutes: 5, queued: false, reason: 'no_gates' },
+  // Approval workflow: the host's queue read (nothing due) and its host-only event tool.
+  work_proposal_status: { enabled: false, goals: [], todo: [], counts: {} },
+  work_side_workflow_event: { applied: false, decision: 'invalid', reason: 'no workflow request matches this event' },
 }
 function setup(on, extra = {}) {
   const s = { snapshot: { enabled: true, phase: 'planning', approval: 'auto', version: 1,

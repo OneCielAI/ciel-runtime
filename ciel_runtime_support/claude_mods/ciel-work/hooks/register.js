@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import { startSide, pollSide, sideSpawnInput, sideTool, completeSide, suppressSide, sideReceipts, sideActors, sideMcpParity, hostJson, eventView, sideMainBusy, sideStopWake, sideRecordStopWake, sideWakeKnown, sidePromptSubmit, sidePromptPending, sidePromptTurnStart, sidePromptTurnComplete, sidePromptReassert, sidePromptRef, sideMainTurnStart, sideMainStep, sideMainFence, sideAppendStored, sideStopNotPresented, sideWakeRead, sideWakeReminded, sideReviewAppended, sideReviewDelivery, sideReviewRecheck, noticeToMain, sideParkedResume, sideThreadReadAfter } from './side-intake.js'
+import { startSide, pollSide, sideSpawnInput, sideTool, completeSide, suppressSide, sideReceipts, sideActors, sideMcpParity, hostJson, eventView, sideMainBusy, sideStopWake, sideRecordStopWake, sideWakeKnown, sidePromptSubmit, sidePromptPending, sidePromptTurnStart, sidePromptTurnComplete, sidePromptReassert, sidePromptRef, sideMainTurnStart, sideMainStep, sideMainFence, sideAppendStored, sideStopNotPresented, sideWakeRead, sideWakeReminded, sideReviewAppended, sideReviewDelivery, sideReviewRecheck, noticeToMain, sideParkedResume, sideThreadReadAfter, sideWorkflowApproved, sideApprovalRead } from './side-intake.js'
 
 // Router is authoritative; this cache is display-only and never persisted.
 const detailView = atom({ plugin: 'ciel-work', key: 'detail' }, null)
@@ -8,7 +8,8 @@ const PANE = 'work-details'
 const PREFIX = 'mcp__ciel-runtime-router__'
 const WORK = new Set(['work_discovery_pickup', 'work_parallel_status', 'work_parallel_configure', 'work_parallel_run', 'work_parallel_event', 'work_parallel_report', 'work_parallel_item_review', 'work_priority_command', 'work_status', 'work_plan_set', 'work_node_add', 'work_node_update',
   'work_node_remove', 'work_select', 'work_execute', 'work_replan', 'work_reorder', 'work_urgent', 'work_focus',
-  'work_mode_set'])
+  'work_mode_set', 'work_proposal_submit', 'work_approval_requested', 'work_proposal_status', 'work_workflow_resolve',
+  'work_workflow_delegate'])
 const WRITES = new Set(['Edit', 'Write', 'NotebookEdit', 'apply_patch'])
 const UNAVAILABLE = 'Work status unavailable: router connection or snapshot could not be verified.'
 const PLANNING = 'Work mode is planning: direct file edits wait until the plan is approved. '
@@ -1093,6 +1094,8 @@ async function workTurnComplete($, e, next) {
     if (interactive) startIdleRefresh($, await sessionId($))
     scheduleGateCheck($, await sessionId($))
     startPeriodicPump($)
+    // Main's workflow queue at a safe boundary (spec 6): one item, once.
+    void workflowNotice($, await sessionId($)).catch(() => false)
   }
   return result
 }
@@ -1143,12 +1146,25 @@ function scheduleGateCheck($, identity) {
       // One batch per tick (Andy 2026-11-18): the router names the gate threads
       // to read; the host reads each once, after its cursor, and hands the reads
       // back in the same tick. Nothing new on any gate: no side event, no fork.
-      let value = await parallelCall($, 'work_side_gate_check', { idle: !working, forks_running: forks, thread_reads: true })
-      if (value?.reason === 'read_threads' && Array.isArray(value.read_threads)) {
-        const reads = []
-        for (const thread of value.read_threads.slice(0, 200)) reads.push(await sideThreadReadAfter($, thread))
-        value = await parallelCall($, 'work_side_gate_check', { idle: !working, forks_running: forks, thread_reads: true,
-          threads_read: reads })
+      // The approval re-check rides the same batch (spec 4.4.1): one read of the
+      // request message per awaiting_approval goal, returned with the same
+      // second call; host code decides, never a fork.
+      const first = await parallelCall($, 'work_side_gate_check', { idle: !working, forks_running: forks, thread_reads: true })
+      let value = first
+      const threads = first?.reason === 'read_threads' && Array.isArray(first.read_threads) ? first.read_threads.slice(0, 200) : []
+      const approvals = Array.isArray(first?.approvals_due) ? first.approvals_due.slice(0, 32) : []
+      const reads = []
+      for (const thread of threads) reads.push(await sideThreadReadAfter($, thread))
+      const approvalReads = approvals.length ? await workflowApprovalReads($, approvals) : { checks: [] }
+      if (threads.length || approvalReads.checks.length) {
+        const second = await parallelCall($, 'work_side_gate_check', { idle: !working, forks_running: forks, thread_reads: true,
+          ...(threads.length ? { threads_read: reads } : {}),
+          ...(approvalReads.checks.length ? { approvals_read: approvalReads.checks } : {}) })
+        workflowApprovalResults($, second?.approval_results)
+        // The gate answer is the second call's when it carried the thread reads;
+        // the workflow rows the router handed out stay the first call's.
+        value = { ...(threads.length ? second : first), workflow_delegations: first?.workflow_delegations,
+          approval_results: second?.approval_results }
       }
       if (value?.queued) {
         $.ui.log('Gate re-check queued for ' + (value.gates || []).length + ' blocked/waiting item(s)')
@@ -1157,6 +1173,7 @@ function scheduleGateCheck($, identity) {
       }
       if (value?.host_due && hostPhaseReady && gateCheck === poll && poll.lifecycle === starts)
         await gateHostRound($, identity, value, forks)
+      if (gateCheck === poll && poll.lifecycle === starts) await workflowRound($, identity, value)
     } catch { /* An unknown host state skips this tick only. */
     } finally {
       if (gateCheck === poll && poll.lifecycle === starts) poll.timer = $.clock.after(GATE_CHECK_TICK_MS, tick)
@@ -1165,6 +1182,115 @@ function scheduleGateCheck($, identity) {
   poll.timer = $.clock.after(GATE_CHECK_TICK_MS, tick)
 }
 
+// Approval workflow (spec 4.4.1, 6, 6.1). The approval re-check is part of the
+// gate tick's own batch (the tick above): the request messages it reads go back
+// with the tick's second gate-check call, next to the thread reads. After it,
+// this tail of the same tick (no loop of its own):
+// start any delegated proposal/review fork; tell main about the first item of
+// its workflow queue once (router claim), waking it only when idle.
+const workflowAgents = new Map()
+const workflowPending = new Set()
+// The tick's approval reads (one per awaiting_approval request message).
+async function workflowApprovalReads($, due) {
+  let read = null
+  try { read = await sideApprovalRead($, due) } catch { read = null /* read again next tick */ }
+  for (const row of read?.refused || [])
+    $.ui.log('Work workflow: approval request of ' + clipped(row.root_id, 40) + ' not checked (' + row.reason + ')', { to: 'debug' })
+  return { checks: Array.isArray(read?.checks) ? read.checks : [], reads: read?.reads || 0 }
+}
+function workflowApprovalResults($, results) {
+  let approved = false
+  for (const row of Array.isArray(results) ? results : []) {
+    if (!row?.applied) continue
+    $.ui.log('Work workflow: ' + clipped(row.root_id, 40) + ' ' + row.decision + ' (periodic check of the request message)')
+    approved = approved || row.decision === 'approved'
+  }
+  if (approved) void parallelPump($, 'workflow-approved').catch(() => {})
+}
+async function workflowRound($, identity, check) {
+  for (const row of (Array.isArray(check?.workflow_delegations) ? check.workflow_delegations : []).slice(0, 2))
+    await workflowDelegate($, identity, row)
+  await workflowNotice($, identity)
+}
+// Keys of main's workflow items this process woke an idle main for. A notice
+// appended while main was busy (no wake) gets one wake once main is idle; a
+// restart wakes once more for the item still waiting (spec 6: the item stays
+// until its artifact is submitted).
+const workflowWoken = new Set()
+const WORKFLOW_WAKE = 'Ciel Work workflow wake: a host message beginning "Ciel Work workflow" was added to this conversation. '
+  + 'Read it and do what it asks. This wake holds none of it and grants no approval.'
+async function workflowNotice($, identity) {
+  let view = null
+  try { view = await parallelCall($, 'work_proposal_status', { claim_notice: true }) } catch { return false }
+  const next = view?.next_for_main
+  if (!next || typeof next.text !== 'string' || typeof next.key !== 'string') return false
+  const key = 'workflow:' + clipped(String(next.root_id || ''), 40) + ':' + clipped(String(next.state || ''), 30)
+  const wake = typeof next.wake_text === 'string' && next.wake_text ? next.wake_text : WORKFLOW_WAKE
+  if (next.claimed !== true) {
+    if (working || workflowWoken.has(next.key)) return false
+    workflowWoken.add(next.key)
+    void sidePromptSubmit($, key + ':wake', wake)
+    return true
+  }
+  const delivered = await hostNoticeToMain($, next.text, key, working ? '' : wake)
+  if (!delivered) {
+    try { await parallelCall($, 'work_proposal_status', { release_notice: next.key }) } catch {}
+  } else if (!working) workflowWoken.add(next.key)
+  return delivered
+}
+async function workflowDelegate($, identity, row) {
+  if (!row || typeof row.root_id !== 'string' || typeof row.prompt !== 'string' || !['proposal', 'review'].includes(row.role)) return
+  let spawned = null
+  const description = 'Work workflow ' + row.role + ' ' + row.root_id
+  workflowPending.add(description)
+  try {
+    spawned = await $.agent.spawn({ subagentType: 'fork', description, prompt: row.prompt })
+  } catch { spawned = null } finally { workflowPending.delete(description) }
+  if (!spawned?.agentId) return
+  workflowAgents.set(spawned.agentId, { root_id: row.root_id, role: row.role, item_id: row.item_id || null,
+    lease_id: row.lease_id || null, identity })
+  try {
+    await parallelCall($, 'work_side_workflow_event', { delegated: { root_id: row.root_id, role: row.role, state: 'bound', agent_id: spawned.agentId } })
+  } catch {}
+  $.ui.log('Work workflow: ' + row.role + ' fork started for ' + row.root_id + ' on main\'s model')
+}
+function workflowAnswer(text) {
+  const raw = String(text || '')
+  const start = raw.indexOf('{'), end = raw.lastIndexOf('}')
+  if (start < 0 || end <= start) return null
+  try { return JSON.parse(raw.slice(start, end + 1)) } catch { return null }
+}
+async function workflowAgentComplete($, e) {
+  const row = workflowAgents.get(e.agentId)
+  workflowAgents.delete(e.agentId)
+  const answer = e.reason === 'answer' ? workflowAnswer(e.answer) : null
+  try {
+    if (!answer) throw new Error('the ' + row.role + ' fork returned no JSON answer')
+    if (row.role === 'proposal') {
+      await parallelCall($, 'work_side_workflow_event', { delegated: { root_id: row.root_id, role: 'proposal', state: 'answer',
+        agent_id: e.agentId, proposal: answer.proposal || answer } })
+    } else {
+      const { lease_id, decision, qa_verdicts, evidence_checked, rework, evidence } = answer
+      await mainParallelReview($, { lease_id: lease_id || row.lease_id, decision, qa_verdicts, evidence_checked, rework,
+        evidence: typeof evidence === 'string' && evidence ? evidence : 'review fork ' + e.agentId, workflow_review_fork: e.agentId })
+    }
+    $.ui.log('Work workflow: ' + row.role + ' fork for ' + row.root_id + ' submitted')
+  } catch (error) {
+    try {
+      await parallelCall($, 'work_side_workflow_event', { delegated: { root_id: row.root_id, role: row.role, state: 'failed',
+        agent_id: e.agentId, reason: clipped(String(error?.message || error), 300) } })
+    } catch {}
+    $.ui.log('Work workflow: ' + row.role + ' fork for ' + row.root_id + ' failed: ' + clipped(String(error?.message || error), 200))
+  }
+  void workflowNotice($, row.identity).catch(() => false)
+}
+function workflowLine(state) {
+  const w = state?.workflow
+  if (!w || typeof w !== 'object' || !w.counts || !Object.keys(w.counts).length) return ''
+  const queue = Array.isArray(w.todo) ? w.todo : []
+  return 'workflow ' + Object.entries(w.counts).map(([key, count]) => key.replace(/_/g, ' ') + ' ' + count).join(', ')
+    + (queue.length ? ' · main next: ' + clipped(queue[0].root_id, 40) + ' ' + clipped(queue[0].state, 30) : '')
+}
 // The host's own gate-check round (Stage 3, 2026-11-17). Re-pump first, so a
 // parked worker whose wait is cleared resumes and free slots fill; then read
 // the per-priority diagnosis. Main is told at most once per changed attention
@@ -1736,8 +1862,9 @@ function paneDispatch(state) {
   const rows = d.rows.filter(row => row && !(row.state === 'no_work' && !row.active))
   const use = rows.map(row => row.priority + ' ' + (row.limit === null ? String(row.active) : row.active + '/' + row.limit)).join(' ')
   const first = rows.find(row => (d.attention || []).includes(row.priority))
-  return { line: (use || 'no Work to dispatch') + (first ? ' · ' + first.priority + ': ' + clipped(first.reason || '', 160) : ''),
-    attention: Boolean(first) }
+  const flow = workflowLine(state)
+  return { line: (use || 'no Work to dispatch') + (first ? ' · ' + first.priority + ': ' + clipped(first.reason || '', 160) : '')
+    + (flow ? ' · ' + flow : ''), attention: Boolean(first) }
 }
 function parallelItemLabel(r) {
   const ref = r.item_ref ? '[ ' + clipped(r.item_ref, 64) + ' ] ' : ''
@@ -1749,7 +1876,8 @@ function parallelItemLabel(r) {
 function ownedWorkNotification(e) {
   if (e.agentId !== undefined || e.origin?.kind === 'composer') return false
   const id = /^<task-notification>\s*<task-id>([^<]{1,300})<\/task-id>[\s\S]*<\/task-notification>$/.exec(String(e.text || '').trim())?.[1]
-  return Boolean(id && (ownedParallelAgents.has(id) || retiredParallelAgents.has(id) || parallelBound.has(id)))
+  return Boolean(id && (ownedParallelAgents.has(id) || retiredParallelAgents.has(id) || parallelBound.has(id)
+    || workflowAgents.has(id)))
 }
 // Durable main-review queue (work_parallel_finalization.py). The status
 // projection carries it as review = {version, pending:[...]}; parallel_reviews
@@ -2118,7 +2246,9 @@ function parallelAssignment(r) {
   return JSON.stringify({ item_id:r.item_id, title:r.item_title || '', note:r.item_note || '',
     path:r.item_path || [], worktree:r.workspace?.path || null, lease_id:r.lease_id,
     plan_version:r.plan_version, worker_token:r.worker_token, role,
-    ...(Number.isInteger(r.generation) ? { generation:r.generation } : {}) })
+    ...(Number.isInteger(r.generation) ? { generation:r.generation } : {}),
+    // Approval workflow (spec 4.5): spec, step, linked QA, rules and the report format.
+    ...(r.workflow && typeof r.workflow === 'object' ? { workflow:r.workflow } : {}) })
 }
 function boardTitleMap(board) {
   const nodes = Array.isArray(board?.nodes) ? board.nodes : []
@@ -2160,6 +2290,22 @@ function parallelPaneFailure(state) {
   const row = rows.find(r => WORKSPACE_FAILURE_CODES.has(r?.code) && typeof r.at === 'number' && Date.now() / 1000 - r.at < 3600)
   return row ? { code: row.code, count: Number(row.count) || 1, message: row.message || row.code, at: row.at } : null
 }
+function workflowText(view) {
+  const lines = ['Ciel Work approval workflow · ' + (view?.enabled ? 'on' : 'off')]
+  for (const row of Array.isArray(view?.todo) ? view.todo : []) lines.push('MAIN NEXT: ' + row.root_id + ' ' + clipped(row.title, 80) + ' · ' + row.state + ' · ' + (row.priority || '-'))
+  for (const goal of Array.isArray(view?.goals) ? view.goals : []) {
+    const p = goal.proposal || {}
+    const steps = Object.entries(goal.steps || {}).map(([id, step]) => id + ' ' + step.state + (step.reworks ? ' r' + step.reworks : '')).join(', ')
+    lines.push(goal.root_id + ' ' + clipped(goal.title, 80) + ' · ' + goal.state + ' · owner ' + goal.owner
+      + (goal.blocked_text ? ' · ' + clipped(goal.blocked_text, 160) : '')
+      + (p.version ? ' · proposal v' + p.version + ' ' + p.code : '')
+      + (goal.approval_request?.message_id ? ' · request ' + goal.approval_request.message_id : '')
+      + (steps ? ' · steps ' + clipped(steps, 200) : '') + (goal.reworks ? ' · reworks ' + goal.reworks : ''))
+  }
+  for (const row of view?.metrics?.models || []) lines.push('MODEL ' + row.model + ': first pass ' + Math.round(row.first_pass_rate * 100)
+    + '% · mean reworks ' + row.mean_reworks + ' · final pass ' + Math.round(row.final_pass_rate * 100) + '%')
+  return lines.join('\n')
+}
 function parallelStatusText(state, scope) {
   const p = state?.policy || {}
   const leases = Object.values(state?.leases || {})
@@ -2178,6 +2324,8 @@ function parallelStatusText(state, scope) {
   // Per priority: limit, use, runnable items and why the rest wait (Stage 3,
   // 2026-11-17). The same router rows as web, REST and ctl.
   for (const line of priorityDiagnosisLines(state)) lines.push(line)
+  const flow = workflowLine(state)
+  if (flow) lines.push('WORKFLOW: ' + flow + ' · /work-mode workflow')
   // One allowlisted block shared with web, REST and ctl (work_wait_surfaces).
   const boost = state?.wait_boost
   if (boost && typeof boost === 'object') lines.push('RELEASED WAITS: ' + (boost.eligible
@@ -2568,7 +2716,7 @@ function parallelLeaseBlocksTarget(state, target) {
 // The router also refuses them without the host token (model_side_tool_probe).
 const HOST_ONLY_SIDE_TOOLS = new Set(['work_side_wake', 'work_side_fail', 'work_side_fallback', 'work_side_renew',
   'work_side_ack', 'work_side_understanding', 'work_side_reply', 'work_side_claim', 'work_side_retry_reply',
-  'work_side_gate_check'].map(tool => PREFIX + tool))
+  'work_side_gate_check', 'work_side_workflow_event'].map(tool => PREFIX + tool))
 async function parallelToolCall($, e, next) {
   if (next.origin?.plugin === 'ciel-work' && (e.tool === PREFIX+'send_message' || e.tool.startsWith(PREFIX+'work_side_'))) return next(e)
   if (HOST_ONLY_SIDE_TOOLS.has(e.tool))
@@ -2992,6 +3140,13 @@ async function parallelAgentSpawn($, e, next) {
   const sideNamed = /^side-intake-/.test(String(e.name || ''))
     || /^Side SSE /.test(String(e.description || ''))
   if (sideNamed) return { deny:'Side SSE native fork authorization did not match its pending host record.' }
+  // Approval workflow planning forks (spec 6.1): only this module's own spawn,
+  // with the exact description workflowDelegate recorded, on main's model.
+  if (/^Work workflow /.test(String(e.description || ''))) {
+    if (next.origin?.plugin === 'ciel-work' && workflowPending.delete(e.description)
+        && e.parentAgentId === undefined && !e.name) return next(e)
+    return { deny:'Work workflow fork authorization did not match its pending host record.' }
+  }
   try {
     const s = await hostStatus($)
     if (!s.policy.enabled) return next(e)
@@ -4422,6 +4577,8 @@ export function register(on) {
     // A released wait resumes its parked worker from the host first (Stage 3);
     // side-intake.js calls this closure, bound to this session, with no $.
     sideParkedResume(ids => parallelResumeReleased($, ids))
+    // A host-verified approval (spec 4.4) wakes the fork pump at once.
+    sideWorkflowApproved(() => { void parallelPump($, 'workflow-approved').catch(() => {}) })
     resetParallelHostState()
     compactEpoch++; compacts.clear(); continuationSession = null
     continuationVersion = null; unchangedContinuations = 0
@@ -4496,6 +4653,10 @@ export function register(on) {
     if (e.agentId === undefined) {
       for (const [key, waiting] of [...stopWakeWaiting]) if (!waiting.proven) stopWakeWaiting.delete(key)
       mainTurnId = null; mainStepIndex = -1
+    }
+    if (e.agentId !== undefined && workflowAgents.has(e.agentId)) {
+      try { await workflowAgentComplete($, e) } catch {}
+      return next(e)
     }
     if (!await completeSide($, e)) return parallelTurnComplete($, e, next)
     // completeSide has committed the decision; a P0 it activated (side_intake_mcp)
@@ -4600,7 +4761,11 @@ export function register(on) {
           + '\n/work-mode settings key=value · live' }
       } catch (error) { return { text: 'Work settings unavailable: ' + clipped(String(error.message || error), 300) } }
     }
-    if (!['', 'help', 'view', 'status', 'tree', 'expand', 'compact', 'parallel'].includes(arg)) return { text: 'Usage: /work-mode [expand|compact|help|view|tree|status|parallel]' }
+    if (arg === 'workflow') {
+      try { return { text: workflowText(await parallelCall($, 'work_proposal_status', {})) } }
+      catch (error) { return { text: 'Work workflow unavailable: ' + clipped(String(error?.message || error), 300) } }
+    }
+    if (!['', 'help', 'view', 'status', 'tree', 'expand', 'compact', 'parallel'].includes(arg)) return { text: 'Usage: /work-mode [expand|compact|help|view|tree|status|parallel|workflow]' }
     if (arg === 'expand' || arg === 'compact') {
       await refresh($)
       const origin = await sessionId($)

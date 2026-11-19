@@ -73,7 +73,8 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
          "inputSchema": {"type": "object", "properties": {"idle": {"type": "boolean"}, "forks_running": {"type": "integer", "minimum": 0},
                                                           "host_report": {"type": "object"},
                                                           "thread_reads": {"type": "boolean", "description": "The host reads each gate thread after its cursor (two calls per tick)."},
-                                                          "threads_read": {"type": "array", "items": {"type": "object"}}},
+                                                          "threads_read": {"type": "array", "items": {"type": "object"}},
+                                                          "approvals_read": {"type": "array", "items": {"type": "object"}, "description": "Approval workflow: the request messages the host read for approvals_due this tick."}},
                          "required": ["idle", "forks_running"]}},
         {"name": "work_side_intake", "description": "Durably queue an untrusted side request without approving execution or changing the active goal. Stable event_key deduplicates retries; host coordinator only.",
          "inputSchema": {"type": "object", "properties": {"text": {"type": "string", "maxLength": SIDE_INTAKE_TEXT_MAX_CHARS},
@@ -262,8 +263,10 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
     from .work_parallel_mcp import schemas as parallel_schemas
     from .side_intake_mcp import schemas as side_schemas
     from .host_result_pages import schema as host_page_schema
+    from .work_workflow_tools import schemas as workflow_schemas
     schemas.extend(parallel_schemas())
     schemas.extend(side_schemas())
+    schemas.extend(workflow_schemas())
     schemas.append(host_page_schema())
     if not enabled:
         schemas = [schema for schema in schemas if schema["name"] in (WORK_MODE_SWITCH_TOOL, "work_live_settings", "work_side_settings", "work_side_intake", "work_side_drain", "work_side_status", "work_side_claim", "work_side_understanding", "work_side_resolve", "work_side_fail", "work_side_fallback", "work_side_ack", "work_side_reply", "work_side_wake", "work_side_handoff", "work_side_renew", "work_side_retry_reply", "work_side_code_read", "work_side_code_search", "work_host_page")]
@@ -540,6 +543,20 @@ def dispatch_work_tool(
             interval = minutes(config)
             side_on = (config.get("work_side_intake") or {}).get("enabled") is True
             status = {"interval_minutes": interval, "queued": False, "side_intake": side_on}
+            if isinstance(args.get("approvals_read"), list):
+                # Approval workflow 4.4.1, one batch per tick (2026-11-18): the
+                # request messages the host read for this tick's approvals_due
+                # come back with the tick's own call. Host code decides each
+                # (work_workflow_approval.verify); no side fork is involved.
+                from .work_workflow_tools import workflow_event as apply_workflow_checks
+                applied = apply_workflow_checks({"check": True, "checks": args["approvals_read"]},
+                                                store or session_work_plan_store(state_dir, identity, log=log),
+                                                state_dir, identity, config, host)
+                status["approval_results"] = applied["results"]
+                if args.get("threads_read") is None:
+                    # This tick's gate part was answered by its first call.
+                    return respond(request_id, json.dumps({**status, "reason": "approvals_checked"},
+                                                          ensure_ascii=False))
             if interval == 0:
                 return respond(request_id, json.dumps({**status, "reason": "off"}))
             # Stage 3 (2026-11-17): the check also runs while Work forks run and
@@ -575,6 +592,28 @@ def dispatch_work_tool(
                 round_at = float(((last or {}).get("host_round") or {}).get("at") or 0)
                 status["host_due"] = time.time() - round_at >= interval * 60
                 doc = (store or session_work_plan_store(state_dir, identity, log=log)).read()
+                if doc.get("workflows") and args.get("threads_read") is None and args.get("approvals_read") is None:
+                    # Only a tick's first call (its second carries the reads).
+                    # Approval requests the host re-reads from Walkie once per
+                    # interval (SSE may drop an approval), in the gate check's
+                    # own order (effective_priority_for: P0, P1, then the rest);
+                    # and delegated planning forks to start.
+                    from .work_workflow import approvals_due
+                    from .work_workflow_tools import approval_request_read, check_state, delegations_due
+                    if time.time() - float((last or {}).get("approvals_at") or 0) >= interval * 60:
+                        effective = {node["id"]: priority(node) for node in doc.get("nodes", [])
+                                     if node.get("parent_id") is None}
+                        rows = approvals_due(doc, effective)[:32]
+                        board_store = store or session_work_plan_store(state_dir, identity, log=log)
+                        rows = [{**row, **check_state(board_store, row)} for row in rows]
+                        status["approvals_due"] = [{**row, "request_read": approval_request_read(config, row)}
+                                                   for row in rows]
+                        if rows:
+                            last = {**(last or {}), "approvals_at": time.time()}
+                            record.write_text(json.dumps(last, ensure_ascii=False), encoding="utf-8")
+                    status["workflow_delegations"] = delegations_due(
+                        store or session_work_plan_store(state_dir, identity, log=log), state_dir, config,
+                        now=time.time())
                 if not side_on:
                     # No side actor checks the gates; the host does what it can
                     # itself (re-pump, diagnosis, notice) and records it.
@@ -650,6 +689,19 @@ def dispatch_work_tool(
                                                   "receipt_ids": receipts, "events": len(receipts),
                                                   "gates": event["gates"], "threads_read": reads_count},
                                                  ensure_ascii=False))
+        from .work_workflow_tools import NAMES as WORKFLOW_TOOLS
+        if name in WORKFLOW_TOOLS:
+            # Approval workflow (spec 8): main's tools, the fork packet and the
+            # host-only event tool share one dispatch.
+            from .work_workflow_tools import dispatch as workflow_dispatch
+            host = None
+            verified = _host_verified(args, config)
+            if verified:
+                from .work_parallel_mcp import host_context
+                host, _ = host_context(args, config)
+            return respond(request_id, json.dumps(workflow_dispatch(
+                name, args, store or session_work_plan_store(state_dir, identity, log=log), state_dir, identity,
+                config, host, host_verified=verified), ensure_ascii=False))
         if name == "work_side_intake":
             from .work_parallel_mcp import host_context
             from .side_intake_service import receive
@@ -667,7 +719,13 @@ def dispatch_work_tool(
                     sweep_while_running(log or (lambda *_: None))
                 except Exception:  # noqa: BLE001 - the sweep is advisory to a status read
                     pass
-            return respond(request_id, run(name, args, store, identity, config, save_config, log=log))
+            output = run(name, args, store, identity, config, save_config, log=log)
+            if name in ("work_parallel_run", "work_parallel_event") and isinstance(output, str)                     and "worker_token" in output:
+                # Approval workflow (spec 4.5): a fork of a workflow goal gets
+                # the spec, its step, linked QA, rules and the report format.
+                from .work_workflow_tools import attach_packet
+                output = attach_packet(output, store, state_dir)
+            return respond(request_id, output)
         try:
             output = _run(name, args, store, approval_ask, auto_continue=work_auto_continue_enabled(config), retention=retention_status(config), config=config, log=log)
         except ValueError as error:

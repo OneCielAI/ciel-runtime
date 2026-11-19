@@ -29,7 +29,18 @@ REASONS = ("waiting", "planning", "not_ready", "fenced", "stranded")
 # States a person or main can act on; "can_fill" and "full" are normal.
 ATTENTION_STATES = frozenset(("no_candidates", "disabled", "lease_bound", "rate_limited", "goal_blocked"))
 REASON_WORDS = {"waiting": "waiting/blocked", "planning": "goal in planning", "not_ready": "not ready",
-                "fenced": "already has an open lease", "stranded": "stranded result awaiting main"}
+                "fenced": "already has an open lease", "stranded": "stranded result awaiting main",
+                # Approval workflow (spec 9): counted only when present, so a
+                # board without workflows keeps the original five keys.
+                "awaiting_proposal": "awaiting main's proposal", "awaiting_approval": "awaiting approval",
+                "escalated": "escalated rework"}
+
+
+def tree_workflow_gate(board: Mapping[str, Any], root_id: str) -> str:
+    if not board.get("workflows"):
+        return ""
+    from .work_workflow import gate
+    return gate(board, root_id)
 
 
 def _leaves(board: Mapping[str, Any]) -> tuple[dict[str, Mapping[str, Any]], list[Mapping[str, Any]]]:
@@ -89,6 +100,10 @@ def diagnose(ledger: Mapping[str, Any], board: Mapping[str, Any] | None, scope: 
                 root.get("priority") if root.get("priority") in tree.PRIORITIES else "P5")
             row = rows[name]
             row["unfinished"] += 1
+            workflow = tree_workflow_gate(board, root["id"])
+            if workflow in ("awaiting_proposal", "awaiting_approval", "escalated"):
+                row["blocked"][workflow] = row["blocked"].get(workflow, 0) + 1
+                continue
             if any(node.get("waiting_on") or node.get("status") == "blocked" for node in path):
                 reason = "waiting"
             elif leaf["id"] in fences:

@@ -137,6 +137,12 @@ ciel-runtimectl work side-drain [LIMIT] --session S
 ciel-runtimectl work operation-reconcile OPERATION --session S --confirm
 ciel-runtimectl work operation-release OPERATION --session S --confirm [--expected-version N]
 ciel-runtimectl work execute --session S --confirm [--expected-version N]
+ciel-runtimectl work workflow [ROOT] --session S        # 승인 워크플로우: 단계·담당·차단 사유·제안서·승인·QA·재작업·메인 할 일
+ciel-runtimectl work workflow-prompts|workflow-metrics --session S
+ciel-runtimectl work workflow-resolve ROOT resend|cancel|escalate_main|escalate_model=MODEL --session S [--confirm]
+ciel-runtimectl work workflow-delegate ROOT proposal|review --session S
+ciel-runtimectl work prompt-set NAME "새 프롬프트" --session S
+ciel-runtimectl work prompt-reset NAME --session S
 ```
 
 | ctl 조치 | REST 명령 | 확인 |
@@ -156,6 +162,14 @@ ciel-runtimectl work execute --session S --confirm [--expected-version N]
 | `execute` | `execute` (보드 명령, 웹 Execute와 같음) | `--confirm`(확인 전에 활성 계획 root·제목·phase·approval 표시) |
 | `operation-reconcile` | `operation-reconcile` | `--confirm` |
 | `operation-release` | `operation-release` | `--confirm`(효과가 이미 일어났을 수 있음, 재시도는 중복 가능) |
+| `workflow-resolve` | `workflow-resolve` | `cancel`·`escalate_*`만 `--confirm` |
+| `workflow-delegate` | `workflow-delegate` | 없음 |
+| `prompt-set` / `prompt-reset` | `workflow-prompt-set` / `workflow-prompt-reset` | 없음(방금 읽은 지문에 고정, 그 사이 바뀌면 409 `prompt_conflict`) |
+
+승인 워크플로우(`work_workflow_enabled`, 기본 꺼짐)의 조회와 조치는 웹 콘솔 Workflow 탭,
+REST(`GET /ca/work/api/v1/workflow`, `/workflow/prompts`, `/workflow/metrics`), 메뉴의
+`Approval workflow status and actions`·`Approval workflow stage prompts` 행, 세션 안의
+`/work-mode workflow`와 같은 코드다.
 
 `operation-reconcile`·`operation-release`는 `work audit`에서 결과가 `unknown`인 운영자
 영수증 하나를 정리한다. 대상은 그 영수증의 `operation_id`다(전체 또는 8자 이상의 고유한 앞부분). reconcile은
