@@ -26,6 +26,7 @@ const HELP = [
   '• Above the prompt: compact by default (done/total + current step); [+] / w expands, [-] collapses. Progress / Queue / Completed are read-only button tabs; Prev / Next (p / n) page the list; w opens the Inspector. Ctrl+X Tab focuses · Tab/↑↓ select · Enter inspects · Esc returns. Tiny screens use Inspect Work. Rows of other plugins stay below the Work rows; the band scrolls to them.',
   '• /work-mode view: Work & SSE pane — Work tree (w), SSE receipts with P1 filter (s), and every Work setting (g); in the Work tree, f focuses the selected item, a appends it to the focus, b opens its parent, u/d move a queued goal up or down; side actors are native forks inheriting the main context; Work and side forks use the per-priority and side fork model settings (inherit keeps the main model). Mobile and narrow screens get a single-column touch layout.',
   '• /work-mode expand / compact: toggle the inline list · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode parallel: fork slots, leases and the next Agent name · /work-mode help: this help',
+  '• /work-mode discard-failed [category]: discard every failed side receipt (or one category, e.g. source_context): never retried, not forwarded to main, kept for audit; a receipt a side actor holds right now is skipped. Also: menu, web Side view, REST, ciel-runtimectl.',
   '• Focus: inspect an item → Focus first. Focused items run before other Work; a focused item that waits or is blocked never holds unrelated approved Work or discovery. Clear focus releases it now; it also clears automatically once every focused item is done.',
   '• Priorities: All items → Move up / Move down orders root goals. Moving the active goal requires your request; a button press is that request.',
   '• Linked IDs appear as [ id ] description; ◷ names an external wait; green ✓ means verified done. An urgent request holds other goals until it finishes.',
@@ -855,6 +856,7 @@ function graphicNodes(view, snapshot) {
 // 2026-11-17 showed every such row as "failed" and it read as given up.
 function sideFailureState(failure) {
   if (!failure || typeof failure !== 'object') return ''
+  if (failure.operator_discarded === true) return 'discarded'
   if (failure.quarantined === true) return 'quarantined'
   return failure.category === 'main_compaction_pending' ? 'waiting' : 'retrying'
 }
@@ -2726,7 +2728,7 @@ function parallelLeaseBlocksTarget(state, target) {
 // The router also refuses them without the host token (model_side_tool_probe).
 const HOST_ONLY_SIDE_TOOLS = new Set(['work_side_wake', 'work_side_fail', 'work_side_fallback', 'work_side_renew',
   'work_side_ack', 'work_side_understanding', 'work_side_reply', 'work_side_claim', 'work_side_retry_reply',
-  'work_side_gate_check', 'work_side_workflow_event'].map(tool => PREFIX + tool))
+  'work_side_gate_check', 'work_side_workflow_event', 'work_side_discard_failed'].map(tool => PREFIX + tool))
 async function parallelToolCall($, e, next) {
   if (next.origin?.plugin === 'ciel-work' && (e.tool === PREFIX+'send_message' || e.tool.startsWith(PREFIX+'work_side_'))) return next(e)
   if (HOST_ONLY_SIDE_TOOLS.has(e.tool))
@@ -4587,8 +4589,8 @@ export function register(on) {
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'btw_with_mcp', description: 'Queue a side request via MCP without a main-thread model turn',
       argumentHint: 'on|off|status|{"event_key":"source:id","text":"request"}', immediate: true })
-    await $.command.register({ name: 'work-mode', description: 'Work mode: summary, help, keyboard inspector, tree or raw status',
-      argumentHint: '[help|view|tree|status|settings [key=value]]', immediate: true })
+    await $.command.register({ name: 'work-mode', description: 'Work mode: summary, help, keyboard inspector, tree, raw status, discard failed side receipts',
+      argumentHint: '[help|view|tree|status|settings [key=value]|discard-failed [category]]', immediate: true })
     const ticket = ++starts
     // A released wait resumes its parked worker from the host first (Stage 3);
     // side-intake.js calls this closure, bound to this session, with no $.
@@ -4781,7 +4783,20 @@ export function register(on) {
       try { return { text: workflowText(await parallelCall($, 'work_proposal_status', {})) } }
       catch (error) { return { text: 'Work workflow unavailable: ' + clipped(String(error?.message || error), 300) } }
     }
-    if (!['', 'help', 'view', 'status', 'tree', 'expand', 'compact', 'parallel'].includes(arg)) return { text: 'Usage: /work-mode [expand|compact|help|view|tree|status|parallel|workflow]' }
+    // A person's command (2026-11-18): every failed side receipt is discarded
+    // by the router with no model turn; the counts are the answer.
+    if (arg === 'discard-failed' || arg.startsWith('discard-failed ')) {
+      const category = arg.slice('discard-failed'.length).trim()
+      if (category && !/^[a-z_]{1,80}$/.test(category)) return { text: 'Usage: /work-mode discard-failed [category]' }
+      try {
+        const done = await parallelCall($, 'work_side_discard_failed', category ? { category } : {})
+        sideStatusDirty = true
+        return { text: 'Side receipts discarded: ' + done.discarded + ' · skipped (a side actor holds it): ' + done.skipped_leased
+          + ' · already terminal: ' + done.already_terminal + (category ? ' · category ' + category + ' (other categories: '
+          + done.other_category + ')' : '') + '. Not retried, not forwarded to main; kept for audit.' }
+      } catch (error) { return { text: 'Side discard failed: ' + clipped(String(error.message || error), 300) } }
+    }
+    if (!['', 'help', 'view', 'status', 'tree', 'expand', 'compact', 'parallel'].includes(arg)) return { text: 'Usage: /work-mode [expand|compact|help|view|tree|status|parallel|workflow|discard-failed [category]]' }
     if (arg === 'expand' || arg === 'compact') {
       await refresh($)
       const origin = await sessionId($)
@@ -4961,7 +4976,8 @@ export function register(on) {
         + ' older replies left out (the fork got the root, the target and the newest replies)')
       if (r.side_failure) detail.push('Failure: ' + r.side_failure.category + ' · model ' + (r.side_failure.model || r.side_failure.effective_model || 'unknown')
         + ' · attempt ' + r.side_failure.attempt_count
-        + (r.side_failure.quarantined ? ' · quarantined; original forwarded to main'
+        + (r.side_failure.operator_discarded ? ' · discarded by operator; not retried, not forwarded'
+          : r.side_failure.quarantined ? ' · quarantined; original forwarded to main'
           : r.side_failure.use_parent_model ? ' · side model failed → retrying on main model'
             : ' · retry after ' + new Date(r.side_failure.retry_not_before * 1000).toISOString()))
       if (r.main_fallback) detail.push('Legacy main fallback retained for side reclaim: ' + r.main_fallback.state)

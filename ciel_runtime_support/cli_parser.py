@@ -105,6 +105,15 @@ class CielCtlArgumentParser(argparse.ArgumentParser):
         super().error(message)
 
 
+
+def _side_as_work(args: argparse.Namespace) -> argparse.Namespace:
+    """`side discard-failed [CATEGORY]` as the `work side-discard-failed` action."""
+    return argparse.Namespace(action="side-" + args.action, key=args.category, value=None, json=args.json,
+                              session=args.session, confirm=args.confirm, operation_id=args.operation_id,
+                              expected_version=None, expected_finalization_version=None, expected_review_pin=None,
+                              preview_digest=None, attempt_ref=None, revision=None, clear_wait=[], activate=False,
+                              expected_settings_fingerprint=None)
+
 def session_api_key_handler(handler: CliHandler) -> CliHandler:
     """Adapt argv to the session-key CLI: `--key-file -` reads standard input,
     and the handler's integer result becomes the process exit code."""
@@ -212,6 +221,16 @@ def build_cli_parser(services: CliParserServices) -> argparse.ArgumentParser:
     work.add_argument("--expected-settings-fingerprint",
                       help="settings_fingerprint from `work status --json`; `work set` refuses if settings changed")
     work.set_defaults(func=services.work)
+    # ciel-runtimectl side discard-failed [CATEGORY] (2026-11-18): the same
+    # operator command as `work side-discard-failed`, under the side noun.
+    side = commands.add_parser("side", help="Operate the SSE side inbox of an explicit conversation")
+    side.add_argument("action", choices=("discard-failed",))
+    side.add_argument("category", nargs="?", help="only this failure category, e.g. source_context")
+    side.add_argument("--session", help="exact claude:<uuid> or codex:<id> conversation identity")
+    side.add_argument("--json", action="store_true", help="emit one JSON object")
+    side.add_argument("--confirm", action="store_true", help="confirm the discard")
+    side.add_argument("--operation-id")
+    side.set_defaults(func=lambda args: services.work(_side_as_work(args)))
     _add_session_api_key_command(commands, services.session_api_key)
     _add_values_command(commands, "remote-provision", services.runtime.remote_provision)
     _add_optional_value_command(commands, "ollama-native", services.provider.ollama_native)

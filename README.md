@@ -185,6 +185,14 @@ ciel-runtimectl transcript-events
 ciel-runtimectl usage-events
 ```
 
+Failed SSE side receipts can be discarded in one step from every surface:
+`/work-mode discard-failed [category]` in a Claude session (no model turn), the
+launcher menu (side settings → *Discard failed side receipts*), the web console
+Side view, `POST /ca/work/api/v1/side/discard-failed`, or
+`ciel-runtimectl side discard-failed [CATEGORY] --session S --confirm` (also
+`ciel-runtimectl work side-discard-failed`).
+Discarded receipts are never retried or forwarded to main and stay for audit.
+
 Use the [CLI reference](docs/CLI-Reference.md) for every command and
 [Configuration](docs/Configuration.md) for files, environment variables, and
 security boundaries.

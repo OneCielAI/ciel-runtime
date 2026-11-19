@@ -376,8 +376,11 @@ class WorkHttpController:
             "parallel_item_review", "parallel_launch_resolve", "parallel_legacy_accept",
             "side_review", "side_handoff", "side_reply_retry",
             "side_wake_retry", "side_notice_retry", "side_reappend_retry", "review_reappend_retry", "side_drain",
-            "operation_reconcile", "operation_release",
+            "side_discard_failed", "operation_reconcile", "operation_release",
             "workflow_resolve", "workflow_delegate", "workflow_prompt_set", "workflow_prompt_reset")}
+        # The same operator command at the side view's own path (2026-11-18).
+        if path == "/ca/work/api/v1/side/discard-failed":
+            return self._post_operator(handler, "side_discard_failed", body)
         if path in operator_actions:
             return self._post_operator(handler, operator_actions[path], body)
         if path in commands:
@@ -791,6 +794,13 @@ class WorkHttpController:
                                   confirmed=body.get("confirmed") is True)
         elif action == "side_drain":
             result = self.side_drain(identity, body)
+        elif action == "side_discard_failed":
+            # Every failed side receipt is quarantined as discarded by the
+            # operator: never retried, not forwarded to main, kept for audit.
+            if body.get("confirmed") is not True:
+                raise tree.WorkPlanError("side-discard-failed requires explicit confirmation (confirmed=true)")
+            from .side_intake_processing import discard_failed
+            result = discard_failed(self.services.state_dir, identity, category=body.get("category"))
         elif action == "side_reappend_retry":
             result = self.side_reappend_retry(identity, body)
         elif action == "review_reappend_retry":

@@ -43,9 +43,40 @@ def panel_rows(config, *, side=False):
     # or synthesize any row here.
     selected = [r for r in state['settings'] if r['key'] not in ('work_side_intake_enabled', 'work_side_intake_type')]
     info = [] if side else fork_watch_rows(config)
-    return ([r['label'] + ': ' + shown_value(config, r) for r in selected] + info
+    # An operator action, not a setting (2026-11-18): discard failed side receipts.
+    action = [DISCARD_TEXT[_language(config)][0]] if side else []
+    return ([r['label'] + ': ' + shown_value(config, r) for r in selected] + info + action
             + [menu_text('state_back', config.get('language', 'en'))],
-            [r['key'] for r in selected] + ['__info__'] * len(info) + ['back'])
+            [r['key'] for r in selected] + ['__info__'] * len(info) + ['__discard_failed__'] * len(action) + ['back'])
+
+
+# The side settings panel's discard action and its confirmation (en, ko, ja, zh).
+DISCARD_TEXT = {
+    'en': ('Discard failed side receipts…', 'Discard every failed side receipt of this workspace '
+           '(never retried, not forwarded to main, kept for audit)', 'Discarded {discarded} failed side receipt(s) in '
+           '{sessions} session(s); {skipped_leased} held by a side actor were skipped.'),
+    'ko': ('실패한 사이드 영수증 폐기…', '이 워크스페이스의 실패한 사이드 영수증을 모두 폐기 '
+           '(재시도·메인 전달 없음, 감사용으로 보존)', '실패한 사이드 영수증 {discarded}건 폐기 ({sessions}개 세션), '
+           '사이드 액터가 잡고 있던 {skipped_leased}건은 건너뜀.'),
+    'ja': ('失敗したサイド受付を破棄…', 'このワークスペースの失敗したサイド受付をすべて破棄 '
+           '(再試行・メインへの転送なし、監査用に保持)', '失敗したサイド受付 {discarded} 件を破棄 ({sessions} セッション)、'
+           'サイドアクターが保持中の {skipped_leased} 件はスキップ。'),
+    'zh': ('丢弃失败的侧边回执…', '丢弃本工作区所有失败的侧边回执 '
+           '(不再重试、不转交主会话，保留供审计)', '已丢弃 {discarded} 条失败的侧边回执（{sessions} 个会话），'
+           '侧边执行者持有的 {skipped_leased} 条已跳过。'),
+}
+
+
+def discard_failed_rows(config):
+    text = DISCARD_TEXT[_language(config)]
+    return [text[1], menu_text('state_back', config.get('language', 'en'))], ['__confirm_discard__', 'back']
+
+
+def run_discard_failed(config, state_dir=None):
+    from .runtime_paths import WORKSPACE_STATE_DIR
+    from .side_intake_processing import discard_failed_workspace
+    result = discard_failed_workspace(state_dir if state_dir is not None else WORKSPACE_STATE_DIR)
+    return DISCARD_TEXT[_language(config)][2].format(**result), result
 
 
 # Read-only router fork watch rows (no setting): per persisted session, the

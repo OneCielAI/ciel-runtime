@@ -1262,6 +1262,14 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                         continue
                     if value == '__info__':
                         continue  # read-only fork watch rows
+                    if value == '__discard_failed__':
+                        # Confirmation first; Back is the default row.
+                        from .work_settings_menu import discard_failed_rows
+                        settings_parent = panel
+                        panel_rows, panel_values = discard_failed_rows(load_config())
+                        panel = 'side-discard-confirm'
+                        panel_idx = panel_values.index('back')
+                        continue
                     from .work_settings_menu import choices, description, menu_pin
                     shown_config = load_config()
                     messages = [description(shown_config, value)]
@@ -1276,6 +1284,13 @@ def run_prelaunch_menu(passthrough: list[str] | None = None,
                     panel_idx = (panel_values.index(retry) if retry in panel_values
                                  else panel_values.index('__edit__') if retry is not None and '__edit__' in panel_values
                                  else 0)
+                elif panel == 'side-discard-confirm':
+                    if value == '__confirm_discard__':
+                        from .work_settings_menu import run_discard_failed
+                        text, _ = run_discard_failed(load_config())
+                        settings_feedback = [text]
+                    open_panel(settings_parent)
+                    continue
                 elif panel == 'work-setting-choice':
                     from .work_settings_menu import apply_choice
                     if value == 'back':

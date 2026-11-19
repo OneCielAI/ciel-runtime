@@ -663,6 +663,8 @@ class SideIntakeInbox:
             'source_bounded': _source_bounded(row),
             'attempt_count': failure.get('attempt_count'),
             'quarantined': bool(failure.get('quarantined')),
+            # The operator discarded it (side-discard-failed, 2026-11-18).
+            'operator_discarded': True if failure.get('operator_discarded') else None,
             'handoff': result.get('handoff'),
             'external_ack': row.get('external_ack', 'not_sent'),
             'released_waits': redact_public(result.get('released_waits') or [], string_limit=500),

@@ -87,6 +87,8 @@ Control plane, runs before Claude Code and does not require LLM connectivity:
   ciel-runtimectl work side-review-ok RECEIPT | side-review-corrected RECEIPT NOTE --session ID
   ciel-runtimectl work handoff-ack EVENT [ANSWER] --session ID [--activate] [--clear-wait WAIT]
   ciel-runtimectl work side-drain [LIMIT] --session ID
+  ciel-runtimectl work side-discard-failed [CATEGORY] --session ID --confirm
+  ciel-runtimectl side discard-failed [CATEGORY] --session ID --confirm
   ciel-runtimectl work operation-reconcile OPERATION --session ID --confirm
   ciel-runtimectl work operation-release OPERATION --session ID --confirm [--expected-version N]
   ciel-runtimectl work execute --session ID --confirm [--expected-version N]

@@ -701,7 +701,7 @@ def openapi_document() -> dict[str, Any]:
                 "parallel-launch-resolve",
                 "parallel-legacy-accept", "side-review", "side-handoff", "side-reply-retry", "side-wake-retry",
                 "side-notice-retry", "side-reappend-retry", "review-reappend-retry", "side-drain",
-                "operation-reconcile", "operation-release")
+                "side-discard-failed", "operation-reconcile", "operation-release")
     paths: dict[str, Any] = {
         f"/ca/work/api/v1/{name}": {"get": {"summary": f"Read current-session Work {name}"}}
         for name in reads
@@ -929,6 +929,13 @@ OPERATOR_BODIES: dict[str, Any] = {
                        "released_unverified: the effect may already have happened; retrying (with a new key) "
                        "may duplicate it. Nothing is run. Errors: 404 unknown_operation, 409 "
                        "operation_not_unknown, 409 reconcile_required, 409 receipt_changed, 422."},
+    "side-discard-failed": {**_obj(("confirmed",), confirmed=_CONFIRMED,
+                                   category={"type": "string", "maxLength": 80,
+                                             "description": "Only this failure category, e.g. source_context"}),
+                            "description": "Discards every failed side receipt: quarantined with operator_discarded, "
+                                           "never retried, not forwarded to main, kept for audit. A receipt with a "
+                                           "live lease is skipped. Returns discarded, skipped_leased, "
+                                           "already_terminal. Also POST /ca/work/api/v1/side/discard-failed."},
     "side-drain": {**_obj((), limit={"type": "integer", "minimum": 1, "maximum": 100, "default": 10}),
                    "description": "The console side drain without admission: the newest side receipts as "
                                   "redacted receipt details (GET /side/receipt shape). A read: not audited."},

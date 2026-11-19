@@ -33,7 +33,7 @@ READS = ("sessions", "reviews", "launches", "capacity", "receipts", "receipt", "
          "review-delivery", "audit", "orphan-preview", "workflow", "workflow-prompts", "workflow-metrics")
 WRITES = ("review-approve", "review-rework", "launch-resolve", "legacy-accept", "orphan-release", "orphan-reconcile",
           "wake-retry", "reappend-retry", "review-reappend-retry", "notice-retry", "reply-retry",
-          "side-review-ok", "side-review-corrected", "handoff-ack", "side-drain",
+          "side-review-ok", "side-review-corrected", "handoff-ack", "side-drain", "side-discard-failed",
           "operation-reconcile", "operation-release", "execute", "priority",
           "workflow-resolve", "workflow-delegate", "prompt-set", "prompt-reset")
 ACTIONS = READS + WRITES
@@ -59,6 +59,8 @@ CONFIRM_TEXT = {
     "review-reappend-retry": ("Main may already have this review re-appended. Retrying may append it to the "
                               "conversation twice. Continue?"),
     "notice-retry": "Main may already have this released-wait notice. Retrying can show it to main twice. Continue?",
+    "side-discard-failed": ("Discard every failed side receipt{scope}? They are never retried and their originals "
+                            "are not forwarded to main; the receipts stay for audit."),
     "reply-retry": ("The last send outcome is unknown. Resending may post a duplicate reply to the source. "
                     "Continue?"),
     # The console's own text, plus the plan it acts on (the console shows it on screen).
@@ -574,6 +576,14 @@ class WorkCtl:
         if action == "side-drain":
             limit = int(value) if value and value.isdigit() else 10
             return self.post(session, "side-drain", {"limit": limit}, op)
+        if action == "side-discard-failed":
+            category = target or value or None
+            if not args.confirm:
+                raise CtlError(CONFIRM_TEXT["side-discard-failed"].format(
+                    scope=" in category " + category if category else "") + " Re-run with --confirm.",
+                    code="confirmation_required", exit_code=EXIT_CONFIRM)
+            return self.post(session, "side-discard-failed",
+                             {"confirmed": True, **({"category": category} if category else {})}, op)
         if action == "execute":
             # The web Execute button: the board command `execute` with the
             # person's confirmation, pinned to the plan version just shown.
