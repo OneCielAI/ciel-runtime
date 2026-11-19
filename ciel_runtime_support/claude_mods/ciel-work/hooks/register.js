@@ -1200,6 +1200,9 @@ function scheduleGateCheck($, identity) {
       // request message per awaiting_approval goal, returned with the same
       // second call; host code decides, never a fork.
       await loadTexts($)
+      // Main idle with results waiting for its review: it is told on the tick
+      // too, not only at a turn end (an idle main has no turn end).
+      if (!working) remindPendingReviews($)
       const end = turnEnd === true ? { turn_end: true } : {}
       const first = await parallelCall($, 'work_side_gate_check', { idle: !working, forks_running: forks, thread_reads: true, ...end })
       let value = first
@@ -2236,7 +2239,16 @@ function parallelReviewRefusedNow(row) {
 // (Andy: 34 results awaiting review).
 let reviewReminder = { key: '', at: 0 }
 function remindPendingReviews($) {
-  const rows = pendingParallelReviews.filter(row => row?.lease_id && !sidePromptPending('parallel:' + row.lease_id))
+  // Both views of the queue: the rows the Stop path keeps and the rows the pane
+  // shows as "Awaiting main review" (Celly 2026-11-19: five results waited, the
+  // first list was empty and main sat idle with no reminder).
+  const byId = new Map()
+  for (const row of pendingParallelReviews) if (row?.lease_id) byId.set(row.lease_id, row)
+  for (const row of parallelReviews(observatoryParallel).filter(parallelReviewPending)) {
+    const id = parallelReviewId(row)
+    if (id && !byId.has(id)) byId.set(id, { lease_id: id, item_id: row.item_id })
+  }
+  const rows = [...byId.values()].filter(row => !sidePromptPending('parallel:' + row.lease_id))
   if (!rows.length) return
   const key = rows.map(row => row.lease_id).sort().join(',')
   if (key === reviewReminder.key && Date.now() - reviewReminder.at < 20 * 60 * 1000) return
