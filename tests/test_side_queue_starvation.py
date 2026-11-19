@@ -81,5 +81,54 @@ class SideQueueStarvationTests(unittest.TestCase):
             self.assertIn(name, fields)
 
 
+class BlockerCheckActorTests(unittest.TestCase):
+    """The blocker-check side actor (user 2026-11-19): its own instruction, releases across goals."""
+
+    def two_goals(self, store, waits):
+        from ciel_runtime_support import work_plan_tree as tree
+        out = []
+        for title, wait in zip(('goal A', 'goal B'), waits):
+            _, goal = store.transaction(lambda d, title=title: tree.add_node(d, None, title))
+            _, leaf = store.transaction(lambda d, goal=goal, wait=wait: tree.add_node(d, goal, 'step', waiting_on=wait))
+            out.append({'id': leaf, 'waiting_on': wait})
+        return out
+
+    def test_a_gate_recheck_releases_waits_of_different_goals_in_one_decision(self):
+        import hashlib
+        key = hashlib.sha256(b'gate').hexdigest()
+        with tempfile.TemporaryDirectory() as raw:
+            store = session_work_plan_store(Path(raw), IDENTITY)
+            waits = self.two_goals(store, ('CI run 1 green', 'Work host cleanup of lease abc12345'))
+            result = apply(store, key, {'action': 'update', 'kind': 'request', 'item_id': waits[0]['id'],
+                                        'summary': 'checked both', 'reply': 'released', 'release_waits': waits},
+                           store.read()['version'], gate_check=True)
+            self.assertEqual(sorted(w['id'] for w in waits), sorted(w['id'] for w in result['released_waits']))
+            # An ordinary side event stays limited to the goal of its item.
+            other = session_work_plan_store(Path(raw), 'claude:other')
+            waits = self.two_goals(other, ('x', 'y'))
+            result = apply(other, key, {'action': 'update', 'kind': 'request', 'item_id': waits[0]['id'], 'summary': 's',
+                                        'reply': 'r', 'release_waits': waits}, other.read()['version'])
+            self.assertEqual([waits[0]['id']], [w['id'] for w in result['released_waits']])
+
+    def test_lease_facts_say_how_the_last_fork_ended(self):
+        from ciel_runtime_support.work_gate_check import lease_facts
+        leases = {'a': {'scope': IDENTITY, 'item_id': 'n1', 'state': 'submitted', 'created_at': 2},
+                  'b': {'scope': IDENTITY, 'item_id': 'n2', 'state': 'orphaned', 'created_at': 1},
+                  'c': {'scope': IDENTITY, 'item_id': 'n2', 'state': 'unreported', 'created_at': 3},
+                  'd': {'scope': 'claude:else', 'item_id': 'n3', 'state': 'running', 'created_at': 1}}
+        facts, waiting = lease_facts(leases, IDENTITY)
+        self.assertEqual({'n1': 'submitted', 'n2': '없음 (마지막 포크: unreported)'}, facts)
+        self.assertEqual(['n1'], waiting)
+
+    def test_the_blocker_check_actor_has_its_own_managed_instruction(self):
+        from ciel_runtime_support import work_workflow_prompts as prompts
+        with tempfile.TemporaryDirectory() as raw:
+            text = prompts.effective(Path(raw), 'gate_actor')
+        for phrase in ('블로커 확인 사이드 액터', '현재 상태를 직접', 'ask_main을 쓰지 않습니다', 'release_waits'):
+            self.assertIn(phrase, text)
+        source = SIDE_JS.read_text(encoding='utf-8')
+        self.assertIn("event.route?.source_kind === 'gate_check' && typeof settings.gate_instruction === 'string'", source)
+
+
 if __name__ == '__main__':
     unittest.main()

@@ -16,7 +16,7 @@ KINDS = ('status', 'info', 'request', 'clarify')
 FIELDS = {'action', 'kind', 'item_id', 'summary', 'reply', 'note', 'title', 'priority', 'queue_position', 'release_waits', 'time_limit',
           'relay', 'ask_main', 'no_reply'}
 NO_QUEUE = '큐에 등록하지 않았습니다.'
-MAX_RELEASES = 16
+MAX_RELEASES = 100
 MAX_TIME_LIMIT_TEXT = 1000
 MAX_TIME_LIMIT_EVIDENCE = 2000
 MAX_TIME_LIMIT_DUE_AT = 100
@@ -379,7 +379,10 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             goal = tree._root_of(by_id, item)
             for wait in decision.get('release_waits') or []:
                 node = by_id.get(wait['id'])
-                if node is None or node['status'] == 'done' or tree._root_of(by_id, node['id']) != goal:
+                # A gate re-check covers every goal's gates in one event, so its
+                # releases are not limited to the goal of item_id (2026-11-19).
+                if node is None or node['status'] == 'done' or (
+                        not gate_check and tree._root_of(by_id, node['id']) != goal):
                     unreleased.append({'id': wait['id'], 'reason': 'not an unfinished node of this goal'})
                 elif node.get('waiting_on', '') != wait['waiting_on']:
                     unreleased.append({'id': wait['id'], 'reason': 'wait changed since side observation'
