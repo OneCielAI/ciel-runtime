@@ -82,6 +82,14 @@ class RouterServerRuntime:
         server = self.effects.server_factory(
             (bind_host, self.config.port), self.config.handler
         )
+        # http.server listens with a backlog of 5. A session with several Work
+        # and side forks sends bursts of MCP calls (Andy 2026-11-19: 1,000 a
+        # minute), and the calls past the backlog were refused (ECONNREFUSED,
+        # 'connection closed before the tool call was answered').
+        try:
+            server.socket.listen(256)
+        except (AttributeError, OSError):
+            pass
         server = self.effects.configure_server_transport(server, runtime_config)
         for line in self.effects.configure_web_endpoints(bind_host):
             self.effects.stderr.write(f"{line}\n")
