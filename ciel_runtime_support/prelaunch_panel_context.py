@@ -113,6 +113,13 @@ class PrelaunchPanelContext:
     model_presentation: ModelPanelPresentationPorts
     auth: AuthPanelPorts
 
+    def __post_init__(self) -> None:
+        # The fork-model settings list the provider's models through the same
+        # catalog the Model menu uses (Celly 2026-11-19: with no cache file the
+        # choices were only "inherit" and the current model).
+        from .work_fork_models import set_model_source
+        set_model_source(self.model_catalog.upstream_model_ids)
+
     def main_menu_projection(self) -> MainMenuProjection:
         ports = self.main
         return MainMenuProjection(

@@ -81,13 +81,36 @@ def request_names(provider: str, model_id: str) -> tuple[str, str]:
             identity.upstream_api_model_id(provider, identity.strip_claude_context_suffix(model_id)))
 
 
+_MODEL_SOURCE = None
+
+
+def set_model_source(source) -> None:
+    """The provider catalog's own listing (``upstream_model_ids(provider, pcfg)``), given by the launcher."""
+    global _MODEL_SOURCE
+    _MODEL_SOURCE = source
+
+
+def _listed_ids(provider: str, pcfg: dict[str, Any]) -> list[str]:
+    """The cached catalog, or the catalog's own listing when no cache exists yet.
+
+    The listing fetches once and writes the cache, so later calls read the file.
+    """
+    ids = _cached_ids(provider)
+    if ids or _MODEL_SOURCE is None or not provider:
+        return ids
+    try:
+        return [str(item) for item in _MODEL_SOURCE(provider, pcfg) or [] if str(item).strip()]
+    except Exception:  # noqa: BLE001 - an unreachable catalog leaves the configured models
+        return []
+
+
 def model_ids(config: dict[str, Any]) -> list[str]:
     """The current provider's models: catalog cache, custom models, the current model."""
     provider, pcfg = _provider(config)
     seen: set[str] = set()
     result: list[str] = []
     current = str(pcfg.get("current_model") or "").strip()
-    for value in [current, *(str(v) for v in pcfg.get("custom_models") or []), *_cached_ids(provider)]:
+    for value in [current, *(str(v) for v in pcfg.get("custom_models") or []), *_listed_ids(provider, pcfg)]:
         value = value.strip()
         if value and value not in seen:
             seen.add(value)
