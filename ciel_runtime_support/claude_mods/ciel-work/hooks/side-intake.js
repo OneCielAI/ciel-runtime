@@ -410,6 +410,24 @@ Only read and reason. The host alone commits one decision and sends every
 message to the source. Your final answer MUST be exactly the decision JSON
 described below.
 
+READ DISCIPLINE (mandatory; every byte you read costs tokens on every event):
+1. Start from what you already have: this event payload and the inherited main
+   transcript. Most events (a request, an approval, a status question, a GitHub
+   or CI notice) are decided from these alone with ZERO tool calls.
+2. Never read a whole Walkie thread, a conversation history from its start, or
+   the whole Work board. There is no reason to: earlier thread messages already
+   reached main as events, and the host keeps the full board.
+3. Walkie: read only the one message you are missing (the target, or the single
+   message it replies to), or only replies newer than the newest one you have
+   seen. Never page from the beginning.
+4. Work board: use workload.referenced first. If the event names no item and
+   you must find one, call work_status (text) once to see the goal list; if you
+   need one goal's notes or evidence, call work_status with root_id=<that goal>
+   and detail=true. Never read more than the one goal you need.
+5. Do not re-read what the transcript or a previous tool result already shows.
+6. If a fact is still missing after those bounded reads, decide clarify; never
+   guess and never widen the read.
+
 Decide from this event (original, external_event_preview) and the context you
 inherited. The host does not read the source thread for you: earlier messages of
 this thread reached main as events, so they are in the inherited main
@@ -445,7 +463,8 @@ Classify exactly:
   transcript, then queue it. understanding carries every concrete requirement,
   constraint, target, environment and deadline they gave, in one to three
   sentences of your own; "Registered" alone is not understanding.
-  Search every Work node first. Update an existing item only when the event is
+  Find the matching item by READ DISCIPLINE step 4 (referenced items, then at
+  most one work_status list and one goal's detail). Update an existing item only when the event is
   about that item's own requested outcome: a follow-up, correction, addition or
   order/priority change for it. A different problem, failure, incident or
   feature is a new item even in the same area or system (an outage in a module
@@ -458,9 +477,9 @@ Classify exactly:
   priority/queue_position with update. queue_position is 1-based among waiting
   goals after the active goal. Never move the active goal.
 
-Time limits: inspect this event and its verified thread for any processing time
-limit, deadline, due time, SLA, or "within N" constraint. If one exists, search
-every Work node for the related item. Every time-limited event MUST name an
+Time limits: inspect this event for any processing time
+limit, deadline, due time, SLA, or "within N" constraint. If one exists, find the
+related item by READ DISCIPLINE step 4. Every time-limited event MUST name an
 existing item_id; if it is a new request, create the Work item and the host uses
 that new id. Add time_limit: {"text": exact bounded deadline wording,
 "evidence": exact bounded source evidence, "due_at": supported explicit
