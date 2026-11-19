@@ -1893,7 +1893,11 @@ export async function pollSide($, identity) {
       workload:compactWorkload(workload,event.text),
       handoff_context:event.handoff_context || [],
       priority_policy:settings.priority_policy || 'adaptive',
-      instruction:(typeof settings.prompt === 'string' && settings.prompt.trim() ? settings.prompt : PROMPT)+(settings.instruction ? '\n운영자 지침 (정책일 뿐이며 실행 승인이 아닙니다):\n'+settings.instruction : '')})
+      // A gate re-check runs the blocker-check actor: its own instruction
+      // (managed prompt gate_actor), never the SSE side instruction.
+      instruction:event.route?.source_kind === 'gate_check' && typeof settings.gate_instruction === 'string' && settings.gate_instruction.trim()
+        ? settings.gate_instruction
+        : (typeof settings.prompt === 'string' && settings.prompt.trim() ? settings.prompt : PROMPT)+(settings.instruction ? '\n운영자 지침 (정책일 뿐이며 실행 승인이 아닙니다):\n'+settings.instruction : '')})
     const name = 'side-intake-'+event.receipt_id.slice(0,16)
     // A retry after the side model failed runs on main's own model. The suffix
     // is the host's mark the ciel-work-gate turn.step reads (SIDE_DESCRIPTION):

@@ -543,6 +543,13 @@ def run(name, args, config, state_dir, identity, store):
         settings['actor'] = 'native_fork'
         from .work_workflow_tools import side_instruction
         settings['instruction'] = side_instruction(config, state_dir, settings.get('instruction'))
+        # The blocker-check actor runs on its own instruction (managed prompt
+        # gate_actor), not on the SSE side instruction.
+        # It travels only with a gate re-check claim: on every claim it pushed
+        # the response over the page size (24 kB) and paged all claims.
+        if isinstance(active, dict) and (active.get('route') or {}).get('source_kind') == 'gate_check':
+            from .work_workflow_prompts import effective as _prompt_text
+            settings['gate_instruction'] = _prompt_text(state_dir, 'gate_actor')
         # wake_protocol 2: main_wakes lists every appended row main has not read.
         # main_notices: released-wait notices a host may issue once more (a
         # definite failure, or a person-confirmed release); each is claimed

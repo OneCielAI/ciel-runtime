@@ -157,7 +157,7 @@ def event_text(rows: list[dict[str, Any]], interval: int, part: str = "",
         rank = ("[" + row["priority"] + "] ") if row.get("priority") else ""
         lines.append(f"- {rank}{row['id']} ({row['title']}) / 목표 {row['root_id']} ({row['root_title']}): {what}")
         if row.get("lease") is not None:
-            lines.append("  lease: " + (row["lease"] or "없음"))
+            lines.append("  lease: " + (row["lease"] or "없음 (이 아이템을 맡은 포크가 없었음)"))
         if row["evidence"]:
             lines.append("  마지막 증거: " + row["evidence"].replace("\n", " ")[:300])
         thread = (threads or {}).get(row["id"])
@@ -223,10 +223,6 @@ def tick_event(config: Mapping[str, Any], rows: list[dict[str, Any]], current: s
     slot = int(stamp // (interval * 60))
     fit: list[str] = []
     text = event_text(rows, interval, "%d gate(s)" % len(rows) if len(rows) > 1 else "", threads, included=fit, rules=rules)
-    if review_pending:
-        text = ("메인 검수를 기다리는 포크 결과가 %d건 있습니다(아이템 %s). 이 건수가 0이 아니면 ask_main true로 "
-                "메인에게 work_parallel_item_review 검수를 요청하십시오.\n" % (
-                    len(review_pending), ", ".join(review_pending[:20]))) + text
     if turn_end:
         text = (turn_text if isinstance(turn_text, str) and turn_text.strip() else prompt_default("turn_end")) + "\n" + text
     # The text digest keeps one key per exact content: a retry of the same check
@@ -330,14 +326,29 @@ INTERNAL_WAIT = re.compile(r"work\s*(host|parallel|전역)|lease|수락\s*gate|v
 
 
 def lease_facts(leases: Mapping[str, Any], scope: str) -> tuple[dict[str, str], list[str]]:
-    """item id -> its open fork leases' states, and the items awaiting main's review."""
+    """item id -> the fact line of its fork leases, and the items awaiting main's review.
+
+    An item with an open lease shows those states. One without shows how its
+    last fork ended ("없음 (마지막 포크: orphaned)") so the blocker-check actor
+    can tell a wait on a fork that is gone; an item no fork ever took is absent.
+    """
     from .work_parallel_diagnosis import FENCE_STATES
-    facts: dict[str, list[str]] = {}
+    open_states: dict[str, list[str]] = {}
+    last: dict[str, tuple[float, str]] = {}
     for lease in leases.values():
-        if lease.get("scope") == scope and lease.get("state") in FENCE_STATES:
-            facts.setdefault(str(lease.get("item_id")), []).append(str(lease["state"]))
-    waiting = sorted(item for item, states in facts.items() if "submitted" in states)
-    return {item: ", ".join(sorted(set(states))) for item, states in facts.items()}, waiting
+        if lease.get("scope") != scope:
+            continue
+        item = str(lease.get("item_id"))
+        if lease.get("state") in FENCE_STATES:
+            open_states.setdefault(item, []).append(str(lease["state"]))
+        stamp = float(lease.get("created_at") or 0)
+        if item not in last or stamp >= last[item][0]:
+            last[item] = (stamp, str(lease.get("state")))
+    facts = {item: ", ".join(sorted(set(states))) for item, states in open_states.items()}
+    for item, (_, state) in last.items():
+        facts.setdefault(item, "없음 (마지막 포크: %s)" % state)
+    waiting = sorted(item for item, states in open_states.items() if "submitted" in states)
+    return facts, waiting
 
 
 def rotate(rows: list[dict[str, Any]], offset: Any) -> list[dict[str, Any]]:
