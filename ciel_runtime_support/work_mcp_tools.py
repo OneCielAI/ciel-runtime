@@ -647,6 +647,12 @@ def dispatch_work_tool(
                              if (row := inbox._load(rid)) is not None
                              and SideIntakeInbox._stage(SideIntakeInbox._stage_inputs(row), checked_at)
                              in ("received", "processing", "failed")]
+                if open_rows and checked_at - float((last or {}).get("at") or 0) >= interval * 60:
+                    # The interval passed and the last round is still open: its
+                    # unclaimed events are stale snapshots, replaced by this round.
+                    from .side_intake_processing import supersede_unclaimed
+                    open_rows = supersede_unclaimed(state_dir, identity, open_rows, now=checked_at)
+                    status["superseded_previous_round"] = True
                 if open_rows:
                     return respond(request_id, json.dumps({**status, "reason": "previous_round_pending",
                                                            "pending": len(open_rows)}))

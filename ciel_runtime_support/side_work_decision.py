@@ -14,7 +14,7 @@ from . import work_plan_tree as tree
 ACTIONS = ('answer', 'clarify', 'update', 'create', 'prioritize', 'advise')
 KINDS = ('status', 'info', 'request', 'clarify')
 FIELDS = {'action', 'kind', 'item_id', 'summary', 'reply', 'note', 'title', 'priority', 'queue_position', 'release_waits', 'time_limit',
-          'relay', 'ask_main'}
+          'relay', 'ask_main', 'no_reply'}
 NO_QUEUE = '큐에 등록하지 않았습니다.'
 MAX_RELEASES = 16
 MAX_TIME_LIMIT_TEXT = 1000
@@ -197,6 +197,13 @@ def validate(decision):
         raise tree.WorkPlanError('invalid side decision ask_main')
     if decision.get('ask_main') is False:
         decision.pop('ask_main', None)
+    # no_reply (user 2026-11-19): an answer that would only repeat what the
+    # thread already says is recorded and not posted. Andy and Celly answered
+    # each other's status echoes for hours (1,700 events in 6 h on 4 threads).
+    if 'no_reply' in decision and type(decision['no_reply']) is not bool:
+        raise tree.WorkPlanError('invalid side decision no_reply')
+    if decision.get('no_reply') is not True or decision.get('action') != 'answer' or decision.get('ask_main') is True:
+        decision.pop('no_reply', None)
     time_limit = decision.get('time_limit')
     if time_limit is not None:
         if (not isinstance(time_limit, dict) or set(time_limit) - {'text', 'due_at', 'evidence'}
@@ -580,6 +587,8 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             result['final_text'] = text + '\n\n' + outcome_text(result)
         if asks_main and not main_reply:
             result['ask_main'] = True
+        if decision.get('no_reply') is True and time_limit is None:
+            result['no_reply'] = True
         receipts[receipt_id] = {'decision_digest': digest, 'applied_at': time.time(),
                                 'item_id': item, 'recap': decision['summary'], 'result': result}
         if decision.get('relay') and action == 'update':
