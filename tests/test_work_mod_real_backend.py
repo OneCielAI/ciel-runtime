@@ -69,7 +69,7 @@ class WorkModRealBackendTests(unittest.TestCase):
             "export const update = async ($, a, fn) => { const cur = store.has(a.key.plugin + '/' + a.key.key)"
             " ? store.get(a.key.plugin + '/' + a.key.key) : (a.init ?? null);"
             " store.set(a.key.plugin + '/' + a.key.key, fn(cur)) }\n", encoding="utf-8")
-        for name in ("register.js", "side-intake.js"):
+        for name in ("register.js", "side-intake.js", "texts.generated.js"):
             shutil.copyfile(w.CLAUDE_MOD_DIR / "hooks" / name, cls.root / name)
         for name in ("work_mod_real_backend_harness.mjs", "work_mod_real_backend_server.py"):
             shutil.copyfile(HERE / name, cls.root / name)

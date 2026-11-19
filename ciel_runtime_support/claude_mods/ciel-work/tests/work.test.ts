@@ -18,6 +18,7 @@ const HOST_REPLIES = {
   work_proposal_status: { enabled: false, goals: [], todo: [], counts: {} },
   work_side_workflow_event: { applied: false, decision: 'invalid', reason: 'no workflow request matches this event' },
   // /work-mode discard-failed (2026-11-18): the router's counts.
+  work_side_texts: { texts: {}, fingerprint: 'none' },
   work_side_discard_failed: { discarded: 2, skipped_leased: 1, already_terminal: 3, other_category: 0, receipt_ids: [] },
 }
 function setup(on, extra = {}) {

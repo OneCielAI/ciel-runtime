@@ -18,6 +18,7 @@ class SideReleaseNoticeTests(unittest.TestCase):
             (path / 'package.json').write_text('{"type":"module"}')
             shutil.copyfile(ROOT / 'tests/side_release_harness.mjs', path / 'test.mjs')
             shutil.copyfile(ROOT / 'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js', path / 'side-intake.js')
+            shutil.copyfile(ROOT / 'ciel_runtime_support/claude_mods/ciel-work/hooks/texts.generated.js', path / 'texts.generated.js')
             done = subprocess.run(['node', str(path / 'test.mjs'), name], capture_output=True, text=True,
                                   encoding='utf8', check=True, timeout=60)
         return json.loads(done.stdout)

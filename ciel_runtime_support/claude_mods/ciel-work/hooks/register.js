@@ -1,5 +1,6 @@
 import { atom, read, update } from 'claude-code'
 import { startSide, pollSide, sideSpawnInput, sideTool, completeSide, suppressSide, sideReceipts, sideActors, sideMcpParity, hostJson, eventView, sideMainBusy, sideStopWake, sideRecordStopWake, sideWakeKnown, sidePromptSubmit, sidePromptPending, sidePromptTurnStart, sidePromptTurnComplete, sidePromptReassert, sidePromptRef, sideMainTurnStart, sideMainStep, sideMainFence, sideAppendStored, sideStopNotPresented, sideWakeRead, sideWakeReminded, sideReviewAppended, sideReviewDelivery, sideReviewRecheck, noticeToMain, sideParkedResume, sideThreadReadAfter, sideWorkflowApproved, sideApprovalRead } from './side-intake.js'
+import { T, setTextOverrides } from './texts.generated.js'
 
 // Router is authoritative; this cache is display-only and never persisted.
 const detailView = atom({ plugin: 'ciel-work', key: 'detail' }, null)
@@ -11,11 +12,6 @@ const WORK = new Set(['work_discovery_pickup', 'work_parallel_status', 'work_par
   'work_mode_set', 'work_proposal_submit', 'work_approval_requested', 'work_proposal_status', 'work_workflow_resolve',
   'work_workflow_delegate'])
 const WRITES = new Set(['Edit', 'Write', 'NotebookEdit', 'apply_patch'])
-const UNAVAILABLE = 'Work status unavailable: router connection or snapshot could not be verified.'
-const PLANNING = 'Work mode is planning: direct file edits wait until the plan is approved. '
-  + 'Build it with work_plan_set, then call work_execute. (/work-mode help)'
-const NOTICE = 'Ciel Work mode is on: plan and execute by item; new independent requests queue without pausing approved Work. '
-  + 'Items show above the prompt · /work-mode help · turn off: ciel-runtime menu → LLM options → Work mode, or the agent (work_mode_set)'
 const HELP = [
   'Ciel Work mode — hybrid planning and execution',
   '• Work is not native Plan Mode. Queued planning does not pause active execution. within_scope=true is only for refinements inside approved scope; new scope needs review.',
@@ -85,6 +81,7 @@ function ownSideWake(identity, handoff) {
     || [...stopWakeWaiting.values()].some(w => w.identity === identity && w.presentation.event_id === handoff?.event_id
       && Boolean(ref) && w.presentation.attempt_ref === ref)
 }
+let observatoryAutoOpened = ''
 function showSideReceipts($, identity, snapshot) {
   const previous = sidePanelSession === identity ? sidePanelReceipts : []
   if (sidePanelSession !== identity) sidePanelReviewDelivery = []
@@ -103,9 +100,13 @@ function showSideReceipts($, identity, snapshot) {
     seenSideReceipts.add(key)
     // User 2026-11-19: the side receipt pane no longer opens by itself; the
     // screen a new side event brings up is the /work-mode view pane.
-    void observatoryRefresh($, identity).catch(() => {})
-    void $.ui.open({ id: PANE, title: 'Work & SSE Observatory',
-      closeOnEscape: true, backgroundColor: '#0b1118', rows: 32, columns: 90 }).catch(() => {})
+    // It is opened the way /work-mode view opens it (board loaded first; a
+    // pane opened without that showed "unavailable for this conversation"),
+    // once per conversation and without taking the focus.
+    if (observatoryAutoOpened !== identity) {
+      observatoryAutoOpened = identity
+      void openDetails($, null, null, false).catch(() => { observatoryAutoOpened = '' })
+    }
     if (seenSideReceipts.size > 200) seenSideReceipts.delete(seenSideReceipts.values().next().value)
   }
 }
@@ -283,26 +284,6 @@ function startIdleRefresh($, identity) {
   idleRefresh = poll
   scheduleIdleRefresh($, poll)
 }
-const INSTRUCTIONS = 'Ciel Work mode is hybrid per-item planning and execution, not native Plan Mode. Before edits or state-changing commands for an unapproved goal, use '
-  + 'work_plan_set: goal -> phases -> tasks -> concrete verifiable steps. Triage every new user '
-  + 'request first: an independent request becomes its own goal (root-level item), its title starting '
-  + 'with its item number where possible ("1. ...", "2. ..."); a request that changes or extends an '
-  + 'existing item goes under that item as a child (work_node_add with parent_id). A new goal queues '
-  + 'behind the unfinished active goal and becomes active when it is done; keep the active goal going. '
-  + 'Read-only exploration '
-  + 'is allowed while planning. Call work_execute when ready; auto approval is default and '
-  + 'configured ask approval uses the Work dialog. Never supply user_confirmed yourself. '
-  + 'During execution mark the current leaf in_progress with work_node_update, then done only '
-  + 'with verification evidence. Add/split nodes using work_node_add with within_scope=true only for refinements wholly within already approved scope; otherwise leave it false and review/approve the changed scope. Planning queued goals must not pause approved active work. Use work_replan when the '
-  + 'approach changes. Use work_status(root_id=...) for exact goal details only when needed, and expected_version for mutations. Automatic context excludes queued details, but raw user messages remain in native history; this is not history isolation. '
-  + 'Bash and PowerShell permission decisions belong to the native host, not the Work board. Work does not inspect shell side effects or override native permissions; keep commands within the approved scope. '
-  + 'These workflow rules include subagents: do not use a shell or delegate changes to evade required planning or approval. '
-  + 'Set ref for a linked id, and waiting_on for what an item waits on (empty text clears). '
-  + 'When the user asks to prioritize specific existing items, resolve the exact IDs from Work status and call work_focus with ordered node_ids and user_requested=true. Focus orders the work first but does not hold unrelated approved items: when no focused step can run, keep working other approved items and discovery. Focus clears automatically once every focused step is done; node_ids=[] clears it now. Do not duplicate goals or mark unrelated items blocked. '
-  + 'Use work_reorder to change root order: queue-only by default; changing the active slot needs an explicit '
-  + 'user request and user_requested=true, except that when every active step waits or is blocked, work_select may move to '
-  + 'the queued goal holding the next runnable step. On an explicit urgent/ad-hoc request use work_urgent with '
-  + 'user_requested=true to hold other goals, break down the request and execute; held goals resume afterwards.'
 // A wait is preserved: discovery only asks for independent, scoped candidates.
 function discoveryNotice($, identity, s, reason) {
   if (!s.discovery?.enabled) return null
@@ -455,7 +436,7 @@ async function gateRead($) {
   }
 }
 function unavailable(read) {
-  return UNAVAILABLE + ' [' + read.stage + (read.correlation ? '; ' + read.correlation : '') + ']'
+  return T('mod_status_unavailable') + ' [' + read.stage + (read.correlation ? '; ' + read.correlation : '') + ']'
 }
 // Stop alone has a wall-clock deadline: HookBudget pauses during MCP calls.
 // The losing read is pure, so a late response cannot update the cache, version
@@ -494,11 +475,11 @@ function blocked(read) {
   const s = read.s
   if (s?.enabled === false || (!s && !enabled)) return ''
   if (!s) return unavailable(read)
-  return s.phase === 'planning' ? PLANNING : ''
+  return s.phase === 'planning' ? T('mod_planning') : ''
 }
 // One toast per conversation and plan version: the deny text itself goes to the model.
 function hintPlanning($, s, reason) {
-  if (reason !== PLANNING || !cachedSession) return
+  if (reason !== T('mod_planning') || !cachedSession) return
   const key = cachedSession + ':' + s.version
   if (hinted === key) return
   hinted = key
@@ -947,7 +928,7 @@ async function graphicAction($, identity, data) {
   else if (action === 'resolve-launch') await requestReworkLaunchResolution($, identity)
 }
 // Resolves 'opened', 'off' or 'unavailable'.
-async function openDetails($, id = null, origin = null) {
+async function openDetails($, id = null, origin = null, focus = true) {
   const identity = await sessionId($)
   if (origin && identity !== origin) return 'unavailable'
   // A display refresh started meanwhile (idle poll, turn start) supersedes this one and
@@ -984,19 +965,15 @@ async function openDetails($, id = null, origin = null) {
   // the command does not wait for them (KOBE: /work-mode view waited 38 s).
   void observatoryRefresh($, identity).catch(() => {})
   await $.ui.open({ id: PANE, title: 'Work & SSE Observatory',
-    focus: true, closeOnEscape: true, backgroundColor: '#0b1118', rows: 32, columns: 90 })
+    focus, closeOnEscape: true, backgroundColor: '#0b1118', rows: 32, columns: 90 })
   return 'opened'
 }
 // A transcript notice for the person, once per session start; the model never reads it.
 function notice($, ticket) {
   if (noticed === ticket) return
   noticed = ticket
-  try { $.ui.log(NOTICE) } catch {}
+  try { $.ui.log(T('mod_notice')) } catch {}
 }
-const STOP_UNAVAILABLE = 'Ciel Work auto continue could not read the Work status, so unfinished items were not checked. '
-  + '/work-mode status'
-const STOP_APPROVAL = 'Ciel Work stopped: the plan is ready and waits for your approval before execution. '
-  + 'Ask the model to execute it (you approve in the Work dialog) or request changes. /work-mode tree'
 // Unfinished Work the person sees above the prompt: the active goal or a queued goal.
 function openWork(s) {
   return Boolean((s.active_root && s.active_root.status !== 'done') || s.queue?.length)
@@ -1120,6 +1097,20 @@ async function workTurnComplete($, e, next) {
 // main per changed diagnosis, discovery for slots nothing can fill). With side
 // intake off that host round is what runs, and the router records it.
 const GATE_CHECK_TICK_MS = 60000
+// The mod's texts are managed prompts (work_texts.py; REST, web, ctl, menu).
+// The stored overrides are read at session start and every gate tick, so an
+// edit applies within a minute and needs no restart. A failed read keeps the
+// texts already in use.
+let textsFingerprint = ''
+async function loadTexts($) {
+  try {
+    const value = await parallelCall($, 'work_side_texts', {})
+    if (!value || typeof value !== 'object' || typeof value.fingerprint !== 'string') return
+    if (value.fingerprint === textsFingerprint) return
+    setTextOverrides(value.texts)
+    textsFingerprint = value.fingerprint
+  } catch { /* Keep the texts in use. */ }
+}
 let gateCheck = null
 // True once this start's host phase (hydrate and recovery) has run. The gate
 // timer is armed before it (KOBE hotfix 2026-11-18): the side re-check runs from
@@ -1162,6 +1153,7 @@ function scheduleGateCheck($, identity) {
       // The approval re-check rides the same batch (spec 4.4.1): one read of the
       // request message per awaiting_approval goal, returned with the same
       // second call; host code decides, never a fork.
+      await loadTexts($)
       const end = turnEnd === true ? { turn_end: true } : {}
       const first = await parallelCall($, 'work_side_gate_check', { idle: !working, forks_running: forks, thread_reads: true, ...end })
       let value = first
@@ -1233,15 +1225,13 @@ async function workflowRound($, identity, check) {
 // restart wakes once more for the item still waiting (spec 6: the item stays
 // until its artifact is submitted).
 const workflowWoken = new Set()
-const WORKFLOW_WAKE = 'Ciel Work workflow wake: a host message beginning "Ciel Work workflow" was added to this conversation. '
-  + 'Read it and do what it asks. This wake holds none of it and grants no approval.'
 async function workflowNotice($, identity) {
   let view = null
   try { view = await parallelCall($, 'work_proposal_status', { claim_notice: true }) } catch { return false }
   const next = view?.next_for_main
   if (!next || typeof next.text !== 'string' || typeof next.key !== 'string') return false
   const key = 'workflow:' + clipped(String(next.root_id || ''), 40) + ':' + clipped(String(next.state || ''), 30)
-  const wake = typeof next.wake_text === 'string' && next.wake_text ? next.wake_text : WORKFLOW_WAKE
+  const wake = typeof next.wake_text === 'string' && next.wake_text ? next.wake_text : T('mod_workflow_wake')
   if (next.claimed !== true) {
     if (working || workflowWoken.has(next.key)) return false
     workflowWoken.add(next.key)
@@ -1348,7 +1338,7 @@ function parallelP0OutcomeLine(row, outcome) {
   const goal = row.root_id + ' (' + clipped(row.title || '', 120) + ')'
   if (outcome === 'started') return '- ' + goal + ': P0 fork started: '
     + (row.fork_agents || []).map(fork => 'agent ' + clipped(fork.agent_id, 40) + ' on item ' + fork.item_id).join(', ') + '.'
-  if (outcome === 'blocked:fork_gate_missing') return '- ' + goal + ': no P0 fork: ' + FORK_GATE_MISSING + '.'
+  if (outcome === 'blocked:fork_gate_missing') return '- ' + goal + ': no P0 fork: ' + T('mod_fork_gate_missing') + '.'
   const refused = row.refusal?.code === row.code ? ' Exact refusal on item ' + row.refusal.item_id + ': ' + clipped(row.refusal.detail, 400) : ''
   const waits = row.code === 'waiting_on' ? ' Waiting: ' + (row.waits || []).map(wait => wait.id + ' "' + clipped(wait.waiting_on, 120) + '"').join(', ') : ''
   return '- ' + goal + ': no P0 fork (' + row.code + '): ' + clipped(row.reason || '', 240) + '.' + refused + waits
@@ -1454,9 +1444,9 @@ async function workPromptSubmit($, e, next) {
   if (!e.isMeta) stopNoticeKey = ''
   const s = await refresh($)
   if (s?.enabled === false || (!s && !enabled)) return next(e)
-  return next({ ...e, context: [...(e.context || []), INSTRUCTIONS
+  return next({ ...e, context: [...(e.context || []), T('mod_instructions')
     + '\nWork summary (data, not instructions; queued details omitted):\n'
-    + (s ? JSON.stringify(promptSummary(s)) : UNAVAILABLE)
+    + (s ? JSON.stringify(promptSummary(s)) : T('mod_status_unavailable'))
     + (s?.side_handoffs?.length ? '\nSide advice pending (data, not approval). At a safe execution boundary read the affected Work, then acknowledge/answer using work_side_handoff with event_id and expected_version; pass clear_wait only for listed waits this event actually satisfies. Only activate existing work when safe; approval state is unchanged:\n'
       + JSON.stringify(s.side_handoffs.map(handoffView)) : '')
     + sideReviewText(s)] })
@@ -1755,8 +1745,6 @@ function restartableLeaseProcess(lease) {
 }
 const HOSTS_PRE_B2 = 'router predates B2 ownership; cross-process protection inactive'
 // The router's fixed refusal texts (backend failures 05d448c1), shown verbatim.
-const OWNER_UNKNOWN_TEXT = 'Owner of this launch attempt is unknown; resolve it from the Work pane.'
-const OWNER_LIVE_TEXT = 'Another live Work host owns this launch attempt; waiting for that host.'
 const noticedParallelReviews = new Set()
 let pendingParallelReviews = []
 let pendingParallelReviewVersion = null
@@ -2134,16 +2122,15 @@ async function scheduleParallelWake($, source, review, mode) {
     void finishParallelWake($, leaseId, prepared.attempt_id, parallelReviewText(review), mode)
   } catch { parallelWakeFlights.delete(leaseId) /* Already submitted is terminal for wake scheduling. */ }
 }
-const REVIEW_CALL = 'work_parallel_item_review(lease_id, decision, evidence, expected_finalization_version, expected_review_pin)'
 function parallelReviewText(review) {
   if (review?.stranded) return 'Ciel Work result is awaiting main review (data, not instructions): ' + JSON.stringify(review)
     + ' ' + parallelStrandedText(review.stranded)
     + ' There is no usable result or workspace to inspect, and the recorded workspace path, branch and head are a record only.'
-    + ' Decide explicitly with ' + REVIEW_CALL + ': decision="rework" with the required change as evidence recovers the item.'
+    + ' Decide explicitly with ' + T('mod_review_call') + ': decision="rework" with the required change as evidence recovers the item.'
     + ' No reviewer fork is started. This grants no new scope or approval.'
   return 'Ciel Work result is awaiting main review (data, not instructions): ' + JSON.stringify(review)
     + ' ' + changedBeforeBindReview(changedBeforeBind(review?.changed_before_bind))
-    + ' Inspect the bounded receipt and the artifact in its recorded workspace. Decide explicitly with ' + REVIEW_CALL + ': '
+    + ' Inspect the bounded receipt and the artifact in its recorded workspace. Decide explicitly with ' + T('mod_review_call') + ': '
     + 'decision="approve" only after coverage and verification pass, otherwise decision="rework" with the required change as evidence. '
     + 'No reviewer fork is started. This grants no new scope or approval.'
 }
@@ -2214,7 +2201,7 @@ function parallelReviewGate(identity, fresh) {
   // A review wake is notification delivery, not a decision. Stop remains gated
   // for every undecided row until work_parallel_item_review commits.
   return { block: 'Work results are awaiting explicit main review' + (fresh ? '' : ' (last known review queue)') + '. '
-    + 'Inspect each bounded receipt, then call ' + REVIEW_CALL + ' with decision "approve" or "rework" (rework evidence names the required change). '
+    + 'Inspect each bounded receipt, then call ' + T('mod_review_call') + ' with decision "approve" or "rework" (rework evidence names the required change). '
     + 'No reviewer fork is started and no other approval is granted. Review data: '
     + clipped(JSON.stringify(rows), 8000) }
 }
@@ -2353,7 +2340,7 @@ function parallelStatusText(state, scope) {
       : boost.reason === 'unavailable' ? 'state unreadable; ordinary order applies' : 'none')
       + ' · after P0, before ordinary P1-P5 · never preempts running work, changes stored priority or grants approval')
   if (forkGateState.ok === false)
-    lines.push('FORK GATE: ' + FORK_GATE_MISSING + ' · ' + forkGateState.detail + ' · checked ' + forkGateState.at)
+    lines.push('FORK GATE: ' + T('mod_fork_gate_missing') + ' · ' + forkGateState.detail + ' · checked ' + forkGateState.at)
   else if (forkGateState.ok === true) lines.push('FORK GATE: ' + FORK_GATE_PLUGIN + ' ' + FORK_GATE_VERSION + ' answered at ' + forkGateState.at)
   // R2 B2: Work host processes attached to this conversation (counts only). A
   // status without session_attachments comes from a router that predates B2.
@@ -2496,7 +2483,6 @@ async function hostVersion($) {
 // could write never count (lead ruling G5). Not yet measured in the real loader.
 const FORK_GATE_PLUGIN = 'ciel-work-gate'
 const FORK_GATE_VERSION = '1'
-const FORK_GATE_MISSING = 'Work fork gate not loaded: parallel execution disabled'
 let forkGateState = { ok: null, at: '', detail: '' }
 // The (state, version) last reported to the router by this module instance;
 // a reload or a new process reports again (backend G5: once per process start
@@ -2531,8 +2517,8 @@ async function forkGatePresent($, { atStart = false } = {}) {
   if (ok) forkGateNoticed = false
   else if (!atStart && !forkGateNoticed) {
     forkGateNoticed = true
-    rememberParallelFailure('fork-gate', FORK_GATE_MISSING + ' (' + detail + ')')
-    try { $.ui.toast('Ciel Work: ' + FORK_GATE_MISSING + '.') } catch { /* Display only. */ }
+    rememberParallelFailure('fork-gate', T('mod_fork_gate_missing') + ' (' + detail + ')')
+    try { $.ui.toast('Ciel Work: ' + T('mod_fork_gate_missing') + '.') } catch { /* Display only. */ }
   }
   if (was !== ok) $.ui.invalidate('ui.render')
   const report = state + ' ' + (seen || '')
@@ -2732,7 +2718,7 @@ function parallelLeaseBlocksTarget(state, target) {
 // The router also refuses them without the host token (model_side_tool_probe).
 const HOST_ONLY_SIDE_TOOLS = new Set(['work_side_wake', 'work_side_fail', 'work_side_fallback', 'work_side_renew',
   'work_side_ack', 'work_side_understanding', 'work_side_reply', 'work_side_claim', 'work_side_retry_reply',
-  'work_side_gate_check', 'work_side_workflow_event', 'work_side_discard_failed'].map(tool => PREFIX + tool))
+  'work_side_gate_check', 'work_side_workflow_event', 'work_side_discard_failed', 'work_side_texts'].map(tool => PREFIX + tool))
 async function parallelToolCall($, e, next) {
   if (next.origin?.plugin === 'ciel-work' && (e.tool === PREFIX+'send_message' || e.tool.startsWith(PREFIX+'work_side_'))) return next(e)
   if (HOST_ONLY_SIDE_TOOLS.has(e.tool))
@@ -2983,8 +2969,8 @@ async function parallelDirectSpawn($, key, request) {
   if (!await forkGatePresent($)) {
     parallelPending.delete(key)
     return { result: JSON.stringify({ dispatch: 'fork_gate_missing', item_id: request.item_id, item_kept: true,
-      detail: FORK_GATE_MISSING,
-      instruction: FORK_GATE_MISSING + '. No worker was started and nothing was reserved; the Work item stays queued.'
+      detail: T('mod_fork_gate_missing'),
+      instruction: T('mod_fork_gate_missing') + '. No worker was started and nothing was reserved; the Work item stays queued.'
         + ' Relaunch through Ciel Runtime so the ciel-work-gate plugin loads beside ciel-work.' }) }
   }
   const repo = await $.session.repo()
@@ -3733,8 +3719,8 @@ async function reconcileReworkLaunch($, scope, leaseId, launch, agents) {
     // R2 B2 refusals, shown with the router's exact text. An unknown owner is a
     // stuck launch the person may resolve here (the router allows that manual
     // resolution); another live host's attempt only waits for that host.
-    else if (detail.includes(OWNER_UNKNOWN_TEXT)) noteReworkLaunch(leaseId, 'Rework launch stuck', OWNER_UNKNOWN_TEXT, launch)
-    else if (detail.includes(OWNER_LIVE_TEXT)) noteReworkLaunch(leaseId, 'Rework launch waiting', OWNER_LIVE_TEXT, launch)
+    else if (detail.includes(T('mod_owner_unknown'))) noteReworkLaunch(leaseId, 'Rework launch stuck', T('mod_owner_unknown'), launch)
+    else if (detail.includes(T('mod_owner_live'))) noteReworkLaunch(leaseId, 'Rework launch waiting', T('mod_owner_live'), launch)
     else rememberParallelFailure('rework-launch-' + event.slice(14), detail)
     return null
   }
@@ -4395,7 +4381,7 @@ async function workStop($, e, next) {
     if (continuationSession !== identity) {
       continuationSession = identity; continuationVersion = null; unchangedContinuations = 0
     }
-    if (enabled) stopNotice($, identity, STOP_UNAVAILABLE)
+    if (enabled) stopNotice($, identity, T('mod_stop_unavailable'))
     return result
   }
   // Fill only after every stale lifecycle/session guard has passed. A Stop from
@@ -4424,7 +4410,7 @@ async function workStop($, e, next) {
     if (s.version < gateVersion) return result
     gateVersion = s.version
   }
-  if (!s) { if (enabled) stopNotice($, identity, STOP_UNAVAILABLE); return result }
+  if (!s) { if (enabled) stopNotice($, identity, T('mod_stop_unavailable')); return result }
   // Stop uses the same durable wake election as the pump. A queued/appended
   // wake is not presented again, and Stop never independently presents a row.
   // Only a presentation proven by its same-turn step may be recorded here
@@ -4534,8 +4520,8 @@ async function workStop($, e, next) {
   // Every stop that leaves unfinished Work either continues with a runnable item or says why not.
   if (s.approval === 'ask' && ((s.phase === 'planning' && s.ready)
       || s.continuation?.next?.phase === 'planning')) {
-    if (openWork(s)) stopNotice($, identity, STOP_APPROVAL)
-    return discoveryNotice($, identity, s, STOP_APPROVAL) || result
+    if (openWork(s)) stopNotice($, identity, T('mod_stop_approval'))
+    return discoveryNotice($, identity, s, T('mod_stop_approval')) || result
   }
   if (!(s.continuation?.actionable > 0)) {
     const reason = notRunnable(s, s.continuation || {})
@@ -4612,7 +4598,7 @@ export function register(on) {
     let identity = null
     try { identity = await sessionId($) } catch { /* Unknown identity: the slow phase reads it again. */ }
     // The gate check is armed before any slow work, so a long start never delays it.
-    if (e.isInteractive && identity) scheduleGateCheck($, identity)
+    if (e.isInteractive && identity) { void loadTexts($); scheduleGateCheck($, identity) }
     void sessionStartHost($, ticket, e.isInteractive === true, identity).catch(() => {})
     return next(e)
   })
@@ -4828,10 +4814,10 @@ export function register(on) {
       const opened = await openDetails($)
       return { text: opened === 'opened' ? 'Work & SSE pane: W Work · S SSE · G Settings · J/K move · I inspect · Tab/arrows + Enter on the controls · click the dashboard for ↑↓/PgUp · Esc returns.'
         : opened === 'off' ? 'Ciel Work mode is off. Turn it on: ciel-runtime menu → LLM options → Work mode, or ask the agent (work_mode_set).'
-          : UNAVAILABLE + ' The pane was not opened; retry /work-mode view.' }
+          : T('mod_status_unavailable') + ' The pane was not opened; retry /work-mode view.' }
     }
     const s = await refresh($)
-    if (!s) return { text: UNAVAILABLE }
+    if (!s) return { text: T('mod_status_unavailable') }
     if (!s.enabled) return { text: 'Ciel Work mode is off. Turn it on: ciel-runtime menu → LLM options → Work mode, or ask the agent (work_mode_set).' }
     if (arg === 'tree') {
       try { return { text: await planText($) } }
@@ -5129,7 +5115,7 @@ export function register(on) {
         text('Queue ' + queueOf(cached).length + ' · Side ' + sidePanelReceipts.length
           + (observatoryParallel ? ' · Forks ' + (observatoryParallel.forks ? observatoryParallel.forks.confirmed_count : '?')
             + ' · Device ' + observatoryParallel.active_device + '/' + parallelCapacity(observatoryParallel.policy) : ''), { dimColor: true }),
-        ...(forkGateState.ok === false ? [text(FORK_GATE_MISSING, { color: 'error', weight: 'bold' })] : []),
+        ...(forkGateState.ok === false ? [text(T('mod_fork_gate_missing'), { color: 'error', weight: 'bold' })] : []),
       ] })
 
     const rows = []

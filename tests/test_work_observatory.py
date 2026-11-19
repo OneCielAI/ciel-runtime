@@ -35,7 +35,7 @@ class WorkObservatoryTests(unittest.TestCase):
             "export const update = async ($, a, fn) => { const cur = store.has(a.key.plugin + '/' + a.key.key)"
             " ? store.get(a.key.plugin + '/' + a.key.key) : (a.init ?? null);"
             " store.set(a.key.plugin + '/' + a.key.key, fn(cur)) }\n", encoding="utf-8")
-        for name in ("register.js", "side-intake.js"):
+        for name in ("register.js", "side-intake.js", "texts.generated.js"):
             shutil.copyfile(w.CLAUDE_MOD_DIR / "hooks" / name, root / name)
         shutil.copyfile(HARNESS, root / HARNESS.name)
         done = subprocess.run([NODE, HARNESS.name], cwd=root, capture_output=True, text=True,
