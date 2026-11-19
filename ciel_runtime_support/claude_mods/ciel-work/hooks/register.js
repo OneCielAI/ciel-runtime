@@ -1128,11 +1128,18 @@ function scheduleGateCheck($, identity) {
   if (!interactive || !enabled || !identity
       || (gateCheck?.identity === identity && gateCheck.lifecycle === starts)) return
   stopGateCheck()
-  const poll = { identity, lifecycle: starts, timer: null }
+  const poll = { identity, lifecycle: starts, timer: null, busy: false, run: null }
   gateCheck = poll
-  const tick = async () => {
-    poll.timer = null
+  // turnEnd: main's turn ended (user 2026-11-18). The side checks released
+  // blocks, approvals and missed work then; the router allows it once a minute.
+  const tick = async (turnEnd = false) => {
+    if (!turnEnd) poll.timer = null
     if (gateCheck !== poll || poll.lifecycle !== starts) return
+    if (poll.busy) {
+      if (!turnEnd) poll.timer = $.clock.after(GATE_CHECK_TICK_MS, () => tick())
+      return
+    }
+    poll.busy = true
     // Work switched off: the next main turn end or session start asks again.
     if (!enabled) { stopGateCheck(); return }
     try {
@@ -1149,7 +1156,8 @@ function scheduleGateCheck($, identity) {
       // The approval re-check rides the same batch (spec 4.4.1): one read of the
       // request message per awaiting_approval goal, returned with the same
       // second call; host code decides, never a fork.
-      const first = await parallelCall($, 'work_side_gate_check', { idle: !working, forks_running: forks, thread_reads: true })
+      const end = turnEnd === true ? { turn_end: true } : {}
+      const first = await parallelCall($, 'work_side_gate_check', { idle: !working, forks_running: forks, thread_reads: true, ...end })
       let value = first
       const threads = first?.reason === 'read_threads' && Array.isArray(first.read_threads) ? first.read_threads.slice(0, 200) : []
       const approvals = Array.isArray(first?.approvals_due) ? first.approvals_due.slice(0, 32) : []
@@ -1157,7 +1165,7 @@ function scheduleGateCheck($, identity) {
       for (const thread of threads) reads.push(await sideThreadReadAfter($, thread))
       const approvalReads = approvals.length ? await workflowApprovalReads($, approvals) : { checks: [] }
       if (threads.length || approvalReads.checks.length) {
-        const second = await parallelCall($, 'work_side_gate_check', { idle: !working, forks_running: forks, thread_reads: true,
+        const second = await parallelCall($, 'work_side_gate_check', { idle: !working, forks_running: forks, thread_reads: true, ...end,
           ...(threads.length ? { threads_read: reads } : {}),
           ...(approvalReads.checks.length ? { approvals_read: approvalReads.checks } : {}) })
         workflowApprovalResults($, second?.approval_results)
@@ -1176,10 +1184,12 @@ function scheduleGateCheck($, identity) {
       if (gateCheck === poll && poll.lifecycle === starts) await workflowRound($, identity, value)
     } catch { /* An unknown host state skips this tick only. */
     } finally {
-      if (gateCheck === poll && poll.lifecycle === starts) poll.timer = $.clock.after(GATE_CHECK_TICK_MS, tick)
+      poll.busy = false
+      if (!turnEnd && gateCheck === poll && poll.lifecycle === starts) poll.timer = $.clock.after(GATE_CHECK_TICK_MS, () => tick())
     }
   }
-  poll.timer = $.clock.after(GATE_CHECK_TICK_MS, tick)
+  poll.run = tick
+  poll.timer = $.clock.after(GATE_CHECK_TICK_MS, () => tick())
 }
 
 // Approval workflow (spec 4.4.1, 6, 6.1). The approval re-check is part of the
@@ -4385,6 +4395,9 @@ async function workStop($, e, next) {
   // Fill only after every stale lifecycle/session guard has passed. A Stop from
   // an ended or superseded turn must never start a native fork.
   try { await parallelPump($, 'classic.Stop') } catch {}
+  // Main's turn ended: the side checks for released blocks, approvals and
+  // missed work and tidies the queue. It never holds or messages main.
+  if (gateCheck?.identity === identity && typeof gateCheck.run === 'function') void gateCheck.run(true).catch(() => {})
   if (lifecycle !== starts || turn !== mainTurnEpoch || epoch !== compactEpoch
       || await sessionId($).catch(() => null) !== identity || compacting(identity)) return result
   // The pump can reserve, release or record a review. Decide on reads taken
@@ -4496,8 +4509,11 @@ async function workStop($, e, next) {
   if (freshReviews.length) {
     for (const row of freshReviews) noticedSideReviews.add(sideReviewKey(identity, row))
     if (noticedSideReviews.size > 200) noticedSideReviews.delete(noticedSideReviews.values().next().value)
-    return {...result,block:'Review side answers at this safe boundary, then continue your Work.'
-      + sideReviewText({side_reviews:freshReviews})}
+    // Side answers never hold main (user 2026-11-18: Andy spent 18:30-19:45 on
+    // 53 work_side_review calls behind 15 of these blocks while its Work
+    // waited). The answers already went to their source; main only sees a
+    // one-line notice and keeps working.
+    stopNotice($, identity, 'Ciel side: ' + freshReviews.length + ' side answer(s) sent; no review needed.')
   }
   // A submitted Work result holds main at this boundary until an explicit
   // approve/rework decision commits through work_parallel_item_review. The

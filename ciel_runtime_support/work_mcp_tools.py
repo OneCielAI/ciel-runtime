@@ -637,7 +637,7 @@ def dispatch_work_tool(
                     return respond(request_id, json.dumps({**status, "reason": "previous_round_pending",
                                                            "pending": len(open_rows)}))
                 from .work_gate_check import tick_event, tick_rows
-                tick = tick_rows(config, doc, last, priority=priority)
+                tick = tick_rows(config, doc, last, priority=priority, turn_end=args.get("turn_end") is True)
                 if tick is None:
                     return respond(request_id, json.dumps({**status, "reason": "not_due" if gates(doc, priority) else "no_gates"}))
                 rows, current, stamp = tick

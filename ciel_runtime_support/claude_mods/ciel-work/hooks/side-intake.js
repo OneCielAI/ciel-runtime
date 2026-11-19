@@ -2094,14 +2094,10 @@ async function notifyReleased($,identity,event,result) {
   const resumed = parked.filter(lease => outcomes.get(lease.id) === true)
   const stuck = parked.filter(lease => outcomes.get(lease.id) !== true)
   for (const lease of resumed) $.ui.log('Side released wait → parked worker '+lease.host_id.slice(0,12)+' resumed by the Work host')
-  const text = 'Ciel side released recorded wait'+(toMain.length > 1 ? 's' : '')+' '
-    +toMain.map(({wait}) => wait.id+' ("'+line(wait.waiting_on,160)+'")').join(', ')+' — '+source+'. '
-    +(resumed.length ? 'The Work host resumed the parked worker'+(resumed.length > 1 ? 's' : '')+' on '
-      +(resumed.length > 1 ? 'their' : 'its')+' own lease: '+resumed.map(lease => parkedNote(lease,outcomes)).join(', ')+'. ' : '')
-    +(stuck.length ? 'Parked worker'+(stuck.length > 1 ? 's' : '')+' waiting on '+(stuck.length > 1 ? 'them' : 'it')+': '
-      +stuck.map(lease => parkedNote(lease,outcomes)).join(', ')
-      +'; resume with SendMessage to that worker if this is what it waited for. ' : '')
-    +'The wait is already cleared; no acknowledgment is needed. This is not new execution approval.'
+  // User 2026-11-18: main only hears that the released queue runs on its own;
+  // no review, acknowledgment or action is asked of it.
+  const text = 'Ciel side: released '+toMain.map(({wait}) => wait.id).join(', ')
+    +' ('+source+'). The queue runs '+(toMain.length > 1 ? 'them' : 'it')+' automatically; nothing to do.'
   const state = await noticeToMain($,identity,event.receipt_id,text)
   $.ui.log('Side released '+toMain.map(({wait}) => wait.id).join(', ')+' → main ('+state+')')
 }

@@ -278,12 +278,10 @@ def needs_main_review(result, decision):
     A reply the host then cannot send is recorded for main by
     ``record_unsent_review`` (the reply outbox), independent of this rule.
     """
-    priority = str(result.get('priority') or decision.get('priority') or '')
-    return bool(priority in ('P0', 'P1')
-                or result.get('time_limit') or result.get('released_waits')
-                or result.get('relay') or decision.get('relay')
-                or result['action'] in ('clarify', 'advise')
-                or result.get('handoff') == 'requested')
+    # User 2026-11-18: the side actor talks to main only when it escalates
+    # (truly urgent, or the person wants main's accountable answer). Released
+    # waits, priorities and queue changes run through the board on their own.
+    return bool(result['action'] == 'advise' or result.get('handoff') == 'requested')
 
 
 def record_unsent_review(store, receipt_id, result, source=None):
@@ -492,11 +490,8 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
         # A P0 goal runs in its own fork at once; main is not also asked to
         # schedule it (a recorded wait or a time limit still reaches main).
         direct_p0 = wants_p0 and action in ('create', 'update', 'prioritize')
-        needs_handoff = not main_reply and (time_limit is not None
-                                            or action == 'advise'
-                                            or action == 'prioritize' and not direct_p0
-                                            or action == 'update' and bool(gates)
-                                            or action == 'create' and (bool(gates) or priority == 'P1' and not direct_p0))
+        # User 2026-11-18: only the side's own escalation reaches main.
+        needs_handoff = not main_reply and action == 'advise'
         workflow_goal = (workflow is not None and action == 'create'
                          and item in (doc.get('workflows') or {}))
         if workflow_goal and not gates and time_limit is None:
