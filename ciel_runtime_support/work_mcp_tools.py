@@ -92,6 +92,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
                 "format": {"type": "string", "enum": ["text", "json"]},
                 "detail": {"type": "boolean", "description": "Include selected-goal nodes with notes and evidence for read-only inspection."},
                 "root_id": {"type": "string", "description": "Read only this exact goal; does not select it or change execution."},
+                "all_goals": {"type": "boolean", "description": "List every queued goal (one line each) instead of the first 10."},
             }},
         },
         {
@@ -841,7 +842,8 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
                     active.update(node["id"] for node in doc["nodes"] if node["parent_id"] in active)
                 state["nodes"] = [node for node in doc["nodes"] if node["id"] in active]
             return json.dumps(state, ensure_ascii=False)
-        return tree.render(doc, max_lines=104)
+        # A side fork finds an item from the whole goal list (user 2026-11-18).
+        return tree.render(doc, max_lines=104, all_goals=args.get("all_goals") is True)
     if name == "work_plan_set":
         spec = {"title": args.get("goal"), "note": args.get("note", ""), "children": args.get("children") or []}
         spec.update({key: args[key] for key in ("ref", "waiting_on", "priority") if key in args})

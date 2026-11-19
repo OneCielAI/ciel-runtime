@@ -385,6 +385,20 @@ export function register(on) {
 
   on('tool.call', async ($, e, next) => {
     if (typeof e.agentId !== 'string' || !e.agentId) return next(e)
+    // A side fork reads the Work board on demand (user 2026-11-18). ciel-work's
+    // own hooks never run in forks it spawned, so the read carried no session
+    // and was refused; the gate names main's conversation here and drops any
+    // model-supplied identity or host field. A list read shows every goal.
+    if (e.tool === PREFIX + 'work_status') {
+      const fork = await classify($, e.agentId)
+      if (fork.kind === 'side') {
+        const id = await $.session.id()
+        if (typeof id === 'string' && /^[A-Za-z0-9_-]{1,200}$/.test(id)) {
+          const { session_id, _host, ...rest } = e
+          return next({ ...rest, session_id: 'claude:' + id, ...(rest.root_id ? {} : { all_goals: true }) })
+        }
+      }
+    }
     const input = argsOf(e)
     const result = await judge($, e.tool, input, e.agentId, e.tool_use_id)
     if (!result) return next(e)

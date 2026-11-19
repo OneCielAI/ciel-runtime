@@ -964,7 +964,7 @@ def snapshot(doc: dict[str, Any], *, enabled: bool = True, approval_ask: bool = 
     }
 
 
-def render(doc: dict[str, Any], *, max_lines: int = 80) -> str:
+def render(doc: dict[str, Any], *, max_lines: int = 80, all_goals: bool = False) -> str:
     """Render the active goal as an indented tree, bounded to ``max_lines``."""
 
     root = doc.get("active_root")
@@ -989,7 +989,7 @@ def render(doc: dict[str, Any], *, max_lines: int = 80) -> str:
         lines.append("Queued goals (next first): " + "; ".join(
             f"{node['id']} {_display_title(node)} ({node['status']})"
             + (" [held]" if _index(doc).get(root, {}).get("urgent") and _index(doc)[root]["status"] != "done" else "")
-            for node in queued[:10]))
+            for node in queued[:(400 if all_goals else 10)]))
     finished = [node for node in doc["nodes"] if node["parent_id"] is None and node["id"] != root and node["status"] == "done"]
     if finished:
         lines.append("Finished goals: " + "; ".join(f"{node['id']} {node['title']}" for node in finished[-10:]))
