@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import time
 from typing import Any, Callable, Mapping
 
@@ -130,7 +131,8 @@ def digest(rows: list[dict[str, Any]]) -> str:
 
 
 def event_text(rows: list[dict[str, Any]], interval: int, part: str = "",
-               threads: Mapping[str, Mapping[str, Any]] | None = None) -> str:
+               threads: Mapping[str, Mapping[str, Any]] | None = None,
+               included: list[str] | None = None) -> str:
     """The tick's one event. ``threads`` maps a gate id to its thread's new
     messages (gate-check thread reads): they are listed under the first gate of
     that thread, and the later gates of the thread point to it."""
@@ -150,6 +152,14 @@ def event_text(rows: list[dict[str, Any]], interval: int, part: str = "",
         "  있고 아무것도 해제되지 않습니다.",
         "- 바뀐 것이 없거나 확인할 수 없는 경우: action answer, kind status, summary \"변화 없음\"",
         "  과 확인한 내용. 추측하지 마십시오. 언급만 보고 해제하지 마십시오.",
+        "- 게이트마다 \"lease:\" 줄이 그 아이템의 포크 결과 상태입니다(호스트가 원장에서 읽은 사실).",
+        "  대기 조건이 Work 호스트의 검수·검증·정리·수락 gate(lease review, validation, cleanup)만",
+        "  가리키는데 lease가 \"없음\"이면 기다릴 대상이 없으므로 그 대기는 충족된 것입니다:",
+        "  release_waits로 해제하십시오. lease가 \"submitted\"이면 메인의 검수가 남은 것입니다:",
+        "  해제하지 말고 ask_main true로 메인에게 work_parallel_item_review 검수를 요청하십시오.",
+        "- 새 메시지가 없다는 이유만으로 \"변화 없음\"이라고 하지 마십시오. 사람·CI·배포를 기다리는",
+        "  게이트는 그 대상의 현재 상태를 한 번 조회해서(스레드 작업 상태, 승인 글, CI 실행) 판단합니다.",
+        "  조회 없이 판단한 게이트는 답에 그렇다고 적으십시오.",
         "아래 게이트 전부를 이 답 하나로 판단합니다(판단 한 건: 가장 많이 바뀐 게이트, 또는",
         "확인한 내용을 나열한 status 답). 게이트 아래에 나열된 메시지는 지난 점검 이후 그 원본",
         "스레드에 새로 온 메시지 전부이고, 그 이전 것은 이미 컨텍스트에 있습니다. 메시지가",
@@ -158,10 +168,19 @@ def event_text(rows: list[dict[str, Any]], interval: int, part: str = "",
         "게이트:",
     ]
     shown: dict[str, str] = {}
+    size = sum(len(line) + 1 for line in lines)
     for row in rows:
+        if included is not None:
+            if size > EVENT_TEXT_CHARS - 1500 and included:
+                lines.append("[게이트 %d개 중 %d개만 실었습니다. 나머지는 다음 점검에서 이어서 확인합니다]" % (len(rows), len(included)))
+                break
+            included.append(row["id"])
+        mark = len(lines)
         what = ("대기 조건: " + row["waiting_on"]) if row["waiting_on"] else "상태 blocked"
         rank = ("[" + row["priority"] + "] ") if row.get("priority") else ""
         lines.append(f"- {rank}{row['id']} ({row['title']}) / 목표 {row['root_id']} ({row['root_title']}): {what}")
+        if row.get("lease") is not None:
+            lines.append("  lease: " + (row["lease"] or "없음"))
         if row["evidence"]:
             lines.append("  마지막 증거: " + row["evidence"].replace("\n", " ")[:300])
         thread = (threads or {}).get(row["id"])
@@ -169,6 +188,7 @@ def event_text(rows: list[dict[str, Any]], interval: int, part: str = "",
             key = thread["key"]
             if key in shown:
                 lines.append("  새 스레드 메시지: 위의 " + shown[key] + " 참고 (같은 스레드)")
+                size += sum(len(line) + 1 for line in lines[mark:])
                 continue
             shown[key] = row["id"]
             messages = thread["messages"]
@@ -181,6 +201,7 @@ def event_text(rows: list[dict[str, Any]], interval: int, part: str = "",
                 lines.append("    #%s %s: %s" % (message["id"], message["sender"] or "?", message["text"]))
             if thread.get("more"):
                 lines.append("    (새 메시지가 더 있습니다. 필요한 것만 읽으십시오)")
+        size += sum(len(line) + 1 for line in lines[mark:])
     text = "\n".join(lines)
     if len(text) > EVENT_TEXT_CHARS:
         text = text[:EVENT_TEXT_CHARS - 80] + "\n[이벤트 크기 한도에서 게이트 목록이 잘렸습니다. 나머지는 다음 점검에서 확인합니다]"
@@ -221,17 +242,23 @@ TURN_END_TEXT = (
 
 
 def tick_event(config: Mapping[str, Any], rows: list[dict[str, Any]], current: str, stamp: float,
-               threads: Mapping[str, Mapping[str, Any]] | None = None, turn_end: bool = False) -> dict[str, Any]:
+               threads: Mapping[str, Mapping[str, Any]] | None = None, turn_end: bool = False,
+               review_pending: list[str] | None = None) -> dict[str, Any]:
     """The one side event of a tick for ``rows``."""
     interval = minutes(config)
     slot = int(stamp // (interval * 60))
-    text = event_text(rows, interval, "%d gate(s)" % len(rows) if len(rows) > 1 else "", threads)
+    fit: list[str] = []
+    text = event_text(rows, interval, "%d gate(s)" % len(rows) if len(rows) > 1 else "", threads, included=fit)
+    if review_pending:
+        text = ("메인 검수를 기다리는 포크 결과가 %d건 있습니다(아이템 %s). 이 건수가 0이 아니면 ask_main true로 "
+                "메인에게 work_parallel_item_review 검수를 요청하십시오.\n" % (
+                    len(review_pending), ", ".join(review_pending[:20]))) + text
     if turn_end:
         text = TURN_END_TEXT + "\n" + text
     # The text digest keeps one key per exact content: a retry of the same check
     # deduplicates, and a same-slot check with newer evidence is its own event.
     body = hashlib.sha256(text.encode()).hexdigest()[:8]
-    event = {"event_key": f"{EVENT_PREFIX}{current}:{slot}:1:{body}", "text": text, "gates": [row["id"] for row in rows]}
+    event = {"event_key": f"{EVENT_PREFIX}{current}:{slot}:1:{body}", "text": text, "gates": fit}
     return {"event_key": event["event_key"], "text": text, "events": [event], "digest": current, "at": stamp,
             "gates": event["gates"], "interval_minutes": interval}
 
@@ -318,3 +345,25 @@ def host_report(config: Mapping[str, Any], last: Mapping[str, Any] | None, repor
 
 __all__ = ["DEFAULT_MINUTES", "EVENT_PREFIX", "KEY", "RANGE", "digest", "due", "effective_priority_for", "event_text",
            "gates", "host_report", "minutes", "set_minutes", "tick_event", "tick_rows"]
+
+
+INTERNAL_WAIT = re.compile(r"work\s*(host|parallel|전역)|lease|수락\s*gate|validation|cleanup|검수|검증|정리", re.I)
+
+
+def lease_facts(leases: Mapping[str, Any], scope: str) -> tuple[dict[str, str], list[str]]:
+    """item id -> its open fork leases' states, and the items awaiting main's review."""
+    from .work_parallel_diagnosis import FENCE_STATES
+    facts: dict[str, list[str]] = {}
+    for lease in leases.values():
+        if lease.get("scope") == scope and lease.get("state") in FENCE_STATES:
+            facts.setdefault(str(lease.get("item_id")), []).append(str(lease["state"]))
+    waiting = sorted(item for item, states in facts.items() if "submitted" in states)
+    return {item: ", ".join(sorted(set(states))) for item, states in facts.items()}, waiting
+
+
+def rotate(rows: list[dict[str, Any]], offset: Any) -> list[dict[str, Any]]:
+    """Start after the gates the last round carried, so every gate gets its turn."""
+    if not rows or type(offset) is not int:
+        return rows
+    start = offset % len(rows)
+    return rows[start:] + rows[:start]

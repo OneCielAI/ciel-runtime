@@ -689,7 +689,9 @@ def dispatch_work_tool(
                                 threads_by_gate[gate] = {"key": key, "root_id": plan["root_id"], "after": plan["after"],
                                                          "messages": read["messages"], "more": read["more"]}
                         newest = {key: read["newest"] for key, read in reads.items() if read.get("newest")}
-                        rows = [row for row in rows if row["id"] not in quiet]
+                        from .work_gate_check import INTERNAL_WAIT
+                        rows = [row for row in rows if row["id"] not in quiet
+                                or INTERNAL_WAIT.search(row.get("waiting_on") or "")]
                         if not rows:
                             advance_threads(state_dir, identity, newest)
                             record.write_text(json.dumps({**(last or {}), "at": stamp, "digest": current, "receipt_ids": []},
@@ -697,13 +699,29 @@ def dispatch_work_tool(
                             return respond(request_id, json.dumps({**status, "reason": "nothing_new",
                                                                    "threads_read": reads_count}))
                 turn_end = args.get("turn_end") is True
-                event = tick_event(config, rows, current, stamp, threads_by_gate, turn_end=turn_end)
+                # Lease facts per gate, the results awaiting main, and a rotating
+                # start so a board with more gates than one event holds is covered.
+                from .work_gate_check import lease_facts, rotate
+                review_pending = []
+                try:
+                    from .work_parallel_mcp import ledger
+                    facts, review_pending = lease_facts(ledger().read().get("leases") or {}, identity)
+                    rows = [{**row, "lease": facts.get(row["id"], "")} for row in rows]
+                except Exception:  # noqa: BLE001 - an unreadable ledger leaves the gates without the fact
+                    pass
+                total = len(rows)
+                start = int((last or {}).get("offset") or 0) % total if total else 0
+                rows = rotate(rows, start)
+                event = tick_event(config, rows, current, stamp, threads_by_gate, turn_end=turn_end,
+                                   review_pending=review_pending)
                 receipts = [receive(state_dir, identity, part["text"], part["event_key"], admit=False,
                                     route={"source_kind": "gate_check", **({"turn_end": True} if turn_end else {})}
                                     ).get("receipt_id")
                             for part in event["events"]]
                 record.write_text(json.dumps({**(last or {}), "at": event["at"], "digest": event["digest"],
-                                              "receipt_ids": receipts}, ensure_ascii=False), encoding="utf-8")
+                                              "receipt_ids": receipts,
+                                              "offset": (start + len(event["gates"])) % total if total else 0},
+                                             ensure_ascii=False), encoding="utf-8")
                 if newest:
                     from .work_gate_threads import advance as advance_threads
                     advance_threads(state_dir, identity, newest)
