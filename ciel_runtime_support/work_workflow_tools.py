@@ -323,9 +323,20 @@ def _create_steps(doc: dict[str, Any], root_id: str, body: Mapping[str, Any]) ->
         ref = f"wf:{root_id}:{step['id']}"
         if ref in refs:
             continue
-        note = (f"{step['procedure']}\nDone when: {step['done_when']}\nQA: {', '.join(step['qa'])}"
-                f"\nInput: {step['input']}")
-        made.append(tree.add_node(doc, root_id, f"{step['id']} {step['title']}"[:tree.MAX_TITLE_CHARS],
+        # User 2026-11-18: each step shows its pass and test conditions on the board.
+        checks = "; ".join(f"{row['id']} test: {row['how']} -> pass: {row['expected']}"
+                           for row in body.get("qa", []) if row["id"] in step["qa"])
+        note = (f"Done when: {step['done_when']}\nQA: {checks or ', '.join(step['qa'])}"
+                f"\n{step['procedure']}\nInput: {step['input']}")
+        parent = root_id
+        if step.get("phase"):
+            # Hierarchical to-do list: goal -> phase -> step (one group per phase).
+            group_ref = f"wf:{root_id}:phase:{hashlib.sha256(step['phase'].encode()).hexdigest()[:12]}"
+            parent = refs.get(group_ref)
+            if parent is None:
+                parent = tree.add_node(doc, root_id, step["phase"][:tree.MAX_TITLE_CHARS], ref=group_ref)
+                refs[group_ref] = parent
+        made.append(tree.add_node(doc, parent, f"{step['id']} {step['title']}"[:tree.MAX_TITLE_CHARS],
                                   note=note[:tree.MAX_TEXT_CHARS], ref=ref))
     return made
 

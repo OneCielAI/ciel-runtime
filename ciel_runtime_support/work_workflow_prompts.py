@@ -39,11 +39,17 @@ DEFAULTS: dict[str, str] = {
         "Write the technical proposal for this goal and submit it with work_proposal_submit. Required: "
         "request_restated, analysis (current behaviour, cause or design basis, files and evidence you read), "
         "alternatives (what you weighed and why you chose), ui_impact {changes, detail}, risks (impact, how to "
-        "revert), spec (scope, what must not change, interfaces, ordered work), steps[] (id S-n, title, input, "
-        "procedure, done_when, qa ids) and qa[] (id QA-n, claim, method command|e2e|screenshot|log|manual, how, "
-        "expected, evidence, must_fail_before). If the UI changes, add benchmarks[] (product, screen, source, "
+        "revert), spec (scope, what must not change, interfaces, ordered work), steps[] (id S-n, phase, title, "
+        "input, procedure, done_when, qa ids) and qa[] (id QA-n, claim, method command|e2e|screenshot|log|manual, "
+        "how, expected, evidence, must_fail_before). If the UI changes, add benchmarks[] (product, screen, source, "
         "lesson, decision) and mockups[] (file, state, description) for default, empty, error and mobile "
-        "states. Write the spec so a weaker fork model can follow it exactly."),
+        "states. Write the spec so a weaker fork model can follow it exactly. "
+        "A side-queued item usually arrives without a step breakdown. After the recap to the requester and "
+        "the proposal with its mockups, break the real execution down yourself into a hierarchical to-do list "
+        "(goal -> phase -> concrete step): give every step its phase, keep each step small enough for one fork "
+        "to finish and verify, and order them. State the conditions explicitly: done_when is the step's pass "
+        "condition, and every linked qa names the test (how) and the passing result (expected). The board is "
+        "built from these steps after approval."),
     "main_approval_request": (
         "Send the approval request yourself with the Walkie tools, in the original thread: a summary of the "
         "proposal, the mockups and benchmark summary when the UI changes, the full proposal as an attachment "

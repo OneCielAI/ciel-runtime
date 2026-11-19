@@ -287,7 +287,13 @@ def validate_proposal(proposal: Any) -> dict[str, Any]:
         if not isinstance(links, list) or not links or any(link not in seen for link in links):
             raise WorkflowError(f"steps[{index}].qa must list existing QA ids")
         linked.update(links)
+        # User 2026-11-18: the execution steps form a hierarchical to-do list.
+        # "phase" names the step's parent group on the board (phase -> steps).
+        phase = row.get("phase")
+        if phase is not None and (not isinstance(phase, str) or not phase.strip() or len(phase) > 120):
+            raise WorkflowError(f"steps[{index}].phase must be a short group title")
         out["steps"].append({"id": row["id"], "qa": list(dict.fromkeys(links)),
+                             **({"phase": phase.strip()} if phase else {}),
                              **{key: _text(row.get(key), f"steps[{index}].{key}", limit=4000)
                                 for key in ("title", "input", "procedure", "done_when")}})
     unlinked = sorted(seen - linked)
