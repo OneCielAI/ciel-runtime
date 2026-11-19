@@ -88,6 +88,10 @@ def decision_digest(lease_id, decision, evidence, findings=None, rework_instruct
 
 
 def _workspace(value):
+    # None: the fork was reserved with no workspace (the session folder is not
+    # a git repository), so its result has no snapshot to review.
+    if value is None:
+        return
     require(type(value) is dict and set(value) == {
         "repo", "path", "branch", "head", "dirty", "changed_files", "changed_files_total",
         "diff_stat", "snapshot_digest", "receipt_digest"
@@ -111,8 +115,11 @@ def _same_snapshot(prior, current):
     The digests cover the changed names and their count. Builds up to beta
     57dbfb3 listed the first name of an unstaged tracked change without its
     first character, so a row they published differs from a fresh observation of
-    the same worktree in those two display values only.
+    the same worktree in those two display values only. Two results with no
+    workspace are the same; one with and one without are not.
     """
+    if prior is None or current is None:
+        return prior is None and current is None
     return all(prior[key] == current[key] for key in prior
                if key not in ("changed_files", "changed_files_total"))
 

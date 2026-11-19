@@ -737,7 +737,7 @@ def project(store, identity, board=None, *, host_view=False, caller_nonce=None, 
             # Saga identities and the repo root stay host-side; main inspects
             # the recorded worktree path, branch, HEAD and bounded diff only.
             ws = row["workspace"]
-            if "stranded" not in row:
+            if "stranded" not in row and ws is not None:
                 row["workspace"] = {"path": ws["path"], "branch": ws["branch"], "head": ws["head"],
                                     "dirty": ws["dirty"], "changed_count": ws["changed_files_total"],
                                     "changed_files": [_clip(value, 200) for value in ws["changed_files"][:20]],
@@ -1637,6 +1637,7 @@ def _unavailable_review_facts(store, identity, lease, reason):
             "binding": binding}
 
 
+UNCONFINED_CLEANUP_PROOF = "no workspace: the fork ran without a git worktree; nothing to retain or remove"
 NO_REPORT_SUMMARY = "No worker report: the native fork ended without a durable exit receipt."
 NO_REPORT_VERIFICATION = "Not verified: no worker report and the retained workspace is unavailable."
 
@@ -1686,23 +1687,32 @@ def _no_report_review_facts(store, identity, lease, reason, d):
             "binding": _stranded_binding(lease.get("workspace"))}
 
 def _review_facts(store, identity, lease):
-    """Require durable completion plus a fresh positive idle workspace snapshot."""
+    """Require durable completion plus a fresh positive idle workspace snapshot.
+
+    A lease reserved with no workspace has no snapshot: its review carries
+    workspace None, and the positive idle proof on the ledger is the observation.
+    """
     coord = coordination(store)
     cstate = coord.read()
     run_row = cstate.get("runs", {}).get(lease["id"])
     if run_row is None or run_row.get("exit", {}).get("kind") != "completion":
         raise WorkParallelError("durable completion receipt required before main review")
-    if (lease["state"] != "submitted" or lease["slot"] or lease.get("idle_proof") is None
-            or not lease.get("workspace")):
+    if lease["state"] != "submitted" or lease["slot"] or lease.get("idle_proof") is None:
+        raise WorkParallelError("positive idle observation required before main review")
+    if lease.get("workspace") is not None and not lease["workspace"]:
         raise WorkParallelError("positive idle workspace observation required before main review")
     detail = coord.detail(run_row["exit"]["digest"])
-    from .work_parallel_workspace import review_observe
-    observed = review_observe(lease["workspace"]["repo"], lease["id"],
-                              generation=str(run_row["generation"]),
-                              artifact=lease["artifact"], completion_receipt=run_row["exit"]["digest"],
-                              host_id=lease["host_id"], idle_proof=lease["idle_proof"])
+    observed = None
+    if lease.get("workspace") is not None:
+        from .work_parallel_workspace import review_observe
+        observed = review_observe(lease["workspace"]["repo"], lease["id"],
+                                  generation=str(run_row["generation"]),
+                                  artifact=lease["artifact"], completion_receipt=run_row["exit"]["digest"],
+                                  host_id=lease["host_id"], idle_proof=lease["idle_proof"])
     receipt_workspace = detail.get("workspace")
     if isinstance(receipt_workspace, dict):
+        if observed is None:
+            raise WorkParallelError("stale completion workspace snapshot; result retained")
         for key in ("path", "branch", "head", "dirty"):
             if receipt_workspace.get(key) != observed.get(key):
                 raise WorkParallelError("stale completion workspace snapshot; result retained")
@@ -1727,6 +1737,12 @@ def _revalidate_review(store, board_store, row):
         raise WorkParallelError("stale completion receipt or approval fingerprint")
     if not _approval_current(store, board_store.read(), lease):
         raise WorkParallelError("stale approval fingerprint: Work approval scope changed")
+    if row["workspace"] is None or lease.get("workspace") is None:
+        # A review without a snapshot stays valid only while the lease still
+        # has no workspace; either side changing is a different result.
+        if row["workspace"] is not None or lease.get("workspace") is not None:
+            raise WorkParallelError("stale workspace: the reviewed result had a different workspace binding")
+        return None
     from .work_parallel_workspace import WorkspaceError, review_observe
     try:
         observed = review_observe(lease["workspace"]["repo"], lease["id"],
@@ -2100,23 +2116,28 @@ def _observe_idle_and_publish_review(store, identity, lease, proof):
     workspace write and retry with the ledger's current proof until they match.
     This also repairs an already-published review whose proofs diverged; pending
     is idempotent and never creates a second row.
+
+    A lease reserved with no workspace (the session folder is not a git
+    repository) has no worktree to converge: the ledger idle proof alone is
+    its positive observation.
     """
-    require(lease["state"] == "submitted" and lease.get("workspace") is not None
-            and text(proof), "submitted idle review observation required")
+    require(lease["state"] == "submitted" and text(proof), "submitted idle review observation required")
     if lease.get("idle_proof") != proof:
         d, _ = store.reconcile(lease["id"], host_state="idle", proof=proof,
                                expected_version=store.read()["version"])
         lease = d["leases"][lease["id"]]
+    unconfined = lease.get("workspace") is None
     from .work_parallel_workspace import WorkspaceError, set_activity
     for _ in range(COORDINATION_BIND_ATTEMPTS):
         current = store.read()["leases"].get(lease["id"])
         require(current is not None and current["state"] == "submitted"
-                and current.get("workspace") is not None and text(current.get("idle_proof")),
+                and (current.get("workspace") is None) == unconfined and text(current.get("idle_proof")),
                 "submitted idle review observation changed")
         observed_proof = current["idle_proof"]
         try:
-            set_activity(current["workspace"]["repo"], current["id"], current["host_id"],
-                         idle=True, proof=observed_proof)
+            if not unconfined:
+                set_activity(current["workspace"]["repo"], current["id"], current["host_id"],
+                             idle=True, proof=observed_proof)
         except WorkspaceError:
             # A broken worktree cannot record idle, but the submitted result must
             # not be stranded silently: publish the frozen-schema stranded row.
@@ -2523,13 +2544,12 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
             store.main_accept(lease_id, plan_version=row["plan_version"], artifact=row["artifact"],
                               evidence=evidence, expected_version=current["version"])
             fstate, row = reviews.mark(lease_id, "accepted", expected_version=reviews.read()["version"])
+        # The result is retained by default. Cleanup remains a separately
+        # verified policy; retention is safe and is itself the proof.
+        cleanup = (UNCONFINED_CLEANUP_PROOF if row["workspace"] is None else
+                   "retained verified workspace " + row["workspace"]["path"] + " at " + row["workspace"]["head"])
         if not row["stages"]["workspace"]:
-            # The result is retained by default. Cleanup remains a separately
-            # verified policy; retention is safe and is itself the proof.
-            cleanup = "retained verified workspace " + row["workspace"]["path"] + " at " + row["workspace"]["head"]
             fstate, row = reviews.mark(lease_id, "workspace", expected_version=reviews.read()["version"])
-        else:
-            cleanup = "retained verified workspace " + row["workspace"]["path"] + " at " + row["workspace"]["head"]
         if not row["stages"]["board"]:
             if decision == "approve":
                 _board_accept(board_store, row["item_id"], row["artifact"], evidence)
@@ -2606,23 +2626,26 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
                 raise
         fstate, row = reviews.mark(lease_id, "accepted", expected_version=reviews.read()["version"])
     if not row["stages"]["workspace"]:
-        old = store.read()["leases"][lease_id]
-        from .work_parallel_workspace import handoff_rebind
-        ws = row["workspace"]
-        rebound = handoff_rebind(old["workspace"]["repo"], lease_id, row["replacement_lease_id"],
-                                 prior_generation=str(row["generation"]),
-                                 replacement_generation=str(row["replacement_generation"]),
-                                 receipt_digest=ws["receipt_digest"], expected_path=ws["path"],
-                                 expected_branch=ws["branch"], expected_head=ws["head"],
-                                 expected_dirty=ws["dirty"], prior_terminal=True, prior_slot=False)
-        current = store.read()
-        replacement = current["leases"][row["replacement_lease_id"]]
-        if replacement.get("workspace", {}).get("path") != rebound["path"]:
-            store.attach_workspace(row["replacement_lease_id"], rebound, expected_version=current["version"])
+        # A result with no workspace has nothing to rebind: the replacement
+        # resumes unconfined, like its predecessor.
+        if row["workspace"] is not None:
+            old = store.read()["leases"][lease_id]
+            from .work_parallel_workspace import handoff_rebind
+            ws = row["workspace"]
+            rebound = handoff_rebind(old["workspace"]["repo"], lease_id, row["replacement_lease_id"],
+                                     prior_generation=str(row["generation"]),
+                                     replacement_generation=str(row["replacement_generation"]),
+                                     receipt_digest=ws["receipt_digest"], expected_path=ws["path"],
+                                     expected_branch=ws["branch"], expected_head=ws["head"],
+                                     expected_dirty=ws["dirty"], prior_terminal=True, prior_slot=False)
+            current = store.read()
+            replacement = current["leases"][row["replacement_lease_id"]]
+            if (replacement.get("workspace") or {}).get("path") != rebound["path"]:
+                store.attach_workspace(row["replacement_lease_id"], rebound, expected_version=current["version"])
         fstate, row = reviews.mark(lease_id, "workspace", expected_version=reviews.read()["version"])
     if not row["stages"]["board"]:
         current = coord.read()
-        replacement_workspace = store.read()["leases"][row["replacement_lease_id"]]["workspace"]
+        replacement_workspace = store.read()["leases"][row["replacement_lease_id"]].get("workspace")
         if row["replacement_lease_id"] not in current["runs"]:
             old_run = current["runs"].get(lease_id)
             require(old_run is not None and old_run.get("exit", {}).get("kind") == "completion",
@@ -2634,7 +2657,8 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
                 "approval_generation": old_run["approval_generation"],
                 "assigned_todos": copy.deepcopy(old_run["assigned_todos"]),
                 "fingerprint": row["fingerprint"],
-                "workspace": {key: replacement_workspace[key] for key in ("path", "branch", "head")},
+                "workspace": (None if replacement_workspace is None else
+                              {key: replacement_workspace[key] for key in ("path", "branch", "head")}),
                 "created_at": time.time(),
             }, expected_version=current["version"])
         fstate, row = reviews.mark(lease_id, "board", expected_version=reviews.read()["version"])
@@ -2650,7 +2674,8 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
         current_ledger = store.read()
         old_lease = current_ledger["leases"].get(lease_id)
         if old_lease is not None and old_lease["state"] != "done":
-            proof = "workspace rebound to resume lease " + row["replacement_lease_id"]
+            proof = (("reworked without a workspace" if row["workspace"] is None else "workspace rebound")
+                     + " to resume lease " + row["replacement_lease_id"])
             store.retire_reworked(lease_id, row["replacement_lease_id"], proof=proof,
                                   expected_version=current_ledger["version"])
         fstate, row = reviews.mark(lease_id, "lease", expected_version=reviews.read()["version"])
@@ -2663,7 +2688,7 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
             "state": "rework_ready", "finalization_version": fstate["version"],
             "dispatch": {"kind": "native_resume", "lease_id": row["replacement_lease_id"],
                          "role": "resume", "generation": row["replacement_generation"],
-                         "workspace": row["workspace"]["path"]}}
+                         "workspace": None if row["workspace"] is None else row["workspace"]["path"]}}
 
 
 def _active_stranded(store, identity, lease_id):
@@ -3034,9 +3059,11 @@ def _restart_submitted_terminal(store, identity, lease_id, generation, receipt_d
                                 absent_agent_id, absent_from_complete_list, *, caller_nonce=None):
     """Publish a review after the current host proves this exact fork absent."""
     lease = store.read()["leases"].get(lease_id)
+    # A lease with no workspace (session folder not a git repository) is
+    # published the same way; its review carries no snapshot.
     require(lease is not None and lease["scope"] == identity and lease["state"] == "submitted"
-            and lease["slot"] is False and lease.get("host_id") is not None
-            and lease.get("workspace") is not None, "submitted restart lease required")
+            and lease["slot"] is False and lease.get("host_id") is not None,
+            "submitted restart lease required")
     require(absent_from_complete_list is True,
             "host must assert absence from its complete current agent list")
     require(absent_agent_id == lease["host_id"], "host must assert this exact submitted fork absent")
