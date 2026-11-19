@@ -40,7 +40,7 @@ const READ_TOOLS = new Set(['Read', 'Glob', 'Grep', 'ListAgents', 'WebFetch', 'W
 const FILE_WRITES = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit', 'apply_patch'])
 const SHELLS = new Set(['Bash', 'PowerShell', 'Monitor'])
 // The worker's report path and two reads; every other router tool is denied.
-const ROUTER_ALLOWED = new Set(['work_parallel_report', 'work_parallel_status', 'work_status'].map(tool => PREFIX + tool))
+const ROUTER_ALLOWED = new Set(['work_parallel_report', 'work_parallel_status', 'work_status', 'work_proposal_status'].map(tool => PREFIX + tool))
 const ROUTER_HOST_ONLY = new Set(['work_priority_command'].map(tool => PREFIX + tool))
 // A fork is bound while its lease is one of these (backend bind sets running).
 const BOUND_STATES = new Set(['running', 'waiting_input'])
@@ -307,6 +307,10 @@ async function forkModel($, agentId) {
       || (rework ? leases.find(row => row?.id === rework) || null : null)
     const priority = lease ? (lease.effective_priority || lease.priority) : null
     names = typeof priority === 'string' && /^P[0-5]$/.test(priority) ? slotNames(state, priority) : null
+    // Approval workflow escalation: main moved this step to another model.
+    const override = lease ? state.fork_models.overrides?.[lease.id] : null
+    if (override && typeof override.alias === 'string' && override.alias)
+      names = { alias: override.alias, upstream: typeof override.upstream === 'string' && override.upstream ? override.upstream : override.alias }
     if (!names) note($, 'fork-model-inherit agent=' + shortId(agentId) + ' lease=' + (lease ? 'found' : 'missing')
       + ' priority=' + (typeof priority === 'string' ? priority.slice(0, 2) : '-'))
     // Without a lease yet the answer is not cached, so the next step looks again.
@@ -381,6 +385,20 @@ export function register(on) {
 
   on('tool.call', async ($, e, next) => {
     if (typeof e.agentId !== 'string' || !e.agentId) return next(e)
+    // A side fork reads the Work board on demand (user 2026-11-18). ciel-work's
+    // own hooks never run in forks it spawned, so the read carried no session
+    // and was refused; the gate names main's conversation here and drops any
+    // model-supplied identity or host field. A list read shows every goal.
+    if (e.tool === PREFIX + 'work_status') {
+      const fork = await classify($, e.agentId)
+      if (fork.kind === 'side') {
+        const id = await $.session.id()
+        if (typeof id === 'string' && /^[A-Za-z0-9_-]{1,200}$/.test(id)) {
+          const { session_id, _host, ...rest } = e
+          return next({ ...rest, session_id: 'claude:' + id, ...(rest.root_id ? {} : { all_goals: true }) })
+        }
+      }
+    }
     const input = argsOf(e)
     const result = await judge($, e.tool, input, e.agentId, e.tool_use_id)
     if (!result) return next(e)

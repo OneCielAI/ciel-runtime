@@ -75,8 +75,13 @@ def prepare(state_dir, identity, receipt_id, *, config=None):
         reason = None
         if route.get('source_kind') == 'external_event':
             from .side_reply_connector import is_receipt_ack, prepare as connector_prepare
+            from .work_workflow_tools import is_settled_workflow_event
             if is_receipt_ack(row['text']):
                 reason = 'receipt_ack_inbound'
+            elif is_settled_workflow_event(config or {}, state_dir, identity, row['text']):
+                # Technical review P3: an approval/rejection of a registered
+                # request gets no receipt ACK, recap or final answer.
+                reason = 'workflow_event'
             else:
                 connector = connector_prepare(config or {}, route, receipt_id, RECEIPT_ACK_TEXT, 'status',
                                               original=row['text'], phase='ack')

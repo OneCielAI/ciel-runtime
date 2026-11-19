@@ -1,0 +1,107 @@
+[
+ {
+  "use": "iel-runtime-router__work_proposal_submit",
+  "input": "{\"root_id\": \"n1\", \"proposal\": {\"request_restated\": \"Add a CSV export button to the report screen; approval required before work.\", \"analysis\": \"The report screen renders rows from report.py; no export exists today (read report.py and the to"
+ },
+ {
+  "result": "[{\"type\": \"text\", \"text\": \"{\\\"changed\\\": true, \\\"proposal\\\": {\\\"version\\\": 1, \\\"digest\\\": \\\"b52b3d6a0d7e5c86fce952e3f2626ab793dcec975ea851d455b51415ba309deb\\\", \\\"code\\\": \\\"[proposal n1 v1 b52b3d6a0d7e]\\\", \\\"ui_changes\\\": true, \\\"mockups\\\": "
+ },
+ {
+  "use": "mcp__walkie__walkie_send_message",
+  "input": "{\"conversation_id\": \"dfeaba5a-9421-467d-a7dc-efe28a80cea9\", \"reply_to_message_id\": \"9001\", \"text\": \"기술 제안서 요약: CSV 내보내기 버튼 추가. 목업 M-1 첨부, 벤치마킹 1건. 확인 코드 [proposal n1 v1 b52b3d6a0d7e]. 아래 승인 버튼으로 승인해 주세요.\", \"approvers\": [\"u-requester\"]}"
+ },
+ {
+  "result": "[{\"type\": \"text\", \"text\": \"{\\\"ok\\\": true, \\\"message_id\\\": \\\"9103\\\", \\\"id\\\": \\\"9103\\\"}\"}]"
+ },
+ {
+  "use": "-runtime-router__work_approval_requested",
+  "input": "{\"root_id\": \"n1\", \"conversation_id\": \"dfeaba5a-9421-467d-a7dc-efe28a80cea9\", \"message_id\": \"9103\", \"thread_root_id\": \"9001\", \"approvers\": [\"u-requester\"], \"proposal_version\": 1, \"mockups_attached\": [\"M-1\"]}"
+ },
+ {
+  "result": "[{\"type\": \"text\", \"text\": \"{\\\"state\\\": \\\"awaiting_approval\\\", \\\"approval_request\\\": {\\\"conversation_id\\\": \\\"dfeaba5a-9421-467d-a7dc-efe28a80cea9\\\", \\\"message_id\\\": \\\"9103\\\", \\\"thread_root_id\\\": \\\"9001\\\", \\\"approvers\\\": [\\\"u-requester\\\"], \\\""
+ },
+ {
+  "use": "iel-runtime-router__work_proposal_status",
+  "input": "{\"root_id\": \"n1\"}"
+ },
+ {
+  "result": "[{\"type\": \"text\", \"text\": \"{\\\"enabled\\\": true, \\\"settings\\\": {\\\"enabled\\\": true, \\\"delegate_pending\\\": 0, \\\"delegate_minutes\\\": 0}, \\\"goals\\\": [{\\\"root_id\\\": \\\"n1\\\", \\\"title\\\": \\\"CSV export button\\\", \\\"state\\\": \\\"awaiting_review\\\", \\\"owner\\"
+ },
+ {
+  "use": "untime-router__work_parallel_item_review",
+  "input": "{\"lease_id\": \"699ab6f274774dd4bd887e685480f0da\", \"decision\": \"rework\", \"decision_id\": \"wf-rework-1\", \"evidence\": \"main read the log\", \"qa_verdicts\": [{\"id\": \"QA-1\", \"verdict\": \"fail\", \"note\": \"header row missing in the log\"}], \"rework\": {\"f"
+ },
+ {
+  "result": "{\"decision\":\"rework\",\"lease_id\":\"699ab6f274774dd4bd887e685480f0da\",\"item_id\":\"n2\",\"state\":\"rework_ready\",\"finalization_version\":9,\"replacement_generation\":2}"
+ },
+ {
+  "use": "iel-runtime-router__work_proposal_status",
+  "input": "{\"root_id\": \"n1\"}"
+ },
+ {
+  "result": "[{\"type\": \"text\", \"text\": \"{\\\"enabled\\\": true, \\\"settings\\\": {\\\"enabled\\\": true, \\\"delegate_pending\\\": 0, \\\"delegate_minutes\\\": 0}, \\\"goals\\\": [{\\\"root_id\\\": \\\"n1\\\", \\\"title\\\": \\\"CSV export button\\\", \\\"state\\\": \\\"awaiting_review\\\", \\\"owner\\"
+ },
+ {
+  "use": "untime-router__work_parallel_item_review",
+  "input": "{\"lease_id\": \"84539aad83797ee8bebf5f983d305391\", \"decision\": \"approve\", \"decision_id\": \"wf-approve-1\", \"evidence\": \"main read both logs\", \"qa_verdicts\": [{\"id\": \"QA-1\", \"verdict\": \"pass\", \"note\": \"header test passes\"}], \"evidence_checked\": "
+ },
+ {
+  "result": "{\"decision\":\"approve\",\"lease_id\":\"84539aad83797ee8bebf5f983d305391\",\"item_id\":\"n2\",\"state\":\"finalized\",\"finalization_version\":21}"
+ },
+ {
+  "use": "iel-runtime-router__work_proposal_status",
+  "input": "{\"root_id\": \"n1\"}"
+ },
+ {
+  "result": "[{\"type\": \"text\", \"text\": \"{\\\"enabled\\\": true, \\\"settings\\\": {\\\"enabled\\\": true, \\\"delegate_pending\\\": 0, \\\"delegate_minutes\\\": 0}, \\\"goals\\\": [{\\\"root_id\\\": \\\"n1\\\", \\\"title\\\": \\\"CSV export button\\\", \\\"state\\\": \\\"completed\\\", \\\"owner\\\": \\\"h"
+ },
+ {
+  "use": "untime-router__work_parallel_item_review",
+  "input": "{\"lease_id\": null, \"decision\": \"approve\", \"decision_id\": \"wf-approve-1\", \"evidence\": \"main read both logs\", \"qa_verdicts\": [{\"id\": \"QA-1\", \"verdict\": \"pass\", \"note\": \"header test passes\"}], \"evidence_checked\": true}"
+ },
+ {
+  "result": "<tool_use_error>work_parallel_item_review: unknown conversation lease</tool_use_error>"
+ },
+ {
+  "use": "Agent",
+  "input": "{\"description\": \"Work n2 [ wf:n1:S-1 ] S-1 Implement CSV export\", \"prompt\": \"Execute exactly this approved Work assignment. Native fork context/model/permission are inherited. Report a question or result only through work_parallel_report us"
+ },
+ {
+  "result": "[{\"type\": \"text\", \"text\": \"Fork started — that fork is you.\"}]"
+ },
+ {
+  "use": "Write",
+  "input": "{\"file_path\": \"D:\\\\temp\\\\ciel-wf-e2e-20261118-174609\\\\ws\\\\.claude\\\\worktrees\\\\work-parallel-e40d56f7aed453ed7fe7f286\\\\.work-evidence\\\\699ab6f274774dd4bd887e685480f0da\\\\qa.log\", \"content\": \"QA-1 python -m pytest tests/test_export.py\\n1 passe"
+ },
+ {
+  "result": "File created successfully at: D:\\temp\\ciel-wf-e2e-20261118-174609\\ws\\.claude\\worktrees\\work-parallel-e40d56f7aed453ed7fe7f286\\.work-evidence\\699ab6f274774dd4bd887e685480f0da\\qa.log (file state is current in your context — no need to Read it"
+ },
+ {
+  "use": "iel-runtime-router__work_parallel_report",
+  "input": "{\"lease_id\": \"699ab6f274774dd4bd887e685480f0da\", \"worker_token\": \"<capability of the destroyed E2E lease>\", \"event\": \"completion\", \"plan_version\": 4, \"artifact\": \"99890a29b5bf6cde784794bb0556d0fc3bff034b18ac4f6b02ba"
+ },
+ {
+  "result": "[{\"type\": \"text\", \"text\": \"{\\\"lease_id\\\": \\\"699ab6f274774dd4bd887e685480f0da\\\", \\\"version\\\": 4, \\\"item_id\\\": \\\"n2\\\", \\\"state\\\": \\\"submitted\\\", \\\"slot_released\\\": true}\"}]"
+ },
+ {
+  "use": "Agent",
+  "input": "{\"description\": \"Work n2 S-1 Implement CSV export\", \"prompt\": \"Execute exactly this approved Work assignment as required rework. Native fork context/model/permission are inherited. This is the first replacement launch for the retained workt"
+ },
+ {
+  "result": "[{\"type\": \"text\", \"text\": \"Fork started — that fork is you.\"}]"
+ },
+ {
+  "use": "Write",
+  "input": "{\"file_path\": \"D:\\\\temp\\\\ciel-wf-e2e-20261118-174609\\\\ws\\\\.claude\\\\worktrees\\\\work-parallel-e40d56f7aed453ed7fe7f286\\\\.work-evidence\\\\84539aad83797ee8bebf5f983d305391\\\\qa.log\", \"content\": \"QA-1 python -m pytest tests/test_export.py\\n1 passe"
+ },
+ {
+  "result": "File created successfully at: D:\\temp\\ciel-wf-e2e-20261118-174609\\ws\\.claude\\worktrees\\work-parallel-e40d56f7aed453ed7fe7f286\\.work-evidence\\84539aad83797ee8bebf5f983d305391\\qa.log (file state is current in your context — no need to Read it"
+ },
+ {
+  "use": "iel-runtime-router__work_parallel_report",
+  "input": "{\"lease_id\": \"84539aad83797ee8bebf5f983d305391\", \"worker_token\": \"<capability of the destroyed E2E lease>\", \"event\": \"completion\", \"plan_version\": 4, \"artifact\": \"9eb239476a325f2a12b4caf93feadfd79db07a75a5f68d421b12"
+ },
+ {
+  "result": "[{\"type\": \"text\", \"text\": \"{\\\"lease_id\\\": \\\"84539aad83797ee8bebf5f983d305391\\\", \\\"version\\\": 12, \\\"item_id\\\": \\\"n2\\\", \\\"state\\\": \\\"submitted\\\", \\\"slot_released\\\": true}\"}]"
+ }
+]

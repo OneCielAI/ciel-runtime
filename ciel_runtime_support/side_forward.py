@@ -25,7 +25,9 @@ SETTLED = ('appended', 'uncertain', 'issuing')
 def is_forward(row):
     """A quarantined event whose original is to be delivered to main."""
     failure = row.get('side_failure') if isinstance(row, dict) else None
-    return bool(isinstance(failure, dict) and failure.get('quarantined') and row.get(FIELD))
+    # A receipt the operator discarded (side-discard-failed) never goes to main.
+    return bool(isinstance(failure, dict) and failure.get('quarantined') and row.get(FIELD)
+                and not failure.get('operator_discarded'))
 
 
 def text(receipt_id, row):
@@ -83,7 +85,7 @@ def _backfill(inbox, listed, budget=32):
         except (OSError, WorkPlanError):
             continue
         failure = row.get('side_failure') if isinstance(row, dict) else None
-        if not isinstance(failure, dict) or not failure.get('quarantined'):
+        if not isinstance(failure, dict) or not failure.get('quarantined') or failure.get('operator_discarded'):
             continue
         if not row.get(FIELD):
             with exclusive_file_lock(inbox._event_path('locks', path.stem)):

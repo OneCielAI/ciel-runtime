@@ -1,0 +1,386 @@
+{
+ "stamp": "20261118-174609",
+ "no_fork_before_approval": true,
+ "awaiting_view": {
+  "state": "awaiting_approval",
+  "owner": "requester",
+  "blocked_reason": "awaiting_approval"
+ },
+ "approval": {
+  "via": "check",
+  "sse_types": [
+   "com.ciel.walkie.message.created"
+  ],
+  "via_final": "check"
+ },
+ "final": {
+  "state": "completed",
+  "reworks": 1,
+  "history": [
+   "intake",
+   "proposal_due",
+   "approval_request_due",
+   "awaiting_approval",
+   "approved",
+   "executing",
+   "awaiting_review",
+   "rework",
+   "awaiting_review",
+   "executing",
+   "completed"
+  ],
+  "approval_via": "check",
+  "proposal_ui_changes": true,
+  "mockups_attached": [
+   "M-1"
+  ],
+  "final_report": {
+   "state": "due",
+   "at": 1795045673.5092204
+  },
+  "metrics": {
+   "models": [
+    {
+     "model": "inherit",
+     "steps": 1,
+     "first_pass": 0,
+     "reworks": 1,
+     "approved": 1,
+     "failed_qa": {
+      "QA-1": 1
+     },
+     "tokens": 0,
+     "seconds": 0.0,
+     "main_models": [],
+     "first_pass_rate": 0.0,
+     "mean_reworks": 1.0,
+     "final_pass_rate": 1.0
+    }
+   ]
+  }
+ },
+ "packets": [
+  {
+   "has_workflow": true,
+   "qa": [
+    "QA-1"
+   ],
+   "rework": false,
+   "generation": 1
+  },
+  {
+   "has_workflow": true,
+   "qa": [
+    "QA-1"
+   ],
+   "rework": true,
+   "generation": 2
+  }
+ ],
+ "review_results": [
+  "rework_ready",
+  "finalized",
+  "<tool_use_error>work_parallel_item_review: unknown conversation lease</tool_use_error>",
+  "<tool_use_error>work_parallel_item_review: unknown conversation lease</tool_use_error>"
+ ],
+ "report_results": [
+  "submitted",
+  "submitted"
+ ],
+ "walkie_tools": [
+  "walkie_call_tool",
+  "walkie_read_messages",
+  "walkie_send_message"
+ ],
+ "walkie_calls": [
+  {
+   "tool": "walkie_send_message",
+   "keys": [
+    "client_id",
+    "conversation_id",
+    "reply_to_message_id",
+    "text"
+   ],
+   "operation": null,
+   "after": null
+  },
+  {
+   "tool": "walkie_read_messages",
+   "keys": [
+    "after",
+    "conversation_id"
+   ],
+   "operation": null,
+   "after": "9000"
+  },
+  {
+   "tool": "walkie_call_tool",
+   "keys": [
+    "arguments",
+    "operation_id",
+    "schema_version"
+   ],
+   "operation": "threads.read",
+   "after": null
+  },
+  {
+   "tool": "walkie_send_message",
+   "keys": [
+    "client_id",
+    "conversation_id",
+    "reply_to_message_id",
+    "text"
+   ],
+   "operation": null,
+   "after": null
+  },
+  {
+   "tool": "walkie_send_message",
+   "keys": [
+    "client_id",
+    "conversation_id",
+    "reply_to_message_id",
+    "text"
+   ],
+   "operation": null,
+   "after": null
+  },
+  {
+   "tool": "walkie_send_message",
+   "keys": [
+    "approvers",
+    "conversation_id",
+    "reply_to_message_id",
+    "text"
+   ],
+   "operation": null,
+   "after": null
+  },
+  {
+   "tool": "walkie_read_messages",
+   "keys": [
+    "after",
+    "conversation_id"
+   ],
+   "operation": null,
+   "after": "9102"
+  }
+ ],
+ "rows": [
+  {
+   "actor": "side",
+   "step": "",
+   "reply": "{\"understanding\": \"보고서 화면에 CSV 내보내기 버튼 추가 요청으로 이해했습니다. 새 작업으"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "main",
+   "step": "submit",
+   "reply": "work_proposal_submit"
+  },
+  {
+   "actor": "main",
+   "step": "send",
+   "reply": "walkie_send_message"
+  },
+  {
+   "actor": "main",
+   "step": "register",
+   "reply": "work_approval_requested"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-REQUESTED awaiting_approval"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "work",
+   "step": "write",
+   "reply": "Write"
+  },
+  {
+   "actor": "work",
+   "step": "report",
+   "reply": "work_parallel_report"
+  },
+  {
+   "actor": "work",
+   "step": "",
+   "reply": "WF-FORK-REPORTED"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-IDLE"
+  },
+  {
+   "actor": "main",
+   "step": "status",
+   "reply": "work_proposal_status"
+  },
+  {
+   "actor": "main",
+   "step": "review",
+   "reply": "work_parallel_item_review"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-REVIEWED"
+  },
+  {
+   "actor": "work",
+   "step": "write",
+   "reply": "Write"
+  },
+  {
+   "actor": "work",
+   "step": "report",
+   "reply": "work_parallel_report"
+  },
+  {
+   "actor": "work",
+   "step": "",
+   "reply": "WF-FORK-REPORTED"
+  },
+  {
+   "actor": "main",
+   "step": "status",
+   "reply": "work_proposal_status"
+  },
+  {
+   "actor": "main",
+   "step": "review",
+   "reply": "work_parallel_item_review"
+  },
+  {
+   "actor": "main",
+   "step": "",
+   "reply": "WF-MAIN-REVIEWED"
+  },
+  {
+   "actor": "main",
+   "step": "status",
+   "reply": "work_proposal_status"
+  },
+  {
+   "actor": "main",
+   "step": "review",
+   "reply": "work_parallel_item_review"
+  }
+ ],
+ "leftover_processes": 0,
+ "checks": {
+  "router_up": true,
+  "session_bound": true,
+  "1_goal_registered_proposal_due": true,
+  "2_request_registered": true,
+  "3_dropped_sse_recovered_by_check": true,
+  "4_fork_reported": true,
+  "5_rework_requested": true,
+  "6_rework_reported": true,
+  "7_completed": true,
+  "approval_via_periodic_check": true,
+  "no_fork_before_approval": true
+ },
+ "scratch_removed": false
+}

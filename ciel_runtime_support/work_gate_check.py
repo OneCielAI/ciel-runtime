@@ -187,9 +187,13 @@ def event_text(rows: list[dict[str, Any]], interval: int, part: str = "",
     return text
 
 
+TURN_END_MIN_SECONDS = 60
+
+
 def tick_rows(config: Mapping[str, Any], doc: Mapping[str, Any], state: Mapping[str, Any] | None,
               *, now: float | None = None,
-              priority: Callable[[Mapping[str, Any]], str] | None = None) -> tuple[list[dict[str, Any]], str, float] | None:
+              priority: Callable[[Mapping[str, Any]], str] | None = None,
+              turn_end: bool = False) -> tuple[list[dict[str, Any]], str, float] | None:
     """(gates, digest, stamp) when a tick is due now, else None."""
     interval = minutes(config)
     if interval == 0:
@@ -200,7 +204,10 @@ def tick_rows(config: Mapping[str, Any], doc: Mapping[str, Any], state: Mapping[
     stamp = time.time() if now is None else now
     current = digest(rows)
     previous = state or {}
-    if previous.get("digest") == current and stamp - float(previous.get("at") or 0) < interval * 60:
+    # Main's turn end (user 2026-11-18): the side checks for released blocks,
+    # approvals and missed work then, at most once a minute.
+    window = TURN_END_MIN_SECONDS if turn_end else interval * 60
+    if previous.get("digest") == current and stamp - float(previous.get("at") or 0) < window:
         return None
     return rows, current, stamp
 

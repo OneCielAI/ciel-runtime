@@ -588,6 +588,150 @@ export function sideMainBusy(fn) { mainBusy = fn }
 // loader refuses $ passed to a function held in a variable, so none is passed.
 let parkedResume = null
 export function sideParkedResume(fn) { parkedResume = fn }
+// Approval workflow: register.js passes a closure that wakes the fork pump.
+let workflowApproved = () => {}
+export function sideWorkflowApproved(fn) { workflowApproved = fn }
+
+// ---- workflow approval read: begin (self-contained; tests slice it out)
+// Approval workflow periodic re-check reads (spec 4.4.1; user decision
+// 2026-11-18): only the registered approval-request message, never the whole
+// thread. A whole-thread read (200 replies a page, 8 pages) failed with
+// "Source thread exceeds page limit" on long Walkie threads (Andy: 134 side
+// events). Self-contained: it shares no reader with side intake, and the
+// harness tests slice this section out of side-intake.js (begin/end markers).
+//
+// Per tick, the requests of one conversation are read together: one
+// walkie_read_messages(after = id - 1) page usually holds every request of that
+// conversation; a request not on that page gets its own read. The row is checked
+// here (id, conversation, thread lineage) and again by the router, which alone
+// decides. A row without approvals[] reads only the thread replies after the
+// last-seen id recorded for that request (at most 2 pages), and only when the
+// row changed since the last check; an unchanged request costs one read.
+const APPROVAL_READ_ID = /^[1-9]\d{0,17}$/
+const APPROVAL_READ_PAGE_ROWS = 200
+const APPROVAL_READ_REPLY_PAGES = 2
+const APPROVAL_READ_MAX_ROW_BYTES = 256 * 1024
+const APPROVAL_READ_BYTES = new TextEncoder()
+
+function approvalReadIdOf(row) {
+  const value = row?.id ?? row?.message_id
+  const text = typeof value === 'number' && Number.isSafeInteger(value) ? String(value) : value
+  return typeof text === 'string' && APPROVAL_READ_ID.test(text) ? text : null
+}
+function approvalReadLineageOf(row) {
+  const value = row?.thread_root_id
+  if (value === undefined || value === null) return null
+  const text = typeof value === 'number' && Number.isSafeInteger(value) ? String(value) : value
+  return typeof text === 'string' && APPROVAL_READ_ID.test(text) ? text : 'malformed'
+}
+function approvalReadRowsOf(value) {
+  const rows = Array.isArray(value) ? value : value?.messages ?? value?.result?.messages ?? value?.data?.messages ?? value?.rows
+  if (!Array.isArray(rows)) throw new Error('walkie rows malformed')
+  return rows
+}
+async function approvalReadWalkie($, server, tool, args) {
+  const result = await $.mcp.call(server, tool, args)
+  if (!result || result.isError) throw new Error(tool + ' failed')
+  const text = (result.content || []).filter(c => c?.type === 'text').map(c => c.text).join('\n')
+  let value = JSON.parse(text)
+  // walkie_call_tool may wrap the operation result in MCP content.
+  if (!Array.isArray(value) && Array.isArray(value?.content))
+    value = JSON.parse(value.content.filter(c => c?.type === 'text').map(c => c.text).join('\n'))
+  return value
+}
+async function approvalReadDigestOf(row) {
+  const hash = new Uint8Array(await crypto.subtle.digest('SHA-256', APPROVAL_READ_BYTES.encode(JSON.stringify(row))))
+  return [...hash].map(byte => byte.toString(16).padStart(2, '0')).join('')
+}
+// Why a fetched row cannot be the registered request, or ''.
+function approvalReadRefusal(row, spec) {
+  if (approvalReadIdOf(row) !== spec.message_id) return 'id'
+  const conversation = row.conversation_id ?? row.conversation
+  if (conversation !== undefined && conversation !== null && conversation !== spec.conversation_id) return 'conversation'
+  const lineage = approvalReadLineageOf(row)
+  if (lineage === 'malformed') return 'lineage'
+  // A registered thread root: the request must be a reply in that thread (or be
+  // that root). No registered root: the request must be a root message.
+  if (spec.thread_root_id ? lineage !== spec.thread_root_id && spec.message_id !== spec.thread_root_id : lineage !== null)
+    return 'thread'
+  if (APPROVAL_READ_BYTES.encode(JSON.stringify(row)).length > APPROVAL_READ_MAX_ROW_BYTES) return 'size'
+  return ''
+}
+
+// rows: the router's approvals_due rows, each with request_read
+// {server, conversation_id, message_id, thread_root_id, reply_cursor, row_digest}.
+// Returns {checks, reads, refused}: checks go to work_side_workflow_event in one call.
+async function readApprovalRequests($, rows) {
+  const specs = rows.map(row => ({ root_id: row?.root_id, ...(row?.request_read || {}) }))
+    .filter(spec => typeof spec.root_id === 'string' && typeof spec.server === 'string' && spec.server
+      && typeof spec.conversation_id === 'string' && APPROVAL_READ_ID.test(String(spec.message_id || ''))
+      && (!spec.thread_root_id || APPROVAL_READ_ID.test(String(spec.thread_root_id))))
+  const groups = new Map()
+  for (const spec of specs) {
+    const key = spec.server + '\0' + spec.conversation_id
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key).push(spec)
+  }
+  const checks = [], refused = []
+  const found = new Map()
+  const keyOf = (spec, id) => spec.server + '\0' + spec.conversation_id + '\0' + id
+  let reads = 0
+  for (const members of groups.values()) {
+    const group = [...members].sort((a, b) => (BigInt(a.message_id) < BigInt(b.message_id) ? -1 : 1))
+    for (const spec of group) {
+      if (found.has(keyOf(spec, spec.message_id))) continue
+      let page = []
+      try {
+        reads++
+        page = approvalReadRowsOf(await approvalReadWalkie($, spec.server, 'walkie_read_messages', { conversation_id: spec.conversation_id,
+          after: String(BigInt(spec.message_id) - 1n) }))
+      } catch { continue /* this request is read again next tick */ }
+      const wanted = new Set(group.map(item => item.message_id))
+      for (const row of page.slice(0, APPROVAL_READ_PAGE_ROWS)) {
+        const id = approvalReadIdOf(row)
+        if (id && wanted.has(id) && !found.has(keyOf(spec, id))) found.set(keyOf(spec, id), row)
+      }
+    }
+  }
+  // Checks keep the router's order (P0, then P1, then the rest).
+  {
+    for (const spec of specs) {
+      const row = found.get(keyOf(spec, spec.message_id))
+      if (!row) continue
+      const why = approvalReadRefusal(row, spec)
+      if (why) { refused.push({ root_id: spec.root_id, reason: why }); continue }
+      const rowDigest = await approvalReadDigestOf(row)
+      let cursor = APPROVAL_READ_ID.test(String(spec.reply_cursor || '')) ? String(spec.reply_cursor) : spec.message_id
+      const replies = []
+      if (!Array.isArray(row.approvals) && rowDigest !== spec.row_digest) {
+        const root = spec.thread_root_id || spec.message_id
+        for (let pageNumber = 0; pageNumber < APPROVAL_READ_REPLY_PAGES; pageNumber++) {
+          let page
+          try {
+            reads++
+            page = approvalReadRowsOf(await approvalReadWalkie($, spec.server, 'walkie_call_tool', { operation_id: 'threads.read', schema_version: 1,
+              arguments: { conversation_id: spec.conversation_id, root_id: root, after: cursor } }))
+          } catch { break }
+          for (const reply of page.slice(0, APPROVAL_READ_PAGE_ROWS)) {
+            const id = approvalReadIdOf(reply)
+            if (!id || BigInt(id) <= BigInt(cursor) || approvalReadLineageOf(reply) !== root) continue
+            replies.push(reply)
+            cursor = id
+          }
+          if (page.length < APPROVAL_READ_PAGE_ROWS) break
+        }
+      }
+      checks.push({ root_id: spec.root_id, row_digest: rowDigest, reply_cursor: cursor,
+        source_message: { source_context: 'verified_request', conversation_id: spec.conversation_id,
+          message_id: spec.message_id, messages: [row, ...replies] } })
+    }
+  }
+  return { checks, reads, refused }
+}
+// ---- workflow approval read: end
+// The approval re-check and the SSE approval path share one reader (register.js
+// gate tick; this file's workflow_event claim).
+export async function sideApprovalRead($, rows) { return readApprovalRequests($, rows) }
 async function resumeParked(leases) {
   if (!leases.length) return new Map()
   if (!parkedResume) return new Map(leases.map(lease => [lease.id,'the Work host cannot resume workers here']))
@@ -1691,6 +1835,29 @@ export async function pollSide($, identity) {
     // One event owns one actor and is terminated at turn.complete below.
     let actor = null
     const conversation = JSON.stringify([identity,event.receipt_id,profile])
+    if (event.workflow_event) {
+      // Approval workflow (spec 4.4): an approval/rejection of a registered
+      // request is verified and applied by host code against its request
+      // message, read once with the periodic re-check's reader (never the
+      // thread, 2026-11-18); no side fork, no ACK, recap or answer (technical
+      // review P3).
+      claimed = null
+      const marked = event.workflow_event
+      let read = null
+      try { read = await readApprovalRequests($,[{root_id:marked.root_id,request_read:marked.request_read}]) } catch { read = null }
+      const check = read?.checks?.[0] || null
+      const settled = await callRouter($,'work_side_workflow_event',check
+        ? {source_message:check.source_message,row_digest:check.row_digest,reply_cursor:check.reply_cursor}
+        : {source_message:null},
+        {receipt_id:event.receipt_id,generation:event.generation},identity)
+      if (settled.receipt && !settled.receipt.error) display($,identity,{side_inbox_receipts:[settled.receipt]})
+      try { $.ui.log('Work workflow: '+marked.root_id+' '+settled.decision+(settled.applied ? '' : ' (not applied: '+line(settled.reason,120)+')')) } catch {}
+      if (settled.applied && settled.decision === 'approved') {
+        try { await submitReply($,{identity},event) } catch { /* the reply outbox offers it again */ }
+        try { workflowApproved() } catch {}
+      }
+      return generation === lifecycle
+    }
     // No thread read before the decision (Andy 2026-11-18): the event plus
     // main's inherited transcript are the basis; a cut or textless event gets
     // its target message read once. Identity checks still refuse a malformed
@@ -1927,14 +2094,10 @@ async function notifyReleased($,identity,event,result) {
   const resumed = parked.filter(lease => outcomes.get(lease.id) === true)
   const stuck = parked.filter(lease => outcomes.get(lease.id) !== true)
   for (const lease of resumed) $.ui.log('Side released wait → parked worker '+lease.host_id.slice(0,12)+' resumed by the Work host')
-  const text = 'Ciel side released recorded wait'+(toMain.length > 1 ? 's' : '')+' '
-    +toMain.map(({wait}) => wait.id+' ("'+line(wait.waiting_on,160)+'")').join(', ')+' — '+source+'. '
-    +(resumed.length ? 'The Work host resumed the parked worker'+(resumed.length > 1 ? 's' : '')+' on '
-      +(resumed.length > 1 ? 'their' : 'its')+' own lease: '+resumed.map(lease => parkedNote(lease,outcomes)).join(', ')+'. ' : '')
-    +(stuck.length ? 'Parked worker'+(stuck.length > 1 ? 's' : '')+' waiting on '+(stuck.length > 1 ? 'them' : 'it')+': '
-      +stuck.map(lease => parkedNote(lease,outcomes)).join(', ')
-      +'; resume with SendMessage to that worker if this is what it waited for. ' : '')
-    +'The wait is already cleared; no acknowledgment is needed. This is not new execution approval.'
+  // User 2026-11-18: main only hears that the released queue runs on its own;
+  // no review, acknowledgment or action is asked of it.
+  const text = 'Ciel side: released '+toMain.map(({wait}) => wait.id).join(', ')
+    +' ('+source+'). The queue runs '+(toMain.length > 1 ? 'them' : 'it')+' automatically; nothing to do.'
   const state = await noticeToMain($,identity,event.receipt_id,text)
   $.ui.log('Side released '+toMain.map(({wait}) => wait.id).join(', ')+' → main ('+state+')')
 }

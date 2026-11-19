@@ -3,19 +3,28 @@ import hashlib
 import time
 import uuid
 import heapq
+from pathlib import Path
 
 from .channel_message_repository import exclusive_file_lock
 from .side_intake_inbox import SideIntakeInbox, source_identity, source_priority
 from .work_plan_tree import WorkPlanError
 
 
-def _source_holder(inbox, key, row, stamp):
+def _source_holder(inbox, key, row, stamp, *, by_event=False):
     """Bind one source message to one side actor; settle later events for it.
 
     Returns 'claim' when this event may start an actor, 'wait' while the first
     event for the same source is still being handled, or 'settled' when this
     event was recorded as a duplicate of an already handled source.
     """
+    if by_event:
+        # Approval workflow (technical review P1): an approval or rejection is
+        # its own event, identified by its event id, never a duplicate of an
+        # earlier event about the same message (the request message, or a
+        # second approver's decision).
+        from .work_workflow_approval import event_kind, parse_event
+        if event_kind(parse_event(row.get('text'))):
+            return 'claim'
     source = source_identity(row['text'])
     if not source:
         return 'claim'
@@ -42,7 +51,7 @@ def _source_holder(inbox, key, row, stamp):
 
 
 def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_seconds=60,
-          model_fingerprint=None, urgent_only=False):
+          model_fingerprint=None, urgent_only=False, workflow_events=False):
     if not isinstance(owner, str) or not owner or len(owner) > 200:
         raise WorkPlanError('side claim owner required')
     if type(lease_seconds) is not int or not 1 <= lease_seconds <= 3600:
@@ -146,7 +155,7 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
                 # Rows an older build received are settled here, before any fork.
                 inbox.settle_receipt_ack(key, current, stamp)
                 continue
-            if _source_holder(inbox, key, current, stamp) != 'claim':
+            if _source_holder(inbox, key, current, stamp, by_event=workflow_events) != 'claim':
                 continue
             generation = uuid.uuid4().hex
             current['processing'] = {'owner': owner, 'generation': generation,
@@ -169,6 +178,90 @@ def claim(state_dir, session_id, owner, *, now=None, lease_seconds=120, aging_se
                                              and failure.get('model_fingerprint') == model_fingerprint),
                     'route': {k: v for k, v in current.get('route', {}).items() if k not in ('reply_token', 'authorization', 'token')}}
     return None
+
+
+DISCARD_REASON = 'discarded by operator'
+
+
+def discard_failed(state_dir, session_id, *, category=None, now=None):
+    """Discard every failed side receipt (user request 2026-11-18).
+
+    A failed receipt is still pending (stage ``received``) with a
+    ``side_failure`` that is not terminal. Each one is quarantined under the
+    same per-receipt lock ``fail()`` takes: ``quarantined``/``operator_discarded``
+    set, ``retryable`` cleared, the reason appended, and the quarantine index
+    updated so no later claim picks it. Nothing is forwarded to main
+    (side_forward is not called) and nothing is deleted: the receipt stays for
+    audit. A receipt with a live lease is skipped. ``category`` limits it to one
+    failure category (for example ``source_context``).
+    """
+    if category is not None and (not isinstance(category, str) or not 0 < len(category) <= 80):
+        raise WorkPlanError('side discard category must be a failure category name')
+    stamp = time.time() if now is None else now
+    inbox = SideIntakeInbox(state_dir, session_id)
+    counts = {'discarded': 0, 'skipped_leased': 0, 'already_terminal': 0, 'other_category': 0}
+    discarded = []
+    for path in sorted((inbox.directory / 'pending').glob('*/*.json')):
+        key = path.stem
+        try:
+            lock = inbox._event_path('locks', key)
+        except WorkPlanError:
+            continue
+        with exclusive_file_lock(lock):
+            row = inbox._load(key)
+            if row is None or row.get('stage') != 'received':
+                continue
+            failure = row.get('side_failure')
+            if not isinstance(failure, dict) or not failure:
+                continue
+            if failure.get('quarantined'):
+                counts['already_terminal'] += 1
+                continue
+            if category is not None and failure.get('category') != category:
+                counts['other_category'] += 1
+                continue
+            if float((row.get('processing') or {}).get('lease_until') or 0) > stamp:
+                counts['skipped_leased'] += 1
+                continue
+            reason = str(failure.get('reason') or '')
+            row['side_failure'] = {**failure, 'quarantined': True, 'retryable': False, 'operator_discarded': True,
+                                   'operator_discarded_at': stamp,
+                                   'reason': (reason + ' · ' if reason else '') + DISCARD_REASON}
+            row.pop('processing', None)
+            inbox._save_file(inbox._event_path('pending', key), row)
+        inbox.mark_quarantined(key)
+        counts['discarded'] += 1
+        discarded.append(key)
+    return {**counts, 'category': category, 'receipt_ids': discarded[:200], 'forwarded_to_main': 0}
+
+
+def discard_failed_workspace(state_dir, *, category=None, now=None):
+    """discard_failed for every session side inbox of one workspace state dir.
+
+    Each inbox directory is named by the sha256 of its session identity; the
+    identity is taken from a row it holds and checked against that name.
+    """
+    import hashlib
+    import json as _json
+    totals = {'discarded': 0, 'skipped_leased': 0, 'already_terminal': 0, 'other_category': 0, 'sessions': 0}
+    root = Path(state_dir) / 'side-inboxes'
+    for directory in sorted(path for path in root.glob('*') if path.is_dir()) if root.is_dir() else []:
+        identity = None
+        for path in [*directory.glob('pending/*/*.json'), *directory.glob('receipts/*/*.json')][:50]:
+            try:
+                value = _json.loads(path.read_text(encoding='utf-8')).get('session_id')
+            except (OSError, ValueError, AttributeError):
+                continue
+            if isinstance(value, str) and hashlib.sha256(value.encode()).hexdigest() == directory.name:
+                identity = value
+                break
+        if identity is None:
+            continue
+        result = discard_failed(state_dir, identity, category=category, now=now)
+        totals['sessions'] += 1
+        for key in ('discarded', 'skipped_leased', 'already_terminal', 'other_category'):
+            totals[key] += result[key]
+    return {**totals, 'category': category, 'forwarded_to_main': 0}
 
 
 def verify_claim(inbox, receipt_id, generation, *, now=None):

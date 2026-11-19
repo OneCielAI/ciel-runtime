@@ -134,9 +134,17 @@ ciel-runtimectl work side-review-ok RECEIPT --session S
 ciel-runtimectl work side-review-corrected RECEIPT "무엇이 틀렸고 어떤 정정을 보냈는지" --session S
 ciel-runtimectl work handoff-ack EVENT ["source로 보낼 답"] --session S [--activate] [--clear-wait WAIT]
 ciel-runtimectl work side-drain [LIMIT] --session S
+ciel-runtimectl work side-discard-failed [CATEGORY] --session S --confirm
+ciel-runtimectl side discard-failed [CATEGORY] --session S --confirm   # 위와 같은 조작
 ciel-runtimectl work operation-reconcile OPERATION --session S --confirm
 ciel-runtimectl work operation-release OPERATION --session S --confirm [--expected-version N]
 ciel-runtimectl work execute --session S --confirm [--expected-version N]
+ciel-runtimectl work workflow [ROOT] --session S        # 승인 워크플로우: 단계·담당·차단 사유·제안서·승인·QA·재작업·메인 할 일
+ciel-runtimectl work workflow-prompts|workflow-metrics --session S
+ciel-runtimectl work workflow-resolve ROOT resend|cancel|escalate_main|escalate_model=MODEL --session S [--confirm]
+ciel-runtimectl work workflow-delegate ROOT proposal|review --session S
+ciel-runtimectl work prompt-set NAME "새 프롬프트" --session S
+ciel-runtimectl work prompt-reset NAME --session S
 ```
 
 | ctl 조치 | REST 명령 | 확인 |
@@ -153,9 +161,18 @@ ciel-runtimectl work execute --session S --confirm [--expected-version N]
 | `side-review-ok` / `side-review-corrected` | `side-review` | 없음(corrected는 메모 필수) |
 | `handoff-ack` (시간 제한 handoff 포함) | `side-handoff` | 없음 |
 | `side-drain` | `side-drain` | 없음 |
+| `side-discard-failed` | `side-discard-failed` (= `POST /ca/work/api/v1/side/discard-failed`) | `--confirm` |
 | `execute` | `execute` (보드 명령, 웹 Execute와 같음) | `--confirm`(확인 전에 활성 계획 root·제목·phase·approval 표시) |
 | `operation-reconcile` | `operation-reconcile` | `--confirm` |
 | `operation-release` | `operation-release` | `--confirm`(효과가 이미 일어났을 수 있음, 재시도는 중복 가능) |
+| `workflow-resolve` | `workflow-resolve` | `cancel`·`escalate_*`만 `--confirm` |
+| `workflow-delegate` | `workflow-delegate` | 없음 |
+| `prompt-set` / `prompt-reset` | `workflow-prompt-set` / `workflow-prompt-reset` | 없음(방금 읽은 지문에 고정, 그 사이 바뀌면 409 `prompt_conflict`) |
+
+승인 워크플로우(`work_workflow_enabled`, 기본 꺼짐)의 조회와 조치는 웹 콘솔 Workflow 탭,
+REST(`GET /ca/work/api/v1/workflow`, `/workflow/prompts`, `/workflow/metrics`), 메뉴의
+`Approval workflow status and actions`·`Approval workflow stage prompts` 행, 세션 안의
+`/work-mode workflow`와 같은 코드다.
 
 `operation-reconcile`·`operation-release`는 `work audit`에서 결과가 `unknown`인 운영자
 영수증 하나를 정리한다. 대상은 그 영수증의 `operation_id`다(전체 또는 8자 이상의 고유한 앞부분). reconcile은
@@ -166,6 +183,14 @@ reconcile이 `not_observable`을 기록한 뒤에만 되며, 방금 읽은 `rece
 이 두 명령 자체는 영수증이 아니라서 `Idempotency-Key`와 `--operation-id`는 쓰이지 않고, 128개 영수증이 모두
 `prepared`여서 새 명령이 `operator_receipts_full`로 거부될 때도 실행된다. 거부 코드:
 `unknown_operation`, `operation_not_unknown`, `reconcile_required`, `receipt_changed`.
+
+`side-discard-failed`는 실패한 사이드 영수증을 모두 폐기한다(카테고리를 주면 그 카테고리만, 예:
+`source_context`). 대상은 아직 처리 중이 아닌(lease 없음) 실패 영수증이며, 각각 `quarantined`·
+`operator_discarded`가 되고 재시도되지 않으며 원문은 메인으로 전달되지 않는다. 영수증 파일은 감사용으로
+남는다. 결과는 `discarded`, `skipped_leased`(사이드 액터가 지금 잡고 있는 것), `already_terminal`
+개수다. 같은 조작: Claude 세션의 `/work-mode discard-failed [category]`(모델 턴 없음), 런처 메뉴의
+사이드 설정 → *실패한 사이드 영수증 폐기*(이 워크스페이스의 모든 세션), 웹 콘솔 Side 화면의
+*Discard failed receipts* 버튼, `POST /ca/work/api/v1/side/discard-failed`.
 
 `execute`는 웹 콘솔의 Execute 버튼과 같은 보드 명령(`execute`, `user_confirmed: true`)이다.
 `approval=ask`에서 Work 대화상자가 없는 대화(Codex 등)의 계획 실행을 사람이 승인하는 경로다.

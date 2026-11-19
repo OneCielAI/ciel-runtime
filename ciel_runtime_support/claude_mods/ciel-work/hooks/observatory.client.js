@@ -27,6 +27,8 @@ function stage(receipt) {
   if (receipt.action === 'create' || receipt.action === 'update' || receipt.item_id) return 'work'
   // Only a terminal (quarantined) failure is "failed". A failure the router
   // retries is "retrying"; a wait for main's compaction is "waiting".
+  // Discarded by the operator (2026-11-18): not retried, not forwarded.
+  if (receipt.failure === 'discarded') return 'discarded'
   if (receipt.failure === 'quarantined' || receipt.stage === 'quarantined') return 'failed'
   if (receipt.failure === 'waiting' || receipt.failure === 'retrying') return receipt.failure
   return receipt.stage || 'received'

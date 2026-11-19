@@ -9,6 +9,11 @@ const HOST_REPLIES = {
   work_parallel_event: { recorded: true },
   // The idle gate re-check timer asks once a minute; nothing is due here.
   work_side_gate_check: { interval_minutes: 5, queued: false, reason: 'no_gates' },
+  // Approval workflow: the host's queue read (nothing due) and its host-only event tool.
+  work_proposal_status: { enabled: false, goals: [], todo: [], counts: {} },
+  work_side_workflow_event: { applied: false, decision: 'invalid', reason: 'no workflow request matches this event' },
+  // /work-mode discard-failed (2026-11-18): the router's counts.
+  work_side_discard_failed: { discarded: 2, skipped_leased: 1, already_terminal: 3, other_category: 0, receipt_ids: [] },
 }
 function setup(on, extra = {}) {
   const s = { snapshot: { enabled: true, phase: 'planning', approval: 'auto', version: 1,
@@ -79,6 +84,27 @@ test('live Work settings command works while board is off without model prompt',
   const result = await $.command.run({ command: 'work-mode', args: 'settings work_mode=on' })
   expect(result.text).toContain('Work mode')
   expect(s.prompts || 0).toBe(0)
+})
+
+test('/work-mode discard-failed reaches the host operation, shows the counts, and starts no model turn', async ($, on) => {
+  const s = setup(on, { enabled: false })
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  const before = s.prompts || 0
+  const all = await $.command.run({ command: 'work-mode', args: 'discard-failed' })
+  expect(all.text).toContain('Side receipts discarded: 2')
+  expect(all.text).toContain('skipped (a side actor holds it): 1')
+  expect(all.text).toContain('already terminal: 3')
+  const one = await $.command.run({ command: 'work-mode', args: 'discard-failed source_context' })
+  expect(one.text).toContain('category source_context')
+  const calls = s.hostCalls.filter(c => c.tool === 'work_side_discard_failed')
+  expect(calls.map(c => c.args.category ?? null)).toEqual([null, 'source_context'])
+  expect(calls.every(c => c.args._host?.token === 'fixture-host-token')).toBe(true)
+  expect((await $.command.run({ command: 'work-mode', args: 'discard-failed Bad;Name' })).text).toContain('Usage')
+  expect((await $.command.run({ command: 'work-mode', args: 'help' })).text).toContain('/work-mode discard-failed [category]')
+  expect(s.prompts || 0).toBe(before)
+  // A model's call to the host-only tool is refused.
+  const denied = await $.tool.call({ tool: 'mcp__ciel-runtime-router__work_side_discard_failed' })
+  expect(denied.deny).toContain('called only by the Ciel Work host')
 })
 
 test('side intake command calls MCP and keeps main prompt untouched', async ($, on) => {

@@ -102,8 +102,13 @@ class SideModTests(unittest.TestCase):
                          (prompt['event_id'],prompt['parent_session_id'],prompt['claim_generation']))
         self.assertEqual(['1'*32,'2'*32,'3'*32],
                          [spawn['prompt']['claim_generation'] for spawn in row['spawns']])
-        self.assertEqual(['n21'],prompt['workload']['queue_order'])
-        self.assertFalse(prompt['workload']['truncated'])
+        # The fork gets the board version and the items the event references,
+        # never the whole board; it reads more with work_status on demand
+        # (user 2026-11-18). The host keeps the full projection.
+        self.assertTrue(prompt['workload']['compact'])
+        self.assertNotIn('nodes',prompt['workload'])
+        self.assertNotIn('queue_order',prompt['workload'])
+        self.assertIn('work_status',prompt['workload']['read_more'])
         self.assertEqual('question',prompt['original'])
         self.assertNotIn('side_context_key',prompt)
         self.assertNotIn('parent_context',prompt)

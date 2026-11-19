@@ -29,8 +29,9 @@ def known_keys():
     from .side_intake_settings import PREFIX, FIELDS
     from .work_fork_models import KEYS as MODEL_KEYS
     from .work_gate_check import KEY as GATE_KEY
+    from .work_workflow import KEYS as WORKFLOW_KEYS, MENU_KEYS as WORKFLOW_MENU_KEYS
     return (*BASIC, INJECTION_KEY, *CLAUDE_KEYS, *KEYS, *MODEL_KEYS, DISCOVERY_FILE_KEY, *SIDE_KEYS, GATE_KEY,
-            *(PREFIX + name for name in FIELDS))
+            *(PREFIX + name for name in FIELDS), *WORKFLOW_KEYS, *WORKFLOW_MENU_KEYS)
 
 
 def _basic(config, key):
@@ -53,6 +54,21 @@ def _set(config, key, value, save):
             except ValueError as error:
                 raise WorkPlanError(str(error)) from None
             save(config)
+        elif key.startswith('work_workflow_'):
+            # Approval workflow: its settings, and the menu's status/operation
+            # and prompt rows (which run the REST operator commands via ctl).
+            from .work_workflow import KEYS as WORKFLOW_KEYS, WorkflowError, set_value as set_workflow
+            if key in WORKFLOW_KEYS:
+                try:
+                    set_workflow(config, key, value)
+                except WorkflowError as error:
+                    raise WorkPlanError(str(error)) from None
+                save(config)
+            else:
+                # The menu applies these rows itself (work_settings_menu.apply,
+                # through ctl); REST and the web use workflow-resolve/prompt-set.
+                raise WorkPlanError(key + ' is a menu row: use the menu, the web Workflow tab, REST '
+                                    'workflow-resolve/workflow-prompt-set or ciel-runtimectl')
         elif key == 'work_gate_check_minutes':
             from .work_gate_check import set_minutes
             try:
@@ -109,7 +125,7 @@ def _set(config, key, value, save):
 FINGERPRINT_FIELD = 'expected_settings_fingerprint'
 # A runtime observation (owner liveness), not a stored setting: it would change
 # the fingerprint without any settings write.
-FINGERPRINT_EXCLUDED = ('work_parallel_orphans',)
+FINGERPRINT_EXCLUDED = ('work_parallel_orphans', 'work_workflow_actions', 'work_workflow_prompts')
 
 
 class SettingsConflict(WorkPlanError):
@@ -232,6 +248,14 @@ def settings(config, args, save, *, load=None):
     from .work_gate_check import minutes as gate_minutes
     projected.append({'key': 'work_gate_check_minutes', 'label': menu_text('work_gate_check_minutes', language),
                       'value': gate_minutes(config), 'kind': 'number', 'status': 'next_idle_check'})
+    from .work_workflow import setting_value as workflow_value
+    projected.append({'key': 'work_workflow_enabled', 'label': menu_text('work_workflow_enabled', language),
+                      'value': workflow_value(config, 'work_workflow_enabled'), 'kind': 'boolean',
+                      'status': 'next_side_event'})
+    projected += [{'key': k, 'label': menu_text(k, language), 'value': workflow_value(config, k), 'kind': 'number',
+                   'status': 'next_gate_check'} for k in ('work_workflow_delegate_pending', 'work_workflow_delegate_minutes')]
+    projected += [{'key': k, 'label': menu_text(k, language), 'value': '', 'kind': 'action', 'status': 'live'}
+                  for k in ('work_workflow_actions', 'work_workflow_prompts')]
     from .side_intake_settings import DEFAULT_SIDE_INSTRUCTION, instruction_view, values
     instruction = instruction_view(config)
     side_enums = {

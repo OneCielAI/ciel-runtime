@@ -48,6 +48,9 @@ class WorkHttpServices:
     restart_queue: Callable[..., dict[str, Any]] | None = None
 
 
+from .work_workflow_http import WorkflowPromptConflict  # noqa: E402 - approval workflow 409
+
+
 class WorkHttpController:
     def __init__(self, services: WorkHttpServices) -> None:
         self.services = services
@@ -102,7 +105,8 @@ class WorkHttpController:
               "/ca/work/api/v1/runtime", "/ca/work/api/v1/openapi", "/ca/work/api/v1/events",
               "/ca/work/api/v1/settings", "/ca/work/api/v1/parallel", "/ca/work/api/v1/side",
               "/ca/work/api/v1/side/receipt", "/ca/work/api/v1/audit")
-        if path not in (*legacy, *v1):
+        from .work_workflow_http import PATHS as WORKFLOW_PATHS
+        if path not in (*legacy, *v1, *WORKFLOW_PATHS):
             return False
         query = urllib.parse.parse_qs(urllib.parse.urlsplit(handler.path).query, keep_blank_values=True)
         try:
@@ -170,6 +174,9 @@ class WorkHttpController:
                 else:
                     self.services.write_json(handler, {"ok": True, "schema_version": 1,
                                                        "session_id": identity, "receipt": detail})
+            elif path in WORKFLOW_PATHS:
+                from .work_workflow_http import get_payload
+                self.services.write_json(handler, get_payload(self, identity, path, query))
             elif path == "/ca/work/api/v1/audit":
                 document = application.document()
                 self.services.write_json(handler, self._audit_projection(
@@ -369,7 +376,11 @@ class WorkHttpController:
             "parallel_item_review", "parallel_launch_resolve", "parallel_legacy_accept",
             "side_review", "side_handoff", "side_reply_retry",
             "side_wake_retry", "side_notice_retry", "side_reappend_retry", "review_reappend_retry", "side_drain",
-            "operation_reconcile", "operation_release")}
+            "side_discard_failed", "operation_reconcile", "operation_release",
+            "workflow_resolve", "workflow_delegate", "workflow_prompt_set", "workflow_prompt_reset")}
+        # The same operator command at the side view's own path (2026-11-18).
+        if path == "/ca/work/api/v1/side/discard-failed":
+            return self._post_operator(handler, "side_discard_failed", body)
         if path in operator_actions:
             return self._post_operator(handler, operator_actions[path], body)
         if path in commands:
@@ -520,6 +531,8 @@ class WorkHttpController:
                                                "message": str(exc)}, 409)
         except WorkOperationResolutionError as exc:
             self.services.write_json(handler, {"ok": False, "error": exc.code, "message": str(exc)}, exc.status)
+        except WorkflowPromptConflict as exc:
+            self.services.write_json(handler, {"ok": False, "error": "prompt_conflict", "message": str(exc)}, 409)
         except SettingsConflict as exc:
             try:
                 current = settings_fingerprint(self.services.load_config())
@@ -665,6 +678,9 @@ class WorkHttpController:
                 "replayed": False, "result": result}
 
     def _operator_effect(self, identity: str, action: str, body: dict[str, Any], source: str = "rest") -> Any:
+        if action.startswith("workflow_"):
+            from .work_workflow_http import effect as workflow_effect
+            return workflow_effect(self, identity, action, body, source)
         if action == "settings_update":
             if self.services.save_config is None:
                 raise tree.WorkPlanError("Work settings are read-only")
@@ -778,6 +794,13 @@ class WorkHttpController:
                                   confirmed=body.get("confirmed") is True)
         elif action == "side_drain":
             result = self.side_drain(identity, body)
+        elif action == "side_discard_failed":
+            # Every failed side receipt is quarantined as discarded by the
+            # operator: never retried, not forwarded to main, kept for audit.
+            if body.get("confirmed") is not True:
+                raise tree.WorkPlanError("side-discard-failed requires explicit confirmation (confirmed=true)")
+            from .side_intake_processing import discard_failed
+            result = discard_failed(self.services.state_dir, identity, category=body.get("category"))
         elif action == "side_reappend_retry":
             result = self.side_reappend_retry(identity, body)
         elif action == "review_reappend_retry":
