@@ -1,23 +1,28 @@
-"""Durable model-written understanding sent before a side decision commits.
+"""Durable model-written understanding of a side event.
 
 The side model proposes ``understanding`` and ``decision`` together. The host
-persists the validated proposal on the receipt, sends the understanding with
-its own connector phase/client_id, then commits the Work decision. A crash
-between these steps resumes from the saved proposal without running the model
-again. An uncertain send is never silently repeated.
+persists the validated proposal on the receipt, then commits the Work decision.
+A crash between these steps resumes from the saved proposal without running the
+model again.
+
+One message per event (user 2026-11-19: the receipt ACK, the understanding and
+the result reached the source as three messages). The understanding is no
+longer sent on its own: ``prepare`` records it as merged and sends nothing, and
+side_reply_outbox sends it together with the result (``outbound_text``).
+``record`` still closes a send an earlier build started.
 """
 from __future__ import annotations
 
 import hashlib
 import json
 import time
-import uuid
 
 from .channel_message_repository import exclusive_file_lock
 from .side_intake_inbox import SideIntakeInbox
 from .work_plan_tree import WorkPlanError
 
 MAX_UNDERSTANDING = 4000
+MERGED = 'merged_into_reply'
 
 
 def digest(understanding, decision, expected_version):
@@ -97,30 +102,11 @@ def prepare(state_dir, identity, receipt_id, *, config=None):
         previous = row.get('understanding_outbox') if isinstance(row.get('understanding_outbox'), dict) else {}
         if previous.get('state') in ('submitting', 'uncertain', 'submitted', 'not_applicable'):
             return {'state': previous['state'], 'receipt_id': receipt_id}
-        route = row.get('route') if isinstance(row.get('route'), dict) else {}
-        connector = None
-        # The restatement is for a requester. A status answer the side will not
-        # post (no_reply, or an unaddressed reply with nothing asked) gets none:
-        # posted, it was the other agent's next event (Andy and Celly,
-        # 2026-11-19: ACK, restatement and reply for every echo).
-        from .side_intake_inbox import unaddressed_reply
-        decision = value.get('decision') if isinstance(value.get('decision'), dict) else {}
-        silent = (decision.get('action') == 'answer' and decision.get('kind') == 'status'
-                  and (decision.get('no_reply') is True or unaddressed_reply(row.get('text'))))
-        if route.get('source_kind') == 'external_event' and not silent:
-            from .side_reply_connector import prepare as connector_prepare
-            connector = connector_prepare(config or {}, route, receipt_id, value['understanding'], 'status',
-                                          original=row['text'], phase='understanding')
-        if connector is None:
-            row['understanding_outbox'] = {'state': 'not_applicable', 'updated_at': time.time()}
-            _save(inbox, receipt_id, row)
-            return {'state': 'not_applicable', 'receipt_id': receipt_id,
-                    'receipt': inbox._receipt(receipt_id, row, duplicate=False)}
-        attempt_id = uuid.uuid4().hex
-        row['understanding_outbox'] = {'state': 'submitting', 'started_at': time.time(),
-                                       'attempt_id': attempt_id}
+        # Nothing is sent here: the result message carries the understanding.
+        row['understanding_outbox'] = {'state': 'not_applicable', 'updated_at': time.time(), 'reason': MERGED}
         _save(inbox, receipt_id, row)
-        return {'state': 'submitting', 'receipt_id': receipt_id, 'attempt_id': attempt_id, **connector}
+        return {'state': 'not_applicable', 'receipt_id': receipt_id,
+                'receipt': inbox._receipt(receipt_id, row, duplicate=False)}
 
 
 def record(state_dir, identity, receipt_id, state, *, attempt_id):

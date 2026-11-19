@@ -448,11 +448,9 @@ class SideIntakeInbox:
                 return self._receipt(key, row, duplicate=False)
             self._save_file(self._event_path('pending', key), row)
             self._index_priority(key,row)
-            # The receipt ACK has its own pump. It is sent before this event can
-            # wait for a side actor slot, and a restart can recover this marker.
-            # An unaddressed reply gets none before it is read (unaddressed_reply).
-            if not unaddressed_reply(text):
-                self.mark_ack_owed(key)
+            # No receipt ACK is owed (user 2026-11-19): the source gets one
+            # message per event, the understanding and the result together
+            # (side_reply_outbox.outbound_text).
             return self._receipt(key, row, duplicate=False)
 
     @staticmethod

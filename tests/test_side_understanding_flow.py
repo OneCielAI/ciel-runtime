@@ -1,4 +1,7 @@
-"""ACK → understanding → board commit → final reply (user requirement 2026-11-17).
+"""Understanding → board commit → one message to the source (user requirements 2026-11-17, 2026-11-19).
+
+2026-11-19: the receipt ACK, the understanding and the result were three
+messages; the source now gets one, the understanding and the result together.
 
 "메시지 수신 ACK, readback을 sse 받은데로 에코하면 안됌. 받은 메시지를 자신의
 이해한스타일로 복기하는절차임. 그리고 분석하고 큐를 조절한후에 필요하면
@@ -57,16 +60,18 @@ class UnderstandingFlowTests(unittest.TestCase):
                              'summary': 'payment retry fix on staging today', 'priority': 'P2',
                              'reply': '새 작업으로 등록했습니다.'}}
 
-    def test_three_sends_in_order_with_distinct_client_ids_and_no_echo(self):
+    def test_one_message_carries_the_understanding_and_the_result(self):
         claim = self.claimed()
         host = {'receipt_id': self.key, 'generation': claim['generation']}
         ack = json.loads(self.call('work_side_ack', {'receipt_id': self.key, 'state': 'prepare'})['text'])
         understood = json.loads(self.call('work_side_understanding', {**self.proposal(), 'state': 'prepare'},
                                           host)['text'])
-        self.assertEqual('submitting', understood['state'])
+        # Neither the ACK nor the understanding is sent on its own.
+        self.assertEqual(('not_applicable', 'not_applicable'), (ack['state'], understood['state']))
+        self.assertNotIn('arguments', ack)
+        self.assertNotIn('arguments', understood)
         # The board is unchanged until the decision commits.
         self.assertEqual([], self.store.read()['nodes'])
-        self.call('work_side_understanding', {'state': 'submitted'}, {**host, 'attempt_id': understood['attempt_id']})
         resolved = self.call('work_side_resolve', {'decision': {'action': 'answer', 'kind': 'status',
                                                                 'summary': 'ignored', 'reply': 'ignored'},
                                                    'expected_version': 0}, {**host, 'work_digest': claim['work_digest']})
@@ -75,16 +80,12 @@ class UnderstandingFlowTests(unittest.TestCase):
         # The saved proposal is what commits, not a different later payload.
         self.assertEqual(('create', '결제 재시도 버그 수정'), (result['action'], result['title']))
         final = reply_prepare(self.root, IDENTITY, self.key, config=self.config)
-        texts = [ack['arguments']['text'], understood['arguments']['text'], final['arguments']['text']]
-        clients = {ack['arguments']['client_id'], understood['arguments']['client_id'],
-                   final['arguments']['client_id']}
-        self.assertEqual(3, len(clients))
-        for text in texts:
-            self.assertNotIn(MESSAGE, text)
-        self.assertFalse(any(text.startswith('ACK') for text in texts[1:]))
-        self.assertIn('이해했습니다', texts[1])
-        self.assertIn('새 작업으로 등록했습니다.', texts[2])
-        self.assertIn(' 등록 · P2', texts[2])
+        text = final['arguments']['text']
+        self.assertTrue(text.startswith(self.proposal()['understanding'] + '\n\n'), text)
+        self.assertIn('새 작업으로 등록했습니다.', text)
+        self.assertIn(' 등록 · P2', text)
+        self.assertNotIn(MESSAGE, text)
+        self.assertFalse(text.startswith('ACK'))
 
     def test_echo_or_ack_understanding_is_refused_and_nothing_commits(self):
         claim = self.claimed()
@@ -112,7 +113,7 @@ class UnderstandingFlowTests(unittest.TestCase):
         again = self.call('work_side_understanding', {**self.proposal('다른 이해 내용입니다'), 'state': 'prepare'}, host)
         self.assertTrue(again['error'])
         replay = json.loads(self.call('work_side_understanding', {**self.proposal(), 'state': 'prepare'}, host)['text'])
-        self.assertEqual('submitting', replay['state'])
+        self.assertEqual('not_applicable', replay['state'])
         self.assertNotIn('arguments', replay)
 
     def test_quarantined_event_gets_a_truthful_failure_reply_once(self):
@@ -142,7 +143,7 @@ class UnderstandingFlowTests(unittest.TestCase):
         host = {'receipt_id': self.key, 'generation': first['generation']}
         understood = json.loads(self.call('work_side_understanding', {**self.proposal(), 'state': 'prepare'},
                                           host)['text'])
-        self.call('work_side_understanding', {'state': 'submitted'}, {**host, 'attempt_id': understood['attempt_id']})
+        self.assertEqual('not_applicable', understood['state'])
         # The session restarts before the decision commits; the lease expires.
         resumed = claim(self.root, IDENTITY, 'side-2', now=time.time() + 1000)
         self.assertEqual(self.key, resumed['receipt_id'])
@@ -150,40 +151,40 @@ class UnderstandingFlowTests(unittest.TestCase):
         host = {'receipt_id': self.key, 'generation': resumed['generation']}
         again = json.loads(self.call('work_side_understanding', {**resumed['proposal'], 'state': 'prepare'},
                                      host)['text'])
-        self.assertEqual('submitted', again['state'])
+        self.assertEqual('not_applicable', again['state'])
         self.assertNotIn('arguments', again)
         resolved = self.call('work_side_resolve', {'decision': resumed['proposal']['decision'],
                                                    'expected_version': resumed['proposal']['expected_version']}, host)
         self.assertFalse(resolved['error'], resolved)
         self.assertEqual('create', json.loads(resolved['text'])['result']['action'])
         self.assertEqual(1, len(self.store.read()['nodes']))
-        self.assertIn('arguments', reply_prepare(self.root, IDENTITY, self.key, config=self.config))
+        final = reply_prepare(self.root, IDENTITY, self.key, config=self.config)
+        # Sent once, after the restart, with the saved understanding leading it.
+        self.assertTrue(final['arguments']['text'].startswith(self.proposal()['understanding']))
 
     def test_a_recheck_decides_again_without_a_second_understanding(self):
         from ciel_runtime_support.side_intake_processing import release_for_recheck
         first = self.claimed()
         host = {'receipt_id': self.key, 'generation': first['generation']}
-        understood = json.loads(self.call('work_side_understanding', {**self.proposal(), 'state': 'prepare'},
-                                          host)['text'])
-        self.call('work_side_understanding', {'state': 'submitted'}, {**host, 'attempt_id': understood['attempt_id']})
+        self.call('work_side_understanding', {**self.proposal(), 'state': 'prepare'}, host)
         release_for_recheck(self.root, IDENTITY, self.key, first['generation'], 'board changed')
         row = self.inbox._load(self.key)
         self.assertIsNone(row.get('proposal'))
-        self.assertEqual('submitted', row['understanding_outbox']['state'])
+        self.assertEqual('not_applicable', row['understanding_outbox']['state'])
         second = self.claimed()
         self.assertNotIn('proposal', second)
         host = {'receipt_id': self.key, 'generation': second['generation']}
         decided = json.loads(self.call('work_side_understanding',
                                        {**self.proposal('보드가 바뀐 뒤 다시 정리한 이해 내용입니다.'), 'state': 'prepare'},
                                        host)['text'])
-        self.assertEqual('submitted', decided['state'])
+        self.assertEqual('not_applicable', decided['state'])
         self.assertNotIn('arguments', decided)
 
-    def test_owed_acks_are_listed_by_claim_and_status_even_without_a_free_slot(self):
+    def test_no_receipt_ack_is_owed_by_claim_or_status(self):
         status = json.loads(self.call('work_side_status', {})['text'])
-        self.assertEqual([self.key], status['pending_acks'])
+        self.assertEqual([], status['pending_acks'])
         claimed = json.loads(self.call('work_side_claim', {'owner': 'side-1'})['text'])
-        self.assertEqual([self.key], claimed['pending_acks'])
+        self.assertEqual([], claimed['pending_acks'])
 
 
 if __name__ == '__main__':
