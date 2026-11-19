@@ -33,9 +33,9 @@ class ObservatoryStageTests(unittest.TestCase):
             raise AssertionError(done.stderr)
         cls.rows = json.loads(done.stdout)
 
-    # The wide layout's narrow SSE column shows one-character stage marks
+    # The wide layout's narrow SSE column shows two-letter stage marks
     # (user 2026-11-19); the full-width SSE tab keeps the words.
-    MARKS = {"100": {"retrying": "再", "waiting": "待", "failed": "失", "received": "受", "answered": "答"},
+    MARKS = {"100": {"retrying": "RT", "waiting": "WT", "failed": "FL", "received": "IN", "answered": "AN"},
              "40": {name: name for name in ("retrying", "waiting", "failed", "received", "answered")}}
 
     def test_only_a_quarantined_row_is_failed_at_every_width(self):

@@ -44,10 +44,12 @@ function pad(value, width) {
   const text = clip(value, width)
   return text + ' '.repeat(Math.max(0, width - cells(text)))
 }
-// One-character stage marks for the narrow SSE column (user 2026-11-19).
-const STAGE_MARK = { received: '受', processing: '處', answered: '答', work: '作', failed: '失', quarantined: '失',
-  waiting: '待', retrying: '再', discarded: '棄', processed: '完', decided: '完' }
-function stageMark(value) { return STAGE_MARK[value] || '·' }
+// Two-letter stage marks for the narrow SSE column (user 2026-11-19): IN received,
+// AI processing, AN answered, WK work, DN done, WT waiting, RT retrying, FL failed,
+// DC discarded.
+const STAGE_MARK = { received: 'IN', processing: 'AI', answered: 'AN', work: 'WK', failed: 'FL', quarantined: 'FL',
+  waiting: 'WT', retrying: 'RT', discarded: 'DC', processed: 'DN', decided: 'DN' }
+function stageMark(value) { return STAGE_MARK[value] || '--' }
 // The event text without its "[source · event]" prefix when something follows it.
 function receiptText(receipt) {
   const text = String(receipt.summary || '').replace(/[\x00-\x1f\x7f]/g, ' ').trim()
@@ -261,9 +263,10 @@ export default function Observatory(props, surface) {
     // Claude Code 2.1.310 when a fork ended (real console, owned probe).
     const specs = [
       { value: 'SSE FLOW ' + sideRows.length, color: C.cyan, weight: 'bold' },
-      { value: '受' + counts.received + ' 處' + counts.processing + ' 答' + counts.answered + ' 作' + counts.work
-        + (counts.failed ? ' 失' + counts.failed : ''), color: C.dim },
-      { value: '受수신 處처리 答응답 作작업 完완료 失실패', color: C.dim },
+      { value: 'IN ' + counts.received + ' AI ' + counts.processing + ' AN ' + counts.answered + ' WK ' + counts.work
+        + (counts.failed ? ' FL ' + counts.failed : ''), color: C.dim },
+      { value: 'IN recv AI proc AN answer WK work', color: C.dim },
+      { value: 'DN done WT wait RT retry FL fail', color: C.dim },
     ]
     const activeActors = (props.actors || []).slice(0, 3)
     const actor = activeActors[0]

@@ -85,9 +85,9 @@ test('graphical SSE view calls only a quarantined row failed; retries and compac
     const rows = (await ui.findAll({ type: 'Text', in: 'obs-graphic' })).map(row => row.text)
     const row = (summary: string) => rows.find(text => text.includes(summary)) || ''
     expect(rows.join('\n')).toContain('SSE FLOW 3')
-    expect(row('Retry row')).toContain('P3 再')
-    expect(row('Waiting row')).toContain('P3 待')
-    expect(row('Terminal row')).toContain('P3 失')
+    expect(row('Retry row')).toContain('P3 RT')
+    expect(row('Waiting row')).toContain('P3 WT')
+    expect(row('Terminal row')).toContain('P3 FL')
     expect(row('Retry row')).not.toContain('failed')
     expect(row('Waiting row')).not.toContain('failed')
     await ui.unmount()
