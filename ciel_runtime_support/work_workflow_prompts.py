@@ -64,7 +64,10 @@ DEFAULTS: dict[str, str] = {
     "worker_execute": (
         "승인된 제안(digest {digest})에서 배정된 스텝만 실행합니다. spec과 스텝의 procedure를 따르고, "
         "spec이 바꾸면 안 된다고 한 것은 바꾸지 마십시오. 연결된 QA는 각각 지정된 증거로 증명합니다. "
-        "스크린샷, 로그, 출력은 작업 공간의 .work-evidence/{lease}/ 아래에 저장합니다."),
+        "스크린샷, 로그, 출력은 작업 공간의 .work-evidence/{lease}/ 아래에 저장합니다. "
+        "작업 중간의 마일스톤마다, 그리고 마무리할 때 OKF 문서를 갱신합니다: 작업 공간의 docs 아래 OKF "
+        "계층 구조(저널)에 이 스텝의 문서를 두고 무엇을 했는지, 근거, 결과, 남은 일을 적습니다. 문서를 "
+        "갱신하지 않은 채 완료를 보고하지 마십시오."),
     "worker_report": (
         "완료 보고는 work_parallel_report(event=completion)로 하고 detail에 다음을 넣습니다: "
         "{summary(한 것과 못 한 것), changes(파일, 커밋, 산출물 digest), qa_results[](id, status "

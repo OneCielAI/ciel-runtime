@@ -82,6 +82,7 @@ function ownSideWake(identity, handoff) {
       && Boolean(ref) && w.presentation.attempt_ref === ref)
 }
 let observatoryAutoOpened = ''
+let paneLoadAt = 0
 function showSideReceipts($, identity, snapshot) {
   const previous = sidePanelSession === identity ? sidePanelReceipts : []
   if (sidePanelSession !== identity) sidePanelReviewDelivery = []
@@ -105,7 +106,7 @@ function showSideReceipts($, identity, snapshot) {
     // once per conversation and without taking the focus.
     if (observatoryAutoOpened !== identity) {
       observatoryAutoOpened = identity
-      void openDetails($, null, null, false).catch(() => { observatoryAutoOpened = '' })
+      void openDetails($, null, null, false, true).catch(() => { observatoryAutoOpened = '' })
     }
     if (seenSideReceipts.size > 200) seenSideReceipts.delete(seenSideReceipts.values().next().value)
   }
@@ -471,11 +472,23 @@ async function nativePlanWrite($, tool, input, agentId) {
   const plan = planPathKey(nativePlanPaths.get(planKey(await sessionId($), agentId)))
   return plan !== null && planPathKey(input?.file_path) === plan
 }
-function blocked(read) {
+// What main may still write itself while it delegates execution: documents,
+// evidence and mockups. Everything else is a Work fork's edit.
+function mainMayWrite(path) {
+  const value = String(path || '').replace(/\\/g, '/').toLowerCase()
+  return /(^|\/)(docs|\.work-evidence|mockups?)\//.test(value) || /\.(md|okf|txt|png|svg)$/.test(value)
+}
+function blocked(read, e = null) {
   const s = read.s
   if (s?.enabled === false || (!s && !enabled)) return ''
   if (!s) return unavailable(read)
-  return s.phase === 'planning' ? T('mod_planning') : ''
+  if (s.phase === 'planning') return T('mod_planning')
+  // Main plans and reviews; Work forks execute (user 2026-11-19). Only main's
+  // own call is refused, and only while the router says forks can run.
+  if (e && e.agentId === undefined && s.phase === 'executing' && s.main_delegates === true
+      && !mainMayWrite(e.file_path ?? e.input?.file_path ?? e.notebook_path ?? e.input?.notebook_path))
+    return T('mod_main_delegates')
+  return ''
 }
 // One toast per conversation and plan version: the deny text itself goes to the model.
 function hintPlanning($, s, reason) {
@@ -855,7 +868,12 @@ function graphicReceipts(identity) {
   return merged.slice(-100).reverse().map(receipt => {
     const id = receipt.receipt_id || receipt.item_id || ''
     const actor = actors.find(row => row.receipt_id === id)
-    return { id, priority: sourcePriority(receipt.original), summary: eventView(receipt.original || receipt.recap || '').summary,
+    // A receipt whose original is no longer in the projection still shows what
+    // it was: the side's own summary, or what kind of event it is.
+    const shown = eventView(receipt.original || receipt.recap || '').summary
+      || clipped(receipt.result?.summary || receipt.result?.reply || '', 200)
+      || (receipt.route?.source_kind === 'gate_check' ? '블로커 확인 (게이트 재확인)' : '')
+    return { id, priority: sourcePriority(receipt.original), summary: shown || ('수신 ' + String(id).slice(0, 8)),
       stage: receipt.result ? receipt.result.delivery || 'decided' : receipt.processing ? 'processing'
         : receipt.side_failure?.quarantined ? 'quarantined' : receipt.stage || 'received',
       delivery: receipt.result?.delivery || '', action: receipt.result?.action || '',
@@ -867,8 +885,13 @@ function graphicReceipts(identity) {
 // The pane's Work views (user 2026-11-19): all, running (in progress or a fork
 // on it), blocked or waiting, done. Each node row is classed once here; the
 // Client filters by that class, so the cursor and the drawing agree.
-const WORK_VIEWS = ['all', 'run', 'wait', 'done']
-function workView(state) { return WORK_VIEWS.includes(state?.obsView) ? state.obsView : 'all' }
+const WORK_VIEWS = ['run', 'wait', 'done', 'all']
+// What runs now is the default view (user 2026-11-19); V cycles to the others.
+// With nothing running the default shows everything instead of an empty list.
+function workView(state, nodes = null) {
+  if (WORK_VIEWS.includes(state?.obsView)) return state.obsView
+  return !nodes || nodes.some(row => row.cls === 'run') ? 'run' : 'all'
+}
 function classedNodes(view) {
   const running = new Set((observatoryParallel?.forks?.confirmed || []).map(row => row?.item_id).filter(Boolean))
   return graphicNodes(view, cached).map(row => {
@@ -880,9 +903,10 @@ function classedNodes(view) {
 }
 function graphicRows(identity, view, state) {
   const p1 = state?.obsP1 === true
-  const chosen = workView(state)
+  const nodes = state?.tab === 'side' ? [] : classedNodes(view)
+  const chosen = workView(state, nodes)
   const rows = state?.tab === 'side' ? graphicReceipts(identity)
-    : classedNodes(view).filter(row => chosen === 'all' || row.cls === chosen)
+    : nodes.filter(row => chosen === 'all' || row.cls === chosen)
   return rows.filter(row => !p1 || row.priority === 'P1' || row.priority === 'P0')
 }
 function graphicSelected(state) {
@@ -893,7 +917,7 @@ function graphicProps(identity, view, state) {
   return { tab: state?.tab === 'side' ? 'side' : 'work', selected: graphicSelected(state), p1: state?.obsP1 === true,
     version: cached?.version,
     active: cached?.active_root?.title || '', done: cached?.done || 0, total: cached?.total || 0,
-    nodes: classedNodes(view), view: workView(state), receipts: graphicReceipts(identity),
+    nodes: classedNodes(view), view: workView(state, classedNodes(view)), receipts: graphicReceipts(identity),
     actors: sideActors(identity).map(actor => ({ id: actor.id, receipt: actor.receipt_id,
       runtime: 'native fork (main context)', reserved: actor.reserved, lease_until: actor.lease_until })),
     parallel: { active: observatoryParallel?.active_device || 0, max: parallelCapacity(policy),
@@ -913,7 +937,8 @@ function graphicProps(identity, view, state) {
 // hotkeys, no click needed) and the Client's click-focused keys and pointer.
 async function graphicAction($, identity, data) {
   const state = await read($, panelView)
-  const rows = graphicRows(identity, await read($, detailView), state)
+  const view0 = await read($, detailView)
+  const rows = graphicRows(identity, view0, state)
   const clamp = index => Math.max(0, Math.min(index, Math.max(0, rows.length - 1)))
   const cursor = state?.tab === 'side' ? 'obsSide' : 'obsWork'
   const chosen = rows[clamp(graphicSelected(state))]
@@ -929,7 +954,7 @@ async function graphicAction($, identity, data) {
     await displayState($, identity, old => ({ ...old, obsP1: old.obsP1 !== true, obsWork: 0, obsSide: 0 }))
   else if (action === 'view')
     await displayState($, identity, old => ({ ...old, tab: 'work', obsWork: 0,
-      obsView: WORK_VIEWS[(WORK_VIEWS.indexOf(workView(old)) + 1) % WORK_VIEWS.length] }))
+      obsView: WORK_VIEWS[(WORK_VIEWS.indexOf(workView(old, classedNodes(view0))) + 1) % WORK_VIEWS.length] }))
   else if (action === 'refresh') { await openDetails($, null, identity); await observatoryRefresh($, identity) }
   else if (action === 'work' && id) await openDetails($, id, identity)
   else if (action === 'receipt' && id)
@@ -947,7 +972,9 @@ async function graphicAction($, identity, data) {
   else if (action === 'resolve-launch') await requestReworkLaunchResolution($, identity)
 }
 // Resolves 'opened', 'off' or 'unavailable'.
-async function openDetails($, id = null, origin = null, focus = true) {
+async function openDetails($, id = null, origin = null, focus = true, onlyIfEmpty = false) {
+  // The automatic open never replaces a board the pane already holds.
+  if (onlyIfEmpty && await read($, detailView)) return 'kept'
   const identity = await sessionId($)
   if (origin && identity !== origin) return 'unavailable'
   // A display refresh started meanwhile (idle poll, turn start) supersedes this one and
@@ -1542,7 +1569,7 @@ async function workToolCall($, e, next) {
   else if (name) read.s = await refresh($)
   const s = read.s
   if (knownWrite) {
-    const reason = blocked(read)
+    const reason = blocked(read, e)
     const exactNativePlan = await nativePlanWrite($, e.tool, e, e.agentId)
     if (reason && !exactNativePlan) {
       hintPlanning($, s, reason); return { deny: reason }
@@ -1625,7 +1652,7 @@ async function workToolCheck($, e, next) {
   if (!WRITES.has(e.tool)) return next(e)
   if (await nativePlanWrite($, e.tool, e.input, e.agentId)) return next(e)
   const read = await gateRead($)
-  const reason = blocked(read)
+  const reason = blocked(read, e)
   const planWrite = await nativePlanWrite($, e.tool, e.input, e.agentId)
   if (reason && !planWrite) { hintPlanning($, read.s, reason); return { decision: 'deny', reason } }
   return next(e)
@@ -2202,6 +2229,21 @@ function parallelReviewRefusedNow(row) {
   const held = refusedParallelReviews.get(row.lease_id)
   const version = row.expected_finalization_version ?? pendingParallelReviewVersion
   return !!held && held.turn === mainTurnEpoch && held.versions.has(version)
+}
+// Main is the reviewer (user 2026-11-19): results that wait for it are named at
+// its turn end, once per set of results and again after 20 minutes while they
+// still wait. Before this, a review was announced once and then only piled up
+// (Andy: 34 results awaiting review).
+let reviewReminder = { key: '', at: 0 }
+function remindPendingReviews($) {
+  const rows = pendingParallelReviews.filter(row => row?.lease_id && !sidePromptPending('parallel:' + row.lease_id))
+  if (!rows.length) return
+  const key = rows.map(row => row.lease_id).sort().join(',')
+  if (key === reviewReminder.key && Date.now() - reviewReminder.at < 20 * 60 * 1000) return
+  reviewReminder = { key, at: Date.now() }
+  const items = [...new Set(rows.map(row => row.item_id || String(row.lease_id).slice(0, 8)))]
+  void sidePromptSubmit($, 'review-reminder:' + reviewReminder.at, T('mod_review_reminder', { count: rows.length,
+    items: items.slice(0, 12).join(', ') + (items.length > 12 ? ' …' : ''), call: T('mod_review_call') }))
 }
 function parallelReviewGate(identity, fresh) {
   // A review whose prompt was issued and has not resolved (this module's, or
@@ -2873,7 +2915,8 @@ async function parallelToolCall($, e, next) {
         tool: 'Agent', subagent_type: 'fork', name: key,
         description: 'Work ' + label,
         prompt: 'Execute only approved Work item ' + label
-          + '. Report question or result through work_parallel_event. Do not configure policy or accept your result.',
+          + '. Report question or result through work_parallel_event. Do not configure policy or accept your result. '
+          + T('mod_fork_rules'),
         required_parameters: { name: key },
         instruction: 'Call the native Agent tool with every returned field unchanged, including required_parameters.name. Omitting name is denied before any worker starts; /work-mode parallel shows the pending name.' }) }
     }
@@ -2944,7 +2987,7 @@ async function parallelP0Spawn($) {
   const prompt = 'Execute exactly this P0 Work assignment immediately. Native fork context and permissions are inherited; '
     + 'the configured P0 fork model is applied by the request gate. '
     + 'Report a question or result only through work_parallel_report using the exact worker_token. '
-    + 'Do not configure policy or accept your result. Assignment JSON:\n' + parallelAssignment(request)
+    + 'Do not configure policy or accept your result. ' + T('mod_fork_rules') + ' Assignment JSON:\n' + parallelAssignment(request)
   await parallelEvent($, { event:'p0_launch_spawning', intent_id:request.intent_id,
     lease_id:request.lease_id, dispatch_name:key }, { internal:true })
   let spawned
@@ -3013,7 +3056,7 @@ async function parallelDirectSpawn($, key, request) {
     const p0Prompt = 'Execute exactly this P0 Work assignment immediately. Native fork context and permissions are inherited; '
       + 'the configured P0 fork model is applied by the request gate. '
       + 'Report a question or result only through work_parallel_report using the exact worker_token. '
-      + 'Do not configure policy or accept your result. Assignment JSON:\n' + parallelAssignment(request)
+      + 'Do not configure policy or accept your result. ' + T('mod_fork_rules') + ' Assignment JSON:\n' + parallelAssignment(request)
     await parallelEvent($, { event:'p0_launch_spawning', intent_id:request.intent_id,
       lease_id:request.lease_id, dispatch_name:p0Key }, { internal:true })
     let p0Spawn
@@ -3047,7 +3090,7 @@ async function parallelDirectSpawn($, key, request) {
     + reworkHandoffWarning(request)
     + (request.role === 'resume' && request.rework_evidence ? 'Main requested rework: ' + clipped(request.rework_evidence, 1600) + '. ' : '')
     + 'Report a question or result only through work_parallel_report using the exact worker_token. '
-    + 'Do not configure policy or accept your result. Assignment JSON:\n' + parallelAssignment(request)
+    + 'Do not configure policy or accept your result. ' + T('mod_fork_rules') + ' Assignment JSON:\n' + parallelAssignment(request)
   const rework = request.role === 'resume'
   // The capability above is host-only. Persist the exact launch name before
   // the native call; after an unknown outcome the backend refuses token rotation.
@@ -4409,6 +4452,7 @@ async function workStop($, e, next) {
   // Main's turn ended: the side checks for released blocks, approvals and
   // missed work and tidies the queue. It never holds or messages main.
   if (gateCheck?.identity === identity && typeof gateCheck.run === 'function') void gateCheck.run(true).catch(() => {})
+  remindPendingReviews($)
   // User 2026-11-18: Stop never injects a message into main any more. The side
   // check above handles released blocks, approvals and other work instead.
   return result
@@ -4808,7 +4852,7 @@ export function register(on) {
           + done.other_category + ')' : '') + '. Not retried, not forwarded to main; kept for audit.' }
       } catch (error) { return { text: 'Side discard failed: ' + clipped(String(error.message || error), 300) } }
     }
-    if (!['', 'help', 'view', 'summary', 'status', 'tree', 'expand', 'compact', 'parallel'].includes(arg)) return { text: 'Usage: /work-mode [view|summary|expand|compact|help|tree|status|parallel|workflow|discard-failed [category]]' }
+    if (!['', 'help', 'view', 'summary', 'status', 'tree', 'expand', 'compact', 'parallel'].includes(arg) && !/^view (all|run|wait|done)$/.test(arg)) return { text: 'Usage: /work-mode [view [all|run|wait|done]|summary|expand|compact|help|tree|status|parallel|workflow|discard-failed [category]]' }
     if (arg === 'expand' || arg === 'compact') {
       await refresh($)
       const origin = await sessionId($)
@@ -4831,7 +4875,9 @@ export function register(on) {
     }
     // /work-mode alone opens the pane too (user 2026-11-19); the one-line
     // summary it used to print is /work-mode summary.
-    if (arg === 'view' || arg === '') {
+    if (arg === 'view' || arg === '' || /^view (all|run|wait|done)$/.test(arg)) {
+      // /work-mode view all|run|wait|done opens the pane on that Work view.
+      if (arg.startsWith('view ')) await displayState($, await sessionId($), old => ({ ...old, obsView: arg.slice(5), obsWork: 0 }))
       const opened = await openDetails($)
       return { text: opened === 'opened' ? 'Work & SSE pane: W Work · S SSE · G Settings · J/K move · I inspect · Tab/arrows + Enter on the controls · click the dashboard for ↑↓/PgUp · Esc returns.'
         : opened === 'off' ? 'Ciel Work mode is off. Turn it on: ciel-runtime menu → LLM options → Work mode, or ask the agent (work_mode_set).'
@@ -5099,8 +5145,21 @@ export function register(on) {
         await openDetails($, valid ? view.id : null, origin); await observatoryRefresh($, origin) } }),
       Button({ key: 'detail-close', plain: true, hotkey: 'q', label: 'Close', onPress: () => $.ui.close({ id: PANE }) }),
     ]
-    if (!valid) return Box({ flexDirection: 'column', children: [nav,
-      Text({ color: 'error', children: 'Work & SSE unavailable for this conversation.' }), ...common] })
+    if (!valid) {
+      // The pane stays docked across a restart while its board cache starts
+      // empty: it loads itself (at most every 10 s) instead of only saying so
+      // (Andy 2026-11-19: "unavailable for this conversation" until Refresh).
+      // Only when nothing was loaded yet: another conversation's board is never
+      // replaced behind the person's back.
+      const empty = !view
+      if (empty && enabled && identity && Date.now() - paneLoadAt > 10000) {
+        paneLoadAt = Date.now()
+        void openDetails($, null, identity, false).catch(() => {})
+      }
+      return Box({ flexDirection: 'column', children: [nav,
+        Text({ color: empty && enabled ? 'warning' : 'error', children: empty && enabled ? T('mod_pane_loading')
+          : 'Work & SSE unavailable for this conversation.' }), ...common] })
+    }
     if (graphic) {
       // A Client takes keys only after a click (Mods API, Claude Code 2.1.319), so
       // the keyboard path is this strip: hook-drawn Buttons are the pane's focus
@@ -5115,7 +5174,7 @@ export function register(on) {
         control('obs-down', 'j', '▼Next', { action: 'move', by: 1 }, 'suggestion'),
         control('obs-inspect', 'i', 'Inspect', { action: 'inspect' }, 'suggestion'),
         control('obs-p1', 'p', state?.obsP1 ? '[P1]' : 'P1', { action: 'p1' }, 'error'),
-        control('obs-view', 'v', '보기:' + ({ all: '전체', run: '처리중', wait: '블락·대기', done: '완료' })[workView(state)],
+        control('obs-view', 'v', '보기:' + ({ all: '전체', run: '처리중', wait: '블락·대기', done: '완료' })[workView(state, classedNodes(view))],
           { action: 'view' }, 'warning'),
         ...(section === 'work' ? [control('obs-focus', 'f', 'Focus', { action: 'focus' }, 'autoAccept'),
           control('obs-focus-add', 'a', '+Focus', { action: 'focus-add' }, 'autoAccept'),

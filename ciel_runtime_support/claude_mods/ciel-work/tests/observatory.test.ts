@@ -61,7 +61,7 @@ test('graphical SSE view labels processing receipts while side work is active', 
   try {
     host(on)
     await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
-    await $.command.run({ command: 'work-mode', args: 'view' })
+    await $.command.run({ command: 'work-mode', args: 'view all' })
     const ui = await $.ui.mount(pane('terminal', 100) as any)
     await ui.resize({ columns: 100, rows: 30, in: 'obs-graphic' })
     await ui.key({ key: 's', in: 'obs-graphic' })
@@ -78,7 +78,7 @@ test('graphical SSE view calls only a quarantined row failed; retries and compac
   try {
     host(on)
     await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
-    await $.command.run({ command: 'work-mode', args: 'view' })
+    await $.command.run({ command: 'work-mode', args: 'view all' })
     const ui = await $.ui.mount(pane('terminal', 100) as any)
     await ui.resize({ columns: 100, rows: 30, in: 'obs-graphic' })
     await ui.key({ key: 's', in: 'obs-graphic' })
@@ -99,7 +99,7 @@ test('graphical SSE view shows a Walkie emergency as P0 and keeps it under the u
   try {
     host(on)
     await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
-    await $.command.run({ command: 'work-mode', args: 'view' })
+    await $.command.run({ command: 'work-mode', args: 'view all' })
     const ui = await $.ui.mount(pane('terminal', 100) as any)
     await ui.resize({ columns: 100, rows: 30, in: 'obs-graphic' })
     await ui.key({ key: 's', in: 'obs-graphic' })
@@ -117,7 +117,7 @@ test('graphical SSE view shows a Walkie emergency as P0 and keeps it under the u
 test('terminal control strip drives the graphical view without a Client click', async ($, on) => {
   host(on)
   await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
-  await $.command.run({ command: 'work-mode', args: 'view' })
+  await $.command.run({ command: 'work-mode', args: 'view all' })
   const ui = await $.ui.mount(pane('terminal', 100) as any)
   await ui.resize({ columns: 100, rows: 30, in: 'obs-graphic' })
   const graphic = async () => (await ui.findAll({ type: 'Text', in: 'obs-graphic' })).map(x => x.text).join('\n')
@@ -151,7 +151,7 @@ test('terminal strip appends to focus, opens the parent and moves a queued goal'
   try {
     const s = host(on)
     await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
-    await $.command.run({ command: 'work-mode', args: 'view' })
+    await $.command.run({ command: 'work-mode', args: 'view all' })
     const ui = await $.ui.mount(pane('terminal', 100) as any)
     await ui.resize({ columns: 100, rows: 30, in: 'obs-graphic' })
     const graphic = async () => (await ui.findAll({ type: 'Text', in: 'obs-graphic' })).map(x => x.text).join('\n')
@@ -186,7 +186,7 @@ for (const [surface, columns] of [['terminal', 100], ['mobile', 40]] as const) {
   test('Work & SSE pane validates and navigates on ' + surface, async ($, on) => {
     const s = host(on)
     await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
-    await $.command.run({ command: 'work-mode', args: 'view' })
+    await $.command.run({ command: 'work-mode', args: 'view all' })
     const ui = await $.ui.mount(pane(surface, columns) as any)
     if (surface === 'terminal') {
       expect((await ui.find({ key: 'obs-graphic' }))).toBeDefined()

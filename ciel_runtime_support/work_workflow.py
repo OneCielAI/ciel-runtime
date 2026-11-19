@@ -65,10 +65,13 @@ MAX_HISTORY = 60
 MAX_EVENTS = 64
 MAX_TEXT = 20000
 CONFIG = "work_workflow"
-KEYS = ("work_workflow_enabled", "work_workflow_delegate_pending", "work_workflow_delegate_minutes")
+KEYS = ("work_workflow_enabled", "work_workflow_main_delegates", "work_workflow_delegate_pending",
+        "work_workflow_delegate_minutes")
 # The settings menu's two workflow rows (work_workflow_menu); their values are observations.
 MENU_KEYS = ("work_workflow_actions", "work_workflow_prompts")
-DEFAULTS = {"enabled": False, "delegate_pending": 0, "delegate_minutes": 0}
+# main_delegates (user 2026-11-19): main plans and reviews, Work forks execute; main's direct code edits
+# are refused in the executing phase while forks can run.
+DEFAULTS = {"enabled": False, "main_delegates": True, "delegate_pending": 0, "delegate_minutes": 0}
 
 
 class WorkflowError(ValueError):
@@ -82,6 +85,8 @@ def settings(config: Mapping[str, Any]) -> dict[str, Any]:
     out = dict(DEFAULTS)
     if stored.get("enabled") is True:
         out["enabled"] = True
+    if stored.get("main_delegates") is False:
+        out["main_delegates"] = False
     for key in ("delegate_pending", "delegate_minutes"):
         value = stored.get(key)
         if type(value) is int and 0 <= value <= 1440:
@@ -106,6 +111,13 @@ def set_value(config: dict[str, Any], key: str, raw: Any) -> None:
             stored["enabled"] = True
         else:
             raise WorkflowError("work_workflow_enabled must be on or off")
+    elif field == "main_delegates":
+        if token in ("", "default", "reset", "on", "true", "1", "yes"):
+            stored.pop("main_delegates", None)
+        elif token in ("off", "false", "0", "no"):
+            stored["main_delegates"] = False
+        else:
+            raise WorkflowError("work_workflow_main_delegates must be on or off")
     else:
         if token in ("", "default", "reset", "off"):
             stored.pop(field, None)
@@ -124,6 +136,12 @@ def set_value(config: dict[str, Any], key: str, raw: Any) -> None:
         config[CONFIG] = stored
     else:
         config.pop(CONFIG, None)
+
+
+def main_delegates(config: Mapping[str, Any]) -> bool:
+    """Whether main's direct code edits are refused now: the setting is on and forks can run."""
+    parallel = config.get("work_parallel") if isinstance(config.get("work_parallel"), dict) else {}
+    return settings(config)["main_delegates"] and parallel.get("enabled") is True and parallel.get("paused") is not True
 
 
 def setting_value(config: Mapping[str, Any], key: str) -> Any:
