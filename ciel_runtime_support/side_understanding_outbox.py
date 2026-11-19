@@ -99,7 +99,15 @@ def prepare(state_dir, identity, receipt_id, *, config=None):
             return {'state': previous['state'], 'receipt_id': receipt_id}
         route = row.get('route') if isinstance(row.get('route'), dict) else {}
         connector = None
-        if route.get('source_kind') == 'external_event':
+        # The restatement is for a requester. A status answer the side will not
+        # post (no_reply, or an unaddressed reply with nothing asked) gets none:
+        # posted, it was the other agent's next event (Andy and Celly,
+        # 2026-11-19: ACK, restatement and reply for every echo).
+        from .side_intake_inbox import unaddressed_reply
+        decision = value.get('decision') if isinstance(value.get('decision'), dict) else {}
+        silent = (decision.get('action') == 'answer' and decision.get('kind') == 'status'
+                  and (decision.get('no_reply') is True or unaddressed_reply(row.get('text'))))
+        if route.get('source_kind') == 'external_event' and not silent:
             from .side_reply_connector import prepare as connector_prepare
             connector = connector_prepare(config or {}, route, receipt_id, value['understanding'], 'status',
                                           original=row['text'], phase='understanding')

@@ -225,6 +225,38 @@ def source_identity(text: Any) -> str | None:
     return 'message:' + conversation + ':' + message
 
 
+def unaddressed_reply(text: Any) -> bool:
+    """Whether a message event is a reply that asks this agent nothing by its form.
+
+    True for a reply in a thread that mentions nobody and whose sender is not
+    the thread's requester. A requester's message, a mention and a new thread
+    root are addressed to this agent; reminders, gate re-checks and other host
+    events are not message events.
+
+    User 2026-11-19: Andy and Celly acknowledged each other without end. Every
+    event got the host's receipt ACK before anyone read it, and a "recorded as
+    status" reply after; each of those was the other side's next event. An ACK
+    needs the context first: a reply like this is read by the side actor, which
+    answers only when there is something to answer.
+    """
+    try:
+        body = json.loads(text)
+    except (ValueError, TypeError):
+        return False
+    data = body.get('data') if isinstance(body, dict) else None
+    if not isinstance(data, dict) or data.get('event_type') != 'message.created':
+        return False
+    if data.get('reply_to_message_id') in (None, ''):
+        return False
+    context = data.get('message_context') if isinstance(data.get('message_context'), dict) else {}
+    mentions = context.get('mention_ids')
+    if not isinstance(mentions, list) or mentions:
+        return False
+    task = context.get('thread_task') if isinstance(context.get('thread_task'), dict) else {}
+    sender, requester = data.get('sender_id'), task.get('requester_id')
+    return not (isinstance(sender, str) and sender and sender == requester)
+
+
 class SideIntakeInbox:
     def __init__(self, state_dir: Path, session_id: str) -> None:
         from .work_session_lineage import IDENTITY
@@ -418,7 +450,9 @@ class SideIntakeInbox:
             self._index_priority(key,row)
             # The receipt ACK has its own pump. It is sent before this event can
             # wait for a side actor slot, and a restart can recover this marker.
-            self.mark_ack_owed(key)
+            # An unaddressed reply gets none before it is read (unaddressed_reply).
+            if not unaddressed_reply(text):
+                self.mark_ack_owed(key)
             return self._receipt(key, row, duplicate=False)
 
     @staticmethod
