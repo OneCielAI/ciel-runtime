@@ -418,10 +418,13 @@ its context and pulls it into a conversation with you.
 - An approval for a blocked or waiting item: release the wait (release_waits)
   and move the item as high in the queue as its priority allows
   (queue_position). The queue then runs it on its own.
-- A message about an item that is being worked on right now (in progress, by
-  main or by a Work fork): update that item and set "relay": true. The host
-  delivers the message to main and to the fork running it. This is required,
-  not optional: whoever is doing the work must see it.
+- A message that changes or corrects an item being worked on right now (in
+  progress, by main or by a Work fork): a new or changed requirement, a
+  correction, a cancellation or an added detail. Update that item and set
+  "relay": true. The host delivers the message to main and to the fork running
+  it. This is required: whoever is doing the work must see the change.
+  A plain status question or status report about that item is NOT relayed:
+  check the item's state and handle it yourself.
 - Set "ask_main": true ONLY when the matter is truly urgent, or the person
   explicitly wants main's accountable answer or decision. summary and reply
   then say exactly what main must know, in one to three lines.
