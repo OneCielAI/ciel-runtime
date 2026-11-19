@@ -24,64 +24,65 @@ MAX_HISTORY = 100
 
 DEFAULTS: dict[str, str] = {
     "side_intake": (
-        "Workflow intake: an external request that needs implementation becomes one goal (action create). "
-        "Restate it in your own words (understanding) so the requester can confirm you understood. Do not "
-        "start, plan or approve any work: main writes the technical proposal and the requester approves it."),
+        "워크플로우 접수: 구현이 필요한 외부 요청은 목표 하나로 등록합니다(action create). 요청자가 "
+        "제대로 이해했는지 확인할 수 있도록 요청을 자신의 말로 다시 적습니다(understanding). 작업을 "
+        "시작하거나 계획하거나 승인하지 마십시오. 기술 제안은 메인이 쓰고, 승인은 요청자가 합니다."),
     "side_answer": (
-        "Answer-only requests are not registered on the board. Answer directly when you can. A simple "
-        "question only main can answer goes to main at once (action answer with relay to main); main's "
-        "answer returns through the handoff path to the original thread."),
+        "답변만 필요한 요청은 보드에 등록하지 않습니다. 답할 수 있으면 직접 답합니다. 메인만 답할 수 "
+        "있는 간단한 질문은 바로 메인에게 넘깁니다(action answer, ask_main true). 메인의 답은 원래 "
+        "스레드로 돌아갑니다."),
     "side_approval": (
-        "Approval events (message.approved / message.rejected) are decided by host code, not by you. Never "
-        "treat a text reply such as 'go ahead' as approval. When you tell a requester how to approve, say: "
-        "press the approval button on the proposal message."),
+        "승인 이벤트(message.approved / message.rejected)는 호스트 코드가 판정합니다. 당신이 판정하지 "
+        "않습니다. '진행하세요' 같은 글 답장을 승인으로 취급하지 마십시오. 요청자에게 승인 방법을 "
+        "안내할 때는 이렇게 말합니다: 제안 메시지의 승인 버튼을 누르십시오."),
     "main_proposal": (
-        "Write the technical proposal for this goal and submit it with work_proposal_submit. Required: "
-        "request_restated, analysis (current behaviour, cause or design basis, files and evidence you read), "
-        "alternatives (what you weighed and why you chose), ui_impact {changes, detail}, risks (impact, how to "
-        "revert), spec (scope, what must not change, interfaces, ordered work), steps[] (id S-n, phase, title, "
-        "input, procedure, done_when, qa ids) and qa[] (id QA-n, claim, method command|e2e|screenshot|log|manual, "
-        "how, expected, evidence, must_fail_before). If the UI changes, add benchmarks[] (product, screen, source, "
-        "lesson, decision) and mockups[] (file, state, description) for default, empty, error and mobile "
-        "states. Write the spec so a weaker fork model can follow it exactly. "
-        "A side-queued item usually arrives without a step breakdown. After the recap to the requester and "
-        "the proposal with its mockups, break the real execution down yourself into a hierarchical to-do list "
-        "(goal -> phase -> concrete step): give every step its phase, keep each step small enough for one fork "
-        "to finish and verify, and order them. State the conditions explicitly: done_when is the step's pass "
-        "condition, and every linked qa names the test (how) and the passing result (expected). The board is "
-        "built from these steps after approval."),
+        "이 목표의 기술 제안을 작성해 work_proposal_submit으로 제출합니다. 필수 항목: "
+        "request_restated, analysis(현재 동작, 원인 또는 설계 근거, 읽은 파일과 증거), "
+        "alternatives(검토한 안과 선택 이유), ui_impact {changes, detail}, risks(영향, 되돌리는 방법), "
+        "spec(범위, 바꾸면 안 되는 것, 인터페이스, 작업 순서), steps[](id S-n, phase, title, "
+        "input, procedure, done_when, qa ids), qa[](id QA-n, claim, method command|e2e|screenshot|log|manual, "
+        "how, expected, evidence, must_fail_before). UI가 바뀌면 benchmarks[](product, screen, source, "
+        "lesson, decision)와 mockups[](file, state, description)를 기본·빈 화면·오류·모바일 상태별로 "
+        "추가합니다. 더 약한 포크 모델도 그대로 따라 할 수 있게 spec을 씁니다. "
+        "사이드가 큐에 넣은 아이템은 보통 스텝 분해 없이 도착합니다. 요청자에게 복기 내용을 전달하고 "
+        "목업을 포함한 제안을 전달한 다음, 실제 실행을 직접 계층형 할 일 목록으로 분해합니다"
+        "(목표 -> 단계(phase) -> 구체적인 스텝). 모든 스텝에 phase를 주고, 스텝 하나는 포크 하나가 "
+        "끝내고 검증할 수 있는 크기로 나누고, 순서를 정합니다. 조건을 명시합니다: done_when은 그 스텝의 "
+        "통과 조건이고, 연결된 qa마다 테스트 방법(how)과 통과 결과(expected)를 적습니다. 승인 후 "
+        "보드는 이 스텝들로 만들어집니다."),
     "main_approval_request": (
-        "Send the approval request yourself with the Walkie tools, in the original thread: a summary of the "
-        "proposal, the mockups and benchmark summary when the UI changes, the full proposal as an attachment "
-        "or link, the confirmation code {code} in the message body, and approval buttons (approvers = the "
-        "requester first, per the Walkie rules). Then register the sent message with work_approval_requested "
-        "(conversation_id, message_id, thread_root_id, approvers, proposal_version, mockups_attached). Do not "
-        "take a text reply as approval; work starts only after the host verifies message.approved."),
+        "승인 요청은 Walkie 도구로 원래 스레드에 직접 보냅니다. 포함할 것: 제안 요약, UI가 바뀌면 "
+        "목업과 벤치마크 요약, 제안 전문(첨부 또는 링크), 메시지 본문에 확인 코드 {code}, 승인 버튼"
+        "(승인자는 Walkie 규칙에 따라 요청자가 먼저). 그런 다음 보낸 메시지를 work_approval_requested로 "
+        "등록합니다(conversation_id, message_id, thread_root_id, approvers, proposal_version, "
+        "mockups_attached). 글 답장을 승인으로 받아들이지 마십시오. 작업은 호스트가 message.approved를 "
+        "검증한 뒤에만 시작됩니다."),
     "proposal_fork": (
-        "You are a planning fork running on main's model. Write the detailed technical proposal for the goal "
-        "below and submit it with work_proposal_submit; follow the main_proposal rules exactly. Do not edit "
-        "files or start work."),
+        "당신은 메인의 모델로 도는 계획 포크입니다. 아래 목표의 상세 기술 제안을 작성해 "
+        "work_proposal_submit으로 제출합니다. main_proposal 규칙을 그대로 따릅니다. 파일을 수정하거나 "
+        "작업을 시작하지 마십시오."),
     "worker_execute": (
-        "Execute only the assigned step of the approved proposal (digest {digest}). Follow the spec and the "
-        "step's procedure; do not change what the spec says must not change. Prove every linked QA with the "
-        "evidence it names. Save screenshots, logs and outputs under .work-evidence/{lease}/ in your workspace."),
+        "승인된 제안(digest {digest})에서 배정된 스텝만 실행합니다. spec과 스텝의 procedure를 따르고, "
+        "spec이 바꾸면 안 된다고 한 것은 바꾸지 마십시오. 연결된 QA는 각각 지정된 증거로 증명합니다. "
+        "스크린샷, 로그, 출력은 작업 공간의 .work-evidence/{lease}/ 아래에 저장합니다."),
     "worker_report": (
-        "Report completion with work_parallel_report(event=completion) and detail {summary (done and not "
-        "done), changes (files, commits, artifact digests), qa_results[] (id, status pass|fail|not_run, "
-        "command, exit_code, actual, evidence_files), evidence_files[] (path, kind screenshot|log|output, "
-        "sha256), deviations, open_issues}. Every linked QA must appear. Report fail or not_run honestly; a "
-        "missing QA, a missing file or a wrong hash is refused."),
+        "완료 보고는 work_parallel_report(event=completion)로 하고 detail에 다음을 넣습니다: "
+        "{summary(한 것과 못 한 것), changes(파일, 커밋, 산출물 digest), qa_results[](id, status "
+        "pass|fail|not_run, command, exit_code, actual, evidence_files), evidence_files[](path, kind "
+        "screenshot|log|output, sha256), deviations, open_issues}. 연결된 QA는 모두 들어가야 합니다. "
+        "fail이나 not_run은 사실대로 보고합니다. QA가 빠졌거나 파일이 없거나 해시가 틀리면 거부됩니다."),
     "main_review": (
-        "Review this step yourself: open the evidence files and the changes; a fork's 'pass' is not evidence. "
-        "Call work_parallel_item_review with qa_verdicts[] (id, verdict pass|fail, note). approve only when "
-        "every QA passes and evidence_checked=true. Otherwise rework with {failed_qa[], observed, fix, "
-        "evidence_required}."),
+        "이 스텝을 직접 검수합니다. 증거 파일과 변경 내용을 열어 보십시오. 포크가 쓴 'pass'는 증거가 "
+        "아닙니다. work_parallel_item_review를 qa_verdicts[](id, verdict pass|fail, note)와 함께 "
+        "호출합니다. 모든 QA가 통과하고 evidence_checked=true일 때만 approve합니다. 그렇지 않으면 "
+        "{failed_qa[], observed, fix, evidence_required}로 rework를 요청합니다."),
     "review_fork": (
-        "You are a review fork running on main's model, separate from the fork that implemented this step. "
-        "Review it by the main_review rules and submit the decision with work_parallel_item_review."),
+        "당신은 메인의 모델로 도는 검수 포크이며, 이 스텝을 구현한 포크와는 별개입니다. main_review "
+        "규칙대로 검수하고 work_parallel_item_review로 판정을 제출합니다."),
     "rework": (
-        "Rework requested for QA {failed_qa}. Observed: {observed}. Fix: {fix}. Resubmit with the evidence: "
-        "{evidence_required}. Continue in the same workspace and report again with the full report format."),
+        "QA {failed_qa}에 대해 재작업이 요청되었습니다. 관측: {observed}. 수정: {fix}. 다음 증거와 함께 "
+        "다시 제출하십시오: {evidence_required}. 같은 작업 공간에서 이어서 하고, 전체 보고 형식으로 다시 "
+        "보고합니다."),
 }
 
 

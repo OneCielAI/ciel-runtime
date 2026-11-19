@@ -592,6 +592,7 @@ class SideMcpTests(unittest.TestCase):
 class SideReviewDeliveryStatusTests(unittest.TestCase):
     """Main's Work status says whether the person actually received each side answer."""
 
+    @unittest.skip('retired 2026-11-18 (user): a clarify answer no longer leaves a review row for main')
     def test_status_reviews_carry_the_receipt_delivery_state(self):
         from ciel_runtime_support.side_intake_processing import claim, finish
         from ciel_runtime_support.side_reply_outbox import prepare, record

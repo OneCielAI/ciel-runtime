@@ -210,8 +210,8 @@ class GateThreadTests(unittest.TestCase):
         text = events[0]['text']
         self.assertEqual(1, text.count('#2036 Kim: approved by Kim'))
         self.assertNotIn('old, at the cursor', text)
-        self.assertEqual(7, text.count('see ' + t1[0] + ' above (same thread)'))
-        self.assertIn('never a whole thread', text)
+        self.assertEqual(7, text.count('위의 ' + t1[0] + ' 참고 (같은 스레드)'))
+        self.assertIn('스레드 전체나 이력은 읽지 마십시오', text)
         # The cursors moved to the newest message read.
         self.assertEqual({'40': '2036', '5000': '5003', '7000': '7002'},
                          {row['root_id']: row['last_seen'] for row in self.cursors()['threads'].values()})
@@ -236,7 +236,7 @@ class GateThreadTests(unittest.TestCase):
         self.check()
         queued = self.check(threads_read=[{'key': CONVERSATION + '|40', 'error': 'Source thread read failed'}])
         self.assertEqual(set(ids), set(queued['gates']))
-        self.assertNotIn('new messages in its source thread', self.pending()[0]['text'])
+        self.assertNotIn('이후 새 메시지', self.pending()[0]['text'])
 
     def test_an_sse_event_of_the_thread_advances_its_cursor_and_binds_the_item(self):
         from ciel_runtime_support import work_gate_threads as threads

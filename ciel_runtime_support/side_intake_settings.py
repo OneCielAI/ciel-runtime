@@ -19,27 +19,36 @@ LIMITS = {'max_active': (1, 16), 'aging_seconds': (1, 3600)}
 
 
 def runtime_settings(config):
-    """Return active controls; old model/context keys are intentionally ignored."""
-    return {key: value for key, value in (config.get('work_side_intake') or {}).items()
-            if key not in RETIRED}
+    """Side settings the host receives.
+
+    ``prompt`` is the whole side instruction when a user saved one (it replaces
+    the built-in default); ``instruction`` is only a legacy appended suffix.
+    """
+    stored = config.get('work_side_intake') or {}
+    out = {key: value for key, value in stored.items() if key not in RETIRED and key != 'instruction_replace'}
+    if stored.get('instruction_replace') is True and str(stored.get('instruction') or '').strip():
+        out['prompt'] = str(out.pop('instruction')).strip()
+    return out
 
 
 def values(config):
     stored = config.get('work_side_intake', {})
     rows = {PREFIX + name: stored.get(name, default) for name, (default, _) in FIELDS.items()}
-    # The stored instruction is an optional suffix. Surfaces show the effective
-    # Markdown: the built-in policy plus that suffix, so an empty setting is not
-    # an unexplained blank box. They also receive the stored value separately;
-    # writes still set only the suffix and never replace the safety policy.
-    suffix = str(stored.get('instruction') or '')
-    rows[PREFIX + 'instruction'] = suffix
+    # The setting value is what the user stored: the whole instruction (it
+    # replaces the built-in default) or, from before 2026-11-19, a suffix.
+    rows[PREFIX + 'instruction'] = str(stored.get('instruction') or '')
     return rows
 
 
 def instruction_view(config):
-    suffix = str((config.get('work_side_intake') or {}).get('instruction') or '').strip()
-    effective = DEFAULT_SIDE_INSTRUCTION + (('\n\n## Operator-configured instruction\n\n' + suffix) if suffix else '')
-    return {'stored': suffix, 'effective': effective, 'using_default': not bool(suffix), 'format': 'markdown'}
+    side = config.get('work_side_intake') or {}
+    text = str(side.get('instruction') or '').strip()
+    if text and side.get('instruction_replace') is True:
+        effective = text
+    else:
+        effective = DEFAULT_SIDE_INSTRUCTION + (('\n\n## 운영자 지침\n\n' + text) if text else '')
+    return {'stored': text, 'effective': effective, 'using_default': not bool(text), 'format': 'markdown',
+            'replaces_default': bool(text) and side.get('instruction_replace') is True}
 
 
 def set_value(config, key, value):
@@ -58,17 +67,25 @@ def set_value(config, key, value):
         low, high = LIMITS[name]
         parsed = integer_in(value, low, high, name)
     elif name == 'instruction':
-        parsed = value.strip()
-        if len(parsed) > 16000 or '\x00' in parsed:
-            raise ValueError('side instruction must be at most 16000 characters')
+        # The saved text is the whole side instruction (user 2026-11-18: users
+        # edit it directly). Saving the default text, or nothing, stores nothing.
+        parsed = value.replace('\r\n', '\n').strip()
+        if len(parsed) > 32000 or '\x00' in parsed:
+            raise ValueError('side instruction must be at most 32000 characters')
+        if parsed == DEFAULT_SIDE_INSTRUCTION.strip():
+            parsed = ''
     else:
         allowed = FIELDS[name][1]
         if value not in allowed:
             raise ValueError('use ' + ' or '.join(allowed))
         parsed = value
     side = {**config.get('work_side_intake', {})}
-    if name == 'instruction' and not parsed:
-        side.pop(name, None)
+    if name == 'instruction':
+        side.pop('instruction', None)
+        side.pop('instruction_replace', None)
+        if parsed:
+            side['instruction'] = parsed
+            side['instruction_replace'] = True
     else:
         side[name] = parsed
     config['work_side_intake'] = side

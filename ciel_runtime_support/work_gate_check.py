@@ -135,55 +135,55 @@ def event_text(rows: list[dict[str, Any]], interval: int, part: str = "",
     messages (gate-check thread reads): they are listed under the first gate of
     that thread, and the later gates of the thread point to it."""
     lines = [
-        "Ciel gate re-check (host timer, every %d min, also while main is busy; Work forks may be running)%s." % (
+        "Ciel 게이트 재확인 (호스트 타이머, %d분마다, 메인이 바쁠 때도 동작; Work 포크가 돌고 있을 수 있음)%s." % (
             interval, (" — " + part) if part else ""),
-        "It backs up a person's approval or answer that may have been lost on the network.",
-        "Gates are listed by priority: P0 first, then P1, then the rest.",
-        "This is not an external message: no person sent it and there is no source to reply to.",
-        "For each gate below, check with read-only means whether its condition is now satisfied",
-        "(the referenced CI/build/deploy/git result, review or approval, a file or service state).",
-        "- A recorded wait you can prove satisfied: action update on that node, kind request, with",
-        "  release_waits [{\"id\": node id, \"waiting_on\": its exact text}]. The host clears it and",
-        "  tells main or the waiting worker at once.",
-        "- A blocker only main can lift, now resolvable: action update on that node, kind request,",
-        "  with a note saying what changed and the evidence and no release_waits. The node is still",
-        "  gated, so the host hands it to main to resume (a resume handoff); nothing is cleared.",
-        "- Nothing changed or you cannot verify it: action answer, kind status, summary \"no change\"",
-        "  with what you checked. Never guess; never release on a mention alone.",
-        "Decide every gate below in this one answer (one decision; the gate that changed most, or",
-        "a status answer that lists what you checked). Messages listed under a gate are the only new",
-        "messages of its source thread since the last check; older ones are in your context. For a",
-        "gate without listed messages, read only what is needed to check its current state",
-        "(the CI run, the approval message, the file), never a whole thread or its history.",
-        "Gates:",
+        "네트워크에서 유실됐을 수 있는 사람의 승인이나 답변을 보완하기 위한 점검입니다.",
+        "게이트는 우선순위 순서입니다: P0 먼저, 다음 P1, 그다음 나머지.",
+        "이것은 외부 메시지가 아닙니다. 사람이 보낸 것이 아니며 답장할 원본도 없습니다.",
+        "아래 게이트마다 그 조건이 지금 충족됐는지 읽기 전용 수단으로 확인합니다",
+        "(참조된 CI/빌드/배포/git 결과, 리뷰나 승인, 파일이나 서비스 상태).",
+        "- 충족됐음을 증명할 수 있는 기록된 대기: 그 노드에 action update, kind request,",
+        "  release_waits [{\"id\": 노드 id, \"waiting_on\": 기록된 문구 그대로}]. 호스트가 대기를",
+        "  해제하고 큐가 자동으로 진행됩니다.",
+        "- 메인만 풀 수 있는 블로커가 이제 풀 수 있게 된 경우: 그 노드에 action update, kind request,",
+        "  무엇이 바뀌었는지와 증거를 note에 적고 release_waits는 넣지 않습니다. 노드는 계속 막혀",
+        "  있고 아무것도 해제되지 않습니다.",
+        "- 바뀐 것이 없거나 확인할 수 없는 경우: action answer, kind status, summary \"변화 없음\"",
+        "  과 확인한 내용. 추측하지 마십시오. 언급만 보고 해제하지 마십시오.",
+        "아래 게이트 전부를 이 답 하나로 판단합니다(판단 한 건: 가장 많이 바뀐 게이트, 또는",
+        "확인한 내용을 나열한 status 답). 게이트 아래에 나열된 메시지는 지난 점검 이후 그 원본",
+        "스레드에 새로 온 메시지 전부이고, 그 이전 것은 이미 컨텍스트에 있습니다. 메시지가",
+        "나열되지 않은 게이트는 현재 상태 확인에 필요한 것만 읽습니다",
+        "(CI 실행, 승인 메시지, 파일). 스레드 전체나 이력은 읽지 마십시오.",
+        "게이트:",
     ]
     shown: dict[str, str] = {}
     for row in rows:
-        what = ("waiting on: " + row["waiting_on"]) if row["waiting_on"] else "status blocked"
+        what = ("대기 조건: " + row["waiting_on"]) if row["waiting_on"] else "상태 blocked"
         rank = ("[" + row["priority"] + "] ") if row.get("priority") else ""
-        lines.append(f"- {rank}{row['id']} ({row['title']}) in goal {row['root_id']} ({row['root_title']}): {what}")
+        lines.append(f"- {rank}{row['id']} ({row['title']}) / 목표 {row['root_id']} ({row['root_title']}): {what}")
         if row["evidence"]:
-            lines.append("  last evidence: " + row["evidence"].replace("\n", " ")[:300])
+            lines.append("  마지막 증거: " + row["evidence"].replace("\n", " ")[:300])
         thread = (threads or {}).get(row["id"])
         if thread:
             key = thread["key"]
             if key in shown:
-                lines.append("  new thread messages: see " + shown[key] + " above (same thread)")
+                lines.append("  새 스레드 메시지: 위의 " + shown[key] + " 참고 (같은 스레드)")
                 continue
             shown[key] = row["id"]
             messages = thread["messages"]
             from .work_gate_threads import MESSAGES_PER_THREAD
             kept = messages[-MESSAGES_PER_THREAD:]
-            lines.append("  new messages in its source thread (root %s) since %s: %d%s" % (
+            lines.append("  원본 스레드(루트 %s)의 %s 이후 새 메시지: %d건%s" % (
                 thread["root_id"], thread["after"], len(messages),
-                (", newest %d shown" % len(kept)) if len(kept) < len(messages) else ""))
+                (", 최신 %d건 표시" % len(kept)) if len(kept) < len(messages) else ""))
             for message in kept:
                 lines.append("    #%s %s: %s" % (message["id"], message["sender"] or "?", message["text"]))
             if thread.get("more"):
-                lines.append("    (more new messages exist; read only those you need)")
+                lines.append("    (새 메시지가 더 있습니다. 필요한 것만 읽으십시오)")
     text = "\n".join(lines)
     if len(text) > EVENT_TEXT_CHARS:
-        text = text[:EVENT_TEXT_CHARS - 80] + "\n[gate list cut at the event size limit; check the rest next tick]"
+        text = text[:EVENT_TEXT_CHARS - 80] + "\n[이벤트 크기 한도에서 게이트 목록이 잘렸습니다. 나머지는 다음 점검에서 확인합니다]"
     return text
 
 
@@ -214,11 +214,10 @@ def tick_rows(config: Mapping[str, Any], doc: Mapping[str, Any], state: Mapping[
 
 
 TURN_END_TEXT = (
-    "Main's turn just ended. Besides the gates below (if any), check whether there is other "
-    "work to do now: items whose block was released, approvals that arrived, and the next "
-    "runnable Work item (read the board with work_status only as needed). Tidy the queue. "
-    "Your reply is delivered to main: one to three lines saying what main should do next, "
-    "or exactly \"nothing to do\" when there is nothing.")
+    "메인의 턴이 방금 끝났습니다. 아래 게이트(있다면) 외에, 지금 할 다른 일이 있는지 확인합니다: "
+    "블록이 해제된 아이템, 도착한 승인, 다음에 실행할 수 있는 Work 아이템(보드는 work_status로 "
+    "필요한 만큼만 읽습니다). 큐를 정리합니다. 당신의 reply는 메인에게 전달됩니다: 메인이 다음에 "
+    "할 일을 한 줄에서 세 줄로 적고, 할 일이 없으면 정확히 \"할 일 없음\"이라고만 적습니다.")
 
 
 def tick_event(config: Mapping[str, Any], rows: list[dict[str, Any]], current: str, stamp: float,
