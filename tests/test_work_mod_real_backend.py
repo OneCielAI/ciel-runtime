@@ -1058,6 +1058,7 @@ class WorkModRealBackendTests(unittest.TestCase):
     # (parallelReviewGate). The checkpoint3 wording "next idle observation" was
     # corrected by that ruling; this test keeps its name and asserts the ruled
     # contract.
+    @unittest.skip('retired 2026-11-18 (user): Stop no longer messages or holds main; review delivery runs on the event and paced wakes')
     def test_review_broken_after_publication_is_moved_at_the_next_boundary(self):
         for scenario in ("legacy-tombstone-boundary", "legacy-tombstone-boundary-decision"):
             with self.subTest(scenario=scenario):
@@ -1613,6 +1614,7 @@ class WorkModRealBackendTests(unittest.TestCase):
             self.assertTrue(probe["delivered"], (label, probe))
             self.assertIsNone(probe["deny"], (label, probe))
 
+    @unittest.skip('retired 2026-11-18 (user): Stop no longer messages or holds main; review delivery runs on the event and paced wakes')
     def test_stop_gate_holds_a_refused_row_once_per_turn_and_a_decidable_row_until_decided(self):
         # A refused review-tool call resets the engine's continuation cap, so an
         # unbounded gate repeats Stop without end (beta measurement).
@@ -1934,6 +1936,7 @@ class WorkModRealBackendTests(unittest.TestCase):
         self.assertEqual(1, result["before"]["recoverySends"], result)
         self.assertEqual(1, result["after"]["recoverySends"], result)
 
+    @unittest.skip('retired 2026-11-18 (user): Stop no longer messages or holds main; review delivery runs on the event and paced wakes')
     def test_review_wake_is_prepared_and_recorded_once_across_restart(self):
         result = self.run_scenario("wake")
         # The review payload is appended and an idle main gets one wake-only
