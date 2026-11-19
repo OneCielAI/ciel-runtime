@@ -101,7 +101,11 @@ function showSideReceipts($, identity, snapshot) {
     const key = identity + ':' + (receipt.receipt_id || receipt.item_id) + ':' + (receipt.stage || '')
     if (seenSideReceipts.has(key)) continue
     seenSideReceipts.add(key)
-    void $.ui.open({ id: 'ciel-side-intake', title: 'btw_with_mcp' }).catch(() => {})
+    // User 2026-11-19: the side receipt pane no longer opens by itself; the
+    // screen a new side event brings up is the /work-mode view pane.
+    void observatoryRefresh($, identity).catch(() => {})
+    void $.ui.open({ id: PANE, title: 'Work & SSE Observatory',
+      closeOnEscape: true, backgroundColor: '#0b1118', rows: 32, columns: 90 }).catch(() => {})
     if (seenSideReceipts.size > 200) seenSideReceipts.delete(seenSideReceipts.values().next().value)
   }
 }
