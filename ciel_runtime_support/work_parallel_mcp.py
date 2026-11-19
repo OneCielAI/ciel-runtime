@@ -2817,6 +2817,16 @@ def _stranded_roll_forward_stages(store, board_store, identity, host, lease_id):
                 if replacement_id not in store.read()["leases"]:
                     raise
         row = mark("reserved")
+    if replacement_id not in store.read()["leases"]:
+        # The recovery lease was reserved and later released without starting
+        # (its P0 intent was cancelled). Celly 2026-11-19: the lookups below then
+        # raised KeyError on every pump, an uncaught router error each 16 s.
+        # Nothing can roll forward from here; main decides the result again.
+        return {"decision": "rework", "lease_id": lease_id, "item_id": row["item_id"],
+                "state": "recovery_lease_released", "retry": "main_review",
+                "reason": "the recovery lease of this stranded result was released before it started; "
+                          "decide the result again with work_parallel_item_review",
+                "stranded_version": rows.read()["version"]}
     if not row["stages"]["workspace"]:
         # The retained worktree cannot be verified: a fresh owned worktree.
         # The broken one stays retained, never reused or removed.
