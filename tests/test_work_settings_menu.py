@@ -39,8 +39,8 @@ class UnifiedSettingsTests(unittest.TestCase):
         self.assertIn('approves plans automatically', english)
         self.assertIn('does not mean “no approval”', english)
         side = description({}, 'work_side_intake_instruction')
-        self.assertIn('inherits the main context, tools and permissions and uses the SSE side fork model', side)
-        self.assertIn('no-write/no-run/no-send limits are prompt policy', side)
+        self.assertIn('inherits the main context, tools and permissions', side)
+        self.assertIn('a saved text replaces it', side)
         self.assertIn('네이티브 사이드 포크', description({'language': 'ko'}, 'work_side_intake_instruction'))
         # The side context rows were retired with the native fork; the side
         # model returned as its own setting (2026-11-14).

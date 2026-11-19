@@ -59,7 +59,7 @@ class GateCheckUnitTests(unittest.TestCase):
         text = gate.event_text(gate.gates(store.read()), 5)
         self.assertNotIn("action advise", text)
         self.assertIn("예전의 advise는 쓰지 않습니다", DEFAULT_SIDE_INSTRUCTION)
-        self.assertIn("action update on that node, kind request,", text)
+        self.assertIn("그 노드에 action update, kind request,", text)
         with self.assertRaisesRegex(tree.WorkPlanError, "a request must create, update or prioritize Work"):
             validate({"action": "advise", "kind": "request", "item_id": ids["blocked"], "summary": "s", "reply": "r"})
         key = hashlib.sha256(b"gate-blocker").hexdigest()
@@ -107,9 +107,9 @@ class GateCheckUnitTests(unittest.TestCase):
         text = event['text']
         self.assertLess(text.index('[P0] ' + p0_wait), text.index('[P1] ' + p1_wait))
         self.assertLess(text.index('[P1] ' + p1_wait), text.index('- ' + a_wait))
-        self.assertIn('also while main is busy', text)
+        self.assertIn('메인이 바쁠 때도 동작', text)
         self.assertNotIn('while main is idle', text)
-        self.assertIn('approval or answer that may have been lost on the network', text)
+        self.assertIn('유실됐을 수 있는 사람의 승인이나 답변', text)
         # A priority reader that fails keeps the canonical order.
         def broken(goal):
             raise OSError('ledger unreadable')
@@ -121,7 +121,7 @@ class GateCheckUnitTests(unittest.TestCase):
         first = gate.due(config, store.read(), None, now=1000.0)
         self.assertTrue(first['event_key'].startswith('gate-check:' + first['digest'] + ':'))
         self.assertEqual([ids['wait'], ids['blocked']], first['gates'])
-        self.assertIn('waiting on: CI run 42 green', first['text'])
+        self.assertIn('대기 조건: CI run 42 green', first['text'])
         self.assertIn('release_waits', first['text'])
         state = {'at': first['at'], 'digest': first['digest']}
         self.assertIsNone(gate.due(config, store.read(), state, now=1000.0 + 299))
@@ -157,7 +157,7 @@ class GateBatchTests(unittest.TestCase):
         self.assertEqual([60], [len(part['gates']) for part in parts])
         self.assertEqual(self.ids, parts[0]['gates'])
         self.assertIn('60 gate(s)', parts[0]['text'])
-        self.assertEqual(60, parts[0]['text'].count('waiting on: signal '))
+        self.assertEqual(60, parts[0]['text'].count('대기 조건: signal '))
         self.assertEqual(self.ids, event['gates'])
 
     def test_mcp_queues_one_receipt_per_tick(self):
@@ -318,7 +318,7 @@ class GateCheckMcpTests(unittest.TestCase):
 
         claimed = json.loads(self.invoke('work_side_claim', {'owner': 'actor'})['text'])['claim']
         self.assertEqual(queued['receipt_id'], claimed['receipt_id'])
-        self.assertIn('waiting on: CI run 42 green', claimed['text'])
+        self.assertIn('대기 조건: CI run 42 green', claimed['text'])
         host = {**HOST, 'receipt_id': claimed['receipt_id'], 'generation': claimed['generation'],
                 'work_digest': claimed['work_digest']}
         resolved = self.invoke('work_side_resolve', {'decision': {

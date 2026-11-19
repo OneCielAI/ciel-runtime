@@ -149,8 +149,8 @@ def side_instruction(config: Mapping[str, Any], state_dir: Path, instruction: An
         text, _ = _workflow_prompt(state_dir, name)
         if text:
             parts.append(text)
-    parts.append('Approval workflow is on: a simple question only main can answer is action answer with '
-                 '"ask_main": true; the host hands it to main at once and main\'s answer returns to the thread.')
+    parts.append('승인 워크플로우가 켜져 있습니다: 메인만 답할 수 있는 간단한 질문은 action answer에 '
+                 '"ask_main": true를 넣습니다. 호스트가 바로 메인에게 알리고, 메인의 답이 스레드로 돌아갑니다.')
     return "\n".join(part for part in parts if part)
 
 

@@ -34,7 +34,7 @@ class SideReleaseNoticeTests(unittest.TestCase):
         row = self.run_case('main-busy')
         self.assertEqual([], row['sent'])
         self.assertEqual(1, len(row['appended']))
-        self.assertIn('no acknowledgment is needed', row['appended'][0])
+        self.assertIn('The queue runs it automatically; nothing to do.', row['appended'][0])
         self.assertEqual([], row['submitted'])
         # Claimed on the event's receipt before the append, recorded after it.
         self.assertEqual([('e' * 64, 'notice_prepare'), ('e' * 64, 'notice_appended')],
@@ -44,13 +44,14 @@ class SideReleaseNoticeTests(unittest.TestCase):
         row = self.run_case('main-idle')
         # The notice text is appended once; the prompt only starts the turn.
         self.assertEqual(1, len(row['appended']))
-        self.assertIn('Ciel side released recorded wait n3', row['appended'][0])
+        self.assertIn('Ciel side: released n3', row['appended'][0])
         self.assertEqual(1, len(row['submitted']))
         self.assertTrue(row['submitted'][0].startswith('Ciel side wake eeeeeeeeeeee:'))
         self.assertNotIn('n3', row['submitted'][0])
         self.assertNotIn('Andy', row['submitted'][0])
         self.assertEqual(['notice_prepare', 'notice_appended'], [call['state'] for call in row['wakes']])
 
+    @unittest.skip('retired 2026-11-18 (user): main only hears that the queue runs the released item automatically')
     def test_parked_worker_is_named_for_mains_gated_resume(self):
         row = self.run_case('fork-parked')
         # No Work host resume callback is registered here, so the automatic
@@ -59,6 +60,7 @@ class SideReleaseNoticeTests(unittest.TestCase):
         self.assertIn('Parked worker waiting on it: agent-park (lease L2, item n2)', row['appended'][0])
         self.assertIn('resume with SendMessage', row['appended'][0])
 
+    @unittest.skip('retired 2026-11-18 (user): main only hears that the queue runs the released item automatically')
     def test_parked_worker_is_resumed_by_the_host_and_main_is_not_asked(self):
         # Stage 3 (2026-11-17): the host resumes it on its own lease first; main's
         # SendMessage notice stays only for a failed automatic resume.
@@ -68,6 +70,7 @@ class SideReleaseNoticeTests(unittest.TestCase):
         self.assertIn('The Work host resumed the parked worker on its own lease: agent-park (lease L2, item n2).', notice)
         self.assertNotIn('resume with SendMessage', notice)
 
+    @unittest.skip('retired 2026-11-18 (user): main only hears that the queue runs the released item automatically')
     def test_a_failed_automatic_resume_is_named_for_main_with_the_reason(self):
         row = self.run_case('fork-parked-refused')
         notice = row['appended'][0]

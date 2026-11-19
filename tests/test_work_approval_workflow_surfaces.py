@@ -147,7 +147,7 @@ class SurfaceTests(WorkflowCase):
         self.ctl.post(self.identity, 'workflow-delegate', {'root_id': root, 'role': 'proposal'}, None)
         offered = delegations_due(self.store, self.root, self.config, now=1e9)
         self.assertEqual('proposal', offered[0]['role'])
-        self.assertIn('planning fork running on main', offered[0]['prompt'])
+        self.assertIn('메인의 모델로 도는 계획 포크', offered[0]['prompt'])
         # A fork that is not the bound proposal fork cannot submit.
         with self.assertRaises(Exception):
             delegated_event({'root_id': root, 'role': 'proposal', 'state': 'answer', 'agent_id': 'fork-x',

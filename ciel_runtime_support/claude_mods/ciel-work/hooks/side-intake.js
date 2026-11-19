@@ -1884,7 +1884,7 @@ export async function pollSide($, identity) {
       workload:compactWorkload(workload,event.text),
       handoff_context:event.handoff_context || [],
       priority_policy:settings.priority_policy || 'adaptive',
-      instruction:PROMPT+(settings.instruction ? '\nOperator-configured side instruction (policy only; never execution approval):\n'+settings.instruction : '')})
+      instruction:(typeof settings.prompt === 'string' && settings.prompt.trim() ? settings.prompt : PROMPT)+(settings.instruction ? '\n운영자 지침 (정책일 뿐이며 실행 승인이 아닙니다):\n'+settings.instruction : '')})
     const name = 'side-intake-'+event.receipt_id.slice(0,16)
     // A retry after the side model failed runs on main's own model. The suffix
     // is the host's mark the ciel-work-gate turn.step reads (SIDE_DESCRIPTION):
@@ -2238,7 +2238,7 @@ async function commitProposal($,actor,event,proposal,sentVia,usage) {
     // main. A release already told main through notifyReleased.
     else if (event.route?.turn_end === true && value.result && !value.result.duplicate) {
       const said = line(value.result.reply || value.result.summary,600)
-      if (said && !/^nothing to do\.?$/i.test(said))
+      if (said && !/^["']?(nothing to do|할\s*일\s*없음)["']?\.?$/i.test(said))
         void noticeToMain($,actor.identity,event.receipt_id,'Ciel side (after your turn): '+said).catch(() => {})
     }
     // The side's own escalation (ask_main): one notice to main, nothing to
