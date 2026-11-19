@@ -132,42 +132,16 @@ def digest(rows: list[dict[str, Any]]) -> str:
 
 def event_text(rows: list[dict[str, Any]], interval: int, part: str = "",
                threads: Mapping[str, Mapping[str, Any]] | None = None,
-               included: list[str] | None = None) -> str:
-    """The tick's one event. ``threads`` maps a gate id to its thread's new
+               included: list[str] | None = None, rules: str | None = None) -> str:
+    """The tick's one event. ``rules`` is the managed instruction (prompt
+    ``gate_recheck``: REST, web, ctl and menu edit it; it applies from the next
+    tick with no restart). ``threads`` maps a gate id to its thread's new
     messages (gate-check thread reads): they are listed under the first gate of
     that thread, and the later gates of the thread point to it."""
     lines = [
         "Ciel 게이트 재확인 (호스트 타이머, %d분마다, 메인이 바쁠 때도 동작; Work 포크가 돌고 있을 수 있음)%s." % (
             interval, (" — " + part) if part else ""),
-        "네트워크에서 유실됐을 수 있는 사람의 승인이나 답변을 보완하기 위한 점검입니다.",
-        "게이트는 우선순위 순서입니다: P0 먼저, 다음 P1, 그다음 나머지.",
-        "이것은 외부 메시지가 아닙니다. 사람이 보낸 것이 아니며 답장할 원본도 없습니다.",
-        "아래 게이트마다 그 조건이 지금 충족됐는지 읽기 전용 수단으로 확인합니다",
-        "(참조된 CI/빌드/배포/git 결과, 리뷰나 승인, 파일이나 서비스 상태).",
-        "- 충족됐음을 증명할 수 있는 기록된 대기: 그 노드에 action update, kind request,",
-        "  release_waits [{\"id\": 노드 id, \"waiting_on\": 기록된 문구 그대로}]. 호스트가 대기를",
-        "  해제하고 큐가 자동으로 진행됩니다.",
-        "- 메인만 풀 수 있는 블로커가 이제 풀 수 있게 된 경우: 그 노드에 action update, kind request,",
-        "  무엇이 바뀌었는지와 증거를 note에 적고 release_waits는 넣지 않습니다. 노드는 계속 막혀",
-        "  있고 아무것도 해제되지 않습니다.",
-        "- 바뀐 것이 없거나 확인할 수 없는 경우: action answer, kind status, summary \"변화 없음\"",
-        "  과 확인한 내용. 추측하지 마십시오. 언급만 보고 해제하지 마십시오.",
-        "- 게이트마다 \"lease:\" 줄이 그 아이템의 포크 결과 상태입니다(호스트가 원장에서 읽은 사실).",
-        "  대기 조건이 Work 호스트의 검수·검증·정리·수락 gate(lease review, validation, cleanup)만",
-        "  가리키는데 lease가 \"없음\"이면 기다릴 대상이 없으므로 그 대기는 충족된 것입니다:",
-        "  release_waits로 해제하십시오. lease가 \"submitted\"이면 메인의 검수가 남은 것입니다:",
-        "  해제하지 말고 ask_main true로 메인에게 work_parallel_item_review 검수를 요청하십시오.",
-        "- 이 점검의 목적은 세션 밖에서 조건이 바뀌었는지 확인하는 것입니다. 물려받은 대화 기록이나",
-        "  보드 내용만으로 판단하지 마십시오. 그것은 대기를 건 시점의 정보입니다. 사람·CI·배포를",
-        "  기다리는 게이트는 가지고 있는 도구로 그 대상의 현재 상태를 직접 조회합니다(스레드 작업",
-        "  상태와 최신 글, 승인 여부, CI 실행 결과, 병합·배포 상태). 게이트 하나에 조회 한두 번이면",
-        "  됩니다. 새 메시지가 없다는 이유만으로 \"변화 없음\"이라고 하지 마십시오.",
-        "  조회하지 못한 게이트는 답에 그렇다고 적으십시오.",
-        "아래 게이트 전부를 이 답 하나로 판단합니다(판단 한 건: 가장 많이 바뀐 게이트, 또는",
-        "확인한 내용을 나열한 status 답). 게이트 아래에 나열된 메시지는 지난 점검 이후 그 원본",
-        "스레드에 새로 온 메시지 전부이고, 그 이전 것은 이미 컨텍스트에 있습니다. 메시지가",
-        "나열되지 않은 게이트는 현재 상태 확인에 필요한 것만 읽습니다",
-        "(CI 실행, 승인 메시지, 파일). 스레드 전체나 이력은 읽지 마십시오.",
+        *(rules if isinstance(rules, str) and rules.strip() else prompt_default("gate_recheck")).split("\n"),
         "게이트:",
     ]
     shown: dict[str, str] = {}
@@ -237,27 +211,24 @@ def tick_rows(config: Mapping[str, Any], doc: Mapping[str, Any], state: Mapping[
     return rows, current, stamp
 
 
-TURN_END_TEXT = (
-    "메인의 턴이 방금 끝났습니다. 아래 게이트(있다면) 외에, 지금 할 다른 일이 있는지 확인합니다: "
-    "블록이 해제된 아이템, 도착한 승인, 다음에 실행할 수 있는 Work 아이템(보드는 work_status로 "
-    "필요한 만큼만 읽습니다). 큐를 정리합니다. 당신의 reply는 메인에게 전달됩니다: 메인이 다음에 "
-    "할 일을 한 줄에서 세 줄로 적고, 할 일이 없으면 정확히 \"할 일 없음\"이라고만 적습니다.")
+TURN_END_TEXT = None  # The default lives in work_workflow_prompts ("turn_end").
 
 
 def tick_event(config: Mapping[str, Any], rows: list[dict[str, Any]], current: str, stamp: float,
                threads: Mapping[str, Mapping[str, Any]] | None = None, turn_end: bool = False,
-               review_pending: list[str] | None = None) -> dict[str, Any]:
+               review_pending: list[str] | None = None, rules: str | None = None,
+               turn_text: str | None = None) -> dict[str, Any]:
     """The one side event of a tick for ``rows``."""
     interval = minutes(config)
     slot = int(stamp // (interval * 60))
     fit: list[str] = []
-    text = event_text(rows, interval, "%d gate(s)" % len(rows) if len(rows) > 1 else "", threads, included=fit)
+    text = event_text(rows, interval, "%d gate(s)" % len(rows) if len(rows) > 1 else "", threads, included=fit, rules=rules)
     if review_pending:
         text = ("메인 검수를 기다리는 포크 결과가 %d건 있습니다(아이템 %s). 이 건수가 0이 아니면 ask_main true로 "
                 "메인에게 work_parallel_item_review 검수를 요청하십시오.\n" % (
                     len(review_pending), ", ".join(review_pending[:20]))) + text
     if turn_end:
-        text = TURN_END_TEXT + "\n" + text
+        text = (turn_text if isinstance(turn_text, str) and turn_text.strip() else prompt_default("turn_end")) + "\n" + text
     # The text digest keeps one key per exact content: a retry of the same check
     # deduplicates, and a same-slot check with newer evidence is its own event.
     body = hashlib.sha256(text.encode()).hexdigest()[:8]
@@ -348,6 +319,11 @@ def host_report(config: Mapping[str, Any], last: Mapping[str, Any] | None, repor
 
 __all__ = ["DEFAULT_MINUTES", "EVENT_PREFIX", "KEY", "RANGE", "digest", "due", "effective_priority_for", "event_text",
            "gates", "host_report", "minutes", "set_minutes", "tick_event", "tick_rows"]
+
+
+def prompt_default(name: str) -> str:
+    from .work_workflow_prompts import DEFAULTS
+    return DEFAULTS[name]
 
 
 INTERNAL_WAIT = re.compile(r"work\s*(host|parallel|전역)|lease|수락\s*gate|validation|cleanup|검수|검증|정리", re.I)

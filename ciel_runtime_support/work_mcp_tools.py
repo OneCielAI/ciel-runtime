@@ -712,8 +712,11 @@ def dispatch_work_tool(
                 total = len(rows)
                 start = int((last or {}).get("offset") or 0) % total if total else 0
                 rows = rotate(rows, start)
+                # The instructions are managed prompts: an edit applies on this tick.
+                from .work_workflow_prompts import effective as prompt_text
                 event = tick_event(config, rows, current, stamp, threads_by_gate, turn_end=turn_end,
-                                   review_pending=review_pending)
+                                   review_pending=review_pending, rules=prompt_text(state_dir, "gate_recheck"),
+                                   turn_text=prompt_text(state_dir, "turn_end"))
                 receipts = [receive(state_dir, identity, part["text"], part["event_key"], admit=False,
                                     route={"source_kind": "gate_check", **({"turn_end": True} if turn_end else {})}
                                     ).get("receipt_id")
