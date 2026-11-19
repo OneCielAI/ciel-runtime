@@ -1,0 +1,20 @@
+# New tests run against HEAD 0e0cb7e source (before the fix). Lines clipped to 240 chars; temp paths shown as <tmp>.
+E       AssertionError: 'review_publication_error' unexpectedly found in {'version': 4, 'policy': {'enabled': True, 'paused': False, 'priority_limits': {'P1': 5, 'P2': 3, 'P3': 1, 'P4': 1, 'P5': 1}, 'thresholds': {'P2': 1.0, 'P3': 1.0, 'P4' ...[clipped]
+E           ciel_runtime_support.work_parallel_primitives.WorkParallelError: positive idle workspace observation required before main review
+        # The 46 KOBE results: idle was recorded but publication had failed.
+E           FileNotFoundError: [WinError 2] The system cannot find the file specified: '<tmp>'
+E           ciel_runtime_support.work_parallel_primitives.WorkParallelError: positive idle workspace observation required before main review
+E       FileNotFoundError: [Errno 2] No such file or directory: '<tmp>'
+E           ciel_runtime_support.work_parallel_workspace.WorkspaceError: missing/corrupt ownership manifest; retained
+FileNotFoundError: [Errno 2] No such file or directory: '<tmp>'
+ciel_runtime_support.work_parallel_workspace.WorkspaceError: missing/corrupt ownership manifest; retained
+ciel_runtime_support.work_parallel_primitives.WorkParallelError: recorded workspace identity unavailable
+E       AssertionError: "stale workspace" does not match "recorded workspace identity unavailable"
+E           ciel_runtime_support.work_parallel_primitives.WorkParallelError: submitted restart lease required
+FAILED tests/test_work_parallel_finalization.py::MainReviewTests::test_unconfined_completion_publishes_a_review_after_positive_idle
+FAILED tests/test_work_parallel_finalization.py::MainReviewTests::test_unconfined_result_is_approved_and_finalized
+FAILED tests/test_work_parallel_finalization.py::MainReviewTests::test_unconfined_result_main_reviews_without_a_prior_idle_publication
+FAILED tests/test_work_parallel_finalization.py::MainReviewTests::test_unconfined_result_rework_resumes_without_a_workspace
+FAILED tests/test_work_parallel_finalization.py::MainReviewTests::test_unconfined_review_refuses_a_lease_that_gained_a_workspace
+FAILED tests/test_work_parallel_restart_terminal.py::RestartSubmittedTerminalTests::test_absent_fork_with_no_workspace_gets_its_review_after_restart
+6 failed, 95 deselected in 9.91s

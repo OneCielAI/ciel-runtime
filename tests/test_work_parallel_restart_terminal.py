@@ -136,6 +136,28 @@ class RestartSubmittedTerminalTests(unittest.TestCase):
                          decision_id="approve-1", evidence="main verified",
                          expected_finalization_version=self.call("status", {})["review"]["version"])
 
+    def test_absent_fork_with_no_workspace_gets_its_review_after_restart(self):
+        # KOBE 2026-11-19: the session folder is not a git repository, so the
+        # fork was reserved with no workspace; its result still needs a review.
+        doc = self.board.read()
+        root = next(n["parent_id"] for n in doc["nodes"] if n["id"] == self.board.items[0])
+        doc, item = self.board.transaction(lambda d: tree.add_node(d, root, "Plain"),
+                                           expected_version=doc["version"])
+        self.board.transaction(lambda d: tree.set_phase(d, "executing", root), expected_version=doc["version"])
+        reserve = self.call("event", {"fork": True}, event="reserve", item_id=item, priority="P1")
+        self.assertIsNone(reserve["workspace"])
+        self.call("event", {"host_id": "worker-x", "agent_name": "worker-x"}, event="bind",
+                  lease_id=reserve["lease_id"])
+        lease = {**reserve, "worker": "worker-x", "item": item}
+        self.complete(lease)
+        self.call("event", {}, event="native_observation", rows=[], complete=True,
+                  expected_evidence_version=m.native_evidence(self.store).read()["version"])
+        result = self.restart(lease)
+        self.assertEqual((True, True), (result["observed_terminal"], result["review_pending"]))
+        row = self.reviews()[lease["lease_id"]]
+        self.assertEqual(("pending", None), (row["state"], row["workspace"]))
+        self.assertEqual("finalized", self.approve(lease)["state"])
+
     def test_receipt_before_running_row_keeps_the_run_archivable(self):
         first, second = self.checkpoint_a()
         runs = self.runs()

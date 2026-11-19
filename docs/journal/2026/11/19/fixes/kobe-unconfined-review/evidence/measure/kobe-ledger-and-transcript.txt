@@ -1,0 +1,29 @@
+# KOBE, read-only, 2026-11-19 (host time PST; transcript times UTC). Counts and refusal text only.
+# Source: the Work ledger, coordination and native files of KOBE's Work state folder, and the main
+# conversation transcript, read over ssh with read-only PowerShell. No paths or account names kept.
+
+## Main session's review calls (transcript tool_use + tool_result)
+2026-11-19T13:40:45Z work_parallel_item_review lease deaef88a (n906) approve  -> error: positive idle workspace observation required before main review
+2026-11-19T15:33:26Z work_parallel_item_review lease deaef88a (n906) approve  -> error: positive idle workspace observation required before main review
+2026-11-19T19:53:15Z work_parallel_item_review lease 418503e8 (n922) approve  -> error: positive idle workspace observation required before main review
+
+## Session folder
+cwd = the KOBE sandbox home folder; .git present: False; nearest .git ancestor: none
+transcript gitBranch field: HEAD (no repository)
+
+## Ledger (work-parallel.json), 94 leases, all mode=fork
+unreported/ws=False=12
+orphaned/ws=False=18
+submitted/ws=False=46
+waiting_input/ws=False=17
+running/ws=False=1
+submitted with a workspace: 0
+finalization journal (work-parallel-finalization.json): absent  -> no review was ever published
+
+## The two refused leases
+n906 deaef88a: state=submitted slot=False idle_proof=present(string) workspace=null; coordination exit kind=completion
+n922 418503e8: state=submitted slot=False idle_proof=present(string) workspace=null; coordination exit kind=completion
+
+## Other KOBE errors seen in the same transcript window (not this defect)
+18:41-19:15Z  Walkie MCP "did not answer for 3 minutes" (external Walkie server)
+19:48Z        Parallel read failed: active slot capacity reached for P2 (1/1)  (admission limit, expected)

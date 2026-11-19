@@ -1,0 +1,11 @@
+# Andy side inbox, gate-check events on 2026-11-19 UTC (read-only, counts only; script .local/tmp/gate_cadence.py)
+workspace <andy> work_gate_check = {'minutes': 10}
+  turn_end events=9 median_gap_min=92.8 first=06:37 last=19:56
+  periodic events=121 median_gap_min=5.7 first=05:51 last=20:59
+
+# Andy transcript, 'Gate re-check queued for N' lines on 2026-11-19: N=0 never appeared; N=10 97 times (last 20:46Z)
+
+# REST work_gate_check_minutes before/after (2026-11-19)
+ANDY before 5 update True after 10
+CELLY before 5 update True after 10
+KOBE before 5 update True after 10

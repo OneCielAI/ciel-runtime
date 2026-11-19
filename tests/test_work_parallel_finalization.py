@@ -394,6 +394,81 @@ class MainReviewTests(unittest.TestCase):
     # A rework predecessor stays visible only until its replacement generation
     # publishes its own review row; the replacement then carries the item.
 
+    # A session folder that is not a git repository (KOBE 2026-11-19) -------
+
+    def completed_unconfined(self, worker_id="worker-1"):
+        """A fork reserved with no workspace_repo: the lease has no worktree."""
+        reserve = self.call("event", {"fork": True}, event="reserve", item_id=self.board.item, priority="P1")
+        self.assertIsNone(reserve["workspace"])
+        self.call("event", {"host_id": worker_id}, event="bind", lease_id=reserve["lease_id"])
+        with patch.object(m, "ledger", return_value=self.store):
+            m.report({"lease_id": reserve["lease_id"], "worker_token": reserve["worker_token"],
+                      "event": "completion", "plan_version": self.board.read()["version"],
+                      "artifact": "b" * 64, "evidence": "posted",
+                      "detail": {"summary": "done", "coverage": [{"item_id": self.board.item,
+                                 "verified": True}], "verification": "posted"}},
+                     self.board, self.config)
+        return reserve
+
+    def test_unconfined_completion_publishes_a_review_after_positive_idle(self):
+        reserve = self.completed_unconfined()
+        self.assertEqual([], self.call("status", {})["review"]["pending"])
+        idle = self.idle(reserve["lease_id"])
+        self.assertNotIn("review_publication_error", idle)
+        pending = self.call("status", {})["review"]["pending"]
+        self.assertEqual([reserve["lease_id"]], [row["lease_id"] for row in pending])
+        self.assertIsNone(pending[0]["workspace"])
+        self.assertEqual("done", pending[0]["summary"])
+
+    def test_unconfined_result_is_approved_and_finalized(self):
+        reserve = self.completed_unconfined()
+        self.idle(reserve["lease_id"])
+        result = self.review(reserve["lease_id"], "approve")
+        self.assertEqual("finalized", result["state"])
+        lease = self.store.read()["leases"][reserve["lease_id"]]
+        self.assertEqual("done", lease["state"])
+        self.assertIn("no workspace", lease["cleanup_proof"])
+        self.assertEqual("done", self.node()["status"])
+        self.assertTrue(all(self.review_row(reserve["lease_id"])["stages"].values()))
+
+    def test_unconfined_result_main_reviews_without_a_prior_idle_publication(self):
+        # The 46 KOBE results: idle was recorded but publication had failed.
+        reserve = self.completed_unconfined()
+        self.idle(reserve["lease_id"])
+        path = self.tmp / "work-parallel-finalization.json"
+        path.unlink()
+        with self.assertRaisesRegex(WorkParallelError, "changed; reread"):
+            self.call("item_review", {}, lease_id=reserve["lease_id"], decision="approve",
+                      decision_id="d", evidence="e", expected_finalization_version=0)
+        self.assertEqual("finalized", self.review(reserve["lease_id"], "approve")["state"])
+
+    def test_unconfined_result_rework_resumes_without_a_workspace(self):
+        reserve = self.completed_unconfined()
+        self.idle(reserve["lease_id"])
+        result = self.review(reserve["lease_id"], "rework", evidence="post again")
+        self.assertEqual("rework_ready", result["state"])
+        self.assertIsNone(result["dispatch"]["workspace"])
+        replacement = result["dispatch"]["lease_id"]
+        ledger = self.store.read()["leases"]
+        self.assertEqual(("resume", "reserved"), (ledger[replacement]["role"], ledger[replacement]["state"]))
+        self.assertIsNone(ledger[replacement].get("workspace"))
+        self.assertEqual("done", ledger[reserve["lease_id"]]["state"])
+        token = self._replacement_completed(replacement, "worker-2", "e" * 64, "again")
+        self.assertEqual(64, len(token))
+        self.assertEqual("submitted", self.store.read()["leases"][replacement]["state"])
+
+    def test_unconfined_review_refuses_a_lease_that_gained_a_workspace(self):
+        reserve = self.completed_unconfined()
+        self.idle(reserve["lease_id"])
+        version = self.pending_version()
+        doc = self.store.read()
+        doc["leases"][reserve["lease_id"]]["workspace"] = {"repo": str(self.repo), "path": str(self.repo)}
+        self.store.path.write_text(json.dumps(doc), encoding="utf-8")
+        with self.assertRaisesRegex(WorkParallelError, "stale workspace"):
+            self.call("item_review", {}, lease_id=reserve["lease_id"], decision="approve",
+                      decision_id="d", evidence="e", expected_finalization_version=version)
+        self.assertIsNone(self.review_row(reserve["lease_id"])["decision"])
+
     def _projected_ids(self):
         return [row["lease_id"] for row in self.call("status", {})["review"]["pending"]]
 
