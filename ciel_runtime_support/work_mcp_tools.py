@@ -852,6 +852,9 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         if args.get("format") == "json":
             state = tree.snapshot(doc, approval_ask=approval_ask)
             state["auto_continue"] = auto_continue
+            # Main plans and reviews, forks execute (work_workflow_main_delegates).
+            from .work_workflow import main_delegates as _main_delegates
+            state["main_delegates"] = _main_delegates(config or {})
             # Model-visible: the nested wake goes through the shared redactor.
             from .side_wake import redact_handoff
             state['side_handoffs'] = [redact_handoff(key, row) for key, row in doc.get('side_handoffs', {}).items()

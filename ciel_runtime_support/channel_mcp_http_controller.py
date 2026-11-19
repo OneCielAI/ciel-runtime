@@ -90,8 +90,12 @@ class ChannelMcpHttpController:
             self.services.write_json(handler, response, status)
         self.services.log(
             "INFO",
-            "channel_mcp_http method=%s request_id=%s protocol=%s"
-            % (method, request_id, MCP_2026_PROTOCOL_VERSION if modern else "legacy-streamable-http"),
+            # The tool name (never its arguments): Andy's router took 1,000 calls a
+            # minute on 2026-11-19 and the log could not say which tool.
+            "channel_mcp_http method=%s request_id=%s protocol=%s%s"
+            % (method, request_id, MCP_2026_PROTOCOL_VERSION if modern else "legacy-streamable-http",
+               (" tool=" + str((body.get("params") or {}).get("name"))[:60])
+               if method == "tools/call" and isinstance(body.get("params"), dict) else ""),
         )
         return True
 

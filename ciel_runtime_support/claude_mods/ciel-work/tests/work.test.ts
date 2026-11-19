@@ -802,7 +802,7 @@ test('three levels display linked ids, waits, urgent holds and green done checks
 test('root move buttons pin version, identity and explicit user request', async ($, on) => {
   const s = inspection(on)
   s.snapshot.queue = [{ id: 'q', title: 'Queued goal', status: 'pending', done: 0, total: 1 }]
-  await $.command.run({ command: 'work-mode', args: 'view' })
+  await $.command.run({ command: 'work-mode', args: 'view all' })
   const pane = await $.ui.mount(PANE)
   await pane.press({ key: 'up-q' })
   const move = s.calls.find(c => c.tool === 'work_reorder')
@@ -812,13 +812,13 @@ test('root move buttons pin version, identity and explicit user request', async 
 })
 test('Inspector focus and clear pin exact user intent, version and conversation', async ($, on) => {
   const s = inspection(on)
-  await $.command.run({ command: 'work-mode', args: 'view' })
+  await $.command.run({ command: 'work-mode', args: 'view all' })
   const pane = await $.ui.mount(PANE)
   await pane.press({ key: 'detail-focus' })
   expect(s.calls.find(c => c.tool === 'work_focus').args).toEqual({ node_ids: ['g1'], user_requested: true,
     expected_version: 1, session_id: 'claude:session-a' })
   s.snapshot.focus = { node_ids: ['g1'], exhausted: true }
-  await $.command.run({ command: 'work-mode', args: 'view' })
+  await $.command.run({ command: 'work-mode', args: 'view all' })
   await pane.redraw(PANE.props)
   await pane.press({ key: 'detail-unfocus' })
   expect(s.calls.filter(c => c.tool === 'work_focus').at(-1).args).toEqual({ node_ids: [], user_requested: true,
@@ -828,7 +828,7 @@ test('Inspector focus and clear pin exact user intent, version and conversation'
 test('Inspector appends an inspected existing item to focus in order', async ($, on) => {
   const s = inspection(on)
   s.snapshot.focus = { node_ids: ['b'], exhausted: false }
-  await $.command.run({ command: 'work-mode', args: 'view' })
+  await $.command.run({ command: 'work-mode', args: 'view all' })
   const pane = await $.ui.mount(PANE)
   await pane.press({ key: 'detail-focus-add' })
   expect(s.calls.find(c => c.tool === 'work_focus').args).toEqual({ node_ids: ['b', 'g1'], user_requested: true,
@@ -889,17 +889,20 @@ test('branch press opens read-only details with notes and evidence, nested node 
 })
 test('detail state is hidden after version or conversation changes and offline', async ($, on) => {
   const s = inspection(on)
-  await $.command.run({ command: 'work-mode', args: 'view' })
+  await $.command.run({ command: 'work-mode', args: 'view all' })
   const pane = await $.ui.mount(PANE)
   s.snapshot.version++
   await $.command.run({ command: 'work-mode', args: 'status' })
   expect((await pane.find({ type: 'Text', text: /Plan changed/ }))?.text).toContain('refresh')
   await pane.press({ key: 'detail-refresh' })
   expect((await pane.find({ key: 'node-a' }))?.text).toContain('Cache')
+  // 2026-11-19: a pane with no board loads the conversation's own board by
+  // itself. The other conversation's detail is never shown: with the router
+  // unreachable nothing can be loaded, and the old rows are gone.
+  s.offline = true
   s.sessionId = 'another'
   await $.command.run({ command: 'work-mode', args: 'status' })
   expect(await pane.find({ key: 'node-a' })).toBeUndefined()
-  s.offline = true
   await $.command.run({ command: 'work-mode', args: 'status' })
   expect(await pane.find({ key: 'node-a' })).toBeUndefined()
   await pane.unmount()
@@ -1247,7 +1250,7 @@ test('help, readable bare command and raw status', async ($, on) => {
   expect(bare).toContain('Next: Write tokenizer')
   expect(bare.includes('{')).toBe(false)
   expect((await $.command.run({ command: 'work-mode', args: 'status' })).text).toContain('"version": 1')
-  expect((await $.command.run({ command: 'work-mode', args: 'bogus' })).text).toContain('view|summary|expand|compact|help|tree|status')
+  expect((await $.command.run({ command: 'work-mode', args: 'bogus' })).text).toContain('summary|expand|compact|help|tree|status')
   s.snapshot.enabled = false
   expect((await $.command.run({ command: 'work-mode', args: 'summary' })).text).toContain('LLM options → Work mode')
   expect(s.tools.length).toBe(0)
@@ -1268,8 +1271,8 @@ test('band shows a hint while no plan exists and the phase once one does', async
 test('triage guidance reaches the model; queue tab is read-only and summary keeps root order', async ($, on) => {
   const s = inspection(on)
   const r = await $.prompt.submit({ text: 'new request', wait: false })
-  expect(r.context[0]).toContain('Triage every new user request')
-  expect(r.context[0]).toContain('goes under that item as a child')
+  expect(r.context[0]).toContain('새 사용자 요청은 먼저 분류합니다')
+  expect(r.context[0]).toContain('그 아이템의 자식으로 넣습니다')
   s.snapshot.queue = Array.from({ length: 5 }, (_, i) => ({ id: 'q' + i, title: (i + 2) + '. Queued ' + i, status: 'pending', done: 0, total: 2 }))
   await $.command.run({ command: 'work-mode', args: 'status' })
   const band = await $.ui.mount(BAND)
@@ -1315,10 +1318,10 @@ test('hybrid prompt keeps bounded valid active summary without queued title note
     queue: Array.from({ length: 20 }, (_, i) => ({ id: 'q' + i, title: 'QUEUED-PRIVATE-TITLE',
       note: 'QUEUED-PRIVATE-NOTE', children: [{ title: 'QUEUED-PRIVATE-STEP' }] })) })
   const text = (await $.prompt.submit({ text: 'RAW-USER-REQUEST', wait: false })).context.at(-1)
-  expect(text).toContain('hybrid per-item')
-  expect(text).toContain('not native Plan Mode')
+  expect(text).toContain('메인은 계획자이자 검수자입니다')
+  expect(text).toContain('네이티브 Plan Mode가 아닙니다')
   expect(text).toContain('within_scope=true')
-  expect(text).toContain('raw user messages remain in native history')
+  expect(text).toContain('사용자 원문은 네이티브 기록에 남습니다')
   expect(text).not.toContain('QUEUED-PRIVATE')
   expect(text).not.toContain('ACTIVE-NOTE')
   const data = JSON.parse(text.slice(text.lastIndexOf(String.fromCharCode(10)) + 1))
@@ -1549,7 +1552,7 @@ test('inspector bounds long notes and trees with paging; every note chunk stays 
   const s = inspection(on)
   s.snapshot.nodes = [{ id: 'g1', parent_id: null, title: 'Goal', status: 'in_progress', note: 'x'.repeat(1950) + 'END OF NOTE' },
     ...Array.from({ length: 40 }, (_, i) => ({ id: 'leaf' + i, parent_id: 'g1', title: 'Leaf ' + i, status: 'pending' }))]
-  await $.command.run({ command: 'work-mode', args: 'view' })
+  await $.command.run({ command: 'work-mode', args: 'view all' })
   const pane = await $.ui.mount(PANE)
   let end = false; let last = false; let pages = 0
   do {
@@ -1666,4 +1669,17 @@ test('compact display follows runnable selector and makes ancestor holds visible
   expect((await band.find({ key: 'work-panel' }))?.props.height).toBe(1)
   expect(s.tools.length).toBe(0)
   await band.unmount()
+})
+
+test('main delegates execution: its direct code edit is refused in the executing phase, documents stay writable', async ($, on) => {
+  const s = setup(on)
+  s.snapshot = { ...s.snapshot, phase: 'executing', main_delegates: true }
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  const code = await $.tool.call({ tool: 'Edit', file_path: '/repo/src/app.js', old_string: 'a', new_string: 'b' })
+  expect(String(code.deny || '')).toContain('메인은 코드를 직접 수정하지 않습니다')
+  const doc = await $.tool.call({ tool: 'Write', file_path: '/repo/docs/plan.md', content: 'x' })
+  expect(doc.deny).toBeUndefined()
+  s.snapshot = { ...s.snapshot, main_delegates: false }
+  const allowed = await $.tool.call({ tool: 'Edit', file_path: '/repo/src/app.js', old_string: 'a', new_string: 'b' })
+  expect(allowed.deny).toBeUndefined()
 })

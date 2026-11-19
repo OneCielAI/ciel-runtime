@@ -46,7 +46,7 @@ function pad(value, width) {
 }
 // One-character stage marks for the narrow SSE column (user 2026-11-19).
 const STAGE_MARK = { received: '受', processing: '處', answered: '答', work: '作', failed: '失', quarantined: '失',
-  waiting: '待', retrying: '再', discarded: '棄', processed: '了', decided: '決' }
+  waiting: '待', retrying: '再', discarded: '棄', processed: '完', decided: '完' }
 function stageMark(value) { return STAGE_MARK[value] || '·' }
 // The event text without its "[source · event]" prefix when something follows it.
 function receiptText(receipt) {
@@ -263,7 +263,7 @@ export default function Observatory(props, surface) {
       { value: 'SSE FLOW ' + sideRows.length, color: C.cyan, weight: 'bold' },
       { value: '受' + counts.received + ' 處' + counts.processing + ' 答' + counts.answered + ' 作' + counts.work
         + (counts.failed ? ' 失' + counts.failed : ''), color: C.dim },
-      { value: '受수신 處처리 答응답 作작업 失실패', color: C.dim },
+      { value: '受수신 處처리 答응답 作작업 完완료 失실패', color: C.dim },
     ]
     const activeActors = (props.actors || []).slice(0, 3)
     const actor = activeActors[0]
@@ -275,13 +275,15 @@ export default function Observatory(props, surface) {
     specs.push({ value: actor ? '▶ fork ' + actor.id : ' ', color: C.cyan })
     // Two lines per receipt, so the text is read whole instead of cut at the
     // column: priority and stage mark, then the event text and its continuation.
-    for (const [index, receipt] of sideRows.slice(0, Math.max(1, Math.floor((innerRows - specs.length) / 2))).entries()) {
+    for (const [index, receipt] of sideRows.entries()) {
+      if (specs.length >= innerRows - 1) break
       const selectedRow = props.tab === 'side' && index === selected
       const head = (selectedRow ? '▸' : ' ') + (receipt.priority || '--') + ' ' + stageMark(stage(receipt)) + ' '
       const [first, rest] = take(receiptText(receipt), Math.max(4, inner - cells(head)))
       const background = selectedRow ? C.selected : undefined
       specs.push({ value: head + first, color: stageColor(stage(receipt)), background })
-      specs.push({ value: '     ' + clip(rest, Math.max(4, inner - 5)), color: C.dim, background })
+      // The second line only when the text continues: no blank rows between receipts.
+      if (rest.trim()) specs.push({ value: '     ' + clip(rest, Math.max(4, inner - 5)), color: C.dim, background })
     }
     while (specs.length < innerRows) specs.push({ value: ' ', color: C.dim })
     const sideChildren = specs.slice(0, innerRows).map((spec, index) => Box({ key: 'side-row-' + index, height: 1,

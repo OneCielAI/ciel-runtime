@@ -252,6 +252,9 @@ def settings(config, args, save, *, load=None):
     projected.append({'key': 'work_workflow_enabled', 'label': menu_text('work_workflow_enabled', language),
                       'value': workflow_value(config, 'work_workflow_enabled'), 'kind': 'boolean',
                       'status': 'next_side_event'})
+    projected.append({'key': 'work_workflow_main_delegates', 'label': menu_text('work_workflow_main_delegates', language),
+                      'value': workflow_value(config, 'work_workflow_main_delegates'), 'kind': 'boolean',
+                      'status': 'live'})
     projected += [{'key': k, 'label': menu_text(k, language), 'value': workflow_value(config, k), 'kind': 'number',
                    'status': 'next_gate_check'} for k in ('work_workflow_delegate_pending', 'work_workflow_delegate_minutes')]
     projected += [{'key': k, 'label': menu_text(k, language), 'value': '', 'kind': 'action', 'status': 'live'}
