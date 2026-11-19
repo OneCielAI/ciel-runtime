@@ -722,18 +722,25 @@ def dispatch_work_tool(
                     pass
                 # A round carries a few gates so the actor looks each one up
                 # outside: P0 first, the others continuing after the last round.
+                # Main is told about results awaiting its review at most every 20 minutes.
+                told = float((last or {}).get("review_told_at") or 0)
+                if review_pending and stamp - told < 1200:
+                    review_pending = []
+                elif review_pending:
+                    told = stamp
                 rows, next_offsets = round_rows(rows, round_gates(config), (last or {}).get("offsets"))
                 # The instructions are managed prompts: an edit applies on this tick.
                 from .work_workflow_prompts import effective as prompt_text
                 event = tick_event(config, rows, current, stamp, threads_by_gate, turn_end=turn_end,
                                    review_pending=review_pending, rules=prompt_text(state_dir, "gate_recheck"),
-                                   turn_text=prompt_text(state_dir, "turn_end"))
+                                   turn_text=prompt_text(state_dir, "turn_end"),
+                                   review_text=prompt_text(state_dir, "gate_review"))
                 receipts = [receive(state_dir, identity, part["text"], part["event_key"], admit=False,
                                     route={"source_kind": "gate_check", **({"turn_end": True} if turn_end else {})}
                                     ).get("receipt_id")
                             for part in event["events"]]
                 record.write_text(json.dumps({**(last or {}), "at": event["at"], "digest": event["digest"],
-                                              "receipt_ids": receipts, "offsets": next_offsets},
+                                              "receipt_ids": receipts, "offsets": next_offsets, "review_told_at": told},
                                              ensure_ascii=False), encoding="utf-8")
                 if newest:
                     from .work_gate_threads import advance as advance_threads
