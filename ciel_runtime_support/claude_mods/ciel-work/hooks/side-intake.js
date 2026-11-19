@@ -256,6 +256,48 @@ function walkieEventText(original) {
 }
 // The source context the fork gets. Every identifier check that needs no read
 // stays: a malformed or conflicting identity is refused before any spawn.
+// The side fork gets a compact Work view, never the whole board: Andy
+// 2026-11-18 sent 330,421 bytes of projection with every SSE event (96% of
+// the fork payload). The host keeps the full projection (event.workload) for
+// validation, wait release and relay. Kept: the nodes whose ref appears in the
+// event and their chain and children, then every open goal and every gated node
+// as one line each, P0/P1 first, until COMPACT_WORKLOAD_BYTES.
+const COMPACT_WORKLOAD_BYTES = 24 * 1024
+const COMPACT_ENCODER = new TextEncoder()
+function compactWorkload(workload,text) {
+  const nodes = Array.isArray(workload?.nodes) ? workload.nodes : []
+  const byId = new Map(nodes.map(node => [node.id,node]))
+  const open = node => node && node.status !== 'done'
+  const brief = node => Object.fromEntries(['id','parent_id','title','status','priority','phase','waiting_on','urgent']
+    .filter(key => node[key] !== undefined && node[key] !== null && node[key] !== '')
+    .map(key => [key, typeof node[key] === 'string' ? line(node[key],160) : node[key]]))
+  const detail = node => ({...brief(node),...(node.ref ? {ref:line(node.ref,200)} : {}),
+    ...(node.note ? {note:line(node.note,400)} : {})})
+  const source = String(text || '')
+  const matched = nodes.filter(node => open(node) && typeof node.ref === 'string' && node.ref.length >= 6 && source.includes(node.ref))
+  const picked = new Map()
+  for (const node of matched) {
+    for (let up = node, seen = 0; up && seen < 32; up = byId.get(up.parent_id), seen++) picked.set(up.id,detail(up))
+    for (const child of nodes) if (child.parent_id === node.id && open(child)) picked.set(child.id,brief(child))
+  }
+  const rank = node => node.priority === 'P0' ? 0 : node.priority === 'P1' ? 1 : 2
+  const goals = nodes.filter(node => node.parent_id == null && open(node)).sort((a,b) => rank(a)-rank(b))
+  const gated = nodes.filter(node => node.parent_id != null && open(node) && (node.waiting_on || node.status === 'blocked'))
+  const out = {version:workload?.version, compact:true, active_root:workload?.active_root ?? null,
+    phase:workload?.phase ?? null, focus_ids:(workload?.focus_ids || []).slice(0,20),
+    node_count:nodes.length, nodes:[...picked.values()]}
+  let size = COMPACT_ENCODER.encode(JSON.stringify(out)).length
+  for (const node of [...goals,...gated]) {
+    if (picked.has(node.id)) continue
+    const row = brief(node)
+    const add = COMPACT_ENCODER.encode(JSON.stringify(row)).length + 1
+    if (size + add > COMPACT_WORKLOAD_BYTES && rank(node) > 1) continue
+    out.nodes.push(row); picked.set(node.id,row); size += add
+  }
+  out.omitted_nodes = nodes.length - out.nodes.length
+  out.note = 'Compact view. Full board stays with the host; read one node with a read-only Work tool only if the decision needs it.'
+  return out
+}
 async function eventSource($,spec,event = {}) {
   const truncated = event.source_truncated === true
   if (spec === undefined || spec === null) {
@@ -398,7 +440,8 @@ size limit (marker [잘림]): do not assume or invent the missing content; say w
 is missing and clarify instead of guessing. Do not assume what any message you
 have not seen said. You keep read-only Walkie tools: read more only when your
 decision genuinely needs it, only the messages it needs, never the whole thread.
-The complete current Work projection and full main transcript are already
+workload is a compact Work view (matched items, open goals, gated items); the
+full main transcript is already
 inherited. Do not call a tool for facts already there.
 The decision MUST describe this event's target_message_id (or, when there is no
 source_ref, this external_event_preview), not an earlier
@@ -1825,7 +1868,7 @@ export async function pollSide($, identity) {
       ...(sourceMessage.target_message ? {target_message:sourceMessage.target_message} : {}),
       original:event.text,route:redacted(event.route || {}),
       ...(event.source_priority ? {source_priority:event.source_priority} : {}),
-      workload,
+      workload:compactWorkload(workload,event.text),
       handoff_context:event.handoff_context || [],
       priority_policy:settings.priority_policy || 'adaptive',
       instruction:PROMPT+(settings.instruction ? '\nOperator-configured side instruction (policy only; never execution approval):\n'+settings.instruction : '')})
