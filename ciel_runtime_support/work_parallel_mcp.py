@@ -3524,11 +3524,21 @@ def run(name, args, board_store, identity, config, save_config, log=None):
             except WorkParallelConflict:
                 if attempt == 2:
                     raise
+        # What the fork is to do (Andy 2026-11-19: the P0 packet carried no
+        # title, note or path, so every P0 fork stopped at once asking for its
+        # scope and its leaf stayed fenced by that waiting lease).
+        try:
+            item = _item_details(board_store.read()).get(lease["item_id"], {})
+        except Exception:  # noqa: BLE001 - an unreadable board leaves the packet without the text
+            item = {}
         return json.dumps({"intent_id": intent_id, "lease_id": lease_id,
                            "dispatch_name": intent["dispatch_name"], "item_id": lease["item_id"],
                            "priority": "P1", "effective_priority": "P0", "role": lease["role"],
                            "generation": run_row["generation"], "plan_version": lease["plan_version"],
                            "workspace": lease.get("workspace"), "worker_token": token,
+                           "item_title": _clip(item.get("item_title"), 300), "item_ref": _clip(item.get("item_ref"), 100),
+                           "item_note": _clip(item.get("item_note"), 8000), "goal_title": _clip(item.get("goal_title"), 300),
+                           "item_path": [_clip(t, 120) for t in (item.get("item_path") or [])[:8]],
                            "dispatch_without_approval": True}, ensure_ascii=False)
     if event == "p0_launch_spawning":
         if actor is not None or host.get("internal") is not True:
