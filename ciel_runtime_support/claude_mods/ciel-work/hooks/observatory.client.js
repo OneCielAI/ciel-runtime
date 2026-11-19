@@ -8,14 +8,53 @@ const C = {
 
 // The pane's control strip above takes Tab/arrows/Enter and these hotkeys without
 // a click; a click here adds ↑↓, PgUp/PgDn, Home/End until Esc.
-const FOOTER = 'W/S/G tabs · J/K move · I inspect · P P1 · F focus · R refresh · click: ↑↓ PgUp'
+const FOOTER = 'W/S/G tabs · J/K move · I inspect · V 보기 · P P1 · F focus · R refresh · click: ↑↓ PgUp'
 
-function clip(value, width) {
-  const text = String(value ?? '').replace(/[\x00-\x1f\x7f]/g, ' ')
-  if (width <= 0) return ''
-  return text.length <= width ? text : text.slice(0, Math.max(0, width - 1)) + '…'
+// Terminal cells, not characters: Hangul, Han, kana and full-width forms take two.
+// Counting characters let Korean rows run past the column and get cut by the
+// terminal (the SSE column on Andy, 2026-11-19).
+function wide(code) {
+  return (code >= 0x1100 && code <= 0x115f) || (code >= 0x2e80 && code <= 0xa4cf) || (code >= 0xac00 && code <= 0xd7a3)
+    || (code >= 0xf900 && code <= 0xfaff) || (code >= 0xfe30 && code <= 0xfe4f) || (code >= 0xff00 && code <= 0xff60)
+    || (code >= 0xffe0 && code <= 0xffe6) || (code >= 0x1f300 && code <= 0x1faff) || (code >= 0x20000 && code <= 0x3fffd)
 }
-function pad(value, width) { return clip(value, width).padEnd(Math.max(0, width)) }
+function cells(value) {
+  let total = 0
+  for (const ch of String(value ?? '')) total += wide(ch.codePointAt(0)) ? 2 : 1
+  return total
+}
+// The first part of ``text`` that fits ``width`` cells, and the rest.
+function take(value, width) {
+  const text = String(value ?? '').replace(/[\x00-\x1f\x7f]/g, ' ')
+  let used = 0, end = 0
+  for (const ch of text) {
+    const size = wide(ch.codePointAt(0)) ? 2 : 1
+    if (used + size > width) break
+    used += size; end += ch.length
+  }
+  return [text.slice(0, end), text.slice(end), used]
+}
+function clip(value, width) {
+  if (width <= 0) return ''
+  const text = String(value ?? '').replace(/[\x00-\x1f\x7f]/g, ' ')
+  if (cells(text) <= width) return text
+  return take(text, Math.max(0, width - 1))[0] + '…'
+}
+function pad(value, width) {
+  const text = clip(value, width)
+  return text + ' '.repeat(Math.max(0, width - cells(text)))
+}
+// One-character stage marks for the narrow SSE column (user 2026-11-19).
+const STAGE_MARK = { received: '受', processing: '處', answered: '答', work: '作', failed: '失', quarantined: '失',
+  waiting: '待', retrying: '再', discarded: '棄', processed: '了', decided: '決' }
+function stageMark(value) { return STAGE_MARK[value] || '·' }
+// The event text without its "[source · event]" prefix when something follows it.
+function receiptText(receipt) {
+  const text = String(receipt.summary || '').replace(/[\x00-\x1f\x7f]/g, ' ').trim()
+  const rest = text.replace(/^\[[^\]]{0,80}\]\s*/, '')
+  return rest || text
+}
+const VIEW_LABEL = { all: '전체', run: '처리중', wait: '블락·대기', done: '완료' }
 function bar(done, total, width) {
   const ratio = total > 0 ? Math.max(0, Math.min(1, done / total)) : 0
   const filled = Math.round(width * ratio)
@@ -68,7 +107,12 @@ export default function Observatory(props, surface) {
   const state = surface.state || { scroll: 0 }
   const p1 = props.p1 === true
   // The urgent filter keeps P0 (a source emergency) with P1.
-  const workRows = (props.nodes || []).filter(row => !p1 || row.priority === 'P1' || row.priority === 'P0')
+  const view = VIEW_LABEL[props.view] ? props.view : 'all'
+  const urgent = (props.nodes || []).filter(row => !p1 || row.priority === 'P1' || row.priority === 'P0')
+  const classCounts = { run: 0, wait: 0, done: 0, todo: 0 }
+  for (const row of urgent) classCounts[row.cls] = (classCounts[row.cls] || 0) + 1
+  const workRows = urgent.filter(row => view === 'all' || row.cls === view)
+  const forkCount = urgent.filter(row => row.fork).length
   const sideRows = (props.receipts || []).filter(row => !p1 || row.priority === 'P1' || row.priority === 'P0')
   const rows = props.tab === 'side' ? sideRows : workRows
   const selected = Math.max(0, Math.min(Number(props.selected) || 0, Math.max(0, rows.length - 1)))
@@ -90,6 +134,7 @@ export default function Observatory(props, surface) {
     else if (event.key === 'home') setSelection(0)
     else if (event.key === 'end') setSelection(rows.length - 1)
     else if (event.key === 'p') { surface.setState({ scroll: 0 }); surface.post({ action: 'p1' }) }
+    else if (event.key === 'v') { surface.setState({ scroll: 0 }); surface.post({ action: 'view' }) }
     else if (event.key === 'w') surface.post({ action: 'tab', tab: 'work' })
     else if (event.key === 's') surface.post({ action: 'tab', tab: 'side' })
     else if (event.key === 'g') surface.post({ action: 'tab', tab: 'settings' })
@@ -172,21 +217,33 @@ export default function Observatory(props, surface) {
     const workWidth = Math.floor(width * .58)
     const sideWidth = width - workWidth - 1
     const bodyRows = Math.max(7, height - 13)
-    const workChildren = [Text({ color: C.cyan, weight: 'bold', children: pad('WORK TREE ' + workRows.length, workWidth) })]
+    const workChildren = [Box({ key: 'work-head', height: 1, overflow: 'hidden', flexDirection: 'row', children: [
+      Text({ color: C.cyan, weight: 'bold', children: 'WORK ' + workRows.length + ' ' }),
+      Text({ color: C.yellow, weight: 'bold', children: '[' + VIEW_LABEL[view] + '] ' }),
+      Text({ color: C.green, children: '●실행 ' + forkCount + ' ' }),
+      Text({ color: C.cyan, children: '▶' + classCounts.run + ' ' }),
+      Text({ color: C.red, children: '!' + classCounts.wait + ' ' }),
+      Text({ color: C.dim, children: '✓' + classCounts.done }),
+    ] })]
     const workPage = workRows.slice(scroll, scroll + bodyRows)
     for (const [offset, node] of workPage.entries()) {
       const index = scroll + offset
       const selectedRow = props.tab === 'work' && index === selected
       const indent = '  '.repeat(Math.min(3, node.depth || 0))
-      const left = (selectedRow ? '▸ ' : '  ') + indent + statusGlyph(node.status, node.waiting_on) + ' '
+      // An item a Work fork is running now: its own mark, colour and tag.
+      const running = node.fork === true
+      const left = (selectedRow ? '▸ ' : '  ') + indent + (running ? '●' : statusGlyph(node.status, node.waiting_on)) + ' '
       const priority = node.priority || ''
       const count = node.total ? node.done + '/' + node.total : ''
-      const room = Math.max(4, workWidth - left.length - (priority ? 4 : 0) - count.length - 1)
+      const tag = running ? ' 실행중' : ''
+      const room = Math.max(4, workWidth - cells(left) - (priority ? 4 : 0) - cells(count) - cells(tag) - 1)
       workChildren.push(Box({ key: 'wide-work-' + node.id, height: 1, overflow: 'hidden',
-        flexDirection: 'row', backgroundColor: selectedRow ? C.selected : undefined, children: [
-          Text({ color: statusColor(node.status), children: left }),
+        flexDirection: 'row', backgroundColor: selectedRow ? C.selected : running ? '#12301f' : undefined, children: [
+          Text({ color: running ? C.green : statusColor(node.status), weight: running ? 'bold' : undefined, children: left }),
           ...(priority ? [Text({ color: priorityColor(priority), weight: 'bold', children: priority + ' ' })] : []),
-          Text({ color: selectedRow ? C.cyan : C.text, children: pad(node.title, room) }),
+          Text({ color: running ? C.green : selectedRow ? C.cyan : C.text, weight: running ? 'bold' : undefined,
+            children: pad(node.title, room) }),
+          ...(running ? [Text({ color: C.green, weight: 'bold', children: tag })] : []),
           Text({ color: C.dim, children: count }),
         ] }))
     }
@@ -204,7 +261,9 @@ export default function Observatory(props, surface) {
     // Claude Code 2.1.310 when a fork ended (real console, owned probe).
     const specs = [
       { value: 'SSE FLOW ' + sideRows.length, color: C.cyan, weight: 'bold' },
-      { value: 'IN ' + counts.received + ' AI ' + counts.processing + ' ANS ' + counts.answered + ' WORK ' + counts.work, color: C.dim },
+      { value: '受' + counts.received + ' 處' + counts.processing + ' 答' + counts.answered + ' 作' + counts.work
+        + (counts.failed ? ' 失' + counts.failed : ''), color: C.dim },
+      { value: '受수신 處처리 答응답 作작업 失실패', color: C.dim },
     ]
     const activeActors = (props.actors || []).slice(0, 3)
     const actor = activeActors[0]
@@ -214,11 +273,15 @@ export default function Observatory(props, surface) {
     specs.push({ value: activeActors.length ? 'ACTIVE SSE FORKS ' + activeActors.length : 'No active side fork',
       color: activeActors.length ? C.pink : C.dim, weight: activeActors.length ? 'bold' : undefined })
     specs.push({ value: actor ? '▶ fork ' + actor.id : ' ', color: C.cyan })
-    specs.push({ value: actor ? '  native fork · main context' : ' ', color: C.violet })
-    for (const [index, receipt] of sideRows.slice(0, Math.max(1, innerRows - specs.length)).entries()) {
+    // Two lines per receipt, so the text is read whole instead of cut at the
+    // column: priority and stage mark, then the event text and its continuation.
+    for (const [index, receipt] of sideRows.slice(0, Math.max(1, Math.floor((innerRows - specs.length) / 2))).entries()) {
       const selectedRow = props.tab === 'side' && index === selected
-      specs.push({ value: (selectedRow ? '▸' : ' ') + (receipt.priority || '--') + ' ' + stage(receipt) + ' ' + (receipt.summary || ''),
-        color: stageColor(stage(receipt)), background: selectedRow ? C.selected : undefined })
+      const head = (selectedRow ? '▸' : ' ') + (receipt.priority || '--') + ' ' + stageMark(stage(receipt)) + ' '
+      const [first, rest] = take(receiptText(receipt), Math.max(4, inner - cells(head)))
+      const background = selectedRow ? C.selected : undefined
+      specs.push({ value: head + first, color: stageColor(stage(receipt)), background })
+      specs.push({ value: '     ' + clip(rest, Math.max(4, inner - 5)), color: C.dim, background })
     }
     while (specs.length < innerRows) specs.push({ value: ' ', color: C.dim })
     const sideChildren = specs.slice(0, innerRows).map((spec, index) => Box({ key: 'side-row-' + index, height: 1,
@@ -237,7 +300,8 @@ export default function Observatory(props, surface) {
     if (chosen) children.push(line('wide-inspector-meta', props.tab === 'side'
       ? stage(chosen) + (chosen.actor ? ' · fork ' + chosen.actor : '') + (chosen.item_id ? ' → ' + chosen.item_id : '')
         + (chosen.bounded ? ' · thread bounded: ' + chosen.bounded + ' older replies left out' : '')
-      : (chosen.priority || '--') + ' · ' + chosen.status + (chosen.waiting_on ? ' · waiting ' + chosen.waiting_on : ''),
+      : (chosen.priority || '--') + ' · ' + (chosen.fork ? '실행중(포크) · ' : '') + chosen.status
+        + (chosen.waiting_on ? ' · waiting ' + chosen.waiting_on : ''),
       props.tab === 'side' ? stageColor(stage(chosen)) : statusColor(chosen.status)))
     children.push(line('footer', FOOTER, C.dim))
     return Box({ flexDirection: 'column', backgroundColor: C.panel, children })
@@ -284,7 +348,7 @@ export default function Observatory(props, surface) {
     }
   } else {
     children.push(boxLine('work-head', [
-      Text({ color: C.cyan, weight: 'bold', children: 'WORK TREE ' + workRows.length }),
+      Text({ color: C.cyan, weight: 'bold', children: 'WORK ' + workRows.length + ' [' + VIEW_LABEL[view] + '] ●' + forkCount }),
       Text({ color: p1 ? C.red : C.dim, children: p1 ? ' P1 ONLY' : ' ALL · P P1' }),
     ], { justifyContent: 'space-between' }))
     const visible = Math.max(3, height - 12)
@@ -293,9 +357,9 @@ export default function Observatory(props, surface) {
       const index = scroll + offset
       const selectedRow = index === selected
       const indent = '  '.repeat(Math.min(4, node.depth || 0))
-      const left = (selectedRow ? '▸ ' : '  ') + indent + statusGlyph(node.status, node.waiting_on) + ' '
+      const left = (selectedRow ? '▸ ' : '  ') + indent + (node.fork ? '●' : statusGlyph(node.status, node.waiting_on)) + ' '
       const priority = node.priority || ''
-      const room = Math.max(3, width - left.length - (priority ? 4 : 0) - 7)
+      const room = Math.max(3, width - cells(left) - (priority ? 4 : 0) - 7)
       const count = node.total ? ' ' + node.done + '/' + node.total : ''
       children.push(boxLine('node-' + node.id, [
         Text({ color: statusColor(node.status), children: left }),

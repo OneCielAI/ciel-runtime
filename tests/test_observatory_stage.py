@@ -33,21 +33,26 @@ class ObservatoryStageTests(unittest.TestCase):
             raise AssertionError(done.stderr)
         cls.rows = json.loads(done.stdout)
 
+    # The wide layout's narrow SSE column shows one-character stage marks
+    # (user 2026-11-19); the full-width SSE tab keeps the words.
+    MARKS = {"100": {"retrying": "再", "waiting": "待", "failed": "失", "received": "受", "answered": "答"},
+             "40": {name: name for name in ("retrying", "waiting", "failed", "received", "answered")}}
+
     def test_only_a_quarantined_row_is_failed_at_every_width(self):
         for width in ("100", "40"):
             with self.subTest(width=width):
-                rows = self.rows[width]
-                self.assertIn("P3 retrying", rows["Retry row"])
-                self.assertIn("P3 waiting", rows["Waiting row"])
-                self.assertIn("P3 failed", rows["Terminal row"])
-                self.assertIn("P3 received", rows["Fresh row"])
+                rows, mark = self.rows[width], self.MARKS[width]
+                self.assertIn("P3 " + mark["retrying"], rows["Retry row"])
+                self.assertIn("P3 " + mark["waiting"], rows["Waiting row"])
+                self.assertIn("P3 " + mark["failed"], rows["Terminal row"])
+                self.assertIn("P3 " + mark["received"], rows["Fresh row"])
                 for summary in ("Retry row", "Waiting row", "Fresh row"):
-                    self.assertNotIn("failed", rows[summary])
+                    self.assertNotIn(mark["failed"], rows[summary])
 
     def test_an_answered_row_stays_answered_after_an_earlier_retry(self):
         for width in ("100", "40"):
             with self.subTest(width=width):
-                self.assertIn("P3 answered", self.rows[width]["Answered row"])
+                self.assertIn("P3 " + self.MARKS[width]["answered"], self.rows[width]["Answered row"])
 
 
 if __name__ == "__main__":
