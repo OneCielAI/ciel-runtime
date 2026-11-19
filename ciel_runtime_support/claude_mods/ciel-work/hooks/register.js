@@ -864,9 +864,25 @@ function graphicReceipts(identity) {
   })
 }
 // The rows the graphical tab's cursor walks, as the Client filters them.
+// The pane's Work views (user 2026-11-19): all, running (in progress or a fork
+// on it), blocked or waiting, done. Each node row is classed once here; the
+// Client filters by that class, so the cursor and the drawing agree.
+const WORK_VIEWS = ['all', 'run', 'wait', 'done']
+function workView(state) { return WORK_VIEWS.includes(state?.obsView) ? state.obsView : 'all' }
+function classedNodes(view) {
+  const running = new Set((observatoryParallel?.forks?.confirmed || []).map(row => row?.item_id).filter(Boolean))
+  return graphicNodes(view, cached).map(row => {
+    const fork = running.has(row.id)
+    const cls = fork ? 'run' : row.status === 'done' ? 'done'
+      : row.status === 'blocked' || row.waiting_on ? 'wait' : row.status === 'in_progress' ? 'run' : 'todo'
+    return { ...row, cls, fork }
+  })
+}
 function graphicRows(identity, view, state) {
   const p1 = state?.obsP1 === true
-  const rows = state?.tab === 'side' ? graphicReceipts(identity) : graphicNodes(view, cached)
+  const chosen = workView(state)
+  const rows = state?.tab === 'side' ? graphicReceipts(identity)
+    : classedNodes(view).filter(row => chosen === 'all' || row.cls === chosen)
   return rows.filter(row => !p1 || row.priority === 'P1' || row.priority === 'P0')
 }
 function graphicSelected(state) {
@@ -877,7 +893,7 @@ function graphicProps(identity, view, state) {
   return { tab: state?.tab === 'side' ? 'side' : 'work', selected: graphicSelected(state), p1: state?.obsP1 === true,
     version: cached?.version,
     active: cached?.active_root?.title || '', done: cached?.done || 0, total: cached?.total || 0,
-    nodes: graphicNodes(view, cached), receipts: graphicReceipts(identity),
+    nodes: classedNodes(view), view: workView(state), receipts: graphicReceipts(identity),
     actors: sideActors(identity).map(actor => ({ id: actor.id, receipt: actor.receipt_id,
       runtime: 'native fork (main context)', reserved: actor.reserved, lease_until: actor.lease_until })),
     parallel: { active: observatoryParallel?.active_device || 0, max: parallelCapacity(policy),
@@ -911,6 +927,9 @@ async function graphicAction($, identity, data) {
     await displayState($, identity, old => ({ ...old, [cursor]: clamp(graphicSelected(old) + data.by) }))
   else if (action === 'p1')
     await displayState($, identity, old => ({ ...old, obsP1: old.obsP1 !== true, obsWork: 0, obsSide: 0 }))
+  else if (action === 'view')
+    await displayState($, identity, old => ({ ...old, tab: 'work', obsWork: 0,
+      obsView: WORK_VIEWS[(WORK_VIEWS.indexOf(workView(old)) + 1) % WORK_VIEWS.length] }))
   else if (action === 'refresh') { await openDetails($, null, identity); await observatoryRefresh($, identity) }
   else if (action === 'work' && id) await openDetails($, id, identity)
   else if (action === 'receipt' && id)
@@ -5094,6 +5113,8 @@ export function register(on) {
         control('obs-down', 'j', '▼Next', { action: 'move', by: 1 }, 'suggestion'),
         control('obs-inspect', 'i', 'Inspect', { action: 'inspect' }, 'suggestion'),
         control('obs-p1', 'p', state?.obsP1 ? '[P1]' : 'P1', { action: 'p1' }, 'error'),
+        control('obs-view', 'v', '보기:' + ({ all: '전체', run: '처리중', wait: '블락·대기', done: '완료' })[workView(state)],
+          { action: 'view' }, 'warning'),
         ...(section === 'work' ? [control('obs-focus', 'f', 'Focus', { action: 'focus' }, 'autoAccept'),
           control('obs-focus-add', 'a', '+Focus', { action: 'focus-add' }, 'autoAccept'),
           control('obs-parent', 'b', 'Parent', { action: 'parent' }, 'suggestion'),
