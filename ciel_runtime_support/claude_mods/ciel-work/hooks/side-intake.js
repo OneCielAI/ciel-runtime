@@ -2243,7 +2243,7 @@ async function commitProposal($,actor,event,proposal,sentVia,usage) {
     }
     // The side's own escalation (ask_main): one notice to main, nothing to
     // acknowledge. A workflow handoff already carries it when one was made.
-    if (value.result?.ask_main === true && !value.result.duplicate && !value.result.main_handoff)
+    if (value.result?.ask_main === true && !value.result.duplicate)
       void noticeToMain($,actor.identity,event.receipt_id,'Ciel side asks main ('
         +(value.result.item_id ? value.result.item_id+', ' : '')+'event '+event.receipt_id.slice(0,12)+'): '
         +line(value.result.summary,300)+' — '+line(value.result.reply,600)).catch(() => {})

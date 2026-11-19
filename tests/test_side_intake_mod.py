@@ -169,8 +169,8 @@ class SideModTests(unittest.TestCase):
         self.assertEqual({'conversation_id':'34886995-4a66-4527-a618-814e9cb0a5bf','root_id':'40','target_message_id':'41'},
                          prompt['source_ref'])
         self.assertEqual('event_only',prompt['source_context'])
-        self.assertIn('The host does not read the source thread for you',prompt['instruction'])
-        self.assertIn('never the whole thread',prompt['instruction'])
+        self.assertIn('호스트는 원본 스레드를 대신 읽어 주지 않습니다',prompt['instruction'])
+        self.assertIn('스레드\n전체는 읽지 마십시오',prompt['instruction'])
 
     def test_walkie_source_reads_only_a_cut_events_target_and_fails_closed(self):
         row=self.run_harness('side_prefetch_harness.mjs')
@@ -183,7 +183,7 @@ class SideModTests(unittest.TestCase):
             with self.subTest(case=name):
                 self.assertEqual((1,[]),(row[name]['spawns'],row[name]['walkieReads']))
         self.assertEqual((1,'none_referenced',True),(row['null_none_referenced']['spawns'],row['null_none_referenced']['source'],row['null_none_referenced']['truncated']))
-        self.assertIn('do not assume or invent the missing content',row['null_none_referenced']['instruction'])
+        self.assertIn('빠진 내용을 가정하거나 지어내지 말고',row['null_none_referenced']['instruction'])
         self.assertIn('[잘림]',row['null_none_referenced']['instruction'])
         # A cut or textless event: exactly one read, of its target (after target-1).
         for name,after,target in (('truncated_ok','40','41'),('textless_ok','40','41'),('root_target_ok','39','40'),
@@ -1009,25 +1009,26 @@ class SideModTests(unittest.TestCase):
 
     def test_side_prompt_requires_answer_ack_queue_and_status_behaviors(self):
         source=(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js').read_text(encoding='utf8')
-        self.assertIn('status: report the current Work state directly. No request recap and no Work',source)
-        self.assertIn('info: gather only what is needed, organize it, and answer. No Work',source)
-        self.assertIn('request: understand what the person asks using this event plus the',source)
+        self.assertIn('status: 현재 Work 상태를 직접 보고합니다',source)
+        self.assertIn('info: 필요한 것만 모아 정리해서 답합니다',source)
+        self.assertIn('request: 이 이벤트와 대화 기록으로 사용자의 요청을 이해한 뒤',source)
         # 2026-11-17: the restatement is understanding, sent before the board commit.
-        self.assertIn('understanding: what you understood this message to ask or say, in your own',source)
-        self.assertIn('never start with "ACK"',source)
+        self.assertIn('understanding: 이 메시지가 무엇을 묻거나 말한다고 이해했는지를',source)
+        self.assertIn('"ACK"로 시작하지 말고',source)
         # ciel-walkie 2026-11-10: Celly 121710 and Daniel 121677 were both
         # replaced by a stale Grant 121686 decision copied from main context.
-        self.assertIn("The decision MUST describe this event's target_message_id", source)
-        self.assertIn('never substitute a stale prior event', source)
-        self.assertIn('verify every person, message id, approval, result and', source)
+        # 2026-11-18: the instruction is written in Korean; the same rules, same order.
+        self.assertIn('decision은 반드시 이 이벤트의 target_message_id', source)
+        self.assertIn('오래된 이전 이벤트를 대신 쓰지 마십시오', source)
+        self.assertIn('사람, 메시지 id, 승인, 결과, 요청된 결과가', source)
         # Owned run 2026-11-09: the recap dropped "mobile browsers", and a new
         # payment outage was merged into the active payment refactoring item.
-        self.assertIn('understanding carries every concrete requirement,\n  constraint, target, environment and deadline',source)
-        self.assertIn("Update an existing item only when the event is\n  about that item's own requested outcome",source)
-        self.assertIn('A different problem, failure, incident or\n  feature is a new item even in the same area or system',source)
-        self.assertIn('an urgent new problem is create with priority P1',source)
-        self.assertIn('queue_position is 1-based among waiting',source)
-        self.assertIn('Never claim a queue position in reply; the host appends the committed one',source)
+        self.assertIn('understanding에는 사용자가 준 구체적 요구, 제약, 대상, 환경, 기한을 모두',source)
+        self.assertIn('기존 항목은 이벤트가 그 항목이 요청한 결과에 관한\n  것일 때만 update합니다',source)
+        self.assertIn('다른 문제, 실패, 사고, 기능은 같은 영역이나 시스템이라도 새 항목입니다',source)
+        self.assertIn('급한 새 문제는 priority P1로 create합니다',source)
+        self.assertIn('queue_position은 활성 목표 뒤 대기 목표들',source)
+        self.assertIn('reply에서 큐 자리를 주장하지 마십시오. 호스트가 기록된 자리를 덧붙입니다',source)
         self.assertNotIn('act when the event requests it',source)
 
     def test_every_spawned_fork_prompt_states_prompt_only_prohibitions(self):
@@ -1035,18 +1036,18 @@ class SideModTests(unittest.TestCase):
         for spawn in row['spawns']:
             instruction=spawn['prompt']['instruction']
             # Prompt-only restriction (no tool fence), stated in every event.
-            self.assertIn("inherits main's model, context, tools and permission mode",instruction)
-            self.assertIn('not a technical tool fence',instruction)
-            for rule in ('- write, edit or create code, config or any file;',
-                         '- run Bash, PowerShell or any shell command;',
-                         '- build, test, deploy, install, commit or push;',
-                         '- restart, configure or control the runtime, session, model or settings;',
-                         '- mutate Work (work_* create/update/execute/report/handoff/resolve or similar);',
-                         '- call Agent, start, resume or message any agent/subagent/fork;',
-                         '- ACK, reply, SendMessage or send anything to the source or any channel.'):
+            self.assertIn('메인의 모델, 컨텍스트, 도구, 권한 모드를 그대로 물려받습니다',instruction)
+            self.assertIn('도구를 막는 장치가 아니라',instruction)
+            for rule in ('- 코드, 설정, 그 밖의 파일을 쓰거나 고치거나 만들기',
+                         '- Bash, PowerShell 등 셸 명령 실행',
+                         '- 빌드, 테스트, 배포, 설치, 커밋, 푸시',
+                         '- 런타임, 세션, 모델, 설정을 재시작하거나 바꾸거나 제어하기',
+                         '- Work를 직접 변경하기 (work_* create/update/execute/report/handoff/resolve 등)',
+                         '- Agent 호출, 에이전트·서브에이전트·포크를 시작하거나 재개하거나 메시지 보내기',
+                         '- 원본이나 다른 채널에 ACK, 답장, SendMessage 등 무엇이든 보내기'):
                 self.assertIn(rule,instruction)
-            self.assertIn('The host alone commits one decision and sends every\nmessage to the source.',instruction)
-            self.assertIn('Your final answer MUST be exactly the decision JSON',instruction)
+            self.assertIn('판단 한 건을 기록하고 원본에 메시지를 보내는 일은 호스트만\n합니다.',instruction)
+            self.assertIn('최종 답은 아래에 설명한 decision JSON 그대로여야 합니다',instruction)
             self.assertIn('{"understanding":"...","decision":{...},"expected_version":N}.',instruction)
             self.assertIn('target_message_id',instruction)
 

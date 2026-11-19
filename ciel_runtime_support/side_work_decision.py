@@ -499,16 +499,16 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             # Main hears of a workflow goal through its to-do queue (proposal
             # due), not a P1 scheduling handoff (spec 6).
             needs_handoff = False
-        asked = workflow is not None and decision.get('ask_main') is True and not main_reply
-        if asked:
-            needs_handoff = True
+        # ask_main reaches main as one host notice (side-intake.js), with or
+        # without the workflow: a handoff was never presented once Stop stopped
+        # messaging main (real E2E on 96f5b3f).
         if released and not gates and action == 'update' and time_limit is None:
             # The waiter is woken with the release itself (no acknowledgment);
             # a time limit still needs main's immediate durable notice.
             needs_handoff = False
         if needs_handoff:
             stamp = time.time()
-            kind = ('question' if asked and time_limit is None else
+            kind = (
                     'time_limit' if time_limit is not None else 'advise' if action == 'advise'
                     else 'resume' if gates else 'p1' if priority == 'P1' else 'priority')
             handoffs = doc.setdefault('side_handoffs', {})
