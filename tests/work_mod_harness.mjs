@@ -3042,7 +3042,7 @@ function keyClock() {
 async function keyInstance(tag) {
   const dir = new URL('./key-instance-' + process.pid + '-' + tag + '/', import.meta.url)
   mkdirSync(dir, { recursive:true })
-  for (const file of ['register.js', 'side-intake.js']) copyFileSync(new URL('./' + file, import.meta.url), new URL(file, dir))
+  for (const file of ['register.js', 'side-intake.js', 'texts.generated.js']) copyFileSync(new URL('./' + file, import.meta.url), new URL(file, dir))
   const side = await import(new URL('side-intake.js', dir).href)
   const reg = await import(new URL('register.js', dir).href)
   const own = {}, ownSide = {}

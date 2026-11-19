@@ -27,6 +27,7 @@ class SideRealBackendTests(unittest.TestCase):
             root = Path(scratch)
             (root / 'package.json').write_text('{"type":"module"}', encoding='utf-8')
             shutil.copyfile(SOURCE / 'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js', root / 'side-intake.js')
+            shutil.copyfile(SOURCE / 'ciel_runtime_support/claude_mods/ciel-work/hooks/texts.generated.js', root / 'texts.generated.js')
             for name in ('side_real_backend_harness.mjs', 'side_real_backend_server.py'):
                 shutil.copyfile(HERE / name, root / name)
             (root / 'config').mkdir()

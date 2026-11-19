@@ -119,6 +119,18 @@ DEFAULTS: dict[str, str] = {
 }
 
 
+# Every other Work text (work_texts.TEXTS) is managed the same way: listed,
+# edited and reset through this module, applied without a restart.
+from .work_texts import MOD_PREFIX, TEXTS as _WORK_TEXTS  # noqa: E402
+DEFAULTS.update(_WORK_TEXTS)
+
+
+def mod_overrides(state_dir: Path) -> dict[str, Any]:
+    """Stored overrides of the mod's texts and their fingerprint (work_side_texts)."""
+    stored = {name: text for name, text in _read(state_dir)["prompts"].items() if name.startswith(MOD_PREFIX)}
+    return {"texts": stored, "fingerprint": fingerprint(json.dumps(stored, sort_keys=True, ensure_ascii=False))}
+
+
 def _path(state_dir: Path) -> Path:
     return Path(state_dir) / FILE
 
@@ -206,5 +218,5 @@ def reset_prompt(state_dir: Path, name: str, expected: Any, *, source: str = "re
     return _write(state_dir, name, None, expected, source)
 
 
-__all__ = ["DEFAULTS", "FILE", "PromptConflict", "effective", "fingerprint", "listing", "render", "reset_prompt",
-           "set_prompt"]
+__all__ = ["DEFAULTS", "FILE", "PromptConflict", "effective", "fingerprint", "listing", "mod_overrides", "render",
+           "reset_prompt", "set_prompt"]

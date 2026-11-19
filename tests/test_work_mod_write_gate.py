@@ -41,8 +41,10 @@ class WorkModWriteGateTests(unittest.TestCase):
             " store.set(a.key.plugin + '/' + a.key.key, fn(cur)) }\n", encoding="utf-8")
         shutil.copyfile(w.CLAUDE_MOD_DIR / "hooks" / "register.js", cls.root / "register.js")
         shutil.copyfile(w.CLAUDE_MOD_DIR / "hooks" / "side-intake.js", cls.root / "side-intake.js")
+        shutil.copyfile(w.CLAUDE_MOD_DIR / "hooks" / "texts.generated.js", cls.root / "texts.generated.js")
         shutil.copyfile(HARNESS, cls.root / HARNESS.name)
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_slow_board_read_still_continues_the_turn(self):
         row = self.run_scenario('slow-board-read-still-continues-the-turn')
         self.assertFalse(row['unreadable'], row)
@@ -121,6 +123,7 @@ class WorkModWriteGateTests(unittest.TestCase):
                 holder["calls"] = [call for call in holder["calls"] if keep(call)]
         return result
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_high_priority_advice_prompts_main_at_safe_stop_even_without_auto_continue(self):
         result=self.run_scenario('side-advice-stop')
         self.assertIn('work_side_handoff',result['block'])
@@ -144,6 +147,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         # The queued wake prompt delivers it next; blocking here duplicated it.
         self.assertNotIn('block', self.run_scenario('side-advice-stop-queued-wake'))
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_stop_presents_only_its_own_started_election_and_records_on_the_next_step(self):
         # Owned probe stopblock-838268bd/d9595ffa (Claude Code 2.1.321): the Stop
         # block continues the same main turn; its next turn.step precedes the
@@ -162,6 +166,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         # (next main step) carries it: read is recorded (append-views-54579a2e).
         self.assertEqual(['prepare', 'start', 'appended', 'read'], result['calls'])
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_stop_proof_is_bound_to_the_blocked_turn_and_a_later_step(self):
         # classic.Stop has no turnId: the entry is bound to the last main turnId
         # and step index. Another turn's step, or a step that is not later,
@@ -173,6 +178,7 @@ class WorkModWriteGateTests(unittest.TestCase):
                 self.assertEqual(0, result['early'])
                 self.assertEqual({'state': 'appended', 'records': 0}, result['afterStep'])
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_turn_end_before_another_step_keeps_definite_append(self):
         result = self.run_scenario('side-wake-stop-election', 'interrupt')
         self.assertIn('block', result['first'])
@@ -183,6 +189,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         # main step (built after that Stop) proves the read.
         self.assertEqual(['prepare', 'start', 'appended', 'prompt_prepare', 'read'], result['calls'])
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_uncertain_wake_and_ack_retry_are_each_noticed_once(self):
         result = self.run_scenario('side-wake-uncertain-and-ack-retry-once')
         # A Stop-block continuation (stop_hook_active) never adds either notice.
@@ -200,6 +207,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual({'scenario': 'side-wake-stop-legacy-router', 'block': False, 'wakeCalls': [],
                           'submitted': 0}, self.run_scenario('side-wake-stop-legacy-router'))
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_stop_and_pump_in_one_process_present_a_wake_exactly_once(self):
         # Stop runs while main is still working, so a pump that wins appends
         # into the running turn; Stop then shows its one-time reminder for the
@@ -221,6 +229,7 @@ class WorkModWriteGateTests(unittest.TestCase):
                 self.assertEqual(calls, result['calls'])
                 self.assertFalse(result['staleShown'])
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_lost_stop_start_is_never_stranded_or_called_uncertain(self):
         for variant, calls in (('uncommitted', ['prepare:stop', 'start:stop', 'prepare:append', 'start:stop', 'appended:']),
                                ('committed', ['prepare:stop', 'start:stop', 'appended:'])):
@@ -247,6 +256,7 @@ class WorkModWriteGateTests(unittest.TestCase):
     # Each of the defect tests fails on the reviewed draft (register.js 81949d1a,
     # side-intake.js 6da3de4c) and passes here.
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_lost_stop_start_answer_is_delivered_under_the_same_started_attempt(self):
         for variant in ('committed', 'uncommitted'):
             with self.subTest(variant=variant):
@@ -263,6 +273,7 @@ class WorkModWriteGateTests(unittest.TestCase):
                 self.assertEqual(1, len(result['records']))
                 self.assertEqual(['appended'], [row['state'] for row in result['records']])
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_superseded_stop_presents_nothing_itself_and_its_attempt_is_never_left_uncertain(self):
         # Defect A: turn.start(T2) while the Stop's start was in flight. The
         # stale Stop returns no block and proves nothing (no queued record).
@@ -296,6 +307,7 @@ class WorkModWriteGateTests(unittest.TestCase):
                     # A delivered wake offers no may-duplicate retry.
                     self.assertFalse(result['retryOffered'])
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_wake_in_the_last_request_of_a_turn_is_read_in_that_turn_once(self):
         # Item 7. Main is busy in the last request of a turn. The payload is
         # appended at once (no prompt, no wait for the turn's end); the Stop
@@ -313,6 +325,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         # host row, so its first carrying request records read with no prompt.
         self.assertEqual(['E1:prepare', 'E1:start', 'E1:appended', 'E1:read'], result['sideCalls'])
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_superseded_stop_election_is_delivered_once_by_the_pump_without_a_person(self):
         # Item 4. The Stop returned no block, so this module knows the started
         # attempt was never presented. The pump delivers that same attempt into
@@ -327,6 +340,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         # acknowledges, so the one-time reminder (no event data) is shown once.
         self.assertEqual((0, 1), (result['laterBlocks'], result['laterReminders']))
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_record_that_lands_late_never_calls_the_wake_uncertain(self):
         # Defect B: recordFaults=1 and recordFaults=2.
         result = self.run_scenario('adv-record-late-success')
@@ -341,6 +355,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(3, result['calls'].count('work_side_wake:appended'))
         self.assertEqual(1, result['calls'].count('work_side_wake:start:stop'))
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_stale_knowledge_of_another_attempt_never_hides_uncertainty(self):
         # Defect C: Stop's start lost a real CAS; another process started and died.
         result = self.run_scenario('adv-stale-unpresented')
@@ -351,6 +366,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         control = self.run_scenario('adv-control-uncertain-visible')
         self.assertEqual((True, True), (control['stopUncertainBlock'], control['paneRetryOffered']))
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_a_step_after_the_turn_ended_never_settles_a_stop_presentation(self):
         for reason in ('aborted', 'answer'):
             with self.subTest(reason=reason):
@@ -358,6 +374,7 @@ class WorkModWriteGateTests(unittest.TestCase):
                 self.assertFalse(result['presented'])
                 self.assertEqual(('appended/started', 0), (result['wake'], result['records']))
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_continuation_stop_gates_only_notices_and_elects_a_new_event_once(self):
         result = self.run_scenario('adv-stop-hook-active-loop')
         self.assertEqual((False, True, False, 'appended'),
@@ -372,6 +389,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual([1, 1], result['presented'])
         self.assertEqual(['appended', 'appended'], result['states'])
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_ack_conflict_gives_only_the_ack_notice(self):
         # Decision: needs_ack_retry means main called work_side_handoff, so it has
         # the event; the revision bump adds no fresh "uncertain" notice or retry.
@@ -443,6 +461,7 @@ class WorkModWriteGateTests(unittest.TestCase):
                 # No main turn ran in this scenario, so no row is read.
                 self.assertEqual(['E1:appended', 'L1:appended'], sorted(result['records']))
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_stop_gate_skips_only_reviews_whose_prompt_is_unresolved(self):
         result = self.run_scenario('prompt-keys', 'reviews')
         # Both issued, neither resolved: no duplicate review data, no hold.
@@ -478,6 +497,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual((True, False), (result['pendingBefore'], result['pendingAfter']))
         self.assertEqual(['queued', 'queued'], result['results'])
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_latent_prompt_never_blocks_other_keys_and_is_exposed_after_its_idle_window(self):
         result = self.run_scenario('prompt-key-latent')
         # Issue order between independent keys is not part of the contract.
@@ -521,6 +541,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(([1, 0], ['granted'], ['L1:appended'], 'appended'),
                          (current['rawSubmits'], current['prepares'], current['records'], current['wake']))
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_clear_reasserts_the_prompt_fence_and_a_reload_never_submits_again(self):
         # /clear resets $.state and raises classic.SessionStart in the same
         # module instance (measured: nonce-lifetime-probe-44e40778). The
@@ -548,6 +569,7 @@ class WorkModWriteGateTests(unittest.TestCase):
             self.assertEqual((False, 0), (control['reload']['hydrated'], control['reload']['rawSubmits']))
             self.assertTrue(control['reload']['view']['review'])
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_prompt_liveness_table_for_review_side_wake_and_retry(self):
         # Review, side and retry payloads are appended and recorded before any
         # prompt; each prompt is a wake that holds none. Prompt anomalies never
@@ -804,6 +826,7 @@ class WorkModWriteGateTests(unittest.TestCase):
                 else:
                     self.assertIn('parallel ledger unavailable', result['unrelated']['deny'])
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_time_limit_handoff_keeps_bounded_deadline_and_evidence(self):
         result = self.run_scenario('side-time-limit-handoff-bounded')
         text=result['context']
@@ -1028,11 +1051,13 @@ class WorkModWriteGateTests(unittest.TestCase):
     def test_disabled_work_mode_does_not_gate(self):
         self.assertEqual(self.run_scenario("disabled")["first"], "allow")
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_display_refresh_does_not_drop_runnable_queued_work_at_stop(self):
         result = self.run_scenario("stop-display-refresh")
         self.assertTrue(result["block"], result)
         self.assertIn("call work_select with root_id n2", result["text"])
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_approval_wait_can_discover_without_repeating_or_approving(self):
         result = self.run_scenario("stop-discovery-approval")
         self.assertIn("Work 미결 아이템 탐색", result["first"])
@@ -1067,17 +1092,20 @@ class WorkModWriteGateTests(unittest.TestCase):
         # 5-minute floor and is the "look for new work later" path).
         self.assertNotIn("re-verify before reporting no work", result["second"])
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_blocked_wait_includes_pickup_guidance(self):
         result = self.run_scenario("stop-discovery-blocked")
         self.assertIn("와키 미결 아이템", result["text"])
         self.assertIn("기존 블록 유지", result["text"])
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_focused_item_without_a_runnable_step_continues_other_work(self):
         result = self.run_scenario("stop-focus-unrunnable")
         self.assertIn("The next item is n5", result["text"])
         self.assertIn("call work_select with root_id n3", result["text"])
         self.assertNotIn("stays held", result["text"])
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_focus_no_longer_suppresses_discovery_when_nothing_runs(self):
         result = self.run_scenario("stop-discovery-focus")
         self.assertIn("Work 미결 아이템 탐색", result["text"])
@@ -1220,6 +1248,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertNotEqual({"text": "leaked-to-main"}, result["submitted"])
         self.assertNotIn("drop", result["typed"])
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_side_answer_is_reviewed_once_by_main_with_host_identity(self):
         result = self.run_scenario("side-review-stop-once")
         self.assertIn("Do not answer, ACK or repeat them", result["first"]["block"])
@@ -1228,6 +1257,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual("host-token", result["sent"][0]["_host"]["token"])
         self.assertEqual("S1", result["sent"][0]["session_id"].split(":")[-1])
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_not_applicable_side_review_never_asks_main_to_send(self):
         result = self.run_scenario("side-review-not-applicable")
         wording = ('Side actor handled these external events, which referenced no source message, so no reply exists '
@@ -1246,6 +1276,7 @@ class WorkModWriteGateTests(unittest.TestCase):
             # The submitted row keeps its own bucket.
             self.assertIn("the reply below was sent", text)
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_side_review_prompt_follows_real_reply_delivery(self):
         # KOBE 2026-11-09: a committed side answer was never sent
         # (route_unavailable) while main was told it had been.
@@ -1341,6 +1372,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual({"state": "running", "slot": True}, result["l1"])
         self.assertEqual([], result["notices"])
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_pause_after_no_progress_still_instructs_discovery(self):
         result = self.run_scenario("stop-pause-discovery")
         self.assertIn("auto continue paused", result["third"])
@@ -1433,6 +1465,7 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(5, result["boardVersion"], result)
         self.assertEqual(["LA"], result["rolled"], result)
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_stop_rereads_and_holds_pending_review_until_explicit_decision(self):
         result = self.run_scenario("parallel-review-stop-gate")
         self.assertIn("work_parallel_item_review", result["first"]["block"])
@@ -1628,6 +1661,7 @@ class WorkModWriteGateTests(unittest.TestCase):
     def test_stop_after_session_end_does_not_continue(self):
         self.assertFalse(self.run_scenario("stop-session-end")["block"])
 
+    @unittest.skip('retired 2026-11-18 (user): Stop never injects a message into main; the side checks at turn end instead')
     def test_stop_continuation_still_yields_to_a_new_turn(self):
         self.assertFalse(self.run_scenario("stop-superseded")["block"])
         self.assertTrue(self.run_scenario("stop-continues")["block"])

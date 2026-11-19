@@ -17,6 +17,7 @@ class SideModTests(unittest.TestCase):
             (path/'package.json').write_text('{"type":"module"}')
             shutil.copyfile(ROOT/'tests'/name,path/'test.mjs')
             shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
+            shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/texts.generated.js',path/'texts.generated.js')
             done=subprocess.run(['node',str(path/'test.mjs'),*args],capture_output=True,text=True,encoding='utf8',
                                 check=True,timeout=60)
         return json.loads(done.stdout)
@@ -222,6 +223,7 @@ class SideModTests(unittest.TestCase):
             shutil.copyfile(ROOT/'tests/side_persisted_harness.mjs',path/'test.mjs')
             shutil.copyfile(ROOT/'tests/side_persisted_stub_fixture.json',path/'persisted-stub-fixture.json')
             shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
+            shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/texts.generated.js',path/'texts.generated.js')
             done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',check=True,timeout=60)
         return json.loads(done.stdout)
 
@@ -271,6 +273,7 @@ class SideModTests(unittest.TestCase):
             shutil.copyfile(ROOT/'tests/side_persisted_unicode_harness.mjs',path/'test.mjs')
             shutil.copyfile(ROOT/'tests/side_persisted_stub_unicode_fixture.json',path/'persisted-stub-unicode-fixture.json')
             shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
+            shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/texts.generated.js',path/'texts.generated.js')
             done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',check=True,timeout=60)
         row=json.loads(done.stdout)
         meta=row['meta']
@@ -290,6 +293,7 @@ class SideModTests(unittest.TestCase):
             (path/'package.json').write_text('{"type":"module"}')
             shutil.copyfile(ROOT/'tests/side_time_limit_harness.mjs',path/'test.mjs')
             shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
+            shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/texts.generated.js',path/'texts.generated.js')
             done=subprocess.run(['node',str(path/'test.mjs'),mode],capture_output=True,text=True,encoding='utf8',
                                 check=True,timeout=60)
         return json.loads(done.stdout)
@@ -535,6 +539,7 @@ class SideModTests(unittest.TestCase):
             (path/'package.json').write_text('{"type":"module"}')
             shutil.copyfile(ROOT/'tests/side_secret_walk_harness.mjs',path/'test.mjs')
             shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
+            shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/texts.generated.js',path/'texts.generated.js')
             done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',
                                 check=True,timeout=60)
         row=json.loads(done.stdout)
@@ -566,6 +571,7 @@ class SideModTests(unittest.TestCase):
             (path/'package.json').write_text('{"type":"module"}')
             shutil.copyfile(ROOT/'tests/side_wake_harness.mjs',path/'test.mjs')
             shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
+            shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/texts.generated.js',path/'texts.generated.js')
             done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',
                                 check=True,timeout=60)
         row=json.loads(done.stdout)
@@ -600,6 +606,7 @@ class SideModTests(unittest.TestCase):
             (path/'package.json').write_text('{"type":"module"}')
             shutil.copyfile(ROOT/'tests/prompt_registry_harness.mjs',path/'test.mjs')
             shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
+            shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/texts.generated.js',path/'texts.generated.js')
             done=subprocess.run(['node',str(path/'test.mjs'),*args],capture_output=True,text=True,encoding='utf8',
                                 check=True,timeout=60)
         return json.loads(done.stdout)
@@ -759,6 +766,7 @@ class SideModTests(unittest.TestCase):
             (path/'package.json').write_text('{"type":"module"}')
             shutil.copyfile(ROOT/'tests/side_delivery_harness.mjs',path/'test.mjs')
             shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
+            shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/texts.generated.js',path/'texts.generated.js')
             done=subprocess.run(['node',str(path/'test.mjs'),mode],capture_output=True,text=True,encoding='utf8',
                                 check=True,timeout=60)
         return json.loads(done.stdout)
@@ -918,6 +926,7 @@ class SideModTests(unittest.TestCase):
             (path/'package.json').write_text('{"type":"module"}')
             shutil.copyfile(ROOT/'tests/side_urgency_harness.mjs',path/'test.mjs')
             shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
+            shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/texts.generated.js',path/'texts.generated.js')
             done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',check=True)
         row=json.loads(done.stdout)
         # Two ordinary slots full: one reserved claim for P1 only, then none
@@ -940,6 +949,7 @@ class SideModTests(unittest.TestCase):
             (path/'package.json').write_text('{"type":"module"}')
             shutil.copyfile(ROOT/'tests/side_p0_harness.mjs',path/'test.mjs')
             shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
+            shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/texts.generated.js',path/'texts.generated.js')
             done=subprocess.run(['node',str(path/'test.mjs'),activation],capture_output=True,text=True,encoding='utf8',check=True)
         return json.loads(done.stdout)
 
@@ -964,6 +974,7 @@ class SideModTests(unittest.TestCase):
             (path/'package.json').write_text('{"type":"module"}')
             shutil.copyfile(ROOT/'tests/side_intake_paging_harness.mjs',path/'test.mjs')
             shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
+            shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/texts.generated.js',path/'texts.generated.js')
             done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',check=True)
         row=json.loads(done.stdout)
         self.assertEqual(333,row['nodes'])
@@ -1000,6 +1011,7 @@ class SideModTests(unittest.TestCase):
             (path/'package.json').write_text('{"type":"module"}')
             shutil.copyfile(ROOT/'tests/side_cleanup_harness.mjs',path/'test.mjs')
             shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js',path/'side-intake.js')
+            shutil.copyfile(ROOT/'ciel_runtime_support/claude_mods/ciel-work/hooks/texts.generated.js',path/'texts.generated.js')
             done=subprocess.run(['node',str(path/'test.mjs')],capture_output=True,text=True,encoding='utf8',check=True)
         self.assertEqual([
             {'tool':'TaskStop','task_id':'failed-side'},
