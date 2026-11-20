@@ -4178,14 +4178,17 @@ def run(name, args, board_store, identity, config, save_config, log=None):
             outcome = _observe_coordination_row(store, identity, leases[row["lease_id"]], row)
             if outcome == "observed_terminal":
                 observed_terminal.append(row["lease_id"])
+                continue
+            if outcome:
+                skipped.append({"lease_id": row["lease_id"], "reason": outcome})
+            # A refused native update (KOBE n878: "idle" after a recorded
+            # "failed" is immutable) does not void the listed idle row: the
+            # publication checks the lease, run, agent and receipt itself.
+            outcome = _publish_native_idle_review(store, identity, row)
+            if outcome == "published":
+                published.append(row["lease_id"])
             elif outcome:
                 skipped.append({"lease_id": row["lease_id"], "reason": outcome})
-            else:
-                outcome = _publish_native_idle_review(store, identity, row)
-                if outcome == "published":
-                    published.append(row["lease_id"])
-                elif outcome:
-                    skipped.append({"lease_id": row["lease_id"], "reason": outcome})
         return json.dumps({"evidence_version": state["version"], "changed": changed,
                            "skipped": skipped[:MAX_NATIVE_SKIPPED],
                            "observed_terminal": observed_terminal[:MAX_NATIVE_SKIPPED],

@@ -3413,9 +3413,13 @@ async function parallelObserveNative($) {
     const result = await parallelCall($, 'work_parallel_event', { event: 'native_observation', rows, complete: true,
       expected_evidence_version: Number(state?.forks?.evidence_version ?? 0) }, await hostProcess($))
     if (lifecycle !== starts || await sessionId($) !== identity) return null
+    // A submitted fork absent from this complete list is observed terminal now,
+    // not at the next turn end or restart (Celly n1070).
+    let absentObserved = 0
+    try { absentObserved = await parallelRestartSubmitted($, state, agents) } catch { /* Retried at the next observation. */ }
     // A listed idle row of a submitted fork published its review (Andy n2505):
     // wake main now, not at its next turn end.
-    if (Array.isArray(result?.reviews_published) && result.reviews_published.length) {
+    if (absentObserved || (Array.isArray(result?.reviews_published) && result.reviews_published.length)) {
       try { await projectParallelReviews($, await hostStatus($)) } catch { /* The next event projects it. */ }
     }
     const confirmed = rows.filter(r => r.status === 'pending' || r.status === 'running').length
@@ -4373,7 +4377,11 @@ async function parallelRestartSubmitted($, state, rows) {
     if (lease.state !== 'submitted' || lease.slot || !lease.host_id) continue
     // Path 3: another live host's fork is never observed terminal from here.
     if (!restartableLeaseProcess(lease)) continue
-    if (processNativeAgents.has(lease.host_id) || rows.some(a => a.id === lease.host_id)) continue
+    // A fork still listed is observed by its own row. One this process spawned
+    // that is absent from its complete list is gone as surely as an earlier
+    // process's (Celly n1070 2026-11-20: receipt, then absent with no idle row;
+    // its review waited for a restart).
+    if (rows.some(a => a.id === lease.host_id)) continue
     // Only an exact durable completion receipt of this generation qualifies;
     // an absent fork without one is never observed terminal here.
     const run = (state?.coordination?.runs || []).find(row => row.lease_id === lease.id)

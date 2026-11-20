@@ -20,6 +20,7 @@ from pathlib import Path
 from .channel_message_repository import exclusive_file_lock
 from .work_parallel import (WorkParallelConflict, WorkParallelError, WorkParallelStateUnavailable, digest,
                             integer, number, require, text, unique_object)
+from .work_parallel_primitives import replace_with_retry
 
 MAX_BYTES = 2_097_152
 MAX_REVIEWS = 2_000
@@ -379,7 +380,7 @@ class WorkParallelFinalizationStore:
                         handle.write(raw)
                         handle.flush()
                         os.fsync(handle.fileno())
-                    os.replace(tmp, self.path)
+                    replace_with_retry(tmp, self.path)
                 finally:
                     tmp.unlink(missing_ok=True)
             return copy.deepcopy(state), copy.deepcopy(result)

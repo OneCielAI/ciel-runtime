@@ -7,6 +7,28 @@ can use them while ``work_parallel`` reads that sidecar, without an import cycle
 from __future__ import annotations
 
 import math
+import os
+import time
+
+REPLACE_ATTEMPTS = 20
+REPLACE_WAIT_SECONDS = .002
+
+
+def replace_with_retry(tmp, path):
+    """os.replace, retried briefly while Windows refuses it (WinError 5).
+
+    Any open handle on the target refuses a replace for as long as it is open
+    (measured 2026-11-20). The ledger has retried this since 8eee6e8; a store
+    that did not raised it to the router (Andy, stranded store, 11:38:32Z).
+    """
+    for attempt in range(REPLACE_ATTEMPTS):
+        try:
+            os.replace(tmp, path)
+            return
+        except PermissionError:
+            if attempt == REPLACE_ATTEMPTS - 1:
+                raise
+            time.sleep(REPLACE_WAIT_SECONDS)
 
 
 class WorkParallelError(ValueError):

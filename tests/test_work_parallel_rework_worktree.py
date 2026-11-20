@@ -1199,6 +1199,27 @@ class BrokenRetainedWorktreeTests(ReworkFixture):
         recovery, _ = self.recover_stranded(replacement)
         self.assert_beta_reads_every_store(recovery)
 
+    def test_a_refused_stranded_replace_is_retried_like_the_ledger(self):
+        # Andy 2026-11-20 11:38:32Z: router_post_uncaught PermissionError
+        # [WinError 5] from os.replace of work-parallel-stranded-v1.json while
+        # _stranded_roll_forward recorded stage_failed. The ledger retries a
+        # refused replace; the stranded store raised it to the router.
+        import os
+        from unittest.mock import patch
+        first, replacement, token = self.strand(delete_worktree, "owned path unavailable; retained")
+        self.assertEqual("submitted", self.report(replacement, token, "c" * 64, "done")["state"])
+        real, refused = os.replace, []
+
+        def replace(src, dst, *args, **kwargs):
+            if str(dst).endswith("work-parallel-stranded-v1.json") and not refused:
+                refused.append(dst)
+                raise PermissionError(13, "Access is denied", str(dst))
+            return real(src, dst, *args, **kwargs)
+        with patch("os.replace", side_effect=replace):
+            self.idle(replacement)
+        self.assertEqual(1, len(refused))
+        self.assertEqual("pending", self.stranded_rows()[replacement]["state"])
+
     def test_switched_branch_strands_the_replacement_before_review(self):
         message = "Git ownership/branch changed; retained"
         self.assert_stranded_before_review(*self.strand(switch_branch, message), message)

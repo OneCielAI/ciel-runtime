@@ -1054,6 +1054,49 @@ const scenarios = {
     return { ticked: Boolean(tick), observations, prepared, appended,
       submitted: (state.submitted || []).map(row => JSON.stringify(row)) }
   },
+  // Celly n1070 (2026-11-20): this process listed its fork running, the fork
+  // committed its completion receipt and then left $.agent.list without an idle
+  // row. Main's approve was refused (no idle proof) until a later process
+  // restarted. The next native observation now observes it terminal at once.
+  async 'own-fork-absent-after-receipt'() {
+    const leases = {
+      L1: { id:'L1', item_id:'n1', priority:'P1', role:'worker', state:'running', slot:true,
+        host_id:'fork-a', agent_name:'work-a', owner_process:'own' } }
+    let receipt = false
+    const runs = () => [{ lease_id:'L1', generation:3, agent_id:'fork-a',
+      exit: receipt ? { kind:'completion', digest:'d'.repeat(64) } : null }]
+    const events = [], timers = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:20, active_device:1,
+        policy:{ enabled:true, paused:false, priority_limits:{ P1:5, P2:3, P3:1, P4:1, P5:1 } }, leases,
+        coordination:{ runs:runs(), receipts:[] },
+        forks:{ schema:'native-fork-evidence/1', available:true, evidence_version:7 } })
+      if (tool === 'work_parallel_event') {
+        events.push({ event:args.event, lease_id:args.lease_id, generation:args.generation,
+          receipt_digest:args.receipt_digest, absent:args._host?.absent_agent_id,
+          complete:args._host?.absent_from_complete_list })
+        if (args.event === 'native_observation') return text({ evidence_version:8, changed:[], skipped:[],
+          observed_terminal:[], reviews_published:[] })
+        if (args.event === 'reserve_next') return { isError:true, ...text('no eligible candidate') }
+        return text({})
+      }
+      return text(snapshot())
+    })
+    $.clock.after = (delay, callback) => { timers.push({ delay, callback }); return { cancel() {} } }
+    state.agents = [{ id:'fork-a', name:'work-a', type:'fork', status:'running', spawnedBy:'ciel-work' }]
+    await handlers['session.start']($, { isInteractive:false }, next(undefined))
+    // The fork reports, then leaves the native list without an idle row.
+    leases.L1 = { ...leases.L1, state:'submitted', slot:false }
+    receipt = true
+    state.agents = []
+    const before = events.length
+    const tick = timers.filter(t => t.delay === 15000).pop()
+    if (tick) await tick.callback()
+    for (let i = 0; i < 20; i++) await new Promise(go => setTimeout(go, 5))
+    return { ticked:Boolean(tick),
+      restart:events.slice(before).filter(e => e.event === 'restart_submitted_terminal') }
+  },
   // Direct spawn: work_parallel_run itself starts the fork; the model never
   // copies an Agent name. A denied spawn releases the unbound reservation and
   // keeps the Work item queued.
