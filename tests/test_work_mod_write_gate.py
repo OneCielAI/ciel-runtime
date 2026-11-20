@@ -698,6 +698,12 @@ class WorkModWriteGateTests(unittest.TestCase):
         result.pop('scenario', None)
         self.assertEqual({'wakes': 0, 'immediate': 0, 'afterWaiting': 1}, result)
 
+    def test_a_pane_snapshot_older_than_the_review_queue_is_not_reminded(self):
+        # Andy 2026-11-20: 20 finalized results kept being named "awaiting main
+        # review" because the pane's snapshot is read only when the pane opens.
+        result = self.run_scenario('review-reminder-ignores-a-stale-pane-snapshot')
+        self.assertEqual(0, result['afterWaiting'], result)
+
     def test_rows_stored_during_a_main_hook_are_fenced_when_it_returns_in_the_probe_order(self):
         # Owned probe append-views-54579a2e (Claude Code 2.1.323): S, stored
         # inside step 0's dispatch, was absent from request 1 and present in

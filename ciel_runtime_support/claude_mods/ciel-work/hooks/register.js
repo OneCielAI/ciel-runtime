@@ -2254,7 +2254,13 @@ function remindPendingReviews($) {
   // first list was empty and main sat idle with no reminder).
   const byId = new Map()
   for (const row of pendingParallelReviews) if (row?.lease_id) byId.set(row.lease_id, row)
-  for (const row of parallelReviews(observatoryParallel).filter(parallelReviewPending)) {
+  // The pane snapshot is read only when the pane opens. Once the projection
+  // holds a newer review queue, the pane's rows may already be decided (Andy
+  // 2026-11-20: 20 finalized results were reminded for hours).
+  const paneVersion = parallelReviewQueue(observatoryParallel).version
+  const paneStale = Number.isInteger(paneVersion) && Number.isInteger(pendingParallelReviewVersion)
+    && paneVersion < pendingParallelReviewVersion
+  for (const row of paneStale ? [] : parallelReviews(observatoryParallel).filter(parallelReviewPending)) {
     const id = parallelReviewId(row)
     if (id && !byId.has(id)) byId.set(id, { lease_id: id, item_id: row.item_id })
   }

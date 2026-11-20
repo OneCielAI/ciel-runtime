@@ -82,6 +82,38 @@ Celly's state files were copied read-only at 02:28Z. Its router log was tailed.
 - Celly: set through its router (`POST /ca/work/api/v1/commands/settings-update`) and read back as `fresh`.
 - Andy and local: the workspace files were backed up and set to `fresh`.
 
+# Follow-up: stale pane rows in the review reminder (Andy)
+
+## Report
+
+A peer reported "포크 결과 20건이 메인의 검수를 기다립니다(n2154, n688, n702 …)" repeating, although all 20 were finalized (finalization version 1108) and review.version was 1126 with no pinned pending row.
+
+## Cause
+
+Confirmed in source:
+
+- `remindPendingReviews` merges the projection rows with `observatoryParallel`, the pane's snapshot.
+- The pane snapshot is refreshed only when the pane opens or is refreshed (`observatoryRefresh`).
+- 8641941 added the pane rows (Celly: five results waited, the projection list was empty). From then on, a pane opened before main's decisions kept every decided row in the reminder.
+
+## Change
+
+The pane's rows are used only when the pane's review version is not older than the projection's. With equal versions the pane-only case still reminds.
+
+## Verification
+
+- New scenario `review-reminder-ignores-a-stale-pane-snapshot`: pane opened with L1 pending at review version 4, L1 then decided (version 9), 21 minutes, Stop. The reminder names L1 once on ad6eb74 and zero times after the change.
+- The pane-only and first-wake reminder tests still pass.
+
+# Observation, not fixed: n2471 lease stays running after an API block (Andy)
+
+- Fork ac0700a845c395a75 (P0 n2471) answered "API Error: This request was blocked by our safety systems" at 03:17:02Z.
+- The host's first exit-contract message reached it at 03:26:25Z and was blocked again at 03:26:56Z. Native status failed at 03:27:24Z.
+- At 03:35Z the lease was still `running` with `slot: true`. The coordination run is `terminal` with `exit: null`, and the P0 intent is `bound`.
+- The router logged main turn ends at 21:27 and 21:32 local. No second exit-contract message appears in the fork transcript.
+- Per the code, the exit contract salvages the lease only at a turn end that sees the fork terminal in `$.agent.list`. A fork absent from that list goes to `reconcile unknown`, which keeps the slot.
+- Whether that is what happened here is not confirmed. The mod's in-memory failure list was not read.
+
 # Open
 
 - n1856: a decided rework whose item was removed from the board has no closing path.
