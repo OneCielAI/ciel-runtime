@@ -45,7 +45,7 @@ class WorkMcpToolsTests(unittest.TestCase):
         result = self.call('work_node_update', id='n3', expected_version=doc['version'])
         self.assertTrue(result['error'])
         self.assertIn('NO CHANGE:', result['text'])
-        self.assertIn('waiting_on=""', result['text'])
+        self.assertIn("clear_wait=true", result["text"])
         self.assertEqual(doc, self.store.read())
 
     def test_unchanged_update_reports_real_version_and_guessed_next_is_named(self):
@@ -71,6 +71,34 @@ class WorkMcpToolsTests(unittest.TestCase):
         stale = self.call('work_node_update', id='n3', evidence='other', expected_version=version)
         self.assertIn('the plan changed', stale['text'])
 
+    def test_clear_wait_true_clears_a_wait_without_an_empty_string(self):
+        # Andy, Celly 2026-11-19: GPT-family models reasoned "send waiting_on
+        # empty" but every call arrived as id/expected_version only (Andy 134,
+        # Celly 645 empty updates); no GPT call in either transcript carried "".
+        self.plan()
+        self.call('work_execute')
+        self.call('work_node_update', id='n3', waiting_on='review')
+        self.assertIn('clear_wait=true', self.call('work_node_update', id='n3', evidence='x')['text'])
+        empty = self.call('work_node_update', id='n3', expected_version=self.store.read()['version'])
+        self.assertTrue(empty['error'])
+        self.assertIn('clear_wait=true', empty['text'])
+        version = self.store.read()['version']
+        cleared = self.call('work_node_update', id='n3', clear_wait=True, expected_version=version)
+        self.assertFalse(cleared['error'], cleared)
+        self.assertEqual('', next(n for n in self.store.read()['nodes'] if n['id'] == 'n3')['waiting_on'])
+        self.assertIn('waiting_on is empty on this node', cleared['text'])
+        # Legacy waiting_on="" still clears; clear_wait=false alone is no mutation.
+        self.call('work_node_update', id='n3', waiting_on='review again')
+        self.assertFalse(self.call('work_node_update', id='n3', waiting_on='')['error'])
+        self.assertTrue(self.call('work_node_update', id='n3', clear_wait=False)['error'])
+        conflict = self.call('work_node_update', id='n3', clear_wait=True, waiting_on='other')
+        self.assertTrue(conflict['error'])
+        self.assertIn('conflicts', conflict['text'])
+        self.assertTrue(self.call('work_node_update', id='n3', clear_wait='yes')['error'])
+        schema = next(t for t in m.work_tool_schemas() if t['name'] == 'work_node_update')['inputSchema']
+        self.assertEqual('boolean', schema['properties']['clear_wait']['type'])
+        self.assertIn({'required': ['clear_wait']}, schema['anyOf'])
+
     def test_update_evidence_explicitly_reports_wait_not_cleared(self):
         self.plan()
         self.call('work_execute')
@@ -78,7 +106,7 @@ class WorkMcpToolsTests(unittest.TestCase):
         response = self.call('work_node_update', id='n3', evidence='claimed resumed')
         self.assertIn('WAITING:', response['text'])
         self.assertIn('Evidence/notes do NOT clear a wait', response['text'])
-        self.assertIn('waiting_on=""', response['text'])
+        self.assertIn('clear_wait=true', response['text'])
         self.assertEqual('review', next(n for n in self.store.read()['nodes'] if n['id'] == 'n3')['waiting_on'])
         response = self.call('work_node_update', id='n3', waiting_on='')
         self.assertIn('waiting_on is empty on this node', response['text'])

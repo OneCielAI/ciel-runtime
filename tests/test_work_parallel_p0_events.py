@@ -107,6 +107,35 @@ class P0EventTests(unittest.TestCase):
                 if isinstance(row, dict) and row.get("lease_id") == reserved["lease_id"]]
         self.assertEqual([("P1", "P0")], [(row["priority"], row["effective_priority"]) for row in rows])
 
+    def test_a_terminal_lease_does_not_keep_its_old_p0_intent_open(self):
+        # Andy: orphaned n2471/n2452 kept a bound intent; reserve reused the
+        # old run and failed "assignment already exists with a different manifest".
+        first = self.reserve()
+        launch = {key: first[key] for key in ("intent_id", "lease_id", "dispatch_name")}
+        self.call("p0_launch_spawning", {"internal": True}, **launch)
+        self.call("bind", {"host_id": "agent", "agent_name": first["dispatch_name"]},
+                  lease_id=first["lease_id"])
+        self.store._change(lambda doc: doc["leases"][first["lease_id"]].update(
+            state="orphaned", slot=False, usage=0, report_hash=None, idle_proof="owner ended",
+            evidence="owner ended", terminal={"reason": "orphaned", "observed_at": 10.0, "proof": "owner ended"}),
+            self.store.read()["version"])
+        old_run = m.coordination(self.store).read()["runs"][first["lease_id"]]
+        second = self.reserve()
+        self.assertNotEqual(first["lease_id"], second["lease_id"])
+        side = p0_store(self.store).read()
+        self.assertEqual("terminal", side["intents"][first["intent_id"]]["state"])
+        self.assertEqual("reserved", side["intents"][second["intent_id"]]["state"])
+        self.assertEqual(old_run, m.coordination(self.store).read()["runs"][first["lease_id"]])
+
+    def test_replaying_a_prepared_assignment_preserves_its_workspace_and_run(self):
+        first = self.reserve()
+        before = m.coordination(self.store).read()["runs"][first["lease_id"]]
+        # A scope edit between reservation and spawn must not rewrite this run.
+        self.board.doc["nodes"][1]["note"] = "scope edited after reservation"
+        replay = self.call("reserve", {"fork": True}, item_id="item", priority="P1")
+        self.assertEqual(first["lease_id"], replay["lease_id"])
+        self.assertEqual(before, m.coordination(self.store).read()["runs"][first["lease_id"]])
+
     def test_explicit_deny_cancels_unknown_spawn_does_not(self):
         reserved = self.reserve()
         args = {key: reserved[key] for key in ("intent_id", "lease_id", "dispatch_name")}

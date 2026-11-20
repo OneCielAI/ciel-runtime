@@ -224,6 +224,26 @@ class GateCheckMcpTests(unittest.TestCase):
         doc, wait = self.store.transaction(lambda d: tree.add_node(d, goal, 'deploy', waiting_on=waiting_on))
         return goal, wait
 
+    def test_review_notice_uses_published_rows_not_all_submitted_items(self):
+        from unittest.mock import patch, Mock
+        self._waiting()
+        fake = Mock()
+        fake.read.return_value = {"leases": {
+            "ready": {"scope": self.identity, "item_id": "ready-item", "state": "submitted", "created_at": 1},
+            "unready": {"scope": self.identity, "item_id": "missing-review", "state": "submitted", "created_at": 2},
+        }}
+        reviews = Mock()
+        reviews.read.return_value = {"reviews": {
+            "ready": {"scope": self.identity, "item_id": "ready-item", "state": "pending", "decision": None},
+        }}
+        with patch("ciel_runtime_support.work_parallel_mcp.ledger", return_value=fake), \
+                patch("ciel_runtime_support.work_parallel_mcp.finalization", return_value=reviews):
+            queued = self.check()
+        row = SideIntakeInbox(self.root, self.identity)._load(queued['receipt_ids'][0])
+        self.assertIn("포크 결과 1건", row['text'])
+        self.assertIn("ready-item", row['text'])
+        self.assertNotIn("missing-review", row['text'])
+
     def test_conditions_gate_the_check(self):
         self.assertEqual('no_gates', self.check()['reason'])
         _, wait = self._waiting()

@@ -76,12 +76,16 @@ class Session:
         SideIntakeInbox(self.root, self.identity).receive('approval 7 granted', 'approval')
         self.claim = self.call('work_side_claim', {'owner': 'actor'})['claim']
         self.event = self.claim['receipt_id']
-        decision = {'action': 'update', 'item_id': self.gate, 'summary': 'approval received',
+        # A wait release is an update; an unreleased gate alone no longer asks
+        # main to act. Wake/read tests need a real explicit escalation.
+        decision = {'action': 'update' if release else 'advise', 'item_id': self.gate,
+                    'summary': 'approval received' if release else 'main decision required',
                     'reply': 'ok', 'note': 'approval 7 granted'}
         if release:
             decision['release_waits'] = [{'id': self.gate, 'waiting_on': 'approval 7'}]
         self.result = self.call('work_side_resolve', {'decision': decision, 'expected_version': self.version()},
                                 {'receipt_id': self.event, 'generation': self.claim['generation']})['result']
+        assert self.result['handoff'] == ('not_required' if release else 'requested'), self.result
 
     def call(self, name, args, extra=None, error=False):
         result = dispatch_work_tool(1, name, {**args, 'session_id': self.identity,

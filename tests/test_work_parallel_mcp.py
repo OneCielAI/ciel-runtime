@@ -346,7 +346,7 @@ class WorkParallelMCPTests(unittest.TestCase):
         self.assertEqual("submitted", result["state"])
         self.assertTrue(result["slot_released"])
 
-    def test_assigned_scope_change_invalidates_scoped_assignment(self):
+    def test_assigned_scope_change_keeps_the_result_for_main_review(self):
         store, board, config, run = self.env
         reserved = run("event", {"fork": True}, event="reserve", item_id="n3", priority="P1")
         run("event", {"host_id": "agent-1"}, event="bind", lease_id=reserved["lease_id"])
@@ -355,9 +355,12 @@ class WorkParallelMCPTests(unittest.TestCase):
         with patch.object(m, "ledger", return_value=store):
             class Board:
                 def read(_self): return board
-            with self.assertRaisesRegex(WorkParallelError, "approval scope changed"):
-                m.report({"lease_id": reserved["lease_id"], "worker_token": reserved["worker_token"],
-                          "event": "result", "artifact": "a" * 64, "evidence": "tested"}, Board(), config)
+            result = json.loads(m.report({"lease_id": reserved["lease_id"],
+                "worker_token": reserved["worker_token"], "event": "result",
+                "artifact": "a" * 64, "evidence": "tested"}, Board(), config))
+        self.assertEqual("submitted", result["state"])
+        self.assertTrue(result["slot_released"])
+        self.assertTrue(m._approval_changed(m.coordination(store).read(), board, reserved["lease_id"]))
 
     def test_reserve_next_skips_waiting_leaf_and_returns_next_runnable(self):
         store, board, config, run = self.env

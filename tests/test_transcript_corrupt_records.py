@@ -103,6 +103,87 @@ class NulRunTests(unittest.TestCase):
             self.assertIn("path=session.jsonl", skipped[0])
             self.assertFalse(any("max_record_bytes" in w for w in f.warnings()))
 
+    def test_failed_delivery_logs_each_skip_once_without_advancing_the_cursor(self):
+        first = b'{"first":1}\n'
+        second = b'{"second":2}\n'
+        prefix = b"\x00" * 16
+        inside = b"\x00" * 24
+        with tempfile.TemporaryDirectory() as td:
+            f = _Fixture(Path(td), prefix + first + inside + second)
+            f.service._post = lambda _settings, event: f.events.append(event) or False
+            for _ in range(3):
+                self.assertFalse(f.service.poll_once())
+                self.assertEqual([0], [c["offset"] for c in f.cursors()["destinations"].values()])
+            self.assertEqual(1, len({event["id"] for event in f.events}))
+            self.assertEqual([first + second] * 3, [event["data"]["content"].encode() for event in f.events])
+            self.assertEqual(2, len(f.warnings()), f.warnings())
+
+            f.service._post = lambda _settings, event: f.events.append(event) or True
+            self.assertTrue(f.service.poll_once())
+            self.assertEqual([f.path.stat().st_size], [c["offset"] for c in f.cursors()["destinations"].values()])
+            self.assertEqual(2, len(f.warnings()), f.warnings())
+            with f.path.open("ab") as stream:
+                stream.write(prefix + b'{"later":3}\n')
+            self.assertTrue(f.service.poll_once())
+            self.assertEqual(3, len(f.warnings()), f.warnings())
+            self.assertEqual('{"later":3}\n', f.events[-1]["data"]["content"])
+
+    def test_retry_logs_a_new_skip_appended_behind_the_same_delivery_cursor(self):
+        first = b"\x00" * 16 + b'{"first":1}\n'
+        with tempfile.TemporaryDirectory() as td:
+            f = _Fixture(Path(td), first)
+            f.service._post = lambda _settings, event: f.events.append(event) or False
+            for _ in range(2):
+                self.assertFalse(f.service.poll_once())
+            with f.path.open("ab") as stream:
+                stream.write(b"\x00" * 24 + b'{"second":2}\n')
+            for _ in range(2):
+                self.assertFalse(f.service.poll_once())
+            self.assertEqual([0], [c["offset"] for c in f.cursors()["destinations"].values()])
+            self.assertEqual(2, len(f.warnings()), f.warnings())
+            self.assertIn("offset=0 length=16 reason=nul_run", f.warnings()[0])
+            self.assertIn(f"offset={len(first)} length=24 reason=nul_run", f.warnings()[1])
+
+    def test_skip_warnings_are_separate_for_each_consumer_and_transcript(self):
+        body = b"\x00" * 16 + b'{"after":1}\n'
+        with tempfile.TemporaryDirectory() as td:
+            f = _Fixture(Path(td), body)
+            for _ in range(2):
+                f.service._read_complete_batch(f.path, 0, 1024, "transcript_delivery")
+                f.service._read_complete_batch(f.path, 0, 1024, "tool_call_events")
+            other = f.root / "other.jsonl"
+            other.write_bytes(body)
+            for _ in range(2):
+                f.service._read_complete_batch(other, 0, 1024, "transcript_delivery")
+            self.assertEqual(3, len(f.warnings()), f.warnings())
+            self.assertIn("consumer=transcript_delivery path=session.jsonl", f.warnings()[0])
+            self.assertIn("consumer=tool_call_events path=session.jsonl", f.warnings()[1])
+            self.assertIn("consumer=transcript_delivery path=other.jsonl", f.warnings()[2])
+
+    def test_a_changed_skip_length_or_reason_is_still_logged(self):
+        with tempfile.TemporaryDirectory() as td:
+            f = _Fixture(Path(td), b"\x00" * 16 + b'{"after":1}\n')
+            f.service._read_complete_batch(f.path, 0, 1024, "transcript_delivery")
+            f.path.write_bytes(b"\x00" * 24 + b'{"after":1}\n')
+            f.service._read_complete_batch(f.path, 0, 1024, "transcript_delivery")
+            f.path.write_bytes(b"x" * (RECORD_LIMIT * 3) + b"\n")
+            f.service._read_complete_batch(f.path, 0, 1024, "transcript_delivery")
+            self.assertEqual(3, len(f.warnings()), f.warnings())
+            self.assertIn("length=16 reason=nul_run", f.warnings()[0])
+            self.assertIn("length=24 reason=nul_run", f.warnings()[1])
+            self.assertIn(f"reason=record_exceeds_max_record_bytes={RECORD_LIMIT}", f.warnings()[2])
+
+    def test_a_truncated_transcript_logs_the_same_skip_again(self):
+        prefix = b"\x00" * 16
+        with tempfile.TemporaryDirectory() as td:
+            f = _Fixture(Path(td), prefix + b'{"first":1}\n')
+            self.assertTrue(f.service.poll_once())
+            f.path.write_bytes(prefix + b'{"x":1}\n')
+            self.assertTrue(f.service.poll_once())
+            self.assertTrue(f.events[-1]["data"]["rotated"])
+            self.assertEqual(2, len(f.warnings()), f.warnings())
+            self.assertEqual(f.warnings()[0], f.warnings()[1])
+
     def test_tool_call_events_and_agent_turns_pass_the_nul_run(self):
         with tempfile.TemporaryDirectory() as td:
             f = _Fixture(Path(td), _turn("t-1") + b"\x00" * self.NUL + _turn("t-2"))

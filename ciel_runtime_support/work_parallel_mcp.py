@@ -638,7 +638,7 @@ def project(store, identity, board=None, *, host_view=False, caller_nonce=None, 
     for row in all_mine.values():
         state_counts[row["state"]] = state_counts.get(row["state"], 0) + 1
     try:
-        receipts = coordination(store).projection(identity, limit=MODEL_LEASE_LIMIT)
+        receipts = coordination(store).projection(identity, limit=MODEL_LEASE_LIMIT, host_view=host_view)
         if not host_view:
             reviewers = {key for key, row in all_mine.items() if row["role"] == "reviewer"}
             for run in receipts["runs"]:
@@ -722,6 +722,12 @@ def project(store, identity, board=None, *, host_view=False, caller_nonce=None, 
             review_summary["ended"] = ended[:MAX_ENDED_REVIEWS]
         all_reviews = review_summary["pending"] + review_summary.get("ended", [])
         review_details = _item_details(board) if board is not None and all_reviews else {}
+        approval_state = coordination(store).read() if review_summary["pending"] else {}
+        for row in review_summary["pending"]:
+            if row.get("state") != "superseded":
+                # The goal's scope was edited after this result's assignment;
+                # main decides it anyway (user 2026-11-19). Read-only.
+                row["approval_changed"] = _approval_changed(approval_state, board, row["lease_id"])
         for row in all_reviews:
             row.pop("updated_at", None)
             item = review_details.get(row["item_id"], {})
@@ -1128,6 +1134,42 @@ def _approval_current(store, board, lease):
             and approval["fingerprint"] == assignment["fingerprint"])
 
 
+def _root_approved(store, board, lease):
+    """Whether the lease's goal may run now: approved for execution, or an exact P0 launch.
+
+    Unlike _approval_current it ignores scope edits made since the assignment
+    (user 2026-11-19): an in-flight assignment is never stranded by them; main
+    judges its result, and the review shows ``approval_changed``.
+    """
+    if _p0_approval_intent(store, board, lease) is not None:
+        return True
+    try:
+        root = _root_for(board, lease["item_id"])
+    except WorkParallelError:
+        return False
+    return tree.root_phase(board, root["id"]) == "executing"
+
+
+def _approval_changed(cstate, board, lease_id):
+    """Read-only: the goal's scope no longer matches the run's assignment fingerprint.
+
+    Compared against the board itself, so it is current before any reconcile
+    has moved the stored approval generation. A removed goal counts as changed.
+    """
+    if not board:
+        return False
+    run = (cstate.get("runs") or {}).get(lease_id)
+    if run is None:
+        run = next((entry["run"] for entry in reversed(cstate.get("archive") or [])
+                    if entry.get("run", {}).get("lease_id") == lease_id), None)
+    if run is None or not run.get("fingerprint"):
+        return False
+    try:
+        return _root_scope_digest(board, run["root_id"]) != run["fingerprint"]
+    except WorkParallelError:
+        return True
+
+
 def _worker_event(store, board_store, lease, args):
     event = args.get("event")
     if event == "review" or lease["role"] == "reviewer":
@@ -1136,9 +1178,9 @@ def _worker_event(store, board_store, lease, args):
         raise WorkParallelError("worker may only report question, completion or handoff")
     if lease["state"] != "running" or not lease["slot"]:
         raise WorkParallelError("worker lease is not active")
-    board = board_store.read()
-    if not _approval_current(store, board, lease):
-        raise WorkParallelError("Work approval scope changed; reconcile before continuing")
+    # A report is never refused because the goal's scope was edited after the
+    # assignment (user 2026-11-19; Celly lost 10 completions to it): main
+    # reviews the result, which shows approval_changed.
     evidence = args.get("evidence")
     artifact = args.get("artifact")
     coord = coordination(store)
@@ -1427,6 +1469,27 @@ def _release_failed_reservation(store, ident, p0_intent):
     return left
 
 
+ENDED_LEASE_STATES = ("done", "orphaned", "unreported")
+
+
+def _close_ended_p0_intents(store, p0, identity, item_id):
+    """Close this item's open P0 intents whose lease has ended (or is gone).
+
+    An orphan sweep, a finalized review or a release ends a lease without the
+    host event that closes its intent. create_intent then returned that stale
+    bound intent, the reserve reused its old run, and every P0 launch of the
+    item failed (Andy 2026-11-19: n2471, n2452 "coordination persistence failed").
+    """
+    leases = store.read()["leases"]
+    for row in list(p0.read()["intents"].values()):
+        if (row["scope"] != identity or row["item_id"] != item_id or row["lease_id"] is None
+                or row["state"] not in ("reserved", "spawning", "bound")):
+            continue
+        lease = leases.get(row["lease_id"])
+        if lease is None or lease["state"] in ENDED_LEASE_STATES:
+            p0.close_lease_intents(row["lease_id"], expected_version=p0.read()["version"])
+
+
 def _reserve_assignment(store, board_store, identity, host, version, *, item_id=None,
                         role="worker", p0_only=False, log=None):
     _repair_no_report_rows(store, identity)
@@ -1473,6 +1536,7 @@ def _reserve_assignment(store, board_store, identity, host, version, *, item_id=
             # dependent intent/send exists, a missing/unreadable key is
             # recovery_required and is never recreated or rotated.
             _p0_key_for_admission(store, p0)
+            _close_ended_p0_intents(store, p0, identity, item_id)
             _, p0_intent = p0.create_intent({
                 "scope": identity, "root_id": root["id"],
                 "root_created_at": root["created_at"], "item_id": item_id,
@@ -1537,20 +1601,27 @@ def _reserve_assignment(store, board_store, identity, host, version, *, item_id=
     coord = coordination(store)
     try:
         root = _root_for(board, lease["item_id"])
-        approval = _reconcile_root(coord, board, root["id"], identity)
         cstate = coord.read()
-        workspace_manifest = None
         existing_run = cstate["runs"].get(ident)
-        created_at = (existing_run["reserved_at"] if existing_run is not None else time.time())
-        coord.record_assignment(identity, ident, {
-            "item_id": lease["item_id"], "root_id": root["id"],
-            "priority": lease["priority"], "role": lease["role"], "generation": 1,
-            "approval_generation": max(1, approval["generation"]),
-            "assigned_todos": [lease["item_id"]],
-            "fingerprint": approval["fingerprint"], "workspace": workspace_manifest,
-            "created_at": created_at,
-        }, expected_version=cstate["version"],
-            dispatch_without_approval=p0_intent is not None, p0_intent=p0_intent)
+        if existing_run is not None and existing_run["state"] == "reserved" and existing_run.get("agent_id") is None:
+            # A replay of this exact unbound reservation keeps the assignment it
+            # was given; a scope edit since must not turn the replay into a
+            # "different manifest" refusal that releases the reservation.
+            require(existing_run["scope"] == identity and existing_run["item_id"] == lease["item_id"]
+                    and existing_run["root_id"] == root["id"], "assignment belongs to another item")
+        else:
+            approval = _reconcile_root(coord, board, root["id"], identity)
+            cstate = coord.read()
+            created_at = (existing_run["reserved_at"] if existing_run is not None else time.time())
+            coord.record_assignment(identity, ident, {
+                "item_id": lease["item_id"], "root_id": root["id"],
+                "priority": lease["priority"], "role": lease["role"], "generation": 1,
+                "approval_generation": max(1, approval["generation"]),
+                "assigned_todos": [lease["item_id"]],
+                "fingerprint": approval["fingerprint"], "workspace": None,
+                "created_at": created_at,
+            }, expected_version=cstate["version"],
+                dispatch_without_approval=p0_intent is not None, p0_intent=p0_intent)
     except Exception as error:
         current = store.read()
         if current["leases"].get(ident, {}).get("host_id") is None:
@@ -1562,7 +1633,10 @@ def _reserve_assignment(store, board_store, identity, host, version, *, item_id=
                                      expected_version=p0.read()["version"])
             except WorkParallelError:
                 pass
-        raise WorkParallelError("coordination persistence failed; reservation released") from error
+        # The cause goes with the refusal (Andy and Celly 2026-11-19: the bare
+        # message hid "assignment already exists with a different manifest").
+        raise WorkParallelError("coordination persistence failed; reservation released: "
+                                + _clip(type(error).__name__ + ": " + str(error), 300)) from error
     workspace = None
     if host.get("workspace_repo"):
         from .work_parallel_workspace import DUBIOUS_OWNERSHIP, WorkspaceError, prepare
@@ -1725,8 +1799,37 @@ def _review_facts(store, identity, lease):
             "workspace": observed}
 
 
-def _revalidate_review(store, board_store, row):
-    """Ordinary schema-5 review facts must remain verifiable."""
+def _assignment_approval(coord, board_store, root_id, identity):
+    """(generation, fingerprint) of the goal's current approval for a replacement run.
+
+    A rework or stranded recovery copied the predecessor's approval, so after a
+    goal scope edit the replacement was refused as "stale root approval" and
+    the saga stayed blocked (Celly 2026-11-19: 4 stranded rows). An approved
+    goal now gives its current approval; otherwise None keeps the old values
+    (the exact-P0 path, unchanged).
+    """
+    try:
+        approval = _reconcile_root(coord, board_store.read(), root_id, identity)
+    except WorkParallelError:
+        return None
+    if not approval["approved"]:
+        return None
+    return max(1, approval["generation"]), approval["fingerprint"]
+
+
+def _rework_needs_approved_goal(store, board_store, lease):
+    """A rework runs again, so its goal must be approved now (or an exact P0 launch)."""
+    if lease is not None and not _root_approved(store, board_store.read(), lease):
+        raise WorkParallelError("Work item " + lease["item_id"] + "'s goal is not approved for execution: "
+                                "approve the result, or approve the goal and then rework")
+
+
+def _revalidate_review(store, board_store, row, decision=None):
+    """Ordinary schema-5 review facts must remain verifiable.
+
+    A goal scope edit since the assignment is not a refusal (user 2026-11-19):
+    main decides the result, and the review shows ``approval_changed``.
+    """
     lease = store.read()["leases"].get(row["lease_id"])
     if (lease is None or lease["state"] != "submitted" or lease["slot"]
             or lease["artifact"] != row["artifact"] or lease["plan_version"] != row["plan_version"]):
@@ -1735,8 +1838,8 @@ def _revalidate_review(store, board_store, row):
     if (run_row is None or (run_row.get("exit") or {}).get("digest") != row["completion_receipt"]
             or run_row["fingerprint"] != row["fingerprint"]):
         raise WorkParallelError("stale completion receipt or approval fingerprint")
-    if not _approval_current(store, board_store.read(), lease):
-        raise WorkParallelError("stale approval fingerprint: Work approval scope changed")
+    if decision == "rework":
+        _rework_needs_approved_goal(store, board_store, lease)
     if row["workspace"] is None or lease.get("workspace") is None:
         # A review without a snapshot stays valid only while the lease still
         # has no workspace; either side changing is a different result.
@@ -1776,8 +1879,8 @@ def _revalidate_stranded(store, board_store, row):
                 or (run_row.get("exit") or {}).get("digest") != row["completion_receipt"]
                 or run_row["fingerprint"] != row["fingerprint"]):
             raise WorkParallelError("stale stranded completion receipt changed")
-    if not _approval_current(store, board_store.read(), lease):
-        raise WorkParallelError("stale approval fingerprint: Work approval scope changed")
+    # A stranded result is only ever reworked: its goal must be approved now.
+    _rework_needs_approved_goal(store, board_store, lease)
 
 
 def _stranded_admission(d, identity, row):
@@ -2330,7 +2433,7 @@ def _main_review(store, board_store, identity, host, args):
                 raise WorkParallelError("decision must be approve or rework")
             # Fresh on every CAS attempt: lease scope/item/generation/artifact and
             # receipt, approval generation/root fingerprint, and workspace HEAD.
-            moved = _revalidate_review(store, board_store, row)
+            moved = _revalidate_review(store, board_store, row, decision)
             if moved == "stranded":
                 if decision == "approve":
                     side = _active_stranded(store, identity, lease_id) or {}
@@ -2378,6 +2481,8 @@ def _main_review(store, board_store, identity, host, args):
         body_digest = decision_digest(lease_id, decision, evidence,
                                       args.get("findings"), args.get("rework_instructions"))
         try:
+            # Read before the roll-forward archives the run.
+            changed = _approval_changed(coordination(store).read(), board_store.read(), lease_id)
             fstate, row = reviews.decide(
                 lease_id, decision, decision_id, evidence, decision_body_digest=body_digest,
                 expected_version=fstate["version"], replacement_lease_id=replacement_id,
@@ -2391,7 +2496,7 @@ def _main_review(store, board_store, identity, host, args):
             if workflow_root is not None:
                 from .work_workflow_parallel import step_approved_after_board
                 step_approved_after_board(board_store, workflow_root)
-            return rolled
+            return {**rolled, "approval_changed": changed}
         except WorkParallelConflict:
             if expected_pin is None or attempt + 1 == attempts:
                 raise
@@ -2470,9 +2575,13 @@ def close_resolved_reviews(store, board_store, identity, *, limit=CLOSE_RESOLVED
         if (lease is None or lease["state"] != "submitted" or lease["artifact"] != row["artifact"]):
             continue
         how = "removed from the board" if node is None else "completed on the board"
+        # A result with no workspace (unconfined fork) has nothing retained;
+        # KOBE 2026-11-19: reading its path raised on every pump.
+        ws = row["workspace"]
+        kept = ("the fork ran with no workspace, so nothing is retained" if ws is None else
+                f"the workspace is retained at {ws['path']} ({ws['head']})")
         evidence = (f"Closed unreviewed: Work item {row['item_id']} was {how} before main reviewed this "
-                    f"result. The board was not changed; the workspace is retained at "
-                    f"{row['workspace']['path']} ({row['workspace']['head']}).")[:2000]
+                    f"result. The board was not changed; {kept}.")[:2000]
         decision_id = "close-resolved:" + row["lease_id"]
         try:
             fstate = reviews.read()
@@ -2644,6 +2753,7 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
                 store.attach_workspace(row["replacement_lease_id"], rebound, expected_version=current["version"])
         fstate, row = reviews.mark(lease_id, "workspace", expected_version=reviews.read()["version"])
     if not row["stages"]["board"]:
+        approval = _assignment_approval(coord, board_store, row["root_id"], identity)
         current = coord.read()
         replacement_workspace = store.read()["leases"][row["replacement_lease_id"]].get("workspace")
         if row["replacement_lease_id"] not in current["runs"]:
@@ -2654,9 +2764,9 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
                 "item_id": row["item_id"], "root_id": row["root_id"],
                 "priority": row["priority"], "role": "resume",
                 "generation": row["replacement_generation"],
-                "approval_generation": old_run["approval_generation"],
+                "approval_generation": approval[0] if approval else old_run["approval_generation"],
                 "assigned_todos": copy.deepcopy(old_run["assigned_todos"]),
-                "fingerprint": row["fingerprint"],
+                "fingerprint": approval[1] if approval else row["fingerprint"],
                 "workspace": (None if replacement_workspace is None else
                               {key: replacement_workspace[key] for key in ("path", "branch", "head")}),
                 "created_at": time.time(),
@@ -2862,6 +2972,7 @@ def _stranded_roll_forward_stages(store, board_store, identity, host, lease_id):
             store.attach_workspace(replacement_id, fresh, expected_version=current["version"])
         row = mark("workspace")
     if not row["stages"]["coordination"]:
+        approval = _assignment_approval(coord, board_store, row["root_id"], identity)
         cstate = coord.read()
         replacement_ws = store.read()["leases"][replacement_id]["workspace"]
         old_run = cstate["runs"].get(lease_id)
@@ -2874,8 +2985,9 @@ def _stranded_roll_forward_stages(store, board_store, identity, host, lease_id):
             coord.record_assignment(identity, replacement_id, {
                 "item_id": row["item_id"], "root_id": row["root_id"], "priority": row["priority"],
                 "role": "resume", "generation": row["replacement_generation"],
-                "approval_generation": old_run["approval_generation"],
-                "assigned_todos": copy.deepcopy(old_run["assigned_todos"]), "fingerprint": row["fingerprint"],
+                "approval_generation": approval[0] if approval else old_run["approval_generation"],
+                "assigned_todos": copy.deepcopy(old_run["assigned_todos"]),
+                "fingerprint": approval[1] if approval else row["fingerprint"],
                 "workspace": {key: replacement_ws[key] for key in ("path", "branch", "head")},
                 "created_at": time.time()}, expected_version=cstate["version"])
         cstate = coord.read()
@@ -4240,7 +4352,13 @@ def run(name, args, board_store, identity, config, save_config, log=None):
         elif event in ("question", "result"):
             raise WorkParallelError("worker host identity required")
         board = board_store.read()
-        if not _approval_current(store, board, lease):
+        if event == "resume":
+            # Main resumes a parked worker (SendMessage): a scope edit since the
+            # assignment does not strand it; a goal no longer approved does.
+            if not _root_approved(store, board, lease):
+                raise WorkParallelError("Work item " + lease["item_id"] + "'s goal is not approved for execution; "
+                                        "approve the goal before resuming the worker")
+        elif not _approval_current(store, board, lease):
             raise WorkParallelError("Work approval scope changed; reconcile before continuing")
         if event == "accept" and lease["role"] != "reviewer":
             # Retired reviewer contract: the host selects the one legacy

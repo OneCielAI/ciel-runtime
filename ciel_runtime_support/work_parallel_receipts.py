@@ -607,12 +607,17 @@ class WorkCoordinationStore:
             return state["archive"][-1]
         return self._change(apply, expected_version)
 
-    def projection(self, scope, *, limit=50):
+    def projection(self, scope, *, limit=50, host_view=False):
         require(text(scope, 200) and integer(limit, 1, 200), "projection")
         state = self.read()
         runs = [copy.deepcopy(row) for row in state["runs"].values() if row["scope"] == scope]
         runs.sort(key=lambda row: (row["reserved_at"], row["lease_id"]), reverse=True)
-        lease_ids = {run["lease_id"] for run in runs[:limit]}
+        # The authenticated host reconciles every open lease, including an old
+        # submitted result after restart. Applying the model's recent-row cap
+        # hid its exact completion receipt forever (KOBE, 69 runs). Storage's
+        # MAX_RUNS/MAX_BYTES still bound this host-only list; detail stays out.
+        visible_runs = runs if host_view else runs[:limit]
+        lease_ids = {run["lease_id"] for run in visible_runs}
         receipts = [{key: row[key] for key in ("digest", "lease_id", "kind", "created_at")}
                     for row in state["receipts"].values() if row["lease_id"] in lease_ids]
         receipts.sort(key=lambda row: (row["created_at"], row["digest"]), reverse=True)
@@ -626,10 +631,10 @@ class WorkCoordinationStore:
                             "archived_at": row["archived_at"]})
             if len(archive) == limit:
                 break
-        return {"version": state["version"], "runs": runs[:limit], "receipts": receipts[:limit],
+        return {"version": state["version"], "runs": visible_runs, "receipts": receipts[:limit],
                 "diagnostics": copy.deepcopy(state["scheduler"]["diagnostics"][-limit:]),
                 "archive": archive, "archive_dropped": state["archive_dropped"],
-                "truncated": len(runs) > limit or len(receipts) > limit}
+                "truncated": len(runs) > len(visible_runs) or len(receipts) > limit}
 
 
 def coordination_store(store):

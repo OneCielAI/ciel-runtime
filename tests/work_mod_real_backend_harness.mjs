@@ -2100,6 +2100,7 @@ try {
         prompts: native.prompts.filter(text => !isDispatchNotice(text)).length,
         appended: native.appended.filter(text => !isDispatchNotice(text)).length,
         dispatchPrompts: native.prompts.filter(isDispatchNotice).length,
+        promptKinds: native.prompts.map(text => String(text).slice(0, 160)),
         dispatchAppended: native.appended.filter(isDispatchNotice).length, prepares: count('review_wake', 'prepare'), rollForwards: count('review_roll_forward'),
         recoverySends: native.sends.filter(s => String(s.text || '').startsWith('Work recovery:')).length,
         exitSends: native.sends.filter(s => String(s.text || '').startsWith('Your native turn ended')).length,

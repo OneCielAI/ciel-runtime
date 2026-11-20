@@ -97,10 +97,13 @@ class Board:
         SideIntakeInbox(self.root, self.identity).receive('approval 7 granted', 'approval')
         claim = self.call('work_side_claim', {'owner': 'actor'})['claim']
         self.event = claim['receipt_id']
-        decision = {'action': 'update', 'item_id': self.gate, 'summary': 'approval received',
-                    'reply': 'resume pending', 'note': 'approval 7 granted'}
-        self.call('work_side_resolve', {'decision': decision, 'expected_version': self.version()},
-                  {'receipt_id': claim['receipt_id'], 'generation': claim['generation']})
+        # Gated updates are handled by side without a main handoff (2026-11-18).
+        # Exercise the wake protocol with an explicit side escalation instead.
+        decision = {'action': kind, 'item_id': self.gate, 'summary': 'main decision required',
+                    'reply': 'please review the approval', 'note': 'approval 7 granted'}
+        result = self.call('work_side_resolve', {'decision': decision, 'expected_version': self.version()},
+                           {'receipt_id': claim['receipt_id'], 'generation': claim['generation']})
+        assert result['result']['handoff'] == 'requested', result
 
     def call(self, name, args, extra=None, error=False, text=False):
         result = dispatch_work_tool(1, name, {**args, 'session_id': self.identity,

@@ -158,6 +158,31 @@ class RestartSubmittedTerminalTests(unittest.TestCase):
         self.assertEqual(("pending", None), (row["state"], row["workspace"]))
         self.assertEqual("finalized", self.approve(lease)["state"])
 
+    def test_host_status_keeps_completion_older_than_the_model_projection_limit(self):
+        first, second = self.checkpoint_a()
+        coord = m.coordination(self.store)
+        source = coord.read()["runs"][second["lease_id"]]
+        # KOBE 2026-11-19: 69 runs remained in coordination. The missing
+        # completions were older than the model's 24-row cap, so restart
+        # reconciliation could never find their exact receipt/generation.
+        for index in range(m.MODEL_LEASE_LIMIT + 1):
+            manifest = {key: source[key] for key in (
+                "item_id", "root_id", "priority", "role", "generation",
+                "approval_generation", "assigned_todos", "fingerprint", "workspace")}
+            manifest["created_at"] = source["reserved_at"] + 100 + index
+            coord.record_assignment(SCOPE, "newer-run-" + str(index), manifest,
+                                    expected_version=coord.read()["version"])
+        with patch.object(m, "ledger", return_value=self.store):
+            model = m.project(self.store, SCOPE, self.board.read())
+            host = m.project(self.store, SCOPE, self.board.read(), host_view=True, caller_nonce=NONCE)
+        self.assertNotIn(second["lease_id"], {r["lease_id"] for r in model["coordination"]["runs"]})
+        self.assertTrue(model["coordination"]["truncated"])
+        host_runs = {r["lease_id"]: r for r in host["coordination"]["runs"]}
+        self.assertIn(second["lease_id"], host_runs)
+        self.assertEqual(source["exit"], host_runs[second["lease_id"]]["exit"])
+        self.assertEqual(len(coord.read()["runs"]), len(host_runs))
+        self.assertTrue(self.restart(second)["review_pending"])
+
     def test_receipt_before_running_row_keeps_the_run_archivable(self):
         first, second = self.checkpoint_a()
         runs = self.runs()

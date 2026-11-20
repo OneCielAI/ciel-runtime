@@ -6,8 +6,9 @@ side's reply, context) on REST, web and ctl. team-lead: return only the bounded
 redacted projection GET /side uses, plus the new state and pins, and check every
 other side operator response. Each response below is scanned for the
 fixture's raw original, a credential inside it, its tail past the public recap,
-the side's reply text, the claim generation, and every attempt id, owner nonce
-and reply token the fixture wrote.
+the side's private reply text, the claim generation, and every attempt id,
+owner nonce and reply token the fixture wrote. An advice handoff's public
+question is checked separately: it intentionally contains the advice text.
 """
 import json
 import tempfile
@@ -43,7 +44,8 @@ class LeakSession(Session):
         SideIntakeInbox(self.root, self.identity).receive(ORIGINAL, 'approval')
         self.claim = self.call('work_side_claim', {'owner': 'actor'})['claim']
         self.event = self.claim['receipt_id']
-        decision = {'action': 'update', 'item_id': self.gate, 'summary': 'approval received',
+        decision = {'action': 'update' if release else 'advise', 'item_id': self.gate,
+                    'summary': 'approval received' if release else 'main decision required',
                     'reply': REPLY, 'note': 'approval 7 granted'}
         if release:
             decision['release_waits'] = [{'id': self.gate, 'waiting_on': 'approval 7'}]
@@ -121,8 +123,7 @@ class SideOperatorResponseRedactionTests(unittest.TestCase):
     def test_wake_retry_reappend_retry_and_handoff_return_no_attempt_or_text(self):
         with tempfile.TemporaryDirectory() as raw:
             session = LeakSession(raw, release=False)
-            if session.event not in session.store.read().get('side_handoffs', {}):
-                self.skipTest('fixture event did not request a handoff')
+            self.assertEqual('requested', session.result['handoff'])
             wake = side_wake.prepare(session.store, session.event, protocol=2, owner_nonce='wake-owner-secret',
                                      channel='append')
             side_wake.start(session.store, session.event, wake['attempt_id'], 'wake-owner-secret', 'append')
@@ -152,7 +153,12 @@ class SideOperatorResponseRedactionTests(unittest.TestCase):
             self.scan('side-reappend-retry', session, answer)
             answer = self.command(session, 'side-handoff', {'event_id': session.event, 'answer': '',
                                                             'expected_version': session.version()})
-            self.scan('side-handoff', session, answer)
+            # Advice exposes its reply as the public question on GET /side and
+            # the ACK response. No second/private reply field is part of it.
+            self.assertEqual(REPLY, answer['result']['question'])
+            self.assertNotIn('reply', answer['result'])
+            public = {key: value for key, value in answer['result'].items() if key != 'question'}
+            self.scan('side-handoff', session, {**answer, 'result': public})
 
     def test_drain_rows_are_the_redacted_receipt_detail(self):
         with tempfile.TemporaryDirectory() as raw:

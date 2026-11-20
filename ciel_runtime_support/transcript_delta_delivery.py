@@ -143,6 +143,12 @@ class TranscriptDeltaDeliveryService:
         self._last_error_at = 0.0
         self._turn_source: dict[str, Any] = {}
         self._recovery_source: dict[str, Any] = {}
+        # Skips already logged, per (consumer, transcript): the offset the last
+        # read started at, the file size it saw, and the (offset, length,
+        # reason) of each skip it met.  A read retried from the same offset (a
+        # failed delivery keeps its cursor) meets the same skips again.
+        self._skips_logged: dict[tuple[str, str], tuple[int, int, set[tuple[int, int, str]]]] = {}
+        self._skips_lock = threading.Lock()
 
     def start(self) -> None:
         with self._lock:
@@ -588,14 +594,17 @@ class TranscriptDeltaDeliveryService:
         28.5 MB of them) or a line longer than ``max_record_bytes`` would stop
         every reader at that offset for good.  Each is skipped once, with one
         WARN naming the file, offset, length and reason, and the returned
-        ``end`` is past it.  The skipped bytes are streamed, never held.  A NUL
-        run or an oversized line that has not ended yet (no byte after it, no
-        newline yet) is waited for, as an unfinished record is.
+        ``end`` is past it.  A read retried from the same offset (the cursor
+        stays while delivery fails) does not log the same skip again.  The
+        skipped bytes are streamed, never held.  A NUL run or an oversized line
+        that has not ended yet (no byte after it, no newline yet) is waited
+        for, as an unfinished record is.
         """
 
         record_limit = self._record_limit(limit)
         try:
             with path.open("rb") as stream:
+                self._skip_window(consumer, path, offset, os.fstat(stream.fileno()).st_size)
                 stream.seek(offset)
                 nuls, more = self._nul_run_length(stream)
                 if nuls and not more:
@@ -674,7 +683,31 @@ class TranscriptDeltaDeliveryService:
             position += len(line) + 1
         return b"\n".join(lines)
 
+    def _skip_window(self, consumer: str, path: Path, offset: int, size: int) -> None:
+        """Forget the logged skips a read from ``offset`` cannot meet again.
+
+        Skips before ``offset`` are behind the cursor.  A read from an earlier
+        offset than the last one, or of a file smaller than the last read saw
+        (a truncated or rotated transcript), forgets all of them, so a skip
+        found there is logged again.
+        """
+
+        key = (consumer, str(path))
+        with self._skips_lock:
+            last_offset, last_size, logged = self._skips_logged.get(key, (offset, size, set()))
+            if offset < last_offset or size < last_size:
+                logged = set()
+            else:
+                logged = {skip for skip in logged if skip[0] >= offset}
+            self._skips_logged[key] = (offset, size, logged)
+
     def _skipped(self, consumer: str, path: Path, offset: int, length: int, reason: str) -> None:
+        skip = (offset, length, reason)
+        with self._skips_lock:
+            _offset, _size, logged = self._skips_logged.setdefault((consumer, str(path)), (offset, 0, set()))
+            if skip in logged:
+                return
+            logged.add(skip)
         self.ports.log(
             "WARN",
             f"transcript_record_skipped consumer={consumer} path={path.name} "

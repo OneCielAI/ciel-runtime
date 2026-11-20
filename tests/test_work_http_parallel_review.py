@@ -111,6 +111,12 @@ class WorkHttpParallelReviewTests(unittest.TestCase):
                        'f' * 64, 'stages', 'replacement_lease_id', 'decision_id'):
             self.assertNotIn(leaked, raw)
 
+    def test_parallel_preserves_approval_changed_on_the_public_review(self):
+        self.reviews['pending'][0]['approval_changed'] = True
+        status, body = self.request('/ca/work/api/v1/parallel')
+        self.assertEqual(200, status)
+        self.assertIs(True, body['parallel_reviews'][0]['approval_changed'])
+
     def test_parallel_preserves_true_changed_count_while_clipping_file_sample(self):
         changed = [f'src/file-{index:02d}.py' for index in range(37)]
         row = review_row()

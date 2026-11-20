@@ -962,7 +962,9 @@ class WorkModRealBackendTests(unittest.TestCase):
         before = result["before"]
         self.assertEqual([{"state": "pending", "phase": "pending"}], before["rows"], before)
         self.assertGreaterEqual(before["appended"], 1, before)
-        self.assertTrue(before["stopShows"], before)
+        # User 2026-11-18 (8c9387d): Stop never holds or messages main; the
+        # review reaches main through its appended row above, never a Stop block.
+        self.assertFalse(before["stopShows"], before)
         self.assertIn("ok", result["beta"][0], result["beta"])
         self.assertIsInstance(beta, str)
         after = result["after"]

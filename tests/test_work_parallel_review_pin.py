@@ -162,8 +162,8 @@ class ReviewPinTests(ReviewPinHelpers, unittest.TestCase):
         pin, version = self.pending()[first]["review_pin"], self.pending_version()
         real, injected = m._revalidate_review, []
 
-        def beta_writes_between_pin_check_and_decide(store, board_store, row):
-            result = real(store, board_store, row)
+        def beta_writes_between_pin_check_and_decide(store, board_store, row, decision=None):
+            result = real(store, board_store, row, decision)
             if not injected:
                 beta = self.beta_store()
                 injected.append(beta.wake_prepare(second, expected_version=beta.read()["version"]))
@@ -179,8 +179,8 @@ class ReviewPinTests(ReviewPinHelpers, unittest.TestCase):
         pin, version = self.pending()[lease_id]["review_pin"], self.pending_version()
         real, injected = m._revalidate_review, []
 
-        def beta_decides_first(store, board_store, row):
-            result = real(store, board_store, row)
+        def beta_decides_first(store, board_store, row, decision=None):
+            result = real(store, board_store, row, decision)
             if not injected:
                 beta = self.beta_store()
                 injected.append(beta.decide(lease_id, "approve", "beta-decision", "beta evidence",

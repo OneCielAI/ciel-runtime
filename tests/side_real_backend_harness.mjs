@@ -124,13 +124,13 @@ const settle = async (...conversations) => {
   }
 }
 const proof = () => ({ wakeProtocols:[...seen.wakeProtocols], stateKeys:[...seen.stateKeys].sort() })
-// One side event whose decision asks main to act: resume (offered by the claim)
-// or time_limit (scheduled at completion).
+// An explicit side escalation, with or without a time limit. A gated update
+// by itself no longer requests a main handoff (2026-11-18).
 async function decided(I, kind) {
   const event = await rpc('receive', { text:kind === 'time_limit' ? 'report is due within 4 hours' : 'approval 7 granted', key:'event-' + kind })
   await I.mod.startSide(I.$)
   await I.poll()
-  await I.complete({ action:'update', kind:'request', item_id:init.gate, summary:'reported', reply:'noted', note:'n',
+  await I.complete({ action:'advise', item_id:init.gate, summary:'main decision required', reply:'please review', note:'n',
     ...(kind === 'time_limit' ? { time_limit:{ text:'within 4 hours', evidence:'report is due within 4 hours' } } : {}) })
   return event
 }

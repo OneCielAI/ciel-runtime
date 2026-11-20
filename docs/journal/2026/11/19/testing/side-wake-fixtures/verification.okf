@@ -1,0 +1,66 @@
+---
+type: Test Verification
+title: Side wake fixture contract repair
+description: Restore wake, notice, REST and redaction test coverage using explicit advice instead of non-escalating gated updates.
+tags: [side-intake, side-wake, fixtures, regression-tests]
+timestamp: 2026-11-19T17:13:00-06:00
+---
+
+# Scope
+
+Five test/harness files changed; no product module, live configuration, credentials or session was changed. No commit created.
+
+- tests/test_side_wake_protocol.py
+- tests/test_side_notice_claim.py
+- tests/test_side_operator_redaction.py
+- tests/test_side_external_parity.py
+- tests/side_real_backend_harness.mjs
+
+# Confirmed root cause
+
+Commit 26881a2 (2026-11-18) changed side_work_decision.apply to request a handoff only for action=advise (when not a main reply). A gated action=update no longer requests main action or a review. The old Board, Session, LeakSession and JS decided() fixtures still emitted gated updates and then tested handoffs, wake elections or reviews which the fixture never created.
+
+The original unit log at C:/Users/djlov/AppData/Local/Temp/group_unit.txt contains 31 error entries and 13 failure entries in the eight verified side test files (subTest failures count separately). Examples: requested side handoff required; side_handoffs missing; unknown side review; JS wake arrays empty or barriers timing out.
+
+# Repair and preserved semantics
+
+- Board uses its existing kind argument (default advise) and asserts that fixture resolution requested a handoff.
+- Session and LeakSession use advise for unreleased-gate fixtures. release=True still uses update with exact release_waits, and Session asserts that a released wait requires no handoff.
+- JS decided() uses advise without incompatible kind=request. The time-limit case remains an advice event carrying the same time_limit.
+- Two fixture-dependent skips became requested-handoff assertions. No new skip added.
+- Advice question is intentionally public: side_work_decision.py assigns decision.reply to handoff.question; WorkHttpController._side_projection includes question. Redaction tests now assert this exact public question, forbid a separate reply field, and scan the remainder for the original, credential, private reply, generation, tokens, owner nonces and attempts.
+- All existing election, fencing, durable write, old-reader, prompt lease, notice retry, REST parity and wake-secret assertions remain active.
+
+# Verification
+
+Every test process unsets inherited CIEL_RUNTIME_* variables and sets CIEL_RUNTIME_TEST_ISOLATED=1 and a fresh temporary CIEL_RUNTIME_CONFIG_DIR. Tests run by file with repository/tests first on sys.path to avoid the installed unrelated tests package.
+
+| Verification | Result |
+| --- | --- |
+| Four representative methods, HEAD fixtures compiled in memory | 4 tests; 4 failure entries, 1 error; 1.050 seconds |
+| Same four methods with repaired fixtures | 4 tests; 0 failures, 0 errors; 3.117 seconds |
+| Python side files below | 71 tests; 0 failures, 0 errors, 2 opt-in browser skips; 149.769 seconds |
+| tests/test_side_real_backend.py | 8 tests; 0 failures, 0 errors, 0 skips; 15.935 seconds |
+| ruff on four changed Python files | All checks passed |
+| node --check tests/side_real_backend_harness.mjs | Exit 0 |
+| git diff --check on five changed test/harness files | Exit 0; existing Git LF-to-CRLF notice only |
+
+Python suite files: test_side_wake_protocol.py, test_side_notice_claim.py, test_side_reappend_release.py, test_side_external_parity.py, test_side_operator_redaction.py, test_side_retry_pins.py, test_side_state_unavailable.py.
+
+Representative methods: SideWakeProtocolTests.test_stop_channel_is_a_fenced_protocol_two_delivery_channel; SideWakeReadTests.test_appended_wake_is_offered_until_main_had_a_request_after_it; ReplyRetryOutsideReviewTests.test_a_reviewed_receipts_failed_or_unknown_reply_is_retryable_from_rest (failed and uncertain outcome subTests); SideOperatorResponseRedactionTests.test_review_returns_only_the_public_review_fields.
+
+# Evidence files
+
+- C:/Users/djlov/AppData/Local/Temp/side_fix_final.txt
+- C:/Users/djlov/AppData/Local/Temp/side_fix_js_after.txt
+- C:/Users/djlov/AppData/Local/Temp/side_fix_targeted_before.txt
+- C:/Users/djlov/AppData/Local/Temp/side_fix_targeted_after.txt
+- C:/Users/djlov/AppData/Local/Temp/side_fix_redaction_after.txt
+
+# Limits and corrections
+
+The two opt-in browser tests were not run because CIEL_TEST_BROWSER was not configured. This task changes no UI. Real loopback REST and SSE controllers, MCP dispatch, real temporary stores, historical reader imports and the real packaged side-intake.js/backend integration were exercised; no claude.exe or real upstream model was launched.
+
+An initially launched redundant full eight-file before run was stopped after stale JS barriers reached their timeout. Its Python driver and its exact Node/Python descendants were identified and stopped; parent baseline and other processes were untouched. Existing unit evidence plus a bounded four-method in-memory HEAD-fixture replay provides the before evidence.
+
+A preliminary claim that advice question output was a product redaction defect was withdrawn after reading the explicit public projection contract. The product redactor was not changed.

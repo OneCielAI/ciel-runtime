@@ -232,4 +232,8 @@ class ReviewPendingTests(unittest.TestCase):
         self.assertIn('n1097, n1074', told)
         self.assertNotIn('메인 검수 대기', gate.tick_event({}, rows, 'd', time.time())['text'])
         self.assertIn('"ask_main": true', DEFAULTS['gate_actor'])
-        self.assertIn('submitted이면 포크는 일을 끝냈고 메인의 검수만 남은', DEFAULTS['gate_actor'])
+        # Andy 2026-11-19: 42 notices for 20 published reviews. submitted is a
+        # result submission, not review readiness; only "메인 검수 대기" rows are.
+        self.assertIn('lease가 submitted이면 결과가 제출된 것입니다. 검수 준비 완료를 뜻하지는 않습니다.', DEFAULTS['gate_actor'])
+        self.assertIn('lease 줄의 submitted만으로 검수하라고 알리지 않습니다.', DEFAULTS['gate_actor'])
+        self.assertNotIn('submitted이면 포크는 일을 끝냈고 메인의 검수만 남은', DEFAULTS['gate_actor'])

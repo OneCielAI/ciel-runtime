@@ -1025,6 +1025,38 @@ const scenarios = {
       item_id: 'n227', priority: 'P1', role: 'worker', expected_version: 11 }, next({}))
     return { run: JSON.parse(run.result), spawned: state.spawned, calls }
   },
+  async 'parallel-reservation-uses-the-current-repository-root'() {
+    const mode = process.argv[3] || 'manual'
+    const calls = []
+    const parallel = { version:11, active_device:0, policy:{ enabled:true, paused:false,
+      priority_limits:{ P1:1, P2:0, P3:0, P4:0, P5:0 } }, leases:{} }
+    const { $ } = host(async (tool, args) => {
+      if (tool === 'work_parallel_status') return text(mode === 'p0'
+        ? { ...parallel, root_priorities:[{ root_id:'n1', effective_priority:'P0' }] } : parallel)
+      if (tool === 'work_parallel_event') {
+        if (['reserve', 'reserve_next', 'p0_reserve_next'].includes(args.event)) {
+          calls.push({ event:args.event, repo:args._host?.workspace_repo ?? null })
+          if (mode === 'p0' ? args.event !== 'p0_reserve_next' : args.event === 'p0_reserve_next')
+            return { isError:true, ...text('no eligible candidate') }
+          // Models prepare()'s exact-root gate. session.root is NOT a Git repo
+          // here; session.repo is the current cwd's repo after a shell cd.
+          if (args._host?.workspace_repo !== '/current-repo')
+            return { isError:true, ...text('workspace_prepare_failed: not a git repository') }
+          return { isError:true, ...text('no eligible candidate') }
+        }
+        return text({})
+      }
+      return text(snapshot())
+    })
+    $.session.root = async () => '/session-start-with-no-git'
+    $.session.repo = async () => ({ root:'/current-repo', remote:null })
+    await handlers['session.start']($, { isInteractive:mode !== 'manual' }, next(undefined))
+    if (mode === 'manual') await handlers['tool.call']($, {
+      tool:'mcp__ciel-runtime-router__work_parallel_run', item_id:'n2', priority:'P1',
+      role:'worker', expected_version:11 }, next({}))
+    const wanted = mode === 'p0' ? 'p0_reserve_next' : mode === 'manual' ? 'reserve' : 'reserve_next'
+    return { mode, calls:calls.filter(call => call.event === wanted) }
+  },
   async 'parallel-direct-spawn-through-own-hook'() {
     // The engine runs ciel-work's agent.spawn hook for the host's own spawn
     // (owned run 2026-11-09, "agent.spawn nested in ciel-work"). The router
@@ -3655,6 +3687,7 @@ Object.assign(scenarios, {
     const { $:$1, state:s1 } = keyHost(B, keyState(), keyClock(), p1)
     await one.handlers['session.start']($1, { isInteractive:false }, next(undefined))
     B.addReview('L1', PIN)
+    B.reviews[0].approval_changed = true
     await report(one, $1)
     await keyUntil(() => B.calls.includes('L1:review_appended'))
     p1.calls[0]?.release('ok'); await sleep(40)
@@ -3666,8 +3699,88 @@ Object.assign(scenarios, {
     await report(two, $2); await sleep(60)
     const moved = (s2.appended || []).filter(payload).map(row => row.message.content[0].text)
     return { pin:PIN, first:views(first).map(view => view?.expected_review_pin ?? null),
+      approvalChanged:views(first).map(view => view?.approval_changed ?? null),
+      movedApprovalChanged:views(moved).map(view => view?.approval_changed ?? null),
       moved:views(moved).map(view => view?.expected_review_pin ?? null),
       wakeAfter:B.reviews[0].wake.state, pinAfter:B.reviews[0].review_pin }
+  },
+})
+
+// Andy 2026-11-19: one new result produced its review wake and, in the same
+// idle moment, a second "results await review" reminder. The reminder is for a
+// result still waiting 20 minutes after it was first projected.
+Object.assign(scenarios, {
+  async 'review-reminder-waits-after-the-first-wake'() {
+    const B = keyBackend(), prompts = keyPrompts()
+    B.addReview('L1', 'rp1:' + 'b2'.repeat(32))
+    const one = await keyInstance('reminder')
+    const { $ } = keyHost(B, keyState(), keyClock(), prompts)
+    await one.handlers['session.start']($, { isInteractive:false }, next(undefined))
+    await one.handlers['tool.call']($, { tool:'mcp__ciel-runtime-router__work_parallel_report', agentId:'worker' }, next({ ok:true }))
+    await keyUntil(() => B.calls.includes('L1:review_appended'))
+    const settle = async () => { for (const call of prompts.calls) call.release('ok'); await sleep(60) }
+    await keyUntil(() => prompts.calls.length >= 1)
+    await settle()
+    // The wake prompt enters and its turn completes: main has the review now.
+    await keyPromptTurn(one, $, 'W1', prompts.calls[0]?.text)
+    const settled = await keyUntil(() => !one.side.sidePromptPending('parallel:L1'))
+    const reminders = () => prompts.calls.filter(call => /^Ciel Work: .*nL1/.test(call.text)).length
+    // A reminder is submitted after an awaited prompt-key claim: wait for it (or
+    // 1 s of nothing) before counting.
+    const stop = async () => {
+      const before = prompts.calls.length
+      await one.handlers['classic.Stop']($, { session_id:'S1' }, next({}))
+      await keyUntil(() => prompts.calls.length > before, 1000)
+      await settle()
+    }
+    await stop()
+    const immediate = reminders()
+    later(21 * 60 * 1000)
+    await stop()
+    const afterWaiting = reminders()
+    await stop()
+    return { settled, wakes:prompts.calls.filter(call => call.text.startsWith('Ciel Work review wake')).length,
+      immediate, afterWaiting, repeated:reminders() }
+  },
+  // Celly 2026-11-19: a result the pane listed as awaiting review while the
+  // Stop projection held none. Its reminder also waits 20 minutes from when
+  // this process first saw it, and is then sent.
+  async 'review-reminder-pane-only-row'() {
+    const B = keyBackend(), prompts = keyPrompts()
+    let paneRead = false
+    const call = async (tool, args) => {
+      const answer = await B.call(tool, args)
+      if (tool !== 'work_parallel_status' || paneRead) return answer
+      const value = JSON.parse(answer.content[0].text)
+      return text({ ...value, review:{ ...value.review, pending:[] } })
+    }
+    const one = await keyInstance('reminder-pane')
+    const { $ } = keyHost({ call }, keyState(), keyClock(), prompts)
+    await one.handlers['session.start']($, { isInteractive:false }, next(undefined))
+    B.addReview('L1', 'rp1:' + 'c3'.repeat(32))
+    const statusReads = () => B.reads || 0
+    const counted = B.call
+    B.call = async (tool, args) => { if (tool === 'work_parallel_status') B.reads = statusReads() + 1; return counted(tool, args) }
+    paneRead = true
+    const before = statusReads()
+    await one.handlers['command.run']($, { args:'view' })
+    await keyUntil(() => statusReads() > before)
+    await sleep(60)
+    paneRead = false
+    const reminders = () => prompts.calls.filter(call => /^Ciel Work: .*nL1/.test(call.text)).length
+    const stop = async () => {
+      const count = prompts.calls.length
+      await one.handlers['classic.Stop']($, { session_id:'S1' }, next({}))
+      await keyUntil(() => prompts.calls.length > count, 1000)
+      for (const call of prompts.calls) call.release('ok')
+      await sleep(60)
+    }
+    await stop()
+    const immediate = reminders()
+    later(21 * 60 * 1000)
+    await stop()
+    return { wakes:prompts.calls.filter(call => call.text.startsWith('Ciel Work review wake')).length,
+      immediate, afterWaiting:reminders() }
   },
 })
 

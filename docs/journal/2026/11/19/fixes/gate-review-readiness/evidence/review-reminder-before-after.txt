@@ -1,0 +1,8 @@
+HEAD (d216883) register.js:
+{"scenario":"review-reminder-waits-after-the-first-wake","settled":true,"wakes":1,"immediate":1,"afterWaiting":2,"repeated":2}
+{"scenario":"review-reminder-pane-only-row","wakes":0,"immediate":1,"afterWaiting":2}
+intermediate draft (first-seen recorded only at projection):
+{"scenario":"review-reminder-pane-only-row","wakes":0,"immediate":0,"afterWaiting":0}
+changed register.js:
+{"scenario":"review-reminder-waits-after-the-first-wake","settled":true,"wakes":1,"immediate":0,"afterWaiting":1,"repeated":1}
+{"scenario":"review-reminder-pane-only-row","wakes":0,"immediate":0,"afterWaiting":1}
