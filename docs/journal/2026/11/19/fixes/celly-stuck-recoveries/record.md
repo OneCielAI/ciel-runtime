@@ -172,3 +172,6 @@ Before creating a continuation intent, `_end_predecessor_continuation` ends the 
 - n1174: the retained path blocks workspace preparation.
 - Andy n1953 `owner_failure`, 22 submitted results left in validating, and n2040's 8-minute delay between receipt and review: not investigated.
 - No live session has run these fixes yet.
+- Andy n1398, n1399, n1400 and n1402 (leases created 2026-11-11 00:07) have no coordination run, archive, finalization row or stranded row.
+  - `_review_facts` needs a coordination completion run, so these four never reach `review.pending`.
+  - No supported review path exists for them. This needs the user's decision.

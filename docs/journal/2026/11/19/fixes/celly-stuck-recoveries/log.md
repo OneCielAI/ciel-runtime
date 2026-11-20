@@ -2,6 +2,7 @@
 
 ## 2026-11-20
 
+- 07:20Z: Andy n1398–n1402 are ledger-only results with no coordination run. No review path exists; recorded as open, peer told not to approve or restart.
 - 06:58Z: npm beta 0.2.51-beta.20261120-065417.9e718ac published (gitHead 9e718ac2). Local, Celly and KOBE carry the same work_parallel_mcp.py (hash 2BA145B7…).
 - 06:45Z: rework-of-rework P0 intent fix (084600b): Linux 454 pass; beta 9e718ac pushed.
 
