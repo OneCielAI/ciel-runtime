@@ -157,6 +157,7 @@ def gates(doc: Mapping[str, Any], priority: Callable[[Mapping[str, Any]], str] |
             except Exception:  # noqa: BLE001 - an unreadable P0 marker keeps the canonical priority
                 ranks[goal["id"]] = str(goal.get("priority") or "")
         rows.append({"id": node["id"], "title": str(node.get("title") or "")[:200],
+                     "refs": [str(ref) for ref in (node.get("refs") or [])][:32],
                      "priority": ranks[goal["id"]],
                      "waiting_on": str(node.get("waiting_on") or ""), "blocked": node.get("status") == "blocked",
                      "root_id": goal["id"], "root_title": str(goal.get("title") or "")[:200],
@@ -198,6 +199,8 @@ def event_text(rows: list[dict[str, Any]], interval: int, part: str = "",
         what = ("대기 조건: " + row["waiting_on"]) if row["waiting_on"] else "상태 blocked"
         rank = ("[" + row["priority"] + "] ") if row.get("priority") else ""
         lines.append(f"- {rank}{row['id']} ({row['title']}) / 목표 {row['root_id']} ({row['root_title']}): {what}")
+        if row.get("refs"):
+            lines.append("  refs: " + ", ".join(row["refs"]))
         if row.get("lease") is not None:
             lines.append("  lease: " + (row["lease"] or "없음 (이 아이템을 맡은 포크가 없었음)"))
         if row["evidence"]:

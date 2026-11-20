@@ -473,6 +473,22 @@ class WorkContinuationMcpTests(unittest.TestCase):
         self.assertEqual((persisted["nodes"][0]["ref"], persisted["nodes"][0]["waiting_on"]), ("", ""))
         self.assertEqual(persisted, self.store.read())
 
+    def test_related_ids_roundtrip_through_plan_add_update(self):
+        # User 2026-11-20: main registers every related id with its own tools;
+        # the schema offers refs, so a call carrying them must store them.
+        self.assertFalse(self.call("work_plan_set", goal="linked", refs=["41", "40"])["error"])
+        root = self.store.read()["nodes"][0]
+        self.assertEqual((["41", "40"], "41"), (root["refs"], root["ref"]))
+        self.assertFalse(self.call("work_node_add", parent_id=root["id"], title="child", refs=["42"])["error"])
+        child = self.store.read()["nodes"][-1]
+        self.assertEqual((["42"], "42"), (child["refs"], child["ref"]))
+        result = self.call("work_node_update", id=child["id"], refs=["43", "42"])
+        self.assertFalse(result["error"], result)
+        self.assertNotIn("NO CHANGE", result["text"])
+        self.assertEqual(["43", "42"], self.store.read()["nodes"][-1]["refs"])
+        self.assertFalse(self.call("work_plan_set", root_id=root["id"], goal="linked", refs=["44"])["error"])
+        self.assertEqual(["44"], self.store.read()["nodes"][0]["refs"])
+
     def test_reorder_dispatch_version_success_noop_and_invalid_rollback(self):
         first = self.plan()["active_root"]
         self.call("work_node_add", title="second")

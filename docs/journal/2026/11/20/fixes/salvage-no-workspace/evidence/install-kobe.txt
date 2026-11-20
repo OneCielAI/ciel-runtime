@@ -1,0 +1,6 @@
+rc 0
+
+START 2026-11-20T09:46:00.0239575-08:00 C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime
+VERIFIED ciel_runtime_support/work_parallel_mcp.py ACBBB30FE657D007
+VERIFIED ciel_runtime_support/work_parallel_receipts.py 0342735E7FC5A596
+DONE C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime; no process restarted

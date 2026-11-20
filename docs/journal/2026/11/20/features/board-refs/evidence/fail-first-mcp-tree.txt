@@ -1,0 +1,46 @@
+test_related_ids_roundtrip_through_plan_add_update (test_work_mcp_tools.WorkContinuationMcpTests.test_related_ids_roundtrip_through_plan_add_update) ... FAIL
+
+======================================================================
+FAIL: test_related_ids_roundtrip_through_plan_add_update (test_work_mcp_tools.WorkContinuationMcpTests.test_related_ids_roundtrip_through_plan_add_update)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<worktree>\tests\test_work_mcp_tools.py", line 481, in test_related_ids_roundtrip_through_plan_add_update
+    self.assertEqual((["41", "40"], "41"), (root["refs"], root["ref"]))
+AssertionError: Tuples differ: (['41', '40'], '41') != ([], '')
+
+First differing element 0:
+['41', '40']
+[]
+
+- (['41', '40'], '41')
++ ([], '')
+
+----------------------------------------------------------------------
+Ran 1 test in 0.026s
+
+FAILED (failures=1)
+RAN 1 failures=1 errors=0 skipped=0
+test_refs_without_a_ref_give_the_node_its_ref (test_work_plan_tree.WorkPlanTreeTests.test_refs_without_a_ref_give_the_node_its_ref) ... FAIL
+
+======================================================================
+FAIL: test_refs_without_a_ref_give_the_node_its_ref (test_work_plan_tree.WorkPlanTreeTests.test_refs_without_a_ref_give_the_node_its_ref)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<worktree>\tests\test_work_plan_tree.py", line 64, in test_refs_without_a_ref_give_the_node_its_ref
+    self.assertEqual(("41", ["41", "40"]), (row["ref"], row["refs"]))
+AssertionError: Tuples differ: ('41', ['41', '40']) != ('', ['41', '40'])
+
+First differing element 0:
+'41'
+''
+
+- ('41', ['41', '40'])
+?   --
+
++ ('', ['41', '40'])
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (failures=1)
+RAN 1 failures=1 errors=0 skipped=0

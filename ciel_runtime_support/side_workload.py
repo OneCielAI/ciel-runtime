@@ -8,7 +8,7 @@ def project(document):
     nodes = document['nodes']
     roots = [node for node in nodes if node.get('parent_id') is None]
     active = document.get('active_root')
-    fields = ('id', 'parent_id', 'title', 'status', 'priority', 'phase', 'waiting_on', 'urgent', 'ref', 'note', 'evidence')
+    fields = ('id', 'parent_id', 'title', 'status', 'priority', 'phase', 'waiting_on', 'urgent', 'ref', 'refs', 'note', 'evidence')
     return {
         'version': document['version'], 'observed_at': time.time(),
         'active_root': active, 'phase': document.get('phase'),

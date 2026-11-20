@@ -256,6 +256,32 @@ class WorkParallelMCPTests(unittest.TestCase):
                 event="unreported", lease_id=reserved["lease_id"])
             self.assertEqual("unreported", store.read()["leases"][reserved["lease_id"]]["state"])
 
+    def test_host_salvage_without_a_workspace_releases_the_slot(self):
+        # KOBE 2026-11-20 n964: the session folder is not a git repository, so
+        # the fork had no workspace. Its native turn ended failed with no report
+        # (every exit-contract prompt hit an upstream refusal) and host_salvage
+        # was refused "unknown salvage workspace": the lease kept its slot.
+        store, board, config, run = self.env
+        from ciel_runtime_support import runtime_paths
+        with patch.object(runtime_paths, "CONFIG_DIR", self.tmp_path / "cfg"):
+            reserved = run("event", {"fork": True}, event="reserve", item_id="n1", priority="P1")
+            self.assertIsNone(store.read()["leases"][reserved["lease_id"]].get("workspace"))
+            run("event", {"host_id": "native-worker"}, event="bind", lease_id=reserved["lease_id"])
+            salvaged = run("event", {"proof": "native terminal"}, event="host_salvage",
+                           lease_id=reserved["lease_id"], reason="native failed without report")
+            self.assertTrue(salvaged["salvaged"])
+            self.assertNotIn("workspace_unavailable", salvaged)
+            detail = m.coordination(store).detail(salvaged["receipt_digest"])
+            self.assertEqual(["n1"], detail["remaining"])
+            self.assertIsNone(detail["workspace"])
+            replay = run("event", {"proof": "native terminal"}, event="host_salvage",
+                         lease_id=reserved["lease_id"], reason="native failed without report")
+            self.assertEqual(salvaged, replay)
+            run("event", {"proof": "salvage " + salvaged["receipt_digest"]},
+                event="unreported", lease_id=reserved["lease_id"])
+            lease = store.read()["leases"][reserved["lease_id"]]
+            self.assertEqual(("unreported", False), (lease["state"], lease["slot"]))
+
     def test_failed_workspace_preparation_releases_its_reservation(self):
         store, board, config, run = self.env
         not_root = self.tmp_path / "plain"

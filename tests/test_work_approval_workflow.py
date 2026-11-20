@@ -105,7 +105,7 @@ class WorkflowCase(unittest.TestCase):
         receipt = self.receive(request_event(message_id), 'walkie:' + message_id)
         row = self.claim()
         self.assertEqual(receipt, row['receipt_id'])
-        decision = {'action': 'create', 'kind': 'request', 'title': 'CSV export', 'summary': 'add a CSV export',
+        decision = {'refs': ['999'], 'action': 'create', 'kind': 'request', 'title': 'CSV export', 'summary': 'add a CSV export',
                     'reply': '등록했습니다', 'priority': priority, 'note': 'requested by the PM'}
         done = self.call('work_side_resolve', {'decision': decision, 'expected_version': self.store.read()['version']},
                          host={**HOST, 'receipt_id': receipt, 'generation': row['generation']})
@@ -476,7 +476,7 @@ class SideIntakeFixTests(WorkflowCase):
         self.assertEqual('executing', self.state(root))
         before = _root_scope_digest(self.store.read(), root)
         key = hashlib.sha256(b'note').hexdigest()
-        apply(self.store, key, {'action': 'update', 'kind': 'request', 'item_id': root, 'summary': 'more detail',
+        apply(self.store, key, {'refs': ['999'], 'action': 'update', 'kind': 'request', 'item_id': root, 'summary': 'more detail',
                                 'reply': 'noted', 'note': 'use semicolons'}, self.store.read()['version'],
               workflow={'source': {}, 'prompt': ''})
         node = next(n for n in self.store.read()['nodes'] if n['id'] == root)
@@ -490,7 +490,7 @@ class SideIntakeFixTests(WorkflowCase):
         self.assertNotIn('workflows', self.store.read())
         self.assertEqual('', wf.gate(self.store.read(), root))
         from ciel_runtime_support.side_work_decision import apply
-        apply(self.store, hashlib.sha256(b'off').hexdigest(), {'action': 'update', 'kind': 'request', 'item_id': root,
+        apply(self.store, hashlib.sha256(b'off').hexdigest(), {'refs': ['999'], 'action': 'update', 'kind': 'request', 'item_id': root,
               'summary': 's', 'reply': 'r', 'note': 'plain note'}, self.store.read()['version'])
         node = next(n for n in self.store.read()['nodes'] if n['id'] == root)
         self.assertIn('plain note', node['note'])

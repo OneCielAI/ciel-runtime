@@ -1,0 +1,6 @@
+Ran 1324 tests in 3792.305s
+
+FAILED (failures=1, errors=2, skipped=56)
+
+[R2-B2 mixed] 57dbfb3 rework_launch_absent on an other-live owner: {"ok": {"lease_id": "a587bc52bf0b9caffcbe91f8523839c6", "state": "spawn_denied", "dispatch_name": "work-rework-a587bc52bf0b9caffcbe91f8523839c6-a1", "attempt": 1, "generation": 2, "agent_id": null, "proof": "exact launch name absent from a later host process's agent list", "launch_ref": null, "updat
+RAN 1324 failures=1 errors=2 skipped=56

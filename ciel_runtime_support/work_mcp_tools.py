@@ -25,6 +25,9 @@ _NODE_SPEC = {
         "title": {"type": "string"},
         "note": {"type": "string"},
         "ref": {"type": "string", "maxLength": tree.MAX_REF_CHARS},
+        "refs": {"type": "array", "maxItems": tree.MAX_REFS,
+                 "items": {"type": "string", "maxLength": tree.MAX_REF_CHARS},
+                 "description": "Every external id related to this node (target message, thread root, parent, conversation), target first."},
         "waiting_on": {"type": "string", "maxLength": tree.MAX_WAIT_CHARS},
         "children": {"type": "array", "items": {"type": "object"}},
     },
@@ -113,7 +116,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
                 "properties": {
                     "goal": {"type": "string", "description": "The goal title."},
                     "note": {"type": "string"},
-                    "ref": _NODE_SPEC["properties"]["ref"],
+                    "ref": _NODE_SPEC["properties"]["ref"], "refs": _NODE_SPEC["properties"]["refs"],
                     "waiting_on": _NODE_SPEC["properties"]["waiting_on"],
                     "priority": _ROOT_PRIORITY,
                     "operation_id": _PRIORITY_OPERATION_ID,
@@ -140,7 +143,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
                     "within_scope": {"type": "boolean", "description": "True only for a refinement within the existing approved goal; preserves its phase. Omit for new scope requiring review."},
                     "title": {"type": "string"},
                     "note": {"type": "string"},
-                    "ref": _NODE_SPEC["properties"]["ref"],
+                    "ref": _NODE_SPEC["properties"]["ref"], "refs": _NODE_SPEC["properties"]["refs"],
                     "waiting_on": _NODE_SPEC["properties"]["waiting_on"],
                     "priority": _PRIORITY,
                     "children": {"type": "array", "items": _NODE_SPEC},
@@ -172,7 +175,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
                     "title": {"type": "string"},
                     "note": {"type": "string"},
                     "progress": {"type": "string", "description": "Phase-preserving implementation, CI, review or cleanup progress; not approved scope."},
-                    "ref": _NODE_SPEC["properties"]["ref"],
+                    "ref": _NODE_SPEC["properties"]["ref"], "refs": _NODE_SPEC["properties"]["refs"],
                     "waiting_on": _NODE_SPEC["properties"]["waiting_on"],
                     "clear_wait": {"type": "boolean", "description": "Explicitly clear this node's verified wait. true is equivalent to waiting_on=\"\"; never inferred from omitted fields."},
                     "priority": _ROOT_PRIORITY,
@@ -248,7 +251,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
             "description": "On an explicit user request, create a top-priority urgent goal and hold all other goals until it finishes; the former active goal resumes next. Break down the ad-hoc request with children and call work_execute before executing.",
             "inputSchema": {"type": "object", "properties": {
                 "goal": {"type": "string"}, "note": {"type": "string"},
-                "ref": _NODE_SPEC["properties"]["ref"],
+                "ref": _NODE_SPEC["properties"]["ref"], "refs": _NODE_SPEC["properties"]["refs"],
                 "children": {"type": "array", "items": _NODE_SPEC},
                 "user_requested": {"type": "boolean"}, "expected_version": _EXPECTED_VERSION,
             }, "required": ["goal", "user_requested"]},
@@ -899,7 +902,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         return tree.render(doc, max_lines=104, all_goals=args.get("all_goals") is True)
     if name == "work_plan_set":
         spec = {"title": args.get("goal"), "note": args.get("note", ""), "children": args.get("children") or []}
-        spec.update({key: args[key] for key in ("ref", "waiting_on", "priority") if key in args})
+        spec.update({key: args[key] for key in ("ref", "refs", "waiting_on", "priority") if key in args})
         root_id = args.get("root_id")
         if args.get("priority") == "P0":
             raise tree.WorkPlanError("P0 priority is applied by the authenticated Work host")
@@ -914,6 +917,8 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         parent = args.get("parent_id")
         spec = {"title": args.get("title"), "note": args.get("note", ""), "children": args.get("children") or [],
                 "ref": args.get("ref", ""), "waiting_on": args.get("waiting_on", "")}
+        if "refs" in args:
+            spec["refs"] = args["refs"]
         if not parent and "priority" in args:
             spec["priority"] = args["priority"]
         doc, node = store.transaction(
@@ -933,7 +938,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
                     raise tree.WorkPlanError('clear_wait=true conflicts with non-empty waiting_on')
                 args = {**args, 'waiting_on': ''}
         node_id = str(args.get("id") or "")
-        mutable = {'status', 'title', 'note', 'progress', 'evidence', 'ref', 'waiting_on', 'priority'}
+        mutable = {'status', 'title', 'note', 'progress', 'evidence', 'ref', 'refs', 'waiting_on', 'priority'}
         if not any(key in args and args[key] is not None for key in mutable):
             raise tree.WorkPlanError(
                 'NO CHANGE: work_node_update requires at least one mutation field. '
@@ -962,7 +967,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
                 return tree.update_node(
                     d, node_id, status=args.get("status"), title=args.get("title"),
                     note=args.get("note"), progress=args.get("progress"), evidence=args.get("evidence"),
-                    ref=args.get("ref"), waiting_on=args.get("waiting_on"),
+                    ref=args.get("ref"), refs=args.get("refs"), waiting_on=args.get("waiting_on"),
                     priority=args.get("priority"),
                 ), before, d.get("version", 0)
 

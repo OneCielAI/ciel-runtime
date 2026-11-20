@@ -117,7 +117,7 @@ class SideNoteFieldTests(unittest.TestCase):
 
 class LengthClampTests(unittest.TestCase):
     def test_over_long_summary_reply_note_title_are_cut_with_a_marker(self):
-        decision = validate({'action': 'create', 'kind': 'request', 'title': 't' * 500,
+        decision = validate({'refs': ['999'], 'action': 'create', 'kind': 'request', 'title': 't' * 500,
                              'summary': 's' * (MAX_SIDE_SUMMARY + 50), 'reply': 'r' * (MAX_SIDE_SUMMARY + 9),
                              'note': 'n' * (tree.MAX_TEXT_CHARS + 1)})
         for key, limit in (('summary', MAX_SIDE_SUMMARY), ('reply', MAX_SIDE_SUMMARY), ('note', tree.MAX_TEXT_CHARS),
@@ -132,9 +132,9 @@ class LengthClampTests(unittest.TestCase):
         for bad in ('', '   ', 'ACK got it', 'original'):
             with self.subTest(bad=bad), self.assertRaises(tree.WorkPlanError):
                 validate_understanding(bad, 'original')
-        for decision in ({'action': 'create', 'kind': 'request', 'summary': '', 'reply': 'r'},
+        for decision in ({'refs': ['999'], 'action': 'create', 'kind': 'request', 'summary': '', 'reply': 'r'},
                          {'action': 'explode', 'kind': 'request', 'summary': 's', 'reply': 'r'},
-                         {'action': 'create', 'kind': 'status', 'summary': 's', 'reply': 'r'}):
+                         {'refs': ['999'], 'action': 'create', 'kind': 'status', 'summary': 's', 'reply': 'r'}):
             with self.subTest(decision=decision), self.assertRaises(tree.WorkPlanError):
                 validate(dict(decision))
 
@@ -248,7 +248,7 @@ class GateThreadTests(unittest.TestCase):
         SideIntakeInbox(self.root, self.identity).receive(text, 'walkie:e1')
         event = self.invoke('work_side_claim', {'owner': 'actor'})['claim']
         host = {**HOST, 'receipt_id': event['receipt_id'], 'generation': event['generation']}
-        resolved = self.invoke('work_side_resolve', {'decision': {
+        resolved = self.invoke('work_side_resolve', {'decision': {'refs': ['999'], 
             'action': 'create', 'kind': 'request', 'title': 'deploy after approval', 'summary': 'deploy waits',
             'reply': 'queued'}, 'expected_version': self.store.read()['version']}, host)
         item = resolved['result']['item_id']
@@ -306,6 +306,17 @@ class CorrectiveTurnTests(unittest.TestCase):
         row = self.result['resolve_refused']
         self.assertEqual([], row['sends'])
         self.assertEqual(['invalid_answer'], [failure['category'] for failure in row['failures']])
+
+    def test_a_queue_decision_without_refs_is_corrected_then_commits_with_them(self):
+        row = self.result['refs_refused_then_valid']
+        self.assertEqual([{'to': 'actor-refs_refused_then_valid', 'mentionsError': True}], row['sends'])
+        self.assertEqual((2, 1, 1, []), (row['prepares'], row['understandingSent'], row['resolves'], row['failures']))
+        self.assertEqual([None, ['41', '40'], ['41', '40']], row['sentRefs'])
+
+    def test_refs_reach_only_a_router_that_accepts_them(self):
+        self.assertEqual([['41', '40'], ['41', '40']], self.result['router_with_refs']['sentRefs'])
+        before = self.result['router_before_refs']
+        self.assertEqual(([None, None], [], 1), (before['sentRefs'], before['failures'], before['resolves']))
 
 
 if __name__ == '__main__':

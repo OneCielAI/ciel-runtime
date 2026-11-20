@@ -1,0 +1,54 @@
+Validating plugin manifest: <worktree>\ciel_runtime_support\claude_mods\ciel-work\.claude-plugin\plugin.json
+
+  ❯ types ./types/index.d.ts declares on $: nothing (no EngineInterface member)
+  ❯ types ./types/index.d.ts declares state: ciel-work.detail, ciel-work.panel, ciel-work.legacyWakes, ciel-work.promptPending
+
+Validating hooks: <worktree>\ciel_runtime_support\claude_mods\ciel-work\hooks\hooks.json
+
+  ❯ ./register.js hooks: agent.spawn, session.append, session.start, classic.SessionStart, prompt.attachment{type=plan_mode|plan_mode_exit}, turn.start, turn.step, turn.complete, session.compact, classic.Stop, session.receive, prompt.submit, command.run{command=btw_with_mcp}, command.run{command=work-mode}, tool.call, session.send, tool.check, session.end, ui.render{component=AbovePrompt} (default matcher key: plugin), ui.render{component=Pane, requestId=ciel-side-intake} (default matcher key: plugin), ui.message{component=Pane, requestId=work-details, element=obs-graphic}, ui.render{component=Pane, requestId=work-details} (default matcher key: plugin), ui.render{component=SessionMode}
+  ❯ ./register.js answers its own command: command.run{command=btw_with_mcp}
+  ❯ ./register.js answers its own command: command.run{command=work-mode}
+  ❯ ./register.js gating hook without .catch: agent.spawn
+  ❯ ./register.js gating hook without .catch: session.append
+  ❯ ./register.js gating hook without .catch: classic.SessionStart
+  ❯ ./register.js gating hook without .catch: session.compact
+  ❯ ./register.js gating hook without .catch: classic.Stop
+  ❯ ./register.js gating hook without .catch: session.receive
+  ❯ ./register.js gating hook without .catch: prompt.submit
+  ❯ ./register.js gating hook without .catch: tool.call
+  ❯ ./register.js gating hook without .catch: session.send
+  ❯ ./register.js gating hook without .catch: tool.check
+  ❯ ./register.js calls: $.agent.list (via listNativeAgents, startSide), $.agent.register (via freshSideType), $.agent.spawn (via parallelDirectSpawn, parallelP0Spawn, pollSide, workflowDelegate), $.clock.after (via armPromptRelease, btwBridge, commitProposal, correctSide, parallelPump, pollBusySideReceipts, pollSide, retire, retryStart, scheduleGateCheck, scheduleIdleRefresh, scheduleNativeObservation, startPeriodicPump), $.command.register, $.command.run (via btwBridge), $.env.get (via callRouter, hostCredential, mcpText, parallelHostAttach, reworkLaunchNonce), $.env.set (via reworkLaunchNonce), $.fs.read (via mcpText)
+  ❯ ./register.js calls: $.mcp.call (via approvalReadWalkie, callRouter, focusItems, hostJson, mcpText, moveRoot, openDetails, parallelCall, planText, readSnapshot, submitAck, submitReply, submitUnderstanding, workToolCall), $.mcp.connect (via readSnapshot, startSide), $.prompt.compose (via freshSideType), $.prompt.submit (via sidePromptSubmit), $.session.append (via appendToMain, deliverParallelReview, hostNoticeToMain, shareWithMain), $.session.id (via identityOf, mcpText, sessionId), $.session.messages (via appendedRefCount), $.session.repo (via parallelAgentSpawn, parallelDirectSpawn, parallelP0Spawn)
+  ❯ ./register.js calls: $.session.send (via notifyReleased, parallelEnsureExitContract, parallelRecoverWorkers, parallelResumeParked, relayToItem, sendCorrection), $.state.get (via claimLegacyAttempt, claimPromptKey, sidePromptHydrate, terminalizePromptKey), $.state.set (via claimLegacyAttempt, claimPromptKey, terminalizePromptKey), $.tool.call (via rejectLateReworkAgents, rejectStaleReworkForks, stopParallelAgent, stopRetired), $.tool.check (via forkGatePresent), $.ui.ask (via editObservatorySetting, parallelToolCall, pickChoice, requestReworkLaunchResolution, retryReviewReappend, retrySideNotice, retrySideReappend, retrySideReply, retrySideWake, workToolCall), $.ui.close, $.ui.invalidate
+  ❯ ./register.js calls: $.ui.log (via appendToMain, btwBridge, correctLater, correctSide, gateHostRound, gateRead, logParkedState, noteTurnReconcileFailure, notice, notifyReleased, parallelObserveNative, parallelResumeParked, parallelTurnComplete, pollSide, recordFailure, relayToItem, resumeSide, scheduleGateCheck, scheduleMainWake, sendOwedAcks, stopNotice, workflowAgentComplete, workflowApprovalReads, workflowApprovalResults, workflowDelegate), $.ui.open, $.ui.resolve, $.ui.toast (via focusItems, forkGatePresent, hintPlanning, moveRoot, reconcileReworkLaunch, requestReworkLaunchResolution, retryRefused, setObservatorySetting, workStop)
+  ❯ ./register.js env writes: CIEL_WORK_HOST_PROCESS_NONCE
+  ❯ ./register.js env reads: CIEL_RUNTIME_WORK_LAUNCHER_PID, CIEL_RUNTIME_WORK_PARALLEL_HOST_TOKEN, CIEL_WORK_HOST_PROCESS_NONCE, CLAUDE_CONFIG_DIR, HOME, USERPROFILE
+  ❯ ./register.js state writes: ciel-work.detail, ciel-work.legacyWakes, ciel-work.panel, ciel-work.promptPending
+  ❯ ./register.js state reads: ciel-work.detail, ciel-work.legacyWakes, ciel-work.panel, ciel-work.promptPending
+  ❯ ./register.js surface modules: hooks/observatory.client.js
+
+Provides:
+
+  ❯ modules: hooks/register.js
+
+Hosts not read for: modules (1)
+Hosts not declared: list what these parts reach under "network.hosts" in plugin.json
+
+Plugin directory checks for <worktree>\ciel_runtime_support\claude_mods\ciel-work. The plugin directory is the catalog that plugins are submitted to; this is a subset of what it runs.
+
+⚠ Found 1 plugin directory warning:
+
+  ❯ .claude-plugin/plugin.json icon: No icon (ICON_MISSING). No icon found in the plugin. The validator looked for `icon` in plugin.json and for a file at .claude-plugin/icon.png or .svg, assets/icon.png or .svg, or a similar path.
+    Fix: Add a square PNG to the plugin folder at .claude-plugin/icon.png, or set `icon` in plugin.json to the path of a square PNG or JPEG in the plugin: 512 to 2048 px on each side, under 2 MB. SVG and WebP are not accepted. That file may become the listing icon only once: the first time the plugin is saved or submitted in the developer portal. Adding or changing it later does not change the icon.
+
+About these checks:
+
+  ❯ The repository root was taken to be <worktree>, the nearest parent folder with a .git folder or file. README.md and LICENSE were taken from it, because this plugin folder has none of its own. For a plugin submitted from a git repository, the repository root is the top folder of that repository, with only what is committed there, so check that the folder named above is that top folder.
+  ❯ hooks/hooks.json names a hooks module (a code file listed under `modules`). The plugin directory has rules of its own for such code, and these checks apply none of them, so passing here does not mean the directory accepts the plugin. The developer portal's own validation applies those rules.
+
+These plugin directory checks do not change the result below.
+
+The directory also runs a safety scan and a policy review that this command does not.
+
+✔ Validation passed

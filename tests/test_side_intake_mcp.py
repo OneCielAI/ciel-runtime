@@ -310,7 +310,7 @@ class SideMcpTests(unittest.TestCase):
         from ciel_runtime_support import work_plan_tree as tree
         event=self._claim()
         self.store.transaction(lambda d:tree.add_node(d,None,'main added same work'))
-        first=self.invoke('work_side_resolve',{'decision':{'action':'create','kind':'request',
+        first=self.invoke('work_side_resolve',{'decision':{'refs': ['999'], 'action':'create','kind':'request',
             'summary':'new request','reply':'요청을 복기했습니다.','title':'same work','note':'details'},
             'expected_version':event['workload']['version']},
             {'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation'],
@@ -348,7 +348,7 @@ class SideMcpTests(unittest.TestCase):
         event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
         host={'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation']}
         version=store.read()['version']
-        args={'decision':{'action':'create','title':'Urgent external task','note':'Blocking deadline',
+        args={'decision':{'refs': ['999'], 'action':'create','title':'Urgent external task','note':'Blocking deadline',
               'summary':'ACK sent; urgent work queued','reply':'ACK sent','priority':'P1'},
               'expected_version':version}
         result=self.invoke('work_side_resolve',args,host)
@@ -368,7 +368,7 @@ class SideMcpTests(unittest.TestCase):
         # Main keeps committing while the fork decides.
         store.transaction(lambda doc: tree.add_node(doc,None,'main meanwhile',priority='P3'))
         host={'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation']}
-        args={'decision':{'action':'create','title':'Urgent','note':'now','summary':'ACK sent; queued',
+        args={'decision':{'refs': ['999'], 'action':'create','title':'Urgent','note':'now','summary':'ACK sent; queued',
               'reply':'ACK sent','priority':'P1'},'expected_version':seen}
         result=self.invoke('work_side_resolve',args,host)
         self.assertFalse(result['error'],result)
@@ -424,7 +424,7 @@ class SideMcpTests(unittest.TestCase):
             with patch('ciel_runtime_support.work_parallel_mcp.ledger', return_value=ledger):
                 event = self._claim()
                 self.assertEqual('P0', event['source_priority'])
-                result = self._resolve_event(event, {'action': 'update', 'kind': 'request', 'item_id': step,
+                result = self._resolve_event(event, {'refs': ['999'], 'action': 'update', 'kind': 'request', 'item_id': step,
                     'summary': 'Correct the missing approval button', 'reply': 'Recorded the correction', 'priority': 'P1'})
             root = next(node for node in self.store.read()['nodes'] if node['id'] == item)
             self.assertEqual(('P1', 'P0', 'P0'), (root['priority'], p0_store(ledger).effective_priority(self.identity, root),
@@ -449,7 +449,7 @@ class SideMcpTests(unittest.TestCase):
         with patch('ciel_runtime_support.work_parallel_mcp.ledger', return_value=ledger):
             event = self._claim()
             self.assertIsNone(event['source_priority'])
-            result = self._resolve_event(event, {'action': 'update', 'kind': 'request', 'item_id': item,
+            result = self._resolve_event(event, {'refs': ['999'], 'action': 'update', 'kind': 'request', 'item_id': item,
                 'summary': 'A detail for the same incident', 'reply': 'Noted', 'priority': 'P3'})
         self.assertEqual('P0', result['priority'])
         self.assertEqual('P1', self.store.read()['nodes'][0]['priority'])
@@ -524,6 +524,71 @@ class SideMcpTests(unittest.TestCase):
         self.assertEqual(('answer', True), (result['action'], result['ask_main']))
         self.assertEqual([], self.store.read()['nodes'])
 
+    def test_queue_decisions_register_every_related_external_id(self):
+        # User 2026-11-20: when the side actor queues a request, every related id
+        # (message, thread root, parent, conversation) must land on the Work node.
+        from ciel_runtime_support import work_plan_tree as tree
+        store = session_work_plan_store(self.root, self.identity)
+        store.transaction(lambda doc: tree.add_node(doc, None, 'active', priority='P3'))
+        event = self._claim()
+        host = {'token': 'x'*40, 'receipt_id': event['receipt_id'], 'generation': event['generation']}
+        decision = {'action': 'create', 'kind': 'request', 'title': 'Linked request',
+                    'summary': 'queued', 'reply': 'Queued', 'refs': ['154304', '153480']}
+        result = self.invoke('work_side_resolve', {'decision': decision,
+                             'expected_version': store.read()['version']}, host)
+        self.assertFalse(result['error'], result)
+        item = next(node for node in store.read()['nodes'] if node['title'] == 'Linked request')
+        self.assertEqual(['154304', '153480'], item['refs'])
+        self.assertEqual('154304', item['ref'])
+        for i, (action, refs) in enumerate((('update', ['153480', '154306']), ('prioritize', ['154999']))):
+            self.inbox.receive(f'follow up {i}', f'refs follow up {i}')
+            event = self._claim()
+            host = {'token': 'x'*40, 'receipt_id': event['receipt_id'], 'generation': event['generation']}
+            decision = {'action': action, 'kind': 'request', 'item_id': item['id'],
+                        'summary': 'follow-up', 'reply': 'Noted', 'refs': refs, 'note': 'n',
+                        **({'priority': 'P2'} if action == 'prioritize' else {})}
+            result = self.invoke('work_side_resolve', {'decision': decision,
+                                 'expected_version': store.read()['version']}, host)
+            self.assertFalse(result['error'], result)
+            item = next(node for node in store.read()['nodes'] if node['id'] == item['id'])
+        self.assertEqual(['154304', '153480', '154306', '154999'], item['refs'])
+
+    def test_claim_names_the_decision_fields_this_router_accepts(self):
+        # The mod sends refs only to a router that lists it (2026-11-20): an
+        # older router refuses an unknown decision field.
+        from ciel_runtime_support.side_work_decision import FIELDS
+        event = self._claim()
+        self.assertEqual(sorted(FIELDS), event['decision_fields'])
+        self.assertIn('refs', event['decision_fields'])
+
+    def test_queue_decision_without_related_ids_is_refused_and_rechecked(self):
+        store = session_work_plan_store(self.root, self.identity)
+        # setUp's plain event first: a source with no message id queues without refs.
+        plain = self._claim()
+        host = {'token': 'x'*40, 'receipt_id': plain['receipt_id'], 'generation': plain['generation']}
+        result = self.invoke('work_side_resolve', {'decision': {'action': 'answer', 'kind': 'status',
+                             'summary': 's', 'reply': 'r'}, 'expected_version': plain['workload']['version']}, host)
+        self.assertFalse(result['error'], result)
+        self.inbox.receive(json.dumps({'type': 'com.ciel.walkie.support.message', 'data': {
+            'text': 'A request with a source message.', 'message_id': '999',
+            'conversation': '34886995-4a66-4527-a618-814e9cb0a5bf',
+            'thread_root_id': '999', 'reply_to_message_id': None}}), 'walkie:refs')
+        event = self._claim()
+        host = {'token': 'x'*40, 'receipt_id': event['receipt_id'], 'generation': event['generation']}
+        decision = {'action': 'create', 'kind': 'request', 'title': 'No refs',
+                    'summary': 'queued', 'reply': 'Queued'}
+        result = self.invoke('work_side_resolve', {'decision': decision,
+                             'expected_version': store.read()['version']}, host)
+        self.assertTrue(result['error'], result)
+        self.assertIn('refs', result['text'])
+        self.assertEqual([], store.read()['nodes'])
+        # The same claim can be corrected with the missing ids.
+        decision['refs'] = ['999']
+        result = self.invoke('work_side_resolve', {'decision': decision,
+                             'expected_version': store.read()['version']}, host)
+        self.assertFalse(result['error'], result)
+        self.assertEqual(['999'], store.read()['nodes'][0]['refs'])
+
     def test_side_p0_decision_registers_and_activates_p0_without_main_handoff(self):
         from unittest.mock import patch
         from ciel_runtime_support import work_plan_tree as tree
@@ -534,7 +599,7 @@ class SideMcpTests(unittest.TestCase):
         store.transaction(lambda doc: tree.add_node(doc, None, 'active', priority='P3'))
         event = self._claim()
         host = {'token': 'x'*40, 'receipt_id': event['receipt_id'], 'generation': event['generation']}
-        args = {'decision': {'action': 'create', 'kind': 'request', 'title': 'Production outage',
+        args = {'decision': {'refs': ['999'], 'action': 'create', 'kind': 'request', 'title': 'Production outage',
                              'summary': 'P0 outage queued', 'reply': 'Outage reported', 'priority': 'P0'},
                 'expected_version': store.read()['version']}
         with patch('ciel_runtime_support.work_parallel_mcp.ledger', return_value=ledger):
@@ -575,7 +640,7 @@ class SideMcpTests(unittest.TestCase):
         item = next(node['id'] for node in store.read()['nodes'] if node['title'] == 'queued fix')
         event = self._claim()
         host = {'token': 'x'*40, 'receipt_id': event['receipt_id'], 'generation': event['generation']}
-        args = {'decision': {'action': 'prioritize', 'kind': 'request', 'item_id': item,
+        args = {'decision': {'refs': ['999'], 'action': 'prioritize', 'kind': 'request', 'item_id': item,
                              'summary': 'raised to P0', 'reply': 'Raised', 'priority': 'P0'},
                 'expected_version': store.read()['version']}
         with patch('ciel_runtime_support.work_parallel_mcp.ledger', return_value=ledger):
@@ -599,7 +664,7 @@ class SideMcpTests(unittest.TestCase):
         item = next(node['id'] for node in store.read()['nodes'] if node['title'] == 'queued fix')
         event = self._claim()
         host = {'token': 'x'*40, 'receipt_id': event['receipt_id'], 'generation': event['generation']}
-        args = {'decision': {'action': 'prioritize', 'kind': 'request', 'item_id': item,
+        args = {'decision': {'refs': ['999'], 'action': 'prioritize', 'kind': 'request', 'item_id': item,
                              'summary': 'raised to P0', 'reply': 'Raised', 'priority': 'P0'},
                 'expected_version': store.read()['version']}
         with patch('ciel_runtime_support.side_intake_mcp._activate_side_p0',
@@ -640,7 +705,7 @@ class SideMcpTests(unittest.TestCase):
         self.config['work_mode']=False
         event=json.loads(self.invoke('work_side_claim',{'owner':'actor'})['text'])['claim']
         host={'token':'x'*40,'receipt_id':event['receipt_id'],'generation':event['generation']}
-        args={'decision':{'action':'create','title':'new','summary':'s','reply':'a'},'expected_version':0}
+        args={'decision':{'refs': ['999'], 'action':'create','title':'new','summary':'s','reply':'a'},'expected_version':0}
         self.assertTrue(self.invoke('work_side_resolve',args,host)['error'])
         args['decision']={'action':'answer','summary':'s','reply':'a'}
         self.assertFalse(self.invoke('work_side_resolve',args,host)['error'])
@@ -649,7 +714,7 @@ class SideMcpTests(unittest.TestCase):
         from unittest.mock import patch
         event = json.loads(self.invoke('work_side_claim', {'owner': 'old-actor'})['text'])['claim']
         host = {'token': 'x'*40, 'receipt_id': event['receipt_id'], 'generation': event['generation']}
-        args = {'decision': {'action': 'create', 'title': 'New external task',
+        args = {'decision': {'refs': ['999'], 'action': 'create', 'title': 'New external task',
                              'summary': 'Independent task', 'reply': 'Queued, not executed'},
                 'expected_version': 0}
         with patch('ciel_runtime_support.side_intake_mcp.finish', side_effect=OSError('receipt disk full')):

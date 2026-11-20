@@ -1,0 +1,24 @@
+test_queue_decision_without_related_ids_is_refused_and_rechecked (test_side_intake_mcp.SideMcpTests.test_queue_decision_without_related_ids_is_refused_and_rechecked) ... FAIL
+test_queue_decisions_register_every_related_external_id (test_side_intake_mcp.SideMcpTests.test_queue_decisions_register_every_related_external_id) ... FAIL
+
+======================================================================
+FAIL: test_queue_decision_without_related_ids_is_refused_and_rechecked (test_side_intake_mcp.SideMcpTests.test_queue_decision_without_related_ids_is_refused_and_rechecked)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\<user>\ciel-runtime\.local\tmp\board-refs\head\tests\test_side_intake_mcp.py", line 574, in test_queue_decision_without_related_ids_is_refused_and_rechecked
+    self.assertTrue(result['error'], result)
+AssertionError: False is not true : {'text': '{"receipt": {"receipt_id": "f01d120a7164848b8332d22a04327ce5075f12f237491569bbe9f291fec0d0ec", "accepted": true, "duplicate": false, "stage": "processed", "item_id": "n1", "recap": "{\\"type\\": \\"com.ciel.walkie.support.message\\", \\"data\\": {\\"text\\": \\"A request with a source message.\\", \\"message_id\\": \\"999\\", \\"conversation\\": \\"34886995-4a66-4527-a618-814e9cb0a5bf\\", \\"thread_root_id\\": \\"999\\", \\"reply_to_message_id\\": null}}", "original": "{\\"type\\": \\"com.ciel.walkie.support.message\\", \\"data\\": {\\"text\\": \\"A request with a source message.\\", \\"message_id\\": \\"999\\", \\"conversation\\": \\"34886995-4a66-4527-a618-814e9cb0a5bf\\", \\"thread_root_id\\": \\"999\\", \\"reply_to_message_id\\": null}}", "execution_approved": false, "external_ack": "not_sent", "processing": {"owner": "actor", "generation": "10090d1ff90f4e4788d2a3a232ddae90", "lease_until": 1795203897.27064, "started_at": 1795203777.27064}, "side_failure": null, "source_context": "thread", "source_truncated": false, "main_fallback": null, "context": null, "result": {"action": "create", "item_id": "n1", "summary": "queued", "reply": "Queued", "delivery": "pending", "execution_approved": false, "handoff": "not_required", "based_on_version": 1, "kind": "request", "source_context": "thread", "title": "No refs", "priority": "", "queue": {"root_id": "n1", "state": "active", "position": 0, "ahead": 0, "total": 0, "active_root": "n1", "priority": "", "phase": "planning", "version": 2}, "final_text": "Queued\\n\\nn1 등록 · 현재 진행 중인 항목입니다.", "duplicate": false, "version": 2, "usage": null, "reported_sends": []}, "reply_revision": 0}, "result": {"action": "create", "item_id": "n1", "summary": "queued", "reply": "Queued", "delivery": "pending", "execution_approved": false, "handoff": "not_required", "based_on_version": 1, "kind": "request", "source_context": "thread", "title": "No refs", "priority": "", "queue": {"root_id": "n1", "state": "active", "position": 0, "ahead": 0, "total": 0, "active_root": "n1", "priority": "", "phase": "planning", "version": 2}, "final_text": "Queued\\n\\nn1 등록 · 현재 진행 중인 항목입니다.", "duplicate": false, "version": 2, "usage": null, "reported_sends": []}}', 'error': False}
+
+======================================================================
+FAIL: test_queue_decisions_register_every_related_external_id (test_side_intake_mcp.SideMcpTests.test_queue_decisions_register_every_related_external_id)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\<user>\ciel-runtime\.local\tmp\board-refs\head\tests\test_side_intake_mcp.py", line 539, in test_queue_decisions_register_every_related_external_id
+    self.assertFalse(result['error'], result)
+AssertionError: True is not false : {'text': 'invalid side decision fields', 'error': True}
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.321s
+
+FAILED (failures=2)
+RAN 2 failures=2 errors=0 skipped=0

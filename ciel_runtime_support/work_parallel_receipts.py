@@ -115,7 +115,8 @@ def _validate_detail(kind, body):
         require(set(body) == {"done", "remaining", "blockers", "workspace", "next_step"}, "handoff fields")
         for field in ("done", "remaining", "blockers"):
             _bounded_strings(body[field], "handoff " + field)
-        _workspace(body["workspace"])
+        # A host salvage of a lease reserved without a workspace records None.
+        _workspace(body["workspace"], optional=kind == "host_salvage")
         require(text(body["next_step"], MAX_TEXT), "handoff next step")
     elif kind == "question":
         require(set(body) == {"question", "blocking_todos", "decision_needed"}, "question fields")

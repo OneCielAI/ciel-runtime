@@ -31,7 +31,7 @@ class SideModTests(unittest.TestCase):
         order=row['order']
         self.assertLess(order.index('work_side_understanding:prepare'),order.index('work_side_resolve'))
         self.assertLess(order.index('work_side_resolve'),order.index('work_side_reply:prepare'))
-        saved={'action':'create','kind':'request','title':'retry fix','summary':'retry fix','reply':'queued','priority':'P3'}
+        saved={'refs': ['999'], 'action':'create','kind':'request','title':'retry fix','summary':'retry fix','reply':'queued','priority':'P3'}
         self.assertEqual([{'understanding':'understood in my own words','decision':saved,'expected_version':4}],
                          row['understanding'])
         self.assertEqual([{'decision':saved,'expected_version':4,'generation':'5'*32}],row['resolve'])

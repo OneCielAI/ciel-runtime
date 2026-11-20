@@ -1,0 +1,23 @@
+test_creation_interrupted_after_worktree_add_completes_on_retry (test_work_parallel_workspace.WorkspaceTests.test_creation_interrupted_after_worktree_add_completes_on_retry) ... ERROR
+test_interrupted_creation_retry_blocked (test_work_parallel_workspace.WorkspaceTests.test_interrupted_creation_retry_blocked) ... ok
+test_interrupted_worktree_that_moved_is_still_retained (test_work_parallel_workspace.WorkspaceTests.test_interrupted_worktree_that_moved_is_still_retained) ... ok
+
+======================================================================
+ERROR: test_creation_interrupted_after_worktree_add_completes_on_retry (test_work_parallel_workspace.WorkspaceTests.test_creation_interrupted_after_worktree_add_completes_on_retry)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<pre-fix tree>\tests\test_work_parallel_workspace.py", line 180, in test_creation_interrupted_after_worktree_add_completes_on_retry
+    r = ws.prepare(self.repo, "added", config_dir=self.config)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<pre-fix tree>\ciel_runtime_support\work_parallel_workspace.py", line 273, in prepare
+    return _verify(_load(manifest, repo, lease_id, key))
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<pre-fix tree>\ciel_runtime_support\work_parallel_workspace.py", line 237, in _verify
+    raise WorkspaceError("workspace preparation/removal incomplete; retained")
+ciel_runtime_support.work_parallel_workspace.WorkspaceError: workspace preparation/removal incomplete; retained
+
+----------------------------------------------------------------------
+Ran 3 tests in 2.501s
+
+FAILED (errors=1)
+RAN 3 failures=0 errors=1 skipped=0

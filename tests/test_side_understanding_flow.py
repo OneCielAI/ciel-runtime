@@ -56,7 +56,7 @@ class UnderstandingFlowTests(unittest.TestCase):
 
     def proposal(self, understanding='결제 재시도 버그 수정 요청으로 이해했습니다. 스테이징에서 오늘 안에 확인이 필요합니다.'):
         return {'understanding': understanding, 'expected_version': self.store.read()['version'],
-                'decision': {'action': 'create', 'kind': 'request', 'title': '결제 재시도 버그 수정',
+                'decision': {'refs': ['999'], 'action': 'create', 'kind': 'request', 'title': '결제 재시도 버그 수정',
                              'summary': 'payment retry fix on staging today', 'priority': 'P2',
                              'reply': '새 작업으로 등록했습니다.'}}
 
@@ -105,6 +105,29 @@ class UnderstandingFlowTests(unittest.TestCase):
                             {**host, 'work_digest': claim['work_digest']})
         self.assertTrue(refused['error'])
         self.assertIn('understanding must be prepared', refused['text'])
+
+    def test_a_proposal_saved_before_refs_existed_still_commits(self):
+        # A router upgraded between the understanding step and the commit
+        # (2026-11-20): the older build saved a queued decision without refs.
+        # A new answer without refs is refused; the saved one is final.
+        claim = self.claimed()
+        host = {'receipt_id': self.key, 'generation': claim['generation']}
+        legacy = self.proposal()
+        legacy['decision'] = {key: value for key, value in legacy['decision'].items() if key != 'refs'}
+        refused = self.call('work_side_understanding', {**legacy, 'state': 'prepare'}, host)
+        self.assertTrue(refused['error'])
+        self.assertIn('refs', refused['text'])
+        from ciel_runtime_support.side_understanding_outbox import digest
+        row = self.inbox._load(self.key)
+        row['proposal'] = {**legacy, 'saved_at': 0.0,
+                           'digest': digest(legacy['understanding'], legacy['decision'], legacy['expected_version'])}
+        self.inbox._save_file(self.inbox._event_path('pending', self.key), row)
+        understood = self.call('work_side_understanding', {**legacy, 'state': 'prepare'}, host)
+        self.assertFalse(understood['error'], understood)
+        resolved = self.call('work_side_resolve', {'decision': legacy['decision'], 'expected_version': 0},
+                             {**host, 'work_digest': claim['work_digest']})
+        self.assertFalse(resolved['error'], resolved)
+        self.assertEqual(['결제 재시도 버그 수정'], [node['title'] for node in self.store.read()['nodes']])
 
     def test_a_different_second_proposal_is_refused(self):
         claim = self.claimed()

@@ -1,0 +1,4 @@
+START 2026-11-20T11:45:31.1273264-06:00 G:\ciel-bridge-service\.npm-global\node_modules\@one-ciel-ai\ciel-runtime
+VERIFIED ciel_runtime_support/work_parallel_mcp.py ACBBB30FE657D007
+VERIFIED ciel_runtime_support/work_parallel_receipts.py 0342735E7FC5A596
+DONE G:\ciel-bridge-service\.npm-global\node_modules\@one-ciel-ai\ciel-runtime; no process restarted

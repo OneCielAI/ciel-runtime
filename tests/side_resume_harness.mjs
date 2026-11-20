@@ -3,7 +3,7 @@
 import {startSide,pollSide} from './side-intake.js'
 const calls=[],spawns=[],timers=[]
 const saved={understanding:'understood in my own words',expected_version:4,
- decision:{action:'create',kind:'request',title:'retry fix',summary:'retry fix',reply:'queued',priority:'P3'}}
+ decision:{refs:['999'],action:'create',kind:'request',title:'retry fix',summary:'retry fix',reply:'queued',priority:'P3'}}
 const mode=process.argv[2]||'ok'
 let events=[{receipt_id:'e'.repeat(64),generation:'5'.repeat(32),text:'question',event_key:'source:resume',
  lease_until:Date.now()/1000+120,work_digest:'d'.repeat(64),route:{channel:'external:source',sender_id:'sender',source_kind:'external_event'},

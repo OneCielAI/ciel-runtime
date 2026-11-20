@@ -1,0 +1,36 @@
+test_a_stored_ref_becomes_the_first_ref (test_work_plan_tree.WorkPlanTreeTests.test_a_stored_ref_becomes_the_first_ref) ... ERROR
+test_refs_are_an_ordered_accumulated_list (test_work_plan_tree.WorkPlanTreeTests.test_refs_are_an_ordered_accumulated_list) ... ERROR
+test_refs_are_bounded (test_work_plan_tree.WorkPlanTreeTests.test_refs_are_bounded) ... ERROR
+
+======================================================================
+ERROR: test_a_stored_ref_becomes_the_first_ref (test_work_plan_tree.WorkPlanTreeTests.test_a_stored_ref_becomes_the_first_ref)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\<user>\ciel-runtime\.local\tmp\board-refs\head\tests\test_work_plan_tree.py", line 63, in test_a_stored_ref_becomes_the_first_ref
+    self.assertEqual(["123456"], doc["nodes"][0]["refs"])
+                                 ~~~~~~~~~~~~~~~^^^^^^^^
+KeyError: 'refs'
+
+======================================================================
+ERROR: test_refs_are_an_ordered_accumulated_list (test_work_plan_tree.WorkPlanTreeTests.test_refs_are_an_ordered_accumulated_list)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\<user>\ciel-runtime\.local\tmp\board-refs\head\tests\test_work_plan_tree.py", line 46, in test_refs_are_an_ordered_accumulated_list
+    root = t.add_node(self.doc, None, "linked", refs=[" 154304 ", "153480"], ref="154304", now=10)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: add_node() got an unexpected keyword argument 'refs'
+
+======================================================================
+ERROR: test_refs_are_bounded (test_work_plan_tree.WorkPlanTreeTests.test_refs_are_bounded)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\<user>\ciel-runtime\.local\tmp\board-refs\head\tests\test_work_plan_tree.py", line 67, in test_refs_are_bounded
+    t.add_node(self.doc, None, "bad", refs=[str(i) for i in range(t.MAX_REFS + 1)])
+                                                                  ^^^^^^^^^^
+AttributeError: module 'ciel_runtime_support.work_plan_tree' has no attribute 'MAX_REFS'
+
+----------------------------------------------------------------------
+Ran 3 tests in 0.001s
+
+FAILED (errors=3)
+RAN 3 failures=0 errors=3 skipped=0

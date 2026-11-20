@@ -1,0 +1,20 @@
+test_host_salvage_without_a_workspace_releases_the_slot (test_work_parallel_mcp.WorkParallelMCPTests.test_host_salvage_without_a_workspace_releases_the_slot) ... ERROR
+
+======================================================================
+ERROR: test_host_salvage_without_a_workspace_releases_the_slot (test_work_parallel_mcp.WorkParallelMCPTests.test_host_salvage_without_a_workspace_releases_the_slot)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<HEAD tree>\tests\test_work_parallel_mcp.py", line 270, in test_host_salvage_without_a_workspace_releases_the_slot
+    salvaged = run("event", {"proof": "native terminal"}, event="host_salvage",
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<HEAD tree>\tests\test_work_parallel_mcp.py", line 65, in run
+    m.run("work_parallel_" + name, args, Board(), SCOPE, config, None)
+  File "<HEAD tree>\ciel_runtime_support\work_parallel_mcp.py", line 4209, in run
+    raise WorkParallelError("unknown salvage workspace")
+ciel_runtime_support.work_parallel_primitives.WorkParallelError: unknown salvage workspace
+
+----------------------------------------------------------------------
+Ran 1 test in 0.174s
+
+FAILED (errors=1)
+RAN 1 failures=0 errors=1 skipped=0
