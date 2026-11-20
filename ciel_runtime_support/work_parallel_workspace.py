@@ -258,6 +258,30 @@ def _owned(r):
         raise WorkspaceError("workspace ownership was handed off; retained")
     return r
 
+def _complete_interrupted(r):
+    """The ready record of this manifest's own creation, when only its last save was lost.
+
+    Andy 2026-11-20 (n1174 recovery 8b365b32): ``worktree add`` had created and
+    registered the worktree on the manifest's own branch, but the manifest stayed
+    ``preparing``, so every retry was refused and the recovery held its slot for
+    a day. Only an unbound fresh creation whose worktree verifies exactly (root,
+    Git dirs, branch, registration) and still sits at its initial HEAD is
+    completed. Anything else stays retained.
+    """
+    if (r["status"] != "preparing" or r["git_dir"] is not None or r["host_id"] is not None or r["idle"]
+            or any(key in r for key in ("ownership_lease_id", "generation", "prior_lease_id", "handoff", "removal"))):
+        return None
+    try:
+        target = _plain(r["path"])
+        if not target.is_dir():
+            return None
+        candidate = {**r, "git_dir": _git(target, "rev-parse", "--absolute-git-dir"), "status": "ready"}
+        verified = _verify(candidate)
+    except WorkspaceError:
+        return None
+    return candidate if verified["head"] == r["initial_head"] == r["head"] else None
+
+
 def prepare(repo, lease_id, *, config_dir=None):
     """Create once or verify durable binding. Never adopt an existing path.
     Persist returned binding on lease before dispatch; path is native worker cwd.
@@ -270,7 +294,12 @@ def prepare(repo, lease_id, *, config_dir=None):
         raise WorkspaceError(*error.args, clean=True) from error
     with exclusive_file_lock(manifest):
         if manifest.exists():
-            return _verify(_load(manifest, repo, lease_id, key))
+            r = _load(manifest, repo, lease_id, key)
+            completed = _complete_interrupted(r)
+            if completed is not None:
+                _save(manifest, completed)
+                return dict(completed)
+            return _verify(r)
         target = repo / ".claude" / "worktrees" / ("work-parallel-" + key[:24])
         try:
             # Nothing below writes until the manifest is saved: a failure here

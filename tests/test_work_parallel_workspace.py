@@ -159,6 +159,40 @@ class WorkspaceTests(unittest.TestCase):
         with self.assertRaisesRegex(ws.WorkspaceError, "incomplete"):
             ws.prepare(self.repo, "crash", config_dir=self.config)
 
+    def interrupted_after_add(self, lease):
+        # Andy 2026-11-20 (n1174 recovery 8b365b32): the worktree was created and
+        # registered on its own branch, but the manifest stayed "preparing".
+        real = ws._git
+        def timed_out(repo, *args, **kwargs):
+            out = real(repo, *args, **kwargs)
+            if args[:2] == ("worktree", "add"):
+                raise ws.WorkspaceError("git worktree add timed out after 30 s")
+            return out
+        with patch.object(ws, "_git", side_effect=timed_out):
+            with self.assertRaises(ws.WorkspaceError):
+                ws.prepare(self.repo, lease, config_dir=self.config)
+        manifest = self.config / "work-parallel-workspaces" / (ws._lease_key(self.repo, lease) + ".json")
+        self.assertEqual("preparing", json.loads(manifest.read_text())["status"])
+        return manifest
+
+    def test_creation_interrupted_after_worktree_add_completes_on_retry(self):
+        manifest = self.interrupted_after_add("added")
+        r = ws.prepare(self.repo, "added", config_dir=self.config)
+        self.assertEqual("ready", r["status"])
+        self.assertEqual(r["initial_head"], r["head"])
+        self.assertEqual("ready", json.loads(manifest.read_text())["status"])
+        self.assertEqual(r, ws.observe(self.repo, "added", config_dir=self.config))
+        self.assertEqual(r, ws.prepare(self.repo, "added", config_dir=self.config))
+
+    def test_interrupted_worktree_that_moved_is_still_retained(self):
+        self.interrupted_after_add("moved")
+        target = Path(json.loads((self.config / "work-parallel-workspaces"
+                                  / (ws._lease_key(self.repo, "moved") + ".json")).read_text())["path"])
+        (target / "file").write_text("changed")
+        self.git(target, "commit", "-am", "not ours")
+        with self.assertRaisesRegex(ws.WorkspaceError, "incomplete"):
+            ws.prepare(self.repo, "moved", config_dir=self.config)
+
     def test_concurrent_prepare_has_one_owner(self):
         from concurrent.futures import ThreadPoolExecutor
         def create(_):
