@@ -2,6 +2,79 @@
 
 ## 2026-11-20
 
+- 17:22Z: Andy's Work prompts reset to defaults (user order "andy 세션 프롬프트 업데이트해줘 기본값으로"). Done through Andy's live router 9505 (c955630), with compare-and-set on the fingerprints just read:
+  - `workflow-prompt-reset` for `gate_actor` (374721ea… → default df8a6cc3…) and `gate_recheck` (its override already equalled the default). Both 200.
+  - `settings-update` `work_side_intake_instruction` = "" (it was 15104 bytes, the c955630 default text stored with `instruction_replace=true`). 200.
+  - Read back: 0 non-default prompts, stored instruction 0 bytes, settings fingerprint e395ed07… → 74643763…. The workspace config no longer has `instruction`/`instruction_replace`, and `workflow-prompts.json` holds no prompts (its history records both resets, source `rest`).
+  - Nothing else changed. `work_side_intake_session` stays `fresh`. The router was not restarted. The managed prompts and the side instruction are read per request and per side event.
+- 17:20Z: Betty (.12 u42, read-only, user request). Version `0.2.51-beta.20261120-051824.6e0818e` (router 9564 `/health`).
+  - Prompts: 30, all default, no history. 6e0818e predates the three prompts added in 03e064d. Its 30 fingerprints equal Prody's.
+  - Settings fingerprint 9df9eb78…. Side instruction empty (built-in default); `work_side_intake_session` `fork`.
+  - Differences from Prody:
+    - SSE injection mode and side intake type: `session` (Prody `btw_with_mcp`); side intake disabled.
+    - Reply connectors empty.
+    - Every model `inherit`.
+    - P1/P2 limits 5/3 (Prody 2/1); orphans `live=1`.
+    - `work_completed_auto_delete` false; `claude_background_agents_enabled` false.
+- 17:19Z: P0 reacquire completion fix 2cb27cc installed (hash-checked, backups `*.backup-hotfix9`, every target held 95cf25c's bytes first):
+  - Local: the Andy home, the default home and the global npm package.
+  - Celly: elevated overlay. KOBE: overlay over ssh.
+  - Two files each, all verified. No process was restarted.
+- 17:15Z tick (since 17:00Z):
+  - Andy: unchanged (3 running, 1 reserved, 45 waiting, 22 submitted). No new failures or router ERROR lines. Main called host-only `work_side_texts` and was refused (by design). Two side originals were forwarded.
+  - Celly: 3 running, 6 waiting, 1 submitted.
+    - n1078's resume was refused with `no active slot` (17:05:49Z). This is the third lease with the P0 open-child shape (with n1143 and n1156), covered by 2cb27cc.
+    - Two `ChannelFileLockBusy` on a side-inbox lock (11:13 local).
+    - n1141 is still unpublished. Two `git.exe` processes started at 15:48:56Z are still alive under an account this monitor cannot read. Their start time is 4 s after n1141's fork ran its `git fetch` command at 15:48:52Z, which went to the background. That matches a background task the gate stopped the fork from ending. Ownership is not confirmed.
+  - KOBE: unchanged (1 running, 5 waiting, 1 accepted; n950 blocked). Seven side-original forwards, two of them `already` duplicates.
+
+- 17:15Z: Prody Work prompts and settings compared with Andy (request relayed by Andy_Main, read-only). Method: loopback GETs to Prody router 9592, `/ca/work/api/v1/workflow/prompts` and `/settings`. Only fingerprints and sizes were printed.
+  - Prompts: all 33 use defaults, with no history. Andy differs on `gate_actor` (override 374721ea… vs Prody default df8a6cc3…). Andy's `gate_recheck` override is identical to the default.
+  - Settings fingerprints differ (Prody 20de7c6c…, Andy e395ed07…).
+    - Prody's stored side instruction is empty, so it uses the built-in default.
+    - Andy's workspace config stores `instruction` (15104 bytes, fc5146173c08c4ee) with `instruction_replace=true`. That text is byte-identical to c955630's built-in default.
+    - `work_side_intake_session` is `fork` on Prody and `fresh` on Andy.
+  - Defaults by source:
+    - 79673d9 adds `side_complaint_and_urgency`, `side_complaint_notice` and `mod_side_ask_main_wake`. The other 30 default fingerprints are unchanged.
+    - The built-in side instruction went from 15104 to 15115 bytes (6096ccfa…), adding `, complaint` to the decision fields.
+  - Consequence for Andy after a restart (from source, not yet observed): the stored replace-mode text still lists the fields ending in "no_reply. 다른 필드는 없습니다." The appended `side_complaint_and_urgency` asks for `"complaint": true`. The two instructions conflict. Nothing was changed.
+
+- 17:00Z tick (since 16:40Z):
+  - Andy: unchanged (3 running, 1 reserved, 45 waiting, 22 submitted); n1856 is still blocked. No new failures or router ERROR lines. Main's errors are its own (Python script errors, Walkie 403, "n538 is not a goal").
+  - Celly: 2 running, 6 waiting, 1 submitted. No new failures or router ERROR lines.
+    - n1156 (lease c171a2d4, P0 lane): main's resume was refused twice with `no active slot` (16:52:46Z, 16:53:43Z). Same shape as n1143: P0 send child `slot_acquired` 16:46:22Z, worker question 16:50:12Z. Covered by 2cb27cc (not installed yet).
+    - n1141 (lease a90cf83f) is still submitted with no review row, native `waiting`. Read-only evidence from the fork transcript:
+      - Two Bash calls (15:48:52Z `git fetch`+`git show`, 15:54:54Z a recursive `grep -rl` under `.local`) did not finish within the tool timeout and were moved to the background (b7c810nhs, bz6e3m0uc).
+      - At 15:57:09Z the fork called TaskStop on both. `ciel-work-gate` denied each: `TaskStop is not available to this Work fork` (design 11-12 row 11: a worker must not stop other agents).
+      - No completion notice for either task is in the transcript, which ends with the fork's final text at 15:59:26Z.
+      - n1156's fork has the same pattern: TaskStop and TaskList denied at 16:32Z, native `waiting` since 16:51:21Z after its last answer.
+      - The engine type doc defines `waiting` as held on background work the agent owns. `_publish_native_idle_review` and the turn-end reconcile accept only idle/completed/failed/killed. So the review is not published while a fork's own background tasks run.
+      - Whether those background processes are still alive is not confirmed: Celly's processes belong to another account and their command lines are not readable here.
+  - KOBE: 1 running, 5 waiting, 1 accepted; n950 is still blocked. Two router `[ERROR] channel_stdin_proxy_blocked ... prior_submission_failed detail=stale_unconfirmed action=skipped` (08:54, 08:59 local). Same class as Celly's 11:18Z line (not yet investigated). Five side originals forwarded (two `already` duplicates of the same event).
+  - 2cb27cc: the Windows bundle (81 files) and the Linux 3.11 bundle (90 files) are still running.
+
+- 16:40Z tick (since 15:40Z):
+  - Andy: 3 running, 1 reserved, 45 waiting, 22 submitted. n1856 is still blocked. New `decision_refused_stop` 487db395 (n2471); that review is now finalized/approve.
+    - One router `PermissionError [WinError 5]` at 10:08:30 local, on the `work-parallel-stranded-v1.json` replace. Its trace has no `replace_with_retry` frame, so the running router predates the 0dc57b0 overlay (same as the 13:49Z entry).
+    - Main: n2472 got a new lease 6c99a6a9 (15:59Z refusal names it, so the 15:55Z orphan path worked).
+    - `work_host_page` failed four times with ECONNREFUSED/EADDRINUSE/ETIMEDOUT (15:57–16:26Z). Cause not measured.
+  - Celly: 1 running, 6 waiting, 1 submitted. No new failure-journal entries or router ERROR lines.
+    - New finding n1141 (lease a90cf83f): completion receipt 15:59:11Z, lease submitted, no review row. The fork's native status has been `waiting` since 15:59:36Z, and its transcript ends at 15:59:26Z with a final text answer. `_publish_native_idle_review` publishes only for idle/completed/failed/killed, and the turn-end reconcile treats `waiting` as not terminal. So no path has published it yet. Why the engine lists a fork that has ended its turn as `waiting` is not confirmed (the type doc says `waiting` is held on background work, plan approval or an Agent call).
+    - 15:47:22Z `work_parallel_run` n1141 was refused with `coordination persistence failed; reservation released: ... assignment already exists with a different manifest`. The same item was reserved and bound at 15:47:14–21Z by the P0 lane, so this was a second dispatch of the same item, refused by the existing-run guard.
+  - KOBE: 1 running, 5 waiting, 1 accepted. n950 is still blocked on unfinished children. Six side originals were forwarded to main (`invalid_answer` path); one was `already`. Main's other errors are Walkie flow/QA refusals and a GitHub token failure (not Ciel). 16:36:14Z "auto continue could not read the Work status" (seen before).
+  - P0 reacquire completion fix 2cb27cc: fail-first recorded; Python 3.10 changed modules 228 tests, 0 failures. Windows bundle and Linux 3.11 bundle still running.
+  - .12 (user question): Betty runs `0.2.51-beta.20261120-051824.6e0818e` (package.json 06:20:19Z, launcher 06:26:03Z, router 9564 `/health` same). Prody runs `0.2.51-beta.20261120-152815.79673d9` (package.json 16:25:12Z, launcher 16:27:03Z, Claude 16:32:27Z, router 9592 `/health` same).
+    - Prody's npm debug log at 16:25:07Z records `npm install --force --global @one-ciel-ai/ciel-runtime@beta`, exit 0. Ciel's own self-update and upgrade build `npm install -g [--prefix] [--allow-scripts] @one-ciel-ai/ciel-runtime@<exact version>` (`npm_global_install_command`). So this install did not come from Ciel's updater. Who ran it is not established from the host.
+    - Betty's npm logs before 10:56Z have rotated out, so how 6e0818e was installed at 06:20Z is not recorded.
+
+- 15:40Z tick (since 15:16Z):
+  - Andy: 2 running, 1 reserved, 46 waiting, 23 submitted (one fewer running and one more submitted). n1856 review is still blocked on `unknown Work item`; n1174 reservation still has no matching run or native identity. No new failure-journal entries or router ERROR/uncaught lines. At 15:21:16Z the hooks worker crashed, `ciel-work` unloaded, and `ciel-work-gate` fell back three times. The next two board updates failed because there was no conversation identity. `ciel-work` reloaded at 15:22:02Z. A parked P3 worker was refused on slot capacity. The mod directory in the running process's launch arguments is the install target updated at 15:20:49Z. The transcript proves a crash and later reload, not that the overlay caused the crash; the same crash was recorded earlier that day.
+  - Celly: 2 running, 5 waiting (unchanged). No new failure-journal entries. One new `/ca/mcp` router ERROR, `ChannelFileLockBusy` on a side-inbox lock at 15:23:33Z. Lock holder not established. Main's three attempts to resume n1143 (15:20:43Z, 15:30:37Z, 15:39:59Z) were refused with `no active slot`. The lease is `waiting_input`, slot false, with an older P0 send still `slot_acquired` since 14:49:16Z. Router reacquire returns that same open send without taking a slot; neither mod resume path calls the router's `p0_reacquire_complete`. The send census is 12 open on Celly (3 still waiting), 1 on Andy (orphaned) and 2 on KOBE (one still waiting); all 15 were `slot_acquired`. `ciel-work` reloaded at 15:22:00Z.
+  - KOBE: reachable again; 2 running, 5 waiting, 1 accepted. n955 now waits without a slot; lease prefixes previously reported for n953/n957 are no longer present. New finding n950: approval committed to the review, lease accepted, but board finalization blocked on unfinished children. Two new `decision_refused_stop` entries; main saw a stale finalization version, a conflicting review decision, two existing-lease guards and two goal-not-approved guards. Three distinct side originals were forwarded, with one additional `already` notice for the same event. No new router ERROR/uncaught lines. `ciel-work` reloaded at 15:26:35Z.
+  - All three transcripts confirm hot reloads after the previous overlay; this does not establish that their running Python routers picked up the new code or that the end-to-end fix is active. No live session or router was restarted by the check.
+  - Follow-up at 15:55Z: Andy n2472 dispatch was refused at 15:53:40Z while its old lease was open. Startup orphan sweep recorded `orphaned`, slot false, at 15:54:27Z; the attempted SendMessage to the previous fork was refused at 15:54:44Z. Relayed the observed transition and the existing dispatch path to Andy's session. No lease was manually released.
+
+- 15:40Z: side complaint and P0 inheritance fix (03e064d) is installed on local, Celly and KOBE (hash-checked, backups `*.backup-hotfix8`). Beta 79673d9 is published as npm `0.2.51-beta.20261120-152815.79673d9`, and its ten files match the installs. No session was restarted.
 - 15:16Z tick (since 15:00Z):
   - Andy: unchanged (3 running, 1 reserved, 46 waiting, 22 submitted); n1856 still blocked. No new failures or router ERROR/uncaught lines.
     - 15:01–15:02Z: five `work_node_update status=done` calls (n2304–n2308) were refused with "Work completion waits for this item's parallel validation, review and cleanup". This is the existing completion gate; nothing was applied.

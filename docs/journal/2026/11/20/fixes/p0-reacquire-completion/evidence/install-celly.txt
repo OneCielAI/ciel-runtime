@@ -1,0 +1,4 @@
+START 2026-11-20T11:19:38.0262159-06:00 G:\ciel-bridge-service\.npm-global\node_modules\@one-ciel-ai\ciel-runtime
+VERIFIED ciel_runtime_support/claude_mods/ciel-work/hooks/register.js A3A33BE7B50BDAE2
+VERIFIED ciel_runtime_support/work_parallel_mcp.py 65F0B581510D15EE
+DONE G:\ciel-bridge-service\.npm-global\node_modules\@one-ciel-ai\ciel-runtime; no process restarted

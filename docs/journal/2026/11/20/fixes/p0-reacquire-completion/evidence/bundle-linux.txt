@@ -1,0 +1,4 @@
+Linux Docker python:3.11-slim, pytest 9.1.1, archive of 2cb27cc, 90 test files (the Windows set plus the pytest files).
+Python 3.11.18
+v20.19.2
+RAN 1323 failures=0 errors=0 skipped=111

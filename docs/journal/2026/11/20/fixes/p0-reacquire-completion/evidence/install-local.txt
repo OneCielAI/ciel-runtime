@@ -1,0 +1,12 @@
+START 2026-11-20T11:19:25.9904148-06:00 C:\Users\<user>\.local\share\ciel-runtime-hotfix5-20261119-210220
+VERIFIED ciel_runtime_support/claude_mods/ciel-work/hooks/register.js A3A33BE7B50BDAE2
+VERIFIED ciel_runtime_support/work_parallel_mcp.py 65F0B581510D15EE
+DONE C:\Users\<user>\.local\share\ciel-runtime-hotfix5-20261119-210220; no process restarted
+START 2026-11-20T11:19:26.5359834-06:00 C:\Users\<user>\.local\share\ciel-runtime
+VERIFIED ciel_runtime_support/claude_mods/ciel-work/hooks/register.js A3A33BE7B50BDAE2
+VERIFIED ciel_runtime_support/work_parallel_mcp.py 65F0B581510D15EE
+DONE C:\Users\<user>\.local\share\ciel-runtime; no process restarted
+START 2026-11-20T11:19:27.0422641-06:00 C:\Users\<user>\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime
+VERIFIED ciel_runtime_support/claude_mods/ciel-work/hooks/register.js A3A33BE7B50BDAE2
+VERIFIED ciel_runtime_support/work_parallel_mcp.py 65F0B581510D15EE
+DONE C:\Users\<user>\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime; no process restarted

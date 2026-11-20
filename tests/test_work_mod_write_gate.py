@@ -1407,6 +1407,31 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual("running", result["state"])
         self.assertEqual(7, result["resume"]["plan_version"])
 
+    def test_p0_sendmessage_records_the_native_delivery_on_the_exact_reacquire(self):
+        result = self.run_scenario("p0-sendmessage-settles-reacquire")
+        self.assertEqual(1, result["sends"], result)
+        self.assertEqual([{"lease": "L1", "outcome": "sent", "internal": True, "exact": True}],
+                         result["completions"], result)
+
+    def test_p0_sendmessage_does_not_send_using_an_unsettled_prior_reacquire(self):
+        result = self.run_scenario("p0-sendmessage-settles-reacquire", "old-open")
+        self.assertEqual(0, result["sends"], result)
+        self.assertIn("recovery", result["deny"], result)
+        self.assertNotIn("no active slot", result["deny"], result)
+
+    def test_pump_records_the_delivery_of_a_p0_parked_resume(self):
+        result = self.run_scenario("parallel-pump-resumes-cleared-parked-worker", "p0")
+        self.assertEqual(["agent-a"], result["sent"])
+        self.assertEqual([{"lease": "L1", "outcome": "sent", "internal": True}], result["completions"])
+        self.assertEqual({"state": "running", "slot": True}, result["l1"])
+
+    def test_pump_rolls_back_a_refused_p0_parked_resume_once(self):
+        result = self.run_scenario("parallel-pump-resumes-cleared-parked-worker", "p0-refused")
+        self.assertEqual([{"lease": "L1", "outcome": "failed", "internal": True}], result["completions"])
+        # The completion rolled the exact P0 slot back; no second release follows.
+        self.assertNotIn("wait:L1", result["events"])
+        self.assertEqual({"state": "waiting_input", "slot": False}, result["l1"])
+
     def test_pump_resumes_a_parked_worker_whose_wait_cleared(self):
         result = self.run_scenario("parallel-pump-resumes-cleared-parked-worker")
         self.assertIn("reacquire:L1", result["events"])
