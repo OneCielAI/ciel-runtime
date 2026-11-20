@@ -197,6 +197,29 @@ class P0EventTests(unittest.TestCase):
         self.assertEqual("reserved", coord.read()["runs"][lease_id]["state"])
         self.assertEqual({}, m._replacement_p0_authorization(self.store, SCOPE, "x" * 32, "item"))
 
+    def test_a_rework_of_a_rework_result_gets_its_own_p0_intent(self):
+        # Andy 2026-11-20 (n2471 gen-3): the result under review was itself a
+        # rework, launched under an open "rework" intent that stays bound until
+        # its lease ends. Main's next rework matched that intent and every
+        # roll-forward was refused as "open P0 intent facts changed".
+        reserved = self.reserve()
+        launch = {key: reserved[key] for key in ("intent_id", "lease_id", "dispatch_name")}
+        self.call("p0_launch_spawning", {"internal": True}, **launch)
+        self.call("bind", {"host_id": "agent", "agent_name": reserved["dispatch_name"]},
+                  lease_id=reserved["lease_id"])
+        side = p0_store(self.store)
+        side._change(lambda state: state["intents"][reserved["intent_id"]].update(
+            continuation="rework", predecessor_lease_id="p" * 32), side.read()["version"])
+        self.store._change(lambda doc: doc["leases"][reserved["lease_id"]].update(
+            state="submitted", slot=False, usage=0, artifact="a" * 64, evidence="done",
+            idle_proof="done", report_hash=None), self.store.read()["version"])
+        with patch.object(m, "ledger", return_value=self.store):
+            intent = m._p0_continuation_intent(self.store, self.board, SCOPE, "item", "rework",
+                                               reserved["lease_id"])
+        after = p0_store(self.store).read()["intents"]
+        self.assertEqual(("intent", reserved["lease_id"]), (intent["state"], intent["predecessor_lease_id"]))
+        self.assertEqual("terminal", after[reserved["intent_id"]]["state"])
+
     def test_replaying_a_prepared_assignment_preserves_its_workspace_and_run(self):
         first = self.reserve()
         before = m.coordination(self.store).read()["runs"][first["lease_id"]]

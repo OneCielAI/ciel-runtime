@@ -1081,6 +1081,27 @@ def _p0_key_for_admission(store, p0):
     return P0AssignmentKeyStore.beside_ledger(store.path).ensure_before_first_intent()
 
 
+def _end_predecessor_continuation(store, p0, identity, item_id, continuation, predecessor_lease_id):
+    """End the intent that launched the result this continuation replaces.
+
+    A rework of a result that was itself a rework (or a stranded recovery of a
+    recovery) finds its predecessor's intent of the same continuation still
+    bound: it ends only with the predecessor's lease, which is retired after
+    this continuation is reserved. Matching it as the one open intent refused
+    every such roll-forward as "open P0 intent facts changed" (Andy 2026-11-20,
+    n2471 gen-3). The predecessor holds no slot, so its intents end here.
+    """
+    from .work_parallel_p0 import OPEN_INTENT_STATES
+    predecessor = store.read()["leases"].get(predecessor_lease_id)
+    if predecessor is None or predecessor["slot"]:
+        return
+    state = p0.read()
+    if any(row["scope"] == identity and row["item_id"] == item_id
+           and row["continuation"] == continuation and row["lease_id"] == predecessor_lease_id
+           and row["state"] in OPEN_INTENT_STATES for row in state["intents"].values()):
+        p0.close_lease_intents(predecessor_lease_id, expected_version=state["version"])
+
+
 def _p0_continuation_intent(store, board_store, identity, item_id, continuation,
                             predecessor_lease_id):
     """Create/reuse a durable intent only while the exact root is effectively P0."""
@@ -1090,6 +1111,7 @@ def _p0_continuation_intent(store, board_store, identity, item_id, continuation,
     if p0.effective_priority(identity, root, root.get("priority", "")) != "P0":
         return None
     _p0_key_for_admission(store, p0)
+    _end_predecessor_continuation(store, p0, identity, item_id, continuation, predecessor_lease_id)
     state, intent = p0.create_intent({
         "scope": identity, "root_id": root["id"],
         "root_created_at": root["created_at"], "item_id": item_id,
