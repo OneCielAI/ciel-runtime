@@ -2,6 +2,7 @@
 
 ## 2026-11-20
 
+- 12:30Z: vanished-fork review and sidecar replace-retry fixes (0dc57b0) installed on local, Celly and KOBE (hash-checked, backups `*.backup-hotfix7`). Beta eab2a18 published as npm `0.2.51-beta.20261120-122502.eab2a18`; its five files match the installs. No session restarted.
 - 12:15Z tick:
   - Andy relaunched 12:12Z (c955630); 3 running, 1 reserved, 46 waiting, 22 submitted. The launch sweep orphaned 4 leases (3 P1 running, 1 P3 reserved).
   - Celly: 4 running.
