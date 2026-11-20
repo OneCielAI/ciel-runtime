@@ -2,6 +2,9 @@
 
 ## 2026-11-20
 
+- 06:58Z: npm beta 0.2.51-beta.20261120-065417.9e718ac published (gitHead 9e718ac2). Local, Celly and KOBE carry the same work_parallel_mcp.py (hash 2BA145B7…).
+- 06:45Z: rework-of-rework P0 intent fix (084600b): Linux 454 pass; beta 9e718ac pushed.
+
 - 05:24Z: npm beta 0.2.51-beta.20261120-051824.6e0818e published (gitHead 6e0818e8). Local home, Celly and KOBE overlays carry the same four changed files (hash-checked).
 - 05:18Z: beta 6e0818e pushed (merge of ad6eb74, cfe88b6, 460f264). Linux Docker 453 pass on the archived commit; Windows real-backend bundle 161 pass.
 - 04:50Z: main review AttributeError on a run with exit None fixed (Betty report); fail-first test added.
