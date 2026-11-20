@@ -1,0 +1,83 @@
+test_classified_complaint_cannot_finish_answer_only_and_notice_survives_lost_result (test_side_intake_mcp.SideMcpTests.test_classified_complaint_cannot_finish_answer_only_and_notice_survives_lost_result) ... FAIL
+test_classified_complaint_updates_related_work_and_replays_once (test_side_intake_mcp.SideMcpTests.test_classified_complaint_updates_related_work_and_replays_once) ... FAIL
+test_complaint_and_p0_rules_reach_every_side_actor_from_the_prompt_registry (test_side_intake_mcp.SideMcpTests.test_complaint_and_p0_rules_reach_every_side_actor_from_the_prompt_registry) ... ERROR
+test_complaint_with_work_off_still_reaches_main_without_a_queue (test_side_intake_mcp.SideMcpTests.test_complaint_with_work_off_still_reaches_main_without_a_queue) ... FAIL
+test_existing_p0_without_event_priority_is_not_demoted_by_the_model (test_side_intake_mcp.SideMcpTests.test_existing_p0_without_event_priority_is_not_demoted_by_the_model) ... FAIL
+test_followup_inherits_walkie_root_p0_before_model_and_board (test_side_intake_mcp.SideMcpTests.test_followup_inherits_walkie_root_p0_before_model_and_board) ... FAIL
+
+======================================================================
+ERROR: test_complaint_and_p0_rules_reach_every_side_actor_from_the_prompt_registry (test_side_intake_mcp.SideMcpTests.test_complaint_and_p0_rules_reach_every_side_actor_from_the_prompt_registry)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<user>\ciel-runtime\.local\tmp\work-parallel\.local\tmp\side-complaint\head-tree\tests\test_side_intake_mcp.py", line 506, in test_complaint_and_p0_rules_reach_every_side_actor_from_the_prompt_registry
+    rule = DEFAULTS['side_complaint_and_urgency']
+           ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'side_complaint_and_urgency'
+
+======================================================================
+FAIL: test_classified_complaint_cannot_finish_answer_only_and_notice_survives_lost_result (test_side_intake_mcp.SideMcpTests.test_classified_complaint_cannot_finish_answer_only_and_notice_survives_lost_result)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<user>\ciel-runtime\.local\tmp\work-parallel\.local\tmp\side-complaint\head-tree\tests\test_side_intake_mcp.py", line 465, in test_classified_complaint_cannot_finish_answer_only_and_notice_survives_lost_result
+    self._resolve_event(event, decision)
+  File "<user>\ciel-runtime\.local\tmp\work-parallel\.local\tmp\side-complaint\head-tree\tests\test_side_intake_mcp.py", line 406, in _resolve_event
+    self.assertFalse(response['error'], response)
+AssertionError: True is not false : {'text': 'invalid side decision fields', 'error': True}
+
+======================================================================
+FAIL: test_classified_complaint_updates_related_work_and_replays_once (test_side_intake_mcp.SideMcpTests.test_classified_complaint_updates_related_work_and_replays_once)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<user>\ciel-runtime\.local\tmp\work-parallel\.local\tmp\side-complaint\head-tree\tests\test_side_intake_mcp.py", line 492, in test_classified_complaint_updates_related_work_and_replays_once
+    result = self._resolve_event(event, decision)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<user>\ciel-runtime\.local\tmp\work-parallel\.local\tmp\side-complaint\head-tree\tests\test_side_intake_mcp.py", line 406, in _resolve_event
+    self.assertFalse(response['error'], response)
+AssertionError: True is not false : {'text': 'invalid side decision fields', 'error': True}
+
+======================================================================
+FAIL: test_complaint_with_work_off_still_reaches_main_without_a_queue (test_side_intake_mcp.SideMcpTests.test_complaint_with_work_off_still_reaches_main_without_a_queue)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<user>\ciel-runtime\.local\tmp\work-parallel\.local\tmp\side-complaint\head-tree\tests\test_side_intake_mcp.py", line 522, in test_complaint_with_work_off_still_reaches_main_without_a_queue
+    result = self._resolve_event(event, {'action': 'answer', 'kind': 'info', 'complaint': True,
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "<user>\ciel-runtime\.local\tmp\work-parallel\.local\tmp\side-complaint\head-tree\tests\test_side_intake_mcp.py", line 406, in _resolve_event
+    self.assertFalse(response['error'], response)
+AssertionError: True is not false : {'text': 'invalid side decision fields', 'error': True}
+
+======================================================================
+FAIL: test_existing_p0_without_event_priority_is_not_demoted_by_the_model (test_side_intake_mcp.SideMcpTests.test_existing_p0_without_event_priority_is_not_demoted_by_the_model)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<user>\ciel-runtime\.local\tmp\work-parallel\.local\tmp\side-complaint\head-tree\tests\test_side_intake_mcp.py", line 454, in test_existing_p0_without_event_priority_is_not_demoted_by_the_model
+    self.assertEqual('P0', result['priority'])
+AssertionError: 'P0' != 'P3'
+- P0
++ P3
+
+
+======================================================================
+FAIL: test_followup_inherits_walkie_root_p0_before_model_and_board (test_side_intake_mcp.SideMcpTests.test_followup_inherits_walkie_root_p0_before_model_and_board)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<user>\ciel-runtime\.local\tmp\work-parallel\.local\tmp\side-complaint\head-tree\tests\test_side_intake_mcp.py", line 430, in test_followup_inherits_walkie_root_p0_before_model_and_board
+    self.assertEqual(('P1', 'P0', 'P0'), (root['priority'], p0_store(ledger).effective_priority(self.identity, root),
+AssertionError: Tuples differ: ('P1', 'P0', 'P0') != ('P1', 'P1', 'P1')
+
+First differing element 1:
+'P0'
+'P1'
+
+- ('P1', 'P0', 'P0')
+?          ^     ^
+
++ ('P1', 'P1', 'P1')
+?          ^     ^
+
+
+----------------------------------------------------------------------
+Ran 6 tests in 1.156s
+
+FAILED (failures=5, errors=1)
+RAN 6 failures=5 errors=1 skipped=0

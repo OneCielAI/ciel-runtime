@@ -2,6 +2,86 @@
 
 ## 2026-11-20
 
+- 15:16Z tick (since 15:00Z):
+  - Andy: unchanged (3 running, 1 reserved, 46 waiting, 22 submitted); n1856 still blocked. No new failures or router ERROR/uncaught lines.
+    - 15:01–15:02Z: five `work_node_update status=done` calls (n2304–n2308) were refused with "Work completion waits for this item's parallel validation, review and cleanup". This is the existing completion gate; nothing was applied.
+  - Celly: 2 running, 5 waiting. No new failures or router ERROR/uncaught lines. One side-failure forward.
+    - 15:03:36Z: `work_parallel_run` n1152 (P1 worker) was refused with `unknown P0 assignment`. That text is raised by `p0_launch_assignment` (`work_parallel_mcp.py`) when the intent/lease/dispatch-name pin does not match a reserved P0 launch. Main's `work_parallel_run` surfaced it, so the dispatch went through the P0 lane. Not confirmed which pin failed.
+  - KOBE: unreachable this tick. ssh first got "lost connection", then "Connection timed out during banner exchange" on two retries, and no state was read. The previous tick's KOBE findings (n955, n953, n957 leases running with slot while their runs are terminal or waiting; artifact-format report refusals) stay open.
+  - Linux Docker run of 03e064d is still in progress.
+
+- 15:00Z tick (since 14:35Z):
+  - Andy: unchanged (3 running, 1 reserved, 46 waiting, 22 submitted); n1856 still blocked. One side-failure forward. Main's own regex error. No router ERROR or uncaught lines.
+  - Celly: 2 running, 4 waiting, 1 submitted. No new failures or router ERROR/uncaught lines.
+    - Main got refusals on its own calls:
+      - `P0 reacquire parent authority` on SendMessage to n1128's parked worker (14:36Z, 14:41Z).
+      - `P0 intent transition` on `work_parallel_run` n1151 (14:47Z).
+      - `plan version`, `stale plan version`, `no active slot`, `no eligible candidate`, `unsupported parallel event`.
+      - Walkie `Conversation access denied`.
+    - The two P0 refusals are new refusal texts on this host. Their cause is not investigated yet.
+  - KOBE: running leases rose to 7 at 14:36–14:45Z. Main's P0 goals for incident 153865 started six P0 forks (n950, n953, n955, n956, n957, n18, n20).
+    - Finding `slot held, fork absent since 14:46: n955 a1e68f4b P1 running`: the run holds a `question` exit at 14:44:16Z, and the lease is still `running` with slot. The fork's question report returned `waiting_input` with slot released. The ledger row read later still shows `running` / slot true. Not confirmed why.
+    - Fork n953 (af55b265):
+      - 14:42:09Z: API error "blocked by our safety systems".
+      - Then 6 completion reports refused with `completion artifact SHA256 required`. It passed paths or `sha256:`/`#sha256=` forms. `digest()` accepts only a bare 64-char lowercase hex string.
+      - Then a handoff without `workspace`/`next_step`/`blockers`, answered `handoff done` as an error. That is the KeyError text of the missing `blockers` field.
+      - Run `terminal`/native `failed`, lease still `running`/slot.
+    - Fork n957 (ae94b273): API errors "circuit breaker is open (HTTP 503)" and "all targets were skipped by pre-dispatch filters". Two exit-contract prompts. Run terminal/failed, lease running/slot.
+    - Report refusals since 11-18 (read-only fork transcript census):
+      - KOBE: 72 accepted. Refused 48 times in 25 forks with `completion artifact SHA256 required`, and 28 times with `worker may only report question, completion or handoff`.
+      - Andy: 81 accepted. 61 refusals in 34 forks with `completion artifact SHA256 required`, 44 with the event-name refusal, and 31 with `completion text`.
+      - Both hosts have one `handoff done`.
+    - Main: `TaskStop`/`No task found` for two P0 forks; `mod_stop_unavailable` at 14:37Z; `work_host_page: ECONNREFUSED` at 14:49Z.
+  - Side complaint/P0 change 03e064d:
+    - Windows bundle 847 tests, 0 failures, 55 skipped.
+    - Real claude.exe 2.1.329 load passed.
+    - All three installs hold the 3d42d1d bytes for the 10 changed files.
+    - The Linux run is in progress.
+
+- 14:35Z tick (since 14:16Z):
+  - Andy: unchanged (3 running, 1 reserved, 46 waiting, 22 submitted); n1856 still blocked. Nothing new.
+  - Celly: 3 running, 4 waiting.
+    - No new failures and no router ERROR or uncaught lines.
+    - Main's tool errors were its own commands: shell exits, cp1252 encoding, git ignore, ripgrep timeout. There were also two correct host refusals: `work_side_status` is host-only, and n1149 already has a lease.
+  - KOBE: 2 running, 3 waiting.
+    - One side-failure forward.
+    - 14:32:19Z `mod_stop_unavailable`: the Stop hook's board read missed its 10 s deadline (`STOP_READ_MS`, register.js). Celly showed the same notice at 14:01Z. These are single occurrences. Why the read was slow is not measured.
+    - Main's own Python cp1252 print errors.
+  - Reported to Andy_Main for Betty 153842, from 6e0818e source:
+    - A claimed restart waits only for (a) no unconfirmed submitted channel input (`restart_protected`, no time limit) and (b) turn end or 900 s. Work leases and forks are not part of the condition.
+    - `/exit` releases a deferred request (`after_child_exit`).
+    - An in-place restart keeps launcher pid 760, so the unbound reservation ad958b5c stays live-owned and is not released. This is open as a product gap. Andy 8b365b32 has the same shape.
+
+- 14:16Z tick (since 13:55Z):
+  - Andy: unchanged (3 running, 1 reserved, 46 waiting, 22 submitted); n1856 still blocked. No new failures, router ERROR/uncaught lines or main tool errors.
+  - Celly: 2 running, 4 waiting. No new failures or router ERROR/uncaught lines.
+    - 14:01:54Z notice "auto continue could not read the Work status". The router logged the `work_status` call at 08:01:23 local with no error after it. The reason for the read failure is not confirmed.
+    - 14:08:38Z: a turn-end event was forwarded to main as `superseded` (existing quarantine path).
+  - KOBE: 2 running, 3 waiting; nothing new.
+  - The affected-bundle rerun for the side complaint/P0 change was still running at this tick.
+
+- 13:55Z tick (since 13:36:29Z):
+  - Andy: 3 running, 1 reserved, 46 waiting, 22 submitted (unchanged); n1856 remains blocked. No new entries in the Work failure journal or main tool errors. At 13:49:24Z, `/ca/mcp` logged one uncaught `PermissionError [WinError 5]` writing `work-parallel-stranded-v1.json` via `_stranded_roll_forward` → `block` → `_change`. This is the same write path fixed in 0dc57b0. The fix is on disk; the running process predates the overlay, and this trace has no `replace_with_retry` frame.
+  - Celly: 2 running, 3 waiting (unchanged). The previous n1143 missing-fork finding cleared after main resumed the worker. No new Work failure entries or router ERROR/uncaught lines. Main had two tool errors: Walkie rejected operation arguments (13:49:09Z) and PowerShell rejected a redirection without a target (13:49:32Z).
+  - KOBE: 1 running, 3 waiting, 1 submitted (previously 2 running and 4 waiting). No new lease finding, Work failure-journal entry, router ERROR/uncaught, or actual main tool error. Four side notices represent three distinct originals forwarded and one already-delivered notice. A read-only backup-mode copy of recent receipts (removed after inspection) showed 24 of 26 `invalid_answer` failures over three hours had `side answer carries no decision JSON`. For one newly forwarded gate event, a decision JSON appears before another tool call but the final answer is prose; in other inspected events the final answer is prose without a decision. The sampled transcripts show no received corrective message; why the correction was not delivered is unconfirmed.
+  - No live session was restarted or changed by this check.
+
+- 13:36Z tick (since 12:15Z):
+  - Andy: 3 running, 1 reserved, 46 waiting, 22 submitted (unchanged); n1856 still blocked.
+    - New router lines are WARN only: SSE disconnects, and an upstream 503 "all targets were skipped by pre-dispatch filters" at 07:19 and 07:24 local.
+    - Tool error 12:50:24Z: `work_side_handoff: invalid side receipt identity`. Main passed the 12-character event ref from the notice `Ciel side asks main (event 132ea9c9a6a9)` as `event_id`. The notice offers no full id and needs no handoff, so this is a wording gap, not a lost event. It is covered by the complaint/ask_main change under test, whose wake says "act on it now" instead of "released recorded wait".
+    - Reservation 8b365b32 (n1174 P3) is still held. The owner PID is alive, and there is no dispatch name or coordination run. Reported to Andy_Main for Betty 153726; no state changed.
+  - Celly: 2 running, 3 waiting.
+    - Finding: n1143 (lease e5b6cdd7, P0 lane) was absent from the list from 13:25:53Z. Its fork transcript ends at 13:24:13Z with `API Error: 503 ... all targets were skipped by pre-dispatch filters` (stop_sequence). That is the same upstream 503 Andy logged.
+      - Main resumed the worker with SendMessage at 13:38:32Z, and the fork continued at 13:38:45Z.
+      - The native list showed no terminal status, so no exit-contract message was sent. Main noticed only through the dispatch check.
+      - Not confirmed: whether the host should treat this as terminal by itself.
+    - New `[ERROR] router_post_uncaught ChannelFileLockBusy` ×5 at 06:39–06:40 local, all on `runtime-inputs.jsonl.lock`. The path is `/v1/messages` → `body_with_pending_channel_messages` → `ChannelWakeClaimRepository.prompt`, which waits on the runtime-input lock. Earlier ticks saw the same class on other locks; the holder is still not identified.
+  - KOBE: 2 running, 4 waiting; no lease findings.
+    - 13 side-failure forwards since 12:15Z, all `invalid_answer · 1회 시도`: 11 gate re-check or turn-end events and 2 Walkie messages.
+    - Not confirmed: the refusal reasons. The forward text carries only the category, and the receipts under `workspaces\651d879f6c68` are ACL-denied to the monitor account.
+  - The vanished-fork review gap (0dc57b0) shows no new case. KOBE n878 and n880 still wait for KOBE's restart.
+
 - 12:30Z: vanished-fork review and sidecar replace-retry fixes (0dc57b0) installed on local, Celly and KOBE (hash-checked, backups `*.backup-hotfix7`). Beta eab2a18 published as npm `0.2.51-beta.20261120-122502.eab2a18`; its five files match the installs. No session restarted.
 - 12:15Z tick:
   - Andy relaunched 12:12Z (c955630); 3 running, 1 reserved, 46 waiting, 22 submitted. The launch sweep orphaned 4 leases (3 P1 running, 1 P3 reserved).
