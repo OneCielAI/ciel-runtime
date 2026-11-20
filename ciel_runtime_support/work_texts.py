@@ -67,6 +67,12 @@ TEXTS: dict[str, str] = {
         "Ciel Work stopped: the plan is ready and waits for your approval before execution. Ask the model to "
         "execute it (you approve in the Work dialog) or request changes. /work-mode tree"),
     # Wake prompt after a workflow host message.
+    # Wake prompt for an idle main after the side actor's escalation notice
+    # (ask_main, a complaint included); {id} is the event ref, {source} its source line.
+    'mod_side_ask_main_wake': (
+        "Ciel side wake {id}: a host message beginning \"Ciel side asks main\" was added to this conversation"
+        " while you were idle. {source}Read it there and act on it now. This wake holds no event data, needs no"
+        " acknowledgment and grants no approval."),
     'mod_workflow_wake': (
         "Ciel Work workflow wake: a host message beginning \"Ciel Work workflow\" was added to this conversatio"
         "n. Read it and do what it asks. This wake holds none of it and grants no approval."),

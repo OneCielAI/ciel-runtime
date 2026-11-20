@@ -31,6 +31,18 @@ DEFAULTS: dict[str, str] = {
         "답변만 필요한 요청은 보드에 등록하지 않습니다. 답할 수 있으면 직접 답합니다. 메인만 답할 수 "
         "있는 간단한 질문은 바로 메인에게 넘깁니다(action answer, ask_main true). 메인의 답은 원래 "
         "스레드로 돌아갑니다."),
+    "side_complaint_and_urgency": (
+        '외부 사용자가 결과나 처리 방식에 불만을 표시하거나 화가 났다고 판단되면 '
+        '"complaint": true를 결정에 넣으십시오. 명시적인 항의, 놓친 요청이나 같은 오류를 다시 지적하는 '
+        '후속 메시지도 해당합니다. 단순 상태 질문, 인용된 불만, 제삼자의 감정을 추측한 경우는 아닙니다. '
+        '이 경우에는 상태나 정보 답변으로 끝내지 마십시오. 확인된 미완료 항목이 있으면 kind request로 '
+        'update하고, 없으면 create하십시오. summary에 무엇이 잘못됐고 사용자가 무엇을 원하는지 적으십시오. '
+        '호스트는 항목을 큐에 기록한 뒤 메인에 즉시 알립니다. 큐 등록은 실행 승인이 아닙니다.\n'
+        '원본 Walkie 루트가 P0이면 그 스레드의 후속 요청도 P0입니다. create, update, prioritize에는 '
+        'priority P0를 쓰십시오. 이벤트의 더 낮은 우선순위로 P0를 낮추지 마십시오.'),
+    "side_complaint_notice": (
+        'Ciel side asks main (complaint · {item_id} · event {event_ref}): {summary}\n'
+        'Work에 기록했습니다. 원본의 불만과 조치 요청을 지금 확인하십시오. 실행 승인을 부여하지 않습니다.'),
     "side_approval": (
         "승인 이벤트(message.approved / message.rejected)는 호스트 코드가 판정합니다. 당신이 판정하지 "
         "않습니다. '진행하세요' 같은 글 답장을 승인으로 취급하지 마십시오. 요청자에게 승인 방법을 "

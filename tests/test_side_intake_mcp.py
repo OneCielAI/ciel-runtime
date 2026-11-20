@@ -399,6 +399,131 @@ class SideMcpTests(unittest.TestCase):
         reserved = json.loads(self.invoke('work_side_claim', {'owner': 'actor', 'urgent_only': True})['text'])
         self.assertEqual('P0', reserved['claim']['source_priority'])
 
+    def _resolve_event(self, event, decision):
+        host = {'token': 'x'*40, 'receipt_id': event['receipt_id'], 'generation': event['generation']}
+        response = self.invoke('work_side_resolve', {'decision': decision,
+                               'expected_version': event['workload']['version']}, host)
+        self.assertFalse(response['error'], response)
+        return json.loads(response['text'])['result']
+
+    def test_followup_inherits_walkie_root_p0_before_model_and_board(self):
+        from unittest.mock import patch
+        from ciel_runtime_support import work_plan_tree as tree
+        from ciel_runtime_support.work_parallel import WorkParallelStore
+        from ciel_runtime_support.work_parallel_p0 import p0_store
+        ledger = WorkParallelStore(self.root / 'work-parallel.json')
+        self.store.transaction(lambda doc: tree.add_node(doc, None, 'active', priority='P3'))
+        _, item = self.store.transaction(lambda doc: tree.add_node(doc, None, 'approval display', priority='P3'))
+        _, step = self.store.transaction(lambda doc: tree.add_node(doc, item, 'display approval button'))
+        for i in range(2):
+            # The observed Walkie shape of a P0 root (thread_task priority 1 plus
+            # emergency). The model returned P1 for such a follow-up in production.
+            self.inbox.receive(json.dumps({'type': 'com.ciel.walkie.support.message', 'data': {
+                'text': 'The approval button is still missing.',
+                'message_context': {'thread_task': {'priority': 1, 'emergency': True}}}}), f'walkie:{i}')
+            with patch('ciel_runtime_support.work_parallel_mcp.ledger', return_value=ledger):
+                event = self._claim()
+                self.assertEqual('P0', event['source_priority'])
+                result = self._resolve_event(event, {'action': 'update', 'kind': 'request', 'item_id': step,
+                    'summary': 'Correct the missing approval button', 'reply': 'Recorded the correction', 'priority': 'P1'})
+            root = next(node for node in self.store.read()['nodes'] if node['id'] == item)
+            self.assertEqual(('P1', 'P0', 'P0'), (root['priority'], p0_store(ledger).effective_priority(self.identity, root),
+                                                 result['priority']))
+            outcome = result['final_text'].rsplit('\n', 1)[-1]
+            self.assertTrue(outcome.startswith(step + ' 갱신 · P0 · '), outcome)
+            self.assertNotIn('P1', outcome)
+            self.assertFalse(result['execution_approved'])
+        self.assertEqual(1, len(p0_store(ledger).read()['clears']), 'already P0: no second activation')
+
+    def test_existing_p0_without_event_priority_is_not_demoted_by_the_model(self):
+        from unittest.mock import patch
+        from ciel_runtime_support import work_plan_tree as tree
+        from ciel_runtime_support.work_parallel import WorkParallelStore
+        from ciel_runtime_support.work_parallel_p0 import p0_store
+        from ciel_runtime_support.work_priority_service import set_root_priority
+        ledger = WorkParallelStore(self.root / 'work-parallel.json')
+        board, item = self.store.transaction(lambda doc: tree.add_node(doc, None, 'current P0', priority='P1'))
+        set_root_priority(self.store, ledger, self.identity, item, 'P0',
+                          expected_board_version=board['version'], external_operation_id='operator-set')
+        before = p0_store(ledger).read()
+        with patch('ciel_runtime_support.work_parallel_mcp.ledger', return_value=ledger):
+            event = self._claim()
+            self.assertIsNone(event['source_priority'])
+            result = self._resolve_event(event, {'action': 'update', 'kind': 'request', 'item_id': item,
+                'summary': 'A detail for the same incident', 'reply': 'Noted', 'priority': 'P3'})
+        self.assertEqual('P0', result['priority'])
+        self.assertEqual('P1', self.store.read()['nodes'][0]['priority'])
+        self.assertEqual(before, p0_store(ledger).read())
+
+    def test_classified_complaint_cannot_finish_answer_only_and_notice_survives_lost_result(self):
+        from unittest.mock import patch
+        event = self._claim()
+        decision = {'action': 'answer', 'kind': 'info', 'complaint': True, 'no_reply': True, 'ask_main': False,
+                    'summary': 'The approval control is missing again', 'reply': 'The approval control is missing'}
+        with patch('ciel_runtime_support.side_intake_mcp.finish', side_effect=OSError('lost before receipt write')):
+            with self.assertRaisesRegex(OSError, 'lost before receipt write'):
+                self._resolve_event(event, decision)
+        row = self.inbox._load(event['receipt_id'])
+        row['processing']['lease_until'] = 0
+        self.inbox._save_file(self.inbox._event_path('pending', event['receipt_id']), row)
+        recovered = self.invoke('work_side_claim', {'owner': 'new-actor'})
+        self.assertFalse(recovered['error'], recovered)
+        data = json.loads(recovered['text'])
+        self.assertIsNone(data['claim'])
+        self.assertEqual(1, len(self.store.read()['nodes']))
+        self.assertEqual(1, len(data['main_notices']))
+        notice = data['main_notices'][0]
+        self.assertEqual(event['receipt_id'], notice['receipt_id'])
+        self.assertIn(decision['summary'], notice['text'])
+        result = self.inbox._load(event['receipt_id'])['result']
+        self.assertEqual(('create', 'request', True, False),
+                         (result['action'], result['kind'], result['ask_main'], result['execution_approved']))
+        self.assertNotIn('no_reply', result)
+        self.assertIn(result['item_id'], notice['text'])
+        self.assertNotIn('큐에 등록하지 않았습니다', result['final_text'])
+        self.assertEqual(1, len(data['pending_replies']))
+
+    def test_classified_complaint_updates_related_work_and_replays_once(self):
+        from ciel_runtime_support import work_plan_tree as tree
+        _, item = self.store.transaction(lambda doc: tree.add_node(doc, None, 'approval display', priority='P3'))
+        event = self._claim()
+        decision = {'action': 'answer', 'kind': 'status', 'item_id': item, 'complaint': True,
+                    'summary': 'The approval button is still missing', 'reply': 'Recorded'}
+        result = self._resolve_event(event, decision)
+        self.assertEqual(('update', item, True, False),
+                         (result['action'], result['item_id'], result['ask_main'], result['execution_approved']))
+        self._resolve_event(event, decision)
+        self.assertEqual(1, self.store.read()['nodes'][0]['note'].count(decision['summary']))
+        wake = {'event_id': event['receipt_id'], 'state': 'notice_prepare', 'owner_nonce': 'fixture'}
+        prepared = json.loads(self.invoke('work_side_wake', wake)['text'])
+        self.assertEqual('claimed', prepared['state'])
+        self.assertEqual('already_issuing', json.loads(self.invoke('work_side_wake', wake)['text'])['state'])
+        self.assertEqual([], json.loads(self.invoke('work_side_claim', {'owner': 'other'})['text'])['main_notices'])
+
+    def test_complaint_and_p0_rules_reach_every_side_actor_from_the_prompt_registry(self):
+        from ciel_runtime_support.work_workflow import CONFIG
+        from ciel_runtime_support.work_workflow_prompts import DEFAULTS, fingerprint, set_prompt
+        rule = DEFAULTS['side_complaint_and_urgency']
+        for name in ('Daniel', 'Andy', 'Celly', 'KOBE', 'Betty'):
+            self.assertNotIn(name, rule + DEFAULTS['side_complaint_notice'])
+        for workflow in (False, True):
+            self.config[CONFIG] = {'enabled': workflow}
+            settings = json.loads(self.invoke('work_side_claim', {'owner': 'actor'})['text'])['settings']
+            self.assertIn(rule, settings['instruction'])
+        # Edited through the registry, applied on the next claim without a restart.
+        set_prompt(self.root, 'side_complaint_and_urgency', 'edited complaint rule', fingerprint(rule))
+        settings = json.loads(self.invoke('work_side_claim', {'owner': 'actor'})['text'])['settings']
+        self.assertIn('edited complaint rule', settings['instruction'])
+        self.assertNotIn(rule, settings['instruction'])
+
+    def test_complaint_with_work_off_still_reaches_main_without_a_queue(self):
+        self.config['work_mode'] = False
+        event = self._claim()
+        result = self._resolve_event(event, {'action': 'answer', 'kind': 'info', 'complaint': True,
+                                             'summary': 'The result is wrong again', 'reply': 'Recorded'})
+        self.assertEqual(('answer', True), (result['action'], result['ask_main']))
+        self.assertEqual([], self.store.read()['nodes'])
+
     def test_side_p0_decision_registers_and_activates_p0_without_main_handoff(self):
         from unittest.mock import patch
         from ciel_runtime_support import work_plan_tree as tree

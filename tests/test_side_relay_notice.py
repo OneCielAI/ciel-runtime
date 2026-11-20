@@ -104,6 +104,19 @@ class SideRelayNoticeTests(unittest.TestCase):
         self.assertIn('decide whether it matters to your current work', row['submitted'][0])
         self.assertNotIn('released recorded wait', row['submitted'][0])
 
+    def test_idle_main_gets_the_router_complaint_notice_and_a_wake_naming_it(self):
+        row = self.run_case('complaint-idle')
+        self.assertIs(True, row['resolved'][0]['complaint'])
+        self.assertEqual(1, len(row['appended']))
+        self.assertTrue(row['appended'][0].startswith(
+            'Ciel side asks main (complaint · n2 · event eeeeeeeeeeee): Delimiter is still wrong'), row['appended'])
+        self.assertEqual(1, len(row['submitted']))
+        wake = row['submitted'][0]
+        self.assertIn('a host message beginning "Ciel side asks main"', wake)
+        self.assertIn('act on it now', wake)
+        self.assertNotIn('released recorded wait', wake)
+        self.assertNotIn('Delimiter', wake)
+
     def test_update_without_relay_tells_nobody(self):
         row = self.run_case('no-relay')
         self.assertFalse(row['resolved'][0].get('relay'))

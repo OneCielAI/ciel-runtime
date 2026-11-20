@@ -142,15 +142,13 @@ def is_settled_workflow_event(config: Mapping[str, Any], state_dir: Path, identi
 
 
 def side_instruction(config: Mapping[str, Any], state_dir: Path, instruction: Any) -> Any:
-    if not wf.enabled(config):
-        return instruction
     parts = [str(instruction or "").strip()]
-    for name in ("side_intake", "side_answer", "side_approval"):
-        text, _ = _workflow_prompt(state_dir, name)
-        if text:
-            parts.append(text)
-    parts.append('승인 워크플로우가 켜져 있습니다: 메인만 답할 수 있는 간단한 질문은 action answer에 '
-                 '"ask_main": true를 넣습니다. 호스트가 바로 메인에게 알리고, 메인의 답이 스레드로 돌아갑니다.')
+    if wf.enabled(config):
+        parts.extend(_workflow_prompt(state_dir, name)[0] for name in ("side_intake", "side_answer", "side_approval"))
+        parts.append('승인 워크플로우가 켜져 있습니다: 메인만 답할 수 있는 간단한 질문은 action answer에 '
+                     '"ask_main": true를 넣습니다. 호스트가 바로 메인에게 알리고, 메인의 답이 스레드로 돌아갑니다.')
+    # Complaint escalation and P0 inheritance apply with or without the workflow.
+    parts.append(_workflow_prompt(state_dir, "side_complaint_and_urgency")[0])
     return "\n".join(part for part in parts if part)
 
 

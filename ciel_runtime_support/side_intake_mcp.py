@@ -4,7 +4,7 @@ import json
 from .side_intake_inbox import SideIntakeInbox
 from .side_intake_limits import SIDE_INTAKE_TEXT_MAX_CHARS, side_text_fits_pending_record
 from .side_intake_processing import claim, fail, fallback, finish, verify_claim
-from .side_work_decision import WorkChanged, apply
+from .side_work_decision import WorkChanged, apply, validate
 from .work_plan_tree import WorkPlanError
 from .channel_message_repository import exclusive_file_lock
 
@@ -99,7 +99,8 @@ def schemas():
                  'release_waits': {'type': 'array', 'maxItems': 16, 'items': {
                      'type': 'object', 'properties': {'id': {'type': 'string'}, 'waiting_on': {'type': 'string'}},
                      'required': ['id', 'waiting_on'], 'additionalProperties': False}},
-                 'relay': {'type': 'boolean'},
+                 'relay': {'type': 'boolean'}, 'ask_main': {'type': 'boolean'},
+                 'no_reply': {'type': 'boolean'}, 'complaint': {'type': 'boolean'},
                  'time_limit': {'type': 'object', 'properties': {
                      'text': {'type': 'string', 'maxLength': 1000},
                      'due_at': {'type': 'string', 'maxLength': 100},
@@ -230,6 +231,35 @@ def _activate_side_p0(store, identity, receipt_id, root_id):
         return {'root_id': root_id, 'error': 'the plan kept changing; P0 not activated'}
     except Exception as error:
         return {'root_id': root_id, 'error': (type(error).__name__ + ': ' + str(error))[:300]}
+
+
+def _active_p0_roots(identity):
+    """Exact active P0 root identities, read before the board transaction."""
+    try:
+        from .work_parallel_mcp import p0_state
+        roots = p0_state().read().get('roots', {}).values()
+        return frozenset((row['root_id'], row['root_created_at']) for row in roots
+                         if row.get('scope') == identity and row.get('state') == 'active')
+    except Exception:  # noqa: BLE001 - absent or unreadable P0 state cannot invent P0
+        return frozenset()
+
+
+def _complaint_notice(state_dir, receipt_id, result):
+    """Host-owned durable notice text for a complaint the actor identified."""
+    if result.get('complaint') is not True or result.get('ask_main') is not True:
+        return None
+    from .work_workflow_prompts import render
+    text, _ = render(state_dir, 'side_complaint_notice', item_id=result.get('item_id') or '-',
+                     event_ref=receipt_id[:12], summary=' '.join(str(result.get('summary') or '').split())[:600])
+    return text[:8000]
+
+
+def _settle_side_p0(store, identity, receipt_id, result):
+    if result.get('p0_root_id'):
+        # The receipt-scoped operation also rolls forward a prior attempt.
+        result['p0'] = _activate_side_p0(store, identity, receipt_id, result['p0_root_id'])
+        _p0_readback(result)
+    return result
 
 
 def _side_model_configured(config):
@@ -487,8 +517,11 @@ def run(name, args, config, state_dir, identity, store):
             document = store.read_snapshot()
             prior = document.get('side_decisions', {}).get(active['receipt_id'])
             if prior:
-                recovered = finish(state_dir, identity, active['receipt_id'], active['generation'],
-                                   {**prior['result'], 'duplicate': True, 'version': document['version']})
+                receipt_id = active['receipt_id']
+                result = _settle_side_p0(store, identity, receipt_id, {
+                    **prior['result'], 'duplicate': True, 'version': document['version']})
+                recovered = finish(state_dir, identity, receipt_id, active['generation'], result,
+                                   main_notice=_complaint_notice(state_dir, receipt_id, result))
                 active = None
             else:
                 from .side_workload import project as project_workload
@@ -597,6 +630,11 @@ def run(name, args, config, state_dir, identity, store):
         decision = args.get('decision')
         if not isinstance(decision, dict):
             raise WorkPlanError('side decision object required')
+        if config.get('work_mode', True) is not True and decision.get('complaint') is True:
+            # Work off has no queue to register in; the complaint still reaches main.
+            decision = {**{k: v for k, v in decision.items() if k != 'complaint'}, 'ask_main': True}
+            args = {**args, 'decision': decision}
+        validate(decision)
         if config.get('work_mode', True) is not True and decision.get('action') not in ('answer', 'clarify'):
             raise WorkPlanError('Work is off; answering allowed, queue mutation denied')
         # A handoff follow-up carries main's own answer back to the source. Its
@@ -609,21 +647,21 @@ def run(name, args, config, state_dir, identity, store):
         changed = None
         parked, ledger_path = _parked_projection(store, identity, decision)
         try:
-            from .side_intake_inbox import source_identity
+            from .side_intake_inbox import source_identity, source_priority
             from .work_workflow_tools import side_workflow_context
+            original = (row or {}).get('text')
+            p0_roots = (_active_p0_roots(identity) if decision.get('action') in ('update', 'prioritize')
+                        else frozenset())
             result = apply(store, key, decision, args.get('expected_version'), main_reply=main_reply,
                            observed_digest=observed if isinstance(observed, str) else None,
-                           source=source_identity((row or {}).get('text')),
-                           source_context=(row or {}).get('source_context'),
+                           source=source_identity(original), source_priority=source_priority(original),
+                           p0_roots=p0_roots, source_context=(row or {}).get('source_context'),
                            parked_projection=parked, gate_check=gate_check,
                            workflow=side_workflow_context(config, state_dir, row))
         except WorkChanged as error:
             changed = str(error)
-        if changed is None and result.get('p0_root_id'):
-            # After the board commit. The operation id comes from the receipt,
-            # so a duplicate replay rolls the same activation forward once.
-            result['p0'] = _activate_side_p0(store, identity, key, result['p0_root_id'])
-            _p0_readback(result)
+        if changed is None:
+            _settle_side_p0(store, identity, key, result)
         if changed is None and result.get('wait_boost') and ledger_path is not None:
             # After the board commit; a duplicate replay recreates a missing row.
             result['wait_boost_record'] = _record_wait_boost(ledger_path, identity, key, result)
@@ -639,7 +677,8 @@ def run(name, args, config, state_dir, identity, store):
                 'recheck': 'work_changed'}
     # The board records the decision before pending mail is removed. A retry
     # recovers the same application if this receipt write was interrupted.
-    receipt = finish(state_dir, identity, key, generation, result)
+    main_notice = _complaint_notice(state_dir, key, result)
+    receipt = finish(state_dir, identity, key, generation, result, main_notice=main_notice)
     # Gate re-check thread cursors (Andy 2026-11-18): every committed event of a
     # Walkie thread advances that thread's cursor, and a node the decision
     # created or updated is bound to the thread. The thread is the host's own
@@ -652,4 +691,4 @@ def run(name, args, config, state_dir, identity, store):
                      result)
     except Exception:  # noqa: BLE001
         pass
-    return {'receipt': receipt, 'result': result}
+    return {'receipt': receipt, 'result': result, **({'main_notice': main_notice} if main_notice else {})}
