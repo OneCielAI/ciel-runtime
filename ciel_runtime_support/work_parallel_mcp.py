@@ -2911,7 +2911,15 @@ def _stranded_roll_forward_stages(store, board_store, identity, host, lease_id):
             lease_id, stage, state_value=state_value, expected_version=version))
         return rows.read()["rows"][lease_id]
 
-    if not row["stages"]["reserved"]:
+    # Celly 2026-11-19: four recovery leases were reserved, then released before
+    # their coordination run existed (an older build refused it as "stale root
+    # approval"). The journal still says reserved, so every pump answered
+    # "decide again" while a repeated decision is the same journal row: no path
+    # ever led forward. Nothing launched, so reserve the same recovery again.
+    released = (row["stages"]["reserved"] and not row["stages"]["coordination"]
+                and replacement_id not in store.read()["leases"]
+                and replacement_id not in coord.read()["runs"])
+    if not row["stages"]["reserved"] or released:
         current = store.read()
         p0_intent = _p0_continuation_intent(
             store, board_store, identity, row["item_id"],
@@ -2962,9 +2970,10 @@ def _stranded_roll_forward_stages(store, board_store, identity, host, lease_id):
                 "reason": "the recovery lease of this stranded result was released before it started; "
                           "decide the result again with work_parallel_item_review",
                 "stranded_version": rows.read()["version"]}
-    if not row["stages"]["workspace"]:
+    if not row["stages"]["workspace"] or released:
         # The retained worktree cannot be verified: a fresh owned worktree.
-        # The broken one stays retained, never reused or removed.
+        # The broken one stays retained, never reused or removed. A re-reserved
+        # recovery gets the worktree its id already owns (prepare verifies it).
         from .work_parallel_workspace import prepare
         fresh = prepare(row["binding"]["repo"], replacement_id)
         current = store.read()

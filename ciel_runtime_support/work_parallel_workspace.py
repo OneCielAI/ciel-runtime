@@ -91,6 +91,7 @@ CONTENT_CAPTURE_DEADLINE_SECONDS = 30
 _CONTENT_CHUNK = 1_048_576
 _CONTENT_SUFFIX = ".content-baseline-v1.json"
 _CONTENT_INTENT_SUFFIX = ".content-baseline-v1.intent"
+_CONTENT_SKIPPED_SUFFIX = ".content-baseline-v1.skipped"
 
 def _git(repo, *args, strip=True, trust=None):
     """One Work git command run in ``repo``; ``trust`` defaults to trusted_roots(repo)."""
@@ -173,7 +174,20 @@ def content_baseline_paths(repo, lease_id, *, config_dir=None):
     return {"manifest": manifest,
             "intent": manifest.with_name(key + _CONTENT_INTENT_SUFFIX),
             "sidecar": manifest.with_name(key + _CONTENT_SUFFIX),
+            "skipped": manifest.with_name(key + _CONTENT_SKIPPED_SUFFIX),
             "replacement_key": key, "repo": repo}
+
+
+# A worktree too large or too slow to fingerprint within the bounds. The
+# baseline only attributes drift before a rework binds (changed_before_bind);
+# Celly 2026-11-19: 20,001 entries refused n1108's rework on every pump forever.
+_CAPACITY_ERRORS = ("content baseline entry bound exceeded", "content baseline deadline exceeded",
+                    "content baseline single file byte bound exceeded",
+                    "content baseline total byte bound exceeded")
+
+
+def _capacity_error(error):
+    return str(error).startswith(_CAPACITY_ERRORS)
 
 def _load(path, repo, lease_id, key):
     try:
@@ -632,6 +646,8 @@ def _write_handoff_baseline(repo, old, prior_lease_id, replacement_lease_id,
     identity = _baseline_identity(repo, old, prior_lease_id, replacement_lease_id,
                                   prior_generation, replacement_generation,
                                   paths["replacement_key"])
+    if paths["skipped"].exists():
+        return None
     if paths["intent"].exists():
         _load_content_record(paths["intent"], identity, require_digest=False)
         if paths["sidecar"].exists():
@@ -639,7 +655,16 @@ def _write_handoff_baseline(repo, old, prior_lease_id, replacement_lease_id,
     else:
         _save_content_record(paths["intent"], identity)
     try:
-        fingerprint = _content_fingerprint(old)
+        try:
+            fingerprint = _content_fingerprint(old)
+        except WorkspaceError as exc:
+            if not _capacity_error(exc):
+                raise
+            # Not capturable within the bounds: record that, drop the intent, and
+            # let the handoff go on; drift is then reported as unknown.
+            _save_content_record(paths["skipped"], {**identity, "reason": str(exc)[:200]})
+            paths["intent"].unlink(missing_ok=True)
+            return None
         row = {**identity, **fingerprint, "captured_at": time.time()}
         _save_content_record(paths["sidecar"], row)
         return row
@@ -672,6 +697,8 @@ def handoff_drift(repo, replacement_lease_id, *, config_dir=None):
             verification_error = None
         identity = _baseline_identity(repo, record, record["prior_lease_id"], replacement_lease_id,
                                       handoff["prior_generation"], handoff["replacement_generation"], key)
+        if paths["skipped"].exists():
+            return {"changed_before_bind": "unknown", "reason": "content baseline not captured: worktree exceeds its bounds"}
         if not paths["intent"].exists():
             return {"changed_before_bind": "unknown", "reason": "old_build_not_recorded"}
         _load_content_record(paths["intent"], identity, require_digest=False)
@@ -743,8 +770,9 @@ def handoff_rebind(repo, prior_lease_id, replacement_lease_id, *,
                 identity = _baseline_identity(repo, current, prior_lease_id,
                                               replacement_lease_id, prior_generation,
                                               replacement_generation, new_key)
-                _load_content_record(paths["intent"], identity, require_digest=False)
-                _load_content_record(paths["sidecar"], identity, require_digest=True)
+                if not paths["skipped"].exists():
+                    _load_content_record(paths["intent"], identity, require_digest=False)
+                    _load_content_record(paths["sidecar"], identity, require_digest=True)
                 old.update(status="rebound", handoff=current["handoff"])
                 _save(old_manifest, old)
                 return current
@@ -834,7 +862,7 @@ def _content_cleanup_keys(repo, record, key, config_dir):
 def _cleanup_content_baselines(repo, record, key, manifest, config_dir):
     pending = False
     for replacement_key in _content_cleanup_keys(repo, record, key, config_dir):
-        for suffix in (_CONTENT_INTENT_SUFFIX, _CONTENT_SUFFIX):
+        for suffix in (_CONTENT_INTENT_SUFFIX, _CONTENT_SUFFIX, _CONTENT_SKIPPED_SUFFIX):
             try:
                 manifest.with_name(replacement_key + suffix).unlink(missing_ok=True)
             except OSError:
