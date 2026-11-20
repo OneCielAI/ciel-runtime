@@ -398,6 +398,18 @@ def lease_facts(leases: Mapping[str, Any], scope: str) -> tuple[dict[str, str], 
     return facts, waiting
 
 
+def reviewable_items(state: Mapping[str, Any], scope: str) -> list[str]:
+    """Published, undecided completion reviews, not every submitted lease.
+
+    A submitted ledger result may lack a receipt or idle observation. Asking
+    main to review it then is impossible: there is no review pin (KOBE/Andy).
+    Stranded recovery and decided sagas are not ordinary pending decisions.
+    """
+    return sorted({row["item_id"] for row in (state.get("reviews") or {}).values()
+                   if row.get("scope") == scope and row.get("state") == "pending"
+                   and row.get("decision") is None})
+
+
 def rotate(rows: list[dict[str, Any]], offset: Any) -> list[dict[str, Any]]:
     """Start after the gates the last round carried, so every gate gets its turn."""
     if not rows or type(offset) is not int:

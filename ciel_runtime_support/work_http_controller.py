@@ -1012,7 +1012,7 @@ class WorkHttpController:
 
     REVIEW_ROW_FIELDS = ("lease_id", "item_id", "root_id", "priority", "item_title", "item_path", "artifact",
                          "completion_receipt", "summary", "coverage", "verification", "state", "decision",
-                         "evidence", "changed_before_bind")
+                         "evidence", "changed_before_bind", "approval_changed")
     REVIEW_WORKSPACE_FIELDS = ("branch", "head", "dirty", "changed_count", "changed_files", "diff_stat")
 
     @classmethod

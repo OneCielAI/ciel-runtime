@@ -673,7 +673,21 @@ class WorkModWriteGateTests(unittest.TestCase):
         result = self.run_scenario('review-wake-text-carries-review-pin')
         self.assertEqual([result['pin']], result['first'])
         self.assertEqual([result['pin']], result['moved'])
+        self.assertEqual([True], result['approvalChanged'])
+        self.assertEqual([True], result['movedApprovalChanged'])
         self.assertEqual(('appended', result['pin']), (result['wakeAfter'], result['pinAfter']))
+
+    def test_a_new_review_gets_one_wake_and_the_reminder_only_after_it_still_waits(self):
+        result = self.run_scenario('review-reminder-waits-after-the-first-wake')
+        result.pop('scenario', None)
+        self.assertEqual({'settled': True, 'wakes': 1, 'immediate': 0, 'afterWaiting': 1, 'repeated': 1}, result)
+
+    def test_a_review_only_the_pane_lists_is_reminded_after_it_still_waits(self):
+        # The draft that recorded first-seen only at projection never reminded
+        # this row (0 after 21 minutes); HEAD d216883 reminded at once.
+        result = self.run_scenario('review-reminder-pane-only-row')
+        result.pop('scenario', None)
+        self.assertEqual({'wakes': 0, 'immediate': 0, 'afterWaiting': 1}, result)
 
     def test_rows_stored_during_a_main_hook_are_fenced_when_it_returns_in_the_probe_order(self):
         # Owned probe append-views-54579a2e (Claude Code 2.1.323): S, stored

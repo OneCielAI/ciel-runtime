@@ -2026,6 +2026,7 @@ function parallelReviewView(row, version = null) {
     verification:clipped(row?.verification, 1600) || undefined,
     changed_before_bind:changedBeforeBind(row?.changed_before_bind),
     changed_before_bind_disclosure:changedBeforeBindReview(changedBeforeBind(row?.changed_before_bind)),
+    ...(typeof row?.approval_changed === 'boolean' ? { approval_changed:row.approval_changed } : {}),
     stranded:parallelStranded(row),
     workspace:ws ? { path:clipped(ws.path, 500), branch:clipped(ws.branch, 200), head:clipped(ws.head, 80),
       ...(ws.unavailable === true ? { unavailable:true, reason:clipped(ws.reason, 300) } : {}),
@@ -2190,6 +2191,7 @@ async function projectParallelReviews($, state, wakeMode = 'event') {
   const queue = parallelReviewQueue(state)
   const rows = queue.rows.filter(parallelReviewPending)
   pendingParallelReviews = rows.map(row => parallelReviewView(row, queue.version))
+  noteReviewsSeen(rows.map(parallelReviewId))
   pendingParallelReviewVersion = queue.version
   observatoryReviews = parallelPresentedReviews(queue.rows).slice(0, 24).map(row => ({ ...parallelReviewView(row, queue.version), label:parallelReviewLabel(row) }))
   for (const source of rows) {
@@ -2238,6 +2240,14 @@ function parallelReviewRefusedNow(row) {
 // still wait. Before this, a review was announced once and then only piled up
 // (Andy: 34 results awaiting review).
 let reviewReminder = { key: '', at: 0 }
+const REVIEW_REMIND_MS = 20 * 60 * 1000
+// When this process first saw each pending review (projection, or the pane's
+// queue for a row the projection does not keep). Never pruned here: the
+// reminder prunes against both views.
+const reviewFirstSeen = new Map()
+function noteReviewsSeen(ids, now = Date.now()) {
+  for (const id of ids) if (id && !reviewFirstSeen.has(id)) reviewFirstSeen.set(id, now)
+}
 function remindPendingReviews($) {
   // Both views of the queue: the rows the Stop path keeps and the rows the pane
   // shows as "Awaiting main review" (Celly 2026-11-19: five results waited, the
@@ -2248,11 +2258,18 @@ function remindPendingReviews($) {
     const id = parallelReviewId(row)
     if (id && !byId.has(id)) byId.set(id, { lease_id: id, item_id: row.item_id })
   }
-  const rows = [...byId.values()].filter(row => !sidePromptPending('parallel:' + row.lease_id))
+  // A review wake already tells main about a new result. The reminder is for
+  // rows that remain after that first wake, never a second message at once
+  // (Andy: two messages for one wake).
+  const now = Date.now()
+  for (const id of [...reviewFirstSeen.keys()]) if (!byId.has(id)) reviewFirstSeen.delete(id)
+  noteReviewsSeen(byId.keys(), now)
+  const rows = [...byId.values()].filter(row => !sidePromptPending('parallel:' + row.lease_id)
+    && now - reviewFirstSeen.get(row.lease_id) >= REVIEW_REMIND_MS)
   if (!rows.length) return
   const key = rows.map(row => row.lease_id).sort().join(',')
-  if (key === reviewReminder.key && Date.now() - reviewReminder.at < 20 * 60 * 1000) return
-  reviewReminder = { key, at: Date.now() }
+  if (key === reviewReminder.key && now - reviewReminder.at < REVIEW_REMIND_MS) return
+  reviewReminder = { key, at: now }
   const items = [...new Set(rows.map(row => row.item_id || String(row.lease_id).slice(0, 8)))]
   void sidePromptSubmit($, 'review-reminder:' + reviewReminder.at, T('mod_review_reminder', { count: rows.length,
     items: items.slice(0, 12).join(', ') + (items.length > 12 ? ' …' : ''), call: T('mod_review_call') }))
@@ -2284,6 +2301,7 @@ function parallelReviewGate(identity, fresh) {
 function publicReviewDecision(result) {
   return { decision:result?.decision, lease_id:result?.lease_id, item_id:result?.item_id, state:result?.state,
     finalization_version:result?.finalization_version,
+    ...(result?.approval_changed === true ? { approval_changed:true } : {}),
     ...(result?.decision === 'rework' && Number.isInteger(result?.dispatch?.generation)
       ? { replacement_generation:result.dispatch.generation } : {}),
     ...(result?.decision === 'rework' && STRANDED_KINDS.has(result?.dispatch?.recovery)
@@ -2887,8 +2905,8 @@ async function parallelToolCall($, e, next) {
         // The whole call is refused, so a wait clear sent with it was not
         // applied either (Prody: waiting_on="" + status=done stayed waiting).
         return { deny: 'Work completion waits for this item\'s parallel validation, review and cleanup. Nothing in this call was applied'
-          + (e.waiting_on !== undefined || e.note !== undefined || e.evidence !== undefined
-            ? '; send the other fields (for example waiting_on="") in a separate work_node_update without status.' : '.') }
+          + (e.waiting_on !== undefined || e.clear_wait !== undefined || e.note !== undefined || e.evidence !== undefined
+            ? '; send the other fields (for example clear_wait=true) in a separate work_node_update without status.' : '.') }
       }
     } catch (error) { return { deny: 'Parallel completion check unavailable.' } }
     return workToolCall($, e, next) // Preserve the existing Work gate and native permissions.
@@ -2984,7 +3002,7 @@ async function parallelP0Spawn($) {
   let reserved
   try {
     reserved = await parallelEvent($, { event:'p0_reserve_next', role:'worker' },
-      await hostProcess($, { fork:true, workspace_repo:repo ? await $.session.root() : undefined }))
+      await hostProcess($, { fork:true, workspace_repo:repo?.root }))
   } catch (error) {
     if (/no eligible candidate|lease bound reached/.test(String(error?.message || error))) return null
     throw error
@@ -3049,7 +3067,10 @@ async function parallelDirectSpawn($, key, request) {
   }
   const repo = await $.session.repo()
   const event = request.role === 'resume' ? 'rework_dispatch' : request.auto ? 'reserve_next' : 'reserve'
-  const observed = { fork: true, dispatch_name: key, workspace_repo: repo ? await $.session.root() : undefined }
+  // The repository's own root (KOBE 2026-11-19: the session root was its home
+  // folder, not a repository, while the cwd was inside one; every fork failed
+  // "not a git repository"). Work worktrees are prepared from this root.
+  const observed = { fork: true, dispatch_name: key, workspace_repo: repo?.root }
   // R2 B2: a reservation's exact owner is this process's attachment.
   const r = await parallelEvent($, { ...args, event }, event === 'rework_dispatch' ? observed : await hostProcess($, observed))
   Object.assign(request, r)
@@ -3276,7 +3297,7 @@ async function parallelAgentSpawn($, e, next) {
     const { scope: _pendingScope, ...args } = request
     const repo = await $.session.repo()
     const r = await parallelEvent($, { ...args, event: 'reserve' }, { fork: e.fork,
-      workspace_repo: repo ? await $.session.root() : undefined })
+      workspace_repo: repo?.root })
     Object.assign(request, r)
     const label = parallelItemLabel({ ...request, item_title: r.item_title || request.item_title,
       item_ref: r.item_ref ?? request.item_ref })

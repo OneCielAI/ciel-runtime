@@ -1,0 +1,44 @@
+# fail-before: tests/test_transcript_corrupt_records.py (this change) against ciel_runtime_support/transcript_delta_delivery.py from HEAD d216883
+# command: unset CIEL_RUNTIME_*; CIEL_RUNTIME_TEST_ISOLATED=1 CIEL_RUNTIME_CONFIG_DIR=<TEMP> PYTHONPATH=<copy with HEAD module> python tests/test_transcript_corrupt_records.py -v
+# exit=1
+test_a_changed_skip_length_or_reason_is_still_logged (__main__.NulRunTests.test_a_changed_skip_length_or_reason_is_still_logged) ... ok
+test_a_nul_run_still_at_the_end_of_the_file_is_not_skipped_yet (__main__.NulRunTests.test_a_nul_run_still_at_the_end_of_the_file_is_not_skipped_yet) ... ok
+test_a_short_nul_prefix_inside_a_batch_does_not_hide_the_record (__main__.NulRunTests.test_a_short_nul_prefix_inside_a_batch_does_not_hide_the_record) ... ok
+test_a_truncated_transcript_logs_the_same_skip_again (__main__.NulRunTests.test_a_truncated_transcript_logs_the_same_skip_again) ... ok
+test_delivery_skips_the_nul_run_and_delivers_the_record_after_it (__main__.NulRunTests.test_delivery_skips_the_nul_run_and_delivers_the_record_after_it) ... ok
+test_failed_delivery_logs_each_skip_once_without_advancing_the_cursor (__main__.NulRunTests.test_failed_delivery_logs_each_skip_once_without_advancing_the_cursor) ... FAIL
+test_retry_logs_a_new_skip_appended_behind_the_same_delivery_cursor (__main__.NulRunTests.test_retry_logs_a_new_skip_appended_behind_the_same_delivery_cursor) ... FAIL
+test_skip_warnings_are_separate_for_each_consumer_and_transcript (__main__.NulRunTests.test_skip_warnings_are_separate_for_each_consumer_and_transcript) ... FAIL
+test_tool_call_events_and_agent_turns_pass_the_nul_run (__main__.NulRunTests.test_tool_call_events_and_agent_turns_pass_the_nul_run) ... ok
+test_a_line_over_max_record_bytes_is_skipped_once_and_the_cursor_moves_on (__main__.OversizedLineTests.test_a_line_over_max_record_bytes_is_skipped_once_and_the_cursor_moves_on) ... ok
+test_agent_turns_pass_an_oversized_line (__main__.OversizedLineTests.test_agent_turns_pass_an_oversized_line) ... ok
+test_an_oversized_line_still_being_written_waits_for_its_newline (__main__.OversizedLineTests.test_an_oversized_line_still_being_written_waits_for_its_newline) ... ok
+
+======================================================================
+FAIL: test_failed_delivery_logs_each_skip_once_without_advancing_the_cursor (__main__.NulRunTests.test_failed_delivery_logs_each_skip_once_without_advancing_the_cursor)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\tests\test_transcript_corrupt_records.py", line 119, in test_failed_delivery_logs_each_skip_once_without_advancing_the_cursor
+    self.assertEqual(2, len(f.warnings()), f.warnings())
+AssertionError: 2 != 6 : ['transcript_record_skipped consumer=transcript_delivery path=session.jsonl offset=0 length=16 reason=nul_run', 'transcript_record_skipped consumer=transcript_delivery path=session.jsonl offset=28 length=24 reason=nul_run', 'transcript_record_skipped consumer=transcript_delivery path=session.jsonl offset=0 length=16 reason=nul_run', 'transcript_record_skipped consumer=transcript_delivery path=session.jsonl offset=28 length=24 reason=nul_run', 'transcript_record_skipped consumer=transcript_delivery path=session.jsonl offset=0 length=16 reason=nul_run', 'transcript_record_skipped consumer=transcript_delivery path=session.jsonl offset=28 length=24 reason=nul_run']
+
+======================================================================
+FAIL: test_retry_logs_a_new_skip_appended_behind_the_same_delivery_cursor (__main__.NulRunTests.test_retry_logs_a_new_skip_appended_behind_the_same_delivery_cursor)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\tests\test_transcript_corrupt_records.py", line 143, in test_retry_logs_a_new_skip_appended_behind_the_same_delivery_cursor
+    self.assertEqual(2, len(f.warnings()), f.warnings())
+AssertionError: 2 != 6 : ['transcript_record_skipped consumer=transcript_delivery path=session.jsonl offset=0 length=16 reason=nul_run', 'transcript_record_skipped consumer=transcript_delivery path=session.jsonl offset=0 length=16 reason=nul_run', 'transcript_record_skipped consumer=transcript_delivery path=session.jsonl offset=0 length=16 reason=nul_run', 'transcript_record_skipped consumer=transcript_delivery path=session.jsonl offset=28 length=24 reason=nul_run', 'transcript_record_skipped consumer=transcript_delivery path=session.jsonl offset=0 length=16 reason=nul_run', 'transcript_record_skipped consumer=transcript_delivery path=session.jsonl offset=28 length=24 reason=nul_run']
+
+======================================================================
+FAIL: test_skip_warnings_are_separate_for_each_consumer_and_transcript (__main__.NulRunTests.test_skip_warnings_are_separate_for_each_consumer_and_transcript)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\djlov\ciel-runtime\.local\tmp\work-parallel\tests\test_transcript_corrupt_records.py", line 158, in test_skip_warnings_are_separate_for_each_consumer_and_transcript
+    self.assertEqual(3, len(f.warnings()), f.warnings())
+AssertionError: 3 != 6 : ['transcript_record_skipped consumer=transcript_delivery path=session.jsonl offset=0 length=16 reason=nul_run', 'transcript_record_skipped consumer=tool_call_events path=session.jsonl offset=0 length=16 reason=nul_run', 'transcript_record_skipped consumer=transcript_delivery path=session.jsonl offset=0 length=16 reason=nul_run', 'transcript_record_skipped consumer=tool_call_events path=session.jsonl offset=0 length=16 reason=nul_run', 'transcript_record_skipped consumer=transcript_delivery path=other.jsonl offset=0 length=16 reason=nul_run', 'transcript_record_skipped consumer=transcript_delivery path=other.jsonl offset=0 length=16 reason=nul_run']
+
+----------------------------------------------------------------------
+Ran 12 tests in 0.317s
+
+FAILED (failures=3)

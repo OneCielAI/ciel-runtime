@@ -311,14 +311,9 @@ class MainReviewTests(unittest.TestCase):
             (workspace / "late.txt").write_text("late")
             return "stale workspace"
 
-        def stale_fingerprint(lease_id, workspace):
-            self.board.transaction(lambda d: tree.update_node(d, self.board.item, title="Item changed"),
-                                   expected_version=self.board.read()["version"])
-            self.board.transaction(lambda d: tree.set_phase(d, "executing", self.board.root),
-                                   expected_version=self.board.read()["version"])
-            return "approval"
-
-        cases.update(artifact=stale_artifact, head=stale_head, tree=stale_tree, fingerprint=stale_fingerprint)
+        # A goal scope edit is no longer a refusal (user 2026-11-19): see
+        # test_scope_edit_after_the_assignment_no_longer_blocks_main_review.
+        cases.update(artifact=stale_artifact, head=stale_head, tree=stale_tree)
         for label, mutate in cases.items():
             with self.subTest(label):
                 self.setUp()
@@ -457,6 +452,20 @@ class MainReviewTests(unittest.TestCase):
         self.assertEqual(64, len(token))
         self.assertEqual("submitted", self.store.read()["leases"][replacement]["state"])
 
+    def test_unconfined_review_of_an_item_resolved_on_the_board_closes_unreviewed(self):
+        # KOBE 2026-11-19 after a9d4d0c: close_resolved_reviews read
+        # row['workspace']['path'] and raised TypeError on every pump (28 ERRORs).
+        reserve = self.completed_unconfined()
+        self.idle(reserve["lease_id"])
+        self.board.transaction(lambda d: tree.update_node(d, self.board.item, status="done", evidence="main did it"),
+                               expected_version=self.board.read()["version"])
+        closed = self.call("event", {"internal": True}, event="review_close_resolved")["closed"]
+        self.assertEqual([(reserve["lease_id"], "finalized")], [(c["lease_id"], c["state"]) for c in closed])
+        row = self.review_row(reserve["lease_id"])
+        self.assertEqual(("close", "finalized"), (row["decision"], row["state"]))
+        self.assertIn("Closed unreviewed", row["evidence"])
+        self.assertIn("no workspace", row["evidence"])
+
     def test_unconfined_review_refuses_a_lease_that_gained_a_workspace(self):
         reserve = self.completed_unconfined()
         self.idle(reserve["lease_id"])
@@ -468,6 +477,106 @@ class MainReviewTests(unittest.TestCase):
             self.call("item_review", {}, lease_id=reserve["lease_id"], decision="approve",
                       decision_id="d", evidence="e", expected_finalization_version=version)
         self.assertIsNone(self.review_row(reserve["lease_id"])["decision"])
+
+    # Goal scope edited after the assignment (user 2026-11-19: main decides) --
+
+    def edit_goal_scope(self):
+        """A sibling edit under the same goal moves its approval generation (Andy n133: 9 -> 10)."""
+        self.board.transaction(lambda d: tree.update_node(d, self.board.item2, title="Item two edited"),
+                               expected_version=self.board.read()["version"])
+        if tree.root_phase(self.board.read(), self.board.root) != "executing":
+            self.board.transaction(lambda d: tree.set_phase(d, "executing", self.board.root),
+                                   expected_version=self.board.read()["version"])
+
+    def root_generation(self):
+        key = SCOPE + "\0" + self.board.root
+        return m.coordination(self.store).read()["root_generations"][key]["approval_generation"]
+
+    def test_scope_edit_after_the_assignment_no_longer_blocks_main_review(self):
+        reserve, workspace, artifact = self.completed()
+        self.idle(reserve["lease_id"])
+        self.edit_goal_scope()
+        pending = self.call("status", {})["review"]["pending"]
+        self.assertEqual([(reserve["lease_id"], True)], [(r["lease_id"], r["approval_changed"]) for r in pending])
+        result = self.review(reserve["lease_id"], "approve")
+        self.assertEqual(("finalized", True), (result["state"], result["approval_changed"]))
+        self.assertEqual("done", self.node()["status"])
+
+    def test_an_unchanged_goal_reports_no_approval_change(self):
+        reserve, workspace, artifact = self.completed()
+        self.idle(reserve["lease_id"])
+        self.assertEqual([False], [r["approval_changed"] for r in self.call("status", {})["review"]["pending"]])
+        self.assertFalse(self.review(reserve["lease_id"], "approve")["approval_changed"])
+
+    def test_rework_after_a_scope_edit_runs_under_the_current_approval(self):
+        reserve, workspace, artifact = self.completed()
+        self.idle(reserve["lease_id"])
+        self.edit_goal_scope()
+        result = self.review(reserve["lease_id"], "rework", evidence="redo")
+        self.assertEqual("rework_ready", result["state"])
+        replacement = result["dispatch"]["lease_id"]
+        run = m.coordination(self.store).read()["runs"][replacement]
+        self.assertEqual(self.root_generation(), run["approval_generation"])
+        token = self._replacement_completed(replacement, "worker-2", "e" * 64, "after-edit")
+        self.assertEqual(64, len(token))
+        self.assertEqual("submitted", self.store.read()["leases"][replacement]["state"])
+
+    def test_a_worker_completion_after_a_scope_edit_is_accepted(self):
+        # Celly 2026-11-19: 10 completions refused "Work approval scope changed".
+        reserve = self.call("event", {"fork": True, "workspace_repo": str(self.repo)},
+                            event="reserve", item_id=self.board.item, priority="P1")
+        self.call("event", {"host_id": "worker-1"}, event="bind", lease_id=reserve["lease_id"])
+        (Path(reserve["workspace"]["path"]) / "result.txt").write_text("result")
+        self.edit_goal_scope()
+        with patch.object(m, "ledger", return_value=self.store):
+            reported = json.loads(m.report({
+                "lease_id": reserve["lease_id"], "worker_token": reserve["worker_token"],
+                "event": "completion", "plan_version": self.board.read()["version"],
+                "artifact": "a" * 64, "evidence": "done",
+                "detail": {"summary": "done", "coverage": [{"item_id": self.board.item, "verified": True}],
+                           "verification": "done"}}, self.board, self.config))
+        self.assertEqual("submitted", reported["state"])
+        self.idle(reserve["lease_id"])
+        self.assertEqual([True], [r["approval_changed"] for r in self.call("status", {})["review"]["pending"]])
+
+    def test_a_goal_back_in_planning_refuses_rework_but_main_may_approve(self):
+        reserve, workspace, artifact = self.completed()
+        self.idle(reserve["lease_id"])
+        self.board.transaction(lambda d: tree.set_phase(d, "planning", self.board.root),
+                               expected_version=self.board.read()["version"])
+        with self.assertRaisesRegex(WorkParallelError, "not approved for execution"):
+            self.review(reserve["lease_id"], "rework", decision_id="rework-planning")
+        self.assertIsNone(self.review_row(reserve["lease_id"])["decision"])
+        self.assertEqual("finalized", self.review(reserve["lease_id"], "approve", decision_id="ok")["state"])
+
+    def _parked(self):
+        reserve = self.call("event", {"fork": True, "workspace_repo": str(self.repo)},
+                            event="reserve", item_id=self.board.item, priority="P1")
+        self.call("event", {"host_id": "worker-1"}, event="bind", lease_id=reserve["lease_id"])
+        with patch.object(m, "ledger", return_value=self.store):
+            m.report({"lease_id": reserve["lease_id"], "worker_token": reserve["worker_token"],
+                      "event": "question", "plan_version": self.board.read()["version"],
+                      "evidence": "which file?"}, self.board, self.config)
+        # A question releases the slot itself; main's answer reacquires it.
+        self.assertEqual("waiting_input", self.store.read()["leases"][reserve["lease_id"]]["state"])
+        self.call("event", {}, event="reacquire", lease_id=reserve["lease_id"])
+        return reserve["lease_id"]
+
+    def test_main_resumes_a_parked_worker_after_a_scope_edit(self):
+        # KOBE 2026-11-19: "could not return to running: Work approval scope changed".
+        lease_id = self._parked()
+        self.edit_goal_scope()
+        self.call("event", {}, event="resume", lease_id=lease_id,
+                  plan_version=self.store.read()["leases"][lease_id]["plan_version"], evidence="answered")
+        self.assertEqual("running", self.store.read()["leases"][lease_id]["state"])
+
+    def test_resume_is_refused_while_the_goal_is_back_in_planning(self):
+        lease_id = self._parked()
+        self.board.transaction(lambda d: tree.set_phase(d, "planning", self.board.root),
+                               expected_version=self.board.read()["version"])
+        with self.assertRaisesRegex(WorkParallelError, "not approved for execution"):
+            self.call("event", {}, event="resume", lease_id=lease_id,
+                      plan_version=self.store.read()["leases"][lease_id]["plan_version"], evidence="answered")
 
     def _projected_ids(self):
         return [row["lease_id"] for row in self.call("status", {})["review"]["pending"]]

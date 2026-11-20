@@ -272,7 +272,10 @@ class WorkflowReviewTests(unittest.TestCase):
         from ciel_runtime_support.work_workflow_tools import delegated_event, delegations_due
         offered = delegations_due(self.board, self.tmp, self.config, now=1e9)
         self.assertEqual(("review", self.item, lease), (offered[0]["role"], offered[0]["item_id"], offered[0]["lease_id"]))
-        self.assertIn("review fork", offered[0]["prompt"])
+        from ciel_runtime_support.work_workflow_prompts import render
+        review_instruction, _ = render(self.tmp, "review_fork")
+        self.assertTrue(review_instruction)
+        self.assertIn(review_instruction, offered[0]["prompt"])
         # The implementer cannot be the review fork.
         delegated_event({"root_id": self.root, "role": "review", "state": "bound", "agent_id": "worker-1"},
                         self.board, self.tmp)

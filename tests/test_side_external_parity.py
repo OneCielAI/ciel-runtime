@@ -132,9 +132,7 @@ class MainWakeRestTests(unittest.TestCase):
         from test_side_notice_claim import Session, rest
         with tempfile.TemporaryDirectory() as raw:
             session = Session(raw, release=False)
-            board = session.store.read()
-            if session.event not in board.get('side_handoffs', {}):
-                self.skipTest('fixture event did not request a handoff')
+            self.assertEqual('requested', session.result['handoff'])
             prepared = side_wake.prepare(session.store, session.event, protocol=2, owner_nonce='owner-secret',
                                          channel='append')
             side_wake.start(session.store, session.event, prepared['attempt_id'], 'owner-secret', 'append')

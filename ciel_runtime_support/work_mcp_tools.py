@@ -157,7 +157,8 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
                 "Mark a step done only with evidence that it was verified; parents complete automatically. "
                 "Title and note are approved scope: changing either returns only that goal to planning for scope review. "
                 "At least one mutation field is REQUIRED; id/expected_version alone is rejected. "
-                "waiting_on sets a dependency; explicitly waiting_on=\"\" clears that node's verified wait. "
+                "waiting_on sets a dependency; clear_wait=true explicitly clears that node's verified wait without an empty string. "
+                "Legacy waiting_on=\"\" is also accepted. Never repeat an empty id-only update. "
                 "When you wait on git, a build/CI/deploy result, a review or a person's approval or answer, record it on the "
                 "waiting node in one short line naming the signal and its source (e.g. \"approval from Andy via Walkie\", "
                 "\"CI run 4312 result\"): the side actor matches incoming SSE events against it, releases it and wakes you. "
@@ -173,13 +174,14 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
                     "progress": {"type": "string", "description": "Phase-preserving implementation, CI, review or cleanup progress; not approved scope."},
                     "ref": _NODE_SPEC["properties"]["ref"],
                     "waiting_on": _NODE_SPEC["properties"]["waiting_on"],
+                    "clear_wait": {"type": "boolean", "description": "Explicitly clear this node's verified wait. true is equivalent to waiting_on=\"\"; never inferred from omitted fields."},
                     "priority": _ROOT_PRIORITY,
                     "operation_id": _PRIORITY_OPERATION_ID,
                     "evidence": {"type": "string"},
                     "expected_version": _EXPECTED_VERSION,
                 },
                 "required": ["id"],
-                "anyOf": [{"required": [key]} for key in ('status', 'title', 'note', 'progress', 'ref', 'waiting_on', 'priority', 'evidence')],
+                "anyOf": [{"required": [key]} for key in ('status', 'title', 'note', 'progress', 'ref', 'waiting_on', 'clear_wait', 'priority', 'evidence')],
             },
         },
         {
@@ -712,12 +714,14 @@ def dispatch_work_tool(
                 turn_end = args.get("turn_end") is True
                 # Lease facts per gate, the results awaiting main, and a rotating
                 # start so a board with more gates than one event holds is covered.
-                from .work_gate_check import lease_facts, round_gates, round_rows
+                from .work_gate_check import lease_facts, reviewable_items, round_gates, round_rows
                 review_pending = []
                 try:
-                    from .work_parallel_mcp import ledger
-                    facts, review_pending = lease_facts(ledger().read().get("leases") or {}, identity)
+                    from .work_parallel_mcp import finalization, ledger
+                    current_ledger = ledger()
+                    facts, _ = lease_facts(current_ledger.read().get("leases") or {}, identity)
                     rows = [{**row, "lease": facts.get(row["id"], "")} for row in rows]
+                    review_pending = reviewable_items(finalization(current_ledger).read(), identity)
                 except Exception:  # noqa: BLE001 - an unreadable ledger leaves the gates without the fact
                     pass
                 # A round carries a few gates so the actor looks each one up
@@ -921,13 +925,20 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
                                "it becomes active when that goal is done, or earlier with work_select.")
         return _after(doc, f"Added {node}.")
     if name == "work_node_update":
+        if 'clear_wait' in args:
+            if type(args['clear_wait']) is not bool:
+                raise tree.WorkPlanError('clear_wait must be a boolean')
+            if args['clear_wait']:
+                if args.get('waiting_on') not in (None, ''):
+                    raise tree.WorkPlanError('clear_wait=true conflicts with non-empty waiting_on')
+                args = {**args, 'waiting_on': ''}
         node_id = str(args.get("id") or "")
         mutable = {'status', 'title', 'note', 'progress', 'evidence', 'ref', 'waiting_on', 'priority'}
         if not any(key in args and args[key] is not None for key in mutable):
             raise tree.WorkPlanError(
                 'NO CHANGE: work_node_update requires at least one mutation field. '
                 'id and expected_version only read nothing and change nothing. '
-                'To clear a verified wait, supply waiting_on="" explicitly; '
+                'To clear a verified wait, send clear_wait=true; '
                 'do not repeat this empty call. Use work_status to inspect, or continue the next runnable item.')
 
         # Re-sending the identical mutation after a lost response is safe. When
@@ -966,7 +977,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
             message += (f" WAITING: waiting_on={json.dumps(wait, ensure_ascii=False)}. "
                         'This item is still excluded from execution. Evidence/notes do NOT clear a wait. '
                         'To clear this exact wait after verifying its prerequisite, explicitly send '
-                        f'work_node_update(id={json.dumps(node_id)}, waiting_on=""). '
+                        f'work_node_update(id={json.dumps(node_id)}, clear_wait=true). '
                         'Ancestor waits/blocks remain independent; do not clear approval or user holds without authorization.')
         elif 'waiting_on' in args:
             message += ' waiting_on is empty on this node; ancestor waits/blocks may still exclude it.'
