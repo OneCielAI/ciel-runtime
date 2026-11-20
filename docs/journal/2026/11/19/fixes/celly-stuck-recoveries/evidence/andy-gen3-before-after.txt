@@ -1,0 +1,12 @@
+===== BEFORE 6e0818e (published beta) =====
+0109bfc1 -> {"state": "deciding", "retry": "host_pump", "reason": "open P0 intent facts changed"}
+   row deciding {'accepted': False, 'archive': False, 'board': False, 'lease': False, 'workspace': False} blocked open P0 intent facts changed
+   replacement a58c3157d7 state None slot None workspace False p0 None
+P0 store valid; capacity-excluded leases: 17
+handoff_rebind stub calls: []
+===== AFTER fixed tree =====
+0109bfc1 -> {"state": "rework_ready", "retry": null, "reason": null}
+   row rework_ready {'accepted': True, 'archive': True, 'board': True, 'lease': True, 'workspace': True} blocked None
+   replacement a58c3157d7 state reserved slot True workspace True p0 reserved
+P0 store valid; capacity-excluded leases: 17
+handoff_rebind stub calls: ['a58c3157d7']

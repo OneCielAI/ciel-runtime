@@ -135,6 +135,28 @@ Not reproduced here. Betty's host was not touched.
 - The worker completion refused with "Work approval scope changed": the worker report no longer checks approval since 8c7a4ef. That commit is in beta 39825c0 and not in Betty's 939b20f.
 - n1679: only a question receipt exists and main review is refused. The cause is not confirmed.
 
+# Follow-up: a rework of a rework result was refused "open P0 intent facts changed" (Andy)
+
+## Report
+
+A peer reported that n2471 gen-3 (lease 0109bfc1) stayed in `deciding` with `stage_failed: open P0 intent facts changed`. The rework decision had been stored and no attempt ever launched.
+
+## Cause
+
+Confirmed on Andy's state, read-only:
+- gen-3 is itself a rework. Its P0 intent a8f7e6e5 (`rework`, predecessor 21dc8395) stays `bound` until gen-3's lease ends, and that lease is retired only after the next rework is reserved.
+- `create_intent` matches open intents by scope, item and continuation. It found a8f7e6e5 with a different predecessor and refused ("open P0 intent facts changed") on every roll-forward.
+
+## Change
+
+Before creating a continuation intent, `_end_predecessor_continuation` ends the open intents of the predecessor lease. This applies only when the predecessor holds no slot and has an open intent of the same continuation.
+
+## Verification
+
+- New test `test_a_rework_of_a_rework_result_gets_its_own_p0_intent`: it raises the same error on 1524c2b and passes after the change.
+- Copy of Andy's state (stubbed handoff_rebind, throwaway P0 key): with 6e0818e (published beta) gen-3 stays `deciding`; with the fix it reaches `rework_ready` and the replacement's P0 intent is `reserved`.
+- p0_events, rework_worktree, finalization and content_baseline: 234 pass.
+
 # Observation, not fixed: n2471 lease stays running after an API block (Andy)
 
 - Fork ac0700a845c395a75 (P0 n2471) answered "API Error: This request was blocked by our safety systems" at 03:17:02Z.
