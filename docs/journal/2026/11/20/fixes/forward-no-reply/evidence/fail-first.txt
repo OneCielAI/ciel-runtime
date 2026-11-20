@@ -1,0 +1,25 @@
+test_a_forward_only_queue_decision_posts_nothing_to_the_thread (test_side_queue_starvation.SideQueueStarvationTests.test_a_forward_only_queue_decision_posts_nothing_to_the_thread) ... ERROR
+test_no_reply_applies_only_when_nothing_reaches_anyone (test_side_queue_starvation.SideQueueStarvationTests.test_no_reply_applies_only_when_nothing_reaches_anyone) ... FAIL
+
+======================================================================
+ERROR: test_a_forward_only_queue_decision_posts_nothing_to_the_thread (test_side_queue_starvation.SideQueueStarvationTests.test_a_forward_only_queue_decision_posts_nothing_to_the_thread)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\<user>\ciel-runtime\.local\tmp\work-parallel\tests\test_side_queue_starvation.py", line 100, in test_a_forward_only_queue_decision_posts_nothing_to_the_thread
+    self.assertTrue(result['no_reply'], result)
+                    ~~~~~~^^^^^^^^^^^^
+KeyError: 'no_reply'
+
+======================================================================
+FAIL: test_no_reply_applies_only_when_nothing_reaches_anyone (test_side_queue_starvation.SideQueueStarvationTests.test_no_reply_applies_only_when_nothing_reaches_anyone)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "C:\Users\<user>\ciel-runtime\.local\tmp\work-parallel\tests\test_side_queue_starvation.py", line 76, in test_no_reply_applies_only_when_nothing_reaches_anyone
+    self.assertNotIn('no_reply', releasing)
+AssertionError: 'no_reply' unexpectedly found in {'action': 'answer', 'kind': 'status', 'summary': 's', 'reply': 'r', 'no_reply': True}
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.139s
+
+FAILED (failures=1, errors=1)
+RAN 2 failures=1 errors=1 skipped=0

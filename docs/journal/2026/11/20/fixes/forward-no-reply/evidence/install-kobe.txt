@@ -1,0 +1,9 @@
+exit 0 C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime
+START 2026-11-20T14:57:45.3577645-08:00 C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime check=False
+CHECK base ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js CF979CC8FEB04126
+CHECK base ciel_runtime_support/side_intake_settings.py 34BCC12B0DB77A43
+CHECK base ciel_runtime_support/side_work_decision.py FF72871D00828C14
+VERIFIED ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js 69876E24B84AB436
+VERIFIED ciel_runtime_support/side_intake_settings.py 1AB96341D40FC7CC
+VERIFIED ciel_runtime_support/side_work_decision.py A032A4A3EC6353B9
+DONE C:\ProgramData\aap-win\sandboxes\u24\home\kobe-ai\.npm-global\node_modules\@one-ciel-ai\ciel-runtime; no process restarted

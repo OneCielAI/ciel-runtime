@@ -1,0 +1,32 @@
+START 2026-11-20T16:57:28.0849173-06:00 C:\Users\<user>\.local\share\ciel-runtime-hotfix5-20261119-210220 check=False
+CHECK base ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js CF979CC8FEB04126
+CHECK base ciel_runtime_support/side_intake_settings.py 34BCC12B0DB77A43
+CHECK base ciel_runtime_support/side_work_decision.py FF72871D00828C14
+VERIFIED ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js 69876E24B84AB436
+VERIFIED ciel_runtime_support/side_intake_settings.py 1AB96341D40FC7CC
+VERIFIED ciel_runtime_support/side_work_decision.py A032A4A3EC6353B9
+DONE C:\Users\<user>\.local\share\ciel-runtime-hotfix5-20261119-210220; no process restarted
+START 2026-11-20T16:57:28.8055936-06:00 C:\Users\<user>\.local\share\ciel-runtime check=False
+CHECK base ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js CF979CC8FEB04126
+CHECK base ciel_runtime_support/side_intake_settings.py 34BCC12B0DB77A43
+CHECK base ciel_runtime_support/side_work_decision.py FF72871D00828C14
+VERIFIED ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js 69876E24B84AB436
+VERIFIED ciel_runtime_support/side_intake_settings.py 1AB96341D40FC7CC
+VERIFIED ciel_runtime_support/side_work_decision.py A032A4A3EC6353B9
+DONE C:\Users\<user>\.local\share\ciel-runtime; no process restarted
+START 2026-11-20T16:57:29.4824807-06:00 C:\Users\<user>\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime check=False
+CHECK base ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js CF979CC8FEB04126
+CHECK base ciel_runtime_support/side_intake_settings.py 34BCC12B0DB77A43
+CHECK base ciel_runtime_support/side_work_decision.py FF72871D00828C14
+VERIFIED ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js 69876E24B84AB436
+VERIFIED ciel_runtime_support/side_intake_settings.py 1AB96341D40FC7CC
+VERIFIED ciel_runtime_support/side_work_decision.py A032A4A3EC6353B9
+DONE C:\Users\<user>\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime; no process restarted
+START 2026-11-20T16:57:30.2480858-06:00 G:\ciel-bridge-service\.npm-global\node_modules\@one-ciel-ai\ciel-runtime check=False
+CHECK base ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js CF979CC8FEB04126
+CHECK base ciel_runtime_support/side_intake_settings.py 34BCC12B0DB77A43
+CHECK base ciel_runtime_support/side_work_decision.py FF72871D00828C14
+VERIFIED ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js 69876E24B84AB436
+VERIFIED ciel_runtime_support/side_intake_settings.py 1AB96341D40FC7CC
+VERIFIED ciel_runtime_support/side_work_decision.py A032A4A3EC6353B9
+DONE G:\ciel-bridge-service\.npm-global\node_modules\@one-ciel-ai\ciel-runtime; no process restarted
