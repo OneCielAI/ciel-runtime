@@ -502,6 +502,22 @@ class MainReviewTests(unittest.TestCase):
         self.assertEqual(("finalized", True), (result["state"], result["approval_changed"]))
         self.assertEqual("done", self.node()["status"])
 
+    def test_a_run_whose_exit_is_none_is_refused_as_missing_its_receipt(self):
+        # Betty 2026-11-19 (939b20f router.log:424911): a coordination run holds
+        # exit None; .get("exit", {}) returned None and main's review raised an
+        # uncaught AttributeError instead of the bounded receipt refusal.
+        reserve, workspace, artifact = self.completed()
+        self.idle(reserve["lease_id"])
+        lease = self.store.read()["leases"][reserve["lease_id"]]
+        coord = m.coordination(self.store)
+        coord._change(lambda state: state["runs"][reserve["lease_id"]].update(exit=None),
+                      coord.read()["version"])
+        def unavailable(store, scope, row):
+            return m._unavailable_review_facts(store, scope, row, "gone")
+        for facts in (m._review_facts, unavailable):
+            with self.assertRaisesRegex(m.WorkParallelError, "durable completion receipt required"):
+                facts(self.store, SCOPE, lease)
+
     def test_an_unchanged_goal_reports_no_approval_change(self):
         reserve, workspace, artifact = self.completed()
         self.idle(reserve["lease_id"])

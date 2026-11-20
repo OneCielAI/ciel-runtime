@@ -105,6 +105,36 @@ The pane's rows are used only when the pane's review version is not older than t
 - New scenario `review-reminder-ignores-a-stale-pane-snapshot`: pane opened with L1 pending at review version 4, L1 then decided (version 9), 21 minutes, Stop. The reminder names L1 once on ad6eb74 and zero times after the change.
 - The pane-only and first-wake reminder tests still pass.
 
+# Follow-up: main review raised AttributeError on a run with exit None (Betty)
+
+## Report
+
+Relayed by a peer from IT Hotline 153259. The Betty host runs `0.2.51-beta.20261119-090546.939b20f`.
+- router.log:424911, 2026-11-19T15:05:36: `router_post_uncaught ... AttributeError: 'NoneType' object has no attribute 'get'`
+- Stack: `_main_review` -> `_publish_pending_review` -> `_review_facts`.
+
+## Cause
+
+Confirmed in source:
+- A coordination run stores `exit: None` until its first receipt.
+- `run_row.get("exit", {})` returns `None` when the key exists with a `None` value, so `.get("kind")` raised.
+- The same expression was still on HEAD in three places: `_unavailable_review_facts`, `_review_facts` and the rework board stage.
+
+## Change
+
+All three read `(run.get("exit") or {})`. A run without a completion receipt is now refused with the bounded "durable completion receipt required before main review" instead of an uncaught router error.
+
+## Verification
+
+- New test `test_a_run_whose_exit_is_none_is_refused_as_missing_its_receipt`: it raises the same AttributeError on the pre-fix tree and passes after the change.
+- `tests/test_work_parallel_finalization.py`: 98 pass.
+
+## Betty's other reports
+
+Not reproduced here. Betty's host was not touched.
+- The worker completion refused with "Work approval scope changed": the worker report no longer checks approval since 8c7a4ef. That commit is in beta 39825c0 and not in Betty's 939b20f.
+- n1679: only a question receipt exists and main review is refused. The cause is not confirmed.
+
 # Observation, not fixed: n2471 lease stays running after an API block (Andy)
 
 - Fork ac0700a845c395a75 (P0 n2471) answered "API Error: This request was blocked by our safety systems" at 03:17:02Z.

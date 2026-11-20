@@ -1694,7 +1694,7 @@ def _unavailable_review_facts(store, identity, lease, reason):
     """Stranded-v1 facts for a completion whose workspace cannot be verified."""
     coord = coordination(store)
     run_row = coord.read().get("runs", {}).get(lease["id"])
-    if run_row is None or run_row.get("exit", {}).get("kind") != "completion":
+    if run_row is None or (run_row.get("exit") or {}).get("kind") != "completion":
         raise WorkParallelError("durable completion receipt required before main review")
     detail = coord.detail(run_row["exit"]["digest"])
     binding = _stranded_binding(lease.get("workspace"))
@@ -1769,7 +1769,7 @@ def _review_facts(store, identity, lease):
     coord = coordination(store)
     cstate = coord.read()
     run_row = cstate.get("runs", {}).get(lease["id"])
-    if run_row is None or run_row.get("exit", {}).get("kind") != "completion":
+    if run_row is None or (run_row.get("exit") or {}).get("kind") != "completion":
         raise WorkParallelError("durable completion receipt required before main review")
     if lease["state"] != "submitted" or lease["slot"] or lease.get("idle_proof") is None:
         raise WorkParallelError("positive idle observation required before main review")
@@ -2790,7 +2790,7 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
         replacement_workspace = store.read()["leases"][row["replacement_lease_id"]].get("workspace")
         if row["replacement_lease_id"] not in current["runs"]:
             old_run = current["runs"].get(lease_id)
-            require(old_run is not None and old_run.get("exit", {}).get("kind") == "completion",
+            require(old_run is not None and (old_run.get("exit") or {}).get("kind") == "completion",
                     "completion coordination record unavailable")
             coord.record_assignment(identity, row["replacement_lease_id"], {
                 "item_id": row["item_id"], "root_id": row["root_id"],
