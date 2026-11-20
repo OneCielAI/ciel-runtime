@@ -1221,6 +1221,16 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn("n3 → (native fork not observed)", view)
         self.assertIn("Work forks confirmed by native agent list: 2", " ".join(result["logs"]))
 
+    def test_native_observation_that_publishes_a_review_wakes_main_without_a_turn_end(self):
+        # Andy n2505 2026-11-20: completion 08:54:18, listed idle 08:54:55,
+        # review wake only at 09:05:23 after a main turn end.
+        result = self.run_scenario("native-observation-publishes-review")
+        self.assertTrue(result["ticked"], result)
+        self.assertIn(["L1:idle"], result["observations"], result)
+        self.assertEqual(["L1"], result["prepared"], result)
+        self.assertEqual(1, sum("Ciel Work result is awaiting main review" in row and '"lease_id":"L1"' in row
+                                for row in result["appended"]), result)
+
     def test_work_parallel_run_starts_fork_without_model_agent_call(self):
         result = self.lifecycle(self.run_scenario("parallel-direct-spawn-started"))
         self.assertEqual(result["run"]["dispatch"], "started")

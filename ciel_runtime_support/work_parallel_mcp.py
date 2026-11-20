@@ -3215,6 +3215,35 @@ def _observe_coordination_row(store, identity, lease, row):
     return ""
 
 
+NATIVE_IDLE_STATUSES = frozenset(("idle", "completed", "failed", "killed"))
+
+
+def _publish_native_idle_review(store, identity, row):
+    """Publish a submitted result's review from a listed idle fork row.
+
+    The row is the same positive host evidence a turn-end ``reconcile
+    state=idle`` carries (the mod's own $.agent.list), so the review no longer
+    waits for main's next turn end (Andy n2505, 2026-11-20). Only a submitted,
+    slot-free lease whose run holds this agent's completion receipt qualifies;
+    an absent row is never death and publishes nothing. Returns "published",
+    "" when nothing applied, or a bounded reason for one row that failed.
+    """
+    if row["status"] not in NATIVE_IDLE_STATUSES or _has_review_row(store, row["lease_id"]):
+        return ""
+    lease = store.read()["leases"].get(row["lease_id"])
+    run = coordination(store).read().get("runs", {}).get(row["lease_id"])
+    if (lease is None or lease["state"] != "submitted" or lease["slot"]
+            or lease["host_id"] != row["agent_id"] or run is None
+            or run["agent_id"] != row["agent_id"] or (run.get("exit") or {}).get("kind") != "completion"):
+        return ""
+    try:
+        _observe_idle_and_publish_review(store, identity, lease,
+                                         "Native agent.list status: " + row["status"])
+    except ValueError as error:
+        return (str(error) or type(error).__name__)[:200]
+    return "published" if _has_review_row(store, row["lease_id"]) else ""
+
+
 def _native_diagnostic(coord, identity, priority):
     """Best effort, bounded (capped list, consecutive repeats collapse)."""
     for _ in range(3):
@@ -4144,16 +4173,23 @@ def run(name, args, board_store, identity, config, save_config, log=None):
                 complete = False
         state, changed = evidence.observe(identity, leases, valid, complete=complete,
                                           expected_version=expected)
-        observed_terminal = []
+        observed_terminal, published = [], []
         for row in valid:
             outcome = _observe_coordination_row(store, identity, leases[row["lease_id"]], row)
             if outcome == "observed_terminal":
                 observed_terminal.append(row["lease_id"])
             elif outcome:
                 skipped.append({"lease_id": row["lease_id"], "reason": outcome})
+            else:
+                outcome = _publish_native_idle_review(store, identity, row)
+                if outcome == "published":
+                    published.append(row["lease_id"])
+                elif outcome:
+                    skipped.append({"lease_id": row["lease_id"], "reason": outcome})
         return json.dumps({"evidence_version": state["version"], "changed": changed,
                            "skipped": skipped[:MAX_NATIVE_SKIPPED],
-                           "observed_terminal": observed_terminal[:MAX_NATIVE_SKIPPED]}, ensure_ascii=False)
+                           "observed_terminal": observed_terminal[:MAX_NATIVE_SKIPPED],
+                           "reviews_published": published[:MAX_NATIVE_SKIPPED]}, ensure_ascii=False)
     if event == "host_salvage":
         if actor is not None:
             raise WorkParallelError("coordinator host salvage required")

@@ -1001,6 +1001,59 @@ const scenarios = {
     const view = await shown()
     return { observations, appended, logs: state.logs, view }
   },
+  // Andy n2505 (2026-11-20): the 15 s native observation listed a submitted
+  // fork idle while no main turn ended. The router publishes its review from
+  // that row; the mod wakes main for it at once instead of at the next turn end.
+  async 'native-observation-publishes-review'() {
+    const leases = {
+      L1: { id: 'L1', item_id: 'n1', priority: 'P1', role: 'worker', state: 'submitted', slot: false, host_id: 'fork-a', agent_name: 'work-a' },
+    }
+    const pending = []
+    let armed = false
+    const parallel = () => ({ version: 20, active_device: 0,
+      policy: { enabled: true, paused: false, priority_limits: { P1: 5, P2: 3, P3: 1, P4: 1, P5: 1 }, launches_per_minute: 4, max_rework: 2 }, leases,
+      review: { version: 4 + pending.length, pending },
+      forks: { schema: 'native-fork-evidence/1', available: true, evidence_version: 7, confirmed_count: 0,
+        confirmed: [], waiting: [], reservation: [], uncertain: [], validating: [], ended: [] } })
+    const observations = [], prepared = []
+    const timers = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_parallel_status') return text(parallel())
+      if (tool === 'work_parallel_event' && args.event === 'native_observation') {
+        observations.push(args.rows.map(r => r.lease_id + ':' + r.status))
+        const idle = args.rows.some(r => r.lease_id === 'L1' && r.status === 'idle')
+        if (armed && idle && !pending.length) {
+          pending.push({ lease_id: 'L1', item_id: 'n1', item_title: 'Result L1', state: 'pending', decision: null,
+            summary: 'built L1', verification: 'ok', wake: { state: 'pending', attempts: 0 } })
+          return text({ evidence_version: 8, changed: ['L1'], skipped: [], observed_terminal: [], reviews_published: ['L1'] })
+        }
+        return text({ evidence_version: 8, changed: [], skipped: [], observed_terminal: [], reviews_published: [] })
+      }
+      if (tool === 'work_parallel_event' && args.event === 'review_wake' && args.operation === 'prepare') {
+        prepared.push(args.lease_id)
+        pending[0].wake = { state: 'submitting', attempts: 1 }
+        return text({ lease_id: 'L1', state: 'submitting', attempt_id: 'attempt-L1', finalization_version: 5 })
+      }
+      if (tool === 'work_parallel_event' && args.event === 'review_wake' && args.operation === 'record') {
+        pending[0].wake = { state: args.state, attempts: 1 }
+        return text({ state: args.state })
+      }
+      if (tool === 'work_parallel_event' && args.event === 'reserve_next') return { isError: true, ...text('no eligible candidate') }
+      return text(snapshot())
+    })
+    $.clock.after = (delay, callback) => { timers.push({ delay, callback }); return { cancel() {} } }
+    state.agents = [{ id: 'fork-a', name: 'work-a', type: 'fork', status: 'running', spawnedBy: 'ciel-work' }]
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    const beforeIdle = (state.appended || []).length
+    armed = true
+    state.agents = [{ id: 'fork-a', name: 'work-a', type: 'fork', status: 'idle', spawnedBy: 'ciel-work' }]
+    const tick = timers.filter(t => t.delay === 15000).pop()
+    if (tick) await tick.callback()
+    for (let i = 0; i < 20; i++) await new Promise(go => setTimeout(go, 5))
+    const appended = (state.appended || []).slice(beforeIdle).map(row => String(row?.message?.content?.[0]?.text || ''))
+    return { ticked: Boolean(tick), observations, prepared, appended,
+      submitted: (state.submitted || []).map(row => JSON.stringify(row)) }
+  },
   // Direct spawn: work_parallel_run itself starts the fork; the model never
   // copies an Agent name. A denied spawn releases the unbound reservation and
   // keeps the Work item queued.
