@@ -3683,6 +3683,35 @@ Object.assign(scenarios, {
       event_id:'e'.repeat(64), expected_version:5 }, next({ result:'engine-ran' }))
     return { main, worker, own, handoff:{ routed:routed.slice(before), deny:handoff?.deny || null } }
   },
+  // Celly 2026-11-20: main called work_side_status itself and the engine's call
+  // carried no conversation identity, so the router answered "conversation
+  // identity is unavailable". It is the host's own read (side pane, claims).
+  async 'side-status-is-host-only'() {
+    const routed = []
+    const { $ } = host(async (tool) => { routed.push(tool); return text({ enabled:true, side_inbox_receipts:[] }) })
+    let ran = false
+    const engine = async () => { ran = true; return { result:'engine-ran' } }
+    engine.origin = { plugin:'engine' }
+    const answer = await handlers['tool.call']($, { tool:'mcp__ciel-runtime-router__work_side_status' }, engine)
+    const own = next({ result:'own-ran' }); own.origin = { plugin:'ciel-work' }
+    const mine = await handlers['tool.call']($, { tool:'mcp__ciel-runtime-router__work_side_status' }, own)
+    return { deny:answer?.deny || null, engineRan:ran, routed, own:mine }
+  },
+  // Celly 2026-11-20: Work mode was turned off and back on inside one session.
+  // The session had loaded without the Work tools, so every fork spawn was
+  // denied with the raw "no connected MCP tool" text. It now says what to do.
+  async 'fork-spawn-when-work-tools-are-not-connected'() {
+    const { $ } = host(async (tool) => {
+      if (tool === 'work_parallel_status') throw new Error('no connected MCP tool "work_parallel_status" on a server named "ciel-runtime-router"')
+      if (tool === 'work_live_settings') return text({ settings:[{ key:'work_mode', value:true }] })
+      return text({})
+    })
+    let ran = false
+    const engine = async () => { ran = true; return { agentId:'a1' } }
+    engine.origin = { plugin:'engine' }
+    const answer = await handlers['agent.spawn']($, { subagentType:'fork', fork:true, description:'P0 work', prompt:'x' }, engine)
+    return { deny:answer?.deny || null, engineRan:ran }
+  },
 })
 
 // Option 1 (team-lead): the router projects a read-time review_pin on each

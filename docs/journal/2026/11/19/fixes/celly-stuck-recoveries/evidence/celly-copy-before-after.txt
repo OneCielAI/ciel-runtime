@@ -1,0 +1,43 @@
+# Celly state copy (taken 2026-11-20T02:28Z), board copy 19:12 local. Copy-only stubs: throwaway P0 key, owner proof, worktree prepare/rebind.
+
+===== BEFORE db23560 =====
+3fee295e REFUSED KeyError 'workspace'
+   row deciding {'coordination': False, 'reserved': True, 'retired': False, 'workspace': True} blocked multiple original P0 intents for one lease
+   replacement 790a194b46 state reserved slot True workspace False p0 None
+dcdffd84 REFUSED KeyError 'workspace'
+   row deciding {'coordination': False, 'reserved': True, 'retired': False, 'workspace': True} blocked multiple original P0 intents for one lease
+   replacement 78d4b4baee state reserved slot True workspace False p0 None
+7d9cc1b7 REFUSED KeyError 'workspace'
+   row deciding {'coordination': False, 'reserved': True, 'retired': False, 'workspace': True} blocked multiple original P0 intents for one lease
+   replacement c058025659 state reserved slot True workspace False p0 None
+7d3afccb REFUSED KeyError 'workspace'
+   row deciding {'coordination': False, 'reserved': True, 'retired': False, 'workspace': True} blocked multiple original P0 intents for one lease
+   replacement f01eaa14ce state reserved slot True workspace False p0 None
+P0 store valid; capacity-excluded leases: 20
+prepare stub calls: []
+2fc0a6ae REFUSED KeyError 'de5cc9bdf7ea99aa8e6d4b9413ae3fea'
+   row deciding {'accepted': True, 'archive': False, 'board': False, 'lease': False, 'workspace': False} blocked content baseline entry bound exceeded: 20001/20000
+   replacement de5cc9bdf7 state None slot None workspace False p0 None
+P0 store valid; capacity-excluded leases: 20
+handoff_rebind stub calls: ['de5cc9bdf7']
+
+===== AFTER fixed tree =====
+3fee295e -> {"state": "rework_ready", "retry": null, "reason": null}
+   row recovered {'coordination': True, 'reserved': True, 'retired': True, 'workspace': True} blocked None
+   replacement 790a194b46 state reserved slot True workspace True p0 reserved
+dcdffd84 -> {"state": "rework_ready", "retry": null, "reason": null}
+   row recovered {'coordination': True, 'reserved': True, 'retired': True, 'workspace': True} blocked None
+   replacement 78d4b4baee state reserved slot True workspace True p0 reserved
+7d9cc1b7 -> {"state": "rework_ready", "retry": null, "reason": null}
+   row recovered {'coordination': True, 'reserved': True, 'retired': True, 'workspace': True} blocked None
+   replacement c058025659 state reserved slot True workspace True p0 reserved
+7d3afccb -> {"state": "rework_ready", "retry": null, "reason": null}
+   row recovered {'coordination': True, 'reserved': True, 'retired': True, 'workspace': True} blocked None
+   replacement f01eaa14ce state reserved slot True workspace True p0 reserved
+P0 store valid; capacity-excluded leases: 24
+prepare stub calls: ['790a194b46', '78d4b4baee', 'c058025659', 'f01eaa14ce']
+2fc0a6ae -> {"state": "rework_ready", "retry": null, "reason": null}
+   row rework_ready {'accepted': True, 'archive': True, 'board': True, 'lease': True, 'workspace': True} blocked None
+   replacement de5cc9bdf7 state reserved slot True workspace True p0 reserved
+P0 store valid; capacity-excluded leases: 21
+handoff_rebind stub calls: ['de5cc9bdf7']

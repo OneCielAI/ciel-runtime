@@ -185,7 +185,10 @@ def validate(state):
         _intent(key, row)
     by_lease = {}
     for row in state["intents"].values():
-        if row["lease_id"] is not None:
+        # A cancelled intent never launched a fork; deterministic replacement
+        # leases (rework / stranded recovery) reuse their lease_id when
+        # re-reserved after an unbound reservation was orphan-swept.
+        if row["lease_id"] is not None and row["state"] != "cancelled":
             by_lease.setdefault(row["lease_id"], []).append(row)
     require(all(len(rows) <= 1 for rows in by_lease.values()),
             "multiple original P0 intents for one lease")

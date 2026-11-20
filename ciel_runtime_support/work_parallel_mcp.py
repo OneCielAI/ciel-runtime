@@ -1799,6 +1799,20 @@ def _review_facts(store, identity, lease):
             "workspace": observed}
 
 
+def _replacement_p0_authorization(store, identity, replacement_id, item_id):
+    """record_assignment arguments for a rework / stranded replacement lease.
+
+    The initial P0 launch passes its pinned intent so an unapproved (planning)
+    P0 goal still records its run. A replacement reserved under P0 adopted its
+    own intent, so it carries the same authorization; without it the run was
+    refused as "stale root approval" (Celly 2026-11-20, n1097 under P0 n1006).
+    """
+    intent = p0_state(store).approval_intent(replacement_id, scope=identity, item_id=item_id)
+    if intent is None:
+        return {}
+    return {"dispatch_without_approval": True, "p0_intent": intent}
+
+
 def _assignment_approval(coord, board_store, root_id, identity):
     """(generation, fingerprint) of the goal's current approval for a replacement run.
 
@@ -2684,13 +2698,25 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
 
     if decision != "rework":
         raise WorkParallelError("decision must be approve or rework")
-    if not row["stages"]["accepted"]:
+    replacement_id = row["replacement_lease_id"]
+    leases = store.read()["leases"]
+    # Celly 2026-11-20 (n1108): a rework replacement lease can be released by
+    # orphan sweep before its coordination run exists (stages.accepted=True,
+    # stages.board=False), or left reserved without adopting its P0 intent.
+    released = (row["stages"]["accepted"] and not row["stages"]["board"]
+                and replacement_id not in leases
+                and replacement_id not in coord.read()["runs"])
+    unadopted_p0 = (not row["stages"]["board"] and replacement_id in leases
+                    and leases[replacement_id]["state"] == "reserved"
+                    and p0_state(store).approval_intent(
+                        replacement_id, scope=identity, item_id=row["item_id"]) is None)
+    if not row["stages"]["accepted"] or released or unadopted_p0:
         from .work_parallel import rework_admission
         current = store.read()
         owner = None
         p0_intent = _p0_continuation_intent(
             store, board_store, identity, row["item_id"], "rework", lease_id)
-        if row["replacement_lease_id"] not in current["leases"]:
+        if replacement_id not in current["leases"]:
             code, refusal = rework_admission(
                 current, lease_id, now=time.time(),
                 excluded_lease_ids=p0_state(store).active_lease_ids(), grant=_rework_grant(store, current, lease_id))
@@ -2713,45 +2739,51 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
                         "state": "awaiting_capacity", "finalization_version": fstate["version"],
                         "retry": "host_pump", "reason": refusal[:300]}
         try:
-            existing = current["leases"].get(row["replacement_lease_id"])
+            existing = current["leases"].get(replacement_id)
             if p0_intent is not None and existing is not None and p0_intent["lease_id"] is None:
                 p0_state(store).adopt_reserved(
                     p0_intent["intent_id"], current["leases"],
                     expected_version=p0_state(store).read()["version"])
                 p0_intent = p0_state(store).read()["intents"][p0_intent["intent_id"]]
-            store.reserve_rework(
-                lease_id, row["replacement_lease_id"], owner=owner,
-                expected_version=current["version"],
-                admission_bypass="p0" if p0_intent is not None and existing is None else None,
-                p0_intent=p0_intent if existing is None else None)
-            if p0_intent is not None and existing is None:
-                p0_state(store).adopt_reserved(
-                    p0_intent["intent_id"], store.read()["leases"],
-                    expected_version=p0_state(store).read()["version"])
+            if existing is None:
+                store.reserve_rework(
+                    lease_id, replacement_id, owner=owner,
+                    expected_version=current["version"],
+                    admission_bypass="p0" if p0_intent is not None else None,
+                    p0_intent=p0_intent)
+                if p0_intent is not None:
+                    p0_state(store).adopt_reserved(
+                        p0_intent["intent_id"], store.read()["leases"],
+                        expected_version=p0_state(store).read()["version"])
         except WorkParallelConflict:
             # Another host's roll-forward reserved first under the same CAS:
             # the deterministic replacement id makes its lease this one.
-            if row["replacement_lease_id"] not in store.read()["leases"]:
+            if replacement_id not in store.read()["leases"]:
                 raise
-        fstate, row = reviews.mark(lease_id, "accepted", expected_version=reviews.read()["version"])
-    if not row["stages"]["workspace"]:
+        if not row["stages"]["accepted"] or released:
+            fstate, row = reviews.mark(lease_id, "accepted", expected_version=reviews.read()["version"])
+    missing_workspace = (row["workspace"] is not None and not row["stages"]["board"]
+                         and (store.read()["leases"].get(replacement_id) or {}).get("workspace") is None)
+    if not row["stages"]["workspace"] or released or missing_workspace:
         # A result with no workspace has nothing to rebind: the replacement
         # resumes unconfined, like its predecessor.
         if row["workspace"] is not None:
             old = store.read()["leases"][lease_id]
             from .work_parallel_workspace import handoff_rebind
             ws = row["workspace"]
-            rebound = handoff_rebind(old["workspace"]["repo"], lease_id, row["replacement_lease_id"],
+            rebound = handoff_rebind(old["workspace"]["repo"], lease_id, replacement_id,
                                      prior_generation=str(row["generation"]),
                                      replacement_generation=str(row["replacement_generation"]),
                                      receipt_digest=ws["receipt_digest"], expected_path=ws["path"],
                                      expected_branch=ws["branch"], expected_head=ws["head"],
                                      expected_dirty=ws["dirty"], prior_terminal=True, prior_slot=False)
             current = store.read()
-            replacement = current["leases"][row["replacement_lease_id"]]
+            replacement = current["leases"].get(replacement_id)
+            require(replacement is not None, "rework replacement lease unavailable")
             if (replacement.get("workspace") or {}).get("path") != rebound["path"]:
-                store.attach_workspace(row["replacement_lease_id"], rebound, expected_version=current["version"])
-        fstate, row = reviews.mark(lease_id, "workspace", expected_version=reviews.read()["version"])
+                store.attach_workspace(replacement_id, rebound, expected_version=current["version"])
+        if not row["stages"]["workspace"] or released or missing_workspace:
+            fstate, row = reviews.mark(lease_id, "workspace", expected_version=reviews.read()["version"])
     if not row["stages"]["board"]:
         approval = _assignment_approval(coord, board_store, row["root_id"], identity)
         current = coord.read()
@@ -2770,7 +2802,8 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
                 "workspace": (None if replacement_workspace is None else
                               {key: replacement_workspace[key] for key in ("path", "branch", "head")}),
                 "created_at": time.time(),
-            }, expected_version=current["version"])
+            }, expected_version=current["version"],
+                **_replacement_p0_authorization(store, identity, row["replacement_lease_id"], row["item_id"]))
         fstate, row = reviews.mark(lease_id, "board", expected_version=reviews.read()["version"])
     if not row["stages"]["lease"]:
         current = coord.read()
@@ -2911,20 +2944,24 @@ def _stranded_roll_forward_stages(store, board_store, identity, host, lease_id):
             lease_id, stage, state_value=state_value, expected_version=version))
         return rows.read()["rows"][lease_id]
 
-    # Celly 2026-11-19: four recovery leases were reserved, then released before
-    # their coordination run existed (an older build refused it as "stale root
-    # approval"). The journal still says reserved, so every pump answered
-    # "decide again" while a repeated decision is the same journal row: no path
-    # ever led forward. Nothing launched, so reserve the same recovery again.
+    # Celly 2026-11-19/20: recovery leases can be released before their
+    # coordination run exists, or left reserved without adopting their P0 intent
+    # / attaching their workspace after a mid-stage failure. Recover all three.
+    leases = store.read()["leases"]
     released = (row["stages"]["reserved"] and not row["stages"]["coordination"]
-                and replacement_id not in store.read()["leases"]
+                and replacement_id not in leases
                 and replacement_id not in coord.read()["runs"])
-    if not row["stages"]["reserved"] or released:
+    unadopted_p0 = (not row["stages"]["coordination"] and replacement_id in leases
+                    and leases[replacement_id]["state"] == "reserved"
+                    and p0_state(store).approval_intent(
+                        replacement_id, scope=identity, item_id=row["item_id"]) is None)
+    if not row["stages"]["reserved"] or released or unadopted_p0:
         current = store.read()
         p0_intent = _p0_continuation_intent(
             store, board_store, identity, row["item_id"],
             "stranded_recovery", lease_id)
-        if replacement_id not in current["leases"]:
+        existing = current["leases"].get(replacement_id)
+        if existing is None:
             code, refusal = _stranded_admission(current, identity, row)
             if p0_intent is not None and code in ("paused", "capacity", "launch_rate"):
                 code, refusal = "", ""
@@ -2941,25 +2978,24 @@ def _stranded_roll_forward_stages(store, board_store, identity, host, lease_id):
                         "stranded_version": rows.read()["version"]}
             # Recovery, not a rework attempt: the predecessor's counter is kept.
             try:
-                existing = current["leases"].get(replacement_id)
-                if p0_intent is not None and existing is not None and p0_intent["lease_id"] is None:
-                    p0_state(store).adopt_reserved(
-                        p0_intent["intent_id"], current["leases"],
-                        expected_version=p0_state(store).read()["version"])
-                    p0_intent = p0_state(store).read()["intents"][p0_intent["intent_id"]]
                 store.reserve_stranded_recovery(
                     lease_id, replacement_id, owner=owner,
                     expected_version=current["version"],
-                    admission_bypass="p0" if p0_intent is not None and existing is None else None,
-                    p0_intent=p0_intent if existing is None else None)
-                if p0_intent is not None and existing is None:
+                    admission_bypass="p0" if p0_intent is not None else None,
+                    p0_intent=p0_intent)
+                if p0_intent is not None:
                     p0_state(store).adopt_reserved(
                         p0_intent["intent_id"], store.read()["leases"],
                         expected_version=p0_state(store).read()["version"])
             except WorkParallelConflict:
                 if replacement_id not in store.read()["leases"]:
                     raise
-        row = mark("reserved")
+        elif p0_intent is not None and p0_intent["lease_id"] is None:
+            p0_state(store).adopt_reserved(
+                p0_intent["intent_id"], current["leases"],
+                expected_version=p0_state(store).read()["version"])
+        if not row["stages"]["reserved"] or released:
+            row = mark("reserved")
     if replacement_id not in store.read()["leases"]:
         # The recovery lease was reserved and later released without starting
         # (its P0 intent was cancelled). Celly 2026-11-19: the lookups below then
@@ -2970,7 +3006,9 @@ def _stranded_roll_forward_stages(store, board_store, identity, host, lease_id):
                 "reason": "the recovery lease of this stranded result was released before it started; "
                           "decide the result again with work_parallel_item_review",
                 "stranded_version": rows.read()["version"]}
-    if not row["stages"]["workspace"] or released:
+    missing_workspace = (not row["stages"]["coordination"]
+                         and (store.read()["leases"].get(replacement_id) or {}).get("workspace") is None)
+    if not row["stages"]["workspace"] or released or missing_workspace:
         # The retained worktree cannot be verified: a fresh owned worktree.
         # The broken one stays retained, never reused or removed. A re-reserved
         # recovery gets the worktree its id already owns (prepare verifies it).
@@ -2979,11 +3017,13 @@ def _stranded_roll_forward_stages(store, board_store, identity, host, lease_id):
         current = store.read()
         if (current["leases"][replacement_id].get("workspace") or {}).get("path") != fresh["path"]:
             store.attach_workspace(replacement_id, fresh, expected_version=current["version"])
-        row = mark("workspace")
+        if not row["stages"]["workspace"] or released or missing_workspace:
+            row = mark("workspace")
     if not row["stages"]["coordination"]:
         approval = _assignment_approval(coord, board_store, row["root_id"], identity)
         cstate = coord.read()
-        replacement_ws = store.read()["leases"][replacement_id]["workspace"]
+        replacement_ws = (store.read()["leases"].get(replacement_id) or {}).get("workspace")
+        require(replacement_ws is not None, "stranded replacement workspace unavailable")
         old_run = cstate["runs"].get(lease_id)
         if old_run is None:
             old_run = next((entry["run"] for entry in reversed(cstate["archive"])
@@ -2998,7 +3038,8 @@ def _stranded_roll_forward_stages(store, board_store, identity, host, lease_id):
                 "assigned_todos": copy.deepcopy(old_run["assigned_todos"]),
                 "fingerprint": approval[1] if approval else row["fingerprint"],
                 "workspace": {key: replacement_ws[key] for key in ("path", "branch", "head")},
-                "created_at": time.time()}, expected_version=cstate["version"])
+                "created_at": time.time()}, expected_version=cstate["version"],
+                **_replacement_p0_authorization(store, identity, replacement_id, row["item_id"]))
         cstate = coord.read()
         if lease_id in cstate["runs"]:
             coord.supersede(lease_id, replacement_id, expected_version=cstate["version"])

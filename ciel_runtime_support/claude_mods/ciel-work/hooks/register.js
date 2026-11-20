@@ -2809,7 +2809,8 @@ function parallelLeaseBlocksTarget(state, target) {
 // The router also refuses them without the host token (model_side_tool_probe).
 const HOST_ONLY_SIDE_TOOLS = new Set(['work_side_wake', 'work_side_fail', 'work_side_fallback', 'work_side_renew',
   'work_side_ack', 'work_side_understanding', 'work_side_reply', 'work_side_claim', 'work_side_retry_reply',
-  'work_side_gate_check', 'work_side_workflow_event', 'work_side_discard_failed', 'work_side_texts'].map(tool => PREFIX + tool))
+  'work_side_gate_check', 'work_side_workflow_event', 'work_side_discard_failed', 'work_side_texts',
+  'work_side_status'].map(tool => PREFIX + tool))
 async function parallelToolCall($, e, next) {
   if (next.origin?.plugin === 'ciel-work' && (e.tool === PREFIX+'send_message' || e.tool.startsWith(PREFIX+'work_side_'))) return next(e)
   if (HOST_ONLY_SIDE_TOOLS.has(e.tool))
@@ -3253,7 +3254,21 @@ async function parallelAgentSpawn($, e, next) {
     return { deny:'Work workflow fork authorization did not match its pending host record.' }
   }
   try {
-    const s = await hostStatus($)
+    let s
+    try { s = await hostStatus($) }
+    catch (error) {
+      const msg = String(error?.message || error)
+      if (/Ciel Work mode is off/.test(msg)) return next(e)
+      if (/no connected MCP tool "work_parallel_status"/.test(msg)) {
+        try {
+          const live = await parallelCall($, 'work_live_settings')
+          const mode = (live?.settings || []).find(row => row.key === 'work_mode')
+          if (mode && mode.value === false) return next(e)
+        } catch {}
+        return { deny: 'Work mode was turned on after this session launched, so Work parallel tools are not connected yet. Restart this session (restart_session) to load them.' }
+      }
+      throw error
+    }
     if (!s.policy.enabled) return next(e)
     const request = parallelPending.get(e.name)
     // A worker parked in waiting_input resumes after reacquire gave it its slot

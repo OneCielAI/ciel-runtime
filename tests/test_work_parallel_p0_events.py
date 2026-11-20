@@ -154,6 +154,49 @@ class P0EventTests(unittest.TestCase):
         self.assertEqual("terminal", after["intents"][first["intent_id"]]["state"])
         self.assertEqual([], [row for row in after["sends"].values() if row["lease_id"] == first["lease_id"]])
 
+    def test_a_cancelled_intent_does_not_block_a_new_intent_on_the_same_replacement_lease(self):
+        # Celly 2026-11-20 (n1069 n1070 n1074 n1097): a stranded recovery's P0
+        # intent was cancelled when the orphan sweep released its unbound
+        # lease. The re-reserved recovery reuses the same deterministic lease
+        # id, and adopting a new intent was refused as "multiple original P0
+        # intents for one lease", so four reservations held P1 slots forever.
+        side = p0_store(self.store)
+        def intent(intent_id, state, lease_id):
+            return {"intent_id": intent_id, "scope": SCOPE, "root_id": "root", "root_created_at": 1.0,
+                    "item_id": "item", "continuation": "stranded_recovery", "predecessor_lease_id": "old",
+                    "dispatch_name": "work-p0-" + intent_id, "state": state, "lease_id": lease_id,
+                    "dispatch_without_approval": True, "created_at": 2.0, "updated_at": 2.0}
+        lease = "r" * 32
+        side._change(lambda state: state["intents"].update({
+            "a" * 32: intent("a" * 32, "cancelled", lease), "b" * 32: intent("b" * 32, "reserved", lease)}),
+            side.read()["version"])
+        self.assertEqual({lease}, side.active_lease_ids())
+        # Two live intents on one lease are still refused.
+        with self.assertRaisesRegex(WorkParallelError, "multiple original P0 intents for one lease"):
+            side._change(lambda state: state["intents"].__setitem__("c" * 32, intent("c" * 32, "reserved", lease)),
+                         side.read()["version"])
+
+    def test_a_replacement_run_on_an_unapproved_p0_goal_is_recorded_with_its_p0_intent(self):
+        # Celly 2026-11-20 (n1097 under P0 goal n1006, planning): the stranded
+        # recovery's coordination run was refused as "stale root approval"
+        # because, unlike the initial P0 launch, it carried no P0 authorization.
+        reserved = self.reserve()
+        lease_id = reserved["lease_id"]
+        coord = m.coordination(self.store)
+        run = coord.read()["runs"][lease_id]
+        coord._change(lambda state: state["runs"].pop(lease_id), coord.read()["version"])
+        manifest = {key: run[key] for key in ("item_id", "root_id", "priority", "role", "generation",
+                                              "approval_generation", "assigned_todos", "fingerprint", "workspace")}
+        manifest["created_at"] = run["reserved_at"]
+        with self.assertRaisesRegex(WorkParallelError, "stale root approval"):
+            coord.record_assignment(SCOPE, lease_id, manifest, expected_version=coord.read()["version"])
+        authorization = m._replacement_p0_authorization(self.store, SCOPE, lease_id, "item")
+        self.assertTrue(authorization["dispatch_without_approval"])
+        coord.record_assignment(SCOPE, lease_id, manifest, expected_version=coord.read()["version"],
+                                **authorization)
+        self.assertEqual("reserved", coord.read()["runs"][lease_id]["state"])
+        self.assertEqual({}, m._replacement_p0_authorization(self.store, SCOPE, "x" * 32, "item"))
+
     def test_replaying_a_prepared_assignment_preserves_its_workspace_and_run(self):
         first = self.reserve()
         before = m.coordination(self.store).read()["runs"][first["lease_id"]]
