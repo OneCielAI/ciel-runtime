@@ -2869,12 +2869,15 @@ async function parallelToolCall($, e, next) {
       // A question-wait lease gave its execution slot back while parked. The
       // same worker needs a slot again before SendMessage resumes it; if the
       // five active slots are busy, it remains recorded as waiting.
+      let p0Child = null
       if (lease.state === 'waiting_input' && !lease.slot) {
         try {
-          await parallelEvent($, { event: 'reacquire', lease_id: lease.id })
+          p0Child = p0ReacquireChild(await parallelEvent($, { event: 'reacquire', lease_id: lease.id }))
         } catch (error) {
           return { deny: 'Work item ' + lease.item_id + ' remains queued as waiting: ' + String(error.message || error) }
         }
+        if (p0ReacquireUnresolved(p0Child))
+          return { deny: 'Work item ' + lease.item_id + ' has an earlier P0 resume whose delivery is not recorded; recovery is required before another resume.' }
       }
       // A waiting worker reports again only from running (Stage 3 finding).
       if (lease.state === 'waiting_input') {
@@ -2893,6 +2896,7 @@ async function parallelToolCall($, e, next) {
       }
       authorizeResume(lease.id, lease.agent_name || lease.dispatch_name || '')
       const resumed = await next(e)
+      if (p0Child) await completeP0Reacquire($, lease, p0Child, resumed)
       // Deferred native resumes (a fork this process never listed) consume this
       // authorization in parallelAgentSpawn below. A listed fork was revived in
       // place and no spawn follows, so the authorization ends now.
@@ -4158,6 +4162,34 @@ async function parallelResumeTransition($, lease) {
   return parallelEvent($, { event:'resume', lease_id:lease.id, plan_version:lease.plan_version,
     evidence:'Work host resumed the parked worker after its wait was cleared' })
 }
+// P0 reacquire is a durable child of the original launch intent. A child that
+// did not acquire the slot in this call is an earlier send whose delivery the
+// host cannot prove, so it is never used for another send (design 6a).
+function p0ReacquireChild(reply) {
+  if (!reply || typeof reply !== 'object' || !['slot_acquired','uncertain'].includes(reply.state)) return null
+  if (typeof reply.send_id !== 'string' || typeof reply.parent_intent_id !== 'string'
+      || !Number.isInteger(reply.child_generation) || typeof reply.send_receipt !== 'string') return null
+  return reply
+}
+function p0ReacquireUnresolved(child) {
+  return Boolean(child && (child.slot_reacquired !== true || child.recovery_required === true || child.state !== 'slot_acquired'))
+}
+function p0SendOutcome(sent) {
+  if (sent?.sent === true || sent?.success === true || sent?.result?.success === true || sent?.isDelivered === true) return 'sent'
+  if (sent?.sent === false || sent?.deny || sent?.success === false || sent?.result?.success === false || sent?.isDelivered === false) return 'failed'
+  return 'uncertain'
+}
+async function completeP0Reacquire($, lease, child, sent) {
+  const outcome = p0SendOutcome(sent)
+  try {
+    return await parallelEvent($, { event:'p0_reacquire_complete', lease_id:lease.id, parent_intent_id:child.parent_intent_id,
+      send_id:child.send_id, child_generation:child.child_generation, send_receipt:child.send_receipt, outcome },
+      { internal:true })
+  } catch (error) {
+    rememberParallelFailure('p0-reacquire', 'lease ' + clipped(lease.id, 40) + ': ' + String(error?.message || error))
+    return null
+  }
+}
 // Returns Map(lease id -> true | the reason it was not resumed). `only` limits
 // it to named leases (a released wait, side-intake.js) and skips the retry
 // throttle; the pump passes none and resumes every cleared parked worker.
@@ -4190,7 +4222,8 @@ async function parallelResumeParked($, state, listed, only = null) {
     }
     parkedResumeInFlight.add(lease.id)
     try {
-      try { await parallelEvent($, { event:'reacquire', lease_id:lease.id }) }
+      let p0Child = null
+      try { p0Child = p0ReacquireChild(await parallelEvent($, { event:'reacquire', lease_id:lease.id })) }
       catch (error) {
         const detail = String(error?.message || error)
         // Capacity is the ordinary wait for a slot (retried at the next pump);
@@ -4201,6 +4234,12 @@ async function parallelResumeParked($, state, listed, only = null) {
         }
         outcomes.set(lease.id, 'no slot: ' + clipped(detail, 160)); continue
       }
+      if (p0ReacquireUnresolved(p0Child)) {
+        const detail = 'an earlier P0 resume has no recorded delivery; recovery is required'
+        parkedResumeTried.set(lease.id, Date.now())
+        rememberParallelFailure('parked-resume', 'lease ' + clipped(lease.id, 40) + ': ' + detail)
+        outcomes.set(lease.id, detail); continue
+      }
       authorizeResume(lease.id, lease.agent_name)
       let sent = null
       try {
@@ -4209,6 +4248,7 @@ async function parallelResumeParked($, state, listed, only = null) {
             + 'assignment under lease ' + lease.id + ' in the same workspace, then report through work_parallel_report with '
             + 'the worker_token from your original assignment. This is not new execution approval.' })
       } catch (error) { sent = { isDelivered:false, reason:String(error?.message || error) } }
+      const p0Completion = p0Child ? await completeP0Reacquire($, lease, p0Child, sent) : null
       if (sent?.isDelivered) {
         parkedResumeTried.delete(lease.id)
         outcomes.set(lease.id, true)
@@ -4231,9 +4271,12 @@ async function parallelResumeParked($, state, listed, only = null) {
         rememberParallelFailure('parked-resume', detail)
         $.ui.log('Work: could not resume parked worker, ' + detail)
         outcomes.set(lease.id, 'the resume was not delivered: ' + reason)
-        // Nothing runs: the worker stays parked and gives the slot back.
-        try { await parallelEvent($, { event:'wait', lease_id:lease.id }, { proof:'Automatic resume not delivered: ' + reason }) }
-        catch (error) { rememberParallelFailure('parked-resume', 'lease ' + clipped(lease.id, 40) + ' kept its slot: ' + String(error?.message || error)) }
+        // Nothing runs: the worker stays parked and gives the slot back. A P0
+        // child's completion has already rolled its exact slot back.
+        if (!p0Child || p0Completion?.slot_rolled_back !== true) {
+          try { await parallelEvent($, { event:'wait', lease_id:lease.id }, { proof:'Automatic resume not delivered: ' + reason }) }
+          catch (error) { rememberParallelFailure('parked-resume', 'lease ' + clipped(lease.id, 40) + ' kept its slot: ' + String(error?.message || error)) }
+        }
       }
     } finally { parkedResumeInFlight.delete(lease.id) }
   }

@@ -1290,6 +1290,13 @@ def _authenticated_host_read(args, config):
     return host.get("agent_id") is None
 
 
+def _p0_send_reported_after(store, send):
+    """True when the worker reported on this lease after the P0 send child was made."""
+    rows = coordination(store).read().get("receipts", {}).values()
+    return any(row["lease_id"] == send["lease_id"] and row["kind"] in ("question", "completion", "handoff")
+               and row["created_at"] > send["created_at"] for row in rows)
+
+
 def _internal_host(host):
     return host.get("agent_id") is None and host.get("internal") is True
 
@@ -4345,6 +4352,15 @@ def run(name, args, board_store, identity, config, save_config, log=None):
             if event == "p0_reacquire":
                 _p0_key_ready(store, "reacquire")
             open_send = side.open_send_for_lease(ident)
+            if open_send is not None and _p0_send_reported_after(store, open_send):
+                # The worker's own authenticated report after this child proves
+                # the send was delivered (design 6a: definite success). Builds
+                # before the host recorded completions left such children open,
+                # and every later resume returned the old child with no slot.
+                side.complete_reacquire_send(open_send["send_id"], outcome="sent",
+                                             expected_version=side.read()["version"])
+                side = p0_state(store)
+                open_send = None
             if open_send is not None:
                 return json.dumps({"lease_id": ident,
                                    "parent_intent_id": open_send["parent_intent_id"],

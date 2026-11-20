@@ -1765,6 +1765,40 @@ const scenarios = {
     return { afterWait, resumed: Boolean(resumed?.sent), slot: lease.slot, state: lease.state, calls: calls.map(c => c.event),
       resume: calls.find(c => c.event === 'resume') || null }
   },
+  async 'p0-sendmessage-settles-reacquire'() {
+    const mode = process.argv[3] || 'fresh'
+    const lease = { id:'L1', item_id:'n2', role:'worker', state:'waiting_input', host_id:'agent-wait',
+      agent_name:'work-p0-fixture', slot:false, plan_version:7 }
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:9, policy:{ enabled:true, paused:false }, leases:{ L1:lease } })
+      if (tool === 'work_parallel_event' && args.event === 'reacquire') {
+        if (mode === 'fresh') lease.slot = true
+        return text({ lease_id:lease.id, ...(mode === 'fresh' ? { slot_reacquired:true } : {}),
+          host_id:lease.host_id, native_name:lease.agent_name, recovery_required:false,
+          state:'slot_acquired', parent_intent_id:'1'.repeat(32), send_id:'2'.repeat(32),
+          child_generation:1, send_receipt:'3'.repeat(64), ledger_before_version:9, ledger_after_version:10 })
+      }
+      if (tool === 'work_parallel_event' && args.event === 'resume') {
+        if (!lease.slot) return { ...text('no active slot'), isError:true }
+        lease.state = 'running'
+      }
+      if (tool === 'work_parallel_event' && args.event === 'p0_reacquire_complete') {
+        state.completions.push({ lease:args.lease_id, outcome:args.outcome, internal:args._host?.internal === true,
+          exact:args.parent_intent_id === '1'.repeat(32) && args.send_id === '2'.repeat(32)
+            && args.child_generation === 1 && args.send_receipt === '3'.repeat(64) })
+        return text({ state:'delivered', terminal:true })
+      }
+      return text({})
+    })
+    state.completions = []
+    await handlers['session.start']($, { isInteractive:false }, next(undefined))
+    let sends = 0
+    const send = async () => { sends++; return { sent:true } }
+    send.origin = { plugin:'engine' }
+    const out = await handlers['tool.call']($, { tool:'SendMessage', to:lease.host_id, message:'continue' }, send)
+    return { sends, completions:state.completions, deny:out?.deny || '', slot:lease.slot }
+  },
   // Celly 2026-11-20 (n1041): the host's parked resume moved the lease to
   // running between main's SendMessage read and its resume transition; the
   // transition was refused ("transition") and main's message was blocked.
@@ -1808,6 +1842,13 @@ const scenarios = {
       if (tool === 'work_parallel_event') {
         calls.push(args)
         if (args.event === 'reacquire') leases[args.lease_id].slot = true
+        if (args.event === 'reacquire' && mode.startsWith('p0'))
+          return text({ lease_id:args.lease_id, slot_reacquired:true, state:'slot_acquired', recovery_required:false,
+            parent_intent_id:'1'.repeat(32), send_id:'2'.repeat(32), child_generation:1, send_receipt:'3'.repeat(64) })
+        if (args.event === 'p0_reacquire_complete') {
+          if (args.outcome === 'failed') leases[args.lease_id].slot = false
+          return text({ state:args.outcome === 'sent' ? 'delivered' : 'rolled_back', slot_rolled_back:args.outcome === 'failed' })
+        }
         if (args.event === 'wait') leases[args.lease_id].slot = false
         if (args.event === 'resume') leases[args.lease_id].state = 'running'
         if (args.event === 'parked_notice_claim') { if (args.release) { noticeClaims.delete(args.lease_id); return text({ claimed:true }) }
@@ -1824,7 +1865,7 @@ const scenarios = {
     // As measured on 2.1.327: a send to an idle fork raises agent.spawn with
     // resume.agentId inside the plugin-origin frame; a denied spawn is undelivered.
     $.session.send = async args => { (state.sent ||= []).push(args)
-      if (mode === 'refused') return { isDelivered:false, reason:'a plugin declined the resume' }
+      if (mode === 'refused' || mode === 'p0-refused') return { isDelivered:false, reason:'a plugin declined the resume' }
       const row = Object.values(leases).find(l => l.host_id === args.to?.agentId)
       const resumeNext = () => { const fn = async () => ({ agentId:args.to.agentId }); fn.origin = { plugin:'ciel-work' }; return fn }
       const started = await handlers['agent.spawn']($, { fork:true, subagentType:'fork', name:row.agent_name,
@@ -1838,6 +1879,8 @@ const scenarios = {
     await sleep(20)
     return { notices:(state.appended || []).map(row => row.message?.content?.[0]?.text || '').filter(t => t.startsWith('Ciel Work parked worker')),
       events:calls.map(c => c.event + ':' + (c.lease_id || '')), sent:(state.sent || []).map(s => s.to?.agentId),
+      completions:calls.filter(c => c.event === 'p0_reacquire_complete')
+        .map(c => ({ lease:c.lease_id, outcome:c.outcome, internal:c._host?.internal === true })),
       text:(state.sent || [])[0]?.text || '', l1:{ state:leases.L1.state, slot:leases.L1.slot },
       l2:{ state:leases.L2.state, slot:leases.L2.slot }, l3:{ state:leases.L3.state, slot:leases.L3.slot },
       logs:state.logs.filter(l => /parked|resumed parked/.test(l)) }

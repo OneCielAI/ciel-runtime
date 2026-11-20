@@ -426,6 +426,52 @@ class P0EventTests(unittest.TestCase):
         self.assertEqual(child["send_id"], same["send_id"])
         self.assertTrue(same["recovery_required"])
 
+    def test_reacquire_settles_an_open_child_the_worker_reported_after(self):
+        # Celly 2026-11-20 n1143: the resumed worker reported a question after
+        # its P0 send, but no completion was recorded; every later reacquire
+        # returned that old child and main's resume failed with "no active slot".
+        reserved = self.reserve()
+        args = {key: reserved[key] for key in ("intent_id", "lease_id", "dispatch_name")}
+        self.call("p0_launch_spawning", {"internal": True}, **args)
+        self.call("bind", {"host_id": "agent", "agent_name": reserved["dispatch_name"]},
+                  lease_id=reserved["lease_id"])
+        def waiting(doc):
+            doc["leases"][reserved["lease_id"]].update(
+                state="waiting_input", slot=False, usage=0, idle_proof="waiting")
+        self.store._change(waiting, self.store.read()["version"])
+        old = self.call("reacquire", {}, lease_id=reserved["lease_id"])
+        self.assertTrue(old["slot_reacquired"])
+        coord = m.coordination(self.store)
+        with patch.object(receipts.time, "time", return_value=p0_store(self.store).read()["sends"][old["send_id"]]["created_at"] + 1):
+            coord.persist_receipt(reserved["lease_id"], "question",
+                                  {"question": "q", "blocking_todos": ["item"], "decision_needed": "q"},
+                                  expected_version=coord.read()["version"])
+        self.store._change(waiting, self.store.read()["version"])
+        fresh = self.call("reacquire", {}, lease_id=reserved["lease_id"])
+        self.assertTrue(fresh.get("slot_reacquired"), fresh)
+        self.assertNotEqual(old["send_id"], fresh["send_id"])
+        self.assertEqual(old["child_generation"] + 1, fresh["child_generation"])
+        sends = p0_store(self.store).read()["sends"]
+        self.assertEqual("delivered", sends[old["send_id"]]["state"])
+        self.assertTrue(self.store.read()["leases"][reserved["lease_id"]]["slot"])
+
+    def test_reacquire_keeps_an_open_child_without_a_later_worker_report(self):
+        reserved = self.reserve()
+        args = {key: reserved[key] for key in ("intent_id", "lease_id", "dispatch_name")}
+        self.call("p0_launch_spawning", {"internal": True}, **args)
+        self.call("bind", {"host_id": "agent", "agent_name": reserved["dispatch_name"]},
+                  lease_id=reserved["lease_id"])
+        def waiting(doc):
+            doc["leases"][reserved["lease_id"]].update(
+                state="waiting_input", slot=False, usage=0, idle_proof="waiting")
+        self.store._change(waiting, self.store.read()["version"])
+        old = self.call("reacquire", {}, lease_id=reserved["lease_id"])
+        self.store._change(waiting, self.store.read()["version"])
+        same = self.call("reacquire", {}, lease_id=reserved["lease_id"])
+        self.assertEqual(old["send_id"], same["send_id"])
+        self.assertNotIn("slot_reacquired", same)
+        self.assertFalse(self.store.read()["leases"][reserved["lease_id"]]["slot"])
+
     def test_reacquire_mismatched_existing_name_refuses(self):
         reserved = self.reserve()
         args = {key: reserved[key] for key in ("intent_id", "lease_id", "dispatch_name")}
