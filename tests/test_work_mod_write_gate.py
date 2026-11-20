@@ -682,6 +682,15 @@ class WorkModWriteGateTests(unittest.TestCase):
         result.pop('scenario', None)
         self.assertEqual({'settled': True, 'wakes': 1, 'immediate': 0, 'afterWaiting': 1, 'repeated': 1}, result)
 
+    def test_sendmessage_goes_on_when_the_host_already_resumed_the_same_worker(self):
+        # Celly 2026-11-20 n1041: HEAD denied with "could not return to running:
+        # Parallel read failed: transition" although the worker was running.
+        same = self.run_scenario('sendmessage-after-the-host-already-resumed-the-worker', 'same')
+        self.assertEqual((True, None), (same['sent'], same['deny']), same)
+        other = self.run_scenario('sendmessage-after-the-host-already-resumed-the-worker', 'other-worker')
+        self.assertFalse(other['sent'], other)
+        self.assertIn('could not return to running', other['deny'])
+
     def test_a_review_only_the_pane_lists_is_reminded_after_it_still_waits(self):
         # The draft that recorded first-seen only at projection never reminded
         # this row (0 after 21 minutes); HEAD d216883 reminded at once.

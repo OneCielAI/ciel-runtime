@@ -1669,6 +1669,26 @@ const scenarios = {
     return { afterWait, resumed: Boolean(resumed?.sent), slot: lease.slot, state: lease.state, calls: calls.map(c => c.event),
       resume: calls.find(c => c.event === 'resume') || null }
   },
+  // Celly 2026-11-20 (n1041): the host's parked resume moved the lease to
+  // running between main's SendMessage read and its resume transition; the
+  // transition was refused ("transition") and main's message was blocked.
+  async 'sendmessage-after-the-host-already-resumed-the-worker'() {
+    const lease = { id: 'L1', item_id: 'n2', role: 'worker', state: 'waiting_input', host_id: 'agent-wait', slot: true, plan_version: 7 }
+    const other = process.argv[3] === 'other-worker'
+    const { $ } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version: 9, policy: { enabled: true, paused: false }, leases: { L1: { ...lease } } })
+      if (tool === 'work_parallel_event' && args.event === 'resume') {
+        // The concurrent host resume committed first.
+        Object.assign(lease, { state: 'running' }, other ? { host_id: 'agent-other' } : {})
+        return { isError: true, ...text('transition') }
+      }
+      return text({ version: 10, leases: { L1: lease } })
+    })
+    await handlers['session.start']($, { isInteractive: false }, next(undefined))
+    const out = await handlers['tool.call']($, { tool: 'SendMessage', to: 'agent-wait', message: 'continue' }, next({ sent: true }))
+    return { sent: out?.sent === true, deny: out?.deny || null }
+  },
   // Stage 3 (2026-11-17): the pump resumes a parked worker whose board wait is
   // cleared (reacquire -> resume -> session.send to the same agent), leaves one
   // still waiting alone, and records a refused delivery.

@@ -2873,7 +2873,15 @@ async function parallelToolCall($, e, next) {
       if (lease.state === 'waiting_input') {
         try { await parallelResumeTransition($, lease) }
         catch (error) {
-          return { deny: 'Work item ' + lease.item_id + ' could not return to running: ' + String(error.message || error) }
+          // Celly 2026-11-20 (n1041): the host's own parked resume moved this
+          // lease to running between this send's read and its transition, so
+          // the transition was refused ("transition") and main's message was
+          // blocked although the worker was already running. Re-read: a lease
+          // now running with the same worker and a slot goes on to the send.
+          let current = null
+          try { current = (await hostStatus($)).leases?.[lease.id] } catch {}
+          if (!(current?.state === 'running' && current.slot && current.host_id === lease.host_id))
+            return { deny: 'Work item ' + lease.item_id + ' could not return to running: ' + String(error.message || error) }
         }
       }
       authorizeResume(lease.id, lease.agent_name || lease.dispatch_name || '')
