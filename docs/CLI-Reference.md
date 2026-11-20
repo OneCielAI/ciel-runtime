@@ -77,6 +77,7 @@ ciel-runtimectl work set work_mode on
 ciel-runtimectl work set sse_injection_mode btw_with_mcp
 ciel-runtimectl work set work_side_intake_max_active 2
 ciel-runtimectl work set work_side_intake_priority_policy adaptive
+ciel-runtimectl work set work_side_intake_session fresh
 ```
 
 초기 메뉴 `Work & SSE settings`, 실행 중 `/work-mode settings`, 웹 콘솔 Settings 탭

@@ -263,6 +263,7 @@ def settings(config, args, save, *, load=None):
     instruction = instruction_view(config)
     side_enums = {
         'work_side_intake_priority_policy': ['adaptive', 'explicit'],
+        'work_side_intake_session': ['fork', 'fresh'],
     }
     side_numbers = {'work_side_intake_max_active', 'work_side_intake_aging_seconds'}
     # Side events run as native forks of main (context, tools, permissions);

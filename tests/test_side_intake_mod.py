@@ -44,6 +44,23 @@ class SideModTests(unittest.TestCase):
         self.assertEqual(['resume_error'],row['failures'])
         self.assertEqual([],row['resolve'])
 
+    def test_session_fresh_starts_each_event_empty_with_main_system_prompt(self):
+        # User 2026-11-20: a side actor may start from an empty conversation
+        # with main's own system prompt and MCP tools instead of a fork.
+        fork=self.run_harness('side_fresh_harness.mjs','fork')
+        self.assertEqual(['fork']*3,[spawn['subagentType'] for spawn in fork['spawns']])
+        self.assertEqual([],fork['registrations'])
+        fresh=self.run_harness('side_fresh_harness.mjs','fresh')
+        self.assertEqual(['ciel-work:side-fresh']*3,[spawn['subagentType'] for spawn in fresh['spawns']])
+        # One registration per module load: main's composed prompt, no tool
+        # list (every tool the session has, its MCP servers included).
+        self.assertEqual([{'name':'side-fresh','prompt':'MAIN SYSTEM PROMPT\n\nENV','tools':None}],fresh['registrations'])
+        self.assertEqual([True]*3,fresh['rewrites'])
+        # The same decision path and one-event lifetime as a fork.
+        self.assertEqual([r['decision']['action'] for r in fork['resolveCalls']],
+                         [r['decision']['action'] for r in fresh['resolveCalls']])
+        self.assertEqual(['actor1','actor2','actor3'],fresh['stopped'])
+
     def test_each_external_event_uses_one_native_fork_then_stops_it(self):
         row=self.run_harness('side_intake_harness.mjs')
         self.assertEqual(3,len(row['spawns']))

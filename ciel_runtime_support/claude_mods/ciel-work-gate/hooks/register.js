@@ -74,8 +74,12 @@ function spawnShape(e) {
     description: typeof e.description === 'string' ? e.description : '',
     cwd: typeof e.cwd === 'string' && e.cwd ? e.cwd : null }
 }
+// ciel-work's side actor in session "fresh": its registered agent type, an
+// empty conversation with main's system prompt (side-intake.js FRESH_SIDE_TYPE).
+const FRESH_SIDE_TYPE = 'ciel-work:side-fresh'
 function sideShape(shape) {
-  return shape.name === null && shape.subagentType === 'fork' && SIDE_DESCRIPTION.test(shape.description)
+  return shape.name === null && (shape.subagentType === 'fork' || shape.subagentType === FRESH_SIDE_TYPE)
+    && SIDE_DESCRIPTION.test(shape.description)
 }
 // { kind: 'main' | 'other' | 'side' | 'work' | 'unclassified', name, recognized, cwd }
 async function classify($, agentId) {
@@ -93,7 +97,7 @@ async function classify($, agentId) {
   }
   // agent.list is the authority for rules 1-2; the spawn record covers a fork
   // not yet (or no longer) listed.
-  const owned = row ? row.spawnedBy === OWNER && row.type === 'fork' : spawn !== null
+  const owned = row ? row.spawnedBy === OWNER && (row.type === 'fork' || row.type === FRESH_SIDE_TYPE) : spawn !== null
   if (!owned) return { kind: 'other' }
   const shape = spawn || { name: typeof row.name === 'string' && row.name ? row.name : null,
     subagentType: row.type, description: typeof row.description === 'string' ? row.description : '', cwd: null }
