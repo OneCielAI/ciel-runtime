@@ -23,9 +23,9 @@ from .channel_message_repository import exclusive_file_lock
 from .work_plan_tree import WorkPlanError
 
 _OUTCOMES = ('appended', 'failed', 'uncertain')
-# A definite failure stored nothing; a person-confirmed release accepted a
-# possible duplicate. Both may be issued once more; nothing else reopens.
-_REOPEN = ('failed', 'released')
+# A pending complaint has never been attempted. A definite failure or a
+# person-confirmed release may be issued again; nothing else reopens.
+_REOPEN = ('pending', 'failed', 'released')
 FIELD = 'release_notice'
 TEXT_MAX = 8000
 HISTORY_MAX = 16
@@ -35,7 +35,7 @@ INDEX_MAX = 200
 # delivery-uncertain by age alone, with no write; the web event stream reads
 # this small file to signal that moment (work_http_controller._stream).
 ISSUING_INDEX = 'notices-issuing.json'
-NOTICE_STATES = ('issuing', 'appended', 'failed', 'released', 'uncertain')
+NOTICE_STATES = ('pending', 'issuing', 'appended', 'failed', 'released', 'uncertain')
 # A live issuer claims, appends and records within one hook dispatch. Only an
 # `issuing` claim older than this is shown to a person as uncertain; age alone
 # never reopens it.
@@ -113,6 +113,18 @@ def _index(inbox, receipt_id, present):
             inbox._save_file(path, {'schema': 1, 'receipts': listed[-INDEX_MAX:]})
 
 
+def stage_pending(inbox, receipt_id, row, text):
+    """Index an unissued notice before publishing its processed receipt.
+
+    The caller holds the receipt lock. A poll between writes finds no processed
+    notice, and a crash there leaves the board commit available for recovery.
+    """
+    text = _text(text)
+    if text:
+        row[FIELD] = {'state': 'pending', 'text': text}
+        _index(inbox, receipt_id, True)
+
+
 def _issuing(inbox, receipt_id, claimed_at):
     """Add (claimed_at) or drop (None) one live claim in the issuing index."""
     path = inbox.directory / ISSUING_INDEX
@@ -168,7 +180,7 @@ def prepare(inbox, receipt_id, owner_nonce, text=None):
         kept = _text(text) or (notice.get('text') if isinstance(notice, dict) else None)
         if kept:
             claim['text'] = kept
-        if isinstance(notice, dict):
+        if isinstance(notice, dict) and notice.get('state') != 'pending':
             claim['retries'] = int(notice.get('retries') or 0) + 1
             if notice.get('history'):
                 claim['history'] = notice['history']
@@ -253,7 +265,7 @@ def retry(inbox, receipt_id, *, attempt_ref=None, revision=None, confirmed=False
 
 
 def offered(inbox, limit=8):
-    """Notices a host may issue once more: definite failure or person release."""
+    """Offer notices not yet issued, or eligible for a fenced re-issue."""
     try:
         listed = (inbox._read_file(inbox.directory / INDEX, 64 * 1024) or {}).get('receipts') or []
     except (OSError, WorkPlanError):

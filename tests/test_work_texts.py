@@ -15,7 +15,8 @@ class WorkTextsTests(unittest.TestCase):
         self.assertEqual(work_texts.mod_texts_js(), generated)
 
     def test_the_mod_keeps_no_literal_copy_of_a_registry_text(self):
-        source = (HOOKS / "register.js").read_text(encoding="utf-8")
+        source = "\n".join(path.read_text(encoding="utf-8") for path in sorted(HOOKS.glob("*.js"))
+                           if path.name != work_texts.MOD_TEXTS_FILE)
         for name, text in work_texts.mod_defaults().items():
             self.assertNotIn(text[:60], source, name)
             self.assertIn("T('" + name + "'", source, name)

@@ -504,7 +504,7 @@ def release_for_recheck(state_dir, session_id, receipt_id, generation, reason):
         return inbox._receipt(receipt_id, row, duplicate=False)
 
 
-def finish(state_dir, session_id, receipt_id, generation, result, *, now=None):
+def finish(state_dir, session_id, receipt_id, generation, result, *, main_notice=None, now=None):
     inbox = SideIntakeInbox(state_dir, session_id)
     with exclusive_file_lock(inbox._event_path('locks', receipt_id)):
         existing = inbox._load(receipt_id)
@@ -515,6 +515,9 @@ def finish(state_dir, session_id, receipt_id, generation, result, *, now=None):
         row = verify_claim(inbox, receipt_id, generation, now=now)
         row.update(stage='processed', result=result, item_id=result.get('item_id'),
                    consumed_at=time.time() if now is None else now)
+        if main_notice:
+            from .side_notice import stage_pending
+            stage_pending(inbox, receipt_id, row, main_notice)
         inbox._save_file(inbox._event_path('receipts', receipt_id), row)
         inbox._event_path('pending', receipt_id).unlink(missing_ok=True)
         inbox._clear_priority(receipt_id)

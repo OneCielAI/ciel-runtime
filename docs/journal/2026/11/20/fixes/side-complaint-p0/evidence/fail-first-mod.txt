@@ -1,0 +1,16 @@
+test_idle_main_gets_the_router_complaint_notice_and_a_wake_naming_it (test_side_relay_notice.SideRelayNoticeTests.test_idle_main_gets_the_router_complaint_notice_and_a_wake_naming_it) ... ERROR
+
+======================================================================
+ERROR: test_idle_main_gets_the_router_complaint_notice_and_a_wake_naming_it (test_side_relay_notice.SideRelayNoticeTests.test_idle_main_gets_the_router_complaint_notice_and_a_wake_naming_it)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<user>\ciel-runtime\.local\tmp\work-parallel\.local\tmp\side-complaint\head-tree\tests\test_side_relay_notice.py", line 109, in test_idle_main_gets_the_router_complaint_notice_and_a_wake_naming_it
+    self.assertIs(True, row['resolved'][0]['complaint'])
+                        ~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+KeyError: 'complaint'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.201s
+
+FAILED (errors=1)
+RAN 1 failures=0 errors=1 skipped=0

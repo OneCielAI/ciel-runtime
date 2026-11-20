@@ -44,4 +44,27 @@ Fail-first, on 97b57b5 ([evidence/new-tests-fail-first.txt](/docs/journal/2026/1
 - `test_native_idle_row_publishes_even_when_the_run_was_marked_failed_first` fails with the KOBE refusal: `skipped ... terminal native status is immutable`, no review.
 - `test_own_fork_absent_after_its_receipt_is_observed_terminal_without_a_restart` (mod scenario `own-fork-absent-after-receipt`) fails: no `restart_submitted_terminal` was sent.
 
-After the change: `test_work_parallel_restart_terminal.py` 17 pass; the new mod scenario and the native observation scenarios pass.
+After the change (commit 0dc57b0, together with [store-replace-retry](/docs/journal/2026/11/20/fixes/store-replace-retry/record.md)):
+- `test_work_parallel_restart_terminal.py`: 17 pass. The new mod scenario and the native observation scenarios pass.
+- Windows, isolated config, affected bundle (restart_terminal, native, receipts, cross_process_ownership, p0_events, rework_worktree, content_baseline, finalization, side_intake_mod, work_mod_write_gate, http_parallel_gaps): 529 tests, 0 failures, 33 skipped.
+- Windows real-backend suite: 117 tests, 0 failures, 3 skipped.
+- Linux Docker (Python 3.11.2, Node 22), same bundle on the archived commit: 529 tests, 0 failures, 83 skipped.
+- `claude plugin validate`: passed. `claude plugin test` on ciel-work: 89 pass, 0 fail. ruff: clean.
+- The beta merge eab2a18 has the same tree as 0dc57b0 (empty `git diff`).
+
+Not yet observed: a live session loading the new `register.js` bytes. The `$` calls added here go only to top-level functions (`parallelRestartSubmitted`, `projectParallelReviews`), and `claude plugin validate` reports no refusal.
+
+# Installed (not yet effective)
+
+The five changed files were overlaid with hash checks and backups (`*.backup-hotfix7`). Every target held 92ef95b's bytes before the overlay.
+- Local: Andy's `ciel-runtime-hotfix5-20261119-210220` home, the default home and the global npm package.
+- Celly: elevated overlay.
+  - The first run refused: the manifest's hashes came from `sha256sum <path>`, which escapes a path containing backslashes with a leading `\`.
+  - Hashing from stdin fixed it, and the rerun verified all five files.
+- KOBE: package scp plus a hash-checked overlay. The version underneath is c955630.
+
+No process was restarted. Each session runs the fix only after its next restart.
+
+# Published
+
+npm beta `0.2.51-beta.20261120-122502.eab2a18` (gitHead eab2a187), publish run 44735551340 succeeded. The five changed files in the published package hash the same as 0dc57b0 and as Andy's installed copy (30B7C984…, CC23EA2B…, 6B7FF4F9…, 498E39E3…, 8DA81978…).

@@ -14,7 +14,7 @@ from . import work_plan_tree as tree
 ACTIONS = ('answer', 'clarify', 'update', 'create', 'prioritize', 'advise')
 KINDS = ('status', 'info', 'request', 'clarify')
 FIELDS = {'action', 'kind', 'item_id', 'summary', 'reply', 'note', 'title', 'priority', 'queue_position', 'release_waits', 'time_limit',
-          'relay', 'ask_main', 'no_reply'}
+          'relay', 'ask_main', 'no_reply', 'complaint'}
 NO_QUEUE = '큐에 등록하지 않았습니다.'
 MAX_RELEASES = 100
 MAX_TIME_LIMIT_TEXT = 1000
@@ -191,12 +191,17 @@ def validate(decision):
             raise tree.WorkPlanError('invalid side decision release_waits')
     if 'relay' in decision and type(decision['relay']) is not bool:
         raise tree.WorkPlanError('invalid side decision relay')
-    # Approval workflow (spec 4.9): a simple question only main can answer goes
-    # to main at once. Only an answer carries it; elsewhere it is dropped.
-    if 'ask_main' in decision and type(decision['ask_main']) is not bool:
-        raise tree.WorkPlanError('invalid side decision ask_main')
-    if decision.get('ask_main') is False:
-        decision.pop('ask_main', None)
+    for flag in ('ask_main', 'complaint'):
+        if flag in decision and type(decision[flag]) is not bool:
+            raise tree.WorkPlanError('invalid side decision ' + flag)
+        if decision.get(flag) is False:
+            decision.pop(flag, None)
+    if decision.get('complaint') is True:
+        # A complaint the actor identified must never settle as an answer or
+        # a bare priority change. Preserve a known target and the actual issue.
+        decision['action'] = 'update' if decision.get('item_id') else 'create'
+        decision['kind'] = 'request'
+        decision['ask_main'] = True
     # no_reply (user 2026-11-19): an answer that would only repeat what the
     # thread already says is recorded and not posted. Andy and Celly answered
     # each other's status echoes for hours (1,700 events in 6 h on 4 threads).
@@ -330,12 +335,16 @@ def _record_review(doc, receipt_id, result, source):
 
 
 def apply(store, receipt_id, decision, expected_version, *, main_reply=False, observed_digest=None, source=None,
-          source_context=None, parked_projection=None, gate_check=False, workflow=None):
+          source_context=None, parked_projection=None, gate_check=False, workflow=None,
+          source_priority=None, p0_roots=frozenset()):
     """``workflow`` (approval workflow on): {'source': {...}, 'prompt': digest}.
 
     A create then opens the goal's workflow record (intake -> proposal_due) and
     ``ask_main`` reaches main. A side update on an executing goal goes to
     ``progress`` (outside the approved scope digest, technical review P2).
+
+    ``source_priority`` is the host's reading of the event. ``p0_roots`` are the
+    exact active P0 root identities (id, created_at), read before the board lock.
     """
     validate(decision)
     # User 2026-11-18: ask_main is the side's one way to reach main (truly
@@ -357,6 +366,11 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
         effective_kind = decision.get('kind')
         item = decision.get('item_id')
         by_id = {node['id']: node for node in doc['nodes']}
+        complaint = decision.get('complaint') is True
+        if complaint and action == 'update' and (item not in by_id or by_id[item]['status'] == 'done'):
+            # A completed or removed target cannot receive new work. Queue the
+            # complaint separately rather than reopening it or silently answering.
+            action, item = 'create', None
         if (action in ('update', 'prioritize', 'advise') or decision.get('time_limit') is not None
                 and action in ('answer', 'clarify')) and item not in by_id:
             raise tree.WorkPlanError('side target Work item missing')
@@ -420,9 +434,12 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
                  for node in target_path
                  if node.get('waiting_on') or node.get('status') == 'blocked']
         place = decision.get('queue_position')
-        # P0 is stored as canonical P1 and activated as P0 right after this
-        # commit (side_intake_mcp), like every other P0 entry point.
-        wants_p0 = decision.get('priority') == 'P0'
+        # P0 is stored as canonical P1 and activated after the board commit.
+        # Source urgency is a host fact, not an optional model decision.
+        queued = action in ('create', 'update', 'prioritize')
+        root = by_id[tree._root_of(by_id, item)] if queued and item else None
+        already_p0 = bool(root and root['status'] != 'done' and (root['id'], root.get('created_at')) in p0_roots)
+        wants_p0 = queued and (source_priority == 'P0' or decision.get('priority') == 'P0' or already_p0)
         board_priority = 'P1' if wants_p0 else decision.get('priority', '')
         compacted = None
         side_note_field = None
@@ -435,8 +452,8 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
                 title = decision['summary'].strip().splitlines()[0][:tree.MAX_TITLE_CHARS].strip()
             if not title:
                 raise tree.WorkPlanError('new Work title required')
-            item = tree.add_node(doc, None, title, note=decision.get('note', ''),
-                                 priority=board_priority, ref='side:' + receipt_id[:40])
+            note = decision.get('note', '') or (decision['summary'] if complaint else '')
+            item = tree.add_node(doc, None, title, note=note, priority=board_priority, ref='side:' + receipt_id[:40])
             if workflow is not None and not main_reply and not gate_check:
                 from .work_workflow import start as workflow_start
                 workflow_start(doc, item, receipt_id=receipt_id, source=workflow.get('source'),
@@ -464,19 +481,19 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
                 compacted = {**compacted, 'field': field}
             side_note_field = field
             by_id[item]['updated_at'] = time.time()
-        if action in ('update', 'prioritize') and decision.get('priority'):
-            # Priority is goal-scoped in the canonical tree. A request naming
-            # a detail promotes its existing goal, never creates a replacement.
-            item_root = tree._root_of(by_id, item)
+        if root and not already_p0 and (wants_p0 or decision.get('priority')):
+            # Priority belongs to the root. A follow-up must not rewrite an
+            # already active P0's canonical backing or its ordinary queue order.
+            item_root = root['id']
             tree.update_node(doc, item_root, priority=board_priority)
-            if (action == 'prioritize' and place is None and board_priority == 'P1'
+            if (action == 'prioritize' and place is None and board_priority == 'P1' and not wants_p0
                     and item_root != doc.get('active_root')):
                 tree.reorder_root(doc, item_root, 2 if doc.get('active_root') else 1)
         if action == 'prioritize':
-            if not decision.get('priority') and place is None:
+            if not wants_p0 and not decision.get('priority') and place is None:
                 raise tree.WorkPlanError('explicit priority or queue_position required')
             item = tree._root_of({node['id']: node for node in doc['nodes']}, item)
-        if place is not None:
+        if place is not None and not wants_p0:
             root = tree._root_of({node['id']: node for node in doc['nodes']}, item)
             if root == doc.get('active_root'):
                 if action != 'create':
@@ -500,7 +517,7 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
         time_limit = decision.get('time_limit')
         # A P0 goal runs in its own fork at once; main is not also asked to
         # schedule it (a recorded wait or a time limit still reaches main).
-        direct_p0 = wants_p0 and action in ('create', 'update', 'prioritize')
+        direct_p0 = wants_p0 and not already_p0
         # User 2026-11-18: only the side's own escalation reaches main.
         needs_handoff = not main_reply and action == 'advise'
         workflow_goal = (workflow is not None and action == 'create'
@@ -579,17 +596,21 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             position['version'] = doc['version'] + 1
             result.update(title=node['title'], priority=by_id[tree._root_of(by_id, item)].get('priority', ''),
                           queue=position)
+            if wants_p0:
+                result['priority'] = 'P0'
             if direct_p0:
-                result.update(priority='P0', p0_root_id=tree._root_of(by_id, item))
+                result['p0_root_id'] = tree._root_of(by_id, item)
         if effective_kind:
             # The receipt ACK and the understanding were already sent (user
             # requirement 2026-11-17); the final reply is the result alone, with
             # no second "ACK —". The committed outcome, never the model's guess,
             # closes it.
             text = decision['reply'].rstrip()
-            result['final_text'] = text + '\n\n' + outcome_text(result)
+            result['final_text'] = text + '\n\n' + outcome_text(result, priority='P0' if already_p0 else None)
         if asks_main and not main_reply:
             result['ask_main'] = True
+            if complaint:
+                result['complaint'] = True
         if decision.get('no_reply') is True and time_limit is None:
             result['no_reply'] = True
         receipts[receipt_id] = {'decision_digest': digest, 'applied_at': time.time(),

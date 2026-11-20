@@ -1,3 +1,4 @@
+import {T} from './texts.generated.js'
 // Independent actor state is host-owned, never accepted from model arguments.
 const PREFIX = 'mcp__ciel-runtime-router__'
 const CLAIM_GENERATION = /^[0-9a-f]{32}$/
@@ -562,7 +563,7 @@ JSON 객체 하나를 반환하십시오.
 {"understanding":"...","decision":{...},"expected_version":N}.
 decision 필드: action, kind, summary, reply, 그리고 필요할 때 item_id, title,
 note, priority, queue_position, release_waits, time_limit, relay, ask_main,
-no_reply. 다른 필드는 없습니다.
+no_reply, complaint. 다른 필드는 없습니다.
 "kind"는 위의 분류(status, info, clarify, request)입니다.
 "action"은 호스트가 하는 일이고 kind와 맞아야 합니다.
 - kind status 또는 info: action answer
@@ -1173,6 +1174,8 @@ function wakePromptText(entry,conversation) {
   if (entry.kind === 'notice' && entry.lead === AFTER_TURN_LEAD)
     return 'Ciel side wake '+id+': a host message beginning "'+AFTER_TURN_LEAD+'" was added to this conversation while you were idle. '+source
       +'Read it there and continue. This wake holds no event data, needs no acknowledgment and grants no approval.'
+  // The side's escalation (ask_main, complaints included) is main's to act on.
+  if (entry.kind === 'notice' && entry.lead === ASK_MAIN_LEAD) return T('mod_side_ask_main_wake',{id,source})
   const relay = entry.lead === RELAY_LEAD
   return entry.kind === 'notice'
     ? 'Ciel side wake '+id+': a host message beginning "'+(relay ? RELAY_LEAD : RELEASE_LEAD)+'" was added to this conversation while you were idle. '+source
@@ -1224,6 +1227,7 @@ async function wakeMain($,key) {
 const RELEASE_LEAD = 'Ciel side released recorded wait'
 const RELAY_LEAD = 'Ciel side relay for Work item'
 const AFTER_TURN_LEAD = 'Ciel side (after your turn):'
+const ASK_MAIN_LEAD = 'Ciel side asks main'
 // side_forward.text's first words.
 const FORWARD_LEAD = '[Ciel side 처리 실패 · 원문 전달'
 function noticeLead(text) {
@@ -1231,6 +1235,7 @@ function noticeLead(text) {
   return value.startsWith(RELAY_LEAD) ? RELAY_LEAD
     : value.startsWith(FORWARD_LEAD) ? FORWARD_LEAD
     : value.startsWith(AFTER_TURN_LEAD) ? AFTER_TURN_LEAD
+    : value.startsWith(ASK_MAIN_LEAD) ? ASK_MAIN_LEAD
     : RELEASE_LEAD
 }
 function trackAppend($,identity,eventId,kind,ref,recordedAt = null,durable = true,lead = null) {
@@ -2222,7 +2227,7 @@ async function relayToItem($,identity,event,result) {
   const state = await noticeToMain($,identity,event.receipt_id,header+'\nOriginal message:\n'+message+'\n'+forkNote+ask)
   $.ui.log('Side relay '+item+' → main ('+state+')'+(delivered.length ? ' + '+delivered.length+' fork(s)' : ''))
 }
-const DECISION_FIELDS = new Set(['action','kind','item_id','summary','reply','note','title','priority','queue_position','release_waits','time_limit','relay','ask_main','no_reply'])
+const DECISION_FIELDS = new Set(['action','kind','item_id','summary','reply','note','title','priority','queue_position','release_waits','time_limit','relay','ask_main','no_reply','complaint'])
 // The side turn ends with its decision, but models often wrap it in prose or a
 // ```json fence. Take the last parseable object that carries `decision`.
 export function decisionOf(answer) {
@@ -2303,10 +2308,13 @@ async function commitProposal($,actor,event,proposal,sentVia,usage) {
     }
     // The side's own escalation (ask_main): one notice to main, nothing to
     // acknowledge. A workflow handoff already carries it when one was made.
+    // A complaint carries the router's durable notice text, so a claim after a
+    // lost result offers the same notice instead of a second wording.
     if (value.result?.ask_main === true && !value.result.duplicate)
-      void noticeToMain($,actor.identity,event.receipt_id,'Ciel side asks main ('
-        +(value.result.item_id ? value.result.item_id+', ' : '')+'event '+event.receipt_id.slice(0,12)+'): '
-        +line(value.result.summary,300)+' — '+line(value.result.reply,600)).catch(() => {})
+      void noticeToMain($,actor.identity,event.receipt_id,typeof value.main_notice === 'string' && value.main_notice
+        ? value.main_notice
+        : 'Ciel side asks main ('+(value.result.item_id ? value.result.item_id+', ' : '')+'event '
+          +event.receipt_id.slice(0,12)+'): '+line(value.result.summary,300)+' — '+line(value.result.reply,600)).catch(() => {})
     $.clock.after(10, async () => { await recoverReply($,actor.identity,event) })
   }
 }

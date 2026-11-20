@@ -8,7 +8,7 @@ const scenario = process.argv[2]
 // forward-idle: the router offers the original of a quarantined event
 // (side_forward.text, passed by the test) to an idle main; no claim.
 const FORWARD_TEXT = process.argv[3] || ''
-let busy = scenario !== 'relay-idle' && scenario !== 'forward-idle'
+let busy = !['relay-idle','forward-idle','complaint-idle'].includes(scenario)
 sideMainBusy(() => busy)
 // Stage 3: register.js resumes a parked worker on its own lease first.
 const resumeCalls = []
@@ -53,7 +53,9 @@ const $ = {
       resolved.push(args.decision)
       value = {receipt:{receipt_id:args._host.receipt_id,stage:'processed'},
         result:{action:'update',item_id:'n2',title:'csv writer',summary:'Delimiter is a semicolon',duplicate:false,
-          relay:args.decision.relay ? {item_id:'n2'} : undefined,handoff:'not_required'}}
+          relay:args.decision.relay ? {item_id:'n2'} : undefined,handoff:'not_required',
+          ...(scenario === 'complaint-idle' ? {ask_main:true,complaint:true} : {})},
+        ...(scenario === 'complaint-idle' ? {main_notice:'Ciel side asks main (complaint · n2 · event eeeeeeeeeeee): Delimiter is still wrong'} : {})}
     }
     if (name === 'work_side_reply') value = {receipt:{receipt_id:args.receipt_id,stage:'processed'},arguments:null}
     if (name === 'work_side_wake') {
@@ -75,6 +77,12 @@ await startSide($)
 await pollSide($,'claude:parent')
 if (scenario !== 'forward-idle')
   await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({understanding:'understood in my own words',decision:{action:'update',kind:'request',item_id:'n2',
-    summary:'Delimiter is a semicolon',reply:'forwarded',note:'CSV delimiter must be ;',relay:scenario !== 'no-relay'},expected_version:4})})
-await new Promise(resolve => setTimeout(resolve, 20))
+    summary:'Delimiter is a semicolon',reply:'forwarded',note:'CSV delimiter must be ;',relay:!['no-relay','complaint-idle'].includes(scenario),
+    ...(scenario === 'complaint-idle' ? {complaint:true} : {})},expected_version:4})})
+// The notice and the idle wake run in hooks the harness does not await. A
+// fixed 20 ms wait lost the append on a loaded machine (2 of 5 runs on 3d42d1d).
+const idle = !busy
+const settled = () => scenario === 'no-relay' ? false : appended.length > 0 && (!idle || submitted.length > 0)
+for (let i = 0; i < 150 && !settled(); i++) await new Promise(resolve => setTimeout(resolve, 20))
+await new Promise(resolve => setTimeout(resolve, scenario === 'no-relay' ? 200 : 20))
 console.log(JSON.stringify({sent,appended,submitted,wakes,logs,resolved,resumeCalls}))
