@@ -198,13 +198,27 @@ class ContentBaselineTests(unittest.TestCase):
             ("MAX_CONTENT_TOTAL_BYTES", 1, "total byte bound"),
             ("CONTENT_CAPTURE_DEADLINE_SECONDS", 0, "deadline exceeded"),
         ]
+        # Celly 2026-11-19: a 20,001-entry worktree refused n1108's rework on
+        # every pump forever. A bound now records "not captured" and the handoff
+        # goes on; drift is then unknown, never a false "unchanged".
         for constant, value, message in checks:
             with self.subTest(constant=constant):
+                replacement = "replacement-" + constant
                 with patch.object(ws, constant, value):
-                    with self.assertRaisesRegex(ws.WorkspaceError, message) as refused:
-                        self.handoff(replacement="replacement-" + constant)
-                self.assertNotIn("tracked.txt", str(refused.exception))
-                self.assertNotIn(str(self.worktree), str(refused.exception))
+                    rebound = self.handoff(replacement=replacement)
+                self.assertEqual(replacement, rebound["lease_id"])
+                paths = self.baseline_paths(replacement)
+                skipped = paths["skipped"].read_text(encoding="utf-8")
+                self.assertIn(message, skipped)
+                self.assertNotIn("tracked.txt", skipped)
+                self.assertNotIn(str(self.worktree), skipped)
+                self.assertFalse(paths["intent"].exists())
+                self.assertFalse(paths["sidecar"].exists())
+                answer = self.drift(replacement)
+                self.assertEqual("unknown", answer["changed_before_bind"])
+                self.assertIn("not captured", answer["reason"])
+                # The next replacement starts again from the rebound handoff.
+                self.prior = replacement
 
     def bounded_enumeration(self, child_code, limit=8.0):
         """Run the streaming enumeration with ``git`` replaced by an owned child.

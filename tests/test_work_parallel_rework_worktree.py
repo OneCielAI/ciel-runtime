@@ -546,21 +546,21 @@ class UnboundReworkForkTests(ReworkFixture):
         self.assertEqual("unknown", self.drift_token(first))
         self.assert_beta_reads_every_store(replacement)
 
-    def test_entry_bound_blocks_rework_visibly_and_does_not_loop(self):
+    def test_entry_bound_lets_the_rework_proceed_with_unknown_drift(self):
+        # Celly 2026-11-19: n1108's rework stayed "deciding" with "content
+        # baseline entry bound exceeded: 20001/20000" on every pump; the
+        # baseline only attributes drift, so it must not stop the rework.
         first, worktree = self.submitted()
         with patch.object(workspace_module, "MAX_CONTENT_ENTRIES", 0):
             decided = self.review(first, "rework", "rework-1", evidence="fix result.txt")
-            self.assertEqual("deciding", decided["state"])
-            self.assertIn("entry bound exceeded", decided["reason"])
-            row = next(r for r in self.pending() if r["lease_id"] == first)
-            self.assertEqual("stage_failed", row["blocked"]["code"])
-            self.assertIn("entry bound exceeded", row["blocked"]["message"])
-            self.assertNotIn(str(worktree), row["blocked"]["message"])
-            version = self.call("status", {})["review"]["version"]
-            again = self.call("event", {"internal": True}, event="review_roll_forward", lease_id=first)
-            self.assertIn("entry bound exceeded", again["reason"])
-            self.assertEqual(version, self.call("status", {})["review"]["version"])
-        self.assertNotEqual("rework_ready", self.reviews()[first]["state"])
+            self.assertEqual("rework_ready", decided["state"], decided)
+            replacement = decided["dispatch"]["lease_id"]
+            paths = workspace_module.content_baseline_paths(self.repo, replacement)
+            self.assertIn("entry bound exceeded", paths["skipped"].read_text(encoding="utf-8"))
+            self.assertNotIn(str(worktree), paths["skipped"].read_text(encoding="utf-8"))
+            _, name = self.launch(replacement, 1, "agent-a1")
+            self.bind(replacement, "agent-a1", name)
+        self.assertEqual("unknown", self.drift_token(first))
 
     def test_late_bind_in_the_same_process_accepts_work_done_before_it(self):
         """No restart: the bind lands after the fork already edited and reported.
