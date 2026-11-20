@@ -1,0 +1,10 @@
+test_mcp_host_new_root_p0_goal_is_created_and_effective_p0 (test_work_http_controller.WorkHttpTests.test_mcp_host_new_root_p0_goal_is_created_and_effective_p0) ... ok
+test_related_ids_are_registered_and_edited_over_rest (test_work_http_controller.WorkHttpTests.test_related_ids_are_registered_and_edited_over_rest) ... ok
+test_mcp_host_new_root_p0_goal_is_created_and_effective_p0 (test_work_http_controller.WorkRouterAuthTests.test_mcp_host_new_root_p0_goal_is_created_and_effective_p0) ... ok
+test_related_ids_are_registered_and_edited_over_rest (test_work_http_controller.WorkRouterAuthTests.test_related_ids_are_registered_and_edited_over_rest) ... ok
+
+----------------------------------------------------------------------
+Ran 4 tests in 3.493s
+
+OK
+RAN 4 failures=0 errors=0 skipped=0

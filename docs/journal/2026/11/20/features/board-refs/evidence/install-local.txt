@@ -1,0 +1,120 @@
+START 2026-11-20T16:32:03.5146528-06:00 C:\Users\<user>\.local\share\ciel-runtime-hotfix5-20261119-210220 check=False
+CHECK base ciel_runtime_support/claude_mods/ciel-work/hooks/register.js A3A33BE7B50BDAE2
+CHECK base ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js 66AB504513D3C4A2
+CHECK base ciel_runtime_support/side_intake_mcp.py C25F37DA430C9466
+CHECK base ciel_runtime_support/side_intake_settings.py F42AF84F559703DA
+CHECK base ciel_runtime_support/side_understanding_outbox.py 297B3BF2B376F9C7
+CHECK base ciel_runtime_support/side_work_decision.py 3107B183F7F7EE20
+CHECK base ciel_runtime_support/side_workload.py 740D90E86A2D9508
+CHECK base ciel_runtime_support/work_application.py 61B9FE01F5FDAA95
+CHECK base ciel_runtime_support/work_gate_check.py E2DCAB31C884368F
+CHECK base ciel_runtime_support/work_http_controller.py AA9F3D4B22A137F0
+CHECK base ciel_runtime_support/work_mcp_tools.py CA0A39EE3DF6E606
+CHECK base ciel_runtime_support/work_parallel_workspace.py 2EDB10A9754761AB
+CHECK base ciel_runtime_support/work_plan_tree.py 0750A867D779925C
+CHECK base ciel_runtime_support/work_web_ui.py 43691E95111AA66A
+VERIFIED ciel_runtime_support/claude_mods/ciel-work/hooks/register.js 9851F70FEB9DDAB7
+VERIFIED ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js CF979CC8FEB04126
+VERIFIED ciel_runtime_support/side_intake_mcp.py 9E6864D2DABFFFA5
+VERIFIED ciel_runtime_support/side_intake_settings.py 34BCC12B0DB77A43
+VERIFIED ciel_runtime_support/side_understanding_outbox.py EB1508A91BE1150C
+VERIFIED ciel_runtime_support/side_work_decision.py FF72871D00828C14
+VERIFIED ciel_runtime_support/side_workload.py E8FD51A0094ED8F1
+VERIFIED ciel_runtime_support/work_application.py EAA52A0C28CBF49B
+VERIFIED ciel_runtime_support/work_gate_check.py D2FB4C7E79623C43
+VERIFIED ciel_runtime_support/work_http_controller.py 6448F0393F075591
+VERIFIED ciel_runtime_support/work_mcp_tools.py 29B1371C2BA9CFAD
+VERIFIED ciel_runtime_support/work_parallel_workspace.py 304BBD80EC7C1D66
+VERIFIED ciel_runtime_support/work_plan_tree.py 9F653CFF3D83EC1B
+VERIFIED ciel_runtime_support/work_web_ui.py 2789A6A9742220E9
+DONE C:\Users\<user>\.local\share\ciel-runtime-hotfix5-20261119-210220; no process restarted
+START 2026-11-20T16:32:05.0439500-06:00 C:\Users\<user>\.local\share\ciel-runtime check=False
+CHECK base ciel_runtime_support/claude_mods/ciel-work/hooks/register.js A3A33BE7B50BDAE2
+CHECK base ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js 66AB504513D3C4A2
+CHECK base ciel_runtime_support/side_intake_mcp.py C25F37DA430C9466
+CHECK base ciel_runtime_support/side_intake_settings.py F42AF84F559703DA
+CHECK base ciel_runtime_support/side_understanding_outbox.py 297B3BF2B376F9C7
+CHECK base ciel_runtime_support/side_work_decision.py 3107B183F7F7EE20
+CHECK base ciel_runtime_support/side_workload.py 740D90E86A2D9508
+CHECK base ciel_runtime_support/work_application.py 61B9FE01F5FDAA95
+CHECK base ciel_runtime_support/work_gate_check.py E2DCAB31C884368F
+CHECK base ciel_runtime_support/work_http_controller.py AA9F3D4B22A137F0
+CHECK base ciel_runtime_support/work_mcp_tools.py CA0A39EE3DF6E606
+CHECK base ciel_runtime_support/work_parallel_workspace.py 2EDB10A9754761AB
+CHECK base ciel_runtime_support/work_plan_tree.py 0750A867D779925C
+CHECK base ciel_runtime_support/work_web_ui.py 43691E95111AA66A
+VERIFIED ciel_runtime_support/claude_mods/ciel-work/hooks/register.js 9851F70FEB9DDAB7
+VERIFIED ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js CF979CC8FEB04126
+VERIFIED ciel_runtime_support/side_intake_mcp.py 9E6864D2DABFFFA5
+VERIFIED ciel_runtime_support/side_intake_settings.py 34BCC12B0DB77A43
+VERIFIED ciel_runtime_support/side_understanding_outbox.py EB1508A91BE1150C
+VERIFIED ciel_runtime_support/side_work_decision.py FF72871D00828C14
+VERIFIED ciel_runtime_support/side_workload.py E8FD51A0094ED8F1
+VERIFIED ciel_runtime_support/work_application.py EAA52A0C28CBF49B
+VERIFIED ciel_runtime_support/work_gate_check.py D2FB4C7E79623C43
+VERIFIED ciel_runtime_support/work_http_controller.py 6448F0393F075591
+VERIFIED ciel_runtime_support/work_mcp_tools.py 29B1371C2BA9CFAD
+VERIFIED ciel_runtime_support/work_parallel_workspace.py 304BBD80EC7C1D66
+VERIFIED ciel_runtime_support/work_plan_tree.py 9F653CFF3D83EC1B
+VERIFIED ciel_runtime_support/work_web_ui.py 2789A6A9742220E9
+DONE C:\Users\<user>\.local\share\ciel-runtime; no process restarted
+START 2026-11-20T16:32:06.3728662-06:00 C:\Users\<user>\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime check=False
+CHECK base ciel_runtime_support/claude_mods/ciel-work/hooks/register.js A3A33BE7B50BDAE2
+CHECK base ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js 66AB504513D3C4A2
+CHECK base ciel_runtime_support/side_intake_mcp.py C25F37DA430C9466
+CHECK base ciel_runtime_support/side_intake_settings.py F42AF84F559703DA
+CHECK base ciel_runtime_support/side_understanding_outbox.py 297B3BF2B376F9C7
+CHECK base ciel_runtime_support/side_work_decision.py 3107B183F7F7EE20
+CHECK base ciel_runtime_support/side_workload.py 740D90E86A2D9508
+CHECK base ciel_runtime_support/work_application.py 61B9FE01F5FDAA95
+CHECK base ciel_runtime_support/work_gate_check.py E2DCAB31C884368F
+CHECK base ciel_runtime_support/work_http_controller.py AA9F3D4B22A137F0
+CHECK base ciel_runtime_support/work_mcp_tools.py CA0A39EE3DF6E606
+CHECK base ciel_runtime_support/work_parallel_workspace.py 2EDB10A9754761AB
+CHECK base ciel_runtime_support/work_plan_tree.py 0750A867D779925C
+CHECK base ciel_runtime_support/work_web_ui.py 43691E95111AA66A
+VERIFIED ciel_runtime_support/claude_mods/ciel-work/hooks/register.js 9851F70FEB9DDAB7
+VERIFIED ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js CF979CC8FEB04126
+VERIFIED ciel_runtime_support/side_intake_mcp.py 9E6864D2DABFFFA5
+VERIFIED ciel_runtime_support/side_intake_settings.py 34BCC12B0DB77A43
+VERIFIED ciel_runtime_support/side_understanding_outbox.py EB1508A91BE1150C
+VERIFIED ciel_runtime_support/side_work_decision.py FF72871D00828C14
+VERIFIED ciel_runtime_support/side_workload.py E8FD51A0094ED8F1
+VERIFIED ciel_runtime_support/work_application.py EAA52A0C28CBF49B
+VERIFIED ciel_runtime_support/work_gate_check.py D2FB4C7E79623C43
+VERIFIED ciel_runtime_support/work_http_controller.py 6448F0393F075591
+VERIFIED ciel_runtime_support/work_mcp_tools.py 29B1371C2BA9CFAD
+VERIFIED ciel_runtime_support/work_parallel_workspace.py 304BBD80EC7C1D66
+VERIFIED ciel_runtime_support/work_plan_tree.py 9F653CFF3D83EC1B
+VERIFIED ciel_runtime_support/work_web_ui.py 2789A6A9742220E9
+DONE C:\Users\<user>\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime; no process restarted
+START 2026-11-20T16:32:07.5951704-06:00 G:\ciel-bridge-service\.npm-global\node_modules\@one-ciel-ai\ciel-runtime check=False
+CHECK base ciel_runtime_support/claude_mods/ciel-work/hooks/register.js A3A33BE7B50BDAE2
+CHECK base ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js 66AB504513D3C4A2
+CHECK base ciel_runtime_support/side_intake_mcp.py C25F37DA430C9466
+CHECK base ciel_runtime_support/side_intake_settings.py F42AF84F559703DA
+CHECK base ciel_runtime_support/side_understanding_outbox.py 297B3BF2B376F9C7
+CHECK base ciel_runtime_support/side_work_decision.py 3107B183F7F7EE20
+CHECK base ciel_runtime_support/side_workload.py 740D90E86A2D9508
+CHECK base ciel_runtime_support/work_application.py 61B9FE01F5FDAA95
+CHECK base ciel_runtime_support/work_gate_check.py E2DCAB31C884368F
+CHECK base ciel_runtime_support/work_http_controller.py AA9F3D4B22A137F0
+CHECK base ciel_runtime_support/work_mcp_tools.py CA0A39EE3DF6E606
+CHECK base ciel_runtime_support/work_parallel_workspace.py 2EDB10A9754761AB
+CHECK base ciel_runtime_support/work_plan_tree.py 0750A867D779925C
+CHECK base ciel_runtime_support/work_web_ui.py 43691E95111AA66A
+VERIFIED ciel_runtime_support/claude_mods/ciel-work/hooks/register.js 9851F70FEB9DDAB7
+VERIFIED ciel_runtime_support/claude_mods/ciel-work/hooks/side-intake.js CF979CC8FEB04126
+VERIFIED ciel_runtime_support/side_intake_mcp.py 9E6864D2DABFFFA5
+VERIFIED ciel_runtime_support/side_intake_settings.py 34BCC12B0DB77A43
+VERIFIED ciel_runtime_support/side_understanding_outbox.py EB1508A91BE1150C
+VERIFIED ciel_runtime_support/side_work_decision.py FF72871D00828C14
+VERIFIED ciel_runtime_support/side_workload.py E8FD51A0094ED8F1
+VERIFIED ciel_runtime_support/work_application.py EAA52A0C28CBF49B
+VERIFIED ciel_runtime_support/work_gate_check.py D2FB4C7E79623C43
+VERIFIED ciel_runtime_support/work_http_controller.py 6448F0393F075591
+VERIFIED ciel_runtime_support/work_mcp_tools.py 29B1371C2BA9CFAD
+VERIFIED ciel_runtime_support/work_parallel_workspace.py 304BBD80EC7C1D66
+VERIFIED ciel_runtime_support/work_plan_tree.py 9F653CFF3D83EC1B
+VERIFIED ciel_runtime_support/work_web_ui.py 2789A6A9742220E9
+DONE G:\ciel-bridge-service\.npm-global\node_modules\@one-ciel-ai\ciel-runtime; no process restarted

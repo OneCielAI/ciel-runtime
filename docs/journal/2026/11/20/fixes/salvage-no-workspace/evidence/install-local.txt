@@ -1,0 +1,12 @@
+START 2026-11-20T11:45:28.7059541-06:00 C:\Users\<user>\.local\share\ciel-runtime-hotfix5-20261119-210220
+VERIFIED ciel_runtime_support/work_parallel_mcp.py ACBBB30FE657D007
+VERIFIED ciel_runtime_support/work_parallel_receipts.py 0342735E7FC5A596
+DONE C:\Users\<user>\.local\share\ciel-runtime-hotfix5-20261119-210220; no process restarted
+START 2026-11-20T11:45:29.2655877-06:00 C:\Users\<user>\.local\share\ciel-runtime
+VERIFIED ciel_runtime_support/work_parallel_mcp.py ACBBB30FE657D007
+VERIFIED ciel_runtime_support/work_parallel_receipts.py 0342735E7FC5A596
+DONE C:\Users\<user>\.local\share\ciel-runtime; no process restarted
+START 2026-11-20T11:45:29.8234705-06:00 C:\Users\<user>\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime
+VERIFIED ciel_runtime_support/work_parallel_mcp.py ACBBB30FE657D007
+VERIFIED ciel_runtime_support/work_parallel_receipts.py 0342735E7FC5A596
+DONE C:\Users\<user>\AppData\Roaming\npm\node_modules\@one-ciel-ai\ciel-runtime; no process restarted

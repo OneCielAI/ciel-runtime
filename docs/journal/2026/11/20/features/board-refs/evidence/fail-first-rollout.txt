@@ -1,0 +1,111 @@
+test_related_ids_are_registered_and_edited_over_rest (test_work_http_controller.WorkHttpTests.test_related_ids_are_registered_and_edited_over_rest) ... FAIL
+test_related_ids_are_registered_and_edited_over_rest (test_work_http_controller.WorkRouterAuthTests.test_related_ids_are_registered_and_edited_over_rest) ... FAIL
+
+======================================================================
+FAIL: test_related_ids_are_registered_and_edited_over_rest (test_work_http_controller.WorkHttpTests.test_related_ids_are_registered_and_edited_over_rest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<worktree>\tests\test_work_http_controller.py", line 297, in test_related_ids_are_registered_and_edited_over_rest
+    self.assertEqual((["41", "40"], "41"), (root["refs"], root["ref"]))
+AssertionError: Tuples differ: (['41', '40'], '41') != (['41', '40'], '')
+
+First differing element 1:
+'41'
+''
+
+- (['41', '40'], '41')
+?                 --
+
++ (['41', '40'], '')
+
+======================================================================
+FAIL: test_related_ids_are_registered_and_edited_over_rest (test_work_http_controller.WorkRouterAuthTests.test_related_ids_are_registered_and_edited_over_rest)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<worktree>\tests\test_work_http_controller.py", line 297, in test_related_ids_are_registered_and_edited_over_rest
+    self.assertEqual((["41", "40"], "41"), (root["refs"], root["ref"]))
+AssertionError: Tuples differ: (['41', '40'], '41') != (['41', '40'], '')
+
+First differing element 1:
+'41'
+''
+
+- (['41', '40'], '41')
+?                 --
+
++ (['41', '40'], '')
+
+----------------------------------------------------------------------
+Ran 2 tests in 1.630s
+
+FAILED (failures=2)
+RAN 2 failures=2 errors=0 skipped=0
+test_claim_names_the_decision_fields_this_router_accepts (test_side_intake_mcp.SideMcpTests.test_claim_names_the_decision_fields_this_router_accepts) ... ERROR
+
+======================================================================
+ERROR: test_claim_names_the_decision_fields_this_router_accepts (test_side_intake_mcp.SideMcpTests.test_claim_names_the_decision_fields_this_router_accepts)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<worktree>\tests\test_side_intake_mcp.py", line 561, in test_claim_names_the_decision_fields_this_router_accepts
+    self.assertEqual(sorted(FIELDS), event['decision_fields'])
+                                     ~~~~~^^^^^^^^^^^^^^^^^^^
+KeyError: 'decision_fields'
+
+----------------------------------------------------------------------
+Ran 1 test in 0.114s
+
+FAILED (errors=1)
+RAN 1 failures=0 errors=1 skipped=0
+test_a_proposal_saved_before_refs_existed_still_commits (test_side_understanding_flow.UnderstandingFlowTests.test_a_proposal_saved_before_refs_existed_still_commits) ... FAIL
+
+======================================================================
+FAIL: test_a_proposal_saved_before_refs_existed_still_commits (test_side_understanding_flow.UnderstandingFlowTests.test_a_proposal_saved_before_refs_existed_still_commits)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<worktree>\tests\test_side_understanding_flow.py", line 126, in test_a_proposal_saved_before_refs_existed_still_commits
+    self.assertFalse(understood['error'], understood)
+AssertionError: True is not false : {'text': 'decision refs required: give the source ids in refs (target message, thread root, parent, conversation)', 'error': True}
+
+----------------------------------------------------------------------
+Ran 1 test in 0.122s
+
+FAILED (failures=1)
+RAN 1 failures=1 errors=0 skipped=0
+test_a_queue_decision_without_refs_is_corrected_then_commits_with_them (test_side_actor_failures_hotfix.CorrectiveTurnTests.test_a_queue_decision_without_refs_is_corrected_then_commits_with_them) ... FAIL
+test_refs_reach_only_a_router_that_accepts_them (test_side_actor_failures_hotfix.CorrectiveTurnTests.test_refs_reach_only_a_router_that_accepts_them) ... FAIL
+
+======================================================================
+FAIL: test_a_queue_decision_without_refs_is_corrected_then_commits_with_them (test_side_actor_failures_hotfix.CorrectiveTurnTests.test_a_queue_decision_without_refs_is_corrected_then_commits_with_them)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<worktree>\tests\test_side_actor_failures_hotfix.py", line 312, in test_a_queue_decision_without_refs_is_corrected_then_commits_with_them
+    self.assertEqual([{'to': 'actor-refs_refused_then_valid', 'mentionsError': True}], row['sends'])
+AssertionError: Lists differ: [{'to': 'actor-refs_refused_then_valid', 'mentionsError': True}] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+{'to': 'actor-refs_refused_then_valid', 'mentionsError': True}
+
+- [{'mentionsError': True, 'to': 'actor-refs_refused_then_valid'}]
++ []
+
+======================================================================
+FAIL: test_refs_reach_only_a_router_that_accepts_them (test_side_actor_failures_hotfix.CorrectiveTurnTests.test_refs_reach_only_a_router_that_accepts_them)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<worktree>\tests\test_side_actor_failures_hotfix.py", line 319, in test_refs_reach_only_a_router_that_accepts_them
+    self.assertEqual(([None, None], [], 1), (before['sentRefs'], before['failures'], before['resolves']))
+AssertionError: Tuples differ: ([None, None], [], 1) != ([['41', '40'], ['41', '40']], [], 1)
+
+First differing element 0:
+[None, None]
+[['41', '40'], ['41', '40']]
+
+- ([None, None], [], 1)
++ ([['41', '40'], ['41', '40']], [], 1)
+
+----------------------------------------------------------------------
+Ran 2 tests in 0.077s
+
+FAILED (failures=2)
+RAN 2 failures=2 errors=0 skipped=0
