@@ -1,0 +1,2 @@
+Linux Docker python:3.10-slim, changed modules: test_work_parallel_p0_events, test_work_mod_write_gate, test_work_parallel_mcp.
+RAN 228 failures=0 errors=0 skipped=33

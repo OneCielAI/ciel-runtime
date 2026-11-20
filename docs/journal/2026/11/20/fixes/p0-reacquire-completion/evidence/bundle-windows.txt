@@ -1,0 +1,3 @@
+Windows, isolated config, affected bundle of 81 test files (side, work gate, approval workflow, mod write gate, P0, parallel, wait, native, real-backend).
+Excluded on Windows because pytest is not installed there: tests/test_wait_boost_sidecar.py tests/test_wait_cleanup_finalizer.py tests/test_wait_cleanup_service.py tests/test_wait_effect_service.py tests/test_wait_parent_completion.py tests/test_wait_phase_service.py tests/test_wait_reacquire_history.py tests/test_wait_reacquire_service.py tests/test_wait_reserve_service.py 
+RAN 1323 failures=0 errors=0 skipped=56

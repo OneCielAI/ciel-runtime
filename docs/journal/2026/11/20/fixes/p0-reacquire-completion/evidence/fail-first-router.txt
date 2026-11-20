@@ -1,0 +1,16 @@
+test_reacquire_keeps_an_open_child_without_a_later_worker_report (test_work_parallel_p0_events.P0EventTests.test_reacquire_keeps_an_open_child_without_a_later_worker_report) ... ok
+test_reacquire_settles_an_open_child_the_worker_reported_after (test_work_parallel_p0_events.P0EventTests.test_reacquire_settles_an_open_child_the_worker_reported_after) ... FAIL
+
+======================================================================
+FAIL: test_reacquire_settles_an_open_child_the_worker_reported_after (test_work_parallel_p0_events.P0EventTests.test_reacquire_settles_an_open_child_the_worker_reported_after)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<HEAD tree>\tests\test_work_parallel_p0_events.py", line 450, in test_reacquire_settles_an_open_child_the_worker_reported_after
+    self.assertTrue(fresh.get("slot_reacquired"), fresh)
+AssertionError: None is not true : {'lease_id': 'c1059918447b4c3483ea24ff551b9742', 'parent_intent_id': '5845e023d5ff4b368390fd097e7615b5', 'send_id': 'b62d5a95e5b44f6e8c14175ef0f65062', 'child_generation': 1, 'state': 'slot_acquired', 'send_receipt': '4cd3ab8532048fa36d50aebb0995e991bb2862a04321c38544464c253414c9bf', 'ledger_before_version': 3, 'ledger_after_version': 4, 'host_id': 'agent', 'native_name': 'work-p0-5845e023d5ff4b368390fd097e7615b5', 'recovery_required': False}
+
+----------------------------------------------------------------------
+Ran 2 tests in 1.011s
+
+FAILED (failures=1)
+RAN 2 failures=1 errors=0 skipped=0

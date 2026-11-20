@@ -1,0 +1,63 @@
+test_p0_sendmessage_does_not_send_using_an_unsettled_prior_reacquire (test_work_mod_write_gate.WorkModWriteGateTests.test_p0_sendmessage_does_not_send_using_an_unsettled_prior_reacquire) ... FAIL
+test_p0_sendmessage_records_the_native_delivery_on_the_exact_reacquire (test_work_mod_write_gate.WorkModWriteGateTests.test_p0_sendmessage_records_the_native_delivery_on_the_exact_reacquire) ... FAIL
+test_pump_records_the_delivery_of_a_p0_parked_resume (test_work_mod_write_gate.WorkModWriteGateTests.test_pump_records_the_delivery_of_a_p0_parked_resume) ... FAIL
+test_pump_rolls_back_a_refused_p0_parked_resume_once (test_work_mod_write_gate.WorkModWriteGateTests.test_pump_rolls_back_a_refused_p0_parked_resume_once) ... FAIL
+
+======================================================================
+FAIL: test_p0_sendmessage_does_not_send_using_an_unsettled_prior_reacquire (test_work_mod_write_gate.WorkModWriteGateTests.test_p0_sendmessage_does_not_send_using_an_unsettled_prior_reacquire)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<HEAD tree>\tests\test_work_mod_write_gate.py", line 1419, in test_p0_sendmessage_does_not_send_using_an_unsettled_prior_reacquire
+    self.assertIn("recovery", result["deny"], result)
+AssertionError: 'recovery' not found in 'Work item n2 could not return to running: Parallel read failed: no active slot' : {'scenario': 'p0-sendmessage-settles-reacquire', 'sends': 0, 'completions': [], 'deny': 'Work item n2 could not return to running: Parallel read failed: no active slot', 'slot': False}
+
+======================================================================
+FAIL: test_p0_sendmessage_records_the_native_delivery_on_the_exact_reacquire (test_work_mod_write_gate.WorkModWriteGateTests.test_p0_sendmessage_records_the_native_delivery_on_the_exact_reacquire)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<HEAD tree>\tests\test_work_mod_write_gate.py", line 1413, in test_p0_sendmessage_records_the_native_delivery_on_the_exact_reacquire
+    self.assertEqual([{"lease": "L1", "outcome": "sent", "internal": True, "exact": True}],
+AssertionError: Lists differ: [{'lease': 'L1', 'outcome': 'sent', 'internal': True, 'exact': True}] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+{'lease': 'L1', 'outcome': 'sent', 'internal': True, 'exact': True}
+
+- [{'exact': True, 'internal': True, 'lease': 'L1', 'outcome': 'sent'}]
++ [] : {'scenario': 'p0-sendmessage-settles-reacquire', 'sends': 1, 'completions': [], 'deny': '', 'slot': True}
+
+======================================================================
+FAIL: test_pump_records_the_delivery_of_a_p0_parked_resume (test_work_mod_write_gate.WorkModWriteGateTests.test_pump_records_the_delivery_of_a_p0_parked_resume)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<HEAD tree>\tests\test_work_mod_write_gate.py", line 1425, in test_pump_records_the_delivery_of_a_p0_parked_resume
+    self.assertEqual([{"lease": "L1", "outcome": "sent", "internal": True}], result["completions"])
+AssertionError: Lists differ: [{'lease': 'L1', 'outcome': 'sent', 'internal': True}] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+{'lease': 'L1', 'outcome': 'sent', 'internal': True}
+
+- [{'internal': True, 'lease': 'L1', 'outcome': 'sent'}]
++ []
+
+======================================================================
+FAIL: test_pump_rolls_back_a_refused_p0_parked_resume_once (test_work_mod_write_gate.WorkModWriteGateTests.test_pump_rolls_back_a_refused_p0_parked_resume_once)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "<HEAD tree>\tests\test_work_mod_write_gate.py", line 1430, in test_pump_rolls_back_a_refused_p0_parked_resume_once
+    self.assertEqual([{"lease": "L1", "outcome": "failed", "internal": True}], result["completions"])
+AssertionError: Lists differ: [{'lease': 'L1', 'outcome': 'failed', 'internal': True}] != []
+
+First list contains 1 additional elements.
+First extra element 0:
+{'lease': 'L1', 'outcome': 'failed', 'internal': True}
+
+- [{'internal': True, 'lease': 'L1', 'outcome': 'failed'}]
++ []
+
+----------------------------------------------------------------------
+Ran 4 tests in 0.903s
+
+FAILED (failures=4)
+RAN 4 failures=4 errors=0 skipped=0
