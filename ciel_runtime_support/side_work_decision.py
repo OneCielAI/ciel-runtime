@@ -14,7 +14,7 @@ from . import work_plan_tree as tree
 ACTIONS = ('answer', 'clarify', 'update', 'create', 'prioritize', 'advise')
 KINDS = ('status', 'info', 'request', 'clarify')
 FIELDS = {'action', 'kind', 'item_id', 'summary', 'reply', 'note', 'title', 'priority', 'queue_position', 'release_waits', 'time_limit',
-          'relay', 'ask_main', 'no_reply', 'complaint'}
+          'relay', 'ask_main', 'no_reply', 'complaint', 'refs'}
 NO_QUEUE = '큐에 등록하지 않았습니다.'
 MAX_RELEASES = 100
 MAX_TIME_LIMIT_TEXT = 1000
@@ -145,7 +145,7 @@ def clamp_text(value, limit):
     return (value[:keep] + marker)[:limit]
 
 
-def validate(decision):
+def validate(decision, *, source_has_ids=False):
     if not isinstance(decision, dict) or set(decision) - FIELDS:
         raise tree.WorkPlanError('invalid side decision fields')
     for key, limit in (('summary', MAX_SIDE_SUMMARY), ('reply', MAX_SIDE_SUMMARY), ('note', tree.MAX_TEXT_CHARS),
@@ -189,6 +189,16 @@ def validate(decision):
                        for row in releases)
                 or len({row['id'] for row in releases}) != len(releases)):
             raise tree.WorkPlanError('invalid side decision release_waits')
+    refs = decision.get('refs')
+    if refs is not None:
+        # Every external id the actor found in the source or in its lookups:
+        # the message, its thread root, its parent, its conversation. Some
+        # sources carry ids that are shaped differently and longer than the node
+        # ref limit. Those are dropped, exactly like accumulated refs, so the
+        # request itself is never lost for one oversized id.
+        if not isinstance(refs, list) or not all(isinstance(row, str) for row in refs):
+            raise tree.WorkPlanError('invalid side decision refs')
+        decision['refs'] = tree._refs(refs, strict=False)
     if 'relay' in decision and type(decision['relay']) is not bool:
         raise tree.WorkPlanError('invalid side decision relay')
     for flag in ('ask_main', 'complaint'):
@@ -249,6 +259,16 @@ def validate(decision):
         raise tree.WorkPlanError('a request must create, update or prioritize Work')
     if place is not None and action not in ('create', 'update', 'prioritize'):
         raise tree.WorkPlanError('queue_position applies only to queued Work')
+    if action in ('create', 'update', 'prioritize') and not decision.get('refs'):
+        # User 2026-11-20: main cannot find the exact message it must answer when
+        # the queued item does not carry the source ids. Events whose source has
+        # no message or thread to point at (a stored receipt with none referenced)
+        # are not refused; a source that names an id must register every related
+        # one here, so nothing is hidden behind partial support.
+        if source_has_ids:
+            raise tree.WorkPlanError(
+                'decision refs required: give the source ids in refs (target message, thread root, parent, conversation)'
+            )
     if action in ('update', 'prioritize', 'advise') and not decision.get('item_id'):
         raise tree.WorkPlanError('existing Work identity required')
     if action == 'create' and decision.get('item_id'):
@@ -336,7 +356,7 @@ def _record_review(doc, receipt_id, result, source):
 
 def apply(store, receipt_id, decision, expected_version, *, main_reply=False, observed_digest=None, source=None,
           source_context=None, parked_projection=None, gate_check=False, workflow=None,
-          source_priority=None, p0_roots=frozenset()):
+          source_priority=None, p0_roots=frozenset(), source_has_ids=False):
     """``workflow`` (approval workflow on): {'source': {...}, 'prompt': digest}.
 
     A create then opens the goal's workflow record (intake -> proposal_due) and
@@ -345,8 +365,11 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
 
     ``source_priority`` is the host's reading of the event. ``p0_roots`` are the
     exact active P0 root identities (id, created_at), read before the board lock.
+    ``source_has_ids`` says the event's source names a concrete message or
+    thread (the host's own reading, mcp), so a queued decision must register
+    every related id in refs. Gate re-checks carry board ids only and are exempt.
     """
-    validate(decision)
+    validate(decision, source_has_ids=source_has_ids and not gate_check)
     # User 2026-11-18: ask_main is the side's one way to reach main (truly
     # urgent, or the person wants main's accountable answer), workflow or not.
     asks_main = decision.get('ask_main') is True
@@ -453,7 +476,9 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
             if not title:
                 raise tree.WorkPlanError('new Work title required')
             note = decision.get('note', '') or (decision['summary'] if complaint else '')
-            item = tree.add_node(doc, None, title, note=note, priority=board_priority, ref='side:' + receipt_id[:40])
+            refs = decision.get('refs') or []
+            item = tree.add_node(doc, None, title, note=note, priority=board_priority,
+                                  ref=refs[0] if refs else 'side:' + receipt_id[:40], refs=refs)
             if workflow is not None and not main_reply and not gate_check:
                 from .work_workflow import start as workflow_start
                 workflow_start(doc, item, receipt_id=receipt_id, source=workflow.get('source'),
@@ -481,6 +506,10 @@ def apply(store, receipt_id, decision, expected_version, *, main_reply=False, ob
                 compacted = {**compacted, 'field': field}
             side_note_field = field
             by_id[item]['updated_at'] = time.time()
+        if queued:
+            # Every follow-up of a request carries its own source ids; a later
+            # message must not replace the earlier ones main still needs to answer.
+            tree.append_refs(doc, item, decision.get('refs') or [])
         if root and not already_p0 and (wants_p0 or decision.get('priority')):
             # Priority belongs to the root. A follow-up must not rewrite an
             # already active P0's canonical backing or its ordinary queue order.

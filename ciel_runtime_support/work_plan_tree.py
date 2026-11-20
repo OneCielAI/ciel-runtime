@@ -32,7 +32,46 @@ MAX_QUEUE_IN_SNAPSHOT = 20
 # What an item waits for outside the conversation, and an id it is linked to;
 # both are one line and kept apart from the title.
 MAX_WAIT_CHARS = 120
+# External ids one node is linked to: a request often names several threads and
+# messages, and main finds the exact message to answer from these ids.
 MAX_REF_CHARS = 64
+MAX_REFS = 32
+
+
+def _refs(value: Any, *, strict: bool = True) -> list[str]:
+    """The node's external ids, one ``ref`` line each: unique, in the given order.
+
+    A stored board is refused on anything out of bounds. Runtime accumulation
+    (``append_refs``) drops instead, so one bad id never loses a decision.
+    """
+    if not isinstance(value, (list, tuple)):
+        if strict:
+            raise WorkPlanError("work node refs are not a list")
+        return []
+    out: list[str] = []
+    for row in value:
+        if not isinstance(row, str):
+            if strict:
+                raise WorkPlanError("work node has an invalid ref")
+            continue
+        clean = _line(row, MAX_REF_CHARS)
+        if len(row.strip()) > MAX_REF_CHARS:
+            # One id cut in two would name no message. Stored boards are
+            # refused; accumulated ids are dropped by append_refs.
+            if strict:
+                raise WorkPlanError("work node has an invalid ref")
+            continue
+        if not clean:
+            if strict:
+                raise WorkPlanError("work node has an invalid ref")
+            continue
+        if clean not in out:
+            out.append(clean)
+    if len(out) > MAX_REFS:
+        if strict:
+            raise WorkPlanError("work node has too many refs")
+        out = out[:MAX_REFS]
+    return out
 # Third-level rows per branch in the snapshot; the rest is counted.
 MAX_BRANCH_CHILDREN_IN_SNAPSHOT = 8
 MAX_WAITING_IN_CONTINUATION = 5
@@ -163,6 +202,10 @@ def normalize_document(raw: Any) -> dict[str, Any]:
             "evidence": _clip(item.get("evidence"), MAX_TEXT_CHARS),
             "waiting_on": _line(item.get("waiting_on"), MAX_WAIT_CHARS),
             "ref": _line(item.get("ref"), MAX_REF_CHARS),
+            # A board written before refs keeps its one ref as the first of them;
+            # older builds simply drop the extra field and keep reading the board.
+            "refs": _refs(item["refs"]) if "refs" in item else (
+                [_line(item.get("ref"), MAX_REF_CHARS)] if _line(item.get("ref"), MAX_REF_CHARS) else []),
             "urgent": item.get("urgent") is True and item.get("parent_id") is None,
             "updated_at": float(item.get("updated_at") or 0.0),
             "created_at": float(item.get("created_at", item.get("updated_at")) or 0.0),
@@ -268,7 +311,7 @@ def _insert_root_by_priority(doc: dict[str, Any], node: dict[str, Any]) -> None:
 
 
 def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any = "", *, now: float | None = None,
-             ref: Any = "", waiting_on: Any = "", within_scope: bool = False,
+             ref: Any = "", refs: Any = None, waiting_on: Any = "", within_scope: bool = False,
              priority: Any = "") -> str:
     stamp = time.time() if now is None else now
     by_id = _index(doc)
@@ -299,6 +342,8 @@ def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any =
         "evidence": "",
         "waiting_on": _line(waiting_on, MAX_WAIT_CHARS),
         "ref": _line(ref, MAX_REF_CHARS),
+        "refs": _refs(refs) if refs is not None else (
+            [_line(ref, MAX_REF_CHARS)] if _line(ref, MAX_REF_CHARS) else []),
         "urgent": False,
         "created_at": stamp,
         "updated_at": stamp,
@@ -328,7 +373,7 @@ def add_subtree(doc: dict[str, Any], parent_id: str | None, spec: Any, *, now: f
     if not isinstance(spec, dict):
         raise WorkPlanError("a plan node must be an object with a title")
     node_id = add_node(doc, parent_id, spec.get("title"), spec.get("note", ""), now=now,
-                       ref=spec.get("ref", ""), waiting_on=spec.get("waiting_on", ""), within_scope=within_scope,
+                       ref=spec.get("ref", ""), refs=spec.get("refs"), waiting_on=spec.get("waiting_on", ""), within_scope=within_scope,
                        priority=spec.get("priority", ""))
     children = spec.get("children", [])
     if not isinstance(children, list):
@@ -366,6 +411,8 @@ def set_plan(doc: dict[str, Any], spec: Any, root_id: str | None = None, *, now:
     for key, limit in (("ref", MAX_REF_CHARS), ("waiting_on", MAX_WAIT_CHARS)):
         if key in spec:
             root[key] = _line(spec[key], limit)
+    if "refs" in spec:
+        root["refs"] = _refs(spec["refs"])
     if "priority" in spec:
         if spec["priority"] not in ("", *PRIORITIES):
             raise WorkPlanError("priority must be one of P1, P2, P3, P4, P5")
@@ -386,7 +433,7 @@ def set_plan(doc: dict[str, Any], spec: Any, root_id: str | None = None, *, now:
 
 def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title: Any = None,
                 note: Any = None, progress: Any = None, evidence: Any = None, now: float | None = None,
-                waiting_on: Any = None, ref: Any = None, priority: Any = None) -> dict[str, Any]:
+                waiting_on: Any = None, ref: Any = None, refs: Any = None, priority: Any = None) -> dict[str, Any]:
     stamp = time.time() if now is None else now
     by_id = _index(doc)
     node_id = str(node_id)
@@ -421,6 +468,8 @@ def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title:
         candidate["waiting_on"] = _line(waiting_on, MAX_WAIT_CHARS)
     if ref is not None:
         candidate["ref"] = _line(ref, MAX_REF_CHARS)
+    if refs is not None:
+        candidate["refs"] = _refs(refs)
     if priority is not None:
         if node["parent_id"] is not None:
             raise WorkPlanError("priority belongs to a goal, not a detail item")
@@ -458,6 +507,29 @@ def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title:
         set_phase(doc, PHASE_PLANNING)
         _advance_queue(doc)
     return node
+
+
+def append_refs(doc: dict[str, Any], node_id: str, values: Any) -> list[str]:
+    """Add external ids to one node, keeping order and dropping duplicates.
+
+    Runtime accumulation, not a scope edit: a new related id never returns a goal
+    to planning, and a malformed or over-limit id is dropped rather than losing
+    the update that carried it.
+    """
+    by_id = _index(doc)
+    node_id = str(node_id)
+    if node_id not in by_id:
+        raise WorkPlanError(f"unknown node {node_id}")
+    node = by_id[node_id]
+    merged = list(node.get("refs") or [])
+    for clean in _refs(values, strict=False):
+        if clean in merged:
+            continue
+        if len(merged) >= MAX_REFS:
+            break
+        merged.append(clean)
+    node["refs"] = merged
+    return merged
 
 
 COMPLETED_RETENTION_SECONDS = 86400
@@ -813,6 +885,7 @@ def _select_refusal(doc: dict[str, Any], root_id: str) -> str:
 
 def _node_summary(node: dict[str, Any]) -> dict[str, Any]:
     result = {key: node.get(key, "") for key in ("id", "title", "status", "ref", "waiting_on", "urgent")}
+    result["refs"] = list(node.get("refs") or [])
     if node.get("parent_id") is None:
         result["phase"] = node.get("phase", PHASE_PLANNING)
         result["priority"] = node.get("priority", "")
@@ -1140,7 +1213,10 @@ def _reopen_ancestors(doc: dict[str, Any], node_id: str | None, stamp: float) ->
 
 
 def _display_title(node: dict[str, Any]) -> str:
-    title = f"[ {node['ref']} ] {node['title']}" if node.get("ref") else node["title"]
+    # Several related ids, all of them: main answers the first one and must be
+    # able to find every message this item is linked to (user 2026-11-20).
+    shown = node.get("refs") or ([node["ref"]] if node.get("ref") else [])
+    title = f"[ {' · '.join(shown)} ] {node['title']}" if shown else node["title"]
     if node.get("urgent"):
         title += " [urgent]"
     if node.get("waiting_on"):

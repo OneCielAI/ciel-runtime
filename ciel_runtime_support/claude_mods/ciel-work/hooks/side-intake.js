@@ -495,6 +495,21 @@ Work에 관한 것이라는 이유만으로 오래된 이전 이벤트를 대신
 - 이미 한 말을 다시 하지 마십시오. 상대의 확인 글에 다시 확인 글을 달지 마십시오.
 
 정확히 분류하십시오.
+
+
+큐 등록 시 관련 id (필수 규칙).
+- Work를 create, update, prioritize할 때는 이 요청과 관련된 id 전부를 decision의
+  "refs"에 반드시 배열로 넣으십시오. 빠지면 호스트가 거부합니다.
+- 넣을 id: 이벤트가 가리키는 글(target_message_id, source_ref가 없을 때는
+  이벤트 자신의 message_id), 그 글의 스레드 루트(thread_root_id), 답글이면 부모 글
+  (reply_to_message_id), 대화(conversation_id). 당신이 조회 중 확인한 이 요청과
+  관계된 다른 메시지 id도 전부 넣습니다. target_message_id를 첫 번째로 두십시오.
+- 확인하지 않은 id를 지어내지 마십시오. 이 이벤트와 조회 결과에서 실제 확인한 id만
+  넣습니다. 중복은 호스트가 없앱니다.
+- 메인과 그 항목을 맡은 포크는 이 id를 보고 메인이 답할 정확한 메시지를 찾습니다.
+  본문에 id를 적는 것만으로는 되지 않으며, refs에 넣어야 보드에 등록됩니다.
+- 게이트 재점검 이벤트처럼 사람이 보낸 원본이 없는 경우: 거짓 id를 만들지 마십시오.
+  게이트 스레드를 조회해서 메시지 id를 실제로 확인한 경우에만 그 id를 refs에 넣습니다.
 - status: 현재 Work 상태를 직접 보고합니다. 요청 복기도 Work도 없습니다.
 - info: 필요한 것만 모아 정리해서 답합니다. Work는 없습니다.
 - clarify: 필요한 사실이 빠졌습니다. 정확한 질문 하나를 합니다. Work는 없습니다.
@@ -563,7 +578,7 @@ JSON 객체 하나를 반환하십시오.
 {"understanding":"...","decision":{...},"expected_version":N}.
 decision 필드: action, kind, summary, reply, 그리고 필요할 때 item_id, title,
 note, priority, queue_position, release_waits, time_limit, relay, ask_main,
-no_reply, complaint. 다른 필드는 없습니다.
+no_reply, complaint, refs(관련 id 전체). 다른 필드는 없습니다.
 "kind"는 위의 분류(status, info, clarify, request)입니다.
 "action"은 호스트가 하는 일이고 kind와 맞아야 합니다.
 - kind status 또는 info: action answer
@@ -2227,7 +2242,7 @@ async function relayToItem($,identity,event,result) {
   const state = await noticeToMain($,identity,event.receipt_id,header+'\nOriginal message:\n'+message+'\n'+forkNote+ask)
   $.ui.log('Side relay '+item+' → main ('+state+')'+(delivered.length ? ' + '+delivered.length+' fork(s)' : ''))
 }
-const DECISION_FIELDS = new Set(['action','kind','item_id','summary','reply','note','title','priority','queue_position','release_waits','time_limit','relay','ask_main','no_reply','complaint'])
+const DECISION_FIELDS = new Set(['action','kind','item_id','summary','reply','note','title','priority','queue_position','release_waits','time_limit','relay','ask_main','no_reply','complaint','refs'])
 // The side turn ends with its decision, but models often wrap it in prose or a
 // ```json fence. Take the last parseable object that carries `decision`.
 export function decisionOf(answer) {

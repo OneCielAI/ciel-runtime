@@ -549,7 +549,9 @@ function cellClipped(value, cells) {
   return out
 }
 function itemTitle(node, width) {
-  return clipped((node.ref ? '[ ' + node.ref + ' ] ' : '') + node.title
+  // Every related id (main finds the exact message it must answer from these).
+  const refs = Array.isArray(node.refs) && node.refs.length ? node.refs.join(' · ') : node.ref
+  return clipped((refs ? '[ ' + refs + ' ] ' : '') + node.title
     + (node.urgent ? ' [urgent]' : '') + (node.waiting_on ? ' ◷ ' + node.waiting_on : ''), width)
 }
 // Indentation and row prefixes are kept outside the clipped (whitespace-collapsing) text.

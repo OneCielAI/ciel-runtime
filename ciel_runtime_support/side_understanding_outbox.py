@@ -65,9 +65,14 @@ def save_proposal(state_dir, identity, receipt_id, generation, proposal):
         decision = proposal.get('decision')
         expected = proposal.get('expected_version')
         from .side_work_decision import validate
+        from .side_intake_inbox import source_identity
+        from .work_gate_check import EVENT_PREFIX as GATE_CHECK_PREFIX
         if not isinstance(decision, dict):
             raise WorkPlanError('side decision object required')
-        validate(decision)
+        # Refs are judged against this exact event: a host gate re-check names
+        # board ids only, and its actor must not invent message ids.
+        gate_check = str(row.get('event_key') or '').startswith(GATE_CHECK_PREFIX)
+        validate(decision, source_has_ids=source_identity(row.get('text')) is not None and not gate_check)
         if expected is not None and type(expected) is not int:
             raise WorkPlanError('expected Work version must be an integer')
         value = {'understanding': understanding, 'decision': decision, 'expected_version': expected,

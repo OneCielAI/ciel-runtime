@@ -101,6 +101,7 @@ def schemas():
                      'required': ['id', 'waiting_on'], 'additionalProperties': False}},
                  'relay': {'type': 'boolean'}, 'ask_main': {'type': 'boolean'},
                  'no_reply': {'type': 'boolean'}, 'complaint': {'type': 'boolean'},
+                 'refs': {'type': 'array', 'maxItems': 32, 'items': {'type': 'string', 'maxLength': 64}},
                  'time_limit': {'type': 'object', 'properties': {
                      'text': {'type': 'string', 'maxLength': 1000},
                      'due_at': {'type': 'string', 'maxLength': 100},
@@ -634,14 +635,16 @@ def run(name, args, config, state_dir, identity, store):
             # Work off has no queue to register in; the complaint still reaches main.
             decision = {**{k: v for k, v in decision.items() if k != 'complaint'}, 'ask_main': True}
             args = {**args, 'decision': decision}
-        validate(decision)
+        from .side_intake_inbox import source_identity as _resolve_source_identity
+        from .work_gate_check import EVENT_PREFIX as GATE_CHECK_PREFIX
+        gate_check = str((row or {}).get('event_key') or '').startswith(GATE_CHECK_PREFIX)
+        validate(decision, source_has_ids=_resolve_source_identity((row or {}).get('text')) is not None
+                 and not gate_check)
         if config.get('work_mode', True) is not True and decision.get('action') not in ('answer', 'clarify'):
             raise WorkPlanError('Work is off; answering allowed, queue mutation denied')
         # A handoff follow-up carries main's own answer back to the source. Its
         # decision never asks main again (owned proof 2026-11-08: 4 cycles in 5 min).
         main_reply = str((row or {}).get('event_key') or '').startswith('handoff:')
-        from .work_gate_check import EVENT_PREFIX as GATE_CHECK_PREFIX
-        gate_check = str((row or {}).get('event_key') or '').startswith(GATE_CHECK_PREFIX)
         # One recheck per event: a second board change commits on the current board.
         observed = host.get('work_digest') if not (row or {}).get('rechecks') else None
         changed = None
@@ -657,6 +660,7 @@ def run(name, args, config, state_dir, identity, store):
                            source=source_identity(original), source_priority=source_priority(original),
                            p0_roots=p0_roots, source_context=(row or {}).get('source_context'),
                            parked_projection=parked, gate_check=gate_check,
+                           source_has_ids=_resolve_source_identity(original) is not None,
                            workflow=side_workflow_context(config, state_dir, row))
         except WorkChanged as error:
             changed = str(error)

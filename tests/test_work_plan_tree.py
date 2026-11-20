@@ -42,6 +42,35 @@ class WorkPlanTreeTests(unittest.TestCase):
         with self.assertRaises(t.WorkPlanError):
             t.set_plan(t.empty_document(), nested(t.MAX_DEPTH + 1))
 
+    def test_refs_are_an_ordered_accumulated_list(self):
+        root = t.add_node(self.doc, None, "linked", refs=[" 154304 ", "153480"], ref="154304", now=10)
+        node = next(n for n in self.doc["nodes"] if n["id"] == root)
+        self.assertEqual(["154304", "153480"], node["refs"])
+        self.assertEqual("154304", node["ref"])
+        t.add_node(self.doc, root, "step", refs=["153480"], now=11)
+        t.update_node(self.doc, root, refs=["9" * 40, "154304"], now=12)
+        row = next(n for n in self.doc["nodes"] if n["id"] == root)
+        self.assertEqual(["9" * 40, "154304"], row["refs"])
+        t.append_refs(self.doc, root, ["154304", "153480", "9" * 200, "", "x" * 65])
+        self.assertEqual(["9" * 40, "154304", "153480"], row["refs"])
+        self.assertEqual(self.doc, t.normalize_document(self.doc))
+        step = next(n for n in self.doc["nodes"] if n["title"] == "step")
+        self.assertEqual(["153480"], t._node_summary(step)["refs"])
+
+    def test_a_stored_ref_becomes_the_first_ref(self):
+        doc = t.normalize_document(dict(t.empty_document(),
+                                        nodes=[dict(node("n1"), ref="123456", title="old")]))
+        self.assertEqual(["123456"], doc["nodes"][0]["refs"])
+
+    def test_refs_are_bounded(self):
+        with self.assertRaises(t.WorkPlanError):
+            t.add_node(self.doc, None, "bad", refs=[str(i) for i in range(t.MAX_REFS + 1)])
+        with self.assertRaises(t.WorkPlanError):
+            t.add_node(self.doc, None, "bad", refs=["ok", "x" * 65])
+        raw = dict(t.empty_document(), nodes=[dict(node("n1"), refs="notalist", title="old")])
+        with self.assertRaises(t.WorkPlanError):
+            t.normalize_document(raw)
+
     def test_registration_has_no_hundred_node_limit(self):
         root = t.set_plan(self.doc, {"title": "goal", "children": [
             {"title": str(i)} for i in range(120)]})

@@ -56,7 +56,7 @@ class UnderstandingFlowTests(unittest.TestCase):
 
     def proposal(self, understanding='결제 재시도 버그 수정 요청으로 이해했습니다. 스테이징에서 오늘 안에 확인이 필요합니다.'):
         return {'understanding': understanding, 'expected_version': self.store.read()['version'],
-                'decision': {'action': 'create', 'kind': 'request', 'title': '결제 재시도 버그 수정',
+                'decision': {'refs': ['999'], 'action': 'create', 'kind': 'request', 'title': '결제 재시도 버그 수정',
                              'summary': 'payment retry fix on staging today', 'priority': 'P2',
                              'reply': '새 작업으로 등록했습니다.'}}
 
