@@ -2,6 +2,10 @@
 
 ## 2026-11-20
 
+- 05:24Z: npm beta 0.2.51-beta.20261120-051824.6e0818e published (gitHead 6e0818e8). Local home, Celly and KOBE overlays carry the same four changed files (hash-checked).
+- 05:18Z: beta 6e0818e pushed (merge of ad6eb74, cfe88b6, 460f264). Linux Docker 453 pass on the archived commit; Windows real-backend bundle 161 pass.
+- 04:50Z: main review AttributeError on a run with exit None fixed (Betty report); fail-first test added.
+
 - 03:40Z: Review reminder ignores a pane snapshot older than the review queue (Andy: 20 finalized results reminded). Fail-first scenario added. n2471 API-block lease recorded as an open observation.
 - 03:35Z: Linux Docker (Python 3.11.2, Node 22) ran the 451-test bundle with zero failures.
 
