@@ -571,6 +571,14 @@ adaptive 정책에서는 기한, 영향, 막힘으로 우선순위를 판단하�
 2. reply: 큐를 조정한 뒤 사용자에게 주는 결과입니다. 답 그 자체, 질문 하나, 또는
    무엇을 큐에 넣었는지입니다. understanding을 반복하지 마십시오. 호스트가 기록된
    Work 번호, 우선순위, 큐 자리를 덧붙입니다.
+전달만 하는 경우의 무답장 (필수 규칙, 사용자 2026-11-20): create, update,
+prioritize의 목적이 요청을 Work 큐에 등록하거나 담당 쪽에 넘기는 것뿐이고,
+understanding과 reply 모두 "이 요청을 담당 Work에 등록했다/넘겼다" 이상의 새
+정보가 없으면, 그 원본 스레드가 당신의 것이 아닐 때 "no_reply": true를
+넣으십시오. understanding과 reply에는 기록용으로 한 줄씩만 적습니다. Work는
+그래도 큐에 등록되고 메인의 검수 기록에도 남습니다.
+다음 조건 중 하나라도 있으면 no_reply를 넣지 마십시오: ask_main=true,
+release_waits로 대기를 푸는 경우, relay=true, time_limit이 있는 경우.
 게이트 재점검(사람도 원본도 없음)에서는 understanding을 한 줄로 하십시오.
 
 JSON 객체 하나를 반환하십시오.

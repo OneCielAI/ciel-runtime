@@ -25,6 +25,13 @@ def walkie(message, priority):
                                 'message_context': {'thread_task': {'priority': priority}}}})
 
 
+def walkie_event(message, text):
+    """A deliverable external event: the implicit Walkie reply route binds it."""
+    return json.dumps({'type': 'com.ciel.walkie.support.message', 'data': {
+        'conversation': '34886995-4a66-4527-a618-814e9cb0a5bf', 'message_id': message, 'event_type': 'message.created',
+        'text': text, 'message_context': {'id': message, 'thread_task': {'priority': 2}}}})
+
+
 class SideQueueStarvationTests(unittest.TestCase):
     def test_a_gate_recheck_is_claimed_before_p1_events(self):
         with tempfile.TemporaryDirectory() as raw:
@@ -66,13 +73,48 @@ class SideQueueStarvationTests(unittest.TestCase):
             self.assertEqual('not_applicable', sent['state'])
             self.assertNotIn('arguments', sent)
 
-    def test_no_reply_applies_only_to_a_plain_answer(self):
-        request = {'action': 'create', 'kind': 'request', 'title': 't', 'summary': 's', 'reply': 'r', 'no_reply': True}
-        validate(request)
-        self.assertNotIn('no_reply', request)
+    def test_no_reply_applies_only_when_nothing_reaches_anyone(self):
         asks = {'action': 'answer', 'kind': 'status', 'summary': 's', 'reply': 'r', 'no_reply': True, 'ask_main': True}
         validate(asks)
         self.assertNotIn('no_reply', asks)
+        releasing = {'action': 'answer', 'kind': 'status', 'summary': 's', 'reply': 'r', 'no_reply': True,
+                     'release_waits': [{'id': 'n1', 'waiting_on': 'approval'}]}
+        validate(releasing)
+        self.assertNotIn('no_reply', releasing)
+
+    def test_a_forward_only_queue_decision_posts_nothing_to_the_thread(self):
+        # Prody 154103, user decision 2026-11-20: a decision that only queues
+        # or forwards the request leaves no message on another person's thread.
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            inbox = SideIntakeInbox(root, IDENTITY)
+            store = session_work_plan_store(root, IDENTITY)
+            config = {'work_side_intake': {'enabled': True, 'reply_connectors': []}}
+
+            def settle(event_key, decision):
+                key = inbox.receive(walkie_event(event_key, 'please handle this'), 'forward:' + event_key,
+                                    route={'source_kind': 'external_event', 'channel': 'external:default'})['receipt_id']
+                leased = claim(root, IDENTITY, 'side-1')
+                result = apply(store, key, decision, store.read()['version'])
+                finish(root, IDENTITY, key, leased['generation'], result)
+                return result, prepare(root, IDENTITY, key, config=config)
+
+            decision = {'action': 'create', 'kind': 'request', 'title': 'forwarded task',
+                        'summary': 'forwarded to Work', 'reply': 'Queued for the owning session to handle.',
+                        'refs': ['201'], 'no_reply': True}
+            result, sent = settle('201', decision)
+            self.assertTrue(result['no_reply'], result)
+            self.assertEqual(['forwarded task'], [node['title'] for node in store.read()['nodes']])
+            self.assertEqual('not_applicable', sent['state'], sent)
+            self.assertNotIn('arguments', sent)
+            # ask_main carries the result to main, so the source still gets its answer.
+            asks, sent = settle('202', {**decision, 'title': 'asked task', 'ask_main': True})
+            self.assertNotIn('no_reply', asks, asks)
+            self.assertIn('arguments', sent, sent)
+            # A complaint is rewritten to ask_main by validate, so it is never silent.
+            complaint, sent = settle('203', {**decision, 'title': 'complained task', 'complaint': True})
+            self.assertNotIn('no_reply', complaint, complaint)
+            self.assertIn('arguments', sent, sent)
 
     def test_the_mod_keeps_ask_main_and_no_reply(self):
         source = SIDE_JS.read_text(encoding='utf-8')
