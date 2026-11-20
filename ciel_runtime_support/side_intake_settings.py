@@ -9,6 +9,10 @@ FIELDS = {
     'reply_connectors': ([], None),
     'priority_policy': ('adaptive', ('adaptive', 'explicit')),
     'instruction': ('', None),
+    # How a side actor starts (user 2026-11-20): "fork" inherits main's whole
+    # conversation; "fresh" is an empty conversation with main's own system
+    # prompt and MCP tools, for simple events that need no main context.
+    'session': ('fork', ('fork', 'fresh')),
 }
 # Native forks always inherit main. Historical overrides remain harmless on disk
 # but are never projected to runtime or exposed by active settings UI.

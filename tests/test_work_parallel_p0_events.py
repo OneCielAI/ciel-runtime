@@ -127,6 +127,33 @@ class P0EventTests(unittest.TestCase):
         self.assertEqual("reserved", side["intents"][second["intent_id"]]["state"])
         self.assertEqual(old_run, m.coordination(self.store).read()["runs"][first["lease_id"]])
 
+    def test_closing_an_ended_intent_with_a_reacquire_send_keeps_the_p0_store_valid(self):
+        # Celly 2026-11-20 n1041: the ended lease's bound intent had an open
+        # reacquire send; closing the intent was refused as "P0 reacquire parent
+        # intent invalid", so the next P0 launch of the item failed every time.
+        first = self.reserve()
+        launch = {key: first[key] for key in ("intent_id", "lease_id", "dispatch_name")}
+        self.call("p0_launch_spawning", {"internal": True}, **launch)
+        self.call("bind", {"host_id": "agent", "agent_name": first["dispatch_name"]}, lease_id=first["lease_id"])
+        side = p0_store(self.store)
+        intent = side.read()["intents"][first["intent_id"]]
+        side._change(lambda state: state["sends"].__setitem__("5" * 32, {
+            "send_id": "5" * 32, "parent_intent_id": intent["intent_id"], "lease_id": first["lease_id"],
+            "scope": intent["scope"], "root_id": intent["root_id"], "item_id": intent["item_id"],
+            "host_id": "agent", "native_name": first["dispatch_name"], "state": "slot_acquired",
+            "send_receipt": "a" * 64, "child_generation": 1, "slot_before_version": 1, "slot_after_version": 2,
+            "rollback_receipt_digest": None, "outcome": None, "operation_digest": None,
+            "created_at": 10.0, "updated_at": 10.0}), side.read()["version"])
+        self.store._change(lambda doc: doc["leases"][first["lease_id"]].update(
+            state="orphaned", slot=False, usage=0, report_hash=None, idle_proof="owner ended",
+            evidence="owner ended", terminal={"reason": "orphaned", "observed_at": 10.0, "proof": "owner ended"}),
+            self.store.read()["version"])
+        second = self.reserve()
+        self.assertNotEqual(first["lease_id"], second["lease_id"])
+        after = p0_store(self.store).read()
+        self.assertEqual("terminal", after["intents"][first["intent_id"]]["state"])
+        self.assertEqual([], [row for row in after["sends"].values() if row["lease_id"] == first["lease_id"]])
+
     def test_replaying_a_prepared_assignment_preserves_its_workspace_and_run(self):
         first = self.reserve()
         before = m.coordination(self.store).read()["runs"][first["lease_id"]]

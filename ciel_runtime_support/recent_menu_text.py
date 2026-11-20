@@ -44,6 +44,7 @@ TEXT = {
     "work_side_intake_max_active": ("Concurrent side actors", "동시 사이드 처리자", "同時サイド処理数", "侧边并发处理数"),
     "work_side_intake_reply_connectors": ("External reply route / Walkie preset (JSON)", "외부 응답 경로 / Walkie 프리셋 (JSON)", "外部返信経路 / Walkie プリセット（JSON）", "外部回复路径 / Walkie 预设（JSON）"),
     "work_side_intake_priority_policy": ("Side priority policy", "사이드 우선순위 판단", "サイド優先度方針", "侧边优先级策略"),
+    "work_side_intake_session": ("Side actor session", "사이드 액터 세션", "サイドアクターのセッション", "侧边处理器会话"),
     "work_side_intake_instruction": ("Side SSE processing instruction", "사이드 SSE 처리 지침", "サイド SSE 処理指示", "侧边 SSE 处理指令"),
     "work_parallel_enabled": ("Work parallel execution", "Work 병렬 실행", "Work 並列実行", "Work 并行执行"),
     "work_parallel_paused": ("Pause Work parallel execution", "Work 병렬 실행 일시정지", "Work 並列実行を一時停止", "暂停 Work 并行执行"),

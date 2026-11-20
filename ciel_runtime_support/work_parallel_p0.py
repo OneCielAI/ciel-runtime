@@ -833,6 +833,14 @@ class WorkParallelP0Store:
                     continue
                 row.update(state="terminal", updated_at=stamp)
                 closed.append(row["intent_id"])
+            # A reacquire send names its bound intent as its parent (validate).
+            # The lease ended, so its sends are ended with it; otherwise this
+            # write was refused as "P0 reacquire parent intent invalid" and every
+            # P0 store write after it failed (Celly 2026-11-20, n1041 orphaned).
+            if closed:
+                for send in [key for key, row in state["sends"].items()
+                             if row["lease_id"] == lease_id and row["parent_intent_id"] in closed]:
+                    state["sends"].pop(send)
             return closed
         return self._change(apply, expected_version)
 

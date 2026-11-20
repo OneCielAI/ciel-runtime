@@ -580,13 +580,32 @@ async function stopRetired($) {
     if (ownedSideActors.size > 200) ownedSideActors.delete(ownedSideActors.values().next().value)
   }
 }
-// Current side actors are native forks described "Side SSE ..."; actors of the
-// retired registered type (older builds) are still stopped on reload.
+// Side actors are native forks described "Side SSE ...", or (session "fresh")
+// this plugin's registered side type; actors of the retired registered type
+// (older builds) are still stopped on reload.
+const FRESH_SIDE_NAME = 'side-fresh'
+const FRESH_SIDE_TYPE = 'ciel-work:' + FRESH_SIDE_NAME
+let freshRegistered = false
+// Registers the fresh side type once per module load with main's own system
+// prompt (prompt.compose, every section joined) and no tool list, so it has
+// every tool the session has, its MCP servers included. False: not available.
+async function freshSideType($) {
+  if (freshRegistered) return true
+  try {
+    const composed = await $.prompt.compose()
+    const prompt = (composed?.sections || []).map(section => section.text).filter(Boolean).join('\n\n')
+    if (!prompt) return false
+    await $.agent.register({ name:FRESH_SIDE_NAME, description:'Ciel Work side actor: one external event, empty conversation', prompt })
+    freshRegistered = true
+    return true
+  } catch { return false }
+}
 function ownedSide(actor) {
   // Legacy registered actors had no spawnedBy field. Native side forks require
   // plugin ownership plus the exact side description (they are unnamed; an
   // older named side fork is still recognized). Work forks are "Work ...".
   if (actor?.type === 'ciel-work:side-intake') return true
+  if (actor?.type === FRESH_SIDE_TYPE) return /^Side SSE [0-9a-f]{12}( main-model)?$/.test(String(actor.description || ''))
   return actor?.spawnedBy === 'ciel-work' && actor.type === 'fork'
     && /^Side SSE [0-9a-f]{12}( main-model)?$/.test(String(actor.description || ''))
     && (actor.name === undefined || actor.name === null || /^side-intake-[0-9a-f]{16}$/.test(String(actor.name)))
@@ -1919,9 +1938,14 @@ export async function pollSide($, identity) {
     // that fork gets main's model instead of the side slot's.
     const description = 'Side SSE '+event.receipt_id.slice(0,12)+(event.use_parent_model === true ? ' main-model' : '')
     pendingName = name
-    const agentType = 'fork'
+    // session "fresh" (user 2026-11-20): an empty conversation that carries
+    // main's own system prompt and every tool main has (its MCP servers
+    // included), registered as this plugin's agent type. "fork" (default)
+    // inherits main's whole conversation. A failed registration keeps fork.
+    const agentType = settings.session === 'fresh' && await freshSideType($) ? FRESH_SIDE_TYPE : 'fork'
     pending.set(name,{identity,event,conversation,generation,description,subagentType:agentType})
-    claimedActor = {identity,model:'inherit',modelFingerprint:'native-fork',id:''}
+    const fingerprint = agentType === 'fork' ? 'native-fork' : 'fresh-session'
+    claimedActor = {identity,model:'inherit',modelFingerprint:fingerprint,id:''}
     // Unnamed on purpose. Owned probe named-fork-d48887c3 (Claude Code 2.1.321):
     // a named native fork stayed status "idle" after its turn and after TaskStop
     // ("not running"), lingering as a resumable agent; the unnamed fork ended
@@ -1934,7 +1958,7 @@ export async function pollSide($, identity) {
     actor.reserved = urgentOnly
     actor.resolved = false
     actor.model = 'inherit'
-    actor.modelFingerprint = 'native-fork'
+    actor.modelFingerprint = fingerprint
     actors.set(actor.id,actor); pending.delete(name)
     display($,identity,{side_inbox_receipts:[{receipt_id:event.receipt_id,stage:'processing',recap:event.text,original:event.text}]})
     return true
@@ -1967,8 +1991,9 @@ export function sideSpawnInput(e,next) {
   if (e.description !== row.description) reasons.push('description mismatch')
   // Side forks are spawned unnamed; a name would leave an idle agent behind.
   if (e.name !== undefined && e.name !== null && e.name !== '') reasons.push('side fork must be unnamed')
-  if (e.subagentType !== 'fork' || row.subagentType !== 'fork') reasons.push('not subagent_type fork')
-  if (e.fork !== true) reasons.push('fork is not true')
+  const fresh = row.subagentType === FRESH_SIDE_TYPE
+  if (e.subagentType !== row.subagentType || !(fresh || row.subagentType === 'fork')) reasons.push('not the side agent type')
+  if (!fresh && e.fork !== true) reasons.push('fork is not true')
   if (e.parentAgentId !== undefined) reasons.push('spawned by another agent')
   if (next?.origin?.plugin !== 'ciel-work') reasons.push('not plugin ciel-work origin')
   return reasons.length ? {deny:'Side fork proof failed: '+reasons.join(', ')} : e

@@ -3416,7 +3416,8 @@ function scheduleNativeObservation($) {
   })
 }
 function sideOwned(row) {
-  return row?.type === 'ciel-work:side-intake' || /^side-intake-/.test(String(row?.name || ''))
+  return row?.type === 'ciel-work:side-intake' || row?.type === 'ciel-work:side-fresh'
+    || /^side-intake-/.test(String(row?.name || ''))
 }
 async function parallelHydrate($) {
   const scope = await sessionId($)
