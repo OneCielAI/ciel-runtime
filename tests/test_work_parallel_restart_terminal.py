@@ -96,21 +96,27 @@ class RestartSubmittedTerminalTests(unittest.TestCase):
                       "detail": {"summary": "done", "coverage": [{"item_id": lease["item"], "verified": True}],
                                  "verification": "tests pass"}}, self.board, self.config)
 
-    def native(self, status):
+    def native(self, status, second=None):
+        statuses = [status, status if second is None else second]
         rows = [{"lease_id": lease["lease_id"], "agent_id": lease["worker"], "agent_name": lease["worker"],
-                 "status": status} for lease in self.leases]
+                 "status": value} for lease, value in zip(self.leases, statuses)]
         return self.call("event", {}, event="native_observation", rows=rows, complete=True,
                          expected_evidence_version=m.native_evidence(self.store).read()["version"])
 
     def checkpoint_a(self):
-        """The recorded order up to the kill before the first review wake."""
+        """The recorded order up to the kill before the first review wake.
+
+        The recorded run also listed the second fork idle at 16:51:14 and its
+        review was never published. A listed idle row now publishes it, so the
+        restart cases below end the process before any list shows it idle.
+        """
         first, second = self.leases
         self.complete(first)
         self.native("running")
         self.complete(second)
         self.call("event", {"state": "idle", "proof": "Native agent.list status: idle"},
                   event="reconcile", lease_id=first["lease_id"])
-        self.native("idle")
+        self.native("idle", second="running")
         return first, second
 
     def restart(self, lease, host=None, agent=None, **override):
@@ -220,6 +226,51 @@ class RestartSubmittedTerminalTests(unittest.TestCase):
         self.assertEqual("Native agent.list status: idle", self.store.read()["leases"][first["lease_id"]]["idle_proof"])
         self.assertEqual("finalized", self.approve(first)["state"])
         self.assertEqual("finalized", self.approve(second)["state"])
+
+    def observe(self, rows):
+        return self.call("event", {}, event="native_observation", rows=rows, complete=True,
+                         expected_evidence_version=m.native_evidence(self.store).read()["version"])
+
+    def test_native_idle_row_publishes_the_review_without_a_turn_end(self):
+        # Andy 2026-11-20 n2505: the native observation saw the submitted fork
+        # idle at 08:54:55 and it left the list at 08:55:26. No main turn ended
+        # in between, so the review opened only at a turn end ten minutes later
+        # and main's approve at 09:00:12 was refused for the missing idle proof.
+        first, second = self.leases
+        self.complete(first)
+        result = self.observe([{"lease_id": first["lease_id"], "agent_id": first["worker"],
+                                "agent_name": first["worker"], "status": "idle"},
+                               {"lease_id": second["lease_id"], "agent_id": second["worker"],
+                                "agent_name": second["worker"], "status": "running"}])
+        self.assertIn(first["lease_id"], self.reviews(), result)
+        self.assertEqual([first["lease_id"]], result.get("reviews_published"), result)
+        row = self.reviews()[first["lease_id"]]
+        self.assertEqual(("pending", None, "pending"), (row["state"], row["decision"], row["wake"]["state"]))
+        self.assertNotIn(second["lease_id"], self.reviews())
+        self.assertEqual(("Native agent.list status: idle",) * 2, self.proofs(first))
+        self.assertEqual("finalized", self.approve(first)["state"])
+
+    def test_native_idle_row_of_a_published_review_writes_nothing_more(self):
+        first, _ = self.leases
+        self.complete(first)
+        row = {"lease_id": first["lease_id"], "agent_id": first["worker"],
+               "agent_name": first["worker"], "status": "idle"}
+        self.observe([row])
+        versions = (self.store.read()["version"], m.finalization(self.store).read()["version"])
+        self.assertEqual([], self.observe([row]).get("reviews_published"))
+        self.assertEqual(versions, (self.store.read()["version"], m.finalization(self.store).read()["version"]))
+
+    def test_native_rows_never_publish_a_running_or_absent_fork(self):
+        first, second = self.leases
+        self.complete(first)
+        # Absence is never death: an empty complete list publishes nothing.
+        self.assertEqual([], self.observe([]).get("reviews_published"))
+        # A fork without a completion receipt is not reviewed on an idle row.
+        self.assertEqual([], self.observe([{"lease_id": second["lease_id"], "agent_id": second["worker"],
+                                            "agent_name": second["worker"], "status": "idle"}])
+                         .get("reviews_published"))
+        self.assertEqual({}, self.reviews())
+        self.assertEqual("running", self.store.read()["leases"][second["lease_id"]]["state"])
 
     def test_restart_observation_is_host_only_and_exact(self):
         first, second = self.checkpoint_a()

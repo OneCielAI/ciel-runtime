@@ -2185,8 +2185,8 @@ function parallelReviewText(review) {
     + 'No reviewer fork is started. This grants no new scope or approval.'
 }
 // Event-driven: called with a status the host already read (worker report,
-// ledger event, main decision, turn end, session start, Stop). No timer polls
-// for reviews.
+// ledger event, main decision, turn end, session start, Stop, or a native
+// observation that published a review). No timer polls for reviews.
 async function projectParallelReviews($, state, wakeMode = 'event') {
   const queue = parallelReviewQueue(state)
   const rows = queue.rows.filter(parallelReviewPending)
@@ -3413,6 +3413,11 @@ async function parallelObserveNative($) {
     const result = await parallelCall($, 'work_parallel_event', { event: 'native_observation', rows, complete: true,
       expected_evidence_version: Number(state?.forks?.evidence_version ?? 0) }, await hostProcess($))
     if (lifecycle !== starts || await sessionId($) !== identity) return null
+    // A listed idle row of a submitted fork published its review (Andy n2505):
+    // wake main now, not at its next turn end.
+    if (Array.isArray(result?.reviews_published) && result.reviews_published.length) {
+      try { await projectParallelReviews($, await hostStatus($)) } catch { /* The next event projects it. */ }
+    }
     const confirmed = rows.filter(r => r.status === 'pending' || r.status === 'running').length
     // The first observation of a start logs only running forks: the start
     // notice stays the one person-facing line when none run.
