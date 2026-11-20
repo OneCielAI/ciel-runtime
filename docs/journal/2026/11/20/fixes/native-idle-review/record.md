@@ -79,6 +79,17 @@ See [evidence/new-tests-fail-first.txt](/docs/journal/2026/11/20/fixes/native-id
   - Affected bundle (restart_terminal, native, receipts, cross_process_ownership, p0_events, rework_worktree, content_baseline, finalization, side_intake_mod, work_mod_write_gate): 510 tests, 0 failures, 33 skipped.
   - `claude plugin validate`: passed. `claude plugin test` on ciel-work: 89 pass, 0 fail. ruff: clean.
 - Linux Docker (Python 3.11.2, Node 22) on the archived beta merge c955630, same bundle: 510 tests, 0 failures, 81 skipped.
+- Windows real-backend suite (`tests/test_work_mod_real_backend.py`) after the three fixture updates: 117 tests, 0 failures, 3 skipped.
+
+# Post-restart live observation (Andy, c955630)
+
+Read-only check after the user restarted Andy's session:
+- P0 n2471 (prior lease 0109bfc1) recovered and launched Gen-4 (lease a58c3157…) cleanly.
+- P1 n2503 Gen-2 (lease 13a093c6…) was running at the moment of exit. Startup orphan sweep released it as `orphaned` (router log 04:13:47 local), before `parallelRecoverWorkers` could attempt a resume.
+  - The host then launched a fresh Gen-1 lease (570bc713…) in a new worktree (`work-parallel-a1ccbb1c…`).
+  - The old Gen-2 worktree (`work-parallel-81fae5ca…`) still holds commit `62c5ac03` and 2 modified files that the new worktree does not have.
+  - Residuals left by the orphaned Gen-2: its coordination run stayed `state="active"`, and Gen-1's `rework_ready` review row (`189d4d72…`) stays in `review.pending` because its `replacement_lease_id` (`13a093c6…`) never published a review. Neither blocks `570bc713…` from submitting or being approved.
+  - Open defect to track: startup orphan sweep runs before `parallelRecoverWorkers`, so a running fork at restart is always orphaned and restarted from scratch in a new worktree instead of resumed, leaving its coordination run `active` and its predecessor `rework_ready` row visible.
 
 # Installed (not yet effective)
 
