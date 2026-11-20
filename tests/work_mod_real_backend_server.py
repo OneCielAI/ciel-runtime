@@ -299,13 +299,14 @@ def seed(title, agent_name=None):
     return {"lease_id": reserve["lease_id"], "item_id": item, "workspace": str(workspace)}
 
 
-def _native_rows(leases, status):
+def _native_rows(leases, status, second=None):
     evidence = parallel.native_evidence(parallel.ledger()).read()["version"]
+    statuses = [status, status if second is None else second]
     return run("work_parallel_event", {"event": "native_observation", "complete": True,
                                        "expected_evidence_version": evidence,
                                        "rows": [{"lease_id": row["lease_id"], "agent_id": row["agent_id"],
-                                                 "agent_name": row["agent_id"], "status": status}
-                                                for row in leases]})
+                                                 "agent_name": row["agent_id"], "status": value}
+                                                for row, value in zip(leases, statuses)]})
 
 
 def seed_restart_pair():
@@ -313,7 +314,9 @@ def seed_restart_pair():
 
     Worker 1 reports; a native observation still lists both forks running;
     worker 2 reports; worker 1's own turn end reconciles it idle and publishes
-    its review; both are then listed idle. The process dies before any wake.
+    its review; worker 1 is listed idle while worker 2 is still running when
+    the process dies (a listed idle row for worker 2 now publishes its review
+    without waiting for a turn end or restart).
     """
     doc = BOARD.read()
     doc, root = BOARD.transaction(lambda d: tree.set_plan(d, {
@@ -348,7 +351,7 @@ def seed_restart_pair():
     complete(leases[1], 1)
     run("work_parallel_event", {"event": "reconcile", "lease_id": leases[0]["lease_id"]},
         {"state": "idle", "proof": "Native agent.list status: idle"})
-    _native_rows(leases, "idle")
+    _native_rows(leases, "idle", second="running")
     for row in leases:
         row.pop("token")
     return {"leases": leases, "checkpoint": inspect()}

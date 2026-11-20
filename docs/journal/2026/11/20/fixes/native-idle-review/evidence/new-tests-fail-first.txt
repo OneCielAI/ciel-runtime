@@ -1,0 +1,21 @@
+# Fail-first: new tests on 9fa764d (before the change)
+
+FAIL: test_native_idle_row_of_a_published_review_writes_nothing_more (test_work_parallel_restart_terminal.RestartSubmittedTerminalTests.test_native_idle_row_of_a_published_review_writes_nothing_more)
+AssertionError: [] != None
+FAIL: test_native_idle_row_publishes_the_review_without_a_turn_end (test_work_parallel_restart_terminal.RestartSubmittedTerminalTests.test_native_idle_row_publishes_the_review_without_a_turn_end)
+AssertionError: 'd75ccee102684d8183bdfee50f9e3bbc' not found in {} : {'evidence_version': 1, 'changed': ['d75ccee102684d8183bdfee50f9e3bbc', 'f36169900a804f30b3202e3904922720'], 'skipped': [], 'observed_terminal': []}
+FAIL: test_native_rows_never_publish_a_running_or_absent_fork (test_work_parallel_restart_terminal.RestartSubmittedTerminalTests.test_native_rows_never_publish_a_running_or_absent_fork)
+AssertionError: [] != None
+Ran 3 tests in 4.433s
+FAILED (failures=3)
+RAN 3 failures=3 errors=0 skipped=0
+FAIL: test_native_observation_that_publishes_a_review_wakes_main_without_a_turn_end (test_work_mod_write_gate.WorkModWriteGateTests.test_native_observation_that_publishes_a_review_wakes_main_without_a_turn_end)
+AssertionError: Lists differ: ['L1'] != []
+Ran 1 test in 0.437s
+FAILED (failures=1)
+RAN 1 failures=1 errors=0 skipped=0
+
+# Mod scenario, final assertion, HEAD register.js (9fa764d) swapped in, then restored (sha256 fa49962528bd1c6c before and after)
+FAIL: test_native_observation_that_publishes_a_review_wakes_main_without_a_turn_end (test_work_mod_write_gate.WorkModWriteGateTests.test_native_observation_that_publishes_a_review_wakes_main_without_a_turn_end)
+AssertionError: Lists differ: ['L1'] != []
+RAN 1 failures=1 errors=0 skipped=0
