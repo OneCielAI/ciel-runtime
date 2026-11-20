@@ -1,0 +1,17 @@
+===== BEFORE db23560 code + new tests =====
+test_a_cancelled_intent_does_not_block_a_new_intent_on_the_same_replacement_lease (test_work_parallel_p0_events.P0EventTests.test_a_cancelled_intent_does_not_block_a_new_intent_on_the_same_replacement_lease) ... ERROR
+test_a_replacement_run_on_an_unapproved_p0_goal_is_recorded_with_its_p0_intent (test_work_parallel_p0_events.P0EventTests.test_a_replacement_run_on_an_unapproved_p0_goal_is_recorded_with_its_p0_intent) ... ERROR
+ciel_runtime_support.work_parallel_primitives.WorkParallelError: multiple original P0 intents for one lease
+AttributeError: module 'ciel_runtime_support.work_parallel_mcp' has no attribute '_replacement_p0_authorization'
+RAN 2 failures=0 errors=2 skipped=0
+test_fork_spawn_without_connected_work_tools_says_to_restart (test_work_mod_write_gate.WorkModWriteGateTests.test_fork_spawn_without_connected_work_tools_says_to_restart) ... FAIL
+test_side_status_is_the_hosts_own_read (test_work_mod_write_gate.WorkModWriteGateTests.test_side_status_is_the_hosts_own_read) ... ERROR
+AssertionError: 'Work mode was turned on after this session launched' not found in 'Work parallel dispatch denied: no connected MCP tool "work_parallel_status" on a server named "ciel-runtime-router". /work-mode parallel shows the last failure.'
+RAN 2 failures=1 errors=1 skipped=0
+===== AFTER fixed tree =====
+test_a_cancelled_intent_does_not_block_a_new_intent_on_the_same_replacement_lease (test_work_parallel_p0_events.P0EventTests.test_a_cancelled_intent_does_not_block_a_new_intent_on_the_same_replacement_lease) ... ok
+test_a_replacement_run_on_an_unapproved_p0_goal_is_recorded_with_its_p0_intent (test_work_parallel_p0_events.P0EventTests.test_a_replacement_run_on_an_unapproved_p0_goal_is_recorded_with_its_p0_intent) ... ok
+RAN 2 failures=0 errors=0 skipped=0
+test_fork_spawn_without_connected_work_tools_says_to_restart (test_work_mod_write_gate.WorkModWriteGateTests.test_fork_spawn_without_connected_work_tools_says_to_restart) ... ok
+test_side_status_is_the_hosts_own_read (test_work_mod_write_gate.WorkModWriteGateTests.test_side_status_is_the_hosts_own_read) ... ok
+RAN 2 failures=0 errors=0 skipped=0

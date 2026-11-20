@@ -2919,7 +2919,7 @@ async function keyUntil(test, ms = 3000) {
   return false
 }
 function keyBackend() {
-  const B = { reviews:[], wakes:{}, sideRows:[], records:[], calls:[], attempts:0 }
+  const B = { reviews:[], wakes:{}, sideRows:[], records:[], calls:[], attempts:0, reviewVersion:4 }
   const short = id => id === KEY_E1 ? 'E1' : id === KEY_E2 ? 'E2' : id
   B.pub = id => {
     const w = B.wakes[id], out = { state:w.state, revision:w.revision }
@@ -2945,7 +2945,7 @@ function keyBackend() {
       side_handoffs:B.sideRows.map(r => B.row(r.event_id, false)) })
     if (tool === 'work_parallel_status') return text({ version:9, active_device:0,
       policy:{ enabled:true, paused:false, priority_limits:{ P1:1, P2:0, P3:0, P4:0, P5:0 } }, leases:{},
-      review:{ version:4, pending:B.reviews } })
+      review:{ version:B.reviewVersion, pending:B.reviews } })
     if (tool === 'work_side_status') return text({ enabled:true, side_inbox_receipts:[] })
     if (tool === 'work_parallel_event') {
       const row = B.reviews.find(r => r.lease_id === args.lease_id)
@@ -3683,6 +3683,35 @@ Object.assign(scenarios, {
       event_id:'e'.repeat(64), expected_version:5 }, next({ result:'engine-ran' }))
     return { main, worker, own, handoff:{ routed:routed.slice(before), deny:handoff?.deny || null } }
   },
+  // Celly 2026-11-20: main called work_side_status itself and the engine's call
+  // carried no conversation identity, so the router answered "conversation
+  // identity is unavailable". It is the host's own read (side pane, claims).
+  async 'side-status-is-host-only'() {
+    const routed = []
+    const { $ } = host(async (tool) => { routed.push(tool); return text({ enabled:true, side_inbox_receipts:[] }) })
+    let ran = false
+    const engine = async () => { ran = true; return { result:'engine-ran' } }
+    engine.origin = { plugin:'engine' }
+    const answer = await handlers['tool.call']($, { tool:'mcp__ciel-runtime-router__work_side_status' }, engine)
+    const own = next({ result:'own-ran' }); own.origin = { plugin:'ciel-work' }
+    const mine = await handlers['tool.call']($, { tool:'mcp__ciel-runtime-router__work_side_status' }, own)
+    return { deny:answer?.deny || null, engineRan:ran, routed, own:mine }
+  },
+  // Celly 2026-11-20: Work mode was turned off and back on inside one session.
+  // The session had loaded without the Work tools, so every fork spawn was
+  // denied with the raw "no connected MCP tool" text. It now says what to do.
+  async 'fork-spawn-when-work-tools-are-not-connected'() {
+    const { $ } = host(async (tool) => {
+      if (tool === 'work_parallel_status') throw new Error('no connected MCP tool "work_parallel_status" on a server named "ciel-runtime-router"')
+      if (tool === 'work_live_settings') return text({ settings:[{ key:'work_mode', value:true }] })
+      return text({})
+    })
+    let ran = false
+    const engine = async () => { ran = true; return { agentId:'a1' } }
+    engine.origin = { plugin:'engine' }
+    const answer = await handlers['agent.spawn']($, { subagentType:'fork', fork:true, description:'P0 work', prompt:'x' }, engine)
+    return { deny:answer?.deny || null, engineRan:ran }
+  },
 })
 
 // Option 1 (team-lead): the router projects a read-time review_pin on each
@@ -3801,6 +3830,37 @@ Object.assign(scenarios, {
     await stop()
     return { wakes:prompts.calls.filter(call => call.text.startsWith('Ciel Work review wake')).length,
       immediate, afterWaiting:reminders() }
+  },
+  // Andy 2026-11-20: the pane was opened while 20 results waited; main then
+  // decided all of them (review version 1108 -> 1126). The pane snapshot is read
+  // only when the pane opens, so the reminder kept naming the 20 finalized rows.
+  async 'review-reminder-ignores-a-stale-pane-snapshot'() {
+    const B = keyBackend(), prompts = keyPrompts()
+    const one = await keyInstance('reminder-stale-pane')
+    const { $ } = keyHost({ call:B.call }, keyState(), keyClock(), prompts)
+    await one.handlers['session.start']($, { isInteractive:false }, next(undefined))
+    B.addReview('L1', 'rp1:' + 'c4'.repeat(32))
+    const reads = () => B.calls.filter(tool => tool === 'work_parallel_status').length
+    const counted = B.call
+    B.call = async (tool, args) => { B.calls.push(tool); return counted(tool, args) }
+    const before = reads()
+    await one.handlers['command.run']($, { args:'view' })
+    await keyUntil(() => reads() > before)
+    await sleep(60)
+    // Main decides L1: the backend's queue is empty at a newer review version.
+    B.reviews.splice(0); B.reviewVersion = 9
+    const reminders = () => prompts.calls.filter(call => /^Ciel Work: .*nL1/.test(call.text)).length
+    const stop = async () => {
+      const count = prompts.calls.length
+      await one.handlers['classic.Stop']($, { session_id:'S1' }, next({}))
+      await keyUntil(() => prompts.calls.length > count, 1000)
+      for (const call of prompts.calls) call.release('ok')
+      await sleep(60)
+    }
+    await stop()
+    later(21 * 60 * 1000)
+    await stop()
+    return { afterWaiting:reminders() }
   },
 })
 

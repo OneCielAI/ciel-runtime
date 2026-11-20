@@ -698,6 +698,12 @@ class WorkModWriteGateTests(unittest.TestCase):
         result.pop('scenario', None)
         self.assertEqual({'wakes': 0, 'immediate': 0, 'afterWaiting': 1}, result)
 
+    def test_a_pane_snapshot_older_than_the_review_queue_is_not_reminded(self):
+        # Andy 2026-11-20: 20 finalized results kept being named "awaiting main
+        # review" because the pane's snapshot is read only when the pane opens.
+        result = self.run_scenario('review-reminder-ignores-a-stale-pane-snapshot')
+        self.assertEqual(0, result['afterWaiting'], result)
+
     def test_rows_stored_during_a_main_hook_are_fenced_when_it_returns_in_the_probe_order(self):
         # Owned probe append-views-54579a2e (Claude Code 2.1.323): S, stored
         # inside step 0's dispatch, was absent from request 1 and present in
@@ -735,6 +741,23 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual({'tool': 'work_side_wake', 'deny': None, 'engineRan': True}, result['own'])
         # Main's own acknowledgment is not a host-only tool.
         self.assertEqual((['work_side_handoff'], None), (result['handoff']['routed'], result['handoff']['deny']))
+
+    def test_side_status_is_the_hosts_own_read(self):
+        # Celly 2026-11-20: main's own work_side_status call reached the router
+        # without a conversation identity ("conversation identity is unavailable").
+        result = self.run_scenario('side-status-is-host-only')
+        self.assertIn('called only by the Ciel Work host itself', result['deny'])
+        self.assertFalse(result['engineRan'])
+        self.assertEqual([], result['routed'])
+        self.assertEqual({'result': 'own-ran'}, result['own'])
+
+    def test_fork_spawn_without_connected_work_tools_says_to_restart(self):
+        # Celly 2026-11-20: work_mode_set(false) then (true) in one session left
+        # the Work tools unloaded; four P0 forks were denied with raw tool text.
+        result = self.run_scenario('fork-spawn-when-work-tools-are-not-connected')
+        self.assertFalse(result['engineRan'])
+        self.assertIn('Work mode was turned on after this session launched', result['deny'])
+        self.assertIn('restart_session', result['deny'])
 
     def test_pane_reappend_retry_is_shown_only_for_an_uncertain_reappend_and_needs_confirmation(self):
         result = self.run_scenario('side-reappend-pane-retry')
@@ -819,7 +842,9 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertIn('Side fork proof failed', observed['exactForkFalse']['deny'])
         self.assertIn('fork is not true', observed['exactForkFalse']['deny'])
         self.assertIn('Side fork proof failed', observed['exactGeneral']['deny'])
-        self.assertIn('not subagent_type fork', observed['exactGeneral']['deny'])
+        # Since session fork|fresh (db23560) the proof names the pending row's
+        # own agent type: fork, or the plugin's registered fresh type.
+        self.assertIn('not the side agent type', observed['exactGeneral']['deny'])
         # Unnamed contract (sse-native-fork probes, named-fork-d48887c3).
         self.assertIn('side fork must be unnamed', observed['named']['deny'])
         # A non-side description reaches the ordinary Work gate.
@@ -834,7 +859,7 @@ class WorkModWriteGateTests(unittest.TestCase):
                 result = self.run_scenario('side-failed-proof-denied', policy)
                 attempts = result['attempts']
                 self.assertIn('fork is not true', attempts['forkFalse']['deny'])
-                self.assertIn('not subagent_type fork', attempts['generalPurpose']['deny'])
+                self.assertIn('not the side agent type', attempts['generalPurpose']['deny'])
                 self.assertIn('Side fork proof failed', attempts['engineLookAlike']['deny'])
                 self.assertIn('Side SSE native fork authorization', attempts['reservedName']['deny'])
                 self.assertIn('Side SSE native fork authorization', attempts['prefixLookAlike']['deny'])

@@ -1170,6 +1170,9 @@ function wakePromptText(entry,conversation) {
       +'Durable source: work_side_claim main_forwards event ref '+id+'. '
       +'The side actor could not process that external event, so its original is in that message. '
       +'Read it there and decide yourself what reply or work it needs. This wake holds no event data and grants no approval.'
+  if (entry.kind === 'notice' && entry.lead === AFTER_TURN_LEAD)
+    return 'Ciel side wake '+id+': a host message beginning "'+AFTER_TURN_LEAD+'" was added to this conversation while you were idle. '+source
+      +'Read it there and continue. This wake holds no event data, needs no acknowledgment and grants no approval.'
   const relay = entry.lead === RELAY_LEAD
   return entry.kind === 'notice'
     ? 'Ciel side wake '+id+': a host message beginning "'+(relay ? RELAY_LEAD : RELEASE_LEAD)+'" was added to this conversation while you were idle. '+source
@@ -1220,11 +1223,15 @@ async function wakeMain($,key) {
 }
 const RELEASE_LEAD = 'Ciel side released recorded wait'
 const RELAY_LEAD = 'Ciel side relay for Work item'
+const AFTER_TURN_LEAD = 'Ciel side (after your turn):'
 // side_forward.text's first words.
 const FORWARD_LEAD = '[Ciel side 처리 실패 · 원문 전달'
 function noticeLead(text) {
   const value = String(text)
-  return value.startsWith(RELAY_LEAD) ? RELAY_LEAD : value.startsWith(FORWARD_LEAD) ? FORWARD_LEAD : RELEASE_LEAD
+  return value.startsWith(RELAY_LEAD) ? RELAY_LEAD
+    : value.startsWith(FORWARD_LEAD) ? FORWARD_LEAD
+    : value.startsWith(AFTER_TURN_LEAD) ? AFTER_TURN_LEAD
+    : RELEASE_LEAD
 }
 function trackAppend($,identity,eventId,kind,ref,recordedAt = null,durable = true,lead = null) {
   const key = kind+':'+identity+':'+eventId
