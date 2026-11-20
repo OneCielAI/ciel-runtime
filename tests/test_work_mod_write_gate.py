@@ -1231,6 +1231,15 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(1, sum("Ciel Work result is awaiting main review" in row and '"lease_id":"L1"' in row
                                 for row in result["appended"]), result)
 
+    def test_own_fork_absent_after_its_receipt_is_observed_terminal_without_a_restart(self):
+        # Celly n1070 2026-11-20: receipt 10:42:48, last listed running 10:40:44,
+        # absent from 10:47:14; the review opened only after Celly restarted.
+        result = self.run_scenario("own-fork-absent-after-receipt")
+        self.assertTrue(result["ticked"], result)
+        self.assertEqual([{"event": "restart_submitted_terminal", "lease_id": "L1", "generation": 3,
+                           "receipt_digest": "d" * 64, "absent": "fork-a", "complete": True}],
+                         result["restart"], result)
+
     def test_work_parallel_run_starts_fork_without_model_agent_call(self):
         result = self.lifecycle(self.run_scenario("parallel-direct-spawn-started"))
         self.assertEqual(result["run"]["dispatch"], "started")

@@ -46,6 +46,23 @@ Cause, confirmed in source (c955630):
 - Andy n1856: review `deciding`, blocked `stage_failed: unknown Work item`. Already open in [celly-stuck-recoveries](/docs/journal/2026/11/19/fixes/celly-stuck-recoveries/record.md).
 - Celly n1128 (lease e0aeb12b): its run was bound at 11:12:51Z, and the lease was orphaned by the startup sweep at Celly's 11:14Z relaunch. The run is still `bound`.
 
+## User observation: "Prompt dropped by a hook: Owned Work notification retained outside main conversation" (Celly)
+
+Measured in Celly's transcripts:
+- Session b86a350f: 5 occurrences between 10:58:53Z and 11:39:16Z.
+- Previous session 0aefa936: 17 occurrences between 11-19 22:44Z and 11-20 11:12Z.
+- Each one follows a Work fork's task notification.
+
+Confirmed in source and the engine type docs:
+- `register.js` `ownedWorkNotification` (from 4eebfdc, 2026-11-09) recognizes a `<task-notification>` whose task id is one of this session's Work forks. `prompt.submit` answers it with `{drop: 'Owned Work notification retained outside main conversation'}`.
+  - This is deliberate: a fork's completion text never enters main's context.
+  - The fork's result reaches main through the review queue instead.
+- Claude Code shows a `prompt.submit` hook's drop reason to the user. The engine type docs say: "A hook's text is shown to the user as the reason".
+  - `session.receive` `{consumed}` is not shown, but these notifications come in through `prompt.submit` (origin `task-notification`).
+  - `agent.spawn` has no option that turns a fork's notification off.
+
+It is not an error. The line marks a notification that was kept out of main on purpose. Hiding the line itself is not possible from the mod with the current engine API.
+
 ## Observed, not yet investigated
 
 - Celly: `router_post_uncaught ... ChannelFileLockBusy` on a side-inbox lock (3 times, 10:44–10:46Z).

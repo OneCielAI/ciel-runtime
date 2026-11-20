@@ -1,0 +1,8 @@
+# Fail-first on 97b57b5 (before the change)
+
+FAIL: test_native_idle_row_publishes_even_when_the_run_was_marked_failed_first (test_work_parallel_restart_terminal.RestartSubmittedTerminalTests.test_native_idle_row_publishes_even_when_the_run_was_marked_failed_first)
+AssertionError: 'cbf6b4965cb24cfe9c8528087b3979c3' not found in {} : {'evidence_version': 2, 'changed': ['cbf6b4965cb24cfe9c8528087b3979c3'], 'skipped': [{'lease_id': 'cbf6b4965cb24cfe9c8528087b3979c3', 'reason': 'terminal native status is immutable'}], 'obser
+RAN 1 failures=1 errors=0 skipped=0
+FAIL: test_own_fork_absent_after_its_receipt_is_observed_terminal_without_a_restart (test_work_mod_write_gate.WorkModWriteGateTests.test_own_fork_absent_after_its_receipt_is_observed_terminal_without_a_restart)
+AssertionError: Lists differ: [{'event': 'restart_submitted_terminal', '[153 chars]rue}] != []
+RAN 1 failures=1 errors=0 skipped=0

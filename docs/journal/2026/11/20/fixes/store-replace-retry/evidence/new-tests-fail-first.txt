@@ -1,0 +1,10 @@
+# Fail-first (before the replace retry)
+
+ERROR: test_a_refused_finalization_replace_is_retried_like_the_ledger (test_work_parallel_restart_terminal.RestartSubmittedTerminalTests.test_a_refused_finalization_replace_is_retried_like_the_ledger)
+    raise PermissionError(13, "Access is denied", str(dst))
+PermissionError: [Errno 13] Access is denied: '<temp>\work-parallel-finalization.json'
+RAN 1 failures=0 errors=1 skipped=0
+ERROR: test_a_refused_stranded_replace_is_retried_like_the_ledger (test_work_parallel_rework_worktree.BrokenRetainedWorktreeTests.test_a_refused_stranded_replace_is_retried_like_the_ledger)
+    raise PermissionError(13, "Access is denied", str(dst))
+PermissionError: [Errno 13] Access is denied: '<temp>\work-parallel-stranded-v1.json'
+RAN 1 failures=0 errors=1 skipped=0

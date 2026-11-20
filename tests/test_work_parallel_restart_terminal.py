@@ -260,6 +260,45 @@ class RestartSubmittedTerminalTests(unittest.TestCase):
         self.assertEqual([], self.observe([row]).get("reviews_published"))
         self.assertEqual(versions, (self.store.read()["version"], m.finalization(self.store).read()["version"]))
 
+    def test_native_idle_row_publishes_even_when_the_run_was_marked_failed_first(self):
+        # KOBE 2026-11-20 n878: the run's native status became "failed" at
+        # 11:01:34, the completion receipt landed at 11:09:00 and the fork was
+        # listed idle at 11:09:48. update_native refused "idle" after "failed"
+        # (terminal native status is immutable), so the row was skipped and the
+        # review was never published.
+        first, _ = self.leases
+        row = {"lease_id": first["lease_id"], "agent_id": first["worker"],
+               "agent_name": first["worker"], "status": "failed"}
+        self.observe([row])
+        self.assertEqual("failed", self.runs()[first["lease_id"]]["native_status"])
+        self.complete(first)
+        self.assertNotIn(first["lease_id"], self.reviews())
+        result = self.observe([{**row, "status": "idle"}])
+        self.assertIn(first["lease_id"], self.reviews(), result)
+        self.assertEqual([first["lease_id"]], result.get("reviews_published"), result)
+        self.assertEqual("finalized", self.approve(first)["state"])
+
+    def test_a_refused_finalization_replace_is_retried_like_the_ledger(self):
+        # Andy 2026-11-20 11:38:32Z: router_post_uncaught PermissionError
+        # [WinError 5] from os.replace of a sidecar store. On Windows any open
+        # handle on the target refuses the replace for a moment; the ledger,
+        # native, P0 and receipt stores retry it, finalization did not.
+        import os
+        first, _ = self.leases
+        self.complete(first)
+        real, refused = os.replace, []
+
+        def replace(src, dst, *args, **kwargs):
+            if str(dst).endswith("work-parallel-finalization.json") and not refused:
+                refused.append(dst)
+                raise PermissionError(13, "Access is denied", str(dst))
+            return real(src, dst, *args, **kwargs)
+        with patch("os.replace", side_effect=replace):
+            self.observe([{"lease_id": first["lease_id"], "agent_id": first["worker"],
+                           "agent_name": first["worker"], "status": "idle"}])
+        self.assertEqual(1, len(refused))
+        self.assertEqual("pending", self.reviews()[first["lease_id"]]["state"])
+
     def test_native_rows_never_publish_a_running_or_absent_fork(self):
         first, second = self.leases
         self.complete(first)
