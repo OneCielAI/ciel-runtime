@@ -1,0 +1,24 @@
+# Andy n2505 (lease 5a257caa02d94bd9a141dfe07ae577f5), read-only, 2026-11-20 UTC
+# Sources: work-parallel.json, work-parallel-coordination.json, work-parallel-native.json,
+# work-parallel-finalization.json, the workspace manifest, and the main session transcript.
+# Andy's host ran beta hotfix5 (pid 31816, started 04:13:58Z); the lease owner is that process.
+
+08:47:26  main SendMessage resumes the waiting worker a4052029e303ba207
+08:49:03-08:49:11  main turn ends (worker running)
+08:54:18  completion receipt b3bf7697... recorded; lease submitted, slot released
+08:54:33  worker task notification dropped by the mod hook ("Owned Work notification retained outside main conversation"); no main turn
+08:54:55  native observation: worker listed "idle" (native.json last_seen_at, status_changed_at); run state terminal
+08:55:26  native observation: worker absent from the complete list (missing_since)
+08:58:09  next main turn starts (dispatch wake)
+09:00:12  main work_parallel_item_review approve -> "positive matching idle workspace proof required"
+          manifest at that time: idle=false, idle_proof=null, mtime 05:49:30 (bind)
+09:01:35  main turn ends
+09:04:57  workspace manifest written idle=true, idle_proof "Native agent.list status: idle" (turn-end reconcile proof text)
+09:05:23  review wake appended to main
+09:06:02  main approve -> finalized (finalization version 1171)
+
+Not confirmed: which turn.complete wrote the 09:04:57 idle proof, and why the worker was listed again then
+(native.json still shows last_seen_at 08:54:55 and missing_since 08:55:26).
+
+Same state observed at the time of the read: n734 (lease 7e6c51f4...) run terminal with a completion
+receipt, native idle 09:01:37, missing 09:02:08, manifest idle=false, no review row.
