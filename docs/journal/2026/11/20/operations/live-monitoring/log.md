@@ -2,6 +2,7 @@
 
 ## 2026-11-20
 
+- 15:40Z: side complaint and P0 inheritance fix (03e064d) is installed on local, Celly and KOBE (hash-checked, backups `*.backup-hotfix8`). Beta 79673d9 is published as npm `0.2.51-beta.20261120-152815.79673d9`, and its ten files match the installs. No session was restarted.
 - 15:16Z tick (since 15:00Z):
   - Andy: unchanged (3 running, 1 reserved, 46 waiting, 22 submitted); n1856 still blocked. No new failures or router ERROR/uncaught lines.
     - 15:01–15:02Z: five `work_node_update status=done` calls (n2304–n2308) were refused with "Work completion waits for this item's parallel validation, review and cleanup". This is the existing completion gate; nothing was applied.

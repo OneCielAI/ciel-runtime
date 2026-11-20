@@ -84,3 +84,9 @@ The ten changed files were overlaid with hash checks and backups (`*.backup-hotf
   - The first KOBE attempt stopped at its first stage-hash check before copying anything. My script's path conversion had produced empty file names. It was rebuilt and rerun.
 
 No process was restarted. Each session runs the change only after its next restart.
+
+# Published
+
+- Beta merge 79673d9 has the same tree as b599af4 (65c3b26a…). The Publish run 44763554602 succeeded.
+- npm `@one-ciel-ai/ciel-runtime@0.2.51-beta.20261120-152815.79673d9`, gitHead 79673d9f2b37….
+- The ten changed files hash identically in the published tarball, the commit and the local global install.
