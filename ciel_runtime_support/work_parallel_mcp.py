@@ -1962,7 +1962,7 @@ def _salvage_unavailable_reason(store, lease_id):
     run_row = cstate.get("runs", {}).get(lease_id)
     exit_row = (run_row or {}).get("exit") or {}
     detail = cstate.get("details", {}).get(exit_row.get("digest"))
-    if exit_row.get("kind") != "host_salvage" or detail is None:
+    if exit_row.get("kind") != "host_salvage" or detail is None or detail["body"]["workspace"] is None:
         return None
     diff = str(detail["body"]["workspace"]["diff_stat"])
     prefix = "workspace unavailable: "
@@ -4205,7 +4205,12 @@ def run(name, args, board_store, identity, config, save_config, log=None):
             raise WorkParallelError("coordinator host salvage required")
         d = store.read()
         lease = d["leases"].get(args.get("lease_id"))
-        if not lease or lease["scope"] != identity or not lease.get("workspace"):
+        # A lease reserved with no workspace (the session folder is not a git
+        # repository) has nothing to observe: its salvage receipt records
+        # workspace None. Refusing it kept the slot of a fork that ended without
+        # a report forever (KOBE 2026-11-20 n964).
+        if not lease or lease["scope"] != identity or (lease.get("workspace") is not None
+                                                       and not lease["workspace"]):
             raise WorkParallelError("unknown salvage workspace")
         from .work_parallel_workspace import salvage_observe
         coord = coordination(store)
@@ -4222,8 +4227,19 @@ def run(name, args, board_store, identity, config, save_config, log=None):
             return json.dumps({"lease_id": lease["id"], "receipt_digest": prior_exit["digest"],
                                "salvaged": True,
                                **({"workspace_unavailable": True}
-                                  if str(detail["workspace"]["diff_stat"]).startswith("workspace unavailable: ")
+                                  if detail["workspace"] is not None
+                                  and str(detail["workspace"]["diff_stat"]).startswith("workspace unavailable: ")
                                   else {})}, ensure_ascii=False)
+        if lease.get("workspace") is None:
+            detail = {"done": [], "remaining": list(run_row.get("assigned_todos") or [lease["item_id"]]),
+                      "blockers": [str(args.get("reason") or "native fork ended without report")[:2000]],
+                      "workspace": None,
+                      "next_step": "Resume the recorded assignment; the fork ran without a workspace."}
+            cstate = coord.read()
+            _, receipt = coord.persist_receipt(lease["id"], "host_salvage", detail,
+                                               expected_version=cstate["version"])
+            return json.dumps({"lease_id": lease["id"], "receipt_digest": receipt, "salvaged": True},
+                              ensure_ascii=False)
         from .work_parallel_workspace import WorkspaceError
         unavailable = None
         try:
