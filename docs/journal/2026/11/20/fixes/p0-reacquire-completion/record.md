@@ -63,3 +63,9 @@ The two changed files were overlaid with hash checks and backups (`*.backup-hotf
 All verified. No process was restarted.
 - The mod part (`register.js`) applies when a session hot-reloads or restarts ciel-work.
 - The router part applies at each router's next restart.
+
+# Published
+
+- Beta merge 0cb598b has the same tree as b993e7b (e3c613d6…). Publish run 44783113201 succeeded.
+- npm `@one-ciel-ai/ciel-runtime@0.2.51-beta.20261120-172521.0cb598b`, gitHead 0cb598bd5cff….
+- The two changed files have the same hashes in the published tarball as in the installs (register.js A3A33BE7…, work_parallel_mcp.py 65F0B581…).

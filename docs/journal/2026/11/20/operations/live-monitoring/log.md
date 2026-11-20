@@ -2,6 +2,7 @@
 
 ## 2026-11-20
 
+- 17:35Z: beta 0cb598b published as npm `0.2.51-beta.20261120-172521.0cb598b`. Its two files match the hotfix9 installs on local, Celly and KOBE. No session restarted.
 - 17:22Z: Andy's Work prompts reset to defaults (user order "andy 세션 프롬프트 업데이트해줘 기본값으로"). Done through Andy's live router 9505 (c955630), with compare-and-set on the fingerprints just read:
   - `workflow-prompt-reset` for `gate_actor` (374721ea… → default df8a6cc3…) and `gate_recheck` (its override already equalled the default). Both 200.
   - `settings-update` `work_side_intake_instruction` = "" (it was 15104 bytes, the c955630 default text stored with `instruction_replace=true`). 200.
