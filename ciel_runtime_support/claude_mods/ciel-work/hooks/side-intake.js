@@ -2291,16 +2291,16 @@ function clampText(value,limit) {
   return (value.slice(0,keep)+' … [host cut '+(value.length - keep)+' characters]').slice(0,limit)
 }
 // A router lists the decision fields it accepts in its claim (2026-11-20). One
-// from before refs lists none and refuses an unknown field, so it gets only
-// the fields it knew; refs then wait for that router's restart.
+// from before refs lists none and refuses an unknown field, so a new answer
+// gets only the fields it knew; refs then wait for that router's restart. A
+// saved proposal is the router's own and is committed unchanged.
 const LEGACY_DECISION_FIELDS = new Set([...DECISION_FIELDS].filter(key => key !== 'refs'))
 export function routerDecision(event,decision) {
   const accepted = Array.isArray(event?.decision_fields) ? new Set(event.decision_fields) : LEGACY_DECISION_FIELDS
   return Object.fromEntries(Object.entries(decision || {}).filter(([key]) => accepted.has(key)))
 }
 async function commitProposal($,actor,event,proposal,sentVia,usage) {
-  proposal = {...proposal,decision:routerDecision(event,proposal.decision),
-    understanding:clampText(proposal.understanding,MAX_UNDERSTANDING)}
+  proposal = {...proposal,understanding:clampText(proposal.understanding,MAX_UNDERSTANDING)}
   await submitUnderstanding($,actor,event,proposal)
   const value = await callRouter($,'work_side_resolve',{decision:proposal.decision,
     expected_version:proposal.expected_version,usage:usage || null},
@@ -2419,7 +2419,7 @@ export async function completeSide($,e) {
       // The version only records which snapshot the decision saw; the host
       // re-validates against the current board, so a missing one is not fatal.
       if (!Number.isInteger(proposal.expected_version)) proposal.expected_version = event.workload?.version ?? null
-      await commitProposal($,actor,event,{understanding,decision:proposal.decision,
+      await commitProposal($,actor,event,{understanding,decision:routerDecision(event,proposal.decision),
         expected_version:proposal.expected_version},sent_via,e.usage)
     }
   } catch (error) { reason = String(error?.message || error) /* Recorded below, never in the main transcript. */ }

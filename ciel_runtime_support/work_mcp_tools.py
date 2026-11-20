@@ -24,8 +24,7 @@ _NODE_SPEC = {
     "properties": {
         "title": {"type": "string"},
         "note": {"type": "string"},
-        "ref": {"type": "string", "maxLength": tree.MAX_REF_CHARS,
-                "description": "The primary external id this node answers (usually the source message id)."},
+        "ref": {"type": "string", "maxLength": tree.MAX_REF_CHARS},
         "refs": {"type": "array", "maxItems": tree.MAX_REFS,
                  "items": {"type": "string", "maxLength": tree.MAX_REF_CHARS},
                  "description": "Every external id related to this node (target message, thread root, parent, conversation), target first."},
