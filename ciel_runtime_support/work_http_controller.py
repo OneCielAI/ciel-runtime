@@ -399,8 +399,8 @@ class WorkHttpController:
                 return True
             action = actions[path]
             allowed = {"session_id", "expected_version"}
-            allowed |= ({"parent_id", "title", "note", "children", "ref", "waiting_on"} if action == "add" else
-                        {"id", *NODE_FIELDS} if action == "update" else
+            allowed |= ({"parent_id", "title", "note", "children", "ref", "refs", "waiting_on"} if action == "add" else
+                        {"id", "refs", *NODE_FIELDS} if action == "update" else
                         {"id", "position", "user_requested"} if action == "reorder" else {"id"})
             if set(body) - allowed:
                 raise tree.WorkPlanError("unsupported mutation fields")
@@ -409,6 +409,9 @@ class WorkHttpController:
             for field in NODE_FIELDS - {"status"}:
                 if field in body and not isinstance(body[field], str):
                     raise tree.WorkPlanError(field + " must be a string")
+            # Every related external id (user 2026-11-20); the tree bounds each one.
+            if "refs" in body and not isinstance(body["refs"], list):
+                raise tree.WorkPlanError("refs must be a list of ids")
             if "user_requested" in body and type(body["user_requested"]) is not bool:
                 raise tree.WorkPlanError("user_requested must be boolean")
             if "parent_id" in body and body["parent_id"] is not None and not isinstance(body["parent_id"], str):
@@ -417,13 +420,13 @@ class WorkHttpController:
             def mutate(doc: dict[str, Any]) -> Any:
                 if action == "add":
                     return tree.add_subtree(doc, body.get("parent_id"), {
-                        k: body[k] for k in ("title", "note", "children", "ref", "waiting_on") if k in body})
+                        k: body[k] for k in ("title", "note", "children", "ref", "refs", "waiting_on") if k in body})
                 if not any(n["id"] == body["id"] for n in doc["nodes"]):
                     raise KeyError("unknown_node")
                 if action == "update":
-                    if not (set(body) & NODE_FIELDS):
+                    if not (set(body) & (NODE_FIELDS | {"refs"})):
                         raise tree.WorkPlanError("at least one editable field is required")
-                    return tree.update_node(doc, body["id"], **{k: body[k] for k in NODE_FIELDS if k in body})
+                    return tree.update_node(doc, body["id"], **{k: body[k] for k in (*NODE_FIELDS, "refs") if k in body})
                 if action == "remove":
                     return tree.remove_node(doc, body["id"])
                 return tree.reorder_node(doc, body["id"], body.get("position"),

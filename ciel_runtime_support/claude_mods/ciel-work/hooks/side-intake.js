@@ -495,21 +495,6 @@ Work에 관한 것이라는 이유만으로 오래된 이전 이벤트를 대신
 - 이미 한 말을 다시 하지 마십시오. 상대의 확인 글에 다시 확인 글을 달지 마십시오.
 
 정확히 분류하십시오.
-
-
-큐 등록 시 관련 id (필수 규칙).
-- Work를 create, update, prioritize할 때는 이 요청과 관련된 id 전부를 decision의
-  "refs"에 반드시 배열로 넣으십시오. 빠지면 호스트가 거부합니다.
-- 넣을 id: 이벤트가 가리키는 글(target_message_id, source_ref가 없을 때는
-  이벤트 자신의 message_id), 그 글의 스레드 루트(thread_root_id), 답글이면 부모 글
-  (reply_to_message_id), 대화(conversation_id). 당신이 조회 중 확인한 이 요청과
-  관계된 다른 메시지 id도 전부 넣습니다. target_message_id를 첫 번째로 두십시오.
-- 확인하지 않은 id를 지어내지 마십시오. 이 이벤트와 조회 결과에서 실제 확인한 id만
-  넣습니다. 중복은 호스트가 없앱니다.
-- 메인과 그 항목을 맡은 포크는 이 id를 보고 메인이 답할 정확한 메시지를 찾습니다.
-  본문에 id를 적는 것만으로는 되지 않으며, refs에 넣어야 보드에 등록됩니다.
-- 게이트 재점검 이벤트처럼 사람이 보낸 원본이 없는 경우: 거짓 id를 만들지 마십시오.
-  게이트 스레드를 조회해서 메시지 id를 실제로 확인한 경우에만 그 id를 refs에 넣습니다.
 - status: 현재 Work 상태를 직접 보고합니다. 요청 복기도 Work도 없습니다.
 - info: 필요한 것만 모아 정리해서 답합니다. Work는 없습니다.
 - clarify: 필요한 사실이 빠졌습니다. 정확한 질문 하나를 합니다. Work는 없습니다.
@@ -527,6 +512,20 @@ Work에 관한 것이라는 이유만으로 오래된 이전 이벤트를 대신
   명시적이거나 타당한 긴급도·순서 변경에는 prioritize를 쓰거나, update에
   priority/queue_position을 넣습니다. queue_position은 활성 목표 뒤 대기 목표들
   사이의 1부터 시작하는 자리입니다. 활성 목표는 옮기지 마십시오.
+
+큐 등록 시 관련 id (필수 규칙).
+- Work를 create, update, prioritize할 때는 이 요청과 관련된 id 전부를 decision의
+  "refs"에 반드시 배열로 넣으십시오. 빠지면 호스트가 거부합니다.
+- 넣을 id: 이벤트가 가리키는 글(target_message_id, source_ref가 없을 때는
+  이벤트 자신의 message_id), 그 글의 스레드 루트(thread_root_id), 답글이면 부모 글
+  (reply_to_message_id), 대화(conversation_id). 당신이 조회 중 확인한 이 요청과
+  관계된 다른 메시지 id도 전부 넣습니다. target_message_id를 첫 번째로 두십시오.
+- 확인하지 않은 id를 지어내지 마십시오. 이 이벤트와 조회 결과에서 실제 확인한 id만
+  넣습니다. 중복은 호스트가 없앱니다.
+- 메인과 그 항목을 맡은 포크는 이 id를 보고 메인이 답할 정확한 메시지를 찾습니다.
+  본문에 id를 적는 것만으로는 되지 않으며, refs에 넣어야 보드에 등록됩니다.
+- 게이트 재점검 이벤트처럼 사람이 보낸 원본이 없는 경우: 거짓 id를 만들지 마십시오.
+  게이트 스레드를 조회해서 메시지 id를 실제로 확인한 경우에만 그 id를 refs에 넣습니다.
 
 기한: 이 이벤트에 처리 시한, 마감, 납기, SLA, "N 이내" 같은 제약이 있는지
 확인하십시오. 있으면 조사 수칙 4번으로 관련 항목을 찾습니다. 기한이 있는 이벤트는
@@ -2291,8 +2290,17 @@ function clampText(value,limit) {
   const keep = Math.max(0,limit - (' … [host cut '+value.length+' characters]').length)
   return (value.slice(0,keep)+' … [host cut '+(value.length - keep)+' characters]').slice(0,limit)
 }
+// A router lists the decision fields it accepts in its claim (2026-11-20). One
+// from before refs lists none and refuses an unknown field, so it gets only
+// the fields it knew; refs then wait for that router's restart.
+const LEGACY_DECISION_FIELDS = new Set([...DECISION_FIELDS].filter(key => key !== 'refs'))
+export function routerDecision(event,decision) {
+  const accepted = Array.isArray(event?.decision_fields) ? new Set(event.decision_fields) : LEGACY_DECISION_FIELDS
+  return Object.fromEntries(Object.entries(decision || {}).filter(([key]) => accepted.has(key)))
+}
 async function commitProposal($,actor,event,proposal,sentVia,usage) {
-  proposal = {...proposal,understanding:clampText(proposal.understanding,MAX_UNDERSTANDING)}
+  proposal = {...proposal,decision:routerDecision(event,proposal.decision),
+    understanding:clampText(proposal.understanding,MAX_UNDERSTANDING)}
   await submitUnderstanding($,actor,event,proposal)
   const value = await callRouter($,'work_side_resolve',{decision:proposal.decision,
     expected_version:proposal.expected_version,usage:usage || null},
@@ -2355,13 +2363,14 @@ async function resumeSide($,identity,event) {
 // same fork is told the exact error once and answers again. Only errors raised
 // before the router saved the proposal qualify (nothing was sent yet); every
 // check still applies to the second answer, and a second refusal is recorded.
-const CORRECTABLE = /side answer carries no decision JSON|invalid side decision (action|kind|fields)|side decision kind does not match its action|side decision needs bounded summary and reply|a request must create, update or prioritize Work|existing Work identity required|new Work cannot overwrite an existing identity|side proposal needs bounded understanding|side understanding must/
+const CORRECTABLE = /side answer carries no decision JSON|invalid side decision (action|kind|fields)|decision refs required|side decision kind does not match its action|side decision needs bounded summary and reply|a request must create, update or prioritize Work|existing Work identity required|new Work cannot overwrite an existing identity|side proposal needs bounded understanding|side understanding must/
 function correctionText(reason) {
   return 'Ciel side host: your answer was refused, so nothing was committed or sent. Exact error: '
     + line(reason,400) + '\nAnswer again with only the one JSON object the event prompt describes: '
     + '{"understanding":"...","decision":{...},"expected_version":N}. The decision kind must match its action '
     + '(status or info -> answer, clarify -> clarify, request -> create, update or prioritize); summary and reply '
-    + 'must be non-empty text; update and prioritize name an existing item_id; create names none. '
+    + 'must be non-empty text; update and prioritize name an existing item_id; create names none; '
+    + 'create, update and prioritize carry refs, every related source id you confirmed. '
     + 'Do not call tools or send anything.'
 }
 async function sendCorrection($,actor,reason) {

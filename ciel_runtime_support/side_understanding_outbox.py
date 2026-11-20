@@ -69,15 +69,17 @@ def save_proposal(state_dir, identity, receipt_id, generation, proposal):
         from .work_gate_check import EVENT_PREFIX as GATE_CHECK_PREFIX
         if not isinstance(decision, dict):
             raise WorkPlanError('side decision object required')
+        prior = row.get('proposal')
         # Refs are judged against this exact event: a host gate re-check names
-        # board ids only, and its actor must not invent message ids.
+        # board ids only, and its actor must not invent message ids. A proposal
+        # already saved (an older router saved it without refs) is final.
         gate_check = str(row.get('event_key') or '').startswith(GATE_CHECK_PREFIX)
-        validate(decision, source_has_ids=source_identity(row.get('text')) is not None and not gate_check)
+        validate(decision, source_has_ids=source_identity(row.get('text')) is not None and not gate_check
+                 and not isinstance(prior, dict))
         if expected is not None and type(expected) is not int:
             raise WorkPlanError('expected Work version must be an integer')
         value = {'understanding': understanding, 'decision': decision, 'expected_version': expected,
                  'digest': digest(understanding, decision, expected), 'saved_at': time.time()}
-        prior = row.get('proposal')
         if isinstance(prior, dict):
             if prior.get('digest') != value['digest']:
                 raise WorkPlanError('side event already has a different proposal')

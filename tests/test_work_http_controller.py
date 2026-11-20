@@ -285,6 +285,33 @@ class WorkHttpTests(unittest.TestCase):
         self.assertEqual(200, command("node-update", "progress-a", id=ids["a"], progress="tests passed")[0])
         self.assertEqual("tests passed", next(n for n in self.request()[1]["nodes"] if n["id"] == ids["a"])["progress"])
 
+    def test_related_ids_are_registered_and_edited_over_rest(self):
+        # User 2026-11-20 (REST emergency patch): every related id goes on the
+        # board, through both REST paths, and the board read returns them all.
+        def command(name, key, **body):
+            return self.request("/ca/work/api/v1/commands/" + name,
+                {"expected_version": self.request()[1]["version"], **body},
+                {"Idempotency-Key": key})
+        self.assertEqual(200, command("plan-set", "goal", goal="goal", refs=["41", "40"])[0])
+        root = self.request()[1]["nodes"][0]
+        self.assertEqual((["41", "40"], "41"), (root["refs"], root["ref"]))
+        self.assertEqual(200, command("node-add", "child", parent_id=root["id"], title="child",
+                                      refs=["42", "40"])[0])
+        child = next(n for n in self.request()[1]["nodes"] if n["title"] == "child")
+        self.assertEqual(["42", "40"], child["refs"])
+        self.assertEqual(200, command("node-update", "edit", id=child["id"], refs=["43"])[0])
+        self.assertEqual(["43"], next(n for n in self.request()[1]["nodes"] if n["id"] == child["id"])["refs"])
+        status, board = self.change("add", title="legacy", refs=["7", "8"])
+        self.assertEqual(200, status, board)
+        legacy = next(n for n in board["nodes"] if n["title"] == "legacy")
+        self.assertEqual(["7", "8"], legacy["refs"])
+        status, board = self.change("update", id=legacy["id"], refs=["9"])
+        self.assertEqual(200, status, board)
+        self.assertEqual(["9"], next(n for n in board["nodes"] if n["id"] == legacy["id"])["refs"])
+        status, error = self.change("update", id=legacy["id"], refs="9")
+        self.assertEqual(422, status)
+        self.assertIn("refs", error["message"])
+
     def test_v1_existing_root_p0_uses_sidecar_and_returns_exact_mutation_receipt(self):
         from dataclasses import replace
         from ciel_runtime_support.work_parallel import WorkParallelStore

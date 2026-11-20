@@ -57,6 +57,19 @@ class WorkPlanTreeTests(unittest.TestCase):
         step = next(n for n in self.doc["nodes"] if n["title"] == "step")
         self.assertEqual(["153480"], t._node_summary(step)["refs"])
 
+    def test_refs_without_a_ref_give_the_node_its_ref(self):
+        # ref stays the one id older readers (status line, fork label) show.
+        root = t.add_node(self.doc, None, "linked", refs=["41", "40"], now=10)
+        row = next(n for n in self.doc["nodes"] if n["id"] == root)
+        self.assertEqual(("41", ["41", "40"]), (row["ref"], row["refs"]))
+        t.update_node(self.doc, root, ref="", now=11)
+        self.assertEqual(("", ["41", "40"]), (row["ref"], row["refs"]))
+        t.update_node(self.doc, root, refs=["50"], now=12)
+        self.assertEqual(("50", ["50"]), (row["ref"], row["refs"]))
+        planned = t.set_plan(self.doc, {"title": "planned", "refs": ["60", "61"]})
+        self.assertEqual("60", next(n for n in self.doc["nodes"] if n["id"] == planned)["ref"])
+        self.assertEqual(self.doc, t.normalize_document(self.doc))
+
     def test_a_stored_ref_becomes_the_first_ref(self):
         doc = t.normalize_document(dict(t.empty_document(),
                                         nodes=[dict(node("n1"), ref="123456", title="old")]))

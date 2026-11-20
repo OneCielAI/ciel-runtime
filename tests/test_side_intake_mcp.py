@@ -553,6 +553,14 @@ class SideMcpTests(unittest.TestCase):
             item = next(node for node in store.read()['nodes'] if node['id'] == item['id'])
         self.assertEqual(['154304', '153480', '154306', '154999'], item['refs'])
 
+    def test_claim_names_the_decision_fields_this_router_accepts(self):
+        # The mod sends refs only to a router that lists it (2026-11-20): an
+        # older router refuses an unknown decision field.
+        from ciel_runtime_support.side_work_decision import FIELDS
+        event = self._claim()
+        self.assertEqual(sorted(FIELDS), event['decision_fields'])
+        self.assertIn('refs', event['decision_fields'])
+
     def test_queue_decision_without_related_ids_is_refused_and_rechecked(self):
         store = session_work_plan_store(self.root, self.identity)
         # setUp's plain event first: a source with no message id queues without refs.

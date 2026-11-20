@@ -348,6 +348,9 @@ def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any =
         "created_at": stamp,
         "updated_at": stamp,
     }
+    if not node["ref"] and node["refs"]:
+        # refs alone: the first is the one id older readers show (ref).
+        node["ref"] = node["refs"][0]
     if parent_id is None:
         node["phase"] = PHASE_PLANNING
         node["priority"] = priority
@@ -413,6 +416,8 @@ def set_plan(doc: dict[str, Any], spec: Any, root_id: str | None = None, *, now:
             root[key] = _line(spec[key], limit)
     if "refs" in spec:
         root["refs"] = _refs(spec["refs"])
+        if "ref" not in spec and not root.get("ref") and root["refs"]:
+            root["ref"] = root["refs"][0]
     if "priority" in spec:
         if spec["priority"] not in ("", *PRIORITIES):
             raise WorkPlanError("priority must be one of P1, P2, P3, P4, P5")
@@ -470,6 +475,8 @@ def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title:
         candidate["ref"] = _line(ref, MAX_REF_CHARS)
     if refs is not None:
         candidate["refs"] = _refs(refs)
+        if ref is None and not candidate.get("ref") and candidate["refs"]:
+            candidate["ref"] = candidate["refs"][0]
     if priority is not None:
         if node["parent_id"] is not None:
             raise WorkPlanError("priority belongs to a goal, not a detail item")

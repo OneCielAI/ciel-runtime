@@ -307,6 +307,17 @@ class CorrectiveTurnTests(unittest.TestCase):
         self.assertEqual([], row['sends'])
         self.assertEqual(['invalid_answer'], [failure['category'] for failure in row['failures']])
 
+    def test_a_queue_decision_without_refs_is_corrected_then_commits_with_them(self):
+        row = self.result['refs_refused_then_valid']
+        self.assertEqual([{'to': 'actor-refs_refused_then_valid', 'mentionsError': True}], row['sends'])
+        self.assertEqual((2, 1, 1, []), (row['prepares'], row['understandingSent'], row['resolves'], row['failures']))
+        self.assertEqual([None, ['41', '40'], ['41', '40']], row['sentRefs'])
+
+    def test_refs_reach_only_a_router_that_accepts_them(self):
+        self.assertEqual([['41', '40'], ['41', '40']], self.result['router_with_refs']['sentRefs'])
+        before = self.result['router_before_refs']
+        self.assertEqual(([None, None], [], 1), (before['sentRefs'], before['failures'], before['resolves']))
+
 
 if __name__ == '__main__':
     unittest.main()

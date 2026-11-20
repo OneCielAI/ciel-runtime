@@ -903,7 +903,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         return tree.render(doc, max_lines=104, all_goals=args.get("all_goals") is True)
     if name == "work_plan_set":
         spec = {"title": args.get("goal"), "note": args.get("note", ""), "children": args.get("children") or []}
-        spec.update({key: args[key] for key in ("ref", "waiting_on", "priority") if key in args})
+        spec.update({key: args[key] for key in ("ref", "refs", "waiting_on", "priority") if key in args})
         root_id = args.get("root_id")
         if args.get("priority") == "P0":
             raise tree.WorkPlanError("P0 priority is applied by the authenticated Work host")
@@ -918,6 +918,8 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         parent = args.get("parent_id")
         spec = {"title": args.get("title"), "note": args.get("note", ""), "children": args.get("children") or [],
                 "ref": args.get("ref", ""), "waiting_on": args.get("waiting_on", "")}
+        if "refs" in args:
+            spec["refs"] = args["refs"]
         if not parent and "priority" in args:
             spec["priority"] = args["priority"]
         doc, node = store.transaction(
@@ -966,7 +968,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
                 return tree.update_node(
                     d, node_id, status=args.get("status"), title=args.get("title"),
                     note=args.get("note"), progress=args.get("progress"), evidence=args.get("evidence"),
-                    ref=args.get("ref"), waiting_on=args.get("waiting_on"),
+                    ref=args.get("ref"), refs=args.get("refs"), waiting_on=args.get("waiting_on"),
                     priority=args.get("priority"),
                 ), before, d.get("version", 0)
 
