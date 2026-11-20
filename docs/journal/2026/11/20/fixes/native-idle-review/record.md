@@ -56,6 +56,11 @@ No new store field, schema or model-facing text. The wake text is unchanged.
   - `checkpoint_a` now ends with the second fork still listed `running`. It reproduces the recorded 2026-11-11 run up to the restart.
   - That run also listed the second fork idle at 16:51:14Z, and its review was never published.
   - Under this change, that row would publish the review before the restart. The restart cases need it unpublished, so their precondition keeps the second fork running.
+- `tests/test_work_mod_real_backend.py`, `tests/work_mod_real_backend_harness.mjs`, `tests/work_mod_real_backend_server.py`
+  - Three pre-existing tests assumed that a native observation of an idle submitted fork never publishes a review (zero product regressions):
+    - `test_completions_killed_before_review_converge_after_restart`: `seed_restart_pair` had the same pre-restart idle observation as `checkpoint_a`; the second fork now stays `running` before the restart so the restart path is still exercised.
+    - `test_broken_worktree_publishes_one_stranded_row_beside_the_healthy_review`: the `"after session.start"` step ran `/work-mode parallel`, which runs `native_observation` and therefore published both reviews before the first `turn.complete`. Skipping that command at `"after session.start"` leaves the first `turn.complete` exercising reconcile.
+    - `test_one_lease_whose_reconcile_is_refused_does_not_stop_the_others_or_the_pump`: its injected refusal covers only `reconcile`, not `native_observation`. The `native_observation` right after the reconcile loop on the real backend now publishes the refused lease's review too, while only the healthy fork is stopped by reconcile. The test's expected counts now reflect both reviews and wakes.
 - New router tests:
   - `test_native_idle_row_publishes_the_review_without_a_turn_end`: idle row, then review pending with matching ledger and workspace proofs, then approve finalized.
   - `test_native_idle_row_of_a_published_review_writes_nothing_more`: a replayed idle row writes nothing.

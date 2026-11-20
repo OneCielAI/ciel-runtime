@@ -836,10 +836,14 @@ class WorkModRealBackendTests(unittest.TestCase):
         self.assertTrue(first["errors"][0][1])
         # ... and the healthy lease is still reconciled, reviewed and stopped, the
         # pump still runs (its auto-fill attempt) and main is woken for the review.
-        self.assertEqual(({"stranded": None, "healthy": "pending"}, 2, ["healthy"], ["healthy"]),
+        # The native observation right after the reconcile loop sees both idle
+        # rows on the real backend, so the refused lease's review is also
+        # published there without failing; only the healthy worker was stopped
+        # by reconcile.
+        self.assertEqual(({"stranded": "pending", "healthy": "pending"}, 2, ["healthy"], ["healthy", "stranded"]),
                          (first["reviews"], first["reconciles"], first["stopped"], first["appendedReviews"]), first)
         # One idle wake-only prompt per review (continue-sse's delivery design).
-        self.assertEqual(1, first["prompts"], first)
+        self.assertEqual(2, first["prompts"], first)
         self.assertGreaterEqual(first["fills"], 1, first)
         self.assertEqual("submitted", first["leases"]["stranded"])
         # The refusal is shown once, with the lease it belongs to.

@@ -1177,7 +1177,11 @@ try {
         appended: native.appended.length, prompts: native.prompts.length }
       if (label !== 'after session.start') await turnComplete()
       const inspected = await rpc('inspect')
-      const shown = (await hooks['command:work-mode']($, { args: 'parallel', origin: { kind: 'composer' } })).text.split('\n')
+      // /work-mode parallel itself runs native_observation, which now publishes
+      // reviews for idle submitted forks. Keep the start snapshot purely after
+      // session.start so the first turn.complete still tests reconcile.
+      const shown = label === 'after session.start' ? []
+        : (await hooks['command:work-mode']($, { args: 'parallel', origin: { kind: 'composer' } })).text.split('\n')
       ;(out.steps ||= []).push({ label,
         // Review payloads appended to main, and wake-only prompts, separately.
         appendedReviews: native.appended.slice(before.appended).flatMap(text => pair.leases
