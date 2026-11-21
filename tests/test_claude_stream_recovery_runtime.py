@@ -442,6 +442,16 @@ class CorruptLedgerTests(unittest.TestCase):
                           "saw_tool_use": None, "emitted_tool_use": None},
                          value["failures"]["msg_owned_4"])
 
+    def test_corrupt_ledger_is_preserved_for_claim_and_note_writes(self):
+        path = self.root / recovery.LEDGER_NAME
+        path.write_bytes(b"corrupt-ledger\x00")
+        ledger = recovery.StreamRecoveryLedger(path, lambda *_logged: None, Clock())
+        with self.assertRaises(OSError):
+            ledger.claim(SCOPE, "err-corrupt", continues_chain=False, limit=1)
+        ledger.note("err-corrupt", "skipped", "preserve evidence")
+        self.assertEqual(b"corrupt-ledger\x00", path.read_bytes())
+        self.assertEqual([], list(self.root.glob(path.name + ".corrupt-*")))
+
     def test_absent_ledger_is_initialized_without_quarantine(self):
         path = self.root / recovery.LEDGER_NAME
         ledger = recovery.StreamRecoveryLedger(path, lambda *_logged: None, Clock())

@@ -187,19 +187,16 @@ class StreamRecoveryLedger:
         self.log = log
         self.now = now
 
-    def _change(self, purpose: str, change: Callable[[dict[str, Any]], Any]) -> Any:
+    def _change(self, purpose: str, change: Callable[[dict[str, Any]], Any], *, recover_corrupt=False) -> Any:
         with exclusive_file_lock(self.repository.path):
             try:
-                value = self.repository.load(purpose)
+                value = self.repository.load(purpose, raise_on_corrupt=True)
             except SecureJsonCorruptError:
-                if self.repository.quarantine(purpose) is None:
+                # Only a fresh router failure can start a new ledger. A claim,
+                # settle or diagnostic note must not discard deduplication state.
+                if not recover_corrupt or self.repository.quarantine(purpose) is None:
                     raise OSError("stream recovery ledger is corrupt")
-                # The corrupt body was just moved aside under the same lock, so
-                # the primary path is absent and load returns an empty ledger.
-                try:
-                    value = self.repository.load(purpose)
-                except SecureJsonCorruptError:
-                    raise OSError("stream recovery ledger is corrupt")
+                value = self.repository.load(purpose, raise_on_corrupt=True)
             if value is None:
                 raise OSError("stream recovery ledger is unreadable")
             for key in ("failures", "handled", "chains"):
@@ -231,7 +228,7 @@ class StreamRecoveryLedger:
             for stale in sorted(failures, key=lambda key: float(failures[key].get("failed_at") or 0))[:-_FAILURE_LIMIT]:
                 failures.pop(stale, None)
 
-        self._change("stream_recovery_failure", change)
+        self._change("stream_recovery_failure", change, recover_corrupt=True)
 
     def failure(self, scope: CompactionScope, message_id: str) -> dict[str, Any] | None:
         value = self.repository.load("stream_recovery_lookup")

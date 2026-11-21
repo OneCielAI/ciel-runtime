@@ -25,7 +25,7 @@ class SecureJsonRepository:
     path: Path
     effects: SecureJsonEffects
 
-    def load(self, purpose: str) -> dict[str, Any] | None:
+    def load(self, purpose: str, *, raise_on_corrupt: bool = False) -> dict[str, Any] | None:
         if not self.path.exists():
             return {}
         try:
@@ -36,7 +36,9 @@ class SecureJsonRepository:
                 f"secure_json_read_failed purpose={purpose} path={self.path} "
                 f"error={type(exc).__name__}: {exc}",
             )
-            raise SecureJsonCorruptError(str(exc)) from exc
+            if raise_on_corrupt:
+                raise SecureJsonCorruptError(str(exc)) from exc
+            return None
         except OSError as exc:
             self.effects.log(
                 "WARN",
