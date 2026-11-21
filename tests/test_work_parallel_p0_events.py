@@ -93,6 +93,23 @@ class P0EventTests(unittest.TestCase):
         intent = p0_store(self.store).read()["intents"][reserved["intent_id"]]
         self.assertEqual("bound", intent["state"])
 
+    def test_full_p0_journal_retires_old_cancelled_intent_before_reserving(self):
+        side = p0_store(self.store)
+        with patch.object(p0, "MAX_INTENTS", 2):
+            for stamp in (2.0, 3.0):
+                _, row = side.create_intent({"scope": SCOPE, "root_id": "root", "root_created_at": 1.0,
+                                             "item_id": "item", "continuation": "initial",
+                                             "predecessor_lease_id": None},
+                                            expected_version=side.read()["version"], now=stamp)
+                side.transition_intent(row["intent_id"], "cancelled", expected_version=side.read()["version"], now=stamp)
+            before = set(side.read()["intents"])
+            reserved = self.reserve()
+            after = side.read()["intents"]
+            self.assertEqual("ready", reserved["dispatch"])
+            self.assertEqual(2, len(after))
+            self.assertIn(row["intent_id"], after)
+            self.assertEqual(1, len(before & set(after)))
+
     def test_a_p0_fork_row_says_it_runs_as_p0(self):
         # Celly 2026-11-17: the lease keeps the goal's canonical P1 and the panes
         # labelled the running P0 fork P1. The row carries the effective priority.

@@ -644,6 +644,13 @@ class WorkParallelP0Store:
                 require(all(prior[key] == value for key, value in facts.items()),
                         "open P0 intent facts changed")
                 return prior
+            if len(state["intents"]) >= MAX_INTENTS:
+                # A cancelled intent cannot authorize a worker or parent a
+                # reacquire send. Keep bound and terminal approval evidence.
+                oldest = min((r for r in state["intents"].values() if r["state"] == "cancelled"),
+                             key=lambda r: (r["updated_at"], r["intent_id"]), default=None)
+                if oldest is not None:
+                    del state["intents"][oldest["intent_id"]]
             require(len(state["intents"]) < MAX_INTENTS, "P0 intent bound")
             row = {"intent_id": intent_id, **copy.deepcopy(facts),
                    "dispatch_name": dispatch_name(intent_id), "state": "intent",
