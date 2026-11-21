@@ -1569,6 +1569,19 @@ function handoffView(h) {
     ...(h.wake?.delivery_uncertain === true ? {delivery_uncertain:true} : {}),
     ...(h.wake?.needs_ack_retry === true ? {needs_ack_retry:true} : {})}
 }
+// A P0 fork is dispatched without plan approval (work_parallel_mcp sets
+// planning_write_authorized=true on its exact running lease). Normally
+// ciel-work skips its own spawned forks and only ciel-work-gate checks them,
+// but after a session restart a recovered fork's calls reach ciel-work too
+// (Andy n2531 2026-11-21). Fail closed when parallel status is unreadable.
+async function p0PlanningWriteAuthorized($, agentId) {
+  if (typeof agentId !== 'string' || !agentId) return false
+  try {
+    const state = await hostStatus($)
+    return Object.values(state?.leases || {}).some(lease => lease?.host_id === agentId
+      && lease.state === 'running' && lease.planning_write_authorized === true)
+  } catch { return false }
+}
 async function workToolCall($, e, next) {
   const work = e.tool.startsWith(PREFIX) ? e.tool.slice(PREFIX.length) : ''
   const name = WORK.has(work) ? work : null
@@ -1587,7 +1600,8 @@ async function workToolCall($, e, next) {
     const reason = blocked(read, e)
     const exactNativePlan = await nativePlanWrite($, e.tool, e, e.agentId)
     if (reason && !exactNativePlan) {
-      hintPlanning($, s, reason); return { deny: reason }
+      if (reason === T('mod_planning') && await p0PlanningWriteAuthorized($, e.agentId)) { /* P0 fork write authorized by router. */ }
+      else { hintPlanning($, s, reason); return { deny: reason } }
     }
   }
   let input = e
@@ -1669,7 +1683,10 @@ async function workToolCheck($, e, next) {
   const read = await gateRead($)
   const reason = blocked(read, e)
   const planWrite = await nativePlanWrite($, e.tool, e.input, e.agentId)
-  if (reason && !planWrite) { hintPlanning($, read.s, reason); return { decision: 'deny', reason } }
+  if (reason && !planWrite) {
+    if (reason === T('mod_planning') && await p0PlanningWriteAuthorized($, e.agentId)) return next(e)
+    hintPlanning($, read.s, reason); return { decision: 'deny', reason }
+  }
   return next(e)
 }
 

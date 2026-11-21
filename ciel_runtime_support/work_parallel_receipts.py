@@ -111,11 +111,25 @@ def _require_fields(body, label, required, optional=()):
     raise WorkParallelError(f"{label} fields: detail needs exactly {needed}{extra}; got {got}")
 
 
+def _require_text(value, label, field, limit=MAX_TEXT):
+    """Refuse non-string, empty, NUL or over-limit text, naming the field and limit."""
+    if text(value, limit):
+        return
+    if not isinstance(value, str):
+        raise WorkParallelError(f"{label} {field}: non-empty string up to {limit} chars required")
+    if not value:
+        raise WorkParallelError(f"{label} {field}: empty string (1..{limit} chars required)")
+    if chr(0) in value:
+        raise WorkParallelError(f"{label} {field}: NUL byte not allowed")
+    raise WorkParallelError(f"{label} {field}: {len(value)} chars exceeds max {limit}; shorten or put full details in a file")
+
+
 def _validate_detail(kind, body):
     require(type(body) is dict, "receipt body")
     if kind == "completion":
         _require_fields(body, "completion", ("summary", "coverage", "verification"), ("workspace",))
-        require(text(body["summary"], MAX_TEXT) and text(body["verification"], MAX_TEXT), "completion text")
+        _require_text(body["summary"], "completion text", "summary")
+        _require_text(body["verification"], "completion text", "verification")
         coverage = body["coverage"]
         require(type(coverage) is list and len(coverage) <= MAX_ARRAY, "completion coverage")
         for row in coverage:
@@ -131,15 +145,16 @@ def _validate_detail(kind, body):
             _bounded_strings(body[field], "handoff " + field)
         # A host salvage of a lease reserved without a workspace records None.
         _workspace(body["workspace"], optional=kind == "host_salvage")
-        require(text(body["next_step"], MAX_TEXT), "handoff next step")
+        _require_text(body["next_step"], "handoff", "next_step")
     elif kind == "question":
         _require_fields(body, "question", ("question", "blocking_todos", "decision_needed"))
-        require(text(body["question"], MAX_TEXT) and text(body["decision_needed"], MAX_TEXT), "question text")
+        _require_text(body["question"], "question text", "question")
+        _require_text(body["decision_needed"], "question text", "decision_needed")
         _bounded_strings(body["blocking_todos"], "question blocking todos", chars=200)
     elif kind == "review":
         _require_fields(body, "review", ("receipt_id", "pass", "coverage", "findings", "verification"))
-        require(text(body["receipt_id"], 200) and type(body["pass"]) is bool
-                and text(body["verification"], MAX_TEXT), "review values")
+        require(text(body["receipt_id"], 200) and type(body["pass"]) is bool, "review values")
+        _require_text(body["verification"], "review values", "verification")
         _bounded_strings(body["coverage"], "review coverage")
         _bounded_strings(body["findings"], "review findings")
     else:

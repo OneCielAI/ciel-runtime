@@ -698,6 +698,26 @@ class MainReviewTests(unittest.TestCase):
         for field in ("done", "remaining", "blockers", "workspace", "next_step"):
             self.assertIn(field, str(handoff.exception))
 
+    def test_oversized_question_text_names_the_limit_and_keeps_the_lease(self):
+        # Andy n2531 / Celly n1229 2026-11-21: a worker sent >2000-char evidence
+        # with event=question and received only "question text".
+        reserve = self.call("event", {"fork": True, "workspace_repo": str(self.repo)},
+                            event="reserve", item_id=self.board.item, priority="P1")
+        self.call("event", {"host_id": "worker-1"}, event="bind", lease_id=reserve["lease_id"])
+        base = {"lease_id": reserve["lease_id"], "worker_token": reserve["worker_token"],
+                "event": "question", "plan_version": self.board.read()["version"]}
+        with patch.object(m, "ledger", return_value=self.store):
+            with self.assertRaises(WorkParallelError) as refused:
+                m.report({**base, "evidence": "x" * 2216}, self.board, self.config)
+            message = str(refused.exception)
+            self.assertIn("2000", message)
+            self.assertIn("2216", message)
+            self.assertIn("question", message)
+            self.assertEqual("running", self.store.read()["leases"][reserve["lease_id"]]["state"])
+            # Shortening to within the reported limit succeeds with the same token.
+            m.report({**base, "evidence": "x" * 1800}, self.board, self.config)
+        self.assertEqual("waiting_input", self.store.read()["leases"][reserve["lease_id"]]["state"])
+
     def test_main_resumes_a_parked_worker_after_a_scope_edit(self):
         # KOBE 2026-11-19: "could not return to running: Work approval scope changed".
         lease_id = self._parked()

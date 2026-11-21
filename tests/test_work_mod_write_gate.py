@@ -1436,6 +1436,15 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertTrue(all(text.startswith("Work recovery") for text in result["sent"]), result)
         self.assertEqual("running", result["lease"]["state"])
 
+    def test_p0_planning_write_authorized_fork_is_not_blocked_by_work_planning_gate(self):
+        result = self.run_scenario("p0-planning-write-authorized-fork-passes-work-gate")
+        self.assertEqual("allow", result["p0Check"], result)
+        self.assertEqual("allow", result["p0Call"], result)
+        self.assertTrue(result["p1Check"].startswith(PLANNING), result)
+        self.assertTrue(result["p1Call"].startswith(PLANNING), result)
+        self.assertTrue(result["unknownCheck"].startswith(PLANNING), result)
+        self.assertTrue(result["mainCall"].startswith(PLANNING), result)
+
     def test_listed_running_fork_is_not_nudged_or_salvaged(self):
         result = self.lifecycle(self.run_scenario("parallel-listed-running-fork-is-left-alone"))
         self.assertEqual(0, result["sent"], result)

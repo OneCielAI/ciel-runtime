@@ -2147,6 +2147,32 @@ const scenarios = {
     await handlers['turn.complete']($, { reason:'answer' }, next(undefined))
     return { first, calls, tools, sent:state.sent.length, lease:leases.L1 }
   },
+  // Andy n2531 2026-11-21: a P0 fork resumed after restart ran under ciel-work's
+  // own write gate while its goal n1936 was planning. ciel-work denied Write
+  // even though the router marked the lease planning_write_authorized=true; an
+  // unauthorized subagent or main must still be denied while planning.
+  async 'p0-planning-write-authorized-fork-passes-work-gate'() {
+    const leases = {
+      L1: { id:'L1', item_id:'n2', role:'worker', state:'running', host_id:'agent-p0', slot:true,
+        plan_version:7, planning_write_authorized:true },
+      L2: { id:'L2', item_id:'n3', role:'worker', state:'running', host_id:'agent-p1', slot:true,
+        plan_version:7 } }
+    const { $ } = host(async tool => {
+      if (tool === 'work_status') return text(snapshot('planning', 7))
+      if (tool === 'work_parallel_status') return text({ version:9, active_device:2,
+        policy:{enabled:true,paused:false,priority_limits:{P1:5}}, leases })
+      return text({})
+    })
+    await handlers['session.start']($, { isInteractive:false }, next(undefined))
+    return {
+      p0Check: verdict(await check($, 'agent-p0')),
+      p0Call: verdict(await call($, 'agent-p0')),
+      p1Check: verdict(await check($, 'agent-p1')),
+      p1Call: verdict(await call($, 'agent-p1')),
+      unknownCheck: verdict(await check($, 'agent-other')),
+      mainCall: verdict(await call($, undefined)),
+    }
+  },
   async 'parallel-recovery-context'() {
     const lease = { id:'L1', item_id:'n2', role:'worker', state:'running', host_id:'agent-old',
       agent_name:'work-auto-exact', dispatch_name:'work-auto-exact', slot:true, plan_version:7 }
