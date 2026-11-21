@@ -158,6 +158,14 @@ class WorkModRealBackendTests(unittest.TestCase):
         self.assertEqual([], result["spawns"])
         self.assertNotIn("Awaiting main review", result["pane"])
 
+    def test_decided_removed_review_closes_at_the_next_pump(self):
+        result = self.run_scenario("close-resolved-decided")
+        lease = result["lease"]
+        self.assertEqual("awaiting_capacity", result["before"]["reviews"][lease]["state"])
+        review = result["after"]["reviews"][lease]
+        self.assertEqual(("finalized", "close"), (review["state"], review["decision"]))
+        self.assertNotIn(result["item"], result["after"]["nodes"])
+
     def test_review_of_an_open_item_still_awaits_main(self):
         result = self.run_scenario("close-resolved-open")
         lease = result["lease"]

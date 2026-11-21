@@ -210,6 +210,11 @@ class MainReviewTests(unittest.TestCase):
     def close_resolved(self, host=None):
         return self.call("event", {"internal": True, **(host or {})}, event="review_close_resolved")
 
+    def decided_rework(self):
+        reserve, _, _ = self.completed(item_id=self.board.item2)
+        self.idle(reserve["lease_id"])
+        return reserve
+
     def test_review_of_an_item_main_completed_on_the_board_closes_unreviewed(self):
         reserve, workspace, artifact = self.completed()
         self.idle(reserve["lease_id"])
@@ -231,6 +236,68 @@ class MainReviewTests(unittest.TestCase):
         self.assertEqual("closed unreviewed: Work item resolved on the board", coord["archive"][-1]["summary"]["outcome"])
         # Idempotent: nothing more to close.
         self.assertEqual([], self.close_resolved()["closed"])
+
+    def test_decided_review_of_a_removed_item_is_closed_without_applying_the_decision(self):
+        # Andy n1856 (2026-11-20): a decided rework whose item main removed from
+        # the board stayed in `deciding` forever, failing every pump with
+        # stage_failed "unknown Work item": close_resolved skips decided rows.
+        # User 2026-11-21: decided rows of removed or done items close too.
+        reserve = self.decided_rework()
+        from unittest.mock import patch
+        from ciel_runtime_support import work_parallel_mcp as mcp_module
+
+        def held(host, identity):
+            raise RuntimeError('hold admission')
+        decided = None
+        with patch.object(mcp_module, "_proven_owner", held):
+            try:
+                decided = self.review(reserve["lease_id"], "rework", decision_id="d-rework",
+                                      expected_finalization_version=self.pending_version())
+            except RuntimeError:
+                decided = {"state": "deciding"}
+        row = self.review_row(reserve["lease_id"])
+        decided = {"state": row["state"], "dispatch": {"lease_id": row["replacement_lease_id"]}}
+        self.assertEqual("deciding", decided["state"], decided)
+        replacement = decided["dispatch"]["lease_id"]
+        self.board.transaction(lambda d: tree.remove_node(d, self.board.item2),
+                               expected_version=self.board.read()["version"])
+        closed = self.close_resolved()["closed"]
+        self.assertEqual([reserve["lease_id"]], [c["lease_id"] for c in closed], closed)
+        row = self.review_row(reserve["lease_id"])
+        self.assertEqual("finalized", row["state"])
+        self.assertEqual([], [n["id"] for n in self.board.read()["nodes"] if n["id"] == self.board.item2])
+        self.assertEqual("done", self.store.read()["leases"][reserve["lease_id"]]["state"])
+        fresh = self.store.read()["leases"].get(replacement)
+        # The held admission never reserved it; a reserved one was never launched.
+        self.assertIsNone(fresh)
+        row = self.review_row(reserve["lease_id"])
+        self.assertIsNone(row["blocked"])
+        self.assertEqual("close", row["decision"])
+        self.assertIn("Prior rework decision d-rework", row["evidence"])
+        self.assertEqual([], self.call("status", {})["review"]["pending"])
+        self.assertEqual([], self.close_resolved()["closed"])
+
+    def test_decided_review_of_a_completed_item_is_closed_without_applying_the_decision(self):
+        # Same decision as the removed case (user 2026-11-21: both close).
+        reserve = self.decided_rework()
+        from unittest.mock import patch
+        from ciel_runtime_support import work_parallel_mcp as mcp_module
+
+        def held(host, identity):
+            raise RuntimeError('hold admission')
+        with patch.object(mcp_module, "_proven_owner", held):
+            try:
+                self.review(reserve["lease_id"], "rework", decision_id="d-rework-done",
+                            expected_finalization_version=self.pending_version())
+            except RuntimeError:
+                pass
+        self.board.transaction(lambda d: tree.update_node(d, self.board.item2, status="done",
+                                                          evidence="main finished it"),
+                               expected_version=self.board.read()["version"])
+        closed = self.close_resolved()["closed"]
+        self.assertEqual([(reserve["lease_id"], "completed on the board", "finalized")],
+                         [(c["lease_id"], c["reason"], c["state"]) for c in closed])
+        self.assertEqual([], self.call("status", {})["review"]["pending"])
 
     def test_review_of_an_item_removed_from_the_board_closes_unreviewed(self):
         reserve, workspace, artifact = self.completed(item_id=self.board.item2)

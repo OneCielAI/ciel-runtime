@@ -463,6 +463,23 @@ class WorkParallelFinalizationStore:
             return row
         return self._change(apply, expected_version)
 
+    def close_decided_rework(self, lease_id, evidence, *, expected_version):
+        """Record a board-resolved closure using the existing close journal contract."""
+        require(text(evidence, 2_000), "resolved close evidence")
+        def apply(state):
+            row = state["reviews"].get(lease_id)
+            require(row is not None and row["decision"] == "rework", "review is not a decided rework")
+            row.update(decision="close", decision_id="close-resolved:" + lease_id,
+                       decision_digest=decision_digest(lease_id, "close", evidence), evidence=evidence,
+                       replacement_lease_id=None, replacement_generation=None, blocked=None,
+                       state="deciding", stages=dict.fromkeys(STAGES, False), updated_at=time.time())
+            row["launch"] = {"state": "none", "dispatch_name": None, "attempt": 0,
+                             "generation": None, "agent_id": None, "proof": None,
+                             "host_nonce": None, "manual_from": None, "launch_ref": None,
+                             "audit": [], "updated_at": row["updated_at"]}
+            return row
+        return self._change(apply, expected_version)
+
     def await_capacity(self, lease_id, code, message, *, expected_version):
         """A durable rework waits for admission; the predecessor stays the fence."""
         require(text(code, 80) and text(message, 300), "admission wait reason")
