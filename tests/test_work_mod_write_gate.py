@@ -1231,6 +1231,19 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual(1, sum("Ciel Work result is awaiting main review" in row and '"lease_id":"L1"' in row
                                 for row in result["appended"]), result)
 
+    def test_recover_submitted_waiting_requires_observed_stop(self):
+        result = self.run_scenario("recover-submitted-waiting")
+        for key, expected in {"fork": "Only main", "foreign": "Exact owned",
+                              "malformed": "native agent list unavailable", "cancelled": "cancelled",
+                              "changed": "target changed", "refused": "stop refused",
+                              "blocked": "still listed as waiting"}.items():
+            self.assertIn(expected, result[key]["deny"], result)
+        self.assertEqual([], result["eventsBefore"], result)
+        self.assertEqual(0, result["stopsBefore"], result)
+        self.assertEqual(3, result["stops"], result)
+        self.assertEqual(["restart_submitted_terminal"], result["events"], result)
+        self.assertTrue(json.loads(result["recovered"]["result"])["review_pending"])
+
     def test_own_fork_absent_after_its_receipt_is_observed_terminal_without_a_restart(self):
         # Celly n1070 2026-11-20: receipt 10:42:48, last listed running 10:40:44,
         # absent from 10:47:14; the review opened only after Celly restarted.
@@ -1593,8 +1606,9 @@ class WorkModWriteGateTests(unittest.TestCase):
 
     def test_rework_decision_starts_resume_fork_from_retained_workspace(self):
         result = self.lifecycle(self.run_scenario("parallel-rework-dispatch-started"))
-        # Hydration reads the host launch view for the unbound resume lease, then the pump does.
-        self.assertEqual(["rework_launch_status", "rework_launch_status", "rework_dispatch", "rework_launch_intent",
+        # Hydration reads the launch view. The pump checks board-resolved reviews before dispatch.
+        self.assertEqual(["rework_launch_status", "review_close_resolved", "rework_launch_status",
+                          "rework_dispatch", "rework_launch_intent",
                           "rework_spawn_observed", "bind", "reserve_next"],
                          [row["event"] for row in result["calls"]])
         self.assertEqual(1, len(result["spawned"]), result)

@@ -197,6 +197,15 @@ def backend(tool, args):
         # The mod passes its own _host (token, fork, host_id, agent_name, proof).
         BRIDGE_CALLS.append({"tool": tool, "args": dict(args)})
         return paged(json.loads(parallel.run(tool, dict(args), BOARD, IDENTITY, config(), None)))
+    if tool in ("work_node_update", "work_reorder"):
+        from ciel_runtime_support.work_mcp_tools import dispatch_work_tool
+        if args.get("session_id") != IDENTITY or "_host" in args:
+            raise ValueError("expected main conversation without host attestation")
+        answer = dispatch_work_tool(1, tool, dict(args), load_config=config, state_dir=ROOT,
+                                    store=BOARD, respond=lambda _id, text, error=False: {"text": text, "error": error})
+        if answer["error"]:
+            raise ValueError(answer["text"])
+        return answer["text"]
     if tool in ("work_priority_command", "work_side_gate_check"):
         # The idle gate re-check timer's router call goes through the real
         # dispatch too (side intake is off here, so it never queues).
@@ -273,7 +282,7 @@ def seed_running_owned(kind):
             "owner": parallel.ledger().read()["leases"][reserve["lease_id"]].get("owner") is not None}
 
 
-def seed(title, agent_name=None):
+def seed(title, agent_name=None, *, idle=True):
     """A goal whose single item has a durable completion and a positive idle."""
     doc = BOARD.read()
     doc, root = BOARD.transaction(lambda d: tree.set_plan(d, {
@@ -294,8 +303,9 @@ def seed(title, agent_name=None):
                      "artifact": "a" * 64, "evidence": "tests pass",
                      "detail": {"summary": "done", "coverage": [{"item_id": item, "verified": True}],
                                 "verification": "tests pass"}}, BOARD, config())
-    run("work_parallel_event", {"event": "reconcile", "lease_id": reserve["lease_id"]},
-        {"state": "idle", "proof": "native completed"})
+    if idle:
+        run("work_parallel_event", {"event": "reconcile", "lease_id": reserve["lease_id"]},
+            {"state": "idle", "proof": "native completed"})
     return {"lease_id": reserve["lease_id"], "item_id": item, "workspace": str(workspace)}
 
 
@@ -906,7 +916,7 @@ def dispatch(request):
     if action == "init":
         return init()
     if action == "seed":
-        return seed(request["title"], request.get("agent_name"))
+        return seed(request["title"], request.get("agent_name"), idle=request.get("idle", True))
     if action == "seed_leaf":
         return seed_leaf(request["title"])
     if action == "seed_restart_pair":

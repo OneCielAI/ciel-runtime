@@ -22,6 +22,7 @@ const HELP = [
   '• Above the prompt: compact by default (done/total + current step); [+] / w expands, [-] collapses. Progress / Queue / Completed are read-only button tabs; Prev / Next (p / n) page the list; w opens the Inspector. Ctrl+X Tab focuses · Tab/↑↓ select · Enter inspects · Esc returns. Tiny screens use Inspect Work. Rows of other plugins stay below the Work rows; the band scrolls to them.',
   '• /work-mode (or /work-mode view): Work & SSE pane — Work tree (w), SSE receipts with P1 filter (s), and every Work setting (g); in the Work tree, f focuses the selected item, a appends it to the focus, b opens its parent, u/d move a queued goal up or down; side actors are native forks inheriting the main context; Work and side forks use the per-priority and side fork model settings (inherit keeps the main model). Mobile and narrow screens get a single-column touch layout.',
   '• /work-mode expand / compact: toggle the inline list · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode parallel: fork slots, leases and the next Agent name · /work-mode help: this help',
+  '• /work-mode recover-review <lease_id>: recover review for one submitted result. The owning host checks native fork status and asks before stopping a waiting fork. This does not approve the result.',
   '• /work-mode discard-failed [category]: discard every failed side receipt (or one category, e.g. source_context): never retried, not forwarded to main, kept for audit; a receipt a side actor holds right now is skipped. Also: menu, web Side view, REST, ciel-runtimectl.',
   '• Focus: inspect an item → Focus first. Focused items run before other Work; a focused item that waits or is blocked never holds unrelated approved Work or discovery. Clear focus releases it now; it also clears automatically once every focused item is done.',
   '• Priorities: All items → Move up / Move down orders root goals. Moving the active goal requires your request; a button press is that request.',
@@ -2819,11 +2820,80 @@ const HOST_ONLY_SIDE_TOOLS = new Set(['work_side_wake', 'work_side_fail', 'work_
   'work_side_ack', 'work_side_understanding', 'work_side_reply', 'work_side_claim', 'work_side_retry_reply',
   'work_side_gate_check', 'work_side_workflow_event', 'work_side_discard_failed', 'work_side_texts',
   'work_side_status'].map(tool => PREFIX + tool))
+// Recover one submitted result without confusing a worker report with native idle proof.
+const submittedRecoveryFlights = new Set()
+async function recoverSubmittedReview($, leaseId) {
+  const identity = await sessionId($)
+  const key = identity + ':' + leaseId
+  if (submittedRecoveryFlights.has(key)) throw new Error('Review recovery already in progress')
+  submittedRecoveryFlights.add(key)
+  try {
+    const lifecycle = starts
+    const inspect = async () => {
+      const state = await hostStatus($)
+      const agents = await listNativeAgents($)
+      if (!Array.isArray(agents) || agents.some(row => typeof row?.id !== 'string' || !row.id)
+          || lifecycle !== starts || await sessionId($) !== identity)
+        throw new Error('Current Work host or native agent list unavailable')
+      const lease = state.leases?.[leaseId]
+      const run = (state.coordination?.runs || []).find(r => r.lease_id === leaseId)
+      if (!lease || lease.state !== 'submitted' || lease.slot !== false || !lease.host_id
+          || !['own','gone'].includes(lease.owner_process) || run?.agent_id !== lease.host_id
+          || !Number.isInteger(run.generation) || run.exit?.kind !== 'completion'
+          || !/^[0-9a-f]{64}$/.test(run.exit.digest || ''))
+        throw new Error('Exact owned submitted lease and completion receipt required')
+      const matches = agents.filter(row => row.id === lease.host_id)
+      const agent = matches[0]
+      if (matches.length > 1 || (agent && (agent.type !== 'fork' || sideOwned(agent))))
+        throw new Error('Target is not one exact Work fork')
+      return {state, lease, run, agent}
+    }
+    let target = await inspect()
+    const same = (before, after) => before.lease.host_id === after.lease.host_id
+      && before.run.generation === after.run.generation && before.run.exit.digest === after.run.exit.digest
+    const reviewed = target => parallelReviews(target.state).find(row => parallelReviewId(row) === leaseId)
+    if (reviewed(target)) return {lease_id:leaseId, review_pending:parallelReviewPending(reviewed(target))}
+    if (target.agent?.status === 'waiting') {
+      if (target.lease.owner_process !== 'own') throw new Error('Only the owning host may stop this fork')
+      const answer = await $.ui.ask('Stop submitted Work fork for ' + target.lease.item_id + ' (' + leaseId
+        + ')? This recovers review only; it does not approve the result.', ['Stop this fork', 'Keep waiting'])
+      if (answer !== 'Stop this fork') throw new Error('Review recovery cancelled')
+      const confirmed = await inspect()
+      if (same(target, confirmed) && reviewed(confirmed))
+        return {lease_id:leaseId, review_pending:parallelReviewPending(reviewed(confirmed))}
+      if (!same(target, confirmed) || confirmed.lease.owner_process !== 'own' || confirmed.agent?.status !== 'waiting')
+        throw new Error('Recovery target changed; reread Work status')
+      const stopped = await $.tool.call({tool:'TaskStop',task_id:confirmed.lease.host_id})
+      if (!stopped || stopped.deny || stopped.isError || stopped.result?.success === false)
+        throw new Error('Native stop refused; no idle proof recorded')
+      target = await inspect()
+      if (!same(confirmed, target)) throw new Error('Recovery target changed; no idle proof recorded')
+    }
+    const {lease, run, agent, state} = target
+    if (agent && !parallelTerminal.has(agent.status)) throw new Error('Fork is still listed as ' + agent.status + '; no idle proof recorded')
+    if (!agent) return parallelEvent($, {event:'restart_submitted_terminal', lease_id:leaseId,
+      generation:run.generation, receipt_digest:run.exit.digest}, await hostProcess($, {internal:true,
+      absent_agent_id:lease.host_id, absent_from_complete_list:true}))
+    const observed = await parallelCall($, 'work_parallel_event', {event:'native_observation', complete:false,
+      rows:[{lease_id:leaseId, agent_id:lease.host_id, status:agent.status}],
+      generation:run.generation, receipt_digest:run.exit.digest,
+      expected_evidence_version:Number(state.forks?.evidence_version ?? 0)}, await hostProcess($, {internal:true}))
+    return {lease_id:leaseId, review_pending:observed.reviews_published?.includes(leaseId) === true
+      || parallelReviewPending(reviewed(await inspect()) || {state:'unknown'})}
+  } finally { submittedRecoveryFlights.delete(key) }
+}
+
 async function parallelToolCall($, e, next) {
   if (next.origin?.plugin === 'ciel-work' && (e.tool === PREFIX+'send_message' || e.tool.startsWith(PREFIX+'work_side_'))) return next(e)
   if (HOST_ONLY_SIDE_TOOLS.has(e.tool))
     return {deny:e.tool.slice(PREFIX.length)+' is called only by the Ciel Work host itself. A person retries an uncertain delivery from the Side pane or the Work web UI; acknowledge side events with work_side_handoff.'}
   const mainSide = ['work_side_handoff','work_side_review','work_parallel_item_review'].find(tool => e.tool === PREFIX+tool)
+  if (e.tool === PREFIX+'work_parallel_event' && e.event === 'recover_submitted_review') {
+    if (e.agentId !== undefined || next.origin?.plugin !== 'engine') return {deny:'Only main can recover a submitted Work review'}
+    if (typeof e.lease_id !== 'string' || !e.lease_id || e.lease_id.length > 200) return {deny:'Exact lease_id required'}
+    try { return {result:JSON.stringify(await recoverSubmittedReview($, e.lease_id))} }
+    catch (error) { return {deny:String(error?.message || error)} }
+  }
   if (mainSide && e.agentId === undefined && next.origin?.plugin === 'engine') {
     const {tool,tool_use_id,agentId,session_id,_host,...args} = e
     // A thrown hook is skipped and the engine's own call then carries no
@@ -4768,7 +4838,7 @@ export function register(on) {
     await $.command.register({ name: 'btw_with_mcp', description: 'Queue a side request via MCP without a main-thread model turn',
       argumentHint: 'on|off|status|{"event_key":"source:id","text":"request"}', immediate: true })
     await $.command.register({ name: 'work-mode', description: 'Work mode: summary, help, keyboard inspector, tree, raw status, discard failed side receipts',
-      argumentHint: '[help|view|tree|status|settings [key=value]|discard-failed [category]]', immediate: true })
+      argumentHint: '[help|view|tree|status|settings [key=value]|discard-failed [category]|recover-review <lease_id>]', immediate: true })
     const ticket = ++starts
     // A released wait resumes its parked worker from the host first (Stage 3);
     // side-intake.js calls this closure, bound to this session, with no $.
@@ -4933,6 +5003,13 @@ export function register(on) {
   })
   on('command.run', { command: 'work-mode' }, async ($, e) => {
     const arg = e.args.trim()
+    if (arg === 'recover-review' || arg.startsWith('recover-review ')) {
+      if (e.origin?.kind !== 'composer') return {text:'Review recovery requires the local Work host.'}
+      const leaseId = arg.slice('recover-review'.length).trim()
+      if (!leaseId || leaseId.length > 200 || /\s/.test(leaseId)) return {text:'Usage: /work-mode recover-review <lease_id>'}
+      try { return {text:JSON.stringify(await recoverSubmittedReview($, leaseId))} }
+      catch (error) { return {text:'Review recovery refused: ' + clipped(String(error?.message || error), 300)} }
+    }
     if (arg === 'settings' || arg.startsWith('settings ')) {
       try {
         const assignment = arg.slice(8).trim()

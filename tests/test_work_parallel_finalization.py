@@ -299,6 +299,26 @@ class MainReviewTests(unittest.TestCase):
                          [(c["lease_id"], c["reason"], c["state"]) for c in closed])
         self.assertEqual([], self.call("status", {})["review"]["pending"])
 
+    def test_resolved_rework_closes_after_its_coordination_archive_is_pruned(self):
+        reserve, _, _ = self.completed(item_id=self.board.item2)
+        ident = reserve["lease_id"]
+        self.idle(ident)
+        replacement = self.review(ident, "rework")["dispatch"]["lease_id"]
+        self.call("event", {"proof": "launch never started"}, event="release", lease_id=replacement)
+        coord = m.coordination(self.store)
+
+        def prune(state):
+            state["archive"] = [r for r in state["archive"] if r["run"]["lease_id"] != ident]
+            state["archive_dropped"] += 1
+
+        coord._change(prune, coord.read()["version"])
+        self.board.transaction(lambda d: tree.remove_node(d, self.board.item2),
+                               expected_version=self.board.read()["version"])
+        self.close_resolved()
+        row = self.review_row(ident)
+        self.assertEqual(("finalized", "close"), (row["state"], row["decision"]), row["blocked"])
+        self.assertEqual([], self.close_resolved()["closed"])
+
     def test_review_of_an_item_removed_from_the_board_closes_unreviewed(self):
         reserve, workspace, artifact = self.completed(item_id=self.board.item2)
         self.idle(reserve["lease_id"])

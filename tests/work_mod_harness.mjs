@@ -1058,6 +1058,54 @@ const scenarios = {
   // committed its completion receipt and then left $.agent.list without an idle
   // row. Main's approve was refused (no idle proof) until a later process
   // restarted. The next native observation now observes it terminal at once.
+  async 'recover-submitted-waiting'() {
+    const lease = { id:'L1', item_id:'n1', state:'submitted', slot:false,
+      host_id:'fork-a', owner_process:'own' }
+    const events = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_parallel_status') return text({ version:20, leases:{L1:lease},
+        coordination:{runs:[{lease_id:'L1', generation:3, agent_id:'fork-a',
+          exit:{kind:'completion',digest:'d'.repeat(64)}}]}, review:{pending:[]} })
+      if (tool === 'work_parallel_event') {
+        events.push(args.event)
+        return text({review_pending:true})
+      }
+      return text(snapshot())
+    })
+    state.agents = [{id:'fork-a',status:'waiting',type:'fork'}]
+    let stops = 0, stopWorks = false, stopDenied = false
+    $.ui.ask = async () => 'Stop this fork'
+    $.tool.call = async () => {
+      stops++
+      if (stopDenied) return {deny:'Stopped by test policy'}
+      if (stopWorks) state.agents = []
+      return {result:{success:true}}
+    }
+    const recover = (agentId) => handlers['tool.call']($, {tool:'mcp__ciel-runtime-router__work_parallel_event',
+      event:'recover_submitted_review', lease_id:'L1', agentId}, next({}))
+    const fork = await recover('worker-caller')
+    lease.owner_process = 'other'
+    const foreign = await recover()
+    lease.owner_process = 'own'
+    state.agents = [{status:'waiting'}]
+    const malformed = await recover()
+    state.agents = [{id:'fork-a',status:'waiting',type:'fork'}]
+    $.ui.ask = async () => 'Keep waiting'
+    const cancelled = await recover()
+    $.ui.ask = async () => { state.agents[0].status = 'running'; return 'Stop this fork' }
+    const changed = await recover()
+    state.agents[0].status = 'waiting'
+    const stopsBefore = stops
+    $.ui.ask = async () => 'Stop this fork'
+    stopDenied = true
+    const refused = await recover()
+    stopDenied = false
+    const blocked = await recover()
+    const eventsBefore = [...events]
+    stopWorks = true
+    const recovered = await recover()
+    return {fork,foreign,malformed,cancelled,changed,refused,blocked,recovered,eventsBefore,events,stops,stopsBefore}
+  },
   async 'own-fork-absent-after-receipt'() {
     const leases = {
       L1: { id:'L1', item_id:'n1', priority:'P1', role:'worker', state:'running', slot:true,

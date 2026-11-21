@@ -2448,6 +2448,62 @@ try {
     out.prompt = native.spawnPrompts.get(native.spawns[0]) || ''
   }
 
+  if (scenario === 'recover-submitted-real-backend') {
+    const seeded = await rpc('seed', {title:'Recover submitted', idle:false})
+    const id = 'seed-worker-' + seeded.lease_id.slice(0, 8)
+    native.agents.push(pluginForkRow(id, id, 'waiting'))
+    await start('process')
+    out.before = await rpc('inspect')
+    const recover = () => hooks['tool.call']($, {tool:'mcp__ciel-runtime-router__work_parallel_event',
+      event:'recover_submitted_review', lease_id:seeded.lease_id}, engine({}))
+    $.ui.ask = async () => 'Stop this fork'
+    $.tool.call = async args => {
+      native.toolCalls.push(args)
+      if (args.tool === 'TaskStop' && args.task_id === id)
+        native.agents.find(row => row.id === id).status = 'killed'
+      return {result:{success:true}}
+    }
+    const sendObservation = $.mcp.call
+    $.mcp.call = (server, tool, args) => sendObservation(server, tool,
+      args.event === 'native_observation' && args.receipt_digest
+        ? {...args, receipt_digest:'0'.repeat(64)} : args)
+    out.stale = await recover()
+    out.afterStale = await rpc('inspect')
+    $.mcp.call = sendObservation
+    out.recovered = await recover()
+    out.replayed = await recover()
+    out.after = await rpc('inspect')
+    out.manifest = await rpc('workspace_manifest', {lease_id:seeded.lease_id})
+    out.lease = seeded.lease_id
+    out.stops = native.toolCalls.filter(r => r.tool === 'TaskStop' && r.task_id === id).length
+  }
+
+  if (scenario === 'main-board-mcp-mutations') {
+    await rpc('seed_board', {goals:3, items:1})
+    await start('process')
+    const invoke = (name, args) => {
+      const forward = async input => {
+        const {tool, tool_use_id, ...payload} = input
+        return rpc('tool', {tool:name, args:payload})
+      }
+      forward.origin = {plugin:'engine'}
+      return hooks['tool.call']($, {tool:'mcp__ciel-runtime-router__'+name, ...args}, forward)
+    }
+    const board = () => invoke('work_status', {detail:true})
+    const before = await board()
+    const target = before.breakdown[0].id
+    out.update = await invoke('work_node_update', {id:target, expected_version:before.version,
+      status:'blocked', waiting_on:'isolated fixture signal'})
+    const changed = await board()
+    out.shift = await invoke('work_reorder', {root_id:before.queue[1].id, position:2,
+      expected_version:changed.version})
+    const after = await board()
+    out.node = after.nodes.find(n => n.id === target)
+    out.beforeQueue = before.queue.map(n => n.id)
+    out.afterQueue = after.queue.map(n => n.id)
+    out.versions = [before.version, changed.version, after.version]
+  }
+
   if (scenario === 'start-load') {
     // KOBE 2026-11-18: session.start held the hooks worker 172 s with about 360
     // router calls (mostly work_host_page). A large board and ledger, with the

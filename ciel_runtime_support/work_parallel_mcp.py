@@ -58,7 +58,7 @@ def schemas():
         "work_parallel_status": "Show Work 병렬 실행 settings, device capacity and this conversation's leases. Read before changing limits.",
         "work_parallel_configure": "On the user's natural-language request, persist Work 병렬 실행 limits (concurrent fork sessions per priority, launch rate, rework limit) or pause. This never limits registering or queueing Work items. Pass changes and expected_version from work_parallel_status. Does not approve a plan.",
         "work_parallel_run": "Dispatch an approved Work item: the packaged host starts the fork itself and returns the started lease/agent. You do not call the Agent tool or supply a name for this dispatch. Requires item_id, priority, role and expected_version. Codex is unsupported until its native adapter passes capability tests.",
-        "work_parallel_event": "Coordinator lifecycle and authenticated host observations for Work forks. Workers report through work_parallel_report.",
+        "work_parallel_event": "Coordinator lifecycle and authenticated host observations for Work forks. Main in Claude can request recover_submitted_review with the exact lease_id; the local host verifies native termination before publishing review. Workers report through work_parallel_report.",
         "work_parallel_report": "Worker-only question/completion/handoff report. Requires the exact lease_id and one-use worker_token. Completion needs artifact+evidence; handoff needs a host-stored detail_digest. A successful report releases the fork slot; no session_id or host token.",
         "work_parallel_item_review": "Main-session only decision for a bounded pending completed item. Requires lease_id, decision (approve|rework), decision_id, evidence and expected_finalization_version. The host authenticates main; workers and forks are denied. Rework returns a host dispatch intent and never exposes a worker token to main.",
     }
@@ -2693,6 +2693,23 @@ def _roll_forward(store, board_store, identity, host, lease_id):
                 "retry": "host_pump", "reason": row["blocked"]["message"]}
 
 
+def _closed_rework_already_archived(coord_state, lease, row):
+    """Recognize an archived rework even after its archive entry was pruned."""
+    lease_id = row["lease_id"]
+    archived = next((entry for entry in reversed(coord_state["archive"])
+                     if entry["run"]["lease_id"] == lease_id), None)
+    if archived is not None:
+        return bool(archived["run"].get("replaced_by"))
+    if lease_id in coord_state["runs"] or not coord_state["archive_dropped"] or not lease:
+        return False
+    receipt = coord_state["receipts"].get(row["completion_receipt"]) or {}
+    return (lease["state"] == "done" and not lease["slot"]
+            and all(lease[key] == row[key] for key in ("scope", "item_id", "plan_version", "artifact"))
+            and receipt.get("lease_id") == lease_id and receipt.get("kind") == "completion"
+            and re.fullmatch(r"(?:workspace rebound|reworked without a workspace) to resume lease [0-9a-f]{32}",
+                             lease.get("cleanup_proof") or "") is not None)
+
+
 def _roll_forward_stages(store, board_store, identity, host, lease_id):
     reviews = finalization(store)
     fstate = reviews.read()
@@ -2725,9 +2742,8 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
                                     expected_version=current["version"])
             fstate, row = reviews.mark(lease_id, "lease", expected_version=reviews.read()["version"])
         if not row["stages"]["archive"]:
-            archived_rework = decision == "close" and any(
-                entry["run"]["lease_id"] == lease_id and entry["run"].get("replaced_by")
-                for entry in coord.read()["archive"])
+            archived_rework = decision == "close" and _closed_rework_already_archived(
+                coord.read(), store.read()["leases"].get(lease_id), row)
             if not archived_rework:
                 _archive_retry(coord, lease_id, {"state": "done",
                                              "outcome": ("main accepted" if decision == "approve" else
@@ -4180,6 +4196,21 @@ def run(name, args, board_store, identity, config, save_config, log=None):
         # discards the healthy rows observed with it. A batch with no valid
         # row at all is still refused and writes nothing.
         valid, skipped = _partition_native_rows(observed_rows, leases)
+        if "generation" in args or "receipt_digest" in args:
+            generation, receipt = args.get("generation"), args.get("receipt_digest")
+            require(host.get("internal") is True and args.get("complete") is False
+                    and len(valid) == 1 and not skipped and integer(generation, 1) and digest(receipt),
+                    "exact host recovery observation required")
+            row = valid[0]
+            lease = leases[row["lease_id"]]
+            run = coordination(store).read().get("runs", {}).get(lease["id"])
+            require(lease["state"] == "submitted" and lease["slot"] is False
+                    and row["status"] in NATIVE_IDLE_STATUSES and run is not None
+                    and run["generation"] == generation and run["agent_id"] == row["agent_id"]
+                    and run["exit"] == {"kind": "completion", "digest": receipt},
+                    "exact durable completion receipt required for review recovery")
+            require(_restart_owner_class(store, lease["id"], host.get("launch_nonce"))
+                    in ("own", "earlier_child", "gone"), "current Work host ownership required")
         if skipped and not valid:
             raise WorkParallelError("native observation names no bound fork of this conversation: "
                                     + skipped[0]["reason"])

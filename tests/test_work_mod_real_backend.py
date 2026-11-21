@@ -158,6 +158,27 @@ class WorkModRealBackendTests(unittest.TestCase):
         self.assertEqual([], result["spawns"])
         self.assertNotIn("Awaiting main review", result["pane"])
 
+    def test_main_recovers_submitted_waiting_through_real_backend(self):
+        result = self.run_scenario("recover-submitted-real-backend")
+        lease = result["lease"]
+        self.assertNotIn(lease, result["before"]["reviews"])
+        self.assertIn("exact durable completion receipt", result["stale"]["deny"], result)
+        self.assertNotIn(lease, result["afterStale"]["reviews"])
+        self.assertTrue(json.loads(result["recovered"]["result"])["review_pending"], result)
+        self.assertTrue(json.loads(result["replayed"]["result"])["review_pending"], result)
+        self.assertEqual(1, result["stops"])
+        self.assertTrue(result["manifest"]["idle"])
+        self.assertIsNone(result["after"]["reviews"][lease]["decision"])
+        self.assertEqual(result["before"]["nodes"], result["after"]["nodes"])
+
+    def test_main_mcp_changes_board_state_and_queue(self):
+        result = self.run_scenario("main-board-mcp-mutations")
+        self.assertEqual(("blocked", "isolated fixture signal"),
+                         (result["node"]["status"], result["node"]["waiting_on"]))
+        self.assertEqual(result["beforeQueue"][::-1], result["afterQueue"])
+        version = result["versions"][0]
+        self.assertEqual([version, version + 1, version + 2], result["versions"])
+
     def test_decided_removed_review_closes_at_the_next_pump(self):
         result = self.run_scenario("close-resolved-decided")
         lease = result["lease"]
