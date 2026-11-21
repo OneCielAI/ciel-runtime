@@ -1400,6 +1400,58 @@ class WorkModWriteGateTests(unittest.TestCase):
         self.assertEqual({"tool": "TaskStop", "task_id": "agent-old"}, result["tools"][0])
         self.assertEqual("unreported", result["lease"]["state"])
 
+    def test_absent_ended_fork_nudges_once_waits_then_salvages(self):
+        result = self.lifecycle(self.run_scenario("parallel-absent-ended-fork-salvages-on-observation"))
+        # A just-missed fork is not nudged yet: the absence must last the grace.
+        self.assertEqual(0, result["noticed"]["sent"], result)
+        self.assertNotIn("host_salvage", result["noticed"]["calls"], result)
+        self.assertEqual(["agent-old"], result["first"]["sent"], result)
+        self.assertNotIn("host_salvage", result["first"]["calls"], result)
+        self.assertEqual(0, result["first"]["tools"], result)
+        # Immediate next boundary waits before salvaging.
+        self.assertEqual(1, result["soon"]["sent"], result)
+        self.assertNotIn("host_salvage", result["soon"]["calls"], result)
+        # After the grace window with the fork still absent and unreported, salvage releases the slot.
+        self.assertEqual(["host_salvage", "unreported"],
+                         [event for event in result["calls"] if event not in ("native_observation", "reconcile")],
+                         result)
+        self.assertEqual("unreported", result["lease"]["state"])
+        self.assertFalse(result["lease"]["slot"])
+
+    def test_absent_ended_fork_settles_while_main_stays_idle(self):
+        result = self.lifecycle(self.run_scenario("parallel-absent-ended-fork-settles-while-main-idle"))
+        self.assertTrue(result["noticedTick"] and result["firstTick"] and result["secondTick"], result)
+        self.assertEqual(0, result["noticed"]["sent"], result)
+        self.assertEqual(1, result["first"]["sent"], result)
+        self.assertNotIn("host_salvage", result["first"]["calls"], result)
+        self.assertEqual(["host_salvage", "unreported"],
+                         [event for event in result["calls"] if event in ("host_salvage", "unreported")], result)
+        self.assertEqual("unreported", result["lease"]["state"])
+        self.assertFalse(result["lease"]["slot"])
+
+    def test_absent_fork_of_a_gone_process_is_left_to_restart_recovery(self):
+        result = self.lifecycle(self.run_scenario("parallel-absent-gone-owner-fork-left-to-recovery"))
+        self.assertNotIn("host_salvage", result["calls"], result)
+        self.assertNotIn("unreported", result["calls"], result)
+        self.assertTrue(all(text.startswith("Work recovery") for text in result["sent"]), result)
+        self.assertEqual("running", result["lease"]["state"])
+
+    def test_listed_running_fork_is_not_nudged_or_salvaged(self):
+        result = self.lifecycle(self.run_scenario("parallel-listed-running-fork-is-left-alone"))
+        self.assertEqual(0, result["sent"], result)
+        self.assertEqual([], result["tools"], result)
+        self.assertNotIn("host_salvage", result["calls"], result)
+        self.assertEqual("running", result["lease"]["state"])
+
+    def test_resumed_question_exit_does_not_skip_exit_contract(self):
+        result = self.lifecycle(self.run_scenario("parallel-resumed-question-exit-still-owes-an-exit"))
+        self.assertEqual(1, result["first"]["sent"], result)
+        self.assertEqual(0, result["first"]["tools"], result)
+        self.assertEqual(["host_salvage", "unreported"],
+                         [event for event in result["calls"] if event != "native_observation"], result)
+        self.assertEqual("unreported", result["lease"]["state"])
+        self.assertFalse(result["lease"]["slot"])
+
     def test_spawn_denial_releases_unbound_reservation(self):
         result = self.lifecycle(self.run_scenario("parallel-spawn-denied-releases-unbound"))
         events = [call["event"] for call in result["calls"]]

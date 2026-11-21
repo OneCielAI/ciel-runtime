@@ -1995,6 +1995,158 @@ const scenarios = {
     await handlers['turn.complete']($, { agentId:'agent-old', reason:'answer' }, next(undefined))
     return { calls, tools, sent:state.sent, lease:leases.L1 }
   },
+  // Andy n2532/n623 2026-11-21: a fork this process spawned ended without a
+  // report (its own turn.complete never reaches this plugin) and the engine
+  // dropped it before any boundary listed it ended. The lease kept its slot.
+  async 'parallel-absent-ended-fork-salvages-on-observation'() {
+    const leases = { L1: { id:'L1', item_id:'n2', role:'worker', state:'running', host_id:'agent-old', slot:true, plan_version:7 } }
+    const calls = [], tools = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:9, active_device:1,
+        policy:{enabled:true,paused:false,priority_limits:{P1:5,P2:3,P3:1,P4:1,P5:1}}, leases,
+        coordination:{runs:[{lease_id:'L1',exit:null}],receipts:[]} })
+      if (tool === 'work_parallel_event') {
+        calls.push(args.event)
+        if (args.event === 'host_salvage') return text({ receipt_digest:'a'.repeat(64), salvaged:true })
+        if (args.event === 'unreported') { leases.L1.state='unreported'; leases.L1.slot=false; return text({state:'unreported'}) }
+        return text({})
+      }
+      return text({})
+    })
+    $.tool.call = async args => { tools.push(args); return {} }
+    state.agents = [{ id:'agent-old', status:'running' }]
+    await handlers['session.start']($, { isInteractive:false }, next(undefined))
+    // Ended and dropped between two boundaries: never listed as ended.
+    state.agents = []; state.sent = []; calls.length = 0
+    // The first boundary that misses it only starts the absence clock.
+    await handlers['turn.complete']($, { reason:'answer' }, next(undefined))
+    const noticed = { sent:state.sent.length, calls:[...calls] }
+    calls.length = 0
+    later(31000)
+    await handlers['turn.complete']($, { reason:'answer' }, next(undefined))
+    const first = { sent:state.sent.map(s => s.to?.agentId), calls:[...calls], tools:tools.length }
+    calls.length = 0
+    // A boundary right after the nudge gives the fork time to answer it.
+    await handlers['turn.complete']($, { reason:'answer' }, next(undefined))
+    const soon = { sent:state.sent.length, calls:[...calls] }
+    calls.length = 0
+    later(31000)
+    await handlers['turn.complete']($, { reason:'answer' }, next(undefined))
+    return { noticed, first, soon, calls, tools, sent:state.sent.length, lease:leases.L1 }
+  },
+  // The same fork while main stays idle: only the 15 s native observation runs.
+  async 'parallel-absent-ended-fork-settles-while-main-idle'() {
+    const leases = { L1: { id:'L1', item_id:'n2', role:'worker', state:'running', host_id:'agent-old', slot:true, plan_version:7 } }
+    const calls = [], tools = [], timers = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:9, active_device:1,
+        policy:{enabled:true,paused:false,priority_limits:{P1:5,P2:3,P3:1,P4:1,P5:1}}, leases,
+        coordination:{runs:[{lease_id:'L1',exit:null}],receipts:[]} })
+      if (tool === 'work_parallel_event') {
+        calls.push(args.event)
+        if (args.event === 'host_salvage') return text({ receipt_digest:'a'.repeat(64), salvaged:true })
+        if (args.event === 'unreported') { leases.L1.state='unreported'; leases.L1.slot=false; return text({state:'unreported'}) }
+        return text({})
+      }
+      return text({})
+    })
+    $.tool.call = async args => { tools.push(args); return {} }
+    $.clock.after = (delay, callback) => { timers.push({ delay, callback }); return { cancel() {} } }
+    state.agents = [{ id:'agent-old', status:'running' }]
+    await handlers['session.start']($, { isInteractive:false }, next(undefined))
+    // One main turn end arms the observation timer while the fork still runs.
+    await handlers['turn.complete']($, { reason:'answer' }, next(undefined))
+    state.agents = []; state.sent = []; calls.length = 0
+    const tick = async () => {
+      const t = timers.filter(row => row.delay === 15000).pop()
+      if (!t) return false
+      timers.splice(timers.indexOf(t), 1)
+      await t.callback()
+      for (let i = 0; i < 10; i++) await new Promise(go => setTimeout(go, 5))
+      return true
+    }
+    const noticedTick = await tick()
+    const noticed = { sent:state.sent.length, calls:[...calls] }
+    later(31000)
+    const firstTick = await tick()
+    const first = { sent:state.sent.length, calls:[...calls] }
+    calls.length = 0
+    later(31000)
+    const secondTick = await tick()
+    return { noticedTick, noticed, firstTick, secondTick, first, calls, tools, sent:state.sent.length, lease:leases.L1 }
+  },
+  // A lease of a gone earlier process is absent because that process ended:
+  // restart recovery owns it, absence never salvages it.
+  async 'parallel-absent-gone-owner-fork-left-to-recovery'() {
+    const leases = { L1: { id:'L1', item_id:'n2', role:'worker', state:'running', host_id:'agent-old', slot:true,
+      plan_version:7, owner_process:'gone', agent_name:'work-auto-exact', dispatch_name:'work-auto-exact' } }
+    const calls = [], tools = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:9, active_device:1,
+        policy:{enabled:true,paused:false,priority_limits:{P1:5,P2:3,P3:1,P4:1,P5:1}}, leases,
+        coordination:{runs:[{lease_id:'L1',exit:null}],receipts:[]} })
+      if (tool === 'work_parallel_event') { calls.push(args.event); return text({}) }
+      return text({})
+    })
+    $.tool.call = async args => { tools.push(args); return {} }
+    state.agents = []
+    await handlers['session.start']($, { isInteractive:false }, next(undefined))
+    for (let i = 0; i < 3; i++) { later(31000); await handlers['turn.complete']($, { reason:'answer' }, next(undefined)) }
+    return { calls, tools, sent:(state.sent || []).map(s => String(s.text || '').slice(0, 40)), lease:leases.L1 }
+  },
+  // A fork still listed as running is never nudged or salvaged.
+  async 'parallel-listed-running-fork-is-left-alone'() {
+    const leases = { L1: { id:'L1', item_id:'n2', role:'worker', state:'running', host_id:'agent-old', slot:true, plan_version:7 } }
+    const calls = [], tools = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:9, active_device:1,
+        policy:{enabled:true,paused:false,priority_limits:{P1:5,P2:3,P3:1,P4:1,P5:1}}, leases,
+        coordination:{runs:[{lease_id:'L1',exit:null}],receipts:[]} })
+      if (tool === 'work_parallel_event') { calls.push(args.event); return text({}) }
+      return text({})
+    })
+    $.tool.call = async args => { tools.push(args); return {} }
+    state.agents = [{ id:'agent-old', status:'running' }]
+    await handlers['session.start']($, { isInteractive:false }, next(undefined))
+    state.sent = []; calls.length = 0
+    for (let i = 0; i < 3; i++) { later(31000); await handlers['turn.complete']($, { reason:'answer' }, next(undefined)) }
+    return { calls, tools, sent:state.sent.length, lease:leases.L1 }
+  },
+  // Celly n1229/n1241 2026-11-21: the host resumed a parked worker, so its lease
+  // is running again with the answered question as its run exit. The fork then
+  // ended without a report: that old question is not the exit this run owes.
+  async 'parallel-resumed-question-exit-still-owes-an-exit'() {
+    const leases = { L1: { id:'L1', item_id:'n2', role:'worker', state:'running', host_id:'agent-old', slot:true, plan_version:7 } }
+    const calls = [], tools = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:9, active_device:1,
+        policy:{enabled:true,paused:false,priority_limits:{P1:5,P2:3,P3:1,P4:1,P5:1}}, leases,
+        coordination:{runs:[{lease_id:'L1',exit:{kind:'question',digest:'b'.repeat(64)}}],
+          receipts:[{lease_id:'L1',kind:'question',digest:'b'.repeat(64)}]} })
+      if (tool === 'work_parallel_event') {
+        calls.push(args.event)
+        if (args.event === 'host_salvage') return text({ receipt_digest:'a'.repeat(64), salvaged:true })
+        if (args.event === 'unreported') { leases.L1.state='unreported'; leases.L1.slot=false; return text({state:'unreported'}) }
+        return text({})
+      }
+      return text({})
+    })
+    $.tool.call = async args => { tools.push(args); return {} }
+    state.agents = [{ id:'agent-old', status:'running' }]
+    await handlers['session.start']($, { isInteractive:false }, next(undefined))
+    state.sent = []; calls.length = 0; state.agents[0].status = 'idle'
+    await handlers['turn.complete']($, { reason:'answer' }, next(undefined))
+    const first = { sent:state.sent.length, tools:tools.length, calls:[...calls] }
+    calls.length = 0
+    later(31000)
+    await handlers['turn.complete']($, { reason:'answer' }, next(undefined))
+    return { first, calls, tools, sent:state.sent.length, lease:leases.L1 }
+  },
   async 'parallel-recovery-context'() {
     const lease = { id:'L1', item_id:'n2', role:'worker', state:'running', host_id:'agent-old',
       agent_name:'work-auto-exact', dispatch_name:'work-auto-exact', slot:true, plan_version:7 }

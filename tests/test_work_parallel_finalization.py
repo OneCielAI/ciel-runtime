@@ -665,6 +665,39 @@ class MainReviewTests(unittest.TestCase):
         self.call("event", {}, event="reacquire", lease_id=reserve["lease_id"])
         return reserve["lease_id"]
 
+    def test_a_wrong_question_detail_names_the_required_fields_and_keeps_the_lease(self):
+        # Andy 2026-11-21: a fork sent detail={"reason": ...} with event=question and
+        # got only "question fields", so it could not tell what the report needs.
+        reserve = self.call("event", {"fork": True, "workspace_repo": str(self.repo)},
+                            event="reserve", item_id=self.board.item, priority="P1")
+        self.call("event", {"host_id": "worker-1"}, event="bind", lease_id=reserve["lease_id"])
+        base = {"lease_id": reserve["lease_id"], "worker_token": reserve["worker_token"],
+                "event": "question", "plan_version": self.board.read()["version"],
+                "evidence": "which file?"}
+        with patch.object(m, "ledger", return_value=self.store):
+            with self.assertRaises(WorkParallelError) as refused:
+                m.report({**base, "detail": {"reason": "which file?"}}, self.board, self.config)
+            message = str(refused.exception)
+            for field in ("question", "blocking_todos", "decision_needed"):
+                self.assertIn(field, message)
+            self.assertIn("reason", message)
+            # Nothing was written: the same capability reports the corrected shape.
+            self.assertEqual("running", self.store.read()["leases"][reserve["lease_id"]]["state"])
+            m.report({**base, "detail": {"question": "which file?", "blocking_todos": [self.board.item],
+                                          "decision_needed": "pick the file"}}, self.board, self.config)
+        self.assertEqual("waiting_input", self.store.read()["leases"][reserve["lease_id"]]["state"])
+
+    def test_wrong_completion_and_handoff_details_name_their_required_fields(self):
+        from ciel_runtime_support.work_parallel_receipts import _validate_detail
+        with self.assertRaises(WorkParallelError) as completion:
+            _validate_detail("completion", {"reason": "done"})
+        for field in ("summary", "coverage", "verification", "workspace"):
+            self.assertIn(field, str(completion.exception))
+        with self.assertRaises(WorkParallelError) as handoff:
+            _validate_detail("handoff", {"reason": "stuck"})
+        for field in ("done", "remaining", "blockers", "workspace", "next_step"):
+            self.assertIn(field, str(handoff.exception))
+
     def test_main_resumes_a_parked_worker_after_a_scope_edit(self):
         # KOBE 2026-11-19: "could not return to running: Work approval scope changed".
         lease_id = self._parked()

@@ -96,11 +96,25 @@ def _manifest_workspace(value):
             "manifest workspace")
 
 
+def _require_fields(body, label, required, optional=()):
+    """Refuse a detail whose keys differ, naming what it needs and what it got.
+
+    A bare "question fields" left a fork unable to correct its report (Andy
+    2026-11-21); nothing is written before this check, so it can retry.
+    """
+    keys = set(body)
+    if set(required) <= keys <= set(required) | set(optional):
+        return
+    needed = ", ".join(sorted(required))
+    extra = (" (optional: " + ", ".join(sorted(optional)) + ")") if optional else ""
+    got = ", ".join(sorted(str(key)[:64] for key in keys)[:20]) or "none"
+    raise WorkParallelError(f"{label} fields: detail needs exactly {needed}{extra}; got {got}")
+
+
 def _validate_detail(kind, body):
     require(type(body) is dict, "receipt body")
     if kind == "completion":
-        require(set(body) in ({"summary", "coverage", "verification"},
-                              {"summary", "coverage", "verification", "workspace"}), "completion fields")
+        _require_fields(body, "completion", ("summary", "coverage", "verification"), ("workspace",))
         require(text(body["summary"], MAX_TEXT) and text(body["verification"], MAX_TEXT), "completion text")
         coverage = body["coverage"]
         require(type(coverage) is list and len(coverage) <= MAX_ARRAY, "completion coverage")
@@ -112,18 +126,18 @@ def _validate_detail(kind, body):
         if "workspace" in body:
             _workspace(body["workspace"], optional=True)
     elif kind in ("handoff", "host_salvage"):
-        require(set(body) == {"done", "remaining", "blockers", "workspace", "next_step"}, "handoff fields")
+        _require_fields(body, "handoff", ("done", "remaining", "blockers", "workspace", "next_step"))
         for field in ("done", "remaining", "blockers"):
             _bounded_strings(body[field], "handoff " + field)
         # A host salvage of a lease reserved without a workspace records None.
         _workspace(body["workspace"], optional=kind == "host_salvage")
         require(text(body["next_step"], MAX_TEXT), "handoff next step")
     elif kind == "question":
-        require(set(body) == {"question", "blocking_todos", "decision_needed"}, "question fields")
+        _require_fields(body, "question", ("question", "blocking_todos", "decision_needed"))
         require(text(body["question"], MAX_TEXT) and text(body["decision_needed"], MAX_TEXT), "question text")
         _bounded_strings(body["blocking_todos"], "question blocking todos", chars=200)
     elif kind == "review":
-        require(set(body) == {"receipt_id", "pass", "coverage", "findings", "verification"}, "review fields")
+        _require_fields(body, "review", ("receipt_id", "pass", "coverage", "findings", "verification"))
         require(text(body["receipt_id"], 200) and type(body["pass"]) is bool
                 and text(body["verification"], MAX_TEXT), "review values")
         _bounded_strings(body["coverage"], "review coverage")

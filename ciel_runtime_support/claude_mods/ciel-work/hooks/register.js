@@ -1821,6 +1821,8 @@ const parallelResuming = new Map()
 const RESUME_AUTHORIZATION_MS = 120000
 function authorizeResume(leaseId, name) {
   parallelResuming.set(leaseId, { name, until: Date.now() + RESUME_AUTHORIZATION_MS })
+  // A resumed fork gets a full grace before its absence counts again.
+  parallelAbsentSince.delete(leaseId)
 }
 // X2 criterion 6: retries inside one session.start ticket never repeat a
 // recovery or exit-contract attempt. Each key names the exact ticket and lease;
@@ -3510,6 +3512,9 @@ async function parallelObserveNative($) {
     // not at the next turn end or restart (Celly n1070).
     let absentObserved = 0
     try { absentObserved = await parallelRestartSubmitted($, state, agents) } catch { /* Retried at the next observation. */ }
+    // Main can stay idle while a fork ends unreported and is dropped: the
+    // periodic observation applies the same graced exit contract.
+    try { await parallelSettleEndedForks($, state, agents, identity) } catch { /* Retried at the next observation. */ }
     // A listed idle row of a submitted fork published its review (Andy n2505):
     // wake main now, not at its next turn end.
     if (absentObserved || (Array.isArray(result?.reviews_published) && result.reviews_published.length)) {
@@ -3603,7 +3608,7 @@ function resetParallelHostState() {
   // Native agent ids are unique: ownership tombstones survive a lifecycle reset
   // so a late notification from a fork of the previous lifecycle stays out of main.
   for (const id of retiredParallelAgents) ownParallelAgent(id)
-  parallelExitAttempts.clear(); retiredParallelAgents.clear()
+  parallelExitAttempts.clear(); retiredParallelAgents.clear(); parallelAbsentSince.clear()
   noticedParallelReviews.clear(); parallelWakeFlights.clear(); pendingParallelReviews = []; pendingParallelReviewVersion = null; observatoryReviews = []
   parallelFailures.length = 0; parallelPumpRunning = false; parallelPumpAgain = false; parallelPumpResendTried = null
   nativeObserving = null; lastNativeConfirmed = null
@@ -3615,11 +3620,40 @@ async function stopParallelAgent($, id) {
   try { await $.tool.call({tool:'TaskStop',task_id:id}) } catch {}
   parallelBound.delete(id)
 }
+// Only a running lease asks this. A question parks its lease and only a resume
+// returns it to running, so a question exit or receipt there is the answered
+// one, not the exit this run still owes (Celly n1229/n1241 2026-11-21: resumed
+// workers ended without a report and kept their slots).
 function parallelHasReceipt(state, lease) {
   const run = (state?.coordination?.runs || []).find(row => row.lease_id === lease.id)
-  return Boolean(run?.exit || (state?.coordination?.receipts || []).some(row => row.lease_id === lease.id))
+  if (run?.exit && run.exit.kind !== 'question') return true
+  return (state?.coordination?.receipts || []).some(row => row.lease_id === lease.id && row.kind !== 'question')
 }
-async function parallelEnsureExitContract($, state, lease, row, reason = 'native terminal', hostRetry = false) {
+// A fork spawned by this plugin never triggers this plugin's own turn.complete,
+// and the engine drops an ended subagent from $.agent.list() between polls
+// (Andy n2543/n2532/n623, Celly n1229/n1241 2026-11-21). Give one nudge enough
+// time to revive the fork before a later observation salvages and releases it.
+const ABSENT_EXIT_GRACE_MS = 30000
+// Absence settles only a fork this process spawned and is not resuming. A
+// lease of a gone earlier process is absent because that process ended; its
+// restart recovery (parallelRecoverWorkers) owns it.
+function absentForkSettleable(lease) {
+  return ownLeaseProcess(lease) && lease.owner_process !== 'gone' && !parallelResuming.has(lease.id)
+}
+// When this process first found a bound running fork missing from its list.
+// The contract starts only once the absence has lasted the grace: a fork just
+// bound or resumed may not be listed yet. A listed row or a resume clears it.
+const parallelAbsentSince = new Map()
+function absentForkDue(lease) {
+  const since = parallelAbsentSince.get(lease.id)
+  if (since === undefined) {
+    parallelAbsentSince.set(lease.id, Date.now())
+    if (parallelAbsentSince.size > 400) parallelAbsentSince.delete(parallelAbsentSince.keys().next().value)
+    return false
+  }
+  return Date.now() - since >= ABSENT_EXIT_GRACE_MS
+}
+async function parallelEnsureExitContract($, state, lease, row, reason = 'native terminal', hostRetry = false, { minWaitMs = 0 } = {}) {
   if (!lease?.host_id) return false
   const retry = hostRetry ? hostRetryAttempt(lease.id) : null
   if (retry?.exitAttempted) return false
@@ -3629,9 +3663,10 @@ async function parallelEnsureExitContract($, state, lease, row, reason = 'native
     await stopParallelAgent($, lease.host_id)
     return true
   }
-  const prior = parallelExitAttempts.get(key) || { attempts: 0, failures: 0 }
+  const prior = parallelExitAttempts.get(key) || { attempts: 0, failures: 0, at: 0 }
+  if (prior.attempts > 0 && minWaitMs > 0 && Date.now() - (prior.at || 0) < minWaitMs) return false
   if (prior.attempts < 2) {
-    const current = { attempts: prior.attempts + 1, failures: prior.failures + 1 }
+    const current = { attempts: prior.attempts + 1, failures: prior.failures + 1, at: Date.now() }
     parallelExitAttempts.set(key, current)
     if (retry) retry.exitAttempted = true
     try {
@@ -3656,6 +3691,22 @@ async function parallelEnsureExitContract($, state, lease, row, reason = 'native
     parallelExitAttempts.delete(key)
     return true
   } catch { return false }
+}
+// A running lease of this process whose bound fork is listed ended or is no
+// longer listed. Every attempt here waits the grace after the previous one, so
+// a turn-end attempt in the same boundary is never doubled.
+async function parallelSettleEndedForks($, state, agents, scope) {
+  for (const [id, binding] of [...parallelBound]) {
+    if (binding.scope !== scope) continue
+    const lease = state?.leases?.[binding.lease_id]
+    if (!lease || lease.state !== 'running' || lease.host_id !== id || !ownLeaseProcess(lease)) continue
+    const row = agents.find(a => a.id === id)
+    if (row) parallelAbsentSince.delete(lease.id)
+    if (row && !parallelTerminal.has(row.status)) continue
+    if (!row && !(absentForkSettleable(lease) && absentForkDue(lease))) continue
+    await parallelEnsureExitContract($, state, lease, row || null, row ? 'native ' + row.status : 'native agent absent',
+      false, { minWaitMs: ABSENT_EXIT_GRACE_MS })
+  }
 }
 // Bind an already-started rework fork to its lease. A lost bind response is
 // accepted when a reread shows the same host id already bound.
@@ -4438,6 +4489,17 @@ async function parallelReconcileAtTurnEnd($, e, s, agents, id, binding) {
   }
   if (terminal && lease?.state === 'running') {
     await parallelEnsureExitContract($, s, lease, row, e.reason || 'turn.complete')
+    return
+  }
+  if (lease && row) parallelAbsentSince.delete(lease.id)
+  if (lease?.state === 'running' && !row && absentForkSettleable(lease)) {
+    // A bound fork of this process that vanished from $.agent.list() without
+    // reporting: once absent for the grace, the same two nudges, the second
+    // after another grace, then salvage. A revived fork that ends again
+    // unreported takes the second step; the attempt count is never reset, so
+    // nudge and revival cannot loop.
+    if (absentForkDue(lease))
+      await parallelEnsureExitContract($, s, lease, null, 'native agent absent', false, { minWaitMs: ABSENT_EXIT_GRACE_MS })
     return
   }
   const idle = terminal && ['submitted', 'verifying', 'reviewing', 'accepted', 'cleanup_pending'].includes(lease?.state)
