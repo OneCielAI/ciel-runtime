@@ -2343,14 +2343,19 @@ try {
       .reduce((acc, name) => ({ ...acc, [name]: (acc[name] || 0) + 1 }), {})
   }
 
-  if (scenario === 'close-resolved-done' || scenario === 'close-resolved-removed' || scenario === 'close-resolved-open') {
+  if (scenario === 'close-resolved-done' || scenario === 'close-resolved-removed' || scenario === 'close-resolved-open' || scenario === 'close-resolved-decided') {
     // Main completes or removes the Work item itself while the fork's result
     // waits in review (G:\\ciel-Walkie 2026-11-15). The next pump boundary ends
     // that review unreviewed; an item still open is never closed.
     const seeded = await rpc('seed', { title: 'Close' })
     await start('process')
     out.before = await rpc('inspect')
-    const how = scenario === 'close-resolved-done' ? 'done' : scenario === 'close-resolved-removed' ? 'remove' : null
+    if (scenario === 'close-resolved-decided') {
+      await rpc('pause', { paused:true })
+      await reviewCall({lease_id:seeded.lease_id, decision:'rework', evidence:'redo it'})
+      out.before = await rpc('inspect')
+    }
+    const how = scenario === 'close-resolved-done' ? 'done' : ['close-resolved-removed','close-resolved-decided'].includes(scenario) ? 'remove' : null
     if (how) out.board = await rpc('board_change', { item_id: seeded.item_id, how })
     await turnComplete()
     out.after = await rpc('inspect')

@@ -3630,10 +3630,11 @@ async function parallelRollForward($, state) {
   // A review whose Work item main already completed or removed on the board
   // ends unreviewed (router close_resolved_reviews); without this it waited
   // forever as "Awaiting main review" (G:\ciel-Walkie 2026-11-15).
-  if (parallelReviews(state).some(parallelReviewPending)) {
+  if (parallelReviews(state).some(row => parallelReviewPending(row) || row?.decision === 'rework'
+      || row?.decision === 'close')) {
     try {
       const result = await parallelCall($, 'work_parallel_event', { event:'review_close_resolved' }, { internal:true })
-      advanced += Array.isArray(result?.closed) ? result.closed.length : 0
+      if (result?.closed?.length) return result.closed.length
     } catch (error) {
       const detail = String(error?.message || error)
       // An older router refuses the event as "unsupported parallel event"; nothing else to do there.

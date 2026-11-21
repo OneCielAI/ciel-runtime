@@ -2599,7 +2599,8 @@ def close_resolved_reviews(store, board_store, identity, *, limit=CLOSE_RESOLVED
     done, n1536-n1538 removed). The result was not reviewed: the decision is
     ``close`` (never ``approve``), its evidence says so, the board is not
     changed and the workspace is retained. A stranded no-report row for such an
-    item is closed too.
+    item is closed too. Decided sagas of removed or done items close too
+    (user decision 2026-11-21): the decision is never applied to the board.
     """
     from .work_parallel_finalization import decision_digest
     board = board_store.read()
@@ -2609,28 +2610,39 @@ def close_resolved_reviews(store, board_store, identity, *, limit=CLOSE_RESOLVED
     for row in list(reviews.read()["reviews"].values()):
         if len(closed) >= limit:
             break
-        if row["scope"] != identity or row["state"] != "pending" or row["decision"] is not None:
+        if row["scope"] != identity or not (
+                row["state"] == "pending" or row["decision"] == "rework"
+                or (row["decision"] == "close" and row["state"] == "deciding")):
             continue
         node = nodes.get(row["item_id"])
         if node is not None and node.get("status") != "done":
             continue
-        lease = store.read()["leases"].get(row["lease_id"])
-        if (lease is None or lease["state"] != "submitted" or lease["artifact"] != row["artifact"]):
+        ledger_state = store.read()
+        lease = ledger_state["leases"].get(row["lease_id"])
+        if (lease is None or lease["state"] not in ("submitted", "accepted", "done")
+                or lease["artifact"] != row["artifact"]):
             continue
         how = "removed from the board" if node is None else "completed on the board"
-        # A result with no workspace (unconfined fork) has nothing retained;
-        # KOBE 2026-11-19: reading its path raised on every pump.
         ws = row["workspace"]
         kept = ("the fork ran with no workspace, so nothing is retained" if ws is None else
                 f"the workspace is retained at {ws['path']} ({ws['head']})")
-        evidence = (f"Closed unreviewed: Work item {row['item_id']} was {how} before main reviewed this "
-                    f"result. The board was not changed; {kept}.")[:2000]
-        decision_id = "close-resolved:" + row["lease_id"]
+        evidence = (f"Closed unreviewed: Work item {row['item_id']} was {how}. "
+                    f"The board was not changed; {kept}.")
         try:
             fstate = reviews.read()
-            reviews.decide(row["lease_id"], "close", decision_id, evidence,
-                           decision_body_digest=decision_digest(row["lease_id"], "close", evidence),
-                           expected_version=fstate["version"])
+            if fstate["reviews"].get(row["lease_id"]) != row:
+                continue
+            if row["decision"] == "rework":
+                replacement = ledger_state["leases"].get(row["replacement_lease_id"])
+                if replacement is not None and replacement["state"] not in ("done", "orphaned", "unreported"):
+                    continue  # Do not cancel a possibly live replacement.
+                evidence += (f" Prior rework decision {row['decision_id']} ({row['decision_digest']}); "
+                             f"replacement {row['replacement_lease_id']}.")
+                reviews.close_decided_rework(row["lease_id"], evidence[:2000], expected_version=fstate["version"])
+            elif row["decision"] is None:
+                reviews.decide(row["lease_id"], "close", "close-resolved:" + row["lease_id"], evidence[:2000],
+                               decision_body_digest=decision_digest(row["lease_id"], "close", evidence[:2000]),
+                               expected_version=fstate["version"])
             result = _roll_forward(store, board_store, identity, {"internal": True}, row["lease_id"])
         except (WorkParallelConflict, WorkParallelError):
             continue
@@ -2713,7 +2725,11 @@ def _roll_forward_stages(store, board_store, identity, host, lease_id):
                                     expected_version=current["version"])
             fstate, row = reviews.mark(lease_id, "lease", expected_version=reviews.read()["version"])
         if not row["stages"]["archive"]:
-            _archive_retry(coord, lease_id, {"state": "done",
+            archived_rework = decision == "close" and any(
+                entry["run"]["lease_id"] == lease_id and entry["run"].get("replaced_by")
+                for entry in coord.read()["archive"])
+            if not archived_rework:
+                _archive_retry(coord, lease_id, {"state": "done",
                                              "outcome": ("main accepted" if decision == "approve" else
                                                          "closed unreviewed: Work item resolved on the board"),
                                              "receipt_digest": row["completion_receipt"],
