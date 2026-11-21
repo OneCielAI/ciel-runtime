@@ -418,6 +418,37 @@ class StreamRecoveryRuntimeTests(unittest.TestCase):
         self.assertTrue(entry["visible_text"])
 
 
+class CorruptLedgerTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory()
+        self.root = Path(self.temp.name)
+
+    def tearDown(self) -> None:
+        self.temp.cleanup()
+
+    def test_corrupt_ledger_is_quarantined_and_failure_is_recorded(self):
+        path = self.root / recovery.LEDGER_NAME
+        path.write_bytes(b"not-json\x00x")
+        ledger = recovery.StreamRecoveryLedger(path, lambda *_logged: None, Clock())
+        ledger.record_failure(SCOPE, {"message_id": "msg_owned_4"})
+        corrupt = list(self.root.glob(path.name + ".corrupt-*"))
+        self.assertEqual(1, len(corrupt))
+        self.assertEqual(b"not-json\x00x", corrupt[0].read_bytes())
+        value = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual({**SCOPE.payload(),
+                          "message_id": "msg_owned_4", "failed_at": 1000.0,
+                          "provider": None, "reason": None, "upstream_error_type": None,
+                          "visible_text": None, "tool_uncertain": None,
+                          "saw_tool_use": None, "emitted_tool_use": None},
+                         value["failures"]["msg_owned_4"])
+
+    def test_absent_ledger_is_initialized_without_quarantine(self):
+        path = self.root / recovery.LEDGER_NAME
+        ledger = recovery.StreamRecoveryLedger(path, lambda *_logged: None, Clock())
+        ledger.record_failure(SCOPE, {"message_id": "msg_owned_4"})
+        self.assertEqual([], list(self.root.glob(path.name + ".corrupt-*")))
+
+
 class TranscriptPollTests(unittest.TestCase):
     def test_poll_starts_at_the_end_and_feeds_new_records(self):
         with tempfile.TemporaryDirectory() as temp:

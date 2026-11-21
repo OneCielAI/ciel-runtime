@@ -31,7 +31,7 @@ from .claude_typed_turn_resend import TypedTurnResend
 from .channel_message_repository import exclusive_file_lock
 from .channel_wake_claim_repository import prompt_message_ids
 from .runtime_compaction_control import CompactionScope
-from .secure_json_repository import SecureJsonEffects, SecureJsonRepository
+from .secure_json_repository import SecureJsonCorruptError, SecureJsonEffects, SecureJsonRepository
 
 
 LEDGER_NAME = "claude-stream-recovery.json"
@@ -189,7 +189,17 @@ class StreamRecoveryLedger:
 
     def _change(self, purpose: str, change: Callable[[dict[str, Any]], Any]) -> Any:
         with exclusive_file_lock(self.repository.path):
-            value = self.repository.load(purpose)
+            try:
+                value = self.repository.load(purpose)
+            except SecureJsonCorruptError:
+                if self.repository.quarantine(purpose) is None:
+                    raise OSError("stream recovery ledger is corrupt")
+                # The corrupt body was just moved aside under the same lock, so
+                # the primary path is absent and load returns an empty ledger.
+                try:
+                    value = self.repository.load(purpose)
+                except SecureJsonCorruptError:
+                    raise OSError("stream recovery ledger is corrupt")
             if value is None:
                 raise OSError("stream recovery ledger is unreadable")
             for key in ("failures", "handled", "chains"):

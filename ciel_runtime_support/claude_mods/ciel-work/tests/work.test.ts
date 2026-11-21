@@ -773,6 +773,19 @@ function inspection(on) {
   on('ui.close', () => ({}))
   return s
 }
+test('Inspector opens when the first status read times out but its fallback succeeds', async ($, on) => {
+  const s = inspection(on)
+  let reads = 0
+  s.waitStatus = async () => {
+    if (++reads === 1) throw new Error('The operation timed out.')
+  }
+  await $.command.run({ command: 'work-mode', args: 'view all' })
+  expect(s.opened?.id).toBe('work-details')
+  const pane = await $.ui.mount(PANE)
+  expect(await pane.find({ key: 'node-a' })).toBeDefined()
+  await pane.unmount()
+})
+
 test('three levels display linked ids, waits, urgent holds and green done checks', async ($, on) => {
   const s = inspection(on)
   s.snapshot.active_root.urgent = true

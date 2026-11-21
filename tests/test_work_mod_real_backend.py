@@ -1706,6 +1706,8 @@ class WorkModRealBackendTests(unittest.TestCase):
                       "unlistedReservedName", "otherPluginToReservedFork"):
             self.assert_revival_refused(result["revival"][label], label)
             self.assertIn("could not be read", result["revival"][label]["deny"], label)
+            self.assertIn("lease state was not verified", result["revival"][label]["deny"], label)
+            self.assertNotIn("not a running or waiting Work lease", result["revival"][label]["deny"], label)
         # A deferred resume spawn with no authorization is denied when its own read fails.
         self.assertIn("deny", result["deferredWithoutAuthorization"], result["deferredWithoutAuthorization"])
         self.assertIn("router connection reset", result["deferredWithoutAuthorization"]["deny"])

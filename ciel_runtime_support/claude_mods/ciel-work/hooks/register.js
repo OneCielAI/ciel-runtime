@@ -984,7 +984,16 @@ async function openDetails($, id = null, origin = null, focus = true, onlyIfEmpt
   // refresh() yields null; /work-mode view then returned without opening the pane
   // (owned console, 2026-11-07). The person asked for the pane: read this request's own snapshot.
   let s = await refresh($)
-  if (!s && await sessionId($) === identity) s = await readSnapshot($, identity).catch(() => null)
+  if (!s && await sessionId($) === identity) {
+    const ticket = generation
+    s = await readSnapshot($, identity).catch(() => null)
+    if (await sessionId($) !== identity || cachedSession !== identity) return 'unavailable'
+    // A verified fallback must seed an empty summary cache too; otherwise the
+    // matching detail is discarded and an already-open pane stays unavailable.
+    if (s && ticket === generation && !cached) {
+      cached = s; enabled = s.enabled; $.ui.invalidate('ui.render')
+    }
+  }
   if (await sessionId($) !== identity) return 'unavailable'
   if (!s) return 'unavailable'
   if (!s.enabled) return 'off'
@@ -2746,7 +2755,7 @@ async function parallelSendGate($, to) {
   let state
   try { state = await hostStatus($) }
   catch (error) {
-    return local ? { owner: local + ' (the Work store could not be read: ' + clipped(String(error?.message || error), 160) + ')', t } : {}
+    return local ? { owner: local, readError: clipped(String(error?.message || error), 160), t } : {}
   }
   const lease = parallelResumableLease(state, t)
   if (lease) return { lease, state, t }
@@ -2780,6 +2789,10 @@ async function parallelForkIdentity($, t) {
   return { owner:(m.owner === 'launch' ? 'a rework launch of Work lease ' : 'Work lease ') + clipped(m.lease_id, 64)
     + ' (' + clipped(m.lease_state ?? 'gone', 40) + (m.current === false ? ', an earlier fork' : '') + ')' }
 }
+function parallelSendReadDenied(gate) {
+  return 'Work message refused: the Work store could not be read (' + gate.readError
+    + '); lease state was not verified. No message was sent. Retry when Work status is available.'
+}
 function parallelRevivalDeny(target, owner, why, $) {
   const detail = 'message to ' + clipped(target, 120) + ' refused: it is ' + owner + ', ' + why
   rememberParallelFailure('revival-refused', detail)
@@ -2796,6 +2809,7 @@ async function parallelSessionSend($, e, next) {
   const resumable = gate.lease?.id || gate.activeUnseen?.lease_id
   if (resumable) return { isDelivered:false, reason:parallelRevivalDeny(e.to, 'Work lease ' + clipped(resumable, 64),
     'and only the Work coordinator resumes its workers', $) }
+  if (gate.readError) return { isDelivered:false, reason:parallelSendReadDenied(gate) }
   if (gate.owner) return { isDelivered:false, reason:parallelRevivalDeny(e.to, gate.owner, 'not an active Work lease', $) }
   return next(e)
 }
@@ -2931,6 +2945,7 @@ async function parallelToolCall($, e, next) {
       return { deny: parallelRevivalDeny(to, 'Work lease ' + gate.lease.id, 'and only the Work coordinator resumes its workers', $) }
     if (gate.activeUnseen && !coordinator)
       return { deny: parallelRevivalDeny(to, 'Work lease ' + clipped(gate.activeUnseen.lease_id, 64), 'and only the Work coordinator resumes its workers', $) }
+    if (gate.readError) return { deny: parallelSendReadDenied(gate) }
     if (gate.owner) return { deny: parallelRevivalDeny(to, gate.owner, 'not a running or waiting Work lease', $) }
     const lease = gate.lease
     const state = gate.state

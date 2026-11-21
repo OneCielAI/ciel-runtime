@@ -16,6 +16,10 @@ class SecureJsonEffects:
     time_ns: Callable[[], int] = time.time_ns
 
 
+class SecureJsonCorruptError(OSError):
+    """An unreadable stored JSON body that can be quarantined by the ledger."""
+
+
 @dataclass(frozen=True)
 class SecureJsonRepository:
     path: Path
@@ -26,7 +30,14 @@ class SecureJsonRepository:
             return {}
         try:
             value = json.loads(self.path.read_text(encoding="utf-8"))
-        except (OSError, UnicodeError, json.JSONDecodeError, TypeError) as exc:
+        except (UnicodeError, json.JSONDecodeError, TypeError) as exc:
+            self.effects.log(
+                "WARN",
+                f"secure_json_read_failed purpose={purpose} path={self.path} "
+                f"error={type(exc).__name__}: {exc}",
+            )
+            raise SecureJsonCorruptError(str(exc)) from exc
+        except OSError as exc:
             self.effects.log(
                 "WARN",
                 f"secure_json_read_failed purpose={purpose} path={self.path} "
