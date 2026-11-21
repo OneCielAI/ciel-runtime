@@ -2565,7 +2565,9 @@ async function parallelCall($, name, args = {}, observed = {}, scope = null) {
     ...args, session_id: identity, _host: { ...observed, ...credential },
   })
   if (!r) throw new Error('Parallel router unavailable')
-  const value = parseJson(r, 'Parallel read')
+  const reservation = name === 'work_parallel_event'
+    && ['reserve', 'reserve_next', 'p0_reserve_next'].includes(args.event)
+  const value = parseJson(r, reservation ? 'work_parallel_event (' + args.event + ')' : 'Parallel read')
   // Large host results arrive as verified pages (host_result_pages.py).
   return value?.paged ? hostJson($, name, r, identity, credential.token) : value
 }

@@ -1148,6 +1148,26 @@ const scenarios = {
   // Direct spawn: work_parallel_run itself starts the fork; the model never
   // copies an Agent name. A denied spawn releases the unbound reservation and
   // keeps the Work item queued.
+  async 'parallel-reservation-error-label'() {
+    const detail = process.argv[3]
+    const calls = []
+    let spawned = 0
+    const { $ } = host(async (tool, args) => {
+      if (tool === 'work_parallel_status') return detail === 'status offline'
+        ? { isError:true, ...text(detail) } : text({ version:11, leases:{} })
+      if (tool === 'work_parallel_event') {
+        calls.push(args.event)
+        if (args.event === 'reserve') return { isError:true, ...text(detail) }
+      }
+      return text(snapshot())
+    })
+    $.session.repo = async () => null
+    $.session.root = async () => '/repo'
+    $.agent.spawn = async () => { spawned++; return { agentId:'unexpected' } }
+    const run = await handlers['tool.call']($, { tool:'mcp__ciel-runtime-router__work_parallel_run',
+      item_id:'n227', priority:'P1', role:'worker', expected_version:11 }, next({}))
+    return { deny:run.deny, calls, spawned }
+  },
   async 'parallel-direct-spawn-started'() {
     const parallel = { version: 11, active_device: 0,
       policy: { enabled: true, paused: false, priority_limits: { P1: 5, P2: 3, P3: 1, P4: 1, P5: 1 }, launches_per_minute: 4, max_rework: 2 }, leases: {} }

@@ -1253,6 +1253,18 @@ class WorkModWriteGateTests(unittest.TestCase):
                            "receipt_digest": "d" * 64, "absent": "fork-a", "complete": True}],
                          result["restart"], result)
 
+    def test_parallel_reservation_refusals_are_not_reported_as_read_failures(self):
+        for detail in ('active slot capacity reached for P1 (1/1)', 'no eligible candidate'):
+            with self.subTest(detail=detail):
+                result = self.run_scenario('parallel-reservation-error-label', detail)
+                self.assertEqual('work_parallel_event (reserve) failed: ' + detail, result['deny'])
+                self.assertEqual(['gate_presence', 'reserve'], result['calls'])
+                self.assertEqual(0, result['spawned'])
+        result = self.run_scenario('parallel-reservation-error-label', 'status offline')
+        self.assertEqual('Parallel read failed: status offline', result['deny'])
+        self.assertEqual([], result['calls'])
+        self.assertEqual(0, result['spawned'])
+
     def test_work_parallel_run_starts_fork_without_model_agent_call(self):
         result = self.lifecycle(self.run_scenario("parallel-direct-spawn-started"))
         self.assertEqual(result["run"]["dispatch"], "started")
