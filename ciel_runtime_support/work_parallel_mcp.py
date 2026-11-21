@@ -3411,7 +3411,7 @@ def _rework_review_for(store, lease):
     return row
 
 
-def _owner_classes(store, lease_ids, caller_nonce):
+def _owner_classes(store, lease_ids, caller_nonce, *, identity_now=None):
     """{lease_id: owner class} relative to the caller, reading each store once.
 
     A rework/recovery replacement names its exact spawning process: the launch
@@ -3440,9 +3440,10 @@ def _owner_classes(store, lease_ids, caller_nonce):
         lease = leases.get(lease_id) or {}
         nonce, agent = launch_nonce.get(lease_id, (None, None))
         if nonce is not None and agent == lease.get("host_id"):
-            result[lease_id] = side.owner_class(nonce, caller_nonce, doc=doc)
+            result[lease_id] = side.owner_class(nonce, caller_nonce, doc=doc, identity_now=identity_now)
         else:
-            result[lease_id] = side.lease_owner_class(lease.get("owner"), caller_nonce, doc=doc)
+            result[lease_id] = side.lease_owner_class(lease.get("owner"), caller_nonce, doc=doc,
+                                                     identity_now=identity_now)
     return result
 
 
@@ -3665,11 +3666,19 @@ def _fork_identity(store, identity, ids, names):
             "finalization_version": reviews["version"]}
 
 
-def _orphan_preview(store):
+def _orphan_preview(store, *, include_dead_parked=False):
     d = store.read()
     rows = []
+    parked_ids = [lease["id"] for lease in d["leases"].values()
+                  if not lease["slot"] and lease["state"] == "waiting_input" and lease.get("owner")]
+    parked_owners = (_owner_classes(store, parked_ids, None, identity_now=process_identity)
+                     if include_dead_parked and parked_ids else {})
     for lease in d.get("leases", {}).values():
         if not lease["slot"]:
+            if parked_owners.get(lease["id"]) == "gone":
+                rows.append({"lease_id": lease["id"], "scope": lease["scope"], "item_id": lease["item_id"],
+                             "priority": lease["priority"], "state": lease["state"],
+                             "owner_state": "dead", "observed_identity": ""})
             continue
         owner = lease.get("owner")
         if owner is None:

@@ -132,7 +132,8 @@ def sweep_at_launch(log: Callable[[str, str], Any]) -> dict[str, int]:
         from .runtime_paths import CONFIG_DIR
         from .work_parallel_mcp import _orphan_preview, ledger, process_identity
         store = ledger()
-        result = sweep(store, live_router_scopes(Path(CONFIG_DIR), process_identity), _orphan_preview)
+        result = sweep(store, live_router_scopes(Path(CONFIG_DIR), process_identity),
+                       lambda current: _orphan_preview(current, include_dead_parked=True))
     except Exception as error:  # noqa: BLE001 - a sweep failure must not block the launch
         log("WARN", f"work_orphan_sweep_failed error={type(error).__name__}")
         return {"released": 0, "kept": 0, "failed": 1}

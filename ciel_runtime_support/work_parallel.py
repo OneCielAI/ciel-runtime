@@ -491,7 +491,9 @@ class WorkParallelStore:
             r = self._lease(d, ident)
             if r["state"] == "orphaned":
                 return
-            require(r["slot"] and r["state"] in ACTIVE_STATES, "lease does not hold an active slot")
+            require((r["slot"] and r["state"] in ACTIVE_STATES)
+                    or (state == "dead" and r["state"] == "waiting_input" and not r["slot"]
+                        and r["artifact"] is None), "lease does not hold an active slot or a dead parked worker")
             if state == "dead":
                 require(r.get("owner") is not None, "owner identity unavailable")
             else:

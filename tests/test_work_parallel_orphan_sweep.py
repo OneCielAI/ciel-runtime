@@ -71,6 +71,24 @@ class OrphanSweepTests(unittest.TestCase):
             self.assertTrue(leases[ident]["slot"], ident)
         self.assertEqual([], result["kept"])
 
+    def test_dead_parked_worker_is_retired_without_completing_the_item(self):
+        leases = {}
+        for name, pid in (("dead", 11), ("live", 12), ("unknown", 13), ("legacy", None)):
+            owner = {"session_pid": pid, "identity": f"birth-{pid}"} if pid else None
+            ident = leases[name] = self.reserve(name, "claude:a", owner=owner)
+            self.store.report_question(ident, plan_version=7, evidence="Waiting for main answer",
+                                       expected_version=self.store.read()["version"])
+        with patch("ciel_runtime_support.work_parallel_mcp.process_identity",
+                   {11: "", 12: "birth-12", 13: None}.get):
+            result = sweep_module.sweep(self.store, {"claude:a"},
+                                        lambda store: _orphan_preview(store, include_dead_parked=True))
+        self.assertEqual([leases["dead"]], [row["lease_id"] for row in result["released"]])
+        rows = self.store.read()["leases"]
+        self.assertEqual(("orphaned", False, None), tuple(rows[leases["dead"]][k]
+                         for k in ("state", "slot", "artifact")))
+        for name in ("live", "unknown", "legacy"):
+            self.assertEqual("waiting_input", rows[leases[name]]["state"])
+
     def test_a_lease_the_ledger_refuses_is_kept_and_the_sweep_continues(self):
         refused = self.reserve("refused", "claude:a", owner={"session_pid": 11, "identity": "birth-11"})
         after = self.reserve("after", "claude:a", owner={"session_pid": 11, "identity": "birth-11"})
