@@ -13,9 +13,13 @@ class ChannelFileLockBusy(OSError):
 # ``LK_LOCK`` is opaque: on Windows it can report EDEADLK/EACCES even though
 # its native wait was not the durable wait callers need.  Retry a bounded
 # number of fresh acquisition attempts so a release racing a refused request
-# can still win.  The upper bound stays small enough that this primitive is
-# not an unbounded wait.
-_LOCK_ATTEMPTS = 3
+# can still win.  The bounded wait is now total time, not a fixed trickle:
+# Andy 2026-11-21 showed a workspace manifest held through several git
+# verification/snapshot commands outlasted a 3x50ms retry budget and a main
+# review decision was still refused with ChannelFileLockBusy even after the
+# bounded retry landed.  Keep the total wait under one second so callers that
+# need a fast final refusal still get one, while ordinary hold windows settle.
+_LOCK_ATTEMPTS = 11
 _LOCK_WAIT_SECONDS = 0.05
 
 

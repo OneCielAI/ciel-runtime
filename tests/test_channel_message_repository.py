@@ -8,6 +8,7 @@ import threading
 import unittest
 from unittest.mock import Mock, patch
 
+from ciel_runtime_support import durable_file_lock as lock_module
 from ciel_runtime_support.channel_message_repository import (
     ChannelFileLockBusy,
     ChannelMessageAppendPorts,
@@ -80,7 +81,7 @@ class ChannelMessageRepositoryTests(unittest.TestCase):
                 self.assertEqual(code, caught.exception.errno)
                 self.assertIn(str(path) + ".lock", str(caught.exception))
                 self.assertIs(failure, caught.exception.__cause__)
-                self.assertEqual(3, windows.locking.call_count)
+                self.assertEqual(lock_module._LOCK_ATTEMPTS, windows.locking.call_count)
 
     def test_windows_noncontention_acquisition_error_is_not_converted(self):
         windows = Mock(LK_LOCK=1, LK_UNLCK=0)

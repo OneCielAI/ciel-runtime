@@ -27,7 +27,11 @@ FENCE_STATES = ("reserved", "running", "waiting_input", "submitted", "verifying"
                 "accepted", "cleanup_pending")
 REASONS = ("waiting", "planning", "not_ready", "fenced", "stranded")
 # States a person or main can act on; "can_fill" and "full" are normal.
+# A full row is an exception: a goal back in planning holds unfinished work no
+# slot can reach, and only main can restore its approval. Reporting it as plain
+# "full" hid exactly that (Andy 2026-11-21, n1445/n2453).
 ATTENTION_STATES = frozenset(("no_candidates", "disabled", "lease_bound", "rate_limited", "goal_blocked"))
+PLANNING_ATTENTION_STATES = frozenset(("full",))
 REASON_WORDS = {"waiting": "waiting/blocked", "planning": "goal in planning", "not_ready": "not ready",
                 "fenced": "already has an open lease", "stranded": "stranded result awaiting main",
                 # Approval workflow (spec 9): counted only when present, so a
@@ -152,7 +156,8 @@ def diagnose(ledger: Mapping[str, Any], board: Mapping[str, Any] | None, scope: 
     attention = [[name, row["state"], sorted(key for key, value in row["blocked"].items() if value)
                   + sorted({f"{goal['root_id']}:{goal['code']}" for goal in row.get("goals", ())
                             if goal["state"] == "blocked"})]
-                 for name, row in rows.items() if row["state"] in ATTENTION_STATES]
+                 for name, row in rows.items() if row["state"] in ATTENTION_STATES
+                 or (row["state"] in PLANNING_ATTENTION_STATES and row["blocked"].get("planning", 0) > 0)]
     digest = hashlib.sha256(json.dumps(attention, separators=(",", ":")).encode()).hexdigest()[:16]
     return {"rows": [rows[name] for name in PRIORITY_ROWS], "summary": summary_line(rows.values()),
             "attention": [item[0] for item in attention], "attention_digest": digest,
@@ -175,7 +180,11 @@ def _reason(row: Mapping[str, Any]) -> str:
         return "parallel dispatch disabled or paused"
     if state == "full":
         held = row["held_for_parked"]
-        return "all slots in use" + (f" ({held} kept for a released parked worker)" if held else "")
+        reason = "all slots in use" + (f" ({held} kept for a released parked worker)" if held else "")
+        planning = row["blocked"].get("planning", 0)
+        if planning:
+            reason += f"; goal in planning {planning} (restore execution approval to resume)"
+        return reason
     if state == "rate_limited":
         return "launch rate reached; the next pump fills it"
     if state == "can_fill":
@@ -192,8 +201,10 @@ def summary_line(rows: Iterable[Mapping[str, Any]]) -> str:
         if row["state"] == "no_work" and not row["active"]:
             continue
         used = f"{row['active']}" if row["limit"] is None else f"{row['active']}/{row['limit']}"
+        planning_attention = (row["state"] in PLANNING_ATTENTION_STATES
+                              and row["blocked"].get("planning", 0) > 0)
         bits.append(f"{row['priority']} {used} {row['state'].replace('_', ' ')}"
-                    + (f" ({row['reason']})" if row["state"] in ATTENTION_STATES else ""))
+                    + (f" ({row['reason']})" if row["state"] in ATTENTION_STATES or planning_attention else ""))
     return " · ".join(bits) or "no Work to dispatch"
 
 

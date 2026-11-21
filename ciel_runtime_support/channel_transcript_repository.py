@@ -365,7 +365,19 @@ class ChannelTranscriptRepository:
             limit = TURN_UPDATE_MAX_BYTES
         scan_path = self.scope.get("turn_scan_path")
         if scan_path is None:
+            # No launch boundary was captured (the bounded scan missed its
+            # deadline). Everything in the file predates this console launch:
+            # establish the boundary at EOF instead of replaying a resumed
+            # session's history in bounded batches (Andy 2026-11-21: a 1.5GB
+            # transcript replay froze the console after restart). A transcript
+            # created by this launch is only reached with an offset already
+            # pinned at 0, never through this unset-path case.
             self.scope["turn_scan_path"] = path
+            try:
+                self.scope["turn_scan_offset"] = path.stat().st_size
+            except OSError:
+                self.scope["turn_scan_offset"] = 0
+            return ""
         elif Path(scan_path) != path:
             self.scope["turn_scan_path"] = path
             self.scope["turn_scan_offset"] = 0
