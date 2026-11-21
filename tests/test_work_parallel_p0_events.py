@@ -354,6 +354,24 @@ class P0EventTests(unittest.TestCase):
         self.assertEqual(lease["id"], replay["lease_id"])
         self.assertEqual(1, len(self.store.read()["leases"]))
 
+    def test_p0_reacquire_accepts_a_bound_rework_fork_name(self):
+        # Andy 2026-11-21 (n2453/n2042): the P0 intent authorized a rework
+        # replacement that native bound as work-rework-<lease>-a1. Reacquire
+        # compared that exact native name with the P0 dispatch_name and refused.
+        reserved = self.reserve()
+        args = {key: reserved[key] for key in ("intent_id", "lease_id", "dispatch_name")}
+        self.call("p0_launch_spawning", {"internal": True}, **args)
+        rework_name = "work-rework-" + reserved["lease_id"] + "-a1"
+        self.call("bind", {"host_id": "agent", "agent_name": rework_name}, lease_id=reserved["lease_id"])
+        side = p0_store(self.store)
+        side._change(lambda state: state["intents"][reserved["intent_id"]].update(
+            continuation="rework", predecessor_lease_id="p" * 32), side.read()["version"])
+        self.store._change(lambda doc: doc["leases"][reserved["lease_id"]].update(
+            state="waiting_input", slot=False, usage=0, idle_proof="waiting"), self.store.read()["version"])
+        result = self.call("p0_reacquire", {}, lease_id=reserved["lease_id"])
+        self.assertEqual(rework_name, result["native_name"])
+        self.assertEqual(reserved["intent_id"], result["parent_intent_id"])
+
     def test_p0_reacquire_preserves_same_lease_and_name(self):
         reserved = self.reserve()
         args = {key: reserved[key] for key in ("intent_id", "lease_id", "dispatch_name")}

@@ -689,6 +689,8 @@ class WorkParallelP0Store:
                 and integer(ledger_before_version) and type(lease) is dict,
                 "P0 reacquire send preparation")
         native_name = lease.get("agent_name") or lease.get("dispatch_name")
+        rework_native = re.fullmatch(r"work-rework-(.{1,200})-a([1-9][0-9]{0,2})\Z",
+                                     str(native_name or ""), re.DOTALL)
         require(text(lease.get("id"), 200) and text(lease.get("scope"), 200)
                 and text(lease.get("item_id"), 200) and text(lease.get("host_id"), 200)
                 and text(native_name, 200) and lease.get("state") == "waiting_input"
@@ -699,7 +701,10 @@ class WorkParallelP0Store:
                     and parent["lease_id"] == lease["id"]
                     and parent["scope"] == lease["scope"]
                     and parent["item_id"] == lease["item_id"]
-                    and parent["dispatch_name"] == native_name,
+                    and (parent["dispatch_name"] == native_name
+                         or (parent["continuation"] in ("rework", "stranded_recovery")
+                             and rework_native is not None
+                             and rework_native.group(1) == lease["id"])),
                     "P0 reacquire parent authority")
             open_rows = [value for value in state["sends"].values()
                          if value["parent_intent_id"] == parent_intent_id
