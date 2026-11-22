@@ -267,5 +267,18 @@ class WorkForkGateTests(unittest.TestCase):
         self.assertTrue(value["spawnCatch"])
 
 
+    def test_gate_requests_narrow_unpaged_projections(self):
+        value = self.scenario("narrow_gate_projections")
+        self.assertEqual("gate", (value["leaseCall"] or {}).get("projection"))
+        self.assertEqual("f1", (value["leaseCall"] or {}).get("host_id"))
+        self.assertEqual("phase", (value["statusCall"] or {}).get("projection"))
+        self.assertEqual("gate", (value["mainModelCall"] or {}).get("projection"))
+        self.assertTrue((value["mainModelCall"] or {}).get("models_only"))
+        self.assertEqual("gate", (value["forkModelCall"] or {}).get("projection"))
+        self.assertTrue((value["forkModelCall"] or {}).get("for_model"))
+        self.assertEqual("gate", (value["sideModelCall"] or {}).get("projection"))
+        self.assertTrue((value["sideModelCall"] or {}).get("models_only"))
+
+
 if __name__ == "__main__":
     unittest.main()

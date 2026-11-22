@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections import OrderedDict
+import copy
 from datetime import datetime
 import json
 from dataclasses import dataclass
@@ -23,6 +25,10 @@ _RECOVERABLE_ID = re.compile(
 # so an unchanged multi-megabyte ``.jsonl.1`` is not rescanned on every append.
 _LEGACY_FLOOR_CACHE: dict[str, tuple[tuple[Any, ...], int]] = {}
 _LEGACY_FLOOR_LOCK = threading.Lock()
+_SCAN_CACHE_LOCK = threading.Lock()
+_SCAN_CACHE: OrderedDict[str, tuple[tuple[int, int, int, int], tuple[dict[str, Any], ...], int, bool]] = OrderedDict()
+_SCAN_CACHE_MAX = 16
+_SCAN_QUIET_NS = 50_000_000
 
 
 def _stat_identity(path: Path) -> tuple[int, int, int, int] | None:
@@ -118,6 +124,7 @@ class ChannelMessageRepository:
                 # Bound the queue only after the new row is durable in it: that row
                 # carries the id frontier and is always kept by compaction.
                 self._compact_if_oversized()
+                self._invalidate_scan_cache()
             ports.condition.notify_all()
             return message
 
@@ -233,6 +240,11 @@ class ChannelMessageRepository:
         except FileNotFoundError:
             return False
 
+    def _invalidate_scan_cache(self) -> None:
+        key = os.path.normcase(str(self.path.absolute()))
+        with _SCAN_CACHE_LOCK:
+            _SCAN_CACHE.pop(key, None)
+
     def _scan(self, path: Path, operation: str) -> tuple[list[dict[str, Any]], int, bool]:
         """Return decodable rows, the highest id recoverable from damaged rows,
         and whether the file was read completely (a missing file counts as read).
@@ -240,6 +252,17 @@ class ChannelMessageRepository:
         Damaged rows are ignored for delivery, but any id still visible in their
         bytes stays reserved so ignoring corruption never reissues an id.
         """
+        sig = _stat_identity(path)
+        if sig is None:
+            return [], 0, True
+        key = os.path.normcase(str(path.absolute()))
+        quiet = time.time_ns() - sig[3] > _SCAN_QUIET_NS
+        if quiet:
+            with _SCAN_CACHE_LOCK:
+                cached = _SCAN_CACHE.get(key)
+                if cached is not None and cached[0] == sig:
+                    _SCAN_CACHE.move_to_end(key)
+                    return list(cached[1]), cached[2], cached[3]
 
         items: list[dict[str, Any]] = []
         damaged_max_id = 0
@@ -264,6 +287,14 @@ class ChannelMessageRepository:
                 "WARN",
                 f"chat {operation} failed error={type(exc).__name__}: {exc}",
             )
+        if complete and quiet:
+            after_sig = _stat_identity(path)
+            if after_sig == sig:
+                with _SCAN_CACHE_LOCK:
+                    _SCAN_CACHE[key] = (sig, tuple(items), damaged_max_id, True)
+                    _SCAN_CACHE.move_to_end(key)
+                    while len(_SCAN_CACHE) > _SCAN_CACHE_MAX:
+                        _SCAN_CACHE.popitem(last=False)
         return items, damaged_max_id, complete
 
     def _jsonl_items(self, operation: str) -> list[dict[str, Any]]:
@@ -410,7 +441,7 @@ class ChannelMessageRepository:
             except (TypeError, ValueError):
                 continue
             if self._matches(item, channel, recipient):
-                messages.append(item)
+                messages.append(copy.deepcopy(item))
                 if len(messages) >= limit:
                     break
         return messages
@@ -431,7 +462,7 @@ class ChannelMessageRepository:
             if before_id > 0 and item_id >= before_id:
                 continue
             if self._matches(item, channel, recipient):
-                messages.append(item)
+                messages.append(copy.deepcopy(item))
                 if len(messages) > limit:
                     messages = messages[-limit:]
         return messages
@@ -439,4 +470,4 @@ class ChannelMessageRepository:
     def recent_rows(self, limit: int) -> list[dict[str, Any]]:
         if limit <= 0:
             return []
-        return self._jsonl_items("duplicate scan")[-limit:]
+        return [copy.deepcopy(item) for item in self._jsonl_items("duplicate scan")[-limit:]]

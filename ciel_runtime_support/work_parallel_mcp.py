@@ -25,8 +25,11 @@ def schemas():
         "priority": {"type": "string", "enum": ["P1", "P2", "P3", "P4", "P5"]},
         "role": {"type": "string", "enum": ["worker", "resume"]},
         "expected_version": {"type": "integer", "minimum": 0},
-        "projection": {"type": "string", "enum": ["version"],
-                       "description": "Host only: version returns the ledger version alone."},
+        "projection": {"type": "string", "enum": ["version", "gate"],
+                       "description": "Host only: version returns the ledger version alone; gate returns minimal lease/model fields for ciel-work-gate."},
+        "host_id": {"type": "string"},
+        "models_only": {"type": "boolean"},
+        "for_model": {"type": "boolean"},
         "changes": {"type": "object"}, "event": {"type": "string"},
         "artifact": {"type": "string"}, "evidence": {"type": "string"},
         "plan_version": {"type": "integer", "minimum": 0},
@@ -3727,6 +3730,75 @@ def _p0_assignment_token(key, intent, lease, run):
     return hmac.new(key, payload, hashlib.sha256).hexdigest()
 
 
+def _gate_project(store, identity, board, *, host_id=None, models_only=False, for_model=False, config=None):
+    """Minimal authenticated host projection for ciel-work-gate.
+
+    Avoids loading coordination/finalization/stranded archives and stays well
+    under host_result_pages.PAGE_CHARS so gate checks never trigger paging.
+    """
+    view = {"projection": "gate"}
+    leases = {}
+    if not models_only:
+        d = store.read()
+        view["version"] = d["version"]
+        open_states = ("reserved", "running", "waiting_input", "submitted",
+                       "verifying", "reviewing", "accepted", "cleanup_pending")
+        p0_doc = None
+        if board is not None:
+            try:
+                p0_doc = p0_state(store).read()
+            except Exception:
+                p0_doc = None
+        target_host = host_id if isinstance(host_id, str) and host_id else None
+        allow = ("id", "item_id", "priority", "role", "state", "host_id", "agent_name", "dispatch_name")
+        for ident, source in d["leases"].items():
+            if source["scope"] != identity or source["state"] not in open_states:
+                continue
+            if target_host is not None and not for_model and source.get("host_id") != target_host:
+                continue
+            row = {key: source.get(key) for key in allow if source.get(key) is not None}
+            if not for_model:
+                workspace_path = _host_workspace_path(source)
+                if workspace_path is not _NO_WORKSPACE_PATH:
+                    row["workspace_path"] = workspace_path
+            if p0_doc is not None and board is not None:
+                intent_rows = [value for value in p0_doc["intents"].values()
+                               if value["lease_id"] == ident
+                               and value["state"] in ("reserved", "spawning", "bound")
+                               and value["scope"] == identity
+                               and value["item_id"] == source["item_id"]]
+                if len(intent_rows) == 1:
+                    intent = intent_rows[0]
+                    try:
+                        root = _root_for(board, source["item_id"])
+                        marker = p0_state(store).matching_active_marker(
+                            p0_doc, identity, root["id"], root.get("created_at"))
+                        new_fork_name = (intent["continuation"] == "reacquire"
+                                         or source.get("dispatch_name") == intent["dispatch_name"])
+                        if (marker is not None and intent["root_id"] == root["id"]
+                                and intent["root_created_at"] == root.get("created_at")
+                                and new_fork_name):
+                            row.update(effective_priority="P0",
+                                       planning_write_authorized=True)
+                    except WorkParallelError:
+                        pass
+            leases[ident] = row
+        view["leases"] = leases
+    if (models_only or for_model) and isinstance(config, dict):
+        try:
+            from .work_fork_models import projection as fork_model_projection
+            view["fork_models"] = fork_model_projection(config)
+        except Exception:
+            view["fork_models"] = {"provider": "", "models": {}, "status": {}, "unavailable": True}
+        if for_model and isinstance(board, dict) and board.get("workflows"):
+            try:
+                from .work_workflow_parallel import model_overrides
+                view["fork_models"]["overrides"] = model_overrides(board, leases, config)
+            except Exception:
+                pass
+    return view
+
+
 def run(name, args, board_store, identity, config, save_config, log=None):
     """``log(level, message)`` is the router log, when the caller has one."""
     store = ledger()
@@ -3738,6 +3810,17 @@ def run(name, args, board_store, identity, config, save_config, log=None):
             # KOBE hotfix 2026-11-18: an event's expected_version needs the
             # ledger version alone, not the whole (paged) host projection.
             return json.dumps({"version": store.read()["version"], "projection": "version"})
+        if host_read and args.get("projection") == "gate":
+            models_only = args.get("models_only") is True
+            for_model = args.get("for_model") is True
+            board = None if models_only else _board_or_none(board_store)
+            return json.dumps(_gate_project(
+                store, identity, board,
+                host_id=args.get("host_id"),
+                models_only=models_only,
+                for_model=for_model,
+                config=config if isinstance(config, dict) else None,
+            ), ensure_ascii=False)
         caller = (args.get("_host") or {}).get("launch_nonce") if host_read else None
         return json.dumps(project(store, identity, _board_or_none(board_store),
                                   host_view=host_read, caller_nonce=caller,

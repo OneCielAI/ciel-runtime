@@ -276,10 +276,19 @@ class WorkParallelStore:
             raise WorkParallelStateUnavailable("corrupt parallel state; writes blocked") from e
 
     def read(self):
+        from .work_parallel_primitives import PARALLEL_JSON_CACHE
+        cached, stat_key = PARALLEL_JSON_CACHE.get(self.path)
+        if cached is not None:
+            return cached
+        if stat_key is None:
+            return dict(schema=1, version=0, policy=default_policy(), leases={}, launches=[])
         with self._lock, exclusive_file_lock(self.path):
-            return self._read()
+            state = self._read()
+            PARALLEL_JSON_CACHE.put(self.path, state)
+            return state
 
     def _change(self, fn, version):
+        from .work_parallel_primitives import PARALLEL_JSON_CACHE
         require(integer(version), "expected_version required")
         with self._lock, exclusive_file_lock(self.path):
             before = self._read()
@@ -308,6 +317,7 @@ class WorkParallelStore:
                             time.sleep(.002)
                 finally:
                     tmp.unlink(missing_ok=True)
+                PARALLEL_JSON_CACHE.put(self.path, d, committed=True)
             return copy.deepcopy(d), copy.deepcopy(result)
 
     def configure(self, changes, *, capability_ready, expected_version):

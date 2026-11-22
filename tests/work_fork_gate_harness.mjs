@@ -449,4 +449,22 @@ await scenario('main_model_midturn_and_failure', async () => {
     leaked: failing.logs.some(l => l.text.includes('secret-ish')), forkStep: forkStep?.model }
 })
 
+await scenario('narrow_gate_projections', async () => {
+  const gate = await load()
+  const w = world({ rows: [workRow('f1')], leases: runningLease('f1', { priority: 'P2' }), forkModels: MAIN_MODELS })
+  await call(gate, w, { tool: 'Write', tool_use_id: 'np1', agentId: 'f1', file_path: WORKTREE + '\\a.py', content: '' })
+  await step(gate, w, { turnId: 'nt1', index: 0, model: ALIAS_MAIN })
+  await step(gate, w, { agentId: 'f1', index: 0, model: ALIAS_MAIN, messages: [] })
+  const sideW = world({ rows: [{ id: 's1', type: 'ciel-work:side-fresh', status: 'running', spawnedBy: 'ciel-work', description: 'Side SSE 0123456789ab' }], forkModels: MAIN_MODELS })
+  const gate2 = await load()
+  await step(gate2, sideW, { agentId: 's1', index: 0, model: ALIAS_MAIN, messages: [] })
+  return {
+    leaseCall: w.calls.find(c => c.tool === 'work_parallel_status' && !c.args.models_only && !c.args.for_model)?.args || null,
+    statusCall: w.calls.find(c => c.tool === 'work_status')?.args || null,
+    mainModelCall: w.calls.find(c => c.tool === 'work_parallel_status' && c.args.models_only)?.args || null,
+    forkModelCall: w.calls.find(c => c.tool === 'work_parallel_status' && c.args.for_model)?.args || null,
+    sideModelCall: sideW.calls.find(c => c.tool === 'work_parallel_status')?.args || null,
+  }
+})
+
 console.log(JSON.stringify(out))

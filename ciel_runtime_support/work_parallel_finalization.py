@@ -354,12 +354,19 @@ class WorkParallelFinalizationStore:
             raise WorkParallelStateUnavailable("corrupt Work finalization state; writes blocked") from error
 
     def read(self):
-        if not self.path.exists():
+        from .work_parallel_primitives import PARALLEL_JSON_CACHE
+        cached, stat_key = PARALLEL_JSON_CACHE.get(self.path)
+        if cached is not None:
+            return cached
+        if stat_key is None:
             return empty_state()
         with self._lock, exclusive_file_lock(self.path):
-            return self._read()
+            state = self._read()
+            PARALLEL_JSON_CACHE.put(self.path, state)
+            return state
 
     def _change(self, fn, expected_version):
+        from .work_parallel_primitives import PARALLEL_JSON_CACHE
         require(integer(expected_version), "expected_finalization_version required")
         with self._lock, exclusive_file_lock(self.path):
             before = self._read()
@@ -383,6 +390,7 @@ class WorkParallelFinalizationStore:
                     replace_with_retry(tmp, self.path)
                 finally:
                     tmp.unlink(missing_ok=True)
+                PARALLEL_JSON_CACHE.put(self.path, state, committed=True)
             return copy.deepcopy(state), copy.deepcopy(result)
 
     def pending(self, facts, *, expected_version):

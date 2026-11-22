@@ -6,12 +6,94 @@ can use them while ``work_parallel`` reads that sidecar, without an import cycle
 """
 from __future__ import annotations
 
+from collections import OrderedDict
+import json
 import math
 import os
+import threading
 import time
+from pathlib import Path
+from typing import Any
 
 REPLACE_ATTEMPTS = 20
 REPLACE_WAIT_SECONDS = .002
+_CACHE_QUIET_NS = 50_000_000
+_CACHE_MAX_ENTRIES = 32
+
+
+class StatJsonCache:
+    """Thread-safe stat-verified cache for validated JSON state files.
+
+    Stores already-validated, migrated JSON text keyed by normalized path and
+    ``(st_dev, st_ino, st_size, st_mtime_ns)``. Returning ``json.loads(text)``
+    in C avoids disk reads, Windows advisory locks, pure-Python
+    ``object_pairs_hook`` checks, full schema re-validation, and deep-copy
+    overhead while still returning an independent dict per caller.
+
+    External writes within ``_CACHE_QUIET_NS`` of ``st_mtime_ns`` bypass the
+    cache so same-tick in-place edits cannot serve stale data; commits recorded
+    via ``put_committed`` are trusted immediately for their exact stat tuple.
+    """
+
+    def __init__(self, max_entries: int = _CACHE_MAX_ENTRIES) -> None:
+        self._lock = threading.Lock()
+        self._entries: OrderedDict[str, tuple[tuple[int, int, int, int], str, bool]] = OrderedDict()
+        self._max_entries = max_entries
+
+    @staticmethod
+    def stat_key(path: Path) -> tuple[int, int, int, int] | None:
+        try:
+            st = path.stat()
+        except OSError:
+            return None
+        return (int(st.st_dev), int(st.st_ino), int(st.st_size), int(st.st_mtime_ns))
+
+    @staticmethod
+    def _norm(path: Path) -> str:
+        return os.path.normcase(str(path))
+
+    def get(self, path: Path) -> tuple[Any, tuple[int, int, int, int] | None]:
+        key = self.stat_key(path)
+        if key is None:
+            return None, None
+        norm = self._norm(path)
+        with self._lock:
+            hit = self._entries.get(norm)
+            if hit is not None and hit[0] == key:
+                trusted = hit[2] or (time.time_ns() - key[3] > _CACHE_QUIET_NS)
+                if trusted:
+                    self._entries.move_to_end(norm)
+                    raw_text = hit[1]
+                else:
+                    raw_text = None
+            else:
+                raw_text = None
+        if raw_text is None:
+            return None, key
+        return json.loads(raw_text), key
+
+    def put(self, path: Path, state: dict, *, stat_key: tuple[int, int, int, int] | None = None,
+            committed: bool = False) -> None:
+        key = stat_key if stat_key is not None else self.stat_key(path)
+        if key is None:
+            return
+        if not committed and time.time_ns() - key[3] <= _CACHE_QUIET_NS:
+            return
+        raw_text = json.dumps(state, ensure_ascii=False, allow_nan=False, separators=(",", ":"))
+        norm = self._norm(path)
+        with self._lock:
+            self._entries[norm] = (key, raw_text, committed)
+            self._entries.move_to_end(norm)
+            while len(self._entries) > self._max_entries:
+                self._entries.popitem(last=False)
+
+    def invalidate(self, path: Path) -> None:
+        norm = self._norm(path)
+        with self._lock:
+            self._entries.pop(norm, None)
+
+
+PARALLEL_JSON_CACHE = StatJsonCache()
 
 
 def replace_with_retry(tmp, path):

@@ -265,10 +265,27 @@ def continuity_extend(path: Path, continuity: dict[str, Any], new_offset: int) -
     return {"offset": new_offset, "segments": segments}, len(raw)
 
 
+_IDLE_STAT_QUIET_NS = 1_000_000_000
+
+
 def source_continues(path: Path, old: dict[str, Any], verify: dict[str, Any] | None = None,
                      *, budget: int | None = None) -> tuple[str, dict[str, Any], dict[str, Any] | None, int]:
     """Verify the complete committed prefix before trusting every content change."""
     offset = int(old.get("offset") or 0)
+    if not (old.get("needs_verify") or verify):
+        try:
+            st = path.stat()
+        except OSError:
+            st = None
+        if (st is not None
+                and _source_identity(st) == old.get("source")
+                and int(st.st_size) == int(old.get("size") or -1) == offset
+                and int(st.st_mtime_ns) == int(old.get("mtime_ns") or -1)
+                and time.time_ns() - int(st.st_mtime_ns) > _IDLE_STAT_QUIET_NS):
+            return "same", {
+                "source": old["source"], "offset": offset, "anchor": old.get("anchor"),
+                "size": int(st.st_size), "mtime_ns": int(st.st_mtime_ns),
+            }, None, 0
     current = source_snapshot(path, offset)
     basic = (current["source"] == old.get("source") and current["size"] >= offset
              and current["anchor"] == old.get("anchor"))
@@ -716,6 +733,17 @@ class ForkTurnWatch:
             return self._fresh_backscan(path, retry_limit), old is not None
         if old.get("state") == "unknown" and old.get("reason") not in (
                 "continuity_building", "backscan_incomplete", "continuity_verifying"):
+            if old.get("reason") == "no_record" and old.get("source"):
+                try:
+                    st = path.stat()
+                except OSError:
+                    st = None
+                if (st is not None
+                        and _source_identity(st) == old.get("source")
+                        and int(st.st_size) == int(old.get("size") or -1)
+                        and int(st.st_mtime_ns) == int(old.get("mtime_ns") or -1)
+                        and time.time_ns() - int(st.st_mtime_ns) > _IDLE_STAT_QUIET_NS):
+                    return old, False
             return self._fresh_backscan(path, retry_limit), True
         if old.get("backscan") or old.get("continuity_build") is not None or not isinstance(old.get("continuity"), dict):
             fork = self._continue_backscan(path, old, retry_limit)
@@ -739,7 +767,7 @@ class ForkTurnWatch:
             if large:
                 return self._fresh_backscan(path, retry_limit), True
             if not rows:
-                snap = source_snapshot(path, offset)
+                snap = _current if offset == int(old["offset"]) else source_snapshot(path, offset)
                 return {**old, "source": snap["source"], "anchor": snap["anchor"],
                         "size": snap["size"], "mtime_ns": snap["mtime_ns"]}, False
             return self._apply_rows(path, old, rows, offset, retry_limit), False

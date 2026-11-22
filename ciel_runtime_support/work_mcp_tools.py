@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from ciel_runtime_support import work_plan_tree as tree
+from ciel_runtime_support.durable_file_lock import ChannelFileLockBusy
 from ciel_runtime_support.side_intake_limits import SIDE_INTAKE_TEXT_MAX_CHARS
 from ciel_runtime_support.work_mode_launch import WORK_TOOL_NAMES as WORK_TOOL_NAMES  # re-exported for the router
 from ciel_runtime_support.work_mode_launch import (WORK_MODE_KEY, WORK_MODE_SWITCH_TOOL, work_auto_continue_enabled,
@@ -95,6 +96,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
             ),
             "inputSchema": {"type": "object", "properties": {
                 "format": {"type": "string", "enum": ["text", "json"]},
+                "projection": {"type": "string", "enum": ["phase"], "description": "Host only: phase returns enabled, version and phase alone."},
                 "detail": {"type": "boolean", "description": "Include selected-goal nodes with notes and evidence for read-only inspection."},
                 "root_id": {"type": "string", "description": "Read only this exact goal; does not select it or change execution."},
                 "all_goals": {"type": "boolean", "description": "List every queued goal (one line each) instead of the first 10."},
@@ -778,7 +780,8 @@ def dispatch_work_tool(
             return respond(request_id, json.dumps(receive(state_dir, identity, args.get("text"), args.get("event_key"), admit=False), ensure_ascii=False))
         if name.startswith("work_parallel_") or name == "work_discovery_pickup":
             from .work_parallel_mcp import run
-            if name == "work_parallel_status" and _host_verified(args, config):
+            if (name == "work_parallel_status" and _host_verified(args, config)
+                    and args.get("projection") not in ("version", "gate")):
                 # Free slots held by leases whose owner process is gone before
                 # this host read reports capacity (throttled; never fails it).
                 from .work_parallel_orphan_sweep import sweep_while_running
@@ -799,7 +802,8 @@ def dispatch_work_tool(
             # Priority/P0 services use the parallel domain's ValueError base;
             # model-facing Work tools expose the same bounded error contract.
             raise tree.WorkPlanError(str(error)) from None
-        if name == 'work_status' and args.get('format') == 'json' and not args.get('root_id'):
+        if (name == 'work_status' and args.get('format') == 'json'
+                and not args.get('root_id') and args.get('projection') != 'phase'):
             from .side_intake_inbox import SideIntakeInbox
             state = json.loads(output)
             receipts = SideIntakeInbox(state_dir, identity).summaries()
@@ -814,6 +818,8 @@ def dispatch_work_tool(
                 state['side_reviews'] = with_delivery(state['side_reviews'], state_dir, identity)
             output = json.dumps(state, ensure_ascii=False)
         return respond(request_id, output)
+    except ChannelFileLockBusy:
+        return respond(request_id, "Work state file lock is busy; retry shortly.", True)
     except (tree.WorkPlanError, ValueError) as error:
         return respond(request_id, str(error), True)
 
@@ -862,6 +868,10 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
             scoped = dict(doc, nodes=[n for n in doc["nodes"] if n["id"] in ids], active_root=root_id,
                           phase=tree.root_phase(doc, root_id))
             return tree.render(scoped, max_lines=104)
+        if args.get("format") == "json" and args.get("projection") == "phase":
+            snap = tree.snapshot(doc, approval_ask=approval_ask)
+            return json.dumps({"enabled": True, "version": doc["version"], "phase": snap["phase"],
+                               "projection": "phase"}, ensure_ascii=False)
         if args.get("format") == "json":
             state = tree.snapshot(doc, approval_ask=approval_ask)
             state["auto_continue"] = auto_continue

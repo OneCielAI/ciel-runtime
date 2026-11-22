@@ -140,6 +140,10 @@ class LogLevelApi:
         return self.repository_factory().set(value)
 
 
+_ROTATE_FAIL_COOLDOWN_SECONDS = 30.0
+_ROTATE_FAIL_UNTIL: dict[str, float] = {}
+
+
 @dataclass(frozen=True, slots=True)
 class RouterFileLogger:
     config_dir: Path
@@ -166,9 +170,13 @@ class RouterFileLogger:
         file open, and swallowing that used to drop every later line: on
         2026-09-22 instance 9469 went silent at 1,000,046 bytes for hours,
         exactly while the evidence was needed.  A failed rotation now leaves
-        the file in place so the record survives.
+        the file in place so the record survives, and backs off briefly so a
+        locked file does not trigger failing ``replace`` syscalls on every line.
         """
-
+        key = os.path.normcase(str(self.path))
+        now = time.monotonic()
+        if now < _ROTATE_FAIL_UNTIL.get(key, 0.0):
+            return
         try:
             if not self.path.exists() or self.path.stat().st_size <= self.max_bytes:
                 return
@@ -176,10 +184,13 @@ class RouterFileLogger:
             return
         try:
             self.path.replace(self.path.with_suffix(".log.1"))
+            _ROTATE_FAIL_UNTIL.pop(key, None)
             return
         except OSError:
             pass
         try:
             self.path.replace(self.path.with_name(f"{self.path.name}.{int(time.time())}.1"))
+            _ROTATE_FAIL_UNTIL.pop(key, None)
         except OSError:
+            _ROTATE_FAIL_UNTIL[key] = now + _ROTATE_FAIL_COOLDOWN_SECONDS
             return

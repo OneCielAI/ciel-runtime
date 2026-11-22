@@ -123,13 +123,13 @@ function parsed(tool, result) {
   if (!result || result.isError) throw fault(tool + ' was refused or failed')
   try { return JSON.parse(textOf(result)) } catch { throw fault(tool + ' did not return JSON') }
 }
-async function routerJson($, tool) {
+async function routerJson($, tool, extra = {}) {
   const credential = await routerCredential($)
   if (!credential) throw fault('the Work host credential is not provisioned')
   const id = await $.session.id()
   if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,200}$/.test(id)) throw fault('the session identity is unavailable')
   const identity = 'claude:' + id
-  const args = tool === 'work_status' ? { format: 'json' } : {}
+  const args = tool === 'work_status' ? { format: 'json', ...extra } : { ...extra }
   const value = parsed(tool, await $.mcp.call('ciel-runtime-router', tool, { ...args, session_id: identity, _host: credential }))
   if (!value?.paged) return value
   // Large host results arrive as verified pages (host_result_pages.py).
@@ -151,7 +151,7 @@ async function routerJson($, tool) {
   try { return JSON.parse(whole) } catch { throw fault(tool + ' pages were not JSON') }
 }
 async function leaseOf($, agentId) {
-  const state = await routerJson($, 'work_parallel_status')
+  const state = await routerJson($, 'work_parallel_status', { projection: 'gate', host_id: agentId })
   if (!state || typeof state.leases !== 'object' || state.leases === null) throw fault('work_parallel_status has no lease table')
   return Object.values(state.leases).find(lease => lease?.host_id === agentId) || null
 }
@@ -227,7 +227,7 @@ async function decide($, tool, input, agentId, fork) {
   if (!fileWrite) return allow('bound')
   // Parity row 1: file writes wait while Work is planning or unreadable.
   let board
-  try { board = await routerJson($, 'work_status') } catch (error) {
+  try { board = await routerJson($, 'work_status', { projection: 'phase' }) } catch (error) {
     return deny('board-unreadable', 'the Work board is unreadable (' + (error?.gateFault ? error.message : 'router read failed')
       + '); ' + tool + ' is refused.')
   }
@@ -292,7 +292,10 @@ async function forkModel($, agentId) {
   if (fork.kind !== 'work' && fork.kind !== 'side') return null
   const cached = forkModels.get(agentId)
   if (cached && cached.until > Date.now()) return cached.names
-  const state = await routerJson($, 'work_parallel_status')
+  const statusArgs = fork.kind === 'side'
+    ? { projection: 'gate', models_only: true }
+    : { projection: 'gate', for_model: true, host_id: agentId }
+  const state = await routerJson($, 'work_parallel_status', statusArgs)
   if (!state?.fork_models || typeof state.fork_models.models !== 'object' || state.fork_models.models === null) return null
   let names = null
   // A side retry after the side model failed: main's model (the main model
@@ -340,7 +343,7 @@ async function mainModel($, e) {
   if (turn && mainTurns.has(turn)) return mainTurns.get(turn)
   let names = null
   try {
-    if (e.index === 0) names = mainNames(await routerJson($, 'work_parallel_status'))
+    if (e.index === 0) names = mainNames(await routerJson($, 'work_parallel_status', { projection: 'gate', models_only: true }))
   } finally {
     if (turn) remember(mainTurns, turn, names, 50)
   }
