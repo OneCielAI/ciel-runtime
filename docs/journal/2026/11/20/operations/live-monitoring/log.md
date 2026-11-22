@@ -2,6 +2,13 @@
 
 ## 2026-11-22
 
+- 19:33Z 읽기 전용 틱(비교 기준 19:26Z; 재시작·상태 수정 없음):
+  - **Celly MCP/보드 지연(새 관측, 원인 미확인)**: 모니터의 4초 프로브 `probe_failed`(4032 ms), board 응답 없음. 직접 측정: `19:33:47Z` 30초 타임아웃 → 17.6초 → 3.8초 → 2.5초 → 0.84초 → `19:34:35Z` 0.56초로 회복. 같은 시간대 Celly 메인에 `19:31:17Z` `auto continue could not read the Work status` 1회, 라우터 로그 `router_post_client_disconnected path=/ca/mcp` 13회(13:32:39~13:34:11 local, 클라이언트 쪽 타임아웃). 라우터 로그의 MCP 호출 수: 19:23~19:28Z `work_host_page` 961·`work_parallel_status` 156, 19:29~19:34Z `work_host_page` 477·`work_parallel_status` 88. 재시작 이전 구간에는 이 로그 줄이 없어 비교 기준이 없다. CPU는 다른 계정 프로세스라 읽지 못했다. → 재시작 직후의 부하인지, 계속되는 것인지 다음 틱에 같은 방법으로 비교한다. 제품 결함으로 단정하지 않는다.
+  - Celly coordination `1,586,076 B`(v5819, 계속 쓰기 성공). byte limit 오류 0. running+slot 6(n1333·n1331·n1334·n1327·n1332 새 리스 `568e9cb9`), **n1326 `reserved` 포크 없음은 18:25:44Z 이후 계속**(1시간 이상, 미결). 포크 오류 3건(a7a25aa0·aa316fb9·af31a8e5 각 1). 로그: `cielairouter_late_sse_retry` 4(1/20에서 진행), `anthropic_sse_client_disconnected` 1, `channel_turn_projection_persistent` 2(observe_only).
+  - **Andy**: ledger 5931 유지, MCP `probe_succeeded` 1266 ms, findings 0, 포크 오류 0, SSE EOF 재연결 5.
+  - **KOBE**: MCP 305 ms, keep-alive mismatch 71(기존 미결), `transcript_delta_delivery_failed TimeoutError` 1, `router_client_disconnected`·SSE `ConnectionResetError` 각 1(네트워크 일시), side 원문 append 1, 메인 `TaskStop` 대상 이미 완료 1(도구 사용 오류).
+  - **Prody**: MCP 1022 ms, 변화 없음(side 원문 append 1).
+
 - 19:26Z 읽기 전용 틱(비교 기준 16:33Z, bc1bac5 라우터 재시작 이후):
   - **네 호스트 모두 띄워진 새 라우터**: Andy 68036, Celly 67592, KOBE 2684(파일 동기화 후 2차 재시작), Prody 10036. 재시작 직후 `router_lifetime_restart reason=router_process_exited`가 각 1~2건 — 예상된 재기동 신호다. `external_event_sse_disconnected EOFError` Andy 9·Celly 4·KOBE 4(카테고리 eof, 과거와 같은 정상 재연결 부류). KOBE keep-alive mismatch 49 + 11(재시작하기 전·후)은 기존 미결 경고. 라우터 기동 시 gateway `degraded=True`(Andy·KOBE 각 1) 기존.
   - **MCP/보드**: 4호스트 모두 `probe_succeeded`, board=work MCP version 일치(Andy 10490/781 ms, Celly 9280/719 ms, KOBE 537/404 ms, Prody 6714/773 ms). findings 0, 새 포크 오류 Andy·KOBE 0. Prody 포크 오류 2건(16:xx대), Celly 16건.
