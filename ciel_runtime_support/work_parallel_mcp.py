@@ -65,8 +65,35 @@ def schemas():
         "work_parallel_report": "Worker-only question/completion/handoff report. Requires the exact lease_id and one-use worker_token. Completion needs artifact+evidence; handoff needs a host-stored detail_digest. A successful report releases the fork slot; no session_id or host token.",
         "work_parallel_item_review": "Main-session only decision for a bounded pending completed item. Requires lease_id, decision (approve|rework), decision_id, evidence and expected_finalization_version. The host authenticates main; workers and forks are denied. Rework returns a host dispatch intent and never exposes a worker token to main.",
     }
+    discovery_item_schema = {
+        "type": "object",
+        "properties": {
+            "source": {"type": "string"},
+            "item_id": {"type": "string"},
+            "priority": {"type": "string", "enum": ["P1", "P2", "P3", "P4", "P5"]},
+            "created_at": {"type": "string"},
+            "title": {"type": "string"},
+            "link": {"type": "string"},
+            "status": {"type": "string"},
+            "scope": {"type": "string"},
+        },
+        "required": ["source", "item_id", "priority", "created_at", "title", "link", "status", "scope"],
+        "additionalProperties": False,
+    }
     schemas = []
     for name in TOOL_NAMES:
+        if name == "work_discovery_pickup":
+            schema = {
+                "type": "object",
+                "properties": {
+                    "source": {"type": "string"},
+                    "scope": {"type": "string"},
+                    "results": {"type": "array", "items": copy.deepcopy(discovery_item_schema)},
+                },
+                "required": ["source", "scope", "results"],
+            }
+            schemas.append({"name": name, "description": descriptions[name], "inputSchema": schema})
+            continue
         schema = {"type": "object", "properties": copy.deepcopy(props)}
         if name == "work_parallel_report":
             schema["required"] = ["lease_id", "worker_token", "event"]
@@ -3853,10 +3880,28 @@ def run(name, args, board_store, identity, config, save_config, log=None):
         raw = args.get("results")
         if not isinstance(raw, list) or len(raw) > 100:
             raise WorkParallelError("bounded search results required")
-        try:
-            items = [ExternalSearchItem(**item) for item in raw]
-        except (TypeError, ValueError) as error:
-            raise WorkParallelError("invalid external search result schema") from error
+        expected_keys = ("source", "item_id", "priority", "created_at", "title", "link", "status", "scope")
+        expected_set = set(expected_keys)
+        items = []
+        for index, item in enumerate(raw):
+            if not isinstance(item, dict):
+                raise WorkParallelError(f"invalid external search result schema at results[{index}]: object required")
+            missing = [k for k in expected_keys if k not in item]
+            extra = sorted(k for k in item if k not in expected_set)
+            if missing or extra:
+                parts = []
+                if missing:
+                    parts.append("missing " + ", ".join(missing))
+                if extra:
+                    parts.append("unexpected " + ", ".join(extra))
+                raise WorkParallelError(
+                    f"invalid external search result schema at results[{index}]: {'; '.join(parts)} "
+                    f"(required keys: {', '.join(expected_keys)})"
+                )
+            try:
+                items.append(ExternalSearchItem(**item))
+            except (TypeError, ValueError) as error:
+                raise WorkParallelError(f"invalid external search result schema at results[{index}]: {error}") from error
         return json.dumps(asdict(ingest_external_search_results(board_store, source=args.get("source"),
                            scope=args.get("scope"), results=items)), ensure_ascii=False)
     if name != "work_parallel_event":

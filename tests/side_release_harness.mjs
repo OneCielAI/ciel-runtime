@@ -4,7 +4,7 @@
 import {startSide,pollSide,completeSide,sideMainBusy,sideParkedResume} from './side-intake.js'
 
 const scenario = process.argv[2]
-let busy = scenario !== 'main-idle'
+let busy = scenario !== 'main-idle' && scenario !== 'main-idle-repolled'
 sideMainBusy(() => busy)
 // Stage 3: register.js resumes a parked worker on its own lease first.
 const resumeCalls = []
@@ -72,9 +72,14 @@ await completeSide($,{agentId:'actor1',reason:'answer',answer:JSON.stringify({un
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 const recorded = () => wakes.some(call => call.state === 'notice_appended')
 const settled = () => scenario === 'fork-running' ? sent.length > 0
-  : scenario === 'main-idle' ? recorded() && submitted.length > 0
+  : (scenario === 'main-idle' || scenario === 'main-idle-repolled') ? recorded() && submitted.length > 0
   : recorded()
 for (const end = Date.now() + 5000; Date.now() < end && !settled();) await sleep(5)
+if (scenario === 'main-idle-repolled') {
+  // Reproduces the prompt.submit hook window before turn.start sets mainBusy=true:
+  // another pump tick calls wakeUnread while the first wake prompt is already queued.
+  await pollSide($,'claude:parent')
+}
 // Anything that would arrive after settling (a duplicate notice or prompt) is
 // still given the old window to show up.
 await sleep(20)

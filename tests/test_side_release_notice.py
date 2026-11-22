@@ -52,6 +52,11 @@ class SideReleaseNoticeTests(unittest.TestCase):
         self.assertNotIn('Andy', row['submitted'][0])
         self.assertEqual(['notice_prepare', 'notice_appended'], [call['state'] for call in row['wakes']])
 
+    def test_idle_main_repolled_before_turn_start_does_not_queue_duplicate_notice_wake(self):
+        row = self.run_case('main-idle-repolled')
+        self.assertEqual(1, len(row['appended']))
+        self.assertEqual(1, len(row['submitted']), row['submitted'])
+
     @unittest.skip('retired 2026-11-18 (user): main only hears that the queue runs the released item automatically')
     def test_parked_worker_is_named_for_mains_gated_resume(self):
         row = self.run_case('fork-parked')

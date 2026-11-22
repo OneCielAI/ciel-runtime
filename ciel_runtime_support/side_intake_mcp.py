@@ -374,27 +374,39 @@ def run(name, args, config, state_dir, identity, store):
             raise WorkPlanError('Work is off; handoff mutation denied')
         if type(args.get('expected_version')) is not int:
             raise WorkPlanError('expected Work version required')
+        raw_event_id = args.get('event_id')
+        handoffs = (store.read_snapshot().get('side_handoffs') or {})
+        event_id = raw_event_id
+        if isinstance(raw_event_id, str) and raw_event_id not in handoffs:
+            if 12 <= len(raw_event_id) < 64 and all(c in '0123456789abcdef' for c in raw_event_id):
+                matches = [key for key in handoffs if key.startswith(raw_event_id)]
+                if len(matches) == 1:
+                    event_id = matches[0]
+                elif len(matches) > 1:
+                    raise WorkPlanError('ambiguous side handoff event_id prefix; supply full 64-char id')
+        if not isinstance(event_id, str) or event_id not in handoffs:
+            raise WorkPlanError('side handoff not found (ask_main and release notices need no work_side_handoff acknowledgment)')
         if args.get('answer'):
             if not isinstance(args['answer'], str):
                 raise WorkPlanError('coordinator answer must be text')
             inbox = SideIntakeInbox(state_dir, identity)
-            original = inbox._load(args.get('event_id'))
+            original = inbox._load(event_id)
             # Same exact text and route _answer_followup writes, so the check cannot pass here and fail there.
             if (original and _handoff_needs_followup(original)
-                    and _followup(args['event_id'], args['answer'], original) is None):
+                    and _followup(event_id, args['answer'], original) is None):
                 raise WorkPlanError('coordinator follow-up exceeds inbox record capacity; no acknowledgment committed')
-        result = acknowledge(store, args.get('event_id'), answer=args.get('answer', ''),
+        result = acknowledge(store, event_id, answer=args.get('answer', ''),
                              activate=args.get('activate', False), clear_wait=args.get('clear_wait', []),
                              expected_version=args['expected_version'])
         inbox = SideIntakeInbox(state_dir, identity)
-        _sync_handoff_receipt(inbox, args['event_id'], result)
+        _sync_handoff_receipt(inbox, event_id, result)
         if args.get('answer'):
-            _answer_followup(inbox, args['event_id'], args['answer'])
+            _answer_followup(inbox, event_id, args['answer'])
         # Model-visible: never the raw wake attempt, owner fence or receipt.
         from .side_wake import redact_handoff
-        public = redact_handoff(args['event_id'], result)
+        public = redact_handoff(event_id, result)
         public.pop('event_id', None)
-        return {'event_id': args['event_id'], **public}
+        return {'event_id': event_id, **public}
     if name == 'work_side_review':
         from .side_review import review
         return review(store, args.get('receipt_ids'), verdict=args.get('verdict'),

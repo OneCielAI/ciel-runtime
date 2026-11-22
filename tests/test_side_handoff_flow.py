@@ -201,3 +201,61 @@ class SideHandoffFlowTests(unittest.TestCase):
             self.assertEqual(pending[0]['receipt_id'], recovered['receipt_id'])
             self.assertIn('Use target A', recovered['text'])
             self.assertEqual(1, len(store.read()['nodes']))
+
+    def test_handoff_accepts_unique_12char_prefix_and_rejects_non_handoff_clearly(self):
+        with tempfile.TemporaryDirectory() as directory:
+            state = Path(directory)
+            token = 'x' * 40
+            session = 'claude:prefix-test'
+            config = {'work_mode': True, 'work_parallel_host': {'token': token},
+                      'work_side_intake': {'enabled': True, 'type': 'btw_with_mcp', 'context_mode': 'isolated'}}
+            store = session_work_plan_store(state, session)
+
+            def call(name, args, expect_error=False):
+                payload = {**args, 'session_id': session}
+                if '_host' not in payload:
+                    payload['_host'] = {'token': token}
+                out = dispatch_work_tool(
+                    1, name, payload, load_config=lambda: config, state_dir=state,
+                    respond=lambda _id, text, is_error=False: {'text': text, 'isError': is_error},
+                )
+                if expect_error:
+                    self.assertTrue(out['isError'], out)
+                    return out['text']
+                self.assertFalse(out['isError'], out)
+                return json.loads(out['text'])
+
+            # 1) Calling work_side_handoff with a 12-char id that has no handoff row (e.g. ask_main notice)
+            # must return 'side handoff not found', not the misleading 'invalid side receipt identity'.
+            err = call('work_side_handoff', {'event_id': 'd785d257b73f', 'answer': 'already approved',
+                                             'expected_version': store.read()['version']}, expect_error=True)
+            self.assertIn('side handoff not found', err)
+            self.assertNotIn('invalid side receipt identity', err)
+
+            # 2) With a real requested handoff row, the unique 12-char wake prefix resolves and succeeds.
+            inbox = SideIntakeInbox(state, session)
+            inbox.receive('Need main decision on target B', 'walkie:prefix-1',
+                          route={'source_kind': 'external_event', 'channel': 'walkie', 'thread_id': 't-prefix'})
+            claim = call('work_side_claim', {'owner': 'actor-prefix'})['claim']
+            full_id = claim['receipt_id']
+            call('work_side_resolve', {
+                'expected_version': store.read()['version'],
+                'decision': {'action': 'answer', 'kind': 'info', 'summary': 'Needs target choice', 'reply': 'Checking with main.'},
+                '_host': {'token': token, 'receipt_id': full_id, 'generation': claim['generation']},
+            })
+            # Seed a requested handoff row (as legacy/explicit handoff flows do) to test 12-char prefix resolution.
+            def seed_handoff(doc):
+                doc.setdefault('side_handoffs', {})[full_id] = {
+                    'state': 'requested', 'item_id': None, 'summary': 'Needs target choice',
+                    'reply': 'Checking with main.', 'gates': [], 'wake': {'state': 'appended', 'revision': 1},
+                }
+            doc_after, _ = store.transaction(seed_handoff)
+            answered = call('work_side_handoff', {
+                'event_id': full_id[:12],
+                'answer': 'Use target B',
+                'activate': False,
+                'expected_version': doc_after['version'],
+            })
+            self.assertEqual(full_id, answered['event_id'])
+            self.assertEqual('answered', answered['state'])
+            self.assertEqual('answered', inbox._load(full_id)['result']['handoff'])

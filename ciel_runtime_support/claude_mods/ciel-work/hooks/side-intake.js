@@ -1162,6 +1162,10 @@ const unrecordedReads = new Map()
 const appendObservations = new Map()
 // A wake prompt is submitted at most this often per row and module instance.
 const WAKE_PROMPT_MAX = 2
+// Mirrors side_wake.PROMPT_LEASE_SECONDS for unleased (notice / legacy) wakes so
+// a second pump tick during prompt.submit hooks before turn.start sets mainBusy()
+// does not enqueue a duplicate wake prompt.
+const UNLEASED_WAKE_COOLDOWN_MS = 60_000
 // Read proof is causal, never textual or timed. Owned probe append-views-54579a2e
 // (Claude Code 2.1.323): plain $.session.messages() never lists a plugin append
 // row, and TurnStepInput.messageCount counts neither those rows nor the request's
@@ -1208,6 +1212,7 @@ function wakePromptText(entry,conversation) {
 async function wakeMain($,key) {
   const entry = unreadAppends.get(key)
   if (!entry || entry.poking || entry.pokes >= WAKE_PROMPT_MAX || mainBusy()) return
+  if (!entry.durable && entry.lastQueuedAt && Date.now() - entry.lastQueuedAt < UNLEASED_WAKE_COOLDOWN_MS) return
   entry.poking = true
   try {
     const conversation = await identityOf($)
@@ -1224,6 +1229,7 @@ async function wakeMain($,key) {
       }
       if (prompt && (prompt.protocol !== 2 || prompt.state !== 'submitting' || typeof prompt.attempt_id !== 'string')) return
     }
+    if (!prompt && entry.lastQueuedAt && Date.now() - entry.lastQueuedAt < UNLEASED_WAKE_COOLDOWN_MS) return
     entry.pokes++
     // The prompt carries no event payload. In the original conversation it
     // starts a request that carries the append; after /clear or resume it names
@@ -1236,6 +1242,7 @@ async function wakeMain($,key) {
     if (entry.identity === conversation) entry.marks.add(token)
     const outcome = await sidePromptSubmit($,'wake:'+(entry.kind === 'notice' ? 'notice:' : '')+entry.eventId,
       text,{kind:'wake',ref:(entry.ref || 'row')+'.'+entry.pokes})
+    if (!prompt && outcome === 'queued') entry.lastQueuedAt = Date.now()
     if (prompt) {
       try { await callRouter($,'work_side_wake',{event_id:entry.eventId,state:'prompt_'+outcome,
         attempt_id:prompt.attempt_id,owner_nonce:wakeOwnerNonce},{},entry.identity) } catch {}

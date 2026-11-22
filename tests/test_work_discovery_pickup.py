@@ -149,6 +149,42 @@ print(ingest_external_search_results(WorkPlanStore(Path(sys.argv[2])), source='t
         self.assertEqual(doc["nodes"][0]["title"], title)
         self.assertEqual(doc["phase"], "planning")
 
+    def test_mcp_schema_declares_exact_item_fields_and_names_invalid_keys(self):
+        from ciel_runtime_support import work_parallel_mcp as mcp
+        from ciel_runtime_support.work_parallel import WorkParallelError, WorkParallelStore
+
+        schema = next(s for s in mcp.schemas() if s["name"] == "work_discovery_pickup")["inputSchema"]
+        expected_fields = {"source", "item_id", "priority", "created_at", "title", "link", "status", "scope"}
+        self.assertEqual({"source", "scope", "results"}, set(schema["properties"]))
+        self.assertEqual({"source", "scope", "results"}, set(schema.get("required") or []))
+        item_schema = schema["properties"]["results"]["items"]
+        self.assertEqual(expected_fields, set(item_schema.get("properties") or {}))
+        self.assertEqual(expected_fields, set(item_schema.get("required") or []))
+        self.assertIs(False, item_schema.get("additionalProperties"))
+        # Extra unexpected key (e.g. synthesized 'reason') names the exact offending key.
+        store_path = self.path.with_name("work-parallel.json")
+        wp_store = WorkParallelStore(store_path)
+        bad_item = {
+            "source": "trusted-mcp", "item_id": "1", "priority": "P1",
+            "created_at": "2026-11-22T00:00:00Z", "title": "T",
+            "link": "https://example.test/1", "status": "open", "scope": "team-a",
+            "reason": "synthesized-field",
+        }
+        token = "tok-" + "a" * 32
+        cfg = {"work_parallel_host": {"token": token}, "work_discovery": {"enabled": True, "auto_pickup": True}}
+        orig_ledger = mcp.ledger
+        mcp.ledger = lambda: wp_store
+        try:
+            with self.assertRaises(WorkParallelError) as ctx:
+                mcp.run(
+                    "work_discovery_pickup",
+                    {"source": "trusted-mcp", "scope": "team-a", "results": [bad_item], "_host": {"token": token}},
+                    self.store, "claude:s1", cfg, None,
+                )
+        finally:
+            mcp.ledger = orig_ledger
+        self.assertIn("reason", str(ctx.exception))
+
 
 if __name__ == "__main__":
     unittest.main()
