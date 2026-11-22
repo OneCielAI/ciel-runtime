@@ -698,6 +698,23 @@ class MainReviewTests(unittest.TestCase):
         for field in ("done", "remaining", "blockers", "workspace", "next_step"):
             self.assertIn(field, str(handoff.exception))
 
+    def test_wrong_handoff_workspace_names_its_required_fields(self):
+        # Andy n2546 (469a6edf) 2026-11-22: detail.workspace was sent as a path
+        # string or partial object and got only "workspace fields" four times.
+        from ciel_runtime_support.work_parallel_receipts import _validate_detail
+        base = {"done": ["d"], "remaining": ["r"], "blockers": ["b"], "next_step": "n"}
+        for bad in ("G:\\wt", {"path": "G:\\wt", "branch": "b", "head": "h"}):
+            with self.subTest(bad=bad):
+                with self.assertRaises(WorkParallelError) as refused:
+                    _validate_detail("handoff", {**base, "workspace": bad})
+                message = str(refused.exception)
+                for field in ("path", "branch", "head", "dirty", "changed_files", "diff_stat"):
+                    self.assertIn(field, message)
+        with self.assertRaises(WorkParallelError) as coverage:
+            _validate_detail("completion", {"summary": "s", "verification": "v", "coverage": [{"id": "n1"}]})
+        for field in ("item_id", "verified", "evidence_digest"):
+            self.assertIn(field, str(coverage.exception))
+
     def test_oversized_question_text_names_the_limit_and_keeps_the_lease(self):
         # Andy n2531 / Celly n1229 2026-11-21: a worker sent >2000-char evidence
         # with event=question and received only "question text".

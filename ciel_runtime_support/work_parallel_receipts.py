@@ -80,11 +80,17 @@ def _bounded_strings(value, name, *, limit=MAX_ARRAY, chars=MAX_TEXT):
 def _workspace(value, *, optional=False):
     if optional and value is None:
         return
-    require(type(value) is dict and set(value) == {"path", "branch", "head", "dirty", "changed_files", "diff_stat"},
-            "workspace fields")
-    require(text(value["path"], MAX_TEXT) and text(value["branch"], 500) and text(value["head"], 200),
-            "workspace identity")
-    require(type(value["dirty"]) is bool and text(value["diff_stat"], MAX_TEXT), "workspace state")
+    if type(value) is not dict:
+        raise WorkParallelError(
+            "workspace fields: workspace must be an object with exactly "
+            "branch, changed_files, diff_stat, dirty, head, path (got " + type(value).__name__ + ")")
+    _require_fields(value, "workspace", ("path", "branch", "head", "dirty", "changed_files", "diff_stat"),
+                    subject="workspace")
+    _require_text(value["path"], "workspace identity", "path")
+    _require_text(value["branch"], "workspace identity", "branch", limit=500)
+    _require_text(value["head"], "workspace identity", "head", limit=200)
+    require(type(value["dirty"]) is bool, "workspace state: dirty must be a boolean")
+    _require_text(value["diff_stat"], "workspace state", "diff_stat")
     _bounded_strings(value["changed_files"], "workspace changed files", chars=MAX_TEXT)
 
 
@@ -96,11 +102,11 @@ def _manifest_workspace(value):
             "manifest workspace")
 
 
-def _require_fields(body, label, required, optional=()):
-    """Refuse a detail whose keys differ, naming what it needs and what it got.
+def _require_fields(body, label, required, optional=(), *, subject="detail"):
+    """Refuse an object whose keys differ, naming what it needs and what it got.
 
-    A bare "question fields" left a fork unable to correct its report (Andy
-    2026-11-21); nothing is written before this check, so it can retry.
+    A bare "question fields" / "workspace fields" left a fork unable to correct
+    its report (Andy 2026-11-21/22); nothing is written before this check.
     """
     keys = set(body)
     if set(required) <= keys <= set(required) | set(optional):
@@ -108,7 +114,7 @@ def _require_fields(body, label, required, optional=()):
     needed = ", ".join(sorted(required))
     extra = (" (optional: " + ", ".join(sorted(optional)) + ")") if optional else ""
     got = ", ".join(sorted(str(key)[:64] for key in keys)[:20]) or "none"
-    raise WorkParallelError(f"{label} fields: detail needs exactly {needed}{extra}; got {got}")
+    raise WorkParallelError(f"{label} fields: {subject} needs exactly {needed}{extra}; got {got}")
 
 
 def _require_text(value, label, field, limit=MAX_TEXT):
@@ -133,8 +139,9 @@ def _validate_detail(kind, body):
         coverage = body["coverage"]
         require(type(coverage) is list and len(coverage) <= MAX_ARRAY, "completion coverage")
         for row in coverage:
-            require(type(row) is dict and set(row) in ({"item_id", "verified"},
-                    {"item_id", "verified", "evidence_digest"}), "completion coverage fields")
+            if type(row) is not dict:
+                raise WorkParallelError("completion coverage fields: each row must be an object with item_id, verified (optional: evidence_digest)")
+            _require_fields(row, "completion coverage", ("item_id", "verified"), ("evidence_digest",), subject="coverage row")
             require(text(row["item_id"], 200) and type(row["verified"]) is bool, "completion coverage values")
             require("evidence_digest" not in row or digest(row["evidence_digest"]), "coverage evidence digest")
         if "workspace" in body:
