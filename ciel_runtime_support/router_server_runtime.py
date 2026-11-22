@@ -2,9 +2,24 @@
 
 from __future__ import annotations
 
+import socketserver
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
+
+# http.server's TCPServer defaults to request_queue_size = 5. On Windows
+# Winsock, calling socket.listen(256) AFTER TCPServer.__init__ already ran
+# server_activate() -> socket.listen(5) returns 0 while keeping the kernel
+# backlog at 5, so bursts of 6+ concurrent MCP calls fail with ECONNREFUSED
+# (Andy/Celly 2026-11-21). Set request_queue_size BEFORE server_activate().
+ROUTER_REQUEST_QUEUE_SIZE = 256
+
+
+def _server_factory_with_backlog(factory: Callable[..., Any], backlog: int = ROUTER_REQUEST_QUEUE_SIZE) -> Callable[..., Any]:
+    if isinstance(factory, type) and issubclass(factory, socketserver.TCPServer):
+        if int(getattr(factory, "request_queue_size", 5)) < backlog:
+            return type(f"{factory.__name__}Backlog{backlog}", (factory,), {"request_queue_size": backlog})
+    return factory
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,17 +94,15 @@ class RouterServerRuntime:
         if earlier:
             self.effects.stderr.write(f"router_previous_fault {earlier}\n")
             self.effects.stderr.flush()
-        server = self.effects.server_factory(
-            (bind_host, self.config.port), self.config.handler
-        )
-        # http.server listens with a backlog of 5. A session with several Work
-        # and side forks sends bursts of MCP calls (Andy 2026-11-19: 1,000 a
-        # minute), and the calls past the backlog were refused (ECONNREFUSED,
-        # 'connection closed before the tool call was answered').
-        try:
-            server.socket.listen(256)
-        except (AttributeError, OSError):
-            pass
+        factory = _server_factory_with_backlog(self.effects.server_factory, ROUTER_REQUEST_QUEUE_SIZE)
+        server = factory((bind_host, self.config.port), self.config.handler)
+        # Fallback only for custom non-TCPServer factories whose socket was not
+        # activated with request_queue_size >= ROUTER_REQUEST_QUEUE_SIZE.
+        if int(getattr(server, "request_queue_size", 0)) < ROUTER_REQUEST_QUEUE_SIZE:
+            try:
+                server.socket.listen(ROUTER_REQUEST_QUEUE_SIZE)
+            except (AttributeError, OSError):
+                pass
         server = self.effects.configure_server_transport(server, runtime_config)
         for line in self.effects.configure_web_endpoints(bind_host):
             self.effects.stderr.write(f"{line}\n")

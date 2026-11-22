@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from contextlib import contextmanager
 from dataclasses import dataclass
+from pathlib import Path
 import time
 from typing import Any, Callable
 
@@ -20,6 +21,30 @@ from ciel_runtime_support.channel_message_policy import (
     message_raw_injection,
     web_chat_input_mode,
 )
+
+_LOGGED_SKIPPED_FAILURES: dict[str, set[tuple[int, str]]] = {}
+_MAX_LOGGED_SKIPPED_SCOPES = 64
+_MAX_LOGGED_SKIPPED_PER_SCOPE = 1024
+
+
+def _should_log_skipped_failure(lifecycle: Any, message_id: int, failure_reason: str) -> bool:
+    status_path = getattr(getattr(lifecycle, "status", None), "path", None)
+    if not status_path:
+        return True
+    scope = str(Path(status_path).absolute())
+    key = (message_id, failure_reason)
+    seen = _LOGGED_SKIPPED_FAILURES.get(scope)
+    if seen is None:
+        if len(_LOGGED_SKIPPED_FAILURES) >= _MAX_LOGGED_SKIPPED_SCOPES:
+            _LOGGED_SKIPPED_FAILURES.pop(next(iter(_LOGGED_SKIPPED_FAILURES)))
+        seen = set()
+        _LOGGED_SKIPPED_FAILURES[scope] = seen
+    if key in seen:
+        return False
+    if len(seen) >= _MAX_LOGGED_SKIPPED_PER_SCOPE:
+        seen.clear()
+    seen.add(key)
+    return True
 
 
 @dataclass(frozen=True, slots=True)
@@ -234,15 +259,18 @@ def inject_pending_channel_messages(
                 # A failed record is terminal - it is never retried - so holding
                 # the scan at it only stalls every later message behind it
                 # (2026-09-10, instance 9481: one message blocked the queue for
-                # minutes).  Record it and move on; the failure stays visible in
-                # the runtime-input status store and in this log.
-                io.log(
-                    "ERROR",
-                    "channel_stdin_proxy_blocked "
-                    f"cursor={previous_last_id} message_id={message_id} "
-                    f"reason=prior_submission_failed detail={failure_reason} "
-                    "action=skipped",
-                )
+                # minutes).  Record it once per terminal failure and move on;
+                # while an earlier submitted message holds the cursor ceiling,
+                # avoid repeating the identical ERROR line on every 5 s poll
+                # (Celly 2026-11-21: message 15550 logged 225+ times).
+                if _should_log_skipped_failure(wake_store.lifecycle, message_id, failure_reason):
+                    io.log(
+                        "ERROR",
+                        "channel_stdin_proxy_blocked "
+                        f"cursor={previous_last_id} message_id={message_id} "
+                        f"reason=prior_submission_failed detail={failure_reason} "
+                        "action=skipped",
+                    )
                 continue
             admission_status = getattr(wake_store.lifecycle, "admission_status", None)
             durable = admission_status(message_id) if callable(admission_status) else ""

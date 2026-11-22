@@ -20,6 +20,12 @@ from ciel_runtime_support.work_mode_launch import (WORK_MODE_KEY, WORK_MODE_SWIT
 from ciel_runtime_support.work_plan_store import WorkPlanStore, session_work_plan_store
 from ciel_runtime_support.work_retention import retention_status
 
+_RELEASE_HINT = {"type": "object", "additionalProperties": False,
+                 "required": ["condition", "lookup"], "properties": {
+                     "condition": {"type": "string", "maxLength": 600},
+                     "lookup": {"type": "string", "maxLength": 600},
+                     "prompt": {"type": "string", "maxLength": 400}}}
+
 _NODE_SPEC = {
     "type": "object",
     "properties": {
@@ -30,6 +36,7 @@ _NODE_SPEC = {
                  "items": {"type": "string", "maxLength": tree.MAX_REF_CHARS},
                  "description": "Every external id related to this node (target message, thread root, parent, conversation), target first."},
         "waiting_on": {"type": "string", "maxLength": tree.MAX_WAIT_CHARS},
+        "release_hint": _RELEASE_HINT,
         "children": {"type": "array", "items": {"type": "object"}},
     },
     "required": ["title"],
@@ -120,6 +127,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
                     "note": {"type": "string"},
                     "ref": _NODE_SPEC["properties"]["ref"], "refs": _NODE_SPEC["properties"]["refs"],
                     "waiting_on": _NODE_SPEC["properties"]["waiting_on"],
+                    "release_hint": _RELEASE_HINT,
                     "priority": _ROOT_PRIORITY,
                     "operation_id": _PRIORITY_OPERATION_ID,
                     "children": {"type": "array", "items": _NODE_SPEC},
@@ -147,6 +155,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
                     "note": {"type": "string"},
                     "ref": _NODE_SPEC["properties"]["ref"], "refs": _NODE_SPEC["properties"]["refs"],
                     "waiting_on": _NODE_SPEC["properties"]["waiting_on"],
+                    "release_hint": _RELEASE_HINT,
                     "priority": _PRIORITY,
                     "children": {"type": "array", "items": _NODE_SPEC},
                     "expected_version": _EXPECTED_VERSION,
@@ -163,6 +172,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
                 "Title and note are approved scope: changing either returns only that goal to planning for scope review. "
                 "At least one mutation field is REQUIRED; id/expected_version alone is rejected. "
                 "waiting_on sets a dependency; clear_wait=true explicitly clears that node's verified wait without an empty string. "
+                "When recording a block or returning an item to pending, record release_hint with the condition, where to verify it, and an optional tracking hint. "
                 "Legacy waiting_on=\"\" is also accepted. Never repeat an empty id-only update. "
                 "When you wait on git, a build/CI/deploy result, a review or a person's approval or answer, record it on the "
                 "waiting node in one short line naming the signal and its source (e.g. \"approval from Andy via Walkie\", "
@@ -179,6 +189,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
                     "progress": {"type": "string", "description": "Phase-preserving implementation, CI, review or cleanup progress; not approved scope."},
                     "ref": _NODE_SPEC["properties"]["ref"], "refs": _NODE_SPEC["properties"]["refs"],
                     "waiting_on": _NODE_SPEC["properties"]["waiting_on"],
+                    "release_hint": _RELEASE_HINT,
                     "clear_wait": {"type": "boolean", "description": "Explicitly clear this node's verified wait. true is equivalent to waiting_on=\"\"; never inferred from omitted fields."},
                     "priority": _ROOT_PRIORITY,
                     "operation_id": _PRIORITY_OPERATION_ID,
@@ -186,7 +197,7 @@ def work_tool_schemas(*, enabled: bool = True) -> list[dict[str, Any]]:
                     "expected_version": _EXPECTED_VERSION,
                 },
                 "required": ["id"],
-                "anyOf": [{"required": [key]} for key in ('status', 'title', 'note', 'progress', 'ref', 'waiting_on', 'clear_wait', 'priority', 'evidence')],
+                "anyOf": [{"required": [key]} for key in ('status', 'title', 'note', 'progress', 'ref', 'waiting_on', 'release_hint', 'clear_wait', 'priority', 'evidence')],
             },
         },
         {
@@ -418,7 +429,7 @@ def dispatch_work_tool(
                 # A new P0 goal: an ordinary P1 create, then existing-root P0
                 # activation, through the one application path REST, web and ctl use.
                 from .work_application import WorkApplication
-                fields = {key: payload[key] for key in ("goal", "note", "children", "ref", "waiting_on")
+                fields = {key: payload[key] for key in ("goal", "note", "children", "ref", "waiting_on", "release_hint")
                           if key in payload}
                 done = WorkApplication(scoped).command(
                     "plan_set", {**fields, "priority": "P0", "expected_version": expected}, operation_id,
@@ -436,7 +447,7 @@ def dispatch_work_tool(
             if command == "work_plan_set":
                 spec = {"title": clean.get("goal"), "note": clean.get("note", ""),
                         "children": clean.get("children") or []}
-                spec.update({key: clean[key] for key in ("ref", "waiting_on") if key in clean})
+                spec.update({key: clean[key] for key in ("ref", "waiting_on", "release_hint") if key in clean})
                 def mutate(document):
                     return tree.set_plan(document, spec, root_id)
                 def satisfied(document):
@@ -447,7 +458,7 @@ def dispatch_work_tool(
                     tree.update_node(probe, root_id, priority="P1" if target == "P0" else target)
                     return probe == before
             else:
-                mutable = {"status", "title", "note", "progress", "evidence", "ref", "waiting_on"}
+                mutable = {"status", "title", "note", "progress", "evidence", "ref", "waiting_on", "release_hint"}
                 supplied = {key: clean[key] for key in mutable if key in clean and clean[key] is not None}
                 def mutate(document):
                     return tree.update_node(document, root_id, **supplied)
@@ -709,6 +720,7 @@ def dispatch_work_tool(
                         newest = {key: read["newest"] for key, read in reads.items() if read.get("newest")}
                         from .work_gate_check import INTERNAL_WAIT
                         rows = [row for row in rows if row["id"] not in quiet
+                                or row.get("release_hint")
                                 or INTERNAL_WAIT.search(row.get("waiting_on") or "")]
                         if not rows:
                             advance_threads(state_dir, identity, newest)
@@ -912,7 +924,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
         return tree.render(doc, max_lines=104, all_goals=args.get("all_goals") is True)
     if name == "work_plan_set":
         spec = {"title": args.get("goal"), "note": args.get("note", ""), "children": args.get("children") or []}
-        spec.update({key: args[key] for key in ("ref", "refs", "waiting_on", "priority") if key in args})
+        spec.update({key: args[key] for key in ("ref", "refs", "waiting_on", "priority", "release_hint") if key in args})
         root_id = args.get("root_id")
         if args.get("priority") == "P0":
             raise tree.WorkPlanError("P0 priority is applied by the authenticated Work host")
@@ -926,7 +938,8 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
     if name == "work_node_add":
         parent = args.get("parent_id")
         spec = {"title": args.get("title"), "note": args.get("note", ""), "children": args.get("children") or [],
-                "ref": args.get("ref", ""), "waiting_on": args.get("waiting_on", "")}
+                "ref": args.get("ref", ""), "waiting_on": args.get("waiting_on", ""),
+                "release_hint": args.get("release_hint")}
         if "refs" in args:
             spec["refs"] = args["refs"]
         if not parent and "priority" in args:
@@ -948,7 +961,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
                     raise tree.WorkPlanError('clear_wait=true conflicts with non-empty waiting_on')
                 args = {**args, 'waiting_on': ''}
         node_id = str(args.get("id") or "")
-        mutable = {'status', 'title', 'note', 'progress', 'evidence', 'ref', 'refs', 'waiting_on', 'priority'}
+        mutable = {'status', 'title', 'note', 'progress', 'evidence', 'ref', 'refs', 'waiting_on', 'priority', 'release_hint'}
         if not any(key in args and args[key] is not None for key in mutable):
             raise tree.WorkPlanError(
                 'NO CHANGE: work_node_update requires at least one mutation field. '
@@ -978,7 +991,7 @@ def _run(name: str, args: dict[str, Any], store: WorkPlanStore, approval_ask: bo
                     d, node_id, status=args.get("status"), title=args.get("title"),
                     note=args.get("note"), progress=args.get("progress"), evidence=args.get("evidence"),
                     ref=args.get("ref"), refs=args.get("refs"), waiting_on=args.get("waiting_on"),
-                    priority=args.get("priority"),
+                    priority=args.get("priority"), release_hint=args.get('release_hint'),
                 ), before, d.get("version", 0)
 
             doc, (node, before, version_before) = store.transaction(update, expected_version=expected)

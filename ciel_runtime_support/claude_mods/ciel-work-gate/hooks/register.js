@@ -123,6 +123,27 @@ function parsed(tool, result) {
   if (!result || result.isError) throw fault(tool + ' was refused or failed')
   try { return JSON.parse(textOf(result)) } catch { throw fault(tool + ' did not return JSON') }
 }
+const TRANSIENT_MCP_ERROR = /timed?\s*out|timeout|not connected|disconnected|connection closed|no connected MCP|ECONNREFUSED|ECONNRESET|EPIPE|ETIMEDOUT|socket hang up|fetch failed|unable to connect/i
+const gateReconnects = new Map()
+async function mcpRead($, tool, payload, identity) {
+  try { return await $.mcp.call('ciel-runtime-router', tool, payload) }
+  catch (error) {
+    if (!TRANSIENT_MCP_ERROR.test(String(error?.message || ''))) throw error
+    const currentId = await $.session.id()
+    if ('claude:' + currentId !== identity) throw error
+    let retry = gateReconnects.get(identity)
+    if (!retry) {
+      retry = Promise.resolve().then(() => $.mcp.connect('ciel-runtime-router'))
+      gateReconnects.set(identity, retry)
+      const clear = () => { if (gateReconnects.get(identity) === retry) gateReconnects.delete(identity) }
+      void retry.then(clear, clear)
+    }
+    let connection
+    try { connection = await retry } catch { throw error }
+    if (!connection?.isConnected || 'claude:' + await $.session.id() !== identity) throw error
+    return $.mcp.call(connection.server || 'ciel-runtime-router', tool, payload)
+  }
+}
 async function routerJson($, tool, extra = {}) {
   const credential = await routerCredential($)
   if (!credential) throw fault('the Work host credential is not provisioned')
@@ -130,7 +151,7 @@ async function routerJson($, tool, extra = {}) {
   if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,200}$/.test(id)) throw fault('the session identity is unavailable')
   const identity = 'claude:' + id
   const args = tool === 'work_status' ? { format: 'json', ...extra } : { ...extra }
-  const value = parsed(tool, await $.mcp.call('ciel-runtime-router', tool, { ...args, session_id: identity, _host: credential }))
+  const value = parsed(tool, await mcpRead($, tool, { ...args, session_id: identity, _host: credential }, identity))
   if (!value?.paged) return value
   // Large host results arrive as verified pages (host_result_pages.py).
   const { id: pageId, parts } = value.paged
@@ -138,8 +159,8 @@ async function routerJson($, tool, extra = {}) {
     throw fault(tool + ' returned an invalid paged result')
   const pieces = []
   for (let part = 0; part < parts; part++) {
-    const page = parsed('work_host_page', await $.mcp.call('ciel-runtime-router', 'work_host_page',
-      { id: pageId, part, session_id: identity, _host: credential }))
+    const page = parsed('work_host_page', await mcpRead($, 'work_host_page',
+      { id: pageId, part, session_id: identity, _host: credential }, identity))
     if (page?.id !== pageId || page.part !== part || page.parts !== parts || typeof page.text !== 'string')
       throw fault(tool + ' changed while its pages were read')
     pieces.push(page.text)

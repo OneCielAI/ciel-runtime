@@ -56,6 +56,7 @@ def _release_leaf(doc, node_id, line, now):
     node = dict(nodes[index])
     unblocked = node.get('status') == 'blocked'
     node['waiting_on'] = ''
+    node.pop('release_hint', None)
     if unblocked:
         node['status'] = 'pending'
     if len(node.get('note', '') + line) <= tree.MAX_TEXT_CHARS:

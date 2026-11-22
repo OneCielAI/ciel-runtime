@@ -53,9 +53,39 @@ async function identityOf($) {
   if (typeof id !== 'string' || !/^[A-Za-z0-9_-]{1,200}$/.test(id)) throw new Error('Missing side parent identity')
   return 'claude:'+id
 }
+const retryableWorkReads = new Set([
+  'work_status', 'work_parallel_status', 'work_proposal_status',
+  'work_host_page', 'work_side_status', 'work_side_texts',
+])
+const TRANSIENT_MCP_ERROR = /timed?\s*out|timeout|not connected|disconnected|connection closed|no connected MCP|ECONNREFUSED|ECONNRESET|EPIPE|ETIMEDOUT|socket hang up|fetch failed|unable to connect/i
+const workReconnects = new Map()
+export async function readWorkMcp($, name, args) {
+  if (!retryableWorkReads.has(name)) throw new Error('Not a retryable Work read')
+  try { return await $.mcp.call('ciel-runtime-router', name, args) }
+  catch (error) {
+    if (!TRANSIENT_MCP_ERROR.test(String(error?.message || ''))) throw error
+    if (await identityOf($) !== args.session_id) throw error
+    const key = String(args.session_id)
+    let retry = workReconnects.get(key)
+    if (!retry) {
+      retry = Promise.resolve().then(() => $.mcp.connect('ciel-runtime-router'))
+      workReconnects.set(key, retry)
+      const clear = () => { if (workReconnects.get(key) === retry) workReconnects.delete(key) }
+      void retry.then(clear, clear)
+    }
+    let connection
+    try { connection = await retry } catch { throw error }
+    if (!connection?.isConnected || await identityOf($) !== args.session_id) throw error
+    return $.mcp.call(connection.server || 'ciel-runtime-router', name, args)
+  }
+}
+
 async function callRouter($,name,args,observed,identity) {
   const token = await $.env.get('CIEL_RUNTIME_WORK_PARALLEL_HOST_TOKEN')
-  const result = await $.mcp.call('ciel-runtime-router',name,{...args,session_id:identity,_host:{...observed,token}})
+  const payload = {...args,session_id:identity,_host:{...observed,token}}
+  const result = retryableWorkReads.has(name)
+    ? await readWorkMcp($,name,payload)
+    : await $.mcp.call('ciel-runtime-router',name,payload)
   return hostJson($,name,result,identity,token)
 }
 // The native MCP client replaces an oversized result with "Error: result (N
@@ -75,7 +105,7 @@ export async function hostJson($,name,result,identity,token) {
   const pieces = []
   for (let part = 0; part < parts; part++) {
     const page = await hostJson($,'work_host_page',
-      await $.mcp.call('ciel-runtime-router','work_host_page',{id,part,session_id:identity,_host:{token}}),identity,token)
+      await readWorkMcp($,'work_host_page',{id,part,session_id:identity,_host:{token}}),identity,token)
     if (page?.id !== id || page.part !== part || page.parts !== parts || typeof page.text !== 'string')
       throw new Error(name+': paged result changed while reading')
     pieces.push(page.text)

@@ -192,6 +192,32 @@ class FailedRecordTests(unittest.TestCase):
             any("prior_submission_failed" in message for _, message in harness.logs)
         )
 
+    def test_skipped_failed_message_behind_held_cursor_logs_once(self):
+        with tempfile.TemporaryDirectory() as root:
+            status = RuntimeInputStatusRepository(
+                pathlib.Path(root) / "status.jsonl",
+                publish_event=Mock(),
+                log=lambda *_: None,
+                lock=threading.Lock(),
+            )
+            # Message 30 is submitted (unconfirmed) so cursor stays at 29;
+            # message 31 is already terminal failed/stale_unconfirmed.
+            status.transition(30, "queued", data={"input_transport": "session_socket"})
+            status.transition(30, "submitted", data={"input_transport": "session_socket"})
+            status.transition(31, "queued", data={"input_transport": "session_socket"})
+            status.transition(31, "failed", reason="stale_unconfirmed")
+
+            harness = _InjectionHarness([_message(30), _message(31)])
+            harness.delivery.status = status
+            for _ in range(3):
+                inject_pending_channel_messages(99, 29, None, services=harness.services())
+
+        blocked_logs = [
+            msg for level, msg in harness.logs
+            if level == "ERROR" and "channel_stdin_proxy_blocked" in msg and "message_id=31" in msg
+        ]
+        self.assertEqual(1, len(blocked_logs), blocked_logs)
+
 
 class SideIntakeTransportTests(unittest.TestCase):
     def test_busy_side_queue_failure_retains_cursor_then_commits_after_durable_intake(self):

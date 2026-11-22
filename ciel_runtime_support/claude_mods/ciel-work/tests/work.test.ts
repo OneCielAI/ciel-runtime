@@ -1696,3 +1696,35 @@ test('main delegates execution: its direct code edit is refused in the executing
   const allowed = await $.tool.call({ tool: 'Edit', file_path: '/repo/src/app.js', old_string: 'a', new_string: 'b' })
   expect(allowed.deny).toBeUndefined()
 })
+
+test('pane preserves same-session items and auto-recovers after transient router drop; foreign session stays isolated', async ($, on) => {
+  const s = inspection(on); const clock = mock.clock(on)
+  s.snapshot.nodes = [
+    { id: 'g1', parent_id: null, title: 'Goal', status: 'in_progress' },
+    { id: 't1', parent_id: 'g1', title: 'Preserved work item', status: 'in_progress' },
+  ]
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  await $.command.run({ command: 'work-mode', args: 'view all' })
+  const pane = await $.ui.mount(PANE)
+  // Drop router transiently so cached becomes null while detailView still holds session-a.
+  s.offline = true
+  await $.command.run({ command: 'work-mode', args: 'status' })
+  // Must NOT blank into permanent red "unavailable for this conversation"; must keep item visible and indicate reconnect.
+  expect(await pane.find({ text: /Work & SSE unavailable for this conversation\./ })).toBeUndefined()
+  expect(await pane.find({ text: /Work router reconnecting/ })).toBeDefined()
+  expect(await pane.find({ text: /Preserved work item/ })).toBeDefined()
+  // Router recovers -> bounded clock retry auto-reloads the pane without manual Refresh press.
+  s.offline = false
+  await clock.advance(5500)
+  await clock.settle()
+  expect(await pane.find({ text: /Work router reconnecting/ })).toBeUndefined()
+  expect(await pane.find({ text: /WORK 1/ })).toBeDefined()
+  await pane.unmount()
+  // Different conversation must NEVER reuse or overwrite session-a's board (even before refresh clears detailView).
+  s.offline = true
+  s.sessionId = 'session-other'
+  const foreignPane = await $.ui.mount(PANE)
+  expect(await foreignPane.find({ text: /Preserved work item/ })).toBeUndefined()
+  expect(await foreignPane.find({ text: /Work & SSE unavailable for this conversation\./ })).toBeDefined()
+  await foreignPane.unmount()
+})

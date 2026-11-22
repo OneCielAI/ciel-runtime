@@ -467,4 +467,18 @@ await scenario('narrow_gate_projections', async () => {
   }
 })
 
+await scenario('transient_router_disconnect_recovers', async () => {
+  const gate = await load()
+  let attempts = 0, connects = 0
+  const w = world({ rows: [workRow('f1')], leases: runningLease('f1') })
+  const origCall = w.$.mcp.call
+  w.$.mcp.call = async (server, tool, args) => {
+    if (tool === 'work_parallel_status' && ++attempts === 1) throw new Error('ECONNREFUSED: Unable to connect')
+    return origCall(server, tool, args)
+  }
+  w.$.mcp.connect = async server => { connects++; return { isConnected: true, server } }
+  const r = await call(gate, w, { tool: 'Write', tool_use_id: 'tr1', agentId: 'f1', file_path: WORKTREE + '\\a.py', content: '' })
+  return { nextCalled: r.nextCalled, deny: r.result?.deny ?? null, attempts, connects }
+})
+
 console.log(JSON.stringify(out))

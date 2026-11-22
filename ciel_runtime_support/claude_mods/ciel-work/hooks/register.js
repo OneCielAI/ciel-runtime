@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import { startSide, pollSide, sideSpawnInput, sideTool, completeSide, suppressSide, sideReceipts, sideActors, sideMcpParity, hostJson, eventView, sideMainBusy, sideStopWake, sideRecordStopWake, sideWakeKnown, sidePromptSubmit, sidePromptPending, sidePromptTurnStart, sidePromptTurnComplete, sidePromptReassert, sidePromptRef, sideMainTurnStart, sideMainStep, sideMainFence, sideAppendStored, sideStopNotPresented, sideWakeRead, sideWakeReminded, sideReviewAppended, sideReviewDelivery, sideReviewRecheck, noticeToMain, sideParkedResume, sideThreadReadAfter, sideWorkflowApproved, sideApprovalRead } from './side-intake.js'
+import { startSide, pollSide, sideSpawnInput, sideTool, completeSide, suppressSide, sideReceipts, sideActors, sideMcpParity, readWorkMcp, hostJson, eventView, sideMainBusy, sideStopWake, sideRecordStopWake, sideWakeKnown, sidePromptSubmit, sidePromptPending, sidePromptTurnStart, sidePromptTurnComplete, sidePromptReassert, sidePromptRef, sideMainTurnStart, sideMainStep, sideMainFence, sideAppendStored, sideStopNotPresented, sideWakeRead, sideWakeReminded, sideReviewAppended, sideReviewDelivery, sideReviewRecheck, noticeToMain, sideParkedResume, sideThreadReadAfter, sideWorkflowApproved, sideApprovalRead } from './side-intake.js'
 import { T, setTextOverrides } from './texts.generated.js'
 
 // Router is authoritative; this cache is display-only and never persisted.
@@ -83,7 +83,22 @@ function ownSideWake(identity, handoff) {
       && Boolean(ref) && w.presentation.attempt_ref === ref)
 }
 let observatoryAutoOpened = ''
-let paneLoadAt = 0
+let paneRecovery = null
+function schedulePaneRecovery($, identity, itemId = null) {
+  if (!enabled || !identity) return
+  if (paneRecovery && paneRecovery.identity === identity && paneRecovery.lifecycle === starts) return
+  const token = { identity, lifecycle: starts }
+  paneRecovery = token
+  $.clock.after(5000, async () => {
+    if (paneRecovery === token) paneRecovery = null
+    if (token.lifecycle !== starts || !enabled) return
+    try {
+      if (await sessionId($) !== identity) return
+      if (cached && cachedSession === identity) { $.ui.invalidate('ui.render'); return }
+      await openDetails($, itemId, identity, false)
+    } catch { /* Next render re-arms bounded retry if still unavailable. */ }
+  })
+}
 function showSideReceipts($, identity, snapshot) {
   const previous = sidePanelSession === identity ? sidePanelReceipts : []
   if (sidePanelSession !== identity) sidePanelReviewDelivery = []
@@ -340,24 +355,15 @@ async function readSnapshot($, identity) {
   let r
   // _host lets the router page a board snapshot above the native result limit.
   const credential = await hostCredential($)
-  try { r = await $.mcp.call('ciel-runtime-router', 'work_status', { format: 'json', session_id: identity, _host: credential }) }
+  try { r = await readWorkMcp($, 'work_status', { format: 'json', session_id: identity, _host: credential }) }
   catch (error) {
     const message = String(error?.message || '')
     // Report fixed categories only; native errors can contain credentials.
     const stage = /timed?\s*out|timeout/i.test(message) ? 'router-timeout'
-      : /not connected|disconnected|connection closed|no connected MCP/i.test(message) ? 'router-disconnected'
+      : /not connected|disconnected|connection closed|no connected MCP|ECONNREFUSED|ECONNRESET|unable to connect|fetch failed/i.test(message) ? 'router-disconnected'
         : /unauthori[sz]ed|authentication|sign.in|401|403/i.test(message) ? 'router-auth'
           : 'router-call'
-    if (stage === 'router-disconnected') {
-      // A verified reconnect permits one pure read, never a cached approval or
-      // replay of an Edit/Write. Refused/unlisted/policy/auth remain closed.
-      try {
-        const connection = await $.mcp.connect('ciel-runtime-router')
-        if (connection?.isConnected && await sessionId($) === identity)
-          r = await $.mcp.call(connection.server, 'work_status', {format:'json',session_id:identity,_host:credential})
-        else throw readFailure(stage)
-      } catch { throw readFailure(stage) }
-    } else throw readFailure(stage)
+    throw readFailure(stage)
   }
   if (!r || r.isError) throw readFailure('router-error')
   let s
@@ -1003,7 +1009,7 @@ async function openDetails($, id = null, origin = null, focus = true, onlyIfEmpt
     const priorRoot = previous?.session === identity && previous.nodes?.some(n => n.id === id)
       ? previous.nodes.find(n => n.parent_id === null) : null
     const rootId = queuedRoot?.id || priorRoot?.id
-    const detail = parseJson(await $.mcp.call('ciel-runtime-router', 'work_status', {
+    const detail = parseJson(await readWorkMcp($, 'work_status', {
       format: 'json', detail: true, ...(rootId ? { root_id: rootId } : {}), session_id: identity }), 'Work details read')
     if (await sessionId($) !== identity || cachedSession !== identity) return
     if (!detail || !Array.isArray(detail.nodes) || detail.version !== s.version || cached?.version !== s.version)
@@ -2571,7 +2577,7 @@ async function hostCredential($) {
 // a possible write, counted before it is sent; a status read is stamped with the
 // count from before it started, so a write in flight makes it stale.
 let hostWrites = 0
-const HOST_READS = new Set(['work_parallel_status', 'work_side_status'])
+const HOST_READS = new Set(['work_parallel_status', 'work_side_status', 'work_proposal_status'])
 const hostReadStamp = new WeakMap()
 function hostStateCurrent(state) {
   return Boolean(state) && typeof state === 'object' && hostReadStamp.get(state) === hostWrites
@@ -2580,9 +2586,9 @@ async function parallelCall($, name, args = {}, observed = {}, scope = null) {
   if (!HOST_READS.has(name)) hostWrites++
   const credential = await hostCredential($)
   const identity = scope || await sessionId($)
-  const r = await $.mcp.call('ciel-runtime-router', name, {
-    ...args, session_id: identity, _host: { ...observed, ...credential },
-  })
+  const request = { ...args, session_id: identity, _host: { ...observed, ...credential } }
+  const r = HOST_READS.has(name) ? await readWorkMcp($, name, request)
+    : await $.mcp.call('ciel-runtime-router', name, request)
   if (!r) throw new Error('Parallel router unavailable')
   const reservation = name === 'work_parallel_event'
     && ['reserve', 'reserve_next', 'p0_reserve_next'].includes(args.event)
@@ -5194,7 +5200,7 @@ export function register(on) {
   // Shell authority stays with the native host, even when the Work board is offline.
   on('tool.check', async ($, e, next) => parallelToolCheck($, e, next))
   on('session.end', async ($, e, next) => {
-    stopIdleRefresh(); stopGateCheck(); interactive = false; working = false; clearNativePlanPaths(); starts++
+    stopIdleRefresh(); stopGateCheck(); paneRecovery = null; interactive = false; working = false; clearNativePlanPaths(); starts++
     hostPhaseReady = false
     resetParallelHostState()
     generation++; cached = null; cachedSession = null; hinted = ''; continuationVersion = null; unchangedContinuations = 0
@@ -5441,18 +5447,32 @@ export function register(on) {
       Button({ key: 'detail-close', plain: true, hotkey: 'q', label: 'Close', onPress: () => $.ui.close({ id: PANE }) }),
     ]
     if (!valid) {
-      // The pane stays docked across a restart while its board cache starts
-      // empty: it loads itself (at most every 10 s) instead of only saying so
-      // (Andy 2026-11-19: "unavailable for this conversation" until Refresh).
-      // Only when nothing was loaded yet: another conversation's board is never
-      // replaced behind the person's back.
-      const empty = !view
-      if (empty && enabled && identity && Date.now() - paneLoadAt > 10000) {
-        paneLoadAt = Date.now()
-        void openDetails($, null, identity, false).catch(() => {})
+      // The pane stays docked across restarts and transient router drops.
+      // Auto-reload when empty OR when detailView already belongs to this exact
+      // conversation (Andy/Celly 2026-11-21: cached=null left the pane stuck on
+      // red "unavailable for this conversation" forever and hid all items).
+      // Never reuse or replace another conversation's board behind the person's back.
+      const foreign = Boolean(view && view.session !== identity)
+      const preserved = Boolean(view && view.session === identity)
+      if (!foreign && enabled && identity) {
+        schedulePaneRecovery($, identity, preserved ? (view.id || null) : null)
+      }
+      if (preserved && enabled) {
+        const preservedNodes = Array.isArray(view.nodes) ? view.nodes : []
+        const preview = preservedNodes.slice(0, 14).map((node, index) => text(
+          (node.parent_id ? '  ' : '● ') + mark(node.status) + ' ' + node.id + ' ' + String(node.title || '')
+          + (node.waiting_on ? ' ◷ ' + node.waiting_on : ''),
+          { key: 'preserved-' + (node.id || index), color: node.status === 'blocked' ? 'error' : node.status === 'in_progress' ? 'suggestion' : undefined }
+        ))
+        return Box({ flexDirection: 'column', children: [nav,
+          text('Work router reconnecting — showing last verified v' + view.version
+            + ' (' + preservedNodes.length + ' items preserved; auto-retrying, press r to refresh)', { color: 'warning' }),
+          ...preview,
+          ...(preservedNodes.length > preview.length ? [text('… +' + (preservedNodes.length - preview.length) + ' more', { dimColor: true })] : []),
+          ...common] })
       }
       return Box({ flexDirection: 'column', children: [nav,
-        Text({ color: empty && enabled ? 'warning' : 'error', children: empty && enabled ? T('mod_pane_loading')
+        Text({ color: !foreign && enabled ? 'warning' : 'error', children: !foreign && enabled ? T('mod_pane_loading')
           : 'Work & SSE unavailable for this conversation.' }), ...common] })
     }
     if (graphic) {

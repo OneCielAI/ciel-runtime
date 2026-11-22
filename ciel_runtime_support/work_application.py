@@ -545,7 +545,7 @@ class WorkApplication:
         if command == "plan_set":
             spec = {"title": clean.get("goal"), "note": clean.get("note", ""),
                     "children": clean.get("children") or []}
-            spec.update({key: clean[key] for key in ("ref", "refs", "waiting_on") if key in clean})
+            spec.update({key: clean[key] for key in ("ref", "refs", "waiting_on", "release_hint") if key in clean})
             def mutate(document):
                 return tree.set_plan(document, spec, root_id)
             def satisfied(document):
@@ -555,7 +555,7 @@ class WorkApplication:
                 tree.update_node(probe, root_id, priority="P1" if target == "P0" else target)
                 return probe == before
         else:
-            mutable = {"status", "title", "note", "progress", "evidence", "ref", "refs", "waiting_on"}
+            mutable = {"status", "title", "note", "progress", "evidence", "ref", "refs", "waiting_on", "release_hint"}
             supplied = {key: clean[key] for key in mutable if key in clean and clean[key] is not None}
             def mutate(document):
                 return tree.update_node(document, root_id, **supplied)
@@ -587,26 +587,27 @@ class WorkApplication:
 
     def _apply(self, doc: dict[str, Any], command: str, args: dict[str, Any]) -> dict[str, Any]:
         if command == "plan_set":
-            self._only(args, {"expected_version", "goal", "note", "children", "ref", "refs", "waiting_on", "priority", "root_id"})
+            self._only(args, {"expected_version", "goal", "note", "children", "ref", "refs", "waiting_on", "release_hint", "priority", "root_id"})
             spec = {"title": args.get("goal"), "note": args.get("note", ""),
                     "children": args.get("children") or []}
-            spec.update({key: args[key] for key in ("ref", "refs", "waiting_on", "priority") if key in args})
+            spec.update({key: args[key] for key in ("ref", "refs", "waiting_on", "release_hint", "priority") if key in args})
             root = tree.set_plan(doc, spec, str(args["root_id"]) if args.get("root_id") else None)
             return {"root_id": root, "active_root_id": doc.get("active_root"),
                     "phase": tree.root_phase(doc, root)}
         if command == "node_add":
-            self._only(args, {"expected_version", "parent_id", "title", "note", "children", "ref", "refs", "waiting_on", "priority", "within_scope"})
+            self._only(args, {"expected_version", "parent_id", "title", "note", "children", "ref", "refs", "waiting_on", "release_hint", "priority", "within_scope"})
             parent = args.get("parent_id")
             spec = {"title": args.get("title"), "note": args.get("note", ""),
                     "children": args.get("children") or [], "ref": args.get("ref", ""),
-                    "refs": args.get("refs"), "waiting_on": args.get("waiting_on", "")}
+                    "refs": args.get("refs"), "waiting_on": args.get("waiting_on", ""),
+                    "release_hint": args.get("release_hint")}
             if parent is None and "priority" in args:
                 spec["priority"] = args["priority"]
             node = tree.add_subtree(doc, str(parent) if parent is not None else None, spec,
                                     within_scope=args.get("within_scope") is True)
             return {"id": node, "active_root_id": doc.get("active_root")}
         if command == "node_update":
-            mutable = {"status", "title", "note", "progress", "evidence", "ref", "refs", "waiting_on", "priority"}
+            mutable = {"status", "title", "note", "progress", "evidence", "ref", "refs", "waiting_on", "release_hint", "priority"}
             self._only(args, {"expected_version", "id", *mutable})
             node_id = self._existing(doc, args)
             supplied = {key: args[key] for key in mutable if key in args}

@@ -210,6 +210,8 @@ def normalize_document(raw: Any) -> dict[str, Any]:
             "updated_at": float(item.get("updated_at") or 0.0),
             "created_at": float(item.get("created_at", item.get("updated_at")) or 0.0),
         }
+        if item.get('release_hint') is not None:
+            node['release_hint'] = normalize_release_hint(item['release_hint'])
         if "completed_at" in item:
             value = item["completed_at"]
             if value is not None and (type(value) not in (int, float) or not math.isfinite(value) or value < 0):
@@ -312,7 +314,8 @@ def _insert_root_by_priority(doc: dict[str, Any], node: dict[str, Any]) -> None:
 
 def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any = "", *, now: float | None = None,
              ref: Any = "", refs: Any = None, waiting_on: Any = "", within_scope: bool = False,
-             priority: Any = "") -> str:
+             priority: Any = "", release_hint: Any = None) -> str:
+    hint = normalize_release_hint(release_hint) if release_hint is not None else None
     stamp = time.time() if now is None else now
     by_id = _index(doc)
     # A new goal waits behind an unfinished active goal instead of taking its place.
@@ -348,6 +351,8 @@ def add_node(doc: dict[str, Any], parent_id: str | None, title: Any, note: Any =
         "created_at": stamp,
         "updated_at": stamp,
     }
+    if hint is not None:
+        node['release_hint'] = hint
     if not node["ref"] and node["refs"]:
         # refs alone: the first is the one id older readers show (ref).
         node["ref"] = node["refs"][0]
@@ -377,7 +382,7 @@ def add_subtree(doc: dict[str, Any], parent_id: str | None, spec: Any, *, now: f
         raise WorkPlanError("a plan node must be an object with a title")
     node_id = add_node(doc, parent_id, spec.get("title"), spec.get("note", ""), now=now,
                        ref=spec.get("ref", ""), refs=spec.get("refs"), waiting_on=spec.get("waiting_on", ""), within_scope=within_scope,
-                       priority=spec.get("priority", ""))
+                       priority=spec.get("priority", ""), release_hint=spec.get('release_hint'))
     children = spec.get("children", [])
     if not isinstance(children, list):
         raise WorkPlanError("children must be a list")
@@ -423,6 +428,10 @@ def set_plan(doc: dict[str, Any], spec: Any, root_id: str | None = None, *, now:
             raise WorkPlanError("priority must be one of P1, P2, P3, P4, P5")
         root["priority"] = spec["priority"]
     root["status"] = "pending"
+    if spec.get('release_hint') is not None:
+        root['release_hint'] = normalize_release_hint(spec['release_hint'])
+    else:
+        root.pop('release_hint', None)
     root.pop("completed_at", None)
     root.pop("expired_done_steps", None)
     root["updated_at"] = time.time() if now is None else now
@@ -436,9 +445,24 @@ def set_plan(doc: dict[str, Any], spec: Any, root_id: str | None = None, *, now:
     return root_id
 
 
+def normalize_release_hint(value: Any) -> dict[str, str]:
+    fields = {'condition': 600, 'lookup': 600, 'prompt': 400}
+    if not isinstance(value, dict) or value.keys() - fields.keys():
+        raise WorkPlanError('release_hint requires condition, lookup and optional prompt')
+    result = {}
+    for field, limit in fields.items():
+        text = value.get(field, '')
+        if not isinstance(text, str) or len(text) > limit or (field != 'prompt' and not text.strip()):
+            raise WorkPlanError(f'invalid release_hint.{field} (limit {limit})')
+        if text.strip():
+            result[field] = _line(text, limit)
+    return result
+
+
 def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title: Any = None,
                 note: Any = None, progress: Any = None, evidence: Any = None, now: float | None = None,
-                waiting_on: Any = None, ref: Any = None, refs: Any = None, priority: Any = None) -> dict[str, Any]:
+                waiting_on: Any = None, ref: Any = None, refs: Any = None, priority: Any = None,
+                release_hint: Any = None) -> dict[str, Any]:
     stamp = time.time() if now is None else now
     by_id = _index(doc)
     node_id = str(node_id)
@@ -471,6 +495,13 @@ def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title:
         candidate["evidence"] = _clip(evidence, MAX_TEXT_CHARS)
     if waiting_on is not None:
         candidate["waiting_on"] = _line(waiting_on, MAX_WAIT_CHARS)
+    if ((status is not None and status != node['status'])
+            or candidate.get('waiting_on') != node.get('waiting_on')):
+        candidate.pop('release_hint', None)
+    if release_hint is not None:
+        if candidate['status'] == 'done':
+            raise WorkPlanError('release_hint requires an unfinished Work item')
+        candidate['release_hint'] = normalize_release_hint(release_hint)
     if ref is not None:
         candidate["ref"] = _line(ref, MAX_REF_CHARS)
     if refs is not None:
@@ -492,6 +523,8 @@ def update_node(doc: dict[str, Any], node_id: str, *, status: Any = None, title:
     elif candidate["status"] != "done" and "completed_at" in candidate:
         candidate["completed_at"] = None
     priority_changed = candidate.get("priority") != node.get("priority")
+    if 'release_hint' not in candidate:
+        node.pop('release_hint', None)
     node.update(candidate)
     if priority_changed and node["parent_id"] is None and node["status"] != "done" and node_id != doc.get("active_root"):
         # Reinsert this queued goal at its new rank; children keep parent links.

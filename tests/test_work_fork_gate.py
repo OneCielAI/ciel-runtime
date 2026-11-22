@@ -279,6 +279,13 @@ class WorkForkGateTests(unittest.TestCase):
         self.assertEqual("gate", (value["sideModelCall"] or {}).get("projection"))
         self.assertTrue((value["sideModelCall"] or {}).get("models_only"))
 
+    def test_gate_recovers_from_transient_router_disconnect(self):
+        value = self.scenario("transient_router_disconnect_recovers")
+        self.assertTrue(value["nextCalled"], value)
+        self.assertIsNone(value["deny"], value)
+        self.assertEqual(2, value["attempts"], value)
+        self.assertEqual(1, value["connects"], value)
+
 
 if __name__ == "__main__":
     unittest.main()

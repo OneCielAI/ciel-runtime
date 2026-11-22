@@ -164,6 +164,62 @@ class RouterServerRuntimeTests(unittest.TestCase):
 
             self.assertEqual("file", runtime._log_level_source())
 
+    def test_run_configures_tcp_listen_backlog_before_activate(self):
+        # On Windows Winsock, socket.listen(256) called AFTER server_activate()'s
+        # default listen(5) returns 0 while keeping the kernel backlog at 5,
+        # causing ECONNREFUSED on the 6th concurrent connection (Andy/Celly 2026-11-21).
+        from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+        import socket
+
+        accepted_count = 0
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            created = []
+
+            class ProbingRuntimeServer(ThreadingHTTPServer):
+                def serve_forever(self, poll_interval=0.5):
+                    nonlocal accepted_count
+                    created.append(self)
+                    port = self.server_address[1]
+                    clients = []
+                    try:
+                        for _ in range(24):
+                            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                            sock.settimeout(0.5)
+                            try:
+                                sock.connect(("127.0.0.1", port))
+                                clients.append(sock)
+                                accepted_count += 1
+                            except OSError:
+                                sock.close()
+                                break
+                    finally:
+                        for sock in clients:
+                            sock.close()
+                    raise RuntimeError("probe-done")
+
+            runtime = RouterServerRuntime(
+                RouterServerConfig(root, root / "router.pid", 0, "base", root / "level", {}, BaseHTTPRequestHandler),
+                RouterServerStatePorts(
+                    lambda: {}, lambda: None, lambda _cfg: "127.0.0.1",
+                    lambda: 20, lambda: 1, lambda _name: None, lambda _cfg: False,
+                    lambda _cfg: False, lambda: "", lambda: "",
+                ),
+                RouterServerEffects(
+                    lambda _path, _mode: None, io.StringIO(), ProbingRuntimeServer,
+                    lambda _server: None, lambda _host: [],
+                ),
+            )
+            try:
+                with self.assertRaisesRegex(RuntimeError, "probe-done"):
+                    runtime.run()
+            finally:
+                for server in created:
+                    server.server_close()
+
+            self.assertGreaterEqual(accepted_count, 24)
+            self.assertGreaterEqual(getattr(created[0], "request_queue_size", 0), 256)
+
 
 if __name__ == "__main__":
     unittest.main()

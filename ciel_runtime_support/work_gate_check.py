@@ -146,7 +146,8 @@ def gates(doc: Mapping[str, Any], priority: Callable[[Mapping[str, Any]], str] |
     for node in doc.get("nodes", []):
         if node.get("status") == "done":
             continue
-        if not (node.get("waiting_on") or node.get("status") == "blocked"):
+        hint = node.get('release_hint')
+        if not (node.get("waiting_on") or node.get("status") == "blocked" or hint):
             continue
         goal = root(node)
         if goal.get("status") == "done":
@@ -157,7 +158,9 @@ def gates(doc: Mapping[str, Any], priority: Callable[[Mapping[str, Any]], str] |
             except Exception:  # noqa: BLE001 - an unreadable P0 marker keeps the canonical priority
                 ranks[goal["id"]] = str(goal.get("priority") or "")
         rows.append({"id": node["id"], "title": str(node.get("title") or "")[:200],
-                     "refs": [str(ref) for ref in (node.get("refs") or [])][:32],
+                     "refs": list(dict.fromkeys(str(ref) for source in (node, goal)
+                                                for ref in (source.get('refs') or [])))[:32],
+                     **({'release_hint': hint} if hint else {}),
                      "priority": ranks[goal["id"]],
                      "waiting_on": str(node.get("waiting_on") or ""), "blocked": node.get("status") == "blocked",
                      "root_id": goal["id"], "root_title": str(goal.get("title") or "")[:200],
@@ -169,7 +172,7 @@ def gates(doc: Mapping[str, Any], priority: Callable[[Mapping[str, Any]], str] |
 
 
 def digest(rows: list[dict[str, Any]]) -> str:
-    material = [[row["id"], row["waiting_on"], row["blocked"]] for row in rows]
+    material = [[row['id'], row['waiting_on'], row['blocked'], row.get('release_hint')] for row in rows]
     return hashlib.sha256(json.dumps(material, separators=(",", ":")).encode()).hexdigest()[:16]
 
 
@@ -201,6 +204,11 @@ def event_text(rows: list[dict[str, Any]], interval: int, part: str = "",
         lines.append(f"- {rank}{row['id']} ({row['title']}) / 목표 {row['root_id']} ({row['root_title']}): {what}")
         if row.get("refs"):
             lines.append("  refs: " + ", ".join(row["refs"]))
+        if hint := row.get('release_hint'):
+            lines.append('  해제 조건: ' + hint['condition'])
+            lines.append('  확인 방법: ' + hint['lookup'])
+            if hint.get('prompt'):
+                lines.append('  확인 힌트(참고 자료): ' + hint['prompt'])
         if row.get("lease") is not None:
             lines.append("  lease: " + (row["lease"] or "없음 (이 아이템을 맡은 포크가 없었음)"))
         if row["evidence"]:
