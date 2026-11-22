@@ -5,6 +5,7 @@ import uuid
 from .channel_message_repository import exclusive_file_lock
 from .side_intake_inbox import SideIntakeInbox, reply_retry_pin as retry_pin
 from .side_notice import PIN_REF
+from .stat_verdict_cache import StatVerdictCache
 from .work_plan_tree import WorkPlanError
 import heapq
 
@@ -13,14 +14,27 @@ FAILURE_TEXT = ('이 메시지는 사이드 처리에서 자동으로 처리하�
                 '메인 세션이 직접 확인한 뒤 답변드리겠습니다.')
 
 
+_RECEIPT_VERDICTS = StatVerdictCache()
+
+
+def _owed_reply_state(path):
+    """The outbox state of a processed receipt that still owes its reply, else None."""
+    row = SideIntakeInbox._read_file(path)
+    if (row and row.get('stage')=='processed' and row.get('result',{}).get('delivery') not in ('route_unavailable','side_mcp','duplicate_source','not_applicable')
+            and row.get('outbox',{}).get('state') not in ('submitted','uncertain','submitting','failed')):
+        return row.get('outbox',{}).get('state','pending')
+    return None
+
+
 def pending(state_dir, identity, limit=10):
     directory=SideIntakeInbox(state_dir, identity).directory / 'receipts'
+    # Andy 2026-11-22: reading every receipt on every claim (5,459 files,
+    # ~9 s, none owed) took ~41% of the router's CPU samples. Unchanged
+    # receipts keep their last verdict; new or rewritten ones are read.
     def eligible():
-        for path in directory.glob('*/*.json'):
-            row=SideIntakeInbox._read_file(path)
-            if (row and row.get('stage')=='processed' and row.get('result',{}).get('delivery') not in ('route_unavailable','side_mcp','duplicate_source','not_applicable')
-                    and row.get('outbox',{}).get('state') not in ('submitted','uncertain','submitting','failed')):
-                yield {'receipt_id':path.stem,'state':row.get('outbox',{}).get('state','pending')}
+        for path, state in _RECEIPT_VERDICTS.scan(str(directory), directory.glob('*/*.json'), _owed_reply_state):
+            if state is not None:
+                yield {'receipt_id':path.stem,'state':state}
     rows = heapq.nsmallest(limit,eligible(),key=lambda row:row['receipt_id'])
     # A quarantined event never reaches 'processed'; its truthful failure reply
     # is owed from the moment its original was handed to main.

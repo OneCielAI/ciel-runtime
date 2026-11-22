@@ -8,6 +8,49 @@ from ciel_runtime_support.side_reply_outbox import prepare, record, pending
 
 
 class SideReplyTests(unittest.TestCase):
+    def test_pending_reads_only_new_or_changed_receipts(self):
+        """Andy 2026-11-22: every work_side_claim read all 5,459 receipt files (108 MB,
+        about 9 s each call, 0 owed) and took ~41% of the router's CPU samples."""
+        import os
+        import time
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as raw:
+            root = Path(raw)
+            inbox = SideIntakeInbox(root, 'claude:test')
+            keys = []
+            for index in range(3):
+                key = inbox.receive('question %d' % index, 'event-%d' % index, route={
+                    'channel': 'web', 'thread_id': 't', 'reply_token': 'private', 'source_kind': 'web_chat'})['receipt_id']
+                leased = claim(root, 'claude:test', 'actor')
+                finish(root, 'claude:test', key, leased['generation'], {'reply': 'answer', 'delivery': 'pending'})
+                keys.append(key)
+            for key in keys[:2]:
+                out = prepare(root, 'claude:test', key)
+                record(root, 'claude:test', key, 'submitted', attempt_id=out['attempt_id'])
+            old = time.time() - 60
+            for path in (inbox.directory / 'receipts').glob('*/*.json'):
+                os.utime(path, (old, old))
+            reads = []
+            original = SideIntakeInbox._read_file
+
+            def counting(path, limit=None):
+                if path.parent.parent.name == 'receipts':
+                    reads.append(path.stem)
+                return original(path, limit)
+
+            with mock.patch.object(SideIntakeInbox, '_read_file', staticmethod(counting)):
+                self.assertEqual([keys[2]], [row['receipt_id'] for row in pending(root, 'claude:test')])
+                self.assertEqual(3, len(reads))
+                reads.clear()
+                self.assertEqual([keys[2]], [row['receipt_id'] for row in pending(root, 'claude:test')])
+                self.assertEqual([], reads)
+                # A changed receipt is read again and its new state counts.
+                out = prepare(root, 'claude:test', keys[2])
+                record(root, 'claude:test', keys[2], 'submitted', attempt_id=out['attempt_id'])
+                reads.clear()
+                self.assertEqual([], pending(root, 'claude:test'))
+                self.assertEqual([keys[2]], reads)
+
     def test_correlated_route_is_host_only_and_submitted_once(self):
         with tempfile.TemporaryDirectory() as raw:
             root=Path(raw)
