@@ -12,7 +12,8 @@
   - **라우터만 재시작**(CLI 재시작 없음): Andy `32996 → 68036`(19:17:24Z), KOBE `15056 → 17792`(19:21:22Z), Prody `8560 → 10036`(19:21:26Z), Celly `16792 → 67592`(19:22:15Z, 비권한 정지가 거부돼 관리자 권한 `Start-Process -Verb RunAs`로 정지, 첫 시도는 `-Wait`에서 멈춤 → 결과 파일 방식으로 재시도). 새 프로세스는 모두 설치 뒤 시작.
   - **라이브 효과 ✅**: Celly 파일 `19:22:47Z` 2,097,109 → 1,579,616 B. 18:47Z부터 v5792에 멈춰 있던 버전이 v5796으로 진행했다(runs 184 → 185, receipts 405 → 407, archive 1000 → 297).
   - 세션 공지(`submit_input`): Celly 15722, Andy 24169, KOBE 11920, Prody 7834 모두 `ok:true`(원인, 수정, 재시도 인스트럭션).
-  - 미결: KOBE의 두 구버전 파일, 리스는 끝났는데 coordination run이 active로 남는 행(Celly 93개), `test_work_parallel_legacy_reviewer` 스키마 테스트 기존 오류, Celly n1326 예약 슬롯(새 라우터에서 처리되는지 다음 틱에 확인).
+  - KOBE 구버전 파일 동기화(19:25Z): `claude_stream_recovery_runtime.py` `52f108640725 → 1618ef2d851d`, `secure_json_repository.py` `988e8e921bc0 → 1ecf73cd4aa6`(설치 전 `a75870f`/`0cd6c60` 원본 확인, 백업 `overlay-kobe-sync-2bcc0ce`) → KOBE `ciel_runtime_support` 전체가 HEAD와 같은 내용이 됐다(CRLF 2개, 테스트 파일, 버전 줄 제외). KOBE 라우터 `17792 → 2684`(19:25:52Z) 재시작. CLI 런처 프로세스는 재시작하지 않았으므로 런처 쪽 사용분은 다음 세션 시작부터 적용된다.
+  - 미결: 리스는 끝났는데 coordination run이 active로 남는 행(Celly 93개), `test_work_parallel_legacy_reviewer` 스키마 테스트 기존 오류, Celly n1326 예약 슬롯(새 라우터에서 처리되는지 다음 틱에 확인).
 
 - 16:33Z 읽기 전용 틱(비교 기준 16:12Z; 추가 재시작·상태 수정 없음):
   - **세 findings 모두 해소 ✅**: Celly `n1321 5bef77ec` → lease `done`, 검수 `finalized/approve`(`n1321-review-approve-20261122`; Celly는 이전 mod라 해소 경로는 미확인). Andy `n650 b592dde3` → `done`, `finalized/approve`(`n650-review-1`). Prody `n1215 cc525e33` finding 소멸.
