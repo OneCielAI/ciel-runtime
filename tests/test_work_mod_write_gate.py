@@ -1234,15 +1234,30 @@ class WorkModWriteGateTests(unittest.TestCase):
     def test_recover_submitted_waiting_requires_observed_stop(self):
         result = self.run_scenario("recover-submitted-waiting")
         for key, expected in {"fork": "Only main", "foreign": "Exact owned",
-                              "malformed": "native agent list unavailable", "cancelled": "cancelled",
+                              "malformed": "native agent list unavailable",
                               "changed": "target changed", "refused": "stop refused",
                               "blocked": "still listed as waiting"}.items():
             self.assertIn(expected, result[key]["deny"], result)
+        # Celly n1267 2026-11-22: the person question held main inside this
+        # call for hours. Main reviews Work results, so no question is asked.
+        self.assertEqual([], result["asks"], result)
         self.assertEqual([], result["eventsBefore"], result)
         self.assertEqual(0, result["stopsBefore"], result)
         self.assertEqual(3, result["stops"], result)
         self.assertEqual(["restart_submitted_terminal"], result["events"], result)
         self.assertTrue(json.loads(result["recovered"]["result"])["review_pending"])
+
+    def test_submitted_fork_held_waiting_is_stopped_by_host_after_grace(self):
+        # Celly n1267 2026-11-22: completion receipt 07:28:50Z, fork then held
+        # waiting by a background task it owned; no idle row, no review.
+        result = self.run_scenario("submitted-waiting-fork-stopped-by-host")
+        self.assertTrue(all(result["ticked"]), result)
+        self.assertEqual(0, result["beforeGrace"], result)
+        self.assertEqual(1, result["afterGrace"], result)
+        self.assertEqual(1, result["final"], result)
+        self.assertEqual(1, result["logged"], result)
+        self.assertEqual([], result["asks"], result)
+        self.assertIn(["L1:killed"], result["observations"], result)
 
     def test_own_fork_absent_after_its_receipt_is_observed_terminal_without_a_restart(self):
         # Celly n1070 2026-11-20: receipt 10:42:48, last listed running 10:40:44,

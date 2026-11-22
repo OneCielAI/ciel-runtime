@@ -22,7 +22,7 @@ const HELP = [
   '• Above the prompt: compact by default (done/total + current step); [+] / w expands, [-] collapses. Progress / Queue / Completed are read-only button tabs; Prev / Next (p / n) page the list; w opens the Inspector. Ctrl+X Tab focuses · Tab/↑↓ select · Enter inspects · Esc returns. Tiny screens use Inspect Work. Rows of other plugins stay below the Work rows; the band scrolls to them.',
   '• /work-mode (or /work-mode view): Work & SSE pane — Work tree (w), SSE receipts with P1 filter (s), and every Work setting (g); in the Work tree, f focuses the selected item, a appends it to the focus, b opens its parent, u/d move a queued goal up or down; side actors are native forks inheriting the main context; Work and side forks use the per-priority and side fork model settings (inherit keeps the main model). Mobile and narrow screens get a single-column touch layout.',
   '• /work-mode expand / compact: toggle the inline list · /work-mode tree: plan tree · /work-mode status: raw snapshot (JSON) · /work-mode parallel: fork slots, leases and the next Agent name · /work-mode help: this help',
-  '• /work-mode recover-review <lease_id>: recover review for one submitted result. The owning host checks native fork status and asks before stopping a waiting fork. This does not approve the result.',
+  '• /work-mode recover-review <lease_id>: recover review for one submitted result. The owning host checks native fork status and stops a fork still held waiting after its completion receipt (it also does this by itself after a minute). This does not approve the result.',
   '• /work-mode discard-failed [category]: discard every failed side receipt (or one category, e.g. source_context): never retried, not forwarded to main, kept for audit; a receipt a side actor holds right now is skipped. Also: menu, web Side view, REST, ciel-runtimectl.',
   '• Focus: inspect an item → Focus first. Focused items run before other Work; a focused item that waits or is blocked never holds unrelated approved Work or discovery. Clear focus releases it now; it also clears automatically once every focused item is done.',
   '• Priorities: All items → Move up / Move down orders root goals. Moving the active goal requires your request; a button press is that request.',
@@ -2896,9 +2896,10 @@ async function recoverSubmittedReview($, leaseId) {
     if (reviewed(target)) return {lease_id:leaseId, review_pending:parallelReviewPending(reviewed(target))}
     if (target.agent?.status === 'waiting') {
       if (target.lease.owner_process !== 'own') throw new Error('Only the owning host may stop this fork')
-      const answer = await $.ui.ask('Stop submitted Work fork for ' + target.lease.item_id + ' (' + leaseId
-        + ')? This recovers review only; it does not approve the result.', ['Stop this fork', 'Keep waiting'])
-      if (answer !== 'Stop this fork') throw new Error('Review recovery cancelled')
+      // Main reviews Work results; nobody answers a question in an unattended
+      // session (Celly n1267 2026-11-22: a question here held main inside this
+      // call for hours). The completion receipt is final, so the stop below
+      // only ends a fork that already finished; it approves nothing.
       const confirmed = await inspect()
       if (same(target, confirmed) && reviewed(confirmed))
         return {lease_id:leaseId, review_pending:parallelReviewPending(reviewed(confirmed))}
@@ -3535,6 +3536,9 @@ async function parallelObserveNative($) {
     // not at the next turn end or restart (Celly n1070).
     let absentObserved = 0
     try { absentObserved = await parallelRestartSubmitted($, state, agents) } catch { /* Retried at the next observation. */ }
+    // A submitted fork the engine still lists waiting never shows an idle row;
+    // the owning host stops it so the next observation opens its review.
+    try { await parallelStopSubmittedWaiting($, state, agents) } catch { /* Retried at the next observation. */ }
     // Work forks stopped on a transient API error or auto-compaction failure
     // retry on the same 1m×10 + 10m×10 (20 max) schedule as main instead of
     // being salvaged after two nudges.
@@ -4773,6 +4777,55 @@ async function parallelRestartSubmitted($, state, rows) {
     } catch (error) { rememberParallelFailure('restart-submitted', String(error?.message || error)) }
   }
   return changed
+}
+// A submitted fork whose completion receipt is durable but which the engine
+// still lists waiting: a background task the fork owns holds it there, and
+// TaskStop is refused inside Work forks, so it never turns idle. Celly n1267
+// (2026-11-22): receipt 07:28:50Z, a backgrounded `git fetch` stuck on a
+// credential prompt, no idle row, no review, and main's recovery call waited
+// on a person for hours. After a grace the owning host stops it; the next
+// observation sees it killed or absent and publishes the review through the
+// existing paths. The receipt is final, so this ends finished work only.
+const SUBMITTED_WAITING_GRACE_MS = 60000
+const SUBMITTED_WAITING_STOP_ATTEMPTS = 3
+const submittedWaiting = new Map()
+async function parallelStopSubmittedWaiting($, state, rows) {
+  let stopped = 0
+  if (!Array.isArray(rows)) return stopped
+  const current = new Set()
+  // The engine's clock, so the grace follows the session's time, not this module's.
+  let now = Date.now()
+  try { now = await $.clock.now() } catch { /* Wall time. */ }
+  for (const lease of Object.values(state?.leases || {})) {
+    if (lease.state !== 'submitted' || lease.slot || !lease.host_id || !ownLeaseProcess(lease)) continue
+    const run = (state?.coordination?.runs || []).find(row => row.lease_id === lease.id)
+    if (run?.exit?.kind !== 'completion' || !/^[0-9a-f]{64}$/.test(run.exit.digest || '')
+        || !Number.isInteger(run.generation) || run.agent_id !== lease.host_id) continue
+    if (parallelReviews(state).some(row => parallelReviewId(row) === lease.id)) continue
+    const matches = rows.filter(row => row?.id === lease.host_id)
+    const agent = matches[0]
+    if (matches.length !== 1 || agent.status !== 'waiting' || agent.type !== 'fork' || sideOwned(agent)) continue
+    const key = lease.id + ':' + run.generation + ':' + run.exit.digest
+    current.add(key)
+    const seen = submittedWaiting.get(key)
+    if (!seen) { submittedWaiting.set(key, { since:now, attempts:0 }); continue }
+    if (seen.attempts >= SUBMITTED_WAITING_STOP_ATTEMPTS || now - seen.since < SUBMITTED_WAITING_GRACE_MS) continue
+    seen.attempts++
+    seen.since = now
+    let result
+    try { result = await $.tool.call({ tool:'TaskStop', task_id:lease.host_id }) }
+    catch (error) { result = { deny:String(error?.message || error) } }
+    if (!result || result.deny || result.isError || result.result?.success === false) {
+      rememberParallelFailure('submitted-waiting-stop', 'lease ' + clipped(lease.id, 40) + ': '
+        + clipped(result?.deny || 'TaskStop refused', 200))
+      continue
+    }
+    $.ui.log('Work fork stopped after its completion receipt (held waiting): ' + clipped(lease.item_id, 40)
+      + ' · lease ' + clipped(lease.id, 12) + '; its review opens at the next observation.')
+    stopped++
+  }
+  for (const key of [...submittedWaiting.keys()]) if (!current.has(key)) submittedWaiting.delete(key)
+  return stopped
 }
 // Restart recovery is host-to-worker only. Main receives no recovery prompt or
 // scheduler context. Exact durable lease/name authorization is retained for the

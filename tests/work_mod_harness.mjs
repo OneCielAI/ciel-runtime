@@ -1074,7 +1074,11 @@ const scenarios = {
     })
     state.agents = [{id:'fork-a',status:'waiting',type:'fork'}]
     let stops = 0, stopWorks = false, stopDenied = false
-    $.ui.ask = async () => 'Stop this fork'
+    // Celly n1267 (2026-11-22 07:36Z): this call asked a person to stop the
+    // fork, nobody answers an unattended session, and main stayed inside the
+    // tool call for six hours. Main reviews Work results; no question is asked.
+    const asks = []
+    $.ui.ask = async question => { asks.push(question); return 'Stop this fork' }
     $.tool.call = async () => {
       stops++
       if (stopDenied) return {deny:'Stopped by test policy'}
@@ -1090,13 +1094,13 @@ const scenarios = {
     state.agents = [{status:'waiting'}]
     const malformed = await recover()
     state.agents = [{id:'fork-a',status:'waiting',type:'fork'}]
-    $.ui.ask = async () => 'Keep waiting'
-    const cancelled = await recover()
-    $.ui.ask = async () => { state.agents[0].status = 'running'; return 'Stop this fork' }
+    // The fork resumes between the first read and the re-read before the stop.
+    const list = $.agent.list
+    let reads = 0
+    $.agent.list = async () => (++reads === 2 ? [{id:'fork-a',status:'running',type:'fork'}] : list())
     const changed = await recover()
-    state.agents[0].status = 'waiting'
+    $.agent.list = list
     const stopsBefore = stops
-    $.ui.ask = async () => 'Stop this fork'
     stopDenied = true
     const refused = await recover()
     stopDenied = false
@@ -1104,7 +1108,56 @@ const scenarios = {
     const eventsBefore = [...events]
     stopWorks = true
     const recovered = await recover()
-    return {fork,foreign,malformed,cancelled,changed,refused,blocked,recovered,eventsBefore,events,stops,stopsBefore}
+    return {fork,foreign,malformed,changed,refused,blocked,recovered,eventsBefore,events,stops,stopsBefore,asks}
+  },
+  // Celly n1267 (2026-11-22): the fork reported completion at 07:28:50Z, then a
+  // backgrounded `git fetch` it owned (stuck on a credential prompt) held it
+  // waiting; TaskStop is refused inside Work forks, an idle row never came and
+  // its review never opened. The owning host stops it after a grace, without
+  // main and without a person, and stops it once per receipt.
+  async 'submitted-waiting-fork-stopped-by-host'() {
+    const lease = { id:'L1', item_id:'n1', priority:'P1', role:'worker', state:'submitted', slot:false,
+      host_id:'fork-a', agent_name:'work-a', owner_process:'own' }
+    const run = { lease_id:'L1', generation:3, agent_id:'fork-a', exit:{ kind:'completion', digest:'d'.repeat(64) } }
+    const pending = []
+    const timers = [], observations = [], tools = [], asks = []
+    const { $, state } = host(async (tool, args) => {
+      if (tool === 'work_status') return text(snapshot())
+      if (tool === 'work_parallel_status') return text({ version:20, active_device:0,
+        policy:{ enabled:true, paused:false, priority_limits:{ P1:5, P2:3, P3:1, P4:1, P5:1 }, launches_per_minute:4, max_rework:2 },
+        leases:{ L1:lease }, coordination:{ runs:[run] }, review:{ version:4, pending },
+        forks:{ schema:'native-fork-evidence/1', available:true, evidence_version:7, confirmed_count:0,
+          confirmed:[], waiting:[], reservation:[], uncertain:[], validating:[], ended:[] } })
+      if (tool === 'work_parallel_event' && args.event === 'native_observation') {
+        observations.push(args.rows.map(r => r.lease_id + ':' + r.status))
+        return text({ evidence_version:8, changed:[], skipped:[], observed_terminal:[], reviews_published:[] })
+      }
+      if (tool === 'work_parallel_event' && args.event === 'reserve_next') return { isError:true, ...text('no eligible candidate') }
+      return text(snapshot())
+    })
+    $.clock.after = (delay, callback) => { timers.push({ delay, callback }); return { cancel() {} } }
+    $.ui.ask = async question => { asks.push(question); return 'Stop this fork' }
+    $.tool.call = async args => { tools.push(args); if (args.tool === 'TaskStop') state.agents[0].status = 'killed'; return { result:{ success:true } } }
+    state.agents = [{ id:'fork-a', name:'work-a', type:'fork', status:'waiting', spawnedBy:'ciel-work' }]
+    await handlers['session.start']($, { isInteractive:false }, next(undefined))
+    const tick = async () => {
+      const t = timers.filter(row => row.delay === 15000).pop()
+      if (!t) return false
+      timers.splice(timers.indexOf(t), 1)
+      await t.callback()
+      for (let i = 0; i < 20; i++) await sleep(5)
+      return true
+    }
+    const stopsOf = () => tools.filter(row => row.tool === 'TaskStop' && row.task_id === 'fork-a').length
+    const ticked = [await tick(), await tick()]
+    const beforeGrace = stopsOf()
+    later(61000)
+    ticked.push(await tick())
+    const afterGrace = stopsOf()
+    later(61000)
+    ticked.push(await tick())
+    return { ticked, beforeGrace, afterGrace, final:stopsOf(), observations, asks,
+      logged:state.logs.filter(line => /stopped after its completion receipt/.test(line)).length }
   },
   async 'own-fork-absent-after-receipt'() {
     const leases = {

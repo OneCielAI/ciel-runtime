@@ -1732,7 +1732,7 @@ test('pane preserves same-session items and auto-recovers after transient router
   await foreignPane.unmount()
 })
 
-test('fork transient API error holds host_salvage, retries 1m×10 then 10m interval, and clears on recovery', async ($, on) => {
+test('fork transient API error holds host_salvage, retries 1m×10 then 10m interval, and clears on recovery', { timeoutMs: 30000 }, async ($, on) => {
   const s = hints(on); const clock = mock.clock(on)
   const sends = []
   const salvages = []
@@ -1794,7 +1794,49 @@ test('fork transient API error holds host_salvage, retries 1m×10 then 10m inter
   expect(salvages.length).toBe(0)
 })
 
-test('fork transient API error exhausts at 20/20 and hands off to exit contract', async ($, on) => {
+// Celly n1267 (2026-11-22): the fork's completion receipt was durable, then a
+// background task it owned held it waiting, so no idle row came and its review
+// never opened. The owning host stops it after a minute, once, and asks no one.
+test('a submitted fork held waiting after its receipt is stopped by the host once, with no question', { timeoutMs: 30000 }, async ($, on) => {
+  const s = hints(on); const clock = mock.clock(on)
+  s.agents = [{ id: 'fork-held-1', type: 'fork', status: 'waiting', spawnedBy: 'ciel-work', name: 'work-p0-' + 'a'.repeat(32) }]
+  const observed = []
+  s.parallelStatus = () => ({
+    version: 5, active_device: 0, policy: { enabled: true, max_active: 5, p1_reserved: 1 },
+    leases: {
+      'lease-held-1': {
+        id: 'lease-held-1', scope: 'claude:session-a', item_id: 'n1267', priority: 'P1',
+        state: 'submitted', host_id: 'fork-held-1', slot: false, owner_process: 'own',
+        agent_name: 'work-p0-' + 'a'.repeat(32),
+      },
+    },
+    coordination: { runs: [{ lease_id: 'lease-held-1', generation: 1, agent_id: 'fork-held-1',
+      exit: { kind: 'completion', digest: '8'.repeat(64) } }], receipts: [] },
+    review: { version: 1, pending: [] },
+  })
+  s.parallelEvent = args => {
+    if (args.event === 'native_observation') observed.push(args.rows.map(r => r.lease_id + ':' + r.status).join(','))
+    return { evidence_version: 2, changed: [], skipped: [], observed_terminal: [], reviews_published: [] }
+  }
+  const stops = () => s.tools.filter(e => e.tool === 'TaskStop' && e.task_id === 'fork-held-1').length
+  await $.session.start({ surface: 'terminal', isInteractive: true, cwd: '/isolated' })
+  await clock.advance(16000)
+  await clock.advance(16000)
+  expect(stops()).toBe(0)
+  await clock.advance(61000)
+  expect(stops()).toBe(1)
+  s.agents = [{ id: 'fork-held-1', type: 'fork', status: 'killed', spawnedBy: 'ciel-work', name: 'work-p0-' + 'a'.repeat(32) }]
+  await clock.advance(16000)
+  await clock.advance(120000)
+  expect(stops()).toBe(1)
+  expect(observed.some(row => row.includes('lease-held-1:killed'))).toBe(true)
+  expect(s.tools.some(e => e.tool === 'AskUserQuestion')).toBe(false)
+  expect(s.logs.some(l => l.includes('stopped after its completion receipt'))).toBe(true)
+})
+
+// Twenty retry rounds on the mocked clock take about 5 s of real time, the
+// runner's default budget: 2 of 3 runs of 249a99c timed out at 5003-5057 ms.
+test('fork transient API error exhausts at 20/20 and hands off to exit contract', { timeoutMs: 30000 }, async ($, on) => {
   const s = hints(on); const clock = mock.clock(on)
   const sends = []
   const salvages = []
